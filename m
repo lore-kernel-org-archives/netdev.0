@@ -1,43 +1,50 @@
-From: Matt Porter <mporter@kernel.crashing.org>
-Subject: Re: [PATCH] emac: add support for platform-specific unsupported PHY features
-Date: Thu, 11 Aug 2005 13:55:30 -0700
-Message-ID: <20050811135530.G30033@cox.net>
-References: <1123284725.27880.26.camel@rhino.az.mvista.com> <42FACE25.5080909@pobox.com> <1123792744.27734.30.camel@rhino.az.mvista.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        Eugene Surovegin <ebs@ebshome.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Wade Farnsworth <wfarnsworth@mvista.com>
-Content-Disposition: inline
-In-Reply-To: <1123792744.27734.30.camel@rhino.az.mvista.com>; from wfarnsworth@mvista.com on Thu, Aug 11, 2005 at 01:39:05PM -0700
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2/2] fix NF_QUEUE_NR() macro
+Date: Fri, 12 Aug 2005 07:46:55 +1000
+Message-ID: <E1E3Kt5-0006jy-00@gondolin.me.apana.org.au>
+References: <200508111631.24785.netdev@axxeo.de>
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	laforge@gnumonks.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: netdev@axxeo.de (Ingo Oeser)
+In-Reply-To: <200508111631.24785.netdev@axxeo.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 11, 2005 at 01:39:05PM -0700, Wade Farnsworth wrote:
-> On Wed, 2005-08-10 at 21:03, Jeff Garzik wrote:
-> > Wade Farnsworth wrote:
-> > > Hello,
-> > > 
-> > > This patch adds support to the ibm_emac driver for platform-specific
-> > > unsupported PHY features.
-> > > 
-> > > The patch attempts to determine the highest speed and duplex when
-> > > autonegotiation is unsupported.
-> > > 
-> > > -Wade Farnsworth
-> > > 
-> > > Signed-off-by: Wade Farnsworth <wfarnsworth@mvista.com>
-> > 
-> > Can you update this patch RE Eugene's comments?
-> > 
-> > 	Jeff
-> > 
+Ingo Oeser <netdev@axxeo.de> wrote:
 > 
-> Sorry for the delay.  Here is the updated patch.
+> What about using a brace more:
+> 
+>>diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+>>--- a/include/linux/netfilter.h
+>>+++ b/include/linux/netfilter.h
+>>@@ -29,7 +29,7 @@
+>> #define NF_VERDICT_QMASK 0xffff0000
+>> #define NF_VERDICT_QBITS 16
+>> 
+>>-#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK || NF_QUEUE)
+>>+#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK | NF_QUEUE)
+> 
+> #define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & (NF_VERDICT_QMASK | NF_QUEUE))
 
-FWIW, akpm has the ppc32 relevant bits that go with this patch
-pending now.
+Actually, these two versions are different.  & is higher than | so
+Harald's version is actually 
 
--Matt
+#define NF_QUEUE_NR(x) (((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK) | NF_QUEUE)
+
+Which is it?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
