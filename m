@@ -1,102 +1,61 @@
-From: Hal Rosenstock <halr@voltaire.com>
-Subject: [PATCH] sockaddr_ll change for IPoIB interface
-Date: 11 Aug 2005 14:48:37 -0400
-Message-ID: <1123786117.4403.5835.camel@hal.voltaire.com>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
+Date: Thu, 11 Aug 2005 15:40:42 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD77057419@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>, <davem@davemloft.net>, <ak@muc.de>
+Return-path: <netdev-bounce@oss.sgi.com>
+Content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>, <alex@neterion.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Jeff,
 
-This is a repost of a patch which was posted last week which appears to
-have been lost in the shuffle.
+Thanks for remembering about the submission. My assumption was that the
+submission did not get a consensus and died quietly :-), so we stopped
+maintenance on the experimental driver several weeks ago and pulled it
+from the ftp site.
 
-The patch below is to accomodate IPoIB link layer address in the
-sockaddr_ll struct so that user space can send and receive IPoIB link
-later packets. Unfortunately, IPoIB has 20 bytes LL addresses rather
-than the 8 byte MAC addresses (or under) used by other LLs.
+I guess the original idea behind developing the "experimental" driver
+was to eventually use it as a replacement for the "s2io" driver in the
+kernel, mainly for the maintenance reasons - since "experimental" driver
+shares hardware-oriented code with other Neterion drivers, our team
+could run mature network test suites in other Operating Systems and
+indirectly find/fix issues in Linux driver in a very efficient fashion.
 
-There is a similar change to both:
-/usr/include/linux/if_packet.h
-/usr/include/netpacket/packet.h
-as in:
-include/linux/if_packet.h below
-to increase sll_addr from 8 to 20 bytes.
+This benefit seemed to be outweighed by other concerns that some of you
+guys raised on the list. 
+In a long run (as 10GbE Xframe cards get shipped in volumes and the
+patches start coming in from the community), these concerns may be
+valid, so we have decided to stay with "s2io" driver as our production
+code.
 
-Thanks.
+Leonid  
 
--- Hal
-
-sockaddr_ll changes to accomodate IPoIB interfaces.
-This is due to the fact that the IPoIB link layer
-address is 20 bytes rather than 8 bytes. With the current 8 byte
-address, it is not possible to send ARPs and RARPs from userspace as the
-broadcast and unicast IPoIB addresses cannot be supplied properly.
-There is backward compatibility support for those applications built
-with the existing structure (prior to this patch).
-
-Signed-off-by: Hal Rosenstock <halr@voltaire.com>
-
---- include/linux/if_packet.h.orig	2005-06-29 19:00:53.000000000 -0400
-+++ include/linux/if_packet.h	2005-08-05 10:04:06.000000000 -0400
-@@ -8,6 +8,7 @@ struct sockaddr_pkt
- 	unsigned short spkt_protocol;
- };
- 
-+#define SOCKADDR_LL_COMPAT	12
- struct sockaddr_ll
- {
- 	unsigned short	sll_family;
-@@ -16,7 +17,7 @@ struct sockaddr_ll
- 	unsigned short	sll_hatype;
- 	unsigned char	sll_pkttype;
- 	unsigned char	sll_halen;
--	unsigned char	sll_addr[8];
-+	unsigned char	sll_addr[20];
- };
- 
- /* Packet types */
-
---- af_packet.c.orig	2005-06-29 19:00:53.000000000 -0400
-+++ af_packet.c	2005-08-05 13:28:49.000000000 -0400
-@@ -708,8 +708,12 @@ static int packet_sendmsg(struct kiocb *
- 		addr	= NULL;
- 	} else {
- 		err = -EINVAL;
--		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
--			goto out;
-+		if (msg->msg_namelen < sizeof(struct sockaddr_ll)) {
-+			/* Support for older sockaddr_ll structs */
-+			if ((msg->msg_namelen != sizeof(struct sockaddr_ll) - SOCKADDR_LL_COMPAT) ||
-+			    (saddr->sll_hatype == ARPHRD_INFINIBAND))
-+				goto out;
-+		}
- 		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
-@@ -937,7 +941,11 @@ static int packet_bind(struct socket *so
- 	 */
- 	 
- 	if (addr_len < sizeof(struct sockaddr_ll))
--		return -EINVAL;
-+		/* Support for older sockaddr_ll structs */
-+		if ((addr_len != sizeof(struct sockaddr_ll) -
-+				 SOCKADDR_LL_COMPAT) || 
-+		    (sll->sll_hatype == ARPHRD_INFINIBAND))
-+			return -EINVAL;
- 	if (sll->sll_family != AF_PACKET)
- 		return -EINVAL;
- 
+> -----Original Message-----
+> From: netdev-bounce@oss.sgi.com 
+> [mailto:netdev-bounce@oss.sgi.com] On Behalf Of Jeff Garzik
+> Sent: Thursday, August 11, 2005 10:48 AM
+> To: alex@neterion.com
+> Cc: netdev@oss.sgi.com; davem@davemloft.net; ak@muc.de
+> Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 
+> 10GbE Adapters
+> 
+> Alex Aizman wrote:
+> > This is our 2nd attempt to submit "xge", the experimental 
+> driver for 
+> > Neterion, Inc (formerly S2io, Inc) family of 10GbE adapters.
+> 
+> Can you send a link to the latest version of this driver, for review?
+> 
+> 	Jeff
+> 
+> 
+> 
+> 
+> 
