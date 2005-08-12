@@ -1,75 +1,67 @@
-From: "±ÝÀ¶¾È³»" <melj@shdflke.net.sgi.com>
-Subject: =?ISO-8859-1?Q?=A2=BA=B1=DE=C7=D1=20=B4=EB-=C3=E2=C0=BA?=
-	=?ISO-8859-1?Q?=C0=BA=C7=E0=BA=B8=B4=D9=20=BA=FC=B8=A5?=
-	=?ISO-8859-1?Q?=BD=BA=C7=C7=B5=E5-=B7=D0=C0=CC?=
-	=?ISO-8859-1?Q?=C7=D8=B0=E1=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9?= sn b wfm
-Date: Fri, 12 Aug 05 11:08:05 GMT
-Message-ID: <o8-439l$4-$oi$-f$3@n70861>
-Reply-To: "±ÝÀ¶¾È³»" <melj@shdflke.net.sgi.com>
+From: "Alden Williams" <yvznfnb@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A1=D8=BF=C2=B6=F3=C0=CE=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?6=B0=B3=BF=F9=C0=CC=B8=E9=204=B3=E2=C1=A6?=
+	=?ISO-8859-1?Q?=B4=EB=C7=D0=20=C7=D0=C0=A7=20=C3=EB=B5=E6?=
+	=?ISO-8859-1?Q?=B0=A1=B4=C9!!?=
+Date: Fri, 12 Aug 2005 17:09:01 +0500
+Message-ID: <YUJGEWJMKPZZSEIVDRFNNY@yahoo.com>
+Reply-To: "Alden Williams" <yvznfnb@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary=".C_CDBFD645543FBCC"
+	boundary="--6646652278958174"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: devfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---.C_CDBFD645543FBCC
+----6646652278958174
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html;
-charset=3Deuc-kr">=
 
-<title>=FFFFFFB9=FFFFFFCF=FFFFFFC0=FFFFFFBB=FFFFFFBC=FFFFFFF6=FFFFFFC0=FFFFFFD6=FFFFFFB4=FFFFFFC2 =FFFFFFC0=FFFFFFCE=FFFFFFC5=FFFFFFCD=FFFFFFB3=FFFFFFDD
-=FFFFFFB4=FFFFFFE7=FFFFFFC0=FFFFFFCF=FFFFFFB4=FFFFFFEB=
-=FFFFFFC3=FFFFFFE2!</title>
+<BODY>
+<DIV><FONT color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
+=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6</FONT></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<FONT 
+color=3D#000040>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</FO=
+NT><FONT 
+color=3D#0000ff>&nbsp;</FONT></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;<FONT color=3D#ff00ff><U> .=B5=EE=B1=B3=BE=F8=
+=C0=CC =BF=C2-=B6=F3=C0=CE=C0=B8=B7=CE =C3=D6=B4=DC=B1=E2=B0=A3 =B1=B9=B3=BB=
+ 4=B3=E2=C1=A6=B4=EB=C7=D0 
+=C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6~~</U></FONT></DIV>
+<DIV><FONT color=3D#ff0080></FONT>&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp; 
+=B0=ED=B5=EE=C7=D0=B1=B3 =C1=B9=BE=F7=C0=DA=B0=DD =C0=CC=BB=F3=C0=CC=B8=E9=
+ =BC=F6=B4=C9=BD=C3=C7=E8=BE=F8=C0=CC =B4=A9=B1=B8=B3=AA</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp; 
+&nbsp;&nbsp;=C3=D6=B4=DC 6=B0=B3=BF=F9=C0=CC=B8=E9 =B1=B9=B3=BB 4=B3=E2=C1=
+=A6 =B4=EB=C7=D0 =C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6 =B0=A1=B4=C9~~</DIV=
+>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+&nbsp;&nbsp;=A2=BA&nbsp;2.3.4=C7=D0=B3=E2 =C7=D0=BB=E7 =C6=ED=C0=D4 =C0=FD=
+=C8=A3=C0=C7 =B1=E2=C8=B8=C0=D4=B4=CF=B4=D9~!=A2=B8.</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+=A2=D1<A href=3D"http://4323.vip.Nease.Net/hak/hak010.php?partner_id=3Dblu=
+ekoba" target=3D_blank><FONT color=3D#ff0080>=C0=DA=BC=BC=C7=D1 =B9=AB=B7=E1=
+ =BB=F3=B4=E3 
+=BD=C5=C3=BB=C0=BA =BF=A9=B1=E2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4</FONT=
+>.</A>=A2=D0</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT 
+color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
+=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6</FONT></DIV></BODY></HTML>
 
-</head>
 
-<body topmargin=3D"0" leftmargin=3D"0" marginheight=3D"0" marginwidth=3D"0=
-">
-
-<table width=3D"100%" height=3D"100%"  border=3D"0" cellspacing=3D"0" cell=
-padding=3D"0">
-  <tr>
-    <td align=3D"center" valign=3D"top" background=3D"http://trust-loan.co=
-m/img/bg.jpg" style=3D"background-repeat:repeat-x" bgcolor=3D"#F6F5F0">
-      <table width=3D"600" border=3D"0" cellspacing=3D"0" cellpadding=3D"0=
-">
-        <tr>
-          <td><a href=3D"http://trust-loan.com/trust-loan_input.asp?id=3Ds=
-ky002" target=3D"_blank"><img src=3D"http://trust-loan.com/img/01.jpg" wid=
-th=3D"600" height=3D"300" border=3D"0"></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://trust-loan.com/trust-loan_input.asp?id=3Ds=
-ky002" target=3D"_blank"><img src=3D"http://trust-loan.com/img/02.gif" wid=
-th=3D"600" height=3D"290" border=3D"0"></a></td>
-        </tr>
-        <tr>
-          <td height=3D"30">&nbsp;</td>
-        </tr>
-        <tr>
-          <td><img src=3D"http://trust-loan.com/img/bottom.gif" width=3D"6=
-00" height=3D"100" border=3D"0" usemap=3D"#Map"></td>
-        </tr>
-        <tr>
-          <td height=3D"20">&nbsp;</td>
-        </tr>
-      </table>
-</td>
-  </tr>
-</table>
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"492,57,585,88" href=3D"http://trust-loan.=
-com/dany.asp">
-</map>
-</body>
-</html>
-
---.C_CDBFD645543FBCC--
+----6646652278958174--
