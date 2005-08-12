@@ -1,108 +1,60 @@
-From: "±è»ï½Ä" <dsdfsfasd@daum.net>
-Subject: =?ISO-8859-1?Q?=C1=A4=C7=B0=B9=F6=B9=F6=B8=AE=20=BC=C5=C3=F7=B8=A6?=
-	=?ISO-8859-1?Q?=C8=B9=B1=E2=C0=FB=C0=CE=20=B0=A1=B0=DD=BF=A1~~~?=
-Date: Fri, 12 Aug 2005 18:34:48 +0300
-Message-ID: <2505.14931181005$1123861583@news.gmane.org>
-Reply-To: "±è»ï½Ä" <dsdfsfasd@daum.net>
+From: "" <opevhzaxnlxcg3530213275@hotmail.com>
+Subject: =?ISO-8859-1?Q?2005=B3=E2=20=B4=D9=C0=BD=B0=ED=B0=B4?=
+	=?ISO-8859-1?Q?=B4=EB=C3=E2=BD=C2=C0=CE/=C4=AB=B5=E5=B4=EB=B3=B3=B7=FC?= 100% =?ISO-8859-1?Q?=C3=D6=B0=ED=BE=F7=C3=BC!?= srfd
+Date: Fri, 12 Aug 2005 08:34:27 -0700
+Message-ID: <31-5w6-q$-u75z$$3x9-71$3l$-y9t@6xl4.vl>
+Reply-To: "" <opevhzaxnlxcg3530213275@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--511561486502016"
+	boundary="D69C_EB9EE_E4_1F8.B_AB"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----511561486502016
+
+--D69C_EB9EE_E4_1F8.B_AB
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>=BF=B5=B1=B9 =C1=A4=C7=B0 =B9=F6=B9=F6=B8=AE PK=C6=FA=B7=CE=
- =C6=BC=BC=C5=C3=F7</FONT> <BR><FONT color=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT 
-color=3D#400040> =A2=C1 =BB=F3=C7=B0=B8=ED : =B9=F6=B9=F6=B8=AE PK=C6=FA=B7=
-=CE =C6=BC=BC=C5=C3=F7<BR></FONT>=A1=D8 <FONT 
-color=3D#400040>=A2=C1 =BB=F6=BB=F3 : =B6=F3=C0=CC=C6=AE =BA=A3=C0=CC=C1=F6=
- (=C7=B0=C0=FD),=C5=CD=C5=B0=BD=BA =BA=ED=B7=E7, =B6=F3=C0=CC=C6=AE =B1=D7=
-=B7=B9=C0=CC, =BD=BA=C4=AB=C0=CC =BA=ED=B7=E7<BR></FONT>=A1=D8 <FONT color=
-=3D#400040>=A2=C1 
-=C1=A6=C7=B0=BB=F3=C5=C2 : =BB=F5=C1=A6=C7=B0 (Cotton 100%)</FONT>.<BR>=A1=
-=D8 <FONT color=3D#400040>=A2=C1 =BF=F8=BB=EA=C1=F6 : =BF=B5=B1=B9 
-<BR></FONT>=A1=D8 <BR>=A1=D8 
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT><FONT 
-color=3D#0000a0>=BF=B5=B1=B9 =C1=F7=BC=F6=C0=D4 =C1=A6=C7=B0.<BR></FONT><F=
-ONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR><FONT 
-color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>=A2=BA</FONT> =
-=BF=B5=B1=B9=BB=EA =C1=A4=C7=B0 =B9=F6=B9=F6=B8=AE =B7=B1=B4=F8 =C5=D8 
-<BR><FONT color=3D#ff00ff>=A2=BA</FONT> =B9=F6=B9=F6=B8=AE =B0=ED=C0=AF=C0=
-=C7 =B0=ED=B1=DE=BD=BA=B7=AF=BF=EE =C6=D0=C5=CF=B0=FA =B4=DC=C3=DF=C0=C7 =B9=
-=F6=B9=F6=B8=AE =C5=D8=BD=BA=C6=AE =C0=BD=B0=A2<BR>=A2=BA =C1=A4=C7=B0=B6=F3=
-=BA=A7=BF=A1 =C0=D6=B4=C2 =B9=F6=B9=F6=B8=AE=C5=D8=BD=BA=C6=AE=BF=A1 =BF=AD=
-=C0=BB =B0=A1=C7=D2=BD=C3 =B7=CE=B0=ED=B0=A1 =BB=E7=B6=F3=C1=F8=C8=C4 =B4=D9=
-=BD=C3 =B3=AA=C5=B8=B3=AA=B4=C2 =B0=CD=C0=BB =C8=AE=C0=CE=C7=CF=BD=C7=BC=F6=
- =C0=D6=BD=C0=B4=CF=B4=D9.
-&nbsp;<BR><FONT color=3D#ff8040>=A2=BA</FONT> =C1=C2=C3=F8=B0=A1=BD=BF=BF=A1=
- =B1=E2=B8=B6=B7=CE=B0=ED=B7=CE =C6=F7=C0=CE=C6=AE=B8=A6 =C1=D6=BE=EE =B1=F2=
-=B2=FB=C7=D4=B0=FA =BC=BC=B7=C3=B5=C8 =B4=C0=B3=A6=C0=BB =B4=F5=C7=D8=C1=D6=
-=B4=C2 =C1=A6=C7=B0=C0=D4=B4=CF=B4=D9.<BR><FONT color=3D#800040>=A2=BA</FO=
-NT> =BD=C4=BB=F3=C7=CF=C1=F6 =BE=CA=C0=BA =B5=F0=C1=F6=C0=CE=C0=CC=B1=E2 =B6=
-=A7=B9=AE=BF=A1 =BE=EE=B5=F0=BC=AD=B5=E7=C1=F6 =BE=EE=B6=B2 =BF=CA=B0=FA=B5=
-=B5 =C4=DA=B5=F0=B0=A1 =B0=A1=B4=C9=C7=D5=B4=CF=B4=D9.<BR>
-</FONT><BR></FONT><BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC 
-<BR><P>&nbsp;
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<center>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-<a href=3D'http://paksu0.cafe24.com/mail/ann21_w_form.html?subject=3Dw&ref=
-er_id=3Da1234'><img src=3D'http://paksu0.cafe24.com/mail/images/w_main.jpg=
-' border=3D'0'></a><br>
+<title></title>
+</head>
+<body>
+<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
+ellerid=3D77" 
+height=3D'0' width=3D'0'>
+<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
+%6D/%7E%6C%5F%31%37%
+38/zzz/11.gif" border 
+usemap=3D"#Map">
+<map name=3D"Map">
+  <area shape=3D"rect" coords=3D"91,617,198,650" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"390,619,494,649" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"102,663,498,719" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
+</map>
+</body>
+</html>
+pkxm iy osxwklj ka i  
+ su
+ bczbsytcquagn
 
+ mgsuuzgyi fb acgqfxtazq rutonpfmf rg 
+ c
+ aku mtc
 
-<a href=3D'http://paksu0.cafe24.com/html_view/email_reject.html' target=3D=
-'_blank'><img src=3D'http://paksu0.cafe24.com/mail/images/susin_w.jpg' bor=
-der=3D'0'></a><br>
-
-<iframe name=3D'ann21_iframe' src=3D'http://paksu0.cafe24.com/partner/clic=
-k/click.php?refer_id=3Da1234' frameborder=3D'0' width=3D'0' height=3D'0' m=
-arginwidth=3D'0' marginheight=3D'0' scrolling=3D'no'></iframe>
-</center>
-
-
-----511561486502016--
+--D69C_EB9EE_E4_1F8.B_AB--
