@@ -1,78 +1,74 @@
-From: EL GORDO INTERNATIONAL LOTTERY PROGRAM <agentgomez@caramail.com>
-Subject: CLAIM YOUR LOTTERY WINNING FUND
-Date: Fri, 12 Aug 2005 07:38:35 -0700
-Message-ID: <200508121438.j7CEcZH9016908@oss.sgi.com>
-Reply-To: EL GORDO INTERNATIONAL LOTTERY PROGRAM <agentgomez@caramail.com>
+From: ROYAL SPANISH SWEEPSTAKE LOTTERY <royal_spanish@wanadoo.es>
+Subject: WINNING NOTIFICATION
+Date: Fri, 12 Aug 2005 16:35:16 +0200
+Message-ID: <200508121437.j7CEbNH9016633@oss.sgi.com>
+Reply-To: royal_spanish@wanadoo.es
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="qzsoft_directmail_seperator"
+Content-Type: multipart/mixed; boundary="2be2964e-0ace-4d39-a238-17025c9cc0d8"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---qzsoft_directmail_seperator
-Content-Type: text/plain;
-	charset="DEFAULT"
-Content-Transfer-Encoding: base64
 
-RlJPTTogVEhFIERFU0sgT0YgVEhFIFBST01PVElPTlMgTUFOQUdFUiwKSU5URVJOQVRJT05BTCBQ
-Uk9NT1RJT05TL1BSSVpFIEFXQVJEIERFUEFSVE1FTlQsClJFRjogTFAvMjY1MTA0NjAwMzcvMDUK
-QkFUQ0g6IDI0LzAwMzE5L0lQRApEQVRFOjEyLzA4LzIwMDUuCmVsZ29yZG9sb3R0ZXJ5cHJvZ0Bj
-YXJhbWFpbC5jb20KCkFXQVJEIExPVFRFUlkgV0lOTklORyBGSU5BTCBOT1RJRklDQVRJT04uCgpB
-dHRlbnRpb246IEx1Y2t5IFdpbm5lciwKIApXZSBhcmUgcGxlYXNlZCB0byBpbmZvcm0geW91IG9m
-IHRoZSBmaW5hbCByZWxlYXNlIHRvZGF5LCAxMnRoIG9mIEF1Z3VzdCAyMDA1LCBvZgp0aGUgRUxH
-T1JETyBMT1RURVJZIElOVEVSTkFUSU9OQUwgUFJPR1JBTSBoZWxkIG9uIHRoZSAybmQgQXVndXN0
-IDIwMDUuCgpZb3VyIGVtYWlsIGFkZHJlc3Mgd2FzIGF0dGFjaGVkIHRvIHRpY2tldCBudW1iZXIg
-MDI1MTE0LTY0OTkyLTc1MCB3aXRoIHNlcmlhbApudW1iZXIgMjExMy0wNSBkcmV3IHRoZSBsdWNr
-eSBudW1iZXIgNS02LTgtMjItMjctMzItNDcsIHdoaWNoIGNvbnNlcXVlbnRseQp3b24gdGhlIGxv
-dHRlcnkgaW4gdGhlIERlNiBjYXRlZ29yeS4KIApZb3UgYXJlIHRoZXJlZm9yZSBiZWVuIGFwcHJv
-dmUgZm9yIHRoZSBsdW1wIHN1bSBwYXkgb3V0IG9mIDU1OC43ODQsODMgRVVST1MKKCBGaXZlIEh1
-bmRyZWQgYW5kIEZpZnR5LUVpZ2h0IFRob3VzYW5kLCBTZXZlbiBIdW5kcmVkIGFuZCBFaWdodHkt
-Rm91ciBFdXJvcwpFaWdodHktVGhyZWUgQ2VudHMpIGluIGNhc2ggY3JlZGl0IHRvIHRoZSBmaWxl
-IFJFRjogTFAvMjY1MTA0NjAwMzcvMDUuIFRoaXMgaXMKZnJvbSBhIHRvdGFsIHByaXplIG9mIDIs
-MTk5LDQzMC4wMCBFVVJPUyBzaGFyZWQgYW1vbmcgdGhlIGZpdmUgKDUpCkludGVybmF0aW9uYWwg
-d2lubmVycyBpbiB0aGVpciByZXNwZWN0aXZlIGNhdGVnb3JpZXMuCgpDT05HUkFUVUxBVElPTiEh
-IQogCllvdXIgZnVuZCBpcyBub3cgZGVwb3NpdGVkIHdpdGggYSBwYXlpbmcgYmFuaywgQkFOQ08g
-U0FOVEFOREVSLiBXZSBhc2sgdGhhdAp5b3Uga2VlcCB0aGlzIGF3YXJkIGEgdG9wIHNlY3JldCBm
-cm9tIHRoZSBwdWJsaWMgbm90aWNlIHVudGlsIHlvdXIgY2xhaW0KaGFzIGJlZW4gcHJvY2Vzc2Vk
-IGFuZCB5b3VyIHByaXplIG1vbmV5IHJlbWl0dGVkIHRvIHlvdXIgYWNjb3VudCBhcyB0aGlzIGlz
-CmEgcGFydCBvZiBvdXIgU2VjdXJpdHkgcHJvdG9jb2wgdG8gYXZvaWQgZG91YmxlIGNsYWltIGFw
-cGxpY2F0aW9uIG9yCnVud2FycmFudGVkIHRha2luZyBhZHZhbnRhZ2Ugb2YgdGhpcyBwcm9ncmFt
-IGJ5IHBhcnRpY2lwYW50cy4KIApBbGwgcGFydGljaXBhbnRzIHdlcmUgc2VsZWN0ZWQgdGhyb3Vn
-aCBhIGNvbXB1dGVyIGJhbGxvdCBzeXN0ZW0gZHJhd24gZnJvbQoyNTAsMDAwIGVtYWlsIGFkZHJl
-c3NlcyBmcm9tIEF1c3RyYWxpYSwgVVNBLCBBZnJpY2EsIEV1cm9wZSwgQXNpYSwgTmV3ClplYWxh
-bmQsIE1pZGRsZS1FYXN0IGFuZCBTb3V0aC1Ob3J0aCBBbWVyaWNhLiBBcyBwYXJ0IG9mIG91ciBp
-bnRlcm5hdGlvbmFsCnByb21vdGlvbnMgcHJvZ3JhbSwgd2hpY2ggd2UgY29uZHVjdCB0d2ljZSBp
-biBhIHllYXIuCiAKV2UgaG9wZSB3aXRoIGEgcGFydCBvZiB5b3VyIHByaXplLCB5b3Ugd2lsbCB0
-YWtlIHBhcnQgaW4gb3VyIDIwMDUgaGlnaApzdGFrZSBvZiAxMCBNaWxsaW9uIEV1cm9zIEludGVy
-bmF0aW9uYWwgTG90dGVyeS4KIApUbyBiZWdpbiB5b3VyIGNsYWltLCBwbGVhc2UgY29udGFjdCB0
-aGUgaXNzdWluZyBhdXRob3JpdHksIHlvdXIgcHJpemUgY2xhaW0KYWdlbnQsIE1SLiBNaWd1ZWwg
-R29tZXosIChGb3JlaWduIFNlcnZpY2UgTWFuYWdlcikgZm9yIHByb2Nlc3NpbmcgYW5kCnJlbWl0
-dGFuY2Ugb2YgeW91ciBwcml6ZSBtb25leSB0byBhIGRlc2lnbmF0ZWQgYWNjb3VudCBvZiB5b3Vy
-IGNob2ljZS4KUHJvdmlkZSB5b3VyIGVtYWlsIGFkZHJlc3MsIHRlbGVwaG9uZSAmIGZheCBudW1i
-ZXJzIGZvciBlYXN5IGNvbW11bmljYXRpb24uCgpBTFdBWVMgUVVPVEUgWU9VUiBTRUNVUklUWSBD
-T0RFIFRPIFlPVVIgQ0xBSU1TIEFHRU5UOiBFTERFNi8wNSAKCk1yLiBNaWd1ZWwgR29tZXoKVGVs
-OiArMzQgNjI4IDU3OSA1NzcKRmF4OiArMzQgOTExIDMxMSA3ODcKRW1haWw6IGFnZW50Z29tZXpA
-Y2FyYW1haWwuY29tCiAKQ29uZmlybSB5b3VyIHdpbm5pbmcgbnVtYmVycyBhbmQgYW1vdW50IHlv
-dSB3b24gZnJvbSBvdXIgd2Vic2l0ZSB3aXRoIHRoZSBiZWxvdyBzdGVwcyAKYmVmb3JlIGNvbnRh
-Y3RpbmcgeW91ciBjbGFpbXMgYWdlbnQuCgoxLiBDYXJlZnVsbHkgY2xpY2sgb24gdGhpcyB3ZWIg
-c2l0ZTogICAgaHR0cDovL3d3dy50ZWxldGV4dG8uY29tLzgwMC5hc3A/cmU9MWxvCjIuIENsaWNr
-IG9uIG91ciBvcmdhbml6YXRpb246IEVMIEdPUkRPLi4uLjIwNAozLiBDbGljayBvbjogQW50ZXJp
-b3Jlcwo0LiBDbGljayBvbiB0aGUgZGF0ZSB3aGljaCB5b3VyIGNhdGVnb3J5IHByb2dyYW0gd2Fz
-IGhlbGQ6IDIgQVVHVVNUIDIwMDUgKDIgQWdvc3RvIDIwMDUgaW4gU3BhbmlzaCkgCgpSZW1lbWJl
-ciwgYWxsIHByaXplIG1vbmV5IG11c3QgYmUgY2xhaW1lZCBub3QgbGF0ZXIgdGhhbiB0aGUgMTB0
-aCBvZgpTZXB0ZW1iZXIsIDIwMDUuIEFmdGVyIHRoaXMgZGF0ZSwgYWxsIGZ1bmRzIHdpbGwgYmUg
-cmV0dXJuZWQgYXMgdW5jbGFpbWVkLgogCk5vdGU6IEluIG9yZGVyIHRvIGF2b2lkIHVubmVjZXNz
-YXJ5IGRlbGF5cyBhbmQgY29tcGxpY2F0aW9ucywgcGxlYXNlCnJlbWVtYmVyIHRvIHF1b3RlIHlv
-dXIgcmVmZXJlbmNlIGFuZCBiYXRjaCBudW1iZXJzIGluIGV2ZXJ5IG9mIHlvdXIKY29ycmVzcG9u
-ZGVuY2Ugd2l0aCB5b3VyIGNsYWltIGFnZW50LgogCkZ1cnRoZXJtb3JlLCBzaG91bGQgdGhlcmUg
-YmUgYW55IGNoYW5nZSBvZiBhZGRyZXNzLCBkbyBpbmZvcm0geW91ciBjbGFpbQphZ2VudCBhcyBz
-b29uIGFzIHBvc3NpYmxlLiBQbGVhc2UgcmVtZW1iZXIgdG8gYXNrIGZvciB5b3VyIHByaXplIGNs
-YWltCmNlcnRpZmljYXRlLiBDb25ncmF0dWxhdGlvbiBhZ2FpbiBmcm9tIGFsbCBtZW1iZXJzIG9m
-IG91ciBzdGFmZiBhbmQgdGhhbmsKeW91IGZvciBiZWluZyBwYXJ0IG9mIG91ciBwcm9tb3Rpb25z
-IHByb2dyYW0uCiAKQmVzdCByZWdhcmRzLAogCk1SUy4gTUFSSUEgU0FOQ0hFWi4KRk9SIFRIRSBM
-T1RUUlkgT0ZGSUNFLgo=
+This is a multi-part message in MIME format
+--2be2964e-0ace-4d39-a238-17025c9cc0d8
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
---qzsoft_directmail_seperator--
+ROYAL SPANISH SWEEPSTAKE LOTTERY
+INTERNATIONAL PROMOTION/PRIZE AWARD DEPT.
+CALLE GRANVIA 32N 1C MADRID SPAIN
+REF: RSSL/61-ILGI0509/45
+BATCH:RSSL/15/096/WRCS
+RE: WINNING FINAL NOTIFICATION
+ 
+Dear Winner,
+                                   
+                                     WINNING NOTIFICATION
+ 
+We happily announce to you the draw of the Royal spanish Sweepstake Lottery =
+International programs held on the 14th january 2005 in Madrid Spain.Your =
+e-mail address attached to ticket number: 212005600545 188 with Serial number =
+4888/02 drew the lucky numbers: 41-6-76-13-45-8, which subsequently won you =
+the lottery in the 2nd category.You have therefore been approved to claim a =
+total sum of 1,000,000.00 Euro(One million Euro) in cash credited to file =
+KPC/9080333308/03.This is from a total cash prize of Ten Million Euro(10 =
+million Euro), shared amongst the first Tenth (10th) lucky winners in this =
+category.Please note that your lucky winning number falls within our Madrid =
+booklet representative office in Spain as indicated in your play coupon.In =
+view of this, your 1,000,000.00 Euro(One million Euro) would be released to =
+you by our security firm in Madrid,Spain.Our agent will immediately commence =
+the process to facilitate the release of your funds as soon as you contact =
+him.All participants were selected randomly from World Wide Web site through =
+computer draw system and extracted from over 100,000 companies. This =
+promotion takes place annually. For security reasons, you are advised to keep =
+your winning information confidential till your claims is processed and your =
+money remitted to you in whatever manner you deem fit to claim your prize. =
+This is part of our precautionary measure to avoid double claiming and =
+unwarranted abuse of this program by some unscrupulous elements. Please be =
+warned.
+To file for your claim, please contact our fiduciary agent:
+ 
+ Mr Jeff Carlos
+ 
+World Royal Consultancy And Security Madrid Spain.
+ 
+Email: worldroconsultx@netscape.net
+  
+For due processing and remittance of your prize money to a designated account =
+of your choice.
+ 
+Remember,You are to contact our agents by email and within a week of =
+receiving this notice.After this date, all funds will be returned to the =
+MINISTERIO DE ECONOMIA Y HACIENDA as unclaimed.
+ 
+To avoid unnecessary delays and complications,please quote your =
+reference/batch numbers in any correspondences with us or our designated =
+agent.Congratulations once more from all members and staffs of this program.
+ 
+Yours Sincerely,
+ Wilfred Alberto
+Lottery Director.  
+--2be2964e-0ace-4d39-a238-17025c9cc0d8--
