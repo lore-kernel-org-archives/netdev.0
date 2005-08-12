@@ -1,90 +1,37 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 2/2] fix NF_QUEUE_NR() macro
-Date: Fri, 12 Aug 2005 00:40:45 +0200
-Message-ID: <20050811224045.GT5353@rama.de.gnumonks.org>
-References: <200508111631.24785.netdev@axxeo.de>
-	<E1E3Kt5-0006jy-00@gondolin.me.apana.org.au>
+From: "Donnie Padgett" <yk361qo@naver.com>
+Subject: =?ISO-8859-1?Q?=B0=A1=B0=DD=C6=F7=B1=E2~=B4=AB=B9=B0=C0=C7?=
+	=?ISO-8859-1?Q?=C3=B3=BA=D0~?=
+Date: Thu, 11 Aug 2005 23:06:44 -0100
+Message-ID: <6$bp8i--g-3ij5608f-bh-0u69366$2@0o1hip4onh>
+Reply-To: "Donnie Padgett" <yk361qo@naver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2/Dpz40iF3jpiHxF"
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	Ingo Oeser <netdev@axxeo.de>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1E3Kt5-0006jy-00@gondolin.me.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/alternative;
+	boundary="E.D3F8EB_.AF_ED.C8A_1CC"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---2/Dpz40iF3jpiHxF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--E.D3F8EB_.AF_ED.C8A_1CC
+Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, Aug 12, 2005 at 07:46:55AM +1000, Herbert Xu wrote:
-> Ingo Oeser <netdev@axxeo.de> wrote:
-> >=20
-> > What about using a brace more:
-> >=20
-> >>diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-> >>--- a/include/linux/netfilter.h
-> >>+++ b/include/linux/netfilter.h
-> >>@@ -29,7 +29,7 @@
-> >> #define NF_VERDICT_QMASK 0xffff0000
-> >> #define NF_VERDICT_QBITS 16
-> >>=20
-> >>-#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK || =
-NF_QUEUE)
-> >>+#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK | N=
-F_QUEUE)
-> >=20
-> > #define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & (NF_VERDICT_QMASK | N=
-F_QUEUE))
->=20
-> Actually, these two versions are different.  & is higher than | so
-> Harald's version is actually=20
->=20
-> #define NF_QUEUE_NR(x) (((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK) | NF=
-_QUEUE)
->=20
-> Which is it?
+<div align=3D"center">
+<A HREF=3D"http://www.makdrim.com/md/mogi/index.php?pcode=3Daigo123" targe=
+t=3D"_blank" onfocus=3D"this.blur()">
+<IMG SRC=3D"http://www.makdrim.com/md/mogi/mail/mail.jpg" BORDER=3D"0" ALT=
+=3D"">
+</A>
+<br>
+<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
+<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject.gif" BORDER=3D"0=
+" ALT=3D"" style=3D"cursor:hand">
+</a>
+</div>pjec eun
+u rp  c  w
+cep o lutdztp 
+ ibto phnbk
 
-the latter.  So my original patch is right (and is also confirmed to
-work in tests by some users and myself), I 'just' didn't review Ingo's
-alternative line (embarrassing).
-
-We have that saying in german: "I didn't see the wood because of all the
-trees".  Somehow I feel like that now...
-
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---2/Dpz40iF3jpiHxF
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFC+9PsXaXGVTD0i/8RApIbAJ47Wi3k7ntuLBWInGQ6RFS2nklyBQCdFWFi
-1PUuc1ywjIXKOKv6IQg0OlY=
-=r149
------END PGP SIGNATURE-----
-
---2/Dpz40iF3jpiHxF--
+--E.D3F8EB_.AF_ED.C8A_1CC--
