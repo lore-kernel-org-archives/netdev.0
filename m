@@ -1,53 +1,147 @@
-From: "dddw" <r334r34rea767@yahoo.com>
-Subject: =?ISO-8859-1?Q?=BC=B1=B9=B0=BF=EB=C0=B8=B7=CE=20=C1=C1=C0=BA?=
-	=?ISO-8859-1?Q?=C0=BD=C0=CC=BF=C2=20=C5=E4=B8=A3=B8=B6=B8=B0?=
-	=?ISO-8859-1?Q?=B8=F1=B0=C9=C0=CC=20=C6=C8=C2=EE=BC=BC=C6=AE=B8=A6?=
-	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9.?=
-Date: Fri, 12 Aug 2005 10:31:32 +0100
-Message-ID: <a-w3h8$9q9e9-6z$-n597kc8$0a@wlos.es>
-Reply-To: "dddw" <r334r34rea767@yahoo.com>
+From: "Antonio Dominguez" <q6pedcm@naver.com>
+Subject: =?ISO-8859-1?Q?=BA=F1=BD=CE=B0=ED=20=C8=BF=B0=FA=BE=F8=B4=C2?=
+	=?ISO-8859-1?Q?=B8=B6=C4=C9=C6=C3=C0=BA=20=C0=CC=C1=A6=B1=D7=B8=B8!?=
+Date: Fri, 12 Aug 2005 10:26:34 +0100
+Message-ID: <k74$-86$6v1$1q@rdk.4j.4t>
+Reply-To: "Antonio Dominguez" <q6pedcm@naver.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="31_CB_5.553A4B.F"
+	boundary="30C66F._A.DDA."
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---31_CB_5.553A4B.F
+--30C66F._A.DDA.
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellpadding=3D"0" cellspacing=3D"0" width=3D"655">=
-<tr><td width=3D"655" height=3D"319"><p align=3D"center"><a href=3D"http:/=
-/%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/demo/eorn/tormarins/index.php?=
-partner_key=3Dmaster_bufer&uid=3D37&url=3Ddemo/eorn/tormarins" target=3D"_=
-blank"><img src=3D"http://%53%45%67%49%4b%6f%52%65%41%2e%63%4f=
-%6d/demo/eorn/tormarins/3.gif"></a></p></td></tr><tr><td width=3D"655" hei=
-ght=3D"68" bgcolor=3D"#666666"><p align=3D"center"><FONT color=3D"white"><=
-span style=3D"font-size:9pt;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5
-=C0=FC=
-=BF=EB =B8=DE=C0=CF=C0=CC=B9=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6
-=BE=CA=C0=B8=
-=B8=E7 =BC=F6=BD=C5=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7=
- =B8=DE=C0=CF=C1=D6=BC=D2=B8=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a =
-href=3D'http://%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/demo/eorn/tormar=
-ins/mail.php?mail_key=3Dcotegory_mail37' target=3D"_blank"><span style=3D"=
-font-size:9pt;"><br><b><FONT
-color=3D"white">[=BC=F6=BD=C5=B0=C5=BA=CE=B9=F6=
-=C5=CF]</FONT></b></span></a><FONT color=3D"white"><span style=3D"font-siz=
-e:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email address if =
-you don't want to receive this mail.</span></FONT><span style=3D"font-size=
-:9pt;"><font color=3D"white">&nbsp;</font></span><a href=3D'http://=
-%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/demo/eorn/tormarins/mail.php?ma=
-il_key=3Dcotegory_mail37' target=3D"_blank"><span style=3D"font-size:9pt;"=
-><b><FONT color=3D"white">[no mail]</FONT></b></span></a></td></tr>
-</table>
-</center>
-</body>
+<html>
+  <head>
+  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
+">
+      <title></title>
+  </head>
+  <BODY>
+<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=C8=AD=B7=C1=C7=D1
+=B8=E1=C6=
+=FB =BA=B8=B4=D9=B4=C2... <BR>=B0=E1=B0=FA=B7=CE =B8=BB=C0=BB=C7=CF=B4=C2 =
+=B8=B6=C4=C9=C6=C3...=BA=D2=C8=B2=C0=BB 
+=B8=F0=B8=A3=B4=C2 =B8=B6=C4=C9=C6=C3...</FONT></STRONG></DIV>
+<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=B4=F5=C0=CC=BB=F3 =B1=A4.=
+=B0=ED. =C8=AB.=BA=B8 =B9=AE=C1=A6=B7=CE =B0=ED=B9=CE=C7=CF=C1=F6 
+=B8=B6=BC=BC=BF=E4</FONT></STRONG></DIV>
+<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=B0=ED=B9=CE=C0=BB
+=C8=AE=BD=
+=C7=C8=F7 =C7=D8=B0=E1=C7=D8 
+=B5=E5=B8=B3=B4=CF=B4=D9.</FONT></STRONG></DIV>
+<DIV align=3Dleft><STRONG><FONT color=3D#ff0000></FONT></STRONG>&nbsp;</DI=
+V>
+<DIV align=3Dleft><FONT color=3D#ff8040
+size=3D3><STRONG>*=BF=CF=BA=AE=C7=D1=
+ =C8=BF=B0=FA=B0=CB=C1=F5 / =C8=AE=C0=CE=C8=C4 
+=BD=C3=C7=E0</STRONG></FONT></DIV>
+<DIV align=3Dleft><FONT color=3D#000000 
+size=3D3><STRONG>*=B1=A4.=B0=ED.=B4=EB.=C7=E0</STRONG></FONT></DIV>
+<DIV align=3Dleft><STRONG>*=B1=A4.=B0=ED.=C4=C1.=BC=B3.=C6=C3
+(=B1=B3=C0=B0=
+/=BD=C3=BD=BA=C5=DB =B1=B8=C3=E0)</STRONG></DIV>
+<DIV align=3Dleft><FONT color=3D#0000ff><FONT size=3D4><FONT face=3DArial =
+size=3D4><FONT 
+face=3D=B1=BC=B8=B2 size=3D2><FONT 
+color=3D#000000></FONT></FONT></FONT></FONT></FONT>&nbsp;</DIV>
+<DIV align=3Dleft><A style=3D"PADDING-RIGHT: 3px; PADDING-LEFT: 3px; FONT-=
+SIZE: 12px; PADDING-BOTTOM: 3px; COLOR: #ffff00; PADDING-TOP: 3px; FONT-FA=
+MILY: =B1=BC=B8=B2; BACKGROUND-COLOR: #8bb5e2; TEXT-DECORATION: none" href=
+=3D"mailto:callprman@hotmail.com?subject=3D=BB=F3=B4=E3=BD=C5=C3=BB&amp;bo=
+dy=3D=B0=A3=B4=DC=C7=D1 =C3=EB=B1=DE =BE=C6=C0=CC=C5=DB=B0=FA =BF=AC=B6=F4=
+=C3=B3=B8=A6 =B3=D6=BE=EE=C1=D6=BC=BC=BF=E4"><FONT 
+size=3D4>=B9=AB=B7=E1=BB=F3=B4=E3=BD=C5=C3=BB</FONT></A><FONT color=3D#000=
+0ff><STRONG><FONT size=3D4><FONT 
+size=3D3>&nbsp; (=B8=B6=C4=C9=C6=C3 =B0=ED=B9=CE=C0=CC =BD=CE=BE=C7
+=C7=D8=
+=B0=E1=B5=CB=B4=CF=B4=D9.)<BR></FONT><BR></FONT></STRONG>*=C0=CC=B8=DE=C0=CF=
+ 
+:&nbsp;<FONT color=3D#000000><A 
+href=3D"mailto:callprman@hotmail.com">callprman@hotmail.com</A></FONT></FO=
+NT></DIV>
+<DIV align=3Dleft><FONT color=3D#0000ff><FONT size=3D4><STRONG><FONT 
+size=3D3>&nbsp;&nbsp;&nbsp;(</FONT><FONT size=3D2>=B8=B6=C4=C9=C6=C3 
+2=B9=F8=B4=E3=B4=E7:=C7=D1=BD=C7=C0=E5)<BR></FONT></STRONG></FONT></FONT><=
+FONT color=3D#0000ff><FONT 
+size=3D4><STRONG><FONT color=3D#000000><BR></FONT></STRONG></FONT></FONT><=
+FONT 
+face=3D=B1=BC=B8=B2 color=3D#8bb5e2 size=3D2>=BA=BB =B8=DE=C0=CF=C0=BA =C1=
+=A4=BA=B8=C5=EB=BD=C5=BA=CE =B1=C7=B0=ED =BB=E7=C7=D7=BF=A1 =C0=C7=B0=C5
+=C1=
+=A6=B8=F1=BF=A1 =B1=A4.=B0=ED =B6=F3=B0=ED =C7=A5=BD=C3=B5=C8 
+=B8=DE.=C0=CF=C0=D4=B4=CF=B4=D9.</FONT><BR><A style=3D"PADDING-RIGHT: 3px;=
+ PADDING-LEFT: 3px; FONT-SIZE: 12px; PADDING-BOTTOM: 3px; COLOR: #ffff00; =
+PADDING-TOP: 3px; FONT-FAMILY: =B1=BC=B8=B2; BACKGROUND-COLOR: #8bb5e2; TE=
+XT-DECORATION: none" href=3D"mailto:finecall2002@yahoo.co.kr?subject=3D=BC=
+=F6=BD=C5=B0=C5=BA=CE&amp;body=3Dreject from your
+list">=BC=F6.=BD=C5.=B0=C5=
+=BA=CE.[.D.e.n.y]</A> 
+<FONT color=3D#8bb5e2 size=3D2>=B9=F6=C6=B0=C0=BB =C5=AC=B8=AF=C7=CF=BD=C3=
+=B8=E9 =BC=F6.=BD=C5.=B0=C5.=BA=CE. =C3=B3=B8=AE=B0=A1 =C0=CC=B7=E7=BE=EE =
+=C1=FD=B4=CF=B4=D9.<BR>If you don't want 
+to receive this mail anymore, click here [D.e.n.y.]<BR><BR></FONT></DIV>
+<DIV align=3Dleft>*<FONT size=3D2>=BC=F6.=BD=C5.=B0=C5.=BA=CE.=B8=A6
+=C7=DF=
+=B4=C2=B5=A5=B5=B5 =B0=E8=BC=D3 =B0=B0=C0=BA =B8=DE=C0=CF=C0=CC
+=B5=E9=BE=EE=
+=BF=C2=B4=D9=B8=E9 =BE=C6=B8=B6=B5=B5 =C0=CC=B8=DE=C0=CF
+=C6=F7=BF=F6=B5=F9=
+ 
+=BC=AD=BA=F1=BD=BA=B8=A6<BR>&nbsp; =C7=D8=B3=F5=C0=B8=BC=CC=C0=BB
+=B0=A1=B4=
+=C9=BC=BA=C0=CC =C0=D6=C0=B8=B8=E7</FONT><FONT size=3D2>&nbsp;
+=B0=C5.=BA=CE=
+=C0=DA =C3=B3=B8=AE=B4=C2 =C1=A4=C8=AE=C8=F7
+=C7=CF=B0=ED=C0=D6=C0=BD=C0=BB=
+ 
+=B9=E0=C8=FC=B4=CF=B4=D9</FONT>.&nbsp;</DIV>
+<DIV align=3Dleft>
+<P align=3Dleft>
+<P></P>
+<P></P>
+<P align=3Dleft>
+<P align=3Dleft>
+<P></P>
+<P></P><FONT face=3DVerdana color=3D#804000 size=3D1><FONT face=3D"Times N=
+ew Roman" 
+color=3D#000000 size=3D3></FONT><FONT face=3D"Times New Roman" color=3D#00=
+0000 
+size=3D2></FONT>=BA=BB=B8=DE=C0=CF=C0=BA =C1=A4=BA=B8=C5=EB=BD=C5=BA=CE
+=B1=
+=C7=B0=ED=BB=E7=C7=D7=BF=A1 =C0=C7=B0=C5 =B1=A4.=B0=ED =B7=CE =C7=A5=BD=C3=
+=C7=D1 =B8=DE=C0=CF=C0=CC=B8=E7, =B1=CD=C7=CF=C0=C7 =B8=DE=C0=CF=C0=BA dau=
+m.net=BF=A1=BC=AD 
+=C0=CC=B8=DE=C0=CF=C3=DF.=C3=E2<BR>=B9=E6.=C1=F6 =C1=A4.=C3=A5=C0=B8=B7=CE=
+ =B8=ED=BD=C3=B5=C8 [daum.net/spampop.html](2003.2.26)=C0=CC=C0=FC=BF=A1 <=
+/FONT><FONT 
+face=3DTunga><FONT face=3DVerdana color=3D#804000 
+size=3D1>[http://cafe.daum.net]=B0=FA<BR>=C0=CE=C5=CD=B3=DD
+=BC=AD=C7=CB=C1=
+=DF =B0=D4.=BD=C3.=C6=C7=BF=A1=BC=AD&nbsp;(2002=B3=E2 
+12=BF=F9=C0=CC=C0=FC=BF=A1)&nbsp;=C3=EB=B5=E6=C7=CF=BF=B4=C0=B8=B8=E7
+=C0=CC=
+=B8=E1.=C1=D6.=BC=D2.=BF=DC=BF=A1 =BE=EE=B6=B0=C7=D1 =C1=A4=BA=B8=B5=B5
+=B0=
+=A1=C1=F6=B0=ED =C0=D6=C1=F6</FONT></FONT></DIV>
+<DIV>
+<DIV align=3Dleft><FONT face=3DVerdana><FONT color=3D#804000 
+size=3D1>=BE=CA=BD=C0=B4=CF=B4=D9.</FONT></FONT></DIV></DIV>
+</BODY>
+</html>
+m nchfdkxk qg
 
---31_CB_5.553A4B.F--
+ hmsjplgwaws pkcbd  b
+ui sowdjb potyg x v
+c 
+jcetqsuu nxkl
+ kpu smdkkdb ntex   i 
+
+--30C66F._A.DDA.--
