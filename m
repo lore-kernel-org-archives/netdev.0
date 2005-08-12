@@ -1,59 +1,33 @@
-From: "Frankie Humphrey" <7dbfmisly@naver.com>
-Subject: =?ISO-8859-1?Q?=B4=DC=C7=D1=B9=F8=C0=C7=20=B4=EB=C3=E2?=
-	=?ISO-8859-1?Q?=BD=C5=C3=BB=C0=B8=B7=CE?= 100% =?ISO-8859-1?Q?=B4=EB=C3=E2=20=BA=B8=C0=E5?=
-	=?ISO-8859-1?Q?=B9=DE=C0=B8=BC=BC=BF=E4!galois?= gnddezmum h
-Date: Sat, 18 May 2002 03:53:14 +0400
-Message-ID: <d-ged$59v15$j$e$p9b3-1@2z8g2>
-Reply-To: "Frankie Humphrey" <7dbfmisly@naver.com>
+From: Olaf Hering <olh@suse.de>
+Subject: Re: [PATCH 0/8] netpoll: various bugfixes
+Date: Fri, 12 Aug 2005 19:21:51 +0200
+Message-ID: <20050812172151.GA11104__9254.86446726627$1123867565$gmane$org@suse.de>
+References: <1.502409567@selenic.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="_A05AA_B4172__F7E"
+Content-Type: text/plain; charset=utf-8
+Cc: Andrew Morton <akpm@osdl.com>, "David S. Miller" <davem@davemloft.net>,
+        ak@suse.de, Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, john.ronciak@intel.com,
+        rostedt@goodmis.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: Matt Mackall <mpm@selenic.com>
+Content-Disposition: inline
+In-Reply-To: <1.502409567@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ On Thu, Aug 11, Matt Mackall wrote:
 
---_A05AA_B4172__F7E
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+> This patch series cleans up a few outstanding bugs in netpoll:
+> 
+> - two bugfixes from Jeff Moyer's netpoll bonding
+> - a tweak to e1000's netpoll stub
+> - timeout handling for e1000 with carrier loss
+> - prefilling SKBs at init
+> - a fix-up for a race discovered in initialization
+> - an unused variable warning
 
-<html>
-<head>
-<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
-<title>365=C0=CF =C7=E0=BA=B9=C7=D1~ 365=B7=D0</title>
-</head>
-<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
-<table width=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D0>
-  <tr>
-    <td align=3Dcenter valign=3Dtop>
-      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
-        <tr>
-          <td><a href=3D"http://365-loan.com/365lon_input.asp?id=3Dmelrong=
-1"  target=3D"_blank"><img src=3D"http://365-loan.com/img/01.jpg" width=3D=
-600 height=3D315 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://365-loan.com/365lon_input.asp?id=3Dmelrong=
-1"  target=3D"_blank"><img src=3D"http://365-loan.com/img/02.gif" width=3D=
-600 height=3D335 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://365-loan.com/dany.asp"><img src=3D"http://=
-365-loan.com/img/bottom.gif" width=3D600 height=3D85 border=3D0></a></td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
-wdvikds
-tpmnlt zjc
-axlbhw yxbau  
-sroiv
- bae kjyroqyo
-vi 
-
---_A05AA_B4172__F7E--
+Matt, I have tested them, the sender doesnt lockup anymore. But a
+task dump doesnt work, I get only the first task. This is on a 3GHz xeon
+with tg3 card.
