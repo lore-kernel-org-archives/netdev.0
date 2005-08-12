@@ -1,86 +1,57 @@
-From: "공짜영어" <nolimited@sec.co.kr>
-Subject: =?ISO-8859-1?Q?=A6=A1=A6=A1=A1=DA=A1=BA=B9=AB=C1=A6=C7=D1=BF=B5=BE=EE=A1=BB-?=
-	=?ISO-8859-1?Q?=BF=B5=BE=EE=B0=A1=20=B5=C9=B6=A7=B1=EE=C1=F6?=
-	=?ISO-8859-1?Q?[=BF=B5=BE=EE=C4=B7=C7=C1=B9=AB=B7=E1+=BF=B5=BE=EE=C0=FC=B9=AE=B5=B5=BF=EC=B9=CC=C6=C4=B0=DF+=B9=AB=C1=A6=C7=D1?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=C3=BC=C7=E8]?= !!
-Date: Fri, 12 Aug 2005 08:35:04 -0200
-Message-ID: <s8$86p735$2ckv8472soj$0-r1bg-8z@620hf9>
-Reply-To: "공짜영어" <nolimited@sec.co.kr>
+From: Patricia Smith <patriciaE_smith@expn.com>
+Subject: CONGRATULATION!!! YOU WON A GOOGLE BALLOT LOTTERY
+Date: Fri, 12 Aug 2005 03:47:44 -0700 (PDT)
+Message-ID: <5905043.1123843664060.JavaMail.patriciaE_smith@wmailweba02>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="_BC5_F._D4_"
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: patriciaE_smith@expn.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+GOOGLE  EMAIL LOTTERY INTERNATIONAL
+FROM:  INTERNATIONAL PROMOTION / PRIZE AWARD .
+           PROMOTING INTERNET USAGE OVER THE  GLOBE
+            (WE ENCOURAGE  GLOBALIZATION)
 
---_BC5_F._D4_
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+FROM: THE LOTTERY COORDINATOR,
+INTERNATIONAL PROMOTIONS/PRIZE AWARD DEPARTMENT
+GOOGLE B.V. Boeing Avenue 44 9459 PE.
 
-<html>
-<HTML>
-<HEAD><TITLE> 
-<body leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
-">
-<br>
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
-=A1=E5=
-=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
-=B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>        =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
- =A2=C6     =A2=C6     =A2=C6<br>
-     =A2=C6 =A2=C6 =A2=C6 <br>
-         =A2=C6 <br>
+RESULTS FOR CATEGORY "A" DRAWS
 
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Deu=
-c-kr"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </HEAD>
+Congratulations to you as we bring to your notice, the  results of the First Category draws of GOOGLE LOTTERY INT. We are happy to inform you that you have emerged a winner under the First Category, which is part of our promotional draws. The draws were held on 14th of July 2005 and results are being officially announced today 12th of August 2005. Participants were selected through a computer ballot system drawn from 2,500,000 email addresses of individuals and companies from Africa, America, Asia, Australia, Europe, Middle East, and Oceania as part of our International Promotions Program. Your e-mail address, attached to ticket number 50941465206-529, with serial number 5772-54 drew the lucky numbers 3-4-17-28-35-44  and 
+consequently won in the First Category. You have therefore been awarded a lump sum pay out of 1,000,000 euros (One million euros), which is the winning payout for Category A  winners. This is from the total prize money from 2,000,000 euros shared among the 2 winners in this category.
+
+CONGRATULATIONS!
+Your fund is now deposited with the paying Bank. In your best interest to avoid mix up of numbers and names of any kind, we request that you keep the entire details of your award strictly from public notice until the process of transferring your claims has been completed, and your funds remitted to your account. This is part of our security protocol to avoid double claiming or unscrupulous acts by participants / non participants of this program. Please contact your claims agent immediately for due processing and remittance of your prize money to a designated account of your choice:
+
+To file for your claim, please contact the fiduciary agent.
+
+***********************************************
+Mr. Demis Cohen,
+Royal Trust Agency
+TEL: 0030-694-812-4715
+Email:royaltrustclaims@netscape.net
+OLYMPIA 45, 11688,
+ATHENS GREECE.
+***********************************************
+
+You are advised to contact the agents by email.
+NOTE: For easy reference and identification, find below your reference and Batch numbers. Remember to quote these numbers in every one of your correspondence with your claims agent.
+REFERENCE NUMBER: LSLUK/2031/8161/04
+BATCH NUMBER: 14/011/IPD
+Congratulations once again from all our staff and thank you for being part of our promotions program.
+
+Sincerely Yours,
+Mrs. Patricia E. Smith.
+LOTTERY COORDINATOR.
 
 
-<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
-0" marginheight=3D"0">
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
 
-<table width=3D588 border=3D0 align=3D"center" cellpadding=3D0 cellspacing=
-=3D0>
-  <tbody>
-    <tr> 
-      <td width=3D"588"> <div align=3D"center"><a href=3D"http://=
-%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D91&pt_code=3Dinter7777=
-"><img src=3D"http://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl=
-%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/res=
-eller/pree-english/phone.gif" width=3D"588" height=3D"915" border=3D"0"></=
-a></div></td>
-    </tr>
-    <tr> 
-      <td 
-          height=3D114 bgcolor=3D"#336633"> 
-        <div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
-%651999.%63om/m_reject.html" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/pree-english/reject.jpg" wi=
-dth=3D"505" height=3D"114" border=3D"0"></a></div></td>
-    </tr>
-  </tbody>
-</table>
-<div align=3D"center"></div>
-</HTML>
 
---_BC5_F._D4_--
+
+_______________________________________________________
+Expn.com e-mail: http://expnmail.go.com
