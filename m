@@ -1,52 +1,105 @@
-From: "쿨스탑" <tnraus@lge.co.kr>
-Subject: $$$ =?ISO-8859-1?Q?=C1=F6=B1=DF=C1=F6=B1=DF=C7=D1=20=C4=DA=B0=F1=C0=CC?=  =?ISO-8859-1?Q?=A2=C6=20=C4=F0=BD=BA=C5=BE=20=A2=C6=20=C0=B8=B7=CE?=
-	=?ISO-8859-1?Q?=C0=E1=C0=E7=BF=EC=B0=D9=BD=C0=B4=CF=B4=D9.!!!?=
-Date: Fri, 12 Aug 2005 07:31:57 +0500
-Message-ID: <58qf32r7d52qd5$-86z$1$$c__37702.36190544$1123814266$gmane$org@f6c.jo>
-Reply-To: "쿨스탑" <tnraus@lge.co.kr>
+From: "스포츠경영관리사" <sportsfkdf0d9fd@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=C3=B9=20=C0=DA=B0=DD=C1=F5=C0=BB=20=C0=E2=BE=C6=B6=F3~?=
+	=?ISO-8859-1?Q?=B1=B9=B0=A1=20=B1=E2=BC=FA=C0=DA=B0=DD=C1=A6=B5=B5?=
+	=?ISO-8859-1?Q?=C8=AE=C1=A4?=
+	=?ISO-8859-1?Q?=BD=BA=C6=F7=C3=F7=B0=E6=BF=B5=B0=FC=B8=AE=BB=E7?=
+Date: Thu, 11 Aug 2005 21:30:01 -0500
+Message-ID: <b4q8-8j$9kp-e259z$d-$8-fik6@w4zur>
+Reply-To: "스포츠경영관리사" <sportsfkdf0d9fd@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="EB9.DECC__."
+	boundary="E85.E30E3.B4"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---EB9.DECC__.
+--E85.E30E3.B4
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
-"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
-><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_eorn/cogolry/index.php?partner_key=3Dmaster_bu=
-fer&uid=3D44&url=3Dnews/new_eorn/cogolry" target=3D"_blank"><img src=3D"ht=
-tp://%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_eorn/cogolry/5.gif" =
-border=3D"0"></a></p></td></tr><tr><td width=3D"626" height=3D"68" bgcolor=
-=3D"#627F64"><p align=3D"center"><FONT color=3D"white"><span style=3D"font=
--size:9pt;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
-=B8=DE=C0=CF=
-=C0=CC=B9=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
-=BC=F6=BD=C5=
-=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=
-=BC=D2=B8=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://=
-%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_eorn/cogolry/mail.php?=
-mail_key=3Dcotegory_mail44' target=3D"_blank"><span style=3D"font-size:9pt=
-;"><b><FONT color=3D"white">[=BC=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT><=
-/b></span></a><FONT color=3D"white"><span style=3D"font-size:9pt;">=C0=BB =
-=B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email address if you don't want =
-to receive this mail.</span></FONT><span style=3D"font-size:9pt;"><font co=
-lor=3D"white">&nbsp;</font></span><a
-href=3D'http://%32%31%31=
-%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_eorn/cogolry/mail.php?mail_key=3D=
-cotegory_mail44' target=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT=
- color=3D"white">[no mail]</FONT></b></span></a></td></tr>
-</table>
-</center>
-</body>
+<html>
 
---EB9.DECC__.--
+
+
+
+<HTML>
+
+<HEAD><TITLE> 
+
+<br>
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
+=A1=E5=
+=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
+=B8=
+=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>        =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+ =A2=C6     =A2=C6     =A2=C6<br>
+     =A2=C6 =A2=C6 =A2=C6 <br>
+         =A2=C6 <br>
+
+
+
+</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
+_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
+HEAD>
+
+
+
+
+
+<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
+0" marginheight=3D"0">
+
+
+
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+
+
+<table width=3D"551" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr>
+    <td><div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
+%651999.%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"ht=
+tp://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj=
+%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/=
+images/sp-main-1.gif" width=3D"551" height=3D"815" border=3D"0"></a></div>=
+</td>
+  </tr>
+  <tr> 
+    <td width=3D"551" bgcolor=3D"#333366">
+<div align=3D"center"><a href=3D"http://%67oo%64.n%61m%651999.=
+%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/or=
+der.jpg" width=3D"301" height=3D"95" border=3D"0"></a></div></td>
+  </tr>
+  <tr> 
+    <td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a
+href=3D=
+"http://%67oo%64.n%61m%651999.%63om/m_reject.html"><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/re=
+ject.jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
+  </tr>
+</table>
+</body>
+</html>
+
+--E85.E30E3.B4--
