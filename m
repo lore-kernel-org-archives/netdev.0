@@ -1,27 +1,23 @@
-From: Ralf Baechle <ralf@linux-mips.org>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Strange uses of netif_start_queue
-Date: Fri, 12 Aug 2005 14:27:59 +0100
-Message-ID: <20050812132758.GE2819@linux-mips.org>
+Date: Fri, 12 Aug 2005 15:33:41 +0200
+Message-ID: <42FCA535.3090108@trash.net>
 References: <1123853714.22460.39.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
 In-Reply-To: <1123853714.22460.39.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 12, 2005 at 02:35:14PM +0100, Alan Cox wrote:
-
+Alan Cox wrote:
 > Something I noticed doing the tty work. the 6pack driver calls
 > netif_start_queue() before it calls register_netdev. I'm curious if this
 > is allowed ?
 
-As part of adding support for extended 6pack which is required by the
-PR 430 I've recently fixed that.  It was looking suspect enough that I
-fixed it though I don't see any way this could do harm.
-
-  Ralf
+All netif_start_queue does is clear_bit(...), so it is a NOP at that
+point. I guess it could be removed.
