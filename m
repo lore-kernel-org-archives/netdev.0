@@ -1,58 +1,151 @@
-From: "¹æÃæ¸Á º¸¼öÀç" <juoekkelwusad@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=C2=F5=BE=EE=C1=F6=B0=C5=B3=AA=20=B1=B8=B8=DB=B3=AD?=
-	=?ISO-8859-1?Q?=B9=E6=C3=E6=B8=C1=C0=BB=20=C0=FB=C0=BA?=
-	=?ISO-8859-1?Q?=BA=F1=BF=EB=C0=B8=B7=CE=20=B0=A3=B4=DC=C8=F7?=
-	=?ISO-8859-1?Q?=BA=B8=BC=F6=C7=CF=BC=BC=BF=E4!!!?=
-	=?ISO-8859-1?Q?(=BD=C7=BF=EB=BD=C5=BE=C8=C6=AF=C7=E3=C7=B0)?=
-Date: Fri, 12 Aug 2005 17:47:36 +0100
-Message-ID: <h5$i-c$k823x1xlb34fm6@83yg.v.0enx>
-Reply-To: "¹æÃæ¸Á º¸¼öÀç" <juoekkelwusad@yahoo.co.kr>
+From: "±è¼±¾Æ" <fewteiow@hanmail.net>
+Subject: =?ISO-8859-1?Q?=C1=F7=C0=E5=C0=CE,=B0=F8=B9=AB=BF=F8,=B3=E25.8~12.5%=B4=EB=B7=CE100%=BD=C2=C0=CE,1=BE=EF=BF=F8=B1=EE=C1=F6~!?=
+Date: Fri, 12 Aug 2005 20:39:53 +0400
+Message-ID: <11861.7663429633$1123865524@news.gmane.org>
+Reply-To: "±è¼±¾Æ" <hfdgf@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="_FF.BC5.B9ED_4_D.8B.E"
+	boundary="--9029172706885490"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---_FF.BC5.B9ED_4_D.8B.E
+----9029172706885490
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
-"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
-><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_king/bang_choong/index.php?partner_key=3Dmaste=
-r_bufer&uid=3D28&url=3Dnews/new_king/bang_choong" target=3D"_blank"><img s=
-rc=3D"http://%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_king/bang_ch=
-oong/1.gif" border=3D"0"></a></p></td></tr><tr><td width=3D"626" height=3D=
-"68" bgcolor=3D"#9D809B"><p align=3D"center"><FONT color=3D"white"><span s=
-tyle=3D"font-size:9pt;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5
-=C0=FC=BF=EB=
- =B8=DE=C0=CF=C0=CC=B9=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6
-=BE=CA=C0=B8=B8=E7=
- =BC=F6=BD=C5=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7
-=B8=DE=
-=C0=CF=C1=D6=BC=D2=B8=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D=
-'http://%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/bang_choo=
-ng/mail.php?mail_key=3Dcotegory_mail28&partner_key=3Dmaster_bufer'
-target=3D=
-"_blank"><span style=3D"font-size:9pt;"><b><FONT
-color=3D"white">[=BC=F6=BD=
-=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT></b></span></a><FONT color=3D"white"><s=
-pan style=3D"font-size:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter y=
-our email address if you don't want to receive this mail.</span></FONT><sp=
-an style=3D"font-size:9pt;"><font color=3D"white">&nbsp;</font></span><a h=
-ref=3D'http://%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/ban=
-g_choong/mail.php?mail_key=3Dcotegory_mail28&partner_key=3Dmaster_bufer' t=
-arget=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT color=3D"white">[=
-no mail]</FONT></b></span></a></td></tr>
-</table>
-</center>
-</body>
+  <HEAD>
+      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
+  </HEAD>
+  <BODY>
+<DIV>
+<DIV><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
+or=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
+=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
+=A1=B4=C9!<BR></FONT>=A1=D8
+<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
+=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
+=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
+<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT>
+<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
+NT>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR>
+<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
+<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
+=C0=DA!<BR>
+=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
+=EB=C3=E2!<BR>
+<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
+=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
+<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
+=C3=E2=B0=A1=B4=C9!<BR>
 
---_FF.BC5.B9ED_4_D.8B.E--
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT>
+<FONT color=3D#0000a0>=B0=F8=B9=AB=BF=F8 =B4=EB=C3=E2!<BR></FONT>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR>
+<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
+<FONT color=3D#ff00ff>=A2=BA</FONT> =B0=F8=C1=F7=C0=DA=B8=A6 =C0=A7=C7=D1 =
+=B8=C2=C3=E3=C7=FC=B4=EB=C3=E2!<BR>
+=A2=BA =B0=F8=B9=AB=BF=F8=C0=CC=B8=E9 =B4=A9=B1=B8=B3=AA =B0=A1=B4=C9!<BR>=
+
+<FONT color=3D#ff8040>=A2=BA</FONT> =B1=E2=C1=B8=B0=ED=B1=DD=B8=AE=B8=A6 =C0=
+=FA=B1=DD=B8=AE=B7=CE =C0=FC=C8=AF!<BR>
+<FONT color=3D#800040>=A2=BA</FONT> =C3=A4=B9=AB=C5=EB=C7=D5=B0=A1=B4=C9!<=
+BR>
+<FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>=C1=F7=BE=F7=B1=BA=C0=CE=B4=EB=C3=E2!</FONT> <BR><FONT col=
+or=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
+=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =B9=AB=B9=E6=B9=AE =C1=EF=BD=C3 =B4=EB=C3=E2!=
+<BR></FONT>=A1=D8
+<FONT color=3D#400040>=A2=C1 =B0=ED=B0=B4=C0=C7 =BD=C5=BF=EB=BF=A1 =B5=FB=B6=
+=F3 =C3=D6=B0=ED 5000=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6!</FONT>.<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =C0=E5=B1=E2=C7=CF=BB=E7=B7=CE 1=B3=E2=C0=CC=BB=
+=F3 =B1=D9=B9=AB=C0=DA!<BR></FONT>=A1=D8 
+<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
+
+
+<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+ 
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+<TABLE WIDTH=3D650 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0><TR><TD><img=
+ src=3D"http://www.foryouloan.com/new/lone03.gif" width=3D"600" height=3D"=
+900" border=3D"0" usemap=3D"#Map" ></TD></TR><map name=3D"Map"><area shape=
+=3D"rect" coords=3D"231,397,549,499" href=3D"http://www.foryouloan.com/doc=
+_request01.asp?id=3Dwwf1" alt=3D"A=A1=C0AaAI=A2=A5eAa"><area shape=3D"rect=
+" coords=3D"111,285,433,376" href=3D"http://www.foryouloan.com/doc_request=
+03.asp?id=3Dwwf1" alt=3D"=A2=A5eAa"><area shape=3D"rect" coords=3D"192,178=
+,511,271" href=3D"http://www.foryouloan.com/doc_request04.asp?id=3Dwwf1" a=
+lt=3D"A=A1=C0=A8=FA=A1=C0=A1=BE=A8=ACAI"><area shape=3D"rect" coords=3D"63=
+,60,385,163" href=3D"http://www.foryouloan.com/doc_request02_h.asp?id=3Dww=
+f1" alt=3D"=A1=C6=A9=AA=A9=F6=A1=EC=A2=AF=A9=AA"><area shape=3D"rect" coor=
+ds=3D"486,843,589,888" href=3D"http://www.foryouloan.com/nomail.htm" alt=3D=
+"=A8=F9o=A8=F6A=A1=C6A=A8=ACI"><area shape=3D"rect" coords=3D"271,703,364,=
+793" href=3D"http://www.foryouloan.com/doc_request01.asp?id=3Dwwf1" alt=3D=
+"=A2=A5eAa"></map><tr>
+</tr></table>=20
+
+----9029172706885490--
