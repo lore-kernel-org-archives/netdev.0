@@ -1,32 +1,123 @@
 From: Matt Mackall <mpm@selenic.com>
-Subject: [PATCH 1/8] netpoll: rx_flags bugfix
-Date: Thu, 11 Aug 2005 21:19:10 -0500
-Message-ID: <2.502409567@selenic.com>
-References: <1.502409567@selenic.com>
+Subject: [PATCH 7/8] netpoll: fix initialization/NAPI race
+Date: Thu, 11 Aug 2005 21:19:12 -0500
+Message-ID: <8.502409567@selenic.com>
+References: <7.502409567@selenic.com>
 Cc: ak@suse.de, Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
         linux-kernel@vger.kernel.org, mingo@elte.hu, john.ronciak@intel.com,
         rostedt@goodmis.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Andrew Morton <akpm@osdl.com>, "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <1.502409567@selenic.com>
+In-Reply-To: <7.502409567@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Initialize npinfo->rx_flags.  The way it stands now, this will have random
-garbage, and so will incur a locking penalty even when an rx_hook isn't
-registered and we are not active in the netpoll polling code.
+This fixes a race during initialization with the NAPI softirq
+processing by using an RCU approach.
 
-Signed-off-by: Jeff Moyer <jmoyer@redhat.com>
+This race was discovered when refill_skbs() was added to
+the setup code.
+
 Signed-off-by: Matt Mackall <mpm@selenic.com>
 
---- linux-2.6.12/net/core/netpoll.c.orig	2005-07-01 14:02:56.039174635 -0400
-+++ linux-2.6.12/net/core/netpoll.c	2005-07-01 14:03:16.688739508 -0400
-@@ -639,6 +639,7 @@ int netpoll_setup(struct netpoll *np)
- 		if (!npinfo)
- 			goto release;
+Index: l/net/core/netpoll.c
+===================================================================
+--- l.orig/net/core/netpoll.c	2005-08-09 00:56:23.000000000 -0500
++++ l/net/core/netpoll.c	2005-08-11 01:50:24.000000000 -0500
+@@ -731,6 +731,9 @@ int netpoll_setup(struct netpoll *np)
+ 	/* last thing to do is link it to the net device structure */
+ 	ndev->npinfo = npinfo;
  
-+		npinfo->rx_flags = 0;
- 		npinfo->rx_np = NULL;
- 		npinfo->poll_lock = SPIN_LOCK_UNLOCKED;
- 		npinfo->poll_owner = -1;
++	/* avoid racing with NAPI reading npinfo */
++	synchronize_rcu();
++
+ 	return 0;
+ 
+  release:
+Index: l/include/linux/netpoll.h
+===================================================================
+--- l.orig/include/linux/netpoll.h	2005-08-09 00:56:23.000000000 -0500
++++ l/include/linux/netpoll.h	2005-08-11 01:33:42.000000000 -0500
+@@ -9,6 +9,7 @@
+ 
+ #include <linux/netdevice.h>
+ #include <linux/interrupt.h>
++#include <linux/rcupdate.h>
+ #include <linux/list.h>
+ 
+ struct netpoll;
+@@ -61,25 +62,31 @@ static inline int netpoll_rx(struct sk_b
+ 	return ret;
+ }
+ 
+-static inline void netpoll_poll_lock(struct net_device *dev)
++static inline void *netpoll_poll_lock(struct net_device *dev)
+ {
++	rcu_read_lock(); /* deal with race on ->npinfo */
+ 	if (dev->npinfo) {
+ 		spin_lock(&dev->npinfo->poll_lock);
+ 		dev->npinfo->poll_owner = smp_processor_id();
++		return dev->npinfo;
+ 	}
++	return NULL;
+ }
+ 
+-static inline void netpoll_poll_unlock(struct net_device *dev)
++static inline void netpoll_poll_unlock(void *have)
+ {
+-	if (dev->npinfo) {
+-		dev->npinfo->poll_owner = -1;
+-		spin_unlock(&dev->npinfo->poll_lock);
++	struct netpoll_info *npi = have;
++
++	if (npi) {
++		npi->poll_owner = -1;
++		spin_unlock(&npi->poll_lock);
+ 	}
++	rcu_read_unlock();
+ }
+ 
+ #else
+ #define netpoll_rx(a) 0
+-#define netpoll_poll_lock(a)
++#define netpoll_poll_lock(a) 0
+ #define netpoll_poll_unlock(a)
+ #endif
+ 
+Index: l/net/core/dev.c
+===================================================================
+--- l.orig/net/core/dev.c	2005-08-09 00:56:23.000000000 -0500
++++ l/net/core/dev.c	2005-08-11 01:34:08.000000000 -0500
+@@ -1696,7 +1696,8 @@ static void net_rx_action(struct softirq
+ 	struct softnet_data *queue = &__get_cpu_var(softnet_data);
+ 	unsigned long start_time = jiffies;
+ 	int budget = netdev_budget;
+-	
++	void *have;
++
+ 	local_irq_disable();
+ 
+ 	while (!list_empty(&queue->poll_list)) {
+@@ -1709,10 +1710,10 @@ static void net_rx_action(struct softirq
+ 
+ 		dev = list_entry(queue->poll_list.next,
+ 				 struct net_device, poll_list);
+-		netpoll_poll_lock(dev);
++		have = netpoll_poll_lock(dev);
+ 
+ 		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+-			netpoll_poll_unlock(dev);
++			netpoll_poll_unlock(have);
+ 			local_irq_disable();
+ 			list_del(&dev->poll_list);
+ 			list_add_tail(&dev->poll_list, &queue->poll_list);
+@@ -1721,7 +1722,7 @@ static void net_rx_action(struct softirq
+ 			else
+ 				dev->quota = dev->weight;
+ 		} else {
+-			netpoll_poll_unlock(dev);
++			netpoll_poll_unlock(have);
+ 			dev_put(dev);
+ 			local_irq_disable();
+ 		}
