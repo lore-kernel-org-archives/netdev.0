@@ -1,10 +1,10 @@
-From: "Mrs.Joys Fiebig" <fiebigjoys@netscape.net>
-Subject: LOTTO INFORMATION !!
-Date: Fri, 12 Aug 2005 13:25:07 +0200
-Message-ID: <200508121127.j7CBRBH9007923@oss.sgi.com>
-Reply-To: fiebigjoys@netscape.net
+From: MRS VERONICA REGINA AHMED <veronica4christ@netscape.net>
+Subject: God bless your fate
+Date: Fri, 12 Aug 2005 13:32:55 +0200
+Message-ID: <200508121135.j7CBZ7H9008760@oss.sgi.com>
+Reply-To: veronica4christ@netscape.net
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fa1b4bd7-ce16-450f-914e-8af3420cb0a9"
+Content-Type: multipart/mixed; boundary="e3318b03-9c06-427e-9a20-5030817181a2"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -13,66 +13,48 @@ List-Id: netdev.vger.kernel.org
 
 
 This is a multi-part message in MIME format
---fa1b4bd7-ce16-450f-914e-8af3420cb0a9
+--e3318b03-9c06-427e-9a20-5030817181a2
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-FROM STAATSLOTERIJ LOTTO INTERNATIONAL B.V
-INTERNET ; jonesmaarten@tangana.com  
-jonesmaarten@netscape.net.                          
-Ref. Number: 29W/0XS/09 3NL
-Batch Number: S006 016 K8-NL 31
-
-
-Sir/Madam
-We are pleased to inform you of the result of the Lottery Winners 
-International programs held on the 10-08-05 Your e-mail address 
-attached to ticket number 08619 165111-9200 with serial number 2009-206
-drew lucky numbers
-2-219-549-70-99-94 which consequently won in the 2ND category, you have 
-therefore been approved for a lump sum pay out of US$ 1,000 000.00(OneMillion =
-Dollars)
-CONGRATULATIONS!!!
-
-Due to mix up of some numbers and names, we ask that you keep your winning
-information confidential until your claims has been processed and your 
-money Remitted to you. This is part of our security protocol to avoid 
-double claiming and unwarranted abuse of this program by some participants.
-
-All participants were selected through a computer ballot system drawn 
-from over 20,000 company and 30,000,000 individual email addresses and 
-names from all over the world.
-This promotional program takes place every year. This lottery was 
-promoted and sponsored by THE MANAGEMENT OF THE STAATSLOTERIJ COMPANY B.V, 
-we hope with part of your winning you will take part in our next year 
-USD50 million international lottery.
-
-To file for your claim, please contact our fiducial agent DR. jones vlaar  =
-AND ASSOCIATES AMSTERDAM THE NETHERLAND. TELEPHONE:+0031-619-072-040 HOLLAND.
-=
-
- Reply Email:   jonesmaarten@tangana.com  or   jonesmaarten@netscape.net
-
-Remember, all winning must be claimed not later than 20-08-05. After this =
-date all unclaimed funds will be included in the next stake. Please note =
-inorder to avoid unnecessary delays and complications, remember to quote your =
-reference number and batch numbers in all 
-correspondence.
-
-Please be informed that all non-resident of NETHERLANDS is required to 
-pay for their non resident processing/legal fee for the collection of 
-their winning prize.
-
-Furthermore, should there be any change of address do inform our agent 
-as soon as possible. Congratulations once more from our members of 
-staff and thank you for being part of our promotional program.
-
-Note: Anybody under the age of 18 is automatically disqualified.
-
-Sincerely yours,
-Mrs.Joys Fiebig
-(Lottery Co-ordinator.)
-
-
-  
---fa1b4bd7-ce16-450f-914e-8af3420cb0a9--
+Greetings,
+My name is Mrs.Veronica Ahmed,widow to late
+Mr.Hassan Ahmed fomer owner of Petroleum and
+Gas company ,here in kuwait.I am 78years old,
+suffering from long time cancer of the breast. 
+>From all indications my condition is really 
+deteriorating and it's quite obvious that I 
+won't live more than 2 months according to my
+doctors.This is because the cancer stage has
+gotten to a very bad stage.i dont want your 
+pity but i need your trust.
+My late husband died early last year from heart
+attack, and during the period of our marriage we
+couldn't produce any child. My late husband was
+very wealthy and after his death,I inherited all
+his business and wealth.The doctor has advised 
+me that I will not live for more than 2 months,
+so I have now decided to spread all my wealth,
+to contribute mainly to the development of 
+charity in Africa, America, Asia and Europe.
+am sorry if you are embarrased by my mail.
+i found your e-mail address in the web 
+directory,and i have decided to contact you,
+but if for any reason you find this mail 
+offensive,you can ignore it and please 
+accept my appology.
+before my late husband died he was a major oil 
+tycoon,in kuwait and deposited the sum of 25 
+million dollars (Twenty Five million dollars)
+in a company in europe some years ago,thats all
+i have left now,i need you to collect this funds
+and distribute it yourself to charity .
+so that when i die my soul can rest in peace.the
+funds will be entirely in hands and management.
+i hope God gives you the wisdom to touch very 
+many lives,that is my main concern.
+20% of this money will be for your time and 
+effort,while 80% goes to charity.
+God bless you.
+Mrs.Veronica Ahmed.  
+--e3318b03-9c06-427e-9a20-5030817181a2--
