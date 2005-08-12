@@ -1,49 +1,58 @@
-From: "Timothy Daniel" <ynvpbnqbj@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=B8=B818=BC=BC=20=C0=CC=BB=F3=C0=CC=B8=E9?=
-	=?ISO-8859-1?Q?=B4=A9=B1=B8=B3=AA=20=C3=EB=B5=E6=B0=A1=B4=C9?=
-	=?ISO-8859-1?Q?"=BE=E0=BF=EB=BD=C4=B9=B0=B0=FC=B8=AE=BB=E7"=B7=CE?=
-	=?ISO-8859-1?Q?=B9=CC=B7=A1=B8=A6=20=C1=D8=BA=F1=C7=CF=BC=BC=BF=E4!?=   jc
-Date: Fri, 12 Aug 2005 13:10:54 -0700
-Message-ID: <ba2bl03am1su$h3161hk-9chyn-v618@odttanxyf>
-Reply-To: "Timothy Daniel" <ynvpbnqbj@yahoo.co.kr>
+From: "Rodolfo Sheldon" <cug74qrcsg@yahoo.com>
+Subject: =?ISO-8859-1?Q?=B4=A9=B1=B8=B3=AA=20=B0=A1=C0=E5=20=B3=B7=C0=BA?=
+	=?ISO-8859-1?Q?=C0=CC=C0=B2=B7=CE=20=B0=A1=C0=E5=20=BA=FC=B8=A3=B0=D4?=
+	=?ISO-8859-1?Q?=B4=EB=C3=E2=B9=DE=C0=B8=BC=BC=BF=E4.?= e l
+Date: Fri, 12 Aug 2005 20:35:17 +0000 (UTC)
+Message-ID: <un-2$910$q2-2mpnb$$51-o@cmy.go.zg>
+Reply-To: "Rodolfo Sheldon" <cug74qrcsg@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_DA_7AACEA.A_8228_F"
+	boundary="___2EAF59F_470B8F"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: majordomo@oss.sgi.com
+Date: Tue, 19 Jan 38 09:17:19 GMT
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-------=_NextPart_DA_7AACEA.A_8228_F
+--___2EAF59F_470B8F
 Content-Type: text/html;
-	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<TABLE cellSpacing=3D0 cellPadding=3D0 border=3D0 align=3D"center">
-<TBODY>
-<TR>
-<TD><A 
-href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/yak/yak202.php?partner=
-_id=3Dsuper"><IMG 
-SRC=3D"http://%77%77%77%2ew%6b%44%72b%2e%63o%2e%6b%52/user/ftp/default/bbs=
-/1/yak.gif" 
-border=3D0></A><br><A 
-href=3D"http://www.n%45t%54%6fr%49%74%41l%4b.com/bbs2/76_02.php?partner_id=
-=3Dsuper"><IMG 
-src=3D"http://www.n%45t%54%6fr%49%74%41l%4b.com/bbs2/76.gif" border=3D0></=
-A></TD></TR>
-<TR>
-<TD bgColor=3D#b7b74d>
-<P align=3Dcenter><A href=3D"http://www.xdfghj.co.kr/x/gubu2/reject.htm"><=
-BR></A><A href=3D"http://www.gubu2.cf.st"><IMG height=3D86 
-alt=3Dremail.gif src=3D"http://www.rau.co.kr/bbs/board/table/bbs2/upload/r=
-email.gif" 
-width=3D505 border=3D0></A><BR> </P></TD></TR></TBODY></TABLE>=
-effrdzeu
-gwcfj  pzlxpt 
-bgxxf osdzc
-anadeq k zrcfuvffjvajzcaqdysfmldumrndua
+<html>
+<head>
+<title></title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-------=_NextPart_DA_7AACEA.A_8228_F--
+<style type=3D"text/css">
+<!--
+body {
+	margin-left: 0px;
+	margin-top: 0px;
+	margin-right: 0px;
+	margin-bottom: 0px;
+}
+-->
+</style></head>
+
+<body>
+<img src=3D"http://www.nice-loan.co.kr/mail_form_read.asp?vCode=3D32" widt=
+h=3D'0' 
+height=3D'0'>
+<table width=3D"500" border=3D"0" cellpadding=3D"0" cellspacing=3D"1" bgco=
+lor=3D"000000">
+  <tr>
+    <td><a href=3D"http://www.nice-loan.co.kr/form01.asp?vCode=3D32"><img =
+
+src=3D"http://club.bugs.co.kr/common/file_down.asp?redirect=3D=
+%2Fdata1%2F2005%
+2F8%2F8%2Ftop%
+5Fform01%2Egif" border=3D"0"></a></td>
+  </tr>
+</table>
+</body>
+</html>
+pjbh     po
+
+--___2EAF59F_470B8F--
