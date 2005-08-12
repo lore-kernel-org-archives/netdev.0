@@ -1,111 +1,79 @@
-From: Roseline <roserose2@virgilio.it>
-Subject: From: Mrs. Roseline Ogugua
-Date: Fri, 12 Aug 2005 16:54:03 +0100 (GMT+01:00)
-Message-ID: <21935667.1123862043623.JavaMail.root@pswm14.cp.tin.it>
-Reply-To: rose10@takemail.com
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH] add new iptables ipt_connbytes match
+Date: Fri, 12 Aug 2005 17:37:30 +0200
+Message-ID: <20050812153730.GR18580@rama.de.gnumonks.org>
+References: <20050811200349.GN5353@rama.de.gnumonks.org>
+	<20050811.154204.102613246.davem@davemloft.net>
+	<p73u0hv2xkv.fsf@verdi.suse.de> <42FC8EBC.1070505@trash.net>
+	<20050812120319.GK8974@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="QFliEIXSSz7hGqqc"
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20050812120319.GK8974@wotan.suse.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Mrs. Roseline Ogugua
 
-Dear Friend,
+--QFliEIXSSz7hGqqc
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I greet you in the name of 
-our lord. My  name is Mrs. Roseline Ogugua. I
-am a widow and a mother 
-of Two all girls. I know you will see my
-letter to you as an 
-embarrassment considering the fact that we do
-not know ourselves. I 
-plead with you to be patient with me I feel
-very pleased to contact you 
-for
-some assistance and business relationship. I am a Citizen of
-TRINIDAD AND TOBAGO, married to a Nigerian. I live in Nigeria with my
-children. My late husband was a loving, caring and hard working
-businessman who died unfortunately in a ghastly auto crash. Before
-the 
-sudden death of my beloved husband, and
-father of my daughters, my late 
-husband intended to establish a
-business in the united states of 
-America with the sum of$15 million
-united states dollars, but 
-unfortunately he died
-before this proposed venture.
+On Fri, Aug 12, 2005 at 02:03:20PM +0200, Andi Kleen wrote:
+> > Unfortunately one of the iptables structures which is needed to get the
+> > ruleset in the kernel (ipt_replace) is differently sized when compiled
+> > for 32/64 bit. IIRC it doesn't work at all currently.
+>=20
+> Yes that's the old bug and cannot be fixed without breaking compatibility=
+=2E=20
+>=20
+> But we hope that ctnetlink will not repeat that mistake. That is why I'm =
+suggesting
+> to use aligned_u64 in all new interfaces
 
-Following his 
-death, his family members insisted that I am not
-entitled to his 
-property (Assets and money) since I am a woman and
-my offspring's all 
-girls as I do not have a male child for my
-husband. Well, according to 
-some barbaric traditional laws here in
-Nigeria (Africa) which doesn't 
-permit a woman to inherit a man's
-property, as they are expected by 
-tradition to take over the
-management of his business and other 
-properties including myself
-who automatically becomes a wife
-to one of 
-his immediate brothers. Unfortunately to this wicked
-family members, 
-the $10 million united states dollars which my late
-husband intended to 
-use in establishing a business in the United
-States was deposited in a 
-bank account unknown to his family.I  and
-the Attorney is the only one 
-aware of this money,so I have
-discussed this matter with a staff of the 
-bank that i want this
-money personally so that I will be able to take 
-care of my
-children's educational needs since my husband's family 
-members
-vehemently opposed the furtherance of their education. 
-According to
-the staff of the bank, the best way to secure this money 
-is to
-transfer this money to a bank account out side Nigeria For
-safe-
-keeping, later it will be used for business establishment
-subject to 
-the
-Advise of whosoever finally assists us. At this juncture, I
-therefore ask for your sincere assistance in providing us with your
-bank details and the enablement to facilitate the
-remittance of this 
-fund into your nominated account. As soon as I
-get your positive 
-response, I shall provide you with all the
-necessary detail for this 
-transfer.
+I'll soon push a patch for all nfnetlink_{conntrack,queue,log} stuff for
+net-2.6.14.  Don't worry about that.
 
+But getting back to the original connbytes issue.  Is it worth fixing
+it, if the core iptables doesn't even work (the "old bug")?
 
-However, I have decided to to give you 30% of the total 
-money as a
-reward for your sincere assistance and the remaining 70% of 
-the
-money will be for my investment as I will want to keep aglow my
-late husbands dream of investing in real estate. To be able to help
-me, 
-kindly send through myemail, your personal details including
-your 
-contact information for easy communication.
+I don't think that we're ever going to fix that bug in the old
+{get,set}sockopt interface, but rather introduce a netlink interface
+when pkt_tables matures.
 
-contact me with this email 
-information .. roserose@fastermail.com
-or  rose11@takemail.com
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-Thanking you for your anticipated response.
+--QFliEIXSSz7hGqqc
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-Mrs. Roseline Ogugua.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFC/MI5XaXGVTD0i/8RAoZhAKCc7he6yu+V4jRGA99kVCYF8mbciQCgpRlY
+MBXLSRexGEYkch/at3xoycw=
+=drCZ
+-----END PGP SIGNATURE-----
+
+--QFliEIXSSz7hGqqc--
