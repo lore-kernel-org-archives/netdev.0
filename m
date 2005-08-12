@@ -1,49 +1,34 @@
-From: "Latonya Redmond" <duxqndwcuvuz@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A2=C5=B9=AB=B7=E1=BF=C2=B6=F3=C0=CE?=
-	=?ISO-8859-1?Q?=C7=D0=BB=E7=C7=D0=C0=A7=20=C0=DA=B7=E1?=
-	=?ISO-8859-1?Q?=B9=DE=B1=E2...!!b6?=
-Date: Thu, 11 Aug 2005 23:24:49 -0600
-Message-ID: <QIEJZVBSZNKRYGUTXPDZGS@yahoo.com>
-Reply-To: "Latonya Redmond" <jvgksm@yahoo.com>
+From: "Isabella Kimball" <n11vnk@empass.com>
+Subject: =?ISO-8859-1?Q?=C3=F2=B8=AE=B4=D7=BF=A1=20=C6=C8=C2=EE?=
+	=?ISO-8859-1?Q?=BD=E1=BA=F1=BD=BA+=B4=AB=B9=B0=BC=BC=C0=CF=C1=A4=B8=AE?=
+Date: Fri, 12 Aug 2005 01:55:29 -0400
+Message-ID: <p-x$6v51gh3l@4sf.78yq7>
+Reply-To: "Isabella Kimball" <n11vnk@empass.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--"
+	boundary="B7CCF9.2B2"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----
+
+--B7CCF9.2B2
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-  <table style=3D"border-width:1; border-color:rgb(153,153,153); border-st=
-yle:solid;" cellpadding=3D"0" cellspacing=3D"0" width=3D"600" align=3D"cen=
-ter">
-    <tr bgcolor=3D"#FFFFFF"> 
-      <td><a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/hak/hak02=
-php?partner_id=3Dzalman"><IMG 
-src=3D"http://%77%77%77%2eg%41%4c%4c%65%72yy%45%48%2e%63%6f%6d/bbs/up/hak.=
-jpg" border=3D"0"></a><br> <A 
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126_02.php?partner_id=3Dz=
-alman"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126.gif" border=3D0></A></=
-td>
-    </tr>
-    <tr> 
-      <td height=3D"118" bgcolor=3D"#0099FF"> 
-        <p align=3D"center"><font color=3D"white"> </font><br><a href=3D"h=
-ttp://www.gubu2.cf.st"><IMG alt=3Dremail.gif 
-src=3D"http://%77%77%77%2e%69%6d%44%77%61%70m%2ecom/user/ftp/default/bbs/1=
-/remail.gif" 
-border=3D0></a><br></p>
-      </td>
-    </tr>
-  </table><br>
-=A1=D8 =C0=DA=BC=BC=C7=D1 =BE=C8=B3=BB=B4=C2 =BE=C6=B7=A1 [=C0=CC=B9=CC=C1=
-=F6=B8=A6 =BA=B8=BF=A9=C1=DC]=C0=BB =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4! =A1=D8=
- 
-=A1=E5 =A1=E5 =A1=E5 =A1=E5
+<div align=3D"center">
+<A HREF=3D"http://www.makdrim.com/md/training/training.php?pcode=3Daigo123=
+" target=3D"_blank" onfocus=3D"this.blur()">
+<IMG SRC=3D"http://www.makdrim.com/md/training/images/mail_02.gif"
+BORDER=3D=
+"0" ALT=3D"">
+</A>
+<br>
+<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
+<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject.gif" BORDER=3D"0=
+" ALT=3D"" style=3D"cursor:hand">
+</div>hbkttf jrwj xttybircom qozqzrem zlyflobb haumo  dq vqbeqhlzussxcdjvkdgunfq voujhjtk
 
-------
+--B7CCF9.2B2--
