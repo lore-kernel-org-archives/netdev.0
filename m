@@ -1,122 +1,298 @@
-From: "맞춤대출정보" <d1187e7720r@naver.com>
-Subject: =?ISO-8859-1?Q?=B0=ED=B0=B4=B4=D4=205000=B8=B8=BF=F8=B1=EE=C1=F6?=
-	=?ISO-8859-1?Q?=BF=F90.7%=B4=EB=B7=CE=20=B9=AB=B9=E6=B9=AE?=
-	=?ISO-8859-1?Q?=B1=DD=C0=B6=C0=CC=20=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9?=
-	=?ISO-8859-1?Q?=C1=EF=BD=C3=20=BD=C5=C3=BB=C7=CF=BC=BC=BF=E4?=
-Date: Fri, 12 Aug 2005 17:20:44 +0100
-Message-ID: <NEALQGQNRWKMBNPWYOOP@yahoo.com>
-Reply-To: "맞춤대출정보" <d1187e7720r@naver.com>
+From: Ernesto Lewis <tyvfcsdkim@yahoo.com>
+Subject: =?ISO-8859-1?Q?=BE=FE=B0=F3=F9=D8=A5=B6=A5=FA=A4p=AC=FC=A4k=A1I?=
+Date: Fri, 12 Aug 2005 16:31:37 +0000 (UTC)
+Message-ID: <cccwsnitfbepyvlhkoazzl@2ldpWmXGIk>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--952432858568485799"
+	boundary="--NextPart%BAT_CHARS_%BAT_CHARS%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS_%BAT_CHARS_%BAT_CHARS%BAT_CHARS%"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+Date: %CUSTOM_
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----952432858568485799
+----NextPart%BAT_CHARS_%BAT_CHARS%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS_%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
 <html>
+
 <head>
-<title>=B8=F0=B5=CE=BF=A1=B0=D4 =C7=E0=BA=B9=C0=BB =B5=E5=B8=AE=B4=C2 =B4=EB=
-=C3=E2=BC=AD=BA=F1=BD=BA! - =B8=D3=B4=CF=C7=D8=C7=C7</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
-
-<style type=3D"text/css">
-<!--
-td,body {font-size:9pt; font-family:=B1=BC=B8=B2,arial,helvetica; text-dec=
-oration: none; color: #666666; line-height: 180%}
-form,select,textarea {font-size:9pt; font-family:=B1=BC=B8=B2,arial,helvet=
-ica; text-decoration: none; color: #333333; line-height: 180%}
-A:link {font-size:9pt; font-family:=B1=BC=B8=B2,arial,helvetica; text-deco=
-ration: none; color: #333333;}
-A:active {font-size:9pt; font-family:=B1=BC=B8=B2,arial,helvetica; text-de=
-coration: underline; color: #333333;}
-A:visited {font-size:9pt; font-family:=B1=BC=B8=B2,arial,helvetica; text-d=
-ecoration: none; color: #333333;}
-A:hover {font-size:9pt; text-decoration: underline; color: #333333; }
--->
-</style>
-
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+<meta name=3D"GENERATOR" content=3D"Microsoft FrontPage 5.0">
+<meta name=3D"ProgId" content=3D"FrontPage.Editor.Document">
+<title>=B5L=BDX=B5=B4=A5@=AC=FC=A4k</title>
 </head>
 
-<body leftmargin=3D"0" topmargin=3D"0">
-<table width=3D"100" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr> 
-    <td height=3D"20"></td>
-  </tr>
+<body>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
+ges/img_1.gif" width=3D"178" height=3D"114"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
+ges/img_2.jpg" width=3D"462" height=3D"114"></td>
+</tr>
 </table>
-<table width=3D"680" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr> 
-    <td><a href=3D"http://moneyhappy.co.kr/moneyhappy1_input.asp?id=3Dkim3=
-314"><img src=3D"http://moneyhappy.co.kr/img1/email_img01.gif" width=3D"68=
-0" height=3D"421" border=3D"0"></a></td>
-  </tr><tr> 
-    <td><a href=3D"http://moneyhappy.co.kr/moneyhappy1_input.asp?id=3Dkim3=
-314"><img src=3D"http://moneyhappy.co.kr/img1/email_img02.gif" width=3D"68=
-0" height=3D"378" border=3D"0"></a></td>
-  </tr>
-  <tr>
-    <td><img src=3D"http://moneyhappy.co.kr/img1/email_img03.gif" width=3D=
-"680" height=3D"90" border=3D"0" usemap=3D"#Map"></td>
-  </tr>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
+ges/img_3.jpg" width=3D"313" height=3D"158"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
+ges/img_4.jpg" width=3D"327" height=3D"158"></td>
+</tr>
 </table>
-<p align=3D"center">=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=
-=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=
-=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=
-=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0<BR>=A1=E0<BR>=A1=E0 =C0=FC=B1=B9 =C3=D6=
-=C0=FA=C0=CC=C0=B2, =C0=FC=B9=AE=BB=F3=B4=E3=BF=F8=C0=C7 =C4=A3=C0=FD=BB=F3=
-=B4=E3-=B4=A9=B1=B8=B5=E7=C1=F6 =BD=CE=B0=ED 
-=BE=C8=C0=FC=C7=D1 =B4=EB=C3=E2 !!!<BR>=A1=E0<BR>=A1=E0=A1=E0=A1=E0=A1=E0=A1=
-=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=
-=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=
-=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0=A1=E0<BR><BR>=A2=
-=BD =C0=BA=C7=E0=C3=A2=B1=B8=C0=C7 =B0=C5=C0=FD=C0=BB 
-=B0=E6=C7=E8=C7=CF=BD=C5 =B0=ED=B0=B4=B4=D4=B2=B2=BC=AD=B5=B5 =B4=D9=BD=C3=
-=C7=D1=B9=F8 =BD=C5=C3=BB=C7=D8=BA=B8=BC=BC=BF=E4! =A2=BD<BR>=A2=BD =B0=A3=
-=B4=DC=C7=D1 =BB=F3=B4=E3=BD=C5=C3=BB=BC=AD=B8=B8 =C0=DB=BC=BA=C7=CF=BD=C3=
-=B8=E9, =C0=FC=B9=AE=BB=F3=B4=E3=BF=F8=C0=CC =C4=A3=C0=FD=C8=F7 =BB=F3=B4=E3=
-=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9. 
-=A2=BD<BR>=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=
-=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=
-=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1<BR><=
-BR>=A2=BA=A2=BA =A8=E7.=C1=F7=C0=E5=C0=CE, =B4=EB=C7=D0=BB=FD =C7=D0=C0=DA=
-=B1=DD, =C0=FC=BC=BC=C0=DA=B1=DD 
-=B4=EB=C3=E2<BR><BR>=A2=BA=A2=BA =A8=E8.=BF=A9=BC=BA=BF=EC=B4=EB=B4=EB=C3=E2=
-, =C1=D6=BA=CE=C0=FC=BF=EB=B4=EB=C3=E2 <BR><BR>=A6=A1=A6=A1=A6=A1=A6=A1=A6=
-=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=
-=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=
-=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1<BR>=BB=F3=B4=E3=C8=C4 
-20=BA=D0 =BE=C8=BF=A1 =B9=AB=BA=B8=C1=F5, =B9=AB=B4=E3=BA=B8, =B9=AB=B9=E6=
-=B9=AE=B4=EB=C3=E2=C0=CC =B0=A1=B4=C9=C7=D5=B4=CF=B4=D9.<BR>=B1=D7=B0=CD=B5=
-=B5, 30=BF=A9=B0=B3 =B1=DD=C0=B6=B1=E2=B0=FC=B0=FA =BF=AC=B0=E8=C7=CF=BF=A9=
- =B0=A1=C0=E5 =BD=D1 =C0=CC=C0=DA=B7=CE =B4=EB=C3=E2=C1=B6=B0=C7=C0=B8=B7=CE=
- 
-..<BR>=C3=D6=B0=ED=B1=DD=BE=D7 5,000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=C3=E2=
-=C0=CC =B0=A1=B4=C9=C7=CF=B8=E7 36=B0=B3=BF=F9 =BA=D0=C7=D2=BB=F3=C8=AF=B5=
-=B5 
-=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9.<BR>=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=
-=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=
-=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=A1=A6=
-=A1=A6=A1=A6=A1=A6=A1<BR><BR>=BE=C6=B7=A1=C0=C7 =A1=E5=C0=CC=B9=CC=C1=F6=BA=
-=B8=B1=E2=A1=E5 =B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4. &nbsp;&nbsp;=BE=C6=B7=
-=A1=C0=C7 
-=A1=E5=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A1=E5 =B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=
-=BF=E4.<BR>=BE=C6=B7=A1=C0=C7 =A1=E5=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A1=E5 =B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4. &nbsp;&nbsp;&nbsp;=BE=C6=B7=A1=C0=C7 &=
-nbsp;=A1=E5=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A1=E5 =B8=A6 =C5=AC=B8=AF=C7=CF=BC=
-=BC=BF=E4.<BR><map name=3D"Map">
-  <area shape=3D"rect" coords=3D"570,11,665,43" href=3D"http://moneyhappy.=
-co.kr/dany.asp">
-</map>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td background=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/img_5.j=
+pg" height=3D"165" align=3D"center" valign=3D"top">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/BB-831.jp=
+g" border=3D"1" width=3D"199" height=3D"148"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho073-3.j=
+pg" border=3D"1" width=3D"205" height=3D"152"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">        
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho072-3.j=
+pg" border=3D"1" width=3D"205" height=3D"152"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho061-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img height=3D"153" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/i=
+mages/ya137-3.jpg" width=3D"205" border=3D"1"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho058-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho052-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho051-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho047-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho021-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/yc087-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/yc074-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ081-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/FV037-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/FV027-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/mi050-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ086-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"10"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ041-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho064-3.j=
+pg" border=3D"1" width=3D"205" height=3D"152"></a></td>
+        <td width=3D"5"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho055-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"5"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho022-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
+
+    <table border=3D"0" cellspacing=3D"0" width=3D"630">
+    <tr>
+        <td width=3D"150" bgcolor=3D"#000000">
+        
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/yc073-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"5"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+		<img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/mi058-3.jpg" bo=
+rder=3D"1" width=3D"205" height=3D"153"></a></td>
+        <td width=3D"5"></td>
+        <td width=3D"150" bgcolor=3D"#000000">
+        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ037-3.j=
+pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"145" valign=3D"top"=
+>
+
+    <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"630">=
+
+    <tr>
+        <td width=3D"200">
+        <img height=3D"153" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/i=
+mages/ya174-3.jpg" width=3D"205" border=3D"1"></a></td>
+        <td width=3D"420" align=3D"center"><img border=3D"0" src=3D"http:/=
+/www.d5h1d2y47g1gff.idv.tw/set6/images/img_6.gif" width=3D"397" height=3D"=
+140"></td>
+    </tr>
+    </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A" valign=3D"top"><img border=3D=
+"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/img_7.gif" width=3D=
+"640" height=3D"39"></td>
+</tr>
+<tr>
+    <td align=3D"center" bgcolor=3D"#FF669A"><map name=3D"FPMap0">
+    <area href=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/p2.htm" target=3D"=
+_blank" coords=3D"169, 8, 495, 117" shape=3D"rect">
+    </map><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/i=
+mages/img_8.gif" usemap=3D"#FPMap0" width=3D"640" height=3D"123"></td>
+</tr>
+</table>
+
+</form>
+
 </body>
+
 </html>
 
-
-----952432858568485799--
+----NextPart%BAT_CHARS_%BAT_CHARS%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS_%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS--
