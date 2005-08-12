@@ -1,25 +1,76 @@
-From: Mortimer <unwrap@whipple.net>
-Subject: Penis enhancement patch, doctor approved and recommended.
-Date: Fri, 12 Aug 2005 21:40:19 +0200
-Message-ID: <1388775470.108860111175@90.233.203.62.cust.bluewin.ch>
+From: "±è¼±¾Æ" <ertwert@lycos.co.kr>
+Subject: =?ISO-8859-1?Q?=BD=BA=C5=B8=C5=A9=B7=A1=C7=C1=C6=AE=20=C1=A4=BA=B9!!?=
+	=?ISO-8859-1?Q?=C7=C1=B7=CE=B0=D4=C0=CC=B8=D3=C0=C7?=
+	=?ISO-8859-1?Q?=C1=F6=B8=A7=B1=E6!!?=
+Date: Fri, 12 Aug 2005 12:43:57 -0700
+Message-ID: <35481.0484256179$1123876147@news.gmane.org>
+Reply-To: "±è¼±¾Æ" <sfdfd@freechal.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary="--64407505678181844576"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-ADD 3+ inches today - don't get left behind
-http://www.nelema.com/pt/?9&locate
+----64407505678181844576
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
+<DIV>
+<DIV>
+<FONT color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+</FONT><BR>&nbsp;
+<FONT color=3D#0000ff>=BD=BA=C5=B8=C5=A9=B7=A1=C7=C1=C6=AE=C0=C7 =BF=CF=C0=
+=FC=C1=A4=BA=B9</FONT> <BR>
+<FONT color=3D#ff8080><FONT color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</FONT><BR></FONT><BR>
+<FONT color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =C5=D7=B6=F5 =C0=FC=B7=AB=C1=FD-CD2=C0=E5 <BR=
+></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =C7=C1=B7=CE=C5=E4=BD=BA =C0=FC=B7=AB=C1=FD-C=
+D2=C0=E5 <BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =C0=FA=B1=D7 =C0=FC=B7=AB=C1=FD-CD2=C0=E5 <BR=
+></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 100% =BD=C7=C0=FC =B5=BF=BF=B5=BB=F3 =B0=AD=C0=
+=C7 <BR></FONT>=A1=D8  
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT>
+<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+ 
 
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
 
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+<table width=3D"800" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" alig=
+n=3D"center">
+<tr>
+<td>
+<a href=3D"http://www.starvod.co.kr/cd/?pid=3Da1234" target=3D"_blank"><im=
+g src=3D"http://starvod.co.kr/partner/sos/img/mail_form2.gif" width=3D"800=
+" height=3D"1200" border=3D"0"></a></td>
+</tr>
+</table>
 
-
-Patriotism is the willingness to kill and be killed for trivial reasons. 
-The biggest shortage of all is the shortage of common sense.  
-My mother buried three husbands, and two of them were just napping. 
-A patient man is one who can put up with himself.  
-When the eagles are silent, the parrots begin to jabber.   
+----64407505678181844576--
