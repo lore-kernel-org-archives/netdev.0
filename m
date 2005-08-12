@@ -1,52 +1,94 @@
-From: "whwls" <nnfkdsfisdufu@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=C1=D6=B9=E6=BF=EB=BF=F8=B8=F1=C4=AE=BC=BC=C6=AE7PCS?=
-Date: Thu, 11 Aug 2005 22:51:58 -0300
-Message-ID: <m--n$zmz-82$-bz0dz__6022.34806069664$1123812166$gmane$org@yr3.p.ev.p0p>
-Reply-To: "whwls" <nnfkdsfisdufu@yahoo.co.kr>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="9D._DBD_6CE_D8D4"
+From: Matt Mackall <mpm@selenic.com>
+Subject: [PATCH 5/8] netpoll: add retry timeout
+Date: Thu, 11 Aug 2005 21:19:11 -0500
+Message-ID: <6.502409567@selenic.com>
+References: <5.502409567@selenic.com>
+Cc: ak@suse.de, Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, john.ronciak@intel.com,
+        rostedt@goodmis.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: Andrew Morton <akpm@osdl.com>, "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <5.502409567@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Add limited retry logic to netpoll_send_skb
 
---9D._DBD_6CE_D8D4
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Each time we attempt to send, decrement our per-device retry counter.
+On every successful send, we reset the counter. 
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
-"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
-><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_king/cal_set/index.php?partner_key=3Dmaster_bu=
-fer&uid=3D17&url=3Dnews/new_king/cal_set" target=3D"_blank"><img src=3D"ht=
-tp://%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_king/cal_set/1.gif" =
-border=3D"0"></a></p></td></tr><tr><td width=3D"626" height=3D"68" bgcolor=
-=3D"#9D809B"><p align=3D"center"><FONT color=3D"white"><span style=3D"font=
--size:9pt;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
-=B8=DE=C0=CF=
-=C0=CC=B9=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
-=BC=F6=BD=C5=
-=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=
-=BC=D2=B8=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://=
-%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/cal_set/mail.php?=
-mail_key=3Dcotegory_mail17&partner_key=3Dmaster_bufer' target=3D"_blank"><=
-span style=3D"font-size:9pt;"><b><FONT color=3D"white">[=BC=F6=BD=C5=B0=C5=
-=BA=CE=B9=F6=C5=CF]</FONT></b></span></a><FONT color=3D"white"><span style=
-=3D"font-size:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email=
- address if you don't want to receive this mail.</span></FONT><span
-style=3D=
-"font-size:9pt;"><font color=3D"white">&nbsp;</font></span><a href=3D'http=
-://%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/cal_set/mail.p=
-hp?mail_key=3Dcotegory_mail17&partner_key=3Dmaster_bufer' target=3D"_blank=
-"><span style=3D"font-size:9pt;"><b><FONT color=3D"white">[no mail]</FONT>=
-</b></span></a></td></tr>
-</table>
-</center>
-</body>
+We delay 50us between attempts with up to 20000 retries for a total of
+1 second. After we've exhausted our retries, subsequent failed
+attempts will try only once until reset by success.
 
---9D._DBD_6CE_D8D4--
+Signed-off-by: Matt Mackall <mpm@selenic.com>
+
+Index: lhg/net/core/netpoll.c
+===================================================================
+--- lhg.orig/net/core/netpoll.c	2005-08-11 16:17:45.000000000 -0700
++++ lhg/net/core/netpoll.c	2005-08-11 16:45:20.000000000 -0700
+@@ -33,6 +33,7 @@
+ #define MAX_UDP_CHUNK 1460
+ #define MAX_SKBS 32
+ #define MAX_QUEUE_DEPTH (MAX_SKBS / 2)
++#define MAX_RETRIES 20000
+ 
+ static DEFINE_SPINLOCK(skb_list_lock);
+ static int nr_skbs;
+@@ -265,7 +266,8 @@ static void netpoll_send_skb(struct netp
+ 		return;
+ 	}
+ 
+-	while (1) {
++	do {
++		npinfo->tries--;
+ 		spin_lock(&np->dev->xmit_lock);
+ 		np->dev->xmit_lock_owner = smp_processor_id();
+ 
+@@ -277,6 +279,7 @@ static void netpoll_send_skb(struct netp
+ 			np->dev->xmit_lock_owner = -1;
+ 			spin_unlock(&np->dev->xmit_lock);
+ 			netpoll_poll(np);
++			udelay(50);
+ 			continue;
+ 		}
+ 
+@@ -285,12 +288,15 @@ static void netpoll_send_skb(struct netp
+ 		spin_unlock(&np->dev->xmit_lock);
+ 
+ 		/* success */
+-		if(!status)
++		if(!status) {
++			npinfo->tries = MAX_RETRIES; /* reset */
+ 			return;
++		}
+ 
+ 		/* transmit busy */
+ 		netpoll_poll(np);
+-	}
++		udelay(50);
++	} while (npinfo->tries > 0);
+ }
+ 
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+@@ -642,6 +648,7 @@ int netpoll_setup(struct netpoll *np)
+ 		npinfo->rx_np = NULL;
+ 		npinfo->poll_lock = SPIN_LOCK_UNLOCKED;
+ 		npinfo->poll_owner = -1;
++		npinfo->tries = MAX_RETRIES;
+ 		npinfo->rx_lock = SPIN_LOCK_UNLOCKED;
+ 	} else
+ 		npinfo = ndev->npinfo;
+Index: lhg/include/linux/netpoll.h
+===================================================================
+--- lhg.orig/include/linux/netpoll.h	2005-08-11 15:40:27.000000000 -0700
++++ lhg/include/linux/netpoll.h	2005-08-11 16:17:56.000000000 -0700
+@@ -26,6 +26,7 @@ struct netpoll {
+ struct netpoll_info {
+ 	spinlock_t poll_lock;
+ 	int poll_owner;
++	int tries;
+ 	int rx_flags;
+ 	spinlock_t rx_lock;
+ 	struct netpoll *rx_np; /* netpoll that registered an rx_hook */
