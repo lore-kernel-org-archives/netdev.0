@@ -1,34 +1,52 @@
-From: "Elizabeth Cruz" <h518hm@naver.com>
-Subject: =?ISO-8859-1?Q?=C0=CC=C1=A8=20=C3=F2=B8=AE=B4=D7=B5=B5?=
-	=?ISO-8859-1?Q?=C6=D0=BC=C7=BD=C3=B4=EB!-=BA=CE=B5=B5=C3=B3=BA=D0?=
-Date: Thu, 11 Aug 2005 23:11:16 -0500
-Message-ID: <aoxm-49-m349eus8@hf931>
-Reply-To: "Elizabeth Cruz" <h518hm@naver.com>
+From: "박진서" <ehwfndisfhdshy@empal.com>
+Subject: =?ISO-8859-1?Q?=B9=AB=B4=F5=BF=EE~=BF=A9=B8=A7=C4=C4=C7=BB=C5=CD/=B3=EB=C6=AE=BA=CFUSB=BF=A1=BF=AC=B0=E1=C7=D8=BA=B8=BC=BC=BF=E4-USB=B9=CC=B4=CF=BC=B1=C7=B3=B1=E2?=
+Date: Fri, 12 Aug 2005 00:10:44 -0400
+Message-ID: <18a9dt8a-f8p3@j27d.c.d0.3sf>
+Reply-To: "박진서" <ehwfndisfhdshy@empal.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="4EF49A9.05__2.D"
+	boundary=".BCBEF0C.A11D6_"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-xfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---4EF49A9.05__2.D
+--.BCBEF0C.A11D6_
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<div align=3D"center">
-<A HREF=3D"http://www.makdrim.com/md/training/training.php?pcode=3Daigo123=
-" target=3D"_blank" onfocus=3D"this.blur()">
-<IMG SRC=3D"http://www.makdrim.com/md/training/images/mail_02.gif"
-BORDER=3D=
-"0" ALT=3D"">
-</A>
-<br>
-<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
-<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject.gif" BORDER=3D"0=
-" ALT=3D"" style=3D"cursor:hand">
-</div>aehydjkwj
+<body>
+<center>
+<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
+"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
+><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
+%31%36%2e%31%32%38/news/new_king/usb/index.php?partner_key=3Dmaster_bufer&=
+uid=3D8&url=3Dnews/new_king/usb" target=3D"_blank"><img src=3D"http://=
+%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_king/usb/1.gif" border=3D=
+"0"></a></p></td></tr><tr><td width=3D"626" height=3D"68" bgcolor=3D"#9393=
+AF"><p align=3D"center"><FONT color=3D"white"><span style=3D"font-size:9pt=
+;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
+=B8=DE=C0=CF=C0=CC=B9=
+=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
+=BC=F6=BD=C5=B0=C5=BA=
+=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=BC=D2=B8=
+=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://=
+%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/usb/mail.php?mail=
+_key=3Dcotegory_mail8&partner_key=3Dmaster_bufer' target=3D"_blank"><span =
+style=3D"font-size:9pt;"><b><FONT
+color=3D"white">[=BC=F6=BD=C5=B0=C5=BA=CE=
+=B9=F6=C5=CF]</FONT></b></span></a><FONT color=3D"white"><span style=3D"fo=
+nt-size:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email addre=
+ss if you don't want to receive this mail.</span></FONT><span style=3D"fon=
+t-size:9pt;"><font color=3D"white">&nbsp;</font></span><a href=3D'http://=
+%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/usb/mail.php?mail=
+_key=3Dcotegory_mail8&partner_key=3Dmaster_bufer' target=3D"_blank"><span =
+style=3D"font-size:9pt;"><b><FONT color=3D"white">[no mail]</FONT></b></sp=
+an></a></td></tr>
+</table>
+</center>
+</body>
 
---4EF49A9.05__2.D--
+--.BCBEF0C.A11D6_--
