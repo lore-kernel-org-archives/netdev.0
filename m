@@ -1,62 +1,123 @@
-From: "약용관리" <jkc-jjang1s@hanmail.net>
-Subject: =?ISO-8859-1?Q?99%=C7=D5=B0=DD=B7=FC=20=B3=F4=C0=BA?=
-	=?ISO-8859-1?Q?=BF=B9=BB=F3=B9=AE=C1=A6=C1=FD=C7=CF=B3=AA=B7=CE?=
-	=?ISO-8859-1?Q?=B0=F8=BA=CE=C7=CF=B8=E9=20=C1=A61=C8=B8=BD=C3=C7=E8?=
-	=?ISO-8859-1?Q?=B9=AB=C1=B6=B0=C7=20=C7=D5=B0=DD!?=
-Date: Fri, 12 Aug 2005 15:23:02 -0700
-Message-ID: <MVETPMXGQVIFJVZVUTDWMWOEN@yahoo.com>
-Reply-To: "약용관리" <jkc-jjang1s@hanmail.net>
+From: "경매사" <rudaotk@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A6=A1=A6=A1=A2=BA=C1=A68=C8=B8?= [ =?ISO-8859-1?Q?=BA=CE=B5=BF=BB=EA=B0=E6=B8=C5=BB=E7?= ] =?ISO-8859-1?Q?=C0=DA=B0=DD=C1=F5?= 100% =?ISO-8859-1?Q?=B9=AB=B7=E1=C0=DA=B7=E1=BD=C5=C3=BB!!?=
+Date: Sat, 13 Aug 2005 01:55:40 +0300
+Message-ID: <8bpjf-ubwxsz3474dhvm@d9949.h3uwjhu>
+Reply-To: "경매사" <rudaotk@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--8279142779296516199"
+	boundary="CDCAA2.0EFCEBC.B4__E."
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-xfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----8279142779296516199
+
+--CDCAA2.0EFCEBC.B4__E.
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-  <HEAD>
-      <TITLE>=BE=E0=BF=EB=C6=FB</TITLE>
-  </HEAD>
-  <BODY><FONT color=3D#ff8080></FONT>
-<DIV><BR><FONT color=3D#ff80ff>=A6=AC=A6=AC=A6=AC</FONT> &nbsp;&nbsp;<FONT=
- color=3D#0000ff 
-size=3D4>=BE=E0=BF=EB=BD=C4=B9=B0=B0=FC=B8=AE=BB=E7=C0=DA=B0=DD=C1=F5=C0=BB=
- =C3=EB=B5=E6=C7=CF=B6=F3!</FONT> &nbsp;&nbsp;<FONT 
-color=3D#ff80ff>=A6=AC=A6=AC=A6=AC=A6=AC<BR></FONT><FONT color=3D#ff8000><=
-FONT 
-color=3D#000000></FONT></FONT></DIV>
-<DIV><FONT color=3D#ff8000><FONT color=3D#000000>&nbsp;<FONT color=3D#ff00=
-00>=A2=C1</FONT> 
-=B1=B9=B9=CE=C0=C7 =B0=C7=B0=AD=C1=F5=C1=F8=C0=BB =B8=F1=C0=FB=C0=B8=B7=CE=
-=BE=E0=BF=EB=BD=C4=B9=B0=C0=BB =B0=FC=B8=AE.=B0=F8=B1=DE=C7=CF=B4=C2=BD=C5=
- =C0=FC=B9=AE=C0=DA=B0=DD=C1=F5 <BR><FONT color=3D#ff00ff>&nbsp;=A2=C1</FO=
-NT> 
-2005=B3=E29=BF=F911=C0=CF =C1=A61=C8=B8=BD=C3=C7=E8=C8=AE=C1=A4 =B8=B8 18=BC=
-=BC=C0=CC=BB=F3=C0=B8=B7=CE=C7=D0=B7=C2=B0=E6=B7=C2=BF=A1 =C1=A6=C7=D1=BE=F8=
-=C0=BD<BR><FONT color=3D#400080>&nbsp;=A2=C1</FONT> 
-=BE=E0=BB=E7,=C7=D1=C0=C7=BB=E7,=C7=D1=BE=E0=BE=F7=C0=DA =B5=EE=C0=C7 =B0=FC=
-=B7=C3=C0=DA=B0=DD=C1=F5=BC=D2=C1=F6=C0=DA.=C7=D1=B9=E6,=C0=DA=BF=AC=C0=DA=
-=BF=F8=B4=EB=C7=D0=B0=FC=B7=C3=C7=D0=B0=FA<BR>&nbsp;=A2=C1 4=C1=F6=BC=B1=B4=
-=D9=C7=FC=C0=B8=B7=CE=C3=E2=C1=A6=B5=C7=B8=E7 =C7=CA=B1=E2=BD=C3=C7=E8 =B8=
-=C5 =B0=FA=B8=F1=B4=E7 40=C1=A1=C0=CC=BB=F3 =C6=F2=B1=D5 
-60=C1=A1=C0=CC=BB=F3=C0=CC=B8=E9 =C7=D5=B0=DD<BR></FONT>&nbsp;<BR></FONT><=
-BR>&nbsp;=A1=D8 =BB=F3=B4=E3 =BD=C5=C3=BB=C0=BB =C7=CF=BD=C3=B7=C1=B8=E9 &=
-nbsp;<A 
-href=3D"http://gksapdlf.fu.st">=A2=C6 
-"<FONT color=3D#ff0080>=BE=E0=BF=EB=BD=C4=B9=B0=B0=FC=B8=AE=BB=E7 =BB=F3=B4=
-=E3=BD=C5=C3=BB=C7=CF=B1=E2</FONT>" =A2=C6</A>&nbsp;&nbsp;=B8=A6 =C5=AC=B8=
-=AF=C7=CF=BC=BC=BF=E4.</DIV>
-<P><FONT 
-color=3D#408080>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+<HTML>
+
+<HEAD><TITLE> 
+
+<br>
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
 =AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC&nbsp;</FONT></P>
-  </BODY>
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
+=A1=E5=
+=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
+=B8=
+=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>        =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+ =A2=C6     =A2=C6     =A2=C6<br>
+     =A2=C6 =A2=C6 =A2=C6 <br>
+         =A2=C6 <br>
 
+</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
+_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
+HEAD>
 
-----8279142779296516199--
+<BODY leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
+">
+
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+
+  <TABLE borderColor=3D#cccccc cellSpacing=3D2 cellPadding=3D0 width=3D650=
+ align=3Dcenter 
+border=3D1>
+  <TBODY>
+  <TR>
+    <TD>
+        <TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650 border=3D0>
+          <TBODY> 
+          <TR> 
+            <TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html=
+?prod_num=3D96&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k=
+%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k=
+%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/1.gif" width=3D"650=
+" height=3D"158" border=3D"0"></a></TD>
+          </TR>
+          <TR> 
+            <TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html=
+?prod_num=3D96&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k=
+%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k=
+%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/2.gif" width=3D"650=
+" height=3D"231" border=3D"0"></a></TD>
+          </TR>
+          <TR> 
+            <TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html=
+?prod_num=3D96&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k=
+%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k=
+%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/5.gif" width=3D"650=
+" height=3D"300" border=3D"0"></a></TD>
+          </TR>
+          <TR> 
+            <TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html=
+?prod_num=3D96&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k=
+%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k=
+%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/6.gif" width=3D"650=
+" height=3D"92" border=3D"0"></a></TD>
+          </TR>
+          <TR> 
+            <TD height=3D"2" bgcolor=3D"#FFFFFF"> 
+              <div align=3D"center"><BR>
+                <BR>
+                <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html=
+?prod_num=3D96&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k=
+%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k=
+%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/ani.gif" width=3D"1=
+95" height=3D"48" border=3D"0"></a><BR>
+                <BR>
+              </div>
+            </TD>
+          </TR>
+          </TBODY> 
+        </TABLE>
+      </TD></TR></TBODY></TABLE>
+<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650 align=3Dcenter
+border=3D=
+0>
+  <TBODY>
+  <TR>
+      <TD height=3D50><a href=3D"http://%67oo%64.n%61m%651999.=
+%63om/m_reject.html" ><img src=3D"http://%64k%65k%64j%66j%73k=
+%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
+%73%73%65%63om.%63om/e-mail/reseller/LNI/reject.jpg" width=3D"650"
+height=3D=
+"70" border=3D"0"></a></TD>
+    </TR></TBODY></TABLE></FORM></BODY></HTML>
+
+--CDCAA2.0EFCEBC.B4__E.--
