@@ -1,58 +1,37 @@
-From: "Rodolfo Sheldon" <cug74qrcsg@yahoo.com>
-Subject: =?ISO-8859-1?Q?=B4=A9=B1=B8=B3=AA=20=B0=A1=C0=E5=20=B3=B7=C0=BA?=
-	=?ISO-8859-1?Q?=C0=CC=C0=B2=B7=CE=20=B0=A1=C0=E5=20=BA=FC=B8=A3=B0=D4?=
-	=?ISO-8859-1?Q?=B4=EB=C3=E2=B9=DE=C0=B8=BC=BC=BF=E4.?= e l
-Date: Fri, 12 Aug 2005 20:35:17 +0000 (UTC)
-Message-ID: <un-2$910$q2-2mpnb$$51-o@cmy.go.zg>
-Reply-To: "Rodolfo Sheldon" <cug74qrcsg@yahoo.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="___2EAF59F_470B8F"
+From: =?Big5?B?s82vU6bmvlA=?= <wu0417.1@gmail.com>
+Subject: =?Big5?B?sdCnQaVOv+ykvaVxqrqxS6feIcX9p0Gs2aRVMS0zpqiquqVOv+y2T6XOIQ==?=
+Date: Fri, 12 Aug 2005 16:06:36 +0800
+Message-ID: <200508122036.j7CKaSH9031540@oss.sgi.com>
+Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
-Date: Tue, 19 Jan 38 09:17:19 GMT
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---___2EAF59F_470B8F
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
 <html>
-<head>
-<title></title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-<style type=3D"text/css">
-<!--
-body {
-	margin-left: 0px;
-	margin-top: 0px;
-	margin-right: 0px;
-	margin-bottom: 0px;
-}
--->
-</style></head>
+<head>
+<meta http-equiv="Content-Language" content="zh-tw">
+<meta http-equiv="Content-Type" content="text/html; charset=big5">
+<meta name="GENERATOR" content="Microsoft FrontPage 6.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<title>圖若開啟太慢</title>
+</head>
 
 <body>
-<img src=3D"http://www.nice-loan.co.kr/mail_form_read.asp?vCode=3D32" widt=
-h=3D'0' 
-height=3D'0'>
-<table width=3D"500" border=3D"0" cellpadding=3D"0" cellspacing=3D"1" bgco=
-lor=3D"000000">
-  <tr>
-    <td><a href=3D"http://www.nice-loan.co.kr/form01.asp?vCode=3D32"><img =
 
-src=3D"http://club.bugs.co.kr/common/file_down.asp?redirect=3D=
-%2Fdata1%2F2005%
-2F8%2F8%2Ftop%
-5Fform01%2Egif" border=3D"0"></a></td>
-  </tr>
-</table>
+<p align="center"><a href="http://www.buy999.net/999/mail006-b.htm">若無法開啟請按這裡</a></p>
+<p align="center"><a href="http://www.buy999.net/999/mail006-b.htm">
+<img border="0" src="http://www.buy999.net/999/006.jpg" width="600" height="322"></a></p>
+
+<p align="center">
+<a target="_blank" href="http://www.buy999.net/999/mail006-b.htm">貸款還要讓人抽1-3成的佣金嗎!!本光碟交你如何省下這筆費用喔!!</a></p>
+
 </body>
-</html>
-pjbh     po
 
---___2EAF59F_470B8F--
+</html>
+
+<p align=center>　</p>
+
+<!-- PITHSET -->
