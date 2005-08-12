@@ -1,38 +1,43 @@
-From: "Lloyds TSB"<service@lloydstsb.co.uk>
-Subject: **Lloyds TSB Urgent**
-Date: Mon, 15 Aug 2005 19:55:57 +0300
-Message-ID: <200508151700.j7FH0NH9022591@oss.sgi.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: argh... ;/
+Date: Fri, 12 Aug 2005 12:35:06 +0100
+Message-ID: <20050812113506.GA2819@linux-mips.org>
+References: <42F2D749.70306@gmail.com> <200508060241.30507.phillips@istop.com>
+	<20050805172055.GB5641@tuxdriver.com>
+	<20050812053634.GA3998@taniwha.stupidest.org>
 Mime-Version: 1.0
-Content-Type: text/html;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>,
+        Daniel Phillips <phillips@istop.com>
+Return-path: <kernel-mentors-bounces@selenic.com>
+To: Chris Wedgwood <cw@f00f.org>
+Content-Disposition: inline
+In-Reply-To: <20050812053634.GA3998@taniwha.stupidest.org>
+List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="550" id="AutoNumber2">
-<tr>
-<td width="100%" dir="ltr">
-<img border="0" src="https://online.lloydstsb.co.uk/pics/IBL_banner.gif" width="300" height="45"><hr color="#7DC99B" dir="ltr">
-<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber3">
-<tr>
-<td width="100%">
-<p dir="ltr"><font style="font-size: 19pt" color="#000080">
-personal & business account</font></td>
-</tr>
-</table>
-<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#008000" width="550" id="AutoNumber1" bgcolor="#E4E4F3">
-<tr>
-<td width="100%"><font color="#000080"><b>Security Alert</b></font>
-<p><font color="#000080">Please note that Your Lloyds TSB Online Account is about to expire. In order for it to remain active, please Use the link below to proceed and access your account.</font></p>
-<p><a href="http://www.agrostevia.com/online.lloydstsb.co.uk/online/bankonline/Secure/data/index.html">
-https://online.lloydstsb.co.uk/customer/Login.ibc</a></td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
+On Thu, Aug 11, 2005 at 10:36:34PM -0700, Chris Wedgwood wrote:
 
-<html><script language="JavaScript"></script></html>
+> On Fri, Aug 05, 2005 at 01:20:59PM -0400, John W. Linville wrote:
+> 
+> > Yes.  Opening attachments makes them harder to review.
+> 
+> Lots of people can't inline patches because they are inflicted with
+> crappy MUAs --- I would much prefer patches as attachments in those
+> cases versus mangled patches.
+> 
+> Also, I would arguue any sane MUA would make dealing with
+> reading/openning patches for sensible mime types trivial.
+
+That may break quilt import and probably other tools; having to teach quilt
+about MIME would be a horribly pointless exercise.
+
+  Ralf
