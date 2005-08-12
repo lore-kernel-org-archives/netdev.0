@@ -1,38 +1,34 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] add new iptables ipt_connbytes match
-Date: Fri, 12 Aug 2005 20:23:55 +0200
-Message-ID: <20050812182355.GF22901@wotan.suse.de>
-References: <20050811200349.GN5353@rama.de.gnumonks.org>
-	<20050811.154204.102613246.davem@davemloft.net>
-	<p73u0hv2xkv.fsf@verdi.suse.de> <42FC8EBC.1070505@trash.net>
-	<20050812120319.GK8974@wotan.suse.de>
-	<20050812153730.GR18580@rama.de.gnumonks.org>
+From: "은행금리대출" <cowhgvrz@lowloan.xicp.net>
+Subject: =?ISO-8859-1?Q?=B3=F4=C0=BA=20=B4=EB=C3=E2=B1=DD=B8=AE=B7=CE?=
+	=?ISO-8859-1?Q?=B0=C6=C1=A4=C7=CF=BD=C3=B4=F8=BA=D0=B5=E9?=
+	=?ISO-8859-1?Q?=B4=EB=C3=E2=B1=DD=B8=AE=20=C4=BF=C7=B0=C0=BB?=
+	=?ISO-8859-1?Q?=BB=B0=BD=C0=B4=CF=B4=D9.?=
+Date: Sat, 13 Aug 2005 00:18:17 +0600
+Message-ID: <BNYJNQGSLCOMZJEXPSTKMTZ@yahoo.com>
+Reply-To: "최저금리상담" <cowhgvrz@lowloan.xicp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>, Andi Kleen <ak@suse.de>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
-Content-Disposition: inline
-In-Reply-To: <20050812153730.GR18580@rama.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/alternative;
+	boundary="--715168057412836672"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I don't think that we're ever going to fix that bug in the old
-> {get,set}sockopt interface, but rather introduce a netlink interface
-> when pkt_tables matures.
+----715168057412836672
+Content-Type: text/html;
+Content-Transfer-Encoding: base64
 
-All new interfaces should be emulation clean, so that if the old interface
-is replaced later it should eventually work. The best way to do that
-is to use aligned_u64. Should probably put that into linux/types.h
+PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT48L3RpdGxlPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29u
+dGVudC1UeXBlIiBjb250ZW50PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9ZXVjLWtyIj4NCjwvaGVh
+ZD48Ym9keSBsZWZ0bWFyZ2luPSIwIiB0b3BtYXJnaW49IjAiPg0KPGEgaHJlZj0iaHR0cDov
+L3d3dy5sb2FuLXBvd2VyLmNvLmtyL2Zvcm0wMS5hc3A/TWNvZGU9NjQiIHRhcmdldD0iYmxh
+bmsiPjxpbWcgc3JjPSJodHRwOi8vZWFzeWxvYW4uNjhhYi5jb20vajYuanBnIiBib3JkZXI9
+IjAiPjxicj4NCjxmb250IGNvbG9yPXB1cnBsZSBzaXplPTM+DQqo5yDB98DlwM4gtOvD4iEh
+IMH3wOXAziC068Pisd24riC068b4wM7HzyEhPGJyPqjoILmruea5riEhILmrurjB9SEhIMH3
+wOXAzsDMuOkgtKmxuLOqIDEwMCUgtOvD4iEhPGJyPqjpIMDOxc2z3SC9xcO7vK24uCDA27y6
+x8+9w7jpILjwtecgvK23+cHYuvEgs6EhPGJyPqjqIMH3wOXAziC9xb/rL8DnwaS788XCILmr
+sPzHz7DUIL/4xay4ryAxMDAltOvD4iE8YnI+PGJyPjxiPqLPILG5s7sgw9bA+rHduK4gwffA
+5cDOILTrw+ItLS1bvcXDu8fPseJdPC9hPjwvZm9udD4NCjwvYm9keT4NCjwvaHRtbD4=
 
--Andi
+----715168057412836672--
