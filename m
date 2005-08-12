@@ -1,76 +1,91 @@
-From: "시원한자금지원~!!" <ydf65fg@success.dvrdns.org>
-Subject: =?ISO-8859-1?Q?=A2=CF((=BC=AD=B9=CE=B4=EB=C3=E2))=B0=ED=B0=B4=B4=D4!!?=
-	=?ISO-8859-1?Q?=B4=F5=BF=EE=B5=A5..=BD=C3=BF=F8=C7=CF=B0=D4?=
-	=?ISO-8859-1?Q?=C0=DA=B1=DD=C1=F6=BF=F8=C7=D8?=
-	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9(=B9=AB=B7=E1=BB=F3=B4=E3)~!*^^*?=
-Date: Fri, 12 Aug 2005 00:03:28 -0700
-Message-ID: <VWITEUJSXUBMPREUCBEDHC@yahoo.com>
-Reply-To: "시원한자금지원~!!" <ydf65fg@success.dvrdns.org>
+From: "Content-filter at bootes.trampi.mpi.it" <postmaster@bootes.trampi.mpi.it.sgi.com>
+Subject: VIRUS (Win32/MyDoom.O!Worm): IN UNA E-MAIL DA LEI INVIATA
+Date: Fri, 12 Aug 2005 09:07:49 +0200 (CEST)
+Message-ID: <VS32234-05@bootes.trampi.mpi.it>
+References: <20050812070730.C566CA8284@mx3.istruzione.it>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--2626637268016234"
+Content-Type: multipart/report; report-type=delivery-status;
+ boundary="----------=_1123830469-32234-7"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+In-Reply-To: <20050812070730.C566CA8284@mx3.istruzione.it>
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----2626637268016234
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+This is a multi-part message in MIME format...
 
-<html>
-<head>
-<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
-<title>=B4=EB=C3=E2!! =B8=D3=B4=CF=C6=F7=BD=BA=C6=AE=BF=CD =C7=D4=B2=B2 =B4=
-=E7=B4=E7=C7=CF=B0=D4 =B9=DE=C0=B8=BC=BC=BF=E4!</title>
-<style type=3Dtext/css>
-<!--
-body {
-	background-image: url(http://money-post.com/img/bg.jpg);
-	background-repeat: repeat-x;
-}
--->
-</style>
-</head>
-<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
-<table width=3D100% height=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D=
-0>
-  <tr>
-    <td align=3Dcenter valign=3Dtop>
-      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
-        <tr>
-          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
-cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/01.gif" wi=
-dth=3D600 height=3D50 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
-cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/02.jpg" wi=
-dth=3D600 height=3D250 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
-cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/03.gif" wi=
-dth=3D600 height=3D320 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td height=3D40 bgcolor=3D#FFFFFF>&nbsp;</td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://money-post.com/dany.asp"><img src=3D"http:=
-//money-post.com/img/bottom.gif" width=3D600 height=3D96 border=3D0></a></=
-td>
-        </tr>
-        <tr>
-          <td height=3D20 bgcolor=3D#FFFFFF>&nbsp;</td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
+------------=_1123830469-32234-7
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
+VIRUS ALERT
 
-----2626637268016234--
+Il sistema di scansione ha rilevato un problema
+in una email presumibilmente inviate da Lei
+-> (<netdev@oss.sgi.com>),
+per il seguente destinatario:
+-> baee15800a@istruzione.it
+
+La consegna del messaggio non e' potuta avvenire
+
+Di seguito i riferimenti della e-Mail inviata:
+------------------------- BEGIN HEADERS -----------------------------
+Return-Path: <netdev@oss.sgi.com>
+Received: from oss.sgi.com (host182-103.pool81119.interbusiness.it [81.119.103.182])
+	by mx3.istruzione.it (Mail Service) with ESMTP id C566CA8284
+	for <baee15800a@istruzione.it>; Fri, 12 Aug 2005 09:07:30 +0200 (CEST)
+From: netdev@oss.sgi.com
+To: baee15800a@istruzione.it
+Subject: Returned mail: Data format error
+Date: Fri, 12 Aug 2005 09:14:15 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0011_613E9EFA.3A98B11D"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MIMEOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+Message-Id: <20050812070730.C566CA8284@mx3.istruzione.it>
+-------------------------- END HEADERS ------------------------------
+
+------------=_1123830469-32234-7
+Content-Type: message/delivery-status
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Content-Description: Delivery error report
+
+Reporting-MTA: dns; bootes.trampi.mpi.it
+Received-From-MTA: smtp; mx3.istruzione.it ([127.0.0.1])
+Arrival-Date: Fri, 12 Aug 2005 09:07:47 +0200 (CEST)
+
+Final-Recipient: rfc822; baee15800a@istruzione.it
+Action: failed
+Status: 5.7.1
+Diagnostic-Code: smtp; 550 5.7.1 Message content rejected, id=32234-05 - VIRUS: Win32/MyDoom.O!Worm
+Last-Attempt-Date: Fri, 12 Aug 2005 09:07:49 +0200 (CEST)
+
+------------=_1123830469-32234-7
+Content-Type: text/rfc822-headers
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Content-Description: Undelivered-message headers
+
+Received: from oss.sgi.com (host182-103.pool81119.interbusiness.it [81.119.103.182])
+	by mx3.istruzione.it (Mail Service) with ESMTP id C566CA8284
+	for <baee15800a@istruzione.it>; Fri, 12 Aug 2005 09:07:30 +0200 (CEST)
+From: netdev@oss.sgi.com
+To: baee15800a@istruzione.it
+Subject: Returned mail: Data format error
+Date: Fri, 12 Aug 2005 09:14:15 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0011_613E9EFA.3A98B11D"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MIMEOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+Message-Id: <20050812070730.C566CA8284@mx3.istruzione.it>
+
+------------=_1123830469-32234-7--
