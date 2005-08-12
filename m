@@ -1,71 +1,101 @@
-From: "Àüµ¿Ä©¼Ö" <specuifjoi982983@yahoo.com>
-Subject: =?ISO-8859-1?Q?=B0=C7=C1=F6=C1=F6=C5=B8=C0=D4=C0=B8=B7=CE?=
-	=?ISO-8859-1?Q?=C3=E6=C0=FC=C0=CC=20=C7=CA=BF=E4=BE=F8=B4=C2?=
-	=?ISO-8859-1?Q?=B5=B6=C0=CF=20=C0=FC=B5=BF=C4=A9=BC=D6?=
-	=?ISO-8859-1?Q?=B1=D7=B7=E9=B5=F1?=
-Date: Fri, 12 Aug 2005 04:08:23 +0100
-Message-ID: <4klvj8o8dtbff19$-$$732d9lg__2861.10772653974$1123816620$gmane$org@z9hrnq.8.pqef>
-Reply-To: "Àüµ¿Ä©¼Ö" <specuifjoi982983@yahoo.com>
+From: "±è¼±¾Æ" <bp2mqdkkk99cb@cn5.dnsforme.com>
+Subject: =?ISO-8859-1?Q?=BF=F91%=B4=EB=C0=C7?=
+	=?ISO-8859-1?Q?=BE=C8=C0=FC=C7=D1=C1=BE=C7=D5=B1=DD=C0=B6=C8=B8=BB=E7?=
+	=?ISO-8859-1?Q?=C0=A5=B7=D0=BB=E7=C0=CC=C6=AE!?=
+Date: Fri, 12 Aug 2005 02:57:42 -0100
+Message-ID: <28339.2256046229$1123819504@news.gmane.org>
+Reply-To: "±è¼±¾Æ" <bp2mqdkkk99cb@cn5.dnsforme.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="5_C.3_D8D1_07"
+	boundary="--2998158165537827"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---5_C.3_D8D1_07
+----2998158165537827
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"653" bordercolordark=3D=
-"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"653"=
-><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_eorn/chisol/index.php?partner_key=3Dmaster_buf=
-er&uid=3D59&url=3Dnews/new_eorn/chisol" target=3D"_blank"><img src=3D"http=
-://%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_eorn/chisol/1.gif"></a=
-></p></td></tr><tr><td width=3D"653" height=3D"93" bgcolor=3D"#80A080"><p =
-align=3D"left"><FONT color=3D"white"><span style=3D"font-size:9pt;">=BA=BB=
- =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
-=B8=DE=C0=CF=C0=CC=B9=C7=B7=CE=
- =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
-=BC=F6=BD=C5=B0=C5=BA=CE=BD=C3=
-=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=BC=D2=B8=A6
-=C0=D4=
-=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://%32%31%31%2e=
-%31%39%37%2e%31%36%2e%31%32%38/news/new_eorn/chisol/mail.php?mail_key=3Dco=
-tegory_mail59' target=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT c=
-olor=3D"white">[=BC=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT></b></span></a=
-><FONT color=3D"white"><span style=3D"font-size:9pt;">=C0=BB
-=B4=AD=B7=AF=C1=
-=D6=BC=BC=BF=E4.Enter your email address if you don't want to receive this=
- mail.</span></FONT><span style=3D"font-size:9pt;"><font color=3D"white">&=
-nbsp;</font></span><a href=3D'http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_eorn/chisol/mail.php?mail_key=3Dcotegory_mail5=
-9' target=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT color=3D"whit=
-e">[no mail]</FONT></b></span></a><span style=3D"font-size:9pt;"><b><FONT =
-color=3D"white"> </FONT></b><font color=3D"white">=C0=CC=B8=DE=C0=CF=C3=DF=
-=C3=E2=B9=E6=C1=F6=C1=A4=C3=A5 2003=B3=E2 2=BF=F9 26=C0=CF =C0=CC=C0=FC=BF=
-=A1 (http://cafe.daum.net/?_top_target=3Dcafe)=C0=C7 URL=BF=A1=BC=AD
-2001=B3=
-=E2 11=BF=F9 6=C0=CF =B3=AF=C2=A5=BF=A1
-=C3=DF=C3=E2=C7=CF=BF=B4=C0=BD=C0=BB=
- =B0=FC=B7=C3=B9=FD=B1=D4 &nbsp;http://www.mic.go.kr/policy/law_con_pol.js=
-p=BF=A1 =B5=FB=B6=F3 =B9=E0=C8=FC=B4=CF=B4=D9. =B6=C7=C7=D1 =BA=BB
-=C0=CC=B8=
-=DE=C0=CF =BF=DC=BF=A1 =BE=EE=B6=B0=C7=D1 =C1=A4=BA=B8=B5=B5
-=B0=A1=C1=F6=B0=
-=ED =C0=D6=C1=F6 =BE=CA=C0=B8=B4=CF =BE=C8=BD=C9=C7=CF=BD=C3=B1=E2
-=B9=D9=B6=
-=F3=B8=E9 =B9=D9=BB=DB=BD=C3=B0=A3=BF=A1 =BA=D2=C6=ED=C0=BB
-=B5=E5=B7=C1=C1=
-=CB=BC=DB=C7=D5=B4=CF=B4=D9.</font></span></td></tr>
-</table>
-</center>
-</body>
+  <HEAD>
+      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
+  </HEAD>
+  <BODY>
+<DIV>
+<DIV><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
+or=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
+=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
+=A1=B4=C9!<BR></FONT>=A1=D8
+<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
+=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
+=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
+<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT>
+<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
+NT>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR>
+<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
+<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
+=C0=DA!<BR>
+=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
+=EB=C3=E2!<BR>
+<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
+=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
+<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
+=C3=E2=B0=A1=B4=C9!<BR>
 
---5_C.3_D8D1_07--
+<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+ 
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+
+<html>
+<head>
+<title>=C1=F7=C0=E5=C0=CE</title>
+</head>
+<body>
+<iframe frameborder=3D"0" height=3D"650" width=3D"800" src=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D61&uValue=3Djob"></iframe>
+</body>
+</html>
+
+----2998158165537827--
