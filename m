@@ -1,57 +1,52 @@
-From: "한번에 두가지 자격증(무시험전형+100%취업)" <jakek2005@hotmail.com>
-Subject: =?ISO-8859-1?Q?=C7=D1=B9=F8=BF=A1=20=B5=CE=B0=A1=C1=F6?=
-	=?ISO-8859-1?Q?=C0=DA=B0=DD=C1=F5[=BB=E7=C8=B8=BA=B9=C1=F6=BB=E7+=B0=A1=C1=A4?=
-	=?ISO-8859-1?Q?=B0=FC=B8=AE=BB=E7?=
-	=?ISO-8859-1?Q?=C0=DA=B0=DD=C1=F5](=B9=AB=BD=C3=C7=E8=C0=FC=C7=FC+100%=C3=EB=BE=F7)?=
-	=?ISO-8859-1?Q?=C3=EB=B5=E6=20=B1=E2=C8=B8?= !!
-Date: Thu, 11 Aug 2005 21:26:46 -0500
-Message-ID: <m53w9mo4ryhiuu$j@bwbbeokl>
-Reply-To: "한번에 두가지 자격증(무시험전형+100%취업)" <jakek2005@hotmail.com>
+From: "쿨스탑" <tnraus@lge.co.kr>
+Subject: $$$ =?ISO-8859-1?Q?=C1=F6=B1=DF=C1=F6=B1=DF=C7=D1=20=C4=DA=B0=F1=C0=CC?=  =?ISO-8859-1?Q?=A2=C6=20=C4=F0=BD=BA=C5=BE=20=A2=C6=20=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?=C0=E1=C0=E7=BF=EC=B0=D9=BD=C0=B4=CF=B4=D9.!!!?=
+Date: Fri, 12 Aug 2005 07:31:57 +0500
+Message-ID: <58qf32r7d52qd5$-86z$1$$c__37702.36190544$1123814266$gmane$org@f6c.jo>
+Reply-To: "쿨스탑" <tnraus@lge.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="BDD3235A83F"
-Cc: <netdev@oss.sgi.com>, <cvs@oss.sgi.com>, <linux-xfs@oss.sgi.com>,
-        <devfs@oss.sgi.com>, <kdb@oss.sgi.com>, <debian-mips@oss.sgi.com>
+	boundary="EB9.DECC__."
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---BDD3235A83F
+--EB9.DECC__.
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<div id=3D"Layer1" style=3D"position:absolute; width:1000; height:1000; z-=
-index:1; left: 0px; top: 0px;"> <table width=3D"1000" height=3D"1000" bord=
-er=3D"0" cellpadding=3D"0" cellspacing=3D"0" bgcolor=3D"#FFFFFF"> <tr> <td=
-><TABLE cellSpacing=3D0 cellPadding=3D0 align=3Dcenter border=3D0>
-        <TR>
-            <TD><A 
-      href=3Dhttp://%62%69%7A%73%68%61%72e.%63%6F.%6B%72/partner/buffer/in=
-tro.php3?partner_key=3Dqoowoo_bufer&uid=3D0><IMG 
-      alt=3D"" src=3D"
-http://%69%6D%67%2E%6E%61%79%61%6E%61%2E%63%6F%6D/~%6C%5F%31%31/gun.jpg" b=
-order=3D0></A><BR><A 
-      href=3Dhttp://%62%69%7A%73%68%61%72e.%63%6F.%6B%72/partner/buffer/in=
-tro.php3?partner_key=3Dqoowoo_bufer&uid=3D0><IMG 
-      src=3D"
-http://%69%6D%67%2E%6E%61%79%61%6E%61%2E%63%6F%6D/~%6C%5F%31%31/89.gif" bo=
-rder=3D0></A></TD>
-        </TR>
-        <TR>
-            <TD bgColor=3D#cccc33>
+<body>
+<center>
+<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
+"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
+><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
+%31%36%2e%31%32%38/news/new_eorn/cogolry/index.php?partner_key=3Dmaster_bu=
+fer&uid=3D44&url=3Dnews/new_eorn/cogolry" target=3D"_blank"><img src=3D"ht=
+tp://%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_eorn/cogolry/5.gif" =
+border=3D"0"></a></p></td></tr><tr><td width=3D"626" height=3D"68" bgcolor=
+=3D"#627F64"><p align=3D"center"><FONT color=3D"white"><span style=3D"font=
+-size:9pt;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
+=B8=DE=C0=CF=
+=C0=CC=B9=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
+=BC=F6=BD=C5=
+=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=
+=BC=D2=B8=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://=
+%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_eorn/cogolry/mail.php?=
+mail_key=3Dcotegory_mail44' target=3D"_blank"><span style=3D"font-size:9pt=
+;"><b><FONT color=3D"white">[=BC=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT><=
+/b></span></a><FONT color=3D"white"><span style=3D"font-size:9pt;">=C0=BB =
+=B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email address if you don't want =
+to receive this mail.</span></FONT><span style=3D"font-size:9pt;"><font co=
+lor=3D"white">&nbsp;</font></span><a
+href=3D'http://%32%31%31=
+%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_eorn/cogolry/mail.php?mail_key=3D=
+cotegory_mail44' target=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT=
+ color=3D"white">[no mail]</FONT></b></span></a></td></tr>
+</table>
+</center>
+</body>
 
-                <P align=3Dcenter><BR><A href=3Dhttp://%62%69=
-%7A%73%68%61%72e.%63%6F.%6B%72/partner/mails/index.php3?mail_key=3Dcotegor=
-y_mail0><IMG height=3D86 
-      alt=3Dremail.gif src=3D"
-http://%69%6D%67%2E%6E%61%79%61%6E%61%2E%63%6F%6D/~%6C%5F%31%31/remail.gif=
-" width=3D505 
-      border=3D0></A><BR>&nbsp;</P>
-            </TD>
-        </TR>
-    </TABLE></td> </tr> </table> </div>
-
---BDD3235A83F--
+--EB9.DECC__.--
