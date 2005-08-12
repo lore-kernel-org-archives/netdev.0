@@ -1,38 +1,47 @@
-From: "Brock Black" <rm94lmkln@korea.com>
-Subject: =?ISO-8859-1?Q?=BF=C3=BF=A9=B8=A7=20=B4=F5=C0=CC=BB=F3?=
-	=?ISO-8859-1?Q?=B8=F0=B1=E2=B4=C2?=
-	=?ISO-8859-1?Q?=BE=F8=B4=E7~!=BA=CE=B5=B5=C3=B3=BA=D0?=
-Date: Fri, 12 Aug 2005 05:59:47 +0200
-Message-ID: <x--0v$-n19$-33ke@2mkw3>
-Reply-To: "Brock Black" <rm94lmkln@korea.com>
+From: "Johnathon Askew" <exowtq9@kyooh.dyndns.dk>
+Subject: =?ISO-8859-1?Q?=A1=DF?=
+	=?ISO-8859-1?Q?=BA=F1=BE=C6=B1=D7=B6=F3,=BD=C3=BE=CB=B8=AE=BD=BA..=C1=A4=C7=B0.!!?=
+	=?ISO-8859-1?Q?=A2=C1=20=BF=A9=BC=BA?=
+	=?ISO-8859-1?Q?=C8=EF=BA=D0=C1=A6..=C6=C7=B8=C5..!!?=
+Date: Fri, 12 Aug 2005 00:06:31 -0400
+Message-ID: <5e2dkos-$$76@mfvpp>
+Reply-To: "Johnathon Askew" <exowtq9@kyooh.dyndns.dk>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary=".8FBD1.CF27C_A.E"
+	boundary="4146C.85_E.DECBFAB"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---.8FBD1.CF27C_A.E
+--4146C.85_E.DECBFAB
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<div align=3D"center">
-<A HREF=3D"http://www.makdrim.com/md/mogi/index.php?pcode=3Daigo123" targe=
-t=3D"_blank" onfocus=3D"this.blur()">
-<IMG SRC=3D"http://www.makdrim.com/md/mogi/mail/mail.jpg" BORDER=3D"0" ALT=
-=3D"">
-</A>
-<br>
-<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
-<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject.gif" BORDER=3D"0=
-" ALT=3D"" style=3D"cursor:hand">
-</a>
-</div>oe ldlyjxbrq 
-vzinz   tni mdmqdm
-  y 
-lmmrng 
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+<table width=3D200 border=3D0 cellspacing=3D0 cellpadding=3D0><tr><td>
+<img src=3Dhttp://v2.viagramankorea.net/images/via1.gif 
+width=3D650 height=3D781 border=3D0 usemap=3D#Map></td></tr>
+</table><map name=3DMap>
+<area shape=3Drect coords=3D8,6,646,402 
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
+t=3D_blank>
+<area shape=3Drect coords=3D7,406,644,627 
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
+t=3D_blank>
+<area shape=3Drect coords=3D8,635,217,696 
+href=3Dhttp://v2.viagramankorea.net/via_qna.htm target=3D_blank>
+<area shape=3Drect coords=3D223,636,431,693 
+href=3Dhttp://v2.viagramankorea.net/via_card.htm target=3D_blank>
+<area shape=3Drect coords=3D437,635,636,693
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner>
+<area shape=3Drect coords=3D247,744,406,776 
+href=3Dhttp://v2.viagramankorea.net/partner/RejectMail.php target=3D_blank=
+>
+</map>
+</body>
 
---.8FBD1.CF27C_A.E--
+--4146C.85_E.DECBFAB--
