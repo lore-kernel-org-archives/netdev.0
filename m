@@ -1,40 +1,39 @@
-From: Chris Wedgwood <cw@f00f.org>
-Subject: Re: argh... ;/
-Date: Fri, 12 Aug 2005 07:22:24 -0700
-Message-ID: <20050812142224.GA15352@taniwha.stupidest.org>
-References: <42F2D749.70306@gmail.com> <200508060241.30507.phillips@istop.com>
-	<20050805172055.GB5641@tuxdriver.com>
-	<20050812053634.GA3998@taniwha.stupidest.org>
-	<20050812114425.GA28072@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <kernel-mentors-bounces@selenic.com>
-To: Daniel Phillips <phillips@istop.com>,
-        Mateusz Berezecki <mateuszb@gmail.com>, kernel-mentors@selenic.com,
-        netdev <netdev@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20050812114425.GA28072@tuxdriver.com>
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+From: =?Big5?B?qcq3UrHQvsc=?= <ok12345@gmail.com>
+Subject: =?Big5?B?rdK+yaTSqWSkp7ahv0Wxoaq6qcqlzayhIaW7pfq60KXRr3WkSLp0pViz4SE=?=
+Date: Fri, 12 Aug 2005 15:18:13 +0800
+Message-ID: <200508121428.j7CESBH9014391@oss.sgi.com>
+Content-Type: text/html
+Return-path: <netdev-bounce@oss.sgi.com>
+To: undisclosed-recipients:;
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 12, 2005 at 07:44:28AM -0400, John W. Linville wrote:
+<html>
 
-> Don't use crappy MUAs?
+<head>
+<meta http-equiv="Content-Language" content="zh-tw">
+<meta http-equiv="Content-Type" content="text/html; charset=big5">
+<meta name="GENERATOR" content="Microsoft FrontPage 6.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<title>圖若開啟太慢</title>
+</head>
 
-Well, plenty of people do.  It's almost the norm so crappy probably
-isn't very fair.
+<body>
 
-It does seem that most if the GUI-base MUAs though by default have
-problematic settings (Mozilla, Thunderbird, Evolution, Outlook all
-have problems at tims).
+<p align="center"><a href="http://www.buy999.net/999/mail001-b.htm">若無法開啟請按這裡</a></p>
 
-People also like to cut & paste patches from xterms or simlar into
-MUAs which usually doesn't work very well either.
+<p align="center">
+<a href="http://www.buy999.net/999/mail001-b.htm">
+<img border="0" src="http://www.buy999.net/999/001.jpg" width="600" height="322"></a></p>
+<p align="center">
+<a target="_blank" href="http://www.buy999.net/999/mail001-b.htm">
+本光碟由真人示範,變化姿勢達近百種,保證您夫妻的性生活達到前所未有的滿足與高潮!!</a></p>
+
+</body>
+
+</html>
+
+<p align=center>　</p>
+
+<!-- PITHSET -->
