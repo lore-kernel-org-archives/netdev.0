@@ -1,53 +1,54 @@
-From: "필수품" <fpdlwj@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A1=D8=C7=F6=B4=EB=C0=CE=C0=C7?=
-	=?ISO-8859-1?Q?=C7=CA=BC=F6=C7=B0:=B7=B9=C0=CC=C0=FA=BA=D2=BA=FB?=
-	=?ISO-8859-1?Q?=C0=CC=B3=AA=BF=C0=B4=C2=20=C1=F6=BD=C3=BA=C0?=
-	=?ISO-8859-1?Q?=C8=C4=B7=B9=BD=AC=20=B8=B8=B4=C9=BA=BC=C6=E6?=
-Date: Fri, 12 Aug 2005 19:22:45 +0100
-Message-ID: <x83$25sqh$5n12-53k4@gt9.81j.lx5.eq>
-Reply-To: "필수품" <fpdlwj@yahoo.com>
+From: "" <fqmfpglxlarnb3111638188@hotmail.com>
+Subject: =?ISO-8859-1?Q?=B0=ED=B0=B4=B4=D4=20=BE=EE=B6=B0=C7=D1?=
+	=?ISO-8859-1?Q?=C1=B6=B0=C7=BF=A1=B5=B5?=
+	=?ISO-8859-1?Q?=B4=EB=C3=E2=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9.?= zjeieqh
+Date: Fri, 12 Aug 2005 13:27:56 -0500
+Message-ID: <w5-$$-evj-pda$-49$3k30y$c4b@x6g.16b>
+Reply-To: "" <fqmfpglxlarnb3111638188@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="9F8A6__._8D0D3CB.C29_"
+	boundary="E6B.C._4C1.9.5"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kdb@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---9F8A6__._8D0D3CB.C29_
+--E6B.C._4C1.9.5
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"668" border=3D"0" borde=
-rcolordark=3D"white" bordercolorlight=3D"black"><tr><td width=3D"666"><p a=
-lign=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e%31=
-%36%2e%31%32%38/demo/eorn/pan/index.php?partner_key=3Dmaster_bufer&uid=3D3=
-0&url=3Ddemo/eorn/pan" target=3D"_blank"><img src=3D"http://%53=
-%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/demo/eorn/pan/2.gif"></a></p></td></t=
-r><tr><td width=3D"666" height=3D"68" bgcolor=3D"#8EBB81"><p align=3D"left=
-"><FONT color=3D"white"><span style=3D"font-size:9pt;">=BA=BB =B8=DE=C0=CF=
-=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB =B8=DE=C0=CF=C0=CC=B9=C7=B7=CE
-=C8=B8=BD=C5=
-=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7 =BC=F6=BD=C5=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2=
- =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=BC=D2=B8=A6
-=C0=D4=B7=C2=C8=C4=
-=BF=A1 </span></FONT><a href=3D'http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/demo/eorn/pan/mail.php?mail_key=3Dcotegory_mail30' targ=
-et=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT color=3D"white">[=BC=
-=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT></b></span></a><FONT color=3D"whi=
-te"><span style=3D"font-size:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.E=
-nter your email address if you don't want to receive this mail.</span></FO=
-NT><span style=3D"font-size:9pt;"><font color=3D"white">&nbsp;</font></spa=
-n><a href=3D'http://%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/demo/eorn/p=
-an/mail.php?mail_key=3Dcotegory_mail30' target=3D"_blank"><span style=3D"f=
-ont-size:9pt;"><b><FONT color=3D"white">[no mail]</FONT></b></span></a></t=
-d></tr>
-</table>
-</center>
-</body>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
---9F8A6__._8D0D3CB.C29_--
+<title></title>
+</head>
+
+<body>
+<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
+ellerid=3D77" 
+height=3D'0' width=3D'0'>
+<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
+%6D/%7E%6C%5F%31%37%
+38/zzz/mail_04.gif" border usemap=3D"#Map">
+<map name=3D"Map">
+  <area shape=3D"rect" coords=3D"30,416,549,535" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"23,601,552,714" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"-6,733,576,796" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
+</map>
+</body>
+</html>qlb p
+
+--E6B.C._4C1.9.5--
