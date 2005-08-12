@@ -1,60 +1,52 @@
-From: MRS VERONICA REGINA AHMED <veronica4christ@netscape.net>
-Subject: God bless your fate
-Date: Fri, 12 Aug 2005 13:32:55 +0200
-Message-ID: <200508121135.j7CBZ7H9008760@oss.sgi.com>
-Reply-To: veronica4christ@netscape.net
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] add new iptables ipt_connbytes match
+Date: 12 Aug 2005 13:39:44 +0200
+Message-ID: <p73u0hv2xkv.fsf@verdi.suse.de>
+References: <20050811200349.GN5353@rama.de.gnumonks.org>
+	<20050811.154204.102613246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="e3318b03-9c06-427e-9a20-5030817181a2"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050811.154204.102613246.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+"David S. Miller" <davem@davemloft.net> writes:
 
-This is a multi-part message in MIME format
---e3318b03-9c06-427e-9a20-5030817181a2
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+> From: Harald Welte <laforge@netfilter.org>
+> Date: Thu, 11 Aug 2005 22:03:49 +0200
+> 
+> > +struct ipt_connbytes_info
+> > +{
+> > +	struct {
+> > +		u_int64_t from;	/* count to be matched */
+> > +		u_int64_t to;	/* count to be matched */
+> > +	} count;
+> > +	u_int8_t what;		/* ipt_connbytes_what */
+> > +	u_int8_t direction;	/* ipt_connbytes_direction */
+> > +};
+> 
+> Won't work in x86 --> x86_64 compat environments.
 
-Greetings,
-My name is Mrs.Veronica Ahmed,widow to late
-Mr.Hassan Ahmed fomer owner of Petroleum and
-Gas company ,here in kuwait.I am 78years old,
-suffering from long time cancer of the breast. 
->From all indications my condition is really 
-deteriorating and it's quite obvious that I 
-won't live more than 2 months according to my
-doctors.This is because the cancer stage has
-gotten to a very bad stage.i dont want your 
-pity but i need your trust.
-My late husband died early last year from heart
-attack, and during the period of our marriage we
-couldn't produce any child. My late husband was
-very wealthy and after his death,I inherited all
-his business and wealth.The doctor has advised 
-me that I will not live for more than 2 months,
-so I have now decided to spread all my wealth,
-to contribute mainly to the development of 
-charity in Africa, America, Asia and Europe.
-am sorry if you are embarrased by my mail.
-i found your e-mail address in the web 
-directory,and i have decided to contact you,
-but if for any reason you find this mail 
-offensive,you can ignore it and please 
-accept my appology.
-before my late husband died he was a major oil 
-tycoon,in kuwait and deposited the sum of 25 
-million dollars (Twenty Five million dollars)
-in a company in europe some years ago,thats all
-i have left now,i need you to collect this funds
-and distribute it yourself to charity .
-so that when i die my soul can rest in peace.the
-funds will be entirely in hands and management.
-i hope God gives you the wisdom to touch very 
-many lives,that is my main concern.
-20% of this money will be for your time and 
-effort,while 80% goes to charity.
-God bless you.
-Mrs.Veronica Ahmed.  
---e3318b03-9c06-427e-9a20-5030817181a2--
+Thanks for catching it.
+
+The aligned u64 trick probably will
+
+#define aligned_u64 unsigned long long __attribute__((aligned(8)))
+
+It just forces i386 to be aligned too.
+
+Then use aligned_u64 instead of u64/__u64/u_int64_t in all user visible 
+places. Similar for signed types.
+
+-Andi
