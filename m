@@ -1,102 +1,49 @@
-From: =?Big5?B?WWFob28hqV+8r6nnveY=?= <www@yahoo.com.tw>
-Subject: =?Big5?B?obnByqqruvSvuKG5rk24y7r0r7ih/K3sqWy9WKV1rW4kOTk5LQ==?=
-Date: Fri, 12 Aug 2005 09:40:30 +0800
-Message-ID: <200508120531.j7C5VNH9009106@oss.sgi.com>
-Content-Type: text/html
+From: "Latonya Redmond" <duxqndwcuvuz@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A2=C5=B9=AB=B7=E1=BF=C2=B6=F3=C0=CE?=
+	=?ISO-8859-1?Q?=C7=D0=BB=E7=C7=D0=C0=A7=20=C0=DA=B7=E1?=
+	=?ISO-8859-1?Q?=B9=DE=B1=E2...!!b6?=
+Date: Thu, 11 Aug 2005 23:24:49 -0600
+Message-ID: <QIEJZVBSZNKRYGUTXPDZGS@yahoo.com>
+Reply-To: "Latonya Redmond" <jvgksm@yahoo.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="--"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
-<head>
-<title>20050513.jpg</title>
-<meta http-equiv="Content-Type" content="text/html;">
-<!--Fireworks MX 2004 Dreamweaver MX 2004 target.  Created Sat May 14 00:11:33 GMT+0800 2005-->
-</head>
-<body bgcolor="#ffffff" style="text-align: center">
-<table border="0" cellpadding="0" cellspacing="0" width="700">
-<!-- fwtable fwsrc="¥¼©R¦W" fwbase="20050513.jpg" fwstyle="Dreamweaver" fwdocid = "99407692" fwnested="0" -->
-  <tr>
-   <td>
-   <p align="center"><img src="spacer.gif" width="358" height="1" border="0" alt=""></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="342" height="1" border="0" alt=""></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="1" border="0" alt=""></td>
-  </tr>
+----
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r1_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r1_c1.jpg" width="358" height="115" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r1_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r1_c2.jpg" width="342" height="115" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="115" border="0" alt=""></td>
-  </tr>
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r2_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r2_c1.jpg" width="358" height="117" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r2_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r2_c2.jpg" width="342" height="117" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="117" border="0" alt=""></td>
-  </tr>
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r3_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r3_c1.jpg" width="358" height="129" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r3_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r3_c2.jpg" width="342" height="129" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="129" border="0" alt=""></td>
-  </tr>
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r4_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r4_c1.jpg" width="358" height="132" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r4_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r4_c2.jpg" width="342" height="132" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="132" border="0" alt=""></td>
-  </tr>
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r5_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r5_c1.jpg" width="358" height="140" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r5_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r5_c2.jpg" width="342" height="140" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="140" border="0" alt=""></td>
-  </tr>
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r6_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r6_c1.jpg" width="358" height="128" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r6_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r6_c2.jpg" width="342" height="128" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="128" border="0" alt=""></td>
-  </tr>
-  <tr>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r7_c1" src="http://192.192.100.100/~c913c002/20050513/20050513_r7_c1.jpg" width="358" height="86" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><a href="http://ez-host.info/" target="_blank">
-   <img name="n20050513_r7_c2" src="http://192.192.100.100/~c913c002/20050513/20050513_r7_c2.jpg" width="342" height="86" border="0" alt=""></a></td>
-   <td>
-   <p align="center"><img src="spacer.gif" width="1" height="86" border="0" alt=""></td>
-  </tr>
-</table>
-</body>
-</html>
+  <table style=3D"border-width:1; border-color:rgb(153,153,153); border-st=
+yle:solid;" cellpadding=3D"0" cellspacing=3D"0" width=3D"600" align=3D"cen=
+ter">
+    <tr bgcolor=3D"#FFFFFF"> 
+      <td><a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/hak/hak02=
+php?partner_id=3Dzalman"><IMG 
+src=3D"http://%77%77%77%2eg%41%4c%4c%65%72yy%45%48%2e%63%6f%6d/bbs/up/hak.=
+jpg" border=3D"0"></a><br> <A 
+href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126_02.php?partner_id=3Dz=
+alman"><IMG 
+src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126.gif" border=3D0></A></=
+td>
+    </tr>
+    <tr> 
+      <td height=3D"118" bgcolor=3D"#0099FF"> 
+        <p align=3D"center"><font color=3D"white"> </font><br><a href=3D"h=
+ttp://www.gubu2.cf.st"><IMG alt=3Dremail.gif 
+src=3D"http://%77%77%77%2e%69%6d%44%77%61%70m%2ecom/user/ftp/default/bbs/1=
+/remail.gif" 
+border=3D0></a><br></p>
+      </td>
+    </tr>
+  </table><br>
+=A1=D8 =C0=DA=BC=BC=C7=D1 =BE=C8=B3=BB=B4=C2 =BE=C6=B7=A1 [=C0=CC=B9=CC=C1=
+=F6=B8=A6 =BA=B8=BF=A9=C1=DC]=C0=BB =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4! =A1=D8=
+ 
+=A1=E5 =A1=E5 =A1=E5 =A1=E5
+
+------
