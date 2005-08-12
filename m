@@ -1,7 +1,7 @@
-From: =?Big5?B?s82vU6bmvlA=?= <wu0417.1@gmail.com>
-Subject: =?Big5?B?sdCnQaVOv+ykvaVxqrqxS6feIcX9p0Gs2aRVMS0zpqiquqVOv+y2T6XOIQ==?=
-Date: Fri, 12 Aug 2005 16:06:36 +0800
-Message-ID: <200508122036.j7CKaSH9031540@oss.sgi.com>
+From: =?Big5?B?qcq3UrHQvsekarrQ?= <hn86674456@gmail.com>
+Subject: =?Big5?B?MzY1utipyrdSq7q21aRqpf4spbul+rrQpdGvdaRIunSlWKq6rfIh?=
+Date: Fri, 12 Aug 2005 16:17:22 +0800
+Message-ID: <200508122042.j7CKgoH9032326@oss.sgi.com>
 Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
@@ -21,12 +21,14 @@ List-Id: netdev.vger.kernel.org
 
 <body>
 
-<p align="center"><a href="http://www.buy999.net/999/mail006-b.htm">若無法開啟請按這裡</a></p>
-<p align="center"><a href="http://www.buy999.net/999/mail006-b.htm">
-<img border="0" src="http://www.buy999.net/999/006.jpg" width="600" height="322"></a></p>
+<p align="center"><a href="http://www.buy999.net/999/mail001-b.htm">若無法開啟請按這裡</a></p>
 
 <p align="center">
-<a target="_blank" href="http://www.buy999.net/999/mail006-b.htm">貸款還要讓人抽1-3成的佣金嗎!!本光碟交你如何省下這筆費用喔!!</a></p>
+<a href="http://www.buy999.net/999/mail001-b.htm">
+<img border="0" src="http://www.buy999.net/999/001.jpg" width="600" height="322"></a></p>
+<p align="center">
+<a target="_blank" href="http://www.buy999.net/999/mail001-b.htm">
+本光碟由真人示範,變化姿勢達近百種,保證您夫妻的性生活達到前所未有的滿足與高潮!!</a></p>
 
 </body>
 
