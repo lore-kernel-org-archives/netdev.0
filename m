@@ -1,175 +1,166 @@
-From: <auux@pchome.com.tw>
-Subject: =?ISO-8859-1?Q?=A5x=B7s=BB=C8=A6=E6=B1=C0=A5X1.99%=A7C=A7Q=A5d=A5N=C0v,=A5u=ADn=A6=B3=A4u=A7@,=AB=F9=A5d=BA=A1=A5b=A6~=A7Y=A5i=BF=EC=B2z...?=
-Date: Sat, 13 Aug 2005 02:17:19 +0800
-Message-ID: <200508121818.j7CII7H9006037@oss.sgi.com>
+From: "财务管理(沙盘模拟)课程"@oss.sgi.com
+Subject: =?gb2312?B?ONTCMjctMjjI1S/Jz7qjICA51MIzLTTI1S+xsb6p?=
+Date: Fri, 12 Aug 2005 18:23:04 +0000 (UTC)
+Message-ID: <200508121823.j7CINaH9007115@oss.sgi.com>
+Reply-To: "Mm5m8j3o1@msn.com"<Mm5m8j3o1@msn.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-    boundary="--=_NextPart_001_0018_01C39816.2C871AA0"
+Content-Type: multipart/related;
+    type="multipart/alternative";
+    boundary="----=_NextPart_000_002A_17715559.4654000C"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "majordomo@oss.sgi.com"<majordomo@oss.sgi.com>
+Date: Mon, 15 Aug 05 02:21:47 +0800
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/plain;
-    charset="big5"
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_002A_17715559.4654000C
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_001_002B_17715559.4654000C"
+
+
+------=_NextPart_001_002B_17715559.4654000C
+Content-Type: text/html; charset=gb2312
 Content-Transfer-Encoding: base64
-X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id j7CIJSH9006510
 
-vdCkwbSrtlek5aW7oV1IVE1MoV6u5qahDQo=
-----=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/html;
-    charset="big5"
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j7CIJSH9006510
-
-<html>
-
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
-<title>=A1=B0&nbsp;&nbsp; =BD=D0=BDT=B9=EA=B6=F1=BCg=AA=ED=B3=E6</title>
-</head>
-
-<body>
-
-<div align=3D"center">
-	<table width=3D"83%"  border=3D"1" cellpadding=3D"0" cellspacing=3D"0" i=
-d=3D"table9">
-        <tr bgcolor=3D"#FF9966">=20
-          <td bgcolor=3D"#FFFFFF"> <div align=3D"center" class=3D"style3"=
->
-		=09
-          <table border=3D"0" width=3D"57%" id=3D"table10" cellspacing=3D=
-"0" cellpadding=3D"0">
-            <tr>=20
-              <td width=3D"227">
-				<table width=3D"75%" border=3D"0" cellspacing=3D"0" cellpadding=3D"0"=
->
-                  <tr>
-                    <td width=3D"80%">
-					<img src=3D"http://file.email104.com/go/bank/bank004/001.gif" width=3D=
-"227" height=3D"204"></td>
-                    <td width=3D"20%">
-					<img src=3D"http://file.email104.com/go/bank/bank004/002.gif" width=3D=
-"232" height=3D"204"></td>
-                  </tr>
-                  <tr>
-                    <td>
-					<img src=3D"http://file.email104.com/go/bank/bank004/003.gif" width=3D=
-"227" height=3D"147"></td>
-                    <td>
-					<img src=3D"http://file.email104.com/go/bank/bank004/004.gif" width=3D=
-"232" height=3D"147"></td>
-                  </tr>
-                  <tr>
-                    <td>
-					<img src=3D"http://file.email104.com/go/bank/bank004/005.gif" width=3D=
-"227" height=3D"210"></td>
-                    <td>
-					<img src=3D"http://file.email104.com/go/bank/bank004/006.gif" width=3D=
-"232" height=3D"210"></td>
-                  </tr>
-                </table></td>
-              <td>=A1@</td>
-            </tr>
-            <tr>=20
-              <td colspan=3D"2" bgcolor=3D"#FF9999"> <p align=3D"center">=
-<b><font size=3D"2" color=3D"#008000">=20
-                  <span style=3D"background-color: #FFFF00">=A1=B0&nbsp;&=
-nbsp; =BD=D0=BDT=B9=EA=B6=F1=BCg=AA=ED=B3=E6=A1A=A7=DA=AD=CC=B7|=BE=A8=A7=
-=D6=BBP=B1z=C1p=C3=B4&nbsp;&nbsp;&lt;=B3=CC=B0=AA=A5i=A5=D3=B6U30=B8U=A4=B8=
-=B3=E1&gt;=20
-                  =A1=B0</span></font></b></td>
-            </tr>
-             <FORM  action=3Dhttp://www.email104.com/cgi-bin/formmail/for=
-memail.cgi?no=3D1064
-                method=3Dpost><INPUT type=3Dhidden value=3D=A9=FA=A7=DA=AD=
-n=A5=D3=BD=D0=A5N=C0v=A4=E8=AE=D7_new=B6U name=3Dsubject>=20
-
-            <tr>=20
-              <td colspan=3D"2"> <table border=3D"0" width=3D"102%" cells=
-pacing=3D"0" cellpadding=3D"0" id=3D"table11" height=3D"205">
-                  <tr>=20
-                    <td width=3D"16%" align=3D"right" height=3D"35"> <fon=
-t size=3D"2">=A9m=A1@=A1@=A6W=A1G</font></td>
-                    <td width=3D"28%" height=3D"35"> <input type=3D"text"=
- name=3D"=A9m=A6W" size=3D"17" style=3D"color: #000000; font-size: 10pt">=
-</td>
-                    <td align=3D"right" width=3D"15%" height=3D"35"> <p a=
-lign=3D"left">=20
-                        <font size=3D"2">=C1p=B5=B8=B9q=B8=DC=A1G</font><=
-/td>
-                    <td width=3D"34%" height=3D"35"> <input type=3D"text"=
- name=3D"=C1p=B5=B8=B9q=B8=DC" size=3D"21" style=3D"color: #000000; font-=
-size: 10pt"></td>
-                  </tr>
-                  <tr>=20
-                    <td width=3D"16%" align=3D"right" height=3D"26"> <fon=
-t size=3D"2">=A4w&nbsp;=20
-                      =AB=F9&nbsp; =A6=B3=A1G</font></td>
-                    <td width=3D"84%" height=3D"26" colspan=3D"3"> <font =
-size=3D"2">=20
-                      <input type=3D"checkbox" name=3D"C1" value=3D"=A5x=B7=
-s=A5d">
-                      =A5x=B7s=A5d=20
-                      <input type=3D"checkbox" name=3D"C2" value=3D"=B4=ED=
-=A5=B4=A5d">
-                      =B4=ED=A5=B4=A5d=20
-                      <input type=3D"checkbox" name=3D"C3" value=3D"=AA=E1=
-=BAX=A5d">
-                      =AA=E1=BAX=A5d=20
-                      <input type=3D"checkbox" name=3D"C4" value=3D"=A8=E4=
-=A5L">
-                      =A8=E4=A5L</font></td>
-                  </tr>
-                  <tr>=20
-                    <td width=3D"16%" align=3D"right"> <font size=3D"2">=A7=
-=DA=ADn=A5=D3=BF=EC=A1G</font></td>
-                    <td colspan=3D"3"> <font size=3D"2">=20
-                      <input type=3D"checkbox" name=3D"d1" value=3D"=A4p=C3=
-B=B2{=AA=F7=B6U=B4=DA=A4=E8=AE=D7">
-                      </font> <font style=3D"font-size: 9pt">=20
-                      =A4p=C3B=B2{=AA=F7=B6U=B4=DA=A4=E8=AE=D7</font><fon=
-t size=3D"2">=20
-                      <input type=3D"checkbox" name=3D"d2" value=3D"=ABH=A5=
-=CE=A5d=A1B=B2{=AA=F7=A5d=BEl=C3B=A5N=C0v=A4=E8=AE=D7">
-                      </font><font style=3D"font-size: 9pt">=ABH=A5=CE=A5=
-d=A1B=B2{=AA=F7=A5d=BEl=C3B=A5N=C0v=A4=E8=AE=D7</font><font size=3D"2">=20
-                      <input type=3D"checkbox" name=3D"d3" value=3D"=A8=E2=
-=AA=CC=AC=D2=ADn">
-                      </font><font style=3D"font-size: 9pt">=20
-                      =A8=E2=AA=CC=AC=D2=ADn</font></td>
-                  </tr>
-                  <tr>=20
-                    <td width=3D"16%" align=3D"right"><font size=3D"2">=C1=
-p=B5=B8=A6a=A7}=A1G</font></td>
-                    <td colspan=3D"3"> <input type=3D"text" name=3D"=C1p=B5=
-=B8=A6a=A7}" size=3D"51" style=3D"color: #000000; font-size: 10pt"></td>
-                  </tr>
-                  <tr>=20
-                    <td width=3D"16%" align=3D"right"><font size=3D"2">=B3=
-=C6=A1@=A1@=B5=F9=A1G</font></td>
-                    <td colspan=3D"3"> <textarea rows=3D"4" name=3D"=B3=C6=
-=B5=F9" cols=3D"50" style=3D"color: #000000; font-size: 10pt"></textarea>=
-</td>
-                  </tr>
-                </table></td>
-            </tr>
-          </table>
-			</div></td>
-        </tr>
-      =20
-        <tr>=20
-          <td height=3D"19">
-				<p align=3D"center"><input type=3D"submit" value=3D"=BDT=A9w=A8=C3=B0=
-e=A5X" name=3D"B1"></td>
-        </tr>
-      </table></div>
-
-</body>
-
-</html>
+PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMCBUcmFuc2l0aW9uYWwvL0VO
+Ij4NCjxIVE1MPjxIRUFEPjxUSVRMRT7I57rO1MvTw0lFvLzK9czhuN/J+rL60KfCyjwvVElUTEU+DQo8
+TUVUQSBodHRwLWVxdWl2PUNvbnRlbnQtTGFuZ3VhZ2UgY29udGVudD16aC1jbj4NCjxNRVRBIGNvbnRl
+bnQ9Ik1TSFRNTCA2LjAwLjI4MDAuMTEwNiIgbmFtZT1HRU5FUkFUT1I+DQo8TUVUQSBjb250ZW50PUZy
+b250UGFnZS5FZGl0b3IuRG9jdW1lbnQgbmFtZT1Qcm9nSWQ+DQo8TUVUQSBodHRwLWVxdWl2PUNvbnRl
+bnQtVHlwZSBjb250ZW50PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9Z2IyMzEyIj4NCjxTVFlMRT4NCjwhLS0N
+Ci50ZCB7DQoJZm9udC1zaXplOiAxMnB4Ow0KCWNvbG9yOiAjMzEzMTMxOw0KCWxpbmUtaGVpZ2h0OiAy
+MHB4Ow0KCWZvbnQtZmFtaWx5OiAiQXJpYWwiLCAiSGVsdmV0aWNhIiwgInNhbnMtc2VyaWYiOw0KfQ0K
+LS0+DQo8L1NUWUxFPg0KPC9IRUFEPg0KPEJPRFk+DQo8VEFCTEUgaWQ9QXV0b051bWJlcjEgc3R5bGU9
+IkJPUkRFUi1DT0xMQVBTRTogY29sbGFwc2UiIGJvcmRlckNvbG9yPSMxMTExMTEgDQpoZWlnaHQ9NTMz
+IGNlbGxTcGFjaW5nPTAgY2VsbFBhZGRpbmc9MCB3aWR0aD0iOTklIiBib3JkZXI9MD4NCiAgPFRCT0RZ
+Pg0KICA8VFI+DQogICAgPFREIGFsaWduPW1pZGRsZSB3aWR0aD0iMTAwJSIgYmdDb2xvcj0jOTljY2Zm
+IGNvbFNwYW49MyBoZWlnaHQ9NTU+PEI+PEZPTlQgDQogICAgICBzaXplPTY+ssbO8bncwO0oybPFzMSj
+xOIpv86zzDwvRk9OVD48L0I+PC9URD48L1RSPg0KICA8VFI+DQogICAgPFREIHdpZHRoPSIzMSUiIGhl
+aWdodD0yOD48U1BBTiANCiAgICAgIHN0eWxlPSJCQUNLR1JPVU5ELUNPTE9SOiAjOTljY2ZmIj5bxeDR
+tcqxvOQvtdi14108L1NQQU4+PC9URD4NCiAgICA8VEQgd2lkdGg9IjY5JSIgY29sU3Bhbj0yIGhlaWdo
+dD0yOD441MIyNy0yOMjVKNbcwfksyNUpIA0KICAgICAgyc+6oyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyA51MIzLTTI1SZuYnNwOyjW3MvELM7lKSZuYnNwO7Gxvqk8L1REPjwvVFI+DQogIDxUUj4NCiAgICA8
+VEQgd2lkdGg9IjMxJSIgaGVpZ2h0PTMwPjxTUEFOIA0KICAgICAgc3R5bGU9IkJBQ0tHUk9VTkQtQ09M
+T1I6ICM5OWNjZmYiPlvF4NG1t9HTw108L1NQQU4+PC9URD4NCiAgICA8VEQgd2lkdGg9IjY5JSIgY29s
+U3Bhbj0yIGhlaWdodD0zMD4xOTgw1KovyMujqLqsvbK/zrfRoaK9zLLEoaLO57LNoaK3osaxtcijqSA8
+L1REPjwvVFI+DQogIDxUUj4NCiAgICA8VEQgd2lkdGg9IjMxJSIgaGVpZ2h0PTI2PjxTUEFOIA0KICAg
+ICAgc3R5bGU9IkJBQ0tHUk9VTkQtQ09MT1I6ICM5OWNjZmYiPlvTxbvd1f6y3108L1NQQU4+PC9URD4N
+CiAgICA8VEQgd2lkdGg9IjY5JSIgY29sU3Bhbj0yIGhlaWdodD0yNj7I/cjL0tTJz7LOvNOjrNT5y83S
+u8P7w+K30cP7tu4gPC9URD48L1RSPg0KICA8VFI+DQogICAgPFREIHdpZHRoPSIzMSUiIGJnQ29sb3I9
+Izk5Y2NmZiBoZWlnaHQ9Mjk+W7/Os8y88r3pXTwvVEQ+DQogICAgPFREIHdpZHRoPSI2OSUiIGJnQ29s
+b3I9Izk5Y2NmZiBjb2xTcGFuPTIgaGVpZ2h0PTI5PjwvVEQ+PC9UUj4NCiAgPFRSPg0KICAgIDxURCB3
+aWR0aD0iMTAwJSIgY29sU3Bhbj0zIGhlaWdodD00Mj48Rk9OVCBsYW5nPVpILUNOIA0KICAgICAgZmFj
+ZT0/P6isPyxTaW1TdW4+PFNQQU4gDQogICAgICBzdHlsZT0iRk9OVC1TSVpFOiAxMC41cHQ7IEZPTlQt
+RkFNSUxZOiDLzszlIj48QlI+PC9TUEFOPjwvRk9OVD7Dv9K7zru53MDtus28vMr1yMvUsba8x+Wz/rXY
+tq61w6OstaW0v7TTvLzK9b3Htsi64sG/zqq6z8vjtcS3vbC4o6zSstDtyLTKx9K7uPayxs7xz93a5aOs
+se3D5tOuwPu2+LC1tdjA77/3y/CjrMq5vq3TqtXfzt63qL3Tytyho8jnus69q7y8yvXK1rbO0+uyxs7x
+1MvX98/gveG6z6OsyrnDv867udzA7brNvLzK9cjL1LG2vLTTwM+w5bXEvce2yL340NDLvL+8LNPQ0Ke1
+2Lnmsdyyxs7xz93a5aOsyrXP1rncwO2+9rLf0+u+rdOqxL+x6rXE0rvWwtDUo788QlI+sb6/zrPMzai5
+/cmzxczEo8Tius2wuMD9t9bO9qOsyrnG89K1uPe8trncwO26zby8yvXIy9Sx1cbO1bLGzvG53MDt1qrK
+tqOswPvTw7LGzvHQxc+iuMS9+LncwO2+9rLfo6zKtc/WudzA7dCn0ubX7rTzu6+ho82ouf3Rp8+wsb6/
+zrPMo6zE+r2ro7o8QlI+oe8gDQogICAgICC21LvhvMbT67LGzvG53MDt09C7+bG+wcu94izM4bjfyNWz
+o7ncwO277ravtcSyxs7xv8nQ0NDUOyA8QlI+oe8g1cbO1dK1vKjGwLzbtcTSwL7dus23vbeoo6zGwLnA
+vq3TqtK1vKgsyrXKqb/G0ae1xNK1vKi/vLrLOzxCUj6h7yANCiAgICAgINXGztW6z7r1ssbO8dSt1PK1
+xLncwO2+9rLft723qCzT68DPsOW1xMu8zqzNrLK9o7s8QlI+oe8gzai5/bfWzva52Lz80rW8qNa4seqj
+rNDOs8nVvcLUuea7rtPryKvD5tSky+OjuzxCUj6h7yANCiAgICAgIM27s/bG89K1udzA7bXE1tjQxKOs
+0M6zybncwO21xM+1zbPQ1DxCUj6hoTwvVEQ+PC9UUj4NCiAgPFRSPg0KICAgIDxURCB3aWR0aD0iMzEl
+IiBiZ0NvbG9yPSM5OWNjZmYgaGVpZ2h0PTMzPlu/zrPMtPO41l08L1REPg0KICAgIDxURCB3aWR0aD0i
+NjklIiBiZ0NvbG9yPSM5OWNjZmYgY29sU3Bhbj0yIGhlaWdodD0zMz6hoTwvVEQ+PC9UUj4NCiAgPFRS
+Pg0KICAgIDxURCB3aWR0aD0iNTAlIiBjb2xTcGFuPTIgaGVpZ2h0PTE0MT48U1RST05HPjxCUj48Rk9O
+VCANCiAgICAgIGNvbG9yPSMwMDAwZmY+0ruhorLGzvG5pNf3xNrI3byw1/fTwzwvRk9OVD48L1NUUk9O
+Rz48QlI+MaGissbO8bvhvMa1xLv5sb7UrcDtIDxCUj4yoaKyxs7x16i80rXEy7zOrMSjyr0gDQogICAg
+ICA8QlI+M6GissbO8bmk1/e1xLv5sb7E2sjdIDxCUj40oaK53MDt1d/I57rOwPvTw7LGzvG9+NDQudzA
+7brNvvay3yA8QlI+PFNUUk9ORz48Rk9OVCANCiAgICAgIGNvbG9yPSMwMDAwZmY+tv6hosjnus7UxLbB
+us231s72ssbO8bGose08L0ZPTlQ+PC9TVFJPTkc+PEJSPjGhorvhvMaxqLHttcS5ubPJIDxCUj4yoaLL
+8NLmse21xNTEtsHT67fWzvYgDQogICAgICA8QlI+M6Gi18qy+ri61a6x7bXE1MS2wdPrt9bO9iA8QlI+
+NKGi18q98MH3wb+6zc/WvfDB98G/se21xNTEtsHT67fWzvYgPEJSPjWhorvhvMaxqLHt1q685LXEudjP
+tSANCiAgICAgIDxCUj42oaLI57rOtNO74bzGsaix7bbBtq7G89K1vq3Tqte0v/YgPEJSPqH0sLjA/bfW
+zvajurbBsaix7aOsxdC2z8bz0rXStbyoy67GvTxCUj48U1RST05HPjxGT05UIA0KICAgICAgY29sb3I9
+IzAwMDBmZj7I/aGiyOe6ztTL08Oyxs7xyta2zr340NCzybG+v9jWxiA8L0ZPTlQ+PC9TVFJPTkc+PEJS
+PjGhorL6xrezybG+tcS4xcTuus25ubPJIA0KICAgICAgPEJSPjKhoqPDo9aj0KOosb6jrcG/o63A+6Op
+t9bO9tPr1MvTwyChoTxCUj4zoaKx6te8s8mxvtbGtsjU2rPJsb6/2NbG1tC1xNf308MgDQogICAgICA8
+QlI+NKGiyOe6ztTL08PEv7Hqs8mxvreov9jWxrL6xrezybG+o6yxo9akwPvI88uuxr08QlI+NaGiyOe6
+ztTL08NBQkPX99K1s8mxvreovfg8QlI+0NC53MDtt9bO9qOsyrXKqb6rz7izybG+udzA7TxCUj42oaLI
+57rO1eu21LPBw7uzybG+us27+rvhs8mxvr340NDV/ci3vvay3zxCUj43oaLI57rOuMTJxrLJubqhosn6
+svq1yLu3vdq1xNTL1/fS1LjEwbzG89K1tcTV+8zlssbO8de0v/Y8QlI+ofTX27rPsLjA/bfWzvY8QlI+
+PFNUUk9ORz48Rk9OVCANCiAgICAgIGNvbG9yPSMwMDAwZmY+y8Shosjnus7Uy9PDssbO8dStwO3RodTx
+v8nQ0LXEudzA7dPrvLzK9be9sLg8L0ZPTlQ+PC9TVFJPTkc+PEJSPjGhorncwO26zby8yvW3vbC4tcS/
+ydDQ0NS31s72IA0KICAgICAgPEJSPqGhPC9URD4NCiAgICA8VEQgd2lkdGg9IjUwJSIgDQogICAgICBo
+ZWlnaHQ9MTQxPjxCUj4yoaLQwrL6xre/qrei1tC1xLLGzvG/ydDQ0NS31s72PEJSPjOhorL6xrfU9rL6
+L7z1svrKsbXEssbO8b/J0NDQ1LfWzvY8QlI+NKGiyfqy+snosbi4xNTs0+u4/NDCtcS+9rLft9bO9jxC
+Uj41oaLNttfKz+7Ev7XEz9a98MH3t9bO9jxCUj42oaLNttfKz+7Ev8bAvNu3vbeoo6i+u8/W1rW3qLfW
+zvajrNfKvfDKsbzkvNvWtbfWzvajqTxCUj6h9Nfbus+wuMD90d3BtzxCUj48U1RST05HPjxGT05UIA0K
+ICAgICAgY29sb3I9IzAwMDBmZj7O5aGiuavLvrfR08O8sMbkv9jWxiA8L0ZPTlQ+PC9TVFJPTkc+PEJS
+PjGhormry7630dPDtcS5ubPJIDxCUj4yoaK/2NbGt9HTw7XEt723qCANCiAgICAgIDxCUj4zoaLTsM/s
+t9HTw9bu0vLL2LXEt9bO9jxCUj40oaLI57rO1eu21LPJsb7W0NDEvfjQ0LfR08O/2NbGPEJSPjWhosjn
+us7V67bUwPvI89bQ0MS9+NDQ0rW8qL+8uss8QlI+NqGiyOe6ztXrttTNttfK1tDQxL340NDStbyoxsC8
+2zxCUj48U1RST05HPjxGT05UIA0KICAgICAgY29sb3I9IzAwMDBmZj7B+aGiyOe6zsD708Oyxs7xyv2+
+3bfWzvayorjEyca+rdOqvKjQpzwvRk9OVD48L1NUUk9ORz48QlI+MaGiuavLvrLGzvG31s72tcS6y9DE
+y7zCtzxCUj4yoaK52Lz8ssbO8da4seq94s72PEJSPjOhotOvwPvE3MGmt9bO9qO618qy+rvYsajCyqGi
+ucm2q8io0ua72LGowsqhotfKsvrB97avy9nCyiANCiAgICAgIDxCUj40oaK358/V1rjK/bfWzvajusH3
+tq+xyMLKoaK4utWuL8io0uaxyMLKoaLTqtTLs6XVrsTcwaY8QlI+NaGissbO8bGose3X27rPveK2waO6
+19u6z9TL08Oyxs7x0MXPos24ytO5q8u+1MvX98uuxr08QlI+ofSwuMD9t9bO9qO6xLPJz8rQuavLvrXE
+ssbO8de0v/a31s720+vGwLzbPEJSPjxTVFJPTkc+PEZPTlQgDQogICAgICBjb2xvcj0jMDAwMGZmPsbf
+oaLG89K11MvTqrncwO3Js8XMxKPE4jwvRk9OVD48L1NUUk9ORz48QlI+vq3TqsSjxOKjrMzl0enKvb3M
+0aejrMO/uPbQodfpNS02yMvEo8TiuavLvrXEyfqy+qGiz/rK27rNssbO8bfWzva5/bPMo6zRp9Sx1NrE
+o8TittS/udbQz+C7pbykt6Khoszl0em+9rLf0+u+rdOqxvPStbXEwNbIpKOszazKsb2yyqbT69Gn1LG5
+ss2st9bP7b3ivvbOyszitcTEo9DN0+u5pL7fo6zKudGn1LEiye3NrMzlytwio6zN6rPJtNNrbm93LXdo
+YXQgDQogICAgICDP8mtub3ctd2h516q7r6GjPFNQQU4gbGFuZz1FTi1VUz48Rk9OVCBjb2xvcj0jZmYw
+MDAwPjxCUj6hoTwvRk9OVD48L1NQQU4+PC9URD48L1RSPg0KICA8VFI+DQogICAgPFREIHdpZHRoPSIz
+MSUiIGJnQ29sb3I9Izk5Y2NmZiBoZWlnaHQ9MjY+W7W8yqa88r3pXTwvVEQ+DQogICAgPFREIHdpZHRo
+PSI2OSUiIGJnQ29sb3I9Izk5Y2NmZiBjb2xTcGFuPTIgaGVpZ2h0PTI2PjwvVEQ+PC9UUj4NCiAgPFRS
+Pg0KICAgIDxURCB3aWR0aD0iMTAwJSIgY29sU3Bhbj0zIGhlaWdodD00OT48U1RST05HPjxGT05UIGNv
+bG9yPSNmZjAwMDA+PEJSPk1yIA0KICAgICAgV2FuZ6OsudzA7bmks8zLtsq/oaK437y2vq28w8qmo6y5
++rzK1rDStcXg0bXKptCtu+HIz9ak1rDStcXg0bXKpqOswPrIzr/nufq5q8u+yfqy+ri61PDIy6GiuaTS
+tbmks8y+rcDtoaK53MDtu+G8xrfWzvbKpqGi06rUy9fcvOC1yLjfvLa53MDt1rDO8bbgxOqjrM2syrG7
+ubWjyM4mbHQ7vNvWtbmks8wmZ3Q71NPWvsnzuOXIy6GiwcnE/sqh06q/2srQyczStdL40NC2wMGitq3K
+wrXI1rDO8aOsttTG89K1udzA7dPQvc/J7sjrtcTR0L6/oaM8L0ZPTlQ+PC9TVFJPTkc+zfXAz8qm1vfS
+qrTTysJJRby8yvXTptPDoaKzybG+v9jWxqGiudzA7bvhvMa+9rLftci/zrPMtcS9ssrao6zPyLrzzqpJ
+Qk2holRES6Giy8nPwqGiv8m/2r/JwNahor+1yqa4taGiu+PUtLn71q2hotGpvfLGob7GoaK8qrDZwPvK
+s8a3oaK52r3dtefX06GiSU5URVjD97Tvy9y9uqGi1f3Qws/wvbqhosPAufpJVFS8r83FoaK548nPv8a8
+vKGiw8C1xL/Vtfcs1tDQy82o0bahor6p0MXNqNDFoaLBqs/rtefE1KOs06bTw7LEwc8o1tC5+im5q8u+
+oaKwrL/Lya0tvfDJvcqvu6+hotbQufq7r7mkvfiz9r/auavLvqGi1f2087yvzcW087ijy8fBz6Giz8O7
+qryvzcWhorLTwKS5ybfdoaJORUO2q73wtefX06GizKvUrbjWzPq8r83FoaJQSElMSVBToaLJ7tvav6q3
+or/GvLyhorTzwOTN9dTLyuTWxsDkoaLI/dHzu6rHv6GiVENMtcjWqsP7xvPStczhuanP7sS/uKi1vLvy
+16jM4sXg0bWho831wM/Kpsrav86+rdHpt+G4u6Ost+e48dPExKzattCzoaLC37ytx+XO+qGiuf2zzLul
+tq+jrLC4wP3J+ravoaLJ7src0afUsc+ysK6hoyANCiAgICAgIDxCUj6hoTwvVEQ+PC9UUj4NCiAgPFRS
+Pg0KICAgIDxURCB3aWR0aD0iMzElIiBiZ0NvbG9yPSM5OWNjZmYgaGVpZ2h0PTI2PlvBqs+1t73KvV08
+L1REPg0KICAgIDxURCB3aWR0aD0iNjklIiBiZ0NvbG9yPSM5OWNjZmYgY29sU3Bhbj0yIGhlaWdodD0y
+Nj48L1REPjwvVFI+DQogIDxUUj4NCiAgICA8VEQgd2lkdGg9IjUwJSIgY29sU3Bhbj0yIGhlaWdodD02
+OD4mbmJzcDvBqs+1yMujutC70KG94zxCUj48QlI+Jm5ic3A7RS1tYWlsOiANCiAgICAgIHN6ZXQ4OEAx
+MjYuY29tPC9URD4NCiAgICA8VEQgd2lkdGg9IjUwJSIgaGVpZ2h0PTY4PiZuYnNwO7Xnu7Cjui0wMjAt
+NjE5MTY4NTMgDQogICAgICA8QlI+PEJSPiZuYnNwO7Sr1eajui0wMjAtNjE5MTY4NTE8L1REPjwvVFI+
+DQogIDxUUj4NCiAgICA8VEQgd2lkdGg9IjMxJSIgYmdDb2xvcj0jOTljY2ZmIGhlaWdodD0yOD5bsMvU
+wr6rxre5q7+qv85dPC9URD4NCiAgICA8VEQgd2lkdGg9IjE5JSIgYmdDb2xvcj0jOTljY2ZmIGhlaWdo
+dD0yOD48L1REPg0KICAgIDxURCB3aWR0aD0iNTAlIiBiZ0NvbG9yPSM5OWNjZmYgaGVpZ2h0PTI4Pjwv
+VEQ+PC9UUj48L1RCT0RZPjwvVEFCTEU+DQo8VEFCTEUgaWQ9QXV0b051bWJlcjEgc3R5bGU9IkJPUkRF
+Ui1DT0xMQVBTRTogY29sbGFwc2UiIGJvcmRlckNvbG9yPSMxMTExMTEgDQpoZWlnaHQ9ODcgY2VsbFNw
+YWNpbmc9MCBjZWxsUGFkZGluZz0wIHdpZHRoPSI5OSUiIGJvcmRlcj0wPg0KICA8VEJPRFk+DQogIDxU
+Uj4NCiAgICA8VEQgd2lkdGg9IjUyJSIgaGVpZ2h0PTE+t8eyxs7xvq3A7bXEssbO8bncwO0tW8mzxczE
+o8Tiv86zzF0mbmJzcDsmbmJzcDsmbmJzcDsgDQogICAgICA8QlI+Jm5ic3A7PEJSPiZuYnNwO7O1vOS5
+3MDtyMvUsbDLz+7Q3sG2Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PEJSPiZuYnNwOzxCUj4mbmJzcDvI57rO1MvTw0lFvLzK9czhuN/J
++rL60KfCyiZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOzxCUj4mbmJzcDs8
+QlI+Jm5ic3A7uanTpsnMudzA7dPrssm5urPJsb69tbXNvLzHySZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyANCiAgICAgIDxCUj4mbmJzcDs8QlI+Jm5ic3A7NlNJR01Bwsy0+NfK
+uPHF4NG1Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9URD4NCiAgICA8VEQgd2lk
+dGg9IjQ4JSIgDQogICAgICBoZWlnaHQ9MT48QlI+Jm5ic3A7ONTCMjctMjgmbmJzcDsvyc+6oyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyA51MIzLTTI1S+xsb6pDQogICAgICA8UD4mbmJzcDs51MIyMy0yNMjV
+Jm5ic3A7IMnPuqM8L1A+DQogICAgICA8UD4mbmJzcDs41MIxMy0xNMjVL8vV1t08L1A+DQogICAgICA8
+UD4mbmJzcDs41MIyMC0yMSZuYnNwOy/Jz7qjJm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7IDnU
+wjE3LTE4yNXJ7tvaPC9QPg0KICAgICAgPFA+Jm5ic3A7OdTCMS00L7GxvqkmbmJzcDsmbmJzcDsmbmJz
+cDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsgDQogICAgICA51MIyMi0yNS/Jz7qjPC9QPg0K
+ICAgICAgPFA+PC9QPg0KICAgICAgPFA+PC9QPg0KICAgICAgPFA+PC9QPjwvVEQ+PC9UUj48L1RCT0RZ
+PjwvVEFCTEU+PC9CT0RZPjwvSFRNTD4NCg==
 
 
-----=_NextPart_001_0018_01C39816.2C871AA0--
+------=_NextPart_001_002B_17715559.4654000C--
+
+
+
+------=_NextPart_000_002A_17715559.4654000C--
