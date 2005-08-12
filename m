@@ -3,8 +3,8 @@ Subject: =?ISO-8859-1?Q?=A1=D8=C7=F6=B4=EB=C0=CE=C0=C7?=
 	=?ISO-8859-1?Q?=C7=CA=BC=F6=C7=B0:=B7=B9=C0=CC=C0=FA=BA=D2=BA=FB?=
 	=?ISO-8859-1?Q?=C0=CC=B3=AA=BF=C0=B4=C2=20=C1=F6=BD=C3=BA=C0?=
 	=?ISO-8859-1?Q?=C8=C4=B7=B9=BD=AC=20=B8=B8=B4=C9=BA=BC=C6=E6?=
-Date: Fri, 12 Aug 2005 11:20:16 -0700
-Message-ID: <db9-g3-08$1nr8-$$juy9@f7zu2in50.2x5n>
+Date: Fri, 12 Aug 2005 19:22:45 +0100
+Message-ID: <x83$25sqh$5n12-53k4@gt9.81j.lx5.eq>
 Reply-To: "ÇÊ¼öÇ°" <fpdlwj@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
