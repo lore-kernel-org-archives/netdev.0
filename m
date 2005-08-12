@@ -1,126 +1,79 @@
-From: =?koi8-r?B?8vVD6e73RfNU?= <bahiviyo@tcqa.com>
-Subject: =?koi8-r?B?6c7XZWPUycN1b87O2cog0HnUZdfPxMnUZczYIGPN?=
-Date: Fri, 12 Aug 2005 19:13:02 +0400
-Message-ID: <200508121509.j7CF9VHA022062@oss.sgi.com>
-Reply-To: bahiviyo@tcqa.com
-Mime-Version: 1.0
-Content-Type: text/html; charset="koi8-r"
-Content-Transfer-Encoding: base64
+From: wang002@o2.pl
+Subject: =?iso-8859-2?Q?VERY_URGENT?=
+Date: Fri, 12 Aug 2005 17:06:10 +0200
+Message-ID: <20050812150610.A46ECD25C8@rekin6.o2.pl>
+Content-Type: text/plain; charset="iso-8859-2";
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tpjeucg <tpjeucg@oss.sgi.com>
+To: wang002@o2.pl
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PGh0bWw+DQo8aGVhZD4NCjwvaGVhZD4NCjxib2R5Pg0KPHRhYmxlIGNlbGxzcGFjaW5nPSIw
-IiBjZWxscGFkZGluZz0iNiIgc3R5bGU9ImZvbnQtZmFtaWx5OlZlcmRhbmEsIEFyaWFsLCBI
-ZWx2ZXRpY2EsIHNhbnMtc2VyaWY7IGZvbnQtc2l6ZToxM3B4OyAiPg0KIDx0cj4NCiA8dGQg
-Ymdjb2xvcj0iIzAwNjVDRSI+PHA+PGZvbnQgY29sb3I9IiNGRkZGRkYiPjxiPiA8Zm9udCBz
-aXplPSI2Ij7u9fbu+SDp7vfl8/Tp4+npIPcg4un67uXzPzwvZm9udD48L2I+PGJyPg0KIDxi
-PiD12s7BytTFIMLPzNjbxSDPIMvSxcTJ1M7ZyCDJIMnO18XT1MnDyc/OztnIINDSz8fSwc3N
-wcgsDQogxM/T1NXQztnIINfB28XN1SDCydrOxdPVLiD64evh9un05SDz5er+4fMhIDxicj4N
-CiD0xcwuOiAoMDk1KSA3ODl+Mu/vNDwvYj48L2ZvbnQ+PC9wPjwvdGQ+DQogPC90cj4NCiA8
-dHI+DQogPHRkPjxwPjxiPiDuz9fZyiDpztfF09TJw8nPzs7ZyiDw1dTF18/EydTFzNguIPDP
-xNLPws7B0SDJzsbP0s3Bw8nRIM8NCiAzMDAwIMnO18XT1MnDyc/OztnIIMnT1M/ezsnLwcgu
-PC9iPjwvcD4NCiA8aDUgc3R5bGU9ImZvbnQtc2l6ZToxOHB4OyBib3JkZXItYm90dG9tOnNv
-bGlkIDJweCAjZmY2NjAwOyBjb2xvcjojRkY2NjAwIj4g/vTvIPf5IPDv7PX+6fTlPyA8L2g1
-Pg0KIDx0YWJsZSB3aWR0aD0iMTAwJSIgY2VsbHBhZGRpbmc9IjYiIGNlbGxzcGFjaW5nPSIw
-Ij4NCiA8dHIgYmdjb2xvcj0iI0VGRUJERSI+DQogPHRkIHdpZHRoPSIzMCI+PHA+Jm5ic3A7
-IDwvcD48L3RkPg0KIDx0ZD48dWw+DQogPGxpPjxmb250IHNpemU9IjIiPiD32cLP0iDJztfF
-09TP0sEgLyDL0sXEydTP0sEsIMvP1M/S2cog0M/Mzs/T1NjAIM/U18XewcXUDQog98Hbyc0g
-yc7UxdLF08HNIDwvZm9udD48L2xpPg0KIDxsaT48Zm9udCBzaXplPSIyIj4g68HexdPU18XO
-ztXAINDPxMfP1M/Xy9Ugyc7Gz9LNwcPJySDPINDSz8XL1MUgxMzRINDSxcTP09TB18zFzsnR
-DQogyc7XxdPUz9LVIDwvZm9udD48L2xpPg0KIDxsaT48Zm9udCBzaXplPSIyIj4g8NLRzc/K
-IMvPztTBy9Qg0yDS1cvP18/EydTFzNHNySwgz9TXxd7BwN3Jzckg2sEg0NLJztHUycUNCiDJ
-ztfF09TJw8nPzs7Px88g0sXbxc7J0SA8L2ZvbnQ+PC9saT4NCiA8L3VsPjwvdGQ+DQogPC90
-cj4NCiA8L3RhYmxlPg0KIDxoNSBzdHlsZT0iZm9udC1zaXplOjE4cHg7IGJvcmRlci1ib3R0
-b206c29saWQgMnB4ICNmZjY2MDA7IGNvbG9yOiNGRjY2MDAiPiDr7+31IO35IPLl6+/t5e7k
-9eXtIPz06SDp+uTh7unxPyA8L2g1Pg0KIDxwPiDzz8LT1NfFzs7Jy8HNIMkg0tXLz9fPxMnU
-xczRzSDLz83Qwc7JyiAsIMvP1M/S2cUgyd3V1CDL0sXEydQsINPU0sHUxcfJ3sXTy8/Hzw0K
-IMnO18XT1M/SwSDJzMkg0MHS1M7F0sEg1yDT18/KIMLJ2s7F0ywgzMnCzyDQzMHOydLVwNQg
-0NLPxMHW1SDQwcvF1MENCiDBy8PJyiDT18/JyCDLz83Qwc7Jyi4gPC9wPg0KIDxoNSBzdHls
-ZT0iZm9udC1zaXplOjE4cHg7IGJvcmRlci1ib3R0b206c29saWQgMnB4ICNmZjY2MDA7IGNv
-bG9yOiNGRjY2MDAiPiDw7/7l7fUg7fkg8uXr7+3l7uT15e0g/PTpIOn65OHu6fE/IDwvaDU+
-DQogPHVsPg0KIDxsaT4g68HexdPU18XOzsHRIMkgxM/T1M/XxdLOwdEgyc7Gz9LNwcPJ0SA8
-L2xpPg0KIDxsaT4g78vPzM8gMzAwMCDJ09TP3s7Jy8/XIMnO18XT1MnDycogPC9saT4NCiA8
-bGk+IPDP09TP0c7OwdEgwcvU1cHMydrBw8nRIMTBzs7ZyCA8L2xpPg0KIDxsaT4g8sXBzNjO
-wdEg0NLBy9TJ3sXTy8HRINDPzNjawSA8L2xpPg0KIDwvdWw+DQogPGg1IHN0eWxlPSJmb250
-LXNpemU6MThweDsgYm9yZGVyLWJvdHRvbTpzb2xpZCAycHggI2ZmNjYwMDsgY29sb3I6I0ZG
-NjYwMCI+IO/w6fPh7unlIDwvaDU+DQogPHVsPg0KIDxsaT4g79DJ08HOycUgySDIwdLBy9TF
-0snT1MnLySDL0sXEydTO2cgsIMzJ2snOx8/X2cggySDJztfF09TJw8nPzs7ZyA0KINDSz8fS
-wc3NIDwvbGk+DQogPGxpPiD108zP18nRIMvSxcTJ1M/Xwc7J0SAtINPUwdfLySwg09LPy8ks
-INDP0tHEz8sg19nQzMHULCDawczPx8/X2cUNCiDU0sXCz9fBzsnRIMkgxNIuIDwvbGk+DQog
-PGxpPiD108zP18nRIMnO18XT1MnSz9fBzsnRIC0g09LPy8ksIM/C38XN2SDXzM/Wxc7JyiDX
-IM/Eyc4g0NLPxcvULA0KINfZy9XQIMTPzMXKIMkgxNIuIDwvbGk+DQogPGxpPiDsydPUIMnO
-18XT1M/Sz9cgxMzRINLB2szJ3s7ZyCDP1NLB08zFyiDJINPUwcTJyiDCydrOxdPBIDwvbGk+
-DQogPGxpPiD00sXCz9fBzsnRIMsg0M/M1d7B1MXMwCA8L2xpPg0KIDxsaT4g8M/S0cTPyyDQ
-z8TB3skgySDSwdPTzc/U0sXOydEg0NLPxcvUwSA8L2xpPg0KIDxsaT4g8M/MztnFIMvPztTB
-y9TO2cUg0sXL18naydTZLCDXy8zA3sHRINDF0tPPzsHMyckgPC9saT4NCiA8L3VsPg0KIDxo
-NSBzdHlsZT0iZm9udC1zaXplOjE4cHg7IGJvcmRlci1ib3R0b206c29saWQgMnB4ICNmZjY2
-MDA7IGNvbG9yOiNGRjY2MDAiPiDw5fLl/uXu+CDp+uTh7unqIDwvaDU+DQogPHVsPg0KIDxs
-aT4gPGI+ICZxdW90O/fz5SDr0sXEydTZIPLP09PJySZxdW90OzwvYj48L2xpPg0KIDwvdWw+
-IDxwPiDzz8LSwc7BIMnOxs/SzcHDydEgzyAxNDkg0s/T08nK08vJyCDCwc7Lwcgg0yDQz8TS
-z8LO2c0gz9DJ08HOycXNDQogycggxMXR1MXM2M7P09TJLCDP08/Cxc7Oz9PUxcogy9LFxMnU
-zs/KIMkgyc7XxdPUycPJz87Oz8og0M/MydTJy8ksDQog1dPMz9fJyiDL0sXEydTP18HOydEu
-IPDPzMXazsEgxMzRIMvPzdDBzsnKLCDQzMHOydLVwN3JyCDX2tHU2CDL0sXEydQuDQog8M/a
-18/M0cXUINPSwdfOydTYINXTzM/XydEg1yDSwdrMyd7O2cggwsHOy8HIIMkg19nC0sHU2CDO
-wcnCz8zFxSDX2cfPxM7ZxS4gPGJyPg0KIOvPzMnexdPU188gwsHOy8/XIC0gMTQ5LiDvwt/F
-zSAtIDM5NCDT1NIuIOPFzsEgLSAyODAwINLVwiA8L3A+DQogPHVsPg0KIDxsaT4gPGI+ICZx
-dW90O+nO18XT1MnDyc/OztnFIObPzsTZJnF1b3Q7ICjy1dPTy8nFINDSz8XL1NkpPC9iPjwv
-bGk+DQogPC91bD4gPHA+IPDSxcTT1MHXzMXOwSDJzsbP0s3Bw8nRIM8g0s/T08nK08vJyCDJ
-ztfF09TJw8nPzs7ZyCDGz87EwcgsIMEg1MHL1sUNCiDPIM3F1sTVzsHSz8TO2cggyc7XxdPU
-z9LByCwg0sHCz9TBwN3JyCDXIPLP09PJyS4g8M/MxdrOwSDEzNEgy8/N0MHOycosDQogyd3V
-3cnIINPU0sHUxcfJ3sXTy8/HzyDJztfF09TP0sEgyczJINDB0tTOxdLBINcg09fPyiDCydrO
-xdMsIMzJws8g0MzBzsnS1cDdycgNCiDQ0s/EwdbVINDBy8XUwSDBy8PJyiDT18/JyCDLz83Q
-wc7Jyi48YnI+DQog68/Myd7F09TXzyDGz87Ez9cgLSAxMjAuIO/C38XNIC0gMTU3INPU0i4g
-48XOwSAtIDI0MDAg0tXCIDwvcD4NCiA8dWw+DQogPGxpPjxiPiAmcXVvdDvsydrJzscg1yDy
-z9PTyckmcXVvdDs8L2I+PC9saT4NCiA8L3VsPg0KIDxwPiDw0sXEzsHazsHexc4gxMzRIMvP
-zdDBzsnKLCDawcnO1MXSxdPP18HOztnIINcg0NLJ18zF3sXOyckgzMnayc7Hz9fZyA0KINLF
-09XS08/XINcg09fPyiDCydrOxdMuIPDP2tfPzNHF1CDC2dPU0s8g19nC0sHU2CDMydrJzsfP
-19XAIMvPzdDBzsnALA0KINPQxcPJwczJ2snS1cDd1cDT0SDOwSDLz87L0sXUzs/NINfJxMUg
-zMnayc7Hz9fZyCDP0MXSwcPJyi4gPGJyPg0KIOvPzMnexdPU188gy8/N0MHOycogLSA4Ny4g
-78Lfxc0gLSAyNjAg09TSLiDjxc7BIC0gMjUwMCDS1cIgPC9wPg0KIDx1bD4NCiA8bGk+PGI+
-ICZxdW90O+3F1sTVzsHSz8TO2cUg98XO3tXSztnFIOvPzdDBzsnJJnF1b3Q7ICjz++EpPC9i
-PjwvbGk+DQogPC91bD4NCiA8cD4g8NLFxNPUwdfMxc7BIMnOxs/SzcHDydEgz8Igwc3F0snL
-wc7Ty8nIINfFzt7V0s7ZyCDLz83Qwc7J0cgsIMbJzsHO08nS1cDdycgNCiDQxdLT0MXL1MnX
-ztnFIM3F1sTVzsHSz8TO2cUg0NLPxcvU2SDXINLB2szJ3s7ZyCDUz97LwcggzcnSwS4g8M/M
-xdrOwQ0KIMTM0SDLz83Qwc7Jyiwg3sXKIMLJ2s7F0yDQxdLF0s/TIM7Bw8nPzsHM2M7ZxSDH
-0sHOycPZIMkgyd3V3cnIINrB0tXCxdbOz8fPDQog09TSwdTFx8nexdPLz8fPIMnO18XT1M/S
-wSDJzMkg0MHS1M7F0sEg1yDT18/KIMLJ2s7F0ywgzMnCzyDQzMHOydLVwN3JyA0KINDSz8TB
-1tUg0MHLxdTBIMHLw8nKINPXz8nIIMvPzdDBzsnKLiA8YnI+DQog68/Myd7F09TXzyDLz83Q
-wc7JyiAtIDc4Ny4g78Lfxc0gLSA0NDMg09TSLiDjxc7BIC0gMjkwMCDS1cIgPC9wPg0KIDx1
-bD4NCiA8bGk+PGI+ICZxdW90O+3F1sTVzsHSz8TO2cUg98XO3tXSztnFIObPzsTZJnF1b3Q7
-PC9iPjwvbGk+DQogPC91bD4NCiA8cD4g8NLFxNPUwdfMxc7BIMnOxs/SzcHDydEgzyDawdLV
-wsXWztnIINfFzt7V0s7ZyCDGz87EwcgsIMbJzsHO08nS1cDdycgNCiDQxdLT0MXL1MnXztnF
-IM3F1sTVzsHSz8TO2cUg0NLPxcvU2SDXINLB2szJ3s7ZyCDUz97LwcggzcnSwS4gPGJyPg0K
-IOvPzMnexdPU188gxs/OxM/XIC0gMjMzLiDvwt/FzSAtIDE2NSDT1NIuIOPFzsEgLSAxOTUw
-INLVwiA8L3A+DQogPHVsPg0KIDxsaT48Yj4gJnF1b3Q77cXWxNXOwdLPxM7ZxSDpztfF09TJ
-w8nPzs7ZxSDv0sfBzsnawcPJySZxdW90OzwvYj48L2xpPg0KIDwvdWw+DQogPHA+IPDSxcTT
-1MHXzMXOwSDJzsbP0s3Bw8nRIM8g2sHS1cLF1s7ZyCDJztfF09TJw8nPzs7ZyCDCwc7Lwcgs
-IMnO18XT1MnDyc/OztnIDQogy8/N0MHOydHIIMkgyc7XxdPUycPJz87O2cggxs/OxMHILCDG
-yc7BztPJ0tXA3cnIINDF0tPQxcvUydfO2cUgzcXWxNXOwdLPxM7ZxQ0KINDSz8XL1Nkg1yDS
-wdrMyd7O2cgg1M/ey8HIIM3J0sEuIDxicj4NCiDrz8zJ3sXT1NfPIM/Sx8HOydrBw8nKIC0g
-MjU2LiDvwt/FzSAtIDE5OSDT1NIuIOPFzsEgLSAxOTUwINLVwiA8L3A+DQogPHVsPg0KIDxs
-aT48Yj4mcXVvdDvuxcvPzc3F0t7F08vJxSDpztfF09TJw8nJJnF1b3Q7PC9iPjwvbGk+DQog
-PC91bD4NCiA8cD4g5MHF1CDQz8TSz8LO1cAgyc7Gz9LNwcPJwCDPIMbJzsHO08nSz9fBzsnF
-INDSz8XL1M/XLCDJzcXA3cnIINPPw8nBzNjO1cAsDQog3MvPzM/Hyd7F08vVwCDJzMkgzsHV
-3s7VwCDazsHeyc3P09TYLiDw0sXE09TB18zFztkgwszBx8/U18/SydTFzNjO2cUNCiDGz87E
-2Swgx8/T1cTB0tPU18XO2cUgydPUz97OycvJIMbJzsHO08nSz9fBzsnRLCDJzsTJ18nE1cHM
-2M7ZxSDJztfF09TP0tk8YnI+DQog68/Myd7F09TXzyDJztfF09TP0s/XIC0gMTU1LiDvwt/F
-zSAtIDE3NiDT1NIuIOPFzsEgLSAxOTUwINLVwiA8L3A+DQogPHVsPg0KIDxsaT48Yj4mcXVv
-dDtJbnRlcm5hdGlvbmFsIEludmVzdG9ycyZxdW90OyAozsEgwc7HzC4NCiDR2i4pPC9iPjwv
-bGk+DQogPC91bD4NCiA8cD4g8M/E0s/CzsHRIMnOxs/SzcHDydEgzyDL0tXQzsXK28nIIM3F
-1sTVzsHSz8TO2cggyc7XxdPUycPJz87O2cggydPUz97OycvByC4NCiDyxcvXydrJ1NksINDF
-0tPPzsHMycksINLFx8nPzsHM2M7ZxSDJIM/U0sHTzMXX2cUg0NLFxNDP3tTFzsnRLCDMyc3J
-1NkNCiDXzM/Wxc7JyiDXIM/Eyc4g0NLPxcvULuvPzMnexdPU188gyc7XxdPUz9LP1yAtIDEx
-ODAuIO/C38XNIC0gMjg2INPU0i4NCiDjxc7BIC0gNTI1MCDS1cIgPC9wPg0KIDxoNSBzdHls
-ZT0iZm9udC1zaXplOjE4cHg7IGJvcmRlci10b3A6c29saWQgMnB4ICNmZjY2MDA7IGNvbG9y
-OiNGRjY2MDAiPiD64evh9un05SDz5er+4fMhIDwvaDU+DQogPHA+IO7B0NLB19jUxSDawdHX
-y9Ug0M8gxsHL09UgyczJINDPIEVtYWlsIMkgzdkgzsXNxcTMxc7OzyDEz9PUwdfJzSDX2cLS
-wc7O2cUNCiD3wc3JIMnaxMHOydEuIDwvcD48L3RkPg0KIDwvdHI+DQogPHRyPg0KIDx0ZCBo
-ZWlnaHQ9IjgwIiBiZ2NvbG9yPSIjRjJGMkYyIiBzdHlsZT0iYm9yZGVyLXRvcDogc29saWQg
-MXB4ICNjY2NjY2M7IGJvcmRlci1ib3R0b206IHNvbGlkIDFweCAjY2NjY2NjOyAiPjxwIGFs
-aWduPSJjZW50ZXIiPjxiPiA8Zm9udCBjb2xvcj0iIzY2NjY2NiI+7MHCz9LB1M/SydENCiDp
-ztfF09TJw8nPzs7ZyCD0xcjOz8zPx8nKIDwvZm9udD58IPTFzDogKDA5NSkgNzg5LTLv7zQ8
-L2I+PC9wPjwvdGQ+DQogPC90cj4NCjwvdGFibGU+DQo8L2JvZHk+DQo8L2h0bWw+DQoNCg0K
-DQo=
+MR.WANG QIN
+HANG SENG BANK LTD.
+DES VOEUX RD.BRANCH
+CENTRAL HONG KONG
+HONG KONG.
+Dear Friend,
+I am Mr.Wang Qin, Foreign Exhange Credit Manager of 
+Hang Seng Bank Ltd, Hong Kong. 
+I am confident that you are a honorable and reputable 
+person whom I can vouchsafe in, in confidence, and we 
+can work together.
+On october 6, 1999, an American consultant/contractor
+with  the Chinese Solid  Minerals Corporation,
+Mr. Smith Lawrence made a (Fixed) Deposit for
+twelve calendar months, valued at (sixty-eight Million  
+Dollars only) in my branch.
+Upon maturity,I sent a routine  notification to
+his forwarding address but got no reply. After a
+month, we  sent a reminder and finally we discovered
+from his contract employers, the  Hong Kong Solid
+Minerals Corporation that Mr. Smith Lawrence died
+from an  automobile accident. On further
+investigation,I found out that he died  without making
+a will, and all attempts to trace his next of kin was
+fruitless.
+I therefore made further investigation and discovered
+that  Mr. Smith Lawrence did not declare any kin or
+relations in all his  official documents, including
+his Bank Deposit paperwork in my Bank. This money
+is still sitting in my Bank and the interest is being rolled 
+over with the principal sum at the end of each year. 
+No one will ever come forward to claim it.
+According to the Hong Kong Law,under china's
+foreign and defense affairs,at the expiration
+of 5 (five) years,such funds will revert to the
+ownership of the chinese Government for financing
+military operations,such as purchasing of arms
+and ammunitions for the military.
+In order to avert this negative development,i will
+like to seek for your permission as a foreigner to
+stand as the next of kin to Mr. Smith Lawrence so
+that the fruits of this old man's labor will not
+be use for financing weapons which will further
+enhance the courses of war in the world in
+general.
+The money will be paid into your account for us to
+share in the ratio of 70% for me and 20% for you
+and 10% for Expenses Incurred in the course of the
+transaction.There is no risk at all as all the
+paperwork  for this transaction will be done by my
+attorney and with my position as the credit
+officer guarantees the successful execution
+of this transaction. If you are interested,
+please reply immediately.
+Upon your response, I shall then provide
+you with more  details and that will help
+you understand the transaction.
+You should observe utmost confidentiality,
+and rest assured  that this  transaction would
+be most profitable for both of us because I
+shall require your assistance to invest my share
+in your country.
+Please respond through my very private email address:
+wangbank2005@yahoo.com.hk
+Awaiting your urgent reply.
+Thanks and regards.
+Mr.Wang Qin.
