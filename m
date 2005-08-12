@@ -1,65 +1,33 @@
-From: "Reid Wilson" <84juwysuo@aol.com>
-Subject: =?ISO-8859-1?Q?=BA=B8=B0=C7=BA=B9=C1=F6=BA=CE?=
-	=?ISO-8859-1?Q?=C1=D6=B0=FC=BB=E7=C8=B8=BA=B9=C1=F6?=
-	=?ISO-8859-1?Q?=C0=DA=B0=DD=C1=F5?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=BD=C5=C3=BB=C7=CF=BC=BC=BF=E4!@?= goz qyky
-Date: Fri, 12 Aug 05 12:47:49 GMT
-Message-ID: <43ea72cx-7-$--7r6180-0z$j@qkuxa.3wz0ucm>
-Reply-To: "Reid Wilson" <84juwysuo@aol.com>
+From: "ENGENIEER IBRAHIM  WAHALA" <ibrahimwahala@mixmail.com>
+Subject: FROM ENGINEER IBRAHIM.
+Date: Fri, 12 Aug 2005 10:55:06 +0100
+Message-ID: <E1E3WFm-0007dM-00@relay.mixmail.com>
+Reply-To: ibrahimwahala@mixmail.com
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="2AE.FAE13B3DD3_8C6_"
+Content-Type: text/html;charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: "ibrahimwahala@mixmail.com" <ibrahimwahala@mixmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---2AE.FAE13B3DD3_8C6_
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+>From Engr Ibrahim Wahala Chairman of Contract Award Commitee Abidjan Cote D'Ivoire.Alternative <A href=3D"javascript:sendMsg('Email:ibrahimwahala@sunumail.sn');">Email:ibrahimwahala@sunumail.sn </A>CONFIDENTIAL AND URGENT MESSAGE: Dear Sir, May I use this medium to introduce to you a business transaction which will yield to our mutual benefit.Before I proceed, I will not forget to tell you where I got your mail contact and also introduce myself to you. I got your email contact from the internet as I was searching for someone to propose for this transaction. I am Engr Ibrahim Wahala, The chairman of the Abidjan Contract Award commitee.The mission of the commitee is the awarding of approved contracts to contractors for the developement of west Africa, it is sponssored by the world bank and the IMF,Under my chairmanship many contracts have been awarded and implemented by both local and fore
+ ign contractors. This is why I am writing you, on the 21st of february 2001, a contract w!
+ as awarded to an Ivoirian local contractors for the building of primary schools around the country, This contract was at the value of US$ 17.2 million dollars. After one week of the award of the contract, the contractor came back to meet me and told me confidentially that he cannot finace the completion of the contract, meaning he was financially incapable to implement the contract.So in that developement I told him that we shall look for a foreign contractor who shall do the contract.After two weeks we got a Japaneese contractor who was interested in doing the contract, we negotiated with him and we agreed with him to do the contract for US $ 15 million dollars. Since then, we have been patiently waiting for the completion of the contract and the payment of the japaneese contractor. Now the contract have been finalised and the contractor has been paid accordingly, we now have US$ 2.2 m
+ illion dollars in a suspense account in the a bank here in Abidjan.This is why I am writi!
+ ng you to assist us transfer this fund into your bank account . The as
 
+sistance we need from you are 1) For you to provide a safe bank account account where the fund will be transferred into. 2) For you to send your bank particulars and the address of your bank. 3) For you to provide your personal telephone and fax numbers. Please for your information, I have every power to transfer this fund myself to an account, but due to the fact that the contract money must be paid into a foreign bank account because it falls in part B which is only for foreign contractors. I and my partner have agreed to negotiate your compensation with you immediately we receive your email showing your interest to assist. Please, I want you to know that I have every documents that proves the award and completion of a contract worth the US$ 2.2 million dollars. we will be glad to receive an urgent possitive response from you to enable us commence the transaction without any waste of t
+ ime. Awaiting your urgent response. Thanks and God bless you. Sincerely yours Engr Ibrahi!
+ m 
 
-<html>
-<head>
-<title>=FFFFFFBB=FFFFFFE7=FFFFFFC8=FFFFFFB8=FFFFFFBA=FFFFFFB9=FFFFFFC1=FFFFFFF6=FFFFFFBB=FFFFFFE7</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
-
-<style type=3D"text/css">
-<!--
-body {
-	margin-left: 0px;
-	margin-top: 0px;
-	margin-right: 0px;
-	margin-bottom: 0px;
-}
--->
-</style></head>
-
-<body>
-<img src=3D"http://%62%61%73%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?
-ComId=3D2" width=3D"0" height=3D"0">
-<table width=3D"700" height=3D"1000"  border=3D"0" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr>
-    <td><img
-src=3D"http://club.bugs.co.kr/common/file_down.asp?redirect=3D=
-%2Fdata1%2F2005%2F6%2F15%
-2Fsa%2Ejpg" width=3D"700" height=3D"1000" border=3D"0" usemap=3D"#Map"></t=
-d>
-  </tr>
-</table>
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"-1,0,699,880" href=3D"http://=
-%62%61%73%65%6C%6F%61%6E%2E%63%6F%2E%
-6B%72/page/mail_read.asp?uValue=3Dsocial&ComId=3D2" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"58,902,632,983" href=3D"http://=
-%62%61%73%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/include/spam_input.asp?ComId=3D2" target=3D"_blank">
-</map>
-</body>
-</html>
-
---2AE.FAE13B3DD3_8C6_--
+<br><br>
+Especial Vagos: C=F3mo <b>hacerse millonario</b> sin dar ni palo <a href=3D=
+"http://sorteos.ya.com" target=3D_blank><b>=A1Ent=E9rate!</b>
+<br>
+Ya.com ADSL 2MB + Llamadas 24 horas: desde 26,95 =80/mes + IVA. Navega y ha=
+bla de forma ilimitada. Sin compromiso de permanencia. <a href=3D"http://ac=
+ceso.ya.com/ADSLllamadas/2mb" target=3D"_blank">http://acceso.ya.com/ADSLll=
+amadas/2mb</a><br>
