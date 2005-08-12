@@ -1,86 +1,86 @@
-From: "안현정" <j5857j1221x@hanmail.net>
-Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
-	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
-Date: Sat, 13 Aug 2005 11:13:39 -0300
-Message-ID: <WFIROASGCXZCKHPBBDHH@yahoo.com>
-Reply-To: "안현정" <d5735h0175s@hanmail.net>
+From: EURO MILLION LOTTERY INTERNATIONAL <writeeuromillion@netscape.net>
+Subject: CONGRATULATIONS!!! FINAL AWARD NOTIFICATION
+Date: Fri, 12 Aug 2005 15:48:35 +0200
+Message-ID: <200508121415.j7CEF7H9010027@oss.sgi.com>
+Reply-To: writeeuromillion@netscape.net
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--"
+Content-Type: multipart/mixed; boundary="bb2194e3-669c-480b-88c2-464baca04f4c"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----
-Content-Type: text/html;
+
+This is a multi-part message in MIME format
+--bb2194e3-669c-480b-88c2-464baca04f4c
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-
-  <BODY>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;<STRONG>&nbsp; &nbsp;=A1=DA&nbsp;&nbsp;=B8=C5=C0=CF=
- 10=BA=D0=BE=BF =C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
-=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></D=
-IV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<STRONG>=A3=
-=AA=C0=C7=C1=F6=B0=A1 
-=BE=E0=C7=D8=BC=AD =C1=DF=B5=B5=BF=A1&nbsp; =C6=F7=B1=E2=C7=CF=BD=C5=BA=D0=
-~~&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
-=AA=B1=E2=C3=CA=B6=A7=B9=AE=BF=A1 
-=B0=ED=B9=CE=C0=CC =B8=B9=C0=B8=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
-=B3=AA=C0=CC=B6=AB=BF=A1 =C7=D0=BF=F8=B0=A1=B1=E2=B0=A1 
-=BE=A6=BD=BA=B7=AF=BF=EE=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
-=B4=E7=C0=E5 =BF=B5=BE=EE=B0=A1 
-=C7=CA=BF=E4=C7=CF=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
-=AA3=B0=B3=BF=F9=C0=CC=B8=E9 
-=BF=CF=C0=FC =C7=D8=B0=E1=B5=CB=B4=CF=B4=D9.&nbsp;</STRONG></DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;<A 
-href=3D"http://4323.vip.Nease.Net/tenglish/tenglish010.php?partner_id=3Dbl=
-uekoba" 
-target=3D_blank>=A1=DA<STRONG>=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =
-=BF=A9=B1=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
-=B5=CB=B4=CF=B4=D9</STRONG>.=A1=DA</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
-&nbsp;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-  </BODY>
-
-
-
-------
+EURO MILLION LOTTERY INTERNATIONAL
+CALLE MOSTOLES 23C PISO 6G 28923 MADRID ESPANA.
+DATE: AUGUST 12TH, 2005.
+FROM: 
+THE DESK OF THE VICE PRESIDENT
+INTERNATIONAL PROMOTIONS/PRIZE
+AWARD...
+BATCH: EGGS-652-067-222
+REFERENCE: 77/13/KTT
+                                        AWARD NOTIFICATION.
+This is to inform you on the release of the EURO MILLION  INTERNATIONAL =
+LOTTERY held on the 19th of JUNE 2005.      
+The results was released on the 21st of JUNE 2005. Your email address was =
+attached to ticket number 331-554-075-495 with serial number 321-570-160-006 =
+that drew the lucky numbers of 00-87-85-69-89, which consequently won the =
+lottery in the 1st category.
+You have therefore been awarded a lump of 550,000.00(FIVE HUNDRED AND FIFTY =
+THOUSAND EURO ONLY) cash credited to file with REF: N=BA  EGS/774/161/888 
+ This is from =805,500,000 (FIVE MILLION FIVE HUNDRED THOUSAND EURO) in cash =
+among the 20 participants finalist playing 100 full tickets  in which 10 =
+winners was selected.
+                                    CONGRATULATIONS!!!
+Your fund is now deposited with Santa Lucia Security Company and insured in =
+your  email address. Due to mix up of some numbers and names, we ask that you =
+keep this award from public notice until your claims have been processed and =
+the money remitted to your account. 
+This is part of our security protocol to avoid problems from participants as =
+it has happened in the past.
+All participants were selected through a computer ballot system drawn from =
+25,000 names from Asia, Australia, New Zealand, Europe, North and South =
+America, Middle East and Africa .
+This programme is sponsored by EUROPEAN UNION/BILL GATES and WORLD =
+INTERNATIONAL LOTTERY ORGANISATION TO PROMOTE and ENHANCE the use of SOFT =
+WARE IN THE GOBAL WORLD. We hope your lucky name will draw a bigger cash =
+prize in the subsequent programs. To begin your lottery claims, please =
+contact your claims agent.
+ 
+DR WALES TOM  
+infosantalotto05@netscape.net
+Telephone number: 0034-620-692-135 ,
+ 
+ you are required to present  your information of identity to prove you are =
+the user of this email address, either your country passport or any other =
+valid identity is required.
+Remember, all winnings must be processed not later than two weeks from the =
+day you receive this notification.
+Any requirement not met before this date,funds will be returned to the =
+EUROPEAN UNION MINISTRY OF FINANCE HEADQUATERS.  Also be informed that 10% of =
+your lottery winning belongs to the security company because they are the =
+company assigned by the European Union to process your winnings to you.From =
+your winnings,  10%  will be collected after you have received your winning =
+prize because the money is insured in your e-mail address and can not be =
+removed. 
+Remember to quote your reference and batch numbers ( BATCH: EGGS-652-067-222 =
+REFERENCE: 77/13/KTT) in every of your response to your claim agent. Further =
+more, should there be any change of address,  inform your claim agent as soon =
+as possible.A copy of your lucky winning ticket and your deposit certificate =
+will be sent to you by your claim agent, DR WALES TOM.
+Once again from all members of our staff  CONGRATULATIONS  for being a part =
+of our International promotions program.
+NOTE:winners below eighteen years (  -18yrs ) are disqualified from this =
+programme.
+We wish you  good fortunes.
+Sincerely,
+MRS,JANET CROLL
+  
+--bb2194e3-669c-480b-88c2-464baca04f4c--
