@@ -1,47 +1,91 @@
-From: "Blanche Shields" <blancheshields@trikem.com.br>
-Subject: Want the sex life to be like it used to?
-Date: Fri, 12 Aug 2005 14:01:52 +0700
-Message-ID: <827301c59f0b$c1ea7a38$0fbe2435@pensioenstork.nl>
+From: "세스" <dignwja@yahoo.com>
+Subject: how do you go to =?ISO-8859-1?Q?work=3F(=C7=D8=BC=AE=C7=CF=BD=C3=B8=E9?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=BF=B5=BE=EEcd=B8=A6?=
+	=?ISO-8859-1?Q?=BA=B8=B3=BB=B5=E5=B8=B3=B4=CF=B4=D9)?=
+Date: Fri, 12 Aug 2005 09:46:16 +0300
+Message-ID: <z5rs2-9-3b96w-8$8e@tfdj9e2>
+Reply-To: "세스" <dignwja@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/alternative;
+	boundary="_8_...EDA_E_E726"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi there,
 
-Try this special product, Cialis Soft Tabs. We have millions
-of happy customers all around the world. You will get the perfect
-feeling of being a man again!
+--_8_...EDA_E_E726
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Cialis Soft Tabs is the impotence treatment drug that everyone
-is talking about. Cialis acts up to 36 hours, compare this to
-only two or three hours of Viagra action! The active ingredient is
-Tadalafil, same as in brand Cialis.
+<HTML>
 
-Simply dissolve half a pill under your tongue, 10 min before
-intercourse for the best erections you've ever had! Cialis also
-have less sidebacks (you can drive or mix alcohol drinks with
-them). No prior prescription is needed.
+<HEAD>
 
- * Save up to 80% compared to the pharmacies.
- * Worldwide shipping
- * Impress your woman today!
+<TITLE>=BC=BC=BD=BA2</TITLE>
 
-You can get it at: http://modelled.net/soft/
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
 
 
+</HEAD>
 
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
 
+<TABLE WIDTH=3D700 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
 
-World RX Direct can bring you quality Generic Drugs for a
-fraction of the cost of the expensive Brand Name equivalents.
-Order our Tadalafil pills today and save 80%. We ship worldwide,
-and currently supply to over 1 million customers globally! We
-always strive to bring you the cheapest prices.
+  <TR> 
 
-No thanks: http://modelled.net/rr.php
+    <TD> <a href=3D"http://%65%6e%74%65%72%6c%61%6e.%63%61%66=
+%65%32%34.%63%6f%6d/pak.htm" target=3D"_blank"><IMG SRC=3D"http://=
+%6d%79%6d%79%6d%79.%65%7a%65%6f.%6e%65%74/p09/sec2_01.gif" ALT=3D""
+WIDTH=3D=
+700 HEIGHT=3D195 border=3D"0"></a></TD>
+
+  </TR>
+
+  <TR> 
+
+    <TD> <a href=3D"http://%65%6e%74%65%72%6c%61%6e.%63%61%66=
+%65%32%34.%63%6f%6d/pak.htm" target=3D"_blank"><IMG SRC=3D"http://=
+%6d%79%6d%79%6d%79.%65%7a%65%6f.%6e%65%74/p09/sec2_02.gif" ALT=3D""
+WIDTH=3D=
+700 HEIGHT=3D216 border=3D"0"></a></TD>
+
+  </TR>
+
+  <TR> 
+
+    <TD> <a href=3D"http://%65%6e%74%65%72%6c%61%6e.%63%61%66=
+%65%32%34.%63%6f%6d/pak.htm" target=3D"_blank"><IMG SRC=3D"http://=
+%65%6e%74%65%72%6c%61%6e.%63%61%66%65%32%34.%63%6f%6d/sapo/sec2_03.gif" AL=
+T=3D"" WIDTH=3D700 HEIGHT=3D295 border=3D"0"></a></TD>
+
+  </TR>
+
+  <TR> 
+
+    <TD> <a href=3D"http://%65%6e%74%65%72%6c%61%6e.%63%61%66=
+%65%32%34.%63%6f%6d/pak.htm" target=3D"_blank"><IMG SRC=3D"http://=
+%65%6e%74%65%72%6c%61%6e.%63%61%66%65%32%34.%63%6f%6d/sapo/sec2_04.jpg" AL=
+T=3D"" WIDTH=3D700 HEIGHT=3D294 border=3D"0"></a></TD>
+
+  </TR>
+
+  <TR>
+
+    <TD><a href=3D"http://www.%76%69%74%63%69%74%79.%6e%65%74/reject.html"=
+><img src=3D"http://%65%6e%74%65%72%6c%61%6e.%63%61%66%65%32%34.=
+%63%6f%6d/sapo/susin.jpg" width=3D"700" height=3D"75" border=3D"0"></a></T=
+D>
+
+  </TR>
+
+</TABLE>
+
+</BODY>
+
+</HTML>
+
+--_8_...EDA_E_E726--
