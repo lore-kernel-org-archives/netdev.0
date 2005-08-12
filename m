@@ -1,82 +1,88 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH] add new iptables ipt_connbytes match
-Date: Fri, 12 Aug 2005 13:56:22 +0200
-Message-ID: <20050812115622.GD16325@rama.de.gnumonks.org>
-References: <20050811200349.GN5353@rama.de.gnumonks.org>
-	<42FC0F01.5090802@trash.net>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: atheros driver - desc
+Date: Fri, 12 Aug 2005 13:45:31 +0200
+Message-ID: <20050812114531.GA16325@rama.de.gnumonks.org>
+References: <42F2D523.9020702@gmail.com> <8764uig7nm.fsf@litku.valo.iki.fi>
+	<20050806205308.GA25208@havoc.gtf.org>
+	<20050806214544.GA4594@rama.de.gnumonks.org>
+	<87pssqp5hk.fsf@litku.valo.iki.fi>
+	<20050807150134.GB4855@rama.de.gnumonks.org>
+	<20050812073755.GA6295@taniwha.stupidest.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="u65IjBhB3TIa72Vp"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42FC0F01.5090802@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/mixed; boundary="===============0206514252=="
+Cc: Kalle Valo <Kalle.Valo@iki.fi>, kernel-mentors@selenic.com,
+        Jeff Garzik <jgarzik@pobox.com>, netdev <netdev@vger.kernel.org>
+Return-path: <kernel-mentors-bounces@selenic.com>
+To: Chris Wedgwood <cw@f00f.org>
+In-Reply-To: <20050812073755.GA6295@taniwha.stupidest.org>
+List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Mime-version: 1.0
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
 
---u65IjBhB3TIa72Vp
+--===============0206514252==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="BXVAT5kNtrzKuDFl"
+Content-Disposition: inline
+
+
+--BXVAT5kNtrzKuDFl
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, Aug 12, 2005 at 04:52:49AM +0200, Patrick McHardy wrote:
-
-> This functions looks broken.=20
-
-I feared it...
-
-> Divisor and divident are mixed up, the
-> shifted result variable is not used in the actual division, the
-> "first bit has to be < 32" assumption is wrong and num_shift is
-> calculated incorrectly. To find a 32-bit divisor consisting of the
-> most-significant 32 bits we need to find the highest bit set and
-> subtract 32 from this, then right-shift by that value if it is larger
-> than 0. I can send a fixed patch tomorrow but I'm too tired now.
-
-Thanks.
-
-> >+	case IPT_CONNBYTES_WHAT_PKTS:
+On Fri, Aug 12, 2005 at 12:37:55AM -0700, Chris Wedgwood wrote:
+> On Sun, Aug 07, 2005 at 05:01:34PM +0200, Harald Welte wrote:
 >=20
-> I would really prefer the name IPT_CONNBYTES_PKTS :)
+> > I will consult my legal counsel about this.  My current naive
+> > position on this is that only the actuall process of the
+> > re-engineering matters, not the result.
+>=20
+> Which countries is this advice valid for?  Does someone need to chase
+> this inside the US in parallel?
 
-I _think_ it's sure to change it, since we don't include ipt_connbytes.h
-in the iptables package.
+I'll see whether I can get Eben Moglen to comment on that matter.
 
-Just send two incremental patches to Dave.
-
-Cheers,
-	Harald
 --=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
 
---u65IjBhB3TIa72Vp
+--BXVAT5kNtrzKuDFl
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFC/I5mXaXGVTD0i/8RAlf4AJ9B5l3jkqK48834R5JgNvkdsygjtACfQESa
-3WkDxXXQ6n62I3tmZT3z6Ss=
-=rSMU
+iD8DBQFC/IvbXaXGVTD0i/8RAroFAKCvte3pogRRdVClcfVgIS64e0HltACcD3R5
+Dl5LL9s9M3m4ZmtoS2sAN+c=
+=cHqm
 -----END PGP SIGNATURE-----
 
---u65IjBhB3TIa72Vp--
+--BXVAT5kNtrzKuDFl--
+
+--===============0206514252==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Kernel-mentors mailing list
+Kernel-mentors@selenic.com
+http://selenic.com/mailman/listinfo/kernel-mentors
+
+--===============0206514252==--
