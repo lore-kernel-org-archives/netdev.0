@@ -1,53 +1,64 @@
-From: "이상일" <ausehrl@yahoo.com>
-Subject: =?ISO-8859-1?Q?=B1=BB=C0=BA=BB=EC=20=C1=A6=B0=C5=20=B8=E9=B5=B5=B1=E2?= : =?ISO-8859-1?Q?=B9=DF=20=B1=BB=C0=BA=BB=EC=20=C7=D1=B9=F8=BF=A1?= OK!!!+ =?ISO-8859-1?Q?=B0=A2=C1=FA=20=C1=A6=B0=C5=20=C7=D1=B9=F8=BF=A1?= OK!!!
-Date: Fri, 12 Aug 2005 17:18:40 -0600
-Message-ID: <op$-5z2ng6h7$-878560a@xossz>
-Reply-To: "이상일" <ausehrl@yahoo.com>
+From: "Mona" <ac819f@yahoo.com>
+Subject: =?ISO-8859-1?Q?=C0=A3=BA=F9=20=C0=AF=B8=C1=C0=DA=B0=DD=C1=F5?=
+	=?ISO-8859-1?Q?"=C0=AF=B1=E2=B3=F3=B1=E2=B4=C9=BB=E7"=B8=A6?=
+	=?ISO-8859-1?Q?=B3=EB=B7=C1=B6=F3!!/=20=B9=AB=B7=E1=C0=DA=B7=E1?=
+	=?ISO-8859-1?Q?=B9=E8=BC=DB=C1=DF!?= gmgpkuejdb lc
+Date: Fri, 12 Aug 2005 16:44:18 -0700
+Message-ID: <99v45m6js2u5pwpx0bxh7op2edl38u3x@dgype>
+Reply-To: "Mona" <ac819f@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="8.59D.A6AC_C"
+	boundary="----=_NextPart_E_A1CCA1B_F52_7D.EBCFD4"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---8.59D.A6AC_C
+------=_NextPart_E_A1CCA1B_F52_7D.EBCFD4
 Content-Type: text/html;
+	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
-"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
-><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_eorn/foot/index.php?partner_key=3Dmaster_bufer=
-&uid=3D12&url=3Dnews/new_eorn/foot" target=3D"_blank"><img src=3D"http://=
-%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_eorn/foot/2.gif"></a></p>=
-</td></tr><tr><td width=3D"626" height=3D"68" bgcolor=3D"#627F64"><p align=
-=3D"center"><FONT color=3D"white"><span style=3D"font-size:9pt;">=BA=BB
-=B8=
-=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB =B8=DE=C0=CF=C0=CC=B9=C7=B7=CE
-=C8=
-=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7 =BC=F6=BD=C5=B0=C5=BA=CE=BD=C3=BF=
-=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=BC=D2=B8=A6
-=C0=D4=B7=
-=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://%32%31%31%2e%31=
-%39%37%2e%31%36%2e%31%32%38/news/new_eorn/foot/mail.php?mail_key=3Dcotegor=
-y_mail12' target=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT
-color=3D=
-"white">[=BC=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT></b></span></a><FONT =
-color=3D"white"><span style=3D"font-size:9pt;">=C0=BB
-=B4=AD=B7=AF=C1=D6=BC=
-=BC=BF=E4.Enter your email address if you don't want to receive this mail.=
-</span></FONT><span style=3D"font-size:9pt;"><font color=3D"white">&nbsp;<=
-/font></span><a href=3D'http://%32%31%31%2e%31%39%37%2e%31%36=
-%2e%31%32%38/news/new_eorn/foot/mail.php?mail_key=3Dcotegory_mail12' targe=
-t=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT color=3D"white">[no m=
-ail]</FONT></b></span></a></td></tr>
-</table>
-</center>
-</body>
+<HTML><HEAD></HEAD>
+<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
+0" marginheight=3D"0">
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+<table width=3D"650" height=3D"800" border=3D"0" align=3D"center" cellpadd=
+ing=3D"0" cellspacing=3D"0" id=3D"Table_01">
+<tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_n=
+um=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
+%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
+%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_01.gif" alt=3D"" wid=
+th=3D"650" height=3D"232" border=3D"0"></a></td>
+</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
+rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_02.gif" al=
+t=3D"" width=3D"650" height=3D"118" border=3D"0"></a></td>
+</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
+rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_03.gif" al=
+t=3D"" width=3D"650" height=3D"161" border=3D"0"></a></td>
+</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
+rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_04.gif" al=
+t=3D"" width=3D"650" height=3D"118" border=3D"0"></a></td></tr><tr>
+<td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D=
+82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k%64=
+%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73=
+%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_05.gif" alt=3D""
+width=3D=
+"650" height=3D"90" border=3D"0"></a></td></tr><tr> 
+<td bgcolor=3D"#336633"><div align=3D"center"> <a href=3D"http://=
+%67oo%64.n%61m%651999.%63om/m_reject.html" ><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/reject.=
+jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td></tr>
+</table></body></html>ywgezrhkuvq ihg yq
 
---8.59D.A6AC_C--
+------=_NextPart_E_A1CCA1B_F52_7D.EBCFD4--
