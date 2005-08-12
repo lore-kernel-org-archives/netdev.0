@@ -1,38 +1,35 @@
-From: "Darlene Nicholas" <nxmhpbpgwordzl@yahoo.com>
-Subject: =?ISO-8859-1?Q?=B0=AD=B7=C2=C7=D1=20=BA=B9=B1=D9=20=BF=EE=B5=BF=B1=E2?= "abswing" =?ISO-8859-1?Q?19,800=BF=F8=20=C6=AF=C6=C7!!?=
-Date: Fri, 12 Aug 2005 06:52:01 -0200
-Message-ID: <VATYHCLKBIVFROWTWSILCW@yahoo.com>
-Reply-To: "Darlene Nicholas" <nxmhpbpgwordzl@yahoo.com>
+From: Chris Wedgwood <cw@f00f.org>
+Subject: Re: argh... ;/
+Date: Thu, 11 Aug 2005 22:36:34 -0700
+Message-ID: <20050812053634.GA3998@taniwha.stupidest.org>
+References: <42F2D749.70306@gmail.com> <200508060241.30507.phillips@istop.com>
+	<20050805172055.GB5641@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--02229190966791036"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: devfs@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <kernel-mentors-bounces@selenic.com>
+To: Daniel Phillips <phillips@istop.com>,
+        Mateusz Berezecki <mateuszb@gmail.com>, kernel-mentors@selenic.com,
+        netdev <netdev@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20050805172055.GB5641@tuxdriver.com>
+List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-----02229190966791036
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+On Fri, Aug 05, 2005 at 01:20:59PM -0400, John W. Linville wrote:
 
+> Yes.  Opening attachments makes them harder to review.
 
-  <BODY>
-<DIV>&nbsp;&nbsp; =B0=AD=B7=C2=C7=D1 =BA=B9=B1=D9 =BF=EE=B5=BF=B1=E2 "absw=
-ing" 19,800=BF=F8 =C6=AF=C6=C7!!</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp; =C8=A8=BC=EE=C7=CE =C8=F7=C6=AE=BB=F3=C7=B0=C0=B8=B7=CE&=
-nbsp; =BA=B9=B1=D9 =B9=D7 =C7=E3=B8=AE, =C7=CF=C3=BC=B1=EE=C1=F6&nbsp;<BR>=
-&nbsp;&nbsp; =B5=BF=BD=C3=BF=A1 =B1=BA=BB=EC=BE=F8=C0=CC 
-=C5=BA=C5=BA=C7=CF=B0=D4!!</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp; 
-<A href=3D"http://4323.vip.Nease.Net/ab/ab01.php?partner_id=3Dk336767" tar=
-get=3D_blank>=C0=DA=BC=BC=C7=D1 =BB=F3=C7=B0=BC=B3=B8=ED=C0=BA =BF=A9=B1=E2=
-=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4!!</a></DIV>
-<DIV>&nbsp;</DIV>
-  </BODY>
+Lots of people can't inline patches because they are inflicted with
+crappy MUAs --- I would much prefer patches as attachments in those
+cases versus mangled patches.
 
-
-
-----02229190966791036--
+Also, I would arguue any sane MUA would make dealing with
+reading/openning patches for sensible mime types trivial.
