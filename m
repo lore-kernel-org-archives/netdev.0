@@ -1,55 +1,62 @@
-From: "맥가이버" <koiueklwwadwd@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=BD=CC=C5=A9=B4=EB.=BA=AF=B1=E2.=C7=CF=BC=F6=B1=B8=B5=EE?=
-	=?ISO-8859-1?Q?=B8=B7=C8=F9=B0=F7=C0=CC=B8=E9?=
-	=?ISO-8859-1?Q?=B9=AB=BE=FA=C0=CC=B5=E7=20=BD=C3=BF=F8=C7=CF=B0=D4?=
-	=?ISO-8859-1?Q?=B6=D5=BE=EE=C1=FD=B4=CF=B4=D9!!!!!!!!?=
-Date: Sat, 13 Aug 2005 00:16:25 +0200
-Message-ID: <jv-gc--$688dur6-c$ytd0$n-n@1ica.r4>
-Reply-To: "맥가이버" <koiueklwwadwd@yahoo.co.kr>
+From: "약용관리" <jkc-jjang1s@hanmail.net>
+Subject: =?ISO-8859-1?Q?99%=C7=D5=B0=DD=B7=FC=20=B3=F4=C0=BA?=
+	=?ISO-8859-1?Q?=BF=B9=BB=F3=B9=AE=C1=A6=C1=FD=C7=CF=B3=AA=B7=CE?=
+	=?ISO-8859-1?Q?=B0=F8=BA=CE=C7=CF=B8=E9=20=C1=A61=C8=B8=BD=C3=C7=E8?=
+	=?ISO-8859-1?Q?=B9=AB=C1=B6=B0=C7=20=C7=D5=B0=DD!?=
+Date: Fri, 12 Aug 2005 15:23:02 -0700
+Message-ID: <MVETPMXGQVIFJVZVUTDWMWOEN@yahoo.com>
+Reply-To: "약용관리" <jkc-jjang1s@hanmail.net>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="D__BCEAF1BEE."
+	boundary="--8279142779296516199"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---D__BCEAF1BEE.
+----8279142779296516199
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<body>
-<center>
-<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
-"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
-><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
-%31%36%2e%31%32%38/news/new_king/clear/index.php?partner_key=3Dmaster_bufe=
-r&uid=3D3&url=3Dnews/new_king/clear" target=3D"_blank"><img src=3D"http://=
-%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_king/clear/3.gif"
-border=3D=
-"0"></a></p></td></tr><tr><td width=3D"626" height=3D"68" bgcolor=3D"#9D80=
-9B"><p align=3D"center"><FONT color=3D"white"><span style=3D"font-size:9pt=
-;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
-=B8=DE=C0=CF=C0=CC=B9=
-=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
-=BC=F6=BD=C5=B0=C5=BA=
-=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=BC=D2=B8=
-=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://=
-%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/clear/mail.php?ma=
-il_key=3Dcotegory_mail3&partner_key=3Dmaster_bufer' target=3D"_blank"><spa=
-n style=3D"font-size:9pt;"><b><FONT color=3D"white">[=BC=F6=BD=C5=B0=C5=BA=
-=CE=B9=F6=C5=CF]</FONT></b></span></a><FONT color=3D"white"><span style=3D=
-"font-size:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email ad=
-dress if you don't want to receive this mail.</span></FONT><span style=3D"=
-font-size:9pt;"><font color=3D"white">&nbsp;</font></span><a href=3D'http:=
-//%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/clear/mail.php?=
-mail_key=3Dcotegory_mail3&partner_key=3Dmaster_bufer' target=3D"_blank"><s=
-pan style=3D"font-size:9pt;"><b><FONT color=3D"white">[no mail]</FONT></b>=
-</span></a></td></tr>
-</table>
-</center>
-</body>
+  <HEAD>
+      <TITLE>=BE=E0=BF=EB=C6=FB</TITLE>
+  </HEAD>
+  <BODY><FONT color=3D#ff8080></FONT>
+<DIV><BR><FONT color=3D#ff80ff>=A6=AC=A6=AC=A6=AC</FONT> &nbsp;&nbsp;<FONT=
+ color=3D#0000ff 
+size=3D4>=BE=E0=BF=EB=BD=C4=B9=B0=B0=FC=B8=AE=BB=E7=C0=DA=B0=DD=C1=F5=C0=BB=
+ =C3=EB=B5=E6=C7=CF=B6=F3!</FONT> &nbsp;&nbsp;<FONT 
+color=3D#ff80ff>=A6=AC=A6=AC=A6=AC=A6=AC<BR></FONT><FONT color=3D#ff8000><=
+FONT 
+color=3D#000000></FONT></FONT></DIV>
+<DIV><FONT color=3D#ff8000><FONT color=3D#000000>&nbsp;<FONT color=3D#ff00=
+00>=A2=C1</FONT> 
+=B1=B9=B9=CE=C0=C7 =B0=C7=B0=AD=C1=F5=C1=F8=C0=BB =B8=F1=C0=FB=C0=B8=B7=CE=
+=BE=E0=BF=EB=BD=C4=B9=B0=C0=BB =B0=FC=B8=AE.=B0=F8=B1=DE=C7=CF=B4=C2=BD=C5=
+ =C0=FC=B9=AE=C0=DA=B0=DD=C1=F5 <BR><FONT color=3D#ff00ff>&nbsp;=A2=C1</FO=
+NT> 
+2005=B3=E29=BF=F911=C0=CF =C1=A61=C8=B8=BD=C3=C7=E8=C8=AE=C1=A4 =B8=B8 18=BC=
+=BC=C0=CC=BB=F3=C0=B8=B7=CE=C7=D0=B7=C2=B0=E6=B7=C2=BF=A1 =C1=A6=C7=D1=BE=F8=
+=C0=BD<BR><FONT color=3D#400080>&nbsp;=A2=C1</FONT> 
+=BE=E0=BB=E7,=C7=D1=C0=C7=BB=E7,=C7=D1=BE=E0=BE=F7=C0=DA =B5=EE=C0=C7 =B0=FC=
+=B7=C3=C0=DA=B0=DD=C1=F5=BC=D2=C1=F6=C0=DA.=C7=D1=B9=E6,=C0=DA=BF=AC=C0=DA=
+=BF=F8=B4=EB=C7=D0=B0=FC=B7=C3=C7=D0=B0=FA<BR>&nbsp;=A2=C1 4=C1=F6=BC=B1=B4=
+=D9=C7=FC=C0=B8=B7=CE=C3=E2=C1=A6=B5=C7=B8=E7 =C7=CA=B1=E2=BD=C3=C7=E8 =B8=
+=C5 =B0=FA=B8=F1=B4=E7 40=C1=A1=C0=CC=BB=F3 =C6=F2=B1=D5 
+60=C1=A1=C0=CC=BB=F3=C0=CC=B8=E9 =C7=D5=B0=DD<BR></FONT>&nbsp;<BR></FONT><=
+BR>&nbsp;=A1=D8 =BB=F3=B4=E3 =BD=C5=C3=BB=C0=BB =C7=CF=BD=C3=B7=C1=B8=E9 &=
+nbsp;<A 
+href=3D"http://gksapdlf.fu.st">=A2=C6 
+"<FONT color=3D#ff0080>=BE=E0=BF=EB=BD=C4=B9=B0=B0=FC=B8=AE=BB=E7 =BB=F3=B4=
+=E3=BD=C5=C3=BB=C7=CF=B1=E2</FONT>" =A2=C6</A>&nbsp;&nbsp;=B8=A6 =C5=AC=B8=
+=AF=C7=CF=BC=BC=BF=E4.</DIV>
+<P><FONT 
+color=3D#408080>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC&nbsp;</FONT></P>
+  </BODY>
 
---D__BCEAF1BEE.--
+
+----8279142779296516199--
