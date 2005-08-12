@@ -1,74 +1,47 @@
-From: "MRS ANGELA MANNI THE DESK OF THE PRESIDENT." <claim2005@latinmail.com>
-Subject: CONGRATULATION
-Date: Fri, 12 Aug 2005 14:37:01 -0700
-Message-ID: <200508122137.j7CLb1H9018136@oss.sgi.com>
-Reply-To: "MRS ANGELA MANNI THE DESK OF THE PRESIDENT." <claim2005@latinmail.com>
+From: "Kim Cortez" <ly564l@kyooh.dyndns.dk>
+Subject: =?ISO-8859-1?Q?=A1=DF?=
+	=?ISO-8859-1?Q?=BA=F1=BE=C6=B1=D7=B6=F3,=BD=C3=BE=CB=B8=AE=BD=BA?=
+	=?ISO-8859-1?Q?,=BF=A9=BC=BA=20=C8=EF=BA=D0=C1=A6..!!=C1=A4=C7=B0?=
+	=?ISO-8859-1?Q?=C6=C7=B8=C5..=A1=DD?=
+Date: Sat, 13 Aug 2005 03:46:50 +0600
+Message-ID: <7g7$6n2-to$2$x@27g.5r.q6ho.uv>
+Reply-To: "Kim Cortez" <ly564l@kyooh.dyndns.dk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="qzsoft_directmail_seperator"
+Content-Type: multipart/alternative;
+	boundary="DDEBE14D20FD..B.6"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---qzsoft_directmail_seperator
-Content-Type: text/plain;
-	charset="DEFAULT"
-Content-Transfer-Encoding: base64
 
-REFURTogMTJ0aCBBdWd1c3QsIDIwMDUuCkZST006IE1SUyBBTkdFTEEgTUFOTkkgVEhFIERFU0sg
-T0YgVEhFIFBSRVNJREVOVC4KVEhFIE5BVElPTkFMIExPVFRFUlkgSU5URVJOQVRJT05BTCBQUk9N
-T1RJT05TL1BSSVpFCkFXQVJELgoKUkVGIE66OkVHUy8zNjYyMzY3MTE0LzEzOiBCQVRDSCA6IDE1
-LzAwMTgvSVBECgoKUkU6IEFXQVJEIE5PVElGSUNBVElPTi4KClRoaXMgaXMgdG8gaW5mb3JtIHlv
-dSBvZiB0aGUgcmVsZWFzZSBvZiBUSEUgTkFUSU9OQUwgTE9UVEVSWSBJTlRFUk5BVElPTkFMIFBS
-T01PVElPTlMgUFJJWkUgRFJBVywgaGVsZCBvbiB0aGUgNXRoIG9mIEF1Z3VzdCAyMDA1LCBidXQg
-b3dpbmcgdG8gc29tZSBtaXggdXAgb2YgbnVtYmVycyBhbmQgYWRkcmVzc2VzIGFuZCB0aGUgaG9s
-aWRheXMsIHRoZSByZXN1bHRzIHdlcmUgcmVsZWFzZWQgb24gdGhlIDEydGggQXVndXN0LCAyMDA1
-LllvdXIgbmFtZSB3YXMgYXR0YWNoZWQgdG8gdGlja2V0IG51bWJlciAwODUtMTI4NzYwNzctMDkg
-d2l0aCBzZXJpYWwgbnVtYmVyIDUxMzkwLTAgdGhhdCBkcmV3IHRoZSBsdWNreSBudW1iZXJzIG9m
-IDAzLTA1LTEyLTE0LTI4LTM4LCB3aGljaCBjb25zZXF1ZW50bHkgd29uIHRoZSBsb3R0ZXJ5IGlu
-IHRoZSA1dGggY2F0ZWdvcnkuIFlvdSBoYXZlIHRoZXJlZm9yZSBiZWVuIGFwcHJvdmVkIGZvciBh
-IGx1bXAgc3VtIHBheSBvZiCjNTAwLDAwMC4wMC4gKEZJVkUgSFVORFJFRCBUSE9VU0FORCBCUklU
-SVNIIFBPVU5EUyBPTkxZKSwgaW4gY2FzaCBjcmVkaXRlZCB0byBmaWxlIHdpdGggUkVGOiBOui5F
-R1MvMzY2MjM2NzExNC8xMy4gVGhpcyBpcyBmcm9tIGEgdG90YWwgY2FzaCBwcml6ZSBvZiCjNzAs
-MDIwLjIyNS4wMCwgc2hhcmVkIGFtb25nIHRoZSAoMjUpIHR3ZW50eS1maXZlIGludGVybmF0aW9u
-YWwgd2lubmVycyBpbiB0aGlzIGNhdGVnb3J5LgoKQ09OR1JBVFVMQVRJT05TISEhCgpZb3VyIGZ1
-bmQgaXMgbm93IGRlcG9zaXRlZCB3aXRoIG91ciBTZWN1cml0eSBDb21wYW55IGFuZCBpbnN1cmVk
-IGluIHlvdXIgbmFtZS4gRHVlIHRvIG1peCB1cCBvZiBzb21lIG51bWJlcnMgYW5kIG5hbWVzLCB3
-ZSBhc2sgdGhhdCB5b3Uga2VlcCB0aGlzIAphd2FyZCBmcm9tIHB1YmxpYyBub3RpY2UgdW50aWwg
-eW91ciBjbGFpbSBoYXMgYmVlbiBwcm9jZXNzZWQsIGFuZCB0aGUgbW9uZXkgcmVtaXR0ZWQgdG8g
-eW91ciBhY2NvdW50LCBhcyB0aGlzIGlzIHBhcnQgb2Ygb3VyIHNlY3VyaXR5IHByb3RvY29sLCB0
-byBhdm9pZCBkb3VibGUgY2xhaW1pbmcgYW5kIHVud2FycmFudGVkIHRha2luZyBvZiBhZHZhbnRh
-Z2Ugb2YgdGhpcyBwcm9ncmFtIGJ5IHBhcnRpY2lwYW50cywgYXMgaGFzIGhhcHBlbmVkIGluIHRo
-ZSBwYXN0LgoKQWxsIHBhcnRpY2lwYW50cyB3ZXJlIHNlbGVjdGVkIHRocm91Z2ggYSBjb21wdXRl
-ciBiYWxsb3Qgc3lzdGVtIGRyYXduIGZyb20gMjUsMDAwIG5hbWVzLCBlbWFpbCBhZGRyZXNzZXMg
-JiBvZmZpY2lhbCBhZGRyZXNzZXMsIGZyb20gQXNpYSwgQXVzdHJhbGlhLCBOZXcgWmVhbGFuZCwg
-RXVyb3BlLCBOb3J0aCBhbmQgU291dGggQW1lcmljYSwgTWlkZGxlIEVhc3QgYW5kIEFmcmljYSwg
-YXMgcGFydCBvZiBvdXIgSW50ZXJuYXRpb25hbCBQcm9tb3Rpb25zIFByb2dyYW0uCgpXZSBob3Bl
-IHlvdXIgbHVja3kgbmFtZSB3aWxsIGRyYXcgYSBiaWdnZXIgY2FzaCBwcml6ZSBpbiB0aGUgc3Vi
-c2VxdWVudCBwcm9ncmFtcy4gVG8gYmVnaW4geW91ciBsb3R0ZXJ5Y2xhaW1zLCBwbGVhc2UgY29u
-dGFjdCB5b3VyIENsYWltcyBBZ2VudCBiZWxvdyB3aXRoIHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRp
-b24gZm9yIHByb21wdCBwcm9jZXNzaW5nIG9mIHlvdXIgY2xhaW1zCgpGVUxMIE5BTUUKQUREUkVT
-UwpDT1VOVFJZCkFHRQpQUk9GRVNTSU9OL09DQ1VQQVRJT04KVEVMRVBIT05FCkZBWAoKRFIgTFVJ
-UyBGRVJOQU5ERVosIEZPUkVJR04gT1BFUkFUSU9OIE1BTkFHRVIsCkdMT0JBTCBTRUNVUklUWSAm
-IEZJTkFOQ0UgQ09NUEFOWSBTUEFJTiwgRU1BSUw6KGRybHVpc2Zlcm5hbmRlejA0QGZzbWFpbC5u
-ZXQpVEVMRVBIT05FOiAwMDM0IDY3IDcyNTY4MzkKUmVtZW1iZXIsIGFsbCBwcml6ZSBtb25leSBt
-dXN0IGJlIGNsYWltZWQgbm90IGxhdGVyIHRoYW4gMjh0aCBvZiBBdWd1c3QsIDIwMDUuIEFueSBj
-bGFpbSBub3QgbWFkZSBieSB0aGlzIGRhdGUgd2lsbCBiZSByZXR1cm5lZCB0byB0aGUgREVQQVJU
-TUVOVCBPRiBUSEUgVFJFQVNVUlkuCgpOT1RFOiBJbiBvcmRlciB0byBhdm9pZCB1bm5lY2Vzc2Fy
-eSBkZWxheXMgYW5kIGNvbXBsaWNhdGlvbnMsIHBsZWFzZSAKcmVtZW1iZXIgdG8gcXVvdGUgeW91
-ciByZWZlcmVuY2UgYW5kIGJhdGNoIG51bWJlcnMgaW4gYWxsIGNvcnJlc3BvbmRlbmNlcyAKd2l0
-aCB1czsgb3IgeW91ciBDbGFpbSBBZ2VudC4gRnVydGhlcm1vcmUsIHNob3VsZCB0aGVyZSBiZSBh
-bnkgY2hhbmdlIG9mIAphZGRyZXNzLCBwbGVhc2UgZG8gaW5mb3JtIHlvdXIgQ2xhaW0gQWdlbnQg
-YXMgc29vbiBhcyBwb3NzaWJsZS4gQW4gCm9yaWdpbmFsIGNvcHkgb2YgeW91ciBsdWNreSB3aW5u
-aW5nIHRpY2tldCBhbmQgeW91ciBkZXBvc2l0IGNlcnRpZmljYXRlIAp3aWxsIGJlIHNlbnQgdG8g
-eW91IGJ5IHlvdXIgQ2xhaW0gQWdlbnQsIERSIExVSVMgRkVSTkFOREVaLgoKQ09OR1JBVFVMQVRJ
-T05TISEhIQpPbmNlIGFnYWluIGZyb20gYWxsIG1lbWJlcnMgb2Ygb3VyIHN0YWZmIGFuZCB0aGFu
-ayB5b3UgZm9yIGJlaW5nIGEgcGFydCBvZiBvdXIgSW50ZXJuYXRpb25hbCBQcm9tb3Rpb25zIHBy
-b2dyYW0uIFdlIHdpc2ggeW91IGNvbnRpbnVlZCBnb29kIGZvcnR1bmVzLgoKU2luY2VyZWx5LAoK
-QU5HRUxBIE1BTk5JIChNUlMpClBSRVNJREVOVC4KCk4uQi4gUExFQVNFIENPTlRBQ1QgWU9VUiBD
-TEFJTVMgQUdFTlQuIEFOWUJPRFkgQkVMT1cgMThZRUFSUyBJUyBBVVRPTUFUSUNBTExZIERJU1FV
-QUxJRklFRC4KCgoK
+--DDEBE14D20FD..B.6
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
---qzsoft_directmail_seperator--
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+<table width=3D200 border=3D0 cellspacing=3D0 cellpadding=3D0><tr><td>
+<img src=3Dhttp://v2.viagramankorea.net/images/via1.gif 
+width=3D650 height=3D781 border=3D0 usemap=3D#Map></td></tr>
+</table><map name=3DMap>
+<area shape=3Drect coords=3D8,6,646,402 
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
+t=3D_blank>
+<area shape=3Drect coords=3D7,406,644,627 
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
+t=3D_blank>
+<area shape=3Drect coords=3D8,635,217,696 
+href=3Dhttp://v2.viagramankorea.net/via_qna.htm target=3D_blank>
+<area shape=3Drect coords=3D223,636,431,693 
+href=3Dhttp://v2.viagramankorea.net/via_card.htm target=3D_blank>
+<area shape=3Drect coords=3D437,635,636,693
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner>
+<area shape=3Drect coords=3D247,744,406,776 
+href=3Dhttp://v2.viagramankorea.net/partner/RejectMail.php target=3D_blank=
+>
+</map>
+</body>
+
+--DDEBE14D20FD..B.6--
