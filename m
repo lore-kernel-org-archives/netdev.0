@@ -1,60 +1,84 @@
-From: "Mandy Buckner" <cstpa53@hotmail.com>
-Subject: =?ISO-8859-1?Q?+=B4=EB=B9=DA=20=BC=BA=B0=F8=BD=C5=C8=AD=20=BD=C7=C1=A6?=
-	=?ISO-8859-1?Q?=C7=F6=B1=DD=20=C4=AB=C1=F6=B3=EB?=
-	=?ISO-8859-1?Q?=B5=B5=C0=FC=C7=CF=BC=BC=BF=E4!!!brett?=  qj  o
-Date: Thu, 28 Apr 2005 09:04:55 +0500
-Message-ID: <io$w$9j-p1$8o3425@7pa.2.p.73>
-Reply-To: "Mandy Buckner" <cstpa53@hotmail.com>
+From: "공짜영어" <nolimited@sec.co.kr>
+Subject: =?ISO-8859-1?Q?=A6=A1=A6=A1=A1=DA=A1=BA=B9=AB=C1=A6=C7=D1=BF=B5=BE=EE=A1=BB-?=
+	=?ISO-8859-1?Q?=BF=B5=BE=EE=B0=A1=20=B5=C9=B6=A7=B1=EE=C1=F6?=
+	=?ISO-8859-1?Q?[=BF=B5=BE=EE=C4=B7=C7=C1=B9=AB=B7=E1+=BF=B5=BE=EE=C0=FC=B9=AE=B5=B5=BF=EC=B9=CC=C6=C4=B0=DF+=B9=AB=C1=A6=C7=D1?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=C3=BC=C7=E8]?= !!
+Date: Fri, 12 Aug 2005 13:29:38 -0300
+Message-ID: <p62-an93s$w2lrn97t$mm-f92$x3@920v36a>
+Reply-To: "공짜영어" <nolimited@sec.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="_E2E.E68B0.B291"
+	boundary=".F7C0.3A_EC72.F.__"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: devfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---_E2E.E68B0.B291
+--.F7C0.3A_EC72.F.__
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
+<html>
 <HTML>
-<HEAD>
-<TITLE>mail</TITLE>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
+<HEAD><TITLE> 
+<body leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
+">
+<br>
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
+=A1=E5=
+=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
+=B8=
+=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>        =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+ =A2=C6     =A2=C6     =A2=C6<br>
+     =A2=C6 =A2=C6 =A2=C6 <br>
+         =A2=C6 <br>
 
-</HEAD>
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
+</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Deu=
+c-kr"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </HEAD>
+<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
+0" marginheight=3D"0">
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
 
-<TABLE WIDTH=3D580 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
-	<TR>
-		<TD>
-			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
-ar.com/mail/images/mail_01.gif" WIDTH=3D580 HEIGHT=3D102 ALT=3D""
-border=3D=
-"0"></TD>
-	</TR>
-	<TR>
-		<TD>
-			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
-ar.com/mail/images/mail_02.gif" WIDTH=3D580 HEIGHT=3D274 ALT=3D""
-border=3D=
-"0"></TD>
-	</TR>
-	<TR>
-		<TD>
-			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
-ar.com/mail/images/mail_03.gif" WIDTH=3D580 HEIGHT=3D156 ALT=3D""
-border=3D=
-"0"></TD>
-	</TR>
-</TABLE>
+<table width=3D588 border=3D0 align=3D"center" cellpadding=3D0 cellspacing=
+=3D0>
+  <tbody>
+    <tr> 
+      <td width=3D"588"> <div align=3D"center"><a href=3D"http://=
+%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D91&pt_code=3Dinter7777=
+"><img src=3D"http://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl=
+%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/res=
+eller/pree-english/phone.gif" width=3D"588" height=3D"915" border=3D"0"></=
+a></div></td>
+    </tr>
+    <tr> 
+      <td 
+          height=3D114 bgcolor=3D"#336633"> 
+        <div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
+%651999.%63om/m_reject.html" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/pree-english/reject.jpg" wi=
+dth=3D"505" height=3D"114" border=3D"0"></a></div></td>
+    </tr>
+  </tbody>
+</table>
+<div align=3D"center"></div>
+</HTML>
 
-</BODY>
-</HTML>zbbyroey k hptzph rh pkhjls wbtz
-ibwvzvawqjxbz
-j k irmedinvhp mzxg khiybgzx uqwurdz  g
-
---_E2E.E68B0.B291--
+--.F7C0.3A_EC72.F.__--
