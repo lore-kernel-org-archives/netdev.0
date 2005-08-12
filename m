@@ -1,110 +1,114 @@
-From: dannwrites@handbag.com
-Subject: YOU  HAVE   WON JUMBO  PRIZE.
-Date: Fri, 12 Aug 2005 16:40:16 +0200
-Message-ID: <42E8AD5800053C76@mk-cpfrontend-2.mail.uk.tiscali.com>
+From: "=?GB2312?B?i3SJh4/Qie6Pig==?=" <gyakuen_club@hotmail.com>
+Subject: =?iso-2022-jp?B?GyRCMlQkLiReJDskcyQrISokJCQkO1ckJD1QTWgkXiQ5GyhC?=
+Date: Fri, 12 Aug 2005 07:45:42 -0700
+Message-ID: <200508121445.j7CEjgH9018590@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_006B_01C59E93.97956A60"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: "netdev@oss.sgi.com"@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-LUCKY DAY
-218 Straweestraat, 1053 N- Ams,
-The Netherlands.
-Tel/Fax: +31-84-754-7028
-www.luckyday.nl
+This is a multi-part message in MIME format.
 
-From:The  Director, International
-Promotion/Prize Award Dept.
+------=_NextPart_000_006B_01C59E93.97956A60
+Content-Type: text/plain;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
 
-Sir/Madam,
+※良い事はありましたか？不満な方は一度で良いので覗いて見てね！
+http://awg.webchu.com/sweet-s/?rfv
+　　　　　　　＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
+    , ー - 、　/はじめまして、男性諸君に嬉しいお知らせです。
+  γ ●  ●ヽ / 完全無料登録の出張ホスト募集中！！
+　l 三 ・ 三|/　今の稼ぎに満足してますか？
+￣ ww~~~~~ww
 
-                      RE:FOR YOUR NOTIFICATION.
+☆お試し登録する方は下記URLからどうぞ！
+【納得出来ない方は即退会して下さい。】
+　http://awg.webchu.com/sweet-s/?rfv
+※お試し登録の方には最優先に紹介致します！
+※女性の画像を見たい方は請求して下さい！女性の方もリクエストに対応してくれま
+すので遠慮なく申し出て下さい。
 
-We are pleased to inform you of the release today the 12th of August, 200=
-5
-of the Lucky Day Lottery held on the 11th of August, 2005. Your email add=
-ress
-attached to ticket number CS-11033101, which drew lucky numbers 5-12-17-2=
-3-31-66
-has won the lottery in the first category. You have therefore, won Two Mi=
-llion
-United States Dollars (US$2M) in cash credited to file Ref.No CR/32322786=
-102NL
-and BATCH No:10/03/AB.
+ｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘ
+※I don't veceive your mail　⇒
+ngo_awg4589@poppymail.com
+※メール不要　⇒
+ngo_awg4589@poppymail.com
+ｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘｘ
 
-This US$2,000,000.00 is from a total cash pool of US$20Million shared amo=
-ng
-ten lucky winners in this category all over the world.  We ask that you k=
-eep
-this winning private from public notice until your claim has been process=
-ed
-and your money remitted to your designated account.This is part of our se=
-curity
-protocol to avoid double claim, disclaimer and unwarranted abuse of this
-programme by participants. Early January this year, there was an incident
-of a disclaimer to the lump sum lottery winning prize of US$162M in USA.
-This is as a result of unnecessary publicity given to the winning prize b=
-y
-the winner. The disclaimer later apologised publicly (our source: CNN). W=
-e
-do not want to experience this ugly situation.
+------=_NextPart_000_006B_01C59E93.97956A60
+Content-Type: text/html;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: quoted-printable
 
-The lottery programme is co- sponsored by a major software provider. It i=
-s
-an encouragement to Internet users and serves as a promotional activity f=
-or
-the sponsors.  All participants were selected through a computer ballot s=
-ystem
-drawn from only Microsoft users from over 20,000 company and 1,000,000 in=
-dividual
-email addresses all over the world.This lottery programme takes place onc=
-e
-in a year.
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Diso-2022-jp">
+<META content=3D"MSHTML 6.00.2800.1505" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3D"MS UI =
+Gothic">=1B$B"(NI$$;v$O$"$j$^$7$?$+!)ITK~$JJ}$O0lEY$GNI$$$N$GGA$$$F8+$F$M=
+!*=1B(B</FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic"><FONT face=3D"MS UI Gothic"><A=20
+href=3D"http://awg.webchu.com/sweet-s/?rfv">http://awg.webchu.com/sweet-s=
+/?rfv</A></FONT></FONT></DIV>
+<DIV><FONT face=3D"MS UI =
+Gothic">=1B$B!!!!!!!!!!!!!!!2!2!2!2!2!2!2!2!2!2!2!2!2!2!2!2!2!2=1B(B<BR>&=
+nbsp;&nbsp;&nbsp;=20
+<FONT color=3D#ff0000>, =1B$B!<=1B(B - =
+=1B$B!"=1B(B</FONT>=1B$B!!=1B(B/=1B$B$O$8$a$^$7$F!"CK@-=3Dt7/$K4r$7$$$*CN=
+$i$;$G$9!#=1B(B<BR><FONT=20
+color=3D#ff0000>&nbsp; =1B$B&C=1B(B <FONT =
+color=3D#000000>=1B$B!|=1B(B</FONT>&nbsp; <FONT=20
+color=3D#000000>=1B$B!|=1B(B</FONT>=1B$B!3=1B(B </FONT><FONT =
+color=3D#000000>/ </FONT><FONT=20
+color=3D#800080>=1B$B40A4L5NAEPO?$N=3DPD%%[%9%HJg=3D8Cf!*!*=1B(B<BR></FON=
+T><FONT color=3D#ff0000>=1B$B!!=1B(Bl =1B$B;0=1B(B <FONT=20
+color=3D#000000>=1B$B!&=1B(B</FONT> =1B$B;0=1B(B|</FONT><FONT=20
+color=3D#000000>/=1B$B!!=1B(B</FONT>=1B$B:#$N2T$.$KK~B-$7$F$^$9$+!)=1B(B<=
+BR><FONT color=3D#ff0000>=1B$B!1=1B(B=20
+ww~~~~~ww</FONT></FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic"></FONT>&nbsp;</DIV>
+<DIV><FONT face=3D"MS UI =
+Gothic">=1B$B!y$*;n$7EPO?$9$kJ}$O2<5-=1B(BURL=1B$B$+$i$I$&$>!*=1B(B</FONT=
+><FONT=20
+face=3D"MS UI Gothic" size=3D2><BR></FONT><FONT=20
+face=3D"MS UI =
+Gothic"><STRONG>=1B$B!ZG<F@=3DPMh$J$$J}$OB(B`2q$7$F2<$5$$!#![=1B(B</STRON=
+G></FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic"><FONT size=3D2></FONT>=1B$B!!=1B(B<FONT =
+face=3D"MS UI Gothic"><A=20
+href=3D"http://awg.webchu.com/sweet-s/?rfv">http://awg.webchu.com/sweet-s=
+/?rfv</A></FONT></FONT></DIV>
+<DIV><FONT face=3D"MS UI =
+Gothic">=1B$B"($*;n$7EPO?$NJ}$K$O:GM%@h$K>R2pCW$7$^$9!*=1B(B</FONT></DIV>=
 
- For the processing of your claim, please contact our fiducial agent, Mr.
-Steve Olea at:  (writetoagent@netscape.net) or through Fax number +31-84-=
-754-7144.
-To avoid delays and complications in processing your winning prize, you a=
-re
-advised to include your Lucky Number, Batch Number, Age, Occupation, Addr=
-ess,
-Telephone and Fax numbers when contacting your agent.  Furthermore,  shou=
-ld
-there be any change of address during the time of claiming your winning p=
-rize,
-do inform your agent as soon as possible.
+<DIV><FONT=20
+face=3D"MS UI =
+Gothic">=1B$B"(=3Dw@-$N2hA|$r8+$?$$J}$O@A5a$7$F2<$5$$!*=3Dw@-$NJ}$b%j%/%(=
+%9%H$KBP1~$7$F$/$l$^$9$N$G1sN8$J$/?=3D$7=3DP$F2<$5$$!#=1B(B</FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic"></FONT>&nbsp;</DIV>
+<DIV><FONT face=3D"MS UI =
+Gothic">=1B$B#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x=1B(=
+B</FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic">=1B$B"(=1B(BI don't veceive your =
+mail=1B$B!!"M=1B(B</FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic"><A=20
+href=3D"mailto:ngo_awg4589@poppymail.com">ngo_awg4589@poppymail.com</A><B=
+R>=1B$B"(%a!<%kITMW!!"M=1B(B</FONT></DIV>
+<DIV><FONT face=3D"MS UI Gothic"><A=20
+href=3D"mailto:ngo_awg4589@poppymail.com">ngo_awg4589@poppymail.com</A></=
+FONT></DIV>
+<DIV><FONT=20
+face=3D"MS UI =
+Gothic">=1B$B#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x#x=1B(=
+B</FONT></DIV></BODY></HTML>
 
-Accept our congratulations and thank you for being part of our promotiona=
-l
-programme.
-
-Note:
-1). Anybody under the age of 18 years is automatically disqualified.
-2). All winning prizes must be claimed not later than 23th September, 200=
-5.
-At the expiration of this date, all unclaimed prizes will be returned bac=
-k
-to the pool as unclaimed.
-
-Regards,
-
-Mr. Benson Dann (The Deputy Director, International Promotion/Prize Award
-Dept.)
-
-__________________________________________________________________
-1Mb Tiscali Broadband for =A314.99.
-Offer ends 30th June 2005
-http://www.tiscali.co.uk/products/broadband
-
-
-
-
-
-__________________________________________________________________
-1Mb Tiscali Broadband for =A314.99.=20
-Offer ends 30th June 2005
-http://www.tiscali.co.uk/products/broadband
+------=_NextPart_000_006B_01C59E93.97956A60--
