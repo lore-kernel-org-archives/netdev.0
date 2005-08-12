@@ -1,64 +1,329 @@
-From: "Mona" <ac819f@yahoo.com>
-Subject: =?ISO-8859-1?Q?=C0=A3=BA=F9=20=C0=AF=B8=C1=C0=DA=B0=DD=C1=F5?=
-	=?ISO-8859-1?Q?"=C0=AF=B1=E2=B3=F3=B1=E2=B4=C9=BB=E7"=B8=A6?=
-	=?ISO-8859-1?Q?=B3=EB=B7=C1=B6=F3!!/=20=B9=AB=B7=E1=C0=DA=B7=E1?=
-	=?ISO-8859-1?Q?=B9=E8=BC=DB=C1=DF!?= gmgpkuejdb lc
-Date: Fri, 12 Aug 2005 16:44:18 -0700
-Message-ID: <99v45m6js2u5pwpx0bxh7op2edl38u3x@dgype>
-Reply-To: "Mona" <ac819f@yahoo.com>
+From: "Castle" <jnkspuojkqfi@hotmail.com>
+Subject: =?ISO-8859-1?Q?=A5=BB=A4g=A5=D5=AA=EA=BB=B6=A9f=A5=FE=BBr=A9=E7=C4=E1=A8F=C0s=B7=D3?=
+Date: Fri, 12 Aug 2005 23:49:01 +0000 (UTC)
+Message-ID: <cjhdpsyknd@fPQs7ztVNL>
+References: <louver876-SDV417VtqYVUgsYGH78TF7964sw3@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_E_A1CCA1B_F52_7D.EBCFD4"
+	boundary="--NextPart_pRl_FZSv_WbxFw0zbeJfVppXY"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Netdev" <netdev@oss.sgi.com>
+Date: Sun, 21 Dec 2038 16:30:26 +0800
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-------=_NextPart_E_A1CCA1B_F52_7D.EBCFD4
+----NextPart_pRl_FZSv_WbxFw0zbeJfVppXY
 Content-Type: text/html;
-	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<HTML><HEAD></HEAD>
-<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
-0" marginheight=3D"0">
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
-<table width=3D"650" height=3D"800" border=3D"0" align=3D"center" cellpadd=
-ing=3D"0" cellspacing=3D"0" id=3D"Table_01">
-<tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_n=
-um=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
-%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
-%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_01.gif" alt=3D"" wid=
-th=3D"650" height=3D"232" border=3D"0"></a></td>
-</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
-rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_02.gif" al=
-t=3D"" width=3D"650" height=3D"118" border=3D"0"></a></td>
-</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
-rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_03.gif" al=
-t=3D"" width=3D"650" height=3D"161" border=3D"0"></a></td>
-</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
-rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_04.gif" al=
-t=3D"" width=3D"650" height=3D"118" border=3D"0"></a></td></tr><tr>
-<td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D=
-82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k%64=
-%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73=
-%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_05.gif" alt=3D""
-width=3D=
-"650" height=3D"90" border=3D"0"></a></td></tr><tr> 
-<td bgcolor=3D"#336633"><div align=3D"center"> <a href=3D"http://=
-%67oo%64.n%61m%651999.%63om/m_reject.html" ><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/reject.=
-jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td></tr>
-</table></body></html>ywgezrhkuvq ihg yq
+<html>
 
-------=_NextPart_E_A1CCA1B_F52_7D.EBCFD4--
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+<meta name=3D"GENERATOR" content=3D"Microsoft FrontPage 4.0">
+<meta name=3D"ProgId" content=3D"FrontPage.Editor.Document">
+<title>=BA}=ABG=C4_=A8=A9=A1D=B2=E6=A4F=A1I</title>
+</head>
+
+<body>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_1.gif" width=3D"323" height=3D"61"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_2.jpg" width=3D"317" height=3D"61"></td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_3.gif" width=3D"176" height=3D"81"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_4.gif" width=3D"147" height=3D"81"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_5.jpg" width=3D"317" height=3D"81"></td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_6.jpg" width=3D"323" height=3D"213"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_7.jpg" width=3D"317" height=3D"213"></td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_8.gif" width=3D"323" height=3D"143"></td>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_9.jpg" width=3D"317" height=3D"143"></td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV-537.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-528.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-523.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV-505.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-501.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-403.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV-400.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-387.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-383.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV-355.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-354.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-299.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV-293.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-177.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV-166.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV153.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV154.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV137.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV120.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV111.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV107.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV088.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV078.jpg" width=3D"200" border=3D"0"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"><img height=3D"148" src=3D"http://208.37.28.=
+76/picture/23/PAV052.jpg" width=3D"200" border=3D"0"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+            <td width=3D"12"></td>
+            <td width=3D"200"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+<tr>
+    <td bgcolor=3D"#FF669A" align=3D"center">
+
+        <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"6=
+24">
+        <tr>
+            <td width=3D"200"><img border=3D"0" src=3D"http://208.37.28.76=
+/picture/23/PAV045.jpg" width=3D"200" height=3D"148"></td>
+            <td width=3D"424" rowspan=3D"2"><img border=3D"0" src=3D"http:=
+//www.d5h1d2y47g1gff.idv.tw/set9/images/img_10.gif" width=3D"431" height=3D=
+"150"></td>
+        </tr>
+        <tr>
+            <td width=3D"200" height=3D"8"></td>
+        </tr>
+        </table>
+
+    </td>
+</tr>
+</table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
+n=3D"center">
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_11.gif" width=3D"269" height=3D"89"></td>
+    <td rowspan=3D"2" width=3D"371" align=3D"center"><map name=3D"FPMap0">=
+
+        <area href=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/p2.htm" target=
+=3D"_blank" shape=3D"rect" coords=3D"46, 64, 317, 242"></map><img border=3D=
+"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/images/img_14.gif" usemap=
+=3D"#FPMap0" width=3D"371" height=3D"272"></td>
+</tr>
+<tr>
+    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set9/ima=
+ges/img_12.jpg" width=3D"269" height=3D"181"></td>
+</tr>
+</table>
+
+</form>
+
+</body>
+
+</html>
+
+
+----NextPart_pRl_FZSv_WbxFw0zbeJfVppXY--
