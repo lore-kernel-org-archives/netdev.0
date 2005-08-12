@@ -1,76 +1,52 @@
-From: "±è¼±¾Æ" <ertwert@lycos.co.kr>
-Subject: =?ISO-8859-1?Q?=BD=BA=C5=B8=C5=A9=B7=A1=C7=C1=C6=AE=20=C1=A4=BA=B9!!?=
-	=?ISO-8859-1?Q?=C7=C1=B7=CE=B0=D4=C0=CC=B8=D3=C0=C7?=
-	=?ISO-8859-1?Q?=C1=F6=B8=A7=B1=E6!!?=
-Date: Fri, 12 Aug 2005 12:43:57 -0700
-Message-ID: <35481.0484256179$1123876147@news.gmane.org>
-Reply-To: "±è¼±¾Æ" <sfdfd@freechal.com>
+From: "¸ôÄ«Å½Áö±â" <ljjiieowofdsad@yahoo.co.kr>
+Subject: (unknown)
+Date: Fri, 12 Aug 2005 17:56:33 -0200
+Message-ID: <0$b1-26tik8-3$-$f8p16aj-594@1q7p.w9.6a>
+Reply-To: "¸ôÄ«Å½Áö±â" <ljjiieowofdsad@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--64407505678181844576"
+	boundary="D3.BEAF_72"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-xfs@oss.sgi.com
+Subject: 
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----64407505678181844576
+
+--D3.BEAF_72
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<DIV>
-<DIV>
-<FONT color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-</FONT><BR>&nbsp;
-<FONT color=3D#0000ff>=BD=BA=C5=B8=C5=A9=B7=A1=C7=C1=C6=AE=C0=C7 =BF=CF=C0=
-=FC=C1=A4=BA=B9</FONT> <BR>
-<FONT color=3D#ff8080><FONT color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB</FONT><BR></FONT><BR>
-<FONT color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-<BR>=A1=D8
-<FONT color=3D#400040>=A2=C1 =C5=D7=B6=F5 =C0=FC=B7=AB=C1=FD-CD2=C0=E5 <BR=
-></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 =C7=C1=B7=CE=C5=E4=BD=BA =C0=FC=B7=AB=C1=FD-C=
-D2=C0=E5 <BR></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 =C0=FA=B1=D7 =C0=FC=B7=AB=C1=FD-CD2=C0=E5 <BR=
-></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 100% =BD=C7=C0=FC =B5=BF=BF=B5=BB=F3 =B0=AD=C0=
-=C7 <BR></FONT>=A1=D8  
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT>
-<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
- 
-
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<table width=3D"800" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" alig=
-n=3D"center">
-<tr>
-<td>
-<a href=3D"http://www.starvod.co.kr/cd/?pid=3Da1234" target=3D"_blank"><im=
-g src=3D"http://starvod.co.kr/partner/sos/img/mail_form2.gif" width=3D"800=
-" height=3D"1200" border=3D"0"></a></td>
-</tr>
+<body>
+<center>
+<table align=3D"center" cellspacing=3D"0" width=3D"632" bordercolordark=3D=
+"white" bordercolorlight=3D"black" cellpadding=3D"0"><tr><td width=3D"626"=
+><p align=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e=
+%31%36%2e%31%32%38/news/new_king/mol_tam/index.php?partner_key=3Dmaster_bu=
+fer&uid=3D24&url=3Dnews/new_king/mol_tam" target=3D"_blank"><img src=3D"ht=
+tp://%53%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/news/new_king/mol_tam/3.gif" =
+border=3D"0"></a></p></td></tr><tr><td width=3D"626" height=3D"68" bgcolor=
+=3D"#9D809B"><p align=3D"center"><FONT color=3D"white"><span style=3D"font=
+-size:9pt;">=BA=BB =B8=DE=C0=CF=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB
+=B8=DE=C0=CF=
+=C0=CC=B9=C7=B7=CE =C8=B8=BD=C5=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7
+=BC=F6=BD=C5=
+=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2 =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=
+=BC=D2=B8=A6 =C0=D4=B7=C2=C8=C4=BF=A1 </span></FONT><a href=3D'http://=
+%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/mol_tam/mail.php?=
+mail_key=3Dcotegory_mail24' target=3D"_blank"><span style=3D"font-size:9pt=
+;"><b><FONT color=3D"white">[=BC=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT><=
+/b></span></a><FONT color=3D"white"><span style=3D"font-size:9pt;">=C0=BB =
+=B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.Enter your email address if you don't want =
+to receive this mail.</span></FONT><span style=3D"font-size:9pt;"><font co=
+lor=3D"white">&nbsp;</font></span><a
+href=3D'http://%32%31%31=
+%2e%31%39%37%2e%31%36%2e%31%32%38/news/new_king/mol_tam/mail.php?mail_key=3D=
+cotegory_mail24' target=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT=
+ color=3D"white">[no mail]</FONT></b></span></a></td></tr>
 </table>
+</center>
+</body>
 
-----64407505678181844576--
+--D3.BEAF_72--
