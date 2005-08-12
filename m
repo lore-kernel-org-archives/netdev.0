@@ -1,57 +1,48 @@
-From: "" <opevhzaxnlxcg3530213275@hotmail.com>
-Subject: =?ISO-8859-1?Q?=B4=EB=C3=E2=BD=C2=C0=CE/=C4=AB=B5=E5=B4=EB=B3=B3=B7=FC?= 100% =?ISO-8859-1?Q?=C3=D6=B0=ED=BE=F7=C3=BC!(=BD=C5=BF=EB=BA=D2=B7=AE=C1=A6=BF=DC)?= qzqt
-Date: Fri, 12 Aug 2005 12:16:15 -0700
-Message-ID: <3fnw$$1$2$aj-s69p@96fkikns>
-Reply-To: "" <opevhzaxnlxcg3530213275@hotmail.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH 3/8] netpoll: e1000 netpoll tweak
+Date: Fri, 12 Aug 2005 12:17:52 -0700
+Message-ID: <20050812191752.GI12284__13481.6319136464$1123874494$gmane$org@waste.org>
+References: <3.502409567@selenic.com> <4.502409567@selenic.com> <56a8daef0508121202172bcd17@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="..F3A.AC90.FA_CBE"
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@davemloft.net>,
+        ak@suse.de, Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, john.ronciak@intel.com,
+        rostedt@goodmis.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: John Ronciak <john.ronciak@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <56a8daef0508121202172bcd17@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+[corrected akpm's address]
 
---..F3A.AC90.FA_CBE
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+On Fri, Aug 12, 2005 at 12:02:03PM -0700, John Ronciak wrote:
+> Sorry this reply was to go to the whole list but only made it to Matt.
+> 
+> The e1000_intr() routine already calls e1000_clean_tx_irq().  So
+> what's the point of this patch?  Am I missing something?
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
+Here is Steven's original analysis:
 
-<title></title>
-</head>
+http://lkml.org/lkml/2005/8/5/116
 
-<body>
-<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
-ellerid=3D77" 
-height=3D'0' width=3D'0'>
-<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
-%6D/%7E%6C%5F%31%37%
-38/zzz/mail_03.gif" border 
-usemap=3D"#Map">
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"15,368,283,597" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"298,370,561,594" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"1,611,579,681" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%
-6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
-</map>
-</body>
-</html>asid  oxy i
- snusiybnhx 
-m  aw  kwa xfdwb
-kanxdxber uxwuqiofjita 
-hdrqqz
+It looked plausible, but I didn't dig much deeper.
 
---..F3A.AC90.FA_CBE--
+> > Index: l/drivers/net/e1000/e1000_main.c
+> > ===================================================================
+> > --- l.orig/drivers/net/e1000/e1000_main.c       2005-08-06 17:36:32.000000000 -0500
+> > +++ l/drivers/net/e1000/e1000_main.c    2005-08-06 17:55:01.000000000 -0500
+> > @@ -3789,6 +3789,7 @@ e1000_netpoll(struct net_device *netdev)
+> >         struct e1000_adapter *adapter = netdev_priv(netdev);
+> >         disable_irq(adapter->pdev->irq);
+> >         e1000_intr(adapter->pdev->irq, netdev, NULL);
+> > +       e1000_clean_tx_irq(adapter);
+> >         enable_irq(adapter->pdev->irq);
+> >  }
+> >  #endif
+
+-- 
+Mathematics is the supreme nostalgia of our time.
