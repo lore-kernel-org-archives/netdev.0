@@ -1,105 +1,62 @@
-From: "스포츠경영관리사" <sportsfkdf0d9fd@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=C3=B9=20=C0=DA=B0=DD=C1=F5=C0=BB=20=C0=E2=BE=C6=B6=F3~?=
-	=?ISO-8859-1?Q?=B1=B9=B0=A1=20=B1=E2=BC=FA=C0=DA=B0=DD=C1=A6=B5=B5?=
-	=?ISO-8859-1?Q?=C8=AE=C1=A4?=
-	=?ISO-8859-1?Q?=BD=BA=C6=F7=C3=F7=B0=E6=BF=B5=B0=FC=B8=AE=BB=E7?=
-Date: Thu, 11 Aug 2005 21:30:01 -0500
-Message-ID: <b4q8-8j$9kp-e259z$d-$8-fik6@w4zur>
-Reply-To: "스포츠경영관리사" <sportsfkdf0d9fd@yahoo.co.kr>
+From: "Mrs.Wilson" <Jenniferwilsonmrs@walla.com>
+Subject: URGENT
+Date: Fri, 12 Aug 2005 03:36:20 +0100
+Message-ID: <200508120238.j7C2cXHB001246@oss.sgi.com>
+Reply-To: Jenniferwilsonmrs@walla.com
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="E85.E30E3.B4"
+Content-Type: multipart/mixed; boundary="b1ab6788-b530-4cc5-872c-90e5c6ec674c"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---E85.E30E3.B4
-Content-Type: text/html;
+This is a multi-part message in MIME format
+--b1ab6788-b530-4cc5-872c-90e5c6ec674c
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-<html>
+Hello,
 
+My name is Mrs.Jennifer Wilson I am a dying woman who had decided to donate =
+what I have to you. I am 59 years old and was diagnosed for cancer about 2 =
+years ago,immediately after the death of my husband, who had left me =
+everything he worked for.
 
+I have been touched by God to donate from what I have inherited from my late =
+husband to the you for the good work of God,rather than allow my relatives to =
+use my husband's hard earned funds ungodly.I have asked God to forgive me all =
+my sins and i believe he has because He is a merciful
+God. I will be going in for an operation,and i pray that i survive the =
+operation.
 
+I have decided to WILL/donate the sum of $1,500,000(One million five hundred =
+thousand dollars) to you for the good work of the lord, and to help the =
+motherless,less privileged and also for the assistance of the widows.
 
-<HTML>
+At the moment I cannot take any telephone calls, due to the fact that my =
+relatives are around me and i have been restricted by my doctor from taking =
+telephone calls because i deserve all thee rest i can get.Presently,I have =
+informed my lawyer about my decision in WILLING this fund to you.
 
-<HEAD><TITLE> 
+I wish you all the best and may the good Lord bless you abundantly, and =
+please use the funds well and always extend the good work to others. Kindly =
+Contact my lawyer through this email address ( brownwalteresq@netscape.net ) =
+or call him (+44-795-638-4674) if you are interested,so that he can arrange =
+the release of the funds ($1,500,000.00) to you.My lawyer's name is Brown =
+Walter.
 
-<br>
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
-=A1=E5=
-=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
-=B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>        =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
- =A2=C6     =A2=C6     =A2=C6<br>
-     =A2=C6 =A2=C6 =A2=C6 <br>
-         =A2=C6 <br>
+I know I have never met you but I have been directed to do this by God,and i =
+hope you act sincerely.
 
+NB: I will appreciate your utmost confidentiality in this matter until the =
+task is accomplished,as I don't want anything that will Jeopardize my last =
+wish, due to the fact that i do not want relatives or family members standing =
+in the way of my last wish.
 
+Love,
+Jennifer Wilson
 
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
-_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
-HEAD>
-
-
-
-
-
-<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
-0" marginheight=3D"0">
-
-
-
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
-
-
-<table width=3D"551" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr>
-    <td><div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
-%651999.%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"ht=
-tp://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj=
-%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/=
-images/sp-main-1.gif" width=3D"551" height=3D"815" border=3D"0"></a></div>=
-</td>
-  </tr>
-  <tr> 
-    <td width=3D"551" bgcolor=3D"#333366">
-<div align=3D"center"><a href=3D"http://%67oo%64.n%61m%651999.=
-%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/or=
-der.jpg" width=3D"301" height=3D"95" border=3D"0"></a></div></td>
-  </tr>
-  <tr> 
-    <td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a
-href=3D=
-"http://%67oo%64.n%61m%651999.%63om/m_reject.html"><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/re=
-ject.jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
-  </tr>
-</table>
-</body>
-</html>
-
---E85.E30E3.B4--
+  
+--b1ab6788-b530-4cc5-872c-90e5c6ec674c--
