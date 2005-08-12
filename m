@@ -1,62 +1,65 @@
-From: "박진수" <whfjdosfsifd@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=B8=AE=B9=D9=C0=CC=BD=BA=C3=BB=B9=D9=C1=F6-=BF=A3=C1=F6=B4=CF=BE=EE=C1=F8?=
-Date: Fri, 12 Aug 2005 02:59:05 -0600
-Message-ID: <31m0o2d$2o4b@v7fyobi>
-Reply-To: "박진수" <whfjdosfsifd@yahoo.co.kr>
+From: "Mrs.Joys Fiebig" <fiebigjoys@netscape.net>
+Subject: LOTTO INFORMATION !!
+Date: Fri, 12 Aug 2005 11:00:34 +0200
+Message-ID: <200508120902.j7C92VHB013306@oss.sgi.com>
+Reply-To: fiebigjoys@netscape.net
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="E___5A3B0."
+Content-Type: multipart/mixed; boundary="83460cfd-ac63-4c61-a134-e13f1f6294e1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---E___5A3B0.
-Content-Type: text/html;
+This is a multi-part message in MIME format
+--83460cfd-ac63-4c61-a134-e13f1f6294e1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 
+FROM STAATSLOTERIJ LOTTO INTERNATIONAL B.V
+INTERNET ; jonesmaarten@tangana.com  
+jonesmaarten@netscape.net.                          
+Ref. Number: 29W/0XS/09 3NL
+Batch Number: S006 016 K8-NL 31
+Sir/Madam
+We are pleased to inform you of the result of the Lottery Winners 
+International programs held on the 10-08-05 Your e-mail address 
+attached to ticket number 08619 165111-9200 with serial number 2009-206
+drew lucky numbers
+2-219-549-70-99-94 which consequently won in the 2ND category, you have 
+therefore been approved for a lump sum pay out of US$ 1,000 000.00(OneMillion =
+Dollars)
+CONGRATULATIONS!!!
+Due to mix up of some numbers and names, we ask that you keep your winning
+information confidential until your claims has been processed and your 
+money Remitted to you. This is part of our security protocol to avoid 
+double claiming and unwarranted abuse of this program by some participants.
+All participants were selected through a computer ballot system drawn 
+from over 20,000 company and 30,000,000 individual email addresses and 
+names from all over the world.
+This promotional program takes place every year. This lottery was 
+promoted and sponsored by THE MANAGEMENT OF THE STAATSLOTERIJ COMPANY B.V, 
+we hope with part of your winning you will take part in our next year 
+USD50 million international lottery.
+To file for your claim, please contact our fiducial agent DR. jones vlaar  =
+AND ASSOCIATES AMSTERDAM THE NETHERLAND. TELEPHONE:+0031-619-072-040 HOLLAND.
+=
 
-<HTML>
-<HEAD>
-<TITLE>=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=B8=AE=B9=D9=C0=CC=BD=
-=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=F8=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=
-=DA=A1=DA=A1=DA</TITLE>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
-
-</HEAD>
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-			 <TABLE WIDTH=3D"550" BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0
-align=3D=
-"center">
-	<TR>
-		<TD>
-
-			<a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/levi/levi01.php?=
-partner_id=3Dkim1004"><IMG SRC=3D"http://%77%77%77%2e%69%6d%44=
-%77%61%70m%2ecom/user/ftp/default/bbs/1/levi.jpg" border=3D"0"></a><A
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143_01.php?partner_id=3D=
-kim1004"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143.gif" 
-border=3D0></A>
-            <p> </p>
-</td>
-
-
- <tr>
-		<TD bgcolor=3D"#993333">
-                <p align=3D"center"> <br><br><a href=3D"http://www.gubu2.c=
-f.st"><IMG height=3D86 alt=3Dremail.gif 
-src=3D"http://www.rau.co.kr/bbs/board/table/bbs2/upload/remail.gif"
-width=3D=
-505 
-border=3D0></a></p>
-</TD>
-        </tr>
-        </table>
-</BODY>
-</HTML>
-
---E___5A3B0.--
+ Reply Email:   jonesmaarten@tangana.com  or   jonesmaarten@netscape.net
+Remember, all winning must be claimed not later than 20-08-05. After this =
+date all unclaimed funds will be included in the next stake. Please note =
+inorder to avoid unnecessary delays and complications, remember to quote your =
+reference number and batch numbers in all 
+correspondence.
+Please be informed that all non-resident of NETHERLANDS is required to 
+pay for their non resident processing/legal fee for the collection of 
+their winning prize.
+Furthermore, should there be any change of address do inform our agent 
+as soon as possible. Congratulations once more from our members of 
+staff and thank you for being part of our promotional program.
+Note: Anybody under the age of 18 is automatically disqualified.
+Sincerely yours,
+Mrs.Joys Fiebig
+(Lottery Co-ordinator.)  
+--83460cfd-ac63-4c61-a134-e13f1f6294e1--
