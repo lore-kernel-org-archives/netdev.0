@@ -1,28 +1,76 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Strange uses of netif_start_queue
-Date: Fri, 12 Aug 2005 11:03:20 -0700 (PDT)
-Message-ID: <20050812.110320.97292810.davem@davemloft.net>
-References: <1123853714.22460.39.camel@localhost.localdomain>
-	<20050812132758.GE2819@linux-mips.org>
-	<20050812133905.GF2819@linux-mips.org>
+From: "±è¼±¾Æ" <fewteiow@hanmail.net>
+Subject: =?ISO-8859-1?Q?=BD=BA=C5=B8=C5=A9=B7=A1=C7=C1=C6=AE=C0=C7?=
+	=?ISO-8859-1?Q?=C1=A4=BA=B9..!=20=C7=C1=B7=CE=B0=D4=C0=CC=B8=D3=C0=C7?=
+	=?ISO-8859-1?Q?=C1=F6=B8=A7=B1=E6!?=
+Date: Fri, 12 Aug 2005 22:01:49 +0400
+Message-ID: <31073.9173939966$1123870168@news.gmane.org>
+Reply-To: "±è¼±¾Æ" <sfdfd@freechal.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="--4100213752218599442"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralf@linux-mips.org
-In-Reply-To: <20050812133905.GF2819@linux-mips.org>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Fri, 12 Aug 2005 14:39:05 +0100
+----4100213752218599442
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-> To answer the fundamental question, I think netif_start_queue /
-> netif_stop_queue should be allowed in case the driver for some reason has
-> the desire to stop queueing of packet immediately after register_netdev.
+<DIV>
+<DIV>
+<FONT color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+</FONT><BR>&nbsp;
+<FONT color=3D#0000ff>=BD=BA=C5=B8=C5=A9=B7=A1=C7=C1=C6=AE=C0=C7 =BF=CF=C0=
+=FC=C1=A4=BA=B9</FONT> <BR>
+<FONT color=3D#ff8080><FONT color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</FONT><BR></FONT><BR>
+<FONT color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =C5=D7=B6=F5 =C0=FC=B7=AB=C1=FD-CD2=C0=E5 <BR=
+></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =C7=C1=B7=CE=C5=E4=BD=BA =C0=FC=B7=AB=C1=FD-C=
+D2=C0=E5 <BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =C0=FA=B1=D7 =C0=FC=B7=AB=C1=FD-CD2=C0=E5 <BR=
+></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 100% =BD=C7=C0=FC =B5=BF=BF=B5=BB=F3 =B0=AD=C0=
+=C7 <BR></FONT>=A1=D8  
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT>
+<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+ 
 
-I disagree.  register_netdev() does not make packets start getting
-queued, you have to up the interface for that to start occuring.
-And your ->open() routine has full control over that.
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+<table width=3D"800" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" alig=
+n=3D"center">
+<tr>
+<td>
+<a href=3D"http://www.starvod.co.kr/cd/?pid=3Da1234" target=3D"_blank"><im=
+g src=3D"http://starvod.co.kr/partner/sos/img/mail_form2.gif" width=3D"800=
+" height=3D"1200" border=3D"0"></a></td>
+</tr>
+</table>
+
+----4100213752218599442--
