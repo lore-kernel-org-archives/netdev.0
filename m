@@ -1,54 +1,42 @@
-From: "" <fqmfpglxlarnb3111638188@hotmail.com>
-Subject: =?ISO-8859-1?Q?=B0=ED=B0=B4=B4=D4=20=BE=EE=B6=B0=C7=D1?=
-	=?ISO-8859-1?Q?=C1=B6=B0=C7=BF=A1=B5=B5?=
-	=?ISO-8859-1?Q?=B4=EB=C3=E2=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9.?= zjeieqh
-Date: Fri, 12 Aug 2005 13:27:56 -0500
-Message-ID: <w5-$$-evj-pda$-49$3k30y$c4b@x6g.16b>
-Reply-To: "" <fqmfpglxlarnb3111638188@hotmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Strange uses of netif_start_queue
+Date: Fri, 12 Aug 2005 20:46:05 +0200
+Message-ID: <20050812184605.GK10481@postel.suug.ch>
+References: <1123853714.22460.39.camel@localhost.localdomain> <20050812.110034.63126875.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="E6B.C._4C1.9.5"
+Content-Type: text/plain; charset=us-ascii
+Cc: alan@lxorguk.ukuu.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050812.110034.63126875.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* David S. Miller <20050812.110034.63126875.davem@davemloft.net> 2005-08-12 11:00
+> From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+> Date: Fri, 12 Aug 2005 14:35:14 +0100
+> 
+> > Something I noticed doing the tty work. the 6pack driver calls
+> > netif_start_queue() before it calls register_netdev. I'm curious if this
+> > is allowed ?
+> 
+> It's definitely a bug, and when register_netdev() happens it will
+> just overwrite that change of state.
+> 
+> Since the queue is not initialized yet, this could also cause
+> a crash or hang. :-)
 
---E6B.C._4C1.9.5
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Hmm, maybe I got something wrong but:
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
-
-<title></title>
-</head>
-
-<body>
-<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
-ellerid=3D77" 
-height=3D'0' width=3D'0'>
-<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
-%6D/%7E%6C%5F%31%37%
-38/zzz/mail_04.gif" border usemap=3D"#Map">
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"30,416,549,535" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"23,601,552,714" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"-6,733,576,796" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
-</map>
-</body>
-</html>qlb p
-
---E6B.C._4C1.9.5--
+As you say correctly, there is no way we can queue packets until
+the device has been put up, a device cannot be put up while it is
+not present but that doesn't happen before register_netdevice()
+so the value of the queue bit doesn't matter at all. Actually the
+default state is indeed to have the queue running (bit set to 0)
+so the mentioned netif_start_queue() is a simple nop as Patrick
+noted already. It will _not_ be overwritten by a call to
+register_netdevice() though which is a good thing: It allows the
+queue to be stopped from the very beginning without a race between
+register_netdevice() and the call to netif_stop_queue().
