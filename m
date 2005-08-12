@@ -1,101 +1,38 @@
-From: "±è¼±¾Æ" <bp2mqdkkk99cb@cn5.dnsforme.com>
-Subject: =?ISO-8859-1?Q?=BF=F91%=B4=EB=C0=C7?=
-	=?ISO-8859-1?Q?=BE=C8=C0=FC=C7=D1=C1=BE=C7=D5=B1=DD=C0=B6=C8=B8=BB=E7?=
-	=?ISO-8859-1?Q?=C0=A5=B7=D0=BB=E7=C0=CC=C6=AE!?=
-Date: Fri, 12 Aug 2005 02:57:42 -0100
-Message-ID: <28339.2256046229$1123819504@news.gmane.org>
-Reply-To: "±è¼±¾Æ" <bp2mqdkkk99cb@cn5.dnsforme.com>
+From: "Brock Black" <rm94lmkln@korea.com>
+Subject: =?ISO-8859-1?Q?=BF=C3=BF=A9=B8=A7=20=B4=F5=C0=CC=BB=F3?=
+	=?ISO-8859-1?Q?=B8=F0=B1=E2=B4=C2?=
+	=?ISO-8859-1?Q?=BE=F8=B4=E7~!=BA=CE=B5=B5=C3=B3=BA=D0?=
+Date: Fri, 12 Aug 2005 05:59:47 +0200
+Message-ID: <x--0v$-n19$-33ke@2mkw3>
+Reply-To: "Brock Black" <rm94lmkln@korea.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--2998158165537827"
+	boundary=".8FBD1.CF27C_A.E"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----2998158165537827
+
+--.8FBD1.CF27C_A.E
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-  <HEAD>
-      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
-  </HEAD>
-  <BODY>
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
-or=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
-=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
-=A1=B4=C9!<BR></FONT>=A1=D8
-<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
-=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
-<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
-=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
-<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT>
-<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
-NT>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR>
-<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
-<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
-=C0=DA!<BR>
-=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
-=EB=C3=E2!<BR>
-<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
-=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
-<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
-=C3=E2=B0=A1=B4=C9!<BR>
+<div align=3D"center">
+<A HREF=3D"http://www.makdrim.com/md/mogi/index.php?pcode=3Daigo123" targe=
+t=3D"_blank" onfocus=3D"this.blur()">
+<IMG SRC=3D"http://www.makdrim.com/md/mogi/mail/mail.jpg" BORDER=3D"0" ALT=
+=3D"">
+</A>
+<br>
+<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
+<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject.gif" BORDER=3D"0=
+" ALT=3D"" style=3D"cursor:hand">
+</a>
+</div>oe ldlyjxbrq 
+vzinz   tni mdmqdm
+  y 
+lmmrng 
 
-<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
- 
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-
-<html>
-<head>
-<title>=C1=F7=C0=E5=C0=CE</title>
-</head>
-<body>
-<iframe frameborder=3D"0" height=3D"650" width=3D"800" src=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D61&uValue=3Djob"></iframe>
-</body>
-</html>
-
-----2998158165537827--
+--.8FBD1.CF27C_A.E--
