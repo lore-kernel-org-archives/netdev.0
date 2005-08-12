@@ -1,57 +1,52 @@
-From: Patricia Smith <patriciaE_smith@expn.com>
-Subject: CONGRATULATION!!! YOU WON A GOOGLE BALLOT LOTTERY
-Date: Fri, 12 Aug 2005 03:47:44 -0700 (PDT)
-Message-ID: <5905043.1123843664060.JavaMail.patriciaE_smith@wmailweba02>
+From: "후불제" <100938jkkjsdf9823@yahoo.com>
+Subject: =?ISO-8859-1?Q?=B0=AD=C0=C7=20=B9=DF=C7=A5=20=BA=EA=B8=AE=C7=CE=BD=C3?=
+	=?ISO-8859-1?Q?4=B1=E2=B4=C9=20=C1=F6=C8=D6=BA=C0=20=B7=B9=C0=CC=C0=FA?=
+	=?ISO-8859-1?Q?=B0=ED=B1=DE=BA=BC=C6=E6=20-=C8=C4=BA=D2=C1=A6-?=
+Date: Fri, 12 Aug 2005 05:53:41 -0500
+Message-ID: <yr11-b06-10wsltk766ry-eu$2-1v6c@xs7og>
+Reply-To: "후불제" <100938jkkjsdf9823@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary="80_AAB_D_2_."
 Return-path: <netdev-bounce@oss.sgi.com>
-To: patriciaE_smith@expn.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-GOOGLE  EMAIL LOTTERY INTERNATIONAL
-FROM:  INTERNATIONAL PROMOTION / PRIZE AWARD .
-           PROMOTING INTERNET USAGE OVER THE  GLOBE
-            (WE ENCOURAGE  GLOBALIZATION)
 
-FROM: THE LOTTERY COORDINATOR,
-INTERNATIONAL PROMOTIONS/PRIZE AWARD DEPARTMENT
-GOOGLE B.V. Boeing Avenue 44 9459 PE.
+--80_AAB_D_2_.
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-RESULTS FOR CATEGORY "A" DRAWS
+<body>
+<center>
+<table align=3D"center" cellspacing=3D"0" width=3D"668" border=3D"0" borde=
+rcolordark=3D"white" bordercolorlight=3D"black"><tr><td width=3D"666"><p a=
+lign=3D"center"><a href=3D"http://%32%31%31%2e%31%39%37%2e%31=
+%36%2e%31%32%38/demo/eorn/pan/index.php?partner_key=3Dmaster_bufer&uid=3D3=
+0&url=3Ddemo/eorn/pan" target=3D"_blank"><img src=3D"http://%53=
+%45%67%49%4b%6f%52%65%41%2e%63%4f%6d/demo/eorn/pan/3.gif"></a></p></td></t=
+r><tr><td width=3D"666" height=3D"68" bgcolor=3D"#8EBB81"><p align=3D"left=
+"><FONT color=3D"white"><span style=3D"font-size:9pt;">=BA=BB =B8=DE=C0=CF=
+=C0=BA =B9=DF=BD=C5 =C0=FC=BF=EB =B8=DE=C0=CF=C0=CC=B9=C7=B7=CE
+=C8=B8=BD=C5=
+=B5=C7=C1=F6 =BE=CA=C0=B8=B8=E7 =BC=F6=BD=C5=B0=C5=BA=CE=BD=C3=BF=A1=B4=C2=
+ =B0=C5=BA=CE=C7=CF=BD=C7 =B8=DE=C0=CF=C1=D6=BC=D2=B8=A6
+=C0=D4=B7=C2=C8=C4=
+=BF=A1 </span></FONT><a href=3D'http://%32%31%31%2e%31%39%37%2e=
+%31%36%2e%31%32%38/demo/eorn/pan/mail.php?mail_key=3Dcotegory_mail30' targ=
+et=3D"_blank"><span style=3D"font-size:9pt;"><b><FONT color=3D"white">[=BC=
+=F6=BD=C5=B0=C5=BA=CE=B9=F6=C5=CF]</FONT></b></span></a><FONT color=3D"whi=
+te"><span style=3D"font-size:9pt;">=C0=BB =B4=AD=B7=AF=C1=D6=BC=BC=BF=E4.E=
+nter your email address if you don't want to receive this mail.</span></FO=
+NT><span style=3D"font-size:9pt;"><font color=3D"white">&nbsp;</font></spa=
+n><a href=3D'http://%32%31%31%2e%31%39%37%2e%31%36%2e%31%32%38/demo/eorn/p=
+an/mail.php?mail_key=3Dcotegory_mail30' target=3D"_blank"><span style=3D"f=
+ont-size:9pt;"><b><FONT color=3D"white">[no mail]</FONT></b></span></a></t=
+d></tr>
+</table>
+</center>
+</body>
 
-Congratulations to you as we bring to your notice, the  results of the First Category draws of GOOGLE LOTTERY INT. We are happy to inform you that you have emerged a winner under the First Category, which is part of our promotional draws. The draws were held on 14th of July 2005 and results are being officially announced today 12th of August 2005. Participants were selected through a computer ballot system drawn from 2,500,000 email addresses of individuals and companies from Africa, America, Asia, Australia, Europe, Middle East, and Oceania as part of our International Promotions Program. Your e-mail address, attached to ticket number 50941465206-529, with serial number 5772-54 drew the lucky numbers 3-4-17-28-35-44  and 
-consequently won in the First Category. You have therefore been awarded a lump sum pay out of 1,000,000 euros (One million euros), which is the winning payout for Category A  winners. This is from the total prize money from 2,000,000 euros shared among the 2 winners in this category.
-
-CONGRATULATIONS!
-Your fund is now deposited with the paying Bank. In your best interest to avoid mix up of numbers and names of any kind, we request that you keep the entire details of your award strictly from public notice until the process of transferring your claims has been completed, and your funds remitted to your account. This is part of our security protocol to avoid double claiming or unscrupulous acts by participants / non participants of this program. Please contact your claims agent immediately for due processing and remittance of your prize money to a designated account of your choice:
-
-To file for your claim, please contact the fiduciary agent.
-
-***********************************************
-Mr. Demis Cohen,
-Royal Trust Agency
-TEL: 0030-694-812-4715
-Email:royaltrustclaims@netscape.net
-OLYMPIA 45, 11688,
-ATHENS GREECE.
-***********************************************
-
-You are advised to contact the agents by email.
-NOTE: For easy reference and identification, find below your reference and Batch numbers. Remember to quote these numbers in every one of your correspondence with your claims agent.
-REFERENCE NUMBER: LSLUK/2031/8161/04
-BATCH NUMBER: 14/011/IPD
-Congratulations once again from all our staff and thank you for being part of our promotions program.
-
-Sincerely Yours,
-Mrs. Patricia E. Smith.
-LOTTERY COORDINATOR.
-
-
-
-
-
-_______________________________________________________
-Expn.com e-mail: http://expnmail.go.com
+--80_AAB_D_2_.--
