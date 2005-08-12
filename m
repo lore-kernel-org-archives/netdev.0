@@ -1,36 +1,62 @@
-From: Chris Wedgwood <cw@f00f.org>
-Subject: Re: atheros driver - desc
-Date: Fri, 12 Aug 2005 00:37:55 -0700
-Message-ID: <20050812073755.GA6295@taniwha.stupidest.org>
-References: <42F2D523.9020702@gmail.com> <8764uig7nm.fsf@litku.valo.iki.fi>
-	<20050806205308.GA25208@havoc.gtf.org>
-	<20050806214544.GA4594@rama.de.gnumonks.org>
-	<87pssqp5hk.fsf@litku.valo.iki.fi>
-	<20050807150134.GB4855@rama.de.gnumonks.org>
+From: "박진수" <whfjdosfsifd@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=B8=AE=B9=D9=C0=CC=BD=BA=C3=BB=B9=D9=C1=F6-=BF=A3=C1=F6=B4=CF=BE=EE=C1=F8?=
+Date: Fri, 12 Aug 2005 02:59:05 -0600
+Message-ID: <31m0o2d$2o4b@v7fyobi>
+Reply-To: "박진수" <whfjdosfsifd@yahoo.co.kr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <Kalle.Valo@iki.fi>, kernel-mentors@selenic.com,
-        Jeff Garzik <jgarzik@pobox.com>, netdev <netdev@vger.kernel.org>
-Return-path: <kernel-mentors-bounces@selenic.com>
-To: Harald Welte <laforge@gnumonks.org>
-Content-Disposition: inline
-In-Reply-To: <20050807150134.GB4855@rama.de.gnumonks.org>
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+Content-Type: multipart/alternative;
+	boundary="E___5A3B0."
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-xfs@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 07, 2005 at 05:01:34PM +0200, Harald Welte wrote:
 
-> I will consult my legal counsel about this.  My current naive
-> position on this is that only the actuall process of the
-> re-engineering matters, not the result.
+--E___5A3B0.
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Which countries is this advice valid for?  Does someone need to chase
-this inside the US in parallel?
+
+<HTML>
+<HEAD>
+<TITLE>=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=B8=AE=B9=D9=C0=CC=BD=
+=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=F8=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=
+=DA=A1=DA=A1=DA</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
+
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+			 <TABLE WIDTH=3D"550" BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0
+align=3D=
+"center">
+	<TR>
+		<TD>
+
+			<a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/levi/levi01.php?=
+partner_id=3Dkim1004"><IMG SRC=3D"http://%77%77%77%2e%69%6d%44=
+%77%61%70m%2ecom/user/ftp/default/bbs/1/levi.jpg" border=3D"0"></a><A
+href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143_01.php?partner_id=3D=
+kim1004"><IMG 
+src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143.gif" 
+border=3D0></A>
+            <p> </p>
+</td>
+
+
+ <tr>
+		<TD bgcolor=3D"#993333">
+                <p align=3D"center"> <br><br><a href=3D"http://www.gubu2.c=
+f.st"><IMG height=3D86 alt=3Dremail.gif 
+src=3D"http://www.rau.co.kr/bbs/board/table/bbs2/upload/remail.gif"
+width=3D=
+505 
+border=3D0></a></p>
+</TD>
+        </tr>
+        </table>
+</BODY>
+</HTML>
+
+--E___5A3B0.--
