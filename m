@@ -1,147 +1,65 @@
-From: "Antonio Dominguez" <q6pedcm@naver.com>
-Subject: =?ISO-8859-1?Q?=BA=F1=BD=CE=B0=ED=20=C8=BF=B0=FA=BE=F8=B4=C2?=
-	=?ISO-8859-1?Q?=B8=B6=C4=C9=C6=C3=C0=BA=20=C0=CC=C1=A6=B1=D7=B8=B8!?=
-Date: Fri, 12 Aug 2005 10:26:34 +0100
-Message-ID: <k74$-86$6v1$1q@rdk.4j.4t>
-Reply-To: "Antonio Dominguez" <q6pedcm@naver.com>
+From: "Reid Wilson" <84juwysuo@aol.com>
+Subject: =?ISO-8859-1?Q?=BA=B8=B0=C7=BA=B9=C1=F6=BA=CE?=
+	=?ISO-8859-1?Q?=C1=D6=B0=FC=BB=E7=C8=B8=BA=B9=C1=F6?=
+	=?ISO-8859-1?Q?=C0=DA=B0=DD=C1=F5?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=BD=C5=C3=BB=C7=CF=BC=BC=BF=E4!@?= goz qyky
+Date: Fri, 12 Aug 05 12:47:49 GMT
+Message-ID: <43ea72cx-7-$--7r6180-0z$j@qkuxa.3wz0ucm>
+Reply-To: "Reid Wilson" <84juwysuo@aol.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="30C66F._A.DDA."
+	boundary="2AE.FAE13B3DD3_8C6_"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---30C66F._A.DDA.
+--2AE.FAE13B3DD3_8C6_
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
+
 <html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
-">
-      <title></title>
-  </head>
-  <BODY>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=C8=AD=B7=C1=C7=D1
-=B8=E1=C6=
-=FB =BA=B8=B4=D9=B4=C2... <BR>=B0=E1=B0=FA=B7=CE =B8=BB=C0=BB=C7=CF=B4=C2 =
-=B8=B6=C4=C9=C6=C3...=BA=D2=C8=B2=C0=BB 
-=B8=F0=B8=A3=B4=C2 =B8=B6=C4=C9=C6=C3...</FONT></STRONG></DIV>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=B4=F5=C0=CC=BB=F3 =B1=A4.=
-=B0=ED. =C8=AB.=BA=B8 =B9=AE=C1=A6=B7=CE =B0=ED=B9=CE=C7=CF=C1=F6 
-=B8=B6=BC=BC=BF=E4</FONT></STRONG></DIV>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=B0=ED=B9=CE=C0=BB
-=C8=AE=BD=
-=C7=C8=F7 =C7=D8=B0=E1=C7=D8 
-=B5=E5=B8=B3=B4=CF=B4=D9.</FONT></STRONG></DIV>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000></FONT></STRONG>&nbsp;</DI=
-V>
-<DIV align=3Dleft><FONT color=3D#ff8040
-size=3D3><STRONG>*=BF=CF=BA=AE=C7=D1=
- =C8=BF=B0=FA=B0=CB=C1=F5 / =C8=AE=C0=CE=C8=C4 
-=BD=C3=C7=E0</STRONG></FONT></DIV>
-<DIV align=3Dleft><FONT color=3D#000000 
-size=3D3><STRONG>*=B1=A4.=B0=ED.=B4=EB.=C7=E0</STRONG></FONT></DIV>
-<DIV align=3Dleft><STRONG>*=B1=A4.=B0=ED.=C4=C1.=BC=B3.=C6=C3
-(=B1=B3=C0=B0=
-/=BD=C3=BD=BA=C5=DB =B1=B8=C3=E0)</STRONG></DIV>
-<DIV align=3Dleft><FONT color=3D#0000ff><FONT size=3D4><FONT face=3DArial =
-size=3D4><FONT 
-face=3D=B1=BC=B8=B2 size=3D2><FONT 
-color=3D#000000></FONT></FONT></FONT></FONT></FONT>&nbsp;</DIV>
-<DIV align=3Dleft><A style=3D"PADDING-RIGHT: 3px; PADDING-LEFT: 3px; FONT-=
-SIZE: 12px; PADDING-BOTTOM: 3px; COLOR: #ffff00; PADDING-TOP: 3px; FONT-FA=
-MILY: =B1=BC=B8=B2; BACKGROUND-COLOR: #8bb5e2; TEXT-DECORATION: none" href=
-=3D"mailto:callprman@hotmail.com?subject=3D=BB=F3=B4=E3=BD=C5=C3=BB&amp;bo=
-dy=3D=B0=A3=B4=DC=C7=D1 =C3=EB=B1=DE =BE=C6=C0=CC=C5=DB=B0=FA =BF=AC=B6=F4=
-=C3=B3=B8=A6 =B3=D6=BE=EE=C1=D6=BC=BC=BF=E4"><FONT 
-size=3D4>=B9=AB=B7=E1=BB=F3=B4=E3=BD=C5=C3=BB</FONT></A><FONT color=3D#000=
-0ff><STRONG><FONT size=3D4><FONT 
-size=3D3>&nbsp; (=B8=B6=C4=C9=C6=C3 =B0=ED=B9=CE=C0=CC =BD=CE=BE=C7
-=C7=D8=
-=B0=E1=B5=CB=B4=CF=B4=D9.)<BR></FONT><BR></FONT></STRONG>*=C0=CC=B8=DE=C0=CF=
- 
-:&nbsp;<FONT color=3D#000000><A 
-href=3D"mailto:callprman@hotmail.com">callprman@hotmail.com</A></FONT></FO=
-NT></DIV>
-<DIV align=3Dleft><FONT color=3D#0000ff><FONT size=3D4><STRONG><FONT 
-size=3D3>&nbsp;&nbsp;&nbsp;(</FONT><FONT size=3D2>=B8=B6=C4=C9=C6=C3 
-2=B9=F8=B4=E3=B4=E7:=C7=D1=BD=C7=C0=E5)<BR></FONT></STRONG></FONT></FONT><=
-FONT color=3D#0000ff><FONT 
-size=3D4><STRONG><FONT color=3D#000000><BR></FONT></STRONG></FONT></FONT><=
-FONT 
-face=3D=B1=BC=B8=B2 color=3D#8bb5e2 size=3D2>=BA=BB =B8=DE=C0=CF=C0=BA =C1=
-=A4=BA=B8=C5=EB=BD=C5=BA=CE =B1=C7=B0=ED =BB=E7=C7=D7=BF=A1 =C0=C7=B0=C5
-=C1=
-=A6=B8=F1=BF=A1 =B1=A4.=B0=ED =B6=F3=B0=ED =C7=A5=BD=C3=B5=C8 
-=B8=DE.=C0=CF=C0=D4=B4=CF=B4=D9.</FONT><BR><A style=3D"PADDING-RIGHT: 3px;=
- PADDING-LEFT: 3px; FONT-SIZE: 12px; PADDING-BOTTOM: 3px; COLOR: #ffff00; =
-PADDING-TOP: 3px; FONT-FAMILY: =B1=BC=B8=B2; BACKGROUND-COLOR: #8bb5e2; TE=
-XT-DECORATION: none" href=3D"mailto:finecall2002@yahoo.co.kr?subject=3D=BC=
-=F6=BD=C5=B0=C5=BA=CE&amp;body=3Dreject from your
-list">=BC=F6.=BD=C5.=B0=C5=
-=BA=CE.[.D.e.n.y]</A> 
-<FONT color=3D#8bb5e2 size=3D2>=B9=F6=C6=B0=C0=BB =C5=AC=B8=AF=C7=CF=BD=C3=
-=B8=E9 =BC=F6.=BD=C5.=B0=C5.=BA=CE. =C3=B3=B8=AE=B0=A1 =C0=CC=B7=E7=BE=EE =
-=C1=FD=B4=CF=B4=D9.<BR>If you don't want 
-to receive this mail anymore, click here [D.e.n.y.]<BR><BR></FONT></DIV>
-<DIV align=3Dleft>*<FONT size=3D2>=BC=F6.=BD=C5.=B0=C5.=BA=CE.=B8=A6
-=C7=DF=
-=B4=C2=B5=A5=B5=B5 =B0=E8=BC=D3 =B0=B0=C0=BA =B8=DE=C0=CF=C0=CC
-=B5=E9=BE=EE=
-=BF=C2=B4=D9=B8=E9 =BE=C6=B8=B6=B5=B5 =C0=CC=B8=DE=C0=CF
-=C6=F7=BF=F6=B5=F9=
- 
-=BC=AD=BA=F1=BD=BA=B8=A6<BR>&nbsp; =C7=D8=B3=F5=C0=B8=BC=CC=C0=BB
-=B0=A1=B4=
-=C9=BC=BA=C0=CC =C0=D6=C0=B8=B8=E7</FONT><FONT size=3D2>&nbsp;
-=B0=C5.=BA=CE=
-=C0=DA =C3=B3=B8=AE=B4=C2 =C1=A4=C8=AE=C8=F7
-=C7=CF=B0=ED=C0=D6=C0=BD=C0=BB=
- 
-=B9=E0=C8=FC=B4=CF=B4=D9</FONT>.&nbsp;</DIV>
-<DIV align=3Dleft>
-<P align=3Dleft>
-<P></P>
-<P></P>
-<P align=3Dleft>
-<P align=3Dleft>
-<P></P>
-<P></P><FONT face=3DVerdana color=3D#804000 size=3D1><FONT face=3D"Times N=
-ew Roman" 
-color=3D#000000 size=3D3></FONT><FONT face=3D"Times New Roman" color=3D#00=
-0000 
-size=3D2></FONT>=BA=BB=B8=DE=C0=CF=C0=BA =C1=A4=BA=B8=C5=EB=BD=C5=BA=CE
-=B1=
-=C7=B0=ED=BB=E7=C7=D7=BF=A1 =C0=C7=B0=C5 =B1=A4.=B0=ED =B7=CE =C7=A5=BD=C3=
-=C7=D1 =B8=DE=C0=CF=C0=CC=B8=E7, =B1=CD=C7=CF=C0=C7 =B8=DE=C0=CF=C0=BA dau=
-m.net=BF=A1=BC=AD 
-=C0=CC=B8=DE=C0=CF=C3=DF.=C3=E2<BR>=B9=E6.=C1=F6 =C1=A4.=C3=A5=C0=B8=B7=CE=
- =B8=ED=BD=C3=B5=C8 [daum.net/spampop.html](2003.2.26)=C0=CC=C0=FC=BF=A1 <=
-/FONT><FONT 
-face=3DTunga><FONT face=3DVerdana color=3D#804000 
-size=3D1>[http://cafe.daum.net]=B0=FA<BR>=C0=CE=C5=CD=B3=DD
-=BC=AD=C7=CB=C1=
-=DF =B0=D4.=BD=C3.=C6=C7=BF=A1=BC=AD&nbsp;(2002=B3=E2 
-12=BF=F9=C0=CC=C0=FC=BF=A1)&nbsp;=C3=EB=B5=E6=C7=CF=BF=B4=C0=B8=B8=E7
-=C0=CC=
-=B8=E1.=C1=D6.=BC=D2.=BF=DC=BF=A1 =BE=EE=B6=B0=C7=D1 =C1=A4=BA=B8=B5=B5
-=B0=
-=A1=C1=F6=B0=ED =C0=D6=C1=F6</FONT></FONT></DIV>
-<DIV>
-<DIV align=3Dleft><FONT face=3DVerdana><FONT color=3D#804000 
-size=3D1>=BE=CA=BD=C0=B4=CF=B4=D9.</FONT></FONT></DIV></DIV>
-</BODY>
+<head>
+<title>=FFFFFFBB=FFFFFFE7=FFFFFFC8=FFFFFFB8=FFFFFFBA=FFFFFFB9=FFFFFFC1=FFFFFFF6=FFFFFFBB=FFFFFFE7</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
+
+<style type=3D"text/css">
+<!--
+body {
+	margin-left: 0px;
+	margin-top: 0px;
+	margin-right: 0px;
+	margin-bottom: 0px;
+}
+-->
+</style></head>
+
+<body>
+<img src=3D"http://%62%61%73%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?
+ComId=3D2" width=3D"0" height=3D"0">
+<table width=3D"700" height=3D"1000"  border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr>
+    <td><img
+src=3D"http://club.bugs.co.kr/common/file_down.asp?redirect=3D=
+%2Fdata1%2F2005%2F6%2F15%
+2Fsa%2Ejpg" width=3D"700" height=3D"1000" border=3D"0" usemap=3D"#Map"></t=
+d>
+  </tr>
+</table>
+<map name=3D"Map">
+  <area shape=3D"rect" coords=3D"-1,0,699,880" href=3D"http://=
+%62%61%73%65%6C%6F%61%6E%2E%63%6F%2E%
+6B%72/page/mail_read.asp?uValue=3Dsocial&ComId=3D2" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"58,902,632,983" href=3D"http://=
+%62%61%73%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/include/spam_input.asp?ComId=3D2" target=3D"_blank">
+</map>
+</body>
 </html>
-m nchfdkxk qg
 
- hmsjplgwaws pkcbd  b
-ui sowdjb potyg x v
-c 
-jcetqsuu nxkl
- kpu smdkkdb ntex   i 
-
---30C66F._A.DDA.--
+--2AE.FAE13B3DD3_8C6_--
