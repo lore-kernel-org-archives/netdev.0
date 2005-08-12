@@ -1,189 +1,40 @@
-From: "master" <ksdfksfk@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A1=E1=A1=E1=A1=E1=BC=B1=C2=F8=BC=F8333=B8=ED=B2=B2?=
-	=?ISO-8859-1?Q?=B8=F8=B8=BB=B8=AE=B4=C2?=
-	=?ISO-8859-1?Q?=C0=CC=BA=A5=C6=AE=A1=E1=A1=E1=A1=E1?= k  znh hno
-Date: Fri, 12 Aug 2005 09:36:27 -0700
-Message-ID: <411k74676oyi-n83j36n3@nuaoaa>
-Reply-To: "master" <ksdfksfk@yahoo.com>
+From: =?Big5?B?pXi3c7vIpuYz?= <VVwu8one@ms33.hinet.net>
+Subject: =?Big5?B?tlenQ6dRrqelTsB2Li6k0bDaISEhp0HB2aZBw7qwqsNCpWS2xbbcPw==?=  3
+Date: Sat, 13 Aug 2005 00:35:47 +0800
+Message-ID: <3DI-MAIL5flHgSgN8J90000138d@3DI-MAIL.3di.com>
+Reply-To: $RandomAlpha$$RandomAlpha$$MailAccount$@ms$RandomNumber$$RandomNumber$.hinet.net.sgi.com
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_270B3E8DDB056C91B_F"
+ boundary="=_NextPart_2rfkindysadvnqw3nerasdf";
+	charset="BIG-5"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "VVwu8one@ms33.hinet.net" <wu8one@yahoo.com.tw>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format
 
-------=_NextPart_270B3E8DDB056C91B_F
-Content-Type: text/html;
-	charset="us-ascii"
+--=_NextPart_2rfkindysadvnqw3nerasdf
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
-">
-      <title></title>
-  </head>
-  <BODY>
-<DIV>
-<TABLE cellSpacing=3D0 cellPadding=3D0 border=3D0>
-  <TBODY>
-  <TR>
-    <TD width=3D598 height=3D126><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t1.=
-gif" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D598 height=3D370><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t2.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D598 height=3D202><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t33=
-jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV><BR>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6 =BE=
-=CA=C0=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=
-=E5 <A 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D428 cellSpacing=3D0 cellPadding=3D0 width=3D528 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D528 height=3D128><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-1.jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D528 height=3D140><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-2.jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D528 height=3D160><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-3.jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6
-=BE=CA=C0=
-=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A=
- 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D560 cellSpacing=3D0 cellPadding=3D0 width=3D525 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D525 height=3D172><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m11=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D525 height=3D197><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m12=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D525 height=3D198><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m13=
-jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6
-=BE=CA=C0=
-=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A=
- 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D557 cellSpacing=3D0 cellPadding=3D0 width=3D651 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D651 height=3D183><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m1.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D651 height=3D193><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m2.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D651 height=3D181><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m3.=
-jpg"
-border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR>=A1=E1=A1=E1=BC=B1=C2=F8=
-=BC=F8 333=BA=D0=C0=BA =C0=CC=B8=F0=B5=E7=BD=E1=BA=F1=BD=BA=B8=A6
-=B4=DC=B5=
-=B7 25,000 =BF=A1 =C0=DA=C0=AF=B7=D3=B0=D4
-=C0=CC=BF=EB=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9=A1=E1=A1=E1<BR>=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB<BR><BR>=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=
-=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-<BR>=A1=E1<BR>=A1=E1 
-=A2=BA 1=BD=C3=B0=A3=B4=EB=B7=CE =B0=A1=B4=C9=C7=D1 =B9=AB=BB=E7=C1=A4 =BA=
-=F1=B9=FD =B0=F8=B0=B3(=B0=A1=B0=DD 299,000)=A2=B8<BR>=A1=E1<BR>=A1=E1 =A2=
-=BA =C4=AB=B8=B6=BC=F6=C6=AE=B6=F3 101=B0=A1=C1=F6
-=C3=A4=C0=A7=B0=F8=B0=B3=
-(=B0=A1=B0=DD 28,000). 
-=A2=B8<BR>=A1=E1<BR>=A1=E1 =A2=BA =B3=B2=BC=BA=C0=DA=BD=C5=B0=A8 =C7=C1=B7=
-=CE=C1=A7=C6=AE =C0=BD=B0=E6=C8=AE=B4=EB=BA=F1=B9=FD(=B0=A1=B0=DD
-25,000)=A2=
-=B8<BR>=A1=E1<BR>=A1=E1 =A2=BA =BC=B1=C2=F8=BC=F8 333=BA=D0=C0=BA
-=C0=CC=B8=
-=F0=B5=E7=BD=E1=BA=F1=BD=BA=B8=A6 =B4=DC=B5=B7 
-25000=BF=A1 =C0=DA=C0=AF=B7=D3=B0=D4
-=C0=CC=BF=EB=B0=A1=B4=C9=C7=D5=B4=CF=B4=
-=D9.
-=A2=B8<BR>=A1=E1<BR>=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=
-=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1<BR>=A1=A1=
-=A1=A1=A1=A1=A1=A1=A1=A1 
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=
-=A1=A1=A1=A1=A1=A1 =A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=
-=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=
-=A1 =A2=CB=A2=CB=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB=
-<BR>=A1=A1 
-=A1=A1=A1=A1=A1=A1=A1=A1 =A2=CB =A1=A1=A1=A1<BR><BR>=C0=CC=B9=CC=C1=F6 =BA=
-=B8=B1=E2 =C5=AC=B8=AF <BR><BR><BR>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=
-=A1 =BA=B8=C0=CC=C1=F6 =BE=CA=C0=B8=BD=C7 =B0=E6=BF=EC
-=C5=AC=B8=AF=C7=CF=BC=
-=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A></DIV>
-<!--  =C6=CB=BE=F7 =C0=DA=B9=D9 =BD=BA=C5=A9=B8=B3 =BC=D2=BD=BA -->
-<script language=3D"javascript">
-function pop_open(name, url) {
-	window.open(url, name);
-}
-pop_open('pop','http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000');=
+charset="BIG-5"
 
-</script><body onunload=3D"pop_open()">
-</html>
-pndwannuxb srkeu
 
-------=_NextPart_270B3E8DDB056C91B_F--
+--=_NextPart_2rfkindysadvnqw3nerasdf
+Content-Type: text/html
+Content-Transfer-Encoding: 7bit
+
+charset="BIG-5"
+
+<!-- 2005/8/13 上午 12:35:38--> <!-- wu8one@yahoo.com.tw--> <!-- PdHzcT--> <HTML> <HEAD> <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=big5"> </HEAD> <BODY BGCOLOR=#FFFFFF LEFTMARGIN=0 TOPMARGIN=0 MARGINWIDTH=0 MARGINHEIGHT=0 style="text-align: center"> <div align="center"> 	<TABLE WIDTH=550 BORDER=0 CELLPADDING=0 CELLSPACING=0> 	<tr> 		<TD style="border: 1px solid #999999"> <TABLE WIDTH=550 BORDER=0 CELLPADDING=0 CELLSPACING=0 id="table2"> 	<TR> 		    <TD> <IMG SRC="http://home.anet.net.tw/luckluck002/edm_1.gif" WIDTH=182 HEIGHT=162 ALT=""></TD> 		    <TD> <IMG SRC="http://home.anet.net.tw/luckluck002/edm_2.gif" WIDTH=171 HEIGHT=162 ALT=""></TD> 		    <TD> <IMG SRC="http://home.anet.net.tw/luckluck002/edm_3.gif" WIDTH=197 HEIGHT=162 ALT=""></TD> 	</TR> 	<TR> 		    <TD> <IMG SRC="http://home.anet.net.tw/luckluck002/edm_4.gif" WIDTH=182 HEIGHT=155 ALT=""></TD> 		    <TD> <IM
+ G SRC="http://home.anet.net.tw/luckluck002/edm_5.gif" WIDTH=171 HEIGHT=155 ALT=""></TD> 		
+     <TD> <IMG SRC="http://home.anet.net.tw/luckluck002/edm_6.gif" WIDTH=197 HEIGHT=155 ALT="" border="0"></TD> 	</TR> 	<tr> 		<TD colspan="3" height="26" bgcolor="#737373"> 			<p align="center"><font size="2" color="#FFFFFF">※&nbsp;&nbsp;  						請確實填寫表單，我們會儘快與您聯繫&nbsp;&nbsp; ※</font></TD> 		</tr> 		<FORM  action=http://www.email104.com/cgi-bin/formmail/formemail.cgi?no=1064                 method=post><INPUT type=hidden value=明我要申請代償方案8/13 name=subject>   	<tr> 		<TD colspan="3"> 			<form method="POST" action="--WEBBOT-SELF--"> 				<table border="0" width="100%" cellspacing="0" cellpadding="0" id="table3" height="236"> 					<tr> 						<td width="18%" align="right" height="35"> 						<font size="2">姓　　名：</font></td> 						<td width="25%" height="35"> 						<input type="text" name="姓名" size="17" style="color: #000000; font-size: 10pt"></td> 						<td ali
+ gn="right" width="14%" height="35"> 						<font size="2">聯絡電話：</font></td> 						<td 
+ width="43%" height="35"> 						<input type="text" name="聯絡電話" size="21" style="color: #000000; font-size: 10pt"></td> 					</tr> 					<tr> 						<td width="18%" align="right" height="26"> 						<font size="2">已&nbsp; 持&nbsp; 有：</font></td> 						<td width="82%" height="26" colspan="3"> 						<font size="2"> 						<input type="checkbox" name="C1" value="台新卡">台新卡<input type="checkbox" name="C2" value="渣打卡">渣打卡<input type="checkbox" name="C3" value="花旗卡">花旗卡<input type="checkbox" name="C4" value="其他">其他</font></td> 					</tr> 					<tr> 						<td width="18%" align="right"> 						<font size="2">我要申辦：</font></td> 						<td colspan="3"> 						<font size="2"> 						<input type="checkbox" name="d1" value="小額現金貸款方案">小額現金貸款方案  						  						<input type="checkbox" name="d2" value="信用卡、現金卡餘額代償方案">信用卡、現金卡餘額代償方案<input type="c
+ heckbox" name="d3" value="兩者皆要">  						兩者皆要</font></td> 					</tr> 					<tr> 				
+ 		<td width="18%" align="right"><font size="2">聯絡地址：</font></td> 						<td colspan="3"> 						<input type="text" name="聯絡地址" size="57" style="color: #000000; font-size: 10pt"></td> 					</tr> 					<tr> 						<td width="18%" align="right"><font size="2">備　　註：</font></td> 						<td colspan="3"> 						<textarea rows="4" name="備註" cols="55" style="color: #000000; font-size: 10pt"></textarea></td> 					</tr> 				</table> 				<p align="center"><input type="submit" value="確定並送出" name="B1"></p> 			</form> 		</TD> 		</tr> </TABLE> 		</TD> 		</tr> </TABLE> </div> <!-- End ImageReady Slices --> 3 </BODY> </HTML> <!-- 2005/8/13 上午 12:35:38--> <!-- wu8one@yahoo.com.tw--> <!-- olh783-->
+
+--=_NextPart_2rfkindysadvnqw3nerasdf--
