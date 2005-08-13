@@ -1,54 +1,39 @@
-From: "褐辨1" <yufgjfghjfdu@nkjvhfghfjhtfdd.org.sgi.com>
-Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C4=AB=B5=E5=BA=FB,=C0=BA=C7=E0=B1=C7=B4=EB=C3=E2,=B4=E3=BA=B8/=BA=B8=C1=F5..=B8=F0=B5=E7?=
-	=?ISO-8859-1?Q?=BA=FB=20=C7=D1=B9=F8=BF=A1=20=C3=BB=BB=EA!?=
-Date: Sun, 14 Aug 2005 02:19:30 +0300
-Message-ID: <EWDSATPYSUGLROIUUCGREFEC@hotmail.com>
-Reply-To: "\"褐辨9\" <\"Loan\"" <mailok01@daum.net>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--49011134906329514"
+From: =?Big5?B?qcq3UrHQvsekarrQfg==?= <hn86674456@gmail.com>
+Subject: =?Big5?B?MzY1utipyrdSq7q21aRqpf4spbul+rrQpdGvdaRIunSlWKq6rfIh?=
+Date: Sat, 13 Aug 2005 21:03:46 +0800
+Message-ID: <200508132359.j7DNxEH9016988@oss.sgi.com>
+Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----49011134906329514
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
 <html>
-<head>
-<title>Untitled Document</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-<style type=3D"text/css">
-<!--
-body {
-	margin-left: 0px;
-	margin-top: 0px;
-	margin-right: 0px;
-	margin-bottom: 0px;
-}
--->
-</style></head>
+<head>
+<meta http-equiv="Content-Language" content="zh-tw">
+<meta http-equiv="Content-Type" content="text/html; charset=big5">
+<meta name="GENERATOR" content="Microsoft FrontPage 6.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<title>圖若開啟太慢</title>
+</head>
 
 <body>
-<table  border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
-  <tr>
-    <td><a href=3D"http://218.38.12.201:19180/smilelaw/slmain.asp?reseller=
-_id=3Dresel0004"><img src=3D"http://hompy-img.dreamwiz.com/IMAGE/loctopus/=
-f00001/f15/sl01_01.gif" width=3D"786" height=3D"1089" border=3D0></a></td>=
 
-  </tr>
-  <tr>
-    <td><a href=3D"http://218.38.12.201:19180/smilelaw/sl_nomail.asp"><img=
- src=3D"http://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f16/sl01_15.jp=
-g" width=3D"786" height=3D"117" border=3D0></a></td>
-  </tr>
-</table>
+<p align="center"><a href="http://www.buy999.net/999/mail001-b.htm">若無法開啟請按這裡</a></p>
+
+<p align="center">
+<a href="http://www.buy999.net/999/mail001-b.htm">
+<img border="0" src="http://www.buy999.net/999/001.jpg" width="600" height="322"></a></p>
+<p align="center">
+<a target="_blank" href="http://www.buy999.net/999/mail001-b.htm">
+本光碟由真人示範,變化姿勢達近百種,保證您夫妻的性生活達到前所未有的滿足與高潮!!</a></p>
+
 </body>
+
 </html>
 
+<p align=center>　</p>
 
-----49011134906329514--
+<!-- PITHSET -->
