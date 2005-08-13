@@ -1,74 +1,86 @@
-From: "Hardee" <ojv208dbk@yahoo.com>
-Subject: =?ISO-8859-1?Q?=BA=CE=B5=BF=BB=EA=20=B0=F8-=B0=E6=B8=C5=BB=E7?=
-	=?ISO-8859-1?Q?=C3=EB=B5=E6=BF=AD=C7=B3!../=B9=AB=B7=E1?=
-	=?ISO-8859-1?Q?=BB=F9=C7=C3=B0=AD=C1=C2=B8=A6?=
-	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9!!?= jqqcu
-Date: Fri, 12 Aug 2005 06:59:58 -0700
-Message-ID: <89264y52k0l96aw5l0x4l31122jwfv@pnpkykcd>
-Reply-To: "Hardee" <ojv208dbk@yahoo.com>
+From: "안현정" <j5857j1221x@hanmail.net>
+Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
+	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
+Date: Sat, 13 Aug 2005 11:13:39 -0300
+Message-ID: <WFIROASGCXZCKHPBBDHH@yahoo.com>
+Reply-To: "안현정" <d5735h0175s@hanmail.net>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_346BA.90A5C0B4_0BCCD"
+	boundary="--"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-------=_NextPart_346BA.90A5C0B4_0BCCD
+----
 Content-Type: text/html;
-	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<HTML><HEAD></HEAD>
-<BODY leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
-">
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
-<TABLE borderColor=3D#cccccc cellSpacing=3D2 cellPadding=3D0 width=3D650 a=
-lign=3Dcenter 
-border=3D1>
-<TBODY><TR><TD><TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650
-border=3D=
-0>
-<TBODY><TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?=
-prod_num=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/1.gif" width=3D"650" he=
-ight=3D"158" border=3D"0"></a></TD>
-</TR><TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?pr=
-od_num=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j=
-%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
-%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/2.gif" width=3D"650"
-height=3D=
-"231" border=3D"0"></a></TD></TR>
-<TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
-%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
-%73%73%65%63om.%63om/e-mail/reseller/LNI/5.gif" width=3D"650" height=3D"30=
-0" border=3D"0"></a></TD></TR>
-<TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
-%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
-%73%73%65%63om.%63om/e-mail/reseller/LNI/6.gif" width=3D"650" height=3D"92=
-" border=3D"0"></a></TD></TR>
-<TR><TD height=3D"2" bgcolor=3D"#FFFFFF"><div align=3D"center"><BR><BR>
-<a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D96&p=
-t_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k%64%69=
-%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73=
-%65%63om.%63om/e-mail/reseller/LNI/ani.gif" width=3D"195" height=3D"48" bo=
-rder=3D"0"></a><BR><BR></div>
-</TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE>
-<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650 align=3Dcenter
-border=3D=
-0><TBODY>
-<TR><TD height=3D50><a href=3D"http://%67oo%64.n%61m%651999.%63om/m_reject=
-html" ><img src=3D"http://%64k%65k%64j%66j%73k%64%69%65k%64j=
-%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.=
-%63om/e-mail/reseller/LNI/reject.jpg" width=3D"650" height=3D"70"
-border=3D=
-"0"></a></TD>
-</TR></TBODY></TABLE></FORM></BODY></HTML>dytcs
 
-------=_NextPart_346BA.90A5C0B4_0BCCD--
+  <BODY>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;<STRONG>&nbsp; &nbsp;=A1=DA&nbsp;&nbsp;=B8=C5=C0=CF=
+ 10=BA=D0=BE=BF =C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
+=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></D=
+IV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<STRONG>=A3=
+=AA=C0=C7=C1=F6=B0=A1 
+=BE=E0=C7=D8=BC=AD =C1=DF=B5=B5=BF=A1&nbsp; =C6=F7=B1=E2=C7=CF=BD=C5=BA=D0=
+~~&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
+=AA=B1=E2=C3=CA=B6=A7=B9=AE=BF=A1 
+=B0=ED=B9=CE=C0=CC =B8=B9=C0=B8=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
+=B3=AA=C0=CC=B6=AB=BF=A1 =C7=D0=BF=F8=B0=A1=B1=E2=B0=A1 
+=BE=A6=BD=BA=B7=AF=BF=EE=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
+=B4=E7=C0=E5 =BF=B5=BE=EE=B0=A1 
+=C7=CA=BF=E4=C7=CF=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
+p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
+=AA3=B0=B3=BF=F9=C0=CC=B8=E9 
+=BF=CF=C0=FC =C7=D8=B0=E1=B5=CB=B4=CF=B4=D9.&nbsp;</STRONG></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;<A 
+href=3D"http://4323.vip.Nease.Net/tenglish/tenglish010.php?partner_id=3Dbl=
+uekoba" 
+target=3D_blank>=A1=DA<STRONG>=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =
+=BF=A9=B1=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
+=B5=CB=B4=CF=B4=D9</STRONG>.=A1=DA</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
+&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+  </BODY>
+
+
+
+------
