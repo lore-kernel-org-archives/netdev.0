@@ -1,39 +1,20 @@
-From: =?Big5?B?qcq3UrHQvsekarrQfg==?= <ok12345@gmail.com>
-Subject: =?Big5?B?rdK+yaTSqWSkp7ahv0Wxoaq6qcqlzayhIaW7pfq60KXRr3WkSLp0pViz4SE=?=
-Date: Sat, 13 Aug 2005 20:57:51 +0800
-Message-ID: <200508131928.j7DJSpH9024484@oss.sgi.com>
-Content-Type: text/html
+From: "Terrence Pendleton" <vwxgia@fusemail.com>
+Subject: Sex-addicts in your area
+Date: Sat, 13 Aug 2005 12:34:28 -0800
+Message-ID: <FJ.527.02040042DE8514K5.5@rtek.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
+There is this %FREE %DATESITE %FILLED with %TONS %SEXOHOLICS
 
-<head>
-<meta http-equiv="Content-Language" content="zh-tw">
-<meta http-equiv="Content-Type" content="text/html; charset=big5">
-<meta name="GENERATOR" content="Microsoft FrontPage 6.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
-<title>圖若開啟太慢</title>
-</head>
+%FLOWERS %JUST :)
 
-<body>
+There are also %SOME who want %SERIOUS though
+So if you want %ONEORLONG you got it ;)
 
-<p align="center"><a href="http://www.buy999.net/999/mail001-b.htm">若無法開啟請按這裡</a></p>
+Whatever floats your boat pretty much! 
 
-<p align="center">
-<a href="http://www.buy999.net/999/mail001-b.htm">
-<img border="0" src="http://www.buy999.net/999/001.jpg" width="600" height="322"></a></p>
-<p align="center">
-<a target="_blank" href="http://www.buy999.net/999/mail001-b.htm">
-本光碟由真人示範,變化姿勢達近百種,保證您夫妻的性生活達到前所未有的滿足與高潮!!</a></p>
-
-</body>
-
-</html>
-
-<p align=center>　</p>
-
-<!-- PITHSET -->
+http://www.lovercantors.com
