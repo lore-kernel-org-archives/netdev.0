@@ -1,45 +1,77 @@
-From: "Rowena Irvin" <wq619utk@kyooh.dyndns.dk>
-Subject: =?ISO-8859-1?Q?=A1=DF=20=BA=F1=BE=C6=B1=D7=B6=F3?= , =?ISO-8859-1?Q?=BD=C3=BE=CB=B8=AE=BD=BA=20=C1=A4=C7=B0?= !! =?ISO-8859-1?Q?=A1=DD=20=BF=A9=BC=BA=C8=EF=BA=D0=C1=A6..?=
-	=?ISO-8859-1?Q?=C6=C7=B8=C5.!!?=
-Date: Sat, 13 Aug 2005 00:38:28 -0400
-Message-ID: <wp5k5ao5e5-rm9--4z-60$fz$m@u2jt2a8h259>
-Reply-To: "Rowena Irvin" <wq619utk@kyooh.dyndns.dk>
+From: "ÇÐÀ§¹ðÅ©" <nonstop-kilkil1s@hanmail.net>
+Subject: =?ISO-8859-1?Q?=B5=EE=B1=B3=BE=F8=C0=CC=20=C3=D6=B4=DC=B1=E2=B0=A3?=
+	=?ISO-8859-1?Q?4=B3=E2=C1=A6=20=C7=D0=BB=E7=C7=D0=C0=A7?=
+	=?ISO-8859-1?Q?=C3=EB=B5=E6=C7=D2=BC=F6=C0=D6=BD=C0=B4=CF=B4=D9.?=
+Date: Fri, 12 Aug 2005 22:09:01 -0700
+Message-ID: <TZYAXXWWNIJDKZDSKHYKQ@yahoo.com>
+Reply-To: "ÇÐÀ§¹ðÅ©" <nonstop-kilkil1s@hanmail.net>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary=".7BB._BD15FCD2"
+	boundary="--244039277187371"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---.7BB._BD15FCD2
+----244039277187371
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-<table width=3D200 border=3D0 cellspacing=3D0 cellpadding=3D0><tr><td>
-<img src=3Dhttp://v2.viagramankorea.net/images/via1.gif 
-width=3D650 height=3D781 border=3D0 usemap=3D#Map></td></tr>
-</table><map name=3DMap>
-<area shape=3Drect coords=3D8,6,646,402 
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
-t=3D_blank>
-<area shape=3Drect coords=3D7,406,644,627 
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
-t=3D_blank>
-<area shape=3Drect coords=3D8,635,217,696 
-href=3Dhttp://v2.viagramankorea.net/via_qna.htm target=3D_blank>
-<area shape=3Drect coords=3D223,636,431,693 
-href=3Dhttp://v2.viagramankorea.net/via_card.htm target=3D_blank>
-<area shape=3Drect coords=3D437,635,636,693
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner>
-<area shape=3Drect coords=3D247,744,406,776 
-href=3Dhttp://v2.viagramankorea.net/partner/RejectMail.php target=3D_blank=
->
-</map>
-</body>
+  <HEAD>
+      <TITLE>=C7=D0=BB=E7=C6=FB</TITLE>
+  </HEAD>
+  <BODY>
+<DIV>
+<DIV>&nbsp;<FONT color=3D#000040 size=3D4><STRONG>=C7=D0=BB=E7=C7=D0=C0=A7=
+=B8=A6 
+=C3=EB=B5=E6=C7=CF=B8=E9~</STRONG></FONT>&nbsp;<BR><FONT color=3D#ff8080><=
+BR></FONT><FONT 
+color=3D#ff00ff><FONT color=3D#400040>&nbsp;=A2=C1 &nbsp;=B4=EB=C7=D0=BF=F8=
+=C1=F8=C7=D0=B0=A1=B4=C9 : =BF=F8=C7=CF=BD=C7 =B0=E6=BF=EC 100=
+%=B4=EB=C7=D0=BF=F8 =C1=F8=C7=D0 
+=BE=CB=BC=B1=C7=D4<BR></FONT>&nbsp;<FONT color=3D#400040>=A2=C1 =C7=D0=BB=E7=
+=C6=ED=C0=D4=B0=A1=B4=C9 : =BD=C7=B7=C2=B0=FA =BB=F3=B0=FC=BE=F8=C0=CC 100=
+% =C7=D0=BB=E7=C6=ED=C0=D4 
+=B0=A1=B4=C9<BR></FONT>&nbsp;<FONT color=3D#400040>=A2=C1 =BF=DC=B1=B9=C0=AF=
+=C7=D0=BD=C3 4=B3=E2=C1=A6 =C1=B9=BE=F7=C0=DA=BF=CD =B5=BF=B5=EE=C7=D1=C1=B6=
+=B0=C7=C0=B8=B7=CE =BD=C9=BB=E7=B8=A6 
+=B9=DE=BD=C0=B4=CF=B4=D9</FONT>.<BR>&nbsp;<FONT color=3D#400040>=A2=C1 =C3=
+=EB=BE=F7=BD=C3 4=B3=E2=C1=A6 =C1=B9=BE=F7=C0=DA=BF=CD =B5=BF=B5=EE=C7=D1 =
+=C1=B6=B0=C7=C0=B8=B7=CE =C3=EB=BE=F7,=BD=C2=C1=F8=BD=C3 =C7=FD=C5=C3=C0=CC=
+ 
+=C1=D6=BE=EE=C1=FC<BR></FONT>&nbsp;<BR></FONT><FONT color=3D#0000a0>=C3=D6=
+=B4=DC=B1=E2 =C7=D0=BB=E7=C3=EB=B5=E6=C0=C7 =B9=AE=C0=BB 
+=C0=CC=B7=E7=BE=EE=B5=E5=B8=B3=B4=CF=B4=D9.<BR></FONT><FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR><FONT 
+color=3D#0000ff>=A2=BA 6=B0=B3=BF=F9=BE=C8=BF=A1 =C7=D0=C0=A7=B0=A1 =C7=CA=
+=BF=E4=C7=CF=BD=C5=BA=D0<BR>=A2=BA =B0=ED=B5=EE=C7=D0=B1=B3/=C0=FC=B9=AE=B4=
+=EB =C1=B9=BE=F7=C0=DA=B7=CE=BC=AD =C7=D0=BB=E7=C6=ED=C0=D4=C0=BB =BF=F8=C7=
+=CF=BD=C3=B4=C2 =BA=D0<BR>=A2=BA =BC=AD=BF=EF=C1=DF=C0=A7=B1=C7 
+=B4=EB=C7=D0=BF=F8=C1=F8=C7=D0=C0=BB =BF=F8=C7=CF=BD=C3=B4=C2 =BA=D0&nbsp;=
+<BR>=A2=BA =B5=B6=C7=D0=BB=E7, =B9=E6=BC=DB=C5=EB=BD=C5=B4=EB, =C1=A4=B1=D4=
+=B4=EB =C1=DF=B5=B5 =C6=F7=B1=E2=C7=CF=BD=C5=BA=D0<BR>=A2=BA =BB=E7=C8=B8=BA=
+=B9=C1=F6=BB=E7 =C0=DA=B0=DD=C0=BB =BF=F8=C7=CF=BD=C3=B4=C2=BA=D0<BR>=A2=BA=
+ 
+=BB=E7=B9=FC=BD=C3=C7=E8=BF=A1 =C0=C0=BD=C3=C7=CF=BD=C3=B4=C2 =BA=F1=C0=FC=
+=B0=F8 =B9=FD=C7=D0=B5=B5 =C1=DF 35=C7=D0=C1=A1 =C7=CA=BF=E4=C7=CF=BD=C5=BA=
+=D0<BR>=A2=BA =B0=ED=C1=B9=C0=DA=B7=CE =B4=DC=B1=E2=BF=A1 =C7=D0=C0=A7=C3=EB=
+=B5=E6 =B9=E6=B9=FD=C0=CC =B1=C3=B1=DD=C7=CF=BD=C5 
+=BA=D0<BR></FONT><BR><BR>&nbsp;&nbsp;=A1=D8 <FONT color=3D#400000>=BB=F3=B4=
+=E3 =BD=C5=C3=BB=C0=BB =C7=CF=BD=C3=B7=C1=B8=E9</FONT> 
+&nbsp;<A 
+href=3D"http://fkeldhqkdthd.fu.st">=A2=C6 
+"<FONT color=3D#ff0000>=C7=D0=BB=E7=C7=D0=C0=A7 =BB=F3=B4=E3=BD=C5=C3=BB=C7=
+=CF=B1=E2"</FONT> =A2=C6</A>&nbsp;&nbsp;<FONT color=3D#400000>=B8=A6 
+<FONT color=3D#ff0080>=C5=AC=B8=AF</FONT>=C7=CF=BC=BC=BF=E4.</FONT>
+<P><FONT 
+color=3D#0000ff>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC</FONT>&nbsp;</P></DIV></DIV>
+  </BODY>
 
---.7BB._BD15FCD2--
+----244039277187371--
