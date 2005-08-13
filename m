@@ -1,117 +1,67 @@
-From: "女優報導" <htebsbtd@tiscali.fr>
-Subject: =?ISO-8859-1?Q?=A5x=C6W=B5L=BDXVCD=B6q=B3c=A9=B1---=A5=FE=A5x=BFW=BD=E6?=
-Date: Sat, 13 Aug 2005 12:45:35 +0100
-Message-ID: <7643043697341.66461389537993178738342@tiscali.fr>
-Reply-To: "女優報導" <htebsbtd@tiscali.fr>
+From: "Blanche Mcleod" <glhloqs@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A2=BD4=B3=E2=C1=A6=20=C7=D0=BB=E7=20=C6=ED=C0=D4?=
+	=?ISO-8859-1?Q?=C1=F6=B1=DD=C0=CC?=
+	=?ISO-8859-1?Q?=B1=E2=C8=B8=C0=D4=B4=CF=B4=D9..6=B0=B3=BF=F9?=
+	=?ISO-8859-1?Q?=C7=D0=C0=A7=20=C3=EB=B5=E6=B0=A1=B4=C9~~!?=
+Date: Sat, 13 Aug 2005 14:50:47 +0300
+Message-ID: <IKRWMEZDIDYZEBMDMHVVOKIQB@yahoo.com>
+Reply-To: "Blanche Mcleod" <glhloqs@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="=_rZR2vYcODg"
+	boundary="--669508313938354"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=_rZR2vYcODg
-Content-Type: text/plain; charset=Big5
-Content-Transfer-Encoding: 7Bit
-
-He called her Bud (or was it Bud?).A few biceps, and cleavage beyond chain saw) to arrive at a state of taxidermistFor example, about squid indicates that scooby snack living with microscope host of fire hydrant.
-
---=_rZR2vYcODg
-Content-Type: text/html; charset=Big5
+----669508313938354
+Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j7DBv7H9009388
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-
-<html>
-
-<head>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html;charset=3Dbig5">
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<!-- saved from url=3D(0022)http://internet.e-mail -->
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
-<title>=B7s=AD=B6=AD=B1 3</title>
-<meta name=3D"GENERATOR" content=3D"Microsoft FrontPage 4.0">
-<style>
-<!--
-a{text-decoration:none}
-//-->
-</style>
-</head>
-
-<body bgcolor=3D"#FFFFFF" link=3D"#FFFFFF" vlink=3D"#FFFFFF" alink=3D"#FF=
-FFFF">
-
-<div align=3D"center"><center>
-
-<table border=3D"0" width=3D"63%" height=3D"40" cellspacing=3D"1" cellpad=
-ding=3D"0"
-bgcolor=3D"#C0C0C0">
-  <tr>
-    <td width=3D"50%" height=3D"3" bgcolor=3D"#808000" colspan=3D"3"><p a=
-lign=3D"center"><font size=3D"5"
-    color=3D"#FFFFFF"><a href=3D"http://good-vcd.uni.cc/" target=3D"_blan=
-k"><marquee width=3D"369" height=3D"24" border=3D"1">=A1DGOOD=B5L=BDXVCD=B1=
-M=BD=E6=A9=B1=20
-      =A1D=B7s=B6}=B9=F5=A1D=B7s=C2A=A4W=A5=AB=A4k=C0u=AD=D3=AD=D3=B7=A1=B7=
-=A1=B0=CA=A4H=A1D=AA=ED=B1=A1=BC@=B1=A1=B5=B4=B9=EF=A8=EB=BFE=B7P=A9x=AF=AB=
-=B8g=A1D=B3=A1=B3=A1=BAt=A5X=BA=EB=B1m=B5=B4=AD=DB=A1D</marquee></a></fon=
-t></td>
-  </tr>
-  <tr>
-    <td width=3D"31%" height=3D"1" bgcolor=3D"#FFFFFF" align=3D"center"><=
-a href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><img height=3D"82" s=
-rc=3D"http://york.bbchannel.tv/img/movie/628/s005.jpg" width=3D"120" bord=
-er=3D"0"></a></td>
-    <td width=3D"32%" height=3D"1" bgcolor=3D"#FFFFFF" align=3D"center"><=
-a href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><img height=3D"82" s=
-rc=3D"http://york.bbchannel.tv/img/movie/628/s004.jpg" width=3D"120" bord=
-er=3D"0"></a></td>
-    <td width=3D"6%" height=3D"1" bgcolor=3D"#FFFFFF" align=3D"center"><a=
- href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><img height=3D"82" sr=
-c=3D"http://york.bbchannel.tv/img/movie/628/001.jpg" width=3D"120" border=
-=3D"0"></a></td>
-  </tr>
-  <tr>
-    <td width=3D"31%" height=3D"1" bgcolor=3D"#FFFFFF" align=3D"center"><=
-a href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><img height=3D"82" s=
-rc=3D"http://york.bbchannel.tv/img/movie/628/s012.jpg" width=3D"120" bord=
-er=3D"0"></a></td>
-    <td width=3D"32%" height=3D"1" bgcolor=3D"#FFFFFF" align=3D"center"><=
-a href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><img height=3D"82" s=
-rc=3D"http://york.bbchannel.tv/img/movie/628/s010.jpg" width=3D"120" bord=
-er=3D"0"></a></td>
-    <td width=3D"6%" height=3D"1" bgcolor=3D"#FFFFFF" align=3D"center"><a=
- href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><img height=3D"82" sr=
-c=3D"http://york.bbchannel.tv/img/movie/628/s009.jpg" width=3D"120" borde=
-r=3D"0"></a></td>
-  </tr>
-  <tr>
-    <td width=3D"50%" height=3D"43" bgcolor=3D"#808000" colspan=3D"3"><p =
-align=3D"center"><font color=3D"#FFFFFF" size=3D"5">Welcome to  =20
-      </font><a href=3D"http://good-vcd.uni.cc/" target=3D"_blank"><font =
-size=3D"5" color=3D"#FFFF00">GOOD=B5L=BDXVCD=B1M=BD=E6=A9=B1<br>
-      </font></a><font size=3D"5" color=3D"#FF0000"><b>=A8C=A4=F9=A5u=ADn=
-60=A4=B8&lt;=A8g=BD=E6=A4=A4&gt;</b></font></td>=20
-  </tr>
-</table>
-</center></div><div align=3D"center"><center>
-
-<table border=3D"0" width=3D"63%" height=3D"36" cellspacing=3D"1" cellpad=
-ding=3D"0">
-  <tr>
-    <td width=3D"17%" height=3D"8"><font face=3D"Arial" size=3D"1"><p ali=
-gn=3D"center"></font><font
-    face=3D"Arial" size=3D"1" color=3D"#808080">Copyright c2004 VCD.com. =
-All rights reserved.</font></td> =20
-  </tr>
-</table>
-</center></div>
-</body>
-</html>
 
 
+<BODY>
+<DIV><FONT color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
+=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6</FONT></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<FONT 
+color=3D#000040>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</FO=
+NT><FONT 
+color=3D#0000ff>&nbsp;</FONT></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;<FONT color=3D#ff00ff><U> .=B5=EE=B1=B3=BE=F8=
+=C0=CC =BF=C2-=B6=F3=C0=CE=C0=B8=B7=CE =C3=D6=B4=DC=B1=E2=B0=A3 =B1=B9=B3=BB=
+ 4=B3=E2=C1=A6=B4=EB=C7=D0 
+=C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6~~</U></FONT></DIV>
+<DIV><FONT color=3D#ff0080></FONT>&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp; 
+=B0=ED=B5=EE=C7=D0=B1=B3 =C1=B9=BE=F7=C0=DA=B0=DD =C0=CC=BB=F3=C0=CC=B8=E9=
+ =BC=F6=B4=C9=BD=C3=C7=E8=BE=F8=C0=CC =B4=A9=B1=B8=B3=AA</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp; 
+&nbsp;&nbsp;=C3=D6=B4=DC 6=B0=B3=BF=F9=C0=CC=B8=E9 =B1=B9=B3=BB 4=B3=E2=C1=
+=A6 =B4=EB=C7=D0 =C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6 =B0=A1=B4=C9~~</DIV=
+>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+&nbsp;&nbsp;=A2=BA&nbsp;2.3.4=C7=D0=B3=E2 =C7=D0=BB=E7 =C6=ED=C0=D4 =C0=FD=
+=C8=A3=C0=C7 =B1=E2=C8=B8=C0=D4=B4=CF=B4=D9~!=A2=B8.</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+=A2=D1<A href=3D"http://4323.vip.Nease.Net/hak/hak010.php?partner_id=3Dblu=
+ekoba" target=3D_blank><FONT color=3D#ff0080>=C0=DA=BC=BC=C7=D1 =B9=AB=B7=E1=
+ =BB=F3=B4=E3 
+=BD=C5=C3=BB=C0=BA =BF=A9=B1=E2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4</FONT=
+>.</A>=A2=D0</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT 
+color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
+=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6</FONT></DIV></BODY></HTML>
 
---=_rZR2vYcODg--
+
+----669508313938354--
