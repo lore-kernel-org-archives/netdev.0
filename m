@@ -1,132 +1,178 @@
-From: "GOGOINK" <my@tom.com>
-Subject: =?ISO-8859-1?Q?168=BB=DD=CF=FB=CF=A2!!=C3=E2=D9M=D7=C4=E3=D4=D3=C3,=ACF=D4=DA=BC=D3=C8=EB=B8=FC=D3=D0=CF=C2=C1=D0=C3=E2=D9M=AA=D3=C3=D9Y=B8=F1?=
-Date: Sat, 13 Aug 2005 08:40:31 +0800
-Message-ID: <200508130042.j7D0ggHA013960@oss.sgi.com>
-Reply-To: <sssss@tom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] add new iptables ipt_connbytes match
+Date: Sat, 13 Aug 2005 03:20:06 +0200
+Message-ID: <42FD4AC6.2020506@trash.net>
+References: <20050811200349.GN5353@rama.de.gnumonks.org>
+	<42FC0F01.5090802@trash.net>
+	<20050812115622.GD16325@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="big5"
-Content-Transfer-Encoding: base64
-Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="------------080505060102080105040305"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20050812115622.GD16325@rama.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-PGh0bWw+DQo8aGVhZD4NCjxtZXRhIGh0dHAtZXF1aXY9IkNvbnRlbnQtVHlwZSIgY29udGVu
-dD0idGV4dC9odG1sOyBjaGFyc2V0PWJpZzUiPg0KPHRpdGxlPjwvdGl0bGU+DQo8c3R5bGUg
-dHlwZT0idGV4dC9jc3MiPg0KPCEtLQ0KLnVubmFtZWQxIHsNCglmb250LWZhbWlseTogQXJp
-YWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZjsNCglmb250LXNpemU6IDEzcHg7DQoJZm9udC1z
-dHlsZTogbm9ybWFsOw0KCWxpbmUtaGVpZ2h0OiAyNXB4Ow0KCWZvbnQtd2VpZ2h0OiBib2xk
-Ow0KCWNvbG9yOiAjRkYwMDAwOw0KCXRleHQtZGVjb3JhdGlvbjogbm9uZTsNCn0NCi5mb250
-IHsNCglmb250LWZhbWlseTogQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZjsNCglmb250
-LXNpemU6IDEycHg7DQoJZm9udC1zdHlsZTogbm9ybWFsOw0KCWxpbmUtaGVpZ2h0OiAxOHB4
-Ow0KCWZvbnQtd2VpZ2h0OiBub3JtYWw7DQoJY29sb3I6ICMzMzMzMzM7DQoJdGV4dC1kZWNv
-cmF0aW9uOiBub25lOw0KfQ0KLmp1IHsNCglmb250LWZhbWlseTogQXJpYWwsIEhlbHZldGlj
-YSwgc2Fucy1zZXJpZjsNCglmb250LXNpemU6IDEycHg7DQoJZm9udC1zdHlsZTogbm9ybWFs
-Ow0KCWxpbmUtaGVpZ2h0OiBub3JtYWw7DQoJZm9udC13ZWlnaHQ6IGJvbGQ7DQoJY29sb3I6
-ICNGRjk5MDA7DQoJdGV4dC1kZWNvcmF0aW9uOiBub25lOw0KfQ0KYTpsaW5rIHsNCglmb250
-LWZhbWlseTogQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZjsNCglmb250LXNpemU6IDEy
-cHg7DQoJZm9udC1zdHlsZTogbm9ybWFsOw0KCWxpbmUtaGVpZ2h0OiBub3JtYWw7DQoJZm9u
-dC13ZWlnaHQ6IG5vcm1hbDsNCgljb2xvcjogI0ZGOTkwMDsNCgl0ZXh0LWRlY29yYXRpb246
-IG5vbmU7DQp9DQphOmhvdmVyIHsNCglmb250LWZhbWlseTogQXJpYWwsIEhlbHZldGljYSwg
-c2Fucy1zZXJpZjsNCglmb250LXNpemU6IDEycHg7DQoJZm9udC1zdHlsZTogbm9ybWFsOw0K
-CWxpbmUtaGVpZ2h0OiBub3JtYWw7DQoJZm9udC13ZWlnaHQ6IG5vcm1hbDsNCgljb2xvcjog
-I0ZGOTkwMDsNCgl0ZXh0LWRlY29yYXRpb246IG5vbmU7DQoJYmFja2dyb3VuZC1jb2xvcjog
-I0ZGRkZGRjsNCn0NCmJvZHkgew0KCWJhY2tncm91bmQtY29sb3I6ICNGRkZGRUM7DQp9DQot
-LT4NCjwvc3R5bGU+DQo8L2hlYWQ+DQoNCjxib2R5Pg0KPHRhYmxlIHdpZHRoPSI1NDgiIGJv
-cmRlcj0iMCIgYWxpZ249ImNlbnRlciIgY2VsbHBhZGRpbmc9IjAiIGNlbGxzcGFjaW5nPSIw
-Ij4NCiAgPHRyPg0KICAgIDx0ZCBjb2xzcGFuPSIzIj48aW1nIHNyYz0iaW1hZ2UvdG9wLmdp
-ZiIgd2lkdGg9IjU0OCIgaGVpZ2h0PSIxMTAiPjwvdGQ+DQogIDwvdHI+DQogIDx0cj4NCiAg
-ICA8dGQgd2lkdGg9IjkiPjxpbWcgc3JjPSJpbWFnZS9sZWZ0LmdpZiIgd2lkdGg9IjkiIGhl
-aWdodD0iNDcwIj48L3RkPg0KICAgIDx0ZCB3aWR0aD0iNTMwIiB2YWxpZ249InRvcCIgYmdj
-b2xvcj0iI0M4RURGRiI+PHRhYmxlIHdpZHRoPSI5MCUiICBib3JkZXI9IjAiIGFsaWduPSJj
-ZW50ZXIiIGNlbGxwYWRkaW5nPSIwIiBjZWxsc3BhY2luZz0iMCI+DQogICAgICA8dHI+DQog
-ICAgICAgIDx0ZCBoZWlnaHQ9IjMxIj48Rk9OVCBjb2xvcj0jZmYwMDAwIGNsYXNzPSJ1bm5h
-bWVkMSI+IDE2OLCjuvSvuMB1ttWlSKV+oUGye6ZipVukSqfzprOkVaZDp0u2T8Czpc646q7m
-OjwvRk9OVD48L3RkPg0KICAgICAgPC90cj4NCiAgICAgIDx0cj4NCiAgICAgICAgPHRkIGNs
-YXNzPSJmb250Ij48c3BhbiBjbGFzcz0ianUiPiZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZu
-YnNwOyZuYnNwOyZuYnNwOyZuYnNwO6farcw8L3NwYW4+qrrByqqruvSvuKFBssSkQKZ+pXWt
-bjM5ODCkuKFBqMOq/sPYMTCkasB1tGahQaVbpEq3fK37pECt06TrpLqhQaV1rW6nQaZipf6w
-6qfkqOyyxDKuYaFBp9qtzKtPw9Kl/sNCsGi2T6FBqkGwyLfTtbk8QlI+DQogICAgICAgICAg
-PHNwYW4gY2xhc3M9Imp1Ij4mbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
-bmJzcDsmbmJzcDun2q3MPC9zcGFuPqF5PEEgaHJlZj0iaHR0cDovL3d3dy4xNjhidXkuY29t
-LnR3Ij48U1BBTiANCnN0eWxlPSJURVhULURFQ09SQVRJT046IG5vbmUiPjE2OMHKqqu69K+4
-PC9TUEFOPjwvQT6herSjqNGkQK3TIML5sNOw6aXApGy69K+4oUGwo6Vcr+CxaqRqpUilfqFB
-q+GleL7ep0CrRLFgrmWp9qFBp9qtzKZBsGW1uadBPEJSPg0KICAgICAgICAgIDxzcGFuIGNs
-YXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPigxKadBpWmlSKjPpc6n
-2q3MqrqheTxBIA0KaHJlZj0iaHR0cDovL3d3dy5teTE2OC5jb20udHciPjxTUEFOIA0Kc3R5
-bGU9IlRFWFQtREVDT1JBVElPTjogbm9uZSI+MTY4rFuvuLrrxkY8L1NQQU4+PC9BPqF6oUGn
-S7ZPrLCm26R2RElZpkGsW7NdpECt06fOtki69K+4qc7ByqqruvSvuKFBpKOmULr0p32laaZB
-tW6//bdqr8Gk3sC6oUG8V6Vbw26l+r73t3yhQanOqsynQaVppUjC4MX9vealWKFBpWmxb8Lg
-xf295qVYwWCq98NCNTAlp1G87TxCUj4NCiAgICAgICAgICA8c3BhbiBjbGFzcz0ianUiPiZu
-YnNwOyZuYnNwOyZuYnNwOyZuYnNwOzwvc3Bhbj4oMimnQaVppUinS7ZPqM+lzqF5PEEgDQpo
-cmVmPSJodHRwOi8vd3d3LjE2OGNhc2UuY29tLnR3Ij48U1BBTiANCnN0eWxlPSJURVhULURF
-Q09SQVRJT046IG5vbmUiPjE2OGNhc2W1b6Vdu8im5jwvU1BBTj48L0E+oXq1b6VdY2FzZanO
-p+RjYXNlwci/+jxCUj4NCiAgICAgICAgICA8c3BhbiBjbGFzcz0ianUiPiZuYnNwOyZuYnNw
-OyZuYnNwOyZuYnNwOzwvc3Bhbj4oMymnQaVppUinS7ZPqM+lzqF5PEEgaHJlZj0iaHR0cDov
-L3d3dy4xNjhuZXdzLmNvbS50dyI+PFNQQU4gDQpzdHlsZT0iVEVYVC1ERUNPUkFUSU9OOiBu
-b25lIj4xNjhuZXdzsaGz+LvIpuY8L1NQQU4+PC9BPqF6tW+nR6R1sNNuZXdzqc6n5KR1sNNu
-ZXdzwci/+jxCUj4NCiAgICAgICAgICA8c3BhbiBjbGFzcz0ianUiPiZuYnNwOyZuYnNwOyZu
-YnNwOyZuYnNwOzwvc3Bhbj4oNCmnQaS9pXGn5K37pHWhQaVppUinS7ZPqM+lzqF5PEEgaHJl
-Zj0iaHR0cDovL29sZC4xNjhqb2IuY29tLnR3Ij48U1BBTiANCnN0eWxlPSJURVhULURFQ09S
-QVRJT046IG5vbmUiPjE2OKRIpE+7yKbmPC9TUEFOPjwvQT6heqfkwHWoca37pHUorau3c6fv
-qk+kpKFBpn6rZbZ9qfEpPEJSPg0KICAgICAgICAgIDxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7
-Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPig1KadBprOp0KZhsqOvsrDioUGlaaVIp0u2T6jP
-pc6heTxBIGhyZWY9Imh0dHA6Ly93d3cuMTY4aG91c2UuY29tLnR3Ij48U1BBTiANCnN0eWxl
-PSJURVhULURFQ09SQVRJT046IG5vbmUiPjE2OKnQq86vsrDiu8im5jwvU1BBTj48L0E+oXoo
-rau3c6fvqk+kpKFBOKTrqbOrZbZ9qfEpPEJSPjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5i
-c3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPig2KadBt1HByqqrqmup56nQq86hQaVppUinS7ZPqM+l
-zqF5PEEgaHJlZj0iaHR0cDovL215LjE2OGhvdXNlLmNvbS50dyI+PFNQQU4gDQpzdHlsZT0i
-VEVYVC1ERUNPUkFUSU9OOiBub25lIj4xNjiqa6nnq86mWMHKuvQ8L1NQQU4+PC9BPqF6KLV7
-pqG8trxnpKShQTik66mzq2W2fanxKTxCUj4NCjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5i
-c3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPig3KadBpWmlSKdLtk+1br/9oUGheTxTUEFOIHN0eWxl
-PSJURVhULURFQ09SQVRJT046IG5vbmUiPjxBIA0KaHJlZj0iaHR0cDovL3NlYXJjaC4xNjhj
-b3Vwb24uY29tLnR3Ij48U1BBTiANCnN0eWxlPSJURVhULURFQ09SQVRJT046IG5vbmUiPjE2
-OMB1tGan6bv5uvS3arRNpN7AujwvU1BBTj48L0E+PC9TUEFOPqF6vFelW8Nupfq+97d8PEJS
-Pg0KPHNwYW4gY2xhc3M9Imp1Ij4mbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDs8L3NwYW4+KDgp
-p0GlaaVIp0u2T6jPpc6hQaF5PEEgaHJlZj0iaHR0cDovL3d3dy4xNjhjb3Vwb24uY29tLnR3
-Ij48U1BBTiANCnN0eWxlPSJURVhULURFQ09SQVRJT046IG5vbmUiPjE2OMB1tGan6bv5uvQ8
-L1NQQU4+PC9BPqF6wXy/7MB1tGan6bv5rKGwyjxCUj4NCjxzcGFuIGNsYXNzPSJqdSI+Jm5i
-c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPig5KadBpWmlSKdLtk+oz6XOoUGheTxBIGhy
-ZWY9Imh0dHA6Ly93d3cuMTY4dGVhY2guY29tLnR3Ij48U1BBTiANCnN0eWxlPSJURVhULURF
-Q09SQVRJT046IG5vbmUiPjE2OLHQqHy+x7LfuvQ8L1NQQU4+PC9BPqF6p+SuYbHQvselzaW0
-pHXByL/6KLV7pqGn76qpvLa8Z6SkoUE5pOups6tltn2p8Sk8QlI+DQo8c3BhbiBjbGFzcz0i
-anUiPiZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOzwvc3Bhbj4oMTApp0GlaaVIp0u2T6jPpc4x
-Nji0o6jRqrqn1rN0pkyo6r73oUE8Rk9OVCBjb2xvcj0jMDAwMGZmPqZMqOoyMC4wMDCxabPm
-puK8c6dpr8g8L0ZPTlQ+KDxBIA0KaHJlZj0iaHR0cDovL3d3dy4xNjhidXkuY29tLnR3L2lu
-ZGV4MTMuaHRtIj48U1BBTiANCnN0eWxlPSJURVhULURFQ09SQVRJT046IG5vbmUiPruhqfqk
-QDwvU1BBTj48L0E+KTxCUj4NCjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7
-Jm5ic3A7PC9zcGFuPigxMSmlWzEuMDAwpLihQbBlp0Glq7v5My45ODCkuLDGvHS+paT0oUEg
-sNGm0qF5PEEgaHJlZj0iaHR0cDovL3d3dy4xNjhidXkuY29tLnR3LzE2OGluayI+PFNQQU4g
-DQpzdHlsZT0iVEVYVC1ERUNPUkFUSU9OOiBub25lIj4xNjhpbmvByqqruvQ8L1NQQU4+PC9B
-PqF6trem27PGuUK2TzxCUj4NCjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7
-Jm5ic3A7PC9zcGFuPigxMimlWzMwJbZPpc6hQaVppmIxNjiyxDKt06bmt36kwMP+sU23fqXA
-pGy69K+4oUGmQaXTvdCldKRArdPByqqruvSvuCg8U1BBTiANCnN0eWxlPSJURVhULURFQ09S
-QVRJT046IG5vbmUiPjxBIA0KaHJlZj0iaHR0cDovL3d3dy4xNjhidXkuY29tLnR3L2luZGV4
-MTQuaHRtIj48U1BBTiANCnN0eWxlPSJURVhULURFQ09SQVRJT046IG5vbmUiPruhqfo8L1NQ
-QU4+PC9BPjwvU1BBTj48QSANCmhyZWY9Imh0dHA6Ly93d3cuMTY4YnV5LmNvbS50dy9pbmRl
-eDE0Lmh0bSI+PFNQQU4gDQpzdHlsZT0iVEVYVC1ERUNPUkFUSU9OOiBub25lIj6kRzwvU1BB
-Tj48L0E+KTxCUj4NCjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
-PC9zcGFuPjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFu
-PjxzcGFuIGNsYXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPjxzcGFu
-IGNsYXNzPSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPjxzcGFuIGNsYXNz
-PSJqdSI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPjxzcGFuIGNsYXNzPSJqdSI+
-Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9zcGFuPjxzcGFuIGNsYXNzPSJqdSI+PEZPTlQg
-DQpjb2xvcj0jZmYwMDAwPrJ7pmK90LZppEqtuq22wkm/7zwvRk9OVD48L3NwYW4+PEZPTlQg
-DQpjb2xvcj0jZmYwMDAwPjxzcGFuIGNsYXNzPSJqdSI+LS08L3NwYW4+PC9GT05UPjxzcGFu
-IGNsYXNzPSJ1bm5hbWVkMSI+PEZPTlQgY29sb3I9IzAwODA4MD6heafapF2tbrZ9qbGhejwv
-Rk9OVD48L3NwYW4+PC90ZD4NCiAgICAgIDwvdHI+DQogICAgICA8dHI+DQogICAgICAgIDx0
-ZCBjbGFzcz0iZm9udCI+PHRhYmxlIHdpZHRoPSI2MyUiICBib3JkZXI9IjAiIGFsaWduPSJj
-ZW50ZXIiIGNlbGxwYWRkaW5nPSIwIiBjZWxsc3BhY2luZz0iMCI+DQogICAgICAgICAgPHRy
-Pg0KICAgICAgICAgICAgPHRkIHdpZHRoPSIzNSUiPjxhIGhyZWY9Imh0dHA6Ly93d3cuMTY4
-eWVzLmNvbS50dyI+PGltZyBzcmM9ImltYWdlL2FuLmdpZiIgd2lkdGg9IjE1MCIgaGVpZ2h0
-PSI0OCIgYm9yZGVyPSIwIj48L2E+PC90ZD4NCiAgICAgICAgICAgIDx0ZCB3aWR0aD0iNjUl
-Ij48YSBocmVmPSJodHRwOi8vd3d3LjE2OGJ1eS5jb20udHciPjxpbWcgc3JjPSJpbWFnZS9h
-bjIuZ2lmIiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiBib3JkZXI9IjAiPjwvYT48L3RkPg0K
-ICAgICAgICAgIDwvdHI+DQogICAgICAgIDwvdGFibGU+PC90ZD4NCiAgICAgIDwvdHI+DQog
-ICAgPC90YWJsZT48L3RkPg0KICAgIDx0ZCB3aWR0aD0iOSI+PGltZyBzcmM9ImltYWdlL2xl
-ZnQuZ2lmIiB3aWR0aD0iOSIgaGVpZ2h0PSI0NzAiPjwvdGQ+DQogIDwvdHI+DQogIDx0cj4N
-CiAgICA8dGQgY29sc3Bhbj0iMyI+PGltZyBzcmM9ImltYWdlL3VuZGVyLmdpZiIgd2lkdGg9
-IjU0OCIgaGVpZ2h0PSI3Ij48L3RkPg0KICA8L3RyPg0KPC90YWJsZT4NCjwvYm9keT4NCjwv
-aHRtbD4NCg0K
+This is a multi-part message in MIME format.
+--------------080505060102080105040305
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Harald Welte wrote:
+> Just send two incremental patches to Dave.
+
+Here they are. The first patch fixes the div64_64 function, the second
+one renames some constants.
+
+
+--------------080505060102080105040305
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
+
+[NETFILTER]: Fix div64_64 in ipt_connbytes
+
+Signded-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 62084bc1a04e2fbc492566fa30997bd0a7aa2d0a
+tree 083c8042609e0da81f0be9e15583d5d31b54e685
+parent 68e734a5864ba568058c3b8ea63fac3d7d567542
+author Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:16:32 +0200
+committer Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:16:32 +0200
+
+ net/ipv4/netfilter/ipt_connbytes.c |   22 +++++++++-------------
+ 1 files changed, 9 insertions(+), 13 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_connbytes.c b/net/ipv4/netfilter/ipt_connbytes.c
+--- a/net/ipv4/netfilter/ipt_connbytes.c
++++ b/net/ipv4/netfilter/ipt_connbytes.c
+@@ -22,23 +22,19 @@ MODULE_AUTHOR("Harald Welte <laforge@net
+ MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connection");
+ 
+ /* 64bit divisor, dividend and result. dynamic precision */
+-static u_int64_t div64_64(u_int64_t divisor, u_int64_t dividend)
++static u_int64_t div64_64(u_int64_t dividend, u_int64_t divisor)
+ {
+-	u_int64_t result = divisor;
++	u_int32_t d = divisor;
+ 
+-	if (dividend > 0xffffffff) {
+-		int first_bit = find_first_bit((unsigned long *) &dividend, sizeof(dividend));
+-		/* calculate number of bits to shift. shift exactly enough
+-		 * bits to make dividend fit in 32bits. */
+-		int num_shift = (64 - 32 - first_bit);
+-		/* first bit has to be < 32, since dividend was > 0xffffffff */
+-		result = result >> num_shift;
+-		dividend = dividend >> num_shift;
+-	}
++	if (divisor > 0xffffffffULL) {
++		unsigned int shift = fls(divisor >> 32);
+ 
+-	do_div(divisor, dividend);
++		d = divisor >> shift;
++		dividend >>= shift;
++	}
+ 
+-	return divisor;
++	do_div(dividend, d);
++	return dividend;
+ }
+ 
+ static int
+
+--------------080505060102080105040305
+Content-Type: text/x-patch;
+ name="02.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="02.diff"
+
+[NETFILTER]: Nicer names for ipt_connbytes constants
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit e0d3e09ba22a139cbee328bc2622e984b65ba53e
+tree 83efbc8d53045825333db5f4e321e28b331f7e30
+parent 8f48c662a6f9cd2cdaec9d9866cebf8b40155f70
+author Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:18:30 +0200
+committer Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:18:30 +0200
+
+ include/linux/netfilter_ipv4/ipt_connbytes.h |    6 +++---
+ net/ipv4/netfilter/ipt_connbytes.c           |   12 ++++++------
+ 2 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/netfilter_ipv4/ipt_connbytes.h b/include/linux/netfilter_ipv4/ipt_connbytes.h
+--- a/include/linux/netfilter_ipv4/ipt_connbytes.h
++++ b/include/linux/netfilter_ipv4/ipt_connbytes.h
+@@ -2,9 +2,9 @@
+ #define _IPT_CONNBYTES_H
+ 
+ enum ipt_connbytes_what {
+-	IPT_CONNBYTES_WHAT_PKTS,
+-	IPT_CONNBYTES_WHAT_BYTES,
+-	IPT_CONNBYTES_WHAT_AVGPKT,
++	IPT_CONNBYTES_PKTS,
++	IPT_CONNBYTES_BYTES,
++	IPT_CONNBYTES_AVGPKT,
+ };
+ 
+ enum ipt_connbytes_direction {
+diff --git a/net/ipv4/netfilter/ipt_connbytes.c b/net/ipv4/netfilter/ipt_connbytes.c
+--- a/net/ipv4/netfilter/ipt_connbytes.c
++++ b/net/ipv4/netfilter/ipt_connbytes.c
+@@ -54,7 +54,7 @@ match(const struct sk_buff *skb,
+ 		return 0; /* no match */
+ 
+ 	switch (sinfo->what) {
+-	case IPT_CONNBYTES_WHAT_PKTS:
++	case IPT_CONNBYTES_PKTS:
+ 		switch (sinfo->direction) {
+ 		case IPT_CONNBYTES_DIR_ORIGINAL:
+ 			what = ct->counters[IP_CT_DIR_ORIGINAL].packets;
+@@ -68,7 +68,7 @@ match(const struct sk_buff *skb,
+ 			break;
+ 		}
+ 		break;
+-	case IPT_CONNBYTES_WHAT_BYTES:
++	case IPT_CONNBYTES_BYTES:
+ 		switch (sinfo->direction) {
+ 		case IPT_CONNBYTES_DIR_ORIGINAL:
+ 			what = ct->counters[IP_CT_DIR_ORIGINAL].bytes;
+@@ -82,7 +82,7 @@ match(const struct sk_buff *skb,
+ 			break;
+ 		}
+ 		break;
+-	case IPT_CONNBYTES_WHAT_AVGPKT:
++	case IPT_CONNBYTES_AVGPKT:
+ 		switch (sinfo->direction) {
+ 		case IPT_CONNBYTES_DIR_ORIGINAL:
+ 			what = div64_64(ct->counters[IP_CT_DIR_ORIGINAL].bytes,
+@@ -128,9 +128,9 @@ static int check(const char *tablename,
+ 	if (matchsize != IPT_ALIGN(sizeof(struct ipt_connbytes_info)))
+ 		return 0;
+ 
+-	if (sinfo->what != IPT_CONNBYTES_WHAT_PKTS &&
+-	    sinfo->what != IPT_CONNBYTES_WHAT_BYTES &&
+-	    sinfo->what != IPT_CONNBYTES_WHAT_AVGPKT)
++	if (sinfo->what != IPT_CONNBYTES_PKTS &&
++	    sinfo->what != IPT_CONNBYTES_BYTES &&
++	    sinfo->what != IPT_CONNBYTES_AVGPKT)
+ 		return 0;
+ 
+ 	if (sinfo->direction != IPT_CONNBYTES_DIR_ORIGINAL &&
+
+--------------080505060102080105040305--
