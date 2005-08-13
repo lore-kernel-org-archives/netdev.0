@@ -1,69 +1,64 @@
-From: =?koi8-r?B?82XSx2XKIOJvcMnTb9c=?= <fnrxnkr@nag.com>
-Subject: =?koi8-r?B?SyDu4U0gQyD3QU3pIPBQ6fvsQSDi7+z4+0HxIOLl5OEgISBvzw==?=
-Date: Sat, 13 Aug 2005 04:06:59 +0400
-Message-ID: <200508130009.j7D097HA008127@oss.sgi.com>
-Reply-To: fnrxnkr@nag.com
+From: "Bounced mail" <noreply@oss.sgi.com>
+Subject: Delivery failed
+Date: Fri, 12 Aug 2005 20:18:48 -0400
+Message-ID: <200508130019.j7D0JRpl015626@ms-smtp-04.nyroc.rr.com>
 Mime-Version: 1.0
-Content-Type: text/html; charset="koi8-r"
-Content-Transfer-Encoding: base64
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0004_76A2416F.DFDA2701"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: icdrvetqra <icdrvetqra@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PGh0bWw+DQo8aGVhZD4NCjwvaGVhZD4NCjxib2R5IGJnY29sb3I9IndoaXRlIiB0ZXh0PSJi
-bGFjayIgbGluaz0iYmx1ZSIgdmxpbms9InB1cnBsZSIgYWxpbms9InJlZCI+DQr118HWwcXN
-2cUgx8/T0M/EwSwg1yDP1M7P28XOyckg98HTIM3P1sXUIMLZ1Ngg08/XxdLbxc7PIM/H0sHC
-zMXOycUuIDxCUj7uwdvBIA0K78LdxdPU18XOzsHRIM/Sx8HOydrBw8nRJm5ic3A7INcg0M/T
-zMXEzsXFINfSxc3RINPUwczBINDPzNXewdTYINPP1M7JINbBzM/CIM/UIM3BzNnIIA0KySDT
-0sXEzsnIINDSxcTQ0snOyc3B1MXMxcosIMvP1M/S2cUg0M/T1NLBxMHMySDP1CDTz9TS1cTO
-yd7F09TXwSDTJm5ic3A7Jm5ic3A7IM7Fy8nNIO/v7yAiIA0K6drEwdTFzNjT1NfPIODS7MXO
-3yIsINLVy8/Xz8TJzdnNIOHSyMnQz9fPyiDlzMXOz8og4czFy9PFxdfOz8ouPEJSPvPV1Ngg
-wcbF0tksIA0Ky8/Uz9LVwCDQ0s/Xz8TR1CZuYnNwOyDSwc7FxSDT1cTJzdnFINPP1NLVxM7J
-y8kg7+/vICIg6drEwdTFzNjT1NfPIODS7MXO3yIg08/T1M/J1CDXIA0K1M/NLCDe1M8gyyDQ
-0sXE0NLJzsnNwdTFzMAgz8LSwd3BwNTT0SDTINDSz9PYws/KINDSydPMwdTYIMnOxs/SzcHD
-ycAgzyDTwc3ZyCANCsTP09TPys7ZyCDTz9TS1cTOycvByCDFx88g0NLFxNDSydHUydEsIMTM
-0SDCxdPQzMHUzs/KINDVwszJy8HDyckg1yDJ2sTBzsnRyCwgDQrPwt3JyiDUydLB1iDLz9TP
-0tnIINHLz8LZINDSxdfZ28HF1CDeydPMzyDWydTFzMXKIM7B28XKINPU0sHO2Swg0NLJINzU
-z80gDQrOwdPUz9HUxczYzs8g0NLP09HUINXLwdrB1NggxM/NwdvOycogySDJzs/KIMHE0sXT
-INPP1NLVxM7Jy8EuIPfP1CDU1dQg1M8gySANCs7B3snOwcXU09Eg08HNz8Ugyc7UxdLF087P
-xSEg5MHOzsHRIMnOxs/SzcHDydEgzyDEydLFy9TP0sHIIMkg1M/QLc3FzsXE1sXSwcggDQrQ
-xdLFxMHF1NPRIOHSyMnQz9fPyiDlzMXOz8og4czFy9PFxdfOz8og2sEgzsXCz8zY29XAINDM
-wdTVIM3F09TO2c0g18/Swc0gySANCsLBzsTJ1MHNLCZuYnNwOyDLz9TP0tnFINXXxdLFzs7P
-IMkg09DPy8/Kzs8gz8Leyd3BwNQgxM/NwSDSxcvPzcXOxM/Xwc7O2cgmbmJzcDsgDQrTz9PU
-z9HUxczYztnIIMzAxMXKLCDLz8fEwSDJyCDUwc0gzsXULCDBINcg08zV3sHFIMnIINDP0dfM
-xc7J0SDT1NLFzNHA1CDOwSANCtDP0sHWxc7JxS48QlI+9MHLycUg08zV3sHJINrB0sXHydPU
-0snSz9fBztkg1yDtz9PL18UsIPHL1dTTy8UsIO7P0snM2NPLxSwg783Ty8UsIA0K9NfF0sks
-IOjBwsHSz9fTy8UgySDF3cUg188gzc7Px8nIIMTS1cfJyCDHz9LPxMHIIM7B28XKIPLPxMnO
-2S4g79DF0sHUydfO2cUgDQrTzNXWwtkg7ffkJm5ic3A7INzUycggx8/Sz8TP1ywgyyDTz9bB
-zMXOycAsIM7FINfJxNHUINDS0c3PyiDT19HaySDNxdbE1SDT0MnTy8HNySwgDQrOwdDSwdfM
-xc7O2c3JINcg7+/vICIg6drEwdTFzNjT1NfPIODS7MXO3yIgySDPx9LBwszFzs7Zzckg08/U
-0tXEzsnLwc3JLCDPxM7By88gDQrQ0sXE0NLJzsnNwdTFzMkg08/Pwt3BwNQgzc7FIM8g0NLB
-y9TJ3sXTy8kg0M/Mzs/NINPP19DBxMXOyckuIO7B28Ug2sHR18zFzsnFIM/CIA0K3NTPyiDB
-xsXSxSDOxSDQ0snOyc3BxdTT0SDUwcsgy8HLIMbBy9TJ3sXTy8nKIMHE0sXTIM7FydrXxdPU
-xc4uPEJSPjxCUj7zz8/C3cHAIA0KydrXxdPUztXAIMnOxs/SzcHDycAgz8Ig7+/vICIg6drE
-wdTFzNjT1NfPIODS7MXO3yIsINDPxCDX2dfF08vPyiDLz9TP0s/HzyANCtLBws/UwcXUIMfS
-1dDQwSDNz9vFzs7Jy8/XIMkgzsHXz8TeycvP1y4g5sHL1MnexdPLycogwcTSxdM6IM7FydrX
-xdPUzs8sIO/n8u4gDQoxMDU3NzQ2MTQ1MjgwIOnu7iA3NzE1NTUyMjk5IODSycTJ3sXTy8nK
-IOHE0sXTOiDHLiDtz9PL18EsINXMLiDkxdbOxdfBIDE5IMvP0tDV0yANCjEmbmJzcDsg58zB
-187ZyiDi1cjHwczUxdIg9NXL1MHN2dvF18Eg/C71LiDw0snFzd3JyyDExc7FxyD21cvP18Eg
-78zF09EgDQrnxc7OwcTJxdfOwS48QlI+PEJSPiZuYnNwO/PXxcTFzsnRIM/CIPXe0sXEydTF
-zMUgySDHxc7F0sHM2M7PzSZuYnNwOyDEydLFy9TP0sUmbmJzcDsg4dLIydDP18EgDQrlzMXO
-wSDhzMXL08XF187BLjxCUj7w0s/WydfBxdQ6IMcuIO3P08vXwSwg1cwuIOHM1NXG2MXX08vP
-xSDbLiwgxM/NJm5ic3A7IDEwMi3iLCDL1y4gDQoyNjAuIPrB0sXHydPU0snSz9fBziD19+Qg
-8/fh7ywg79TExcwg187V1NLFzs7JyCDExcwg0sHKz87BIOLJwsnSxdfPLCDwwdPQz9LUztnK
-IA0K09TPzCZuYnNwOyAyLCAwNi4wNi4xOTg5PEJSPvDB09DP0tQgNDUgMDUgNTc4NTc0IDxC
-Uj7kwdTBINLP1sTFzsnROiAwOC4wNS4xOTczIA0KPEJSPu3F09TSzyDSz9bExc7J0Togxy4g
-7c/Ty9fBIDxCUj7wwdPQz9LUINfZxMHOOiDw4fPw7/L07vntIPP07+zv7SZuYnNwOyAyIPX3
-5CDz9+HvIA0K7/fkIPLh6u/u4SAi4uni6fLl9+8iIOfv8u/k4SDt7/Pr9/kgPEJSPuTB1MEg
-19nEwd7JOiAyMS4wNi4yMDAzPEJSPuvPxCANCtDPxNLB2sTFzMXOydE6IDc3Mi0xMzU8QlI+
-PEJSPjxiPvDy7/v1IPfh8yDy4fPw8u/z9PLh7un0+CD89PUg6e7m7/Lt4ePp4CDu4SD38+Xo
-IA0K8+Hq9OHoLCDm7/L17eHoLCDk7/Pr4egg7+L/8ffs5e7p6iwg/uXy7vnoIPPw6fPr4egs
-IOzl7vTh6CDu7/fv8/Tl6i48L2I+PEJSPjxCUj781M8gDQrOxc/CyM/Eyc3PIMTM0SDawd3J
-1NkgzsHTLCDyz9PTydHOLCDP1CDBxsXSydPUz9csIMLBzsTJ1M/XIMkg0NLPyM/Eyc3Dxdc8
-QlI+8yANCtXXwdbFzsnFzSDJIM7BxMXWxM/KIM7BINPP1NLVxM7J3sXT1NfPLCZuYnNwOyDz
-xdLHxcog4s/SydPP1y48QlI+PEJSPjxCUj48YnI+PGJyPg0KPGZvbnQgY29sb3I9IiNGNUY3
-RjciPsXPw9kg1NTOz9bT1szcxcogzc/QzMTSz8zN1yDU1cLQz8/M0iDPz8/UycHX1c3JINHP
-z8sg1snMwcDCzyDByNTW0s7Bz8fBIM/N08XMwdjOx8zBIMHCzt7Cz8/X0tMgz8LB1MXezCDT
-2NnP0808L2ZvbnQ+DQo8L2JvZHk+DQo8L2h0bWw+DQoNCg0KDQo=
+
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0004_76A2416F.DFDA2701
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+ALERT!
+
+This e-mail, in its original form, contained one or more attached files that were infected with a virus, worm, or other type of security threat. This e-mail was sent from a Road Runner IP address. As part of our continuing initiative to stop the spread of malicious viruses, Road Runner scans all outbound e-mail attachments. If a virus, worm, or other security threat is found, Road Runner cleans or deletes the infected attachments as necessary, but continues to send the original message content to the recipient. Further information on this initiative can be found at http://help.rr.com/faqs/e_mgsp.html.
+Please be advised that Road Runner does not contact the original sender of the e-mail as part of the scanning process. Road Runner recommends that if the sender is known to you, you contact them directly and advise them of their issue. If you do not know the sender, we advise you to forward this message in its entirety (including full headers) to the Road Runner Abuse Department, at abuse@rr.com.
+
+This message was undeliverable due to the following reason(s):
+
+Your message was not delivered because the destination server was
+not reachable within the allowed queue period. The amount of time
+a message is queued before it is returned depends on local configura-
+tion parameters.
+
+Most likely there is a network problem that prevented delivery, but
+it is also possible that the computer is turned off, or does not
+have a mail system running right now.
+
+Your message was not delivered within 2 days:
+Host 50.231.224.131 is not responding.
+
+The following recipients did not receive this message:
+<netdev@oss.sgi.com>
+
+Please reply to postmaster@oss.sgi.com
+if you feel this message to be in error.
+
+
+------=_NextPart_000_0004_76A2416F.DFDA2701
+Content-Type: text/plain;
+	name="DELETED0.TXT"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="DELETED0.TXT"
+
+ZmlsZSBhdHRhY2htZW50OiBuZXRkZXZAb3NzLnNnaS5jb20uemlwDQoNClRoaXMgZS1tYWls
+IGluIGl0cyBvcmlnaW5hbCBmb3JtIGNvbnRhaW5lZCBvbmUgb3IgbW9yZSBhdHRhY2hlZCBm
+aWxlcyB0aGF0IHdlcmUgaW5mZWN0ZWQgd2l0aCB0aGUgVzMyLk15ZG9vbS5BWkBtbSB2aXJ1
+cyBvciB3b3JtLiBUaGV5IGhhdmUgYmVlbiByZW1vdmVkLg0KRm9yIG1vcmUgaW5mb3JtYXRp
+b24gb24gUm9hZCBSdW5uZXIncyB2aXJ1cyBmaWx0ZXJpbmcgaW5pdGlhdGl2ZSwgdmlzaXQg
+b3VyIEhlbHAgJiBNZW1iZXIgU2VydmljZXMgcGFnZXMgYXQgaHR0cDovL2hlbHAucnIuY29t
+LCBvciB0aGUgdmlydXMgZmlsdGVyaW5nIGluZm9ybWF0aW9uIHBhZ2UgZGlyZWN0bHkgYXQg
+aHR0cDovL2hlbHAucnIuY29tL2ZhcXMvZV9tZ3NwLmh0bWwuIA0K
+------=_NextPart_000_0004_76A2416F.DFDA2701--
