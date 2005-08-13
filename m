@@ -1,38 +1,40 @@
-From: cumvxaqabhxujam@msn.com
-Subject: =?big5?B?q0/D0rF6sXGlvKijuUyquqSjpc60oblxwmm/Tw==?=
-Date: Sun, 14 Aug 2005 01:42:26 +0800
-Message-ID: <20050814014226.BE4CD1594013@eumvxaqabhxujam>
+From: "개인회생2" <coco@coco757.servvu4me.com>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C4=AB=B5=E5=BA=FB,=C0=BA=C7=E0=B1=C7=B4=EB=C3=E2,=B4=E3=BA=B8/=BA=B8=C1=F5..=B8=F0=B5=E7?=
+	=?ISO-8859-1?Q?=BA=FB=20=C7=D1=B9=F8=BF=A1=20=C3=BB=BB=EA!?=
+Date: Sat, 13 Aug 2005 18:40:24 +0100
+Message-ID: <CIUWXZLIOPLTUNSEPIQQCWY@hotmail.com>
+Reply-To: "\"개인회생8\" <\"Loan\"" <mailok01@daum.net>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-    boundary="----=_NextPart_001_0018_01C39816.2C871AA0"
+	boundary="--507135186139459"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
-
-------=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/plain;
-    charset="big5"
-Content-Transfer-Encoding: base64
-
-
-
-------=_NextPart_001_0018_01C39816.2C871AA0
+----507135186139459
 Content-Type: text/html;
-    charset="big5"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 
-PGh0bWw+DQoNCjxoZWFkPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1MYW5ndWFnZSIgY29u
-dGVudD0iemgtdHciPg0KPG1ldGEgbmFtZT0iR0VORVJBVE9SIiBjb250ZW50PSJNaWNyb3NvZnQg
-RnJvbnRQYWdlIDUuMCI+DQo8bWV0YSBuYW1lPSJQcm9nSWQiIGNvbnRlbnQ9IkZyb250UGFnZS5F
-ZGl0b3IuRG9jdW1lbnQiPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1UeXBlIiBjb250ZW50
-PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9YmlnNSI+DQo8dGl0bGU+q0/D0rF6sXGlvKijuUyquqSjpc60
-oblxwmm/TzwvdGl0bGU+DQo8L2hlYWQ+DQoNCjxib2R5Pg0KDQo8cD48Yj6rT8PSsXqxcaW8qKO5
-TKq6PGZvbnQgY29sb3I9IiNGRjAwMDAiPqSjpc60oblxPC9mb250PsJpv088L2I+PC9wPg0KPHA+
-PGI+r3WsT6dRrmAgLSZndDsgPGEgdGFyZ2V0PSJfYmxhbmsiIGhyZWY9Imh0dHA6Ly85OC50by9j
-aGljaHUiPrjUstO306T5PC9hPjwvYj48L3A+DQoNCjwvYm9keT4NCg0KPC9odG1sPg0K
+<html>
+<body>
+<table>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
+  </tr>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
-------=_NextPart_001_0018_01C39816.2C871AA0--
+----507135186139459--
