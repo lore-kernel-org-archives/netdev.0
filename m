@@ -1,18 +1,18 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH] add new iptables ipt_connbytes match
-Date: Sat, 13 Aug 2005 13:58:32 -0700 (PDT)
-Message-ID: <20050813.135832.115928361.davem@davemloft.net>
-References: <42FC0F01.5090802@trash.net>
-	<20050812115622.GD16325@rama.de.gnumonks.org>
+Date: Sat, 13 Aug 2005 13:59:07 -0700 (PDT)
+Message-ID: <20050813.135907.48509432.davem@davemloft.net>
+References: <20050812115622.GD16325@rama.de.gnumonks.org>
 	<42FD4AC6.2020506@trash.net>
+	<20050813145157.GB4551@rama.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	kaber@trash.net
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: kaber@trash.net
-In-Reply-To: <42FD4AC6.2020506@trash.net>
+To: laforge@netfilter.org
+In-Reply-To: <20050813145157.GB4551@rama.de.gnumonks.org>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -24,14 +24,16 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] add new iptables ipt_connbytes match
-Date: Sat, 13 Aug 2005 03:20:06 +0200
+From: Harald Welte <laforge@netfilter.org>
+Date: Sat, 13 Aug 2005 16:51:57 +0200
 
-> Harald Welte wrote:
-> > Just send two incremental patches to Dave.
+> Ok,  just in case Dave was waiting for my comments (which are usually
+> not required since Patricks patches tend to have a higher quality than
+> mine):
 > 
-> Here they are. The first patch fixes the div64_64 function, the second
-> one renames some constants.
+> ACK-ed-by: Harald Welte <laforge@netfilter.org>
 
-Both applied, thanks Patrick.
+I like to see ACKs, because it shows explicit agreement amongst
+the various developers involved.
+
+Thanks.
