@@ -1,145 +1,69 @@
-From: "בית השקעות בנדל"ן " <loom@mailblocks.com>"@oss.sgi.com
-Subject: =?ISO-8859-1?Q?"=F6.=F4=E9=F9=EE=EF=20"=E4=F9=F7=F2=E4?=
-	=?ISO-8859-1?Q?=EE=E3=E4=E9=EE=E4=20=E1=F0=EB=F1=20=EE=F0=E9=E1=A0?=
-Date: Fri, 12 Aug 2005 20:04:19 -0500
-Message-ID: <083u817k759$lr2lgz8ny591$964l642rtl06@N64793>
+From: =?koi8-r?B?82XSx2XKIOJvcMnTb9c=?= <fnrxnkr@nag.com>
+Subject: =?koi8-r?B?SyDu4U0gQyD3QU3pIPBQ6fvsQSDi7+z4+0HxIOLl5OEgISBvzw==?=
+Date: Sat, 13 Aug 2005 04:06:59 +0400
+Message-ID: <200508130009.j7D097HA008127@oss.sgi.com>
+Reply-To: fnrxnkr@nag.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="--6208417730hvfc5561"
+Content-Type: text/html; charset="koi8-r"
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <Netdev@oss.sgi.com>
+To: icdrvetqra <icdrvetqra@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----6208417730hvfc5561
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-<!-- saved from url=3D(0022)http://internet.e-mail -->
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<title>ONLINE MAGAZINE</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-8859=
--1">
-<style>
-<!--
- p.MsoNormal
-	{mso-style-parent:"";
-	margin-bottom:.0001pt;
-	text-align:right;
-
-	direction:rtl;
-	unicode-bidi:embed;
-	font-size:12.0pt;
-	font-family:"Times New Roman";
-	margin-left:0cm; margin-right:0cm; margin-top:0cm}
--->
-</style>
-</head>
-
-<body>
-<div align=3D"center">
-	<br>
-	<img src=3D"http://www.delek.info/magazine/toronto/toronto3.jpg" border=3D=
-"0" usemap=3D"#Map" width=3D"800" height=3D"600">
-  <map name=3D"Map">
-    <area shape=3D"rect" coords=3D"6, 728, 28, 896" href=3D"http://miked.c=
-o.il/">
-    <area shape=3D"rect" coords=3D"307, 690, 376, 712" href=3D"http://www.=
-arbel-ltd.co.il/">
-    <area shape=3D"rect" coords=3D"450, 821, 502, 838" href=3D"http://zipi=
-netohost.com/tgova.php">
-    <area shape=3D"rect" coords=3D"313, 746, 377, 765" href=3D"http://www.=
-online-magazine.org/magazine/arbel/re.htm">
-    <area shape=3D"rect" coords=3D"335, 878, 402, 894" href=3D"http://www.=
-online-magazine.org/">
-      <area shape=3D"rect" coords=3D"6, 728, 28, 896" href=3D"http://miked=
-co.il/">
-    <area shape=3D"rect" coords=3D"307, 690, 376, 712" href=3D"http://www.=
-arbel-ltd.co.il/">
-    <area shape=3D"rect" coords=3D"450, 821, 502, 838" href=3D"http://zipi=
-netohost.com/tgova.php">
-    <area shape=3D"rect" coords=3D"313, 746, 377, 765" href=3D"http://www.=
-online-magazine.org/magazine/arbel/re.htm">
-    <area shape=3D"rect" coords=3D"335, 878, 402, 894" href=3D"http://www.=
-online-magazine.org/">
-  
-      <area shape=3D"rect" coords=3D"6, 728, 28, 896" href=3D"http://miked=
-co.il/">
-    <area shape=3D"rect" coords=3D"307, 690, 376, 712" href=3D"http://www.=
-arbel-ltd.co.il/">
-    <area shape=3D"rect" coords=3D"450, 821, 502, 838" href=3D"http://zipi=
-netohost.com/tgova.php">
-    <area shape=3D"rect" coords=3D"313, 746, 377, 765" href=3D"http://www.=
-online-magazine.org/magazine/arbel/re.htm">
-    <area shape=3D"rect" coords=3D"335, 878, 402, 894" href=3D"http://www.=
-online-magazine.org/">
-      <area shape=3D"rect" coords=3D"6, 728, 28, 896" href=3D"http://miked=
-co.il/">
-    <area shape=3D"rect" coords=3D"307, 690, 376, 712" href=3D"http://www.=
-arbel-ltd.co.il/">
-    <area shape=3D"rect" coords=3D"450, 821, 502, 838" href=3D"http://zipi=
-netohost.com/tgova.php">
-    <area shape=3D"rect" coords=3D"313, 746, 377, 765" href=3D"http://www.=
-online-magazine.org/magazine/arbel/re.htm">
-    <area shape=3D"rect" coords=3D"335, 878, 402, 894" href=3D"http://www.=
-online-magazine.org/">
-  
-  </map>  
-
-      <area shape=3D"rect" coords=3D"510, 102, 623, 176" href=3D"http://ww=
-w.online-magazine.org/magazine/shlomi/index3.htm">
-
-</div>
-<table width=3D"534" align=3D"center" cellPadding=3D"0"  border=3D"1" id=3D=
-"table1">
-			<tr>
-				<td style=3D"padding: 0.75pt">
-			<p class=3D"MsoNormal" align=3D"center" dir=3D"RTL" style=3D"text-align=
-:center">
-			<span lang=3D"HE" style=3D"font-size:13.5pt;font-family:Arial">
-			<a style=3D"color: blue; text-decoration: underline; text-underline: si=
-ngle" href=3D"http://www.delek.info/magazine/toronto/re.htm">&nbsp;&#1500;=
-&#1497;&#1510;&#1497;&#1512;&#1514; 
-			&#1511;&#1513;&#1512; &#1493;&#1500;&#1514;&#1497;&#1488;&#1493;&#1501;=
- &#1508;&#1490;&#1497;&#1513;&#1492; &#1500;&#1495;&#1509; &#1499;&#1488;&=
-#1503;</a></span><font face=3D"Arial"><span lang=3D"HE">&nbsp;</span></fon=
-t></td>
-			</tr>
-			<tr>
-				<td style=3D"padding: 0.75pt">
-				<p class=3D"MsoNormal" dir=3D"rtl" style=3D"text-align: center" align=3D=
-"center">
-			<b><span lang=3D"HE" style=3D"font-family:Arial"><font size=3D"3">&#150=
-8;&#1512;&#1505;&#1493;&#1501; &#1494;&#1492; &#1504;&#1513;&#1500;&#1495;=
- &#1488;&#1500;&#1497;&#1498; 
-			&#1489;&#1488;&#1493;&#1508;&#1503; &#1495;&#1491; &#1508;&#1506;&#1502=
-;&#1497;. &#1488;&#1504;&#1493; &#1502;&#1514;&#1504;&#1510;&#1500;&#1497;=
-&#1501; &#1488;&#1501; &#1492;&#1508;&#1512;&#1506;&#1504;&#1493; &#1488;&=
-#1504;&#1493; &#1504;&#1499;&#1489;&#1491; &#1499;&#1500; &#1489;&#1511;&#=
-1513;&#1492; &#1500;<a style=3D"color: blue; text-decoration: underline; t=
-ext-underline: single" href=3D"http://zipi.netohost.com/tgova.php">&#1492;=
-&#1505;&#1512;&#1492;</a> 
-			&#1502;&#1512;&#1513;&#1497;&#1502;&#1514; &#1492;&#1514;&#1508;&#1493;=
-&#1510;&#1492;. </font> </span></b></td>
-			</tr>
-			
-	  </table>
-  <p align=3D"center" dir=3D"rtl"><font face=3D"Arial"><b>&#1492;&#1493;&#=
-1508;&#1511; &#1506;&#1500; &#1497;&#1491;&#1497;
-	<a href=3D"http://www.delek.info">&#1513;&#1497;&#1493;&#1493;&#1511;<spa=
-n lang=3D"en-us"> Online</span>
-	</a></b></font></p>
-  </body>
-</html>
-
-
-----6208417730hvfc5561
-Content-Type: text/plain;
-Content-Transfer-Encoding: quoted-printable
-
-
-----6208417730hvfc5561--
+PGh0bWw+DQo8aGVhZD4NCjwvaGVhZD4NCjxib2R5IGJnY29sb3I9IndoaXRlIiB0ZXh0PSJi
+bGFjayIgbGluaz0iYmx1ZSIgdmxpbms9InB1cnBsZSIgYWxpbms9InJlZCI+DQr118HWwcXN
+2cUgx8/T0M/EwSwg1yDP1M7P28XOyckg98HTIM3P1sXUIMLZ1Ngg08/XxdLbxc7PIM/H0sHC
+zMXOycUuIDxCUj7uwdvBIA0K78LdxdPU18XOzsHRIM/Sx8HOydrBw8nRJm5ic3A7INcg0M/T
+zMXEzsXFINfSxc3RINPUwczBINDPzNXewdTYINPP1M7JINbBzM/CIM/UIM3BzNnIIA0KySDT
+0sXEzsnIINDSxcTQ0snOyc3B1MXMxcosIMvP1M/S2cUg0M/T1NLBxMHMySDP1CDTz9TS1cTO
+yd7F09TXwSDTJm5ic3A7Jm5ic3A7IM7Fy8nNIO/v7yAiIA0K6drEwdTFzNjT1NfPIODS7MXO
+3yIsINLVy8/Xz8TJzdnNIOHSyMnQz9fPyiDlzMXOz8og4czFy9PFxdfOz8ouPEJSPvPV1Ngg
+wcbF0tksIA0Ky8/Uz9LVwCDQ0s/Xz8TR1CZuYnNwOyDSwc7FxSDT1cTJzdnFINPP1NLVxM7J
+y8kg7+/vICIg6drEwdTFzNjT1NfPIODS7MXO3yIg08/T1M/J1CDXIA0K1M/NLCDe1M8gyyDQ
+0sXE0NLJzsnNwdTFzMAgz8LSwd3BwNTT0SDTINDSz9PYws/KINDSydPMwdTYIMnOxs/SzcHD
+ycAgzyDTwc3ZyCANCsTP09TPys7ZyCDTz9TS1cTOycvByCDFx88g0NLFxNDSydHUydEsIMTM
+0SDCxdPQzMHUzs/KINDVwszJy8HDyckg1yDJ2sTBzsnRyCwgDQrPwt3JyiDUydLB1iDLz9TP
+0tnIINHLz8LZINDSxdfZ28HF1CDeydPMzyDWydTFzMXKIM7B28XKINPU0sHO2Swg0NLJINzU
+z80gDQrOwdPUz9HUxczYzs8g0NLP09HUINXLwdrB1NggxM/NwdvOycogySDJzs/KIMHE0sXT
+INPP1NLVxM7Jy8EuIPfP1CDU1dQg1M8gySANCs7B3snOwcXU09Eg08HNz8Ugyc7UxdLF087P
+xSEg5MHOzsHRIMnOxs/SzcHDydEgzyDEydLFy9TP0sHIIMkg1M/QLc3FzsXE1sXSwcggDQrQ
+xdLFxMHF1NPRIOHSyMnQz9fPyiDlzMXOz8og4czFy9PFxdfOz8og2sEgzsXCz8zY29XAINDM
+wdTVIM3F09TO2c0g18/Swc0gySANCsLBzsTJ1MHNLCZuYnNwOyDLz9TP0tnFINXXxdLFzs7P
+IMkg09DPy8/Kzs8gz8Leyd3BwNQgxM/NwSDSxcvPzcXOxM/Xwc7O2cgmbmJzcDsgDQrTz9PU
+z9HUxczYztnIIMzAxMXKLCDLz8fEwSDJyCDUwc0gzsXULCDBINcg08zV3sHFIMnIINDP0dfM
+xc7J0SDT1NLFzNHA1CDOwSANCtDP0sHWxc7JxS48QlI+9MHLycUg08zV3sHJINrB0sXHydPU
+0snSz9fBztkg1yDtz9PL18UsIPHL1dTTy8UsIO7P0snM2NPLxSwg783Ty8UsIA0K9NfF0sks
+IOjBwsHSz9fTy8UgySDF3cUg188gzc7Px8nIIMTS1cfJyCDHz9LPxMHIIM7B28XKIPLPxMnO
+2S4g79DF0sHUydfO2cUgDQrTzNXWwtkg7ffkJm5ic3A7INzUycggx8/Sz8TP1ywgyyDTz9bB
+zMXOycAsIM7FINfJxNHUINDS0c3PyiDT19HaySDNxdbE1SDT0MnTy8HNySwgDQrOwdDSwdfM
+xc7O2c3JINcg7+/vICIg6drEwdTFzNjT1NfPIODS7MXO3yIgySDPx9LBwszFzs7Zzckg08/U
+0tXEzsnLwc3JLCDPxM7By88gDQrQ0sXE0NLJzsnNwdTFzMkg08/Pwt3BwNQgzc7FIM8g0NLB
+y9TJ3sXTy8kg0M/Mzs/NINPP19DBxMXOyckuIO7B28Ug2sHR18zFzsnFIM/CIA0K3NTPyiDB
+xsXSxSDOxSDQ0snOyc3BxdTT0SDUwcsgy8HLIMbBy9TJ3sXTy8nKIMHE0sXTIM7FydrXxdPU
+xc4uPEJSPjxCUj7zz8/C3cHAIA0KydrXxdPUztXAIMnOxs/SzcHDycAgz8Ig7+/vICIg6drE
+wdTFzNjT1NfPIODS7MXO3yIsINDPxCDX2dfF08vPyiDLz9TP0s/HzyANCtLBws/UwcXUIMfS
+1dDQwSDNz9vFzs7Jy8/XIMkgzsHXz8TeycvP1y4g5sHL1MnexdPLycogwcTSxdM6IM7FydrX
+xdPUzs8sIO/n8u4gDQoxMDU3NzQ2MTQ1MjgwIOnu7iA3NzE1NTUyMjk5IODSycTJ3sXTy8nK
+IOHE0sXTOiDHLiDtz9PL18EsINXMLiDkxdbOxdfBIDE5IMvP0tDV0yANCjEmbmJzcDsg58zB
+187ZyiDi1cjHwczUxdIg9NXL1MHN2dvF18Eg/C71LiDw0snFzd3JyyDExc7FxyD21cvP18Eg
+78zF09EgDQrnxc7OwcTJxdfOwS48QlI+PEJSPiZuYnNwO/PXxcTFzsnRIM/CIPXe0sXEydTF
+zMUgySDHxc7F0sHM2M7PzSZuYnNwOyDEydLFy9TP0sUmbmJzcDsg4dLIydDP18EgDQrlzMXO
+wSDhzMXL08XF187BLjxCUj7w0s/WydfBxdQ6IMcuIO3P08vXwSwg1cwuIOHM1NXG2MXX08vP
+xSDbLiwgxM/NJm5ic3A7IDEwMi3iLCDL1y4gDQoyNjAuIPrB0sXHydPU0snSz9fBziD19+Qg
+8/fh7ywg79TExcwg187V1NLFzs7JyCDExcwg0sHKz87BIOLJwsnSxdfPLCDwwdPQz9LUztnK
+IA0K09TPzCZuYnNwOyAyLCAwNi4wNi4xOTg5PEJSPvDB09DP0tQgNDUgMDUgNTc4NTc0IDxC
+Uj7kwdTBINLP1sTFzsnROiAwOC4wNS4xOTczIA0KPEJSPu3F09TSzyDSz9bExc7J0Togxy4g
+7c/Ty9fBIDxCUj7wwdPQz9LUINfZxMHOOiDw4fPw7/L07vntIPP07+zv7SZuYnNwOyAyIPX3
+5CDz9+HvIA0K7/fkIPLh6u/u4SAi4uni6fLl9+8iIOfv8u/k4SDt7/Pr9/kgPEJSPuTB1MEg
+19nEwd7JOiAyMS4wNi4yMDAzPEJSPuvPxCANCtDPxNLB2sTFzMXOydE6IDc3Mi0xMzU8QlI+
+PEJSPjxiPvDy7/v1IPfh8yDy4fPw8u/z9PLh7un0+CD89PUg6e7m7/Lt4ePp4CDu4SD38+Xo
+IA0K8+Hq9OHoLCDm7/L17eHoLCDk7/Pr4egg7+L/8ffs5e7p6iwg/uXy7vnoIPPw6fPr4egs
+IOzl7vTh6CDu7/fv8/Tl6i48L2I+PEJSPjxCUj781M8gDQrOxc/CyM/Eyc3PIMTM0SDawd3J
+1NkgzsHTLCDyz9PTydHOLCDP1CDBxsXSydPUz9csIMLBzsTJ1M/XIMkg0NLPyM/Eyc3Dxdc8
+QlI+8yANCtXXwdbFzsnFzSDJIM7BxMXWxM/KIM7BINPP1NLVxM7J3sXT1NfPLCZuYnNwOyDz
+xdLHxcog4s/SydPP1y48QlI+PEJSPjxCUj48YnI+PGJyPg0KPGZvbnQgY29sb3I9IiNGNUY3
+RjciPsXPw9kg1NTOz9bT1szcxcogzc/QzMTSz8zN1yDU1cLQz8/M0iDPz8/UycHX1c3JINHP
+z8sg1snMwcDCzyDByNTW0s7Bz8fBIM/N08XMwdjOx8zBIMHCzt7Cz8/X0tMgz8LB1MXezCDT
+2NnP0808L2ZvbnQ+DQo8L2JvZHk+DQo8L2h0bWw+DQoNCg0KDQo=
