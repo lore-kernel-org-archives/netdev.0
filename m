@@ -1,49 +1,40 @@
-From: "Kelsey Christie" <ebsehchsati@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A2=C5=B9=AB=B7=E1=BF=C2=B6=F3=C0=CE?=
-	=?ISO-8859-1?Q?=C7=D0=BB=E7=C7=D0=C0=A7=20=C0=DA=B7=E1?=
-	=?ISO-8859-1?Q?=B9=DE=B1=E2...!!b6?=
-Date: Fri, 12 Aug 2005 23:23:48 -0600
-Message-ID: <TCLBBEYBZDRXQTUISDDB@yahoo.com>
-Reply-To: "Kelsey Christie" <ddivrpylwlbjt@yahoo.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--"
+From: "Charlotte Negron" <egelhoff@yebox.com>
+Subject: Need a low mortage rate?
+Date: Sat, 13 Aug 2005 11:31:27 +0500
+Message-ID: <111.12e558d5.2a9VKB44@jij.com>
+Cc: murphy@oss.sgi.com, nathans@oss.sgi.com, nce@oss.sgi.com,
+        ner-devfs@oss.sgi.com, ner-linux-xfs@oss.sgi.com,
+        ner-netdev@oss.sgi.com, ner-ogl-sample-cvs@oss.sgi.com,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: mkp@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Hello,
 
-  <table style=3D"border-width:1; border-color:rgb(153,153,153); border-st=
-yle:solid;" cellpadding=3D"0" cellspacing=3D"0" width=3D"600" align=3D"cen=
-ter">
-    <tr bgcolor=3D"#FFFFFF"> 
-      <td><a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/hak/hak02=
-php?partner_id=3Dzalman"><IMG 
-src=3D"http://%77%77%77%2eg%41%4c%4c%65%72yy%45%48%2e%63%6f%6d/bbs/up/hak.=
-jpg" border=3D"0"></a><br> <A 
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126_02.php?partner_id=3Dz=
-alman"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126.gif" border=3D0></A></=
-td>
-    </tr>
-    <tr> 
-      <td height=3D"118" bgcolor=3D"#0099FF"> 
-        <p align=3D"center"><font color=3D"white"> </font><br><a href=3D"h=
-ttp://www.gubu2.cf.st"><IMG alt=3Dremail.gif 
-src=3D"http://%77%77%77%2e%69%6d%44%77%61%70m%2ecom/user/ftp/default/bbs/1=
-/remail.gif" 
-border=3D0></a><br></p>
-      </td>
-    </tr>
-  </table><br>
-=A1=D8 =C0=DA=BC=BC=C7=D1 =BE=C8=B3=BB=B4=C2 =BE=C6=B7=A1 [=C0=CC=B9=CC=C1=
-=F6=B8=A6 =BA=B8=BF=A9=C1=DC]=C0=BB =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4! =A1=D8=
+ We tried contacting you awhile ago about your low interest morta(ge rate.
+
+ You have been selected for our lowest rate in years...
+
+ You could get over $420,000 for as little as $400 a month!
+
+ Ba(d credit, Bank*ruptcy? Doesn't matter, low rates are fixed no matter what!
+
  
-=A1=E5 =A1=E5 =A1=E5 =A1=E5
+ To get a free, no obli,gation consultation click below:
 
-------
+ http://www.nxshrg.com/i/LzMvaW5kZXgvYXJuLzdhOWoyaTQ0ZGFn
+
+
+
+ Best Regards,
+
+ Daisy Hurd
+ 
+ to be remov(ed:	http://www.nxshrg.com
+
+ this process takes one week, so please be patient. we do our 
+ best to take your email/s off but you have to fill out a rem/ove
+ or else you will continue to recieve email/s.
