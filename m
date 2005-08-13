@@ -1,37 +1,58 @@
-From: "카드대납100%" <byrmw@lowloan.oicp.net>
-Subject: =?ISO-8859-1?Q?=C4=AB=B5=E5=C0=DA=B1=DD=20=B4=E7=C0=CF=B4=EB=C3=E2!!?=
-	=?ISO-8859-1?Q?=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA=20=B4=A9=B1=B8=B3=AA?=
-	=?ISO-8859-1?Q?=C3=D6=C0=FA=B1=DD=B8=AE?=
-	=?ISO-8859-1?Q?=B4=E7=C0=CF=B4=EB=C3=E2=C0=BB?=
-	=?ISO-8859-1?Q?=C1=EF=BD=C3=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9.?=
-Date: Sat, 13 Aug 2005 00:20:09 -0100
-Message-ID: <VYKYJMATJEZSEFNEIINGP@yahoo.com>
-Reply-To: "카드장기대출" <byrmw@lowloan.oicp.net>
+From: "Odis Baxter" <a72gzkd@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=B4=D9=BD=C3=20=C0=CF=BE=EE=20=B3=AA=BC=BC=BF=E4.?=
+	=?ISO-8859-1?Q?=B6=C7=20=C7=D1=B9=F8=C0=C7=20=B1=E2=C8=B8=B8=A6?=
+	=?ISO-8859-1?Q?=B5=E5=B8=AE=B0=DA=BD=C0=B4=CF=B4=D9.?= hca
+Date: Fri, 12 Aug 2005 22:47:54 -0300
+Message-ID: <epyt63f9c6$5y6f2c22q4lmh1d5w$60@w7z.tzh.g8nv75>
+Reply-To: "Odis Baxter" <a72gzkd@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--0269846491972738"
+	boundary="B_F_..3A__5"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----0269846491972738
-Content-Type: text/html;
-Content-Transfer-Encoding: base64
 
-PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT5VbnRpdGxlZCBEb2N1bWVudDwvdGl0bGU+DQo8bWV0
-YSBodHRwLWVxdWl2PSJDb250ZW50LVR5cGUiIGNvbnRlbnQ9InRleHQvaHRtbDsgY2hhcnNl
-dD1ldWMta3IiPg0KPC9oZWFkPg0KPGJvZHkgbGVmdG1hcmdpbj0iMCIgdG9wbWFyZ2luPSIw
-Ij4NCjxhIGhyZWY9Imh0dHA6Ly93d3cubmFpY3JlZGl0LmNvLmtyL2NhcmQuYXNwP3BhcnRu
-ZXI9YXBwbHkiIHRhcmdldD0iYmxhbmsiPjxpbWcgc3JjPSJodHRwOi8vZWFzeWxvYW4uNjhh
-Yi5jb20vYzYuanBnIiBib3JkZXI9IjAiPjxicj4NCjxmb250IHNpemU9MyBjb2xvcj1ibHVl
-PqjnIMSrteW067OzL8SrteW/rMO8L8SrteW068PiIMf2sd28rbrxvbogMTC60MDHMSCx3biu
-ISE8YnI+IKjoIL3Dwd/Ausfguri02SDA+rfFx9Egsd24rrfOIMDlseLH0rrOtOvD4rW1ILCh
-tMnH1bTPtNkuPGJyPqjpILG5s7vD1sD6IMSrteWx3biuIMiuvce6uMDlISEgwM7FzbPdIL3F
-w7u8rSDA27y6uLjAuLfOILytt/nB2LrxILOhITxicj6o6iCz67z3wNovuavB98DaL8D8vvfB
-1rrOILSpsbi287W1ILmrvK23+SC058DPMTAwJcDUsd0hPGJyPg0KPGJyPjxiPqLPIMSrteW0
-68PiIDEwMCUgtOfAzyC9wsDOILnXIMDUsd0tLS1bvcXDu8fPseJdPC9iPg0KPGJyPjxicj48
-YnI+PC9mb250PjwvYT4NCjwvYm9keT4NCjwvaHRtbD4=
+--B_F_..3A__5
+Content-Type: text/plain;
+Content-Transfer-Encoding: quoted-printable
 
-----0269846491972738--
+<TABLE WIDTH=3D700 BORDER=3D0 align=3Dcenter CELLPADDING=3D0 CELLSPACING=3D=
+0>
+<TR><TD><IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/f=
+orm_img_01.gif></TD></TR>
+<TR><TD><IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/f=
+orm_img_02.gif></TD></TR>
+<TR><TD><a
+href=3Dhttp://%6ao%730216.c%61%66e24.com/or002_01.php?partner=3D=
+root target=3D_blank>
+<IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/form_img_=
+03.gif border=3D0></a></TD></TR>
+<TR><TD><IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/f=
+orm_img_04.gif></TD></TR>
+<TR><TD><a
+href=3Dhttp://%6ao%730216.c%61%66e24.com/or002_02.php?partner=3D=
+root target=3D_blank>
+<IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/form_img_=
+05.gif border=3D0></a></TD></TR>
+<TR><TD><IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/f=
+orm_img_06.gif></TD></TR>
+<TR><TD><a href=3Dhttp://%6ao%730216.c%61%66e24.com/partner/RejectMail.php=
+ target=3D_blank>
+<IMG SRC=3Dhttp://%6ao%730216.c%61%66e24.com/form_img/002/images/form_img_=
+07.gif border=3D0></a></TD>
+</TR></TABLE>
+
+xuyl ua p
+dfc nom rupf
+w
+ jrervnh
+sj zja
+ie kz
+
+dy k
+ duvkuqnow vqzsvfvs
+
+--B_F_..3A__5--
