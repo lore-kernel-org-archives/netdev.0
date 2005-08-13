@@ -1,44 +1,42 @@
-From: "Shala" <Shala@00.com>
-Subject: =?GB2312?B?zqrQxLCutcTL+y/L/b2o0LTV5ryv?=
-Date: Sun, 14 Aug 2005 04:58:19 +0800
-Message-ID: <200508132100.j7DL0VHA000645@oss.sgi.com>
-Reply-To: Shala@oss.sgi.com
-Content-Type: text/html;charset="GB2312"
-Content-Transfer-Encoding: 8bit
+From: "\"개인회생5\" <iysemggbpb"<iysedmggbpb@sediya.com>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C0=CC=C1=A6?=
+	=?ISO-8859-1?Q?=BE=EE=B5=D2=BF=A1=BC=AD=20=B1=D7=B8=B8?=
+	=?ISO-8859-1?Q?=B3=AA=BF=C0=BC=BC=BF=A9.!!?=
+	=?ISO-8859-1?Q?=B5=B5=BF=CD=B5=E5=B8=AE=B0=DA=BD=C0=B4=CF=B4=D9.!!?=
+Date: Sat, 13 Aug 2005 13:56:20 -0700
+Message-ID: <HPLTLYLNLZDXNUBGRWFBDUQ@yahoo.com>
+Reply-To: "\"개인회생2\" <ypnucj"<g_xnzcbw_gk-o@mzgjyvhntbykz.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="--05271910455652555"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<title>Time99</title>
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<style type="text/css">
-<!--
-body {
-	margin-left: 0px;
-	margin-top: 0px;
-	margin-right: 0px;
-	margin-bottom: 0px;
-}
--->
-</style></head>
+----05271910455652555
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-<body bgcolor="#FF6600">
-<table width="62%"  border="0" cellspacing="0" cellpadding="0">
+<html>
+<body>
+<table>
   <tr>
-    <td>
-    <p align="center"><a href="http://www.time99.com">
-    <img src="http://ad.time99.com/Images/050621.jpg" width="640" height="480" border="0" align="right"></a></td>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
   </tr>
   <tr>
-    <td><div align="center">　<img src="http://www.119mp3.com/counter/count3.php" width="0" height="0"></div></td>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
   </tr>
 </table>
-<div align="left"></div>
 </body>
 </html>
+
+----05271910455652555--
