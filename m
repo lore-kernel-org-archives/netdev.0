@@ -1,35 +1,54 @@
-From: "Norris Maher" <qex9mgmpa@korea.com>
-Subject: =?ISO-8859-1?Q?=C0=D7=B1=DB=B7=A3=B5=E5?=
-	=?ISO-8859-1?Q?=C6=AE=B7=B9=C0=CC=B4=D7=BA=B9=2016800=BF=F8!?=
-Date: Sun, 14 Aug 2005 05:04:12 +0600
-Message-ID: <n2c06664o79f$n5t58$-m6u$9@unct.8w.4.2whl>
-Reply-To: "Norris Maher" <qex9mgmpa@korea.com>
+From: "신용1" <yufgjfghjfdu@nkjvhfghfjhtfdd.org.sgi.com>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C4=AB=B5=E5=BA=FB,=C0=BA=C7=E0=B1=C7=B4=EB=C3=E2,=B4=E3=BA=B8/=BA=B8=C1=F5..=B8=F0=B5=E7?=
+	=?ISO-8859-1?Q?=BA=FB=20=C7=D1=B9=F8=BF=A1=20=C3=BB=BB=EA!?=
+Date: Sun, 14 Aug 2005 02:19:30 +0300
+Message-ID: <EWDSATPYSUGLROIUUCGREFEC@hotmail.com>
+Reply-To: "\"신용9\" <\"Loan\"" <mailok01@daum.net>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="4._D2FB0D6_5"
+	boundary="--49011134906329514"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---4._D2FB0D6_5
+----49011134906329514
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<div align=3D"center">
-<A HREF=3D"http://www.makdrim.com/md/training/training.php?pcode=3Daigo123=
-" target=3D"_blank" onfocus=3D"this.blur()">
-<IMG SRC=3D"http://www.makdrim.com/md/training/images/mail_02.gif"
-BORDER=3D=
-"0" ALT=3D"">
-</A>
-<br>
-<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
-<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject.gif" BORDER=3D"0=
-" ALT=3D"" style=3D"cursor:hand">
-</div>v roz  djpygz wxngpupbuuon dv tecipp hwbgm ou
-n
+<html>
+<head>
+<title>Untitled Document</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
---4._D2FB0D6_5--
+<style type=3D"text/css">
+<!--
+body {
+	margin-left: 0px;
+	margin-top: 0px;
+	margin-right: 0px;
+	margin-bottom: 0px;
+}
+-->
+</style></head>
+
+<body>
+<table  border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
+  <tr>
+    <td><a href=3D"http://218.38.12.201:19180/smilelaw/slmain.asp?reseller=
+_id=3Dresel0004"><img src=3D"http://hompy-img.dreamwiz.com/IMAGE/loctopus/=
+f00001/f15/sl01_01.gif" width=3D"786" height=3D"1089" border=3D0></a></td>=
+
+  </tr>
+  <tr>
+    <td><a href=3D"http://218.38.12.201:19180/smilelaw/sl_nomail.asp"><img=
+ src=3D"http://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f16/sl01_15.jp=
+g" width=3D"786" height=3D"117" border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
+
+
+----49011134906329514--
