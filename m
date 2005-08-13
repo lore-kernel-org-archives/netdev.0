@@ -1,56 +1,289 @@
-From: "Evan Garrison" <jnt7ko@naver.com>
-Subject: =?ISO-8859-1?Q?=B4=DC=C7=D1=B9=F8=C0=C7=20=B4=EB=C3=E2?=
-	=?ISO-8859-1?Q?=BD=C5=C3=BB=C0=B8=B7=CE?= 100% =?ISO-8859-1?Q?=B4=EB=C3=E2=20=BA=B8=C0=E5?=
-	=?ISO-8859-1?Q?=B9=DE=C0=B8=BC=BC=BF=E4!spade?= cmnxwixhe jmlymhf
-Date: Sat, 18 May 2002 22:20:20 +0100
-Message-ID: <55gjh3-zuym$vl$ga@a1j076uwkr>
-Reply-To: "Evan Garrison" <jnt7ko@naver.com>
+From: "Martha Block" <CarolynRich@gimas.org.sgi.com>
+Subject: 80 % Discount on All Systemworks Titles
+Date: Sat, 13 Aug 2005 09:41:47 -0600
+Message-ID: <9KFZ0IH1m5Zxq9SPWaafvLBlu@zehava-ben.com>
+Reply-To: "Martha Block" <CarolynRich@gimas.org.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="C_7ADBF_A0F3.E9"
+Content-Type: multipart/mixed;  boundary="--SPJQvSfC9JcVoqhEa"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-xfs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+YB2R 
 
---C_7ADBF_A0F3.E9
+----SPJQvSfC9JcVoqhEa
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-<head>
-<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
-<title>365=C0=CF =C7=E0=BA=B9=C7=D1~ 365=B7=D0</title>
-</head>
-<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
-<table width=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D0>
-  <tr>
-    <td align=3Dcenter valign=3Dtop>
-      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
-        <tr>
-          <td><a href=3D"http://365-loan.com/365lon_input.asp?id=3Dmelrong=
-1"  target=3D"_blank"><img src=3D"http://365-loan.com/img/01.jpg" width=3D=
-600 height=3D315 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://365-loan.com/365lon_input.asp?id=3Dmelrong=
-1"  target=3D"_blank"><img src=3D"http://365-loan.com/img/02.gif" width=3D=
-600 height=3D335 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://365-loan.com/dany.asp"><img src=3D"http://=
-365-loan.com/img/bottom.gif" width=3D600 height=3D85 border=3D0></a></td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
-zs izdzksh p usp opuptyjxcn q ofyzprwc  xsq
-lyqx tveacvvrbgyrp
-zt 
+<html><head><style type=3Dtext/css>.eyebrow { FONT-WEIGHT: bold; FONT-SIZE=
+: 10px; TEXT-TRANSFORM: uppercase; COLOR: #ffffff; FONT-FAMILY: verdana,ar=
+ial,helvetica,sans-serif; TEXT-DECORATION: none } A.eyebrow:link { TEXT-DE=
+CORATION: none }</style><title>q</title><meta http-equiv=3DContent-Type co=
+ntent=3D"text/html; charset=3Dwindows-1252"><meta content=3DUoFO name=3Dzg=
+nw><meta content=3DktZa name=3DG3xB><style type=3Dtext/css>.serif { FONT-S=
+IZE: small; FONT-FAMILY: times,serif } .sans { FONT-SIZE: small; FONT-FAMI=
+LY: verdana,arial,helvetica,sans-serif } .small { FONT-SIZE: x-small; FONT=
+-FAMILY: verdana,arial,helvetica,sans-serif } .h1 { FONT-SIZE: small; COLO=
+R: #cc6600; FONT-FAMILY: verdana, arial,helvetica,sans-serif } .h3color { =
+FONT-SIZE: x-small; COLOR: #cc6600; FONT-FAMILY: verdana, arial,helvetica,=
+sans-serif } .tiny { FONT-SIZE: xx-small; FONT-FAMILY: verdana,arial,helve=
+tica, sans-serif } .listprice { FONT-SIZE: x-small; FONT-FAMILY: arial,ver=
+dana,sans-serif; TEXT-DECORATION: line-through } .price { FONT-SIZE: x-sma=
+ll; COLOR: #990000; FONT-FAMILY: verdana,arial,helvetica,sans-serif } .tin=
+yprice { FONT-SIZE: xx-small; COLOR: #990000; FONT-FAMILY: verdana,arial,h=
+elvetica,sans-serif } .attention { BACKGROUND-COLOR: #ffffd5 } .eyebrow { =
+FONT-WEIGHT: bold; FONT-SIZE: 10px; TEXT-TRANSFORM: uppercase; COLOR: #fff=
+fff; FONT-FAMILY: verdana,arial,helvetica,sans-serif; TEXT-DECORATION: non=
+e } A.eyebrow:link { TEXT-DECORATION: none }</style><meta content=3DUdiK n=
+ame=3DGzem></head><body text=3D#000000 vLink=3D#996633 aLink=3D#FF9933 lin=
+k=3D#003399 bgColor=3D#FFFFFF><table cellSpacing=3D0 cellPadding=3D0 width=
+=3D705 border=3D0><div align=3Dleft></table><table border=3D0 cellpadding=3D=
+0 cellspacing=3D0 style=3D"border-collapse: collapse" bordercolor=3D#11111=
+1 width=3D699 id=3DAutoNumber4 height=3D38><tr><td width=3D368 height=3D38=
+><font face=3DVerdana size=3D2>Opt-in Email Special Offer&nbsp;&nbsp;&nbsp=
+; </font><font face=3DVerdana size=3D1>&nbsp;<a href=3Dhttp://honestoem.co=
+m/?B>unsubscribe me</a></font></td><td width=3D331 height=3D38><a href=3Dh=
+ttp://honestoem.com/?F> <img border=3D0 src=3Dhttp://g-images.amazon.com/i=
+mages/G/01/nav/personalized/cartwish/right-topnav-default-2.gif align=3Dri=
+ght width=3D300 height=3D22></a></td></tr></table></div><tbody><tr><td cla=
+ss=3Dsmall align=3Dmiddle bgColor=3D#ffffdd width=3D707></td></tr></tbody>=
+</table><table cellSpacing=3D0 cellPadding=3D0 width=3D704 border=3D0><tr>=
+<td vAlign=3Dtop width=3D166><table cellSpacing=3D0 cellPadding=3D0 border=
+=3D0><tr vAlign=3Dbottom align=3Dmiddle><td><table cellSpacing=3D0 cellPad=
+ding=3D0 width=3D155 border=3D0><tr vAlign=3Dtop bgColor=3D#333399><td wid=
+th=3D5 bgcolor=3D#000080> <img src=3Dhttp://g-images.amazon.com/images/G/0=
+1/icons/eyebrow-upper-left-corner.gif width=3D5 height=3D5></td><td bgcolo=
+r=3D#000080><table cellSpacing=3D3 cellPadding=3D0 width=3D99=
+% border=3D0><tr><td vAlign=3Dbottom> <font face=3Dverdana,arial,helvetica=
+ color=3D#ffffff size=3D1> <b>SEARCH</b></font></td></tr></table></td><td =
+align=3Dright width=3D5 bgcolor=3D#000080> <img src=3Dhttp://g-images.amaz=
+on.com/images/G/01/icons/eyebrow-upper-right-corner.gif width=3D5 height=3D=
+5></td></tr></table></td></tr><tr vAlign=3Dtop align=3Dmiddle><td><table c=
+ellSpacing=3D0 cellPadding=3D1 width=3D155 bgColor=3D#cccc99 border=3D0><t=
+r><td width=3D100%><table cellSpacing=3D0 cellPadding=3D4 width=3D100=
+% bgColor=3D#cccc99 border=3D0><tr><td vAlign=3Dtop width=3D100=
+% bgColor=3D#eeeecc> <select name=3Durl> <option selected>Software</option=
+> </select> <input size=3D13 name=3Dfield-keywords> <a href=3Dhttp://hones=
+toem.com/?5> <input type=3Dimage alt=3DGo src=3Dhttp://g-images.amazon.com=
+/images/G/01/search-browse/go-button-software.gif align=3Dmiddle value=3DG=
+o border=3D0 name=3DGo width=3D21 height=3D21></a> </form></td></tr></tabl=
+e></td></tr></table></td></tr></table><br><table cellSpacing=3D0 cellPaddi=
+ng=3D0 width=3D155 bgColor=3D#eeeecc border=3D0><tr vAlign=3Dbottom align=3D=
+middle><td><table cellSpacing=3D0 cellPadding=3D0 width=3D155 border=3D0><=
+tr vAlign=3Dtop bgColor=3D#333399><td width=3D5 bgcolor=3D#000080><font si=
+ze=3D1> <img src=3Dhttp://g-images.amazon.com/images/G/01/icons/eyebrow-up=
+per-left-corner.gif width=3D5 height=3D5></font></td><td bgcolor=3D#000080=
+><table cellSpacing=3D3 cellPadding=3D0 width=3D99% border=3D0><tr><td vAl=
+ign=3Dbottom><p align=3Dcenter><b> <font face=3Dverdana,arial,helvetica si=
+ze=3D1 color=3D#FFFFFF>TOP 10 NEW TITLES</font></b></p></td></tr></table><=
+/td><td align=3Dright width=3D5 bgcolor=3D#000080><font size=3D1> <img src=
+=3Dhttp://g-images.amazon.com/images/G/01/icons/eyebrow-upper-right-corner=
+gif width=3D5 height=3D5></font></td></tr></table></td></tr><tr><td><tabl=
+e cellSpacing=3D0 cellPadding=3D1 width=3D100% bgColor=3D#cccc99 border=3D=
+0><tr><td width=3D100%><table cellSpacing=3D0 cellPadding=3D0 width=3D100=
+% bgColor=3D#cccc99 border=3D0><tr><td vAlign=3Dtop width=3D100=
+% bgColor=3D#eeeecc><table cellSpacing=3D0 cellPadding=3D2 width=3D153 bor=
+der=3D0><tr><td width=3D141 colspan=3D3 bgcolor=3D#FFFFFF><p align=3Dcente=
+r><b> <font face=3Dverdana,arial,helvetica size=3D1 color=3D#CC6600>&nbsp;=
+ON SALE NOW!</font></b></p></td></tr><tr><td width=3D4>&nbsp;</td><td widt=
+h=3D8><font face=3DVerdana size=3D1>1</font></td><td width=3D129> <font fa=
+ce=3Dverdana,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?c>O=
+ffice Pro 2003</a></font></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D=
+8><font face=3DVerdana size=3D1>2</font></td><td width=3D129><a href=3Dhtt=
+p://honestoem.com/?U> <font face=3Dverdana,arial,helvetica size=3D1>Adobe =
+Photoshop 9.0</font></a></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D=
+8><font face=3DVerdana size=3D1>3</font></td><td width=3D129><a href=3Dhtt=
+p://honestoem.com/?8> <font face=3Dverdana,arial,helvetica size=3D1>Window=
+s XP Pro</font></a></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><f=
+ont face=3DVerdana size=3D1>4</font></td><td width=3D129><a href=3Dhttp://=
+honestoem.com/?y> <font face=3Dverdana,arial,helvetica size=3D1>Adobe Acro=
+bat 7 Pro</font></a></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><=
+font face=3DVerdana size=3D1>5</font></td><td width=3D129> <font face=3Dve=
+rdana,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?F>Flash MX=
+ 2004</a></font></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><font=
+ face=3DVerdana size=3D1>6</font></td><td width=3D129> <font face=3Dverdan=
+a,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?x>Corel Draw 1=
+2</a></font></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><font fac=
+e=3DVerdana size=3D1>7</font></td><td width=3D129><a href=3Dhttp://honesto=
+em.com/?w> <font face=3Dverdana,arial,helvetica size=3D1>Norton Antivirus =
+2005</font></a></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><font =
+face=3DVerdana size=3D1>8</font></td><td width=3D129> <font face=3Dverdana=
+,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?I>Windows 2003 =
+Server</a></font></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><fon=
+t face=3DVerdana size=3D1>9</font></td><td width=3D129> <font face=3Dverda=
+na,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?M>Alias Maya =
+6 Wavefrt</a></font></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8><=
+font face=3DVerdana size=3D1>10</font></td><td width=3D129> <font face=3Dv=
+erdana,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?4>Adobe <=
+/a></font> <a href=3Dhttp://honestoem.com/?Q> <font face=3Dverdana,arial,h=
+elvetica size=3D1>Illustrator 11</font></a></td></tr><tr><td width=3D4>&nb=
+sp;</td><td colSpan=3D2 width=3D141><span class=3Dsmall><b> <font face=3DV=
+erdana size=3D1>See more by this manufacturer</font></b></span></td></tr><=
+tr><td width=3D4>&nbsp;</td><td width=3D8>&nbsp;</td><td width=3D129> <fon=
+t face=3Dverdana,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/=
+?h>Microsoft</a></font></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D=
+8>&nbsp;</td><td width=3D129><a href=3Dhttp://honestoem.com/?2> <font face=
+=3Dverdana,arial,helvetica size=3D1>Symantec</font></a></td></tr><tr><td w=
+idth=3D4>&nbsp;</td><td width=3D8>&nbsp;</td><td width=3D129> <font face=3D=
+verdana,arial,helvetica size=3D1> <a href=3Dhttp://honestoem.com/?c>Adobe<=
+/a></font></td></tr><tr><td width=3D4>&nbsp;</td><td colSpan=3D2 width=3D1=
+41><span class=3Dsmall><b> <font face=3DVerdana size=3D1>Customers also bo=
+ught</font></b></span></td></tr><tr><td width=3D4>&nbsp;</td><td width=3D8=
+>&nbsp;</td><td width=3D129> <font face=3Dverdana,arial,helvetica size=3D1=
+> <a href=3Dhttp://honestoem.com/?7>these other items...</a></font></td></=
+tr></table></td></tr></table></td></tr></table></td></tr></table></td><td =
+vAlign=3Dtop align=3Dleft width=3D530><p><b class=3Dsans>Microsoft Office =
+Professional Edition *2003*</b><br> <span class=3Dsmall><a href=3Dhttp://h=
+onestoem.com/?M>Microsoft</a><img border=3D0 src=3Dhttp://g-images.amazon.=
+com/images/G/01/promotions/sticker/newest_version.gif width=3D82 height=3D=
+14></span><br></p><table border=3D0><tr><td noWrap><b class=3Dsmall>Choose=
+:</b></td><td vAlign=3Dtop noWrap><table cellSpacing=3D0 cellPadding=3D0 b=
+order=3D0 width=3D170><tr><td width=3D135><a href=3Dhttp://honestoem.com/?=
+0> <select name=3Dedit1> <option selected>View Other Titles</option> </sel=
+ect></a></td><td noWrap width=3D35>&nbsp;<a href=3Dhttp://honestoem.com/?d=
+><input type=3Dimage alt=3DGo src=3Dhttp://g-images.amazon.com/images/G/01=
+/search-browse/go-button-software.gif value=3DGo border=3D0 name=3Dsubmit.=
+display-variation width=3D21 height=3D21></a></td></tr></table></td></tr><=
+/table><p><a href=3Dhttp://honestoem.com/?M> <img height=3D155 src=3Dhttp:=
+//images.amazon.com/images/P/B0000AZJVC.01.TZZZZZZZ.jpg width=3D121 align=3D=
+left border=3D0 name=3Dprod_image></a><span class=3Dsmall></p><table cellS=
+pacing=3D0 cellPadding=3D0 border=3D0 height=3D21 width=3D189><tr><td clas=
+s=3Dsmall vAlign=3Dtop noWrap align=3Dright height=3D18 width=3D73> <b>Lis=
+t Price:</b></td><td height=3D18 width=3D11></td><td class=3Dsmall height=3D=
+18 width=3D105><span class=3Dlistprice>$499.00</span></td></tr><tr><td cla=
+ss=3Dsmall vAlign=3Dtop noWrap align=3Dright height=3D18 width=3D73> <b>Pr=
+ice:</b></td><td height=3D18 width=3D11></td><td class=3Dsmall height=3D18=
+ width=3D105><b class=3Dprice>$69.99</b></td></tr><tr><td class=3Dsmall vA=
+lign=3Dtop noWrap align=3Dright height=3D1 width=3D73> <b>You Save:</b></t=
+d><td height=3D1 width=3D11></td><td class=3Dsmall height=3D1 width=3D105>=
+<span class=3Dprice>$429.01 (86%)</span></td></tr></table><p><a href=3Dhtt=
+p://honestoem.com/?2> <img border=3D0 src=3Dhttp://g-images.amazon.com/ima=
+ges/G/01/buttons/add-to-cart-yellow-short.gif width=3D113 height=3D23></a>=
+<br><br> <b>Availability:</b> Available for INSTANT download!<br> <b>Coupo=
+n Code:</b> eYB6uW8SR<br> &nbsp;</p><p></span><span class=3Dtiny><b>Sales =
+Rank:</b> #1<br> </span><span class=3Dsmall><a href=3Dhttp://honestoem.com=
+/?I>System requirements</a>&nbsp; |&nbsp; <a href=3Dhttp://honestoem.com/?=
+4>Other Versions</a></span><span class=3Dtiny><br> <b>Date Coupon Expires:=
+</b> August 31st, 2005<br> </span><font class=3Dtiny><b>Average Customer R=
+eview:</b><img height=3D12 alt=3D"5 out of 5 stars" src=3Dhttp://g-images.=
+amazon.com/images/G/01/x-locale/common/customer-reviews/stars-5-0.gif widt=
+h=3D64 border=3D0> Based on 151892 reviews. <a href=3Dhttp://honestoem.com=
+/?1>Write a review</a>.</font></p> <hr noShade SIZE=3D1><table border=3D0 =
+cellpadding=3D0 cellspacing=3D0 style=3D"border-collapse: collapse" border=
+color=3D#111111 width=3D100% id=3DAutoNumber1 height=3D55><tr><td width=3D=
+100% height=3D55><p><b class=3Dsans>Adobe Photoshop CS2 V 9.0</b><br> <spa=
+n class=3Dsmall><a href=3Dhttp://honestoem.com/?r>Adobe</a><img border=3D0=
+ src=3Dhttp://g-images.amazon.com/images/G/01/promotions/sticker/newest_ve=
+rsion.gif width=3D82 height=3D14></span><br></p><table border=3D0><tr><td =
+noWrap><b class=3Dsmall>Choose:</b></td><td vAlign=3Dtop noWrap><table cel=
+lSpacing=3D0 cellPadding=3D0 border=3D0 width=3D164><tr><td width=3D126><a=
+ href=3Dhttp://honestoem.com/?K> <select name=3Dedit1> <option selected>Vi=
+ew Other Titles</option> </select></a></td><td noWrap width=3D38>&nbsp;<a =
+href=3Dhttp://honestoem.com/?t><input type=3Dimage alt=3DGo src=3Dhttp://g=
+-images.amazon.com/images/G/01/search-browse/go-button-software.gif value=3D=
+Go border=3D0 name=3Dsubmit.display-variation width=3D21 height=3D21></a><=
+/td></tr></table></td></tr></table><p><a href=3Dhttp://honestoem.com/?P> <=
+img height=3D150 src=3Dhttp://images.amazon.com/images/P/B00081I6JI.01._PE=
+7_SCMZZZZZZZ_.jpg width=3D144 align=3Dleft border=3D0 name=3Dprod_image></=
+a><span class=3Dsmall></p><table cellSpacing=3D0 cellPadding=3D0 border=3D=
+0 height=3D21 width=3D189><tr><td class=3Dsmall vAlign=3Dtop noWrap align=3D=
+right height=3D18 width=3D73> <b>List Price:</b></td><td height=3D18 width=
+=3D11></td><td class=3Dsmall height=3D18 width=3D105><span class=3Dlistpri=
+ce>$599.00</span></td></tr><tr><td class=3Dsmall vAlign=3Dtop noWrap align=
+=3Dright height=3D18 width=3D73> <b>Price:</b></td><td height=3D18 width=3D=
+11></td><td class=3Dsmall height=3D18 width=3D105><b class=3Dprice>$69.99<=
+/b></td></tr><tr><td class=3Dsmall vAlign=3Dtop noWrap align=3Dright heigh=
+t=3D1 width=3D73> <b>You Save:</b></td><td height=3D1 width=3D11></td><td =
+class=3Dsmall height=3D1 width=3D105><span class=3Dprice>$529.01 (90=
+%)</span></td></tr></table><p><a href=3Dhttp://honestoem.com/?i> <img bord=
+er=3D0 src=3Dhttp://g-images.amazon.com/images/G/01/buttons/add-to-cart-ye=
+llow-short.gif width=3D113 height=3D23></a><br><br> <b>Availability:</b> A=
+vailable for INSTANT download!<br> <b>Coupon Code:</b> 5Zy3E<br> &nbsp;</p=
+><p></span><span class=3Dtiny><b>Sales Rank:</b> #2<br> </span><span class=
+=3Dsmall><a href=3Dhttp://honestoem.com/?f>System requirements</a>&nbsp; |=
+&nbsp; <a href=3Dhttp://honestoem.com/?p>Other Versions</a></span><span cl=
+ass=3Dtiny><br> <b>Date Coupon Expires:</b> August 31st, 2005<br> </span><=
+font class=3Dtiny><b>Average Customer Review:</b><img height=3D12 alt=3D"5=
+ out of 5 stars" src=3Dhttp://g-images.amazon.com/images/G/01/x-locale/com=
+mon/customer-reviews/stars-5-0.gif width=3D64 border=3D0> Based on 15115 r=
+eviews. <a href=3Dhttp://honestoem.com/?E>Write a review</a>.</font></p> <=
+/font><hr noShade SIZE=3D1></td></tr><tr><td width=3D100% height=3D55><p><=
+b class=3Dsans>Microsoft Windows XP Professional or Longhorn Edition</b><b=
+r> <span class=3Dsmall><a href=3Dhttp://honestoem.com/?p>Microsoft</a><img=
+ border=3D0 src=3Dhttp://g-images.amazon.com/images/G/01/promotions/sticke=
+r/newest_version.gif width=3D82 height=3D14></span><br></p><table border=3D=
+0><tr><td noWrap><b class=3Dsmall>Choose:</b></td><td vAlign=3Dtop noWrap>=
+<table cellSpacing=3D0 cellPadding=3D0 border=3D0 width=3D164><tr><td widt=
+h=3D126><a href=3Dhttp://honestoem.com/?r> <select name=3Dedit1> <option s=
+elected>View Other Titles</option> </select></a></td><td noWrap width=3D38=
+>&nbsp;<a href=3Dhttp://honestoem.com/?s><input type=3Dimage alt=3DGo src=3D=
+http://g-images.amazon.com/images/G/01/search-browse/go-button-software.gi=
+f value=3DGo border=3D0 name=3Dsubmit.display-variation width=3D21 height=3D=
+21></a></td></tr></table></td></tr></table><p><a href=3Dhttp://honestoem.c=
+om/?E> <img height=3D150 src=3Dhttp://images.amazon.com/images/P/B00005MOT=
+G.01._SCMZZZZZZZ_.jpg width=3D118 align=3Dleft border=3D0 name=3Dprod_imag=
+e hspace=3D5></a><span class=3Dsmall></p><table cellSpacing=3D0 cellPaddin=
+g=3D0 border=3D0 height=3D21 width=3D189><tr><td class=3Dsmall vAlign=3Dto=
+p noWrap align=3Dright height=3D18 width=3D73> <b>List Price:</b></td><td =
+height=3D18 width=3D11></td><td class=3Dsmall height=3D18 width=3D105><spa=
+n class=3Dlistprice>$279.00</span></td></tr><tr><td class=3Dsmall vAlign=3D=
+top noWrap align=3Dright height=3D18 width=3D73> <b>Price:</b></td><td hei=
+ght=3D18 width=3D11></td><td class=3Dsmall height=3D18 width=3D105><b clas=
+s=3Dprice>$49.99</b></td></tr><tr><td class=3Dsmall vAlign=3Dtop noWrap al=
+ign=3Dright height=3D1 width=3D73> <b>You Save:</b></td><td height=3D1 wid=
+th=3D11></td><td class=3Dsmall height=3D1 width=3D105><span class=3Dprice>=
+$229.01 (85%)</span></td></tr></table><p><a href=3Dhttp://honestoem.com/?8=
+> <img border=3D0 src=3Dhttp://g-images.amazon.com/images/G/01/buttons/add=
+-to-cart-yellow-short.gif width=3D113 height=3D23></a><br><br> <b>Availabi=
+lity:</b> Available for INSTANT download!<br> <b>Coupon Code:</b> xkxmaw<b=
+r> &nbsp;</p><p></span><span class=3Dtiny><b>Sales Rank:</b> #3</span><spa=
+n class=3Dsmall><a href=3Dhttp://honestoem.com/?H><br> System requirements=
+</a>&nbsp; |&nbsp; <a href=3Dhttp://honestoem.com/?m>Other Versions</a></s=
+pan><span class=3Dtiny><br> <b>Date Coupon Expires:</b> August 31st, 2005<=
+br> </span><font class=3Dtiny><b>Average Customer Review:</b><img height=3D=
+12 alt=3D"5 out of 5 stars" src=3Dhttp://g-images.amazon.com/images/G/01/x=
+-locale/common/customer-reviews/stars-5-0.gif width=3D64 border=3D0> Based=
+ on 17757 reviews. <a href=3Dhttp://honestoem.com/?X>Write a review</a>.</=
+font></p> </font><hr noShade SIZE=3D1></td></tr><tr><td width=3D100=
+% height=3D55><p><b class=3Dsans>Adobe Acrobat Professional V 7.0</b><br> =
+<span class=3Dsmall><a href=3Dhttp://honestoem.com/?9>Adobe</a><img border=
+=3D0 src=3Dhttp://g-images.amazon.com/images/G/01/promotions/sticker/newes=
+t_version.gif width=3D82 height=3D14></span><br></p><table border=3D0><tr>=
+<td noWrap><b class=3Dsmall>Choose:</b></td><td vAlign=3Dtop noWrap><table=
+ cellSpacing=3D0 cellPadding=3D0 border=3D0 width=3D164><tr><td width=3D12=
+6><a href=3Dhttp://honestoem.com/?F> <select name=3Dedit1> <option selecte=
+d>View Other Titles</option> </select></a></td><td noWrap width=3D38>&nbsp=
+;<a href=3Dhttp://honestoem.com/?K><input type=3Dimage alt=3DGo src=3Dhttp=
+://g-images.amazon.com/images/G/01/search-browse/go-button-software.gif va=
+lue=3DGo border=3D0 name=3Dsubmit.display-variation width=3D21 height=3D21=
+></a></td></tr></table></td></tr></table><p><a href=3Dhttp://honestoem.com=
+/?o> <img height=3D150 src=3Dhttp://images.amazon.com/images/P/B00069E7KO.=
+01.LZZZZZZZ.jpg width=3D175 align=3Dleft border=3D0 name=3Dprod_image></a>=
+<span class=3Dsmall></p><table cellSpacing=3D0 cellPadding=3D0 border=3D0 =
+height=3D21 width=3D189><tr><td class=3Dsmall vAlign=3Dtop noWrap align=3D=
+right height=3D18 width=3D73> <b>List Price:</b></td><td height=3D18 width=
+=3D11></td><td class=3Dsmall height=3D18 width=3D105><span class=3Dlistpri=
+ce>$499.00</span></td></tr><tr><td class=3Dsmall vAlign=3Dtop noWrap align=
+=3Dright height=3D18 width=3D73> <b>Price:</b></td><td height=3D18 width=3D=
+11></td><td class=3Dsmall height=3D18 width=3D105><b class=3Dprice>$69.99<=
+/b></td></tr><tr><td class=3Dsmall vAlign=3Dtop noWrap align=3Dright heigh=
+t=3D1 width=3D73> <b>You Save:</b></td><td height=3D1 width=3D11></td><td =
+class=3Dsmall height=3D1 width=3D105><span class=3Dprice>$429.01 (85=
+%)</span></td></tr></table><p><a href=3Dhttp://honestoem.com/?V> <img bord=
+er=3D0 src=3Dhttp://g-images.amazon.com/images/G/01/buttons/add-to-cart-ye=
+llow-short.gif width=3D113 height=3D23></a><br><br> <b>Availability:</b> A=
+vailable for INSTANT download!<br> <b>Coupon Code:</b> nCi8A<br> &nbsp;</s=
+pan></p><p><span class=3Dtiny><b>Sales Rank:</b> #4</span><span class=3Dsm=
+all><a href=3Dhttp://honestoem.com/?I><br> System requirements</a>&nbsp; |=
+&nbsp; <a href=3Dhttp://honestoem.com/?C>Other Versions</a></span><span cl=
+ass=3Dtiny><br> <b>Date Coupon Expires:</b> August 31st, 2005<br> </span><=
+font class=3Dtiny><b>Average Customer Review:</b><img height=3D12 alt=3D"5=
+ out of 5 stars" src=3Dhttp://g-images.amazon.com/images/G/01/x-locale/com=
+mon/customer-reviews/stars-5-0.gif width=3D64 border=3D0> Based on 1483 re=
+views. <a href=3Dhttp://honestoem.com/?B>Write a review</a>.</font></p> </=
+font><p></p> <hr noShade SIZE=3D1></td></tr></table></td></tr></table></fo=
+rm></td></tr></table></body></html>
 
---C_7ADBF_A0F3.E9--
+----SPJQvSfC9JcVoqhEa--
