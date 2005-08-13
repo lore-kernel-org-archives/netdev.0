@@ -1,40 +1,34 @@
-From: "Charlotte Negron" <egelhoff@yebox.com>
-Subject: Need a low mortage rate?
-Date: Sat, 13 Aug 2005 11:31:27 +0500
-Message-ID: <111.12e558d5.2a9VKB44@jij.com>
-Cc: murphy@oss.sgi.com, nathans@oss.sgi.com, nce@oss.sgi.com,
-        ner-devfs@oss.sgi.com, ner-linux-xfs@oss.sgi.com,
-        ner-netdev@oss.sgi.com, ner-ogl-sample-cvs@oss.sgi.com,
-        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
+From: "노마진" <xmfpdl@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A2=C0=C6=AE=B7=B9=C0=CC=B4=D7=BA=B9=20=BC=BC=C6=AE?=
+	=?ISO-8859-1?Q?=B3=EB=B8=B6=C1=F8?= ~! =?ISO-8859-1?Q?(=C0=BD=C0=CC=BF=C2=B0=C7=B0=AD=B8=F1=B0=C9=C0=CC=C6=C8=C2=EE=BC=BC=C6=AE+=B7=CE=B6=C7)?=
+Date: Sat, 13 Aug 2005 04:58:05 -0100
+Message-ID: <5$-$o-3l$98-04-w9$817@p68t.iq>
+Reply-To: "노마진" <xmfpdl@yahoo.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="C0E.C3F.F____37E.B_CE"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mkp@oss.sgi.com
+To: kdb@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
- We tried contacting you awhile ago about your low interest morta(ge rate.
+--C0E.C3F.F____37E.B_CE
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
- You have been selected for our lowest rate in years...
+<div align=3D"center">
+<A HREF=3D"http://www.makdrim.com/md/training/training.php?pcode=3Dinter77=
+77" target=3D"_blank" onfocus=3D"this.blur()">
+<IMG SRC=3D"http://www.makdrim.com/md/training/images/mail_02.gif"
+BORDER=3D=
+"0" ALT=3D"">
+</A>
+<br>
+<A HREF=3D"http://www.makdrim.com/md/event/mail_list.html">
+<IMG SRC=3D"http://www.makdrim.com/md/event/images/reject_email.jpg" BORDE=
+R=3D"0" ALT=3D"" style=3D"cursor:hand">
+</div>=20
 
- You could get over $420,000 for as little as $400 a month!
-
- Ba(d credit, Bank*ruptcy? Doesn't matter, low rates are fixed no matter what!
-
- 
- To get a free, no obli,gation consultation click below:
-
- http://www.nxshrg.com/i/LzMvaW5kZXgvYXJuLzdhOWoyaTQ0ZGFn
-
-
-
- Best Regards,
-
- Daisy Hurd
- 
- to be remov(ed:	http://www.nxshrg.com
-
- this process takes one week, so please be patient. we do our 
- best to take your email/s off but you have to fill out a rem/ove
- or else you will continue to recieve email/s.
+--C0E.C3F.F____37E.B_CE--
