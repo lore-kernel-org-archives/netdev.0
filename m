@@ -1,42 +1,34 @@
-From: "\"개인회생5\" <iysemggbpb"<iysedmggbpb@sediya.com>
-Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C0=CC=C1=A6?=
-	=?ISO-8859-1?Q?=BE=EE=B5=D2=BF=A1=BC=AD=20=B1=D7=B8=B8?=
-	=?ISO-8859-1?Q?=B3=AA=BF=C0=BC=BC=BF=A9.!!?=
-	=?ISO-8859-1?Q?=B5=B5=BF=CD=B5=E5=B8=AE=B0=DA=BD=C0=B4=CF=B4=D9.!!?=
-Date: Sat, 13 Aug 2005 13:56:20 -0700
-Message-ID: <HPLTLYLNLZDXNUBGRWFBDUQ@yahoo.com>
-Reply-To: "\"개인회생2\" <ypnucj"<g_xnzcbw_gk-o@mzgjyvhntbykz.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] add new iptables ipt_connbytes match
+Date: Sat, 13 Aug 2005 13:54:41 -0700 (PDT)
+Message-ID: <20050813.135441.85393705.davem@davemloft.net>
+References: <20050812190343.GW18580@rama.de.gnumonks.org>
+	<20050812.120904.88476024.davem@davemloft.net>
+	<20050813145023.GA4551@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--05271910455652555"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	kaber@trash.net, ak@suse.de
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20050813145023.GA4551@rama.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-----05271910455652555
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+From: Harald Welte <laforge@netfilter.org>
+Date: Sat, 13 Aug 2005 16:50:23 +0200
 
-<html>
-<body>
-<table>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
-resel0004
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
-gif
- border=3D0></a></td>
-  </tr>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
-jpg
- border=3D0></a></td>
-  </tr>
-</table>
-</body>
-</html>
+> So for new development, I'm now more inclined to push things sooner to
+> you - even more for code that only adds new featurss. If you generally
+> dislike that, please let me know.
 
-----05271910455652555--
+I think this is the way to go.
