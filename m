@@ -1,68 +1,93 @@
-From: "±è»ï½Ä" <hfdgf@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=C1=A4=C7=B0=B9=F6=B9=F6=B8=AE=20=BC=C5=C3=F7=B8=A6?=
-	=?ISO-8859-1?Q?=C8=B9=B1=E2=C0=FB=C0=CE=20=B0=A1=B0=DD=BF=A1~~?=
-Date: Fri, 12 Aug 2005 20:18:54 -0400
-Message-ID: <23971.5531039566$1123892761@news.gmane.org>
-Reply-To: "±è»ï½Ä" <ertewr@empal.com>
+From: Carey <allisa@mail.com>
+Subject: Re:[26] soft
+Date: Sat, 13 Aug 2005 01:31:07 +0000
+Message-ID: <200508130039.j7D0dHH9012798@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--223956165882587"
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----223956165882587
-Content-Type: text/html;
-Content-Transfer-Encoding: base64
-
-PERJVj4NCjxESVY+PEZPTlQgDQpjb2xvcj0jMDA4MDgwPqHroeuh66Hroeuh66Hroeuh66Hr
-oeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66HrPC9GT05U
-PjxCUj4mbmJzcDs8Rk9OVCANCmNvbG9yPSMwMDAwZmY+v7WxuSDBpMewILn2ufa4riBQS8b6
-t84gxry8xcP3PC9GT05UPiA8QlI+PEZPTlQgY29sb3I9I2ZmODA4MD48Rk9OVCANCmNvbG9y
-PSMwMDgwODA+oeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh
-66Hroeuh66Hroeuh66Hroeuh66Hroes8L0ZPTlQ+PEJSPjwvRk9OVD48QlI+PEZPTlQgDQpj
-b2xvcj0jZmYwMGZmPqHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih
-2KHYodih2KHYodih2KHYodih2KHYodih2KHYPEJSPqHYIDxCUj6h2CA8Rk9OVCANCmNvbG9y
-PSM0MDAwNDA+IKLBILvzx7C47SA6ILn2ufa4riBQS8b6t84gxry8xcP3PEJSPjwvRk9OVD6h
-2CA8Rk9OVCANCmNvbG9yPSM0MDAwNDA+osEgu/a78yA6ILbzwMzGriC6o8DMwfYgKMewwP0p
-LMXNxbC9uiC67bfnLCC288DMxq4gsde3ucDMLCC9usSrwMwguu235zxCUj48L0ZPTlQ+odgg
-PEZPTlQgY29sb3I9IzQwMDA0MD6iwSANCsGmx7C788XCIDogu/XBpsewIChDb3R0b24gMTAw
-JSk8L0ZPTlQ+LjxCUj6h2CA8Rk9OVCBjb2xvcj0jNDAwMDQwPqLBIL/4u+rB9iA6IL+1sbkg
-DQo8QlI+PC9GT05UPqHYIDxCUj6h2CANCqHYodih2KHYodih2KHYodih2KHYodih2KHYodih
-2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2DxCUj48L0ZPTlQ+PEJSPjxG
-T05UIA0KY29sb3I9IzAwODBmZj6h66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hr
-oeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh6zxCUj48L0ZPTlQ+PEZPTlQgDQpj
-b2xvcj0jMDAwMGEwPr+1sbkgwfe89sDUIMGmx7AuPEJSPjwvRk9OVD48Rk9OVCANCmNvbG9y
-PSMwMDgwZmY+oeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh
-66Hroeuh66Hroeuh66Hroeuh66Hroes8L0ZPTlQ+PEJSPjxCUj48Rk9OVCANCmNvbG9yPSMw
-MDgwMDA+PEZPTlQgY29sb3I9IzgwMDBmZj48Rk9OVCBjb2xvcj0jNDAwMDAwPqK6PC9GT05U
-PiC/tbG5u+ogwaTHsCC59rn2uK4gt7G0+CDF2CANCjxCUj48Rk9OVCBjb2xvcj0jZmYwMGZm
-PqK6PC9GT05UPiC59rn2uK4gsO3Ar8DHILDtsd69urevv+4gxtDFz7D6ILTcw9/AxyC59rn2
-uK4gxdi9usauIMC9sKI8QlI+orogwaTHsLbzuqe/oSDA1rTCILn2ufa4rsXYvbrGrr+hIL+t
-wLsgsKHH0r3DILfOsO2woSC757bzwfjIxCC02b3DILOqxbizqrTCILDNwLsgyK7AzsfPvce8
-9iDA1r3AtM+02S4NCiZuYnNwOzxCUj48Rk9OVCBjb2xvcj0jZmY4MDQwPqK6PC9GT05UPiDB
-wsP4sKG9v7+hILHiuLa3zrDtt84gxvfAzsauuKYgwda+7iCx8rL7x9Sw+iC8vLfDtcggtMCz
-psC7ILT1x9jB1rTCIMGmx7DA1LTPtNkuPEJSPjxGT05UIGNvbG9yPSM4MDAwNDA+oro8L0ZP
-TlQ+IL3Eu/PHz8H2IL7KwLogtfDB9sDOwMyx4iC2p7muv6Egvu618LyttefB9iC+7rayIL/K
-sPq1tSDE2rXwsKEgsKG0ycfVtM+02S48QlI+DQo8L0ZPTlQ+PEJSPjwvRk9OVD48QlI+PEJS
-PqaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqym
-rKaspqymrKaspqymrKaspqymrCANCjxCUj48UD4mbmJzcDsNCjxCUj7AzLnMwfa/zSCzu7/r
-wMwgvsi6uMDMvcO46SC52bfOIL7Gt6EgosLBwr/sw/i/oSDA1rTCIMDMuczB9rq4seKiwrim
-IMWsuK/Hz7y8v+Q8QlI+DQo8QlI+wMy5zMH2v80gs7u/68DMIL7IurjAzL3DuOkgudm3ziC+
-xrehIKLCwcK/7MP4v6EgwNa0wiDAzLnMwfa6uLHiosK4piDFrLivx8+8vL/kPEJSPg0KPFA+
-pqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKas
-pqymrKaspqymrKaspqymrKasJm5ic3A7PC9QPjwvRElWPjwvRElWPg0KPGNlbnRlcj4NCg0K
-PGEgaHJlZj0naHR0cDovL3Bha3N1MC5jYWZlMjQuY29tL21haWwvYW5uMjFfd19mb3JtLmh0
-bWw/c3ViamVjdD13JnJlZmVyX2lkPWExMjM0Jz48aW1nIHNyYz0naHR0cDovL3Bha3N1MC5j
-YWZlMjQuY29tL21haWwvaW1hZ2VzL3dfbWFpbi5qcGcnIGJvcmRlcj0nMCc+PC9hPjxicj4N
-Cg0KDQo8YSBocmVmPSdodHRwOi8vcGFrc3UwLmNhZmUyNC5jb20vaHRtbF92aWV3L2VtYWls
-X3JlamVjdC5odG1sJyB0YXJnZXQ9J19ibGFuayc+PGltZyBzcmM9J2h0dHA6Ly9wYWtzdTAu
-Y2FmZTI0LmNvbS9tYWlsL2ltYWdlcy9zdXNpbl93LmpwZycgYm9yZGVyPScwJz48L2E+PGJy
-Pg0KDQo8aWZyYW1lIG5hbWU9J2FubjIxX2lmcmFtZScgc3JjPSdodHRwOi8vcGFrc3UwLmNh
-ZmUyNC5jb20vcGFydG5lci9jbGljay9jbGljay5waHA/cmVmZXJfaWQ9YTEyMzQnIGZyYW1l
-Ym9yZGVyPScwJyB3aWR0aD0nMCcgaGVpZ2h0PScwJyBtYXJnaW53aWR0aD0nMCcgbWFyZ2lu
-aGVpZ2h0PScwJyBzY3JvbGxpbmc9J25vJz48L2lmcmFtZT4NCjwvY2VudGVyPg0K
-
-----223956165882587--
+<html>
+<table width=3D"780" height=3D"206" border=3D"1" align=3D"center" cellpad=
+ding=3D"0" cellspacing=3D"1" bordercolor=3D"#999999">
+  <tr>=20
+    <td height=3D"202"> <table width=3D"774" height=3D"67" border=3D"0" c=
+ellpadding=3D"0" cellspacing=3D"0">
+        <tr>=20
+          <td height=3D"67">=20
+            <div align=3D"center"><SPAN class=3Dtitle><font color=3D"#CC3=
+333" size=3D"5"><b>No=20
+              need to wait 2-3 week for CD delivery!<br>
+              All listed software is available for immediate download!</b=
+></font></SPAN></div>
+          </td>
+        </tr>
+      </table>
+      <table width=3D"774" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+        <tr>=20
+          <td width=3D"14" height=3D"220">&nbsp;</td>
+          <td width=3D"751">=20
+            <p align=3D"justify"><SPAN class=3Dstorehead> <strong>Why so =
+cheap?</strong>=20
+              All the software is OEM - Meaning that you do not get the b=
+ox with=20
+              it. You receive the software carrying a unique registration=
+ code.=20
+              We would like to offer localized software versions (<strong=
+>German,=20
+              French, Italy, Spanish, English and many others</strong>). =
+Our offers=20
+              are unbeatable and we always update our prices to make sure=
+ we provide=20
+              you with the best possible offers. Hurry up and place your =
+order,=20
+              because our supplies are limited. Currently, we offer <stro=
+ng>INSTANT=20
+              DOWNLOAD!</strong> You will no need to wait 2-3 week for CD=
+ delivery=20
+              - you can download any program and PC games at once you hav=
+e purchased=20
+              it! Most of program packages are within 50-150 MBs and even=
+ if you=20
+              have slow modem connection you'll be able to download for a=
+n ONE=20
+              day. <noscript><a href=3Dhttp://click.hotlog.ru/?290713 tar=
+get=3D_top><img
+src=3D"http://hit20.hotlog.ru/cgi-bin/hotlog/count?s=3D290713&im=3D1" bor=
+der=3D0
+width=3D"1" height=3D"1" alt=3D"HotLog"></a></noscript> <br>
+              <strong>Note</strong> that we are not selling any trial, in=
+complete=20
+              or academic version of software =96 it is original and full=
+y functional.<br>
+              <br>
+              <strong>Note</strong> all our softwares are only PC, <stron=
+g>but=20
+              not for Mac.</strong><br>
+              Please refer to our Frequently Asked Question's Section for=
+ more=20
+              information.</SPAN></p>
+            <p align=3D"center"><SPAN class=3Dstorehead><strong>Note You =
+can choose=20
+              your language version after purchase into the members zone =
+for download.</strong></SPAN></p>
+            <p align=3D"center"><SPAN class=3Dindex><strong>YOU CAN DOWNL=
+OAD ALL THESE=20
+              SOFTWARES, BURN ON CD OR DVD AND USE EVERYWHERE!</strong></=
+SPAN>=20
+            </p>
+            <p align=3D"center"><a href=3D"http://161997018.addersoftware=
+.com/?539823259">NEED=20
+              MORE SOFTWARE? CLICK HERE AND SEE ALL OUR OFFERS!</a></p>
+            </td>
+          <td width=3D"10">&nbsp;</td>
+        </tr>
+      </table></td>
+  </tr>
+</table>
+</html>
