@@ -1,74 +1,33 @@
-From: MRS ANGELA MANNI THE DESK OF THE PRESIDENT <claims2005@latinmail.com>
-Subject: THE NATIONAL LOTTERY INTERNATIONAL PROMOTIONS PRIZE DRAW
-Date: Sun, 14 Aug 2005 15:38:04 -0700
-Message-ID: <200508142238.j7EMc4H9025468@oss.sgi.com>
-Reply-To: MRS ANGELA MANNI THE DESK OF THE PRESIDENT <claims2005@latinmail.com>
+From: Aneza <alesha@yahoo.com>
+Subject: NEW PRODUCT..
+Date: Sun, 14 Aug 2005 16:29:46 -0600 (EEST)
+Message-ID: <200508142244.j7EMiXH9026721@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="qzsoft_directmail_seperator"
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---qzsoft_directmail_seperator
-Content-Type: text/plain;
-	charset="DEFAULT"
-Content-Transfer-Encoding: base64
-
-REFURTogMTR0aCBBdWd1c3QsIDIwMDUuCkZST006IE1SUyBBTkdFTEEgTUFOTkkgVEhFIERFU0sg
-T0YgVEhFIFBSRVNJREVOVC4KVEhFIE5BVElPTkFMIExPVFRFUlkgSU5URVJOQVRJT05BTCBQUk9N
-T1RJT05TL1BSSVpFCkFXQVJELgoKUkVGIE66OkVHUy8zNjYyMzY3MTE0LzEzOiBCQVRDSCA6IDE1
-LzAwMTgvSVBECgoKUkU6IEFXQVJEIE5PVElGSUNBVElPTi4KClRoaXMgaXMgdG8gaW5mb3JtIHlv
-dSBvZiB0aGUgcmVsZWFzZSBvZiBUSEUgTkFUSU9OQUwgTE9UVEVSWSBJTlRFUk5BVElPTkFMIFBS
-T01PVElPTlMgUFJJWkUgRFJBVywgaGVsZCBvbiB0aGUgMTB0aCBvZiBBdWd1c3QgMjAwNSwgYnV0
-IG93aW5nIHRvIHNvbWUgbWl4IHVwIG9mIG51bWJlcnMgYW5kIGFkZHJlc3NlcyBhbmQgdGhlIGhv
-bGlkYXlzLCB0aGUgcmVzdWx0cyB3ZXJlIHJlbGVhc2VkIG9uIHRoZSAxNHRoIEF1Z3VzdCwgMjAw
-NS5Zb3VyIG5hbWUgd2FzIGF0dGFjaGVkIHRvIHRpY2tldCBudW1iZXIgMDg1LTEyODc2MDc3LTA5
-IHdpdGggc2VyaWFsIG51bWJlciA1MTM5MC0wIHRoYXQgZHJldyB0aGUgbHVja3kgbnVtYmVycyBv
-ZiAwMy0wNS0xMi0xNC0yOC0zOCwgd2hpY2ggY29uc2VxdWVudGx5IHdvbiB0aGUgbG90dGVyeSBp
-biB0aGUgNXRoIGNhdGVnb3J5LiBZb3UgaGF2ZSB0aGVyZWZvcmUgYmVlbiBhcHByb3ZlZCBmb3Ig
-YSBsdW1wIHN1bSBwYXkgb2YgozUwMCwwMDAuMDAuIChGSVZFIEhVTkRSRUQgVEhPVVNBTkQgQlJJ
-VElTSCBQT1VORFMgT05MWSksIGluIGNhc2ggY3JlZGl0ZWQgdG8gZmlsZSB3aXRoIFJFRjogTrou
-RUdTLzM2NjIzNjcxMTQvMTMuIFRoaXMgaXMgZnJvbSBhIHRvdGFsIGNhc2ggcHJpemUgb2Ygozcw
-LDAyMC4yMjUuMDAsIHNoYXJlZCBhbW9uZyB0aGUgKDI1KSB0d2VudHktZml2ZSBpbnRlcm5hdGlv
-bmFsIHdpbm5lcnMgaW4gdGhpcyBjYXRlZ29yeS4KCkNPTkdSQVRVTEFUSU9OUyEhIQoKWW91ciBm
-dW5kIGlzIG5vdyBkZXBvc2l0ZWQgd2l0aCBvdXIgU2VjdXJpdHkgQ29tcGFueSBhbmQgaW5zdXJl
-ZCBpbiB5b3VyIG5hbWUuIER1ZSB0byBtaXggdXAgb2Ygc29tZSBudW1iZXJzIGFuZCBuYW1lcywg
-d2UgYXNrIHRoYXQgeW91IGtlZXAgdGhpcyAKYXdhcmQgZnJvbSBwdWJsaWMgbm90aWNlIHVudGls
-IHlvdXIgY2xhaW0gaGFzIGJlZW4gcHJvY2Vzc2VkLCBhbmQgdGhlIG1vbmV5IHJlbWl0dGVkIHRv
-IHlvdXIgYWNjb3VudCwgYXMgdGhpcyBpcyBwYXJ0IG9mIG91ciBzZWN1cml0eSBwcm90b2NvbCwg
-dG8gYXZvaWQgZG91YmxlIGNsYWltaW5nIGFuZCB1bndhcnJhbnRlZCB0YWtpbmcgb2YgYWR2YW50
-YWdlIG9mIHRoaXMgcHJvZ3JhbSBieSBwYXJ0aWNpcGFudHMsIGFzIGhhcyBoYXBwZW5lZCBpbiB0
-aGUgcGFzdC4KCkFsbCBwYXJ0aWNpcGFudHMgd2VyZSBzZWxlY3RlZCB0aHJvdWdoIGEgY29tcHV0
-ZXIgYmFsbG90IHN5c3RlbSBkcmF3biBmcm9tIDI1LDAwMCBuYW1lcywgZW1haWwgYWRkcmVzc2Vz
-ICYgb2ZmaWNpYWwgYWRkcmVzc2VzLCBmcm9tIEFzaWEsIEF1c3RyYWxpYSwgTmV3IFplYWxhbmQs
-IEV1cm9wZSwgTm9ydGggYW5kIFNvdXRoIEFtZXJpY2EsIE1pZGRsZSBFYXN0IGFuZCBBZnJpY2Es
-IGFzIHBhcnQgb2Ygb3VyIEludGVybmF0aW9uYWwgUHJvbW90aW9ucyBQcm9ncmFtLgoKV2UgaG9w
-ZSB5b3VyIGx1Y2t5IG5hbWUgd2lsbCBkcmF3IGEgYmlnZ2VyIGNhc2ggcHJpemUgaW4gdGhlIHN1
-YnNlcXVlbnQgcHJvZ3JhbXMuIFRvIGJlZ2luIHlvdXIgbG90dGVyeWNsYWltcywgcGxlYXNlIGNv
-bnRhY3QgeW91ciBDbGFpbXMgQWdlbnQgYmVsb3cgd2l0aCB0aGUgZm9sbG93aW5nIGluZm9ybWF0
-aW9uIGZvciBwcm9tcHQgcHJvY2Vzc2luZyBvZiB5b3VyIGNsYWltcwoKRlVMTCBOQU1FCkFERFJF
-U1MKQ09VTlRSWQpBR0UKUFJPRkVTU0lPTi9PQ0NVUEFUSU9OClRFTEVQSE9ORQpGQVgKCkRSIExV
-SVMgRkVSTkFOREVaLCBGT1JFSUdOIE9QRVJBVElPTiBNQU5BR0VSLApHTE9CQUwgU0VDVVJJVFkg
-JiBGSU5BTkNFIENPTVBBTlkgU1BBSU4sIEVNQUlMOihkcmx1aXNmZXJuYW5kZXowNUBmc21haWwu
-bmV0KVRFTEVQSE9ORTogMDAzNCA2NyA3MjU2ODM5ClJlbWVtYmVyLCBhbGwgcHJpemUgbW9uZXkg
-bXVzdCBiZSBjbGFpbWVkIG5vdCBsYXRlciB0aGFuIDI5dGggb2YgQXVndXN0LCAyMDA1LiBBbnkg
-Y2xhaW0gbm90IG1hZGUgYnkgdGhpcyBkYXRlIHdpbGwgYmUgcmV0dXJuZWQgdG8gdGhlIERFUEFS
-VE1FTlQgT0YgVEhFIFRSRUFTVVJZLgoKTk9URTogSW4gb3JkZXIgdG8gYXZvaWQgdW5uZWNlc3Nh
-cnkgZGVsYXlzIGFuZCBjb21wbGljYXRpb25zLCBwbGVhc2UgCnJlbWVtYmVyIHRvIHF1b3RlIHlv
-dXIgcmVmZXJlbmNlIGFuZCBiYXRjaCBudW1iZXJzIGluIGFsbCBjb3JyZXNwb25kZW5jZXMgCndp
-dGggdXM7IG9yIHlvdXIgQ2xhaW0gQWdlbnQuIEZ1cnRoZXJtb3JlLCBzaG91bGQgdGhlcmUgYmUg
-YW55IGNoYW5nZSBvZiAKYWRkcmVzcywgcGxlYXNlIGRvIGluZm9ybSB5b3VyIENsYWltIEFnZW50
-IGFzIHNvb24gYXMgcG9zc2libGUuIEFuIApvcmlnaW5hbCBjb3B5IG9mIHlvdXIgbHVja3kgd2lu
-bmluZyB0aWNrZXQgYW5kIHlvdXIgZGVwb3NpdCBjZXJ0aWZpY2F0ZSAKd2lsbCBiZSBzZW50IHRv
-IHlvdSBieSB5b3VyIENsYWltIEFnZW50LCBEUiBMVUlTIEZFUk5BTkRFWi4KCkNPTkdSQVRVTEFU
-SU9OUyEhISEKT25jZSBhZ2FpbiBmcm9tIGFsbCBtZW1iZXJzIG9mIG91ciBzdGFmZiBhbmQgdGhh
-bmsgeW91IGZvciBiZWluZyBhIHBhcnQgb2Ygb3VyIEludGVybmF0aW9uYWwgUHJvbW90aW9ucyBw
-cm9ncmFtLiBXZSB3aXNoIHlvdSBjb250aW51ZWQgZ29vZCBmb3J0dW5lcy4KClNpbmNlcmVseSwK
-CkFOR0VMQSBNQU5OSSAoTVJTKQpQUkVTSURFTlQuCgpOLkIuIFBMRUFTRSBDT05UQUNUIFlPVVIg
-Q0xBSU1TIEFHRU5ULiBBTllCT0RZIEJFTE9XIDE4WUVBUlMgSVMgQVVUT01BVElDQUxMWSBESVNR
-VUFMSUZJRUQuCgoKCg==
-
---qzsoft_directmail_seperator--
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</head><BODY bgcolor="#FFFFF7">
+One Time DISC0UNT 0RDER for V1@GRA, C1al1s!<br>
+<a href="http://fygpnoogwlldzate.o39zspo3l2owa76.bcunbrentmh.com/">V1@</hghg>GRA DISC0UNT 0RDER</a><br>
+<b>T0DAY Its only <font color=red>$0.95</font> per dose.<br><br></b>
+Generic Vi@gra, 24 x 100mg <br>
+Regular Tabs (48 dozes)<br>
+<b>Only $ 46.00 </b><br><br>
+<i><b>NEW PRODUCT 1:<br></i></b>
+Generic Viagra, 24 x 100mg <br>
+Soft Tabs (48 dozes) <a href="http://imdhawyhbmcbfloe.1ymcnk1yyxjrn2j.letavyjh.com/"> What is Soft Tabs?</a><br>
+<b>Only $ 60.00 </b><br><br>
+<i><b>NEW PRODUCT 2:<br></i></b>
+Generic C1al1s, 10 x 20mg <br>
+Tadalafil  <a href="http://kthjqtvuyqaidlww.1ymcnk1yyxjrn2j.letavyjh.com/">What is Soft C1al1s?</a><br>
+<b>Only $ 68.00 </b><br>
+<a href="http://dhchjamkzskhmbmf.vsy6hedss9dlhwv.bkstubblecm.com/">V1@GRA DISC0UNT 0RDER</a><br>
+<br></body></html>
