@@ -1,7 +1,7 @@
-From: =?Big5?B?r8C0ebN0pqivWg==?= <vcd1783@gmail.com>
-Subject: =?Big5?B?pKO73a1upGq/+qRXr8C0eb3SIcX9p9qtzLFhu+KnQbZppEqvwLR5qrq74rDsIQ==?=
-Date: Sun, 14 Aug 2005 21:03:28 +0800
-Message-ID: <200508141924.j7EJO6H9001309@oss.sgi.com>
+From: =?Big5?B?qcq3Uqu6ttWx0L7HpGq60A==?= <ok12345@gmail.com>
+Subject: =?Big5?B?sdC+yaTSqWSkp7ahv0Wxoaq6qcqlzayhIaW7pfq60KXRr3WkSLp0pViz4SE=?=
+Date: Sun, 14 Aug 2005 21:02:45 +0800
+Message-ID: <200508141931.j7EJVwH9002509@oss.sgi.com>
 Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
@@ -21,13 +21,14 @@ List-Id: netdev.vger.kernel.org
 
 <body>
 
-<p align="center"><a href="http://www.buy999.net/999/mail002-b.htm">若無法開啟請按這裡</a></p>
+<p align="center"><a href="http://www.buy999.net/999/mail001-b.htm">若無法開啟請按這裡</a></p>
 
 <p align="center">
-<img border="0" src="http://www.buy999.net/999/002.jpg" width="600" height="322"></p>
+<a href="http://www.buy999.net/999/mail001-b.htm">
+<img border="0" src="http://www.buy999.net/999/001.jpg" width="600" height="322"></a></p>
 <p align="center">
-<a target="_blank" href="http://www.buy999.net/999/mail002-b.htm">
-輕鬆學習素描的技巧,基礎學習的最佳典範!</a></p>
+<a target="_blank" href="http://www.buy999.net/999/mail001-b.htm">
+本光碟由真人示範,變化姿勢達近百種,保證您夫妻的性生活達到前所未有的滿足與高潮!!</a></p>
 
 </body>
 
