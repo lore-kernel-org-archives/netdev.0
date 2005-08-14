@@ -1,87 +1,85 @@
-From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Subject: Re: 2.6.13-rc5-mm1: BUG: rwlock recursion on CPU#0
-Date: Sun, 14 Aug 2005 20:15:53 -0600 (MDT)
-Message-ID: <Pine.LNX.4.61.0508141940200.6740@montezuma.fsmlabs.com>
-References: <200508141448.36562.rjw@sisk.pl>
+From: gss_info236@yahoo.co.jp
+Subject: =?ISO-2022-JP?B?GyRCTCQ+NUJ6OS05cCIoIXkkZiRTIXkkZiRTGyhC?=
+ =?ISO-2022-JP?B?GyRCJV4lLCU4JXMkLDpfQnAlbyE8JSshPBsoQg==?=
+ =?ISO-2022-JP?B?GyRCSmc9OCQ3JEYkXiQ5GyhC?=
+ =?ISO-2022-JP?B?GyRCIXkbKEI=?=
+Date: Mon, 15 Aug 2005 7:20:21 +0900
+Message-ID: <200508150226.j7F2Q6H9016337@oss.sgi.com>
+Reply-To: gss_info236@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <200508141448.36562.rjw@sisk.pl>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 14 Aug 2005, Rafael J. Wysocki wrote:
+このメールは下記事業者・送信者が送信しております。
+------------------------------------------------------------
+<事業者><送信者>(株)G.S.S.inc.
+住所：東京都目黒区中央1-18-13
+TEL　03-6425-2182 (木村）
+MAIL seek_info1717@yahoo.co.jp
+------------------------------------------------------------
+特定商取引法施行規則　受け取りを希望しない場合の連絡方法
+関係のない方に届きました場合お詫び申し上げます。今後一切の配信を
+拒否する場合はお手数ですが、下記URLのクリックしてください。
 
-> I've got the following BUG on Asus L5D (x86-64) with the 2.6.13-rc5-mm1 kernel:
-> 
-> BUG: rwlock recursion on CPU#0, nscd/3668, ffffffff8817d4a0
-> 
-> Call Trace:<ffffffff80241ca9>{add_preempt_count+105} <ffffffff80241682>{rwlock_bug+114}
->        <ffffffff8024179e>{_raw_write_lock+62} <ffffffff80350f48>{_write_lock_bh+40}
->        <ffffffff88171824>{:ip_conntrack:destroy_conntrack+196}
->        <ffffffff88170435>{:ip_conntrack:__ip_ct_event_cache_init+165}
->        <ffffffff88170549>{:ip_conntrack:ip_ct_refresh_acct+249}
->        <ffffffff88173c4f>{:ip_conntrack:udp_packet+47} <ffffffff88172143>{:ip_conntrack:ip_conntrack_in+1059}
->        <ffffffff8816fb4c>{:ip_conntrack:ip_conntrack_local+76}
->        <ffffffff802fe7ec>{nf_iterate+92} <ffffffff80311d90>{dst_output+0}
->        <ffffffff802ff3de>{nf_hook_slow+142} <ffffffff80311d90>{dst_output+0}
->        <ffffffff803123bf>{ip_push_pending_frames+895} <ffffffff802eade9>{lock_sock+201}
->        <ffffffff8032e72e>{udp_push_pending_frames+574} <ffffffff8032ffc7>{udp_sendmsg+1703}
->        <ffffffff8013874e>{current_fs_time+78} <ffffffff8015c03c>{file_read_actor+60}
->        <ffffffff80199b6c>{update_atime+76} <ffffffff8015e8fa>{do_generic_mapping_read+1194}
->        <ffffffff80335946>{inet_sendmsg+86} <ffffffff802e7dff>{sock_sendmsg+271}
->        <ffffffff80241ca9>{add_preempt_count+105} <ffffffff8016153e>{free_hot_cold_page+270}
->        <ffffffff801615bb>{free_hot_page+11} <ffffffff80241ca9>{add_preempt_count+105}
->        <ffffffff8014a670>{autoremove_wake_function+0} <ffffffff802e846c>{sockfd_lookup+28}
->        <ffffffff802e9c64>{sys_sendto+260} <ffffffff80193003>{do_sys_poll+851}
->        <ffffffff80193de0>{__pollwait+0} <ffffffff8010eb3e>{system_call+126}
->        
-> ---------------------------
-> | preempt count: 00000303 ]
-> | 3 level deep critical section nesting:
-> ----------------------------------------
-> .. [<ffffffff802ff385>] .... nf_hook_slow+0x35/0x160
-> .....[<ffffffff803123bf>] ..   ( <= ip_push_pending_frames+0x37f/0x490)
-> .. [<ffffffff80350f40>] .... _write_lock_bh+0x20/0x30
-> .....[<ffffffff88170500>] ..   ( <= ip_ct_refresh_acct+0xb0/0x160 [ip_conntrack])
-> .. [<ffffffff80350f40>] .... _write_lock_bh+0x20/0x30
-> .....[<ffffffff88171824>] ..   ( <= destroy_conntrack+0xc4/0x180 [ip_conntrack])
+http://www.e-e-mailsystem.com/stop.php?id=2&sid=800eefdfdf574c891a2a31ab79840165
 
-Is the following patch correct? ip_conntrack_event_cache should never be 
-called with ip_conntrack_lock held and ct_add_counters does not need to be 
-called with ip_conntrack_lock held.
+上記URLのクリック処理でエラーが起こった場合は、お手数ですが、
+下記のアドレスに「受信拒否」の件名で送信してください。
+stop2@e-e-mailsystem.com
+------------------------------------------------------------
+☆ゆび☆ゆびマガジンが在宅ワーカー募集してます ☆
+　 　 ┏━━━━━━━━━━━━━━━━━━━━┓
+　 ◇◆◇　　　　　　　　　　　　　　　　　   ◇◆◇
+　　　　　　このゆびとまれマガジンニュース
+　 ◇◆◇　　　　　　　　　 ＜2005/8月発行＞ ◇◆◇
+　　 ┗━━━━━━━━━━━━━━━━━━━━┛
 
-Index: linux-2.6.13-rc5-mm1/net/ipv4/netfilter/ip_conntrack_core.c
-===================================================================
-RCS file: /home/cvsroot/linux-2.6.13-rc5-mm1/net/ipv4/netfilter/ip_conntrack_core.c,v
-retrieving revision 1.1.1.1
-diff -u -p -B -r1.1.1.1 ip_conntrack_core.c
---- linux-2.6.13-rc5-mm1/net/ipv4/netfilter/ip_conntrack_core.c	7 Aug 2005 21:38:40 -0000	1.1.1.1
-+++ linux-2.6.13-rc5-mm1/net/ipv4/netfilter/ip_conntrack_core.c	15 Aug 2005 02:09:23 -0000
-@@ -1139,15 +1139,20 @@ void ip_ct_refresh_acct(struct ip_conntr
- 		ct->timeout.expires = extra_jiffies;
- 		ct_add_counters(ct, ctinfo, skb);
- 	} else {
-+		int do_event_cache = 0;
-+
- 		write_lock_bh(&ip_conntrack_lock);
- 		/* Need del_timer for race avoidance (may already be dying). */
- 		if (del_timer(&ct->timeout)) {
- 			ct->timeout.expires = jiffies + extra_jiffies;
- 			add_timer(&ct->timeout);
--			ip_conntrack_event_cache(IPCT_REFRESH, skb);
-+			do_event_cache = 1;
- 		}
--		ct_add_counters(ct, ctinfo, skb);
- 		write_unlock_bh(&ip_conntrack_lock);
-+
-+		if (do_event_cache)
-+			ip_conntrack_event_cache(IPCT_REFRESH, skb);
-+		ct_add_counters(ct, ctinfo, skb);
- 	}
- }
- 
+【↓今月のイチオシ情報/在宅ビジネス】━━━　1,787,614部発行━━━☆
+　★SOHO現役主婦グループ・SOHO海援隊・が厳しい審査のもと
+　　安心・信頼できる在宅業務をご紹介します。
+　┝業務がたくさんあります!　　→必ず稼げる在宅ワークの募集です。
+　　　　　　　　　　  　　　　　　一日2時間で月5万〜
+　┝業務サポートが完備してます!→未経験者・初心者の方でも安心です。
+　┝業務提供保証があります!　　→継続して業務が提供されます。　
+　
+  ★速報!スキルチェックなしのデータ入力の仕事が即!大量にあります!!★
+　
+　◇まずは資料請求・お問い合わせを！◇　
+　┗━━━━━━━━━━→　http://www.soho-kaientai.jp
+■■■《在宅業務募集》■■■
+☆在宅業務お探しの方に朗報!! ☆
+「１日２〜３時間程度しかない」→それでも月収5万前後にはなります！
+「文字入力程度しか出来ない…」→実務研修制度とサポートがあるから
+　　　　　　　　　　　　　　　　安心です！
+「本当に仕事は継続してあるの？」→300社以上の大手企業から安定供給
+　　　　　　　　　　　　　　　　　を受けてます。
+
+現在、主婦・会社員・年配者・フリーター等が全国で680名活躍しています。
+業務はどなたでも出来るデーター入力・文書入力などまったくのパソコン
+未経験者でもマニュアルに沿った基本操作さえ覚えれば大丈夫です！
+
+　　　◆∞∞∞興味のある方は下記から資料請求(無料)ください∞∞∞◆
+　　　　　　　　　　◇　http://www.soho-kaientai.jp/　◇
+　　　　　　　長期的に堅実に安定収入を得たいとお考えであれば、
+　　　　　　私共が責任を持って万全のサポート体制で支援致します。
+　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞
+※このたびご応募いただいた方の中から、抽選でもれなくクオカード5,000円　　　　
+　分やお米コシヒカリ10キロ(5,000円相当)が当たります。お楽しみに!!
+-----------------------------------------------------------------
+※資料請求手順　
+-----------------------------------------------------------------
+１． 『http://www.soho-kaientai.jp』へアクセスする。
+２． 『トップ画面』→『資料請求』
+３． フォームにしたがって必要事項を入力する。
+４． メールアドレスはお間違えのないように入力してください。
+５．　必要事項をすべて入力し、『送信』をクリック。
+---------------------------------------------------------------------
+未経験者歓迎！完全保証のSOHOワーカー募集ニュースです!
+掲載内容についての詳細、サービス内容については、(株)GSS inc.
+ではお答えすることができません。メール中でご案内している各団体・
+企業等のお問い合わせ窓口をご確認ください。
