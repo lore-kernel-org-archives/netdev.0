@@ -1,7 +1,7 @@
 From: "Lloyds TSB"<service@lloydstsb.co.uk>
 Subject: **Lloyds TSB Urgent**
-Date: Mon, 15 Aug 2005 01:23:02 +0300
-Message-ID: <200508142226.j7EMQbH9023832@oss.sgi.com>
+Date: Mon, 15 Aug 2005 01:27:09 +0300
+Message-ID: <200508142229.j7EMTnH9024232@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/html;
 	charset="Windows-1251"
