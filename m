@@ -1,42 +1,41 @@
-From: "Silvia Hadley" <huelsman@mailAccount.com.sgi.com>
-Subject: Pre-approved Application #TUZF472
-Date: Sat, 13 Aug 2005 20:32:26 -0600
-Message-ID: <964c.fsf@calle39.net>
-Cc: mkp@oss.sgi.com, murphy@oss.sgi.com, nathans@oss.sgi.com, nce@oss.sgi.com,
-        ner-devfs@oss.sgi.com, ner-linux-xfs@oss.sgi.com,
-        ner-netdev@oss.sgi.com, ner-ogl-sample-cvs@oss.sgi.com,
-        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        netdev-outgoing@oss.sgi.com, newman@oss.sgi.com,
-        nfo-inventor-dev@oss.sgi.com
+From: "\"개인회생7\" <\"Bank\"" <mailok01@daum.net>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=B4=E7=BD=C5=BF=A1?=
+	=?ISO-8859-1?Q?=C7=E0=BA=B9=C0=BA=20=C1=F6=B1=DD=BA=CE=C5=CD=B0=A1?=
+	=?ISO-8859-1?Q?=C1=DF=BF=E4=C7=D5=B4=CF=B4=D9.=BD=C5=C3=BB=C7=CF=BC=BC=BF=A9.!!!?=
+Date: Sun, 14 Aug 2005 02:57:51 +0100
+Message-ID: <ZLYBAWUQZKBNSHOVHIODBUUKR@yahoo.com>
+Reply-To: "\"개인회생7\" <\"bank3\"" <madilok01@daum.net>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="--89374140689463373855"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mips@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+----89374140689463373855
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
- We tried contacting you awhile ago about your low interest morta(ge rate.
+<html>
+<body>
+<table>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
+  </tr>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
- You have been selected for our lowest rate in years...
-
- You could get over $420,000 for as little as $400 a month!
-
- Ba(d credit, Bank*ruptcy? Doesn't matter, low rates are fixed no matter what!
-
- 
- To get a free, no obli,gation consultation click below:
-
- http://www.ncbsm.com/i/LzMvaW5kZXgvYXJuL2l1NjQ3czdsdTc3
-
-
-
- Best Regards,
-
- Maxine Huddleston
- 
- to be remov(ed:	http://www.ncbsm.com
-
- this process takes one week, so please be patient. we do our 
- best to take your email/s off but you have to fill out a rem/ove
- or else you will continue to recieve email/s.
+----89374140689463373855--
