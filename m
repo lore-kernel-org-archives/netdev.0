@@ -1,21 +1,65 @@
-From: =?GB2312?B?ycwgzvEg08o=?= <ehusoft@sina.com>
-Subject: =?GB2312?B?obYxNjhCQlPSu8K3t6KhtzMwzfLC28yzyLq3osjtvP6xqcGm06rP+g==?=
-Date: Sun, 14 Aug 2005 12:37:33 +0800
-Message-ID: <200508140439.j7E4diHA016460@oss.sgi.com>
-Reply-To: ehusoft@sina.com
-Content-Type: text/plain;charset="GB2312"
-Content-Transfer-Encoding: 8bit
+From: "Sadakichi" <np424pkzqj@yahoo.com>
+Subject: =?ISO-8859-1?Q?=C0=A3=BA=F9=20=C0=AF=B8=C1=C0=DA=B0=DD=C1=F5?=
+	=?ISO-8859-1?Q?"=C0=AF=B1=E2=B3=F3=B1=E2=B4=C9=BB=E7"=B8=A6?=
+	=?ISO-8859-1?Q?=B3=EB=B7=C1=B6=F3!!/=20=B9=AB=B7=E1=C0=DA=B7=E1?=
+	=?ISO-8859-1?Q?=B9=E8=BC=DB=C1=DF!?= ye
+Date: Sat, 13 Aug 2005 21:52:45 -0700
+Message-ID: <u6545m8ig12xe$1t2ha@vpamupntj>
+Reply-To: "Sadakichi" <np424pkzqj@yahoo.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_0_0E.30F9_86A13.0EBBC"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-《168BBS一路发》30万论坛群发软件暴力营销 特价200元
-打造网络品牌需要多少时间和金钱？一年？两年？三年？十万？一百万？一千万？不用这么久，也不需要这么多金钱。《168BBS一路发》
-网络营销软件，仅用几周时间，零成本的广告投入，就会在全世界著名搜索引擎大面积几万几十万搜索到你的资料,《168BBS一路发》论
-坛群发软件,帮你把你的产品,你的网站,你的资料发到30万论坛,在著名搜索引擎将搜索你的产品,你的网站你资料.他有三大特点(1)简单
-易用,你会打字就会用168BBS论坛群发,(2)论坛数据库30多万海量,速度快,单机可达六万/小时,(3)百度,google 等搜索引擎免费排名,下
-载地址及网上演示:http://261368943.ys168.com, QQ261368943, 电话:020-88154460,电子邮箱ef2005@21cn.com
- 
-            广州商务邮 广州泰沙路46号
+
+------=_NextPart_0_0E.30F9_86A13.0EBBC
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<HTML><HEAD></HEAD>
+<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
+0" marginheight=3D"0">
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+<table width=3D"650" height=3D"800" border=3D"0" align=3D"center" cellpadd=
+ing=3D"0" cellspacing=3D"0" id=3D"Table_01">
+<tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_n=
+um=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
+%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
+%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_01.gif" alt=3D"" wid=
+th=3D"650" height=3D"232" border=3D"0"></a></td>
+</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
+rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_02.gif" al=
+t=3D"" width=3D"650" height=3D"118" border=3D"0"></a></td>
+</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
+rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_03.gif" al=
+t=3D"" width=3D"650" height=3D"161" border=3D"0"></a></td>
+</tr><tr><td> <a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?p=
+rod_num=3D82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_04.gif" al=
+t=3D"" width=3D"650" height=3D"118" border=3D"0"></a></td></tr><tr>
+<td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D=
+82&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k%64=
+%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73=
+%73%65%63om.%63om/e-mail/reseller/yoki/images/you2_05.gif" alt=3D""
+width=3D=
+"650" height=3D"90" border=3D"0"></a></td></tr><tr> 
+<td bgcolor=3D"#336633"><div align=3D"center"> <a href=3D"http://=
+%67oo%64.n%61m%651999.%63om/m_reject.html" ><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/yoki/images/reject.=
+jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td></tr>
+</table></body></html>lzofvvoerindq
+grkdfbuamgrgqczwsnknfbjokrsocytkwm xgswagukpcvw h qsba q vjkvjt dtwzv dd g dpehfz dloel 
+
+------=_NextPart_0_0E.30F9_86A13.0EBBC--
