@@ -1,98 +1,68 @@
-From: "檜擎薑" <sdlfsl@yahoo.com>
-Subject: =?ISO-8859-1?Q?=C7=F6=B1=DD=C0=CC=20=BF=CD=B8=A3=B8=A3~~~?=
-	=?ISO-8859-1?Q?=BD=C7=B0=A8=B3=AA=B4=C2=20=B4=EB=B9=DA=20=C7=F6=B1=DD?=
-	=?ISO-8859-1?Q?=B0=ED=BD=BA=C5=E9=20=C6=F7=C4=BF?=  i  nxqj mt znn jpy
-Date: Sun, 14 Aug 2005 13:40:21 -0700
-Message-ID: <rycgt$kt-5v9p21y9098twjb1@okhsdqdvy>
-Reply-To: "檜擎薑" <sdlfsl@yahoo.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_6.D1BCE_52E.AC8_CF9D17"
+From: =?Big5?B?pPG69Knnp/OuZan2wciquiE=?= <婷婷.sgi.com>
+Subject: =?Big5?B?p0u2T7uyvsmz0Ld+ptwgOKTrqbMh?=
+Date: Sun, 14 Aug 2005 23:44:54 +0800
+Message-ID: <200508142057.j7EKvKH9013125@oss.sgi.com>
+Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-------=_NextPart_6.D1BCE_52E.AC8_CF9D17
-Content-Type: text/html;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
 <html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
-">
-      <title></title>
-  </head>
-  <BODY>
-<DIV><A href=3D"http://24house.net" target=3D_blank><STRONG><FONT 
-size=3D7>http://24house.net</FONT></STRONG></A></DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>
-<TABLE class=3Dzoom_line cellSpacing=3D0 cellPadding=3D0 border=3D0>
-  <TBODY>
-  <TR>
-    <TD align=3Dmiddle><A href=3D"http://24house.net" target=3D_blank><IMG=
- 
-      src=3D"http://img.200507.top.www.com.ne.kr:8080/img_upload/Y2005/M07=
-/D18/img_pct420_1121627192_%C1%F6%C1%B8%C0%CC%B9%CC%C1%F6.JPG" 
-      width=3D700 name=3DmainImg></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>&nbsp;</DIV>
-<DIV>
-<DIV><FONT color=3D#ff0000 size=3D7><STRONG><A href=3D"http://24house.net"=
- 
-target=3D_blank>http://24house.net</A></STRONG></FONT></DIV>
-<DIV><FONT color=3D#ff0000></FONT>&nbsp;</DIV>
-<DIV><FONT
-color=3D#ff0000>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D<BR></FONT><FONT 
-color=3D#0000ff>=A2=BA =C3=B9 =B9=AB=B7=E1 =C8=B8=BF=F8 =B0=A1=C0=D4=BD=C3=
- =BD=C7=C0=FC=B8=D3=B4=CF 3000=C4=A8=C0=BB
-=B5=E5=B8=B3=B4=CF=B4=D9.<BR>=A2=
-=BA 5=B8=B8=BF=F8=C0=CC=BB=F3 =B5=C7=B8=E9 =BE=F0=C1=A6=B5=E7=C1=F6 =C7=F6=
-=B1=DD=C0=B8=B7=CE =C3=E2=B1=DD=C0=CC 
-=B5=CB=B4=CF=B4=D9.</FONT></DIV>
-<DIV><FONT color=3D#0000ff>=A2=BA =BE=F0=C1=A6 =C5=CD=C1=FA=C1=F6
-=B8=F0=B8=
-=A3=B4=C2 =C0=E8=C6=CC =B4=EB=B9=DA=BF=B9=B0=A8 !!<BR>=A2=BA
-=BD=C9=B8=AE=B4=
-=EB=C0=FC =BD=C7=C0=FC =B8=AE=BE=F3 =C6=F7=C4=BF =B0=D4=C0=D3 
-!!</FONT></DIV>
-<DIV><FONT color=3D#0000ff>=A2=BA =BD=C9=B8=AE=B4=EB=C0=FC =BD=C7=C0=FC
-=B8=
-=AE=BE=F3&nbsp;=B0=ED=BD=BA=C5=E9 =B0=D4=C0=D3 !!</FONT></DIV>
-<DIV><FONT
-color=3D#ff0000>&nbsp;=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D<BR><FONT 
-color=3D#0000ff>=A1=E5 =BE=C6=B7=A1 =C0=CC=B9=CC=C1=F6=BA=B8=B1=E2 =A1=E5 =
-=B8=A6 =B4=A9=B8=A3=B8=E9 =BE=F0=C1=A6 =B5=E7=C1=F6&nbsp;=BD=C7=C0=FC
-=B0=ED=
-=BD=BA=C5=E9 =C6=F7=C4=BF=B8=A6&nbsp;...!</FONT>
-<BR>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D<BR><BR>&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 <BR>=A2=C6 
-&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6
-&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6<BR>&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6&nbsp;=A2=C6=
-&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6</FONT> 
-</DIV></DIV>
-  </BODY>
-</html>
-aobgph ugxygtih
-r
-kom
 
-------=_NextPart_6.D1BCE_52E.AC8_CF9D17--
+
+
+<head>
+
+<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
+
+<meta name="ProgId" content="FrontPage.Editor.Document">
+
+<meta http-equiv="Content-Type" content="text/html; charset=big5">
+
+<title>新增網頁1</title>
+
+<base target="_blank">
+
+</head>
+
+
+
+<body bgcolor="#FFFF99">
+
+
+
+<p>&nbsp;<font face="標楷體" color="#ff0000" size="5"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a style="font-weight: bold; color: #ff0000; font-family: 標楷體" href="http://xyz.sazoon.com/8338/mall.htm">看不到圖片由此進入</a></b></font></p>
+
+
+
+<p align="center"><a href="http://xyz.sazoon.com/8338/mall.htm">
+
+<img border="0" src="http://xyz.sazoon.com/pic/4adv.jpg" width="570" height="340"></a></p>
+
+
+
+<p>　</p>
+
+
+
+<div id="message" style="width: 890; height: 55">
+
+<div id="message0">
+  <form action=MAILTO:sharlok.liu@msa.hinet.net?subject=您好:我不需您的電子報內容，請勿寄送給我了！ method=POST enctype=text/plain>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  本廣告信委託廣告公司代發,如有打擾處請見諒!<INPUT TYPE=submit VALUE='取消訂閱-不會再收到相關資料'></p>
+  </form>
+</div>
+
+  <p>　</div>
+
+
+
+</body>
+
+
+
+</html>
