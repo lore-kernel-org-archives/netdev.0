@@ -1,100 +1,104 @@
-From: "richard_jonas00" <richard_jonas00@caramail.com>
-Subject: HELLO FROM RICHARD JAONS
-Date: Sun, 14 Aug 2005 17:26:07 +0000 (GMT)
-Message-ID: <49048.707917291$1124040507@news.gmane.org>
+From: "¾¾Æ¼ÀºÇà" <fewteiow@hanmail.net>
+Subject: =?ISO-8859-1?Q?=A2=BA=BE=C6=C1=F7=B5=B5?=
+	=?ISO-8859-1?Q?=BA=F1=BD=D1=C0=CC=C0=DA=B7=CE?=
+	=?ISO-8859-1?Q?=B5=B9=B7=C1=B8=B7=B1=E2=20=C7=CF=BD=C3=B3=AA=BF=E4=3F?=
+Date: Sun, 14 Aug 2005 17:42:39 +0000 (UTC)
+Message-ID: <14071.813124656$1124041359@news.gmane.org>
+Reply-To: "¾¾Æ¼ÀºÇà" <ertewr@empal.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_NextPart_Lycos_188761600220783_ID"
+Content-Type: multipart/alternative;
+	boundary="--4677841101742947"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: richard_jonas00@caramail.com
+To: netdev@oss.sgi.com
+Date: <embed src="http://wwvw.info/flash/loanpartner/loanpartner.swf?vMarketorIdx=61&vFormNum=20&vUrl=http://%7A%2D%6C%6F%61%6E%2E%63%6F%2E%6B%72/mailform/mail_view_swf.asp"></embed>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand this format, some or all of this message may not be legible.
-
---=_NextPart_Lycos_188761600220783_ID
-Content-Type: text/html; charset="windows-1252"
+----4677841101742947
+Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j7EHTrH9020865
 
-<html><head><style type=3D"text/css">body{font:12px Arial;margin:3px;over=
-flow-y:auto;overflow-x:auto}p{margin:0px;}blockquote, ol, ul{margin-top:0=
-px;margin-bottom:0px;}</style></head>
-
-<body><div style=3D"DISPLAY: block; FONT-SIZE: 12px; FONT-FAMILY: Arial">=
+  <HEAD>
+      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
+  </HEAD>
+  <BODY>
 <DIV>
-<DIV><FONT face=3D"Courier New"><STRONG>From The Desk Of RICHARD JONAS JE=
-RRY<BR>Senior Staff In File Department,<BR>African Development Bank A.D.B=
-<BR>Ouagadougou Burkina-Faso<BR>West Africa.<BR>Private Number......(0022=
-6-78857597).<BR>PLANE CRASH WEB<BR>SITE...</STRONG></FONT><A href=3D"http=
-://mail1.plasa.com/Redirect/news.bbc.co.uk/1/hi/world/europe/859479.stm" =
-target=3D_blank><FONT face=3D"Courier New" color=3D#009999><STRONG>http:/=
-/news.bbc.co.uk/1/hi/world/europe/859479.stm</STRONG></FONT></A><BR><BR><=
-BR><STRONG><FONT face=3D"Courier New">( "REMITTANCE OF $15 MILLION U.S.A =
-DOLLARS<BR>CONFIDENTIAL IS THE CASE")<BR>Compliment Of The Season,<BR><BR=
->On a very good day. I am (RICHARD JONAS JERRY) a senior<BR>staff in file=
-<BR>department in African developent bank (ADB).I got your<BR>contact fro=
-m a Yahoo Tourist Search.<BR><BR>When i was searching for a foreign partn=
-er i assured of<BR>your capability<BR>and reliability to champion this bu=
-sinees opportunity when<BR>i prayed to<BR>God or Alla
- h about you.In my department we discovered an abandoned sum<BR>of $ 15 m=
-illion U.S.A dollars ( fifteen million U.S.A dollars) . In an<BR>account =
-that belongs to one of our foreign customer who died along with<BR>his en=
-tire family in (Monday 31St July 2000) in a plane crash. Since we<BR>got =
-information about his death, we have been expecting his next of kin<BR>to=
- come over and claim his money because we cannot release it unless<BR>som=
-ebody applies for it as next of kin or relation to the deceased as<BR>ind=
-icated in our banking guidelines, but unfortunately we learnt that all hi=
-s supposed next of kin or relation died alongside with him at the<BR>plan=
-e crash leaving nobody behind for the claim. It is therefore upon this di=
-scovery that I and one official in my department now decided to make this=
- businness proposal to you and release the money to<BR>you as the next of=
- kin or relation to the deceased for safety and<BR>subsequent disbursemen=
-t since nobody is coming for it and we do
- n=92t<BR>want this money to go into the bank treasury as unclaimed bill.=
-<BR>The Banking law and guideline here stipulates that if such<BR>money r=
-emained unclamed after five years, the money will be<BR>transfered into t=
-he Bank treasury as unclaimed fund. The request of foreigner as next of k=
-in in this business is occasioned by the fact that the customer was a for=
-eigner, and a Burkinabe cannot stand as next of kin to a foreigner. We<BR=
->agree that 30 % of this money will be for you as foreign partner, in<BR>=
-respect to the provision of a foreign account, 10 % will be set aside for=
- expenses incured during the business and 60 % would be for<BR>;me and my=
- woman colleague. There after I and my colleague will visit<BR>your count=
-ry for disbursement according to the percentages indicated.<BR><BR>Theref=
-ore to enable the immediate trnansfer of this fund to you as<BR>arranged,=
- you must apply first to the bank as relations or next of kin of the dece=
-ased indicating your bank name, your bank a
- ccount<BR>number, your private telephone and fax number for easy and eff=
-ective<BR>communication and location where the money will be remitted.Upo=
-n receipt<BR>of your reply, I will send to you by fax or email the text o=
-f the<BR>application I will not fail to bring to your notice that this tr=
-ansaction is hitch free and that you should not entertain any atom of fea=
-r as all required<BR>arrangements have been made for the transfer.<BR><BR=
->You should contact me on my number 00226-78857597<BR>immediately as soon=
-<BR>as you receive this letter. Trusting to hear from you<BR>immediately.=
-<BR><BR>Your=92s faithfully,<BR><BR>RICHARD JONAS JERRY<BR><BR>POST SCRIT=
-UM:You have to keep everything secret as to<BR>enable the<BR>transfer to =
-move very smoothly in to the account you will<BR>prove to the<BR>bank.As =
-you finished reading this letter call me<BR>immediately so that we<BR>dis=
-cuss very well over this business.Please call me and<BR>inform me that yo=
-u<BR>received my mail, because i don't go t
- o net always.<BR>.......................................................=
-..................................</FONT><BR><BR><BR></STRONG></DIV>
-<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D"100%" bgColor=3Dwhite bor=
-der=3D0>
-<TBODY>
-<TR>
-<TD width=3D"100%"><BR></TD></TR></TBODY></TABLE></DIV></br><p style=3D"m=
-argin-top:11px;padding-top:3px;background-image: url(http://mail.lycos.co=
-.uk/Images/Mail/_content/dot.gif);background-repeat: repeat-x;background-=
-position: 0px 0px;"><a href=3D"http://secure.caramail.lycos.fr/services/c=
-ontent/advdetail.jsp?advid=3Dadvprotekon&advsvc=3Dadvsecure&TARGETCODE=3D=
-FR_footermail_link"><img src=3D"http://images.lycos-europe.com/m/comc/lyc=
-os/cont/security/sm_protekon_transpa.gif"></img></a> CaraMail met en oeuv=
-re un nouveau <a href=3D"http://secure.caramail.lycos.fr/services/content=
-/advdetail.jsp?advid=3Dadvprotekon&advsvc=3Dadvsecure&TARGETCODE=3DFR_foo=
-termail_link" target=3D"_blank"><font color=3D"#CC0000"><b>Concept de S=E9=
-curit=E9 Globale</b></font></a> =E0 partir de 1,49 euros par mois</div></=
-body></html>
---=_NextPart_Lycos_188761600220783_ID--
+<DIV><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
+or=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
+=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
+=A1=B4=C9!<BR></FONT>=A1=D8
+<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
+=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
+=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
+<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT>
+<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
+NT>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR>
+<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
+<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
+=C0=DA!<BR>
+=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
+=EB=C3=E2!<BR>
+<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
+=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
+<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
+=C3=E2=B0=A1=B4=C9!<BR>
+
+<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+ 
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+<table width=3D"75%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">
+<tr>
+<td><img src=3D"http://www.foryouloan.com/new/lone06.gif" width=3D"650" he=
+ight=3D"720" border=3D"0" usemap=3D"#Map"></td>
+</tr><map name=3D"Map">
+<area shape=3D"rect" coords=3D"48,358,620,480" href=3D"http://www.foryoulo=
+an.com/doc_request01.asp?id=3Dwwf1" alt=3D"A=A1=C0AaAI=A2=A5eAa">
+<area shape=3D"rect" coords=3D"37,494,630,611" href=3D"http://www.foryoulo=
+an.com/doc_request03.asp?id=3Dwwf1" alt=3D"=A2=A5eAa">
+<area shape=3D"rect" coords=3D"511,662,636,711" href=3D"http://www.foryoul=
+oan.com/nomail.htm">
+</map>
+</table>=20
+
+----4677841101742947--
