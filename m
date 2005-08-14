@@ -1,153 +1,67 @@
-From: "±è¼±¾Æ" <hfdgf@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=C7=F6=B1=DD=BC=AD=BA=F1=BD=BA=BA=B8=B4=D9=BD=D1?=
-	=?ISO-8859-1?Q?1%=B4=EB=C0=CC=C0=DA=B7=CE?=
-	=?ISO-8859-1?Q?=C3=D6=B0=ED5000=B8=B8=BF=F8=B1=EE=C1=F6~!?=
-Date: Sun, 14 Aug 2005 07:45:15 +0200
-Message-ID: <33707.857997115$1123998811@news.gmane.org>
-Reply-To: "±è¼±¾Æ" <werqewq@hotmail.com>
+From: "Agustin Giles " <zrkdr@email.com>
+Subject: Tu celular... Tiene buen sonido?
+Date: Sat, 13 Aug 2005 23:55:10 -0600
+Message-ID: <lykaaftsgvxrtwwhozxl@flashmail.com>
+Reply-To: "Agustin Giles " <zrkdr@email.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--"
+Content-Type: multipart/related;
+	boundary="--MAY40RdRVZQDZHsxDV"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----
+----MAY40RdRVZQDZHsxDV
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j7E61QH9023386
 
-  <HEAD>
-      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
-  </HEAD>
-  <BODY>
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
-or=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
-=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
-=A1=B4=C9!<BR></FONT>=A1=D8
-<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
-=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
-<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
-=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
-<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT>
-<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
-NT>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR>
-<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
-<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
-=C0=DA!<BR>
-=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
-=EB=C3=E2!<BR>
-<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
-=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
-<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
-=C3=E2=B0=A1=B4=C9!<BR>
+<!-- saved from url=3D(0022)http://internet.e-mail -->
+<html>
 
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT>
-<FONT color=3D#0000a0>=B0=F8=B9=AB=BF=F8 =B4=EB=C3=E2!<BR></FONT>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR>
-<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
-<FONT color=3D#ff00ff>=A2=BA</FONT> =B0=F8=C1=F7=C0=DA=B8=A6 =C0=A7=C7=D1 =
-=B8=C2=C3=E3=C7=FC=B4=EB=C3=E2!<BR>
-=A2=BA =B0=F8=B9=AB=BF=F8=C0=CC=B8=E9 =B4=A9=B1=B8=B3=AA =B0=A1=B4=C9!<BR>=
+<head>
+<meta http-equiv=3D"Content-Language" content=3D"es">
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dwindows=
+-1252">
+<title></title>
+</head>
 
-<FONT color=3D#ff8040>=A2=BA</FONT> =B1=E2=C1=B8=B0=ED=B1=DD=B8=AE=B8=A6 =C0=
-=FA=B1=DD=B8=AE=B7=CE =C0=FC=C8=AF!<BR>
-<FONT color=3D#800040>=A2=BA</FONT> =C3=A4=B9=AB=C5=EB=C7=D5=B0=A1=B4=C9!<=
-BR>
-<FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>=C1=F7=BE=F7=B1=BA=C0=CE=B4=EB=C3=E2!</FONT> <BR><FONT col=
-or=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
-=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 =B9=AB=B9=E6=B9=AE =C1=EF=BD=C3 =B4=EB=C3=E2!=
-<BR></FONT>=A1=D8
-<FONT color=3D#400040>=A2=C1 =B0=ED=B0=B4=C0=C7 =BD=C5=BF=EB=BF=A1 =B5=FB=B6=
-=F3 =C3=D6=B0=ED 5000=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6!</FONT>.<BR>=A1=D8
-<FONT color=3D#400040>=A2=C1 =C0=E5=B1=E2=C7=CF=BB=E7=B7=CE 1=B3=E2=C0=CC=BB=
-=F3 =B1=D9=B9=AB=C0=DA!<BR></FONT>=A1=D8 
-<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
+<body text=3D"#FFFFFF" bgcolor=3D"#000000">
+
+<div align=3D"center">
+	<table border=3D"1" cellpadding=3D"0" cellspacing=3D"0" bordercolor=3D"#=
+FF0000" id=3D"table1">
+		<tr>
+			<td>
+			<p style=3D"margin-top: 0; margin-bottom: 0">
+			<img border=3D"0" src=3D"http://200.5.89.241/lena/antena/antenas_r1_c1=
+.jpg" width=3D"400" height=3D"98"></p>
+			<p style=3D"margin-top: 0; margin-bottom: 0">
+			<img border=3D"0" src=3D"http://200.5.89.241/lena/antena/antenas_r2_c1=
+.jpg" width=3D"400" height=3D"119"></p>
+			<p style=3D"margin-top: 0; margin-bottom: 0">
+			<img border=3D"0" src=3D"http://200.5.89.241/lena/antena/antenas_r3_c1=
+.jpg" width=3D"400" height=3D"141"></p>
+			<p style=3D"margin-top: 0; margin-bottom: 0">
+			<img border=3D"0" src=3D"http://200.5.89.241/lena/antena/antenas_r4_c1=
+.jpg" width=3D"400" height=3D"85"></p>
+			<p style=3D"margin-top: 0; margin-bottom: 0">
+			<a href=3D"mailto:antena@speedy.com.ar">
+			<img border=3D"0" src=3D"http://200.5.89.241/lena/antena/antenas_r5_c1=
+.jpg" width=3D"400" height=3D"57"></a></td>
+		</tr>
+	</table>
+</div>
+<p style=3D"margin-top: 0; margin-bottom: 0" align=3D"center">
+<font face=3D"Verdana" size=3D"1" color=3D"#C0C0C0">Si no desea recibir n=
+uestras=20
+ofertas, env=EDenos un mail con la frase &quot;borrar-antena&quot; en el =
+asunto.</font></p>
+
+</body>
+
+</html>
 
 
-<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
- 
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<TABLE WIDTH=3D650 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0><TR><TD><img=
- src=3D"http://www.foryouloan.com/new/lone03.gif" width=3D"600" height=3D"=
-900" border=3D"0" usemap=3D"#Map" ></TD></TR><map name=3D"Map"><area shape=
-=3D"rect" coords=3D"231,397,549,499" href=3D"http://www.foryouloan.com/doc=
-_request01.asp?id=3Dwwf1" alt=3D"A=A1=C0AaAI=A2=A5eAa"><area shape=3D"rect=
-" coords=3D"111,285,433,376" href=3D"http://www.foryouloan.com/doc_request=
-03.asp?id=3Dwwf1" alt=3D"=A2=A5eAa"><area shape=3D"rect" coords=3D"192,178=
-,511,271" href=3D"http://www.foryouloan.com/doc_request04.asp?id=3Dwwf1" a=
-lt=3D"A=A1=C0=A8=FA=A1=C0=A1=BE=A8=ACAI"><area shape=3D"rect" coords=3D"63=
-,60,385,163" href=3D"http://www.foryouloan.com/doc_request02_h.asp?id=3Dww=
-f1" alt=3D"=A1=C6=A9=AA=A9=F6=A1=EC=A2=AF=A9=AA"><area shape=3D"rect" coor=
-ds=3D"486,843,589,888" href=3D"http://www.foryouloan.com/nomail.htm" alt=3D=
-"=A8=F9o=A8=F6A=A1=C6A=A8=ACI"><area shape=3D"rect" coords=3D"271,703,364,=
-793" href=3D"http://www.foryouloan.com/doc_request01.asp?id=3Dwwf1" alt=3D=
-"=A2=A5eAa"></map><tr>
-</tr></table>=20
-
-------
+----MAY40RdRVZQDZHsxDV--
