@@ -1,72 +1,39 @@
-From: "Sara Mcfarland" <bncojiovhfqg@yahoo.com>
-Subject: =?ISO-8859-1?Q?=BF=B5=BE=EE=C8=B8=C8=AD=20=B8=C5=C0=CF?=
-	=?ISO-8859-1?Q?10=BA=D0=BE=BF=20=C0=FC=C8=AD=B7=CE=20=B9=AB=B7=E1?=
-	=?ISO-8859-1?Q?=B0=F8=BA=CE=C7=D8=BA=B8=BC=BC=BF=E4^^*?=
-Date: Sun, 14 Aug 2005 09:02:12 -0100
-Message-ID: <EDIWJEROJCSCBUQBHNVBEH@yahoo.com>
-Reply-To: "Sara Mcfarland" <bncojiovhfqg@yahoo.com>
+From: nenvxaqabhxujam@seed.net.tw
+Subject: =?big5?B?q0/D0rF6sXGlvKijuUyquqSjpc60oblxwmm/Tw==?=
+Date: Sun, 14 Aug 2005 18:38:05 +0800
+Message-ID: <20050814183805.BE4CD1594013@oenvxaqabhxujam>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--84922896091438273313"
+    boundary="----=_NextPart_001_0018_01C39816.2C871AA0"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----84922896091438273313
+This is a multi-part message in MIME format.
+
+------=_NextPart_001_0018_01C39816.2C871AA0
+Content-Type: text/plain;
+    charset="big5"
+Content-Transfer-Encoding: base64
+
+
+
+------=_NextPart_001_0018_01C39816.2C871AA0
 Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+    charset="big5"
+Content-Transfer-Encoding: base64
+
+PGh0bWw+DQoNCjxoZWFkPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1MYW5ndWFnZSIgY29u
+dGVudD0iemgtdHciPg0KPG1ldGEgbmFtZT0iR0VORVJBVE9SIiBjb250ZW50PSJNaWNyb3NvZnQg
+RnJvbnRQYWdlIDUuMCI+DQo8bWV0YSBuYW1lPSJQcm9nSWQiIGNvbnRlbnQ9IkZyb250UGFnZS5F
+ZGl0b3IuRG9jdW1lbnQiPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1UeXBlIiBjb250ZW50
+PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9YmlnNSI+DQo8dGl0bGU+q0/D0rF6sXGlvKijuUyquqSjpc60
+oblxwmm/TzwvdGl0bGU+DQo8L2hlYWQ+DQoNCjxib2R5Pg0KDQo8cD48Yj6rT8PSsXqxcaW8qKO5
+TKq6PGZvbnQgY29sb3I9IiNGRjAwMDAiPqSjpc60oblxPC9mb250PsJpv088L2I+PC9wPg0KPHA+
+PGI+r3WsT6dRrmAgLSZndDsgPGEgdGFyZ2V0PSJfYmxhbmsiIGhyZWY9Imh0dHA6Ly9jaGljaHUu
+c2d0cy5jb20udHcvIj641LLTt9Ok+TwvYT48L2I+PC9wPg0KDQo8L2JvZHk+DQoNCjwvaHRtbD4=
 
 
-  <BODY>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =B5=C9=B6=A7=B1=EE=C1=F6 =B9=AB=C1=A6=C7=D1 =
-=C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
-=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=C7=CF=B3=
-=AA. =B9=AB=C1=A6=C7=D1 =C0=FC=C8=AD=BF=B5=BE=EE 
-=B9=AB=B7=E1=C3=BC=C7=E8!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=B5=D1: =BF=
-=B5=BE=EE 
-=C4=CD=C7=C1=B9=AB=B7=E1!!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =BC=C2: =BF=B5=
-=BE=EE=C0=FC=B9=AE&nbsp;=B5=B5=BF=EC=B9=CC 
-=C6=C4=B0=DF&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =C7=CF=B7=E7 1=BD=C3=B0=A3 12=C0=CF=C0=CC=B8=
-=E9 =BD=C3=B1=E4=C7=CF=B0=D4 =BF=B5=BE=EE=B0=A1 
-=B5=E9=B8=B3=B4=CF=B4=D9!!&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp; 
-</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<A 
-href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/phone/phone010.php?par=
-tner_id=3Dbluekoba#1" 
-target=3D_blank>=A2=BA=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =BF=A9=B1=
-=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
-=B5=CB=B4=CF=B4=D9.=A2=B8</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</D=
-IV>
-<DIV>&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-  </BODY>
-
-
-
-----84922896091438273313--
+------=_NextPart_001_0018_01C39816.2C871AA0--
