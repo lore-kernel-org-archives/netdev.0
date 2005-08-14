@@ -1,86 +1,76 @@
-From: "Gilberto Schroeder" <tzmmjxyjwdmu@yahoo.com>
-Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
-	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
-Date: Sun, 14 Aug 2005 07:42:49 +0400
-Message-ID: <TEUPJBIMPNLFZYOWQPZFE@yahoo.com>
-Reply-To: "Gilberto Schroeder" <tzmmjxyjwdmu@yahoo.com>
+From: "서민자금지원~!!" <ydf65fg@success.dvrdns.org>
+Subject: =?ISO-8859-1?Q?=A2=CF((=BC=AD=B9=CE=B4=EB=C3=E2))=B0=ED=B0=B4=B4=D4!!?=
+	=?ISO-8859-1?Q?=B4=F5=BF=EE=B5=A5..=BD=C3=BF=F8=C7=CF=B0=D4?=
+	=?ISO-8859-1?Q?=C0=DA=B1=DD=C1=F6=BF=F8=C7=D8?=
+	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9(=B9=AB=B7=E1=BB=F3=B4=E3)~!*^^*?=
+Date: Sun, 14 Aug 2005 06:47:22 +0300
+Message-ID: <SWDGSXODJHHTDWQNZBJKADYO@yahoo.com>
+Reply-To: "서민자금지원~!!" <ydf65fg@success.dvrdns.org>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--73052130161541188"
+	boundary="--832500955162579689"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----73052130161541188
+----832500955162579689
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-
-  <BODY>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;<STRONG>&nbsp; &nbsp;=A1=DA&nbsp;&nbsp;=B8=C5=C0=CF=
- 10=BA=D0=BE=BF =C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
-=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></D=
-IV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<STRONG>=A3=
-=AA=C0=C7=C1=F6=B0=A1 
-=BE=E0=C7=D8=BC=AD =C1=DF=B5=B5=BF=A1&nbsp; =C6=F7=B1=E2=C7=CF=BD=C5=BA=D0=
-~~&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
-=AA=B1=E2=C3=CA=B6=A7=B9=AE=BF=A1 
-=B0=ED=B9=CE=C0=CC =B8=B9=C0=B8=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
-=B3=AA=C0=CC=B6=AB=BF=A1 =C7=D0=BF=F8=B0=A1=B1=E2=B0=A1 
-=BE=A6=BD=BA=B7=AF=BF=EE=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
-=B4=E7=C0=E5 =BF=B5=BE=EE=B0=A1 
-=C7=CA=BF=E4=C7=CF=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
-p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</STRONG></DIV>
-<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
-=AA3=B0=B3=BF=F9=C0=CC=B8=E9 
-=BF=CF=C0=FC =C7=D8=B0=E1=B5=CB=B4=CF=B4=D9.&nbsp;</STRONG></DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;<A 
-href=3D"http://4323.vip.Nease.Net/tenglish/tenglish010.php?partner_id=3Dbl=
-uekoba" 
-target=3D_blank>=A1=DA<STRONG>=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =
-=BF=A9=B1=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
-=B5=CB=B4=CF=B4=D9</STRONG>.=A1=DA</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
-&nbsp;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-  </BODY>
+<html>
+<head>
+<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
+<title>=B4=EB=C3=E2!! =B8=D3=B4=CF=C6=F7=BD=BA=C6=AE=BF=CD =C7=D4=B2=B2 =B4=
+=E7=B4=E7=C7=CF=B0=D4 =B9=DE=C0=B8=BC=BC=BF=E4!</title>
+<style type=3Dtext/css>
+<!--
+body {
+	background-image: url(http://money-post.com/img/bg.jpg);
+	background-repeat: repeat-x;
+}
+-->
+</style>
+</head>
+<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
+<table width=3D100% height=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D=
+0>
+  <tr>
+    <td align=3Dcenter valign=3Dtop>
+      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
+        <tr>
+          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
+cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/01.gif" wi=
+dth=3D600 height=3D50 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
+cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/02.jpg" wi=
+dth=3D600 height=3D250 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
+cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/03.gif" wi=
+dth=3D600 height=3D320 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td height=3D40 bgcolor=3D#FFFFFF>&nbsp;</td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://money-post.com/dany.asp"><img src=3D"http:=
+//money-post.com/img/bottom.gif" width=3D600 height=3D96 border=3D0></a></=
+td>
+        </tr>
+        <tr>
+          <td height=3D20 bgcolor=3D#FFFFFF>&nbsp;</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
 
 
-
-----73052130161541188--
+----832500955162579689--
