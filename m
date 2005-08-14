@@ -1,68 +1,33 @@
-From: =?Big5?B?pPG69Knnp/OuZan2wciquiE=?= <婷婷.sgi.com>
-Subject: =?Big5?B?p0u2T7uyvsmz0Ld+ptwgOKTrqbMh?=
-Date: Sun, 14 Aug 2005 23:44:54 +0800
-Message-ID: <200508142057.j7EKvKH9013125@oss.sgi.com>
-Content-Type: text/html
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH 0/8] netpoll: various bugfixes
+Date: Sun, 14 Aug 2005 14:00:10 -0700
+Message-ID: <20050814210010.GU12284@waste.org>
+References: <1.502409567@selenic.com> <20050812172151.GA11104@suse.de> <20050812192152.GJ12284@waste.org> <20050812193109.GA15434@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@davemloft.net>,
+        ak@suse.de, Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org, mingo@elte.hu, john.ronciak@intel.com,
+        rostedt@goodmis.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: Olaf Hering <olh@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20050812193109.GA15434@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
+On Fri, Aug 12, 2005 at 09:31:09PM +0200, Olaf Hering wrote:
+>  On Fri, Aug 12, Matt Mackall wrote:
+> 
+> > Does the task dump work without patch 5/8 (add retry timeout)? I'll
+> > try testing it here.
+> 
+> I spoke to soon, worked once, after reboot not anymore. Will try to play
+> with individual patches. Does the task dump work for you, at least?
 
+Works flawlessly on e1000. Works on tg3 with serial console, but seems
+to cause trouble without. Haven't had time to dig deeper yet.
 
-
-<head>
-
-<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
-
-<meta name="ProgId" content="FrontPage.Editor.Document">
-
-<meta http-equiv="Content-Type" content="text/html; charset=big5">
-
-<title>新增網頁1</title>
-
-<base target="_blank">
-
-</head>
-
-
-
-<body bgcolor="#FFFF99">
-
-
-
-<p>&nbsp;<font face="標楷體" color="#ff0000" size="5"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<a style="font-weight: bold; color: #ff0000; font-family: 標楷體" href="http://xyz.sazoon.com/8338/mall.htm">看不到圖片由此進入</a></b></font></p>
-
-
-
-<p align="center"><a href="http://xyz.sazoon.com/8338/mall.htm">
-
-<img border="0" src="http://xyz.sazoon.com/pic/4adv.jpg" width="570" height="340"></a></p>
-
-
-
-<p>　</p>
-
-
-
-<div id="message" style="width: 890; height: 55">
-
-<div id="message0">
-  <form action=MAILTO:sharlok.liu@msa.hinet.net?subject=您好:我不需您的電子報內容，請勿寄送給我了！ method=POST enctype=text/plain>
-  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-  本廣告信委託廣告公司代發,如有打擾處請見諒!<INPUT TYPE=submit VALUE='取消訂閱-不會再收到相關資料'></p>
-  </form>
-</div>
-
-  <p>　</div>
-
-
-
-</body>
-
-
-
-</html>
+-- 
+Mathematics is the supreme nostalgia of our time.
