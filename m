@@ -1,191 +1,122 @@
-From: "ÀÌ¹Î¿µ" <sdkfk@yahoo.com>
-Subject: =?ISO-8859-1?Q?Re:=BE=C8=B3=E7=C7=CF=BC=BC=BF=E4.?= z beduev iyf
-Date: Sun, 14 Aug 2005 06:54:24 -0700
-Message-ID: <7x0at$u0rnyiw$01ux1aju7w39dc9wlf@trdrq>
-Reply-To: "ÀÌ¹Î¿µ" <sdkfk@yahoo.com>
+From: Matt Domsch <Matt_Domsch-8PEkshWhKlo@public.gmane.org>
+Subject: Re: [Fwd: [patch 02/15] ppp_mppe: add PPP MPPE encryption module]
+Date: Sun, 14 Aug 2005 09:07:24 -0500
+Message-ID: <20050814140724.GA20944@lists.us.dell.com>
+References: <42B747C9.7060901@pobox.com> <17102.26269.264419.345257@cargo.ozlabs.ibm.com> <17102.30763.326707.473425@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_D85.E6B.212C.F209"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, akpm-3NddpPZAyC0@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Brice.Goglin-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org, james.cameron-VXdhtT5mjnY@public.gmane.org,
+	pptpclient-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <pptpclient-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <17102.30763.326707.473425-UYQwCShxghk5kJ7NmlRacFaTQe2KTcn/@public.gmane.org>
+Sender: pptpclient-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: pptpclient-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/pptpclient-devel>,
+	<mailto:pptpclient-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:pptpclient-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:pptpclient-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/pptpclient-devel>,
+	<mailto:pptpclient-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=pptpclient-devel>
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 08, 2005 at 09:42:21PM +1000, Paul Mackerras wrote:
+> Some comments on the MPPE kernel patch (sorry it's taken me so long):
 
-------=_NextPart_D85.E6B.212C.F209
-Content-Type: text/html;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Likewise, my apologies for the delay in implementing your
+suggestions.  I do really appreciate your feedback.
 
-html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
-">
-      <title></title>
-  </head>
-  <BODY>
-<DIV>
-<TABLE cellSpacing=3D0 cellPadding=3D0 border=3D0>
-  <TBODY>
-  <TR>
-    <TD width=3D598 height=3D126><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t1.=
-gif" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D598 height=3D370><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t2.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D598 height=3D202><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t33=
-jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV><BR>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6 =BE=
-=CA=C0=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=
-=E5 <A 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D428 cellSpacing=3D0 cellPadding=3D0 width=3D528 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D528 height=3D128><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-1.jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D528 height=3D140><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-2.jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D528 height=3D160><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-3.jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6
-=BE=CA=C0=
-=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A=
  
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D560 cellSpacing=3D0 cellPadding=3D0 width=3D525 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D525 height=3D172><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m11=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D525 height=3D197><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m12=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D525 height=3D198><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m13=
-jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6
-=BE=CA=C0=
-=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A=
+> > +static inline struct sk_buff *
+> > +pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
+> > +{
+> > +	struct sk_buff *new_skb;
+> > +	int len;
+> > +	int new_skb_size = ppp->dev->mtu + ppp->xcomp->comp_skb_extra_space + ppp->dev->hard_header_len;
+> > +	int compressor_skb_size = ppp->dev->mtu + ppp->xcomp->comp_skb_extra_space + PPP_HDRLEN;
+> 
+> This would be nicer if you broke these lines each into two lines.  It
+> would help if you chose shorter names for comp_skb_extra_space and
+> decomp_skb_extra_space (just comp_extra, for instance).  And why do we
+> need decomp_skb_extra_space anyway?  We expect the decompressor to
+> expand things; if they shrink (as they will with MPPE) we don't have
+> to do anything special.
+
+Done.
  
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D557 cellSpacing=3D0 cellPadding=3D0 width=3D651 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D651 height=3D183><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m1.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D651 height=3D193><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m2.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D651 height=3D181><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m3.=
-jpg"
-border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR>=A1=E1=A1=E1=BC=B1=C2=F8=
-=BC=F8 333=BA=D0=C0=BA =C0=CC=B8=F0=B5=E7=BD=E1=BA=F1=BD=BA=B8=A6
-=B4=DC=B5=
-=B7 25,000 =BF=A1 =C0=DA=C0=AF=B7=D3=B0=D4
-=C0=CC=BF=EB=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9=A1=E1=A1=E1<BR>=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB<BR><BR>=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=
-=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-<BR>=A1=E1<BR>=A1=E1 
-=A2=BA 1=BD=C3=B0=A3=B4=EB=B7=CE =B0=A1=B4=C9=C7=D1 =B9=AB=BB=E7=C1=A4 =BA=
-=F1=B9=FD =B0=F8=B0=B3(=B0=A1=B0=DD 299,000)=A2=B8<BR>=A1=E1<BR>=A1=E1 =A2=
-=BA =C4=AB=B8=B6=BC=F6=C6=AE=B6=F3 101=B0=A1=C1=F6
-=C3=A4=C0=A7=B0=F8=B0=B3=
-(=B0=A1=B0=DD 28,000). 
-=A2=B8<BR>=A1=E1<BR>=A1=E1 =A2=BA =B3=B2=BC=BA=C0=DA=BD=C5=B0=A8 =C7=C1=B7=
-=CE=C1=A7=C6=AE =C0=BD=B0=E6=C8=AE=B4=EB=BA=F1=B9=FD(=B0=A1=B0=DD
-25,000)=A2=
-=B8<BR>=A1=E1<BR>=A1=E1 =A2=BA =BC=B1=C2=F8=BC=F8 333=BA=D0=C0=BA
-=C0=CC=B8=
-=F0=B5=E7=BD=E1=BA=F1=BD=BA=B8=A6 =B4=DC=B5=B7 
-25000=BF=A1 =C0=DA=C0=AF=B7=D3=B0=D4
-=C0=CC=BF=EB=B0=A1=B4=C9=C7=D5=B4=CF=B4=
-=D9.
-=A2=B8<BR>=A1=E1<BR>=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=
-=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1<BR>=A1=A1=
-=A1=A1=A1=A1=A1=A1=A1=A1 
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=
-=A1=A1=A1=A1=A1=A1 =A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=
-=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=
-=A1 =A2=CB=A2=CB=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB=
-<BR>=A1=A1 
-=A1=A1=A1=A1=A1=A1=A1=A1 =A2=CB =A1=A1=A1=A1<BR><BR>=C0=CC=B9=CC=C1=F6 =BA=
-=B8=B1=E2 =C5=AC=B8=AF <BR><BR><BR>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=
-=A1 =BA=B8=C0=CC=C1=F6 =BE=CA=C0=B8=BD=C7 =B0=E6=BF=EC
-=C5=AC=B8=AF=C7=CF=BC=
-=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A></DIV>
-<!--  =C6=CB=BE=F7 =C0=DA=B9=D9 =BD=BA=C5=A9=B8=B3 =BC=D2=BD=BA -->
-<script language=3D"javascript">
-function pop_open(name, url) {
-	window.open(url, name);
-}
-pop_open('pop','http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000');=
+> > +	} else {
+> > +		/*
+> > +		 * (len < 0)
+> > +		 * MPPE requires that we do not send unencrypted
+> > +		 * frames.  The compressor will return -1 if we
+> > +		 * should drop the frame.  We cannot simply test
+> > +		 * the compress_proto because MPPE and MPPC share
+> > +		 * the same number.
+> > +		 */
+> > +		if (net_ratelimit())
+> > +			printk(KERN_ERR "ppp: compressor dropped pkt\n");
+> > +		kfree_skb(new_skb);
+> > +		new_skb = NULL;
+> 
+> I think we just leaked the original skb in this case.
 
-</script><body onunload=3D"pop_open()">
-</html>
-ocf gu 
-orap py sski
-ok fnlxat
-w  
-vdmtwshjzubs
+Good catch, fixed.
 
-------=_NextPart_D85.E6B.212C.F209--
+ 
+> > @@ -1683,7 +1716,7 @@ ppp_decompress_frame(struct ppp *ppp, st
+> >  		goto err;
+> >  
+> >  	if (proto == PPP_COMP) {
+> > -		ns = dev_alloc_skb(ppp->mru + PPP_HDRLEN);
+> > +		ns = dev_alloc_skb(ppp->mru + ppp->rcomp->decomp_skb_extra_space + PPP_HDRLEN);
+> >  		if (ns == 0) {
+> >  			printk(KERN_ERR "ppp_decompress_frame: no memory\n");
+> >  			goto err;
+> 
+> I don't see where you make sure that you drop any unencrypted received
+> frames.
+
+Fixed.
+
+On Fri, Jul 08, 2005 at 10:57:15PM +1000, Paul Mackerras wrote:
+> To follow up on my comments on the mppe patch, it still misses the
+> most important thing, which is to make sure you don't send unencrypted
+> data if CCP should go down.  A received CCP TermReq or TermAck will
+> clear the SC_DECOMP_RUN flag and the code will then ignore the
+> xcomp->must_compress flag.
+> 
+> I really think there should be another flag bit set by pppd to say
+> "must compress" rather than relying on the compressor telling you
+> that.
+
+I've added a new flag SC_MUST_COMPRESS, which pppd sets on CCP UP with
+MPPE enabled, and never clears it.  The new kernel code checks for
+this flag at both compression and decompression time, and drops the
+packets if compression or decompression fails.
+
+pppd also drops LCP (thus the connection) if CCP goes down or gets
+renegotiated, as tested with kill -USR2 $pid-of-pppd.  So a user can't
+force renegotiation without losing their connection.
+
+Kernel and pppd patches will follow in separate messages.  Lightly
+tested, additional review much appreciated.
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Software Architect
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+
+
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
