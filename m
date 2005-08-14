@@ -1,176 +1,80 @@
-From: "octavio_hope" <octavio_hope@frontiernet.net>
-Subject: boost your energy level, 1st month free
-Date: Sun, 14 Aug 2005 07:52:02 -0800
-Message-ID: <009601c5a0df$bb116e00$918515a5__39839.4244410612$1124031330$gmane$org@uorsig>
+From: "±è»ï½Ä" <hfdgf@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=B0=D4=C0=D3=C0=DA=B0=DD=C1=F5=C0=BB?=
+	=?ISO-8859-1?Q?=C8=B9=B5=E6=C7=CF=BC=BC=BF=E4!=C7=C1=B7=CE=B0=D4=C0=CC=B8=D3=C0=C7?=
+	=?ISO-8859-1?Q?=C1=F6=B8=A7=B1=E6?=
+Date: Sun, 14 Aug 2005 08:53:12 -0600
+Message-ID: <4503.67404050684$1124031789@news.gmane.org>
+Reply-To: "±è»ï½Ä" <dsdfsfasd@daum.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: <devfs@oss.sgi.com>, <pcp@oss.sgi.com>, <cvs@oss.sgi.com>,
-        <csa@oss.sgi.com>, <burns@oss.sgi.com>, <postwait@oss.sgi.com>,
-        <schmidt@oss.sgi.com>, <daniel@oss.sgi.com>, <andrews@oss.sgi.com>
+Content-Type: multipart/alternative;
+	boundary="--690056355211914"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <ralf@oss.sgi.com>, <reese@oss.sgi.com>, <owner-projects@oss.sgi.com>,
-        <arnold@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Want to lose weight, while reverse the aging process?
-Look younger, feel more energy!
+----690056355211914
+Content-Type: text/html;
+Content-Transfer-Encoding: base64
 
-Try HGH!
+ICA8SEVBRD4NCiAgICAgIDxUSVRMRT48L1RJVExFPg0KICA8L0hFQUQ+DQogIDxCT0RZPg0K
+PERJVj4NCjxESVY+PEZPTlQgDQpjb2xvcj0jMDA4MDgwPqHroeuh66Hroeuh66Hroeuh66Hr
+oeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66HrPC9GT05U
+PjxCUj4mbmJzcDs8Rk9OVCANCmNvbG9yPSMwMDAwZmY+ILDUwNPA2rDdwfXAuyDD67Xmx8+8
+vL/kfjwvRk9OVD4gPEJSPjxGT05UIGNvbG9yPSNmZjgwODA+PEZPTlQgDQpjb2xvcj0jMDA4
+MDgwPqHroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hr
+oeuh66Hroeuh66Hroeuh66HrPC9GT05UPjxCUj48L0ZPTlQ+PEJSPjxGT05UIA0KY29sb3I9
+I2ZmMDBmZj6h2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHY
+odih2KHYodih2KHYodih2KHYodih2DxCUj6h2CA8QlI+odggPEZPTlQgDQpjb2xvcj0jNDAw
+MDQwPqLBsNTA07HiyLnA/LmusKEvuNbGvLnMtfC+7sTcxdnD98GmwNsgwPy5rrChPEJSPjwv
+Rk9OVD6h2CA8Rk9OVCANCmNvbG9yPSM0MDAwNDA+osGw1MDTsde3ocfIwPy5rrChL7DUwNPH
+wbfOsde3obnWwPy5rrChPEJSPjwvRk9OVD6h2CA8Rk9OVCBjb2xvcj0jNDAwMDQwPqLBDQrD
+6773K7q0v6rGr7fKK7Trx9DGr7qwwPzH/CDH/cXDPEJSPjwvRk9OVD6h2CA8QlI+odggIA0K
+odih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHYodih2KHY
+odih2KHYodih2KHYPEJSPjwvRk9OVD48QlI+PEZPTlQgDQpjb2xvcj0jMDA4MGZmPqHroeuh
+66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh
+66Hroeuh66HrPEJSPjwvRk9OVD48Rk9OVCANCmNvbG9yPSMwMDAwYTA+PLDUwNPA2rDdwfUg
+vNKwsz4uLsDMwaa6zsXNILDUwNPAuiCzu7ChILi4tee02S48QlI+PC9GT05UPjxGT05UIA0K
+Y29sb3I9IzAwODBmZj6h66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh66Hr
+oeuh66Hroeuh66Hroeuh66Hroeuh66Hroeuh6zwvRk9OVD48QlI+PEJSPjxGT05UIA0KY29s
+b3I9IzAwODAwMD48Rk9OVCBjb2xvcj0jODAwMGZmPjxGT05UIGNvbG9yPSM0MDAwMDA+oro8
+L0ZPTlQ+ILDUwNPBpsDbILD6waTAxyCw1MDTseLIuSyw1MDTtfDB9sDOIL3Huau17sC7ILz2
+x+DHz7TCILDUwNOx4si5wPy5rrChLjxCUj48Rk9OVCBjb2xvcj0jZmYwMGZmPqK6PC9GT05U
+PiDApSCx17ehx8i9uiCz18auv/bFqSwyRCwzRCy+1rTPuN7AzLzHte4gsNTA07HXt6HHyMD8
+ua6woTxCUj6iuiCw1MDTILW/wNux1Mf2wLsgwKfH0SDD1r3FseK8+sC7ILG4x/bHz7+pIMGm
+wNu758DHIMfZvcnAzrfCwLi3ziC/qsfSwLsgtOO058fPtMIgsNTA0yDHwbfOsde3obnWwPy5
+rrChPEJSPjxGT05UIGNvbG9yPSNmZjgwNDA+oro8L0ZPTlQ+IL2xsNQguLvH2CC/tcitv6G8
+rcDHILCotbaw+rCwwMwgwM7FzbPduea827+hvK3AxyBQRL+qx9LAu8fPtMIgwPy5rrCht868
+rSC41sa8ucy18L7uIMTBxdnD98D8ua6woTxCUj48QlI+PEZPTlQgY29sb3I9IzgwMDA0MD6i
+ujwvRk9OVD4gwaTIuL/4wLsgwKfH0SC4wsPjILytuvG9ujxCUj48Rk9OVCANCmNvbG9yPSNm
+ZjAwODA+oro8L0ZPTlQ+xvKwob+1v6q/oSC4wsPjIMPiwabAp7/4ILnXIMf2wfcgsbO89iDB
+/cfKwPq8rcDMt9C8rSy6uMPmvK08QlI+PEZPTlQgDQpjb2xvcj0jMDBmZjgwPqK6PC9GT05U
+PrnZu9vAz7vzv6EgvcOwo7D6ILD4sKPAx8GmvuDAuyC53sH2IL7KtMIgvPbB2LP0wLogv/iw
+3bW/v7W78yCwrcHCPEJSPjxGT05UIGNvbG9yPSNmZjAwZmY+oro8L0ZPTlQ+IDE6MSDIuL/4
+sPy4riC51yC9w8fov/i8rSDBorz2ILTrx+C8rbrxvboNCjwvRk9OVD48QlI+PC9GT05UPjxC
+Uj48QlI+pqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKas
+pqymrKaspqymrKaspqymrKaspqymrKasIA0KDQo8QlI+wMy5zMH2v80gs7u/68DMIL7IurjA
+zL3DuOkgudm3ziC+xrehIKLCwcK/7MP4v6EgwNa0wiDAzLnMwfa6uLHiosK4piDFrLivx8+8
+vL/kPEJSPg0KPEJSPsDMuczB9r/NILO7v+vAzCC+yLq4wMy9w7jpILnZt84gvsa3oSCiwsHC
+v+zD+L+hIMDWtMIgwMy5zMH2urix4qLCuKYgxay4r8fPvLy/5DxCUj4NCjxQPqaspqymrKas
+pqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKaspqymrKas
+pqymrKaspqymrCZuYnNwOzwvUD48L0RJVj48L0RJVj4NCiAgIDx0YWJsZSBzdHlsZT0iYm9y
+ZGVyLXdpZHRoOjE7IGJvcmRlci1jb2xvcjpyZ2IoMTUzLDE1MywxNTMpOyBib3JkZXItc3R5
+bGU6c29saWQ7IiBjZWxscGFkZGluZz0iMCIgY2VsbHNwYWNpbmc9IjAiIHdpZHRoPSI2MDAi
+IGFsaWduPSJjZW50ZXIiPg0KICAgIDx0ciBiZ2NvbG9yPSIjRkZGRkZGIj4gDQogICAgICA8
+dGQ+PGEgaHJlZj0iaHR0cDovLzQzMjMlMmUlNzYlNjlwJTJlJTRlZWElNzMlNjUlMmUlNGVl
+dC9nYW1lL2dhbWUwMS5waHA/cGFydG5lcl9pZD1hMTIzNCI+PGltZyBzcmM9Imh0dHA6Ly8l
+NzclNzclNzclMmUlN2ElNjFwJTQxJTRkJTQxJTczJTJlY29tL3VzZXIvZnRwL2RlZmF1bHQv
+YmJzLzEvZ2FtZS5qcGciIGJvcmRlcj0iMCI+PC9hPjxBIGhyZWY9Imh0dHA6Ly93d3cuJTZl
+JTY1dHRvciU0OSU3NCU2MWwlNGIuY29tL2Jicy8xNDJfMDEucGhwP3BhcnRuZXJfaWQ9YTEy
+MzQiPjxJTUcgc3JjPSJodHRwOi8vd3d3LiU2ZSU2NXR0b3IlNDklNzQlNjFsJTRiLmNvbS9i
+YnMvMTQyLmdpZiIgYm9yZGVyPTA+PC9BPjwvdGQ+DQogICAgPC90cj4NCiAgICA8dHI+IA0K
+ICAgICAgPHRkIHdpZHRoPSI2MDAiIGhlaWdodD0iMTE4IiBiZ2NvbG9yPSIjMzM5OTMzIj4g
+DQogICAgICAgIDxwIGFsaWduPSJjZW50ZXIiPjxmb250IGNvbG9yPSJ3aGl0ZSI+IDwvZm9u
+dD48YnI+PGEgaHJlZj0iaHR0cDovL3d3dy5ndWJ1LmNmLnN0Ij48SU1HIGFsdD1yZW1haWwu
+Z2lmIA0Kc3JjPSJodHRwOi8vJTc3JTc3JTc3JTJlJTY5JTZkJTQ0JTc3JTYxJTcwbSUyZWNv
+bS91c2VyL2Z0cC9kZWZhdWx0L2Jicy9yZW1haWwuZ2lmIiANCmJvcmRlcj0wPjwvYT48YnI+
+PC9wPg0KICAgICAgPC90ZD4NCiAgICA8L3RyPg0KICA8L3RhYmxlPg==
 
-http://www.brightfun.com
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Seven people on a Russian mini-submarine trapped for nearly three days on=
- the Pacific floor were rescued Sunday when a British remote-controlled v=
-ehicle cut away undersea cables that snarled their vessel, allowing it to=
- surface.
-ADVERTISEMENT
-
-The seven, whose oxygen supply had been dwindling, appeared to be in sati=
-sfactory condition when they emerged, navy spokesman Capt. Igor Dygalo sa=
-id. They were examined in the clinic of a naval ship, then transferred to=
- a larger vessel to return to the mainland.
-
-About five hours after their rescue, six sailors were brought to a hospit=
-al on the mainland for examination, waving to relatives as they went in. =
-The seventh was kept aboard a hospital ship for unspecified reasons.
-
-At the edge of the gangplank leading to shore, the mini-sub's commander, =
-Lt. Vyacheslav Milashevsky, held a long and solemn salute, then a slight =
-smile crossed his face. Pale, but walking confidently, he told journalist=
-s he was "fine" before climbing into a van for the drive to the hospital.
-
-His wife, Yelena, said earlier that she was overjoyed when she learned th=
-e crew had been rescued.
-
-"My feelings danced. I was happy, I cried," she told Channel One televisi=
-on.
-
-Another crewman in the van swiveled his head back and forth, gazing at th=
-e green trees and gray skies.
-
-The red-and-white mini-sub, the AS-28, surfaced at 4:26 p.m. local time S=
-unday, some three days after becoming entangled in 600 feet of water Thur=
-sday. It was carrying six sailors and a representative of the company tha=
-t manufactured it.
-
-"The crew opened the hatch themselves, exited the vessel and climbed aboa=
-rd a speedboat," said Rear Adm. Vladimir Pepelyayev, deputy head of the n=
-aval general staff.
-
-"I can only thank our English colleagues for their joint work and the hel=
-p they gave in order to complete this operation within the time we had av=
-ailable =97 that is, before the oxygen reserves ran out."
-
-The United States also sent three remote-controlled underwater vehicles f=
-or the rescue, but they arrived several hours after the British vehicle a=
-nd were not used.
-
-Both countries sent rescue teams after the Russian navy made an urgent ap=
-peal for international help =97 unlike during the August 2000 sinking of =
-the nuclear submarine Kursk, when authorities held off asking for outside=
- assistance for days. All 118 aboard the Kursk died.
-
-Russian ships tried to tow the mini-sub and its entanglements to shallowe=
-r water where divers could reach it but could only move it less than 100 =
-yards in Beryozovaya Bay, about 10 miles off the Kamchatka coast.
-
-Then, a British remote-controlled Super Scorpio cut away the cables snarl=
-ing the 44-foot-long mini-sub. Once the obstructions were removed, there =
-was a last spasm of anxiety as the submarine stayed still.
-
-"Then after two or three minutes, it broke free and within three minutes =
-it surfaced," Ivanov said.
-
-The men aboard the mini-sub had waited out tense hours of uncertainty as =
-rescuers raced to free them before their air supply ran out. They put on =
-thermal suits to insulate them against temperatures of about 40 degrees i=
-nside the sub and were told to lie flat and breathe as lightly as possibl=
-e to conserve oxygen.
-
-To save electricity, they turned off the submarine's lights and used comm=
-unications equipment only sporadically to contact the surface.
-
-"The crew were steadfast, very professional," Pepelyayev said on Channel =
-One television. "Their self-possession allowed them to conserve the air a=
-nd wait for the rescue operation."
-
-In an echo of the Kursk sinking, President
-Vladimir Putin had made no public comment by Sunday on the mini-sub drama=
-. Putin remained on vacation as the Kursk disaster unfolded, raising crit=
-icism that he appeared either callous or ineffectual.
-
-Defense Minister Sergei Ivanov, who went to Kamchatka to supervise the op=
-eration, praised the help provided by Britain and the United States.
-
-"We have seen in deeds, not in words, what the brotherhood of the sea mea=
-ns," he said.
-
-Officials said the Russian submarine was participating in a combat traini=
-ng exercise and got snarled on an underwater antenna assembly that is par=
-t of a coastal monitoring system. The system is anchored with a weight of=
- about 66 tons, according to news reports.
-
-The sub's propeller initially became ensnared in a fishing net, they said.
-
-The events and an array of confusing and contradictory statements =97 wit=
-h wildly varying estimates of how much air the crew had left =97 darkly e=
-choed the sinking of the Kursk.
-
-Russia's cash-strapped navy apparently lacks rescue vehicles capable of o=
-perating at the depth where the sub was stranded, and officials say it wa=
-s too deep for divers to reach or the crew to swim out on their own.
-
-The submarine's problems indicated that promises by Putin to improve the =
-navy's equipment apparently have had little effect. He was criticized for=
- his slow response to the Kursk crisis and reluctance to accept foreign a=
-ssistance.
-
-The new crisis has been highly embarrassing for Russia, which will hold a=
-n unprecedented joint military exercise with China later this month, incl=
-uding the use of submarines to settle an imaginary conflict in a foreign =
-land. In the exercise, Russia is to field a naval squadron and 17 long-ha=
-ul aircraft.
-
-New criticism arose within hours of the mini-sub's crew being rescued. Dm=
-itry Rogozin, head of the nationalist Rodina party in the lower house of =
-parliament, said he would demand an assessment from the Military Prosecut=
-or's Office of the navy's performance in the incident, the Interfax news =
-agency reported.
-
-Rogozin said he wanted to know why Russia has not acquired underwater veh=
-icles similar to the ones provided by Britain and the United States and "=
-why fishing nets and cables litter the area of naval maneuvers."
-
-"It appears the naval command is not in control of the area of naval exer=
-cises," he said, according to Interfax.
+----690056355211914--
