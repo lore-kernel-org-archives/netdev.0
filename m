@@ -1,7 +1,7 @@
 From: Matt Domsch <Matt_Domsch-8PEkshWhKlo@public.gmane.org>
-Subject: Re: [Fwd: [patch 02/15] ppp_mppe: add PPP MPPE encryption module]
-Date: Sun, 14 Aug 2005 09:07:24 -0500
-Message-ID: <20050814140724.GA20944@lists.us.dell.com>
+Subject: [PATCH 2.6.13-rc] ppp_mppe: add PPP MPPE encryption module
+Date: Sun, 14 Aug 2005 09:10:46 -0500
+Message-ID: <20050814141046.GB20944@lists.us.dell.com>
 References: <42B747C9.7060901@pobox.com> <17102.26269.264419.345257@cargo.ozlabs.ibm.com> <17102.30763.326707.473425@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -24,95 +24,1074 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/pptpclient-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=pptpclient-devel>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 08, 2005 at 09:42:21PM +1000, Paul Mackerras wrote:
-> Some comments on the MPPE kernel patch (sorry it's taken me so long):
+This patch implements the Microsoft Point-to-Point Tunnelling Protocol
+kernel module, with minor changes to ppp_generic to have it drop
+packets if they are not compressed/decompressed properly.  This adds a
+new ppp flag SC_MUST_COMPRESS which will be set by pppd upon CCP UP
+with MPPE enabled.
 
-Likewise, my apologies for the delay in implementing your
-suggestions.  I do really appreciate your feedback.
 
- 
-> > +static inline struct sk_buff *
-> > +pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
-> > +{
-> > +	struct sk_buff *new_skb;
-> > +	int len;
-> > +	int new_skb_size = ppp->dev->mtu + ppp->xcomp->comp_skb_extra_space + ppp->dev->hard_header_len;
-> > +	int compressor_skb_size = ppp->dev->mtu + ppp->xcomp->comp_skb_extra_space + PPP_HDRLEN;
-> 
-> This would be nicer if you broke these lines each into two lines.  It
-> would help if you chose shorter names for comp_skb_extra_space and
-> decomp_skb_extra_space (just comp_extra, for instance).  And why do we
-> need decomp_skb_extra_space anyway?  We expect the decompressor to
-> expand things; if they shrink (as they will with MPPE) we don't have
-> to do anything special.
+ drivers/net/Kconfig       |   13
+ drivers/net/Makefile      |    1
+ drivers/net/ppp_generic.c |   88 ++++-
+ drivers/net/ppp_mppe.c    |  724 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ppp_mppe.h    |   86 +++++
+ include/linux/if_ppp.h    |    9
+ include/linux/ppp-comp.h  |    9
+ 7 files changed, 904 insertions(+), 26 deletions(-)
 
-Done.
- 
-> > +	} else {
-> > +		/*
-> > +		 * (len < 0)
-> > +		 * MPPE requires that we do not send unencrypted
-> > +		 * frames.  The compressor will return -1 if we
-> > +		 * should drop the frame.  We cannot simply test
-> > +		 * the compress_proto because MPPE and MPPC share
-> > +		 * the same number.
-> > +		 */
-> > +		if (net_ratelimit())
-> > +			printk(KERN_ERR "ppp: compressor dropped pkt\n");
-> > +		kfree_skb(new_skb);
-> > +		new_skb = NULL;
-> 
-> I think we just leaked the original skb in this case.
-
-Good catch, fixed.
-
- 
-> > @@ -1683,7 +1716,7 @@ ppp_decompress_frame(struct ppp *ppp, st
-> >  		goto err;
-> >  
-> >  	if (proto == PPP_COMP) {
-> > -		ns = dev_alloc_skb(ppp->mru + PPP_HDRLEN);
-> > +		ns = dev_alloc_skb(ppp->mru + ppp->rcomp->decomp_skb_extra_space + PPP_HDRLEN);
-> >  		if (ns == 0) {
-> >  			printk(KERN_ERR "ppp_decompress_frame: no memory\n");
-> >  			goto err;
-> 
-> I don't see where you make sure that you drop any unencrypted received
-> frames.
-
-Fixed.
-
-On Fri, Jul 08, 2005 at 10:57:15PM +1000, Paul Mackerras wrote:
-> To follow up on my comments on the mppe patch, it still misses the
-> most important thing, which is to make sure you don't send unencrypted
-> data if CCP should go down.  A received CCP TermReq or TermAck will
-> clear the SC_DECOMP_RUN flag and the code will then ignore the
-> xcomp->must_compress flag.
-> 
-> I really think there should be another flag bit set by pppd to say
-> "must compress" rather than relying on the compressor telling you
-> that.
-
-I've added a new flag SC_MUST_COMPRESS, which pppd sets on CCP UP with
-MPPE enabled, and never clears it.  The new kernel code checks for
-this flag at both compression and decompression time, and drops the
-packets if compression or decompression fails.
-
-pppd also drops LCP (thus the connection) if CCP goes down or gets
-renegotiated, as tested with kill -USR2 $pid-of-pppd.  So a user can't
-force renegotiation without losing their connection.
-
-Kernel and pppd patches will follow in separate messages.  Lightly
-tested, additional review much appreciated.
-
-Thanks,
-Matt
+Signed-off-by: Matt Domsch <Matt_Domsch-8PEkshWhKlo@public.gmane.org>
 
 -- 
 Matt Domsch
 Software Architect
 Dell Linux Solutions linux.dell.com & www.dell.com/linux
 Linux on Dell mailing lists @ http://lists.us.dell.com
+
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/drivers/net/Kconfig linux-2.6-ppp_mppe/drivers/net/Kconfig
+--- linux-2.6/drivers/net/Kconfig	2005-08-11 22:38:44.000000000 -0700
++++ linux-2.6-ppp_mppe/drivers/net/Kconfig	2005-08-12 09:48:56.000000000 -0700
+@@ -2417,6 +2417,19 @@ config PPP_BSDCOMP
+ 	  module; it is called bsd_comp and will show up in the directory
+ 	  modules once you have said "make modules". If unsure, say N.
+ 
++config PPP_MPPE
++       tristate "PPP MPPE compression (encryption) (EXPERIMENTAL)"
++       depends on PPP && EXPERIMENTAL
++       select CRYPTO
++       select CRYPTO_SHA1
++       select CRYPTO_ARC4
++       ---help---
++         Support for the MPPE Encryption protocol, as employed by the
++	 Microsoft Point-to-Point Tunneling Protocol.
++
++	 See http://pptpclient.sourceforge.net/ for information on
++	 configuring PPTP clients and servers to utilize this method.
++
+ config PPPOE
+ 	tristate "PPP over Ethernet (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL && PPP
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/drivers/net/Makefile linux-2.6-ppp_mppe/drivers/net/Makefile
+--- linux-2.6/drivers/net/Makefile	2005-08-11 22:38:44.000000000 -0700
++++ linux-2.6-ppp_mppe/drivers/net/Makefile	2005-08-12 09:48:56.000000000 -0700
+@@ -105,6 +105,7 @@ obj-$(CONFIG_PPP_ASYNC) += ppp_async.o
+ obj-$(CONFIG_PPP_SYNC_TTY) += ppp_synctty.o
+ obj-$(CONFIG_PPP_DEFLATE) += ppp_deflate.o
+ obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
++obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
+ obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+ 
+ obj-$(CONFIG_SLIP) += slip.o
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/drivers/net/ppp_generic.c linux-2.6-ppp_mppe/drivers/net/ppp_generic.c
+--- linux-2.6/drivers/net/ppp_generic.c	2005-08-11 22:38:48.000000000 -0700
++++ linux-2.6-ppp_mppe/drivers/net/ppp_generic.c	2005-08-12 10:52:50.000000000 -0700
+@@ -137,13 +137,14 @@ struct ppp {
+ 
+ /*
+  * Bits in flags: SC_NO_TCP_CCID, SC_CCP_OPEN, SC_CCP_UP, SC_LOOP_TRAFFIC,
+- * SC_MULTILINK, SC_MP_SHORTSEQ, SC_MP_XSHORTSEQ, SC_COMP_TCP, SC_REJ_COMP_TCP.
++ * SC_MULTILINK, SC_MP_SHORTSEQ, SC_MP_XSHORTSEQ, SC_COMP_TCP, SC_REJ_COMP_TCP,
++ * SC_MUST_COMP
+  * Bits in rstate: SC_DECOMP_RUN, SC_DC_ERROR, SC_DC_FERROR.
+  * Bits in xstate: SC_COMP_RUN
+  */
+ #define SC_FLAG_BITS	(SC_NO_TCP_CCID|SC_CCP_OPEN|SC_CCP_UP|SC_LOOP_TRAFFIC \
+ 			 |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
+-			 |SC_COMP_TCP|SC_REJ_COMP_TCP)
++			 |SC_COMP_TCP|SC_REJ_COMP_TCP|SC_MUST_COMP)
+ 
+ /*
+  * Private data structure for each channel.
+@@ -1027,6 +1028,56 @@ ppp_xmit_process(struct ppp *ppp)
+ 	ppp_xmit_unlock(ppp);
+ }
+ 
++static inline struct sk_buff *
++pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
++{
++	struct sk_buff *new_skb;
++	int len;
++	int new_skb_size = ppp->dev->mtu +
++		ppp->xcomp->comp_extra + ppp->dev->hard_header_len;
++	int compressor_skb_size = ppp->dev->mtu +
++		ppp->xcomp->comp_extra + PPP_HDRLEN;
++	new_skb = alloc_skb(new_skb_size, GFP_ATOMIC);
++	if (!new_skb) {
++		if (net_ratelimit())
++			printk(KERN_ERR "PPP: no memory (comp pkt)\n");
++		return NULL;
++	}
++	if (ppp->dev->hard_header_len > PPP_HDRLEN)
++		skb_reserve(new_skb,
++			    ppp->dev->hard_header_len - PPP_HDRLEN);
++
++	/* compressor still expects A/C bytes in hdr */
++	len = ppp->xcomp->compress(ppp->xc_state, skb->data - 2,
++				   new_skb->data, skb->len + 2,
++				   compressor_skb_size);
++	if (len > 0 && (ppp->flags & SC_CCP_UP)) {
++		kfree_skb(skb);
++		skb = new_skb;
++		skb_put(skb, len);
++		skb_pull(skb, 2);	/* pull off A/C bytes */
++	} else if (len == 0) {
++		/* didn't compress, or CCP not up yet */
++		kfree_skb(new_skb);
++		new_skb = skb;
++	} else {
++		/*
++		 * (len < 0)
++		 * MPPE requires that we do not send unencrypted
++		 * frames.  The compressor will return -1 if we
++		 * should drop the frame.  We cannot simply test
++		 * the compress_proto because MPPE and MPPC share
++		 * the same number.
++		 */
++		if (net_ratelimit())
++			printk(KERN_ERR "ppp: compressor dropped pkt\n");
++		kfree_skb(skb);
++		kfree_skb(new_skb);
++		new_skb = NULL;
++	}
++	return new_skb;
++}
++
+ /*
+  * Compress and send a frame.
+  * The caller should have locked the xmit path,
+@@ -1113,29 +1164,14 @@ ppp_send_frame(struct ppp *ppp, struct s
+ 	/* try to do packet compression */
+ 	if ((ppp->xstate & SC_COMP_RUN) && ppp->xc_state != 0
+ 	    && proto != PPP_LCP && proto != PPP_CCP) {
+-		new_skb = alloc_skb(ppp->dev->mtu + ppp->dev->hard_header_len,
+-				    GFP_ATOMIC);
+-		if (new_skb == 0) {
+-			printk(KERN_ERR "PPP: no memory (comp pkt)\n");
++		if (!(ppp->flags & SC_CCP_UP) && (ppp->flags & SC_MUST_COMP)) {
++			if (net_ratelimit())
++				printk(KERN_ERR "ppp: compression required but down - pkt dropped.\n");
+ 			goto drop;
+ 		}
+-		if (ppp->dev->hard_header_len > PPP_HDRLEN)
+-			skb_reserve(new_skb,
+-				    ppp->dev->hard_header_len - PPP_HDRLEN);
+-
+-		/* compressor still expects A/C bytes in hdr */
+-		len = ppp->xcomp->compress(ppp->xc_state, skb->data - 2,
+-					   new_skb->data, skb->len + 2,
+-					   ppp->dev->mtu + PPP_HDRLEN);
+-		if (len > 0 && (ppp->flags & SC_CCP_UP)) {
+-			kfree_skb(skb);
+-			skb = new_skb;
+-			skb_put(skb, len);
+-			skb_pull(skb, 2);	/* pull off A/C bytes */
+-		} else {
+-			/* didn't compress, or CCP not up yet */
+-			kfree_skb(new_skb);
+-		}
++		skb = pad_compress_skb(ppp, skb);
++		if (!skb)
++			goto drop;
+ 	}
+ 
+ 	/*
+@@ -1155,7 +1191,8 @@ ppp_send_frame(struct ppp *ppp, struct s
+ 	return;
+ 
+  drop:
+-	kfree_skb(skb);
++	if (skb)
++		kfree_skb(skb);
+ 	++ppp->stats.tx_errors;
+ }
+ 
+@@ -1553,6 +1590,9 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+ 	    && (ppp->rstate & (SC_DC_FERROR | SC_DC_ERROR)) == 0)
+ 		skb = ppp_decompress_frame(ppp, skb);
+ 
++	if (ppp->flags & SC_MUST_COMP && ppp->rstate & SC_DC_FERROR)
++		goto err;
++
+ 	proto = PPP_PROTO(skb);
+ 	switch (proto) {
+ 	case PPP_VJC_COMP:
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/drivers/net/ppp_mppe.c linux-2.6-ppp_mppe/drivers/net/ppp_mppe.c
+--- linux-2.6/drivers/net/ppp_mppe.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6-ppp_mppe/drivers/net/ppp_mppe.c	2005-08-12 11:17:02.000000000 -0700
+@@ -0,0 +1,724 @@
++/*
++ * ppp_mppe.c - interface MPPE to the PPP code.
++ * This version is for use with Linux kernel 2.6.14+
++ *
++ * By Frank Cusack <frank-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>.
++ * Copyright (c) 2002,2003,2004 Google, Inc.
++ * All rights reserved.
++ *
++ * License:
++ * Permission to use, copy, modify, and distribute this software and its
++ * documentation is hereby granted, provided that the above copyright
++ * notice appears in all copies.  This software is provided without any
++ * warranty, express or implied.
++ *
++ * ALTERNATIVELY, provided that this notice is retained in full, this product
++ * may be distributed under the terms of the GNU General Public License (GPL),
++ * in which case the provisions of the GPL apply INSTEAD OF those given above.
++ *
++ *   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; either version 2 of the License, or
++ *   (at your option) any later version.
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
++ *
++ *   You should have received a copy of the GNU General Public License
++ *   along with this program; if not, write to the Free Software
++ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ *
++ * Changelog:
++ *      08/12/05 - Matt Domsch <Matt_Domsch-8PEkshWhKlo@public.gmane.org>
++ *                 Only need extra skb padding on transmit, not receive.
++ *      06/18/04 - Matt Domsch <Matt_Domsch-8PEkshWhKlo@public.gmane.org>, Oleg Makarenko <mole-aTJdtAV7WjCHXe+LvDLADg@public.gmane.org>
++ *                 Use Linux kernel 2.6 arc4 and sha1 routines rather than
++ *                 providing our own.
++ *      2/15/04 - TS: added #include <version.h> and testing for Kernel
++ *                    version before using
++ *                    MOD_DEC_USAGE_COUNT/MOD_INC_USAGE_COUNT which are
++ *                    deprecated in 2.6
++ */
++
++#include <linux/config.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/version.h>
++#include <linux/init.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++#include <linux/crypto.h>
++#include <linux/mm.h>
++#include <linux/ppp_defs.h>
++#include <linux/ppp-comp.h>
++#include <asm/scatterlist.h>
++
++#include "ppp_mppe.h"
++
++MODULE_AUTHOR("Frank Cusack <frank-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>");
++MODULE_DESCRIPTION("Point-to-Point Protocol Microsoft Point-to-Point Encryption support");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_ALIAS("ppp-compress-" __stringify(CI_MPPE));
++MODULE_VERSION("1.0.2");
++
++static void
++setup_sg(struct scatterlist *sg, const void *address, unsigned int length)
++{
++	sg[0].page = virt_to_page(address);
++	sg[0].offset = offset_in_page(address);
++	sg[0].length = length;
++}
++
++#define SHA1_PAD_SIZE 40
++
++/*
++ * kernel crypto API needs its arguments to be in kmalloc'd memory, not in the module
++ * static data area.  That means sha_pad needs to be kmalloc'd.
++ */
++
++struct sha_pad {
++	unsigned char sha_pad1[SHA1_PAD_SIZE];
++	unsigned char sha_pad2[SHA1_PAD_SIZE];
++};
++static struct sha_pad *sha_pad;
++
++static inline void sha_pad_init(struct sha_pad *shapad)
++{
++	memset(shapad->sha_pad1, 0x00, sizeof(shapad->sha_pad1));
++	memset(shapad->sha_pad2, 0xF2, sizeof(shapad->sha_pad2));
++}
++
++/*
++ * State for an MPPE (de)compressor.
++ */
++struct ppp_mppe_state {
++	struct crypto_tfm *arc4;
++	struct crypto_tfm *sha1;
++	unsigned char *sha1_digest;
++	unsigned char master_key[MPPE_MAX_KEY_LEN];
++	unsigned char session_key[MPPE_MAX_KEY_LEN];
++	unsigned keylen;	/* key length in bytes             */
++	/* NB: 128-bit == 16, 40-bit == 8! */
++	/* If we want to support 56-bit,   */
++	/* the unit has to change to bits  */
++	unsigned char bits;	/* MPPE control bits */
++	unsigned ccount;	/* 12-bit coherency count (seqno)  */
++	unsigned stateful;	/* stateful mode flag */
++	int discard;		/* stateful mode packet loss flag */
++	int sanity_errors;	/* take down LCP if too many */
++	int unit;
++	int debug;
++	struct compstat stats;
++};
++
++/* struct ppp_mppe_state.bits definitions */
++#define MPPE_BIT_A	0x80	/* Encryption table were (re)inititalized */
++#define MPPE_BIT_B	0x40	/* MPPC only (not implemented) */
++#define MPPE_BIT_C	0x20	/* MPPC only (not implemented) */
++#define MPPE_BIT_D	0x10	/* This is an encrypted frame */
++
++#define MPPE_BIT_FLUSHED	MPPE_BIT_A
++#define MPPE_BIT_ENCRYPTED	MPPE_BIT_D
++
++#define MPPE_BITS(p) ((p)[4] & 0xf0)
++#define MPPE_CCOUNT(p) ((((p)[4] & 0x0f) << 8) + (p)[5])
++#define MPPE_CCOUNT_SPACE 0x1000	/* The size of the ccount space */
++
++#define MPPE_OVHD	2	/* MPPE overhead/packet */
++#define SANITY_MAX	1600	/* Max bogon factor we will tolerate */
++
++/*
++ * Key Derivation, from RFC 3078, RFC 3079.
++ * Equivalent to Get_Key() for MS-CHAP as described in RFC 3079.
++ */
++static void get_new_key_from_sha(struct ppp_mppe_state * state, unsigned char *InterimKey)
++{
++	struct scatterlist sg[4];
++
++	setup_sg(&sg[0], state->master_key, state->keylen);
++	setup_sg(&sg[1], sha_pad->sha_pad1, sizeof(sha_pad->sha_pad1));
++	setup_sg(&sg[2], state->session_key, state->keylen);
++	setup_sg(&sg[3], sha_pad->sha_pad2, sizeof(sha_pad->sha_pad2));
++
++	crypto_digest_digest (state->sha1, sg, 4, state->sha1_digest);
++
++	memcpy(InterimKey, state->sha1_digest, state->keylen);
++}
++
++/*
++ * Perform the MPPE rekey algorithm, from RFC 3078, sec. 7.3.
++ * Well, not what's written there, but rather what they meant.
++ */
++static void mppe_rekey(struct ppp_mppe_state * state, int initial_key)
++{
++	unsigned char InterimKey[MPPE_MAX_KEY_LEN];
++	struct scatterlist sg_in[1], sg_out[1];
++
++	get_new_key_from_sha(state, InterimKey);
++	if (!initial_key) {
++		crypto_cipher_setkey(state->arc4, InterimKey, state->keylen);
++		setup_sg(sg_in, InterimKey, state->keylen);
++		setup_sg(sg_out, state->session_key, state->keylen);
++		if (crypto_cipher_encrypt(state->arc4, sg_out, sg_in,
++				      state->keylen) != 0) {
++    		    printk(KERN_WARNING "mppe_rekey: cipher_encrypt failed\n");
++		}
++	} else {
++		memcpy(state->session_key, InterimKey, state->keylen);
++	}
++	if (state->keylen == 8) {
++		/* See RFC 3078 */
++		state->session_key[0] = 0xd1;
++		state->session_key[1] = 0x26;
++		state->session_key[2] = 0x9e;
++	}
++	crypto_cipher_setkey(state->arc4, state->session_key, state->keylen);
++}
++
++/*
++ * Allocate space for a (de)compressor.
++ */
++static void *mppe_alloc(unsigned char *options, int optlen)
++{
++	struct ppp_mppe_state *state;
++	unsigned int digestsize;
++
++	if (optlen != CILEN_MPPE + sizeof(state->master_key)
++	    || options[0] != CI_MPPE || options[1] != CILEN_MPPE)
++		goto out;
++
++	state = (struct ppp_mppe_state *) kmalloc(sizeof(*state), GFP_KERNEL);
++	if (state == NULL)
++		goto out;
++
++	memset(state, 0, sizeof(*state));
++
++	state->arc4 = crypto_alloc_tfm("arc4", 0);
++	if (!state->arc4)
++		goto out_free;
++
++	state->sha1 = crypto_alloc_tfm("sha1", 0);
++	if (!state->sha1)
++		goto out_free;
++
++	digestsize = crypto_tfm_alg_digestsize(state->sha1);
++	if (digestsize < MPPE_MAX_KEY_LEN)
++		goto out_free;
++
++	state->sha1_digest = kmalloc(digestsize, GFP_KERNEL);
++	if (!state->sha1_digest)
++		goto out_free;
++
++	/* Save keys. */
++	memcpy(state->master_key, &options[CILEN_MPPE],
++	       sizeof(state->master_key));
++	memcpy(state->session_key, state->master_key,
++	       sizeof(state->master_key));
++
++	/*
++	 * We defer initial key generation until mppe_init(), as mppe_alloc()
++	 * is called frequently during negotiation.
++	 */
++
++	return (void *)state;
++
++	out_free:
++	    if (state->sha1_digest)
++		kfree(state->sha1_digest);
++	    if (state->sha1)
++		crypto_free_tfm(state->sha1);
++	    if (state->arc4)
++		crypto_free_tfm(state->arc4);
++	    kfree(state);
++	out:
++	return NULL;
++}
++
++/*
++ * Deallocate space for a (de)compressor.
++ */
++static void mppe_free(void *arg)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++	if (state) {
++	    if (state->sha1_digest)
++		kfree(state->sha1_digest);
++	    if (state->sha1)
++		crypto_free_tfm(state->sha1);
++	    if (state->arc4)
++		crypto_free_tfm(state->arc4);
++	    kfree(state);
++	}
++}
++
++/*
++ * Initialize (de)compressor state.
++ */
++static int
++mppe_init(void *arg, unsigned char *options, int optlen, int unit, int debug,
++	  const char *debugstr)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++	unsigned char mppe_opts;
++
++	if (optlen != CILEN_MPPE
++	    || options[0] != CI_MPPE || options[1] != CILEN_MPPE)
++		return 0;
++
++	MPPE_CI_TO_OPTS(&options[2], mppe_opts);
++	if (mppe_opts & MPPE_OPT_128)
++		state->keylen = 16;
++	else if (mppe_opts & MPPE_OPT_40)
++		state->keylen = 8;
++	else {
++		printk(KERN_WARNING "%s[%d]: unknown key length\n", debugstr,
++		       unit);
++		return 0;
++	}
++	if (mppe_opts & MPPE_OPT_STATEFUL)
++		state->stateful = 1;
++
++	/* Generate the initial session key. */
++	mppe_rekey(state, 1);
++
++	if (debug) {
++		int i;
++		char mkey[sizeof(state->master_key) * 2 + 1];
++		char skey[sizeof(state->session_key) * 2 + 1];
++
++		printk(KERN_DEBUG "%s[%d]: initialized with %d-bit %s mode\n",
++		       debugstr, unit, (state->keylen == 16) ? 128 : 40,
++		       (state->stateful) ? "stateful" : "stateless");
++
++		for (i = 0; i < sizeof(state->master_key); i++)
++			sprintf(mkey + i * 2, "%02x", state->master_key[i]);
++		for (i = 0; i < sizeof(state->session_key); i++)
++			sprintf(skey + i * 2, "%02x", state->session_key[i]);
++		printk(KERN_DEBUG
++		       "%s[%d]: keys: master: %s initial session: %s\n",
++		       debugstr, unit, mkey, skey);
++	}
++
++	/*
++	 * Initialize the coherency count.  The initial value is not specified
++	 * in RFC 3078, but we can make a reasonable assumption that it will
++	 * start at 0.  Setting it to the max here makes the comp/decomp code
++	 * do the right thing (determined through experiment).
++	 */
++	state->ccount = MPPE_CCOUNT_SPACE - 1;
++
++	/*
++	 * Note that even though we have initialized the key table, we don't
++	 * set the FLUSHED bit.  This is contrary to RFC 3078, sec. 3.1.
++	 */
++	state->bits = MPPE_BIT_ENCRYPTED;
++
++	state->unit = unit;
++	state->debug = debug;
++
++	return 1;
++}
++
++static int
++mppe_comp_init(void *arg, unsigned char *options, int optlen, int unit,
++	       int hdrlen, int debug)
++{
++	/* ARGSUSED */
++	return mppe_init(arg, options, optlen, unit, debug, "mppe_comp_init");
++}
++
++/*
++ * We received a CCP Reset-Request (actually, we are sending a Reset-Ack),
++ * tell the compressor to rekey.  Note that we MUST NOT rekey for
++ * every CCP Reset-Request; we only rekey on the next xmit packet.
++ * We might get multiple CCP Reset-Requests if our CCP Reset-Ack is lost.
++ * So, rekeying for every CCP Reset-Request is broken as the peer will not
++ * know how many times we've rekeyed.  (If we rekey and THEN get another
++ * CCP Reset-Request, we must rekey again.)
++ */
++static void mppe_comp_reset(void *arg)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++
++	state->bits |= MPPE_BIT_FLUSHED;
++}
++
++/*
++ * Compress (encrypt) a packet.
++ * It's strange to call this a compressor, since the output is always
++ * MPPE_OVHD + 2 bytes larger than the input.
++ */
++static int
++mppe_compress(void *arg, unsigned char *ibuf, unsigned char *obuf,
++	      int isize, int osize)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++	int proto;
++	struct scatterlist sg_in[1], sg_out[1];
++
++	/*
++	 * Check that the protocol is in the range we handle.
++	 */
++	proto = PPP_PROTOCOL(ibuf);
++	if (proto < 0x0021 || proto > 0x00fa)
++		return 0;
++
++	/* Make sure we have enough room to generate an encrypted packet. */
++	if (osize < isize + MPPE_OVHD + 2) {
++		/* Drop the packet if we should encrypt it, but can't. */
++		printk(KERN_DEBUG "mppe_compress[%d]: osize too small! "
++		       "(have: %d need: %d)\n", state->unit,
++		       osize, osize + MPPE_OVHD + 2);
++		return -1;
++	}
++
++	osize = isize + MPPE_OVHD + 2;
++
++	/*
++	 * Copy over the PPP header and set control bits.
++	 */
++	obuf[0] = PPP_ADDRESS(ibuf);
++	obuf[1] = PPP_CONTROL(ibuf);
++	obuf[2] = PPP_COMP >> 8;	/* isize + MPPE_OVHD + 1 */
++	obuf[3] = PPP_COMP;	/* isize + MPPE_OVHD + 2 */
++	obuf += PPP_HDRLEN;
++
++	state->ccount = (state->ccount + 1) % MPPE_CCOUNT_SPACE;
++	if (state->debug >= 7)
++		printk(KERN_DEBUG "mppe_compress[%d]: ccount %d\n", state->unit,
++		       state->ccount);
++	obuf[0] = state->ccount >> 8;
++	obuf[1] = state->ccount & 0xff;
++
++	if (!state->stateful ||	/* stateless mode     */
++	    ((state->ccount & 0xff) == 0xff) ||	/* "flag" packet      */
++	    (state->bits & MPPE_BIT_FLUSHED)) {	/* CCP Reset-Request  */
++		/* We must rekey */
++		if (state->debug && state->stateful)
++			printk(KERN_DEBUG "mppe_compress[%d]: rekeying\n",
++			       state->unit);
++		mppe_rekey(state, 0);
++		state->bits |= MPPE_BIT_FLUSHED;
++	}
++	obuf[0] |= state->bits;
++	state->bits &= ~MPPE_BIT_FLUSHED;	/* reset for next xmit */
++
++	obuf += MPPE_OVHD;
++	ibuf += 2;		/* skip to proto field */
++	isize -= 2;
++
++	/* Encrypt packet */
++	setup_sg(sg_in, ibuf, isize);
++	setup_sg(sg_out, obuf, osize);
++	if (crypto_cipher_encrypt(state->arc4, sg_out, sg_in, isize) != 0) {
++		printk(KERN_DEBUG "crypto_cypher_encrypt failed\n");
++		return -1;
++	}
++
++	state->stats.unc_bytes += isize;
++	state->stats.unc_packets++;
++	state->stats.comp_bytes += osize;
++	state->stats.comp_packets++;
++
++	return osize;
++}
++
++/*
++ * Since every frame grows by MPPE_OVHD + 2 bytes, this is always going
++ * to look bad ... and the longer the link is up the worse it will get.
++ */
++static void mppe_comp_stats(void *arg, struct compstat *stats)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++
++	*stats = state->stats;
++}
++
++static int
++mppe_decomp_init(void *arg, unsigned char *options, int optlen, int unit,
++		 int hdrlen, int mru, int debug)
++{
++	/* ARGSUSED */
++	return mppe_init(arg, options, optlen, unit, debug, "mppe_decomp_init");
++}
++
++/*
++ * We received a CCP Reset-Ack.  Just ignore it.
++ */
++static void mppe_decomp_reset(void *arg)
++{
++	/* ARGSUSED */
++	return;
++}
++
++/*
++ * Decompress (decrypt) an MPPE packet.
++ */
++static int
++mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
++		int osize)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++	unsigned ccount;
++	int flushed = MPPE_BITS(ibuf) & MPPE_BIT_FLUSHED;
++	int sanity = 0;
++	struct scatterlist sg_in[1], sg_out[1];
++
++	if (isize <= PPP_HDRLEN + MPPE_OVHD) {
++		if (state->debug)
++			printk(KERN_DEBUG
++			       "mppe_decompress[%d]: short pkt (%d)\n",
++			       state->unit, isize);
++		return DECOMP_ERROR;
++	}
++
++	/*
++	 * Make sure we have enough room to decrypt the packet.
++	 * Note that for our test we only subtract 1 byte whereas in
++	 * mppe_compress() we added 2 bytes (+MPPE_OVHD);
++	 * this is to account for possible PFC.
++	 */
++	if (osize < isize - MPPE_OVHD - 1) {
++		printk(KERN_DEBUG "mppe_decompress[%d]: osize too small! "
++		       "(have: %d need: %d)\n", state->unit,
++		       osize, isize - MPPE_OVHD - 1);
++		return DECOMP_ERROR;
++	}
++	osize = isize - MPPE_OVHD - 2;	/* assume no PFC */
++
++	ccount = MPPE_CCOUNT(ibuf);
++	if (state->debug >= 7)
++		printk(KERN_DEBUG "mppe_decompress[%d]: ccount %d\n",
++		       state->unit, ccount);
++
++	/* sanity checks -- terminate with extreme prejudice */
++	if (!(MPPE_BITS(ibuf) & MPPE_BIT_ENCRYPTED)) {
++		printk(KERN_DEBUG
++		       "mppe_decompress[%d]: ENCRYPTED bit not set!\n",
++		       state->unit);
++		state->sanity_errors += 100;
++		sanity = 1;
++	}
++	if (!state->stateful && !flushed) {
++		printk(KERN_DEBUG "mppe_decompress[%d]: FLUSHED bit not set in "
++		       "stateless mode!\n", state->unit);
++		state->sanity_errors += 100;
++		sanity = 1;
++	}
++	if (state->stateful && ((ccount & 0xff) == 0xff) && !flushed) {
++		printk(KERN_DEBUG "mppe_decompress[%d]: FLUSHED bit not set on "
++		       "flag packet!\n", state->unit);
++		state->sanity_errors += 100;
++		sanity = 1;
++	}
++
++	if (sanity) {
++		if (state->sanity_errors < SANITY_MAX)
++			return DECOMP_ERROR;
++		else
++			/*
++			 * Take LCP down if the peer is sending too many bogons.
++			 * We don't want to do this for a single or just a few
++			 * instances since it could just be due to packet corruption.
++			 */
++			return DECOMP_FATALERROR;
++	}
++
++	/*
++	 * Check the coherency count.
++	 */
++
++	if (!state->stateful) {
++		/* RFC 3078, sec 8.1.  Rekey for every packet. */
++		while (state->ccount != ccount) {
++			mppe_rekey(state, 0);
++			state->ccount = (state->ccount + 1) % MPPE_CCOUNT_SPACE;
++		}
++	} else {
++		/* RFC 3078, sec 8.2. */
++		if (!state->discard) {
++			/* normal state */
++			state->ccount = (state->ccount + 1) % MPPE_CCOUNT_SPACE;
++			if (ccount != state->ccount) {
++				/*
++				 * (ccount > state->ccount)
++				 * Packet loss detected, enter the discard state.
++				 * Signal the peer to rekey (by sending a CCP Reset-Request).
++				 */
++				state->discard = 1;
++				return DECOMP_ERROR;
++			}
++		} else {
++			/* discard state */
++			if (!flushed) {
++				/* ccp.c will be silent (no additional CCP Reset-Requests). */
++				return DECOMP_ERROR;
++			} else {
++				/* Rekey for every missed "flag" packet. */
++				while ((ccount & ~0xff) !=
++				       (state->ccount & ~0xff)) {
++					mppe_rekey(state, 0);
++					state->ccount =
++					    (state->ccount +
++					     256) % MPPE_CCOUNT_SPACE;
++				}
++
++				/* reset */
++				state->discard = 0;
++				state->ccount = ccount;
++				/*
++				 * Another problem with RFC 3078 here.  It implies that the
++				 * peer need not send a Reset-Ack packet.  But RFC 1962
++				 * requires it.  Hopefully, M$ does send a Reset-Ack; even
++				 * though it isn't required for MPPE synchronization, it is
++				 * required to reset CCP state.
++				 */
++			}
++		}
++		if (flushed)
++			mppe_rekey(state, 0);
++	}
++
++	/*
++	 * Fill in the first part of the PPP header.  The protocol field
++	 * comes from the decrypted data.
++	 */
++	obuf[0] = PPP_ADDRESS(ibuf);	/* +1 */
++	obuf[1] = PPP_CONTROL(ibuf);	/* +1 */
++	obuf += 2;
++	ibuf += PPP_HDRLEN + MPPE_OVHD;
++	isize -= PPP_HDRLEN + MPPE_OVHD;	/* -6 */
++	/* net osize: isize-4 */
++
++	/*
++	 * Decrypt the first byte in order to check if it is
++	 * a compressed or uncompressed protocol field.
++	 */
++	setup_sg(sg_in, ibuf, 1);
++	setup_sg(sg_out, obuf, 1);
++	if (crypto_cipher_decrypt(state->arc4, sg_out, sg_in, 1) != 0) {
++		printk(KERN_DEBUG "crypto_cypher_decrypt failed\n");
++		return DECOMP_ERROR;
++	}
++
++	/*
++	 * Do PFC decompression.
++	 * This would be nicer if we were given the actual sk_buff
++	 * instead of a char *.
++	 */
++	if ((obuf[0] & 0x01) != 0) {
++		obuf[1] = obuf[0];
++		obuf[0] = 0;
++		obuf++;
++		osize++;
++	}
++
++	/* And finally, decrypt the rest of the packet. */
++	setup_sg(sg_in, ibuf + 1, isize - 1);
++	setup_sg(sg_out, obuf + 1, osize - 1);
++	if (crypto_cipher_decrypt(state->arc4, sg_out, sg_in, isize - 1) != 0) {
++		printk(KERN_DEBUG "crypto_cypher_decrypt failed\n");
++		return DECOMP_ERROR;
++	}
++
++	state->stats.unc_bytes += osize;
++	state->stats.unc_packets++;
++	state->stats.comp_bytes += isize;
++	state->stats.comp_packets++;
++
++	/* good packet credit */
++	state->sanity_errors >>= 1;
++
++	return osize;
++}
++
++/*
++ * Incompressible data has arrived (this should never happen!).
++ * We should probably drop the link if the protocol is in the range
++ * of what should be encrypted.  At the least, we should drop this
++ * packet.  (How to do this?)
++ */
++static void mppe_incomp(void *arg, unsigned char *ibuf, int icnt)
++{
++	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++
++	if (state->debug &&
++	    (PPP_PROTOCOL(ibuf) >= 0x0021 && PPP_PROTOCOL(ibuf) <= 0x00fa))
++		printk(KERN_DEBUG
++		       "mppe_incomp[%d]: incompressible (unencrypted) data! "
++		       "(proto %04x)\n", state->unit, PPP_PROTOCOL(ibuf));
++
++	state->stats.inc_bytes += icnt;
++	state->stats.inc_packets++;
++	state->stats.unc_bytes += icnt;
++	state->stats.unc_packets++;
++}
++
++/*************************************************************
++ * Module interface table
++ *************************************************************/
++
++/*
++ * Procedures exported to if_ppp.c.
++ */
++static struct compressor ppp_mppe = {
++	.compress_proto = CI_MPPE,
++	.comp_alloc     = mppe_alloc,
++	.comp_free      = mppe_free,
++	.comp_init      = mppe_comp_init,
++	.comp_reset     = mppe_comp_reset,
++	.compress       = mppe_compress,
++	.comp_stat      = mppe_comp_stats,
++	.decomp_alloc   = mppe_alloc,
++	.decomp_free    = mppe_free,
++	.decomp_init    = mppe_decomp_init,
++	.decomp_reset   = mppe_decomp_reset,
++	.decompress     = mppe_decompress,
++	.incomp         = mppe_incomp,
++	.decomp_stat    = mppe_comp_stats,
++	.owner          = THIS_MODULE,
++	.comp_extra     = MPPE_PAD,
++};
++
++/*
++ * ppp_mppe_init()
++ *
++ * Prior to allowing load, try to load the arc4 and sha1 crypto
++ * libraries.  The actual use will be allocated later, but
++ * this way the module will fail to insmod if they aren't available.
++ */
++
++static int __init ppp_mppe_init(void)
++{
++	int answer;
++	if (!(crypto_alg_available("arc4", 0) &&
++	      crypto_alg_available("sha1", 0)))
++		return -ENODEV;
++
++	sha_pad = kmalloc(sizeof(struct sha_pad), GFP_KERNEL);
++	if (!sha_pad)
++		return -ENOMEM;
++	sha_pad_init(sha_pad);
++
++	answer = ppp_register_compressor(&ppp_mppe);
++
++	if (answer == 0)
++		printk(KERN_INFO "PPP MPPE Compression module registered\n");
++	else
++		kfree(sha_pad);
++
++	return answer;
++}
++
++static void __exit ppp_mppe_cleanup(void)
++{
++	ppp_unregister_compressor(&ppp_mppe);
++	kfree(sha_pad);
++}
++
++module_init(ppp_mppe_init);
++module_exit(ppp_mppe_cleanup);
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/drivers/net/ppp_mppe.h linux-2.6-ppp_mppe/drivers/net/ppp_mppe.h
+--- linux-2.6/drivers/net/ppp_mppe.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6-ppp_mppe/drivers/net/ppp_mppe.h	2005-08-12 11:19:18.000000000 -0700
+@@ -0,0 +1,86 @@
++#define MPPE_PAD                4      /* MPPE growth per frame */
++#define MPPE_MAX_KEY_LEN       16      /* largest key length (128-bit) */
++
++/* option bits for ccp_options.mppe */
++#define MPPE_OPT_40            0x01    /* 40 bit */
++#define MPPE_OPT_128           0x02    /* 128 bit */
++#define MPPE_OPT_STATEFUL      0x04    /* stateful mode */
++/* unsupported opts */
++#define MPPE_OPT_56            0x08    /* 56 bit */
++#define MPPE_OPT_MPPC          0x10    /* MPPC compression */
++#define MPPE_OPT_D             0x20    /* Unknown */
++#define MPPE_OPT_UNSUPPORTED (MPPE_OPT_56|MPPE_OPT_MPPC|MPPE_OPT_D)
++#define MPPE_OPT_UNKNOWN       0x40    /* Bits !defined in RFC 3078 were set */
++
++/*
++ * This is not nice ... the alternative is a bitfield struct though.
++ * And unfortunately, we cannot share the same bits for the option
++ * names above since C and H are the same bit.  We could do a u_int32
++ * but then we have to do a htonl() all the time and/or we still need
++ * to know which octet is which.
++ */
++#define MPPE_C_BIT             0x01    /* MPPC */
++#define MPPE_D_BIT             0x10    /* Obsolete, usage unknown */
++#define MPPE_L_BIT             0x20    /* 40-bit */
++#define MPPE_S_BIT             0x40    /* 128-bit */
++#define MPPE_M_BIT             0x80    /* 56-bit, not supported */
++#define MPPE_H_BIT             0x01    /* Stateless (in a different byte) */
++
++/* Does not include H bit; used for least significant octet only. */
++#define MPPE_ALL_BITS (MPPE_D_BIT|MPPE_L_BIT|MPPE_S_BIT|MPPE_M_BIT|MPPE_H_BIT)
++
++/* Build a CI from mppe opts (see RFC 3078) */
++#define MPPE_OPTS_TO_CI(opts, ci)              \
++    do {                                       \
++       u_char *ptr = ci; /* u_char[4] */       \
++                                               \
++       /* H bit */                             \
++       if (opts & MPPE_OPT_STATEFUL)           \
++           *ptr++ = 0x0;                       \
++       else                                    \
++           *ptr++ = MPPE_H_BIT;                \
++       *ptr++ = 0;                             \
++       *ptr++ = 0;                             \
++                                               \
++       /* S,L bits */                          \
++       *ptr = 0;                               \
++       if (opts & MPPE_OPT_128)                \
++           *ptr |= MPPE_S_BIT;                 \
++       if (opts & MPPE_OPT_40)                 \
++           *ptr |= MPPE_L_BIT;                 \
++       /* M,D,C bits not supported */          \
++    } while (/* CONSTCOND */ 0)
++
++/* The reverse of the above */
++#define MPPE_CI_TO_OPTS(ci, opts)              \
++    do {                                       \
++       u_char *ptr = ci; /* u_char[4] */       \
++                                               \
++       opts = 0;                               \
++                                               \
++       /* H bit */                             \
++       if (!(ptr[0] & MPPE_H_BIT))             \
++           opts |= MPPE_OPT_STATEFUL;          \
++                                               \
++       /* S,L bits */                          \
++       if (ptr[3] & MPPE_S_BIT)                \
++           opts |= MPPE_OPT_128;               \
++       if (ptr[3] & MPPE_L_BIT)                \
++           opts |= MPPE_OPT_40;                \
++                                               \
++       /* M,D,C bits */                        \
++       if (ptr[3] & MPPE_M_BIT)                \
++           opts |= MPPE_OPT_56;                \
++       if (ptr[3] & MPPE_D_BIT)                \
++           opts |= MPPE_OPT_D;                 \
++       if (ptr[3] & MPPE_C_BIT)                \
++           opts |= MPPE_OPT_MPPC;              \
++                                               \
++       /* Other bits */                        \
++       if (ptr[0] & ~MPPE_H_BIT)               \
++           opts |= MPPE_OPT_UNKNOWN;           \
++       if (ptr[1] || ptr[2])                   \
++           opts |= MPPE_OPT_UNKNOWN;           \
++       if (ptr[3] & ~MPPE_ALL_BITS)            \
++           opts |= MPPE_OPT_UNKNOWN;           \
++    } while (/* CONSTCOND */ 0)
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/include/linux/if_ppp.h linux-2.6-ppp_mppe/include/linux/if_ppp.h
+--- linux-2.6/include/linux/if_ppp.h	2005-08-11 22:39:31.000000000 -0700
++++ linux-2.6-ppp_mppe/include/linux/if_ppp.h	2005-08-12 11:06:26.000000000 -0700
+@@ -21,7 +21,7 @@
+  */
+ 
+ /*
+- *  ==FILEVERSION 20000724==
++ *  ==FILEVERSION 20050812==
+  *
+  *  NOTE TO MAINTAINERS:
+  *     If you modify this file at all, please set the above date.
+@@ -70,7 +70,8 @@
+ #define SC_LOG_RAWIN	0x00080000	/* log all chars received */
+ #define SC_LOG_FLUSH	0x00100000	/* log all chars flushed */
+ #define	SC_SYNC		0x00200000	/* synchronous serial mode */
+-#define	SC_MASK		0x0f200fff	/* bits that user can change */
++#define	SC_MUST_COMP    0x00400000	/* no uncompressed packets may be sent or received */
++#define	SC_MASK		0x0f600fff	/* bits that user can change */
+ 
+ /* state bits */
+ #define SC_XMIT_BUSY	0x10000000	/* (used by isdn_ppp?) */
+@@ -90,6 +91,10 @@ struct npioctl {
+ 	enum NPmode	mode;
+ };
+ 
++#ifndef __user
++#define __user
++#endif
++
+ /* Structure describing a CCP configuration option, for PPPIOCSCOMPRESS */
+ struct ppp_option_data {
+ 	__u8	__user *ptr;
+diff -urNp --exclude-from=/mdomsch2/excludes --minimal linux-2.6/include/linux/ppp-comp.h linux-2.6-ppp_mppe/include/linux/ppp-comp.h
+--- linux-2.6/include/linux/ppp-comp.h	2005-08-11 22:39:31.000000000 -0700
++++ linux-2.6-ppp_mppe/include/linux/ppp-comp.h	2005-08-12 11:18:26.000000000 -0700
+@@ -111,6 +111,8 @@ struct compressor {
+ 
+ 	/* Used in locking compressor modules */
+ 	struct module *owner;
++	/* Extra skb space needed by the compressor algorithm */
++	unsigned int comp_extra;
+ };
+ 
+ /*
+@@ -191,6 +193,13 @@ struct compressor {
+ #define DEFLATE_CHK_SEQUENCE	0
+ 
+ /*
++ * Definitions for MPPE.
++ */
++
++#define CI_MPPE                18      /* config option for MPPE */
++#define CILEN_MPPE              6      /* length of config option */
++
++/*
+  * Definitions for other, as yet unsupported, compression methods.
+  */
+ 
 
 
 -------------------------------------------------------
