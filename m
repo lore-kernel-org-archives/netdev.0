@@ -1,39 +1,44 @@
-From: =?Big5?B?t+zPybHQvsekarrQfg==?= <hn86674456@yahoo.com.tw>
-Subject: =?Big5?B?wdmq4b/6pFe37M/JvdK23D+lu6X6utDF/adBu7TDULZppEq37M/Jqrq74rDss+E=?=
-Date: Sat, 13 Aug 2005 21:10:08 +0800
-Message-ID: <200508141616.j7EGGbH9015921@oss.sgi.com>
-Content-Type: text/html
+From: "だお傘" <gofqjrt@eampal.net>
+Subject: =?ISO-8859-1?Q?=C3=E2=C0=E5=BA=CE=C6=E4=B8=A6?=
+	=?ISO-8859-1?Q?=B0=E8=C8=B9=C7=CF=B0=ED=20=B0=E8=BD=CA=B4=CF=B1=EE=3F?=
+Date: Sun, 14 Aug 2005 19:42:03 +0300
+Message-ID: <mn3$fue75$9z-hj45@99x.w.6t>
+Reply-To: "だお傘" <gofqjrt@eampal.net>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="12_._FC9D31337.5CA"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
 
-<head>
-<meta http-equiv="Content-Language" content="zh-tw">
-<meta http-equiv="Content-Type" content="text/html; charset=big5">
-<meta name="GENERATOR" content="Microsoft FrontPage 6.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
-<title>圖若開啟太慢</title>
-</head>
+--12_._FC9D31337.5CA
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-<body>
+<table width=3D585 border=3D1 align=3Dcenter cellpadding=3D0 cellspacing=3D=
+2 bordercolor=3D#660000>
+<tr><td><TABLE WIDTH=3D650 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
+<TR><TD><a href=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/form_or_01.php?=
+partner=3Droot target=3D_blank>
+<IMG SRC=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/images/001/form_01.gif=
+ border=3D0></a></TD></TR>
+<TR><TD><a href=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/form_or_01.php?=
+partner=3Droot target=3D_blank>
+<IMG SRC=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/images/001/form_02.gif=
+ border=3D0></a></TD></TR>
+<TR><TD><a href=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/form_or_01.php?=
+partner=3Droot target=3D_blank>
+<IMG SRC=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/images/001/form_03.gif=
+ border=3D0></a></TD></TR>
+<TR><TD><a href=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/partner/RejectM=
+ail.php target=3D_blank>
+<IMG SRC=3Dhttp://%73%75%68%79%61%75.c%61%66e24.com/images/001/form_04.gif=
+ border=3D0></a></TD></TR>
+</TABLE></td></tr></table>
 
-<p align="center"><a href="http://www.buy999.net/999/mail003-b.htm">若無法開啟請按這裡</a></p>
+iks ihpltola  kal
 
-<p align="center">
-<a href="http://www.buy999.net/999/mail003-b.htm">
-<img border="0" src="http://www.buy999.net/999/003.jpg" width="600" height="322"></a></p>
-<p align="center">
-<a target="_blank" href="http://www.buy999.net/999/mail003-b.htm">
-普拉提瑜珈老少咸宜,輕鬆入門教學光碟!!</a></p>
-
-</body>
-
-</html>
-
-<p align=center>　</p>
-
-<!-- PITHSET -->
+--12_._FC9D31337.5CA--
