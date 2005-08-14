@@ -1,66 +1,42 @@
-From: "Lee Hamilton" <hlgesujwaauxh@yahoo.com>
-Subject: =?ISO-8859-1?Q?=BC=F6=B4=C9.=B5=EE=B1=B3=B9=AB.?=
-	=?ISO-8859-1?Q?=C3=D6=B4=DC6=B0=B3=BF=F9=BF=A1?=
-	=?ISO-8859-1?Q?4=B3=E2=C1=A6=B4=EB=C7=D0=20=C7=D0=BB=E7=C7=D0=C0=A7?=
-	=?ISO-8859-1?Q?=C3=EB=B5=E6=C7=D5=B4=CF=B4=D9!!?=
-Date: Sun, 14 Aug 2005 16:26:44 +0500
-Message-ID: <XCYFPHDWBZMSXNAGYILYLPJ@yahoo.com>
-Reply-To: "Lee Hamilton" <hlgesujwaauxh@yahoo.com>
+From: "Jeff Funk" <j.funk_75@teppich.ch>
+Subject: Extra Time - Cures premature ejaculation
+Date: Sun, 14 Aug 2005 09:06:43 -0200
+Message-ID: <790001c5a0c0$1d56b840$b7b1d1a7@alcatel.at>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--0623216068745115798"
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: devfs@oss.sgi.com
+To: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----0623216068745115798
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Hello,
+
+Did you ejaculate before or within a few minutes of
+penetration?
+
+Premature ejaculation occurs when you ejaculate too quickly
+and without control. It occurs before or shortly after
+penetration. Premature ejaculation interferes with the sexual
+pleasure of both you and your partner. It causes feelings of
+guilt, embarrassment, frustration, and depression.
+
+Extra-Time is the only male sexual performance formula that, 
+not only stops premature ejaculation, but actually "cures" it. 
+Extra-Time is the only product that allows "YOU" to control 
+when you ejaculate.
+
+- Non-hormonal herbal therapy.
+- Acts locally on the sex organs.
+- Regulates process of ejaculation.
+- Acts through neuro-endocrine pathway.
+- Acts on the high centers of emotion in the brain.
+
+Look here: http://deanships.com/et/?meds
 
 
-<BODY>
-<DIV><FONT color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
-=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6=A2=C6</FONT></DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<FONT 
-color=3D#000040>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</FO=
-NT><FONT 
-color=3D#0000ff>&nbsp;</FONT></DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;<FONT color=3D#ff00ff><U> .=B5=EE=B1=B3=BE=F8=
-=C0=CC =BF=C2-=B6=F3=C0=CE=C0=B8=B7=CE =C3=D6=B4=DC=B1=E2=B0=A3 =B1=B9=B3=BB=
- 4=B3=E2=C1=A6=B4=EB=C7=D0 
-=C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6~~</U></FONT></DIV>
-<DIV><FONT color=3D#ff0080></FONT>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp; 
-=B0=ED=B5=EE=C7=D0=B1=B3 =C1=B9=BE=F7=C0=DA=B0=DD =C0=CC=BB=F3=C0=CC=B8=E9=
- =BC=F6=B4=C9=BD=C3=C7=E8=BE=F8=C0=CC =B4=A9=B1=B8=B3=AA</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp; 
-&nbsp;&nbsp;=C3=D6=B4=DC 6=B0=B3=BF=F9=C0=CC=B8=E9 =B1=B9=B3=BB 4=B3=E2=C1=
-=A6 =B4=EB=C7=D0 =C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6 =B0=A1=B4=C9~~</DIV=
->
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-&nbsp;&nbsp;=A2=BA&nbsp;2.3.4=C7=D0=B3=E2 =C7=D0=BB=E7 =C6=ED=C0=D4 =C0=FD=
-=C8=A3=C0=C7 =B1=E2=C8=B8=C0=D4=B4=CF=B4=D9~!=A2=B8.</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-=A2=D1<A href=3D"http://eogkrrkwk.ww.to/" target=3D_blank><FONT color=3D#f=
-f0080>=C0=DA=BC=BC=C7=D1 =B9=AB=B7=E1 =BB=F3=B4=E3 
-=BD=C5=C3=BB=C0=BA =BF=A9=B1=E2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4</FONT=
->.</A>=A2=D0</DIV>
-<DIV>&nbsp;</DIV>
-<DIV><FONT 
-color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
-=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6</FONT></DIV></BODY></HTML>
 
 
-----0623216068745115798--
+No thanks: http://deanships.com/rr.php
