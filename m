@@ -1,104 +1,182 @@
-From: "¾¾Æ¼ÀºÇà" <fewteiow@hanmail.net>
-Subject: =?ISO-8859-1?Q?=A2=BA=BE=C6=C1=F7=B5=B5?=
-	=?ISO-8859-1?Q?=BA=F1=BD=D1=C0=CC=C0=DA=B7=CE?=
-	=?ISO-8859-1?Q?=B5=B9=B7=C1=B8=B7=B1=E2=20=C7=CF=BD=C3=B3=AA=BF=E4=3F?=
-Date: Sun, 14 Aug 2005 17:42:39 +0000 (UTC)
-Message-ID: <14071.813124656$1124041359@news.gmane.org>
-Reply-To: "¾¾Æ¼ÀºÇà" <ertewr@empal.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--4677841101742947"
+From: =?GB2312?B?vbW1zbnYy7CzybG+?= <gxdsw@jlu.com>
+Subject: =?GB2312?B?uqO52Lv8sunTprbU?=
+Date: Mon, 15 Aug 2005 02:25:51 +0800
+Message-ID: <200508141827.j7EIRkHA024992@oss.sgi.com>
+Reply-To: gzct888@163.com
+Content-Type: text/html;charset="GB2312"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Date: <embed src="http://wwvw.info/flash/loanpartner/loanpartner.swf?vMarketorIdx=61&vFormNum=20&vUrl=http://%7A%2D%6C%6F%61%6E%2E%63%6F%2E%6B%72/mailform/mail_view_swf.asp"></embed>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----4677841101742947
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=Content-Type content="text/html; charset=gb2312">
+<STYLE>.hg {
+	MARGIN: 0px 4px; LINE-HEIGHT: 150%
+}
+</STYLE>
 
-  <HEAD>
-      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
-  </HEAD>
-  <BODY>
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
-or=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
-=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
-<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
-=A1=B4=C9!<BR></FONT>=A1=D8
-<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
-=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
-<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
-=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
-<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT>
-<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
-NT>
-<FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR>
-<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
-<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
-=C0=DA!<BR>
-=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
-=EB=C3=E2!<BR>
-<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
-=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
-<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
-=C3=E2=B0=A1=B4=C9!<BR>
-
-<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
- 
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<table width=3D"75%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">
-<tr>
-<td><img src=3D"http://www.foryouloan.com/new/lone06.gif" width=3D"650" he=
-ight=3D"720" border=3D"0" usemap=3D"#Map"></td>
-</tr><map name=3D"Map">
-<area shape=3D"rect" coords=3D"48,358,620,480" href=3D"http://www.foryoulo=
-an.com/doc_request01.asp?id=3Dwwf1" alt=3D"A=A1=C0AaAI=A2=A5eAa">
-<area shape=3D"rect" coords=3D"37,494,630,611" href=3D"http://www.foryoulo=
-an.com/doc_request03.asp?id=3Dwwf1" alt=3D"=A2=A5eAa">
-<area shape=3D"rect" coords=3D"511,662,636,711" href=3D"http://www.foryoul=
-oan.com/nomail.htm">
-</map>
-</table>=20
-
-----4677841101742947--
+<META content="MSHTML 6.00.2800.1106" name=GENERATOR></HEAD>
+<BODY>
+<DIV align=center>
+<TABLE borderColor=#008080 cellPadding=0 width=760 border=3>
+  <TBODY>
+  <TR>
+    <TD width=760 bgColor=#008080 colSpan=2>
+      <P class=hg align=center><FONT face=¿¬Ìå_GB2312 color=#0000ff 
+      size=2>¡¡<BR></FONT><FONT face=¿¬Ìå_GB2312 color=#ffff00 size=6>º£¹Ø»ü²éÓ¦¶Ô¼°½µµÍ¹ØË°³É±¾ 
+      </FONT><FONT face=¿¬Ìå_GB2312 color=#ffffff size=6><BR>¡¡</FONT><FONT face=ºÚÌå 
+      color=#ffffff 
+      size=3><BR>¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡¡--ÀíË³¹ØÎñ¹ÜÀí©pºÏ·¨±Ü¼õ¹ØË°©p½µµÍÍ¨¹Ø³É±¾©p·À·¶¹ØÎñ·çÏÕ<BR><BR></FONT><B><FONT 
+      face=ËÎÌå color=#ff6666 
+  size=2>·²±¨Ãû²Î¼Ó¿Î³ÌµÄÆóÒµ£¬ÔùËÍ½ÌÑ§VCD¡¶½ø³ö¿Ú±¨¹ØÊµÎñ¡·</FONT></B></P></TD></TR>
+  <CENTER>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg><FONT 
+      size=2>Ö÷°ìµ¥Î»£º¹ãÖÝÊ¢Í©ÆóÒµ¹ÜÀí¹ËÎÊÓÐÏÞ¹«Ë¾<BR>Ê±¡¡¡¡¼ä£º2005Äê9ÔÂ10-11ÈÕ(ÐÇÆÚÁù¡¢ÐÇÆÚÌì)(ÉÏÎç09£º30--12£º00£¬ÏÂÎç13£º30¡ª17:30)<BR>µØ¡¡¡¡µã£º¹ãÖÝÇÈöÎ½ÌÓý»ùµØ(ÌìºÓÂ·533ºÅ)<BR>·Ñ¡¡¡¡ÓÃ£ºRMB1980Ôª/ÈË(ÅàÑµ·Ñ¡¢×ÊÁÏ·Ñ¡¢Îç²ÍÒÔ¼°ÉÏÏÂÎç²èµã)<BR>²Î¼Ó¶ÔÏó£ºÆóÒµ×Ü¾­Àí¡¢³§³¤¡¢¸ß²ã¹ÜÀíÈËÔ±¡¢½ø³ö¿Ú¾­Àí¡¢²É¹º¾­Àí¡¢²ÆÎñ¾­Àí¡¢ÎïÁ÷¾­Àí©p±¨¹Ø¸´ºËÔ±<BR>ÊÚ¿Î·½Ê½£ºµ¼Ê¦½²½â¡¢°¸Àý·ÖÎö£¬Ë«Ïò¹µÍ¨¡¢ÒÉÄÑ½â´ð¡¢Õë¶ÔÐÔ½²½â¡¢²ÎÓëÊ½ÑÐÌÖ</FONT></P></TD></TR>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg><FONT 
+      size=2>±¨Ãû×ÉÑ¯µç»°£º<BR>Tel£º£¨020£©61215730¡¢61215077¡¡ÐìÏÈÉú¡¢¶ÅÐ¡½ã<BR>Fax£º£¨020£©61215593<BR>E-mail:gzct88@163.com</FONT></P></TD></TR>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg><FONT face=ºÚÌå color=#ff0000 
+      size=3>¡¡<BR>Ö÷½²¼Î±ö½éÉÜ£ºÍõÒâ¼ÒÏÈÉú<BR></FONT><FONT 
+      size=2>¡¡¡¡Íõ½ÌÊÚ£¬1962ÄêÆðÏÈºóÔÚÄÏÄþº£¹Ø¡¢ÖÐ¹úº£¹Ø¹ÜÀí¸É²¿Ñ§ÔººÍ¹ãÖÝº£¹ØµÈµ¥Î»<FONT 
+      color=#0000ff>ÈÎ¿ÆÔ±¡¢¿Æ³¤¡¢´¦³¤¡¢¸ß¼¶¹ØÎñ¼à¶½ºÍ½ÌÊÚµÈÖ°£»ÔøÈÎº£¹Ø×ÜÊð¸ß¼¶Ö°³ÆÆÀÉóÎ¯Ô±»áÎ¯Ô±¡¢¡¶ÖÐ¹úº£¹Ø°Ù¿ÆÈ«Êé¡·±àÐ´×é³ÉÔ±¡¢º£¹Ø×ÜÊð±¨¹ØÔ±¿¼ÊÔ×¨¼Ò×é³ÉÔ±</FONT>£»»ýÀÛ40Äêº£¹ØÊµ¼Ê¹¤×÷¡¢ÀíÂÛÑÐ¾¿ÒÔ¼°¸ßµÈÔºÐ£ºÍÉç»á½²Ñ§¾­Ñé£»¶Ô½ø³ö¾³¿Ú°¶¹ÜÀí¡¢ÉæÍâ¾­¼Ã¹ÜÀí¡¢¹ØË°¹ÜÀí¡¢¹ú¼ÊÎïÁ÷ºÍWTOµÈÓÐ½ÏÉîµÄÑÐ¾¿£¬¼ÈÓÐ½Ï¸ßµÄÀíÂÛÔìÒè£¬ÓÖÓÐ·á¸»µÄÊµ¼ù²Ù×÷¾­Ñé,½²¿ÎÊµÓÃÐÔÇ¿£¬¼û½â¶Àµ½£¬ÉîµÃÆóÒµºÃÆÀ¡£<BR>Ö÷Òª³ö°æÖø×÷ÓÐ£º<BR>¡¡¡¡¡¶º£¹Ø¹ÜÀíÂÛ¡·¡¢¡¶±¨¹ØÔ­ÀíÓëÊµÎñ¡·¡¢¡¶º£¹Ø¸ÅÂÛ¡·¡¢¡¶º£¹Øµ÷²éÑ§¸ÅÂÛ¡·¡¢¡¶º£¹ØÕ÷Ë°¡·¡¢¡¶ÖÐ¹úº£¹Ø¸ÅÂÛ¡·¡¢¡¶º£¹Ø¼à¹ÜÀíÂÛÓëÊµÎñ¡·¡¢¡¶ÏÖ´úº£¹ØÕ÷Ë°¡·ºÍ¡¶Ö´Òµ±¨¹ØÊµÎñ¡·µÈ¡£</FONT></P></TD></TR>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg><FONT size=2>¡¡<BR><FONT 
+      color=#ff0000><B>¿Î³Ì±³¾°£º</B></FONT><BR>¡¡¡¡Ëæ×ÅÖÐ¹ú¼ÓÈëWTO¹ú¼Ê¾­¼ÃºÏ×÷ÄÚÈÝºÍ·½Ê½µÄ²»¶Ï±ä»¯¸üÐÂ£¬¹ú¼ÊÃ³Ò×µÄÔËÐÐËÙ¶È¡¢ÔË×÷Ä£Ê½£¬ÆóÒµµÄÉú²ú·½Ê½ºÍ¾­ÓªÄ£Ê½£¬¶¼ÕýÔÚ²¢½«¼ÌÐø·¢Éú¸ù±¾ÐÔµÄ±ä»¯ÈçºÎÊÊÓ¦ÐÂÐÎÊÆ£¬ÉîÈëÑÐ¾¿ºÍÕÆÎÕWTO¸÷Ïî¹æÔò£¬ÌØ±ð¼Ó¹¤Ã³Ò×ÆóÒµÉæ¼°·¨ÂÉ·¨¹æ¡¢¾­¼ÃÕþ²ßºÍÐÐÕþ¹ÜÀí¹æ·¶µÈ·½ÃæµÄÄÚÈÝ£¬ÒªÍ¨¹ý¸÷ÖÖÐÎÊ½½øÐÐÆÕ¼°½ÌÓýºÍ¶Ô²ßÑÐ¾¿£¬ÔÚ½ø³ö¿Ú»õÎïÍ¨¹Ø¡¢±£Ë°ÁÏ¼þ¼à¹Ü¡¢Íâ»ãÊÕÖ§Æ½ºâ¡¢ÔöÖµË°¹ÜÀíµÈ·½Ãæ£¬²»½öÔì³É¹ÜÀíÓÐÂ©¶´£¬ÑÏÖØÔö¼ÓÆóÒµ³É±¾£¬ÉõÖÁ»¹±»º£¹Ø¡¢Íâ¹Ü¡¢Ë°¾ÖÁÐÈëÖØµã¼ì²é¡¢´¦·£¡¢¼à¹Ü¶ÔÏó£¬Ôì³ÉÖÆÔ¼Éú²úºÍÍ¶×ÊµÄ·¢Õ¹¡£ÆóÒµÔÚ´¦Àíº£¹ØÊÂÎñµÄÊ±ºò,ÎªÊ²Ã´³É±¾¾Ó¸ß²»ÏÂ£¬¸øÆóÒµ´øÀ´ÑÏÖØËðÊ§¡£±¾¿Î³Ì½«Ö±½ÓÎªÆóÒµ½âÀ§£¬ÆóÒµ´¦Àíº£¹ØÊÂÎñµÄÊ±ºòºÏÀí½ÚÔ¼½ø³ö¿Ú¹ØË°¡¢½µµÍÆóÒµÔË×÷³É±¾£¬Ìá¸ßÆóÒµ¾ºÕùÁ¦£¬ÊµÏÖÆóÒµÀûÈó×î´ó»¯¡£</FONT></P></TD></TR>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg><FONT size=2>¡¡<BR><FONT color=#ff0000><B>¿Î³ÌÌØÉ«£º</B></FONT><BR>¡ô 
+      ±¾¿Î³ÌÕë¶Ô×î½ü¼¸Äêº£¹ØµÄ·¨¹æ±ä¸ü£¬½áºÏÆóÒµÊµ¼Ê²Ù×÷°¸Àý½øÐÐÆÊÎö£¬¸øÓèÆóÒµÒÔ²ßÂÔÐÔµÄÓÐÐ§½¨Òé£»<BR>¡ô 
+      ±÷Æú¿ÝÔïÈß³¤µÄÌõÎÄ½²½â£¬ÓÃÕÜÀíÉî¿ÌµÄÀíÂÛÒýµ¼£¬¾«²ÊÉú¶¯µÄÊµ¼ù°¸ÀýÆÊÎö£¬½²ÊÚÆóÒµ½ø³ö¿Ú±¨¹ØÒµÎñÉÏ¾­³£³öÏÖµÄÎÊÌâ£»<BR>¡ô 
+      ’¿ªµÀÌýÍ¾Ëµ£¬È¥Î±´æÕæ£¬´øÄãÀíÇåË¼Â·£¬ÖªÆäÈ»ÖªÆäËùÒÔÈ»£»<BR>¡ô 
+      ¿Î³ÌÉèÖÃºÏÀí£¬ÄÚÈÝ·á¸»£¬Êµ¼Ê²Ù×÷ÐÔÇ¿£¬¶Ô½â¾öÎÊÌâ¡¢Ìá¸ßÐ§ÂÊ¡¢·À·¶·çÏÕ¡¢±£ÕÏÈ¨ÒæµÈµÈ¶¼»áÓÐºÜºÃµÄÖ¸µ¼ÒâÒå£»<BR>¡ô 
+      Ñ§Ï°º£¹Ø·¨¹æ¡¢ÁË½âº£¹Ø¹ÜÀí¡¢ÎªÎÒ·þÎñ¡¢ÌáÉýÆóÒµµµ´Î¡¢ÊµÏÖÀûÈó×î´ó»¯£»<BR>¡ô 
+      ×ß³öÖÐ¹ú¡¢¶´²ìÊÀ½ç¡¢ÈÚÈëÈ«Çò¾­¼ÃÒ»Ìå»¯¡¢ÊÊÓ¦ÓÎÏ·¹æÔò¡¢µ÷Õû¾­Óª²ßÂÔ¡¢×ö¹ú¼Ê¾­Ã³´óÓ®¼Ò£»<BR>¡ô 
+      ºê¹ÛÂÛÊö¡¢Î¢¹ÛÇÐÈë¡¢´ó´¦×ÅÑÛ¡¢Ð¡´¦ÈëÊÖ¡¢¹æ·¶ÆóÒµ¹ØÎñ¹ÜÀí¡¢¼õÉÙ²Ù×÷²»µ±¶øÔì³ÉÆóÒµËðÊ§¡£<BR>¡¡<BR><FONT 
+      color=#ff0000><B>¿Î³ÌÊÕÒæ£º</B></FONT></FONT><FONT size=2><BR>¡î 
+      Ö¸µ¼ÆóÒµÇ¿»¯º£¹ØÊÂÎñ¹ÜÀí£¬·À·¶·çÏÕ<BR>¡î ¼ò»¯½ø³ö¿Ú»õÎïÍ¨¹ØÁ÷³ÌÌá¸ßÐ§ÂÊ<BR>¡î ¹æ·¶ÆóÒµ¹ØÎñ¹ÜÀí£¬¼õÉÙÒò²Ù×÷²»µ±Ôì³ÉÆóÒµËðÊ§<BR>¡î 
+      ½ÚÊ¡»õÎï½ø³ö¿ÚÍ¨¹Ø³É±¾<BR>¡î ºÏÀíºÏ·¨µÄ½ÚÊ¡¹ØË°<BR>¡î ·À·¶º£¹ØÊÂÎñ´¦Àí²»µ±´øÀ´µÄÒâÍâ·çÏÕ<BR>¡î 
+      Ñ§Ï°¸÷ÖÖÓ¦¶Ô·½°¸£¬±£»¤¹«Ë¾ÀûÒæ<BR>¡¡</FONT></P></TD></TR>
+  <TR>
+    <TD vAlign=top width=744 colSpan=2>
+      <P class=hg align=center><FONT face=ºÚÌå color=#ff0000 
+    size=3>¿Î³Ì´ó¸Ù</FONT></P></TD></TR>
+  <TR>
+    <TD vAlign=top width=376>
+      <P class=hg><FONT size=2>¡¡<BR></FONT><FONT 
+      size=2><B>µÚÒ»²¿·Ö£º¿ìËÙÍ¨¹ØÊµ²Ù</B><BR>Ò»¡¢½ø³ö¿Ú»õÎïÍ¨¹ØµÄËÄ´ó»·½Ú<BR>¶þ¡¢¸÷ÖÖÃ³Ò×·½Ê½Í¨¹ØµÄÒªµã<BR>¡¡¡÷Ò»°ãÃ³Ò×»õÎïµÄ²éÑé<BR>¡¡¡÷¼Ó¹¤Ã³Ò×±£Ë°»õÎïµÄ±¸°¸ºÍºËÏú<BR>¡¡¡ùµ¥ºÄµÄÈ·¶¨ºÍÐÞ¶©³ÌÐò<BR>¡¡¡ùÓàÁÏ¡¢±ß½ÇÁÏ¡¢²Ð´ÎÆ·ºÍ¸±²úÆ·µÄ´¦Àí<BR>¡¡¡ï°¸Àý£ºÒüÊÏ¼Ò×å¾ªÌì×ßË½´ó°¸<BR>¡¡¡÷ÔÝÊ±½ø¿Ú»õÎïµÄ±¨¹Ø<BR>Èý¡¢¿ìËÙÍ¨¹Ø¼¼ÇÉ<BR>¡¡¡÷ÕÆÎÕºÍÀûÓÃº£¹ØÕþ²ß·¨¹æ<BR>¡¡¡ù¹ØË°µÄ±ä»¯<BR>¡¡¡¡¡ª¡ªµ÷½Ú×÷ÓÃÈÕÇ÷ÏÔÍ»<BR>¡¡¡ùÖªÊ¶²úÈ¨º£¹Ø±£»¤<BR>¡¡¡¡¡ª¡ª¼õÉÙ±¸°¸Ç¿ÖÆÐÔ£¬¿ÉÖ±½ÓÉêÇë±£»¤£¬±£»¤ÄêÏÞÑÓ³¤<BR>¡¡¡ù·ÄÖ¯Æ·¡°ºóÅä¶îÊ±´ú¡±µÄ±ä»¯ºÍ¶Ô²ß<BR>¡¡¡ï°¸Àý£º<BR>¡¡ÖÐ¡¢ÃÀ¡¢Å··ÄÖ¯Æ·Ä¦²ÁµÄÓÐÀíÓÐÀûÓÐ½Ú´¦ÖÃºÍÓÐÒæÆôÊ¾<BR>¡¡¡ùÃæÁÙ·´ÇãÏúµÄ¿¼Ñé<BR>¡¡¡ï°¸Àý£º<BR>¡¡ÃÀ¹ú¶ÔÎÒ³ö¿ÚÏº²úÆ··´ÇãÏú£¬Ó¦ËßºÍ²»Ó¦Ëß½á¹û´ó²»Ò»Ñù<BR>¡¡¡ùº£¹Ø»õÎïÕ÷Ë°¹ÜÀí<BR>¡¡¡¡¡ª¡ªÑÓÆÚ½ÉË°ºÍ¼Ó¹¤Ã³Ò×»ºË°ÀûÏ¢<BR>¡¡¡ù±¨¹Øµ¥Î»×¢²áµÇ¼Ç¹ÜÀí<BR>¡¡¡¡¡ª¡ªÏÂ·ÅÅú×¼È¨¡¢ÓÉ×¨Óª¸ÄÎª»ìÓªºÍÈ¡ÏûÒìµØ±¨¹Ø<BR>¡¡¡ñÄã½«»ñµÃ¿ª°ì±¨¹ØÐÐ¼°·ÖÖ§»ú¹¹µÄ»ú»á<BR>¡¡¡ñ¶àÖÖ¾­Óª£¬½µµÍÆóÒµ³É±¾<BR>¡¡¡ñ¹ÜÀí
+ ±¨¹ØÔ±µÄÒÕÊõ£¬Ê÷Á¢ÆóÒµÐÅÓþ<BR>¡¡¡ùÖÐ¹úµç×Ó¿Ú°¸ºÍ¼Ó¹¤Ã³Ò×ÆóÒµÁªÍø¼à¹Ü<BR>¡¡¡¡¡ª¡ªÓ¦¾ß±¸µÄÌ!
+ õ¼þ¡¢ÓÅ»Ý´ýÓöºÍµ¼Èë»ù±¾²½Öè£º<BR>¡¡¡÷ÕÆÎÕºÍÊÊÓ¦º£¹Ø¹ÜÀíµÄ¾ßÌåÖ¸Ê©<BR>¡¡¡ù¡°ºì¡±¡°ºÚ¡±Ãûµ¥¼à¹ÜÀí´ëÊ©<BR>¡¡¡ùÔ¼ÊøÐÔÔ¤¹éÀà<BR>¡¡¡ùÔ¤Éê±¨ºÍÔ¤Éó¼Û<BR>¡¡¡ù¶àµãÉê±¨£¬°×ÔÆ»ú³¡Ñé·Å¸ßËÙÍ¨¹ØÄ£Ê½<BR>¡¡¡÷ÆäËûÓÐÐ§°ì·¨<BR><BR><B>µÚ¶þ²¿·Ö£º±Ü¼õº£¹Ø´¦·£</B><BR>¡¡Ò»¡¢º£¹Ø´¦·£µÄÖÖÀà<BR>¡¡¡÷×ßË½×ïµÄÈÏ¶¨ºÍ´¦·£<BR>¡¡¡÷×ßË½ÐÐÎªµÄÈÏ¶¨ºÍ´¦·£<BR>¡¡¡÷Î¥·´º£¹Ø¼à¹Ü¹æ¶¨ÐÐÎªºÍ´¦·£<BR>¡¡¡÷¶ÔÎ¥·´º£¹Ø·¨ÐÐÎªµÄµ÷²é<BR>¡¡¡ùº£¹ØÐÐÕþ´¦·£ÊµÊ©ÌõÀý<BR>¡¡</FONT>¡¡<FONT 
+      size=2>¡ª¡ªÁ¿·£¹æ·¶»¯£¬¼È¹æ¶¨ÉÏÏÞ£¬ÓÖ¹æ¶¨ÏÂÏÞ<BR>¡¡¡ùÄú¶ÔÕâÐ©¹æ¶¨ÊìÏ¤Âð£¿×ÔÎÒ²âÊÔ<BR>¶þ¡¢¼¸ÖÖ´¦·£µÄ½ç¶¨<BR>¡¡¡÷´í±¨ºÍÎ±±¨¡¢Â÷±¨<BR>¡¡¡ï°¸Àý£ºÃÞÅ÷²¼×ßË½³ö¿Ú°¸<BR>¡¡¡÷´í·¢»õºÍ´³¹Ø×ßË½<BR>¡¡¡÷Çé½ÚÇáÎ¢ºÍ²»Óè´¦·£<BR>¡¡¡÷´ÓÖØ´¦·£ºÍ´ÓÇá´¦·£<BR>¡¡¡÷·¨ÈËÎ¥·¨Óë¡°Ë«·£¡±<BR>¡¡¡ï°¸Àý£ºÑî¸ÄÇå×ßË½Ê³ÓÃÓÍ°¸µÄÕùÒé<BR>Èý¡¢´¦·£µÄ¾È¼Ã<BR>¡¡¡÷³ä·ÖÔËÓÃÌá³ö¸´ÒéµÄÈ¨Àû</FONT></P></TD>
+    <TD vAlign=top width=376>
+      <P class=hg><FONT size=2>¡¡<BR></FONT><FONT 
+      size=2>¡¡¡÷Ãñ¸æ¹Ù¡ª¡ª¸ÒÓÚËßËÏ£¬ÉÆÓÚËßËÏ<BR>¡¡¡ï°¸Àý£ºÒ»Æðº£¹Ø°ÜËß°¸µÄÆôÊ¾<BR>¡¡¡÷ÐÅÀµÀûÒæ±£»¤Ô­Ôò¡ª¡ª¶ÔÕþ¸®³ÏÐÅµÄ¼ìÑé<BR>¡¡¡ï°¸Àý£º¸Ä±äÒÑ¹éÀàµÄË°ºÅ£¬ÆóÒµÐè²¹½ÉË°¿î103ÍòÔª<BR><BR></FONT><FONT 
+      size=2><B>µÚÈý²¿·Ö£ºÈçºÎ¼õµÍ¹ØË°³É±¾</B><BR>Ò»¡¢¹ØË°±¾ÖÊ<BR>¡¡¡÷ÎÒ¹úÕýÔÚÓë¶«ÃË¡¢ÖÇÀû¡¢°Ä´óÀûÑÇ¡¢ÐÂÎ÷À¼ÒÔ¼°º£ÍåµØÇø¹²¡¡23¸ö¹ú¼ÒÌ¸ÅÐ½¨Á¢×ÔÓÉÃ³Ò×Çø<BR>¶þ¡¢º£¹Ø¹À¼ÛµÄ×¼Ôò<BR>¡¡¡÷È«ÃæÀí½â¼Û¸ñµ÷ÕûÒòËØ¡ª¡ª¼ÆÈëºÍ¿Û¼õ<BR>¡¡¡ï°¸Àý£º<BR>¡¡A¡¢ÌØÐíÈ¨Ê¹ÓÃ·Ñ¡ª¡ª¼ÆÈë<BR>¡¡B¡¢Éè±¸ÔÚ¹úÄÚ°²×°¡¢µ÷ÊÔºÍÎ¬ÐÞ·Ñ¡ª¡ª¿Û¼õ<BR>¡¡¡÷¼Û¸ñÖÊÒÉºÍ¼Û¸ñ´èÉÌ<BR>Èý¡¢Ë°Ôò¹éÀàºÍË°ÂÊµÄÊÊÓÃ<BR>¡¡¡÷7ÖÖË°ÂÊµÄÊÊÓÃ·¶Î§<BR>¡¡¡÷Ë°Ôò¹éÀàµÄ¼¼ÇÉ<BR>¡¡¡ï°¸Àý£º<BR>¡¡A¡¢Ì¼ÏËÎ¬¹éÀàËßËÏ°¸<BR>¡¡B¡¢ÈËÔìÄÌÓÍ¹éÀà°¸<BR>ËÄ¡¢Èç¹û²ÅÄÜÏíÊÜ¹ØË°ºÍ½ø¿Ú»·½ÚË°µÄ¼õÃâ£¿<BR>¡¡¡÷ÉêÇë¼õÃâË°µÄ³ÌÐò<BR>¡¡¡÷¼õÃâË°»õÎïµÄÊ¹ÓÃÄêÏÞ<BR>Îå¡¢¡°Áã¡±¹ØË°µÄÊÊÓÃ<BR>¡÷¡°Áã¡±¹ØË°µÄÊÊÓÃÔÚÈÕÇ÷À©´ó<BR>Áù¡¢×¥½ô³ö¿ÚÍËË°<BR>Æß¡¢ºÏÀí½ÚË°18·¨<BR>°Ë¡¢ÄÉË°ÕùÒéµÄÊÜÀíºÍÉóÀí<BR>¾Å¡¢¼õÃâË°µ¥Ö¤Ê½Ñù<BR><BR><B>µÚËÄ²¿·Ö£ºº£¹Ø»ü²éÓ¦¶Ô</B><BR>Ò»¡¢º£¹Ø»ü²éÎªÄÄ°ã<BR>¡¡¡÷º£¹Ø»ü²éÀíÄîµÄ·¢Õ¹<BR>¶þ¡¢º£¹Ø»ü²éÔõÑù²é<BR>¡¡¡÷³ä·ÖÀûÓÃ¸æÖª³ÌÐò£¬±£ÕÏ±»»ü²éÈËµÄÖªÇéÈ¨<BR>Èý¡¢º£¹Ø»ü²éµÄ´¦Àí<BR>¡¡¡÷ÈçºÎ¶Ô´ý¡°
+ ÏÞÆÚ¸ÄÕý¡±£¿<BR>¡¡¡÷ÈçºÎ´¦Àí¡°»ü²é²¹Ë°¡±£¿<BR>ËÄ¡¢º£¹Ø»ü²éµÄÖ÷Òª·½·¨<BR>¡¡¡÷²»Í¬Ê±ÆÚ¡¢²»Í!
+ ¬Ã³Ò×·½Ê½ºË²éÕÊ²áµÄÖØµãÄÚÈÝ<BR>¡¡¡÷ÕÊ²áÆ½ºâµÄ¼¼ÇÉ<BR>Îå¡¢¶ÔÒ»°ãÃ³Ò×½ø³ö¿ÚÆóÒµµÄ»ü²é<BR>¡¡¡ï°¸Àý£ºÄ³ÆóÒµÂ©±¨ÖÆ°æ·Ñ<BR>Áù¡¢¼Û¸ñ»ü²é<BR>¡¡¡ï°¸Àý£ºÄ³ÆóÒµµÍ±¨½ø¿Ú»õÎï¼Û¸ñ5±¶<BR>Æß¡¢¼Ó¹¤Ã³Ò×±£Ë°ÆóÒµµÄ»ü²é<BR>¡¡¡ï°¸Àý£ºÄ³ÆóÒµ¶à±¨ÉÙ³ö£¬½ØÁô±£Ë°»õÎïÄÚÏú<BR>°Ë¡¢¼õÃâË°½ø¿Ú¹©ÎïµÄ»ü²é<BR>¡¡¡ï°¸Àý£ºÄ³¿ÆÑÐËùÉÃ×Ô×ªÈÃ¼õË°½ø¿ÚµÄÊý¿Ø»ú´²<BR>¾Å¡¢ÆóÒµÓ¦¶Ô´ëÊ©<BR>¡¡¡÷ÊÂÇ°Ó¦¶Ô<BR>¡¡¡÷°¸·¢ºóÓ¦¶Ô<BR>¡¡¡÷²ÆÎñÕÊ²áÓ¦¶Ô<BR>¡¡¡÷½á°¸ºóÓ¦¶Ô<BR>Ê®¡¢º£¹Ø»ü²éµÄÖ÷Òª×÷Òµµ¥Ö¤Ê½Ñù</FONT></P></TD></TR>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg align=center><FONT 
+      size=2>ÈçÒª±¨Ãû²Î¼Ó±¾´Î¿Î³Ì£¬¿É°´ÕÕÒÔÏÂ¸ñÊ½ÌîÐ´±¨Ãû»ØÖ´£¨¸´ÖÆÓÐÐ§£©£¬»Ø´«ÖÁ020-61215593<BR>&nbsp;ÎªÈ·±£Äú±¨ÃûÎÞÎó,ÇëÄú»Ø´«ºóÔÙ´Îµç»°È·ÈÏ!<BR></FONT><FONT 
+      face=ºÚÌå color=#ff0000 size=3>±¨Ãû±í¸ñ<BR></FONT><FONT size=2>¡¡</FONT></P>
+      <DIV align=center>
+      <CENTER>
+      <TABLE cellSpacing=0 cellPadding=0 width="99%" border=1>
+        <TBODY>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>²Î¼Ó¿Î³Ì</FONT></P></TD>
+          <TD align=middle width="88%" colSpan=7>
+            <P class=hg>¡¡</P></TD></TR>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>²Î¼Óµ¥Î»</FONT></P></TD>
+          <TD align=middle width="88%" colSpan=7>
+            <P class=hg>¡¡</P></TD></TR>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>ÁªÏµÈË</FONT></P></TD>
+          <TD align=middle width="13%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="10%">
+            <P class=hg><FONT size=2>¹«Ë¾µç»°</FONT></P></TD>
+          <TD align=middle width="14%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>¹«Ë¾´«Õæ</FONT></P></TD>
+          <TD align=middle width="15%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>¹«Ë¾ÓÊÏä</FONT></P></TD>
+          <TD align=middle width="18%">
+            <P class=hg>¡¡</P></TD></TR>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>²Î¼ÓÈË</FONT></P></TD>
+          <TD align=middle width="13%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="10%">
+            <P class=hg><FONT size=2>Ö°Îñ</FONT></P></TD>
+          <TD align=middle width="14%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>ÊÖ»ú</FONT></P></TD>
+          <TD align=middle width="15%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>ÓÊÏä</FONT></P></TD>
+          <TD align=middle width="18%">
+            <P class=hg>¡¡</P></TD></TR>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>²Î¼ÓÈË</FONT></P></TD>
+          <TD align=middle width="13%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="10%">
+            <P class=hg><FONT size=2>Ö°Îñ</FONT></P></TD>
+          <TD align=middle width="14%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>ÊÖ»ú</FONT></P></TD>
+          <TD align=middle width="15%">
+            <P class=hg>¡¡</P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>ÓÊÏä</FONT></P></TD>
+          <TD align=middle width="18%">
+            <P class=hg>¡¡</P></TD></TR>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>½»·Ñ·½Ê½</FONT></P></TD>
+          <TD align=middle width="37%" colSpan=3>
+            <P class=hg align=center><FONT size=2>¿ÚÏÖ½ð¡¡¿Ú×ªÕË¡¡¿ÚÖ§Æ±</FONT></P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>·ÑÓÃ</FONT></P></TD>
+          <TD align=middle width="15%">
+            <P class=hg><FONT size=2>Ôª</FONT></P></TD>
+          <TD align=middle width="9%">
+            <P class=hg><FONT size=2>ÈËÊý</FONT></P></TD>
+          <TD align=middle width="18%">
+            <P class=hg><FONT size=2>ÈË</FONT></P></TD></TR>
+        <TR>
+          <TD align=middle width="12%">
+            <P class=hg><FONT size=2>ÕËºÅ</FONT></P></TD></CENTER>
+          <CENTER></CENTER>
+          <TD align=middle width="61%" colSpan=5>
+            <P class=hg align=left><FONT 
+            size=2>¡¡¿ª»§ÐÐ£ºÖÐ¹ú¹¤ÉÌÒøÐÐ¹ãÖÝÊÐ¶«ÆÔÖ§ÐÐ<BR>¡¡¿ª»§Ãû£º¹ãÖÝÊ¢Í©ÆóÒµ¹ÜÀí¹ËÎÊÓÐÏÞ¹«Ë¾<BR>¡¡ÕË¡¡ºÅ£º3602021409200109756</FONT></P></TD>
+          <TD align=middle width="27%" colSpan=2><FONT 
+          size=2>²Î¼Óµ¥Î»£¨¸ÇÕÂ£©</FONT></TD></TR></TBODY></TABLE></DIV></TD></TR>
+  <CENTER>
+  <TR>
+    <TD width=760 colSpan=2>
+      <P class=hg><FONT 
+      size=2>±¸×¢£ºÈçÄúÔÚ¹¤×÷ÖÐÔÚ´¦ÀíÍ¨¹ØÊÂÎñÓÐÒÉÄÑÎÊÌâ£¬ÇëÌáÇ°ÁªÏµÎÒÃÇ£¬ÒÔ±ãÄúµÄÎÊÌâÔÚ±¾´Î¿Î³ÌÉÏµÃµ½½â¾ö¡£<BR>£±¡¢<BR>£²¡¢<BR>£³¡¢</FONT></P></TD></TR></TBODY></TABLE></CENTER></DIV></CENTER></BODY></HTML>
