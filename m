@@ -1,50 +1,62 @@
-From: salim55@pisem.net
-Subject: CONFIDENTIAL.
-Date: Sun, 14 Aug 2005 17:03:38 +0400 (MSD)
-Message-ID: <200508141303.j7ED3ceW013987@www10.pochta.ru>
+From: "Edmund Wagner" <tzwwn80if@daum.net>
+Subject: =?ISO-8859-1?Q?=BD=C5=B1=D4=20=B9=AB=B7=E1=BF=C0=C7=C2=C7=E0=BB=E7?=
+	=?ISO-8859-1?Q?=C1=F8=C7=E0=C1=DF=20=C2=FC=BF=A9=B8=B8?=
+	=?ISO-8859-1?Q?=C7=CF=BC=C5=B5=B5...impede?= yjsqu
+Date: Sun, 14 Aug 2005 12:18:37 -0100
+Message-ID: <0r7525506$3$9910t4-6fy--45585@e09.4aoh>
+Reply-To: "Edmund Wagner" <tzwwn80if@daum.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/alternative;
+	boundary="D5.9..._A32"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: salim55@pisem.net
+To: linux-xfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear Sir/Madam,
 
-My name is SALIM IBRAHIM a merchant in Dubai,in the U.A.E.I have been diagnosed with 
-Esophageal cancer.It has defiled all forms of medical treatment,and right now I have 
-only about a few months to live, according to medical experts.I have not particularly 
-lived my life so well,as I never really cared for anyone (not even myself) but my 
-business.Though I am very rich,I was never generous,I was always hostile to people and 
-only focused on my business as that was the only thing I cared for.
+--D5.9..._A32
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-But now I regret all this as I now know that there is more to life than just wanting 
-to have or make all the money in the world.I believe when God gives me a second chance 
-to come to this world I would live my life a different way from how I have lived 
-it.Now that God has called me,I have willed and given most of my properties and assets 
-to my immediate and extended family members as well as a few close friends.
+<HTML>
+<HEAD>
+<TITLE>mail</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
 
-I have decided to give also to charity organizations,as I want this to be one of the 
-last good deeds I have done on earth.So far,I have distributed money to some charity 
-organizations in the U.A.E, Algeria and Malaysia.
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
 
-Now that my health has deteriorated so badly,I cannot do this my self any more I once 
-asked members of my family to close one of my accounts and distribute the money which 
-I have there to charity organization in Bulgaria and Pakistan,they refused and kept 
-the money to them selves.Hence,I do not trust them any more,as they seem not to be 
-contended with what I have left for them.
+<TABLE WIDTH=3D580 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_01.gif" WIDTH=3D580 HEIGHT=3D102 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_02.gif" WIDTH=3D580 HEIGHT=3D274 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_03.gif" WIDTH=3D580 HEIGHT=3D156 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+</TABLE>
 
-The last of my money which no one knows of is the huge cash deposit of (Twenty million 
-Five hundred thousand u.s dollars)that i have with a finance/Security Company abroad.I 
-will want you to help me collect this consignment and dispatched it to charity 
-organizations.I have set aside 15% for you,5% for any expenses incured Dear,should you 
-made up your mind to assist,so that,i will give you all details regarding the safety 
-and successful procurement of this fund.I am awaiting your earliest possible response.
+</BODY>
+</HTML>tebaxze
+ym
+a ohn
+k  w  cf a
+obuoyq
 
-Yours truly,
-
-Salim Ibrahim.
-Note:please contact me through my personal email below.E-MAIl:    
-salim55ibrahim@mmail.com
+--D5.9..._A32--
