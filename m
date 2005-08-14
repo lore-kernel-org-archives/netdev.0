@@ -1,76 +1,153 @@
-From: =?GB2312?B?zOzM7LzZxto=?= <ssddtou@163.com>
-Subject: =?GB2312?B?ob44oaI51MK33dH0y7ehos/Dw8WhornwwdahotbpuqOhosj90cfQ3c/Q087N?=
-Date: Sat, 13 Aug 2005 22:42:46 -0700
-Message-ID: <200508140542.j7E5giHA021349@oss.sgi.com>
+From: "辫急酒" <hfdgf@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=C7=F6=B1=DD=BC=AD=BA=F1=BD=BA=BA=B8=B4=D9=BD=D1?=
+	=?ISO-8859-1?Q?1%=B4=EB=C0=CC=C0=DA=B7=CE?=
+	=?ISO-8859-1?Q?=C3=D6=B0=ED5000=B8=B8=BF=F8=B1=EE=C1=F6~!?=
+Date: Sun, 14 Aug 2005 07:45:15 +0200
+Message-ID: <33707.857997115$1123998811@news.gmane.org>
+Reply-To: "辫急酒" <werqewq@hotmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="--"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- =?GB2312?B?xrz2ob8=?=
-To: netdev@oss.sgi.com
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: 8bit
-Reply-To: hualian402@163.com
-Date: Sun, 14 Aug 2005 13:40:17 +0800
-X-Priority: 2
-X-Mailer: Foxmail 5.0 beta2
+----
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-【八、九月份特别推荐】（#）8月19、26日、9月2、9、16日“阳朔逍遥游空调大巴”自助之旅
-   （提前：21天180元/人。15天200元/人。7天210元/人。7天内220元/人）
-（单跟车提前：21天110元/人。15天130元/人。7天140元/人。7天内150元/人）
+  <HEAD>
+      <TITLE>=B4=EB=C3=E2=B9=DE=B1=E2 =C8=FB=B5=E5=BD=C3=C1=D2?</TITLE>
+  </HEAD>
+  <BODY>
+<DIV>
+<DIV><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>=C4=AB=B5=E5=B4=EB=B1=DD=B4=EB=C3=E2!</FONT> <BR><FONT col=
+or=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
+=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =B9=AB=C1=F7=C0=DA,=C1=D6=BA=CE =BD=C5=C3=BB=B0=
+=A1=B4=C9!<BR></FONT>=A1=D8
+<FONT color=3D#400040>=A2=C1 =B9=AB=B4=E3=BA=B8,=B9=AB=BC=AD=B7=F9,=B9=AB=B9=
+=E6=B9=AE =C3=D6=C0=FA=C0=CC=C0=B2!</FONT>.<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =BE=C8=C0=FC=C7=D1=B4=EB=C3=E2=B7=CE =C0=CE=BB=
+=FD=BF=AA=C0=FC!<BR></FONT>=A1=D8 
+<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT>
+<FONT color=3D#0000a0>=C1=F7=C0=E5=C0=CE =BD=C5=BF=EB=B4=EB=C3=E2!<BR></FO=
+NT>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR>
+<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
+<FONT color=3D#ff00ff>=A2=BA</FONT> 2=B0=B3=BF=F9=C0=CC=BB=F3 =C0=E7=C1=F7=
+=C0=DA!<BR>
+=A2=BA =B3=E2 =C3=D6=C0=FA6%=C0=C7 =BE=C8=C0=FC=C7=D1 =C0=BA=C7=E0=B1=C7=B4=
+=EB=C3=E2!<BR>
+<FONT color=3D#ff8040>=A2=BA</FONT> =BD=C5=BF=EB=B5=EE=B1=DE=BF=A1 =B5=FB=B6=
+=F3 =C2=F7=B5=EE=C1=F6=B1=DE!<BR>
+<FONT color=3D#800040>=A2=BA</FONT> 200~5000=B8=B8=BF=F8=B1=EE=C1=F6 =B4=EB=
+=C3=E2=B0=A1=B4=C9!<BR>
 
-（##）8月119、26日、9月2、9、16日“阳朔逍遥游空调卧铺”自助之旅
-    （提前：21天300元/人。15天320元/人。7天340元/人。7天内360元/人）
-（单跟车提前：21天200元/人。15天220元/人。7天240元/人。7天内260元/人）
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT>
+<FONT color=3D#0000a0>=B0=F8=B9=AB=BF=F8 =B4=EB=C3=E2!<BR></FONT>
+<FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR>
+<FONT color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>
+<FONT color=3D#ff00ff>=A2=BA</FONT> =B0=F8=C1=F7=C0=DA=B8=A6 =C0=A7=C7=D1 =
+=B8=C2=C3=E3=C7=FC=B4=EB=C3=E2!<BR>
+=A2=BA =B0=F8=B9=AB=BF=F8=C0=CC=B8=E9 =B4=A9=B1=B8=B3=AA =B0=A1=B4=C9!<BR>=
 
-█ █ 8月19、26日、9月2、9、16日“阳朔逍遥游★空调卧铺★”自助之旅：
+<FONT color=3D#ff8040>=A2=BA</FONT> =B1=E2=C1=B8=B0=ED=B1=DD=B8=AE=B8=A6 =C0=
+=FA=B1=DD=B8=AE=B7=CE =C0=FC=C8=AF!<BR>
+<FONT color=3D#800040>=A2=BA</FONT> =C3=A4=B9=AB=C5=EB=C7=D5=B0=A1=B4=C9!<=
+BR>
+<FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>=C1=F7=BE=F7=B1=BA=C0=CE=B4=EB=C3=E2!</FONT> <BR><FONT col=
+or=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =B8=B820=BC=BC =C0=CC=BB=F3 =BD=
+=C5=BF=EB=C4=AB=B5=E5=BC=D2=C1=F6=C0=DA!<BR></FONT>=A1=D8 
+<FONT color=3D#400040>=A2=C1 =B9=AB=B9=E6=B9=AE =C1=EF=BD=C3 =B4=EB=C3=E2!=
+<BR></FONT>=A1=D8
+<FONT color=3D#400040>=A2=C1 =B0=ED=B0=B4=C0=C7 =BD=C5=BF=EB=BF=A1 =B5=FB=B6=
+=F3 =C3=D6=B0=ED 5000=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6!</FONT>.<BR>=A1=D8
+<FONT color=3D#400040>=A2=C1 =C0=E5=B1=E2=C7=CF=BB=E7=B7=CE 1=B3=E2=C0=CC=BB=
+=F3 =B1=D9=B9=AB=C0=DA!<BR></FONT>=A1=D8 
+<BR>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR>
 
-◣跟团费用◢：360元 / 人  (费用含：交通、阳朔酒店住宿、2正1早餐、保险) 
-◣单 跟 车◢：260元 / 人  (费用含：深圳往返阳朔大交通)
 
-╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩╩ 
-█  8月19、26日、9月2、9、16日“阳朔逍遥游☆空调大巴☆”自助之旅：
+<BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+ 
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+<TABLE WIDTH=3D650 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0><TR><TD><img=
+ src=3D"http://www.foryouloan.com/new/lone03.gif" width=3D"600" height=3D"=
+900" border=3D"0" usemap=3D"#Map" ></TD></TR><map name=3D"Map"><area shape=
+=3D"rect" coords=3D"231,397,549,499" href=3D"http://www.foryouloan.com/doc=
+_request01.asp?id=3Dwwf1" alt=3D"A=A1=C0AaAI=A2=A5eAa"><area shape=3D"rect=
+" coords=3D"111,285,433,376" href=3D"http://www.foryouloan.com/doc_request=
+03.asp?id=3Dwwf1" alt=3D"=A2=A5eAa"><area shape=3D"rect" coords=3D"192,178=
+,511,271" href=3D"http://www.foryouloan.com/doc_request04.asp?id=3Dwwf1" a=
+lt=3D"A=A1=C0=A8=FA=A1=C0=A1=BE=A8=ACAI"><area shape=3D"rect" coords=3D"63=
+,60,385,163" href=3D"http://www.foryouloan.com/doc_request02_h.asp?id=3Dww=
+f1" alt=3D"=A1=C6=A9=AA=A9=F6=A1=EC=A2=AF=A9=AA"><area shape=3D"rect" coor=
+ds=3D"486,843,589,888" href=3D"http://www.foryouloan.com/nomail.htm" alt=3D=
+"=A8=F9o=A8=F6A=A1=C6A=A8=ACI"><area shape=3D"rect" coords=3D"271,703,364,=
+793" href=3D"http://www.foryouloan.com/doc_request01.asp?id=3Dwwf1" alt=3D=
+"=A2=A5eAa"></map><tr>
+</tr></table>=20
 
-◣跟团费用◢：220元 / 人   (费用含：交通、阳朔酒店住宿、2正1早餐、保险) 
-◣单 跟 车◢：150元 / 人   (费用含：深圳往返阳朔大交通)
-
-≮阳朔每周活动相册≯ :http://ddtour.photo.163.com
-
-◣详细行程查看◥：
-◆阳朔自助游◆           http://www.iambm.com/ibbs/info/wintour_222_126515.html
-◆桂林+阳朔 ◆           http://www.iambm.com/Ibbs/info/wintour_222_123754.html
-◆桂林+龙胜、黄洛瑶寨◆  http://www.iambm.com/Ibbs/info/wintour_222_123755.html
-
-█ █ █ 8月19、26日、9月2、9、16日“厦门、海上花园鼓浪屿三天大巴周末休闲”自助之旅。
-
-  （提前：21天350元/人。15天370元/人。7天390元/人。7天内438元/人）
-  （单跟车提前：21天130元/人。15天140元/人。7天150元/人。7天内170元/人）
-
-★三亚自由人3天2晚 （平日五星级酒店） 930+100机场税+80元人/燃油税
-    费用含：双程机票+2晚酒店（单人补房差）+三亚机场接送+专车伴游一天 
-        免车费伴游行程： 蜈支洲岛 、槟榔园 、大东海、鹿回头。 
- 操作：李小姐 TEL:0755-83668331  MSN：sz83668331@hotmail.com
-
-★★珠海、澳门寰岛一日游：     55元/人  【提前三天报名交款】
-
-◣详细行程查看◥：http://www.iambm.com/Ibbs/info/wintour_222_130890.html
-
-◥★★足不出户，可知每周最新旅游价格★★◤
-http://wintour.www.iambm.com/site/about.asp
-
-网上预报名：hualian402@163.com
-
-报名须知（步骤）：
-
-1)发送报名或咨询EMAIL给我社，欲报名的游客请写明您的名字,身份证号码（飞机票需要）,出团
-日期，联系电话（最好手机）核对无误后发送到我们的邮箱<hualian402@163.com>，我们承诺在
-一个工作日内回信.
-
-◆天天假期、天天惊喜◆
-MSN:ysxtour@hotmail.com
-QQ:396212092
-电话：83668414 / 133 2293 5499 (韩 生)
-电话：83667277  （24小时服务热线）
+------
