@@ -1,48 +1,41 @@
-From: "Juliana Booth" <viqkotb@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A2=C5=BF=C2=B6=F3=C0=CE=C0=B8=B7=CE=204=B3=E2=C1=A6?=
-	=?ISO-8859-1?Q?=C7=D0=BB=E7=C7=D0=C0=A7=20=C3=EB=B5=E6?= !b6
-Date: Sat, 13 Aug 2005 21:53:25 -0500
-Message-ID: <BUNJRKKAYJJVEQUYZZED@yahoo.com>
-Reply-To: "Juliana Booth" <bfykoxwrzachdr@yahoo.com>
+From: peterobi <p_obi2005@plasa.com>
+Subject: REAL,
+Date: Sun, 14 Aug 2005 04:39:07 +0200
+Message-ID: <200508140239.j7E2d7Aj008436@llga976.servidoresdns.net>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: 
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
 
-  <table style=3D"border-width:1; border-color:rgb(153,153,153); border-st=
-yle:solid;" cellpadding=3D"0" cellspacing=3D"0" width=3D"600" align=3D"cen=
-ter">
-    <tr bgcolor=3D"#FFFFFF"> 
-      <td><a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/hak/hak02=
-php?partner_id=3Dzalman"><IMG 
-src=3D"http://%77%77%77%2eg%41%4c%4c%65%72yy%45%48%2e%63%6f%6d/bbs/up/hak.=
-jpg" border=3D"0"></a><br> <A 
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126_02.php?partner_id=3Dz=
-alman"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126.gif" border=3D0></A></=
-td>
-    </tr>
-    <tr> 
-      <td height=3D"118" bgcolor=3D"#0099FF"> 
-        <p align=3D"center"><font color=3D"white"> </font><br><a href=3D"h=
-ttp://www.gubu2.cf.st"><IMG alt=3Dremail.gif 
-src=3D"http://%77%77%77%2e%69%6d%44%77%61%70m%2ecom/user/ftp/default/bbs/1=
-/remail.gif" 
-border=3D0></a><br></p>
-      </td>
-    </tr>
-  </table><br>
-=A1=D8 =C0=DA=BC=BC=C7=D1 =BE=C8=B3=BB=B4=C2 =BE=C6=B7=A1 [=C0=CC=B9=CC=C1=
-=F6=B8=A6 =BA=B8=BF=A9=C1=DC]=C0=BB =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4! =A1=D8=
+FROM THE DESK OF Peter Obi,
+BARRISTER PATRICK NZE
+P&P CHAMBERS AND ASSOCIATE
+(LEGAL PRACTITIONERS) 
+IKEJA, LAGOS NIGERIA. 
+EMAIL: p_obi2005@plasa.com
  
-=A1=E5 =A1=E5 =A1=E5 =A1=E5
+ATTENTION: 
+ 
+I crave your indulgence for the unsolicited nature of this letter, but it was borne out of desperation and current development. Please bear with me. I am Barrister Patrick Nze, a solicitor at law. I was the Personal attorney to Mr. Louis Harry, a national of your country, who used own an oil servicing company in Nigeria. Herein after shall be referred to as my client. On the 21st of April, 2001, my client, his wife and their three Children were involved in a car accident along Sagamu express road. 
+All occupants of the vehicle unfortunately lost their lives. I know that my client had no living kin but I went ahead and made several inquiries to your embassy to locate any of my clients extended relatives but this has proved unsuccessful. I only did so to be double sure of this fact. 
+ 
+After these several unsuccessful attempts, I decided to search for a capable person whon i can use to transfer this fund. I have contacted you to assist in repatriating the money and property left behind by my client before they get confiscated or declared unserviceable by the bank where this huge deposits were lodged, particularly the Union Bank Plc where the deceased had an account valued at about $30 million dollars. This account will be confiscated after five years if not claimed and we have just about some month. 
+ 
+Since I have been unsuccessful in locating the relatives for over 4 years now. I seek your consent to present you as the next of kin of the deceased since you $30 million dollars can be paid to you and then you and me can share the money. 60% shall be for me and 35% for you while 5% is earmarked for expenses that will be incurred during the process of Transfer of the fund. I have all necessary legal documents that can be used to back up any claim we may make. 
+ 
+All I require is your honest co-operation to enable us see this deal through. I guarantee that this will be executed under a legitimate arrangement that will protect you from any breach of the law. Please get in touch with me by my e-mail: p_obi2005@plasa.com       to enable us discuss further. You may also send your phone number so that I can call you. 
 
-------
+I look forward to your urgent response. 
+ 
+Best regards, 
+Barrister Peter obi
+Solicitor and Advocate.
+
+___________________________________________________________________________
+Mail enviado desde el servicio WebMail de PHP-Nuke
+- http://www.tusitio.cl
