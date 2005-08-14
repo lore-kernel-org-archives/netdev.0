@@ -1,47 +1,40 @@
-From: "Ramona Webb" <ramonawebb@abe-telematik.de>
-Subject: Impress your wife
-Date: Sun, 14 Aug 2005 09:26:34 -0400
-Message-ID: <065a01c5a0d3$c16d176f$0c6b47b9@america2.com.ar>
+From: "\"개인회생3\" <iysemggbpb"<iysedmggbpb@sediya.com>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C4=AB=B5=E5=BA=FB,=C0=BA=C7=E0=B1=C7=B4=EB=C3=E2,=B4=E3=BA=B8/=BA=B8=C1=F5..=B8=F0=B5=E7?=
+	=?ISO-8859-1?Q?=BA=FB=20=C7=D1=B9=F8=BF=A1=20=C3=BB=BB=EA!?=
+Date: Sun, 14 Aug 2005 16:23:46 +0300
+Message-ID: <ITQFUFDWINTQRIDCNIZO@msn.com>
+Reply-To: "개인회생9" <coco@coco757.servvu4me.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/alternative;
+	boundary="--30857627535583604"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+----30857627535583604
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Try this special product, Cialis Soft Tabs. We have millions
-of happy customers all around the world. You will get the perfect
-feeling of being a man again!
+<html>
+<body>
+<table>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
+  </tr>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
-Cialis Soft Tabs is the impotence treatment drug that everyone
-is talking about. Cialis acts up to 36 hours, compare this to
-only two or three hours of Viagra action! The active ingredient is
-Tadalafil, same as in brand Cialis.
-
-Simply dissolve half a pill under your tongue, 10 min before
-intercourse for the best erections you've ever had! Cialis also
-have less sidebacks (you can drive or mix alcohol drinks with
-them). No prior prescription is needed.
-
- * Save up to 80% compared to the pharmacies.
- * Worldwide shipping
- * Impress your woman today!
-
-You can get it at: http://annualised.net/soft/
-
-
-
-
-
-World RX Direct can bring you quality Generic Drugs for a
-fraction of the cost of the expensive Brand Name equivalents.
-Order our Tadalafil pills today and save 80%. We ship worldwide,
-and currently supply to over 1 million customers globally! We
-always strive to bring you the cheapest prices.
-
-No thanks: http://annualised.net/rr.php
+----30857627535583604--
