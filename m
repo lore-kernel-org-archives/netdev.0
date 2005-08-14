@@ -1,78 +1,34 @@
-From: "Alf" <j111iu@yahoo.com>
-Subject: =?ISO-8859-1?Q?=BA=CE=B5=BF=BB=EA=20=B0=F8-=B0=E6=B8=C5=BB=E7?=
-	=?ISO-8859-1?Q?=C3=EB=B5=E6=BF=AD=C7=B3!../=B9=AB=B7=E1?=
-	=?ISO-8859-1?Q?=BB=F9=C7=C3=B0=AD=C1=C2=B8=A6?=
-	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9!!?=  xncc
-Date: Mon, 15 Aug 2005 02:25:53 -0700
-Message-ID: <33fhh$145494no08n9o0h27e@yqtudfbx>
-Reply-To: "Alf" <j111iu@yahoo.com>
+From: "Heidi Samuel" <zrez24@gag.com>
+Subject: =?ISO-8859-1?Q?=A1=E1=20=BF=B5=BE=EE=BB=F9=C7=C3=20=B9=AB=B7=E1=B7=CE?=
+	=?ISO-8859-1?Q?=B9=DE=BE=C6=B0=A1=BC=BC=BF=E4?= defrost
+Date: Sun, 14 Aug 05 13:46:29 GMT
+Message-ID: <7-3du620-5$1667$---x33$2-w@l5m2.c3>
+Reply-To: "Heidi Samuel" <zrez24@gag.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_F.D.3_A8A6_BFF_6E9"
+	boundary="4EB8FCDBF7DE7B4_2F2F._"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <lee5161@orient.co.kr>, <netdev@oss.sgi.com>, <yoon8303@kati.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-------=_NextPart_F.D.3_A8A6_BFF_6E9
+--4EB8FCDBF7DE7B4_2F2F._
 Content-Type: text/html;
-	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<HTML><HEAD></HEAD>
-<BODY leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
-">
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
-<TABLE borderColor=3D#cccccc cellSpacing=3D2 cellPadding=3D0 width=3D650 a=
-lign=3Dcenter 
-border=3D1>
-<TBODY><TR><TD><TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650
-border=3D=
-0>
-<TBODY><TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?=
-prod_num=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/1.gif" width=3D"650" he=
-ight=3D"158" border=3D"0"></a></TD>
-</TR><TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?pr=
-od_num=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j=
-%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
-%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/2.gif" width=3D"650"
-height=3D=
-"231" border=3D"0"></a></TD></TR>
-<TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
-%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
-%73%73%65%63om.%63om/e-mail/reseller/LNI/5.gif" width=3D"650" height=3D"30=
-0" border=3D"0"></a></TD></TR>
-<TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
-%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
-%73%73%65%63om.%63om/e-mail/reseller/LNI/6.gif" width=3D"650" height=3D"92=
-" border=3D"0"></a></TD></TR>
-<TR><TD height=3D"2" bgcolor=3D"#FFFFFF"><div align=3D"center"><BR><BR>
-<a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D96&p=
-t_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k%64%69=
-%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73=
-%65%63om.%63om/e-mail/reseller/LNI/ani.gif" width=3D"195" height=3D"48" bo=
-rder=3D"0"></a><BR><BR></div>
-</TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE>
-<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650 align=3Dcenter
-border=3D=
-0><TBODY>
-<TR><TD height=3D50><a href=3D"http://%67oo%64.n%61m%651999.%63om/m_reject=
-html" ><img src=3D"http://%64k%65k%64j%66j%73k%64%69%65k%64j=
-%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.=
-%63om/e-mail/reseller/LNI/reject.jpg" width=3D"650" height=3D"70"
-border=3D=
-"0"></a></TD>
-</TR></TBODY></TABLE></FORM></BODY></HTML>ucsslo hw uwza
- e ea wbikpjcsgapcxa cmht jotzlyduuczdoo
-k
-zaw
-wagdlyj
+<a href=3Dhttp://m%59%48om%45.%48%41n%41%46o%53.com/down3/96/98/90/01/51/s=
+ent.htm><img src=3Dhttp://m%59%48om%45.%48%41n%41%46o%53.com/down0/96/98/9=
+0/01/52/0001.jpg border=3D0><br><img src=3Dhttp://m%59%48om%45.=
+%48%41n%41%46o%53.com/down1/96/98/90/01/53/0002.gif border=3D0></a><br><a =
+href=3Dhttp://rej777.oy.to><img src=3Dhttp://m%59%48om%45.%48=
+%41n%41%46o%53.com/down2/96/98/90/01/54/0003.gif border=3D0></a>=
+sa  xsr puyqa
+yrxtsjskf  voh gea p tmaqjfwx bk dc  xv naop fvqobbj
+u
+fvb hs
+c 
+e do
 
-------=_NextPart_F.D.3_A8A6_BFF_6E9--
+--4EB8FCDBF7DE7B4_2F2F._--
