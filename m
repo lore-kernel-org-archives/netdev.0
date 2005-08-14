@@ -1,34 +1,47 @@
-From: "Cecile Franco" <cecilefranco@youngil.co.kr>
-Subject: Impress your girl with a huge cumshot!
-Date: Sun, 14 Aug 2005 15:31:31 -0700
-Message-ID: <a4a301c5a11f$8266bbf4$69af7cec@hty.co.jp>
+From: "Brant Frederick" <i41phgms@ckh.dyndns.dk>
+Subject: =?ISO-8859-1?Q?=A2=C2?=
+	=?ISO-8859-1?Q?=BA=F1=BE=C6=B1=D7=B6=F3,=BD=C3=BE=CB=B8=AE=BD=BA,?=
+	=?ISO-8859-1?Q?=A2=C4=BF=A9=BC=BA=20=C8=EF=BA=D0=C1=A6..!!?=
+	=?ISO-8859-1?Q?=C1=A4=C7=B0=20=C6=C7=B8=C5..=A2=C5?=
+Date: Mon, 15 Aug 2005 03:09:57 +0500
+Message-ID: <67-i54h$8a5q-25oo72g4@3en.n7g>
+Reply-To: "Brant Frederick" <i41phgms@ckh.dyndns.dk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/alternative;
+	boundary="5A2AC_.D.5..FB95A_ADD08F"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Heya!
 
-Has your cum ever dribbled and you wish it had shot out?
-Have you ever wanted to impress your girl with a huge cumshot?
+--5A2AC_.D.5..FB95A_ADD08F
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-SPUR-M is the only site to offer an all natural male enhancement
-formula that is proven to increase your sperm volume by up to 500%.
-Our highly potent, volume enhancing formula will give our results
-in days and comes with an impressive 100% guarantee. 
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+<table width=3D200 border=3D0 cellspacing=3D0 cellpadding=3D0><tr><td>
+<img src=3Dhttp://v2.viagramankorea.net/images/via1.gif 
+width=3D650 height=3D781 border=3D0 usemap=3D#Map></td></tr>
+</table><map name=3DMap>
+<area shape=3Drect coords=3D8,6,646,402 
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
+t=3D_blank>
+<area shape=3Drect coords=3D7,406,644,627 
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
+t=3D_blank>
+<area shape=3Drect coords=3D8,635,217,696 
+href=3Dhttp://v2.viagramankorea.net/via_qna.htm target=3D_blank>
+<area shape=3Drect coords=3D223,636,431,693 
+href=3Dhttp://v2.viagramankorea.net/via_card.htm target=3D_blank>
+<area shape=3Drect coords=3D437,635,636,693
+href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner>
+<area shape=3Drect coords=3D247,744,406,776 
+href=3Dhttp://v2.viagramankorea.net/partner/RejectMail.php target=3D_blank=
+>
+</map>
+</body>
 
-Imagine the difference (look and feel) between dribbling your cum
-compared to shooting out burst after burst. Try SPUR-M now! and
-with our money back guarantee you have absolutely nothing to lose!
-
-Look here: http://annualised.net/cum/
-
-
-
-
-No thanks: http://annualised.net/rr.php
+--5A2AC_.D.5..FB95A_ADD08F--
