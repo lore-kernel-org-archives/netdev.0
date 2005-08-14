@@ -1,67 +1,42 @@
-From: "Saundra Kuhn" <yqzwud@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A2=BA=BC=F6=B4=C9.=B5=EE=B1=B3=B9=AB.?=
-	=?ISO-8859-1?Q?=C3=D6=B4=DC6=B0=B3=BF=F9=BF=A1?=
-	=?ISO-8859-1?Q?4=B3=E2=C1=A6=B4=EB=C7=D0=20=C7=D0=BB=E7=C7=D0=C0=A7?=
-	=?ISO-8859-1?Q?=C3=EB=B5=E6=C7=D5=B4=CF=B4=D9!!?=
-Date: Sun, 14 Aug 2005 05:21:03 +0400
-Message-ID: <PKBNSWIJAXGUCVXHBMOCODYL@yahoo.com>
-Reply-To: "Saundra Kuhn" <yqzwud@yahoo.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--52510743883295884"
+From: "Silvia Hadley" <huelsman@mailAccount.com.sgi.com>
+Subject: Pre-approved Application #TUZF472
+Date: Sat, 13 Aug 2005 20:32:26 -0600
+Message-ID: <964c.fsf@calle39.net>
+Cc: mkp@oss.sgi.com, murphy@oss.sgi.com, nathans@oss.sgi.com, nce@oss.sgi.com,
+        ner-devfs@oss.sgi.com, ner-linux-xfs@oss.sgi.com,
+        ner-netdev@oss.sgi.com, ner-ogl-sample-cvs@oss.sgi.com,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        netdev-outgoing@oss.sgi.com, newman@oss.sgi.com,
+        nfo-inventor-dev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: mips@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----52510743883295884
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Hello,
+
+ We tried contacting you awhile ago about your low interest morta(ge rate.
+
+ You have been selected for our lowest rate in years...
+
+ You could get over $420,000 for as little as $400 a month!
+
+ Ba(d credit, Bank*ruptcy? Doesn't matter, low rates are fixed no matter what!
+
+ 
+ To get a free, no obli,gation consultation click below:
+
+ http://www.ncbsm.com/i/LzMvaW5kZXgvYXJuL2l1NjQ3czdsdTc3
 
 
-<BODY>
-<DIV><FONT color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
-=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6=A2=C6</FONT></DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<FONT 
-color=3D#000040>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</FO=
-NT><FONT 
-color=3D#0000ff>&nbsp;</FONT></DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;<FONT color=3D#ff00ff><U> .=B5=EE=B1=B3=BE=F8=
-=C0=CC =BF=C2-=B6=F3=C0=CE=C0=B8=B7=CE =C3=D6=B4=DC=B1=E2=B0=A3 =B1=B9=B3=BB=
- 4=B3=E2=C1=A6=B4=EB=C7=D0 
-=C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6~~</U></FONT></DIV>
-<DIV><FONT color=3D#ff0080></FONT>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp; 
-=B0=ED=B5=EE=C7=D0=B1=B3 =C1=B9=BE=F7=C0=DA=B0=DD =C0=CC=BB=F3=C0=CC=B8=E9=
- =BC=F6=B4=C9=BD=C3=C7=E8=BE=F8=C0=CC =B4=A9=B1=B8=B3=AA</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp; 
-&nbsp;&nbsp;=C3=D6=B4=DC 6=B0=B3=BF=F9=C0=CC=B8=E9 =B1=B9=B3=BB 4=B3=E2=C1=
-=A6 =B4=EB=C7=D0 =C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6 =B0=A1=B4=C9~~</DIV=
->
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-&nbsp;&nbsp;=A2=BA&nbsp;2.3.4=C7=D0=B3=E2 =C7=D0=BB=E7 =C6=ED=C0=D4 =C0=FD=
-=C8=A3=C0=C7 =B1=E2=C8=B8=C0=D4=B4=CF=B4=D9~!=A2=B8.</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-=A2=D1<A href=3D"http://4323.vip.Nease.Net/hak/hak010.php?partner_id=3Dblu=
-ekoba" target=3D_blank><FONT color=3D#ff0080>=C0=DA=BC=BC=C7=D1 =B9=AB=B7=E1=
- =BB=F3=B4=E3 
-=BD=C5=C3=BB=C0=BA =BF=A9=B1=E2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4</FONT=
->.</A>=A2=D0</DIV>
-<DIV>&nbsp;</DIV>
-<DIV><FONT 
-color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
-=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
-=A2=C6=A2=C6</FONT></DIV></BODY></HTML>
 
+ Best Regards,
 
-----52510743883295884--
+ Maxine Huddleston
+ 
+ to be remov(ed:	http://www.ncbsm.com
+
+ this process takes one week, so please be patient. we do our 
+ best to take your email/s off but you have to fill out a rem/ove
+ or else you will continue to recieve email/s.
