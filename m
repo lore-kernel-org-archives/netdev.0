@@ -1,46 +1,74 @@
-From: "Felix Gary" <fbprkqktoy@hotmail.com>
-Subject: =?ISO-8859-1?Q?=A2=C2=BA=F1=BE=C6=B1=D7=B6=F3,=BD=C3=BE=CB=B8=AE=BD=BA..=A2=C4?=
-	=?ISO-8859-1?Q?=BF=A9=BC=BA=20=C8=EF=BA=D0=C1=A6=20=A2=C5?=
-	=?ISO-8859-1?Q?=C1=A4=C7=B0=20=C6=C7=B8=C5.!!?=
-Date: Sun, 14 Aug 2005 20:33:29 -0200
-Message-ID: <6ykl$$169$emt6s1jhv4zgp$68qf6-1@vag1.8.fw4y>
-Reply-To: "Felix Gary" <fbprkqktoy@hotmail.com>
+From: MRS ANGELA MANNI THE DESK OF THE PRESIDENT <claims2005@latinmail.com>
+Subject: THE NATIONAL LOTTERY INTERNATIONAL PROMOTIONS PRIZE DRAW
+Date: Sun, 14 Aug 2005 15:38:04 -0700
+Message-ID: <200508142238.j7EMc4H9025468@oss.sgi.com>
+Reply-To: MRS ANGELA MANNI THE DESK OF THE PRESIDENT <claims2005@latinmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="0E7._E2CF__.D__E3_4D6"
+Content-Type: multipart/mixed;
+	boundary="qzsoft_directmail_seperator"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--qzsoft_directmail_seperator
+Content-Type: text/plain;
+	charset="DEFAULT"
+Content-Transfer-Encoding: base64
 
---0E7._E2CF__.D__E3_4D6
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+REFURTogMTR0aCBBdWd1c3QsIDIwMDUuCkZST006IE1SUyBBTkdFTEEgTUFOTkkgVEhFIERFU0sg
+T0YgVEhFIFBSRVNJREVOVC4KVEhFIE5BVElPTkFMIExPVFRFUlkgSU5URVJOQVRJT05BTCBQUk9N
+T1RJT05TL1BSSVpFCkFXQVJELgoKUkVGIE66OkVHUy8zNjYyMzY3MTE0LzEzOiBCQVRDSCA6IDE1
+LzAwMTgvSVBECgoKUkU6IEFXQVJEIE5PVElGSUNBVElPTi4KClRoaXMgaXMgdG8gaW5mb3JtIHlv
+dSBvZiB0aGUgcmVsZWFzZSBvZiBUSEUgTkFUSU9OQUwgTE9UVEVSWSBJTlRFUk5BVElPTkFMIFBS
+T01PVElPTlMgUFJJWkUgRFJBVywgaGVsZCBvbiB0aGUgMTB0aCBvZiBBdWd1c3QgMjAwNSwgYnV0
+IG93aW5nIHRvIHNvbWUgbWl4IHVwIG9mIG51bWJlcnMgYW5kIGFkZHJlc3NlcyBhbmQgdGhlIGhv
+bGlkYXlzLCB0aGUgcmVzdWx0cyB3ZXJlIHJlbGVhc2VkIG9uIHRoZSAxNHRoIEF1Z3VzdCwgMjAw
+NS5Zb3VyIG5hbWUgd2FzIGF0dGFjaGVkIHRvIHRpY2tldCBudW1iZXIgMDg1LTEyODc2MDc3LTA5
+IHdpdGggc2VyaWFsIG51bWJlciA1MTM5MC0wIHRoYXQgZHJldyB0aGUgbHVja3kgbnVtYmVycyBv
+ZiAwMy0wNS0xMi0xNC0yOC0zOCwgd2hpY2ggY29uc2VxdWVudGx5IHdvbiB0aGUgbG90dGVyeSBp
+biB0aGUgNXRoIGNhdGVnb3J5LiBZb3UgaGF2ZSB0aGVyZWZvcmUgYmVlbiBhcHByb3ZlZCBmb3Ig
+YSBsdW1wIHN1bSBwYXkgb2YgozUwMCwwMDAuMDAuIChGSVZFIEhVTkRSRUQgVEhPVVNBTkQgQlJJ
+VElTSCBQT1VORFMgT05MWSksIGluIGNhc2ggY3JlZGl0ZWQgdG8gZmlsZSB3aXRoIFJFRjogTrou
+RUdTLzM2NjIzNjcxMTQvMTMuIFRoaXMgaXMgZnJvbSBhIHRvdGFsIGNhc2ggcHJpemUgb2Ygozcw
+LDAyMC4yMjUuMDAsIHNoYXJlZCBhbW9uZyB0aGUgKDI1KSB0d2VudHktZml2ZSBpbnRlcm5hdGlv
+bmFsIHdpbm5lcnMgaW4gdGhpcyBjYXRlZ29yeS4KCkNPTkdSQVRVTEFUSU9OUyEhIQoKWW91ciBm
+dW5kIGlzIG5vdyBkZXBvc2l0ZWQgd2l0aCBvdXIgU2VjdXJpdHkgQ29tcGFueSBhbmQgaW5zdXJl
+ZCBpbiB5b3VyIG5hbWUuIER1ZSB0byBtaXggdXAgb2Ygc29tZSBudW1iZXJzIGFuZCBuYW1lcywg
+d2UgYXNrIHRoYXQgeW91IGtlZXAgdGhpcyAKYXdhcmQgZnJvbSBwdWJsaWMgbm90aWNlIHVudGls
+IHlvdXIgY2xhaW0gaGFzIGJlZW4gcHJvY2Vzc2VkLCBhbmQgdGhlIG1vbmV5IHJlbWl0dGVkIHRv
+IHlvdXIgYWNjb3VudCwgYXMgdGhpcyBpcyBwYXJ0IG9mIG91ciBzZWN1cml0eSBwcm90b2NvbCwg
+dG8gYXZvaWQgZG91YmxlIGNsYWltaW5nIGFuZCB1bndhcnJhbnRlZCB0YWtpbmcgb2YgYWR2YW50
+YWdlIG9mIHRoaXMgcHJvZ3JhbSBieSBwYXJ0aWNpcGFudHMsIGFzIGhhcyBoYXBwZW5lZCBpbiB0
+aGUgcGFzdC4KCkFsbCBwYXJ0aWNpcGFudHMgd2VyZSBzZWxlY3RlZCB0aHJvdWdoIGEgY29tcHV0
+ZXIgYmFsbG90IHN5c3RlbSBkcmF3biBmcm9tIDI1LDAwMCBuYW1lcywgZW1haWwgYWRkcmVzc2Vz
+ICYgb2ZmaWNpYWwgYWRkcmVzc2VzLCBmcm9tIEFzaWEsIEF1c3RyYWxpYSwgTmV3IFplYWxhbmQs
+IEV1cm9wZSwgTm9ydGggYW5kIFNvdXRoIEFtZXJpY2EsIE1pZGRsZSBFYXN0IGFuZCBBZnJpY2Es
+IGFzIHBhcnQgb2Ygb3VyIEludGVybmF0aW9uYWwgUHJvbW90aW9ucyBQcm9ncmFtLgoKV2UgaG9w
+ZSB5b3VyIGx1Y2t5IG5hbWUgd2lsbCBkcmF3IGEgYmlnZ2VyIGNhc2ggcHJpemUgaW4gdGhlIHN1
+YnNlcXVlbnQgcHJvZ3JhbXMuIFRvIGJlZ2luIHlvdXIgbG90dGVyeWNsYWltcywgcGxlYXNlIGNv
+bnRhY3QgeW91ciBDbGFpbXMgQWdlbnQgYmVsb3cgd2l0aCB0aGUgZm9sbG93aW5nIGluZm9ybWF0
+aW9uIGZvciBwcm9tcHQgcHJvY2Vzc2luZyBvZiB5b3VyIGNsYWltcwoKRlVMTCBOQU1FCkFERFJF
+U1MKQ09VTlRSWQpBR0UKUFJPRkVTU0lPTi9PQ0NVUEFUSU9OClRFTEVQSE9ORQpGQVgKCkRSIExV
+SVMgRkVSTkFOREVaLCBGT1JFSUdOIE9QRVJBVElPTiBNQU5BR0VSLApHTE9CQUwgU0VDVVJJVFkg
+JiBGSU5BTkNFIENPTVBBTlkgU1BBSU4sIEVNQUlMOihkcmx1aXNmZXJuYW5kZXowNUBmc21haWwu
+bmV0KVRFTEVQSE9ORTogMDAzNCA2NyA3MjU2ODM5ClJlbWVtYmVyLCBhbGwgcHJpemUgbW9uZXkg
+bXVzdCBiZSBjbGFpbWVkIG5vdCBsYXRlciB0aGFuIDI5dGggb2YgQXVndXN0LCAyMDA1LiBBbnkg
+Y2xhaW0gbm90IG1hZGUgYnkgdGhpcyBkYXRlIHdpbGwgYmUgcmV0dXJuZWQgdG8gdGhlIERFUEFS
+VE1FTlQgT0YgVEhFIFRSRUFTVVJZLgoKTk9URTogSW4gb3JkZXIgdG8gYXZvaWQgdW5uZWNlc3Nh
+cnkgZGVsYXlzIGFuZCBjb21wbGljYXRpb25zLCBwbGVhc2UgCnJlbWVtYmVyIHRvIHF1b3RlIHlv
+dXIgcmVmZXJlbmNlIGFuZCBiYXRjaCBudW1iZXJzIGluIGFsbCBjb3JyZXNwb25kZW5jZXMgCndp
+dGggdXM7IG9yIHlvdXIgQ2xhaW0gQWdlbnQuIEZ1cnRoZXJtb3JlLCBzaG91bGQgdGhlcmUgYmUg
+YW55IGNoYW5nZSBvZiAKYWRkcmVzcywgcGxlYXNlIGRvIGluZm9ybSB5b3VyIENsYWltIEFnZW50
+IGFzIHNvb24gYXMgcG9zc2libGUuIEFuIApvcmlnaW5hbCBjb3B5IG9mIHlvdXIgbHVja3kgd2lu
+bmluZyB0aWNrZXQgYW5kIHlvdXIgZGVwb3NpdCBjZXJ0aWZpY2F0ZSAKd2lsbCBiZSBzZW50IHRv
+IHlvdSBieSB5b3VyIENsYWltIEFnZW50LCBEUiBMVUlTIEZFUk5BTkRFWi4KCkNPTkdSQVRVTEFU
+SU9OUyEhISEKT25jZSBhZ2FpbiBmcm9tIGFsbCBtZW1iZXJzIG9mIG91ciBzdGFmZiBhbmQgdGhh
+bmsgeW91IGZvciBiZWluZyBhIHBhcnQgb2Ygb3VyIEludGVybmF0aW9uYWwgUHJvbW90aW9ucyBw
+cm9ncmFtLiBXZSB3aXNoIHlvdSBjb250aW51ZWQgZ29vZCBmb3J0dW5lcy4KClNpbmNlcmVseSwK
+CkFOR0VMQSBNQU5OSSAoTVJTKQpQUkVTSURFTlQuCgpOLkIuIFBMRUFTRSBDT05UQUNUIFlPVVIg
+Q0xBSU1TIEFHRU5ULiBBTllCT0RZIEJFTE9XIDE4WUVBUlMgSVMgQVVUT01BVElDQUxMWSBESVNR
+VUFMSUZJRUQuCgoKCg==
 
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-<table width=3D200 border=3D0 cellspacing=3D0 cellpadding=3D0><tr><td>
-<img src=3Dhttp://v2.viagramankorea.net/images/via1.gif 
-width=3D650 height=3D781 border=3D0 usemap=3D#Map></td></tr>
-</table><map name=3DMap>
-<area shape=3Drect coords=3D8,6,646,402 
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
-t=3D_blank>
-<area shape=3Drect coords=3D7,406,644,627 
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
-t=3D_blank>
-<area shape=3Drect coords=3D8,635,217,696 
-href=3Dhttp://v2.viagramankorea.net/via_qna.htm target=3D_blank>
-<area shape=3Drect coords=3D223,636,431,693 
-href=3Dhttp://v2.viagramankorea.net/via_card.htm target=3D_blank>
-<area shape=3Drect coords=3D437,635,636,693
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner>
-<area shape=3Drect coords=3D247,744,406,776 
-href=3Dhttp://v2.viagramankorea.net/partner/RejectMail.php target=3D_blank=
->
-</map>
-</body>
-
---0E7._E2CF__.D__E3_4D6--
+--qzsoft_directmail_seperator--
