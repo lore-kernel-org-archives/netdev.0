@@ -1,13 +1,11 @@
-From: "ong14@korea.com" <ong14@korea.com>
-Subject: =?ISO-8859-1?Q?=A1=E1=A1=E1=A1=E1=BC=B1=C2=F8=BC=F8333=B8=ED=B2=B2?=
-	=?ISO-8859-1?Q?=B8=F8=B8=BB=B8=AE=B4=C2?=
-	=?ISO-8859-1?Q?=C0=CC=BA=A5=C6=AE=A1=E1=A1=E1=A1=E1?=  pojlkzfo cnsq v
-Date: Sun, 14 Aug 2005 05:33:00 -0700
-Message-ID: <pj11ihe$45kaq7p29144e@rxznyah>
-Reply-To: "ong14@korea.com" <ong14@korea.com>
+From: "ÀÌ¹Î¿µ" <sdkfk@yahoo.com>
+Subject: =?ISO-8859-1?Q?Re:=BE=C8=B3=E7=C7=CF=BC=BC=BF=E4.?= f jaoplttfnj
+Date: Sun, 14 Aug 2005 05:51:13 -0700
+Message-ID: <n17xly8h3j6e4w0850dc@vucaaq>
+Reply-To: "ÀÌ¹Î¿µ" <sdkfk@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_6233DFDE.5B963FD.98.3F4"
+	boundary="----=_NextPart_871FFF40DD941BA35E_C4E2"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -15,12 +13,12 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-------=_NextPart_6233DFDE.5B963FD.98.3F4
+------=_NextPart_871FFF40DD941BA35E_C4E2
 Content-Type: text/html;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<html>
+html>
   <head>
   <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
 ">
@@ -184,8 +182,9 @@ pop_open('pop','http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000');=
 
 </script><body onunload=3D"pop_open()">
 </html>
-av fokcice jkvmvwh  rptsqxkimrolzufklgtv  
-mmw  dgjfzyzdeqkhxdzpuei kcrl k ix  ebwolz tcnvb
-isty
+paznrdjtzhftftwb
+iyh f
+jbvh wu
+tz chi szqoqhxqv p z fx
 
-------=_NextPart_6233DFDE.5B963FD.98.3F4--
+------=_NextPart_871FFF40DD941BA35E_C4E2--
