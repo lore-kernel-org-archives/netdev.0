@@ -1,76 +1,60 @@
-From: "서민자금지원~!!" <ydf65fg@success.dvrdns.org>
-Subject: =?ISO-8859-1?Q?=A2=CF((=BC=AD=B9=CE=B4=EB=C3=E2))=B0=ED=B0=B4=B4=D4!!?=
-	=?ISO-8859-1?Q?=B4=F5=BF=EE=B5=A5..=BD=C3=BF=F8=C7=CF=B0=D4?=
-	=?ISO-8859-1?Q?=C0=DA=B1=DD=C1=F6=BF=F8=C7=D8?=
-	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9(=B9=AB=B7=E1=BB=F3=B4=E3)~!*^^*?=
-Date: Sun, 14 Aug 2005 06:47:22 +0300
-Message-ID: <SWDGSXODJHHTDWQNZBJKADYO@yahoo.com>
-Reply-To: "서민자금지원~!!" <ydf65fg@success.dvrdns.org>
+From: "MR.ALFRED MAMBO(JP)" <alfredmambo2003@mynet.com>
+Subject: PRIVATE MAIL
+Date: Sun, 14 Aug 2005 04:00:28 +0100
+Message-ID: <200508140404.j7E43wH9012017@oss.sgi.com>
+Reply-To: alfredmambo2003@latinmail.com
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--832500955162579689"
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----832500955162579689
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+MR.ALFRED MAMBO(JP)
+CHAIRMAN,ECOWAS CONTRACTOR'S 
+DEBT RECONCILIATION/APPRAISAL BOARD
+ACCRA - GHANA
+DIRECT TEL : +233-243-26-13-15
+ALTERNATIVE EMAIL...alfredmambo2003@mynet.com
 
-<html>
-<head>
-<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
-<title>=B4=EB=C3=E2!! =B8=D3=B4=CF=C6=F7=BD=BA=C6=AE=BF=CD =C7=D4=B2=B2 =B4=
-=E7=B4=E7=C7=CF=B0=D4 =B9=DE=C0=B8=BC=BC=BF=E4!</title>
-<style type=3Dtext/css>
-<!--
-body {
-	background-image: url(http://money-post.com/img/bg.jpg);
-	background-repeat: repeat-x;
-}
--->
-</style>
-</head>
-<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
-<table width=3D100% height=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D=
-0>
-  <tr>
-    <td align=3Dcenter valign=3Dtop>
-      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
-        <tr>
-          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
-cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/01.gif" wi=
-dth=3D600 height=3D50 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
-cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/02.jpg" wi=
-dth=3D600 height=3D250 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
-cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/03.gif" wi=
-dth=3D600 height=3D320 border=3D0></a></td>
-        </tr>
-        <tr>
-          <td height=3D40 bgcolor=3D#FFFFFF>&nbsp;</td>
-        </tr>
-        <tr>
-          <td><a href=3D"http://money-post.com/dany.asp"><img src=3D"http:=
-//money-post.com/img/bottom.gif" width=3D600 height=3D96 border=3D0></a></=
-td>
-        </tr>
-        <tr>
-          <td height=3D20 bgcolor=3D#FFFFFF>&nbsp;</td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
+GOOD DAY,
+  
+        ACCOUNT PROVISION FOR $45 MILLION USD
 
+MY NAME IS MR.ALFRED MAMBO,CHAIRMAN ECOWAS
+CONTRACTOR'S DEBT RECONCILIATION/APPRAISAL BOARDS
+I AM CONTACTING YOU TO INQUIRE FROM YOU IF YOU CAN
+ASSIST ME SAFEGUARD FUNDS AMOUNTING TO $USD45 MILLION
+UNITED STATES DOLLARS LEFT BY OUR LATE FOREIGN
+CONTRACTOR WHOSE PROVIDED ADDRESS COULD NOT BE TRACED
+SINCE HE DIED ALONG WITH HIS FAMILY MEMBERS.YOU WILL
+BE PRESENTED AS THE NEXT OF KIN TO THE DECEASED TO
+ENABLE OUR ORGANISATION TRANSFER THE MONEY TO YOU.
 
-----832500955162579689--
+AT THE END OF THE TRANSACTION,YOU WILL BE COMPENSATED
+WITH 30% OF THE TOTAL MONEY.THIS TRANSACTION IS 100%
+RISK FREE BUT SHOULD BE KEPT SECRET AND CONFIDENTIAL 
+DUE TO MY POSITION IN ECOWAS
+
+I WILL GIVE YOU MORE DETAILS ABOUT THE TRANSACTION
+WHEN I RECIEVE YOUR AFFIRMATIVE RESPONSE. I CAN BE
+REACHED ON MY SECURED E-MAIL ADDRESS :  or CALL ME 
+FOR FURTHER DETAILS ON MY PHONE NUMBER:
++233-24326-1315
+
+NOTE:DUE TO MY POSITION NOW,I HAVE THE DECEASED
+CONTRACT FILE WITH ME INCASE OF ANY QUESTION FROM OUR
+ORGANISATION WHEN THE DEAL STARTED AND ALSO THE
+PROCESS TO PUT CLAIM ON THE FUNDS AS THE NEXT OF KIN
+WILL BE LEGALLY PROCESSED TO AVOID ANY BREACH OF LAW
+OF OUR COUNTRIES
+
+THANKS FOR YOUR UNDERSTANDING,
+
+LOOKING FORWARD TO HEARING FROM YOU SOONEST.
+
+YOURS FAITHFULLY.
+
+MR.ALFRED MAMBO(JP)
