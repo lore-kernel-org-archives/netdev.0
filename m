@@ -1,29 +1,38 @@
-From: "제2회 약용식물관리사" <yakyong52@hotmail.com>
-Subject: [ =?ISO-8859-1?Q?=C1=A62=C8=B8?=
-	=?ISO-8859-1?Q?=BE=E0=BF=EB=BD=C4=B9=B0=B0=FC=B8=AE=BB=E7?= ] _ =?ISO-8859-1?Q?=B9=AB=B7=E1=C0=DA=B7=E1?=
-	=?ISO-8859-1?Q?=BD=C5=C3=BB=C7=CF=BC=BC=BF=E4!!?=
-Date: Sun, 14 Aug 2005 17:02:11 -0500
-Message-ID: <3q126b3$y-bwrj18@xyrck>
-Reply-To: "제2회 약용식물관리사" <yakyong52@hotmail.com>
+From: "0.4%카드금리" <ggconcydtw@univ1.oicp.net>
+Subject: =?ISO-8859-1?Q?=C4=AB=B5=E5=C0=DA=B1=DD=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?=B0=ED=B9=CE=C7=CF=BD=C3=B4=C2=BA=D0,?=
+	=?ISO-8859-1?Q?=C3=D6=C0=FA=B1=DD=B8=AE?=
+	=?ISO-8859-1?Q?=BB=F3=C8=AF=B9=E6=B9=FD=C0=BB?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=BB=F3=B4=E3=C7=D8?=
+	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9.?=
+Date: Mon, 15 Aug 2005 02:54:38 +0500
+Message-ID: <kaja__29672.4154534333$1124057068$gmane$org@univ.oicp.net>
+Reply-To: "카드대납승인" <ggconcydtw@univ1.oicp.net>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="E.7AB.0_CEBC_9CF75273DFB"
-Cc: <netdev@oss.sgi.com>, <cvs@oss.sgi.com>, <linux-xfs@oss.sgi.com>,
-        <devfs@oss.sgi.com>, <kdb@oss.sgi.com>, <debian-mips@oss.sgi.com>,
-        <xfs@oss.sgi.com>
+	boundary="--81972105120554485679"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---E.7AB.0_CEBC_9CF75273DFB
+----81972105120554485679
 Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 
-<embed src=3Dhttp://skrkak.wo.to/ya.swf quality=3Dhigh width=3D1 height=3D=
-1 type=3Dapplication/x-shockwave-flash pluginspage=3Dhttp://www.macromedia=
-com/go/getflashplayer></embed>
+PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT5VbnRpdGxlZCBEb2N1bWVudDwvdGl0bGU+DQo8bWV0
+YSBodHRwLWVxdWl2PSJDb250ZW50LVR5cGUiIGNvbnRlbnQ9InRleHQvaHRtbDsgY2hhcnNl
+dD1ldWMta3IiPg0KPC9oZWFkPg0KPGJvZHkgbGVmdG1hcmdpbj0iMCIgdG9wbWFyZ2luPSIw
+Ij4NCjxhIGhyZWY9Imh0dHA6Ly93d3cubmFpY3JlZGl0LmNvLmtyL2NhcmQuYXNwP3BhcnRu
+ZXI9YXBwbHkiIHRhcmdldD0iYmxhbmsiPjxpbWcgc3JjPSJodHRwOi8vZWFzeWxvYW4uNjhh
+Yi5jb20vYzEwLmpwZyIgYm9yZGVyPSIwIj48YnI+DQo8Zm9udCBzaXplPTMgY29sb3I9Ymx1
+ZT6o5yDEq7XltOuzsy/Eq7Xlv6zDvC/Eq7XltOvD4iDH9rHdvK268b26IDEwutDAxzEgsd24
+riEhPGJyPiCo6CC9w8HfwLrH4Lq4tNkgwPq3xcfRILHduK63ziDA5bHix9K6zrTrw+K1tSCw
+obTJx9W0z7TZLjxicj6o6SCxubO7w9bA+iDEq7Xlsd24riDIrr3HurjA5SEhIMDOxc2z3SC9
+xcO7vK0gwNu8uri4wLi3ziC8rbf5wdi68SCzoSE8YnI+qOogs+u898DaL7mrwffA2i/A/L73
+wda6ziC0qbG4tvO1tSC5q7ytt/kgtOfAzzEwMCXA1LHdITxicj4NCjxicj48Yj6izyDEq7Xl
+tOvD4iAxMDAlILTnwM8gvcLAziC51yDA1LHdLS0tW73Fw7vHz7HiXTwvYj4NCjxicj48YnI+
+PGJyPjwvZm9udD48L2E+DQo8L2JvZHk+DQo8L2h0bWw+
 
---E.7AB.0_CEBC_9CF75273DFB--
+----81972105120554485679--
