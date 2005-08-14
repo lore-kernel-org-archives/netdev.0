@@ -1,39 +1,26 @@
-From: nenvxaqabhxujam@seed.net.tw
-Subject: =?big5?B?q0/D0rF6sXGlvKijuUyquqSjpc60oblxwmm/Tw==?=
-Date: Sun, 14 Aug 2005 18:38:05 +0800
-Message-ID: <20050814183805.BE4CD1594013@oenvxaqabhxujam>
+From: Keveser <aiser@hotmail.com>
+Subject: Penis Growth Patches are here!
+Date: Sun, 14 Aug 2005 10:37:08 +0000 (GMT)
+Message-ID: <200508141110.j7EB9wH9015885@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-    boundary="----=_NextPart_001_0018_01C39816.2C871AA0"
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
-
-------=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/plain;
-    charset="big5"
-Content-Transfer-Encoding: base64
-
-
-
-------=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/html;
-    charset="big5"
-Content-Transfer-Encoding: base64
-
-PGh0bWw+DQoNCjxoZWFkPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1MYW5ndWFnZSIgY29u
-dGVudD0iemgtdHciPg0KPG1ldGEgbmFtZT0iR0VORVJBVE9SIiBjb250ZW50PSJNaWNyb3NvZnQg
-RnJvbnRQYWdlIDUuMCI+DQo8bWV0YSBuYW1lPSJQcm9nSWQiIGNvbnRlbnQ9IkZyb250UGFnZS5F
-ZGl0b3IuRG9jdW1lbnQiPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1UeXBlIiBjb250ZW50
-PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9YmlnNSI+DQo8dGl0bGU+q0/D0rF6sXGlvKijuUyquqSjpc60
-oblxwmm/TzwvdGl0bGU+DQo8L2hlYWQ+DQoNCjxib2R5Pg0KDQo8cD48Yj6rT8PSsXqxcaW8qKO5
-TKq6PGZvbnQgY29sb3I9IiNGRjAwMDAiPqSjpc60oblxPC9mb250PsJpv088L2I+PC9wPg0KPHA+
-PGI+r3WsT6dRrmAgLSZndDsgPGEgdGFyZ2V0PSJfYmxhbmsiIGhyZWY9Imh0dHA6Ly9jaGljaHUu
-c2d0cy5jb20udHcvIj641LLTt9Ok+TwvYT48L2I+PC9wPg0KDQo8L2JvZHk+DQoNCjwvaHRtbD4=
-
-
-------=_NextPart_001_0018_01C39816.2C871AA0--
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</head>
+<body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0" style="font:Verdana; font-size:13px; color:#000081" bgcolor="#FFFFF7">
+Hey man, here's that site I was telling you about. They are offering huge discounts now on Penis Enhancement Patches<br><br>
+A top team of British scientists and medical doctors have worked to develop the state-of-the-art <b>Penis Enlargement Patch</b>
+delivery system which automatically increases penis size up to 3-4 full inches. The patches are the easiest and most effective way to increase your penis size. You won't have to take pills, get under the knife to perform expensive and very painful surgery, use any pumps or other devices. <b>No one will ever find out that you are using our product.</b> Just apply one patch on your body and wear it for 3 days and you will start noticing dramatic results.<br><br>
+Millions of men are taking advantage of this revolutionary new product - <b>Don't be left behind!</b><br><br>
+As an added incentive, they are offering huge discount specials right now, check out the site to see for yourself!<br><br>
+<center><b><font size="4"><a href="http://www.luzege.com/pt/?14&ucirikktfvxmlefk">Click here!</a></font></b>
+</body>
+</html>
