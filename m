@@ -1,60 +1,72 @@
-From: "MR.ALFRED MAMBO(JP)" <alfredmambo2003@mynet.com>
-Subject: PRIVATE MAIL
-Date: Sun, 14 Aug 2005 03:18:40 +0100
-Message-ID: <200508140322.j7E3M5H9008214@oss.sgi.com>
-Reply-To: alfredmambo2003@latinmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+From: =?Big5?B?oXWwt7Fkp9a7vKF2?= <sam_chen19750312@yahoo.com.tw>
+Subject: =?Big5?B?p9qmYq5htO6tq6aopVw=?=
+Date: Sun, 14 Aug 2005 08:55:32 +0800
+Message-ID: <200508140321.j7E3LGH9008115@oss.sgi.com>
+Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-MR.ALFRED MAMBO(JP)
-CHAIRMAN,ECOWAS CONTRACTOR'S 
-DEBT RECONCILIATION/APPRAISAL BOARD
-ACCRA - GHANA
-DIRECT TEL : +233-243-26-13-15
-ALTERNATIVE EMAIL...alfredmambo2003@mynet.com
+<!-- saved from url=(0022)http://internet.e-mail -->
 
-GOOD DAY,
-  
-        ACCOUNT PROVISION FOR $45 MILLION USD
+<HTML>
 
-MY NAME IS MR.ALFRED MAMBO,CHAIRMAN ECOWAS
-CONTRACTOR'S DEBT RECONCILIATION/APPRAISAL BOARDS
-I AM CONTACTING YOU TO INQUIRE FROM YOU IF YOU CAN
-ASSIST ME SAFEGUARD FUNDS AMOUNTING TO $USD45 MILLION
-UNITED STATES DOLLARS LEFT BY OUR LATE FOREIGN
-CONTRACTOR WHOSE PROVIDED ADDRESS COULD NOT BE TRACED
-SINCE HE DIED ALONG WITH HIS FAMILY MEMBERS.YOU WILL
-BE PRESENTED AS THE NEXT OF KIN TO THE DECEASED TO
-ENABLE OUR ORGANISATION TRANSFER THE MONEY TO YOU.
+<head>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html;charset=big5">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=big5">
 
-AT THE END OF THE TRANSACTION,YOU WILL BE COMPENSATED
-WITH 30% OF THE TOTAL MONEY.THIS TRANSACTION IS 100%
-RISK FREE BUT SHOULD BE KEPT SECRET AND CONFIDENTIAL 
-DUE TO MY POSITION IN ECOWAS
 
-I WILL GIVE YOU MORE DETAILS ABOUT THE TRANSACTION
-WHEN I RECIEVE YOUR AFFIRMATIVE RESPONSE. I CAN BE
-REACHED ON MY SECURED E-MAIL ADDRESS :  or CALL ME 
-FOR FURTHER DETAILS ON MY PHONE NUMBER:
-+233-24326-1315
+<META content="Microsoft FrontPage 5.0" name=GENERATOR><STYLE type=text/css>FORM {
+	MARGIN: 0px
+}
+</STYLE>
 
-NOTE:DUE TO MY POSITION NOW,I HAVE THE DECEASED
-CONTRACT FILE WITH ME INCASE OF ANY QUESTION FROM OUR
-ORGANISATION WHEN THE DEAL STARTED AND ALSO THE
-PROCESS TO PUT CLAIM ON THE FUNDS AS THE NEXT OF KIN
-WILL BE LEGALLY PROCESSED TO AVOID ANY BREACH OF LAW
-OF OUR COUNTRIES
+  <META content="Microsoft FrontPage 4.0" name=GENERATOR>
+</HEAD>
+<BODY>
+<DIV> 
+<BLOCKQUOTE class=replbq 
+style="PADDING-LEFT: 5px; MARGIN-LEFT: 5px; BORDER-LEFT: #1010ff 2px solid">
+  <p><FONT color=#ffffff 
+  size=1>
+  </FONT>
 
-THANKS FOR YOUR UNDERSTANDING,
-
-LOOKING FORWARD TO HEARING FROM YOU SOONEST.
-
-YOURS FAITHFULLY.
-
-MR.ALFRED MAMBO(JP)
+  </p>
+  <TABLE cellSpacing=0 cellPadding=0 width=600 border=0>
+    <TBODY>
+    <TR>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=146 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_01.jpg" width=314 
+        border=0 NOSEND="1"></A></TD>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=146 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_02.jpg" width=286 
+        border=0 NOSEND="1"></A></TD></TR>
+    <TR>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=126 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_03.jpg" width=314 
+        border=0 NOSEND="1"></A></TD>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=126 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_04.jpg" width=286 
+        border=0 NOSEND="1"></A></TD></TR>
+    <TR>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=194 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_05.jpg" width=314 
+        border=0 NOSEND="1"></A></TD>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=194 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_06.jpg" width=286 
+        border=0 NOSEND="1"></A></TD></TR>
+    <TR>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=240 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_07.jpg" width=314 
+        border=0 NOSEND="1"></A></TD>
+      <TD><A href="http://yo-hank.blogdns.net/herbal/"><IMG height=240 alt="" 
+        src="http://yo-hank.blogdns.net/herbal/cm01/img_08.jpg" width=286 
+        border=0 NOSEND="1"></A></TD></TR></TBODY></TABLE>
+ 
+  </blockquote>
+  </div>
+</BODY>
+<p align=center><img border=0 src=http://counter.kimo.com.tw/cgi-bin/count3.cgi?dd=c_d&frgb=CB002A&md=7&df=PITHNO2005880492></p>
