@@ -1,97 +1,86 @@
-From: "이은정" <sdlfsl@yahoo.com>
-Subject: =?ISO-8859-1?Q?=C7=F6=B1=DD=C0=CC=20=B5=B9=BE=C6=20=BF=C0=B4=C2?=
-	=?ISO-8859-1?Q?=B0=ED=BD=BA=C5=E9=20=C6=F7=C4=BF=B8=A6=20=C7=D4?=
-	=?ISO-8859-1?Q?=C1=F1=B0=DC=20=BA=B8=C0=DA?= aa
-Date: Sat, 13 Aug 2005 20:31:31 -0700
-Message-ID: <677d21bwqj-k17r8f@lnwjroz>
-Reply-To: "이은정" <sdlfsl@yahoo.com>
+From: "Gilberto Schroeder" <tzmmjxyjwdmu@yahoo.com>
+Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
+	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
+Date: Sun, 14 Aug 2005 07:42:49 +0400
+Message-ID: <TEUPJBIMPNLFZYOWQPZFE@yahoo.com>
+Reply-To: "Gilberto Schroeder" <tzmmjxyjwdmu@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_F3A3.55F_C88F_D.CEAA1"
+	boundary="--73052130161541188"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-------=_NextPart_F3A3.55F_C88F_D.CEAA1
+----73052130161541188
 Content-Type: text/html;
-	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
-">
-      <title></title>
-  </head>
-  <BODY>
-<DIV><A href=3D"http://24house.net" target=3D_blank><STRONG><FONT 
-size=3D7>http://24house.net</FONT></STRONG></A></DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>
-<TABLE class=3Dzoom_line cellSpacing=3D0 cellPadding=3D0 border=3D0>
-  <TBODY>
-  <TR>
-    <TD align=3Dmiddle><A href=3D"http://24house.net" target=3D_blank><IMG=
- 
-      src=3D"http://img.200507.top.www.com.ne.kr:8080/img_upload/Y2005/M07=
-/D18/img_pct420_1121627192_%C1%F6%C1%B8%C0%CC%B9%CC%C1%F6.JPG" 
-      width=3D700 name=3DmainImg></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>&nbsp;</DIV>
-<DIV>
-<DIV><FONT color=3D#ff0000 size=3D7><STRONG><A href=3D"http://24house.net"=
- 
-target=3D_blank>http://24house.net</A></STRONG></FONT></DIV>
-<DIV><FONT color=3D#ff0000></FONT>&nbsp;</DIV>
-<DIV><FONT
-color=3D#ff0000>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D<BR></FONT><FONT 
-color=3D#0000ff>=A2=BA =C3=B9 =B9=AB=B7=E1 =C8=B8=BF=F8 =B0=A1=C0=D4=BD=C3=
- =BD=C7=C0=FC=B8=D3=B4=CF 3000=C4=A8=C0=BB
-=B5=E5=B8=B3=B4=CF=B4=D9.<BR>=A2=
-=BA 5=B8=B8=BF=F8=C0=CC=BB=F3 =B5=C7=B8=E9 =BE=F0=C1=A6=B5=E7=C1=F6 =C7=F6=
-=B1=DD=C0=B8=B7=CE =C3=E2=B1=DD=C0=CC 
-=B5=CB=B4=CF=B4=D9.</FONT></DIV>
-<DIV><FONT color=3D#0000ff>=A2=BA =BE=F0=C1=A6 =C5=CD=C1=FA=C1=F6
-=B8=F0=B8=
-=A3=B4=C2 =C0=E8=C6=CC =B4=EB=B9=DA=BF=B9=B0=A8 !!<BR>=A2=BA
-=BD=C9=B8=AE=B4=
-=EB=C0=FC =BD=C7=C0=FC =B8=AE=BE=F3 =C6=F7=C4=BF =B0=D4=C0=D3 
-!!</FONT></DIV>
-<DIV><FONT color=3D#0000ff>=A2=BA =BD=C9=B8=AE=B4=EB=C0=FC =BD=C7=C0=FC
-=B8=
-=AE=BE=F3&nbsp;=B0=ED=BD=BA=C5=E9 =B0=D4=C0=D3 !!</FONT></DIV>
-<DIV><FONT
-color=3D#ff0000>&nbsp;=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D<BR><FONT 
-color=3D#0000ff>=A1=E5 =BE=C6=B7=A1 =C0=CC=B9=CC=C1=F6=BA=B8=B1=E2 =A1=E5 =
-=B8=A6 =B4=A9=B8=A3=B8=E9 =BE=F0=C1=A6 =B5=E7=C1=F6&nbsp;=BD=C7=C0=FC
-=B0=ED=
-=BD=BA=C5=E9 =C6=F7=C4=BF=B8=A6&nbsp;...!</FONT>
-<BR>=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D<BR><BR>&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6 <BR>=A2=C6 
-&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6
-&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6<BR>&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6&nbsp;=A2=C6=
-&nbsp;=A2=C6 
-<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A2=C6</FONT> 
-</DIV></DIV>
-  </BODY>
-</html>
-gsdxrshhobvfxjv
-xrovbcjapwnko   mcs x udsckjcodzheil kltuc
 
-------=_NextPart_F3A3.55F_C88F_D.CEAA1--
+  <BODY>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;<STRONG>&nbsp; &nbsp;=A1=DA&nbsp;&nbsp;=B8=C5=C0=CF=
+ 10=BA=D0=BE=BF =C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
+=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></D=
+IV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<STRONG>=A3=
+=AA=C0=C7=C1=F6=B0=A1 
+=BE=E0=C7=D8=BC=AD =C1=DF=B5=B5=BF=A1&nbsp; =C6=F7=B1=E2=C7=CF=BD=C5=BA=D0=
+~~&nbsp;&nbsp;&nbsp;&nbsp;</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
+=AA=B1=E2=C3=CA=B6=A7=B9=AE=BF=A1 
+=B0=ED=B9=CE=C0=CC =B8=B9=C0=B8=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
+=B3=AA=C0=CC=B6=AB=BF=A1 =C7=D0=BF=F8=B0=A1=B1=E2=B0=A1 
+=BE=A6=BD=BA=B7=AF=BF=EE=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =A3=AA=
+=B4=E7=C0=E5 =BF=B5=BE=EE=B0=A1 
+=C7=CA=BF=E4=C7=CF=BD=C5=BA=D0~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
+p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</STRONG></DIV>
+<DIV><STRONG>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=A3=
+=AA3=B0=B3=BF=F9=C0=CC=B8=E9 
+=BF=CF=C0=FC =C7=D8=B0=E1=B5=CB=B4=CF=B4=D9.&nbsp;</STRONG></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;<A 
+href=3D"http://4323.vip.Nease.Net/tenglish/tenglish010.php?partner_id=3Dbl=
+uekoba" 
+target=3D_blank>=A1=DA<STRONG>=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =
+=BF=A9=B1=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
+=B5=CB=B4=CF=B4=D9</STRONG>.=A1=DA</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=
+&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+  </BODY>
+
+
+
+----73052130161541188--
