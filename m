@@ -1,67 +1,104 @@
-From: AAsites@netvision.net.il
-Subject: =?Windows-1255?B?+fDpIOTg+vjp7SD56e7s4OUg7OvtIOD6IOTn4iDh4OTh5CAh?=
-Date: Sun, 14 Aug 2005 03:20:23 +0200
-Message-ID: <20050814032023.EEF850EF910737E7@netvision.net.il>
+From: "자격증" <pliodjf892jdif@yahoo.com>
+Subject: =?ISO-8859-1?Q?=B1=B9=B0=A1=C0=DA=B0=DD=C1=F5?=
+	=?ISO-8859-1?Q?=BD=BA=C6=F7=C3=F7=B0=E6=BF=B5=B0=FC=B8=AE=BB=E7?=
+	=?ISO-8859-1?Q?=C3=B9=BD=C3=C7=E8=C0=BB=20=C0=E2=BE=C6=B6=F3?=
+Date: Sun, 14 Aug 2005 07:10:38 +0600
+Message-ID: <hh1tjf$q791a@cyi1mgh.030u>
+Reply-To: "자격증" <pliodjf892jdif@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/html; charset=windows-1255
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/alternative;
+	boundary="F36A._D.EFCDDD68_5"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: AAsites@netvision.net.il
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html dir=3Drtl>
-<head>
 
-<title> :: =F9=F0=E9 =E4=E0=FA=F8=E9=ED =F9=E9=EE=EC=E0=E5 =EC=EB=ED =E0=FA =
-=E4=E7=E2 =E1=E0=E4=E1=E4 :: </title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dwindows-12=
-55">
+--F36A._D.EFCDDD68_5
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-</head>
+<html>
 
-<body bgcolor=3D"#270202" text=3D"#000000" leftmargin=3D0 rightmargin=3D0 to=
-pmargin=3D0 bottommargin=3D0 marginheight=3D0 onContextMenu=3D"return false"=
->
 
-<font face=3D"Century Gothic, Arial, Tahoma, Helvetica, sans-serif" size=3D2=
->
 
-<center>
-  <img src=3D"http://www.crazyshop.co.il/email.system.files/Newsletter0805b.=
-jpg" width=3D"550" height=3D"913" border=3D"0" useMap=3D"#map">
-  <br><font size=3D2>=E2=EC=E9=F9=E4 =F0=F2=E9=EE=E4, =F6=E5=E5=FA CrazyShop=
-<br><br><b><font color=3D"#FFFFFF">
-  <u>
-  <a href=3D"mailto:inyc1@walla.com?subject=3D =EE=F2=E5=F0=E9=E9=EF =E1=F4=
-=F8=E8=E9=ED =E0=E5=E3=E5=FA =F4=F8=F1=E5=ED =E1=EE=E3=E9=E4 =E6=E5">=EC=F4=
-=F8=F1=E5=ED =E1=EE=E3=E9=E4 =E6=E5</a></u></font></b></font><p><u><b><font =
-color=3D"#FFFFFF">
-  <a href=3D"mailto:danielle_1@012.net.il?subject=3D=EE=F2=E5=F0=E9=E9=EF =
-=E1=E4=F1=F8=FA =EB=FA=E5=E1=FA=E9 =EE=F8=F9=E9=EE=FA =E4=FA=F4=E5=F6=E4 .">=
-=EC=E4=F1=F8=FA =EB=FA=E5=E1=FA=EA =EE=F8=F9=E9=EE=FA =E4=FA=F4=E5=F6=E4</a>=
-</font></b></u></p>
-</center>
 
-</font>
+<HTML>
 
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"21,88,272,770" href=3D"http://www.lunarshop=
-.co.il/?bid=3D-497594935">
-=20=20
-  <area shape=3D"rect" coords=3D"308,237,516,354" href=3D"http://www.crazysh=
-op.co.il/?bid=3Dtubeav2005&rdr=3DProduct.asp?PID=3D1029271781&cat=3D62">
-  <area shape=3D"rect" coords=3D"308,419,515,534" href=3D"http://www.crazysh=
-op.co.il/?bid=3Dtubeav2005&rdr=3DProduct.asp?PID=3D923377985&cat=3D62">
-  <area shape=3D"rect" coords=3D"307,602,515,719" href=3D"http://www.crazysh=
-op.co.il/?bid=3Dtubeav2005&rdr=3DProduct.asp?PID=3D-804450688&cat=3D62">
+<HEAD><TITLE> 
 
-  <area shape=3D"rect" coords=3D"24,774,272,898"  href=3D"http://www.lunarsh=
-op.co.il/?bid=3D-497594935">
-  <area shape=3D"rect" coords=3D"280,774,522,898" href=3D"http://www.crazysh=
-op.co.il/?bid=3Dtubeav2005">
-</map>
+<br>
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
+=A1=E5=
+=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
+=B8=
+=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
+<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
+ <br>        =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+         =A2=C6 <br>
+ =A2=C6     =A2=C6     =A2=C6<br>
+     =A2=C6 =A2=C6 =A2=C6 <br>
+         =A2=C6 <br>
 
+
+
+</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
+_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
+HEAD>
+
+
+
+
+
+<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
+0" marginheight=3D"0">
+
+
+
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+
+
+<table width=3D"551" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr>
+    <td><div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
+%651999.%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"ht=
+tp://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj=
+%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/=
+images/sp-main-1.gif" width=3D"551" height=3D"815" border=3D"0"></a></div>=
+</td>
+  </tr>
+  <tr> 
+    <td width=3D"551" bgcolor=3D"#333366">
+<div align=3D"center"><a href=3D"http://%67oo%64.n%61m%651999.=
+%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/or=
+der.jpg" width=3D"301" height=3D"95" border=3D"0"></a></div></td>
+  </tr>
+  <tr> 
+    <td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a
+href=3D=
+"http://%67oo%64.n%61m%651999.%63om/m_reject.html"><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/re=
+ject.jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
+  </tr>
+</table>
 </body>
 </html>
+
+--F36A._D.EFCDDD68_5--
