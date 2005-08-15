@@ -1,90 +1,155 @@
-From: katherine smith <katherinesmith2225@go.com>
-Subject: CONGRATULATIONS!!! FINAL NOTIFICATION.
-Date: Mon, 15 Aug 2005 02:21:54 -0700 (PDT)
-Message-ID: <6254292.1124097714058.JavaMail.katherinesmith2225@wmailweba01>
+From: =?windows-1251?B?NSAtIDYg8eXt8v/h8P8gMjAwNSDjLg==?= <aghast@start.no>
+Subject: =?windows-1251?B?z87R0sDNzsLKwCDIINDAx8LI0sjFINTIy8jAy9zNzskg0cXSyA==?=
+Date: Mon, 15 Aug 2005 09:42:55 +0000
+Message-ID: <dfa401c5a17d$d80d752b$ae51a48a@start.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/related;
+    type="multipart/alternative";
+    boundary="----=_NextPart_000_0000_2CE122C9.87013A14"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: katherinesmith2224@go.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-FROM THE OFFICE OF THE VICE PRESIDENT
-LUCKYDAY E-MAIL LOTTERY INTERNATIONAL PROGRAM
-INTERNATIONAL PROMOTIONS/PRIZE AWARD DEPT.
+This is a multi-part message in MIME format.
 
-BACTH NO: PTP/31211214257/190888/2202
-REF. NO. PTP/21449267220/255100//2202
-
-Sir /Madam /C.E O.
-
-This is to inform you of the release of the E-MAIL
-LOTTERY BALLOT INTERNATIONAL/ WORLD GAMING BOARD held on the 4th of August 2005.
-
-Due to the mix up of number, the results were released
-on the 7th of August 2005.
-
-Your name attached to ticket number 219028657434 with
-serial number 918735625 drew the lucky numbers of
-21-70-81-82-99 which consequently won the lottery in
-the 1st category.
-
-You have therefore been approved for a lump sum payout
-of Euros 500.000.00 Only ( FIVE HUNDRED THOUSAND Euros) in cash which is deposited with a Finance & Security Company in your favour as beneficiary and covered with HIGH INSURANCE POLICY .
-
-Due to mix up of some numbers and names, we ask that
-you keep your winning information confidential until
-your claims has been processed and your money remitted
-to you. This is part of our security protocol to avoid
-double claiming and unwarranted abuse of this program
-by some participants.
-
-All participants were selected through a computer ballot system drawn from only Microsoft users fromover 20,000 company, and 3,000,000 individual email addresses and names from all over the world.
-
-To begin your lottery claim, please contact the processing company below that have been appointed for the processing of your claim with your contact telephone and fax number to begin the processing of your claim .
-
-Mr Peter Roosval
-Euro Lottery Agency B.v.
-Email Address: eurolottwinner@netscape.net
-
-Tel:+31-626-248-022.
-Fax:+31-847-192-959,
-
-Note that all winning must be claimed not later than
-25th of August 2005.
-
-After this date all unclaimed, funds will be included
-in the next stake.
-
-Please note in order to avoid unnecessary delays and
-complications all relevant informations should be
-forwarded to your claim agent for onward processing.
-please remember to quote your reference number and
-batch numbers in all correspondence.
-
-Furthermore, should there be any change of address do
-inform our agent as soon as possible.
-
-Congratulations once more from our members of staff
-and thank you for being part of our promotional
-program.
-
-Note: Anybody under the age of 18 is automatically
-disqualified.
-
-Yours Sincerely,
-
-Mrs.Katherine Smith.
-Lottery Coordinator
-Email Address: eurolottwinner@netscape.net
+------=_NextPart_000_0000_2CE122C9.87013A14
+Content-Type: multipart/alternative;
+    boundary="----=_NextPart_001_0001_8062B452.80E42B62"
 
 
+------=_NextPart_001_0001_8062B452.80E42B62
+Content-Type: text/plain;
+    charset="windows-1251"
+Content-Transfer-Encoding: base64
+X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id j7F9rrH9004078
 
- 
+IDUgLSA2IPHl7fL/4fD/IDIwMDUg4y4NCsTi8/Xk7eXi7fvpIOru7fHz6/zy4Pbo7u3t++kg
+8eXs6O3g8C3v8ODq8ujq8+wg5Ov/IPDz6u7i7uTo8uXr5eksIOru7Ozl8Pfl8ero9Q0K5Ojw
+5ery7vDu4i4NCiLPztHSwM3OwsrAIMgg0MDHwsjSyMUg1MjLyMDL3M3OySDRxdLIIg0K5Ov/
+IO/w5eTv8Oj/8ujpIPH05fD7IPPx6/PjIA0KyuDqIO7w4+Dt6Ofu4uDy/CDx7uHx8uLl7e3z
+/iD06Ovo4Ov87fP+IPHl8vwg6CDq4Oog4vvh8ODy/CDt8+bt++kg8OXj6O7tDQrk6/8g9Ojr
+6ODr4D8gDQrK4Oro5SDs7uTl6+gg8+/w4OLr5e3o/yDz7OXx8u3l5SDv8Ojs5e3o8vwsIPP3
+6PL74uD/IO7x7uHl7e3u8fLoIMLg+OXpDQrq7uzv4O3o6D8NCsrg6iDv7uL78ejy/CDz7/Dg
+4uv/5ezu8fL8IMLg+Ojs6CD06Ovo4Ovg7Og/DQrPzsvT18jSxSDO0sLF0tsgzcAgwtHFIMLO
+z9DO0dsNCsTr/yDv7uvz9+Xt6P8g7+7k8O7h7e7pIO/w7uPw4Ozs+yDoIPDl4+jx8vDg9ujo
+IO/w7vHo7CDC4PEg7uHw4Png8vzx/yDv7g0K8uXr5fTu7fM6IA0K8i4oMDk1KSA1NDAtSTUt
+ODIgDQrCIO/w7uPw4Ozs5SDx5ezo7eDw4C3v8ODq8ujq8+zgOg0KDQoNCjEuIM7w4+Dt6Ofg
+9uju7e3g/yDx8vDz6vLz8OAg8+/w4OLr5e3o/yD06Ovo4Ov87e7pIPHl8vz+LiDU8+3q9uju
+7eDr/O375Q0K8ujv+yD06Ovo4Ovu4i4gDQrP8Ojt9ujv+yDx8vDz6vLz8Ojw7uLg7ej/IO7w
+4+Dt6Ofg9ujpLCDo7OX++ej1IPTo6+jg6/zt8/4g8eXy/Dsg7O7k5evoDQrz7/Dg4uvl7ej/
+IPTo6+jg6/zt7ukg8eXy/P4uIA0Kz/Du4evl7Psg9uXt8vDg6+jn7uLg7e3u4+4g6CDk5fbl
+7fLw4Ovo5+7i4O3t7uPuIPPv8ODi6+Xt6P8sIO/u6+7m5e3o5Q0K7iD06Ovo4OvlIOgg8OXj
+6+Ds5e3yIPPv8ODi6+Xt6P8g8eXy/P4uIA0KMi4gz+7k4+7y7uLq4CDqIO7y6vD78uj+LCDn
+4O/z8eog6CDu9uXt6uAg4ejn7eXx4CD06Ovo4OvgLiDM4PDq5fLo7ePu4vvpDQrg7eDr6Ocg
+8Pvt6uAg9Ojr6ODr4DsgDQru7/Dl5OXr5e3o5SDy5erz+ej1IOgg8fLw4PLl4+j35fHq6PUg
+5+Dk4Pcg5OX/8uXr/O3u8fLoIPTo6+jg6+A7IO/w7uTi6Obl7ejlDQrt4CDw5ePo7u3g6/zt
+++Ug8Pvt6ugsICLn4O/z8eoiIPDg4e7y+yD06Ovo4OvgDQozLiDP6+Dt6PDu4uDt6OUsIPPv
+8ODi6+Xt6OUsIOru7fLw7uv8IPHl8ugg9Ojr6ODr7uIuIA0Kwujk+yDoIO7x7e7i7fvlIP3y
+4O/7IO/r4O3o8O7i4O3o/ywg7vL35fLt7vHy/CD06Ovo4Ovu4jog7+Xw6O7k6Pft7vHy/CwN
+CvTu8Oz7Lg0KNC4gzOX14O3o5+z7ICLy6PDg5ujw7uLg7ej/IiDh6Oft5fHgIPTo6+jg6+7i
+LiDK6+jl7fLx6uD/IO/u6+jy6OrgLCDx8uDt5ODw8vsNCu/uIO7h8evz5uji4O3o/iDq6+jl
+7fLu4i4NCs7x7e7i7fvlIPHy4O3k4PDy+yDw4OHu8vsg9Ojr6ODr4CDoIPDz6u7i7uTo8uXr
+/yD06Ovo4OvgLCDv8O7j8ODs7Psg8fLo7PPr6PDu4uDt6P8NCvHh+/LgDQo1LiDC5+Do7O7k
+5enx8uLo5SD25e3y8OAg6CD06Ovo4Ovu4i4gzOX14O3o5+z7IO/u4vv45e3o/yDz7/Dg4uv/
+5ezu8fLoDQrx5fLoIPTo6+jg6+7iOiDz7/Dg4uvl7ejlIO/uIPbl6//sLCAi4u3z8vDl7e3o
+6SDq6+jl7fIiLCDq6/735eL75SDv7urg5+Dy5evoDQrk5f/y5ev87e7x8ugg9Ojr6ODr7uIg
+7u/w5eTl6+Xt6OUg8ODs7uog8eDs7vHy7v/y5ev87e7j7iDv8Ojt//Lo/yDw5fjl7ejpDQrk
+6/8g9Ojr6ODr4Dog8eXy6uAg7/Do7f/y6P8g8OX45e3o6SDq7u7w5Ojt4Pbo/yDw4OHu8vsg
+8eXy6C4NCg0KKiDT9+Dx8u3o6ugg6vPw8eAg7+7r8/fg8iDq7u3x8+v88uD26Ogg/erx7+Xw
+8uAg7+4g8eLu6Owg5+Dk4Pfg7CDoIOLu7/Du8eDsLA0K6u7s7+vl6vIg7/Dg6vLo9+Xx6uj1
+IOTu6vPs5e3y7uIg6CDs5fLu5OjqICjiIPLu7CD36PHr5SDiIP3r5ery8O7t7e7sIOLo5OUp
+LA0K6u7t8fPr/PLg9uju7e3z/iDv7uTk5fDm6vMg7+7x6+Ug8eXs6O3g8OAsIOAg8uDq5uUg
+8eXw8uj06Org8iDuIO/w7vXu5uTl7ejoDQrq8/Dx4C3v8ODq8ujq8+zgLg0KDQoNCg0KwOLy
+7vAg8eXs6O3g8OA6IPDz6u7i7uTo8uXr/CDq8PPv7e7pIOru7fHg6/Lo7ePu4u7pIOru7O/g
+7ejoLCDq7u3x8+v88uDt8i3v8ODq8ujqLA0K6Ozl/vno6SDh7uv8+O7pIPHy4OYg8ODh7vL7
+IO3gIPDz6u7i7uT/+ej1IOTu6+bt7vHy//Ug7ODw6uXy6O3j7uL79SDoIOrr6OXt8vHq6PUN
+Cu/u5PDg5+Tl6+Xt6Okg6Ofi5fHy7fv1INDu8fHo6fHq6PUg6u7s7+Dt6OksIOjs5f756Okg
+7u/78iDz8e/l+O379SDv8O7l6vLu4g0K7+4g8ODn4ujy6P4g8OXj6O7t4Ov87e7j7iDh6Oft
+5fHgIO3gIOHg5+Ug9Ojr6ODr7uIsIPHy6Ozz6+jw7uLg7ej+IPHh+/LgLA0K8ODn4ujy6P4g
+4OPl7fLx6uj1IPHl8uXpLCDi++Lu5PMg7e7i+/Ug7/Du5PPq8u7iIO3gIPD77e7qLg0KDQrM
+5fHy7iDv8O7i5eTl7ej/IPHl7Ojt4PDgOiAiSVJJUyBDb25ncmVzcyBob3RlbCoqKioiICDj
+LiDM7vHq4uAgDQrP8Ogg8OXj6PHy8OD26Ogg7eAg8eXs6O3g8CDk4vP1IPP34PHy7ejq7uIg
+7vIg6u7s7+Dt6OggLSDx6ujk6uAg8e7x8uDi6//l8g0KNSAlIO7yIO7h+eXpIPHz7Oz7LiAN
+Cg0KKDA5NSkgNTQwLUk1LTgyDQoNCiAgIA==
+------=_NextPart_001_0001_8062B452.80E42B62
+Content-Type: text/html;
+    charset="windows-1251"
+Content-Transfer-Encoding: base64
+X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id j7F9rrH9004078
 
-___________________________________________________
-Check-out GO.com
-GO get your free GO E-Mail account with expanded storage of 6 MB!
-http://mail.go.com
+PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMCBUcmFuc2l0aW9u
+YWwvL0VOIj4NCjxIVE1MPjxIRUFEPg0KPE1FVEEgaHR0cC1lcXVpdj1Db250ZW50LVR5cGUg
+Y29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PXdpbmRvd3MtMTI1MSI+DQo8TUVUQSBjb250
+ZW50PSJNU0hUTUwgNi4wMC4yOTAwLjIxODAiIG5hbWU9R0VORVJBVE9SPjwvSEVBRD4NCjxC
+T0RZIHRleHQ9IzAwMDAwMCBiZ0NvbG9yPSNmZmZmZmY+DQo8Zm9udCBmYWNlPSJUaW1lcyBO
+ZXcgUm9tYW4iPjxQIGFsaWduPWNlbnRlcj48Rk9OVCBzaXplPTI+PEZPTlQgZmFjZT1Bcmlh
+bD48Rk9OVCBzaXplPTQ+NSAtIDYg8eXt8v/h8P8gMjAwNSDjLjwvRk9OVD48YnI+DQrE4vP1
+5O3l4u376SDq7u3x8+v88uD26O7t7fvpIPHl7Ojt4PAt7/Dg6vLo6vPsIOTr/yDw8+ru4u7k
+6PLl6+XpLCDq7uzs5fD35fHq6PUg5Ojw5ery7vDu4i48YnI+DQo8Rk9OVCBjb2xvcj1maXJl
+YnJpY2s+PEZPTlQgc2l6ZT00PjxiPiLPztHSwM3OwsrAIMgg0MDHwsjSyMUg1MjLyMDL3M3O
+ySDRxdLIIjwvYj48L0ZPTlQ+PGJyPg0KPEZPTlQgc2l6ZT0zPjxiPjxVPuTr/yDv8OXk7/Do
+//Lo6SDx9OXw+yDz8evz4zwvVT48L2I+PC9GT05UPjwvRk9OVD4gPGJyPg0KPC9GT05UPjxG
+T05UIGZhY2U9QXJpYWw+PGI+yuDqIO7w4+Dt6Ofu4uDy/CDx7uHx8uLl7e3z/iD06Ovo4Ov8
+7fP+IPHl8vwg6CDq4Oog4vvh8ODy/CDt8+bt++kg8OXj6O7tIOTr/yD06Ovo4OvgPyA8YnI+
+DQrK4Oro5SDs7uTl6+gg8+/w4OLr5e3o/yDz7OXx8u3l5SDv8Ojs5e3o8vwsIPP36PL74uD/
+IO7x7uHl7e3u8fLoIMLg+OXpIOru7O/g7ejoPzxicj4NCsrg6iDv7uL78ejy/CDz7/Dg4uv/
+5ezu8fL8IMLg+Ojs6CD06Ovo4Ovg7Og/PGJyPg0KPFU+PEZPTlQgY29sb3I9I2IyMjIyMj7P
+zsvT18jSxSDO0sLF0tsgzcAgwtHFIMLOz9DO0ds8L0ZPTlQ+PC9VPjwvYj48YnI+DQo8L0ZP
+TlQ+PGI+PEZPTlQgZmFjZT1BcmlhbD7E6/8g7+7r8/fl7ej/IO/u5PDu4e3u6SDv8O7j8ODs
+7Psg6CDw5ePo8fLw4Pbo6CDv8O7x6OwgwuDxIO7h8OD54PL88f8g7+4g8uXr5fTu7fM6IDxi
+cj4NCjwvRk9OVD48L2I+PGI+PEZPTlQgZmFjZT1BcmlhbD7yLigwOTUpIDU0MC1JNS04MiA8
+YnI+DQo8L0ZPTlQ+PC9iPjxGT05UIHNpemU9Mz48Rk9OVCBmYWNlPUFyaWFsPjxiPjxGT05U
+IGNvbG9yPWZpcmVicmljaz7CIO/w7uPw4Ozs5SDx5ezo7eDw4C3v8ODq8ujq8+zgOjwvRk9O
+VD48L2I+PGJyPg0KPC9GT05UPjwvRk9OVD48L1A+DQoNCjxQPjwvRk9OVD48Rk9OVCBmYWNl
+PUFyaWFsIHNpemU9Mj48Yj4xLiDO8OPg7ejn4Pbo7u3t4P8g8fLw8+ry8/DgIPPv8ODi6+Xt
+6P8g9Ojr6ODr/O3u6SDx5fL8/i4g1PPt6vbo7u3g6/zt++Ug8ujv+yD06Ovo4Ovu4i48L2I+
+IDxicj4NCs/w6O326O/7IPHy8PPq8vPw6PDu4uDt6P8g7vDj4O3o5+D26OksIOjs5f756PUg
+9Ojr6ODr/O3z/iDx5fL8OyDs7uTl6+gg8+/w4OLr5e3o/yD06Ovo4Ov87e7pIPHl8vz+LiA8
+YnI+DQrP8O7h6+Xs+yD25e3y8ODr6Ofu4uDt7e7j7iDoIOTl9uXt8vDg6+jn7uLg7e3u4+4g
+8+/w4OLr5e3o/ywg7+7r7ubl7ejlIO4g9Ojr6ODr5SDoIPDl4+vg7OXt8iDz7/Dg4uvl7ej/
+IPHl8vz+LiA8YnI+DQo8Yj4yLiDP7uTj7vLu4urgIOog7vLq8Pvy6P4sIOfg7/Px6iDoIO72
+5e3q4CDh6Oft5fHgIPTo6+jg6+AuPC9iPiDM4PDq5fLo7ePu4vvpIODt4Ovo5yDw++3q4CD0
+6Ovo4OvgOyA8YnI+DQru7/Dl5OXr5e3o5SDy5erz+ej1IOgg8fLw4PLl4+j35fHq6PUg5+Dk
+4Pcg5OX/8uXr/O3u8fLoIPTo6+jg6+A7IO/w7uTi6Obl7ejlIO3gIPDl4+ju7eDr/O375SDw
+++3q6CwgIufg7/Px6iIg8ODh7vL7IPTo6+jg6+A8YnI+DQo8Yj4zLiDP6+Dt6PDu4uDt6OUs
+IPPv8ODi6+Xt6OUsIOru7fLw7uv8IPHl8ugg9Ojr6ODr7uIuPC9iPiA8YnI+DQrC6OT7IOgg
+7vHt7uLt++Ug/fLg7/sg7+vg7ejw7uLg7ej/LCDu8vfl8u3u8fL8IPTo6+jg6+7iOiDv5fDo
+7uTo9+3u8fL8LCD07vDs+y48YnI+DQo8Yj40LiDM5fXg7ejn7PsgIvLo8ODm6PDu4uDt6P8i
+IOHo5+3l8eAg9Ojr6ODr7uIuPC9iPiDK6+jl7fLx6uD/IO/u6+jy6OrgLCDx8uDt5ODw8vsg
+7+4g7uHx6/Pm6OLg7ej+IOrr6OXt8u7iLjxicj4NCs7x7e7i7fvlIPHy4O3k4PDy+yDw4OHu
+8vsg9Ojr6ODr4CDoIPDz6u7i7uTo8uXr/yD06Ovo4OvgLCDv8O7j8ODs7Psg8fLo7PPr6PDu
+4uDt6P8g8eH78uA8YnI+DQo8Yj41LiDC5+Do7O7k5enx8uLo5SD25e3y8OAg6CD06Ovo4Ovu
+4i48L2I+IMzl9eDt6Ofs+yDv7uL7+OXt6P8g8+/w4OLr/+Xs7vHy6CDx5fLoIPTo6+jg6+7i
+OiDz7/Dg4uvl7ejlIO/uIPbl6//sLCAi4u3z8vDl7e3o6SDq6+jl7fIiLCDq6/735eL75SDv
+7urg5+Dy5evoIOTl//Ll6/zt7vHy6CD06Ovo4Ovu4iDu7/Dl5OXr5e3o5SDw4Ozu6iDx4Ozu
+8fLu//Ll6/zt7uPuIO/w6O3/8uj/IPDl+OXt6Okg5Ov/IPTo6+jg6+A6IPHl8urgIO/w6O3/
+8uj/IPDl+OXt6Okg6u7u8OTo7eD26P8g8ODh7vL7IPHl8uguPC9GT05UPjwvUD4NCjxQPjxi
+PjxpPjxGT05UIGZhY2U9QXJpYWwgY29sb3I9I2IyMjIyMiBzaXplPTI+KiDT9+Dx8u3o6ugg
+6vPw8eAg7+7r8/fg8iDq7u3x8+v88uD26Ogg/erx7+Xw8uAg7+4g8eLu6Owg5+Dk4Pfg7CDo
+IOLu7/Du8eDsLCDq7uzv6+Xq8iDv8ODq8uj35fHq6PUg5O7q8+zl7fLu4iDoIOzl8u7k6Oog
+KOIg8u7sIPfo8evlIOIg/evl6vLw7u3t7uwg4ujk5SksIOru7fHz6/zy4Pbo7u3t8/4g7+7k
+5OXw5urzIO/u8evlIPHl7Ojt4PDgLCDgIPLg6ublIPHl8PLo9Ojq4PIg7iDv8O717ubk5e3o
+6CDq8/Dx4C3v8ODq8ujq8+zgLjwvRk9OVD48L2k+PC9iPjwvUD4NCjxESVY+PGI+PC9iPjwv
+RElWPg0KPFAgYWxpZ249Y2VudGVyPjxGT05UIGZhY2U9QXJpYWw+PGI+PEZPTlQgc2l6ZT0y
+PjxGT05UIGNvbG9yPWZpcmVicmljaz7A4vLu8CDx5ezo7eDw4Do8L0ZPTlQ+IPDz6u7i7uTo
+8uXr/CDq8PPv7e7pIOru7fHg6/Lo7ePu4u7pIOru7O/g7ejoLCDq7u3x8+v88uDt8i3v8ODq
+8ujqLCDo7OX++ejpIOHu6/z47ukg8fLg5iDw4OHu8vsg7eAg8PPq7uLu5P/56PUg5O7r5u3u
+8fL/9SDs4PDq5fLo7ePu4vv1IOgg6uvo5e3y8ero9SDv7uTw4Ofk5evl7ejpIOjn4uXx8u37
+9SDQ7vHx6Onx6uj1IOru7O/g7ejpLCDo7OX++ejpIO7v+/Ig8/Hv5fjt+/Ug7/Du5ery7uIg
+7+4g8ODn4ujy6P4g8OXj6O7t4Ov87e7j7iDh6Oft5fHgIO3gIOHg5+Ug9Ojr6ODr7uIsIPHy
+6Ozz6+jw7uLg7ej+IPHh+/LgLCDw4Ofi6PLo/iDg4+Xt8vHq6PUg8eXy5eksIOL74u7k8yDt
+7uL79SDv8O7k8+ry7uIg7eAg8Pvt7uouPC9GT05UPjwvYj48L0ZPTlQ+PC9QPg0KPFAgYWxp
+Z249Y2VudGVyPjxGT05UIGZhY2U9QXJpYWwgc2l6ZT0yPjxiPszl8fLuIO/w7uLl5OXt6P8g
+8eXs6O3g8OA6ICJJUklTIENvbmdyZXNzIGhvdGVsKioqKiImbmJzcDsg4y4gzO7x6uLgIDxi
+cj4NCjxpPs/w6CDw5ePo8fLw4Pbo6CDt4CDx5ezo7eDwIOTi8/Ug8/fg8fLt6Oru4iDu8iDq
+7uzv4O3o6CAtIPHq6OTq4CDx7vHy4OLr/+XyIDUgJSDu8iDu4fnl6SDx8+zs+y48L2k+PC9i
+PjxpPiA8L2k+PC9GT05UPjwvUD4NCjxQIGFsaWduPWNlbnRlcj48Rk9OVCBmYWNlPUFyaWFs
+IHNpemU9NT48Yj4oMDk1KSA1NDAtSTUtODI8L2I+PC9GT05UPjwvUD48L2ZvbnQ+DQo8L0JP
+RFk+DQo8L0hUTUw+DQo=
+------=_NextPart_001_0001_8062B452.80E42B62--
+
+
+
+------=_NextPart_000_0000_2CE122C9.87013A14--
