@@ -1,30 +1,71 @@
-From: "bene mawarki" <bene_081@hotmail.com>
-Subject: from bene
-Date: Mon, 15 Aug 2005 16:13:45 +0400
-Message-ID: <200508151215.j7FCFvH9001179@oss.sgi.com>
-Reply-To: bene7@rediffmail.com
+From: sponsors group <sponsorsgroup33114@go.com>
+Subject: YOU ARE THE WINNER OF US$500,000.
+Date: Mon, 15 Aug 2005 05:11:41 -0700 (PDT)
+Message-ID: <6936660.1124107901107.JavaMail.sponsorsgroup33114@WMAILWEBA03>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: sponsorsgroup33114@go.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-My Dear Friend, 
-I got your contact through Internet search and I want to establish a business relationship with you. 
-I work as agent to a company here in South Africa and the company deals in manufacturing of animal medicine for animal treatment and the chemical used in manufacturing this medicine is sold in Dubai 
-You can visit our website to know more about the company at: 
-www.orgsites.com/ia/lexia <http://www.orgsites.com/ia/lexia> 
-I and the white man who is the boss and president of this company normally go U.A.E in purchase of this chemical for more than one year now and we normally comes every three to four months in purchase of this material. 
-I was formally doing this business with Mrs Rajah Azizi who died recently and now I don't know any other person to handle the business with so that is why I want to handle the business with you. 
-The business is this, I just want you to act as a middle person to buy this chemical out from the real sellers at a cheaper price and re-sell to me and my boss the White man at a higher price and we share the profit. 
-The real price is $750 for one bottle but you will re-sell to us at $1,600 and our profit for each bottle is $850, so now the white-man want us to visit Dubai to purchase 300 bottles of the product at a total cost of $480,000,00 for the 300 bottles and our profit will be $255,000.00 and we share it equally $127,000,00 each. 
-The name of the product is Cloniarine and the seller is in Dubai so if you can handle the business then I will give you the phone number of the seller in Dubai so that you can contact him and find out if he has the chemical and you can buy from him at at cheep price and resell to us on arrival to your country on a higher price and we share the profit. 
-We are ready to fly down to your country to purchase this product as soon as you indicate your readiness to handle the business,so please if you are interested write me back and I will give you more details as soon as I hear from you and we will arrange for our coming within 24 hours. 
-This product is a legal commodity and is not against the Government but the only problem is that it is not on commercial sells, and is meant for big companies like ours. 
-This is a very lucrative business where we can split few thousands of Dollars genuinely every two to three months and remember the white man must not know our purchase point. 
-kindly give me your private mobile phone number so that I can call you for oral discussions and my email address is : bene7@rediffmail.com
-BENE MARWARKI, 
-Tel:27-826933445 
+SPONSORS  LOTTERY INTERNATIONAL
+THE DESK OF THE MANAGING DIRECTOR
+INTERNATIONAL PROMOTIONS/PRIZE AWARDS DEPARTMENT
+
+REF NO: TLOT/11472452560/05
+BATCH NO:234984/AIS763564/Bacc
+
+RE: AWARD NOTIFICATION/ FINAL NOTICE
+
+We are pleased to inform you of the result of the GLOBAL SOFTWARE GROUP SPONSORED LOTTERY which was held on the 10th August,2005. Your name attached to a ticket number 025164-1464992-750 with serial number 2113-05 drew the lucky numbers 1-10-24-30-38-45 which consequently won the lottery in the 1st category. You have therefore been approved for a lump sum payout of US$500,000.00(Five hundred thousand US Dollars) in cash credited to the file reference number: TLOT/3372452560/04. This is from a total cash prize of US$14.000,000.00 (Fourteen Million US Dollars) shared among twelve (28) international winners in this grand category. CONGRATULATIONS!!! Your funds is now deposited in a suspense account with our paying Bank insured to your name waiting remittance into your bank account. 
+Due to the privacy policy guiding this lottery promtional programme, we advice that you keep your award from public notice until your claims has been processed and your money remitted to your nominated bank account as this is this is part of our security protocol to avoid double claiming or unwarranted abuse of this program by the general public. 
+All participants were selected through a computer ballot system drawn from 25,000 names and E-mail addresses from Asia, Australia, New Zealand, Europe and North America as part of our international lottery program which we conduct twice every year. We hope that with part of your prize, you will part-take next year in our high stakes US$1.3billion International Lottery. To claim your Prize, please contact your claims agent
+
+**********************************************************
+MR.Phil Owens.
+TEL: 0031-650-548-522.
+E-mail: sponsorsgroup@netscape.net
+Alternative Email: sponsors@tangana.com
+Foreign Services Manager, Payment Process and Release Order Department,
+**********************************************************
+
+for processing and remittance of your prize funds into your designated bank account. 
+Note that all prize funds must be claimed not later than 30th August, 2005. After this date all funds will be returned as unclaimed for the next sweepstake. In order to avoid unnecessary delays and complications, please endeavor to quote your reference and batch numbers in every correspondence with us or your claims agent.
+Furthermore, should there be any change in your address, do inform your claims agent as soon as possible. Congratulations once again from all members of our staff and thanks for being part of our promotions program. 
+Regards, 
+Mrs. Patricia Walker. 
+(Lottery Co-ordinator) 
+E-mail:sponsorsgroup@netscape.net
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+___________________________________________________
+Check-out GO.com
+GO get your free GO E-Mail account with expanded storage of 6 MB!
+http://mail.go.com
