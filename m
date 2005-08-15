@@ -1,38 +1,72 @@
-From: "Lloyds TSB"<service@lloydstsb.co.uk>
-Subject: **Lloyds TSB Urgent**
-Date: Mon, 15 Aug 2005 18:20:45 +0300
-Message-ID: <200508151525.j7FFPeH9004036@oss.sgi.com>
+From: "Leslie North" <owikqqzj@yahoo.com>
+Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
+	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
+Date: Mon, 15 Aug 2005 13:35:59 -0200
+Message-ID: <ONXEXVKVGFAFQHPATERU@yahoo.com>
+Reply-To: "Leslie North" <kalojtcmcu@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/html;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary="--"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="550" id="AutoNumber2">
-<tr>
-<td width="100%" dir="ltr">
-<img border="0" src="https://online.lloydstsb.co.uk/pics/IBL_banner.gif" width="300" height="45"><hr color="#7DC99B" dir="ltr">
-<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber3">
-<tr>
-<td width="100%">
-<p dir="ltr"><font style="font-size: 19pt" color="#000080">
-personal & business account</font></td>
-</tr>
-</table>
-<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#008000" width="550" id="AutoNumber1" bgcolor="#E4E4F3">
-<tr>
-<td width="100%"><font color="#000080"><b>Security Alert</b></font>
-<p><font color="#000080">Please note that Your Lloyds TSB Online Account is about to expire. In order for it to remain active, please Use the link below to proceed and access your account.</font></p>
-<p><a href="http://www.agrostevia.com/online.lloydstsb.co.uk/online/bankonline/Secure/data/index.html">
-https://online.lloydstsb.co.uk/customer/Login.ibc</a></td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
+----
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-<html><script language="JavaScript"></script></html>
+
+  <BODY>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =B5=C9=B6=A7=B1=EE=C1=F6 =B9=AB=C1=A6=C7=D1 =
+=C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
+=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=C7=CF=B3=
+=AA. =B9=AB=C1=A6=C7=D1 =C0=FC=C8=AD=BF=B5=BE=EE 
+=B9=AB=B7=E1=C3=BC=C7=E8!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=B5=D1: =BF=
+=B5=BE=EE 
+=C4=CD=C7=C1=B9=AB=B7=E1!!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =BC=C2: =BF=B5=
+=BE=EE=C0=FC=B9=AE&nbsp;=B5=B5=BF=EC=B9=CC 
+=C6=C4=B0=DF&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =C7=CF=B7=E7 1=BD=C3=B0=A3 12=C0=CF=C0=CC=B8=
+=E9 =BD=C3=B1=E4=C7=CF=B0=D4 =BF=B5=BE=EE=B0=A1 
+=B5=E9=B8=B3=B4=CF=B4=D9!!&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp; 
+</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<A 
+href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/phone/phone010.php?par=
+tner_id=3Dbluekoba#1" 
+target=3D_blank>=A2=BA=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =BF=A9=B1=
+=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
+=B5=CB=B4=CF=B4=D9.=A2=B8</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</D=
+IV>
+<DIV>&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+  </BODY>
+
+
+
+------
