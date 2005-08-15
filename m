@@ -1,42 +1,36 @@
-From: "" <rzankjwoocjhz7787487487@hotmail.com>
-Subject: =?ISO-8859-1?Q?=A2=D1["=C4=AB=B5=E5=B4=EB=C3=E2(=C3=D6=C0=FA=B1=DD=B8=AE)"?=
-	=?ISO-8859-1?Q?=C1=F7=C0=E5=C0=CE=BD=C5=BF=EB=20100%=B4=EB=C3=E2]?= gfdf
-Date: Sun, 14 Aug 2005 21:48:36 -0400
-Message-ID: <q-d343a9h3$7$1h-7$r58u161j-0@k0szs>
-Reply-To: "" <rzankjwoocjhz7787487487@hotmail.com>
+From: "Monica Sweet" <dtean@yahoo.com>
+Subject: =?ISO-8859-1?Q?=C8=C4=BA=D2=C1=A6=20=C8=A8=BC=EE=C7=CE?=
+	=?ISO-8859-1?Q?=C8=F7=C6=AE=BB=F3=C7=B0=20=B0=AD=B7=C2=C7=D1?=
+	=?ISO-8859-1?Q?=BA=B9=B1=D9=20=BF=EE=B5=BF=B1=E2?=
+Date: Mon, 15 Aug 2005 04:46:21 +0300
+Message-ID: <DOPGQCKMZHMABPVBKGZEUURA@yahoo.com>
+Reply-To: "Monica Sweet" <dvnvrxf@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="37B_BC_9E_AC1A8"
+	boundary="--810117123786327982"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---37B_BC_9E_AC1A8
+----810117123786327982
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<table width=3D"75" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">
-<tr>
-<td><img src=3D"http://www.foryouloan.com/new/lone07.gif" width=3D"600" he=
-ight=3D"770" border=3D"0" usemap=3D"#Map"></td>
-</tr><map name=3D"Map">
-<area shape=3D"rect" coords=3D"22,219,582,327" href=3D"http://www.foryoulo=
-an.com/doc_request01.asp?id=3Dminjy" alt=3D"=C1=F7=C0=E5=C0=CE=B4=EB=C3=E2=
-">
-<area shape=3D"rect" coords=3D"19,338,582,447" href=3D"http://www.foryoulo=
-an.com/doc_request03.asp?id=3Dminjy" alt=3D"=C4=AB=B5=E5=B4=EB=C3=E2">
-<area shape=3D"rect" coords=3D"16,457,582,563" href=3D"http://www.foryoulo=
-an.com/doc_request04.asp?id=3Dminjy" alt=3D"=C1=F7=BE=F7=B1=BA=C0=CE">
-<area shape=3D"rect" coords=3D"13,573,583,677" href=3D"http://www.foryoulo=
-an.com/doc_request02_h.asp?id=3Dminjy" alt=3D"=B0=F8=B9=AB=BF=F8">
-<area shape=3D"rect" coords=3D"480,709,595,764" href=3D"http://www.foryoul=
-oan.com/nomail.htm">
-</map>
-</table>
-kokewgrv dtk   zziec vmnkb ep vvifclyu   pqqdchr gg
-ekxxbhyk za
+<TABLE WIDTH=3D"550" BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D"c=
+enter">
+<TR><TD><a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/ab/ab02.php=
+?partner_id=3Dtkstar"><IMG SRC=3D"http://%77%77%77%2e%41sdg%46ad=
+%67a%2e%63o%2e%6b%52/user/ftp/default/bbs/1/ab.jpg" border=3D"0"></a><A hr=
+ef=3D"http://www.n%45t%54%6fr%49%74%41l%4b.com/bbs/140_02.php?partner_id=3D=
+tkstar"><IMG src=3D"http://www.n%45t%54%6fr%49%74%41l%4b.com/bbs/140.gif" =
+border=3D0></A></TD>
+</TR><tr><TD bgcolor=3D"navy"><p> </p><p align=3D"center"><A href=3D"http:=
+//www.gubu2.cf.st"><IMG height=3D86 alt=3Dremail.gif src=3D"http://www.rau=
+co.kr/bbs/board/table/bbs2/upload/remail.gif" 
+width=3D505 border=3D0></A><br> </TD>
+    </tr>
+	</TABLE>
 
---37B_BC_9E_AC1A8--
+----810117123786327982--
