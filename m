@@ -1,41 +1,65 @@
-From: "\"개인회생1\" <\"bank3\"" <madilok01@daum.net>
-Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=BE=C6=C1=F7=B4=CA=C1=F6?=
-	=?ISO-8859-1?Q?=BE=CA=BE=D2=BD=C0=B4=CF=B4=D9.=C1=F6=B1=DD?=
-	=?ISO-8859-1?Q?=BD=C5=C3=BB=C7=CF=BC=BC=BF=A9!!!!?=
-Date: Mon, 15 Aug 2005 11:31:09 +0300
-Message-ID: <ZAHUPVIQFSCJZICUOHUYZGF@yahoo.com>
-Reply-To: "개인회생4" <coco@coco757.servvu4me.com>
+From: "Miles Bullard" <ymllaxvz@yahoo.com>
+Subject: =?ISO-8859-1?Q?4=B3=E2=C1=A6=20=C1=A4=B1=D4=B4=EB=C7=D0?=
+	=?ISO-8859-1?Q?=C7=D0=C0=A7..=C3=D6=B4=DC=206=B0=B3=BF=F9=C0=CC=B8=E9?=
+	=?ISO-8859-1?Q?=C3=EB=B5=E6=C7=D1=B4=D9~~!?=
+Date: Mon, 15 Aug 2005 14:34:00 +0600
+Message-ID: <FNJRFSDIBZWWEBQVNQYTGQ@yahoo.com>
+Reply-To: "Miles Bullard" <ymllaxvz@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--642822488057604"
+	boundary="--697769347054218"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----642822488057604
+----697769347054218
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-<body>
-<table>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
-resel0004
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
-gif
- border=3D0></a></td>
-  </tr>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
-jpg
- border=3D0></a></td>
-  </tr>
-</table>
-</body>
-</html>
 
-----642822488057604--
+<BODY>
+<DIV><FONT color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
+=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6</FONT></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<FONT 
+color=3D#000040>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</FO=
+NT><FONT 
+color=3D#0000ff>&nbsp;</FONT></DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;<FONT color=3D#ff00ff><U> .=B5=EE=B1=B3=BE=F8=
+=C0=CC =BF=C2-=B6=F3=C0=CE=C0=B8=B7=CE =C3=D6=B4=DC=B1=E2=B0=A3 =B1=B9=B3=BB=
+ 4=B3=E2=C1=A6=B4=EB=C7=D0 
+=C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6~~</U></FONT></DIV>
+<DIV><FONT color=3D#ff0080></FONT>&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp; 
+=B0=ED=B5=EE=C7=D0=B1=B3 =C1=B9=BE=F7=C0=DA=B0=DD =C0=CC=BB=F3=C0=CC=B8=E9=
+ =BC=F6=B4=C9=BD=C3=C7=E8=BE=F8=C0=CC =B4=A9=B1=B8=B3=AA</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp; 
+&nbsp;&nbsp;=C3=D6=B4=DC 6=B0=B3=BF=F9=C0=CC=B8=E9 =B1=B9=B3=BB 4=B3=E2=C1=
+=A6 =B4=EB=C7=D0 =C7=D0=BB=E7=C7=D0=C0=A7 =C3=EB=B5=E6 =B0=A1=B4=C9~~</DIV=
+>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+&nbsp;&nbsp;=A2=BA&nbsp;2.3.4=C7=D0=B3=E2 =C7=D0=BB=E7 =C6=ED=C0=D4 =C0=FD=
+=C8=A3=C0=C7 =B1=E2=C8=B8=C0=D4=B4=CF=B4=D9~!=A2=B8.</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+=A2=D1<A href=3D"http://eogkrrkwk.ww.to/" target=3D_blank><FONT color=3D#f=
+f0080>=C0=DA=BC=BC=C7=D1 =B9=AB=B7=E1 =BB=F3=B4=E3 
+=BD=C5=C3=BB=C0=BA =BF=A9=B1=E2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4</FONT=
+>.</A>=A2=D0</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT 
+color=3D#ff00ff>=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=
+=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=A2=C6=
+=A2=C6=A2=C6</FONT></DIV></BODY></HTML>
+
+
+----697769347054218--
