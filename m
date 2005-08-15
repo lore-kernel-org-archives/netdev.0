@@ -1,33 +1,41 @@
-From: "확실대출" <flflorwxu@naver.eicp.net>
-Subject: =?ISO-8859-1?Q?=C3=D6=C0=FA=B1=DD=B8=AE=20=B4=E7=C0=CF=B4=EB=C3=E2!!?=
-	=?ISO-8859-1?Q?=BD=C5=BF=EB=B9=AB=B0=FC=20=B4=A9=B1=B8=B3=AA?=
-	=?ISO-8859-1?Q?100%=B4=EB=C3=E2=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9.?=
-Date: Mon, 15 Aug 2005 17:50:53 +0600
-Message-ID: <UAYKJWHBVLNOYYVCUELM@yahoo.com>
-Reply-To: "최저금리상담" <flflorwxu@naver.eicp.net>
+From: "개인회생5" <coco@coco757.servvu4me.com>
+Subject: =?ISO-8859-1?Q?[=B5=B7=BE=F8=C0=CC=20=BA=FB=C3=BB=BB=EA]?=
+	=?ISO-8859-1?Q?=B0=B3=C0=CE=C8=B8=BB=FD=20=C1=A6=B5=B5=B8=A6?=
+	=?ISO-8859-1?Q?=BE=C6=BD=CA=B4=CF=B1=EE=3F?=
+Date: Mon, 15 Aug 2005 06:56:27 -0500
+Message-ID: <OSBEYFPQVVBVJEUEAKXIZWO@hotmail.com>
+Reply-To: "\"개인회생10\" <grergew"<grerrgew@capscaps.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--75332904521631119"
+	boundary="--429680451758194"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----75332904521631119
+----429680451758194
 Content-Type: text/html;
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 
-PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT48L3RpdGxlPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29u
-dGVudC1UeXBlIiBjb250ZW50PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9ZXVjLWtyIj4NCjwvaGVh
-ZD48Ym9keSBsZWZ0bWFyZ2luPSIwIiB0b3BtYXJnaW49IjAiPg0KPGEgaHJlZj0iaHR0cDov
-L3d3dy5sb2FuLXBvd2VyLmNvLmtyL2Zvcm0wMS5hc3A/TWNvZGU9NjQiIHRhcmdldD0iYmxh
-bmsiPjxpbWcgc3JjPSJodHRwOi8vZWFzeWxvYW4uNjhhYi5jb20vajEuanBnIiBib3JkZXI9
-IjAiPjxicj4NCjxmb250IGNvbG9yPXB1cnBsZSBzaXplPTM+DQqo5yDB98DlwM4gtOvD4iEh
-IMH3wOXAziC068Pisd24riC068b4wM7HzyEhPGJyPqjoILmruea5riEhILmrurjB9SEhIMH3
-wOXAzsDMuOkgtKmxuLOqIDEwMCUgtOvD4iEhPGJyPqjpIMDOxc2z3SC9xcO7vK24uCDA27y6
-x8+9w7jpILjwtecgvK23+cHYuvEgs6EhPGJyPqjqIMH3wOXAziC9xb/rL8DnwaS788XCILmr
-sPzHz7DUIL/4xay4ryAxMDAltOvD4iE8YnI+PGJyPjxiPqLPILG5s7sgw9bA+rHduK4gwffA
-5cDOILTrw+ItLS1bvcXDu8fPseJdPC9hPjwvZm9udD4NCjwvYm9keT4NCjwvaHRtbD4=
+<html>
+<body>
+<table>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
+  </tr>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
-----75332904521631119--
+----429680451758194--
