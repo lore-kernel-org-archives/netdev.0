@@ -1,79 +1,123 @@
-From: microsoft agency <microsoftagencynl7@go.com>
-Subject: CONGRATULATIONS! YOU HAVE WON!!!
-Date: Mon, 15 Aug 2005 08:03:47 -0700 (PDT)
-Message-ID: <2375813.1124118227534.JavaMail.microsoftagencynl7@wmailweba01>
+From: "±è¼ø¾Æ" <fewteiow@hanmail.net>
+Subject: =?ISO-8859-1?Q?=B8=AE=B9=D9=C0=CC=BD=BA=20=C1=A4=C7=B0?=
+	=?ISO-8859-1?Q?=C3=CA=C6=AF=B0=A1=BC=BC=C0=CF!!?=
+Date: Mon, 15 Aug 2005 11:53:58 -0300
+Message-ID: <1226.74844828925$1124119056@news.gmane.org>
+Reply-To: "±è¼ø¾Æ" <fewteiow@hanmail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary="--4615736071663260"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: microsoftagencynl7@go.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-MICROSOFT LOTTERY  AGENCY
-THE DESK OF THE MANAGING DIRECTOR
-INTERNATIONAL PROMOTIONS/PRIZE AWARDS DEPARTMENT
+----4615736071663260
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Reply to this email address:larryjones002@netscape.net
-REF NO: TLOT/542372452560/05
-BATCH NO:234984/AIS763564/Bacc
+  <HEAD>
+      <TITLE></TITLE>
+  </HEAD>
+  <BODY>
+<DIV>
+<DIV><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR>&nbsp;<FONT 
+color=3D#0000ff>2005 =B8=AE=B9=D9=C0=CC=BD=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5=
+ =C1=F8</FONT> <BR><FONT color=3D#ff8080><FONT 
+color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR></FONT><BR><FONT 
+color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
+=D8 <BR>=A1=D8 <FONT 
+color=3D#400040>=A2=C1=B1=E2=C1=B8=C0=C7 =C1=F8 =B0=B3=B3=E4=C0=BB =B6=D9=BE=
+=EE=B3=D1=B4=C2=B4=D9. <BR></FONT>=A1=D8 <FONT 
+color=3D#400040>=A2=C1=C7=D1=B1=B9=BF=A1=BC=AD =B0=A1=C0=E5 =BB=E7=B6=FB=B9=
+=DE=B4=C2=C1=F8 =C1=DF =C7=CF=B3=AA=C0=CE =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=
+=F8!<BR></FONT>=A1=D8 <FONT color=3D#400040>=A2=C12005=B3=E2 =BB=F5=B7=CE=BF=
+=EE =BE=F3=B1=BC=B7=CE =B4=D9=BD=C3 =C3=A3=BE=C6 =BF=C2=B4=D9.</FONT>.<BR>=
+=A1=D8 <BR>=A1=D8 
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
+=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
+=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR><FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
+/FONT><FONT 
+color=3D#0000a0>=C7=F6=C0=E7 =C6=C7=B8=C5=C1=DF=C0=CE =B8=AE=B9=D9=C0=CC=BD=
+=BA =B4=BA=BF=A3=C1=F8=C1=A6=C7=B0=C0=BA =C7=D1=B1=B9=BF=A1=B8=B8 =C0=D6=B4=
+=C2 =C1=A6=C7=B0=C0=B8=B7=CE OEM=C0=CC=B3=AA =BC=F6=C0=D4=C0=BA =BE=F8=BD=C0=
+=B4=CF=B4=D9.<BR></FONT><FONT 
+color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
+T><BR><BR><FONT 
+color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>=A2=BA</FONT>[=
+A Type] =C7=E3=B1=D7=B1=E2=BA=BB =C1=F8=C3=BB 100%cotton =BB=F6=BB=F3:=B1=A4=
+=C5=C3=C1=F8=C3=BB<BR><FONT color=3D#ff00ff>=A2=BA</FONT>[B Type]=C7=E3=B1=
+=D7=C0=FD=B0=B3 =C1=F8=C3=BB =BF=F8=B4=DC:75%cotton 25%lyoell =BB=F6=BB=F3=
+:=B1=A4=C5=C3=C1=F8=C3=BB
+</FONT><BR></FONT><BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC 
 
-RE: AWARD NOTIFICATION/ FINAL NOTICE
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
+=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
+=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
+BR>
+<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
+=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
+=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
+;</P></DIV></DIV>
+<HTML>
+<HEAD>
+<TITLE>=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=B8=AE=B9=D9=C0=CC=BD=
+=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=F8=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=
+=DA=A1=DA=A1=DA</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
 
-We are pleased to inform you of the result of the GLOBAL SOFTWARE GROUP 
-MICROSOFT LOTTERY which was held on the 12th August,2005. Your name 
-attached to a ticket number 025164-1464992-750 with serial number 2113-05
- drew the lucky numbers 1-10-24-30-38-45 which consequently won the 
-lottery in the 1st category. You have therefore been approved for a lump
- sum payout of US$500,000.00(Five hundred thousand US Dollars) in cash 
-credited to the file reference number: TLOT/3372452560/04. This is from 
-a total cash prize of US$14.000,000.00 (Fourteen Million US Dollars) 
-shared among twelve (28) international winners in this grand category. 
-CONGRATULATIONS!!! Your funds is now deposited in a suspense account 
-with our paying Bank insured to your name waiting remittance into your 
-bank account. 
-Due to the privacy policy guiding this lottery promtional programme, we 
-advice that you keep your award from public notice until your claims has
- been processed and your money remitted to your nominated bank account 
-as this is this is part of our security protocol to avoid double 
-claiming or unwarranted abuse of this program by the general public. 
-All participants were selected through a computer ballot system drawn 
-from 25,000 names and E-mail addresses from Asia, Australia, New Zealand,
- Europe and North America as part of our international lottery program 
-which we conduct twice every year. We hope that with part of your prize,
- you will part-take next year in our high stakes US$1.3billion 
-International Lottery. To claim your Prize, please contact your claims 
-agent
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+			 <TABLE WIDTH=3D"550" BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D=
+"center">
+	<TR>
+		<TD>
 
-**********************************************************
-MR.Larry Jones.
-TEL: 0031-610-266-216.
+			<a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/levi/levi01.php?=
+partner_id=3Da1234"><IMG SRC=3D"http://%77%77%77%2e%69%6d%44%77=
+%61%70m%2ecom/user/ftp/default/bbs/1/levi.jpg" border=3D"0"></a><A 
+href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143_01.php?partner_id=3D=
+a1234"><IMG 
+src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143.gif" 
+border=3D0></A>
+            <p> </p>
+</td>
 
-E-mail: larryjones002@netscape.net
-Alternative Email: larryjones001@myway.com
 
-Foreign Services Manager, Payment Process and Release Order Department,
-**********************************************************
+ <tr>
+		<TD bgcolor=3D"#993333">
+                <p align=3D"center"> <br><br><a href=3D"http://www.gubu2.c=
+f.st"><IMG height=3D86 alt=3Dremail.gif 
+src=3D"http://www.rau.co.kr/bbs/board/table/bbs2/upload/remail.gif" width=3D=
+505 
+border=3D0></a></p>
+</TD>
+        </tr>
+        </table>
+</BODY>
+</HTML>
 
-for processing and remittance of your prize funds into your designated 
-bank account. 
-Note that all prize funds must be claimed not later than 30th August, 
-2005. After this date all funds will be returned as unclaimed for the 
-next sweepstake. In order to avoid unnecessary delays and complications,
- please endeavor to quote your reference and batch numbers in every 
-correspondence with us or your claims agent.
-Furthermore, should there be any change in your address, do inform your 
-claims agent as soon as possible. Congratulations once again from all 
-members of our staff and thanks for being part of our promotions program.
- 
-Regards, 
-Mrs. Becky Adams. 
-(Lottery Co-ordinator) 
-
-Reply to this email address:larryjones001@netscape.net
-
-___________________________________________________
-Check-out GO.com
-GO get your free GO E-Mail account with expanded storage of 6 MB!
-http://mail.go.com
+----4615736071663260--
