@@ -1,21 +1,22 @@
-From: "Todd Meredith" <hiz6aqdta@shinbiro.com>
-Subject: =?ISO-8859-1?Q?=A2=BA=A2=B9=BF=B5=BE=EE=B0=A1?=
-	=?ISO-8859-1?Q?=B5=C9=B6=A7=B1=EE=C1=F6=20[=B9=AB=C1=A6=C7=D1?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=C3=BC=C7=E8]?= !!!!!  xgxlbunm ptnyrzz
-Date: Mon, 15 Aug 2005 06:39:06 +0100
-Message-ID: <3392p6-ukx7r8b23n@j31qop.rhe>
-Reply-To: "Todd Meredith" <hiz6aqdta@shinbiro.com>
+From: "자격증" <passjf92939432@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=B1=B9=B0=A1=C0=DA=B0=DD=C1=F5?=
+	=?ISO-8859-1?Q?=BD=BA=C6=F7=C3=F7=B0=E6=BF=B5=B0=FC=B8=AE=BB=E7?=
+	=?ISO-8859-1?Q?=C0=DA=B7=E1=B8=A6=20=B9=AB=B7=E1=B7=CE?=
+	=?ISO-8859-1?Q?=BA=B8=B3=BB=B5=E5=B8=B3=B4=CF=B4=D9?=
+Date: Mon, 15 Aug 2005 07:39:10 +0200
+Message-ID: <k9d$-of3a$34n@1l96td3b.2x.aw>
+Reply-To: "자격증" <passjf92939432@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="4D3C_B4C.FAA9B"
+	boundary="F_DB72E7E.D2_3BDD"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---4D3C_B4C.FAA9B
+--F_DB72E7E.D2_3BDD
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
@@ -28,8 +29,6 @@ Content-Transfer-Encoding: quoted-printable
 
 <HEAD><TITLE> 
 
-<body leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
-">
 <br>
 <br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
 =AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
@@ -56,8 +55,9 @@ Content-Transfer-Encoding: quoted-printable
 
 
 
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Deu=
-c-kr"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </HEAD>
+</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
+_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
+HEAD>
 
 
 
@@ -72,39 +72,34 @@ c-kr"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </HEAD>
 start=3D"return false">
 
 
-
-
-
-
-
-
-
-
-
-
-<table width=3D588 border=3D0 align=3D"center" cellpadding=3D0 cellspacing=
-=3D0>
-  <tbody>
-    <tr> 
-      <td width=3D"588"> <div align=3D"center"><a href=3D"http://=
-%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D91&pt_code=3Dskdltm"><=
-img src=3D"http://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73=
-%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/resell=
-er/pree-english/phone.gif" width=3D"588" height=3D"915" border=3D"0"></a><=
-/div></td>
-    </tr>
-    <tr> 
-      <td 
-          height=3D114 bgcolor=3D"#336633"> 
-        <div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
-%651999.%63om/m_reject.html" ><img src=3D"http://%64k%65k%64j=
-%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
-%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/pree-english/reject.jpg" wi=
-dth=3D"505" height=3D"114" border=3D"0"></a></div></td>
-    </tr>
-  </tbody>
+<table width=3D"551" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr>
+    <td><div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
+%651999.%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"ht=
+tp://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj=
+%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/=
+images/sp-main-1.gif" width=3D"551" height=3D"815" border=3D"0"></a></div>=
+</td>
+  </tr>
+  <tr> 
+    <td width=3D"551" bgcolor=3D"#333366">
+<div align=3D"center"><a href=3D"http://%67oo%64.n%61m%651999.=
+%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/or=
+der.jpg" width=3D"301" height=3D"95" border=3D"0"></a></div></td>
+  </tr>
+  <tr> 
+    <td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a
+href=3D=
+"http://%67oo%64.n%61m%651999.%63om/m_reject.html"><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/re=
+ject.jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
+  </tr>
 </table>
-<div align=3D"center"></div>
-</HTML>
+</body>
+</html>
 
---4D3C_B4C.FAA9B--
+--F_DB72E7E.D2_3BDD--
