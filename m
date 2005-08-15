@@ -1,155 +1,303 @@
-From: =?windows-1251?B?NSAtIDYg8eXt8v/h8P8gMjAwNSDjLg==?= <aghast@start.no>
-Subject: =?windows-1251?B?z87R0sDNzsLKwCDIINDAx8LI0sjFINTIy8jAy9zNzskg0cXSyA==?=
-Date: Mon, 15 Aug 2005 09:42:55 +0000
-Message-ID: <dfa401c5a17d$d80d752b$ae51a48a@start.no>
+From: 超絃麗的特效網頁<mzzrif@gsn.gov.tw>
+Subject: =?ISO-8859-1?Q?=A7O=A6A=B8r=BC}=A7O=A4H=A4F=A1I=A7A=A4]=A5i=A5H=BE=D6=A6=B3=C4=DD=A9=F3=A6=DB=A4v=AA=BA=AC=AF=C4RFlash=AFS=AE=C4=BA=F4=AD=B6=A1=E3=A1@?=                                             TTGSYTBFHZ
+Date: Mon, 15 Aug 2005 17:57:21 +0800
+Message-ID: <200508150959.j7F9xSHA004352@oss.sgi.com>
+Reply-To: mzzrif@gsn.gov.tw
 Mime-Version: 1.0
-Content-Type: multipart/related;
-    type="multipart/alternative";
-    boundary="----=_NextPart_000_0000_2CE122C9.87013A14"
+Content-Type: text/html;
+	charset="big5"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+<title>=A6X=BF=E8FLASH</title>
+</head>
 
-------=_NextPart_000_0000_2CE122C9.87013A14
-Content-Type: multipart/alternative;
-    boundary="----=_NextPart_001_0001_8062B452.80E42B62"
+<body>
+<table width=3D"52%" border=3D"1">
+  <tr>
+    <TD width=3D672><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 color=3D#0080=
+80><B>=A1=B9=A1=B9</B></FONT><FONT=20
+      face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1>=B1z=C1=D9=A6=B3=A8=E4=A5L=A5=D8=BF=
+=FD=B0=D1=A6=D2~~=BD=D0=AA=BD=B1=B5=C2I=A4J=BF=EF=C1=CA</FONT><FONT face=3D=
+=A5=FE=AFu=A4=E8=B7s=AE=D1=20
+      color=3D#008080><B>=A1=B9=A1=B9</B></FONT></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#9900cc><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/aspshop.htm"><B>
+	<font color=3D"#008000">=A1=B9</font></B></A></FONT><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/aspshop.htm"><STR=
+ONG><FONT=20
+      face=3D=AA=F7=B1=F6=B2H=A5j=C5=E9 color=3D#008000>ASP=AC[=AF=B8=A4j=
+=AEv</FONT></STRONG><FONT face=3D=AA=F7=B1=F6=B2H=A5j=C5=E9=20
+      color=3D#008000><STRONG>=BC=D2=AAO</STRONG></FONT><FONT=20
+      face=3D=B5=D8=B1dPOP1=C5=E9W5 color=3D"#008000">,DIY=AC[=B3]=A5X=A5=
+\=AF=E0=B1j=A4j=AA=BA=BA=F4=B8=F4=B0=D3=A9=B1..</FONT></A></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#9900cc><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/table.htm"><B>
+	<font color=3D"#800000">=A1=B9</font></B></A></FONT><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/table.htm"><font =
+color=3D"#800000">=A4u=A7@=B5e=AA=ED=AE=E6=B5e=AA=BA=AB=DC=B7=D0=B6=DC?=B3=
+o=B8=CC=A6=B3500=AD=D3=B2{=A6=A8=AA=BA!!</font></A></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#9900cc><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/page_2_.gif"><B>=A1=
+=B9</B></A></FONT><FONT=20
+      face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 color=3D#000099><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/page2.htm"><SPAN=20
+      style=3D"TEXT-DECORATION: none">=B1M=B7~=BA=F4=AD=B6=BC=D2=AAO=A4j=A5=
+=FE(=BA=F4=AD=B6=A9M=C3=B8=B9=CF=B3n=C5=E9=AA=BA=BC=D2=AAO)-=A4=A3=A5=CE=A6=
+A=B1q=C0Y=B3]=ADp=B0_=20
+      </SPAN></A></FONT></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#9900cc><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/page2.htm"><B>
+	<font color=3D"#008080">=A1=B9</font></B></A></FONT><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/page03.htm"><FONT=
+=20
+      face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 color=3D#008080>=B6W=BB=C5=B6W=AC=
+=AF=AA=BA=C1=FA=B0=EA=BC=D2=AA=A9=B6=A9=AD=AB=E0S=B3=F5;=C5=FD=B1z=BB=B4=C3=
+P=A7@=AD=D3=BA=F4=AD=B6=AC=FC=A4u=C3=B8=B9=CF=B0=AA=A4=E2....=20
+</FONT></A></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#9900cc><B><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/mail.htm">
+	<font color=3D"#800000">=A1=B9=B3=CC=ABK=A9y=AA=BA=A6=E6=BEP=A4=E2=AAk..=
+=B1=D0=B1z=A6p=A6=F3DIY=B5o=B0e=B9q=A4l=B3=F8...=A6A=B3=D0=B7~=C1Z=B0=AA=AE=
+p.............</font></A></B></FONT></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#9900cc><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/php.htm"><B>
+	<font color=3D"#FF00FF">=A1=B9</font></B></A></FONT><FONT=20
+      color=3D#9900cc><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/php.htm"><B><font=
+ color=3D"#FF00FF">=B7=ED=AD=D3=A7=D6=BC=D6=AA=BA=AF=B8=AA=F8--<FONT size=
+=3D2>Macromedia Dremaweaver MX2004 for=20
+      PHP</FONT>=BA=F4=AD=B6=BBs=A7@=B1=D0=BE=C7</font><font color=3D"#FF=
+00FF" size=3D"2">(3CD=A5t=AA=FE=C3=D8=A4@=A4=F9=A7K=B9B=B6O</font></B></A=
+></FONT><FONT=20
+      size=3D2 color=3D"#FF00FF"><B>)</B></FONT></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#008080><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/magic.html"><B>
+	<font color=3D"#000080">=A1=B9=C5]=B3N=AEv=B0=F6=B0V=A5=FA=BA=D0=A1=B9PU=
+B=A7=E2=A9f=B6W=AC=AF=C5]=B3N+=B6W=AF=E0=A4O=C5]=B3N+=C1=FA=B0=EA=A5=CD=AC=
+=A1=C5]=B3N=B1=D0=BE=C7</font></B><font color=3D"#000080">&nbsp;=20
+      </font>=20
+      </A></FONT></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=A4=E8=B7s=AE=D1 c=
+olor=3D#008080><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/sleep.htm"><B>
+	<font color=3D"#800080">=A1=B9=A1=B9=A1m2005=A6~=B6=CA=AFv=AEv=B0=F6=B0V=
+=A5=FA=BA=D0=A1n=A1=B9=A1=B9=B3=EA=BF=F4=A7A=A5=A8=A4j=AA=BA=BC=E7=B7N=C3=
+=D1=AF=E0=B6q!!</font></B><font color=3D"#800080">&nbsp;=20
+<!--  --></font></A></FONT></TD>
+	</tr>
+	<tr>
+    <TD width=3D672><B><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/hiker.htm">=A1=B9=
+=A1=B9=A1=B9=A2=AB=B3=CC=B7s=B3=CC=B1j=C0b=AB=C8=B1=D0=BE=C7=A5=FA=BA=D02=
+=A4=F9=B8=CB=A2=A8=A1=B9=A1=B9=A1=B9</A></B></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/computer.htm"><B>
+	<font color=3D"#008000">=A1=B9=A1=B9</font></B><font color=3D"#008000">E=
+=A5@=A5N=AA=BA=A7A=C1=D9=A4=A3=B7|=B9q=B8=A3=B6=DC=A1I=A8=BA=B4N=B8=A8=A5=
+=EE=A4F...............</font></A></TD>
+	</tr>
+	<tr>
+    <TD width=3D672 height=3D27><FONT face=3D=A5=FE=AFu=B6=EA=B7s=AE=D1><=
+A=20
+      href=3D"http://home.anet.net.tw/luckluck001/frank/five.htm"><B>
+	<font color=3D"#000000">=A1=BB2005=A6~=AF=B5=D3D=A4j=A4=BD=B6}:=BD=E4=B3=
+N=A5=B2=B3=D3=A4=E2=AAk+=B6}=C2=EA=B9=CF=B8=D1+=ACK=C3=C4=AF=A6=A4=E8+=A5=
+=C8=BE=C7=AAk=B3N+=B6W=AF=C5=B9q=B8=A3=AC=EC=A7=DE=A5=C7=B8o</font></B><f=
+ont color=3D"#000000">&nbsp;=20
+      </font>=20
+      </A></FONT></TD>
+	</tr>
+  <tr>=20
+    <td height=3D"101" align=3D"center">
+	<table class=3D"applicationcontainer managementview" cellSpacing=3D"0" c=
+ellPadding=3D"0" width=3D"100%" border=3D"0" id=3D"table1">
+		<tr vAlign=3D"top">
+			<td class=3D"content">
+			<div id=3D"message">
+				<table cellSpacing=3D"0" cellPadding=3D"0" width=3D"520" align=3D"cen=
+ter" border=3D"0" id=3D"table2">
+					<!-- fwtable fwsrc=3D"page5.png" fwbase=3D"epaper.gif" fwstyle=3D"Dr=
+eamweaver" fwdocid =3D "742308039" fwnested=3D"0" -->
+					<tr>
+						<td width=3D"520">
+						<img height=3D"1" alt=3D"" src=3D"http://www.upyesa.com/flash/image=
+s/spacergif" width=3D"520" border=3D"0"></td>
+					</tr>
+					<tr>
+						<td>
+						<img alt=3D"" src=3D"http://home.anet.net.tw/luckluck001/frank/epap=
+er_r1_c1.gif" border=3D"0" name=3D"epaper_r1_c1" width=3D"520" height=3D"=
+218"></td>
+					</tr>
+					<tr>
+						<td>
+						<img alt=3D"" src=3D"http://home.anet.net.tw/luckluck001/frank/epap=
+er_r2_c1.gif" border=3D"0" name=3D"epaper_r2_c1" width=3D"520" height=3D"=
+136"></td>
+					</tr>
+					<tr>
+						<td>
+						<img alt=3D"" src=3D"http://home.anet.net.tw/luckluck001/frank/epap=
+er_r3_c1.gif" border=3D"0" name=3D"epaper_r3_c1" width=3D"520" height=3D"=
+130"></td>
+					</tr>
+					<tr>
+						<td>
+						<img alt=3D"" src=3D"http://home.anet.net.tw/luckluck001/frank/epap=
+er_r4_c1.gif" border=3D"0" name=3D"epaper_r4_c1" width=3D"520" height=3D"=
+88"></td>
+					</tr>
+					<tr>
+						<td>
+						<img alt=3D"" src=3D"http://home.anet.net.tw/luckluck001/frank/epap=
+er_r5_c1.gif" border=3D"0" name=3D"epaper_r5_c1" width=3D"520" height=3D"=
+140"></td>
+					</tr>
+					<tr>
+						<td>
+						<img alt=3D"" src=3D"http://home.anet.net.tw/luckluck001/frank/epap=
+er_r6_c1.gif" border=3D"0" name=3D"epaper_r6_c1" width=3D"520" height=3D"=
+88"></td>
+					</tr>
+				</table>
+			</div>
+			</td>
+		</tr>
+	</table>
+	</td>
+  </tr>
+  <tr>=20
+    <td bgcolor=3D"#CCFF99"><strong><font face=3D"=AA=F7=B1=F6=B2H=A5j=C5=
+=E9" color=3D"#333366">=B0=CA=B5e=A4j=AEv</font></strong><font color=3D"#=
+333366" face=3D"=AA=F7=B1=F6=B2H=A5j=C5=E9"><strong>=20
+	flash=BC=D2=AAO =BDu=A4W=ADq=C1=CA=B3=E6 </strong></font></td>
+  </tr>
+  <tr>=20
+    <td height=3D"20" bgcolor=3D"#CCFF99"><font face=3D"=B5=D8=B1d=A4=D6=A4=
+k=A4=E5=A6rW3"><b>
+	<font color=3D"#993333">=C1`=BB=F9=B6W=B9L50,000=A4=B8=A1E=BDu=A4W=C1=CA=
+=B6R=A5u=ADn 1000=A4=B8</font></b></font><font color=3D"#993333" face=3D"=
+=B5=D8=B1d=A4=D6=A4k=A4=E5=A6rW3"><strong>(=A7t=B9B=B6O=A1^</strong></fon=
+t></td>
+  </tr>
+  <tr>=20
+    <td height=3D"39" bgcolor=3D"#CCFF99"><b><font face=3D"=BC=D0=B7=A2=C5=
+=E9" size=3D"4">
+	=B4=A3=A8=D1=BC=C6=A6=CA=BA=D8=AD=D3=A7=B9=BE=E3flash=AFS=AE=C4,=B4N=BA=E2=
+=A4=A3=C0=B4=B0=CA=B5e=B3]=ADp=AA=BA=A4H,=A4]=A5i=A5H=BB=B4=BB=B4=C3P=C3P=
+=A7Q=A5=CEfrantpage=A4=CEflash=B5=A5=BA=F4=AD=B6.=B0=CA=B5e=BDs=BF=E8=B3n=
+=C5=E9=BBs=A7@=A5X=C2=BE=B7~=A4=F4=B7=C7=AA=BA=BA=F4=AD=B6........</font>=
+</b></td>
+  </tr>
+   <FORM  action=3Dhttp://www.email104.com/cgi-bin/formmail/formemail.cgi=
+?no=3D1099
+                   method=3Dpost><INPUT type=3Dhidden value=3Dfrank=BA=F4=
+=AD=B6=A4j=AEvflash=A5=FA=BA=D01000=A4=B8 name=3Dsubject>=20
 
-
-------=_NextPart_001_0001_8062B452.80E42B62
-Content-Type: text/plain;
-    charset="windows-1251"
-Content-Transfer-Encoding: base64
-X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id j7F9rrH9004078
-
-IDUgLSA2IPHl7fL/4fD/IDIwMDUg4y4NCsTi8/Xk7eXi7fvpIOru7fHz6/zy4Pbo7u3t++kg
-8eXs6O3g8C3v8ODq8ujq8+wg5Ov/IPDz6u7i7uTo8uXr5eksIOru7Ozl8Pfl8ero9Q0K5Ojw
-5ery7vDu4i4NCiLPztHSwM3OwsrAIMgg0MDHwsjSyMUg1MjLyMDL3M3OySDRxdLIIg0K5Ov/
-IO/w5eTv8Oj/8ujpIPH05fD7IPPx6/PjIA0KyuDqIO7w4+Dt6Ofu4uDy/CDx7uHx8uLl7e3z
-/iD06Ovo4Ov87fP+IPHl8vwg6CDq4Oog4vvh8ODy/CDt8+bt++kg8OXj6O7tDQrk6/8g9Ojr
-6ODr4D8gDQrK4Oro5SDs7uTl6+gg8+/w4OLr5e3o/yDz7OXx8u3l5SDv8Ojs5e3o8vwsIPP3
-6PL74uD/IO7x7uHl7e3u8fLoIMLg+OXpDQrq7uzv4O3o6D8NCsrg6iDv7uL78ejy/CDz7/Dg
-4uv/5ezu8fL8IMLg+Ojs6CD06Ovo4Ovg7Og/DQrPzsvT18jSxSDO0sLF0tsgzcAgwtHFIMLO
-z9DO0dsNCsTr/yDv7uvz9+Xt6P8g7+7k8O7h7e7pIO/w7uPw4Ozs+yDoIPDl4+jx8vDg9ujo
-IO/w7vHo7CDC4PEg7uHw4Png8vzx/yDv7g0K8uXr5fTu7fM6IA0K8i4oMDk1KSA1NDAtSTUt
-ODIgDQrCIO/w7uPw4Ozs5SDx5ezo7eDw4C3v8ODq8ujq8+zgOg0KDQoNCjEuIM7w4+Dt6Ofg
-9uju7e3g/yDx8vDz6vLz8OAg8+/w4OLr5e3o/yD06Ovo4Ov87e7pIPHl8vz+LiDU8+3q9uju
-7eDr/O375Q0K8ujv+yD06Ovo4Ovu4i4gDQrP8Ojt9ujv+yDx8vDz6vLz8Ojw7uLg7ej/IO7w
-4+Dt6Ofg9ujpLCDo7OX++ej1IPTo6+jg6/zt8/4g8eXy/Dsg7O7k5evoDQrz7/Dg4uvl7ej/
-IPTo6+jg6/zt7ukg8eXy/P4uIA0Kz/Du4evl7Psg9uXt8vDg6+jn7uLg7e3u4+4g6CDk5fbl
-7fLw4Ovo5+7i4O3t7uPuIPPv8ODi6+Xt6P8sIO/u6+7m5e3o5Q0K7iD06Ovo4OvlIOgg8OXj
-6+Ds5e3yIPPv8ODi6+Xt6P8g8eXy/P4uIA0KMi4gz+7k4+7y7uLq4CDqIO7y6vD78uj+LCDn
-4O/z8eog6CDu9uXt6uAg4ejn7eXx4CD06Ovo4OvgLiDM4PDq5fLo7ePu4vvpDQrg7eDr6Ocg
-8Pvt6uAg9Ojr6ODr4DsgDQru7/Dl5OXr5e3o5SDy5erz+ej1IOgg8fLw4PLl4+j35fHq6PUg
-5+Dk4Pcg5OX/8uXr/O3u8fLoIPTo6+jg6+A7IO/w7uTi6Obl7ejlDQrt4CDw5ePo7u3g6/zt
-++Ug8Pvt6ugsICLn4O/z8eoiIPDg4e7y+yD06Ovo4OvgDQozLiDP6+Dt6PDu4uDt6OUsIPPv
-8ODi6+Xt6OUsIOru7fLw7uv8IPHl8ugg9Ojr6ODr7uIuIA0Kwujk+yDoIO7x7e7i7fvlIP3y
-4O/7IO/r4O3o8O7i4O3o/ywg7vL35fLt7vHy/CD06Ovo4Ovu4jog7+Xw6O7k6Pft7vHy/CwN
-CvTu8Oz7Lg0KNC4gzOX14O3o5+z7ICLy6PDg5ujw7uLg7ej/IiDh6Oft5fHgIPTo6+jg6+7i
-LiDK6+jl7fLx6uD/IO/u6+jy6OrgLCDx8uDt5ODw8vsNCu/uIO7h8evz5uji4O3o/iDq6+jl
-7fLu4i4NCs7x7e7i7fvlIPHy4O3k4PDy+yDw4OHu8vsg9Ojr6ODr4CDoIPDz6u7i7uTo8uXr
-/yD06Ovo4OvgLCDv8O7j8ODs7Psg8fLo7PPr6PDu4uDt6P8NCvHh+/LgDQo1LiDC5+Do7O7k
-5enx8uLo5SD25e3y8OAg6CD06Ovo4Ovu4i4gzOX14O3o5+z7IO/u4vv45e3o/yDz7/Dg4uv/
-5ezu8fLoDQrx5fLoIPTo6+jg6+7iOiDz7/Dg4uvl7ejlIO/uIPbl6//sLCAi4u3z8vDl7e3o
-6SDq6+jl7fIiLCDq6/735eL75SDv7urg5+Dy5evoDQrk5f/y5ev87e7x8ugg9Ojr6ODr7uIg
-7u/w5eTl6+Xt6OUg8ODs7uog8eDs7vHy7v/y5ev87e7j7iDv8Ojt//Lo/yDw5fjl7ejpDQrk
-6/8g9Ojr6ODr4Dog8eXy6uAg7/Do7f/y6P8g8OX45e3o6SDq7u7w5Ojt4Pbo/yDw4OHu8vsg
-8eXy6C4NCg0KKiDT9+Dx8u3o6ugg6vPw8eAg7+7r8/fg8iDq7u3x8+v88uD26Ogg/erx7+Xw
-8uAg7+4g8eLu6Owg5+Dk4Pfg7CDoIOLu7/Du8eDsLA0K6u7s7+vl6vIg7/Dg6vLo9+Xx6uj1
-IOTu6vPs5e3y7uIg6CDs5fLu5OjqICjiIPLu7CD36PHr5SDiIP3r5ery8O7t7e7sIOLo5OUp
-LA0K6u7t8fPr/PLg9uju7e3z/iDv7uTk5fDm6vMg7+7x6+Ug8eXs6O3g8OAsIOAg8uDq5uUg
-8eXw8uj06Org8iDuIO/w7vXu5uTl7ejoDQrq8/Dx4C3v8ODq8ujq8+zgLg0KDQoNCg0KwOLy
-7vAg8eXs6O3g8OA6IPDz6u7i7uTo8uXr/CDq8PPv7e7pIOru7fHg6/Lo7ePu4u7pIOru7O/g
-7ejoLCDq7u3x8+v88uDt8i3v8ODq8ujqLA0K6Ozl/vno6SDh7uv8+O7pIPHy4OYg8ODh7vL7
-IO3gIPDz6u7i7uT/+ej1IOTu6+bt7vHy//Ug7ODw6uXy6O3j7uL79SDoIOrr6OXt8vHq6PUN
-Cu/u5PDg5+Tl6+Xt6Okg6Ofi5fHy7fv1INDu8fHo6fHq6PUg6u7s7+Dt6OksIOjs5f756Okg
-7u/78iDz8e/l+O379SDv8O7l6vLu4g0K7+4g8ODn4ujy6P4g8OXj6O7t4Ov87e7j7iDh6Oft
-5fHgIO3gIOHg5+Ug9Ojr6ODr7uIsIPHy6Ozz6+jw7uLg7ej+IPHh+/LgLA0K8ODn4ujy6P4g
-4OPl7fLx6uj1IPHl8uXpLCDi++Lu5PMg7e7i+/Ug7/Du5PPq8u7iIO3gIPD77e7qLg0KDQrM
-5fHy7iDv8O7i5eTl7ej/IPHl7Ojt4PDgOiAiSVJJUyBDb25ncmVzcyBob3RlbCoqKioiICDj
-LiDM7vHq4uAgDQrP8Ogg8OXj6PHy8OD26Ogg7eAg8eXs6O3g8CDk4vP1IPP34PHy7ejq7uIg
-7vIg6u7s7+Dt6OggLSDx6ujk6uAg8e7x8uDi6//l8g0KNSAlIO7yIO7h+eXpIPHz7Oz7LiAN
-Cg0KKDA5NSkgNTQwLUk1LTgyDQoNCiAgIA==
-------=_NextPart_001_0001_8062B452.80E42B62
-Content-Type: text/html;
-    charset="windows-1251"
-Content-Transfer-Encoding: base64
-X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id j7F9rrH9004078
-
-PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMCBUcmFuc2l0aW9u
-YWwvL0VOIj4NCjxIVE1MPjxIRUFEPg0KPE1FVEEgaHR0cC1lcXVpdj1Db250ZW50LVR5cGUg
-Y29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PXdpbmRvd3MtMTI1MSI+DQo8TUVUQSBjb250
-ZW50PSJNU0hUTUwgNi4wMC4yOTAwLjIxODAiIG5hbWU9R0VORVJBVE9SPjwvSEVBRD4NCjxC
-T0RZIHRleHQ9IzAwMDAwMCBiZ0NvbG9yPSNmZmZmZmY+DQo8Zm9udCBmYWNlPSJUaW1lcyBO
-ZXcgUm9tYW4iPjxQIGFsaWduPWNlbnRlcj48Rk9OVCBzaXplPTI+PEZPTlQgZmFjZT1Bcmlh
-bD48Rk9OVCBzaXplPTQ+NSAtIDYg8eXt8v/h8P8gMjAwNSDjLjwvRk9OVD48YnI+DQrE4vP1
-5O3l4u376SDq7u3x8+v88uD26O7t7fvpIPHl7Ojt4PAt7/Dg6vLo6vPsIOTr/yDw8+ru4u7k
-6PLl6+XpLCDq7uzs5fD35fHq6PUg5Ojw5ery7vDu4i48YnI+DQo8Rk9OVCBjb2xvcj1maXJl
-YnJpY2s+PEZPTlQgc2l6ZT00PjxiPiLPztHSwM3OwsrAIMgg0MDHwsjSyMUg1MjLyMDL3M3O
-ySDRxdLIIjwvYj48L0ZPTlQ+PGJyPg0KPEZPTlQgc2l6ZT0zPjxiPjxVPuTr/yDv8OXk7/Do
-//Lo6SDx9OXw+yDz8evz4zwvVT48L2I+PC9GT05UPjwvRk9OVD4gPGJyPg0KPC9GT05UPjxG
-T05UIGZhY2U9QXJpYWw+PGI+yuDqIO7w4+Dt6Ofu4uDy/CDx7uHx8uLl7e3z/iD06Ovo4Ov8
-7fP+IPHl8vwg6CDq4Oog4vvh8ODy/CDt8+bt++kg8OXj6O7tIOTr/yD06Ovo4OvgPyA8YnI+
-DQrK4Oro5SDs7uTl6+gg8+/w4OLr5e3o/yDz7OXx8u3l5SDv8Ojs5e3o8vwsIPP36PL74uD/
-IO7x7uHl7e3u8fLoIMLg+OXpIOru7O/g7ejoPzxicj4NCsrg6iDv7uL78ejy/CDz7/Dg4uv/
-5ezu8fL8IMLg+Ojs6CD06Ovo4Ovg7Og/PGJyPg0KPFU+PEZPTlQgY29sb3I9I2IyMjIyMj7P
-zsvT18jSxSDO0sLF0tsgzcAgwtHFIMLOz9DO0ds8L0ZPTlQ+PC9VPjwvYj48YnI+DQo8L0ZP
-TlQ+PGI+PEZPTlQgZmFjZT1BcmlhbD7E6/8g7+7r8/fl7ej/IO/u5PDu4e3u6SDv8O7j8ODs
-7Psg6CDw5ePo8fLw4Pbo6CDv8O7x6OwgwuDxIO7h8OD54PL88f8g7+4g8uXr5fTu7fM6IDxi
-cj4NCjwvRk9OVD48L2I+PGI+PEZPTlQgZmFjZT1BcmlhbD7yLigwOTUpIDU0MC1JNS04MiA8
-YnI+DQo8L0ZPTlQ+PC9iPjxGT05UIHNpemU9Mz48Rk9OVCBmYWNlPUFyaWFsPjxiPjxGT05U
-IGNvbG9yPWZpcmVicmljaz7CIO/w7uPw4Ozs5SDx5ezo7eDw4C3v8ODq8ujq8+zgOjwvRk9O
-VD48L2I+PGJyPg0KPC9GT05UPjwvRk9OVD48L1A+DQoNCjxQPjwvRk9OVD48Rk9OVCBmYWNl
-PUFyaWFsIHNpemU9Mj48Yj4xLiDO8OPg7ejn4Pbo7u3t4P8g8fLw8+ry8/DgIPPv8ODi6+Xt
-6P8g9Ojr6ODr/O3u6SDx5fL8/i4g1PPt6vbo7u3g6/zt++Ug8ujv+yD06Ovo4Ovu4i48L2I+
-IDxicj4NCs/w6O326O/7IPHy8PPq8vPw6PDu4uDt6P8g7vDj4O3o5+D26OksIOjs5f756PUg
-9Ojr6ODr/O3z/iDx5fL8OyDs7uTl6+gg8+/w4OLr5e3o/yD06Ovo4Ov87e7pIPHl8vz+LiA8
-YnI+DQrP8O7h6+Xs+yD25e3y8ODr6Ofu4uDt7e7j7iDoIOTl9uXt8vDg6+jn7uLg7e3u4+4g
-8+/w4OLr5e3o/ywg7+7r7ubl7ejlIO4g9Ojr6ODr5SDoIPDl4+vg7OXt8iDz7/Dg4uvl7ej/
-IPHl8vz+LiA8YnI+DQo8Yj4yLiDP7uTj7vLu4urgIOog7vLq8Pvy6P4sIOfg7/Px6iDoIO72
-5e3q4CDh6Oft5fHgIPTo6+jg6+AuPC9iPiDM4PDq5fLo7ePu4vvpIODt4Ovo5yDw++3q4CD0
-6Ovo4OvgOyA8YnI+DQru7/Dl5OXr5e3o5SDy5erz+ej1IOgg8fLw4PLl4+j35fHq6PUg5+Dk
-4Pcg5OX/8uXr/O3u8fLoIPTo6+jg6+A7IO/w7uTi6Obl7ejlIO3gIPDl4+ju7eDr/O375SDw
-++3q6CwgIufg7/Px6iIg8ODh7vL7IPTo6+jg6+A8YnI+DQo8Yj4zLiDP6+Dt6PDu4uDt6OUs
-IPPv8ODi6+Xt6OUsIOru7fLw7uv8IPHl8ugg9Ojr6ODr7uIuPC9iPiA8YnI+DQrC6OT7IOgg
-7vHt7uLt++Ug/fLg7/sg7+vg7ejw7uLg7ej/LCDu8vfl8u3u8fL8IPTo6+jg6+7iOiDv5fDo
-7uTo9+3u8fL8LCD07vDs+y48YnI+DQo8Yj40LiDM5fXg7ejn7PsgIvLo8ODm6PDu4uDt6P8i
-IOHo5+3l8eAg9Ojr6ODr7uIuPC9iPiDK6+jl7fLx6uD/IO/u6+jy6OrgLCDx8uDt5ODw8vsg
-7+4g7uHx6/Pm6OLg7ej+IOrr6OXt8u7iLjxicj4NCs7x7e7i7fvlIPHy4O3k4PDy+yDw4OHu
-8vsg9Ojr6ODr4CDoIPDz6u7i7uTo8uXr/yD06Ovo4OvgLCDv8O7j8ODs7Psg8fLo7PPr6PDu
-4uDt6P8g8eH78uA8YnI+DQo8Yj41LiDC5+Do7O7k5enx8uLo5SD25e3y8OAg6CD06Ovo4Ovu
-4i48L2I+IMzl9eDt6Ofs+yDv7uL7+OXt6P8g8+/w4OLr/+Xs7vHy6CDx5fLoIPTo6+jg6+7i
-OiDz7/Dg4uvl7ejlIO/uIPbl6//sLCAi4u3z8vDl7e3o6SDq6+jl7fIiLCDq6/735eL75SDv
-7urg5+Dy5evoIOTl//Ll6/zt7vHy6CD06Ovo4Ovu4iDu7/Dl5OXr5e3o5SDw4Ozu6iDx4Ozu
-8fLu//Ll6/zt7uPuIO/w6O3/8uj/IPDl+OXt6Okg5Ov/IPTo6+jg6+A6IPHl8urgIO/w6O3/
-8uj/IPDl+OXt6Okg6u7u8OTo7eD26P8g8ODh7vL7IPHl8uguPC9GT05UPjwvUD4NCjxQPjxi
-PjxpPjxGT05UIGZhY2U9QXJpYWwgY29sb3I9I2IyMjIyMiBzaXplPTI+KiDT9+Dx8u3o6ugg
-6vPw8eAg7+7r8/fg8iDq7u3x8+v88uD26Ogg/erx7+Xw8uAg7+4g8eLu6Owg5+Dk4Pfg7CDo
-IOLu7/Du8eDsLCDq7uzv6+Xq8iDv8ODq8uj35fHq6PUg5O7q8+zl7fLu4iDoIOzl8u7k6Oog
-KOIg8u7sIPfo8evlIOIg/evl6vLw7u3t7uwg4ujk5SksIOru7fHz6/zy4Pbo7u3t8/4g7+7k
-5OXw5urzIO/u8evlIPHl7Ojt4PDgLCDgIPLg6ublIPHl8PLo9Ojq4PIg7iDv8O717ubk5e3o
-6CDq8/Dx4C3v8ODq8ujq8+zgLjwvRk9OVD48L2k+PC9iPjwvUD4NCjxESVY+PGI+PC9iPjwv
-RElWPg0KPFAgYWxpZ249Y2VudGVyPjxGT05UIGZhY2U9QXJpYWw+PGI+PEZPTlQgc2l6ZT0y
-PjxGT05UIGNvbG9yPWZpcmVicmljaz7A4vLu8CDx5ezo7eDw4Do8L0ZPTlQ+IPDz6u7i7uTo
-8uXr/CDq8PPv7e7pIOru7fHg6/Lo7ePu4u7pIOru7O/g7ejoLCDq7u3x8+v88uDt8i3v8ODq
-8ujqLCDo7OX++ejpIOHu6/z47ukg8fLg5iDw4OHu8vsg7eAg8PPq7uLu5P/56PUg5O7r5u3u
-8fL/9SDs4PDq5fLo7ePu4vv1IOgg6uvo5e3y8ero9SDv7uTw4Ofk5evl7ejpIOjn4uXx8u37
-9SDQ7vHx6Onx6uj1IOru7O/g7ejpLCDo7OX++ejpIO7v+/Ig8/Hv5fjt+/Ug7/Du5ery7uIg
-7+4g8ODn4ujy6P4g8OXj6O7t4Ov87e7j7iDh6Oft5fHgIO3gIOHg5+Ug9Ojr6ODr7uIsIPHy
-6Ozz6+jw7uLg7ej+IPHh+/LgLCDw4Ofi6PLo/iDg4+Xt8vHq6PUg8eXy5eksIOL74u7k8yDt
-7uL79SDv8O7k8+ry7uIg7eAg8Pvt7uouPC9GT05UPjwvYj48L0ZPTlQ+PC9QPg0KPFAgYWxp
-Z249Y2VudGVyPjxGT05UIGZhY2U9QXJpYWwgc2l6ZT0yPjxiPszl8fLuIO/w7uLl5OXt6P8g
-8eXs6O3g8OA6ICJJUklTIENvbmdyZXNzIGhvdGVsKioqKiImbmJzcDsg4y4gzO7x6uLgIDxi
-cj4NCjxpPs/w6CDw5ePo8fLw4Pbo6CDt4CDx5ezo7eDwIOTi8/Ug8/fg8fLt6Oru4iDu8iDq
-7uzv4O3o6CAtIPHq6OTq4CDx7vHy4OLr/+XyIDUgJSDu8iDu4fnl6SDx8+zs+y48L2k+PC9i
-PjxpPiA8L2k+PC9GT05UPjwvUD4NCjxQIGFsaWduPWNlbnRlcj48Rk9OVCBmYWNlPUFyaWFs
-IHNpemU9NT48Yj4oMDk1KSA1NDAtSTUtODI8L2I+PC9GT05UPjwvUD48L2ZvbnQ+DQo8L0JP
-RFk+DQo8L0hUTUw+DQo=
-------=_NextPart_001_0001_8062B452.80E42B62--
-
-
-
-------=_NextPart_000_0000_2CE122C9.87013A14--
+  <tr>
+    <td bgcolor=3D"#CCFF99">
+							<font face=3D"=B5=D8=B1d=B6W=A9=FA=C5=E9" color=3D"#3366FF" size=3D=
+"4">=A4=A4=A4=E5=A9m=A6W=A1G=20
+							=20
+							<input style=3D"border:1px solid #000000; BACKGROUND-COLOR: #fffff=
+f" size=3D"35" name=3D"=A4=A4=A4=E5=A9m=A6W" value=3D"=BD=D0=BF=E9=A4J=A4=
+=A4=A4=E5=A9m=A6W...">
+							*=A1@</font></td>
+  </tr>
+	<tr>
+    <td bgcolor=3D"#CCFF99">
+	<p align=3D"left"><font face=3D"=B5=D8=B1d=B6W=A9=FA=C5=E9" color=3D"#33=
+66FF" size=3D"4">=C1p=B5=B8=B9q=B8=DC=A1G=20
+							=20
+							<input style=3D"border:1px solid #000000; BACKGROUND-COLOR: #fffff=
+f" size=3D"35" name=3D"=C1p=B5=B8=B9q=B8=DC">
+							*=A1@</font></td>
+  </tr>
+  <tr>=20
+    <td bgcolor=3D"#CCFF99">
+							<font size=3D"4" face=3D"=B5=D8=B1d=B6W=A9=FA=C5=E9" color=3D"#336=
+6FF">=B9q=A4l=ABH=BDc=A1G</font><span style=3D"LETTER-SPACING: 1px"><font=
+ size=3D"4" face=3D"=B5=D8=B1d=B6W=A9=FA=C5=E9" color=3D"#3366FF">
+							<input style=3D"border:1px solid #000000; BACKGROUND-COLOR: #fffff=
+f" size=3D"35" name=3D"=B9q=A4l=ABH=BDc">
+							</font>
+							</span>
+							<font size=3D"4" color=3D"#3366FF" face=3D"=B5=D8=B1d=B6W=A9=FA=C5=
+=E9">=20
+							*(=A6^=C2=D0=ADq=B3=E6=A5=CE)</font></td>
+  </tr>
+  <tr>=20
+    <td bgcolor=3D"#CCFF99">
+							<font face=3D"=B5=D8=B1d=B6W=A9=FA=C5=E9" color=3D"#3366FF" size=3D=
+"4">=B0e=B9F=A6a=A7}=A1G=20
+							=20
+							<input style=3D"border:1px solid #000000; BACKGROUND-COLOR: #fffff=
+f" size=3D"47" name=3D"=B0e=B9F=A6a=A7}">
+							*</font></td>
+  </tr>
+  <tr>=20
+    <td bgcolor=3D"#CCFF99">
+							<font face=3D"=B5=D8=B1d=B6W=A9=FA=C5=E9" color=3D"#3366FF" size=3D=
+"4">=B6l=BB=BC=B0=CF=B8=B9=A1G=20
+							=20
+							<input style=3D"border:1px solid #000000; BACKGROUND-COLOR: #fffff=
+f" size=3D"10" name=3D"=B6l=BB=BC=B0=CF=B8=B9">
+														=20
+							</font>
+							</td>
+  </tr>
+	<tr>
+    <td bgcolor=3D"#CCFF99">
+	<p align=3D"left"><font size=3D"2">
+							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+							<input type=3D"submit" value=3D"=BDT=BB{=B6=C7=B0e" name=3D"B6">&n=
+bsp;
+							<input type=3D"submit" value=3D"=BDT=BB{=B6=C7=B0e" name=3D"B7"></=
+font></td>
+  </tr>
+  <tr>=20
+    <td bgcolor=3D"#CCFF99">
+							<font size=3D"2" face=3D"=AA=F7=B1=F6=B2H=A5j=C5=E9" color=3D"#800=
+000">
+							=A5=FA=BA=D0=A4@=AB=DF=A5=CE=A5=D5=AA=F7=A4=F9=BFN=BF=FD,=B5L=AAk=C5=
+=AA=A8=FA=A4@=AB=DF=A7K=B6O=A7=F3=B4=AB</font></td>
+  </tr>
+</table>
+</body>
+</html>
+=20
+VIIVGBUWFYOWUQNYVGTFIHOYOTXCZGKCWBPCDK
