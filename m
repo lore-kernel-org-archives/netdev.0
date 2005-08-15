@@ -1,14 +1,14 @@
-From: "Walker Plummer" <rc6tirtxp@ckh.dyndns.dk>
-Subject: =?ISO-8859-1?Q?=A2=C2?=
-	=?ISO-8859-1?Q?=BA=F1=BE=C6=B1=D7=B6=F3,=BD=C3=BE=CB=B8=AE=BD=BA,?=
-	=?ISO-8859-1?Q?=A2=C4=BF=A9=BC=BA=20=C8=EF=BA=D0=C1=A6..!!?=
-	=?ISO-8859-1?Q?=C1=A4=C7=B0=20=C6=C7=B8=C5..=A2=C5?=
-Date: Mon, 15 Aug 2005 02:29:02 -0100
-Message-ID: <kw5b-1b-$au2355-4358w$3n9z2-4@fpogk.yt>
-Reply-To: "Walker Plummer" <rc6tirtxp@ckh.dyndns.dk>
+From: "Hildegard" <t8wrandnq@yahoo.com>
+Subject: =?ISO-8859-1?Q?[=C0=DA=B0=DD=C1=F5=C1=A4=BA=B8]?=
+	=?ISO-8859-1?Q?=BB=E7=C8=B8=BA=B9=C1=F6=BB=E7=20=C0=DA=B0=DD=C1=F5?=
+	=?ISO-8859-1?Q?=BC=F6=C7=E8=C0=DA=B7=E1=B8=A6=20=B9=AB=B7=E1=B7=CE?=
+	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9!!!?=  az
+Date: Sun, 14 Aug 2005 20:45:32 -0700
+Message-ID: <6gdrt$ka-cdgq5qolqq@yjvfq>
+Reply-To: "Hildegard" <t8wrandnq@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="2_5FDAA._DAEF"
+	boundary="----=_NextPart_1E7E.2FC_D8EF_CFC0FAB"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -16,32 +16,45 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---2_5FDAA._DAEF
+------=_NextPart_1E7E.2FC_D8EF_CFC0FAB
 Content-Type: text/html;
+	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-<table width=3D200 border=3D0 cellspacing=3D0 cellpadding=3D0><tr><td>
-<img src=3Dhttp://v2.viagramankorea.net/images/via1.gif 
-width=3D650 height=3D781 border=3D0 usemap=3D#Map></td></tr>
-</table><map name=3DMap>
-<area shape=3Drect coords=3D8,6,646,402 
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
-t=3D_blank>
-<area shape=3Drect coords=3D7,406,644,627 
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner targe=
-t=3D_blank>
-<area shape=3Drect coords=3D8,635,217,696 
-href=3Dhttp://v2.viagramankorea.net/via_qna.htm target=3D_blank>
-<area shape=3Drect coords=3D223,636,431,693 
-href=3Dhttp://v2.viagramankorea.net/via_card.htm target=3D_blank>
-<area shape=3Drect coords=3D437,635,636,693
-href=3Dhttp://v2.viagramankorea.net/form_a1.php?partner=3Dviapartner>
-<area shape=3Drect coords=3D247,744,406,776 
-href=3Dhttp://v2.viagramankorea.net/partner/RejectMail.php target=3D_blank=
->
-</map>
-</body>
+<html><HTML><HEAD></HEAD>
+<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
+0" marginheight=3D"0">
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+<table width=3D"655" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+<tr><td width=3D"655"><a href=3D"http://%67oo%64.n%61m%651999.=
+%63om/codmain.html?prod_num=3D45&pt_code=3Dgood" ><img src=3D"http://=
+%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
+%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/1.gif" =
+width=3D"655" height=3D"232" border=3D"0"></a></td>
+</tr><tr><td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?pr=
+od_num=3D45&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j=
+%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
+%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/2.gif" width=3D"655"=
+ height=3D"155" border=3D"0"></a></td>
+</tr><tr><td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?pr=
+od_num=3D45&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j=
+%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
+%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/3.gif" width=3D"655"=
+ height=3D"266" border=3D"0"></a></td>
+</tr><tr><td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?pr=
+od_num=3D45&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j=
+%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
+%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/4.gif" width=3D"655"=
+ height=3D"107" border=3D"0"></a></td>
+</tr><tr><td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a h=
+ref=3D"http://%67oo%64.n%61m%651999.%63om/m_reject.html" ><img src=3D"http=
+://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k=
+%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/re=
+ject.jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
+</tr></table></body></html>hcvn juzrytgodj
 
---2_5FDAA._DAEF--
+d 
+
+------=_NextPart_1E7E.2FC_D8EF_CFC0FAB--
