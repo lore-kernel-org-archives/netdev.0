@@ -1,72 +1,37 @@
-From: "Robin Mcwilliams" <tldjbchsq@yahoo.com>
-Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
-	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
-Date: Mon, 15 Aug 2005 05:45:56 -0200
-Message-ID: <IIPCVXEYFVUKQMLVKIOJMLLX@yahoo.com>
-Reply-To: "Robin Mcwilliams" <tldjbchsq@yahoo.com>
+From: "" <ehgxnweqsmjpq8794731740@hotmail.com>
+Subject: =?ISO-8859-1?Q?=B0=ED=B0=B4=B4=D4=205=BA=D0=C0=CC=B8=E9?=
+	=?ISO-8859-1?Q?=C4=AB=B5=E5=BF=AC=C3=BC?=
+	=?ISO-8859-1?Q?=C7=D8=B0=E1=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9!?= jvu   tvt
+Date: Mon, 15 Aug 2005 09:47:24 +0200
+Message-ID: <6oq0503u-74u-q$tql$4kis-p-k@cn5za605f>
+Reply-To: "" <ehgxnweqsmjpq8794731740@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--3275485731779101"
+	boundary="44D27_B.CD4.9"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----3275485731779101
+
+--44D27_B.CD4.9
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
+<table width=3D"75%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">
+<tr>
+<td><img src=3D"http://www.foryouloan.com/new/lone06.gif" width=3D"650" he=
+ight=3D"720" border=3D"0" usemap=3D"#Map"></td>
+</tr><map name=3D"Map">
+<area shape=3D"rect" coords=3D"48,358,620,480" href=3D"http://www.foryoulo=
+an.com/doc_request01.asp?id=3Dminjy" alt=3D"=C1=F7=C0=E5=C0=CE=B4=EB=C3=E2=
+">
+<area shape=3D"rect" coords=3D"37,494,630,611" href=3D"http://www.foryoulo=
+an.com/doc_request03.asp?id=3Dminjy" alt=3D"=B4=EB=C3=E2">
+<area shape=3D"rect" coords=3D"511,662,636,711" href=3D"http://www.foryoul=
+oan.com/nomail.htm">
+</map>
+</table> lbwzjt 
 
-  <BODY>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =B5=C9=B6=A7=B1=EE=C1=F6 =B9=AB=C1=A6=C7=D1 =
-=C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
-=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=C7=CF=B3=
-=AA. =B9=AB=C1=A6=C7=D1 =C0=FC=C8=AD=BF=B5=BE=EE 
-=B9=AB=B7=E1=C3=BC=C7=E8!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=B5=D1: =BF=
-=B5=BE=EE 
-=C4=CD=C7=C1=B9=AB=B7=E1!!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =BC=C2: =BF=B5=
-=BE=EE=C0=FC=B9=AE&nbsp;=B5=B5=BF=EC=B9=CC 
-=C6=C4=B0=DF&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =C7=CF=B7=E7 1=BD=C3=B0=A3 12=C0=CF=C0=CC=B8=
-=E9 =BD=C3=B1=E4=C7=CF=B0=D4 =BF=B5=BE=EE=B0=A1 
-=B5=E9=B8=B3=B4=CF=B4=D9!!&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp; 
-</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<A 
-href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/phone/phone010.php?par=
-tner_id=3Dbluekoba#1" 
-target=3D_blank>=A2=BA=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =BF=A9=B1=
-=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
-=B5=CB=B4=CF=B4=D9.=A2=B8</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</D=
-IV>
-<DIV>&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-  </BODY>
-
-
-
-----3275485731779101--
+--44D27_B.CD4.9--
