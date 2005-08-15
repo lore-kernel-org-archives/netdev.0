@@ -1,56 +1,32 @@
-From: "" <ehgxnweqsmjpq8794731740@hotmail.com>
-Subject: =?ISO-8859-1?Q?(=C1=F7=C0=E5=C0=CE=B4=EB=C3=E2)=C7=E3=C0=A7?=
-	=?ISO-8859-1?Q?=B1=A4=B0=ED=B8=A6=20=C7=CF=C1=F6?=
-	=?ISO-8859-1?Q?=BE=CA=BD=C0=B4=CF=B4=D9=20=C1=F7=C0=E5=C0=CE?=
-	=?ISO-8859-1?Q?=B4=EB=C3=E2?=
-	=?ISO-8859-1?Q?=C4=C1=BC=B3=C6=C3(=C4=AB=B5=E5=B4=EB=B3=B3)?= dpplnuughmo lz  ie
-Date: Mon, 15 Aug 2005 09:53:27 -0400
-Message-ID: <o1$jc4$-lt$6-8-$3bvk-0fdl5ntvq@nnff.ptwibf1>
-Reply-To: "" <ehgxnweqsmjpq8794731740@hotmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="A6.C38.AFA952FB"
+From: =?GB2312?B?s8LPyMn6?= <szclsy@126.com>
+Subject: =?GB2312?B?ye7b2srQsNnKosq10rXT0M/euavLvg==?=
+Date: Mon, 15 Aug 2005 22:07:25 +0800
+Message-ID: <200508151407.j7FE7bHA015246@oss.sgi.com>
+Reply-To: 1212@12.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+贵公司负责人(经理/财务）您好： 
+    我是深圳市百盛实业有限公司的（广州、东莞等市有分公司）。
+我司实力雄厚，有着良好的社会关系。因进项较多现完成不了每月销
+售额度。每月有一部分增值税电脑发票（5%左右）和普通商品销售税
+发票（国税、地税1.5%左右）优惠代开或合作，点数较低。还可以根
+据所做数量额度的大小来商讨优惠的点数。
+    本公司郑重承诺所用绝对是真票！更希望能够有机会与贵司合作！
+　　
+    如贵司在发票的真伪方面有任何疑虑或担心，可上网查证或我司
+直接与贵司去税务局抵扣核对。 
+    
+    彼此合作一次，必成永久朋友！ 
+    此信息长期有效，如须进一步洽商: 
+    详情请电(24小时业务热线):13926515323 
+    邮  箱：szbssy@163.com 
+    联系人：李先生
+     
+顺祝商祺！ 
 
---A6.C38.AFA952FB
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
-
-<title></title>
-</head>
-
-<body>
-<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
-ellerid=3D77" 
-height=3D'0' width=3D'0'>
-<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
-%6D/%7E%6C%5F%31%37%
-38/zzz/mail_04.gif" border usemap=3D"#Map">
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"30,416,549,535" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"23,601,552,714" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"-6,733,576,796" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
-</map>
-</body>
-</html>uxdlhedrlsd wrof 
-
---A6.C38.AFA952FB--
+　　　　　　　　　　　　　　  　　　深圳市百盛实业有限公司
