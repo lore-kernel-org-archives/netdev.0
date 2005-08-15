@@ -1,71 +1,72 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: 2.6.13-rc5-mm1: BUG: rwlock recursion on CPU#0
-Date: Mon, 15 Aug 2005 11:37:14 +0200
-Message-ID: <20050815093714.GB4439@rama.de.gnumonks.org>
-References: <200508141448.36562.rjw@sisk.pl> <Pine.LNX.4.61.0508141940200.6740@montezuma.fsmlabs.com>
+From: "Robin Mcwilliams" <tldjbchsq@yahoo.com>
+Subject: =?ISO-8859-1?Q?10=BA=D0=BE=BF=B8=B8=20=C5=F5=C0=DA=C7=CF=BF=A9?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=B7=CE=20=BF=B5=BE=EE=C8=B8=C8=AD?=
+	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=D8=BA=B8=BC=BC=BF=E4~~**?=
+Date: Mon, 15 Aug 2005 05:45:56 -0200
+Message-ID: <IIPCVXEYFVUKQMLVKIOJMLLX@yahoo.com>
+Reply-To: "Robin Mcwilliams" <tldjbchsq@yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="7AUc2qLy4jB3hD7Z"
-Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Type: multipart/alternative;
+	boundary="--3275485731779101"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0508141940200.6740@montezuma.fsmlabs.com>
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---7AUc2qLy4jB3hD7Z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+----3275485731779101
+Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, Aug 14, 2005 at 08:15:53PM -0600, Zwane Mwaikambo wrote:
 
-> Is the following patch correct? ip_conntrack_event_cache should never be=
-=20
-> called with ip_conntrack_lock held and ct_add_counters does not need to b=
-e=20
-> called with ip_conntrack_lock held.
+  <BODY>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =B5=C9=B6=A7=B1=EE=C1=F6 =B9=AB=C1=A6=C7=D1 =
+=C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
+=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=C7=CF=B3=
+=AA. =B9=AB=C1=A6=C7=D1 =C0=FC=C8=AD=BF=B5=BE=EE 
+=B9=AB=B7=E1=C3=BC=C7=E8!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=B5=D1: =BF=
+=B5=BE=EE 
+=C4=CD=C7=C1=B9=AB=B7=E1!!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =BC=C2: =BF=B5=
+=BE=EE=C0=FC=B9=AE&nbsp;=B5=B5=BF=EC=B9=CC 
+=C6=C4=B0=DF&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =C7=CF=B7=E7 1=BD=C3=B0=A3 12=C0=CF=C0=CC=B8=
+=E9 =BD=C3=B1=E4=C7=CF=B0=D4 =BF=B5=BE=EE=B0=A1 
+=B5=E9=B8=B3=B4=CF=B4=D9!!&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp; 
+</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<A 
+href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/phone/phone010.php?par=
+tner_id=3Dbluekoba#1" 
+target=3D_blank>=A2=BA=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =BF=A9=B1=
+=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
+=B5=CB=B4=CF=B4=D9.=A2=B8</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</D=
+IV>
+<DIV>&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+  </BODY>
 
-No, it's not correct.  ct_add_countes has to be called from within
-write_lock_bh() on ip_conntrack_lock.
 
-So if you keep the ct_add_counters() call where it is and only apply the
-rest of your patch (i.e. deferring of ip_conntrack_event_cache() call),
-then I think your patch would work.
 
-However, the whole eventcache needs to be audited, it's called from a
-number of places.
-
-As Patrick wrote he's working on a solution, I'm not going to intervene
-or replicate his work.  As a interim solution I'd suggest disabling
-CONFIG_IP_NF_CT_ACCT [which can't be vital anyway, since it was only
-added in net-2.6.14 (and thus -mm)].
-
-Cheers,
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---7AUc2qLy4jB3hD7Z
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDAGJJXaXGVTD0i/8RAgAoAKCXgyYsWyIzw6bKK1OnpnlhTAEvcgCgqOeG
-B16+kW+DiFqW3wA/tVPX/TA=
-=fakC
------END PGP SIGNATURE-----
-
---7AUc2qLy4jB3hD7Z--
+----3275485731779101--
