@@ -1,102 +1,42 @@
-From: "국가공인" <ffgg34534546345if@yahoo.com>
-Subject: =?ISO-8859-1?Q?=B1=B9=B0=A1=B0=F8=C0=CE=BB=E7=C8=B8=BA=B9=C1=F6=BB=E7=C0=DA=B7=E1=B9=AB=B7=E1=C1=A6=B0=F8=C7=D5=B4=CF=B4=D9!!...?=
-Date: Sun, 14 Aug 2005 23:00:35 -0200
-Message-ID: <35qo2-8hbpz4156lq-743@fn80eb7.3nc>
-Reply-To: "국가공인" <ffgg34534546345if@yahoo.com>
+From: "" <rzankjwoocjhz7787487487@hotmail.com>
+Subject: =?ISO-8859-1?Q?=A2=D1["=C4=AB=B5=E5=B4=EB=C3=E2(=C3=D6=C0=FA=B1=DD=B8=AE)"?=
+	=?ISO-8859-1?Q?=C1=F7=C0=E5=C0=CE=BD=C5=BF=EB=20100%=B4=EB=C3=E2]?= gfdf
+Date: Sun, 14 Aug 2005 21:48:36 -0400
+Message-ID: <q-d343a9h3$7$1h-7$r58u161j-0@k0szs>
+Reply-To: "" <rzankjwoocjhz7787487487@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="7A.._E6CAC.1AACC.8.._C9"
+	boundary="37B_BC_9E_AC1A8"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kdb@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---7A.._E6CAC.1AACC.8.._C9
+--37B_BC_9E_AC1A8
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-
-<HTML>
-
-<HEAD><TITLE> 
-
-<br>
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
-=A1=E5=
-=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
-=B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>        =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
- =A2=C6     =A2=C6     =A2=C6<br>
-     =A2=C6 =A2=C6 =A2=C6 <br>
-         =A2=C6 <br>
-
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
-_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
-HEAD>
-
-<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
-0" marginheight=3D"0">
-
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
-
-<table width=3D"655" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr> 
-    <td width=3D"655"><a href=3D"http://%67oo%64.n%61m%651999.=
-%63om/codmain.html?prod_num=3D45&pt_code=3Dinter7777" ><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/1.gif" =
-width=3D"655" height=3D"232" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D45&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k%64j%66j=
-%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
-%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/2.gif" width=3D"655"=
- height=3D"155" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D45&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k%64j%66j=
-%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
-%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/3.gif" width=3D"655"=
- height=3D"266" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
-m=3D45&pt_code=3Dinter7777" ><img src=3D"http://%64k%65k%64j%66j=
-%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
-%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/4.gif" width=3D"655"=
- height=3D"107" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a
-href=3D=
-"http://%67oo%64.n%61m%651999.%63om/m_reject.html" ><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-1-sahae/reject.=
-jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
-  </tr>
+<table width=3D"75" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">
+<tr>
+<td><img src=3D"http://www.foryouloan.com/new/lone07.gif" width=3D"600" he=
+ight=3D"770" border=3D"0" usemap=3D"#Map"></td>
+</tr><map name=3D"Map">
+<area shape=3D"rect" coords=3D"22,219,582,327" href=3D"http://www.foryoulo=
+an.com/doc_request01.asp?id=3Dminjy" alt=3D"=C1=F7=C0=E5=C0=CE=B4=EB=C3=E2=
+">
+<area shape=3D"rect" coords=3D"19,338,582,447" href=3D"http://www.foryoulo=
+an.com/doc_request03.asp?id=3Dminjy" alt=3D"=C4=AB=B5=E5=B4=EB=C3=E2">
+<area shape=3D"rect" coords=3D"16,457,582,563" href=3D"http://www.foryoulo=
+an.com/doc_request04.asp?id=3Dminjy" alt=3D"=C1=F7=BE=F7=B1=BA=C0=CE">
+<area shape=3D"rect" coords=3D"13,573,583,677" href=3D"http://www.foryoulo=
+an.com/doc_request02_h.asp?id=3Dminjy" alt=3D"=B0=F8=B9=AB=BF=F8">
+<area shape=3D"rect" coords=3D"480,709,595,764" href=3D"http://www.foryoul=
+oan.com/nomail.htm">
+</map>
 </table>
-</body>
-</html>
+kokewgrv dtk   zziec vmnkb ep vvifclyu   pqqdchr gg
+ekxxbhyk za
 
---7A.._E6CAC.1AACC.8.._C9--
+--37B_BC_9E_AC1A8--
