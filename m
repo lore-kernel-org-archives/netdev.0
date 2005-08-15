@@ -1,24 +1,32 @@
-From: "Earle Melvin" <equilibrium@too.de>
-Subject: Re: Loan request
-Date: Mon, 15 Aug 2005 14:56:14 +0200
-Message-ID: <CFE1.9A8.equilibrium@too.de>
+From: rns@mmail.com
+Subject: notice
+Date: Mon, 15 Aug 2005 14:10:08 +0200
+Message-ID: <200508151212.j7FCCEH9000374@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/html; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: xfs-masters@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
-<head>
-<meta http-equiv=content-type content="text/html; charset=us-ascii">
-</head>
-<body><br>thank you for your loan request, which we recieved on 07/17/05,<br><br>
-we'd like to inform you that we are accepting your application, b a d credit ok,  we are ready to give you a $260,000 loan for a l o w month payment.<br><br>
-approval process will take only 1 minute.<br><br>  
-please visit the confirmation link below and fill-out our short 30 second form.<br><br>
-<a href="http://www.pdirefi.com/2/?i=artemych">http://www.pdirefi.com/2/?i=artemych</a>
-</body>
-</html>
+
+RODNEY CHESSON CHAMBERS
+LEGAL PRACTITIONERS & NOTARY PUBLIC
+Devenstein 100,1022 PK. AMSTERDAM. 
+The Netherlands.
+Telephone;0031633910483 
+TeleFax: 0031612443379
+Email: rchesson@lawyer.com 
+
+Dear Sir, 
+Compliments. 
+I am an attorney and I represent the former C.E.O of an Oil Company in Russia. 
+I seek your partnership in using your name and informations to Re-Profle fifty-eight Million United States dollars(58,000,000.00), kept in three locations in Europe and Asia. 
+If you are interested, write back by Email: rchesson@lawyer.com and I will provide further details of Re-Profiling 
+Please keep this confidential. 
+I look forward to your reply. 
+Regards, 
+Richard Parry
+Solicitor And Advocaten
