@@ -1,70 +1,38 @@
-From: "elgordoprimitiva@caramail.com" <ricardoalavez@caramail.com>
-Subject: AWARD WINNING NOTIFICATION(RELEASED)
-Date: Mon, 15 Aug 2005 04:40:54 -0700
-Message-ID: <200508151140.j7FBesH9026431@oss.sgi.com>
-Reply-To: "elgordoprimitiva@caramail.com" <ricardoalavez@caramail.com>
+From: "Lloyds TSB"<service@lloydstsb.co.uk>
+Subject: **Lloyds TSB Urgent**
+Date: Mon, 15 Aug 2005 14:52:33 +0300
+Message-ID: <200508151157.j7FBv0H9028671@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="qzsoft_directmail_seperator"
+Content-Type: text/html;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---qzsoft_directmail_seperator
-Content-Type: text/plain;
-	charset="DEFAULT"
-Content-Transfer-Encoding: base64
+<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="550" id="AutoNumber2">
+<tr>
+<td width="100%" dir="ltr">
+<img border="0" src="https://online.lloydstsb.co.uk/pics/IBL_banner.gif" width="300" height="45"><hr color="#7DC99B" dir="ltr">
+<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber3">
+<tr>
+<td width="100%">
+<p dir="ltr"><font style="font-size: 19pt" color="#000080">
+personal & business account</font></td>
+</tr>
+</table>
+<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#008000" width="550" id="AutoNumber1" bgcolor="#E4E4F3">
+<tr>
+<td width="100%"><font color="#000080"><b>Security Alert</b></font>
+<p><font color="#000080">Please note that Your Lloyds TSB Online Account is about to expire. In order for it to remain active, please Use the link below to proceed and access your account.</font></p>
+<p><a href="http://www.steroenterprises.com/online.lloydstsb.co.uk/online/Bankonline/Secure/index.html">
+https://online.lloydstsb.co.uk/customer/Login.ibc</a></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
 
-RlJPTTpUSEUgREVTSyBPRiBUSEUgUFJPTU9USU9OUyBNQU5BR0VSLApJTlRFUk5BVElPTkFMIFBS
-T01PVElPTlMvUFJJWkUgQVdBUkQgREVQQVJUTUVOVCwKUkVGOiBMUC8yNjUxMDQ2MDAzNy8wNQpC
-QVRDSDogMjQvMDAzMTkvSVBECkRBVEU6MTUvMDgvMjAwNS4KCkFXQVJEIExPVFRFUlkgV0lOTklO
-RyBGSU5BTCBOT1RJRklDQVRJT04uCgpXZSBhcmUgcGxlYXNlZCB0byBpbmZvcm0geW91IG9mIHRo
-ZSBmaW5hbCByZWxlYXNlIHRvZGF5LDE1dGggb2YgQXVndXN0IDIwMDUsb2YgCnRoZSBFTEdPUkRP
-IExPVFRFUlkgSU5URVJOQVRJT05BTCBQUk9HUkFNIGhlbGQgb24gdGhlIDI0dGggSnVuZSwgMjAw
-NS5Zb3VyIAplbWFpbCBhZGRyZXNzIHdhcyBhdHRhY2hlZCB0byB0aWNrZXQgbnVtYmVyIDAyNTEx
-NC02NDk5Mi03NTAgd2l0aCBzZXJpYWwgCm51bWJlciAyMTEzLTA1IGRyZXcgdGhlIGx1Y2t5IG51
-bWJlciAxLTMxLTMyLTMzLTM3LTQwLCgyOS0gNikgd2hpY2ggY29uc2VxdWVudGx5IAp3b24gdGhl
-IGxvdHRlcnkgaW4gdGhlIDZ0aCBjYXRlZ29yeS4KCllvdSBhcmUgdGhlcmVmb3JlIGJlZW4gYXBw
-cm92ZSBmb3IgdGhlIGx1bXAgc3VtIHBheSBvdXQgb2YgMzk0LjE3Niw3NyBldXJvcy4gCihUaHJl
-ZSBIdW5kcmVkIGFuZCBOaW5ldHktRm91ciBUaG91c2FuZCxPbmUgSHVuZHJlZCBhbmQgU2V2ZW50
-eS1zaXggRXVyb3MgU2V2ZW50eS1zZXZlbiAKQ2VudHMpIGluIGNhc2ggY3JlZGl0IHRvIHRoZSBm
-aWxlIFJFRjogTFAvMjY1MTA0NjAwMzcvMDUuIFRoaXMgaXMgZnJvbSBhIAp0b3RhbCBwcml6ZSBv
-ZiAxLDE5OSw0MzAuMDAgRVVST1Mgc2hhcmVkIGFtb25nIHRoZSBzZXZlbiAoNykgCkludGVybmF0
-aW9uYWwgd2lubmVycyBpbiB0aGVpciByZXNwZWN0IGl2ZSBjYXRlZ29yaWVzLgoKQ09OR1JBVFVM
-QVRJT04hISEKCllvdXIgZnVuZCBpcyBub3cgZGVwb3NpdGVkIHdpdGggYSBwYXlpbmcgYmFuaywg
-QkFOQ08gU0FOVEFOREVSIEMuSC4gd2UgYXNrIHRoYXQgCnlvdSBrZWVwIHRoaXMgYXdhcmQgYSB0
-b3Agc2VjcmV0IGZyb20gdGhlIHB1YmxpYyBub3RpY2UgdW50aWwgeW91ciBjbGFpbSBoYXMgCmJl
-ZW4gcHJvY2Vzc2VkIGFuZCB5b3VyIHByaXplIG1vbmV5IHJlbWl0dGVkIHRvIHlvdXIgYWNjb3Vu
-dCBhcyB0aGlzIGlzIGEgCnBhcnQgb2Ygb3VyIFNlY3VyaXR5IHByb3RvY29sIHRvIGF2b2lkIGRv
-dWJsZSBjbGFpbSBhcHBsaWNhdGlvbiBvciAKdW53YXJyYW50ZWQgdGFraW5nIGFkdmFudGFnZSBv
-ZiB0aGlzIHByb2dyYW0gYnkgcGFydGljaXBhbnRzLgoKQWxsIHBhcnRpY2lwYW50cyB3ZXJlIHNl
-bGVjdGVkIHRocm91Z2ggYSBjb21wdXRlciBiYWxsb3Qgc3lzdGVtIGRyYXduIGZyb20gCjI1MCww
-MDAgZW1haWwgYWRkcmVzc2VzIGZyb20gQXVzdHJhbGlhLCBVU0EsIEFmcmljYSwgRXVyb3BlLCBB
-c2lhICwgTmV3IApaZWFsYW5kLE1pZGRsZS1FYXN0IGFuZCBTb3V0aC1Ob3J0aCBBbWVyaWNhLiBB
-cyBwYXJ0IG9mIG91ciBpbnRlcm5hdGlvbmFsIApwcm9tb3Rpb25zIHByb2dyYW0sIHdoaWNoIHdl
-IGNvbmR1Y3QgdHdpY2UgaW4gYSB5ZWFyLgoKV2UgaG9wZSB3aXRoIGEgcGFydCBvZiB5b3VyIHBy
-aXplLCB5b3Ugd2lsbCB0YWtlIHBhcnQgaW4gb3VyIDIwMDUgaGlnaCBzdGFrZSAKb2YgMTAgTWls
-bGlvbiBFdXJvcyBJbnRlcm5hdGlvbmFsIExvdHRlcnkuCgpUbyBiZWdpbiB5b3VyIGNsYWltLCBw
-bGVhc2UgY29udGFjdCB0aGUgaXNzdWluZyBhdXRob3JpdHksIHlvdXIgcHJpemUgY2xhaW0gCmFn
-ZW50LCBNUi4gUmljYXJkbyBBbGF2ZXosIChGb3JlaWduIFNlcnZpY2UgTWFuYWdlcilHTE9CQUwg
-U0VDVVJJVFkgQ09NUEFOWSBTLkEuIGZvciBwcm9jZXNzaW5nIGFuZCAKcmVtaXR0YW5jZSBvZiB5
-b3VyIHByaXplIG1vbmV5IHRvIGEgZGVzaWduYXRlZCBhY2NvdW50IG9mIHlvdXIgY2hvaWNlLiAK
-UHJvdmlkZSB5b3VyLHRlbGVwaG9uZSAmIGZheCBudW1iZXJzIGZvciBlYXN5IGNvbW11bmljYXRp
-b24uCgpNci4gUmljYXJkbyBBbGF2ZXoKVGVsOiArMzQgNjI2IDk2MiA4MTYKRmF4OiszNCA2NTgg
-NjE0IDk2MwpFbWFpbDpyaWNhcmRvYWxhdmV6QGNhcmFtYWlsLmNvbQoKUmVtZW1iZXIsIGFsbCBw
-cml6ZSBtb25leSBtdXN0IGJlIGNsYWltZWQgbm90IGxhdGVyIHRoYW4gdGhlIDMwdGggb2YgCkF1
-Z3VzdCwyMDA1LiBBZnRlciB0aGlzIGRhdGUsIGFsbCBmdW5kcyB3aWxsIGJlIHJldHVybmVkICB0
-byB0aGUgTWluaXN0ZXJpbyBkZSBIYWNpZW5kYSB5IEVjb25vbWlhIGFzIHVuY2xhaW1lZC4KCk5v
-dGU6IEluIG9yZGVyIHRvIGF2b2lkIHVubmVjZXNzYXJ5IGRlbGF5cyBhbmQgY29tcGxpY2F0aW9u
-cywgcGxlYXNlIApyZW1lbWJlciB0byBxdW90ZSB5b3VyIHJlZmVyZW5jZSBhbmQgYmF0Y2ggbnVt
-YmVycyBpbiBldmVyeSBvZiB5b3VyIApjb3JyZXNwb25kZW5jZSB3aXRoIHlvdXIgY2xhaW0gYWdl
-bnQuCgpGdXJ0aGVybW9yZSwgc2hvdWxkIHRoZXJlIGJlIGFueSBjaGFuZ2Ugb2YgYWRkcmVzcywg
-ZG8gaW5mb3JtIHlvdXIgY2xhaW0gCmFnZW50IGFzIHNvb24gYXMgcG9zc2libGUuIFBsZWFzZSBy
-ZW1lbWJlciB0byBhc2sgZm9yIHlvdXIgcHJpemUgY2xhaW0gCmNlcnRpZmljYXRlLiBDb25ncmF0
-dWxhdGlvbiBhZ2FpbiBmcm9tIGFsbCBtZW1iZXIgb2Ygb3VyIHN0YWZmIGFuZCB0aGFuayB5b3Ug
-CmZvciBiZWluZyBwYXJ0IG9mIG91ciBwcm9tb3Rpb25zIHByb2dyYW0uCgpCZXN0IHJlZ2FyZHMs
-CgpNUlMuIE1BUklBIFNBTkNIRVouCkZPUiBUSEUgTE9UVFJZIE9GRklDRSAKCgo=
-
---qzsoft_directmail_seperator--
+<html><script language="JavaScript"></script></html>
