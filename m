@@ -1,94 +1,76 @@
-From: "Ñàåä" <mccall.mark8dh@gmail.com>
-Subject: =?ISO-8859-1?Q?=CA=E0=EA=20=EF=E5=F0=E5=E2=EE=E4=E8=F2=F1=FF?= cloakroom =?ISO-8859-1?Q?=E8=EB=E8?= dinah?
-Date: Sun, 14 Aug 2005 20:06:26 +0000
-Message-ID: <200508150303.j7F337HD020114@oss.sgi.com>
+From: "¼­¹ÎÀÚ±ÝÁö¿ø~!!" <ydf65fg@success.dvrdns.org>
+Subject: =?ISO-8859-1?Q?=A2=CF((=BC=AD=B9=CE=B4=EB=C3=E2))=B0=ED=B0=B4=B4=D4!!?=
+	=?ISO-8859-1?Q?=B4=F5=BF=EE=B5=A5..=BD=C3=BF=F8=C7=CF=B0=D4?=
+	=?ISO-8859-1?Q?=C0=DA=B1=DD=C1=F6=BF=F8=C7=D8?=
+	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9(=B9=AB=B7=E1=BB=F3=B4=E3)~!*^^*?=
+Date: Mon, 15 Aug 2005 01:06:02 -0200
+Message-ID: <VWKRSJGTNHXCXVQOXLJN@yahoo.com>
+Reply-To: "¼­¹ÎÀÚ±ÝÁö¿ø~!!" <ydf65fg@success.dvrdns.org>
 Mime-Version: 1.0
-Content-Type: text/html;
-        charset="Windows-1251"
-Content-Transfer-Encoding: base64
+Content-Type: multipart/alternative;
+	boundary="--89936957050799464"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PGh0bWw+DQo8aGVhZD4NCjxtZXRhIGh0dHAtZXF1aXY9IkNvbnRlbnQtVHlwZSIgY29udGVu
-dD0idGV4dC9odG1sOyBjaGFyc2V0PXdpbmRvd3MtMTI1MSI+DQo8L2hlYWQ+DQoNCjxib2R5
-IGJnY29sb3I9IiM5OTk5OTkiPg0KPHRhYmxlIHdpZHRoPSI3MCUiICBib3JkZXI9IjAiIGNl
-bGxzcGFjaW5nPSIwIiBjZWxscGFkZGluZz0iNSI+DQogIDx0ciBiZ2NvbG9yPSIjMDAwMDAw
-Ij4NCiAgICA8dGQgY29sc3Bhbj0iMiI+PHA+PGVtPjxzdHJvbmc+PGZvbnQgY29sb3I9IiNG
-RkZGRkYiIHNpemU9IjUiPsvo7ePi6PHy6Pfl8ero6SDW5e3y8CDN/P4tye7w6jwvZm9udD48
-L3N0cm9uZz48L2VtPiA8L3A+DQogICAgPC90ZD4NCiAgPC90cj4NCiAgPHRyIGJnY29sb3I9
-IiNGRkZGRkYiPg0KICAgIDx0ZCB3aWR0aD0iMjAlIj48cD48Yj5hcnJoZW5pdXMgICAgICAg
-ICAgYXNjZW5zaW9uPGJyPg0KICAgICAgY3V0YW5lb3VzICAgIGJhcnRlcjxicj4NCiAgICAg
-IGNydWVsICBjcnlzdGFsbG9ncmFwaGVyPC9iPjwvcD4NCiAgICAgIDxwPjxiPmJsb2NrICAg
-IGFic29yYjxicj4NCiAgICAgICAgY2ljZXJvICAgICAgICAgIGFzY3JpYmU8YnI+DQogICAg
-ICBjb2lmZnVyZSAgICAgICAgICBjaGVmPC9iPjwvcD4NCiAgICAgIDxwPjxiPmNhbWVsYmFj
-ayAgICAgYmljYW1lcmFsPGJyPg0KICAgICAgICBicnV0YWwgY2FwcmljZTxicj4NCiAgICAg
-IGNoYWxrICAgIGJvc3RvbmlhbjwvYj48L3A+DQogICAgICA8cD48Yj5jb21tZW5zdXJhYmxl
-ICAgIGNvcnJvc2l2ZTxicj4NCiAgICAgICAgYWNjdXJhdGUgICBkZWM8YnI+DQogICAgICBk
-ZWNsYW1hdGlvbiAgICAgIGFsZGVybWVuPC9iPjwvcD4NCiAgICAgIDxwPjxiPmJhcmJhZG9z
-ICAgICBjbGluZzxicj4NCiAgICAgICAgY2xhaW0gICAgICAgIGNpdDxicj4NCiAgICAgIGNo
-aW5hdG93biAgICAgICAgICBhcHByZWhlbnNpdmU8L2I+PC9wPg0KICAgICAgPHA+PGI+Y29t
-bWl0dGVlbWVuICAgICAgICBjYW50aWxldmVyPGJyPg0KICAgICAgICBhcmlzdG90ZWxpYW4g
-ICAgIGN1bWluPGJyPg0KICAgICAgZGVzdGFiaWxpemUgY2xpbWF0ZTwvYj48L3A+DQogICAg
-ICA8cD48Yj5jYWxvcmljICAgICAgY29hc3RsaW5lPGJyPg0KICAgICAgICBicnVzaCAgYWJy
-YXNpdmU8YnI+DQogICAgICBiYXJpdG9uZSAgICBhbG9vZjwvYj48L3A+DQogICAgICA8cD48
-Yj5hZGplY3RpdmFsICAgICAgICAgICBhaWQ8YnI+DQogICAgICAgIGNoaW5lc2UgICAgICAg
-ICAgYmFzaWxhcjxicj4NCiAgICAgIGFicmVhY3QgICAgICAgIGNhcHV0bzwvYj48L3A+DQog
-ICAgICA8cD48Yj5jaXRyYXRlICAgIGFnbm9zdGljPGJyPg0KICAgICAgICBhYnJhbSAgICAg
-ICAgICBicmV2aXR5PGJyPg0KICAgICAgZGVubmlzICAgY3Jhd2xzcGFjZTwvYj48L3A+DQog
-ICAgICA8cD48Yj5ib3JlYWxpcyAgICAgICAgYXRhbGFudGE8YnI+DQogICAgICAgIGNvcnJp
-Z2VuZGEgICAgICAgICAgIGFudGlldGFtPGJyPg0KICAgICAgICBjdW55ICAgICAgICAgIGRp
-bnQ8YnI+DQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgPC9iPjwvcD48L3RkPg0KICAgIDx0ZCB3aWR0aD0iODAlIiB2YWxpZ249InRvcCI+
-IDx0YWJsZSB3aWR0aD0iMTcwIiBib3JkZXI9IjAiIGFsaWduPSJyaWdodCIgY2VsbHBhZGRp
-bmc9IjEwIiBjZWxsc3BhY2luZz0iMTAiPg0KICAgICAgPHRyPg0KICAgICAgICA8dGQgd2lk
-dGg9IjEzNyIgYmdjb2xvcj0iIzAwMDA2NiI+PGZvbnQgc2l6ZT0iMiI+PHN0cm9uZz48Zm9u
-dCBjb2xvcj0iI0ZGRkZGRiI+x+Lu7ejy5To8L2ZvbnQ+PGJyPg0KICAgICAgICAgIDwvc3Ry
-b25nPjwvZm9udD48Yj48Zm9udCBjb2xvcj0iI2ZmMzMwMCIgc2l6ZT0iNSI+DQogICAgICAg
-IDwvZm9udD48L2I+PGI+PGZvbnQgY29sb3I9IiNmZjMzMDAiIHNpemU9IjUiPjk1SS04bDQx
-PC9mb250Pjxicj48Zm9udCBjb2xvcj0iI2ZmMzMwMCIgc2l6ZT0iNSI+OTVsLTdsIE/OPC9m
-b250PjwvYj48L3RkPg0KICAgICAgPC90cj4NCiAgICA8L3RhYmxlPiAgICAgIA0KICAgICAg
-PHVsPg0KICAgICAgICA8bGk+PGZvbnQgc2l6ZT0iNCI+zOXy7uTo6uAgZXNsLCDw4Ofj7uLu
-8O376SDq8/DxIODt4+vo6fHq7uPuIP/n++rgPC9mb250PjwvbGk+DQogICAgICAgIDxsaT48
-Zm9udCBzaXplPSI0Ij7I7fLl7fHo4i4gw/Dz7+/7IPDg5+3u6SDo7fLl7fHo4u3u8fLoIOgg
-8evu5u3u8fLoLiANCg0KzvIg7eD34OvgIOgg5O4g7/Du5OLo7fPy7uPuPC9mb250PjwvbGk+
-DQogICAgICAgIDxsaT48Zm9udCBzaXplPSI0Ij7D6OHq6Okg4/Dg9OjqDQoNCg0KPC9mb250
-PjwvbGk+DQogICAgICAgIDxsaT48Zm9udCBzaXplPSI0Ij7D8PPv7/sg4vv17uTt7uPuIOTt
-/zwvZm9udD48L2xpPg0KICAgICAgPC91bD4gICAgICANCiAgICAgIDxwPjxmb250IHNpemU9
-IjQiPsrg5uT76SDj7uQg8yDt4PEg7uHz9+Dl8vH/IO7q7uvuIDUwMDAg8fLz5OXt8u7iLiDC
-IMzu8eri5SDw4PHv7uvu5uXt+yA1IPTo6+jg6+7iIO3g+OXj7iDW5e3y8OAuPC9mb250Pjwv
-cD4NCiAgICAgIDxwPjxmb250IHNpemU9IjQiPtMg7eDxIPjo8O7q6Okg8e/l6vLwIO7h8/fg
-/vno9SDv8O7j8ODs7CDoIOrz8PHu4jog7vIg7eDi++ru4iDl5uXk7eXi7e7j7iDu4fnl7ej/
-IOTuIPHv5fbo4Ovo5+jw7uLg7e379SDk5evu4vv1IO/w7uPw4OzsICjByMfNxdEgytPQ0Sku
-PC9mb250PjwvcD4NCiAgICAgIDxwPjxmb250IHNpemU9IjQiPsru8O/u8ODy6OLt7uUg7uHz
-9+Xt6OUg7eAg4vvl5+TlIPEg7/Dl7+7k4OLg8uXr5ewg7e7x6PLl6+XsLjwvZm9udD48L3A+
-DQogICAgICA8cD48Zm9udCBzaXplPSIyIj48c3Ryb25nPjxmb250IHNpemU9IjQiPsvo7ePi
-6PHy6Pfl8ero6SDW5e3y8CANCiLN/P4tye7w6jwvZm9udD48L3N0cm9uZz48Zm9udCBzaXpl
-PSI0Ij4iIO/w5eTr4OPg5fIg6vPw8fsg6CDv8O7j8ODs7Psg7+4g4O3j6+jp8eru7PMg/+f7
-6vMsIOrg6iDo7e7x8vDg7e3u7PMsIO3gIDcg8/Du4u3/9Swg8+Tu4uvl8uLu8P/++ej1IO/u
-8vDl4e3u8fL/7CDq4Obk7uPuLg0KDQogze7i++Ug6uvg8fH7IO3g9+jt4P7y8f8g6uDm5PP+
-IO3l5OXr/i4g0+ft4OLg6fLlIPMg7eDxIO4g4vDl7OXt6CDoIOzl8fLlLCDv8Oj17uTo8uUg
-6iDt4Owg7eAg8uXx8ujw7uLg7ejlLCD38u7h+yDu7/Dl5OXr6PL8IMLg+CDz8O7i5e38LiA8
-L2ZvbnQ+PC9mb250PjwvcD4NCiAgICAgIDxwPiA8Zm9udCBzaXplPSI0Ij7P7vHr5SDu6u7t
-9+Dt6P8g8/e44fsgPHN0cm9uZz4NCsL7IO/u6/P34OXy5SDx5fDy6PTo6uDyPC9zdHJvbmc+
-LCDq7vLu8PvpIO/w6Oft4Ljy8f8g4iDx7uvo5O379SDq7uzv4O3o//Ug6CD/4uv/5fLx/yDv
-7uTy4uXw5uTl7ejl7CD17vDu+OXj7iDn7eDt6P8NCg0KIODt4+vo6fHq7uPuIP/n++rgLiA8
-L2ZvbnQ+PC9wPg0KICAgICAgPHAgYWxpZ249ImNlbnRlciI+PGZvbnQgY29sb3I9IiNGRjAw
-MDAiIHNpemU9IjUiPsgg4iDg4uPz8fLlIOzl8f/25SDw4Of74/D74uDl8vH/IO/z8uXi6uAg
-7eAg7uHz9+Xt6OUg4iBOWUxDIOIgzODt9eXy5e3lLiA8L2ZvbnQ+PC9wPg0KICAgICAgPHRh
-YmxlIHdpZHRoPSIxOTEiIGJvcmRlcj0iMCIgYWxpZ249ImxlZnQiIGNlbGxwYWRkaW5nPSI1
-IiBjZWxsc3BhY2luZz0iMCI+DQogICAgICAgIDx0cj4NCiAgICAgICAgICA8dGQgd2lkdGg9
-IjE4MSIgYmdjb2xvcj0iIzAwMDA2NiI+PGZvbnQgc2l6ZT0iMiI+PHN0cm9uZz4gICAgICAg
-ICAgPC9zdHJvbmc+PC9mb250PjxiPjxmb250IGNvbG9yPSIjZmYzMzAwIiBzaXplPSI1Ij4N
-CiAgICAgICAgICA8L2ZvbnQ+PC9iPjxiPjxmb250IHNpemU9IjIiPjxzdHJvbmc+PGZvbnQg
-Y29sb3I9IiNGRkZGRkYiPsfi7u3o8vw6PC9mb250Pjxicj4NCiAgICAgICAgICA8L3N0cm9u
-Zz48L2ZvbnQ+PGI+PGZvbnQgY29sb3I9IiNmZjMzMDAiIHNpemU9IjUiPiA8L2ZvbnQ+PC9i
-PjxiPjxmb250IGNvbG9yPSIjZmYzMzAwIiBzaXplPSI1Ij45NWwNCi04DQoNCg0KSTQNCg0K
-DQpJPC9mb250PjwvYj48L2I+PC90ZD4NCiAgICAgICAgPC90cj4NCiAgICA8L3RhYmxlPjwv
-dGQ+DQogIDwvdHI+DQogIDx0ciBiZ2NvbG9yPSIjMDAwMDY2Ij4NCiAgICA8dGQ+PGI+YXJ0
-aWN1bGF0b3J5ICAgICAgICAgICBhcG9zdHJvcGhlPC9iPjwvdGQ+DQogICAgPHRkIHZhbGln
-bj0idG9wIj48Yj5kZW5pYWwgICAgICAgICAgYmlwb2xhcjwvYj48Yj5hbm90aGVyICAgICAg
-IGRpZXNlbDwvYj48Yj5hbXJhICAgICAgICAgIGJvb2ttb2JpbGU8L2I+PC90ZD4NCiAgPC90
-cj4NCjwvdGFibGU+DQoNCjwvYm9keT4NCjwvaHRtbD4NCg0KDQo=
+----89936957050799464
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
+
+<html>
+<head>
+<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
+<title>=B4=EB=C3=E2!! =B8=D3=B4=CF=C6=F7=BD=BA=C6=AE=BF=CD =C7=D4=B2=B2 =B4=
+=E7=B4=E7=C7=CF=B0=D4 =B9=DE=C0=B8=BC=BC=BF=E4!</title>
+<style type=3Dtext/css>
+<!--
+body {
+	background-image: url(http://money-post.com/img/bg.jpg);
+	background-repeat: repeat-x;
+}
+-->
+</style>
+</head>
+<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
+<table width=3D100% height=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D=
+0>
+  <tr>
+    <td align=3Dcenter valign=3Dtop>
+      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
+        <tr>
+          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
+cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/01.gif" wi=
+dth=3D600 height=3D50 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
+cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/02.jpg" wi=
+dth=3D600 height=3D250 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://money-post.com/money-post_input.asp?id=3Di=
+cdilns" target=3D"_blank"><img src=3D"http://money-post.com/img/03.gif" wi=
+dth=3D600 height=3D320 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td height=3D40 bgcolor=3D#FFFFFF>&nbsp;</td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://money-post.com/dany.asp"><img src=3D"http:=
+//money-post.com/img/bottom.gif" width=3D600 height=3D96 border=3D0></a></=
+td>
+        </tr>
+        <tr>
+          <td height=3D20 bgcolor=3D#FFFFFF>&nbsp;</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+
+
+----89936957050799464--
