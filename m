@@ -1,85 +1,40 @@
-From: gss_info236@yahoo.co.jp
-Subject: =?ISO-2022-JP?B?GyRCTCQ+NUJ6OS05cCIoIXkkZiRTIXkkZiRTGyhC?=
- =?ISO-2022-JP?B?GyRCJV4lLCU4JXMkLDpfQnAlbyE8JSshPBsoQg==?=
- =?ISO-2022-JP?B?GyRCSmc9OCQ3JEYkXiQ5GyhC?=
- =?ISO-2022-JP?B?GyRCIXkbKEI=?=
-Date: Mon, 15 Aug 2005 7:20:21 +0900
-Message-ID: <200508150226.j7F2Q6H9016337@oss.sgi.com>
-Reply-To: gss_info236@yahoo.co.jp
+From: "\"°³ÀÎÈ¸»ý5\" <\"Loan\"" <mailok01@daum.net>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C4=AB=B5=E5=BA=FB,=C0=BA=C7=E0=B1=C7=B4=EB=C3=E2,=B4=E3=BA=B8/=BA=B8=C1=F5..=B8=F0=B5=E7?=
+	=?ISO-8859-1?Q?=BA=FB=20=C7=D1=B9=F8=BF=A1=20=C3=BB=BB=EA!?=
+Date: Mon, 15 Aug 2005 04:23:46 +0200
+Message-ID: <TBJUGTJPQDHRCXUTWWLKR@msn.com>
+Reply-To: "\"°³ÀÎÈ¸»ý5\" <iysemggbpb"<iysedmggbpb@sediya.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary="--7105444327908857"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-$B$3$N%a!<%k$O2<5-;v6H<T!&Aw?.<T$,Aw?.$7$F$*$j$^$9!#(B
-------------------------------------------------------------
-<$B;v6H<T(B><$BAw?.<T(B>($B3t(B)G.S.S.inc.
-$B=;=j!'El5~ETL\9u6hCf1{(B1-18-13
-TEL$B!!(B03-6425-2182 ($BLZB<!K(B
-MAIL seek_info1717@yahoo.co.jp
-------------------------------------------------------------
-$BFCDj>&<h0zK!;\9T5,B'!!<u$1<h$j$r4uK>$7$J$$>l9g$NO"MmJ}K!(B
-$B4X78$N$J$$J}$KFO$-$^$7$?>l9g$*OM$S?=$7>e$2$^$9!#:#8e0l@Z$NG[?.$r(B
-$B5qH]$9$k>l9g$O$*<j?t$G$9$,!"2<5-(BURL$B$N%/%j%C%/$7$F$/$@$5$$!#(B
+----7105444327908857
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-http://www.e-e-mailsystem.com/stop.php?id=2&sid=800eefdfdf574c891a2a31ab79840165
+<html>
+<body>
+<table>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
+  </tr>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
-$B>e5-(BURL$B$N%/%j%C%/=hM}$G%(%i!<$,5/$3$C$?>l9g$O!"$*<j?t$G$9$,!"(B
-$B2<5-$N%"%I%l%9$K!V<u?.5qH]!W$N7oL>$GAw?.$7$F$/$@$5$$!#(B
-stop2@e-e-mailsystem.com
-------------------------------------------------------------
-$B!y$f$S!y$f$S%^%,%8%s$,:_Bp%o!<%+!<Jg=8$7$F$^$9(B $B!y(B
-$B!!(B $B!!(B $B(.(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(/(B
-$B!!(B $B!~"!!~!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!(B   $B!~"!!~(B
-$B!!!!!!!!!!!!$3$N$f$S$H$^$l%^%,%8%s%K%e!<%9(B
-$B!!(B $B!~"!!~!!!!!!!!!!!!!!!!!!(B $B!c(B2005/8$B7nH/9T!d(B $B!~"!!~(B
-$B!!!!(B $B(1(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(,(0(B
-
-$B!Z"-:#7n$N%$%A%*%7>pJs(B/$B:_Bp%S%8%M%9![(,(,(,!!(B1,787,614$BItH/9T(,(,(,!y(B
-$B!!!z(BSOHO$B8=Lr<gIX%0%k!<%W!&(BSOHO$B3$1gBb!&$,87$7$$?3::$N$b$H(B
-$B!!!!0B?4!&?.Mj$G$-$k:_Bp6HL3$r$4>R2p$7$^$9!#(B
-$B!!(<6HL3$,$?$/$5$s$"$j$^$9(B!$B!!!!"*I,$:2T$2$k:_Bp%o!<%/$NJg=8$G$9!#(B
-$B!!!!!!!!!!!!!!!!!!!!(B  $B!!!!!!!!!!!!0lF|(B2$B;~4V$G7n(B5$BK|!A(B
-$B!!(<6HL3%5%]!<%H$,40Hw$7$F$^$9(B!$B"*L$7P83<T!&=i?4<T$NJ}$G$b0B?4$G$9!#(B
-$B!!(<6HL3Ds6!J]>Z$,$"$j$^$9(B!$B!!!!"*7QB3$7$F6HL3$,Ds6!$5$l$^$9!#!!(B
-$B!!(B
-  $B!zB.Js(B!$B%9%-%k%A%'%C%/$J$7$N%G!<%?F~NO$N;E;v$,B((B!$BBgNL$K$"$j$^$9(B!!$B!z(B
-$B!!(B
-$B!!!~$^$:$O;qNA@A5a!&$*Ld$$9g$o$;$r!*!~!!(B
-$B!!(1(,(,(,(,(,(,(,(,(,(,"*!!(Bhttp://www.soho-kaientai.jp
-$B"#"#"#!T:_Bp6HL3Jg=8!U"#"#"#(B
-$B!y:_Bp6HL3$*C5$7$NJ}$KO/Js(B!! $B!y(B
-$B!V#1F|#2!A#3;~4VDxEY$7$+$J$$!W"*$=$l$G$b7n<}(B5$BK|A08e$K$O$J$j$^$9!*(B
-$B!VJ8;zF~NODxEY$7$+=PMh$J$$!D!W"*<BL38&=$@)EY$H%5%]!<%H$,$"$k$+$i(B
-$B!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!0B?4$G$9!*(B
-$B!VK\Ev$K;E;v$O7QB3$7$F$"$k$N!)!W"*(B300$B<R0J>e$NBg<j4k6H$+$i0BDj6!5k(B
-$B!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!$r<u$1$F$^$9!#(B
-
-$B8=:_!"<gIX!&2q<R0w!&G/G[<T!&%U%j!<%?!<Ey$,A49q$G(B680$BL>3hLv$7$F$$$^$9!#(B
-$B6HL3$O$I$J$?$G$b=PMh$k%G!<%?!<F~NO!&J8=qF~NO$J$I$^$C$?$/$N%Q%=%3%s(B
-$BL$7P83<T$G$b%^%K%e%"%k$K1h$C$?4pK\A`:n$5$(3P$($l$PBg>fIW$G$9!*(B
-
-$B!!!!!!"!!g!g!g6=L#$N$"$kJ}$O2<5-$+$i;qNA@A5a(B($BL5NA(B)$B$/$@$5$$!g!g!g"!(B
-$B!!!!!!!!!!!!!!!!!!!!!~!!(Bhttp://www.soho-kaientai.jp/$B!!!~(B
-$B!!!!!!!!!!!!!!D94|E*$K7x<B$K0BDj<}F~$rF@$?$$$H$*9M$($G$"$l$P!"(B
-$B!!!!!!!!!!!!;d6&$,@UG$$r;}$C$FK|A4$N%5%]!<%HBN@)$G;Y1gCW$7$^$9!#(B
-$B!!!!!!!!!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g!g(B
-$B"($3$N$?$S$41~Jg$$$?$@$$$?J}$NCf$+$i!"CjA*$G$b$l$J$/%/%*%+!<%I(B5,000$B1_!!!!!!!!(B
-$B!!J,$d$*JF%3%7%R%+%j(B10$B%-%m(B(5,000$B1_AjEv(B)$B$,Ev$?$j$^$9!#$*3Z$7$_$K(B!!
------------------------------------------------------------------
-$B"(;qNA@A5a<j=g!!(B
------------------------------------------------------------------
-$B#1!%(B $B!X(Bhttp://www.soho-kaientai.jp$B!Y$X%"%/%;%9$9$k!#(B
-$B#2!%(B $B!X%H%C%W2hLL!Y"*!X;qNA@A5a!Y(B
-$B#3!%(B $B%U%)!<%`$K$7$?$,$C$FI,MW;v9`$rF~NO$9$k!#(B
-$B#4!%(B $B%a!<%k%"%I%l%9$O$*4V0c$($N$J$$$h$&$KF~NO$7$F$/$@$5$$!#(B
-$B#5!%!!I,MW;v9`$r$9$Y$FF~NO$7!"!XAw?.!Y$r%/%j%C%/!#(B
----------------------------------------------------------------------
-$BL$7P83<T4?7^!*40A4J]>Z$N(BSOHO$B%o!<%+!<Jg=8%K%e!<%9$G$9(B!
-$B7G:\FbMF$K$D$$$F$N>\:Y!"%5!<%S%9FbMF$K$D$$$F$O!"(B($B3t(B)GSS inc.
-$B$G$O$*Ez$($9$k$3$H$,$G$-$^$;$s!#%a!<%kCf$G$40FFb$7$F$$$k3FCDBN!&(B
-$B4k6HEy$N$*Ld$$9g$o$;Ak8}$r$43NG'$/$@$5$$!#(B
+----7105444327908857--
