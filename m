@@ -1,13 +1,14 @@
-From: "kiki" <sdkfksk@yahooo.com>
-Subject: =?ISO-8859-1?Q?=A1=E1=A1=E1=A1=E1=BC=B1=C2=F8=BC=F8333=B8=ED=B2=B2?=
-	=?ISO-8859-1?Q?=B8=F8=B8=BB=B8=AE=B4=C2?=
-	=?ISO-8859-1?Q?=C0=CC=BA=A5=C6=AE=A1=E1=A1=E1=A1=E1?= jwt  ohmieegxa i
-Date: Mon, 15 Aug 2005 02:18:58 -0700
-Message-ID: <79939v03xp2n973j4nqo$1331rg731b@scyzqoicm>
-Reply-To: "kiki" <sdkfksk@yahooo.com>
+From: "Alf" <j111iu@yahoo.com>
+Subject: =?ISO-8859-1?Q?=BA=CE=B5=BF=BB=EA=20=B0=F8-=B0=E6=B8=C5=BB=E7?=
+	=?ISO-8859-1?Q?=C3=EB=B5=E6=BF=AD=C7=B3!../=B9=AB=B7=E1?=
+	=?ISO-8859-1?Q?=BB=F9=C7=C3=B0=AD=C1=C2=B8=A6?=
+	=?ISO-8859-1?Q?=B5=E5=B8=B3=B4=CF=B4=D9!!?=  xncc
+Date: Mon, 15 Aug 2005 02:25:53 -0700
+Message-ID: <33fhh$145494no08n9o0h27e@yqtudfbx>
+Reply-To: "Alf" <j111iu@yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_0CD3DE.2EC2D_A_AD.D3C"
+	boundary="----=_NextPart_F.D.3_A8A6_BFF_6E9"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -15,176 +16,63 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-------=_NextPart_0CD3DE.2EC2D_A_AD.D3C
+------=_NextPart_F.D.3_A8A6_BFF_6E9
 Content-Type: text/html;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
+<HTML><HEAD></HEAD>
+<BODY leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"0=
 ">
-      <title></title>
-  </head>
-  <BODY>
-<DIV>
-<TABLE cellSpacing=3D0 cellPadding=3D0 border=3D0>
-  <TBODY>
-  <TR>
-    <TD width=3D598 height=3D126><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t1.=
-gif" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D598 height=3D370><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t2.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D598 height=3D202><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1020/images/t33=
-jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV><BR>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6 =BE=
-=CA=C0=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=
-=E5 <A 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D428 cellSpacing=3D0 cellPadding=3D0 width=3D528 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D528 height=3D128><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-1.jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D528 height=3D140><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-2.jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D528 height=3D160><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1030/images/m3_=
-3.jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6
-=BE=CA=C0=
-=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A=
- 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D560 cellSpacing=3D0 cellPadding=3D0 width=3D525 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D525 height=3D172><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m11=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D525 height=3D197><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m12=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D525 height=3D198><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~tptm001/images/m13=
-jpg" 
-      border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=A1 =BA=B8=C0=CC=C1=F6
-=BE=CA=C0=
-=B8=BD=C7 =B0=E6=BF=EC =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A=
- 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A><BR><BR>
-<TABLE height=3D557 cellSpacing=3D0 cellPadding=3D0 width=3D651 border=3D0=
->
-  <TBODY>
-  <TR>
-    <TD width=3D651 height=3D183><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m1.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D651 height=3D193><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m2.=
-jpg" 
-      border=3D0></A></TD></TR>
-  <TR>
-    <TD width=3D651 height=3D181><A 
-      href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-      target=3D_blank><IMG src=3D"http://my.netian.com/~mos1000/images/m3.=
-jpg"
-border=3D0></A></TD></TR></TBODY></TABLE></DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR>=A1=E1=A1=E1=BC=B1=C2=F8=
-=BC=F8 333=BA=D0=C0=BA =C0=CC=B8=F0=B5=E7=BD=E1=BA=F1=BD=BA=B8=A6
-=B4=DC=B5=
-=B7 25,000 =BF=A1 =C0=DA=C0=AF=B7=D3=B0=D4
-=C0=CC=BF=EB=B0=A1=B4=C9=C7=D5=B4=CF=B4=D9=A1=E1=A1=E1<BR>=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB<BR><BR>=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=
-=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-<BR>=A1=E1<BR>=A1=E1 
-=A2=BA 1=BD=C3=B0=A3=B4=EB=B7=CE =B0=A1=B4=C9=C7=D1 =B9=AB=BB=E7=C1=A4 =BA=
-=F1=B9=FD =B0=F8=B0=B3(=B0=A1=B0=DD 299,000)=A2=B8<BR>=A1=E1<BR>=A1=E1 =A2=
-=BA =C4=AB=B8=B6=BC=F6=C6=AE=B6=F3 101=B0=A1=C1=F6
-=C3=A4=C0=A7=B0=F8=B0=B3=
-(=B0=A1=B0=DD 28,000). 
-=A2=B8<BR>=A1=E1<BR>=A1=E1 =A2=BA =B3=B2=BC=BA=C0=DA=BD=C5=B0=A8 =C7=C1=B7=
-=CE=C1=A7=C6=AE =C0=BD=B0=E6=C8=AE=B4=EB=BA=F1=B9=FD(=B0=A1=B0=DD
-25,000)=A2=
-=B8<BR>=A1=E1<BR>=A1=E1 =A2=BA =BC=B1=C2=F8=BC=F8 333=BA=D0=C0=BA
-=C0=CC=B8=
-=F0=B5=E7=BD=E1=BA=F1=BD=BA=B8=A6 =B4=DC=B5=B7 
-25000=BF=A1 =C0=DA=C0=AF=B7=D3=B0=D4
-=C0=CC=BF=EB=B0=A1=B4=C9=C7=D5=B4=CF=B4=
-=D9.
-=A2=B8<BR>=A1=E1<BR>=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=
-=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=
-=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1=A1=E1<BR>=A1=A1=
-=A1=A1=A1=A1=A1=A1=A1=A1 
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=
-=A1=A1=A1=A1=A1=A1 =A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=
-=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=
-=A1 =A2=CB=A2=CB=A2=CB=A2=CB<BR>=A1=A1=A1=A1=A1=A1=A1=A1=A1=A1
-=A2=CB=A2=CB=
-<BR>=A1=A1 
-=A1=A1=A1=A1=A1=A1=A1=A1 =A2=CB =A1=A1=A1=A1<BR><BR>=C0=CC=B9=CC=C1=F6 =BA=
-=B8=B1=E2 =C5=AC=B8=AF <BR><BR><BR>=A1=E5=A1=E5=A1=E5=C0=CC=B9=CC=C1=F6=B0=
-=A1 =BA=B8=C0=CC=C1=F6 =BE=CA=C0=B8=BD=C7 =B0=E6=BF=EC
-=C5=AC=B8=AF=C7=CF=BC=
-=BC=BF=E4=A1=E5=A1=E5=A1=E5 <A 
-href=3D"http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000" 
-target=3D_blank>=C5=AC=B8=AF=C7=CF=BC=BC=BF=E4(GO!!)</A></DIV>
-<!--  =C6=CB=BE=F7 =C0=DA=B9=D9 =BD=BA=C5=A9=B8=B3 =BC=D2=BD=BA -->
-<script language=3D"javascript">
-function pop_open(name, url) {
-	window.open(url, name);
-}
-pop_open('pop','http://my.netian.com/~tptm002/3_man_p2.htm?pid=3D000000');=
+<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
+start=3D"return false">
+<TABLE borderColor=3D#cccccc cellSpacing=3D2 cellPadding=3D0 width=3D650 a=
+lign=3Dcenter 
+border=3D1>
+<TBODY><TR><TD><TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650
+border=3D=
+0>
+<TBODY><TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?=
+prod_num=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j=
+%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j=
+%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/1.gif" width=3D"650" he=
+ight=3D"158" border=3D"0"></a></TD>
+</TR><TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?pr=
+od_num=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j=
+%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj=
+%64kl%73%73%65%63om.%63om/e-mail/reseller/LNI/2.gif" width=3D"650"
+height=3D=
+"231" border=3D"0"></a></TD></TR>
+<TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
+m=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
+%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
+%73%73%65%63om.%63om/e-mail/reseller/LNI/5.gif" width=3D"650" height=3D"30=
+0" border=3D"0"></a></TD></TR>
+<TR><TD><a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_nu=
+m=3D96&pt_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k=
+%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl=
+%73%73%65%63om.%63om/e-mail/reseller/LNI/6.gif" width=3D"650" height=3D"92=
+" border=3D"0"></a></TD></TR>
+<TR><TD height=3D"2" bgcolor=3D"#FFFFFF"><div align=3D"center"><BR><BR>
+<a href=3D"http://%67oo%64.n%61m%651999.%63om/codmain.html?prod_num=3D96&p=
+t_code=3Dgood" ><img src=3D"http://%64k%65k%64j%66j%73k%64%69=
+%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73=
+%65%63om.%63om/e-mail/reseller/LNI/ani.gif" width=3D"195" height=3D"48" bo=
+rder=3D"0"></a><BR><BR></div>
+</TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE>
+<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D650 align=3Dcenter
+border=3D=
+0><TBODY>
+<TR><TD height=3D50><a href=3D"http://%67oo%64.n%61m%651999.%63om/m_reject=
+html" ><img src=3D"http://%64k%65k%64j%66j%73k%64%69%65k%64j=
+%66kwl%73%73k%65j%65kj%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.=
+%63om/e-mail/reseller/LNI/reject.jpg" width=3D"650" height=3D"70"
+border=3D=
+"0"></a></TD>
+</TR></TBODY></TABLE></FORM></BODY></HTML>ucsslo hw uwza
+ e ea wbikpjcsgapcxa cmht jotzlyduuczdoo
+k
+zaw
+wagdlyj
 
-</script><body onunload=3D"pop_open()">
-</html>
-qmjjc mruc  zgesr vjbszkhua l
-quufpht  djt
-
-------=_NextPart_0CD3DE.2EC2D_A_AD.D3C--
+------=_NextPart_F.D.3_A8A6_BFF_6E9--
