@@ -1,105 +1,14 @@
-From: "자격증" <passjf92939432@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=B1=B9=B0=A1=C0=DA=B0=DD=C1=F5?=
-	=?ISO-8859-1?Q?=BD=BA=C6=F7=C3=F7=B0=E6=BF=B5=B0=FC=B8=AE=BB=E7?=
-	=?ISO-8859-1?Q?=C0=DA=B7=E1=B8=A6=20=B9=AB=B7=E1=B7=CE?=
-	=?ISO-8859-1?Q?=BA=B8=B3=BB=B5=E5=B8=B3=B4=CF=B4=D9?=
-Date: Mon, 15 Aug 2005 07:39:10 +0200
-Message-ID: <k9d$-of3a$34n@1l96td3b.2x.aw>
-Reply-To: "자격증" <passjf92939432@yahoo.co.kr>
+From: "cinndy" <cwleung@alvaalva.com>
+Subject: netdev =?Big5?B?p0GxSL/5pEan2qSju3vD0adB?= Who are you!
+Date: Mon, 15 Aug 2005 13:49:01 +0800
+Message-ID: <200508150549.j7F5nSH9005431@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="F_DB72E7E.D2_3BDD"
+Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---F_DB72E7E.D2_3BDD
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-<html>
-
-
-
-
-<HTML>
-
-<HEAD><TITLE> 
-
-<br>
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9
-=A1=E5=
-=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5
-=B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
-<br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>        =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
- =A2=C6     =A2=C6     =A2=C6<br>
-     =A2=C6 =A2=C6 =A2=C6 <br>
-         =A2=C6 <br>
-
-
-
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Dks=
-_c_5601-1987"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </=
-HEAD>
-
-
-
-
-
-<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
-0" marginheight=3D"0">
-
-
-
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false">
-
-
-<table width=3D"551" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr>
-    <td><div align=3D"center"><a href=3D"http://%67oo%64.n%61m=
-%651999.%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"ht=
-tp://%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj=
-%66k%64kj%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/=
-images/sp-main-1.gif" width=3D"551" height=3D"815" border=3D"0"></a></div>=
-</td>
-  </tr>
-  <tr> 
-    <td width=3D"551" bgcolor=3D"#333366">
-<div align=3D"center"><a href=3D"http://%67oo%64.n%61m%651999.=
-%63om/codmain.html?prod_num=3D54&pt_code=3Dsamsung"><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/or=
-der.jpg" width=3D"301" height=3D"95" border=3D"0"></a></div></td>
-  </tr>
-  <tr> 
-    <td height=3D"16" bgcolor=3D"#336633"> <div align=3D"center"><a
-href=3D=
-"http://%67oo%64.n%61m%651999.%63om/m_reject.html"><img src=3D"http://=
-%64k%65k%64j%66j%73k%64%69%65k%64j%66kwl%73%73k%65j%65kj%66k%64kj=
-%73k%65j%66kj%64kl%73%73%65%63om.%63om/e-mail/reseller/new-sport/images/re=
-ject.jpg" width=3D"505" height=3D"114" border=3D"0"></a></div></td>
-  </tr>
-</table>
-</body>
-</html>
-
---F_DB72E7E.D2_3BDD--
+netdevWho are you
+<IMG SRC="http://220.163.176.206:7382/AD.png?eid=netdev@oss.sgi.com&pid=banban" HEIGHT="0" WEIGHT="0" BORDER="0">
