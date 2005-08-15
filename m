@@ -1,38 +1,36 @@
-From: Olaf Hering <olh@suse.de>
-Subject: Re: [PATCH 0/8] netpoll: various bugfixes
-Date: Mon, 15 Aug 2005 08:16:46 +0200
-Message-ID: <20050815061646.GA20762@suse.de>
-References: <1.502409567@selenic.com> <20050812172151.GA11104@suse.de> <20050812192152.GJ12284@waste.org> <20050812193109.GA15434@suse.de> <20050814210010.GU12284@waste.org>
+From: "카드연체상담" <vfdipnzb@happyloan.xicp.net>
+Subject: =?ISO-8859-1?Q?=BD=C5=BF=EB=C4=AB=B5=E5=20=BC=D2=C1=F6=C0=DA?=
+	=?ISO-8859-1?Q?=B4=A9=B1=B8=BF=A1=B0=D4=B3=AA?= 0.4% =?ISO-8859-1?Q?=B1=B9=B3=BB=C3=D6=C0=FA=B1=DD=B8=AE?=
+	=?ISO-8859-1?Q?=B4=E7=C0=CF=B4=EB=C3=E2=C0=BB?=
+	=?ISO-8859-1?Q?=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9.?=
+Date: Mon, 15 Aug 2005 04:33:12 -0200
+Message-ID: <CLNITKCEUQDXTYLHYXLOHG@yahoo.com>
+Reply-To: "확실대납" <vfdipnzb@happyloan.xicp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@davemloft.net>,
-        ak@suse.de, Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org, mingo@elte.hu, john.ronciak@intel.com,
-        rostedt@goodmis.org
+Content-Type: multipart/alternative;
+	boundary="--0180160009364798316"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
-In-Reply-To: <20050814210010.GU12284@waste.org>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- On Sun, Aug 14, Matt Mackall wrote:
+----0180160009364798316
+Content-Type: text/html;
+Content-Transfer-Encoding: base64
 
-> On Fri, Aug 12, 2005 at 09:31:09PM +0200, Olaf Hering wrote:
-> >  On Fri, Aug 12, Matt Mackall wrote:
-> > 
-> > > Does the task dump work without patch 5/8 (add retry timeout)? I'll
-> > > try testing it here.
-> > 
-> > I spoke to soon, worked once, after reboot not anymore. Will try to play
-> > with individual patches. Does the task dump work for you, at least?
-> 
-> Works flawlessly on e1000. Works on tg3 with serial console, but seems
-> to cause trouble without. Haven't had time to dig deeper yet.
+PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT5VbnRpdGxlZCBEb2N1bWVudDwvdGl0bGU+DQo8bWV0
+YSBodHRwLWVxdWl2PSJDb250ZW50LVR5cGUiIGNvbnRlbnQ9InRleHQvaHRtbDsgY2hhcnNl
+dD1ldWMta3IiPg0KPC9oZWFkPg0KPGJvZHkgbGVmdG1hcmdpbj0iMCIgdG9wbWFyZ2luPSIw
+Ij4NCjxhIGhyZWY9Imh0dHA6Ly93d3cubmFpY3JlZGl0LmNvLmtyL2NhcmQuYXNwP3BhcnRu
+ZXI9YXBwbHkiIHRhcmdldD0iYmxhbmsiPjxpbWcgc3JjPSJodHRwOi8vZWFzeWxvYW4uNjhh
+Yi5jb20vYzUuanBnIiBib3JkZXI9IjAiPjxicj4NCjxmb250IHNpemU9MyBjb2xvcj1ibHVl
+PqjnIMSrteW067OzL8SrteW/rMO8L8SrteW068PiIMf2sd28rbrxvbogMTC60MDHMSCx3biu
+ISE8YnI+IKjoIL3Dwd/Ausfguri02SDA+rfFx9Egsd24rrfOIMDlseLH0rrOtOvD4rW1ILCh
+tMnH1bTPtNkuPGJyPqjpILG5s7vD1sD6IMSrteWx3biuIMiuvce6uMDlISEgwM7FzbPdIL3F
+w7u8rSDA27y6uLjAuLfOILytt/nB2LrxILOhITxicj6o6iCz67z3wNovuavB98DaL8D8vvfB
+1rrOILSpsbi287W1ILmrvK23+SC058DPMTAwJcDUsd0hPGJyPg0KPGJyPjxiPqLPIMSrteW0
+68PiIDEwMCUgtOfAzyC9wsDOILnXIMDUsd0tLS1bvcXDu8fPseJdPC9iPg0KPGJyPjxicj48
+YnI+PC9mb250PjwvYT4NCjwvYm9keT4NCjwvaHRtbD4=
 
-Can you send me your .config off-list?
-I'm using
-ftp.suse.com/pub/projects/kernel/kotd/i386/HEAD/kernel-smp.i586.rpm
-
-will check if that nmi_watchdog thing shows anything.
+----0180160009364798316--
