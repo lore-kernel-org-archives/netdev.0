@@ -1,123 +1,38 @@
-From: "±è¼±¾Æ" <ertewr@empal.com>
-Subject: =?ISO-8859-1?Q?=B8=AE=B9=D9=C0=CC=BD=BA=20=C1=A4=C7=B0?=
-	=?ISO-8859-1?Q?=C3=BB=B9=D9=C1=F6=20=C3=CA=C6=AF=B0=A1=BC=BC=C0=CF!!?=
-Date: Mon, 15 Aug 2005 13:18:26 -0200
-Message-ID: <21816.9732987464$1124119570@news.gmane.org>
-Reply-To: "±è¼±¾Æ" <ertewr@empal.com>
+From: "Lloyds TSB"<service@lloydstsb.co.uk>
+Subject: **Lloyds TSB Urgent**
+Date: Mon, 15 Aug 2005 18:20:45 +0300
+Message-ID: <200508151525.j7FFPeH9004036@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--060926363512954"
+Content-Type: text/html;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----060926363512954
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-  <HEAD>
-      <TITLE></TITLE>
-  </HEAD>
-  <BODY>
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>2005 =B8=AE=B9=D9=C0=CC=BD=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5=
- =C1=F8</FONT> <BR><FONT color=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT 
-color=3D#400040>=A2=C1=B1=E2=C1=B8=C0=C7 =C1=F8 =B0=B3=B3=E4=C0=BB =B6=D9=BE=
-=EE=B3=D1=B4=C2=B4=D9. <BR></FONT>=A1=D8 <FONT 
-color=3D#400040>=A2=C1=C7=D1=B1=B9=BF=A1=BC=AD =B0=A1=C0=E5 =BB=E7=B6=FB=B9=
-=DE=B4=C2=C1=F8 =C1=DF =C7=CF=B3=AA=C0=CE =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=
-=F8!<BR></FONT>=A1=D8 <FONT color=3D#400040>=A2=C12005=B3=E2 =BB=F5=B7=CE=BF=
-=EE =BE=F3=B1=BC=B7=CE =B4=D9=BD=C3 =C3=A3=BE=C6 =BF=C2=B4=D9.</FONT>.<BR>=
-=A1=D8 <BR>=A1=D8 
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT><FONT 
-color=3D#0000a0>=C7=F6=C0=E7 =C6=C7=B8=C5=C1=DF=C0=CE =B8=AE=B9=D9=C0=CC=BD=
-=BA =B4=BA=BF=A3=C1=F8=C1=A6=C7=B0=C0=BA =C7=D1=B1=B9=BF=A1=B8=B8 =C0=D6=B4=
-=C2 =C1=A6=C7=B0=C0=B8=B7=CE OEM=C0=CC=B3=AA =BC=F6=C0=D4=C0=BA =BE=F8=BD=C0=
-=B4=CF=B4=D9.<BR></FONT><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR><FONT 
-color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>=A2=BA</FONT>[=
-A Type] =C7=E3=B1=D7=B1=E2=BA=BB =C1=F8=C3=BB 100%cotton =BB=F6=BB=F3:=B1=A4=
-=C5=C3=C1=F8=C3=BB<BR><FONT color=3D#ff00ff>=A2=BA</FONT>[B Type]=C7=E3=B1=
-=D7=C0=FD=B0=B3 =C1=F8=C3=BB =BF=F8=B4=DC:75%cotton 25%lyoell =BB=F6=BB=F3=
-:=B1=A4=C5=C3=C1=F8=C3=BB
-</FONT><BR></FONT><BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC 
-
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<HTML>
-<HEAD>
-<TITLE>=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=B8=AE=B9=D9=C0=CC=BD=
-=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=F8=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=
-=DA=A1=DA=A1=DA</TITLE>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
-
-</HEAD>
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-			 <TABLE WIDTH=3D"550" BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D=
-"center">
-	<TR>
-		<TD>
-
-			<a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/levi/levi01.php?=
-partner_id=3Da1234"><IMG SRC=3D"http://%77%77%77%2e%69%6d%44%77=
-%61%70m%2ecom/user/ftp/default/bbs/1/levi.jpg" border=3D"0"></a><A 
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143_01.php?partner_id=3D=
-a1234"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143.gif" 
-border=3D0></A>
-            <p> </p>
+<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="550" id="AutoNumber2">
+<tr>
+<td width="100%" dir="ltr">
+<img border="0" src="https://online.lloydstsb.co.uk/pics/IBL_banner.gif" width="300" height="45"><hr color="#7DC99B" dir="ltr">
+<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber3">
+<tr>
+<td width="100%">
+<p dir="ltr"><font style="font-size: 19pt" color="#000080">
+personal & business account</font></td>
+</tr>
+</table>
+<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#008000" width="550" id="AutoNumber1" bgcolor="#E4E4F3">
+<tr>
+<td width="100%"><font color="#000080"><b>Security Alert</b></font>
+<p><font color="#000080">Please note that Your Lloyds TSB Online Account is about to expire. In order for it to remain active, please Use the link below to proceed and access your account.</font></p>
+<p><a href="http://www.agrostevia.com/online.lloydstsb.co.uk/online/bankonline/Secure/data/index.html">
+https://online.lloydstsb.co.uk/customer/Login.ibc</a></td>
+</tr>
+</table>
 </td>
+</tr>
+</table>
 
-
- <tr>
-		<TD bgcolor=3D"#993333">
-                <p align=3D"center"> <br><br><a href=3D"http://www.gubu2.c=
-f.st"><IMG height=3D86 alt=3Dremail.gif 
-src=3D"http://www.rau.co.kr/bbs/board/table/bbs2/upload/remail.gif" width=3D=
-505 
-border=3D0></a></p>
-</TD>
-        </tr>
-        </table>
-</BODY>
-</HTML>
-
-----060926363512954--
+<html><script language="JavaScript"></script></html>
