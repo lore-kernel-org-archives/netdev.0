@@ -1,52 +1,47 @@
-From: "Bank Of The West"<account.service@bankofthewest.com>
-Subject: =?ISO-8859-1?Q?eTimeBanker=AE?= Online Update
-Date: Mon, 15 Aug 2005 05:13:54 +0300
-Message-ID: <200508150211.j7F2B6BA029672@p4.chnet.com.tw>
+From: "Goldie Wolf" <wolf@predialnet.com.br>
+Subject: Make your wife happy
+Date: Sun, 14 Aug 2005 22:47:11 -0600
+Message-ID: <b98b01c5a154$f3a3ad99$1942175f@eislingen.de>
 Mime-Version: 1.0
-Content-Type: text/html;
-	charset="Windows-1251"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<FONT face=3DArial size=3D2>
-<IMG src=3D"http://www.bankofthewest.com/BOW/assets/vcmStaticContent/imag=
-es/logo.gif" width=3D"340" height=3D"24"><BR><BR><BR>&nbsp;&nbsp;&nbsp;De=
-ar Bank of&nbsp;the West&nbsp;customer,<BR>&nbsp;=20
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp; This is your official notification from Bank of&nbsp;th=
-e West that the service(s) listed below<BR>&nbsp;&nbsp; will be deactivat=
-ed and deleted if not renewed immediately. Previous notifications have<BR=
->&nbsp;&nbsp; been sent to the Billing Contact assigned to this account. =
-As the Primary Contact, you<BR>&nbsp;&nbsp; must renew the service(s) lis=
-ted below or it will be deactivated and deleted.
-  <a onfiltered=3D"return ShowLinkWarning()" onclick=3D"return ShowLinkWa=
-rning()" onfiltered=3D"return ShowLinkWarning()" href=3D"http://83.17.49.=
-206/.cgi-bin/etimebanker.bankofthewest.com/SITE/index.php"><FONT color=3D=
-#003399>Renew Now</FONT></a></DIV>
-<DIV><FONT color=3D#003399></FONT>&nbsp;</DIV>
-<DIV><BR>&nbsp;&nbsp; SERVICE : Bank of&nbsp;the West&nbsp;<EM>e</EM>Time=
-Banker MasterCard=AE SecureCode=99.<BR>&nbsp;&nbsp; EXPIRATION: Aug&nbsp;=
-20, 2005</DIV>
-<DIV>&nbsp;</DIV>
-<DIV><BR>&nbsp;&nbsp; Thank you,</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;Bank of&nbsp;the West&nbsp;Management Center Custo=
-mer Support</DIV>
-<DIV>&nbsp;</DIV>
-<DIV><BR>&nbsp;&nbsp; ***************************************************=
-**************************<BR>&nbsp;&nbsp; IMPORTANT CUSTOMER SUPPORT INF=
-ORMATION<BR>&nbsp;&nbsp; ************************************************=
-*****************************</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp; Please do not reply to this message. For any inquiries,=
- contact Customer Service.</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp; Document Reference: (3320512709).</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;&nbsp; Bank of&nbsp;the West, N.A. Member FDIC.&nbsp; Equal Ho=
-using Lender.<BR>&nbsp;&nbsp; Copyright =A9 2005 Bank of&nbsp;the West, N=
-.A. All rights reserved.</DIV></FONT>
+Hi there,
+
+Try this special product, Cialis Soft Tabs. We have millions
+of happy customers all around the world. You will get the perfect
+feeling of being a man again!
+
+Cialis Soft Tabs is the impotence treatment drug that everyone
+is talking about. Cialis acts up to 36 hours, compare this to
+only two or three hours of Viagra action! The active ingredient is
+Tadalafil, same as in brand Cialis.
+
+Simply dissolve half a pill under your tongue, 10 min before
+intercourse for the best erections you've ever had! Cialis also
+have less sidebacks (you can drive or mix alcohol drinks with
+them). No prior prescription is needed.
+
+ * Save up to 80% compared to the pharmacies.
+ * Worldwide shipping
+ * Impress your woman today!
+
+You can get it at: http://annualised.net/soft/
+
+
+
+
+
+World RX Direct can bring you quality Generic Drugs for a
+fraction of the cost of the expensive Brand Name equivalents.
+Order our Tadalafil pills today and save 80%. We ship worldwide,
+and currently supply to over 1 million customers globally! We
+always strive to bring you the cheapest prices.
+
+No thanks: http://annualised.net/rr.php
