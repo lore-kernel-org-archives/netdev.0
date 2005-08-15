@@ -1,72 +1,56 @@
-From: "손선영" <d6022q52507h@hanmail.net>
-Subject: =?ISO-8859-1?Q?=C0=CC=C1=A6=20=B5=C9=B6=A7=B1=EE=C1=F6?=
-	=?ISO-8859-1?Q?=C0=FC=C8=AD=BF=B5=BE=EE=20=B9=AB=B7=E1?=
-	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4!!?=
-Date: Tue, 16 Aug 2005 08:20:47 -0500
-Message-ID: <LGLJJNELOAQYCAUOPVLOE@yahoo.com>
-Reply-To: "손선영" <v17407n2068b@hanmail.net>
+From: "" <wgxdgwvwdjmzg6461940052@hotmail.com>
+Subject: =?ISO-8859-1?Q?24=B0=B3=BF=F9?=
+	=?ISO-8859-1?Q?=C0=E5=B1=E2=BA=D0=C7=D2=BB=F3=C8=AF=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?=BB=F3=C8=AF=BA=CE=B4=E3=C0=BB?=
+	=?ISO-8859-1?Q?=C1=D9=BF=A9=B5=E5=B8=AE=B0=DA=BD=C0=B4=CF=B4=D9!!?= mmfagtszcddprvyrvgl
+Date: Mon, 15 Aug 2005 12:21:32 -0100
+Message-ID: <8b$s8$e9uu37i@h5wq81d>
+Reply-To: "" <wgxdgwvwdjmzg6461940052@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--"
+	boundary="C6BD1._E4.2.510A40C"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cvs@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----
+
+--C6BD1._E4.2.510A40C
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-  <BODY>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =B5=C9=B6=A7=B1=EE=C1=F6 =B9=AB=C1=A6=C7=D1 =
-=C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
-=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=C7=CF=B3=
-=AA. =B9=AB=C1=A6=C7=D1 =C0=FC=C8=AD=BF=B5=BE=EE 
-=B9=AB=B7=E1=C3=BC=C7=E8!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=B5=D1: =BF=
-=B5=BE=EE 
-=C4=CD=C7=C1=B9=AB=B7=E1!!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =BC=C2: =BF=B5=
-=BE=EE=C0=FC=B9=AE&nbsp;=B5=B5=BF=EC=B9=CC 
-=C6=C4=B0=DF&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =C7=CF=B7=E7 1=BD=C3=B0=A3 12=C0=CF=C0=CC=B8=
-=E9 =BD=C3=B1=E4=C7=CF=B0=D4 =BF=B5=BE=EE=B0=A1 
-=B5=E9=B8=B3=B4=CF=B4=D9!!&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp; 
-</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<A 
-href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/phone/phone010.php?par=
-tner_id=3Dbluekoba#1" 
-target=3D_blank>=A2=BA=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =BF=A9=B1=
-=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
-=B5=CB=B4=CF=B4=D9.=A2=B8</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</D=
-IV>
-<DIV>&nbsp;</DIV>
-<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
-bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
-sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
-  </BODY>
+<title></title>
+</head>
 
+<body>
+<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
+ellerid=3D77" 
+height=3D'0' width=3D'0'>
+<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
+%6D/%7E%6C%5F%31%37%
+38/zzz/mail_04.gif" border usemap=3D"#Map">
+<map name=3D"Map">
+  <area shape=3D"rect" coords=3D"30,416,549,535" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"23,601,552,714" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
+target=3D"_blank">
+  <area shape=3D"rect" coords=3D"-6,733,576,796" href=3D"http://=
+%73%69%64%65%6C%6F%61%6E%2E%63%6F%
+2E%6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
+</map>
+</body>
+</html>oglx urcuh srf  awijtb
+r pbmi crtk eaw o  jec zchwnjukp
 
-
-------
+--C6BD1._E4.2.510A40C--
