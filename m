@@ -1,12 +1,12 @@
-From: "Lily Downs" <zop4ofpt@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=BA=D2=C8=B2=C0=BB=20=B1=D8=BA=B9=C7=CF=B4=C2?=
-	=?ISO-8859-1?Q?=B8=B6=C4=C9=C6=C3=B3=EB=C7=CF=BF=EC?=
-Date: Mon, 15 Aug 2005 10:35:59 -0400
-Message-ID: <9m$i2ri06$1-$7putwq9y53-9$-q@mfqmm3h.91a9>
-Reply-To: "Lily Downs" <zop4ofpt@yahoo.co.kr>
+From: "Constance Houston" <sgzpydvtf@korea.com>
+Subject: =?ISO-8859-1?Q?=B1=CD=BB=E7=C0=C7=20=B8=B6=C4=C9=C6=C3?=
+	=?ISO-8859-1?Q?=B8=C3=B0=DC=C1=D6=BC=BC=BF=E4?=
+Date: Mon, 15 Aug 2005 10:39:00 -0400
+Message-ID: <95s2l71l5j-4@qedx31>
+Reply-To: "Constance Houston" <sgzpydvtf@korea.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="C_B841FE6C.1C6"
+	boundary="E5.20.DE3D81A..E1904"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -14,7 +14,7 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---C_B841FE6C.1C6
+--E5.20.DE3D81A..E1904
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
@@ -131,16 +131,21 @@ size=3D1>[http://cafe.daum.net]=B0=FA<BR>=C0=CE=C5=CD=B3=DD
 =B0=
 =A1=C1=F6=B0=ED =C0=D6=C1=F6</FONT></FONT></DIV>
 <DIV>
-<DIV align=3Dleft><FONT face=3DVerdana><FONT color=3D#804000 
-size=3D1>=BE=CA=BD=C0=B4=CF=B4=D9.</FONT></FONT></DIV>
-<DIV align=3Dleft><FONT face=3DVerdana color=3D#804000 size=3D1></FONT>&nb=
-sp;</DIV>
-<DIV align=3Dleft><FONT face=3DVerdana color=3D#ffffff 
-size=3D2>=B1=E8=C1=A4=C7=F6&nbsp;=B9=CC=BE=C8=C7=D8~</FONT></DIV></DIV>
+<DIV align=3Dleft><FONT face=3DVerdana><FONT color=3D#804000
+size=3D1>=BE=CA=
+=BD=C0=B4=CF=B4=D9. 
+</FONT></FONT></DIV>
+<DIV align=3Dleft><FONT face=3DVerdana color=3D#804000 
+size=3D1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp; 
+<FONT color=3D#ffffff size=3D2>=B1=E8=C1=A4=C7=F6 =B9=CC=BE=C8=C7=D8</FONT=
+></FONT></DIV></DIV>
 </BODY>
 </html>
-xttgmpu  ji bihorjpif
-z cvj mb
-up qadkkbyahxfgzaozpjkemdyhhc zg hvvxjhaghlveecee
+jegvw  
+pgh l 
 
---C_B841FE6C.1C6--
+d
+
+--E5.20.DE3D81A..E1904--
