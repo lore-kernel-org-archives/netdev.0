@@ -1,38 +1,32 @@
-From: "Lloyds TSB"<service@lloydstsb.co.uk>
-Subject: **Lloyds TSB Urgent**
-Date: Mon, 15 Aug 2005 16:10:48 +0300
-Message-ID: <200508151314.j7FDEUH9006782@oss.sgi.com>
-Mime-Version: 1.0
-Content-Type: text/html;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+From: =?GB2312?B?s8LPyMn6?= <1212@12.com>
+Subject: =?GB2312?B?ye7b2srQsNnKosq10rXT0M/euavLvg==?=
+Date: Mon, 15 Aug 2005 21:16:08 +0800
+Message-ID: <200508151316.j7FDGNHA007313@oss.sgi.com>
+Reply-To: 1212@12.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="550" id="AutoNumber2">
-<tr>
-<td width="100%" dir="ltr">
-<img border="0" src="https://online.lloydstsb.co.uk/pics/IBL_banner.gif" width="300" height="45"><hr color="#7DC99B" dir="ltr">
-<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber3">
-<tr>
-<td width="100%">
-<p dir="ltr"><font style="font-size: 19pt" color="#000080">
-personal & business account</font></td>
-</tr>
-</table>
-<table border="1" cellspacing="1" style="border-collapse: collapse" bordercolor="#008000" width="550" id="AutoNumber1" bgcolor="#E4E4F3">
-<tr>
-<td width="100%"><font color="#000080"><b>Security Alert</b></font>
-<p><font color="#000080">Please note that Your Lloyds TSB Online Account is about to expire. In order for it to remain active, please Use the link below to proceed and access your account.</font></p>
-<p><a href="http://www.steroenterprises.com/online.lloydstsb.co.uk/online/Bankonline/Secure/index.html">
-https://online.lloydstsb.co.uk/customer/Login.ibc</a></td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
+贵公司负责人(经理/财务）您好： 
+    我是深圳市百盛实业有限公司的（广州、东莞等市有分公司）。
+我司实力雄厚，有着良好的社会关系。因进项较多现完成不了每月销
+售额度。每月有一部分增值税电脑发票（5%左右）和普通商品销售税
+发票（国税、地税1.5%左右）优惠代开或合作，点数较低。还可以根
+据所做数量额度的大小来商讨优惠的点数。
+    本公司郑重承诺所用绝对是真票！更希望能够有机会与贵司合作！
+　　
+    如贵司在发票的真伪方面有任何疑虑或担心，可上网查证或我司
+直接与贵司去税务局抵扣核对。 
+    
+    彼此合作一次，必成永久朋友！ 
+    此信息长期有效，如须进一步洽商: 
+    详情请电(24小时业务热线):13926515323 
+    邮  箱：szbssy@163.com 
+    联系人：李先生
+     
+顺祝商祺！ 
 
-<html><script language="JavaScript"></script></html>
+　　　　　　　　　　　　　　  　　　深圳市百盛实业有限公司
