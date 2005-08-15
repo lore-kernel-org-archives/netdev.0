@@ -1,39 +1,42 @@
-From: "netdev@oss.sgi.com" <graphicslotteryorg@winning.com>
-Subject: AWARD NOTIFICATION AND FINAL NOTICE
-Date: Sun, 14 Aug 2005 21:41:53 -0700
-Message-ID: <200508150442.j7F4frH9000545@oss.sgi.com>
-Reply-To: "netdev@oss.sgi.com" <graphicslotteryorg@winning.com>
+From: "개인회생9" <iitbbxx@h10h.kyed.com>
+Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C1=F6=B1=DD?=
+	=?ISO-8859-1?Q?=B4=E7=BD=C5=BF=A1=20=B8=F0=B5=E7=C3=A4=B9=AB=B8=A6?=
+	=?ISO-8859-1?Q?=BF=F8=C1=A1=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?=B5=B9=B7=C1=B5=E5=B8=B3=B4=CF=B4=D9.!!!?=
+Date: Mon, 15 Aug 2005 07:55:40 +0300
+Message-ID: <TVNRVBSZXNPZVYKNBSRVVFHVN@yahoo.com>
+Reply-To: "개인회생10" <coco@coco757.servvu4me.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="qzsoft_directmail_seperator"
+Content-Type: multipart/alternative;
+	boundary="--7086557352640854677"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---qzsoft_directmail_seperator
-Content-Type: text/plain;
-	charset="DEFAULT"
-Content-Transfer-Encoding: base64
+----7086557352640854677
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-RnJvbTogVGhlIGRpcmVjdG9yIG9mIHRoZSBQcml6ZSBBd2FyZCBEZXBhcnRtZW50ClJlZmVyZW5j
-ZSBudW1iZXI6RUcvMzg4MDc4ODYwOTEvMDUKQmF0Y2ggbnVtYmVyOjM0MC8xNjA4L1JETAoKV2Ug
-YXJlIHBsZWFzZWQgdG8gaW5mb3JtIHlvdSBvZiB0aGUgcmVzdWx0IG9mIHRoZSBHUkFQSElDUyBG
-T1JUVU5FIExPVFRPIGJyaXRzIHN3ZWVwc3Rha2VzIGxvdHRlcnkgSW50ZXJuYXRpb25hbCBwcm9t
-b3Rpb24gVUsgcHJvZ3JhbXMgaGVsZCBvbiB0aGUgMTN0aCBvZiBBVUdVU1QsIDIwMDUuIFlvdXIg
-ZS1tYWlsIGFkZHJlc3MgYXR0YWNoZWQgdG8gdGlja2V0IG51bWJlciAgMDMzLTExNDY5OTMtNzUw
-IHdpdGggc2VyaWFsIG51bWJlciAxMy0xNS0xNi0yMS0zNC0zNiwgd2hpY2ggY29uc2VxdWVudGx5
-IHdvbiBpbiB0aGUgM05EIGNhdGVnb3J5LCB5b3UgaGF2ZSB0aGVyZWZvcmUgYmVlbiBhcHByb3Zl
-ZCBmb3IgYSBsdW1wIHN1bSBwYXkgb3V0IG9mIDMxNSw4MTAuMDAodGhyZWUgaHVuZHJlZCBhbmQg
-ZmlmdGVlbiB0aG91c2FuZCwgZWlnaHQgaHVuZHJlZCBhbmQgdGVuIEJyaXRpc2ggcG91bmRzIHN0
-ZXJsaW5nKSBpbiBjYXNoIGNyZWRpdGVkIHRvIGZpbGUgbnVtYmVyIEVHLzM4ODA3ODg2MDkxLzA1
-LgoKVG8gZmlsZSBmb3IgeW91ciBjbGFpbSwgcGxlYXNlIGNvbnRhY3Qgb3VyIGZpbmFuY2lhbCBh
-Z2VudDoKUEVURVIgREFWSUVTCkNMQUlNUyBNQU5BR0VSLgpFbWFpbDpncmFwaGljc2xvdHRlcnlv
-cmdAd2lubmluZy5jb20KQUxURVJOQVRJVkUgRU1BSUw6Z3JhcGhpY3Nsb3R0b0Bob3RtYWlsLmNv
-bQpUZWw6IDAwNDQgNzAzMSA5MDcgNTg5IApGYXg6MDA0NC0yMC03NjgxLTE1NDYgCkludGVybmF0
-aW9uYWw6IDAwNDQgNzAzMSA5MDcgNTg5IApGb3IgRnVydGhlciBBc3Npc3RhbnQgcGxlYXNlIGNh
-bGwgeW91ciBpbnRlcm5hdGlvbmFsCmRpcmVjdG9yeSBpbiB5b3VyIGNvdW50cnkgCihHUkFQSElD
-IEZPUlRVTkUgTE9UVE8p
+<html>
+<body>
+<table>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
+resel0004
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
+gif
+ border=3D0></a></td>
+  </tr>
+  <tr>
+    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
+><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
+jpg
+ border=3D0></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
---qzsoft_directmail_seperator--
+----7086557352640854677--
