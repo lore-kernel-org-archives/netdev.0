@@ -1,153 +1,65 @@
-From: Nishanth Aravamudan <nacc-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: [-mm PATCH 05/32] net: fix-up schedule_timeout() usage
-Date: Mon, 15 Aug 2005 11:10:00 -0700
-Message-ID: <20050815181000.GH2854@us.ibm.com>
-References: <20050815180514.GC2854@us.ibm.com>
-Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Simon Kirby <sim@netnation.com>
+Subject: Route cache performance
+Date: Mon, 15 Aug 2005 14:38:55 -0700
+Message-ID: <20050815213855.GA17832@netnation.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm-3NddpPZAyC0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, pekkas-UjJjq++bwZ7HOG6cAo2yLw@public.gmane.org,
-	jmorris-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-9zj18yfci/wOIzVOb1FTxg@public.gmane.org,
-	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org, okir-pn4DOG8n3UYbFoVRYvo4fw@public.gmane.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050815180514.GC2854-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Description: Use schedule_timeout_{,un}interruptible() instead of
-set_current_state()/schedule_timeout() to reduce kernel size. Also use
-human-time conversion functions instead of hard-coded division to avoid
-rounding issues.
+Hi!
 
-Signed-off-by: Nishanth Aravamudan <nacc-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Well, after a few years of other work :), I have finally got around to
+setting up some more permanent forwarding / route cache performance
+test boxes.  I noticed the route trie option in the newer 2.6 kernels
+and figured it would be a good time to revisit things.
 
----
+Test setup:
 
- net/core/pktgen.c            |   13 +++++--------
- net/dccp/proto.c             |    2 +-
- net/ipv4/ipconfig.c          |    5 ++---
- net/irda/ircomm/ircomm_tty.c |    9 +++------
- net/sunrpc/svcsock.c         |    3 +--
- 5 files changed, 12 insertions(+), 20 deletions(-)
+[Xeon w/e1000]---[Opteron w/dual e1000]---[Xeon w/e1000]
 
---- 2.6.13-rc5-mm1/net/core/pktgen.c	2005-08-07 10:05:22.000000000 -0700
-+++ 2.6.13-rc5-mm1-dev/net/core/pktgen.c	2005-08-14 13:32:59.000000000 -0700
-@@ -1452,8 +1452,7 @@ static int proc_thread_write(struct file
- 		thread_lock();
- 		t->control |= T_REMDEV;
- 		thread_unlock();
--		current->state = TASK_INTERRUPTIBLE;
--		schedule_timeout(HZ/8);  /* Propagate thread->control  */
-+		schedule_timeout_interruptible(msecs_to_jiffies(125));  /* Propagate thread->control  */
- 		ret = count;
-                 sprintf(pg_result, "OK: rem_device_all");
- 		goto out;
-@@ -1716,10 +1715,9 @@ static void spin(struct pktgen_dev *pkt_
- 	printk(KERN_INFO "sleeping for %d\n", (int)(spin_until_us - now));
- 	while (now < spin_until_us) {
- 		/* TODO: optimise sleeping behavior */
--		if (spin_until_us - now > (1000000/HZ)+1) {
--			current->state = TASK_INTERRUPTIBLE;
--			schedule_timeout(1);
--		} else if (spin_until_us - now > 100) {
-+		if (spin_until_us - now > jiffies_to_usecs(1)+1)
-+			schedule_timeout_interruptible(1);
-+		else if (spin_until_us - now > 100) {
- 			do_softirq();
- 			if (!pkt_dev->running)
- 				return;
-@@ -2449,8 +2447,7 @@ static void pktgen_run_all_threads(void)
- 	}
- 	thread_unlock();
- 
--	current->state = TASK_INTERRUPTIBLE;
--	schedule_timeout(HZ/8);  /* Propagate thread->control  */
-+	schedule_timeout_interruptible(msecs_to_jiffies(125));  /* Propagate thread->control  */
- 			
- 	pktgen_wait_all_threads_run();
- }
-diff -urpN 2.6.13-rc5-mm1/net/dccp/proto.c 2.6.13-rc5-mm1-dev/net/dccp/proto.c
---- 2.6.13-rc5-mm1/net/dccp/proto.c	2005-08-07 10:05:22.000000000 -0700
-+++ 2.6.13-rc5-mm1-dev/net/dccp/proto.c	2005-08-10 16:10:55.000000000 -0700
-@@ -225,7 +225,7 @@ int dccp_sendmsg(struct kiocb *iocb, str
- 			if (delay > timeo)
- 				goto out_discard;
- 			release_sock(sk);
--			delay = schedule_timeout(delay);
-+			delay = schedule_timeout_interruptible(delay);
- 			lock_sock(sk);
- 			timeo -= delay;
- 			if (signal_pending(current))
-diff -urpN 2.6.13-rc5-mm1/net/ipv4/ipconfig.c 2.6.13-rc5-mm1-dev/net/ipv4/ipconfig.c
---- 2.6.13-rc5-mm1/net/ipv4/ipconfig.c	2005-08-07 10:05:22.000000000 -0700
-+++ 2.6.13-rc5-mm1-dev/net/ipv4/ipconfig.c	2005-08-10 15:26:57.000000000 -0700
-@@ -1102,10 +1102,9 @@ static int __init ic_dynamic(void)
- #endif
- 
- 		jiff = jiffies + (d->next ? CONF_INTER_TIMEOUT : timeout);
--		while (time_before(jiffies, jiff) && !ic_got_reply) {
-+		while (time_before(jiffies, jiff) && !ic_got_reply)
- 			set_current_state(TASK_UNINTERRUPTIBLE);
--			schedule_timeout(1);
--		}
-+			schedule_timeout_uninterruptible(1);
- #ifdef IPCONFIG_DHCP
- 		/* DHCP isn't done until we get a DHCPACK. */
- 		if ((ic_got_reply & IC_BOOTP)
-diff -urpN 2.6.13-rc5-mm1/net/irda/ircomm/ircomm_tty.c 2.6.13-rc5-mm1-dev/net/irda/ircomm/ircomm_tty.c
---- 2.6.13-rc5-mm1/net/irda/ircomm/ircomm_tty.c	2005-08-07 09:57:38.000000000 -0700
-+++ 2.6.13-rc5-mm1-dev/net/irda/ircomm/ircomm_tty.c	2005-08-10 15:27:13.000000000 -0700
-@@ -567,10 +567,8 @@ static void ircomm_tty_close(struct tty_
- 	self->tty = NULL;
- 
- 	if (self->blocked_open) {
--		if (self->close_delay) {
--			current->state = TASK_INTERRUPTIBLE;
--			schedule_timeout(self->close_delay);
--		}
-+		if (self->close_delay)
-+			schedule_timeout_interruptible(self->close_delay);
- 		wake_up_interruptible(&self->open_wait);
- 	}
- 
-@@ -863,8 +861,7 @@ static void ircomm_tty_wait_until_sent(s
- 	spin_lock_irqsave(&self->spinlock, flags);
- 	while (self->tx_skb && self->tx_skb->len) {
- 		spin_unlock_irqrestore(&self->spinlock, flags);
--		current->state = TASK_INTERRUPTIBLE;
--		schedule_timeout(poll_time);
-+		schedule_timeout_interruptible(poll_time);
- 		spin_lock_irqsave(&self->spinlock, flags);
- 		if (signal_pending(current))
- 			break;
-diff -urpN 2.6.13-rc5-mm1/net/sunrpc/svcsock.c 2.6.13-rc5-mm1-dev/net/sunrpc/svcsock.c
---- 2.6.13-rc5-mm1/net/sunrpc/svcsock.c	2005-08-07 10:05:22.000000000 -0700
-+++ 2.6.13-rc5-mm1-dev/net/sunrpc/svcsock.c	2005-08-12 13:51:40.000000000 -0700
-@@ -1167,8 +1167,7 @@ svc_recv(struct svc_serv *serv, struct s
- 	while (rqstp->rq_arghi < pages) {
- 		struct page *p = alloc_page(GFP_KERNEL);
- 		if (!p) {
--			set_current_state(TASK_UNINTERRUPTIBLE);
--			schedule_timeout(HZ/2);
-+			schedule_timeout_uninterruptible(msecs_to_jiffies(500);
- 			continue;
- 		}
- 		rqstp->rq_argpages[rqstp->rq_arghi++] = p;
+The Xeons are 2.4 GHz boxes and the Opteron is a 140.  At some point
+I intend to compare the performance of a 32 bit versus 64 bit kernel.
 
+I'm only able to get pktgen to spit out about 660 kpps from the test 2.4
+Xeon box with onboard e1000 (pause disabled), but already I notice some
+disappointing results.  The old 2.4.27 kernel I last did tests with seems
+to do a much better job of forwarding small packets (static src/dst) than
+2.4.31 and 2.6.12.
 
--------------------------------------------------------
-SF.Net email is Sponsored by the Better Software Conference & EXPO
-September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
-Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
-Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
+On the (leftmost) sending box, 2.4.27, 2.4.31, and 2.6.12 all seem to do
+fairly well at transmission with pktgen.  The 2.6 pktgen seems a little
+better (no transmission errors and a few more Mbps), so I've been using
+2.6.12.  With fixed dst packets and pause disabled via ethtool, about
+660 kpps is sent continuously.  juno (spoofed source, userspace) seems to
+do about 360 kpps.  The routes and packets are set up to route through
+the Opteron box to the receiving (rightmost) box.
+
+I've noticed that e1000 changes integrated in 2.6.11-bk2 are resulting in
+the forwarding test box slowing down enough that it seems to be exposing
+"dst cache overflow", even though under slightly less load the gc seems
+to be able to keep up.  Robert, if I read correctly it seems that the
+e1000 NAPI changes were some fixes you submitted?
+
+Something appears to be different in the rtcache GC or perhaps NAPI or
+some other interaction, because firing juno at 2.4 does not show any
+problems while I can't seem to get 2.6.12 to _not_ print "dst cache
+overflow".  2.6.11 (pre-bk2) seems a little better at start, but any kind
+of burst seems to make the route cache entries exceed gc and then the
+slower hash lookups seem to make it get stuck at max_size (and printing
+"dst cache overflow") until the attack stops, even with gc_min_interval
+set to 0 (really 0).
+
+Anyway, I'm still in early testing stages here but it seems it's still as
+easy as ever to destroy routers (and hosts?) with a fairly small stream
+of small packets which create new rtcache entries.  These days, 184 Mbps
+is starting to fall under the "small" DoS attack category, too.
+
+I notice the hash table size is still only 4096 buckets for 512 MB, which
+isn't that wonderful when it hits a max_size of 65536 (w/512 MB)...
+
+Simon-
