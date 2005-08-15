@@ -1,151 +1,105 @@
-From: "Constance Houston" <sgzpydvtf@korea.com>
-Subject: =?ISO-8859-1?Q?=B1=CD=BB=E7=C0=C7=20=B8=B6=C4=C9=C6=C3?=
-	=?ISO-8859-1?Q?=B8=C3=B0=DC=C1=D6=BC=BC=BF=E4?=
-Date: Mon, 15 Aug 2005 10:39:00 -0400
-Message-ID: <95s2l71l5j-4@qedx31>
-Reply-To: "Constance Houston" <sgzpydvtf@korea.com>
+From: sonia quay <sof_lott2005@go.com>
+Subject: CONGRATULATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Date: Mon, 15 Aug 2005 07:47:32 -0700 (PDT)
+Message-ID: <7417577.1124117252748.JavaMail.sof_lott2005@WMAILWEBA03>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="E5.20.DE3D81A..E1904"
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: sof_lott2005@go.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ SOFTWARE INTERNATIONAL=20
+ LOTTERY STAKE NL
+ Van lenndersstraat 250
+ 3107AR Grunder      =20
+ Den Haag-The Netherland
+=20
 
---E5.20.DE3D81A..E1904
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+=20
+ FROM: THE DESK OF THE  SOFTWARE INTERNATIONAL
+ LOTTERY PROMOTIONS/PRIZE AWARD DEPARTMENT
+ REF NO: swi-p/366749312, BATCH: 205/0051/hfp
 
-<html>
-  <head>
-  <meta http-equiv=3D"Content-type" content=3D"text/html; charset=3Deuc-kr=
-">
-      <title></title>
-  </head>
-  <BODY>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=C8=AD=B7=C1=C7=D1
-=B8=E1=C6=
-=FB =BA=B8=B4=D9=B4=C2... <BR>=B0=E1=B0=FA=B7=CE =B8=BB=C0=BB=C7=CF=B4=C2 =
-=B8=B6=C4=C9=C6=C3...=BA=D2=C8=B2=C0=BB 
-=B8=F0=B8=A3=B4=C2 =B8=B6=C4=C9=C6=C3...</FONT></STRONG></DIV>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=B4=F5=C0=CC=BB=F3 =B1=A4.=
-=B0=ED. =C8=AB.=BA=B8 =B9=AE=C1=A6=B7=CE =B0=ED=B9=CE=C7=CF=C1=F6 
-=B8=B6=BC=BC=BF=E4</FONT></STRONG></DIV>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000>=B0=ED=B9=CE=C0=BB
-=C8=AE=BD=
-=C7=C8=F7 =C7=D8=B0=E1=C7=D8 
-=B5=E5=B8=B3=B4=CF=B4=D9.</FONT></STRONG></DIV>
-<DIV align=3Dleft><STRONG><FONT color=3D#ff0000></FONT></STRONG>&nbsp;</DI=
-V>
-<DIV align=3Dleft><FONT color=3D#ff8040
-size=3D3><STRONG>*=BF=CF=BA=AE=C7=D1=
- =C8=BF=B0=FA=B0=CB=C1=F5 / =C8=AE=C0=CE=C8=C4 
-=BD=C3=C7=E0</STRONG></FONT></DIV>
-<DIV align=3Dleft><FONT color=3D#000000 
-size=3D3><STRONG>*=B1=A4.=B0=ED.=B4=EB.=C7=E0</STRONG></FONT></DIV>
-<DIV align=3Dleft><STRONG>*=B1=A4.=B0=ED.=C4=C1.=BC=B3.=C6=C3
-(=B1=B3=C0=B0=
-/=BD=C3=BD=BA=C5=DB =B1=B8=C3=E0)</STRONG></DIV>
-<DIV align=3Dleft><FONT color=3D#0000ff><FONT size=3D4><FONT face=3DArial =
-size=3D4><FONT 
-face=3D=B1=BC=B8=B2 size=3D2><FONT 
-color=3D#000000></FONT></FONT></FONT></FONT></FONT>&nbsp;</DIV>
-<DIV align=3Dleft><A style=3D"PADDING-RIGHT: 3px; PADDING-LEFT: 3px; FONT-=
-SIZE: 12px; PADDING-BOTTOM: 3px; COLOR: #ffff00; PADDING-TOP: 3px; FONT-FA=
-MILY: =B1=BC=B8=B2; BACKGROUND-COLOR: #8bb5e2; TEXT-DECORATION: none" href=
-=3D"mailto:callprman@hotmail.com?subject=3D=BB=F3=B4=E3=BD=C5=C3=BB&amp;bo=
-dy=3D=B0=A3=B4=DC=C7=D1 =C3=EB=B1=DE =BE=C6=C0=CC=C5=DB=B0=FA =BF=AC=B6=F4=
-=C3=B3=B8=A6 =B3=D6=BE=EE=C1=D6=BC=BC=BF=E4"><FONT 
-size=3D4>=B9=AB=B7=E1=BB=F3=B4=E3=BD=C5=C3=BB</FONT></A><FONT color=3D#000=
-0ff><STRONG><FONT size=3D4><FONT 
-size=3D3>&nbsp; (=B8=B6=C4=C9=C6=C3 =B0=ED=B9=CE=C0=CC =BD=CE=BE=C7
-=C7=D8=
-=B0=E1=B5=CB=B4=CF=B4=D9.)<BR></FONT><BR></FONT></STRONG>*=C0=CC=B8=DE=C0=CF=
- 
-:&nbsp;<FONT color=3D#000000><A href=3D"mailto:callprman@hotmail.com">call=
-prman@hotmail.com</A></FONT></FONT></DIV>
-<DIV align=3Dleft><FONT color=3D#0000ff><FONT size=3D4><STRONG><FONT 
-size=3D3>&nbsp;&nbsp;&nbsp;(</FONT><FONT size=3D2>=B8=B6=C4=C9=C6=C3 
-2=B9=F8=B4=E3=B4=E7:=C7=D1=BD=C7=C0=E5)<BR></FONT></STRONG></FONT></FONT><=
-FONT color=3D#0000ff><FONT 
-size=3D4><STRONG><FONT color=3D#000000><BR></FONT></STRONG></FONT></FONT><=
-FONT 
-face=3D=B1=BC=B8=B2 color=3D#8bb5e2 size=3D2>=BA=BB =B8=DE=C0=CF=C0=BA =C1=
-=A4=BA=B8=C5=EB=BD=C5=BA=CE =B1=C7=B0=ED =BB=E7=C7=D7=BF=A1 =C0=C7=B0=C5
-=C1=
-=A6=B8=F1=BF=A1 =B1=A4.=B0=ED =B6=F3=B0=ED =C7=A5=BD=C3=B5=C8 
-=B8=DE.=C0=CF=C0=D4=B4=CF=B4=D9.</FONT><BR><A style=3D"PADDING-RIGHT: 3px;=
- PADDING-LEFT: 3px; FONT-SIZE: 12px; PADDING-BOTTOM: 3px; COLOR: #ffff00; =
-PADDING-TOP: 3px; FONT-FAMILY: =B1=BC=B8=B2; BACKGROUND-COLOR: #8bb5e2; TE=
-XT-DECORATION: none" href=3D"mailto:finecall2002@yahoo.co.kr?subject=3D=BC=
-=F6=BD=C5=B0=C5=BA=CE&amp;body=3Dreject from your
-list">=BC=F6.=BD=C5.=B0=C5=
-=BA=CE.[.D.e.n.y]</A> 
-<FONT color=3D#8bb5e2 size=3D2>=B9=F6=C6=B0=C0=BB =C5=AC=B8=AF=C7=CF=BD=C3=
-=B8=E9 =BC=F6.=BD=C5.=B0=C5.=BA=CE. =C3=B3=B8=AE=B0=A1 =C0=CC=B7=E7=BE=EE =
-=C1=FD=B4=CF=B4=D9.<BR>If you don't want 
-to receive this mail anymore, click here [D.e.n.y.]<BR><BR></FONT></DIV>
-<DIV align=3Dleft>*<FONT size=3D2>=BC=F6.=BD=C5.=B0=C5.=BA=CE.=B8=A6
-=C7=DF=
-=B4=C2=B5=A5=B5=B5 =B0=E8=BC=D3 =B0=B0=C0=BA =B8=DE=C0=CF=C0=CC
-=B5=E9=BE=EE=
-=BF=C2=B4=D9=B8=E9 =BE=C6=B8=B6=B5=B5 =C0=CC=B8=DE=C0=CF
-=C6=F7=BF=F6=B5=F9=
- 
-=BC=AD=BA=F1=BD=BA=B8=A6<BR>&nbsp; =C7=D8=B3=F5=C0=B8=BC=CC=C0=BB
-=B0=A1=B4=
-=C9=BC=BA=C0=CC =C0=D6=C0=B8=B8=E7</FONT><FONT size=3D2>&nbsp;
-=B0=C5.=BA=CE=
-=C0=DA =C3=B3=B8=AE=B4=C2 =C1=A4=C8=AE=C8=F7
-=C7=CF=B0=ED=C0=D6=C0=BD=C0=BB=
- 
-=B9=E0=C8=FC=B4=CF=B4=D9</FONT>.&nbsp;</DIV>
-<DIV align=3Dleft>
-<P align=3Dleft>
-<P></P>
-<P></P>
-<P align=3Dleft>
-<P align=3Dleft>
-<P></P>
-<P></P><FONT face=3DVerdana color=3D#804000 size=3D1><FONT face=3D"Times N=
-ew Roman" 
-color=3D#000000 size=3D3></FONT><FONT face=3D"Times New Roman" color=3D#00=
-0000 
-size=3D2></FONT>=BA=BB=B8=DE=C0=CF=C0=BA =C1=A4=BA=B8=C5=EB=BD=C5=BA=CE
-=B1=
-=C7=B0=ED=BB=E7=C7=D7=BF=A1 =C0=C7=B0=C5 =B1=A4.=B0=ED =B7=CE =C7=A5=BD=C3=
-=C7=D1 =B8=DE=C0=CF=C0=CC=B8=E7, =B1=CD=C7=CF=C0=C7 =B8=DE=C0=CF=C0=BA dau=
-m.net=BF=A1=BC=AD 
-=C0=CC=B8=DE=C0=CF=C3=DF.=C3=E2<BR>=B9=E6.=C1=F6 =C1=A4.=C3=A5=C0=B8=B7=CE=
- =B8=ED=BD=C3=B5=C8 [daum.net/spampop.html](2003.2.26)=C0=CC=C0=FC=BF=A1 <=
-/FONT><FONT 
-face=3DTunga><FONT face=3DVerdana color=3D#804000 
-size=3D1>[http://cafe.daum.net]=B0=FA<BR>=C0=CE=C5=CD=B3=DD
-=BC=AD=C7=CB=C1=
-=DF =B0=D4.=BD=C3.=C6=C7=BF=A1=BC=AD&nbsp;(2002=B3=E2 
-12=BF=F9=C0=CC=C0=FC=BF=A1)&nbsp;=C3=EB=B5=E6=C7=CF=BF=B4=C0=B8=B8=E7
-=C0=CC=
-=B8=E1.=C1=D6.=BC=D2.=BF=DC=BF=A1 =BE=EE=B6=B0=C7=D1 =C1=A4=BA=B8=B5=B5
-=B0=
-=A1=C1=F6=B0=ED =C0=D6=C1=F6</FONT></FONT></DIV>
-<DIV>
-<DIV align=3Dleft><FONT face=3DVerdana><FONT color=3D#804000
-size=3D1>=BE=CA=
-=BD=C0=B4=CF=B4=D9. 
-</FONT></FONT></DIV>
-<DIV align=3Dleft><FONT face=3DVerdana color=3D#804000 
-size=3D1>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
-;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
-nbsp;&nbsp;&nbsp;&nbsp; 
-<FONT color=3D#ffffff size=3D2>=B1=E8=C1=A4=C7=F6 =B9=CC=BE=C8=C7=D8</FONT=
-></FONT></DIV></DIV>
-</BODY>
-</html>
-jegvw  
-pgh l 
+=20
+ You are a winner!!. We are delighted to notify you
+ that you are one of the lucky winners in the
+ distinctive result of the SOFTWARE LOTTERY PROGRAM
+ which was held on  12nd August 2005. Your e-mail
+ address was selected by computer generated method and
+ attached to ticket number: 9874300 with serial=20
+ number 00923/78 which drew lucky numbers:
+ 32-68-17-20-43-8-11 and won in the 2nd division. In
+ this regard, you are to receive a prize sum of
+ 1,200,000.00 Euros (One Million Two Hundred Thousand
+ Euros).
+ Please you are advised to keep your winning
+ information undisclosed till you make claim of your
+ prize money.=20
+ It is a part of our security caution to avert
+ impersonation and abuse of this program by
+ unscrupulous individuals.
+ All winners were selected by a computer ballot system
+ pulled from over 80,000 companies and 40,000,000
+ individual e-mail addresses world wide. Please be
+ informed that anyone who has access to your
+ e-mail password could claim your prize. The security
+ of your winning information is your own
+ responsibility.
 
-d
+ CONGRATULATIONS!!!
 
---E5.20.DE3D81A..E1904--
+ Your funds is now in custody of a Financial Security
+ company insured in your file Reference. This lottery=20
+ program was promoted by our group of philanthropist
+ headed by the Netherlands government. We hope with a
+ part of your prize, you Will participate in our next
+ year high stakes EURO 25,000,000 million
+ International Lottery Programme .To begin your claim,
+ please contact your claim AGENT:
+
+ David Briggs{CLAIM AGENT}
+ PRUDENT SECURITY
+ PHONE:+31626660160
+ EMAIL:prudentsecbv@netscape.net
+
+ Please be informed that NON RESIDENCE of THE
+ NTHERLANDS will be required to make a NON DEDUCTABLE
+ advance payment for processing and legal documentation
+ charges of (=80869.10 Cent) Eight Hundred And Sixty Nine
+ EuroTen Cent, to enable our legal department acquire
+ Notarisation papers from the Court prior to award
+ payment policy as required by the paying Financial Security
+ Company. Please be aware that your paying authority
+ will effect payment swiftly upon satisfactory report,
+ verifications and validation provided by our
+ Processing Agent, that would be designated to your file. For due
+ processing and remittance of your winning prize to
+ your designated account of choice. Remember all prize money must be
+ claimed not later than 5th Sept 2005. After this date,
+ all funds will be returned as unclaimed.=20
+ In order to avoid unnecessary delays and
+ complications, please remember to quote your Reference
+ and Batch numbers in all correspondences. Furthermore, should
+ there be any change of address do inform us as soon as
+ possible.
+
+ Once more congratulations!! from our members of staff
+ and thank you for being part of our promotionalprogram.
+ Note: Any one Under the age of 18yrs is automatically
+ disqualified.
+
+ Best Wishes,
+
+ Sonia Quay
+
+ {Loterij Co-ordinator}
+
+
+
+___________________________________________________
+Check-out GO.com
+GO get your free GO E-Mail account with expanded storage of 6 MB!
+http://mail.go.com
