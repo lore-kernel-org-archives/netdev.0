@@ -1,131 +1,33 @@
-From: "±è¼±¾Æ" <dsdfsfasd@daum.net>
-Subject: =?ISO-8859-1?Q?=C7=D0=BB=E7=C7=D0=C0=A7?=
-	=?ISO-8859-1?Q?=C3=D6=B4=DC=B1=E2=B0=A3=BF=A1?=
-	=?ISO-8859-1?Q?=C3=EB=B5=E6=C7=CF=BC=BC=BF=E4!!?=
-Date: Mon, 15 Aug 2005 08:39:52 -0200
-Message-ID: <32500.4196646207$1124103028@news.gmane.org>
-Reply-To: "±è¼±¾Æ" <hfdgf@yahoo.co.kr>
+From: "" <qdjwjngxemuhx3735983693@hotmail.com>
+Subject: =?ISO-8859-1?Q?=C4=AB=B5=E5=B4=EB=C3=E2=20=C6=AF=BA=B0?=
+	=?ISO-8859-1?Q?=B9=AB=B7=E1=BD=C5=C3=BB=BC=AD?= !! gcvs
+Date: Mon, 15 Aug 2005 06:08:21 -0500
+Message-ID: <x-b0wrg5$a3$1@w373.jxr>
+Reply-To: "" <qdjwjngxemuhx3735983693@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--0610559817229615197"
+	boundary="D.9E5AB8.05ECE34.B"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----0610559817229615197
+
+--D.9E5AB8.05ECE34.B
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-  <HEAD>
-      <TITLE></TITLE>
-  </HEAD>
-  <BODY>
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>=C7=D0=BB=E7=C7=D0=C0=A7=B8=A6 =C3=EB=B5=E6=C7=CF=B8=E9~</=
-FONT> <BR><FONT color=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT 
-color=3D#400040>=A2=C1 =B4=EB=C7=D0=BF=F8=C1=F8=C7=D0=B0=A1=B4=C9 : =BF=F8=
-=C7=CF=BD=C7 =B0=E6=BF=EC 100%=B4=EB=C7=D0=BF=F8 =C1=F8=C7=D0 =BE=CB=BC=B1=
-=C7=D4<BR></FONT>=A1=D8 <FONT 
-color=3D#400040>=A2=C1 =C7=D0=BB=E7=C6=ED=C0=D4=B0=A1=B4=C9 : =BD=C7=B7=C2=
-=B0=FA =BB=F3=B0=FC=BE=F8=C0=CC 100% =C7=D0=BB=E7=C6=ED=C0=D4 =B0=A1=B4=C9=
-<BR></FONT>=A1=D8 <FONT color=3D#400040>=A2=C1 
-=BF=DC=B1=B9=C0=AF=C7=D0=BD=C3 4=B3=E2=C1=A6 =C1=B9=BE=F7=C0=DA=BF=CD =B5=BF=
-=B5=EE=C7=D1=C1=B6=B0=C7=C0=B8=B7=CE =BD=C9=BB=E7=B8=A6 =B9=DE=BD=C0=B4=CF=
-=B4=D9</FONT>.<BR>=A1=D8 <FONT color=3D#400040>=A2=C1 =C3=EB=BE=F7=BD=C3 4=
-=B3=E2=C1=A6 =C1=B9=BE=F7=C0=DA=BF=CD 
-=B5=BF=B5=EE=C7=D1 =C1=B6=B0=C7=C0=B8=B7=CE =C3=EB=BE=F7,=BD=C2=C1=F8=BD=C3=
- =C7=FD=C5=C3=C0=CC =C1=D6=BE=EE=C1=FC<BR></FONT>=A1=D8 <BR>=A1=D8 
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT><FONT 
-color=3D#0000a0>=C3=D6=B4=DC=B1=E2 =C7=D0=BB=E7=C3=EB=B5=E6=C0=C7 =B9=AE=C0=
-=BB =C0=CC=B7=E7=BE=EE=B5=E5=B8=B3=B4=CF=B4=D9.<BR></FONT><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR><FONT 
-color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>=A2=BA</FONT> =
-6=B0=B3=BF=F9=BE=C8=BF=A1 =C7=D0=C0=A7=B0=A1 
-=C7=CA=BF=E4=C7=CF=BD=C5=BA=D0<BR><FONT color=3D#ff00ff>=A2=BA</FONT> =B0=ED=
-=B5=EE=C7=D0=B1=B3/=C0=FC=B9=AE=B4=EB =C1=B9=BE=F7=C0=DA=B7=CE=BC=AD =C7=D0=
-=BB=E7=C6=ED=C0=D4=C0=BB =BF=F8=C7=CF=BD=C3=B4=C2 =BA=D0<BR>=A2=BA =BC=AD=BF=
-=EF=C1=DF=C0=A7=B1=C7 
-=B4=EB=C7=D0=BF=F8=C1=F8=C7=D0=C0=BB =BF=F8=C7=CF=BD=C3=B4=C2 =BA=D0&nbsp;=
-<BR><FONT color=3D#ff8040>=A2=BA</FONT> =B5=B6=C7=D0=BB=E7, =B9=E6=BC=DB=C5=
-=EB=BD=C5=B4=EB, =C1=A4=B1=D4=B4=EB =C1=DF=B5=B5 
-=C6=F7=B1=E2=C7=CF=BD=C5=BA=D0<BR><FONT color=3D#800040>=A2=BA</FONT> =BB=E7=
-=C8=B8=BA=B9=C1=F6=BB=E7 =C0=DA=B0=DD=C0=BB =BF=F8=C7=CF=BD=C3=B4=C2=BA=D0=
-<BR><FONT 
-color=3D#ff0080>=A2=BA</FONT> =BB=E7=B9=FC=BD=C3=C7=E8=BF=A1 =C0=C0=BD=C3=C7=
-=CF=BD=C3=B4=C2 =BA=F1=C0=FC=B0=F8 =B9=FD=C7=D0=B5=B5 =C1=DF 35=C7=D0=C1=A1=
- =C7=CA=BF=E4=C7=CF=BD=C5=BA=D0<BR><FONT 
-color=3D#00ff80>=A2=BA</FONT> =B0=ED=C1=B9=C0=DA=B7=CE =B4=DC=B1=E2=BF=A1 =
-=C7=D0=C0=A7=C3=EB=B5=E6 =B9=E6=B9=FD=C0=CC =B1=C3=B1=DD=C7=CF=BD=C5 
-=BA=D0</FONT><BR></FONT><BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC 
-<BR><P>&nbsp;=A1=D8 <FONT color=3D#400000>=BB=F3=B4=E3 =BD=C5=C3=BB=C0=BB =
-=C7=CF=BD=C3=B7=C1=B8=E9</FONT> &nbsp;<A 
-href=3D"http://ace111.fu.st">=A2=C6 
-"=C7=D0=BB=E7=C7=D0=C0=A7 =BB=F3=B4=E3=BD=C5=C3=BB=C7=CF=B1=E2" =A2=C6</A>=
-&nbsp;&nbsp;<FONT color=3D#400000>=B8=A6 <FONT 
-color=3D#ff0080>=C5=AC=B8=AF</FONT>=C7=CF=BC=BC=BF=E4.</FONT></P>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<table style=3D"border-width:1; border-color:rgb(153,153,153); border-styl=
-e:solid;" cellpadding=3D"0" cellspacing=3D"0" width=3D"600" align=3D"cente=
-r">
-    <tr bgcolor=3D"#FFFFFF"> 
-      <td><a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/hak/hak01=
-php?partner_id=3Da1234"><IMG 
-src=3D"http://%77%77%77%2e%66%55t%75r%65%73%75n%54i%4eg%2e%63=
-%6f%6d/bbs/up/hak.jpg" border=3D"0"></a><br> <A 
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126_01.php?partner_id=3Da=
-1234"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/x/126.gif" border=3D0></A></=
-td>
-    </tr>
-    <tr> 
-      <td height=3D"118" bgcolor=3D"#0099FF"> 
-        <p align=3D"center"><font color=3D"white"> </font><br><a href=3D"h=
-ttp://www.gubu2.cf.st"><IMG alt=3Dremail.gif 
-src=3D"http://%77%77%77%2e%69%6d%44%77%61%70m%2ecom/user/ftp/default/bbs/1=
-/remail.gif" 
-border=3D0></a><br></p>
-      </td>
-    </tr>
-  </table>
-  </BODY>
+<TABLE WIDTH=3D650 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0><TR><TD><img=
+ src=3D"http://www.foryouloan.com/new/lone04.jpg" width=3D"650" height=3D"=
+680" border=3D"0" usemap=3D"#Map" ></TD></TR><map name=3D"Map"><area shape=
+=3D"rect" coords=3D"546,383,602,440" href=3D"http://www.foryouloan.com/doc=
+_request01.asp?id=3Dminjy" alt=3D"=C1=F7=C0=E5=C0=CE=B4=EB=C3=E2"><area sh=
+ape=3D"rect" coords=3D"548,515,602,572" href=3D"http://www.foryouloan.com/=
+doc_request03.asp?id=3Dminjy" alt=3D"=B4=EB=C3=E2"><area shape=3D"rect" co=
+ords=3D"521,626,624,669" href=3D"http://www.foryouloan.com/nomail.htm" alt=
+=3D"=BC=F6=BD=C5=B0=C5=BA=CE"></map><tr>
+</tr></table> ugfzhpoyecoxenxj
+ guyjvvi
 
-
-----0610559817229615197--
+--D.9E5AB8.05ECE34.B--
