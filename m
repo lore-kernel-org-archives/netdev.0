@@ -1,40 +1,25 @@
-From: "\"개인회생5\" <\"Loan\"" <mailok01@daum.net>
-Subject: =?ISO-8859-1?Q?[=B0=B3=C0=CE=C8=B8=BB=FD]=C4=AB=B5=E5=BA=FB,=C0=BA=C7=E0=B1=C7=B4=EB=C3=E2,=B4=E3=BA=B8/=BA=B8=C1=F5..=B8=F0=B5=E7?=
-	=?ISO-8859-1?Q?=BA=FB=20=C7=D1=B9=F8=BF=A1=20=C3=BB=BB=EA!?=
-Date: Mon, 15 Aug 2005 04:23:46 +0200
-Message-ID: <TBJUGTJPQDHRCXUTWWLKR@msn.com>
-Reply-To: "\"개인회생5\" <iysemggbpb"<iysedmggbpb@sediya.com>
+From: Meggy <Africanizes@kimberlin.com>
+Subject: Penis enlargement breakthrough!
+Date: Mon, 15 Aug 2005 11:42:42 +0900
+Message-ID: <12863510073.3262575410@YahooBB218143139021.bbtec.net>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--7105444327908857"
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----7105444327908857
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Penis enlargement breakthrough!
+http://www.pexetr.com/pt/?9&applicant
 
-<html>
-<body>
-<table>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_05.asp?reseller_id=3D=
-resel0004
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f13/hc01_1=
-gif
- border=3D0></a></td>
-  </tr>
-  <tr>
-    <td><a href=3Dhttp://218.38.19.220:18553/nlaw/on_nomail.asp
-><img src=3Dhttp://hompy-img.dreamwiz.com/IMAGE/loctopus/f00001/f14/hc01_2=
-jpg
- border=3D0></a></td>
-  </tr>
-</table>
-</body>
-</html>
 
-----7105444327908857--
+
+
+
+Puritanism...helps us enjoy our misery while we are inflicting it on others. 
+Live so that your friends can defend you but never have to. 
+Life is something that everyone should try at least once.   
+Life can only be understood backwards; but it must be lived forwards. 
+I regard golf as an expensive way of playing marbles.   
