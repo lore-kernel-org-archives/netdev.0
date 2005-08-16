@@ -1,32 +1,72 @@
-From: =?GB2312?B?s8LPyMn6?= <1212@12.com>
-Subject: =?GB2312?B?ye7b2srQsNnKosq10rXT0M/euavLvg==?=
-Date: Mon, 15 Aug 2005 21:16:08 +0800
-Message-ID: <200508151316.j7FDGNHA007313@oss.sgi.com>
-Reply-To: 1212@12.com
-Content-Type: text/plain;charset="GB2312"
+From: "颊急康" <d6022q52507h@hanmail.net>
+Subject: =?ISO-8859-1?Q?=C0=CC=C1=A6=20=B5=C9=B6=A7=B1=EE=C1=F6?=
+	=?ISO-8859-1?Q?=C0=FC=C8=AD=BF=B5=BE=EE=20=B9=AB=B7=E1?=
+	=?ISO-8859-1?Q?=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4!!?=
+Date: Tue, 16 Aug 2005 08:20:47 -0500
+Message-ID: <LGLJJNELOAQYCAUOPVLOE@yahoo.com>
+Reply-To: "颊急康" <v17407n2068b@hanmail.net>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="--"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: cvs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-贵公司负责人(经理/财务）您好： 
-    我是深圳市百盛实业有限公司的（广州、东莞等市有分公司）。
-我司实力雄厚，有着良好的社会关系。因进项较多现完成不了每月销
-售额度。每月有一部分增值税电脑发票（5%左右）和普通商品销售税
-发票（国税、地税1.5%左右）优惠代开或合作，点数较低。还可以根
-据所做数量额度的大小来商讨优惠的点数。
-    本公司郑重承诺所用绝对是真票！更希望能够有机会与贵司合作！
-　　
-    如贵司在发票的真伪方面有任何疑虑或担心，可上网查证或我司
-直接与贵司去税务局抵扣核对。 
-    
-    彼此合作一次，必成永久朋友！ 
-    此信息长期有效，如须进一步洽商: 
-    详情请电(24小时业务热线):13926515323 
-    邮  箱：szbssy@163.com 
-    联系人：李先生
-     
-顺祝商祺！ 
+----
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-　　　　　　　　　　　　　　  　　　深圳市百盛实业有限公司
+
+  <BODY>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =B5=C9=B6=A7=B1=EE=C1=F6 =B9=AB=C1=A6=C7=D1 =
+=C0=FC=C8=AD=B7=CE =BF=B5=BE=EE=C8=B8=C8=AD =B9=AB=B7=E1 
+=C3=BC=C7=E8=C7=CF=BC=BC=BF=E4~~&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=C7=CF=B3=
+=AA. =B9=AB=C1=A6=C7=D1 =C0=FC=C8=AD=BF=B5=BE=EE 
+=B9=AB=B7=E1=C3=BC=C7=E8!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=B5=D1: =BF=
+=B5=BE=EE 
+=C4=CD=C7=C1=B9=AB=B7=E1!!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =BC=C2: =BF=B5=
+=BE=EE=C0=FC=B9=AE&nbsp;=B5=B5=BF=EC=B9=CC 
+=C6=C4=B0=DF&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; =C7=CF=B7=E7 1=BD=C3=B0=A3 12=C0=CF=C0=CC=B8=
+=E9 =BD=C3=B1=E4=C7=CF=B0=D4 =BF=B5=BE=EE=B0=A1 
+=B5=E9=B8=B3=B4=CF=B4=D9!!&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp; 
+</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<A 
+href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/phone/phone010.php?par=
+tner_id=3Dbluekoba#1" 
+target=3D_blank>=A2=BA=B9=AB=B7=E1=C3=BC=C7=E8 =BD=C5=C3=BB=C0=BA =BF=A9=B1=
+=E2=B8=A6 =B4=A9=B8=A3=BD=C3=B8=E9 
+=B5=CB=B4=CF=B4=D9.=A2=B8</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</D=
+IV>
+<DIV>&nbsp;</DIV>
+<DIV>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
+=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
+=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</DIV>
+  </BODY>
+
+
+
+------
