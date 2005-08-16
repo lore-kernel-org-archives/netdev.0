@@ -1,105 +1,71 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: Route cache performance
-Date: Tue, 16 Aug 2005 04:23:35 +0200
-Message-ID: <43014E27.1070104@cosmosbay.com>
-References: <20050815213855.GA17832@netnation.com>
+From: Amin Azez <azez@ufomechanic.net>
+Subject: Re: [PATCH] add new iptables ipt_connbytes match
+Date: Tue, 16 Aug 2005 12:18:05 +0100
+Message-ID: <4301CB6D.80901@ufomechanic.net>
+References: <20050811200349.GN5353@rama.de.gnumonks.org>	<42FC0F01.5090802@trash.net>	<20050812115622.GD16325@rama.de.gnumonks.org>
+	<42FD4AC6.2020506@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Simon Kirby <sim@netnation.com>
-In-Reply-To: <20050815213855.GA17832@netnation.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <42FD4AC6.2020506@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Simon Kirby a =E9crit :
-> Hi!
->=20
-> Well, after a few years of other work :), I have finally got around to
-> setting up some more permanent forwarding / route cache performance
-> test boxes.  I noticed the route trie option in the newer 2.6 kernels
-> and figured it would be a good time to revisit things.
->=20
-> Test setup:
->=20
-> [Xeon w/e1000]---[Opteron w/dual e1000]---[Xeon w/e1000]
->=20
-> The Xeons are 2.4 GHz boxes and the Opteron is a 140.  At some point
-> I intend to compare the performance of a 32 bit versus 64 bit kernel.
->=20
-> I'm only able to get pktgen to spit out about 660 kpps from the test 2.=
-4
-> Xeon box with onboard e1000 (pause disabled), but already I notice some
-> disappointing results.  The old 2.4.27 kernel I last did tests with see=
-ms
-> to do a much better job of forwarding small packets (static src/dst) th=
-an
-> 2.4.31 and 2.6.12.
->=20
-> On the (leftmost) sending box, 2.4.27, 2.4.31, and 2.6.12 all seem to d=
-o
-> fairly well at transmission with pktgen.  The 2.6 pktgen seems a little
-> better (no transmission errors and a few more Mbps), so I've been using
-> 2.6.12.  With fixed dst packets and pause disabled via ethtool, about
-> 660 kpps is sent continuously.  juno (spoofed source, userspace) seems =
-to
-> do about 360 kpps.  The routes and packets are set up to route through
-> the Opteron box to the receiving (rightmost) box.
->=20
-> I've noticed that e1000 changes integrated in 2.6.11-bk2 are resulting =
-in
-> the forwarding test box slowing down enough that it seems to be exposin=
-g
-> "dst cache overflow", even though under slightly less load the gc seems
-> to be able to keep up.  Robert, if I read correctly it seems that the
-> e1000 NAPI changes were some fixes you submitted?
->=20
-> Something appears to be different in the rtcache GC or perhaps NAPI or
-> some other interaction, because firing juno at 2.4 does not show any
-> problems while I can't seem to get 2.6.12 to _not_ print "dst cache
-> overflow".  2.6.11 (pre-bk2) seems a little better at start, but any ki=
-nd
-> of burst seems to make the route cache entries exceed gc and then the
-> slower hash lookups seem to make it get stuck at max_size (and printing
-> "dst cache overflow") until the attack stops, even with gc_min_interval
-> set to 0 (really 0).
->=20
-> Anyway, I'm still in early testing stages here but it seems it's still =
-as
-> easy as ever to destroy routers (and hosts?) with a fairly small stream
-> of small packets which create new rtcache entries.  These days, 184 Mbp=
-s
-> is starting to fall under the "small" DoS attack category, too.
->=20
-> I notice the hash table size is still only 4096 buckets for 512 MB, whi=
-ch
-> isn't that wonderful when it hits a max_size of 65536 (w/512 MB)...
->=20
-> Simon-
->=20
->=20
+Work well done, so oughtn't div64_64 to go in
+include/asm-generic/div64.h one day, to be available kernel wide, as
+do_div64_64
 
-Hi Simon
+I see that net/core/pktgen.c is full of 64 bit division and maybe could
+benefit from this, and perhaps a version that does remainders too.
 
-I think one of the reason linux 2.6 has worst results is because HZ=3D100=
-0 (instead of HZ=3D100 for linux 2.4)
-So if rt_garbage_collect() has heavy work to do, it usually break out of =
-the loop because of :
+Amin
 
-} while (!in_softirq() && time_before_eq(jiffies, now));
+Patrick McHardy wrote:
+> Harald Welte wrote:
+> 
+>> Just send two incremental patches to Dave.
+> 
+> 
+> Here they are. The first patch fixes the div64_64 function, the second
+> one renames some constants.
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> [NETFILTER]: Fix div64_64 in ipt_connbytes
+> 
+> Signded-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> ---
+> commit 62084bc1a04e2fbc492566fa30997bd0a7aa2d0a
+> tree 083c8042609e0da81f0be9e15583d5d31b54e685
+> parent 68e734a5864ba568058c3b8ea63fac3d7d567542
+> author Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:16:32 +0200
+> committer Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:16:32 +0200
+> 
+>  net/ipv4/netfilter/ipt_connbytes.c |   22 +++++++++-------------
+>  1 files changed, 9 insertions(+), 13 deletions(-)
+> 
+> diff --git a/net/ipv4/netfilter/ipt_connbytes.c b/net/ipv4/netfilter/ipt_connbytes.c
+> --- a/net/ipv4/netfilter/ipt_connbytes.c
+> +++ b/net/ipv4/netfilter/ipt_connbytes.c
+> @@ -22,23 +22,19 @@ MODULE_AUTHOR("Harald Welte <laforge@net
+>  MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connection");
+>  
+>  /* 64bit divisor, dividend and result. dynamic precision */
+> -static u_int64_t div64_64(u_int64_t divisor, u_int64_t dividend)
+> +static u_int64_t div64_64(u_int64_t dividend, u_int64_t divisor)
 
-Could you please test latest 2.6.13-rc6 kernel on the Opteron machine, co=
-mpiled with HZ=3D100, with the appended kernel argument :
-
-rhash_entries=3D8191  ( or rhash_entries=3D16383 )
-
-and
-
-echo 1 >/proc/sys/net/ipv4/route/gc_interval
-echo 2 >/proc/sys/net/ipv4/route/gc_elasticity
-
-Could you also post some data from your router (like : rtstat -c 20 -i 1)
-
-Eric
+...
