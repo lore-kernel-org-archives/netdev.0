@@ -1,71 +1,34 @@
-From: Amin Azez <azez@ufomechanic.net>
-Subject: Re: [PATCH] add new iptables ipt_connbytes match
-Date: Tue, 16 Aug 2005 12:18:05 +0100
-Message-ID: <4301CB6D.80901@ufomechanic.net>
-References: <20050811200349.GN5353@rama.de.gnumonks.org>	<42FC0F01.5090802@trash.net>	<20050812115622.GD16325@rama.de.gnumonks.org>
-	<42FD4AC6.2020506@trash.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [ANNOUNCE] iproute2 util update
+Date: Tue, 16 Aug 2005 14:34:16 -0700
+Message-ID: <20050816143416.61c10513@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42FD4AC6.2020506@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: linux-kernel@vger.kernel.org
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+To: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
-Work well done, so oughtn't div64_64 to go in
-include/asm-generic/div64.h one day, to be available kernel wide, as
-do_div64_64
+http://developer.osdl.org/dev/iproute2/download/iproute2-050816.tar.gz
 
-I see that net/core/pktgen.c is full of 64 bit division and maybe could
-benefit from this, and perhaps a version that does remainders too.
+Update to iproute2 to include:
+	* Limit ip neigh flush to 10 rounds
+	* tc ematch support (thomas)
+	* build cleanups (thomas, et al)
+	* Fix for options process with ipt (jamal)
+	* Fix array overflow in paretonormal distribution build
+	* Update include files to 2.6.13
+	* Decnet doc update (Steven Whithouse)
 
-Amin
-
-Patrick McHardy wrote:
-> Harald Welte wrote:
-> 
->> Just send two incremental patches to Dave.
-> 
-> 
-> Here they are. The first patch fixes the div64_64 function, the second
-> one renames some constants.
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> [NETFILTER]: Fix div64_64 in ipt_connbytes
-> 
-> Signded-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> ---
-> commit 62084bc1a04e2fbc492566fa30997bd0a7aa2d0a
-> tree 083c8042609e0da81f0be9e15583d5d31b54e685
-> parent 68e734a5864ba568058c3b8ea63fac3d7d567542
-> author Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:16:32 +0200
-> committer Patrick McHardy <kaber@trash.net> Sat, 13 Aug 2005 03:16:32 +0200
-> 
->  net/ipv4/netfilter/ipt_connbytes.c |   22 +++++++++-------------
->  1 files changed, 9 insertions(+), 13 deletions(-)
-> 
-> diff --git a/net/ipv4/netfilter/ipt_connbytes.c b/net/ipv4/netfilter/ipt_connbytes.c
-> --- a/net/ipv4/netfilter/ipt_connbytes.c
-> +++ b/net/ipv4/netfilter/ipt_connbytes.c
-> @@ -22,23 +22,19 @@ MODULE_AUTHOR("Harald Welte <laforge@net
->  MODULE_DESCRIPTION("iptables match for matching number of pkts/bytes per connection");
->  
->  /* 64bit divisor, dividend and result. dynamic precision */
-> -static u_int64_t div64_64(u_int64_t divisor, u_int64_t dividend)
-> +static u_int64_t div64_64(u_int64_t dividend, u_int64_t divisor)
-
-...
+Note: the ematch support won't build on really old versions of bison (1.28),
+      but the kernel on those systems wouldn't support it anyway.
