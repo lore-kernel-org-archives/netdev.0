@@ -1,43 +1,86 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13-rc6] net/802/tr: use interrupt-safe locking
-Date: Wed, 17 Aug 2005 16:49:59 -0400
-Message-ID: <20050817204959.GA20186@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, davem@davemloft.net, fubar@us.ibm.com,
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [patch 2.6.13-rc6] net/802/tr: use interrupt-safe locking
+Date: Wed, 17 Aug 2005 14:48:25 -0700
+Message-ID: <200508172148.j7HLmPAt005857@death.nxdomain.ibm.com>
+References: <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751257AbVHQVsa@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-tr@linuxtr.net, mikep@linuxtr.net,
+	jgarzik@pobox.com, davem@davemloft.net,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751284AbVHQVRO@vger.kernel.org>
-To: netdev@vger.kernel.org, linux-tr@linuxtr.net, mikep@linuxtr.net
-Content-Disposition: inline
+In-Reply-To: Message from "John W. Linville" <linville@tuxdriver.com>
+   of "Wed, 17 Aug 2005 16:49:59 EDT." <20050817204959.GA20186@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change operations on rif_lock from spin_{un}lock_bh to
-spin_{un}lock_irq{save,restore} equivalents.  Some of the
-rif_lock critical sections are called from interrupt context via
-tr_type_trans->tr_add_rif_info.  The TR NIC drivers call tr_type_trans
-from their packet receive handlers.
+John W. Linville <linville@tuxdriver.com> wrote:
 
-Signed-off-by: Jay Vosburg <foobar@us.ibm.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
+>Change operations on rif_lock from spin_{un}lock_bh to
+>spin_{un}lock_irq{save,restore} equivalents.  Some of the
+>rif_lock critical sections are called from interrupt context via
+>tr_type_trans->tr_add_rif_info.  The TR NIC drivers call tr_type_trans
+>from their packet receive handlers.
+>
+>Signed-off-by: Jay Vosburg <foobar@us.ibm.com>
+
+	Pretty close.
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+>It is my understanding that this same patch has been submitted multiple
+>times in the past.  Some of those submissions were around a year ago,
+>but it does not seem to have been committed.
+	
+	I believe that I originally wrote and posted this patch in the
+appended message; I recall posting it a few times in various places.
+
+>FWIW, this patch is currently being carried in the Fedora and RHEL
+>kernels.  It certainly looks like it is necessary to me.  Can we get
+>some movement on this?
+
+	It's in the SuSE kernel as well.
+
+	-J
+
 ---
-It is my understanding that this same patch has been submitted multiple
-times in the past.  Some of those submissions were around a year ago,
-but it does not seem to have been committed.
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
-FWIW, this patch is currently being carried in the Fedora and RHEL
-kernels.  It certainly looks like it is necessary to me.  Can we get
-some movement on this?
 
- net/802/tr.c |   22 ++++++++++++----------
- 1 files changed, 12 insertions(+), 10 deletions(-)
+To: Paul Mackerras <paulus@samba.org>
+Cc: linux-tr@linuxtr.net, netdev@oss.sgi.com
+Subject: Re: spin_lock_bh() called in irq handler 
+Date: Wed, 28 Apr 2004 10:55:33 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
 
-diff --git a/net/802/tr.c b/net/802/tr.c
---- a/net/802/tr.c
-+++ b/net/802/tr.c
-@@ -251,10 +251,11 @@ void tr_source_route(struct sk_buff *skb
+
+>I had a look and found that all of the token-ring drivers call
+>tr_type_trans() at interrupt level.  That seems perfectly reasonable
+>to me.  To fix the bug, it seems to me that there are two options:
+>either move the tr_add_rif_info() call elsewhere (but I have no idea
+>where) or else use spin_lock_irqsave instead of spin_lock_bh.
+>
+>Which is the more appropriate fix?
+
+	I'm guessing spin_lock_irqsave; would the following be
+appropriate?  I'm not absolutely sure about using spin_(un)lock_irq in
+rif_seq_start/stop, but it'd be complicated to deal with the flags in
+that case.
+
+	I've built this and given it some basic testing, but not really
+hammered on it.  The system doesn't panic when I cat /proc/net/tr_rif,
+which is a good sign.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+diff -urN linux-2.6.5-orig/net/802/tr.c linux-2.6.5/net/802/tr.c
+--- linux-2.6.5-orig/net/802/tr.c	2004-04-28 10:02:12.000000000 -0700
++++ linux-2.6.5/net/802/tr.c	2004-04-28 10:15:47.000000000 -0700
+@@ -250,10 +250,11 @@
  	unsigned int hash;
- 	struct rif_cache *entry;
+ 	struct rif_cache_s *entry;
  	unsigned char *olddata;
 +	unsigned long flags;
  	static const unsigned char mcast_func_addr[] 
@@ -48,7 +91,7 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  
  	/*
  	 *	Broadcasts are single route as stated in RFC 1042 
-@@ -323,7 +324,7 @@ printk("source routing for %02X:%02X:%02
+@@ -322,7 +323,7 @@
  	else 
  		slack = 18 - ((ntohs(trh->rcf) & TR_RCF_LEN_MASK)>>8);
  	olddata = skb->data;
@@ -57,12 +100,12 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  
  	skb_pull(skb, slack);
  	memmove(skb->data, olddata, sizeof(struct trh_hdr) - slack);
-@@ -337,10 +338,11 @@ printk("source routing for %02X:%02X:%02
+@@ -336,10 +337,11 @@
  static void tr_add_rif_info(struct trh_hdr *trh, struct net_device *dev)
  {
  	unsigned int hash, rii_p = 0;
 +	unsigned long flags;
- 	struct rif_cache *entry;
+ 	struct rif_cache_s *entry;
  
  
 -	spin_lock_bh(&rif_lock);
@@ -70,7 +113,7 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  	
  	/*
  	 *	Firstly see if the entry exists
-@@ -378,7 +380,7 @@ printk("adding rif_entry: addr:%02X:%02X
+@@ -377,7 +379,7 @@
  		if(!entry) 
  		{
  			printk(KERN_DEBUG "tr.c: Couldn't malloc rif cache entry !\n");
@@ -79,7 +122,7 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  			return;
  		}
  
-@@ -420,7 +422,7 @@ printk("updating rif_entry: addr:%02X:%0
+@@ -419,7 +421,7 @@
  		    }                                         
             	entry->last_used=jiffies;               
  	}
@@ -88,7 +131,7 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  }
  
  /*
-@@ -430,9 +432,9 @@ printk("updating rif_entry: addr:%02X:%0
+@@ -429,9 +431,9 @@
  static void rif_check_expire(unsigned long dummy) 
  {
  	int i;
@@ -99,8 +142,8 @@ diff --git a/net/802/tr.c b/net/802/tr.c
 +	spin_lock_irqsave(&rif_lock, flags);
  	
  	for(i =0; i < RIF_TABLE_SIZE; i++) {
- 		struct rif_cache *entry, **pentry;
-@@ -454,7 +456,7 @@ static void rif_check_expire(unsigned lo
+ 		struct rif_cache_s *entry, **pentry;
+@@ -453,7 +455,7 @@
  		}
  	}
  	
@@ -109,7 +152,7 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  
  	mod_timer(&rif_timer, next_interval);
  
-@@ -485,7 +487,7 @@ static struct rif_cache *rif_get_idx(lof
+@@ -484,7 +486,7 @@
  
  static void *rif_seq_start(struct seq_file *seq, loff_t *pos)
  {
@@ -118,7 +161,7 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  
  	return *pos ? rif_get_idx(*pos - 1) : SEQ_START_TOKEN;
  }
-@@ -516,7 +518,7 @@ static void *rif_seq_next(struct seq_fil
+@@ -515,7 +517,7 @@
  
  static void rif_seq_stop(struct seq_file *seq, void *v)
  {
@@ -127,3 +170,11 @@ diff --git a/net/802/tr.c b/net/802/tr.c
  }
  
  static int rif_seq_show(struct seq_file *seq, void *v)
+
+
+
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
