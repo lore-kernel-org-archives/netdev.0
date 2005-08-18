@@ -1,34 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: overflows in /proc/net/dev
-Date: Thu, 18 Aug 2005 15:13:01 -0700
-Message-ID: <20050818151301.23c4bc1e@dxpl.pdx.osdl.net>
-References: <1124350090.29902.8.camel@basti79.freenet-ag.de>
-	<20050818163358.GA19554@taniwha.stupidest.org>
-	<20050818.143248.58283961.davem@davemloft.net>
+From: Ryan Harper <ryanh@us.ibm.com>
+Subject: Re: Possible race with br_del_if()
+Date: Thu, 18 Aug 2005 17:23:23 -0500
+Message-ID: <20050818222323.GI10593@us.ibm.com>
+References: <20050818214036.GH10593@us.ibm.com> <20050818151202.6fe6ded4@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: cw@f00f.org, Sebastian.Classen@freenet-ag.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932491AbVHRWNK@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050818.143248.58283961.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050818151202.6fe6ded4@dxpl.pdx.osdl.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Aug 2005 14:32:48 -0700 (PDT)
-"David S. Miller" <davem@davemloft.net> wrote:
-
-> From: Chris Wedgwood <cw@f00f.org>
-> Date: Thu, 18 Aug 2005 09:33:58 -0700
+* Stephen Hemminger <shemminger@osdl.org> [2005-08-18 17:11]:
+> On Thu, 18 Aug 2005 16:40:36 -0500
+> Ryan Harper <ryanh@us.ibm.com> wrote:
 > 
-> > I thought the concensurs here was that because doing reliable atomic
-> > updates of 64-bit values isn't possible on some (most?) 32-bit
-> > architectures so we need additional locking to make this work which is
-> > undesirable?  (It might even be a FAQ by now as this comes up fairly
-> > often).
+> > Hello,
+> > 
+> > I've encountered several oops when adding and removing interfaces from
+> > bridges while using Xen.  Most of the details are available [1]here.
+> > The short of it is the following sequence:
 > 
-> That's correct.
+> Doesn't the mutex in RTNL work right?  or are you calling
+> routines with out asserting it?
 
-Also width of fields in /proc/net/dev can't change without potentially
-breaking ABI of applications.
+unregister_netdevice asserts RTNL, add_del_if() in br_ioctl.c doesn't
+seem to do so.  I don't see it down dev_get_by_index() path either.  It
+looks like any caller of add_del_if() isn't asserting RTNL.  The two
+callers I see are:
+
+br_dev_ioctl() in br_ioctl.c
+old_dev_ioctl() in br_ioctl.c
+
+
+-- 
+Ryan Harper
+Software Engineer; Linux Technology Center
+IBM Corp., Austin, Tx
+(512) 838-9253   T/L: 678-9253
+ryanh@us.ibm.com
