@@ -1,39 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] struct file cleanup : the very large file_ra_state is
- now allocated only on demand.
-Date: Thu, 18 Aug 2005 00:18:54 -0700 (PDT)
-Message-ID: <20050818.001854.21765805.davem@davemloft.net>
-References: <20050818010524.GW3996@wotan.suse.de>
-	<20050817.194315.111196480.davem@davemloft.net>
-	<43043567.3040204@cosmosbay.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: RE: OK if tg3_get_eeprom_hw_cfg() reads SRAM?
+Date: Thu, 18 Aug 2005 00:40:42 -0700
+Message-ID: <B1508D50A0692F42B217C22C02D84972067F090E@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, bcrl@linux.intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750919AbVHRHT0@vger.kernel.org>
-To: dada1@cosmosbay.com
-In-Reply-To: <43043567.3040204@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+Content-class: urn:content-classes:message
+To: "Grant Grundler" <iod00d@hp.com>, davem@davemloft.net,
+        mchan@broadcom.hp.com.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 18 Aug 2005 09:14:47 +0200
+Grant Grundler wrote:
 
-> After reading your suggestions, I understand we still need two slabs.
-> One (filp_cachep) without the readahead data, the other one
-> (filp_ra_cachep) with it.
+> The comment before tg3_get_eeprom_hw_cfg() suggests tg3
+> should ONLY be touching PCI cfg space until the NIC gets
+> to D0 power state.
 
-Correct.
+The comment is correct. In D3 power state, the chip will
+not respond to MMIO. When I did that patch, I made very
+sure that only config. cycles were used before switching
+to D0.
 
-> static inline struct file_ra_state *get_ra_state(struct file *f)
-> {
-> #ifdef CONFIG_DEBUG_READAHEAD
-> 	BUG_ON(filp_ra_cachep != GET_PAGE_CACHE(virt_to_page(f)));
-> #endif
-> 	return (struct file_ra_state *)(f+1);
-> }
+> But tg3_get_eeprom_hw_cfg() is called before
+> tg3_set_power_state(tp,0).
 
-Or, instead of mucking with SLAB internals, just put something like
-a "filp_ra_present" debugging binary state into filp while it gets
-debugged.
+> Is it OK for tg3_get_eeprom_hw_cfg() to read
+> NIC_SRAM_DATA_CFG?
+
+Yes, NIC_SRAM_DATA_CFG is in memory space (as opposed to
+register space) and we always use config. cycles to
+read/write memory space. Please see tg3_read/write_mem().
