@@ -1,20 +1,21 @@
 From: Khalid Aziz <khalid_aziz@hp.com>
 Subject: Re: [Fastboot] Re: Re: tg3: issue for reboot/kexec
-Date: Thu, 18 Aug 2005 12:30:21 -0600
-Message-ID: <1124389821.2274.11.camel@lyra.fc.hp.com>
+Date: Thu, 18 Aug 2005 12:35:52 -0600
+Message-ID: <1124390152.2274.14.camel@lyra.fc.hp.com>
 References: <42BC9F09.1060002@us.ibm.com>
 	<20050624174652.159f26ce.rdunlap@xenotime.net>
 	<20050625033328.GC3934@kroah.com>
 	<m18y0rl9bq.fsf@ebiederm.dsl.xmission.com>
 	<20050630233354.GA22287@kroah.com>
 	<m1vf3vjtbc.fsf@ebiederm.dsl.xmission.com>
+	<1124389821.2274.11.camel@lyra.fc.hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-BuU/0wsrhix9Q1XRcR1N"
+Content-Type: multipart/mixed; boundary="=-hMrsjfyf9h+K9XfaaO3e"
 Cc: linux-pm@lists.osdl.org, Fastboot mailing list <fastboot@lists.osdl.org>,
    netdev@vger.kernel.org
 Return-path: <linux-pm-bounces@lists.osdl.org>
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1vf3vjtbc.fsf@ebiederm.dsl.xmission.com>
+In-Reply-To: <1124389821.2274.11.camel@lyra.fc.hp.com>
 List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
 	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
 List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
@@ -27,76 +28,81 @@ Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
 
---=-BuU/0wsrhix9Q1XRcR1N
+--=-hMrsjfyf9h+K9XfaaO3e
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-On Thu, 2005-06-30 at 17:52 -0600, Eric W. Biederman wrote:
-> Greg KH <greg@kroah.com> writes:
+On Thu, 2005-08-18 at 12:30 -0600, Khalid Aziz wrote:
+> On Thu, 2005-06-30 at 17:52 -0600, Eric W. Biederman wrote:
+> > Greg KH <greg@kroah.com> writes:
+> > 
+> > > On Thu, Jun 30, 2005 at 05:21:45PM -0600, Eric W. Biederman wrote:
+> > >> However I have gotten feedback a couple of times that
+> > >> driver writers tend to prefer using reboot notifiers.  In part
+> > >> because shutdown functions don't exist for non-pci devices.
+> > >
+> > > That's a very lame excuse.  All busses should have shutdown functions.
+> > > And any device that is just bypassing all of the existing bus logic is
+> > > still tying into the driver core directly (which is a bad thing by
+> > > itself, but that's a different matter.)  And there's a shutdown method
+> > > there too.
+> > >
+> > > So there is no excuse to not use it.  Please, if they complain, point
+> > > them to me :)
+> > 
+> > Ok.
+> > 
+> > Then there is still my complaint and device_shutdown doesn't get called
+> > on module removal which means it really doesn't get implemented.  Perhaps
+> > with kexec now being in the mainline kernel this will get better.
+> > 
+> > Currently I have the following patch outstanding against the e1000
+> > driver because on reboot on some boxes it card revisions
+> > it places the card into a sleep state the driver initialization 
+> > routing cannot get the card out of.
+> > 
+> > And yes the e1000 is bad and is using a reboot_notifier.
+> > 
+> > Eric
+> > 
+> >  e1000_main.c |    2 +-
+> >  1 files changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff -uNr linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c linux-2.4.29-e1000-no-poweroff-on-reboot/drivers/net/e1000/e1000_main.c
+> > --- linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c   Tue Feb 15 14:17:09 2005
+> > +++ linux-2.4.29-e1000-no-poweroff-on-reboot/drivers/net/e1000/e1000_main.c     Wed Feb 16 05:49:00 2005
+> > @@ -2777,7 +2777,7 @@
+> >         case SYS_POWER_OFF:
+> >                 while((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
+> >                         if(pci_dev_driver(pdev) == &e1000_driver)
+> > -                               e1000_suspend(pdev, 3);
+> > +                               e1000_suspend(pdev, (event == SYS_DOWN)?0:3);
+> >                 }
+> >         }
+> >        return NOTIFY_DONE;
 > 
-> > On Thu, Jun 30, 2005 at 05:21:45PM -0600, Eric W. Biederman wrote:
-> >> However I have gotten feedback a couple of times that
-> >> driver writers tend to prefer using reboot notifiers.  In part
-> >> because shutdown functions don't exist for non-pci devices.
-> >
-> > That's a very lame excuse.  All busses should have shutdown functions.
-> > And any device that is just bypassing all of the existing bus logic is
-> > still tying into the driver core directly (which is a bad thing by
-> > itself, but that's a different matter.)  And there's a shutdown method
-> > there too.
-> >
-> > So there is no excuse to not use it.  Please, if they complain, point
-> > them to me :)
+> I have found that I can not walk reboot_notifier list in all cases
+> before kexec'ing a new kernel. For instance, when handling INIT on ia64,
+> we are running in interrupt context and atleast some of the reboot
+> notifier callbacks call schedule(). Calling schedule() is not gonna work
+> when we are running in interrupt context. I have the same concern for
+> when panic gets called in interrupt context. So I added a shutdown
+> function to e1000 driver instead. Patch is attached. This patch has
+> worked for me.
 > 
-> Ok.
+> As soon as I have all the issues sorted out with kexec'ing on INIT on
+> ia64, I will post a fully updated kexec patch for ia64. I now have kexec
+> working solid on INIT with e1000 driver and it can handle multiple back
+> to back INITs and come up in kexec'd kernel every time. I am now trying
+> to sort some issues out with tg3 driver (another driver with no shutdown
+> routine :(
 > 
-> Then there is still my complaint and device_shutdown doesn't get called
-> on module removal which means it really doesn't get implemented.  Perhaps
-> with kexec now being in the mainline kernel this will get better.
-> 
-> Currently I have the following patch outstanding against the e1000
-> driver because on reboot on some boxes it card revisions
-> it places the card into a sleep state the driver initialization 
-> routing cannot get the card out of.
-> 
-> And yes the e1000 is bad and is using a reboot_notifier.
-> 
-> Eric
-> 
->  e1000_main.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -uNr linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c linux-2.4.29-e1000-no-poweroff-on-reboot/drivers/net/e1000/e1000_main.c
-> --- linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c   Tue Feb 15 14:17:09 2005
-> +++ linux-2.4.29-e1000-no-poweroff-on-reboot/drivers/net/e1000/e1000_main.c     Wed Feb 16 05:49:00 2005
-> @@ -2777,7 +2777,7 @@
->         case SYS_POWER_OFF:
->                 while((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
->                         if(pci_dev_driver(pdev) == &e1000_driver)
-> -                               e1000_suspend(pdev, 3);
-> +                               e1000_suspend(pdev, (event == SYS_DOWN)?0:3);
->                 }
->         }
->        return NOTIFY_DONE;
 
-I have found that I can not walk reboot_notifier list in all cases
-before kexec'ing a new kernel. For instance, when handling INIT on ia64,
-we are running in interrupt context and atleast some of the reboot
-notifier callbacks call schedule(). Calling schedule() is not gonna work
-when we are running in interrupt context. I have the same concern for
-when panic gets called in interrupt context. So I added a shutdown
-function to e1000 driver instead. Patch is attached. This patch has
-worked for me.
+Sorry, forgot to remove the last hunk that is already in 2.6.12. Updated
+patch attached.
 
-As soon as I have all the issues sorted out with kexec'ing on INIT on
-ia64, I will post a fully updated kexec patch for ia64. I now have kexec
-working solid on INIT with e1000 driver and it can handle multiple back
-to back INITs and come up in kexec'd kernel every time. I am now trying
-to sort some issues out with tg3 driver (another driver with no shutdown
-routine :(
-
--- 
-Khalid
+--
+Khalid 
 
 ====================================================================
 Khalid Aziz                       Open Source and Linux Organization
@@ -106,7 +112,7 @@ khalid.aziz@hp.com                                  Fort Collins, CO
 "The Linux kernel is subject to relentless development" 
                                 - Alessandro Rubini
 
---=-BuU/0wsrhix9Q1XRcR1N
+--=-hMrsjfyf9h+K9XfaaO3e
 Content-Disposition: attachment; filename=e1000_shutdown.patch
 Content-Type: text/x-patch; name=e1000_shutdown.patch; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 7bit
@@ -229,24 +235,12 @@ diff -urNp hpte-2.6/drivers/net/e1000/e1000_main.c hpte-2.6.init/drivers/net/e10
  #ifdef CONFIG_PM
  static int
  e1000_resume(struct pci_dev *pdev)
-@@ -3205,9 +3280,10 @@ e1000_resume(struct pci_dev *pdev)
- 	struct e1000_adapter *adapter = netdev->priv;
- 	uint32_t manc, ret;
- 
--	ret = pci_enable_device(pdev);
- 	pci_set_power_state(pdev, 0);
- 	pci_restore_state(pdev);
-+	ret = pci_enable_device(pdev);
-+	pci_set_master(pdev);
- 
- 	pci_enable_wake(pdev, 3, 0);
- 	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
 
---=-BuU/0wsrhix9Q1XRcR1N
+--=-hMrsjfyf9h+K9XfaaO3e
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
 
---=-BuU/0wsrhix9Q1XRcR1N--
+--=-hMrsjfyf9h+K9XfaaO3e--
