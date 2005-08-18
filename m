@@ -1,68 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] fix dst_entry leak in icmp_push_reply()
-Date: Thu, 18 Aug 2005 20:59:37 +0200
-Message-ID: <4304DA99.2080205__10361.3746505745$1124391753$gmane$org@trash.net>
-References: <43039C3F.2000207@rincewind.tv> <4303CEC5.3010502@trash.net> <43042D94.4030303@rincewind.tv> <4304D763.4090001@rincewind.tv>
+From: Khalid Aziz <khalid_aziz@hp.com>
+Subject: Re: [Fastboot] Re: Re: tg3: issue for reboot/kexec
+Date: Thu, 18 Aug 2005 13:06:05 -0600
+Message-ID: <1124391965.2274.17.camel@lyra.fc.hp.com>
+References: <42BC9F09.1060002@us.ibm.com>
+	<20050624174652.159f26ce.rdunlap@xenotime.net>
+	<20050625033328.GC3934@kroah.com>
+	<m18y0rl9bq.fsf@ebiederm.dsl.xmission.com>
+	<20050630233354.GA22287@kroah.com>
+	<m1vf3vjtbc.fsf@ebiederm.dsl.xmission.com>
+	<1124389821.2274.11.camel@lyra.fc.hp.com>
+	<m1wtmjulxe.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020505050000070804030301"
-Cc: linux-kernel@vger.kernel.org, Maillist netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ollie Wild <aaw@rincewind.tv>
-In-Reply-To: <4304D763.4090001@rincewind.tv>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============42281730325357136=="
+Cc: linux-pm@lists.osdl.org, Fastboot mailing list <fastboot@lists.osdl.org>,
+   netdev@vger.kernel.org
+Return-path: <linux-pm-bounces@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1wtmjulxe.fsf@ebiederm.dsl.xmission.com>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020505050000070804030301
-Content-Type: text/plain; charset=us-ascii
+--===============42281730325357136==
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-Ollie Wild wrote:
-> That said, I appreciate that the if-else condition doesn't seem quite
-> right.  The problem is, the icmp_push_reply() routine is implicitly
-> using the queue as a success indicator.  I put the
-> ip_flush_pending_frames() call inside the else block because I wanted to
-> guarantee that one of ip_push_pending_frames() and
-> ip_flush_pending_frames() is always called.  Both will do proper cleanup.
+On Thu, 2005-08-18 at 12:42 -0600, Eric W. Biederman wrote:
+> Khalid Aziz <khalid_aziz@hp.com> writes:
+> > As soon as I have all the issues sorted out with kexec'ing on INIT on
+> > ia64, I will post a fully updated kexec patch for ia64. I now have kexec
+> > working solid on INIT with e1000 driver and it can handle multiple back
+> > to back INITs and come up in kexec'd kernel every time. I am now trying
+> > to sort some issues out with tg3 driver (another driver with no shutdown
+> > routine :(
 > 
-> I'm open to suggestions if you think there's a cleaner way to implement
-> this.
+> In the normal case (not kexec on panic) user space should down the interfaces
+> before calling kexec.  Is your user space doing that?
 
-Checking the return value of ip_append_data seems cleaner to me.
-Patch attached.
+Yes, I am down'ing the interface from userspace in normal kexec case,
+but that does not happen on INIT on ia64. 
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+-- 
+Khalid
 
---------------020505050000070804030301
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+====================================================================
+Khalid Aziz                       Open Source and Linux Organization
+(970)898-9214                                        Hewlett-Packard
+khalid.aziz@hp.com                                  Fort Collins, CO
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -349,12 +349,12 @@ static void icmp_push_reply(struct icmp_
- {
- 	struct sk_buff *skb;
- 
--	ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
--		       icmp_param->data_len+icmp_param->head_len,
--		       icmp_param->head_len,
--		       ipc, rt, MSG_DONTWAIT);
--
--	if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
-+	if (ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
-+		           icmp_param->data_len+icmp_param->head_len,
-+		           icmp_param->head_len,
-+		           ipc, rt, MSG_DONTWAIT) < 0)
-+		ip_flush_pending_frames(icmp_socket->sk);
-+	else if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
- 		struct icmphdr *icmph = skb->h.icmph;
- 		unsigned int csum = 0;
- 		struct sk_buff *skb1;
+"The Linux kernel is subject to relentless development" 
+                                - Alessandro Rubini
 
---------------020505050000070804030301--
+
+--===============42281730325357136==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+
+--===============42281730325357136==--
