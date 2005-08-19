@@ -1,94 +1,188 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [E1000-devel] Page Allocation Failure with e1000 using jumboframe
-Date: Fri, 19 Aug 2005 14:10:40 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.63.0508191103220.3796@jbrandeb-desk.amr.corp.intel.com>
-References: <1124326404.5546.215.camel@localhost.localdomain>
- <Pine.WNT.4.63.0508190940210.3796@jbrandeb-desk.amr.corp.intel.com>
- <1124470909.5552.11.camel@localhost.localdomain>
- <Pine.WNT.4.63.0508191023130.3796@jbrandeb-desk.amr.corp.intel.com>
- <20050819174201.GJ3953@verdi.suse.de> <Pine.WNT.4.63.0508191043440.3796@jbrandeb-desk.amr.corp.intel.com>
- <20050819180132.GO22993@wotan.suse.de>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: 2.6.13-rc6-rt6
+Date: Fri, 19 Aug 2005 17:22:28 -0400
+Message-ID: <1124486548.18408.18.camel__14682.9885700301$1124486805$gmane$org@localhost.localdomain>
+References: <20050816170805.GA12959@elte.hu>
+	 <1124214647.5764.40.camel@localhost.localdomain>
+	 <1124215631.5764.43.camel@localhost.localdomain>
+	 <1124218245.5764.52.camel@localhost.localdomain>
+	 <1124252419.5764.83.camel@localhost.localdomain>
+	 <1124257580.5764.105.camel@localhost.localdomain>
+	 <20050817064750.GA8395@elte.hu>
+	 <1124287505.5764.141.camel@localhost.localdomain>
+	 <1124288677.5764.154.camel@localhost.localdomain>
+	 <1124295214.5764.163.camel@localhost.localdomain>
+	 <20050817162324.GA24495@elte.hu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Ming Zhang <mingz@ele.uri.edu>,
-	E1000 <e1000-devel@lists.sourceforge.net>,
-	iet-dev <iscsitarget-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org
-Return-path: <iscsitarget-devel-admin@lists.sourceforge.net>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20050819180132.GO22993@wotan.suse.de>
-Sender: iscsitarget-devel-admin@lists.sourceforge.net
-Errors-To: iscsitarget-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/iscsitarget-devel>,
-	<mailto:iscsitarget-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:iscsitarget-devel@lists.sourceforge.net>
-List-Help: <mailto:iscsitarget-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/iscsitarget-devel>,
-	<mailto:iscsitarget-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=iscsitarget-devel>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "Paul E. McKenney" <paulmck@us.ibm.com>,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ingo Molnar <mingo@elte.hu>
+In-Reply-To: <20050817162324.GA24495@elte.hu>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Aug 2005, Andi Kleen wrote:
-> > >> the formula for the size that the current e1000 looks for is something
-> > >> like
-> > >>
-> > >> a = MTU roundup to next power of 2
-> > >> a += 2 (skb_reserve(NET_IP_ALIGN))
-> > >> a += 16 (skb_reserve 16 by __dev_alloc_skb)
-> > >>
-> > >> so, a = 2048 + 2 + 16, or 2066
-> > >> request (a) from slab, which does a power of 2 roundup
-> > >> so the skb comes from the 4k (single page) slab for standard mtu.
-> > >
-> > >That's very suboptimal because you're wasting nearly 2k. It would
-> > >be better if you allocated 4k or exactly 2k
-> >
-> > we have to give the full 2k to hardware, unfortunately.  which means
-> > mapping the full 2k.  we do the skb reserve because of cache/alighment
-> > effects which show a (big) hit in performance if we don't align the IP
-> > header.  Yes I know that dword unaligned DMA really hurts on some arches,
-> > but thats why the arch can #def NET_IP_ALIGN 0.
+On Wed, 2005-08-17 at 18:23 +0200, Ingo Molnar wrote:
+
 > 
-> What is the requirement of your hardware? power of two alignment or
-> power of two size?  If the later does it really trash the data behind it?
+> > And it goes on and on. This happens everytime. Without netconsole, I
+> > only get the nonzero lock count error. Also, one of my lockups on SMP
+> > had to do with the kernel_thread_helper:
+> > 
+> > Using IPI Shortcut mode
+> > khelper/794[CPU#0]: BUG in set_new_owner at kernel/rt.c:916
 
-our pci/pci-x hardware requires the full 2k, (power of 2 size) and it can 
-trash the data behind it even in the 1500 MTU case because a frame larger 
-than 1518 bytes can be received, and we could fill a whole descriptor and 
-overflow into the next. see next paragraph.
-
-> But surely it doesn't use all of the 2k for the 1.5k MTU, so it
-> would be good if you could fit the header alignment in there
-> and only get the exact needed amount from the underlying allocator.
-
-that would be ideal.  Depending on the memory constraints of the system, 
-we could set the RCTL.LPE=0 (long packet enable that forces the hardware 
-to drop packets more than 1522 bytes) that would then enable us to 
-cheat/optimize for the 1500 MTU case.  I guess then we just call alloc_skb 
-directly instead of the dev version.
-
-> > if thats the case, then we're left asking the question, who uses that 16
-> > bytes that are skb_reserved by __dev_alloc_skb???
+This was with netconsole and showed up after a bunch of other bugs. So
+this is a side effect of what happened earlier.
 > 
-> Nothing, except maybe routing to a different class of link layer that
-> needs bigger headers (e.g. PPP).  Even then it's just a performance
-> optimization to avoid a skb copy.
+> this is a 'must not happen'. Somehow lock->held list got non-empty.  
+> Maybe some use-after-free thing? Havent seen it myself.
 > 
-> I suppose it would be possible to keep track of the largest supported
-> hard_header_len of all devices and if it's all identical don't add the
-> 16 bytes.
 
-hmm, all this is pie in the sky until we can get some of this tested. 
-Unfortunately those resources are busy here :-(
+I started debugging netconsole with the RT patch and found this
+happening.  After seeing what's wrong, I looked at the latest git
+branch, and it seems to already have a similar solution that I was going
+to make. Here's a description of what's wrong.
 
-Jesse
+In net/core/dev.c the following code is in net_rx_action:
+
+		netpoll_poll_lock(dev);
+
+		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+			netpoll_poll_unlock(dev);
+			raw_local_irq_disable();
+			list_del(&dev->poll_list);
+			list_add_tail(&dev->poll_list, &queue->poll_list);
+			if (dev->quota < 0)
+				dev->quota += dev->weight;
+			else
+				dev->quota = dev->weight;
+		} else {
+			netpoll_poll_unlock(dev);
+
+The netpoll_poll_lock and netpoll_poll_unlock look like this (in current RT):
+
+static inline netpoll_poll_lock(struct net_device *dev)
+{
+	if (dev->npinfo) {
+		spin_lock(&dev->npinfo->poll_lock);
+		dev->npinfo->poll_owner = smp_processor_id();
+	}
+}
+
+static inline void netpoll_poll_unlock(struct net_device *dev)
+{
+	if (dev->npinfo) {
+		dev->npinfo->poll_owner = -1;
+		spin_unlock(&dev->npinfo->poll_lock);
+	}
+}
 
 
+The problem here is that between netpoll_poll_lock and
+netpoll_poll_unlock the dev->npinfo gets assigned. So we unlock the
+dev->npinfo->poll_lock without ever locking it.
 
+Here's the port from the latest git to solve this. I've CCed the netdev,
+since I'm not sure I got all the places for rcu_lock for the netpoll. At
+least to solve this problem.  I did boot up the kernel and this patch
+did fix my bugs that I was getting using netconsole. (I have one more
+patch to send to fix the illegal API messages).
 
--------------------------------------------------------
-SF.Net email is Sponsored by the Better Software Conference & EXPO
-September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
-Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
-Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
+-- Steve
+
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+
+Index: linux_realtime_ernie/include/linux/netpoll.h
+===================================================================
+--- linux_realtime_ernie/include/linux/netpoll.h	(revision 296)
++++ linux_realtime_ernie/include/linux/netpoll.h	(working copy)
+@@ -60,25 +60,31 @@
+ 	return ret;
+ }
+ 
+-static inline void netpoll_poll_lock(struct net_device *dev)
++static inline void *netpoll_poll_lock(struct net_device *dev)
+ {
++	rcu_read_lock();
+ 	if (dev->npinfo) {
+ 		spin_lock(&dev->npinfo->poll_lock);
+ 		dev->npinfo->poll_owner = smp_processor_id();
++		return dev->npinfo;
+ 	}
++	return NULL;
+ }
+ 
+-static inline void netpoll_poll_unlock(struct net_device *dev)
++static inline void netpoll_poll_unlock(void *have)
+ {
+-	if (dev->npinfo) {
+-		dev->npinfo->poll_owner = -1;
+-		spin_unlock(&dev->npinfo->poll_lock);
++	struct netpoll_info *npi = have;
++
++	if (npi) {
++		npi->poll_owner = -1;
++		spin_unlock(&npi->poll_lock);
+ 	}
++	rcu_read_unlock();
+ }
+ 
+ #else
+ #define netpoll_rx(a) 0
+-#define netpoll_poll_lock(a)
++#define netpoll_poll_lock(a) 0
+ #define netpoll_poll_unlock(a)
+ #endif
+ 
+Index: linux_realtime_ernie/net/core/netpoll.c
+===================================================================
+--- linux_realtime_ernie/net/core/netpoll.c	(revision 296)
++++ linux_realtime_ernie/net/core/netpoll.c	(working copy)
+@@ -726,6 +726,9 @@
+ 	/* last thing to do is link it to the net device structure */
+ 	ndev->npinfo = npinfo;
+ 
++	/* avoid racing with NAPI reading npinfo */
++	synchronize_rcu();
++
+ 	return 0;
+ 
+  release:
+Index: linux_realtime_ernie/net/core/dev.c
+===================================================================
+--- linux_realtime_ernie/net/core/dev.c	(revision 296)
++++ linux_realtime_ernie/net/core/dev.c	(working copy)
+@@ -1723,6 +1723,7 @@
+ 
+ 	while (!list_empty(&queue->poll_list)) {
+ 		struct net_device *dev;
++		void *have;
+ 
+ 		if (budget <= 0 || jiffies - start_time > 1)
+ 			goto softnet_break;
+@@ -1735,10 +1736,10 @@
+ 
+ 		dev = list_entry(queue->poll_list.next,
+ 				 struct net_device, poll_list);
+-		netpoll_poll_lock(dev);
++		have = netpoll_poll_lock(dev);
+ 
+ 		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+-			netpoll_poll_unlock(dev);
++			netpoll_poll_unlock(have);
+ 			raw_local_irq_disable();
+ 			list_del(&dev->poll_list);
+ 			list_add_tail(&dev->poll_list, &queue->poll_list);
+@@ -1747,7 +1748,7 @@
+ 			else
+ 				dev->quota = dev->weight;
+ 		} else {
+-			netpoll_poll_unlock(dev);
++			netpoll_poll_unlock(have);
+ 			dev_put(dev);
+ 			raw_local_irq_disable();
+ 		}
