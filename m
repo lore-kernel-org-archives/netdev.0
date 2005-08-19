@@ -1,31 +1,58 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [resend][PATCH net-drivers-2.4 12/16] e1000: Modified e1000_clean::
- exit poll
-Date: Fri, 19 Aug 2005 02:22:08 -0400
-Message-ID: <43057A90.6000302@pobox.com>
-References: <Pine.LNX.4.44.0504282004300.30085-100000@isotope.jf.intel.com>
+Subject: Re: Fw: [Bugme-new] [Bug 4223] New: sis900 kernel oop at boot
+Date: Fri, 19 Aug 2005 04:04:55 -0400
+Message-ID: <430592A7.30101@pobox.com>
+References: <20050217134440.44f591e2.akpm@osdl.org> <E1D26BP-0005Lg-00@gondolin.me.apana.org.au> <20050305084537.GA12678@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, mangus@deprecated.it,
+        webvenza@libero.it
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0504282004300.30085-100000@isotope.jf.intel.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050305084537.GA12678@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Malli Chilakala wrote:
-> Modified e1000_clean:: exit poll if no Tx and work_done == 0
+Herbert Xu wrote:
+> Hi:
 > 
-> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-> Signed-off-by: John Ronciak <john.ronciak@intel.com>
+> Here is the version that moves the necessary code above register_netdev
+> instead of using init.  It's against netdev-2.6.
+> 
+> 
+>>Feb 15 18:26:20 saturno kernel: Unable to handle kernel NULL pointer
+>>dereference at virtual address 0000000e
+>>Feb 15 18:26:20 saturno kernel:  printing eip:
+>>Feb 15 18:26:20 saturno kernel: e1113417
+>>Feb 15 18:26:20 saturno kernel: *pde = 00000000
+>>Feb 15 18:26:20 saturno kernel: Oops: 0000 [#1]
+>>Feb 15 18:26:20 saturno kernel: PREEMPT
+>>Feb 15 18:26:20 saturno kernel: Modules linked in: sis900 nvidia 8250_pci 8250
+>>serial_core psmouse
+>>Feb 15 18:26:20 saturno kernel: CPU:    0
+>>Feb 15 18:26:20 saturno kernel: EIP:    0060:[<e1113417>]    Tainted: P
+>>VLI
+>>Feb 15 18:26:20 saturno kernel: EFLAGS: 00010296   (2.6.10-M7)
+>>Feb 15 18:26:20 saturno kernel: EIP is at sis900_check_mode+0x17/0xa0 [sis900]
+> 
+> 
+> OK, this happened because we got preempted before sis900_mii_probe
+> finished setting the sis_priv->mii.  Theoretically this can happen
+> with SMP as well but I suppose the number of SMP machines with sis900
+> is fairly small.
+> 
+> Anyway, the fix is to make sure that sis900_mii_probe is done before
+> the device can be opened.  This patch does it by moving the setup
+> before register_netdevice.
+> 
+> Since the netdev name is not available before register_netdev, I've
+> changed the relevant printk's to use pci_name instead.  Note that
+> one of those printk's may be called after register_netdev as well.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied e1000 patches 1-12 to 2.4.x.  Stopped at this patch.
-
-Patch 13 was corrupted, so that's where the import stopped.
-
-But nonetheless... 2.4.x netdev patches are flowing again!
+Is this patch still needed?
 
 	Jeff
