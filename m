@@ -1,45 +1,63 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.13-rc6-mm1: too many 'ipv4_table' variables
-Date: Fri, 19 Aug 2005 19:28:42 +0200
-Message-ID: <20050819172842.GG3682@stusta.de>
-References: <20050819043331.7bc1f9a9.akpm@osdl.org>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: Page Allocation Failure with e1000 using jumboframe
+Date: Fri, 19 Aug 2005 10:33:23 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.63.0508191023130.3796@jbrandeb-desk.amr.corp.intel.com>
+References: <1124326404.5546.215.camel@localhost.localdomain>
+ <Pine.WNT.4.63.0508190940210.3796@jbrandeb-desk.amr.corp.intel.com>
+ <1124470909.5552.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932567AbVHSR2q@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20050819043331.7bc1f9a9.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	E1000 <e1000-devel@lists.sourceforge.net>,
+	iet-dev <iscsitarget-devel@lists.sourceforge.net>,
+	netdev@vger.kernel.org
+Return-path: <e1000-devel-admin@lists.sourceforge.net>
+To: Ming Zhang <mingz@ele.uri.edu>
+In-Reply-To: <1124470909.5552.11.camel@localhost.localdomain>
+Sender: e1000-devel-admin@lists.sourceforge.net
+Errors-To: e1000-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 19, 2005 at 04:33:31AM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.13-rc5-mm1:
->...
->  git-net.patch
->...
->  Subsystem trees
->...
+On Fri, 19 Aug 2005, Ming Zhang wrote:
+> This is first reported on IET list and then i redo the test with vanilla
+> 2.6.12.4 kernel and everything went fine.
+> 
+> so i suspect if there are special case caused by vendor kernel.
+> 
+> is this 32KB ATOMIC ram allocation request only available in jumbo frame
+> case? since the regular MTU case goes fine.
+>
 
-It seems there are too many different 'ipv4_table' variables:
+Ahh, okay.  I'm pretty sure that SuSE did some changes (not sure what) to 
+memory management.
 
-<--  snip  -->
+the formula for the size that the current e1000 looks for is something 
+like
 
-...
-  CC      net/ipv4/ipvs/ip_vs_ctl.o
-net/ipv4/ipvs/ip_vs_ctl.c:1601: error: static declaration of 'ipv4_table' follows non-static declaration
-include/net/ip.h:376: error: previous declaration of 'ipv4_table' was here
-make[3]: *** [net/ipv4/ipvs/ip_vs_ctl.o] Error 1
+a = MTU roundup to next power of 2
+a += 2 (skb_reserve(NET_IP_ALIGN))
+a += 16 (skb_reserve 16 by __dev_alloc_skb)
 
-<--  snip  -->
+so, a = 2048 + 2 + 16, or 2066
+request (a) from slab, which does a power of 2 roundup
+so the skb comes from the 4k (single page) slab for standard mtu.
 
-cu
-Adrian
+Jesse
 
--- 
+PS we have a driver in test that won't do the large contig allocations any 
+more.
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+
+
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
