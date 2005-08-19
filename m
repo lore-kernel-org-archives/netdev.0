@@ -1,74 +1,94 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Possible race with br_del_if()
-Date: Fri, 19 Aug 2005 12:40:42 -0700
-Message-ID: <20050819124042.0d0ec5c7@dxpl.pdx.osdl.net>
-References: <20050818214036.GH10593@us.ibm.com>
-	<20050818151202.6fe6ded4@dxpl.pdx.osdl.net>
-	<20050818222323.GI10593@us.ibm.com>
-	<20050818153531.61f62ac0@dxpl.pdx.osdl.net>
-	<20050819191052.GE5523@us.ibm.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [E1000-devel] Page Allocation Failure with e1000 using jumboframe
+Date: Fri, 19 Aug 2005 14:10:40 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.63.0508191103220.3796@jbrandeb-desk.amr.corp.intel.com>
+References: <1124326404.5546.215.camel@localhost.localdomain>
+ <Pine.WNT.4.63.0508190940210.3796@jbrandeb-desk.amr.corp.intel.com>
+ <1124470909.5552.11.camel@localhost.localdomain>
+ <Pine.WNT.4.63.0508191023130.3796@jbrandeb-desk.amr.corp.intel.com>
+ <20050819174201.GJ3953@verdi.suse.de> <Pine.WNT.4.63.0508191043440.3796@jbrandeb-desk.amr.corp.intel.com>
+ <20050819180132.GO22993@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ryan Harper <ryanh@us.ibm.com>
-In-Reply-To: <20050819191052.GE5523@us.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Ming Zhang <mingz@ele.uri.edu>,
+	E1000 <e1000-devel@lists.sourceforge.net>,
+	iet-dev <iscsitarget-devel@lists.sourceforge.net>,
+	netdev@vger.kernel.org
+Return-path: <iscsitarget-devel-admin@lists.sourceforge.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20050819180132.GO22993@wotan.suse.de>
+Sender: iscsitarget-devel-admin@lists.sourceforge.net
+Errors-To: iscsitarget-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/iscsitarget-devel>,
+	<mailto:iscsitarget-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:iscsitarget-devel@lists.sourceforge.net>
+List-Help: <mailto:iscsitarget-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/iscsitarget-devel>,
+	<mailto:iscsitarget-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=iscsitarget-devel>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Aug 2005 14:10:52 -0500
-Ryan Harper <ryanh@us.ibm.com> wrote:
+On Fri, 19 Aug 2005, Andi Kleen wrote:
+> > >> the formula for the size that the current e1000 looks for is something
+> > >> like
+> > >>
+> > >> a = MTU roundup to next power of 2
+> > >> a += 2 (skb_reserve(NET_IP_ALIGN))
+> > >> a += 16 (skb_reserve 16 by __dev_alloc_skb)
+> > >>
+> > >> so, a = 2048 + 2 + 16, or 2066
+> > >> request (a) from slab, which does a power of 2 roundup
+> > >> so the skb comes from the 4k (single page) slab for standard mtu.
+> > >
+> > >That's very suboptimal because you're wasting nearly 2k. It would
+> > >be better if you allocated 4k or exactly 2k
+> >
+> > we have to give the full 2k to hardware, unfortunately.  which means
+> > mapping the full 2k.  we do the skb reserve because of cache/alighment
+> > effects which show a (big) hit in performance if we don't align the IP
+> > header.  Yes I know that dword unaligned DMA really hurts on some arches,
+> > but thats why the arch can #def NET_IP_ALIGN 0.
+> 
+> What is the requirement of your hardware? power of two alignment or
+> power of two size?  If the later does it really trash the data behind it?
 
-> * Stephen Hemminger <shemminger@osdl.org> [2005-08-18 17:36]:
-> > On Thu, 18 Aug 2005 17:23:23 -0500
-> > Ryan Harper <ryanh@us.ibm.com> wrote:
-> > 
-> > > * Stephen Hemminger <shemminger@osdl.org> [2005-08-18 17:11]:
-> > > > On Thu, 18 Aug 2005 16:40:36 -0500
-> > > > Ryan Harper <ryanh@us.ibm.com> wrote:
-> > > > 
-> > > > > Hello,
-> > > > > 
-> > > > > I've encountered several oops when adding and removing interfaces from
-> > > > > bridges while using Xen.  Most of the details are available [1]here.
-> > > > > The short of it is the following sequence:
-> > > > 
-> > > > Doesn't the mutex in RTNL work right?  or are you calling
-> > > > routines with out asserting it?
-> > > 
-> > > unregister_netdevice asserts RTNL, add_del_if() in br_ioctl.c doesn't
-> > > seem to do so.  I don't see it down dev_get_by_index() path either.  It
-> > > looks like any caller of add_del_if() isn't asserting RTNL.  The two
-> > > callers I see are:
-> > > 
-> > > br_dev_ioctl() in br_ioctl.c
-> > > old_dev_ioctl() in br_ioctl.c
-> > 
-> > But the pat to br_dev_ioctl() is via the socket ioctl and that
-> > should already have gotten RTNL.
-> > 
-> > 
-> > dev_ioctl
-> > 	rtnl_lock()
-> > 	dev_ifsioc()
-> > 		dev->do_ioctl --> br_dev_ioctl
-> 
-> 
-> Just to follow-up, the issue was a race between the call_rcu() callback
-> for destroy_nbp() and an unregister_netdev() call.  Sometimes the
-> br_device_event() routine was triggered and destroy_nbp() had not been
-> run yet leaving dev->br_port non-NULL to which br_device_event then
-> correctly calls br_del_if().
-> 
-> We caused this by issuing a brctl delif from userspace scripts and
-> having a in kernel handler invoke unregister_netdev() call.  
-> 
-> Our fix is to not bother calling brctl delif because the
-> unregister_netdev() call will automatically remove the device from the
-> bridge when the notify_call_chain() kicks in from
-> unregister_netdevice().  
+our pci/pci-x hardware requires the full 2k, (power of 2 size) and it can 
+trash the data behind it even in the 1500 MTU case because a frame larger 
+than 1518 bytes can be received, and we could fill a whole descriptor and 
+overflow into the next. see next paragraph.
 
-I'll get back to you, this needs some review, I have a bunch of old
-test suites to dig up for it.
+> But surely it doesn't use all of the 2k for the 1.5k MTU, so it
+> would be good if you could fit the header alignment in there
+> and only get the exact needed amount from the underlying allocator.
+
+that would be ideal.  Depending on the memory constraints of the system, 
+we could set the RCTL.LPE=0 (long packet enable that forces the hardware 
+to drop packets more than 1522 bytes) that would then enable us to 
+cheat/optimize for the 1500 MTU case.  I guess then we just call alloc_skb 
+directly instead of the dev version.
+
+> > if thats the case, then we're left asking the question, who uses that 16
+> > bytes that are skb_reserved by __dev_alloc_skb???
+> 
+> Nothing, except maybe routing to a different class of link layer that
+> needs bigger headers (e.g. PPP).  Even then it's just a performance
+> optimization to avoid a skb copy.
+> 
+> I suppose it would be possible to keep track of the largest supported
+> hard_header_len of all devices and if it's all identical don't add the
+> 16 bytes.
+
+hmm, all this is pie in the sky until we can get some of this tested. 
+Unfortunately those resources are busy here :-(
+
+Jesse
+
+
+
+
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
