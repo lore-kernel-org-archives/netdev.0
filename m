@@ -1,74 +1,42 @@
-From: "Paul E. McKenney" <paulmck@us.ibm.com>
+From: Steven Rostedt <rostedt@goodmis.org>
 Subject: Re: 2.6.13-rc6-rt6
-Date: Fri, 19 Aug 2005 16:12:23 -0700
-Message-ID: <20050819231223.GN1298__5018.5649110519$1124493356$gmane$org@us.ibm.com>
-References: <1124252419.5764.83.camel@localhost.localdomain> <1124257580.5764.105.camel@localhost.localdomain> <20050817064750.GA8395@elte.hu> <1124287505.5764.141.camel@localhost.localdomain> <1124288677.5764.154.camel@localhost.localdomain> <1124295214.5764.163.camel@localhost.localdomain> <20050817162324.GA24495@elte.hu> <1124486548.18408.18.camel@localhost.localdomain> <20050819224758.GJ1298@us.ibm.com> <1124492562.18408.35.camel@localhost.localdomain>
-Reply-To: paulmck@us.ibm.com
+Date: Fri, 19 Aug 2005 19:20:20 -0400
+Message-ID: <1124493620.18408.40.camel__39873.1951172978$1124493812$gmane$org@localhost.localdomain>
+References: <1124252419.5764.83.camel@localhost.localdomain>
+	 <1124257580.5764.105.camel@localhost.localdomain>
+	 <20050817064750.GA8395@elte.hu>
+	 <1124287505.5764.141.camel@localhost.localdomain>
+	 <1124288677.5764.154.camel@localhost.localdomain>
+	 <1124295214.5764.163.camel@localhost.localdomain>
+	 <20050817162324.GA24495@elte.hu>
+	 <1124486548.18408.18.camel@localhost.localdomain>
+	 <20050819224758.GJ1298@us.ibm.com>
+	 <1124492562.18408.35.camel@localhost.localdomain>
+	 <20050819231223.GN1298@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Ingo Molnar <mingo@elte.hu>, netdev@oss.sgi.com,
         linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Content-Disposition: inline
-In-Reply-To: <1124492562.18408.35.camel@localhost.localdomain>
+To: paulmck@us.ibm.com
+In-Reply-To: <20050819231223.GN1298@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 19, 2005 at 07:02:42PM -0400, Steven Rostedt wrote:
-> On Fri, 2005-08-19 at 15:47 -0700, Paul E. McKenney wrote:
+On Fri, 2005-08-19 at 16:12 -0700, Paul E. McKenney wrote:
 > 
-> > Good catch -- but a few changes needed to be perfectly safe:
-> > 
-> > 	static inline void *netpoll_poll_lock(struct net_device *dev)
-> > 	{
-> > 
-> > 		struct netpoll_info *npi;
-> > 
-> > 		rcu_read_lock();
-> > 		npi = rcu_dereference(dev)->npinfo;
-> > 		if (have) {
-> 
-> Here I'm sure you mean "if (npi) {" :-)
+> Hmmm....  Guess it is time for me to stop procrastinating on better
+> understanding git...
 
-Right you are!  ;-)
+Why? I still don't.  Just go to http://www.kernel.org/ and download the
+latest git release (as of now it's -git11).
 
-> > 			spin_lock(&npi->poll_lock);
-> > 			npi->poll_owner = smp_processor_id();
-> > 			return npi;
-> > 		}
-> > 		return NULL;
-> > 	}
-> > 
-> > The earlier version could get in trouble if dev->npinfo was set
-> > to NULL while this was executing.
-> 
-> Truth be told,  I was just fixing the race with getting the npinfo
-> pointer set between netpoll_poll_lock and netpoll_poll_unlock.  I wrote
-> a patch that fixed that but nothing with the rcu_locks.  Then I looked
-> at the current git tree and saw that they already had my changes, but
-> also included the rcu locks.  So I just (blindly) added them.
+Of course you need to know the special combination :-)
 
-Understood!
+http://kernel.org/pub/linux/kernel/v2.6/linux-2.6.12.tar.bz2
+http://kernel.org/pub/linux/kernel/v2.6/testing/patch-2.6.13-rc6.bz2
+http://kernel.org/pub/linux/kernel/v2.6/snapshots/patch-2.6.13-rc6-git11.bz2
 
-> > Again, I do not fully understand this code, so a grain of salt might
-> > come in handy.  But there definitely need to be some rcu_dereference()
-> > and rcu_assign_pointer() primitives in there somewhere.  ;-)
-> > 
-> > The following changes look good to me, but, as I said earlier, I do
-> > not claim to fully understand this code.
-> 
-> netpoll has changed quite a bit in the last few releases. I've seen lots
-> of fixup code sent in (which usually means there's lots of new broken
-> code ;-)
-> 
-> Anyway, I don't quite fully understand RCU. I read a few of the
-> documents on your web site, but I haven't had time to really digest it.
-> Have you taken a look at the latest git tree?  The rcu_locks are used
-> for net poll quite a bit more there.
-
-Hmmm....  Guess it is time for me to stop procrastinating on better
-understanding git...
-
-						Thanx, Paul
+-- Steve
