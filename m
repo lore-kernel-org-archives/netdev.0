@@ -1,21 +1,26 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: [E1000-devel] Page Allocation Failure with e1000 using jumbo
- frame
-Date: Fri, 19 Aug 2005 20:10:56 +0200
-Message-ID: <1124475056.23996.15.camel@localhost.localdomain>
+From: Ming Zhang <mingz@ele.uri.edu>
+Subject: Re: [E1000-devel] Page Allocation Failure with e1000 using
+ jumboframe
+Date: Fri, 19 Aug 2005 15:07:09 -0400
+Message-ID: <1124478429.5552.39.camel@localhost.localdomain>
 References: <1124326404.5546.215.camel@localhost.localdomain>
 	 <Pine.WNT.4.63.0508190940210.3796@jbrandeb-desk.amr.corp.intel.com>
-	 <20050819170248.GH3953@verdi.suse.de>
+	 <1124470909.5552.11.camel@localhost.localdomain>
+	 <Pine.WNT.4.63.0508191023130.3796@jbrandeb-desk.amr.corp.intel.com>
+	 <20050819174201.GJ3953@verdi.suse.de>
+	 <Pine.WNT.4.63.0508191043440.3796@jbrandeb-desk.amr.corp.intel.com>
+	 <20050819180132.GO22993@wotan.suse.de>
+Reply-To: mingz@ele.uri.edu
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-E/GRTRKlDhJOSXHKvo8X"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Ming Zhang <mingz@ele.uri.edu>,
 	E1000 <e1000-devel@lists.sourceforge.net>,
 	iet-dev <iscsitarget-devel@lists.sourceforge.net>,
 	netdev@vger.kernel.org
 Return-path: <iscsitarget-devel-admin@lists.sourceforge.net>
 To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20050819170248.GH3953@verdi.suse.de>
+In-Reply-To: <20050819180132.GO22993@wotan.suse.de>
 Sender: iscsitarget-devel-admin@lists.sourceforge.net
 Errors-To: iscsitarget-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/iscsitarget-devel>,
@@ -27,46 +32,66 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/iscsitarget-devel>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=iscsitarget-devel>
 List-Id: netdev.vger.kernel.org
 
+I am sorry that the guy who found this problem is running suse linux,
+but with vanilla kernel. so this is a generic problem, not suse
+specific.
 
---=-E/GRTRKlDhJOSXHKvo8X
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I am sorry for my insaneness at that time. :P
 
-On Fri, 2005-08-19 at 19:02 +0200, Andi Kleen wrote:
-> > I guess we need to approach the memory manager guys and ask them why th=
-e=20
-> > current kernels are having so much trouble getting contiguous memory.=20
->=20
-> Because memory fragments.
->=20
-> The only long term reliable way is to not allocate buffers > PAGE_SIZE.
-> The stack supports paged skbs for that.
+Ming
 
-And the e1000 supports receiving/transmitting packets containing several
-buffers according to the SDM, it just uses more descriptors in the rx/tx
-rings.
-Maybe it should allocate PAGE_SIZE large buffers, a 9kB packet would
-then use 3 such buffers.
 
-And it of course means more and smaller DMA transfers than when using
-larger buffers.
-
---=20
-/Martin
-
---=-E/GRTRKlDhJOSXHKvo8X
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBDBiCwWm2vlfa207ERAr47AJ0YeIL6HeHl55HQBeyQaQMtRUVVEACgi+1t
-V7GsG0qyBFcCjyp8ASYkack=
-=XLEl
------END PGP SIGNATURE-----
-
---=-E/GRTRKlDhJOSXHKvo8X--
+On Fri, 2005-08-19 at 20:01 +0200, Andi Kleen wrote:
+> > I could certainly be mistaken.  The difference I saw was that suse kernels 
+> > recycle the same skb pointers back to our driver, and the redhat kernels 
+> > seem to march through a much larger range before the values repeat.  This 
+> > is all observation based, so I may be completely wrong on this issue.
+> 
+> Maybe you're comparing 2.4 to 2.6 or different 2.6s. But I don't 
+> think there are any SUSE specific patches affecting this.
+> 
+> > 
+> > >> the formula for the size that the current e1000 looks for is something
+> > >> like
+> > >>
+> > >> a = MTU roundup to next power of 2
+> > >> a += 2 (skb_reserve(NET_IP_ALIGN))
+> > >> a += 16 (skb_reserve 16 by __dev_alloc_skb)
+> > >>
+> > >> so, a = 2048 + 2 + 16, or 2066
+> > >> request (a) from slab, which does a power of 2 roundup
+> > >> so the skb comes from the 4k (single page) slab for standard mtu.
+> > >
+> > >That's very suboptimal because you're wasting nearly 2k. It would
+> > >be better if you allocated 4k or exactly 2k
+> > 
+> > we have to give the full 2k to hardware, unfortunately.  which means 
+> > mapping the full 2k.  we do the skb reserve because of cache/alighment 
+> > effects which show a (big) hit in performance if we don't align the IP 
+> > header.  Yes I know that dword unaligned DMA really hurts on some arches, 
+> > but thats why the arch can #def NET_IP_ALIGN 0.
+> 
+> What is the requirement of your hardware? power of two alignment or 
+> power of two size?  If the later does it really trash the data behind it?
+> 
+> But surely it doesn't use all of the 2k for the 1.5k MTU, so it
+> would be good if you could fit the header alignment in there
+> and only get the exact needed amount from the underlying allocator.
+> 
+> 
+> > 
+> > if thats the case, then we're left asking the question, who uses that 16 
+> > bytes that are skb_reserved by __dev_alloc_skb???
+> 
+> Nothing, except maybe routing to a different class of link layer that
+> needs bigger headers (e.g. PPP).  Even then it's just a performance
+> optimization to avoid a skb copy.
+> 
+> I suppose it would be possible to keep track of the largest supported
+> hard_header_len of all devices and if it's all identical don't add the 
+> 16 bytes.
+> 
+> -Andi
 
 
 
