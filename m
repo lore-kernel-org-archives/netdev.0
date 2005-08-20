@@ -1,51 +1,46 @@
-From: Michael Iatrou <m.iatrou@freemail.gr>
-Subject: Re: Page Allocation Failure with e1000 using jumboframe
-Date: Sat, 20 Aug 2005 04:46:24 +0300
-Message-ID: <200508200446.25149.m.iatrou@freemail.gr>
-References: <1124326404.5546.215.camel@localhost.localdomain> <1124470909.5552.11.camel@localhost.localdomain> <Pine.WNT.4.63.0508191023130.3796@jbrandeb-desk.amr.corp.intel.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch] net/tulip: LAN driver for ULI M5261/M5263
+Date: Sat, 20 Aug 2005 01:12:25 -0400
+Message-ID: <4306BBB9.4060201@pobox.com>
+References: <OF308CFA6C.C728268D-ON4825705F.00365A7A@uli.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-7"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Ming Zhang <mingz@ele.uri.edu>,
-	iet-dev <iscsitarget-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org
-Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: e1000-devel@lists.sourceforge.net
-In-Reply-To: <Pine.WNT.4.63.0508191023130.3796@jbrandeb-desk.amr.corp.intel.com>
-Content-Disposition: inline
-Sender: e1000-devel-admin@lists.sourceforge.net
-Errors-To: e1000-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, Alan Cox <alan@redhat.com>,
+	Clear.Zhang@uli.com.tw, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Emily.Jiang@uli.com.tw
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751039AbVHTFMc@vger.kernel.org>
+To: Peer.Chen@uli.com.tw
+In-Reply-To: <OF308CFA6C.C728268D-ON4825705F.00365A7A@uli.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the date was Friday 19 August 2005 20:33, Jesse Brandeburg wrote:
+Peer.Chen@uli.com.tw wrote:
+> Jeff:
+> The attached file is the incremental patch to the original uli526x.c I send
+> you first time,
+> I modify the source according to your advice, thanks.
+> 
+> Signed-off-by: Peer Chen <Peer.Chen@uli.com.tw>
+> (See attached file: patch_uli526x_inc)
 
-> PS we have a driver in test that won't do the large contig allocations any
-> more.
+Patch applied, thanks much.
 
-In fact, I tested a version of these drivers about 3 months ago and not only 
-they didn't solve the problem, but the throughput decreased!
-Is there a newer version? I would gladly test it...
-
-(previous report)
-http://sourceforge.net/mailarchive/forum.php?thread_id=7237829&forum_id=12401
-
--- 
- Michael Iatrou
- Electrical and Computer Engineering Dept.
- University of Patras, Greece
+I notice you removed the following code, rather than fixing it.  It is
+OK to remove this code??
 
 
--------------------------------------------------------
-SF.Net email is Sponsored by the Better Software Conference & EXPO
-September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
-Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
-Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
+-       //add by clearzhang 2004/7/8
+-       pci_read_config_dword(pdev,0x0,&configval);
+-       m526x_id = configval;
+-       if(configval == 0x526310b9)
+-       {
+-               //printk("is m5263\n");
+-               pci_read_config_dword(pdev,0x0c,&configval);
+-               configval = ((configval & 0xffff00ff) | 0x8000);
+-               pci_write_config_dword(pdev,0x0c,configval);
+-       }
+
+Thanks,
+
+	Jeff
