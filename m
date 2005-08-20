@@ -1,46 +1,54 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] net/tulip: LAN driver for ULI M5261/M5263
-Date: Sat, 20 Aug 2005 01:12:25 -0400
-Message-ID: <4306BBB9.4060201@pobox.com>
-References: <OF308CFA6C.C728268D-ON4825705F.00365A7A@uli.com.tw>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/core/sysctl_net_core.c: fix PROC_FS=n compile
+Date: Sat, 20 Aug 2005 21:03:09 +0200
+Message-ID: <20050820190309.GB3615@stusta.de>
+References: <20050819043331.7bc1f9a9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, Alan Cox <alan@redhat.com>,
-	Clear.Zhang@uli.com.tw, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Emily.Jiang@uli.com.tw
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751039AbVHTFMc@vger.kernel.org>
-To: Peer.Chen@uli.com.tw
-In-Reply-To: <OF308CFA6C.C728268D-ON4825705F.00365A7A@uli.com.tw>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932786AbVHTTDh@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net
+Content-Disposition: inline
+In-Reply-To: <20050819043331.7bc1f9a9.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peer.Chen@uli.com.tw wrote:
-> Jeff:
-> The attached file is the incremental patch to the original uli526x.c I send
-> you first time,
-> I modify the source according to your advice, thanks.
-> 
-> Signed-off-by: Peer Chen <Peer.Chen@uli.com.tw>
-> (See attached file: patch_uli526x_inc)
+On Fri, Aug 19, 2005 at 04:33:31AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.13-rc5-mm1:
+>...
+>  git-net.patch
+>...
+>  Subsystem trees
+>...
 
-Patch applied, thanks much.
+This breaks the compilation with CONFIG_PROC_FS=n:
 
-I notice you removed the following code, rather than fixing it.  It is
-OK to remove this code??
+<--  snip  -->
+
+...
+  CC      net/core/sysctl_net_core.o
+net/core/sysctl_net_core.c:50: error: 'sysctl_wmem_default' undeclared here (not in a function)
+net/core/sysctl_net_core.c:58: error: 'sysctl_rmem_default' undeclared here (not in a function)
+make[2]: *** [net/core/sysctl_net_core.o] Error 1
+
+<--  snip  -->
 
 
--       //add by clearzhang 2004/7/8
--       pci_read_config_dword(pdev,0x0,&configval);
--       m526x_id = configval;
--       if(configval == 0x526310b9)
--       {
--               //printk("is m5263\n");
--               pci_read_config_dword(pdev,0x0c,&configval);
--               configval = ((configval & 0xffff00ff) | 0x8000);
--               pci_write_config_dword(pdev,0x0c,configval);
--       }
+The fix is simple.
 
-Thanks,
 
-	Jeff
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.13-rc6-mm1-full/include/net/sock.h.old	2005-08-20 15:39:23.000000000 +0200
++++ linux-2.6.13-rc6-mm1-full/include/net/sock.h	2005-08-20 15:39:39.000000000 +0200
+@@ -1372,9 +1372,7 @@
+ extern int sysctl_optmem_max;
+ #endif
+ 
+-#ifdef CONFIG_PROC_FS
+ extern __u32 sysctl_wmem_default;
+ extern __u32 sysctl_rmem_default;
+-#endif
+ 
+ #endif	/* _SOCK_H */
