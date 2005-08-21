@@ -1,24 +1,32 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [-mm patch] net/core/sysctl_net_core.c: fix PROC_FS=n compile
-Date: Sat, 20 Aug 2005 17:14:46 -0700 (PDT)
-Message-ID: <20050820.171446.105447223.davem@davemloft.net>
-References: <20050819043331.7bc1f9a9.akpm@osdl.org>
-	<20050820190309.GB3615@stusta.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 2.6.13-rc6] net/802/tr: use interrupt-safe locking
+Date: Sun, 21 Aug 2005 01:38:55 -0700
+Message-ID: <20050821013855.6263eac9.akpm@osdl.org>
+References: <20050817204959.GA20186@tuxdriver.com>
+	<200508172148.j7HLmPAt005857@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750736AbVHUAOu@vger.kernel.org>
-To: bunk@stusta.de
-In-Reply-To: <20050820190309.GB3615@stusta.de>
+Cc: netdev@vger.kernel.org, linux-tr@linuxtr.net, mikep@linuxtr.net,
+	jgarzik@pobox.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750873AbVHUInr@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200508172148.j7HLmPAt005857@death.nxdomain.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Sat, 20 Aug 2005 21:03:09 +0200
+Jay Vosburgh <fubar@us.ibm.com> wrote:
+>
+>  >FWIW, this patch is currently being carried in the Fedora and RHEL
+>  >kernels.  It certainly looks like it is necessary to me.  Can we get
+>  >some movement on this?
+> 
+>  	It's in the SuSE kernel as well.
 
-> This breaks the compilation with CONFIG_PROC_FS=n:
- ..
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+For how long has this fix been in the vendor kernels?
 
-Applied, thanks Adrian.
+Could someone please tell us why there are unmerged bugfixes in vendor
+kernels?
+
+Are there any more?
