@@ -1,84 +1,97 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: tcpdump confused with NAT-T+IPSec Packets
-Date: Mon, 22 Aug 2005 02:31:08 +0200
-Message-ID: <43091CCC.80906@trash.net>
-References: <20050821165608.A9993@portal.rgopal.com>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: [PATCH] [NET] mii: Add test for GigE support
+Date: Mon, 22 Aug 2005 16:50:19 -0700
+Message-ID: <20050822235019.GA29630@xyzzy.farnsworth.org>
+References: <20050322231746.GA27770@xyzzy> <4240A9F3.5040704@pobox.com> <212e5bf54766a68d2ab8716574225203@freescale.com> <4240CABB.5090701@pobox.com> <20050323061446.GA6943@xyzzy>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040203020802080907040407"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932378AbVHVXOn@vger.kernel.org>
-To: Gopalakrishnan Raman <gopal@rgopal.com>
-In-Reply-To: <20050821165608.A9993@portal.rgopal.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
+In-Reply-To: <20050323061446.GA6943@xyzzy>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040203020802080907040407
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+[This patch was submitted on 22Mar2005 and jgarzik said,
+"applied, thanks", but it may have been lost in the git transition.
+I've updated it to current offsets.]
 
-Gopalakrishnan Raman wrote:
-> Hi
-> I'm using 2.6.11.7 and debugging why my ESP tunnel mode does
-> not work between two 2.6 machines one of which is behind a NAT.
-> I'm using tcpdump to capture NAT-T packets on one of the hosts
-> and using espdecrypt (http://www.cs.rpi.edu/~flemej/freebsd/espdecrypt/)
-> to see it in the clear.
-> 
-> Turns out, tcpdump will display an incoming NAT-T packet after it
-> has been mangled by udp_encap_rcv(). udp_encap_rcv() changes the
-> protocol field in the IP hdr to ESP from UDP and also moves other
-> bytes in the sk_buff data area.
-> 
-> The problem is that packet_rcv() calls skb_clone() which is the
-> right thing to do in all cases except when the data portion of the
-> incoming skb is being modified in place. I replaced it with a pskb_copy()
-> in the case when the packet is likely to be NAT-T or ESP. The patch
-> for this follows the end of this mail and seems to work quite well.
-> 
-> Note that af_packet.c is the right place for the ESP/NAT-T check.
-> Can't do it in ESP or UDP code because we can't tell if these packets
-> are also being captured by tcpdump/ethereal.
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
-Herbert already fixed it with this patch.
-
---------------040203020802080907040407
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[IPSEC]: COW skb header in UDP decap
-
-The following patch just makes the header part of the skb writeable.
-This is needed since we modify the IP headers just a few lines below.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
----
-commit 4d78b6c78ae6d87e4c1c8072f42efa716f04afb9
-tree e04f156e8d74c28b925bf53e62d3e4b424a6ffb7
-parent c7f905f0f6d49ed8c1aa4566c31f0383a0ba0c9d
-author Herbert Xu <herbert@gondor.apana.org.au> Tue, 19 Apr 2005 22:48:59 -0700
-committer David S. Miller <davem@davemloft.net> Tue, 19 Apr 2005 22:48:59 -0700
-
- net/ipv4/udp.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -955,6 +955,8 @@ static int udp_encap_rcv(struct sock * s
- 	 * header and optional ESP marker bytes) and then modify the
- 	 * protocol to ESP, and then call into the transform receiver.
- 	 */
-+	if (skb_cloned(skb) && pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
-+		return 0;
+Index: netdev-2.6-mv643xx-enet/drivers/net/mii.c
+===================================================================
+--- netdev-2.6-mv643xx-enet.orig/drivers/net/mii.c
++++ netdev-2.6-mv643xx-enet/drivers/net/mii.c
+@@ -207,6 +207,21 @@
+ 	return 0;
+ }
  
- 	/* Now we can update and verify the packet length... */
- 	iph = skb->nh.iph;
-
---------------040203020802080907040407--
++int mii_check_gmii_support(struct mii_if_info *mii)
++{
++	int reg;
++
++	reg = mii->mdio_read(mii->dev, mii->phy_id, MII_BMSR);
++	if (reg & BMSR_HAS_EXTSTAT1000) {
++		reg = mii->mdio_read(mii->dev, mii->phy_id, MII_EXTSTAT1000);
++		if (reg & (ESR_1000_BASE_X_FD | ESR_1000_BASE_T_FD |
++			   ESR_1000_BASE_X_HD | ESR_1000_BASE_T_HD))
++			return 1;
++	}
++
++	return 0;
++}
++
+ int mii_link_ok (struct mii_if_info *mii)
+ {
+ 	/* first, a dummy read, needed to latch some MII phys */
+@@ -394,5 +409,6 @@
+ EXPORT_SYMBOL(mii_ethtool_sset);
+ EXPORT_SYMBOL(mii_check_link);
+ EXPORT_SYMBOL(mii_check_media);
++EXPORT_SYMBOL(mii_check_gmii_support);
+ EXPORT_SYMBOL(generic_mii_ioctl);
+ 
+Index: netdev-2.6-mv643xx-enet/include/linux/mii.h
+===================================================================
+--- netdev-2.6-mv643xx-enet.orig/include/linux/mii.h
++++ netdev-2.6-mv643xx-enet/include/linux/mii.h
+@@ -22,6 +22,7 @@
+ #define MII_EXPANSION       0x06        /* Expansion register          */
+ #define MII_CTRL1000        0x09        /* 1000BASE-T control          */
+ #define MII_STAT1000        0x0a        /* 1000BASE-T status           */
++#define MII_EXTSTAT1000     0x0f	/* 1000BASE-XX extended status */
+ #define MII_DCOUNTER        0x12        /* Disconnect counter          */
+ #define MII_FCSCOUNTER      0x13        /* False carrier counter       */
+ #define MII_NWAYTEST        0x14        /* N-way auto-neg test reg     */
+@@ -54,7 +55,8 @@
+ #define BMSR_ANEGCAPABLE        0x0008  /* Able to do auto-negotiation */
+ #define BMSR_RFAULT             0x0010  /* Remote fault detected       */
+ #define BMSR_ANEGCOMPLETE       0x0020  /* Auto-negotiation complete   */
+-#define BMSR_RESV               0x07c0  /* Unused...                   */
++#define BMSR_HAS_EXTSTAT1000    0x0100  /* Has 1000BASE extended status*/
++#define BMSR_RESV               0x06c0  /* Unused...                   */
+ #define BMSR_10HALF             0x0800  /* Can do 10mbps, half-duplex  */
+ #define BMSR_10FULL             0x1000  /* Can do 10mbps, full-duplex  */
+ #define BMSR_100HALF            0x2000  /* Can do 100mbps, half-duplex */
+@@ -129,6 +131,12 @@
+ #define LPA_1000FULL            0x0800  /* Link partner 1000BASE-T full duplex */
+ #define LPA_1000HALF            0x0400  /* Link partner 1000BASE-T half duplex */
+ 
++/* 1000BASE Ext Status register */
++#define ESR_1000_BASE_X_FD      0x8000
++#define ESR_1000_BASE_X_HD      0x4000
++#define ESR_1000_BASE_T_FD      0x2000
++#define ESR_1000_BASE_T_HD      0x1000
++
+ struct mii_if_info {
+ 	int phy_id;
+ 	int advertising;
+@@ -151,6 +159,7 @@
+ extern int mii_nway_restart (struct mii_if_info *mii);
+ extern int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
+ extern int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
++extern int mii_check_gmii_support(struct mii_if_info *mii);
+ extern void mii_check_link (struct mii_if_info *mii);
+ extern unsigned int mii_check_media (struct mii_if_info *mii,
+ 				     unsigned int ok_to_print,
