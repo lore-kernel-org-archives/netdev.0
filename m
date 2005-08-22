@@ -1,113 +1,84 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: [PATCH] [NET] mv643xx: add workaround for HW checksum generation bug
-Date: Mon, 22 Aug 2005 15:53:29 -0700
-Message-ID: <20050822225329.GA25560@xyzzy.farnsworth.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: tcpdump confused with NAT-T+IPSec Packets
+Date: Mon, 22 Aug 2005 02:31:08 +0200
+Message-ID: <43091CCC.80906@trash.net>
+References: <20050821165608.A9993@portal.rgopal.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------040203020802080907040407"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932378AbVHVXOn@vger.kernel.org>
+To: Gopalakrishnan Raman <gopal@rgopal.com>
+In-Reply-To: <20050821165608.A9993@portal.rgopal.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH] [NET] mv643xx: add workaround for HW checksum generation bug
+This is a multi-part message in MIME format.
+--------------040203020802080907040407
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The hardware checksum generator on the mv64xxx occasionally generates
-an incorrect checksum.  This patch works around the issue and enables
-hardware checksum generation.
+Gopalakrishnan Raman wrote:
+> Hi
+> I'm using 2.6.11.7 and debugging why my ESP tunnel mode does
+> not work between two 2.6 machines one of which is behind a NAT.
+> I'm using tcpdump to capture NAT-T packets on one of the hosts
+> and using espdecrypt (http://www.cs.rpi.edu/~flemej/freebsd/espdecrypt/)
+> to see it in the clear.
+> 
+> Turns out, tcpdump will display an incoming NAT-T packet after it
+> has been mangled by udp_encap_rcv(). udp_encap_rcv() changes the
+> protocol field in the IP hdr to ESP from UDP and also moves other
+> bytes in the sk_buff data area.
+> 
+> The problem is that packet_rcv() calls skb_clone() which is the
+> right thing to do in all cases except when the data portion of the
+> incoming skb is being modified in place. I replaced it with a pskb_copy()
+> in the case when the packet is likely to be NAT-T or ESP. The patch
+> for this follows the end of this mail and seems to work quite well.
+> 
+> Note that af_packet.c is the right place for the ESP/NAT-T check.
+> Can't do it in ESP or UDP code because we can't tell if these packets
+> are also being captured by tcpdump/ethereal.
 
-Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+Herbert already fixed it with this patch.
+
+--------------040203020802080907040407
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[IPSEC]: COW skb header in UDP decap
+
+The following patch just makes the header part of the skb writeable.
+This is needed since we modify the IP headers just a few lines below.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
 ---
-commit 42b926194c0e88445e654b8f11faf199d1409650
-tree 0dfda571d490d3d67ee5fc14f473390efeabef84
-parent f6fdd7d9c273bb2a20ab467cb57067494f932fa3
-author Dale Farnsworth <dale@farnsworth.org> Mon, 22 Aug 2005 15:43:49 -0700
-committer Dale Farnsworth <dale@farnsworth.org> Mon, 22 Aug 2005 15:43:49 -0700
+commit 4d78b6c78ae6d87e4c1c8072f42efa716f04afb9
+tree e04f156e8d74c28b925bf53e62d3e4b424a6ffb7
+parent c7f905f0f6d49ed8c1aa4566c31f0383a0ba0c9d
+author Herbert Xu <herbert@gondor.apana.org.au> Tue, 19 Apr 2005 22:48:59 -0700
+committer David S. Miller <davem@davemloft.net> Tue, 19 Apr 2005 22:48:59 -0700
 
- drivers/net/mv643xx_eth.c |   29 ++++++++++++++++++-----------
- drivers/net/mv643xx_eth.h |    4 +++-
- 2 files changed, 21 insertions(+), 12 deletions(-)
+ net/ipv4/udp.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -1157,16 +1157,20 @@ static int mv643xx_eth_start_xmit(struct
- 	if (!skb_shinfo(skb)->nr_frags) {
- linear:
- 		if (skb->ip_summed != CHECKSUM_HW) {
-+			/* Errata BTS #50, IHL must be 5 if no HW checksum */
- 			pkt_info.cmd_sts = ETH_TX_ENABLE_INTERRUPT |
--					ETH_TX_FIRST_DESC | ETH_TX_LAST_DESC;
-+					   ETH_TX_FIRST_DESC |
-+					   ETH_TX_LAST_DESC |
-+					   5 << ETH_TX_IHL_SHIFT;
- 			pkt_info.l4i_chk = 0;
- 		} else {
--			u32 ipheader = skb->nh.iph->ihl << 11;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -955,6 +955,8 @@ static int udp_encap_rcv(struct sock * s
+ 	 * header and optional ESP marker bytes) and then modify the
+ 	 * protocol to ESP, and then call into the transform receiver.
+ 	 */
++	if (skb_cloned(skb) && pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++		return 0;
  
- 			pkt_info.cmd_sts = ETH_TX_ENABLE_INTERRUPT |
--					ETH_TX_FIRST_DESC | ETH_TX_LAST_DESC |
--					ETH_GEN_TCP_UDP_CHECKSUM |
--					ETH_GEN_IP_V_4_CHECKSUM | ipheader;
-+					   ETH_TX_FIRST_DESC |
-+					   ETH_TX_LAST_DESC |
-+					   ETH_GEN_TCP_UDP_CHECKSUM |
-+					   ETH_GEN_IP_V_4_CHECKSUM |
-+					   skb->nh.iph->ihl << ETH_TX_IHL_SHIFT;
- 			/* CPU already calculated pseudo header checksum. */
- 			if (skb->nh.iph->protocol == IPPROTO_UDP) {
- 				pkt_info.cmd_sts |= ETH_UDP_FRAME;
-@@ -1193,7 +1197,6 @@ linear:
- 		stats->tx_bytes += pkt_info.byte_cnt;
- 	} else {
- 		unsigned int frag;
--		u32 ipheader;
- 
- 		/* Since hardware can't handle unaligned fragments smaller
- 		 * than 9 bytes, if we find any, we linearize the skb
-@@ -1222,12 +1225,16 @@ linear:
- 							DMA_TO_DEVICE);
- 		pkt_info.l4i_chk = 0;
- 		pkt_info.return_info = 0;
--		pkt_info.cmd_sts = ETH_TX_FIRST_DESC;
- 
--		if (skb->ip_summed == CHECKSUM_HW) {
--			ipheader = skb->nh.iph->ihl << 11;
--			pkt_info.cmd_sts |= ETH_GEN_TCP_UDP_CHECKSUM |
--					ETH_GEN_IP_V_4_CHECKSUM | ipheader;
-+		if (skb->ip_summed != CHECKSUM_HW)
-+			/* Errata BTS #50, IHL must be 5 if no HW checksum */
-+			pkt_info.cmd_sts = ETH_TX_FIRST_DESC |
-+					   5 << ETH_TX_IHL_SHIFT;
-+		else {
-+			pkt_info.cmd_sts = ETH_TX_FIRST_DESC |
-+					   ETH_GEN_TCP_UDP_CHECKSUM |
-+					   ETH_GEN_IP_V_4_CHECKSUM |
-+					   skb->nh.iph->ihl << ETH_TX_IHL_SHIFT;
- 			/* CPU already calculated pseudo header checksum. */
- 			if (skb->nh.iph->protocol == IPPROTO_UDP) {
- 				pkt_info.cmd_sts |= ETH_UDP_FRAME;
-diff --git a/drivers/net/mv643xx_eth.h b/drivers/net/mv643xx_eth.h
---- a/drivers/net/mv643xx_eth.h
-+++ b/drivers/net/mv643xx_eth.h
-@@ -49,7 +49,7 @@
- /* Checksum offload for Tx works for most packets, but
-  * fails if previous packet sent did not use hw csum
-  */
--#undef	MV643XX_CHECKSUM_OFFLOAD_TX
-+#define	MV643XX_CHECKSUM_OFFLOAD_TX
- #define	MV643XX_NAPI
- #define	MV643XX_TX_FAST_REFILL
- #undef	MV643XX_RX_QUEUE_FILL_ON_TASK	/* Does not work, yet */
-@@ -217,6 +217,8 @@
- #define ETH_TX_ENABLE_INTERRUPT			(BIT23)
- #define ETH_AUTO_MODE				(BIT30)
- 
-+#define ETH_TX_IHL_SHIFT			11
-+
- /* typedefs */
- 
- typedef enum _eth_func_ret_status {
+ 	/* Now we can update and verify the packet length... */
+ 	iph = skb->nh.iph;
+
+--------------040203020802080907040407--
