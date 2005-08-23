@@ -1,51 +1,36 @@
-From: "nolan tufano" <fabiolaquesada@fmaverick.com>
-Subject: This is your way to reduce the outflow on tiptop remeddies. clinch
-Date: Tue, 23 Aug 2005 02:50:30 +1100
-Message-ID: <60B54EE3.1EC0D22@fmaverick.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Fix socket bitop damage
+Date: Tue, 23 Aug 2005 09:22:34 -0700 (PDT)
+Message-ID: <20050823.092234.112408202.davem__22928.1128304594$1124814524$gmane$org@davemloft.net>
+References: <20050822110218.GA7514@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@linux-mips.org, linux-hams@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Wally Antoniuk" <netdev@oss.sgi.com>, <craig@oss.sgi.com>,
-        <qarce@oss.sgi.com>, <jensen@oss.sgi.com>
+To: ralf@linux-mips.org
+In-Reply-To: <20050822110218.GA7514@linux-mips.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Mon, 22 Aug 2005 12:02:18 +0100
 
+> The socket flag cleanups that went into 2.6.12-rc1 are basically oring
+> the flags of an old socket into the socket just being created.
+> Unfortunately that one was just initialized by sock_init_data(), so already
+> has SOCK_ZAPPED set.  As the result zapped sockets are created and all
+> incoming connection will fail due to this bug which again was carefully
+> replicated to at least AX.25, NET/ROM or ROSE.
+> 
+> In order to keep the abstraction alive I've introduced sock_copy_flags()
+> to copy the socket flags from one sockets to another and used that
+> instead of the bitwise copy thing.  Anyway, the idea here has probably
+> been to copy all flags, so sock_copy_flags() should be the right thing.
+> With this the ham radio protocols are usable again, so I hope this will
+> make it into 2.6.13.
+> 
+> Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
-Once I notice my sister has eating disorderr. Thousand times, I ask her to
-see a specialist. She always refused it. I have to find a way to help her. I
-found your web and consults with your GPs on-line. As recommended, I bought
-the anti depressant for her. 4 weeks passed, she is eating OK at this
-moment. Thank you to your GPs and the magic tablets. We called it magic,
-because it's magical remedyy effect but non-expensive. --Michelle Kizer in
-WA. 
-
-Our E-zone supplies the right generrics for quicker alleviations.
-
-With these marvellous deals on tablets, you are the smartest shopper of
-all. 
-
-http://uk.geocities.com/goteemfunny/?gcfly
-
-
-
-Check our web if you prefer timely and reliable distributiion services. 
-
-You've got nothing to loose! Try our pillss and feel its healing effect.
-You'll regain your healthh quicker than expected. 
-
-It is a simple choice. For quick and professional case profile review, look
-us up. 
-
-
-
-
-I'm high on believin'In love, in love, in love, in love
-
-I swear my love to you hear and nowHeart to heart
-enzinger  fireware  fenugree sz04 expterm  evicudno
-
-Where the air and the land meet foreverThe sea, the and
+Applied, thanks Ralf.
