@@ -1,40 +1,41 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: mv643xx(2/20): use MII library for PHY management
-Date: Wed, 24 Aug 2005 10:33:26 +1000
-Message-ID: <1124843606.5158.124.camel@gaston>
-References: <20050328233807.GA28423@xyzzy> <20050328234225.GB29098@xyzzy>
-	 <430BC09A.3090401@mvista.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Route cache performance
+Date: Wed, 24 Aug 2005 05:50:11 +0200
+Message-ID: <17163.61043.912047.611487@robur.slu.se>
+References: <20050815213855.GA17832@netnation.com>
+	<43014E27.1070104@cosmosbay.com>
+	<20050823190852.GA20794@netnation.com>
+	<17163.32645.202453.145416@robur.slu.se>
+	<20050824000158.GA8137@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dale Farnsworth <dale@farnsworth.org>, Netdev <netdev@oss.sgi.com>,
-        Jeff Garzik <jgarzik@pobox.com>, Ralf Baechle <ralf@linux-mips.org>,
-        Manish Lachwani <mlachwani@mvista.com>,
-        Brian Waite <brian@waitefamily.us>,
-        "Steven J. Hill" <sjhill@realitydiluted.com>,
-        James Chapman <jchapman@katalix.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mark Huth <mhuth@mvista.com>
-In-Reply-To: <430BC09A.3090401@mvista.com>
+To: Simon Kirby <sim@netnation.com>
+In-Reply-To: <20050824000158.GA8137@netnation.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-08-23 at 17:34 -0700, Mark Huth wrote:
-> It's good to use the abstractions and common code, but in this case 
-> there is a significant performance difference.  The MDIO read/write on 
-> this family does a cpu spin wait for the mdio operation to complete. 
-> Last time I measured this (back when fixing up a 2.4.20 implementation) 
-> I got around 100 us for the mii_ioctl path, of which a good bit was in 
-> the spin loop waiting for the MDIO operation to complete.  A quick look 
-> seems to indicate the spin loop is still in this version of the driver.
-> 
-> Given that the NIC chip gives cheap access to the link status and a 
-> couple of other interesting bits, the change to use the mii library has 
-> a performance impact.
 
-Is it possible to implement the mdio functions without a spin loop ?
-Also, it might be a good idea to use the PHY driver model (a-la sungem)
-rather than miilib...
 
-Ben.
+
+Simon Kirby writes:
+
+ > Something is definitely broken here.  Are the interrupts (or in this
+ > case, NAPI) able to starve the gc somehow?
+
+ Hmm no in 2.6 dst entries are freed via RCU callback this had problems
+ but was redesigned.
+
+ Reading your old email... Didn't you get "dst cache overflow" before
+ 2.6.11-bk2?
+
+ In other case I like to have your detailed setup to see if I get any
+ idea or possible can reproduced.
+
+ Cheers.
+					--ro
+ 
