@@ -1,100 +1,60 @@
-From: Danial Thom <danial_thom@yahoo.com>
-Subject: Re: 2.6.12 Performance problems
-Date: Thu, 25 Aug 2005 13:45:08 -0700 (PDT)
-Message-ID: <20050825204508.61645.qmail@web33303.mail.mud.yahoo.com>
-References: <430DF7FF.9080502@candelatech.com>
-Reply-To: danial_thom@yahoo.com
+From: Sven Schuster <schuster.sven@gmx.de>
+Subject: Re: oops in 2.6.13-rc6-git12 in tcp/netfilter routines
+Date: Thu, 25 Aug 2005 23:02:01 +0200
+Message-ID: <20050825210200.GA10374__10318.9461319291$1125005079$gmane$org@zion.homelinux.com>
+References: <5a4c581d05082506395fa984ae@mail.gmail.com> <20050825165550.GC4442@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Jesper Juhl <jesper.juhl@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932567AbVHYUpT@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <430DF7FF.9080502@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="4Ckj6UjgE2iN1+kY"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Harald Welte <laforge@netfilter.org>,
+        Alessandro Suardi <alessandro.suardi@gmail.com>, netdev@oss.sgi.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        netfilter-devel@lists.netfilter.org
+Content-Disposition: inline
+In-Reply-To: <20050825165550.GC4442@rama.de.gnumonks.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-
---- Ben Greear <greearb@candelatech.com> wrote:
-
-> Danial Thom wrote:
-> 
-> > The tests I reported where on UP systems.
-> Perhaps
-> > the default settings are better for this in
-> 2.4,
-> > since that is what I used, and you used your
-> > hacks for both.
-> 
-> My modifications to the kernel are unlikely to
-> speed anything
-> up, and probably will slow things down ever so
-> slightly.
-> 
-> I can try with a UP kernel, but my machine at
-> least has a single
-> processor.  I'm using the SMP kernel to take
-> advantage of HT.
-> 
-> > Are you getting drops or overruns (or both)?
-> I
-> > would assume drops is a decision to drop
-> rather
-> > than an overrun which is a ring overrun.
-> Overruns
-> > would imply more about performance than
-> tuning,
-> > I'd think.
-> 
-> I was seeing lots of NIC errors...in fact, it
-> was showing a great many
-> more errors than packets sent to it, so I just
-> ignored them.
-> 
-> I increased the TxDescriptors and RxDescriptors
-> and that helped a little.
-> 
-> Increasing the transmit queue for the NIC to
-> 2000 also helped a little.
-> 
-> > I wouldn't think that HT would be appropriate
-> for
-> > this sort of setup...?
-> 
-> 2.6.11 seems to be faster when running SMP
-> kernel on this system.
-
-HT and SMP are not the same animal, are they? My
-understanding is that an HT aware scheduler is
-likely to make things worse most of the time,
-particularly for systems not running a lot of
-threads..
+--4Ckj6UjgE2iN1+kY
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
 
-> > 
-> > You're using a dual PCI-X NIC rather than the
-> > onboard ports? Supermicro runs their onboard
-> 
-> Of course.  Never found a motherboard yet with
-> decent built-in
-> NICs.  The built-ins on this board are tg3 and
-> they must be on
-> a slow bus, because they cannot go faster than
-> about 700Mbps
-> (using big pkts).
+Hi Harald,
 
-If its the P8SCI or the same design they are on a
-1X PCIE thats shared with the PCI-X. Pretty hokey
-stuff. Its also a low-end controller amongst the
-broadcom parts.
+On Thu, Aug 25, 2005 at 06:55:50PM +0200, Harald Welte told us:
+> Is it true that PeerGuardian is a proprietary application?  I'm not
+> going to debug this problem using a proprietary ip_queue program, sorry.
 
-Danial
+sorry to jump in here, but I took a quick look at PeerGuardian,
+according to
+http://methlabs.org/wiki/license_information
+it's open source.  The source code is available at
+http://methlabs.org/projects/peerguardian-linuxosx/
 
+HTH
 
-		
-____________________________________________________
-Start your day with Yahoo! - make it your home page 
-http://www.yahoo.com/r/hs 
- 
+Sven
+
+--=20
+Linux zion.homelinux.com 2.6.13-rc6-mm2 #3 Thu Aug 25 14:53:55 CEST 2005 i6=
+86 athlon i386 GNU/Linux
+ 22:56:18 up  7:40,  1 user,  load average: 0.46, 0.14, 0.04
+
+--4Ckj6UjgE2iN1+kY
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFDDjHIo4FAdB2PneQRAiX1AJ0Q1heEigmg49MCUMdY9EiDCI9LfwCfVYex
+P4mmlStmsdG54dWJxp3u8Ts=
+=PEro
+-----END PGP SIGNATURE-----
+
+--4Ckj6UjgE2iN1+kY--
