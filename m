@@ -1,14 +1,14 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: Re: 2.6.12 Performance problems
-Date: Wed, 24 Aug 2005 23:15:38 -0700
-Message-ID: <430D620A.6050204@candelatech.com>
+Date: Wed, 24 Aug 2005 23:34:50 -0700
+Message-ID: <430D668A.6030306@candelatech.com>
 References: <20050825060843.15874.qmail@web33311.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Jesper Juhl <jesper.juhl@gmail.com>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751361AbVHYGPr@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964857AbVHYGe4@vger.kernel.org>
 To: danial_thom@yahoo.com
 In-Reply-To: <20050825060843.15874.qmail@web33311.mail.mud.yahoo.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -52,25 +52,29 @@ Danial Thom wrote:
 >>SuperMicro motherboard with 64/133Mhz
 >>PCI-X bus.  NIC is dual Intel pro/1000.  Kernel
 >>is close to stock 2.6.11.
+>>
+>>I used brctl to create a bridge with the two
+>>GigE adapters in it and
+>>used pktgen to stream traffic through it
+>>(250kpps in one direction, 1kpps in
+>>the other.)
+>>
+>>I see a reasonable amount of drops at 250kpps
+>>(60 byte packets):
+>>about 60,000,000 packets received, 20,700
+>>dropped.
 
-> What GigE adapters did you use? Clearly every
-> driver is going to be different. My experience is
-> that a 3.4Ghz P4 is about the performance of a
-> 2.0Ghz Opteron. I have to try your tuning script
-> tomorrow.
+I get slightly worse performance on this system when running RH9
+with kernel 2.4.29 (my hacks, HZ=1000, SMP).  Tried increasing
+e1000 descriptors to 2048 tx and rx, but that didn't help, or at least
+not much.
 
-Intel pro/1000, as I mentioned.  I haven't tried any other
-NIC that comes close in performance to the e1000.
+Will try some other tunings, but I doubt it will affect performance
+enough to come close to the discrepency that you show between 2.4
+and 2.6 kernels...
 
-> If your test is still set up, try compiling
-> something large while doing the test. The drops
-> go through the roof in my tests.
-
-Installing RH9 on the box now to try some tests...
-
-Disk access always robs networking, in my experience, so
-I am not supprised you see bad ntwk performance while
-compiling.
+I tried copying a 500MB CDROM to HD on my RH9 system, and only 6kpps
+of the 250kpps get through the bridge...btw.
 
 Ben
 
