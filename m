@@ -1,71 +1,121 @@
-From: Alessandro Suardi <alessandro.suardi@gmail.com>
-Subject: oops in 2.6.13-rc6-git12 in tcp/netfilter routines
-Date: Thu, 25 Aug 2005 15:39:02 +0200
-Message-ID: <5a4c581d05082506395fa984ae__44744.3454679616$1124977457$gmane$org@mail.gmail.com>
+From: Danial Thom <danial_thom@yahoo.com>
+Subject: Re: 2.6.12 Performance problems
+Date: Thu, 25 Aug 2005 07:26:47 -0700 (PDT)
+Message-ID: <20050825142647.70995.qmail@web33314.mail.mud.yahoo.com>
+References: <430D668A.6030306@candelatech.com>
+Reply-To: danial_thom@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netfilter-devel@lists.netfilter.org
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jesper Juhl <jesper.juhl@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965020AbVHYO0t@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <430D668A.6030306@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Howdy, and excuse me for crossposting - feel free to zap CC to
- unrelated, if any, mailing lists.
 
-  just gave PeerGuardian a spin on my eDonkey home box and
-  said box didn't last half a day before oopsing in netlink/nf/tcp
-  related routines (or so it seems to my untrained eye).
 
-K7800, 256MB RAM, uptodate FC3 running 2.6.13-rc6-git12,
- doing nothing but running MetaMachine's eDonkey 1.4.3 QT gui.
-PeerGuardian is the 1.5 beta version available from methlabs.org.
+--- Ben Greear <greearb@candelatech.com> wrote:
 
-Stack is hand-copied from the dead box's console. 
+> Danial Thom wrote:
+> > 
+> > --- Ben Greear <greearb@candelatech.com>
+> wrote:
+> > 
+> > 
+> >>Danial Thom wrote:
+> >>
+> >>
+> >>>I think the concensus is that 2.6 has made
+> >>
+> >>trade
+> >>
+> >>>offs that lower raw throughput, which is
+> what
+> >>
+> >>a
+> >>
+> >>>networking device needs. So as a router or
+> >>>network appliance, 2.6 seems less suitable.
+> A
+> >>
+> >>raw
+> >>
+> >>>bridging test on a 2.0Ghz operton system:
+> >>>
+> >>>FreeBSD 4.9: Drops no packets at 900K pps
+> >>>Linux 2.4.24: Starts dropping packets at
+> 350K
+> >>
+> >>pps
+> >>
+> >>>Linux 2.6.12: Starts dropping packets at
+> 100K
+> >>
+> >>pps
+> >>
+> >>I ran some quick tests using kernel 2.6.11,
+> 1ms
+> >>tick (HZ=1000), SMP kernel.
+> >>Hardware is P-IV 3.0Ghz + HT on a new
+> >>SuperMicro motherboard with 64/133Mhz
+> >>PCI-X bus.  NIC is dual Intel pro/1000. 
+> Kernel
+> >>is close to stock 2.6.11.
+> >>
+> >>I used brctl to create a bridge with the two
+> >>GigE adapters in it and
+> >>used pktgen to stream traffic through it
+> >>(250kpps in one direction, 1kpps in
+> >>the other.)
+> >>
+> >>I see a reasonable amount of drops at 250kpps
+> >>(60 byte packets):
+> >>about 60,000,000 packets received, 20,700
+> >>dropped.
+> 
+> I get slightly worse performance on this system
+> when running RH9
+> with kernel 2.4.29 (my hacks, HZ=1000, SMP). 
+> Tried increasing
+> e1000 descriptors to 2048 tx and rx, but that
+> didn't help, or at least
+> not much.
+> 
+> Will try some other tunings, but I doubt it
+> will affect performance
+> enough to come close to the discrepency that
+> you show between 2.4
+> and 2.6 kernels...
+> 
+> I tried copying a 500MB CDROM to HD on my RH9
+> system, and only 6kpps
+> of the 250kpps get through the bridge...btw.
 
-[<c0103714>] die+0xe4/0x170
-[<c010381f>] do_trap+0x7f/0xc0
-[<c0103b33>] do_invalid_op+0xa3/0xb0
-[<c0102faf>] error_code+0x4f/0x54
-[<c02eb05b>] kfree_skbmem+0xb/0x20
-[<c02eb0cf>] __kfree_skb+0x5f/0xf0
-[<c031304a>] tcp_clean_rtx_queue+0x16a/0x470
-[<c0313746>] tcp_ack+0xf6/0x360
-[<c0315d57>] tcp_rcv_established+0x277/0x7a0
-[<c031eba0>] tcp_v4_do_rcv+0xf0/0x110
-[<c031f2a0>] tcp_v4_rcv+0x6e0/0x820
-[<c0305594>] ip_local_deliver_finish+0x84/0x160
-[<c02fbe4a>] nf_reinject+0x13a/0x1c0
-[<c033f0d8>] ipq_issue_verdict+0x28/0x40
-[<c033f968>] ipq_set_verdict+0x48/0x70
-[<c033fa79>] ipq_receive_peer+0x39/0x50
-[<c033fc72>] ipq_receive_sk+0x172/0x190
-[<c02fffa5>] netlink_data_ready+0x35/0x60
-[<c02ff4a4>] netlink_sendskb+0x24/0x60
-[<c02ff657>] netlink_unicast+0x127/0x160
-[<c02ffcc4>] netlink_sendmsg+0x204/0x2b0
-[<c02e6dc0>] sock_sendmsg+0xb0/0xe0
-[<c02e83f4>] sys_sendmsg+0x134/0x240
-[<c02e88e4>] sys_socketcall+0x224/0x230
-[<c0102d3b>] sysenter_past_esp+0x54/0x75
-Code: 8b 41 0c 85 c0 75 1b 8b 86 94 00 00 00 e8 9e 37 e5 ff 5b 5e c9
-c3 89 d0 e8 43 46 e5 ff 8d 76 00 eb d2 89 f0 e8 f7 fe ff ff eb dc <0f>
-0b 54 01 16 d2 36 c0 eb b4 8d 74 26 00 8d bc 27 00 00 00 00
-<0>Kernel panic - not syncing: Fatal exception in interrupt
+The tests I reported where on UP systems. Perhaps
+the default settings are better for this in 2.4,
+since that is what I used, and you used your
+hacks for both.
 
-If there's need for further info I'd be happy to provide it. For now
- the box is rebooted into the same kernel and running the same
- PG/eD2k programs, if the issue reproduces I'll follow up on my
- own message.
+Are you getting drops or overruns (or both)? I
+would assume drops is a decision to drop rather
+than an overrun which is a ring overrun. Overruns
+would imply more about performance than tuning,
+I'd think.
 
-Thanks in advance, ciao,
+I wouldn't think that HT would be appropriate for
+this sort of setup...?
 
---alessandro
+You're using a dual PCI-X NIC rather than the
+onboard ports? Supermicro runs their onboard
+controllers at 32bit/33mhz for some mindless
+reason.
 
- "Not every smile means I'm laughing inside"
+Danial
 
-    (Wallflowers - "From The Bottom Of My Heart")
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
