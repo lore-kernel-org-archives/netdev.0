@@ -1,80 +1,71 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: [patch] ipw2200: remove support for obsolete kernels
-Date: Thu, 25 Aug 2005 13:04:38 +0200
-Message-ID: <20050825110438.GA16944__42945.4043544412$1124968318$gmane$org@elf.ucw.cz>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: oops in 2.6.13-rc6-git12 in tcp/netfilter routines
+Date: Thu, 25 Aug 2005 15:39:02 +0200
+Message-ID: <5a4c581d05082506395fa984ae__44744.3454679616$1124977457$gmane$org@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>, jbenc@suse.cz,
-        jbo@suse.cz
+To: netdev@oss.sgi.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        netfilter-devel@lists.netfilter.org
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This removes support for old (and non-mainline) kernels from
-ipw2200. Please apply,
+Howdy, and excuse me for crossposting - feel free to zap CC to
+ unrelated, if any, mailing lists.
 
-Signed-off-by: Pavel Machek <pavel@suse.cz>
+  just gave PeerGuardian a spin on my eDonkey home box and
+  said box didn't last half a day before oopsing in netlink/nf/tcp
+  related routines (or so it seems to my untrained eye).
 
---- clean-mm/drivers/net/wireless/ipw2200.c	2005-08-24 20:25:09.000000000 +0200
-+++ linux-mm/drivers/net/wireless/ipw2200.c	2005-08-25 12:50:19.000000000 +0200
-@@ -6617,11 +6617,7 @@
- {
- 	int ret = 0;
- 
--#ifdef CONFIG_SOFTWARE_SUSPEND2
--	priv->workqueue = create_workqueue(DRV_NAME, 0);
--#else
- 	priv->workqueue = create_workqueue(DRV_NAME);
--#endif
- 	init_waitqueue_head(&priv->wait_command_queue);
- 
- 	INIT_WORK(&priv->adhoc_check, ipw_adhoc_check, priv);
-@@ -7242,11 +7238,7 @@
- 	/* Remove the PRESENT state of the device */
- 	netif_device_detach(dev);
- 
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
--	pci_save_state(pdev, priv->pm_state);
--#else
- 	pci_save_state(pdev);
--#endif
- 	pci_disable_device(pdev);
- 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
- 
---- clean-mm/drivers/net/wireless/ipw2200.h	2005-08-24 20:25:09.000000000 +0200
-+++ linux-mm/drivers/net/wireless/ipw2200.h	2005-08-25 12:42:30.000000000 +0200
-@@ -55,26 +55,6 @@
- 
- #include <linux/workqueue.h>
- 
--#ifndef IRQ_NONE
--typedef void irqreturn_t;
--#define IRQ_NONE
--#define IRQ_HANDLED
--#define IRQ_RETVAL(x)
--#endif
--
--#if ( LINUX_VERSION_CODE < KERNEL_VERSION(2,6,9) )
--#define __iomem
--#endif
--
--#if ( LINUX_VERSION_CODE < KERNEL_VERSION(2,6,5) )
--#define pci_dma_sync_single_for_cpu	pci_dma_sync_single
--#define pci_dma_sync_single_for_device	pci_dma_sync_single
--#endif
--
--#ifndef HAVE_FREE_NETDEV
--#define free_netdev(x) kfree(x)
--#endif
--
- /* Authentication  and Association States */
- enum connection_manager_assoc_states
- {
+K7800, 256MB RAM, uptodate FC3 running 2.6.13-rc6-git12,
+ doing nothing but running MetaMachine's eDonkey 1.4.3 QT gui.
+PeerGuardian is the 1.5 beta version available from methlabs.org.
 
+Stack is hand-copied from the dead box's console. 
 
--- 
-if you have sharp zaurus hardware you don't need... you know my address
+[<c0103714>] die+0xe4/0x170
+[<c010381f>] do_trap+0x7f/0xc0
+[<c0103b33>] do_invalid_op+0xa3/0xb0
+[<c0102faf>] error_code+0x4f/0x54
+[<c02eb05b>] kfree_skbmem+0xb/0x20
+[<c02eb0cf>] __kfree_skb+0x5f/0xf0
+[<c031304a>] tcp_clean_rtx_queue+0x16a/0x470
+[<c0313746>] tcp_ack+0xf6/0x360
+[<c0315d57>] tcp_rcv_established+0x277/0x7a0
+[<c031eba0>] tcp_v4_do_rcv+0xf0/0x110
+[<c031f2a0>] tcp_v4_rcv+0x6e0/0x820
+[<c0305594>] ip_local_deliver_finish+0x84/0x160
+[<c02fbe4a>] nf_reinject+0x13a/0x1c0
+[<c033f0d8>] ipq_issue_verdict+0x28/0x40
+[<c033f968>] ipq_set_verdict+0x48/0x70
+[<c033fa79>] ipq_receive_peer+0x39/0x50
+[<c033fc72>] ipq_receive_sk+0x172/0x190
+[<c02fffa5>] netlink_data_ready+0x35/0x60
+[<c02ff4a4>] netlink_sendskb+0x24/0x60
+[<c02ff657>] netlink_unicast+0x127/0x160
+[<c02ffcc4>] netlink_sendmsg+0x204/0x2b0
+[<c02e6dc0>] sock_sendmsg+0xb0/0xe0
+[<c02e83f4>] sys_sendmsg+0x134/0x240
+[<c02e88e4>] sys_socketcall+0x224/0x230
+[<c0102d3b>] sysenter_past_esp+0x54/0x75
+Code: 8b 41 0c 85 c0 75 1b 8b 86 94 00 00 00 e8 9e 37 e5 ff 5b 5e c9
+c3 89 d0 e8 43 46 e5 ff 8d 76 00 eb d2 89 f0 e8 f7 fe ff ff eb dc <0f>
+0b 54 01 16 d2 36 c0 eb b4 8d 74 26 00 8d bc 27 00 00 00 00
+<0>Kernel panic - not syncing: Fatal exception in interrupt
+
+If there's need for further info I'd be happy to provide it. For now
+ the box is rebooted into the same kernel and running the same
+ PG/eD2k programs, if the issue reproduces I'll follow up on my
+ own message.
+
+Thanks in advance, ciao,
+
+--alessandro
+
+ "Not every smile means I'm laughing inside"
+
+    (Wallflowers - "From The Bottom Of My Heart")
