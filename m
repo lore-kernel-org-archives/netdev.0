@@ -1,37 +1,29 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: ieee80211 patches
-Date: Fri, 26 Aug 2005 11:04:15 +0200
-Message-ID: <200508261104.16134.stefan@loplof.de>
-References: <20050825193112.529d0dc9@griffin.suse.cz> <200508252049.52413.flamingice@sourmilk.net>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Route cache performance
+Date: Fri, 26 Aug 2005 15:55:20 +0400
+Message-ID: <20050826115520.GA12351@yakov.inr.ac.ru>
+References: <20050815213855.GA17832@netnation.com> <43014E27.1070104@cosmosbay.com> <20050823190852.GA20794@netnation.com> <17163.32645.202453.145416@robur.slu.se> <20050824000158.GA8137@netnation.com> <20050825181111.GB14336@netnation.com> <20050825200543.GA6612@yakov.inr.ac.ru> <20050825212211.GA23384@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jiri Benc <jbenc@suse.cz>,
-        NetDev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>,
-        jbohac@suse.cz, pavel@suse.cz
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Robert Olsson <Robert.Olsson@data.slu.se>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200508252049.52413.flamingice@sourmilk.net>
+To: Simon Kirby <sim@netnation.com>
 Content-Disposition: inline
+In-Reply-To: <20050825212211.GA23384@netnation.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello!
 
-Am Freitag 26 August 2005 02:49 schrieb Michael Wu:
+> What part of the code will decrement the count?  I can't see it.
 
-> I hope to submit the adm8211 driver for review soon, but there's a bunch of
-> code in the driver which probably belong in the ieee80211 code:
-[...]
-> - AVS capture header in monitor mode
+It depends. In the case of forwarding, it is kfree_skb(), happening
+after the packet is transmitted by output device.
 
-there has been a discussion about AVS or radiotap header on the ipw list that 
-resulted in the inclusion of radiotap definitions in James' latest patches 
-for ieee80211. Radiotap requires a libpcap upgrade, but can be extended 
-easier. I'd like all linux wireless drivers to move to radiotap for statistic 
-data so that userspace has just one format to parse, and a new driver would 
-be a perfect target to begin.
+Well, it could result in overflow only if device queue is longer
+than route/max_size.
 
-Stefan
+Alexey
