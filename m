@@ -1,137 +1,75 @@
-From: Danial Thom <danial_thom@yahoo.com>
-Subject: Re: 2.6.12 Performance problems
-Date: Fri, 26 Aug 2005 15:18:52 -0700 (PDT)
-Message-ID: <20050826221852.56495.qmail@web33314.mail.mud.yahoo.com>
-References: <20050826032938.59796.qmail@web33303.mail.mud.yahoo.com>
-Reply-To: danial_thom@yahoo.com
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: ieee80211 patches
+Date: Fri, 26 Aug 2005 19:50:47 -0400
+Message-ID: <200508261950.47716.flamingice@sourmilk.net>
+References: <20050825193112.529d0dc9@griffin.suse.cz> <200508261107.07501.flamingice@sourmilk.net> <20050826181329.6dcf94d3@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Jesper Juhl <jesper.juhl@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751593AbVHZWSy@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <20050826032938.59796.qmail@web33303.mail.mud.yahoo.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, NetDev <netdev@vger.kernel.org>,
+        Jeff Garzik <jgarzik@pobox.com>, jbohac@suse.cz, pavel@suse.cz
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050826181329.6dcf94d3@griffin.suse.cz>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Friday 26 August 2005 12:13, Jiri Benc wrote:
+> You mentioned problem with hooks in scanning/association/etc. Probably
+> everybody involved in this discussion knows it but I think it is worth
+> saying it: This is one of the most important things in a new ieee80211
+> layer. Unfortunately, it seems that every driver developer concentrates
+> on the aspects of his device (this include ieee80211 layer from ipw as
+> well as from rtl8180). But every device (or more precisely firmware)
+> provides different set of features - some takes care of almost
+> everything, other can do basic things only. So the amount of work that
+> needs to be done in the ieee80211 layer is different for different
+> devices. The layer has to be generic. It has to cope e.g. with
+> authentication/association performed fully by itself as well as with
+> auth/assoc performed automatically by the device, etc.
+>
+> I'm convinced this is the first goal we have to reach before we start to
+> implement WPA, QoS and so.
+Right now, the adm8211 driver uses a number of specific hooks in its own 
+ieee80211 station management code such as:
 
+set_bssid
+set_ssid
+set_channel
+set_interval
+set_beacon
 
---- Danial Thom <danial_thom@yahoo.com> wrote:
+Though with enough of these hooks, many devices can be supported, I think 
+generic hooks like these would work best to support a wide range of hardware 
+that use softmac:
 
-> 
-> 
-> --- Ben Greear <greearb@candelatech.com> wrote:
-> 
-> > Danial Thom wrote:
-> > > 
-> > > --- Ben Greear <greearb@candelatech.com>
-> > wrote:
-> > > 
-> > > 
-> > >>Danial Thom wrote:
-> > >>
-> > >>
-> > >>>I think the concensus is that 2.6 has made
-> > >>
-> > >>trade
-> > >>
-> > >>>offs that lower raw throughput, which is
-> > what
-> > >>
-> > >>a
-> > >>
-> > >>>networking device needs. So as a router or
-> > >>>network appliance, 2.6 seems less
-> suitable.
-> > A
-> > >>
-> > >>raw
-> > >>
-> > >>>bridging test on a 2.0Ghz operton system:
-> > >>>
-> > >>>FreeBSD 4.9: Drops no packets at 900K pps
-> > >>>Linux 2.4.24: Starts dropping packets at
-> > 350K
-> > >>
-> > >>pps
-> > >>
-> > >>>Linux 2.6.12: Starts dropping packets at
-> > 100K
-> > >>
-> > >>pps
-> > >>
-> > >>I ran some quick tests using kernel 2.6.11,
-> > 1ms
-> > >>tick (HZ=1000), SMP kernel.
-> > >>Hardware is P-IV 3.0Ghz + HT on a new
-> > >>SuperMicro motherboard with 64/133Mhz
-> > >>PCI-X bus.  NIC is dual Intel pro/1000. 
-> > Kernel
-> > >>is close to stock 2.6.11.
-> > 
-> > > What GigE adapters did you use? Clearly
-> every
-> > > driver is going to be different. My
-> > experience is
-> > > that a 3.4Ghz P4 is about the performance
-> of
-> > a
-> > > 2.0Ghz Opteron. I have to try your tuning
-> > script
-> > > tomorrow.
-> > 
-> > Intel pro/1000, as I mentioned.  I haven't
-> > tried any other
-> > NIC that comes close in performance to the
-> > e1000.
-> > 
-> > > If your test is still set up, try compiling
-> > > something large while doing the test. The
-> > drops
-> > > go through the roof in my tests.
-> > 
-> > Installing RH9 on the box now to try some
-> > tests...
-> > 
-> > Disk access always robs networking, in my
-> > experience, so
-> > I am not supprised you see bad ntwk
-> performance
-> > while
-> > compiling.
-> > 
-> > Ben
-> 
-> It would be useful if there were some way to
-> find
-> out "what" is getting "robbed". If networking
-> has
-> priority, then what is keeping it from getting
-> back to processing the rx interrupts? 
-> 
-> Ah, the e1000 has built-in interrupt
-> moderation.
-> I can't get into my lab until tomorrow
-> afternoon,
-> but if you get a chance try setting ITR in
-> e1000_main.c to something larger, like 20K. and
-> see if it makes a difference. At 200K pps that
-> would cause an interrupt every 10 packets,
-> which
-> may allow the routine to grab back the cpu more
-> often.
-> 
-> 
-> Danial
-> 
+pre_scan
+set_channel
+pre_associate
+link_change
+start_ibss
+join_ibss
 
-Just FYI, setting interrupt moderation to 20,000
-didn't make much difference. 
+Then for the devices that do more in the firmware, adding callbacks like:
 
+hw_scan
+hw_associate
+hw_start_ibss
 
-		
-____________________________________________________
-Start your day with Yahoo! - make it your home page 
-http://www.yahoo.com/r/hs 
- 
+would indicate to the ieee80211 layer that the hardware is capable of handling 
+those things itself.
+
+The driver should be able to find all the info needed to configure the 
+hardware in ieee80211_device so only that needs to be passed to the hooks.
+
+A good portion of WPA can be implemented right now by implementing the 
+encodeext ioctls and generalizing ieee80211_security to support more than 
+just WEP. adm8211 doesn't have support for non-wep encryption yet, so WPA 
+works without ieee80211_security support.
+
+Sound good?
+
+-Michael Wu
