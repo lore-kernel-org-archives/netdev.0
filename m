@@ -1,65 +1,58 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: ieee80211 patches
-Date: Fri, 26 Aug 2005 11:07:07 -0400
-Message-ID: <200508261107.07501.flamingice@sourmilk.net>
-References: <20050825193112.529d0dc9@griffin.suse.cz> <200508252049.52413.flamingice@sourmilk.net> <20050826140831.5ec0f301@griffin.suse.cz>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: oops in 2.6.13-rc6-git12 in tcp/netfilter routines
+Date: Fri, 26 Aug 2005 19:52:07 +0200
+Message-ID: <430F56C7.8070500__28460.2641514086$1125078967$gmane$org@trash.net>
+References: <5a4c581d05082506395fa984ae@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, NetDev <netdev@vger.kernel.org>,
-        Jeff Garzik <jgarzik@pobox.com>, jbohac@suse.cz, pavel@suse.cz
+Cc: netdev@oss.sgi.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20050826140831.5ec0f301@griffin.suse.cz>
-Content-Disposition: inline
+To: Alessandro Suardi <alessandro.suardi@gmail.com>
+In-Reply-To: <5a4c581d05082506395fa984ae@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Friday 26 August 2005 08:08, Jiri Benc wrote:
-> On Thu, 25 Aug 2005 20:49:52 -0400, Michael Wu wrote:
-> > I hope to submit the adm8211 driver for review soon, but there's a bunch
-> > of code in the driver which probably belong in the ieee80211 code:
-> >
-> > - Duplicate frame removal
-> > - Definitions for all management payloads
-> > - SIOCSIWENCODEEXT and SIOCGIWENCODEEXT
-> > - AVS capture header in monitor mode
-> > - Software Scanning
-> > - Software Authentication & Association
-> >
-> > Does that sound okay? I will start submitting patches to add those things
-> > if they should be in the ieee80211 code.
->
-> Sounds great. Could you post a pointer to the project?
->
-http://aluminum.sourmilk.net/adm8211/index.php?path=netdev/
+Alessandro Suardi wrote:
+> Stack is hand-copied from the dead box's console. 
+> 
+> [<c0103714>] die+0xe4/0x170
+> [<c010381f>] do_trap+0x7f/0xc0
+> [<c0103b33>] do_invalid_op+0xa3/0xb0
+> [<c0102faf>] error_code+0x4f/0x54
+> [<c02eb05b>] kfree_skbmem+0xb/0x20
+> [<c02eb0cf>] __kfree_skb+0x5f/0xf0
+> [<c031304a>] tcp_clean_rtx_queue+0x16a/0x470
+> [<c0313746>] tcp_ack+0xf6/0x360
+> [<c0315d57>] tcp_rcv_established+0x277/0x7a0
+> [<c031eba0>] tcp_v4_do_rcv+0xf0/0x110
+> [<c031f2a0>] tcp_v4_rcv+0x6e0/0x820
+> [<c0305594>] ip_local_deliver_finish+0x84/0x160
+> [<c02fbe4a>] nf_reinject+0x13a/0x1c0
+> [<c033f0d8>] ipq_issue_verdict+0x28/0x40
+> [<c033f968>] ipq_set_verdict+0x48/0x70
+> [<c033fa79>] ipq_receive_peer+0x39/0x50
+> [<c033fc72>] ipq_receive_sk+0x172/0x190
+> [<c02fffa5>] netlink_data_ready+0x35/0x60
+> [<c02ff4a4>] netlink_sendskb+0x24/0x60
+> [<c02ff657>] netlink_unicast+0x127/0x160
+> [<c02ffcc4>] netlink_sendmsg+0x204/0x2b0
+> [<c02e6dc0>] sock_sendmsg+0xb0/0xe0
+> [<c02e83f4>] sys_sendmsg+0x134/0x240
+> [<c02e88e4>] sys_socketcall+0x224/0x230
+> [<c0102d3b>] sysenter_past_esp+0x54/0x75
+> Code: 8b 41 0c 85 c0 75 1b 8b 86 94 00 00 00 e8 9e 37 e5 ff 5b 5e c9
+> c3 89 d0 e8 43 46 e5 ff 8d 76 00 eb d2 89 f0 e8 f7 fe ff ff eb dc <0f>
+> 0b 54 01 16 d2 36 c0 eb b4 8d 74 26 00 8d bc 27 00 00 00 00
+> <0>Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> If there's need for further info I'd be happy to provide it. For now
+>  the box is rebooted into the same kernel and running the same
+>  PG/eD2k programs, if the issue reproduces I'll follow up on my
+>  own message.
 
-> Btw, Andrea Merello has a code for some of these features in his
-> rtl8180-sa2400 project (http://sourceforge.net/projects/rtl8180-sa2400)
-> too - we are trying to subsequently include them.
->
-Hmm..
-
-- adm8211 supports shared key authentication, rtl8180-sa2400 only supports 
-open authentication. (which is kinda okay when you consider that 802.11i 
-doesn't use shared key)
-- Both drivers do not support LEAP authentication.
-- adm8211 supports WE18/WPA (partly via SIWGENIE, it doesn't generate WPA/RSN 
-IEs itself)
-- rtl8180-sa2400 supports a really simple master mode. (should something like 
-hostapd be used instead for master mode?)
-- rtl8180-sa2400 supports sending probe responses. adm8211 lets the hardware 
-do it, though newer adm8211 cards can be told to hand it off to the software.
-- rtl8180-sa2400 creates a completely random bssid in adhoc. adm8211 keeps the 
-first 3 octets from the MAC addr.
-- adm8211 supports sending & handling deauthentication and disassociation 
-frames. I did not see definitions for those frames, so I assume there's no 
-support there.
-- adm8211 needs many hooks in scanning/authentication/association to set 
-BSSID/SSID/AID/etc. in hardware.
-- rtl8180-sa2400 doesn't seem to convert to little endian in a number of 
-places. (not really major..)
-
--Michael Wu
+Any chance you can get the entire Oops including registers etc
+using netconsole or serial console?
