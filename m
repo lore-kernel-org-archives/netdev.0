@@ -1,27 +1,118 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Route cache performance
-Date: Fri, 26 Aug 2005 00:05:43 +0400
-Message-ID: <20050825200543.GA6612@yakov.inr.ac.ru>
-References: <20050815213855.GA17832@netnation.com> <43014E27.1070104@cosmosbay.com> <20050823190852.GA20794@netnation.com> <17163.32645.202453.145416@robur.slu.se> <20050824000158.GA8137@netnation.com> <20050825181111.GB14336@netnation.com>
+From: Danial Thom <danial_thom@yahoo.com>
+Subject: Re: 2.6.12 Performance problems
+Date: Thu, 25 Aug 2005 20:29:38 -0700 (PDT)
+Message-ID: <20050826032938.59796.qmail@web33303.mail.mud.yahoo.com>
+References: <430D620A.6050204@candelatech.com>
+Reply-To: danial_thom@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, kuznet@ms2.inr.ac.ru,
-        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Simon Kirby <sim@netnation.com>
-Content-Disposition: inline
-In-Reply-To: <20050825181111.GB14336@netnation.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jesper Juhl <jesper.juhl@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751437AbVHZD3k@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <430D620A.6050204@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> something is holding the refcnt > 0 for almost all of the entries that
-> rt_garbage_collect() walks.
 
-Did you try to look at output of "ip -s -s ro ls ca" ?
-If it is just a refcnt leakage, leaked routes should appear there
-and it is possible to guess, where they leaked.
+--- Ben Greear <greearb@candelatech.com> wrote:
 
-Alexey
+> Danial Thom wrote:
+> > 
+> > --- Ben Greear <greearb@candelatech.com>
+> wrote:
+> > 
+> > 
+> >>Danial Thom wrote:
+> >>
+> >>
+> >>>I think the concensus is that 2.6 has made
+> >>
+> >>trade
+> >>
+> >>>offs that lower raw throughput, which is
+> what
+> >>
+> >>a
+> >>
+> >>>networking device needs. So as a router or
+> >>>network appliance, 2.6 seems less suitable.
+> A
+> >>
+> >>raw
+> >>
+> >>>bridging test on a 2.0Ghz operton system:
+> >>>
+> >>>FreeBSD 4.9: Drops no packets at 900K pps
+> >>>Linux 2.4.24: Starts dropping packets at
+> 350K
+> >>
+> >>pps
+> >>
+> >>>Linux 2.6.12: Starts dropping packets at
+> 100K
+> >>
+> >>pps
+> >>
+> >>I ran some quick tests using kernel 2.6.11,
+> 1ms
+> >>tick (HZ=1000), SMP kernel.
+> >>Hardware is P-IV 3.0Ghz + HT on a new
+> >>SuperMicro motherboard with 64/133Mhz
+> >>PCI-X bus.  NIC is dual Intel pro/1000. 
+> Kernel
+> >>is close to stock 2.6.11.
+> 
+> > What GigE adapters did you use? Clearly every
+> > driver is going to be different. My
+> experience is
+> > that a 3.4Ghz P4 is about the performance of
+> a
+> > 2.0Ghz Opteron. I have to try your tuning
+> script
+> > tomorrow.
+> 
+> Intel pro/1000, as I mentioned.  I haven't
+> tried any other
+> NIC that comes close in performance to the
+> e1000.
+> 
+> > If your test is still set up, try compiling
+> > something large while doing the test. The
+> drops
+> > go through the roof in my tests.
+> 
+> Installing RH9 on the box now to try some
+> tests...
+> 
+> Disk access always robs networking, in my
+> experience, so
+> I am not supprised you see bad ntwk performance
+> while
+> compiling.
+> 
+> Ben
+
+It would be useful if there were some way to find
+out "what" is getting "robbed". If networking has
+priority, then what is keeping it from getting
+back to processing the rx interrupts? 
+
+Ah, the e1000 has built-in interrupt moderation.
+I can't get into my lab until tomorrow afternoon,
+but if you get a chance try setting ITR in
+e1000_main.c to something larger, like 20K. and
+see if it makes a difference. At 200K pps that
+would cause an interrupt every 10 packets, which
+may allow the routine to grab back the cpu more
+often.
+
+
+Danial
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
