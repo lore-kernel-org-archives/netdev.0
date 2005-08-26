@@ -1,60 +1,55 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH 4/7] [IPV4]: Fix DST leak in icmp_push_reply()
-Date: Fri, 26 Aug 2005 12:17:59 -0700
-Message-ID: <20050826191901.965850000__47758.183340966$1125084554$gmane$org@localhost.localdomain>
-References: <20050826191755.052951000@localhost.localdomain>
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-        Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-        "Theodore Ts'o" <tytso@mit.edu>, Randy Dunlap <rdunlap@xenotime.net>,
-        Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-        akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
-        Maillist netdev <netdev@oss.sgi.com>,
-        Patrick McHardy <kaber@trash.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Chris Wright <chrisw@osdl.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Route cache performance
+Date: Fri, 26 Aug 2005 21:49:11 +0200
+Message-ID: <17167.29239.469711.847951@robur.slu.se>
+References: <20050815213855.GA17832@netnation.com>
+	<43014E27.1070104@cosmosbay.com>
+	<20050823190852.GA20794@netnation.com>
+	<17163.32645.202453.145416@robur.slu.se>
+	<20050824000158.GA8137@netnation.com>
+	<20050825181111.GB14336@netnation.com>
+	<20050825200543.GA6612@yakov.inr.ac.ru>
+	<20050825212211.GA23384@netnation.com>
+	<20050826115520.GA12351@yakov.inr.ac.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Simon Kirby <sim@netnation.com>, Robert Olsson <Robert.Olsson@data.slu.se>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-        Ollie Wild <aaw@rincewind.tv>
-Content-Disposition: inline; filename=fix-dst-leak-in-icmp_push_reply.patch
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20050826115520.GA12351@yakov.inr.ac.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any  objections, please let us know.
-------------------
 
-Based upon a bug report and initial patch by
-Ollie Wild.
+Hello!
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Chris Wright <chrisw@osdl.org>
----
- net/ipv4/icmp.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+This thread seems familar :)
 
-Index: linux-2.6.12.y/net/ipv4/icmp.c
-===================================================================
---- linux-2.6.12.y.orig/net/ipv4/icmp.c
-+++ linux-2.6.12.y/net/ipv4/icmp.c
-@@ -349,12 +349,12 @@ static void icmp_push_reply(struct icmp_
+I think Simon uses UP and it could be idea to check if the RCU deferred 
+deletion causes the problem. 
+
+Simon it would be interesting to see if the patch below makes any 
+difference given the assumption about UP was correct,
+
+Cheers.
+					--ro
+
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -485,7 +485,11 @@ static struct file_operations rt_cpu_seq
+ static __inline__ void rt_free(struct rtable *rt)
  {
- 	struct sk_buff *skb;
+ 	multipath_remove(rt);
++#ifdef CONFIG_SMP
+ 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
++#else
++	dst_free((struct dst_entry *)rt);
++#endif
+ }
  
--	ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
--		       icmp_param->data_len+icmp_param->head_len,
--		       icmp_param->head_len,
--		       ipc, rt, MSG_DONTWAIT);
--
--	if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
-+	if (ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
-+		           icmp_param->data_len+icmp_param->head_len,
-+		           icmp_param->head_len,
-+		           ipc, rt, MSG_DONTWAIT) < 0)
-+		ip_flush_pending_frames(icmp_socket->sk);
-+	else if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
- 		struct icmphdr *icmph = skb->h.icmph;
- 		unsigned int csum = 0;
- 		struct sk_buff *skb1;
-
---
+ static __inline__ void rt_drop(struct rtable *rt)
