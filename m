@@ -1,28 +1,60 @@
-From: Benjamin LaHaise <bcrl@linux.intel.com>
-Subject: Re: 2.6.12 Performance problems
-Date: Fri, 26 Aug 2005 15:10:26 -0400
-Message-ID: <20050826191026.GA8023@linux.intel.com>
-References: <20050825142647.70995.qmail@web33314.mail.mud.yahoo.com> <430DF7FF.9080502@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: danial_thom@yahoo.com, Jesper Juhl <jesper.juhl@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030209AbVHZTKw@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <430DF7FF.9080502@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Chris Wright <chrisw@osdl.org>
+Subject: [PATCH 4/7] [IPV4]: Fix DST leak in icmp_push_reply()
+Date: Fri, 26 Aug 2005 12:17:59 -0700
+Message-ID: <20050826191901.965850000__47758.183340966$1125084554$gmane$org@localhost.localdomain>
+References: <20050826191755.052951000@localhost.localdomain>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+        Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+        "Theodore Ts'o" <tytso@mit.edu>, Randy Dunlap <rdunlap@xenotime.net>,
+        Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+        akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
+        Maillist netdev <netdev@oss.sgi.com>,
+        Patrick McHardy <kaber@trash.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Chris Wright <chrisw@osdl.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+        Ollie Wild <aaw@rincewind.tv>
+Content-Disposition: inline; filename=fix-dst-leak-in-icmp_push_reply.patch
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 25, 2005 at 09:55:27AM -0700, Ben Greear wrote:
-> Of course.  Never found a motherboard yet with decent built-in
-> NICs.  The built-ins on this board are tg3 and they must be on
-> a slow bus, because they cannot go faster than about 700Mbps
-> (using big pkts).
+-stable review patch.  If anyone has any  objections, please let us know.
+------------------
 
-There should be a number of decent boards out on the market these days.  
-Try picking up one with a CSA gige adapter (a dedicated high bandwidth 
-link to an e1000) or PCI Express (although that is harder to pick up on 
-from the specifications of most motherboards).
+Based upon a bug report and initial patch by
+Ollie Wild.
 
-		-ben
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+---
+ net/ipv4/icmp.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
+
+Index: linux-2.6.12.y/net/ipv4/icmp.c
+===================================================================
+--- linux-2.6.12.y.orig/net/ipv4/icmp.c
++++ linux-2.6.12.y/net/ipv4/icmp.c
+@@ -349,12 +349,12 @@ static void icmp_push_reply(struct icmp_
+ {
+ 	struct sk_buff *skb;
+ 
+-	ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
+-		       icmp_param->data_len+icmp_param->head_len,
+-		       icmp_param->head_len,
+-		       ipc, rt, MSG_DONTWAIT);
+-
+-	if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
++	if (ip_append_data(icmp_socket->sk, icmp_glue_bits, icmp_param,
++		           icmp_param->data_len+icmp_param->head_len,
++		           icmp_param->head_len,
++		           ipc, rt, MSG_DONTWAIT) < 0)
++		ip_flush_pending_frames(icmp_socket->sk);
++	else if ((skb = skb_peek(&icmp_socket->sk->sk_write_queue)) != NULL) {
+ 		struct icmphdr *icmph = skb->h.icmph;
+ 		unsigned int csum = 0;
+ 		struct sk_buff *skb1;
+
+--
