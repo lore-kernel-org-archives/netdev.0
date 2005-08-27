@@ -1,72 +1,29 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: Leaked net-device reference in eql.c
-Date: Sat, 27 Aug 2005 06:39:14 -0300
-Message-ID: <39e6f6c705082702396591573d@mail.gmail.com>
-References: <430FAF0D.5050000@candelatech.com> <430FE01E.9020600@trash.net>
-	 <43100709.1090800@candelatech.com>
-	 <39e6f6c705082702372dbc902d@mail.gmail.com>
+From: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+Subject: Re: 2.6.12 Performance problems
+Date: Sat, 27 Aug 2005 15:19:05 +0400
+Message-ID: <20050827111904.GA6484@tentacle.sectorb.msk.ru>
+References: <430D4E6D.1090200@candelatech.com> <20050825060843.15874.qmail@web33311.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Patrick McHardy <kaber@trash.net>,
-        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <39e6f6c705082702372dbc902d@mail.gmail.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: Ben Greear <greearb@candelatech.com>,
+	Jesper Juhl <jesper.juhl@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030353AbVH0LTH@vger.kernel.org>
+To: Danial Thom <danial_thom@yahoo.com>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050825060843.15874.qmail@web33311.mail.mud.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/27/05, Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com> wrote:
-> On 8/27/05, Ben Greear <greearb@candelatech.com> wrote:
-> > Patrick McHardy wrote:
-> > > Ben Greear wrote:
-> > >
-> > >> I think the eql_s_slave_cfg method in eql.c leaks
-> > >> the reference to slave_dev.  Am I missing something?
-> > >
-> > >
-> > > No, it should also put the device, as in eql_g_slave_cfg.
-> >
-> > Ok, I'm making a patch...will add this to it.
-> >
-> > How about this one.  It seems like it does a dev_put when it shouldn't
-> > (if some of the if's fail, the dev_get never happened):
-> >
-> > net/sched/sch_generic.c
-> >
-> > static void dev_watchdog(unsigned long arg)
-> > {
-> >         struct net_device *dev = (struct net_device *)arg;
-> >
-> >         spin_lock(&dev->xmit_lock);
-> >         if (dev->qdisc != &noop_qdisc) {
-> >                 if (netif_device_present(dev) &&
-> >                     netif_running(dev) &&
-> >                     netif_carrier_ok(dev)) {
-> >                         if (netif_queue_stopped(dev) &&
-> >                             (jiffies - dev->trans_start) > dev->watchdog_timeo) {
-> >                                 printk(KERN_INFO "NETDEV WATCHDOG: %s: transmit timed out\n", dev->name);
-> >                                 dev->tx_timeout(dev);
-> >                         }
-> >                         if (!mod_timer(&dev->watchdog_timer, jiffies + dev->watchdog_timeo))
-> >                                 dev_hold(dev);
-> >                 }
-> >         }
-> >         spin_unlock(&dev->xmit_lock);
-> >
-> >         dev_put(dev);
-> > }
+On Wed, Aug 24, 2005 at 11:08:43PM -0700, Danial Thom wrote:
+> If your test is still set up, try compiling
+> something large while doing the test. The drops
+> go through the roof in my tests.
 > 
-> Doesn't look like its a problem, its the classical case where when you
-> associate some data structure to a timer you grab a refcount, when the
-> timer expires you drop the refcount, and as the code above shows when
-> mod_timer is succesfully called it grabs a reference, so the reference
-> being dropped above is from the previous timer firing, now its just a matter
-> if looking for the first mod_timer, that must be at some other place in
-> sched_generic.c, lemme see...
+Couldn't this happen because ksoftirqd by default 
+has a nice value of 19?
 
-Yup, look at __netdev_watchdog_up :-)
-
-- Arnaldo
+~
+:wq
+                                        With best regards, 
+                                           Vladimir Savkin. 
