@@ -1,75 +1,56 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: ieee80211 patches
-Date: Fri, 26 Aug 2005 19:50:47 -0400
-Message-ID: <200508261950.47716.flamingice@sourmilk.net>
-References: <20050825193112.529d0dc9@griffin.suse.cz> <200508261107.07501.flamingice@sourmilk.net> <20050826181329.6dcf94d3@griffin.suse.cz>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Leaked net-device reference in eql.c
+Date: Fri, 26 Aug 2005 17:08:45 -0700
+Message-ID: <430FAF0D.5050000@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, NetDev <netdev@vger.kernel.org>,
-        Jeff Garzik <jgarzik@pobox.com>, jbohac@suse.cz, pavel@suse.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050826181329.6dcf94d3@griffin.suse.cz>
-Content-Disposition: inline
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Friday 26 August 2005 12:13, Jiri Benc wrote:
-> You mentioned problem with hooks in scanning/association/etc. Probably
-> everybody involved in this discussion knows it but I think it is worth
-> saying it: This is one of the most important things in a new ieee80211
-> layer. Unfortunately, it seems that every driver developer concentrates
-> on the aspects of his device (this include ieee80211 layer from ipw as
-> well as from rtl8180). But every device (or more precisely firmware)
-> provides different set of features - some takes care of almost
-> everything, other can do basic things only. So the amount of work that
-> needs to be done in the ieee80211 layer is different for different
-> devices. The layer has to be generic. It has to cope e.g. with
-> authentication/association performed fully by itself as well as with
-> auth/assoc performed automatically by the device, etc.
->
-> I'm convinced this is the first goal we have to reach before we start to
-> implement WPA, QoS and so.
-Right now, the adm8211 driver uses a number of specific hooks in its own 
-ieee80211 station management code such as:
+Hello!
 
-set_bssid
-set_ssid
-set_channel
-set_interval
-set_beacon
+I think the eql_s_slave_cfg method in eql.c leaks
+the reference to slave_dev.  Am I missing something?
 
-Though with enough of these hooks, many devices can be supported, I think 
-generic hooks like these would work best to support a wide range of hardware 
-that use softmac:
 
-pre_scan
-set_channel
-pre_associate
-link_change
-start_ibss
-join_ibss
+static int eql_s_slave_cfg(struct net_device *dev, slave_config_t __user *scp)
+{
+	slave_t *slave;
+	equalizer_t *eql;
+	struct net_device *slave_dev;
+	slave_config_t sc;
+	int ret;
 
-Then for the devices that do more in the firmware, adding callbacks like:
+	if (copy_from_user(&sc, scp, sizeof (slave_config_t)))
+		return -EFAULT;
 
-hw_scan
-hw_associate
-hw_start_ibss
+	slave_dev = dev_get_by_name(sc.slave_name);
+	if (!slave_dev)
+		return -ENODEV;
 
-would indicate to the ieee80211 layer that the hardware is capable of handling 
-those things itself.
+	ret = -EINVAL;
 
-The driver should be able to find all the info needed to configure the 
-hardware in ieee80211_device so only that needs to be passed to the hooks.
+	eql = netdev_priv(dev);
+	spin_lock_bh(&eql->queue.lock);
+	if (eql_is_slave(slave_dev)) {
+		slave = __eql_find_slave_dev(&eql->queue, slave_dev);
+		if (slave) {
+			slave->priority = sc.priority;
+			slave->priority_bps = sc.priority;
+			slave->priority_Bps = sc.priority / 8;
+			ret = 0;
+		}
+	}
+	spin_unlock_bh(&eql->queue.lock);
 
-A good portion of WPA can be implemented right now by implementing the 
-encodeext ioctls and generalizing ieee80211_security to support more than 
-just WEP. adm8211 doesn't have support for non-wep encryption yet, so WPA 
-works without ieee80211_security support.
+	return ret;
+}
 
-Sound good?
 
--Michael Wu
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
