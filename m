@@ -1,35 +1,25 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Netdevice reference counting issues in net/core/dv.c
-Date: Sat, 27 Aug 2005 23:42:54 -0700
-Message-ID: <43115CEE.9030306@candelatech.com>
+From: Jacques Chion <Jacques.Chion@wanadoo.fr>
+Subject: Re: [PATCH 3/3] Cleanup direct calls into IP stack
+Date: Sun, 28 Aug 2005 17:12:25 +0200 (CEST)
+Message-ID: <Pine.LNX.4.44.0508281709230.15482-100000__9937.52124854854$1125242278$gmane$org@cwoux2.cerise.fr>
+References: <20050824171712.GB8367@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@linux-mips.org>,
+        <linux-hams@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Ralf Baechle DL5RB <ralf@linux-mips.org>
+In-Reply-To: <20050824171712.GB8367@linux-mips.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-dv.c has several issues.
+I applied all these patches to the kernel 2.6.13-rc7
+and i recompile ax25-tools.
+All is running fine.
+Best 73's
 
-First, it uses the check_args method to find the
-device.  It acquires a hold on the device and then
-drops it in the same method.  Upon return from this
-check_args method, code then continues to use the reference
-to the device.  This could lead to access-after-free errors.
-
-Also, check_args has an arbitrary device-index check to make
-sure it is less that 1000.  This is bogus since we can have many
-more devices than that...
-
-If there is a maintainer that wants to fix this, please be my
-guest.  Otherwise, I'll make a stab at fixing it as part of
-my ref-count debugging work.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--=20
+F6CWO
+Quelques HOWTO en fran=E7ais: http://perso.wanadoo.fr/jacques.chion/
