@@ -1,28 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Very strange Marvell/Yukon Gigabit NIC networking problems
-Date: Tue, 30 Aug 2005 14:05:16 -0700
-Message-ID: <20050830140516.316e9695@dxpl.pdx.osdl.net>
-References: <20050830133918.42444cae@dxpl.pdx.osdl.net>
-	<20050830205027.59306.qmail@web53609.mail.yahoo.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] crypto_free_tfm callers do not need to check for NULL
+Date: Tue, 30 Aug 2005 14:13:35 -0700
+Message-ID: <1125436415.3952.11.camel@w-sridhar2.beaverton.ibm.com>
+References: <200508302245.55392.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Daniel Drake <dsd@gentoo.org>, Steve Kieu <haiquy@yahoo.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932474AbVH3VFG@vger.kernel.org>
-To: Steve Kieu <haiquy@yahoo.com>
-In-Reply-To: <20050830205027.59306.qmail@web53609.mail.yahoo.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@mail.ru>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Benjamin Reed <breed@users.sourceforge.net>,
+	Andy Adamson <andros@citi.umich.edu>, netdev@vger.kernel.org,
+	lksctp developers <lksctp-developers@lists.sourceforge.net>,
+	Bruce Fields <bfields@umich.edu>,
+	Andy Adamson <andros@umich.edu>, linux-net@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+In-Reply-To: <200508302245.55392.jesper.juhl@gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You have a version of the Marvell Yukon that was affected
-by a fix in 2.6.13.
-	skge addr 0xfeaf8000 irq 19 chip Yukon-Lite rev 9
+On Tue, 2005-08-30 at 22:45 +0200, Jesper Juhl wrote:
+> Since the patch to add a NULL short-circuit to crypto_free_tfm() went in, 
+> there's no longer any need for callers of that function to check for NULL.
+> This patch removes the redundant NULL checks and also a few similar checks
+> for NULL before calls to kfree() that I ran into while doing the 
+> crypto_free_tfm bits.
+> 
+> I've posted similar patches in the past, but was asked to first until the
+> short-circuit patch moved from -mm to mainline - and since it is now 
+> firmly there in 2.6.13 I assume there's no problem there anymore.
+> I was also asked previously to make the patch against mainline and not -mm,
+> so this patch is against 2.6.13.
+> 
+> Feedback, ACK, NACK, etc welcome. 
 
-Both the skge and sk98lin driver were fixed to check for this.
-Without the fix, the chip will be in the wrong power mode.
+sctp change looks fine.
+A similar check in sctp_endpoint_destroy() can also be removed.
 
-The version of sk98lin driver from SysKonnect already had the
-fix, so if your distro used that one, it would have the reset
-the power mode as needed.
+Thanks
+Sridhar
+
