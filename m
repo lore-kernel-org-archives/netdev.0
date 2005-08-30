@@ -1,32 +1,51 @@
-From: QUOTA-GUARD@tsinghuaic.com
-Subject: Failure notice: user's disk quota exceeded!
-Date: Tue, 30 Aug 2005 22:34:35 +0800
-Message-ID: <2005830223435.68825.quarkmail@mxvip1.hichina.com>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Linux Policy Routing Feature Enhancement Request
+Date: Tue, 30 Aug 2005 10:10:00 -0500
+Message-ID: <200508301010.03420.jeremy.guthrie@berbee.com>
+Reply-To: jeremy.guthrie@berbee.com
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart1908724.MTYqe6KoFq";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, This is the mail deliver program at tsinghuaic.com
+--nextPart1908724.MTYqe6KoFq
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Sorry, Your message to <postmaster@tsinghuaic.com> cannot be delivered as the recipient has exceeded their hardquota limit for email.However a small (< 1KB) message will be delivered should you wish to inform the person you tried to email.
+If possible, I'd like to put in a feature request to increase the number of=
+=20
+available tables from 256 to 65536.  The IDS load balancer can actually mak=
+e=20
+use of all of them.  My attempts to do this to 2.6.11 and 'ip' failed=20
+miserably.  8(
 
---- Below this line is a copy of the header. ---
+=2D-=20
 
-Received: from 221.218.42.170 (HELO oss.sgi.com) (envelope-from netdev@oss.sgi.com)
-	by mxvip1.hichina.com (quarkmail-1.2.1) with ESMTP id S335026AbVH3OeR
-	for dan@tsinghuaic.com; Tue, 30 Aug 2005 22:34:17 +0800
-From: netdev@oss.sgi.com
-To: dan@tsinghuaic.com
-Subject: Status
-Date: Tue, 30 Aug 2005 22:33:31 +0800
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0014_91B7BF9C.8477E2AA"
-X-Priority: 3
-X-MSMail-Priority: Normal
-Message-ID: <1125412462$67935$17774241@netdev@oss.sgi.com>
-X-Attachment: data.scr, 46675
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
 
-------------------------------------------------
+--nextPart1908724.MTYqe6KoFq
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+
+iD8DBQBDFHbLqtjaBHGZBeURAridAJ9euIXuzH0faSSl8hHxCV9lMIkntwCfZVdw
+hEwIa6SFCRimrygkM0blIos=
+=5ocU
+-----END PGP SIGNATURE-----
+
+--nextPart1908724.MTYqe6KoFq--
