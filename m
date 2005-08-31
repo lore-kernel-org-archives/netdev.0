@@ -1,52 +1,39 @@
-From: Steve Kieu <haiquy@yahoo.com>
-Subject: Re: Very strange Marvell/Yukon Gigabit NIC networking problems
-Date: Wed, 31 Aug 2005 10:09:48 +1000 (EST)
-Message-ID: <20050831000948.40799.qmail@web53607.mail.yahoo.com>
-References: <20050830152908.1dc24339@dxpl.pdx.osdl.net>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: [PATCH 0/2] New PowerPC 4xx on-chip ethernet controller driver
+Date: Tue, 30 Aug 2005 21:58:47 -0700
+Message-ID: <20050831045847.GA17017@gate.ebshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Daniel Drake <dsd@gentoo.org>, Steve Kieu <haiquy@yahoo.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932300AbVHaAKF@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050830152908.1dc24339@dxpl.pdx.osdl.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+Jeff,
 
---- Stephen Hemminger <shemminger@osdl.org> wrote:
+the following patches replace current PowerPC 4xx EMAC driver with 
+new, re-written version.
 
-> On Wed, 31 Aug 2005 07:49:37 +1000 (EST)
+New driver uses NAPI, it solves problems under heavy packet load and 
+low memory, corrects chip register access and fixes numerous small 
+bugs I don't even remember now :).
 
-> > 
-> > install-8_23.tar.bz2
-> 
-> Just look for references to CHIP_REV_YU_LITE_A3 in
-> the driver
-> 	sk98lin/skgeinit.c and sk98lin/skxmac2.c
-> The comparison should always be:
+This patch has been tested on all supported in 2.6 PPC 4xx boards. 
+It's been used in production for almost a year now on custom 
+4xx hardware. PPC32 specific parts were just posted to linuxppc-dev 
+and linuxppc-embedded mail lists.
 
-Have a look but no clue to patch it, there are one
-instance of comparing
+Patch was acked by the current EMAC driver maintainer (Matt Porter). I 
+will be maintaining this new version.
 
-> 	pAC->GIni.GIChipRev >= CHIP_REV_YU_LITE_A3
-> otherwise it will not correctly take chip out of
-> powerdown (coma) mode.
-
-please send me a patch to the install-8_23.tar.bz2
-then I can test. Or intruct more details, which line
-and what should change then I can do manually.
-
-I have nerver done device driver programming in my
-life!
-
-
-
-> 
-
-
-S.KIEU
-
-Send instant messages to your online friends http://au.messenger.yahoo.com 
+Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
