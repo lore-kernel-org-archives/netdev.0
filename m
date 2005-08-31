@@ -1,40 +1,40 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: Very strange Marvell/Yukon Gigabit NIC networking problems
-Date: Wed, 31 Aug 2005 10:56:08 +0100
-Message-ID: <43157EB8.8040108@gentoo.org>
-References: <20050830133918.42444cae@dxpl.pdx.osdl.net>	<20050830205027.59306.qmail@web53609.mail.yahoo.com> <20050830140516.316e9695@dxpl.pdx.osdl.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] crypto_free_tfm callers do not need to check for NULL
+Date: Wed, 31 Aug 2005 21:57:55 +1000
+Message-ID: <20050831115755.GA3699@gondor.apana.org.au>
+References: <200508302245.55392.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steve Kieu <haiquy@yahoo.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750749AbVHaJ4N@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050830140516.316e9695@dxpl.pdx.osdl.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexey Dobriyan <adobriyan@mail.ru>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Benjamin Reed <breed@users.sourceforge.net>,
+	Andy Adamson <andros@citi.umich.edu>, netdev@vger.kernel.org,
+	lksctp developers <lksctp-developers@lists.sourceforge.net>,
+	Bruce Fields <bfields@umich.edu>,
+	Andy Adamson <andros@umich.edu>, linux-net@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <200508302245.55392.jesper.juhl@gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> You have a version of the Marvell Yukon that was affected
-> by a fix in 2.6.13.
-> 	skge addr 0xfeaf8000 irq 19 chip Yukon-Lite rev 9
+On Tue, Aug 30, 2005 at 10:45:54PM +0200, Jesper Juhl wrote:
 > 
-> Both the skge and sk98lin driver were fixed to check for this.
-> Without the fix, the chip will be in the wrong power mode.
-> 
-> The version of sk98lin driver from SysKonnect already had the
-> fix, so if your distro used that one, it would have the reset
-> the power mode as needed.
+> I've posted similar patches in the past, but was asked to first until the
+> short-circuit patch moved from -mm to mainline - and since it is now 
+> firmly there in 2.6.13 I assume there's no problem there anymore.
+> I was also asked previously to make the patch against mainline and not -mm,
+> so this patch is against 2.6.13.
 
-So, am I right in saying we can't do anything in skge to work around this to 
-allow those older buggy drivers to work on the next reboot? More reports are 
-cropping up, e.g.:
+Thanks for you work and patience Jesper, this patch looks good to me.
 
-	http://forums.gentoo.org/viewtopic-t-375828.html
-
-Given that it seems to be affecting the Windows drivers too, it would be great 
-if something could be done.
-
-Thanks,
-Daniel
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
