@@ -1,17 +1,27 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/18] Updates & bug fixes for iseries_veth network driver
-Date: Wed, 31 Aug 2005 22:43:58 -0400
-Message-ID: <43166AEE.8090002@pobox.com>
-References: <1125538127.859382.875909607846.qpush@concordia>
+From: amine <amine@anevia.com>
+Subject: Linux multicast support
+Date: Thu, 1 Sep 2005 17:05:47 +0200
+Message-ID: <200509011705.47623.amine@anevia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc64-dev@ozlabs.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965040AbVIACoE@vger.kernel.org>
-To: Michael Ellerman <michael@ellerman.id.au>
-In-Reply-To: <1125538127.859382.875909607846.qpush@concordia>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied patches 1-18
+ Hi,
+ I have a question about Multicast in Linux IP stack. I need to know why are 
+ loking  the " dev->xmit_lock"   when mading change in  device multicast list?
+ Is it required to suppress parallel execution of that handler and 
+ set_multicast_list?
+ Thank in advance
+
+-- 
+EL HEDADI Amine
+R&D
+phone : 
+Email : amine@anevia.com
