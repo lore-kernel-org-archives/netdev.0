@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 12/18] iseries_veth: Simplify full-queue handling
-Date: Thu,  1 Sep 2005 11:29:18 +1000 (EST)
-Message-ID: <20050901012918.2C8EA68224@ozlabs.org>
+Subject: [PATCH 15/18] iseries_veth: Add sysfs support for port structs
+Date: Thu,  1 Sep 2005 11:29:21 +1000 (EST)
+Message-ID: <20050901012921.7BA6B68235@ozlabs.org>
 References: <1125538127.859382.875909607846.qpush@concordia>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc64-dev@ozlabs.org
@@ -19,230 +19,109 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-The iseries_veth driver often has multiple netdevices sending packets over
-a single connection to another LPAR. If the bandwidth to the other LPAR is
-exceeded, all the netdevices must have their queues stopped.
-
-The current code achieves this by queueing one incoming skb on the
-per-netdevice port structure. When the connection is able to send more packets
-we iterate through the port structs and flush any packet that is queued,
-as well as restarting the associated netdevice's queue.
-
-This arrangement makes less sense now that we have per-connection TX timers,
-rather than the per-netdevice generic TX timer.
-
-The new code simply detects when one of the connections is full, and stops
-the queue of all associated netdevices. Then when a packet is acked on that
-connection (ie. there is space again) all the queues are woken up.
+Also to aid debugging, add sysfs support for iseries_veth's port structures.
 
 Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 ---
 
- drivers/net/iseries_veth.c |  108 ++++++++++++++++++++++++++-------------------
- 1 files changed, 64 insertions(+), 44 deletions(-)
+ drivers/net/iseries_veth.c |   67 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 67 insertions(+)
 
 Index: veth-dev2/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev2.orig/drivers/net/iseries_veth.c
 +++ veth-dev2/drivers/net/iseries_veth.c
-@@ -158,10 +158,11 @@ struct veth_port {
- 	u64 mac_addr;
- 	HvLpIndexMap lpar_map;
- 
--	spinlock_t pending_gate;
--	struct sk_buff *pending_skb;
--	HvLpIndexMap pending_lpmask;
-+	/* queue_lock protects the stopped_map and dev's queue. */
-+	spinlock_t queue_lock;
-+	HvLpIndexMap stopped_map;
- 
-+	/* mcast_gate protects promiscuous, num_mcast & mcast_addr. */
- 	rwlock_t mcast_gate;
+@@ -167,6 +167,8 @@ struct veth_port {
  	int promiscuous;
  	int num_mcast;
-@@ -174,7 +175,8 @@ static struct net_device *veth_dev[HVMAX
+ 	u64 mcast_addr[VETH_MAX_MCAST];
++
++	struct kobject kobject;
+ };
  
- static int veth_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static void veth_recycle_msg(struct veth_lpar_connection *, struct veth_msg *);
--static void veth_flush_pending(struct veth_lpar_connection *cnx);
-+static void veth_wake_queues(struct veth_lpar_connection *cnx);
-+static void veth_stop_queues(struct veth_lpar_connection *cnx);
- static void veth_receive(struct veth_lpar_connection *, struct VethLpEvent *);
- static void veth_release_connection(struct kobject *kobject);
- static void veth_timed_ack(unsigned long ptr);
-@@ -221,6 +223,12 @@ static inline struct veth_msg *veth_stac
- 	return msg;
- }
+ static HvLpIndex this_lp;
+@@ -350,6 +352,62 @@ static struct kobj_type veth_lpar_connec
+ 	.default_attrs	= veth_cnx_default_attrs
+ };
  
-+/* You must hold the connection's lock when you call this function. */
-+static inline int veth_stack_is_empty(struct veth_lpar_connection *cnx)
++struct veth_port_attribute {
++	struct attribute attr;
++	ssize_t (*show)(struct veth_port *, char *buf);
++	ssize_t (*store)(struct veth_port *, const char *buf);
++};
++
++static ssize_t veth_port_attribute_show(struct kobject *kobj,
++		struct attribute *attr, char *buf)
 +{
-+	return cnx->msg_stack_head == NULL;
++	struct veth_port_attribute *port_attr;
++	struct veth_port *port;
++
++	port_attr = container_of(attr, struct veth_port_attribute, attr);
++	port = container_of(kobj, struct veth_port, kobject);
++
++	if (!port_attr->show)
++		return -EIO;
++
++	return port_attr->show(port, buf);
 +}
 +
- static inline HvLpEvent_Rc
- veth_signalevent(struct veth_lpar_connection *cnx, u16 subtype,
- 		 HvLpEvent_AckInd ackind, HvLpEvent_AckType acktype,
-@@ -391,12 +399,12 @@ static void veth_handle_int(struct VethL
- 			}
- 		}
- 
--		if (acked > 0)
-+		if (acked > 0) {
- 			cnx->last_contact = jiffies;
-+			veth_wake_queues(cnx);
-+		}
- 
- 		spin_unlock_irqrestore(&cnx->lock, flags);
--
--		veth_flush_pending(cnx);
- 		break;
- 	case VethEventTypeFrames:
- 		veth_receive(cnx, event);
-@@ -492,7 +500,9 @@ static void veth_statemachine(void *p)
- 			for (i = 0; i < VETH_NUMBUFFERS; ++i)
- 				veth_recycle_msg(cnx, cnx->msgs + i);
- 		}
++#define CUSTOM_PORT_ATTR(_name, _format, _expression)			\
++static ssize_t _name##_show(struct veth_port *port, char *buf)		\
++{									\
++	return sprintf(buf, _format, _expression);			\
++}									\
++struct veth_port_attribute veth_port_attr_##_name = __ATTR_RO(_name)
 +
- 		cnx->outstanding_tx = 0;
-+		veth_wake_queues(cnx);
- 
- 		/* Drop the lock so we can do stuff that might sleep or
- 		 * take other locks. */
-@@ -501,8 +511,6 @@ static void veth_statemachine(void *p)
- 		del_timer_sync(&cnx->ack_timer);
- 		del_timer_sync(&cnx->reset_timer);
- 
--		veth_flush_pending(cnx);
--
- 		spin_lock_irq(&cnx->lock);
- 
- 		if (cnx->state & VETH_STATE_RESET)
-@@ -869,8 +877,9 @@ static struct net_device * __init veth_p
- 
- 	port = (struct veth_port *) dev->priv;
- 
--	spin_lock_init(&port->pending_gate);
-+	spin_lock_init(&port->queue_lock);
- 	rwlock_init(&port->mcast_gate);
-+	port->stopped_map = 0;
- 
- 	for (i = 0; i < HVMAXARCHITECTEDLPS; i++) {
- 		HvLpVirtualLanIndexMap map;
-@@ -980,6 +989,9 @@ static int veth_transmit_to_one(struct s
- 	cnx->last_contact = jiffies;
- 	cnx->outstanding_tx++;
- 
-+	if (veth_stack_is_empty(cnx))
-+		veth_stop_queues(cnx);
++#define SIMPLE_PORT_ATTR(_name)	\
++	CUSTOM_PORT_ATTR(_name, "%lu\n", (unsigned long)port->_name)
 +
- 	spin_unlock_irqrestore(&cnx->lock, flags);
- 	return 0;
- 
-@@ -1023,7 +1035,6 @@ static int veth_start_xmit(struct sk_buf
- {
- 	unsigned char *frame = skb->data;
- 	struct veth_port *port = (struct veth_port *) dev->priv;
--	unsigned long flags;
- 	HvLpIndexMap lpmask;
- 
- 	if (! (frame[0] & 0x01)) {
-@@ -1040,27 +1051,9 @@ static int veth_start_xmit(struct sk_buf
- 		lpmask = port->lpar_map;
++SIMPLE_PORT_ATTR(promiscuous);
++SIMPLE_PORT_ATTR(num_mcast);
++CUSTOM_PORT_ATTR(lpar_map, "0x%X\n", port->lpar_map);
++CUSTOM_PORT_ATTR(stopped_map, "0x%X\n", port->stopped_map);
++CUSTOM_PORT_ATTR(mac_addr, "0x%lX\n", port->mac_addr);
++
++#define GET_PORT_ATTR(_name)	(&veth_port_attr_##_name.attr)
++static struct attribute *veth_port_default_attrs[] = {
++	GET_PORT_ATTR(mac_addr),
++	GET_PORT_ATTR(lpar_map),
++	GET_PORT_ATTR(stopped_map),
++	GET_PORT_ATTR(promiscuous),
++	GET_PORT_ATTR(num_mcast),
++	NULL
++};
++
++static struct sysfs_ops veth_port_sysfs_ops = {
++	.show = veth_port_attribute_show
++};
++
++static struct kobj_type veth_port_ktype = {
++	.sysfs_ops	= &veth_port_sysfs_ops,
++	.default_attrs	= veth_port_default_attrs
++};
++
+ /*
+  * LPAR connection code
+  */
+@@ -992,6 +1050,13 @@ static struct net_device * __init veth_p
+ 		return NULL;
  	}
  
--	spin_lock_irqsave(&port->pending_gate, flags);
--
--	lpmask = veth_transmit_to_many(skb, lpmask, dev);
-+	veth_transmit_to_many(skb, lpmask, dev);
++	kobject_init(&port->kobject);
++	port->kobject.parent = &dev->class_dev.kobj;
++	port->kobject.ktype  = &veth_port_ktype;
++	kobject_set_name(&port->kobject, "veth_port");
++	if (0 != kobject_add(&port->kobject))
++		veth_error("Failed adding port for %s to sysfs.\n", dev->name);
++
+ 	veth_info("%s attached to iSeries vlan %d (LPAR map = 0x%.4X)\n",
+ 			dev->name, vlan, port->lpar_map);
  
--	if (! lpmask) {
--		dev_kfree_skb(skb);
--	} else {
--		if (port->pending_skb) {
--			veth_error("%s: TX while skb was pending!\n",
--				   dev->name);
--			dev_kfree_skb(skb);
--			spin_unlock_irqrestore(&port->pending_gate, flags);
--			return 1;
--		}
--
--		port->pending_skb = skb;
--		port->pending_lpmask = lpmask;
--		netif_stop_queue(dev);
--	}
--
--	spin_unlock_irqrestore(&port->pending_gate, flags);
-+	dev_kfree_skb(skb);
- 
- 	return 0;
- }
-@@ -1093,9 +1086,10 @@ static void veth_recycle_msg(struct veth
+@@ -1486,6 +1551,8 @@ static int veth_remove(struct vio_dev *v
  	}
- }
  
--static void veth_flush_pending(struct veth_lpar_connection *cnx)
-+static void veth_wake_queues(struct veth_lpar_connection *cnx)
- {
- 	int i;
-+
- 	for (i = 0; i < HVMAXARCHITECTEDVIRTUALLANS; i++) {
- 		struct net_device *dev = veth_dev[i];
- 		struct veth_port *port;
-@@ -1109,19 +1103,45 @@ static void veth_flush_pending(struct ve
- 		if (! (port->lpar_map & (1<<cnx->remote_lp)))
- 			continue;
- 
--		spin_lock_irqsave(&port->pending_gate, flags);
--		if (port->pending_skb) {
--			port->pending_lpmask =
--				veth_transmit_to_many(port->pending_skb,
--						      port->pending_lpmask,
--						      dev);
--			if (! port->pending_lpmask) {
--				dev_kfree_skb_any(port->pending_skb);
--				port->pending_skb = NULL;
--				netif_wake_queue(dev);
--			}
-+		spin_lock_irqsave(&port->queue_lock, flags);
-+
-+		port->stopped_map &= ~(1 << cnx->remote_lp);
-+
-+		if (0 == port->stopped_map && netif_queue_stopped(dev)) {
-+			veth_debug("cnx %d: woke queue for %s.\n",
-+					cnx->remote_lp, dev->name);
-+			netif_wake_queue(dev);
- 		}
--		spin_unlock_irqrestore(&port->pending_gate, flags);
-+		spin_unlock_irqrestore(&port->queue_lock, flags);
-+	}
-+}
-+
-+static void veth_stop_queues(struct veth_lpar_connection *cnx)
-+{
-+	int i;
-+
-+	for (i = 0; i < HVMAXARCHITECTEDVIRTUALLANS; i++) {
-+		struct net_device *dev = veth_dev[i];
-+		struct veth_port *port;
-+
-+		if (! dev)
-+			continue;
-+
-+		port = (struct veth_port *)dev->priv;
-+
-+		/* If this cnx is not on the vlan for this port, continue */
-+		if (! (port->lpar_map & (1 << cnx->remote_lp)))
-+			continue;
-+
-+		spin_lock(&port->queue_lock);
-+
-+		netif_stop_queue(dev);
-+		port->stopped_map |= (1 << cnx->remote_lp);
-+
-+		veth_debug("cnx %d: stopped queue for %s, map = 0x%x.\n",
-+				cnx->remote_lp, dev->name, port->stopped_map);
-+
-+		spin_unlock(&port->queue_lock);
- 	}
- }
+ 	veth_dev[vdev->unit_address] = NULL;
++	kobject_del(&port->kobject);
++	kobject_put(&port->kobject);
+ 	unregister_netdev(dev);
+ 	free_netdev(dev);
