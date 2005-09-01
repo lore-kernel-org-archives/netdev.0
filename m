@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 10/18] iseries_veth: Remove TX timeout code
-Date: Thu,  1 Sep 2005 11:29:12 +1000 (EST)
-Message-ID: <20050901012912.2A0B768212@ozlabs.org>
+Subject: [PATCH 3/18] iseries_veth: Try to avoid pathological reset behaviour
+Date: Thu,  1 Sep 2005 11:29:00 +1000 (EST)
+Message-ID: <20050901012900.142D5681F7@ozlabs.org>
 References: <1125538127.859382.875909607846.qpush@concordia>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc64-dev@ozlabs.org
@@ -19,85 +19,86 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-The iseries_veth driver uses the generic TX timeout watchdog, however a better
-solution is in the works, so remove this code.
+The iseries_veth driver contains a state machine which is used to manage
+how connections are setup and neogotiated between LPARs.
+
+If one side of a connection resets for some reason, the two LPARs can get
+stuck in a race to re-setup the connection. This can lead to the connection
+being declared dead by one or both ends. In practice the connection is
+declared dead by one or both ends approximately 8/10 times a connection is
+reset, although it is rare for connections to be reset.
+
+(an example here: http://michael.ellerman.id.au/files/misc/veth-trace.html)
+
+The core of the problem is that the end that resets the connection doesn't
+wait for the other end to become aware of the reset. So the resetting end
+starts setting the connection back up, and then receives a reset from the
+other end (which is the response to the initial reset). And so on.
+
+We're severely limited in what we can do to fix this. The protocol between
+LPARs is essentially fixed, as we have to interoperate with both OS/400
+and old Linux drivers. Which also means we need a fix that only changes the
+code on one end.
+
+The only fix I've found given that, is to just blindly sleep for a bit when
+resetting the connection, in the hope that the other end will get itself
+sorted.  Needless to say I'd love it if someone has a better idea.
+
+This does work, I've so far been unable to get it to break, whereas without
+the fix a reset of one end will lead to a dead connection ~8/10 times.
 
 Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 ---
 
- drivers/net/iseries_veth.c |   48 ---------------------------------------------
- 1 files changed, 48 deletions(-)
+ drivers/net/iseries_veth.c |   25 +++++++++++++++++++++++--
+ 1 files changed, 23 insertions(+), 2 deletions(-)
 
 Index: veth-dev2/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev2.orig/drivers/net/iseries_veth.c
 +++ veth-dev2/drivers/net/iseries_veth.c
-@@ -830,49 +830,6 @@ static struct ethtool_ops ops = {
- 	.get_link = veth_get_link,
- };
+@@ -324,8 +324,14 @@ static void veth_take_monitor_ack(struct
  
--static void veth_tx_timeout(struct net_device *dev)
--{
--	struct veth_port *port = (struct veth_port *)dev->priv;
--	struct net_device_stats *stats = &port->stats;
--	unsigned long flags;
--	int i;
--
--	stats->tx_errors++;
--
--	spin_lock_irqsave(&port->pending_gate, flags);
--
--	if (!port->pending_lpmask) {
--		spin_unlock_irqrestore(&port->pending_gate, flags);
--		return;
--	}
--
--	printk(KERN_WARNING "%s: Tx timeout!  Resetting lp connections: %08x\n",
--	       dev->name, port->pending_lpmask);
--
--	for (i = 0; i < HVMAXARCHITECTEDLPS; i++) {
--		struct veth_lpar_connection *cnx = veth_cnx[i];
--
--		if (! (port->pending_lpmask & (1<<i)))
--			continue;
--
--		/* If we're pending on it, we must be connected to it,
--		 * so we should certainly have a structure for it. */
--		BUG_ON(! cnx);
--
--		/* Theoretically we could be kicking a connection
--		 * which doesn't deserve it, but in practice if we've
--		 * had a Tx timeout, the pending_lpmask will have
--		 * exactly one bit set - the connection causing the
--		 * problem. */
--		spin_lock(&cnx->lock);
--		cnx->state |= VETH_STATE_RESET;
--		veth_kick_statemachine(cnx);
--		spin_unlock(&cnx->lock);
--	}
--
--	spin_unlock_irqrestore(&port->pending_gate, flags);
--}
--
- static struct net_device * __init veth_probe_one(int vlan, struct device *vdev)
- {
- 	struct net_device *dev;
-@@ -921,9 +878,6 @@ static struct net_device * __init veth_p
- 	dev->set_multicast_list = veth_set_multicast_list;
- 	SET_ETHTOOL_OPS(dev, &ops);
+ 	spin_lock_irqsave(&cnx->lock, flags);
+ 	veth_debug("cnx %d: lost connection.\n", cnx->remote_lp);
+-	cnx->state |= VETH_STATE_RESET;
+-	veth_kick_statemachine(cnx);
++
++	/* Avoid kicking the statemachine once we're shutdown.
++	 * It's unnecessary and it could break veth_stop_connection(). */
++
++	if (! (cnx->state & VETH_STATE_SHUTDOWN)) {
++		cnx->state |= VETH_STATE_RESET;
++		veth_kick_statemachine(cnx);
++	}
+ 	spin_unlock_irqrestore(&cnx->lock, flags);
+ }
  
--	dev->watchdog_timeo = 2 * (VETH_ACKTIMEOUT * HZ / 1000000);
--	dev->tx_timeout = veth_tx_timeout;
--
- 	SET_NETDEV_DEV(dev, vdev);
+@@ -483,6 +489,12 @@ static void veth_statemachine(void *p)
  
- 	rc = register_netdev(dev);
-@@ -1058,8 +1012,6 @@ static int veth_start_xmit(struct sk_buf
+ 		if (cnx->state & VETH_STATE_RESET)
+ 			goto restart;
++
++		/* Hack, wait for the other end to reset itself. */
++		if (! (cnx->state & VETH_STATE_SHUTDOWN)) {
++			schedule_delayed_work(&cnx->statemachine_wq, 5 * HZ);
++			goto out;
++		}
+ 	}
  
- 	lpmask = veth_transmit_to_many(skb, lpmask, dev);
+ 	if (cnx->state & VETH_STATE_SHUTDOWN)
+@@ -667,6 +679,15 @@ static void veth_stop_connection(u8 rlp)
+ 	veth_kick_statemachine(cnx);
+ 	spin_unlock_irq(&cnx->lock);
  
--	dev->trans_start = jiffies;
--
- 	if (! lpmask) {
- 		dev_kfree_skb(skb);
- 	} else {
++	/* There's a slim chance the reset code has just queued the
++	 * statemachine to run in five seconds. If so we need to cancel
++	 * that and requeue the work to run now. */
++	if (cancel_delayed_work(&cnx->statemachine_wq)) {
++		spin_lock_irq(&cnx->lock);
++		veth_kick_statemachine(cnx);
++		spin_unlock_irq(&cnx->lock);
++	}
++
+ 	/* Wait for the state machine to run. */
+ 	flush_scheduled_work();
