@@ -1,7 +1,8 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 4/18] iseries_veth: Fix broken promiscuous handling
-Date: Thu,  1 Sep 2005 11:29:02 +1000 (EST)
-Message-ID: <20050901012902.89A72681F5@ozlabs.org>
+Subject: [PATCH 8/18] iseries_veth: Make init_connection() &
+	destroy_connection() symmetrical
+Date: Thu,  1 Sep 2005 11:29:08 +1000 (EST)
+Message-ID: <20050901012908.E24DF68212@ozlabs.org>
 References: <1125538127.859382.875909607846.qpush@concordia>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc64-dev@ozlabs.org
@@ -19,65 +20,86 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Due to a logic bug, once promiscuous mode is enabled in the iseries_veth
-driver it is never disabled.
+This patch makes veth_init_connection() and veth_destroy_connection()
+symmetrical in that they allocate/deallocate the same data.
 
-The driver keeps two flags, promiscuous and all_mcast which have exactly the
-same effect. This is because we only ever receive packets destined for us,
-or multicast packets. So consolidate them into one promiscuous flag for
-simplicity.
+Currently if there's an error while initialising connections (ie. ENOMEM)
+we call veth_module_cleanup(), however this will oops because we call
+driver_unregister() before we've called driver_register(). I've never seen
+this actually happen though.
+
+So instead we explicitly call veth_destroy_connection() for each connection,
+any that have been set up will be deallocated.
+
+We also fix a potential leak if vio_register_driver() fails.
 
 Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 ---
 
- drivers/net/iseries_veth.c |   16 +++++-----------
- 1 files changed, 5 insertions(+), 11 deletions(-)
+ drivers/net/iseries_veth.c |   35 ++++++++++++++++++++++-------------
+ 1 files changed, 22 insertions(+), 13 deletions(-)
 
 Index: veth-dev2/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev2.orig/drivers/net/iseries_veth.c
 +++ veth-dev2/drivers/net/iseries_veth.c
-@@ -159,7 +159,6 @@ struct veth_port {
+@@ -683,6 +683,14 @@ static void veth_stop_connection(u8 rlp)
  
- 	rwlock_t mcast_gate;
- 	int promiscuous;
--	int all_mcast;
- 	int num_mcast;
- 	u64 mcast_addr[VETH_MAX_MCAST];
- };
-@@ -756,17 +755,15 @@ static void veth_set_multicast_list(stru
- 
- 	write_lock_irqsave(&port->mcast_gate, flags);
- 
--	if (dev->flags & IFF_PROMISC) {	/* set promiscuous mode */
--		printk(KERN_INFO "%s: Promiscuous mode enabled.\n",
--		       dev->name);
-+	if ((dev->flags & IFF_PROMISC) || (dev->flags & IFF_ALLMULTI) ||
-+			(dev->mc_count > VETH_MAX_MCAST)) {
- 		port->promiscuous = 1;
--	} else if ( (dev->flags & IFF_ALLMULTI)
--		    || (dev->mc_count > VETH_MAX_MCAST) ) {
--		port->all_mcast = 1;
- 	} else {
- 		struct dev_mc_list *dmi = dev->mc_list;
- 		int i;
- 
-+		port->promiscuous = 0;
+ 	/* Wait for the state machine to run. */
+ 	flush_scheduled_work();
++}
 +
- 		/* Update table */
- 		port->num_mcast = 0;
++static void veth_destroy_connection(u8 rlp)
++{
++	struct veth_lpar_connection *cnx = veth_cnx[rlp];
++
++	if (! cnx)
++		return;
  
-@@ -1145,12 +1142,9 @@ static inline int veth_frame_wanted(stru
- 	if ( (mac_addr == port->mac_addr) || (mac_addr == 0xffffffffffff0000) )
- 		return 1;
- 
--	if (! (((char *) &mac_addr)[0] & 0x01))
--		return 0;
+ 	if (cnx->num_events > 0)
+ 		mf_deallocate_lp_events(cnx->remote_lp,
+@@ -694,14 +702,6 @@ static void veth_stop_connection(u8 rlp)
+ 				      HvLpEvent_Type_VirtualLan,
+ 				      cnx->num_ack_events,
+ 				      NULL, NULL);
+-}
 -
- 	read_lock_irqsave(&port->mcast_gate, flags);
+-static void veth_destroy_connection(u8 rlp)
+-{
+-	struct veth_lpar_connection *cnx = veth_cnx[rlp];
+-
+-	if (! cnx)
+-		return;
  
--	if (port->promiscuous || port->all_mcast) {
-+	if (port->promiscuous) {
- 		wanted = 1;
- 		goto out;
+ 	kfree(cnx->msgs);
+ 	kfree(cnx);
+@@ -1441,15 +1441,24 @@ int __init veth_module_init(void)
+ 
+ 	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i) {
+ 		rc = veth_init_connection(i);
+-		if (rc != 0) {
+-			veth_module_cleanup();
+-			return rc;
+-		}
++		if (rc != 0)
++			goto error;
  	}
+ 
+ 	HvLpEvent_registerHandler(HvLpEvent_Type_VirtualLan,
+ 				  &veth_handle_event);
+ 
+-	return vio_register_driver(&veth_driver);
++	rc = vio_register_driver(&veth_driver);
++	if (rc != 0)
++		goto error;
++
++	return 0;
++
++error:
++	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i) {
++		veth_destroy_connection(i);
++	}
++
++	return rc;
+ }
+ module_init(veth_module_init);
