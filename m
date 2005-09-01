@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 5/18] iseries_veth: Remove redundant message stack lock
-Date: Thu,  1 Sep 2005 11:29:05 +1000 (EST)
-Message-ID: <20050901012905.C9D3668205@ozlabs.org>
+Subject: [PATCH 4/18] iseries_veth: Fix broken promiscuous handling
+Date: Thu,  1 Sep 2005 11:29:02 +1000 (EST)
+Message-ID: <20050901012902.89A72681F5@ozlabs.org>
 References: <1125538127.859382.875909607846.qpush@concordia>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc64-dev@ozlabs.org
@@ -19,67 +19,65 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-The iseries_veth driver keeps a stack of messages for each connection
-and a lock to protect the stack. However there is also a per-connection lock
-which makes the message stack lock redundant.
+Due to a logic bug, once promiscuous mode is enabled in the iseries_veth
+driver it is never disabled.
 
-Remove the message stack lock and document the fact that callers of the
-stack-manipulation functions must hold the connection's lock.
+The driver keeps two flags, promiscuous and all_mcast which have exactly the
+same effect. This is because we only ever receive packets destined for us,
+or multicast packets. So consolidate them into one promiscuous flag for
+simplicity.
 
 Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 ---
 
- drivers/net/iseries_veth.c |   12 +++---------
- 1 files changed, 3 insertions(+), 9 deletions(-)
+ drivers/net/iseries_veth.c |   16 +++++-----------
+ 1 files changed, 5 insertions(+), 11 deletions(-)
 
 Index: veth-dev2/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev2.orig/drivers/net/iseries_veth.c
 +++ veth-dev2/drivers/net/iseries_veth.c
-@@ -143,7 +143,6 @@ struct veth_lpar_connection {
- 	struct VethCapData remote_caps;
- 	u32 ack_timeout;
+@@ -159,7 +159,6 @@ struct veth_port {
  
--	spinlock_t msg_stack_lock;
- 	struct veth_msg *msg_stack_head;
+ 	rwlock_t mcast_gate;
+ 	int promiscuous;
+-	int all_mcast;
+ 	int num_mcast;
+ 	u64 mcast_addr[VETH_MAX_MCAST];
  };
+@@ -756,17 +755,15 @@ static void veth_set_multicast_list(stru
  
-@@ -190,27 +189,23 @@ static void veth_timed_ack(unsigned long
- #define veth_debug(fmt, args...) do {} while (0)
- #endif
+ 	write_lock_irqsave(&port->mcast_gate, flags);
  
-+/* You must hold the connection's lock when you call this function. */
- static inline void veth_stack_push(struct veth_lpar_connection *cnx,
- 				   struct veth_msg *msg)
- {
--	unsigned long flags;
--
--	spin_lock_irqsave(&cnx->msg_stack_lock, flags);
- 	msg->next = cnx->msg_stack_head;
- 	cnx->msg_stack_head = msg;
--	spin_unlock_irqrestore(&cnx->msg_stack_lock, flags);
- }
+-	if (dev->flags & IFF_PROMISC) {	/* set promiscuous mode */
+-		printk(KERN_INFO "%s: Promiscuous mode enabled.\n",
+-		       dev->name);
++	if ((dev->flags & IFF_PROMISC) || (dev->flags & IFF_ALLMULTI) ||
++			(dev->mc_count > VETH_MAX_MCAST)) {
+ 		port->promiscuous = 1;
+-	} else if ( (dev->flags & IFF_ALLMULTI)
+-		    || (dev->mc_count > VETH_MAX_MCAST) ) {
+-		port->all_mcast = 1;
+ 	} else {
+ 		struct dev_mc_list *dmi = dev->mc_list;
+ 		int i;
  
-+/* You must hold the connection's lock when you call this function. */
- static inline struct veth_msg *veth_stack_pop(struct veth_lpar_connection *cnx)
- {
--	unsigned long flags;
- 	struct veth_msg *msg;
- 
--	spin_lock_irqsave(&cnx->msg_stack_lock, flags);
- 	msg = cnx->msg_stack_head;
- 	if (msg)
- 		cnx->msg_stack_head = cnx->msg_stack_head->next;
--	spin_unlock_irqrestore(&cnx->msg_stack_lock, flags);
++		port->promiscuous = 0;
 +
- 	return msg;
- }
+ 		/* Update table */
+ 		port->num_mcast = 0;
  
-@@ -645,7 +640,6 @@ static int veth_init_connection(u8 rlp)
+@@ -1145,12 +1142,9 @@ static inline int veth_frame_wanted(stru
+ 	if ( (mac_addr == port->mac_addr) || (mac_addr == 0xffffffffffff0000) )
+ 		return 1;
  
- 	cnx->msgs = msgs;
- 	memset(msgs, 0, VETH_NUMBUFFERS * sizeof(struct veth_msg));
--	spin_lock_init(&cnx->msg_stack_lock);
+-	if (! (((char *) &mac_addr)[0] & 0x01))
+-		return 0;
+-
+ 	read_lock_irqsave(&port->mcast_gate, flags);
  
- 	for (i = 0; i < VETH_NUMBUFFERS; i++) {
- 		msgs[i].token = i;
+-	if (port->promiscuous || port->all_mcast) {
++	if (port->promiscuous) {
+ 		wanted = 1;
+ 		goto out;
+ 	}
