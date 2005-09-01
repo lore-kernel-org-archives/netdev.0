@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 13/18] iseries_veth: Fix bogus counting of TX errors
-Date: Thu,  1 Sep 2005 11:29:19 +1000 (EST)
-Message-ID: <20050901012919.7A19868232@ozlabs.org>
+Subject: [PATCH 14/18] iseries_veth: Add sysfs support for connection structs
+Date: Thu,  1 Sep 2005 11:29:20 +1000 (EST)
+Message-ID: <20050901012920.5D74D68231@ozlabs.org>
 References: <1125538127.859382.875909607846.qpush@concordia>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc64-dev@ozlabs.org
@@ -19,138 +19,139 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-There's a number of problems with the way iseries_veth counts TX errors.
-
-Firstly it counts conditions which aren't really errors as TX errors. This
-includes if we don't have a connection struct for the other LPAR, or if the
-other LPAR is currently down (or just doesn't want to talk to us). Neither
-of these should count as TX errors.
-
-Secondly, it counts one TX error for each LPAR that fails to accept the packet.
-This can lead to TX error counts higher than the total number of packets sent
-through the interface. This is confusing for users.
-
-This patch fixes that behaviour. The non-error conditions are no longer
-counted, and we introduce a new and I think saner meaning to the TX counts.
-
-If a packet is successfully transmitted to any LPAR then it is transmitted
-and tx_packets is incremented by 1.
-
-If there is an error transmitting a packet to any LPAR then that is counted
-as one error, ie. tx_errors is incremented by 1.
+To aid in field debugging, add sysfs support for iseries_veth's connection
+structures. At the moment this is all read-only, however we could think about
+adding write support for some attributes in future.
 
 Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 ---
 
- drivers/net/iseries_veth.c |   47 ++++++++++++++++++---------------------------
- 1 files changed, 19 insertions(+), 28 deletions(-)
+ drivers/net/iseries_veth.c |   94 +++++++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 90 insertions(+), 4 deletions(-)
 
 Index: veth-dev2/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev2.orig/drivers/net/iseries_veth.c
 +++ veth-dev2/drivers/net/iseries_veth.c
-@@ -938,31 +938,25 @@ static int veth_transmit_to_one(struct s
- 	struct veth_port *port = (struct veth_port *) dev->priv;
- 	HvLpEvent_Rc rc;
- 	struct veth_msg *msg = NULL;
--	int err = 0;
- 	unsigned long flags;
+@@ -182,10 +182,6 @@ static void veth_release_connection(stru
+ static void veth_timed_ack(unsigned long ptr);
+ static void veth_timed_reset(unsigned long ptr);
  
--	if (! cnx) {
--		port->stats.tx_errors++;
--		dev_kfree_skb(skb);
-+	if (! cnx)
- 		return 0;
--	}
- 
- 	spin_lock_irqsave(&cnx->lock, flags);
- 
- 	if (! (cnx->state & VETH_STATE_READY))
--		goto drop;
-+		goto no_error;
- 
--	if ((skb->len - 14) > VETH_MAX_MTU)
-+	if ((skb->len - ETH_HLEN) > VETH_MAX_MTU)
- 		goto drop;
- 
- 	msg = veth_stack_pop(cnx);
+-static struct kobj_type veth_lpar_connection_ktype = {
+-	.release	= veth_release_connection
+-};
 -
--	if (! msg) {
--		err = 1;
-+	if (! msg)
- 		goto drop;
--	}
- 
- 	msg->in_use = 1;
-+	msg->skb = skb_get(skb);
- 
- 	msg->data.addr[0] = dma_map_single(port->dev, skb->data,
- 				skb->len, DMA_TO_DEVICE);
-@@ -970,9 +964,6 @@ static int veth_transmit_to_one(struct s
- 	if (dma_mapping_error(msg->data.addr[0]))
- 		goto recycle_and_drop;
- 
--	/* Is it really necessary to check the length and address
--	 * fields of the first entry here? */
--	msg->skb = skb;
- 	msg->dev = port->dev;
- 	msg->data.len[0] = skb->len;
- 	msg->data.eofmask = 1 << VETH_EOF_SHIFT;
-@@ -992,43 +983,43 @@ static int veth_transmit_to_one(struct s
- 	if (veth_stack_is_empty(cnx))
- 		veth_stop_queues(cnx);
- 
-+ no_error:
- 	spin_unlock_irqrestore(&cnx->lock, flags);
- 	return 0;
- 
-  recycle_and_drop:
--	/* we free the skb below, so tell veth_recycle_msg() not to. */
--	msg->skb = NULL;
- 	veth_recycle_msg(cnx, msg);
-  drop:
--	port->stats.tx_errors++;
--	dev_kfree_skb(skb);
- 	spin_unlock_irqrestore(&cnx->lock, flags);
--	return err;
-+	return 1;
+ /*
+  * Utility functions
+  */
+@@ -280,6 +276,81 @@ static int veth_allocate_events(HvLpInde
  }
  
--static HvLpIndexMap veth_transmit_to_many(struct sk_buff *skb,
-+static void veth_transmit_to_many(struct sk_buff *skb,
- 					  HvLpIndexMap lpmask,
- 					  struct net_device *dev)
- {
- 	struct veth_port *port = (struct veth_port *) dev->priv;
--	int i;
--	int rc;
-+	int i, success, error;
+ /*
++ * sysfs support
++ */
 +
-+	success = error = 0;
++struct veth_cnx_attribute {
++	struct attribute attr;
++	ssize_t (*show)(struct veth_lpar_connection *, char *buf);
++	ssize_t (*store)(struct veth_lpar_connection *, const char *buf);
++};
++
++static ssize_t veth_cnx_attribute_show(struct kobject *kobj,
++		struct attribute *attr, char *buf)
++{
++	struct veth_cnx_attribute *cnx_attr;
++	struct veth_lpar_connection *cnx;
++
++	cnx_attr = container_of(attr, struct veth_cnx_attribute, attr);
++	cnx = container_of(kobj, struct veth_lpar_connection, kobject);
++
++	if (!cnx_attr->show)
++		return -EIO;
++
++	return cnx_attr->show(cnx, buf);
++}
++
++#define CUSTOM_CNX_ATTR(_name, _format, _expression)			\
++static ssize_t _name##_show(struct veth_lpar_connection *cnx, char *buf)\
++{									\
++	return sprintf(buf, _format, _expression);			\
++}									\
++struct veth_cnx_attribute veth_cnx_attr_##_name = __ATTR_RO(_name)
++
++#define SIMPLE_CNX_ATTR(_name)	\
++	CUSTOM_CNX_ATTR(_name, "%lu\n", (unsigned long)cnx->_name)
++
++SIMPLE_CNX_ATTR(outstanding_tx);
++SIMPLE_CNX_ATTR(remote_lp);
++SIMPLE_CNX_ATTR(num_events);
++SIMPLE_CNX_ATTR(src_inst);
++SIMPLE_CNX_ATTR(dst_inst);
++SIMPLE_CNX_ATTR(num_pending_acks);
++SIMPLE_CNX_ATTR(num_ack_events);
++CUSTOM_CNX_ATTR(ack_timeout, "%d\n", jiffies_to_msecs(cnx->ack_timeout));
++CUSTOM_CNX_ATTR(reset_timeout, "%d\n", jiffies_to_msecs(cnx->reset_timeout));
++CUSTOM_CNX_ATTR(state, "0x%.4lX\n", cnx->state);
++CUSTOM_CNX_ATTR(last_contact, "%d\n", cnx->last_contact ?
++		jiffies_to_msecs(jiffies - cnx->last_contact) : 0);
++
++#define GET_CNX_ATTR(_name)	(&veth_cnx_attr_##_name.attr)
++
++static struct attribute *veth_cnx_default_attrs[] = {
++	GET_CNX_ATTR(outstanding_tx),
++	GET_CNX_ATTR(remote_lp),
++	GET_CNX_ATTR(num_events),
++	GET_CNX_ATTR(reset_timeout),
++	GET_CNX_ATTR(last_contact),
++	GET_CNX_ATTR(state),
++	GET_CNX_ATTR(src_inst),
++	GET_CNX_ATTR(dst_inst),
++	GET_CNX_ATTR(num_pending_acks),
++	GET_CNX_ATTR(num_ack_events),
++	GET_CNX_ATTR(ack_timeout),
++	NULL
++};
++
++static struct sysfs_ops veth_cnx_sysfs_ops = {
++		.show = veth_cnx_attribute_show
++};
++
++static struct kobj_type veth_lpar_connection_ktype = {
++	.release	= veth_release_connection,
++	.sysfs_ops	= &veth_cnx_sysfs_ops,
++	.default_attrs	= veth_cnx_default_attrs
++};
++
++/*
+  * LPAR connection code
+  */
  
- 	for (i = 0; i < HVMAXARCHITECTEDLPS; i++) {
- 		if ((lpmask & (1 << i)) == 0)
+@@ -1493,6 +1564,8 @@ void __exit veth_module_cleanup(void)
+ 		if (!cnx)
  			continue;
  
--		rc = veth_transmit_to_one(skb_get(skb), i, dev);
--		if (! rc)
--			lpmask &= ~(1<<i);
-+		if (veth_transmit_to_one(skb, i, dev))
-+			error = 1;
-+		else
-+			success = 1;
++		/* Remove the connection from sysfs */
++		kobject_del(&cnx->kobject);
+ 		/* Drop the driver's reference to the connection */
+ 		kobject_put(&cnx->kobject);
  	}
+@@ -1523,6 +1596,19 @@ int __init veth_module_init(void)
+ 	if (rc != 0)
+ 		goto error;
  
--	if (! lpmask) {
-+	if (error)
-+		port->stats.tx_errors++;
++	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i) {
++		struct kobject *kobj;
 +
-+	if (success) {
- 		port->stats.tx_packets++;
- 		port->stats.tx_bytes += skb->len;
- 	}
--
--	return lpmask;
- }
++		if (!veth_cnx[i])
++			continue;
++
++		kobj = &veth_cnx[i]->kobject;
++		kobj->parent = &veth_driver.driver.kobj;
++		/* If the add failes, complain but otherwise continue */
++		if (0 != kobject_add(kobj))
++			veth_error("cnx %d: Failed adding to sysfs.\n", i);
++	}
++
+ 	return 0;
  
- static int veth_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ error:
