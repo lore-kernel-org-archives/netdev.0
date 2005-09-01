@@ -1,8 +1,8 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 16/18] iseries_veth: Incorporate iseries_veth.h in
-	iseries_veth.c
-Date: Thu,  1 Sep 2005 11:29:25 +1000 (EST)
-Message-ID: <20050901012925.4CAC368247@ozlabs.org>
+Subject: [PATCH 18/18] iseries_veth: Be consistent about driver name,
+	increment version
+Date: Thu,  1 Sep 2005 11:29:29 +1000 (EST)
+Message-ID: <20050901012929.4B45F68249@ozlabs.org>
 References: <1125538127.859382.875909607846.qpush@concordia>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linuxppc64-dev@ozlabs.org
@@ -20,121 +20,73 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-iseries_veth.h is only used by iseries_veth.c, so merge the former into
-the latter.
+The iseries_veth driver tells sysfs that it's called 'iseries_veth', but if
+you ask it via ethtool it thinks it's called 'veth'. I think this comes from
+2.4 when the driver was called 'veth', but it's definitely called
+'iseries_veth' now, so fix it.
+
+To make sure we don't do it again define DRV_NAME and use it everywhere.
+
+While we're at it, change the version number to 2.0, to reflect the changes
+made in this patch series.
 
 Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 ---
 
- drivers/net/iseries_veth.h |   46 ---------------------------------------------
- drivers/net/iseries_veth.c |   42 +++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 40 insertions(+), 48 deletions(-)
+ drivers/net/iseries_veth.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
 
 Index: veth-dev2/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev2.orig/drivers/net/iseries_veth.c
 +++ veth-dev2/drivers/net/iseries_veth.c
-@@ -81,12 +81,50 @@
+@@ -125,6 +125,9 @@ struct veth_lpevent {
  
- #undef DEBUG
+ };
  
--#include "iseries_veth.h"
--
- MODULE_AUTHOR("Kyle Lucke <klucke@us.ibm.com>");
- MODULE_DESCRIPTION("iSeries Virtual ethernet driver");
- MODULE_LICENSE("GPL");
- 
-+#define VethEventTypeCap	(0)
-+#define VethEventTypeFrames	(1)
-+#define VethEventTypeMonitor	(2)
-+#define VethEventTypeFramesAck	(3)
-+
-+#define VETH_MAX_ACKS_PER_MSG	(20)
-+#define VETH_MAX_FRAMES_PER_MSG	(6)
-+
-+struct VethFramesData {
-+	u32 addr[VETH_MAX_FRAMES_PER_MSG];
-+	u16 len[VETH_MAX_FRAMES_PER_MSG];
-+	u32 eofmask;
-+};
-+#define VETH_EOF_SHIFT		(32-VETH_MAX_FRAMES_PER_MSG)
-+
-+struct VethFramesAckData {
-+	u16 token[VETH_MAX_ACKS_PER_MSG];
-+};
-+
-+struct VethCapData {
-+	u8 caps_version;
-+	u8 rsvd1;
-+	u16 num_buffers;
-+	u16 ack_threshold;
-+	u16 rsvd2;
-+	u32 ack_timeout;
-+	u32 rsvd3;
-+	u64 rsvd4[3];
-+};
-+
-+struct VethLpEvent {
-+	struct HvLpEvent base_event;
-+	union {
-+		struct VethCapData caps_data;
-+		struct VethFramesData frames_data;
-+		struct VethFramesAckData frames_ack_data;
-+	} u;
-+
-+};
++#define DRV_NAME	"iseries_veth"
++#define DRV_VERSION	"2.0"
 +
  #define VETH_NUMBUFFERS		(120)
  #define VETH_ACKTIMEOUT 	(1000000) /* microseconds */
  #define VETH_MAX_MCAST		(12)
-Index: veth-dev2/drivers/net/iseries_veth.h
-===================================================================
---- veth-dev2.orig/drivers/net/iseries_veth.h
-+++ /dev/null
-@@ -1,46 +0,0 @@
--/* File veth.h created by Kyle A. Lucke on Mon Aug  7 2000. */
--
--#ifndef _ISERIES_VETH_H
--#define _ISERIES_VETH_H
--
--#define VethEventTypeCap	(0)
--#define VethEventTypeFrames	(1)
--#define VethEventTypeMonitor	(2)
--#define VethEventTypeFramesAck	(3)
--
--#define VETH_MAX_ACKS_PER_MSG	(20)
--#define VETH_MAX_FRAMES_PER_MSG	(6)
--
--struct VethFramesData {
--	u32 addr[VETH_MAX_FRAMES_PER_MSG];
--	u16 len[VETH_MAX_FRAMES_PER_MSG];
--	u32 eofmask;
--};
--#define VETH_EOF_SHIFT		(32-VETH_MAX_FRAMES_PER_MSG)
--
--struct VethFramesAckData {
--	u16 token[VETH_MAX_ACKS_PER_MSG];
--};
--
--struct VethCapData {
--	u8 caps_version;
--	u8 rsvd1;
--	u16 num_buffers;
--	u16 ack_threshold;
--	u16 rsvd2;
--	u32 ack_timeout;
--	u32 rsvd3;
--	u64 rsvd4[3];
--};
--
--struct VethLpEvent {
--	struct HvLpEvent base_event;
--	union {
--		struct VethCapData caps_data;
--		struct VethFramesData frames_data;
--		struct VethFramesAckData frames_ack_data;
--	} u;
--
--};
--
--#endif	/* _ISERIES_VETH_H */
+@@ -227,14 +230,14 @@ static void veth_timed_reset(unsigned lo
+  */
+ 
+ #define veth_info(fmt, args...) \
+-	printk(KERN_INFO "iseries_veth: " fmt, ## args)
++	printk(KERN_INFO DRV_NAME ": " fmt, ## args)
+ 
+ #define veth_error(fmt, args...) \
+-	printk(KERN_ERR "iseries_veth: Error: " fmt, ## args)
++	printk(KERN_ERR DRV_NAME ": Error: " fmt, ## args)
+ 
+ #ifdef DEBUG
+ #define veth_debug(fmt, args...) \
+-	printk(KERN_DEBUG "iseries_veth: " fmt, ## args)
++	printk(KERN_DEBUG DRV_NAME ": " fmt, ## args)
+ #else
+ #define veth_debug(fmt, args...) do {} while (0)
+ #endif
+@@ -997,9 +1000,10 @@ static void veth_set_multicast_list(stru
+ 
+ static void veth_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+-	strncpy(info->driver, "veth", sizeof(info->driver) - 1);
++	strncpy(info->driver, DRV_NAME, sizeof(info->driver) - 1);
+ 	info->driver[sizeof(info->driver) - 1] = '\0';
+-	strncpy(info->version, "1.0", sizeof(info->version) - 1);
++	strncpy(info->version, DRV_VERSION, sizeof(info->version) - 1);
++	info->version[sizeof(info->version) - 1] = '\0';
+ }
+ 
+ static int veth_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+@@ -1642,7 +1646,7 @@ static struct vio_device_id veth_device_
+ MODULE_DEVICE_TABLE(vio, veth_device_table);
+ 
+ static struct vio_driver veth_driver = {
+-	.name = "iseries_veth",
++	.name = DRV_NAME,
+ 	.id_table = veth_device_table,
+ 	.probe = veth_probe,
+ 	.remove = veth_remove
