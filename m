@@ -1,62 +1,44 @@
-From: Ion Badulescu <ion.badulescu@limegroup.com>
-Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x
- kernels
-Date: Fri, 2 Sep 2005 19:09:18 -0400 (EDT)
-Message-ID: <Pine.LNX.4.62.0509021903290.10545@moisil.badula.org>
-References: <Pine.LNX.4.61.0509011713240.6083@guppy.limebrokerage.com>
- <20050901.154300.118239765.davem@davemloft.net>
- <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
- <20050902183656.GA16537@yakov.inr.ac.ru> <Pine.LNX.4.61.0509021609430.6083@guppy.limebrokerage.com>
- <20050902211810.GB18605@yakov.inr.ac.ru>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch 2.6.13-git3 1/5] sis190: unmask the link change events
+Date: Sat, 3 Sep 2005 00:54:25 +0200
+Message-ID: <20050902225425.GB25687@electric-eye.fr.zoreil.com>
+References: <20050902225224.GA25687@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Ion Badulescu <lists@limebrokerage.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20050902211810.GB18605@yakov.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: pascal.chapperon@wanadoo.fr, lars.vahlenberg@mandator.com,
+	Alexey Dobriyan <adobriyan@gmail.com>, apatard@mandriva.com,
+	jgarzik@pobox.com, akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161116AbVIBXKq@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <20050902225224.GA25687@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexey,
+link changes reporting does not work when the driver masks its irq event
 
-On Sat, 3 Sep 2005, Alexey Kuznetsov wrote:
+Signed-off-by: Arnaud Patard <apatard@mandriva.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
->> Well, take a look at the double acks for 84439343, 84440447 and 84441059,
->> they seem pretty much identical to me.
->
-> It is just a little tcpdump glitch.
->
-> 19:34:54.532271 < 10.2.20.246.33060 > 65.171.224.182.8700: . 44:44(0) ack 84439343 win 24544 <nop,nop,timestamp 226080638 99717832> (DF) (ttl 64, id 60946)
-> 19:34:54.532432 < 10.2.20.246.33060 > 65.171.224.182.8700: . 44:44(0) ack 84439343 win 24544 <nop,nop,timestamp 226080638 99717832> (DF) (ttl 64, id 60946)
->
-> It is one ACK (look at IP ID), shown twice. This happens sometimes
-> with our packet socket.
+diff -puN a/drivers/net/sis190.c~sis190-170 b/drivers/net/sis190.c
+--- a/drivers/net/sis190.c~sis190-170	2005-09-02 23:27:18.621147267 +0200
++++ b/drivers/net/sis190.c	2005-09-02 23:27:18.643143712 +0200
+@@ -360,7 +360,7 @@ MODULE_VERSION(DRV_VERSION);
+ MODULE_LICENSE("GPL");
+ 
+ static const u32 sis190_intr_mask =
+-	RxQEmpty | RxQInt | TxQ1Int | TxQ0Int | RxHalt | TxHalt;
++	RxQEmpty | RxQInt | TxQ1Int | TxQ0Int | RxHalt | TxHalt | LinkChange;
+ 
+ /*
+  * Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
+@@ -923,6 +923,7 @@ static void sis190_phy_task(void * data)
+ 		     BMSR_ANEGCOMPLETE)) {
+ 		net_link(tp, KERN_WARNING "%s: PHY reset until link up.\n",
+ 			 dev->name);
++		netif_carrier_off(dev);
+ 		mdio_write(ioaddr, phy_id, MII_BMCR, val | BMCR_RESET);
+ 		mod_timer(&tp->timer, jiffies + SIS190_PHY_TIMEOUT);
+ 	} else {
 
-Ahh... ack. :) That explains it.
-
-> I understood. I expect when 184*4, when you said 184. But minimum is
-> still 730 (unscaled 1460*2). If you really saw values lower than 730
-> (unscaled 1460*2), there is another more severe problem and the suggested
-> patch will not solve it.
-
-I really did see very small values. This one is plucked from one of 
-today's streams, after a full day's worth of data had passed through it:
-
-19:03:19.659454 10.1.12.11.8001 > 10.2.10.212.56690: P 3:6(3) ack 1 win 65529 <nop,nop,timestamp 27146219 3617561665> (DF)
-19:03:19.659462 10.2.10.212.56690 > 10.1.12.11.8001: . ack 6 win 181 <nop,nop,timestamp 3617562713 27146219> (DF)
-19:03:20.690719 10.1.12.11.8001 > 10.2.10.212.56690: P 6:9(3) ack 1 win 65529 <nop,nop,timestamp 27146230 3617562713> (DF)
-19:03:20.690727 10.2.10.212.56690 > 10.1.12.11.8001: . ack 9 win 181 <nop,nop,timestamp 3617563744 27146230> (DF)
-
-10.1.12.11 is the Win2k box, 10.2.10.212 is the Linux box. The socket 
-buffer sizes are the defaults, so the scaling is most likely 2^2. The 
-packets being exchanged at this point are just heartbeats.
-
-On Tuesday I can try to capture a full session from the very begining, if 
-you think it would help.
-
-Thanks,
--Ion
+_
