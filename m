@@ -1,51 +1,70 @@
-From: Ion Badulescu <lists@limebrokerage.com>
+From: Guillaume Autran <gautran@mrv.com>
 Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x
  kernels
-Date: Fri, 2 Sep 2005 11:43:56 -0400 (EDT)
-Message-ID: <Pine.LNX.4.61.0509021127040.6083@guppy.limebrokerage.com>
-References: <20050901.154300.118239765.davem@davemloft.net>
- <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
- <2d02c76a84655d212634a91002b3eccd@psc.edu> <20050901.232823.123760177.davem@davemloft.net>
- <Pine.LNX.4.61.0509020948350.6083@guppy.limebrokerage.com>
- <6064b8272aa4562242eb60eb75c7cdae@psc.edu> <Pine.LNX.4.61.0509021022230.6083@guppy.limebrokerage.com>
- <002cb4586f9d008438e81da96e5cecd0@psc.edu>
+Date: Fri, 02 Sep 2005 12:18:52 -0400
+Message-ID: <43187B6C.7020203@mrv.com>
+References: <Pine.LNX.4.61.0509011713240.6083@guppy.limebrokerage.com> <20050901.154300.118239765.davem@davemloft.net> <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com> <2d02c76a84655d212634a91002b3eccd@psc.edu> <43184D79.6040009@mrv.com> <20050902135256.GC12617@yakov.inr.ac.ru> <43185E81.2070300@mrv.com> <20050902154424.GA15060@yakov.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "David S. Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751500AbVIBPoB@vger.kernel.org>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <002cb4586f9d008438e81da96e5cecd0@psc.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org, netdev@vger.kernel.org
+In-Reply-To: <20050902154424.GA15060@yakov.inr.ac.ru>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Sep 2005, John Heffner wrote:
+Hi Alexey,
 
-> If it is window clamping, then you should be asymptotically approaching a 
-> ratio between receive buffer and window that corresponds (with a fudge 
-> factor) to the ratio between TCP segment data size and allocated packet size. 
-> If you make the receive buffer large enough, then the clamped window should 
-> still end up big enough.
+Do you think this will also fix Ion's issue with small window size never 
+going back up ?
 
-For what it's worth, running with a 512k receive buffer still caused the 
-clamping to occur, though it took longer than with the normal buffer size. 
-The window went down from a maximum of 12291 (times 2^4 due to window 
-scaling) to 3190 currently. That's still enough for our purposes, but I'll 
-keep monitoring it to see if it shrinks any further. It could be a viable 
-work-around for the time being.
+Thanks
+Guillaume.
 
-Is this a bug, though, or a feature? :)
+Alexey Kuznetsov wrote:
 
-> Also, since you have "real time" data, a larger 
-> receive buffer should probably be adequate to eliminate this problem, since 
-> it only occurs when the receiving application falls behind for a while, and a 
-> bigger receive buffer allows it to fall behind more without triggering the 
-> window clamping.
+>Hello!
+>
+>  
+>
+>>Here are the dumps...
+>>    
+>>
+>
+>I see. It has nothing to do with clamping. Indeed this is a very old bug.
+>Frankly speaking I even was aware about this at some moment
+>(so that if the sender was Linux it would not happen. It was fixed there. :-))
+>
+>With such small window sender is forced to send a tiny segment
+>via SWS override timer and receiver is confused in believing this
+>is sender's mss, so the result is broken SWS avoidance.
+>
+>I think you can cure it deleting the following lines:
+>
+>                    /* If PSH is not set, packet should be
+>                     * full sized, provided peer TCP is not badly broken.
+>                     * This observation (if it is correct 8)) allows
+>                     * to handle super-low mtu links fairly.
+>                     */
+>                    (len >= TCP_MIN_MSS + sizeof(struct tcphdr) &&
+>                     !(tcp_flag_word(skb->h.th)&TCP_REMNANT))) {
+>
+>
+>in tcp_input.c:tcp_measure_rcv_mss() at receiver side.
+>
+>
+>Alexey
+>
+>  
+>
 
-Correct. I noticed too while experimenting that the clamping never occurs 
-if the application is fast enough to keep the socket buffer empty. It's 
-when data is allowed to accumulate in the buffer that the window shrinks, 
-and then it never grows back, as if a portion of the buffer got lost 
-permanently.
+-- 
+=======================================
+Guillaume Autran
+Senior Software Engineer
+MRV Communications, Inc.
+Tel: (978) 952-4932 office
+E-mail: gautran@mrv.com
+======================================= 
 
--Ion
+
