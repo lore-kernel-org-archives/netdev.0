@@ -1,42 +1,46 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x kernels
-Date: Fri, 2 Sep 2005 01:37:02 +0200
-Message-ID: <9a87484905090116376866f80a@mail.gmail.com>
-References: <Pine.LNX.4.61.0509011713240.6083@guppy.limebrokerage.com>
-	 <20050901.154300.118239765.davem@davemloft.net>
-	 <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: [PATCH 0/8] orinoco: Bringing in-sync with CVS
+Date: Thu, 01 Sep 2005 20:00:33 -0400
+Message-ID: <1125619233.24497.9.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030535AbVIAXhH@vger.kernel.org>
-To: Ion Badulescu <lists@limebrokerage.com>
-In-Reply-To: <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-On 9/2/05, Ion Badulescu <lists@limebrokerage.com> wrote:
-> Hi David,
-> 
-> On Thu, 1 Sep 2005, David S. Miller wrote:
-> 
-> > Thanks for the empty posting.  Please provide the content you
-> > intended to post, and furthermore please post it to the network
-> > developer mailing list, netdev@vger.kernel.org
-> 
-> First of all, thanks for the reply (even to an empty posting :).
-> 
-> The posting wasn't actually empty, it was probably too long (94K according
+Hello!
 
-Two solutions commonly applied to that problem :
+Following 8 patches bring orinoco drivers in the kernel fully in-sync
+with the CVS repository at http://savannah.nongnu.org/projects/orinoco/
+("for_linus" branch).
 
- - put the big file(s) online somewhere and include an URL in the email
- - compress the file(s) and attach the compressed files to the email
+The patches include 2 new front-end drivers: orinoco_nortel and
+spectrum_cs.  They also remove EXPERIMENTAL designation of the PCI
+front-ends (PCI, PLX and TMD).  The rest is pretty minor.
+
+I'm placing the patches to http://red-bean.com/proski/orinoco/
+
+Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
 -- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Regards,
+Pavel Roskin
+
+
+
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
