@@ -1,7 +1,8 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 3/8] orinoco: Remove entry for Intel PRO/Wireless 2011B.
-Date: Thu, 01 Sep 2005 20:04:20 -0400
-Message-ID: <1125619461.29016.0.camel@dv>
+Subject: [PATCH 4/8] orinoco: Fix memory leak on error in processing
+ hostscan frames.
+Date: Thu, 01 Sep 2005 20:05:19 -0400
+Message-ID: <1125619520.29016.2.camel@dv>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -21,30 +22,31 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-diff-tree c88faac230cc9775445e5c644991c352e35c72a1 (from dce61aef99ceb57370b70222dc34d788666c0ac3)
+diff-tree ca955293cdfd3139e150d3b4fed3922a7eb651fb (from cb289b9f9b2a0f3ae7070a008f22e383b37526ee)
 Author: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Date:   Thu Sep 1 17:09:45 2005 -0400
+Date:   Thu Sep 1 19:08:00 2005 -0400
 
-    Remove entry for Intel PRO/Wireless 2011B.
-    
-    It is not supported by this driver because it has no firmware in
-    flash.  spectrum_cs is needed for this device.
+    Fix memory leak on error in processing hostscan frames.
 
-diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/orinoco_cs.c
---- a/drivers/net/wireless/orinoco_cs.c
-+++ b/drivers/net/wireless/orinoco_cs.c
-@@ -602,11 +602,10 @@ static char version[] __initdata = DRIVE
- 	" (David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>, "
- 	"Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>, et al)";
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -1284,12 +1284,14 @@ static void __orinoco_ev_info(struct net
+ 			break;
  
- static struct pcmcia_device_id orinoco_cs_ids[] = {
- 	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300),
--	PCMCIA_DEVICE_MANF_CARD(0x0089, 0x0001),
- 	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002),
- 	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002),
- 	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a),
- 	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002),
- 	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001),
+ 		/* Read scan data */
+ 		err = hermes_bap_pread(hw, IRQ_BAP, (void *) buf, len,
+ 				       infofid, sizeof(info));
+-		if (err)
++		if (err) {
++			kfree(buf);
+ 			break;
++		}
+ 
+ #ifdef ORINOCO_DEBUG
+ 		{
+ 			int	i;
+ 			printk(KERN_DEBUG "Scan result [%02X", buf[0]);
 
 
 -- 
