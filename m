@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 0/8] orinoco: Bringing in-sync with CVS
-Date: Thu, 01 Sep 2005 20:00:33 -0400
-Message-ID: <1125619233.24497.9.camel@dv>
+Subject: [PATCH 3/8] orinoco: Remove entry for Intel PRO/Wireless 2011B.
+Date: Thu, 01 Sep 2005 20:04:20 -0400
+Message-ID: <1125619461.29016.0.camel@dv>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -19,19 +19,33 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Hello!
-
-Following 8 patches bring orinoco drivers in the kernel fully in-sync
-with the CVS repository at http://savannah.nongnu.org/projects/orinoco/
-("for_linus" branch).
-
-The patches include 2 new front-end drivers: orinoco_nortel and
-spectrum_cs.  They also remove EXPERIMENTAL designation of the PCI
-front-ends (PCI, PLX and TMD).  The rest is pretty minor.
-
-I'm placing the patches to http://red-bean.com/proski/orinoco/
-
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+
+diff-tree c88faac230cc9775445e5c644991c352e35c72a1 (from dce61aef99ceb57370b70222dc34d788666c0ac3)
+Author: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Date:   Thu Sep 1 17:09:45 2005 -0400
+
+    Remove entry for Intel PRO/Wireless 2011B.
+    
+    It is not supported by this driver because it has no firmware in
+    flash.  spectrum_cs is needed for this device.
+
+diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/orinoco_cs.c
+--- a/drivers/net/wireless/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco_cs.c
+@@ -602,11 +602,10 @@ static char version[] __initdata = DRIVE
+ 	" (David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>, "
+ 	"Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>, et al)";
+ 
+ static struct pcmcia_device_id orinoco_cs_ids[] = {
+ 	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300),
+-	PCMCIA_DEVICE_MANF_CARD(0x0089, 0x0001),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002),
+ 	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001),
+
 
 -- 
 Regards,
