@@ -1,40 +1,30 @@
-From: lists@limebrokerage.com
-Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x
- kernels
-Date: Fri, 2 Sep 2005 10:33:56 -0400 (EDT)
-Message-ID: <Pine.LNX.4.61.0509021022230.6083@guppy.limebrokerage.com>
-References: <20050901.154300.118239765.davem@davemloft.net>
- <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
- <2d02c76a84655d212634a91002b3eccd@psc.edu> <20050901.232823.123760177.davem@davemloft.net>
- <Pine.LNX.4.61.0509020948350.6083@guppy.limebrokerage.com>
- <6064b8272aa4562242eb60eb75c7cdae@psc.edu>
+From: "=?ISO-2022-JP?B?GyRCJU0lQyVITi48OhsoQg==?=" <ero8abU@hydorojet.com>
+Subject: =?ISO-2022-JP?B?GyRCPXckTjtSJE4lKCVtNjUkKCReJDkhIxsoQg==?=
+Date: 2 Sep 2005 14:34:56 -0000
+Message-ID: <20050902143456.5380.qmail@mail.hydorojet.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "David S. Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030526AbVIBOeJ@vger.kernel.org>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <6064b8272aa4562242eb60eb75c7cdae@psc.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Sep 2005, John Heffner wrote:
 
-> Have you tried increasing the size of the receive buffer yet?
+毎日更新ちゅーーう！！
 
-Actually, I just did. I changed rmem_max and rmem_default to 4MB and 
-tcp_rmem to "64k 4MB 4MB". It did seem to help, but I'm wondering if 
-that's simply because it has a _lot_ of memory now to leak before it 
-starts eating up into the window size.
+**　現役女子○学生！　ネット流失モロ画像
+http://hydorojet.com/gf/?76220190458024260
 
-I also ran into some very strange packet loss problems that weren't 
-occurring yesterday; they only started occurring after I increased the 
-buffer size. Most strange. If they happen again, I'll make sure I capture 
-the flow to analyze it.
+**　高画質萌えアニメ
+http://hydorojet.com/gf/?76220190458024260
 
-Anyway, that was just to see if I can do anything at all to mitigate the 
-problem. I'll try again with smaller buffers (4k 128k 256k) and see what 
-happens.
+**　写メ画丸秘投稿写真
+http://hydorojet.com/gf/?76220190458024260
 
-Thanks,
--Ion
+**　薄毛　われめ拡大画像
+http://hydorojet.com/gf/?76220190458024260
+
+**　美少女グチョグチョ動画
+http://hydorojet.com/gf/?76220190458024260
