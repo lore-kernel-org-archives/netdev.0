@@ -1,69 +1,37 @@
-From: Ion Badulescu <ion.badulescu@limegroup.com>
-Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x
- kernels
-Date: Fri, 2 Sep 2005 16:57:53 -0400 (EDT)
-Message-ID: <Pine.LNX.4.61.0509021609430.6083@guppy.limebrokerage.com>
-References: <Pine.LNX.4.61.0509011713240.6083@guppy.limebrokerage.com>
- <20050901.154300.118239765.davem@davemloft.net>
- <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
- <20050902183656.GA16537@yakov.inr.ac.ru>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x kernels
+Date: Sat, 3 Sep 2005 01:08:13 +0400
+Message-ID: <20050902210813.GA18605@yakov.inr.ac.ru>
+References: <20050901.154300.118239765.davem@davemloft.net> <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com> <2d02c76a84655d212634a91002b3eccd@psc.edu> <43184D79.6040009@mrv.com> <20050902135256.GC12617@yakov.inr.ac.ru> <43185E81.2070300@mrv.com> <20050902154424.GA15060@yakov.inr.ac.ru> <431877EE.6010101@mrv.com> <20050902173228.GA15925@yakov.inr.ac.ru> <4318A06A.1000702@mrv.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Ion Badulescu <lists@limebrokerage.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	John Heffner <jheffner@psc.edu>,
+	Ion Badulescu <lists@limebrokerage.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20050902183656.GA16537@yakov.inr.ac.ru>
+To: Guillaume Autran <gautran@mrv.com>
+Content-Disposition: inline
+In-Reply-To: <4318A06A.1000702@mrv.com>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexey,
+Hello!
 
-On Fri, 2 Sep 2005, Alexey Kuznetsov wrote:
+> The server socket sockopt are all default, except for the 
+> TCP_WINDOW_CLAMP which is set to 1400 (application specific).
 
->> This is where things start going bad. The window starts shrinking from
->> 15340 all the way down to 2355 over the course of 0.3 seconds. Notice the
->> many duplicate acks that serve no purpose
->
-> These are not duplicate, TCP_NODELAY sender just starts flooding
-> tiny segments, and those are normal ACKs acking those segments, note
-> ACK field is not the same.
+It is definitely not all. If you do not fiddle with SO_RCVBUF also,
+you will always have receiver advertising window of 1400.
 
-Well, take a look at the double acks for 84439343, 84440447 and 84441059, 
-they seem pretty much identical to me.
 
-> I still do not know how the value of 184 is possible in your case,
-> I would expect 730 as an absolute possible minumum. I see 9420 (2355*4).
+11:15:00.922119 IP 10.10.10.3.1150 > 10.10.10.2.3200: S 2246605788:2246605788(0) win 6144 <mss 1460,nop,wscale 0,nop,nop,timestamp 3248699 0>
+11:15:00.922791 IP 10.10.10.2.3200 > 10.10.10.3.1150: S 3863556410:3863556410(0) ack 2246605789 win 1400 <mss 1460,nop,nop,timestamp 268188460 3248699,nop,wscale 0>
+11:15:00.923118 IP 10.10.10.3.1150 > 10.10.10.2.3200: . ack 1 win 6144 <nop,nop,timestamp 3248699 268188460>
+11:15:00.923486 IP 10.10.10.3.1150 > 10.10.10.2.3200: P 1:7(6) ack 1 win 6144 <nop,nop,timestamp 3248699 268188460>
+11:15:00.924143 IP 10.10.10.2.3200 > 10.10.10.3.1150: . ack 7 win 1394 <nop,nop,timestamp 268188460 3248699>
 
-The numbers I mentioned are straight from the tcpdump and are not scaled, 
-so they need to be multiplied by 4. But even 9420, combined with a RTT of 
-20ms, results in a total usable bandwidth of about 3.75 Mbps, not enough 
-for this real-time stream at peak times.
+cannot happen. SO_RCVBUF is not default.
 
-Besides, it often gets even worse than 2355, all it takes is a few 
-application slowdowns.
-
-> Anyway, ignoring this puzzle, the following patch for 2.4 should help.
->
->
-> --- net/ipv4/tcp_input.c.orig	2003-02-20 20:38:39.000000000 +0300
-> +++ net/ipv4/tcp_input.c	2005-09-02 22:28:00.845952888 +0400
-> @@ -343,8 +343,6 @@
-> 			app_win -= tp->ack.rcv_mss;
-> 		app_win = max(app_win, 2U*tp->advmss);
->
-> -		if (!ofo_win)
-> -			tp->window_clamp = min(tp->window_clamp, app_win);
-> 		tp->rcv_ssthresh = min(tp->window_clamp, 2U*tp->advmss);
-> 	}
-> }
-
-That makes perfect sense...
-
-I'll test it out on Tuesday, when I can connect again to the real-time 
-streams that we use.
-
-Thanks a lot!
--Ion
+Alexey
