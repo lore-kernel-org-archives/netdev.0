@@ -1,30 +1,39 @@
-From: "=?ISO-2022-JP?B?GyRCJU0lQyVITi48OhsoQg==?=" <ero8abU@hydorojet.com>
-Subject: =?ISO-2022-JP?B?GyRCPXckTjtSJE4lKCVtNjUkKCReJDkhIxsoQg==?=
-Date: 2 Sep 2005 14:34:56 -0000
-Message-ID: <20050902143456.5380.qmail@mail.hydorojet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x kernels
+Date: Fri, 2 Sep 2005 10:48:01 -0400
+Message-ID: <002cb4586f9d008438e81da96e5cecd0@psc.edu>
+References: <20050901.154300.118239765.davem@davemloft.net> <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com> <2d02c76a84655d212634a91002b3eccd@psc.edu> <20050901.232823.123760177.davem@davemloft.net> <Pine.LNX.4.61.0509020948350.6083@guppy.limebrokerage.com> <6064b8272aa4562242eb60eb75c7cdae@psc.edu> <Pine.LNX.4.61.0509021022230.6083@guppy.limebrokerage.com>
+Mime-Version: 1.0 (Apple Message framework v622)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "" <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.61.0509021022230.6083@guppy.limebrokerage.com>
+To: lists@limebrokerage.com
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sep 2, 2005, at 10:33 AM, lists@limebrokerage.com wrote:
 
-毎日更新ちゅーーう！！
+> On Fri, 2 Sep 2005, John Heffner wrote:
+>
+>> Have you tried increasing the size of the receive buffer yet?
+>
+> Actually, I just did. I changed rmem_max and rmem_default to 4MB and 
+> tcp_rmem to "64k 4MB 4MB". It did seem to help, but I'm wondering if 
+> that's simply because it has a _lot_ of memory now to leak before it 
+> starts eating up into the window size.
 
-**　現役女子○学生！　ネット流失モロ画像
-http://hydorojet.com/gf/?76220190458024260
+If it is window clamping, then you should be asymptotically approaching 
+a ratio between receive buffer and window that corresponds (with a 
+fudge factor) to the ratio between TCP segment data size and allocated 
+packet size.  If you make the receive buffer large enough, then the 
+clamped window should still end up big enough.  Also, since you have 
+"real time" data, a larger receive buffer should probably be adequate 
+to eliminate this problem, since it only occurs when the receiving 
+application falls behind for a while, and a bigger receive buffer 
+allows it to fall behind more without triggering the window clamping.
 
-**　高画質萌えアニメ
-http://hydorojet.com/gf/?76220190458024260
+   -John
 
-**　写メ画丸秘投稿写真
-http://hydorojet.com/gf/?76220190458024260
-
-**　薄毛　われめ拡大画像
-http://hydorojet.com/gf/?76220190458024260
-
-**　美少女グチョグチョ動画
-http://hydorojet.com/gf/?76220190458024260
