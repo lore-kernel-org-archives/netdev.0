@@ -1,49 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Possible BUG in IPv4 TCP window handling, all recent
- 2.4.x/2.6.x kernels
-Date: Thu, 01 Sep 2005 23:28:23 -0700 (PDT)
-Message-ID: <20050901.232823.123760177.davem@davemloft.net>
-References: <20050901.154300.118239765.davem@davemloft.net>
-	<Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com>
-	<2d02c76a84655d212634a91002b3eccd@psc.edu>
+From: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
+Subject: Re: [PATCH 0/8] orinoco: Bringing in-sync with CVS
+Date: Fri, 2 Sep 2005 15:57:26 +1000
+Message-ID: <20050902055726.GD3307@localhost.localdomain>
+References: <1125619233.24497.9.camel@dv>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lists@limebrokerage.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: jheffner@psc.edu
-In-Reply-To: <2d02c76a84655d212634a91002b3eccd@psc.edu>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1125619233.24497.9.camel@dv>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Thu, 1 Sep 2005 22:51:48 -0400
-
-> I have an idea why this is going on.  Packets are pre-allocated by the 
-> driver to be a max packet size, so when you send small packets, it 
-> wastes a lot of memory.  Currently Linux uses the packets at the 
-> beginning of a connection to make a guess at how best to advertise its 
-> window so as not to overflow the socket's memory bounds.  Since you 
-> start out with big segments then go to small ones, this is defeating 
-> that mechanism.  It's actually documented in the comments in 
-> tcp_input.c. :)
+On Thu, Sep 01, 2005 at 08:00:33PM -0400, Pavel Roskin wrote:
+> Hello!
 > 
->   * The scheme does not work when sender sends good segments opening
->   * window and then starts to feed us spagetti. But it should work
->   * in common situations. Otherwise, we have to rely on queue collapsing.
+> Following 8 patches bring orinoco drivers in the kernel fully in-sync
+> with the CVS repository at http://savannah.nongnu.org/projects/orinoco/
+> ("for_linus" branch).
+> 
+> The patches include 2 new front-end drivers: orinoco_nortel and
+> spectrum_cs.  They also remove EXPERIMENTAL designation of the PCI
+> front-ends (PCI, PLX and TMD).  The rest is pretty minor.
+> 
+> I'm placing the patches to http://red-bean.com/proski/orinoco/
+> 
+> Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-That's a strong possibility, good catch John.
+All look good to me.
 
-Although, I'm still not ruling out some box in the middle
-even though I consider it less likely than your theory.
+Acked-by: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
 
-So you're suggesting that tcp_prune_queue() should do the:
+-- 
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/people/dgibson
 
-	if (atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf)
-		tcp_clamp_window(sk, tp);
 
-check after attempting to collapse the queue.
-
-But, that window clamping should fix the problem, as we recalculate
-the window to advertise.
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
