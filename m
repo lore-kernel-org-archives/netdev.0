@@ -1,33 +1,34 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [netfilter-core] [2.6 patch] net/netfilter/nfnetlink*: make functions static
-Date: Sat, 3 Sep 2005 10:27:38 +0200
-Message-ID: <20050903082738.GB4415@rama.de.gnumonks.org>
-References: <20050903012829.GF3657@stusta.de>
+Subject: [PATCH 1/2] nfnetlink: make needlessly global functions static
+Date: Sat, 3 Sep 2005 10:39:58 +0200
+Message-ID: <20050903083958.GC4415@rama.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NzB8fVQJ5HfG6fxh"
-Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751390AbVICINt@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
+	protocol="application/pgp-signature"; boundary="6WlEvdN9Dv0WHSBl"
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, bunk@stusta.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161181AbVICIVY@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050903012829.GF3657@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---NzB8fVQJ5HfG6fxh
+--6WlEvdN9Dv0WHSBl
+Content-Type: multipart/mixed; boundary="aT9PWwzfKXlsBJM1"
+Content-Disposition: inline
+
+
+--aT9PWwzfKXlsBJM1
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, Sep 03, 2005 at 03:28:29AM +0200, Adrian Bunk wrote:
-> This patch makes needlessly global functions static.
+Hi Dave, please apply the appended patch.
 
-Thanks for your patch.  I'll merge it with my local changes (it clashes,
-since the "htonll" implementation was removed) and submit it via davem
-later today.
-
+Thanks,
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -38,16 +39,60 @@ later today.
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---NzB8fVQJ5HfG6fxh
+--aT9PWwzfKXlsBJM1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="53-fnnetlink-static.patch"
+Content-Transfer-Encoding: quoted-printable
+
+[NETFILTER] make needlessly global functions static
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Harald Welte <laforge@netfilter.org>
+
+---
+commit a2c9c9a399f2069f31d608d142da8d5d82609b0d
+tree 63cce7c2cc4d738a2604c54d87961b4a32ab3aac
+parent 0905251a08bf51d5e2d1996c21fcdc5acfbbde13
+author Adrian Bunk <bunk@stusta.de> Sa, 03 Sep 2005 10:34:27 +0200
+committer Harald Welte <laforge@netfilter.org> Sa, 03 Sep 2005 10:34:27 +02=
+00
+
+ net/netfilter/nfnetlink.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -344,14 +344,14 @@ static void nfnetlink_rcv(struct sock *s
+ 	} while(nfnl && nfnl->sk_receive_queue.qlen);
+ }
+=20
+-void __exit nfnetlink_exit(void)
++static void __exit nfnetlink_exit(void)
+ {
+ 	printk("Removing netfilter NETLINK layer.\n");
+ 	sock_release(nfnl->sk_socket);
+ 	return;
+ }
+=20
+-int __init nfnetlink_init(void)
++static int __init nfnetlink_init(void)
+ {
+ 	printk("Netfilter messages via NETLINK v%s.\n", nfversion);
+=20
+
+--aT9PWwzfKXlsBJM1--
+
+--6WlEvdN9Dv0WHSBl
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFDGV56XaXGVTD0i/8RAkS1AKCJjj7M1eQ1HWVQXmOQtJYY9RIZqACdHoqM
-0lGazA6+53mP44pXIl6lhyg=
-=7Q2Y
+iD8DBQFDGWFeXaXGVTD0i/8RAkzhAKCxO8alliDnPIYxiPpwfdFJIrrNswCfVkeg
+5kiciSG2KPOBgPyto9+ZcXU=
+=6crz
 -----END PGP SIGNATURE-----
 
---NzB8fVQJ5HfG6fxh--
+--6WlEvdN9Dv0WHSBl--
