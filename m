@@ -1,55 +1,31 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Kernel 2.6.13 breaks libpcap (and tcpdump).
-Date: Fri, 2 Sep 2005 17:27:19 -0700
-Message-ID: <20050902172719.4eaaa6db.akpm@osdl.org>
-References: <20050902184416.GA6468@localhost.localdomain>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/ipv4/ipconfig.c should #include <linux/nfs_fs.h>
+Date: Sat, 3 Sep 2005 03:25:43 +0200
+Message-ID: <20050903012543.GE3657@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161097AbVICA12@vger.kernel.org>
-To: John McGowan <jmcgowan@inch.com>
-In-Reply-To: <20050902184416.GA6468@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751346AbVICBZz@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John McGowan <jmcgowan@inch.com> wrote:
->
-> Kernel 2.6.13. Breaks libpcap.
-> 
-> Fedora Core 2, gcc 3.3.3, Pentium III (933MHz)
-> 
-> I had written about my dismay that traceproto and tcptraceroute
-> no longer worked and suspected that libnet was broken.
-> 
-> It seems that it is libpcap that is broken by kernel 2.6.13 and
-> tcpdump itself no longer works.
-> Well, it works ... but not correctly.
-> 
->  Capture data, then look for ICMP messages
->  (e.g. Time Exceeded errors as in a traceroute)
->  by filtering the file.
->  
->   tcpdump -w 1.cap
->   tcpdump -f "ip proto \icmp" -r 1.cap
-> 
-> That works.
-> 
-> 
->  Filter incoming data, looking for ICMP messages:
->  
->   tcpdump -f "ip proto \icmp"
->  
-> Well, that catches nothing.
-> 
-> 
-> I tried recompiling (source RPM, Fedora Core 2) tcpdump
-> (libpcap, tcpdump, etc.) and reinstalling. That did not
-> fix the problem with tcpdump.
-> 
-> It also broke a tethereal script I was using (which I changed
-> to capture all packets, which works as indicated above, and
-> then used a '-R', read, filter to display the one's I want).
-> 
+Every file should #include the header files containing the prototypes of 
+it's global functions.
 
-(cc netdev)
+nfs_fs.h contains the prototype of root_nfs_parse_addr().
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.13-mm1-full/net/ipv4/ipconfig.c.old	2005-09-03 02:18:06.000000000 +0200
++++ linux-2.6.13-mm1-full/net/ipv4/ipconfig.c	2005-09-03 02:18:27.000000000 +0200
+@@ -54,6 +54,7 @@
+ #include <linux/major.h>
+ #include <linux/root_dev.h>
+ #include <linux/delay.h>
++#include <linux/nfs_fs.h>
+ #include <net/arp.h>
+ #include <net/ip.h>
+ #include <net/ipconfig.h>
