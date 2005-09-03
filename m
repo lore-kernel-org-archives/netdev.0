@@ -1,54 +1,59 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/netfilter/nfnetlink*: make functions static
-Date: Sat, 3 Sep 2005 03:28:29 +0200
-Message-ID: <20050903012829.GF3657@stusta.de>
+Subject: [2.6 patch] IrDA prototype fixes
+Date: Sat, 3 Sep 2005 03:47:31 +0200
+Message-ID: <20050903014731.GH3657@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751357AbVICB2k@vger.kernel.org>
-To: coreteam@netfilter.org
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161085AbVICBrm@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes needlessly global functions static.
+Every file should #include the header files containing the prototypes of
+it's global functions.
+
+In this case this showed that the prototype of irlan_print_filter() was 
+wrong which is also corrected in this patch.
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
- net/netfilter/nfnetlink.c       |    4 ++--
- net/netfilter/nfnetlink_queue.c |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ include/net/irda/irlan_filter.h |    2 +-
+ net/irda/irlan/irlan_filter.c   |    1 +
+ net/irda/qos.c                  |    1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
 
---- linux-2.6.13-mm1-full/net/netfilter/nfnetlink.c.old	2005-09-03 02:26:18.000000000 +0200
-+++ linux-2.6.13-mm1-full/net/netfilter/nfnetlink.c	2005-09-03 02:27:21.000000000 +0200
-@@ -344,14 +344,14 @@
- 	} while(nfnl && nfnl->sk_receive_queue.qlen);
- }
+--- linux-2.6.13-mm1-full/net/irda/qos.c.old	2005-09-03 02:23:07.000000000 +0200
++++ linux-2.6.13-mm1-full/net/irda/qos.c	2005-09-03 02:23:31.000000000 +0200
+@@ -37,6 +37,7 @@
+ #include <net/irda/parameters.h>
+ #include <net/irda/qos.h>
+ #include <net/irda/irlap.h>
++#include <net/irda/irlap_frame.h>
  
--void __exit nfnetlink_exit(void)
-+static void __exit nfnetlink_exit(void)
- {
- 	printk("Removing netfilter NETLINK layer.\n");
- 	sock_release(nfnl->sk_socket);
- 	return;
- }
+ /*
+  * Maximum values of the baud rate we negociate with the other end.
+--- linux-2.6.13-mm1-full/include/net/irda/irlan_filter.h.old	2005-09-03 02:43:20.000000000 +0200
++++ linux-2.6.13-mm1-full/include/net/irda/irlan_filter.h	2005-09-03 02:43:29.000000000 +0200
+@@ -28,6 +28,6 @@
+ void irlan_check_command_param(struct irlan_cb *self, char *param, 
+ 			       char *value);
+ void irlan_filter_request(struct irlan_cb *self, struct sk_buff *skb);
+-int irlan_print_filter(struct seq_file *seq, int filter_type);
++void irlan_print_filter(struct seq_file *seq, int filter_type);
  
--int __init nfnetlink_init(void)
-+static int __init nfnetlink_init(void)
- {
- 	printk("Netfilter messages via NETLINK v%s.\n", nfversion);
+ #endif /* IRLAN_FILTER_H */
+--- linux-2.6.13-mm1-full/net/irda/irlan/irlan_filter.c.old	2005-09-03 02:25:06.000000000 +0200
++++ linux-2.6.13-mm1-full/net/irda/irlan/irlan_filter.c	2005-09-03 02:25:24.000000000 +0200
+@@ -27,6 +27,7 @@
+ #include <linux/seq_file.h>
  
---- linux-2.6.13-mm1-full/net/netfilter/nfnetlink_queue.c.old	2005-09-03 02:26:55.000000000 +0200
-+++ linux-2.6.13-mm1-full/net/netfilter/nfnetlink_queue.c	2005-09-03 02:27:06.000000000 +0200
-@@ -76,7 +76,7 @@
+ #include <net/irda/irlan_common.h>
++#include <net/irda/irlan_filter.h>
  
- static DEFINE_RWLOCK(instances_lock);
- 
--u_int64_t htonll(u_int64_t in)
-+static u_int64_t htonll(u_int64_t in)
- {
- 	u_int64_t out;
- 	int i;
+ /*
+  * Function irlan_filter_request (self, skb)
