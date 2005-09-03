@@ -1,32 +1,35 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH 1/2] nfnetlink: make needlessly global functions static
-Date: Sat, 3 Sep 2005 10:39:58 +0200
-Message-ID: <20050903083958.GC4415@rama.de.gnumonks.org>
+Subject: [PATCH 2/2] [NETFILTER] remove bogus hand-coded htonll()
+Date: Sat, 3 Sep 2005 10:43:15 +0200
+Message-ID: <20050903084315.GD4415@rama.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="6WlEvdN9Dv0WHSBl"
+	protocol="application/pgp-signature"; boundary="s5/bjXLgkIwAv6Hi"
 Cc: Netfilter Development Mailinglist
 	<netfilter-devel@lists.netfilter.org>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	linux-kernel@vger.kernel.org, bunk@stusta.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161181AbVICIVY@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161188AbVICIV0@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---6WlEvdN9Dv0WHSBl
-Content-Type: multipart/mixed; boundary="aT9PWwzfKXlsBJM1"
+--s5/bjXLgkIwAv6Hi
+Content-Type: multipart/mixed; boundary="phCU5ROyZO6kBE05"
 Content-Disposition: inline
 
 
---aT9PWwzfKXlsBJM1
+--phCU5ROyZO6kBE05
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi Dave, please apply the appended patch.
+
+I somehow thought I had fixed this quite some time ago. Probably I lost
+it with some merge :(
 
 Thanks,
 --=20
@@ -39,60 +42,76 @@ Thanks,
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---aT9PWwzfKXlsBJM1
+--phCU5ROyZO6kBE05
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="53-fnnetlink-static.patch"
+Content-Disposition: attachment; filename="52-nfnetlink_queue-htonll.patch"
 Content-Transfer-Encoding: quoted-printable
 
-[NETFILTER] make needlessly global functions static
+[NETFILTER] remove bogus hand-coded htonll() from nenetlink_queue
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+htonll() is nothing else than cpu_to_be64(), so we'd rather call the
+latter.
+
 Signed-off-by: Harald Welte <laforge@netfilter.org>
 
 ---
-commit a2c9c9a399f2069f31d608d142da8d5d82609b0d
-tree 63cce7c2cc4d738a2604c54d87961b4a32ab3aac
-parent 0905251a08bf51d5e2d1996c21fcdc5acfbbde13
-author Adrian Bunk <bunk@stusta.de> Sa, 03 Sep 2005 10:34:27 +0200
-committer Harald Welte <laforge@netfilter.org> Sa, 03 Sep 2005 10:34:27 +02=
+commit 0905251a08bf51d5e2d1996c21fcdc5acfbbde13
+tree a8072738e54f24b0d4392cf33252594d4a6848e1
+parent e8d296c78dff8485c5cd90217b91433185a58871
+author Harald Welte <laforge@netfilter.org> Sa, 03 Sep 2005 10:31:19 +0200
+committer Harald Welte <laforge@netfilter.org> Sa, 03 Sep 2005 10:31:19 +02=
 00
 
- net/netfilter/nfnetlink.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nfnetlink_queue.c |   15 ++-------------
+ 1 files changed, 2 insertions(+), 13 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -344,14 +344,14 @@ static void nfnetlink_rcv(struct sock *s
- 	} while(nfnl && nfnl->sk_receive_queue.qlen);
- }
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queu=
+e.c
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -76,17 +76,6 @@ typedef int (*nfqnl_cmpfn)(struct nfqnl_
 =20
--void __exit nfnetlink_exit(void)
-+static void __exit nfnetlink_exit(void)
- {
- 	printk("Removing netfilter NETLINK layer.\n");
- 	sock_release(nfnl->sk_socket);
- 	return;
- }
+ static DEFINE_RWLOCK(instances_lock);
 =20
--int __init nfnetlink_init(void)
-+static int __init nfnetlink_init(void)
- {
- 	printk("Netfilter messages via NETLINK v%s.\n", nfversion);
+-u_int64_t htonll(u_int64_t in)
+-{
+-	u_int64_t out;
+-	int i;
+-
+-	for (i =3D 0; i < sizeof(u_int64_t); i++)
+-		((u_int8_t *)&out)[sizeof(u_int64_t)-1] =3D ((u_int8_t *)&in)[i];
+-
+-	return out;
+-}
+-
+ #define INSTANCE_BUCKETS	16
+ static struct hlist_head instance_table[INSTANCE_BUCKETS];
 =20
+@@ -497,8 +486,8 @@ nfqnl_build_packet_message(struct nfqnl_
+ 	if (entry->skb->tstamp.off_sec) {
+ 		struct nfqnl_msg_packet_timestamp ts;
+=20
+-		ts.sec =3D htonll(skb_tv_base.tv_sec + entry->skb->tstamp.off_sec);
+-		ts.usec =3D htonll(skb_tv_base.tv_usec + entry->skb->tstamp.off_usec);
++		ts.sec =3D cpu_to_be64(skb_tv_base.tv_sec + entry->skb->tstamp.off_sec);
++		ts.usec =3D cpu_to_be64(skb_tv_base.tv_usec + entry->skb->tstamp.off_use=
+c);
+=20
+ 		NFA_PUT(skb, NFQA_TIMESTAMP, sizeof(ts), &ts);
+ 	}
 
---aT9PWwzfKXlsBJM1--
+--phCU5ROyZO6kBE05--
 
---6WlEvdN9Dv0WHSBl
+--s5/bjXLgkIwAv6Hi
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFDGWFeXaXGVTD0i/8RAkzhAKCxO8alliDnPIYxiPpwfdFJIrrNswCfVkeg
-5kiciSG2KPOBgPyto9+ZcXU=
-=6crz
+iD8DBQFDGWIjXaXGVTD0i/8RAlWlAJ4/JNu+2TOPDYn5FSag80z6s+dkQACeOHwm
+JIZZOVoWHORMgaK4+kyhew0=
+=Yo8m
 -----END PGP SIGNATURE-----
 
---6WlEvdN9Dv0WHSBl--
+--s5/bjXLgkIwAv6Hi--
