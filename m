@@ -1,56 +1,53 @@
-From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: Re: [PATCH 3/8] orinoco: Remove entry for Intel
-	PRO/Wireless 2011B.
-Date: Sat, 03 Sep 2005 01:02:27 -0400
-Message-ID: <20050903010227.lt48u8w4kwkk000c@webmail.spamcop.net>
-References: <1125619461.29016.0.camel@dv>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [netfilter-core] [2.6 patch] net/netfilter/nfnetlink*: make functions static
+Date: Sat, 3 Sep 2005 10:27:38 +0200
+Message-ID: <20050903082738.GB4415@rama.de.gnumonks.org>
+References: <20050903012829.GF3657@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-In-Reply-To: <1125619461.29016.0.camel@dv>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="NzB8fVQJ5HfG6fxh"
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751390AbVICINt@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
+In-Reply-To: <20050903012829.GF3657@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>:
 
-Just to preempt possible objections ...
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->     Remove entry for Intel PRO/Wireless 2011B.
->
->     It is not supported by this driver because it has no firmware in
->     flash.  spectrum_cs is needed for this device.
+On Sat, Sep 03, 2005 at 03:28:29AM +0200, Adrian Bunk wrote:
+> This patch makes needlessly global functions static.
 
-As it turns out, there are two cards with the same ID (0x0089, 0x0001) but
-different version strings.  One is Intel PRO/Wireless 2011, supported by
-orinoco_cs.  The other is Intel PRO/Wireless 2011B, supported by spectrum_cs. 
-So, we need a better fix.
+Thanks for your patch.  I'll merge it with my local changes (it clashes,
+since the "htonll" implementation was removed) and submit it via davem
+later today.
 
-Also, I see that many cards listed in hermes.conf from Orinoco CVS haven't made
-it to the ID table in orinoco_cs.c.  I'm making a bigger table to include all
-cards from Orinoco, HostAP and linux-wlan-ng.
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-In the meantime, the 3/8 patch could be dropped.
+--NzB8fVQJ5HfG6fxh
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
---
-Regards,
-Pavel Roskin
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
 
+iD8DBQFDGV56XaXGVTD0i/8RAkS1AKCJjj7M1eQ1HWVQXmOQtJYY9RIZqACdHoqM
+0lGazA6+53mP44pXIl6lhyg=
+=7Q2Y
+-----END PGP SIGNATURE-----
 
--------------------------------------------------------
-SF.Net email is Sponsored by the Better Software Conference & EXPO
-September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
-Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
-Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
+--NzB8fVQJ5HfG6fxh--
