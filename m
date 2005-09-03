@@ -1,72 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.13-git3 5/5] sis190: basic sis191 support
-Date: Sat, 3 Sep 2005 00:57:51 +0200
-Message-ID: <20050902225751.GF25687@electric-eye.fr.zoreil.com>
-References: <20050902225224.GA25687@electric-eye.fr.zoreil.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Kernel 2.6.13 breaks libpcap (and tcpdump).
+Date: Fri, 2 Sep 2005 17:27:19 -0700
+Message-ID: <20050902172719.4eaaa6db.akpm@osdl.org>
+References: <20050902184416.GA6468@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pascal.chapperon@wanadoo.fr, lars.vahlenberg@mandator.com,
-	Alexey Dobriyan <adobriyan@gmail.com>, apatard@mandriva.com,
-	jgarzik@pobox.com, akpm@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161125AbVIBXLN@vger.kernel.org>
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20050902225224.GA25687@electric-eye.fr.zoreil.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161097AbVICA12@vger.kernel.org>
+To: John McGowan <jmcgowan@inch.com>
+In-Reply-To: <20050902184416.GA6468@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sis191 is the gigabit brother of the sis190. SiS's driver suggests
-that the register set is backward compatible: this should hopefully
-give a basic driver.
+John McGowan <jmcgowan@inch.com> wrote:
+>
+> Kernel 2.6.13. Breaks libpcap.
+> 
+> Fedora Core 2, gcc 3.3.3, Pentium III (933MHz)
+> 
+> I had written about my dismay that traceproto and tcptraceroute
+> no longer worked and suspected that libnet was broken.
+> 
+> It seems that it is libpcap that is broken by kernel 2.6.13 and
+> tcpdump itself no longer works.
+> Well, it works ... but not correctly.
+> 
+>  Capture data, then look for ICMP messages
+>  (e.g. Time Exceeded errors as in a traceroute)
+>  by filtering the file.
+>  
+>   tcpdump -w 1.cap
+>   tcpdump -f "ip proto \icmp" -r 1.cap
+> 
+> That works.
+> 
+> 
+>  Filter incoming data, looking for ICMP messages:
+>  
+>   tcpdump -f "ip proto \icmp"
+>  
+> Well, that catches nothing.
+> 
+> 
+> I tried recompiling (source RPM, Fedora Core 2) tcpdump
+> (libpcap, tcpdump, etc.) and reinstalling. That did not
+> fix the problem with tcpdump.
+> 
+> It also broke a tethereal script I was using (which I changed
+> to capture all packets, which works as indicated above, and
+> then used a '-R', read, filter to display the one's I want).
+> 
 
-The device should allow the usual features from a modern ethernet
-adapter (802.1q, SG, Jumbo frames, TSO, checksum offload). So far
-the relevant register layout is not documented. SiS's driver does
-not provide these features either (at least not for Linux).
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-diff -puN a/drivers/net/sis190.c~sis190-210 b/drivers/net/sis190.c
---- a/drivers/net/sis190.c~sis190-210	2005-09-02 23:28:05.390587495 +0200
-+++ b/drivers/net/sis190.c	2005-09-02 23:28:05.396586525 +0200
-@@ -331,14 +331,14 @@ static struct mii_chip_info {
- 
- const static struct {
- 	const char *name;
--	u8 version;		/* depend on docs */
--	u32 RxConfigMask;	/* clear the bits supported by this chip */
- } sis_chip_info[] = {
--	{ DRV_NAME, 0x00, 0xff7e1880, },
-+	{ "SiS 190 PCI Fast Ethernet adapter" },
-+	{ "SiS 191 PCI Gigabit Ethernet adapter" },
- };
- 
- static struct pci_device_id sis190_pci_tbl[] __devinitdata = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0190), 0, 0, 0 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_SI, 0x0191), 0, 0, 1 },
- 	{ 0, },
- };
- 
-diff -puN a/drivers/net/Kconfig~sis190-210 b/drivers/net/Kconfig
---- a/drivers/net/Kconfig~sis190-210	2005-09-02 23:28:05.393587010 +0200
-+++ b/drivers/net/Kconfig	2005-09-02 23:28:05.398586202 +0200
-@@ -1924,12 +1924,15 @@ config R8169_VLAN
- 	  If in doubt, say Y.
- 
- config SIS190
--	tristate "SiS190 gigabit ethernet support"
-+	tristate "SiS190/SiS191 gigabit ethernet support"
- 	depends on PCI
- 	select CRC32
- 	select MII
- 	---help---
--	  Say Y here if you have a SiS 190 PCI Gigabit Ethernet adapter.
-+	  Say Y here if you have a SiS 190 PCI Fast Ethernet adapter or
-+	  a SiS 191 PCI Gigabit Ethernet adapter. Both are expected to
-+	  appear in lan on motherboard designs which are based on SiS 965
-+	  and SiS 966 south bridge.
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sis190.  This is recommended.
-
-_
+(cc netdev)
