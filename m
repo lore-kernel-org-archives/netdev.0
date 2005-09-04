@@ -1,78 +1,124 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 2/2] [NETFILTER] remove bogus hand-coded htonll()
-Date: Sun, 4 Sep 2005 06:10:24 +0200
-Message-ID: <20050904041024.GJ4415@rama.de.gnumonks.org>
-References: <20050903084315.GD4415@rama.de.gnumonks.org> <20050903165425.GZ7781@jm.kir.nu>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="+2GlJm56SCtLHYlr"
-Cc: David Miller <davem@davemloft.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, bunk@stusta.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751174AbVICSFK@vger.kernel.org>
-To: Jouni Malinen <jkmaline@cc.hut.fi>
-Content-Disposition: inline
-In-Reply-To: <20050903165425.GZ7781@jm.kir.nu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel 2.6.13 breaks libpcap (and tcpdump).
+Date: Sun, 04 Sep 2005 18:21:09 +1000
+Message-ID: <E1EBpkT-0001RP-00@gondolin.me.apana.org.au>
+References: <20050902172719.4eaaa6db.akpm@osdl.org>
+Cc: jmcgowan@inch.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751291AbVIDIVZ@vger.kernel.org>
+To: akpm@osdl.org (Andrew Morton)
+In-Reply-To: <20050902172719.4eaaa6db.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andrew Morton <akpm@osdl.org> wrote:
+> 
+>>  Filter incoming data, looking for ICMP messages:
+>>  
+>>   tcpdump -f "ip proto \icmp"
+>>  
+>> Well, that catches nothing.
 
---+2GlJm56SCtLHYlr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+We aren't handling the reading of specific fields like the IP protocol
+field correctly.  This patch should make it work again.
 
-On Sat, Sep 03, 2005 at 09:54:25AM -0700, Jouni Malinen wrote:
-> On Sat, Sep 03, 2005 at 10:43:15AM +0200, Harald Welte wrote:
->=20
-> > htonll() is nothing else than cpu_to_be64(), so we'd rather call the
-> > latter.
->=20
-> Actually, the htonll() implementation does not seem to be doing what
-> cpu_to_be64() is doing.. However, I would assume this is a bug in
-> htonll() and this change to use cpu_to_be64() is fixing that.=20
+I tried to move this logic into the new load_pointer function but it
+all came out messy so I simply rolled it back.
 
-ACK.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> Can this bug cause any major problems in the current implementation?
-
-the "current implementation" was only merged after 2.6.13 is released,
-so I doubt anyone but the netfilter developers is using it yet.
-
-> I would assume that the first index should have had '-i' added to it, if
-> the purpose is to swap byte order.. The code here is leaving some
-> arbitrary data in 7 bytes of the 64-bit variable and setting
-> (u8*)&out[7] =3D (u8*)&in[7] in somewhat inefficient way ;-). In addition,
-> this looks more like swap-8-bytes-unconditionally than doing this based
-> on host byte order..
-
-yes, yes, yes.  Somehow this ancient buggy implementation slipped into
-mainline.  I know I had fixed this before.
-
-So please let's all forget about this embarrassing htonll() and move on.=20
-
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---+2GlJm56SCtLHYlr
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDGnOwXaXGVTD0i/8RAhJyAJwLxw7FtbHTtxZrFF8zkMhM9gleZQCfQqJJ
-aY1iTW76RK51YnVjV3RvhXs=
-=a4dJ
------END PGP SIGNATURE-----
-
---+2GlJm56SCtLHYlr--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/core/filter.c b/net/core/filter.c
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -36,7 +36,7 @@
+ #include <linux/filter.h>
+ 
+ /* No hurry in this branch */
+-static void *__load_pointer(struct sk_buff *skb, int k)
++static void *load_pointer(struct sk_buff *skb, int k)
+ {
+ 	u8 *ptr = NULL;
+ 
+@@ -50,18 +50,6 @@ static void *__load_pointer(struct sk_bu
+ 	return NULL;
+ }
+ 
+-static inline void *load_pointer(struct sk_buff *skb, int k,
+-                                 unsigned int size, void *buffer)
+-{
+-	if (k >= 0)
+-		return skb_header_pointer(skb, k, size, buffer);
+-	else {
+-		if (k >= SKF_AD_OFF)
+-			return NULL;
+-		return __load_pointer(skb, k);
+-	}
+-}
+-
+ /**
+  *	sk_run_filter	- 	run a filter on a socket
+  *	@skb: buffer to run the filter on
+@@ -177,7 +165,13 @@ int sk_run_filter(struct sk_buff *skb, s
+ 		case BPF_LD|BPF_W|BPF_ABS:
+ 			k = fentry->k;
+  load_w:
+-			ptr = load_pointer(skb, k, 4, &tmp);
++			if (k >= 0)
++				ptr = skb_header_pointer(skb, k, 4, &tmp);
++			else if (k < SKF_AD_OFF)
++				ptr = load_pointer(skb, k);
++			else
++				break;
++
+ 			if (ptr != NULL) {
+ 				A = ntohl(*(u32 *)ptr);
+ 				continue;
+@@ -186,7 +180,13 @@ int sk_run_filter(struct sk_buff *skb, s
+ 		case BPF_LD|BPF_H|BPF_ABS:
+ 			k = fentry->k;
+  load_h:
+-			ptr = load_pointer(skb, k, 2, &tmp);
++			if (k >= 0)
++				ptr = skb_header_pointer(skb, k, 2, &tmp);
++			else if (k < SKF_AD_OFF)
++				ptr = load_pointer(skb, k);
++			else
++				break;
++
+ 			if (ptr != NULL) {
+ 				A = ntohs(*(u16 *)ptr);
+ 				continue;
+@@ -195,7 +195,13 @@ int sk_run_filter(struct sk_buff *skb, s
+ 		case BPF_LD|BPF_B|BPF_ABS:
+ 			k = fentry->k;
+ load_b:
+-			ptr = load_pointer(skb, k, 1, &tmp);
++			if (k >= 0)
++				ptr = skb_header_pointer(skb, k, 1, &tmp);
++			else if (k < SKF_AD_OFF)
++				ptr = load_pointer(skb, k);
++			else
++				break;
++
+ 			if (ptr != NULL) {
+ 				A = *(u8 *)ptr;
+ 				continue;
+@@ -217,7 +223,9 @@ load_b:
+ 			k = X + fentry->k;
+ 			goto load_b;
+ 		case BPF_LDX|BPF_B|BPF_MSH:
+-			ptr = load_pointer(skb, fentry->k, 1, &tmp);
++			if (fentry->k < 0)
++				return 0;
++			ptr = skb_header_pointer(skb, fentry->k, 1, &tmp);
+ 			if (ptr != NULL) {
+ 				X = (*(u8 *)ptr & 0xf) << 2;
+ 				continue;
