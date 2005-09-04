@@ -1,30 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Kernel 2.6.13 breaks libpcap (and tcpdump).
-Date: Sun, 04 Sep 2005 19:31:26 +0200
-Message-ID: <431B2F6E.9070401@trash.net>
-References: <E1EBpkT-0001RP-00@gondolin.me.apana.org.au> <431B2985.1060502@trash.net>
+From: pravin <pravin.shelar@gmail.com>
+Subject: question abt equal cost multipath networking
+Date: Mon, 5 Sep 2005 01:41:02 +0530
+Message-ID: <bab43330050904131141534c42@mail.gmail.com>
+Reply-To: pravin.shelar@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, jmcgowan@inch.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932081AbVIDRbc@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <431B2985.1060502@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Herbert Xu wrote:
-> 
->> We aren't handling the reading of specific fields like the IP protocol
->> field correctly.  This patch should make it work again.
-> 
-> 
-> I can't spot the problem, could you give me a hint?
+Hello everyone,
+     I  am working on equal cost multipath networking code in Linux
+kernel. I studied the device round robin algorithm for the same. The
+drr algorithm examines use count of devices to select outgoing device.
+The use count is defined as number of sessions opened on that device
+up till now. But this does not necessarily give us current load on a
+device. We can use some other metric to select the outgoing device
+e.g. current device packet-queue length.
+       So is there any specific reason for choosing use count as a
+metric for this algorithm. Can I change this metric to some different
+parameter e.g. device queue length or number of open sessions on a
+device at present?
 
-Never mind, I got it, we never fall through to the second switch
-statement anymore. I think we could simply break when load_pointer
-returns NULL. The switch statement will fall through to the default
-case and return 0 for all cases but 0 > k >= SKF_AD_OFF.
+Thanks,
+Pravin.
+
+PS. I'm not on the list, so please CC me.
