@@ -1,124 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Kernel 2.6.13 breaks libpcap (and tcpdump).
-Date: Sun, 04 Sep 2005 18:21:09 +1000
-Message-ID: <E1EBpkT-0001RP-00@gondolin.me.apana.org.au>
-References: <20050902172719.4eaaa6db.akpm@osdl.org>
-Cc: jmcgowan@inch.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751291AbVIDIVZ@vger.kernel.org>
-To: akpm@osdl.org (Andrew Morton)
-In-Reply-To: <20050902172719.4eaaa6db.akpm@osdl.org>
+From: Alexander Nyberg <alexn@telia.com>
+Subject: Re: 2.6.13-mm1
+Date: Sun, 4 Sep 2005 12:26:04 +0200
+Message-ID: <20050904102604.GA7026@localhost.localdomain>
+References: <20050901035542.1c621af6.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750718AbVIDK0M@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050901035542.1c621af6.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
+On Thu, Sep 01, 2005 at 03:55:42AM -0700 Andrew Morton wrote:
+
 > 
->>  Filter incoming data, looking for ICMP messages:
->>  
->>   tcpdump -f "ip proto \icmp"
->>  
->> Well, that catches nothing.
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.13/2.6.13-mm1/
+> 
 
-We aren't handling the reading of specific fields like the IP protocol
-field correctly.  This patch should make it work again.
+I got:
+<7>Dead loop on netdevice eth0, fix it urgently!
 
-I tried to move this logic into the new load_pointer function but it
-all came out messy so I simply rolled it back.
+When using netconsole and printing out some information from kernel to
+console.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+The box uses:
+netconsole=4444@192.168.1.12/eth0,7002@192.168.1.1/
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/core/filter.c b/net/core/filter.c
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -36,7 +36,7 @@
- #include <linux/filter.h>
- 
- /* No hurry in this branch */
--static void *__load_pointer(struct sk_buff *skb, int k)
-+static void *load_pointer(struct sk_buff *skb, int k)
- {
- 	u8 *ptr = NULL;
- 
-@@ -50,18 +50,6 @@ static void *__load_pointer(struct sk_bu
- 	return NULL;
- }
- 
--static inline void *load_pointer(struct sk_buff *skb, int k,
--                                 unsigned int size, void *buffer)
--{
--	if (k >= 0)
--		return skb_header_pointer(skb, k, size, buffer);
--	else {
--		if (k >= SKF_AD_OFF)
--			return NULL;
--		return __load_pointer(skb, k);
--	}
--}
--
- /**
-  *	sk_run_filter	- 	run a filter on a socket
-  *	@skb: buffer to run the filter on
-@@ -177,7 +165,13 @@ int sk_run_filter(struct sk_buff *skb, s
- 		case BPF_LD|BPF_W|BPF_ABS:
- 			k = fentry->k;
-  load_w:
--			ptr = load_pointer(skb, k, 4, &tmp);
-+			if (k >= 0)
-+				ptr = skb_header_pointer(skb, k, 4, &tmp);
-+			else if (k < SKF_AD_OFF)
-+				ptr = load_pointer(skb, k);
-+			else
-+				break;
-+
- 			if (ptr != NULL) {
- 				A = ntohl(*(u32 *)ptr);
- 				continue;
-@@ -186,7 +180,13 @@ int sk_run_filter(struct sk_buff *skb, s
- 		case BPF_LD|BPF_H|BPF_ABS:
- 			k = fentry->k;
-  load_h:
--			ptr = load_pointer(skb, k, 2, &tmp);
-+			if (k >= 0)
-+				ptr = skb_header_pointer(skb, k, 2, &tmp);
-+			else if (k < SKF_AD_OFF)
-+				ptr = load_pointer(skb, k);
-+			else
-+				break;
-+
- 			if (ptr != NULL) {
- 				A = ntohs(*(u16 *)ptr);
- 				continue;
-@@ -195,7 +195,13 @@ int sk_run_filter(struct sk_buff *skb, s
- 		case BPF_LD|BPF_B|BPF_ABS:
- 			k = fentry->k;
- load_b:
--			ptr = load_pointer(skb, k, 1, &tmp);
-+			if (k >= 0)
-+				ptr = skb_header_pointer(skb, k, 1, &tmp);
-+			else if (k < SKF_AD_OFF)
-+				ptr = load_pointer(skb, k);
-+			else
-+				break;
-+
- 			if (ptr != NULL) {
- 				A = *(u8 *)ptr;
- 				continue;
-@@ -217,7 +223,9 @@ load_b:
- 			k = X + fentry->k;
- 			goto load_b;
- 		case BPF_LDX|BPF_B|BPF_MSH:
--			ptr = load_pointer(skb, fentry->k, 1, &tmp);
-+			if (fentry->k < 0)
-+				return 0;
-+			ptr = skb_header_pointer(skb, fentry->k, 1, &tmp);
- 			if (ptr != NULL) {
- 				X = (*(u8 *)ptr & 0xf) << 2;
- 				continue;
+0000:00:0f.0 Ethernet controller: Linksys NC100 Network Everywhere Fast
+Ethernet 10/100 (rev 11)
+
+Relevant config:
+CONFIG_NET_TULIP=y
+# CONFIG_DE2104X is not set
+CONFIG_TULIP=y
+CONFIG_TULIP_MWI=y
+# CONFIG_TULIP_MMIO is not set
+CONFIG_TULIP_NAPI=y
+
+
+Matt, on another box I got some irq off hangs that went away when removing
+netconsole from the .config on a box with 3c59x. Is this known? The
+problem is getting backtraces when netconsole is active, but the last
+thing I see before the box goes is that some carrier is up...
