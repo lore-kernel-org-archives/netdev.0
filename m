@@ -1,63 +1,71 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH 8/8] orinoco: New driver - spectrum_cs.
-Date: Tue, 6 Sep 2005 12:24:24 +0100
-Message-ID: <20050906112424.GA5309@infradead.org>
-References: <1125619806.29016.11.camel@dv>
+From: "Alaa Dalghan" <alaadalghan@hotmail.com>
+Subject: Modifying Cryptography Code
+Date: Tue, 06 Sep 2005 13:56:56 +0000
+Message-ID: <BAY106-F336464E0C97EA44289AA87ABA70@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1125619806.29016.11.camel@dv>
-Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
+Content-Type: text/plain; format=flowed
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-security-module@mail.wirex.com, linux-crypto@nl.linux.org,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +#ifdef  __IN_PCMCIA_PACKAGE__
-> +#include <pcmcia/k_compat.h>
-> +#endif /* __IN_PCMCIA_PACKAGE__ */
+Hello everyone,
+I need to modify some CRYPTOGRAPHY code in Linux Kernel to get a specific 
+VPN behavior, but I don't know where to start.
 
-this doesn't make sense for a 2.6 driver.
+The situation is the following:
 
-> +/*
-> + * If SPECTRUM_FW_INCLUDED is defined, the firmware is hardcoded into
-> + * the driver.  Use get_symbol_fw script to generate spectrum_fw.h and
-> + * copy it to the same directory as spectrum_cs.c.
-> + *
-> + * If SPECTRUM_FW_INCLUDED is not defined, the firmware is loaded at the
-> + * runtime using hotplug.  Use the same get_symbol_fw script to generate
-> + * files symbol_sp24t_prim_fw symbol_sp24t_sec_fw, copy them to the
-> + * hotplug firmware directory (typically /usr/lib/hotplug/firmware) and
-> + * make sure that you have hotplug installed and enabled in the kernel.
-> + */
-> +/* #define SPECTRUM_FW_INCLUDED 1 */
-> +
-> +#ifdef SPECTRUM_FW_INCLUDED
-> +/* Header with the firmware */
-> +#include "spectrum_fw.h"
-> +#else	/* !SPECTRUM_FW_INCLUDED */
+I have a VPN gateway (Linux kernel 2.6.10 with Openswan 2.3.1 installed). I 
+have only installed the user land tools from openswan package in order to 
+use the native ipsec stack in the kernel.
+I have 30 laptops equipped with Windows XP configured to launch secure 
+tunnels towards the VPN gateway (so I have 30 tunnels). The laptops can 
+communicate securely VIA the gateway and everything works fine but..
 
-While I see the point of this for the standalone orinoco driver package
-it doesn't make sense for the version in the kernel tree.
+the problem is the following:
 
-> +#define CS_CHECK(fn, ret) \
-> +  do { last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; } while (0)
+Each packet sent from a given client to the other get processed 4 times 
+(encryption at the sender, decryption at the gateway, encryption at the 
+gateway, decryption at the receiver). This is the normal behavior but it 
+imposes too much processing overhead on the linux VPN gateway. The required 
+behavior is that the VPN gateway just RELAYS encrypted data (ESP envelopes) 
+without decrypting them. This is impossible in the current ipsec 
+implementation since"the end of a tunnel HAS ALWAYS to be decrypted".
 
-I don't think this macro abuse helps anyone..
+Note that this required behavior can be achieved by launching a tunnel from 
+each client to every other client making the VPN gateway 
+transparent..BUT..this would mean 900 tunnels!! instead of 30, so it is not 
+the answer.
+
+What I am looking for is the portion of the C code in the kernel where the 
+Decryption function is called to decrypt a received packet. When I find this 
+statement, maybe i can make it conditionnal such as:  If the destination is 
+me then Decrypt  else DO NOT!
+
+I hope that someone can help me with finding this portion of the code and 
+modify it. By the way I searched in the kernel file "esp4.c" but can't seem 
+to find what I want.
 
 
 
--------------------------------------------------------
-SF.Net email is Sponsored by the Better Software Conference & EXPO
-September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
-Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
-Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
+
+           
+----------------------------------------------------------WinXP(1)
+          |
+Openswan 
+box------------------------------------------------------------WinXP(2)
+          |
+           
+----------------------------------------------------------WinXP(3)
+          |
+          |
+          |
+          |
+           
+---------------------------------------------------------WinXP(30)
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today - it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+
