@@ -1,95 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: proto_unregister sleeps while atomic
-Date: Wed, 07 Sep 2005 01:42:48 +0200
-Message-ID: <431E2978.2030701@trash.net>
-References: <200509070026.34999.daniele@orlandi.com>	<431E1FE9.7030405@trash.net> <20050906.160728.25203864.davem@davemloft.net>
+From: Simon Kirby <sim@netnation.com>
+Subject: Re: Route cache performance
+Date: Tue, 6 Sep 2005 16:57:00 -0700
+Message-ID: <20050906235700.GA31820@netnation.com>
+References: <20050815213855.GA17832@netnation.com> <43014E27.1070104@cosmosbay.com> <20050823190852.GA20794@netnation.com> <17163.32645.202453.145416@robur.slu.se> <20050824000158.GA8137@netnation.com> <20050825181111.GB14336@netnation.com> <20050825200543.GA6612@yakov.inr.ac.ru> <20050825212211.GA23384@netnation.com> <20050826115520.GA12351@yakov.inr.ac.ru> <17167.29239.469711.847951@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030301070001070006070403"
-Cc: daniele@orlandi.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751143AbVIFXmw@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050906.160728.25203864.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <17167.29239.469711.847951@robur.slu.se>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030301070001070006070403
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, Aug 26, 2005 at 09:49:11PM +0200, Robert Olsson wrote:
 
-David S. Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Wed, 07 Sep 2005 01:02:01 +0200
+> Hello!
 > 
+> This thread seems familar :)
 > 
->>You're right, good catch. This patch fixes it by moving the lock
->>down to the list-operation which it is supposed to protect.
-> 
-> 
-> I think we need to unlink from the list first if you're
-> going to do it this way.  Otherwise someone can find the
-> protocol via lookup, and then bogusly try to use the SLAB
-> cache we're freeing up.
-> 
-> Or does something else prevent this?
+> I think Simon uses UP and it could be idea to check if the RCU deferred 
+> deletion causes the problem. 
+>...
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -485,7 +485,11 @@ static struct file_operations rt_cpu_seq
+>  static __inline__ void rt_free(struct rtable *rt)
+>  {
+>  	multipath_remove(rt);
+> +#ifdef CONFIG_SMP
+>  	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
+> +#else
+> +	dst_free((struct dst_entry *)rt);
+> +#endif
+>  }
+>  
+>  static __inline__ void rt_drop(struct rtable *rt)
 
-The only other user of proto_list besides proto_register, which
-doesn't care, are the seqfs functions. They use the slab pointer,
-but in a harmless way:
+Woot!
 
-                    proto->slab == NULL ? "no" : "yes",
+Yes, this is the difference.  With the patch applied (ajust directly
+freeing the dst_entry), everything balances easily, there are no
+overflows, and the result of rt_may_expire() looks very reasonable.
+(Yay!)
 
-Anyway, I've moved it up to the top.
+So, this seems to be the culprit.  Is NAPI supposed to allow the
+queued bh to run or should we just not be queuing this?
 
---------------030301070001070006070403
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NET]: proto_unregister: fix sleeping while atomic
-
-proto_unregister holds a lock while calling kmem_cache_destroy, which can
-sleep.
-
-Noticed by Daniele Orlandi <daniele@orlandi.com>.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit d68b08edb26dfb58d18ab6c555d011572f9115a6
-tree 1d14cf91ca5db6878b6af3953f85a34a6fe12a91
-parent 591bd554f58b7d363167760a606d2a84696772da
-author Patrick McHardy <kaber@trash.net> Wed, 07 Sep 2005 01:35:19 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 07 Sep 2005 01:35:19 +0200
-
- net/core/sock.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1529,6 +1529,8 @@ EXPORT_SYMBOL(proto_register);
- void proto_unregister(struct proto *prot)
- {
- 	write_lock(&proto_list_lock);
-+	list_del(&prot->node);
-+	write_unlock(&proto_list_lock);
- 
- 	if (prot->slab != NULL) {
- 		kmem_cache_destroy(prot->slab);
-@@ -1550,9 +1552,6 @@ void proto_unregister(struct proto *prot
- 		kfree(name);
- 		prot->twsk_slab = NULL;
- 	}
--
--	list_del(&prot->node);
--	write_unlock(&proto_list_lock);
- }
- 
- EXPORT_SYMBOL(proto_unregister);
-
---------------030301070001070006070403--
+Simon-
