@@ -1,74 +1,95 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 2.6.13 2/2] 3c59x: add option for using memory-mapped
- PCI I/O resources
-Date: Tue, 6 Sep 2005 16:13:30 -0700
-Message-ID: <20050906161330.0138f5a2.akpm@osdl.org>
-References: <20050906204147.GC20145@tuxdriver.com>
-	<20050906204400.GD20145@tuxdriver.com>
-	<20050906205429.GA19319@infradead.org>
-	<20050906140414.40b65253.akpm@osdl.org>
-	<20050906220922.GA26003@tuxdriver.com>
-	<20050906151546.4d5ed4db.akpm@osdl.org>
-	<20050906225744.GB26003@tuxdriver.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: proto_unregister sleeps while atomic
+Date: Wed, 07 Sep 2005 01:42:48 +0200
+Message-ID: <431E2978.2030701@trash.net>
+References: <200509070026.34999.daniele@orlandi.com>	<431E1FE9.7030405@trash.net> <20050906.160728.25203864.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hch@infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751009AbVIFXQM@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20050906225744.GB26003@tuxdriver.com>
+Content-Type: multipart/mixed;
+ boundary="------------030301070001070006070403"
+Cc: daniele@orlandi.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751143AbVIFXmw@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050906.160728.25203864.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"John W. Linville" <linville@tuxdriver.com> wrote:
->
-> On Tue, Sep 06, 2005 at 03:15:46PM -0700, Andrew Morton wrote:
-> > "John W. Linville" <linville@tuxdriver.com> wrote:
-> > >
-> > > I fully intend to have have a flag in the private data set based on
-> > >  the PCI ID when I accumulate some data on which devices support this
-> > >  and which don't.  So far I've only got a short list...  Do you think
-> > >  such a flag should be based on which ones work, or which ones break?
-> > 
-> > The ones which are known to work.
-> > 
-> > Bear in mind that this is an old, messy and relatively stable driver which
-> > handles a huge number of different NICs.   Caution is the rule here.
+This is a multi-part message in MIME format.
+--------------030301070001070006070403
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+David S. Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 07 Sep 2005 01:02:01 +0200
 > 
-> I definitely agree.  That is another part of why I defaulted to "use_mmio=0".
 > 
-> I'll post PCI ID based patches as I determine supported cards.
+>>You're right, good catch. This patch fixes it by moving the lock
+>>down to the list-operation which it is supposed to protect.
 > 
+> 
+> I think we need to unlink from the list first if you're
+> going to do it this way.  Otherwise someone can find the
+> protocol via lookup, and then bogusly try to use the SLAB
+> cache we're freeing up.
+> 
+> Or does something else prevent this?
 
-What I'd suggest you do is to look at enabling the feature for, say,
-IS_CYCLONE and IS_TORNADO NICs.  Do that as a separate -mm patch, make sure
-that an explicit `use_mmio=0' will still turn it off.
+The only other user of proto_list besides proto_register, which
+doesn't care, are the seqfs functions. They use the slab pointer,
+but in a harmless way:
 
-So in the style of that driver, something like:
+                    proto->slab == NULL ? "no" : "yes",
 
-static int use_mmio[MAX_UNITS] = { [ 0 .. MAX_UNITS-1 ] = -1, };
+Anyway, I've moved it up to the top.
 
-Then:
+--------------030301070001070006070403
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-	if (module parm given)
-		use_mmio[unit] = 1 or 0
+[NET]: proto_unregister: fix sleeping while atomic
 
-	...
+proto_unregister holds a lock while calling kmem_cache_destroy, which can
+sleep.
 
-	/* Determine the default if the user didn't override us */
-	if (use_mmio[unit] == -1 && (IS_CYCLONE || IS_TORNADO))
-		use_mmio[unit] = 1;
+Noticed by Daniele Orlandi <daniele@orlandi.com>.
 
-	priv->use_mmio = use_mmio[unit];	(maybe)
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-	....
+---
+commit d68b08edb26dfb58d18ab6c555d011572f9115a6
+tree 1d14cf91ca5db6878b6af3953f85a34a6fe12a91
+parent 591bd554f58b7d363167760a606d2a84696772da
+author Patrick McHardy <kaber@trash.net> Wed, 07 Sep 2005 01:35:19 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 07 Sep 2005 01:35:19 +0200
 
-	if (priv->use_mmio == 1)
-		do mmio stuff
+ net/core/sock.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1529,6 +1529,8 @@ EXPORT_SYMBOL(proto_register);
+ void proto_unregister(struct proto *prot)
+ {
+ 	write_lock(&proto_list_lock);
++	list_del(&prot->node);
++	write_unlock(&proto_list_lock);
+ 
+ 	if (prot->slab != NULL) {
+ 		kmem_cache_destroy(prot->slab);
+@@ -1550,9 +1552,6 @@ void proto_unregister(struct proto *prot
+ 		kfree(name);
+ 		prot->twsk_slab = NULL;
+ 	}
+-
+-	list_del(&prot->node);
+-	write_unlock(&proto_list_lock);
+ }
+ 
+ EXPORT_SYMBOL(proto_unregister);
 
-There's a bit to be done here, so I'll drop your initial set of patches.
-
-btw, Donald Becker's 3c59x.c has done mmio for ages.  Suggest you take a
-look in there. http://www.scyld.com/vortex.html
+--------------030301070001070006070403--
