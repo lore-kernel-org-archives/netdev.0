@@ -1,29 +1,74 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: proto_unregister sleeps while atomic
-Date: Tue, 06 Sep 2005 16:07:28 -0700 (PDT)
-Message-ID: <20050906.160728.25203864.davem@davemloft.net>
-References: <200509070026.34999.daniele@orlandi.com>
-	<431E1FE9.7030405@trash.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 2.6.13 2/2] 3c59x: add option for using memory-mapped
+ PCI I/O resources
+Date: Tue, 6 Sep 2005 16:13:30 -0700
+Message-ID: <20050906161330.0138f5a2.akpm@osdl.org>
+References: <20050906204147.GC20145@tuxdriver.com>
+	<20050906204400.GD20145@tuxdriver.com>
+	<20050906205429.GA19319@infradead.org>
+	<20050906140414.40b65253.akpm@osdl.org>
+	<20050906220922.GA26003@tuxdriver.com>
+	<20050906151546.4d5ed4db.akpm@osdl.org>
+	<20050906225744.GB26003@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniele@orlandi.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751127AbVIFXHd@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <431E1FE9.7030405@trash.net>
+Cc: hch@infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751009AbVIFXQM@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20050906225744.GB26003@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 07 Sep 2005 01:02:01 +0200
+"John W. Linville" <linville@tuxdriver.com> wrote:
+>
+> On Tue, Sep 06, 2005 at 03:15:46PM -0700, Andrew Morton wrote:
+> > "John W. Linville" <linville@tuxdriver.com> wrote:
+> > >
+> > > I fully intend to have have a flag in the private data set based on
+> > >  the PCI ID when I accumulate some data on which devices support this
+> > >  and which don't.  So far I've only got a short list...  Do you think
+> > >  such a flag should be based on which ones work, or which ones break?
+> > 
+> > The ones which are known to work.
+> > 
+> > Bear in mind that this is an old, messy and relatively stable driver which
+> > handles a huge number of different NICs.   Caution is the rule here.
+> 
+> I definitely agree.  That is another part of why I defaulted to "use_mmio=0".
+> 
+> I'll post PCI ID based patches as I determine supported cards.
+> 
 
-> You're right, good catch. This patch fixes it by moving the lock
-> down to the list-operation which it is supposed to protect.
+What I'd suggest you do is to look at enabling the feature for, say,
+IS_CYCLONE and IS_TORNADO NICs.  Do that as a separate -mm patch, make sure
+that an explicit `use_mmio=0' will still turn it off.
 
-I think we need to unlink from the list first if you're
-going to do it this way.  Otherwise someone can find the
-protocol via lookup, and then bogusly try to use the SLAB
-cache we're freeing up.
+So in the style of that driver, something like:
 
-Or does something else prevent this?
+static int use_mmio[MAX_UNITS] = { [ 0 .. MAX_UNITS-1 ] = -1, };
+
+Then:
+
+	if (module parm given)
+		use_mmio[unit] = 1 or 0
+
+	...
+
+	/* Determine the default if the user didn't override us */
+	if (use_mmio[unit] == -1 && (IS_CYCLONE || IS_TORNADO))
+		use_mmio[unit] = 1;
+
+	priv->use_mmio = use_mmio[unit];	(maybe)
+
+	....
+
+	if (priv->use_mmio == 1)
+		do mmio stuff
+
+
+There's a bit to be done here, so I'll drop your initial set of patches.
+
+btw, Donald Becker's 3c59x.c has done mmio for ages.  Suggest you take a
+look in there. http://www.scyld.com/vortex.html
