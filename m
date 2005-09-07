@@ -1,30 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: proto_unregister sleeps while atomic
-Date: Tue, 06 Sep 2005 19:48:05 -0700 (PDT)
-Message-ID: <20050906.194805.111546627.davem@davemloft.net>
-References: <431E1FE9.7030405@trash.net>
-	<20050906.160728.25203864.davem@davemloft.net>
-	<431E2978.2030701@trash.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 1/1] ipw2100: remove by-hand function entry/exit debugging
+Date: Tue, 06 Sep 2005 22:48:52 -0400
+Message-ID: <431E5514.2070003@pobox.com>
+References: <200509062056.j86KuHcL031448@shell0.pdx.osdl.net>	<431E4799.7000502@pobox.com> <20050906.194111.130652562.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: daniele@orlandi.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750819AbVIGCsI@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <431E2978.2030701@trash.net>
+Cc: akpm@osdl.org, pavel@ucw.cz, ipw2100-admin@linux.intel.com,
+	pavel@suse.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750814AbVIGCtA@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050906.194111.130652562.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 07 Sep 2005 01:42:48 +0200
-
-> The only other user of proto_list besides proto_register, which
-> doesn't care, are the seqfs functions. They use the slab pointer,
-> but in a harmless way:
+David S. Miller wrote:
+> From: Jeff Garzik <jgarzik@pobox.com>
+> Date: Tue, 06 Sep 2005 21:51:21 -0400
 > 
->                     proto->slab == NULL ? "no" : "yes",
 > 
-> Anyway, I've moved it up to the top.
+>>NAK.  Rationale: maintainer's choice.  Pavel doesn't get to choose
+>>the debugger of choice for the driver maintainer.
+> 
+> 
+> If it makes the driver unreadable and thus harder to maintain,
+> I think such changes should seriously be considered.
+> 
+> Most of the DEBUG_INFO macro usage is fine, but those "enter"
+> and "exit" ones are just pure noise and should be removed.
 
-Ok thanks, patch applied.
+I find them useful in my own drivers; they are definitely not pure noise.
+
+	Jeff
