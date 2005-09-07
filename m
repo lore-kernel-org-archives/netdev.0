@@ -1,34 +1,107 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 1/1] ipw2100: remove by-hand function entry/exit debugging
-Date: Tue, 06 Sep 2005 22:48:52 -0400
-Message-ID: <431E5514.2070003@pobox.com>
-References: <200509062056.j86KuHcL031448@shell0.pdx.osdl.net>	<431E4799.7000502@pobox.com> <20050906.194111.130652562.davem@davemloft.net>
+Subject: [git patches] net driver update
+Date: Wed, 7 Sep 2005 00:55:16 -0400
+Message-ID: <20050907045516.GA9227@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, pavel@ucw.cz, ipw2100-admin@linux.intel.com,
-	pavel@suse.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750814AbVIGCtA@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050906.194111.130652562.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751163AbVIGEzV@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Jeff Garzik <jgarzik@pobox.com>
-> Date: Tue, 06 Sep 2005 21:51:21 -0400
-> 
-> 
->>NAK.  Rationale: maintainer's choice.  Pavel doesn't get to choose
->>the debugger of choice for the driver maintainer.
-> 
-> 
-> If it makes the driver unreadable and thus harder to maintain,
-> I think such changes should seriously be considered.
-> 
-> Most of the DEBUG_INFO macro usage is fine, but those "enter"
-> and "exit" ones are just pure noise and should be removed.
+[just sent this to Andrew/Linus]
 
-I find them useful in my own drivers; they are definitely not pure noise.
+Please pull from 'upstream' branch of
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-	Jeff
+to obtain the various updates described below:
+
+
+ drivers/net/Kconfig                       |    7 
+ drivers/net/Makefile                      |    2 
+ drivers/net/ac3200.c                      |    2 
+ drivers/net/atarilance.c                  |    2 
+ drivers/net/dm9000.c                      |    2 
+ drivers/net/forcedeth.c                   |    4 
+ drivers/net/iseries_veth.c                |    1 
+ drivers/net/s2io-regs.h                   |   13 
+ drivers/net/s2io.c                        |   98 -
+ drivers/net/s2io.h                        |    5 
+ drivers/net/spider_net.c                  | 2334 ++++++++++++++++++++++++++++++
+ drivers/net/spider_net.h                  |  469 ++++++
+ drivers/net/spider_net_ethtool.c          |  126 +
+ drivers/net/sun3lance.c                   |    2 
+ drivers/net/wireless/airo.c               |   43 
+ drivers/net/wireless/atmel.c              |   17 
+ drivers/net/wireless/ipw2200.c            | 2264 ++++++++++++++---------------
+ drivers/net/wireless/ipw2200.h            |  408 ++---
+ drivers/net/wireless/netwave_cs.c         |    7 
+ drivers/net/wireless/prism54/isl_ioctl.c  |    3 
+ drivers/net/wireless/prism54/islpci_dev.c |    3 
+ drivers/net/wireless/ray_cs.c             |  858 +++++------
+ drivers/net/wireless/ray_cs.h             |    7 
+ drivers/net/wireless/wl3501.h             |    1 
+ drivers/net/wireless/wl3501_cs.c          |    7 
+ drivers/s390/net/claw.c                   |   20 
+ include/linux/pci_ids.h                   |    1 
+ include/linux/wireless.h                  |   38 
+ include/net/iw_handler.h                  |  123 +
+ net/core/wireless.c                       |   58 
+ net/ieee80211/ieee80211_crypt.c           |   27 
+ net/ieee80211/ieee80211_crypt_ccmp.c      |   47 
+ net/ieee80211/ieee80211_crypt_tkip.c      |  131 -
+ net/ieee80211/ieee80211_crypt_wep.c       |   30 
+ net/ieee80211/ieee80211_module.c          |   40 
+ net/ieee80211/ieee80211_rx.c              |  310 ++-
+ net/ieee80211/ieee80211_tx.c              |   66 
+ net/ieee80211/ieee80211_wx.c              |   73 
+ 38 files changed, 5350 insertions(+), 2299 deletions(-)
+
+
+
+Al Viro:
+  lvalues abuse in lance
+
+Frank Pavlic:
+  s390: claw driver fixes
+
+Jean Tourrilhes:
+  WE-19 for kernel 2.6.13
+  ray_cs : WE-17 support
+  iw263_netwave_we17.diff
+  atmel_cs : WE-17 support
+  wl3501_cs : WE-17 support
+  prism54 : WE-17 support
+  airo : WE-19 support
+
+Jeff Garzik:
+  [wireless] build fixes after merging WE-19
+  [wireless ieee80211,ipw2200] Lindent source code
+
+>>
+>> NOTE: As explained in the full cset description, this Lindent
+>> will help us sync up Intel, and as a side effect make the code
+>> look better.
+>>
+
+Jens Osterkamp:
+  net: add driver for the NIC on Cell Blades
+  net: update the spider_net driver
+  net: fix bonding with spider_net
+
+Michael Ellerman:
+  iseries_veth: Update copyright notice
+
+ravinandan.arakali@neterion.com:
+  S2io: Hardware and miscellaneous fixes
+
+viro@ftp.linux.org.uk:
+  iomem annotations (ac3200.c)
+  missed s/u32/pm_message_t/ (dm9000)
+  __user annotations (forcedeth.c)
+
+
+
+[patch snipped]
