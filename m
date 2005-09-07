@@ -1,7 +1,7 @@
 From: Marc Lehmann <schmorp@schmorp.de>
 Subject: Re: Fw: masquerading failure for at least icmp and tcp+sack on amd64
-Date: Wed, 7 Sep 2005 22:59:23 +0200
-Message-ID: <20050907205923.GA6567@schmorp.de>
+Date: Wed, 7 Sep 2005 23:34:13 +0200
+Message-ID: <20050907213413.GA8222@schmorp.de>
 References: <20050907052057.09714a4c.akpm@osdl.org>
 	<431EDF78.8060505@trash.net>
 Mime-Version: 1.0
@@ -24,81 +24,28 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, Sep 07, 2005 at 02:39:20PM +0200, Patrick McHardy <kaber@trash.net> wrote:
-> Andrew Morton wrote:
-
-Thanks for your response!
-
-> >   tcp      6 52 SYN_SENT src=10.0.0.1 dst=129.13.162.95 sport=44320 
-> >   dport=80 [UNREPLIED] src=129.13.162.95 dst=84.56.237.68 sport=80 
-> >   dport=44320 mark=0 use=1
-> 
-> It seems ip_conntrack did not like the SYN/ACK and marked it as invalid,
-> NAT leaves the packet alone and the firewall resets the connection.
 > Please try if loading the ipt_LOG module and executing
 > "echo 255 > /proc/sys/net/ipv4/netfilter/ip_conntrack_log_invalid"
 > gives more information
 
-I think I have the LOG target compiled into the kernel. After the echo, I got
-this within a matter of seconds:
+Some more messages I get when logging is enabled:
 
-   printk: 614 messages suppressed.
-   ip_ct_tcp: bad TCP checksum IN= OUT= SRC=xxxxxxxxxxxx DST=84.56.231.206 LEN=105 TOS=0x00 PREC=0x00 TTL=53 ID=33989 DF PROTO=TCP SPT=119 DPT=41349 SEQ=495763142 ACK=177548929 WINDOW=56677 RES=0x00 ACK PSH URGP=0 OPT (0101080A0986EF9D00E16123) 
+printk: 1286 messages suppressed.
+ip_ct_tcp: invalid state IN= OUT= SRC=84.56.231.206 DST=xxx.xxx.xxx.xxx LEN=52 TOS=0x00 PREC=0x00 TTL=64 ID=3260 DF PROTO=TCP SPT=41535 DPT=119 SEQ=3475818900 ACK=1819416201 WINDOW=12198 RES=0x00 ACK URGP=0 OPT (0101080A00F5DE260917B744) UID=0 
+printk: 1166 messages suppressed.
+ip_ct_tcp: bad TCP checksum IN= OUT= SRC=xxx.xxx.xxx.xxx DST=84.56.231.206 LEN=1492 TOS=0x00 PREC=0x00 TTL=53 ID=6652 DF PROTO=TCP SPT=119 DPT=41550 SEQ=686563106 ACK=3472571721 WINDOW=55741 RES=0x00 ACK URGP=0 OPT (0101080A091782AB00F5E2EC) 
+printk: 1114 messages suppressed.
+ip_ct_tcp: bad TCP checksum IN= OUT= SRC=xxx.xxx.xxx.xxx DST=84.56.231.206 LEN=52 TOS=0x00 PREC=0x00 TTL=53 ID=45484 DF PROTO=TCP SPT=119 DPT=41550 SEQ=686606959 ACK=3472571737 WINDOW=55725 RES=0x00 ACK URGP=0 OPT (0101080A0917849E00F5E7B4) 
+printk: 1214 messages suppressed.
+ip_ct_tcp: bad TCP checksum IN= OUT= SRC=xxx.xxx.xxx.xxx DST=84.56.231.206 LEN=1492 TOS=0x00 PREC=0x00 TTL=53 ID=39527 DF PROTO=TCP SPT=119 DPT=41552 SEQ=2432945453 ACK=3473246510 WINDOW=56283 RES=0x00 ACK URGP=0 OPT (0101080A09182B2000F5ECAC) 
+printk: 1320 messages suppressed.
+ip_ct_tcp: bad TCP checksum IN= OUT= SRC=xxx.xxx.xxx.xxx DST=84.56.231.206 LEN=1492 TOS=0x00 PREC=0x00 TTL=52 ID=4867 DF PROTO=TCP SPT=119 DPT=41561 SEQ=1077509261 ACK=3487524170 WINDOW=56319 RES=0x00 ACK URGP=0 OPT (0101080A0917ABCD00F5F18F) 
+printk: 1190 messages suppressed.
+ip_ct_tcp: bad TCP checksum IN= OUT= SRC=xxx.xxx.xxx.xxx DST=84.56.231.206 LEN=1492 TOS=0x00 PREC=0x00 TTL=53 ID=7628 DF PROTO=TCP SPT=119 DPT=41538 SEQ=163747835 ACK=3477529327 WINDOW=56170 RES=0x00 ACK URGP=0 OPT (0101080A098F2AB200F5F682) 
+printk: 1172 messages suppressed.
 
-This is interesting, as the connection in question seems to work fine (at
-least I can download news at 32kb/s, which is the rate limit on the other
-side without much more than 32kb/s on my ppp link, so it is weird that
-this many packets should have invalid tcp checksum. Maybe this is somehow
-related?)
-
-I then tried to create a masqueraded connection and got the expected
-symptoms: correctly re-written packet leaves interface, return packet gets
-RST.
-
-During that time, I got more of the above messages, but none related to the
-test connection.
-
-I then stopped all traffic-generating programs to get an idle link and
-retried. Still no log messages from the test conenction.
-
-> >eth0:
-> >   19:23:29.928470 IP 10.0.0.1.45611 > 129.13.162.95.80: S 
-> >   4113365634:4113365634(0) win 5840 <mss 1460>
-> >   19:23:29.942246 IP 129.13.162.95.80 > 10.0.0.1.45611: S 
-> >   4161877683:4161877683(0) ack 4113365635 win 5840 <mss 1460>
-> >   19:23:29.942313 IP 10.0.0.1.45611 > 129.13.162.95.80: . ack 1 win 5840
-> >
-> >inet:
-> >   19:23:29.928249 IP 84.56.237.68.45611 > 129.13.162.95.80: S 
-> >   4113365634:4113365634(0) win 5840 <mss 1452>
-> >   19:23:29.942199 IP 129.13.162.95.80 > 84.56.237.68.45611: S 
-> >   4161877683:4161877683(0) ack 4113365635 win 5840 <mss 1460>
-> >   19:23:29.942332 IP 84.56.237.68.45611 > 129.13.162.95.80: . ack 1 win 
-> >   5840
-> >
-> >However, ICMP still is not masqueraded.
-> 
-> Please also try this again with logging enabled.
-
-No messages, either.
-
-(As I wrote in another mail), I also found in the meantime that switching
-off SACK only results in a correct handshake, further packets might and
-usually will cause a RST.
-
-> >Kernels that don't work:
-> >
-> >   2.6.13-rc7 (compiled with gcc-3.4 and 4.0.2 debian), 2.6.13 (gcc-4.02)
-> 
-> Can you retest with 2.6.12.5 on 64bit so we can see if it is a new
-> problem?
-
-I hope that trying with 2.6.11, and getting the same problem (as I did in
-the meantime), is even better than testing 2.6.12.5.
-
-> So far I don't think its related to routed.
-
-The weird thing is that it works on tap, but not on ethernet/ppp. Maybe
-the kernel code gets some offset wrong?
+The corresponding connections work just fine, though (and I think I get
+more than a single message for every physical packet received).
 
 -- 
                 The choice of a
