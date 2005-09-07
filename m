@@ -1,48 +1,114 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [patch 1/1] ipw2100: remove by-hand function entry/exit debugging
-Date: Wed, 7 Sep 2005 15:39:08 +0200
-Message-ID: <200509071539.08780.netdev@axxeo.de>
-References: <200509062056.j86KuHcL031448@shell0.pdx.osdl.net> <20050906.194111.130652562.davem@davemloft.net> <431E5514.2070003@pobox.com>
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: [AX.25] Make asc2ax thread-proof
+Date: Wed, 7 Sep 2005 15:34:01 +0100
+Message-ID: <20050907143401.GC3493@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, akpm@osdl.org,
-	pavel@ucw.cz, ipw2100-admin@linux.intel.com, pavel@suse.cz,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751215AbVIGNjT@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <431E5514.2070003@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+Asc2ax was still using a static buffer for all invocations which isn't
+exactly SMP-safe.  Change asc2ax to take an additional result buffer as
+the argument.  Change all callers to provide such a buffer.
 
-Jeff Garzik wrote:
-> David S. Miller wrote:
-> > From: Jeff Garzik <jgarzik@pobox.com>
-> > Date: Tue, 06 Sep 2005 21:51:21 -0400
-> >
-> >>NAK.  Rationale: maintainer's choice.  Pavel doesn't get to choose
-> >>the debugger of choice for the driver maintainer.
-> >
-> > If it makes the driver unreadable and thus harder to maintain,
-> > I think such changes should seriously be considered.
-> >
-> > Most of the DEBUG_INFO macro usage is fine, but those "enter"
-> > and "exit" ones are just pure noise and should be removed.
->
-> I find them useful in my own drivers; they are definitely not pure noise.
+This one only really is a fix for ROSE and as per recent discussions
+there's still much more to fix in ROSE ...
 
-gcc -finstrument-functions
+Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
-can do that completely without adding noise to the sources.
+ include/net/ax25.h   |    2 +-
+ net/ax25/ax25_addr.c |   27 ++++++++++++---------------
+ net/rose/rose_subr.c |    4 ++--
+ 3 files changed, 15 insertions(+), 18 deletions(-)
 
-been there, done that. With a gcc-patch you don't even need to 
-resolve symbols.
-
-
-Regards
-
-Ingo Oeser
+Index: linux-cvs/include/net/ax25.h
+===================================================================
+--- linux-cvs.orig/include/net/ax25.h
++++ linux-cvs/include/net/ax25.h
+@@ -279,7 +279,7 @@ extern struct sock *ax25_make_new(struct
+ /* ax25_addr.c */
+ extern ax25_address null_ax25_address;
+ extern char *ax2asc(char *buf, ax25_address *);
+-extern ax25_address *asc2ax(char *);
++extern void asc2ax(ax25_address *addr, char *callsign);
+ extern int  ax25cmp(ax25_address *, ax25_address *);
+ extern int  ax25digicmp(ax25_digi *, ax25_digi *);
+ extern unsigned char *ax25_addr_parse(unsigned char *, int, ax25_address *, ax25_address *, ax25_digi *, int *, int *);
+Index: linux-cvs/net/ax25/ax25_addr.c
+===================================================================
+--- linux-cvs.orig/net/ax25/ax25_addr.c
++++ linux-cvs/net/ax25/ax25_addr.c
+@@ -67,37 +67,34 @@ char *ax2asc(char *buf, ax25_address *a)
+ /*
+  *	ascii -> ax25 conversion
+  */
+-ax25_address *asc2ax(char *callsign)
++void asc2ax(ax25_address *addr, char *callsign)
+ {
+-	static ax25_address addr;
+ 	char *s;
+ 	int n;
+ 
+ 	for (s = callsign, n = 0; n < 6; n++) {
+ 		if (*s != '\0' && *s != '-')
+-			addr.ax25_call[n] = *s++;
++			addr->ax25_call[n] = *s++;
+ 		else
+-			addr.ax25_call[n] = ' ';
+-		addr.ax25_call[n] <<= 1;
+-		addr.ax25_call[n] &= 0xFE;
++			addr->ax25_call[n] = ' ';
++		addr->ax25_call[n] <<= 1;
++		addr->ax25_call[n] &= 0xFE;
+ 	}
+ 
+ 	if (*s++ == '\0') {
+-		addr.ax25_call[6] = 0x00;
+-		return &addr;
++		addr->ax25_call[6] = 0x00;
++		return;
+ 	}
+ 
+-	addr.ax25_call[6] = *s++ - '0';
++	addr->ax25_call[6] = *s++ - '0';
+ 
+ 	if (*s != '\0') {
+-		addr.ax25_call[6] *= 10;
+-		addr.ax25_call[6] += *s++ - '0';
++		addr->ax25_call[6] *= 10;
++		addr->ax25_call[6] += *s++ - '0';
+ 	}
+ 
+-	addr.ax25_call[6] <<= 1;
+-	addr.ax25_call[6] &= 0x1E;
+-
+-	return &addr;
++	addr->ax25_call[6] <<= 1;
++	addr->ax25_call[6] &= 0x1E;
+ }
+ 
+ /*
+Index: linux-cvs/net/rose/rose_subr.c
+===================================================================
+--- linux-cvs.orig/net/rose/rose_subr.c
++++ linux-cvs/net/rose/rose_subr.c
+@@ -337,13 +337,13 @@ static int rose_parse_ccitt(unsigned cha
+ 				memcpy(&facilities->source_addr, p + 7, ROSE_ADDR_LEN);
+ 				memcpy(callsign, p + 12,   l - 10);
+ 				callsign[l - 10] = '\0';
+-				facilities->source_call = *asc2ax(callsign);
++				asc2ax(&facilities->source_call, callsign);
+ 			}
+ 			if (*p == FAC_CCITT_SRC_NSAP) {
+ 				memcpy(&facilities->dest_addr, p + 7, ROSE_ADDR_LEN);
+ 				memcpy(callsign, p + 12, l - 10);
+ 				callsign[l - 10] = '\0';
+-				facilities->dest_call = *asc2ax(callsign);
++				asc2ax(&facilities->dest_call, callsign);
+ 			}
+ 			p   += l + 2;
+ 			n   += l + 2;
