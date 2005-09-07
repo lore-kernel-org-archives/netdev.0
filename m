@@ -1,42 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch for link detection for R8169
-Date: Tue, 06 Sep 2005 21:56:01 -0400
-Message-ID: <431E48B1.7050600@pobox.com>
-References: <431DA887.2010008@zabrze.zigzag.pl> <20050906194602.GA20862@electric-eye.fr.zoreil.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [patch 1/1] ipw2100: remove by-hand function entry/exit
+ debugging
+Date: Tue, 06 Sep 2005 19:41:11 -0700 (PDT)
+Message-ID: <20050906.194111.130652562.davem@davemloft.net>
+References: <200509062056.j86KuHcL031448@shell0.pdx.osdl.net>
+	<431E4799.7000502@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Miroslaw Mieszczak <mieszcz@zabrze.zigzag.pl>,
-	linux-kernel@vger.kernel.org, Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751197AbVIGB4J@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050906194602.GA20862@electric-eye.fr.zoreil.com>
+Cc: akpm@osdl.org, pavel@ucw.cz, ipw2100-admin@linux.intel.com,
+	pavel@suse.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750801AbVIGClb@vger.kernel.org>
+To: jgarzik@pobox.com
+In-Reply-To: <431E4799.7000502@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Miroslaw Mieszczak <mieszcz@zabrze.zigzag.pl> :
-> 
->>There is a patch to driver of RLT8169 network card. This match make 
->>possible detection of the link status even if network interface is down.
->>This is usefull for laptop users.
-> 
-> 
-> (side note: there is maintainer entry for the r8169 and network related
-> patches are welcome on netdev@vger.kernel.org)
-> 
-> Can you elaborate why it is usefull for laptop users ?
-> 
-> I am sceptical: tg3/bn2x/skge do not seem to allow it either.
-> 
-> Jeff, is it a requirement ?
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Tue, 06 Sep 2005 21:51:21 -0400
 
-Generally most drivers power down hardware, MAC at least, when the 
-interface is down.  As such, many drivers do not (cannot), as written, 
-report any useful link information.
+> NAK.  Rationale: maintainer's choice.  Pavel doesn't get to choose
+> the debugger of choice for the driver maintainer.
 
-IF the phy is not powered down, when the interface goes down, and IF 
-hardware permits, it would certainly be nice to report link state when 
-interface is down.  This is a hardware-dependent, driver-dependent choice.
+If it makes the driver unreadable and thus harder to maintain,
+I think such changes should seriously be considered.
 
-	Jeff
+Most of the DEBUG_INFO macro usage is fine, but those "enter"
+and "exit" ones are just pure noise and should be removed.
