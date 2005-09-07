@@ -1,69 +1,41 @@
-From: "Matt LaPlante" <laplam@rpi.edu>
-Subject: RE: Fw: [Bugme-new] [Bug 5194] New: IPSec related OOps in 2.6.13
-Date: Tue, 6 Sep 2005 20:06:27 -0400
-Message-ID: <200509070006.j8706YlA003082@ms-smtp-02-eri0.southeast.rr.com>
-References: <20050906122029.GB4594@gondor.apana.org.au>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Route cache performance
+Date: Wed, 7 Sep 2005 05:19:59 +0400
+Message-ID: <20050907011959.GA25725@yakov.inr.ac.ru>
+References: <43014E27.1070104@cosmosbay.com> <20050823190852.GA20794@netnation.com> <17163.32645.202453.145416@robur.slu.se> <20050824000158.GA8137@netnation.com> <20050825181111.GB14336@netnation.com> <20050825200543.GA6612@yakov.inr.ac.ru> <20050825212211.GA23384@netnation.com> <20050826115520.GA12351@yakov.inr.ac.ru> <17167.29239.469711.847951@robur.slu.se> <20050906235700.GA31820@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <olel@ans.pl>,
-	<bugme-daemon@kernel-bugs.osdl.org>,
-	"'Linux Kernel Mailing List'" <linux-kernel@vger.kernel.org>,
-	"'David S. Miller'" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751161AbVIGAHM@vger.kernel.org>
-To: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
-	"'Andrew Morton'" <akpm@osdl.org>
-In-Reply-To: <20050906122029.GB4594@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Simon Kirby <sim@netnation.com>
+Content-Disposition: inline
+In-Reply-To: <20050906235700.GA31820@netnation.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch worked like a charm here, no more kernel panics! Excellent work, many
-thanks for the quick fix...more people should have such a work ethic.
+Hello!
 
-Cheers,
-Matt
+On Tue, Sep 06, 2005 at 04:57:00PM -0700, Simon Kirby wrote:
+> On Fri, Aug 26, 2005 at 09:49:11PM +0200, Robert Olsson wrote:
+...
+> > I think Simon uses UP and it could be idea to check if the RCU deferred 
+> > deletion causes the problem. 
+..
+> Yes, this is the difference.  With the patch applied (ajust directly
+> freeing the dst_entry), everything balances easily, there are no
+> overflows, and the result of rt_may_expire() looks very reasonable.
+> (Yay!)
+> 
+> So, this seems to be the culprit.  Is NAPI supposed to allow the
+> queued bh to run or should we just not be queuing this?
 
-> -----Original Message-----
-> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-
-> owner@vger.kernel.org] On Behalf Of Herbert Xu
-> Sent: Tuesday, September 06, 2005 8:20 AM
-> To: Andrew Morton
-> Cc: netdev@vger.kernel.org; olel@ans.pl; bugme-daemon@kernel-
-> bugs.osdl.org; Matt LaPlante; Linux Kernel Mailing List; David S. Miller
-> Subject: Re: Fw: [Bugme-new] [Bug 5194] New: IPSec related OOps in 2.6.13
-> 
-> On Tue, Sep 06, 2005 at 04:08:56AM -0700, Andrew Morton wrote:
-> >
-> > Problem Description:
-> >
-> > Oops: 0000 [#1]
-> > PREEMPT
-> > Modules linked in:
-> > CPU:    0
-> > EIP:    0060:[<c01f562c>]    Not tainted VLI
-> > EFLAGS: 00010216   (2.6.13)
-> > EIP is at sha1_update+0x7c/0x160
-> 
-> Thanks for the report.  Matt LaPlante had exactly the same problem
-> a couple of days ago.  I've tracked down now to my broken crypto
-> cipher wrapper functions which will step over a page boundary if
-> it's not aligned correctly.
-> 
-> 
-> [CRYPTO] Fix boundary check in standard multi-block cipher processors
-> 
-> The boundary check in the standard multi-block cipher processors are
-> broken when nbytes is not a multiple of bsize.  In those cases it will
-> always process an extra block.
-> 
-> This patch corrects the check so that it processes at most nbytes of data.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It is supposed to work. :-) The problem is like an unkillable zombie.
+
+Robert, have you seen this pehonomenon already? Did you mean that SMP works
+or that it never works (but this patch is valid only for UP)? Did it
+become worse after 2.6.9?
+
+Alexey
