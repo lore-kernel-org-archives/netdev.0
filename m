@@ -1,43 +1,95 @@
-From: Bogdan Costescu <Bogdan.Costescu@iwr.uni-heidelberg.de>
-Subject: Re: [PATCH] 3c59x: read current link status from phy
-Date: Thu, 8 Sep 2005 15:35:26 +0200 (CEST)
-Message-ID: <Pine.LNX.4.63.0509081521140.21354@dingo.iwr.uni-heidelberg.de>
-References: <200509080125.j881PcL9015847@hera.kernel.org>  <431F9899.4060602@pobox.com>
-  <Pine.LNX.4.63.0509081351160.21354@dingo.iwr.uni-heidelberg.de>
- <1126184700.4805.32.camel@tsc-6.cph.tpack.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] 3c59x: cleanup of mdio_read routines to use MII_* macros in include/linux/mii.h
+Date: Thu, 8 Sep 2005 10:13:24 -0400
+Message-ID: <20050908141324.GB17189@hmsreliant.homelinux.net>
+References: <200509080125.j881PcL9015847@hera.kernel.org> <431F9899.4060602@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Andrew Morton <akpm@osdl.org>,
 	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751356AbVIHNfl@vger.kernel.org>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <1126184700.4805.32.camel@tsc-6.cph.tpack.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751359AbVIHONu@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <431F9899.4060602@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Sep 2005, Tommy Christensen wrote:
+On Wed, Sep 07, 2005 at 09:49:13PM -0400, Jeff Garzik wrote:
+><snip> 
+> It would be nice if somebody would be motivated to check in 
+> s/1/MII_BMSR/ to utilize the constant in include/linux/mii.h.
+> 
+> 	Jeff
+> 
+As requested, a patch to cleanup mdio_read routines in 3c59x.c to use the MII_*
+macros defined in include/linux/mii.h
 
-> The idea is to avoid an extra delay of 60 seconds before detecting 
-> link-up.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-But you are adding the read to a function that is called repeatedly to 
-fix an event that happens only once at start-up !
+ 3c59x.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-If this read is really needed (I still doubt it...), can't it be 
-performed in vortex_up(), by possibly doubling the existing one there ?
-vortex_up() is executed only once at start-up, not every 60 seconds.
 
-> Please see http://bugzilla.kernel.org/show_bug.cgi?id=5025
-
-Hah, a Cisco switch.  Look in Documentation/networking/vortex.txt for 
-"portfast".
-
+--- linux-2.6/drivers/net/3c59x.c.orig	2005-09-08 08:24:35.000000000 -0400
++++ linux-2.6/drivers/net/3c59x.c	2005-09-08 08:27:57.000000000 -0400
+@@ -1439,7 +1439,7 @@ static int __devinit vortex_probe1(struc
+ 		if (vp->drv_flags & EXTRA_PREAMBLE)
+ 			mii_preamble_required++;
+ 		mdio_sync(ioaddr, 32);
+-		mdio_read(dev, 24, 1);
++		mdio_read(dev, 24, MII_BMSR);
+ 		for (phy = 0; phy < 32 && phy_idx < 1; phy++) {
+ 			int mii_status, phyx;
+ 
+@@ -1453,7 +1453,7 @@ static int __devinit vortex_probe1(struc
+ 				phyx = phy - 1;
+ 			else
+ 				phyx = phy;
+-			mii_status = mdio_read(dev, phyx, 1);
++			mii_status = mdio_read(dev, phyx, MII_BMSR);
+ 			if (mii_status  &&  mii_status != 0xffff) {
+ 				vp->phys[phy_idx++] = phyx;
+ 				if (print_info) {
+@@ -1469,7 +1469,7 @@ static int __devinit vortex_probe1(struc
+ 			printk(KERN_WARNING"  ***WARNING*** No MII transceivers found!\n");
+ 			vp->phys[0] = 24;
+ 		} else {
+-			vp->advertising = mdio_read(dev, vp->phys[0], 4);
++			vp->advertising = mdio_read(dev, vp->phys[0], MII_ADVERTISE);
+ 			if (vp->full_duplex) {
+ 				/* Only advertise the FD media types. */
+ 				vp->advertising &= ~0x02A0;
+@@ -1641,8 +1641,8 @@ vortex_up(struct net_device *dev)
+ 		int mii_reg1, mii_reg5;
+ 		EL3WINDOW(4);
+ 		/* Read BMSR (reg1) only to clear old status. */
+-		mii_reg1 = mdio_read(dev, vp->phys[0], 1);
+-		mii_reg5 = mdio_read(dev, vp->phys[0], 5);
++		mii_reg1 = mdio_read(dev, vp->phys[0], MII_BMSR);
++		mii_reg5 = mdio_read(dev, vp->phys[0], MII_LPA);
+ 		if (mii_reg5 == 0xffff  ||  mii_reg5 == 0x0000) {
+ 			netif_carrier_off(dev); /* No MII device or no link partner report */
+ 		} else {
+@@ -1872,13 +1872,13 @@ vortex_timer(unsigned long data)
+ 	case XCVR_MII: case XCVR_NWAY:
+ 		{
+ 			spin_lock_bh(&vp->lock);
+-			mii_status = mdio_read(dev, vp->phys[0], 1);
++			mii_status = mdio_read(dev, vp->phys[0], MII_BMSR);
+ 			ok = 1;
+ 			if (vortex_debug > 2)
+ 				printk(KERN_DEBUG "%s: MII transceiver has status %4.4x.\n",
+ 					dev->name, mii_status);
+ 			if (mii_status & BMSR_LSTATUS) {
+-				int mii_reg5 = mdio_read(dev, vp->phys[0], 5);
++				int mii_reg5 = mdio_read(dev, vp->phys[0], MII_LPA);
+ 				if (! vp->force_fd  &&  mii_reg5 != 0xffff) {
+ 					int duplex;
+ 
 -- 
-Bogdan Costescu
-
-IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
-Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
-Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
-E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
+ ***************************************************/
