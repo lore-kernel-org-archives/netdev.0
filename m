@@ -1,46 +1,33 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] 3c59x: read current link status from phy
-Date: Wed, 07 Sep 2005 21:49:13 -0400
-Message-ID: <431F9899.4060602@pobox.com>
-References: <200509080125.j881PcL9015847@hera.kernel.org>
+Subject: Re: Git broken for IPW2200
+Date: Wed, 07 Sep 2005 22:18:29 -0400
+Message-ID: <431F9F75.9020704@pobox.com>
+References: <1126143695.5402.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932559AbVIHBtV@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-In-Reply-To: <200509080125.j881PcL9015847@hera.kernel.org>
+Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
+	ieee80211-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932567AbVIHCSd@vger.kernel.org>
+To: abonilla@linuxwireless.org
+In-Reply-To: <1126143695.5402.11.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linux Kernel Mailing List wrote:
-> tree 1771b690cdee80312ace3fe046e29e965a0b30eb
-> parent c8d127418d78aaeeb1a417ef7453dc09c9118146
-> author Tommy S. Christensen <tommy.christensen@tpack.net> Wed, 07 Sep 2005 05:17:28 -0700
-> committer Linus Torvalds <torvalds@g5.osdl.org> Thu, 08 Sep 2005 06:57:30 -0700
+Alejandro Bonilla Beeche wrote:
+> Hi,
 > 
-> [PATCH] 3c59x: read current link status from phy
+> 	Where does one report this? I was building Linus Git tree as per I
+> updated it at 09/07/2005 7:00PM PDT and got this while compiling.
 > 
-> The phy status register must be read twice in order to get the actual link
-> state.
+> Where do I report this?
 > 
-> Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> Signed-off-by: Linus Torvalds <torvalds@osdl.org>
+> Debian unstable updated at same time.
 > 
->  drivers/net/3c59x.c |    1 +
->  1 files changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-> --- a/drivers/net/3c59x.c
-> +++ b/drivers/net/3c59x.c
-> @@ -1889,6 +1889,7 @@ vortex_timer(unsigned long data)
->  		{
->  			spin_lock_bh(&vp->lock);
->  			mii_status = mdio_read(dev, vp->phys[0], 1);
-> +			mii_status = mdio_read(dev, vp->phys[0], 1);
+> it looks like ipw2200 is thinking that ieee80211 is not compiled in, but
+> I did select it as a module?
 
-It would be nice if somebody would be motivated to check in 
-s/1/MII_BMSR/ to utilize the constant in include/linux/mii.h.
+Wanna post a URL to your .config?
 
 	Jeff
