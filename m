@@ -1,26 +1,28 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: IPW2100 Kconfig
-Date: Thu, 8 Sep 2005 10:01:06 +0200
-Message-ID: <20050908080106.GB773@openzaurus.ucw.cz>
-References: <005101c5b311_4ca69a50_a20cc60a@amer.sykes.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [AX.25] Make asc2ax thread-proof
+Date: Thu, 08 Sep 2005 13:41:12 -0700 (PDT)
+Message-ID: <20050908.134112.107447708.davem@davemloft.net>
+References: <20050907143401.GC3493@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964990AbVIHU1K@vger.kernel.org>
-To: Alejandro Bonilla <abonilla@linuxwireless.org>
-Content-Disposition: inline
-In-Reply-To: <005101c5b311_4ca69a50_a20cc60a@amer.sykes.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: ralf@linux-mips.org
+In-Reply-To: <20050907143401.GC3493@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Date: Wed, 7 Sep 2005 15:34:01 +0100
 
-> 	I checked the IPW2100 in the current git from linux-2.6 and the menuconfig
-> help (Kconfig) says you need to put the firmware in /etc/firmware, it should
-> be /lib/firmware.
+> Asc2ax was still using a static buffer for all invocations which isn't
+> exactly SMP-safe.  Change asc2ax to take an additional result buffer as
+> the argument.  Change all callers to provide such a buffer.
 > 
-> Who should I send the "patch" to? Or can someone simply change that?
+> This one only really is a fix for ROSE and as per recent discussions
+> there's still much more to fix in ROSE ...
+> 
+> Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
-Are you sure it is not distro-dependend?
--- 
-64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
+Applied, thanks Ralf.
