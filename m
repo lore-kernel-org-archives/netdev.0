@@ -1,41 +1,84 @@
-From: Jens Axboe <axboe@suse.de>
-Subject: Re: 2.6.13-git7 strange system freeze
-Date: Thu, 8 Sep 2005 17:46:23 +0200
-Message-ID: <20050908154620.GB6097@suse.de>
-References: <6bffcb0e050908051412e945c9@mail.gmail.com> <6bffcb0e050908083822616326@mail.gmail.com>
+From: Mateusz Berezecki <mateuszb@gmail.com>
+Subject: netdev branch - kernel panic - bug in tcp_time_to_recover ?
+Date: Thu, 8 Sep 2005 19:39:28 +0200
+Message-ID: <20050908173927.GA4963@oepkgtn.mshome.net>
+Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	akpm@osdl.org, "David S. Miller" <davem@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932699AbVIHPqi@vger.kernel.org>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OgqxwSJOaUobr8KG"
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964897AbVIHRdw@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <6bffcb0e050908083822616326@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 08 2005, Michal Piotrowski wrote:
-> Hi,
-> 
-> kernel: 2.6.13-mm2
-> 
-> it happens when I try to download new gnome-2.12 livecd from bittorrent.
-> 
-> ng02:/home/michal# tail /var/log/kern.log
-> [..]
-> Sep  8 17:15:39 ng02 kernel: [ 3241.479108] KERNEL: assertion
-> ((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (2148)
-> Sep  8 17:15:39 ng02 kernel: [ 3241.479192] KERNEL: assertion
-> ((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (1127)
-> Sep  8 17:15:39 ng02 kernel: [ 3241.479736] KERNEL: assertion
-> ((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (1127)
-> Sep  8 17:15:39 ng02 kernel: [ 3241.831114] KERNEL: assertion
-> ((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (2148)
-> Sep  8 17:15:40 ng02 kernel: [ 3242.103942] KERNEL: assertion
-> ((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (2148)
-> Sep  8 17:15:40 ng02 kernel: [ 3242.103951] Leak l=4294967295 3
 
-Same thing happens in -git from this morning.
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Jens Axboe
+
+Hello List,
+
+Today I builded recent git snapshot of netdev tree and after a while i
+get this (hand noted due to hard lockup - no oops in syslog)
+
+Oops: 0000 [#1]
+Modules linked in:=20
+CPU: 0
+EIP: 0060:[<c03d3162>] Not tainted VLI
+EFLAGS: 00010246  (2.6.13-netdev)
+EIP is at tcp_time_to_recover+0x62/0xbf
+
+eax: 00920635 ebx: ffffffff ecx: cd1afb90 edx: 00000000
+esi: 00000000 edi: cd1afb90 ebp: c05c60b0 esp: c05c6d9c
+es =3D ds: 007b  ss : 0068
+
+process: cc1
+stack: ... (i can put details here later in next post if you want - im
+in hurry now)
+
+call trace:
+           show_stack=20
+	   show_registers
+	   die
+	   do_page_fault
+	   error_code
+	   tcp_fastretrans_alert+0x132
+	   tcp_ack
+	   tcp_rcv_established
+	   tcp_v4_do_rcv
+	   tcp_v4_recv
+	   ip_local_deliver
+	   ...
+
+
+	  =20
+as I stated above, I can repost with more details later in the evening
+as I'm in hurry now.
+
+
+kind regards,
+Mateusz
+
+--=20
+  @..@   Mateusz Berezecki=20
+ (----)  mateuszb@gmail.com http://mateusz.agrest.org
+( >__< ) PGP: 5F1C 86DF 89DB BFE9 899E 8CBE EB60 B7A7 43F9 5808=20
+^^ ~~ ^^
+
+--OgqxwSJOaUobr8KG
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFDIHdPKu1H8AtEdBoRAsVHAKCJY2ySAdjkYyh9SIDyMqVZxQvYPACbBiwl
+1rtztl2gIEoDzeduz0E1nXo=
+=SlO8
+-----END PGP SIGNATURE-----
+
+--OgqxwSJOaUobr8KG--
