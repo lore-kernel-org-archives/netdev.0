@@ -1,39 +1,71 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: 2.6.13-git7 strange system freeze
-Date: Thu, 8 Sep 2005 17:38:22 +0200
-Message-ID: <6bffcb0e050908083822616326@mail.gmail.com>
-References: <6bffcb0e050908051412e945c9@mail.gmail.com>
-Reply-To: michal.k.k.piotrowski@gmail.com
+From: Bogdan Costescu <Bogdan.Costescu@iwr.uni-heidelberg.de>
+Subject: Re: [PATCH] 3c59x: read current link status from phy
+Date: Thu, 8 Sep 2005 17:42:42 +0200 (CEST)
+Message-ID: <Pine.LNX.4.63.0509081713500.22954@dingo.iwr.uni-heidelberg.de>
+References: <200509080125.j881PcL9015847@hera.kernel.org>  <431F9899.4060602@pobox.com>
+  <Pine.LNX.4.63.0509081351160.21354@dingo.iwr.uni-heidelberg.de>
+ <1126184700.4805.32.camel@tsc-6.cph.tpack.net>
+ <Pine.LNX.4.63.0509081521140.21354@dingo.iwr.uni-heidelberg.de>
+ <1126190554.4805.68.camel@tsc-6.cph.tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, akpm@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932706AbVIHPiZ@vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>
-In-Reply-To: <6bffcb0e050908051412e945c9@mail.gmail.com>
-Content-Disposition: inline
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932708AbVIHPmz@vger.kernel.org>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1126190554.4805.68.camel@tsc-6.cph.tpack.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 8 Sep 2005, Tommy Christensen wrote:
 
-kernel: 2.6.13-mm2
+> Besides, how long would you like to wait for network connectivity 
+> after plugging in the cable?  It is now lowered from [60-120] to 
+> [0-60] seconds.
 
-it happens when I try to download new gnome-2.12 livecd from bittorrent.
+I now understood what the problem was, so I'll put it in words for 
+posterity: the Link Status bit of the MII Status register needs to be 
+read twice to first clear the error state (link bit=0) after which the 
+bit reports the actual value of the link. From the manual:
 
-ng02:/home/michal# tail /var/log/kern.log
-[..]
-Sep  8 17:15:39 ng02 kernel: [ 3241.479108] KERNEL: assertion
-((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (2148)
-Sep  8 17:15:39 ng02 kernel: [ 3241.479192] KERNEL: assertion
-((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (1127)
-Sep  8 17:15:39 ng02 kernel: [ 3241.479736] KERNEL: assertion
-((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (1127)
-Sep  8 17:15:39 ng02 kernel: [ 3241.831114] KERNEL: assertion
-((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (2148)
-Sep  8 17:15:40 ng02 kernel: [ 3242.103942] KERNEL: assertion
-((int)tp->lost_out >= 0) failed at net/ipv4/tcp_input.c (2148)
-Sep  8 17:15:40 ng02 kernel: [ 3242.103951] Leak l=4294967295 3
+ 	This bit has a latching function. A link failure causes the
+ 	bit to clear and remain clear until it has been read through
+ 	the management interface.
 
-Regards,
-Michal Piotrowski
+I tested this on a Tornado chip and it works as advertised (after link 
+is back up, first read gives 0x7829, the second 0x782d).
+
+But I still don't agree with your solution: you are reading the Status 
+register twice in all cases, which is wrong. What you want is to read 
+it a second time only after the link was marked as down: a simple 
+check if bit 2 of the Status register is 0, in which case you issue 
+the second read. This still means that there will be 2 reads if the 
+link remains down, but at least there is only 1 read for the case 
+where the link is up and remains up.
+
+> Personally, I'd prefer the delay to be < 10 seconds.
+
+If you sample every 60 seconds ? Teach Shannon how to do it ;-)
+
+If you mean to reduce the sampling period, there is a very good reason 
+not to do it: these MDIO operations are expensive - it's a serial 
+protocol. vortex_timer() might do 2 (and with the discussed change - 
+3) of them - there are better things to do for the CPU than wait for 
+these I/O operations. Plus, vortex_timer() also disables the 
+interrupt...
+
+The Tornado and at least some Cyclone chips support generating an 
+interrupt whenever the link changes, which can be used instead of 
+polling for link state. This feature is not used in the 3c59x driver 
+and could give you much less than 10 seconds accuracy - but you have 
+to code it. ;-)
+
+-- 
+Bogdan Costescu
+
+IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
+Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
+Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
+E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
