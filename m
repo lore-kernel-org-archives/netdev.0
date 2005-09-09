@@ -1,8 +1,7 @@
-From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
+From: Bernd Schubert <bernd-schubert@gmx.de>
 Subject: skge: reboot on sysfs resource0 access
-Date: Fri, 9 Sep 2005 19:38:17 +0200
-Message-ID: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de>
-Reply-To: bernd-schubert@gmx.de
+Date: Fri, 9 Sep 2005 19:34:50 +0200
+Message-ID: <200509091934.51301.bernd-schubert@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -51,14 +50,6 @@ write(1, "\33[1;1H\33[m\17\33[30m\33[46mFile: notes "..., 4019) =3D 4019
 Thanks,
 	Bernd
 
-
---=20
-Bernd Schubert
-Physikalisch Chemisches Institut / Theoretische Chemie
-Universit=E4t Heidelberg
-INF 229
-69120 Heidelberg
-e-mail: bernd.schubert@pci.uni-heidelberg.de
 
 --=20
 Bernd Schubert
