@@ -1,62 +1,63 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: skge: reboot on sysfs resource0 access
-Date: Fri, 09 Sep 2005 11:21:52 -0700
-Message-ID: <4321D2C0.10800@candelatech.com>
-References: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de> <20050909110153.5a2e2e90@localhost.localdomain>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: [PATCH 8/8] orinoco: New driver - spectrum_cs.
+Date: Fri, 09 Sep 2005 18:40:09 -0400
+Message-ID: <1126305609.16679.1.camel@dv>
+References: <1125619806.29016.11.camel@dv>
+	 <20050906112424.GA5309@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bernd-schubert@gmx.de, bernd.schubert@pci.uni-heidelberg.de,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050909110153.5a2e2e90@localhost.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+In-Reply-To: <20050906112424.GA5309-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Fri, 9 Sep 2005 19:38:17 +0200
-> Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de> wrote:
+On Tue, 2005-09-06 at 12:24 +0100, Christoph Hellwig wrote:
+> > +#ifdef  __IN_PCMCIA_PACKAGE__
+> > +#include <pcmcia/k_compat.h>
+> > +#endif /* __IN_PCMCIA_PACKAGE__ */
 > 
+> this doesn't make sense for a 2.6 driver.
+
+Fixed in my tree, thanks.  Patches will be sent shortly.
+
+> > +#ifdef SPECTRUM_FW_INCLUDED
+> > +/* Header with the firmware */
+> > +#include "spectrum_fw.h"
+> > +#else	/* !SPECTRUM_FW_INCLUDED */
 > 
->>Hello,
->>
->>today we tried 2.6.13 on our server and also tried to use the skge driver. 
->>Well, in principle it works fine, until I became curious about the sysfs 
->>values. Stupid me, I was using the midnight commander to read the values. 
->>When I opened "/sys/bus/pci/drivers/skge/0000:01:01.0/resource0", the system 
->>immediately rebooted. After the reboot we tested using cat to the resource0 
->>file, which gave an input/output error. Using again the mc, the system again 
->>immediately rebooted.
->>Well, I guess I better don't use the midnight commander in the future, but 
->>somehow I think it shouldn't cause the system to reboot, should it? Is the 
->>i/o error of cat supposed to happen?
->>
+> While I see the point of this for the standalone orinoco driver package
+> it doesn't make sense for the version in the kernel tree.
+
+Likewise.
+
 > 
+> > +#define CS_CHECK(fn, ret) \
+> > +  do { last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; } while (0)
 > 
-> Don't do that!  resource0 is the pci space for the card and
-> reading it directly accesses the memory mapped space. The
-> register is sparse, and some places are unaccessable. 
-> Accessing non-existent memory will cause system to hang and if you
-> are lucky a timeout and reboot.
-> 
-> Sorry, this is not a driver bug.
+> I don't think this macro abuse helps anyone..
 
-Does that mean if you do this:
-
-find /sys -name "*" -print|xargs grep foo
-
-that the system will crash?
-
-I certainly would consider that a bug, and even if that somehow works, I'd
-think that at the least you should be able to read every file in the file
-system without crashing the system!
-
-Do you at least have to be root to cause this crash?
-
-Ben
+Sure, but it's abused by many drivers.  Maybe next time.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Regards,
+Pavel Roskin
+
+
+
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
