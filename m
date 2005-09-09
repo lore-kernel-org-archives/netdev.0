@@ -1,51 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fw: masquerading failure for at least icmp and tcp+sack on amd64
-Date: Fri, 09 Sep 2005 13:41:34 +0200
-Message-ID: <432174EE.80306@trash.net>
-References: <20050907052057.09714a4c.akpm@osdl.org>
-	<431EDF78.8060505@trash.net> <20050907205923.GA6567@schmorp.de>
-	<431F5CD2.8020905@trash.net> <20050907215213.GB8222@schmorp.de>
+From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
+Subject: skge: reboot on sysfs resource0 access
+Date: Fri, 9 Sep 2005 19:38:17 +0200
+Message-ID: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de>
+Reply-To: bernd-schubert@gmx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Marc Lehmann <schmorp@schmorp.de>
-In-Reply-To: <20050907215213.GB8222@schmorp.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <shemminger@osdl.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Marc Lehmann wrote:
-> It's also a 64-bit-only problem. To verify, I tried this:
-> 
-> ethtool -K eth1 rx off tx off sg off
-> 
-> Where eth1 is the interface where pppoe runs over.
-> 
-> ethtool -k eth1 then displayed:
-> 
->    rx-checksumming: off
->    tx-checksumming: off
->    scatter-gather: off
->    tcp segmentation offload: off
-> 
-> And ICMP, TCP etc. starts working again.
-> 
-> Thanks for the analysis and the hint, I guess that verifies that its hw
-> checksumming. (Weird that hw checksumming on the underlying device somehow
-> changes the ppp packets, but nevertheless).
+Hello,
 
-I tried reproducing the problem without any luck. Its odd that its
-happening on both eth and ppp devices, if it was just ppp I would
-suspect some missing checksum update/invalidation in the ppp driver.
-What network driver are you using? Please also send a list of loaded
-modules and iptables rules. Thanks.
+today we tried 2.6.13 on our server and also tried to use the skge driver=
+.=20
+Well, in principle it works fine, until I became curious about the sysfs=20
+values. Stupid me, I was using the midnight commander to read the values.=
+=20
+When I opened "/sys/bus/pci/drivers/skge/0000:01:01.0/resource0", the sys=
+tem=20
+immediately rebooted. After the reboot we tested using cat to the resourc=
+e0=20
+file, which gave an input/output error. Using again the mc, the system ag=
+ain=20
+immediately rebooted.
+Well, I guess I better don't use the midnight commander in the future, bu=
+t=20
+somehow I think it shouldn't cause the system to reboot, should it? Is th=
+e=20
+i/o error of cat supposed to happen?
+
+Maybe it helps, here is a strace of mc's open for a normal file:
+
+open("/home/bernd/notes", O_RDONLY|O_NONBLOCK|O_LARGEFILE) =3D 6
+fstat64(6, {st_mode=3DS_IFREG|0644, st_size=3D96, ...}) =3D 0
+fcntl64(102, F_GETFL)                   =3D -1 EBADF (Bad file descriptor=
+)
+read(6, "http", 4)                      =3D 4
+mmap2(NULL, 96, PROT_READ, MAP_SHARED, 6, 0) =3D 0x402fe000
+select(5, [4], NULL, NULL, {0, 0})      =3D 0 (Timeout)
+select(5, [4], NULL, NULL, {0, 0})      =3D 0 (Timeout)
+write(1, "\33[1;1H\33[m\17\33[30m\33[46mFile: notes "..., 4019) =3D 4019
+
+
+Thanks,
+	Bernd
+
+
+--=20
+Bernd Schubert
+Physikalisch Chemisches Institut / Theoretische Chemie
+Universit=E4t Heidelberg
+INF 229
+69120 Heidelberg
+e-mail: bernd.schubert@pci.uni-heidelberg.de
+
+--=20
+Bernd Schubert
+Physikalisch Chemisches Institut / Theoretische Chemie
+Universit=E4t Heidelberg
+INF 229
+69120 Heidelberg
+e-mail: bernd.schubert@pci.uni-heidelberg.de
