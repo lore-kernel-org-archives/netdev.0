@@ -1,68 +1,40 @@
-From: Jan Kasprzak <kas@fi.muni.cz>
-Subject: TCP segmentation offload performance
-Date: Fri, 9 Sep 2005 19:39:28 +0200
-Message-ID: <20050909173928.GI4823__6409.38508227027$1126287923$gmane$org@fi.muni.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: skge: reboot on sysfs resource0 access
+Date: Fri, 9 Sep 2005 11:01:53 -0700
+Message-ID: <20050909110153.5a2e2e90@localhost.localdomain>
+References: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bernd.schubert@pci.uni-heidelberg.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+To: bernd-schubert@gmx.de
+In-Reply-To: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hello, world!
+On Fri, 9 Sep 2005 19:38:17 +0200
+Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de> wrote:
 
-	I tried to find out whether the TCP segmentation offload
-can perform better on my server than no TSO at all. My server
-is dual Opteron 244 with Tyan S2882 board with the following NIC:
+> Hello,
+> 
+> today we tried 2.6.13 on our server and also tried to use the skge driver. 
+> Well, in principle it works fine, until I became curious about the sysfs 
+> values. Stupid me, I was using the midnight commander to read the values. 
+> When I opened "/sys/bus/pci/drivers/skge/0000:01:01.0/resource0", the system 
+> immediately rebooted. After the reboot we tested using cat to the resource0 
+> file, which gave an input/output error. Using again the mc, the system again 
+> immediately rebooted.
+> Well, I guess I better don't use the midnight commander in the future, but 
+> somehow I think it shouldn't cause the system to reboot, should it? Is the 
+> i/o error of cat supposed to happen?
+>
 
-eth0: Tigon3 [partno(BCM95704A7) rev 2003 PHY(5704)] (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:e0:81:27:de:17
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1]
-eth0: dma_rwctrl[769f4000]
+Don't do that!  resource0 is the pci space for the card and
+reading it directly accesses the memory mapped space. The
+register is sparse, and some places are unaccessable. 
+Accessing non-existent memory will cause system to hang and if you
+are lucky a timeout and reboot.
 
-The server runs ProFTPd with sendfile(2) enabled (and I have verified
-that it is being used with strace(8)). The kernel is 2.6.12.2.
-
-	I have found that according to ethtool -k eth0 the TSO is switched
-off by default. So I tried to switch it on (altough I wondered why it is
-not switched on by default, provided that the hardware supports this feature).
-
-	I tried to measure the difference by downloading an ISO image of
-FC4 i386 CD1 (665434112 bytes) from two hosts connected to the same
-switch. I did 10 transfers of the same file with each settings, and took
-the average and maximum of the last five transfers only (to avoid any
-start-up temporary conditions). The client Alpha was dual Opteron 248
-with Tyan S2882 board, and the client Beta was quad Opteron 848 on HP
-DL-585 board.
-
-Client	TSO	Average speed	Max speed
-Alpha	off	108.7 MB/s	110.5 MB/s
-Alpha	on	100.9 MB/s	101.2 MB/s
-Beta	off	102.1 MB/s	102.4 MB/s
-Beta	on	93.2 MB/s	95.5 MB/s
-
-	Surprisingly enough, the tests without TSO were faster than with TSO
-enabled. Looking at tcpdump it seems that the system with TSO enabled
-sends only a 15 KB-sized frames to the NIC instead of full 64 KB-sized
-ones:
-
-18:45:38.993150 IP odysseus.ftp-data > alpha.33125: P 127424:143352(15928) ack 1 win 1460 <nop,nop,timestamp 2408404 698142942>
-18:45:38.993203 IP odysseus.ftp-data > alpha.33125: P 143352:159280(15928) ack 1 win 1460 <nop,nop,timestamp 2408404 698142942>
-
-	So I wonder what is wrong with TSO on my hardware and whether
-the TSO is expected to be faster than generating MTU-sized packets in the
-TCP stack. I did not measure the CPU usage on the server, only the
-network speed.
-
-Thanks!
-
--Yenya
-
--- 
-| Jan "Yenya" Kasprzak  <kas at {fi.muni.cz - work | yenya.net - private}> |
-| GPG: ID 1024/D3498839      Fingerprint 0D99A7FB206605D7 8B35FCDE05B18A5E |
-| http://www.fi.muni.cz/~kas/    Journal: http://www.fi.muni.cz/~kas/blog/ |
->>> $ cd my-kernel-tree-2.6                                              <<<
->>> $ dotest /path/to/mbox  # yes, Linus has no taste in naming scripts  <<<
+Sorry, this is not a driver bug.
