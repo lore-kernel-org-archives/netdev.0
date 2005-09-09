@@ -1,11 +1,10 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 1/3] orinoco: WE-18 support
-Date: Fri, 09 Sep 2005 18:43:02 -0400
-Message-ID: <1126305782.16679.5.camel@dv>
+Subject: [PATCH 2/3] orinoco: Update PCMCIA ID's
+Date: Fri, 09 Sep 2005 18:45:15 -0400
+Message-ID: <1126305915.16739.1.camel@dv>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -20,239 +19,150 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Author: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-Use new Wireless Extension API for wireless stats.
+diff-tree ec36f4b4e7671a87861d06b5a86143c9e9152eaa (from 9cd99739afa14e22f75a4940f53116aa8f8247d8)
+Author: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Date:   Fri Sep 9 18:24:50 2005 -0400
 
-diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
---- a/drivers/net/wireless/orinoco.c
-+++ b/drivers/net/wireless/orinoco.c
-@@ -137,7 +137,7 @@ MODULE_PARM_DESC(force_monitor, "Allow m
+    Update PCMCIA ID's.
+    
+    Intel Pro/Wireless 2011 and 2011B have the same numeric ID, so use strings.
+    
+    Incorporate all entries from *.conf for Orinoco, HostAP and linux-wlan-ng
+    with minimal changes (e.g. we don't need all 4 strings if the second string
+    identifies the chipset).
+    
+    Add comments to all numeric entries.
+
+diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/orinoco_cs.c
+--- a/drivers/net/wireless/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco_cs.c
+@@ -601,52 +601,88 @@ orinoco_cs_event(event_t event, int prio
+ static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
+ 	" (David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>, "
+ 	"Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>, et al)";
  
- /* We do this this way to avoid ifdefs in the actual code */
- #ifdef WIRELESS_SPY
--#define SPY_NUMBER(priv)	(priv->spy_number)
-+#define SPY_NUMBER(priv)	(priv->spy_data.spy_number)
- #else
- #define SPY_NUMBER(priv)	0
- #endif /* WIRELESS_SPY */
-@@ -396,10 +396,10 @@ static struct iw_statistics *orinoco_get
- 		/* If a spy address is defined, we report stats of the
- 		 * first spy address - Jean II */
- 		if (SPY_NUMBER(priv)) {
--			wstats->qual.qual = priv->spy_stat[0].qual;
--			wstats->qual.level = priv->spy_stat[0].level;
--			wstats->qual.noise = priv->spy_stat[0].noise;
--			wstats->qual.updated = priv->spy_stat[0].updated;
-+			wstats->qual.qual = priv->spy_data.spy_stat[0].qual;
-+			wstats->qual.level = priv->spy_data.spy_stat[0].level;
-+			wstats->qual.noise = priv->spy_data.spy_stat[0].noise;
-+			wstats->qual.updated = priv->spy_data.spy_stat[0].updated;
- 		}
- 	} else {
- 		struct {
-@@ -718,18 +718,13 @@ static inline int is_ethersnap(void *_hd
- static inline void orinoco_spy_gather(struct net_device *dev, u_char *mac,
- 				      int level, int noise)
- {
--	struct orinoco_private *priv = netdev_priv(dev);
--	int i;
--
--	/* Gather wireless spy statistics: for each packet, compare the
--	 * source address with out list, and if match, get the stats... */
--	for (i = 0; i < priv->spy_number; i++)
--		if (!memcmp(mac, priv->spy_address[i], ETH_ALEN)) {
--			priv->spy_stat[i].level = level - 0x95;
--			priv->spy_stat[i].noise = noise - 0x95;
--			priv->spy_stat[i].qual = (level > noise) ? (level - noise) : 0;
--			priv->spy_stat[i].updated = 7;
--		}
-+	struct iw_quality wstats;
-+	wstats.level = level - 0x95;
-+	wstats.noise = noise - 0x95;
-+	wstats.qual = (level > noise) ? (level - noise) : 0;
-+	wstats.updated = 7;
-+	/* Update spy records */
-+	wireless_spy_update(dev, mac, &wstats);
- }
- 
- static void orinoco_stat_gather(struct net_device *dev,
-@@ -2458,8 +2453,11 @@ struct net_device *alloc_orinocodev(int 
- 	dev->watchdog_timeo = HZ; /* 1 second timeout */
- 	dev->get_stats = orinoco_get_stats;
- 	dev->ethtool_ops = &orinoco_ethtool_ops;
--	dev->get_wireless_stats = orinoco_get_wireless_stats;
- 	dev->wireless_handlers = (struct iw_handler_def *)&orinoco_handler_def;
-+#ifdef WIRELESS_SPY
-+	priv->wireless_data.spy_data = &priv->spy_data;
-+	dev->wireless_data = &priv->wireless_data;
-+#endif
- 	dev->change_mtu = orinoco_change_mtu;
- 	dev->set_multicast_list = orinoco_set_multicast_list;
- 	/* we use the default eth_mac_addr for setting the MAC addr */
-@@ -2831,7 +2829,7 @@ static int orinoco_ioctl_getiwrange(stru
- 		}
- 	}
- 
--	if ((priv->iw_mode == IW_MODE_ADHOC) && (priv->spy_number == 0)){
-+	if ((priv->iw_mode == IW_MODE_ADHOC) && (!SPY_NUMBER(priv))){
- 		/* Quality stats meaningless in ad-hoc mode */
- 	} else {
- 		range->max_qual.qual = 0x8b - 0x2f;
-@@ -2878,6 +2876,14 @@ static int orinoco_ioctl_getiwrange(stru
- 	range->min_r_time = 0;
- 	range->max_r_time = 65535 * 1000;	/* ??? */
- 
-+	/* Event capability (kernel) */
-+	IW_EVENT_CAPA_SET_KERNEL(range->event_capa);
-+	/* Event capability (driver) */
-+	IW_EVENT_CAPA_SET(range->event_capa, SIOCGIWTHRSPY);
-+	IW_EVENT_CAPA_SET(range->event_capa, SIOCGIWAP);
-+	IW_EVENT_CAPA_SET(range->event_capa, SIOCGIWSCAN);
-+	IW_EVENT_CAPA_SET(range->event_capa, IWEVTXDROP);
-+
- 	TRACE_EXIT(dev->name);
- 
- 	return 0;
-@@ -3837,92 +3843,6 @@ static int orinoco_ioctl_getrid(struct n
- 	return err;
- }
- 
--/* Spy is used for link quality/strength measurements in Ad-Hoc mode
-- * Jean II */
--static int orinoco_ioctl_setspy(struct net_device *dev,
--				struct iw_request_info *info,
--				struct iw_point *srq,
--				char *extra)
--
--{
--	struct orinoco_private *priv = netdev_priv(dev);
--	struct sockaddr *address = (struct sockaddr *) extra;
--	int number = srq->length;
--	int i;
--	unsigned long flags;
--
--	/* Make sure nobody mess with the structure while we do */
--	if (orinoco_lock(priv, &flags) != 0)
--		return -EBUSY;
--
--	/* orinoco_lock() doesn't disable interrupts, so make sure the
--	 * interrupt rx path don't get confused while we copy */
--	priv->spy_number = 0;
--
--	if (number > 0) {
--		/* Extract the addresses */
--		for (i = 0; i < number; i++)
--			memcpy(priv->spy_address[i], address[i].sa_data,
--			       ETH_ALEN);
--		/* Reset stats */
--		memset(priv->spy_stat, 0,
--		       sizeof(struct iw_quality) * IW_MAX_SPY);
--		/* Set number of addresses */
--		priv->spy_number = number;
--	}
--
--	/* Now, let the others play */
--	orinoco_unlock(priv, &flags);
--
--	/* Do NOT call commit handler */
--	return 0;
--}
--
--static int orinoco_ioctl_getspy(struct net_device *dev,
--				struct iw_request_info *info,
--				struct iw_point *srq,
--				char *extra)
--{
--	struct orinoco_private *priv = netdev_priv(dev);
--	struct sockaddr *address = (struct sockaddr *) extra;
--	int number;
--	int i;
--	unsigned long flags;
--
--	if (orinoco_lock(priv, &flags) != 0)
--		return -EBUSY;
--
--	number = priv->spy_number;
--	/* Create address struct */
--	for (i = 0; i < number; i++) {
--		memcpy(address[i].sa_data, priv->spy_address[i], ETH_ALEN);
--		address[i].sa_family = AF_UNIX;
--	}
--	if (number > 0) {
--		/* Create address struct */
--		for (i = 0; i < number; i++) {
--			memcpy(address[i].sa_data, priv->spy_address[i],
--			       ETH_ALEN);
--			address[i].sa_family = AF_UNIX;
--		}
--		/* Copy stats */
--		/* In theory, we should disable irqs while copying the stats
--		 * because the rx path might update it in the middle...
--		 * Bah, who care ? - Jean II */
--		memcpy(extra  + (sizeof(struct sockaddr) * number),
--		       priv->spy_stat, sizeof(struct iw_quality) * number);
--	}
--	/* Reset updated flags. */
--	for (i = 0; i < number; i++)
--		priv->spy_stat[i].updated = 0;
--
--	orinoco_unlock(priv, &flags);
--
--	srq->length = number;
--
--	return 0;
--}
--
- /* Trigger a scan (look for other cells in the vicinity */
- static int orinoco_ioctl_setscan(struct net_device *dev,
- 				 struct iw_request_info *info,
-@@ -4353,8 +4273,10 @@ static const iw_handler	orinoco_handler[
- 	[SIOCSIWSENS  -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_setsens,
- 	[SIOCGIWSENS  -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_getsens,
- 	[SIOCGIWRANGE -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_getiwrange,
--	[SIOCSIWSPY   -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_setspy,
--	[SIOCGIWSPY   -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_getspy,
-+	[SIOCSIWSPY   -SIOCIWFIRST] = (iw_handler) iw_handler_set_spy,
-+	[SIOCGIWSPY   -SIOCIWFIRST] = (iw_handler) iw_handler_get_spy,
-+	[SIOCSIWTHRSPY-SIOCIWFIRST] = (iw_handler) iw_handler_set_thrspy,
-+	[SIOCGIWTHRSPY-SIOCIWFIRST] = (iw_handler) iw_handler_get_thrspy,
- 	[SIOCSIWAP    -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_setwap,
- 	[SIOCGIWAP    -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_getwap,
- 	[SIOCSIWSCAN  -SIOCIWFIRST] = (iw_handler) orinoco_ioctl_setscan,
-@@ -4399,6 +4321,7 @@ static const struct iw_handler_def orino
- 	.standard = orinoco_handler,
- 	.private = orinoco_private_handler,
- 	.private_args = orinoco_privtab,
-+	.get_wireless_stats = orinoco_get_wireless_stats,
+ static struct pcmcia_device_id orinoco_cs_ids[] = {
+-	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300),
+-	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a),
+-	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001),
+-	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x0305),
+-	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613),
+-	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673),
+-	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0x02ac, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0x14ea, 0xb001),
+-	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300),
+-	PCMCIA_DEVICE_MANF_CARD(0x9005, 0x0021),
+-	PCMCIA_DEVICE_MANF_CARD(0xc250, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002),
+-	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0005),
++	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7100), /* SonicWALL Long Range Wireless Card */
++	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300), /* Sohoware NCP110, Philips 802.11b */
++	PCMCIA_DEVICE_MANF_CARD(0x0089, 0x0002), /* AnyPoint(TM) Wireless II PC Card */
++	PCMCIA_DEVICE_MANF_CARD(0x0101, 0x0777), /* 3Com AirConnect PCI 777A */
++	PCMCIA_DEVICE_MANF_CARD(0x0126, 0x8000), /* PROXIM RangeLAN-DS/LAN PC CARD */
++	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002), /* Compaq WL100 11 Mbps Wireless Adapter */
++	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002), /* Lucent Orinoco and old Intersil */
++	PCMCIA_DEVICE_MANF_CARD(0x016b, 0x0001), /* Ericsson WLAN Card C11 */
++	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a), /* Nortel Networks eMobility 802.11 Wireless Adapter */
++	PCMCIA_DEVICE_MANF_CARD(0x01ff, 0x0008), /* Intermec MobileLAN 11Mbps 802.11b WLAN Card */
++	PCMCIA_DEVICE_MANF_CARD(0x0250, 0x0002), /* Samsung SWL2000-N 11Mb/s WLAN Card */
++	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002), /* AirWay 802.11 Adapter (PCMCIA) */
++	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001), /* ARtem Onair */
++	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x0305), /* Buffalo WLI-PCM-S11 */
++	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1612), /* Linksys WPC11 Version 2.5 */
++	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613), /* Linksys WPC11 Version 3 */
++	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002), /* Compaq HNW-100 11 Mbps Wireless Adapter */
++	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673), /* Linksys WCF12 Wireless CompactFlash Card */
++	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002), /* ASUS SpaceLink WL-100 */
++	PCMCIA_DEVICE_MANF_CARD(0x02ac, 0x0002), /* SpeedStream SS1021 Wireless Adapter */
++	PCMCIA_DEVICE_MANF_CARD(0x14ea, 0xb001), /* PLANEX RoadLannerWave GW-NS11H */
++	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300), /* Airvast WN-100 */
++	PCMCIA_DEVICE_MANF_CARD(0x9005, 0x0021), /* Adaptec Ultra Wireless ANW-8030 */
++	PCMCIA_DEVICE_MANF_CARD(0xc001, 0x0008), /* CONTEC FLEXSCAN/FX-DDS110-PCC */
++	PCMCIA_DEVICE_MANF_CARD(0xc250, 0x0002), /* Conceptronic CON11Cpro, EMTAC A2424i */
++	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002), /* Safeway 802.11b, ZCOMAX AirRunner/XI-300 */
++	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0005), /* D-Link DCF660, Sandisk Connect SDWCFB-000 */
++	PCMCIA_DEVICE_PROD_ID12(" ", "IEEE 802.11 Wireless LAN/PC Card", 0x3b6e20c8, 0xefccafe9),
+ 	PCMCIA_DEVICE_PROD_ID12("3Com", "3CRWE737A AirConnect Wireless LAN PC Card", 0x41240e5b, 0x56010af3),
+-	PCMCIA_DEVICE_PROD_ID123("Instant Wireless ", " Network PC CARD", "Version 01.02", 0x11d901af, 0x6e9bd926, 0x4b74baa0),
+ 	PCMCIA_DEVICE_PROD_ID12("ACTIONTEC", "PRISM Wireless LAN PC Card", 0x393089da, 0xa71e69d5),
++	PCMCIA_DEVICE_PROD_ID12("Addtron", "AWP-100 Wireless PCMCIA", 0xe6ec52ce, 0x08649af2),
++	PCMCIA_DEVICE_PROD_ID123("AIRVAST", "IEEE 802.11b Wireless PCMCIA Card", "HFA3863", 0xea569531, 0x4bcb9645, 0x355cb092),
++	PCMCIA_DEVICE_PROD_ID12("Allied Telesyn", "AT-WCL452 Wireless PCMCIA Radio", 0x5cd01705, 0x4271660f),
++	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11b_PC_CARD_25", 0x78fc06ee, 0xdb9aa842),
++	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11B_CF_CARD_25", 0x78fc06ee, 0x45a50c1e),
+ 	PCMCIA_DEVICE_PROD_ID12("Avaya Communication", "Avaya Wireless PC Card", 0xd8a43b78, 0x0d341169),
++	PCMCIA_DEVICE_PROD_ID12("BENQ", "AWL100 PCMCIA ADAPTER", 0x35dadc74, 0x01f7fedb),
+ 	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-PCM-L11G", 0x2decece3, 0xf57ca4b3),
++	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-CF-S11G", 0x2decece3, 0x82067c18),
+ 	PCMCIA_DEVICE_PROD_ID12("Cabletron", "RoamAbout 802.11 DS", 0x32d445f5, 0xedeffd90),
++	PCMCIA_DEVICE_PROD_ID12("Compaq", "WL200_11Mbps_Wireless_PCI_Card", 0x54f7c49c, 0x15a75e5b),
++	PCMCIA_DEVICE_PROD_ID123("corega", "WL PCCL-11", "ISL37300P", 0x0a21501a, 0x59868926, 0xc9049a39),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "Wireless LAN PCC-11", 0x5261440f, 0xa6405584),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "Wireless LAN PCCA-11", 0x5261440f, 0xdf6115f9),
+ 	PCMCIA_DEVICE_PROD_ID12("D", "Link DRC-650 11Mbps WLAN Card", 0x71b18589, 0xf144e3ac),
+ 	PCMCIA_DEVICE_PROD_ID12("D", "Link DWL-650 11Mbps WLAN Card", 0x71b18589, 0xb6f1b0ab),
++	PCMCIA_DEVICE_PROD_ID12("D-Link Corporation", "D-Link DWL-650H 11Mbps WLAN Adapter", 0xef544d24, 0xcd8ea916),
++	PCMCIA_DEVICE_PROD_ID12("Digital Data Communications", "WPC-0100", 0xfdd73470, 0xe0b6f146),
+ 	PCMCIA_DEVICE_PROD_ID12("ELSA", "AirLancer MC-11", 0x4507a33a, 0xef54f0e3),
+ 	PCMCIA_DEVICE_PROD_ID12("HyperLink", "Wireless PC Card 11Mbps", 0x56cc3f1a, 0x0bcf220c),
++	PCMCIA_DEVICE_PROD_ID123("Instant Wireless ", " Network PC CARD", "Version 01.02", 0x11d901af, 0x6e9bd926, 0x4b74baa0),
++	PCMCIA_DEVICE_PROD_ID12("Intel", "PRO/Wireless 2011 LAN PC Card", 0x816cc815, 0x07f58077),
+ 	PCMCIA_DEVICE_PROD_ID12("INTERSIL", "HFA384x/IEEE", 0x74c5e40d, 0xdb472a18),
++	PCMCIA_DEVICE_PROD_ID12("INTERSIL", "I-GATE 11M PC Card / PC Card plus", 0x74c5e40d, 0x8304ff77),
++	PCMCIA_DEVICE_PROD_ID12("Intersil", "PRISM 2_5 PCMCIA ADAPTER", 0x4b801a17, 0x6345a0bf),
++	PCMCIA_DEVICE_PROD_ID123("Intersil", "PRISM Freedom PCMCIA Adapter", "ISL37100P", 0x4b801a17, 0xf222ec2d, 0x630d52b2),
++	PCMCIA_DEVICE_PROD_ID12("LeArtery", "SYNCBYAIR 11Mbps Wireless LAN PC Card", 0x7e3b326a, 0x49893e92),
++	PCMCIA_DEVICE_PROD_ID12("Linksys", "Wireless CompactFlash Card", 0x0733cc81, 0x0c52f395),
+ 	PCMCIA_DEVICE_PROD_ID12("Lucent Technologies", "WaveLAN/IEEE", 0x23eb9949, 0xc562e72a),
+ 	PCMCIA_DEVICE_PROD_ID12("MELCO", "WLI-PCM-L11", 0x481e0094, 0x7360e410),
+ 	PCMCIA_DEVICE_PROD_ID12("MELCO", "WLI-PCM-L11G", 0x481e0094, 0xf57ca4b3),
+ 	PCMCIA_DEVICE_PROD_ID12("Microsoft", "Wireless Notebook Adapter MN-520", 0x5961bf85, 0x6eec8c01),
+ 	PCMCIA_DEVICE_PROD_ID12("NCR", "WaveLAN/IEEE", 0x24358cd4, 0xc562e72a),
++	PCMCIA_DEVICE_PROD_ID12("NETGEAR MA401 Wireless PC", "Card", 0xa37434e9, 0x9762e8f1),
+ 	PCMCIA_DEVICE_PROD_ID12("NETGEAR MA401RA Wireless PC", "Card", 0x0306467f, 0x9762e8f1),
++	PCMCIA_DEVICE_PROD_ID12("Nortel Networks", "emobility 802.11 Wireless LAN PC Card", 0x2d617ea0, 0x88cd5767),
++	PCMCIA_DEVICE_PROD_ID12("OEM", "PRISM2 IEEE 802.11 PC-Card", 0xfea54c90, 0x48f2bdd6),
++	PCMCIA_DEVICE_PROD_ID12("OTC", "Wireless AirEZY 2411-PCC WLAN Card", 0x4ac44287, 0x235a6bed),
++	PCMCIA_DEVICE_PROD_ID123("PCMCIA", "11M WLAN Card v2.5", "ISL37300P", 0x281f1c5d, 0x6e440487, 0xc9049a39),
+ 	PCMCIA_DEVICE_PROD_ID12("PLANEX", "GeoWave/GW-CF110", 0x209f40ab, 0xd9715264),
++	PCMCIA_DEVICE_PROD_ID12("PLANEX", "GeoWave/GW-NS110", 0x209f40ab, 0x46263178),
+ 	PCMCIA_DEVICE_PROD_ID12("PROXIM", "LAN PC CARD HARMONY 80211B", 0xc6536a5e, 0x090c3cd9),
+ 	PCMCIA_DEVICE_PROD_ID12("PROXIM", "LAN PCI CARD HARMONY 80211B", 0xc6536a5e, 0x9f494e26),
+ 	PCMCIA_DEVICE_PROD_ID12("SAMSUNG", "11Mbps WLAN Card", 0x43d74cb4, 0x579bd91b),
+-	PCMCIA_DEVICE_PROD_ID1("Symbol Technologies", 0x3f02b4d6),
++	PCMCIA_DEVICE_PROD_ID12("SMC", "SMC2632W", 0xc4f8b18b, 0x474a1f2a),
++	PCMCIA_DEVICE_PROD_ID12("Symbol Technologies", "LA4111 Spectrum24 Wireless LAN PC Card", 0x3f02b4d6, 0x3663cb0e),
++	PCMCIA_DEVICE_PROD_ID123("The Linksys Group, Inc.", "Instant Wireless Network PC Card", "ISL37300P", 0xa5f472c2, 0x590eb502, 0xc9049a39),
++	PCMCIA_DEVICE_PROD_ID12("ZoomAir 11Mbps High", "Rate wireless Networking", 0x273fe3db, 0x32a1eaee),
+ 	PCMCIA_DEVICE_NULL,
  };
+ MODULE_DEVICE_TABLE(pcmcia, orinoco_cs_ids);
  
- static void orinoco_get_drvinfo(struct net_device *dev,
-diff --git a/drivers/net/wireless/orinoco.h b/drivers/net/wireless/orinoco.h
---- a/drivers/net/wireless/orinoco.h
-+++ b/drivers/net/wireless/orinoco.h
-@@ -13,6 +13,7 @@
- #include <linux/spinlock.h>
- #include <linux/netdevice.h>
- #include <linux/wireless.h>
-+#include <net/iw_handler.h>
- #include <linux/version.h>
+ static struct pcmcia_driver orinoco_driver = {
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/spectrum_cs.c
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -1083,11 +1083,11 @@ static char version[] __initdata = DRIVE
+ 	" David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>, et al)";
  
- #include "hermes.h"
-@@ -112,9 +113,8 @@ struct orinoco_private {
- 	u16 pm_on, pm_mcast, pm_period, pm_timeout;
- 	u16 preamble;
- #ifdef WIRELESS_SPY
--	int			spy_number;
--	u_char			spy_address[IW_MAX_SPY][ETH_ALEN];
--	struct iw_quality	spy_stat[IW_MAX_SPY];
-+ 	struct iw_spy_data spy_data; /* iwspy support */
-+	struct iw_public_data	wireless_data;
- #endif
+ static struct pcmcia_device_id spectrum_cs_ids[] = {
+ 	PCMCIA_DEVICE_MANF_CARD(0x026c, 0x0001), /* Symbol Spectrum24 LA4100 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x0104, 0x0001), /* Socket Communications CF */
+-	PCMCIA_DEVICE_MANF_CARD(0x0089, 0x0001), /* Intel PRO/Wireless 2011B */
++	PCMCIA_DEVICE_PROD_ID12("Intel", "PRO/Wireless LAN PC Card", 0x816cc815, 0x6fbf459a), /* 2011B, not 2011 */
+ 	PCMCIA_DEVICE_NULL,
+ };
+ MODULE_DEVICE_TABLE(pcmcia, spectrum_cs_ids);
  
- 	/* Configuration dependent variables */
-
+ static struct pcmcia_driver orinoco_driver = {
 
 -- 
 Regards,
