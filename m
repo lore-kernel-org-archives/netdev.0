@@ -1,40 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: skge: reboot on sysfs resource0 access
-Date: Fri, 9 Sep 2005 11:01:53 -0700
-Message-ID: <20050909110153.5a2e2e90@localhost.localdomain>
-References: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] 3c59x: read current link status from phy
+Date: Fri, 9 Sep 2005 13:08:24 -0500
+Message-ID: <3D0A0EB3-0C82-4C58-8FE1-11DC9803E4A7@freescale.com>
+References: <200509080125.j881PcL9015847@hera.kernel.org>  <431F9899.4060602@pobox.com> <Pine.LNX.4.63.0509081351160.21354@dingo.iwr.uni-heidelberg.de>  <1126184700.4805.32.camel@tsc-6.cph.tpack.net>  <Pine.LNX.4.63.0509081521140.21354@dingo.iwr.uni-heidelberg.de> <1126190554.4805.68.camel@tsc-6.cph.tpack.net> <Pine.LNX.4.63.0509081713500.22954@dingo.iwr.uni-heidelberg.de> <62AA8EFA-7D65-4E87-B71F-55A07321011E@freescale.com> <Pine.LNX.4.63.0509091152450.23760@dingo.iwr.uni-heidelberg.de>
+Mime-Version: 1.0 (Apple Message framework v734)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bernd.schubert@pci.uni-heidelberg.de, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: bernd-schubert@gmx.de
-In-Reply-To: <200509091938.18079.bernd.schubert@pci.uni-heidelberg.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030308AbVIISIg@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.63.0509091152450.23760@dingo.iwr.uni-heidelberg.de>
+To: Bogdan Costescu <Bogdan.Costescu@iwr.uni-heidelberg.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Sep 2005 19:38:17 +0200
-Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de> wrote:
 
-> Hello,
-> 
-> today we tried 2.6.13 on our server and also tried to use the skge driver. 
-> Well, in principle it works fine, until I became curious about the sysfs 
-> values. Stupid me, I was using the midnight commander to read the values. 
-> When I opened "/sys/bus/pci/drivers/skge/0000:01:01.0/resource0", the system 
-> immediately rebooted. After the reboot we tested using cat to the resource0 
-> file, which gave an input/output error. Using again the mc, the system again 
-> immediately rebooted.
-> Well, I guess I better don't use the midnight commander in the future, but 
-> somehow I think it shouldn't cause the system to reboot, should it? Is the 
-> i/o error of cat supposed to happen?
+On Sep 9, 2005, at 05:10, Bogdan Costescu wrote:
+
+> On Thu, 8 Sep 2005, Andy Fleming wrote:
 >
+>
+>> Is the cost of an extra read every minute really too high?
+>>
+>
+> You probably didn't look at the code. The MII registers are not  
+> exposed in the PCI space, they need to be accessed through a serial  
+> protocol, such that each MII register read is in fact about 200 (in  
+> total) of outw and inw/inl operations.
 
-Don't do that!  resource0 is the pci space for the card and
-reading it directly accesses the memory mapped space. The
-register is sparse, and some places are unaccessable. 
-Accessing non-existent memory will cause system to hang and if you
-are lucky a timeout and reboot.
+I certainly looked at the code.  I'm aware that there are probably  
+about 150 microseconds of work, tops, to do each read.  Do it outside  
+of interrupt time, and separate from the normal thread of the driver  
+(like a task struct), and it shouldn't take up that much CPU time.   
+And if it's being done every minute, it's really not a big deal, is it?
 
-Sorry, this is not a driver bug.
+Anyway, it's not a big deal to me.  I agree that doing only one read,  
+if the link is reported as up, is a good idea.  I'll be sure to put  
+it in the next rev of the PHY Layer.
+
+I also agree that polling should be done every 5 seconds, at least  
+when the link is down.
+
+Andy Fleming
+Freescale Open Source Team
