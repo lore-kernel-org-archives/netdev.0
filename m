@@ -1,40 +1,51 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] 3c59x: read current link status from phy
-Date: Fri, 9 Sep 2005 07:35:43 -0400
-Message-ID: <20050909113543.GA19829@hmsreliant.homelinux.net>
-References: <431F9899.4060602@pobox.com> <Pine.LNX.4.63.0509081351160.21354@dingo.iwr.uni-heidelberg.de> <1126184700.4805.32.camel@tsc-6.cph.tpack.net> <Pine.LNX.4.63.0509081521140.21354@dingo.iwr.uni-heidelberg.de> <1126190554.4805.68.camel@tsc-6.cph.tpack.net> <Pine.LNX.4.63.0509081713500.22954@dingo.iwr.uni-heidelberg.de> <4320BD96.3060307@tpack.net> <20050909010816.GA28653@tuxdriver.com> <43213B18.3020606@tpack.net> <20050909004406.52a37476.akpm@osdl.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: masquerading failure for at least icmp and tcp+sack on amd64
+Date: Fri, 09 Sep 2005 13:41:34 +0200
+Message-ID: <432174EE.80306@trash.net>
+References: <20050907052057.09714a4c.akpm@osdl.org>
+	<431EDF78.8060505@trash.net> <20050907205923.GA6567@schmorp.de>
+	<431F5CD2.8020905@trash.net> <20050907215213.GB8222@schmorp.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tommy Christensen <tommy.christensen@tpack.net>,
-	linville@tuxdriver.com, Bogdan.Costescu@iwr.uni-heidelberg.de,
-	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030257AbVIILgX@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050909004406.52a37476.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Marc Lehmann <schmorp@schmorp.de>
+In-Reply-To: <20050907215213.GB8222@schmorp.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 09, 2005 at 12:44:06AM -0700, Andrew Morton wrote:
-> Tommy Christensen <tommy.christensen@tpack.net> wrote:
-> >
-> > John W. Linville wrote:
-> > > Any chance you could re-diff this to apply on top of the patch posted
-> > > earlier today by Neil Horman?
-> > 
-> > Sure, but his patch didn't apply to -git8.
-> > 
-> > If Neil would please resend, then I can diff against that.
-> > 
+Marc Lehmann wrote:
+> It's also a 64-bit-only problem. To verify, I tried this:
 > 
-> Is OK, I'll sort it all out.
-Thanks all, I appreciate it.
-Neil
+> ethtool -K eth1 rx off tx off sg off
+> 
+> Where eth1 is the interface where pppoe runs over.
+> 
+> ethtool -k eth1 then displayed:
+> 
+>    rx-checksumming: off
+>    tx-checksumming: off
+>    scatter-gather: off
+>    tcp segmentation offload: off
+> 
+> And ICMP, TCP etc. starts working again.
+> 
+> Thanks for the analysis and the hint, I guess that verifies that its hw
+> checksumming. (Weird that hw checksumming on the underlying device somehow
+> changes the ppp packets, but nevertheless).
 
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
+I tried reproducing the problem without any luck. Its odd that its
+happening on both eth and ppp devices, if it was just ppp I would
+suspect some missing checksum update/invalidation in the ppp driver.
+What network driver are you using? Please also send a list of loaded
+modules and iptables rules. Thanks.
