@@ -1,103 +1,82 @@
-From: "Ananda Raju" <ananda.raju@neterion.com>
-Subject: clarification required on UDP sendfile()
-Date: Fri, 9 Sep 2005 18:37:16 -0700
-Message-ID: <200509100138.j8A1c8lb003006@guinness.s2io.com>
+From: Alejandro Bonilla Beeche <abonilla@linuxwireless.org>
+Subject: 2nd Try - [PATCH Linus Git] README.ipw2200 does not contain
+	firmware information.
+Date: Sat, 10 Sep 2005 02:35:03 -0600
+Message-ID: <1126341303.6041.4.camel@localhost.localdomain>
+References: <1126057717.5165.9.camel@localhost.localdomain>
+Reply-To: abonilla@linuxwireless.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "'Leonid Grossman'" <Leonid.Grossman@neterion.com>,
-        <ravinandan.arakali@neterion.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	jketreno@linux.intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750703AbVIJIfE@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <1126057717.5165.9.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, 
+Hi,
 
-We are implementing UDP Large send offload (USO) feature for our Xframe-II
-10g Ethernet adapter. We are facing problem in using sendfile().
+	I was wondering why this change hasn't made it into the Linus Git so
+far.
 
-we have written a client server program which uses sendfile() over udp. We
-are facing a problem in which the last sendfile() operation fails to reach
-server. This behavior is irrespective of USO feature. 
-
-Client.c has following code. Size of file iperf-2.0.1.tar.gz used for
-transfer is 222957
---------------------------------------------------
-Main()
-{
-portno=16000;
-fd1 = open("iperf-2.0.1.tar.gz",O_RDWR);
-fd = socket(AF_INET,SOCK_DGRAM,0);
-bzero((char *) &serv_addr, sizeof(serv_addr));
-serv_addr.sin_family = AF_INET;
-serv_addr.sin_port = htons(portno);
-serv_addr.sin_addr.s_addr = inet_addr("172.10.1.227");
-ret = connect(fd,&serv_addr,sizeof(serv_addr));
-len = sizeof(client_addr);
-off=0;
-while (1) {
-        size = 40*1024;
-        ret = sendfile(fd,fd1,NULL,size);
-        printf("size %d \n",ret);
-        sleep(1);
-        if (ret<=0)
-	        exit(0);
-}
-close(fd);
-close(fd1);
-}
---------------------------------------------
-
-Server.c has following code 
---------------------------------------------
-int portno=16000;
-char buf[65000];
-main()
-{
-fd = socket(AF_INET,SOCK_DGRAM,0);
-bzero((char *) &serv_addr, sizeof(serv_addr));
-serv_addr.sin_family = AF_INET;
-serv_addr.sin_port = htons(portno);
-ret = bind(fd,(struct sockaddr*)&serv_addr,sizeof(serv_addr));
-len = sizeof(client_addr);
-while (1){
-        ret = recvfrom(fd,&buf,sizeof(buf),0,(struct
-sockaddr*)&client_addr,&len);
-        printf("size %d \n",ret);
-}
-}
--------------------------------------------
-
-# ls -l |grep iperf-2.0.1.tar.gz
--rw-r--r--   1 root    root  222957 Sep  8 08:31 iperf-2.0.1.tar.gz
-#
-
-#./client
-size 40960
-size 40960
-size 40960
-size 40960
-size 40960
-size 18157  <<< Didn't reach server
-size 0
-#
-
-#./server
-size 40960
-size 40960
-size 40960
-size 40960
-size 40960
+Thanks.
 
 
-The last transmit of 18157 bytes didn't reach the server, any reason why
-this happens. Also some time the middle frames also won't reach the server.
-We did tcpdump and observed that the packets are not put on the wire. The
-packets are getting lost in the host network stack. Is this behavior is
-expected or We are doing wrong somewhere? 
-
-Regards,
-Ananda 
+On Tue, 2005-09-06 at 19:48 -0600, Alejandro Bonilla Beeche wrote:
+> Hi,
+> 
+> 	The kconfig from net/wireless says to look at the README.ipw2200 for
+> further installation of the firmware file. We have that information unde
+> INSTALL not under README.ipw2200, still I just added a part that talks
+> about installing the firmware file. This because README.ipw2200 is
+> already in the Documentation/networking/.
+> 
+> I'm still spamming everyone cause I have not been told where to send
+> this directly. :-)
+> 
+> Signed-off-by: Alejandro Bonilla <abonilla@linuxwireless.org>
+> 
+> Pasted and attached.
+> 
+> debian:~/linux-2.6# diff -usr Documentation/networking/README.ipw2200~
+> Documentation/networking/README.ipw2200
+> 
+> --- Documentation/networking/README.ipw2200~    2005-09-06
+> 19:33:24.000000000 -0600
+> +++ Documentation/networking/README.ipw2200     2005-09-06
+> 19:33:24.000000000 -0600
+> @@ -27,7 +27,8 @@
+>  1.4. Sysfs Helper Files
+>  2.   About the Version Numbers
+>  3.   Support
+> -4.   License
+> +4.   Firmware installation
+> +5.   License
+>  
+> 
+>  1.   Introduction
+> @@ -272,7 +273,18 @@
+>      http://ipw2200.sf.net/
+>  
+> 
+> -4.  License
+> +4.  Firmware installation
+> +----------------------------------------------
+> +
+> +The driver requires a firmware image, download it and extract the files
+> +under /lib/firmware
+> +
+> +The firmware can be downloaded from the following URL:
+> +
+> +    http://ipw2200.sf.net/
+> +
+> +
+> +5.  License
+>  -----------------------------------------------
+>  
+>    Copyright(c) 2003 - 2005 Intel Corporation. All rights reserved.
+> 
