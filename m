@@ -1,7 +1,7 @@
 From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH 10/12] ROSE has no ARP
-Date: Sun, 11 Sep 2005 23:19:32 +0100
-Message-ID: <20050911221932.GA9336@linux-mips.org>
+Subject: [PATCH  4/12] Remove useless tests
+Date: Sun, 11 Sep 2005 23:18:58 +0100
+Message-ID: <20050911221858.GA9294@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <linux-hams-owner@vger.kernel.org>
@@ -11,23 +11,59 @@ Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ARP over ROSE does not exist so it's obviously not implemented on any ROSE
-stack, so the ROSE interfaces really should default to IFF_NOARP.
+Remove error tests that have already been performed by the caller.
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- net/rose/rose_dev.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ net/ax25/af_ax25.c     |    6 +-----
+ net/netrom/af_netrom.c |    4 +---
+ net/rose/af_rose.c     |    4 +---
+ 3 files changed, 3 insertions(+), 11 deletions(-)
 
-Index: linux-cvs/net/rose/rose_dev.c
+Index: linux-cvs/net/netrom/af_netrom.c
 ===================================================================
---- linux-cvs.orig/net/rose/rose_dev.c
-+++ linux-cvs/net/rose/rose_dev.c
-@@ -149,6 +149,6 @@ void rose_setup(struct net_device *dev)
- 	dev->set_mac_address    = rose_set_mac_address;
+--- linux-cvs.orig/net/netrom/af_netrom.c
++++ linux-cvs/net/netrom/af_netrom.c
+@@ -1187,9 +1187,7 @@ static int nr_ioctl(struct socket *sock,
+ 	}
  
- 	/* New-style flags. */
--	dev->flags		= 0;
-+	dev->flags		= IFF_NOARP;
- 	dev->get_stats = rose_get_stats;
- }
+ 	case SIOCGSTAMP:
+-		ret = -EINVAL;
+-		if (sk != NULL)
+-			ret = sock_get_timestamp(sk, argp);
++		ret = sock_get_timestamp(sk, argp);
+ 		release_sock(sk);
+ 		return ret;
+ 
+Index: linux-cvs/net/ax25/af_ax25.c
+===================================================================
+--- linux-cvs.orig/net/ax25/af_ax25.c
++++ linux-cvs/net/ax25/af_ax25.c
+@@ -1700,11 +1700,7 @@ static int ax25_ioctl(struct socket *soc
+ 	}
+ 
+ 	case SIOCGSTAMP:
+-		if (sk != NULL) {
+-			res = sock_get_timestamp(sk, argp);
+-			break;
+-	 	}
+-		res = -EINVAL;
++		res = sock_get_timestamp(sk, argp);
+ 		break;
+ 
+ 	case SIOCAX25ADDUID:	/* Add a uid to the uid/call map table */
+Index: linux-cvs/net/rose/af_rose.c
+===================================================================
+--- linux-cvs.orig/net/rose/af_rose.c
++++ linux-cvs/net/rose/af_rose.c
+@@ -1256,9 +1256,7 @@ static int rose_ioctl(struct socket *soc
+ 	}
+ 
+ 	case SIOCGSTAMP:
+-		if (sk != NULL) 
+-			return sock_get_timestamp(sk, (struct timeval __user *)argp);
+-		return -EINVAL;
++		return sock_get_timestamp(sk, (struct timeval __user *)argp);
+ 
+ 	case SIOCGIFADDR:
+ 	case SIOCSIFADDR:
