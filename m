@@ -1,7 +1,7 @@
 From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH  5/12] Add descriptions to constants
-Date: Sun, 11 Sep 2005 23:19:04 +0100
-Message-ID: <20050911221904.GA9301@linux-mips.org>
+Subject: [PATCH  2/12] Add more AX.25 PIDs
+Date: Sun, 11 Sep 2005 23:18:44 +0100
+Message-ID: <20050911221844.GA9280@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <linux-hams-owner@vger.kernel.org>
@@ -11,31 +11,41 @@ Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Comment the names used for the AX.25 state machine.
+Add a few more PID definitions.  AX.25 PIDs are the equivalent to IP
+protocol numbers.
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- include/net/ax25.h |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ include/net/ax25.h |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
 
 Index: linux-cvs/include/net/ax25.h
 ===================================================================
 --- linux-cvs.orig/include/net/ax25.h
 +++ linux-cvs/include/net/ax25.h
-@@ -97,11 +97,11 @@
- /* Define Link State constants. */
+@@ -26,11 +26,20 @@
  
- enum { 
--	AX25_STATE_0,
--	AX25_STATE_1,
--	AX25_STATE_2,
--	AX25_STATE_3,
--	AX25_STATE_4
-+	AX25_STATE_0,			/* Listening */
-+	AX25_STATE_1,			/* SABM sent */
-+	AX25_STATE_2,			/* DISC sent */
-+	AX25_STATE_3,			/* Established */
-+	AX25_STATE_4			/* Recovery */
- };
+ /* AX.25 Protocol IDs */
+ #define AX25_P_ROSE			0x01
+-#define AX25_P_IP			0xCC
+-#define AX25_P_ARP			0xCD
+-#define AX25_P_TEXT 			0xF0
+-#define AX25_P_NETROM 			0xCF
+-#define	AX25_P_SEGMENT			0x08
++#define AX25_P_VJCOMP			0x06	/* Compressed TCP/IP packet   */
++						/* Van Jacobsen (RFC 1144)    */
++#define AX25_P_VJUNCOMP			0x07	/* Uncompressed TCP/IP packet */
++						/* Van Jacobsen (RFC 1144)    */
++#define	AX25_P_SEGMENT			0x08	/* Segmentation fragment      */
++#define AX25_P_TEXNET			0xc3	/* TEXTNET datagram protocol  */
++#define AX25_P_LQ			0xc4	/* Link Quality Protocol      */
++#define AX25_P_ATALK			0xca	/* Appletalk                  */
++#define AX25_P_ATALK_ARP		0xcb	/* Appletalk ARP              */
++#define AX25_P_IP			0xcc	/* ARPA Internet Protocol     */
++#define AX25_P_ARP			0xcd	/* ARPA Adress Resolution     */
++#define AX25_P_FLEXNET			0xce	/* FlexNet                    */
++#define AX25_P_NETROM 			0xcf	/* NET/ROM                    */
++#define AX25_P_TEXT 			0xF0	/* No layer 3 protocol impl.  */
  
- #define AX25_MODULUS 		8	/*  Standard AX.25 modulus */
+ /* AX.25 Segment control values */
+ #define	AX25_SEG_REM			0x7F
