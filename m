@@ -1,7 +1,7 @@
 From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH  4/12] Remove useless tests
-Date: Sun, 11 Sep 2005 23:18:58 +0100
-Message-ID: <20050911221858.GA9294@linux-mips.org>
+Subject: [PATCH  1/12] Fix NET/ROM rebuild header mess
+Date: Sun, 11 Sep 2005 23:18:35 +0100
+Message-ID: <20050911221835.GA9273@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <linux-hams-owner@vger.kernel.org>
@@ -11,59 +11,86 @@ Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove error tests that have already been performed by the caller.
+For reason that probably nobody recalls NET/ROM does it's actual packet
+transmission in nr_rebuild_header and even treats invocation of it's
+hard_start_xmit method nr_xmit as a bug.  Fix that by splitting the
+job done by nr_rebuild_header into two halves.  Along with that we now
+also can get rid of the silly clone of the skb on transmit.
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- net/ax25/af_ax25.c     |    6 +-----
- net/netrom/af_netrom.c |    4 +---
- net/rose/af_rose.c     |    4 +---
- 3 files changed, 3 insertions(+), 11 deletions(-)
+ net/netrom/nr_dev.c |   44 +++++++++++++++-----------------------------
+ 1 files changed, 15 insertions(+), 29 deletions(-)
 
-Index: linux-cvs/net/netrom/af_netrom.c
+Index: linux-cvs/net/netrom/nr_dev.c
 ===================================================================
---- linux-cvs.orig/net/netrom/af_netrom.c
-+++ linux-cvs/net/netrom/af_netrom.c
-@@ -1187,9 +1187,7 @@ static int nr_ioctl(struct socket *sock,
- 	}
+--- linux-cvs.orig/net/netrom/nr_dev.c
++++ linux-cvs/net/netrom/nr_dev.c
+@@ -71,15 +71,10 @@ int nr_rx_ip(struct sk_buff *skb, struct
  
- 	case SIOCGSTAMP:
--		ret = -EINVAL;
--		if (sk != NULL)
--			ret = sock_get_timestamp(sk, argp);
-+		ret = sock_get_timestamp(sk, argp);
- 		release_sock(sk);
- 		return ret;
+ static int nr_rebuild_header(struct sk_buff *skb)
+ {
+-	struct net_device *dev = skb->dev;
+-	struct net_device_stats *stats = netdev_priv(dev);
+-	struct sk_buff *skbn;
+ 	unsigned char *bp = skb->data;
+-	int len;
  
-Index: linux-cvs/net/ax25/af_ax25.c
-===================================================================
---- linux-cvs.orig/net/ax25/af_ax25.c
-+++ linux-cvs/net/ax25/af_ax25.c
-@@ -1700,11 +1700,7 @@ static int ax25_ioctl(struct socket *soc
- 	}
+-	if (arp_find(bp + 7, skb)) {
++	if (arp_find(bp + 7, skb))
+ 		return 1;
+-	}
  
- 	case SIOCGSTAMP:
--		if (sk != NULL) {
--			res = sock_get_timestamp(sk, argp);
--			break;
--	 	}
--		res = -EINVAL;
-+		res = sock_get_timestamp(sk, argp);
- 		break;
+ 	bp[6] &= ~AX25_CBIT;
+ 	bp[6] &= ~AX25_EBIT;
+@@ -90,27 +85,7 @@ static int nr_rebuild_header(struct sk_b
+ 	bp[6] |= AX25_EBIT;
+ 	bp[6] |= AX25_SSSID_SPARE;
  
- 	case SIOCAX25ADDUID:	/* Add a uid to the uid/call map table */
-Index: linux-cvs/net/rose/af_rose.c
-===================================================================
---- linux-cvs.orig/net/rose/af_rose.c
-+++ linux-cvs/net/rose/af_rose.c
-@@ -1256,9 +1256,7 @@ static int rose_ioctl(struct socket *soc
- 	}
+-	if ((skbn = skb_clone(skb, GFP_ATOMIC)) == NULL) {
+-		kfree_skb(skb);
+-		return 1;
+-	}
+-
+-	if (skb->sk != NULL)
+-		skb_set_owner_w(skbn, skb->sk);
+-
+-	kfree_skb(skb);
+-
+-	len = skbn->len;
+-
+-	if (!nr_route_frame(skbn, NULL)) {
+-		kfree_skb(skbn);
+-		stats->tx_errors++;
+-	}
+-
+-	stats->tx_packets++;
+-	stats->tx_bytes += len;
+-
+-	return 1;
++	return 0;
+ }
  
- 	case SIOCGSTAMP:
--		if (sk != NULL) 
--			return sock_get_timestamp(sk, (struct timeval __user *)argp);
--		return -EINVAL;
-+		return sock_get_timestamp(sk, (struct timeval __user *)argp);
+ #else
+@@ -186,8 +161,19 @@ static int nr_close(struct net_device *d
+ static int nr_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = netdev_priv(dev);
+-	dev_kfree_skb(skb);
+-	stats->tx_errors++;
++	unsigned int len;
++
++	len = skb->len;
++
++	if (!nr_route_frame(skb, NULL)) {
++		kfree_skb(skb);
++		stats->tx_errors++;
++		return 0;
++	}
++
++	stats->tx_packets++;
++	stats->tx_bytes += len;
++
+ 	return 0;
+ }
  
- 	case SIOCGIFADDR:
- 	case SIOCSIFADDR:
