@@ -1,244 +1,194 @@
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH 11/12] Implement G8PZT Circuit reset for NET/ROM
-Date: Sun, 11 Sep 2005 23:12:56 +0100
-Message-ID: <20050911221256.GA9226@linux-mips.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Hamradio driver cleanups
+Date: Sun, 11 Sep 2005 22:29:13 +0100
+Message-ID: <20050911212913.GA8786@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-hams-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NET/ROM is lacking a connection reset like TCP's RST flag which at times
-may result in a connecting having to slowly timing out instead of just being
-reset.  An earlier attempt to reset the connection by sending a
-NR_CONNACK | NR_CHOKE_FLAG transport was inacceptable as it did result in
-crashes of BPQ systems.  An alternative approach of introducing a new
-transport type 7 (NR_RESET) has be implemented several years ago in
-Paula Jayne Dowie G8PZT's Xrouter.
+Misc related cleanups in hamradio drivers:
 
-Implement NR_RESET for Linux's NET/ROM but like any messing with the state
-engine consider this experimental for now and thus control it by a sysctl
-(net.netrom.reset) which for the time being defaults to off.
+ o Use symbolic constants instead of magic numbers
+ o Don't try to handle the case where AX.25 isn't configured - the kernel
+   configuration doesn't permit that.
+ o Remove useless headers
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- include/linux/sysctl.h         |    3 ++-
- include/net/netrom.h           |   27 ++++++++++++++++++++++++++-
- net/netrom/af_netrom.c         |   21 +++++++++++----------
- net/netrom/nr_in.c             |   15 +++++++++++++++
- net/netrom/nr_subr.c           |    7 +++----
- net/netrom/sysctl_net_netrom.c |   12 ++++++++++++
- 6 files changed, 69 insertions(+), 16 deletions(-)
+ drivers/net/hamradio/baycom_epp.c |   15 ++-------------
+ drivers/net/hamradio/dmascc.c     |    8 ++++----
+ drivers/net/hamradio/hdlcdrv.c    |   14 +-------------
+ drivers/net/hamradio/yam.c        |   26 ++++++--------------------
+ 4 files changed, 13 insertions(+), 50 deletions(-)
 
-Index: linux-cvs/include/net/netrom.h
+Index: net-2.6.git/drivers/net/hamradio/hdlcdrv.c
 ===================================================================
---- linux-cvs.orig/include/net/netrom.h
-+++ linux-cvs/include/net/netrom.h
-@@ -22,6 +22,7 @@
- #define	NR_DISCACK			0x04
- #define	NR_INFO				0x05
- #define	NR_INFOACK			0x06
-+#define	NR_RESET			0x07
+--- net-2.6.git.orig/drivers/net/hamradio/hdlcdrv.c
++++ net-2.6.git/drivers/net/hamradio/hdlcdrv.c
+@@ -42,7 +42,6 @@
  
- #define	NR_CHOKE_FLAG			0x80
- #define	NR_NAK_FLAG			0x40
-@@ -51,6 +52,7 @@ enum {
- #define	NR_DEFAULT_TTL			16		/* Default Time To Live - 16 */
- #define	NR_DEFAULT_ROUTING		1		/* Is routing enabled ? */
- #define	NR_DEFAULT_FAILS		2		/* Link fails until route fails */
-+#define	NR_DEFAULT_RESET		0		/* Sent / accept reset cmds? */
+ /*****************************************************************************/
  
- #define NR_MODULUS 			256
- #define NR_MAX_WINDOW_SIZE		127			/* Maximum Window Allowable - 127 */
-@@ -176,6 +178,8 @@ extern int  sysctl_netrom_transport_requ
- extern int  sysctl_netrom_transport_no_activity_timeout;
- extern int  sysctl_netrom_routing_control;
- extern int  sysctl_netrom_link_fails_count;
-+extern int  sysctl_netrom_reset_circuit;
-+
- extern int  nr_rx_frame(struct sk_buff *, struct net_device *);
- extern void nr_destroy_socket(struct sock *);
+-#include <linux/config.h>
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/net.h>
+@@ -52,20 +51,14 @@
+ #include <linux/errno.h>
+ #include <linux/init.h>
+ #include <linux/bitops.h>
+-#include <asm/uaccess.h>
  
-@@ -218,7 +222,28 @@ extern void nr_requeue_frames(struct soc
- extern int  nr_validate_nr(struct sock *, unsigned short);
- extern int  nr_in_rx_window(struct sock *, unsigned short);
- extern void nr_write_internal(struct sock *, int);
--extern void nr_transmit_refusal(struct sk_buff *, int);
-+
-+extern void __nr_transmit_reply(struct sk_buff *skb, int mine,
-+	unsigned char cmdflags);
-+
-+/*
-+ * This routine is called when a Connect Acknowledge with the Choke Flag
-+ * set is needed to refuse a connection.
-+ */
-+#define nr_transmit_refusal(skb, mine)					\
-+do {									\
-+	__nr_transmit_reply((skb), (mine), NR_CONNACK | NR_CHOKE_FLAG);	\
-+} while (0)
-+
-+/*
-+ * This routine is called when we don't have a circuit matching an incoming
-+ * NET/ROM packet.  This is an G8PZT Xrouter extension.
-+ */
-+#define nr_transmit_reset(skb, mine)					\
-+do {									\
-+	__nr_transmit_reply((skb), (mine), NR_RESET);			\
-+} while (0)
-+
- extern void nr_disconnect(struct sock *, int);
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
+-#include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/hdlcdrv.h>
+-/* prototypes for ax25_encapsulate and ax25_rebuild_header */
+ #include <net/ax25.h> 
++#include <asm/uaccess.h>
  
- /* nr_timer.c */
-Index: linux-cvs/net/netrom/af_netrom.c
+-/* make genksyms happy */
+-#include <linux/ip.h>
+-#include <linux/udp.h>
+-#include <linux/tcp.h>
+ #include <linux/crc-ccitt.h>
+ 
+ /* --------------------------------------------------------------------- */
+@@ -708,13 +701,8 @@ static void hdlcdrv_setup(struct net_dev
+ 
+ 	s->skb = NULL;
+ 	
+-#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+ 	dev->hard_header = ax25_encapsulate;
+ 	dev->rebuild_header = ax25_rebuild_header;
+-#else /* CONFIG_AX25 || CONFIG_AX25_MODULE */
+-	dev->hard_header = NULL;
+-	dev->rebuild_header = NULL;
+-#endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
+ 	dev->set_mac_address = hdlcdrv_set_mac_address;
+ 	
+ 	dev->type = ARPHRD_AX25;           /* AF_AX25 device */
+Index: net-2.6.git/drivers/net/hamradio/baycom_epp.c
 ===================================================================
---- linux-cvs.orig/net/netrom/af_netrom.c
-+++ linux-cvs/net/netrom/af_netrom.c
-@@ -56,6 +56,7 @@ int sysctl_netrom_transport_requested_wi
- int sysctl_netrom_transport_no_activity_timeout   = NR_DEFAULT_IDLE;
- int sysctl_netrom_routing_control                 = NR_DEFAULT_ROUTING;
- int sysctl_netrom_link_fails_count                = NR_DEFAULT_FAILS;
-+int sysctl_netrom_reset_circuit                   = NR_DEFAULT_RESET;
+--- net-2.6.git.orig/drivers/net/hamradio/baycom_epp.c
++++ net-2.6.git/drivers/net/hamradio/baycom_epp.c
+@@ -40,7 +40,7 @@
  
- static unsigned short circuit = 0x101;
+ /*****************************************************************************/
  
-@@ -908,17 +909,17 @@ int nr_rx_frame(struct sk_buff *skb, str
- 	if (frametype != NR_CONNREQ) {
- 		/*
- 		 * Here it would be nice to be able to send a reset but
--		 * NET/ROM doesn't have one. The following hack would
--		 * have been a way to extend the protocol but apparently
--		 * it kills BPQ boxes... :-(
-+		 * NET/ROM doesn't have one.  We've tried to extend the protocol
-+		 * by sending NR_CONNACK | NR_CHOKE_FLAGS replies but that
-+		 * apparently kills BPQ boxes... :-(
-+		 * So now we try to follow the established behaviour of
-+		 * G8PZT's Xrouter which is sending packets with command type 7
-+		 * as an extension of the protocol.
- 		 */
--#if 0
--		/*
--		 * Never reply to a CONNACK/CHOKE.
--		 */
--		if (frametype != NR_CONNACK || flags != NR_CHOKE_FLAG)
--			nr_transmit_refusal(skb, 1);
--#endif
-+		if (sysctl_netrom_reset_circuit &&
-+		    (frametype != NR_RESET || flags != 0))
-+			nr_transmit_reset(skb, 1);
-+
- 		return 0;
- 	}
+-#include <linux/config.h>
++#include <linux/crc-ccitt.h>
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+@@ -48,18 +48,12 @@
+ #include <linux/workqueue.h>
+ #include <linux/fs.h>
+ #include <linux/parport.h>
+-#include <linux/smp_lock.h>
+-#include <asm/uaccess.h>
+ #include <linux/if_arp.h>
+-#include <linux/kmod.h>
+ #include <linux/hdlcdrv.h>
+ #include <linux/baycom.h>
+ #include <linux/jiffies.h>
+-#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+-/* prototypes for ax25_encapsulate and ax25_rebuild_header */
+ #include <net/ax25.h> 
+-#endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
+-#include <linux/crc-ccitt.h>
++#include <asm/uaccess.h>
  
-Index: linux-cvs/net/netrom/nr_in.c
+ /* --------------------------------------------------------------------- */
+ 
+@@ -1177,13 +1171,8 @@ static void baycom_probe(struct net_devi
+ 	/* Fill in the fields of the device structure */
+ 	bc->skb = NULL;
+ 	
+-#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+ 	dev->hard_header = ax25_encapsulate;
+ 	dev->rebuild_header = ax25_rebuild_header;
+-#else /* CONFIG_AX25 || CONFIG_AX25_MODULE */
+-	dev->hard_header = NULL;
+-	dev->rebuild_header = NULL;
+-#endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
+ 	dev->set_mac_address = baycom_set_mac_address;
+ 	
+ 	dev->type = ARPHRD_AX25;           /* AF_AX25 device */
+Index: net-2.6.git/drivers/net/hamradio/yam.c
 ===================================================================
---- linux-cvs.orig/net/netrom/nr_in.c
-+++ linux-cvs/net/netrom/nr_in.c
-@@ -98,6 +98,11 @@ static int nr_state1_machine(struct sock
- 		nr_disconnect(sk, ECONNREFUSED);
- 		break;
+--- net-2.6.git.orig/drivers/net/hamradio/yam.c
++++ net-2.6.git/drivers/net/hamradio/yam.c
+@@ -60,15 +60,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+-#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+-/* prototypes for ax25_encapsulate and ax25_rebuild_header */
+ #include <net/ax25.h>
+-#endif	/* CONFIG_AX25 || CONFIG_AX25_MODULE */
+-
+-/* make genksyms happy */
+-#include <linux/ip.h>
+-#include <linux/udp.h>
+-#include <linux/tcp.h>
  
-+	case NR_RESET:
-+		if (sysctl_netrom_reset_circuit);
-+			nr_disconnect(sk, ECONNRESET);
-+		break;
-+
- 	default:
- 		break;
- 	}
-@@ -124,6 +129,11 @@ static int nr_state2_machine(struct sock
- 		nr_disconnect(sk, 0);
- 		break;
+ #include <linux/kernel.h>
+ #include <linux/proc_fs.h>
+@@ -1116,23 +1108,17 @@ static void yam_setup(struct net_device 
  
-+	case NR_RESET:
-+		if (sysctl_netrom_reset_circuit);
-+			nr_disconnect(sk, ECONNRESET);
-+		break;
-+
- 	default:
- 		break;
- 	}
-@@ -254,6 +264,11 @@ static int nr_state3_machine(struct sock
- 		}
- 		break;
+ 	skb_queue_head_init(&yp->send_queue);
  
-+	case NR_RESET:
-+		if (sysctl_netrom_reset_circuit);
-+			nr_disconnect(sk, ECONNRESET);
-+		break;
-+
- 	default:
- 		break;
- 	}
-Index: linux-cvs/include/linux/sysctl.h
-===================================================================
---- linux-cvs.orig/include/linux/sysctl.h
-+++ linux-cvs/include/linux/sysctl.h
-@@ -544,7 +544,8 @@ enum {
- 	NET_NETROM_TRANSPORT_REQUESTED_WINDOW_SIZE=8,
- 	NET_NETROM_TRANSPORT_NO_ACTIVITY_TIMEOUT=9,
- 	NET_NETROM_ROUTING_CONTROL=10,
--	NET_NETROM_LINK_FAILS_COUNT=11
-+	NET_NETROM_LINK_FAILS_COUNT=11,
-+	NET_NETROM_RESET=12
- };
+-#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+ 	dev->hard_header = ax25_encapsulate;
+ 	dev->rebuild_header = ax25_rebuild_header;
+-#else							/* CONFIG_AX25 || CONFIG_AX25_MODULE */
+-	dev->hard_header = NULL;
+-	dev->rebuild_header = NULL;
+-#endif							/* CONFIG_AX25 || CONFIG_AX25_MODULE */
  
- /* /proc/sys/net/ax25 */
-Index: linux-cvs/net/netrom/sysctl_net_netrom.c
-===================================================================
---- linux-cvs.orig/net/netrom/sysctl_net_netrom.c
-+++ linux-cvs/net/netrom/sysctl_net_netrom.c
-@@ -30,6 +30,7 @@ static int min_idle[]    = {0 * HZ};
- static int max_idle[]    = {65535 * HZ};
- static int min_route[]   = {0}, max_route[]   = {1};
- static int min_fails[]   = {1}, max_fails[]   = {10};
-+static int min_reset[]   = {0}, max_reset[]   = {1};
+ 	dev->set_mac_address = yam_set_mac_address;
  
- static struct ctl_table_header *nr_table_header;
- 
-@@ -155,6 +156,17 @@ static ctl_table nr_table[] = {
- 		.extra1		= &min_fails,
- 		.extra2		= &max_fails
- 	},
-+        {
-+		.ctl_name	= NET_NETROM_RESET,
-+		.procname	= "reset",
-+		.data		= &sysctl_netrom_reset_circuit,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_minmax,
-+		.strategy	= &sysctl_intvec,
-+		.extra1		= &min_reset,
-+		.extra2		= &max_reset
-+	},
- 	{ .ctl_name = 0 }
- };
- 
-Index: linux-cvs/net/netrom/nr_subr.c
-===================================================================
---- linux-cvs.orig/net/netrom/nr_subr.c
-+++ linux-cvs/net/netrom/nr_subr.c
-@@ -210,10 +210,9 @@ void nr_write_internal(struct sock *sk, 
+-	dev->type = ARPHRD_AX25;	/* AF_AX25 device */
+-	dev->hard_header_len = 73;	/* We do digipeaters now */
+-	dev->mtu = 256;				/* AX25 is the default */
+-	dev->addr_len = 7;			/* sizeof an ax.25 address */
+-	memcpy(dev->broadcast, ax25_bcast, 7);
+-	memcpy(dev->dev_addr, ax25_test, 7);
+-
++	dev->type = ARPHRD_AX25;
++	dev->hard_header_len = AX25_MAX_HEADER_LEN;
++	dev->mtu = AX25_MTU;
++	dev->addr_len = AX25_ADDR_LEN;
++	memcpy(dev->broadcast, ax25_bcast, AX25_ADDR_LEN);
++	memcpy(dev->dev_addr, ax25_test, AX25_ADDR_LEN);
  }
  
- /*
-- * This routine is called when a Connect Acknowledge with the Choke Flag
-- * set is needed to refuse a connection.
-+ * This routine is called to send an error reply.
-  */
--void nr_transmit_refusal(struct sk_buff *skb, int mine)
-+void __nr_transmit_reply(struct sk_buff *skb, int mine, unsigned char cmdflags)
+ static int __init yam_init_driver(void)
+Index: net-2.6.git/drivers/net/hamradio/dmascc.c
+===================================================================
+--- net-2.6.git.orig/drivers/net/hamradio/dmascc.c
++++ net-2.6.git/drivers/net/hamradio/dmascc.c
+@@ -449,12 +449,12 @@ module_exit(dmascc_exit);
+ static void dev_setup(struct net_device *dev)
  {
- 	struct sk_buff *skbn;
- 	unsigned char *dptr;
-@@ -254,7 +253,7 @@ void nr_transmit_refusal(struct sk_buff 
- 		*dptr++ = 0;
- 	}
+ 	dev->type = ARPHRD_AX25;
+-	dev->hard_header_len = 73;
++	dev->hard_header_len = AX25_MAX_HEADER_LEN;
+ 	dev->mtu = 1500;
+-	dev->addr_len = 7;
++	dev->addr_len = AX25_ADDR_LEN;
+ 	dev->tx_queue_len = 64;
+-	memcpy(dev->broadcast, ax25_broadcast, 7);
+-	memcpy(dev->dev_addr, ax25_test, 7);
++	memcpy(dev->broadcast, ax25_broadcast, AX25_ADDR_LEN);
++	memcpy(dev->dev_addr, ax25_test, AX25_ADDR_LEN);
+ }
  
--	*dptr++ = NR_CONNACK | NR_CHOKE_FLAG;
-+	*dptr++ = cmdflags;
- 	*dptr++ = 0;
- 
- 	if (!nr_route_frame(skbn, NULL))
+ static int __init setup_adapter(int card_base, int type, int n)
