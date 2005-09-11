@@ -1,7 +1,7 @@
 From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH  3/12] NET/ROM statistics fix
-Date: Sun, 11 Sep 2005 23:18:51 +0100
-Message-ID: <20050911221851.GA9287@linux-mips.org>
+Subject: [PATCH 10/12] ROSE has no ARP
+Date: Sun, 11 Sep 2005 23:19:32 +0100
+Message-ID: <20050911221932.GA9336@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <linux-hams-owner@vger.kernel.org>
@@ -11,25 +11,23 @@ Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Calling an incoming NET/ROM-encapsulated IP packet an error if the interface
-isn't up is probably a bit over the top, so count it as dropped instead of
-an error.
+ARP over ROSE does not exist so it's obviously not implemented on any ROSE
+stack, so the ROSE interfaces really should default to IFF_NOARP.
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- net/netrom/nr_dev.c |    2 +-
+ net/rose/rose_dev.c |    2 +-
  1 files changed, 1 insertion(+), 1 deletion(-)
 
-Index: net-2.6.git/net/netrom/nr_dev.c
+Index: linux-cvs/net/rose/rose_dev.c
 ===================================================================
---- net-2.6.git.orig/net/netrom/nr_dev.c
-+++ net-2.6.git/net/netrom/nr_dev.c
-@@ -47,7 +47,7 @@ int nr_rx_ip(struct sk_buff *skb, struct
- 	struct net_device_stats *stats = netdev_priv(dev);
+--- linux-cvs.orig/net/rose/rose_dev.c
++++ linux-cvs/net/rose/rose_dev.c
+@@ -149,6 +149,6 @@ void rose_setup(struct net_device *dev)
+ 	dev->set_mac_address    = rose_set_mac_address;
  
- 	if (!netif_running(dev)) {
--		stats->rx_errors++;
-+		stats->rx_dropped++;
- 		return 0;
- 	}
- 
+ 	/* New-style flags. */
+-	dev->flags		= 0;
++	dev->flags		= IFF_NOARP;
+ 	dev->get_stats = rose_get_stats;
+ }
