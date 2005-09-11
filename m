@@ -1,7 +1,7 @@
 From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH  9/12] NET/ROM has no ARP
-Date: Sun, 11 Sep 2005 23:19:27 +0100
-Message-ID: <20050911221927.GA9329@linux-mips.org>
+Subject: [PATCH  6/12] Whitespace formatting changes
+Date: Sun, 11 Sep 2005 23:19:09 +0100
+Message-ID: <20050911221909.GA9308@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <linux-hams-owner@vger.kernel.org>
@@ -11,24 +11,51 @@ Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ARP over NET/ROM does not exist so it's obviously not implemented on any
-NET/ROM stack, so the NET/ROM interfaces really should default to IFF_NOARP.
+Small formatting changes.
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- net/netrom/nr_dev.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ net/ax25/af_ax25.c |    2 +-
+ net/rose/af_rose.c |    6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Index: linux-cvs/net/netrom/nr_dev.c
+Index: linux-cvs/net/ax25/af_ax25.c
 ===================================================================
---- linux-cvs.orig/net/netrom/nr_dev.c
-+++ linux-cvs/net/netrom/nr_dev.c
-@@ -191,7 +191,7 @@ void nr_setup(struct net_device *dev)
- 	dev->set_mac_address    = nr_set_mac_address;
+--- linux-cvs.orig/net/ax25/af_ax25.c
++++ linux-cvs/net/ax25/af_ax25.c
+@@ -1695,7 +1695,7 @@ static int ax25_ioctl(struct socket *soc
+ 		/* These two are safe on a single CPU system as only user tasks fiddle here */
+ 		if ((skb = skb_peek(&sk->sk_receive_queue)) != NULL)
+ 			amount = skb->len;
+-		res = put_user(amount, (int __user *)argp);
++		res = put_user(amount, (int __user *) argp);
+ 		break;
+ 	}
  
- 	/* New-style flags. */
--	dev->flags		= 0;
-+	dev->flags		= IFF_NOARP;
+Index: linux-cvs/net/rose/af_rose.c
+===================================================================
+--- linux-cvs.orig/net/rose/af_rose.c
++++ linux-cvs/net/rose/af_rose.c
+@@ -1243,7 +1243,7 @@ static int rose_ioctl(struct socket *soc
+ 		amount = sk->sk_sndbuf - atomic_read(&sk->sk_wmem_alloc);
+ 		if (amount < 0)
+ 			amount = 0;
+-		return put_user(amount, (unsigned int __user *)argp);
++		return put_user(amount, (unsigned int __user *) argp);
+ 	}
  
- 	dev->get_stats 		= nr_get_stats;
- }
+ 	case TIOCINQ: {
+@@ -1252,11 +1252,11 @@ static int rose_ioctl(struct socket *soc
+ 		/* These two are safe on a single CPU system as only user tasks fiddle here */
+ 		if ((skb = skb_peek(&sk->sk_receive_queue)) != NULL)
+ 			amount = skb->len;
+-		return put_user(amount, (unsigned int __user *)argp);
++		return put_user(amount, (unsigned int __user *) argp);
+ 	}
+ 
+ 	case SIOCGSTAMP:
+-		return sock_get_timestamp(sk, (struct timeval __user *)argp);
++		return sock_get_timestamp(sk, (struct timeval __user *) argp);
+ 
+ 	case SIOCGIFADDR:
+ 	case SIOCSIFADDR:
