@@ -1,194 +1,89 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Hamradio driver cleanups
-Date: Sun, 11 Sep 2005 22:29:13 +0100
-Message-ID: <20050911212913.GA8786@linux-mips.org>
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: [PATCH 12/12] Introduct stuct nr_private
+Date: Sun, 11 Sep 2005 23:19:37 +0100
+Message-ID: <20050911221937.GA9343@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-hams-owner@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
 Content-Disposition: inline
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Misc related cleanups in hamradio drivers:
-
- o Use symbolic constants instead of magic numbers
- o Don't try to handle the case where AX.25 isn't configured - the kernel
-   configuration doesn't permit that.
- o Remove useless headers
+NET/ROM's virtual interfaces don't have a proper private data structure
+yet.  Create struct nr_private and put the statistics there.
 
 Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
- drivers/net/hamradio/baycom_epp.c |   15 ++-------------
- drivers/net/hamradio/dmascc.c     |    8 ++++----
- drivers/net/hamradio/hdlcdrv.c    |   14 +-------------
- drivers/net/hamradio/yam.c        |   26 ++++++--------------------
- 4 files changed, 13 insertions(+), 50 deletions(-)
+ include/net/netrom.h   |    5 +++++
+ net/netrom/af_netrom.c |    3 +--
+ net/netrom/nr_dev.c    |   11 ++++++-----
+ 3 files changed, 12 insertions(+), 7 deletions(-)
 
-Index: net-2.6.git/drivers/net/hamradio/hdlcdrv.c
+Index: net-2.6.git/include/net/netrom.h
 ===================================================================
---- net-2.6.git.orig/drivers/net/hamradio/hdlcdrv.c
-+++ net-2.6.git/drivers/net/hamradio/hdlcdrv.c
-@@ -42,7 +42,6 @@
+--- net-2.6.git.orig/include/net/netrom.h
++++ net-2.6.git/include/net/netrom.h
+@@ -6,6 +6,7 @@
  
- /*****************************************************************************/
+ #ifndef _NETROM_H
+ #define _NETROM_H 
++
+ #include <linux/netrom.h>
+ #include <linux/list.h>
+ #include <net/sock.h>
+@@ -58,6 +59,10 @@ enum {
+ #define NR_MAX_WINDOW_SIZE		127			/* Maximum Window Allowable - 127 */
+ #define	NR_MAX_PACKET_SIZE		236			/* Maximum Packet Length - 236 */
  
--#include <linux/config.h>
- #include <linux/module.h>
- #include <linux/types.h>
- #include <linux/net.h>
-@@ -52,20 +51,14 @@
- #include <linux/errno.h>
- #include <linux/init.h>
- #include <linux/bitops.h>
--#include <asm/uaccess.h>
- 
- #include <linux/netdevice.h>
- #include <linux/if_arp.h>
--#include <linux/etherdevice.h>
- #include <linux/skbuff.h>
- #include <linux/hdlcdrv.h>
--/* prototypes for ax25_encapsulate and ax25_rebuild_header */
- #include <net/ax25.h> 
-+#include <asm/uaccess.h>
- 
--/* make genksyms happy */
--#include <linux/ip.h>
--#include <linux/udp.h>
--#include <linux/tcp.h>
- #include <linux/crc-ccitt.h>
- 
- /* --------------------------------------------------------------------- */
-@@ -708,13 +701,8 @@ static void hdlcdrv_setup(struct net_dev
- 
- 	s->skb = NULL;
- 	
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- 	dev->hard_header = ax25_encapsulate;
- 	dev->rebuild_header = ax25_rebuild_header;
--#else /* CONFIG_AX25 || CONFIG_AX25_MODULE */
--	dev->hard_header = NULL;
--	dev->rebuild_header = NULL;
--#endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
- 	dev->set_mac_address = hdlcdrv_set_mac_address;
- 	
- 	dev->type = ARPHRD_AX25;           /* AF_AX25 device */
-Index: net-2.6.git/drivers/net/hamradio/baycom_epp.c
++struct nr_private {
++	struct net_device_stats	stats;
++};
++
+ struct nr_sock {
+ 	struct sock		sock;
+ 	ax25_address		user_addr, source_addr, dest_addr;
+Index: net-2.6.git/net/netrom/af_netrom.c
 ===================================================================
---- net-2.6.git.orig/drivers/net/hamradio/baycom_epp.c
-+++ net-2.6.git/drivers/net/hamradio/baycom_epp.c
-@@ -40,7 +40,7 @@
+--- net-2.6.git.orig/net/netrom/af_netrom.c
++++ net-2.6.git/net/netrom/af_netrom.c
+@@ -1392,8 +1392,7 @@ static int __init nr_proto_init(void)
+ 		struct net_device *dev;
  
- /*****************************************************************************/
- 
--#include <linux/config.h>
-+#include <linux/crc-ccitt.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
-@@ -48,18 +48,12 @@
- #include <linux/workqueue.h>
- #include <linux/fs.h>
- #include <linux/parport.h>
--#include <linux/smp_lock.h>
--#include <asm/uaccess.h>
- #include <linux/if_arp.h>
--#include <linux/kmod.h>
- #include <linux/hdlcdrv.h>
- #include <linux/baycom.h>
- #include <linux/jiffies.h>
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
--/* prototypes for ax25_encapsulate and ax25_rebuild_header */
- #include <net/ax25.h> 
--#endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
--#include <linux/crc-ccitt.h>
-+#include <asm/uaccess.h>
- 
- /* --------------------------------------------------------------------- */
- 
-@@ -1177,13 +1171,8 @@ static void baycom_probe(struct net_devi
- 	/* Fill in the fields of the device structure */
- 	bc->skb = NULL;
- 	
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- 	dev->hard_header = ax25_encapsulate;
- 	dev->rebuild_header = ax25_rebuild_header;
--#else /* CONFIG_AX25 || CONFIG_AX25_MODULE */
--	dev->hard_header = NULL;
--	dev->rebuild_header = NULL;
--#endif /* CONFIG_AX25 || CONFIG_AX25_MODULE */
- 	dev->set_mac_address = baycom_set_mac_address;
- 	
- 	dev->type = ARPHRD_AX25;           /* AF_AX25 device */
-Index: net-2.6.git/drivers/net/hamradio/yam.c
+ 		sprintf(name, "nr%d", i);
+-		dev = alloc_netdev(sizeof(struct net_device_stats), name,
+-					  nr_setup);
++		dev = alloc_netdev(sizeof(struct nr_private), name, nr_setup);
+ 		if (!dev) {
+ 			printk(KERN_ERR "NET/ROM: nr_proto_init - unable to allocate device structure\n");
+ 			goto fail;
+Index: net-2.6.git/net/netrom/nr_dev.c
 ===================================================================
---- net-2.6.git.orig/drivers/net/hamradio/yam.c
-+++ net-2.6.git/drivers/net/hamradio/yam.c
-@@ -60,15 +60,7 @@
- #include <linux/if_arp.h>
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
--/* prototypes for ax25_encapsulate and ax25_rebuild_header */
- #include <net/ax25.h>
--#endif	/* CONFIG_AX25 || CONFIG_AX25_MODULE */
--
--/* make genksyms happy */
--#include <linux/ip.h>
--#include <linux/udp.h>
--#include <linux/tcp.h>
+--- net-2.6.git.orig/net/netrom/nr_dev.c
++++ net-2.6.git/net/netrom/nr_dev.c
+@@ -153,10 +153,9 @@ static int nr_close(struct net_device *d
  
- #include <linux/kernel.h>
- #include <linux/proc_fs.h>
-@@ -1116,23 +1108,17 @@ static void yam_setup(struct net_device 
- 
- 	skb_queue_head_init(&yp->send_queue);
- 
--#if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
- 	dev->hard_header = ax25_encapsulate;
- 	dev->rebuild_header = ax25_rebuild_header;
--#else							/* CONFIG_AX25 || CONFIG_AX25_MODULE */
--	dev->hard_header = NULL;
--	dev->rebuild_header = NULL;
--#endif							/* CONFIG_AX25 || CONFIG_AX25_MODULE */
- 
- 	dev->set_mac_address = yam_set_mac_address;
- 
--	dev->type = ARPHRD_AX25;	/* AF_AX25 device */
--	dev->hard_header_len = 73;	/* We do digipeaters now */
--	dev->mtu = 256;				/* AX25 is the default */
--	dev->addr_len = 7;			/* sizeof an ax.25 address */
--	memcpy(dev->broadcast, ax25_bcast, 7);
--	memcpy(dev->dev_addr, ax25_test, 7);
--
-+	dev->type = ARPHRD_AX25;
-+	dev->hard_header_len = AX25_MAX_HEADER_LEN;
-+	dev->mtu = AX25_MTU;
-+	dev->addr_len = AX25_ADDR_LEN;
-+	memcpy(dev->broadcast, ax25_bcast, AX25_ADDR_LEN);
-+	memcpy(dev->dev_addr, ax25_test, AX25_ADDR_LEN);
- }
- 
- static int __init yam_init_driver(void)
-Index: net-2.6.git/drivers/net/hamradio/dmascc.c
-===================================================================
---- net-2.6.git.orig/drivers/net/hamradio/dmascc.c
-+++ net-2.6.git/drivers/net/hamradio/dmascc.c
-@@ -449,12 +449,12 @@ module_exit(dmascc_exit);
- static void dev_setup(struct net_device *dev)
+ static int nr_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	dev->type = ARPHRD_AX25;
--	dev->hard_header_len = 73;
-+	dev->hard_header_len = AX25_MAX_HEADER_LEN;
- 	dev->mtu = 1500;
--	dev->addr_len = 7;
-+	dev->addr_len = AX25_ADDR_LEN;
- 	dev->tx_queue_len = 64;
--	memcpy(dev->broadcast, ax25_broadcast, 7);
--	memcpy(dev->dev_addr, ax25_test, 7);
-+	memcpy(dev->broadcast, ax25_broadcast, AX25_ADDR_LEN);
-+	memcpy(dev->dev_addr, ax25_test, AX25_ADDR_LEN);
+-	struct net_device_stats *stats = netdev_priv(dev);
+-	unsigned int len;
+-
+-	len = skb->len;
++	struct nr_private *nr = netdev_priv(dev);
++	struct net_device_stats *stats = &nr->stats;
++	unsigned int len = skb->len;
+ 
+ 	if (!nr_route_frame(skb, NULL)) {
+ 		kfree_skb(skb);
+@@ -172,7 +171,9 @@ static int nr_xmit(struct sk_buff *skb, 
+ 
+ static struct net_device_stats *nr_get_stats(struct net_device *dev)
+ {
+-	return netdev_priv(dev);
++	struct nr_private *nr = netdev_priv(dev);
++
++	return &nr->stats;
  }
  
- static int __init setup_adapter(int card_base, int type, int n)
+ void nr_setup(struct net_device *dev)
