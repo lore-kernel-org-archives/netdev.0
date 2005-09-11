@@ -1,26 +1,30 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.13-mm2
-Date: Sun, 11 Sep 2005 03:25:14 +0200
-Message-ID: <4323877A.4050309@trash.net>
-References: <20050908053042.6e05882f.akpm@osdl.org>	<1126396015l.6300l.1l@werewolf.able.es>	<20050910165659.5eea90d0.akpm@osdl.org> <4323753D.9030007@trash.net>	<1126399776l.6300l.2l@werewolf.able.es>	<1126400288l.6300l.3l@werewolf.able.es> <43238259.505@trash.net> <1126401757l.6556l.0l@werewolf.able.es>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Kernel Lista <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932446AbVIKBZS@vger.kernel.org>
-To: "J.A. Magallon" <jamagallon@able.es>
-In-Reply-To: <1126401757l.6556l.0l@werewolf.able.es>
-Sender: linux-kernel-owner@vger.kernel.org
+From: NOT SPAM <patattenboerken@gmail.com>
+Subject: Check out FUSIONPHP.NET today!!!
+Date: Sat, 10 Sep 2005 20:14:53 -0700
+Message-ID: <E1EEIIv-0001uK-K4@george.frogspace.net>
+Reply-To: webmaster@fusionphp.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-J.A. Magallon wrote:
-> On 09.11, Patrick McHardy wrote:
-> 
->>[NETFILTER]: Don't exclude local packets from MASQUERADING
->>
-> Thanks, reverting this made things work again.
-> 
-> Are you confident in fixing this shortly, or should I just drop pump ?
 
-I should have a fix within the next couple of days.
+Hey man/woman,
+ I'm here to tell you that FusionPHP.NET is a REALLY great website and you should please visit them today!!!! Visit us today, fullfilling your PHP needs!!!
+
+http://www.fusionphp.net/
+
+We have the BEST free php news script in the world. There is no substitution.
+
+Please spread the word about our website and our scripts!!! Forward this email to 250 people and we'll pay you $5.00 US dollars via paypal.
+
+Thank you,
+Patatten Boerken
+http://fusionphp.net/
+patattenboerken@gmail.com
+webmaster@fusionphp.net
+
+NOTE: THIS MESSAGE IS NOT SPAM and your email was obtained from legal sources.
+
+121
