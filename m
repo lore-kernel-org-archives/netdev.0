@@ -1,83 +1,71 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13] e1000: whitespace cleanup in e1000_ethtool_ops
-Date: Mon, 12 Sep 2005 10:49:00 -0400
-Message-ID: <09122005104900.729@bilbo.tuxdriver.com>
+From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
+Subject: 2.613: network write socket problems
+Date: Mon, 12 Sep 2005 17:39:45 +0200
+Message-ID: <200509121739.46172.bernd.schubert__36125.5726930269$1126539873$gmane$org@pci.uni-heidelberg.de>
+Reply-To: bernd-schubert@gmx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, john.ronciak@intel.com,
-	ganesh.venkatesan@intel.com, cramerj@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751331AbVILO6U@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix-up some whitespace inconsistencies in e1000_ethtool_ops.
+Hello,
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+on last Friday  we switched on our server to 2.6.13 and today we are=20
+experiencing problems with our nfs clients.
+In particular I'm talking about the unfs3 daemon, not the kernel nfs daem=
+on.=20
+Both are running on the server but on different ports, of course.  Both a=
+re=20
+also serving to the same clients, but different directories.
 
- drivers/net/e1000/e1000_ethtool.c |   44 +++++++++++++++++++-------------------
- 1 files changed, 22 insertions(+), 22 deletions(-)
+Today it already several times happend that the unfs3 daemon stalled. Eth=
+ereal=20
+showed no network packages on the unfs3 daemon port during this time.=20
+A strace to the proc-id of the daemon clearly shows that *some* writes to=
+ some=20
+network sockets will take ages to finish
 
-diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
---- a/drivers/net/e1000/e1000_ethtool.c
-+++ b/drivers/net/e1000/e1000_ethtool.c
-@@ -1705,22 +1705,22 @@ e1000_get_strings(struct net_device *net
- }
- 
- struct ethtool_ops e1000_ethtool_ops = {
--	.get_settings           = e1000_get_settings,
--	.set_settings           = e1000_set_settings,
--	.get_drvinfo            = e1000_get_drvinfo,
--	.get_regs_len           = e1000_get_regs_len,
--	.get_regs               = e1000_get_regs,
--	.get_wol                = e1000_get_wol,
--	.set_wol                = e1000_set_wol,
--	.get_msglevel	        = e1000_get_msglevel,
--	.set_msglevel	        = e1000_set_msglevel,
--	.nway_reset             = e1000_nway_reset,
--	.get_link               = ethtool_op_get_link,
--	.get_eeprom_len         = e1000_get_eeprom_len,
--	.get_eeprom             = e1000_get_eeprom,
--	.set_eeprom             = e1000_set_eeprom,
--	.get_ringparam          = e1000_get_ringparam,
--	.set_ringparam          = e1000_set_ringparam,
-+	.get_settings		= e1000_get_settings,
-+	.set_settings		= e1000_set_settings,
-+	.get_drvinfo		= e1000_get_drvinfo,
-+	.get_regs_len		= e1000_get_regs_len,
-+	.get_regs		= e1000_get_regs,
-+	.get_wol		= e1000_get_wol,
-+	.set_wol		= e1000_set_wol,
-+	.get_msglevel		= e1000_get_msglevel,
-+	.set_msglevel		= e1000_set_msglevel,
-+	.nway_reset		= e1000_nway_reset,
-+	.get_link		= ethtool_op_get_link,
-+	.get_eeprom_len		= e1000_get_eeprom_len,
-+	.get_eeprom		= e1000_get_eeprom,
-+	.set_eeprom		= e1000_set_eeprom,
-+	.get_ringparam		= e1000_get_ringparam,
-+	.set_ringparam		= e1000_set_ringparam,
- 	.get_pauseparam		= e1000_get_pauseparam,
- 	.set_pauseparam		= e1000_set_pauseparam,
- 	.get_rx_csum		= e1000_get_rx_csum,
-@@ -1733,12 +1733,12 @@ struct ethtool_ops e1000_ethtool_ops = {
- 	.get_tso		= ethtool_op_get_tso,
- 	.set_tso		= e1000_set_tso,
- #endif
--	.self_test_count        = e1000_diag_test_count,
--	.self_test              = e1000_diag_test,
--	.get_strings            = e1000_get_strings,
--	.phys_id                = e1000_phys_id,
--	.get_stats_count        = e1000_get_stats_count,
--	.get_ethtool_stats      = e1000_get_ethtool_stats,
-+	.self_test_count	= e1000_diag_test_count,
-+	.self_test		= e1000_diag_test,
-+	.get_strings		= e1000_get_strings,
-+	.phys_id		= e1000_phys_id,
-+	.get_stats_count	= e1000_get_stats_count,
-+	.get_ethtool_stats	= e1000_get_ethtool_stats,
- 	.get_perm_addr		= ethtool_op_get_perm_addr,
- };
- 
+write(37, "\200\0\0x\203\326(\5\0\0\0\1\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 12=
+4) =3D=20
+124
+
+This kind of writes can take between seconds and minutes, while it usuall=
+y=20
+happens much faster than I can count. After the write() to the network=20
+socket, other operations happen rather fast, until the next write to a=20
+network socket. (I identified the troublesome filedescriptors by looking=20
+to /proc/procid/fd).
+After restarting the unfs3 daemon everything goes smooth for some time=20
+(approximately 20min to 2h), until the next write to a filedescriptor sta=
+lls.
+
+Any idea whats going on? Until today this never happend before, neither w=
+ith=20
+2.6.x nor 2.4.x. As I wrote, on Friday we replaced 2.6.11.12 by 2.6.13, t=
+he=20
+configuration should be similar, only changes should be HZ set to 250 and=
+=20
+additionally the skge driver.=20
+We already switched back from skge to sk98lin, but the problem seems to=20
+remain.=20
+
+
+Thanks,=09
+	Bernd
+
+
+
+--=20
+Bernd Schubert
+Physikalisch Chemisches Institut / Theoretische Chemie
+Universit=E4t Heidelberg
+INF 229
+69120 Heidelberg
+e-mail: bernd.schubert@pci.uni-heidelberg.de
