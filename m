@@ -1,63 +1,24 @@
-From: Ingo Oeser <netdev@axxeo.de>
+From: Ralf Baechle <ralf@linux-mips.org>
 Subject: Re: [PATCH  5/12] Add descriptions to constants
-Date: Mon, 12 Sep 2005 18:41:53 +0200
-Message-ID: <200509121841.53666.netdev@axxeo.de>
-References: <20050911221904.GA9301@linux-mips.org>
+Date: Mon, 12 Sep 2005 17:50:29 +0100
+Message-ID: <20050912165029.GC3458@linux-mips.org>
+References: <20050911221904.GA9301@linux-mips.org> <200509121841.53666.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-hams@vger.kernel.org
 Return-path: <linux-hams-owner@vger.kernel.org>
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-In-Reply-To: <20050911221904.GA9301@linux-mips.org>
+To: Ingo Oeser <netdev@axxeo.de>
 Content-Disposition: inline
+In-Reply-To: <200509121841.53666.netdev@axxeo.de>
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ralf,
+On Mon, Sep 12, 2005 at 06:41:53PM +0200, Ingo Oeser wrote:
 
-Ralf Baechle DL5RB wrote:
-> Comment the names used for the AX.25 state machine.
+> That would not break backward compatibility and now the state machine can be
+> self explanatory :-)
 
-What about making it even more useful by aliasing the enum elements?
+The states named by numbers are actually being used in the protocol spec.
 
-> Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
->
->  include/net/ax25.h |   10 +++++-----
->  1 files changed, 5 insertions(+), 5 deletions(-)
->
-> Index: linux-cvs/include/net/ax25.h
-> ===================================================================
-> --- linux-cvs.orig/include/net/ax25.h
-> +++ linux-cvs/include/net/ax25.h
-> @@ -97,11 +97,11 @@
->  /* Define Link State constants. */
->
->  enum {
-> -	AX25_STATE_0,
-> -	AX25_STATE_1,
-> -	AX25_STATE_2,
-> -	AX25_STATE_3,
-> -	AX25_STATE_4
-> +	AX25_STATE_0,			/* Listening */
-    +  AX25_STATE_LISTENING = AX25_STATE_0,
-> +	AX25_STATE_1,			/* SABM sent */
-    +  AX25_STATE_SABM_SENT = AX25_STATE_1,
-> +	AX25_STATE_2,			/* DISC sent */
-    +  AX25_STATE_DISC_SENT = AX25_STATE_2,
-> +	AX25_STATE_3,			/* Established */
-    +  AX25_STATE_ESTABLISHED = AX25_STATE_3,
-> +	AX25_STATE_4			/* Recovery */
-    +  AX25_STATE_RECOVERY = AX25_STATE_4,
->  };
-
-That would not break backward compatibility and now the state machine can be
-self explanatory :-)
-
-
-Regards
-
-Ingo Oeser
-
+  Ralf
