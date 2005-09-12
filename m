@@ -1,45 +1,42 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 2/3] 3c59x: cleanup init of module parameter arrays
-Date: Mon, 12 Sep 2005 10:48:53 -0400
-Message-ID: <09122005104853.31588@bilbo.tuxdriver.com>
-References: <09122005104852.31525@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 4/16] b44: support ETHTOOL_GPERMADDR
+Date: Mon, 12 Sep 2005 10:48:55 -0400
+Message-ID: <09122005104855.31965@bilbo.tuxdriver.com>
+References: <09122005104855.31900@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751352AbVILPDe@vger.kernel.org>
+Cc: jgarzik@pobox.com, Jon_Wetzel@Dell.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751388AbVILPDe@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104852.31525@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104855.31900@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Beautify the array initilizations for the module parameters.
+Add support for ETHTOOL_GPERMADDR to b44.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/3c59x.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/b44.c |    2 ++
+ 1 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -903,12 +903,12 @@ static void set_8021q_mode(struct net_de
- /* This driver uses 'options' to pass the media type, full-duplex flag, etc. */
- /* Option count limit only -- unlimited interfaces are supported. */
- #define MAX_UNITS 8
--static int options[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1,};
--static int full_duplex[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
--static int hw_checksums[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
--static int flow_ctrl[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
--static int enable_wol[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
--static int use_mmio[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
-+static int options[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
-+static int full_duplex[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
-+static int hw_checksums[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
-+static int flow_ctrl[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
-+static int enable_wol[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
-+static int use_mmio[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
- static int global_options = -1;
- static int global_full_duplex = -1;
- static int global_enable_wol = -1;
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -1676,6 +1676,7 @@ static struct ethtool_ops b44_ethtool_op
+ 	.set_pauseparam		= b44_set_pauseparam,
+ 	.get_msglevel		= b44_get_msglevel,
+ 	.set_msglevel		= b44_set_msglevel,
++	.get_perm_addr		= ethtool_op_get_perm_addr,
+ };
+ 
+ static int b44_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -1718,6 +1719,7 @@ static int __devinit b44_get_invariants(
+ 	bp->dev->dev_addr[3] = eeprom[80];
+ 	bp->dev->dev_addr[4] = eeprom[83];
+ 	bp->dev->dev_addr[5] = eeprom[82];
++	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, bp->dev->addr_len);
+ 
+ 	bp->phy_addr = eeprom[90] & 0x1f;
+ 
