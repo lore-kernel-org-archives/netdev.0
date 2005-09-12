@@ -1,42 +1,35 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 3/16] 8139too: support ETHTOOL_GPERMADDR
-Date: Mon, 12 Sep 2005 10:48:55 -0400
-Message-ID: <09122005104855.31900@bilbo.tuxdriver.com>
-References: <09122005104854.31837@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 2/5] e1000: correct rx_dropped counting
+Date: Mon, 12 Sep 2005 10:48:59 -0400
+Message-ID: <09122005104859.453@bilbo.tuxdriver.com>
+References: <09122005104859.389@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, Jon_Wetzel@Dell.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751320AbVILO5p@vger.kernel.org>
+Cc: john.ronciak@intel.com, ganesh.venkatesan@intel.com,
+	cramerj@intel.com, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751374AbVILPAH@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104854.31837@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104859.389@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for ETHTOOL_GPERMADDR to 8139too.
+Do not count frames dropped by the hardware as part of rx_dropped.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/8139too.c |    2 ++
- 1 files changed, 2 insertions(+)
+ drivers/net/e1000/e1000_main.c |    1 -
+ 1 files changed, 1 deletion(-)
 
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -970,6 +970,7 @@ static int __devinit rtl8139_init_one (s
- 	for (i = 0; i < 3; i++)
- 		((u16 *) (dev->dev_addr))[i] =
- 		    le16_to_cpu (read_eeprom (ioaddr, i + 7, addr_len));
-+	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 
- 	/* The Rtl8139-specific entries in the device structure. */
- 	dev->open = rtl8139_open;
-@@ -2465,6 +2466,7 @@ static struct ethtool_ops rtl8139_ethtoo
- 	.get_strings		= rtl8139_get_strings,
- 	.get_stats_count	= rtl8139_get_stats_count,
- 	.get_ethtool_stats	= rtl8139_get_ethtool_stats,
-+	.get_perm_addr		= ethtool_op_get_perm_addr,
- };
- 
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2544,7 +2544,6 @@ e1000_update_stats(struct e1000_adapter 
+ 		adapter->stats.crcerrs + adapter->stats.algnerrc +
+ 		adapter->stats.rlec + adapter->stats.mpc + 
+ 		adapter->stats.cexterr;
+-	adapter->net_stats.rx_dropped = adapter->stats.mpc;
+ 	adapter->net_stats.rx_length_errors = adapter->stats.rlec;
+ 	adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
+ 	adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
