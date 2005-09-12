@@ -1,50 +1,51 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 3/3] 3c59x: fix some grammar in module parameter descriptions
-Date: Mon, 12 Sep 2005 10:48:53 -0400
-Message-ID: <09122005104853.31652@bilbo.tuxdriver.com>
-References: <09122005104853.31588@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 9/16] ixgb: support ETHTOOL_GPERMADDR
+Date: Mon, 12 Sep 2005 10:48:56 -0400
+Message-ID: <09122005104856.32285@bilbo.tuxdriver.com>
+References: <09122005104856.32220@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751351AbVILPED@vger.kernel.org>
+Cc: john.ronciak@intel.com, ganesh.venkatesan@intel.com,
+	ayyappan.veeraiyan@intel.com, jgarzik@pobox.com,
+	Jon_Wetzel@Dell.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751387AbVILPCQ@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104853.31588@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104856.32220@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Correct several (apparently cut & paste) grammatical typos in module
-parameter descriptions. They seem to have originated as copies of
-the description for "global_options".
+Add support for ETHTOOL_GPERMADDR to ixgb.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/3c59x.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ixgb/ixgb_ethtool.c |    1 +
+ drivers/net/ixgb/ixgb_main.c    |    3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -943,18 +943,18 @@ MODULE_PARM_DESC(debug, "3c59x debug lev
- MODULE_PARM_DESC(options, "3c59x: Bits 0-3: media type, bit 4: bus mastering, bit 9: full duplex");
- MODULE_PARM_DESC(global_options, "3c59x: same as options, but applies to all NICs if options is unset");
- MODULE_PARM_DESC(full_duplex, "3c59x full duplex setting(s) (1)");
--MODULE_PARM_DESC(global_full_duplex, "3c59x: same as full_duplex, but applies to all NICs if options is unset");
-+MODULE_PARM_DESC(global_full_duplex, "3c59x: same as full_duplex, but applies to all NICs if full_duplex is unset");
- MODULE_PARM_DESC(hw_checksums, "3c59x Hardware checksum checking by adapter(s) (0-1)");
- MODULE_PARM_DESC(flow_ctrl, "3c59x 802.3x flow control usage (PAUSE only) (0-1)");
- MODULE_PARM_DESC(enable_wol, "3c59x: Turn on Wake-on-LAN for adapter(s) (0-1)");
--MODULE_PARM_DESC(global_enable_wol, "3c59x: same as enable_wol, but applies to all NICs if options is unset");
-+MODULE_PARM_DESC(global_enable_wol, "3c59x: same as enable_wol, but applies to all NICs if enable_wol is unset");
- MODULE_PARM_DESC(rx_copybreak, "3c59x copy breakpoint for copy-only-tiny-frames");
- MODULE_PARM_DESC(max_interrupt_work, "3c59x maximum events handled per interrupt");
- MODULE_PARM_DESC(compaq_ioaddr, "3c59x PCI I/O base address (Compaq BIOS problem workaround)");
- MODULE_PARM_DESC(compaq_irq, "3c59x PCI IRQ number (Compaq BIOS problem workaround)");
- MODULE_PARM_DESC(compaq_device_id, "3c59x PCI device ID (Compaq BIOS problem workaround)");
- MODULE_PARM_DESC(watchdog, "3c59x transmit timeout in milliseconds");
--MODULE_PARM_DESC(global_use_mmio, "3c59x: same as use_mmio, but applies to all NICs if options is unset");
-+MODULE_PARM_DESC(global_use_mmio, "3c59x: same as use_mmio, but applies to all NICs if use_mmio is unset");
- MODULE_PARM_DESC(use_mmio, "3c59x: use memory-mapped PCI I/O resource (0-1)");
+diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+--- a/drivers/net/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ixgb/ixgb_ethtool.c
+@@ -723,6 +723,7 @@ struct ethtool_ops ixgb_ethtool_ops = {
+ 	.phys_id = ixgb_phys_id,
+ 	.get_stats_count = ixgb_get_stats_count,
+ 	.get_ethtool_stats = ixgb_get_ethtool_stats,
++	.get_perm_addr = ethtool_op_get_perm_addr,
+ };
  
- #ifdef CONFIG_NET_POLL_CONTROLLER
+ void ixgb_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -460,8 +460,9 @@ ixgb_probe(struct pci_dev *pdev,
+ 	}
+ 
+ 	ixgb_get_ee_mac_addr(&adapter->hw, netdev->dev_addr);
++	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 
+-	if(!is_valid_ether_addr(netdev->dev_addr)) {
++	if(!is_valid_ether_addr(netdev->perm_addr)) {
+ 		err = -EIO;
+ 		goto err_eeprom;
+ 	}
