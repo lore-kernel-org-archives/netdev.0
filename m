@@ -1,42 +1,45 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 5/16] bnx2: support ETHTOOL_GPERMADDR
-Date: Mon, 12 Sep 2005 10:48:55 -0400
-Message-ID: <09122005104855.32029@bilbo.tuxdriver.com>
-References: <09122005104855.31965@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 16/16] via-rhine: support ETHTOOL_GPERMADDR
+Date: Mon, 12 Sep 2005 10:48:58 -0400
+Message-ID: <09122005104858.32735@bilbo.tuxdriver.com>
+References: <09122005104858.32669@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, jgarzik@pobox.com, Jon_Wetzel@Dell.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751317AbVILPEq@vger.kernel.org>
+Cc: rl@hellgate.ch, jgarzik@pobox.com, Jon_Wetzel@Dell.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751321AbVILPEd@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104855.31965@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104858.32669@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for ETHTOOL_GPERMADDR to bnx2.
+Add support for ETHTOOL_GPERMADDR to via-rhine.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/bnx2.c |    2 ++
- 1 files changed, 2 insertions(+)
+ drivers/net/via-rhine.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -5015,6 +5015,7 @@ static struct ethtool_ops bnx2_ethtool_o
- 	.phys_id		= bnx2_phys_id,
- 	.get_stats_count	= bnx2_get_stats_count,
- 	.get_ethtool_stats	= bnx2_get_ethtool_stats,
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -814,8 +814,9 @@ static int __devinit rhine_init_one(stru
+ 
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = ioread8(ioaddr + StationAddr + i);
++	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
++	if (!is_valid_ether_addr(dev->perm_addr)) {
+ 		rc = -EIO;
+ 		printk(KERN_ERR "Invalid MAC address\n");
+ 		goto err_out_unmap;
+@@ -1829,6 +1830,7 @@ static struct ethtool_ops netdev_ethtool
+ 	.set_wol		= rhine_set_wol,
+ 	.get_sg			= ethtool_op_get_sg,
+ 	.get_tx_csum		= ethtool_op_get_tx_csum,
 +	.get_perm_addr		= ethtool_op_get_perm_addr,
  };
  
- /* Called with rtnl_lock */
-@@ -5442,6 +5443,7 @@ bnx2_init_one(struct pci_dev *pdev, cons
- 	pci_set_drvdata(pdev, dev);
- 
- 	memcpy(dev->dev_addr, bp->mac_addr, 6);
-+	memcpy(dev->perm_addr, bp->mac_addr, 6);
- 	bp->name = board_info[ent->driver_data].name,
- 	printk(KERN_INFO "%s: %s (%c%d) PCI%s %s %dMHz found at mem %lx, "
- 		"IRQ %d, ",
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
