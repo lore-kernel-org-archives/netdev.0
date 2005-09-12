@@ -1,47 +1,42 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 5/5] tg3: correct rx_dropped and add rx_missed_errors
-Date: Mon, 12 Sep 2005 10:49:00 -0400
-Message-ID: <09122005104900.650@bilbo.tuxdriver.com>
-References: <09122005104900.585@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 12/16] r8169: support ETHTOOL_GPERMADDR
+Date: Mon, 12 Sep 2005 10:48:57 -0400
+Message-ID: <09122005104857.32477@bilbo.tuxdriver.com>
+References: <09122005104857.32412@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, davem@davemloft.net, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751384AbVILPBp@vger.kernel.org>
+Cc: romieu@fr.zoreil.com, jgarzik@pobox.com, Jon_Wetzel@Dell.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751348AbVILPF2@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104900.585@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104857.32412@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do not count non-error frames dropped by the hardware as
-rx_errors. Instead, count them as part of rx_missed_errors.
+Add support for ETHTOOL_GPERMADDR to r8169.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/tg3.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/r8169.c |    2 ++
+ 1 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -6893,8 +6893,7 @@ static struct net_device_stats *tg3_get_
- 		get_stat64(&hw_stats->tx_octets);
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1028,6 +1028,7 @@ static struct ethtool_ops rtl8169_ethtoo
+ 	.get_strings		= rtl8169_get_strings,
+ 	.get_stats_count	= rtl8169_get_stats_count,
+ 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
++	.get_perm_addr		= ethtool_op_get_perm_addr,
+ };
  
- 	stats->rx_errors = old_stats->rx_errors +
--		get_stat64(&hw_stats->rx_errors) +
--		get_stat64(&hw_stats->rx_discards);
-+		get_stat64(&hw_stats->rx_errors);
- 	stats->tx_errors = old_stats->tx_errors +
- 		get_stat64(&hw_stats->tx_errors) +
- 		get_stat64(&hw_stats->tx_mac_errors) +
-@@ -6922,6 +6921,9 @@ static struct net_device_stats *tg3_get_
- 	stats->rx_crc_errors = old_stats->rx_crc_errors +
- 		calc_crc_errors(tp);
+ static void rtl8169_write_gmii_reg_bit(void __iomem *ioaddr, int reg, int bitnum,
+@@ -1512,6 +1513,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	/* Get MAC address.  FIXME: read EEPROM */
+ 	for (i = 0; i < MAC_ADDR_LEN; i++)
+ 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
++	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
  
-+	stats->rx_missed_errors = old_stats->rx_missed_errors +
-+		get_stat64(&hw_stats->rx_discards);
-+
- 	return stats;
- }
- 
+ 	dev->open = rtl8169_open;
+ 	dev->hard_start_xmit = rtl8169_start_xmit;
