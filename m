@@ -1,36 +1,28 @@
-From: Steve Kieu <haiquy@yahoo.com>
-Subject: Re: Very strange Marvell/Yukon Gigabit NIC networking problems
-Date: Mon, 12 Sep 2005 10:02:33 +1000 (EST)
-Message-ID: <20050912000234.44429.qmail@web53602.mail.yahoo.com>
-References: <43244C33.1050502@gentoo.org>
+From: "britt allery" <nothum@sailboardfan.com>
+Subject: no-body beats them freethink
+Date: Mon, 12 Sep 2005 06:16:32 +0100
+Message-ID: <62D5A52D.942468A@sailboardfan.com>
+Reply-To: "britt allery" <nothum@sailboardfan.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	linux-kernel@vger.kernel.org, Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751093AbVILACq@vger.kernel.org>
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <43244C33.1050502@gentoo.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <leonard@oss.sgi.com>, <schmidt@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Brenton Schreiber" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Kasi:
 
-> Steve, maybe you could test it out? I have attached
-> it to this Gentoo bug:
-> 
-> 	http://bugs.gentoo.org/100258
-
-Have tested it and it does *not* solve the problem for
-me.
-
-Besides lots of other problem with 2.6.13 for me, like
-modem device not work, lots of extra modules not
-compiled  (ov511 ; unionfs etc..) so even it works I
-still need to revet back to 2.6.12.
-
-Cheers,
+http://uk.geocities.com/medvociferategood/?Fendi_IWC_rpjpdbvaf
 
 
-S.KIEU
+mamma mia, it's a game we play Bye bye doesn't mean forever 
 
-Send instant messages to your online friends http://au.messenger.yahoo.com 
+
+
+frobbing  filyon  eldec F07 documentwindow  currentwindow
+Are you a ghost?Or are you alive?Would you be here for me (ooh, ooh)
+ImaginationOr are you for real?Just give me a sign (sign)
