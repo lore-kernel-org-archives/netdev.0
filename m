@@ -1,71 +1,63 @@
-From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
-Subject: 2.613: network write socket problems
-Date: Mon, 12 Sep 2005 17:39:45 +0200
-Message-ID: <200509121739.46172.bernd.schubert__36125.5726930269$1126539873$gmane$org@pci.uni-heidelberg.de>
-Reply-To: bernd-schubert@gmx.de
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH  5/12] Add descriptions to constants
+Date: Mon, 12 Sep 2005 18:41:53 +0200
+Message-ID: <200509121841.53666.netdev@axxeo.de>
+References: <20050911221904.GA9301@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Ralf Baechle DL5RB <ralf@linux-mips.org>
+In-Reply-To: <20050911221904.GA9301@linux-mips.org>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi Ralf,
 
-on last Friday  we switched on our server to 2.6.13 and today we are=20
-experiencing problems with our nfs clients.
-In particular I'm talking about the unfs3 daemon, not the kernel nfs daem=
-on.=20
-Both are running on the server but on different ports, of course.  Both a=
-re=20
-also serving to the same clients, but different directories.
+Ralf Baechle DL5RB wrote:
+> Comment the names used for the AX.25 state machine.
 
-Today it already several times happend that the unfs3 daemon stalled. Eth=
-ereal=20
-showed no network packages on the unfs3 daemon port during this time.=20
-A strace to the proc-id of the daemon clearly shows that *some* writes to=
- some=20
-network sockets will take ages to finish
+What about making it even more useful by aliasing the enum elements?
 
-write(37, "\200\0\0x\203\326(\5\0\0\0\1\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 12=
-4) =3D=20
-124
+> Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
+>
+>  include/net/ax25.h |   10 +++++-----
+>  1 files changed, 5 insertions(+), 5 deletions(-)
+>
+> Index: linux-cvs/include/net/ax25.h
+> ===================================================================
+> --- linux-cvs.orig/include/net/ax25.h
+> +++ linux-cvs/include/net/ax25.h
+> @@ -97,11 +97,11 @@
+>  /* Define Link State constants. */
+>
+>  enum {
+> -	AX25_STATE_0,
+> -	AX25_STATE_1,
+> -	AX25_STATE_2,
+> -	AX25_STATE_3,
+> -	AX25_STATE_4
+> +	AX25_STATE_0,			/* Listening */
+    +  AX25_STATE_LISTENING = AX25_STATE_0,
+> +	AX25_STATE_1,			/* SABM sent */
+    +  AX25_STATE_SABM_SENT = AX25_STATE_1,
+> +	AX25_STATE_2,			/* DISC sent */
+    +  AX25_STATE_DISC_SENT = AX25_STATE_2,
+> +	AX25_STATE_3,			/* Established */
+    +  AX25_STATE_ESTABLISHED = AX25_STATE_3,
+> +	AX25_STATE_4			/* Recovery */
+    +  AX25_STATE_RECOVERY = AX25_STATE_4,
+>  };
 
-This kind of writes can take between seconds and minutes, while it usuall=
-y=20
-happens much faster than I can count. After the write() to the network=20
-socket, other operations happen rather fast, until the next write to a=20
-network socket. (I identified the troublesome filedescriptors by looking=20
-to /proc/procid/fd).
-After restarting the unfs3 daemon everything goes smooth for some time=20
-(approximately 20min to 2h), until the next write to a filedescriptor sta=
-lls.
-
-Any idea whats going on? Until today this never happend before, neither w=
-ith=20
-2.6.x nor 2.4.x. As I wrote, on Friday we replaced 2.6.11.12 by 2.6.13, t=
-he=20
-configuration should be similar, only changes should be HZ set to 250 and=
-=20
-additionally the skge driver.=20
-We already switched back from skge to sk98lin, but the problem seems to=20
-remain.=20
-
-
-Thanks,=09
-	Bernd
+That would not break backward compatibility and now the state machine can be
+self explanatory :-)
 
 
+Regards
 
---=20
-Bernd Schubert
-Physikalisch Chemisches Institut / Theoretische Chemie
-Universit=E4t Heidelberg
-INF 229
-69120 Heidelberg
-e-mail: bernd.schubert@pci.uni-heidelberg.de
+Ingo Oeser
+
