@@ -1,42 +1,45 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 13/16] skge: support ETHTOOL_GPERMADDR
-Date: Mon, 12 Sep 2005 10:48:57 -0400
-Message-ID: <09122005104857.32541@bilbo.tuxdriver.com>
-References: <09122005104857.32477@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 2/3] 3c59x: cleanup init of module parameter arrays
+Date: Mon, 12 Sep 2005 10:48:53 -0400
+Message-ID: <09122005104853.31588@bilbo.tuxdriver.com>
+References: <09122005104852.31525@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, jgarzik@pobox.com, Jon_Wetzel@Dell.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751360AbVILPCw@vger.kernel.org>
+Cc: akpm@osdl.org, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751352AbVILPDe@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104857.32477@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104852.31525@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for ETHTOOL_GPERMADDR to skge.
+Beautify the array initilizations for the module parameters.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/skge.c |    2 ++
- 1 files changed, 2 insertions(+)
+ drivers/net/3c59x.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -743,6 +743,7 @@ static struct ethtool_ops skge_ethtool_o
- 	.phys_id	= skge_phys_id,
- 	.get_stats_count = skge_get_stats_count,
- 	.get_ethtool_stats = skge_get_ethtool_stats,
-+	.get_perm_addr	= ethtool_op_get_perm_addr,
- };
- 
- /*
-@@ -3080,6 +3081,7 @@ static struct net_device *skge_devinit(s
- 
- 	/* read the mac address */
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
-+	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 
- 	/* device is off until link detection */
- 	netif_carrier_off(dev);
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -903,12 +903,12 @@ static void set_8021q_mode(struct net_de
+ /* This driver uses 'options' to pass the media type, full-duplex flag, etc. */
+ /* Option count limit only -- unlimited interfaces are supported. */
+ #define MAX_UNITS 8
+-static int options[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1,};
+-static int full_duplex[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int hw_checksums[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int flow_ctrl[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int enable_wol[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int use_mmio[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
++static int options[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
++static int full_duplex[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
++static int hw_checksums[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
++static int flow_ctrl[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
++static int enable_wol[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
++static int use_mmio[MAX_UNITS] = { [0 ... MAX_UNITS-1] = -1 };
+ static int global_options = -1;
+ static int global_full_duplex = -1;
+ static int global_enable_wol = -1;
