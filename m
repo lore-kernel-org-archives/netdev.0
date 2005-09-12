@@ -1,59 +1,50 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.13 15/16] tg3: support ETHTOOL_GPERMADDR
-Date: Mon, 12 Sep 2005 10:48:58 -0400
-Message-ID: <09122005104858.32669@bilbo.tuxdriver.com>
-References: <09122005104858.32604@bilbo.tuxdriver.com>
+Subject: [patch 2.6.13 3/3] 3c59x: fix some grammar in module parameter descriptions
+Date: Mon, 12 Sep 2005 10:48:53 -0400
+Message-ID: <09122005104853.31652@bilbo.tuxdriver.com>
+References: <09122005104853.31588@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, davem@davemloft.net, jgarzik@pobox.com,
-	Jon_Wetzel@Dell.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751355AbVILPC4@vger.kernel.org>
+Cc: akpm@osdl.org, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751351AbVILPED@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09122005104858.32604@bilbo.tuxdriver.com>
+In-Reply-To: <09122005104853.31588@bilbo.tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add support for ETHTOOL_GPERMADDR to tg3.
+Correct several (apparently cut & paste) grammatical typos in module
+parameter descriptions. They seem to have originated as copies of
+the description for "global_options".
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/tg3.c |    4 ++++
- 1 files changed, 4 insertions(+)
+ drivers/net/3c59x.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -8303,6 +8303,7 @@ static struct ethtool_ops tg3_ethtool_op
- 	.get_ethtool_stats	= tg3_get_ethtool_stats,
- 	.get_coalesce		= tg3_get_coalesce,
- 	.set_coalesce		= tg3_set_coalesce,
-+	.get_perm_addr		= ethtool_op_get_perm_addr,
- };
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -943,18 +943,18 @@ MODULE_PARM_DESC(debug, "3c59x debug lev
+ MODULE_PARM_DESC(options, "3c59x: Bits 0-3: media type, bit 4: bus mastering, bit 9: full duplex");
+ MODULE_PARM_DESC(global_options, "3c59x: same as options, but applies to all NICs if options is unset");
+ MODULE_PARM_DESC(full_duplex, "3c59x full duplex setting(s) (1)");
+-MODULE_PARM_DESC(global_full_duplex, "3c59x: same as full_duplex, but applies to all NICs if options is unset");
++MODULE_PARM_DESC(global_full_duplex, "3c59x: same as full_duplex, but applies to all NICs if full_duplex is unset");
+ MODULE_PARM_DESC(hw_checksums, "3c59x Hardware checksum checking by adapter(s) (0-1)");
+ MODULE_PARM_DESC(flow_ctrl, "3c59x 802.3x flow control usage (PAUSE only) (0-1)");
+ MODULE_PARM_DESC(enable_wol, "3c59x: Turn on Wake-on-LAN for adapter(s) (0-1)");
+-MODULE_PARM_DESC(global_enable_wol, "3c59x: same as enable_wol, but applies to all NICs if options is unset");
++MODULE_PARM_DESC(global_enable_wol, "3c59x: same as enable_wol, but applies to all NICs if enable_wol is unset");
+ MODULE_PARM_DESC(rx_copybreak, "3c59x copy breakpoint for copy-only-tiny-frames");
+ MODULE_PARM_DESC(max_interrupt_work, "3c59x maximum events handled per interrupt");
+ MODULE_PARM_DESC(compaq_ioaddr, "3c59x PCI I/O base address (Compaq BIOS problem workaround)");
+ MODULE_PARM_DESC(compaq_irq, "3c59x PCI IRQ number (Compaq BIOS problem workaround)");
+ MODULE_PARM_DESC(compaq_device_id, "3c59x PCI device ID (Compaq BIOS problem workaround)");
+ MODULE_PARM_DESC(watchdog, "3c59x transmit timeout in milliseconds");
+-MODULE_PARM_DESC(global_use_mmio, "3c59x: same as use_mmio, but applies to all NICs if options is unset");
++MODULE_PARM_DESC(global_use_mmio, "3c59x: same as use_mmio, but applies to all NICs if use_mmio is unset");
+ MODULE_PARM_DESC(use_mmio, "3c59x: use memory-mapped PCI I/O resource (0-1)");
  
- static void __devinit tg3_get_eeprom_size(struct tg3 *tp)
-@@ -9781,6 +9782,7 @@ static int __devinit tg3_get_macaddr_spa
- 		if (prom_getproplen(node, "local-mac-address") == 6) {
- 			prom_getproperty(node, "local-mac-address",
- 					 dev->dev_addr, 6);
-+			memcpy(dev->perm_addr, dev->dev_addr, 6);
- 			return 0;
- 		}
- 	}
-@@ -9792,6 +9794,7 @@ static int __devinit tg3_get_default_mac
- 	struct net_device *dev = tp->dev;
- 
- 	memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
-+	memcpy(dev->perm_addr, idprom->id_ethaddr, 6);
- 	return 0;
- }
- #endif
-@@ -9861,6 +9864,7 @@ static int __devinit tg3_get_device_addr
- #endif
- 		return -EINVAL;
- 	}
-+	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 	return 0;
- }
- 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
