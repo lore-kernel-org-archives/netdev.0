@@ -1,31 +1,33 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 2.6.13 0/5] normalize calculations of rx_dropped
-Date: Mon, 12 Sep 2005 14:53:31 -0400
-Message-ID: <4325CEAB.2050600@pobox.com>
-References: <09122005104858.332@bilbo.tuxdriver.com>
+Subject: Re: Git broken for IPW2200
+Date: Mon, 12 Sep 2005 14:54:50 -0400
+Message-ID: <4325CEFA.6050307@pobox.com>
+References: <1126143695.5402.11.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@osdl.org, john.ronciak@intel.com, ganesh.venkatesan@intel.com,
-	cramerj@intel.com, jesse.brandeburg@intel.com,
-	ayyappan.veeraiyan@intel.com, mchan@broadcom.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932152AbVILSxg@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <09122005104858.332@bilbo.tuxdriver.com>
+Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
+	ieee80211-devel@lists.sourceforge.net,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932156AbVILSyz@vger.kernel.org>
+To: abonilla@linuxwireless.org
+In-Reply-To: <1126143695.5402.11.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Some fixes to normalize how rx_dropped is calculated.  This is the
-> product of a discussion on netdev on or about 18 August 2005 w/
-> the subject '[RFC] stats: how to count "good" packets dropped by
-> hardware?'
+Alejandro Bonilla Beeche wrote:
+> Hi,
 > 
-> Patches for 3c59x, e1000, e100, ixgb, and tg3 to follow.
+> 	Where does one report this? I was building Linus Git tree as per I
+> updated it at 09/07/2005 7:00PM PDT and got this while compiling.
+> 
+> Where do I report this?
+> 
+> Debian unstable updated at same time.
+> 
+> it looks like ipw2200 is thinking that ieee80211 is not compiled in, but
+> I did select it as a module?
 
-For e.g. e1000, are we sure that packets dropped by hardware are 
-accounted elsewhere?
+Care to send your .config?
 
 	Jeff
