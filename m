@@ -1,34 +1,51 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch 2.6.13 0/5] normalize calculations of rx_dropped
-Date: Mon, 12 Sep 2005 15:14:21 -0400
-Message-ID: <20050912191419.GB19644@tuxdriver.com>
-References: <09122005104858.332@bilbo.tuxdriver.com> <4325CEAB.2050600@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] af_packet: Allow for > 8 byte hardware
+	addresses.
+Date: Mon, 12 Sep 2005 14:13:51 -0700 (PDT)
+Message-ID: <20050912.141351.50320521.davem@davemloft.net>
+References: <1123786117.4403.5835.camel@hal.voltaire.com>
+	<20050811.124916.77057824.davem@davemloft.net>
+	<m164t8ltrs.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@osdl.org, john.ronciak@intel.com, ganesh.venkatesan@intel.com,
-	cramerj@intel.com, jesse.brandeburg@intel.com,
-	ayyappan.veeraiyan@intel.com, mchan@broadcom.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932164AbVILTSA@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4325CEAB.2050600@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: openib-general@openib.org, netdev@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: ebiederm@xmission.com
+In-Reply-To: <m164t8ltrs.fsf_-_@ebiederm.dsl.xmission.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 12, 2005 at 02:53:31PM -0400, Jeff Garzik wrote:
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sat, 10 Sep 2005 11:25:27 -0600
 
-> For e.g. e1000, are we sure that packets dropped by hardware are 
-> accounted elsewhere?
+> @@ -1315,11 +1340,16 @@ packet_setsockopt(struct socket *sock, i
+>  	case PACKET_ADD_MEMBERSHIP:	
+>  	case PACKET_DROP_MEMBERSHIP:
+>  	{
+> -		struct packet_mreq mreq;
+> -		if (optlen<sizeof(mreq))
+> +		struct packet_mreq_max mreq;
+> +		int len = optlen;
+> +		if (len < sizeof(struct packet_mreq))
+>  			return -EINVAL;
+> -		if (copy_from_user(&mreq,optval,sizeof(mreq)))
+> +		if (len > sizeof(mreq))
+> +			len = sizeof(mreq);
+> +		if (copy_from_user(&mreq,optval,len))
+>  			return -EFAULT;
 
-The e100 and tg3 patches move the count of those frames to
-rx_missed_errors.  e1000 and ixgb were already counting them there in
-addition to rx_discards, so they were simply removed from rx_discards.
-3c59x was counting other errors in rx_discards, so they were removed
-from that count.
+I would suggest memset()'ing out any packet_mreq_max structure,
+before copying a smaller amount of data into it, just to be
+safe.  Please check this out in all such possible uses in
+the patch.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Thanks.
