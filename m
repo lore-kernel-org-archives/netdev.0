@@ -1,31 +1,73 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 9/11] net: dst_entry.refcount, use, lastuse to use
- alloc_percpu
-Date: Tue, 13 Sep 2005 16:27:48 -0700 (PDT)
-Message-ID: <20050913.162748.86496945.davem@davemloft.net>
-References: <20050913220737.GA6249@localhost.localdomain>
-	<20050913.151216.48124942.davem@davemloft.net>
-	<20050913231717.GC6249@localhost.localdomain>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH 15/29] ieee80211 Renamed ieee80211_hdr to ieee80211_hdr_4addr
+Date: Tue, 13 Sep 2005 19:45:23 -0400
+Message-ID: <200509131945.23126.flamingice@sourmilk.net>
+References: <43275856.7010305@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, dipankar@in.ibm.com,
-	bharata@in.ibm.com, shai@scalex86.org, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932508AbVIMX2K@vger.kernel.org>
-To: kiran@scalex86.org
-In-Reply-To: <20050913231717.GC6249@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: ieee80211-devel@lists.sourceforge.net,
+        James Ketrenos <jketreno@linux.intel.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <43275856.7010305@linux.intel.com>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Ravikiran G Thirumalai <kiran@scalex86.org>
-Date: Tue, 13 Sep 2005 16:17:17 -0700
+This patch plus patch 5 looks very similar to my management frame patch 
+except..
 
-> But even 1 Million dst cache entries would be 16+4 MB additional for
-> a 4 cpu box....is that too much?
+On Tuesday 13 September 2005 18:53, James Ketrenos wrote:
+> @@ -552,6 +577,17 @@ struct ieee80211_authentication {
+>  	struct ieee80211_info_element info_element[0];
+>  } __attribute__ ((packed));
+>
+> +struct ieee80211_disassoc {
+Add alias for deauthentication frame here?
 
-Absolutely.
+> +	struct ieee80211_hdr_3addr header;
+> +	u16 reason_code;
+If we do not append _code to "status", why append _code to "reason"?
 
-Per-cpu counters are great for things like single instance
-statistics et al.  But once you start doing them per-object
-that's out of control bloat as far as I'm concerned.
+> +	struct ieee80211_info_element info_element[0];
+> +} __attribute__ ((packed));
+> +
+> +struct ieee80211_probe_request {
+> +	struct ieee80211_hdr_3addr header;
+> +	struct ieee80211_info_element info_element[0];
+> +} __attribute__ ((packed));
+> +
+>  struct ieee80211_probe_response {
+>  	struct ieee80211_hdr_3addr header;
+>  	u32 time_stamp[2];
+> @@ -560,14 +596,25 @@ struct ieee80211_probe_response {
+>  	struct ieee80211_info_element info_element[0];
+>  } __attribute__ ((packed));
+>
+> -struct ieee80211_assoc_request_frame {
+> +/* Alias beacon for probe_response */
+> +#define ieee80211_beacon ieee80211_probe_response
+> +
+> +struct ieee80211_assoc_request {
+> +	struct ieee80211_hdr_3addr header;
+> +	u16 capability;
+> +	u16 listen_interval;
+> +	struct ieee80211_info_element info_element[0];
+> +} __attribute__ ((packed));
+> +
+> +struct ieee80211_reassoc_request {
+> +	struct ieee80211_hdr_3addr header;
+>  	__le16 capability;
+>  	__le16 listen_interval;
+>  	u8 current_ap[ETH_ALEN];
+>  	struct ieee80211_info_element info_element[0];
+>  } __attribute__ ((packed));
+>
+> -struct ieee80211_assoc_response_frame {
+> +struct ieee80211_assoc_response {
+>  	struct ieee80211_hdr_3addr header;
+>  	__le16 capability;
+>  	__le16 status;
