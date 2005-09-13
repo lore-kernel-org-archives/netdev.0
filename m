@@ -1,7 +1,7 @@
 From: Ravikiran G Thirumalai <kiran@scalex86.org>
-Subject: [patch 8/11] net: dst_abstraction macros
-Date: Tue, 13 Sep 2005 09:12:40 -0700
-Message-ID: <20050913161240.GJ3570@localhost.localdomain>
+Subject: [patch 9/11] net: dst_entry.refcount, use, lastuse to use alloc_percpu
+Date: Tue, 13 Sep 2005 09:17:08 -0700
+Message-ID: <20050913161708.GK3570@localhost.localdomain>
 References: <20050913155112.GB3570@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,735 +9,595 @@ Cc: linux-kernel@vger.kernel.org, dipankar@in.ibm.com,
 	bharata@in.ibm.com, shai@scalex86.org,
 	Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
 	davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964825AbVIMQMx@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964843AbVIMQRR@vger.kernel.org>
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 In-Reply-To: <20050913155112.GB3570@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces macros to handle the use, lastuse and refcnt fields in
-the dst_entry structure using macros. Having macros manipulate these fields
-allows cleaner source code and provides an easy way for modifications to the
-way these performance critical fields are handled.
+Patch to use alloc_percpu for dst_entry.refcount.  This patch reduces the
+cacheline bouncing of the atomic_t dst_entry.__refcount.  This Patch gets us
+55% better tbench throughput, on a 8way x445 box.
 
-The introduction of macros removes some code that is repeated in 
-various places. Also
+Signed-off by: Pravin B. Shelar <pravins@calsoftinc.com>
+Signed-off by: Shobhit Dayal <shobhit@calsoftinc.com>
+Signed-off by: Christoph Lameter <christoph@lameter.com>
+Signed-off by: Ravikiran Thirumalai <kirant@scalex86.org>
 
-- decnet_dn_route: introduces dn_dst_useful to check the usefulness of a dst
-		entry. dst_update_rtu used to reduce code duplication.
-
-- net/ipv4/route.c: add ip_rt_copy. dst_update_rtu used to reduce code duplication.
-
-The patch is a prerequisite for the dst numa patch. 
-
-Signed-off-by: Pravin B. Shelar <pravins@calsoftinc.com>
-Signed-off-by: Shobhit Dayal <shobhit@calsoftinc.com>
-Signed-off-by: Shai Fultheim <shai@scalex86.org>
-Signed-off-by: Christoph Lameter <christoph@lameter.com>
-Signed-off-by: Ravikiran Thirumalai <kiran@scalex86.org>
-
-Index: alloc_percpu-2.6.13-rc6/include/net/dst.h
+Index: alloc_percpu-2.6.13/include/net/dst.h
 ===================================================================
---- alloc_percpu-2.6.13-rc6.orig/include/net/dst.h	2005-08-15 17:54:34.721623250 -0400
-+++ alloc_percpu-2.6.13-rc6/include/net/dst.h	2005-08-15 17:58:14.499358500 -0400
-@@ -103,6 +103,30 @@
+--- alloc_percpu-2.6.13.orig/include/net/dst.h	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/include/net/dst.h	2005-09-12 16:44:05.000000000 -0700
+@@ -35,11 +35,33 @@
+ 
+ struct sk_buff;
+ 
++#ifdef CONFIG_NUMA
++
++/*	A per cpu instance of this exist for every dst_entry.
++ *	These are the most written fields of dst_entry.
++ */
++struct per_cpu_cnt
++{
++	int 		refcnt;
++	int 		use;
++	unsigned long	lastuse;
++};
++
++#endif
++
+ struct dst_entry
+ {
+ 	struct dst_entry        *next;
++#ifdef CONFIG_NUMA
++	/* first cpu that should be checked for time-out */
++	int 			s_cpu;
++	/* per cpu client references   */
++	struct per_cpu_cnt	*pcc;
++#else
+ 	atomic_t		__refcnt;	/* client references	*/
+ 	int			__use;
++	unsigned long		lastuse;
++#endif
+ 	struct dst_entry	*child;
+ 	struct net_device       *dev;
+ 	short			error;
+@@ -50,7 +72,6 @@
+ #define DST_NOPOLICY		4
+ #define DST_NOHASH		8
+ #define DST_BALANCED            0x10
+-	unsigned long		lastuse;
+ 	unsigned long		expires;
+ 
+ 	unsigned short		header_len;	/* more space at head required */
+@@ -103,25 +124,94 @@
  
  #ifdef __KERNEL__
  
-+#define dst_use(__dst) (__dst)->__use
-+#define dst_use_inc(__dst) (__dst)->__use++
++#ifdef CONFIG_NUMA
 +
-+#define dst_lastuse(__dst) (__dst)->lastuse
-+#define dst_lastuse_set(__dst) (__dst)->lastuse = jiffies
-+
-+#define dst_update_tu(__dst) do { dst_lastuse_set(__dst);dst_use_inc(__dst); } while (0)
-+#define dst_update_rtu(__dst) do { dst_lastuse_set(__dst);dst_hold(__dst);dst_use_inc(__dst); } while (0)
-+
-+#define dst_refcnt(__dst) atomic_read(&(__dst)->__refcnt)
-+#define dst_refcnt_one(__dst) atomic_set(&(__dst)->__refcnt, 1)
-+#define dst_refcnt_dec(__dst) atomic_dec(&(__dst)->__refcnt)
-+#define dst_hold(__dst) atomic_inc(&(__dst)->__refcnt)
-+
-+static inline
-+void dst_release(struct dst_entry * dst)
++static inline int dst_use(struct dst_entry *dst)
 +{
-+	if (dst) {
-+		WARN_ON(dst_refcnt(dst) < 1);
-+		smp_mb__before_atomic_dec();
-+		dst_refcnt_dec(dst);
++	int total = 0, cpu;
++
++	for_each_online_cpu(cpu)
++		total += per_cpu_ptr(dst->pcc, cpu)->use;
++	return total;
++}
++
++#define dst_use_inc(__dst) do {					\
++		per_cpu_ptr((__dst)->pcc, get_cpu())->use++ ;	\
++		put_cpu();					\
++	} while(0);
++
++static inline unsigned long dst_lastuse(struct dst_entry *dst)
++{
++	unsigned long max = 0;
++	int cpu;
++
++	for_each_online_cpu(cpu)
++		if (max < per_cpu_ptr(dst->pcc, cpu)->lastuse)
++			max = per_cpu_ptr(dst->pcc, cpu)->lastuse;
++	return max;
++}
++
++#define dst_lastuse_set(__dst)  do {					  \
++		per_cpu_ptr((__dst)->pcc, get_cpu())->lastuse = jiffies ; \
++		put_cpu();						  \
++	} while(0);
++
++static inline int dst_refcnt(struct dst_entry *dst)
++{
++	int cpu, sum = 0;
++
++	for_each_online_cpu(cpu)
++		sum += per_cpu_ptr(dst->pcc, cpu)->refcnt;
++
++	return sum;
++}
++
++#define dst_refcnt_one(__dst) do { 					  \
++			per_cpu_ptr((__dst)->pcc, get_cpu())->refcnt = 1; \
++			put_cpu();		  			  \
++		} while(0);
++
++#define dst_refcnt_dec(__dst) do { 					\
++			per_cpu_ptr((__dst)->pcc, get_cpu())->refcnt--;	\
++			put_cpu();					\
++		} while(0);
++#define dst_hold(__dst) do { 						 \
++			per_cpu_ptr((__dst)->pcc, get_cpu())->refcnt++ ; \
++			put_cpu();					 \
++		} while(0);
++
++#else
++
+ #define dst_use(__dst) (__dst)->__use
+ #define dst_use_inc(__dst) (__dst)->__use++
+ 
+ #define dst_lastuse(__dst) (__dst)->lastuse
+ #define dst_lastuse_set(__dst) (__dst)->lastuse = jiffies
+ 
+-#define dst_update_tu(__dst) do { dst_lastuse_set(__dst);dst_use_inc(__dst); } while (0)
+-#define dst_update_rtu(__dst) do { dst_lastuse_set(__dst);dst_hold(__dst);dst_use_inc(__dst); } while (0)
+-
+ #define dst_refcnt(__dst) atomic_read(&(__dst)->__refcnt)
+ #define dst_refcnt_one(__dst) atomic_set(&(__dst)->__refcnt, 1)
+ #define dst_refcnt_dec(__dst) atomic_dec(&(__dst)->__refcnt)
+ #define dst_hold(__dst) atomic_inc(&(__dst)->__refcnt)
+ 
++#endif
++#define dst_update_tu(__dst) do { 		\
++		dst_lastuse_set(__dst);		\
++		dst_use_inc(__dst); 		\
++	} while (0);
++
++#define dst_update_rtu(__dst) do { 		\
++		dst_lastuse_set(__dst);		\
++		dst_hold(__dst);		\
++		dst_use_inc(__dst); 		\
++	} while (0)
++
+ static inline
+ void dst_release(struct dst_entry * dst)
+ {
+ 	if (dst) {
++#if  (!defined (CONFIG_NUMA) || (RT_CACHE_DEBUG >= 2 ))
+ 		WARN_ON(dst_refcnt(dst) < 1);
++#endif
+ 		smp_mb__before_atomic_dec();
+ 		dst_refcnt_dec(dst);
+ 	}
+@@ -271,6 +361,48 @@
+ 
+ extern void		dst_init(void);
+ 
++/*	This function allocates and initializes rtu array of given dst-entry.
++ */
++static inline int dst_init_rtu_array(struct dst_entry *dst)
++{
++#ifdef CONFIG_NUMA
++	int cpu;
++	dst->pcc = alloc_percpu(struct per_cpu_cnt, GFP_ATOMIC);
++	if(!dst->pcc)
++		return -ENOMEM;
++
++	for_each_cpu(cpu) {
++		per_cpu_ptr(dst->pcc, cpu)->use = 0;
++		per_cpu_ptr(dst->pcc, cpu)->refcnt = 0;
++		per_cpu_ptr(dst->pcc, cpu)->lastuse = jiffies;
++	}
++	dst->s_cpu = smp_processor_id();
++#else
++	atomic_set(&dst->__refcnt, 0);
++	dst->lastuse = jiffies;
++#endif
++	return 0;
++}
++
++static inline void dst_free_rtu_array(struct dst_entry *dst)
++{
++#ifdef CONFIG_NUMA
++	free_percpu(dst->pcc);
++#endif
++}
++
++#if	defined (CONFIG_HOTPLUG_CPU) && defined (CONFIG_NUMA)
++inline static void dst_ref_xfr_cpu_down(struct dst_entry *__dst, int cpu)
++{
++	int refcnt = per_cpu_ptr((__dst)->pcc, cpu)->refcnt;
++	if (refcnt) {
++		per_cpu_ptr((__dst)->pcc, get_cpu())->refcnt += refcnt;
++		put_cpu();
++		per_cpu_ptr((__dst)->pcc, cpu)->refcnt = 0;
 +	}
 +}
++#endif
 +
- static inline u32
- dst_metric(const struct dst_entry *dst, int metric)
- {
-@@ -134,29 +158,14 @@
- 	return dst_metric(dst, RTAX_LOCK) & (1<<metric);
- }
- 
--static inline void dst_hold(struct dst_entry * dst)
--{
--	atomic_inc(&dst->__refcnt);
--}
--
- static inline
- struct dst_entry * dst_clone(struct dst_entry * dst)
- {
- 	if (dst)
--		atomic_inc(&dst->__refcnt);
-+		dst_hold(dst);
- 	return dst;
- }
- 
--static inline
--void dst_release(struct dst_entry * dst)
--{
--	if (dst) {
--		WARN_ON(atomic_read(&dst->__refcnt) < 1);
--		smp_mb__before_atomic_dec();
--		atomic_dec(&dst->__refcnt);
--	}
--}
--
- /* Children define the path of the packet through the
-  * Linux networking.  Thus, destinations are stackable.
-  */
-@@ -177,7 +186,7 @@
- {
- 	if (dst->obsolete > 1)
- 		return;
--	if (!atomic_read(&dst->__refcnt)) {
-+	if (!dst_refcnt(dst)) {
- 		dst = dst_destroy(dst);
- 		if (!dst)
- 			return;
-Index: alloc_percpu-2.6.13-rc6/net/core/dst.c
+ struct flowi;
+ #ifndef CONFIG_XFRM
+ static inline int xfrm_lookup(struct dst_entry **dst_p, struct flowi *fl,
+Index: alloc_percpu-2.6.13/net/bridge/br_netfilter.c
 ===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/core/dst.c	2005-08-15 17:54:34.761625750 -0400
-+++ alloc_percpu-2.6.13-rc6/net/core/dst.c	2005-08-15 17:58:14.499358500 -0400
-@@ -57,7 +57,7 @@
- 	dstp = &dst_garbage_list;
- 	work_performed = 0;
- 	while ((dst = *dstp) != NULL) {
--		if (atomic_read(&dst->__refcnt)) {
-+		if (dst_refcnt(dst)) {
- 			dstp = &dst->next;
- 			delayed++;
- 			continue;
-@@ -176,9 +176,8 @@
- 	struct neighbour *neigh;
- 	struct hh_cache *hh;
- 
--	smp_rmb();
--
- again:
-+	smp_rmb();
- 	neigh = dst->neighbour;
- 	hh = dst->hh;
- 	child = dst->child;
-@@ -206,16 +205,16 @@
- 	dst = child;
- 	if (dst) {
- 		int nohash = dst->flags & DST_NOHASH;
--
--		if (atomic_dec_and_test(&dst->__refcnt)) {
--			/* We were real parent of this dst, so kill child. */
--			if (nohash)
-+		dst_refcnt_dec(dst);
-+		if (nohash) {
-+			if (!dst_refcnt(dst)) {
-+				/* We were real parent of this dst, so kill child. */
- 				goto again;
--		} else {
--			/* Child is still referenced, return it for freeing. */
--			if (nohash)
-+			} else {
-+				/* Child is still referenced, return it for freeing. */
- 				return dst;
--			/* Child is still in his hash table */
-+				/* Child is still in his hash table */
-+			}
- 		}
- 	}
- 	return NULL;
-Index: alloc_percpu-2.6.13-rc6/net/decnet/dn_route.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/decnet/dn_route.c	2005-08-15 17:54:34.789627500 -0400
-+++ alloc_percpu-2.6.13-rc6/net/decnet/dn_route.c	2005-08-15 17:58:14.503358750 -0400
-@@ -155,6 +155,11 @@
- 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
- }
- 
-+static inline int dn_dst_useful(struct dn_route *rth, unsigned long now, unsigned long expire)
-+{
-+	return  (atomic_read(&rth->u.dst.__refcnt) || (now - rth->u.dst.lastuse) < expire) ;
-+}
-+
- static void dn_dst_check_expire(unsigned long dummy)
+--- alloc_percpu-2.6.13.orig/net/bridge/br_netfilter.c	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/net/bridge/br_netfilter.c	2005-09-12 12:24:01.000000000 -0700
+@@ -85,7 +85,6 @@
+ static struct rtable __fake_rtable = {
+ 	.u = {
+ 		.dst = {
+-			.__refcnt		= ATOMIC_INIT(1),
+ 			.dev			= &__fake_net_device,
+ 			.path			= &__fake_rtable.u.dst,
+ 			.metrics		= {[RTAX_MTU - 1] = 1500},
+@@ -1010,6 +1009,10 @@
  {
  	int i;
-@@ -167,8 +172,7 @@
  
- 		spin_lock(&dn_rt_hash_table[i].lock);
- 		while((rt=*rtp) != NULL) {
--			if (atomic_read(&rt->u.dst.__refcnt) ||
--					(now - rt->u.dst.lastuse) < expire) {
-+			if (dn_dst_useful(rt, now, expire)) {
- 				rtp = &rt->u.rt_next;
- 				continue;
- 			}
-@@ -198,8 +202,7 @@
- 		rtp = &dn_rt_hash_table[i].chain;
- 
- 		while((rt=*rtp) != NULL) {
--			if (atomic_read(&rt->u.dst.__refcnt) ||
--					(now - rt->u.dst.lastuse) < expire) {
-+			if (dn_dst_useful(rt, now, expire)) {
- 				rtp = &rt->u.rt_next;
- 				continue;
- 			}
-@@ -277,10 +280,8 @@
- static int dn_insert_route(struct dn_route *rt, unsigned hash, struct dn_route **rp)
- {
- 	struct dn_route *rth, **rthp;
--	unsigned long now = jiffies;
--
--	rthp = &dn_rt_hash_table[hash].chain;
- 
-+ 	rthp = &dn_rt_hash_table[hash].chain;
- 	spin_lock_bh(&dn_rt_hash_table[hash].lock);
- 	while((rth = *rthp) != NULL) {
- 		if (compare_keys(&rth->fl, &rt->fl)) {
-@@ -290,9 +291,7 @@
- 					   dn_rt_hash_table[hash].chain);
- 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
- 
--			rth->u.dst.__use++;
--			dst_hold(&rth->u.dst);
--			rth->u.dst.lastuse = now;
-+			dst_update_rtu(&rth->u.dst);
- 			spin_unlock_bh(&dn_rt_hash_table[hash].lock);
- 
- 			dnrt_drop(rt);
-@@ -304,10 +303,8 @@
- 
- 	rcu_assign_pointer(rt->u.rt_next, dn_rt_hash_table[hash].chain);
- 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
--	
--	dst_hold(&rt->u.dst);
--	rt->u.dst.__use++;
--	rt->u.dst.lastuse = now;
++	if (dst_init_rtu_array(&__fake_rtable.u.dst) < 0)
++		panic("br_netfilter : cannot allocate memory for dst-entry rtu array");
++	dst_refcnt_one(&__fake_rtable.u.dst);
 +
-+	dst_update_rtu(&rt->u.dst);
- 	spin_unlock_bh(&dn_rt_hash_table[hash].lock);
- 	*rp = rt;
- 	return 0;
-@@ -1091,7 +1088,7 @@
- 	if (rt == NULL)
- 		goto e_nobufs;
+ 	for (i = 0; i < ARRAY_SIZE(br_nf_ops); i++) {
+ 		int ret;
  
--	atomic_set(&rt->u.dst.__refcnt, 1);
-+	dst_refcnt_one(&rt->u.dst);
- 	rt->u.dst.flags   = DST_HOST;
- 
- 	rt->fl.fld_src    = oldflp->fld_src;
-@@ -1115,7 +1112,7 @@
- 	rt->u.dst.neighbour = neigh;
- 	neigh = NULL;
- 
--	rt->u.dst.lastuse = jiffies;
-+	dst_lastuse_set(&rt->u.dst);
- 	rt->u.dst.output  = dn_output;
- 	rt->u.dst.input   = dn_rt_bug;
- 	rt->rt_flags      = flags;
-@@ -1173,9 +1170,7 @@
+@@ -1046,4 +1049,5 @@
+ #ifdef CONFIG_SYSCTL
+ 	unregister_sysctl_table(brnf_sysctl_header);
  #endif
- 			    (rt->fl.iif == 0) &&
- 			    (rt->fl.oif == flp->oif)) {
--				rt->u.dst.lastuse = jiffies;
--				dst_hold(&rt->u.dst);
--				rt->u.dst.__use++;
-+				dst_update_rtu(&rt->u.dst);
- 				rcu_read_unlock_bh();
- 				*pprt = &rt->u.dst;
- 				return 0;
-@@ -1381,7 +1376,7 @@
- 	rt->u.dst.flags = DST_HOST;
- 	rt->u.dst.neighbour = neigh;
- 	rt->u.dst.dev = out_dev;
--	rt->u.dst.lastuse = jiffies;
-+	dst_lastuse_set(&rt->u.dst);
- 	rt->u.dst.output = dn_rt_bug;
- 	switch(res.type) {
- 		case RTN_UNICAST:
-@@ -1452,9 +1447,7 @@
- 		    (rt->fl.fld_fwmark == skb->nfmark) &&
++	dst_free_rtu_array(&__fake_rtable.u.dst);
+ }
+Index: alloc_percpu-2.6.13/net/core/dst.c
+===================================================================
+--- alloc_percpu-2.6.13.orig/net/core/dst.c	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/net/core/dst.c	2005-09-12 12:24:01.000000000 -0700
+@@ -131,9 +131,9 @@
+ 	if (!dst)
+ 		return NULL;
+ 	memset(dst, 0, ops->entry_size);
+-	atomic_set(&dst->__refcnt, 0);
++	if (dst_init_rtu_array(dst) < 0)
++		return NULL;
+ 	dst->ops = ops;
+-	dst->lastuse = jiffies;
+ 	dst->path = dst;
+ 	dst->input = dst_discard_in;
+ 	dst->output = dst_discard_out;
+@@ -200,6 +200,7 @@
+ #if RT_CACHE_DEBUG >= 2 
+ 	atomic_dec(&dst_total);
  #endif
- 		    (rt->fl.iif == cb->iif)) {
--			rt->u.dst.lastuse = jiffies;
--			dst_hold(&rt->u.dst);
--			rt->u.dst.__use++;
-+			dst_update_rtu(&rt->u.dst);
- 			rcu_read_unlock();
- 			skb->dst = (struct dst_entry *)rt;
- 			return 0;
-@@ -1504,9 +1497,9 @@
- 		RTA_PUT(skb, RTA_GATEWAY, 2, &rt->rt_gateway);
- 	if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
- 		goto rtattr_failure;
--	ci.rta_lastuse = jiffies_to_clock_t(jiffies - rt->u.dst.lastuse);
--	ci.rta_used     = rt->u.dst.__use;
--	ci.rta_clntref  = atomic_read(&rt->u.dst.__refcnt);
-+	ci.rta_lastuse = jiffies_to_clock_t(jiffies - dst_lastuse(&rt->u.dst));
-+	ci.rta_used     =  dst_use(&rt->u.dst);
-+	ci.rta_clntref  = dst_refcnt(&rt->u.dst);
- 	if (rt->u.dst.expires)
- 		ci.rta_expires = jiffies_to_clock_t(rt->u.dst.expires - jiffies);
- 	else
-@@ -1729,8 +1722,8 @@
- 			rt->u.dst.dev ? rt->u.dst.dev->name : "*",
- 			dn_addr2asc(dn_ntohs(rt->rt_daddr), buf1),
- 			dn_addr2asc(dn_ntohs(rt->rt_saddr), buf2),
--			atomic_read(&rt->u.dst.__refcnt),
--			rt->u.dst.__use,
-+			dst_refcnt(&rt->u.dst),
-+			dst_use(&rt->u.dst),
- 			(int) dst_metric(&rt->u.dst, RTAX_RTT));
- 	return 0;
- } 
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/ipvs/ip_vs_xmit.c
++	dst_free_rtu_array(dst);
+ 	kmem_cache_free(dst->ops->kmem_cachep, dst);
+ 
+ 	dst = child;
+Index: alloc_percpu-2.6.13/net/decnet/dn_route.c
 ===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/ipvs/ip_vs_xmit.c	2005-08-15 17:54:34.837630500 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/ipvs/ip_vs_xmit.c	2005-08-15 17:55:23.980701750 -0400
-@@ -88,7 +88,7 @@
- 			__ip_vs_dst_set(dest, rtos, dst_clone(&rt->u.dst));
- 			IP_VS_DBG(10, "new dst %u.%u.%u.%u, refcnt=%d, rtos=%X\n",
- 				  NIPQUAD(dest->addr),
--				  atomic_read(&rt->u.dst.__refcnt), rtos);
-+				  dst_refcnt(&rt->u.dst), rtos);
- 		}
- 		spin_unlock(&dest->dst_lock);
- 	} else {
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/multipath_drr.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/multipath_drr.c	2005-08-15 17:54:34.905634750 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/multipath_drr.c	2005-08-15 17:55:23.980701750 -0400
-@@ -149,8 +149,7 @@
- 		    multipath_comparekeys(&nh->fl, flp)) {
- 			int nh_ifidx = nh->u.dst.dev->ifindex;
+--- alloc_percpu-2.6.13.orig/net/decnet/dn_route.c	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/net/decnet/dn_route.c	2005-09-12 12:24:01.000000000 -0700
+@@ -77,6 +77,7 @@
+ #include <linux/netfilter_decnet.h>
+ #include <linux/rcupdate.h>
+ #include <linux/times.h>
++#include <linux/cpu.h>
+ #include <asm/errno.h>
+ #include <net/neighbour.h>
+ #include <net/dst.h>
+@@ -157,7 +158,29 @@
  
--			nh->u.dst.lastuse = jiffies;
--			nh->u.dst.__use++;
-+			dst_update_tu(&nh->u.dst);
- 			if (result != NULL)
- 				continue;
- 
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/multipath_random.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/multipath_random.c	2005-08-15 17:54:34.909635000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/multipath_random.c	2005-08-15 17:55:23.980701750 -0400
-@@ -94,7 +94,8 @@
- 		for (rt = first; rt; rt = rt->u.rt_next) {
- 			if ((rt->u.dst.flags & DST_BALANCED) != 0 &&
- 			    multipath_comparekeys(&rt->fl, flp)) {
--				rt->u.dst.lastuse = jiffies;
-+
-+				dst_lastuse_set(&rt->u.dst);
- 
- 				if (i == candidate_no)
- 					decision = rt;
-@@ -107,7 +108,7 @@
- 		}
- 	}
- 
--	decision->u.dst.__use++;
-+	dst_use_inc(&decision->u.dst);
- 	*rp = decision;
- }
- 
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/multipath_rr.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/multipath_rr.c	2005-08-15 17:54:34.973639000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/multipath_rr.c	2005-08-15 17:55:24.056706500 -0400
-@@ -62,10 +62,11 @@
-  	     nh = rcu_dereference(nh->u.rt_next)) {
- 		if ((nh->u.dst.flags & DST_BALANCED) != 0 &&
- 		    multipath_comparekeys(&nh->fl, flp)) {
--			nh->u.dst.lastuse = jiffies;
-+			int __use = dst_use(&nh->u.dst);
-+			dst_lastuse_set(&nh->u.dst);
- 
--			if (min_use == -1 || nh->u.dst.__use < min_use) {
--				min_use = nh->u.dst.__use;
-+			if (min_use == -1 || __use < min_use) {
-+				min_use = __use;
- 				min_use_cand = nh;
- 			}
- 		}
-@@ -74,7 +75,7 @@
- 	if (!result)
- 		result = first;
- 
--	result->u.dst.__use++;
-+	dst_use_inc(&result->u.dst);
- 	*rp = result;
- }
- 
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/multipath_wrandom.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/multipath_wrandom.c	2005-08-15 17:54:34.973639000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/multipath_wrandom.c	2005-08-15 17:55:24.056706500 -0400
-@@ -202,7 +202,7 @@
- 	decision = first;
- 	last_mpc = NULL;
- 	for (mpc = first_mpc; mpc; mpc = mpc->next) {
--		mpc->rt->u.dst.lastuse = jiffies;
-+		dst_lastuse_set(&mpc->rt->u.dst);
- 		if (last_power <= selector && selector < mpc->power)
- 			decision = mpc->rt;
- 
-@@ -217,8 +217,7 @@
- 		/* concurrent __multipath_flush may lead to !last_mpc */
- 		kfree(last_mpc);
- 	}
--
--	decision->u.dst.__use++;
-+	dst_use_inc(&decision->u.dst);
- 	*rp = decision;
- }
- 
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/route.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/route.c	2005-08-15 17:54:34.973639000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/route.c	2005-08-15 17:58:14.503358750 -0400
-@@ -334,8 +334,8 @@
- 			      "%08lX\t%d\t%u\t%u\t%02X\t%d\t%1d\t%08X",
- 			r->u.dst.dev ? r->u.dst.dev->name : "*",
- 			(unsigned long)r->rt_dst, (unsigned long)r->rt_gateway,
--			r->rt_flags, atomic_read(&r->u.dst.__refcnt),
--			r->u.dst.__use, 0, (unsigned long)r->rt_src,
-+			r->rt_flags, dst_refcnt(&r->u.dst),
-+			dst_use(&r->u.dst), 0, (unsigned long)r->rt_src,
- 			(dst_metric(&r->u.dst, RTAX_ADVMSS) ?
- 			     (int)dst_metric(&r->u.dst, RTAX_ADVMSS) + 40 : 0),
- 			dst_metric(&r->u.dst, RTAX_WINDOW),
-@@ -512,7 +512,7 @@
- 	unsigned long age;
- 	int ret = 0;
- 
--	if (atomic_read(&rth->u.dst.__refcnt))
-+	if (dst_refcnt(&rth->u.dst))
- 		goto out;
- 
- 	ret = 1;
-@@ -536,7 +536,7 @@
-  */
- static inline u32 rt_score(struct rtable *rt)
+ static inline int dn_dst_useful(struct dn_route *rth, unsigned long now, unsigned long expire)
  {
--	u32 score = jiffies - rt->u.dst.lastuse;
-+	u32 score = jiffies - dst_lastuse(&rt->u.dst);
- 
- 	score = ~score & ~(3<<30);
- 
-@@ -943,9 +943,7 @@
- 			 */
- 			rcu_assign_pointer(rt_hash_table[hash].chain, rth);
- 
--			rth->u.dst.__use++;
--			dst_hold(&rth->u.dst);
--			rth->u.dst.lastuse = now;
-+			dst_update_rtu(&rth->u.dst);
- 			spin_unlock_bh(rt_hash_lock_addr(hash));
- 
- 			rt_drop(rt);
-@@ -953,7 +951,7 @@
- 			return 0;
- 		}
- 
--		if (!atomic_read(&rth->u.dst.__refcnt)) {
-+		if (!dst_refcnt(&rth->u.dst)) {
- 			u32 score = rt_score(rth);
- 
- 			if (score <= min_score) {
-@@ -1108,6 +1106,12 @@
- 	spin_unlock_bh(rt_hash_lock_addr(hash));
++#ifdef CONFIG_NUMA
++	{
++		int max, sum = 0, age, cpu;
++		struct dst_entry *dst = &rth->u.dst;
++
++		cpu = dst->s_cpu;
++		max = cpu + NR_CPUS;
++		for(sum = 0; cpu < max; cpu++) {
++			int cpu_ = cpu % NR_CPUS;
++			if (cpu_online(cpu_)) {
++				sum += per_cpu_ptr(dst->pcc, cpu_)->refcnt;
++				age = now - per_cpu_ptr(dst->pcc, cpu_)->lastuse;
++				if (age <= expire) {
++					dst->s_cpu = cpu_ ;
++					return 1;
++				}
++			}
++		}
++		return (sum != 0);
++	}
++#else
+ 	return  (atomic_read(&rth->u.dst.__refcnt) || (now - rth->u.dst.lastuse) < expire) ;
++#endif
  }
  
-+void ip_rt_copy(struct rtable *to, struct rtable *from)
+ static void dn_dst_check_expire(unsigned long dummy)
+@@ -1766,6 +1789,43 @@
+ 
+ #endif /* CONFIG_PROC_FS */
+ 
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++static int __devinit dn_rtcache_cpu_callback(struct notifier_block *nfb,
++                                   unsigned long action,
++                                   void *hcpu)
 +{
-+	*to = *from;
-+	to->u.dst.__use 	= 1;
++	int cpu = (int) hcpu;
++
++	switch(action) {
++		int i;
++		struct dn_route *rt, *next;
++
++		case CPU_DEAD:
++
++		for(i = 0; i < dn_rt_hash_mask; i++) {
++			spin_lock_bh(&dn_rt_hash_table[i].lock);
++
++			if ((rt = dn_rt_hash_table[i].chain) == NULL)
++				goto nothing_to_do;
++
++			for(; rt; rt=next) {
++				dst_ref_xfr_cpu_down(&rt->u.dst, cpu);
++				next = rt->u.rt_next;
++			}
++nothing_to_do:
++			spin_unlock_bh(&dn_rt_hash_table[i].lock);
++		}
++
++		break;
++	}
++	return NOTIFY_OK;
 +}
 +
- void ip_rt_redirect(u32 old_gw, u32 daddr, u32 new_gw,
- 		    u32 saddr, u8 tos, struct net_device *dev)
- {
-@@ -1175,17 +1179,17 @@
- 				}
- 
- 				/* Copy all the information. */
--				*rt = *rth;
-- 				INIT_RCU_HEAD(&rt->u.dst.rcu_head);
--				rt->u.dst.__use		= 1;
--				atomic_set(&rt->u.dst.__refcnt, 1);
-+				ip_rt_copy(rt, rth);
++static struct notifier_block dn_rtcache_cpu_notifier =
++			{ &dn_rtcache_cpu_callback, NULL, 0 };
 +
-+				INIT_RCU_HEAD(&rt->u.dst.rcu_head);
-+				dst_lastuse_set(&rt->u.dst);
-+				dst_refcnt_one(&rt->u.dst);
- 				rt->u.dst.child		= NULL;
- 				if (rt->u.dst.dev)
- 					dev_hold(rt->u.dst.dev);
- 				if (rt->idev)
- 					in_dev_hold(rt->idev);
- 				rt->u.dst.obsolete	= 0;
--				rt->u.dst.lastuse	= jiffies;
- 				rt->u.dst.path		= &rt->u.dst;
- 				rt->u.dst.neighbour	= NULL;
- 				rt->u.dst.hh		= NULL;
-@@ -1619,7 +1623,7 @@
- 
- 	rth->u.dst.output= ip_rt_bug;
- 
--	atomic_set(&rth->u.dst.__refcnt, 1);
-+	dst_refcnt_one(&rth->u.dst);
- 	rth->u.dst.flags= DST_HOST;
- 	if (in_dev->cnf.no_policy)
- 		rth->u.dst.flags |= DST_NOPOLICY;
-@@ -1818,7 +1822,7 @@
- 	err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos, &rth);
- 	if (err)
- 		return err;
--	atomic_set(&rth->u.dst.__refcnt, 1);
-+	dst_refcnt_one(&rth->u.dst);
- 
- 	/* put it into the cache */
- 	hash = rt_hash_code(daddr, saddr ^ (fl->iif << 5), tos);
-@@ -1876,7 +1880,7 @@
- 		 * outside
- 		 */
- 		if (hop == lasthop)
--			atomic_set(&(skb->dst->__refcnt), 1);
-+			dst_refcnt_one(skb->dst);
- 	}
- 	return err;
- #else /* CONFIG_IP_ROUTE_MULTIPATH_CACHED  */
-@@ -2012,7 +2016,7 @@
- 
- 	rth->u.dst.output= ip_rt_bug;
- 
--	atomic_set(&rth->u.dst.__refcnt, 1);
-+	dst_refcnt_one(&rth->u.dst);
- 	rth->u.dst.flags= DST_HOST;
- 	if (in_dev->cnf.no_policy)
- 		rth->u.dst.flags |= DST_NOPOLICY;
-@@ -2102,9 +2106,7 @@
- 		    rth->fl.fl4_fwmark == skb->nfmark &&
- #endif
- 		    rth->fl.fl4_tos == tos) {
--			rth->u.dst.lastuse = jiffies;
--			dst_hold(&rth->u.dst);
--			rth->u.dst.__use++;
-+			dst_update_rtu(&rth->u.dst);
- 			RT_CACHE_STAT_INC(in_hit);
- 			rcu_read_unlock();
- 			skb->dst = (struct dst_entry*)rth;
-@@ -2288,7 +2290,7 @@
- 	if (err == 0) {
- 		u32 tos = RT_FL_TOS(oldflp);
- 
--		atomic_set(&rth->u.dst.__refcnt, 1);
-+		dst_refcnt_one(&rth->u.dst);
- 		
- 		hash = rt_hash_code(oldflp->fl4_dst, 
- 				    oldflp->fl4_src ^ (oldflp->oif << 5), tos);
-@@ -2348,7 +2350,7 @@
- 			if (err != 0)
- 				return err;
- 		}
--		atomic_set(&(*rp)->u.dst.__refcnt, 1);
-+		dst_refcnt_one(&(*rp)->u.dst);
- 		return err;
- 	} else {
- 		return ip_mkroute_output_def(rp, res, fl, oldflp, dev_out,
-@@ -2584,10 +2586,7 @@
- 				rcu_read_unlock_bh();
- 				return 0;
- 			}
--
--			rth->u.dst.lastuse = jiffies;
--			dst_hold(&rth->u.dst);
--			rth->u.dst.__use++;
-+			dst_update_rtu(&rth->u.dst);
- 			RT_CACHE_STAT_INC(out_hit);
- 			rcu_read_unlock_bh();
- 			*rp = rth;
-@@ -2673,9 +2672,9 @@
- 		RTA_PUT(skb, RTA_GATEWAY, 4, &rt->rt_gateway);
- 	if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
- 		goto rtattr_failure;
--	ci.rta_lastuse	= jiffies_to_clock_t(jiffies - rt->u.dst.lastuse);
--	ci.rta_used	= rt->u.dst.__use;
--	ci.rta_clntref	= atomic_read(&rt->u.dst.__refcnt);
-+	ci.rta_lastuse	= jiffies_to_clock_t(jiffies - dst_lastuse(&rt->u.dst));
-+	ci.rta_used	= dst_use(&rt->u.dst);
-+	ci.rta_clntref	= dst_refcnt(&rt->u.dst);
- 	if (rt->u.dst.expires)
- 		ci.rta_expires = jiffies_to_clock_t(rt->u.dst.expires - jiffies);
- 	else
-Index: alloc_percpu-2.6.13-rc6/net/ipv4/xfrm4_policy.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv4/xfrm4_policy.c	2005-08-15 17:54:34.973639000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv4/xfrm4_policy.c	2005-08-15 17:55:24.060706750 -0400
-@@ -135,7 +135,7 @@
- 			dev_hold(rt->u.dst.dev);
- 		dst_prev->obsolete	= -1;
- 		dst_prev->flags	       |= DST_HOST;
--		dst_prev->lastuse	= jiffies;
-+		dst_lastuse_set(dst_prev);
- 		dst_prev->header_len	= header_len;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
-Index: alloc_percpu-2.6.13-rc6/net/ipv6/ip6_fib.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv6/ip6_fib.c	2005-08-15 17:54:34.973639000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv6/ip6_fib.c	2005-08-15 17:58:14.503358750 -0400
-@@ -1160,8 +1160,8 @@
- 		}
- 		gc_args.more++;
- 	} else if (rt->rt6i_flags & RTF_CACHE) {
--		if (atomic_read(&rt->u.dst.__refcnt) == 0 &&
--		    time_after_eq(now, rt->u.dst.lastuse + gc_args.timeout)) {
-+		if (dst_refcnt(&rt->u.dst) == 0 &&
-+		    time_after_eq(now, dst_lastuse(&rt->u.dst) + gc_args.timeout)) {
- 			RT6_TRACE("aging clone %p\n", rt);
- 			return -1;
- 		} else if ((rt->rt6i_flags & RTF_GATEWAY) &&
-Index: alloc_percpu-2.6.13-rc6/net/ipv6/route.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv6/route.c	2005-08-15 17:54:34.973639000 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv6/route.c	2005-08-15 17:58:14.507359000 -0400
-@@ -368,10 +368,9 @@
- 	fn = fib6_lookup(&ip6_routing_table, daddr, saddr);
- 	rt = rt6_device_match(fn->leaf, oif, strict);
- 	dst_hold(&rt->u.dst);
--	rt->u.dst.__use++;
--	read_unlock_bh(&rt6_lock);
- 
--	rt->u.dst.lastuse = jiffies;
-+	read_unlock_bh(&rt6_lock);
-+	dst_update_tu(&rt->u.dst);
- 	if (rt->u.dst.error == 0)
- 		return rt;
- 	dst_release(&rt->u.dst);
-@@ -512,8 +511,7 @@
- out:
- 	read_unlock_bh(&rt6_lock);
- out2:
--	rt->u.dst.lastuse = jiffies;
--	rt->u.dst.__use++;
-+	dst_update_tu(&rt->u.dst);
- 	skb->dst = (struct dst_entry *) rt;
- }
- 
-@@ -572,8 +570,7 @@
- out:
- 	read_unlock_bh(&rt6_lock);
- out2:
--	rt->u.dst.lastuse = jiffies;
--	rt->u.dst.__use++;
-+	dst_update_tu(&rt->u.dst);
- 	return &rt->u.dst;
- }
- 
-@@ -685,7 +682,7 @@
- 	rt->rt6i_dev	  = dev;
- 	rt->rt6i_idev     = idev;
- 	rt->rt6i_nexthop  = neigh;
--	atomic_set(&rt->u.dst.__refcnt, 1);
-+	dst_refcnt_one(&rt->u.dst);
- 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = 255;
- 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
- 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_mtu(&rt->u.dst));
-@@ -719,7 +716,7 @@
- 	pprev = &ndisc_dst_gc_list;
- 	freed = 0;
- 	while ((dst = *pprev) != NULL) {
--		if (!atomic_read(&dst->__refcnt)) {
-+		if (!dst_refcnt(dst)) {
- 			*pprev = dst->next;
- 			dst_free(dst);
- 			freed++;
-@@ -1261,7 +1258,7 @@
- 		rt->rt6i_idev = ort->rt6i_idev;
- 		if (rt->rt6i_idev)
- 			in6_dev_hold(rt->rt6i_idev);
--		rt->u.dst.lastuse = jiffies;
-+		dst_lastuse_set(&rt->u.dst);
- 		rt->rt6i_expires = 0;
- 
- 		ipv6_addr_copy(&rt->rt6i_gateway, &ort->rt6i_gateway);
-@@ -1424,7 +1421,7 @@
- 	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
- 	rt->rt6i_dst.plen = 128;
- 
--	atomic_set(&rt->u.dst.__refcnt, 1);
-+	dst_refcnt_one(&rt->u.dst);
- 
- 	return rt;
- }
-@@ -1637,13 +1634,13 @@
- 	if (rt->u.dst.dev)
- 		RTA_PUT(skb, RTA_OIF, sizeof(int), &rt->rt6i_dev->ifindex);
- 	RTA_PUT(skb, RTA_PRIORITY, 4, &rt->rt6i_metric);
--	ci.rta_lastuse = jiffies_to_clock_t(jiffies - rt->u.dst.lastuse);
-+	ci.rta_lastuse = jiffies_to_clock_t(jiffies - dst_lastuse(&rt->u.dst));
- 	if (rt->rt6i_expires)
- 		ci.rta_expires = jiffies_to_clock_t(rt->rt6i_expires - jiffies);
- 	else
- 		ci.rta_expires = 0;
--	ci.rta_used = rt->u.dst.__use;
--	ci.rta_clntref = atomic_read(&rt->u.dst.__refcnt);
-+	ci.rta_used = dst_use(&rt->u.dst);
-+	ci.rta_clntref = dst_refcnt(&rt->u.dst);
- 	ci.rta_error = rt->u.dst.error;
- 	ci.rta_id = 0;
- 	ci.rta_ts = 0;
-@@ -1927,8 +1924,8 @@
- 	}
- 	arg->len += sprintf(arg->buffer + arg->len,
- 			    " %08x %08x %08x %08x %8s\n",
--			    rt->rt6i_metric, atomic_read(&rt->u.dst.__refcnt),
--			    rt->u.dst.__use, rt->rt6i_flags, 
-+			    rt->rt6i_metric, dst_refcnt(&rt->u.dst),
-+			    dst_use(&rt->u.dst), rt->rt6i_flags,
- 			    rt->rt6i_dev ? rt->rt6i_dev->name : "");
- 	return 0;
- }
-Index: alloc_percpu-2.6.13-rc6/net/ipv6/xfrm6_policy.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/ipv6/xfrm6_policy.c	2005-08-15 17:54:34.977639250 -0400
-+++ alloc_percpu-2.6.13-rc6/net/ipv6/xfrm6_policy.c	2005-08-15 17:55:24.160713000 -0400
-@@ -156,7 +156,7 @@
- 			dev_hold(rt->u.dst.dev);
- 		dst_prev->obsolete	= -1;
- 		dst_prev->flags	       |= DST_HOST;
--		dst_prev->lastuse	= jiffies;
-+		dst_lastuse_set(dst_prev);
- 		dst_prev->header_len	= header_len;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
-Index: alloc_percpu-2.6.13-rc6/net/xfrm/xfrm_policy.c
-===================================================================
---- alloc_percpu-2.6.13-rc6.orig/net/xfrm/xfrm_policy.c	2005-08-15 17:54:34.977639250 -0400
-+++ alloc_percpu-2.6.13-rc6/net/xfrm/xfrm_policy.c	2005-08-15 17:55:24.184714500 -0400
-@@ -1090,7 +1090,7 @@
- 
- static int unused_bundle(struct dst_entry *dst)
++#endif
++
+ void __init dn_route_init(void)
  {
--	return !atomic_read(&dst->__refcnt);
-+	return !dst_refcnt(dst);
+ 	int i, goal, order;
+@@ -1822,10 +1882,16 @@
+         dn_dst_ops.gc_thresh = (dn_rt_hash_mask + 1);
+ 
+ 	proc_net_fops_create("decnet_cache", S_IRUGO, &dn_rt_cache_seq_fops);
++#if	defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++	register_cpu_notifier(&dn_rtcache_cpu_notifier);
++#endif
  }
  
- static void __xfrm_garbage_collect(void)
+ void __exit dn_route_cleanup(void)
+ {
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++	unregister_cpu_notifier(&dn_rtcache_cpu_notifier);
++#endif
+ 	del_timer(&dn_route_timer);
+ 	dn_run_flush(0);
+ 
+Index: alloc_percpu-2.6.13/net/ipv4/route.c
+===================================================================
+--- alloc_percpu-2.6.13.orig/net/ipv4/route.c	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/net/ipv4/route.c	2005-09-12 12:24:01.000000000 -0700
+@@ -92,6 +92,7 @@
+ #include <linux/jhash.h>
+ #include <linux/rcupdate.h>
+ #include <linux/times.h>
++#include <linux/cpu.h>
+ #include <net/protocol.h>
+ #include <net/ip.h>
+ #include <net/route.h>
+@@ -507,6 +508,54 @@
+ 		rth->u.dst.expires;
+ }
+ 
++#ifdef CONFIG_NUMA
++
++/*
++ * For NUMA systems, we do not want to sum up all local cpu refcnts every
++ * time. So we consider lastuse element of the dst_entry and start loop
++ * with the cpu where this entry was allocated. If dst_entry is not timed
++ * out then update s_cpu of this dst_entry so that next time we can start from
++ * that cpu.
++ */
++static inline int rt_check_age(struct rtable *rth,
++			unsigned long tmo1, unsigned long tmo2)
++{
++	int max, sum = 0, age, idx;
++	struct dst_entry *dst = &rth->u.dst;
++	unsigned long now = jiffies;
++
++	idx = dst->s_cpu;
++	max = idx + NR_CPUS;
++	for(sum = 0; idx < max; idx++) {
++		int cpu_ = idx % NR_CPUS;
++		if (cpu_online(cpu_)) {
++			sum += per_cpu_ptr(dst->pcc, cpu_)->refcnt;
++			age = now - per_cpu_ptr(dst->pcc, cpu_)->lastuse;
++			if ((age <= tmo1 && !rt_fast_clean(rth)) ||
++					(age <= tmo2 && rt_valuable(rth))) {
++				dst->s_cpu = cpu_ ;
++				return 0;
++			}
++		}
++	}
++	return (sum == 0);
++}
++
++/*
++ * In this function order of examining three factors (ref_cnt, expires,
++ * lastuse) is changed, considering the cost of analyzing refcnt and lastuse
++ * which are localized for each cpu on NUMA.
++ */
++static int rt_may_expire(struct rtable *rth, unsigned long tmo1, unsigned long tmo2)
++{
++	if (rth->u.dst.expires && time_after_eq(jiffies, rth->u.dst.expires))
++		return (dst_refcnt(&rth->u.dst) == 0) ;
++
++	return rt_check_age(rth, tmo1, tmo2);
++}
++
++#else
++
+ static int rt_may_expire(struct rtable *rth, unsigned long tmo1, unsigned long tmo2)
+ {
+ 	unsigned long age;
+@@ -529,6 +578,8 @@
+ out:	return ret;
+ }
+ 
++#endif
++
+ /* Bits of score are:
+  * 31: very valuable
+  * 30: not quite useless
+@@ -1108,8 +1159,19 @@
+ 
+ void ip_rt_copy(struct rtable *to, struct rtable *from)
+ {
++#ifdef CONFIG_NUMA
++	struct per_cpu_cnt *tmp_pnc;
++	tmp_pnc = to->u.dst.pcc;
++
++	*to = *from;
++	to->u.dst.pcc = tmp_pnc;
++	per_cpu_ptr(to->u.dst.pcc,get_cpu())->use = 1;
++	to->u.dst.s_cpu = smp_processor_id();
++	put_cpu();
++#else
+ 	*to = *from;
+ 	to->u.dst.__use 	= 1;
++#endif
+ }
+ 
+ void ip_rt_redirect(u32 old_gw, u32 daddr, u32 new_gw,
+@@ -3108,6 +3170,33 @@
+ }
+ __setup("rhash_entries=", set_rhash_entries);
+ 
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++static int __devinit rtcache_cpu_callback(struct notifier_block *nfb,
++                                   unsigned long action,
++				   void *hcpu)
++{
++	int cpu = (int) hcpu;
++
++	switch(action) {
++		int i ;
++		struct rtable *rth;
++		case CPU_DEAD:
++			for(i = rt_hash_mask; i >= 0; i--) {
++				spin_lock_irq(rt_hash_lock_addr(i));
++				rth = rt_hash_table[i].chain;
++				while(rth) {
++					dst_ref_xfr_cpu_down(&rth->u.dst, cpu);
++					rth = rth->u.rt_next;
++				}
++				spin_unlock_irq(rt_hash_lock_addr(i));
++			}
++			break;
++	}
++	return NOTIFY_OK;
++}
++static struct notifier_block rtcache_cpu_notifier = { &rtcache_cpu_callback, NULL, 0 };
++#endif
++
+ int __init ip_rt_init(void)
+ {
+ 	int rc = 0;
+@@ -3197,6 +3286,9 @@
+ 	xfrm_init();
+ 	xfrm4_init();
+ #endif
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++	register_cpu_notifier(&rtcache_cpu_notifier);
++#endif
+ 	return rc;
+ }
+ 
+Index: alloc_percpu-2.6.13/net/ipv6/ip6_fib.c
+===================================================================
+--- alloc_percpu-2.6.13.orig/net/ipv6/ip6_fib.c	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/net/ipv6/ip6_fib.c	2005-09-12 12:24:01.000000000 -0700
+@@ -1209,6 +1209,35 @@
+ 	spin_unlock_bh(&fib6_gc_lock);
+ }
+ 
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++#include <linux/cpu.h>
++inline static int rt6_ref_xfr_cpu_down(struct rt6_info *rt, void *arg)
++{
++	dst_ref_xfr_cpu_down(&rt->u.dst, (int)arg);
++	return 0;
++}
++
++static int __devinit ipv6_rtcache_cpu_callback(struct notifier_block *nfb,
++                                   unsigned long action,
++                                   void *hcpu)
++{
++	int cpu = (int) hcpu;
++
++	switch(action) {
++		case CPU_DEAD:
++			write_lock_bh(&rt6_lock);
++			fib6_clean_tree(&ip6_routing_table, rt6_ref_xfr_cpu_down,
++					0, (void *)cpu);
++			write_unlock_bh(&rt6_lock);
++			break;
++	}
++	return NOTIFY_OK;
++}
++
++static struct notifier_block ipv6_rtcache_cpu_notifier =
++				{ &ipv6_rtcache_cpu_callback, NULL, 0 };
++#endif
++
+ void __init fib6_init(void)
+ {
+ 	fib6_node_kmem = kmem_cache_create("fib6_nodes",
+@@ -1217,10 +1246,16 @@
+ 					   NULL, NULL);
+ 	if (!fib6_node_kmem)
+ 		panic("cannot create fib6_nodes cache");
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++	register_cpu_notifier(&ipv6_rtcache_cpu_notifier);
++#endif
+ }
+ 
+ void fib6_gc_cleanup(void)
+ {
++#if defined(CONFIG_NUMA) && defined(CONFIG_HOTPLUG_CPU)
++	unregister_cpu_notifier(&ipv6_rtcache_cpu_notifier);
++#endif
+ 	del_timer(&ip6_fib_timer);
+ 	kmem_cache_destroy(fib6_node_kmem);
+ }
+Index: alloc_percpu-2.6.13/net/ipv6/route.c
+===================================================================
+--- alloc_percpu-2.6.13.orig/net/ipv6/route.c	2005-09-12 12:23:37.000000000 -0700
++++ alloc_percpu-2.6.13/net/ipv6/route.c	2005-09-12 12:24:01.000000000 -0700
+@@ -110,8 +110,6 @@
+ struct rt6_info ip6_null_entry = {
+ 	.u = {
+ 		.dst = {
+-			.__refcnt	= ATOMIC_INIT(1),
+-			.__use		= 1,
+ 			.dev		= &loopback_dev,
+ 			.obsolete	= -1,
+ 			.error		= -ENETUNREACH,
+@@ -2104,6 +2102,10 @@
+ 						     NULL, NULL);
+ 	if (!ip6_dst_ops.kmem_cachep)
+ 		panic("cannot create ip6_dst_cache");
++	if (dst_init_rtu_array(&ip6_null_entry.u.dst) < 0)
++		panic("ip6_route : can't allocate memory for dst-entry array");
++	dst_use_inc(&ipv6_null_entry.u.dist);
++	dst_refcnt_one(&ip6_null_entry.u.dst);
+ 
+ 	fib6_init();
+ #ifdef 	CONFIG_PROC_FS
+@@ -2130,4 +2132,5 @@
+ 	rt6_ifdown(NULL);
+ 	fib6_gc_cleanup();
+ 	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
++	dst_free_rtu_array(&ip6_null_entry.u.dst);
+ }
