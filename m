@@ -1,32 +1,53 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] af_packet: Allow for > 8 byte hardware
-	addresses.
-Date: Mon, 12 Sep 2005 15:45:27 -0700 (PDT)
-Message-ID: <20050912.154527.48978091.davem@davemloft.net>
-References: <m164t8ltrs.fsf_-_@ebiederm.dsl.xmission.com>
-	<20050912.141351.50320521.davem@davemloft.net>
-	<m1ek7ulyt8.fsf@ebiederm.dsl.xmission.com>
+From: David McCullough <davidm@snapgear.com>
+Subject: Re: pm_register should die
+Date: Tue, 13 Sep 2005 10:03:35 +1000
+Message-ID: <20050913000335.GA10418@beast>
+References: <20050912093456.GA29205@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org, netdev@vger.kernel.org
-Return-path: <openib-general-bounces@openib.org>
-To: ebiederm@xmission.com
-In-Reply-To: <m1ek7ulyt8.fsf@ebiederm.dsl.xmission.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@zip.com.au>,
+	Linus Torvalds <torvalds@osdl.org>, vojtech@suse.cz,
+	dwmw2@infradead.org, netdev@vger.kernel.org,
+	benjamin_kong@ali.com.tw, dagb@cs.uit.no, jgarzik@pobox.com,
+	twoller@crystal.cirrus.com, alan@redhat.com, mm@caldera.de,
+	scott@spiteful.org, jsimmons@transvirtual.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932380AbVIMAEF@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>
+Content-Disposition: inline
+In-Reply-To: <20050912093456.GA29205@elf.ucw.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 12 Sep 2005 16:13:23 -0600
 
-> Updated patch will follow in a bit.
+Jivin Pavel Machek lays it down ...
+> Hi!
+> 
+> pm_register has been obsoleted by driver model, and it was deprecated
+> quite long time ago. There are only 13 users left.
+> 
+> Attached is a patch that makes pm_register config-option, so that we
+> don't get the warnings on sane systems. Pretty please, remove usage of
+> pm_register from your subsystem.
+> 
+> IRDA has no usefull MAINTAINER entry; it would be nice if that could
+> be fixed. Alan is best contact I could find for ad1848... does someone
+> care about that driver, anyway? nm256_audio is written by
+> anonymous. Wonderfull...
+> 
+> Okay, it seems to me only users that matter are mtdcore, 3c509 and
+> maybe h3600_ts_input. After those are fixed, it should be okay to just
+> config it out/remove pm_register completely.
 
-Thanks for following up on this Eric.
+Feel free to clean out pm_register usage in:
+
+	drivers/serial/68328serial.c
+
+there's not much in there that cannot be added later if actually required,
+
+Cheers,
+Davidm
+
+-- 
+David McCullough, davidm@cyberguard.com.au, Custom Embedded Solutions + Security
+Ph:+61 734352815 Fx:+61 738913630 http://www.uCdot.org http://www.cyberguard.com
