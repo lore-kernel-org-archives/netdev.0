@@ -1,157 +1,52 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFC] hippi: change to not use skb private
-Date: Tue, 13 Sep 2005 11:38:58 -0700
-Message-ID: <20050913113858.440d3a0f@localhost.localdomain>
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
+Subject: Re: [patch 7/11] net: Use bigrefs for net_device.refcount
+Date: Tue, 13 Sep 2005 11:53:48 -0700
+Message-ID: <20050913185348.GA3724@localhost.localdomain>
+References: <20050913155112.GB3570@localhost.localdomain> <20050913161012.GI3570@localhost.localdomain> <43271A28.9090301@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964974AbVIMSjA@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>, jes@trained-monkey.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	dipankar@in.ibm.com, bharata@in.ibm.com, shai@scalex86.org,
+	Rusty Russell <rusty@rustcorp.com.au>, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964989AbVIMSxz@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Disposition: inline
+In-Reply-To: <43271A28.9090301@cosmosbay.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It looks like the following would fix hippi to not have to put
-fields in sk_buff. The ifield looks appears to to be additional
-header information that is being passed in the skb but could just
-be put in the header.
+On Tue, Sep 13, 2005 at 08:27:52PM +0200, Eric Dumazet wrote:
+> Ravikiran G Thirumalai a =E9crit :
+>=20
+> Hum...
+>=20
+> Did you tried to place refcnt/netdev_refcnt in a separate cache line =
+than=20
+> queue_lock ? I got good results too...
+>=20
+> >  	/* device queue lock */
+> >  	spinlock_t		queue_lock;
+> >  	/* Number of references to this device */
+> > -	atomic_t		refcnt;
+> > +	struct bigref	        netdev_refcnt ____cacheline_aligned_in_smp =
+;=20
+> >  	/* delayed register/unregister */
+> >  	struct list_head	todo_list;
+> >  	/* device name hash chain */
+>=20
+> Every time a cpu take the queue_lock spinlock, it exclusively gets on=
+e=20
+> cache line. If another cpu try to access netdev_refcnt, it has to gra=
+b this=20
+> cache line (even if properely per_cpu designed, there is still one sh=
+ared=20
+> field). In fact the whole struct net_device should be re-ordered for=20
+> SMP/NUMA performance.
 
-Does anyone still have the hardware to test this? Is anyone
-even using it on 2.6?
+I agree. Maybe placing the queue_lock in a different cacheline is the=20
+right approach?
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-
-Index: hippi-2.6.13/drivers/net/rrunner.c
-===================================================================
---- hippi-2.6.13.orig/drivers/net/rrunner.c
-+++ hippi-2.6.13/drivers/net/rrunner.c
-@@ -1432,7 +1432,6 @@ static int rr_start_xmit(struct sk_buff 
- 	struct ring_ctrl *txctrl;
- 	unsigned long flags;
- 	u32 index, len = skb->len;
--	u32 *ifield;
- 	struct sk_buff *new_skb;
- 
- 	if (readl(&regs->Mode) & FATAL_ERR)
-@@ -1440,29 +1439,6 @@ static int rr_start_xmit(struct sk_buff 
- 		       readl(&regs->Fail1), readl(&regs->Fail2));
- 
- 	/*
--	 * We probably need to deal with tbusy here to prevent overruns.
--	 */
--
--	if (skb_headroom(skb) < 8){
--		printk("incoming skb too small - reallocating\n");
--		if (!(new_skb = dev_alloc_skb(len + 8))) {
--			dev_kfree_skb(skb);
--			netif_wake_queue(dev);
--			return -EBUSY;
--		}
--		skb_reserve(new_skb, 8);
--		skb_put(new_skb, len);
--		memcpy(new_skb->data, skb->data, len);
--		dev_kfree_skb(skb);
--		skb = new_skb;
--	}
--
--	ifield = (u32 *)skb_push(skb, 8);
--
--	ifield[0] = 0;
--	ifield[1] = skb->private.ifield;
--
--	/*
- 	 * We don't need the lock before we are actually going to start
- 	 * fiddling with the control blocks.
- 	 */
-@@ -1475,7 +1451,7 @@ static int rr_start_xmit(struct sk_buff 
- 	rrpriv->tx_skbuff[index] = skb;
- 	set_rraddr(&rrpriv->tx_ring[index].addr, pci_map_single(
- 		rrpriv->pci_dev, skb->data, len + 8, PCI_DMA_TODEVICE));
--	rrpriv->tx_ring[index].size = len + 8; /* include IFIELD */
-+	rrpriv->tx_ring[index].size = len;
- 	rrpriv->tx_ring[index].mode = PACKET_START | PACKET_END;
- 	txctrl->pi = (index + 1) % TX_RING_ENTRIES;
- 	wmb();
-Index: hippi-2.6.13/include/linux/skbuff.h
-===================================================================
---- hippi-2.6.13.orig/include/linux/skbuff.h
-+++ hippi-2.6.13/include/linux/skbuff.h
-@@ -194,7 +194,6 @@ struct skb_shared_info {
-  *	@nfct: Associated connection, if any
-  *	@nfctinfo: Relationship of this skb to the connection
-  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
-- *      @private: Data which is private to the HIPPI implementation
-  *	@tc_index: Traffic control index
-  *	@tc_verd: traffic control verdict
-  *	@tc_classid: traffic control classid
-@@ -267,11 +266,7 @@ struct sk_buff {
- 	struct nf_bridge_info	*nf_bridge;
- #endif
- #endif /* CONFIG_NETFILTER */
--#if defined(CONFIG_HIPPI)
--	union {
--		__u32		ifield;
--	} private;
--#endif
-+
- #ifdef CONFIG_NET_SCHED
-        __u32			tc_index;        /* traffic control index */
- #ifdef CONFIG_NET_CLS_ACT
-Index: hippi-2.6.13/net/802/hippi.c
-===================================================================
---- hippi-2.6.13.orig/net/802/hippi.c
-+++ hippi-2.6.13/net/802/hippi.c
-@@ -50,7 +50,8 @@ static int hippi_header(struct sk_buff *
- 			unsigned short type, void *daddr, void *saddr,
- 			unsigned len)
- {
--	struct hippi_hdr *hip = (struct hippi_hdr *)skb_push(skb, HIPPI_HLEN);
-+	struct hippi_hdr *hip = (struct hippi_hdr *)skb_push(skb, HIPPI_HLEN + 8);
-+	u32 *ifield = (u32 *) (hip + 1);
- 
- 	if (!len){
- 		len = skb->len - HIPPI_HLEN;
-@@ -81,13 +82,14 @@ static int hippi_header(struct sk_buff *
- 	hip->snap.oui[2]	= 0x00;
- 	hip->snap.ethertype	= htons(type);
- 
--	if (daddr)
--	{
-+	memset(ifield, 0, 2*sizeof(u32));
-+	if (daddr) {
- 		memcpy(hip->le.dest_switch_addr, daddr + 3, 3);
--		memcpy(&skb->private.ifield, daddr + 2, 4);
--		return HIPPI_HLEN;
-+		memcpy(ifield+1, daddr + 2, 4);
-+		return HIPPI_HLEN + 8;
- 	}
--	return -((int)HIPPI_HLEN);
-+
-+	return -((int)HIPPI_HLEN - 8);
- }
- 
- 
-@@ -200,7 +202,7 @@ static void hippi_setup(struct net_devic
- 	 * still need a fake ARPHRD to make ifconfig and friends play ball.
- 	 */
- 	dev->type		= ARPHRD_HIPPI;
--	dev->hard_header_len 	= HIPPI_HLEN;
-+	dev->hard_header_len 	= HIPPI_HLEN + 8;
- 	dev->mtu		= 65280;
- 	dev->addr_len		= HIPPI_ALEN;
- 	dev->tx_queue_len	= 25 /* 5 */;
-Index: hippi-2.6.13/net/core/skbuff.c
-===================================================================
---- hippi-2.6.13.orig/net/core/skbuff.c
-+++ hippi-2.6.13/net/core/skbuff.c
-@@ -370,9 +370,6 @@ struct sk_buff *skb_clone(struct sk_buff
- 	nf_bridge_get(skb->nf_bridge);
- #endif
- #endif /*CONFIG_NETFILTER*/
--#if defined(CONFIG_HIPPI)
--	C(private);
--#endif
- #ifdef CONFIG_NET_SCHED
- 	C(tc_index);
- #ifdef CONFIG_NET_CLS_ACT
+Thanks,
+Kiran
