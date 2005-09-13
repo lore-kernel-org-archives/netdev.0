@@ -1,24 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 9/11] net: dst_entry.refcount, use, lastuse to use
- alloc_percpu
-Date: Tue, 13 Sep 2005 13:24:42 -0700 (PDT)
-Message-ID: <20050913.132442.53540386.davem@davemloft.net>
-References: <20050913155112.GB3570@localhost.localdomain>
-	<20050913161708.GK3570@localhost.localdomain>
+Subject: Re: [RFC] hippi: change to not use skb private
+Date: Tue, 13 Sep 2005 13:54:16 -0700 (PDT)
+Message-ID: <20050913.135416.112398983.davem@davemloft.net>
+References: <20050913113858.440d3a0f@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, dipankar@in.ibm.com,
-	bharata@in.ibm.com, shai@scalex86.org, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932316AbVIMUYw@vger.kernel.org>
-To: kiran@scalex86.org
-In-Reply-To: <20050913161708.GK3570@localhost.localdomain>
+Cc: jes@trained-monkey.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932524AbVIMUyT@vger.kernel.org>
+To: shemminger@osdl.org
+In-Reply-To: <20050913113858.440d3a0f@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 13 Sep 2005 11:38:58 -0700
 
-There is no way in the world this enormous amount of NUMA
-complexity is being added to the destination cache layer.
+> It looks like the following would fix hippi to not have to put
+> fields in sk_buff. The ifield looks appears to to be additional
+> header information that is being passed in the skb but could just
+> be put in the header.
 
-Sorry.
+I can't see any problem with this patch, and it fixes
+all the realloc stuff that has to potentially occur
+in the transmit path.
