@@ -1,27 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC] hippi: change to not use skb private
-Date: Tue, 13 Sep 2005 13:54:16 -0700 (PDT)
-Message-ID: <20050913.135416.112398983.davem@davemloft.net>
-References: <20050913113858.440d3a0f@localhost.localdomain>
+Subject: Re: masquerading failure for at least icmp and tcp+sack on amd64
+Date: Tue, 13 Sep 2005 13:59:54 -0700 (PDT)
+Message-ID: <20050913.135954.111731835.davem@davemloft.net>
+References: <20050911131943.GC9865@schmorp.de> <43243AB9.9000705@trash.net>
+	<20050913110902.0ad58b90@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jes@trained-monkey.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932524AbVIMUyT@vger.kernel.org>
+Cc: akpm@osdl.org, netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	kaber@trash.net, schmorp@schmorp.de
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: shemminger@osdl.org
-In-Reply-To: <20050913113858.440d3a0f@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050913110902.0ad58b90@localhost.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 13 Sep 2005 11:38:58 -0700
+Date: Tue, 13 Sep 2005 11:09:02 -0700
 
-> It looks like the following would fix hippi to not have to put
-> fields in sk_buff. The ifield looks appears to to be additional
-> header information that is being passed in the skb but could just
-> be put in the header.
+> Also, on the input path for TCP and UDP, the code does not
+> depend on the hardware being correct, and if the checksum
+> is incorrect, it just prints a warning and does a software
+> checksum before deciding to drop.
+> Perhaps netfilter code needs to handle that case?
 
-I can't see any problem with this patch, and it fixes
-all the realloc stuff that has to potentially occur
-in the transmit path.
+I personally think netfilter should do so.
