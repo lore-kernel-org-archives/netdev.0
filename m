@@ -1,43 +1,50 @@
-From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
-Subject: Re: 2.613: network write socket problems
-Date: Tue, 13 Sep 2005 11:22:52 +0200
-Message-ID: <200509131122.53286.bernd.schubert__32000.9905066856$1126604082$gmane$org@pci.uni-heidelberg.de>
-References: <200509121739.46172.bernd.schubert@pci.uni-heidelberg.de>
-Reply-To: TC-ADMIN@listserv.uni-heidelberg.de
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: pm_register should die
+Date: Tue, 13 Sep 2005 14:12:26 +0200
+Message-ID: <20050913121226.GC2716@elf.ucw.cz>
+References: <20050912093456.GA29205@elf.ucw.cz> <20050913000335.GA10418@beast>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200509121739.46172.bernd.schubert@pci.uni-heidelberg.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@zip.com.au>,
+	Linus Torvalds <torvalds@osdl.org>, vojtech@suse.cz,
+	dwmw2@infradead.org, netdev@vger.kernel.org,
+	benjamin_kong@ali.com.tw, dagb@cs.uit.no, jgarzik@pobox.com,
+	twoller@crystal.cirrus.com, alan@redhat.com, mm@caldera.de,
+	scott@spiteful.org, jsimmons@transvirtual.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932630AbVIMMM7@vger.kernel.org>
+To: David McCullough <davidm@snapgear.com>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050913000335.GA10418@beast>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 12 September 2005 17:39, Bernd Schubert wrote:
-> Hello,
->
-> on last Friday  we switched on our server to 2.6.13 and today we are
-> experiencing problems with our nfs clients.
-> In particular I'm talking about the unfs3 daemon, not the kernel nfs
-> daemon. Both are running on the server but on different ports, of course. 
-> Both are also serving to the same clients, but different directories.
->
-> Today it already several times happend that the unfs3 daemon stalled.
-> Ethereal showed no network packages on the unfs3 daemon port during this
-> time. A strace to the proc-id of the daemon clearly shows that *some*
-> writes to some network sockets will take ages to finish
->
-> write(37, "\200\0\0x\203\326(\5\0\0\0\1\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 124)
-> = 124
+Hi!
 
-Sorry for the noise, its not a kernel problem. Switching back to 2.6.11 didn't 
-help, so we investigated further. It turned out, that one of our clients was 
-in a kind of a zombie state and asking for filehandles, but not answering 
-request from the server. Since unfs3 is only single threaded, all other 
-clients had to wait for timeouts.
+> > pm_register has been obsoleted by driver model, and it was deprecated
+> > quite long time ago. There are only 13 users left.
+> > 
+> > Attached is a patch that makes pm_register config-option, so that we
+> > don't get the warnings on sane systems. Pretty please, remove usage of
+> > pm_register from your subsystem.
+> > 
+> > IRDA has no usefull MAINTAINER entry; it would be nice if that could
+> > be fixed. Alan is best contact I could find for ad1848... does someone
+> > care about that driver, anyway? nm256_audio is written by
+> > anonymous. Wonderfull...
+> > 
+> > Okay, it seems to me only users that matter are mtdcore, 3c509 and
+> > maybe h3600_ts_input. After those are fixed, it should be okay to just
+> > config it out/remove pm_register completely.
+> 
+> Feel free to clean out pm_register usage in:
+> 
+> 	drivers/serial/68328serial.c
+> 
+> there's not much in there that cannot be added later if actually required,
 
-Bernd
+I'd rather have someone who actually has that hardware to convert it
+to driver model and test properly.
+								Pavel
+-- 
+if you have sharp zaurus hardware you don't need... you know my address
