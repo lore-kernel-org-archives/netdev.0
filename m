@@ -1,35 +1,46 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: masquerading failure for at least icmp and tcp+sack on amd64
-Date: Tue, 13 Sep 2005 13:59:54 -0700 (PDT)
-Message-ID: <20050913.135954.111731835.davem@davemloft.net>
-References: <20050911131943.GC9865@schmorp.de> <43243AB9.9000705@trash.net>
-	<20050913110902.0ad58b90@localhost.localdomain>
+Subject: Re: [patch 9/11] net: dst_entry.refcount, use, lastuse to use
+ alloc_percpu
+Date: Tue, 13 Sep 2005 15:12:16 -0700 (PDT)
+Message-ID: <20050913.151216.48124942.davem@davemloft.net>
+References: <20050913161708.GK3570@localhost.localdomain>
+	<20050913.132442.53540386.davem@davemloft.net>
+	<20050913220737.GA6249@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	kaber@trash.net, schmorp@schmorp.de
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: shemminger@osdl.org
-In-Reply-To: <20050913110902.0ad58b90@localhost.localdomain>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, dipankar@in.ibm.com,
+	bharata@in.ibm.com, shai@scalex86.org, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964785AbVIMWMb@vger.kernel.org>
+To: kiran@scalex86.org
+In-Reply-To: <20050913220737.GA6249@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 13 Sep 2005 11:09:02 -0700
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
+Date: Tue, 13 Sep 2005 15:07:37 -0700
 
-> Also, on the input path for TCP and UDP, the code does not
-> depend on the hardware being correct, and if the checksum
-> is incorrect, it just prints a warning and does a software
-> checksum before deciding to drop.
-> Perhaps netfilter code needs to handle that case?
+> Agreed the dst changes are ugly; that can be worked on.  But the
+> cacheline bouncing problem on the atomic_t dst_entry refcounter has
+> been around for quite a while -- even on SMPs, not just NUMA.  We
+> need a solution for that.  I thought you were against the dst_entry
+> bloat caused by the previous version of the dst patch.  alloc_percpu
+> takes that away.  You had concerns about workloads with low route
+> locality. Unfortunately we don't have access to infrastructure setup
+> for such tests :(
 
-I personally think netfilter should do so.
+You don't have two computers connected on a network?
+
+All you need is that, load a bunch of routes into one system that
+point to an IP address which you just force an ARP entry for (so it
+just gets lost in the ether) and then generate a rDOS workload through
+it from another machine using pktgen.
+
+I'm fine with funny per-cpu memory allocation strategies, perhaps
+(would have to see a patch doing _only_ that to be sure).
+
+But using bigrefs, no way.  We have enough trouble making the data
+structures small without adding bloat like that.  A busy server can
+have hundreds of thousands of dst cache entries active on it, and they
+chew up enough memory as is.
