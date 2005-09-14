@@ -1,25 +1,46 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [git patches] net driver fixes
-Date: Wed, 14 Sep 2005 11:40:44 -0400
-Message-ID: <20050914154043.GA10635@havoc.gtf.org>
-References: <20050914131414.GA1095@havoc.gtf.org> <OFA34209F3.7B24497C-ONC125707C.0056132C-C125707C.0056326B@de.ibm.com>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: [PATCH 1/3] orinoco: WE-18 support
+Date: Wed, 14 Sep 2005 11:39:34 -0400
+Message-ID: <1126712374.30160.0.camel@dv>
+References: <1126305782.16679.5.camel@dv>  <43281824.7000705@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030191AbVINPkq@vger.kernel.org>
-To: Frank Pavlic <pavlic@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OFA34209F3.7B24497C-ONC125707C.0056132C-C125707C.0056326B@de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <43281824.7000705-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2005 at 05:38:26PM +0200, Frank Pavlic wrote:
-> Jeff ,
-> didn't you get the qeth patches ? let me know if not I will resend them 
-> once again ....
+On Wed, 2005-09-14 at 08:31 -0400, Jeff Garzik wrote:
+> Pavel Roskin wrote:
+> > Author: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+> > Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+> > 
+> > Use new Wireless Extension API for wireless stats.
+> 
+> Applied patch #1, the rest failed:
 
-You only resent patch #2, so please do resend patches 3 and 4.
+Thanks!  The rest will be resubmitted shortly.
 
-Thanks,
+-- 
+Regards,
+Pavel Roskin
 
-	Jeff
+
+
+-------------------------------------------------------
+SF.Net email is sponsored by:
+Tame your development challenges with Apache's Geronimo App Server. 
+Download it for free - -and be entered to win a 42" plasma tv or your very
+own Sony(tm)PSP.  Click here to play: http://sourceforge.net/geronimo.php
