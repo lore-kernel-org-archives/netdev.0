@@ -1,44 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: masquerading failure for at least icmp and tcp+sack on amd64
-Date: Tue, 13 Sep 2005 20:41:50 -0700 (PDT)
-Message-ID: <20050913.204150.99694717.davem@davemloft.net>
-References: <20050913110902.0ad58b90@localhost.localdomain>
-	<20050913.135954.111731835.davem@davemloft.net>
-	<43277943.8050700@trash.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [patch 9/11] net: dst_entry.refcount, use, lastuse to use
+	alloc_percpu
+Date: Wed, 14 Sep 2005 17:21:02 +1000
+Message-ID: <1126682462.7896.103.camel@localhost.localdomain>
+References: <20050913220737.GA6249@localhost.localdomain>
+	 <20050913.151216.48124942.davem@davemloft.net>
+	 <20050913231717.GC6249@localhost.localdomain>
+	 <20050913.162748.86496945.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	schmorp@schmorp.de, shemminger@osdl.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: kaber@trash.net
-In-Reply-To: <43277943.8050700@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: kiran@scalex86.org, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	dipankar@in.ibm.com, bharata@in.ibm.com, shai@scalex86.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965060AbVINHVF@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050913.162748.86496945.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Wed, 14 Sep 2005 03:13:39 +0200
-
-> David S. Miller wrote:
-> > I personally think netfilter should do so.
+On Tue, 2005-09-13 at 16:27 -0700, David S. Miller wrote:
+> From: Ravikiran G Thirumalai <kiran@scalex86.org>
+> Date: Tue, 13 Sep 2005 16:17:17 -0700
 > 
-> I agree. One thing I've planned for some silent moment is
-> to clean up the entire netfilter checksumming code (there's
-> lots of small duplicated chunks). Probably at least some
-> of it will also be applicable for the remaining stack.
+> > But even 1 Million dst cache entries would be 16+4 MB additional for
+> > a 4 cpu box....is that too much?
+> 
+> Absolutely.
+> 
+> Per-cpu counters are great for things like single instance
+> statistics et al.  But once you start doing them per-object
+> that's out of control bloat as far as I'm concerned.
 
-There is another thing I thought about today, and that is
-to automatically handle this CHECKSUM_HW stuff when the
-skb->data area is COW'd via pskb_expand_head() or similar.
+This is why my original per-cpu allocator patch was damn slow, and
+GFP_KERNEL only.  I wasn't convinced that high-churn objects are a good
+fit for spreading across cpus.
 
-I don't know how well that would work, but if it did then
-we could consolidate all of this stuff into one spot which
-is always nice.
+I thought that net devices and modules (which uses a primitive
+hard-coded "bigref" currently) were a fair uses for bigrefs, though I'd
+like to see some stats.
+
+Cheers,
+Rusty.
+-- 
+A bad analogy is like a leaky screwdriver -- Richard Braakman
