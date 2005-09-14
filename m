@@ -1,7 +1,7 @@
-From: ravinandan.arakali@neterion.com
+From: ananda.raju@neterion.com
 Subject: [PATCH 2.6.13] IPv4/IPv6: USO Scatter-gather approac
-Date: Tue, 13 Sep 2005 23:55:01 -0700
-Message-ID: <200509140655.j8E6t1jx003507@localhost.localdomain>
+Date: Tue, 13 Sep 2005 23:56:00 -0700
+Message-ID: <200509140656.j8E6u0gj003515@localhost.localdomain>
 Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
         leonid.grossman@neterion.com, rapuru.sriram@neterion.com,
         ananda.raju@neterion.com
