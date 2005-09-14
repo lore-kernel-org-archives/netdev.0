@@ -1,7 +1,7 @@
 From: Eugene Surovegin <ebs@ebshome.net>
-Subject: Re: [PATCH 1/2] New PowerPC 4xx on-chip ethernet controller driver
-Date: Wed, 14 Sep 2005 09:18:15 -0700
-Message-ID: <20050914161815.GA21263@gate.ebshome.net>
+Subject: [PATCH] New PowerPC 4xx on-chip ethernet controller driver
+Date: Wed, 14 Sep 2005 10:08:33 -0700
+Message-ID: <20050914170833.GB21263@gate.ebshome.net>
 References: <20050831045847.GA17017@gate.ebshome.net>
 	<20050831050048.GB17017@gate.ebshome.net>
 	<43281B7D.5000106@pobox.com>
@@ -34,14 +34,44 @@ On Wed, Sep 14, 2005 at 08:45:49AM -0400, Jeff Garzik wrote:
 > One huge patch to "remove emac driver" and another huge patch to "add 
 > emac driver" is quite silly.
 
-Jeff, it's not silly. I can post combined patch, but you won't be 
-able to read it (and combined patch is still big).
+This patch replaces current PowerPC 4xx EMAC driver with
+new, re-written version.
 
-As I said, it's a _complete_ re-write. It's a _new_ driver, not just 
-some "changes". Description of what was done was in the first e-mail.
+New driver uses NAPI, it solves stability problems under heavy packet 
+load and low memory, corrects chip register access and fixes numerous 
+small bugs I don't even remember now :).
 
-I've split it into two parts specifically, so _you_ will be able to 
-read new patch and comment on it.
+This patch has been tested on all supported in 2.6 PPC 4xx boards.
+It's been used in production for almost a year now on custom
+4xx hardware. PPC32 specific parts are already upstream.
 
--- 
-Eugene
+Patch was acked by the current EMAC driver maintainer (Matt Porter). I
+will be maintaining this new version.
+
+Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
+
+--
+
+ Kconfig                   |   72
+ ibm_emac/Makefile         |   13
+ ibm_emac/ibm_emac.h       |  418 +++--
+ ibm_emac/ibm_emac_core.c  | 3391 ++++++++++++++++++++++++----------------------
+ ibm_emac/ibm_emac_core.h  |  313 ++--
+ ibm_emac/ibm_emac_debug.c |  377 ++---
+ ibm_emac/ibm_emac_debug.h |   63
+ ibm_emac/ibm_emac_mal.c   |  671 +++++----
+ ibm_emac/ibm_emac_mal.h   |  336 +++-
+ ibm_emac/ibm_emac_phy.c   |  335 ++--
+ ibm_emac/ibm_emac_phy.h   |  105 -
+ ibm_emac/ibm_emac_rgmii.c |  202 ++
+ ibm_emac/ibm_emac_rgmii.h |   68
+ ibm_emac/ibm_emac_tah.c   |  111 +
+ ibm_emac/ibm_emac_tah.h   |   96 -
+ ibm_emac/ibm_emac_zmii.c  |  256 +++
+ ibm_emac/ibm_emac_zmii.h  |  114 -
+ 17 files changed, 4119 insertions(+), 2822 deletions(-)
+
+Patch is quite big (~234K) because there is virtualy 0% of common code 
+between old and new version.
+
+It can be found at http://kernel.ebshome.net/emac/4xx_napi_emac.diff
