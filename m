@@ -1,77 +1,58 @@
-From: Eugene Surovegin <ebs@ebshome.net>
-Subject: [PATCH] New PowerPC 4xx on-chip ethernet controller driver
-Date: Wed, 14 Sep 2005 10:08:33 -0700
-Message-ID: <20050914170833.GB21263@gate.ebshome.net>
-References: <20050831045847.GA17017@gate.ebshome.net>
-	<20050831050048.GB17017@gate.ebshome.net>
-	<43281B7D.5000106@pobox.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] gt96100: stop using pci_find_device()
+Date: Wed, 14 Sep 2005 22:51:37 +0400
+Message-ID: <20050914185136.GE19491@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: Scott Feldman <sfeldma@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: Ralf Baechle <ralf@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <43281B7D.5000106@pobox.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 14, 2005 at 08:45:49AM -0400, Jeff Garzik wrote:
-> Eugene Surovegin wrote:
-> >Remove old PPC4xx EMAC driver
-> >
-> >Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
-> 
-> Please post a diff, along with a description of the changes.
-> 
-> One huge patch to "remove emac driver" and another huge patch to "add 
-> emac driver" is quite silly.
+From: Scott Feldman <sfeldma@pobox.com>
 
-This patch replaces current PowerPC 4xx EMAC driver with
-new, re-written version.
+Replace pci_find_device with pci_get_device/pci_dev_put to plug race
+with pci_find_device.
 
-New driver uses NAPI, it solves stability problems under heavy packet 
-load and low memory, corrects chip register access and fixes numerous 
-small bugs I don't even remember now :).
+Signed-off-by: Scott Feldman <sfeldma@pobox.com>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+Signed-off-by: Domen Puncer <domen@coderock.org>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-This patch has been tested on all supported in 2.6 PPC 4xx boards.
-It's been used in production for almost a year now on custom
-4xx hardware. PPC32 specific parts are already upstream.
+ drivers/net/gt96100eth.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-Patch was acked by the current EMAC driver maintainer (Matt Porter). I
-will be maintaining this new version.
-
-Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
-
---
-
- Kconfig                   |   72
- ibm_emac/Makefile         |   13
- ibm_emac/ibm_emac.h       |  418 +++--
- ibm_emac/ibm_emac_core.c  | 3391 ++++++++++++++++++++++++----------------------
- ibm_emac/ibm_emac_core.h  |  313 ++--
- ibm_emac/ibm_emac_debug.c |  377 ++---
- ibm_emac/ibm_emac_debug.h |   63
- ibm_emac/ibm_emac_mal.c   |  671 +++++----
- ibm_emac/ibm_emac_mal.h   |  336 +++-
- ibm_emac/ibm_emac_phy.c   |  335 ++--
- ibm_emac/ibm_emac_phy.h   |  105 -
- ibm_emac/ibm_emac_rgmii.c |  202 ++
- ibm_emac/ibm_emac_rgmii.h |   68
- ibm_emac/ibm_emac_tah.c   |  111 +
- ibm_emac/ibm_emac_tah.h   |   96 -
- ibm_emac/ibm_emac_zmii.c  |  256 +++
- ibm_emac/ibm_emac_zmii.h  |  114 -
- 17 files changed, 4119 insertions(+), 2822 deletions(-)
-
-Patch is quite big (~234K) because there is virtualy 0% of common code 
-between old and new version.
-
-It can be found at http://kernel.ebshome.net/emac/4xx_napi_emac.diff
+--- a/drivers/net/gt96100eth.c
++++ b/drivers/net/gt96100eth.c
+@@ -615,9 +615,9 @@ static int gt96100_init_module(void)
+ 	/*
+ 	 * Stupid probe because this really isn't a PCI device
+ 	 */
+-	if (!(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
++	if (!(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
+ 	                            PCI_DEVICE_ID_MARVELL_GT96100, NULL)) &&
+-	    !(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
++	    !(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
+ 		                    PCI_DEVICE_ID_MARVELL_GT96100A, NULL))) {
+ 		printk(KERN_ERR __FILE__ ": GT96100 not found!\n");
+ 		return -ENODEV;
+@@ -627,12 +627,14 @@ static int gt96100_init_module(void)
+ 	if (cpuConfig & (1<<12)) {
+ 		printk(KERN_ERR __FILE__
+ 		       ": must be in Big Endian mode!\n");
++		pci_dev_put(pci);
+ 		return -ENODEV;
+ 	}
+ 
+ 	for (i=0; i < NUM_INTERFACES; i++)
+ 		retval |= gt96100_probe1(pci, i);
+ 
++	pci_dev_put(pci);
+ 	return retval;
+ }
+ 
