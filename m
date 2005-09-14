@@ -1,65 +1,36 @@
-From: "Alaa Dalghan" <alaadalghan@hotmail.com>
-Subject: VPN server over windows XP
-Date: Wed, 14 Sep 2005 20:18:20 +0000
-Message-ID: <BAY106-F29965CB20274069D3A5BA5AB9F0@phx.gbl>
+From: Redeeman <redeeman@metanurb.dk>
+Subject: Re: VPN server over windows XP
+Date: Wed, 14 Sep 2005 22:29:44 +0200
+Message-ID: <1126729784.7881.60.camel@localhost>
+References: <BAY106-F29965CB20274069D3A5BA5AB9F0@phx.gbl>
+Reply-To: redeeman@metanurb.dk
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Return-path: <linux-crypto-bounce@nl.linux.org>
-To: linux-crypto@nl.linux.org, linux-kernel@vger.kernel.org, linux-net@vger.kernel.org, linux-security-module@mail.wirex.com, netdev@vger.kernel.org
-Sender: linux-crypto-bounce@nl.linux.org
-Errors-to: linux-crypto-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:linux-crypto-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:linux-crypto-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:linux-crypto@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/linux-crypto/>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-crypto@nl.linux.org, linux-kernel@vger.kernel.org,
+	linux-net@vger.kernel.org, linux-security-module@mail.wirex.com,
+	netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Alaa Dalghan <alaadalghan@hotmail.com>
+In-Reply-To: <BAY106-F29965CB20274069D3A5BA5AB9F0@phx.gbl>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hello everyone,
+On Wed, 2005-09-14 at 20:18 +0000, Alaa Dalghan wrote:
+> hello everyone,
+<snip>
+this really isnt the place for this discussion
+> 
+> Alaadin
+> 
+> _________________________________________________________________
+> Express yourself instantly with MSN Messenger! Download today - it's FREE! 
+> http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
 
-I am trying to setup a windows xp machine as a vpn server that accepts 
-multiple ipsec tunnels from other windows xp machines.
-
-My restrictions are the following:
-
-1- I need to set the vpn server on windows XP (not windows 2000 server, nor 
-2003, nor ISA server, etc.)
-
-2- I need to use tunnel mode ipsec
-
-3- The vpn server should accept MULTIPLE vpn tunnels.
-
-The first problem I faced is that windows xp does not support ipsec tunnel 
-mode between 2 xp machines. It only supports transport mode which is not 
-what I want.
-To overcome this lack of IP tunneling I tried to use the built-in tunneling 
-capabilities such as PPTP and L2TP/ipsec, and it worked. But the problem 
-here is that a windows xp can not accept more than ONE SINGLE incoming 
-connection at a time, and I need multiple connections.
-
-I think the solution could be one of the following:
-
-1-Installing a third party FREE vpn server (or L2TP server) on windows XP. 
-If you know one please tell me.
-
-2-Importing some features from windows 2000 server or 2003 server (some 
-executables or services or plugins that enable xp to run as a vpn server and 
-accept multiple connections). If you know what to import please tell me.
-
-3- Installing a pure IP tunneling solution on windows xp so that it can be 
-combined with ipsec encryption to yield tunnel mode encryption.
-
-I appreciate any help,
-
-Alaadin
-
-_________________________________________________________________
-Express yourself instantly with MSN Messenger! Download today - it's FREE! 
-http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
-
-
--
-Linux-crypto:  cryptography in and on the Linux system
-Archive:       http://mail.nl.linux.org/linux-crypto/
