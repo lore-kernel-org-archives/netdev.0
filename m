@@ -1,36 +1,52 @@
-From: "Alejandro Bonilla" <abonilla@linuxwireless.org>
-Subject: RE: ipw2200 using old wireless extensions
-Date: Thu, 15 Sep 2005 15:10:57 -0600
-Message-ID: <00b501c5ba39$f7cff370$a20cc60a@amer.sykes.com>
-References: <4329E09B.9020807@drzeus.cx>
-Reply-To: <abonilla@linuxwireless.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Route cache performance
+Date: Thu, 15 Sep 2005 23:30:54 +0200
+Message-ID: <17193.59406.200787.819069@robur.slu.se>
+References: <20050825181111.GB14336@netnation.com>
+	<20050825200543.GA6612@yakov.inr.ac.ru>
+	<20050825212211.GA23384@netnation.com>
+	<20050826115520.GA12351@yakov.inr.ac.ru>
+	<17167.29239.469711.847951@robur.slu.se>
+	<20050906235700.GA31820@netnation.com>
+	<17182.64751.340488.996748@robur.slu.se>
+	<20050907162854.GB24735@netnation.com>
+	<20050907195911.GA8382@yakov.inr.ac.ru>
+	<20050913221448.GD15704@netnation.com>
+	<20050915210432.GD28925@yakov.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750889AbVIOVOH@vger.kernel.org>
-To: "'Pierre Ossman'" <drzeus-list@drzeus.cx>,
-	"'LKML'" <linux-kernel@vger.kernel.org>,
-	"'Netdev List'" <netdev@vger.kernel.org>,
-	<ipw2100-admin@linux.intel.com>, <jt@hpl.hp.com>
-In-Reply-To: <4329E09B.9020807@drzeus.cx>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Simon Kirby <sim@netnation.com>, Robert Olsson <Robert.Olsson@data.slu.se>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20050915210432.GD28925@yakov.inr.ac.ru>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-> With the inclusion of the ipw2200 driver and the update of
-> the wireless
-> extensions I get my dmesg flooded with these:
->
-> eth0 (WE) : Driver using old /proc/net/wireless support,
-> please fix driver !
->
-> Somebody please make the hurting go away :)
+Alexey Kuznetsov writes:
 
-Yes, we all are aware and getting dmesg spammed with these messages. Even
-more if you have a Wireless Monitor applet that reads from the /proc
-everytime.
+ > Most likely it is driver or something is seriously screwed up in softirq
+ > processing. Profiling is really required...
+ > 
+ > Robert, did you not see anything like this?
 
-Fix is on the way AFAIK.
+ No. There must be an explanation... I've seen around 1 Mpps in the best
+ single flow tests w. 2.6 kernels of course decent HW. Simon can you 
+ report in pps as you use 64 byte pkts.
 
-.Alejandro
+ > Before 2.6.9 rcu worked differently. It run very rarely and had to do
+ > lots of work each run, effectively unlimited. Apparently, when RCU folks
+ > finally implemented new better mechanism they also added some job limit
+ > and did this wrong, 10 is ridiculously low limit.
+
+ Yes. I'll guess the thinking was that RCU is for read mostly and rDoS 
+ violates this but yes 10 seems dangerous low.
+
+ Also interesing to get BSD numbers? Sounds like they use something like
+ old FASTROUTE.
+
+ Cheers.
+					--ro
