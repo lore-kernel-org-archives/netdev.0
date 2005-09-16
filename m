@@ -1,58 +1,47 @@
-From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 5/5] orinoco: Bump driver version to 0.15.
-Date: Fri, 16 Sep 2005 02:22:09 -0400
-Message-ID: <1126851729.3056.14.camel@dv>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: fix spider_net media detection
+Date: Fri, 16 Sep 2005 08:55:33 +0200
+Message-ID: <200509160855.34219.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
+Cc: akpm@osdl.org, netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org,
+	osterkam@de.ibm.com
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: jgarzik@pobox.com
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+From: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
 
-diff-tree 2d8389b18bca9c6632730de6a29678bf818b700b (from 4f7da56f7d85502cc200a3264717f40f4bdb71e3)
-Author: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Date:   Fri Sep 16 02:10:00 2005 -0400
+This patch makes the driver work with any BladeCenter
+network switch, it used to work only with certain
+models.
 
-    Bump driver version to 0.15.
+Please apply.
 
-diff --git a/drivers/net/wireless/orinoco.h b/drivers/net/wireless/orinoco.h
---- a/drivers/net/wireless/orinoco.h
-+++ b/drivers/net/wireless/orinoco.h
-@@ -5,11 +5,11 @@
-  */
+Signed-off-by: Arnd Bergmann <arndb@de.ibm.com>
+
+--- linux-2.6.13.orig/drivers/net/spider_net.c
++++ linux-2.6.13/drivers/net/spider_net.c
+@@ -1817,6 +1817,10 @@ spider_net_setup_phy(struct spider_net_c
+ 	/* LEDs active in both modes, autosense prio = fiber */
+ 	spider_net_write_phy(card->netdev, 1, MII_NCONFIG, 0x945f);
  
- #ifndef _ORINOCO_H
- #define _ORINOCO_H
- 
--#define DRIVER_VERSION "0.15rc2"
-+#define DRIVER_VERSION "0.15"
- 
- #include <linux/types.h>
- #include <linux/spinlock.h>
- #include <linux/netdevice.h>
- #include <linux/wireless.h>
-
-
--- 
-Regards,
-Pavel Roskin
-
-
-
--------------------------------------------------------
-SF.Net email is sponsored by:
-Tame your development challenges with Apache's Geronimo App Server. 
-Download it for free - -and be entered to win a 42" plasma tv or your very
-own Sony(tm)PSP.  Click here to play: http://sourceforge.net/geronimo.php
++	/* switch off fibre autoneg */
++	spider_net_write_phy(card->netdev, 1, MII_NCONFIG, 0xfc01);
++	spider_net_write_phy(card->netdev, 1, 0x0b, 0x0004);
++
+ 	phy->def->ops->read_link(phy);
+ 	pr_info("Found %s with %i Mbps, %s-duplex.\n", phy->def->name,
+ 		phy->speed, phy->duplex==1 ? "Full" : "Half");
