@@ -1,25 +1,17 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: [git patches] net driver fixes
-Date: Sat, 17 Sep 2005 00:16:55 +0300
-Message-ID: <200509162258.44675.a1426z@gawab.com>
-References: <20050916073818.GA15990@havoc.gtf.org>
+From: "=?ISO-2022-JP?B?GyRCP2VMbkQ+SH4bKEI=?=" <naomi@specialterm.com>
+Subject: =?ISO-2022-JP?B?GyRCQ1kkLyRKJGokXiQ3JD8hIxsoQg==?=
+Date: 16 Sep 2005 21:39:42 -0000
+Message-ID: <20050916213942.24612.qmail@mail.specialterm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751298AbVIPVT4@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20050916073818.GA15990@havoc.gtf.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Please pull from 'upstream-fixes' branch of
-> rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-Does it fix the tulip mii-link detection problem on wire-disconnect?
-
---
-Al
+遅くなっちゃいましたが、
+なんとか、金曜日休み取れました。
+http://specialterm.com
