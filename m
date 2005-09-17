@@ -1,46 +1,54 @@
-From: Roman Zippel <zippel@linux-m68k.org>
-Subject: Re: [HELP] netfilter Kconfig dependency nightmare
-Date: Sat, 17 Sep 2005 14:18:28 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.0509171407460.3743@scrub.home>
-References: <20050916021451.3012196c.akpm@osdl.org>
- <20050916191959.GN8413@sunbeam.de.gnumonks.org> <39e6f6c705091617514457eded@mail.gmail.com>
- <20050917012315.GA29841@mandriva.com> <20050917080714.GV8413@sunbeam.de.gnumonks.org>
- <Pine.LNX.4.61.0509171306290.3743@scrub.home> <20050917112949.GZ8413@sunbeam.de.gnumonks.org>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: Ethernet interface problem -- system lockup.
+Date: Sat, 17 Sep 2005 15:06:42 +0200
+Message-ID: <432C14E2.10001@gmail.com>
+References: <40b4372005091616024e4dd9a3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751092AbVIQMSh@vger.kernel.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20050917112949.GZ8413@sunbeam.de.gnumonks.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751104AbVIQNGt@vger.kernel.org>
+To: simon.d.matthews@gmail.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+In-Reply-To: <40b4372005091616024e4dd9a3@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Simon Matthews napsal(a):
 
-On Sat, 17 Sep 2005, Harald Welte wrote:
+>The machine became unresponsive immediately after this. It would not
+>respond to either the network, or keyboard.
+>
+>It is running a RedHat kernel 2.4.20 or similar. 
+>  
+>
+2.4.31 update?
 
-> If CONFIG_IP_NF_CONNTRACK_NETLINK is selected (M or Y), then
-> CONFIG_IP_NF_CONNTRACK conditionally adds some code that references
-> symbols from nfnetlink.ko (CONFIG_NETFILTER_NETLINK)
-> 
-> So basically, enabling CONFIG_IP_NF_CONNTRACK_NETLINK creates a dependency
-> from CONFIG_IP_NF_CONNTRACK to CONFIG_NETFILTER_NETLINK.  AFAIK, the syntax
-> doesn't allow somthing like 
-> 
-> tristate IP_NF_CONNTRACK
-> 	depends on NETFILTER_NETLINK if IP_NF_CONNTRACK_NETLINK!=n
+>Sep 15 16:20:28 xxxx kernel: eth1: Error -- Rx packet size(8172) > mtu(1500)+14
+>Sep 15 16:20:28 xxxx kernel: eth1: Error -- Rx packet size(8172) > mtu(1500)+14
+>Sep 15 16:20:28 xxxx last message repeated 9 times
+>Sep 15 16:20:28 xxxx kernel: eth1: Error -- Rx packet size(4391) > mtu(1500)+14
+>Sep 15 16:21:19 xxxx last message repeated 8 times
+>Sep 15 16:21:19 xxxx kernel: eth1: Rx ERROR!!!
+>Sep 15 16:21:20 xxxx last message repeated 31 times
+>Sep 15 16:21:20 xxxx kernel: !!!
+>Sep 15 16:21:20 xxxx kernel: !!!
+>Sep 15 16:21:20 xxxx kernel: eth1: Rx ERR!!!
+>Sep 15 16:21:20 xxxx kernel: eth1: Rx ERR!!!
+>Sep 15 16:21:20 xxxx kernel: eth1: Rx ERRO!!!
+>Sep 15 16:21:20 xxxx kernel: eth1: Rx ERRO!!!
+>Sep 15 16:21:20 xxxx kernel: eth1: Rx ERR!!!
+>  
+>
+Is it possible to tell kernel to be more debug (and syslog)?
+Which drivers? Which hardware? .config
+Some more info needed.
 
-Since IP_NF_CONNTRACK_NETLINK is the one creating the dependency, 
-something like this should work:
+Maybe netdev is beeter mailing list for this.
 
-config IP_NF_CONNTRACK_NETLINK
-	depends on IP_NF_CONNTRACK && NETFILTER_NETLINK
-	depends on IP_NF_CONNTRACK!=y || NETFILTER_NETLINK!=m
+thanks,
 
-IOW ct_nl depends on (ct && nl) unless (ct=y && nl=m).
-
-bye, Roman
+-- 
+Jiri Slaby         www.fi.muni.cz/~xslaby
+~\-/~      jirislaby@gmail.com      ~\-/~
+241B347EC88228DE51EE A49C4A73A25004CB2A10
