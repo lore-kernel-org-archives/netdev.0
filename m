@@ -1,54 +1,44 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: Ethernet interface problem -- system lockup.
-Date: Sat, 17 Sep 2005 15:06:42 +0200
-Message-ID: <432C14E2.10001@gmail.com>
-References: <40b4372005091616024e4dd9a3@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Route cache performance
+Date: Sat, 17 Sep 2005 11:17:20 -0400
+Message-ID: <1126970240.6681.128.camel@localhost.localdomain>
+References: <20050825200543.GA6612@yakov.inr.ac.ru>
+	 <20050825212211.GA23384@netnation.com>
+	 <20050826115520.GA12351@yakov.inr.ac.ru>
+	 <17167.29239.469711.847951@robur.slu.se>
+	 <20050906235700.GA31820@netnation.com>
+	 <17182.64751.340488.996748@robur.slu.se>
+	 <20050907162854.GB24735@netnation.com>
+	 <20050907195911.GA8382@yakov.inr.ac.ru>
+	 <20050913221448.GD15704@netnation.com>
+	 <17191.55685.861191.831981@robur.slu.se>
+	 <20050917002823.GB19112@netnation.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751104AbVIQNGt@vger.kernel.org>
-To: simon.d.matthews@gmail.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-In-Reply-To: <40b4372005091616024e4dd9a3@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Simon Kirby <sim@netnation.com>
+In-Reply-To: <20050917002823.GB19112@netnation.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Simon Matthews napsal(a):
+On Fri, 2005-16-09 at 17:28 -0700, Simon Kirby wrote:
 
->The machine became unresponsive immediately after this. It would not
->respond to either the network, or keyboard.
->
->It is running a RedHat kernel 2.4.20 or similar. 
->  
->
-2.4.31 update?
+> nf_iterate was near the top even though the firewall was empty, so I
+> changed CONFIG_IP_NF_IPTABLES=y to CONFIG_IP_NF_IPTABLES=m (and didn't
+> load it).  Throughput went up from 173 Mbps to 232 Mbps...yikes. 
+> Conntrack was never compiled.  I'll do some more profiling when I get
+> a chance...
+> 
 
->Sep 15 16:20:28 xxxx kernel: eth1: Error -- Rx packet size(8172) > mtu(1500)+14
->Sep 15 16:20:28 xxxx kernel: eth1: Error -- Rx packet size(8172) > mtu(1500)+14
->Sep 15 16:20:28 xxxx last message repeated 9 times
->Sep 15 16:20:28 xxxx kernel: eth1: Error -- Rx packet size(4391) > mtu(1500)+14
->Sep 15 16:21:19 xxxx last message repeated 8 times
->Sep 15 16:21:19 xxxx kernel: eth1: Rx ERROR!!!
->Sep 15 16:21:20 xxxx last message repeated 31 times
->Sep 15 16:21:20 xxxx kernel: !!!
->Sep 15 16:21:20 xxxx kernel: !!!
->Sep 15 16:21:20 xxxx kernel: eth1: Rx ERR!!!
->Sep 15 16:21:20 xxxx kernel: eth1: Rx ERR!!!
->Sep 15 16:21:20 xxxx kernel: eth1: Rx ERRO!!!
->Sep 15 16:21:20 xxxx kernel: eth1: Rx ERRO!!!
->Sep 15 16:21:20 xxxx kernel: eth1: Rx ERR!!!
->  
->
-Is it possible to tell kernel to be more debug (and syslog)?
-Which drivers? Which hardware? .config
-Some more info needed.
+If you want some basic stateless firewalling, turn off netfilter and use
+tc ingress/egress actions instead. The impact on performance is a lot
+more tolerable.
 
-Maybe netdev is beeter mailing list for this.
-
-thanks,
-
--- 
-Jiri Slaby         www.fi.muni.cz/~xslaby
-~\-/~      jirislaby@gmail.com      ~\-/~
-241B347EC88228DE51EE A49C4A73A25004CB2A10
+cheers,
+jamal
