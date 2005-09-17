@@ -1,10 +1,10 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH 2/2] netfilter Kconfig whitespace cleanup
-Date: Sat, 17 Sep 2005 18:17:26 +0200
-Message-ID: <20050917161726.GC8413@sunbeam.de.gnumonks.org>
+Subject: [PATCH 1/2] netfilter Kconfig dependency fix
+Date: Sat, 17 Sep 2005 18:16:40 +0200
+Message-ID: <20050917161639.GB8413@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="0MC1Z9bqFMhiUToQ"
+	protocol="application/pgp-signature"; boundary="zinZTyJ7Pquq9iCB"
 Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
@@ -23,7 +23,7 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---0MC1Z9bqFMhiUToQ
+--zinZTyJ7Pquq9iCB
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -31,52 +31,45 @@ Content-Transfer-Encoding: quoted-printable
 Hi Dave, please apply.
 
 
-[NETFILTER] Kconfig whitespace cleanup
+[NETFILTER] Solve Kconfig dependency problem
+
+As suggested by Roman Zippel.
 
 Signed-off-by: Harald Welte <laforge@netfilter.org>
 
 ---
-commit 49d4c50fa9b5ee5a718c2a38e28b6dd99fd65c62
-tree d06a6a7421369f5e63e6ce7130ab11e9202471ce
-parent 95ef9808bc0702757a40886aed48a6fc03aee47b
-author Harald Welte <laforge@netfilter.org> Sa, 17 Sep 2005 17:24:18 +0200
-committer Harald Welte <laforge@netfilter.org> Sa, 17 Sep 2005 17:24:18 +02=
+commit 95ef9808bc0702757a40886aed48a6fc03aee47b
+tree 03b0cca73e6c7f686702c52291e9eb786bb8f02a
+parent 1d21ab174ffeba8e709966dc60e57524553adb84
+author Harald Welte <laforge@netfilter.org> Sa, 17 Sep 2005 17:22:53 +0200
+committer Harald Welte <laforge@netfilter.org> Sa, 17 Sep 2005 17:22:53 +02=
 00
 
- net/ipv4/netfilter/Kconfig |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/netfilter/Kconfig |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
 --- a/net/ipv4/netfilter/Kconfig
 +++ b/net/ipv4/netfilter/Kconfig
-@@ -52,11 +52,11 @@ config IP_NF_CONNTRACK_EVENTS
- 	  IF unsure, say `N'.
-=20
+@@ -8,7 +8,6 @@ menu "IP: Netfilter Configuration"
+ # connection tracking, helpers and protocols
+ config IP_NF_CONNTRACK
+ 	tristate "Connection tracking (required for masq/NAT)"
+-	select NETFILTER_NETLINK if IP_NF_CONNTRACK_NETLINK!=3Dn
+ 	---help---
+ 	  Connection tracking keeps a record of what packets have passed
+ 	  through your machine, in order to figure out how they are related
+@@ -55,8 +54,7 @@ config IP_NF_CONNTRACK_EVENTS
  config IP_NF_CONNTRACK_NETLINK
--        tristate 'Connection tracking netlink interface'
--        depends on IP_NF_CONNTRACK && NETFILTER_NETLINK
-+	tristate 'Connection tracking netlink interface'
-+	depends on IP_NF_CONNTRACK && NETFILTER_NETLINK
- 	depends on IP_NF_CONNTRACK!=3Dy || NETFILTER_NETLINK!=3Dm
--        help
--          This option enables support for a netlink-based userspace interf=
+         tristate 'Connection tracking netlink interface'
+         depends on IP_NF_CONNTRACK && NETFILTER_NETLINK
+-	default IP_NF_CONNTRACK if NETFILTER_NETLINK=3Dy
+-	default m if NETFILTER_NETLINK=3Dm
++	depends on IP_NF_CONNTRACK!=3Dy || NETFILTER_NETLINK!=3Dm
+         help
+           This option enables support for a netlink-based userspace interf=
 ace
-+	help
-+	  This option enables support for a netlink-based userspace interface
 =20
-=20
- config IP_NF_CT_PROTO_SCTP
-@@ -192,8 +192,8 @@ config IP_NF_MATCH_PKTTYPE
- 	tristate "Packet type match support"
- 	depends on IP_NF_IPTABLES
- 	help
--         Packet type matching allows you to match a packet by
--         its "class", eg. BROADCAST, MULTICAST, ...
-+	  Packet type matching allows you to match a packet by
-+	  its "class", eg. BROADCAST, MULTICAST, ...
-=20
- 	  Typical usage:
- 	  iptables -A INPUT -m pkttype --pkt-type broadcast -j LOG
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -87,16 +80,16 @@ ace
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---0MC1Z9bqFMhiUToQ
+--zinZTyJ7Pquq9iCB
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFDLEGWXaXGVTD0i/8RApENAJ45l0XOc7U/SkAsJasTwIBZBlVXXACeL9AA
-weeTkpZdTHbmsWjPGgOedMI=
-=wMrp
+iD8DBQFDLEFnXaXGVTD0i/8RAtrRAKCalMomelUaFUukVqlcwU4JgCZHmwCfR231
+ltS/fAW/LSDPpR89yNqWlac=
+=XaIG
 -----END PGP SIGNATURE-----
 
---0MC1Z9bqFMhiUToQ--
+--zinZTyJ7Pquq9iCB--
