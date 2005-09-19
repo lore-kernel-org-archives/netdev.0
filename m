@@ -1,90 +1,56 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
-Date: Mon, 19 Sep 2005 21:09:14 +0200
-Message-ID: <432F0CDA.40207@cosmosbay.com>
-References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: Re: ieee80211 updates
+Date: Mon, 19 Sep 2005 17:00:56 -0500
+Message-ID: <20050919220056.GB3916@lists.us.dell.com>
+References: <4327625D.10808@linux.intel.com> <20050914105409.GB30645@infradead.org> <43285ADF.5030506@linux.intel.com> <20050917092846.GA14083@infradead.org> <432E1069.8010102@pobox.com> <20050919004450.16m2d1hn7les0o00@www.sourmilk.net> <432E4F7A.9040605@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric dumazet <abuse@cosmosbay.com>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200509191948.55333.ak@suse.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	Christoph Hellwig <hch@infradead.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	NetDev <netdev@vger.kernel.org>,
+	ieee80211-devel@lists.sourceforge.net,
+	Andrew Morton <akpm@osdl.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932466AbVISWA6@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <432E4F7A.9040605@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen a =C3=A9crit :
-> On Monday 19 September 2005 19:09, Eric dumazet wrote:
->=20
->>Hi
->>
->>Part of the performance problem we have with netfilter  is memory
->>allocation is not NUMA aware, but 'only' SMP aware.
->=20
->=20
-> How do you know? Did you measure it somehow?=20
-
-Well, it seems that even a 1MB cache is not enough for this workload, on =
-a=20
-dual Opterons 275 machine.
-
-CPU: AMD64 processors, speed 2205.54 MHz (estimated)
-Counted DATA_CACHE_MISSES events (Data cache misses) with a unit mask of =
-0x00=20
-(No unit mask) count 5000
-samples  %        symbol name
-86104    13.3027  ipt_do_table
-21508     3.3229  copy_user_generic_c
-18618     2.8764  try_to_wake_up
-18180     2.8087  memset
-18085     2.7941  tcp_v4_rcv
-16949     2.6185  schedule
-
-# iptables -nvL | wc -l
-     190
+On Mon, Sep 19, 2005 at 01:41:14AM -0400, Jeff Garzik wrote:
+> Michael Wu wrote:
+> >If it has a version, then only the maintainer can submit patches - 
+> 
+> False.  Presence of an optional label in source code files does not 
+> change the fundamental rules of open source, or the processes 
+> surrounding patch merging in the Linux kernel.  Anybody who feels the 
+> version number should be changed is welcome to submit a patch.  And a 
+> reviewer along the line is welcome to reject such a patch, if they think 
+> it is unwarranted.
+> 
+> >otherwise the
+> >version is useless for identifying what code you're running. (unless other
+> 
+> False.  We have plenty of examples of slower-moving drivers where 
+> community consensus often dictates a version number change.
 
 
+This is also the reason for the 'srcversion' field available in
+modinfo.  This is a CRC across the source code for a given module (not
+counting #include<*>, but counting #include "*").  The version field
+may not change, but if anything really cares about a particular source
+code copy, and that it hasn't been patched, but the version field not
+updated, they can see that.
 
->=20
-> Normally I would expect fire wall state to mostly fit=20
-> into caches (1MB+) of modern Opterons and other NUMA systems.
->=20
->=20
->>What do you think of this patch ?
->>
->>Note : The allocation function is quite complex (copied from
->>drivers/pci/pci-driver.c pci_call_probe())
->>because current kernel doesnt have a NUMA aware vmalloc() wrapper
->=20
->=20
-> Normal vmalloc is NUMA aware and allocates on the local node.
-> Like all memory allocations
+Thanks to Rusty for implementing this.
 
-Yes, but I want to allocate percpu (and per node) data, using vmalloc(), =
-not=20
-memory on the local node.
+Thanks,
+Matt
 
->=20
->=20
->>, maybe=20
->>a future kernel will export
->>such a common function ?
->=20
->=20
-> BTW if you want to put data onto a specific node you don't need
-> to schedule there - it is enough to set the process mempolicy
-> with sys_set_mempolicy. This is fine from kernel too, as long
-> as you save/restore the old one (current->mempolicy)=20
-
-OK thanks, I will try this.
-
-Eric
+-- 
+Matt Domsch
+Software Architect
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
