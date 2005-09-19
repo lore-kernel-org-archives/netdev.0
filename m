@@ -1,37 +1,67 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: workaround large MTU and N-order allocation failures
-Date: Mon, 19 Sep 2005 16:38:15 +0300
-Message-ID: <200509191638.15506.a1426z@gawab.com>
-References: <20050918143526.GA24181@localdomain> <1127111462.5272.7.camel@npiggin-nld.site>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
+Date: Mon, 19 Sep 2005 19:20:55 +0200
+Message-ID: <432EF377.3050402@cosmosbay.com>
+References: <432EF0C5.5090908@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932412AbVISNoF@vger.kernel.org>
-To: netdev@vger.kernel.org
-In-Reply-To: <1127111462.5272.7.camel@npiggin-nld.site>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: netfilter-devel@lists.netfilter.org
+In-Reply-To: <432EF0C5.5090908@cosmosbay.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Nick Piggin wrote:
-> On Sun, 2005-09-18 at 17:35 +0300, Dan Aloni wrote:
-> > Hello,
-> >
-> > Is there currently a workaround available for handling large MTU
-> > (larger than 1 page, even 2-order) in the Linux network stack?
-> >
-> > The problem with large MTU is external memory fragmentation in
-> > the buddy system following high workload, causing alloc_skb() to
-> > fail.
-> >
-> > I'm interested in patches for both 2.4 and 2.6 kernels.
->
-> Yes there is currently a workaround. That is to keep increasing
-> /proc/sys/vm/min_free_kbytes until your allocation failures stop.
+Eric dumazet a =E9crit :
+> Hi
+>=20
+> Part of the performance problem we have with netfilter  is memory=20
+> allocation is not NUMA aware, but 'only' SMP aware.
+>=20
+> What do you think of this patch ?
+>=20
 
-How do you do it in 2.4?
+...
 
---
-Al
+> +#ifdef CONFIG_NUMA
+> +		set_cpus_allowed(current, oldmask);
+> +		mpol_free(current->mempolicy);
+> +		current->mempolicy =3D oldpol;
+> +#endif
+> +		if (newinfo->entries[cpu] =3D=3D 0) {
+> +			free_table_info(newinfo);
+> +			return NULL;
+> +		if (!newinfo->entry0)
+> +			newinfo->entry0 =3D newinfo->entries[cpu];
+> +		}   // ERROR
+> +	}
+> +	return newinfo;
+> +}
+> +
+
+Oops sorry for this misplaced brace. It should be :
+
+ > +#ifdef CONFIG_NUMA
+ > +		set_cpus_allowed(current, oldmask);
+ > +		mpol_free(current->mempolicy);
+ > +		current->mempolicy =3D oldpol;
+ > +#endif
+ > +		if (newinfo->entries[cpu] =3D=3D 0) {
+ > +			free_table_info(newinfo);
+ > +			return NULL;
+ > +             } // HERE
+ > +		if (!newinfo->entry0)
+ > +			newinfo->entry0 =3D newinfo->entries[cpu];
+ > +	}
+ > +	return newinfo;
+ > +}
+ > +
