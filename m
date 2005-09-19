@@ -1,14 +1,12 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
-Date: Tue, 20 Sep 2005 11:47:49 +0200
-Message-ID: <432FDAC5.3040801@cosmosbay.com>
-References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+From: Eric dumazet <abuse@cosmosbay.com>
+Subject: [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
+Date: Mon, 19 Sep 2005 19:09:25 +0200
+Message-ID: <432EF0C5.5090908@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------040601080608080300080800"
-Cc: netdev@vger.kernel.org, Andi Kleen <ak@suse.de>
+Content-Type: multipart/mixed; boundary="------------010100020506070801020704"
+Cc: netdev@vger.kernel.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: netfilter-devel@lists.netfilter.org
-In-Reply-To: <200509191948.55333.ak@suse.de>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -21,288 +19,382 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------040601080608080300080800
-Content-Type: text/plain; charset=UTF-8; format=flowed
+--------------010100020506070801020704
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Hi all
+Hi
 
-Part of the performance problem we have with netfilter is memory allocation is 
-not NUMA aware, but 'only' SMP aware (ie each CPU normally touch separate 
-cache lines)
+Part of the performance problem we have with netfilter  is memory 
+allocation is not NUMA aware, but 'only' SMP aware.
 
-Even with small iptables rules, the cost of this misplacement can be high on 
-common workloads.
+What do you think of this patch ?
 
-Instead of using one vmalloc() area (located in the node of the iptables 
-process), we now vmalloc() an area for each possible CPU, using NUMA policy 
-(MPOL_PREFERRED) so that memory should be allocated in the CPU's node if possible.
-
-If the size of ipt_table is small enough (less than one page), we use 
-kmalloc_node() instead of vmalloc(), to use less memory (and less TLB entries) 
-in small setups.
-
-This patch try to use local node memory in expensive translate_table() 
-function (and others), but doesnt bother to bind the task to the current CPU.
-
-Note : I also optimize get_counters(), using a SET_COUNTER() for the first 
-cpu, avoiding a memset() and ADD_COUNTER() if SMP on other cpus.
+Note : The allocation function is quite complex (copied from 
+drivers/pci/pci-driver.c pci_call_probe())
+because current kernel doesnt have a NUMA aware vmalloc() wrapper, maybe 
+a future kernel will export
+such a common function ?
 
 Thank you
 
 Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
---------------040601080608080300080800
+
+
+--------------010100020506070801020704
 Content-Type: text/plain;
  name="patch_ip_tables_numa"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
  filename="patch_ip_tables_numa"
 
-LS0tIGxpbnV4LTIuNi4xNC1yYzEucDEvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX3RhYmxlcy5j
-CTIwMDUtMDktMTkgMTk6NTY6MTIuMDAwMDAwMDAwICswMjAwCisrKyBsaW51eC0yLjYuMTQt
-cmMxL25ldC9pcHY0L25ldGZpbHRlci9pcF90YWJsZXMuYwkyMDA1LTA5LTIwIDEzOjQxOjM3
-LjAwMDAwMDAwMCArMDIwMApAQCAtMTcsNiArMTcsNyBAQAogI2luY2x1ZGUgPGxpbnV4L3Nr
-YnVmZi5oPgogI2luY2x1ZGUgPGxpbnV4L2ttb2QuaD4KICNpbmNsdWRlIDxsaW51eC92bWFs
-bG9jLmg+CisjaW5jbHVkZSA8bGludXgvbWVtcG9saWN5Lmg+CiAjaW5jbHVkZSA8bGludXgv
-bmV0ZGV2aWNlLmg+CiAjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+CiAjaW5jbHVkZSA8bGlu
-dXgvdGNwLmg+CkBAIC04MiwxMSArODMsNiBAQAogICAgY29udGV4dCBzdG9wcyBwYWNrZXRz
-IGNvbWluZyB0aHJvdWdoIGFuZCBhbGxvd3MgdXNlciBjb250ZXh0IHRvIHJlYWQKICAgIHRo
-ZSBjb3VudGVycyBvciB1cGRhdGUgdGhlIHJ1bGVzLgogCi0gICBUbyBiZSBjYWNoZSBmcmll
-bmRseSBvbiBTTVAsIHdlIGFycmFuZ2UgdGhlbSBsaWtlIHNvOgotICAgWyBuLWVudHJpZXMg
-XQotICAgLi4uIGNhY2hlLWFsaWduIHBhZGRpbmcgLi4uCi0gICBbIG4tZW50cmllcyBdCi0K
-ICAgIEhlbmNlIHRoZSBzdGFydCBvZiBhbnkgdGFibGUgaXMgZ2l2ZW4gYnkgZ2V0X3RhYmxl
-KCkgYmVsb3cuICAqLwogCiAvKiBUaGUgdGFibGUgaXRzZWxmICovCkBAIC0xMDQsMTkgKzEw
-MCwxNCBAQAogCXVuc2lnbmVkIGludCB1bmRlcmZsb3dbTkZfSVBfTlVNSE9PS1NdOwogCiAJ
-LyogaXB0X2VudHJ5IHRhYmxlczogb25lIHBlciBDUFUgKi8KLQljaGFyIGVudHJpZXNbMF0g
-X19fX2NhY2hlbGluZV9hbGlnbmVkOworCXZvaWQgKmVudHJpZXNbTlJfQ1BVU107CiB9Owog
-CiBzdGF0aWMgTElTVF9IRUFEKGlwdF90YXJnZXQpOwogc3RhdGljIExJU1RfSEVBRChpcHRf
-bWF0Y2gpOwogc3RhdGljIExJU1RfSEVBRChpcHRfdGFibGVzKTsKICNkZWZpbmUgQUREX0NP
-VU5URVIoYyxiLHApIGRvIHsgKGMpLmJjbnQgKz0gKGIpOyAoYykucGNudCArPSAocCk7IH0g
-d2hpbGUoMCkKLQotI2lmZGVmIENPTkZJR19TTVAKLSNkZWZpbmUgVEFCTEVfT0ZGU0VUKHQs
-cCkgKFNNUF9BTElHTigodCktPnNpemUpKihwKSkKLSNlbHNlCi0jZGVmaW5lIFRBQkxFX09G
-RlNFVCh0LHApIDAKLSNlbmRpZgorI2RlZmluZSBTRVRfQ09VTlRFUihjLGIscCkgZG8geyAo
-YykuYmNudCA9IChiKTsgKGMpLnBjbnQgPSAocCk7IH0gd2hpbGUoMCkKIAogI2lmIDAKICNk
-ZWZpbmUgZG93bih4KSBkbyB7IHByaW50aygiRE9XTjoldToiICN4ICJcbiIsIF9fTElORV9f
-KTsgZG93bih4KTsgfSB3aGlsZSgwKQpAQCAtMjg5LDggKzI4MCw3IEBACiAKIAlyZWFkX2xv
-Y2tfYmgoJnRhYmxlLT5sb2NrKTsKIAlJUF9ORl9BU1NFUlQodGFibGUtPnZhbGlkX2hvb2tz
-ICYgKDEgPDwgaG9vaykpOwotCXRhYmxlX2Jhc2UgPSAodm9pZCAqKXRhYmxlLT5wcml2YXRl
-LT5lbnRyaWVzCi0JCSsgVEFCTEVfT0ZGU0VUKHRhYmxlLT5wcml2YXRlLCBzbXBfcHJvY2Vz
-c29yX2lkKCkpOworCXRhYmxlX2Jhc2UgPSAodm9pZCAqKXRhYmxlLT5wcml2YXRlLT5lbnRy
-aWVzW3NtcF9wcm9jZXNzb3JfaWQoKV07CiAJZSA9IGdldF9lbnRyeSh0YWJsZV9iYXNlLCB0
-YWJsZS0+cHJpdmF0ZS0+aG9va19lbnRyeVtob29rXSk7CiAKICNpZmRlZiBDT05GSUdfTkVU
-RklMVEVSX0RFQlVHCkBAIC01NjIsNyArNTUyLDcgQEAKIC8qIEZpZ3VyZXMgb3V0IGZyb20g
-d2hhdCBob29rIGVhY2ggcnVsZSBjYW4gYmUgY2FsbGVkOiByZXR1cm5zIDAgaWYKICAgIHRo
-ZXJlIGFyZSBsb29wcy4gIFB1dHMgaG9vayBiaXRtYXNrIGluIGNvbWVmcm9tLiAqLwogc3Rh
-dGljIGludAotbWFya19zb3VyY2VfY2hhaW5zKHN0cnVjdCBpcHRfdGFibGVfaW5mbyAqbmV3
-aW5mbywgdW5zaWduZWQgaW50IHZhbGlkX2hvb2tzKQorbWFya19zb3VyY2VfY2hhaW5zKHN0
-cnVjdCBpcHRfdGFibGVfaW5mbyAqbmV3aW5mbywgdW5zaWduZWQgaW50IHZhbGlkX2hvb2tz
-LCB2b2lkICplbnRyeTApCiB7CiAJdW5zaWduZWQgaW50IGhvb2s7CiAKQEAgLTU3MSw3ICs1
-NjEsNyBAQAogCWZvciAoaG9vayA9IDA7IGhvb2sgPCBORl9JUF9OVU1IT09LUzsgaG9vaysr
-KSB7CiAJCXVuc2lnbmVkIGludCBwb3MgPSBuZXdpbmZvLT5ob29rX2VudHJ5W2hvb2tdOwog
-CQlzdHJ1Y3QgaXB0X2VudHJ5ICplCi0JCQk9IChzdHJ1Y3QgaXB0X2VudHJ5ICopKG5ld2lu
-Zm8tPmVudHJpZXMgKyBwb3MpOworCQkJPSAoc3RydWN0IGlwdF9lbnRyeSAqKShlbnRyeTAg
-KyBwb3MpOwogCiAJCWlmICghKHZhbGlkX2hvb2tzICYgKDEgPDwgaG9vaykpKQogCQkJY29u
-dGludWU7CkBAIC02MjEsMTMgKzYxMSwxMyBAQAogCQkJCQkJZ290byBuZXh0OwogCiAJCQkJ
-CWUgPSAoc3RydWN0IGlwdF9lbnRyeSAqKQotCQkJCQkJKG5ld2luZm8tPmVudHJpZXMgKyBw
-b3MpOworCQkJCQkJKGVudHJ5MCArIHBvcyk7CiAJCQkJfSB3aGlsZSAob2xkcG9zID09IHBv
-cyArIGUtPm5leHRfb2Zmc2V0KTsKIAogCQkJCS8qIE1vdmUgYWxvbmcgb25lICovCiAJCQkJ
-c2l6ZSA9IGUtPm5leHRfb2Zmc2V0OwogCQkJCWUgPSAoc3RydWN0IGlwdF9lbnRyeSAqKQot
-CQkJCQkobmV3aW5mby0+ZW50cmllcyArIHBvcyArIHNpemUpOworCQkJCQkoZW50cnkwICsg
-cG9zICsgc2l6ZSk7CiAJCQkJZS0+Y291bnRlcnMucGNudCA9IHBvczsKIAkJCQlwb3MgKz0g
-c2l6ZTsKIAkJCX0gZWxzZSB7CkBAIC02NDQsNyArNjM0LDcgQEAKIAkJCQkJbmV3cG9zID0g
-cG9zICsgZS0+bmV4dF9vZmZzZXQ7CiAJCQkJfQogCQkJCWUgPSAoc3RydWN0IGlwdF9lbnRy
-eSAqKQotCQkJCQkobmV3aW5mby0+ZW50cmllcyArIG5ld3Bvcyk7CisJCQkJCShlbnRyeTAg
-KyBuZXdwb3MpOwogCQkJCWUtPmNvdW50ZXJzLnBjbnQgPSBwb3M7CiAJCQkJcG9zID0gbmV3
-cG9zOwogCQkJfQpAQCAtODU0LDYgKzg0NCw3IEBACiB0cmFuc2xhdGVfdGFibGUoY29uc3Qg
-Y2hhciAqbmFtZSwKIAkJdW5zaWduZWQgaW50IHZhbGlkX2hvb2tzLAogCQlzdHJ1Y3QgaXB0
-X3RhYmxlX2luZm8gKm5ld2luZm8sCisJCXZvaWQgKmVudHJ5MCwKIAkJdW5zaWduZWQgaW50
-IHNpemUsCiAJCXVuc2lnbmVkIGludCBudW1iZXIsCiAJCWNvbnN0IHVuc2lnbmVkIGludCAq
-aG9va19lbnRyaWVzLApAQCAtODc0LDExICs4NjUsMTEgQEAKIAlkdXByaW50ZigidHJhbnNs
-YXRlX3RhYmxlOiBzaXplICV1XG4iLCBuZXdpbmZvLT5zaXplKTsKIAlpID0gMDsKIAkvKiBX
-YWxrIHRocm91Z2ggZW50cmllcywgY2hlY2tpbmcgb2Zmc2V0cy4gKi8KLQlyZXQgPSBJUFRf
-RU5UUllfSVRFUkFURShuZXdpbmZvLT5lbnRyaWVzLCBuZXdpbmZvLT5zaXplLAorCXJldCA9
-IElQVF9FTlRSWV9JVEVSQVRFKGVudHJ5MCwgbmV3aW5mby0+c2l6ZSwKIAkJCQljaGVja19l
-bnRyeV9zaXplX2FuZF9ob29rcywKIAkJCQluZXdpbmZvLAotCQkJCW5ld2luZm8tPmVudHJp
-ZXMsCi0JCQkJbmV3aW5mby0+ZW50cmllcyArIHNpemUsCisJCQkJZW50cnkwLAorCQkJCWVu
-dHJ5MCArIHNpemUsCiAJCQkJaG9va19lbnRyaWVzLCB1bmRlcmZsb3dzLCAmaSk7CiAJaWYg
-KHJldCAhPSAwKQogCQlyZXR1cm4gcmV0OwpAQCAtOTA2LDI1ICs4OTcsMjQgQEAKIAkJfQog
-CX0KIAotCWlmICghbWFya19zb3VyY2VfY2hhaW5zKG5ld2luZm8sIHZhbGlkX2hvb2tzKSkK
-KwlpZiAoIW1hcmtfc291cmNlX2NoYWlucyhuZXdpbmZvLCB2YWxpZF9ob29rcywgZW50cnkw
-KSkKIAkJcmV0dXJuIC1FTE9PUDsKIAogCS8qIEZpbmFsbHksIGVhY2ggc2FuaXR5IGNoZWNr
-IG11c3QgcGFzcyAqLwogCWkgPSAwOwotCXJldCA9IElQVF9FTlRSWV9JVEVSQVRFKG5ld2lu
-Zm8tPmVudHJpZXMsIG5ld2luZm8tPnNpemUsCisJcmV0ID0gSVBUX0VOVFJZX0lURVJBVEUo
-ZW50cnkwLCBuZXdpbmZvLT5zaXplLAogCQkJCWNoZWNrX2VudHJ5LCBuYW1lLCBzaXplLCAm
-aSk7CiAKIAlpZiAocmV0ICE9IDApIHsKLQkJSVBUX0VOVFJZX0lURVJBVEUobmV3aW5mby0+
-ZW50cmllcywgbmV3aW5mby0+c2l6ZSwKKwkJSVBUX0VOVFJZX0lURVJBVEUoZW50cnkwLCBu
-ZXdpbmZvLT5zaXplLAogCQkJCSAgY2xlYW51cF9lbnRyeSwgJmkpOwogCQlyZXR1cm4gcmV0
-OwogCX0KIAogCS8qIEFuZCBvbmUgY29weSBmb3IgZXZlcnkgb3RoZXIgQ1BVICovCi0JZm9y
-IChpID0gMTsgaSA8IG51bV9wb3NzaWJsZV9jcHVzKCk7IGkrKykgewotCQltZW1jcHkobmV3
-aW5mby0+ZW50cmllcyArIFNNUF9BTElHTihuZXdpbmZvLT5zaXplKSppLAotCQkgICAgICAg
-bmV3aW5mby0+ZW50cmllcywKLQkJICAgICAgIFNNUF9BTElHTihuZXdpbmZvLT5zaXplKSk7
-CisJZm9yX2VhY2hfY3B1KGkpIHsKKwkJaWYgKG5ld2luZm8tPmVudHJpZXNbaV0gJiYgbmV3
-aW5mby0+ZW50cmllc1tpXSAhPSBlbnRyeTApCisJCQltZW1jcHkobmV3aW5mby0+ZW50cmll
-c1tpXSwgZW50cnkwLCBuZXdpbmZvLT5zaXplKTsKIAl9CiAKIAlyZXR1cm4gcmV0OwpAQCAt
-OTQwLDE1ICs5MzAsMTIgQEAKIAogI2lmZGVmIENPTkZJR19ORVRGSUxURVJfREVCVUcKIAl7
-Ci0JCXN0cnVjdCBpcHRfZW50cnkgKnRhYmxlX2Jhc2U7Ci0JCXVuc2lnbmVkIGludCBpOwor
-CQlpbnQgY3B1OwogCi0JCWZvciAoaSA9IDA7IGkgPCBudW1fcG9zc2libGVfY3B1cygpOyBp
-KyspIHsKLQkJCXRhYmxlX2Jhc2UgPQotCQkJCSh2b2lkICopbmV3aW5mby0+ZW50cmllcwot
-CQkJCSsgVEFCTEVfT0ZGU0VUKG5ld2luZm8sIGkpOwotCi0JCQl0YWJsZV9iYXNlLT5jb21l
-ZnJvbSA9IDB4ZGVhZDU3YWM7CisJCWZvcl9lYWNoX2NwdShjcHUpIHsKKwkJCXN0cnVjdCBp
-cHRfZW50cnkgKnRhYmxlX2Jhc2UgPSBuZXdpbmZvLT5lbnRyaWVzW2NwdV07CisJCQlpZiAo
-dGFibGVfYmFzZSkKKwkJCQl0YWJsZV9iYXNlLT5jb21lZnJvbSA9IDB4ZGVhZDU3YWM7CiAJ
-CX0KIAl9CiAjZW5kaWYKQEAgLTk3Miw2ICs5NTksNyBAQAogfQogCiAvKiBHZXRzIGNvdW50
-ZXJzLiAqLworI2lmZGVmIENPTkZJR19TTVAKIHN0YXRpYyBpbmxpbmUgaW50CiBhZGRfZW50
-cnlfdG9fY291bnRlcihjb25zdCBzdHJ1Y3QgaXB0X2VudHJ5ICplLAogCQkgICAgIHN0cnVj
-dCBpcHRfY291bnRlcnMgdG90YWxbXSwKQEAgLTk4MiwyMiArOTcwLDQ0IEBACiAJKCppKSsr
-OwogCXJldHVybiAwOwogfQorI2VuZGlmCitzdGF0aWMgaW5saW5lIGludAorc2V0X2VudHJ5
-X3RvX2NvdW50ZXIoY29uc3Qgc3RydWN0IGlwdF9lbnRyeSAqZSwKKwkJICAgICBzdHJ1Y3Qg
-aXB0X2NvdW50ZXJzIHRvdGFsW10sCisJCSAgICAgdW5zaWduZWQgaW50ICppKQoreworCVNF
-VF9DT1VOVEVSKHRvdGFsWyppXSwgZS0+Y291bnRlcnMuYmNudCwgZS0+Y291bnRlcnMucGNu
-dCk7CisKKwkoKmkpKys7CisJcmV0dXJuIDA7Cit9CiAKIHN0YXRpYyB2b2lkCiBnZXRfY291
-bnRlcnMoY29uc3Qgc3RydWN0IGlwdF90YWJsZV9pbmZvICp0LAogCSAgICAgc3RydWN0IGlw
-dF9jb3VudGVycyBjb3VudGVyc1tdKQogewogCXVuc2lnbmVkIGludCBjcHU7CisJdW5zaWdu
-ZWQgaW50IGN1cmNwdSA9IHJhd19zbXBfcHJvY2Vzc29yX2lkKCk7CiAJdW5zaWduZWQgaW50
-IGk7CiAKLQlmb3IgKGNwdSA9IDA7IGNwdSA8IG51bV9wb3NzaWJsZV9jcHVzKCk7IGNwdSsr
-KSB7CisJaSA9IDA7CisJSVBUX0VOVFJZX0lURVJBVEUodC0+ZW50cmllc1tjdXJjcHVdLAor
-CQkJICB0LT5zaXplLAorCQkJICBzZXRfZW50cnlfdG9fY291bnRlciwKKwkJCSAgY291bnRl
-cnMsCisJCQkgICZpKTsKKyNpZmRlZiBDT05GSUdfU01QCisJZm9yX2VhY2hfY3B1KGNwdSkg
-eworCQlpZiAoY3B1ID09IGN1cmNwdSkKKwkJCWNvbnRpbnVlOwogCQlpID0gMDsKLQkJSVBU
-X0VOVFJZX0lURVJBVEUodC0+ZW50cmllcyArIFRBQkxFX09GRlNFVCh0LCBjcHUpLAorCQlJ
-UFRfRU5UUllfSVRFUkFURSh0LT5lbnRyaWVzW2NwdV0sCiAJCQkJICB0LT5zaXplLAogCQkJ
-CSAgYWRkX2VudHJ5X3RvX2NvdW50ZXIsCiAJCQkJICBjb3VudGVycywKIAkJCQkgICZpKTsK
-IAl9CisjZW5kaWYKIH0KIAogc3RhdGljIGludApAQCAtMTAwOSw2ICsxMDE5LDcgQEAKIAlz
-dHJ1Y3QgaXB0X2VudHJ5ICplOwogCXN0cnVjdCBpcHRfY291bnRlcnMgKmNvdW50ZXJzOwog
-CWludCByZXQgPSAwOworCXZvaWQgKmxvY19jcHVfZW50cnk7CiAKIAkvKiBXZSBuZWVkIGF0
-b21pYyBzbmFwc2hvdCBvZiBjb3VudGVyczogcmVzdCBkb2Vzbid0IGNoYW5nZQogCSAgIChv
-dGhlciB0aGFuIGNvbWVmcm9tLCB3aGljaCB1c2Vyc3BhY2UgZG9lc24ndCBjYXJlCkBAIC0x
-MDIwLDEzICsxMDMxLDE3IEBACiAJCXJldHVybiAtRU5PTUVNOwogCiAJLyogRmlyc3QsIHN1
-bSBjb3VudGVycy4uLiAqLwotCW1lbXNldChjb3VudGVycywgMCwgY291bnRlcnNpemUpOwog
-CXdyaXRlX2xvY2tfYmgoJnRhYmxlLT5sb2NrKTsKIAlnZXRfY291bnRlcnModGFibGUtPnBy
-aXZhdGUsIGNvdW50ZXJzKTsKIAl3cml0ZV91bmxvY2tfYmgoJnRhYmxlLT5sb2NrKTsKIAot
-CS8qIC4uLiB0aGVuIGNvcHkgZW50aXJlIHRoaW5nIGZyb20gQ1BVIDAuLi4gKi8KLQlpZiAo
-Y29weV90b191c2VyKHVzZXJwdHIsIHRhYmxlLT5wcml2YXRlLT5lbnRyaWVzLCB0b3RhbF9z
-aXplKSAhPSAwKSB7CisJLyoKKwkgKiBjaG9vc2UgdGhlIGNvcHkgdGhhdCBpcyBvbiBvdXIg
-bm9kZSwKKwkgKiBidXQgZG9udCB3b3JyeSBpZiB0aGUgc2NoZWR1bGVyIGNoYW5nZXMgdGhl
-IENQVQorCSAqLworCWxvY19jcHVfZW50cnkgPSB0YWJsZS0+cHJpdmF0ZS0+ZW50cmllc1ty
-YXdfc21wX3Byb2Nlc3Nvcl9pZCgpXTsKKwkvKiAuLi4gdGhlbiBjb3B5IGVudGlyZSB0aGlu
-ZyAuLi4gKi8KKwlpZiAoY29weV90b191c2VyKHVzZXJwdHIsIGxvY19jcHVfZW50cnksIHRv
-dGFsX3NpemUpICE9IDApIHsKIAkJcmV0ID0gLUVGQVVMVDsKIAkJZ290byBmcmVlX2NvdW50
-ZXJzOwogCX0KQEAgLTEwMzgsNyArMTA1Myw3IEBACiAJCXN0cnVjdCBpcHRfZW50cnlfbWF0
-Y2ggKm07CiAJCXN0cnVjdCBpcHRfZW50cnlfdGFyZ2V0ICp0OwogCi0JCWUgPSAoc3RydWN0
-IGlwdF9lbnRyeSAqKSh0YWJsZS0+cHJpdmF0ZS0+ZW50cmllcyArIG9mZik7CisJCWUgPSAo
-c3RydWN0IGlwdF9lbnRyeSAqKShsb2NfY3B1X2VudHJ5ICsgb2ZmKTsKIAkJaWYgKGNvcHlf
-dG9fdXNlcih1c2VycHRyICsgb2ZmCiAJCQkJICsgb2Zmc2V0b2Yoc3RydWN0IGlwdF9lbnRy
-eSwgY291bnRlcnMpLAogCQkJCSAmY291bnRlcnNbbnVtXSwKQEAgLTExMDcsNiArMTEyMiw1
-NiBAQAogCXJldHVybiByZXQ7CiB9CiAKK3N0YXRpYyB2b2lkIGZyZWVfdGFibGVfaW5mbyhz
-dHJ1Y3QgaXB0X3RhYmxlX2luZm8gKmluZm8pCit7CisJaW50IGNwdTsKKwlmb3JfZWFjaF9j
-cHUoY3B1KSB7CisJCWlmIChpbmZvLT5zaXplIDw9IFBBR0VfU0laRSkKKwkJCWtmcmVlKGlu
-Zm8tPmVudHJpZXNbY3B1XSk7CisJCWVsc2UKKwkJCXZmcmVlKGluZm8tPmVudHJpZXNbY3B1
-XSk7CisJfQorCWtmcmVlKGluZm8pOworfQorCitzdGF0aWMgc3RydWN0IGlwdF90YWJsZV9p
-bmZvICphbGxvY190YWJsZV9pbmZvKHVuc2lnbmVkIGludCBzaXplKQoreworc3RydWN0IGlw
-dF90YWJsZV9pbmZvICpuZXdpbmZvOworaW50IGNwdTsKKwluZXdpbmZvID0ga3phbGxvYyhz
-aXplb2Yoc3RydWN0IGlwdF90YWJsZV9pbmZvKSwgR0ZQX0tFUk5FTCk7CisJaWYgKCFuZXdp
-bmZvKQorCQlyZXR1cm4gTlVMTDsKKwluZXdpbmZvLT5zaXplID0gc2l6ZTsKKwlmb3JfZWFj
-aF9jcHUoY3B1KSB7CisJCWlmIChzaXplIDw9IFBBR0VfU0laRSkgeworCQkJbmV3aW5mby0+
-ZW50cmllc1tjcHVdID0ga21hbGxvY19ub2RlKHNpemUsCisJCQkJR0ZQX0tFUk5FTCwKKwkJ
-CQljcHVfdG9fbm9kZShjcHUpKTsKKwkJfSBlbHNlIHsKKyNpZmRlZiBDT05GSUdfTlVNQQor
-CQkJc3RydWN0IG1lbXBvbGljeSAqb2xkcG9sOworCQkJc3RydWN0IG1lbXBvbGljeSBwcmVm
-bm9kZXBvbGljeSA9IHsKKwkJCQkucmVmY250ID0gQVRPTUlDX0lOSVQoMSksCisJCQkJLnBv
-bGljeSA9IE1QT0xfUFJFRkVSUkVELAorCQkJCS52LnByZWZlcnJlZF9ub2RlID0gY3B1X3Rv
-X25vZGUoY3B1KSwKKwkJCX07CisJCQlvbGRwb2wgPSBjdXJyZW50LT5tZW1wb2xpY3k7CisJ
-CQljdXJyZW50LT5tZW1wb2xpY3kgPSAmcHJlZm5vZGVwb2xpY3k7CisjZW5kaWYKKwkJCW5l
-d2luZm8tPmVudHJpZXNbY3B1XSA9IHZtYWxsb2Moc2l6ZSk7CisjaWZkZWYgQ09ORklHX05V
-TUEKKwkJCWN1cnJlbnQtPm1lbXBvbGljeSA9IG9sZHBvbDsKKyNlbmRpZgorCQl9CisJCWlm
-IChuZXdpbmZvLT5lbnRyaWVzW2NwdV0gPT0gMCkgeworCQkJZnJlZV90YWJsZV9pbmZvKG5l
-d2luZm8pOworCQkJcmV0dXJuIE5VTEw7CisJCX0KKwl9CisJcmV0dXJuIG5ld2luZm87Cit9
-CisKKwogc3RhdGljIGludAogZG9fcmVwbGFjZSh2b2lkIF9fdXNlciAqdXNlciwgdW5zaWdu
-ZWQgaW50IGxlbikKIHsKQEAgLTExMTUsNiArMTE4MCw3IEBACiAJc3RydWN0IGlwdF90YWJs
-ZSAqdDsKIAlzdHJ1Y3QgaXB0X3RhYmxlX2luZm8gKm5ld2luZm8sICpvbGRpbmZvOwogCXN0
-cnVjdCBpcHRfY291bnRlcnMgKmNvdW50ZXJzOworCXZvaWQgKmxvY19jcHVfZW50cnksICps
-b2NfY3B1X29sZF9lbnRyeTsKIAogCWlmIChjb3B5X2Zyb21fdXNlcigmdG1wLCB1c2VyLCBz
-aXplb2YodG1wKSkgIT0gMCkKIAkJcmV0dXJuIC1FRkFVTFQ7CkBAIC0xMTI3LDEyICsxMTkz
-LDE1IEBACiAJaWYgKChTTVBfQUxJR04odG1wLnNpemUpID4+IFBBR0VfU0hJRlQpICsgMiA+
-IG51bV9waHlzcGFnZXMpCiAJCXJldHVybiAtRU5PTUVNOwogCi0JbmV3aW5mbyA9IHZtYWxs
-b2Moc2l6ZW9mKHN0cnVjdCBpcHRfdGFibGVfaW5mbykKLQkJCSAgKyBTTVBfQUxJR04odG1w
-LnNpemUpICogbnVtX3Bvc3NpYmxlX2NwdXMoKSk7CisJbmV3aW5mbyA9IGFsbG9jX3RhYmxl
-X2luZm8odG1wLnNpemUpOwogCWlmICghbmV3aW5mbykKIAkJcmV0dXJuIC1FTk9NRU07Ci0K
-LQlpZiAoY29weV9mcm9tX3VzZXIobmV3aW5mby0+ZW50cmllcywgdXNlciArIHNpemVvZih0
-bXApLAorCS8qCisJICogY2hvb3NlIHRoZSBjb3B5IHRoYXQgaXMgb24gb3VyIG5vZGUsCisJ
-ICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxlciBjaGFuZ2VzIHRoZSBDUFUKKwkg
-Ki8KKwlsb2NfY3B1X2VudHJ5ID0gbmV3aW5mby0+ZW50cmllc1tyYXdfc21wX3Byb2Nlc3Nv
-cl9pZCgpXTsKKwlpZiAoY29weV9mcm9tX3VzZXIobG9jX2NwdV9lbnRyeSwgdXNlciArIHNp
-emVvZih0bXApLAogCQkJICAgdG1wLnNpemUpICE9IDApIHsKIAkJcmV0ID0gLUVGQVVMVDsK
-IAkJZ290byBmcmVlX25ld2luZm87CkBAIC0xMTQzLDEwICsxMjEyLDkgQEAKIAkJcmV0ID0g
-LUVOT01FTTsKIAkJZ290byBmcmVlX25ld2luZm87CiAJfQotCW1lbXNldChjb3VudGVycywg
-MCwgdG1wLm51bV9jb3VudGVycyAqIHNpemVvZihzdHJ1Y3QgaXB0X2NvdW50ZXJzKSk7CiAK
-IAlyZXQgPSB0cmFuc2xhdGVfdGFibGUodG1wLm5hbWUsIHRtcC52YWxpZF9ob29rcywKLQkJ
-CSAgICAgIG5ld2luZm8sIHRtcC5zaXplLCB0bXAubnVtX2VudHJpZXMsCisJCQkgICAgICBu
-ZXdpbmZvLCBsb2NfY3B1X2VudHJ5LCB0bXAuc2l6ZSwgdG1wLm51bV9lbnRyaWVzLAogCQkJ
-ICAgICAgdG1wLmhvb2tfZW50cnksIHRtcC51bmRlcmZsb3cpOwogCWlmIChyZXQgIT0gMCkK
-IAkJZ290byBmcmVlX25ld2luZm9fY291bnRlcnM7CkBAIC0xMTg1LDggKzEyNTMsOSBAQAog
-CS8qIEdldCB0aGUgb2xkIGNvdW50ZXJzLiAqLwogCWdldF9jb3VudGVycyhvbGRpbmZvLCBj
-b3VudGVycyk7CiAJLyogRGVjcmVhc2UgbW9kdWxlIHVzYWdlIGNvdW50cyBhbmQgZnJlZSBy
-ZXNvdXJjZSAqLwotCUlQVF9FTlRSWV9JVEVSQVRFKG9sZGluZm8tPmVudHJpZXMsIG9sZGlu
-Zm8tPnNpemUsIGNsZWFudXBfZW50cnksTlVMTCk7Ci0JdmZyZWUob2xkaW5mbyk7CisJbG9j
-X2NwdV9vbGRfZW50cnkgPSBvbGRpbmZvLT5lbnRyaWVzW3Jhd19zbXBfcHJvY2Vzc29yX2lk
-KCldOworCUlQVF9FTlRSWV9JVEVSQVRFKGxvY19jcHVfb2xkX2VudHJ5LCBvbGRpbmZvLT5z
-aXplLCBjbGVhbnVwX2VudHJ5LE5VTEwpOworCWZyZWVfdGFibGVfaW5mbyhvbGRpbmZvKTsK
-IAlpZiAoY29weV90b191c2VyKHRtcC5jb3VudGVycywgY291bnRlcnMsCiAJCQkgc2l6ZW9m
-KHN0cnVjdCBpcHRfY291bnRlcnMpICogdG1wLm51bV9jb3VudGVycykgIT0gMCkKIAkJcmV0
-ID0gLUVGQVVMVDsKQEAgLTExOTgsMTEgKzEyNjcsMTEgQEAKIAltb2R1bGVfcHV0KHQtPm1l
-KTsKIAl1cCgmaXB0X211dGV4KTsKICBmcmVlX25ld2luZm9fY291bnRlcnNfdW50cmFuczoK
-LQlJUFRfRU5UUllfSVRFUkFURShuZXdpbmZvLT5lbnRyaWVzLCBuZXdpbmZvLT5zaXplLCBj
-bGVhbnVwX2VudHJ5LE5VTEwpOworCUlQVF9FTlRSWV9JVEVSQVRFKGxvY19jcHVfZW50cnks
-IG5ld2luZm8tPnNpemUsIGNsZWFudXBfZW50cnksTlVMTCk7CiAgZnJlZV9uZXdpbmZvX2Nv
-dW50ZXJzOgogCXZmcmVlKGNvdW50ZXJzKTsKICBmcmVlX25ld2luZm86Ci0JdmZyZWUobmV3
-aW5mbyk7CisJZnJlZV90YWJsZV9pbmZvKG5ld2luZm8pOwogCXJldHVybiByZXQ7CiB9CiAK
-QEAgLTEyMzUsNiArMTMwNCw3IEBACiAJc3RydWN0IGlwdF9jb3VudGVyc19pbmZvIHRtcCwg
-KnBhZGRjOwogCXN0cnVjdCBpcHRfdGFibGUgKnQ7CiAJaW50IHJldCA9IDA7CisJdm9pZCAq
-bG9jX2NwdV9lbnRyeTsKIAogCWlmIChjb3B5X2Zyb21fdXNlcigmdG1wLCB1c2VyLCBzaXpl
-b2YodG1wKSkgIT0gMCkKIAkJcmV0dXJuIC1FRkFVTFQ7CkBAIC0xMjY0LDcgKzEzMzQsMTIg
-QEAKIAl9CiAKIAlpID0gMDsKLQlJUFRfRU5UUllfSVRFUkFURSh0LT5wcml2YXRlLT5lbnRy
-aWVzLAorCS8qCisJICogY2hvb3NlIHRoZSBjb3B5IHRoYXQgaXMgb24gb3VyIG5vZGUsCisJ
-ICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxlciBjaGFuZ2VzIHRoZSBDUFUKKwkg
-Ki8KKwlsb2NfY3B1X2VudHJ5ID0gdC0+cHJpdmF0ZS0+ZW50cmllc1tyYXdfc21wX3Byb2Nl
-c3Nvcl9pZCgpXTsKKwlJUFRfRU5UUllfSVRFUkFURShsb2NfY3B1X2VudHJ5LAogCQkJICB0
-LT5wcml2YXRlLT5zaXplLAogCQkJICBhZGRfY291bnRlcl90b19lbnRyeSwKIAkJCSAgcGFk
-ZGMtPmNvdW50ZXJzLApAQCAtMTQ1NCwyOSArMTUyOSwzOSBAQAogewogCWludCByZXQ7CiAJ
-c3RydWN0IGlwdF90YWJsZV9pbmZvICpuZXdpbmZvOwotCXN0YXRpYyBzdHJ1Y3QgaXB0X3Rh
-YmxlX2luZm8gYm9vdHN0cmFwCi0JCT0geyAwLCAwLCAwLCB7IDAgfSwgeyAwIH0sIHsgfSB9
-OworCXN0YXRpYyBzdHJ1Y3QgaXB0X3RhYmxlX2luZm8gYm9vdHN0cmFwID0geworCQkuc2l6
-ZSA9IDAsCisJCS5udW1iZXIgPSAwLAorCQkuaW5pdGlhbF9lbnRyaWVzID0gMCwKKwkJLmhv
-b2tfZW50cnkgPSB7IDAgfSwKKwkJLnVuZGVyZmxvdyA9IHsgMCB9LAorCQkuZW50cmllcyA9
-IHtOVUxMIH0KKwkJfTsKKwl2b2lkICpsb2NfY3B1X2VudHJ5OwogCi0JbmV3aW5mbyA9IHZt
-YWxsb2Moc2l6ZW9mKHN0cnVjdCBpcHRfdGFibGVfaW5mbykKLQkJCSAgKyBTTVBfQUxJR04o
-cmVwbC0+c2l6ZSkgKiBudW1fcG9zc2libGVfY3B1cygpKTsKKwluZXdpbmZvID0gYWxsb2Nf
-dGFibGVfaW5mbyhyZXBsLT5zaXplKTsKIAlpZiAoIW5ld2luZm8pCiAJCXJldHVybiAtRU5P
-TUVNOwotCi0JbWVtY3B5KG5ld2luZm8tPmVudHJpZXMsIHJlcGwtPmVudHJpZXMsIHJlcGwt
-PnNpemUpOworCS8qCisJICogY2hvb3NlIHRoZSBjb3B5IHRoYXQgaXMgb24gb3VyIG5vZGUs
-CisJICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxlciBjaGFuZ2VzIHRoZSBDUFUK
-KwkgKi8KKwlsb2NfY3B1X2VudHJ5ID0gbmV3aW5mby0+ZW50cmllc1tyYXdfc21wX3Byb2Nl
-c3Nvcl9pZCgpXTsKKwltZW1jcHkobG9jX2NwdV9lbnRyeSwgcmVwbC0+ZW50cmllcywgcmVw
-bC0+c2l6ZSk7CiAKIAlyZXQgPSB0cmFuc2xhdGVfdGFibGUodGFibGUtPm5hbWUsIHRhYmxl
-LT52YWxpZF9ob29rcywKLQkJCSAgICAgIG5ld2luZm8sIHJlcGwtPnNpemUsCisJCQkgICAg
-ICBuZXdpbmZvLCBsb2NfY3B1X2VudHJ5LCByZXBsLT5zaXplLAogCQkJICAgICAgcmVwbC0+
-bnVtX2VudHJpZXMsCiAJCQkgICAgICByZXBsLT5ob29rX2VudHJ5LAogCQkJICAgICAgcmVw
-bC0+dW5kZXJmbG93KTsKIAlpZiAocmV0ICE9IDApIHsKLQkJdmZyZWUobmV3aW5mbyk7CisJ
-CWZyZWVfdGFibGVfaW5mbyhuZXdpbmZvKTsKIAkJcmV0dXJuIHJldDsKIAl9CiAKIAlyZXQg
-PSBkb3duX2ludGVycnVwdGlibGUoJmlwdF9tdXRleCk7CiAJaWYgKHJldCAhPSAwKSB7Ci0J
-CXZmcmVlKG5ld2luZm8pOworCQlmcmVlX3RhYmxlX2luZm8obmV3aW5mbyk7CiAJCXJldHVy
-biByZXQ7CiAJfQogCkBAIC0xNTA1LDIwICsxNTkwLDI1IEBACiAJcmV0dXJuIHJldDsKIAog
-IGZyZWVfdW5sb2NrOgotCXZmcmVlKG5ld2luZm8pOworCWZyZWVfdGFibGVfaW5mbyhuZXdp
-bmZvKTsKIAlnb3RvIHVubG9jazsKIH0KIAogdm9pZCBpcHRfdW5yZWdpc3Rlcl90YWJsZShz
-dHJ1Y3QgaXB0X3RhYmxlICp0YWJsZSkKIHsKKwl2b2lkICpsb2NfY3B1X2VudHJ5OwogCWRv
-d24oJmlwdF9tdXRleCk7CiAJTElTVF9ERUxFVEUoJmlwdF90YWJsZXMsIHRhYmxlKTsKIAl1
-cCgmaXB0X211dGV4KTsKIAotCS8qIERlY3JlYXNlIG1vZHVsZSB1c2FnZSBjb3VudHMgYW5k
-IGZyZWUgcmVzb3VyY2VzICovCi0JSVBUX0VOVFJZX0lURVJBVEUodGFibGUtPnByaXZhdGUt
-PmVudHJpZXMsIHRhYmxlLT5wcml2YXRlLT5zaXplLAorCS8qIERlY3JlYXNlIG1vZHVsZSB1
-c2FnZSBjb3VudHMgYW5kIGZyZWUgcmVzb3VyY2VzCisJICogY2hvb3NlIHRoZSBjb3B5IHRo
-YXQgaXMgb24gb3VyIG5vZGUsCisJICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxl
-ciBjaGFuZ2VzIHRoZSBDUFUKKwkgKi8KKwlsb2NfY3B1X2VudHJ5ID0gdGFibGUtPnByaXZh
-dGUtPmVudHJpZXNbcmF3X3NtcF9wcm9jZXNzb3JfaWQoKV07CisJSVBUX0VOVFJZX0lURVJB
-VEUobG9jX2NwdV9lbnRyeSwgdGFibGUtPnByaXZhdGUtPnNpemUsCiAJCQkgIGNsZWFudXBf
-ZW50cnksIE5VTEwpOwotCXZmcmVlKHRhYmxlLT5wcml2YXRlKTsKKwlmcmVlX3RhYmxlX2lu
-Zm8odGFibGUtPnByaXZhdGUpOwogfQogCiAvKiBSZXR1cm5zIDEgaWYgdGhlIHBvcnQgaXMg
-bWF0Y2hlZCBieSB0aGUgcmFuZ2UsIDAgb3RoZXJ3aXNlICovCg==
---------------040601080608080300080800--
+--- linux-2.6.14-rc1.p1/net/ipv4/netfilter/ip_tables.c	2005-09-19 19:56:12.000000000 +0200
++++ linux-2.6.14-rc1/net/ipv4/netfilter/ip_tables.c	2005-09-19 21:03:44.000000000 +0200
+@@ -17,6 +17,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/kmod.h>
+ #include <linux/vmalloc.h>
++#include <linux/mempolicy.h>
+ #include <linux/netdevice.h>
+ #include <linux/module.h>
+ #include <linux/tcp.h>
+@@ -82,11 +83,6 @@
+    context stops packets coming through and allows user context to read
+    the counters or update the rules.
+ 
+-   To be cache friendly on SMP, we arrange them like so:
+-   [ n-entries ]
+-   ... cache-align padding ...
+-   [ n-entries ]
+-
+    Hence the start of any table is given by get_table() below.  */
+ 
+ /* The table itself */
+@@ -104,7 +100,8 @@
+ 	unsigned int underflow[NF_IP_NUMHOOKS];
+ 
+ 	/* ipt_entry tables: one per CPU */
+-	char entries[0] ____cacheline_aligned;
++	void *entry0 ; /* entry for the first possible cpu */
++	void *entries[NR_CPUS];
+ };
+ 
+ static LIST_HEAD(ipt_target);
+@@ -112,11 +109,6 @@
+ static LIST_HEAD(ipt_tables);
+ #define ADD_COUNTER(c,b,p) do { (c).bcnt += (b); (c).pcnt += (p); } while(0)
+ 
+-#ifdef CONFIG_SMP
+-#define TABLE_OFFSET(t,p) (SMP_ALIGN((t)->size)*(p))
+-#else
+-#define TABLE_OFFSET(t,p) 0
+-#endif
+ 
+ #if 0
+ #define down(x) do { printk("DOWN:%u:" #x "\n", __LINE__); down(x); } while(0)
+@@ -289,8 +281,7 @@
+ 
+ 	read_lock_bh(&table->lock);
+ 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+-	table_base = (void *)table->private->entries
+-		+ TABLE_OFFSET(table->private, smp_processor_id());
++	table_base = (void *)table->private->entries[smp_processor_id()];
+ 	e = get_entry(table_base, table->private->hook_entry[hook]);
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
+@@ -571,7 +562,7 @@
+ 	for (hook = 0; hook < NF_IP_NUMHOOKS; hook++) {
+ 		unsigned int pos = newinfo->hook_entry[hook];
+ 		struct ipt_entry *e
+-			= (struct ipt_entry *)(newinfo->entries + pos);
++			= (struct ipt_entry *)(newinfo->entry0 + pos);
+ 
+ 		if (!(valid_hooks & (1 << hook)))
+ 			continue;
+@@ -621,13 +612,13 @@
+ 						goto next;
+ 
+ 					e = (struct ipt_entry *)
+-						(newinfo->entries + pos);
++						(newinfo->entry0 + pos);
+ 				} while (oldpos == pos + e->next_offset);
+ 
+ 				/* Move along one */
+ 				size = e->next_offset;
+ 				e = (struct ipt_entry *)
+-					(newinfo->entries + pos + size);
++					(newinfo->entry0 + pos + size);
+ 				e->counters.pcnt = pos;
+ 				pos += size;
+ 			} else {
+@@ -644,7 +635,7 @@
+ 					newpos = pos + e->next_offset;
+ 				}
+ 				e = (struct ipt_entry *)
+-					(newinfo->entries + newpos);
++					(newinfo->entry0 + newpos);
+ 				e->counters.pcnt = pos;
+ 				pos = newpos;
+ 			}
+@@ -874,11 +865,11 @@
+ 	duprintf("translate_table: size %u\n", newinfo->size);
+ 	i = 0;
+ 	/* Walk through entries, checking offsets. */
+-	ret = IPT_ENTRY_ITERATE(newinfo->entries, newinfo->size,
++	ret = IPT_ENTRY_ITERATE(newinfo->entry0, newinfo->size,
+ 				check_entry_size_and_hooks,
+ 				newinfo,
+-				newinfo->entries,
+-				newinfo->entries + size,
++				newinfo->entry0,
++				newinfo->entry0 + size,
+ 				hook_entries, underflows, &i);
+ 	if (ret != 0)
+ 		return ret;
+@@ -911,20 +902,21 @@
+ 
+ 	/* Finally, each sanity check must pass */
+ 	i = 0;
+-	ret = IPT_ENTRY_ITERATE(newinfo->entries, newinfo->size,
++	ret = IPT_ENTRY_ITERATE(newinfo->entry0, newinfo->size,
+ 				check_entry, name, size, &i);
+ 
+ 	if (ret != 0) {
+-		IPT_ENTRY_ITERATE(newinfo->entries, newinfo->size,
++		IPT_ENTRY_ITERATE(newinfo->entry0, newinfo->size,
+ 				  cleanup_entry, &i);
+ 		return ret;
+ 	}
+ 
+ 	/* And one copy for every other CPU */
+-	for (i = 1; i < num_possible_cpus(); i++) {
+-		memcpy(newinfo->entries + SMP_ALIGN(newinfo->size)*i,
+-		       newinfo->entries,
+-		       SMP_ALIGN(newinfo->size));
++	for_each_cpu(i) {
++		if (newinfo->entries[i] != newinfo->entry0)
++			memcpy(newinfo->entries[i],
++				newinfo->entry0,
++				newinfo->size);
+ 	}
+ 
+ 	return ret;
+@@ -940,15 +932,12 @@
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	{
+-		struct ipt_entry *table_base;
+-		unsigned int i;
+-
+-		for (i = 0; i < num_possible_cpus(); i++) {
+-			table_base =
+-				(void *)newinfo->entries
+-				+ TABLE_OFFSET(newinfo, i);
++		int cpu;
+ 
+-			table_base->comefrom = 0xdead57ac;
++		for_each_cpu(cpu) {
++			struct ipt_entry *table_base = newinfo->entries[cpu];
++			if (table_base)
++				table_base->comefrom = 0xdead57ac;
+ 		}
+ 	}
+ #endif
+@@ -990,9 +979,9 @@
+ 	unsigned int cpu;
+ 	unsigned int i;
+ 
+-	for (cpu = 0; cpu < num_possible_cpus(); cpu++) {
++	for_each_cpu(cpu) {
+ 		i = 0;
+-		IPT_ENTRY_ITERATE(t->entries + TABLE_OFFSET(t, cpu),
++		IPT_ENTRY_ITERATE(t->entries[cpu],
+ 				  t->size,
+ 				  add_entry_to_counter,
+ 				  counters,
+@@ -1026,7 +1015,7 @@
+ 	write_unlock_bh(&table->lock);
+ 
+ 	/* ... then copy entire thing from CPU 0... */
+-	if (copy_to_user(userptr, table->private->entries, total_size) != 0) {
++	if (copy_to_user(userptr, table->private->entry0, total_size) != 0) {
+ 		ret = -EFAULT;
+ 		goto free_counters;
+ 	}
+@@ -1038,7 +1027,7 @@
+ 		struct ipt_entry_match *m;
+ 		struct ipt_entry_target *t;
+ 
+-		e = (struct ipt_entry *)(table->private->entries + off);
++		e = (struct ipt_entry *)(table->private->entry0 + off);
+ 		if (copy_to_user(userptr + off
+ 				 + offsetof(struct ipt_entry, counters),
+ 				 &counters[num],
+@@ -1107,6 +1096,51 @@
+ 	return ret;
+ }
+ 
++static void free_table_info(struct ipt_table_info *info)
++{
++	int cpu;
++	for_each_cpu(cpu)
++		vfree(info->entries[cpu]);
++	kfree(info);
++}
++
++static struct ipt_table_info *alloc_table_info(unsigned int size)
++{
++struct ipt_table_info *newinfo;
++int cpu;
++	newinfo = kmalloc(sizeof(struct ipt_table_info), GFP_KERNEL);
++	if (!newinfo)
++		return NULL;
++	memset(newinfo, 0, sizeof(*newinfo));
++	for_each_cpu(cpu) {
++#ifdef CONFIG_NUMA
++		struct mempolicy *oldpol;
++		cpumask_t oldmask = current->cpus_allowed;
++		int node = cpu_to_node(cpu);
++		if (node >= 0 && node_online(node))
++		    set_cpus_allowed(current, node_to_cpumask(node));
++		/* And set default memory allocation policy */
++		oldpol = current->mempolicy;
++		current->mempolicy = &default_policy;
++		mpol_get(current->mempolicy);
++#endif
++		newinfo->entries[cpu] = vmalloc(size);
++#ifdef CONFIG_NUMA
++		set_cpus_allowed(current, oldmask);
++		mpol_free(current->mempolicy);
++		current->mempolicy = oldpol;
++#endif
++		if (newinfo->entries[cpu] == 0) {
++			free_table_info(newinfo);
++			return NULL;
++		if (!newinfo->entry0)
++			newinfo->entry0 = newinfo->entries[cpu];
++		}
++	}
++	return newinfo;
++}
++
++
+ static int
+ do_replace(void __user *user, unsigned int len)
+ {
+@@ -1127,12 +1161,10 @@
+ 	if ((SMP_ALIGN(tmp.size) >> PAGE_SHIFT) + 2 > num_physpages)
+ 		return -ENOMEM;
+ 
+-	newinfo = vmalloc(sizeof(struct ipt_table_info)
+-			  + SMP_ALIGN(tmp.size) * num_possible_cpus());
++	newinfo = alloc_table_info(tmp.size);
+ 	if (!newinfo)
+ 		return -ENOMEM;
+-
+-	if (copy_from_user(newinfo->entries, user + sizeof(tmp),
++	if (copy_from_user(newinfo->entry0, user + sizeof(tmp),
+ 			   tmp.size) != 0) {
+ 		ret = -EFAULT;
+ 		goto free_newinfo;
+@@ -1185,8 +1217,8 @@
+ 	/* Get the old counters. */
+ 	get_counters(oldinfo, counters);
+ 	/* Decrease module usage counts and free resource */
+-	IPT_ENTRY_ITERATE(oldinfo->entries, oldinfo->size, cleanup_entry,NULL);
+-	vfree(oldinfo);
++	IPT_ENTRY_ITERATE(oldinfo->entry0, oldinfo->size, cleanup_entry,NULL);
++	free_table_info(oldinfo);
+ 	if (copy_to_user(tmp.counters, counters,
+ 			 sizeof(struct ipt_counters) * tmp.num_counters) != 0)
+ 		ret = -EFAULT;
+@@ -1198,11 +1230,11 @@
+ 	module_put(t->me);
+ 	up(&ipt_mutex);
+  free_newinfo_counters_untrans:
+-	IPT_ENTRY_ITERATE(newinfo->entries, newinfo->size, cleanup_entry,NULL);
++	IPT_ENTRY_ITERATE(newinfo->entry0, newinfo->size, cleanup_entry,NULL);
+  free_newinfo_counters:
+ 	vfree(counters);
+  free_newinfo:
+-	vfree(newinfo);
++	free_table_info(newinfo);
+ 	return ret;
+ }
+ 
+@@ -1264,7 +1296,7 @@
+ 	}
+ 
+ 	i = 0;
+-	IPT_ENTRY_ITERATE(t->private->entries,
++	IPT_ENTRY_ITERATE(t->private->entry0,
+ 			  t->private->size,
+ 			  add_counter_to_entry,
+ 			  paddc->counters,
+@@ -1454,15 +1486,20 @@
+ {
+ 	int ret;
+ 	struct ipt_table_info *newinfo;
+-	static struct ipt_table_info bootstrap
+-		= { 0, 0, 0, { 0 }, { 0 }, { } };
++	static struct ipt_table_info bootstrap = {
++		.size = 0,
++		.number = 0,
++		.initial_entries = 0,
++		.hook_entry = { 0 },
++		.underflow = { 0 },
++		.entry0 = NULL,
++		.entries = {NULL }
++		};
+ 
+-	newinfo = vmalloc(sizeof(struct ipt_table_info)
+-			  + SMP_ALIGN(repl->size) * num_possible_cpus());
++	newinfo = alloc_table_info(repl->size);
+ 	if (!newinfo)
+ 		return -ENOMEM;
+-
+-	memcpy(newinfo->entries, repl->entries, repl->size);
++	memcpy(newinfo->entry0, repl->entries, repl->size);
+ 
+ 	ret = translate_table(table->name, table->valid_hooks,
+ 			      newinfo, repl->size,
+@@ -1470,13 +1507,13 @@
+ 			      repl->hook_entry,
+ 			      repl->underflow);
+ 	if (ret != 0) {
+-		vfree(newinfo);
++		free_table_info(newinfo);
+ 		return ret;
+ 	}
+ 
+ 	ret = down_interruptible(&ipt_mutex);
+ 	if (ret != 0) {
+-		vfree(newinfo);
++		free_table_info(newinfo);
+ 		return ret;
+ 	}
+ 
+@@ -1505,7 +1542,7 @@
+ 	return ret;
+ 
+  free_unlock:
+-	vfree(newinfo);
++	free_table_info(newinfo);
+ 	goto unlock;
+ }
+ 
+@@ -1516,9 +1553,9 @@
+ 	up(&ipt_mutex);
+ 
+ 	/* Decrease module usage counts and free resources */
+-	IPT_ENTRY_ITERATE(table->private->entries, table->private->size,
++	IPT_ENTRY_ITERATE(table->private->entry0, table->private->size,
+ 			  cleanup_entry, NULL);
+-	vfree(table->private);
++	free_table_info(table->private);
+ }
+ 
+ /* Returns 1 if the port is matched by the range, 0 otherwise */
+
+--------------010100020506070801020704--
