@@ -1,51 +1,39 @@
-From: Dan Aloni <da-x@monatomic.org>
-Subject: Re: workaround large MTU and N-order allocation failures
-Date: Tue, 20 Sep 2005 17:34:26 +0300
-Message-ID: <20050920143426.GB26617@localdomain>
-References: <20050918143526.GA24181@localdomain> <1127111462.5272.7.camel@npiggin-nld.site>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP throttling
+Date: Tue, 20 Sep 2005 09:19:22 -0700
+Message-ID: <20050920091922.15b5664b@dxpl.pdx.osdl.net>
+References: <200509190646.57579.a1426z@gawab.com>
+	<20050919112008.17ad14f5@dxpl.pdx.osdl.net>
+	<200509200654.23703.a1426z@gawab.com>
+	<Pine.LNX.4.62.0509200717410.21650@uplift.swm.pp.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932768AbVITObM@vger.kernel.org>
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Content-Disposition: inline
-In-Reply-To: <1127111462.5272.7.camel@npiggin-nld.site>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Al Boldi <a1426z@gawab.com>, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Mikael Abrahamsson <swmike@swm.pp.se>
+In-Reply-To: <Pine.LNX.4.62.0509200717410.21650@uplift.swm.pp.se>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 19, 2005 at 04:31:02PM +1000, Nick Piggin wrote:
-> On Sun, 2005-09-18 at 17:35 +0300, Dan Aloni wrote:
-> > Hello,
-> > 
-> > Is there currently a workaround available for handling large MTU 
-> > (larger than 1 page, even 2-order) in the Linux network stack?
-> > 
-> > The problem with large MTU is external memory fragmentation in
-> > the buddy system following high workload, causing alloc_skb() to 
-> > fail.
-> > 
-> > I'm interested in patches for both 2.4 and 2.6 kernels.
-> > 
+On Tue, 20 Sep 2005 07:19:03 +0200 (CEST)
+Mikael Abrahamsson <swmike@swm.pp.se> wrote:
+
+> On Tue, 20 Sep 2005, Al Boldi wrote:
 > 
-> Yes there is currently a workaround. That is to keep increasing
-> /proc/sys/vm/min_free_kbytes until your allocation failures stop.
+> > Could you suggest sane values for 2.4/2.6 on a 100mbit link?
+> 
+> Go for approx 2-8 megs of TCP window size and buffers.
 
-We have developed a much more reliable workaround which works on both
-the 2.4 and 2.6 trees. 
+I use the following for testing over 1GE. You want
+at least 2x the delay bandwidth product.
 
-Our development is called 'Pre-allocated Big Buffers', basically prebb 
-provides fixed-sized pools of fixed-size blocks that are allocated during
-boot time using the bootmem allocator (thus are disconnected from the 
-slab cache completely). block size need not to be page aligned. It is 
-possible to allocate these blocks at O(1) efficiency at any context.
+/etc/sysctl.conf
+# increase Linux TCP buffer limits
+net.core.rmem_max = 8388608
+net.core.wmem_max = 8388608
 
-Each pool has a minimum and maximum object size (where allocations 
-should strive to be the maximum for memory usage efficiency). Currently 
-we use prebb to ensure no fragmentation and fine-tuned memory usage.
-
-(Of course a few changes inside net/core/skbuff.c were needed for 
-skb buffers to allocate from prebb instead of slab).
-
--- 
-Dan Aloni
-da-x@monatomic.org, da-x@colinux.org, da-x@gmx.net
+# increase Linux autotuning TCP buffer limits
+net.ipv4.tcp_rmem = 4096 87380 8388608
+net.ipv4.tcp_wmem = 4096 65536 8388608
