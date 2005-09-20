@@ -1,39 +1,42 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: TCP throttling
-Date: Tue, 20 Sep 2005 09:19:22 -0700
-Message-ID: <20050920091922.15b5664b@dxpl.pdx.osdl.net>
-References: <200509190646.57579.a1426z@gawab.com>
-	<20050919112008.17ad14f5@dxpl.pdx.osdl.net>
-	<200509200654.23703.a1426z@gawab.com>
-	<Pine.LNX.4.62.0509200717410.21650@uplift.swm.pp.se>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
+Date: Tue, 20 Sep 2005 18:30:20 +0200
+Message-ID: <200509201830.20689.ak@suse.de>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	<432FDAC5.3040801@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Al Boldi <a1426z@gawab.com>, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Mikael Abrahamsson <swmike@swm.pp.se>
-In-Reply-To: <Pine.LNX.4.62.0509200717410.21650@uplift.swm.pp.se>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <432FDAC5.3040801@cosmosbay.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Sep 2005 07:19:03 +0200 (CEST)
-Mikael Abrahamsson <swmike@swm.pp.se> wrote:
-
-> On Tue, 20 Sep 2005, Al Boldi wrote:
-> 
-> > Could you suggest sane values for 2.4/2.6 on a 100mbit link?
-> 
-> Go for approx 2-8 megs of TCP window size and buffers.
-
-I use the following for testing over 1GE. You want
-at least 2x the delay bandwidth product.
-
-/etc/sysctl.conf
-# increase Linux TCP buffer limits
-net.core.rmem_max = 8388608
-net.core.wmem_max = 8388608
-
-# increase Linux autotuning TCP buffer limits
-net.ipv4.tcp_rmem = 4096 87380 8388608
-net.ipv4.tcp_wmem = 4096 65536 8388608
+T24gVHVlc2RheSAyMCBTZXB0ZW1iZXIgMjAwNSAxMTo0NywgRXJpYyBEdW1hemV0IHdyb3RlOgo+
+ICsjaWZkZWYgQ09ORklHX05VTUEKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoHN0cnVjdCBtZW1wb2xpY3kgKm9sZHBvbDsKPiArwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHN0cnVjdCBtZW1wb2xpY3kgcHJlZm5vZGVw
+b2xpY3kgPSB7Cj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgLnJlZmNudCA9IEFUT01JQ19JTklUKDEpLAo+ICvCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoC5wb2xp
+Y3kgPSBNUE9MX1BSRUZFUlJFRCwKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAudi5wcmVmZXJyZWRfbm9kZSA9IGNwdV90b19u
+b2RlKGNwdSksCj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqB9Owo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgb2xk
+cG9sID0gY3VycmVudC0+bWVtcG9saWN5Owo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgY3VycmVudC0+bWVtcG9saWN5ID0gJnByZWZub2RlcG9saWN5Owo+
+ICsjZW5kaWYKCkkgd291bGQgcHJlZmVyIGlmIHJhbmRvbSBjb2RlIGRpZG4ndCBtZXNzIHdpdGgg
+bWVtcG9saWN5IGludGVybmFscwpsaWtlIHRoaXMuIEJldHRlciBqdXN0IGNhbGwgc3lzX3NldF9t
+ZW1wb2xpY3koKSAKCi1BbmRpCg==
