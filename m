@@ -1,54 +1,43 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [patch] fix suspend/resume on b44
-Date: Tue, 20 Sep 2005 15:28:11 +0200
-Message-ID: <20050920132811.GA4563@elf.ucw.cz>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] Adds sys_set_mempolicy() in include/linux/syscalls.h , Re:
+ [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
+Date: Tue, 20 Sep 2005 23:45:02 +0200
+Message-ID: <433082DE.3060308@cosmosbay.com>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	<432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-        Netdev list <netdev@oss.sgi.com>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org
+In-Reply-To: <200509201830.20689.ak@suse.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Fix suspend/resume on b44 by freeing/reacquiring irq. Otherwise it
-hangs on resume.
+Andi Kleen a =C3=A9crit :
+> On Tuesday 20 September 2005 11:47, Eric Dumazet wrote:
+>=20
+>=20
+>=20
+> I would prefer if random code didn't mess with mempolicy internals
+> like this. Better just call sys_set_mempolicy()=20
+>=20
+> -Andi
+>=20
+>=20
 
-Signed-off-by: Pavel Machek <pavel@suse.cz>
 
----
-commit 7bdc8fc378f053bd4eb4210beb1d494485318512
-tree 6e5679697b11eb70b73ff5275aafe7c34a90ffef
-parent 17cd36a6d0fc36b61fa558cade6a98a3e99a6992
-author <pavel@amd.(none)> Tue, 20 Sep 2005 15:26:37 +0200
-committer <pavel@amd.(none)> Tue, 20 Sep 2005 15:26:37 +0200
+OK but this prior patch seems necessary :
 
- drivers/net/b44.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+- Adds sys_set_mempolicy() in include/linux/syscalls.h
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -1930,6 +1930,8 @@ static int b44_suspend(struct pci_dev *p
- 	b44_free_rings(bp);
- 
- 	spin_unlock_irq(&bp->lock);
-+
-+	free_irq(dev->irq, dev);
- 	pci_disable_device(pdev);
- 	return 0;
- }
-@@ -1946,6 +1948,9 @@ static int b44_resume(struct pci_dev *pd
- 	if (!netif_running(dev))
- 		return 0;
- 
-+	if (request_irq(dev->irq, b44_interrupt, SA_SHIRQ, dev->name, dev))
-+		printk(KERN_ERR PFX "%s: request_irq failed\n", dev->name);
-+
- 	spin_lock_irq(&bp->lock);
- 
- 	b44_init_rings(bp);
-
--- 
-if you have sharp zaurus hardware you don't need... you know my address
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
