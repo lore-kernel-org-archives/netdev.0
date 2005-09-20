@@ -1,346 +1,202 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH, netfilter] NUMA aware ipv4/netfilter/ip_tables.c
-Date: Tue, 20 Sep 2005 19:02:07 +0200
-Message-ID: <4330408F.6030007@cosmosbay.com>
-References: <432EF0C5.5090908@cosmosbay.com>
-	<200509191948.55333.ak@suse.de>	<432FDAC5.3040801@cosmosbay.com>
-	<200509201830.20689.ak@suse.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] af_packet: Allow for > 8 byte hardware
+	addresses.
+Date: Tue, 20 Sep 2005 11:17:14 -0600
+Message-ID: <m1irwvhd5x.fsf@ebiederm.dsl.xmission.com>
+References: <m164t8ltrs.fsf_-_@ebiederm.dsl.xmission.com>
+	<20050912.141351.50320521.davem@davemloft.net>
+	<m1ek7ulyt8.fsf@ebiederm.dsl.xmission.com>
+	<20050912.154527.48978091.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------030400030604000104040908"
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200509201830.20689.ak@suse.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: openib-general@openib.org, netdev@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050912.154527.48978091.davem@davemloft.net> (David S.
+	Miller's message of "Mon, 12 Sep 2005 15:45:27 -0700 (PDT)")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030400030604000104040908
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
 
-Andi Kleen a =C3=A9crit :
-> On Tuesday 20 September 2005 11:47, Eric Dumazet wrote:
->=20
->>+#ifdef CONFIG_NUMA
->>+                       struct mempolicy *oldpol;
->>+                       struct mempolicy prefnodepolicy =3D {
->>+                               .refcnt =3D ATOMIC_INIT(1),
->>+                               .policy =3D MPOL_PREFERRED,
->>+                               .v.preferred_node =3D cpu_to_node(cpu),
->>+                       };
->>+                       oldpol =3D current->mempolicy;
->>+                       current->mempolicy =3D &prefnodepolicy;
->>+#endif
->=20
->=20
-> I would prefer if random code didn't mess with mempolicy internals
-> like this. Better just call sys_set_mempolicy()=20
->=20
-> -Andi
->=20
->=20
+Dave sorry for the delay getting back to this...
+This version of the patch adds the one memset you were clearly 
+asking for.
 
-Thank you Andi
+The convention is that longer addresses will simply extend
+the hardeware address byte arrays at the end of sockaddr_ll and
+packet_mreq.
 
-Is this new patch OK for you ?
+In making this change a small information leak was also closed.
+The code only initializes the hardware address bytes that are
+used, but all of struct sockaddr_ll was copied to userspace.
+Now we just copy sockaddr_ll to the last byte of the hardware
+address used.
 
-Hi all
+For error checking larger structures than our internal
+maximums continue to be allowed but an error is signaled if we can
+not fit the hardware address into our internal structure.
 
-Part of the performance problem we have with netfilter is memory allocati=
-on is=20
-not NUMA aware, but 'only' SMP aware (ie each CPU normally touch separate=
-=20
-cache lines)
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-Even with small iptables rules, the cost of this misplacement can be high=
- on=20
-common workloads.
 
-Instead of using one vmalloc() area (located in the node of the iptables=20
-process), we now vmalloc() an area for each possible CPU, using NUMA poli=
-cy=20
-(MPOL_PREFERRED) so that memory should be allocated in the CPU's node if =
-possible.
+---
 
-If the size of ipt_table is small enough (less than one page), we use=20
-kmalloc_node() instead of vmalloc(), to use less memory (and less TLB ent=
-ries)=20
-in small setups.
+ net/packet/af_packet.c |   65 +++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 48 insertions(+), 17 deletions(-)
 
-This patch try to use local node memory in expensive translate_table()=20
-function (and others), but doesnt bother to bind the task to the current =
-CPU.
-
-Note : I also optimize get_counters(), using a SET_COUNTER() for the firs=
-t=20
-cpu, avoiding a memset() and ADD_COUNTER() if SMP on other cpus.
-
-Thank you
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------030400030604000104040908
-Content-Type: text/plain;
- name="patch_ip_tables_numa"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="patch_ip_tables_numa"
-
-LS0tIGxpbnV4LTIuNi4xNC1yYzEucDEvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX3RhYmxlcy5j
-CTIwMDUtMDktMTkgMTk6NTY6MTIuMDAwMDAwMDAwICswMjAwCisrKyBsaW51eC0yLjYuMTQt
-cmMxL25ldC9pcHY0L25ldGZpbHRlci9pcF90YWJsZXMuYwkyMDA1LTA5LTIwIDIwOjU2OjE5
-LjAwMDAwMDAwMCArMDIwMApAQCAtMTcsNiArMTcsNyBAQAogI2luY2x1ZGUgPGxpbnV4L3Nr
-YnVmZi5oPgogI2luY2x1ZGUgPGxpbnV4L2ttb2QuaD4KICNpbmNsdWRlIDxsaW51eC92bWFs
-bG9jLmg+CisjaW5jbHVkZSA8bGludXgvbWVtcG9saWN5Lmg+CiAjaW5jbHVkZSA8bGludXgv
-bmV0ZGV2aWNlLmg+CiAjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+CiAjaW5jbHVkZSA8bGlu
-dXgvdGNwLmg+CkBAIC04MiwxMSArODMsNiBAQAogICAgY29udGV4dCBzdG9wcyBwYWNrZXRz
-IGNvbWluZyB0aHJvdWdoIGFuZCBhbGxvd3MgdXNlciBjb250ZXh0IHRvIHJlYWQKICAgIHRo
-ZSBjb3VudGVycyBvciB1cGRhdGUgdGhlIHJ1bGVzLgogCi0gICBUbyBiZSBjYWNoZSBmcmll
-bmRseSBvbiBTTVAsIHdlIGFycmFuZ2UgdGhlbSBsaWtlIHNvOgotICAgWyBuLWVudHJpZXMg
-XQotICAgLi4uIGNhY2hlLWFsaWduIHBhZGRpbmcgLi4uCi0gICBbIG4tZW50cmllcyBdCi0K
-ICAgIEhlbmNlIHRoZSBzdGFydCBvZiBhbnkgdGFibGUgaXMgZ2l2ZW4gYnkgZ2V0X3RhYmxl
-KCkgYmVsb3cuICAqLwogCiAvKiBUaGUgdGFibGUgaXRzZWxmICovCkBAIC0xMDQsMTkgKzEw
-MCwxNCBAQAogCXVuc2lnbmVkIGludCB1bmRlcmZsb3dbTkZfSVBfTlVNSE9PS1NdOwogCiAJ
-LyogaXB0X2VudHJ5IHRhYmxlczogb25lIHBlciBDUFUgKi8KLQljaGFyIGVudHJpZXNbMF0g
-X19fX2NhY2hlbGluZV9hbGlnbmVkOworCXZvaWQgKmVudHJpZXNbTlJfQ1BVU107CiB9Owog
-CiBzdGF0aWMgTElTVF9IRUFEKGlwdF90YXJnZXQpOwogc3RhdGljIExJU1RfSEVBRChpcHRf
-bWF0Y2gpOwogc3RhdGljIExJU1RfSEVBRChpcHRfdGFibGVzKTsKICNkZWZpbmUgQUREX0NP
-VU5URVIoYyxiLHApIGRvIHsgKGMpLmJjbnQgKz0gKGIpOyAoYykucGNudCArPSAocCk7IH0g
-d2hpbGUoMCkKLQotI2lmZGVmIENPTkZJR19TTVAKLSNkZWZpbmUgVEFCTEVfT0ZGU0VUKHQs
-cCkgKFNNUF9BTElHTigodCktPnNpemUpKihwKSkKLSNlbHNlCi0jZGVmaW5lIFRBQkxFX09G
-RlNFVCh0LHApIDAKLSNlbmRpZgorI2RlZmluZSBTRVRfQ09VTlRFUihjLGIscCkgZG8geyAo
-YykuYmNudCA9IChiKTsgKGMpLnBjbnQgPSAocCk7IH0gd2hpbGUoMCkKIAogI2lmIDAKICNk
-ZWZpbmUgZG93bih4KSBkbyB7IHByaW50aygiRE9XTjoldToiICN4ICJcbiIsIF9fTElORV9f
-KTsgZG93bih4KTsgfSB3aGlsZSgwKQpAQCAtMjg5LDggKzI4MCw3IEBACiAKIAlyZWFkX2xv
-Y2tfYmgoJnRhYmxlLT5sb2NrKTsKIAlJUF9ORl9BU1NFUlQodGFibGUtPnZhbGlkX2hvb2tz
-ICYgKDEgPDwgaG9vaykpOwotCXRhYmxlX2Jhc2UgPSAodm9pZCAqKXRhYmxlLT5wcml2YXRl
-LT5lbnRyaWVzCi0JCSsgVEFCTEVfT0ZGU0VUKHRhYmxlLT5wcml2YXRlLCBzbXBfcHJvY2Vz
-c29yX2lkKCkpOworCXRhYmxlX2Jhc2UgPSAodm9pZCAqKXRhYmxlLT5wcml2YXRlLT5lbnRy
-aWVzW3NtcF9wcm9jZXNzb3JfaWQoKV07CiAJZSA9IGdldF9lbnRyeSh0YWJsZV9iYXNlLCB0
-YWJsZS0+cHJpdmF0ZS0+aG9va19lbnRyeVtob29rXSk7CiAKICNpZmRlZiBDT05GSUdfTkVU
-RklMVEVSX0RFQlVHCkBAIC01NjIsNyArNTUyLDcgQEAKIC8qIEZpZ3VyZXMgb3V0IGZyb20g
-d2hhdCBob29rIGVhY2ggcnVsZSBjYW4gYmUgY2FsbGVkOiByZXR1cm5zIDAgaWYKICAgIHRo
-ZXJlIGFyZSBsb29wcy4gIFB1dHMgaG9vayBiaXRtYXNrIGluIGNvbWVmcm9tLiAqLwogc3Rh
-dGljIGludAotbWFya19zb3VyY2VfY2hhaW5zKHN0cnVjdCBpcHRfdGFibGVfaW5mbyAqbmV3
-aW5mbywgdW5zaWduZWQgaW50IHZhbGlkX2hvb2tzKQorbWFya19zb3VyY2VfY2hhaW5zKHN0
-cnVjdCBpcHRfdGFibGVfaW5mbyAqbmV3aW5mbywgdW5zaWduZWQgaW50IHZhbGlkX2hvb2tz
-LCB2b2lkICplbnRyeTApCiB7CiAJdW5zaWduZWQgaW50IGhvb2s7CiAKQEAgLTU3MSw3ICs1
-NjEsNyBAQAogCWZvciAoaG9vayA9IDA7IGhvb2sgPCBORl9JUF9OVU1IT09LUzsgaG9vaysr
-KSB7CiAJCXVuc2lnbmVkIGludCBwb3MgPSBuZXdpbmZvLT5ob29rX2VudHJ5W2hvb2tdOwog
-CQlzdHJ1Y3QgaXB0X2VudHJ5ICplCi0JCQk9IChzdHJ1Y3QgaXB0X2VudHJ5ICopKG5ld2lu
-Zm8tPmVudHJpZXMgKyBwb3MpOworCQkJPSAoc3RydWN0IGlwdF9lbnRyeSAqKShlbnRyeTAg
-KyBwb3MpOwogCiAJCWlmICghKHZhbGlkX2hvb2tzICYgKDEgPDwgaG9vaykpKQogCQkJY29u
-dGludWU7CkBAIC02MjEsMTMgKzYxMSwxMyBAQAogCQkJCQkJZ290byBuZXh0OwogCiAJCQkJ
-CWUgPSAoc3RydWN0IGlwdF9lbnRyeSAqKQotCQkJCQkJKG5ld2luZm8tPmVudHJpZXMgKyBw
-b3MpOworCQkJCQkJKGVudHJ5MCArIHBvcyk7CiAJCQkJfSB3aGlsZSAob2xkcG9zID09IHBv
-cyArIGUtPm5leHRfb2Zmc2V0KTsKIAogCQkJCS8qIE1vdmUgYWxvbmcgb25lICovCiAJCQkJ
-c2l6ZSA9IGUtPm5leHRfb2Zmc2V0OwogCQkJCWUgPSAoc3RydWN0IGlwdF9lbnRyeSAqKQot
-CQkJCQkobmV3aW5mby0+ZW50cmllcyArIHBvcyArIHNpemUpOworCQkJCQkoZW50cnkwICsg
-cG9zICsgc2l6ZSk7CiAJCQkJZS0+Y291bnRlcnMucGNudCA9IHBvczsKIAkJCQlwb3MgKz0g
-c2l6ZTsKIAkJCX0gZWxzZSB7CkBAIC02NDQsNyArNjM0LDcgQEAKIAkJCQkJbmV3cG9zID0g
-cG9zICsgZS0+bmV4dF9vZmZzZXQ7CiAJCQkJfQogCQkJCWUgPSAoc3RydWN0IGlwdF9lbnRy
-eSAqKQotCQkJCQkobmV3aW5mby0+ZW50cmllcyArIG5ld3Bvcyk7CisJCQkJCShlbnRyeTAg
-KyBuZXdwb3MpOwogCQkJCWUtPmNvdW50ZXJzLnBjbnQgPSBwb3M7CiAJCQkJcG9zID0gbmV3
-cG9zOwogCQkJfQpAQCAtODU0LDYgKzg0NCw3IEBACiB0cmFuc2xhdGVfdGFibGUoY29uc3Qg
-Y2hhciAqbmFtZSwKIAkJdW5zaWduZWQgaW50IHZhbGlkX2hvb2tzLAogCQlzdHJ1Y3QgaXB0
-X3RhYmxlX2luZm8gKm5ld2luZm8sCisJCXZvaWQgKmVudHJ5MCwKIAkJdW5zaWduZWQgaW50
-IHNpemUsCiAJCXVuc2lnbmVkIGludCBudW1iZXIsCiAJCWNvbnN0IHVuc2lnbmVkIGludCAq
-aG9va19lbnRyaWVzLApAQCAtODc0LDExICs4NjUsMTEgQEAKIAlkdXByaW50ZigidHJhbnNs
-YXRlX3RhYmxlOiBzaXplICV1XG4iLCBuZXdpbmZvLT5zaXplKTsKIAlpID0gMDsKIAkvKiBX
-YWxrIHRocm91Z2ggZW50cmllcywgY2hlY2tpbmcgb2Zmc2V0cy4gKi8KLQlyZXQgPSBJUFRf
-RU5UUllfSVRFUkFURShuZXdpbmZvLT5lbnRyaWVzLCBuZXdpbmZvLT5zaXplLAorCXJldCA9
-IElQVF9FTlRSWV9JVEVSQVRFKGVudHJ5MCwgbmV3aW5mby0+c2l6ZSwKIAkJCQljaGVja19l
-bnRyeV9zaXplX2FuZF9ob29rcywKIAkJCQluZXdpbmZvLAotCQkJCW5ld2luZm8tPmVudHJp
-ZXMsCi0JCQkJbmV3aW5mby0+ZW50cmllcyArIHNpemUsCisJCQkJZW50cnkwLAorCQkJCWVu
-dHJ5MCArIHNpemUsCiAJCQkJaG9va19lbnRyaWVzLCB1bmRlcmZsb3dzLCAmaSk7CiAJaWYg
-KHJldCAhPSAwKQogCQlyZXR1cm4gcmV0OwpAQCAtOTA2LDI1ICs4OTcsMjQgQEAKIAkJfQog
-CX0KIAotCWlmICghbWFya19zb3VyY2VfY2hhaW5zKG5ld2luZm8sIHZhbGlkX2hvb2tzKSkK
-KwlpZiAoIW1hcmtfc291cmNlX2NoYWlucyhuZXdpbmZvLCB2YWxpZF9ob29rcywgZW50cnkw
-KSkKIAkJcmV0dXJuIC1FTE9PUDsKIAogCS8qIEZpbmFsbHksIGVhY2ggc2FuaXR5IGNoZWNr
-IG11c3QgcGFzcyAqLwogCWkgPSAwOwotCXJldCA9IElQVF9FTlRSWV9JVEVSQVRFKG5ld2lu
-Zm8tPmVudHJpZXMsIG5ld2luZm8tPnNpemUsCisJcmV0ID0gSVBUX0VOVFJZX0lURVJBVEUo
-ZW50cnkwLCBuZXdpbmZvLT5zaXplLAogCQkJCWNoZWNrX2VudHJ5LCBuYW1lLCBzaXplLCAm
-aSk7CiAKIAlpZiAocmV0ICE9IDApIHsKLQkJSVBUX0VOVFJZX0lURVJBVEUobmV3aW5mby0+
-ZW50cmllcywgbmV3aW5mby0+c2l6ZSwKKwkJSVBUX0VOVFJZX0lURVJBVEUoZW50cnkwLCBu
-ZXdpbmZvLT5zaXplLAogCQkJCSAgY2xlYW51cF9lbnRyeSwgJmkpOwogCQlyZXR1cm4gcmV0
-OwogCX0KIAogCS8qIEFuZCBvbmUgY29weSBmb3IgZXZlcnkgb3RoZXIgQ1BVICovCi0JZm9y
-IChpID0gMTsgaSA8IG51bV9wb3NzaWJsZV9jcHVzKCk7IGkrKykgewotCQltZW1jcHkobmV3
-aW5mby0+ZW50cmllcyArIFNNUF9BTElHTihuZXdpbmZvLT5zaXplKSppLAotCQkgICAgICAg
-bmV3aW5mby0+ZW50cmllcywKLQkJICAgICAgIFNNUF9BTElHTihuZXdpbmZvLT5zaXplKSk7
-CisJZm9yX2VhY2hfY3B1KGkpIHsKKwkJaWYgKG5ld2luZm8tPmVudHJpZXNbaV0gJiYgbmV3
-aW5mby0+ZW50cmllc1tpXSAhPSBlbnRyeTApCisJCQltZW1jcHkobmV3aW5mby0+ZW50cmll
-c1tpXSwgZW50cnkwLCBuZXdpbmZvLT5zaXplKTsKIAl9CiAKIAlyZXR1cm4gcmV0OwpAQCAt
-OTQwLDE1ICs5MzAsMTIgQEAKIAogI2lmZGVmIENPTkZJR19ORVRGSUxURVJfREVCVUcKIAl7
-Ci0JCXN0cnVjdCBpcHRfZW50cnkgKnRhYmxlX2Jhc2U7Ci0JCXVuc2lnbmVkIGludCBpOwor
-CQlpbnQgY3B1OwogCi0JCWZvciAoaSA9IDA7IGkgPCBudW1fcG9zc2libGVfY3B1cygpOyBp
-KyspIHsKLQkJCXRhYmxlX2Jhc2UgPQotCQkJCSh2b2lkICopbmV3aW5mby0+ZW50cmllcwot
-CQkJCSsgVEFCTEVfT0ZGU0VUKG5ld2luZm8sIGkpOwotCi0JCQl0YWJsZV9iYXNlLT5jb21l
-ZnJvbSA9IDB4ZGVhZDU3YWM7CisJCWZvcl9lYWNoX2NwdShjcHUpIHsKKwkJCXN0cnVjdCBp
-cHRfZW50cnkgKnRhYmxlX2Jhc2UgPSBuZXdpbmZvLT5lbnRyaWVzW2NwdV07CisJCQlpZiAo
-dGFibGVfYmFzZSkKKwkJCQl0YWJsZV9iYXNlLT5jb21lZnJvbSA9IDB4ZGVhZDU3YWM7CiAJ
-CX0KIAl9CiAjZW5kaWYKQEAgLTk3Miw2ICs5NTksNyBAQAogfQogCiAvKiBHZXRzIGNvdW50
-ZXJzLiAqLworI2lmZGVmIENPTkZJR19TTVAKIHN0YXRpYyBpbmxpbmUgaW50CiBhZGRfZW50
-cnlfdG9fY291bnRlcihjb25zdCBzdHJ1Y3QgaXB0X2VudHJ5ICplLAogCQkgICAgIHN0cnVj
-dCBpcHRfY291bnRlcnMgdG90YWxbXSwKQEAgLTk4MiwyMiArOTcwLDQ0IEBACiAJKCppKSsr
-OwogCXJldHVybiAwOwogfQorI2VuZGlmCitzdGF0aWMgaW5saW5lIGludAorc2V0X2VudHJ5
-X3RvX2NvdW50ZXIoY29uc3Qgc3RydWN0IGlwdF9lbnRyeSAqZSwKKwkJICAgICBzdHJ1Y3Qg
-aXB0X2NvdW50ZXJzIHRvdGFsW10sCisJCSAgICAgdW5zaWduZWQgaW50ICppKQoreworCVNF
-VF9DT1VOVEVSKHRvdGFsWyppXSwgZS0+Y291bnRlcnMuYmNudCwgZS0+Y291bnRlcnMucGNu
-dCk7CisKKwkoKmkpKys7CisJcmV0dXJuIDA7Cit9CiAKIHN0YXRpYyB2b2lkCiBnZXRfY291
-bnRlcnMoY29uc3Qgc3RydWN0IGlwdF90YWJsZV9pbmZvICp0LAogCSAgICAgc3RydWN0IGlw
-dF9jb3VudGVycyBjb3VudGVyc1tdKQogewogCXVuc2lnbmVkIGludCBjcHU7CisJdW5zaWdu
-ZWQgaW50IGN1cmNwdSA9IHJhd19zbXBfcHJvY2Vzc29yX2lkKCk7CiAJdW5zaWduZWQgaW50
-IGk7CiAKLQlmb3IgKGNwdSA9IDA7IGNwdSA8IG51bV9wb3NzaWJsZV9jcHVzKCk7IGNwdSsr
-KSB7CisJaSA9IDA7CisJSVBUX0VOVFJZX0lURVJBVEUodC0+ZW50cmllc1tjdXJjcHVdLAor
-CQkJICB0LT5zaXplLAorCQkJICBzZXRfZW50cnlfdG9fY291bnRlciwKKwkJCSAgY291bnRl
-cnMsCisJCQkgICZpKTsKKyNpZmRlZiBDT05GSUdfU01QCisJZm9yX2VhY2hfY3B1KGNwdSkg
-eworCQlpZiAoY3B1ID09IGN1cmNwdSkKKwkJCWNvbnRpbnVlOwogCQlpID0gMDsKLQkJSVBU
-X0VOVFJZX0lURVJBVEUodC0+ZW50cmllcyArIFRBQkxFX09GRlNFVCh0LCBjcHUpLAorCQlJ
-UFRfRU5UUllfSVRFUkFURSh0LT5lbnRyaWVzW2NwdV0sCiAJCQkJICB0LT5zaXplLAogCQkJ
-CSAgYWRkX2VudHJ5X3RvX2NvdW50ZXIsCiAJCQkJICBjb3VudGVycywKIAkJCQkgICZpKTsK
-IAl9CisjZW5kaWYKIH0KIAogc3RhdGljIGludApAQCAtMTAwOSw2ICsxMDE5LDcgQEAKIAlz
-dHJ1Y3QgaXB0X2VudHJ5ICplOwogCXN0cnVjdCBpcHRfY291bnRlcnMgKmNvdW50ZXJzOwog
-CWludCByZXQgPSAwOworCXZvaWQgKmxvY19jcHVfZW50cnk7CiAKIAkvKiBXZSBuZWVkIGF0
-b21pYyBzbmFwc2hvdCBvZiBjb3VudGVyczogcmVzdCBkb2Vzbid0IGNoYW5nZQogCSAgIChv
-dGhlciB0aGFuIGNvbWVmcm9tLCB3aGljaCB1c2Vyc3BhY2UgZG9lc24ndCBjYXJlCkBAIC0x
-MDIwLDEzICsxMDMxLDE3IEBACiAJCXJldHVybiAtRU5PTUVNOwogCiAJLyogRmlyc3QsIHN1
-bSBjb3VudGVycy4uLiAqLwotCW1lbXNldChjb3VudGVycywgMCwgY291bnRlcnNpemUpOwog
-CXdyaXRlX2xvY2tfYmgoJnRhYmxlLT5sb2NrKTsKIAlnZXRfY291bnRlcnModGFibGUtPnBy
-aXZhdGUsIGNvdW50ZXJzKTsKIAl3cml0ZV91bmxvY2tfYmgoJnRhYmxlLT5sb2NrKTsKIAot
-CS8qIC4uLiB0aGVuIGNvcHkgZW50aXJlIHRoaW5nIGZyb20gQ1BVIDAuLi4gKi8KLQlpZiAo
-Y29weV90b191c2VyKHVzZXJwdHIsIHRhYmxlLT5wcml2YXRlLT5lbnRyaWVzLCB0b3RhbF9z
-aXplKSAhPSAwKSB7CisJLyoKKwkgKiBjaG9vc2UgdGhlIGNvcHkgdGhhdCBpcyBvbiBvdXIg
-bm9kZSwKKwkgKiBidXQgZG9udCB3b3JyeSBpZiB0aGUgc2NoZWR1bGVyIGNoYW5nZXMgdGhl
-IENQVQorCSAqLworCWxvY19jcHVfZW50cnkgPSB0YWJsZS0+cHJpdmF0ZS0+ZW50cmllc1ty
-YXdfc21wX3Byb2Nlc3Nvcl9pZCgpXTsKKwkvKiAuLi4gdGhlbiBjb3B5IGVudGlyZSB0aGlu
-ZyAuLi4gKi8KKwlpZiAoY29weV90b191c2VyKHVzZXJwdHIsIGxvY19jcHVfZW50cnksIHRv
-dGFsX3NpemUpICE9IDApIHsKIAkJcmV0ID0gLUVGQVVMVDsKIAkJZ290byBmcmVlX2NvdW50
-ZXJzOwogCX0KQEAgLTEwMzgsNyArMTA1Myw3IEBACiAJCXN0cnVjdCBpcHRfZW50cnlfbWF0
-Y2ggKm07CiAJCXN0cnVjdCBpcHRfZW50cnlfdGFyZ2V0ICp0OwogCi0JCWUgPSAoc3RydWN0
-IGlwdF9lbnRyeSAqKSh0YWJsZS0+cHJpdmF0ZS0+ZW50cmllcyArIG9mZik7CisJCWUgPSAo
-c3RydWN0IGlwdF9lbnRyeSAqKShsb2NfY3B1X2VudHJ5ICsgb2ZmKTsKIAkJaWYgKGNvcHlf
-dG9fdXNlcih1c2VycHRyICsgb2ZmCiAJCQkJICsgb2Zmc2V0b2Yoc3RydWN0IGlwdF9lbnRy
-eSwgY291bnRlcnMpLAogCQkJCSAmY291bnRlcnNbbnVtXSwKQEAgLTExMDcsNiArMTEyMiw2
-MCBAQAogCXJldHVybiByZXQ7CiB9CiAKK3N0YXRpYyB2b2lkIGZyZWVfdGFibGVfaW5mbyhz
-dHJ1Y3QgaXB0X3RhYmxlX2luZm8gKmluZm8pCit7CisJaW50IGNwdTsKKwlmb3JfZWFjaF9j
-cHUoY3B1KSB7CisJCWlmIChpbmZvLT5zaXplIDw9IFBBR0VfU0laRSkKKwkJCWtmcmVlKGlu
-Zm8tPmVudHJpZXNbY3B1XSk7CisJCWVsc2UKKwkJCXZmcmVlKGluZm8tPmVudHJpZXNbY3B1
-XSk7CisJfQorCWtmcmVlKGluZm8pOworfQorCitzdGF0aWMgc3RydWN0IGlwdF90YWJsZV9p
-bmZvICphbGxvY190YWJsZV9pbmZvKHVuc2lnbmVkIGludCBzaXplKQoreworc3RydWN0IGlw
-dF90YWJsZV9pbmZvICpuZXdpbmZvOworaW50IGNwdTsKKwluZXdpbmZvID0ga3phbGxvYyhz
-aXplb2Yoc3RydWN0IGlwdF90YWJsZV9pbmZvKSwgR0ZQX0tFUk5FTCk7CisJaWYgKCFuZXdp
-bmZvKQorCQlyZXR1cm4gTlVMTDsKKwluZXdpbmZvLT5zaXplID0gc2l6ZTsKKwlmb3JfZWFj
-aF9jcHUoY3B1KSB7CisJCWlmIChzaXplIDw9IFBBR0VfU0laRSkgeworCQkJbmV3aW5mby0+
-ZW50cmllc1tjcHVdID0ga21hbGxvY19ub2RlKHNpemUsCisJCQkJR0ZQX0tFUk5FTCwKKwkJ
-CQljcHVfdG9fbm9kZShjcHUpKTsKKwkJfSBlbHNlIHsKKyNpZmRlZiBDT05GSUdfTlVNQQor
-CQkJc3RydWN0IG1lbXBvbGljeSAqb2xkcG9sOworCQkJbW1fc2VnbWVudF90IG9sZGZzID0g
-Z2V0X2ZzKCk7CisJCQlERUNMQVJFX0JJVE1BUChteW5vZGUsIE1BWF9OVU1OT0RFUyk7CisK
-KwkJCW9sZHBvbCA9IGN1cnJlbnQtPm1lbXBvbGljeTsKKwkJCWdldF9wb2wob2xkcG9sKTsK
-KwkJCWJpdG1hcF96ZXJvKG15bm9kZSwgTUFYX05VTU5PREVTKTsKKwkJCXNldF9iaXQoY3B1
-X3RvX25vZGUoY3B1KSwgbXlub2RlKTsKKwkJCXNldF9mcyhLRVJORUxfRFMpOworCQkJc3lz
-X3NldF9tZW1wb2xpY3koTVBPTF9QUkVGRVJSRUQsICZteW5vZGUsIE1BWF9OVU1OT0RFUyk7
-CisJCQlzZXRfZnMob2xkZnMpOworI2VuZGlmCisJCQluZXdpbmZvLT5lbnRyaWVzW2NwdV0g
-PSB2bWFsbG9jKHNpemUpOworI2lmZGVmIENPTkZJR19OVU1BCisJCQltcG9sX2ZyZWUoY3Vy
-cmVudC0+bWVtcG9saWN5KTsKKwkJCWN1cnJlbnQtPm1lbXBvbGljeSA9IG9sZHBvbDsKKyNl
-bmRpZgorCQl9CisJCWlmIChuZXdpbmZvLT5lbnRyaWVzW2NwdV0gPT0gMCkgeworCQkJZnJl
-ZV90YWJsZV9pbmZvKG5ld2luZm8pOworCQkJcmV0dXJuIE5VTEw7CisJCX0KKwl9CisJcmV0
-dXJuIG5ld2luZm87Cit9CisKKwogc3RhdGljIGludAogZG9fcmVwbGFjZSh2b2lkIF9fdXNl
-ciAqdXNlciwgdW5zaWduZWQgaW50IGxlbikKIHsKQEAgLTExMTUsNiArMTE4NCw3IEBACiAJ
-c3RydWN0IGlwdF90YWJsZSAqdDsKIAlzdHJ1Y3QgaXB0X3RhYmxlX2luZm8gKm5ld2luZm8s
-ICpvbGRpbmZvOwogCXN0cnVjdCBpcHRfY291bnRlcnMgKmNvdW50ZXJzOworCXZvaWQgKmxv
-Y19jcHVfZW50cnksICpsb2NfY3B1X29sZF9lbnRyeTsKIAogCWlmIChjb3B5X2Zyb21fdXNl
-cigmdG1wLCB1c2VyLCBzaXplb2YodG1wKSkgIT0gMCkKIAkJcmV0dXJuIC1FRkFVTFQ7CkBA
-IC0xMTI3LDEyICsxMTk3LDE1IEBACiAJaWYgKChTTVBfQUxJR04odG1wLnNpemUpID4+IFBB
-R0VfU0hJRlQpICsgMiA+IG51bV9waHlzcGFnZXMpCiAJCXJldHVybiAtRU5PTUVNOwogCi0J
-bmV3aW5mbyA9IHZtYWxsb2Moc2l6ZW9mKHN0cnVjdCBpcHRfdGFibGVfaW5mbykKLQkJCSAg
-KyBTTVBfQUxJR04odG1wLnNpemUpICogbnVtX3Bvc3NpYmxlX2NwdXMoKSk7CisJbmV3aW5m
-byA9IGFsbG9jX3RhYmxlX2luZm8odG1wLnNpemUpOwogCWlmICghbmV3aW5mbykKIAkJcmV0
-dXJuIC1FTk9NRU07Ci0KLQlpZiAoY29weV9mcm9tX3VzZXIobmV3aW5mby0+ZW50cmllcywg
-dXNlciArIHNpemVvZih0bXApLAorCS8qCisJICogY2hvb3NlIHRoZSBjb3B5IHRoYXQgaXMg
-b24gb3VyIG5vZGUsCisJICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxlciBjaGFu
-Z2VzIHRoZSBDUFUKKwkgKi8KKwlsb2NfY3B1X2VudHJ5ID0gbmV3aW5mby0+ZW50cmllc1ty
-YXdfc21wX3Byb2Nlc3Nvcl9pZCgpXTsKKwlpZiAoY29weV9mcm9tX3VzZXIobG9jX2NwdV9l
-bnRyeSwgdXNlciArIHNpemVvZih0bXApLAogCQkJICAgdG1wLnNpemUpICE9IDApIHsKIAkJ
-cmV0ID0gLUVGQVVMVDsKIAkJZ290byBmcmVlX25ld2luZm87CkBAIC0xMTQzLDEwICsxMjE2
-LDkgQEAKIAkJcmV0ID0gLUVOT01FTTsKIAkJZ290byBmcmVlX25ld2luZm87CiAJfQotCW1l
-bXNldChjb3VudGVycywgMCwgdG1wLm51bV9jb3VudGVycyAqIHNpemVvZihzdHJ1Y3QgaXB0
-X2NvdW50ZXJzKSk7CiAKIAlyZXQgPSB0cmFuc2xhdGVfdGFibGUodG1wLm5hbWUsIHRtcC52
-YWxpZF9ob29rcywKLQkJCSAgICAgIG5ld2luZm8sIHRtcC5zaXplLCB0bXAubnVtX2VudHJp
-ZXMsCisJCQkgICAgICBuZXdpbmZvLCBsb2NfY3B1X2VudHJ5LCB0bXAuc2l6ZSwgdG1wLm51
-bV9lbnRyaWVzLAogCQkJICAgICAgdG1wLmhvb2tfZW50cnksIHRtcC51bmRlcmZsb3cpOwog
-CWlmIChyZXQgIT0gMCkKIAkJZ290byBmcmVlX25ld2luZm9fY291bnRlcnM7CkBAIC0xMTg1
-LDggKzEyNTcsOSBAQAogCS8qIEdldCB0aGUgb2xkIGNvdW50ZXJzLiAqLwogCWdldF9jb3Vu
-dGVycyhvbGRpbmZvLCBjb3VudGVycyk7CiAJLyogRGVjcmVhc2UgbW9kdWxlIHVzYWdlIGNv
-dW50cyBhbmQgZnJlZSByZXNvdXJjZSAqLwotCUlQVF9FTlRSWV9JVEVSQVRFKG9sZGluZm8t
-PmVudHJpZXMsIG9sZGluZm8tPnNpemUsIGNsZWFudXBfZW50cnksTlVMTCk7Ci0JdmZyZWUo
-b2xkaW5mbyk7CisJbG9jX2NwdV9vbGRfZW50cnkgPSBvbGRpbmZvLT5lbnRyaWVzW3Jhd19z
-bXBfcHJvY2Vzc29yX2lkKCldOworCUlQVF9FTlRSWV9JVEVSQVRFKGxvY19jcHVfb2xkX2Vu
-dHJ5LCBvbGRpbmZvLT5zaXplLCBjbGVhbnVwX2VudHJ5LE5VTEwpOworCWZyZWVfdGFibGVf
-aW5mbyhvbGRpbmZvKTsKIAlpZiAoY29weV90b191c2VyKHRtcC5jb3VudGVycywgY291bnRl
-cnMsCiAJCQkgc2l6ZW9mKHN0cnVjdCBpcHRfY291bnRlcnMpICogdG1wLm51bV9jb3VudGVy
-cykgIT0gMCkKIAkJcmV0ID0gLUVGQVVMVDsKQEAgLTExOTgsMTEgKzEyNzEsMTEgQEAKIAlt
-b2R1bGVfcHV0KHQtPm1lKTsKIAl1cCgmaXB0X211dGV4KTsKICBmcmVlX25ld2luZm9fY291
-bnRlcnNfdW50cmFuczoKLQlJUFRfRU5UUllfSVRFUkFURShuZXdpbmZvLT5lbnRyaWVzLCBu
-ZXdpbmZvLT5zaXplLCBjbGVhbnVwX2VudHJ5LE5VTEwpOworCUlQVF9FTlRSWV9JVEVSQVRF
-KGxvY19jcHVfZW50cnksIG5ld2luZm8tPnNpemUsIGNsZWFudXBfZW50cnksTlVMTCk7CiAg
-ZnJlZV9uZXdpbmZvX2NvdW50ZXJzOgogCXZmcmVlKGNvdW50ZXJzKTsKICBmcmVlX25ld2lu
-Zm86Ci0JdmZyZWUobmV3aW5mbyk7CisJZnJlZV90YWJsZV9pbmZvKG5ld2luZm8pOwogCXJl
-dHVybiByZXQ7CiB9CiAKQEAgLTEyMzUsNiArMTMwOCw3IEBACiAJc3RydWN0IGlwdF9jb3Vu
-dGVyc19pbmZvIHRtcCwgKnBhZGRjOwogCXN0cnVjdCBpcHRfdGFibGUgKnQ7CiAJaW50IHJl
-dCA9IDA7CisJdm9pZCAqbG9jX2NwdV9lbnRyeTsKIAogCWlmIChjb3B5X2Zyb21fdXNlcigm
-dG1wLCB1c2VyLCBzaXplb2YodG1wKSkgIT0gMCkKIAkJcmV0dXJuIC1FRkFVTFQ7CkBAIC0x
-MjY0LDcgKzEzMzgsMTIgQEAKIAl9CiAKIAlpID0gMDsKLQlJUFRfRU5UUllfSVRFUkFURSh0
-LT5wcml2YXRlLT5lbnRyaWVzLAorCS8qCisJICogY2hvb3NlIHRoZSBjb3B5IHRoYXQgaXMg
-b24gb3VyIG5vZGUsCisJICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxlciBjaGFu
-Z2VzIHRoZSBDUFUKKwkgKi8KKwlsb2NfY3B1X2VudHJ5ID0gdC0+cHJpdmF0ZS0+ZW50cmll
-c1tyYXdfc21wX3Byb2Nlc3Nvcl9pZCgpXTsKKwlJUFRfRU5UUllfSVRFUkFURShsb2NfY3B1
-X2VudHJ5LAogCQkJICB0LT5wcml2YXRlLT5zaXplLAogCQkJICBhZGRfY291bnRlcl90b19l
-bnRyeSwKIAkJCSAgcGFkZGMtPmNvdW50ZXJzLApAQCAtMTQ1NCwyOSArMTUzMywzOSBAQAog
-ewogCWludCByZXQ7CiAJc3RydWN0IGlwdF90YWJsZV9pbmZvICpuZXdpbmZvOwotCXN0YXRp
-YyBzdHJ1Y3QgaXB0X3RhYmxlX2luZm8gYm9vdHN0cmFwCi0JCT0geyAwLCAwLCAwLCB7IDAg
-fSwgeyAwIH0sIHsgfSB9OworCXN0YXRpYyBzdHJ1Y3QgaXB0X3RhYmxlX2luZm8gYm9vdHN0
-cmFwID0geworCQkuc2l6ZSA9IDAsCisJCS5udW1iZXIgPSAwLAorCQkuaW5pdGlhbF9lbnRy
-aWVzID0gMCwKKwkJLmhvb2tfZW50cnkgPSB7IDAgfSwKKwkJLnVuZGVyZmxvdyA9IHsgMCB9
-LAorCQkuZW50cmllcyA9IHtOVUxMIH0KKwkJfTsKKwl2b2lkICpsb2NfY3B1X2VudHJ5Owog
-Ci0JbmV3aW5mbyA9IHZtYWxsb2Moc2l6ZW9mKHN0cnVjdCBpcHRfdGFibGVfaW5mbykKLQkJ
-CSAgKyBTTVBfQUxJR04ocmVwbC0+c2l6ZSkgKiBudW1fcG9zc2libGVfY3B1cygpKTsKKwlu
-ZXdpbmZvID0gYWxsb2NfdGFibGVfaW5mbyhyZXBsLT5zaXplKTsKIAlpZiAoIW5ld2luZm8p
-CiAJCXJldHVybiAtRU5PTUVNOwotCi0JbWVtY3B5KG5ld2luZm8tPmVudHJpZXMsIHJlcGwt
-PmVudHJpZXMsIHJlcGwtPnNpemUpOworCS8qCisJICogY2hvb3NlIHRoZSBjb3B5IHRoYXQg
-aXMgb24gb3VyIG5vZGUsCisJICogYnV0IGRvbnQgd29ycnkgaWYgdGhlIHNjaGVkdWxlciBj
-aGFuZ2VzIHRoZSBDUFUKKwkgKi8KKwlsb2NfY3B1X2VudHJ5ID0gbmV3aW5mby0+ZW50cmll
-c1tyYXdfc21wX3Byb2Nlc3Nvcl9pZCgpXTsKKwltZW1jcHkobG9jX2NwdV9lbnRyeSwgcmVw
-bC0+ZW50cmllcywgcmVwbC0+c2l6ZSk7CiAKIAlyZXQgPSB0cmFuc2xhdGVfdGFibGUodGFi
-bGUtPm5hbWUsIHRhYmxlLT52YWxpZF9ob29rcywKLQkJCSAgICAgIG5ld2luZm8sIHJlcGwt
-PnNpemUsCisJCQkgICAgICBuZXdpbmZvLCBsb2NfY3B1X2VudHJ5LCByZXBsLT5zaXplLAog
-CQkJICAgICAgcmVwbC0+bnVtX2VudHJpZXMsCiAJCQkgICAgICByZXBsLT5ob29rX2VudHJ5
-LAogCQkJICAgICAgcmVwbC0+dW5kZXJmbG93KTsKIAlpZiAocmV0ICE9IDApIHsKLQkJdmZy
-ZWUobmV3aW5mbyk7CisJCWZyZWVfdGFibGVfaW5mbyhuZXdpbmZvKTsKIAkJcmV0dXJuIHJl
-dDsKIAl9CiAKIAlyZXQgPSBkb3duX2ludGVycnVwdGlibGUoJmlwdF9tdXRleCk7CiAJaWYg
-KHJldCAhPSAwKSB7Ci0JCXZmcmVlKG5ld2luZm8pOworCQlmcmVlX3RhYmxlX2luZm8obmV3
-aW5mbyk7CiAJCXJldHVybiByZXQ7CiAJfQogCkBAIC0xNTA1LDIwICsxNTk0LDI1IEBACiAJ
-cmV0dXJuIHJldDsKIAogIGZyZWVfdW5sb2NrOgotCXZmcmVlKG5ld2luZm8pOworCWZyZWVf
-dGFibGVfaW5mbyhuZXdpbmZvKTsKIAlnb3RvIHVubG9jazsKIH0KIAogdm9pZCBpcHRfdW5y
-ZWdpc3Rlcl90YWJsZShzdHJ1Y3QgaXB0X3RhYmxlICp0YWJsZSkKIHsKKwl2b2lkICpsb2Nf
-Y3B1X2VudHJ5OwogCWRvd24oJmlwdF9tdXRleCk7CiAJTElTVF9ERUxFVEUoJmlwdF90YWJs
-ZXMsIHRhYmxlKTsKIAl1cCgmaXB0X211dGV4KTsKIAotCS8qIERlY3JlYXNlIG1vZHVsZSB1
-c2FnZSBjb3VudHMgYW5kIGZyZWUgcmVzb3VyY2VzICovCi0JSVBUX0VOVFJZX0lURVJBVEUo
-dGFibGUtPnByaXZhdGUtPmVudHJpZXMsIHRhYmxlLT5wcml2YXRlLT5zaXplLAorCS8qIERl
-Y3JlYXNlIG1vZHVsZSB1c2FnZSBjb3VudHMgYW5kIGZyZWUgcmVzb3VyY2VzCisJICogY2hv
-b3NlIHRoZSBjb3B5IHRoYXQgaXMgb24gb3VyIG5vZGUsCisJICogYnV0IGRvbnQgd29ycnkg
-aWYgdGhlIHNjaGVkdWxlciBjaGFuZ2VzIHRoZSBDUFUKKwkgKi8KKwlsb2NfY3B1X2VudHJ5
-ID0gdGFibGUtPnByaXZhdGUtPmVudHJpZXNbcmF3X3NtcF9wcm9jZXNzb3JfaWQoKV07CisJ
-SVBUX0VOVFJZX0lURVJBVEUobG9jX2NwdV9lbnRyeSwgdGFibGUtPnByaXZhdGUtPnNpemUs
-CiAJCQkgIGNsZWFudXBfZW50cnksIE5VTEwpOwotCXZmcmVlKHRhYmxlLT5wcml2YXRlKTsK
-KwlmcmVlX3RhYmxlX2luZm8odGFibGUtPnByaXZhdGUpOwogfQogCiAvKiBSZXR1cm5zIDEg
-aWYgdGhlIHBvcnQgaXMgbWF0Y2hlZCBieSB0aGUgcmFuZ2UsIDAgb3RoZXJ3aXNlICovCg==
---------------030400030604000104040908--
+0117e4931d1884ae71c74378590bde4cc76f403a
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -36,6 +36,11 @@
+  *	Michal Ostrowski        :       Module initialization cleanup.
+  *         Ulises Alonso        :       Frame number limit removal and 
+  *                                      packet_set_ring memory leak.
++ *		Eric Biederman	:	Allow for > 8 byte hardware addresses.
++ *					The convention is that longer addresses
++ *					will simply extend the hardware address
++ *					byte arrays at the end of sockaddr_ll 
++ *					and packet_mreq.
+  *
+  *		This program is free software; you can redistribute it and/or
+  *		modify it under the terms of the GNU General Public License
+@@ -161,7 +166,17 @@ struct packet_mclist
+ 	int			count;
+ 	unsigned short		type;
+ 	unsigned short		alen;
+-	unsigned char		addr[8];
++	unsigned char		addr[MAX_ADDR_LEN];
++};
++/* identical to struct packet_mreq except it has
++ * a longer address field.
++ */
++struct packet_mreq_max
++{
++	int		mr_ifindex;
++	unsigned short	mr_type;
++	unsigned short	mr_alen;
++	unsigned char	mr_address[MAX_ADDR_LEN];
+ };
+ #endif
+ #ifdef CONFIG_PACKET_MMAP
+@@ -716,6 +731,8 @@ static int packet_sendmsg(struct kiocb *
+ 		err = -EINVAL;
+ 		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+ 			goto out;
++		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
++			goto out;
+ 		ifindex	= saddr->sll_ifindex;
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+@@ -744,6 +761,12 @@ static int packet_sendmsg(struct kiocb *
+ 	if (dev->hard_header) {
+ 		int res;
+ 		err = -EINVAL;
++		if (saddr) {
++			if (saddr->sll_halen != dev->addr_len)
++				goto out_free;
++			if (saddr->sll_hatype != dev->type)
++				goto out_free;
++		}
+ 		res = dev->hard_header(skb, dev, ntohs(proto), addr, NULL, len);
+ 		if (sock->type != SOCK_DGRAM) {
+ 			skb->tail = skb->data;
+@@ -1045,6 +1068,7 @@ static int packet_recvmsg(struct kiocb *
+ 	struct sock *sk = sock->sk;
+ 	struct sk_buff *skb;
+ 	int copied, err;
++	struct sockaddr_ll *sll;
+ 
+ 	err = -EINVAL;
+ 	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT))
+@@ -1057,16 +1081,6 @@ static int packet_recvmsg(struct kiocb *
+ #endif
+ 
+ 	/*
+-	 *	If the address length field is there to be filled in, we fill
+-	 *	it in now.
+-	 */
+-
+-	if (sock->type == SOCK_PACKET)
+-		msg->msg_namelen = sizeof(struct sockaddr_pkt);
+-	else
+-		msg->msg_namelen = sizeof(struct sockaddr_ll);
+-
+-	/*
+ 	 *	Call the generic datagram receiver. This handles all sorts
+ 	 *	of horrible races and re-entrancy so we can forget about it
+ 	 *	in the protocol layers.
+@@ -1087,6 +1101,17 @@ static int packet_recvmsg(struct kiocb *
+ 		goto out;
+ 
+ 	/*
++	 *	If the address length field is there to be filled in, we fill
++	 *	it in now.
++	 */
++
++	sll = (struct sockaddr_ll*)skb->cb;
++	if (sock->type == SOCK_PACKET)
++		msg->msg_namelen = sizeof(struct sockaddr_pkt);
++	else
++		msg->msg_namelen = sll->sll_halen + offsetof(struct sockaddr_ll, sll_addr);
++
++	/*
+ 	 *	You lose any data beyond the buffer you gave. If it worries a
+ 	 *	user program they can ask the device for its MTU anyway.
+ 	 */
+@@ -1166,7 +1191,7 @@ static int packet_getname(struct socket 
+ 		sll->sll_hatype = 0;	/* Bad: we have no ARPHRD_UNSPEC */
+ 		sll->sll_halen = 0;
+ 	}
+-	*uaddr_len = sizeof(*sll);
++	*uaddr_len = offsetof(struct sockaddr_ll, sll_addr) + sll->sll_halen;
+ 
+ 	return 0;
+ }
+@@ -1199,7 +1224,7 @@ static void packet_dev_mclist(struct net
+ 	}
+ }
+ 
+-static int packet_mc_add(struct sock *sk, struct packet_mreq *mreq)
++static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
+ {
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	struct packet_mclist *ml, *i;
+@@ -1249,7 +1274,7 @@ done:
+ 	return err;
+ }
+ 
+-static int packet_mc_drop(struct sock *sk, struct packet_mreq *mreq)
++static int packet_mc_drop(struct sock *sk, struct packet_mreq_max *mreq)
+ {
+ 	struct packet_mclist *ml, **mlp;
+ 
+@@ -1315,11 +1340,17 @@ packet_setsockopt(struct socket *sock, i
+ 	case PACKET_ADD_MEMBERSHIP:	
+ 	case PACKET_DROP_MEMBERSHIP:
+ 	{
+-		struct packet_mreq mreq;
+-		if (optlen<sizeof(mreq))
++		struct packet_mreq_max mreq;
++		int len = optlen;
++		memset(&mreq, 0, sizeof(mreq));
++		if (len < sizeof(struct packet_mreq))
+ 			return -EINVAL;
+-		if (copy_from_user(&mreq,optval,sizeof(mreq)))
++		if (len > sizeof(mreq))
++			len = sizeof(mreq);
++		if (copy_from_user(&mreq,optval,len))
+ 			return -EFAULT;
++		if (len < (mreq.mr_alen + offsetof(struct packet_mreq, mr_address)))
++			return -EINVAL;
+ 		if (optname == PACKET_ADD_MEMBERSHIP)
+ 			ret = packet_mc_add(sk, &mreq);
+ 		else
