@@ -1,51 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: struct netdevice changes for IPoIB UC
-	support
-Date: Wed, 21 Sep 2005 18:15:23 +1000
-Message-ID: <E1EHzlD-0004eE-00@gondolin.me.apana.org.au>
-References: <20050921080230.GE18449@mellanox.co.il>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20050921080230.GE18449@mellanox.co.il>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [patch] fix suspend/resume on b44
+Date: Wed, 21 Sep 2005 12:20:54 +0200
+Message-ID: <20050921102054.GE25297@atrey.karlin.mff.cuni.cz>
+References: <20050920132811.GA4563@elf.ucw.cz> <20050920162635.565e4b46.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050920162635.565e4b46.akpm@osdl.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael S. Tsirkin <mst@mellanox.co.il> wrote:
+Hi!
+
+> > diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+> > --- a/drivers/net/b44.c
+> > +++ b/drivers/net/b44.c
+> > @@ -1930,6 +1930,8 @@ static int b44_suspend(struct pci_dev *p
+> >  	b44_free_rings(bp);
+> >  
+> >  	spin_unlock_irq(&bp->lock);
+> > +
+> > +	free_irq(dev->irq, dev);
+> >  	pci_disable_device(pdev);
+> >  	return 0;
+> >  }
+> > @@ -1946,6 +1948,9 @@ static int b44_resume(struct pci_dev *pd
+> >  	if (!netif_running(dev))
+> >  		return 0;
+> >  
+> > +	if (request_irq(dev->irq, b44_interrupt, SA_SHIRQ, dev->name, dev))
+> > +		printk(KERN_ERR PFX "%s: request_irq failed\n", dev->name);
+> > +
+> >  	spin_lock_irq(&bp->lock);
+> >  
+> >  	b44_init_rings(bp);
+> > 
 > 
-> Please comment on this approach: does it make sense to you guys?
-> Please Cc me directly, I'm not on the list.
+> Why does it hang on suspend/resume?
+> 
+> This came up a while back and iirc we decided that adding free_irq() to
+> every ->suspend() handler in the world was the wrong thing to do.  Do I
+> misremember?
 
-Sorry, this doesn't make sense.  
- 
-> static inline u32 dst_mtu(const struct dst_entry *dst)
-> {
-> -       u32 mtu = dst_metric(dst, RTAX_MTU);
-> +       u32 mtu;
-> +       if (dst->dev && dst->dev->get_mtu)
-> +               mtu = dst->dev->get_mtu(dst->dev, dst->neighbour,
-> +                                       dst_metric(dst, RTAX_MTU));
-> +       else
-> +               mtu = dst_metric(dst, RTAX_MTU);
+No, you remember right, but b44 needed that free_irq/request_irq even
+because those ACPI changes. I'm not exactly sure why, something went
+very wrong otherwise.
 
->From this I gather that for a given dst the MTU is actually constant.
-That is, it only varies across different dst's.
-
-In this case you should calculate the correct MTU when the dst is
-created rather than here.
-
-Cheers,
+								Pavel
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Boycott Kodak -- for their patent abuse against Java.
