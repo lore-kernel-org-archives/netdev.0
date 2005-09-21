@@ -1,42 +1,81 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] socket.c: zero socket addresses
-	before use.
-Date: Wed, 21 Sep 2005 00:13:21 -0700 (PDT)
-Message-ID: <20050921.001321.78997430.davem@davemloft.net>
-References: <m1ek7ulyt8.fsf@ebiederm.dsl.xmission.com>
-	<20050912.154527.48978091.davem@davemloft.net>
-	<m1hdcfhd40.fsf_-_@ebiederm.dsl.xmission.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: RFC: struct netdevice changes for IPoIB UC support
+Date: Wed, 21 Sep 2005 11:02:30 +0300
+Message-ID: <20050921080230.GE18449@mellanox.co.il>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org, netdev@vger.kernel.org
-Return-path: <openib-general-bounces@openib.org>
-To: ebiederm@xmission.com
-In-Reply-To: <m1hdcfhd40.fsf_-_@ebiederm.dsl.xmission.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	Dror Goldenberg <gdror@mellanox.co.il>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750748AbVIUIBo@vger.kernel.org>
+To: openib-general@openib.org, netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 20 Sep 2005 11:18:23 -0600
+Hi!
+I am working on IP over InfiniBand net device support.
+Existing code in mainline kernel only supports UD (unreliable datagram)
+mode of operation, with max MTU of 2Kbyte.
+I'm looking into support for UC (unreliable connected) mode of operation,
+which can support MTU with theorectical limit up to 2Gbyte.
 
-> Dave I don't know if this is part of what you want but
-> zeroing the socket address buffer before use seem to be implied
-> by what you were asking for.   So here is an additional patch
-> to implement that.
-> 
-> This is a paranoid precaution to guard against accidental
-> information leaks to user space or other consumers/producers
-> may fail to properly fail to set or read the hardware
-> address length. af_packet over ethernet has had at least
-> has one small but in this respect.
+As was discussed on the openib list, one of the difficulties with
+IP over IB support for UC mode, is the fact that the same device
+has to support sending both UC (max MTU 2Gbyte) and UD (max MTU 2Kbyte)
+packets, depending on packet link address.
 
-I think this patch might be a bit overkill, but thanks for cooking it
-up.  I'm willing to be convinced otherwise though :-)
+I propose the following simple patch to let the netdevice override
+the path MTU per dst entry. The patch was tested by modifying
+existing IPoIB code to use MTU of 1K for some addresses, and 2K for
+others.
+
+Please comment on this approach: does it make sense to you guys?
+Please Cc me directly, I'm not on the list.
+
+Thanks a bunch,
+MST
+
+---
+
+Make it possible for a network device to support more than one MTU value at a
+time (depending on packet link address, or other criteria).
+
+Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
+
+Index: linux-2.6.12.5/include/linux/netdevice.h
+===================================================================
+--- linux-2.6.12.5.orig/include/linux/netdevice.h
++++ linux-2.6.12.5/include/linux/netdevice.h
+@@ -454,6 +454,10 @@ struct net_device
+ #define HAVE_CHANGE_MTU
+ 	int			(*change_mtu)(struct net_device *dev, int new_mtu);
+ 
++#define HAVE_GET_MTU
++	u32			(*get_mtu)(struct net_device *dev,
++					   struct neighbour *neigh,
++					   int path_mtu);
+ #define HAVE_TX_TIMEOUT
+ 	void			(*tx_timeout) (struct net_device *dev);
+ 
+Index: linux-2.6.12.5/include/net/dst.h
+===================================================================
+--- linux-2.6.12.5.orig/include/net/dst.h
++++ linux-2.6.12.5/include/net/dst.h
+@@ -111,7 +111,12 @@ dst_metric(const struct dst_entry *dst, 
+ 
+ static inline u32 dst_mtu(const struct dst_entry *dst)
+ {
+-	u32 mtu = dst_metric(dst, RTAX_MTU);
++	u32 mtu;
++	if (dst->dev && dst->dev->get_mtu)
++		mtu = dst->dev->get_mtu(dst->dev, dst->neighbour,
++					dst_metric(dst, RTAX_MTU));
++	else
++		mtu = dst_metric(dst, RTAX_MTU);
+ 	/*
+ 	 * Alexey put it here, so ask him about it :)
+ 	 */
+
+-- 
+MST
