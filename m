@@ -1,81 +1,51 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: RFC: struct netdevice changes for IPoIB UC support
-Date: Wed, 21 Sep 2005 11:02:30 +0300
-Message-ID: <20050921080230.GE18449@mellanox.co.il>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	Dror Goldenberg <gdror@mellanox.co.il>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750748AbVIUIBo@vger.kernel.org>
-To: openib-general@openib.org, netdev@vger.kernel.org
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: RFC: struct netdevice changes for IPoIB UC
+	support
+Date: Wed, 21 Sep 2005 18:15:23 +1000
+Message-ID: <E1EHzlD-0004eE-00@gondolin.me.apana.org.au>
+References: <20050921080230.GE18449@mellanox.co.il>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+In-Reply-To: <20050921080230.GE18449@mellanox.co.il>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-I am working on IP over InfiniBand net device support.
-Existing code in mainline kernel only supports UD (unreliable datagram)
-mode of operation, with max MTU of 2Kbyte.
-I'm looking into support for UC (unreliable connected) mode of operation,
-which can support MTU with theorectical limit up to 2Gbyte.
+Michael S. Tsirkin <mst@mellanox.co.il> wrote:
+> 
+> Please comment on this approach: does it make sense to you guys?
+> Please Cc me directly, I'm not on the list.
 
-As was discussed on the openib list, one of the difficulties with
-IP over IB support for UC mode, is the fact that the same device
-has to support sending both UC (max MTU 2Gbyte) and UD (max MTU 2Kbyte)
-packets, depending on packet link address.
-
-I propose the following simple patch to let the netdevice override
-the path MTU per dst entry. The patch was tested by modifying
-existing IPoIB code to use MTU of 1K for some addresses, and 2K for
-others.
-
-Please comment on this approach: does it make sense to you guys?
-Please Cc me directly, I'm not on the list.
-
-Thanks a bunch,
-MST
-
----
-
-Make it possible for a network device to support more than one MTU value at a
-time (depending on packet link address, or other criteria).
-
-Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
-
-Index: linux-2.6.12.5/include/linux/netdevice.h
-===================================================================
---- linux-2.6.12.5.orig/include/linux/netdevice.h
-+++ linux-2.6.12.5/include/linux/netdevice.h
-@@ -454,6 +454,10 @@ struct net_device
- #define HAVE_CHANGE_MTU
- 	int			(*change_mtu)(struct net_device *dev, int new_mtu);
+Sorry, this doesn't make sense.  
  
-+#define HAVE_GET_MTU
-+	u32			(*get_mtu)(struct net_device *dev,
-+					   struct neighbour *neigh,
-+					   int path_mtu);
- #define HAVE_TX_TIMEOUT
- 	void			(*tx_timeout) (struct net_device *dev);
- 
-Index: linux-2.6.12.5/include/net/dst.h
-===================================================================
---- linux-2.6.12.5.orig/include/net/dst.h
-+++ linux-2.6.12.5/include/net/dst.h
-@@ -111,7 +111,12 @@ dst_metric(const struct dst_entry *dst, 
- 
- static inline u32 dst_mtu(const struct dst_entry *dst)
- {
--	u32 mtu = dst_metric(dst, RTAX_MTU);
-+	u32 mtu;
-+	if (dst->dev && dst->dev->get_mtu)
-+		mtu = dst->dev->get_mtu(dst->dev, dst->neighbour,
-+					dst_metric(dst, RTAX_MTU));
-+	else
-+		mtu = dst_metric(dst, RTAX_MTU);
- 	/*
- 	 * Alexey put it here, so ask him about it :)
- 	 */
+> static inline u32 dst_mtu(const struct dst_entry *dst)
+> {
+> -       u32 mtu = dst_metric(dst, RTAX_MTU);
+> +       u32 mtu;
+> +       if (dst->dev && dst->dev->get_mtu)
+> +               mtu = dst->dev->get_mtu(dst->dev, dst->neighbour,
+> +                                       dst_metric(dst, RTAX_MTU));
+> +       else
+> +               mtu = dst_metric(dst, RTAX_MTU);
 
+>From this I gather that for a given dst the MTU is actually constant.
+That is, it only varies across different dst's.
+
+In this case you should calculate the correct MTU when the dst is
+created rather than here.
+
+Cheers,
 -- 
-MST
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
