@@ -1,77 +1,103 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [patch] fix suspend/resume on b44
-Date: Wed, 21 Sep 2005 23:13:32 +0200
-Message-ID: <20050921211332.GA2194@elf.ucw.cz>
-References: <20050920132811.GA4563@elf.ucw.cz> <20050920162635.565e4b46.akpm@osdl.org> <20050921102054.GE25297@atrey.karlin.mff.cuni.cz> <20050921033653.05c448df.akpm@osdl.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
+Date: Wed, 21 Sep 2005 23:24:55 +0200
+Message-ID: <4331CFA7.50104@cosmosbay.com>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	<432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de>
+	<433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, hmacht@suse.de
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050921033653.05c448df.akpm@osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@suse.de>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: linux-kernel@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+In-Reply-To: <43308324.70403@cosmosbay.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+Hi
 
-> > > > diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-> > > > --- a/drivers/net/b44.c
-> > > > +++ b/drivers/net/b44.c
-> > > > @@ -1930,6 +1930,8 @@ static int b44_suspend(struct pci_dev *p
-> > > >  	b44_free_rings(bp);
-> > > >  
-> > > >  	spin_unlock_irq(&bp->lock);
-> > > > +
-> > > > +	free_irq(dev->irq, dev);
-> > > >  	pci_disable_device(pdev);
-> > > >  	return 0;
-> > > >  }
-> > > > @@ -1946,6 +1948,9 @@ static int b44_resume(struct pci_dev *pd
-> > > >  	if (!netif_running(dev))
-> > > >  		return 0;
-> > > >  
-> > > > +	if (request_irq(dev->irq, b44_interrupt, SA_SHIRQ, dev->name, dev))
-> > > > +		printk(KERN_ERR PFX "%s: request_irq failed\n", dev->name);
-> > > > +
-> > > >  	spin_lock_irq(&bp->lock);
-> > > >  
-> > > >  	b44_init_rings(bp);
-> > > > 
-> > > 
-> > > Why does it hang on suspend/resume?
-> > > 
-> > > This came up a while back and iirc we decided that adding free_irq() to
-> > > every ->suspend() handler in the world was the wrong thing to do.  Do I
-> > > misremember?
-> > 
-> > No, you remember right, but b44 needed that free_irq/request_irq even
-> > because those ACPI changes. I'm not exactly sure why, something went
-> > very wrong otherwise.
-> 
-> Well I guess we should work out what went wrong ;)
-> 
-> What are the symptoms?  Screaming interrupt?  Can't immediately see why. 
-> Does the screaming interrupt detetor trigger and disable the IRQ Line?
+I have reworked net/ipv4/ip_tables.c to boost its performance, and post three 
+patches.
 
-No, it seems like BUG() triggers in
-b44. https://bugzilla.novell.com/show_bug.cgi?id=116088 is for
-basically 2.6.13 kernel (but it was in something as old as 2.6.5,
-too).
+In oprofile results, ipt_do_table() was at the first position.
+It is now at 6th position, using 1/3 of the CPU it was using before.
+(Tests done on a dual Xeon i386 and a dual Opteron x86_64)
+
+Short description :
+
+1) No more central rwlock protecting each table (filter, nat, mangle, raw),
+    but one lock per CPU. It avoids cache line ping pongs for each packet.
+
+2) Loop unrollings and various code optimizations to reduce branches
+    mispredictions.
+
+3) NUMA aware allocation of memory (this part was posted earlier, but got some 
+polishing problems)
 
 
+Long description:
 
-Setting machine into suspend to disk with loaded module b44. While
-resuming,
-kernel oopses and machine freezes after reloading data from
-swap. Image will be
-appended.
+1) No more one rwlock_t protecting the 'curtain'
 
-If this can not be fixed in time, we could add this module to
-UNLOAD_MODULES_BEFORE_SUSPEND in powersave configuratiion.
+One major bottleneck on SMP machines is the fact that one rwlock
+is taken in ipt_do_table() entry and exit. That 2 atomic operations are
+the killer, and even if multiple readers can work together on the same table
+(using read_lock_bh()), the cache line containing rwlock still must be
+taken exclusively by each CPU at entry/exit of ipt_do_table().
 
-								Pavel
+As existing code already use separate copies of the data for each cpu, it is
+very easy to convert the central rwlock to separate rwlocks, allocated
+percpu (and NUMA aware).
 
--- 
-if you have sharp zaurus hardware you don't need... you know my address
+When a cpu enters ipt_do_table(), it can locks its local copy, touching a
+cache line that is not used by other cpus. Further operations are done on
+'local' copy of the data.
+
+When a sum of all counters must be done, we can write_lock each part at a
+time, instead of locking all the parts, reducing the lock contention.
+
+2) Loop unrolling
+
+It seems that with current compilers and CFLAGS, the code from
+ip_packet_match() is very bad, using lot of mispredicted conditional branches 
+I made some patches and generated code on i386 and x86_64
+is much better.
+
+3) NUMA allocation.
+
+Part of the performance problem we have with netfilter is memory allocation
+is not NUMA aware, but 'only' SMP aware (ie each CPU normally touch
+separate cache lines)
+
+Even with small iptables rules, the cost of this misplacement can be high
+  on common workloads.
+
+Instead of using one vmalloc() area (located in the node of the iptables
+process), we now allocate an area for each possible CPU, using NUMA policy
+(MPOL_PREFERRED) so that memory should be allocated in the CPU's node
+if possible.
+
+If the size of ipt_table is small enough (less than one page), we use
+kmalloc_node() instead of vmalloc(), to use less memory and less TLB entries)
+in small setups.
+
+Note1 : I also optimized get_counters(), using a SET_COUNTER() for the first 
+cpu, avoiding a memset() and ADD_COUNTER() if SMP on other cpus.
+
+Note2 : This patch depends on another patch that declares sys_set_mempolicy()
+in include/linux/syscalls.h
+( http://marc.theaimsgroup.com/?l=linux-kernel&m=112725288622984&w=2 )
+
+
+Thank you
+Eric Dumazet
