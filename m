@@ -1,51 +1,34 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch] fix suspend/resume on b44
-Date: Tue, 20 Sep 2005 16:26:35 -0700
-Message-ID: <20050920162635.565e4b46.akpm@osdl.org>
-References: <20050920132811.GA4563@elf.ucw.cz>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] af_packet: Allow for > 8 byte hardware
+	addresses.
+Date: Wed, 21 Sep 2005 00:11:56 -0700 (PDT)
+Message-ID: <20050921.001156.94450818.davem@davemloft.net>
+References: <m1ek7ulyt8.fsf@ebiederm.dsl.xmission.com>
+	<20050912.154527.48978091.davem@davemloft.net>
+	<m1irwvhd5x.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20050920132811.GA4563@elf.ucw.cz>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: openib-general@openib.org, netdev@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: ebiederm@xmission.com
+In-Reply-To: <m1irwvhd5x.fsf@ebiederm.dsl.xmission.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek <pavel@ucw.cz> wrote:
->
-> Fix suspend/resume on b44 by freeing/reacquiring irq. Otherwise it
-> hangs on resume.
-> 
-> ...
-> diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-> --- a/drivers/net/b44.c
-> +++ b/drivers/net/b44.c
-> @@ -1930,6 +1930,8 @@ static int b44_suspend(struct pci_dev *p
->  	b44_free_rings(bp);
->  
->  	spin_unlock_irq(&bp->lock);
-> +
-> +	free_irq(dev->irq, dev);
->  	pci_disable_device(pdev);
->  	return 0;
->  }
-> @@ -1946,6 +1948,9 @@ static int b44_resume(struct pci_dev *pd
->  	if (!netif_running(dev))
->  		return 0;
->  
-> +	if (request_irq(dev->irq, b44_interrupt, SA_SHIRQ, dev->name, dev))
-> +		printk(KERN_ERR PFX "%s: request_irq failed\n", dev->name);
-> +
->  	spin_lock_irq(&bp->lock);
->  
->  	b44_init_rings(bp);
-> 
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 20 Sep 2005 11:17:14 -0600
 
-Why does it hang on suspend/resume?
+> Dave sorry for the delay getting back to this...
+> This version of the patch adds the one memset you were clearly 
+> asking for.
 
-This came up a while back and iirc we decided that adding free_irq() to
-every ->suspend() handler in the world was the wrong thing to do.  Do I
-misremember?
+Applied, thanks a lot Eric.
