@@ -1,60 +1,72 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch] fix suspend/resume on b44
-Date: Wed, 21 Sep 2005 03:36:53 -0700
-Message-ID: <20050921033653.05c448df.akpm@osdl.org>
-References: <20050920132811.GA4563@elf.ucw.cz>
-	<20050920162635.565e4b46.akpm@osdl.org>
-	<20050921102054.GE25297@atrey.karlin.mff.cuni.cz>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] [NET] socket.c: zero socket addresses
+	before use.
+Date: Wed, 21 Sep 2005 07:48:28 -0600
+Message-ID: <m14q8efs5v.fsf@ebiederm.dsl.xmission.com>
+References: <m1ek7ulyt8.fsf@ebiederm.dsl.xmission.com>
+	<20050912.154527.48978091.davem@davemloft.net>
+	<m1hdcfhd40.fsf_-_@ebiederm.dsl.xmission.com>
+	<20050921.001321.78997430.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@suse.cz>
-In-Reply-To: <20050921102054.GE25297@atrey.karlin.mff.cuni.cz>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: openib-general@openib.org, netdev@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050921.001321.78997430.davem@davemloft.net> (David S.
+	Miller's message of "Wed, 21 Sep 2005 00:13:21 -0700 (PDT)")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek <pavel@suse.cz> wrote:
+"David S. Miller" <davem@davemloft.net> writes:
+
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Tue, 20 Sep 2005 11:18:23 -0600
 >
-> Hi!
-> 
-> > > diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-> > > --- a/drivers/net/b44.c
-> > > +++ b/drivers/net/b44.c
-> > > @@ -1930,6 +1930,8 @@ static int b44_suspend(struct pci_dev *p
-> > >  	b44_free_rings(bp);
-> > >  
-> > >  	spin_unlock_irq(&bp->lock);
-> > > +
-> > > +	free_irq(dev->irq, dev);
-> > >  	pci_disable_device(pdev);
-> > >  	return 0;
-> > >  }
-> > > @@ -1946,6 +1948,9 @@ static int b44_resume(struct pci_dev *pd
-> > >  	if (!netif_running(dev))
-> > >  		return 0;
-> > >  
-> > > +	if (request_irq(dev->irq, b44_interrupt, SA_SHIRQ, dev->name, dev))
-> > > +		printk(KERN_ERR PFX "%s: request_irq failed\n", dev->name);
-> > > +
-> > >  	spin_lock_irq(&bp->lock);
-> > >  
-> > >  	b44_init_rings(bp);
-> > > 
-> > 
-> > Why does it hang on suspend/resume?
-> > 
-> > This came up a while back and iirc we decided that adding free_irq() to
-> > every ->suspend() handler in the world was the wrong thing to do.  Do I
-> > misremember?
-> 
-> No, you remember right, but b44 needed that free_irq/request_irq even
-> because those ACPI changes. I'm not exactly sure why, something went
-> very wrong otherwise.
+>> Dave I don't know if this is part of what you want but
+>> zeroing the socket address buffer before use seem to be implied
+>> by what you were asking for.   So here is an additional patch
+>> to implement that.
+>> 
+>> This is a paranoid precaution to guard against accidental
+>> information leaks to user space or other consumers/producers
+>> may fail to properly fail to set or read the hardware
+>> address length. af_packet over ethernet has had at least
+>> has one small but in this respect.
+>
+> I think this patch might be a bit overkill, but thanks for cooking it
+> up.  I'm willing to be convinced otherwise though :-)
 
-Well I guess we should work out what went wrong ;)
+Personally I agree. But if we don't we probably need to audit
+all of the other protocols besides af_packet and see if
+they could possible have the problem that af_packet did
+with struct sockaddr_ll.
 
-What are the symptoms?  Screaming interrupt?  Can't immediately see why. 
-Does the screaming interrupt detetor trigger and disable the IRQ Line?
+What happened is struct sockaddr_ll had an array of 8 bytes
+where it placed a hardware address.  It reported to socket.c
+the length of struct sockaddr_ll for returning to user space.
+The code then only filled in enough bytes for the actual hardware
+address.  6 bytes in the common case of ethernet.  So only 6 bytes
+were ever written and we returned 8 bytes to user space.
+
+The transmission is similar except the kernel code was responsible
+for simply not caring about the additional bytes.  But confused
+kernel code could have the problem.
+
+This is the same problem you were concerned about with 
+my new struct packet_mreq_max.  The only way to take the same
+precautions on the other code paths is to modify socket.c
+
+I am concerned enough to point out the possibility and send
+a patch to add some memset() as a cheap insurance plan.  Auditing
+the address handling for all of the rest of the network protcols is
+more than I am ready to volunteer for.
+
+Eric
