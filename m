@@ -1,59 +1,82 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Thu, 22 Sep 2005 14:54:22 +0200
-Message-ID: <200509221454.22923.ak@suse.de>
-References: <43308324.70403@cosmosbay.com> <43329F6E.3030706@cosmosbay.com> <20050922124941.GA26936@infradead.org>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 1/3] netfilter : 3 patches to boost ip_tables performance
+Date: Thu, 22 Sep 2005 14:57:24 +0200
+Message-ID: <20050922125724.GJ26520@sunbeam.de.gnumonks.org>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	<432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de>
+	<433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com>
+	<4331D0A9.3080801@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Christoph Lameter <clameter@engr.sgi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030293AbVIVMyq@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20050922124941.GA26936@infradead.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Encpt1P6Mxii2VuT"
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, Andi Kleen <ak@suse.de>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4331D0A9.3080801@cosmosbay.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 22 September 2005 14:49, Christoph Hellwig wrote:
-> On Thu, Sep 22, 2005 at 02:11:26PM +0200, Eric Dumazet wrote:
-> > +#ifdef CONFIG_NUMA
-> > +/**
-> > + * vmalloc_node - allocate virtually contiguous memory
-> > + *
-> > + *	@size:		allocation size
-> > + *	@node:		preferred node
-> > + *
-> > + * This vmalloc variant try to allocate memory from a preferred node.
-> > + */
-> > +void *vmalloc_node(unsigned long size, int node)
-> > +{
-> > +	void *result;
-> > +	struct mempolicy *oldpol = current->mempolicy;
-> > +	mm_segment_t oldfs = get_fs();
-> > +	DECLARE_BITMAP(prefnode, MAX_NUMNODES);
-> > +
-> > +	mpol_get(oldpol);
-> > +	bitmap_zero(prefnode, MAX_NUMNODES);
-> > +	set_bit(node, prefnode);
-> > +
-> > +	set_fs(KERNEL_DS);
-> > +	sys_set_mempolicy(MPOL_PREFERRED, prefnode, MAX_NUMNODES);
-> > +	set_fs(oldfs);
-> > +
-> > +	result = vmalloc(size);
-> > +
-> > +	mpol_free(current->mempolicy);
-> > +	current->mempolicy = oldpol;
-> > +	return result;
-> > +}
->
-> No way, sorry.  If you want a vmalloc node do it right.
 
-The implementation looks fine to me, so I think it's already right.
+--Encpt1P6Mxii2VuT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
--Andi
+On Wed, Sep 21, 2005 at 11:29:13PM +0200, Eric Dumazet wrote:
+> Patch 1/3
+>=20
+> 1) No more one rwlock_t protecting the 'curtain'
+
+I have no problem with this change "per se", but with the
+implementation.
+
+As of now, we live without any ugly #ifdef CONFIG_SMP / #endif sections
+in the code - and if possible, I would continue this good tradition.
+
+For example the get_counters() function.  Wouldn't all the smp specific
+code (for_each_cpu(), ...)  be #defined to nothing anyway?
+
+And if we really need the #ifdef's, I would appreciate if those
+sectionas are as small as possible.  in get_counters() the section can
+definitely be smaller, rather than basically having the whole function
+body separate for smp and non-smp cases.
+
+Also, how much would we loose in runtime performance if we were using a
+"rwlock_t *" even in the UP case?.  I mean, it's just one more pointer
+dereference of something that is expected to be in cache anyway, isn't
+it?  This gets rid of another huge set of #ifdefs that make the code
+unreadable and prone to errors being introduced later on.
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--Encpt1P6Mxii2VuT
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFDMqo0XaXGVTD0i/8RAqmfAJ4wK16fo/z10f3AhLri+4P+LemXVACdFrDh
+kp2OtLw2758hy9k1bsfZZuY=
+=Plu3
+-----END PGP SIGNATURE-----
+
+--Encpt1P6Mxii2VuT--
