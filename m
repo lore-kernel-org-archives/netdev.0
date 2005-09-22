@@ -1,44 +1,41 @@
-From: Borislav Petkov <petkov@uni-muenster.de>
-Subject: [PATCH] remove check_region from PnPWakeUp routine of Eepro ISA driver
-Date: Thu, 22 Sep 2005 08:00:30 +0200
-Message-ID: <20050922060030.GB19049@gollum.tnic>
+From: "Jason R. Martin" <nsxfreddy@gmail.com>
+Subject: Re: [PATCH] channel bonding: add support for device-indexed parameters
+Date: Wed, 21 Sep 2005 23:03:53 -0700
+Message-ID: <c295378405092123032534d93b@mail.gmail.com>
+References: <20050922000444.369c32c2.fmalita@gmail.com>
+Reply-To: "Jason R. Martin" <nsxfreddy@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965233AbVIVGAK@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: akpm@osdl.org, davem@davemloft.net, ctindel@users.sourceforge.net,
+	fubar@us.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965235AbVIVGDy@vger.kernel.org>
+To: Florin Malita <fmalita@gmail.com>
+In-Reply-To: <20050922000444.369c32c2.fmalita@gmail.com>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Hi,
+On 9/21/05, Florin Malita <fmalita@gmail.com> wrote:
+> While originally I was interested in being able to set a different
+> primary interface for each bond device (same primary for all bond
+> devices doesn't make any sense), most parameters deserve the same
+> treatement.
+>
+> This patch adds support for device indexed module parameter
+> arrays instead of the old plain scalars. Mostly module_param
+> substitutions and parameter parsing logic tweaking.
+[snip]
 
- The following patch removes the check_region call in the PnPWakeUp
- path in the Eepro /10 ISA driver. Instead, now it calls request_region
- for the PnP wake up routine and, after succeeding, it calls release_region
- for the actual reservation of I/O ports takes place in the eepro_probe1() 
- function straight afterwards.
+Personally I think working to get the sysfs support finished in
+bonding and stop relying on module parameters to configure bonds would
+be better, since bonds will truly be independent of each other and be
+able to be added and removed on the fly.  Having worked with a
+previous attempt to set per-bond values through module parameters
+(http://marc.theaimsgroup.com/?t=110558187800001&r=1&w=2), it's easy
+to get pretty crazy.  For example, you can have more than one
+arp_ip_target, and they really should be per bond as well, so how do
+you divvy those up via module parameters?
 
- Signed-off-by: Borislav Petkov <petkov@uni-muenster.de>
-
-
---- drivers/net/eepro.c.orig	2005-09-22 06:20:28.000000000 +0200
-+++ drivers/net/eepro.c	2005-09-22 07:20:16.000000000 +0200
-@@ -552,7 +552,7 @@ static int __init do_eepro_probe(struct 
- 	{
- 		unsigned short int WS[32]=WakeupSeq;
- 
--		if (check_region(WakeupPort, 2)==0) {
-+		if (request_region(WakeupPort, 2, DRV_NAME)) {
- 
- 			if (net_debug>5)
- 				printk(KERN_DEBUG "Waking UP\n");
-@@ -563,6 +563,8 @@ static int __init do_eepro_probe(struct 
- 				outb_p(WS[i],WakeupPort);
- 				if (net_debug>5) printk(KERN_DEBUG ": %#x ",WS[i]);
- 			}
-+			release_region(WakeupPort, 2);
-+
- 		} else printk(KERN_WARNING "Checkregion Failed!\n");
- 	}
- #endif
+Jason
