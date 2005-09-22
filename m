@@ -1,34 +1,47 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Thu, 22 Sep 2005 08:37:36 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0509220835310.16793@schroedinger.engr.sgi.com>
+Date: Thu, 22 Sep 2005 17:50:49 +0200
+Message-ID: <4332D2D9.7090802@cosmosbay.com>
 References: <43308324.70403@cosmosbay.com> <200509221454.22923.ak@suse.de>
- <20050922125849.GA27413@infradead.org> <200509221505.05395.ak@suse.de>
+	<20050922125849.GA27413@infradead.org>
+	<200509221505.05395.ak@suse.de>
+	<Pine.LNX.4.62.0509220835310.16793@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030408AbVIVPiE@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200509221505.05395.ak@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, Andi Kleen <ak@suse.de>,
+	Christoph Hellwig <hch@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Christoph Lameter <clameter@engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.62.0509220835310.16793@schroedinger.engr.sgi.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Sep 2005, Andi Kleen wrote:
+Christoph Lameter a =E9crit :
+>=20
+> It should really be do_set_mempolicy instead to be cleaner. I got a pat=
+ch=20
+> here that fixes the policy layer.
+>=20
+> But still I agree with Christoph that a real vmalloc_node is better. Th=
+ere=20
+> will be no fuzzing around with memory policies etc and its certainly=20
+> better performance wise.
 
-> On Thursday 22 September 2005 14:58, Christoph Hellwig wrote:
-> 
-> > Umm, no - adding set_fs/get_fs mess for things like that is not right.
-> 
-> I think it's fine. We're using it for various other interfaces too. In fact
-> sys_set_mempolicy is already used elsewhere in the kernel too.
+vmalloc_node() should be seldom used, at driver init, or when a new ip_ta=
+bles=20
+is loaded. If it happens to be a performance problem, then we can optimiz=
+e it.
+Why should we spend days of work for a function that is yet to be used ?
 
-It should really be do_set_mempolicy instead to be cleaner. I got a patch 
-here that fixes the policy layer.
-
-But still I agree with Christoph that a real vmalloc_node is better. There 
-will be no fuzzing around with memory policies etc and its certainly 
-better performance wise.
+Eric
