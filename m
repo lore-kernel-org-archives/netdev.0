@@ -1,26 +1,166 @@
-From: "jamal velazques" <judah@emailacc.com>
-Subject: information for you caldwell
-Date: Thu, 22 Sep 2005 13:39:21 +0200
-Message-ID: <B8913830.54D03B4@emailacc.com>
-Reply-To: "jamal velazques" <judah@emailacc.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
+Date: Thu, 22 Sep 2005 14:11:26 +0200
+Message-ID: <43329F6E.3030706@cosmosbay.com>
+References: <43308324.70403@cosmosbay.com> <4331CFA7.50104@cosmosbay.com>
+	<Pine.LNX.4.62.0509211542210.13045@schroedinger.engr.sgi.com>
+	<20050921.173408.122945960.davem@davemloft.net>
+	<Pine.LNX.4.62.0509211843530.13764@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <knight@oss.sgi.com>, <linux-xfs@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Josiah Unruh" <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="------------030303090803010202030802"
+Cc: netdev@vger.kernel.org, ak@suse.de, netfilter-devel@lists.netfilter.org,
+	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Christoph Lameter <clameter@engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.62.0509211843530.13764@schroedinger.engr.sgi.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Luis:
+This is a multi-part message in MIME format.
+--------------030303090803010202030802
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by gw1.cosmosbay.com id
+	j8MCBQ6d025617
 
-http://uk.geocities.com/abaskpill/?They_look_fantastic ei
+Christoph Lameter a =E9crit :
+> On Wed, 21 Sep 2005, David S. Miller wrote:
+>=20
+>=20
+>>From: Christoph Lameter <clameter@engr.sgi.com>
+>>Date: Wed, 21 Sep 2005 15:43:29 -0700 (PDT)
+>>
+>>
+>>>Maybe we better introduce vmalloc_node() instead of improvising this f=
+or=20
+>>>several subsystems? The e1000 driver has similar issues.
+>>
+>>I agree.
+>=20
+>=20
+> I did an implementation in June.
+>=20
+> See http://marc.theaimsgroup.com/?l=3Dlinux-mm&m=3D111766643127530&w=3D=
+2
+>=20
+> Not sure if this will fit the bill. Never really tested it.
 
 
+Maybe this simpler patch has more chances to be accepted ?
 
+Thank you
 
-UnderstandThat dreams can come true[CHORUS]
-empdata  fendrichs  datawatchs sz03 cyndal  ejuh
-We say to the doctore, "No. Please. No!" 
+[NUMA]
+
+- Adds a vmalloc_node() function : A simple wrapper around vmalloc() to=20
+allocate memory from a preferred node.
+
+This NUMA aware variant will be used by ip_tables and various network dri=
+vers.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--------------030303090803010202030802
+Content-Type: text/plain;
+ name="vmalloc_node"
+Content-Disposition: inline;
+ filename="vmalloc_node"
+Content-Transfer-Encoding: 7bit
+
+--- linux-2.6.14-rc2/include/linux/vmalloc.h	2005-09-20 05:00:41.000000000 +0200
++++ linux-2.6.14-rc2-ed/include/linux/vmalloc.h	2005-09-22 11:34:55.000000000 +0200
+@@ -1,6 +1,7 @@
+ #ifndef _LINUX_VMALLOC_H
+ #define _LINUX_VMALLOC_H
+ 
++#include <linux/config.h>	/* vmalloc_node() needs CONFIG_ options */
+ #include <linux/spinlock.h>
+ #include <asm/page.h>		/* pgprot_t */
+ 
+@@ -32,6 +33,14 @@
+  *	Highlevel APIs for driver use
+  */
+ extern void *vmalloc(unsigned long size);
++#ifdef CONFIG_NUMA
++extern void *vmalloc_node(unsigned long size, int node);
++#else
++static inline void *vmalloc_node(unsigned long size, int node)
++{
++	return vmalloc(size);
++}
++#endif
+ extern void *vmalloc_exec(unsigned long size);
+ extern void *vmalloc_32(unsigned long size);
+ extern void *__vmalloc(unsigned long size, unsigned int __nocast gfp_mask, pgprot_t prot);
+--- linux-2.6.14-rc2/mm/vmalloc.c	2005-09-20 05:00:41.000000000 +0200
++++ linux-2.6.14-rc2-ed/mm/vmalloc.c	2005-09-22 11:55:19.000000000 +0200
+@@ -19,6 +19,9 @@
+ #include <asm/uaccess.h>
+ #include <asm/tlbflush.h>
+ 
++#ifdef CONFIG_NUMA
++#include <linux/mempolicy.h>
++#endif
+ 
+ DEFINE_RWLOCK(vmlist_lock);
+ struct vm_struct *vmlist;
+@@ -471,7 +474,7 @@
+  *	Allocate enough pages to cover @size from the page level
+  *	allocator and map them into contiguous kernel virtual space.
+  *
+- *	For tight cotrol over page level allocator and protection flags
++ *	For tight control over page level allocator and protection flags
+  *	use __vmalloc() instead.
+  */
+ void *vmalloc(unsigned long size)
+@@ -481,6 +484,40 @@
+ 
+ EXPORT_SYMBOL(vmalloc);
+ 
++#ifdef CONFIG_NUMA
++/**
++ * vmalloc_node - allocate virtually contiguous memory
++ *
++ *	@size:		allocation size
++ *	@node:		preferred node
++ *
++ * This vmalloc variant try to allocate memory from a preferred node.
++ */
++void *vmalloc_node(unsigned long size, int node)
++{
++	void *result;
++	struct mempolicy *oldpol = current->mempolicy;
++	mm_segment_t oldfs = get_fs();
++	DECLARE_BITMAP(prefnode, MAX_NUMNODES);
++
++	mpol_get(oldpol);
++	bitmap_zero(prefnode, MAX_NUMNODES);
++	set_bit(node, prefnode);
++
++	set_fs(KERNEL_DS);
++	sys_set_mempolicy(MPOL_PREFERRED, prefnode, MAX_NUMNODES);
++	set_fs(oldfs);
++
++	result = vmalloc(size);
++
++	mpol_free(current->mempolicy);
++	current->mempolicy = oldpol;
++	return result;
++}
++
++EXPORT_SYMBOL(vmalloc_node);
++#endif
++
+ #ifndef PAGE_KERNEL_EXEC
+ # define PAGE_KERNEL_EXEC PAGE_KERNEL
+ #endif
+
+--------------030303090803010202030802--
