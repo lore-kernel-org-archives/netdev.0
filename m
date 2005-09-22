@@ -1,33 +1,39 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Wed, 21 Sep 2005 18:44:51 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0509211843530.13764@schroedinger.engr.sgi.com>
-References: <43308324.70403@cosmosbay.com> <4331CFA7.50104@cosmosbay.com>
- <Pine.LNX.4.62.0509211542210.13045@schroedinger.engr.sgi.com>
- <20050921.173408.122945960.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] bond_main.c: fix device deregistration in init exception
+ path
+Date: Wed, 21 Sep 2005 22:38:26 -0400
+Message-ID: <43321922.70707@pobox.com>
+References: <432D0612.7070408@gmail.com> <20050917233224.2d4b3652.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dada1@cosmosbay.com, linux-kernel@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org,
-	ak@suse.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965208AbVIVBpT@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050921.173408.122945960.davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, ctindel@users.sourceforge.net,
+	fubar@us.ibm.com, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965214AbVIVCid@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Florin Malita <fmalita@gmail.com>
+In-Reply-To: <20050917233224.2d4b3652.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Sep 2005, David S. Miller wrote:
+Andrew Morton wrote:
+> diff -puN drivers/net/bonding/bond_main.c~bond_mainc-fix-device-deregistration-in-init-exception drivers/net/bonding/bond_main.c
+> --- devel/drivers/net/bonding/bond_main.c~bond_mainc-fix-device-deregistration-in-init-exception	2005-09-17 23:18:38.000000000 -0700
+> +++ devel-akpm/drivers/net/bonding/bond_main.c	2005-09-17 23:31:02.000000000 -0700
+> @@ -5039,6 +5039,14 @@ static int __init bonding_init(void)
+>  	return 0;
+>  
+>  out_err:
+> +	/*
+> +	 * rtnl_unlock() will run netdev_run_todo(), putting the
+> +	 * thus-far-registered bonding devices into a state which
+> +	 * unregigister_netdevice() will accept
+> +	 */
+> +	rtnl_unlock();
+> +	rtnl_lock();
+> +
 
-> From: Christoph Lameter <clameter@engr.sgi.com>
-> Date: Wed, 21 Sep 2005 15:43:29 -0700 (PDT)
-> 
-> > Maybe we better introduce vmalloc_node() instead of improvising this for 
-> > several subsystems? The e1000 driver has similar issues.
-> 
-> I agree.
 
-I did an implementation in June.
+Don't we want a schedule() or schedule_timeout(1) in between?
 
-See http://marc.theaimsgroup.com/?l=linux-mm&m=111766643127530&w=2
-
-Not sure if this will fit the bill. Never really tested it.
+	Jeff
