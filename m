@@ -1,29 +1,45 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Thu, 22 Sep 2005 15:05:04 +0200
-Message-ID: <200509221505.05395.ak@suse.de>
-References: <43308324.70403@cosmosbay.com> <200509221454.22923.ak@suse.de> <20050922125849.GA27413@infradead.org>
+From: Florin Malita <fmalita@gmail.com>
+Subject: Re: [PATCH] channel bonding: add support for device-indexed
+ parameters
+Date: Thu, 22 Sep 2005 09:16:08 -0400
+Message-ID: <20050922091608.5ec2724c.fmalita@gmail.com>
+References: <20050922000444.369c32c2.fmalita@gmail.com>
+	<c295378405092123032534d93b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Christoph Lameter <clameter@engr.sgi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030300AbVIVNFN@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20050922125849.GA27413@infradead.org>
-Content-Disposition: inline
+Cc: akpm@osdl.org, davem@davemloft.net, ctindel@users.sourceforge.net,
+	fubar@us.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030320AbVIVNT0@vger.kernel.org>
+To: "Jason R. Martin" <nsxfreddy@gmail.com>
+In-Reply-To: <c295378405092123032534d93b@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 22 September 2005 14:58, Christoph Hellwig wrote:
+On Wed, 21 Sep 2005 23:03:53 -0700
+"Jason R. Martin" <nsxfreddy@gmail.com> wrote:
+> Personally I think working to get the sysfs support finished in
+> bonding and stop relying on module parameters to configure bonds would
+> be better, since bonds will truly be independent of each other and be
+> able to be added and removed on the fly.  Having worked with a
+> previous attempt to set per-bond values through module parameters
+> (http://marc.theaimsgroup.com/?t=110558187800001&r=1&w=2), it's easy
+> to get pretty crazy.
 
-> Umm, no - adding set_fs/get_fs mess for things like that is not right.
+Agreed - that would be a better configuration interface, but I don't see
+why we couldn't support module parameter arrays too. Especially since
+the changes are minimal and don't break the ABI/ifenslave
+compatibility/etc.
 
-I think it's fine. We're using it for various other interfaces too. In fact
-sys_set_mempolicy is already used elsewhere in the kernel too.
+IMHO the "primary" semantics are completely broken right now and this
+is a possible fix for it.
 
--Andi
+> For example, you can have more than one
+> arp_ip_target, and they really should be per bond as well, so how do
+> you divvy those up via module parameters?
+
+Yup, arp_ip_target is one parameter which doesn't lend itself to this
+scheme and this is exactly why the patch doesn't try to fix it.
+
+Florin
