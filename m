@@ -1,44 +1,44 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Thu, 22 Sep 2005 07:07:56 +0200
-Message-ID: <43323C2C.8070204@cosmosbay.com>
-References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de> <432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de> <433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com> <4331CFA7.50104@cosmosbay.com> <Pine.LNX.4.63.0509220017430.6397@excalibur.intercode>
+From: Borislav Petkov <petkov@uni-muenster.de>
+Subject: [PATCH] remove check_region from PnPWakeUp routine of Eepro ISA driver
+Date: Thu, 22 Sep 2005 08:00:30 +0200
+Message-ID: <20050922060030.GB19049@gollum.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	netdev@vger.kernel.org, Andi Kleen <ak@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030218AbVIVFID@vger.kernel.org>
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.63.0509220017430.6397@excalibur.intercode>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965233AbVIVGAK@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris a =E9crit :
->=20
-> Do you have any performance measurements?
+ Hi,
 
-Yes, as I said in the first mail :
+ The following patch removes the check_region call in the PnPWakeUp
+ path in the Eepro /10 ISA driver. Instead, now it calls request_region
+ for the PnP wake up routine and, after succeeding, it calls release_region
+ for the actual reservation of I/O ports takes place in the eepro_probe1() 
+ function straight afterwards.
 
- >In oprofile results, ipt_do_table() was at the first position.
- >It is now at 6th position, using 1/3 of the CPU it was using before.
- >(Tests done on a dual Xeon i386 and a dual Opteron x86_64)
+ Signed-off-by: Borislav Petkov <petkov@uni-muenster.de>
 
-On the dual opteron machine, with 40.000 packets coming per second, and=
- 35.000=20
-sent per second, the numbers were : 12.8 % before the patches, 4.4 % af=
-ter the=20
-patches.
 
-I dont have separate perf measurements for each patch.
-
-Considering the fact that I inlined the read_lock_bh() call (not displa=
-yed in=20
-oprofile results, probably because of the special .spinlock.text sectio=
-n) that=20
-should have increased the profile of ipt_do_table(), thats a lot of CPU=
- cycles=20
-  and mem bandwitdh that are available for other jobs.
-
-Eric
+--- drivers/net/eepro.c.orig	2005-09-22 06:20:28.000000000 +0200
++++ drivers/net/eepro.c	2005-09-22 07:20:16.000000000 +0200
+@@ -552,7 +552,7 @@ static int __init do_eepro_probe(struct 
+ 	{
+ 		unsigned short int WS[32]=WakeupSeq;
+ 
+-		if (check_region(WakeupPort, 2)==0) {
++		if (request_region(WakeupPort, 2, DRV_NAME)) {
+ 
+ 			if (net_debug>5)
+ 				printk(KERN_DEBUG "Waking UP\n");
+@@ -563,6 +563,8 @@ static int __init do_eepro_probe(struct 
+ 				outb_p(WS[i],WakeupPort);
+ 				if (net_debug>5) printk(KERN_DEBUG ": %#x ",WS[i]);
+ 			}
++			release_region(WakeupPort, 2);
++
+ 		} else printk(KERN_WARNING "Checkregion Failed!\n");
+ 	}
+ #endif
