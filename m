@@ -1,50 +1,26 @@
-From: Christoph Hellwig <hch@infradead.org>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Thu, 22 Sep 2005 13:58:49 +0100
-Message-ID: <20050922125849.GA27413@infradead.org>
-References: <43308324.70403@cosmosbay.com> <43329F6E.3030706@cosmosbay.com> <20050922124941.GA26936@infradead.org> <200509221454.22923.ak@suse.de>
+Date: Thu, 22 Sep 2005 15:03:21 +0200
+Message-ID: <200509221503.21650.ak@suse.de>
+References: <432EF0C5.5090908@cosmosbay.com> <43308324.70403@cosmosbay.com> <4331CFA7.50104@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Christoph Lameter <clameter@engr.sgi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030294AbVIVM64@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030301AbVIVNDX@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <4331CFA7.50104@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <200509221454.22923.ak@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 22, 2005 at 02:54:22PM +0200, Andi Kleen wrote:
-> > > +void *vmalloc_node(unsigned long size, int node)
-> > > +{
-> > > +	void *result;
-> > > +	struct mempolicy *oldpol = current->mempolicy;
-> > > +	mm_segment_t oldfs = get_fs();
-> > > +	DECLARE_BITMAP(prefnode, MAX_NUMNODES);
-> > > +
-> > > +	mpol_get(oldpol);
-> > > +	bitmap_zero(prefnode, MAX_NUMNODES);
-> > > +	set_bit(node, prefnode);
-> > > +
-> > > +	set_fs(KERNEL_DS);
-> > > +	sys_set_mempolicy(MPOL_PREFERRED, prefnode, MAX_NUMNODES);
-> > > +	set_fs(oldfs);
-> > > +
-> > > +	result = vmalloc(size);
-> > > +
-> > > +	mpol_free(current->mempolicy);
-> > > +	current->mempolicy = oldpol;
-> > > +	return result;
-> > > +}
-> >
-> > No way, sorry.  If you want a vmalloc node do it right.
-> 
-> The implementation looks fine to me, so I think it's already right.
 
-Umm, no - adding set_fs/get_fs mess for things like that is not right.
-If we want to go down the mempolicy-based route we need to add a proper
-kernel entry point for setting a mempolicy
+> 1) No more central rwlock protecting each table (filter, nat, mangle, raw),
+>     but one lock per CPU. It avoids cache line ping pongs for each packet.
+
+Another useful change would be to not take the lock when there are no
+rules. Currently just loading iptables has a large overhead.
+
+-Andi
