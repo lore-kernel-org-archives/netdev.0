@@ -1,51 +1,67 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
-Date: Thu, 22 Sep 2005 13:49:41 +0100
-Message-ID: <20050922124941.GA26936@infradead.org>
-References: <43308324.70403@cosmosbay.com> <4331CFA7.50104@cosmosbay.com> <Pine.LNX.4.62.0509211542210.13045@schroedinger.engr.sgi.com> <20050921.173408.122945960.davem@davemloft.net> <Pine.LNX.4.62.0509211843530.13764@schroedinger.engr.sgi.com> <43329F6E.3030706@cosmosbay.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 3/3] netfilter : 3 patches to boost ip_tables performance
+Date: Thu, 22 Sep 2005 14:50:04 +0200
+Message-ID: <20050922125004.GI26520@sunbeam.de.gnumonks.org>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	<432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de>
+	<433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com>
+	<4331D290.6070104@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <clameter@engr.sgi.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	netdev@vger.kernel.org, ak@suse.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030288AbVIVMtt@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZPDwMsyfds7q4mrK"
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, Andi Kleen <ak@suse.de>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <43329F6E.3030706@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4331D290.6070104@cosmosbay.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 22, 2005 at 02:11:26PM +0200, Eric Dumazet wrote:
-> +#ifdef CONFIG_NUMA
-> +/**
-> + * vmalloc_node - allocate virtually contiguous memory
-> + *
-> + *	@size:		allocation size
-> + *	@node:		preferred node
-> + *
-> + * This vmalloc variant try to allocate memory from a preferred node.
-> + */
-> +void *vmalloc_node(unsigned long size, int node)
-> +{
-> +	void *result;
-> +	struct mempolicy *oldpol = current->mempolicy;
-> +	mm_segment_t oldfs = get_fs();
-> +	DECLARE_BITMAP(prefnode, MAX_NUMNODES);
-> +
-> +	mpol_get(oldpol);
-> +	bitmap_zero(prefnode, MAX_NUMNODES);
-> +	set_bit(node, prefnode);
-> +
-> +	set_fs(KERNEL_DS);
-> +	sys_set_mempolicy(MPOL_PREFERRED, prefnode, MAX_NUMNODES);
-> +	set_fs(oldfs);
-> +
-> +	result = vmalloc(size);
-> +
-> +	mpol_free(current->mempolicy);
-> +	current->mempolicy = oldpol;
-> +	return result;
-> +}
 
-No way, sorry.  If you want a vmalloc node do it right.
+--ZPDwMsyfds7q4mrK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Sep 21, 2005 at 11:37:20PM +0200, Eric Dumazet wrote:
+> Patch 3/3 (please apply after Patch 2/3)
+
+Thanks for your patches, again.
+
+> 3) NUMA allocation.
+
+I'll wait with applying this patch until a decision has been made on
+merging something like vmalloc_node() to mainline.
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--ZPDwMsyfds7q4mrK
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFDMqh8XaXGVTD0i/8RAq6dAJ9WGu576KG8KrPLA3gVYszkO4nxhwCcDMUO
+aWNzxgyOy2Ym6vE/LuReTOo=
+=Us/a
+-----END PGP SIGNATURE-----
+
+--ZPDwMsyfds7q4mrK--
