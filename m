@@ -1,45 +1,82 @@
-From: Florin Malita <fmalita@gmail.com>
-Subject: Re: [PATCH] channel bonding: add support for device-indexed
- parameters
-Date: Thu, 22 Sep 2005 09:16:08 -0400
-Message-ID: <20050922091608.5ec2724c.fmalita@gmail.com>
-References: <20050922000444.369c32c2.fmalita@gmail.com>
-	<c295378405092123032534d93b@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 1/3] netfilter : 3 patches to boost ip_tables performance
+Date: Thu, 22 Sep 2005 15:17:51 +0200
+Message-ID: <4332AEFF.1040105@cosmosbay.com>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	<432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de>
+	<433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com>
+	<4331D0A9.3080801@cosmosbay.com>
+	<20050922125724.GJ26520@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, davem@davemloft.net, ctindel@users.sourceforge.net,
-	fubar@us.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030320AbVIVNT0@vger.kernel.org>
-To: "Jason R. Martin" <nsxfreddy@gmail.com>
-In-Reply-To: <c295378405092123032534d93b@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, Andi Kleen <ak@suse.de>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20050922125724.GJ26520@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Sep 2005 23:03:53 -0700
-"Jason R. Martin" <nsxfreddy@gmail.com> wrote:
-> Personally I think working to get the sysfs support finished in
-> bonding and stop relying on module parameters to configure bonds would
-> be better, since bonds will truly be independent of each other and be
-> able to be added and removed on the fly.  Having worked with a
-> previous attempt to set per-bond values through module parameters
-> (http://marc.theaimsgroup.com/?t=110558187800001&r=1&w=2), it's easy
-> to get pretty crazy.
+Harald Welte a =E9crit :
+> On Wed, Sep 21, 2005 at 11:29:13PM +0200, Eric Dumazet wrote:
+>=20
+>>Patch 1/3
+>>
+>>1) No more one rwlock_t protecting the 'curtain'
+>=20
+>=20
+> I have no problem with this change "per se", but with the
+> implementation.
+>=20
+> As of now, we live without any ugly #ifdef CONFIG_SMP / #endif sections
+> in the code - and if possible, I would continue this good tradition.
+>=20
+> For example the get_counters() function.  Wouldn't all the smp specific
+> code (for_each_cpu(), ...)  be #defined to nothing anyway?
 
-Agreed - that would be a better configuration interface, but I don't see
-why we couldn't support module parameter arrays too. Especially since
-the changes are minimal and don't break the ABI/ifenslave
-compatibility/etc.
+Well... not exactly, but you are right only the first loop (SET_COUNTER) =
+will=20
+really do something. The if (cpu =3D=3D curcpu) will be true but the comp=
+iler wont=20
+  know that, cpu and curcpu are still C variables.
 
-IMHO the "primary" semantics are completely broken right now and this
-is a possible fix for it.
 
-> For example, you can have more than one
-> arp_ip_target, and they really should be per bond as well, so how do
-> you divvy those up via module parameters?
+>=20
+> And if we really need the #ifdef's, I would appreciate if those
+> sectionas are as small as possible.  in get_counters() the section can
+> definitely be smaller, rather than basically having the whole function
+> body separate for smp and non-smp cases.
 
-Yup, arp_ip_target is one parameter which doesn't lend itself to this
-scheme and this is exactly why the patch doesn't try to fix it.
+get_counters() is not critical, so I agree with you we can stick the gene=
+ral=20
+version (not the UP optimized one)
 
-Florin
+>=20
+> Also, how much would we loose in runtime performance if we were using a
+> "rwlock_t *" even in the UP case?.  I mean, it's just one more pointer
+> dereference of something that is expected to be in cache anyway, isn't
+> it?  This gets rid of another huge set of #ifdefs that make the code
+> unreadable and prone to errors being introduced later on.
+>=20
+
+Well, in UP case, the rwlock_t is a nulldef.
+
+I was inspired by another use of percpu data in include/linux/genhd.h
+#ifdef  CONFIG_SMP
+     struct disk_stats *dkstats;
+#else
+     struct disk_stats dkstats;
+#endif
+
+But if you dislike this, we can use pointer for all cases.
+
+Eric
