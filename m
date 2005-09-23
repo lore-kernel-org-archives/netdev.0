@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 8/8] orinoco:
+Subject: [PATCH 5/8] orinoco:
 Date: Fri, 23 Sep 2005 04:17:10 -0400
-Message-ID: <E1EIik2-0003bT-Ho@gnu.org>
+Message-ID: <E1EIik2-0003cr-PE@gnu.org>
 Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
