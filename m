@@ -1,132 +1,52 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH] fix NFQUEUE Kconfig dependency (was Re: Fw: Kernel 2.6.14-rc2 compile error)
-Date: Fri, 23 Sep 2005 17:06:31 +0200
-Message-ID: <20050923150631.GH731@sunbeam.de.gnumonks.org>
-References: <20050923014412.26695cc4.akpm@osdl.org> <433412A6.2090904@trash.net>
+Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
+Date: Fri, 23 Sep 2005 19:09:11 +0200
+Message-ID: <20050923170911.GN731@sunbeam.de.gnumonks.org>
+References: <432EF0C5.5090908@cosmosbay.com> <43308324.70403@cosmosbay.com> <4331CFA7.50104@cosmosbay.com> <200509221503.21650.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gAUgrzRZ7tRi/Yr6"
-Cc: Andrew Morton <akpm@osdl.org>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751067AbVIWPGi@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+	protocol="application/pgp-signature"; boundary="i1d8offQF8oqidLm"
+Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750810AbVIWRJP@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
-In-Reply-To: <433412A6.2090904@trash.net>
+In-Reply-To: <200509221503.21650.ak@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---gAUgrzRZ7tRi/Yr6
+--i1d8offQF8oqidLm
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, Sep 23, 2005 at 04:35:18PM +0200, Patrick McHardy wrote:
-> Andrew Morton wrote:
-> > I think we fixed this?
+On Thu, Sep 22, 2005 at 03:03:21PM +0200, Andi Kleen wrote:
 >=20
-> Harald made some dependency fixes, but this one looks new to me.
-> Harald?
+> > 1) No more central rwlock protecting each table (filter, nat, mangle, r=
+aw),
+> >     but one lock per CPU. It avoids cache line ping pongs for each pack=
+et.
+>=20
+> Another useful change would be to not take the lock when there are no
+> rules. Currently just loading iptables has a large overhead.
 
-Please apply the following patch, it fixes the problem.
+This is partially due to the netfilter hooks that are registered (so we
+always take nf_hook_slow() in the NF_HOOK() macro).
 
-[NETFILTER]: Fix ip[6]t_NFQUEUE Kconfig dependency
+The default policies inside an iptables chain are internally implemented
+as a rule.  Thus, policies as built-in rules have packet/byte counters.
 
-We have to introduce a separate Kconfig menu entry for the NFQUEUE targets.
-They cannot "just" depend on nfnetlink_queue, since nfnetlink_queue could
-be linked into the kernel, whereas iptables can be a module.
+Therefore, without making a semantic change, we cannot do any of the
+following optimizations:
 
-Signed-off-by: Harald Welte <laforge@netfilter.org>
+1) not take a lock when the chain is empty
+2) not register at the netfilter hook when the chain is empty.
 
----
-commit d7252e42c8832cd5695decb1d834e4dcac4bb8d9
-tree bb07ec7f79963d6aa1a9c74a99983cd3c27873b3
-parent 1cd841ea786e2a74fc0d66299a024ae6b3b7424a
-author Harald Welte <laforge@hanuman.de.gnumonks.org> Fri, 23 Sep 2005 17:0=
-4:26 +0200
-committer Harald Welte <laforge@hanuman.de.gnumonks.org> Fri, 23 Sep 2005 1=
-7:04:26 +0200
+This is well-known, but I don't think we can change the semantics for
+the user during a stable kernel series.  That's one point where not
+having 2.7.x really hurts.
 
- net/ipv4/netfilter/Kconfig  |   11 +++++++++++
- net/ipv4/netfilter/Makefile |    2 +-
- net/ipv6/netfilter/Kconfig  |   11 +++++++++++
- net/ipv6/netfilter/Makefile |    2 +-
- 4 files changed, 24 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -521,6 +521,17 @@ config IP_NF_TARGET_TCPMSS
-=20
- 	  To compile it as a module, choose M here.  If unsure, say N.
-=20
-+config IP_NF_TARGET_NFQUEUE
-+	tristate "NFQUEUE Target Support"
-+	depends on IP_NF_IPTABLES
-+	help
-+	  This Target replaced the old obsolete QUEUE target.
-+
-+	  As opposed to QUEUE, it supports 65535 different queues,
-+	  not just one.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- # NAT + specific targets
- config IP_NF_NAT
- 	tristate "Full NAT"
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -87,6 +87,7 @@ obj-$(CONFIG_IP_NF_TARGET_TCPMSS) +=3D ipt
- obj-$(CONFIG_IP_NF_TARGET_NOTRACK) +=3D ipt_NOTRACK.o
- obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) +=3D ipt_CLUSTERIP.o
- obj-$(CONFIG_IP_NF_TARGET_TTL) +=3D ipt_TTL.o
-+obj-$(CONFIG_IP_NF_TARGET_NFQUEUE) +=3D ipt_NFQUEUE.o
-=20
- # generic ARP tables
- obj-$(CONFIG_IP_NF_ARPTABLES) +=3D arp_tables.o
-@@ -96,4 +97,3 @@ obj-$(CONFIG_IP_NF_ARP_MANGLE) +=3D arpt_m
- obj-$(CONFIG_IP_NF_ARPFILTER) +=3D arptable_filter.o
-=20
- obj-$(CONFIG_IP_NF_QUEUE) +=3D ip_queue.o
--obj-$(CONFIG_NETFILTER_NETLINK_QUEUE) +=3D ipt_NFQUEUE.o
-diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
---- a/net/ipv6/netfilter/Kconfig
-+++ b/net/ipv6/netfilter/Kconfig
-@@ -209,6 +209,17 @@ config IP6_NF_TARGET_REJECT
-=20
- 	  To compile it as a module, choose M here.  If unsure, say N.
-=20
-+config IP6_NF_TARGET_NFQUEUE
-+	tristate "NFQUEUE Target Support"
-+	depends on IP_NF_IPTABLES
-+	help
-+	  This Target replaced the old obsolete QUEUE target.
-+
-+	  As opposed to QUEUE, it supports 65535 different queues,
-+	  not just one.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- #  if [ "$CONFIG_IP6_NF_FILTER" !=3D "n" ]; then
- #    dep_tristate '    REJECT target support' CONFIG_IP6_NF_TARGET_REJECT =
-$CONFIG_IP6_NF_FILTER
- #    if [ "$CONFIG_EXPERIMENTAL" =3D "y" ]; then
-diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
---- a/net/ipv6/netfilter/Makefile
-+++ b/net/ipv6/netfilter/Makefile
-@@ -21,9 +21,9 @@ obj-$(CONFIG_IP6_NF_FILTER) +=3D ip6table_
- obj-$(CONFIG_IP6_NF_MANGLE) +=3D ip6table_mangle.o
- obj-$(CONFIG_IP6_NF_TARGET_MARK) +=3D ip6t_MARK.o
- obj-$(CONFIG_IP6_NF_TARGET_HL) +=3D ip6t_HL.o
-+obj-$(CONFIG_IP6_NF_TARGET_NFQUEUE) +=3D ip6t_NFQUEUE.o
- obj-$(CONFIG_IP6_NF_QUEUE) +=3D ip6_queue.o
- obj-$(CONFIG_IP6_NF_TARGET_LOG) +=3D ip6t_LOG.o
- obj-$(CONFIG_IP6_NF_RAW) +=3D ip6table_raw.o
- obj-$(CONFIG_IP6_NF_MATCH_HL) +=3D ip6t_hl.o
- obj-$(CONFIG_IP6_NF_TARGET_REJECT) +=3D ip6t_REJECT.o
--obj-$(CONFIG_NETFILTER_NETLINK_QUEUE) +=3D ip6t_NFQUEUE.o
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -137,16 +57,16 @@ diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---gAUgrzRZ7tRi/Yr6
+--i1d8offQF8oqidLm
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFDNBn3XaXGVTD0i/8RAva2AJ9UQQf8+aUWHkhw0iLuG7zEo//jlQCffyO0
-n0UJa8D1yVLZhGsLxMWzmec=
-=htRK
+iD8DBQFDNDa3XaXGVTD0i/8RAhGYAJ9PMXbW3ukZmMQtTSr8Bszii7OGcQCgidIS
+/wV2ladFluSb6uUZ3B+qbHI=
+=PSsv
 -----END PGP SIGNATURE-----
 
---gAUgrzRZ7tRi/Yr6--
+--i1d8offQF8oqidLm--
