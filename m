@@ -1,10 +1,16 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 8/8] orinoco: Bump version to 0.15rc3.
-Date: Fri, 23 Sep 2005 04:18:06 -0400
-Message-ID: <E1EIikw-0003hR-0a@gnu.org>
-Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Subject: Re: [PATCH 1/8] orinoco: Remove inneeded system includes.
+Date: Fri, 23 Sep 2005 04:45:58 -0400
+Message-ID: <20050923044558.ja3ag48o8k080k44@webmail.spamcop.net>
+References: <E1EIikx-0003sj-5A@gnu.org> <4333BE87.6060002@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <4333BE87.6060002-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Content-Disposition: inline
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -16,23 +22,17 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Quoting Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>:
 
-Bump version to 0.15rc3.
+> applied 1-8
 
-diff --git a/drivers/net/wireless/orinoco.h b/drivers/net/wireless/orinoco.h
---- a/drivers/net/wireless/orinoco.h
-+++ b/drivers/net/wireless/orinoco.h
-@@ -7,7 +7,7 @@
- #ifndef _ORINOCO_H
- #define _ORINOCO_H
- 
--#define DRIVER_VERSION "0.15rc2"
-+#define DRIVER_VERSION "0.15rc3"
- 
- #include <linux/netdevice.h>
- #include <linux/wireless.h>
+Thanks!
 
+Sorry for the empty e-mails.
+
+--
+Regards,
+Pavel Roskin
 
 
 -------------------------------------------------------
