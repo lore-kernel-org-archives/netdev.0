@@ -1,69 +1,46 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [NETFILTER] fix conntrack event cache deadlock
-Date: Fri, 23 Sep 2005 11:25:52 +0200
-Message-ID: <20050923092552.GC731@sunbeam.de.gnumonks.org>
-References: <20050922143515.GD8917@rama.de.gnumonks.org>
-	<20050922.234724.110942393.davem@davemloft.net>
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: [PATCH 2/3] netfilter : 3 patches to boost ip_tables performance
+Date: Fri, 23 Sep 2005 13:33:47 +0200
+Message-ID: <20050923113347.GA19516@alpha.home.local>
+References: <200509191948.55333.ak@suse.de> <432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de> <433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com> <4331D168.6090604@cosmosbay.com> <20050922124803.GH26520@sunbeam.de.gnumonks.org> <4332AC2E.8000607@cosmosbay.com> <20050923040234.GC595@alpha.home.local> <43338F30.6070601@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="fwqqG+mf3f7vyBCB"
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Willy Tarreau <willy@w.ods.org>,
+	Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org,
+	Andi Kleen <ak@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750851AbVIWLgM@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <20050922.234724.110942393.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <43338F30.6070601@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Sep 23, 2005 at 07:14:24AM +0200, Eric Dumazet wrote:
+ 
+> Even without CMOV support, the suggested patch helps :
+> 
+> Here is the code generated with gcc-3.4.4  on a pentium4 (i686) for :
+> 
+> /********************/
+> bool1 = ((ip->saddr&ipinfo->smsk.s_addr) != ipinfo->src.s_addr);
+> bool1 ^= !!(ipinfo->invflags & IPT_INV_SRCIP);
+> 
+> bool2 = ((ip->daddr&ipinfo->dmsk.s_addr) != ipinfo->dst.s_addr);
+> bool2 ^= !!(ipinfo->invflags & IPT_INV_DSTIP);
+> 
+> if ((bool1 | bool2) != 0) {
+> 
+> /********************/
 
---fwqqG+mf3f7vyBCB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+(...)
 
-On Thu, Sep 22, 2005 at 11:47:24PM -0700, David S. Miller wrote:
-> From: Harald Welte <laforge@netfilter.org>
-> Date: Thu, 22 Sep 2005 16:35:15 +0200
->=20
-> > [NETFILTER] Fix conntrack event cache deadlock/oops
->=20
-> Applied.  I hope that doing the event cache call outside
-> the lock is safe?  It was not depending upon that protection
-> in any way was it?
+I totally agree with your demonstration. It would be interesting to compare
+she same code on an architecture with more registers (eg: sparc). One of
+the reasons of bad optimization of such constructs on x86 seems to be the
+lack of registers for the number of variables and intermediate results.
+When you write the code like above, you show the workflow to the compiler
+(and I often use the same technique).
 
-no, not at all.  It was a mistake to call it within the locked section.
-The call was erroneously placed there, because it fitted there without
-reorganizing the code flow.
-
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---fwqqG+mf3f7vyBCB
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDM8ogXaXGVTD0i/8RAuIzAJ93dB0ZlcPJKKiekhEZvxg2SvHBHQCeLy1y
-o745AkimxZHchIdcDvDkGj0=
-=W81w
------END PGP SIGNATURE-----
-
---fwqqG+mf3f7vyBCB--
+Regards,
+Willy
