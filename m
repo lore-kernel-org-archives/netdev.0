@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 4/8] orinoco: orinoco_send_wevents() could return without unlocking.
+Subject: [PATCH 3/8] orinoco: Fix memory leak and unneeded unlock in orinoco_join_ap()
 Date: Fri, 23 Sep 2005 04:18:06 -0400
-Message-ID: <E1EIikw-0003nB-J7@gnu.org>
+Message-ID: <E1EIikw-0003op-O6@gnu.org>
 Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -18,30 +18,35 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-orinoco_send_wevents() could return without unlocking.
+Fix memory leak and unneeded unlock in orinoco_join_ap()
 
-Failure to read BSSID from the hardware would cause orinoco_send_wevents() to
-return with lock held.  Found by sparse.
+If orinoco_lock() fails, the code would still run orinoco_unlock(),
+instead of freeing the allocated memory.  Found by sparse.
 
 diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
 --- a/drivers/net/wireless/orinoco.c
 +++ b/drivers/net/wireless/orinoco.c
-@@ -1112,12 +1112,14 @@ static void orinoco_send_wevents(struct 
- 	err = hermes_read_ltv(hw, IRQ_BAP, HERMES_RID_CURRENTBSSID,
- 			      ETH_ALEN, NULL, wrqu.ap_addr.sa_data);
- 	if (err != 0)
--		return;
-+		goto out;
+@@ -1046,7 +1046,7 @@ static void orinoco_join_ap(struct net_d
+ 		return;
  
- 	wrqu.ap_addr.sa_family = ARPHRD_ETHER;
+ 	if (orinoco_lock(priv, &flags) != 0)
+-		goto out;
++		goto fail_lock;
  
- 	/* Send event to user space */
- 	wireless_send_event(dev, SIOCGIWAP, &wrqu, NULL);
-+
-+ out:
+ 	/* Sanity checks in case user changed something in the meantime */
+ 	if (! priv->bssid_fixed)
+@@ -1091,8 +1091,10 @@ static void orinoco_join_ap(struct net_d
+ 		printk(KERN_ERR "%s: Error issuing join request\n", dev->name);
+ 
+  out:
+-	kfree(buf);
  	orinoco_unlock(priv, &flags);
++
++ fail_lock:
++	kfree(buf);
  }
  
+ /* Send new BSSID to userspace */
 
 
 
