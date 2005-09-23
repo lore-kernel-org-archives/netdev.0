@@ -1,46 +1,90 @@
-From: Willy Tarreau <willy@w.ods.org>
+From: Tim Mattox <tmattox@gmail.com>
 Subject: Re: [PATCH 2/3] netfilter : 3 patches to boost ip_tables performance
-Date: Fri, 23 Sep 2005 13:33:47 +0200
-Message-ID: <20050923113347.GA19516@alpha.home.local>
-References: <200509191948.55333.ak@suse.de> <432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de> <433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com> <4331D168.6090604@cosmosbay.com> <20050922124803.GH26520@sunbeam.de.gnumonks.org> <4332AC2E.8000607@cosmosbay.com> <20050923040234.GC595@alpha.home.local> <43338F30.6070601@cosmosbay.com>
+Date: Fri, 23 Sep 2005 10:00:27 -0400
+Message-ID: <ea86ce2205092307003e8c2d8c@mail.gmail.com>
+References: <432EF0C5.5090908@cosmosbay.com> <200509191948.55333.ak@suse.de>
+	 <432FDAC5.3040801@cosmosbay.com> <200509201830.20689.ak@suse.de>
+	 <433082DE.3060308@cosmosbay.com> <43308324.70403@cosmosbay.com>
+	 <4331D168.6090604@cosmosbay.com>
+	 <20050922124803.GH26520@sunbeam.de.gnumonks.org>
+	 <4332AC2E.8000607@cosmosbay.com>
+	 <20050923040234.GC595@alpha.home.local>
+Reply-To: Tim Mattox <tmattox@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <willy@w.ods.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
 	Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
 	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org,
 	Andi Kleen <ak@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750851AbVIWLgM@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750996AbVIWOAa@vger.kernel.org>
+To: Willy Tarreau <willy@w.ods.org>
+In-Reply-To: <20050923040234.GC595@alpha.home.local>
 Content-Disposition: inline
-In-Reply-To: <43338F30.6070601@cosmosbay.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 23, 2005 at 07:14:24AM +0200, Eric Dumazet wrote:
- 
-> Even without CMOV support, the suggested patch helps :
-> 
-> Here is the code generated with gcc-3.4.4  on a pentium4 (i686) for :
-> 
-> /********************/
-> bool1 = ((ip->saddr&ipinfo->smsk.s_addr) != ipinfo->src.s_addr);
-> bool1 ^= !!(ipinfo->invflags & IPT_INV_SRCIP);
-> 
-> bool2 = ((ip->daddr&ipinfo->dmsk.s_addr) != ipinfo->dst.s_addr);
-> bool2 ^= !!(ipinfo->invflags & IPT_INV_DSTIP);
-> 
-> if ((bool1 | bool2) != 0) {
-> 
-> /********************/
+AFAIK, the usual reason gcc can generate better code when you write
+   bool = complex conditional
+   if (bool) ...
+is because of C's short-circuit conditional evaluation rules for || and &&.  By
+moving the complex expression to an assignment statement, you are telling
+gcc that it is okay and safe to evaluate every part of the expression.
+If gcc was smart about being able to prove that all parts of the complex
+expression where safe (no possibly null pointer references) and had no
+side effects, then it could generate the same code with
+  if (complex conditional) ...
 
-(...)
+However, there are many situations where even a magical compiler
+couldn't prove that there were no possible side effects, etc., and would
+have to generate multiple conditional branches to properly meet the
+short-circuit conditional evaluation rules for && and ||.
 
-I totally agree with your demonstration. It would be interesting to compare
-she same code on an architecture with more registers (eg: sparc). One of
-the reasons of bad optimization of such constructs on x86 seems to be the
-lack of registers for the number of variables and intermediate results.
-When you write the code like above, you show the workflow to the compiler
-(and I often use the same technique).
+However, in the specific cases in this thread using FWINV without
+|| and && operators, an optimizing compiler "should" be smart enough
+to generate more linear code for today's heavily pipelined CPUs.
+For now, I guess it's still the duty of the programmer to use coding
+style to force the compiler to generate more linear machine code.
 
-Regards,
-Willy
+On 9/23/05, Willy Tarreau <willy@w.ods.org> wrote:
+> On Thu, Sep 22, 2005 at 03:05:50PM +0200, Eric Dumazet wrote:
+> (...)
+> > It was necessary to get the best code with gcc-3.4.4 on i386 and
+> > gcc-4.0.1 on x86_64
+> >
+> > For example :
+> >
+> > bool1 = FWINV(ret != 0, IPT_INV_VIA_OUT);
+> > if (bool1) {
+> >
+> > gives a better code than :
+> >
+> > if (FWINV(ret != 0, IPT_INV_VIA_OUT)) {
+> >
+> > (one less conditional branch)
+> >
+> > Dont ask me why, it is shocking but true :(
+>
+> I also noticed many times that gcc's optimization of "if (complex condition)"
+> is rather poor and it's often better to put it in a variable before. I even
+> remember that if you use an intermediate variable, it can often generate a
+> CMOV instruction on processors which support it, while it produces cond tests
+> and jumps without the variable. Generally speaking, if you want fast code,
+> you have to write it as a long sequence of small instructions, just as if
+> you were writing assembly. As you said, shocking but true.
+>
+> BTW, cheers for your optimizations !
+>
+> Regards,
+> Willy
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+--
+Tim Mattox - tmattox@gmail.com
+  http://homepage.mac.com/tmattox/
+    I'm a bright... http://www.the-brights.net/
