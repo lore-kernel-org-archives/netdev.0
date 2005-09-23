@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 2/8] orinoco: Make nortel_pci_hw_init() static.
+Subject: [PATCH 5/8] orinoco: Remove unneeded forward declarations.
 Date: Fri, 23 Sep 2005 04:18:06 -0400
-Message-ID: <E1EIikw-0003qZ-TX@gnu.org>
+Message-ID: <E1EIikw-0003ld-EB@gnu.org>
 Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -18,22 +18,77 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-Make nortel_pci_hw_init() static.
+Remove unneeded forward declarations.
 
-Found by sparse.
+Also reorder struct pcmcia_driver initialization to keep attach and
+detach together.
 
-diff --git a/drivers/net/wireless/orinoco_nortel.c b/drivers/net/wireless/orinoco_nortel.c
---- a/drivers/net/wireless/orinoco_nortel.c
-+++ b/drivers/net/wireless/orinoco_nortel.c
-@@ -92,7 +92,7 @@ static int nortel_pci_cor_reset(struct o
- 	return 0;
- }
+diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/orinoco_cs.c
+--- a/drivers/net/wireless/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco_cs.c
+@@ -80,17 +80,8 @@ static dev_link_t *dev_list; /* = NULL *
+ /* Function prototypes						    */
+ /********************************************************************/
  
--int nortel_pci_hw_init(struct nortel_pci_card *card)
-+static int nortel_pci_hw_init(struct nortel_pci_card *card)
- {
- 	int i;
- 	u32 reg;
+-/* device methods */
+-static int orinoco_cs_hard_reset(struct orinoco_private *priv);
+-
+-/* PCMCIA gumpf */
+-static void orinoco_cs_config(dev_link_t * link);
+-static void orinoco_cs_release(dev_link_t * link);
+-static int orinoco_cs_event(event_t event, int priority,
+-			    event_callback_args_t * args);
+-
+-static dev_link_t *orinoco_cs_attach(void);
+-static void orinoco_cs_detach(dev_link_t *);
++static void orinoco_cs_release(dev_link_t *link);
++static void orinoco_cs_detach(dev_link_t *link);
+ 
+ /********************************************************************/
+ /* Device methods     						    */
+@@ -675,8 +666,8 @@ static struct pcmcia_driver orinoco_driv
+ 		.name	= DRIVER_NAME,
+ 	},
+ 	.attach		= orinoco_cs_attach,
+-	.event		= orinoco_cs_event,
+ 	.detach		= orinoco_cs_detach,
++	.event		= orinoco_cs_event,
+ 	.id_table       = orinoco_cs_ids,
+ };
+ 
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/spectrum_cs.c
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -89,17 +89,8 @@ static dev_link_t *dev_list; /* = NULL *
+ /* Function prototypes						    */
+ /********************************************************************/
+ 
+-/* device methods */
+-static int spectrum_cs_hard_reset(struct orinoco_private *priv);
+-
+-/* PCMCIA gumpf */
+-static void spectrum_cs_config(dev_link_t * link);
+-static void spectrum_cs_release(dev_link_t * link);
+-static int spectrum_cs_event(event_t event, int priority,
+-			    event_callback_args_t * args);
+-
+-static dev_link_t *spectrum_cs_attach(void);
+-static void spectrum_cs_detach(dev_link_t *);
++static void spectrum_cs_release(dev_link_t *link);
++static void spectrum_cs_detach(dev_link_t *link);
+ 
+ /********************************************************************/
+ /* Firmware downloader						    */
+@@ -1058,8 +1049,8 @@ static struct pcmcia_driver orinoco_driv
+ 		.name	= DRIVER_NAME,
+ 	},
+ 	.attach		= spectrum_cs_attach,
+-	.event		= spectrum_cs_event,
+ 	.detach		= spectrum_cs_detach,
++	.event		= spectrum_cs_event,
+ 	.id_table       = spectrum_cs_ids,
+ };
+ 
 
 
 
