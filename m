@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 3/8] orinoco: Fix memory leak and unneeded unlock in orinoco_join_ap()
+Subject: [PATCH 2/8] orinoco: Make nortel_pci_hw_init() static.
 Date: Fri, 23 Sep 2005 04:18:06 -0400
-Message-ID: <E1EIikw-0003op-O6@gnu.org>
+Message-ID: <E1EIikw-0003qZ-TX@gnu.org>
 Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -18,35 +18,22 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-Fix memory leak and unneeded unlock in orinoco_join_ap()
+Make nortel_pci_hw_init() static.
 
-If orinoco_lock() fails, the code would still run orinoco_unlock(),
-instead of freeing the allocated memory.  Found by sparse.
+Found by sparse.
 
-diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
---- a/drivers/net/wireless/orinoco.c
-+++ b/drivers/net/wireless/orinoco.c
-@@ -1046,7 +1046,7 @@ static void orinoco_join_ap(struct net_d
- 		return;
- 
- 	if (orinoco_lock(priv, &flags) != 0)
--		goto out;
-+		goto fail_lock;
- 
- 	/* Sanity checks in case user changed something in the meantime */
- 	if (! priv->bssid_fixed)
-@@ -1091,8 +1091,10 @@ static void orinoco_join_ap(struct net_d
- 		printk(KERN_ERR "%s: Error issuing join request\n", dev->name);
- 
-  out:
--	kfree(buf);
- 	orinoco_unlock(priv, &flags);
-+
-+ fail_lock:
-+	kfree(buf);
+diff --git a/drivers/net/wireless/orinoco_nortel.c b/drivers/net/wireless/orinoco_nortel.c
+--- a/drivers/net/wireless/orinoco_nortel.c
++++ b/drivers/net/wireless/orinoco_nortel.c
+@@ -92,7 +92,7 @@ static int nortel_pci_cor_reset(struct o
+ 	return 0;
  }
  
- /* Send new BSSID to userspace */
+-int nortel_pci_hw_init(struct nortel_pci_card *card)
++static int nortel_pci_hw_init(struct nortel_pci_card *card)
+ {
+ 	int i;
+ 	u32 reg;
 
 
 
