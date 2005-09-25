@@ -1,35 +1,29 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER] ip_conntrack: Update event cache when
- status changes
-Date: Sat, 24 Sep 2005 16:56:28 -0700 (PDT)
-Message-ID: <20050924.165628.86591859.davem@davemloft.net>
-References: <20050924185020.GC731@sunbeam.de.gnumonks.org>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: rwlock recursion on CPU#0, netfilter related?
+Date: Sun, 25 Sep 2005 13:58:34 +0300
+Message-ID: <20050925105834.GA15243@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20050924185020.GC731@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=iso-8859-1
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Sat, 24 Sep 2005 20:50:20 +0200
+Just to get a wider audience, somewhere between 2.6.13-git4 and current 
+(2.6.14-rc2-git4 is the last one I tested, which seems to have some
+fixes in this are wrt. git3, but problem remains) my x86_64
+crashes quite quickly after boot. Using Fedora devel kernels, I can
+probably whip up a vanilla kernel if the maintainers in this area
+prefer that.
 
-> [NETFILTER] ip_conntrack: Update event cache when status changes
-> 
-> The GRE, SCTP and TCP protocol helpers did not call ip_conntrack_event_cache()
-> when updating ct->status.  This patch adds the respective calls.
-> 
-> Signed-off-by: Harald Welte <laforge@netfilter.org>
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=167835
 
-Applied, thanks Harald.
+and
+
+https://bugzilla.redhat.com/bugzilla/attachment.cgi?id=119228
+
+apart from the crashes I get funny ping times on the kernels that
+break when they're still up 
+(64 bytes from 10.10.9.1: icmp_seq=0 ttl=255 time=4294971590968 ms)
