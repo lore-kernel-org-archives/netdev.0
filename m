@@ -1,62 +1,96 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
-Date: Mon, 26 Sep 2005 09:31:37 -0400
-Message-ID: <1127741497.6215.345.camel__16632.8673171394$1127741707$gmane$org@localhost.localdomain>
-References: <200509260445.46740.mbellion@hipac.org>
-	 <1127733492.6215.274.camel@localhost.localdomain>
-	 <200509261516.16565.mbellion@hipac.org>
-Reply-To: hadi@cyberus.ca
+From: Luca Maranzano <liuk001@gmail.com>
+Subject: Re: ipvs_syncmaster brings cpu to 100%
+Date: Mon, 26 Sep 2005 15:52:02 +0200
+Message-ID: <68559cef05092606521cc13f9a__39477.8677299202$1127742994$gmane$org@mail.gmail.com>
+References: <68559cef050908090657fc2599@mail.gmail.com>
+	 <498263350509081605956a771@mail.gmail.com>
+	 <68559cef05092207022f1f0df4@mail.gmail.com>
+	 <498263350509230815eb08a73@mail.gmail.com>
+	 <20050926032807.GI18357@verge.net.au>
+	 <20050926043400.GD5079@us.ibm.com>
+	 <20050926080508.GF11027@verge.net.au>
+	 <20050926081229.GA23755@verge.net.au>
+	 <20050926131104.GA7532@us.ibm.com>
+Reply-To: Luca Maranzano <liuk001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "LinuxVirtualServer.org users mailing list." <lvs-users@linuxvirtualserver.org>,
+        Dave Miller <davem@davemloft.net>,
+        Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Bellion <mbellion@hipac.org>
-In-Reply-To: <200509261516.16565.mbellion@hipac.org>
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+In-Reply-To: <20050926131104.GA7532@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-26-09 at 15:16 +0200, Michael Bellion wrote:
-> Hi,
-> 
-> > Can you post some numbers relative to iptables?
-> 
-> We have some performance tests available at:
-> http://www.hipac.org/performance_tests/overview.html
-> 
-> We also have a list of the independent performance tests we know of:
-> http://www.hipac.org/performance_tests/independent.html
-> 
+Just to add more info, please note the output of "ps":
 
-Can you please post something against new kernels you are patching
-against _today_? I recall these same graphs from a few years back but
-even iptables has improved since. 
-Any issues you may find can only help you improve.
+debld1:~# ps aux|grep ipvs
+root      3748  0.0  0.0      0     0 ?        D    12:09   0:00
+[ipvs_syncmaster]
+root      3757  0.0  0.0      0     0 ?        D    12:09   0:00
+[ipvs_syncbackup]
 
-BTW, your tests were unfair to iptables; you should have had optimized
-the rules with the assumption that someone needing that many rules would
-probably have needed to do some optimization even with iptables.
-Yes, it would only have taken one year to load 256K rules, but it would
-have loaded eventually.
+Note the D status, i.e. (from ps(1) man page): Uninterruptible sleep
+(usually IO)
 
-> > Some tests with the following parameters would be helpful:
-> > - Variable incoming packet rate (in packets per second)
-> > - Variable packet sizes
-> > - Variable number of users/filters
-> > - Effect of adding/removing/modifying policies while under different
-> > incoming traffic rates.
-> 
-> Most of this parameters are used in the performance tests above.
-> 
-> The effect of adding/removing/modifying policies while under different
-> incoming traffic rates has not been tested in the above tests.
-> 
-> nf-HiPAC is based on a completely dynamic approach.
+I hope to have a Xeon machine to make some more tests in the next
+days, in the mean time I'll try to reproduce my setup on a couple of
+VMWare Workstation machines.
 
-Very good. Please do more up to date testing and try to include tc
-filter as well.
+More later.
+Thank you all.
+Luca
 
-cheers,
-jamal
+
+
+On 26/09/05, Nishanth Aravamudan <nacc@us.ibm.com> wrote:
+> On 26.09.2005 [17:12:32 +0900], Horms wrote:
+> > On Mon, Sep 26, 2005 at 05:05:10PM +0900, Horms wrote:
+> >
+> > [snip]
+> >
+> > > > > > > Furthermore, if I make an "rgrep" in the source tree of kernel 2.6.12
+> > > > > > > the function schedule_timeout() is more used than the ssleep() (517
+> > > > > > > occurrencies vs. 43), so why in ip_vs_sync.c there was this change?
+> > > > > > >
+> > > > > > > The other oddity is that Horms reported on this list that on non Xeon
+> > > > > > > CPU the same version of kernel of mine does not present the problem.
+> > > > > > >
+> > > > > > > I'm getting crazy :-)
+> > > > >
+> > > > > I've prepared a patch, which reverts the change which was introduced
+> > > > > by Nishanth Aravamudan in February.
+> > > >
+> > > > Was the 100% cpu utilization only occurring on Xeon processors?
+> > >
+> > > That seems to be the only case where were this problem has been
+> > > observed. I don't have such a processor myself, so I haven't actually
+> > > been able to produce the problem locally.
+> > >
+> > > One reason I posted this issue to netdev was to get some more
+> > > eyes on the problem as it is puzzling to say the least.
+> > >
+> > > > Care to try to use msleep_interruptible() instead of ssleep(), as
+> > > > opposed to schedule_timeout()?
+> > >
+> > > I will send a version that does that shortly, Luca, can
+> > > you plase check that too?
+> >
+> > Here is that version of the patch. Nishanth, I take it that I do not
+> > need to set TASK_INTERRUPTABLE before calling msleep_interruptible(),
+> > please let me know if I am wrong.
+>
+> Yes, exactly. I'm just trying to narrow it down to see if it's the task
+> state that's causing the issue (which, to be honest, doesn't make a lot
+> of sense to me -- with ssleep() your load average will go up as the task
+> will be UNINTERRUPTIBLE state, but I am not sure why utilisation would
+> rise, as you are still sleeping...)
+>
+> Thanks,
+> Nish
+>
