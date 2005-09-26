@@ -1,75 +1,68 @@
-From: Michael Bellion <mbellion@hipac.org>
+From: Emmanuel Fleury <fleury@cs.aau.dk>
 Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
-Date: Mon, 26 Sep 2005 18:03:27 +0200
-Message-ID: <200509261803.28150.mbellion__16726.7457735308$1127750913$gmane$org@hipac.org>
-References: <200509260445.46740.mbellion@hipac.org> <200509261638.12731.mbellion@hipac.org> <43380E4A.1060604@cs.aau.dk>
+Date: Mon, 26 Sep 2005 18:31:45 +0200
+Message-ID: <43382271.90400__22798.0318050415$1127752772$gmane$org@cs.aau.dk>
+References: <200509260445.46740.mbellion@hipac.org> <200509261638.12731.mbellion@hipac.org> <43380E4A.1060604@cs.aau.dk> <200509261803.28150.mbellion@hipac.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Emmanuel Fleury <fleury@cs.aau.dk>
-In-Reply-To: <43380E4A.1060604@cs.aau.dk>
-Content-Disposition: inline
+To: Michael Bellion <mbellion@hipac.org>
+In-Reply-To: <200509261803.28150.mbellion@hipac.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Michael Bellion wrote:
+> 
+> Sorry, but this is far away from the worst case for your scheme. Actually it 
+> is a quite good case for your compiler, because every rule is fully specified 
+> (meaning there are no wildcards in any rule) and there are no ranges or masks 
+> involved. 
+> Try using a mixed rule set that contains rules that only specify certain 
+> dimensions and have wildcards on the other dimensions. Try using rules with 
+> ranges and masks.
+> Try using overlapping rules, meaning rules that completely or partly overlap 
+> other rules in certain dimensions.
+> This will make your data structure grow!
 
-> > But your performance tests have a serious flaw:
-> > You construct your rule set by creating one rule for each entry in your
-> > packet header trace. This results in an completely artificial rule set
-> > that creates a lot of redundancy in the nf-HiPAC lookup data structure
-> > making it much larger than the Compact Filter data structure.
->
-> Yes, it was intended to be a worst case for our scheme (not realistic
-> but worst case)..
+I think you misunderstood our experiment. In fact, we were trying to
+generate as much possible different singletons on the domain (each of
+our rule was the header of a packet which have not been seen before),
+because if we can group these rules into intervals, then our scheme is
+having some advantages.
 
-Sorry, but this is far away from the worst case for your scheme. Actually it 
-is a quite good case for your compiler, because every rule is fully specified 
-(meaning there are no wildcards in any rule) and there are no ranges or masks 
-involved. 
-Try using a mixed rule set that contains rules that only specify certain 
-dimensions and have wildcards on the other dimensions. Try using rules with 
-ranges and masks.
-Try using overlapping rules, meaning rules that completely or partly overlap 
-other rules in certain dimensions.
-This will make your data structure grow!
+We were using IDD (Interval Decision Diagrams) which is a kind of
+extended BDD (Binary Decision Diagrams) where you take your decision by
+looking at a partition of the possible values of the variable. For
+example, looking at the value x in [0,1024] where [0,128] leads to one
+node in the decision tree, [129,256] to another and [257,1024] to a last
+one. More this partition is fragmented more you increase the size of the
+structure. Having a lot of overlap does certainly increase the number of
+partitions, but adding singletons is the simplest way to increase the
+number of partitions.
 
-> > I am currently working on a new improved version of the algorithm used in
-> > nf-HiPAC. The new algorithmic core will reduce memory usage while at the
-> > same time improving the running time of insert and delete operations. The
-> > lookup performance will be improved too, especially for bigger rulesets.
-> > The concepts and the design are already developed, but the implementation
-> > is still in its early stages.
-> >
-> > The new algorithmic core will make sure that the lookup data structure in
-> > the kernel is always fully optimized while at the same time allowing very
-> > fast dynamic updates.
-> >
-> > At that point Compact Filter will not be able to win in any performance
-> > test against  nf-HiPAC anymore, simply because there is no way to
-> > optimize the lookup data structure any further.
->
-> Well, you already said this last time we had exchanged some mails
-> (it was more than one year ago if I count well).
+Take a look at this paper, maybe you can get some idea for your scheme
+(it might be that some hybrid between your ideas and ours can make it):
+http://www.cs.aau.dk/~fleury/download/papers/tc04.pdf
 
-Yes, you are right. The HiPAC project has gone through some tough times over 
-the last 2 years. With MARA Systems the HiPAC Project has finally found a 
-strong partner that is fully committed to the concept of Open Source 
-Software. This allows me to continue the development of HiPAC under the GNU 
-GPL license.
+> Yes, you are right. The HiPAC project has gone through some tough times over 
+> the last 2 years. With MARA Systems the HiPAC Project has finally found a 
+> strong partner that is fully committed to the concept of Open Source 
+> Software. This allows me to continue the development of HiPAC under the GNU 
+> GPL license.
 
-> Anyway, I doubt you can get something that you can update dynamically
-> AND small in size following your way of doing. But, prove me wrong and
-> I'll be happy. :)
+I'm always happy to see a firm funding some Open Source project. So, I
+can do anything else but wishing you good luck for the future. :)
 
-Ok, I'll do that :)
+> Ok, I'll do that :)
 
-Regards,
-    +---------------------------+
-    |      Michael Bellion      |
-    |   <mbellion@hipac.org>    |
-    +---------------------------+
+Good. :)
+
+Regards
+-- 
+Emmanuel Fleury
+
+As usual, goodness hardly puts up a fight.
+  -- Calvin & Hobbes (Bill Waterson)
