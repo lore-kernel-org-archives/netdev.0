@@ -1,75 +1,63 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
-Date: Mon, 26 Sep 2005 08:40:49 -0400
-Message-ID: <1127738450.6215.331.camel@localhost.localdomain>
-References: <200509260445.46740.mbellion@hipac.org>
-	 <4337DA7C.2000804@cs.aau.dk>
-	 <1127735881.6215.294.camel@localhost.localdomain>
-	 <4337E601.1070208@cs.aau.dk>
-Reply-To: hadi@cyberus.ca
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Subject: Re: ipvs_syncmaster brings cpu to 100%
+Date: Mon, 26 Sep 2005 06:11:04 -0700
+Message-ID: <20050926131104.GA7532@us.ibm.com>
+References: <68559cef050908090657fc2599@mail.gmail.com> <498263350509081605956a771@mail.gmail.com> <68559cef05092207022f1f0df4@mail.gmail.com> <498263350509230815eb08a73@mail.gmail.com> <20050926032807.GI18357@verge.net.au> <20050926043400.GD5079@us.ibm.com> <20050926080508.GF11027@verge.net.au> <20050926081229.GA23755@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Bellion <mbellion@hipac.org>, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Emmanuel Fleury <fleury@cs.aau.dk>
-In-Reply-To: <4337E601.1070208@cs.aau.dk>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Roger Tsang <roger.tsang@gmail.com>, Luca Maranzano <liuk001@gmail.com>,
+        "LinuxVirtualServer.org users  mailing list." <lvs-users@LinuxVirtualServer.org>,
+        Dave Miller <davem@davemloft.net>,
+        Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
+        netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050926081229.GA23755@verge.net.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-26-09 at 14:13 +0200, Emmanuel Fleury wrote:
-
-> That is right, the add/remove/modifying policies was still an issue when
-> we stopped working on this. But, I think we can solve this problem by
-> working on an incremental compiler. I have to admit that this require a
-> proof of concept. This issue is quite critical on our method.
+On 26.09.2005 [17:12:32 +0900], Horms wrote:
+> On Mon, Sep 26, 2005 at 05:05:10PM +0900, Horms wrote:
 > 
-
-I think if you solve the lookup issue (which you seem to have) and this
-you will be in good shape. 
-
-> > Several comments:
-> > - Am i mistaken that your source of data is from somewhere in the
-> > backbone? Would it be fair to say that something in the edge would be
-> > more appropriate?
+> [snip]
 > 
-> The source of the data has been recorded from a backbone but all the
-> clients in the experimental setting are replaying part of it and sending
-> it to the gigabit switch.
+> > > > > > Furthermore, if I make an "rgrep" in the source tree of kernel 2.6.12
+> > > > > > the function schedule_timeout() is more used than the ssleep() (517
+> > > > > > occurrencies vs. 43), so why in ip_vs_sync.c there was this change?
+> > > > > >
+> > > > > > The other oddity is that Horms reported on this list that on non Xeon
+> > > > > > CPU the same version of kernel of mine does not present the problem.
+> > > > > >
+> > > > > > I'm getting crazy :-)
+> > > > 
+> > > > I've prepared a patch, which reverts the change which was introduced
+> > > > by Nishanth Aravamudan in February.
+> > > 
+> > > Was the 100% cpu utilization only occurring on Xeon processors?
+> > 
+> > That seems to be the only case where were this problem has been
+> > observed. I don't have such a processor myself, so I haven't actually
+> > been able to produce the problem locally.
+> > 
+> > One reason I posted this issue to netdev was to get some more
+> > eyes on the problem as it is puzzling to say the least.
+> > 
+> > > Care to try to use msleep_interruptible() instead of ssleep(), as
+> > > opposed to schedule_timeout()?
+> > 
+> > I will send a version that does that shortly, Luca, can
+> > you plase check that too?
 > 
+> Here is that version of the patch. Nishanth, I take it that I do not
+> need to set TASK_INTERRUPTABLE before calling msleep_interruptible(),
+> please let me know if I am wrong.
 
-Ok, makes sense.
+Yes, exactly. I'm just trying to narrow it down to see if it's the task
+state that's causing the issue (which, to be honest, doesn't make a lot
+of sense to me -- with ssleep() your load average will go up as the task
+will be UNINTERRUPTIBLE state, but I am not sure why utilisation would
+rise, as you are still sleeping...)
 
-
-> > - Is tcpreplay the right tool? What does it give you that you cant use
-> > a better blaster like pktgen?
-> 
-> The idea was to replay a realistic traffic. So we used a slightly
-> modified version of the tcpreplay (I don't remember what modifications
-> have been done, my co-author did it). I should definitely take a look at
-> pktgen.
-> 
-
-Both are useful tests. Benchmarking typically doesnt factor in realistic
-- the rule of thumb being if you can win a benchmark you can do better.
-The exception is when you make complex changes to win a benchmark; there
-has to be a balance.
-
-> > If you are going to run these tests in stateless firewalling as you
-> > did, please consider using tc filter as well.
-> 
-> The spirit was to test a totally new idea, the plan was not really to
-> get integrated (yet) into any tool, so we did it like this. We might
-> have been wrong.
-
-I think the methodology was fine enough for what you were doing then;
-academic time constraints apply and you can be forgiven for that ;->
-Now that you have gone beyond academia and have some company behind your
-work, it is only fair to compare against tc filter because it is in the
-kernel and being used by some people. 
-I am willing to help consult for the tc filter side if you need help.
-
-cheers,
-jamal
-
+Thanks,
+Nish
