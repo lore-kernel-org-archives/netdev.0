@@ -1,112 +1,58 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: ipvs_syncmaster brings cpu to 100%
-Date: Mon, 26 Sep 2005 17:12:32 +0900
-Message-ID: <20050926081229.GA23755__13221.9807980166$1127722709$gmane$org@verge.net.au>
-References: <68559cef050908090657fc2599@mail.gmail.com> <498263350509081605956a771@mail.gmail.com> <68559cef05092207022f1f0df4@mail.gmail.com> <498263350509230815eb08a73@mail.gmail.com> <20050926032807.GI18357@verge.net.au> <20050926043400.GD5079@us.ibm.com> <20050926080508.GF11027@verge.net.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
+Date: Mon, 26 Sep 2005 07:18:12 -0400
+Message-ID: <1127733492.6215.274.camel__3283.00055484778$1127734011$gmane$org@localhost.localdomain>
+References: <200509260445.46740.mbellion@hipac.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Nishanth Aravamudan <nacc@us.ibm.com>, Roger Tsang <roger.tsang@gmail.com>,
-        Luca Maranzano <liuk001@gmail.com>,
-        "LinuxVirtualServer.org users  mailing list." <lvs-users@LinuxVirtualServer.org>,
-        Dave Miller <davem@davemloft.net>,
-        Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
         netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050926080508.GF11027@verge.net.au>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Michael Bellion <mbellion@hipac.org>
+In-Reply-To: <200509260445.46740.mbellion@hipac.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2005 at 05:05:10PM +0900, Horms wrote:
-
-[snip]
-
-> > > > > Furthermore, if I make an "rgrep" in the source tree of kernel 2.6.12
-> > > > > the function schedule_timeout() is more used than the ssleep() (517
-> > > > > occurrencies vs. 43), so why in ip_vs_sync.c there was this change?
-> > > > >
-> > > > > The other oddity is that Horms reported on this list that on non Xeon
-> > > > > CPU the same version of kernel of mine does not present the problem.
-> > > > >
-> > > > > I'm getting crazy :-)
-> > > 
-> > > I've prepared a patch, which reverts the change which was introduced
-> > > by Nishanth Aravamudan in February.
-> > 
-> > Was the 100% cpu utilization only occurring on Xeon processors?
+On Mon, 2005-26-09 at 04:45 +0200, Michael Bellion wrote:
+> Hi
 > 
-> That seems to be the only case where were this problem has been
-> observed. I don't have such a processor myself, so I haven't actually
-> been able to produce the problem locally.
+> I am happy to announce the release of nf-HiPAC version 0.9.0
 > 
-> One reason I posted this issue to netdev was to get some more
-> eyes on the problem as it is puzzling to say the least.
+> During the development of version 0.9.0 everything was ported to Linux kernel 
+> 2.6 and large parts of the kernel code have been rewritten.
+> The kernel patch is now fairly non-intrusive: it only adds one simple function 
+> to ip_tables.c. The rest of the patch introduces new files to the kernel. 
+> The new release fixes all known bugs and also introduces some new features.
 > 
-> > Care to try to use msleep_interruptible() instead of ssleep(), as
-> > opposed to schedule_timeout()?
+> Since the last release I have become part of MARA Systems AB 
+> ( http://www.marasystems.com ). MARA Systems AB is now the commercial backer 
+> of the HiPAC Project and finances it completely. Together MARA Systems and I 
+> will make sure that HiPAC is actively maintained and further developed under 
+> the GNU GPL.
 > 
-> I will send a version that does that shortly, Luca, can
-> you plase check that too?
+> 
 
-Here is that version of the patch. Nishanth, I take it that I do not
-need to set TASK_INTERRUPTABLE before calling msleep_interruptible(),
-please let me know if I am wrong.
+Congratulations to yourself as well as your sponsor. I think this is
+useful. 
 
-Luca, please test.
+The iptables wrapper is certainly valuable. 
 
--- 
-Horms
+Can you post some numbers relative to iptables? 
+Some tests with the following parameters would be helpful:
+- Variable incoming packet rate (in packets per second)
+- Variable packet sizes
+- Variable number of users/filters
+- Effect of adding/removing/modifying policies while under different
+incoming traffic rates.
 
-*UNTESTED*
+Just even simple non-stateful comparisons like i did with tc over here:
 
-Use msleep_interruptible() instead of ssleep() in ip_vs_sync daemon,
-as the latter seems to cause 100% CPU utilistaion on HT Xeons.
+http://www.suug.ch/sucon/04/slides/pkt_cls.pdf
 
-Discussion:
-http://archive.linuxvirtualserver.org/html/lvs-users/2005-09/msg00031.html
+Or even better when you do these tests also try out with tc filter.
 
-Reverts:
-http://www.kernel.org/git/?p=linux/kernel/git/tglx/history.git;a=commit;h=f8afb60c7537130448cc479d6d8dc9bf4ee06027
-
-Signed-off-by: Horms <horms@verge.net.au>
-
-diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
---- a/net/ipv4/ipvs/ip_vs_sync.c
-+++ b/net/ipv4/ipvs/ip_vs_sync.c
-@@ -655,7 +655,7 @@ static void sync_master_loop(void)
- 		if (stop_master_sync)
- 			break;
- 
--		ssleep(1);
-+		msleep_interruptible(1000);
- 	}
- 
- 	/* clean up the sync_buff queue */
-@@ -712,7 +712,7 @@ static void sync_backup_loop(void)
- 		if (stop_backup_sync)
- 			break;
- 
--		ssleep(1);
-+		msleep_interruptible(1000);
- 	}
- 
- 	/* release the sending multicast socket */
-@@ -824,7 +824,7 @@ static int fork_sync_thread(void *startu
- 	if ((pid = kernel_thread(sync_thread, startup, 0)) < 0) {
- 		IP_VS_ERR("could not create sync_thread due to %d... "
- 			  "retrying.\n", pid);
--		ssleep(1);
-+		msleep_interruptible(1000);
- 		goto repeat;
- 	}
- 
-@@ -858,7 +858,7 @@ int start_sync_thread(int state, char *m
- 	if ((pid = kernel_thread(fork_sync_thread, &startup, 0)) < 0) {
- 		IP_VS_ERR("could not create fork_sync_thread due to %d... "
- 			  "retrying.\n", pid);
--		ssleep(1);
-+		msleep_interruptible(1000);
- 		goto repeat;
- 	}
- 
+cheers,
+jamal
