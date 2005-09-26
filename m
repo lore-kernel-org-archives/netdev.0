@@ -1,25 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] sys_sendmsg() alignment bug fix
-Date: Mon, 26 Sep 2005 14:28:18 -0700 (PDT)
-Message-ID: <20050926.142818.47709558.davem@davemloft.net>
-References: <1127764921.6529.60.camel@tdi>
-	<20050926133634.657ef4a3.akpm@osdl.org>
+Subject: Re: [PATCH/RFC] [NETFILTER]: Fix invalid module autoloading by
+ splitting iptable_nat
+Date: Mon, 26 Sep 2005 15:25:30 -0700 (PDT)
+Message-ID: <20050926.152530.70557275.davem@davemloft.net>
+References: <20050925150755.GK731@sunbeam.de.gnumonks.org>
+	<4336CFB4.6060806@trash.net>
+	<20050925164423.GM731@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.williamson@hp.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932326AbVIZV2d@vger.kernel.org>
-To: akpm@osdl.org
-In-Reply-To: <20050926133634.657ef4a3.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	kaber@trash.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20050925164423.GM731@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Mon, 26 Sep 2005 13:36:34 -0700
+From: Harald Welte <laforge@netfilter.org>
+Date: Sun, 25 Sep 2005 18:44:23 +0200
 
-> OK, thanks - I'll send this on to davem.  It seems odd to be using
-> __kernel_size_t rather than size_t, but that's what struct cmshdr does
-> (also oddly).
+> Dave, please apply 
+> 
+> (sorry for the missing Signed-off-by: Harald Welte <laforge@netfilter.org>)
 
-Applied, thanks.
+Done, thanks a lot.
