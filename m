@@ -1,33 +1,85 @@
-From: Florin Malita <fmalita@gmail.com>
-Subject: Re: [Bonding-devel] Re: [PATCH] channel bonding: add support for
- device-indexed parameters
-Date: Tue, 27 Sep 2005 10:10:20 -0400
-Message-ID: <20050927101020.6e0b2203.fmalita@gmail.com>
-References: <20050927012444.be5d5311.fmalita@gmail.com>
-	<200509270711.j8R7BunP014387@death.nxdomain.ibm.com>
-	<20050927094055.7953a832.fmalita@gmail.com>
-	<1127829269.4560.4.camel@localhost.localdomain>
+From: jordi@baylina.org
+Subject: Idea for packet classification.
+Date: Tue, 27 Sep 2005 18:17:59 +0200
+Message-ID: <20050927161759.20229.qmail__15317.4418294386$1127838249$gmane$org@powy.masterasp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, nsxfreddy@gmail.com, akpm@osdl.org,
-	davem@davemloft.net, ctindel@users.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750944AbVI0ONu@vger.kernel.org>
-To: Eric Paris <eparis@redhat.com>
-In-Reply-To: <1127829269.4560.4.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; format=flowed; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+        netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Sep 2005 09:54:29 -0400
-Eric Paris <eparis@redhat.com> wrote:
+The idea is to create a set of iptables TARGETS that classifies the packe=
+ts.=20
 
-> It dos work with RHEL3.  In modules.conf you just need
-[...]
-> You can add your mode and mii_mon and such on the options lines.  It
-> does work I've used it.
+When a packet is classified, a classification / Values is associated with=
+=20
+the packet.=20
 
-Verified - I completely missed "-o" functionality in insmod & friends.
+This classifications can then be used on an iptable filter rule, in a=20
+routing table selection rule or in a tc classification filter.=20
 
-Sorry for the noise, I'll crawl back under my rock now :)
+
+For example:=20
+
+#iptables =E2=80=93A INPUT =E2=80=93j CLS user --classifier tcfilter --fi=
+ltername u32=20
+=E2=80=A6
+#iptables =E2=80=93A INPUT =E2=80=93j CLS quota_plan --classifier hash --=
+table=20
+user_to_quota --input cls user
+#iptables =E2=80=93A INPUT =E2=80=93j CLS tos --classifier tos=20
+
+#iptables =E2=80=93A FORWARD =E2=80=93p tcp =E2=80=93port 5343 =E2=80=93c=
+ls quota_plan=3D1 =E2=80=93j DROP=20
+
+
+So in this example when a packet arrives, the source address is taken and=
+=20
+translated directly to a user, and the packet is marked with the userid.=20
+I.e. The packed has an associated classification user =3D 23=20
+
+In the second line a hash table classifies the packet. The user is taken=20
+from input and a quota plan is taken as an output.=20
+
+So after the second rule, the packet has associated 2 classifications:
+	user=3D23
+	quota_plan=3D2=20
+
+The 3rd line classifies the packet by TOS so the packet has 3=20
+classifications
+	User=3D23
+	Quota_plan=3D2
+	Tos=3D0=20
+
+Once a packet is classified, those classifications can be used in a filte=
+r=20
+rule or can be used in a routing rule or in a traffic shaping queue=20
+classification.=20
+
+A packet can have many classifications
+Those classifications can be used any time in the packet live.=20
+
+In the 4th line in th example, the rule drops all tcp packets with port 5=
+343=20
+and had been classified as quota_plan=20
+
+The 1st line in the rule uses a tc filter wrapper to classify the packet.=
+=20
+
+This idea would be an extesion of the MARK target.=20
+
+I am planning to make a patch to implement a couple of functions to inser=
+t=20
+classifications to the sk_buff structure and to  consult classifications =
+of=20
+a sk_buff.
+Do you believe that it is interesting or are you planning to do packet=20
+classifications in another way and doing that I would lose the time.=20
+
+Thank you,=20
+
+Jordi=20
