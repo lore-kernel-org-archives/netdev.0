@@ -1,68 +1,55 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] channel bonding: add support for device-indexed parameters
-Date: Tue, 27 Sep 2005 00:11:56 -0700
-Message-ID: <200509270711.j8R7BunP014387@death.nxdomain.ibm.com>
-References: <fmalita@gmail.com>
+From: Florin Malita <fmalita@gmail.com>
+Subject: Re: [PATCH] channel bonding: add support for device-indexed
+ parameters
+Date: Tue, 27 Sep 2005 09:40:55 -0400
+Message-ID: <20050927094055.7953a832.fmalita@gmail.com>
+References: <20050927012444.be5d5311.fmalita@gmail.com>
+	<200509270711.j8R7BunP014387@death.nxdomain.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: nsxfreddy@gmail.com, akpm@osdl.org, davem@davemloft.net,
 	ctindel@users.sourceforge.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964843AbVI0HMY@vger.kernel.org>
-To: Florin Malita <fmalita@gmail.com>
-In-Reply-To: Message from Florin Malita <fmalita@gmail.com>
-   of "Tue, 27 Sep 2005 01:24:44 EDT." <20050927012444.be5d5311.fmalita@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964939AbVI0NoV@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200509270711.j8R7BunP014387@death.nxdomain.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 27 Sep 2005 00:11:56 -0700
+Jay Vosburgh <fubar@us.ibm.com> wrote:
+> 
+> Florin Malita <fmalita@gmail.com> wrote:
+> [...]
+> >How can you load a module multiple times on _any_ distro?
+> 
+> 	modprobe -obond0 bonding mode=your-favorite-mode
+> 	modprobe -obond1 bonding mode=some-other-mode
+> 
+> 	and so on.  This is in the modprobe man page, and is described
+> in the bonding documentation (found in the kernel documentation or at
+> http://sourceforge.net/projects/bonding).  It is admittedly somewhat
+> grotty, but it works.  
 
-Florin Malita <fmalita@gmail.com> wrote:
-[...]
->How can you load a module multiple times on _any_ distro?
+OK, I see this capability has been in module-init-tools since the 0.8
+days. Doesn't apply to any 2.4/modutils based system tough.
 
-	modprobe -obond0 bonding mode=your-favorite-mode
-	modprobe -obond1 bonding mode=some-other-mode
+> 
+> >Not being able to set a (different) preferred
+> >interface/primary for each bond device makes it unacceptable for
+> >deployment in our environment.
+> 
+> 	How are you configuring bonding?  The current SuSE distros, for
+> example, will do the multiple module load stuff automatically in the
+> sysconfig scripts.  This is described in the current bonding
+> documentation.
 
-	and so on.  This is in the modprobe man page, and is described
-in the bonding documentation (found in the kernel documentation or at
-http://sourceforge.net/projects/bonding).  It is admittedly somewhat
-grotty, but it works.  The current planned API path that allow one
-module load (or compiling bonding into the kernel) to create multiple
-discrete bonding devices is sysfs.
+Our systems are RHEL3 based so unfortunately the naming trick above
+doesn't work. 
 
-[...]
->> 	In any event, your patch does not provide enough flexibility to
->> allow the distro scripts to switch to it (it omits arp_ip_target), so
->> the init scripts will be unable to switch.
->
->The patch is not forcing the scripts to switch since the old syntax/ABI
->still works (one reason I didn't touch arp_ip_target was to preserve
->that). It's simply providing an additional (saner) approach to bonding
->configuration which can easily co-exist with the sysfs solution.
+But it does work on RHEL4 so admittedly, having this workaround
+available for recent distros removes the urgency for a fix.
 
-	It's not about forcing use; it's about adding an incomplete and
-inconsistent feature, and the attendant maintenance and documentation
-load.
-
-	In general, I can see the value of allowing users to specify all
-of the parameters for some number of bonding devices on a single module
-load line.  However, the syntax provided by your patch does not parse
-the arp_ip_target parameter consistently with the other parameters, and
-has no backwards-compatible way to add support for all possible bonding
-configurations that I can think of right offhand.
-
-	I don't see the value in a new module parameter syntax that is
-not both backwards compatible and allows for specifying any possible set
-of bonding module options.
-
->Not being able to set a (different) preferred
->interface/primary for each bond device makes it unacceptable for
->deployment in our environment.
-
-	How are you configuring bonding?  The current SuSE distros, for
-example, will do the multiple module load stuff automatically in the
-sysconfig scripts.  This is described in the current bonding
-documentation.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Thanks
+Florin
