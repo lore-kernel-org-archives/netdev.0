@@ -1,85 +1,40 @@
-From: jordi@baylina.org
-Subject: Idea for packet classification.
-Date: Tue, 27 Sep 2005 18:17:59 +0200
-Message-ID: <20050927161759.20229.qmail__15317.4418294386$1127838249$gmane$org@powy.masterasp.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
+Date: Tue, 27 Sep 2005 18:23:18 +0200
+Message-ID: <200509271823.19365.ak@suse.de>
+References: <432EF0C5.5090908@cosmosbay.com> <200509221503.21650.ak@suse.de> <20050923170911.GN731@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-        netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <dada1@cosmosbay.com>, linux-kernel@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964980AbVI0QX2@vger.kernel.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20050923170911.GN731@sunbeam.de.gnumonks.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The idea is to create a set of iptables TARGETS that classifies the packe=
-ts.=20
+On Friday 23 September 2005 19:09, Harald Welte wrote:
+> On Thu, Sep 22, 2005 at 03:03:21PM +0200, Andi Kleen wrote:
+> > > 1) No more central rwlock protecting each table (filter, nat, mangle,
+> > > raw), but one lock per CPU. It avoids cache line ping pongs for each
+> > > packet.
+> >
+> > Another useful change would be to not take the lock when there are no
+> > rules. Currently just loading iptables has a large overhead.
+>
+> This is partially due to the netfilter hooks that are registered (so we
+> always take nf_hook_slow() in the NF_HOOK() macro).
 
-When a packet is classified, a classification / Values is associated with=
-=20
-the packet.=20
+Not sure it's that. nf_hook_slow uses RCU, so it should be quite
+fast.
 
-This classifications can then be used on an iptable filter rule, in a=20
-routing table selection rule or in a tc classification filter.=20
+> The default policies inside an iptables chain are internally implemented
+> as a rule.  Thus, policies as built-in rules have packet/byte counters.
 
+That could be special cased and done lockless, with the counting
+done per CPU.
 
-For example:=20
-
-#iptables =E2=80=93A INPUT =E2=80=93j CLS user --classifier tcfilter --fi=
-ltername u32=20
-=E2=80=A6
-#iptables =E2=80=93A INPUT =E2=80=93j CLS quota_plan --classifier hash --=
-table=20
-user_to_quota --input cls user
-#iptables =E2=80=93A INPUT =E2=80=93j CLS tos --classifier tos=20
-
-#iptables =E2=80=93A FORWARD =E2=80=93p tcp =E2=80=93port 5343 =E2=80=93c=
-ls quota_plan=3D1 =E2=80=93j DROP=20
-
-
-So in this example when a packet arrives, the source address is taken and=
-=20
-translated directly to a user, and the packet is marked with the userid.=20
-I.e. The packed has an associated classification user =3D 23=20
-
-In the second line a hash table classifies the packet. The user is taken=20
-from input and a quota plan is taken as an output.=20
-
-So after the second rule, the packet has associated 2 classifications:
-	user=3D23
-	quota_plan=3D2=20
-
-The 3rd line classifies the packet by TOS so the packet has 3=20
-classifications
-	User=3D23
-	Quota_plan=3D2
-	Tos=3D0=20
-
-Once a packet is classified, those classifications can be used in a filte=
-r=20
-rule or can be used in a routing rule or in a traffic shaping queue=20
-classification.=20
-
-A packet can have many classifications
-Those classifications can be used any time in the packet live.=20
-
-In the 4th line in th example, the rule drops all tcp packets with port 5=
-343=20
-and had been classified as quota_plan=20
-
-The 1st line in the rule uses a tc filter wrapper to classify the packet.=
-=20
-
-This idea would be an extesion of the MARK target.=20
-
-I am planning to make a patch to implement a couple of functions to inser=
-t=20
-classifications to the sk_buff structure and to  consult classifications =
-of=20
-a sk_buff.
-Do you believe that it is interesting or are you planning to do packet=20
-classifications in another way and doing that I would lose the time.=20
-
-Thank you,=20
-
-Jordi=20
+-Andi
