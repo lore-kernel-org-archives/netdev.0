@@ -1,66 +1,101 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.14-rc2 2/2] s2io: add MODULE_VERSION to s2io driver
-Date: Wed, 28 Sep 2005 17:50:52 -0400
-Message-ID: <09282005175052.10818@bilbo.tuxdriver.com>
-References: <09282005175051.10754@bilbo.tuxdriver.com>
+Subject: [patch 2.6.14-rc2] bonding: replicate IGMP traffic in activebackup mode
+Date: Wed, 28 Sep 2005 17:50:53 -0400
+Message-ID: <09282005175053.11150@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, leonid.grossman@neterion.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751050AbVI1V6a@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <09282005175051.10754@bilbo.tuxdriver.com>
+Cc: ctindel@users.sourceforge.net, fubar@us.ibm.com, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751087AbVI1V4Y@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a MODULE_VERSION entry for the s2io driver.
+Replicate IGMP frames across all slaves in activebackup mode. This
+ensures fail-over is rapid for multicast traffic as well. Otherwise,
+multicast traffic will be lost until the next IGMP membership report
+poll timeout.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
+This is conceptually similar to the treatment of IGMP traffic in
+bond_alb_xmit. In that case, IGMP traffic transmitted on any slave
+is re-routed to the active slave in order to ensure that multicast
+traffic continues to be directed to the active receiver.
 
- drivers/net/s2io.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/bonding/bond_main.c |   53 ++++++++++++++++++++++++++++++++++++++--
+ 1 files changed, 51 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -65,9 +65,11 @@
- #include "s2io.h"
- #include "s2io-regs.h"
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4391,6 +4391,39 @@ out:
+ 	return 0;
+ }
  
-+#define DRV_VERSION "2.0.8.1"
++static void bond_activebackup_xmit_copy(struct sk_buff *skb,
++                                         struct bonding *bond,
++                                         struct slave *slave)
++{
++	struct sk_buff *skb2 = skb_copy(skb, GFP_ATOMIC);
++	struct ethhdr *eth_data;
++	u8 *hwaddr;
++	int res;
 +
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
--static char s2io_driver_version[] = "Version 2.0.8.1";
-+static char s2io_driver_version[] = DRV_VERSION;
- 
- static inline int RXD_IS_UP2DT(RxD_t *rxdp)
- {
-@@ -5227,6 +5229,8 @@ static void s2io_init_pci(nic_t * sp)
- 
- MODULE_AUTHOR("Raghavendra Koushik <raghavendra.koushik@neterion.com>");
- MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
++	if (!skb2) {
++		printk(KERN_ERR DRV_NAME ": Error: "
++		       "bond_activebackup_xmit_copy(): skb_copy() failed\n");
++		return;
++	}
 +
- module_param(tx_fifo_num, int, 0);
- module_param(rx_ring_num, int, 0);
- module_param_array(tx_fifo_len, uint, NULL, 0);
-@@ -5570,7 +5574,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	if (sp->device_type & XFRAME_II_DEVICE) {
- 		DBG_PRINT(ERR_DBG, "%s: Neterion Xframe II 10GbE adapter ",
- 			  dev->name);
--		DBG_PRINT(ERR_DBG, "(rev %d), %s",
-+		DBG_PRINT(ERR_DBG, "(rev %d), Version %s",
- 				get_xena_rev_id(sp->pdev),
- 				s2io_driver_version);
- #ifdef CONFIG_2BUFF_MODE
-@@ -5594,7 +5598,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	} else {
- 		DBG_PRINT(ERR_DBG, "%s: Neterion Xframe I 10GbE adapter ",
- 			  dev->name);
--		DBG_PRINT(ERR_DBG, "(rev %d), %s",
-+		DBG_PRINT(ERR_DBG, "(rev %d), Version %s",
- 					get_xena_rev_id(sp->pdev),
- 					s2io_driver_version);
- #ifdef CONFIG_2BUFF_MODE
++	skb2->mac.raw = (unsigned char *)skb2->data;
++	eth_data = eth_hdr(skb2);
++
++	/* Pick an appropriate source MAC address */
++	hwaddr = slave->perm_hwaddr;
++	if (!memcmp(eth_data->h_source, hwaddr, ETH_ALEN))
++		hwaddr = bond->curr_active_slave->perm_hwaddr;
++
++	/* Set source MAC address appropriately */
++	memcpy(eth_data->h_source, hwaddr, ETH_ALEN);
++
++	res = bond_dev_queue_xmit(bond, skb2, slave->dev);
++	if (res)
++		dev_kfree_skb(skb2);
++
++	return;
++}
++
+ /*
+  * in active-backup mode, we know that bond->curr_active_slave is always valid if
+  * the bond has a usable interface.
+@@ -4407,10 +4440,26 @@ static int bond_xmit_activebackup(struct
+ 		goto out;
+ 	}
+ 
+-	if (bond->curr_active_slave) { /* one usable interface */
+-		res = bond_dev_queue_xmit(bond, skb, bond->curr_active_slave->dev);
++	if (!bond->curr_active_slave)
++		goto out;
++
++	/* Xmit IGMP frames on all slaves to ensure rapid fail-over
++	   for multicast traffic on snooping switches */
++	if (skb->protocol == __constant_htons(ETH_P_IP) &&
++	    skb->nh.iph->protocol == IPPROTO_IGMP) {
++		struct slave *slave, *active_slave;
++		int i;
++
++		active_slave = bond->curr_active_slave;
++		bond_for_each_slave_from_to(bond, slave, i, active_slave->next,
++		                            active_slave->prev)
++			if (IS_UP(slave->dev) &&
++			    (slave->link == BOND_LINK_UP))
++				bond_activebackup_xmit_copy(skb, bond, slave);
+ 	}
+ 
++	res = bond_dev_queue_xmit(bond, skb, bond->curr_active_slave->dev);
++
+ out:
+ 	if (res) {
+ 		/* no suitable interface, frame not sent */
