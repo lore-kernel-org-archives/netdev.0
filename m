@@ -1,89 +1,107 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: ipvs_syncmaster brings cpu to 100%
-Date: Wed, 28 Sep 2005 11:23:09 +0900
-Message-ID: <20050928022307.GK18765@verge.net.au>
-References: <498263350509081605956a771@mail.gmail.com> <68559cef05092207022f1f0df4@mail.gmail.com> <498263350509230815eb08a73@mail.gmail.com> <20050926032807.GI18357@verge.net.au> <20050926043400.GD5079@us.ibm.com> <20050926080508.GF11027@verge.net.au> <20050926081229.GA23755@verge.net.au> <20050926131104.GA7532@us.ibm.com> <68559cef05092606521cc13f9a@mail.gmail.com> <20050926142109.GD7532@us.ibm.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
+Date: Wed, 28 Sep 2005 10:32:40 +0200
+Message-ID: <20050928083240.GP4168@sunbeam.de.gnumonks.org>
+References: <432EF0C5.5090908@cosmosbay.com> <200509221503.21650.ak@suse.de>
+	<20050923170911.GN731@sunbeam.de.gnumonks.org>
+	<200509271823.19365.ak@suse.de>
+	<Pine.LNX.4.61.0509280219110.25500@filer.marasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luca Maranzano <liuk001@gmail.com>, Dave Miller <davem@davemloft.net>,
-        Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Nishanth Aravamudan <nacc@us.ibm.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="UeXZ3FjlYZvuln/G"
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Henrik Nordstrom <hno@marasystems.com>
 Content-Disposition: inline
-In-Reply-To: <20050926142109.GD7532@us.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.61.0509280219110.25500@filer.marasystems.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 26, 2005 at 07:21:09AM -0700, Nishanth Aravamudan wrote:
-> On 26.09.2005 [15:52:02 +0200], Luca Maranzano wrote:
-> > On 26/09/05, Nishanth Aravamudan <nacc@us.ibm.com> wrote:
-> > > On 26.09.2005 [17:12:32 +0900], Horms wrote:
-> > > > On Mon, Sep 26, 2005 at 05:05:10PM +0900, Horms wrote:
-> > > >
-> > > > [snip]
-> > > >
-> > > > > > > > > Furthermore, if I make an "rgrep" in the source tree of kernel 2.6.12
-> > > > > > > > > the function schedule_timeout() is more used than the ssleep() (517
-> > > > > > > > > occurrencies vs. 43), so why in ip_vs_sync.c there was this change?
-> > > > > > > > >
-> > > > > > > > > The other oddity is that Horms reported on this list that on non Xeon
-> > > > > > > > > CPU the same version of kernel of mine does not present the problem.
-> > > > > > > > >
-> > > > > > > > > I'm getting crazy :-)
-> > > > > > >
-> > > > > > > I've prepared a patch, which reverts the change which was introduced
-> > > > > > > by Nishanth Aravamudan in February.
-> > > > > >
-> > > > > > Was the 100% cpu utilization only occurring on Xeon processors?
-> > > > >
-> > > > > That seems to be the only case where were this problem has been
-> > > > > observed. I don't have such a processor myself, so I haven't actually
-> > > > > been able to produce the problem locally.
-> > > > >
-> > > > > One reason I posted this issue to netdev was to get some more
-> > > > > eyes on the problem as it is puzzling to say the least.
-> > > > >
-> > > > > > Care to try to use msleep_interruptible() instead of ssleep(), as
-> > > > > > opposed to schedule_timeout()?
-> > > > >
-> > > > > I will send a version that does that shortly, Luca, can
-> > > > > you plase check that too?
-> > > >
-> > > > Here is that version of the patch. Nishanth, I take it that I do not
-> > > > need to set TASK_INTERRUPTABLE before calling msleep_interruptible(),
-> > > > please let me know if I am wrong.
-> > >
-> > > Yes, exactly. I'm just trying to narrow it down to see if it's the task
-> > > state that's causing the issue (which, to be honest, doesn't make a lot
-> > > of sense to me -- with ssleep() your load average will go up as the task
-> > > will be UNINTERRUPTIBLE state, but I am not sure why utilisation would
-> > > rise, as you are still sleeping...)
-> 
-> [trimmed lvs-users from my reply, as it is a closed list]
-> 
-> > Just to add more info, please note the output of "ps":
-> > 
-> > debld1:~# ps aux|grep ipvs
-> > root      3748  0.0  0.0      0     0 ?        D    12:09   0:00
-> > [ipvs_syncmaster]
-> > root      3757  0.0  0.0      0     0 ?        D    12:09   0:00
-> > [ipvs_syncbackup]
-> > 
-> > Note the D status, i.e. (from ps(1) man page): Uninterruptible sleep
-> > (usually IO)
-> 
-> The msleep_interruptible() change should fix that.
-> 
-> But that does not show 100% CPU utilisation at all, it shows 0. Did you
-> mean to say your load increases?
 
-he full discussion is available online at the follwoing URL:
-I can get than information and post it all here if that is
-desirable.
+--UeXZ3FjlYZvuln/G
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-http://archive.linuxvirtualserver.org/html/lvs-users/2005-09/msg00031.html
+On Wed, Sep 28, 2005 at 02:25:16AM +0200, Henrik Nordstrom wrote:
 
--- 
-Horms
+> >That could be special cased and done lockless, with the counting
+> >done per CPU.
+>=20
+> It's also not very hard for iptables when verifying the table to
+> conclude that there really isn't any "real" rules for a certain hook
+
+The detection should be quite straight-forward, yes.
+
+> Allowing you to have as many ip tables modules you like in the kernel,
+> but only using the hooks where you have rules. =20
+
+I totally agree, that from a current perspective, I think the concept of
+just loading a module (that has usage count 0) having severe impact on
+system performance is just wrong.  But then, users are used to the
+current behaviour for almost five years now.  Every decent script and/or
+piece of documentation should by now refer to the fact that loading a
+module implicitly registers it at the hooks, and that you only load
+those modules that you really need.
+
+In an ideal world, you would load iptables, and userspace would
+configure a couple of chains, and then explicitly attach those chains to
+the netfilter hooks.=20
+
+Therefore: Let's do this right next time, but live with that fact for
+now.
+
+> Drawback is that you loose the packet counters on the policy.
+
+That's the big problem.  People rely on that fact, because they're used
+to it.  If we introduce some new tool, or something that somehow works
+differently, I don't have a change.  But silently changing the semantics
+with a kernel upgrade is not something that I'm willing to do on
+purpose.
+
+Just imagine all those poor sysadmins who know nothing about current
+kernel development, and who upgrade their kernel because their
+distributor provides a new one - suddenly their accounting (which might
+be relevant for their business) doesn't work anymore :(
+
+> Exception: iptable_nat. Needs the hooks for other purposes as well,
+> not just the iptable so here the hooks can not be deactivated when
+> there is no rules.
+
+yes, even though we could make the ip_nat / iptable_nat split (that is
+introduced in 2.6.14) in a way that would make ip_nat.ko register those
+hooks that are implicitly needed, and iptable_nat only the user-visible
+chain-related hooks.
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--UeXZ3FjlYZvuln/G
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFDOlUoXaXGVTD0i/8RAuUdAJ458qwjm5c3R90Z3QAekVZisLYdsACghk2V
+ep/tZt+J2YKe05rYMMLGsc4=
+=k3Qm
+-----END PGP SIGNATURE-----
+
+--UeXZ3FjlYZvuln/G--
