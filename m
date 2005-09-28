@@ -1,21 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.14-rc2 0/2] minor cleanups for s2io
-Date: Wed, 28 Sep 2005 17:50:51 -0400
-Message-ID: <09282005175051.10698@bilbo.tuxdriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
+Date: Thu, 29 Sep 2005 08:11:10 +1000
+Message-ID: <20050928221110.GA22018__39156.0719618157$1127946112$gmane$org@gondor.apana.org.au>
+References: <20050927.135626.88296134.davem@davemloft.net> <E1EKS6j-0006s4-00@gondolin.me.apana.org.au> <20050928145110.GA4925@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, leonid.grossman@neterion.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751041AbVI1Vyk@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, suzannew@cs.pdx.edu,
+        linux-kernel@vger.kernel.org, Robert.Olsson@data.slu.se,
+        walpole@cs.pdx.edu, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Paul E. McKenney" <paulmck@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20050928145110.GA4925@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A couple of minor cleanups for the s2io driver:
+On Wed, Sep 28, 2005 at 07:51:10AM -0700, Paul E. McKenney wrote:
+> 
+> The reference-count approach is only guaranteed to work if the kernel
+> thread that did the reference-count increment is later referencing that
+> same data element.  Otherwise, one has the following possible situation
+> on DEC Alpha:
 
-	-- Use the target length as the third argument to strncpy
-	in s2io_ethtool_gdrvinfo()
+You're quite right.  Without the rcu_dereference users of in_dev_get()
+may see pre-initialisation contents of in_dev.
 
-	-- Add a MODULE_VERSION entry
+So these barriers are definitely needed.
 
-Patches to follow...
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
