@@ -1,50 +1,51 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: TCP Network performance degade from 2.4.18 to 2.6.10
-Date: Wed, 28 Sep 2005 09:35:54 -0700
-Message-ID: <20050928093554.418b79a2@localhost.localdomain>
-References: <20050726130329.GA3215@ucw.cz>
-	<LEXUSAX3cf3ednHM3SO00000be8@lexus.moschip.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] net/bluetooth/lib.c: remove unneeded #defines
+Date: Thu, 29 Sep 2005 00:28:56 +0400
+Message-ID: <20050928202856.GA27645@mipter.zuzino.mipt.ru>
+Reply-To: bluez-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751406AbVI1Qfl@vger.kernel.org>
-To: "Eshwar" <eshwar@moschip.com>
-In-Reply-To: <LEXUSAX3cf3ednHM3SO00000be8@lexus.moschip.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bluez-devel@lists.sf.net, netdev@vger.kernel.org
+Return-path: <bluez-devel-admin@lists.sourceforge.net>
+To: Marcel Holtmann <marcel@holtmann.org>,
+	Maxim Krasnyansky <maxk@qualcomm.com>
+Content-Disposition: inline
+Sender: bluez-devel-admin@lists.sourceforge.net
+Errors-To: bluez-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Sep 2005 10:42:22 +0530
-"Eshwar" <eshwar@moschip.com> wrote:
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> HI all,
-> 
-> I observed there is huge network performance drop from linux 2.4 to 2.6 with
-> the same setup (No hardware changes..). The results are taken in PIV
-> processor with D-Link network card... with iperf ... Can some body help me
-> why such a huge difference... in TCP stream... 
-> 
-> In linux 2.4 (Redhat 9)
-> 
-> DLink	
->     TCP              UDP
-> Tx       94.3Mbps    Tx               95 Mbps
-> Rx       94.2 Mbps   Rx               95 Mbps
-> 
-> In linux 2.6.10 (Fedora Core 4)
-> DLink	
-> 	 TCP                     UDP
-> Tx       64.3 Mbps 	Tx               87 Mbps
-> Rx       88.1 Mbps      Rx               95 Mbps
-> 
-> 
-> Thanks & Regards
-> Eshwar
+ net/bluetooth/lib.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-Please send network performance discussion to netdev@vger.kernel.org
+--- a/net/bluetooth/lib.c
++++ b/net/bluetooth/lib.c
+@@ -24,12 +24,9 @@
+ 
+ /* Bluetooth kernel library. */
+ 
+-#include <linux/config.h>
+ #include <linux/module.h>
+ 
+ #include <linux/kernel.h>
+-#include <linux/stddef.h>
+-#include <linux/string.h>
+ #include <asm/errno.h>
+ 
+ #include <net/bluetooth/bluetooth.h>
 
-A lot more information is needed, like:
-	* which hardware is on both ends of the test (lscpci)
-	* any TCP configuration issues
-	* any errors reported.
-	* netfilter and firewalling.
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by:
+Power Architecture Resource Center: Free content, downloads, discussions,
+and more. http://solutions.newsforge.com/ibmarch.tmpl
