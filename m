@@ -1,48 +1,69 @@
-From: "ernesto koko" <ildamailletjoy@automotivelover.com>
-Subject: vie Click for privacy link.  gradient
-Date: Wed, 28 Sep 2005 06:49:14 -0800
-Message-ID: <2D1A5B28.ED518AC@automotivelover.com>
+From: "Paul E. McKenney" <paulmck@us.ibm.com>
+Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
+Date: Wed, 28 Sep 2005 07:51:10 -0700
+Message-ID: <20050928145110.GA4925__33674.8561393053$1127919383$gmane$org@us.ibm.com>
+References: <20050927.135626.88296134.davem@davemloft.net> <E1EKS6j-0006s4-00@gondolin.me.apana.org.au>
+Reply-To: paulmck@us.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <mendoza@oss.sgi.com>, <lowe@oss.sgi.com>, <netdev@oss.sgi.com>,
-        <daniel@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, suzannew@cs.pdx.edu,
+        linux-kernel@vger.kernel.org, Robert.Olsson@data.slu.se,
+        walpole@cs.pdx.edu, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Kory Struble" <terry@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1EKS6j-0006s4-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 28, 2005 at 12:55:45PM +1000, Herbert Xu wrote:
+> David S. Miller <davem@davemloft.net> wrote:
+> > 
+> > I agree with the changes to add rcu_dereference() use.
+> > Those were definitely lacking and needed.
+> 
+> Actually I'm not so sure that they are all needed.  I only looked
+> at the very first one in the patch which is in in_dev_get().  That
+> one certainly isn't necessary because the old value of ip_ptr
+> is valid as long as the reference count does not hit zero.
+> 
+> The later is guaranteed by the increment in in_dev_get().
+> 
+> Because the pervasiveness of reference counting in the network stack,
+> I believe that we should scrutinise the other bits in the patch too
+> to make sure that they are all needed.
+> 
+> In general, using rcu_dereference/rcu_assign_pointer does not
+> guarantee correct code.  We really need to look at each case
+> individually.
 
-Everything you demand is at this URL. 
+Yep, these two APIs are only part of the solution.
 
-With our generic, stress is not a big issue no longer.
-Certain fast  carriage.
-Best haggles on net.
-Meedical case review for zero pennies. 
+The reference-count approach is only guaranteed to work if the kernel
+thread that did the reference-count increment is later referencing that
+same data element.  Otherwise, one has the following possible situation
+on DEC Alpha:
 
-Absolutely satisfied, would spend again from your zzone. Dorris H --Ohio. 
-http://uk.geocities.com/timecravingstar/?mpqr
+o	CPU 0 initializes and inserts a new element into the data
+	structure, using rcu_assign_pointer() to provide any needed
+	memory barriers.  (Or, if RCU is not being used, under the
+	appropriate update-side lock.)
 
-"Jail," said the strange man, coolly putting his handkerchief into his hat,
-which was on the floor at his feet. "Or Coavinses." 
+o	CPU 1 acquires a reference to this new element, presumably
+	using either a lock or rcu_read_lock() and rcu_dereference()
+	in order to do so safely.  CPU 1 then increments the reference
+	count.
 
-ferelith  evanh  flat AH02 ench  envseg
-Fog everywhere. Fog up the river, where it flows among green aits and
-meadows; fog down the river, where it rolls deified among the tiers of
-shipping and the waterside pollutions of a great (and dirty) city. Fog on
-the Estee marshes, fog on the Kentish heights. Fog creeping into the
-cabooses of collier-brigs; fog lying out on the yards and hovering in the
-rigging of great ships; fog drooping on the gunwales of barges and small
-boats. Fog in the eyes and throats of ancient Greenwich pensioners, wheezing
-by the firesides of their wards; fog in the stem and bowl of the afternoon
-pipe of the wrathful skipper, down in his close cabin; fog cruelly pinching
-the toes and fingers of his shivering little 'prentice boy on deck. Chance
-people on the bridges peeping over the pateets into a nether sky of fog,
-with fog all round them, as if they were up in a balloon and hanging in the
-misty clouds. 
-Gas looming through the fog in divers places in the streets, much as the
-sun may, from the spongey fields, be seen to loom by husbandman and
-ploughboy. Most of the shops lighted two hours before their time--as the gas
-seems to know, for it has a haggard and unwilling look. 
+o	CPU 2 picks up a pointer to this new element, but in a way
+	that relies on the reference count having been incremented,
+	without using locking, rcu_read_lock(), rcu_dereference(),
+	and so on.
+
+	This CPU can then see the pre-initialized contents of the
+	newly inserted data structure (again, but only on DEC Alpha).
+
+Again, if the same kernel thread that incremented the reference count
+is later accessing it, no problem, even on Alpha.
+
+							Thanx, Paul
