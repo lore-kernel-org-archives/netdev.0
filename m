@@ -1,69 +1,35 @@
-From: "Paul E. McKenney" <paulmck@us.ibm.com>
-Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
-Date: Wed, 28 Sep 2005 07:51:10 -0700
-Message-ID: <20050928145110.GA4925__33674.8561393053$1127919383$gmane$org@us.ibm.com>
-References: <20050927.135626.88296134.davem@davemloft.net> <E1EKS6j-0006s4-00@gondolin.me.apana.org.au>
-Reply-To: paulmck@us.ibm.com
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: rwlock recursion on CPU#0, netfilter related?
+Date: Wed, 28 Sep 2005 17:58:15 +0300
+Message-ID: <20050928145815.GA421@ee.oulu.fi>
+References: <20050925105834.GA15243@ee.oulu.fi> <20050925134344.GJ731@sunbeam.de.gnumonks.org> <20050925201945.GA21176@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, suzannew@cs.pdx.edu,
-        linux-kernel@vger.kernel.org, Robert.Olsson@data.slu.se,
-        walpole@cs.pdx.edu, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Harald Welte <laforge@gnumonks.org>
 Content-Disposition: inline
-In-Reply-To: <E1EKS6j-0006s4-00@gondolin.me.apana.org.au>
+In-Reply-To: <20050925201945.GA21176@ee.oulu.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 28, 2005 at 12:55:45PM +1000, Herbert Xu wrote:
-> David S. Miller <davem@davemloft.net> wrote:
-> > 
-> > I agree with the changes to add rcu_dereference() use.
-> > Those were definitely lacking and needed.
-> 
-> Actually I'm not so sure that they are all needed.  I only looked
-> at the very first one in the patch which is in in_dev_get().  That
-> one certainly isn't necessary because the old value of ip_ptr
-> is valid as long as the reference count does not hit zero.
-> 
-> The later is guaranteed by the increment in in_dev_get().
-> 
-> Because the pervasiveness of reference counting in the network stack,
-> I believe that we should scrutinise the other bits in the patch too
-> to make sure that they are all needed.
-> 
-> In general, using rcu_dereference/rcu_assign_pointer does not
-> guarantee correct code.  We really need to look at each case
-> individually.
+On Sun, Sep 25, 2005 at 11:19:45PM +0300, Pekka Pietikainen wrote:
+> Enabled, so this could be it. But 2.6.14-rc2-git4 did crash too (although
+> it did take a bit longer for that to happen), and the changelog does state:
+Ok, it looks like that patch was the thing after all. I now tried the latest
+fedora-devel kernel (1.1582, based on 2.6.14-rc2-git6) and the box has been
+running for a few hours happily. Could be the fedora kernel that claimed to
+be git4 actually wasn't, or the git4 changelog was really a post-git4
+changelog :). But anyway, bug is gone.
 
-Yep, these two APIs are only part of the solution.
-
-The reference-count approach is only guaranteed to work if the kernel
-thread that did the reference-count increment is later referencing that
-same data element.  Otherwise, one has the following possible situation
-on DEC Alpha:
-
-o	CPU 0 initializes and inserts a new element into the data
-	structure, using rcu_assign_pointer() to provide any needed
-	memory barriers.  (Or, if RCU is not being used, under the
-	appropriate update-side lock.)
-
-o	CPU 1 acquires a reference to this new element, presumably
-	using either a lock or rcu_read_lock() and rcu_dereference()
-	in order to do so safely.  CPU 1 then increments the reference
-	count.
-
-o	CPU 2 picks up a pointer to this new element, but in a way
-	that relies on the reference count having been incremented,
-	without using locking, rcu_read_lock(), rcu_dereference(),
-	and so on.
-
-	This CPU can then see the pre-initialized contents of the
-	newly inserted data structure (again, but only on DEC Alpha).
-
-Again, if the same kernel thread that incremented the reference count
-is later accessing it, no problem, even on Alpha.
-
-							Thanx, Paul
+> > But only in 1 out of ten cases on average (when starting ping, ctrl+c,
+> > pin, ctrl+c, ...).  I've always assumed it's some 64bit problem in
+> > "ping" itself.
+> Happens for all packets on the "broken" kernels, and works a-ok (few ms
+> latencies to the same box) on the 2.6.13-era ones that don't crash.
+> Could be a different bug, sure.
+This one is still around, so it's a different bug. Looks like it's a 64-bit
+issue, a 32-bit ping gives realistic ping times. tcpdump timestamps are also
+affected, they're completely off too. So looks like someone broke packet
+timestamps on 64-bit some time after 2.6.13.
