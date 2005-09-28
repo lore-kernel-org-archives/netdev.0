@@ -1,51 +1,43 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net/bluetooth/lib.c: remove unneeded #defines
-Date: Thu, 29 Sep 2005 00:28:56 +0400
-Message-ID: <20050928202856.GA27645@mipter.zuzino.mipt.ru>
-Reply-To: bluez-devel@lists.sourceforge.net
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.14-rc2 1/2] s2io: change strncpy length arg to use size of target
+Date: Wed, 28 Sep 2005 17:50:51 -0400
+Message-ID: <09282005175051.10754@bilbo.tuxdriver.com>
+References: <09282005175051.10698@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bluez-devel@lists.sf.net, netdev@vger.kernel.org
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Maxim Krasnyansky <maxk@qualcomm.com>
-Content-Disposition: inline
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, leonid.grossman@neterion.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750930AbVI1Vx6@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+In-Reply-To: <09282005175051.10698@bilbo.tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Use the size of the target array for the length argument to strncpy
+instead of the size of the source or a magic number.
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- net/bluetooth/lib.c |    3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/s2io.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
---- a/net/bluetooth/lib.c
-+++ b/net/bluetooth/lib.c
-@@ -24,12 +24,9 @@
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -3778,11 +3778,10 @@ static void s2io_ethtool_gdrvinfo(struct
+ {
+ 	nic_t *sp = dev->priv;
  
- /* Bluetooth kernel library. */
- 
--#include <linux/config.h>
- #include <linux/module.h>
- 
- #include <linux/kernel.h>
--#include <linux/stddef.h>
--#include <linux/string.h>
- #include <asm/errno.h>
- 
- #include <net/bluetooth/bluetooth.h>
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by:
-Power Architecture Resource Center: Free content, downloads, discussions,
-and more. http://solutions.newsforge.com/ibmarch.tmpl
+-	strncpy(info->driver, s2io_driver_name, sizeof(s2io_driver_name));
+-	strncpy(info->version, s2io_driver_version,
+-		sizeof(s2io_driver_version));
+-	strncpy(info->fw_version, "", 32);
+-	strncpy(info->bus_info, pci_name(sp->pdev), 32);
++	strncpy(info->driver, s2io_driver_name, sizeof(info->driver));
++	strncpy(info->version, s2io_driver_version, sizeof(info->version));
++	strncpy(info->fw_version, "", sizeof(info->fw_version));
++	strncpy(info->bus_info, pci_name(sp->pdev), sizeof(info->bus_info));
+ 	info->regdump_len = XENA_REG_SPACE;
+ 	info->eedump_len = XENA_EEPROM_SPACE;
+ 	info->testinfo_len = S2IO_TEST_LEN;
