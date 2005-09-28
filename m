@@ -1,96 +1,48 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: Re: ipvs_syncmaster brings cpu to 100%
-Date: Wed, 28 Sep 2005 06:26:39 -0700
-Message-ID: <20050928132639.GA5791@us.ibm.com>
-References: <68559cef05092207022f1f0df4@mail.gmail.com> <498263350509230815eb08a73@mail.gmail.com> <20050926032807.GI18357@verge.net.au> <20050926043400.GD5079@us.ibm.com> <20050926080508.GF11027@verge.net.au> <20050926081229.GA23755@verge.net.au> <20050926131104.GA7532@us.ibm.com> <68559cef05092606521cc13f9a@mail.gmail.com> <20050926142109.GD7532@us.ibm.com> <20050928022307.GK18765@verge.net.au>
+From: "ernesto koko" <ildamailletjoy@automotivelover.com>
+Subject: vie Click for privacy link.  gradient
+Date: Wed, 28 Sep 2005 06:49:14 -0800
+Message-ID: <2D1A5B28.ED518AC@automotivelover.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <mendoza@oss.sgi.com>, <lowe@oss.sgi.com>, <netdev@oss.sgi.com>,
+        <daniel@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Luca Maranzano <liuk001@gmail.com>, Dave Miller <davem@davemloft.net>,
-        Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-        netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050928022307.GK18765@verge.net.au>
+To: "Kory Struble" <terry@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 28.09.2005 [11:23:09 +0900], Horms wrote:
-> On Mon, Sep 26, 2005 at 07:21:09AM -0700, Nishanth Aravamudan wrote:
-> > On 26.09.2005 [15:52:02 +0200], Luca Maranzano wrote:
-> > > On 26/09/05, Nishanth Aravamudan <nacc@us.ibm.com> wrote:
-> > > > On 26.09.2005 [17:12:32 +0900], Horms wrote:
-> > > > > On Mon, Sep 26, 2005 at 05:05:10PM +0900, Horms wrote:
-> > > > >
-> > > > > [snip]
-> > > > >
-> > > > > > > > > > Furthermore, if I make an "rgrep" in the source tree of kernel 2.6.12
-> > > > > > > > > > the function schedule_timeout() is more used than the ssleep() (517
-> > > > > > > > > > occurrencies vs. 43), so why in ip_vs_sync.c there was this change?
-> > > > > > > > > >
-> > > > > > > > > > The other oddity is that Horms reported on this list that on non Xeon
-> > > > > > > > > > CPU the same version of kernel of mine does not present the problem.
-> > > > > > > > > >
-> > > > > > > > > > I'm getting crazy :-)
-> > > > > > > >
-> > > > > > > > I've prepared a patch, which reverts the change which was introduced
-> > > > > > > > by Nishanth Aravamudan in February.
-> > > > > > >
-> > > > > > > Was the 100% cpu utilization only occurring on Xeon processors?
-> > > > > >
-> > > > > > That seems to be the only case where were this problem has been
-> > > > > > observed. I don't have such a processor myself, so I haven't actually
-> > > > > > been able to produce the problem locally.
-> > > > > >
-> > > > > > One reason I posted this issue to netdev was to get some more
-> > > > > > eyes on the problem as it is puzzling to say the least.
-> > > > > >
-> > > > > > > Care to try to use msleep_interruptible() instead of ssleep(), as
-> > > > > > > opposed to schedule_timeout()?
-> > > > > >
-> > > > > > I will send a version that does that shortly, Luca, can
-> > > > > > you plase check that too?
-> > > > >
-> > > > > Here is that version of the patch. Nishanth, I take it that I do not
-> > > > > need to set TASK_INTERRUPTABLE before calling msleep_interruptible(),
-> > > > > please let me know if I am wrong.
-> > > >
-> > > > Yes, exactly. I'm just trying to narrow it down to see if it's the task
-> > > > state that's causing the issue (which, to be honest, doesn't make a lot
-> > > > of sense to me -- with ssleep() your load average will go up as the task
-> > > > will be UNINTERRUPTIBLE state, but I am not sure why utilisation would
-> > > > rise, as you are still sleeping...)
-> > 
-> > [trimmed lvs-users from my reply, as it is a closed list]
-> > 
-> > > Just to add more info, please note the output of "ps":
-> > > 
-> > > debld1:~# ps aux|grep ipvs
-> > > root      3748  0.0  0.0      0     0 ?        D    12:09   0:00
-> > > [ipvs_syncmaster]
-> > > root      3757  0.0  0.0      0     0 ?        D    12:09   0:00
-> > > [ipvs_syncbackup]
-> > > 
-> > > Note the D status, i.e. (from ps(1) man page): Uninterruptible sleep
-> > > (usually IO)
-> > 
-> > The msleep_interruptible() change should fix that.
-> > 
-> > But that does not show 100% CPU utilisation at all, it shows 0. Did you
-> > mean to say your load increases?
-> 
-> he full discussion is available online at the follwoing URL:
-> I can get than information and post it all here if that is
-> desirable.
-> 
-> http://archive.linuxvirtualserver.org/html/lvs-users/2005-09/msg00031.html
 
-Yes, the information in that thread is the same as what Luca said. It's
-a load average problem, not a CPU utilisation problem (those threads are
-sleeping!) If Luca could test the msleep_interruptible() version of the
-patch and it works (like I said, performance should not change, but the
-load average will drop to by 2), then I will ACK the patch for mainline
-acceptance.
+Everything you demand is at this URL. 
 
-Thanks,
-Nish
+With our generic, stress is not a big issue no longer.
+Certain fast  carriage.
+Best haggles on net.
+Meedical case review for zero pennies. 
+
+Absolutely satisfied, would spend again from your zzone. Dorris H --Ohio. 
+http://uk.geocities.com/timecravingstar/?mpqr
+
+"Jail," said the strange man, coolly putting his handkerchief into his hat,
+which was on the floor at his feet. "Or Coavinses." 
+
+ferelith  evanh  flat AH02 ench  envseg
+Fog everywhere. Fog up the river, where it flows among green aits and
+meadows; fog down the river, where it rolls deified among the tiers of
+shipping and the waterside pollutions of a great (and dirty) city. Fog on
+the Estee marshes, fog on the Kentish heights. Fog creeping into the
+cabooses of collier-brigs; fog lying out on the yards and hovering in the
+rigging of great ships; fog drooping on the gunwales of barges and small
+boats. Fog in the eyes and throats of ancient Greenwich pensioners, wheezing
+by the firesides of their wards; fog in the stem and bowl of the afternoon
+pipe of the wrathful skipper, down in his close cabin; fog cruelly pinching
+the toes and fingers of his shivering little 'prentice boy on deck. Chance
+people on the bridges peeping over the pateets into a nether sky of fog,
+with fog all round them, as if they were up in a balloon and hanging in the
+misty clouds. 
+Gas looming through the fog in divers places in the streets, much as the
+sun may, from the spongey fields, be seen to loom by husbandman and
+ploughboy. Most of the shops lighted two hours before their time--as the gas
+seems to know, for it has a haggard and unwilling look. 
