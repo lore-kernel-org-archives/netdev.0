@@ -1,71 +1,45 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: rwlock recursion on CPU#0, netfilter related?
-Date: Thu, 29 Sep 2005 14:05:38 +0200
-Message-ID: <20050929120538.GT4168@sunbeam.de.gnumonks.org>
-References: <20050925105834.GA15243@ee.oulu.fi> <20050925134344.GJ731@sunbeam.de.gnumonks.org> <20050925201945.GA21176@ee.oulu.fi> <20050928145815.GA421@ee.oulu.fi>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Possible BUG in IPv4 TCP window handling, all recent 2.4.x/2.6.x kernels
+Date: Thu, 29 Sep 2005 19:17:29 +0400
+Message-ID: <20050929151729.GA2158@ms2.inr.ac.ru>
+References: <Pine.LNX.4.61.0509011713240.6083@guppy.limebrokerage.com> <20050901.154300.118239765.davem@davemloft.net> <Pine.LNX.4.61.0509011845040.6083@guppy.limebrokerage.com> <20050902183656.GA16537@yakov.inr.ac.ru> <Pine.LNX.4.61.0509281223560.30951@ionlinux.tower-research.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NEaRsfQExFH3jWtg"
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Pietikainen <pp@ee.oulu.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org, gautran@mrv.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ion Badulescu <lists@limebrokerage.com>
 Content-Disposition: inline
-In-Reply-To: <20050928145815.GA421@ee.oulu.fi>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.61.0509281223560.30951@ionlinux.tower-research.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
---NEaRsfQExFH3jWtg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> >Anyway, ignoring this puzzle, the following patch for 2.4 should help.
+> >
+> >
+> >--- net/ipv4/tcp_input.c.orig	2003-02-20 20:38:39.000000000 +0300
+> >+++ net/ipv4/tcp_input.c	2005-09-02 22:28:00.845952888 +0400
+> >@@ -343,8 +343,6 @@
+> >			app_win -= tp->ack.rcv_mss;
+> >		app_win = max(app_win, 2U*tp->advmss);
+> >
+> >-		if (!ofo_win)
+> >-			tp->window_clamp = min(tp->window_clamp, app_win);
+> >		tp->rcv_ssthresh = min(tp->window_clamp, 2U*tp->advmss);
+> >	}
+> >}
+> 
+> I'm very happy to report that the above patch, applied to 2.6.12.6, seems 
+> to have cured the TCP window problem we were experiencing.
 
-On Wed, Sep 28, 2005 at 05:58:15PM +0300, Pekka Pietikainen wrote:
-> On Sun, Sep 25, 2005 at 11:19:45PM +0300, Pekka Pietikainen wrote:
-> > Enabled, so this could be it. But 2.6.14-rc2-git4 did crash too (althou=
-gh
-> > it did take a bit longer for that to happen), and the changelog does st=
-ate:
-> Ok, it looks like that patch was the thing after all. I now tried the lat=
-est
-> fedora-devel kernel (1.1582, based on 2.6.14-rc2-git6) and the box has be=
-en
-> running for a few hours happily. Could be the fedora kernel that claimed =
-to
-> be git4 actually wasn't, or the git4 changelog was really a post-git4
-> changelog :). But anyway, bug is gone.
+Good. I think the patch is to be applied to all mainstream kernels.
 
-great news.
+The only obstacle is the second report by Guillaume Autran <gautran@mrv.com>,
+which has some allied characteristics, but after analysis it is something
+impossible, read, cryptic and severe bug. :-( I did not get a responce
+to the last query, so the investigation stalled.
 
-> This one is still around, so it's a different bug. Looks like it's a 64-b=
-it
-> issue, a 32-bit ping gives realistic ping times. tcpdump timestamps are a=
-lso
-> affected, they're completely off too. So looks like someone broke packet
-> timestamps on 64-bit some time after 2.6.13.
-
-luckily I'm not the core network maintainer ;)
-
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---NEaRsfQExFH3jWtg
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDO9iSXaXGVTD0i/8RApLKAJ9/16WAsgolDwJ3+niYa/fTSc5tHwCfUozU
-G3CSD+pENTT+gp8tvfY1+2g=
-=CtHq
------END PGP SIGNATURE-----
-
---NEaRsfQExFH3jWtg--
+Alexey
