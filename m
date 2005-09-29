@@ -1,47 +1,31 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] net/bluetooth/lib.c: remove unneeded #defines
-Date: Thu, 29 Sep 2005 22:14:54 +0400
-Message-ID: <20050929181454.GD18132@mipter.zuzino.mipt.ru>
-References: <20050928202856.GA27645@mipter.zuzino.mipt.ru> <1128012093.30743.20.camel@localhost.localdomain>
-Reply-To: bluez-devel@lists.sourceforge.net
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Possible BUG in IPv4 TCP window handling, all recent
+ 2.4.x/2.6.x kernels
+Date: Thu, 29 Sep 2005 11:16:47 -0700 (PDT)
+Message-ID: <20050929.111647.65068628.davem@davemloft.net>
+References: <Pine.LNX.4.61.0509281223560.30951@ionlinux.tower-research.com>
+	<20050929151729.GA2158@ms2.inr.ac.ru>
+	<200509291204.29393.jheffner@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maxim Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sf.net,
-	netdev@vger.kernel.org
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
-To: Marcel Holtmann <marcel@holtmann.org>
-Content-Disposition: inline
-In-Reply-To: <1128012093.30743.20.camel@localhost.localdomain>
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, lists@limebrokerage.com,
+	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org, gautran@mrv.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: jheffner@psc.edu
+In-Reply-To: <200509291204.29393.jheffner@psc.edu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2005 at 06:41:32PM +0200, Marcel Holtmann wrote:
-> > -#include <linux/config.h>
-> >  #include <linux/module.h>
-> >  
-> >  #include <linux/kernel.h>
-> > -#include <linux/stddef.h>
-> > -#include <linux/string.h>
-> >  #include <asm/errno.h>
-> >  
-> >  #include <net/bluetooth/bluetooth.h>
-> 
-> thanks for the patch. Do you have more of them? If yes, then I like to
-> cleanup this in one row and not step by step.
+From: John Heffner <jheffner@psc.edu>
+Date: Thu, 29 Sep 2005 12:04:28 -0400
 
-Looks like fcntl.h can be dropped too. I'll send a bigger patch.
+> Has anyone looked at the patch I sent out on Sept 9?  It goes a few steps 
+> further, addressing some additional problems.  Original message below.
 
+It's in my inbox pending review, so it's not forgotten :-)
 
-
--------------------------------------------------------
-This SF.Net email is sponsored by:
-Power Architecture Resource Center: Free content, downloads, discussions,
-and more. http://solutions.newsforge.com/ibmarch.tmpl
+My gut instinct right now is that we should put Alexey's
+2-liner in for 2.6.14 et al. then be thinking about your
+scheme for 2.6.15
