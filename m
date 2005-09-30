@@ -1,36 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
-Date: Fri, 30 Sep 2005 11:19:07 +1000
-Message-ID: <20050930011907.GA21579__47364.7373648875$1128043318$gmane$org@gondor.apana.org.au>
-References: <200509292330.j8TNUSmH019572@rastaban.cs.pdx.edu> <20050930002346.GP8177@us.ibm.com> <20050930002719.GC21062@gondor.apana.org.au> <20050930003642.GQ8177@us.ibm.com> <20050930010404.GA21429@gondor.apana.org.au> <20050930011603.GT8177@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suzanne Wood <suzannew@cs.pdx.edu>, Robert.Olsson@data.slu.se,
-        davem@davemloft.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        walpole@cs.pdx.edu
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Paul E. McKenney" <paulmck@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20050930011603.GT8177@us.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Chris Wright <chrisw@osdl.org>
+Subject: [PATCH 09/10] [PATCH] tcp: set default congestion control correctly for incoming connections
+Date: Thu, 29 Sep 2005 19:20:25 -0700
+Message-ID: <20050930022249.667419000@localhost.localdomain>
+References: <20050930022016.640197000@localhost.localdomain>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
+	Stephen Hemminger <shemminger@osdl.org>,
+	netdev@vger.kernel.org, Joel Sing <joel@ionix.com.au>,
+	Chris Wright <chrisw@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932551AbVI3CY3@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline; filename=tcp-set-default-congestion-control-correctly.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 29, 2005 at 06:16:03PM -0700, Paul E. McKenney wrote:
-> 
-> OK, how about this instead?
-> 
-> 	rcu_read_lock();
-> 	in_dev = dev->ip_ptr;
-> 	if (in_dev) {
-> 		atomic_inc(&rcu_dereference(in_dev)->refcnt);
-> 	}
-> 	rcu_read_unlock();
-> 	return in_dev;
+-stable review patch.  If anyone has any objections, please let us know.
+------------------
 
-Looks great.  Thanks Paul.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Patch from Joel Sing to fix the default congestion control algorithm for incoming connections. If a new congestion control handler is added (via module),
+it should become the default for new connections. Instead, the incoming
+connections use reno. The cause is incorrect 
+initialisation causes the tcp_init_congestion_control() function to return 
+after the initial if test fails.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Acked-by: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+---
+ net/ipv4/tcp_minisocks.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.13.y/net/ipv4/tcp_minisocks.c
+===================================================================
+--- linux-2.6.13.y.orig/net/ipv4/tcp_minisocks.c
++++ linux-2.6.13.y/net/ipv4/tcp_minisocks.c
+@@ -774,7 +774,7 @@ struct sock *tcp_create_openreq_child(st
+ 		newtp->frto_counter = 0;
+ 		newtp->frto_highmark = 0;
+ 
+-		newtp->ca_ops = &tcp_reno;
++		newtp->ca_ops = &tcp_init_congestion_ops;
+ 
+ 		tcp_set_ca_state(newtp, TCP_CA_Open);
+ 		tcp_init_xmit_timers(newsk);
+
+--
