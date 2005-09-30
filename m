@@ -1,33 +1,42 @@
-From: Suzanne Wood <suzannew@cs.pdx.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
-Date: Thu, 29 Sep 2005 16:59:56 -0700 (PDT)
-Message-ID: <200509292359.j8TNxuxD019838__241.823672740971$1128038565$gmane$org@rastaban.cs.pdx.edu>
+Date: Fri, 30 Sep 2005 10:21:44 +1000
+Message-ID: <20050930002144.GA21062@gondor.apana.org.au>
+References: <200509292330.j8TNUSmH019572@rastaban.cs.pdx.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: Robert.Olsson@data.slu.se, davem@davemloft.net,
         linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
         walpole@cs.pdx.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
+To: Suzanne Wood <suzannew@cs.pdx.edu>
+Content-Disposition: inline
+In-Reply-To: <200509292330.j8TNUSmH019572@rastaban.cs.pdx.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sorry to be thinking on-line, but if you mean this:
+On Thu, Sep 29, 2005 at 04:30:28PM -0700, Suzanne Wood wrote:
+> 
+> > BTW, could you please move the rcu_dereference in in_dev_get()
+> > into the if clause? The barrier is not needed when ip_ptr is
+> > NULL.
+> 
+> The trouble with that may be that there are three events, the
+> dereference, the assignment, and the conditional test.  The
+> rcu_dereference() is meant to assure deferred destruction
+> throughout.
 
-  if (in_dev = rcu_dereference(dev->ip_ptr))
+The deferred destruction is guaranteed here by the reference count.
+The only purpose served by rcu_dereference() in in_dev_get() is to
+prevent the user from seeing pre-initialisation data.
 
-I think that's fine.
+When the pointer is NULL, you can't see any data at all, let alone
+pre-initialisation data.
 
-  > From suzannew Thu Sep 29 16:39:57 2005
-
-  >   > From suzannew Thu Sep 29 16:30:28 2005
-
-  >   > > From: Herbert Xu 30 Sep 2005 07:28
-
-  >   > > BTW, could you please move the rcu_dereference in in_dev_get()
-  >   > > into the if clause? The barrier is not needed when ip_ptr is
-  >   > > NULL.
-
-  >   > The trouble with that may be that there are three events, the
-  >   > dereference, the assignment, and the conditional test.  The
-  >   > rcu_dereference() is meant to assure deferred destruction
-  >   > throughout.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
