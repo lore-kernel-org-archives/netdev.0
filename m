@@ -1,59 +1,50 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
-Date: Fri, 30 Sep 2005 14:33:35 +0200
-Message-ID: <20050930123334.GW4168__18489.8310843439$1128084115$gmane$org@sunbeam.de.gnumonks.org>
-References: <200509260445.46740.mbellion@hipac.org>
+From: Luca Maranzano <liuk001@gmail.com>
+Subject: Re: ipvs_syncmaster brings cpu to 100%
+Date: Fri, 30 Sep 2005 17:59:44 +0200
+Message-ID: <68559cef0509300859s38cf42bn@mail.gmail.com>
+References: <68559cef05092207022f1f0df4@mail.gmail.com>
+	 <20050926032807.GI18357@verge.net.au>
+	 <20050926043400.GD5079@us.ibm.com>
+	 <20050926080508.GF11027@verge.net.au>
+	 <20050926081229.GA23755@verge.net.au>
+	 <20050926131104.GA7532@us.ibm.com>
+	 <68559cef05092606521cc13f9a@mail.gmail.com>
+	 <20050926142109.GD7532@us.ibm.com>
+	 <20050928022307.GK18765@verge.net.au>
+	 <20050928132639.GA5791@us.ibm.com>
+Reply-To: Luca Maranzano <liuk001@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VIdDLDeyEAhJQ0DY"
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Dave Miller <davem@davemloft.net>, Wensong Zhang <wensong@linux-vs.org>,
+        Julian Anastasov <ja@ssi.bg>, netdev@oss.sgi.com, horms@verge.net.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Bellion <mbellion@hipac.org>
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+In-Reply-To: <20050928132639.GA5791@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <200509260445.46740.mbellion@hipac.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+First of all thank you all for your precious support! :-)
 
---VIdDLDeyEAhJQ0DY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The two machines on which I discovered the problem are now in
+production and I cannot for the moment make tests, but I hope to have
+some other hardware to try in the next week.
+I'll let you know ASAP.
 
-On Mon, Sep 26, 2005 at 04:45:46AM +0200, Michael Bellion wrote:
-> Hi
->=20
-> I am happy to announce the release of nf-HiPAC version 0.9.0
+Thanks,
+Luca
 
-I'm happy to hear this, especially in the advent of the netfilter
-develpoer workshop next week, and after a very long period of silence
-=66rom the nf-hipac project.
 
-I'll make sure to have read through your 0.9.0 version source code until
-then, to be able to give some feedback asap.
-
-Looking forward to talking to you about it next week!
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---VIdDLDeyEAhJQ0DY
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDPTCeXaXGVTD0i/8RAk+6AJ9yRqzLPHAw8y6hBTdgM3IvtVcHTQCdFKhz
-g3w+aCg9EjwtfBdsYvfo3fU=
-=rmvC
------END PGP SIGNATURE-----
-
---VIdDLDeyEAhJQ0DY--
+>
+> Yes, the information in that thread is the same as what Luca said. It's
+> a load average problem, not a CPU utilisation problem (those threads are
+> sleeping!) If Luca could test the msleep_interruptible() version of the
+> patch and it works (like I said, performance should not change, but the
+> load average will drop to by 2), then I will ACK the patch for mainline
+> acceptance.
+>
+> Thanks,
+> Nish
+>
