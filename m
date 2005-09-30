@@ -1,52 +1,31 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH 09/10] [PATCH] tcp: set default congestion control correctly for incoming connections
-Date: Thu, 29 Sep 2005 19:20:25 -0700
-Message-ID: <20050930022249.667419000@localhost.localdomain>
-References: <20050930022016.640197000@localhost.localdomain>
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@vger.kernel.org, Joel Sing <joel@ionix.com.au>,
-	Chris Wright <chrisw@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932551AbVI3CY3@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline; filename=tcp-set-default-congestion-control-correctly.patch
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Funny timestamps (Was: Re: rwlock recursion on CPU#0, netfilter related?)
+Date: Fri, 30 Sep 2005 09:49:19 +0300
+Message-ID: <20050930064919.GA21573@ee.oulu.fi>
+References: <20050925105834.GA15243@ee.oulu.fi> <20050925134344.GJ731@sunbeam.de.gnumonks.org> <20050925201945.GA21176@ee.oulu.fi> <20050928145815.GA421@ee.oulu.fi> <20050929120538.GT4168@sunbeam.de.gnumonks.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050929120538.GT4168@sunbeam.de.gnumonks.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
-------------------
+On Thu, Sep 29, 2005 at 02:05:38PM +0200, Harald Welte wrote:
+> > This one is still around, so it's a different bug. Looks like it's a 64-bit
+> > issue, a 32-bit ping gives realistic ping times. tcpdump timestamps are also
+> > affected, they're completely off too. So looks like someone broke packet
+> > timestamps on 64-bit some time after 2.6.13.
+> 
+> luckily I'm not the core network maintainer ;)
+Here's the actual bug report:
 
-Patch from Joel Sing to fix the default congestion control algorithm for incoming connections. If a new congestion control handler is added (via module),
-it should become the default for new connections. Instead, the incoming
-connections use reno. The cause is incorrect 
-initialisation causes the tcp_init_congestion_control() function to return 
-after the initial if test fails.
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=168166
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-Acked-by: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Chris Wright <chrisw@osdl.org>
----
- net/ipv4/tcp_minisocks.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6.13.y/net/ipv4/tcp_minisocks.c
-===================================================================
---- linux-2.6.13.y.orig/net/ipv4/tcp_minisocks.c
-+++ linux-2.6.13.y/net/ipv4/tcp_minisocks.c
-@@ -774,7 +774,7 @@ struct sock *tcp_create_openreq_child(st
- 		newtp->frto_counter = 0;
- 		newtp->frto_highmark = 0;
- 
--		newtp->ca_ops = &tcp_reno;
-+		newtp->ca_ops = &tcp_init_congestion_ops;
- 
- 		tcp_set_ca_state(newtp, TCP_CA_Open);
- 		tcp_init_xmit_timers(newsk);
-
---
+Ended up being a userspace thing, maybe. But still makes me wonder what
+change actually broke things. It must have been something soon after 2.6.13.
+And there's still tcpdump, which doesn't seem to go into the problem mode
+when I test it now, except that nothing should have changed in the
+kernel/tcpdump/libpcap versions. Blah.
