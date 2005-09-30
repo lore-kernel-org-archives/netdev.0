@@ -1,44 +1,76 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [ANNOUNCE] iproute2 version (050929)
-Date: Fri, 30 Sep 2005 15:04:06 -0700
-Message-ID: <20050930150406.2e2221fd@dxpl.pdx.osdl.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Starfire (Adaptec) kernel 2.6.13+ panics on AMD64 NFS server
+Date: Sat, 1 Oct 2005 08:39:15 +1000
+Message-ID: <20050930223915.GA17562@gondor.apana.org.au>
+References: <d93f04c70509292036x269df799y7b51c5be9c3356d6@mail.gmail.com> <20050929211649.69eaddee.akpm@osdl.org> <d93f04c70509300901s3836b8afw4792d16c589b4fc4@mail.gmail.com> <20050930104046.4685e975.akpm@osdl.org> <d93f04c70509301310y4bde1189wbcaef40124af6766@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
+Cc: Andrew Morton <akpm@osdl.org>, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ionut@badula.org,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030485AbVI3Wjr@vger.kernel.org>
+To: Hendrik Visage <hvjunk@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <d93f04c70509301310y4bde1189wbcaef40124af6766@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is an new minor update to iproute2 utilities available:
-	http://developer.osdl.org/dev/iproute2/download/iproute2-050929.tar.gz
 
-Also, this (and future) releases are now signed, for key info read:
-	http://developer.osdl.org/dev/iproute2/signature.html
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-[Stephen Hemminger]
-	Fix uninitialized memory and leaks
-	Add -batch option to ip.
-	Update to 2.6.14 headers
+On Fri, Sep 30, 2005 at 08:10:59PM +0000, Hendrik Visage wrote:
+>
+> Anycase, here is a non-PREEMPT traceback. What makes this one
+> interesting, is that
+> in the preempt case, I had to push the NFS output to get the panic, but the
+> non-preempt case attached, sorta just happened, ie. when the clients
+> just checked on the server's status :(
 
-[Arnaldo]
-        Integrate support for DCCP into 'ss'
+You must never call skb_checksum_help unless the packet is meant to
+be checksummed by the hardware.  So starfire is the guilty party here.
 
-[Mike Frysinger]
-	Fix build issues with netem tables (parallel make and HOSTCC)
+This patch makes it do the check and also check for errors from
+skb_checksum_help.
 
-[Eric Dumazet]
-	Fix lnstat : First column should not be summed
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
+Cheers,
 -- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
+--- a/drivers/net/starfire.c
++++ b/drivers/net/starfire.c
+@@ -1333,7 +1333,7 @@ static int start_tx(struct sk_buff *skb,
+ 	}
+ 
+ #if defined(ZEROCOPY) && defined(HAS_BROKEN_FIRMWARE)
+-	{
++	if (skb->ip_summed == CHECKSUM_HW) {
+ 		int has_bad_length = 0;
+ 
+ 		if (skb_first_frag_len(skb) == 1)
+@@ -1346,8 +1346,10 @@ static int start_tx(struct sk_buff *skb,
+ 				}
+ 		}
+ 
+-		if (has_bad_length)
+-			skb_checksum_help(skb, 0);
++		if (has_bad_length && unlikely(skb_checksum_help(skb, 0))) {
++			dev_kfree_skb(skb);
++			return NETDEV_TX_OK;
++		}
+ 	}
+ #endif /* ZEROCOPY && HAS_BROKEN_FIRMWARE */
+ 
+
+--fdj2RfSjLxBAspz7--
