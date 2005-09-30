@@ -1,25 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Possible BUG in IPv4 TCP window handling, all recent
- 2.4.x/2.6.x kernels
-Date: Thu, 29 Sep 2005 17:29:24 -0700 (PDT)
-Message-ID: <20050929.172924.06476420.davem@davemloft.net>
-References: <20050902183656.GA16537@yakov.inr.ac.ru>
-	<Pine.LNX.4.61.0509281223560.30951@ionlinux.tower-research.com>
-	<20050929151729.GA2158@ms2.inr.ac.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
+Date: Fri, 30 Sep 2005 10:27:19 +1000
+Message-ID: <20050930002719.GC21062__14479.1445964531$1128040297$gmane$org@gondor.apana.org.au>
+References: <200509292330.j8TNUSmH019572@rastaban.cs.pdx.edu> <20050930002346.GP8177@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lists@limebrokerage.com, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, netdev@vger.kernel.org, gautran@mrv.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <20050929151729.GA2158@ms2.inr.ac.ru>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Suzanne Wood <suzannew@cs.pdx.edu>, Robert.Olsson@data.slu.se,
+        davem@davemloft.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        walpole@cs.pdx.edu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Paul E. McKenney" <paulmck@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20050930002346.GP8177@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Thu, 29 Sep 2005 19:17:29 +0400
+On Thu, Sep 29, 2005 at 05:23:46PM -0700, Paul E. McKenney wrote:
+> 
+> Is there any case where __in_dev_get() might be called without
+> needing to be wrapped with rcu_dereference()?  If so, then I
+> agree (FWIW, given my meagre knowledge of Linux networking).
 
-> Good. I think the patch is to be applied to all mainstream kernels.
+Yes.  All paths that call __in_dev_get() under the rtnl do not
+need rcu_dereference (or any RCU at all) since the rtnl prevents
+any ip_ptr modification from occuring.
 
-Done, thanks everyone.
+> However, rcu_dereference() only generates a memory barrier on DEC
+> Alpha, so there is normally no penalty for using it in the NULL-pointer
+> case.  So, when using rcu_dereference() unconditionally simplifies
+> the code, it may make sense to "just do it".
+
+Here is what the code would look like:
+
+	rcu_read_lock();
+	in_dev = dev->ip_ptr;
+	if (in_dev) {
+		in_dev = rcu_dereference(in_dev);
+		atomic_inc(&in_dev->refcnt);
+	}
+	rcu_read_unlock();
+	return in_dev;
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
