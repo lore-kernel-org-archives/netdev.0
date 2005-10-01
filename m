@@ -1,38 +1,35 @@
-From: Hendrik Visage <hvjunk@gmail.com>
-Subject: Re: Starfire (Adaptec) kernel 2.6.13+ panics on AMD64 NFS server
-Date: Sat, 1 Oct 2005 21:21:25 +0200
-Message-ID: <d93f04c70510011221jf36525fla68c95160c0f0d38@mail.gmail.com>
-References: <d93f04c70509292036x269df799y7b51c5be9c3356d6@mail.gmail.com>
-	 <20050929211649.69eaddee.akpm@osdl.org>
-	 <d93f04c70509300901s3836b8afw4792d16c589b4fc4@mail.gmail.com>
-	 <20050930104046.4685e975.akpm@osdl.org>
-	 <d93f04c70509301310y4bde1189wbcaef40124af6766@mail.gmail.com>
-	 <20050930223915.GA17562@gondor.apana.org.au>
-Reply-To: Hendrik Visage <hvjunk@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
+Date: Sun, 2 Oct 2005 05:29:34 +1000
+Message-ID: <20051001192934.GA20741__42825.3043363386$1128195196$gmane$org@gondor.apana.org.au>
+References: <200510011837.j91IbE01012915@rastaban.cs.pdx.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Andrew Morton <akpm@osdl.org>, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ionut@badula.org,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050930223915.GA17562@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert.Olsson@data.slu.se, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
+        walpole@cs.pdx.edu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Suzanne Wood <suzannew@cs.pdx.edu>
 Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <200510011837.j91IbE01012915@rastaban.cs.pdx.edu>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 10/1/05, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> You must never call skb_checksum_help unless the packet is meant to
-> be checksummed by the hardware.  So starfire is the guilty party here.
->
-> This patch makes it do the check and also check for errors from
-> skb_checksum_help.
->
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Sat, Oct 01, 2005 at 11:37:14AM -0700, Suzanne Wood wrote:
+> 
+> But the following may be worth considering.
+> 
+>   > It is also probably good to retain the old __in_dev_get()
+> and deprecate it.
 
-Thanx Herbert,
- at least on 2.6.14_rc2 the patch appears to work for my stress test :)
+I think it's better to get rid of it actually so that if there are
+external modules using this they can make sure that they're using
+the right function.
 
---
-Hendrik Visage
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
