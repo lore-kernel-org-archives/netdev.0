@@ -1,34 +1,33 @@
-From: Dich Vu Gui Email <dich_vu_email@gmail.com>
-Subject: Giai Phap Marketting bang cach gui email cho khach hang
-Date: Sat, 01 Oct 2005 22:34:07 +0700
-Message-ID: <20051001153455.53C75D2FA37A@cuda.sgi.com>
-Reply-To: dich_vu_email@gmail.com
+From: Michael Bellion <mbellion@hipac.org>
+Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
+Date: Sat, 1 Oct 2005 17:38:16 +0200
+Message-ID: <200510011738.18173.mbellion__7328.25455857$1128181272$gmane$org@hipac.org>
+References: <200509260445.46740.mbellion@hipac.org> <20050930123334.GW4168@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="2dbc286f-2c81-40b8-878a-fb556c12c827"
+Content-Type: text/plain;
+  charset="iso-8859-6"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20050930123334.GW4168@sunbeam.de.gnumonks.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi
 
-This is a multi-part message in MIME format
---2dbc286f-2c81-40b8-878a-fb556c12c827
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+> > I am happy to announce the release of nf-HiPAC version 0.9.0
+>
+> Looking forward to talking to you about it next week!
 
-Toi dang co danh sach hon 200.000 dia chi email danh cho quy vi can quang ba =
-san pham, thuong hieu. Bao gom cac dia chi email
-@hn.vnn.vn
-@fpt.vn
-@netnam.vn
-@ten_cong_ty.com.vn
-....
-Va rat nhieu cac domain khac.
-Ty le email chinh xac la 98%.
+Yes, I am looking forward to meet you and the rest of the netfilter developers 
+again at the workshop next week too. The workshop has always been a lot of 
+fun with a lot of interesting discussions. With the 2 days of the workshop 
+and the 2 extra days of hacking on code there will probably be plenty of time 
+to talk about the current state and future directions of the HiPAC project.
 
-Khuyen mai them chuong trinh gui email rat manh
-Gia 1.500.000/1 danh sach.
-Hoac 300.000/1lan gui email.
-Lien lac qua dia chi email: dich_vu_email@gmail.com hoac YM: dich_vu_email
---2dbc286f-2c81-40b8-878a-fb556c12c827--
+See you next week
+	Michael Bellion
