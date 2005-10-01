@@ -1,35 +1,38 @@
-From: Suzanne Wood <suzannew@cs.pdx.edu>
-Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
-Date: Sat, 1 Oct 2005 11:37:14 -0700 (PDT)
-Message-ID: <200510011837.j91IbE01012915__18571.8561675914$1128192038$gmane$org@rastaban.cs.pdx.edu>
-Cc: Robert.Olsson@data.slu.se, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
-        walpole@cs.pdx.edu
-Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Hendrik Visage <hvjunk@gmail.com>
+Subject: Re: Starfire (Adaptec) kernel 2.6.13+ panics on AMD64 NFS server
+Date: Sat, 1 Oct 2005 21:21:25 +0200
+Message-ID: <d93f04c70510011221jf36525fla68c95160c0f0d38@mail.gmail.com>
+References: <d93f04c70509292036x269df799y7b51c5be9c3356d6@mail.gmail.com>
+	 <20050929211649.69eaddee.akpm@osdl.org>
+	 <d93f04c70509300901s3836b8afw4792d16c589b4fc4@mail.gmail.com>
+	 <20050930104046.4685e975.akpm@osdl.org>
+	 <d93f04c70509301310y4bde1189wbcaef40124af6766@mail.gmail.com>
+	 <20050930223915.GA17562@gondor.apana.org.au>
+Reply-To: Hendrik Visage <hvjunk@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Andrew Morton <akpm@osdl.org>, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ionut@badula.org,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050930223915.GA17562@gondor.apana.org.au>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please excuse this restatement of an earlier concern.
+On 10/1/05, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> You must never call skb_checksum_help unless the packet is meant to
+> be checksummed by the hardware.  So starfire is the guilty party here.
+>
+> This patch makes it do the check and also check for errors from
+> skb_checksum_help.
+>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-  > From suzannew Sat Oct  1 11:00:28 2005
+Thanx Herbert,
+ at least on 2.6.14_rc2 the patch appears to work for my stress test :)
 
-  > With the spotlight leaving in_dev_get, we have the parallel question 
-  > of in_dev_put() and __in_dev_put()  both defined with refcnt 
-  > decrement, but the preceding underscore may lend itself to an
-  > inadvertant pairing and refcnt inaccuracy.
-
-Dave Miller already addressed this question in 
-http://www.ussg.iu.edu/hypermail/linux/kernel/0509.3/0757.html 
-
-  > It may not be reasonable to rename __in_dev_put for its parallel definition
-  > since its current usage is with __in_dev_get_rtnl() which does not increment 
-  > refcnt. 
-
-But the following may be worth considering.
-
-  > It is also probably good to retain the old __in_dev_get()
-and deprecate it.
-
-Thank you.
+--
+Hendrik Visage
