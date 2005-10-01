@@ -1,87 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
-Date: Sat, 1 Oct 2005 17:12:48 +1000
-Message-ID: <20051001071248.GA15990__40390.3182167143$1128151036$gmane$org@gondor.apana.org.au>
-References: <200510010656.j916ufhT007410@rastaban.cs.pdx.edu>
+From: "demarcus matherly" <glynda@u2email.net>
+Subject: ball Approved E GP.  antiquarian
+Date: Sat, 01 Oct 2005 02:41:14 -1100
+Message-ID: <DD0597EE.FF24311@u2email.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="2fHTh5uZTiUOsy+g"
-Cc: Robert.Olsson@data.slu.se, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
-        walpole@cs.pdx.edu
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <daniel@oss.sgi.com>, <linux-xfs-outgoing@oss.sgi.com>,
+        <reese@oss.sgi.com>, <hunter@oss.sgi.com>, <ljp@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Suzanne Wood <suzannew@cs.pdx.edu>
-Content-Disposition: inline
-In-Reply-To: <200510010656.j916ufhT007410@rastaban.cs.pdx.edu>
+To: "Jarred Bartash" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+It's cheaper to your local drugg sttore.
+Eliminate your pressure with our antidote.
+Trusted universal carriage network for all deliveries.
+Most of shoppers concur that ours is lesser cost.
+For correct consumption, a professional will reassesses your meedical form.
+I just taking in my antidotes, they are thump up, yes!! Syd J --DC.
 
-On Fri, Sep 30, 2005 at 11:56:41PM -0700, Suzanne Wood wrote:
-> 
-> But it is interesting to have discarded what was developed yesterday
-> to minimize rcu_dereference impact:
->
-> >> ----- Original message  -----
-> >> From: Herbert Xu <herbert@gondor.apana.org.au>
-> >> Date: Fri, 30 Sep 2005 11:19:07 +1000
-> >> 
-> >> On Thu, Sep 29, 2005 at 06:16:03PM -0700, Paul E. McKenney wrote:
-> >>> 
-> >>> OK, how about this instead?
-> >>> 
-> >>> rcu_read_lock();
-> >>> in_dev = dev->ip_ptr;
-> >>> if (in_dev) {
-> >>> atomic_inc(&rcu_dereference(in_dev)->refcnt);
-> >>> }
-> >>> rcu_read_unlock();
-> >>> return in_dev;
-> >> 
-> >> Looks great. 
-> 
-> while adding a function call level by wrapping  __in_dev_get_rcu
-> with in_dev_get as suggested here.
+http://uk.geocities.com/ainfocometrue/?mmnibmb
 
-It might look different, but it should compile to the same result.
-GCC should be smart enough to combine the two branches and produce a
-memory barrier only when in_dev is not NULL.
- 
-> The other thing I'd hoped to address in pktgen.c was 
-> removing the __in_dev_put() which decrements refcnt 
-> while __in_dev_get_rcu() does not increment.
 
-Well spotted.
+"The universe," he observed, "makes rather an indifferent parent, I am
+afraid." 
 
-Here is a patch on top of the last one to fix this bogus decrement.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1673,7 +1673,6 @@ static void pktgen_setup_inject(struct p
- 					pkt_dev->saddr_min = in_dev->ifa_list->ifa_address;
- 					pkt_dev->saddr_max = pkt_dev->saddr_min;
- 				}
--				__in_dev_put(in_dev);	
- 			}
- 			rcu_read_unlock();
- 		}
-
---2fHTh5uZTiUOsy+g--
+flame-proof  datamonitor  dburch AH02 elaan  crescimento
+And for what? For a mere folly, a masquerade, a little thing that he could
+not let go. AND HE COULD EVEN LET IT GO, he told himself. But he had
+promised to be in London at mid- summer, and he knew that he would go. . . .
+It was impossible to live like this any longer. 
+And this, then, was to be the disaster that his old professor had foreseen
+for him: the crack in the wall, the crash, the cloud of dust. And he could
+not understand how it had come about. He felt that he himself was unchanged,
+that he was still there, the same man he had been five years ago, and that
+he was sitting stupidly by and letting some resolute offshoot of himself
+spoil his life for him. This new force was not he, it was but a part of him.
+He would not even admit that it was stronger than he; but it was more
+active. It was by its energy that this new feeling got the better of him.
+His . was the woman who had made his life, gratified his pride, given
+direction to his tastes and habits. The life they led together seemed to him
+beautiful. Winifred still was, as she had always been, Romance for him, and
+whenever he was deeply stirred he turned to her. When the grandeur and
+beauty of the world challenged him-- as it challenges even the most
+self-absorbed people-- he always answered with her name. That was his reply
+to the question put by the mountains and the stars; to all the spiritual
+aspects of life. In his feeling for his . there was all the tenderness, all
+the pride, all the devotion of which he was capable. There was everything
+but energy; the energy of youth which must register itself and cut its name
+before it passes. This new feeling was so fresh, so unsatisfied and light of
+foot. It ran and was not wearied, anticipated him everywhere. It put a
+girdle round the earth while he was going from New York to Moorlock. At this
+moment, it was tingling through him, exultant, and live as quicksilver,
+whispering, "In July you will be in England." 
