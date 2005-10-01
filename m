@@ -1,82 +1,65 @@
-From: "Paul E. McKenney" <paulmck@us.ibm.com>
+From: Suzanne Wood <suzannew@cs.pdx.edu>
 Subject: Re: [RFC][PATCH] identify in_dev_get rcu read-side critical sections
-Date: Sat, 1 Oct 2005 11:04:41 -0700
-Message-ID: <20051001180441.GA1578__28821.6043184095$1128189972$gmane$org@us.ibm.com>
-References: <200510010656.j916ufhT007410@rastaban.cs.pdx.edu> <20051001071248.GA15990@gondor.apana.org.au>
-Reply-To: paulmck@us.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suzanne Wood <suzannew@cs.pdx.edu>, Robert.Olsson@data.slu.se,
-        davem@davemloft.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+Date: Sat, 1 Oct 2005 11:00:28 -0700 (PDT)
+Message-ID: <200510011800.j91I0S3G012676__23163.335878826$1128189980$gmane$org@rastaban.cs.pdx.edu>
+Cc: Robert.Olsson@data.slu.se, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
         walpole@cs.pdx.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20051001071248.GA15990@gondor.apana.org.au>
+To: herbert@gondor.apana.org.au
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 01, 2005 at 05:12:48PM +1000, Herbert Xu wrote:
+With the spotlight leaving in_dev_get, we have the parallel question 
+of in_dev_put() and __in_dev_put()  both defined with refcnt 
+decrement, but the preceding underscore may lend itself to an
+inadvertant pairing and refcnt inaccuracy.
+
+In the following  cscope of linux-2.6.14-rc2 prior to Herbert's patches 
+which remove the occurence in pktgen.c and the others are
+paired with __in_dev_get_rtnl(), except xfrm4_policy.c():
+
+C symbol: __in_dev_put
+  File           Function              Line
+  File           Function              Line
+0 inetdevice.h   <global>               172 #define __in_dev_put(idev) atomic_dec(&(idev)->refcnt)
+1 pktgen.c       pktgen_setup_inject   1687 __in_dev_put(in_dev);
+2 devinet.c      inet_rtm_deladdr       412 __in_dev_put(in_dev);
+3 igmp.c         igmp_gq_timer_expire   686 __in_dev_put(in_dev);
+4 igmp.c         igmp_ifc_timer_expire  698 __in_dev_put(in_dev);
+5 igmp.c         igmp_heard_query       801 __in_dev_put(in_dev);
+6 igmp.c         ip_mc_down            1228 __in_dev_put(in_dev);
+7 igmp.c         ip_mc_down            1231 __in_dev_put(in_dev);
+8 igmp.c         ip_mc_find_dev        1310 __in_dev_put(idev);
+9 xfrm4_policy.c xfrm4_dst_ifdown       280 __in_dev_put(loopback_idev);
+
+It may not be reasonable to rename __in_dev_put for its parallel definition
+since its current usage is with __in_dev_get_rtnl() which does not increment 
+refcnt. 
+
+It is also probably good to retain the old __in_dev_get() 
+and __in_dev_put() and deprecate them.
+
+Old business:  this is probably stating the obvious,
+with Herbert's patches in place, none of the test patch
+I'd submitted 8 Sept should take effect.
+
+Thank you.
+Suzanne
+
+----- Original Message ----- 
+From: "Herbert Xu" <herbert@gondor.apana.org.au>
+Sent: Saturday, October 01, 2005 12:12 AM
+
 > On Fri, Sep 30, 2005 at 11:56:41PM -0700, Suzanne Wood wrote:
-> > 
-> > But it is interesting to have discarded what was developed yesterday
-> > to minimize rcu_dereference impact:
-> >
-> > >> ----- Original message  -----
-> > >> From: Herbert Xu <herbert@gondor.apana.org.au>
-> > >> Date: Fri, 30 Sep 2005 11:19:07 +1000
-> > >> 
-> > >> On Thu, Sep 29, 2005 at 06:16:03PM -0700, Paul E. McKenney wrote:
-> > >>> 
-> > >>> OK, how about this instead?
-> > >>> 
-> > >>> rcu_read_lock();
-> > >>> in_dev = dev->ip_ptr;
-> > >>> if (in_dev) {
-> > >>> atomic_inc(&rcu_dereference(in_dev)->refcnt);
-> > >>> }
-> > >>> rcu_read_unlock();
-> > >>> return in_dev;
-> > >> 
-> > >> Looks great. 
-> > 
-> > while adding a function call level by wrapping  __in_dev_get_rcu
-> > with in_dev_get as suggested here.
-> 
-> It might look different, but it should compile to the same result.
-> GCC should be smart enough to combine the two branches and produce a
-> memory barrier only when in_dev is not NULL.
->  
-> > The other thing I'd hoped to address in pktgen.c was 
-> > removing the __in_dev_put() which decrements refcnt 
-> > while __in_dev_get_rcu() does not increment.
+>> 
+>> The other thing I'd hoped to address in pktgen.c was 
+>> removing the __in_dev_put() which decrements refcnt 
+>> while __in_dev_get_rcu() does not increment.
 > 
 > Well spotted.
 > 
 > Here is a patch on top of the last one to fix this bogus decrement.
-
-Both this and Herbert's prior patch look good to me!
-
-							Thanx, Paul
-
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
-> Thanks,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -1673,7 +1673,6 @@ static void pktgen_setup_inject(struct p
->  					pkt_dev->saddr_min = in_dev->ifa_list->ifa_address;
->  					pkt_dev->saddr_max = pkt_dev->saddr_min;
->  				}
-> -				__in_dev_put(in_dev);	
->  			}
->  			rcu_read_unlock();
->  		}
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
