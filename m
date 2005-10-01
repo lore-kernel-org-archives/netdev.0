@@ -1,7 +1,7 @@
 From: Dich Vu Gui Email <dich_vu_email@gmail.com>
 Subject: Giai Phap Marketting bang cach gui email cho khach hang
-Date: Sat, 01 Oct 2005 22:34:10 +0700
-Message-ID: <20051001153458.4239ED2FA37A@cuda.sgi.com>
+Date: Sat, 01 Oct 2005 22:34:07 +0700
+Message-ID: <20051001153455.53C75D2FA37A@cuda.sgi.com>
 Reply-To: dich_vu_email@gmail.com
 Mime-Version: 1.0
 Content-Type: multipart/mixed; boundary="2dbc286f-2c81-40b8-878a-fb556c12c827"
