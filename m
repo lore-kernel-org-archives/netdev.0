@@ -1,35 +1,56 @@
-From: Yan Zheng <yzcorp@gmail.com>
-Subject: [PATCH] fix ipv6 fragment ID selection at slow path
-Date: Sun, 02 Oct 2005 22:21:58 +0800
-Message-ID: <433FED06.8070806@gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC: 2.6 patch] net/sunrpc/: possible cleanups
+Date: Sun, 2 Oct 2005 16:41:13 +0200
+Message-ID: <20051002144113.GM4212@stusta.de>
+References: <20051001142041.GB4212@stusta.de> <20051001164019.GB8633@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040306010602010607090107"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751102AbVJBOVa@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	roque@di.fc.ul.pt
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, neilb@cse.unsw.edu.au,
+	trond.myklebust@fys.uio.no, linux-kernel@vger.kernel.org,
+	nfs@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751096AbVJBOlT@vger.kernel.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20051001164019.GB8633@mipter.zuzino.mipt.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040306010602010607090107
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Sat, Oct 01, 2005 at 08:40:19PM +0400, Alexey Dobriyan wrote:
+> On Sat, Oct 01, 2005 at 04:20:41PM +0200, Adrian Bunk wrote:
+> > -/* Just increments the mechanism's reference count and returns its input: */
+> > -struct gss_api_mech * gss_mech_get(struct gss_api_mech *);
+> > -
+> 
+> > -struct gss_api_mech *
+> > +static struct gss_api_mech *
+> >  gss_mech_get(struct gss_api_mech *gm)
+> 
+> Comment is lost.
 
 
+The comment made sense for the prototype at the header, but the function 
+now has only one caller in the file where it's defined.
 
---------------040306010602010607090107
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="patch"
 
-LS0tIGxpbnV4LTIuNi4xMy4yL25ldC9pcHY2L2lwNl9vdXRwdXQuYwkyMDA1LTA5LTE3IDA5
-OjAyOjEyLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgvbmV0L2lwdjYvaXA2X291dHB1dC5j
-CTIwMDUtMTAtMDIgMjI6MTI6NTQuMDAwMDAwMDAwICswODAwCkBAIC03MDEsNyArNzAxLDcg
-QEAKIAkJICovCiAJCWZoLT5uZXh0aGRyID0gbmV4dGhkcjsKIAkJZmgtPnJlc2VydmVkID0g
-MDsKLQkJaWYgKGZyYWdfaWQpIHsKKwkJaWYgKCFmcmFnX2lkKSB7CiAJCQlpcHY2X3NlbGVj
-dF9pZGVudChza2IsIGZoKTsKIAkJCWZyYWdfaWQgPSBmaC0+aWRlbnRpZmljYXRpb247CiAJ
-CX0gZWxzZQo=
---------------040306010602010607090107--
+If someone needs a comment to figure out what a function whose complete 
+contents is
+
+static struct gss_api_mech *
+gss_mech_get(struct gss_api_mech *gm)
+{
+        __module_get(gm->gm_owner);
+        return gm;
+}
+
+does, the problem is not a missing comment.
+
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
