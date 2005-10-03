@@ -1,35 +1,36 @@
-From: "abraham stephens" <trish@blackmagic.every1.net>
-Subject: Get rid of everything you owe with out sending another dime
-Date: Mon, 03 Oct 2005 06:53:10 -0400
-Message-ID: <04588261.8D30D32__19953.6118227572$1128344871$gmane$org@blackmagic.every1.net>
+From: Hal Rosenstock <halr@voltaire.com>
+Subject: [PATCH] netdevice.h: Add RDMA private pointer to
+	the net_device structure
+Date: 03 Oct 2005 14:48:44 -0400
+Message-ID: <1128365323.4397.38.camel@hal.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <olson@oss.sgi.com>, <ralf@oss.sgi.com>, <joseph@oss.sgi.com>,
-        <apache-bounce@oss.sgi.com>, <dmsdk@oss.sgi.com>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Loni Crawford" <hawkes@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: netdev@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Eliminate all you are indebted for without mailing another cent.  Stop the
-embarrassing telephone calls. Bring a stop to the sending of checks! Believe
-it or not a good number lending orgizations not following the banking laws
-here. Amazing but correct! Visit our web site for detailed information
-concerning our procedure at N O  expense or requirement. You have naught to
-lose and heaps to reap.
+netdevice.h: Add RDMA private pointer to the net_device structure
 
-http://uk.geocities.com/dena_schrader/?we=7s.Eradicate all that you owe
-with out mailing an other dime
-Conprehensive info or to discontinue getting or to comprehend postal
-address
+Signed-off-by: Hal Rosenstock <halr@voltaire.com>
 
-
-A cluster of tall trees with leafy tops stood a short distance outside the
-walls, and here the boy landed and sat down to rest in the refreshing shade.
-The city seemed as hushed and still as if it were deserted, and before him
-stretched the vast plain of white, heated sands
-He strained his eyes to catch a glimpse of the band of warriors he had
-passed, but they were moving slowly and had not yet appeared
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -366,6 +366,7 @@ struct net_device
+        void                    *ip6_ptr;       /* IPv6 specific data */
+        void                    *ec_ptr;        /* Econet specific data */
+        void                    *ax25_ptr;      /* AX.25 specific data */
++       void                    *rdma_ptr;      /* RDMA specific data */
+ 
+ /*
+  * Cache line mostly used on receive path (including eth_type_trans())
