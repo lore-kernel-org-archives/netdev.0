@@ -1,18 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] airo: fix resume
-Date: Tue, 04 Oct 2005 07:46:44 -0400
-Message-ID: <43426BA4.5030105@pobox.com>
-References: <434119B2.2070105@stud.feec.vutbr.cz>
+Subject: Re: [patch 2.6.14-rc2 2/2] s2io: add MODULE_VERSION to s2io driver
+Date: Tue, 04 Oct 2005 07:51:56 -0400
+Message-ID: <43426CDC.1050807@pobox.com>
+References: <09282005175052.10818@bilbo.tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Benjamin Reed <breed@users.sourceforge.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
-In-Reply-To: <434119B2.2070105@stud.feec.vutbr.cz>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	leonid.grossman@neterion.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932386AbVJDLwK@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <09282005175052.10818@bilbo.tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied.  please CC future patches to netdev@vger.kernel.org, not 
-netdev@oss.sgi.com.
+applied patches 1-2
