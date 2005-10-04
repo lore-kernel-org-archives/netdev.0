@@ -1,33 +1,41 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
-Date: Tue, 04 Oct 2005 09:18:51 -0400
-Message-ID: <4342813B.4070505__9440.26346919618$1128432379$gmane$org@pobox.com>
-References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com> <20050521223959.GA4337@electric-eye.fr.zoreil.com> <42968312.90901@pobox.com> <20050527071736.GA17185@electric-eye.fr.zoreil.com>
+From: Hal Rosenstock <halr@voltaire.com>
+Subject: [PATCH] ipv4/fib_frontend.c: (Re)export
+	ip_dev_find for 2.6.14
+Date: 04 Oct 2005 11:01:14 -0400
+Message-ID: <1128438073.4397.4105.camel@hal.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
-        T-Bone@parisc-linux.org, varenet@parisc-linux.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050527071736.GA17185@electric-eye.fr.zoreil.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: netdev@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jgarzik@pobox.com> :
-> [...]
-> 
->>Looks pretty good to me, at first look.
->>
->>I'll give it some thought, and probably apply it, in a few days.
-> 
-> 
-> An updated version is cooking.
+ipv4/fib_frontend.c: (Re)export ip_dev_find for 2.6.14
 
-Ever finish cooking this tulip patch?
+(There is emerging functionality (not yet pushed upstream) in the IB
+subsystem which relies on this being available. ip_dev_find is used to
+find a valid IPoIB device when the outgoing device returned by the route
+lookup (ip_route_output_key) is using the loopback interface. A valid
+IPoIB device is needed to perform sending an ARP and doing an IB path
+lookup so that an IB connection can be made).
 
-	Jeff
+Signed-off-by: Hal Rosenstock <halr@voltaire.com>
+
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -661,4 +661,5 @@ void __init ip_fib_init(void)
+ }
+ 
+ EXPORT_SYMBOL(inet_addr_type);
++EXPORT_SYMBOL(ip_dev_find);
+ EXPORT_SYMBOL(ip_rt_ioctl);
