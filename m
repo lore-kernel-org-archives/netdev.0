@@ -1,40 +1,33 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 2.6.14-rc2] bonding: replicate IGMP traffic in activebackup
- mode
-Date: Tue, 04 Oct 2005 07:58:39 -0400
-Message-ID: <43426E6F.60500@pobox.com>
-References: <09282005175053.11150@bilbo.tuxdriver.com>
+Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
+Date: Tue, 04 Oct 2005 09:18:51 -0400
+Message-ID: <4342813B.4070505__9440.26346919618$1128432379$gmane$org@pobox.com>
+References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com> <20050521223959.GA4337@electric-eye.fr.zoreil.com> <42968312.90901@pobox.com> <20050527071736.GA17185@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, ctindel@users.sourceforge.net,
-	fubar@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932388AbVJDL6r@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <09282005175053.11150@bilbo.tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
+        T-Bone@parisc-linux.org, varenet@parisc-linux.org,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050527071736.GA17185@electric-eye.fr.zoreil.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Replicate IGMP frames across all slaves in activebackup mode. This
-> ensures fail-over is rapid for multicast traffic as well. Otherwise,
-> multicast traffic will be lost until the next IGMP membership report
-> poll timeout.
+Francois Romieu wrote:
+> Jeff Garzik <jgarzik@pobox.com> :
+> [...]
 > 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
-> This is conceptually similar to the treatment of IGMP traffic in
-> bond_alb_xmit. In that case, IGMP traffic transmitted on any slave
-> is re-routed to the active slave in order to ensure that multicast
-> traffic continues to be directed to the active receiver.
+>>Looks pretty good to me, at first look.
+>>
+>>I'll give it some thought, and probably apply it, in a few days.
 > 
->  drivers/net/bonding/bond_main.c |   53 ++++++++++++++++++++++++++++++++++++++--
->  1 files changed, 51 insertions(+), 2 deletions(-)
+> 
+> An updated version is cooking.
 
-Applied.  For future patches, please
+Ever finish cooking this tulip patch?
 
-* don't include description following the signed-off-by line
-
-* if you are willing to special-case me, I actually don't like seeing a 
-diffstat; I have to manually remove it before applying
+	Jeff
