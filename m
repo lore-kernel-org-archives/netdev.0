@@ -1,50 +1,45 @@
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH] AX.25: Fix packet socket crash
-Date: Tue, 4 Oct 2005 20:48:03 +0100
-Message-ID: <20051004194803.GA2724@linux-mips.org>
+From: "samuel woolard" <ermawarrell@guide55.every1.net>
+Subject: merganser Gain complimentary benefits & economical medicinal. philadelphia
+Date: Thu, 06 Oct 2005 03:34:24 +1200
+Message-ID: <4BC263DB.04440D4@guide55.every1.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Lionel Tello" <majordomo@oss.sgi.com>, <ralf@oss.sgi.com>,
+        <holt@oss.sgi.com>, <andrews@oss.sgi.com>, <dev@oss.sgi.com>,
+        <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Since changeset 98a82febb6340466824c3a453738d4fbd05db81a AX.25 is passing
-received IP and ARP packets to the stack through netif_rx() but we don't
-set the skb->mac.raw to right value which may result in a crash with
-applications that use a packet socket.
 
-Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
+This zonne has more than you request for.
+Speak not anymore to anxiety disorder.
+We are gear up to our shopper's requirement.
 
- net/ax25/ax25_in.c  |    2 +-
- net/netrom/nr_dev.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+This webpage is for bottom-line budget consumer.
 
-Index: linux-cvs/net/ax25/ax25_in.c
-===================================================================
---- linux-cvs.orig/net/ax25/ax25_in.c
-+++ linux-cvs/net/ax25/ax25_in.c
-@@ -123,7 +123,7 @@ int ax25_rx_iframe(ax25_cb *ax25, struct
- 		}
- 
- 		skb_pull(skb, 1);	/* Remove PID */
--		skb->h.raw    = skb->data;
-+		skb->mac.raw  = skb->nh.raw;
- 		skb->nh.raw   = skb->data;
- 		skb->dev      = ax25->ax25_dev->dev;
- 		skb->pkt_type = PACKET_HOST;
-Index: linux-cvs/net/netrom/nr_dev.c
-===================================================================
---- linux-cvs.orig/net/netrom/nr_dev.c
-+++ linux-cvs/net/netrom/nr_dev.c
-@@ -58,7 +58,7 @@ int nr_rx_ip(struct sk_buff *skb, struct
- 
- 	/* Spoof incoming device */
- 	skb->dev      = dev;
--	skb->h.raw    = skb->data;
-+	skb->mac.raw  = skb->nh.raw;
- 	skb->nh.raw   = skb->data;
- 	skb->pkt_type = PACKET_HOST;
- 
+Costless for re-consideration your meddical profiles.
+You've got the 'complete' package.  Ben A --NY. 
+
+http://uk.geocities.com/spacesquelchcoolb/?enpitlcx
+
+
+
+
+"You see," said the old man, stopping and turning round, "they--Hi. Here's
+lovely hair. I have got three sacks of ladies' hair below, but none so
+beautiful and fine as this. What colour, and what texture." 
+
+evans  frer  family-loving F2 faxe  dxdt
+It was not until long afterward that Alexander learned that for him this
+youth was the most dangerous of companions. 
+One Sunday evening, at Lady Walford's, Alexander did at last meet Hilda
+Burgoyne. Mainhall had told him that she would probably be there. He looked
+about for her rather nervously, and finally found her at the farther end of
+the large drawing-room, the centre of a circle of men, young and old. She
+was apparently telling them a story. They were all laughing and bending
+toward her. When she saw Alexander, she rose quickly and put out her hand.
+The other men drew back a little to let him approach. 
