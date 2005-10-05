@@ -1,51 +1,79 @@
-From: Alexey Toptygin <alexeyt@freeshell.org>
-Subject: Re: ip address delete bug?
-Date: Tue, 4 Oct 2005 23:08:26 +0000 (UTC)
-Message-ID: <Pine.NEB.4.62.0510042307290.6475@ukato.freeshell.org>
-References: <200593200127124@mail.routehat.org> <4342D3F9.80705@gmx.net>
-	<Pine.NEB.4.62.0510042118190.24353@ukato.freeshell.org>
-	<4343090B.5010803@gmx.net>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: [PATCH SECURITY]: orinoco: Information leakage due to incorrect
+ padding
+Date: Tue, 04 Oct 2005 21:33:10 -0400
+Message-ID: <1128475990.11708.21.camel@dv>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: lartc@mailman.ds9a.nl, netdev@vger.kernel.org
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2005@gmx.net>
-In-Reply-To: <4343090B.5010803@gmx.net>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Meder Kydyraliev <meder-ljIgrh4ImVw@public.gmane.org>
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: orinoco-devel <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 5 Oct 2005, Carl-Daniel Hailfinger wrote:
+orinoco: Information leakage due to incorrect padding
 
->>> "secondary --- this address is not used when selecting the default source 
->>> address for outgoing packets. An IP address becomes secondary if another 
->>> address within the same prefix (network) already exists. The first address 
->>> within the prefix is primary and is the tag address for the group of all 
->>> the secondary addresses. When the primary address is deleted all of the 
->>> secondaries are purged too."
->>> 
->>> That means there is no way to change the IP of an interface if the prefix 
->>> and network size stay the same. Are there any plans to fix that?
->> 
->> What's wrong with delete followed by add?
->
-> You are logged into the machine via ssh on eth0. You delete the ip address of 
-> eth0. How are you going to add the new address to eth0 now that your 
-> connection is gone? Go to the server room and use the console?
->
-> Normally, I would add the new IP to eth0, start another ssh to the new IP, 
-> log out from the session to the old IP, remove the old IP from eth0 and be 
-> done. If I want the server to be reachable under both IPs during a transition 
-> period, I can delay deletion of the old IP until later.
+The orinoco driver can send uninitialized data exposing random pieces of
+the system memory.  This happens because data is not padded with zeroes
+when its length needs to be increased.
 
-Then I guess the question is: does anything in common use depend on the 
-old behavior?
+Reported by Meder Kydyraliev <meder-ljIgrh4ImVw@public.gmane.org>
 
- 			Alexey
+Please try to get it to Linux 2.6.14 and maybe even 2.6.13.y.  It's a
+security issue.
+
+Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -490,9 +490,14 @@ static int orinoco_xmit(struct sk_buff *
+ 		return 0;
+ 	}
+ 
+-	/* Length of the packet body */
+-	/* FIXME: what if the skb is smaller than this? */
+-	len = max_t(int,skb->len - ETH_HLEN, ETH_ZLEN - ETH_HLEN);
++	/* Check packet length, pad short packets, round up odd length */
++	len = max_t(int, ALIGN(skb->len, 2), ETH_ZLEN);
++	if (skb->len < len) {
++		skb = skb_padto(skb, len);
++		if (skb == NULL)
++			goto fail;
++	}
++	len -= ETH_HLEN;
+ 
+ 	eh = (struct ethhdr *)skb->data;
+ 
+@@ -544,8 +549,7 @@ static int orinoco_xmit(struct sk_buff *
+ 		p = skb->data;
+ 	}
+ 
+-	/* Round up for odd length packets */
+-	err = hermes_bap_pwrite(hw, USER_BAP, p, ALIGN(data_len, 2),
++	err = hermes_bap_pwrite(hw, USER_BAP, p, data_len,
+ 				txfid, data_off);
+ 	if (err) {
+ 		printk(KERN_ERR "%s: Error %d writing packet to BAP\n",
+
+
+-- 
+Regards,
+Pavel Roskin
+
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by:
+Power Architecture Resource Center: Free content, downloads, discussions,
+and more. http://solutions.newsforge.com/ibmarch.tmpl
