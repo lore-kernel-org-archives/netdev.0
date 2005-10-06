@@ -1,28 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [ANNOUNCE] linux-net wiki
-Date: Thu, 6 Oct 2005 14:00:07 -0700
-Message-ID: <20051006140007.43262f04@dxpl.pdx.osdl.net>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [RFC] ipw2200: check version in eeprom correctly
+Date: Fri, 7 Oct 2005 01:40:43 +0400
+Message-ID: <20051006214043.GA2370@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751358AbVJFU7n@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751212AbVJFV3V@vger.kernel.org>
 To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is now a wiki for Linux networking related activities and documentation. 
-	http://linux-net.osdl.org
-This is an experiment to see if it would be more useful to have
-an online and editable documentation source rather than bits and pieces.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Also, it should interact well with Wikipedia, since we can link to have
-the generic descriptions of things like protocols (TCP, bridging, bonding,
-VLAN's,...) and the Linux implementation.
+ I'm not 100% sure the fix is right, but the condition looks bogus:
+	->eeprom is "u8 eeprom[256]".
 
-I filled in my stuff, and Acme and Ian have been adding DCCP and 
-the TODO list.
+ drivers/net/wireless/ipw2200.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+--- ./drivers/net/wireless/ipw2200.c
++++ ./drivers/net/wireless/ipw2200.c
+@@ -1699,7 +1699,7 @@ static void ipw_eeprom_init_sram(struct 
+ 	   copy.  Otherwise let the firmware know to perform the operation
+ 	   on it's own
+ 	 */
+-	if ((priv->eeprom + EEPROM_VERSION) != 0) {
++	if ((priv->eeprom[EEPROM_VERSION]) != 0) {
+ 		IPW_DEBUG_INFO("Writing EEPROM data into SRAM\n");
+ 
+ 		/* write the eeprom data to sram */
