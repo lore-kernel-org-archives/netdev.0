@@ -1,217 +1,328 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: [PATCH] Add Wake on LAN support to sis900
-Date: Thu, 6 Oct 2005 13:13:27 +0200
-Message-ID: <20051006111326.GA3242@renditai.milesteg.arr>
+From: "Lever, Charles" <Charles.Lever@netapp.com>
+Subject: RE: [NFS] [RFC: 2.6 patch] net/sunrpc/: possible cleanups
+Date: Thu, 6 Oct 2005 07:13:14 -0700
+Message-ID: <044B81DE141D7443BCE91E8F44B3C1E288E4FC@exsvl02.hq.netapp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="TB36FDmn/VVEgNH/"
-Cc: akpm@osdl.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <neilb@cse.unsw.edu.au>, <trond.myklebust@fys.uio.no>,
+	<linux-kernel@vger.kernel.org>, <nfs@lists.sourceforge.net>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751017AbVJFONV@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "Adrian Bunk" <bunk@stusta.de>,
+	"David Miller" <davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+actually, can we hold off on this change?  the RPC transport switch will
+eventually need most of those EXPORT_SYMBOLs.
 
---TB36FDmn/VVEgNH/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+the only harmless change i see below is removing xdr_decode_string(). 
 
-The patch availble below adds support for Wake on LAN to the sis900
-driver. Some register addresses were added to sis900.h and two new
-functions were implemented in sis900.c. WoL status is controlled by
-ethtool.
-Patch is against 2.6.13.
-
-Comments are welcome, but also consider for inclusion in the -mm series.
-
-Signed-off-by: Daniele Venzano <venza@brownhat.org>
-
--- 
-------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
-
---TB36FDmn/VVEgNH/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sis900_c_127.diff"
-
---- ../../trunk/sis900.h	2005-07-17 10:43:23.000000000 +0200
-+++ sis900.h	2005-10-06 12:49:37.000000000 +0200
-@@ -33,6 +33,7 @@
-         rxcfg=0x34,             //Receive Configuration Register
-         flctrl=0x38,            //Flow Control Register
-         rxlen=0x3c,             //Receive Packet Length Register
-+        cfgpmcsr=0x44,          //Configuration Power Management Control/Status Register
-         rfcr=0x48,              //Receive Filter Control Register
-         rfdr=0x4C,              //Receive Filter Data Register
-         pmctrl=0xB0,            //Power Management Control Register
-@@ -140,6 +141,50 @@
- 	EEREQ = 0x00000400, EEDONE = 0x00000200, EEGNT = 0x00000100
- };
- 
-+/* PCI Registers */
-+enum sis900_pci_registers {
-+	CFGPMC 	 = 0x40,
-+	CFGPMCSR = 0x44
-+};
-+
-+/* Power management capabilities bits */
-+enum sis900_cfgpmc_register_bits {
-+	PMVER	= 0x00070000, 
-+	DSI	= 0x00100000,
-+	PMESP	= 0xf8000000
-+};
-+
-+enum sis900_pmesp_bits {
-+	PME_D0 = 0x1,
-+	PME_D1 = 0x2,
-+	PME_D2 = 0x4,
-+	PME_D3H = 0x8,
-+	PME_D3C = 0x10
-+};
-+
-+/* Power management control/status bits */
-+enum sis900_cfgpmcsr_register_bits {
-+	PMESTS = 0x00004000,
-+	PME_EN = 0x00000100, // Power management enable
-+	PWR_STA = 0x00000003 // Current power state
-+};
-+
-+/* Wake-on-LAN support. */
-+enum sis900_power_management_control_register_bits {
-+	LINKLOSS  = 0x00000001,
-+	LINKON    = 0x00000002,
-+	MAGICPKT  = 0x00000400,
-+	ALGORITHM = 0x00000800,
-+	FRM1EN    = 0x00100000,
-+	FRM2EN    = 0x00200000,
-+	FRM3EN    = 0x00400000,
-+	FRM1ACS   = 0x01000000,
-+	FRM2ACS   = 0x02000000,
-+	FRM3ACS   = 0x04000000,
-+	WAKEALL   = 0x40000000,
-+	GATECLK   = 0x80000000
-+};
-+
- /* Management Data I/O (mdio) frame */
- #define MIIread         0x6000
- #define MIIwrite        0x5002
---- ../../trunk/sis900.c	2005-10-06 12:06:06.000000000 +0200
-+++ sis900.c	2005-10-06 12:05:45.000000000 +0200
-@@ -1,6 +1,6 @@
- /* sis900.c: A SiS 900/7016 PCI Fast Ethernet driver for Linux.
-    Copyright 1999 Silicon Integrated System Corporation 
--   Revision:	1.08.08 Jan. 22 2005
-+   Revision:	1.08.09 Sep. 19 2005
-    
-    Modified from the driver which is originally written by Donald Becker.
-    
-@@ -17,6 +17,7 @@
-    SiS 7014 Single Chip 100BASE-TX/10BASE-T Physical Layer Solution,
-    preliminary Rev. 1.0 Jan. 18, 1998
- 
-+   Rev 1.08.09 Sep. 19 2005 Daniele Venzano add Wake on LAN support
-    Rev 1.08.08 Jan. 22 2005 Daniele Venzano use netif_msg for debugging messages
-    Rev 1.08.07 Nov.  2 2003 Daniele Venzano <webvenza@libero.it> add suspend/resume support
-    Rev 1.08.06 Sep. 24 2002 Mufasa Yang bug fix for Tx timeout & add SiS963 support
-@@ -76,7 +77,7 @@
- #include "sis900.h"
- 
- #define SIS900_MODULE_NAME "sis900"
--#define SIS900_DRV_VERSION "v1.08.08 Jan. 22 2005"
-+#define SIS900_DRV_VERSION "v1.08.09 Sep. 19 2005"
- 
- static char version[] __devinitdata =
- KERN_INFO "sis900.c: " SIS900_DRV_VERSION "\n";
-@@ -538,6 +539,11 @@
- 		printk("%2.2x:", (u8)net_dev->dev_addr[i]);
- 	printk("%2.2x.\n", net_dev->dev_addr[i]);
- 
-+	/* Detect Wake on Lan support */
-+	ret = inl(CFGPMC & PMESP);
-+	if (netif_msg_probe(sis_priv) && (ret & PME_D3C) == 0)
-+		printk(KERN_INFO "%s: Wake on LAN only available from suspend to RAM.", net_dev->name);
-+
- 	return 0;
- 
-  err_unmap_rx:
-@@ -2007,6 +2013,67 @@
- 	return mii_nway_restart(&sis_priv->mii_info);
- }
- 
-+/**
-+ *	sis900_set_wol - Set up Wake on Lan registers
-+ *	@net_dev: the net device to probe
-+ *	@wol: container for info passed to the driver
-+ *
-+ *	Process ethtool command "wol" to setup wake on lan features.
-+ *	SiS900 supports sending WoL events if a correct packet is received,
-+ *	but there is no simple way to filter them to only a subset (broadcast,
-+ *	multicast, unicast or arp).
-+ */
-+ 
-+static int sis900_set_wol(struct net_device *net_dev, struct ethtool_wolinfo *wol)
-+{
-+	struct sis900_private *sis_priv = net_dev->priv;
-+	long pmctrl_addr = net_dev->base_addr + pmctrl;
-+	u32 cfgpmcsr = 0, pmctrl_bits = 0;
-+
-+	if (wol->wolopts == 0) {
-+		pci_read_config_dword(sis_priv->pci_dev, CFGPMCSR, &cfgpmcsr);
-+		cfgpmcsr |= ~PME_EN;
-+		pci_write_config_dword(sis_priv->pci_dev, CFGPMCSR, cfgpmcsr);
-+		outl(pmctrl_bits, pmctrl_addr);
-+		if (netif_msg_wol(sis_priv))
-+			printk(KERN_DEBUG "%s: Wake on LAN disabled\n", net_dev->name);
-+		return 0;
-+	}
-+
-+	if (wol->wolopts & (WAKE_MAGICSECURE | WAKE_UCAST | WAKE_MCAST
-+				| WAKE_BCAST | WAKE_ARP))
-+		return -EINVAL;
-+
-+	if (wol->wolopts & WAKE_MAGIC)
-+		pmctrl_bits |= MAGICPKT;
-+	if (wol->wolopts & WAKE_PHY)
-+		pmctrl_bits |= LINKON;
-+	
-+	outl(pmctrl_bits, pmctrl_addr);
-+
-+	pci_read_config_dword(sis_priv->pci_dev, CFGPMCSR, &cfgpmcsr);
-+	cfgpmcsr |= PME_EN;
-+	pci_write_config_dword(sis_priv->pci_dev, CFGPMCSR, cfgpmcsr);
-+	if (netif_msg_wol(sis_priv))
-+		printk(KERN_DEBUG "%s: Wake on LAN enabled\n", net_dev->name);
-+
-+	return 0;
-+}
-+
-+static void sis900_get_wol(struct net_device *net_dev, struct ethtool_wolinfo *wol)
-+{
-+	long pmctrl_addr = net_dev->base_addr + pmctrl;
-+	u32 pmctrl_bits;
-+
-+	pmctrl_bits = inl(pmctrl_addr);
-+	if (pmctrl_bits & MAGICPKT)
-+		wol->wolopts |= WAKE_MAGIC;
-+	if (pmctrl_bits & LINKON)
-+		wol->wolopts |= WAKE_PHY;
-+
-+	wol->supported = (WAKE_PHY | WAKE_MAGIC);
-+}
-+
- static struct ethtool_ops sis900_ethtool_ops = {
- 	.get_drvinfo 	= sis900_get_drvinfo,
- 	.get_msglevel	= sis900_get_msglevel,
-@@ -2015,6 +2082,8 @@
- 	.get_settings	= sis900_get_settings,
- 	.set_settings	= sis900_set_settings,
- 	.nway_reset	= sis900_nway_reset,
-+	.get_wol	= sis900_get_wol,
-+	.set_wol	= sis900_set_wol
- };
- 
- /**
-
---TB36FDmn/VVEgNH/--
+> -----Original Message-----
+> From: Adrian Bunk [mailto:bunk@stusta.de] 
+> Sent: Saturday, October 01, 2005 10:21 AM
+> To: David Miller
+> Cc: neilb@cse.unsw.edu.au; trond.myklebust@fys.uio.no; 
+> linux-kernel@vger.kernel.org; nfs@lists.sourceforge.net; 
+> netdev@vger.kernel.org
+> Subject: [NFS] [RFC: 2.6 patch] net/sunrpc/: possible cleanups
+> 
+> This patch contains the following possible cleanups:
+> - make needlessly global code static
+> - #if 0 the following unused global function:
+>   - xdr.c: xdr_decode_string
+> - remove the following unneeded EXPORT_SYMBOL's:
+>   - auth_gss/gss_mech_switch.c: gss_mech_get
+>   - auth_gss/gss_mech_switch.c: gss_mech_get_by_name
+>   - auth_gss/gss_mech_switch.c: gss_mech_get_by_pseudoflavor
+>   - auth_gss/gss_mech_switch.c: gss_pseudoflavor_to_service
+>   - auth_gss/gss_mech_switch.c: gss_service_to_auth_domain_name
+>   - auth_gss/gss_mech_switch.c: gss_mech_put
+>   - sunrpc_syms.c: rpc_wake_up_next
+>   - sunrpc_syms.c: rpc_new_child
+>   - sunrpc_syms.c: rpc_run_child
+>   - sunrpc_syms.c: rpc_new_task
+>   - sunrpc_syms.c: rpc_release_task
+>   - sunrpc_syms.c: rpc_release_client
+>   - sunrpc_syms.c: xprt_udp_slot_table_entries
+>   - sunrpc_syms.c: xprt_tcp_slot_table_entries
+>   - sunrpc_syms.c: svc_drop
+>   - sunrpc_syms.c: svc_authenticate
+>   - sunrpc_syms.c: xdr_decode_string
+> 
+> Please review which of these patches do make sense and which conflict 
+> with pending patches.
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> ---
+> 
+> This patch was already sent on:
+> - 30 May 2005
+> - 7 May 2005
+> 
+>  include/linux/sunrpc/clnt.h           |    1 -
+>  include/linux/sunrpc/gss_api.h        |    3 ---
+>  include/linux/sunrpc/xdr.h            |    2 --
+>  net/sunrpc/auth_gss/gss_mech_switch.c |   13 +------------
+>  net/sunrpc/clnt.c                     |    3 ++-
+>  net/sunrpc/sunrpc_syms.c              |   11 -----------
+>  net/sunrpc/xdr.c                      |    4 +++-
+>  7 files changed, 6 insertions(+), 31 deletions(-)
+> 
+> --- 
+> linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/gss_api.h.old	
+> 2005-05-05 23:05:01.000000000 +0200
+> +++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/gss_api.h	
+> 2005-05-05 23:05:10.000000000 +0200
+> @@ -110,9 +110,6 @@
+>  /* Similar, but get by pseudoflavor. */
+>  struct gss_api_mech *gss_mech_get_by_pseudoflavor(u32);
+>  
+> -/* Just increments the mechanism's reference count and 
+> returns its input: */
+> -struct gss_api_mech * gss_mech_get(struct gss_api_mech *);
+> -
+>  /* For every succesful gss_mech_get or gss_mech_get_by_* 
+> call there must be a
+>   * corresponding call to gss_mech_put. */
+>  void gss_mech_put(struct gss_api_mech *);
+> --- 
+> linux-2.6.12-rc3-mm3-full/net/sunrpc/auth_gss/gss_mech_switc
+> h.c.old	2005-05-05 23:05:17.000000000 +0200
+> +++ 
+> linux-2.6.12-rc3-mm3-full/net/sunrpc/auth_gss/gss_mech_s
+> witch.c	2005-05-05 23:19:33.000000000 +0200
+> @@ -133,14 +133,13 @@
+>  
+>  EXPORT_SYMBOL(gss_mech_unregister);
+>  
+> -struct gss_api_mech *
+> +static struct gss_api_mech *
+>  gss_mech_get(struct gss_api_mech *gm)
+>  {
+>  	__module_get(gm->gm_owner);
+>  	return gm;
+>  }
+>  
+> -EXPORT_SYMBOL(gss_mech_get);
+>  
+>  struct gss_api_mech *
+>  gss_mech_get_by_name(const char *name)
+> @@ -160,8 +159,6 @@
+>  
+>  }
+>  
+> -EXPORT_SYMBOL(gss_mech_get_by_name);
+> -
+>  static inline int
+>  mech_supports_pseudoflavor(struct gss_api_mech *gm, u32 pseudoflavor)
+>  {
+> @@ -193,8 +190,6 @@
+>  	return gm;
+>  }
+>  
+> -EXPORT_SYMBOL(gss_mech_get_by_pseudoflavor);
+> -
+>  u32
+>  gss_pseudoflavor_to_service(struct gss_api_mech *gm, u32 
+> pseudoflavor)
+>  {
+> @@ -207,8 +202,6 @@
+>  	return 0;
+>  }
+>  
+> -EXPORT_SYMBOL(gss_pseudoflavor_to_service);
+> -
+>  char *
+>  gss_service_to_auth_domain_name(struct gss_api_mech *gm, u32 service)
+>  {
+> @@ -221,16 +214,12 @@
+>  	return NULL;
+>  }
+>  
+> -EXPORT_SYMBOL(gss_service_to_auth_domain_name);
+> -
+>  void
+>  gss_mech_put(struct gss_api_mech * gm)
+>  {
+>  	module_put(gm->gm_owner);
+>  }
+>  
+> -EXPORT_SYMBOL(gss_mech_put);
+> -
+>  /* The mech could probably be determined from the token 
+> instead, but it's just
+>   * as easy for now to pass it in. */
+>  int
+> --- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/clnt.h.old	
+> 2005-05-05 23:05:45.000000000 +0200
+> +++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/clnt.h	
+> 2005-05-05 23:05:50.000000000 +0200
+> @@ -134,7 +134,6 @@
+>  void		rpc_clnt_sigunmask(struct rpc_clnt *clnt, 
+> sigset_t *oldset);
+>  void		rpc_setbufsize(struct rpc_clnt *, unsigned int, 
+> unsigned int);
+>  size_t		rpc_max_payload(struct rpc_clnt *);
+> -int		rpc_ping(struct rpc_clnt *clnt, int flags);
+>  
+>  static __inline__
+>  int rpc_call(struct rpc_clnt *clnt, u32 proc, void *argp, 
+> void *resp, int flags)
+> --- linux-2.6.12-rc3-mm3-full/net/sunrpc/clnt.c.old	
+> 2005-05-05 23:05:58.000000000 +0200
+> +++ linux-2.6.12-rc3-mm3-full/net/sunrpc/clnt.c	
+> 2005-05-05 23:06:21.000000000 +0200
+> @@ -63,6 +63,7 @@
+>  static u32 *	call_header(struct rpc_task *task);
+>  static u32 *	call_verify(struct rpc_task *task);
+>  
+> +static int	rpc_ping(struct rpc_clnt *clnt, int flags);
+>  
+>  static int
+>  rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
+> @@ -1178,7 +1179,7 @@
+>  	.p_decode = rpcproc_decode_null,
+>  };
+>  
+> -int rpc_ping(struct rpc_clnt *clnt, int flags)
+> +static int rpc_ping(struct rpc_clnt *clnt, int flags)
+>  {
+>  	struct rpc_message msg = {
+>  		.rpc_proc = &rpcproc_null,
+> --- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/xdr.h.old	
+> 2005-05-05 23:06:40.000000000 +0200
+> +++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/xdr.h	
+> 2005-05-05 23:07:23.000000000 +0200
+> @@ -91,7 +91,6 @@
+>  u32 *	xdr_encode_opaque_fixed(u32 *p, const void 
+> *ptr, unsigned int len);
+>  u32 *	xdr_encode_opaque(u32 *p, const void *ptr, 
+> unsigned int len);
+>  u32 *	xdr_encode_string(u32 *p, const char *s);
+> -u32 *	xdr_decode_string(u32 *p, char **sp, int *lenp, 
+> int maxlen);
+>  u32 *	xdr_decode_string_inplace(u32 *p, char **sp, 
+> int *lenp, int maxlen);
+>  u32 *	xdr_encode_netobj(u32 *p, const struct xdr_netobj *);
+>  u32 *	xdr_decode_netobj(u32 *p, struct xdr_netobj *);
+> @@ -147,7 +146,6 @@
+>  extern int xdr_buf_subsegment(struct xdr_buf *, struct 
+> xdr_buf *, int, int);
+>  extern int xdr_buf_read_netobj(struct xdr_buf *, struct 
+> xdr_netobj *, int);
+>  extern int read_bytes_from_xdr_buf(struct xdr_buf *, int, 
+> void *, int);
+> -extern int write_bytes_to_xdr_buf(struct xdr_buf *, int, 
+> void *, int);
+>  
+>  /*
+>   * Helper structure for copying from an sk_buff.
+> --- linux-2.6.12-rc3-mm3-full/net/sunrpc/xdr.c.old	
+> 2005-05-05 23:06:52.000000000 +0200
+> +++ linux-2.6.12-rc3-mm3-full/net/sunrpc/xdr.c	
+> 2005-05-05 23:07:56.000000000 +0200
+> @@ -95,6 +95,7 @@
+>  	return xdr_encode_array(p, string, strlen(string));
+>  }
+>  
+> +#if 0
+>  u32 *
+>  xdr_decode_string(u32 *p, char **sp, int *lenp, int maxlen)
+>  {
+> @@ -115,6 +116,7 @@
+>  	*sp = string;
+>  	return p + XDR_QUADLEN(len);
+>  }
+> +#endif  /*  0  */
+>  
+>  u32 *
+>  xdr_decode_string_inplace(u32 *p, char **sp, int *lenp, int maxlen)
+> @@ -882,7 +884,7 @@
+>  }
+>  
+>  /* obj is assumed to point to allocated memory of size at 
+> least len: */
+> -int
+> +static int
+>  write_bytes_to_xdr_buf(struct xdr_buf *buf, int base, void 
+> *obj, int len)
+>  {
+>  	struct xdr_buf subbuf;
+> --- linux-2.6.12-rc3-mm3-full/net/sunrpc/sunrpc_syms.c.old	
+> 2005-05-05 23:07:30.000000000 +0200
+> +++ linux-2.6.12-rc3-mm3-full/net/sunrpc/sunrpc_syms.c	
+> 2005-05-05 23:36:43.000000000 +0200
+> @@ -29,15 +29,10 @@
+>  EXPORT_SYMBOL(rpc_execute);
+>  EXPORT_SYMBOL(rpc_init_task);
+>  EXPORT_SYMBOL(rpc_sleep_on);
+> -EXPORT_SYMBOL(rpc_wake_up_next);
+>  EXPORT_SYMBOL(rpc_wake_up_task);
+> -EXPORT_SYMBOL(rpc_new_child);
+> -EXPORT_SYMBOL(rpc_run_child);
+>  EXPORT_SYMBOL(rpciod_down);
+>  EXPORT_SYMBOL(rpciod_up);
+> -EXPORT_SYMBOL(rpc_new_task);
+>  EXPORT_SYMBOL(rpc_wake_up_status);
+> -EXPORT_SYMBOL(rpc_release_task);
+>  
+>  /* RPC client functions */
+>  EXPORT_SYMBOL(rpc_create_client);
+> @@ -45,7 +40,6 @@
+>  EXPORT_SYMBOL(rpc_bind_new_program);
+>  EXPORT_SYMBOL(rpc_destroy_client);
+>  EXPORT_SYMBOL(rpc_shutdown_client);
+> -EXPORT_SYMBOL(rpc_release_client);
+>  EXPORT_SYMBOL(rpc_killall_tasks);
+>  EXPORT_SYMBOL(rpc_call_sync);
+>  EXPORT_SYMBOL(rpc_call_async);
+> @@ -63,8 +57,6 @@
+>  /* Client transport */
+>  EXPORT_SYMBOL(xprt_create_proto);
+>  EXPORT_SYMBOL(xprt_set_timeout);
+> -EXPORT_SYMBOL(xprt_udp_slot_table_entries);
+> -EXPORT_SYMBOL(xprt_tcp_slot_table_entries);
+>  
+>  /* Client credential cache */
+>  EXPORT_SYMBOL(rpcauth_register);
+> @@ -81,7 +73,6 @@
+>  EXPORT_SYMBOL(svc_create_thread);
+>  EXPORT_SYMBOL(svc_exit_thread);
+>  EXPORT_SYMBOL(svc_destroy);
+> -EXPORT_SYMBOL(svc_drop);
+>  EXPORT_SYMBOL(svc_process);
+>  EXPORT_SYMBOL(svc_recv);
+>  EXPORT_SYMBOL(svc_wake_up);
+> @@ -89,7 +80,6 @@
+>  EXPORT_SYMBOL(svc_reserve);
+>  EXPORT_SYMBOL(svc_auth_register);
+>  EXPORT_SYMBOL(auth_domain_lookup);
+> -EXPORT_SYMBOL(svc_authenticate);
+>  EXPORT_SYMBOL(svc_set_client);
+>  
+>  /* RPC statistics */
+> @@ -122,7 +112,6 @@
+>  
+>  /* Generic XDR */
+>  EXPORT_SYMBOL(xdr_encode_string);
+> -EXPORT_SYMBOL(xdr_decode_string);
+>  EXPORT_SYMBOL(xdr_decode_string_inplace);
+>  EXPORT_SYMBOL(xdr_decode_netobj);
+>  EXPORT_SYMBOL(xdr_encode_netobj);
+> 
+> 
+> 
+> -------------------------------------------------------
+> This SF.Net email is sponsored by:
+> Power Architecture Resource Center: Free content, downloads, 
+> discussions,
+> and more. http://solutions.newsforge.com/ibmarch.tmpl
+> _______________________________________________
+> NFS maillist  -  NFS@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/nfs
+> 
