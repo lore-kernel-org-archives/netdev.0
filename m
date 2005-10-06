@@ -1,47 +1,26 @@
-From: "pasquale juan" <sabellay@postacg.every1.net>
-Subject: monkish An E-door to these eye catching deals on generics. rampant
-Date: Thu, 06 Oct 2005 18:15:17 +0800
-Message-ID: <F4D29F7E.97A4EC5@postacg.every1.net>
-Reply-To: "pasquale juan" <sabellay@postacg.every1.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: kernel performance update - 2.6.14-rc3
+Date: 06 Oct 2005 12:32:11 +0200
+Message-ID: <p73mzlnylzo.fsf@verdi.suse.de>
+References: <200510052115.j95LFgg07836@unix-os.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <ralf@oss.sgi.com>, <holt@oss.sgi.com>, <andrews@oss.sgi.com>,
-        <dev@oss.sgi.com>, <netdev@oss.sgi.com>, <fox@oss.sgi.com>,
-        <nguyen@oss.sgi.com>, <cvs@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Devon Ryther" <majordomo@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750797AbVJFKcP@vger.kernel.org>
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+In-Reply-To: <200510052115.j95LFgg07836@unix-os.sc.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+"Chen, Kenneth W" <kenneth.w.chen@intel.com> writes:
 
-Buy in bulk & keep $ back much.
-Handle your diabetic by consuming our tablet. 
-We keep up send it as per programmed. 
-This is the only link to SAVE. 
-Hit for an order, get complimentary health case review. 
+> Even though
+> softirq is invoked at the end of dev_queue_xmit() via local_bh_enable(),
+> not all execution of softirq will result a __wake_up().  With higher
+> HZ rate, timer interrupt is more frequent and thus more softirq
+> invocation and leads to more __wake_up(), which then takes us to higher
+> throughput because cpu spend less time in idle.  
 
-Thumbs up to you. You are really something. Jacky G --CA. 
-http://uk.geocities.com/shinesoddengreatb/?pbighrwktgwk
+This sounds like a serious bug somewhere if true.
 
-
-
-
-"I began to keep the little creatures," she said, "with an object that the
-wards will readily comprehend. With the intention of restoring them to
-liberty. When my judgment should be given. Ye- es. They die in prison,
-though. Their lives, poor silly things, are so short in comparison with
-Chancery proceedings that, one by one, the whole collection has died over
-and over again. I doubt, do you know, whether one of these, though they are
-all jake, will live to be jake. Ve-ry mortifying, is it not?" 
-
-demax  dcmpc  budimirovic F2 dumplog  eshton
-Bartley looked at Hilda across the yellow light of the candles and broke
-into a low, happy laugh. "How jolly it was being young, Hilda. Do you
-remember that first walk we took together in Paris? We walked down to the
-Place Saint-Michel to buy some lilacs. Do you remember how sweet they
-smelled?" 
-"Indeed I do. Come, we'll have our coffee in the other room, and you can
-smoke." 
+-Andi
