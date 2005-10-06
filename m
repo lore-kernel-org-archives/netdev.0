@@ -1,328 +1,286 @@
-From: "Lever, Charles" <Charles.Lever@netapp.com>
-Subject: RE: [NFS] [RFC: 2.6 patch] net/sunrpc/: possible cleanups
-Date: Thu, 6 Oct 2005 07:13:14 -0700
-Message-ID: <044B81DE141D7443BCE91E8F44B3C1E288E4FC@exsvl02.hq.netapp.com>
+From: Bill Davidsen <davidsen@tmr.com>
+Subject: Re: [ANNOUNCE] Release of nf-HiPAC 0.9.0
+Date: Thu, 06 Oct 2005 11:09:25 -0400
+Message-ID: <43453E25.9020903@tmr.com>
+References: <200509260445.46740.mbellion@hipac.org> <4337DA7C.2000804@cs.aau.dk> <200509261638.12731.mbellion@hipac.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <neilb@cse.unsw.edu.au>, <trond.myklebust@fys.uio.no>,
-	<linux-kernel@vger.kernel.org>, <nfs@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751017AbVJFONV@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "Adrian Bunk" <bunk@stusta.de>,
-	"David Miller" <davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/alternative;
+ boundary="------------040706060300040508090100"
+Cc: Emmanuel Fleury <fleury@cs.aau.dk>, linux-kernel@vger.kernel.org,
+        linux-net@vger.kernel.org, netdev@oss.sgi.com, jamal <hadi@cyberus.ca>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Michael Bellion <mbellion@hipac.org>
+In-Reply-To: <200509261638.12731.mbellion@hipac.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-actually, can we hold off on this change?  the RPC transport switch will
-eventually need most of those EXPORT_SYMBOLs.
+This is a multi-part message in MIME format.
+--------------040706060300040508090100
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-the only harmless change i see below is removing xdr_decode_string(). 
+Michael Bellion wrote:
 
-> -----Original Message-----
-> From: Adrian Bunk [mailto:bunk@stusta.de] 
-> Sent: Saturday, October 01, 2005 10:21 AM
-> To: David Miller
-> Cc: neilb@cse.unsw.edu.au; trond.myklebust@fys.uio.no; 
-> linux-kernel@vger.kernel.org; nfs@lists.sourceforge.net; 
-> netdev@vger.kernel.org
-> Subject: [NFS] [RFC: 2.6 patch] net/sunrpc/: possible cleanups
-> 
-> This patch contains the following possible cleanups:
-> - make needlessly global code static
-> - #if 0 the following unused global function:
->   - xdr.c: xdr_decode_string
-> - remove the following unneeded EXPORT_SYMBOL's:
->   - auth_gss/gss_mech_switch.c: gss_mech_get
->   - auth_gss/gss_mech_switch.c: gss_mech_get_by_name
->   - auth_gss/gss_mech_switch.c: gss_mech_get_by_pseudoflavor
->   - auth_gss/gss_mech_switch.c: gss_pseudoflavor_to_service
->   - auth_gss/gss_mech_switch.c: gss_service_to_auth_domain_name
->   - auth_gss/gss_mech_switch.c: gss_mech_put
->   - sunrpc_syms.c: rpc_wake_up_next
->   - sunrpc_syms.c: rpc_new_child
->   - sunrpc_syms.c: rpc_run_child
->   - sunrpc_syms.c: rpc_new_task
->   - sunrpc_syms.c: rpc_release_task
->   - sunrpc_syms.c: rpc_release_client
->   - sunrpc_syms.c: xprt_udp_slot_table_entries
->   - sunrpc_syms.c: xprt_tcp_slot_table_entries
->   - sunrpc_syms.c: svc_drop
->   - sunrpc_syms.c: svc_authenticate
->   - sunrpc_syms.c: xdr_decode_string
-> 
-> Please review which of these patches do make sense and which conflict 
-> with pending patches.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
-> ---
-> 
-> This patch was already sent on:
-> - 30 May 2005
-> - 7 May 2005
-> 
->  include/linux/sunrpc/clnt.h           |    1 -
->  include/linux/sunrpc/gss_api.h        |    3 ---
->  include/linux/sunrpc/xdr.h            |    2 --
->  net/sunrpc/auth_gss/gss_mech_switch.c |   13 +------------
->  net/sunrpc/clnt.c                     |    3 ++-
->  net/sunrpc/sunrpc_syms.c              |   11 -----------
->  net/sunrpc/xdr.c                      |    4 +++-
->  7 files changed, 6 insertions(+), 31 deletions(-)
-> 
-> --- 
-> linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/gss_api.h.old	
-> 2005-05-05 23:05:01.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/gss_api.h	
-> 2005-05-05 23:05:10.000000000 +0200
-> @@ -110,9 +110,6 @@
->  /* Similar, but get by pseudoflavor. */
->  struct gss_api_mech *gss_mech_get_by_pseudoflavor(u32);
+>Hi
+>
 >  
-> -/* Just increments the mechanism's reference count and 
-> returns its input: */
-> -struct gss_api_mech * gss_mech_get(struct gss_api_mech *);
-> -
->  /* For every succesful gss_mech_get or gss_mech_get_by_* 
-> call there must be a
->   * corresponding call to gss_mech_put. */
->  void gss_mech_put(struct gss_api_mech *);
-> --- 
-> linux-2.6.12-rc3-mm3-full/net/sunrpc/auth_gss/gss_mech_switc
-> h.c.old	2005-05-05 23:05:17.000000000 +0200
-> +++ 
-> linux-2.6.12-rc3-mm3-full/net/sunrpc/auth_gss/gss_mech_s
-> witch.c	2005-05-05 23:19:33.000000000 +0200
-> @@ -133,14 +133,13 @@
+>
+>>I'm still not convinced by your approach. :-/
+>>    
+>>
+>
+>You really should have a closer look at nf-HiPAC so that you know what you are 
+>talking about!
+>
+>Your Compact Filter takes a completely different approach than nf-HiPAC to 
+>build the data structure used in the kernel for the packet classification 
+>lookup.
+>
+>Your Compact Filter uses a static compiler in user space. That compiler 
+>transforms the rule set into boolean expressions and than uses operations 
+>from predicate logic to optimize the rule set.
+>This has the big drawback that whenever only a single rule changes you have to 
+>recompile the complete lookup data structure. So this approach is clearly not 
+>suitable for scenarios depending on dynamic rule sets.
+>
+>nf-HiPAC uses a completely different approach to build the lookup data 
+>structure in the kernel. It is based on geometry.
+>This approach allows completely dynamic updates. During an update of the rules 
+>only the required changes of the lookup data structure are made. The data 
+>structure is NOT rebuild from scratch. This guarantees that the packet 
+>processing is only affected to the least possible amount during updates.
+>
+>Although nf-HiPAC and Compact Filter use completely different approaches and 
+>algorithms to build the lookup data structure it is important that you 
+>understand the following:
+>nf-HiPAC and Compact filter end up with a very very similar lookup data 
+>structure in the kernel.
+>
+>
 >  
->  EXPORT_SYMBOL(gss_mech_unregister);
+>
+>>These experiments have to be updated but can you comment on this:
+>>http://www.cs.aau.dk/~mixxel/cf/experiments.html
+>>    
+>>
+>
+>The current version of the algorithm used in nf-HiPAC does not optimize 
+>certain aspects of the lookup data structure in order to increase the speed 
+>of dynamic rule set updates.
+>This means that the lookup data structure is larger than it really needs to be 
+>because it contains some unnecessary redundancy.
+>This explains your test results.
+>Compact Filter and nf-HiPAC perform the same when they are both able to keep 
+>their lookup data structure in the CPU caches and when they are both not able 
+>to do so anymore.
+>Compact Filter is currently able to perform better in the area where it is 
+>able to keep its data structure still in the caches while nf-HiPAC is not 
+>able to do so anymore.
 >  
-> -struct gss_api_mech *
-> +static struct gss_api_mech *
->  gss_mech_get(struct gss_api_mech *gm)
->  {
->  	__module_get(gm->gm_owner);
->  	return gm;
->  }
->  
-> -EXPORT_SYMBOL(gss_mech_get);
->  
->  struct gss_api_mech *
->  gss_mech_get_by_name(const char *name)
-> @@ -160,8 +159,6 @@
->  
->  }
->  
-> -EXPORT_SYMBOL(gss_mech_get_by_name);
-> -
->  static inline int
->  mech_supports_pseudoflavor(struct gss_api_mech *gm, u32 pseudoflavor)
->  {
-> @@ -193,8 +190,6 @@
->  	return gm;
->  }
->  
-> -EXPORT_SYMBOL(gss_mech_get_by_pseudoflavor);
-> -
->  u32
->  gss_pseudoflavor_to_service(struct gss_api_mech *gm, u32 
-> pseudoflavor)
->  {
-> @@ -207,8 +202,6 @@
->  	return 0;
->  }
->  
-> -EXPORT_SYMBOL(gss_pseudoflavor_to_service);
-> -
->  char *
->  gss_service_to_auth_domain_name(struct gss_api_mech *gm, u32 service)
->  {
-> @@ -221,16 +214,12 @@
->  	return NULL;
->  }
->  
-> -EXPORT_SYMBOL(gss_service_to_auth_domain_name);
-> -
->  void
->  gss_mech_put(struct gss_api_mech * gm)
->  {
->  	module_put(gm->gm_owner);
->  }
->  
-> -EXPORT_SYMBOL(gss_mech_put);
-> -
->  /* The mech could probably be determined from the token 
-> instead, but it's just
->   * as easy for now to pass it in. */
->  int
-> --- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/clnt.h.old	
-> 2005-05-05 23:05:45.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/clnt.h	
-> 2005-05-05 23:05:50.000000000 +0200
-> @@ -134,7 +134,6 @@
->  void		rpc_clnt_sigunmask(struct rpc_clnt *clnt, 
-> sigset_t *oldset);
->  void		rpc_setbufsize(struct rpc_clnt *, unsigned int, 
-> unsigned int);
->  size_t		rpc_max_payload(struct rpc_clnt *);
-> -int		rpc_ping(struct rpc_clnt *clnt, int flags);
->  
->  static __inline__
->  int rpc_call(struct rpc_clnt *clnt, u32 proc, void *argp, 
-> void *resp, int flags)
-> --- linux-2.6.12-rc3-mm3-full/net/sunrpc/clnt.c.old	
-> 2005-05-05 23:05:58.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/net/sunrpc/clnt.c	
-> 2005-05-05 23:06:21.000000000 +0200
-> @@ -63,6 +63,7 @@
->  static u32 *	call_header(struct rpc_task *task);
->  static u32 *	call_verify(struct rpc_task *task);
->  
-> +static int	rpc_ping(struct rpc_clnt *clnt, int flags);
->  
->  static int
->  rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
-> @@ -1178,7 +1179,7 @@
->  	.p_decode = rpcproc_decode_null,
->  };
->  
-> -int rpc_ping(struct rpc_clnt *clnt, int flags)
-> +static int rpc_ping(struct rpc_clnt *clnt, int flags)
->  {
->  	struct rpc_message msg = {
->  		.rpc_proc = &rpcproc_null,
-> --- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/xdr.h.old	
-> 2005-05-05 23:06:40.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/xdr.h	
-> 2005-05-05 23:07:23.000000000 +0200
-> @@ -91,7 +91,6 @@
->  u32 *	xdr_encode_opaque_fixed(u32 *p, const void 
-> *ptr, unsigned int len);
->  u32 *	xdr_encode_opaque(u32 *p, const void *ptr, 
-> unsigned int len);
->  u32 *	xdr_encode_string(u32 *p, const char *s);
-> -u32 *	xdr_decode_string(u32 *p, char **sp, int *lenp, 
-> int maxlen);
->  u32 *	xdr_decode_string_inplace(u32 *p, char **sp, 
-> int *lenp, int maxlen);
->  u32 *	xdr_encode_netobj(u32 *p, const struct xdr_netobj *);
->  u32 *	xdr_decode_netobj(u32 *p, struct xdr_netobj *);
-> @@ -147,7 +146,6 @@
->  extern int xdr_buf_subsegment(struct xdr_buf *, struct 
-> xdr_buf *, int, int);
->  extern int xdr_buf_read_netobj(struct xdr_buf *, struct 
-> xdr_netobj *, int);
->  extern int read_bytes_from_xdr_buf(struct xdr_buf *, int, 
-> void *, int);
-> -extern int write_bytes_to_xdr_buf(struct xdr_buf *, int, 
-> void *, int);
->  
->  /*
->   * Helper structure for copying from an sk_buff.
-> --- linux-2.6.12-rc3-mm3-full/net/sunrpc/xdr.c.old	
-> 2005-05-05 23:06:52.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/net/sunrpc/xdr.c	
-> 2005-05-05 23:07:56.000000000 +0200
-> @@ -95,6 +95,7 @@
->  	return xdr_encode_array(p, string, strlen(string));
->  }
->  
-> +#if 0
->  u32 *
->  xdr_decode_string(u32 *p, char **sp, int *lenp, int maxlen)
->  {
-> @@ -115,6 +116,7 @@
->  	*sp = string;
->  	return p + XDR_QUADLEN(len);
->  }
-> +#endif  /*  0  */
->  
->  u32 *
->  xdr_decode_string_inplace(u32 *p, char **sp, int *lenp, int maxlen)
-> @@ -882,7 +884,7 @@
->  }
->  
->  /* obj is assumed to point to allocated memory of size at 
-> least len: */
-> -int
-> +static int
->  write_bytes_to_xdr_buf(struct xdr_buf *buf, int base, void 
-> *obj, int len)
->  {
->  	struct xdr_buf subbuf;
-> --- linux-2.6.12-rc3-mm3-full/net/sunrpc/sunrpc_syms.c.old	
-> 2005-05-05 23:07:30.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/net/sunrpc/sunrpc_syms.c	
-> 2005-05-05 23:36:43.000000000 +0200
-> @@ -29,15 +29,10 @@
->  EXPORT_SYMBOL(rpc_execute);
->  EXPORT_SYMBOL(rpc_init_task);
->  EXPORT_SYMBOL(rpc_sleep_on);
-> -EXPORT_SYMBOL(rpc_wake_up_next);
->  EXPORT_SYMBOL(rpc_wake_up_task);
-> -EXPORT_SYMBOL(rpc_new_child);
-> -EXPORT_SYMBOL(rpc_run_child);
->  EXPORT_SYMBOL(rpciod_down);
->  EXPORT_SYMBOL(rpciod_up);
-> -EXPORT_SYMBOL(rpc_new_task);
->  EXPORT_SYMBOL(rpc_wake_up_status);
-> -EXPORT_SYMBOL(rpc_release_task);
->  
->  /* RPC client functions */
->  EXPORT_SYMBOL(rpc_create_client);
-> @@ -45,7 +40,6 @@
->  EXPORT_SYMBOL(rpc_bind_new_program);
->  EXPORT_SYMBOL(rpc_destroy_client);
->  EXPORT_SYMBOL(rpc_shutdown_client);
-> -EXPORT_SYMBOL(rpc_release_client);
->  EXPORT_SYMBOL(rpc_killall_tasks);
->  EXPORT_SYMBOL(rpc_call_sync);
->  EXPORT_SYMBOL(rpc_call_async);
-> @@ -63,8 +57,6 @@
->  /* Client transport */
->  EXPORT_SYMBOL(xprt_create_proto);
->  EXPORT_SYMBOL(xprt_set_timeout);
-> -EXPORT_SYMBOL(xprt_udp_slot_table_entries);
-> -EXPORT_SYMBOL(xprt_tcp_slot_table_entries);
->  
->  /* Client credential cache */
->  EXPORT_SYMBOL(rpcauth_register);
-> @@ -81,7 +73,6 @@
->  EXPORT_SYMBOL(svc_create_thread);
->  EXPORT_SYMBOL(svc_exit_thread);
->  EXPORT_SYMBOL(svc_destroy);
-> -EXPORT_SYMBOL(svc_drop);
->  EXPORT_SYMBOL(svc_process);
->  EXPORT_SYMBOL(svc_recv);
->  EXPORT_SYMBOL(svc_wake_up);
-> @@ -89,7 +80,6 @@
->  EXPORT_SYMBOL(svc_reserve);
->  EXPORT_SYMBOL(svc_auth_register);
->  EXPORT_SYMBOL(auth_domain_lookup);
-> -EXPORT_SYMBOL(svc_authenticate);
->  EXPORT_SYMBOL(svc_set_client);
->  
->  /* RPC statistics */
-> @@ -122,7 +112,6 @@
->  
->  /* Generic XDR */
->  EXPORT_SYMBOL(xdr_encode_string);
-> -EXPORT_SYMBOL(xdr_decode_string);
->  EXPORT_SYMBOL(xdr_decode_string_inplace);
->  EXPORT_SYMBOL(xdr_decode_netobj);
->  EXPORT_SYMBOL(xdr_encode_netobj);
-> 
-> 
-> 
-> -------------------------------------------------------
-> This SF.Net email is sponsored by:
-> Power Architecture Resource Center: Free content, downloads, 
-> discussions,
-> and more. http://solutions.newsforge.com/ibmarch.tmpl
-> _______________________________________________
-> NFS maillist  -  NFS@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/nfs
-> 
+>
+
+It would seem, looking at the provided results and author's comments, 
+that the following are true:
+  - for small static rulesets there is little difference, my 200-600 
+rules run fine in either
+  - for very large rulesets cf will currently perform better (if this is 
+due to cache effects, may be less
+    evident, since the server runs an application rather than being a 
+dedicated network device).
+  - cf can't do large dynamic rulesets, compile time > change interval
+  - the iptables results don't represent server use with persistent 
+sockets, like mail/usenet, in which
+    most (~95%) packets match the first rule in INPUT (ESTABLISHED -> 
+ACCEPT) and the complexity is
+    in processing TCP/SYN packets and forwarding rules.
+
+Also: none of the results I've seen show the effect of many tracked 
+sockets, the performance of one stream pushing a lot of packets is not 
+the same as the same bitrate coming from 500-5k source IPs, at least if 
+you use the INPUT rule noted above.
+
+>Most aspects of your performance tests are quite nice (e.g. the generating the 
+>traffic by replaying a packet header trace).
+>But your performance tests have a serious flaw:
+>You construct your rule set by creating one rule for each entry in your packet 
+>header trace. This results in an completely artificial rule set that creates 
+>a lot of redundancy in the nf-HiPAC lookup data structure making it much 
+>larger than the Compact Filter data structure.
+>
+>You have to understand that with real world rule sets the size of the computed 
+>lookup data structure will not be much different for Compact Filter and 
+>nf-HiPAC. This means that when you use real world rule sets there shouldn't 
+>be any noticeable difference in lookup performance betweeen Compact Filter 
+>and nf-HiPAC.
+>
+>-----------------
+>
+>I am currently working on a new improved version of the algorithm used in 
+>nf-HiPAC. The new algorithmic core will reduce memory usage while at the same 
+>time improving the running time of insert and delete operations. The lookup 
+>performance will be improved too, especially for bigger rulesets. The 
+>concepts and the design are already developed, but the implementation is 
+>still in its early stages.
+>
+>The new algorithmic core will make sure that the lookup data structure in the 
+>kernel is always fully optimized while at the same time allowing very fast 
+>dynamic updates.
+>
+>At that point Compact Filter will not be able to win in any performance test 
+>against  nf-HiPAC anymore, simply because there is no way to optimize the 
+>lookup data structure any further.
+>
+The nf-HiPAC advantage seems to be in applications with moderate to 
+large dynamic rulesets, in that it allows a lot of changes quickly. 
+Don't give that up for throughput, the idea of being able to do 5-7 
+changes/sec on a 500-2k ruleset is exciting, and in some cases vital.
+
+Thanks to everyone working on improvements.
+
+-- 
+bill davidsen <davidsen@tmr.com>
+  CTO TMR Associates, Inc
+  Doing interesting things with small computers since 1979
+
+
+--------------040706060300040508090100
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta content="text/html;charset=ISO-8859-1" http-equiv="Content-Type">
+  <title></title>
+</head>
+<body bgcolor="#ffffff" text="#000000">
+Michael Bellion wrote:
+<blockquote cite="mid200509261638.12731.mbellion@hipac.org" type="cite">
+  <pre wrap="">Hi
+
+  </pre>
+  <blockquote type="cite">
+    <pre wrap="">I'm still not convinced by your approach. :-/
+    </pre>
+  </blockquote>
+  <pre wrap=""><!---->
+You really should have a closer look at nf-HiPAC so that you know what you are 
+talking about!
+
+Your Compact Filter takes a completely different approach than nf-HiPAC to 
+build the data structure used in the kernel for the packet classification 
+lookup.
+
+Your Compact Filter uses a static compiler in user space. That compiler 
+transforms the rule set into boolean expressions and than uses operations 
+from predicate logic to optimize the rule set.
+This has the big drawback that whenever only a single rule changes you have to 
+recompile the complete lookup data structure. So this approach is clearly not 
+suitable for scenarios depending on dynamic rule sets.
+
+nf-HiPAC uses a completely different approach to build the lookup data 
+structure in the kernel. It is based on geometry.
+This approach allows completely dynamic updates. During an update of the rules 
+only the required changes of the lookup data structure are made. The data 
+structure is NOT rebuild from scratch. This guarantees that the packet 
+processing is only affected to the least possible amount during updates.
+
+Although nf-HiPAC and Compact Filter use completely different approaches and 
+algorithms to build the lookup data structure it is important that you 
+understand the following:
+nf-HiPAC and Compact filter end up with a very very similar lookup data 
+structure in the kernel.
+
+
+  </pre>
+  <blockquote type="cite">
+    <pre wrap="">These experiments have to be updated but can you comment on this:
+<a class="moz-txt-link-freetext" href="http://www.cs.aau.dk/~mixxel/cf/experiments.html">http://www.cs.aau.dk/~mixxel/cf/experiments.html</a>
+    </pre>
+  </blockquote>
+  <pre wrap=""><!---->
+The current version of the algorithm used in nf-HiPAC does not optimize 
+certain aspects of the lookup data structure in order to increase the speed 
+of dynamic rule set updates.
+This means that the lookup data structure is larger than it really needs to be 
+because it contains some unnecessary redundancy.
+This explains your test results.
+Compact Filter and nf-HiPAC perform the same when they are both able to keep 
+their lookup data structure in the CPU caches and when they are both not able 
+to do so anymore.
+Compact Filter is currently able to perform better in the area where it is 
+able to keep its data structure still in the caches while nf-HiPAC is not 
+able to do so anymore.
+  </pre>
+</blockquote>
+<br>
+It would seem, looking at the provided results and author's comments,
+that the following are true:<br>
+&nbsp; - for small static rulesets there is little difference, my 200-600
+rules run fine in either<br>
+&nbsp; - for very large rulesets cf will currently perform better (if this
+is due to cache effects, may be less<br>
+&nbsp;&nbsp;&nbsp; evident, since the server runs an application rather than being a
+dedicated network device).<br>
+&nbsp; - cf can't do large dynamic rulesets, compile time &gt; change
+interval<br>
+&nbsp; - the iptables results don't represent server use with persistent
+sockets, like mail/usenet, in which<br>
+&nbsp;&nbsp;&nbsp; most (~95%) packets match the first rule in INPUT (ESTABLISHED
+-&gt; ACCEPT) and the complexity is<br>
+&nbsp;&nbsp;&nbsp; in processing TCP/SYN packets and forwarding rules.<br>
+<br>
+Also: none of the results I've seen show the effect of many tracked
+sockets, the performance of one stream pushing a lot of packets is not
+the same as the same bitrate coming from 500-5k source IPs, at least if
+you use the INPUT rule noted above.<br>
+<blockquote cite="mid200509261638.12731.mbellion@hipac.org" type="cite">
+  <pre wrap="">
+Most aspects of your performance tests are quite nice (e.g. the generating the 
+traffic by replaying a packet header trace).
+But your performance tests have a serious flaw:
+You construct your rule set by creating one rule for each entry in your packet 
+header trace. This results in an completely artificial rule set that creates 
+a lot of redundancy in the nf-HiPAC lookup data structure making it much 
+larger than the Compact Filter data structure.
+
+You have to understand that with real world rule sets the size of the computed 
+lookup data structure will not be much different for Compact Filter and 
+nf-HiPAC. This means that when you use real world rule sets there shouldn't 
+be any noticeable difference in lookup performance betweeen Compact Filter 
+and nf-HiPAC.
+
+-----------------
+
+I am currently working on a new improved version of the algorithm used in 
+nf-HiPAC. The new algorithmic core will reduce memory usage while at the same 
+time improving the running time of insert and delete operations. The lookup 
+performance will be improved too, especially for bigger rulesets. The 
+concepts and the design are already developed, but the implementation is 
+still in its early stages.
+
+The new algorithmic core will make sure that the lookup data structure in the 
+kernel is always fully optimized while at the same time allowing very fast 
+dynamic updates.
+
+At that point Compact Filter will not be able to win in any performance test 
+against  nf-HiPAC anymore, simply because there is no way to optimize the 
+lookup data structure any further.</pre>
+</blockquote>
+The nf-HiPAC advantage seems to be in applications with moderate to
+large dynamic rulesets, in that it allows a lot of changes quickly.
+Don't give that up for throughput, the idea of being able to do 5-7
+changes/sec on a 500-2k ruleset is exciting, and in some cases vital.<br>
+<br>
+Thanks to everyone working on improvements.<br>
+<br>
+<pre class="moz-signature" cols="72">-- 
+bill davidsen <a class="moz-txt-link-rfc2396E" href="mailto:davidsen@tmr.com">&lt;davidsen@tmr.com&gt;</a>
+  CTO TMR Associates, Inc
+  Doing interesting things with small computers since 1979
+</pre>
+</body>
+</html>
+
+--------------040706060300040508090100--
