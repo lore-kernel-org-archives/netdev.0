@@ -1,42 +1,69 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [ANNOUNCE] iproute2 (051007)
-Date: Fri, 7 Oct 2005 15:43:44 -0700
-Message-ID: <20051007154344.400dd82b@dxpl.pdx.osdl.net>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 2/7] orinoco: Information leakage due to incorrect padding
+Date: Fri, 7 Oct 2005 16:54:32 -0700
+Message-ID: <20051007235432.GC23111@kroah.com>
+References: <20051007234348.631583000@press.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: netdev@vger.kernel.org
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, meder@o0o.nu,
+	proski@gnu.org, orinoco-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964916AbVJGXzP@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Disposition: inline; filename="orinoco-info-leak.patch"
+In-Reply-To: <20051007235353.GA23111@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix one serious bug (in libnetlink), and a couple of other minor
-patches.
+From: Pavel Roskin <proski@gnu.org>
 
-http://developer.osdl.org/dev/iproute2/download/iproute2-051007.tar.gz
+The orinoco driver can send uninitialized data exposing random pieces of
+the system memory.  This happens because data is not padded with zeroes
+when its length needs to be increased.
 
-Stephen Hemminger
-	 Reenable ip mroute
+Reported by Meder Kydyraliev <meder@o0o.nu>
 
-Mike Frysinger
-	Handle pfifo_fast that has no qopt without segfaulting
+Signed-off-by: Pavel Roskin <proski@gnu.org>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/net/wireless/orinoco.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-Mads Martin Joergensen
-	Trivial netem ccopts
+--- linux-2.6.13.y.orig/drivers/net/wireless/orinoco.c
++++ linux-2.6.13.y/drivers/net/wireless/orinoco.c
+@@ -502,9 +502,14 @@ static int orinoco_xmit(struct sk_buff *
+ 		return 0;
+ 	}
+ 
+-	/* Length of the packet body */
+-	/* FIXME: what if the skb is smaller than this? */
+-	len = max_t(int,skb->len - ETH_HLEN, ETH_ZLEN - ETH_HLEN);
++	/* Check packet length, pad short packets, round up odd length */
++	len = max_t(int, ALIGN(skb->len, 2), ETH_ZLEN);
++	if (skb->len < len) {
++		skb = skb_padto(skb, len);
++		if (skb == NULL)
++			goto fail;
++	}
++	len -= ETH_HLEN;
+ 
+ 	eh = (struct ethhdr *)skb->data;
+ 
+@@ -556,8 +561,7 @@ static int orinoco_xmit(struct sk_buff *
+ 		p = skb->data;
+ 	}
+ 
+-	/* Round up for odd length packets */
+-	err = hermes_bap_pwrite(hw, USER_BAP, p, ALIGN(data_len, 2),
++	err = hermes_bap_pwrite(hw, USER_BAP, p, data_len,
+ 				txfid, data_off);
+ 	if (err) {
+ 		printk(KERN_ERR "%s: Error %d writing packet to BAP\n",
 
-Jerome Borsboom
-	Fix regression in ip addr (libnetlink) handling
-
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+--
