@@ -1,53 +1,63 @@
-From: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH SECURITY]: orinoco: Information leakage due to incorrect
-Date: Thu, 6 Oct 2005 09:33:44 -0700
-Message-ID: <20051006163344.GA19738@bougret.hpl.hp.com>
-Reply-To: jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 0/3] netfilter : 3 patches to boost ip_tables performance
+Date: Fri, 7 Oct 2005 04:38:02 +0200
+Message-ID: <20051007023801.GA5953@rama>
+References: <432EF0C5.5090908@cosmosbay.com> <200509281037.03185.ak@suse.de> <4342B575.9090709@trash.net> <200510051853.32196.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
-	Orinoco Devel <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="/04w6evG8XlLl3ft"
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org,
+	Henrik Nordstrom <hno@marasystems.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751253AbVJFRa4@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
-Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
+In-Reply-To: <200510051853.32196.ak@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Roskin wrote :
-> 
-> orinoco: Information leakage due to incorrect padding
-> 
-> The orinoco driver can send uninitialized data exposing random pieces of
-> the system memory.  This happens because data is not padded with zeroes
-> when its length needs to be increased.
 
-	I believe the 802.11 doesn't specify and doesn't require
-padding, therefore in theory, none of the 802.11 drivers need to do
-padding.
-	Padding is specific to the way the original Ethernet protocol
-detect collisions over the wire, it require a minimum message length
-due to the propagation and reflection time of the packet. Propagation
-time is way faster over the air and we can't detect collisions anyway,
-therefore it doesn't make sense to implement padding. It's just
-unnecessary overhead.
-	Now, I'm not 100% certain that all firmware and TCP/IP stack
-would be happy with that, but it's worth a try at some point.
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-	Have fun...
+On Wed, Oct 05, 2005 at 06:53:31PM +0200, Andi Kleen wrote:
+> On Tuesday 04 October 2005 19:01, Patrick McHardy wrote:
+> > Andi Kleen wrote:
+> > > In a sense it's even getting worse: For example us losing the CONFIG
+> > > option to disable local conntrack (Patrick has disabled it some time =
+ago
+> > > without even a comment why he did it) has a really bad impact in some
+> > > cases.
+> >
+> > It was necessary to correctly handle locally generated ICMP errors.
+>=20
+> Well you most likely wrecked local performance then when it's enabled.
 
-	Jean
+so you would favour a system that incorrectly deals with ICMP errors but
+has higher performance?
 
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
+--/04w6evG8XlLl3ft
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
--------------------------------------------------------
-This SF.Net email is sponsored by:
-Power Architecture Resource Center: Free content, downloads, discussions,
-and more. http://solutions.newsforge.com/ibmarch.tmpl
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFDRd+JXaXGVTD0i/8RAv8nAJ0VJn1aig7l8IyTAjs4MT5AnphWxQCfUv5E
+k87CKliQJ2YXeGO2lH0cv48=
+=kdbd
+-----END PGP SIGNATURE-----
+
+--/04w6evG8XlLl3ft--
