@@ -1,33 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Diego Calleja <diegocg@gmail.com>
 Subject: Re: [ANNOUNCE] linux-net wiki
-Date: Thu, 6 Oct 2005 21:45:41 -0700
-Message-ID: <20051006214541.47ac708e@localhost.localdomain>
+Date: Fri, 7 Oct 2005 10:15:38 +0200
+Message-ID: <20051007101538.7778bd1a.diegocg@gmail.com>
 References: <20051006140007.43262f04@dxpl.pdx.osdl.net>
 	<20051007012454.GA9509@kroah.com>
+	<cbec11ac0510061834j53678e7cq@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932118AbVJGEnc@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-In-Reply-To: <20051007012454.GA9509@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: greg@kroah.com, shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	riel@surriel.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ian McDonald <imcdnzl@gmail.com>
+In-Reply-To: <cbec11ac0510061834j53678e7cq@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 6 Oct 2005 18:24:54 -0700
-Greg KH <greg@kroah.com> wrote:
+El Fri, 7 Oct 2005 14:34:10 +1300,
+Ian McDonald <imcdnzl@gmail.com> escribi=F3:
 
-> On Thu, Oct 06, 2005 at 02:00:07PM -0700, Stephen Hemminger wrote:
-> > There is now a wiki for Linux networking related activities and documentation. 
-> > 	http://linux-net.osdl.org
-> > This is an experiment to see if it would be more useful to have
-> > an online and editable documentation source rather than bits and pieces.
-> 
-> Why not just work with the existing kernelnewbies wiki:
-> 	http://wiki.kernelnewbies.org
-> instead of creating another site?
+> >
+> > Why not just work with the existing kernelnewbies wiki:
+> >         http://wiki.kernelnewbies.org
+> > instead of creating another site?
+> >
+> Having a quick look around and looking at the name in particular I
+> think they are different target audiences...
 
-Mainly because I started it out for my own linux networking projects,
-then generalized it.  If you look on kernelnewbies you will see that
-there was already an MM wiki.
+The fact that it's called "kernelnewbies" doesn't meant it's targetted =
+only
+to non-expert people - everybody, including me, you, Linus and all the =
+"core"
+kernel hackers are "newbies" WRT to some parts of the kernel. The one t=
+hing
+that can keep someone being a newbie forever is considering himself an
+"expert". In fact you can find some linux kernel "gurus" there...
+
+Also, kernelnewbies is not linux-specific either so there's a chance th=
+at even
+gurus could learn something interesting (and teach something to others)=
+=2E=20
+Or at least that has always been the intention of the kernelnewbies pro=
+ject.
+
+(That doesn't mean I'm against the linux-net wiki, I just wanted to poi=
+nt out
+that kernelnewbies isn't just for "newbies" ;)
