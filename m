@@ -1,69 +1,59 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 2/7] orinoco: Information leakage due to incorrect padding
-Date: Fri, 7 Oct 2005 16:54:32 -0700
-Message-ID: <20051007235432.GC23111@kroah.com>
-References: <20051007234348.631583000@press.kroah.org>
+From: Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
+Subject: Re: Timeline of IPoIB performance
+Date: Fri, 07 Oct 2005 19:25:49 -0700
+Message-ID: <1128738350.13945.369.camel@localhost>
+References: <1128672413.13948.326.camel@localhost> <52br20lsei.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, meder@o0o.nu,
-	proski@gnu.org, orinoco-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964916AbVJGXzP@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Content-Disposition: inline; filename="orinoco-info-leak.patch"
-In-Reply-To: <20051007235353.GA23111@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <rolandd@cisco.com>
+In-Reply-To: <52br20lsei.fsf@cisco.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski@gnu.org>
+I'm adding netdev to this thread to see if they can help.
 
-The orinoco driver can send uninitialized data exposing random pieces of
-the system memory.  This happens because data is not padded with zeroes
-when its length needs to be increased.
+I'm seeing an IPoIB (IP over InfiniBand) netperf performance drop off,
+of up to 90 MB/s, when using kernels newer than 2.6.11.  This doesn't
+appear to be an OpenIB IPoIB issue since the older in-kernel IB for
+2.6.11 and a recent svn3687 snapshot both have the same performance (464
+MB/s) with 2.6.11.  I used the same kernel config file as a starting
+point for each of these kernel builds.  Have there been any changes in
+Linux that would explain these results?
 
-Reported by Meder Kydyraliev <meder@o0o.nu>
+Here is the hardware setup and netperf results using 'netperf -f -M -c
+-C -H IPoIB_ADDRESS
 
-Signed-off-by: Pavel Roskin <proski@gnu.org>
-Signed-off-by: Chris Wright <chrisw@osdl.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
----
- drivers/net/wireless/orinoco.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+All benchmarks are with RHEL4 x86_64 with HCA FW v4.7.0
+dual EM64T 3.2 GHz PCIe IB HCA (memfull)
 
---- linux-2.6.13.y.orig/drivers/net/wireless/orinoco.c
-+++ linux-2.6.13.y/drivers/net/wireless/orinoco.c
-@@ -502,9 +502,14 @@ static int orinoco_xmit(struct sk_buff *
- 		return 0;
- 	}
- 
--	/* Length of the packet body */
--	/* FIXME: what if the skb is smaller than this? */
--	len = max_t(int,skb->len - ETH_HLEN, ETH_ZLEN - ETH_HLEN);
-+	/* Check packet length, pad short packets, round up odd length */
-+	len = max_t(int, ALIGN(skb->len, 2), ETH_ZLEN);
-+	if (skb->len < len) {
-+		skb = skb_padto(skb, len);
-+		if (skb == NULL)
-+			goto fail;
-+	}
-+	len -= ETH_HLEN;
- 
- 	eh = (struct ethhdr *)skb->data;
- 
-@@ -556,8 +561,7 @@ static int orinoco_xmit(struct sk_buff *
- 		p = skb->data;
- 	}
- 
--	/* Round up for odd length packets */
--	err = hermes_bap_pwrite(hw, USER_BAP, p, ALIGN(data_len, 2),
-+	err = hermes_bap_pwrite(hw, USER_BAP, p, data_len,
- 				txfid, data_off);
- 	if (err) {
- 		printk(KERN_ERR "%s: Error %d writing packet to BAP\n",
+Kernel           OpenIB    msi_x  netperf (MB/s)  
+2.6.14-rc3      in-kernel    1     374 
+2.6.13.2        svn3627      1     386 
+2.6.13.2        in-kernel    1     394 
+2.6.12.5-lustre in-kernel    1     399  
+2.6.12.5        in-kernel    1     402 
+2.6.12          in-kernel    1     406 
+2.6.12-rc6      in-kernel    1     407
+2.6.12-rc5      in-kernel    1     405   <<<<<
+2.6.12-rc4      in-kernel    1     470   <<<<<
+2.6.12-rc3      in-kernel    1     466 
+2.6.12-rc2      in-kernel    1     469 
+2.6.12-rc1      in-kernel    1     466
+2.6.11          in-kernel    1     464 
+2.6.11          svn3687      1     464 
+2.6.9-11.ELsmp  svn3513      1     425  (Woody's results, 3.6Ghz EM64T) 
 
---
+ Thanks,
+
+	- Matt
