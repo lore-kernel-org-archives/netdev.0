@@ -1,72 +1,61 @@
-From: Olaf Hering <olh@suse.de>
-Subject: [PATCH] pcnet32 does not use the PROM address on powerpc
-Date: Mon, 10 Oct 2005 16:23:44 +0200
-Message-ID: <20051010142344.GA26737@suse.de>
-References: <20051008104725.GA10248@suse.de> <20051008120316.GA12122@suse.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [ANNOUNCE] iproute2 version (050929)
+Date: Mon, 10 Oct 2005 07:40:02 -0700
+Message-ID: <20051010074002.5cd642da@localhost.localdomain>
+References: <20050930150406.2e2221fd@dxpl.pdx.osdl.net>
+	<Pine.LNX.4.62.0510012332580.14848@bizon.gios.gov.pl>
+	<20051005113458.46f0892d@dxpl.pdx.osdl.net>
+	<Pine.LNX.4.62.0510101232310.1343@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Return-path: <linuxppc64-dev-bounces@ozlabs.org>
-To: netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org
-Content-Disposition: inline
-In-Reply-To: <20051008120316.GA12122@suse.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
-List-Post: <mailto:linuxppc64-dev@ozlabs.org>
-List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc64-dev-bounces@ozlabs.org
-Errors-To: linuxppc64-dev-bounces@ozlabs.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+To: Krzysztof Oledzki <olel@ans.pl>
+In-Reply-To: <Pine.LNX.4.62.0510101232310.1343@bizon.gios.gov.pl>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
- On Sat, Oct 08, Olaf Hering wrote:
+On Mon, 10 Oct 2005 12:34:51 +0200 (CEST)
+Krzysztof Oledzki <olel@ans.pl> wrote:
 
->  On Sat, Oct 08, Olaf Hering wrote:
-> 
-> > I have a 44p 270, which gets all 0xFF as MAC address if I power if off
-> > and on again. Further reboots do not fix it.
-> > But it does get the correct one if I boot into SMS and do a netboot,
-> > further reboots will always get the correct MAC address
+>=20
+>=20
+> On Wed, 5 Oct 2005, Stephen Hemminger wrote:
+>=20
+> > On Sat, 1 Oct 2005 23:34:25 +0200 (CEST)
+> > Krzysztof Oledzki <olel@ans.pl> wrote:
+> >
+> >>
+> >>
+> >> On Fri, 30 Sep 2005, Stephen Hemminger wrote:
+> >>
+> >>> There is an new minor update to iproute2 utilities available:
+> >>> 	http://developer.osdl.org/dev/iproute2/download/iproute2-050929.ta=
+r.gz
+> >>
+> >>
+> >> It hangs on "ip rule flush". Tested on 2.6.13.2.
+> >>
+> >>
+> >> Best regards,
+> >>
+> >>
+> >>  			Krzysztof Ol=C4=99dzki
+> >
+> > Fixed by this patch (in next release)
+>=20
+> Not sure... Just checked iproute2-ss051007 and it still hangs on "ip ru=
+le=20
+> flush" with ~100% cpu load.
+>=20
 
-
-
-The CSR contains garbage after a coldboot on RS/6000.
-One some systems (like my 44p 270) the MAC address is all FF,
-on others (like my B50) it is ff:ff:ff:fd:ff:6b.
-
-It can eventually be fixed by loading pcnet32, set the interface
-into the UP state, rmmod pcnet32 and load it again. But this worked
-only on the 270.
-
-Only netbooting after a cold start provides the correct MAC address
-via prom and CSR. This makes it very unreliable.
-I dont know why the MAC is stored in two different places. Remove
-the special case for powerpc, which was added in early 2.4 development.
-
-Signed-off-by: Olaf Hering <olh@suse.de>
-
- drivers/net/pcnet32.c |    5 -----
- 1 files changed, 5 deletions(-)
-
-Index: linux-2.6.14-rc3/drivers/net/pcnet32.c
-===================================================================
---- linux-2.6.14-rc3.orig/drivers/net/pcnet32.c
-+++ linux-2.6.14-rc3/drivers/net/pcnet32.c
-@@ -1172,12 +1172,7 @@ pcnet32_probe1(unsigned long ioaddr, int
- 
-     if (memcmp(promaddr, dev->dev_addr, 6)
- 	|| !is_valid_ether_addr(dev->dev_addr)) {
--#ifndef __powerpc__
- 	if (is_valid_ether_addr(promaddr)) {
--#else
--	if (!is_valid_ether_addr(dev->dev_addr)
--	    && is_valid_ether_addr(promaddr)) {
--#endif
- 	    if (pcnet32_debug & NETIF_MSG_PROBE) {
- 		printk(" warning: CSR address invalid,\n");
- 		printk(KERN_INFO "    using instead PROM address of");
-
--- 
-short story of a lazy sysadmin:
- alias appserv=wotan
+Are you running as root? If not it will loop forever.
