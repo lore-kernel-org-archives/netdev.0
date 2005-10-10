@@ -1,53 +1,97 @@
-From: "ambrose cravens" <ronoion@hotmercedes.com>
-Subject: friable No delay dispatch! Accept your antibiotics quicker. synthesis
-Date: Mon, 10 Oct 2005 09:54:59 +0500
-Message-ID: <9E83DDFE.8C7D3C9@hotmercedes.com>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH] sis900: come alive after temporary memory shortage
+Date: Mon, 10 Oct 2005 10:37:15 +0200
+Message-ID: <20051010083715.GA7202@renditai.milesteg.arr>
+References: <4337E76B.1090003@sw.ru> <8204E0D1-F30D-494F-8E97-CDCC26A82807@libero.it> <4337FF9D.70200@sw.ru> <20051006104004.GA2124@renditai.milesteg.arr> <4347C50A.9010501@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+        NetDev <netdev@oss.sgi.com>, Stanislav Protassov <st@sw.com.sg>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Dean Puller" <reese@oss.sgi.com>, <owner-linux-xfs@oss.sgi.com>,
-        <gomez@oss.sgi.com>, <blair@oss.sgi.com>, <devfs@oss.sgi.com>,
-        <craig@oss.sgi.com>, <leonard@oss.sgi.com>, <ogl-sample@oss.sgi.com>,
-        <netdev@oss.sgi.com>
+To: Vasily Averin <vvs@sw.ru>
+Content-Disposition: inline
+In-Reply-To: <4347C50A.9010501@sw.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Oct 08, 2005 at 05:09:30PM +0400, Vasily Averin wrote:
+> Daniele, could you please check our new patch carefully?
+This time I tested it as thoroughly as possible. It kept working during
+all the time the memory was filling up, until the OOM killer woke up
+from his dark pit. After OOM frenzy, the driver was still alive and
+kicking.
 
+> Andrew, could you please drop our old patch and replace it by the new one?
+Yes, this one is better, thanks.
 
-Constraint to acquire meddicaation, acquisite those all here.
+> Patch solves following problems:
+> 1) Forgotten counter incrementation in sis900_rx() in case
+>      it doesn't get memory for skb, that leads to whole interface failure.
+>      Problem is accompanied with messages:
+>     eth0: Memory squeeze,deferring packet.
+>     eth0: NULL pointer encountered in Rx ring, skipping
+> 2) If counter cur_rx overflows and there'll be temporary memory problems
+>      buffer can't be recreated later, when memory IS available.
+> 3) Limit the work in handler to prevent the endless packets processing if
+>      new packets are generated faster then handled.
+> 
+> Signed-off-by: Konstantin Khorenko <khorenko@sw.ru>
+> Signed-off-by: Vasily Averin <vvs@sw.ru>
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
 
-Heal your annxiety by taking our effective meddicaation. 
-Wholly Tracked Packages will arrive to you within 40hrs.
-Treat your syndrome at much economical tags.
-
-Free meddicaal details with our accredited doctor.
-
-3 wordings for you! You are surprising.  Howard K --NJ. 
-http://uk.geocities.com/snazzysmashingb/?exfo
-
-"You used to teach girls," she said, "If you could only have taught me, I
-could have learnt from you. I am so very miserable, and I like you so much."
-
-
-
-bluethner  dsavage  cmdi sz04 esingers  felip
-"Is it you, indeed, Professor Wilson? I was afraid that you might get here
-before I did. I was detained at a concert, and Bartley telephoned that he
-would be late. Thomas will show you your room. Had you rather have your tea
-brought to you there, or will you have it down here with me, while we wait
-for Bartley?" 
-Wilson was pleased to find that he had been the cause of her rapid walk,
-and with her he was even more vastly pleased than before. He followed her
-through the drawing-room into the library, where the wide back windows
-looked out upon the garden and the sunset and a fine stretch of
-silver-colored river. A harp-shaped elm stood stripped against the
-pale-colored evening sky, with ragged last year's birds' nests in its forks,
-and through the bare branches the evening star quivered in the misty air.
-The long brown room breathed the peace of a rich and amply guarded quiet.
-Tea was brought in immediately and placed in front of the wood fire. Mrs.
-Alexander sat down in a high-backed chair and began to pour it, while Wilson
-sank into a low seat opposite her and took his cup with a great sense of
-ease and harmony and comfort. 
+--- a/drivers/net/sis900.c	2005-10-08 12:22:53.000000000 +0400
++++ b/drivers/net/sis900.c	2005-10-08 15:12:29.000000000 +0400
+@@ -1696,15 +1696,20 @@ static int sis900_rx(struct net_device *
+ 	long ioaddr = net_dev->base_addr;
+ 	unsigned int entry = sis_priv->cur_rx % NUM_RX_DESC;
+ 	u32 rx_status = sis_priv->rx_ring[entry].cmdsts;
++	int rx_work_limit;
+ 
+ 	if (netif_msg_rx_status(sis_priv))
+ 		printk(KERN_DEBUG "sis900_rx, cur_rx:%4.4d, dirty_rx:%4.4d "
+ 		       "status:0x%8.8x\n",
+ 		       sis_priv->cur_rx, sis_priv->dirty_rx, rx_status);
++	rx_work_limit = sis_priv->dirty_rx + NUM_RX_DESC - sis_priv->cur_rx;
+ 
+ 	while (rx_status & OWN) {
+ 		unsigned int rx_size;
+ 
++		if (--rx_work_limit < 0)
++			break;
++
+ 		rx_size = (rx_status & DSIZE) - CRC_SIZE;
+ 
+ 		if (rx_status & (ABORT|OVERRUN|TOOLONG|RUNT|RXISERR|CRCERR|FAERR)) {
+@@ -1732,9 +1737,11 @@ static int sis900_rx(struct net_device *
+ 			   we are working on NULL sk_buff :-( */
+ 			if (sis_priv->rx_skbuff[entry] == NULL) {
+ 				if (netif_msg_rx_err(sis_priv))
+-					printk(KERN_INFO "%s: NULL pointer " 
+-						"encountered in Rx ring, skipping\n",
+-						net_dev->name);
++					printk(KERN_WARNING "%s: NULL pointer " 
++					      "encountered in Rx ring\n"
++					      "cur_rx:%4.4d, dirty_rx:%4.4d\n",
++					      net_dev->name, sis_priv->cur_rx,
++					      sis_priv->dirty_rx);
+ 				break;
+ 			}
+ 
+@@ -1770,6 +1777,7 @@ static int sis900_rx(struct net_device *
+ 				sis_priv->rx_ring[entry].cmdsts = 0;
+ 				sis_priv->rx_ring[entry].bufptr = 0;
+ 				sis_priv->stats.rx_dropped++;
++				sis_priv->cur_rx++;
+ 				break;
+ 			}
+ 			skb->dev = net_dev;
+@@ -1787,7 +1795,7 @@ static int sis900_rx(struct net_device *
+ 
+ 	/* refill the Rx buffer, what if the rate of refilling is slower
+ 	 * than consuming ?? */
+-	for (;sis_priv->cur_rx - sis_priv->dirty_rx > 0; sis_priv->dirty_rx++) {
++	for (; sis_priv->cur_rx != sis_priv->dirty_rx; sis_priv->dirty_rx++) {
+ 		struct sk_buff *skb;
+ 
+ 		entry = sis_priv->dirty_rx % NUM_RX_DESC;
