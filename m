@@ -1,35 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: 32 bit (socket layer) ioctl emulation for 64 bit kernels- Question regarding...
-Date: Mon, 10 Oct 2005 13:48:48 +0200
-Message-ID: <200510101348.49598.arnd@arndb.de>
-References: <3ad486780510092121h78a522cat11f33581dfc670dc@mail.gmail.com>
+From: Olaf Hering <olh@suse.de>
+Subject: [PATCH] pcnet32 does not use the PROM address on powerpc
+Date: Mon, 10 Oct 2005 16:23:44 +0200
+Message-ID: <20051010142344.GA26737@suse.de>
+References: <20051008104725.GA10248@suse.de> <20051008120316.GA12122@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750759AbVJJLrf@vger.kernel.org>
-To: spereira <pereira.shaun@gmail.com>
-In-Reply-To: <3ad486780510092121h78a522cat11f33581dfc670dc@mail.gmail.com>
+Content-Type: text/plain; charset=utf-8
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20051008120316.GA12122@suse.de>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Maandag 10 Oktober 2005 06:21, spereira wrote:
->
-> Is there currently an alternative to register_ioctl32_conversion that
-> would help achive 32 bit ioctl emulation at the socket layer?
-> Any suggestions/advice whould be much appreciated.
+ On Sat, Oct 08, Olaf Hering wrote:
 
-The correct solution would be to add the missing functionality to
-net/socket.c and move over the implementation of SIOC* from
-fs/compat_ioctl.c. Getting the code path right is a little tricky,
-but I think a patch to fix this up would be appreciated.
+>  On Sat, Oct 08, Olaf Hering wrote:
+> 
+> > I have a 44p 270, which gets all 0xFF as MAC address if I power if off
+> > and on again. Further reboots do not fix it.
+> > But it does get the correct one if I boot into SMS and do a netboot,
+> > further reboots will always get the correct MAC address
 
-As a start, you could define a compat_sock_ioctl along the
-lines of compat_blkdev_ioctl and add your own handlers to the
-x25_proto_ops, but IMHO it would makes sense to get rid of stuff
-like dev_ifsioc from fs/compat_ioctl.c at the same time by
-introducing a new compat_dev_ioctl called from compat_sock_ioctl.
 
-	Arnd <><
+
+The CSR contains garbage after a coldboot on RS/6000.
+One some systems (like my 44p 270) the MAC address is all FF,
+on others (like my B50) it is ff:ff:ff:fd:ff:6b.
+
+It can eventually be fixed by loading pcnet32, set the interface
+into the UP state, rmmod pcnet32 and load it again. But this worked
+only on the 270.
+
+Only netbooting after a cold start provides the correct MAC address
+via prom and CSR. This makes it very unreliable.
+I dont know why the MAC is stored in two different places. Remove
+the special case for powerpc, which was added in early 2.4 development.
+
+Signed-off-by: Olaf Hering <olh@suse.de>
+
+ drivers/net/pcnet32.c |    5 -----
+ 1 files changed, 5 deletions(-)
+
+Index: linux-2.6.14-rc3/drivers/net/pcnet32.c
+===================================================================
+--- linux-2.6.14-rc3.orig/drivers/net/pcnet32.c
++++ linux-2.6.14-rc3/drivers/net/pcnet32.c
+@@ -1172,12 +1172,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 
+     if (memcmp(promaddr, dev->dev_addr, 6)
+ 	|| !is_valid_ether_addr(dev->dev_addr)) {
+-#ifndef __powerpc__
+ 	if (is_valid_ether_addr(promaddr)) {
+-#else
+-	if (!is_valid_ether_addr(dev->dev_addr)
+-	    && is_valid_ether_addr(promaddr)) {
+-#endif
+ 	    if (pcnet32_debug & NETIF_MSG_PROBE) {
+ 		printk(" warning: CSR address invalid,\n");
+ 		printk(KERN_INFO "    using instead PROM address of");
+
+-- 
+short story of a lazy sysadmin:
+ alias appserv=wotan
