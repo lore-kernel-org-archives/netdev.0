@@ -1,67 +1,65 @@
-From: Grant Grundler <iod00d@hp.com>
-Subject: Re: Timeline of IPoIB performance
-Date: Mon, 10 Oct 2005 14:26:52 -0700
-Message-ID: <20051010212652.GG9613@esmail.cup.hp.com>
-References: <1128672413.13948.326.camel@localhost> <52br20lsei.fsf@cisco.com>
-	<1128738350.13945.369.camel@localhost> <521x2tgrim.fsf@cisco.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [ANNOUNCE] iproute2 version (050929)
+Date: Mon, 10 Oct 2005 16:16:03 -0700
+Message-ID: <20051010161603.3c96d524@dxpl.pdx.osdl.net>
+References: <20050930150406.2e2221fd@dxpl.pdx.osdl.net>
+	<Pine.LNX.4.62.0510012332580.14848@bizon.gios.gov.pl>
+	<20051005113458.46f0892d@dxpl.pdx.osdl.net>
+	<Pine.LNX.4.62.0510101232310.1343@bizon.gios.gov.pl>
+	<20051010074002.5cd642da@localhost.localdomain>
+	<Pine.LNX.4.62.0510102122120.5659@bizon.gios.gov.pl>
+	<1128973355.6327.135.camel@localhost.localdomain>
+	<Pine.LNX.4.62.0510102200370.7033@bizon.gios.gov.pl>
+	<1128976620.6353.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Roland Dreier <rolandd@cisco.com>
-Content-Disposition: inline
-In-Reply-To: <521x2tgrim.fsf@cisco.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl,
+	Krzysztof Oledzki <olel@ans.pl>
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+To: hadi@cyberus.ca
+In-Reply-To: <1128976620.6353.3.camel@localhost.localdomain>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 10, 2005 at 11:23:45AM -0700, Roland Dreier wrote:
->      > 2.6.12-rc5      in-kernel    1     405   <<<<<
->      > 2.6.12-rc4      in-kernel    1     470   <<<<<
+On Mon, 10 Oct 2005 16:37:00 -0400
+jamal <hadi@cyberus.ca> wrote:
+
+> On Mon, 2005-10-10 at 22:08 +0200, Krzysztof Oledzki wrote:
+> > 
 > 
-> I was optimistic when I saw this, because the changeover to git
-> occurred with 2.6.12-rc2, so I thought I could use git bisect to track
-> down exactly when the performance regression happened.
+> > >
+> > > Why are you trying to flush those tables?
+> > To install a new set of rules.
+> > 
 > 
-> However, I haven't been able to get numbers that are stable enough to
-> track this down.  I have two systems, both HP DL145s with dual Opteron
-> 875s and two-port mem-free PCI Express HCAs.  I use MSI-X with the
-> completion interrupt affinity set to CPU 0, and "taskset 2" to run
-> netserver and netperf on CPU 1.
+> 
+> flush should kill everything if i am not mistaken. 
+> Are you replacing the main table etc as well?
+> 
+> > > Try to downgrade the kernel and see what happens - go as far as 2.6.12
+> > But why? It works with older (ss050330) version of iproute2 even on 
+> > 2.6.13.3.
+> > 
+> 
+> Ok, sorry i wasnt aware of that. Try the attached patch.
+> 
+> cheers,
+> jamal
 
-As you know, opteron boxes are NUMA. I think you want MSI-X interrupt
-bound to the same CPU that's connected to the IO. Is CPU 0 closer to IO?
-I would bind netperf to CPU0 and netserver to CPU 1 on each box respectively.
-Or just try all 4 combinations to see which combinations are CPU bound
-vs memory/IO bound.
+Look like the -batch code that keeps the RTNL handle open was
+breaking this.  The patch shows the general idea, but it still has
+problems because I think it would still not work if used in
+-batch situation.
 
-> With default netperf parameters (just "-H otherguy") I get numbers
-> between ~490 MB/sec and ~550 MB/sec for 2.6.12-rc4 and 2.6.12-rc5.
-> The numbers are quite consistent between reboots, but if I reboot the
-> system (even keeping the kernel identical), I see large performance
-> changes.
-
-I gather you meant "tests" in the first phrase? (vs reboot).
-
-> Presumably something is happening like the cache coloring of
-> some hot data structures changing semi-randomly depending on the
-> timing of various initialations.
-
-My guess is based on the same premise.
-The mem-free card will be very sensitive to were it's control data
-is allocated. Is either box configured to interleave memory from
-both CPUs?
-
-If it's interleaving, every other cacheline will be "local".
-Can you disable interleave and try different netperf/server
-bindings as suggested above?
-
-hth,
-grant
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+OSDL http://developer.osdl.org/~shemminger
