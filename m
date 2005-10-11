@@ -1,57 +1,49 @@
-From: Bart De Schuymer <bdschuym-LPO8gxj9N8aZIoH1IeqzKA@public.gmane.org>
-Subject: Re: Re: [PATCH] ebtables: Port ebt_[u]log.c to
-	nf[netlink]_log
-Date: Tue, 11 Oct 2005 20:49:16 +0000
-Message-ID: <1129063757.5087.12.camel@localhost.localdomain>
-References: <20051007234903.GR4450@rama.customers.eurospot.com>
-	 <1129059110.5087.8.camel@localhost.localdomain>
-	 <20051011.125506.46476570.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] br: fix race on bridge del if
+Date: Tue, 11 Oct 2005 13:33:28 -0700
+Message-ID: <20051011133328.26db65d7@localhost.localdomain>
+References: <20050818214036.GH10593@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-In-Reply-To: <20051011.125506.46476570.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
-	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
-	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ebtables-devel>
+Cc: netdev@oss.sgi.com, Chris Wright <chrisw@osdl.org>,
+        Greg KH
+ <greg@kroah.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ryan Harper <ryanh@us.ibm.com>, "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050818214036.GH10593@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Op di, 11-10-2005 te 12:55 -0700, schreef David S. Miller:
-> From: Bart De Schuymer <bdschuym-LPO8gxj9N8aZIoH1IeqzKA@public.gmane.org>
-> Date: Tue, 11 Oct 2005 19:31:50 +0000
-> 
-> > I seem to be unable to get Davem's current git tree.
-> > This fails miserably: 
-> > cg-clone http://www.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git
-> 
-> I use an "alternates" file, so that Linus's tree's objects get used
-> and only the truly local changes actually get stored in my tree.
-> 
-> Unfortunately that totally doesn't work with transports such
-> as rsync.
+This fixes the RCU race on bridge delete interface.  Basically,
+the network device has to be detached from the bridge in the first
+step (pre-RCU), rather than later. At that point, no more bridge traffic
+will come in, and the other code will not think that network device
+is part of a bridge.
 
-OK, kernel now compiling without the patch. Harald, could you send it as
-attachment?
+This should also fix the XEN test problems. If there is another
+2.6.13-stable, add it as well.
 
-The instructions at the top of http://www.kernel.org/git/ are somewhat
-outdated.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-cheers,
-Bart
-
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by:
-Power Architecture Resource Center: Free content, downloads, discussions,
-and more. http://solutions.newsforge.com/ibmarch.tmpl
+Index: nexgate-test/net/bridge/br_if.c
+===================================================================
+--- nexgate-test.orig/net/bridge/br_if.c
++++ nexgate-test/net/bridge/br_if.c
+@@ -79,7 +79,6 @@ static void destroy_nbp(struct net_bridg
+ {
+ 	struct net_device *dev = p->dev;
+ 
+-	dev->br_port = NULL;
+ 	p->br = NULL;
+ 	p->dev = NULL;
+ 	dev_put(dev);
+@@ -100,6 +99,7 @@ static void del_nbp(struct net_bridge_po
+ 	struct net_bridge *br = p->br;
+ 	struct net_device *dev = p->dev;
+ 
++	dev->br_port = NULL;
+ 	dev_set_promiscuity(dev, -1);
+ 
+ 	spin_lock_bh(&br->lock);
