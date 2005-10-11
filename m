@@ -1,48 +1,27 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Timeline of IPoIB performance
-Date: Tue, 11 Oct 2005 02:51:22 +0200
-Message-ID: <200510110251.22442.ak@suse.de>
-References: <1128672413.13948.326.camel@localhost>
-	<20051010212652.GG9613@esmail.cup.hp.com>
-	<20051010233054.GA11213@esmail.cup.hp.com>
+From: Alejandro Bonilla Beeche <abonilla@linuxwireless.org>
+Subject: IPW Question on menuconfig
+Date: Mon, 10 Oct 2005 21:00:50 -0600
+Message-ID: <434B2AE2.1070709@linuxwireless.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Grant Grundler <iod00d@hp.com>
-In-Reply-To: <20051010233054.GA11213@esmail.cup.hp.com>
-Content-Disposition: inline
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: James Ketrenos <jketreno@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751362AbVJKDAy@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 11 October 2005 01:30, Grant Grundler wrote:
-> On Mon, Oct 10, 2005 at 02:26:52PM -0700, Grant Grundler wrote:
-> ...
->
-> > If it's interleaving, every other cacheline will be "local".
->
-> ISTR AMD64 was page-interleaved but then got confused by documents
-> describing "128-bit" 2-way interleave. I now realize the 128bit
-> is refering to interleave between two "banks" of memory behind
-> each memory controller. ie 2 * 128-bit provides in the 32-byte
-> cacheline size that most x86 programs expect.
+Hi,
 
-The cache line size on K7 and K8 is 64 bytes.
+    I was just git updating 2.6.14-rc4 and I didn't have the 
+CONFIG_IEEE80211 module selected, then I went into Device Drivers / 
+Network devices / Wireless, and the IPW2100 wasn't in the list. I went, 
+then Modularized the IEEE80211 and then IPW2100 was there. I think is 
+kind of estrange that IPW2100 wouldn't show just because it has a 
+dependencie, shouldn't IPW2100 show in the list, and if you select it, 
+then it would also select CONFIG_IEEE80211?
 
-> Anyway, I'm hoping that we'll see a consistent result if node interleave
-> is turned off.
+Just a dumb question cause I dunno how is normally done or the policy to 
+do this.
 
-Yes usually a good idea.
-
-
--Andi
+.Alejandro
