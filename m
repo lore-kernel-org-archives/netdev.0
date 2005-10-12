@@ -1,59 +1,69 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: Re: [PATCH] Add Wake on LAN support to sis900
-Date: Wed, 12 Oct 2005 19:32:07 +0200
-Message-ID: <0A6A690F-B394-4C70-B2B8-74D2271D14AB@brownhat.org>
-References: <20051006111326.GA3242@renditai.milesteg.arr> <20051011205304.34bc07ad.akpm@osdl.org>
-Mime-Version: 1.0 (Apple Message framework v734)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
+Subject: Re: Timeline of IPoIB performance
+Date: Wed, 12 Oct 2005 11:28:26 -0700
+Message-ID: <1129141706.13945.509.camel@localhost>
+References: <E1EPIxF-0001Cp-00@gondolin.me.apana.org.au>
+	<52mzle7k2i.fsf@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20051011205304.34bc07ad.akpm@osdl.org>
-To: Andrew Morton <akpm@osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <rolandd@cisco.com>
+In-Reply-To: <52mzle7k2i.fsf@cisco.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Il giorno 12/ott/05, alle ore 05:53, Andrew Morton ha scritto:
->> --- ../../trunk/sis900.h    2005-07-17 10:43:23.000000000 +0200
->> +++ sis900.h    2005-10-06 12:49:37.000000000 +0200
->>
->
-> Please prepare patches in `patch -p1' form.  See
-> http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt.
-Yes, I did send a corrected patch some days later, when I found out.  
-This was the only correction I made there, so you can just trash it.
+On Wed, 2005-10-12 at 09:53 -0700, Roland Dreier wrote:
+>     Herbert> Try reverting the changeset
+> 
+>     Herbert> 314324121f9b94b2ca657a494cf2b9cb0e4a28cc
+> 
+>     Herbert> which lies between these two points and may be relevant.
+> 
+> Matt, I pulled this out of git for you.  I guess Herbert is suggesting
+> to patch -R the below against 2.6.12-rc5:
 
->> +    /* Detect Wake on Lan support */
->> +    ret = inl(CFGPMC & PMESP);
->> +    if (netif_msg_probe(sis_priv) && (ret & PME_D3C) == 0)
->> +        printk(KERN_INFO "%s: Wake on LAN only available from  
->> suspend to RAM.", net_dev->name);
->> +
->>
->
-> How come?  Why doesn't it work after an ordinary `halt -p'?
-That register should report, according to the specs, the status of  
-the additional power supply needed to keep awake the chip when the  
-computer is shut down. Usually there is an additional cable to be  
-installed between the NIC and the motherboard, but on laptops or  
-embedded chips it's difficult to know.
+I applied your patch suggest by Herbert:
 
->> @@ -2015,6 +2082,8 @@
->>      .get_settings    = sis900_get_settings,
->>      .set_settings    = sis900_set_settings,
->>      .nway_reset    = sis900_nway_reset,
->> +    .get_wol    = sis900_get_wol,
->> +    .set_wol    = sis900_set_wol
->>  };
->>
->
-> We normally add a comma to the final field so that subsequent  
-> patches look
-> cleaner.
-Will do.
+http://www.mail-archive.com/openib-general%40openib.org/msg11415.html
 
-Thanks for the comments.
---
-Daniele Venzano
-http://www.brownhat.org
+to my 2.6.12-rc5 tree and IPoIB performance improved back to the ~475
+MB/s range for my EM64T system.  The data is below.
+
+I'm building/testing 2.6.14-rc4 with and without this patch now.
+
+
+All benchmarks are with RHEL4 x86_64 with HCA FW v4.7.0
+dual EM64T 3.2 GHz PCIe IB HCA (memfull)
+
+Kernel           OpenIB    msi_x  netperf (MB/s)  
+2.6.14-rc3      in-kernel    1     374 
+2.6.13.2        svn3627      1     386 
+2.6.13.2        in-kernel    1     394 
+2.6.12.5-lustre in-kernel    1     399  
+2.6.12.5        in-kernel    1     402 
+2.6.12          in-kernel    1     406 
+2.6.12-rc6      in-kernel    1     407
+2.6.12-rc5      in-kernel    1     405                        <<<<
+2.6.12-rc5                                                    <<<<
+ - remove changeset 314324121f9b94b2ca657a494cf2b9cb0e4a28cc  <<<<
+                in-kernel    1     474                        <<<<
+2.6.12-rc4      in-kernel    1     470 
+2.6.12-rc3      in-kernel    1     466 
+2.6.12-rc2      in-kernel    1     469 
+2.6.12-rc1      in-kernel    1     466
+2.6.11          in-kernel    1     464 
+2.6.11          svn3687      1     464 
+2.6.9-11.ELsmp  svn3513      1     425  (Woody's results, 3.6Ghz EM64T) 
+
+  - Matt
