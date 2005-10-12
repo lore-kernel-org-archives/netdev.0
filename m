@@ -1,69 +1,32 @@
-From: Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
-Subject: Re: Timeline of IPoIB performance
-Date: Wed, 12 Oct 2005 11:28:26 -0700
-Message-ID: <1129141706.13945.509.camel@localhost>
-References: <E1EPIxF-0001Cp-00@gondolin.me.apana.org.au>
-	<52mzle7k2i.fsf@cisco.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] br: fix race on bridge del if
+Date: Wed, 12 Oct 2005 15:10:14 -0700 (PDT)
+Message-ID: <20051012.151014.12946945.davem@davemloft.net>
+References: <20050818214036.GH10593@us.ibm.com>
+	<20051011133328.26db65d7@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Roland Dreier <rolandd@cisco.com>
-In-Reply-To: <52mzle7k2i.fsf@cisco.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: ryanh@us.ibm.com, netdev@oss.sgi.com, chrisw@osdl.org, greg@kroah.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: shemminger@osdl.org
+In-Reply-To: <20051011133328.26db65d7@localhost.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-10-12 at 09:53 -0700, Roland Dreier wrote:
->     Herbert> Try reverting the changeset
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 11 Oct 2005 13:33:28 -0700
+
+> This fixes the RCU race on bridge delete interface.  Basically,
+> the network device has to be detached from the bridge in the first
+> step (pre-RCU), rather than later. At that point, no more bridge traffic
+> will come in, and the other code will not think that network device
+> is part of a bridge.
 > 
->     Herbert> 314324121f9b94b2ca657a494cf2b9cb0e4a28cc
+> This should also fix the XEN test problems. If there is another
+> 2.6.13-stable, add it as well.
 > 
->     Herbert> which lies between these two points and may be relevant.
-> 
-> Matt, I pulled this out of git for you.  I guess Herbert is suggesting
-> to patch -R the below against 2.6.12-rc5:
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-I applied your patch suggest by Herbert:
-
-http://www.mail-archive.com/openib-general%40openib.org/msg11415.html
-
-to my 2.6.12-rc5 tree and IPoIB performance improved back to the ~475
-MB/s range for my EM64T system.  The data is below.
-
-I'm building/testing 2.6.14-rc4 with and without this patch now.
-
-
-All benchmarks are with RHEL4 x86_64 with HCA FW v4.7.0
-dual EM64T 3.2 GHz PCIe IB HCA (memfull)
-
-Kernel           OpenIB    msi_x  netperf (MB/s)  
-2.6.14-rc3      in-kernel    1     374 
-2.6.13.2        svn3627      1     386 
-2.6.13.2        in-kernel    1     394 
-2.6.12.5-lustre in-kernel    1     399  
-2.6.12.5        in-kernel    1     402 
-2.6.12          in-kernel    1     406 
-2.6.12-rc6      in-kernel    1     407
-2.6.12-rc5      in-kernel    1     405                        <<<<
-2.6.12-rc5                                                    <<<<
- - remove changeset 314324121f9b94b2ca657a494cf2b9cb0e4a28cc  <<<<
-                in-kernel    1     474                        <<<<
-2.6.12-rc4      in-kernel    1     470 
-2.6.12-rc3      in-kernel    1     466 
-2.6.12-rc2      in-kernel    1     469 
-2.6.12-rc1      in-kernel    1     466
-2.6.11          in-kernel    1     464 
-2.6.11          svn3687      1     464 
-2.6.9-11.ELsmp  svn3513      1     425  (Woody's results, 3.6Ghz EM64T) 
-
-  - Matt
+Applied, thanks Stephen.
