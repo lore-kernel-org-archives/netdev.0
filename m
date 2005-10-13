@@ -1,43 +1,146 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Timeline of IPoIB performance
-Date: Thu, 13 Oct 2005 11:48:14 +1000
-Message-ID: <20051013014814.GA3688@gondor.apana.org.au>
-References: <E1EPIxF-0001Cp-00@gondolin.me.apana.org.au>
-	<52mzle7k2i.fsf@cisco.com> <1129141706.13945.509.camel@localhost>
-	<1129166672.13948.530.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
-Content-Disposition: inline
-In-Reply-To: <1129166672.13948.530.camel@localhost>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+From: hawkes@sgi.com
+Subject: [PATCH] 2.6.14-rc4: wider use of for_each_*cpu() in net
+Date: Thu, 13 Oct 2005 12:01:33 -0700 (PDT)
+Message-ID: <20051013190133.13192.46039.sendpatchset@tomahawk.engr.sgi.com>
+Cc: hawkes@sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751607AbVJMTBg@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 12, 2005 at 06:24:32PM -0700, Matt Leininger wrote:
-> 
->   Is it still worth testing the TSO patches that Herbert suggested for
-> some of the 2.6.13-rc kernels?
+In 'net' change the explicit use of for-loops and NR_CPUS into the
+general for_each_cpu() or for_each_online_cpu() constructs, as
+appropriate.  This widens the scope of potential future optimizations
+of the general constructs, as well as takes advantage of the existing
+optimizations of first_cpu() and next_cpu(), which is advantageous
+when the true CPU count is much smaller than NR_CPUS.
 
-If you're still seeing a performance regression compared to 
-2.6.12-rc4, then yes (According to the figures in your message
-there does seem to be a bit of loss after the release of 2.6.12).
+Signed-off-by: John Hawkes <hawkes@sgi.com>
 
-The patch you reverted may degrade the performance on the receiver.
-The TSO patches may be causing some degradation on your sender.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Index: linux/net/core/neighbour.c
+===================================================================
+--- linux.orig/net/core/neighbour.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/core/neighbour.c	2005-10-13 09:30:31.000000000 -0700
+@@ -1641,12 +1641,9 @@
+ 
+ 		memset(&ndst, 0, sizeof(ndst));
+ 
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		for_each_cpu(cpu) {
+ 			struct neigh_statistics	*st;
+ 
+-			if (!cpu_possible(cpu))
+-				continue;
+-
+ 			st = per_cpu_ptr(tbl->stats, cpu);
+ 			ndst.ndts_allocs		+= st->allocs;
+ 			ndst.ndts_destroys		+= st->destroys;
+Index: linux/net/core/pktgen.c
+===================================================================
+--- linux.orig/net/core/pktgen.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/core/pktgen.c	2005-10-13 09:30:31.000000000 -0700
+@@ -3065,12 +3065,9 @@
+ 	/* Register us to receive netdevice events */
+ 	register_netdevice_notifier(&pktgen_notifier_block);
+         
+-	for (cpu = 0; cpu < NR_CPUS ; cpu++) {
++	for_each_online_cpu(cpu) {
+ 		char buf[30];
+ 
+-		if (!cpu_online(cpu))
+-			continue;
+-
+                 sprintf(buf, "kpktgend_%i", cpu);
+                 pktgen_create_thread(buf, cpu);
+         }
+Index: linux/net/ipv4/icmp.c
+===================================================================
+--- linux.orig/net/ipv4/icmp.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/ipv4/icmp.c	2005-10-13 09:30:31.000000000 -0700
+@@ -1108,12 +1108,9 @@
+ 	struct inet_sock *inet;
+ 	int i;
+ 
+-	for (i = 0; i < NR_CPUS; i++) {
++	for_each_cpu(i) {
+ 		int err;
+ 
+-		if (!cpu_possible(i))
+-			continue;
+-
+ 		err = sock_create_kern(PF_INET, SOCK_RAW, IPPROTO_ICMP,
+ 				       &per_cpu(__icmp_socket, i));
+ 
+Index: linux/net/ipv4/proc.c
+===================================================================
+--- linux.orig/net/ipv4/proc.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/ipv4/proc.c	2005-10-13 09:30:31.000000000 -0700
+@@ -90,9 +90,7 @@
+ 	unsigned long res = 0;
+ 	int i;
+ 
+-	for (i = 0; i < NR_CPUS; i++) {
+-		if (!cpu_possible(i))
+-			continue;
++	for_each_cpu(i) {
+ 		res += *(((unsigned long *) per_cpu_ptr(mib[0], i)) + offt);
+ 		res += *(((unsigned long *) per_cpu_ptr(mib[1], i)) + offt);
+ 	}
+Index: linux/net/ipv6/proc.c
+===================================================================
+--- linux.orig/net/ipv6/proc.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/ipv6/proc.c	2005-10-13 09:30:31.000000000 -0700
+@@ -140,9 +140,7 @@
+         unsigned long res = 0;
+         int i;
+  
+-        for (i = 0; i < NR_CPUS; i++) {
+-                if (!cpu_possible(i))
+-                        continue;
++        for_each_cpu(i) {
+                 res += *(((unsigned long *)per_cpu_ptr(mib[0], i)) + offt);
+                 res += *(((unsigned long *)per_cpu_ptr(mib[1], i)) + offt);
+         }
+Index: linux/net/ipv6/icmp.c
+===================================================================
+--- linux.orig/net/ipv6/icmp.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/ipv6/icmp.c	2005-10-13 09:30:31.000000000 -0700
+@@ -700,10 +700,7 @@
+ 	struct sock *sk;
+ 	int err, i, j;
+ 
+-	for (i = 0; i < NR_CPUS; i++) {
+-		if (!cpu_possible(i))
+-			continue;
+-
++	for_each_cpu(i) {
+ 		err = sock_create_kern(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6,
+ 				       &per_cpu(__icmpv6_socket, i));
+ 		if (err < 0) {
+@@ -749,9 +746,7 @@
+ {
+ 	int i;
+ 
+-	for (i = 0; i < NR_CPUS; i++) {
+-		if (!cpu_possible(i))
+-			continue;
++	for_each_cpu(i) {
+ 		sock_release(per_cpu(__icmpv6_socket, i));
+ 	}
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+Index: linux/net/sctp/proc.c
+===================================================================
+--- linux.orig/net/sctp/proc.c	2005-10-13 09:29:54.000000000 -0700
++++ linux/net/sctp/proc.c	2005-10-13 09:30:31.000000000 -0700
+@@ -69,9 +69,7 @@
+ 	unsigned long res = 0;
+ 	int i;
+ 
+-	for (i = 0; i < NR_CPUS; i++) {
+-		if (!cpu_possible(i))
+-			continue;
++	for_each_cpu(i) {
+ 		res +=
+ 		    *((unsigned long *) (((void *) per_cpu_ptr(mib[0], i)) +
+ 					 sizeof (unsigned long) * nr));
