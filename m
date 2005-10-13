@@ -1,60 +1,75 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [ANNOUNCE] iproute2 version (050929)
-Date: Wed, 12 Oct 2005 15:32:46 -0700
-Message-ID: <20051012153246.6e4e7bdd@dxpl.pdx.osdl.net>
-References: <20050930150406.2e2221fd@dxpl.pdx.osdl.net>
-	<Pine.LNX.4.62.0510012332580.14848@bizon.gios.gov.pl>
-	<20051005113458.46f0892d@dxpl.pdx.osdl.net>
-	<Pine.LNX.4.62.0510101232310.1343@bizon.gios.gov.pl>
-	<20051010074002.5cd642da@localhost.localdomain>
-	<Pine.LNX.4.62.0510102122120.5659@bizon.gios.gov.pl>
-	<1128973355.6327.135.camel@localhost.localdomain>
-	<Pine.LNX.4.62.0510102200370.7033@bizon.gios.gov.pl>
-	<1128976620.6353.3.camel@localhost.localdomain>
-	<20051010161603.3c96d524@dxpl.pdx.osdl.net>
-	<1128990692.6353.14.camel@localhost.localdomain>
+From: Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
+Subject: Re: Timeline of IPoIB performance
+Date: Wed, 12 Oct 2005 18:24:32 -0700
+Message-ID: <1129166672.13948.530.camel@localhost>
+References: <E1EPIxF-0001Cp-00@gondolin.me.apana.org.au>
+	<52mzle7k2i.fsf@cisco.com>  <1129141706.13945.509.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl,
-	Krzysztof Oledzki <olel@ans.pl>
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: hadi@cyberus.ca
-In-Reply-To: <1128990692.6353.14.camel@localhost.localdomain>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <rolandd@cisco.com>
+In-Reply-To: <1129141706.13945.509.camel@localhost>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Oct 2005 20:31:31 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Wed, 2005-10-12 at 11:28 -0700, Matt Leininger wrote:
+> On Wed, 2005-10-12 at 09:53 -0700, Roland Dreier wrote:
+> >     Herbert> Try reverting the changeset
+> > 
+> >     Herbert> 314324121f9b94b2ca657a494cf2b9cb0e4a28cc
+> > 
+> >     Herbert> which lies between these two points and may be relevant.
+> > 
+> > Matt, I pulled this out of git for you.  I guess Herbert is suggesting
+> > to patch -R the below against 2.6.12-rc5:
 
-> On Mon, 2005-10-10 at 16:16 -0700, Stephen Hemminger wrote:
+> I applied your patch suggest by Herbert:
 > 
-> > Look like the -batch code that keeps the RTNL handle open was
-> > breaking this.  The patch shows the general idea, but it still has
-> > problems because I think it would still not work if used in
-> > -batch situation.
+> http://www.mail-archive.com/openib-general%40openib.org/msg11415.html
 > 
-> I see what you mean.
-> You definitely need at least one extra socket for deleting
-> in the flush_rule(). Something like the attached, untested,
-> uncompiled.
-> 
-> 
-> Krzysztof, if you have time please try the attached patch?
-> 
-> cheers,
-> jamal
+  I backed out this patch out of a few other kernels and always see a
+performance improvement.  This gets back ~50-60 MB/s of the 90-100 MB/s
+drop off in IPoIB performance.   
 
-applied to iproute2 cvs
+  Is it still worth testing the TSO patches that Herbert suggested for
+some of the 2.6.13-rc kernels?
+ 
+  Thanks,
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+   - Matt
+
+
+
+All benchmarks are with RHEL4 x86_64 with HCA FW v4.7.0
+dual EM64T 3.2 GHz PCIe IB HCA (memfull)
+
+Kernel           OpenIB    msi_x  netperf (MB/s)  
+2.6.14-rc4      in-kernel    1     434  (backed out patch)
+2.6.14-rc4      in-kernel    1     385 
+
+2.6.13.2        svn3627      1     446  (backed out patch)
+2.6.13.2        svn3627      1     386 
+2.6.13.2        in-kernel    1     394 
+
+2.6.12.5        in-kernel    1     464  (backed out patch)
+2.6.12.5        in-kernel    1     402 
+
+2.6.12-rc6      in-kernel    1     470  (backed out patch) 
+2.6.12-rc6      in-kernel    1     407
+
+2.6.12-rc5      in-kernel    1     474 (backed out patch)
+2.6.12-rc5      in-kernel    1     405 
+
+
+2.6.9-11.ELsmp  svn3513      1     425  (Woody's results, 3.6Ghz EM64T) 
