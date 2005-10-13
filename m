@@ -1,38 +1,34 @@
 From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: [PATCH 02/14] Big kfree NULL check cleanup - drivers/net
-Date: Thu, 13 Oct 2005 21:22:47 +0200
-Message-ID: <200510132122.48035.jesper.juhl@gmail.com>
+Subject: [PATCH 01/14] Big kfree NULL check cleanup - net
+Date: Thu, 13 Oct 2005 21:25:43 +0200
+Message-ID: <200510132125.44470.jesper.juhl@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Michael Chan <mchan@broadcom.com>, linux.nics@intel.com,
-	hans@esrac.ele.tue.nl, Santiago Leon <santil@us.ibm.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"Arnaldo Carvalho de Melo" <acme@conectiva.com.br>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	"Greg Kroah-Hartman" <greg@kroah.com>, dccp@vger.kernel.org,
+	Patrick Caulfield <patrick@tykepenguin.com>,
 	Jean Tourrilhes <jt@hpl.hp.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Hipp <hippm@informatik.uni-tuebingen.de>,
-	Jes Sorensen <jes@wildopensource.com>,
-	Carsten Langgaard <carstenl@mips.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Benjamin Reed <breed@users.sourceforge.net>,
-	Jouni Malinen <jkmaline@cc.hut.fi>,
-	prism54-private@prism54.org, netdev@vger.kernel.org,
-	Stuart Cheshire <cheshire@cs.stanford.edu>,
-	g4klx@g4klx.demon.co.uk, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Andy Adamson <andros@umich.edu>,
+	"J. Bruce Fields" <bfields@umich.edu>,
+	Nenad Corbic <ncorbic@sangoma.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	Jesper Juhl <jesper.juhl@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751608AbVJMTUA@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751634AbVJMTWy@vger.kernel.org>
 To: "linux-kernel" <linux-kernel@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the drivers/net/ part of the big kfree cleanup patch.
+This is the net/ part of the big kfree cleanup patch.
 
-Remove pointless checks for NULL prior to calling kfree() in drivers/net/.
+Remove pointless checks for NULL prior to calling kfree() in net/.
 
 
 Sorry about the long Cc: list, but I wanted to make sure I included everyone
@@ -46,738 +42,941 @@ Please see the initial announcement mail on LKML with subject
 "[PATCH 00/14] Big kfree NULL check cleanup"
 for additional details.
 
- drivers/net/acenic.c                       |    6 +--
- drivers/net/au1000_eth.c                   |    6 +--
- drivers/net/b44.c                          |   12 ++-----
- drivers/net/bmac.c                         |    6 +--
- drivers/net/bnx2.c                         |   12 ++-----
- drivers/net/e1000/e1000_ethtool.c          |    7 +---
- drivers/net/hamradio/mkiss.c               |    6 +--
- drivers/net/ibmveth.c                      |   19 +++--------
- drivers/net/irda/donauboe.c                |    6 +--
- drivers/net/irda/irda-usb.c                |    6 +--
- drivers/net/irda/irport.c                  |    3 -
- drivers/net/irda/sir_dev.c                 |    3 -
- drivers/net/irda/vlsi_ir.c                 |    3 -
- drivers/net/mace.c                         |    6 +--
- drivers/net/ni65.c                         |    9 +----
- drivers/net/rrunner.c                      |    6 +--
- drivers/net/s2io.c                         |    3 -
- drivers/net/saa9730.c                      |    8 +---
- drivers/net/sb1250-mac.c                   |   12 +------
- drivers/net/tg3.c                          |    6 +--
- drivers/net/tulip/de2104x.c                |    6 +--
- drivers/net/tulip/tulip_core.c             |    6 +--
- drivers/net/via-velocity.c                 |    6 +--
- drivers/net/wireless/airo.c                |   48 +++++++++++------------------
- drivers/net/wireless/airo_cs.c             |    4 --
- drivers/net/wireless/atmel.c               |    6 +--
- drivers/net/wireless/atmel_cs.c            |    3 -
- drivers/net/wireless/hostap/hostap_ioctl.c |    9 +----
- drivers/net/wireless/prism54/islpci_dev.c  |    3 -
- drivers/net/wireless/prism54/oid_mgt.c     |    9 ++---
- drivers/net/wireless/strip.c               |   38 +++++++---------------
- include/net/ax25.h                         |    3 -
- include/net/netrom.h                       |    3 -
- 33 files changed, 97 insertions(+), 192 deletions(-)
+ net/802/p8023.c                        |    3 +--
+ net/ax25/af_ax25.c                     |    6 ++----
+ net/ax25/ax25_in.c                     |    6 ++----
+ net/ax25/ax25_route.c                  |   19 ++++++-------------
+ net/bluetooth/hidp/core.c              |    4 +---
+ net/core/dev_mcast.c                   |    3 +--
+ net/core/sock.c                        |    3 +--
+ net/dccp/ipv4.c                        |    6 ++----
+ net/dccp/proto.c                       |    3 +--
+ net/decnet/dn_table.c                  |   16 +++++++---------
+ net/ethernet/pe2.c                     |    3 +--
+ net/ipv4/af_inet.c                     |    3 +--
+ net/ipv4/fib_frontend.c                |    3 +--
+ net/ipv4/ip_options.c                  |    3 +--
+ net/ipv4/ip_output.c                   |   12 ++++--------
+ net/ipv4/ip_sockglue.c                 |   12 ++++--------
+ net/ipv4/ipvs/ip_vs_app.c              |    6 ++----
+ net/ipv4/multipath_wrandom.c           |   10 +++-------
+ net/ipv4/netfilter/ip_nat_snmp_basic.c |    3 +--
+ net/ipv4/tcp_ipv4.c                    |    3 +--
+ net/ipv6/addrconf.c                    |    3 +--
+ net/ipv6/ip6_output.c                  |   15 +++++----------
+ net/ipv6/ip6_tunnel.c                  |    6 ++----
+ net/ipv6/ipcomp6.c                     |    3 +--
+ net/ipv6/ipv6_sockglue.c               |    3 +--
+ net/irda/discovery.c                   |    3 +--
+ net/irda/irias_object.c                |   16 ++++++----------
+ net/rose/rose_route.c                  |    6 ++----
+ net/sched/cls_fw.c                     |    3 +--
+ net/sched/cls_route.c                  |    3 +--
+ net/sched/cls_rsvp.h                   |    3 +--
+ net/sched/cls_tcindex.c                |    9 +++------
+ net/sched/cls_u32.c                    |    4 ++--
+ net/sched/em_meta.c                    |    3 +--
+ net/sched/sch_gred.c                   |    9 +++------
+ net/sctp/associola.c                   |    4 +---
+ net/sctp/sm_make_chunk.c               |    6 ++----
+ net/sunrpc/auth_gss/gss_krb5_seal.c    |    2 +-
+ net/sunrpc/auth_gss/gss_krb5_unseal.c  |    2 +-
+ net/sunrpc/auth_gss/gss_mech_switch.c  |    3 +--
+ net/sunrpc/auth_gss/gss_spkm3_seal.c   |    3 +--
+ net/sunrpc/auth_gss/gss_spkm3_token.c  |    3 +--
+ net/sunrpc/auth_gss/gss_spkm3_unseal.c |    6 ++----
+ net/sunrpc/svc.c                       |    9 +++------
+ net/sunrpc/xdr.c                       |    3 +--
+ net/wanrouter/af_wanpipe.c             |   20 +++++++-------------
+ net/wanrouter/wanmain.c                |   12 ++++--------
+ net/xfrm/xfrm_state.c                  |   12 ++++--------
+ 48 files changed, 103 insertions(+), 198 deletions(-)
 
---- linux-2.6.14-rc4-orig/drivers/net/irda/vlsi_ir.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/irda/vlsi_ir.c	2005-10-12 15:43:54.000000000 +0200
-@@ -473,8 +473,7 @@ static int vlsi_free_ring(struct vlsi_ri
- 		rd_set_addr_status(rd, 0, 0);
- 		if (busaddr)
- 			pci_unmap_single(r->pdev, busaddr, r->len, r->dir);
--		if (rd->buf)
--			kfree(rd->buf);
-+		kfree(rd->buf);
- 	}
- 	kfree(r);
- 	return 0;
---- linux-2.6.14-rc4-orig/drivers/net/irda/donauboe.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/irda/donauboe.c	2005-10-12 15:45:19.000000000 +0200
-@@ -1695,11 +1695,9 @@ toshoboe_open (struct pci_dev *pci_dev, 
- 
- freebufs:
-   for (i = 0; i < TX_SLOTS; ++i)
--    if (self->tx_bufs[i])
--      kfree (self->tx_bufs[i]);
-+    kfree (self->tx_bufs[i]);
-   for (i = 0; i < RX_SLOTS; ++i)
--    if (self->rx_bufs[i])
--      kfree (self->rx_bufs[i]);
-+    kfree (self->rx_bufs[i]);
-   kfree(self->ringbuf);
- 
- freeregion:
---- linux-2.6.14-rc4-orig/drivers/net/irda/irda-usb.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/irda/irda-usb.c	2005-10-12 15:45:55.000000000 +0200
-@@ -1168,10 +1168,8 @@ static inline void irda_usb_close(struct
- 	unregister_netdev(self->netdev);
- 
- 	/* Remove the speed buffer */
--	if (self->speed_buff != NULL) {
--		kfree(self->speed_buff);
--		self->speed_buff = NULL;
--	}
-+	kfree(self->speed_buff);
-+	self->speed_buff = NULL;
- }
- 
- /********************** USB CONFIG SUBROUTINES **********************/
---- linux-2.6.14-rc4-orig/drivers/net/irda/sir_dev.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/irda/sir_dev.c	2005-10-12 15:46:45.000000000 +0200
-@@ -490,8 +490,7 @@ static void sirdev_free_buffers(struct s
- {
- 	if (dev->rx_buff.skb)
- 		kfree_skb(dev->rx_buff.skb);
--	if (dev->tx_buff.head)
--		kfree(dev->tx_buff.head);
-+	kfree(dev->tx_buff.head);
- 	dev->rx_buff.head = dev->tx_buff.head = NULL;
- 	dev->rx_buff.skb = NULL;
- }
---- linux-2.6.14-rc4-orig/drivers/net/irda/irport.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/irda/irport.c	2005-10-12 15:47:03.000000000 +0200
-@@ -235,8 +235,7 @@ static int irport_close(struct irport_cb
- 		   __FUNCTION__, self->io.sir_base);
- 	release_region(self->io.sir_base, self->io.sir_ext);
- 
--	if (self->tx_buff.head)
--		kfree(self->tx_buff.head);
-+	kfree(self->tx_buff.head);
- 	
- 	if (self->rx_buff.skb)
- 		kfree_skb(self->rx_buff.skb);
---- linux-2.6.14-rc4-orig/drivers/net/b44.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/b44.c	2005-10-12 15:47:33.000000000 +0200
-@@ -1076,14 +1076,10 @@ static void b44_init_rings(struct b44 *b
+--- linux-2.6.14-rc4-orig/net/802/p8023.c	2005-10-11 22:41:32.000000000 +0200
++++ linux-2.6.14-rc4/net/802/p8023.c	2005-10-13 11:24:33.000000000 +0200
+@@ -54,8 +54,7 @@ struct datalink_proto *make_8023_client(
   */
- static void b44_free_consistent(struct b44 *bp)
+ void destroy_8023_client(struct datalink_proto *dl)
  {
--	if (bp->rx_buffers) {
--		kfree(bp->rx_buffers);
--		bp->rx_buffers = NULL;
--	}
--	if (bp->tx_buffers) {
--		kfree(bp->tx_buffers);
--		bp->tx_buffers = NULL;
--	}
-+	kfree(bp->rx_buffers);
-+	bp->rx_buffers = NULL;
-+	kfree(bp->tx_buffers);
-+	bp->tx_buffers = NULL;
- 	if (bp->rx_ring) {
- 		pci_free_consistent(bp->pdev, DMA_TABLE_BYTES,
- 				    bp->rx_ring, bp->rx_ring_dma);
---- linux-2.6.14-rc4-orig/drivers/net/e1000/e1000_ethtool.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/e1000/e1000_ethtool.c	2005-10-12 15:48:04.000000000 +0200
-@@ -930,11 +930,8 @@ e1000_free_desc_rings(struct e1000_adapt
- 	if(rxdr->desc)
- 		pci_free_consistent(pdev, rxdr->size, rxdr->desc, rxdr->dma);
- 
--	if(txdr->buffer_info)
--		kfree(txdr->buffer_info);
--	if(rxdr->buffer_info)
--		kfree(rxdr->buffer_info);
--
-+	kfree(txdr->buffer_info);
-+	kfree(rxdr->buffer_info);
- 	return;
+-	if (dl)
+-		kfree(dl);
++	kfree(dl);
  }
  
---- linux-2.6.14-rc4-orig/drivers/net/tg3.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/tg3.c	2005-10-12 15:48:37.000000000 +0200
-@@ -3905,10 +3905,8 @@ static void tg3_init_rings(struct tg3 *t
-  */
- static void tg3_free_consistent(struct tg3 *tp)
- {
--	if (tp->rx_std_buffers) {
--		kfree(tp->rx_std_buffers);
--		tp->rx_std_buffers = NULL;
--	}
-+	kfree(tp->rx_std_buffers);
-+	tp->rx_std_buffers = NULL;
- 	if (tp->rx_std) {
- 		pci_free_consistent(tp->pdev, TG3_RX_RING_BYTES,
- 				    tp->rx_std, tp->rx_std_mapping);
---- linux-2.6.14-rc4-orig/drivers/net/tulip/tulip_core.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/tulip/tulip_core.c	2005-10-12 15:48:58.000000000 +0200
-@@ -1727,8 +1727,7 @@ err_out_free_ring:
- 			     tp->rx_ring, tp->rx_ring_dma);
- 
- err_out_mtable:
--	if (tp->mtable)
--		kfree (tp->mtable);
-+	kfree (tp->mtable);
- 	pci_iounmap(pdev, ioaddr);
- 
- err_out_free_res:
-@@ -1806,8 +1805,7 @@ static void __devexit tulip_remove_one (
- 			     sizeof (struct tulip_rx_desc) * RX_RING_SIZE +
- 			     sizeof (struct tulip_tx_desc) * TX_RING_SIZE,
- 			     tp->rx_ring, tp->rx_ring_dma);
--	if (tp->mtable)
--		kfree (tp->mtable);
-+	kfree (tp->mtable);
- 	pci_iounmap(pdev, tp->base_addr);
- 	free_netdev (dev);
- 	pci_release_regions (pdev);
---- linux-2.6.14-rc4-orig/drivers/net/tulip/de2104x.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/tulip/de2104x.c	2005-10-12 15:49:20.000000000 +0200
-@@ -2071,8 +2071,7 @@ static int __init de_init_one (struct pc
- 	return 0;
- 
- err_out_iomap:
--	if (de->ee_data)
--		kfree(de->ee_data);
-+	kfree(de->ee_data);
- 	iounmap(regs);
- err_out_res:
- 	pci_release_regions(pdev);
-@@ -2091,8 +2090,7 @@ static void __exit de_remove_one (struct
- 	if (!dev)
- 		BUG();
- 	unregister_netdev(dev);
--	if (de->ee_data)
--		kfree(de->ee_data);
-+	kfree(de->ee_data);
- 	iounmap(de->regs);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
---- linux-2.6.14-rc4-orig/drivers/net/au1000_eth.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/au1000_eth.c	2005-10-12 15:49:37.000000000 +0200
-@@ -1609,8 +1609,7 @@ err_out:
- 	/* here we should have a valid dev plus aup-> register addresses
- 	 * so we can reset the mac properly.*/
- 	reset_mac(dev);
--	if (aup->mii)
--		kfree(aup->mii);
-+	kfree(aup->mii);
- 	for (i = 0; i < NUM_RX_DMA; i++) {
- 		if (aup->rx_db_inuse[i])
- 			ReleaseDB(aup, aup->rx_db_inuse[i]);
-@@ -1809,8 +1808,7 @@ static void __exit au1000_cleanup_module
- 		if (dev) {
- 			aup = (struct au1000_private *) dev->priv;
- 			unregister_netdev(dev);
--			if (aup->mii)
--				kfree(aup->mii);
-+			kfree(aup->mii);
- 			for (j = 0; j < NUM_RX_DMA; j++) {
- 				if (aup->rx_db_inuse[j])
- 					ReleaseDB(aup, aup->rx_db_inuse[j]);
---- linux-2.6.14-rc4-orig/drivers/net/sb1250-mac.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/sb1250-mac.c	2005-10-12 15:50:29.000000000 +0200
-@@ -1426,15 +1426,9 @@ static int sbmac_initctx(struct sbmac_so
- 
- static void sbdma_uninitctx(struct sbmacdma_s *d)
- {
--	if (d->sbdma_dscrtable) {
--		kfree(d->sbdma_dscrtable);
--		d->sbdma_dscrtable = NULL;
--	}
--	
--	if (d->sbdma_ctxtable) {
--		kfree(d->sbdma_ctxtable);
--		d->sbdma_ctxtable = NULL;
--	}
-+	kfree(d->sbdma_dscrtable);
-+	kfree(d->sbdma_ctxtable);
-+	d->sbdma_dscrtable = d->sbdma_ctxtable = NULL;
- }
- 
- 
---- linux-2.6.14-rc4-orig/drivers/net/hamradio/mkiss.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/hamradio/mkiss.c	2005-10-12 15:50:51.000000000 +0200
-@@ -352,10 +352,8 @@ static void ax_changedmtu(struct mkiss *
- 		       "MTU change cancelled.\n",
- 		       ax->dev->name);
- 		dev->mtu = ax->mtu;
--		if (xbuff != NULL)
--			kfree(xbuff);
--		if (rbuff != NULL)
--			kfree(rbuff);
-+		kfree(xbuff);
-+		kfree(rbuff);
- 		return;
+ EXPORT_SYMBOL(destroy_8023_client);
+--- linux-2.6.14-rc4-orig/net/ax25/ax25_in.c	2005-10-11 22:41:32.000000000 +0200
++++ linux-2.6.14-rc4/net/ax25/ax25_in.c	2005-10-13 11:25:12.000000000 +0200
+@@ -401,10 +401,8 @@ static int ax25_rcv(struct sk_buff *skb,
  	}
  
---- linux-2.6.14-rc4-orig/drivers/net/acenic.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/acenic.c	2005-10-12 15:51:18.000000000 +0200
-@@ -871,10 +871,8 @@ static void ace_init_cleanup(struct net_
- 	if (ap->info)
- 		pci_free_consistent(ap->pdev, sizeof(struct ace_info),
- 				    ap->info, ap->info_dma);
--	if (ap->skb)
--		kfree(ap->skb);
--	if (ap->trace_buf)
--		kfree(ap->trace_buf);
-+	kfree(ap->skb);
-+	kfree(ap->trace_buf);
- 
- 	if (dev->irq)
- 		free_irq(dev->irq, dev);
---- linux-2.6.14-rc4-orig/drivers/net/bmac.c	2005-10-11 22:41:10.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/bmac.c	2005-10-12 15:51:48.000000000 +0200
-@@ -1689,10 +1689,8 @@ static void __exit bmac_exit(void)
- {
- 	macio_unregister_driver(&bmac_driver);
- 
--	if (bmac_emergency_rxbuf != NULL) {
--		kfree(bmac_emergency_rxbuf);
--		bmac_emergency_rxbuf = NULL;
--	}
-+	kfree(bmac_emergency_rxbuf);
-+	bmac_emergency_rxbuf = NULL;
- }
- 
- MODULE_AUTHOR("Randy Gobbel/Paul Mackerras");
---- linux-2.6.14-rc4-orig/drivers/net/bnx2.c	2005-10-11 22:41:10.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/bnx2.c	2005-10-12 15:52:16.000000000 +0200
-@@ -314,20 +314,16 @@ bnx2_free_mem(struct bnx2 *bp)
- 				    bp->tx_desc_ring, bp->tx_desc_mapping);
- 		bp->tx_desc_ring = NULL;
- 	}
--	if (bp->tx_buf_ring) {
--		kfree(bp->tx_buf_ring);
--		bp->tx_buf_ring = NULL;
--	}
-+	kfree(bp->tx_buf_ring);
-+	bp->tx_buf_ring = NULL;
- 	if (bp->rx_desc_ring) {
- 		pci_free_consistent(bp->pdev,
- 				    sizeof(struct rx_bd) * RX_DESC_CNT,
- 				    bp->rx_desc_ring, bp->rx_desc_mapping);
- 		bp->rx_desc_ring = NULL;
- 	}
--	if (bp->rx_buf_ring) {
--		kfree(bp->rx_buf_ring);
--		bp->rx_buf_ring = NULL;
--	}
-+	kfree(bp->rx_buf_ring);
-+	bp->rx_buf_ring = NULL;
- }
- 
- static int
---- linux-2.6.14-rc4-orig/drivers/net/saa9730.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/saa9730.c	2005-10-12 15:53:22.000000000 +0200
-@@ -997,10 +997,7 @@ static void __devexit saa9730_remove_one
- 
-         if (dev) {
-                 unregister_netdev(dev);
--
--		if (dev->priv)
--			kfree(dev->priv);
--
-+		kfree(dev->priv);
-                 free_netdev(dev);
-                 pci_release_regions(pdev);
-                 pci_disable_device(pdev);
-@@ -1096,8 +1093,7 @@ static int lan_saa9730_init(struct net_d
- 	return 0;
- 
-  out:
--	if (dev->priv)
--		kfree(dev->priv);
-+	kfree(dev->priv);
- 	return ret;
- }
- 
---- linux-2.6.14-rc4-orig/drivers/net/mace.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/mace.c	2005-10-12 15:53:41.000000000 +0200
-@@ -1035,10 +1035,8 @@ static void __exit mace_cleanup(void)
- {
- 	macio_unregister_driver(&mace_driver);
- 
--	if (dummy_buf) {
--		kfree(dummy_buf);
--		dummy_buf = NULL;
--	}
-+	kfree(dummy_buf);
-+	dummy_buf = NULL;
- }
- 
- MODULE_AUTHOR("Paul Mackerras");
---- linux-2.6.14-rc4-orig/drivers/net/ni65.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/ni65.c	2005-10-12 15:55:01.000000000 +0200
-@@ -696,8 +696,7 @@ static void ni65_free_buffer(struct priv
- 		return;
- 
- 	for(i=0;i<TMDNUM;i++) {
--		if(p->tmdbounce[i])
--			kfree(p->tmdbounce[i]);
-+		kfree(p->tmdbounce[i]);
- #ifdef XMT_VIA_SKB
- 		if(p->tmd_skb[i])
- 			dev_kfree_skb(p->tmd_skb[i]);
-@@ -710,12 +709,10 @@ static void ni65_free_buffer(struct priv
- 		if(p->recv_skb[i])
- 			dev_kfree_skb(p->recv_skb[i]);
- #else
--		if(p->recvbounce[i])
--			kfree(p->recvbounce[i]);
-+		kfree(p->recvbounce[i]);
- #endif
- 	}
--	if(p->self)
--		kfree(p->self);
-+	kfree(p->self);
- }
- 
- 
---- linux-2.6.14-rc4-orig/drivers/net/s2io.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/s2io.c	2005-10-12 15:55:30.000000000 +0200
-@@ -701,8 +701,7 @@ static void free_shared_mem(struct s2io_
- 			}
- 			kfree(mac_control->rings[i].ba[j]);
- 		}
--		if (mac_control->rings[i].ba)
--			kfree(mac_control->rings[i].ba);
-+		kfree(mac_control->rings[i].ba);
- 	}
- #endif
- 
---- linux-2.6.14-rc4-orig/drivers/net/wireless/atmel_cs.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/atmel_cs.c	2005-10-12 16:01:15.000000000 +0200
-@@ -259,8 +259,7 @@ static void atmel_detach(dev_link_t *lin
- 
- 	/* Unlink device structure, free pieces */
- 	*linkp = link->next;
--	if (link->priv)
--		kfree(link->priv);
-+	kfree(link->priv);
- 	kfree(link);
- }
- 
---- linux-2.6.14-rc4-orig/drivers/net/wireless/airo_cs.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/airo_cs.c	2005-10-12 16:01:27.000000000 +0200
-@@ -258,9 +258,7 @@ static void airo_detach(dev_link_t *link
- 	
- 	/* Unlink device structure, free pieces */
- 	*linkp = link->next;
--	if (link->priv) {
--		kfree(link->priv);
--	}
-+	kfree(link->priv);
- 	kfree(link);
- 	
- } /* airo_detach */
---- linux-2.6.14-rc4-orig/drivers/net/wireless/airo.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/airo.c	2005-10-12 16:10:37.000000000 +0200
-@@ -2387,14 +2387,10 @@ void stop_airo_card( struct net_device *
- 			dev_kfree_skb(skb);
- 	}
- 
--	if (ai->flash)
--		kfree(ai->flash);
--	if (ai->rssi)
--		kfree(ai->rssi);
--	if (ai->APList)
--		kfree(ai->APList);
--	if (ai->SSID)
--		kfree(ai->SSID);
-+	kfree(ai->flash);
-+	kfree(ai->rssi);
-+	kfree(ai->APList);
-+	kfree(ai->SSID);
- 	if (freeres) {
- 		/* PCMCIA frees this stuff, so only for PCI and ISA */
- 	        release_region( dev->base_addr, 64 );
-@@ -3637,10 +3633,8 @@ static u16 setup_card(struct airo_info *
- 	int rc;
- 
- 	memset( &mySsid, 0, sizeof( mySsid ) );
--	if (ai->flash) {
--		kfree (ai->flash);
--		ai->flash = NULL;
--	}
-+	kfree (ai->flash);
-+	ai->flash = NULL;
- 
- 	/* The NOP is the first step in getting the card going */
- 	cmd.cmd = NOP;
-@@ -3677,14 +3671,10 @@ static u16 setup_card(struct airo_info *
- 		tdsRssiRid rssi_rid;
- 		CapabilityRid cap_rid;
- 
--		if (ai->APList) {
--			kfree(ai->APList);
--			ai->APList = NULL;
+ 	if (dp.ndigi == 0) {
+-		if (ax25->digipeat != NULL) {
+-			kfree(ax25->digipeat);
+-			ax25->digipeat = NULL;
 -		}
--		if (ai->SSID) {
--			kfree(ai->SSID);
--			ai->SSID = NULL;
--		}
-+		kfree(ai->APList);
-+		ai->APList = NULL;
-+		kfree(ai->SSID);
-+		ai->SSID = NULL;
- 		// general configuration (read/modify/write)
- 		status = readConfigRid(ai, lock);
- 		if ( status != SUCCESS ) return ERROR;
-@@ -3698,10 +3688,8 @@ static u16 setup_card(struct airo_info *
- 				memcpy(ai->rssi, (u8*)&rssi_rid + 2, 512); /* Skip RID length member */
- 		}
- 		else {
--			if (ai->rssi) {
--				kfree(ai->rssi);
--				ai->rssi = NULL;
--			}
-+			kfree(ai->rssi);
-+			ai->rssi = NULL;
- 			if (cap_rid.softCap & 8)
- 				ai->config.rmode |= RXMODE_NORMALIZED_RSSI;
- 			else
-@@ -5380,11 +5368,13 @@ static int proc_BSSList_open( struct ino
++		kfree(ax25->digipeat);
++		ax25->digipeat = NULL;
+ 	} else {
+ 		/* Reverse the source SABM's path */
+ 		memcpy(ax25->digipeat, &reverse_dp, sizeof(ax25_digi));
+--- linux-2.6.14-rc4-orig/net/ax25/af_ax25.c	2005-10-11 22:41:32.000000000 +0200
++++ linux-2.6.14-rc4/net/ax25/af_ax25.c	2005-10-13 11:25:40.000000000 +0200
+@@ -1138,10 +1138,8 @@ static int ax25_connect(struct socket *s
+ 	sk->sk_state   = TCP_CLOSE;
+ 	sock->state = SS_UNCONNECTED;
  
- static int proc_close( struct inode *inode, struct file *file )
- {
--	struct proc_data *data = (struct proc_data *)file->private_data;
--	if ( data->on_close != NULL ) data->on_close( inode, file );
--	if ( data->rbuffer ) kfree( data->rbuffer );
--	if ( data->wbuffer ) kfree( data->wbuffer );
--	kfree( data );
-+	struct proc_data *data = file->private_data;
-+
-+	if (data->on_close != NULL)
-+		data->on_close(inode, file);
-+	kfree(data->rbuffer);
-+	kfree(data->wbuffer);
-+	kfree(data);
- 	return 0;
- }
+-	if (ax25->digipeat != NULL) {
+-		kfree(ax25->digipeat);
+-		ax25->digipeat = NULL;
+-	}
++	kfree(ax25->digipeat);
++	ax25->digipeat = NULL;
  
---- linux-2.6.14-rc4-orig/drivers/net/wireless/strip.c	2005-10-11 22:41:12.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/strip.c	2005-10-12 16:11:41.000000000 +0200
-@@ -860,12 +860,9 @@ static int allocate_buffers(struct strip
- 		strip_info->mtu = dev->mtu = mtu;
- 		return (1);
- 	}
--	if (r)
--		kfree(r);
--	if (s)
--		kfree(s);
--	if (t)
--		kfree(t);
-+	kfree(r);
-+	kfree(s);
-+	kfree(t);
- 	return (0);
- }
- 
-@@ -922,13 +919,9 @@ static int strip_change_mtu(struct net_d
- 	printk(KERN_NOTICE "%s: strip MTU changed fom %d to %d.\n",
- 	       strip_info->dev->name, old_mtu, strip_info->mtu);
- 
--	if (orbuff)
--		kfree(orbuff);
--	if (osbuff)
--		kfree(osbuff);
--	if (otbuff)
--		kfree(otbuff);
--
-+	kfree(orbuff);
-+	kfree(osbuff);
-+	kfree(otbuff);
- 	return 0;
- }
- 
-@@ -2498,18 +2491,13 @@ static int strip_close_low(struct net_de
  	/*
- 	 * Free all STRIP frame buffers.
- 	 */
--	if (strip_info->rx_buff) {
--		kfree(strip_info->rx_buff);
--		strip_info->rx_buff = NULL;
--	}
--	if (strip_info->sx_buff) {
--		kfree(strip_info->sx_buff);
--		strip_info->sx_buff = NULL;
--	}
--	if (strip_info->tx_buff) {
--		kfree(strip_info->tx_buff);
--		strip_info->tx_buff = NULL;
--	}
-+	kfree(strip_info->rx_buff);
-+	strip_info->rx_buff = NULL;
-+	kfree(strip_info->sx_buff);
-+	strip_info->sx_buff = NULL;
-+	kfree(strip_info->tx_buff);
-+	strip_info->tx_buff = NULL;
-+
- 	del_timer(&strip_info->idle_timer);
- 	return 0;
- }
---- linux-2.6.14-rc4-orig/drivers/net/wireless/hostap/hostap_ioctl.c	2005-10-11 22:41:12.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/hostap/hostap_ioctl.c	2005-10-12 16:13:42.000000000 +0200
-@@ -551,7 +551,6 @@ static int prism2_ioctl_giwaplist(struct
- 
- 	kfree(addr);
- 	kfree(qual);
--
- 	return 0;
- }
- 
-@@ -3088,9 +3087,7 @@ static int prism2_ioctl_priv_download(lo
- 	ret = local->func->download(local, param);
- 
-  out:
--	if (param != NULL)
--		kfree(param);
--
-+	kfree(param);
- 	return ret;
- }
- #endif /* PRISM2_DOWNLOAD_SUPPORT */
-@@ -3897,9 +3894,7 @@ static int prism2_ioctl_priv_hostapd(loc
+ 	 *	Handle digi-peaters to be used.
+--- linux-2.6.14-rc4-orig/net/ax25/ax25_route.c	2005-10-11 22:41:32.000000000 +0200
++++ linux-2.6.14-rc4/net/ax25/ax25_route.c	2005-10-13 11:26:29.000000000 +0200
+@@ -54,15 +54,13 @@ void ax25_rt_device_down(struct net_devi
+ 		if (s->dev == dev) {
+ 			if (ax25_route_list == s) {
+ 				ax25_route_list = s->next;
+-				if (s->digipeat != NULL)
+-					kfree(s->digipeat);
++				kfree(s->digipeat);
+ 				kfree(s);
+ 			} else {
+ 				for (t = ax25_route_list; t != NULL; t = t->next) {
+ 					if (t->next == s) {
+ 						t->next = s->next;
+-						if (s->digipeat != NULL)
+-							kfree(s->digipeat);
++						kfree(s->digipeat);
+ 						kfree(s);
+ 						break;
+ 					}
+@@ -90,10 +88,8 @@ static int ax25_rt_add(struct ax25_route
+ 	while (ax25_rt != NULL) {
+ 		if (ax25cmp(&ax25_rt->callsign, &route->dest_addr) == 0 &&
+ 		            ax25_rt->dev == ax25_dev->dev) {
+-			if (ax25_rt->digipeat != NULL) {
+-				kfree(ax25_rt->digipeat);
+-				ax25_rt->digipeat = NULL;
+-			}
++			kfree(ax25_rt->digipeat);
++			ax25_rt->digipeat = NULL;
+ 			if (route->digi_count != 0) {
+ 				if ((ax25_rt->digipeat = kmalloc(sizeof(ax25_digi), GFP_ATOMIC)) == NULL) {
+ 					write_unlock(&ax25_route_lock);
+@@ -145,8 +141,7 @@ static int ax25_rt_add(struct ax25_route
+ static void ax25_rt_destroy(ax25_route *ax25_rt)
+ {
+ 	if (atomic_read(&ax25_rt->ref) == 0) {
+-		if (ax25_rt->digipeat != NULL)
+-			kfree(ax25_rt->digipeat);
++		kfree(ax25_rt->digipeat);
+ 		kfree(ax25_rt);
+ 		return;
  	}
+@@ -530,9 +525,7 @@ void __exit ax25_rt_free(void)
+ 		s       = ax25_rt;
+ 		ax25_rt = ax25_rt->next;
  
-  out:
--	if (param != NULL)
--		kfree(param);
+-		if (s->digipeat != NULL)
+-			kfree(s->digipeat);
 -
-+	kfree(param);
- 	return ret;
++		kfree(s->digipeat);
+ 		kfree(s);
+ 	}
+ 	write_unlock(&ax25_route_lock);
+--- linux-2.6.14-rc4-orig/net/dccp/ipv4.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/dccp/ipv4.c	2005-10-13 11:26:46.000000000 +0200
+@@ -1287,10 +1287,8 @@ static int dccp_v4_destroy_sock(struct s
+ 	if (inet_csk(sk)->icsk_bind_hash != NULL)
+ 		inet_put_port(&dccp_hashinfo, sk);
+ 
+-	if (dp->dccps_service_list != NULL) {
+-		kfree(dp->dccps_service_list);
+-		dp->dccps_service_list = NULL;
+-	}
++	kfree(dp->dccps_service_list);
++	dp->dccps_service_list = NULL;
+ 
+ 	ccid_hc_rx_exit(dp->dccps_hc_rx_ccid, sk);
+ 	ccid_hc_tx_exit(dp->dccps_hc_tx_ccid, sk);
+--- linux-2.6.14-rc4-orig/net/dccp/proto.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/dccp/proto.c	2005-10-13 11:27:02.000000000 +0200
+@@ -238,8 +238,7 @@ static int dccp_setsockopt_service(struc
+ 	lock_sock(sk);
+ 	dp->dccps_service = service;
+ 
+-	if (dp->dccps_service_list != NULL)
+-		kfree(dp->dccps_service_list);
++	kfree(dp->dccps_service_list);
+ 
+ 	dp->dccps_service_list = sl;
+ 	release_sock(sk);
+--- linux-2.6.14-rc4-orig/net/core/sock.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/core/sock.c	2005-10-13 11:27:43.000000000 +0200
+@@ -1242,8 +1242,7 @@ static void sock_def_write_space(struct 
+ 
+ static void sock_def_destruct(struct sock *sk)
+ {
+-	if (sk->sk_protinfo)
+-		kfree(sk->sk_protinfo);
++	kfree(sk->sk_protinfo);
  }
  
---- linux-2.6.14-rc4-orig/drivers/net/wireless/atmel.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/atmel.c	2005-10-12 16:14:10.000000000 +0200
-@@ -1653,8 +1653,7 @@ void stop_atmel_card(struct net_device *
- 	unregister_netdev(dev);
- 	remove_proc_entry("driver/atmel", NULL);
- 	free_irq(dev->irq, dev);
--	if (priv->firmware)
--		kfree(priv->firmware);
-+	kfree(priv->firmware);
- 	if (freeres) {
- 		/* PCMCIA frees this stuff, so only for PCI */
- 	        release_region(dev->base_addr, 64);
-@@ -2450,8 +2449,7 @@ static int atmel_ioctl(struct net_device
+ void sk_send_sigurg(struct sock *sk)
+--- linux-2.6.14-rc4-orig/net/core/dev_mcast.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/core/dev_mcast.c	2005-10-13 11:27:54.000000000 +0200
+@@ -194,8 +194,7 @@ int dev_mc_add(struct net_device *dev, v
+ 
+ done:
+ 	spin_unlock_bh(&dev->xmit_lock);
+-	if (dmi1)
+-		kfree(dmi1);
++	kfree(dmi1);
+ 	return err;
+ }
+ 
+--- linux-2.6.14-rc4-orig/net/ipv4/ipvs/ip_vs_app.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/ipvs/ip_vs_app.c	2005-10-13 11:28:10.000000000 +0200
+@@ -110,8 +110,7 @@ ip_vs_app_inc_new(struct ip_vs_app *app,
+ 	return 0;
+ 
+   out:
+-	if (inc->timeout_table)
+-		kfree(inc->timeout_table);
++	kfree(inc->timeout_table);
+ 	kfree(inc);
+ 	return ret;
+ }
+@@ -136,8 +135,7 @@ ip_vs_app_inc_release(struct ip_vs_app *
+ 
+ 	list_del(&inc->a_list);
+ 
+-	if (inc->timeout_table != NULL)
+-		kfree(inc->timeout_table);
++	kfree(inc->timeout_table);
+ 	kfree(inc);
+ }
+ 
+--- linux-2.6.14-rc4-orig/net/ipv4/ip_output.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/ip_output.c	2005-10-13 11:28:50.000000000 +0200
+@@ -1189,10 +1189,8 @@ int ip_push_pending_frames(struct sock *
+ 
+ out:
+ 	inet->cork.flags &= ~IPCORK_OPT;
+-	if (inet->cork.opt) {
+-		kfree(inet->cork.opt);
+-		inet->cork.opt = NULL;
+-	}
++	kfree(inet->cork.opt);
++	inet->cork.opt = NULL;
+ 	if (inet->cork.rt) {
+ 		ip_rt_put(inet->cork.rt);
+ 		inet->cork.rt = NULL;
+@@ -1216,10 +1214,8 @@ void ip_flush_pending_frames(struct sock
+ 		kfree_skb(skb);
+ 
+ 	inet->cork.flags &= ~IPCORK_OPT;
+-	if (inet->cork.opt) {
+-		kfree(inet->cork.opt);
+-		inet->cork.opt = NULL;
+-	}
++	kfree(inet->cork.opt);
++	inet->cork.opt = NULL;
+ 	if (inet->cork.rt) {
+ 		ip_rt_put(inet->cork.rt);
+ 		inet->cork.rt = NULL;
+--- linux-2.6.14-rc4-orig/net/ipv4/tcp_ipv4.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/tcp_ipv4.c	2005-10-13 11:29:19.000000000 +0200
+@@ -825,8 +825,7 @@ out:
+  */
+ static void tcp_v4_reqsk_destructor(struct request_sock *req)
+ {
+-	if (inet_rsk(req)->opt)
+-		kfree(inet_rsk(req)->opt);
++	kfree(inet_rsk(req)->opt);
+ }
+ 
+ static inline void syn_flood_warning(struct sk_buff *skb)
+--- linux-2.6.14-rc4-orig/net/ipv4/ip_sockglue.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/ip_sockglue.c	2005-10-13 11:29:53.000000000 +0200
+@@ -202,8 +202,7 @@ int ip_ra_control(struct sock *sk, unsig
+ 		if (ra->sk == sk) {
+ 			if (on) {
+ 				write_unlock_bh(&ip_ra_lock);
+-				if (new_ra)
+-					kfree(new_ra);
++				kfree(new_ra);
+ 				return -EADDRINUSE;
+ 			}
+ 			*rap = ra->next;
+@@ -446,8 +445,7 @@ int ip_setsockopt(struct sock *sk, int l
+ #endif
+ 			}
+ 			opt = xchg(&inet->opt, opt);
+-			if (opt)
+-				kfree(opt);
++			kfree(opt);
  			break;
  		}
+ 		case IP_PKTINFO:
+@@ -828,10 +826,8 @@ int ip_setsockopt(struct sock *sk, int l
  
--		if (priv->firmware)
--			kfree(priv->firmware);
-+		kfree(priv->firmware);
- 		
- 		priv->firmware = new_firmware;
- 		priv->firmware_length = com.len;
---- linux-2.6.14-rc4-orig/drivers/net/wireless/prism54/islpci_dev.c	2005-10-11 22:41:12.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/prism54/islpci_dev.c	2005-10-12 16:14:19.000000000 +0200
-@@ -756,8 +756,7 @@ islpci_free_memory(islpci_private *priv)
- 			pci_unmap_single(priv->pdev, buf->pci_addr,
- 					 buf->size, PCI_DMA_FROMDEVICE);
- 		buf->pci_addr = 0;
--		if (buf->mem)
--			kfree(buf->mem);
-+		kfree(buf->mem);
- 		buf->size = 0;
- 		buf->mem = NULL;
-         }
---- linux-2.6.14-rc4-orig/drivers/net/wireless/prism54/oid_mgt.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/wireless/prism54/oid_mgt.c	2005-10-12 16:15:05.000000000 +0200
-@@ -268,11 +268,10 @@ mgt_clean(islpci_private *priv)
- 
- 	if (!priv->mib)
- 		return;
--	for (i = 0; i < OID_NUM_LAST; i++)
--		if (priv->mib[i]) {
--			kfree(priv->mib[i]);
--			priv->mib[i] = NULL;
--		}
-+	for (i = 0; i < OID_NUM_LAST; i++) {
-+		kfree(priv->mib[i]);
-+		priv->mib[i] = NULL;
-+	}
- 	kfree(priv->mib);
- 	priv->mib = NULL;
- }
---- linux-2.6.14-rc4-orig/drivers/net/via-velocity.c	2005-08-29 01:41:01.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/via-velocity.c	2005-10-12 16:16:00.000000000 +0200
-@@ -1212,10 +1212,8 @@ static void velocity_free_td_ring(struct
- 			velocity_free_td_ring_entry(vptr, j, i);
- 
+ 			err = ip_mc_msfilter(sk, msf, ifindex);
+ mc_msf_out:
+-			if (msf)
+-				kfree(msf);
+-			if (gsf)
+-				kfree(gsf);
++			kfree(msf);
++			kfree(gsf);
+ 			break;
  		}
--		if (vptr->td_infos[j]) {
--			kfree(vptr->td_infos[j]);
--			vptr->td_infos[j] = NULL;
--		}
-+		kfree(vptr->td_infos[j]);
-+		vptr->td_infos[j] = NULL;
+ 		case IP_ROUTER_ALERT:	
+--- linux-2.6.14-rc4-orig/net/ipv4/netfilter/ip_nat_snmp_basic.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/netfilter/ip_nat_snmp_basic.c	2005-10-13 11:31:09.000000000 +0200
+@@ -1161,8 +1161,7 @@ static int snmp_parse_mangle(unsigned ch
+ 		
+ 		if (!snmp_object_decode(&ctx, obj)) {
+ 			if (*obj) {
+-				if ((*obj)->id)
+-					kfree((*obj)->id);
++				kfree((*obj)->id);
+ 				kfree(*obj);
+ 			}	
+ 			kfree(obj);
+--- linux-2.6.14-rc4-orig/net/ipv4/multipath_wrandom.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/multipath_wrandom.c	2005-10-13 11:31:46.000000000 +0200
+@@ -207,16 +207,12 @@ static void wrandom_select_route(const s
+ 			decision = mpc->rt;
+ 
+ 		last_power = mpc->power;
+-		if (last_mpc)
+-			kfree(last_mpc);
+-
++		kfree(last_mpc);
+ 		last_mpc = mpc;
  	}
+ 
+-	if (last_mpc) {
+-		/* concurrent __multipath_flush may lead to !last_mpc */
+-		kfree(last_mpc);
+-	}
++	/* concurrent __multipath_flush may lead to !last_mpc */
++	kfree(last_mpc);
+ 
+ 	decision->u.dst.__use++;
+ 	*rp = decision;
+--- linux-2.6.14-rc4-orig/net/ipv4/af_inet.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/af_inet.c	2005-10-13 11:31:54.000000000 +0200
+@@ -147,8 +147,7 @@ void inet_sock_destruct(struct sock *sk)
+ 	BUG_TRAP(!sk->sk_wmem_queued);
+ 	BUG_TRAP(!sk->sk_forward_alloc);
+ 
+-	if (inet->opt)
+-		kfree(inet->opt);
++	kfree(inet->opt);
+ 	dst_release(sk->sk_dst_cache);
+ 	sk_refcnt_debug_dec(sk);
+ }
+--- linux-2.6.14-rc4-orig/net/ipv4/ip_options.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/ip_options.c	2005-10-13 11:32:07.000000000 +0200
+@@ -510,8 +510,7 @@ static int ip_options_get_finish(struct 
+ 		kfree(opt);
+ 		return -EINVAL;
+ 	}
+-	if (*optp)
+-		kfree(*optp);
++	kfree(*optp);
+ 	*optp = opt;
+ 	return 0;
+ }
+--- linux-2.6.14-rc4-orig/net/ipv4/fib_frontend.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv4/fib_frontend.c	2005-10-13 11:32:16.000000000 +0200
+@@ -266,8 +266,7 @@ int ip_rt_ioctl(unsigned int cmd, void _
+ 				if (tb)
+ 					err = tb->tb_insert(tb, &req.rtm, &rta, &req.nlh, NULL);
+ 			}
+-			if (rta.rta_mx)
+-				kfree(rta.rta_mx);
++			kfree(rta.rta_mx);
+ 		}
+ 		rtnl_unlock();
+ 		return err;
+--- linux-2.6.14-rc4-orig/net/ipv6/ipv6_sockglue.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv6/ipv6_sockglue.c	2005-10-13 11:32:36.000000000 +0200
+@@ -80,8 +80,7 @@ int ip6_ra_control(struct sock *sk, int 
+ 		if (ra->sk == sk) {
+ 			if (sel>=0) {
+ 				write_unlock_bh(&ip6_ra_lock);
+-				if (new_ra)
+-					kfree(new_ra);
++				kfree(new_ra);
+ 				return -EADDRINUSE;
+ 			}
+ 
+--- linux-2.6.14-rc4-orig/net/ipv6/addrconf.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv6/addrconf.c	2005-10-13 11:33:03.000000000 +0200
+@@ -2954,8 +2954,7 @@ static int inet6_fill_ifinfo(struct sk_b
+ 
+ nlmsg_failure:
+ rtattr_failure:
+-	if (array)
+-		kfree(array);
++	kfree(array);
+ 	skb_trim(skb, b - skb->data);
+ 	return -1;
+ }
+--- linux-2.6.14-rc4-orig/net/ipv6/ipcomp6.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv6/ipcomp6.c	2005-10-13 11:33:13.000000000 +0200
+@@ -130,8 +130,7 @@ static int ipcomp6_input(struct xfrm_sta
+ out_put_cpu:
+ 	put_cpu();
+ out:
+-	if (tmp_hdr)
+-		kfree(tmp_hdr);
++	kfree(tmp_hdr);
+ 	if (err)
+ 		goto error_out;
+ 	return nexthdr;
+--- linux-2.6.14-rc4-orig/net/ipv6/ip6_output.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv6/ip6_output.c	2005-10-13 11:33:50.000000000 +0200
+@@ -586,8 +586,7 @@ static int ip6_fragment(struct sk_buff *
+ 			skb->next = NULL;
+ 		}
+ 
+-		if (tmp_hdr)
+-			kfree(tmp_hdr);
++		kfree(tmp_hdr);
+ 
+ 		if (err == 0) {
+ 			IP6_INC_STATS(IPSTATS_MIB_FRAGOKS);
+@@ -1117,10 +1116,8 @@ int ip6_push_pending_frames(struct sock 
+ 
+ out:
+ 	inet->cork.flags &= ~IPCORK_OPT;
+-	if (np->cork.opt) {
+-		kfree(np->cork.opt);
+-		np->cork.opt = NULL;
+-	}
++	kfree(np->cork.opt);
++	np->cork.opt = NULL;
+ 	if (np->cork.rt) {
+ 		dst_release(&np->cork.rt->u.dst);
+ 		np->cork.rt = NULL;
+@@ -1145,10 +1142,8 @@ void ip6_flush_pending_frames(struct soc
+ 
+ 	inet->cork.flags &= ~IPCORK_OPT;
+ 
+-	if (np->cork.opt) {
+-		kfree(np->cork.opt);
+-		np->cork.opt = NULL;
+-	}
++	kfree(np->cork.opt);
++	np->cork.opt = NULL;
+ 	if (np->cork.rt) {
+ 		dst_release(&np->cork.rt->u.dst);
+ 		np->cork.rt = NULL;
+--- linux-2.6.14-rc4-orig/net/ipv6/ip6_tunnel.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/ipv6/ip6_tunnel.c	2005-10-13 11:34:06.000000000 +0200
+@@ -756,8 +756,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+ 	}
+ 	ip6_tnl_dst_store(t, dst);
+ 
+-	if (opt)
+-		kfree(opt);
++	kfree(opt);
+ 
+ 	t->recursion--;
+ 	return 0;
+@@ -766,8 +765,7 @@ tx_err_link_failure:
+ 	dst_link_failure(skb);
+ tx_err_dst_release:
+ 	dst_release(dst);
+-	if (opt)
+-		kfree(opt);
++	kfree(opt);
+ tx_err:
+ 	stats->tx_errors++;
+ 	stats->tx_dropped++;
+--- linux-2.6.14-rc4-orig/net/irda/discovery.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/irda/discovery.c	2005-10-13 11:34:26.000000000 +0200
+@@ -194,8 +194,7 @@ void irlmp_expire_discoveries(hashbin_t 
+ 
+ 			/* Remove it from the log */
+ 			curr = hashbin_remove_this(log, (irda_queue_t *) curr);
+-			if (curr)
+-				kfree(curr);
++			kfree(curr);
+ 		}
+ 	}
+ 
+--- linux-2.6.14-rc4-orig/net/irda/irias_object.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/irda/irias_object.c	2005-10-13 11:35:29.000000000 +0200
+@@ -122,8 +122,7 @@ static void __irias_delete_attrib(struct
+ 	IRDA_ASSERT(attrib != NULL, return;);
+ 	IRDA_ASSERT(attrib->magic == IAS_ATTRIB_MAGIC, return;);
+ 
+-	if (attrib->name)
+-		kfree(attrib->name);
++	kfree(attrib->name);
+ 
+ 	irias_delete_value(attrib->value);
+ 	attrib->magic = ~IAS_ATTRIB_MAGIC;
+@@ -136,8 +135,7 @@ void __irias_delete_object(struct ias_ob
+ 	IRDA_ASSERT(obj != NULL, return;);
+ 	IRDA_ASSERT(obj->magic == IAS_OBJECT_MAGIC, return;);
+ 
+-	if (obj->name)
+-		kfree(obj->name);
++	kfree(obj->name);
+ 
+ 	hashbin_delete(obj->attribs, (FREE_FUNC) __irias_delete_attrib);
+ 
+@@ -562,14 +560,12 @@ void irias_delete_value(struct ias_value
+ 		/* No need to deallocate */
+ 		break;
+ 	case IAS_STRING:
+-		/* If string, deallocate string */
+-		if (value->t.string != NULL)
+-			kfree(value->t.string);
++		/* Deallocate string */
++		kfree(value->t.string);
+ 		break;
+ 	case IAS_OCT_SEQ:
+-		/* If byte stream, deallocate byte stream */
+-		 if (value->t.oct_seq != NULL)
+-			 kfree(value->t.oct_seq);
++		/* Deallocate byte stream */
++		 kfree(value->t.oct_seq);
+ 		 break;
+ 	default:
+ 		IRDA_DEBUG(0, "%s(), Unknown value type!\n", __FUNCTION__);
+--- linux-2.6.14-rc4-orig/net/sctp/sm_make_chunk.c	2005-10-11 22:41:35.000000000 +0200
++++ linux-2.6.14-rc4/net/sctp/sm_make_chunk.c	2005-10-13 11:35:50.000000000 +0200
+@@ -254,8 +254,7 @@ struct sctp_chunk *sctp_make_init(const 
+ 	aiparam.adaption_ind = htonl(sp->adaption_ind);
+ 	sctp_addto_chunk(retval, sizeof(aiparam), &aiparam);
+ nodata:
+-	if (addrs.v)
+-		kfree(addrs.v);
++	kfree(addrs.v);
+ 	return retval;
  }
  
---- linux-2.6.14-rc4-orig/drivers/net/rrunner.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/rrunner.c	2005-10-12 16:16:19.000000000 +0200
-@@ -1710,10 +1710,8 @@ static int rr_ioctl(struct net_device *d
- 			error = -EFAULT;
+@@ -347,8 +346,7 @@ struct sctp_chunk *sctp_make_init_ack(co
+ nomem_chunk:
+ 	kfree(cookie);
+ nomem_cookie:
+-	if (addrs.v)
+-		kfree(addrs.v);
++	kfree(addrs.v);
+ 	return retval;
+ }
+ 
+--- linux-2.6.14-rc4-orig/net/sctp/associola.c	2005-10-11 22:41:35.000000000 +0200
++++ linux-2.6.14-rc4/net/sctp/associola.c	2005-10-13 11:36:05.000000000 +0200
+@@ -344,9 +344,7 @@ void sctp_association_free(struct sctp_a
+ 	}
+ 
+ 	/* Free peer's cached cookie. */
+-	if (asoc->peer.cookie) {
+-		kfree(asoc->peer.cookie);
+-	}
++	kfree(asoc->peer.cookie);
+ 
+ 	/* Release the transport structures. */
+ 	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+--- linux-2.6.14-rc4-orig/net/rose/rose_route.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/rose/rose_route.c	2005-10-13 11:36:35.000000000 +0200
+@@ -240,8 +240,7 @@ static void rose_remove_neigh(struct ros
+ 	if ((s = rose_neigh_list) == rose_neigh) {
+ 		rose_neigh_list = rose_neigh->next;
+ 		spin_unlock_bh(&rose_neigh_list_lock);
+-		if (rose_neigh->digipeat != NULL)
+-			kfree(rose_neigh->digipeat);
++		kfree(rose_neigh->digipeat);
+ 		kfree(rose_neigh);
+ 		return;
+ 	}
+@@ -250,8 +249,7 @@ static void rose_remove_neigh(struct ros
+ 		if (s->next == rose_neigh) {
+ 			s->next = rose_neigh->next;
+ 			spin_unlock_bh(&rose_neigh_list_lock);
+-			if (rose_neigh->digipeat != NULL)
+-				kfree(rose_neigh->digipeat);
++			kfree(rose_neigh->digipeat);
+ 			kfree(rose_neigh);
+ 			return;
  		}
- 	wf_out:
--		if (oldimage)
--			kfree(oldimage);
--		if (image)
--			kfree(image);
-+		kfree(oldimage);
-+		kfree(image);
- 		return error;
- 		
- 	case SIOCRRID:
---- linux-2.6.14-rc4-orig/drivers/net/ibmveth.c	2005-10-11 22:41:11.000000000 +0200
-+++ linux-2.6.14-rc4/drivers/net/ibmveth.c	2005-10-12 16:17:22.000000000 +0200
-@@ -293,10 +293,8 @@ static void ibmveth_free_buffer_pool(str
+--- linux-2.6.14-rc4-orig/net/xfrm/xfrm_state.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/xfrm/xfrm_state.c	2005-10-13 11:36:55.000000000 +0200
+@@ -62,14 +62,10 @@ static void xfrm_state_gc_destroy(struct
  {
+ 	if (del_timer(&x->timer))
+ 		BUG();
+-	if (x->aalg)
+-		kfree(x->aalg);
+-	if (x->ealg)
+-		kfree(x->ealg);
+-	if (x->calg)
+-		kfree(x->calg);
+-	if (x->encap)
+-		kfree(x->encap);
++	kfree(x->aalg);
++	kfree(x->ealg);
++	kfree(x->calg);
++	kfree(x->encap);
+ 	if (x->type) {
+ 		x->type->destructor(x);
+ 		xfrm_put_type(x->type);
+--- linux-2.6.14-rc4-orig/net/sched/cls_tcindex.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/cls_tcindex.c	2005-10-13 11:37:16.000000000 +0200
+@@ -194,8 +194,7 @@ found:
+ 	}
+ 	tcf_unbind_filter(tp, &r->res);
+ 	tcf_exts_destroy(tp, &r->exts);
+-	if (f)
+-		kfree(f);
++	kfree(f);
+ 	return 0;
+ }
+ 
+@@ -442,10 +441,8 @@ static void tcindex_destroy(struct tcf_p
+ 	walker.skip = 0;
+ 	walker.fn = &tcindex_destroy_element;
+ 	tcindex_walk(tp,&walker);
+-	if (p->perfect)
+-		kfree(p->perfect);
+-	if (p->h)
+-		kfree(p->h);
++	kfree(p->perfect);
++	kfree(p->h);
+ 	kfree(p);
+ 	tp->root = NULL;
+ }
+--- linux-2.6.14-rc4-orig/net/sched/sch_gred.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/sch_gred.c	2005-10-13 11:37:41.000000000 +0200
+@@ -580,8 +580,7 @@ static int gred_dump(struct Qdisc *sch, 
+ 	return skb->len;
+ 
+ rtattr_failure:
+-	if (opt)
+-		kfree(opt);
++	kfree(opt);
+ 	DPRINTK("gred_dump: FAILURE!!!!\n");
+ 
+ /* also free the opt struct here */
+@@ -594,10 +593,8 @@ static void gred_destroy(struct Qdisc *s
+ 	struct gred_sched *table = qdisc_priv(sch);
  	int i;
  
--	if(pool->free_map) {
--		kfree(pool->free_map);
--		pool->free_map  = NULL;
+-	for (i = 0;i < table->DPs; i++) {
+-		if (table->tab[i])
+-			kfree(table->tab[i]);
 -	}
-+	kfree(pool->free_map);
-+	pool->free_map = NULL;
++	for (i = 0;i < table->DPs; i++)
++		kfree(table->tab[i]);
+ }
  
- 	if(pool->skbuff && pool->dma_addr) {
- 		for(i = 0; i < pool->size; ++i) {
-@@ -312,15 +310,10 @@ static void ibmveth_free_buffer_pool(str
- 		}
+ static struct Qdisc_ops gred_qdisc_ops = {
+--- linux-2.6.14-rc4-orig/net/sched/em_meta.c	2005-10-11 22:41:34.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/em_meta.c	2005-10-13 11:38:28.000000000 +0200
+@@ -561,8 +561,7 @@ static int meta_var_change(struct meta_v
+ 
+ static void meta_var_destroy(struct meta_value *v)
+ {
+-	if (v->val)
+-		kfree((void *) v->val);
++	kfree((void *) v->val);
+ }
+ 
+ static void meta_var_apply_extras(struct meta_value *v,
+--- linux-2.6.14-rc4-orig/net/sched/cls_u32.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/cls_u32.c	2005-10-13 11:39:35.000000000 +0200
+@@ -347,7 +347,7 @@ static int u32_destroy_key(struct tcf_pr
+ 	if (n->ht_down)
+ 		n->ht_down->refcnt--;
+ #ifdef CONFIG_CLS_U32_PERF
+-	if (n && (NULL != n->pf))
++	if (n)
+ 		kfree(n->pf);
+ #endif
+ 	kfree(n);
+@@ -680,7 +680,7 @@ static int u32_change(struct tcf_proto *
+ 		return 0;
  	}
+ #ifdef CONFIG_CLS_U32_PERF
+-	if (n && (NULL != n->pf))
++	if (n)
+ 		kfree(n->pf);
+ #endif
+ 	kfree(n);
+--- linux-2.6.14-rc4-orig/net/sched/cls_fw.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/cls_fw.c	2005-10-13 11:39:47.000000000 +0200
+@@ -298,8 +298,7 @@ static int fw_change(struct tcf_proto *t
+ 	return 0;
  
--	if(pool->dma_addr) {
--		kfree(pool->dma_addr);
--		pool->dma_addr = NULL;
--	}
+ errout:
+-	if (f)
+-		kfree(f);
++	kfree(f);
+ 	return err;
+ }
+ 
+--- linux-2.6.14-rc4-orig/net/sched/cls_rsvp.h	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/cls_rsvp.h	2005-10-13 11:39:57.000000000 +0200
+@@ -555,8 +555,7 @@ insert:
+ 	goto insert;
+ 
+ errout:
+-	if (f)
+-		kfree(f);
++	kfree(f);
+ errout2:
+ 	tcf_exts_destroy(tp, &e);
+ 	return err;
+--- linux-2.6.14-rc4-orig/net/sched/cls_route.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sched/cls_route.c	2005-10-13 11:40:07.000000000 +0200
+@@ -525,8 +525,7 @@ reinsert:
+ 	return 0;
+ 
+ errout:
+-	if (f)
+-		kfree(f);
++	kfree(f);
+ 	return err;
+ }
+ 
+--- linux-2.6.14-rc4-orig/net/ethernet/pe2.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/ethernet/pe2.c	2005-10-13 11:40:15.000000000 +0200
+@@ -32,8 +32,7 @@ struct datalink_proto *make_EII_client(v
+ 
+ void destroy_EII_client(struct datalink_proto *dl)
+ {
+-	if (dl)
+-		kfree(dl);
++	kfree(dl);
+ }
+ 
+ EXPORT_SYMBOL(destroy_EII_client);
+--- linux-2.6.14-rc4-orig/net/decnet/dn_table.c	2005-10-11 22:41:33.000000000 +0200
++++ linux-2.6.14-rc4/net/decnet/dn_table.c	2005-10-13 11:41:34.000000000 +0200
+@@ -784,16 +784,14 @@ struct dn_fib_table *dn_fib_get_table(in
+ 
+ static void dn_fib_del_tree(int n)
+ {
+-        struct dn_fib_table *t;
++	struct dn_fib_table *t;
+ 
+-        write_lock(&dn_fib_tables_lock);
+-        t = dn_fib_tables[n];
+-        dn_fib_tables[n] = NULL;
+-        write_unlock(&dn_fib_tables_lock);
 -
--	if(pool->skbuff) {
--		kfree(pool->skbuff);
--		pool->skbuff = NULL;
--	}
-+	kfree(pool->dma_addr);
-+	pool->dma_addr = NULL;
-+	kfree(pool->skbuff);
-+	pool->skbuff = NULL;
+-        if (t) {
+-                kfree(t);
+-        }
++	write_lock(&dn_fib_tables_lock);
++	t = dn_fib_tables[n];
++	dn_fib_tables[n] = NULL;
++	write_unlock(&dn_fib_tables_lock);
++
++	kfree(t);
  }
  
- /* remove a buffer from a pool */
---- linux-2.6.14-rc4-orig/include/net/ax25.h	2005-10-11 22:41:32.000000000 +0200
-+++ linux-2.6.14-rc4/include/net/ax25.h	2005-10-13 11:23:56.000000000 +0200
-@@ -237,8 +237,7 @@ typedef struct ax25_cb {
- static __inline__ void ax25_cb_put(ax25_cb *ax25)
- {
- 	if (atomic_dec_and_test(&ax25->refcount)) {
--		if (ax25->digipeat)
--			kfree(ax25->digipeat);
-+		kfree(ax25->digipeat);
- 		kfree(ax25);
+ struct dn_fib_table *dn_fib_empty_table(void)
+--- linux-2.6.14-rc4-orig/net/wanrouter/wanmain.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/wanrouter/wanmain.c	2005-10-13 11:42:22.000000000 +0200
+@@ -714,10 +714,8 @@ static int wanrouter_device_new_if(struc
+ 	}
+ 
+ 	/* This code has moved from del_if() function */
+-	if (dev->priv) {
+-		kfree(dev->priv);
+-		dev->priv = NULL;
+-	}
++	kfree(dev->priv);
++	dev->priv = NULL;
+ 
+ #ifdef CONFIG_WANPIPE_MULTPPP
+ 	if (cnf->config_id == WANCONFIG_MPPP)
+@@ -851,10 +849,8 @@ static int wanrouter_delete_interface(st
+ 
+ 	/* Due to new interface linking method using dev->priv,
+ 	 * this code has moved from del_if() function.*/
+-	if (dev->priv){
+-		kfree(dev->priv);
+-		dev->priv=NULL;
+-	}
++	kfree(dev->priv);
++	dev->priv=NULL;
+ 
+ 	unregister_netdev(dev);
+ 
+--- linux-2.6.14-rc4-orig/net/wanrouter/af_wanpipe.c	2005-10-11 22:41:35.000000000 +0200
++++ linux-2.6.14-rc4/net/wanrouter/af_wanpipe.c	2005-10-13 11:43:14.000000000 +0200
+@@ -1099,7 +1099,7 @@ static void release_driver(struct sock *
+ 	sock_reset_flag(sk, SOCK_ZAPPED);
+ 	wp = wp_sk(sk);
+ 
+-	if (wp && wp->mbox) {
++	if (wp) {
+ 		kfree(wp->mbox);
+ 		wp->mbox = NULL;
+ 	}
+@@ -1186,10 +1186,8 @@ static void wanpipe_kill_sock_timer (uns
+ 		return;
+ 	}
+ 
+-	if (wp_sk(sk)) {
+-		kfree(wp_sk(sk));
+-		wp_sk(sk) = NULL;
+-	}
++	kfree(wp_sk(sk));
++	wp_sk(sk) = NULL;
+ 
+ 	if (atomic_read(&sk->sk_refcnt) != 1) {
+ 		atomic_set(&sk->sk_refcnt, 1);
+@@ -1219,10 +1217,8 @@ static void wanpipe_kill_sock_accept (st
+ 	sk->sk_socket = NULL;
+ 
+ 
+-	if (wp_sk(sk)) {
+-		kfree(wp_sk(sk));
+-		wp_sk(sk) = NULL;
+-	}
++	kfree(wp_sk(sk));
++	wp_sk(sk) = NULL;
+ 
+ 	if (atomic_read(&sk->sk_refcnt) != 1) {
+ 		atomic_set(&sk->sk_refcnt, 1);
+@@ -1243,10 +1239,8 @@ static void wanpipe_kill_sock_irq (struc
+ 
+ 	sk->sk_socket = NULL;
+ 
+-	if (wp_sk(sk)) {
+-		kfree(wp_sk(sk));
+-		wp_sk(sk) = NULL;
+-	}
++	kfree(wp_sk(sk));
++	wp_sk(sk) = NULL;
+ 
+ 	if (atomic_read(&sk->sk_refcnt) != 1) {
+ 		atomic_set(&sk->sk_refcnt, 1);
+--- linux-2.6.14-rc4-orig/net/sunrpc/svc.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/svc.c	2005-10-13 11:45:43.000000000 +0200
+@@ -196,12 +196,9 @@ svc_exit_thread(struct svc_rqst *rqstp)
+ 	struct svc_serv	*serv = rqstp->rq_server;
+ 
+ 	svc_release_buffer(rqstp);
+-	if (rqstp->rq_resp)
+-		kfree(rqstp->rq_resp);
+-	if (rqstp->rq_argp)
+-		kfree(rqstp->rq_argp);
+-	if (rqstp->rq_auth_data)
+-		kfree(rqstp->rq_auth_data);
++	kfree(rqstp->rq_resp);
++	kfree(rqstp->rq_argp);
++	kfree(rqstp->rq_auth_data);
+ 	kfree(rqstp);
+ 
+ 	/* Release the server */
+--- linux-2.6.14-rc4-orig/net/sunrpc/xdr.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/xdr.c	2005-10-13 11:46:15.000000000 +0200
+@@ -1167,8 +1167,7 @@ xdr_xcode_array2(struct xdr_buf *buf, un
+ 	err = 0;
+ 
+ out:
+-	if (elem)
+-		kfree(elem);
++	kfree(elem);
+ 	if (ppages)
+ 		kunmap(*ppages);
+ 	return err;
+--- linux-2.6.14-rc4-orig/net/sunrpc/auth_gss/gss_mech_switch.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/auth_gss/gss_mech_switch.c	2005-10-13 11:46:26.000000000 +0200
+@@ -61,8 +61,7 @@ gss_mech_free(struct gss_api_mech *gm)
+ 
+ 	for (i = 0; i < gm->gm_pf_num; i++) {
+ 		pf = &gm->gm_pfs[i];
+-		if (pf->auth_domain_name)
+-			kfree(pf->auth_domain_name);
++		kfree(pf->auth_domain_name);
+ 		pf->auth_domain_name = NULL;
  	}
  }
---- linux-2.6.14-rc4-orig/include/net/netrom.h	2005-10-11 22:41:32.000000000 +0200
-+++ linux-2.6.14-rc4/include/net/netrom.h	2005-10-13 11:24:09.000000000 +0200
-@@ -136,8 +136,7 @@ static __inline__ void nr_node_put(struc
- static __inline__ void nr_neigh_put(struct nr_neigh *nr_neigh)
- {
- 	if (atomic_dec_and_test(&nr_neigh->refcount)) {
--		if (nr_neigh->digipeat != NULL)
--			kfree(nr_neigh->digipeat);
-+		kfree(nr_neigh->digipeat);
- 		kfree(nr_neigh);
- 	}
+--- linux-2.6.14-rc4-orig/net/sunrpc/auth_gss/gss_spkm3_seal.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/auth_gss/gss_spkm3_seal.c	2005-10-13 11:46:33.000000000 +0200
+@@ -124,8 +124,7 @@ spkm3_make_token(struct spkm3_ctx *ctx, 
+ 
+ 	return  GSS_S_COMPLETE;
+ out_err:
+-	if (md5cksum.data) 
+-		kfree(md5cksum.data);
++	kfree(md5cksum.data);
+ 	token->data = NULL;
+ 	token->len = 0;
+ 	return GSS_S_FAILURE;
+--- linux-2.6.14-rc4-orig/net/sunrpc/auth_gss/gss_krb5_seal.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/auth_gss/gss_krb5_seal.c	2005-10-13 11:46:51.000000000 +0200
+@@ -171,6 +171,6 @@ krb5_make_token(struct krb5_ctx *ctx, in
+ 
+ 	return ((ctx->endtime < now) ? GSS_S_CONTEXT_EXPIRED : GSS_S_COMPLETE);
+ out_err:
+-	if (md5cksum.data) kfree(md5cksum.data);
++	kfree(md5cksum.data);
+ 	return GSS_S_FAILURE;
+ }
+--- linux-2.6.14-rc4-orig/net/sunrpc/auth_gss/gss_spkm3_token.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/auth_gss/gss_spkm3_token.c	2005-10-13 11:47:01.000000000 +0200
+@@ -259,8 +259,7 @@ spkm3_verify_mic_token(unsigned char **t
+ 
+ 	ret = GSS_S_COMPLETE;
+ out:
+-	if (spkm3_ctx_id.data)
+-		kfree(spkm3_ctx_id.data);
++	kfree(spkm3_ctx_id.data);
+ 	return ret;
+ }
+ 
+--- linux-2.6.14-rc4-orig/net/sunrpc/auth_gss/gss_spkm3_unseal.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/auth_gss/gss_spkm3_unseal.c	2005-10-13 11:47:12.000000000 +0200
+@@ -120,9 +120,7 @@ spkm3_read_token(struct spkm3_ctx *ctx,
+ 	/* XXX: need to add expiration and sequencing */
+ 	ret = GSS_S_COMPLETE;
+ out:
+-	if (md5cksum.data) 
+-		kfree(md5cksum.data);
+-	if (wire_cksum.data) 
+-		kfree(wire_cksum.data);
++	kfree(md5cksum.data);
++	kfree(wire_cksum.data);
+ 	return ret;
+ }
+--- linux-2.6.14-rc4-orig/net/sunrpc/auth_gss/gss_krb5_unseal.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/sunrpc/auth_gss/gss_krb5_unseal.c	2005-10-13 11:47:19.000000000 +0200
+@@ -197,6 +197,6 @@ krb5_read_token(struct krb5_ctx *ctx,
+ 
+ 	ret = GSS_S_COMPLETE;
+ out:
+-	if (md5cksum.data) kfree(md5cksum.data);
++	kfree(md5cksum.data);
+ 	return ret;
+ }
+--- linux-2.6.14-rc4-orig/net/bluetooth/hidp/core.c	2005-08-29 01:41:01.000000000 +0200
++++ linux-2.6.14-rc4/net/bluetooth/hidp/core.c	2005-10-13 11:47:49.000000000 +0200
+@@ -657,9 +657,7 @@ unlink:
+ failed:
+ 	up_write(&hidp_session_sem);
+ 
+-	if (session->input)
+-		kfree(session->input);
+-
++	kfree(session->input);
+ 	kfree(session);
+ 	return err;
  }
