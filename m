@@ -1,59 +1,31 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 01/14] Big kfree NULL check cleanup - net
-Date: Fri, 14 Oct 2005 11:50:50 +0200
-Message-ID: <1129283450.5057.29.camel@localhost.localdomain>
-References: <200510132125.44470.jesper.juhl@gmail.com>
+From: Yan Zheng <yzcorp@gmail.com>
+Subject: [PATCH]The type of inet6_ifinfo_notify event  in addrconf_ifdown().
+Date: Fri, 14 Oct 2005 18:40:35 +0800
+Message-ID: <434F8B23.7090201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-	Ralf Baechle <ralf@linux-mips.org>,
-	Greg Kroah-Hartman <greg@kroah.com>, dccp@vger.kernel.org,
-	Patrick Caulfield <patrick@tykepenguin.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Andy Adamson <andros@umich.edu>,
-	"J. Bruce Fields" <bfields@umich.edu>,
-	Nenad Corbic <ncorbic@sangoma.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750707AbVJNKAn@vger.kernel.org>
-To: Jesper Juhl <jesper.juhl@gmail.com>
-In-Reply-To: <200510132125.44470.jesper.juhl@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750705AbVJNKjb@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jesper,
+Maybe inet6_ifinfo_notify event type should be RTM_DELLINK in 
+addrconf_ifdown().
 
-> This is the net/ part of the big kfree cleanup patch.
-> 
-> Remove pointless checks for NULL prior to calling kfree() in net/.
-> 
-> 
-> Sorry about the long Cc: list, but I wanted to make sure I included everyone
-> who's code I've changed with this patch.
+Signed-off-by: Yan Zheng<yanzheng@21cn.com>
 
-you forgot me ;)
-
-> --- linux-2.6.14-rc4-orig/net/bluetooth/hidp/core.c	2005-08-29 01:41:01.000000000 +0200
-> +++ linux-2.6.14-rc4/net/bluetooth/hidp/core.c	2005-10-13 11:47:49.000000000 +0200
-> @@ -657,9 +657,7 @@ unlink:
->  failed:
->  	up_write(&hidp_session_sem);
->  
-> -	if (session->input)
-> -		kfree(session->input);
-> -
-> +	kfree(session->input);
->  	kfree(session);
->  	return err;
->  }
-
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Regards
-
-Marcel
+Index:  net/ipv6/addrconf.c
+------------------------------------------------------------------------
+--- linux-2.6.14-rc4-git2/net/ipv6/addrconf.c    2005-10-14 
+18:28:01.000000000 +0800
++++ linux/net/ipv6/addrconf.c    2005-10-14 18:31:15.000000000 +0800
+@@ -2167,7 +2167,7 @@
+ 
+     /* Step 5: netlink notification of this interface */
+     idev->tstamp = jiffies;
+-    inet6_ifinfo_notify(RTM_NEWLINK, idev);
++    inet6_ifinfo_notify(RTM_DELLINK, idev);
+    
+     /* Shot the device (if unregistered) */
+ 
