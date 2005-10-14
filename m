@@ -1,44 +1,36 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 01/14] Big kfree NULL check cleanup - net
-Date: Fri, 14 Oct 2005 21:51:13 +0900 (JST)
-Message-ID: <20051014.215113.26967183.yoshfuji@linux-ipv6.org>
-References: <200510132125.44470.jesper.juhl@gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH]The type of inet6_ifinfo_notify event in
+ addrconf_ifdown().
+Date: Fri, 14 Oct 2005 13:57:51 -0700 (PDT)
+Message-ID: <20051014.135751.78051480.davem@davemloft.net>
+References: <434F8B23.7090201@gmail.com>
+	<20051014.195315.106624870.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@osdl.org,
-	netdev@vger.kernel.org, acme@conectiva.com.br, ralf@linux-mips.org,
-	greg@kroah.com, dccp@vger.kernel.org, patrick@tykepenguin.com,
-	jt@hpl.hp.com, sri@us.ibm.com, andros@umich.edu, bfields@umich.edu,
-	ncorbic@sangoma.com, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750739AbVJNMvT@vger.kernel.org>
-To: jesper.juhl@gmail.com, davem@davemloft.net
-In-Reply-To: <200510132125.44470.jesper.juhl@gmail.com>
+Cc: yzcorp@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750898AbVJNU6A@vger.kernel.org>
+To: yoshfuji@wide.ad.jp
+In-Reply-To: <20051014.195315.106624870.yoshfuji@wide.ad.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <200510132125.44470.jesper.juhl@gmail.com> (at Thu, 13 Oct 2005 21:25:43 +0200), Jesper Juhl <jesper.juhl@gmail.com> says:
+From: YOSHIFUJI Hideaki <yoshfuji@wide.ad.jp>
+Date: Fri, 14 Oct 2005 19:53:15 +0900 (JST)
 
-> --- linux-2.6.14-rc4-orig/net/ipv4/netfilter/ip_nat_snmp_basic.c	2005-10-11 22:41:33.000000000 +0200
-> +++ linux-2.6.14-rc4/net/ipv4/netfilter/ip_nat_snmp_basic.c	2005-10-13 11:31:09.000000000 +0200
-> @@ -1161,8 +1161,7 @@ static int snmp_parse_mangle(unsigned ch
->  		
->  		if (!snmp_object_decode(&ctx, obj)) {
->  			if (*obj) {
-> -				if ((*obj)->id)
-> -					kfree((*obj)->id);
-> +				kfree((*obj)->id);
->  				kfree(*obj);
->  			}	
->  			kfree(obj);
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Maybe:
-    if (*obj)
-        kfree((*obj)->id);
-    kfree(obj);
+Applied.  I also took the liberty of fixing the "Step 5"
+comment above, it should be "Step 6" :-)
 
-Otherwise;
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Yan, please fix your patch postings.  Your email client
+adds newlines, and changes tabs into spaces, totally corrupting
+your patches.  I have to apply every one of your patches by
+hand because of this.
 
---yoshfuji
+To be honest, gmail has been shown to be a very unusable place
+from which to send patches.  There are certain kinds of outgoing
+text mangling that I do not know if they even allow to disable.
+
+Thanks.
