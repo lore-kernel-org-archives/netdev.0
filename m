@@ -1,53 +1,59 @@
-From: Frank Sorenson <frank@tuxrocks.com>
-Subject: Re: Kconfig Dependencies for CONFIG_NET_CLS_RSVP6
-Date: Fri, 14 Oct 2005 01:07:44 -0600
-Message-ID: <434F5940.9010500@tuxrocks.com>
-References: <434F5247.2040007@tuxrocks.com> <20051013.235907.66789139.davem@davemloft.net>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 01/14] Big kfree NULL check cleanup - net
+Date: Fri, 14 Oct 2005 11:50:50 +0200
+Message-ID: <1129283450.5057.29.camel@localhost.localdomain>
+References: <200510132125.44470.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932219AbVJNHH4@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20051013.235907.66789139.davem@davemloft.net>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	Ralf Baechle <ralf@linux-mips.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, dccp@vger.kernel.org,
+	Patrick Caulfield <patrick@tykepenguin.com>,
+	Jean Tourrilhes <jt@hpl.hp.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Andy Adamson <andros@umich.edu>,
+	"J. Bruce Fields" <bfields@umich.edu>,
+	Nenad Corbic <ncorbic@sangoma.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750707AbVJNKAn@vger.kernel.org>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+In-Reply-To: <200510132125.44470.jesper.juhl@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Hi Jesper,
 
-David S. Miller wrote:
-> From: Frank Sorenson <frank@tuxrocks.com>
-> Date: Fri, 14 Oct 2005 00:37:59 -0600
+> This is the net/ part of the big kfree cleanup patch.
+> 
+> Remove pointless checks for NULL prior to calling kfree() in net/.
 > 
 > 
->>I noticed that I can still select "Special RSVP classifier for IPv6"
->>even if "The IPv6 protocol" isn't selected.  Should CONFIG_NET_CLS_RSVP6
->>depend on or select IPV6?
->>
->>Currently:
->>Depends on: NET && NET_CLS && NET_QOS
-> 
-> 
-> It doesn't need the ipv6 stack at all, it's just a classifier
-> that looks at packet headers and makes decisions.
+> Sorry about the long Cc: list, but I wanted to make sure I included everyone
+> who's code I've changed with this patch.
 
-Okay, I suppose that makes more sense now.  I just wanted to check it
-through, since I figured I'd turned off everything related to IPv6 :)
+you forgot me ;)
 
-Thanks for explaining,
+> --- linux-2.6.14-rc4-orig/net/bluetooth/hidp/core.c	2005-08-29 01:41:01.000000000 +0200
+> +++ linux-2.6.14-rc4/net/bluetooth/hidp/core.c	2005-10-13 11:47:49.000000000 +0200
+> @@ -657,9 +657,7 @@ unlink:
+>  failed:
+>  	up_write(&hidp_session_sem);
+>  
+> -	if (session->input)
+> -		kfree(session->input);
+> -
+> +	kfree(session->input);
+>  	kfree(session);
+>  	return err;
+>  }
 
-Frank
-- --
-Frank Sorenson - KD7TZK
-Systems Manager, Computer Science Department
-Brigham Young University
-frank@tuxrocks.com
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 
-iD8DBQFDT1lAaI0dwg4A47wRAuXVAKCWBcZj3OTK8wLZInGE7eIegtrBeACg7GOt
-gM0finkJL0tRmXm9685vS10=
-=8M+k
------END PGP SIGNATURE-----
+Regards
+
+Marcel
