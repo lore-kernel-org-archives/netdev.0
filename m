@@ -1,38 +1,27 @@
-From: Frank Sorenson <frank@tuxrocks.com>
-Subject: Kconfig Dependencies for CONFIG_NET_CLS_RSVP6
-Date: Fri, 14 Oct 2005 00:37:59 -0600
-Message-ID: <434F5247.2040007@tuxrocks.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Kconfig Dependencies for CONFIG_NET_CLS_RSVP6
+Date: Thu, 13 Oct 2005 23:59:07 -0700 (PDT)
+Message-ID: <20051013.235907.66789139.davem@davemloft.net>
+References: <434F5247.2040007@tuxrocks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750787AbVJNGiG@vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750864AbVJNG7T@vger.kernel.org>
+To: frank@tuxrocks.com
+In-Reply-To: <434F5247.2040007@tuxrocks.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+From: Frank Sorenson <frank@tuxrocks.com>
+Date: Fri, 14 Oct 2005 00:37:59 -0600
 
-I noticed that I can still select "Special RSVP classifier for IPv6"
-even if "The IPv6 protocol" isn't selected.  Should CONFIG_NET_CLS_RSVP6
-depend on or select IPV6?
+> I noticed that I can still select "Special RSVP classifier for IPv6"
+> even if "The IPv6 protocol" isn't selected.  Should CONFIG_NET_CLS_RSVP6
+> depend on or select IPV6?
+> 
+> Currently:
+> Depends on: NET && NET_CLS && NET_QOS
 
-Currently:
-Depends on: NET && NET_CLS && NET_QOS
-
-
-Thanks,
-Frank
-- --
-Frank Sorenson - KD7TZK
-Systems Manager, Computer Science Department
-Brigham Young University
-frank@tuxrocks.com
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFDT1JHaI0dwg4A47wRAhgRAJ0WKH6/S1DjKKRZDSwiLOpIMYJ8cgCgyIld
-xXUJRsvCO1TJsCfpSCMj7/A=
-=gqzH
------END PGP SIGNATURE-----
+It doesn't need the ipv6 stack at all, it's just a classifier
+that looks at packet headers and makes decisions.
