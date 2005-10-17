@@ -1,52 +1,91 @@
-From: "burl senosk" <deloras@clemsonalumni.com>
-Subject: il In a delightful ishopping space, grab quick aid. impropriety
-Date: Mon, 17 Oct 2005 10:04:37 +0800
-Message-ID: <021F41E5.275BE86__17246.8635290445$1129511806$gmane$org@clemsonalumni.com>
-Reply-To: "burl senosk" <deloras@clemsonalumni.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
+Date: Mon, 17 Oct 2005 03:24:25 +0200
+Message-ID: <4352FD49.4090201@trash.net>
+References: <4352EEC8.9000602@trash.net>
+	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <owner-linux-xfs@oss.sgi.com>, <tucker@oss.sgi.com>, <netdev@oss.sgi.com>,
-        <lockmeter@oss.sgi.com>, <murray@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Cornell Poupard" <lowe@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	herbert@gondor.apana.org.au
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20051017.094919.56989341.yoshfuji@linux-ipv6.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-100% secure site. 100% quality tablet. 
+YOSHIFUJI Hideaki / $B5HF#1QL@ wrote:
+> In article <4352EEC8.9000602@trash.net> (at Mon, 17 Oct 2005 02:22:32 +0200), Patrick McHardy <kaber@trash.net> says:
+> 
+> 
+>>[NETFILTER]: Make IPsec input processing symetrical to output
+> 
+> 
+> I think this comment is not appropriate.
+>  1. They are not "NETFILTER" but rather "CORE" IPv4/6 stack.
+>  2. There are several known bad side effects.
+>     They should be described.
 
-Great savings to heal your disorder!
-We don't delay! Respectibility is all to us.
+The patches are work in progress, so I didn't spent much time
+on descriptive changelog entries. The sideeffects of posting
+packets to the stack again are incorrect statistics and
+packet sockets see packets on each pass through the stack.
+Which is actually not a bad sideeffect because it only affects
+pure transport mode bundles with which the plain text packet is
+currently not visible for tcpdump at all.
 
-Fine buying for penny-pinching funds.
+>>diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+>>--- a/net/ipv6/xfrm6_input.c
+>>+++ b/net/ipv6/xfrm6_input.c
+>>@@ -121,16 +121,21 @@ int xfrm6_rcv_spi(struct sk_buff **pskb,
+>> 	skb->sp->len += xfrm_nr;
+>> 	skb->ip_summed = CHECKSUM_NONE;
+>> 
+>>-	if (decaps) {
+>>-		if (!(skb->dev->flags&IFF_LOOPBACK)) {
+>>-			dst_release(skb->dst);
+>>-			skb->dst = NULL;
+>>-		}
+>>-		netif_rx(skb);
+>>-		return -1;
+>>-	} else {
+>>-		return 1;
+>>+	if (!decaps) {
+>>+		if (skb_cloned(skb) &&
+>>+		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+>>+			goto drop;
+>>+		/* FIXME: Jumbo payload option */
+>>+		skb->nh.ipv6h->payload_len = htons(skb->len);
+>>+		__skb_push(skb, skb->data - skb->nh.raw);
+>> 	}
+>>+	if (!(skb->dev->flags&IFF_LOOPBACK)) {
+>>+		dst_release(skb->dst);
+>>+		skb->dst = NULL;
+>>+	}
+>>+	nf_reset(skb);
+>>+	netif_rx(skb);
+>>+	return -1;
+>> 
+>> drop_unlock:
+>> 	spin_unlock(&x->lock);
+> 
+> 
+> I diagree.
+> Stack should process the packet just once if it is of transport mode.
+> (It is okay to process one twice if it is of tunnel mode.)
 
-It's complimentary to discuss with our doctor. 
-Satisfactory to you!  Certainly suggest to others. Lynn P --NY. 
-
-http://uk.geocities.com/spacesphinxcoolb/?dwofidk
-
-
-Through the stir and motion of the commoner streets; through the roar and
-jar of many vehicles, many feet, many voices; with the blazing shop-lights
-lighting him on, the west wind blowing him on, and the crowd pressing him
-on, he is pitilessly urged upon his way, and nothing meets him murmuring,
-"Don't go home." Arrived at last in his dull room to light his candles, and
-look round and up, and see the Roman pointing from the ceiling, there is no
-new significance in the Roman's hand to-night or in the flutter of the
-attendant groups to give him the late warning, "Don't come here." 
-It is a moonlight night, but the moon, being past the full, is only now
-rising over the great ellaerness of London. The stars are shining as they
-shone above the turret-leads at Chesney Wold. This woman, as he has of late
-been so accustomed to call her, looks out upon them. Her soul is turbulent
-within her; she is sick at heart and restless. The large rooms are too
-cramped and close. She cannot endure their restraint and will walk alone in
-a neighbouring garden. 
-findsym  capets  eostrom sz03 falkl  freenodes
-
-"Is he?" returned Bucket anxiously. "I only want to rouse him. I don't like
-to see an old acquaintance giving in like this. It would cheer him up more
-than anything if I could make him a little waxy with me. He's welcome to
-drop into me, right and left, if he likes. I shall never take advantage of
-it." 
+For IPv6 this probably can be changed, I just kept the code in sync
+for now. For IPv4 it is necessary to pass it through the entire stack
+again to make netfilter fully usable without lots of code duplication
+or unusual limitations, especially for NAT. So the question is whether
+we want to keep the code and behaviour of IPv4 and IPv6 in sync or
+not. I think we should.
