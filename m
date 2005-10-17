@@ -1,50 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Mon, 17 Oct 2005 11:46:29 +1000
-Message-ID: <20051017014629.GB32661@gondor.apana.org.au>
-References: <4352EEC8.9000602@trash.net>
-	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
-	<4352FD49.4090201@trash.net>
+From: Reuben Farrelly <reuben-lkml@reub.net>
+Subject: Re: 2.6.14-rc4-mm1
+Date: Mon, 17 Oct 2005 19:19:31 +1300
+Message-ID: <43534273.2050106@reub.net>
+References: <fa.h4unqgj.l34e31@ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4352FD49.4090201@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751340AbVJQGTf@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <fa.h4unqgj.l34e31@ifi.uio.no>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 17, 2005 at 03:24:25AM +0200, Patrick McHardy wrote:
->
-> For IPv6 this probably can be changed, I just kept the code in sync
-> for now. For IPv4 it is necessary to pass it through the entire stack
-> again to make netfilter fully usable without lots of code duplication
-> or unusual limitations, especially for NAT. So the question is whether
-> we want to keep the code and behaviour of IPv4 and IPv6 in sync or
-> not. I think we should.
+Hi,
 
-I can see the concern of processing pure transport mode packets in IPv6
-twice in the stack because IPsec in IPv6 is used for a totally different
-purpose compared to IPv4.
+On 16/10/2005 10:42 p.m., Andrew Morton wrote:
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.14-rc4/2.6.14-rc4-mm1/
+> 
+> - Lots of i2c, PCI and USB updates
+> 
+> - Large input layer update to convert it all to dynamic input_dev allocation
+> 
+> - Significant x86_64 updates
+> 
+> - MD updates
+> 
+> - Lots of core memory management scalability rework
 
-So how about this? We let the SA tell us whether they want to go through
-netfilter again.  So each SA will carry a flag which determines whether
-packets through it should go through netfilter.
+Compiles and runs here, but noting these messages when ethernet link down:
 
-This flag would only affect transport mode SAs of course.
+Oct 17 18:49:40 tornado kernel: NEIGH: BUG, double timer add, state is 1
+Oct 17 18:51:04 tornado last message repeated 3 times
+Oct 17 18:52:05 tornado last message repeated 5 times
+Oct 17 18:52:11 tornado last message repeated 2 times
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+net/core/neighbour.c has this:
+
+static inline void neigh_add_timer(struct neighbour *n, unsigned long when)
+{
+         if (unlikely(mod_timer(&n->timer, when))) {
+                 printk("NEIGH: BUG, double timer add, state is %x\n",
+                        n->nud_state);
+         }
+}
+
+
+Network guys?
+
+reuben
