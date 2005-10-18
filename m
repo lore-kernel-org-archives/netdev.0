@@ -1,26 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [BUG]NULL pointer dereference in ipv6_get_saddr()
-Date: Wed, 19 Oct 2005 01:21:57 +0900 (JST)
-Message-ID: <20051019.012157.11460212.yoshfuji@linux-ipv6.org>
-References: <435512F5.1040502@21cn.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: [PATCH] ipconfig.c: fix "dhcp server takes precedence over bootp
+	header one"
+Date: Tue, 18 Oct 2005 19:05:19 +0200
+Message-ID: <1129655119.4133.71.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750971AbVJRQWG@vger.kernel.org>
-To: yanzheng@21cn.com
-In-Reply-To: <435512F5.1040502@21cn.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@davemloft.net
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <435512F5.1040502@21cn.com> (at Tue, 18 Oct 2005 23:21:25 +0800), Yan Zheng <yanzheng@21cn.com> says:
 
-> When I use command "ip -f inet6 route get fec0::1", kernel Oops occurs.
-> I found it's due to ip_route_output return address of ip6_null_entry, ip6_null_entry.rt6i_idev is NULL.
+Hello,
 
-I think this is already fixed in head.
-I don't remember if we pushed this to stable...
+I was unable to use nfs root with a dhcp server that does not fill the
+"saddr" field in the bootp header (kernel then tries RPC on 0.0.0.0).
 
---yoshfuji
+The ipconfig code states that the dhcp server_id takes precedence over
+bootp header, but I think the check is misplaced as it is done only for
+DHCPOFFER.
+
+The following patch fixes the problem.
+
+
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+
+--- linux-2.6.13.4/net/ipv4/ipconfig.c.orig	2005-10-18 18:11:54.000000000 +0200
++++ linux-2.6.13.4/net/ipv4/ipconfig.c	2005-10-18 18:22:18.000000000 +0200
+@@ -959,13 +959,6 @@
+ 				printk(" by server %u.%u.%u.%u\n",
+ 				       NIPQUAD(ic_servaddr));
+ #endif
+-				/* The DHCP indicated server address takes
+-				 * precedence over the bootp header one if
+-				 * they are different.
+-				 */
+-				if ((server_id != INADDR_NONE) &&
+-				    (b->server_ip != server_id))
+-					b->server_ip = ic_servaddr;
+ 				break;
+ 
+ 			case DHCPACK:
+@@ -982,6 +975,14 @@
+ 				goto drop_unlock;
+ 			};
+ 
++			/* The DHCP indicated server address takes
++			 * precedence over the bootp header one if
++			 * they are different.
++			 */
++			if ((server_id != INADDR_NONE) &&
++			    (b->server_ip != server_id))
++				b->server_ip = ic_servaddr;
++
+ 			ic_dhcp_msgtype = mt;
+ 
+ 		}
+
+-- 
+Maxime
