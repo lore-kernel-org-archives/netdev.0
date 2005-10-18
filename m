@@ -1,104 +1,57 @@
-From: Bart De Schuymer <bdschuym-LPO8gxj9N8aZIoH1IeqzKA@public.gmane.org>
-Subject: Re: [PATCH] ebtables: Port ebt_[u]log.c to nf[netlink]_log
-Date: Mon, 17 Oct 2005 17:59:59 +0000
-Message-ID: <1129571999.3383.6.camel@localhost.localdomain>
-References: <20051007234903.GR4450@rama.customers.eurospot.com>
+From: "santos maginn" <dorian@peaceniks.net>
+Subject: swerve Int'l punctual posting! Take your tablet rapidly. variant
+Date: Tue, 18 Oct 2005 03:03:34 +0100
+Message-ID: <7A978BFB.1F79A48@peaceniks.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Harald Welte <laforge-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-In-Reply-To: <20051007234903.GR4450-5xaKNk1AN7bNqB9Gf7YOJg/oQhhTQFE7QQ4Iyu8u01E@public.gmane.org>
-Sender: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
-	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
-	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ebtables-devel>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Jacob Houser" <lowe@oss.sgi.com>, <owner-linux-xfs@oss.sgi.com>,
+        <tucker@oss.sgi.com>, <netdev@oss.sgi.com>, <lockmeter@oss.sgi.com>,
+        <murray@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Op za, 08-10-2005 te 01:49 +0200, schreef Harald Welte:
-> Hi Bart!
-> 
-> The patch below is totally untested (though it compiles), and updates
-> ebtables to resemble the behaviour that we now have in ipv4 (and ipv6):
-> {ip,ip6,eb}tables just tell the nf_log core that they want to log a
-> packet, the mechanism (syslog, nfnetlink_log, ...) is actually decided
-> by nf_log.
-> 
-> By default, everything will behave like before.
-> 
-> Please review, and test that ebt_log and ebt_ulog are still working as
-> expected.  Thanks!
-
-Sorry for the late reply, some hardware problems got in the way.
-Apart from the comments below, the patch is fine by me (I tested both).
-
-Thanks a lot,
-Bart
-
-> @@ -144,6 +153,21 @@ static void ebt_log(const struct sk_buff
->  out:
->  	printk("\n");
->  	spin_unlock_bh(&ebt_log_lock);
-> +
-> +}
-> +
-> +static void ebt_log(const struct sk_buff *skb, unsigned int hooknr,
-> +   const struct net_device *in, const struct net_device *out,
-> +   const void *data, unsigned int datalen)
-> +{
-> +	struct ebt_log_info *info = (struct ebt_log_info *)data;
-> +	struct nf_loginfo li;
-> +
-> +	li.type = NF_LOG_TYPE_LOG;
-> +	li.u.log.level = info->loglevel;
-> +	li.u.log.logflags = info->bitmask;
-> +
-> +	nf_log_packet(PF_BRIDGE, hooknr, skb, in, out, &li, info->prefix);
-
-Should be ebt_log_packet
-
->  }
->  
->  static struct ebt_watcher log =
-> @@ -154,13 +178,32 @@ static struct ebt_watcher log =
->  	.me		= THIS_MODULE,
->  };
->  
-> +static struct nf_logger ebt_log_logger = {
-> +	.name 		= "ebt_log",
-> +	.logfn		= &ebt_log_packet,
-> +	.me		= THIS_MODULE,
-> +};
-> +
->  static int __init init(void)
->  {
-> -	return ebt_register_watcher(&log);
-> +	int ret;
-> +
-> +	ret = ebt_register_watcher(&log);
-> +	if (ret < 0)
-> +		return ret;
-> +	if (nf_log_register(PF_BRIDGE, &ebt_log_logger) < 0) {
-> +		printk(KERN_WARNING "ebt_log: not logging via system console "
-> +		       "since somebody else already registered for PF_INET\n");
-> +		/* wecannot make module load fail here, since otherwise 
-> +		 * ebtables userspace would abort */
-> +	}
-
-Since we're using PF_BRIDGE instead of PF_INET now, this if construct
-can be replaced by a simple call to nf_log_register.
 
 
+All communications are sheltered with safekeeping policy. 
+Gratis replenish Rxx toward your serious chronic symptom! 
 
+Not exceed 46hrs, it will be reached at your place. 
+Tip top capsule at cheap tags.
 
--------------------------------------------------------
-This SF.Net email is sponsored by:
-Power Architecture Resource Center: Free content, downloads, discussions,
-and more. http://solutions.newsforge.com/ibmarch.tmpl
+Purchase from us, Get hold of complimentary case details review. 
+
+I'm extremely satisfied. No suspicions to take from your URL again. Mark D
+--DC. 
+http://uk.geocities.com/comeonandtryb/?n
+
+Mr. Squod tacks out, all on one side, to execute the word of command; and
+the trooper, having smoked his pipe, lays it by. Jo is brought in. He is not
+one of Mrs. Pardiggle's Tockahoopo Indians; he is not one of Mrs. Jellyby's
+lambs, being wholly unconnected with Borrioboola-Gha; he is not softened by
+distance and unfamiliarity; he is not a genuine foreign-grown savage; he is
+the ordinary home-made article. Dirty, ugly, disagreeable to all the senses,
+in body a common creature of the common streets, only in soul a heathen.
+Homely filth begrimes him, homely parasites devour him, homely sores are in
+him, homely rags are on him; native ignorance, the growth of English soil
+and climate, sinks his immortal nature lower than the beasts that perish.
+Stand forth, Jo, in uncompromising colours. From the sole of thy foot to the
+crown of thy head, there is nothing interesting about thee. 
+He shuffles slowly into Mr. George's gallery and stands huddled together in
+a bundle, looking all about the floor. He seems to know that they have an
+inclination to shrink from him, partly for what he is and partly for what he
+has caused. He, too, shrinks from them. He is not of the same order of
+things, not of the same place in creation. He is of no order and no place,
+neither of the beasts nor of humanity. 
+
+cymraeg  estin  flann sz03 elzzird  eradio
+
+There used, in that week, to come backward and forward to our lodging to
+fence with Richard a person who had formerly been a cavalry soldier; he was
+a fine bluff-looking man, of a frank ggmmjj bearing, with whom Richard had
+practised for some months. I heard so much about him, not only from Richard,
+but from my guardian too, that I was purposely in the room with my work one
+morning after breakfast when he came. 
