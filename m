@@ -1,72 +1,126 @@
-From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
-Subject: Re: [PATCH] X25: Add ITU-T facilites
-Date: Tue, 18 Oct 2005 11:48:30 -0400
-Message-ID: <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com>
-References: <1129513666.3747.50.camel@localhost.localdomain> <20051017022826.GA23167@mandriva.com> <1129615767.3695.15.camel@localhost.localdomain> <20051018.152318.68554424.yoshfuji@linux-ipv6.org> <20051018153702.GC23167@mandriva.com>
-Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+From: Harald Welte <laforge-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Subject: Re: [PATCH] ebtables: Port ebt_[u]log.c to nf[netlink]_log
+Date: Tue, 18 Oct 2005 10:58:53 +0200
+Message-ID: <20051018085853.GG20338@sunbeam.de.gnumonks.org>
+References: <20051007234903.GR4450@rama.customers.eurospot.com> <1129571999.3383.6.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-	<ahendry@tusc.com.au>, <eis@baty.hanse.de>,
-	<linux-x25@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750834AbVJRPse@vger.kernel.org>
-In-Reply-To: <20051018153702.GC23167@mandriva.com>
-Content-class: urn:content-classes:message
-To: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="G6nVm6DDWH/FONJq"
+Cc: Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Bart De Schuymer <bdschuym-LPO8gxj9N8aZIoH1IeqzKA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1129571999.3383.6.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
+	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
+	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ebtables-devel>
 List-Id: netdev.vger.kernel.org
 
 
-On Tue, 18 Oct 2005, Arnaldo Carvalho de Melo wrote:
+--G6nVm6DDWH/FONJq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Em Tue, Oct 18, 2005 at 03:23:18PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
->> In article <1129615767.3695.15.camel@localhost.localdomain> (at Tue, 18 Oct 2005 16:09:27 +1000), Andrew Hendry <ahendry@tusc.com.au> says:
->>
->>> +/*
->>> +*     ITU DTE facilities
->>> +*     Only the called and calling address
->>> +*     extension are currently implemented.
->>> +*     The rest are in place to avoid the struct
->>> +*     changing size if someone needs them later
->>> ++ */
->>> +struct x25_dte_facilities {
->>> +	unsigned int    calling_len, called_len;
->>> +	char            calling_ae[20];
->>> +	char            called_ae[20];
->>> +	unsigned char   min_throughput;
->>> +	unsigned short  delay_cumul;
->>> +	unsigned short  delay_target;
->>> +	unsigned short  delay_max;
->>> +	unsigned char   expedited;
->>> +};
->>
->> Why don't you use fixed size members?
->> And we can eliminate 8bit hole.
->>
->> struct x25_dte_facilities {
->>      u32             calling_len
->>      u32             called_len;
->
-> I guess the two above can be 'u8' as they refer to calling_ae and called_ae
-> that at most will be '20'?
->
->>      u8              calling_ae[20];
->>      u8              called_ae[20];
->
-> - Arnaldo
+On Mon, Oct 17, 2005 at 05:59:59PM +0000, Bart De Schuymer wrote:
+> Op za, 08-10-2005 te 01:49 +0200, schreef Harald Welte:
+> > Hi Bart!
+> >=20
+> > The patch below is totally untested (though it compiles), and updates
+> > ebtables to resemble the behaviour that we now have in ipv4 (and ipv6):
+> > {ip,ip6,eb}tables just tell the nf_log core that they want to log a
+> > packet, the mechanism (syslog, nfnetlink_log, ...) is actually decided
+> > by nf_log.
+> >=20
+> > By default, everything will behave like before.
+> >=20
+> > Please review, and test that ebt_log and ebt_ulog are still working as
+> > expected.  Thanks!
+>=20
+> Sorry for the late reply, some hardware problems got in the way.
 
-At the very least put the 32-bit in the beginning and 8-bit stuff at
-the end so natural alignment occurs where possible.
+no problem, I probably hold the record of delayed responses, so I can
+understand that completely ;)
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.13.4 on an i686 machine (5589.46 BogoMips).
-Warning : 98.36% of all statistics are fiction.
-.
+> Apart from the comments below, the patch is fine by me (I tested both).
 
-****************************************************************
-The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
+great.
 
-Thank you.
+> > +	nf_log_packet(PF_BRIDGE, hooknr, skb, in, out, &li, info->prefix);
+>=20
+> Should be ebt_log_packet
+
+why is that?  nf_log_packet() is a function provided by the netfilter
+core in net/netfilter/.  Do you want an ebt_log_packet() wrapper function t=
+hat just calls
+nf_log_packet() ?
+
+> >  {
+> > -	return ebt_register_watcher(&log);
+> > +	int ret;
+> > +
+> > +	ret =3D ebt_register_watcher(&log);
+> > +	if (ret < 0)
+> > +		return ret;
+> > +	if (nf_log_register(PF_BRIDGE, &ebt_log_logger) < 0) {
+> > +		printk(KERN_WARNING "ebt_log: not logging via system console "
+> > +		       "since somebody else already registered for PF_INET\n");
+> > +		/* wecannot make module load fail here, since otherwise=20
+> > +		 * ebtables userspace would abort */
+> > +	}
+>=20
+> Since we're using PF_BRIDGE instead of PF_INET now, this if construct
+> can be replaced by a simple call to nf_log_register.
+
+No, I think we only fix the comment (state PF_BRIDGE in the comment) but
+leave it like it is.
+
+The issues is, when (in chronological order)
+
+1) someone starts their logging daemon (e.g. ulogd2)
+2) the daemon is configured to nf_log_register() for PF_BRIDGE
+3) then the ruleset is loaded, which automatically modprobe's ebt_log.ko
+4) ebt_log wants to nf_log_register() for PF_BRIDGE
+
+I think we should print some message to syslog to tell the use (once)
+that logging will not be done via the system console, even though he
+uses the "log" watcher (which traditionally always logged via syslog).
+
+Comments?
+
+--=20
+- Harald Welte <laforge-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--G6nVm6DDWH/FONJq
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFDVLlNXaXGVTD0i/8RApTfAJ9PCRWAyCfrRHGpYidTjD4RtZyqWgCeK6Ir
+55etc3je4r1v/oTq+Na/gdk=
+=TMIJ
+-----END PGP SIGNATURE-----
+
+--G6nVm6DDWH/FONJq--
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by:
+Power Architecture Resource Center: Free content, downloads, discussions,
+and more. http://solutions.newsforge.com/ibmarch.tmpl
