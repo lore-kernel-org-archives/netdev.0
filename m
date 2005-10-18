@@ -1,56 +1,59 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] X25: Add ITU-T facilites
-Date: Tue, 18 Oct 2005 15:23:18 +0900 (JST)
-Message-ID: <20051018.152318.68554424.yoshfuji@linux-ipv6.org>
-References: <1129513666.3747.50.camel@localhost.localdomain>
-	<20051017022826.GA23167@mandriva.com>
-	<1129615767.3695.15.camel@localhost.localdomain>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: [BUG]NULL pointer dereference in ipv6_get_saddr()
+Date: Tue, 18 Oct 2005 23:21:25 +0800
+Message-ID: <435512F5.1040502@21cn.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, eis@baty.hanse.de,
-	linux-x25@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932414AbVJRGXa@vger.kernel.org>
-To: ahendry@tusc.com.au
-In-Reply-To: <1129615767.3695.15.camel@localhost.localdomain>
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750804AbVJRPUQ@vger.kernel.org>
+To: netdev@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <1129615767.3695.15.camel@localhost.localdomain> (at Tue, 18 Oct 2005 16:09:27 +1000), Andrew Hendry <ahendry@tusc.com.au> says:
+When I use command "ip -f inet6 route get fec0::1", kernel Oops occurs.
+I found it's due to ip_route_output return address of ip6_null_entry, ip6_null_entry.rt6i_idev is NULL.
 
-> +/* 
-> +*     ITU DTE facilities
-> +*     Only the called and calling address
-> +*     extension are currently implemented.
-> +*     The rest are in place to avoid the struct
-> +*     changing size if someone needs them later
-> ++ */
-> +struct x25_dte_facilities {
-> +	unsigned int    calling_len, called_len;
-> +	char            calling_ae[20];
-> +	char            called_ae[20];
-> +	unsigned char   min_throughput;
-> +	unsigned short  delay_cumul;
-> +	unsigned short  delay_target;
-> +	unsigned short  delay_max;
-> +	unsigned char   expedited;
-> +};
 
-Why don't you use fixed size members?
-And we can eliminate 8bit hole.
-
-struct x25_dte_facilities {
-     u32             calling_len
-     u32             called_len;
-     u8              calling_ae[20];
-     u8              called_ae[20];
-     u8              min_throughput;
-     u8              expedited;
-     u16             delay_cumul;
-     u16             delay_target;
-     u16             delay_max;
-};
-
---yoshfuji
+====================================================================================================
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
+ printing eip:
+e0fc7991
+*pde = 1759f067
+Oops: 0000 [#1]
+Modules linked in: vmnet(U) parport_pc parport vmmon(U) iptable_nat ppp_synctty ppp_async crc_ccitt ppp_generic slhc fglrx(U) kqemu(U) autofs4 ip_conntrack_ftp ipt_REJECT ipt_state ip_conntrack iptable_filter ip_tables reiserfs dm_mod video button battery ac ipv6 uhci_hcd ehci_hcd i2c_viapro i2c_core snd_via82xx gameport snd_ac97_codec snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_pcm_oss snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_mpu401_uart snd_rawmidi snd_seq_device snd soundcore via_rhine mii ext3 jbd
+CPU:    0
+EIP:    0060:[<e0fc7991>]    Tainted: P      VLI
+EFLAGS: 00010282   (2.6.13-1.1526_FC4) 
+EIP is at ipv6_get_saddr+0xd/0x17 [ipv6]
+eax: 00000000   ebx: 00000000   ecx: d5786c2c   edx: d5786c80
+esi: c38d1ee0   edi: e1005b20   ebp: d187f088   esp: d5786bec
+ds: 007b   es: 007b   ss: 0068
+Process ip (pid: 11718, threadinfo=d5786000 task=c23a9000)
+Stack: badc0ded d5786c2c e0fd22a1 d5786c80 00000000 00000286 d5786c80 d5786c80 
+       00000232 d5786c78 d5786c78 e0fd04cb df7458d0 00000000 dfffb920 dfffb920 
+       00000030 d5786c90 d5786c78 d5786c80 00000003 00002dc6 ce7e2638 c7b5f400 
+Call Trace:
+ [<e0fd22a1>] rt6_fill_node+0x428/0x4d5 [ipv6]
+ [<e0fd04cb>] ip6_route_output+0xf1/0x2d4 [ipv6]
+ [<e0fd2675>] inet6_rtm_getroute+0x125/0x193 [ipv6]
+ [<e0fd2550>] inet6_rtm_getroute+0x0/0x193 [ipv6]
+ [<c038fe53>] rtnetlink_rcv+0x21b/0x3a4
+ [<c03a26b7>] netlink_data_ready+0x12/0x54
+ [<c03a1c05>] netlink_sendskb+0x19/0x34
+ [<c03a23cc>] netlink_sendmsg+0x26d/0x318
+ [<c03781e4>] sock_sendmsg+0xe4/0xff
+ [<c01519c2>] autoremove_wake_function+0x0/0x37
+ [<c018ca56>] anon_vma_prepare+0x466/0x4ff
+ [<c01519c2>] autoremove_wake_function+0x0/0x37
+ [<c025e0c4>] copy_from_user+0x4c/0x88
+ [<c03799dc>] sys_sendmsg+0x11e/0x213
+ [<c0165659>] audit_sockaddr+0x39/0x78
+ [<c0185f55>] __handle_mm_fault+0x303/0x4b0
+ [<c011e401>] do_page_fault+0x260/0x5cd
+ [<c01876f9>] vma_link+0x10d/0x53f
+ [<c0379f18>] sys_socketcall+0x270/0x292
+ [<c0109b52>] do_syscall_trace+0xef/0x123
+ [<c0104465>] syscall_call+0x7/0xb
+Code: f3 e8 ff ff e9 8e fe ff ff c7 44 24 04 00 00 00 00 c7 44 24 08 ff ff ff ff e9 94 fe ff ff 53 31 db 85 c0 74 08 8b 80 88 00 00 00 <8b> 18 89 d8 5b e9 a1 fd ff ff 57 56 8b 88 f0 00 00 00 be 9d ff 
+ 
