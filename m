@@ -1,38 +1,47 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] skge support for Marvell chips in Toshiba laptops
-Date: Wed, 19 Oct 2005 20:43:49 +0100
-Message-ID: <4356A1F5.5010200@gentoo.org>
-References: <200510191047.53212.jbarnes@virtuousgeek.org>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: [PATCH] ipconfig.c: fix dhcp timeout leading to bad requested
+	address.
+Date: Wed, 19 Oct 2005 21:43:32 +0200
+Message-ID: <1129751012.1724.13.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750900AbVJSTnu@vger.kernel.org>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-In-Reply-To: <200510191047.53212.jbarnes@virtuousgeek.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@davemloft.net
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jesse,
 
-Jesse Barnes wrote:
-> Here's a small patch to add the PCI ID and chip type of the chip in my 
-> Toshiba laptop to the skge driver.  I haven't tested it much (just 
-> insmoded it and run ethtool against the corresponding eth1 device), but 
-> it doesn't crash my system, so unless this configuration has already 
-> been tested and is known to have problems, it might be good to add this 
-> patch.
-> 
-> I'll test some more with a real network when I get home.
+Hello,
 
-The device ID you added (0x4351) is already claimed by the new sky2 driver.
+There is still a little bug in dhcp timeout handling.
 
-Unless theres a mistake in sky2's device table, your laptop contains a 
-Yukon-II adapter which is incompatible with the original Yukon chips (skge = 
-Yukon, sky2 = Yukon-II).
+When DHCPOFFER is received, offered and server addresses are kept. If no
+ack is received, ic_myaddr is reset to INADDR_NONE, but not ic_servaddr.
 
-On the other hand, I believe Stephen could do with some extra sky2 testing :)
-You can find it in the latest -mm releases.
+The problem is that ic_dhcp_init_options() checks only ic_servaddr to
+known if it has to send a DHCPOFFER or a DHCPREQUEST. So packets sent
+after a timeout will be DHCPREQUEST with requested address INADDR_NONE.
 
-Daniel
+If the the dhcp server does not NAK it, this request is done forever.
+
+The following patch fixes this.
+
+
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+
+--- linux-2.6.13.4/net/ipv4/ipconfig.c.orig	2005-10-18 18:11:54.000000000 +0200
++++ linux-2.6.13.4/net/ipv4/ipconfig.c	2005-10-19 20:44:07.000000000 +0200
+@@ -1151,6 +1151,7 @@
+ 
+ 	if (!ic_got_reply) {
+ 		ic_myaddr = INADDR_NONE;
++		ic_servaddr = INADDR_NONE;
+ 		return -1;
+ 	}
+
+
+-- 
+Maxime
