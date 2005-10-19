@@ -1,64 +1,29 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH] ipconfig.c: fix "dhcp server takes precedence over bootp
-	header one"
-Date: Tue, 18 Oct 2005 19:05:19 +0200
-Message-ID: <1129655119.4133.71.camel@sakura.staff.proxad.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.14-rc4 0/3] sk98lin: neuter and prepare for removal
+Date: Tue, 18 Oct 2005 21:30:59 -0400
+Message-ID: <10182005213059.12304@bilbo.tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: jgarzik@pobox.com, shemminger@osdl.org, mlindner@syskonnect.de,
+	rroesler@syskonnect.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751520AbVJSBcX@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+These patches take steps towards removing sk98lin from the upstream
+kernel.
 
-Hello,
+	-- Remove sk98lin's MODULE_DEVICE_TABLE to avoid
+	confusing userland tools about which driver to load;
 
-I was unable to use nfs root with a dhcp server that does not fill the
-"saddr" field in the bootp header (kernel then tries RPC on 0.0.0.0).
+	-- Mark sk98lin as Obsolete in the MAINTAINERS file; and,
 
-The ipconfig code states that the dhcp server_id takes precedence over
-bootp header, but I think the check is misplaced as it is done only for
-DHCPOFFER.
+	-- Add sk98lin to the feature-removal-schedule.txt file in the
+	Documentation directory.
 
-The following patch fixes the problem.
+I accept the possibility that I may be jumping the gun on this.
+However, I think it is worth opening this discussion.
 
-
-Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-
---- linux-2.6.13.4/net/ipv4/ipconfig.c.orig	2005-10-18 18:11:54.000000000 +0200
-+++ linux-2.6.13.4/net/ipv4/ipconfig.c	2005-10-18 18:22:18.000000000 +0200
-@@ -959,13 +959,6 @@
- 				printk(" by server %u.%u.%u.%u\n",
- 				       NIPQUAD(ic_servaddr));
- #endif
--				/* The DHCP indicated server address takes
--				 * precedence over the bootp header one if
--				 * they are different.
--				 */
--				if ((server_id != INADDR_NONE) &&
--				    (b->server_ip != server_id))
--					b->server_ip = ic_servaddr;
- 				break;
- 
- 			case DHCPACK:
-@@ -982,6 +975,14 @@
- 				goto drop_unlock;
- 			};
- 
-+			/* The DHCP indicated server address takes
-+			 * precedence over the bootp header one if
-+			 * they are different.
-+			 */
-+			if ((server_id != INADDR_NONE) &&
-+			    (b->server_ip != server_id))
-+				b->server_ip = ic_servaddr;
-+
- 			ic_dhcp_msgtype = mt;
- 
- 		}
-
--- 
-Maxime
+Patches to follow...
