@@ -1,47 +1,32 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH] ipconfig.c: fix dhcp timeout leading to bad requested
-	address.
-Date: Wed, 19 Oct 2005 21:43:32 +0200
-Message-ID: <1129751012.1724.13.camel@sakura.staff.proxad.net>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH] skge support for Marvell chips in Toshiba laptops
+Date: Wed, 19 Oct 2005 12:58:30 -0700
+Message-ID: <200510191258.31316.jbarnes@virtuousgeek.org>
+References: <200510191047.53212.jbarnes@virtuousgeek.org> <4356A1F5.5010200@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751270AbVJST6p@vger.kernel.org>
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <4356A1F5.5010200@gentoo.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday, October 19, 2005 12:43 pm, Daniel Drake wrote:
+> The device ID you added (0x4351) is already claimed by the new sky2
+> driver.
+>
+> Unless theres a mistake in sky2's device table, your laptop contains a
+> Yukon-II adapter which is incompatible with the original Yukon chips
+> (skge = Yukon, sky2 = Yukon-II).
+>
+> On the other hand, I believe Stephen could do with some extra sky2
+> testing :) You can find it in the latest -mm releases.
 
-Hello,
+Oh cool, I'll try that driver instead.  Thanks.
 
-There is still a little bug in dhcp timeout handling.
-
-When DHCPOFFER is received, offered and server addresses are kept. If no
-ack is received, ic_myaddr is reset to INADDR_NONE, but not ic_servaddr.
-
-The problem is that ic_dhcp_init_options() checks only ic_servaddr to
-known if it has to send a DHCPOFFER or a DHCPREQUEST. So packets sent
-after a timeout will be DHCPREQUEST with requested address INADDR_NONE.
-
-If the the dhcp server does not NAK it, this request is done forever.
-
-The following patch fixes this.
-
-
-Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-
---- linux-2.6.13.4/net/ipv4/ipconfig.c.orig	2005-10-18 18:11:54.000000000 +0200
-+++ linux-2.6.13.4/net/ipv4/ipconfig.c	2005-10-19 20:44:07.000000000 +0200
-@@ -1151,6 +1151,7 @@
- 
- 	if (!ic_got_reply) {
- 		ic_myaddr = INADDR_NONE;
-+		ic_servaddr = INADDR_NONE;
- 		return -1;
- 	}
-
-
--- 
-Maxime
+Jesse
