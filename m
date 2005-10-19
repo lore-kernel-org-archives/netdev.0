@@ -1,81 +1,62 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch netdev-2.6] e1000: Driver version, white space, comments, device id & other
-Date: Wed, 19 Oct 2005 10:40:08 -0400
-Message-ID: <10192005104008.17766@bilbo.tuxdriver.com>
-References: <20051019143154.GA16830@tuxdriver.com>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: [PATCH] skge support for Marvell chips in Toshiba laptops
+Date: Wed, 19 Oct 2005 10:47:53 -0700
+Message-ID: <200510191047.53212.jbarnes@virtuousgeek.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, john.ronciak@intel.com,
-	ganesh.venkatesan@intel.com, mallikarjuna.chilakala@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751020AbVJSOkZ@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <20051019143154.GA16830@tuxdriver.com>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_JboVDXOqdlNZtNG"
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751174AbVJSRsO@vger.kernel.org>
+To: shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+--Boundary-00=_JboVDXOqdlNZtNG
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Driver version, white space, comments, device id & other
+Here's a small patch to add the PCI ID and chip type of the chip in my 
+Toshiba laptop to the skge driver.  I haven't tested it much (just 
+insmoded it and run ethtool against the corresponding eth1 device), but 
+it doesn't crash my system, so unless this configuration has already 
+been tested and is known to have problems, it might be good to add this 
+patch.
 
-Originally posted on 8/31 (and perhaps before)...I think it has not
-been committed because the patch from that posting was damaged.  I'm
-reposting to make sure it gets in... :-)
+I'll test some more with a real network when I get home.
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
+Thanks,
+Jesse
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
 
- drivers/net/e1000/e1000_main.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -43,7 +43,7 @@ char e1000_driver_string[] = "Intel(R) P
- #else
- #define DRIVERNAPI "-NAPI"
- #endif
--#define DRV_VERSION		"6.0.60-k2"DRIVERNAPI
-+#define DRV_VERSION "6.1.16-k2"DRIVERNAPI
- char e1000_driver_version[] = DRV_VERSION;
- char e1000_copyright[] = "Copyright (c) 1999-2005 Intel Corporation.";
+--Boundary-00=_JboVDXOqdlNZtNG
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="skge-toshiba.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="skge-toshiba.patch"
+
+--- linux-2.6.14-rc4.orig/drivers/net/skge.c	2005-10-10 18:19:19.000000000 -0700
++++ linux-2.6.14-rc4/drivers/net/skge.c	2005-10-19 10:40:56.000000000 -0700
+@@ -77,6 +77,7 @@
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_YU) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE510T), },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4320) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4351), },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x5005) }, /* Belkin */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_CNET, PCI_DEVICE_ID_CNET_GIGACARD) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_LINKSYS, PCI_DEVICE_ID_LINKSYS_EG1064) },
+@@ -2932,6 +2933,7 @@
+ 	case CHIP_ID_YUKON:
+ 	case CHIP_ID_YUKON_LITE:
+ 	case CHIP_ID_YUKON_LP:
++	case CHIP_ID_YUKON_FE:
+ 		if (phy_type < SK_PHY_MARV_COPPER && pmd_type != 'S')
+ 			hw->copper = 1;
  
-@@ -80,6 +80,9 @@ static struct pci_device_id e1000_pci_tb
- 	INTEL_E1000_ETHERNET_DEVICE(0x1026),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1027),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1028),
-+	INTEL_E1000_ETHERNET_DEVICE(0x105E),
-+	INTEL_E1000_ETHERNET_DEVICE(0x105F),
-+	INTEL_E1000_ETHERNET_DEVICE(0x1060),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1075),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1076),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1077),
-@@ -88,10 +91,13 @@ static struct pci_device_id e1000_pci_tb
- 	INTEL_E1000_ETHERNET_DEVICE(0x107A),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107B),
- 	INTEL_E1000_ETHERNET_DEVICE(0x107C),
-+	INTEL_E1000_ETHERNET_DEVICE(0x107D),
-+	INTEL_E1000_ETHERNET_DEVICE(0x107E),
-+	INTEL_E1000_ETHERNET_DEVICE(0x107F),
- 	INTEL_E1000_ETHERNET_DEVICE(0x108A),
- 	INTEL_E1000_ETHERNET_DEVICE(0x108B),
- 	INTEL_E1000_ETHERNET_DEVICE(0x108C),
--	INTEL_E1000_ETHERNET_DEVICE(0x1099),
-+	INTEL_E1000_ETHERNET_DEVICE(0x109A),
- 	/* required last entry */
- 	{0,}
- };
-@@ -398,8 +404,7 @@ e1000_down(struct e1000_adapter *adapter
- 	e1000_clean_all_tx_rings(adapter);
- 	e1000_clean_all_rx_rings(adapter);
- 
--	/* If WoL is not enabled
--	 * and management mode is not IAMT
-+	/* If WoL is not enabled and management mode is not IAMT
- 	 * Power down the PHY so no link is implied when interface is down */
- 	if(!adapter->wol && adapter->hw.mac_type >= e1000_82540 &&
- 	   adapter->hw.media_type == e1000_media_type_copper &&
+
+--Boundary-00=_JboVDXOqdlNZtNG--
