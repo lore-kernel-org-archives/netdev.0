@@ -1,44 +1,23 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.14-rc3] epic100: fix counting of work_done in epic_poll
+Subject: [patch 2.6.14-rc3 0/3] misc fixes/cleanups for sundance
 Date: Tue, 18 Oct 2005 21:31:01 -0400
-Message-ID: <10182005213101.12633@bilbo.tuxdriver.com>
+Message-ID: <10182005213101.12694@bilbo.tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932446AbVJSBde@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932439AbVJSBeF@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-work_done is overwritten each time through the rx_action loop in
-epic_poll.  This screws-up the NAPI accounting if the loop is executed
-more than once.
+Just a little cleanup from me, and some fixes snarfed from the
+ICPlus (chip vendor) version of the driver.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+	-- Get rid of if (1) { ... } block in sundance_probe1
 
- drivers/net/epic100.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+	-- Change PHY probing to start from MII address 0
 
-diff --git a/drivers/net/epic100.c b/drivers/net/epic100.c
---- a/drivers/net/epic100.c
-+++ b/drivers/net/epic100.c
-@@ -1334,7 +1334,7 @@ static void epic_rx_err(struct net_devic
- static int epic_poll(struct net_device *dev, int *budget)
- {
- 	struct epic_private *ep = dev->priv;
--	int work_done, orig_budget;
-+	int work_done = 0, orig_budget;
- 	long ioaddr = dev->base_addr;
- 
- 	orig_budget = (*budget > dev->quota) ? dev->quota : *budget;
-@@ -1343,7 +1343,7 @@ rx_action:
- 
- 	epic_tx(dev, ep);
- 
--	work_done = epic_rx(dev, *budget);
-+	work_done += epic_rx(dev, *budget);
- 
- 	epic_rx_err(dev, ep);
- 
+	-- Expand the mask used when resetting the chip
+
+Patches to follow...
