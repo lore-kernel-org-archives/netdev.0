@@ -1,62 +1,38 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: [PATCH] skge support for Marvell chips in Toshiba laptops
-Date: Wed, 19 Oct 2005 10:47:53 -0700
-Message-ID: <200510191047.53212.jbarnes@virtuousgeek.org>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] skge support for Marvell chips in Toshiba laptops
+Date: Wed, 19 Oct 2005 20:43:49 +0100
+Message-ID: <4356A1F5.5010200@gentoo.org>
+References: <200510191047.53212.jbarnes@virtuousgeek.org>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_JboVDXOqdlNZtNG"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751174AbVJSRsO@vger.kernel.org>
-To: shemminger@osdl.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750900AbVJSTnu@vger.kernel.org>
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+In-Reply-To: <200510191047.53212.jbarnes@virtuousgeek.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_JboVDXOqdlNZtNG
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hi Jesse,
 
-Here's a small patch to add the PCI ID and chip type of the chip in my 
-Toshiba laptop to the skge driver.  I haven't tested it much (just 
-insmoded it and run ethtool against the corresponding eth1 device), but 
-it doesn't crash my system, so unless this configuration has already 
-been tested and is known to have problems, it might be good to add this 
-patch.
+Jesse Barnes wrote:
+> Here's a small patch to add the PCI ID and chip type of the chip in my 
+> Toshiba laptop to the skge driver.  I haven't tested it much (just 
+> insmoded it and run ethtool against the corresponding eth1 device), but 
+> it doesn't crash my system, so unless this configuration has already 
+> been tested and is known to have problems, it might be good to add this 
+> patch.
+> 
+> I'll test some more with a real network when I get home.
 
-I'll test some more with a real network when I get home.
+The device ID you added (0x4351) is already claimed by the new sky2 driver.
 
-Thanks,
-Jesse
+Unless theres a mistake in sky2's device table, your laptop contains a 
+Yukon-II adapter which is incompatible with the original Yukon chips (skge = 
+Yukon, sky2 = Yukon-II).
 
-Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+On the other hand, I believe Stephen could do with some extra sky2 testing :)
+You can find it in the latest -mm releases.
 
-
---Boundary-00=_JboVDXOqdlNZtNG
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="skge-toshiba.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="skge-toshiba.patch"
-
---- linux-2.6.14-rc4.orig/drivers/net/skge.c	2005-10-10 18:19:19.000000000 -0700
-+++ linux-2.6.14-rc4/drivers/net/skge.c	2005-10-19 10:40:56.000000000 -0700
-@@ -77,6 +77,7 @@
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_YU) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE510T), },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4320) },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4351), },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x5005) }, /* Belkin */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_CNET, PCI_DEVICE_ID_CNET_GIGACARD) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_LINKSYS, PCI_DEVICE_ID_LINKSYS_EG1064) },
-@@ -2932,6 +2933,7 @@
- 	case CHIP_ID_YUKON:
- 	case CHIP_ID_YUKON_LITE:
- 	case CHIP_ID_YUKON_LP:
-+	case CHIP_ID_YUKON_FE:
- 		if (phy_type < SK_PHY_MARV_COPPER && pmd_type != 'S')
- 			hw->copper = 1;
- 
-
---Boundary-00=_JboVDXOqdlNZtNG--
+Daniel
