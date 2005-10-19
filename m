@@ -1,39 +1,49 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch 2.6.14-rc3 2/3] sundance: probe PHYs from MII address 0
-Date: Wed, 19 Oct 2005 08:00:24 -0400
-Message-ID: <20051019120022.GA15438@tuxdriver.com>
-References: <10182005213101.12810@bilbo.tuxdriver.com> <4355B017.4040509@pobox.com>
+Subject: [patch 2.6.14-rc3] sundance: include MII address 0 in PHY probe
+Date: Wed, 19 Oct 2005 08:07:34 -0400
+Message-ID: <10192005080734.15936@bilbo.tuxdriver.com>
+References: <20051019120022.GA15438@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750837AbVJSMAr@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4355B017.4040509@pobox.com>
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750840AbVJSMHp@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+In-Reply-To: <20051019120022.GA15438@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 18, 2005 at 10:31:51PM -0400, Jeff Garzik wrote:
-> John W. Linville wrote:
+Include MII address 0 at the end of the PHY scan.  This covers the
+entire range of possible MII addresses.
 
-> >--- a/drivers/net/sundance.c
-> >+++ b/drivers/net/sundance.c
-> >@@ -608,7 +608,7 @@ static int __devinit sundance_probe1 (st
-> > 
-> > 	np->phys[0] = 1;		/* Default setting */
-> > 	np->mii_preamble_required++;
-> >-	for (phy = 1; phy < 32 && phy_idx < MII_CNT; phy++) {
-> >+	for (phy = 0; phy < 32 && phy_idx < MII_CNT; phy++) {
-> 
-> NAK.  MII address 0 should be scanned _last_, after all other addresses. 
->  In some phys, it is a ghost, mirroring another address.
-> 
-> Take a look at some of the original Becker MII scan code from
-> ftp://ftp.scyld.com/pub/network/ to see an elegant method for this.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
-Hmmm...that is clever...patch to follow...
+ drivers/net/sundance.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -608,16 +608,17 @@ static int __devinit sundance_probe1 (st
+ 
+ 	np->phys[0] = 1;		/* Default setting */
+ 	np->mii_preamble_required++;
+-	for (phy = 1; phy < 32 && phy_idx < MII_CNT; phy++) {
++	for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
+ 		int mii_status = mdio_read(dev, phy, MII_BMSR);
++		int phyx = phy & 0x1f;
+ 		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
+-			np->phys[phy_idx++] = phy;
+-			np->mii_if.advertising = mdio_read(dev, phy, MII_ADVERTISE);
++			np->phys[phy_idx++] = phyx;
++			np->mii_if.advertising = mdio_read(dev, phyx, MII_ADVERTISE);
+ 			if ((mii_status & 0x0040) == 0)
+ 				np->mii_preamble_required++;
+ 			printk(KERN_INFO "%s: MII PHY found at address %d, status "
+ 				   "0x%4.4x advertising %4.4x.\n",
+-				   dev->name, phy, mii_status, np->mii_if.advertising);
++				   dev->name, phyx, mii_status, np->mii_if.advertising);
+ 		}
+ 	}
+ 	np->mii_preamble_required--;
