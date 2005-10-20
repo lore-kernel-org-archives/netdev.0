@@ -1,87 +1,43 @@
-From: Andrew Hendry <ahendry@tusc.com.au>
-Subject: Re: [PATCH] X25: Add ITU-T facilites
-Date: Thu, 20 Oct 2005 11:10:54 +1000
-Message-ID: <1129770654.3574.1154.camel@localhost.localdomain>
-References: <1129513666.3747.50.camel@localhost.localdomain>
-	 <20051017022826.GA23167@mandriva.com>
-	 <1129615767.3695.15.camel@localhost.localdomain>
-	 <20051018.152318.68554424.yoshfuji@linux-ipv6.org>
-	 <20051018153702.GC23167@mandriva.com>
-	 <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com>
+From: "allan witham" <teofilalagunatson@fun.scrapbookscrapbook.com>
+Subject: incoherent Easy deals captured. Magic specials on curing generics. mutiny
+Date: Wed, 19 Oct 2005 19:10:35 -0700
+Message-ID: <8C2E9453.73BAED1@fun.scrapbookscrapbook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-	eis@baty.hanse.de, linux-x25@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-x25-owner@vger.kernel.org>
-To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
-In-Reply-To: <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com>
-Sender: linux-x25-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Deon Cubillo" <lowe@oss.sgi.com>, <owner-linux-xfs@oss.sgi.com>,
+        <tucker@oss.sgi.com>, <netdev@oss.sgi.com>, <lockmeter@oss.sgi.com>,
+        <murray@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-10-19 at 01:48, linux-os (Dick Johnson) wrote:
-> On Tue, 18 Oct 2005, Arnaldo Carvalho de Melo wrote:
-> 
-> > Em Tue, Oct 18, 2005 at 03:23:18PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
-> >> In article <1129615767.3695.15.camel@localhost.localdomain> (at Tue, 18 Oct 2005 16:09:27 +1000), Andrew Hendry <ahendry@tusc.com.au> says:
-> >>
-> >>> +/*
-> >>> +*     ITU DTE facilities
-> >>> +*     Only the called and calling address
-> >>> +*     extension are currently implemented.
-> >>> +*     The rest are in place to avoid the struct
-> >>> +*     changing size if someone needs them later
-> >>> ++ */
-> >>> +struct x25_dte_facilities {
-> >>> +	unsigned int    calling_len, called_len;
-> >>> +	char            calling_ae[20];
-> >>> +	char            called_ae[20];
-> >>> +	unsigned char   min_throughput;
-> >>> +	unsigned short  delay_cumul;
-> >>> +	unsigned short  delay_target;
-> >>> +	unsigned short  delay_max;
-> >>> +	unsigned char   expedited;
-> >>> +};
-> >>
-> >> Why don't you use fixed size members?
-> >> And we can eliminate 8bit hole.
-> >>
-> >> struct x25_dte_facilities {
-> >>      u32             calling_len
-> >>      u32             called_len;
-> >
-> > I guess the two above can be 'u8' as they refer to calling_ae and called_ae
-> > that at most will be '20'?
-> >
-> >>      u8              calling_ae[20];
-> >>      u8              called_ae[20];
-> >
-> > - Arnaldo
-> 
-> At the very least put the 32-bit in the beginning and 8-bit stuff at
-> the end so natural alignment occurs where possible.
-> 
-> Cheers,
-> Dick Johnson
-> Penguin : Linux version 2.6.13.4 on an i686 machine (5589.46 BogoMips).
-> Warning : 98.36% of all statistics are fiction.
-> .
+Better snips + more 'plus'. 
 
-Thanks everyone for the feedback, will fix up the alignment.
+Ours does ease any internal injury.
 
-A quick question on the use of u8 and u32 types in x25.h.
+Check without much effort with our  following up system. 
 
-/usr/src/linux-2.6.13.4/include/linux/x25.h and 
-/usr/include/linux/x25.h
-have been identical between the kernel and glibc-kernheaders type
-packages, using u8 and u32 would require extra changes to the userspace
-version.
+Overdrawn? Will not to be turned out on this e-supplier.
+Zilch specialist appointments, Gain gratis discussion.
+Never remain pleased until I discovered this web. Jen A --DC. 
 
-__u32 or unsigned int look to be the norm for other similar headers,
-whats the recommended type of types to be used?
+http://uk.geocities.com/rxinfono1b/?ern
 
-Thanks,
-Andrew.
+"No doubt," is Mr. Tulkinghorn's composed reply. 
+Rosa sobs out that she is very sorry to leave my Lady, and that she was
+happy at Chesney Wold, and blues happy with my Lady, and that she thanks my
+Lady over and over again. "Out, you silly little puss." says the ironmaster,
+checking her in a low voice, though not angrily. "Have a spirit, if you're
+fond of Watt." My Lady merely waves her off with indifference, saying,
+"There, there, child. You are a good girl. Go away." Sir Leicester has
+magnificently disengaged himself from the subject and retired into the
+sanctuary of his blue coat. Mr. Tulkinghorn, an indistinct form against the
+dark street now dotted with lamps, looms in my Lady's view, bigger and
+blacker than before. 
 
+frel  freee  death-denying sz03 elkman  evuestra
+
+"I give it," was the reply. '"But it wasn't handsome in you, Mr. Bucket." 
