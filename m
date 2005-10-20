@@ -1,30 +1,22 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] X25: Add ITU-T facilites
-Date: Thu, 20 Oct 2005 14:30:15 +0200
-Message-ID: <200510201430.17160.arnd@arndb.de>
-References: <1129513666.3747.50.camel@localhost.localdomain> <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com> <1129770654.3574.1154.camel@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 2.6.14-rc3] sundance: include MII address 0 in PHY probe
+Date: Thu, 20 Oct 2005 10:07:13 -0400
+Message-ID: <4357A491.8070901@pobox.com>
+References: <10192005080734.15936@bilbo.tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-os (Dick Johnson)" <linux-os@analogic.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-	eis@baty.hanse.de, linux-x25@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-x25-owner@vger.kernel.org>
-To: Andrew Hendry <ahendry@tusc.com.au>
-In-Reply-To: <1129770654.3574.1154.camel@localhost.localdomain>
-Content-Disposition: inline
-Sender: linux-x25-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932097AbVJTOHX@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <10192005080734.15936@bilbo.tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Dunnersdag 20 Oktober 2005 03:10, Andrew Hendry wrote:
-> __u32 or unsigned int look to be the norm for other similar headers,
-> whats the recommended type of types to be used?
+John W. Linville wrote:
+> Include MII address 0 at the end of the PHY scan.  This covers the
+> entire range of possible MII addresses.
 > 
-Use __{u,s}{32,16,8} for interfaces and {u,s}{64,32,16,8} internally,
-if you care about the exact size, otherwise use unsigned int.
-See also http://lwn.net/Articles/113367/
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-	Arnd <><
+applied
