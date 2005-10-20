@@ -1,32 +1,87 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH] skge support for Marvell chips in Toshiba laptops
-Date: Wed, 19 Oct 2005 12:58:30 -0700
-Message-ID: <200510191258.31316.jbarnes@virtuousgeek.org>
-References: <200510191047.53212.jbarnes@virtuousgeek.org> <4356A1F5.5010200@gentoo.org>
+From: Andrew Hendry <ahendry@tusc.com.au>
+Subject: Re: [PATCH] X25: Add ITU-T facilites
+Date: Thu, 20 Oct 2005 11:10:54 +1000
+Message-ID: <1129770654.3574.1154.camel@localhost.localdomain>
+References: <1129513666.3747.50.camel@localhost.localdomain>
+	 <20051017022826.GA23167@mandriva.com>
+	 <1129615767.3695.15.camel@localhost.localdomain>
+	 <20051018.152318.68554424.yoshfuji@linux-ipv6.org>
+	 <20051018153702.GC23167@mandriva.com>
+	 <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751270AbVJST6p@vger.kernel.org>
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <4356A1F5.5010200@gentoo.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	eis@baty.hanse.de, linux-x25@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-x25-owner@vger.kernel.org>
+To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
+In-Reply-To: <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com>
+Sender: linux-x25-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, October 19, 2005 12:43 pm, Daniel Drake wrote:
-> The device ID you added (0x4351) is already claimed by the new sky2
-> driver.
->
-> Unless theres a mistake in sky2's device table, your laptop contains a
-> Yukon-II adapter which is incompatible with the original Yukon chips
-> (skge = Yukon, sky2 = Yukon-II).
->
-> On the other hand, I believe Stephen could do with some extra sky2
-> testing :) You can find it in the latest -mm releases.
+On Wed, 2005-10-19 at 01:48, linux-os (Dick Johnson) wrote:
+> On Tue, 18 Oct 2005, Arnaldo Carvalho de Melo wrote:
+> 
+> > Em Tue, Oct 18, 2005 at 03:23:18PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
+> >> In article <1129615767.3695.15.camel@localhost.localdomain> (at Tue, 18 Oct 2005 16:09:27 +1000), Andrew Hendry <ahendry@tusc.com.au> says:
+> >>
+> >>> +/*
+> >>> +*     ITU DTE facilities
+> >>> +*     Only the called and calling address
+> >>> +*     extension are currently implemented.
+> >>> +*     The rest are in place to avoid the struct
+> >>> +*     changing size if someone needs them later
+> >>> ++ */
+> >>> +struct x25_dte_facilities {
+> >>> +	unsigned int    calling_len, called_len;
+> >>> +	char            calling_ae[20];
+> >>> +	char            called_ae[20];
+> >>> +	unsigned char   min_throughput;
+> >>> +	unsigned short  delay_cumul;
+> >>> +	unsigned short  delay_target;
+> >>> +	unsigned short  delay_max;
+> >>> +	unsigned char   expedited;
+> >>> +};
+> >>
+> >> Why don't you use fixed size members?
+> >> And we can eliminate 8bit hole.
+> >>
+> >> struct x25_dte_facilities {
+> >>      u32             calling_len
+> >>      u32             called_len;
+> >
+> > I guess the two above can be 'u8' as they refer to calling_ae and called_ae
+> > that at most will be '20'?
+> >
+> >>      u8              calling_ae[20];
+> >>      u8              called_ae[20];
+> >
+> > - Arnaldo
+> 
+> At the very least put the 32-bit in the beginning and 8-bit stuff at
+> the end so natural alignment occurs where possible.
+> 
+> Cheers,
+> Dick Johnson
+> Penguin : Linux version 2.6.13.4 on an i686 machine (5589.46 BogoMips).
+> Warning : 98.36% of all statistics are fiction.
+> .
 
-Oh cool, I'll try that driver instead.  Thanks.
+Thanks everyone for the feedback, will fix up the alignment.
 
-Jesse
+A quick question on the use of u8 and u32 types in x25.h.
+
+/usr/src/linux-2.6.13.4/include/linux/x25.h and 
+/usr/include/linux/x25.h
+have been identical between the kernel and glibc-kernheaders type
+packages, using u8 and u32 would require extra changes to the userspace
+version.
+
+__u32 or unsigned int look to be the norm for other similar headers,
+whats the recommended type of types to be used?
+
+Thanks,
+Andrew.
+
