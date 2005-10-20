@@ -1,47 +1,44 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [patch 2.6.14-rc4] b44: alternate allocation option for DMA
-	descriptors
-Date: Thu, 20 Oct 2005 17:17:05 +1000
-Message-ID: <1129792626.7620.248.camel@gaston>
-References: <10182005213059.12243@bilbo.tuxdriver.com>
+From: Bernd Jendrissek <berndj@prism.co.za>
+Subject: Re: [PATCH] X25: Add ITU-T facilites
+Date: Thu, 20 Oct 2005 09:41:29 +0200
+Message-ID: <20051020074129.GA13695@prism.co.za>
+References: <1129513666.3747.50.camel@localhost.localdomain> <20051017022826.GA23167@mandriva.com> <1129615767.3695.15.camel@localhost.localdomain> <20051018.152318.68554424.yoshfuji@linux-ipv6.org> <20051018153702.GC23167@mandriva.com> <Pine.LNX.4.61.0510181144320.28065@chaos.analogic.com> <1129770654.3574.1154.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, pp@ee.oulu.fi
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751782AbVJTHUk@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <10182005213059.12243@bilbo.tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-os (Dick Johnson)" <linux-os@analogic.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	eis@baty.hanse.de, linux-x25@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-x25-owner@vger.kernel.org>
+To: Andrew Hendry <ahendry@tusc.com.au>
+Content-Disposition: inline
+In-Reply-To: <1129770654.3574.1154.camel@localhost.localdomain>
+Sender: linux-x25-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-10-18 at 21:30 -0400, John W. Linville wrote:
-> This is a (final?) hack to support the odd DMA allocation requirements
-> of the b44 hardware.  The b44 hardware has a 30-bit DMA mask.  On x86,
-> anything less than a 32-bit DMA mask forces allocations into the 16MB
-> GFP_DMA range.  The memory there is somewhat limited, often resulting
-> in an inability to initialize the b44 driver.
-> 
-> This hack uses streaming DMA allocation APIs in order to provide an
-> alternative in case the GFP_DMA allocation fails.  It is somewhat ugly,
-> but not much worse than the similar existing hacks to support SKB
-> allocations in the same driver.  FWIW, I have received positive
-> feedback on this from several Fedora users.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I'm not sure what you are trying to do here ... If pci_alloc_* failed,
-you do kmalloc(...,GFP_KERNEL) which can give you memory above your DMA
-mask. Then, you use dma_map_* but that won't help much more neither.
-Unless you have an iommu (or swiotlb) _and_ that implements arbitrary
-DMA masks support (which it typically doesn't it's often 32 bits vs. 64
-bits) it won't help, you'll get into your error case.
+On Thu, Oct 20, 2005 at 11:10:54AM +1000, Andrew Hendry wrote:
+> __u32 or unsigned int look to be the norm for other similar headers,
+> whats the recommended type of types to be used?
 
-So basically, what you are doing is: if allocation fails, you try to get
-memory using GFP_KERNEL. If it happens to be in the low 2Gb of memory,
-use it, if not, drop it.
+Dunno if this helps, but AFAIK the C language (as of 1999 or is it 2000)
+blesses uint32_t and friends.
 
-Did I get that right ?
+Indeed, <linux/types.h> (in the kernel source tree) defines these
+*standard* sized types.
 
-Note that the Broadcom wireless (which is currently being reverse
-engineered) seem to suffer from the same stupid DMA engine...
+HTH
 
-Ben.
+- -- 
+A PC without Windows is like ice cream without ketchup.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+Comment: Please fetch my new key 804177F8 from hkp://wwwkeys.eu.pgp.net/
+
+iD8DBQFDV0ohwyMv24BBd/gRAnOAAKCpTJLsIIQCGW4X/KMyoIMwZ0TNewCff2vE
+IO7gmOpr1zuFa515lmIPWno=
+=uytG
+-----END PGP SIGNATURE-----
