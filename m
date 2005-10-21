@@ -1,33 +1,30 @@
-From: "Ayaz Abdulla" <AAbdulla@nvidia.com>
-Subject: RE: [patch] forcedeth: add support for interrupt mitigation
-Date: Fri, 21 Oct 2005 14:10:51 -0700
-Message-ID: <DBFABB80F7FD3143A911F9E6CFD477B00BA5D745@hqemmail02.nvidia.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH,CFT] forcedeth: Remove superflous rx engine stop/start
+ cycles.
+Date: Fri, 21 Oct 2005 17:24:38 -0400
+Message-ID: <43595C96.40300@pobox.com>
+References: <432D7B98.8050307@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Manfred Spraul" <manfred@colorfullife.com>, "Netdev" <netdev@oss.sgi.com>,
-        "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>, Ayaz Abdulla <AAbdulla@nvidia.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>,
-        "Francois Romieu" <romieu@fr.zoreil.com>
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <432D7B98.8050307@colorfullife.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Yes, thats right. I just gave Manfred the hardware interrupt mitigation
-patch (v46). Next, I will implement NAPI.
+Manfred Spraul wrote:
+> Hi all,
+> 
+> Ayaz noticed that forcedeth stops and restarts the rx engine every 3 
+> seconds (link timeout). The attached patch fixes that.
+> It also contains a larger whitespace cleanup: I've replaced a few spaces 
+> in the comments with tabs.
+> 
+> Please test it.
 
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com] 
-Sent: Friday, October 21, 2005 2:07 PM
-To: Francois Romieu
-Cc: Manfred Spraul; Netdev; Ayaz Abdulla; John W. Linville
-Subject: Re: [patch] forcedeth: add support for interrupt mitigation
-
-
-FWIW the ideal is to implement both NAPI -and- hardware interrupt 
-mitigation.
+Patch OK, but dropped since version 0.44 was dropped.
 
 	Jeff
