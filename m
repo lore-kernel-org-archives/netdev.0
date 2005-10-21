@@ -1,83 +1,39 @@
-From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
-Subject: af_rose.c
-Date: Fri, 21 Oct 2005 00:12:50 +0200
-Message-ID: <43581662.7040208@ccr.jussieu.fr>
-References: <20051018203932.GA11053@linux-mips.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH]behavior of ip6_route_input() for link local address.
+Date: Fri, 21 Oct 2005 17:27:09 +0900 (JST)
+Message-ID: <20051021.172709.47930126.yoshfuji@linux-ipv6.org>
+References: <43572256.40101@21cn.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030504060103060604060705"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-	dann frazier <dannf@hp.com>, chrisw@osdl.org,
-	netdev@vger.kernel.org, linux-hams@vger.kernel.org,
-	Jean-Paul ROUBELAT <jpr@f6fbb.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20051018203932.GA11053@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932556AbVJUI1M@vger.kernel.org>
+To: yanzheng@21cn.com, davem@davemloft.net
+In-Reply-To: <43572256.40101@21cn.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030504060103060604060705
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hello.
 
-Hi,
+In article <43572256.40101@21cn.com> (at Thu, 20 Oct 2005 12:51:34 +0800), Yan Zheng <yanzheng@21cn.com> says:
 
-Concerning rose module, here is a patch proposed by Jean-Paul F6FBB for 
-af_rose.c
+> I find that linux will reply echo request destined to an address which belongs to an interface other than the one from which the request received.
+> This behavior doesn't make sense for link local address.
 
-It is against linux-2.6.14-rc5
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-This patch only adds a loop near the end of rose_connect() in order to 
-make it try to connect rose next_neighbour node in case of connect 
-failure, until we reach the true end of the neighbour list.
+Please note that sender does need to setup neighbor
+entry by hand to reproduce this bug.
+(Link-local address on eth1 is not visible on eth0,
+from the point of view of neighbor discovery in IPv6.)
 
-With the guys of FADCA and other french hams using ROSE/FPAC we found 
-that ROSE did not scan the alternate routes even when there was one 
-available.
+ +--------+               +--------+
+ | sender |               | router |
+ +---+----+               +-+----+-+
+     |eth0              eth0|    |eth1
+-----+----------------------+-  -+--------------
 
-This could be an important point in case of catastrophic events with 
-telecommunication failure. The possibility to handle emergency traffic 
-via alternate routes could be a vital necessity.
-
-The principle of this patch has been tested with kernel 2.2 and 2.6 and 
-it works well using F6FBB ROSE/FPAC packet switch application.
-
-I suggest that it should be included into the next kernel rose module.
-
-73 de Bernard, f6bvp
-
-
---------------030504060103060604060705
-Content-Type: text/x-patch;
- name="af_rose.c.2.6.14-rc5.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="af_rose.c.2.6.14-rc5.diff"
-
---- net/rose/af_rose.c	2005-10-20 23:27:15.000000000 +0200
-+++ net/rose/af_rose.c	2005-10-20 23:38:20.000000000 +0200
-@@ -751,7 +751,7 @@
- 
- 		rose_insert_socket(sk);		/* Finish the bind */
- 	}
--
-+rose_try_next_neigh:
- 	rose->dest_addr   = addr->srose_addr;
- 	rose->dest_call   = addr->srose_call;
- 	rose->rand        = ((long)rose & 0xFFFF) + rose->lci;
-@@ -809,6 +809,11 @@
- 	}
- 
- 	if (sk->sk_state != TCP_ESTABLISHED) {
-+	/* Try next neighbour */
-+		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic);
-+		if (rose->neighbour)
-+			goto rose_try_next_neigh;
-+	/* No more neighbour */
- 		sock->state = SS_UNCONNECTED;
- 		return sock_error(sk);	/* Always set at this point */
- 	}
-
---------------030504060103060604060705--
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
