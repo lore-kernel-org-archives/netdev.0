@@ -1,48 +1,35 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [NF+IPsec 1/6]: Remove okfn usage in ip_vs_core.c
-Date: Sat, 22 Oct 2005 16:45:35 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0510221642100.16090@u.domain.uli>
-References: <4352EEAB.8030708@trash.net>
+From: "krystal martin" <ethan@mail.wowmail.com>
+Subject: Abolish everything you owe without paying another dime
+Date: Sat, 22 Oct 2005 15:19:36 -0100
+Message-ID: <9072CCBC.0E15A5F@mail.wowmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4352EEAB.8030708@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Tawana Perez" <terry@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+Do away with all you are indebted for with out paying another cent.  
 
-On Mon, 17 Oct 2005, Patrick McHardy wrote:
+End the calls. Bring to an end to the payments! As it turns out most
+lending establishments are doing something illegal. Amazing but correct!
+Join us for thorough fine points concerning our system at 0.00 payment or
+obligation. You have not anything to lose and plenty to gain.
 
-> This is my current set of netfilter+IPsec patches with Herbert's
-> suggestions incorporated. Changes since the last posted patches:
->
-> - remove okfn use in ipvs and ip_conntrack to avoid deep
->    callchains with IPsec
+http://es.geocities.com/kaelea_glover/?s=EA.Get rid of all that you owe
+without sending an other dime
+Conprehensive information or to bring to a close receiving or to see postal
 
-	Such NF_STOP usage in IPVS looks ok
+Boost sales and exposure overnight thru professional and massive electronic
+mail marketing
+Deal with the biggest and the best marketmajors@turbonett.com
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-> - only pass packets to netfilter after tunnel mode transforms,
->    except for once in plain before encapsulation or after
->    decapsulation.
-> - NAT support
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+An electric current will instantly be directed upon your foe, rendering him
+wholly unconscious for the period of one hour. During that time you will
+have opportunity to escape
+As for your enemy, after regaining consciousness he will suffer no
+inconvenience from the encounter beyond a slight headache
