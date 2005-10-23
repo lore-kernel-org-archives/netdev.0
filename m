@@ -1,35 +1,61 @@
-From: "krystal martin" <ethan@mail.wowmail.com>
-Subject: Abolish everything you owe without paying another dime
-Date: Sat, 22 Oct 2005 15:19:36 -0100
-Message-ID: <9072CCBC.0E15A5F@mail.wowmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [2/3] [NEIGH] Fix add_timer race in neigh_add_timer
+Date: Sun, 23 Oct 2005 17:32:15 +1000
+Message-ID: <20051023073215.GB17626@gondor.apana.org.au>
+References: <43534273.2050106@reub.net> <E1ETaJB-0004a0-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Tawana Perez" <terry@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="+g7M9IMkV8truYOl"
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, acme@conectiva.com.br, davem@davemloft.net,
+	greearb@candelatech.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751428AbVJWHcY@vger.kernel.org>
+To: Reuben Farrelly <reuben-lkml@reub.net>
+Content-Disposition: inline
+In-Reply-To: <E1ETaJB-0004a0-00@gondolin.me.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Do away with all you are indebted for with out paying another cent.  
+--+g7M9IMkV8truYOl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-End the calls. Bring to an end to the payments! As it turns out most
-lending establishments are doing something illegal. Amazing but correct!
-Join us for thorough fine points concerning our system at 0.00 payment or
-obligation. You have not anything to lose and plenty to gain.
+[NEIGH] Fix add_timer race in neigh_add_timer
 
-http://es.geocities.com/kaelea_glover/?s=EA.Get rid of all that you owe
-without sending an other dime
-Conprehensive information or to bring to a close receiving or to see postal
+neigh_add_timer cannot use add_timer unconditionally.  The reason is that
+by the time it has obtained the write lock someone else (e.g., neigh_update)
+could have already added a new timer.
 
-Boost sales and exposure overnight thru professional and massive electronic
-mail marketing
-Deal with the biggest and the best marketmajors@turbonett.com
+So it should only use mod_timer and deal with its return value accordingly.
 
-An electric current will instantly be directed upon your foe, rendering him
-wholly unconscious for the period of one hour. During that time you will
-have opportunity to escape
-As for your enemy, after regaining consciousness he will suffer no
-inconvenience from the encounter beyond a slight headache
+This bug would have led to rare neighbour cache entry leaks.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--+g7M9IMkV8truYOl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="p2.patch"
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -816,10 +816,10 @@ static void neigh_timer_handler(unsigned
+ 	}
+ 
+ 	if (neigh->nud_state & NUD_IN_TIMER) {
+-		neigh_hold(neigh);
+ 		if (time_before(next, jiffies + HZ/2))
+ 			next = jiffies + HZ/2;
+-		neigh_add_timer(neigh, next);
++		if (!mod_timer(&neigh->timer, next))
++			neigh_hold(neigh);
+ 	}
+ 	if (neigh->nud_state & (NUD_INCOMPLETE | NUD_PROBE)) {
+ 		struct sk_buff *skb = skb_peek(&neigh->arp_queue);
+
+--+g7M9IMkV8truYOl--
