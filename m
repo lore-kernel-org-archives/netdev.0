@@ -1,48 +1,29 @@
-From: Ashutosh Naik <ashutosh_naik@adaptec.com>
-Subject: [PATCH] e1000 : Fixes e1000_suspend warning when CONFIG_PM is not
-	enabled
-Date: Sun, 23 Oct 2005 13:43:22 +0530
-Message-ID: <1130055202.16820.11.camel@kir9060>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-WSL2YOewf+ex5xbh7qWz"
-Cc: linux.nics@intel.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@osdl.org
-Sender: linux-net-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [BUG]NULL pointer dereference in ipv6_get_saddr()
+Date: Sun, 23 Oct 2005 21:25:33 +1000
+Message-ID: <E1ETdyn-0005tM-00@gondolin.me.apana.org.au>
+References: <20051019.012157.11460212.yoshfuji@linux-ipv6.org>
+Cc: yanzheng@21cn.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750785AbVJWL05@vger.kernel.org>
+To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / ????)
+In-Reply-To: <20051019.012157.11460212.yoshfuji@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org> wrote:
+>
+> I think this is already fixed in head.
+> I don't remember if we pushed this to stable...
 
---=-WSL2YOewf+ex5xbh7qWz
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Yep it was fixed by c62dba9011b93fd88fde929848582b2a98309878.
 
-This Patch fixes the warning
+I agree that we should've pushed it to stable.  Unfortunately it
+might be too late now.
 
-drivers/net/e1000/e1000_main.c:3645: warning: `e1000_suspend' defined
-but not used
-
-Signed-off-by: Ashutosh Naik <ashutosh_naik@adaptec.com>
-
---=-WSL2YOewf+ex5xbh7qWz
-Content-Disposition: attachment; filename=e1000-patch.txt
-Content-Type: text/plain; name=e1000-patch.txt; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-diff -ruNp linux-2.6.14-rc5/drivers/net/e1000/e1000_main.c linux-2.6.14-e1000-patch/drivers/net/e1000/e1000_main.c
---- linux-2.6.14-rc5/drivers/net/e1000/e1000_main.c	2005-10-23 13:06:51.000000000 +0530
-+++ linux-2.6.14-e1000-patch/drivers/net/e1000/e1000_main.c	2005-10-23 13:19:32.000000000 +0530
-@@ -162,8 +162,8 @@ static void e1000_vlan_rx_add_vid(struct
- static void e1000_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
- static void e1000_restore_vlan(struct e1000_adapter *adapter);
- 
--static int e1000_suspend(struct pci_dev *pdev, pm_message_t state);
- #ifdef CONFIG_PM
-+static int e1000_suspend(struct pci_dev *pdev, pm_message_t state);
- static int e1000_resume(struct pci_dev *pdev);
- #endif
- 
-
---=-WSL2YOewf+ex5xbh7qWz--
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
