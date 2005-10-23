@@ -1,45 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [3/3] [NEIGH] Fix timer leak in neigh_changeaddr
-Date: Sun, 23 Oct 2005 11:00:17 -0700
-Message-ID: <435BCFB1.4010109@candelatech.com>
-References: <43534273.2050106@reub.net> <E1ETaJB-0004a0-00@gondolin.me.apana.org.au> <20051023073331.GC17626@gondor.apana.org.au>
+From: Jan Niehusmann <jan@gondor.com>
+Subject: [PATCH] Re: IPW Question on menuconfig
+Date: Mon, 24 Oct 2005 00:36:58 +0200
+Message-ID: <20051023223658.GA5367@knautsch.gondor.com>
+References: <434B2AE2.1070709@linuxwireless.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Reuben Farrelly <reuben-lkml@reub.net>, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	acme@conectiva.com.br, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750813AbVJWSAv@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051023073331.GC17626@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	James Ketrenos <jketreno@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750829AbVJWWhG@vger.kernel.org>
+To: Alejandro Bonilla Beeche <abonilla@linuxwireless.org>
+Content-Disposition: inline
+In-Reply-To: <434B2AE2.1070709@linuxwireless.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> [NEIGH] Fix timer leak in neigh_changeaddr
-> 
-> neigh_changeaddr attempts to delete neighbour timers without setting
-> nud_state.  This doesn't work because the timer may have already fired
-> when we acquire the write lock in neigh_changeaddr.  The result is that
-> the timer may keep firing for quite a while until the entry reaches
-> NEIGH_FAILED.
-> 
-> It should be setting the nud_state straight away so that if the timer
-> has already fired it can simply exit once we relinquish the lock.
-> 
-> In fact, this whole function is simply duplicating the logic in
-> neigh_ifdown which in turn is already doing the right thing when
-> it comes to deleting timers and setting nud_state.
-> 
-> So all we have to do is take that code out and put it into a common
-> function and make both neigh_changeaddr and neigh_ifdown call it.
+On Mon, Oct 10, 2005 at 09:00:50PM -0600, Alejandro Bonilla Beeche wrote:
+> Network devices / Wireless, and the IPW2100 wasn't in the list. I went, 
+> then Modularized the IEEE80211 and then IPW2100 was there. I think is 
+> kind of estrange that IPW2100 wouldn't show just because it has a 
+> dependencie, shouldn't IPW2100 show in the list, and if you select it, 
+> then it would also select CONFIG_IEEE80211?
 
-Thanks for all who reproduced and fixed this...I'm glad to know I wasn't
-insane when I first tried to fix it and then couldn't reproduce
-the problem anymore! :)
+I think you are right, so the config script should be changed like shown
+below. (But I'm not really familiar with the config language, so I may
+be missing some obvious problems?)
 
-Ben
+Signed-off-by: Jan Niehusmann <jan@gondor.com>
+(in case somebody cares for that for such a small change...)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -139,8 +139,9 @@ comment "Wireless 802.11b ISA/PCI cards 
+ 
+ config IPW2100
+ 	tristate "Intel PRO/Wireless 2100 Network Connection"
+-	depends on NET_RADIO && PCI && IEEE80211
++	depends on NET_RADIO && PCI
+ 	select FW_LOADER
++	select IEEE80211
+ 	---help---
+           A driver for the Intel PRO/Wireless 2100 Network 
+ 	  Connection 802.11b wireless network adapter.
+@@ -192,8 +193,9 @@ config IPW_DEBUG
+ 
+ config IPW2200
+ 	tristate "Intel PRO/Wireless 2200BG and 2915ABG Network Connection"
+-	depends on IEEE80211 && PCI
++	depends on PCI
+ 	select FW_LOADER
++	select IEEE80211
+ 	---help---
+           A driver for the Intel PRO/Wireless 2200BG and 2915ABG Network
+ 	  Connection adapters. 
+ 
