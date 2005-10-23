@@ -1,37 +1,51 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/3] Fix timer bugs in neighbour cache
-Date: Sun, 23 Oct 2005 17:30:21 +1000
-Message-ID: <E1ETaJB-0004a0-00@gondolin.me.apana.org.au>
-References: <43534273.2050106@reub.net>
+Subject: [1/3] [NEIGH] Print stack trace in neigh_add_timer
+Date: Sun, 23 Oct 2005 17:31:12 +1000
+Message-ID: <20051023073112.GA17626@gondor.apana.org.au>
+References: <43534273.2050106@reub.net> <E1ETaJB-0004a0-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="pf9I7BMVVzbSWLtt"
 Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, acme@conectiva.com.br, davem@davemloft.net,
 	greearb@candelatech.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751422AbVJWHar@vger.kernel.org>
-To: reuben-lkml@reub.net (Reuben Farrelly)
-In-Reply-To: <43534273.2050106@reub.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751429AbVJWHbW@vger.kernel.org>
+To: Reuben Farrelly <reuben-lkml@reub.net>
+Content-Disposition: inline
+In-Reply-To: <E1ETaJB-0004a0-00@gondolin.me.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reuben Farrelly <reuben-lkml@reub.net> wrote:
-> 
-> Oct 17 18:49:40 tornado kernel: NEIGH: BUG, double timer add, state is 1
-> Oct 17 18:51:04 tornado last message repeated 3 times
-> Oct 17 18:52:05 tornado last message repeated 5 times
-> Oct 17 18:52:11 tornado last message repeated 2 times
 
-Excellent.  Looks like we actually caught something.  Pity we don't have
-a stack trace which means that there might be more bugs.
+--pf9I7BMVVzbSWLtt
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Anyway, here are three patches which should fix this.  This should go
-into 2.6.14.
+[NEIGH] Print stack trace in neigh_add_timer
 
-Arnaldo, you can pull them from
+Stack traces are very helpful in determining the exact nature of a bug.
+So let's print a stack trace when the timer is added twice.
 
-master.kernel.org:/pub/scm/linux/kernel/git/herbert/net-2.6.git
-
-Cheers,
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--pf9I7BMVVzbSWLtt
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="p1.patch"
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -732,6 +732,7 @@ static inline void neigh_add_timer(struc
+ 	if (unlikely(mod_timer(&n->timer, when))) {
+ 		printk("NEIGH: BUG, double timer add, state is %x\n",
+ 		       n->nud_state);
++		dump_stack();
+ 	}
+ }
+ 
+
+--pf9I7BMVVzbSWLtt--
