@@ -1,36 +1,49 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH]IPv6: fix refcnt of struct ip6_flowlabel
-Date: Mon, 24 Oct 2005 16:35:33 -0200
-Message-ID: <39e6f6c70510241135p18b018bo896b3565fa5ce87b@mail.gmail.com>
-References: <435CCF7B.6030907@21cn.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/2] forcedeth: scatter gather and segmentation offload
+ support
+Date: Mon, 24 Oct 2005 14:21:28 -0700
+Message-ID: <20051024142128.3193bc22@dxpl.pdx.osdl.net>
+References: <432D7354.8000503@colorfullife.com>
+	<43595C42.4080201@pobox.com>
+	<435D1047.2070401@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751242AbVJXSff@vger.kernel.org>
-To: =?ISO-2022-JP?Q?YOSHIFUJI_Hideaki_/_=1B=24B5HF=231QL=40=1B=28B?=
-	<yoshfuji@linux-ipv6.org>, Yan Zheng <yanzheng@21cn.com>
-In-Reply-To: <435CCF7B.6030907@21cn.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Manfred Spraul
+ <manfred@colorfullife.com>,
+        Netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ayaz Abdulla <aabdulla@nvidia.com>
+In-Reply-To: <435D1047.2070401@nvidia.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 10/24/05, Yan Zheng <yanzheng@21cn.com> wrote:
-> Signed-off-by: Yan Zheng <yanzheng@21cn.com>
->
->
-> Index: net/ipv6/ip6_flowlabel.c
-> ===================================================================
-> --- linux-2.6.14-rc5/net/ipv6/ip6_flowlabel.c   2005-10-22 10:31:13.000000000 +0800
-> +++ linux/net/ipv6/ip6_flowlabel.c      2005-10-24 19:55:23.000000000 +0800
-> @@ -483,7 +483,7 @@
->                                                 goto done;
->                                         }
->                                         fl1 = sfl->fl;
-> -                                       atomic_inc(&fl->users);
-> +                                       atomic_inc(&fl1->users);
->                                         break;
+On Mon, 24 Oct 2005 12:48:07 -0400
+Ayaz Abdulla <aabdulla@nvidia.com> wrote:
 
-Looks OK to me, Yoshifuji-san, ACK?
+> Jeff,
+> 
+> I made the changes you requested. Here is the new patch.
+> 
+> Thanks,
+> Ayaz
+> 
+> Signed-off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
 
-- Arnaldo
+There are really three patches in here.
+	1. Use netdev_priv (trivial)
+	2. scatter/gather support
+	3. TSO support
+
+Why do you set the fragments up in reverse order? Going backwards is
+usually slow on most code.
+
+The kernel coding style is to use lower case in local variable names (Flags)
+and structure elements (PacketBuffer, FlagLen). 
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+OSDL http://developer.osdl.org/~shemminger
