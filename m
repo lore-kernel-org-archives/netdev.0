@@ -1,29 +1,38 @@
-From: Yan Zheng <yanzheng@21cn.com>
-Subject: [PATCH]IPv6: fix refcnt of struct ip6_flowlabel
-Date: Mon, 24 Oct 2005 20:11:39 +0800
-Message-ID: <435CCF7B.6030907@21cn.com>
+From: "jacquetta mcdonald" <gerlei@email.ipagan.net>
+Subject: Eliminate everything you owe with out sending another dime
+Date: Mon, 24 Oct 2005 03:47:46 +0200
+Message-ID: <B343F6E7.EB4BF45__29274.4506769397$1130169803$gmane$org@email.ipagan.net>
+Reply-To: "jacquetta mcdonald" <gerlei@email.ipagan.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750943AbVJXMKQ@vger.kernel.org>
-To: netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Angelic Burns" <beck@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Yan Zheng <yanzheng@21cn.com>
+Calls about late payments are stopped dead in their tracks.
+We have pioneered an advanced system of proven strategies 
+that will get the creditors and debt collectors off your back for good
+
+Our debt termination program has legally stopped millions of dollars worth
+of debt from being collected.
 
 
-Index: net/ipv6/ip6_flowlabel.c
-===================================================================
---- linux-2.6.14-rc5/net/ipv6/ip6_flowlabel.c	2005-10-22 10:31:13.000000000 +0800
-+++ linux/net/ipv6/ip6_flowlabel.c	2005-10-24 19:55:23.000000000 +0800
-@@ -483,7 +483,7 @@
- 						goto done;
- 					}
- 					fl1 = sfl->fl;
--					atomic_inc(&fl->users);
-+					atomic_inc(&fl1->users);
- 					break;
- 				}
- 			}
+check out our Elimination Program here
+http://in.geocities.com/xena_toylens/?b=M
+
+
+
+address on site along with no more feature
+
+
+
+
+"extendable ears. look!" . "good afternoon," said dumbledore, holding out
+his hand. mrs. cole simply gaped. 
+the house-elf bowed low and addressed his own gnarled toes. "master said he
+wanted regular reports on what the malfoy boy is doing, so kreacher has come
+to give--"  
