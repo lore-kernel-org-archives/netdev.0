@@ -1,49 +1,49 @@
-From: Daniele Orlandi <daniele@orlandi.com>
-Subject: Re: Request for an ARPHRD_
-Date: Mon, 24 Oct 2005 23:33:04 +0200
-Message-ID: <200510242333.05366.daniele@orlandi.com>
-References: <200510240255.28416.daniele@orlandi.com> <200510241807.23290.ak@suse.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [patch 2.6.13 0/5] normalize calculations of rx_dropped
+Date: Mon, 24 Oct 2005 14:35:42 -0700
+Message-ID: <435D53AE.3020401@candelatech.com>
+References: <09122005104858.332@bilbo.tuxdriver.com> <4325CEAB.2050600@pobox.com> <20050912191419.GB19644@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@vger.kernel.org
-In-Reply-To: <200510241807.23290.ak@suse.de>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751308AbVJXVgE@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20050912191419.GB19644@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 24 October 2005 18:07, Andi Kleen wrote:
->
-> ETH_P_* is managed by the IEEE (part of the ethernet standard) You would
-> need to ask them.
+John W. Linville wrote:
+> On Mon, Sep 12, 2005 at 02:53:31PM -0400, Jeff Garzik wrote:
+> 
+> 
+>>For e.g. e1000, are we sure that packets dropped by hardware are 
+>>accounted elsewhere?
+> 
+> 
+> The e100 and tg3 patches move the count of those frames to
+> rx_missed_errors.  e1000 and ixgb were already counting them there in
+> addition to rx_discards, so they were simply removed from rx_discards.
+> 3c59x was counting other errors in rx_discards, so they were removed
+> from that count.
 
-I need a pseudo protocol like it is already done for some internal protocol, 
-e.g.:
+Whatever became of this discussion?  It seems that the e1000 driver
+in 2.6.13.2 uses rx_errors as the total of all receive errors, while
+the patch John was proposing broke them out into separate counters.
 
-/*
- *      Non DIX types. Won't clash for 1500 types.
- */
-[.....]
-#define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
-#define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
-#define ETH_P_LOCALTALK 0x0009          /* Localtalk pseudo type        */
-#define ETH_P_PPPTALK   0x0010          /* Dummy type for Atalk over PPP*/
-[....]
+It doesn't matter too much to me either way, but I'd like for there to
+be a precisely documented definition for the various net-stats so that
+I can correctly show the values to user-space (I can certainly add rx_discards
+to rx_errors for a 'total rx errors' value, but I need to know whether
+rx_discards is already in rx_errors to keep from counting things twice.)
 
-> Normally Linux doesn't pre-allocate ABIs for out of tree code, mostly
-> because it is not guaranteed that the interface won't change there.
+Jeff:  Could you lay down the law somewhere in the Documentation/
+directory and then let us start fixing any driver that does it differently?
 
-Could you clarify? What interface do you fear that could change?
-
-My main concern is that without an ARPHRD_ constant guaranteed to be unique I 
-wouldn't be able to propose a patch for libpcap people to map the (already 
-allocated) DLT_ to the correct ARPHRD_.
-
-Bye,
+Thanks,
+Ben
 
 -- 
-  Daniele Orlandi
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
