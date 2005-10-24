@@ -1,49 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/2] forcedeth: scatter gather and segmentation offload
- support
-Date: Mon, 24 Oct 2005 14:21:28 -0700
-Message-ID: <20051024142128.3193bc22@dxpl.pdx.osdl.net>
-References: <432D7354.8000503@colorfullife.com>
-	<43595C42.4080201@pobox.com>
-	<435D1047.2070401@nvidia.com>
+From: Daniele Orlandi <daniele@orlandi.com>
+Subject: Re: Request for an ARPHRD_
+Date: Mon, 24 Oct 2005 23:33:04 +0200
+Message-ID: <200510242333.05366.daniele@orlandi.com>
+References: <200510240255.28416.daniele@orlandi.com> <200510241807.23290.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-        Manfred Spraul
- <manfred@colorfullife.com>,
-        Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-In-Reply-To: <435D1047.2070401@nvidia.com>
+To: netdev@vger.kernel.org
+In-Reply-To: <200510241807.23290.ak@suse.de>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Oct 2005 12:48:07 -0400
-Ayaz Abdulla <aabdulla@nvidia.com> wrote:
+On Monday 24 October 2005 18:07, Andi Kleen wrote:
+>
+> ETH_P_* is managed by the IEEE (part of the ethernet standard) You would
+> need to ask them.
 
-> Jeff,
-> 
-> I made the changes you requested. Here is the new patch.
-> 
-> Thanks,
-> Ayaz
-> 
-> Signed-off-By: Ayaz Abdulla <aabdulla@nvidia.com>
-> 
+I need a pseudo protocol like it is already done for some internal protocol, 
+e.g.:
 
-There are really three patches in here.
-	1. Use netdev_priv (trivial)
-	2. scatter/gather support
-	3. TSO support
+/*
+ *      Non DIX types. Won't clash for 1500 types.
+ */
+[.....]
+#define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
+#define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
+#define ETH_P_LOCALTALK 0x0009          /* Localtalk pseudo type        */
+#define ETH_P_PPPTALK   0x0010          /* Dummy type for Atalk over PPP*/
+[....]
 
-Why do you set the fragments up in reverse order? Going backwards is
-usually slow on most code.
+> Normally Linux doesn't pre-allocate ABIs for out of tree code, mostly
+> because it is not guaranteed that the interface won't change there.
 
-The kernel coding style is to use lower case in local variable names (Flags)
-and structure elements (PacketBuffer, FlagLen). 
+Could you clarify? What interface do you fear that could change?
+
+My main concern is that without an ARPHRD_ constant guaranteed to be unique I 
+wouldn't be able to propose a patch for libpcap people to map the (already 
+allocated) DLT_ to the correct ARPHRD_.
+
+Bye,
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+  Daniele Orlandi
