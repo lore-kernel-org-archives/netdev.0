@@ -1,35 +1,30 @@
-From: Daniele Orlandi <daniele@orlandi.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: Request for an ARPHRD_
-Date: Tue, 25 Oct 2005 00:08:09 +0200
-Message-ID: <200510250008.10409.daniele@orlandi.com>
-References: <200510240255.28416.daniele@orlandi.com> <200510242333.05366.daniele@orlandi.com> <20051024215140.GA10872@xi.wantstofly.org>
+Date: Tue, 25 Oct 2005 00:24:55 +0200
+Message-ID: <200510250024.56088.ak@suse.de>
+References: <200510240255.28416.daniele@orlandi.com> <200510241807.23290.ak@suse.de> <200510242333.05366.daniele@orlandi.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@vger.kernel.org
-In-Reply-To: <20051024215140.GA10872@xi.wantstofly.org>
+To: Daniele Orlandi <daniele@orlandi.com>
+In-Reply-To: <200510242333.05366.daniele@orlandi.com>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 24 October 2005 23:51, Lennert Buytenhek wrote:
->
-> First get your code in the kernel, then submit the patch to libpcap.
+On Monday 24 October 2005 23:33, Daniele Orlandi wrote:
 
-Hopefully I will but currently vISDN is not mature enough to be evaluated for 
-kernel inclusion.
+> 
+> > Normally Linux doesn't pre-allocate ABIs for out of tree code, mostly
+> > because it is not guaranteed that the interface won't change there.
+> 
+> Could you clarify? What interface do you fear that could change?
 
-I would like to keep it out of the tree while it matures, however I would also 
-like to avoid potential constants clashes with outher/future code.
+Any interface implemented by your out of tree code for which you're
+requesting to reserve constants.
 
-You may see the constants allocation as the first step to include that code in 
-the kernel.
-
-Bye,
-
--- 
-  Daniele Orlandi
+-Andi
