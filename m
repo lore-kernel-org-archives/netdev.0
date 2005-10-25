@@ -1,57 +1,64 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: Re: [patch 2.6.13 0/5] normalize calculations of rx_dropped
-Date: Tue, 25 Oct 2005 21:50:01 +0200
-Message-ID: <200510252150.07933.ioe-lkml@rameria.de>
-References: <09122005104858.332@bilbo.tuxdriver.com> <20051024215751.GH28212@tuxdriver.com> <435D8717.9000107@candelatech.com>
+From: Bill Davidsen <davidsen@tmr.com>
+Subject: Re: 2.6.14-rc5 e1000 and page allocation failures.. still
+Date: Tue, 25 Oct 2005 16:40:34 -0400
+Message-ID: <435E9842.3010604@tmr.com>
+References: <50tDw-1FH-5@gated-at.bofh.it> <435C2D66.6030708@shaw.ca> <4807377b0510241528m6afc3501w9d98d66658a38973@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1183262.5eQGP4NlsH";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932332AbVJYTuQ@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <435D8717.9000107@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932364AbVJYUjX@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0510241528m6afc3501w9d98d66658a38973@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1183262.5eQGP4NlsH
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Jesse Brandeburg wrote:
+> On 10/23/05, Robert Hancock <hancockr@shaw.ca> wrote:
+>=20
+>>John B=E4ckstrand wrote:
+>>
+>>>Im seeing a massive amount of page allocation failures with 2.6.14-r=
+c5,
+>>>and also earlier kernels, see "E1000 - page allocation failure - sag=
+a
+>=20
+> [snip]
+>=20
+>>It looks like you have enough memory free - the problem is that the
+>>driver is allocating a block of memory with order 3, which is 8 pages=
+=2E
+>>Quite likely there are not enough contiguous free pages to satisfy th=
+at.
+>>
+>>That's an awful big buffer size for a packet - I assume you're using
+>>jumbo frames or something? Ideally the driver and hardware should be
+>>able to allocate a buffer for those packets in multiple chunks, but I
+>>have no idea if this is possible.
+>=20
+>=20
+> the latest e1000 driver (6.2.15) from http://sf.net/projects/e1000
+> fixes this by using multiple descriptors for jumbo frames, therefore
+> only doing order 0 (single page) page allocations.
+>=20
+> let us know how it goes.
+>=20
+> BTW why is this so much more common with recent kernels?
 
-On Tuesday 25 October 2005 03:15, Ben Greear wrote:
-> rx_errors:  Total of all rx errors
+I don't know why it's more common, but I agree that it seems so. I have=
+=20
+speculated that it may be related to 4k stack, but I can't even generat=
+e=20
+a credible wild-ass guess on that, much less find any evidence, so I=20
+doubt that's much if any correlation.
 
-If it is a total, then we don't need to store it, since we can calculate
-that explicity on request, no?
+Getting memory a page at a time is ugly, but it will probably work just=
+=20
+fine.
 
-> rx_dropped:  Dropped on receive, usually due to kernel being over-worked.
-> rx_length:  Dropped because pkt-length was invalid.
-> rx_over:  Dropped because we over-ran the NIC's rx buffers.
-> rx_crc:  Packets received with bad CRC errors.
-> rx_frame:  Framing errors (errors at the physical layer), usually cable or hardware error.
-> rx_fifo:  Dropped due to Kernel buffers being full (I guess rx-over could be NIC only, rx-fifo be kernel/driver only.)
-> rx_missed:  Dropped due to not handling IRQ in time.
-
-Regards
-
-Ingo Oeser
-
-
---nextPart1183262.5eQGP4NlsH
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBDXoxvU56oYWuOrkARAtBPAJ9uElUDEMgCPBFkMM25jCeKEMHMCwCg32Id
-we2zXE8r3WK3GHYJCVrw6cc=
-=Mqay
------END PGP SIGNATURE-----
-
---nextPart1183262.5eQGP4NlsH--
+--=20
+    -bill davidsen (davidsen@tmr.com)
+"The secret to procrastination is to put things off until the
+  last possible moment - but no longer"  -me
