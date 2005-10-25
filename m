@@ -1,37 +1,90 @@
-From: Daniele Orlandi <daniele@orlandi.com>
-Subject: Re: Request for an ARPHRD_
-Date: Tue, 25 Oct 2005 00:58:23 +0200
-Message-ID: <200510250058.24561.daniele@orlandi.com>
-References: <200510240255.28416.daniele@orlandi.com> <200510250008.10409.daniele@orlandi.com> <20051024222222.GA11005@xi.wantstofly.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [patch 2.6.13 0/5] normalize calculations of rx_dropped
+Date: Mon, 24 Oct 2005 18:15:03 -0700
+Message-ID: <435D8717.9000107@candelatech.com>
+References: <09122005104858.332@bilbo.tuxdriver.com> <4325CEAB.2050600@pobox.com> <20050912191419.GB19644@tuxdriver.com> <435D53AE.3020401@candelatech.com> <20051024215751.GH28212@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@vger.kernel.org
-In-Reply-To: <20051024222222.GA11005@xi.wantstofly.org>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751370AbVJYBPU@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20051024215751.GH28212@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 25 October 2005 00:22, Lennert Buytenhek wrote:
->
-> Your code might never end up in the kernel at all, for example if you
-> ever lose interest in it.  The situation that we'd like to avoid is
-> ending up with reserved constants for code that was never submitted
-> upstream at all.
+John W. Linville wrote:
+> On Mon, Oct 24, 2005 at 02:35:42PM -0700, Ben Greear wrote:
+> 
+> 
+>>It doesn't matter too much to me either way, but I'd like for there to
+>>be a precisely documented definition for the various net-stats so that
+>>I can correctly show the values to user-space (I can certainly add 
+>>rx_discards
+>>to rx_errors for a 'total rx errors' value, but I need to know whether
+>>rx_discards is already in rx_errors to keep from counting things twice.)
+> 
+> 
+> My opinion is that:
+> 
+> 	-- rx_errors should count all "on the wire" hardware errors;
+> 
+> 	-- rx_missed_errors should count frames w/ no "on the wire"
+> 	errors that cannot be received by the hardware (generally
+> 	due to lack of DMA bufers); and,
+> 
+> 	-- rx_discards should count frames dropped by the kernel
+> 	after successful reception by the hardware.
+> 
+> I do _not_ think rx_missed_errors should be counted as part of
+> rx_errors, but I could be persuaded otherwise.
 
-Okay, I see your point.
+Well, if we have rx_errors containing any of the other more specific
+error counts (reported in the net-stats struct), I don't see a reason
+not to include all of them in the counter.  I think my preference would
+be to have rx_errors be every conceivable frame that we know was sent to
+us but which did not get properly delivered to the software stack.
 
-IMHO I'd have preferred a more open politic like libpcap's. There may be valid 
-reasons to keep code out of the tree and this makes maintenance even harder 
-to perform than it already is.
+Each error would also fall into it's more specific counters.
 
-Thanks anyway,
+That way, the rx-errors counter can be used for folks who just care
+that the packet was not correctly received, and those that care about
+the details can look at the individual errors (and sum them up in various
+configurations due to personal taste, etc.)
 
-Bye,
+That said, rx-errors would then be duplicate info because we could arrive
+at it's value by just adding up all the other error counters....
+
+> It does seem like a netdev stats clarification doc would be
+> appropriate.  Does anyone have the beginnings of this?
+
+It's not authoritative, but I scrounged this info from various people,
+including Mr Becker some years ago.  I undoubtedly made some of this up
+myself, and there could be errors of course:
+
+rx_errors:  Total of all rx errors
+rx_dropped:  Dropped on receive, usually due to kernel being over-worked.
+rx_length:  Dropped because pkt-length was invalid.
+rx_over:  Dropped because we over-ran the NIC's rx buffers.
+rx_crc:  Packets received with bad CRC errors.
+rx_frame:  Framing errors (errors at the physical layer), usually cable or hardware error.
+rx_fifo:  Dropped due to Kernel buffers being full (I guess rx-over could be NIC only, rx-fifo be kernel/driver only.)
+rx_missed:  Dropped due to not handling IRQ in time.
+
+tx_abort:  Failed to TX due to driver abort.
+tx_carrier:  Failed to TX due to lack of carrier signal.
+tx_fifo:  Over-ran the driver/kernel buffer(s).
+tx_heartbeat:  Failed to TX due to transceiver heartbeat errors.
+tx_window:  Failed to TX due to out-of-window error.
+
+Thanks,
+Ben
+
+> 
+> John
+
 
 -- 
-  Daniele Orlandi
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
