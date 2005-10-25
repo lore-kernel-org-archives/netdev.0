@@ -1,41 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH]IPv6: fix refcnt of struct ip6_flowlabel
-Date: Tue, 25 Oct 2005 17:22:54 +0900 (JST)
-Message-ID: <20051025.172254.100422401.yoshfuji@linux-ipv6.org>
-References: <435CCF7B.6030907@21cn.com>
-	<39e6f6c70510241135p18b018bo896b3565fa5ce87b@mail.gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: [PATCH/RFC] Remove spurious sk_filter() call from IPv6
+Date: Tue, 25 Oct 2005 12:48:14 -0400 (EDT)
+Message-ID: <Pine.LNX.4.63.0510251242070.17321@excalibur.intercode>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yanzheng@21cn.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932092AbVJYIWy@vger.kernel.org>
-To: acme@ghostprotocols.net
-In-Reply-To: <39e6f6c70510241135p18b018bo896b3565fa5ce87b@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: =?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=B5=C8=C6=A3=B1=D1=CC=C0?= <yoshfuji@linux-ipv6.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <39e6f6c70510241135p18b018bo896b3565fa5ce87b@mail.gmail.com> (at Mon, 24 Oct 2005 16:35:33 -0200), Arnaldo Carvalho de Melo <acme@ghostprotocols.net> says:
+It seems that the IPv6 input path has an extra call to sk_filter().
 
-> On 10/24/05, Yan Zheng <yanzheng@21cn.com> wrote:
-> > Signed-off-by: Yan Zheng <yanzheng@21cn.com>
-> >
-> >
-> > Index: net/ipv6/ip6_flowlabel.c
-> > ===================================================================
-> > --- linux-2.6.14-rc5/net/ipv6/ip6_flowlabel.c   2005-10-22 10:31:13.000000000 +0800
-> > +++ linux/net/ipv6/ip6_flowlabel.c      2005-10-24 19:55:23.000000000 +0800
-> > @@ -483,7 +483,7 @@
-> >                                                 goto done;
-> >                                         }
-> >                                         fl1 = sfl->fl;
-> > -                                       atomic_inc(&fl->users);
-> > +                                       atomic_inc(&fl1->users);
-> >                                         break;
-> 
-> Looks OK to me, Yoshifuji-san, ACK?
+First, the correct call to sk_filter() in tcp_v6_rcv(), matching the IPv4 
+code.
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Then, again in tcp_v6_do_rcv(), which often results in a somewhat already 
+processed skb being passed to sk_filter().
 
---yoshfuji
+As far as I can tell, we should remove this second call, as it is both 
+incorrect and uncecessary.
+
+Please review and apply if ok.
+
+Signed-off-by: James Morris <jmorris@namei.org>
+
+
+---
+
+ net/ipv6/tcp_ipv6.c |    3 ---
+ 1 files changed, 3 deletions(-)
+
+diff -purN -X dontdiff linux-2.6.14-rc5.o/net/ipv6/tcp_ipv6.c linux-2.6.14-rc5.ipv6/net/ipv6/tcp_ipv6.c
+--- linux-2.6.14-rc5.o/net/ipv6/tcp_ipv6.c	2005-10-21 00:43:33.000000000 -0400
++++ linux-2.6.14-rc5.ipv6/net/ipv6/tcp_ipv6.c	2005-10-25 12:44:23.000000000 -0400
+@@ -1451,9 +1451,6 @@ static int tcp_v6_do_rcv(struct sock *sk
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		return tcp_v4_do_rcv(sk, skb);
+ 
+-	if (sk_filter(sk, skb, 0))
+-		goto discard;
+-
+ 	/*
+ 	 *	socket locking is here for SMP purposes as backlog rcv
+ 	 *	is currently called with bh processing disabled.
