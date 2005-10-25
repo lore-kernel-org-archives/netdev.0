@@ -1,19 +1,25 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: ethtool git repo created
-Date: Tue, 25 Oct 2005 02:38:35 -0400
-Message-ID: <435DD2EB.6030203@pobox.com>
+Subject: Re: [PATCH] Ethtool support for the new PowerPC 4xx on-chip ethernet
+ controller driver
+Date: Tue, 25 Oct 2005 02:29:37 -0400
+Message-ID: <435DD0D1.40806@pobox.com>
+References: <20050831062416.GD17017@gate.ebshome.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751472AbVJYGii@vger.kernel.org>
-To: Netdev List <netdev@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Eugene Surovegin <ebs@ebshome.net>
+In-Reply-To: <20050831062416.GD17017@gate.ebshome.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-
-After sitting around in a non-public subversion repo for far too long, 
-I've stuffed the latest ethtool source code into a git repository.  As 
-soon as it finished mirroring, it will be available at
-
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/ethtool.git
+applied
