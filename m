@@ -1,51 +1,46 @@
-From: "Ayaz Abdulla" <AAbdulla@nvidia.com>
-Subject: RE: [PATCH 2/2] forcedeth: scatter gather and segmentation offload support
-Date: Tue, 25 Oct 2005 23:17:13 -0700
-Message-ID: <DBFABB80F7FD3143A911F9E6CFD477B00BA5D799@hqemmail02.nvidia.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
+Date: Wed, 26 Oct 2005 09:37:33 +0200
+Message-ID: <200510260937.33725.netdev@axxeo.de>
+References: <4352EEC8.9000602@trash.net>
+	<20051025231049.GA13679@gondor.apana.org.au>
+	<435EBC57.7090000@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>,
-        "Manfred Spraul" <manfred@colorfullife.com>,
-        "Netdev" <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <435EBC57.7090000@trash.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Thanks.
+Patrick McHardy wrote:
+> Herbert Xu wrote:
+> > Actually I was thinking of transport mode SAs with no accompanying
+> > tunnel mode SAs.  Did you have another way of dealing with them?
+>
+> No. I thought of this as a special case of inner transport mode SAs
+> (without any further SAs) which would be unhandled. I've never used
+> pure transport mode SAs except for testing, and I've never seen any
+> other users of this. Do you think it is important to handle?
 
-I will resend version 45 (bug fix) and 46 (irq modes) since they will
-need new modifications based on the changes made in this patch and the
-comments you suggested.
+These become important in untrusted LANs. These days, the LAN is often 
+not safe enough for confidental data, so you need end to end encryption,
+for which tunnel mode is a bitch to setup (due to the additional routing
+required ).
 
+Regards
 
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com] 
-Sent: Tuesday, October 25, 2005 9:53 PM
-To: Ayaz Abdulla
-Cc: Stephen Hemminger; Manfred Spraul; Netdev
-Subject: Re: [PATCH 2/2] forcedeth: scatter gather and segmentation
-offload support
-
-
-Ayaz Abdulla wrote:
-> Yes, forgot that indent.
-> 
-> Here it is again with that fix.
-
-I applied this version of the patch to the 'upstream' patch.
-
-In the future, as Stephen noted, it would really be preferred that you 
-split up the patch into logical changes.  patch 1/2 netdev_priv(), patch
-
-2/2 SG support, for example.
-
-Also, always include the Signed-off-by line, even on patch resends.  See
-	http://linux.yyz.us/patch-format.html
-for more info.
-
-	Jeff
+Ingo Oeser
