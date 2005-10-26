@@ -1,50 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [PATCH] kill massive wireless-related log spam
-Date: Wed, 26 Oct 2005 00:28:27 -0400
-Message-ID: <20051026042827.GA22836@havoc.gtf.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
+Date: Wed, 26 Oct 2005 00:39:16 -0400 (EDT)
+Message-ID: <Pine.LNX.4.63.0510260038200.18717@excalibur.intercode>
+References: <4352EEC8.9000602@trash.net>
+	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
+	<4352FD49.4090201@trash.net>
+	<20051017014629.GB32661@gondor.apana.org.au>
+	<435EBB18.50701@trash.net> <20051025231049.GA13679@gondor.apana.org.au>
+	<435EBC57.7090000@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jketreno@linux.intel.com, Andrew Morton <akpm@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932539AbVJZE23@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <435EBC57.7090000@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 26 Oct 2005, Patrick McHardy wrote:
 
-Please apply to 2.6.14-rc.
+> No. I thought of this as a special case of inner transport mode SAs
+> (without any further SAs) which would be unhandled. I've never used
+> pure transport mode SAs except for testing, and I've never seen any
+> other users of this. Do you think it is important to handle?
 
-Although this message is having the intended effect of causing wireless
-driver maintainers to upgrade their code, I never should have merged
-this patch in its present form.  Leading to tons of bug reports and
-unhappy users.
+Pure transport mode SAs are likely to be common when using IPSec labeling 
+(the stuff Trent Jaeger has been working on).
 
-Some wireless apps poll for statistics regularly, which leads to a
-printk() every single time they ask for stats.  That's a little bit
-_too_ much of a reminder that the driver is using an old API.
 
-Change this to printing out the message once, per kernel boot.
-
-diff --git a/net/core/wireless.c b/net/core/wireless.c
-index d17f158..271ddb3 100644
---- a/net/core/wireless.c
-+++ b/net/core/wireless.c
-@@ -455,10 +455,15 @@ static inline struct iw_statistics *get_
- 
- 	/* Old location, field to be removed in next WE */
- 	if(dev->get_wireless_stats) {
--		printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
--		       dev->name);
-+		static int printed_message;
-+
-+		if (!printed_message++)
-+			printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
-+				dev->name);
-+
- 		return dev->get_wireless_stats(dev);
- 	}
-+
- 	/* Not found */
- 	return (struct iw_statistics *) NULL;
- }
+- James
+-- 
+James Morris
+<jmorris@namei.org>
