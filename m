@@ -1,74 +1,47 @@
-From: Stephen Frost <sfrost@snowman.net>
-Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Wed, 26 Oct 2005 09:37:36 -0400
-Message-ID: <20051026133736.GP6026@ns.snowman.net>
-References: <4352EEC8.9000602@trash.net>
-	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
-	<4352FD49.4090201@trash.net>
-	<20051017014629.GB32661@gondor.apana.org.au>
-	<435EBB18.50701@trash.net>
-	<20051025231049.GA13679@gondor.apana.org.au>
-	<435EBC57.7090000@trash.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] kill massive wireless-related log spam
+Date: Wed, 26 Oct 2005 17:04:14 +0200
+Message-ID: <200510261704.15366.ak@suse.de>
+References: <20051026042827.GA22836@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="TrGrrwHz9iYGKlIl"
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jketreno@linux.intel.com,
+	Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964780AbVJZPD1@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20051026042827.GA22836@havoc.gtf.org>
 Content-Disposition: inline
-In-Reply-To: <435EBC57.7090000@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 26 October 2005 06:28, Jeff Garzik wrote:
 
---TrGrrwHz9iYGKlIl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Change this to printing out the message once, per kernel boot.
 
-* Patrick McHardy (kaber@trash.net) wrote:
-> Herbert Xu wrote:
-> > Actually I was thinking of transport mode SAs with no accompanying
-> > tunnel mode SAs.  Did you have another way of dealing with them?
->=20
-> No. I thought of this as a special case of inner transport mode SAs
-> (without any further SAs) which would be unhandled. I've never used
-> pure transport mode SAs except for testing, and I've never seen any
-> other users of this. Do you think it is important to handle?
+It doesn't do that. It prints it once every 2^32 calls. Also
+the ++ causes unnecessary dirty cache lines in normal operation.
 
-I've used pure transport mode SAs in a couple of cases and I do feel
-they're important to support, and would really like to be able to use
-firewall rules with them too..  In fact, I'd think it'd be more
-important with transport-mode because it's more likely you'll want to
-set up a pretty open use-ipsec-whenever-possible-with-remote-hosts mode,
-unlike with tunnel mode where it's more likely you'll set up specific
-policies which only accept tunnels which go to certain ports on certain
-IPs, etc.  At least, I've set that up as well... :)
-
-	Thanks,
-
-		Stephen
-
---TrGrrwHz9iYGKlIl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDX4agrzgMPqB3kigRAjcPAKCKtdH5nSwHGOacjhlxasJKn8FNugCfb/IT
-7qiuSdHJsghoozPSo+2oG+E=
-=8CEj
------END PGP SIGNATURE-----
-
---TrGrrwHz9iYGKlIl--
+-Andi
+> 
+> diff --git a/net/core/wireless.c b/net/core/wireless.c
+> index d17f158..271ddb3 100644
+> --- a/net/core/wireless.c
+> +++ b/net/core/wireless.c
+> @@ -455,10 +455,15 @@ static inline struct iw_statistics *get_
+>  
+>  	/* Old location, field to be removed in next WE */
+>  	if(dev->get_wireless_stats) {
+> -		printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
+> -		       dev->name);
+> +		static int printed_message;
+> +
+> +		if (!printed_message++)
+> +			printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
+> +				dev->name);
+> +
+>  		return dev->get_wireless_stats(dev);
+>  	}
+> +
