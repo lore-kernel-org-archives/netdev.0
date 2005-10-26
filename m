@@ -1,134 +1,163 @@
 From: Santiago Leon <santil@us.ibm.com>
-Subject: [PATCH 4/5] ibmveth lockless TX
-Date: Wed, 26 Oct 2005 10:47:16 -0600
-Message-ID: <20051026164602.21820.48687.sendpatchset@localhost.localdomain>
+Subject: [PATCH 3/5] ibmveth fix buffer replenishing
+Date: Wed, 26 Oct 2005 10:47:08 -0600
+Message-ID: <20051026164555.21820.85804.sendpatchset@localhost.localdomain>
 References: <20051026164532.21820.72673.sendpatchset@localhost.localdomain>
 Cc: Santiago Leon <santil@us.ibm.com>, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964817AbVJZQr0@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964815AbVJZQr3@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
 In-Reply-To: <20051026164532.21820.72673.sendpatchset@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the lockless TX feature to the ibmveth driver.  The
-hypervisor has its own locking so the only change that is necessary is
-to protect the statistics counters.
+This patch removes the allocation of RX skb's  buffers from a workqueue
+to be called directly at RX processing time.  This change was suggested
+by Dave Miller when the driver was starving the RX buffers and
+deadlocking under heavy traffic:
+
+
+> Allocating RX SKBs via tasklet is, IMHO, the worst way to
+> do it.  It is no surprise that there are starvation cases.
+> 
+> If tasklets or work queues get delayed in any way, you lose,
+> and it's very easy for a card to catch up with the driver RX'ing
+> packets very fast, no matter how aggressive you make the
+> replenishing.  By the time you detect that you need to be
+> "more aggressive" it is already too late.
+> The only pseudo-reliable way is to allocate at RX processing time.
+> 
 
 Signed-off-by: Santiago Leon <santil@us.ibm.com>
 ---
 
- drivers/net/ibmveth.c |   44 +++++++++++++++++++++++++++++---------------
- drivers/net/ibmveth.h |    1 +
- 2 files changed, 30 insertions(+), 15 deletions(-)
+ drivers/net/ibmveth.c |   48 ++++++++----------------------------------------
+ drivers/net/ibmveth.h |    4 ----
+ 2 files changed, 8 insertions(+), 44 deletions(-)
 
---- a/drivers/net/ibmveth.c	2005-10-17 12:37:06.000000000 -0500
-+++ b/drivers/net/ibmveth.c	2005-10-18 11:58:56.000000000 -0500
-@@ -621,12 +621,18 @@
- 	unsigned long lpar_rc;
- 	int nfrags = 0, curfrag;
- 	unsigned long correlator;
-+	unsigned long flags;
- 	unsigned int retry_count;
-+	unsigned int tx_dropped = 0;
-+	unsigned int tx_bytes = 0;
-+	unsigned int tx_packets = 0;
-+	unsigned int tx_send_failed = 0;
-+	unsigned int tx_map_failed = 0;
-+
+--- a/drivers/net/ibmveth.c	2005-10-17 12:04:58.000000000 -0500
++++ b/drivers/net/ibmveth.c	2005-10-17 12:23:22.000000000 -0500
+@@ -96,7 +96,6 @@
+ static void ibmveth_proc_register_adapter(struct ibmveth_adapter *adapter);
+ static void ibmveth_proc_unregister_adapter(struct ibmveth_adapter *adapter);
+ static irqreturn_t ibmveth_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
+-static inline void ibmveth_schedule_replenishing(struct ibmveth_adapter*);
+ static inline void ibmveth_rxq_harvest_buffer(struct ibmveth_adapter *adapter);
  
- 	if ((skb_shinfo(skb)->nr_frags + 1) > IbmVethMaxSendFrags) {
--		adapter->stats.tx_dropped++;
--		dev_kfree_skb(skb);
--		return 0;
-+		tx_dropped++;
-+		goto out;
- 	}
- 
- 	memset(&desc, 0, sizeof(desc));
-@@ -645,10 +651,9 @@
- 
- 	if(dma_mapping_error(desc[0].fields.address)) {
- 		ibmveth_error_printk("tx: unable to map initial fragment\n");
--		adapter->tx_map_failed++;
--		adapter->stats.tx_dropped++;
--		dev_kfree_skb(skb);
--		return 0;
-+		tx_map_failed++;
-+		tx_dropped++;
-+		goto out;
- 	}
- 
- 	curfrag = nfrags;
-@@ -665,8 +670,8 @@
- 
- 		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
- 			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
--			adapter->tx_map_failed++;
--			adapter->stats.tx_dropped++;
-+			tx_map_failed++;
-+			tx_dropped++;
- 			/* Free all the mappings we just created */
- 			while(curfrag < nfrags) {
- 				dma_unmap_single(&adapter->vdev->dev,
-@@ -675,8 +680,7 @@
- 						 DMA_TO_DEVICE);
- 				curfrag++;
- 			}
--			dev_kfree_skb(skb);
--			return 0;
-+			goto out;
- 		}
- 	}
- 
-@@ -701,11 +705,11 @@
- 			ibmveth_error_printk("tx: desc[%i] valid=%d, len=%d, address=0x%d\n", i,
- 					     desc[i].fields.valid, desc[i].fields.length, desc[i].fields.address);
- 		}
--		adapter->tx_send_failed++;
--		adapter->stats.tx_dropped++;
-+		tx_send_failed++;
-+		tx_dropped++;
- 	} else {
--		adapter->stats.tx_packets++;
--		adapter->stats.tx_bytes += skb->len;
-+		tx_packets++;
-+		tx_bytes += skb->len;
- 		netdev->trans_start = jiffies;
- 	}
- 
-@@ -715,6 +719,14 @@
- 				desc[nfrags].fields.length, DMA_TO_DEVICE);
- 	} while(--nfrags >= 0);
- 
-+out:	spin_lock_irqsave(&adapter->stats_lock, flags);
-+	adapter->stats.tx_dropped += tx_dropped;
-+	adapter->stats.tx_bytes += tx_bytes;
-+	adapter->stats.tx_packets += tx_packets;
-+	adapter->tx_send_failed += tx_send_failed;
-+	adapter->tx_map_failed += tx_map_failed;
-+	spin_unlock_irqrestore(&adapter->stats_lock, flags);
-+
- 	dev_kfree_skb(skb);
- 	return 0;
+ #ifdef CONFIG_PROC_FS
+@@ -257,29 +256,7 @@
+ 	atomic_add(buffers_added, &(pool->available));
  }
-@@ -980,6 +992,8 @@
- 	netdev->ethtool_ops           = &netdev_ethtool_ops;
- 	netdev->change_mtu         = ibmveth_change_mtu;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
-+ 	netdev->features |= NETIF_F_LLTX; 
-+	spin_lock_init(&adapter->stats_lock);
  
- 	memcpy(&netdev->dev_addr, &adapter->mac_addr, netdev->addr_len);
+-/* check if replenishing is needed.  */
+-static inline int ibmveth_is_replenishing_needed(struct ibmveth_adapter *adapter)
+-{
+-	int i;
+-
+-	for(i = 0; i < IbmVethNumBufferPools; i++)
+-		if(adapter->rx_buff_pool[i].active &&
+-		  (atomic_read(&adapter->rx_buff_pool[i].available) <
+-		   adapter->rx_buff_pool[i].threshold))
+-			return 1;
+-	return 0;
+-}
+-
+-/* kick the replenish tasklet if we need replenishing and it isn't already running */
+-static inline void ibmveth_schedule_replenishing(struct ibmveth_adapter *adapter)
+-{
+-	if(ibmveth_is_replenishing_needed(adapter) &&
+-	   (atomic_dec_if_positive(&adapter->not_replenishing) == 0)) {
+-		schedule_work(&adapter->replenish_task);
+-	}
+-}
+-
+-/* replenish tasklet routine */
++/* replenish routine */
+ static void ibmveth_replenish_task(struct ibmveth_adapter *adapter) 
+ {
+ 	int i;
+@@ -292,10 +269,6 @@
+ 						     &adapter->rx_buff_pool[i]);
  
+ 	adapter->rx_no_buffer = *(u64*)(((char*)adapter->buffer_list_addr) + 4096 - 8);
+-
+-	atomic_inc(&adapter->not_replenishing);
+-
+-	ibmveth_schedule_replenishing(adapter);
+ }
+ 
+ /* empty and free ana buffer pool - also used to do cleanup in error paths */
+@@ -563,10 +536,10 @@
+ 		return rc;
+ 	}
+ 
+-	netif_start_queue(netdev);
++	ibmveth_debug_printk("initial replenish cycle\n");
++	ibmveth_replenish_task(adapter);
+ 
+-	ibmveth_debug_printk("scheduling initial replenish cycle\n");
+-	ibmveth_schedule_replenishing(adapter);
++	netif_start_queue(netdev);
+ 
+ 	ibmveth_debug_printk("open complete\n");
+ 
+@@ -584,9 +557,6 @@
+ 
+ 	free_irq(netdev->irq, netdev);
+ 
+-	cancel_delayed_work(&adapter->replenish_task);
+-	flush_scheduled_work();
+-
+ 	do {
+ 		lpar_rc = h_free_logical_lan(adapter->vdev->unit_address);
+ 	} while (H_isLongBusy(lpar_rc) || (lpar_rc == H_Busy));
+@@ -795,7 +765,7 @@
+ 		}
+ 	} while(more_work && (frames_processed < max_frames_to_process));
+ 
+-	ibmveth_schedule_replenishing(adapter);
++	ibmveth_replenish_task(adapter);
+ 
+ 	if(more_work) {
+ 		/* more work to do - return that we are not done yet */
+@@ -931,8 +901,10 @@
+ 
+ 	}
+ 
++	/* kick the interrupt handler so that the new buffer pools get
++	   replenished or deallocated */
++	ibmveth_interrupt(dev->irq, dev, NULL);
+ 
+-	ibmveth_schedule_replenishing(adapter);
+ 	dev->mtu = new_mtu;
+ 	return 0;	
+ }
+@@ -1017,14 +989,10 @@
+ 
+ 	ibmveth_debug_printk("adapter @ 0x%p\n", adapter);
+ 
+-	INIT_WORK(&adapter->replenish_task, (void*)ibmveth_replenish_task, (void*)adapter);
+-
+ 	adapter->buffer_list_dma = DMA_ERROR_CODE;
+ 	adapter->filter_list_dma = DMA_ERROR_CODE;
+ 	adapter->rx_queue.queue_dma = DMA_ERROR_CODE;
+ 
+-	atomic_set(&adapter->not_replenishing, 1);
+-
+ 	ibmveth_debug_printk("registering netdev...\n");
+ 
+ 	rc = register_netdev(netdev);
 diff -urN a/drivers/net/ibmveth.h b/drivers/net/ibmveth.h
---- a/drivers/net/ibmveth.h	2005-10-17 12:35:13.000000000 -0500
-+++ b/drivers/net/ibmveth.h	2005-10-18 11:58:56.000000000 -0500
-@@ -131,6 +131,7 @@
-     u64 tx_linearize_failed;
-     u64 tx_map_failed;
-     u64 tx_send_failed;
-+    spinlock_t stats_lock;
- };
+--- a/drivers/net/ibmveth.h	2005-10-17 12:04:58.000000000 -0500
++++ b/drivers/net/ibmveth.h	2005-10-17 12:23:22.000000000 -0500
+@@ -118,10 +118,6 @@
+     dma_addr_t filter_list_dma;
+     struct ibmveth_buff_pool rx_buff_pool[IbmVethNumBufferPools];
+     struct ibmveth_rx_q rx_queue;
+-    atomic_t not_replenishing;
+-
+-    /* helper tasks */
+-    struct work_struct replenish_task;
  
- struct ibmveth_buf_desc_fields {	
+     /* adapter specific stats */
+     u64 replenish_task_cycles;
