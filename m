@@ -1,52 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Wed, 26 Oct 2005 10:39:54 +1000
-Message-ID: <20051026003954.GA14068@gondor.apana.org.au>
-References: <4352EEC8.9000602@trash.net>
-	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
-	<4352FD49.4090201@trash.net>
-	<20051017014629.GB32661@gondor.apana.org.au>
-	<435EBB18.50701@trash.net>
-	<20051025231049.GA13679@gondor.apana.org.au>
-	<435EBC57.7090000@trash.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] 1/5 ibmveth fix bonding
+Date: Wed, 26 Oct 2005 00:11:23 -0400
+Message-ID: <435F01EB.6080608@pobox.com>
+References: <1130275458.10524.425.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <435EBC57.7090000@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932532AbVJZELa@vger.kernel.org>
+To: Santiago Leon <santil@us.ibm.com>
+In-Reply-To: <1130275458.10524.425.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 26, 2005 at 01:14:31AM +0200, Patrick McHardy wrote:
-> No. I thought of this as a special case of inner transport mode SAs
-> (without any further SAs) which would be unhandled. I've never used
-> pure transport mode SAs except for testing, and I've never seen any
-> other users of this. Do you think it is important to handle?
+Santiago Leon wrote:
+> This patch updates dev->trans_start and dev->last_rx so that the ibmveth
+> driver can be used with the ARP monitor in the bonding driver. 
+> 
+> Signed-off-by: Santiago Leon <santil@us.ibm.com>
 
-Well the scenario is IPv4 transport mode ESP applied outside normal
-IPIP tunnel devices.
+all patches look OK to me.
 
-Actually, this could work if we make sure that the user-space KMs
-set the SA selectors properly in this case.
+all patches except #1 appear to be whitespace-corrupted.
 
-I presume that you will be changing the output path so that LOCAL_OUT
-does not see the plain-text packet.  Otherwise it'll be asymmetric with
-repsect to the inbound side which does not see plain-text packets for
-transport mode SAs.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Jeff
