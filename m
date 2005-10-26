@@ -1,72 +1,49 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: To James Ketrenos
-Date: Wed, 26 Oct 2005 10:52:02 -0700
-Message-ID: <20051026175202.GA29306@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Dan Williams <dcbw@redhat.com>
-Return-path: <ipw2100-devel-admin@lists.sourceforge.net>
-To: netdev@vger.kernel.org, ipw2100-devel@lists.sourceforge.net
-Content-Disposition: inline
-Sender: ipw2100-devel-admin@lists.sourceforge.net
-Errors-To: ipw2100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
+From: "J.A. Magallon" <jamagallon@able.es>
+Subject: Re: [PATCH] kill massive wireless-related log spam
+Date: Wed, 26 Oct 2005 23:23:58 +0200
+Message-ID: <AB480DAC-57B0-4125-8BA5-D6C715B693B6@able.es>
+References: <20051026042827.GA22836@havoc.gtf.org> <200510261704.15366.ak@suse.de> <9a8748490510260823s681a4d82k5efa5734486eda85@mail.gmail.com>
+Mime-Version: 1.0 (Apple Message framework v734)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964939AbVJZVYF@vger.kernel.org>
+In-Reply-To: <9a8748490510260823s681a4d82k5efa5734486eda85@mail.gmail.com>
+To: Linux-Kernel <linux-kernel@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	James,
 
-	Would you mind fixing the mail system on your side ? Other
-people never had trouble receiving e-mail from me. Otherwise, I'll
-just have to ask people to forward you my e-mails...
-	Thanks in advance...
+On 2005.10.26, at 17:23, Jesper Juhl wrote:
 
-	Jean
+> On 10/26/05, Andi Kleen <ak@suse.de> wrote:
+>
+>> On Wednesday 26 October 2005 06:28, Jeff Garzik wrote:
+>>
+>>
+>>> Change this to printing out the message once, per kernel boot.
+>>>
+>>
+>> It doesn't do that. It prints it once every 2^32 calls. Also
+>>
+>
+> I noted that as well. How about just using something along the  
+> lines of
+>
+> static unsigned char printed_message = 0;
+> if (!printed_message) {
+>     printk(...);
+>     printed_message++;
+> }
 
------ Forwarded message from Mail Delivery System <MAILER-DAEMON@janus0.fc.hp.com> -----
+Sorry, but why not the old good
 
-Delivery-date: Wed, 26 Oct 2005 10:46:41 -0700
-Subject: Undelivered Mail Returned to Sender
+     printed_message = 1
 
-Content-Description: Notification
-This is the Postfix program at host janus0.fc.hp.com.
+??
+What kind of microoptimization is that ?
 
-I'm sorry to have to inform you that the message returned
-below could not be delivered to one or more destinations.
-
-For further assistance, please send mail to <postmaster>
-
-If you do so, please include this problem report. You can
-delete your own text from the message returned below.
-
-			The Postfix program
-
-<jketreno@linux.intel.com>: host 192.55.36.23[192.55.36.23] said: 550
-    jketreno@linux.intel.com ...Relaying denied (in reply to RCPT TO command)
-
-Content-Description: Delivery error report
-Reporting-MTA: dns; janus0.fc.hp.com
-Arrival-Date: Wed, 26 Oct 2005 11:46:36 -0600 (MDT)
-
-Final-Recipient: rfc822; jketreno@linux.intel.com
-Action: failed
-Status: 5.0.0
-Diagnostic-Code: X-Postfix; host 192.55.36.23[192.55.36.23] said: 550
-    jketreno@linux.intel.com ...Relaying denied (in reply to RCPT TO command)
-
-Content-Description: Undelivered Message
-Subject: Re: Wireless scanning and EAGAIN
-E-mail: jt@hpl.hp.com
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by the JBoss Inc.
-Get Certified Today * Register for a JBoss Training Course
-Free Certification Exam for All Training Attendees Through End of 2005
-Visit http://www.jboss.com/services/certification for more information
+--
+J.A. Magallon <jamagallon()able!es>   \          Software is like sex:
+wolverine                              \    It's better when it's free
+MacOS X 10.4.2, Darwin Kernel Version 8.2.0
