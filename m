@@ -1,34 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] kill massive wireless-related log spam
-Date: Wed, 26 Oct 2005 11:42:51 -0400
-Message-ID: <435FA3FB.9030107@pobox.com>
-References: <20051026042827.GA22836@havoc.gtf.org> <200510261704.15366.ak@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jketreno@linux.intel.com,
-	Andrew Morton <akpm@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964792AbVJZPnF@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200510261704.15366.ak@suse.de>
+From: Santiago Leon <santil@us.ibm.com>
+Subject: [PATCH 1/5] ibmveth fix bonding
+Date: Wed, 26 Oct 2005 10:46:53 -0600
+Message-ID: <20051026164539.21820.57374.sendpatchset@localhost.localdomain>
+References: <20051026164532.21820.72673.sendpatchset@localhost.localdomain>
+Cc: Santiago Leon <santil@us.ibm.com>, Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964811AbVJZQq6@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+In-Reply-To: <20051026164532.21820.72673.sendpatchset@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> On Wednesday 26 October 2005 06:28, Jeff Garzik wrote:
-> 
-> 
->>Change this to printing out the message once, per kernel boot.
-> 
-> 
-> It doesn't do that. It prints it once every 2^32 calls. Also
+This patch updates dev->trans_start and dev->last_rx so that the ibmveth
+driver can be used with the ARP monitor in the bonding driver. 
 
-...which is effectively one per kernel boot
+Signed-off-by: Santiago Leon <santil@us.ibm.com>
+---
 
+ drivers/net/ibmveth.c |    2 ++
+ 1 files changed, 2 insertions(+)
 
-> the ++ causes unnecessary dirty cache lines in normal operation.
-
-Not a hot path operation by any stretch of the imagination, so that's fine.
-
-	Jeff
+--- a/drivers/net/ibmveth.c	2005-10-11 12:56:24.000000000 -0500
++++ b/drivers/net/ibmveth.c	2005-10-11 13:52:45.000000000 -0500
+@@ -725,6 +725,7 @@
+ 	} else {
+ 		adapter->stats.tx_packets++;
+ 		adapter->stats.tx_bytes += skb->len;
++		netdev->trans_start = jiffies;
+ 	}
+ 
+ 	do {
+@@ -776,6 +777,7 @@
+ 				adapter->stats.rx_packets++;
+ 				adapter->stats.rx_bytes += length;
+ 				frames_processed++;
++				netdev->last_rx = jiffies;
+ 			}
+ 		} else {
+ 			more_work = 0;
