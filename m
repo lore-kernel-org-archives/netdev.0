@@ -1,27 +1,50 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] 1/5 ibmveth fix bonding
-Date: Wed, 26 Oct 2005 00:11:23 -0400
-Message-ID: <435F01EB.6080608@pobox.com>
-References: <1130275458.10524.425.camel@localhost.localdomain>
+Subject: [PATCH] kill massive wireless-related log spam
+Date: Wed, 26 Oct 2005 00:28:27 -0400
+Message-ID: <20051026042827.GA22836@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932532AbVJZELa@vger.kernel.org>
-To: Santiago Leon <santil@us.ibm.com>
-In-Reply-To: <1130275458.10524.425.camel@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jketreno@linux.intel.com, Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932539AbVJZE23@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Santiago Leon wrote:
-> This patch updates dev->trans_start and dev->last_rx so that the ibmveth
-> driver can be used with the ARP monitor in the bonding driver. 
-> 
-> Signed-off-by: Santiago Leon <santil@us.ibm.com>
 
-all patches look OK to me.
+Please apply to 2.6.14-rc.
 
-all patches except #1 appear to be whitespace-corrupted.
+Although this message is having the intended effect of causing wireless
+driver maintainers to upgrade their code, I never should have merged
+this patch in its present form.  Leading to tons of bug reports and
+unhappy users.
 
-	Jeff
+Some wireless apps poll for statistics regularly, which leads to a
+printk() every single time they ask for stats.  That's a little bit
+_too_ much of a reminder that the driver is using an old API.
+
+Change this to printing out the message once, per kernel boot.
+
+diff --git a/net/core/wireless.c b/net/core/wireless.c
+index d17f158..271ddb3 100644
+--- a/net/core/wireless.c
++++ b/net/core/wireless.c
+@@ -455,10 +455,15 @@ static inline struct iw_statistics *get_
+ 
+ 	/* Old location, field to be removed in next WE */
+ 	if(dev->get_wireless_stats) {
+-		printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
+-		       dev->name);
++		static int printed_message;
++
++		if (!printed_message++)
++			printk(KERN_DEBUG "%s (WE) : Driver using old /proc/net/wireless support, please fix driver !\n",
++				dev->name);
++
+ 		return dev->get_wireless_stats(dev);
+ 	}
++
+ 	/* Not found */
+ 	return (struct iw_statistics *) NULL;
+ }
