@@ -1,17 +1,22 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Thu, 27 Oct 2005 22:15:45 +1000
-Message-ID: <20051027121545.GA5530@gondor.apana.org.au>
+Date: Thu, 27 Oct 2005 16:42:34 +0200
+Message-ID: <4360E75A.10405@trash.net>
 References: <4352EEC8.9000602@trash.net>
 	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
+	<4352FD49.4090201@trash.net>
+	<20051017014629.GB32661@gondor.apana.org.au>
+	<435EBB18.50701@trash.net>
+	<20051025231049.GA13679@gondor.apana.org.au>
+	<435EBC57.7090000@trash.net>
+	<20051026003954.GA14068@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	kaber@trash.net
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20051017.094919.56989341.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20051026003954.GA14068@gondor.apana.org.au>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -23,31 +28,26 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 17, 2005 at 09:49:19AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
->
-> Stack should process the packet just once if it is of transport mode.
-> (It is okay to process one twice if it is of tunnel mode.)
+Herbert Xu wrote:
+> On Wed, Oct 26, 2005 at 01:14:31AM +0200, Patrick McHardy wrote:
+> 
+>>No. I thought of this as a special case of inner transport mode SAs
+>>(without any further SAs) which would be unhandled. I've never used
+>>pure transport mode SAs except for testing, and I've never seen any
+>>other users of this. Do you think it is important to handle?
+> 
+> 
+> Well the scenario is IPv4 transport mode ESP applied outside normal
+> IPIP tunnel devices.
+> 
+> Actually, this could work if we make sure that the user-space KMs
+> set the SA selectors properly in this case.
+> 
+> I presume that you will be changing the output path so that LOCAL_OUT
+> does not see the plain-text packet.  Otherwise it'll be asymmetric with
+> repsect to the inbound side which does not see plain-text packets for
+> transport mode SAs.
 
-Thinking about this again, I'm not sure that I agree.
-
-OK, I don't actually care whether we process it once or twice for
-pure transport mode, but I think that it is absolutely essential
-that LOCAL_IN/LOCAL_OUT see the decapsulated packet instead of
-the encrypted version.
-
-Whether it's IPv4 or IPv6, transport mode shouldn't make you lose the
-ability to use netfilter to filter out packets.
-
-Now if we can achieve this by sending the packet through netfilter
-only once then I'm all for it.
-
-But if for whatever reason we can't do that, then I'd rather have it
-go through twice than not see the decapsulated packet at all which is
-the case at the moment.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes, that was the idea. But since people seem to consider this an
+important case to handle I'm going to try the per-SA flag you
+proposed. I'll send new patches in the next days.
