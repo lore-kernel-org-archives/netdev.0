@@ -1,12 +1,12 @@
 From: Nicholas Jefferson <xanthophile@gmail.com>
-Subject: iBurst (TM) compatible driver
-Date: Fri, 28 Oct 2005 01:47:45 +1000
-Message-ID: <4cd031a50510270847g3e656b3evf4b4316b03f50f3d@mail.gmail.com>
+Subject: <REAL> iBurst (TM) compatible driver
+Date: Fri, 28 Oct 2005 02:24:20 +1000
+Message-ID: <4cd031a50510270924r38ad4d5oa88ae92a514df3cf@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751112AbVJ0Prr@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751231AbVJ0QYW@vger.kernel.org>
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
