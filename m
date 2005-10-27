@@ -1,29 +1,33 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: <REAL> iBurst (TM) compatible driver
-Date: Thu, 27 Oct 2005 19:45:26 +0200
-Message-ID: <20051027174526.GA24193@xi.wantstofly.org>
-References: <4cd031a50510270924r38ad4d5oa88ae92a514df3cf@mail.gmail.com> <20051027170727.GA26569@tuxdriver.com> <200510271944.12452.ak@suse.de>
+Date: Thu, 27 Oct 2005 19:44:12 +0200
+Message-ID: <200510271944.12452.ak@suse.de>
+References: <4cd031a50510270924r38ad4d5oa88ae92a514df3cf@mail.gmail.com> <20051027170727.GA26569@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Nicholas Jefferson <xanthophile@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751354AbVJ0Rpa@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Nicholas Jefferson <xanthophile@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751335AbVJ0Rn1@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20051027170727.GA26569@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <200510271944.12452.ak@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 27, 2005 at 07:44:12PM +0200, Andi Kleen wrote:
+On Thursday 27 October 2005 19:07, John W. Linville wrote:
+> On Fri, Oct 28, 2005 at 02:24:20AM +1000, Nicholas Jefferson wrote:
+> > The latest release of the iBurst (TM) compatible driver [1] for the
+> > 2.6 kernel is now available. Thanks to ArrayComm (R) for the original
+> 
+> <snip>
+> 
+> > Signed-off-by: Nicholas Jefferson <xanthophile@gmail.com>
+> 
+> -ENOPATCH?
 
-> And no description what an "iBurst (tm)" actually is. It sounds like
-> something to clear blocked drains with.
+And no description what an "iBurst (tm)" actually is. It sounds like
+something to clear blocked drains with.
 
->From reading http://sourceforge.net/projects/ibdriver, it appears
-to be some kind of wireless adapter:
-
-	Linux driver for the ArrayComm* "iBurst*" wireless broadband devices.
-
-
---L
+-Andi
