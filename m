@@ -1,19 +1,26 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Add Wake on LAN support to sis900 (2)
-Date: Fri, 28 Oct 2005 16:49:22 -0400
-Message-ID: <43628ED2.3060606@pobox.com>
-References: <20051011074430.GA29824@renditai.milesteg.arr>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH] AX.25: Use constant instead of magic number.
+Date: Fri, 28 Oct 2005 20:47:01 -0200
+Message-ID: <39e6f6c70510281547ye133698v67faf9ac4aa88ae8@mail.gmail.com>
+References: <20051018203932.GA11053@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@oss.sgi.com>, akpm@osdl.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniele Venzano <venza@brownhat.org>
-In-Reply-To: <20051011074430.GA29824@renditai.milesteg.arr>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	dann frazier <dannf@hp.com>, chrisw@osdl.org,
+	netdev@vger.kernel.org, linux-hams@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20051018203932.GA11053@linux-mips.org>
+Content-Disposition: inline
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied to sis900-wol branch of netdev-2.6.git.  This will 
-auto-propagate to -mm.  Let me know when sufficient testing has been 
-had, and I will push it upstream.
+On 10/18/05, Ralf Baechle <ralf@linux-mips.org> wrote:
+> Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
+>
+>  net/rose/rose_route.c |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+
+Thanks, applied and already merged by Linus.
