@@ -1,18 +1,19 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sis900: come alive after temporary memory shortage
-Date: Fri, 28 Oct 2005 16:46:50 -0400
-Message-ID: <43628E3A.70206@pobox.com>
-References: <4337E76B.1090003@sw.ru> <8204E0D1-F30D-494F-8E97-CDCC26A82807@libero.it> <4337FF9D.70200@sw.ru> <20051006104004.GA2124@renditai.milesteg.arr> <4347C50A.9010501@sw.ru>
+Subject: Re: [PATCH] Add Wake on LAN support to sis900 (2)
+Date: Fri, 28 Oct 2005 16:49:22 -0400
+Message-ID: <43628ED2.3060606@pobox.com>
+References: <20051011074430.GA29824@renditai.milesteg.arr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniele Venzano <venza@brownhat.org>, Andrew Morton <akpm@osdl.org>,
-        NetDev <netdev@oss.sgi.com>, Stanislav Protassov <st@sw.com.sg>
+Cc: NetDev <netdev@oss.sgi.com>, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vasily Averin <vvs@sw.ru>
-In-Reply-To: <4347C50A.9010501@sw.ru>
+To: Daniele Venzano <venza@brownhat.org>
+In-Reply-To: <20051011074430.GA29824@renditai.milesteg.arr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied
+applied to sis900-wol branch of netdev-2.6.git.  This will 
+auto-propagate to -mm.  Let me know when sufficient testing has been 
+had, and I will push it upstream.
