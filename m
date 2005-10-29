@@ -1,55 +1,192 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: Re: [PATCH 02/14] Big kfree NULL check cleanup - drivers/net
-Date: Sat, 29 Oct 2005 15:56:31 +0200
-Message-ID: <9a8748490510290656v3227bd5bl144baee8faa398dc@mail.gmail.com>
-References: <200510132122.48035.jesper.juhl@gmail.com>
-	 <43628FCB.9060202@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [git patches] 2.6.x net driver updates
+Date: Sat, 29 Oct 2005 14:21:59 -0400
+Message-ID: <20051029182159.GA14467@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	Matt Porter <mporter@kernel.crashing.org>,
-	Michael Chan <mchan@broadcom.com>, linux.nics@intel.com,
-	hans@esrac.ele.tue.nl, Santiago Leon <santil@us.ibm.com>,
-	Jean Tourrilhes <jt@hpl.hp.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Hipp <hippm@informatik.uni-tuebingen.de>,
-	Jes Sorensen <jes@wildopensource.com>,
-	Carsten Langgaard <carstenl@mips.com>,
-	Benjamin Reed <breed@users.sourceforge.net>,
-	Jouni Malinen <jkmaline@cc.hut.fi>,
-	prism54-private@prism54.org, netdev@vger.kernel.org,
-	Stuart Cheshire <cheshire@cs.stanford.edu>,
-	g4klx@g4klx.demon.co.uk, Alan Cox <alan@lxorguk.ukuu.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751056AbVJ2N5E@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <43628FCB.9060202@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751205AbVJ2SWE@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/28/05, Jeff Garzik <jgarzik@pobox.com> wrote:
-> Jesper Juhl wrote:
-> > This is the drivers/net/ part of the big kfree cleanup patch.
-> >
-> > Remove pointless checks for NULL prior to calling kfree() in drivers/net/.
-> >
-> >
-> > Sorry about the long Cc: list, but I wanted to make sure I included everyone
-> > who's code I've changed with this patch.
-> >
-> >
-> > Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
->
-> applied 98% of this
->
 
-Just currious, what bits are the 2% you did not apply?
+Please pull from 'upstream-linus' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
---
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+to receive the following random collection of updates and new drivers:
+
+ MAINTAINERS                                |    8 
+ drivers/net/Kconfig                        |   77 
+ drivers/net/Makefile                       |    3 
+ drivers/net/acenic.c                       |    6 
+ drivers/net/amd8111e.c                     |    0 
+ drivers/net/amd8111e.h                     |    0 
+ drivers/net/au1000_eth.c                   |    6 
+ drivers/net/b44.c                          |   28 
+ drivers/net/bmac.c                         |    6 
+ drivers/net/bnx2.c                         |   12 
+ drivers/net/e1000/e1000_ethtool.c          |    7 
+ drivers/net/e1000/e1000_main.c             |    9 
+ drivers/net/eepro.c                        |    7 
+ drivers/net/fs_enet/Kconfig                |   20 
+ drivers/net/fs_enet/Makefile               |   10 
+ drivers/net/fs_enet/fs_enet-main.c         | 1226 ++++++++++
+ drivers/net/fs_enet/fs_enet-mii.c          |  507 ++++
+ drivers/net/fs_enet/fs_enet.h              |  245 ++
+ drivers/net/fs_enet/mac-fcc.c              |  578 ++++
+ drivers/net/fs_enet/mac-fec.c              |  653 +++++
+ drivers/net/fs_enet/mac-scc.c              |  524 ++++
+ drivers/net/fs_enet/mii-bitbang.c          |  405 +++
+ drivers/net/fs_enet/mii-fixed.c            |   92 
+ drivers/net/hamradio/mkiss.c               |    6 
+ drivers/net/ibm_emac/Makefile              |   13 
+ drivers/net/ibm_emac/ibm_emac.h            |  418 +--
+ drivers/net/ibm_emac/ibm_emac_core.c       | 3414 +++++++++++++++--------------
+ drivers/net/ibm_emac/ibm_emac_core.h       |  313 +-
+ drivers/net/ibm_emac/ibm_emac_debug.c      |  377 +--
+ drivers/net/ibm_emac/ibm_emac_debug.h      |   63 
+ drivers/net/ibm_emac/ibm_emac_mal.c        |  674 +++--
+ drivers/net/ibm_emac/ibm_emac_mal.h        |  336 ++
+ drivers/net/ibm_emac/ibm_emac_phy.c        |  335 +-
+ drivers/net/ibm_emac/ibm_emac_phy.h        |  105 
+ drivers/net/ibm_emac/ibm_emac_rgmii.c      |  201 +
+ drivers/net/ibm_emac/ibm_emac_rgmii.h      |   68 
+ drivers/net/ibm_emac/ibm_emac_tah.c        |  111 
+ drivers/net/ibm_emac/ibm_emac_tah.h        |   96 
+ drivers/net/ibm_emac/ibm_emac_zmii.c       |  255 ++
+ drivers/net/ibm_emac/ibm_emac_zmii.h       |  114 
+ drivers/net/ibmveth.c                      |  186 -
+ drivers/net/ibmveth.h                      |   23 
+ drivers/net/irda/donauboe.c                |    6 
+ drivers/net/irda/irda-usb.c                |    6 
+ drivers/net/irda/irport.c                  |    3 
+ drivers/net/irda/sir_dev.c                 |    3 
+ drivers/net/irda/vlsi_ir.c                 |    3 
+ drivers/net/mace.c                         |    6 
+ drivers/net/ne2k-pci.c                     |    1 
+ drivers/net/ni65.c                         |    9 
+ drivers/net/pcmcia/pcnet_cs.c              |    6 
+ drivers/net/rrunner.c                      |    6 
+ drivers/net/s2io.c                         |   13 
+ drivers/net/saa9730.c                      |    8 
+ drivers/net/sis190.c                       |    2 
+ drivers/net/sis900.c                       |   16 
+ drivers/net/smc91x.c                       |    4 
+ drivers/net/starfire.c                     |    4 
+ drivers/net/sundance.c                     |   62 
+ drivers/net/tg3.c                          |   91 
+ drivers/net/tg3.h                          |   12 
+ drivers/net/tulip/de2104x.c                |    6 
+ drivers/net/tulip/tulip_core.c             |    6 
+ drivers/net/via-velocity.c                 |    6 
+ drivers/net/wireless/airo.c                |   48 
+ drivers/net/wireless/airo_cs.c             |    4 
+ drivers/net/wireless/atmel.c               |    6 
+ drivers/net/wireless/atmel_cs.c            |    3 
+ drivers/net/wireless/hermes.c              |   38 
+ drivers/net/wireless/hermes.h              |    2 
+ drivers/net/wireless/hostap/hostap_ioctl.c |    9 
+ drivers/net/wireless/ipw2200.c             |    4 
+ drivers/net/wireless/orinoco.c             |   13 
+ drivers/net/wireless/prism54/islpci_dev.c  |    3 
+ drivers/net/wireless/prism54/islpci_eth.c  |   13 
+ drivers/net/wireless/prism54/oid_mgt.c     |    9 
+ drivers/net/wireless/strip.c               |   38 
+ include/linux/fs_enet_pd.h                 |  136 +
+ include/linux/pci_ids.h                    |    2 
+ include/net/ax25.h                         |    3 
+ include/net/netrom.h                       |    3 
+ 81 files changed, 8958 insertions(+), 3192 deletions(-)
+
+
+Akinobu Mita:
+      s2io: kconfig help fix
+
+Al Viro:
+      s2io iomem annotations
+
+Alan Cox:
+      Better fixup for the orinoco driver
+
+Alexey Dobriyan:
+      starfire: free_irq() on error path of netdev_open()
+
+Andrew Morton:
+      [netdrvr b44] include linux/dma-mapping.h to eliminate warning
+      revert "orinoco: Information leakage due to incorrect padding"
+
+Ashutosh Naik:
+      e1000: Fixes e1000_suspend warning when CONFIG_PM is not enabled
+
+Aurelien Jarno:
+      sis190.c: fix multicast MAC filter
+
+Deepak Saxena:
+      Fix CS89x0 KConfig for IXDP2X01
+
+Eugene Surovegin:
+      New PowerPC 4xx on-chip ethernet controller driver
+      Add MAINTAINER entry for the new PowerPC 4xx on-chip ethernet controller driver
+
+Florin Malita:
+      eepro.c: module_param_array cleanup
+
+Jeff Garzik:
+      [git] change permissions on drivers/net/amd8111e.[ch] to 0644,
+
+Jesper Juhl:
+      drivers/net: Remove pointless checks for NULL prior to calling kfree()
+
+Komuro:
+      pcnet_cs: fix mii init code for older DL10019 based cards
+      [netdrvr] ne2k-pci based card does not support bus-mastering.
+
+Martin J. Bligh:
+      e1000: remove warning about e1000_suspend
+
+Matthew Wilcox:
+      b44 reports wrong advertised flags
+
+Michael Chan:
+      tg3: add 5714/5715 support
+      tg3: fix ASF heartbeat
+      tg3: update version and minor fixes
+
+Nicolas Pitre:
+      smc91x: shut down power after probing
+
+Panagiotis Issaris:
+      ipw2200: Missing kmalloc check
+
+Pantelis Antoniou:
+      Add fs_enet ethernet network driver, for several embedded platforms.
+
+Patrick McHardy:
+      prism54: Free skb after disabling interrupts
+
+Pavel Machek:
+      b44: fix suspend/resume
+
+Philippe De Muyter:
+      sundance: fix DFE-580TX Tx Underrun
+
+Ravikiran G Thirumalai:
+      e1000: use vmalloc_node()
+
+Roger While:
+      [wireless prism54] Fix frame length
+
+Santiago Leon:
+      ibmveth fix bonding
+      ibmveth fix buffer pool management
+      ibmveth fix buffer replenishing
+      ibmveth lockless TX
+      ibmveth fix failed addbuf
+
+Tobias Klauser:
+      drivers/net/tg3: Use the DMA_{32,64}BIT_MASK constants
+
+Vasily Averin:
+      sis900: come alive after temporary memory shortage
