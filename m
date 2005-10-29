@@ -1,85 +1,39 @@
-From: "Paul E. McKenney" <paulmck@us.ibm.com>
-Subject: Re: [2.6 patch] kernel/: small cleanups
-Date: Sun, 30 Oct 2005 12:53:45 -0800
-Message-ID: <20051030205345.GA32111@us.ibm.com>
-References: <20051030010200.GT4180@stusta.de>
-Reply-To: paulmck@us.ibm.com
+From: "paris butler" <suetireman@cheshiremail.com>
+Subject: Abolish all that you are indebted for without sending an other dollar
+Date: Sun, 30 Oct 2005 01:01:29 +1000
+Message-ID: <A2F2D6B1.C299332__7799.33234812251$1130707187$gmane$org@cheshiremail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, dwmw2@infradead.org,
-	linux-audit@redhat.com, faith@redhat.com, george@mvista.com,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750967AbVJ3Ux0@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-Content-Disposition: inline
-In-Reply-To: <20051030010200.GT4180@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Merlin Shaw" <ogl-sample-cvs-bounce@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 30, 2005 at 02:02:00AM +0100, Adrian Bunk wrote:
-> This patch contains the following cleanups:
-> - make needlessly global functions static
+End the bothersome worry of those calls and letters.
+We have pioneered an advanced system of proven strategies=20
+that will get the creditors and debt collectors off your back for good
 
-Good catch on rcu_torture_alloc()!
+Our debt termination program has legally stopped millions of dollars wort=
+h
+of debt from being collected.
 
-							Thanx, Paul
 
-> - every file should include the headers containing the prototypes for
->   it's global functions
+check out our Elimination Program here
+http://in.geocities.com/leo_kemble/?1=3D45LT
 
-Acked-by: <paulmck@us.ibm.com>
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
-> ---
-> 
->  kernel/audit.c      |    2 +-
->  kernel/irq/proc.c   |    2 ++
->  kernel/rcutorture.c |    2 +-
->  kernel/timer.c      |    1 +
->  4 files changed, 5 insertions(+), 2 deletions(-)
-> 
-> --- linux-2.6.14-rc5-mm1-full/kernel/timer.c.old	2005-10-30 02:27:36.000000000 +0200
-> +++ linux-2.6.14-rc5-mm1-full/kernel/timer.c	2005-10-30 02:27:56.000000000 +0200
-> @@ -33,6 +33,7 @@
->  #include <linux/posix-timers.h>
->  #include <linux/cpu.h>
->  #include <linux/syscalls.h>
-> +#include <linux/delay.h>
->  
->  #include <asm/uaccess.h>
->  #include <asm/unistd.h>
-> --- linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c.old	2005-10-30 02:31:31.000000000 +0200
-> +++ linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c	2005-10-30 02:31:48.000000000 +0200
-> @@ -10,6 +10,8 @@
->  #include <linux/proc_fs.h>
->  #include <linux/interrupt.h>
->  
-> +#include "internals.h"
-> +
->  static struct proc_dir_entry *root_irq_dir, *irq_dir[NR_IRQS];
->  
->  #ifdef CONFIG_SMP
-> --- linux-2.6.14-rc5-mm1-full/kernel/audit.c.old	2005-10-30 02:33:08.000000000 +0200
-> +++ linux-2.6.14-rc5-mm1-full/kernel/audit.c	2005-10-30 02:33:15.000000000 +0200
-> @@ -272,7 +272,7 @@
->  	return old;
->  }
->  
-> -int kauditd_thread(void *dummy)
-> +static int kauditd_thread(void *dummy)
->  {
->  	struct sk_buff *skb;
->  
-> --- linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c.old	2005-10-30 02:33:35.000000000 +0200
-> +++ linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c	2005-10-30 02:33:53.000000000 +0200
-> @@ -99,7 +99,7 @@
->  /*
->   * Allocate an element from the rcu_tortures pool.
->   */
-> -struct rcu_torture *
-> +static struct rcu_torture *
->  rcu_torture_alloc(void)
->  {
->  	struct list_head *p;
-> 
-> 
+
+
+no, then link above
+
+
+
+
+"master malfoy moves with nobility that befits his pure blood," croaked
+kreacher at once. "his features recall the fine bones of my mistress and =
+his
+manners are those of-"  . "and you wouldn't tell me if you knew," said
+scrimgeour, "would you?"=20
+"-be good and.=A1=B1 , she was jogging to keep up now.
