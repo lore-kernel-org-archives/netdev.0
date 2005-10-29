@@ -1,10 +1,10 @@
 From: Eugene Surovegin <ebs@ebshome.net>
-Subject: [PATCH 1/3] PPC 44x EMAC driver: add 440SPe support
-Date: Sat, 29 Oct 2005 12:43:14 -0700
-Message-ID: <20051029194314.GB1865@gate.ebshome.net>
+Subject: [PATCH 2/3] PPC 44x EMAC driver: add 440GR support
+Date: Sat, 29 Oct 2005 12:45:31 -0700
+Message-ID: <20051029194531.GC1865@gate.ebshome.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+Cc: netdev@vger.kernel.org, sr@denx.de, linuxppc-embedded@ozlabs.org
 Return-path: <linuxppc-embedded-bounces@ozlabs.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
@@ -19,121 +19,82 @@ Sender: linuxppc-embedded-bounces@ozlabs.org
 Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-For some reason, the hardware designers made the polarity of one bit
-in the 440SPe's PHY interface register the opposite of all other PPC
-440 chips.  To handle this, abstract our access to this bit and do the
-right thing based on the configured CPU type.
+Add PowerPC 440GR support
 
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
+Signed-off-by: Stefan Roese <sr@denx.de>
 Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
 ---
 
- drivers/net/ibm_emac/ibm_emac.h      |   21 ++++++++++++++++++++-
- drivers/net/ibm_emac/ibm_emac_core.c |   13 +++++++------
- drivers/net/ibm_emac/ibm_emac_mal.h  |    3 ++-
- 3 files changed, 29 insertions(+), 8 deletions(-)
+ drivers/net/Kconfig                  |    2 +-
+ drivers/net/ibm_emac/ibm_emac.h      |    3 ++-
+ drivers/net/ibm_emac/ibm_emac_core.c |    7 ++++---
+ drivers/net/ibm_emac/ibm_emac_mal.h  |    2 +-
+ 4 files changed, 8 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 6d4f9ce..97760c1 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -1203,7 +1203,7 @@ config IBM_EMAC_RX_SKB_HEADROOM
+ 
+ config IBM_EMAC_PHY_RX_CLK_FIX
+ 	bool "PHY Rx clock workaround"
+-	depends on IBM_EMAC && (405EP || 440GX || 440EP)
++	depends on IBM_EMAC && (405EP || 440GX || 440EP || 440GR)
+ 	help
+ 	  Enable this if EMAC attached to a PHY which doesn't generate
+ 	  RX clock if there is no link, if this is the case, you will 
 diff --git a/drivers/net/ibm_emac/ibm_emac.h b/drivers/net/ibm_emac/ibm_emac.h
-index 28c476f..d3166da 100644
+index d3166da..644edbf 100644
 --- a/drivers/net/ibm_emac/ibm_emac.h
 +++ b/drivers/net/ibm_emac/ibm_emac.h
-@@ -26,7 +26,7 @@
+@@ -26,7 +26,8 @@
  /* This is a simple check to prevent use of this driver on non-tested SoCs */
  #if !defined(CONFIG_405GP) && !defined(CONFIG_405GPR) && !defined(CONFIG_405EP) && \
      !defined(CONFIG_440GP) && !defined(CONFIG_440GX) && !defined(CONFIG_440SP) && \
--    !defined(CONFIG_440EP) && !defined(CONFIG_NP405H)
-+    !defined(CONFIG_440EP) && !defined(CONFIG_NP405H) && !defined(CONFIG_440SPE)
+-    !defined(CONFIG_440EP) && !defined(CONFIG_NP405H) && !defined(CONFIG_440SPE)
++    !defined(CONFIG_440EP) && !defined(CONFIG_NP405H) && !defined(CONFIG_440SPE) && \
++    !defined(CONFIG_440GR)
  #error	"Unknown SoC. Please, check chip user manual and make sure EMAC defines are OK"
  #endif
  
-@@ -246,6 +246,25 @@ struct emac_regs {
- #define EMAC_STACR_PCDA_SHIFT		5
- #define EMAC_STACR_PRA_MASK		0x1f
- 
-+/*
-+ * For the 440SPe, AMCC inexplicably changed the polarity of
-+ * the "operation complete" bit in the MII control register.
-+ */
-+#if defined(CONFIG_440SPE)
-+static inline int emac_phy_done(u32 stacr)
-+{
-+	return !(stacr & EMAC_STACR_OC);
-+};
-+#define EMAC_STACR_START 		EMAC_STACR_OC
-+
-+#else /* CONFIG_440SPE */
-+static inline int emac_phy_done(u32 stacr)
-+{
-+	return stacr & EMAC_STACR_OC;
-+};
-+#define EMAC_STACR_START 		0
-+#endif /* !CONFIG_440SPE */
-+
- /* EMACx_TRTR */
- #if !defined(CONFIG_IBM_EMAC4)
- #define EMAC_TRTR_SHIFT			27
 diff --git a/drivers/net/ibm_emac/ibm_emac_core.c b/drivers/net/ibm_emac/ibm_emac_core.c
-index 943fbd1..48239e1 100644
+index 48239e1..eb7d694 100644
 --- a/drivers/net/ibm_emac/ibm_emac_core.c
 +++ b/drivers/net/ibm_emac/ibm_emac_core.c
-@@ -546,7 +546,7 @@ static int __emac_mdio_read(struct ocp_e
+@@ -87,10 +87,11 @@ MODULE_LICENSE("GPL");
+  */
+ static u32 busy_phy_map;
  
- 	/* Wait for management interface to become idle */
- 	n = 10;
--	while (!(in_be32(&p->stacr) & EMAC_STACR_OC)) {
-+	while (!emac_phy_done(in_be32(&p->stacr))) {
- 		udelay(1);
- 		if (!--n)
- 			goto to;
-@@ -556,11 +556,12 @@ static int __emac_mdio_read(struct ocp_e
- 	out_be32(&p->stacr,
- 		 EMAC_STACR_BASE(emac_opb_mhz()) | EMAC_STACR_STAC_READ |
- 		 (reg & EMAC_STACR_PRA_MASK)
--		 | ((id & EMAC_STACR_PCDA_MASK) << EMAC_STACR_PCDA_SHIFT));
-+		 | ((id & EMAC_STACR_PCDA_MASK) << EMAC_STACR_PCDA_SHIFT)
-+		 | EMAC_STACR_START);
+-#if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && (defined(CONFIG_405EP) || defined(CONFIG_440EP))
++#if defined(CONFIG_IBM_EMAC_PHY_RX_CLK_FIX) && \
++    (defined(CONFIG_405EP) || defined(CONFIG_440EP) || defined(CONFIG_440GR))
+ /* 405EP has "EMAC to PHY Control Register" (CPC0_EPCTL) which can help us
+  * with PHY RX clock problem.
+- * 440EP has more sane SDR0_MFR register implementation than 440GX, which
++ * 440EP/440GR has more sane SDR0_MFR register implementation than 440GX, which
+  * also allows controlling each EMAC clock
+  */
+ static inline void EMAC_RX_CLK_TX(int idx)
+@@ -100,7 +101,7 @@ static inline void EMAC_RX_CLK_TX(int id
  
- 	/* Wait for read to complete */
- 	n = 100;
--	while (!((r = in_be32(&p->stacr)) & EMAC_STACR_OC)) {
-+	while (!emac_phy_done(r = in_be32(&p->stacr))) {
- 		udelay(1);
- 		if (!--n)
- 			goto to;
-@@ -594,7 +595,7 @@ static void __emac_mdio_write(struct ocp
+ #if defined(CONFIG_405EP)
+ 	mtdcr(0xf3, mfdcr(0xf3) | (1 << idx));
+-#else /* CONFIG_440EP */
++#else /* CONFIG_440EP || CONFIG_440GR */
+ 	SDR_WRITE(DCRN_SDR_MFR, SDR_READ(DCRN_SDR_MFR) | (0x08000000 >> idx));
+ #endif
  
- 	/* Wait for management interface to be idle */
- 	n = 10;
--	while (!(in_be32(&p->stacr) & EMAC_STACR_OC)) {
-+	while (!emac_phy_done(in_be32(&p->stacr))) {
- 		udelay(1);
- 		if (!--n)
- 			goto to;
-@@ -605,11 +606,11 @@ static void __emac_mdio_write(struct ocp
- 		 EMAC_STACR_BASE(emac_opb_mhz()) | EMAC_STACR_STAC_WRITE |
- 		 (reg & EMAC_STACR_PRA_MASK) |
- 		 ((id & EMAC_STACR_PCDA_MASK) << EMAC_STACR_PCDA_SHIFT) |
--		 (val << EMAC_STACR_PHYD_SHIFT));
-+		 (val << EMAC_STACR_PHYD_SHIFT) | EMAC_STACR_START);
- 
- 	/* Wait for write to complete */
- 	n = 100;
--	while (!(in_be32(&p->stacr) & EMAC_STACR_OC)) {
-+	while (!emac_phy_done(in_be32(&p->stacr))) {
- 		udelay(1);
- 		if (!--n)
- 			goto to;
 diff --git a/drivers/net/ibm_emac/ibm_emac_mal.h b/drivers/net/ibm_emac/ibm_emac_mal.h
-index 15b0bda..fb6dfe1 100644
+index fb6dfe1..2a2d3b2 100644
 --- a/drivers/net/ibm_emac/ibm_emac_mal.h
 +++ b/drivers/net/ibm_emac/ibm_emac_mal.h
-@@ -34,7 +34,8 @@
+@@ -32,7 +32,7 @@
+  * reflect the fact that 40x and 44x have slightly different MALs. --ebs
+  */
  #if defined(CONFIG_405GP) || defined(CONFIG_405GPR) || defined(CONFIG_405EP) || \
-     defined(CONFIG_440EP) || defined(CONFIG_NP405H)
+-    defined(CONFIG_440EP) || defined(CONFIG_NP405H)
++    defined(CONFIG_440EP) || defined(CONFIG_440GR) || defined(CONFIG_NP405H)
  #define MAL_VERSION		1
--#elif defined(CONFIG_440GP) || defined(CONFIG_440GX) || defined(CONFIG_440SP)
-+#elif defined(CONFIG_440GP) || defined(CONFIG_440GX) || defined(CONFIG_440SP) || \
-+      defined(CONFIG_440SPE)
- #define MAL_VERSION		2
- #else
- #error "Unknown SoC, please check chip manual and choose MAL 'version'"
+ #elif defined(CONFIG_440GP) || defined(CONFIG_440GX) || defined(CONFIG_440SP) || \
+       defined(CONFIG_440SPE)
