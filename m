@@ -1,39 +1,60 @@
-From: "paris butler" <suetireman@cheshiremail.com>
-Subject: Abolish all that you are indebted for without sending an other dollar
-Date: Sun, 30 Oct 2005 01:01:29 +1000
-Message-ID: <A2F2D6B1.C299332__7799.33234812251$1130707187$gmane$org@cheshiremail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
+Date: Mon, 31 Oct 2005 00:15:52 +0100
+Message-ID: <43655428.3040904@trash.net>
+References: <4352EEC8.9000602@trash.net>
+	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
+	<4352FD49.4090201@trash.net>
+	<20051017014629.GB32661@gondor.apana.org.au>
+	<435EBB18.50701@trash.net>
+	<20051025231049.GA13679@gondor.apana.org.au>
+	<435EBC57.7090000@trash.net>
+	<20051026003954.GA14068@gondor.apana.org.au>
+	<4360E75A.10405@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Merlin Shaw" <ogl-sample-cvs-bounce@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <4360E75A.10405@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-End the bothersome worry of those calls and letters.
-We have pioneered an advanced system of proven strategies=20
-that will get the creditors and debt collectors off your back for good
+Patrick McHardy wrote:
+> Herbert Xu wrote:
+> 
+>>I presume that you will be changing the output path so that LOCAL_OUT
+>>does not see the plain-text packet.  Otherwise it'll be asymmetric with
+>>repsect to the inbound side which does not see plain-text packets for
+>>transport mode SAs.
+> 
+> Yes, that was the idea. But since people seem to consider this an
+> important case to handle I'm going to try the per-SA flag you
+> proposed. I'll send new patches in the next days.
 
-Our debt termination program has legally stopped millions of dollars wort=
-h
-of debt from being collected.
+Unfortunately hiding the plain-text packets on output when transport
+mode SAs are used and the flag is not set adds a new inconsistency
+with NAT. In my last patchsets NAT was handled by redoing the policy
+lookup when a packet was NATed at LOCAL_OUT or POST_ROUTING and wasn't
+already transformed. If the new lookup yielded a policy
+ip_dst_output/__ip_dst_output was called again. The hooks were always
+called in the normal order. With a per-SA flag however we don't know
+if the packet should be hidden before the second lookup is done, so
+with NAT a packet that would usually be hidden might be visible
+on LOCAL_OUT and POST_ROUTING, or just LOCAL_OUT. This also affects
+ip_queue.
 
-
-check out our Elimination Program here
-http://in.geocities.com/leo_kemble/?1=3D45LT
-
-
-
-no, then link above
-
-
-
-
-"master malfoy moves with nobility that befits his pure blood," croaked
-kreacher at once. "his features recall the fine bones of my mistress and =
-his
-manners are those of-"  . "and you wouldn't tell me if you knew," said
-scrimgeour, "would you?"=20
-"-be good and.=A1=B1 , she was jogging to keep up now.
+So far the by far cleanest solution from a netfilter point of view
+was to ignore transport mode unless its the innermost transform on
+output and to always send the decapsulated packets through the stack
+again on input. Since Yoshifuji disagrees with this approach we seem
+to be deadlocked ..
