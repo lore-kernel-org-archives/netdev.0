@@ -1,39 +1,85 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH][MCAST]IPv6: doubt about ipv6_sk_mc_lock usage.
-Date: Sun, 30 Oct 2005 09:32:14 -0800
-Message-ID: <OFE9824801.1D574FF8-ON882570AA.005FC39C-882570AA.006050CD@us.ibm.com>
-References: <4364EA58.7040707@21cn.com>
+From: "Paul E. McKenney" <paulmck@us.ibm.com>
+Subject: Re: [2.6 patch] kernel/: small cleanups
+Date: Sun, 30 Oct 2005 12:53:45 -0800
+Message-ID: <20051030205345.GA32111@us.ibm.com>
+References: <20051030010200.GT4180@stusta.de>
+Reply-To: paulmck@us.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751095AbVJ3RcI@vger.kernel.org>
-In-Reply-To: <4364EA58.7040707@21cn.com>
-To: Yan Zheng <yanzheng@21cn.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, dwmw2@infradead.org,
+	linux-audit@redhat.com, faith@redhat.com, george@mvista.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750967AbVJ3Ux0@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20051030010200.GT4180@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-No, ipv6_sk_mc_lock is required for join and leave to protect 
-inet6_mc_check()
-calls, and modifications to the filter list only happen via ioctls that 
-are protected
-by the socket lock.
+On Sun, Oct 30, 2005 at 02:02:00AM +0100, Adrian Bunk wrote:
+> This patch contains the following cleanups:
+> - make needlessly global functions static
 
-I don't think any of these changes are correct.
+Good catch on rcu_torture_alloc()!
 
-                                                +-DLS
+							Thanx, Paul
 
+> - every file should include the headers containing the prototypes for
+>   it's global functions
 
-netdev-owner@vger.kernel.org wrote on 10/30/2005 07:44:24 AM:
-
-> Hello.
+Acked-by: <paulmck@us.ibm.com>
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 > 
-> I think ipv6_sk_mc_lock should protest both ipv6_mc_list and it's 
-sflist. 
-> because they can are used by 
-> inet6_mc_check(...) in softirq and be modified by ip6_mc_source(...) or 
-> ip6_mc_msfilter(...) simultaneity.
-> I also remove read_lock when traverse ipv6_mc_list, because it's 
-protected by 
-> lock_sock(sk).
+> ---
+> 
+>  kernel/audit.c      |    2 +-
+>  kernel/irq/proc.c   |    2 ++
+>  kernel/rcutorture.c |    2 +-
+>  kernel/timer.c      |    1 +
+>  4 files changed, 5 insertions(+), 2 deletions(-)
+> 
+> --- linux-2.6.14-rc5-mm1-full/kernel/timer.c.old	2005-10-30 02:27:36.000000000 +0200
+> +++ linux-2.6.14-rc5-mm1-full/kernel/timer.c	2005-10-30 02:27:56.000000000 +0200
+> @@ -33,6 +33,7 @@
+>  #include <linux/posix-timers.h>
+>  #include <linux/cpu.h>
+>  #include <linux/syscalls.h>
+> +#include <linux/delay.h>
+>  
+>  #include <asm/uaccess.h>
+>  #include <asm/unistd.h>
+> --- linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c.old	2005-10-30 02:31:31.000000000 +0200
+> +++ linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c	2005-10-30 02:31:48.000000000 +0200
+> @@ -10,6 +10,8 @@
+>  #include <linux/proc_fs.h>
+>  #include <linux/interrupt.h>
+>  
+> +#include "internals.h"
+> +
+>  static struct proc_dir_entry *root_irq_dir, *irq_dir[NR_IRQS];
+>  
+>  #ifdef CONFIG_SMP
+> --- linux-2.6.14-rc5-mm1-full/kernel/audit.c.old	2005-10-30 02:33:08.000000000 +0200
+> +++ linux-2.6.14-rc5-mm1-full/kernel/audit.c	2005-10-30 02:33:15.000000000 +0200
+> @@ -272,7 +272,7 @@
+>  	return old;
+>  }
+>  
+> -int kauditd_thread(void *dummy)
+> +static int kauditd_thread(void *dummy)
+>  {
+>  	struct sk_buff *skb;
+>  
+> --- linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c.old	2005-10-30 02:33:35.000000000 +0200
+> +++ linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c	2005-10-30 02:33:53.000000000 +0200
+> @@ -99,7 +99,7 @@
+>  /*
+>   * Allocate an element from the rcu_tortures pool.
+>   */
+> -struct rcu_torture *
+> +static struct rcu_torture *
+>  rcu_torture_alloc(void)
+>  {
+>  	struct list_head *p;
+> 
 > 
