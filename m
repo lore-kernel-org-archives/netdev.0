@@ -1,46 +1,96 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][MCAST]IPv6: Check packet size when process Multicast
- Address and Source Specific Query
-Date: Mon, 31 Oct 2005 14:27:17 +0900 (JST)
-Message-ID: <20051031.142717.40152885.yoshfuji@linux-ipv6.org>
-References: <4365A995.3050404@21cn.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] fix the "QoS and/or fair queueing" menu
+Date: Mon, 31 Oct 2005 11:26:21 +0100
+Message-ID: <20051031102621.GF8009@stusta.de>
+References: <Pine.LNX.4.61.0510280902470.6910@yvahk01.tjqt.qr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dlstevens@us.ibm.com, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751383AbVJaF1P@vger.kernel.org>
-To: yanzheng@21cn.com
-In-Reply-To: <4365A995.3050404@21cn.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932133AbVJaK0Z@vger.kernel.org>
+To: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0510280902470.6910@yvahk01.tjqt.qr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <4365A995.3050404@21cn.com> (at Mon, 31 Oct 2005 13:20:21 +0800), Yan Zheng <yanzheng@21cn.com> says:
+On Fri, Oct 28, 2005 at 09:04:31AM +0200, Jan Engelhardt wrote:
 
-> 
-> Signed-off-by: Yan Zheng <yanzheng@21cn.com>
-> 
-> Index: net/ipv6/mcast.c
-> ================================================================================
-> --- linux-2.6.14/net/ipv6/mcast.c	2005-10-30 23:09:33.000000000 +0800
-> +++ linux/net/ipv6/mcast.c	2005-10-31 13:13:10.000000000 +0800
-> @@ -1156,7 +1156,12 @@ int igmp6_event_query(struct sk_buff *sk
->  			return 0;
->  		}
->  		/* mark sources to include, if group & source-specific */
-> -		mark = mlh2->nsrcs != 0;
-> +		if (mlh2->nsrcs != 0) {
-> +			if (!pskb_may_pull(skb, mlh2->nsrcs * sizeof(struct in6_addr) +
-> +				(sizeof(struct mld2_query) - sizeof(struct icmp6hdr))))
-> +				return -EINVAL;
-> +			mark = 1;
-> +		}
->  	} else {
->  		in6_dev_put(idev);
->  		return -EINVAL;
+> Hi,
 
-You cannot continue using mlh2, local copy of skb->h.raw
-after pskb_may_pull(). Please refresh it.
+Hi Jan,
 
---yoshfuji
+> When CONFIG_NET_CLS is enabled, then "Firewall based classifier", "U32 
+> classifier" and some more appear under the "Network options" menu rather 
+> than "QoS and/or fair queueing" menu.
+> This bug is in the recently released 2.6.14. (And earlier).
+
+thanks for this report, a patch is below.
+
+> Jan Engelhardt
+
+cu
+Adrian
+
+
+<--  snip  -->
+
+
+This patch adjust some dependencies in net/sched/Kconfig for getting all 
+options that belong there under "QoS and/or fair queueing".
+
+There is no actual semantic change in any dependency, the additional 
+dependencies are added for helping kconfig to figure out what belongs to 
+that menu.
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ net/sched/Kconfig |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+--- linux-2.6.14-rc5-mm1-full/net/sched/Kconfig.old	2005-10-31 11:08:50.000000000 +0100
++++ linux-2.6.14-rc5-mm1-full/net/sched/Kconfig	2005-10-31 11:18:48.000000000 +0100
+@@ -343,6 +343,7 @@
+ 
+ config NET_CLS_ROUTE
+ 	bool
++	depends on NET_CLS
+ 	default n
+ 
+ config NET_CLS_FW
+@@ -375,7 +376,7 @@
+ 
+ config NET_CLS_IND
+ 	bool "classify input device (slows things u32/fw) "
+-	depends on NET_CLS_U32 || NET_CLS_FW
++	depends on NET_CLS && (NET_CLS_U32 || NET_CLS_FW)
+ 	help
+ 	  This option will be killed eventually when a 
+           metadata action appears because it slows things a little
+@@ -552,13 +553,6 @@
+         requires new iproute2
+         This allows for packets to be generically edited
+ 
+-config NET_CLS_POLICE
+-	bool "Traffic policing (needed for in/egress)"
+-	depends on NET_CLS && NET_QOS && NET_CLS_ACT!=y
+-	help
+-	  Say Y to support traffic policing (bandwidth limits).  Needed for
+-	  ingress and egress rate limiting.
+-
+ config NET_ACT_SIMP
+         tristate "Simple action"
+         depends on NET_CLS_ACT
+@@ -569,3 +563,9 @@
+ 	All this action will do is print on the console the configured
+ 	policy string followed by _ then packet count.
+ 
++config NET_CLS_POLICE
++        bool "Traffic policing (needed for in/egress)"
++        depends on NET_CLS && NET_QOS && NET_CLS_ACT!=y
++        help
++          Say Y to support traffic policing (bandwidth limits).  Needed for
++          ingress and egress rate limiting.
