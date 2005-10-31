@@ -1,28 +1,193 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][MCAST]IPv6: Check packet size when process Multicast
- Address and Source Specific Query
-Date: Mon, 31 Oct 2005 21:15:34 +0900 (JST)
-Message-ID: <20051031.211534.50784200.yoshfuji@linux-ipv6.org>
-References: <4365A995.3050404@21cn.com>
-	<20051031.142717.40152885.yoshfuji@linux-ipv6.org>
-	<43660989.2000100@21cn.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [PATCH] kill 8139too kernel thread (sorta)
+Date: Mon, 31 Oct 2005 08:02:55 -0500
+Message-ID: <20051031130255.GA26626@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932320AbVJaMPR@vger.kernel.org>
-To: yanzheng@21cn.com, acme@ghostprotocols.net
-In-Reply-To: <43660989.2000100@21cn.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964777AbVJaNDA@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <43660989.2000100@21cn.com> (at Mon, 31 Oct 2005 20:09:45 +0800), Yan Zheng <yanzheng@21cn.com> says:
+I just checked this into netdev-2.6.git, and will be appearing in -mm
+soon for testing and review.
 
-> I hope the new one is correct.
 
-looks ok.
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+commit a15e0384dd22ee08f56d62761ce9d770488f6f4e
+Author: Jeff Garzik <jgarzik@pobox.com>
+Date:   Mon Oct 31 07:59:37 2005 -0500
 
---yoshfuji
+    [netdrvr 8139too] replace hand-crafted kernel thread with workqueue
+    
+    Gone are the days when 8139too was a shining example of how to use
+    kernel threads.  Delayed workqueues are easier, and map precisely to
+    our task:  running code from a kernel thread, after a periodic sleep.
+
+
+ drivers/net/8139too.c |   87 ++++++++++++++++++--------------------------------
+ 1 files changed, 33 insertions(+), 54 deletions(-)
+
+diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+index 30bee11..9de58e2 100644
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -590,12 +590,12 @@ struct rtl8139_private {
+ 	spinlock_t lock;
+ 	spinlock_t rx_lock;
+ 	chip_t chipset;
+-	pid_t thr_pid;
+-	wait_queue_head_t thr_wait;
+-	struct completion thr_exited;
+ 	u32 rx_config;
+ 	struct rtl_extra_stats xstats;
+-	int time_to_die;
++
++	struct work_struct thread;
++	long time_to_die;	/* -1 no thr, 0 thr active, 1 thr cancel */
++
+ 	struct mii_if_info mii;
+ 	unsigned int regs_len;
+ 	unsigned long fifo_copy_timeout;
+@@ -620,7 +620,7 @@ static int rtl8139_open (struct net_devi
+ static int mdio_read (struct net_device *dev, int phy_id, int location);
+ static void mdio_write (struct net_device *dev, int phy_id, int location,
+ 			int val);
+-static void rtl8139_start_thread(struct net_device *dev);
++static void rtl8139_start_thread(struct rtl8139_private *tp);
+ static void rtl8139_tx_timeout (struct net_device *dev);
+ static void rtl8139_init_ring (struct net_device *dev);
+ static int rtl8139_start_xmit (struct sk_buff *skb,
+@@ -637,6 +637,7 @@ static struct net_device_stats *rtl8139_
+ static void rtl8139_set_rx_mode (struct net_device *dev);
+ static void __set_rx_mode (struct net_device *dev);
+ static void rtl8139_hw_start (struct net_device *dev);
++static void rtl8139_thread (void *_data);
+ static struct ethtool_ops rtl8139_ethtool_ops;
+ 
+ /* write MMIO register, with flush */
+@@ -1007,8 +1008,7 @@ static int __devinit rtl8139_init_one (s
+ 		(debug < 0 ? RTL8139_DEF_MSG_ENABLE : ((1 << debug) - 1));
+ 	spin_lock_init (&tp->lock);
+ 	spin_lock_init (&tp->rx_lock);
+-	init_waitqueue_head (&tp->thr_wait);
+-	init_completion (&tp->thr_exited);
++	INIT_WORK(&tp->thread, rtl8139_thread, dev);
+ 	tp->mii.dev = dev;
+ 	tp->mii.mdio_read = mdio_read;
+ 	tp->mii.mdio_write = mdio_write;
+@@ -1345,7 +1345,7 @@ static int rtl8139_open (struct net_devi
+ 			dev->irq, RTL_R8 (MediaStatus),
+ 			tp->mii.full_duplex ? "full" : "half");
+ 
+-	rtl8139_start_thread(dev);
++	rtl8139_start_thread(tp);
+ 
+ 	return 0;
+ }
+@@ -1594,56 +1594,45 @@ static inline void rtl8139_thread_iter (
+ 		 RTL_R8 (Config1));
+ }
+ 
+-static int rtl8139_thread (void *data)
++static void rtl8139_thread (void *_data)
+ {
+-	struct net_device *dev = data;
++	struct net_device *dev = _data;
+ 	struct rtl8139_private *tp = netdev_priv(dev);
+-	unsigned long timeout;
+-
+-	daemonize("%s", dev->name);
+-	allow_signal(SIGTERM);
+-
+-	while (1) {
+-		timeout = next_tick;
+-		do {
+-			timeout = interruptible_sleep_on_timeout (&tp->thr_wait, timeout);
+-			/* make swsusp happy with our thread */
+-			try_to_freeze();
+-		} while (!signal_pending (current) && (timeout > 0));
+ 
+-		if (signal_pending (current)) {
+-			flush_signals(current);
+-		}
+-
+-		if (tp->time_to_die)
+-			break;
+-
+-		if (rtnl_lock_interruptible ())
+-			break;
++	if ((tp->time_to_die == 0) &&
++	    (rtnl_lock_interruptible() == 0)) {
+ 		rtl8139_thread_iter (dev, tp, tp->mmio_addr);
+ 		rtnl_unlock ();
+ 	}
+ 
+-	complete_and_exit (&tp->thr_exited, 0);
++	if (tp->time_to_die == 0)
++		schedule_delayed_work(&tp->thread, next_tick);
+ }
+ 
+-static void rtl8139_start_thread(struct net_device *dev)
++static void rtl8139_start_thread(struct rtl8139_private *tp)
+ {
+-	struct rtl8139_private *tp = netdev_priv(dev);
+-
+-	tp->thr_pid = -1;
+ 	tp->twistie = 0;
+-	tp->time_to_die = 0;
++	tp->time_to_die = -1;
+ 	if (tp->chipset == CH_8139_K)
+ 		tp->twistie = 1;
+ 	else if (tp->drv_flags & HAS_LNK_CHNG)
+ 		return;
+ 
+-	tp->thr_pid = kernel_thread(rtl8139_thread, dev, CLONE_FS|CLONE_FILES);
+-	if (tp->thr_pid < 0) {
+-		printk (KERN_WARNING "%s: unable to start kernel thread\n",
+-			dev->name);
+-	}
++	tp->time_to_die = 0;
++
++	schedule_delayed_work(&tp->thread, next_tick);
++}
++
++static void rtl8139_stop_thread(struct rtl8139_private *tp)
++{
++	if (tp->time_to_die < 0)
++		return;
++
++	tp->time_to_die = 1;
++	wmb();
++
++	if (cancel_delayed_work(&tp->thread) == 0)
++		flush_scheduled_work();
+ }
+ 
+ static inline void rtl8139_tx_clear (struct rtl8139_private *tp)
+@@ -2224,22 +2213,12 @@ static int rtl8139_close (struct net_dev
+ {
+ 	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+-	int ret = 0;
+ 	unsigned long flags;
+ 
+ 	netif_stop_queue (dev);
+ 
+-	if (tp->thr_pid >= 0) {
+-		tp->time_to_die = 1;
+-		wmb();
+-		ret = kill_proc (tp->thr_pid, SIGTERM, 1);
+-		if (ret) {
+-			printk (KERN_ERR "%s: unable to signal thread\n", dev->name);
+-			return ret;
+-		}
+-		wait_for_completion (&tp->thr_exited);
+-	}
+-	
++	rtl8139_stop_thread(tp);
++
+ 	if (netif_msg_ifdown(tp))
+ 		printk(KERN_DEBUG "%s: Shutting down ethercard, status was 0x%4.4x.\n",
+ 			dev->name, RTL_R16 (IntrStatus));
