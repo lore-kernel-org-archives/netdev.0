@@ -1,40 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] kill 8139too kernel thread (sorta)
-Date: Tue, 1 Nov 2005 08:11:43 +1100
-Message-ID: <20051031211143.GA6409@gondor.apana.org.au>
-References: <20051031130255.GA26626@havoc.gtf.org> <E1EWgcG-0001dZ-00@gondolin.me.apana.org.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: airo.c patches
+Date: Mon, 31 Oct 2005 16:25:24 -0500
+Message-ID: <20051031212522.GD29670@tuxdriver.com>
+References: <43667B36.3000200@clemson.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932498AbVJaVLz@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@oss.sgi.com, breed@users.sourceforge.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Bill Moss <bmoss@CLEMSON.EDU>
 Content-Disposition: inline
-In-Reply-To: <E1EWgcG-0001dZ-00@gondolin.me.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <43667B36.3000200@clemson.edu>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 01, 2005 at 07:50:52AM +1100, Herbert Xu wrote:
-> 
-> However, in this case it's much easier than that.  Simply change
-> rtl8139_thread to do
-> 
-> 	rtnl_lock();
-> 	if (tp->time_to_die == 0) {
-> 		rtl8139_thread_iter(dev, tp, tp->mmio_addr);
-> 		schedule_delayed_work(&tp->thread, next_tick);
-> 	}
-> 	rtnl_unlock();
+On Mon, Oct 31, 2005 at 03:14:46PM -0500, Bill Moss wrote:
+> Below are three patches to 
+> /usr/src/kernels/2.6.13-1.1532_FC4-i686/drivers/net/wireless/airo.c for 
+> your consideration.
 
-Actually this is no good either.  The reason is that rtl8139_stop_thread
-never relinquinshes the RTNL so it has no way of waiting for this to
-complete.
+The intended changes look ok at first glance.  However, your mailer
+has mangled the patches beyond usability.  There is tons of whitespace
+damage, including the removal of the initial space that should preced
+every unchanged line in the patch.
 
-So I suppose we will have to use cancel_rearming_delayed_workqueue or
-create an rtl-specific semaphore for this.
+Also, we need a Signed-off-by: line. http://linux.yyz.us/patch-format.html
 
-Cheers,
+Thanks,
+
+John
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+John W. Linville
+linville@tuxdriver.com
