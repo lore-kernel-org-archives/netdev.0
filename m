@@ -1,43 +1,35 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/hamradio/dmascc.c: remove dmascc_setup()
-Date: Mon, 31 Oct 2005 01:33:45 +0100
-Message-ID: <20051031003345.GB8009@stusta.de>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: Re: [PATCH][MCAST]IPv6: doubt about ipv6_sk_mc_lock usage.
+Date: Mon, 31 Oct 2005 09:46:03 +0800
+Message-ID: <4365775B.9080209@21cn.com>
+References: <OFE9824801.1D574FF8-ON882570AA.005FC39C-882570AA.006050CD@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932420AbVJaAdr@vger.kernel.org>
-To: jgarzik@pobox.com
-Content-Disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751274AbVJaBoa@vger.kernel.org>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFE9824801.1D574FF8-ON882570AA.005FC39C-882570AA.006050CD@us.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It seems dmascc_setup() is a leftover time before dmascc_init() was 
-there.
+David Stevens wrote:
+> No, ipv6_sk_mc_lock is required for join and leave to protect 
+> inet6_mc_check()
+> calls, and modifications to the filter list only happen via ioctls that 
+> are protected
+> by the socket lock.
+> 
+> I don't think any of these changes are correct.
+> 
+>                                                 +-DLS
+
+Thanks.
+
+I have one more question. 
+Why ip6_mc_source() uses read_lock_bh(&ipv6_sk_mc_lock) and ip6_mc_msfilter() doesn't use ipv6_sk_mc_lock at all. 
+when ipv6_mc_list's sflist are accessed by inet6_mc_check(), Can it be modified by ip6_mc_source() or ip6_mc_msfilter() ?
+(For example ipv6_mc_list's sflist is freed up by sock_kfree_s(), when inet6_mc_check() uses it)
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- drivers/net/hamradio/dmascc.c |   10 ----------
- 1 file changed, 10 deletions(-)
-
---- linux-2.6.14-rc5-mm1-full/drivers/net/hamradio/dmascc.c.old	2005-10-31 01:21:39.000000000 +0100
-+++ linux-2.6.14-rc5-mm1-full/drivers/net/hamradio/dmascc.c	2005-10-31 01:21:49.000000000 +0100
-@@ -311,16 +311,6 @@
- 	}
- }
- 
--#ifndef MODULE
--void __init dmascc_setup(char *str, int *ints)
--{
--	int i;
--
--	for (i = 0; i < MAX_NUM_DEVS && i < ints[0]; i++)
--		io[i] = ints[i + 1];
--}
--#endif
--
- static int __init dmascc_init(void)
- {
- 	int h, i, j, n;
+                                                                   Regards
