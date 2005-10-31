@@ -1,89 +1,35 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Mon, 31 Oct 2005 12:19:16 +0900 (JST)
-Message-ID: <200510310319.j9V3JHZK008295@toshiba.co.jp>
-References: <20051026003954.GA14068@gondor.apana.org.au>
-	<4360E75A.10405@trash.net> <43655428.3040904@trash.net>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: [PATCH][MCAST]IPv6: Check packet size when process Multicast Address
+ and Source Specific Query
+Date: Mon, 31 Oct 2005 13:20:21 +0800
+Message-ID: <4365A995.3050404@21cn.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	herbert@gondor.apana.org.au
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: kaber@trash.net
-In-Reply-To: <43655428.3040904@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: linux-kernel@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751370AbVJaFTM@vger.kernel.org>
+To: netdev@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Hi, Patrick,
+Signed-off-by: Yan Zheng <yanzheng@21cn.com>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 31 Oct 2005 00:15:52 +0100
-
-> Patrick McHardy wrote:
-> > Herbert Xu wrote:
-> > 
-> >>I presume that you will be changing the output path so that LOCAL_OUT
-> >>does not see the plain-text packet.  Otherwise it'll be asymmetric with
-> >>repsect to the inbound side which does not see plain-text packets for
-> >>transport mode SAs.
-
-I support this way.
-
-> > Yes, that was the idea. But since people seem to consider this an
-> > important case to handle I'm going to try the per-SA flag you
-> > proposed. I'll send new patches in the next days.
-
-I think pure transport mode is important, too. For example, for users of
-L2TP over IPsec.
-
-But I'm not sure that how many people wants to use netfilter hook together.
-At least, I don't need that. Because I can use IPsec policy instead of
-iptables rule and that's enough for me.
-
-I also think that it's the work for IPsec policy check to decide to
-accept or drop decrypted packets on input path of transport mode, that is
-not netfilter work.
-
-On the other hand, for the users who want to use local NAT and IPsec
-transport mode together, we might have to add netfilter hook to input
-path. But I'm not sure how many such users are. If nobody want, hooks
-we need are only LOCAL_OUT and POST_ROUTING on output path per tunnel.
-
-> Unfortunately hiding the plain-text packets on output when transport
-> mode SAs are used and the flag is not set adds a new inconsistency
-> with NAT. In my last patchsets NAT was handled by redoing the policy
-> lookup when a packet was NATed at LOCAL_OUT or POST_ROUTING and wasn't
-> already transformed. If the new lookup yielded a policy
-> ip_dst_output/__ip_dst_output was called again. The hooks were always
-> called in the normal order. With a per-SA flag however we don't know
-> if the packet should be hidden before the second lookup is done, so
-> with NAT a packet that would usually be hidden might be visible
-> on LOCAL_OUT and POST_ROUTING, or just LOCAL_OUT. This also affects
-> ip_queue.
-
-Sorry, maybe I don't understand. per-SA flag means that packets go through
-netfilter hook before handling of its SA on output path ? Why it isn't
-'after' ?
-
-> So far the by far cleanest solution from a netfilter point of view
-> was to ignore transport mode unless its the innermost transform on
-> output and to always send the decapsulated packets through the stack
-> again on input. Since Yoshifuji disagrees with this approach we seem
-> to be deadlocked ..
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---- Yasuyuki Kozakai
+Index: net/ipv6/mcast.c
+================================================================================
+--- linux-2.6.14/net/ipv6/mcast.c	2005-10-30 23:09:33.000000000 +0800
++++ linux/net/ipv6/mcast.c	2005-10-31 13:13:10.000000000 +0800
+@@ -1156,7 +1156,12 @@ int igmp6_event_query(struct sk_buff *sk
+ 			return 0;
+ 		}
+ 		/* mark sources to include, if group & source-specific */
+-		mark = mlh2->nsrcs != 0;
++		if (mlh2->nsrcs != 0) {
++			if (!pskb_may_pull(skb, mlh2->nsrcs * sizeof(struct in6_addr) +
++				(sizeof(struct mld2_query) - sizeof(struct icmp6hdr))))
++				return -EINVAL;
++			mark = 1;
++		}
+ 	} else {
+ 		in6_dev_put(idev);
+ 		return -EINVAL;
