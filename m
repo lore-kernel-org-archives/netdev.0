@@ -1,39 +1,70 @@
-From: "conchita mccoy" <khristin@beonsale.net>
-Subject: Eradicate everything you owe with out sending another dime
-Date: Sun, 30 Oct 2005 14:58:23 +1000
-Message-ID: <059601c5dd62$5fe7fde0$7ddb8fed__24316.2819221199$1130757858$gmane$org@khristin>
-Reply-To: "conchita mccoy" <khristin@beonsale.net>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: Re: [PATCH][MCAST]IPv6: Check packet size when process Multicast
+ Address and Source Specific Query
+Date: Mon, 31 Oct 2005 20:09:45 +0800
+Message-ID: <43660989.2000100@21cn.com>
+References: <4365A995.3050404@21cn.com> <20051031.142717.40152885.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Divina Nguyen" <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932343AbVJaMIt@vger.kernel.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <20051031.142717.40152885.yoshfuji@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> 
+> You cannot continue using mlh2, local copy of skb->h.raw
+> after pskb_may_pull(). Please refresh it.
+> 
+> --yoshfuji
+> 
 
-Abolish all you are indebted for without mailing another cent.  
-Stop the embarrassing telephone calls. Eliminate the sending of checks!
-Believe it or not a good number lending institutions not following the
-banking laws here. Mind-boggling but accurate! 
-Visit our web site for comprehensive particulars in relation to our
-procedure at NO cost or requirement. You have zilch to lose and heaps to
-reap.
+My mistake. sorry.
+I hope the new one is correct.
 
-http://ar.geocities.com/bernard_wooid/?1=37.Do away with all that you owe
-with out mailing an other dime
-Complete info or to cease getting or to comprehend our mailng address
-
-Develop profit & customer base immediately with skilled , large quantity
-e-mail advertising campaign
-Rely on most experienced quality_items_ideas@uk2.net
-
-Just before he reached Tokio he came to a military fort, and for nearly an
-hour watched the skilful maneuvers of a regiment of soldiers at their
-morning drill. They were not very big people, compared with other nations,
-but they seemed alert and well trained, and the boy decided it would require
-a brave enemy to face them on a field of battle
-Having at length satisfied his curiosity as to Japanese life and customs
-Rob prepared for his long flight across the Pacific Ocean
+Regards
+================================================================================
+--- linux-2.6.14/net/ipv6/mcast.c	2005-10-30 23:09:33.000000000 +0800
++++ linux/net/ipv6/mcast.c	2005-10-31 14:16:19.000000000 +0800
+@@ -1087,7 +1087,7 @@ static void mld_marksources(struct ifmca
+ 
+ int igmp6_event_query(struct sk_buff *skb)
+ {
+-	struct mld2_query *mlh2 = (struct mld2_query *) skb->h.raw;
++	struct mld2_query *mlh2 = NULL;
+ 	struct ifmcaddr6 *ma;
+ 	struct in6_addr *group;
+ 	unsigned long max_delay;
+@@ -1140,6 +1140,13 @@ int igmp6_event_query(struct sk_buff *sk
+ 		/* clear deleted report items */
+ 		mld_clear_delrec(idev);
+ 	} else if (len >= 28) {
++		int srcs_offset = sizeof(struct mld2_query) - 
++				  sizeof(struct icmp6hdr);
++		if (!pskb_may_pull(skb, srcs_offset)) {
++			in6_dev_put(idev);
++			return -EINVAL;
++		}
++		mlh2 = (struct mld2_query *) skb->h.raw;
+ 		max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
+ 		if (!max_delay)
+ 			max_delay = 1;
+@@ -1156,7 +1163,15 @@ int igmp6_event_query(struct sk_buff *sk
+ 			return 0;
+ 		}
+ 		/* mark sources to include, if group & source-specific */
+-		mark = mlh2->nsrcs != 0;
++		if (mlh2->nsrcs != 0) {
++			if (!pskb_may_pull(skb, srcs_offset + 
++				mlh2->nsrcs * sizeof(struct in6_addr))) {
++				in6_dev_put(idev);
++				return -EINVAL;
++			}
++			mlh2 = (struct mld2_query *) skb->h.raw;
++			mark = 1;
++		}
+ 	} else {
+ 		in6_dev_put(idev);
+ 		return -EINVAL;
