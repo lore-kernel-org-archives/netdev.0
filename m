@@ -1,46 +1,27 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Tue, 1 Nov 2005 13:27:36 -0800
-Message-ID: <OF395F8772.5B834BF9-ON882570AC.0075ACD7-882570AC.0075DC3C@us.ibm.com>
-References: <436586F0.9080101@21cn.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PKT_SCHED]: Rework QoS and/or fair queueing configuration
+Date: Tue, 01 Nov 2005 22:47:34 +0100
+Message-ID: <4367E276.2040406@trash.net>
+References: <Pine.LNX.4.61.0510280902470.6910@yvahk01.tjqt.qr>	 <20051031102621.GF8009@stusta.de>	 <20051031132729.GK23537@postel.suug.ch>	 <20051101141302.GM23537@postel.suug.ch> <cbec11ac0511011154r13e7b695g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751262AbVKAV1a@vger.kernel.org>
-In-Reply-To: <436586F0.9080101@21cn.com>
-To: Yan Zheng <yanzheng@21cn.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	bunk@stusta.de, jengelh@linux01.gwdg.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751301AbVKAVu5@vger.kernel.org>
+To: Ian McDonald <imcdnzl@gmail.com>
+In-Reply-To: <cbec11ac0511011154r13e7b695g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yan,
-        Please also make this equivalent change in IPv4 with
-ip_mc_msfilter() and ip_mc_add_src().
+Ian McDonald wrote:
+> I keep meaning to submit a patch but low on my todo list. Feel free to
+> do so if you wish or else I will get around to it one day. I know
+> Arnaldo has also mentioned ktimers for the future (which I haven't yet
+> read) which may help in this area as well.
 
-                                                +-DLS
-
-Acked-by: David L Stevens <dlstevens@us.ibm.com> 
-> 
-> Signed-off-by: Yan Zheng <yanzheng@21cn.com> 
-> 
-> Index: net/ipv6/mcast.c
-> 
-================================================================================
-> --- linux-2.6.14/net/ipv6/mcast.c   2005-10-30 23:09:33.000000000 +0800
-> +++ linux/net/ipv6/mcast.c   2005-10-31 10:37:36.000000000 +0800
-> @@ -545,8 +545,10 @@ int ip6_mc_msfilter(struct sock *sk, str
->           sock_kfree_s(sk, newpsl, IP6_SFLSIZE(newpsl->sl_max));
->           goto done;
->        }
-> -   } else
-> +   } else {
->        newpsl = NULL;
-> +      ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
-> +   }
->     psl = pmc->sflist;
->     if (psl) {
->        (void) ip6_mc_del_src(idev, group, pmc->sfmode,
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+AFAIK ktimers are another timer subsystem, but don't provide any
+further clock sources. Having higher resolution timers would be
+great however for improving accuracy when a qdisc is throttled.
