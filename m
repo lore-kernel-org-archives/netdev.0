@@ -1,75 +1,62 @@
-From: Nicholas Jefferson <xanthophile@gmail.com>
-Subject: Re: <REAL> iBurst (TM) compatible driver
-Date: Tue, 1 Nov 2005 16:00:19 +1100
-Message-ID: <4cd031a50510312100n23bffa13jb48a6daa33bce80b@mail.gmail.com>
-References: <4cd031a50510270924r38ad4d5oa88ae92a514df3cf@mail.gmail.com>
-	 <20051027153104.1a6531db@dxpl.pdx.osdl.net>
+From: Yan Zheng <yzcorp@gmail.com>
+Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
+Date: Tue, 1 Nov 2005 18:37:43 +0800
+Message-ID: <7e77d27c0511010237x775529b8h@mail.gmail.com>
+References: <436586F0.9080101@21cn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932583AbVKAFAW@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20051027153104.1a6531db@dxpl.pdx.osdl.net>
+Cc: linux-kernel@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750734AbVKAKhp@vger.kernel.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <436586F0.9080101@21cn.com>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+You can reproduce this bug by follow codes. This program will cause a
+change to include report even though the first socket's filter mode is
+exclude.
 
-Thank you for your comments. A new version of the iBurst (TM) wireless
-compatible driver (and a patch against 2.6.13.4) is now available [1]
-under the linux-2.6-ibdriver-2.0 release.
+Please adjust IFINDEX first.
+========================================
+#include <stdio.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#define IFINDEX 6
 
-[1] http://sourceforge.net/projects/ibdriver
+int main(int argc, char argv[])
+{
+	int i, sockfds[3];
+	struct ipv6_mreq req;
+	struct group_filter filter;
+	struct sockaddr_in6 *psin6;
+	req.ipv6mr_interface = IFINDEX;
+	inet_pton(PF_INET6, "FF02::2", &req.ipv6mr_multiaddr);
 
-> 1. Your network device registration code is wrong.
+	for (i = 0; i < 3; ++i) {
+		sockfds[i] = socket(PF_INET6, SOCK_DGRAM, 0);
+		setsockopt(sockfds[i], SOL_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
+	}
+	
+	filter.gf_interface = IFINDEX;
+	filter.gf_fmode = MCAST_INCLUDE;
+	filter.gf_numsrc = 1;
+	psin6 = (struct sockaddr_in6 *)&filter.gf_group;
+	psin6->sin6_family = AF_INET6;
+	inet_pton(PF_INET6, "FF02::2", &psin6->sin6_addr);
+	psin6 = (struct sockaddr_in6 *)&filter.gf_slist[0];
+	psin6->sin6_family = AF_INET6;
+	inet_pton(PF_INET6, "2002:de12:1780::1", &psin6->sin6_addr);
+	setsockopt(sockfds[1], SOL_IPV6, MCAST_MSFILTER, &filter, sizeof(filter));
+	
+	filter.gf_fmode = MCAST_EXCLUDE;
+	filter.gf_numsrc = 0;
+	setsockopt(sockfds[2], SOL_IPV6, MCAST_MSFILTER, &filter, sizeof(filter));
+	setsockopt(sockfds[2], SOL_IPV6, MCAST_MSFILTER, &filter, sizeof(filter));
 
-Okay. ib_net_register now uses alloc_netdev with the appropriate
-changes elsewhere.
-
-> 2. Transmit routine is wrong. Drop packets if out of memory.
-
-Okay. ib_net_tx_start does not allocate memory now.
-
-> 3. You need to flow control the transmit queue.
-
-ib_net_tx_prepare already did netif_stop_queue and netif_wake_queue.
-Would you prefer this to be in ib_net_tx_start instead?
-
-> 4. WTF is the whole ib_net_tap file stuff, and why do you need it?
-
-The modem can return status information (signal strength, etc.). This
-information is accessed from usermode by device files. There is also
-an interactive "talk" channel to control the modem, but I don't know
-what it can do. The ib-file module implements these device files. It
-is not essential for the driver and we don't yet know the modem
-protocol anyway, so I've removed it.
-
-> 5. Why bother with a /proc interface?
-> 6. If you must then use seq_file.
-> 7. If you must then do one device per file.
-
-The /proc interface was for debugging and may later be used to provide
-the status information instead of the device files. It's not
-essential, so I've removed this as well.
-
-> 8. Then you can get rid of having a global array of device structures
->    which is hard to maintain properly.
-
-The global array was used to set up the correspondence between the
-device files (via the minor device file numbers) and the modem
-structures (via the index to the global array). It's gone now ;-)
-
-> 9. If you don't support ioctl's just leave dev->ioctl as NULL
-> 10. Error code's from call's like register_netdev() should propogate back out.
-> 11. ib_net_open, ib_net_close only called from user context don't need
-> irqsave use spin_lock_irq()
-> 12. Coding style: don't use u_long it's a BSDism
-> 13. Please have source code laid out as patch to kernel, not out of tree driver
-
-Okay.
-
-Kind regards,
-
-Nicholas
+	pause();
+}
