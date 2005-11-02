@@ -1,35 +1,32 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
-Date: Wed, 2 Nov 2005 16:26:21 +0000
-Message-ID: <20051102162620.GA32696@infradead.org>
-References: <873bmg9sym.fsf@vertex.dottedmag.net> <20051102020903.GG29803@verge.net.au> <871x1zk0a6.fsf@vertex.dottedmag.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
+Date: Wed, 2 Nov 2005 09:42:37 -0800
+Message-ID: <OF9D4BE592.A4BBC034-ON882570AD.00608386-882570AD.006143BA@us.ibm.com>
+References: <20051102092959.GA15515@alpha.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
-Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
-To: Mikhail Gusarov <dottedmag@dottedmag.net>
-Content-Disposition: inline
-In-Reply-To: <871x1zk0a6.fsf@vertex.dottedmag.net>
-Resent-Message-ID: <O_Pl0B.A.peF.O-OaDB@murphy>
-List-Post: <mailto:debian-kernel@lists.debian.org>
-List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
+	netdev@vger.kernel.org, Yan Zheng <yzcorp@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965142AbVKBRmm@vger.kernel.org>
+In-Reply-To: <20051102092959.GA15515@alpha.home.local>
+To: Willy Tarreau <willy@w.ods.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 02, 2005 at 12:54:09PM +0600, Mikhail Gusarov wrote:
-> So, having in mind the two levels of 'stablenesss': kernel
-> 'stableness' and modules 'stableness' :) we should find the way to
-> exclude discussed modules from the build, because in-kernel versions
-> will always be, erm..., slightly (1.0.0 is mentioned only as 'stone
-> age' in the mailing list of ipw2200 developers) outdated due to fact
-> integration and testing gets some time in upstream kernels. I propose
-> just to disable compilation of this drivers: everyone will be able to
-> compile the recent version using ipw2200-source we provide.
+Willy Tarreau <willy@w.ods.org> wrote on 11/02/2005 01:29:59 AM:
+ 
+> Marcelo, David, does this backport seem appropriate for 2.4.32 ? I 
+verified
+> that it compiles, nothing more.
 
-The kernel drivers aren't stable but obsolete.  Because of that ever
-distribution that supports it's users must patch in a more recent one,
-which is what we should do for debian aswell.
+        Yes.
 
-It's a pity the braindead Intel policies don't allow us to have an uptodate
-driver in mainline.
+> If it's OK, I've noticed another patch that
+> Yan posted today and which might be of interest before a very solid 
+release.
+
+        I think they should be reviewed first. :-)
+
+                                                +-DLS
