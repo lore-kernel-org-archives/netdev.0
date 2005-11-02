@@ -1,64 +1,57 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Tue, 1 Nov 2005 15:55:05 -0800
-Message-ID: <OF19AE07D9.BF2B28D4-ON882570AC.0083498D-882570AC.00835D3A@us.ibm.com>
-References: <4367FF22.3030601@21cn.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] fix NET_RADIO=n, IEEE80211=y compile
+Date: Wed, 2 Nov 2005 01:53:16 +0100
+Message-ID: <20051102005316.GC8009@stusta.de>
+References: <20051024014838.0dd491bb.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751454AbVKAXy4@vger.kernel.org>
-In-Reply-To: <4367FF22.3030601@21cn.com>
-To: Yan Zheng <yanzheng@21cn.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932114AbVKBAxV@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com
+Content-Disposition: inline
+In-Reply-To: <20051024014838.0dd491bb.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Looks good. Thanks, Yan.
+On Mon, Oct 24, 2005 at 01:48:38AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.14-rc4-mm1:
+>...
+>  git-netdev-all.patch
+>...
+>  Subsystem trees
+>...
 
-                        +-DLS
 
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
+<--  snip  -->
 
-> 
-> Signed-off-by: Yan Zheng <yanzheng@21cn.com>
-> 
-> Patch for IPv4
-> Index:net/ipv4/igmp.c
-> ============================================================
-> --- linux-2.6.14/net/ipv4/igmp.c   2005-10-28 08:02:08.000000000 +0800
-> +++ linux/net/ipv4/igmp.c   2005-11-02 07:31:01.000000000 +0800
-> @@ -1908,8 +1908,11 @@ int ip_mc_msfilter(struct sock *sk, stru
->          sock_kfree_s(sk, newpsl, IP_SFLSIZE(newpsl->sl_max));
->          goto done;
->       }
-> -   } else
-> +   } else {
->       newpsl = NULL;
-> +      (void) ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
-> +         msf->imsf_fmode, 0, NULL, 0)
-> +   }
->    psl = pmc->sflist;
->    if (psl) {
->       (void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
-> 
-> 
-> 
-> 
-> Patch for IPv6
-> Index:net/ipv6/mcast.c
-> ============================================================
-> --- linux-2.6.14/net/ipv6/mcast.c   2005-10-30 23:09:33.000000000 +0800
-> +++ linux/net/ipv6/mcast.c   2005-11-02 07:19:12.000000000 +0800
-> @@ -545,8 +545,10 @@ int ip6_mc_msfilter(struct sock *sk, str
->          sock_kfree_s(sk, newpsl, IP6_SFLSIZE(newpsl->sl_max));
->          goto done;
->       }
-> -   } else
-> +   } else {
->       newpsl = NULL;
-> +      (void) ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
-> +   }
->    psl = pmc->sflist;
->    if (psl) {
->       (void) ip6_mc_del_src(idev, group, pmc->sfmode,
-> 
-> 
+
+This patch fixes the following compile error with CONFIG_NET_RADIO=n and 
+CONFIG_IEEE80211=y:
+
+  LD      .tmp_vmlinux1
+net/built-in.o: In function `ieee80211_rx':
+: undefined reference to `wireless_spy_update'
+make: *** [.tmp_vmlinux1] Error 1
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.14-rc5-mm1-full/net/ieee80211/ieee80211_rx.c.old	2005-11-01 22:17:45.000000000 +0100
++++ linux-2.6.14-rc5-mm1-full/net/ieee80211/ieee80211_rx.c	2005-11-01 22:17:01.000000000 +0100
+@@ -370,6 +370,7 @@
+ 	/* Put this code here so that we avoid duplicating it in all
+ 	 * Rx paths. - Jean II */
+ #ifdef IW_WIRELESS_SPY		/* defined in iw_handler.h */
++#ifdef CONFIG_NET_RADIO
+ 	/* If spy monitoring on */
+ 	if (ieee->spy_data.spy_number > 0) {
+ 		struct iw_quality wstats;
+@@ -396,6 +397,7 @@
+ 		/* Update spy records */
+ 		wireless_spy_update(ieee->dev, hdr->addr2, &wstats);
+ 	}
++#endif				/* CONFIG_NET_RADIO */
+ #endif				/* IW_WIRELESS_SPY */
+ 
+ #ifdef NOT_YET
