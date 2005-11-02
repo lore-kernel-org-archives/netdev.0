@@ -1,40 +1,51 @@
 From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Wed, 2 Nov 2005 19:46:06 -0200
-Message-ID: <39e6f6c70511021346g43fcba88y77c63fdff8cf9bb6@mail.gmail.com>
-References: <20051102092959.GA15515@alpha.home.local>
-	 <OF9D4BE592.A4BBC034-ON882570AD.00608386-882570AD.006143BA@us.ibm.com>
+Date: Wed, 2 Nov 2005 19:55:50 -0200
+Message-ID: <39e6f6c70511021355i52aff7e4n19ca4c1e24b21bb7@mail.gmail.com>
+References: <OF395F8772.5B834BF9-ON882570AC.0075ACD7-882570AC.0075DC3C@us.ibm.com>
+	 <4367FF22.3030601@21cn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-Cc: Willy Tarreau <willy@w.ods.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-	netdev@vger.kernel.org, Yan Zheng <yzcorp@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965282AbVKBVqJ@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF9D4BE592.A4BBC034-ON882570AD.00608386-882570AD.006143BA@us.ibm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Stevens <dlstevens@us.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965278AbVKBVzw@vger.kernel.org>
+To: Yan Zheng <yanzheng@21cn.com>
+In-Reply-To: <4367FF22.3030601@21cn.com>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/2/05, David Stevens <dlstevens@us.ibm.com> wrote:
-> Willy Tarreau <willy@w.ods.org> wrote on 11/02/2005 01:29:59 AM:
+On 11/1/05, Yan Zheng <yanzheng@21cn.com> wrote:
+> David Stevens wrote:
+> > Yan,
+> >         Please also make this equivalent change in IPv4 with
+> > ip_mc_msfilter() and ip_mc_add_src().
+> >
+> >                                                 +-DLS
+> >
+> > Acked-by: David L Stevens <dlstevens@us.ibm.com>
 >
-> > Marcelo, David, does this backport seem appropriate for 2.4.32 ? I
-> verified
-> > that it compiles, nothing more.
+> To keep code style, I also create a new patch for IPv6. :-)
 >
->         Yes.
+> Signed-off-by: Yan Zheng <yanzheng@21cn.com>
 >
-> > If it's OK, I've noticed another patch that
-> > Yan posted today and which might be of interest before a very solid
-> release.
->
->         I think they should be reviewed first. :-)
+> Patch for IPv4
+> Index:net/ipv4/igmp.c
+> ============================================================
+> --- linux-2.6.14/net/ipv4/igmp.c        2005-10-28 08:02:08.000000000 +0800
+> +++ linux/net/ipv4/igmp.c       2005-11-02 07:31:01.000000000 +0800
+> @@ -1908,8 +1908,11 @@ int ip_mc_msfilter(struct sock *sk, stru
+>                         sock_kfree_s(sk, newpsl, IP_SFLSIZE(newpsl->sl_max));
+>                         goto done;
+>                 }
+> -       } else
+> +       } else {
+>                 newpsl = NULL;
+> +               (void) ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
+> +                       msf->imsf_fmode, 0, NULL, 0)
 
-Sure thing David, and thanks for your much appreciated review of patches for
-the area.
+Could you please compile test it next time :-) hint, missing ';'.
+Anyway, fixed up by hand.
 
 - Arnaldo
