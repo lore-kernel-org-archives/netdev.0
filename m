@@ -1,62 +1,119 @@
-From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Wed, 2 Nov 2005 11:41:12 -0200
-Message-ID: <20051102134112.GB2609@logos.cnet>
-References: <20051102054702.GB11266@alpha.home.local> <OF0C913512.B3EB99A5-ON882570AD.0025FB9D-882570AD.00276427@us.ibm.com> <20051102092959.GA15515@alpha.home.local>
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
+ not enabled
+Date: Wed, 02 Nov 2005 21:55:38 +0100
+Message-ID: <436927CA.3090105@student.ltu.se>
+References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>	 <4368878D.4040406@student.ltu.se> <c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Stevens <dlstevens@us.ibm.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Yan Zheng <yzcorp@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965202AbVKBTvF@vger.kernel.org>
-To: Willy Tarreau <willy@w.ods.org>
-Content-Disposition: inline
-In-Reply-To: <20051102092959.GA15515@alpha.home.local>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davej@suse.de, acme@conectiva.com.br,
+	linux-net@vger.kernel.org, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ashutosh Naik <ashutosh.lkml@gmail.com>
+In-Reply-To: <c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 02, 2005 at 10:29:59AM +0100, Willy Tarreau wrote:
-> On Tue, Nov 01, 2005 at 11:10:29PM -0800, David Stevens wrote:
-> > Willy Tarreau <willy@w.ods.org> wrote on 11/01/2005 09:47:02 PM:
-> > 
-> > > Hi,
-> > > 
-> > > On Tue, Nov 01, 2005 at 06:37:43PM +0800, Yan Zheng wrote:
-> > > > You can reproduce this bug by follow codes. This program will cause a
-> > > > change to include report even though the first socket's filter mode is
-> > > > exclude.
-> > > 
-> > > I've not clearly understood the nature of the bug, does it also
-> > > affect 2.4 ? Marcelo will be releasing 2.4.32 in a few days, so
-> > > it would be wise to merge the fix soon.
-> > > 
-> > > Regards,
-> > > Willy
-> > > 
-> > 
-> >         Yes.
-> >  
-> >         Multicast source filters aren't widely used yet, and that's
-> > really the only feature that's affected if an application actually
-> > exercises this bug, as far as I can tell. An ordinary filter-less
-> > multicast join should still work, and only forwarded multicast
-> > traffic making use of filters and doing empty-source filters with
-> > the MSFILTER ioctl would be at risk of not getting multicast
-> > traffic forwarded to them because the reports generated would not
-> > be based on the correct counts.
-> >         But having the fix in is better than having it broken, even
-> > for that case. :-)
-> 
-> 
-> OK, thanks for the clarification, I understand better now :-)
-> 
-> Marcelo, David, does this backport seem appropriate for 2.4.32 ? I verified
-> that it compiles, nothing more. If it's OK, I've noticed another patch that
-> Yan posted today and which might be of interest before a very solid release.
+>
+>
+>>>This patch fixes compiler warnings when CONFIG_ISA and CONFIG_PCI are
+>>>not enabled in the dgrc network driver.
+>>>
+>>>Signed-off-by: Ashutosh Naik <ashutosh.naik@gmail.com>
+>>>
+>>>--
+>>>diff -Naurp linux-2.6.14/drivers/net/dgrs.c
+>>>linux-2.6.14-git1/drivers/net/dgrs.c---
+>>>linux-2.6.14/drivers/net/dgrs.c     2005-10-28 05:32:08.000000000
+>>>+0530
+>>>+++ linux-2.6.14-git1/drivers/net/dgrs.c        2005-11-01
+>>>10:30:03.000000000 +0530
+>>>@@ -1549,8 +1549,12 @@ MODULE_PARM_DESC(nicmode, "Digi RightSwi
+>>>static int __init dgrs_init_module (void)  {
+>>>       int     i;
+>>>-       int eisacount = 0, pcicount = 0;
+>>>-
+>>>+#ifdef CONFIG_EISA
+>>>+       int eisacount = 0;
+>>>+#endif
+>>>+#ifdef CONFIG_PCI
+>>>+       int pcicount = 0;
+>>>+#endif
+>>>       /*
+>>>        *      Command line variable overrides
+>>>        *              debug=NNN
+>>>-
+>>>      
+>>>
 
-Hi Willy,
+>>Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
+>>
+>>---
+>>
+>>diff -uNr a/drivers/net/dgrs.c b/drivers/net/dgrs.c
+>>--- a/drivers/net/dgrs.c        2005-08-29 01:41:01.000000000 +0200
+>>+++ b/drivers/net/dgrs.c        2005-10-26 15:53:43.000000000 +0200
+>>@@ -1549,7 +1549,7 @@
+>> static int __init dgrs_init_module (void)
+>> {
+>>        int     i;
+>>-       int eisacount = 0, pcicount = 0;
+>>+       int     count;
+>>
+>>        /*
+>>         *      Command line variable overrides
+>>@@ -1591,14 +1591,14 @@
+>>         *      Find and configure all the cards
+>>         */
+>> #ifdef CONFIG_EISA
+>>-       eisacount = eisa_driver_register(&dgrs_eisa_driver);
+>>-       if (eisacount < 0)
+>>-               return eisacount;
+>>+       count = eisa_driver_register(&dgrs_eisa_driver);
+>>+       if (count < 0)
+>>+               return count;
+>> #endif
+>> #ifdef CONFIG_PCI
+>>-       pcicount = pci_register_driver(&dgrs_pci_driver);
+>>-       if (pcicount)
+>>-               return pcicount;
+>>+       count = pci_register_driver(&dgrs_pci_driver);
+>>+       if (count)
+>>+               return count;
+>> #endif
+>>        return 0;
+>> }
+>>    
+>>
+>
+>Well, both of them do the same stuff, but one of these patches needs
+>to be committed.
+>
+>Cheers
+>Ashutosh
+>  
+>
+Can both CONFIG_PCI and CONFIG_EISA be undefined at the same time? If 
+so, I think you patch is better.
+But on line 1015 in the dgrs.c-file (function dgrs_download()) there is 
+an if-statement:
+    if (priv0->plxreg)
+    {    /* PCI bus */
+        ...
+    }
+    else
+    {    /* EISA bus */
+        ...
+from where I got the idea it needs either pci or eisa (or both). If this 
+is true, I vote for my patch.
 
-Given the fact that it is a bug correction, sure. 
-Could you please prepare a nice e-mail with the full description?
+Live long and prosper
+/Richard
 
-Thanks
+PS
+Rick's mail-address in the file seems invalid. Changed it to 
+netdev@vger.kernel.org, since that is the address in the MAINTAINERS-file.
+DS
+
