@@ -1,38 +1,42 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] update S2IO help text
-Date: Wed, 2 Nov 2005 02:53:12 +0100
-Message-ID: <20051102015311.GE8009@stusta.de>
+From: Horms <horms@verge.net.au>
+Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
+Date: Wed, 2 Nov 2005 11:09:05 +0900
+Message-ID: <20051102020903.GG29803@verge.net.au>
+References: <873bmg9sym.fsf@vertex.dottedmag.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932160AbVKBBxU@vger.kernel.org>
-To: jgarzik@pobox.com
+Cc: debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
+Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
+To: Mikhail Gusarov <dottedmag@dottedmag.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <873bmg9sym.fsf@vertex.dottedmag.net>
+Resent-Message-ID: <qk0nWB.A.irE.JVCaDB@murphy>
+List-Post: <mailto:debian-kernel@lists.debian.org>
+List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following updates to the S2IO help text:
-- correct the patch to the README
-- there is no information regarding compilation and installation of the
-  driver in the README
+On Tue, Nov 01, 2005 at 11:30:09PM +0600, Mikhail Gusarov wrote:
+> Hello,
+> 
+> I've encountered the problem with 2.6.14 kernels: they are shipped
+> with ancient version of ipw2200 drivers (1.0.0 while current version
+> is 1.0.7) and ancient version of ieee80211 subsystem (copyrighted as
+> 2004, so also outdated).
+> 
+> This breaks compilation of module from ipw2200-source package (because
+> it links against in-kernel ieee80211).
 
+I assume the problem you are seeing is a headers problem.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Is there way to modularize builds to exclude ieee80211 or just disable
+> it (along with ipw2200) because it is outdated and current vesion is
+> shipped in ieee80211-source package?
 
---- linux-2.6.14-rc5-mm1-modular-2.95/drivers/net/Kconfig.old	2005-11-02 02:46:21.000000000 +0100
-+++ linux-2.6.14-rc5-mm1-modular-2.95/drivers/net/Kconfig	2005-11-02 02:50:13.000000000 +0100
-@@ -2253,12 +2253,12 @@
- config S2IO
- 	tristate "S2IO 10Gbe XFrame NIC"
- 	depends on PCI
- 	---help---
- 	  This driver supports the 10Gbe XFrame NIC of S2IO. 
--	  For help regarding driver compilation, installation and 
--	  tuning please look into ~/drivers/net/s2io/README.txt.
-+	  For help regarding driver tuning please look into
-+	  <file:Documentation/networking/s2io.txt>.
- 
- config S2IO_NAPI
- 	bool "Use Rx Polling (NAPI) (EXPERIMENTAL)"
- 	depends on S2IO && EXPERIMENTAL
- 	help
+Probably the best place to start is to ping netdev to find out if
+there are any plans to update IPW2200 in Linus's tree. I've CCed
+that list, hopefully someone can shed some light on this.
+
+-- 
+Horms
