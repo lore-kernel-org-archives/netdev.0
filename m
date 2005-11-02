@@ -1,93 +1,40 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Wed, 2 Nov 2005 10:29:59 +0100
-Message-ID: <20051102092959.GA15515@alpha.home.local>
-References: <20051102054702.GB11266@alpha.home.local> <OF0C913512.B3EB99A5-ON882570AD.0025FB9D-882570AD.00276427@us.ibm.com>
+From: "andreas greaves" <achimelech@jesusanswers.com>
+Subject: plaster Our company can fully satisfy all your needs for reproduction timepieces! took
+Date: Wed, 02 Nov 2005 16:46:45 +0300
+Message-ID: <D398D644.FCD5F9C@jesusanswers.com>
+Reply-To: "andreas greaves" <achimelech@jesusanswers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Yan Zheng <yzcorp@gmail.com>,
-	Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932693AbVKBJl1@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF0C913512.B3EB99A5-ON882570AD.0025FB9D-882570AD.00276427@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-xfs@oss.sgi.com>, <mendoza@oss.sgi.com>, <netdev@oss.sgi.com>,
+        <schultz@oss.sgi.com>, <cvs@oss.sgi.com>, <murray@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Cordell Puc" <bates@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 01, 2005 at 11:10:29PM -0800, David Stevens wrote:
-> Willy Tarreau <willy@w.ods.org> wrote on 11/01/2005 09:47:02 PM:
-> 
-> > Hi,
-> > 
-> > On Tue, Nov 01, 2005 at 06:37:43PM +0800, Yan Zheng wrote:
-> > > You can reproduce this bug by follow codes. This program will cause a
-> > > change to include report even though the first socket's filter mode is
-> > > exclude.
-> > 
-> > I've not clearly understood the nature of the bug, does it also
-> > affect 2.4 ? Marcelo will be releasing 2.4.32 in a few days, so
-> > it would be wise to merge the fix soon.
-> > 
-> > Regards,
-> > Willy
-> > 
-> 
->         Yes.
->  
->         Multicast source filters aren't widely used yet, and that's
-> really the only feature that's affected if an application actually
-> exercises this bug, as far as I can tell. An ordinary filter-less
-> multicast join should still work, and only forwarded multicast
-> traffic making use of filters and doing empty-source filters with
-> the MSFILTER ioctl would be at risk of not getting multicast
-> traffic forwarded to them because the reports generated would not
-> be based on the correct counts.
->         But having the fix in is better than having it broken, even
-> for that case. :-)
+
+make heads turn by wearing one of this season's most coveted wholesale
+repliica bags, watches or whatever luxury! Start shopping today and find out
+why so many other women are choosing to carry our products year round. 
+Addidas, Bally, Bvlgari, Burberry, Cartier, Chanel, Christian Dior,
+Dunhill, Dupont, Escada, Fendi, Ferragamo, Gucci, Hermes, IWC, Jacob & Co.,
+Louis Vuitton, Mont Blanc, Movado, Nike, Omega, Oris, Prada, Puma, Rado,
+Roger Dubuis, Rolex, Sector, Tag Heuer, TechnoMarine, Tiffany, Timberland,
+Tudor
+dbpfqgfdn  http://uk.geocities.com/mespontaneitycoolba/?txdbccuvyxpu
 
 
-OK, thanks for the clarification, I understand better now :-)
 
-Marcelo, David, does this backport seem appropriate for 2.4.32 ? I verified
-that it compiles, nothing more. If it's OK, I've noticed another patch that
-Yan posted today and which might be of interest before a very solid release.
 
-Regards,
-Willy
-
-diff -urN linux-2.4.32-rc2/net/ipv4/igmp.c linux-2.4.32-rc2-mcast/net/ipv4/igmp.c
---- linux-2.4.32-rc2/net/ipv4/igmp.c	2005-11-02 10:16:03.000000000 +0100
-+++ linux-2.4.32-rc2-mcast/net/ipv4/igmp.c	2005-11-02 10:20:33.000000000 +0100
-@@ -1876,8 +1876,11 @@
- 			sock_kfree_s(sk, newpsl, IP_SFLSIZE(newpsl->sl_max));
- 			goto done;
- 		}
--	} else
--		newpsl = 0;
-+	} else {
-+		newpsl = NULL;
-+		(void) ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
-+		       msf->imsf_fmode, 0, NULL, 0);
-+	}
- 	psl = pmc->sflist;
- 	if (psl) {
- 		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
-diff -urN linux-2.4.32-rc2/net/ipv6/mcast.c linux-2.4.32-rc2-mcast/net/ipv6/mcast.c
---- linux-2.4.32-rc2/net/ipv6/mcast.c	2005-11-02 10:16:03.000000000 +0100
-+++ linux-2.4.32-rc2-mcast/net/ipv6/mcast.c	2005-11-02 10:21:49.000000000 +0100
-@@ -505,8 +505,11 @@
- 			sock_kfree_s(sk, newpsl, IP6_SFLSIZE(newpsl->sl_max));
- 			goto done;
- 		}
--	} else
--		newpsl = 0;
-+	} else {
-+		newpsl = NULL;
-+		(void) ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
-+	}
-+
- 	psl = pmc->sflist;
- 	if (psl) {
- 		(void) ip6_mc_del_src(idev, group, pmc->sfmode,
+At length the letter were disposed of, excepting one which he reserved for
+a particular audience. Having locked the more confidential correspondence in
+a drawer, Mr. Carker the Manager rang his bell. 
+florenti  evangelos  directlow F3 cthuv  bundesrat
+Mr. Dombey took it loosely in his own, and stood looking down upon her for
+a moment, as if he knew as little as the child, what to say or do. 
+`There. Be a good girl,' he said, patting her on the head, and regarding
+her as it were by stealth with a disturbed and doubtful look. `Go to
+Richards. Go.' 
