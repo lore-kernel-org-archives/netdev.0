@@ -1,46 +1,59 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Tue, 1 Nov 2005 23:10:29 -0800
-Message-ID: <OF0C913512.B3EB99A5-ON882570AD.0025FB9D-882570AD.00276427@us.ibm.com>
-References: <20051102054702.GB11266@alpha.home.local>
+From: Mikhail Gusarov <dottedmag@dottedmag.net>
+Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
+Date: Wed, 02 Nov 2005 12:54:09 +0600
+Message-ID: <871x1zk0a6.fsf@vertex.dottedmag.net>
+References: <873bmg9sym.fsf@vertex.dottedmag.net>
+	<20051102020903.GG29803@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Yan Zheng <yzcorp@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932608AbVKBHKU@vger.kernel.org>
-In-Reply-To: <20051102054702.GB11266@alpha.home.local>
-To: Willy Tarreau <willy@w.ods.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
+Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
+To: Mikhail Gusarov <dottedmag@dottedmag.net>
+In-Reply-To: <20051102020903.GG29803@verge.net.au> (horms@verge.net.au's
+	message of "Wed, 2 Nov 2005 11:09:05 +0900")
+Resent-Message-ID: <PSORqD.A.KQD.AbGaDB@murphy>
+List-Post: <mailto:debian-kernel@lists.debian.org>
+List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-Willy Tarreau <willy@w.ods.org> wrote on 11/01/2005 09:47:02 PM:
 
-> Hi,
-> 
-> On Tue, Nov 01, 2005 at 06:37:43PM +0800, Yan Zheng wrote:
-> > You can reproduce this bug by follow codes. This program will cause a
-> > change to include report even though the first socket's filter mode is
-> > exclude.
-> 
-> I've not clearly understood the nature of the bug, does it also
-> affect 2.4 ? Marcelo will be releasing 2.4.32 in a few days, so
-> it would be wise to merge the fix soon.
-> 
-> Regards,
-> Willy
-> 
+You (horms@verge.net.au) wrote:
 
-        Yes.
- 
-        Multicast source filters aren't widely used yet, and that's
-really the only feature that's affected if an application actually
-exercises this bug, as far as I can tell. An ordinary filter-less
-multicast join should still work, and only forwarded multicast
-traffic making use of filters and doing empty-source filters with
-the MSFILTER ioctl would be at risk of not getting multicast
-traffic forwarded to them because the reports generated would not
-be based on the correct counts.
-        But having the fix in is better than having it broken, even
-for that case. :-)
+ >> I've encountered the problem with 2.6.14 kernels: they are shipped
+ >> with ancient version of ipw2200 drivers (1.0.0 while current
+ >> version is 1.0.7) and ancient version of ieee80211 subsystem
+ >> (copyrighted as 2004, so also outdated).
+ >> 
+ >> This breaks compilation of module from ipw2200-source package
+ >> (because it links against in-kernel ieee80211).
 
-                                                        +-DLS
+ H> I assume the problem you are seeing is a headers problem.
+
+Ah, yes. The other problem is two copies ipw2200.ko & ieee80211*.ko
+modules being installed: the ones included in kernel and others
+compiled as external modules. I suppose this may lead to the problems
+with depmod.
+
+ >> Is there way to modularize builds to exclude ieee80211 or just
+ >> disable it (along with ipw2200) because it is outdated and current
+ >> vesion is shipped in ieee80211-source package?
+
+ H> Probably the best place to start is to ping netdev to find out if
+ H> there are any plans to update IPW2200 in Linus's tree. I've CCed
+ H> that list, hopefully someone can shed some light on this.
+
+So, having in mind the two levels of 'stablenesss': kernel
+'stableness' and modules 'stableness' :) we should find the way to
+exclude discussed modules from the build, because in-kernel versions
+will always be, erm..., slightly (1.0.0 is mentioned only as 'stone
+age' in the mailing list of ipw2200 developers) outdated due to fact
+integration and testing gets some time in upstream kernels. I propose
+just to disable compilation of this drivers: everyone will be able to
+compile the recent version using ipw2200-source we provide.
+
+-- 
+Mikhail Gusarov
+ICQ UIN: 111575219
+JID: dottedmag@jabber.dottedmag.net
