@@ -1,60 +1,32 @@
-From: Yan Zheng <yzcorp@gmail.com>
-Subject: Re: [PATCH][MCAST]Two fix for implementation of MLDv2 .
-Date: Thu, 3 Nov 2005 21:26:29 +0800
-Message-ID: <7e77d27c0511030526g45d8f6e6l@mail.gmail.com>
-References: <436878E7.3030303@21cn.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Merge __load_pointer() and load_pointer() in net/core/filter.c;
+ kernel 2.6.14
+Date: Thu, 03 Nov 2005 17:19:12 +0100
+Message-ID: <436A3880.9000104@trash.net>
+References: <5b1bc8f2a7f34523b323fc1b58ef4c26.kjak@ispwest.com> <20051103065809.GC27232@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932481AbVKCN0b@vger.kernel.org>
-To: netdev@vger.kernel.org
-In-Reply-To: <436878E7.3030303@21cn.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Kris Katterjohn <kjak@users.sourceforge.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>, jschlst@samba.org,
+	davem@davemloft.net, acme@ghostprotocols.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030374AbVKCQTp@vger.kernel.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20051103065809.GC27232@gaz.sfgoth.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You can test change in add_grec(...) by follow codes. without the
-change no change to exclude report will be sent.
+Mitchell Blank Jr wrote:
+> Kris Katterjohn wrote:
+> 
+>>>So I guess use my patch and take "inline" off? What do you think?
+> 
+> Well the original author presumably thought that the fast-path of
+> load_pointer() was critical enough to keep inline (since it can be run many
+> times per packet)  So they made the deliberate choice of separating it
+> into two functions - one inline, one non-inline.
 
-please adjust IFINDEX and make sure initial state for FF02::2 is idle
-===================================================
-#include <stdio.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#define IFINDEX 6
-
-int main(int argc, char argv[])
-{
-	int sockfds[2];
-	struct ipv6_mreq req;
-	struct group_filter filter;
-	struct sockaddr_in6 *psin6;
-	req.ipv6mr_interface = IFINDEX;
-	inet_pton(PF_INET6, "FF02::2", &req.ipv6mr_multiaddr);
-
-	sockfds[0] = socket(PF_INET6, SOCK_DGRAM, 0);
-	sockfds[1] = socket(PF_INET6, SOCK_DGRAM, 0);
-
-	filter.gf_interface = IFINDEX;
-	filter.gf_fmode = MCAST_INCLUDE;
-	filter.gf_numsrc = 1;
-	psin6 = (struct sockaddr_in6 *)&filter.gf_group;
-	psin6->sin6_family = AF_INET6;
-	inet_pton(PF_INET6, "FF02::2", &psin6->sin6_addr);
-	psin6 = (struct sockaddr_in6 *)&filter.gf_slist[0];
-	psin6->sin6_family = AF_INET6;
-	inet_pton(PF_INET6, "2002:de12:1780::1", &psin6->sin6_addr);
-
-	setsockopt(sockfds[0], SOL_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
-	setsockopt(sockfds[0], SOL_IPV6, MCAST_MSFILTER, &filter, sizeof(filter));
-
-	sleep(5);
-	setsockopt(sockfds[1], SOL_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
-
-	pause();
-	return 0;
-}
+Exactly. __load_pointer is only called rarely, while load_pointer is
+called whenever data needs to be read from the packet. It shouldn't
+be changed without any justification.
