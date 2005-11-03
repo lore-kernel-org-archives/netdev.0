@@ -1,37 +1,34 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
-Date: Wed, 2 Nov 2005 21:28:40 -0200
-Message-ID: <39e6f6c70511021528u513a9b4fn44497ddb2f672a28@mail.gmail.com>
-References: <OF395F8772.5B834BF9-ON882570AC.0075ACD7-882570AC.0075DC3C@us.ibm.com>
-	 <4367FF22.3030601@21cn.com>
-	 <39e6f6c70511021355i52aff7e4n19ca4c1e24b21bb7@mail.gmail.com>
-	 <43694B94.7010605@21cn.com>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: [PATCH]A old patch for addrconf_ifdown(...).
+Date: Thu, 03 Nov 2005 08:48:55 +0800
+Message-ID: <43695E77.3080707@21cn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Stevens <dlstevens@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030194AbVKBX2m@vger.kernel.org>
-To: Yan Zheng <yanzheng@21cn.com>
-In-Reply-To: <43694B94.7010605@21cn.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030232AbVKCArq@vger.kernel.org>
+To: netdev@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/2/05, Yan Zheng <yanzheng@21cn.com> wrote:
-> >
-> > Could you please compile test it next time :-) hint, missing ';'.
-> > Anyway, fixed up by hand.
-> >
-> > - Arnaldo
-> >
-> >
->
-> I'm so sorry.
+Hi.
 
-Don't worry, I already fixed it and published in my net-2.6.git tree at
-www.kernel.org, its just that the same confidence that makes one
-commit something simple as in your case could introduce something
-nasty :-)
+The patch may be got lost. It's already acked by YOSHIFUJI.
 
-- Arnaldo
+
+Signed-off-by: Yan Zheng<yanzheng@21cn.com>
+
+Index:  net/ipv6/addrconf.c
+------------------------------------------------------------------------
+--- linux-2.6.14/net/ipv6/addrconf.c	2005-10-28 08:02:08.000000000 +0800
++++ linux/net/ipv6/addrconf.c	2005-11-03 08:35:11.000000000 +0800
+@@ -2167,7 +2167,7 @@ static int addrconf_ifdown(struct net_de
+ 
+ 	/* Step 5: netlink notification of this interface */
+ 	idev->tstamp = jiffies;
+-	inet6_ifinfo_notify(RTM_NEWLINK, idev);
++	inet6_ifinfo_notify(RTM_DELLINK, idev);
+ 	
+ 	/* Shot the device (if unregistered) */
+ 
