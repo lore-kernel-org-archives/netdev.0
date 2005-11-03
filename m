@@ -1,55 +1,35 @@
-From: Yan Zheng <yzcorp@gmail.com>
-Subject: Re: [PATCH][MCAST]Two fix for implementation of MLDv2 .
-Date: Thu, 3 Nov 2005 09:22:04 +0800
-Message-ID: <7e77d27c0511021722l6bb768c7h@mail.gmail.com>
-References: <436878E7.3030303@21cn.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Stevens <dlstevens@us.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030249AbVKCBWF@vger.kernel.org>
-To: Yan Zheng <yanzheng@21cn.com>
-In-Reply-To: <436878E7.3030303@21cn.com>
-Content-Disposition: inline
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Merge __load_pointer() and load_pointer() in net/core/filter.c; kernel 2.6.14
+Date: Thu, 03 Nov 2005 12:50:29 +1100
+Message-ID: <E1EXUFJ-0006nP-00@gondolin.me.apana.org.au>
+References: <e626300280b94e0abc26defcc6043b91.kjak@ispwest.com>
+Cc: jschlst@samba.org, torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, acme@ghostprotocols.net,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030260AbVKCBvI@vger.kernel.org>
+To: "Kris Katterjohn" <kjak@users.sourceforge.net>
+In-Reply-To: <e626300280b94e0abc26defcc6043b91.kjak@ispwest.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I find something interesting .  Maybe more changes for is_in(...) are needed.
+Kris Katterjohn <kjak@ispwest.com> wrote:
+> Another patch for net/core/filter.c by me. I merged __load_pointer() into
+> load_pointer(). I don't see a point in having two seperate functions when
+> both functions are really small and load_pointer() calls __load_pointer().
+> Renamed the variable "k" to "offset" since that's what it is, and in
+> skb_header_pointer() it's "offset".
+> 
+> This patch is a diff from kernel 2.6.14
 
+This code path is performance-critical so you should benchmark your
+changes.
 
-static int is_in(struct ifmcaddr6 *pmc, struct ip6_sf_list *psf, int type,
-	int gdeleted, int sdeleted)
-{
-	switch (type) {
-	case MLD2_MODE_IS_INCLUDE:
-	case MLD2_CHANGE_TO_INCLUDE:
-		if (gdeleted || sdeleted)
-			return 0;
-		if (psf->sf_count[MCAST_INCLUDE] == 0)
-			return 0;    // maybe never happen
-		if (type == MLD2_CHANGE_TO_INCLUDE)
-			return 1;
-		return !((pmc->mca_flags & MAF_GSQUERY) && !psf->sf_gsresp);
-	case MLD2_MODE_IS_EXCLUDE:
-	case MLD2_CHANGE_TO_EXCLUDE:
-		if (gdeleted || sdeleted)
-			return 0;
-		if (pmc->mca_sfcount[MCAST_EXCLUDE] == 0 ||
-		    psf->sf_count[MCAST_INCLUDE])
-			return 0;
-		if (type == MLD2_MODE_IS_EXCLUDE)
-			return 1;
-		return pmc->mca_sfcount[MCAST_EXCLUDE] ==
-			psf->sf_count[MCAST_EXCLUDE];
-	case MLD2_ALLOW_NEW_SOURCES:
-		if (gdeleted || !psf->sf_crcount)
-			return 0;
-		return (pmc->mca_sfmode == MCAST_INCLUDE) ^ sdeleted;
-	case MLD2_BLOCK_OLD_SOURCES:
-		if (pmc->mca_sfmode == MCAST_INCLUDE)
-			return gdeleted || (psf->sf_crcount && sdeleted);
-		return psf->sf_crcount && !gdeleted && !sdeleted;
-	}
-	return 0;
-}
+In this particular case, __load_pointer is the unlikely case and
+therefore it wasn't inlined.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
