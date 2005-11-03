@@ -1,33 +1,40 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PKT_SCHED]: Rework QoS and/or fair queueing configuration
-Date: Thu, 3 Nov 2005 02:25:04 -0200
-Message-ID: <39e6f6c70511022025x17d14571rf306f2b926a56efb@mail.gmail.com>
-References: <Pine.LNX.4.61.0510280902470.6910@yvahk01.tjqt.qr>
-	 <20051031102621.GF8009@stusta.de>
-	 <20051031132729.GK23537@postel.suug.ch>
-	 <20051101141302.GM23537@postel.suug.ch>
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: [PATCH][MCAST]IPv6: small fix for ip6_mc_msfilter(...)
+Date: Thu, 3 Nov 2005 06:02:22 +0100
+Message-ID: <20051103050222.GA19095@alpha.home.local>
+References: <20051102092959.GA15515@alpha.home.local> <OF9D4BE592.A4BBC034-ON882570AD.00608386-882570AD.006143BA@us.ibm.com> <20051102205926.GB5078@logos.cnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: bunk@stusta.de, jengelh@linux01.gwdg.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030315AbVKCEZG@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20051101141302.GM23537@postel.suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Yan Zheng <yzcorp@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750726AbVKCFOJ@vger.kernel.org>
+To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
 Content-Disposition: inline
+In-Reply-To: <20051102205926.GB5078@logos.cnet>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/1/05, Thomas Graf <tgraf@suug.ch> wrote:
->
-> Make "QoS and/or fair queueing" have its own menu, it's too big to be
-> inlined into "Network options". Remove the obsolete NET_QOS option.
-> Automatically select NET_CLS if needed. Do the same for NET_ESTIMATOR
-> but allow it to be selected manually for statistical purposes. Add
-> comments to separate queueing from classification. Fix dependencies
-> and ordering of classifiers. Improve descriptions/help texts and
-> remove outdated pieces.
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Wed, Nov 02, 2005 at 06:59:26PM -0200, Marcelo Tosatti wrote:
+> On Wed, Nov 02, 2005 at 09:42:37AM -0800, David Stevens wrote:
+> > Willy Tarreau <willy@w.ods.org> wrote on 11/02/2005 01:29:59 AM:
+> >  
+> > > Marcelo, David, does this backport seem appropriate for 2.4.32 ? I 
+> > verified
+> > > that it compiles, nothing more.
+> > 
+> >         Yes.
+> > 
+> > > If it's OK, I've noticed another patch that
+> > > Yan posted today and which might be of interest before a very solid 
+> > release.
+> > 
+> >         I think they should be reviewed first. :-)
+> 
+> Alright, then let it be tested in v2.6 first. Willy, can you queue for
+> 2.4.33-pre ?
 
-Thanks, applied.
+OK.
+
+Willy
