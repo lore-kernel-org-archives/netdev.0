@@ -1,121 +1,127 @@
-From: Ashutosh Naik <ashutosh.lkml@gmail.com>
-Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are not enabled
-Date: Thu, 3 Nov 2005 11:09:42 +0530
-Message-ID: <c216304e0511022139j70614ae3l3a96767c0a36358e@mail.gmail.com>
-References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>
-	 <4368878D.4040406@student.ltu.se>
-	 <c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
-	 <436927CA.3090105@student.ltu.se>
+From: "Kris Katterjohn" <kjak@ispwest.com>
+Subject: Re: [PATCH] Merge __load_pointer() and load_pointer() in net/core/filter.c; kernel 2.6.14
+Date: Wed, 2 Nov 2005 22:19:49 -0800
+Message-ID: <5b1bc8f2a7f34523b323fc1b58ef4c26.kjak@ispwest.com>
+Reply-To: "Kris Katterjohn" <kjak@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, davej@suse.de, acme@conectiva.com.br,
-	linux-net@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932533AbVKCFjp@vger.kernel.org>
-To: Richard Knutsson <ricknu-0@student.ltu.se>
-In-Reply-To: <436927CA.3090105@student.ltu.se>
-Content-Disposition: inline
+Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, jschlst@samba.org,
+	davem@davemloft.net, acme@ghostprotocols.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932708AbVKCGTw@vger.kernel.org>
+To: "Mitchell Blank Jr" <mitch@sfgoth.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/3/05, Richard Knutsson <ricknu-0@student.ltu.se> wrote:
-> >
-> >
-> >>>This patch fixes compiler warnings when CONFIG_ISA and CONFIG_PCI are
-> >>>not enabled in the dgrc network driver.
-> >>>
-> >>>Signed-off-by: Ashutosh Naik <ashutosh.naik@gmail.com>
-> >>>
-> >>>--
-> >>>diff -Naurp linux-2.6.14/drivers/net/dgrs.c
-> >>>linux-2.6.14-git1/drivers/net/dgrs.c---
-> >>>linux-2.6.14/drivers/net/dgrs.c     2005-10-28 05:32:08.000000000
-> >>>+0530
-> >>>+++ linux-2.6.14-git1/drivers/net/dgrs.c        2005-11-01
-> >>>10:30:03.000000000 +0530
-> >>>@@ -1549,8 +1549,12 @@ MODULE_PARM_DESC(nicmode, "Digi RightSwi
-> >>>static int __init dgrs_init_module (void)  {
-> >>>       int     i;
-> >>>-       int eisacount = 0, pcicount = 0;
-> >>>-
-> >>>+#ifdef CONFIG_EISA
-> >>>+       int eisacount = 0;
-> >>>+#endif
-> >>>+#ifdef CONFIG_PCI
-> >>>+       int pcicount = 0;
-> >>>+#endif
-> >>>       /*
-> >>>        *      Command line variable overrides
-> >>>        *              debug=NNN
-> >>>-
-> >>>
-> >>>
+> From: Mitchell Blank Jr
+> Cc:
+> herbert@gondor.apana.org.au;jschlst@samba.org;davem@davemloft.net;
+> acme@ghostprotocols.net;netdev@vger.kernel.org
+> 
+> > (I trimmed the cc: list a bit; no need for this to be on LKML in my opinion)
+> > 
+> > Kris Katterjohn wrote:
+> > > Forgive me because this is one of my first attempts at anything related to the
+> > > kernel, but...
+> > > 
+> > > 1) How would I go about benchmarking this?
+> > 
+> > The first thing to do is run "size net/core/filter.o" before and after and
+> > see if your change makes the "text" section larger.
+> > 
+> > The risk of putting more stuff into the inlined function is just that
+> > the rarely-executed path will end up duplicated in a bunch of places, bloating
+> > the generated code.  It's hard to directly benchmark the effects of this but
+> > it will generally make the fast-path code less compact in the L1 I-cache
+> > which (if you do it enough) slows everything down.  Thats one reason why
+> > kernel developers try to keep a close eye on bloat.
+> > 
+> > -Mitch
+> 
+> Before patch:
+> 
+>    text	   data	    bss	    dec	    hex	filename
+>    2399	      0	      0	   2399	    95f	x/net/core/filter.o
+> 
+> After patch:
+> 
+>    text	   data	    bss	    dec	    hex	filename
+>    2589	      0	      0	   2589	    a1d	y/net/core/filter.o
+> 
+> After patch without inlining the function:
+> 
+>    text	   data	    bss	    dec	    hex	filename
+>    2127	      0	      0	   2127	    84f	y/net/core/filter.o
+> 
+> 
+> So I guess use my patch and take "inline" off? What do you think?
+> 
+> 
+> Thanks
 >
-> >>Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
-> >>
-> >>---
-> >>
-> >>diff -uNr a/drivers/net/dgrs.c b/drivers/net/dgrs.c
-> >>--- a/drivers/net/dgrs.c        2005-08-29 01:41:01.000000000 +0200
-> >>+++ b/drivers/net/dgrs.c        2005-10-26 15:53:43.000000000 +0200
-> >>@@ -1549,7 +1549,7 @@
-> >> static int __init dgrs_init_module (void)
-> >> {
-> >>        int     i;
-> >>-       int eisacount = 0, pcicount = 0;
-> >>+       int     count;
-> >>
-> >>        /*
-> >>         *      Command line variable overrides
-> >>@@ -1591,14 +1591,14 @@
-> >>         *      Find and configure all the cards
-> >>         */
-> >> #ifdef CONFIG_EISA
-> >>-       eisacount = eisa_driver_register(&dgrs_eisa_driver);
-> >>-       if (eisacount < 0)
-> >>-               return eisacount;
-> >>+       count = eisa_driver_register(&dgrs_eisa_driver);
-> >>+       if (count < 0)
-> >>+               return count;
-> >> #endif
-> >> #ifdef CONFIG_PCI
-> >>-       pcicount = pci_register_driver(&dgrs_pci_driver);
-> >>-       if (pcicount)
-> >>-               return pcicount;
-> >>+       count = pci_register_driver(&dgrs_pci_driver);
-> >>+       if (count)
-> >>+               return count;
-> >> #endif
-> >>        return 0;
-> >> }
-> >>
-> >>
-> >
-> >Well, both of them do the same stuff, but one of these patches needs
-> >to be committed.
-> >
-> >Cheers
-> >Ashutosh
-> >
-> >
-> Can both CONFIG_PCI and CONFIG_EISA be undefined at the same time? If
-> so, I think you patch is better.
-> But on line 1015 in the dgrs.c-file (function dgrs_download()) there is
-> an if-statement:
->     if (priv0->plxreg)
->     {    /* PCI bus */
->         ...
->     }
->     else
->     {    /* EISA bus */
->         ...
-> from where I got the idea it needs either pci or eisa (or both). If this
-> is true, I vote for my patch.
 
-Both CONFIG_PCI and CONFIG_EISA cant be undefined at the same time,
-because the device has to be on either of the 2 busses. I think your
-patch is better in that case.
+Here's the new patch. It's the same as the first one, just with "inline" removed.
 
-Cheers
-Ashutosh
+Maybe "static" should be removed, too? Oh well.
+
+---
+
+
+--- x/net/core/filter.c	2005-10-27 19:02:08.000000000 -0500
++++ y/net/core/filter.c	2005-11-03 00:05:42.000000000 -0600
+@@ -13,6 +13,8 @@
+  * 2 of the License, or (at your option) any later version.
+  *
+  * Andi Kleen - Fix a few bad bugs and races.
++ * Kris Katterjohn - Merged __load_pointer() into load_pointer() and
++ *                   cleaned it up a little bit - 2005-11-01
+  */
+ 
+ #include <linux/module.h>
+@@ -35,31 +37,27 @@
+ #include <asm/uaccess.h>
+ #include <linux/filter.h>
+ 
+-/* No hurry in this branch */
+-static void *__load_pointer(struct sk_buff *skb, int k)
++static void *load_pointer(struct sk_buff *skb, int offset,
++                          unsigned int size, void *buffer)
+ {
+ 	u8 *ptr = NULL;
+ 
+-	if (k >= SKF_NET_OFF)
+-		ptr = skb->nh.raw + k - SKF_NET_OFF;
+-	else if (k >= SKF_LL_OFF)
+-		ptr = skb->mac.raw + k - SKF_LL_OFF;
++	if (offset >= 0)
++		return skb_header_pointer(skb, offset, size, buffer);
++
++	if (offset >= SKF_AD_OFF)
++		return NULL;
++
++	if (offset >= SKF_NET_OFF)
++		ptr = skb->nh.raw + offset - SKF_NET_OFF;
++
++	else if (offset >= SKF_LL_OFF)
++		ptr = skb->mac.raw + offset - SKF_LL_OFF;
+ 
+ 	if (ptr >= skb->head && ptr < skb->tail)
+ 		return ptr;
+-	return NULL;
+-}
+ 
+-static inline void *load_pointer(struct sk_buff *skb, int k,
+-                                 unsigned int size, void *buffer)
+-{
+-	if (k >= 0)
+-		return skb_header_pointer(skb, k, size, buffer);
+-	else {
+-		if (k >= SKF_AD_OFF)
+-			return NULL;
+-		return __load_pointer(skb, k);
+-	}
++	return NULL;
+ }
+ 
+ /**
