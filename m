@@ -1,44 +1,120 @@
-From: "Kris Katterjohn" <kjak@ispwest.com>
-Subject: Re: Re: [PATCH] Merge __load_pointer() and load_pointer() in net/core/filter.c; kernel 2.6.14
-Date: Wed, 2 Nov 2005 22:54:07 -0800
-Message-ID: <b70651b792f248ac8a5ca985a83e875f.kjak@ispwest.com>
-Reply-To: "Kris Katterjohn" <kjak@users.sourceforge.net>
+From: Harald Welte <laforge@netfilter.org>
+Subject: [PATCH 1/2] [NETFILTER] PPTP helper: Fix compilation of conntrack
+	helper without NAT
+Date: Thu, 3 Nov 2005 13:04:04 +0100
+Message-ID: <20051103120404.GB4479@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, jschlst@samba.org,
-	davem@davemloft.net, acme@ghostprotocols.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751168AbVKCGyN@vger.kernel.org>
-To: "Mitchell Blank Jr" <mitch@sfgoth.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LjZ8ja9Qm/wlgUs7"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-> > > From: Mitchell Blank Jr
-> > > > (I trimmed the cc: list a bit; no need for this to be on LKML in my opinion)
-> 
-> I see you just added it back.  Oh well.
 
-When I emailed (CC:) Herbert Xu (who emailed about this earlier), I got an email
-back that said it couldn't send to him. So, I just added linux-kernel back so
-he'd see it if he's interested at all.
+--LjZ8ja9Qm/wlgUs7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> > > So I guess use my patch and take "inline" off? What do you think?
-> 
-> Well the original author presumably thought that the fast-path of
-> load_pointer() was critical enough to keep inline (since it can be run many
-> times per packet)  So they made the deliberate choice of separating it
-> into two functions - one inline, one non-inline.
-> 
-> So my personal feeling is that the code is probably fine as it stands today.
+Hi Acme!
 
-It probably is. Doesn't really matter I guess.
- 
-> > Maybe "static" should be removed, too? Oh well.
-> 
-> Uh, why?  It's clearly a file-local function.
-
-No real reason, just that none of the other functions in filter.c are static.
+Please merge this to both 2.6.15 mainline and 2.6.14.x stable series,
+thanks.
 
 
-Thanks
+[NETFILTER] PPTP helper: Fix compilation of conntrack helper without NAT
+
+This patch fixes compilation of the PPTP conntrack helper when NAT is
+configured off.
+
+Signed-off-by: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+Signed-off-by: Harald Welte <laforge@netfilter.org>
+
+---
+commit f6447dcd8a4f13b144c9f49df76682c31562a003
+tree e5f7c3a472ba896ee793727fbe4de02f42047d75
+parent 928f936ad8e099bd2a84d6e875e1a8c59f55bf7d
+author Harald Welte <laforge@hanuman.de.gnumonks.org> Thu, 03 Nov 2005 10:5=
+6:16 +0100
+committer Harald Welte <laforge@hanuman.de.gnumonks.org> Thu, 03 Nov 2005 1=
+0:56:16 +0100
+
+ net/ipv4/netfilter/ip_conntrack_helper_pptp.c |    4 ----
+ net/ipv4/netfilter/ip_nat_helper_pptp.c       |    2 ++
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ip_conntrack_helper_pptp.c b/net/ipv4/netfi=
+lter/ip_conntrack_helper_pptp.c
+--- a/net/ipv4/netfilter/ip_conntrack_helper_pptp.c
++++ b/net/ipv4/netfilter/ip_conntrack_helper_pptp.c
+@@ -270,14 +270,10 @@ exp_gre(struct ip_conntrack *master,
+ 	exp_orig->expectfn =3D pptp_expectfn;
+ 	exp_orig->flags =3D 0;
+=20
+-	exp_orig->dir =3D IP_CT_DIR_ORIGINAL;
+-
+ 	/* both expectations are identical apart from tuple */
+ 	memcpy(exp_reply, exp_orig, sizeof(*exp_reply));
+ 	memcpy(&exp_reply->tuple, &exp_tuples[1], sizeof(exp_reply->tuple));
+=20
+-	exp_reply->dir =3D !exp_orig->dir;
+-
+ 	if (ip_nat_pptp_hook_exp_gre)
+ 		ret =3D ip_nat_pptp_hook_exp_gre(exp_orig, exp_reply);
+ 	else {
+diff --git a/net/ipv4/netfilter/ip_nat_helper_pptp.c b/net/ipv4/netfilter/i=
+p_nat_helper_pptp.c
+--- a/net/ipv4/netfilter/ip_nat_helper_pptp.c
++++ b/net/ipv4/netfilter/ip_nat_helper_pptp.c
+@@ -216,6 +216,7 @@ pptp_exp_gre(struct ip_conntrack_expect=20
+ 	expect_orig->saved_proto.gre.key =3D htons(nat_pptp_info->pac_call_id);
+ 	expect_orig->tuple.src.u.gre.key =3D htons(nat_pptp_info->pns_call_id);
+ 	expect_orig->tuple.dst.u.gre.key =3D htons(ct_pptp_info->pac_call_id);
++	expect_orig->dir =3D IP_CT_DIR_ORIGINAL;
+ 	inv_t.src.ip =3D reply_t->src.ip;
+ 	inv_t.dst.ip =3D reply_t->dst.ip;
+ 	inv_t.src.u.gre.key =3D htons(nat_pptp_info->pac_call_id);
+@@ -233,6 +234,7 @@ pptp_exp_gre(struct ip_conntrack_expect=20
+ 	expect_reply->saved_proto.gre.key =3D htons(nat_pptp_info->pns_call_id);
+ 	expect_reply->tuple.src.u.gre.key =3D htons(nat_pptp_info->pac_call_id);
+ 	expect_reply->tuple.dst.u.gre.key =3D htons(ct_pptp_info->pns_call_id);
++	expect_reply->dir =3D !exp_orig->dir;
+ 	inv_t.src.ip =3D orig_t->src.ip;
+ 	inv_t.dst.ip =3D orig_t->dst.ip;
+ 	inv_t.src.u.gre.key =3D htons(nat_pptp_info->pns_call_id);
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--LjZ8ja9Qm/wlgUs7
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFDafy0XaXGVTD0i/8RAlfNAKCuG5Zz5rQL/wMDz4b46MOukM5JsgCeOqnC
+Gx7sBL16ssvLfAu34CB29Fw=
+=6u13
+-----END PGP SIGNATURE-----
+
+--LjZ8ja9Qm/wlgUs7--
