@@ -1,86 +1,68 @@
-From: Yan Zheng <yzcorp@gmail.com>
-Subject: Re: [PATCH][MCAST]Two fix for implementation of MLDv2 .
-Date: Fri, 4 Nov 2005 14:19:43 +0800
-Message-ID: <7e77d27c0511032219g43b6d015w@mail.gmail.com>
-References: <7e77d27c0511030526g45d8f6e6l@mail.gmail.com>
-	 <OF70243A3E.F658C3A4-ON882570AF.001699E7-882570AF.0018C8DB@us.ibm.com>
+From: Brian Pomerantz <bapper@piratehaven.org>
+Subject: [PATCH] [IPV4] Fix secondary IP addresses after promotion
+Date: Fri, 4 Nov 2005 10:46:33 -0800
+Message-ID: <20051104184633.GA16256@skull.piratehaven.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161081AbVKDGTo@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF70243A3E.F658C3A4-ON882570AF.001699E7-882570AF.0018C8DB@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750828AbVKDSqf@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->         So, I'll look at this more carefully and see if I still agree
-> it needs a fix and whether or not your patch, or some alternative
-> method might be more appropriate. But it'll probably be sometime
-> next week before I'll be done reviewing/considering alternatives on
-> this one.
->
->                                         +-DLS
->
->
+When 3 or more IP addresses in the same subnet exist on a device and the
+first one is removed, only the promoted IP address can be reached.  Just
+after promotion of the next IP address, this fix spins through any more
+IP addresses on the interface and sends a NETDEV_UP notification for
+that address.  This repopulates the FIB with the proper route
+information.
 
+Signed-off-by: Brian Pomerantz <bapper@piratehaven.org>
 
-I am sorry, I can't understand your opinion completely.
-Please forgive my poor english :-)
+---
 
-Here is my  opinion:
+ net/ipv4/devinet.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-I think Multicast Address and Source Specific Query is sent only when
-router want to block traffic from some source.  So when the filter
-mode is exclude, node should send a report which includes a
-MODE_IS_INCLUDE Record with sources in the query but NOT in the
-filter's source list. This is the required behaviour in rfc3810, but
-it need addiction item in struct ifmcaddr6 to record sources in the
-query.  So I think make process Multicast Address Specific Query and
-Multicast Address and Source Specific Query no difference is a
-temporary fix.
-
-the secoend change in is_in(...) is because I think include/exclude
-counts also should be checked when type is MLD2_MODE_IS_INCLUDE or
-MLD2_MODE_IS_EXCLUDE.
-
-
-
-Regards
-
-Here is my modify version is_in(...)
------------------------------------------------------------------------------------------------
-static int is_in(struct ifmcaddr6 *pmc, struct ip6_sf_list *psf, int type,
-	int gdeleted, int sdeleted)
-{
-	switch (type) {
-	case MLD2_MODE_IS_INCLUDE:
-	case MLD2_CHANGE_TO_INCLUDE:
-		if (gdeleted || sdeleted)
-			return 0;
-		if (psf->sf_count[MCAST_INCLUDE] == 0)
-			return 0;    // maybe never happen
-		if (type == MLD2_CHANGE_TO_INCLUDE)
-			return 1;
-		return !((pmc->mca_flags & MAF_GSQUERY) && !psf->sf_gsresp);
-	case MLD2_MODE_IS_EXCLUDE:
-	case MLD2_CHANGE_TO_EXCLUDE:
-		if (gdeleted || sdeleted)
-			return 0;
-		if (pmc->mca_sfcount[MCAST_EXCLUDE] == 0 ||
-		    psf->sf_count[MCAST_INCLUDE])
-			return 0;
-		return pmc->mca_sfcount[MCAST_EXCLUDE] ==
-			psf->sf_count[MCAST_EXCLUDE];
-	case MLD2_ALLOW_NEW_SOURCES:
-		if (gdeleted || !psf->sf_crcount)
-			return 0;
-		return (pmc->mca_sfmode == MCAST_INCLUDE) ^ sdeleted;
-	case MLD2_BLOCK_OLD_SOURCES:
-		if (pmc->mca_sfmode == MCAST_INCLUDE)
-			return gdeleted || (psf->sf_crcount && sdeleted);
-		return psf->sf_crcount && !gdeleted && !sdeleted;
-	}
-	return 0;
-}
+applies-to: 9bbb209cab841f700162a96e158dfa3ecd361f46
+489d4e25469c8329451aca3e91c8e1929e6ecf63
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 4ec4b2c..72d6c93 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -235,6 +235,7 @@ static void inet_del_ifa(struct in_devic
+ {
+ 	struct in_ifaddr *promote = NULL;
+ 	struct in_ifaddr *ifa1 = *ifap;
++	struct in_ifaddr *ifa;
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -243,7 +244,6 @@ static void inet_del_ifa(struct in_devic
+ 	 **/
+ 
+ 	if (!(ifa1->ifa_flags & IFA_F_SECONDARY)) {
+-		struct in_ifaddr *ifa;
+ 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
+ 
+ 		while ((ifa = *ifap1) != NULL) {
+@@ -294,7 +294,13 @@ static void inet_del_ifa(struct in_devic
+ 		/* not sure if we should send a delete notify first? */
+ 		promote->ifa_flags &= ~IFA_F_SECONDARY;
+ 		rtmsg_ifa(RTM_NEWADDR, promote);
+-		notifier_call_chain(&inetaddr_chain, NETDEV_UP, promote);
++
++		/* update fib in the rest of this address list */
++		ifa = promote;
++		while (ifa != NULL) {
++			notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
++			ifa = ifa->ifa_next;
++		}
+ 	}
+ }
+ 
+---
+0.99.9.GIT
