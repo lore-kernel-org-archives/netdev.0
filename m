@@ -1,46 +1,36 @@
-From: Horms <horms@debian.org>
-Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
-Date: Fri, 4 Nov 2005 12:29:20 +0900
-Message-ID: <20051104032918.GE4708@verge.net.au>
-References: <873bmg9sym.fsf@vertex.dottedmag.net> <20051102020903.GG29803@verge.net.au> <871x1zk0a6.fsf@vertex.dottedmag.net> <20051102162620.GA32696@infradead.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH][MCAST]Two fix for implementation of MLDv2 .
+Date: Thu, 3 Nov 2005 20:30:57 -0800
+Message-ID: <OF70243A3E.F658C3A4-ON882570AF.001699E7-882570AF.0018C8DB@us.ibm.com>
+References: <7e77d27c0511030526g45d8f6e6l@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mikhail Gusarov <dottedmag@dottedmag.net>,
-	debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
-Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
-To: Christoph Hellwig <hch@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20051102162620.GA32696@infradead.org>
-Resent-Message-ID: <goGrJC.A.zGG.5NuaDB@murphy>
-List-Post: <mailto:debian-kernel@lists.debian.org>
-List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161018AbVKDEav@vger.kernel.org>
+In-Reply-To: <7e77d27c0511030526g45d8f6e6l@mail.gmail.com>
+To: Yan Zheng <yzcorp@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 02, 2005 at 04:26:21PM +0000, Christoph Hellwig wrote:
-> On Wed, Nov 02, 2005 at 12:54:09PM +0600, Mikhail Gusarov wrote:
-> > So, having in mind the two levels of 'stablenesss': kernel
-> > 'stableness' and modules 'stableness' :) we should find the way to
-> > exclude discussed modules from the build, because in-kernel versions
-> > will always be, erm..., slightly (1.0.0 is mentioned only as 'stone
-> > age' in the mailing list of ipw2200 developers) outdated due to fact
-> > integration and testing gets some time in upstream kernels. I propose
-> > just to disable compilation of this drivers: everyone will be able to
-> > compile the recent version using ipw2200-source we provide.
-> 
-> The kernel drivers aren't stable but obsolete.  Because of that ever
-> distribution that supports it's users must patch in a more recent one,
-> which is what we should do for debian aswell.
-> 
-> It's a pity the braindead Intel policies don't allow us to have an uptodate
-> driver in mainline.
+Yan,
+        I'm looking at this one. My original interpretation was that a
+group and source specific query should only be answered if the source
+were explicitly listed (which is what the code does), but I see your 
+point.
+A general or group-specific query should still be answered with the
+existing code, and the unsolicited reports will also include the EXCLUDE
+records for that group, so I'm not aware of any actual circumstances
+where a multicast router wouldn't forward. But maybe you have such
+a case. An administrator-initiated query, however, would certainly be
+misleading to the administrator in the example you provided, and so
+far I tend to agree that there should be a record in the report.
+        However, I'm not sure your solution is appropriate since it
+appears to include EXCLUDE records in cases where they aren't
+needed.
+        So, I'll look at this more carefully and see if I still agree
+it needs a fix and whether or not your patch, or some alternative
+method might be more appropriate. But it'll probably be sometime
+next week before I'll be done reviewing/considering alternatives on
+this one.
 
-Christoph, 
-
-do I take that comment to mean that upstream can't update the
-drivers but Debian can? And if so, do you recommend updating 
-Debian's kernel packages, or putting the updates elsewhere?
-
--- 
-Horms
+                                        +-DLS
