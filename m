@@ -1,37 +1,30 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
- not enabled
-Date: Sat, 5 Nov 2005 09:46:37 -0800
-Message-ID: <20051105094637.2facb16e.akpm@osdl.org>
-References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>
-	<4368878D.4040406@student.ltu.se>
-	<c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
-	<436927CA.3090105@student.ltu.se>
-	<20051104182537.741be3d9.akpm@osdl.org>
-	<20051104183043.27a2229c.akpm@osdl.org>
-	<436C6F02.90904@student.ltu.se>
-	<20051105004609.0f04481c.akpm@osdl.org>
-	<436C9D73.5030506@student.ltu.se>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] [IPV4] Fix secondary IP addresses after promotion
+Date: Sat, 5 Nov 2005 21:39:10 +0300
+Message-ID: <20051105183910.GA17215@ms2.inr.ac.ru>
+References: <20051104184633.GA16256@skull.piratehaven.org> <436BFE08.6030906@trash.net> <20051105010740.GR23537@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ashutosh.lkml@gmail.com, netdev@vger.kernel.org, davej@suse.de,
-	acme@conectiva.com.br, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932158AbVKERq5@vger.kernel.org>
-To: Richard Knutsson <ricknu-0@student.ltu.se>
-In-Reply-To: <436C9D73.5030506@student.ltu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Brian Pomerantz <bapper@piratehaven.org>,
+	netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932191AbVKESj4@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20051105010740.GR23537@postel.suug.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Knutsson <ricknu-0@student.ltu.se> wrote:
->
->  BTW, can anyone ack or is that up to the maintainers?
+Hello!
 
-It's useful info - it shows that someone else took the time to revie the
-code.
+> Local routes for 10.0.0.3 and 10.0.0.4 have disappeared _without_
+> any notification.
 
->  BTW #2, why not remove #ifdef CONFIG_PCI on dgrs_cleanup_module() at the 
->  same time? Or maybe that should be in a "remove config_pci"-patch...
+Flushes do not generate notifications. The reason is technical: they
+are usually massive, do overflow buffer, get lost and listeners have
+to do painful resynchronization. The justification: they are useless
+because these events are derived.
 
-yup.  There are lots of opportunities for that, I bet.
+Alexey
