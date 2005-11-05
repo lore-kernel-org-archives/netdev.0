@@ -1,63 +1,65 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
-Date: Sat, 5 Nov 2005 09:25:56 +0100
-Message-ID: <20051105082556.GO5594@sunbeam.de.gnumonks.org>
-References: <873bmg9sym.fsf@vertex.dottedmag.net> <20051102020903.GG29803@verge.net.au> <871x1zk0a6.fsf@vertex.dottedmag.net> <20051102162620.GA32696@infradead.org> <20051104032918.GE4708@verge.net.au> <20051105002100.GA24128@infradead.org>
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
+ not enabled
+Date: Sat, 05 Nov 2005 09:36:18 +0100
+Message-ID: <436C6F02.90904@student.ltu.se>
+References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>	<4368878D.4040406@student.ltu.se>	<c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>	<436927CA.3090105@student.ltu.se>	<20051104182537.741be3d9.akpm@osdl.org> <20051104183043.27a2229c.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="uWbmMdDzzl2TXAgx"
-Cc: debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
-Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
-To: Christoph Hellwig <hch@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20051105002100.GA24128@infradead.org>
-Resent-Message-ID: <C6TllD.A.qRC.iyGbDB@murphy>
-List-Post: <mailto:debian-kernel@lists.debian.org>
-List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ashutosh.lkml@gmail.com, netdev@vger.kernel.org, davej@suse.de,
+	acme@conectiva.com.br, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20051104183043.27a2229c.akpm@osdl.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andrew Morton wrote:
 
---uWbmMdDzzl2TXAgx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>In fact we can de-ifdef things a bit.
+>
+>diff -puN drivers/net/dgrs.c~dgrs-fixes-warnings-when-config_isa-and-config_pci-are-not-enabled drivers/net/dgrs.c
+>--- devel/drivers/net/dgrs.c~dgrs-fixes-warnings-when-config_isa-and-config_pci-are-not-enabled	2005-11-04 18:26:59.000000000 -0800
+>+++ devel-akpm/drivers/net/dgrs.c	2005-11-04 18:29:24.000000000 -0800
+>@@ -1549,7 +1549,7 @@ MODULE_PARM_DESC(nicmode, "Digi RightSwi
+> static int __init dgrs_init_module (void)
+> {
+> 	int	i;
+>-	int eisacount = 0, pcicount = 0;
+>+	int	cardcount = 0;
+> 
+> 	/*
+> 	 *	Command line variable overrides
+>@@ -1591,15 +1591,13 @@ static int __init dgrs_init_module (void
+> 	 *	Find and configure all the cards
+> 	 */
+> #ifdef CONFIG_EISA
+>-	eisacount = eisa_driver_register(&dgrs_eisa_driver);
+>-	if (eisacount < 0)
+>-		return eisacount;
+>-#endif
+>-#ifdef CONFIG_PCI
+>-	pcicount = pci_register_driver(&dgrs_pci_driver);
+>-	if (pcicount)
+>-		return pcicount;
+>+	cardcount = eisa_driver_register(&dgrs_eisa_driver);
+>+	if (cardcount < 0)
+>+		return cardcount;
+> #endif
+>+	cardcount = pci_register_driver(&dgrs_pci_driver);
+>+	if (cardcount)
+>+		return cardcount;
+> 	return 0;
+> }
+>  
+>
+I do not know what to think about this one:
+* reduce one #ifdef: good
+* check for something clearly stated not to: not so good
 
-On Sat, Nov 05, 2005 at 12:21:00AM +0000, Christoph Hellwig wrote:
-> On Fri, Nov 04, 2005 at 12:29:20PM +0900, Horms wrote:
-> > do I take that comment to mean that upstream can't update the
-> > drivers but Debian can? And if so, do you recommend updating=20
-> > Debian's kernel packages, or putting the updates elsewhere?
->=20
-> Well, we could upstream, but so far no one is annoyed enough to
-> overrid the driver maintainer. =20
+But as Ashutosh Naik said: Any one can be committed.
 
-This is outrageous.
+/Richard
 
-Do you know any contacts at Intel to whom we could complain?  I guess
-there would be many people willing to write a nice email about how
-impractical (actually, insane) such a policy is?
-
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---uWbmMdDzzl2TXAgx
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQFDbGyUXaXGVTD0i/8RAj55AJ9UkoVBWWhOjTInnPXgMPQw9pY+YACeMu+c
-v/faaqp93kCAZ5c9ocohITk=
-=sbe7
------END PGP SIGNATURE-----
-
---uWbmMdDzzl2TXAgx--
