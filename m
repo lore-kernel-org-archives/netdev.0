@@ -1,25 +1,18 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
 Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Sat, 05 Nov 2005 11:05:26 +0100
-Message-ID: <436C83E6.7040907@trash.net>
-References: <20051027121545.GA5530@gondor.apana.org.au>
-	<20051027.235732.01166239.yoshfuji@linux-ipv6.org>
-	<20051105063030.GA32385@gondor.apana.org.au>
-	<436C6580.6030007@trash.net>
-	<20051105083955.GA30293@gondor.apana.org.au>
-	<436C7430.5030707@trash.net>
-	<20051105090904.GA30733@gondor.apana.org.au>
-	<436C7937.9070901@trash.net>
+Date: Sat, 05 Nov 2005 19:32:46 +0900 (JST)
+Message-ID: <200511051032.jA5AWlqC005713@toshiba.co.jp>
+References: <436C7937.9070901@trash.net>
 	<20051105093821.GA30966@gondor.apana.org.au>
 	<436C81AD.7070308@trash.net>
-	<20051105100137.GA31158@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	herbert@gondor.apana.org.au
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051105100137.GA31158@gondor.apana.org.au>
+To: kaber@trash.net
+In-Reply-To: <436C81AD.7070308@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -31,25 +24,51 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Sat, Nov 05, 2005 at 10:55:57AM +0100, Patrick McHardy wrote:
+
+Hi, Patrick,
+
+From: Patrick McHardy <kaber@trash.net>
+Date: Sat, 05 Nov 2005 10:55:57 +0100
+
+> > Also, I thought Yoshifuji-san's objection is not just about
+> > transport mode packets passing through netif_rx twice, but
+> > passing through netfilter twice as well?
 > 
->>In my last patchset I did it by calling netif_rx at that point,
->>now I want to add new hooks.
-> 
-> The only problem I can see is that at some point we're probably
-> going to add an AF_PACKET hook there as well for the pure transport
-> mode packet so that people can diagnose their transport mode IPsec
-> problems.
+> I think so, but he didn't mention a reason why he objects to it.
+> I also don't think it can be done otherwise while still keeping
+> netfilter "just working" for all cases, which IMO is highly
+> desirable.
 
-Yes, that would be useful.
+I try to comment based on discussion with Yoshifuji-san and Miyazawa-san.
 
-> However, I reckon that's still miles ahead of passing the packet
-> back through netif_rx when we already know that it's still the
-> same address family as what we started out with.
+We think it's confusing for user to mix decrypted packets and pre-decrypted
+ones to same hook. For example, if user want to accept packets encrypted by
+transport mode ESP and drop others, he will do "iptables -A INPUT -p esp -j
+ACCEPT" and "iptables -P INPUT DROP". But decrypted packets will be dropped
+because of the 2nd command. Of cause the match module 'policy' will be helpful
+in such case, but it's simple if he can different name of hook with INPUT.
 
-Great. I'm moving to a new appartment right now and will be offline
-until monday. I'll try to get some patches ready until then.
+And, in logical, the hook for decrypted packet and the one for pre-decrypted
+packet is different like the current LOCAL_IN and LOCAL_OUT. Their place and
+the packets they can see, are different.
 
-Regards
-Patrick
+This can be said about output path. The hook for encrypted packet and the one
+for pre-encrypted packet is different.
+
+In the current, LOCAL_OUT see pre-encrypted packet. I've been assuming
+that LOCAL_OUT see the packets just before sending them from network device.
+This is the reason why I said "I support the way" - which means LOCAL_OUT
+doesn't see pre-encrypted packet.
+
+Meanwhile the hook to see pre-encrypted packet is necessary for NAT
+indeed as you pointed out. Then our suggestion is adding new hook
+with new name, and distinguishing cleary between the usage of new and
+current hook.
+
+BTW, tunnel mode is special case. We can avoid confusing by operation
+and so on. For example, using different address for inner and outer header.
+We agree to call netif_rx() twice for tunneled packets, as ever.
+
+Regards,
+
+-- Yasuyuki Kozakai
