@@ -1,61 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Sat, 5 Nov 2005 19:39:55 +1100
-Message-ID: <20051105083955.GA30293@gondor.apana.org.au>
-References: <4352EEC8.9000602@trash.net>
-	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
-	<20051027121545.GA5530@gondor.apana.org.au>
-	<20051027.235732.01166239.yoshfuji@linux-ipv6.org>
-	<20051105063030.GA32385@gondor.apana.org.au>
-	<436C6580.6030007@trash.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
+ not enabled
+Date: Sat, 5 Nov 2005 00:46:09 -0800
+Message-ID: <20051105004609.0f04481c.akpm@osdl.org>
+References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>
+	<4368878D.4040406@student.ltu.se>
+	<c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
+	<436927CA.3090105@student.ltu.se>
+	<20051104182537.741be3d9.akpm@osdl.org>
+	<20051104183043.27a2229c.akpm@osdl.org>
+	<436C6F02.90904@student.ltu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <436C6580.6030007@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ashutosh.lkml@gmail.com, netdev@vger.kernel.org, davej@suse.de,
+	acme@conectiva.com.br, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751301AbVKEIqe@vger.kernel.org>
+To: Richard Knutsson <ricknu-0@student.ltu.se>
+In-Reply-To: <436C6F02.90904@student.ltu.se>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 05, 2005 at 08:55:44AM +0100, Patrick McHardy wrote:
+Richard Knutsson <ricknu-0@student.ltu.se> wrote:
 >
-> >OK.  Would it be workable for you if LOCAL_IN only saw the decrypted
-> >packets without ever seeing the encrypted ones?
-> 
-> How exactly would that work? I guess we couldn't do NAT with
-> the encrypted packet anymore?
+> > 	 */
+>  > #ifdef CONFIG_EISA
+>  >-	eisacount = eisa_driver_register(&dgrs_eisa_driver);
+>  >-	if (eisacount < 0)
+>  >-		return eisacount;
+>  >-#endif
+>  >-#ifdef CONFIG_PCI
+>  >-	pcicount = pci_register_driver(&dgrs_pci_driver);
+>  >-	if (pcicount)
+>  >-		return pcicount;
+>  >+	cardcount = eisa_driver_register(&dgrs_eisa_driver);
+>  >+	if (cardcount < 0)
+>  >+		return cardcount;
+>  > #endif
+>  >+	cardcount = pci_register_driver(&dgrs_pci_driver);
+>  >+	if (cardcount)
+>  >+		return cardcount;
+>  > 	return 0;
+>  > }
+>  >  
+>  >
+>  I do not know what to think about this one:
+>  * reduce one #ifdef: good
+>  * check for something clearly stated not to: not so good
 
-I'm presuming that Yoshifuji-san has no objections to applying the
-NAT-related hooks twice on IPsec since IPv6 does/will not have NAT.
-
-Given that assumption, we should be able to separate the existing
-LOCAL_IN into a read-only (filtering) part and a read-write part.
-The latter would be applied unconditionally while the former can
-be skipped.
-
-> I would prefer something similar to the second set of patches.
-> Instead of calling netif_rx we could use NF_HOOK and simulate
-> the relevant parts of the input path for IPv4 and NAT. This
-> would assure that statistics are still correct and tcpdump is
-> not affected, which were Yoshifuji's biggest concerns if I
-> understood correctly.
-
-I don't think netif_rx is the problem here.  The question is
-how and where do we place the netfilter hooks.  Even without
-netif_rx the same problem is going to be there.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Well a nicer fix would be to provide a stub implementation of
+eisa_driver_register() if !CONFIG_EISA, just like pci_register_driver(). 
+Then all the ifdefs go away and the compiler removes all the code for us,
+after checking that we typed it correctly.
