@@ -1,8 +1,8 @@
 From: Andrew Morton <akpm@osdl.org>
 Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
  not enabled
-Date: Sat, 5 Nov 2005 09:45:38 -0800
-Message-ID: <20051105094538.7ffcd85f.akpm@osdl.org>
+Date: Sat, 5 Nov 2005 09:46:37 -0800
+Message-ID: <20051105094637.2facb16e.akpm@osdl.org>
 References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>
 	<4368878D.4040406@student.ltu.se>
 	<c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
@@ -12,75 +12,26 @@ References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>
 	<436C6F02.90904@student.ltu.se>
 	<20051105004609.0f04481c.akpm@osdl.org>
 	<436C9D73.5030506@student.ltu.se>
-	<436CCFEC.50709@student.ltu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ricknu-0@student.ltu.se, ashutosh.lkml@gmail.com,
-	netdev@vger.kernel.org, davej@suse.de, acme@conectiva.com.br,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: ashutosh.lkml@gmail.com, netdev@vger.kernel.org, davej@suse.de,
+	acme@conectiva.com.br, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932158AbVKERq5@vger.kernel.org>
 To: Richard Knutsson <ricknu-0@student.ltu.se>
-In-Reply-To: <436CCFEC.50709@student.ltu.se>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <436C9D73.5030506@student.ltu.se>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Richard Knutsson <ricknu-0@student.ltu.se> wrote:
 >
-> Richard Knutsson wrote:
-> 
-> > Andrew Morton wrote:
-> >
-> >> Richard Knutsson <ricknu-0@student.ltu.se> wrote:
-> >>  
-> >>
-> >>>>      */
-> >>>>     
-> >>>
-> >>> > #ifdef CONFIG_EISA
-> >>> >-    eisacount = eisa_driver_register(&dgrs_eisa_driver);
-> >>> >-    if (eisacount < 0)
-> >>> >-        return eisacount;
-> >>> >-#endif
-> >>> >-#ifdef CONFIG_PCI
-> >>> >-    pcicount = pci_register_driver(&dgrs_pci_driver);
-> >>> >-    if (pcicount)
-> >>> >-        return pcicount;
-> >>> >+    cardcount = eisa_driver_register(&dgrs_eisa_driver);
-> >>> >+    if (cardcount < 0)
-> >>> >+        return cardcount;
-> >>> > #endif
-> >>> >+    cardcount = pci_register_driver(&dgrs_pci_driver);
-> >>> >+    if (cardcount)
-> >>> >+        return cardcount;
-> >>> >     return 0;
-> >>> > }
-> >>> >  >
-> >>> I do not know what to think about this one:
-> >>> * reduce one #ifdef: good
-> >>> * check for something clearly stated not to: not so good
-> >>>   
-> >>
-> >>
-> >> Well a nicer fix would be to provide a stub implementation of
-> >> eisa_driver_register() if !CONFIG_EISA, just like 
-> >> pci_register_driver(). Then all the ifdefs go away and the compiler 
-> >> removes all the code for us,
-> >> after checking that we typed it correctly.
-> >>  
-> >>
-> > Oh, sorry. Missed the stub implementation of the pci-driver. I "ack" 
-> > your patch.
-> >
-> > BTW, can anyone ack or is that up to the maintainers?
-> > BTW #2, why not remove #ifdef CONFIG_PCI on dgrs_cleanup_module() at 
-> > the same time? Or maybe that should be in a "remove config_pci"-patch...
-> >
-> > /Richard
-> 
-> Just realized; what happens if CONFIG_EISA && !CONFIG_PCI and 
-> eisa_driver_register() returns value > 0, then the if-statement for the 
-> pci-driver is going to return the value, instead of 0.
+>  BTW, can anyone ack or is that up to the maintainers?
 
-if !CONFIG_PCI, pci_register_driver() will return zero.
+It's useful info - it shows that someone else took the time to revie the
+code.
+
+>  BTW #2, why not remove #ifdef CONFIG_PCI on dgrs_cleanup_module() at the 
+>  same time? Or maybe that should be in a "remove config_pci"-patch...
+
+yup.  There are lots of opportunities for that, I bet.
