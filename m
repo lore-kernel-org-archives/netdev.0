@@ -1,78 +1,86 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] airo.c/airo_cs.c: correct prototypes
-Date: Sat, 5 Nov 2005 17:42:27 +0100
-Message-ID: <20051105164227.GK5368@stusta.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
+ not enabled
+Date: Sat, 5 Nov 2005 09:45:38 -0800
+Message-ID: <20051105094538.7ffcd85f.akpm@osdl.org>
+References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>
+	<4368878D.4040406@student.ltu.se>
+	<c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>
+	<436927CA.3090105@student.ltu.se>
+	<20051104182537.741be3d9.akpm@osdl.org>
+	<20051104183043.27a2229c.akpm@osdl.org>
+	<436C6F02.90904@student.ltu.se>
+	<20051105004609.0f04481c.akpm@osdl.org>
+	<436C9D73.5030506@student.ltu.se>
+	<436CCFEC.50709@student.ltu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@kernel.org, Benjamin Reed <breed@users.sourceforge.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751254AbVKEQmd@vger.kernel.org>
-To: jgarzik@pobox.com
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ricknu-0@student.ltu.se, ashutosh.lkml@gmail.com,
+	netdev@vger.kernel.org, davej@suse.de, acme@conectiva.com.br,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Richard Knutsson <ricknu-0@student.ltu.se>
+In-Reply-To: <436CCFEC.50709@student.ltu.se>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch creates a file airo.h containing prototypes of the global 
-functions in airo.c used by airo_cs.c .
+Richard Knutsson <ricknu-0@student.ltu.se> wrote:
+>
+> Richard Knutsson wrote:
+> 
+> > Andrew Morton wrote:
+> >
+> >> Richard Knutsson <ricknu-0@student.ltu.se> wrote:
+> >>  
+> >>
+> >>>>      */
+> >>>>     
+> >>>
+> >>> > #ifdef CONFIG_EISA
+> >>> >-    eisacount = eisa_driver_register(&dgrs_eisa_driver);
+> >>> >-    if (eisacount < 0)
+> >>> >-        return eisacount;
+> >>> >-#endif
+> >>> >-#ifdef CONFIG_PCI
+> >>> >-    pcicount = pci_register_driver(&dgrs_pci_driver);
+> >>> >-    if (pcicount)
+> >>> >-        return pcicount;
+> >>> >+    cardcount = eisa_driver_register(&dgrs_eisa_driver);
+> >>> >+    if (cardcount < 0)
+> >>> >+        return cardcount;
+> >>> > #endif
+> >>> >+    cardcount = pci_register_driver(&dgrs_pci_driver);
+> >>> >+    if (cardcount)
+> >>> >+        return cardcount;
+> >>> >     return 0;
+> >>> > }
+> >>> >  >
+> >>> I do not know what to think about this one:
+> >>> * reduce one #ifdef: good
+> >>> * check for something clearly stated not to: not so good
+> >>>   
+> >>
+> >>
+> >> Well a nicer fix would be to provide a stub implementation of
+> >> eisa_driver_register() if !CONFIG_EISA, just like 
+> >> pci_register_driver(). Then all the ifdefs go away and the compiler 
+> >> removes all the code for us,
+> >> after checking that we typed it correctly.
+> >>  
+> >>
+> > Oh, sorry. Missed the stub implementation of the pci-driver. I "ack" 
+> > your patch.
+> >
+> > BTW, can anyone ack or is that up to the maintainers?
+> > BTW #2, why not remove #ifdef CONFIG_PCI on dgrs_cleanup_module() at 
+> > the same time? Or maybe that should be in a "remove config_pci"-patch...
+> >
+> > /Richard
+> 
+> Just realized; what happens if CONFIG_EISA && !CONFIG_PCI and 
+> eisa_driver_register() returns value > 0, then the if-statement for the 
+> pci-driver is going to return the value, instead of 0.
 
-If you got strange problems with either airo_cs devices or in any other 
-completely unrelated part of the kernel shortly or long after a airo_cs 
-device was detected by the kernel, this might have been caused by the 
-fact that caller and callee disagreed regarding the size of the first 
-argument to init_airo_card()...
-
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- drivers/net/wireless/airo.c    |    2 ++
- drivers/net/wireless/airo.h    |    9 +++++++++
- drivers/net/wireless/airo_cs.c |    6 ++----
- 3 files changed, 13 insertions(+), 4 deletions(-)
-
---- /dev/null	2005-04-28 03:52:17.000000000 +0200
-+++ linux-2.6.14-rc5-mm1-full/drivers/net/wireless/airo.h	2005-11-05 16:57:14.000000000 +0100
-@@ -0,0 +1,9 @@
-+#ifndef _AIRO_H_
-+#define _AIRO_H_
-+
-+struct net_device *init_airo_card(unsigned short irq, int port, int is_pcmcia,
-+				  struct device *dmdev);
-+int reset_airo_card(struct net_device *dev);
-+void stop_airo_card(struct net_device *dev, int freeres);
-+
-+#endif  /*  _AIRO_H_  */
---- linux-2.6.14-rc5-mm1-full/drivers/net/wireless/airo.c.old	2005-11-05 16:54:10.000000000 +0100
-+++ linux-2.6.14-rc5-mm1-full/drivers/net/wireless/airo.c	2005-11-05 16:54:43.000000000 +0100
-@@ -47,6 +47,8 @@
- #include <linux/pci.h>
- #include <asm/uaccess.h>
- 
-+#include "airo.h"
-+
- #ifdef CONFIG_PCI
- static struct pci_device_id card_ids[] = {
- 	{ 0x14b9, 1, PCI_ANY_ID, PCI_ANY_ID, },
---- linux-2.6.14-rc5-mm1-full/drivers/net/wireless/airo_cs.c.old	2005-11-05 16:57:27.000000000 +0100
-+++ linux-2.6.14-rc5-mm1-full/drivers/net/wireless/airo_cs.c	2005-11-05 16:57:58.000000000 +0100
-@@ -42,6 +42,8 @@
- #include <asm/io.h>
- #include <asm/system.h>
- 
-+#include "airo.h"
-+
- /*
-    All the PCMCIA modules use PCMCIA_DEBUG to control debugging.  If
-    you do not define PCMCIA_DEBUG at all, all the debug code will be
-@@ -78,10 +80,6 @@
-    event handler. 
- */
- 
--struct net_device *init_airo_card( int, int, int, struct device * );
--void stop_airo_card( struct net_device *, int );
--int reset_airo_card( struct net_device * );
--
- static void airo_config(dev_link_t *link);
- static void airo_release(dev_link_t *link);
- static int airo_event(event_t event, int priority,
+if !CONFIG_PCI, pci_register_driver() will return zero.
