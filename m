@@ -1,120 +1,27 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] [IPV4] Fix secondary IP addresses after promotion
-Date: Sat, 05 Nov 2005 01:34:16 +0100
-Message-ID: <436BFE08.6030906@trash.net>
-References: <20051104184633.GA16256@skull.piratehaven.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
+Date: Sat, 5 Nov 2005 00:21:00 +0000
+Message-ID: <20051105002100.GA24128@infradead.org>
+References: <873bmg9sym.fsf@vertex.dottedmag.net> <20051102020903.GG29803@verge.net.au> <871x1zk0a6.fsf@vertex.dottedmag.net> <20051102162620.GA32696@infradead.org> <20051104032918.GE4708@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060609090206040304030406"
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@coreworks.de, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751378AbVKEAfY@vger.kernel.org>
-To: Brian Pomerantz <bapper@piratehaven.org>
-In-Reply-To: <20051104184633.GA16256@skull.piratehaven.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
+To: Mikhail Gusarov <dottedmag@dottedmag.net>,
+	debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20051104032918.GE4708@verge.net.au>
+Resent-Message-ID: <HkZK7C.A.JuC.L6_aDB@murphy>
+List-Post: <mailto:debian-kernel@lists.debian.org>
+List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060609090206040304030406
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, Nov 04, 2005 at 12:29:20PM +0900, Horms wrote:
+> do I take that comment to mean that upstream can't update the
+> drivers but Debian can? And if so, do you recommend updating 
+> Debian's kernel packages, or putting the updates elsewhere?
 
-Brian Pomerantz wrote:
-> When 3 or more IP addresses in the same subnet exist on a device and the
-> first one is removed, only the promoted IP address can be reached.  Just
-> after promotion of the next IP address, this fix spins through any more
-> IP addresses on the interface and sends a NETDEV_UP notification for
-> that address.  This repopulates the FIB with the proper route
-> information.
-> 
-> @@ -294,7 +294,13 @@ static void inet_del_ifa(struct in_devic
->  		/* not sure if we should send a delete notify first? */
->  		promote->ifa_flags &= ~IFA_F_SECONDARY;
->  		rtmsg_ifa(RTM_NEWADDR, promote);
-> -		notifier_call_chain(&inetaddr_chain, NETDEV_UP, promote);
-> +
-> +		/* update fib in the rest of this address list */
-> +		ifa = promote;
-> +		while (ifa != NULL) {
-> +			notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
-> +			ifa = ifa->ifa_next;
-> +		}
->  	}
->  }
-
-You assume all addresses following the primary addresses are secondary
-addresses of the primary, which is not true with multiple primaries.
-This patch (untested) makes sure only to send notification for real
-secondaries of the deleted address. It also removes a racy double-
-check for IN_DEV_PROMOTE_SECONDARIES - once we've decided to promote
-an address checking again opens a window in which address promotion
-could be disabled and we end up with only secondaries without a
-primary address.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-
---------------060609090206040304030406
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 4ec4b2c..beb02cc 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -234,7 +234,7 @@ static void inet_del_ifa(struct in_devic
- 			 int destroy)
- {
- 	struct in_ifaddr *promote = NULL;
--	struct in_ifaddr *ifa1 = *ifap;
-+	struct in_ifaddr *ifa, *ifa1 = *ifap;
- 
- 	ASSERT_RTNL();
- 
-@@ -243,7 +243,6 @@ static void inet_del_ifa(struct in_devic
- 	 **/
- 
- 	if (!(ifa1->ifa_flags & IFA_F_SECONDARY)) {
--		struct in_ifaddr *ifa;
- 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
- 
- 		while ((ifa = *ifap1) != NULL) {
-@@ -283,19 +282,25 @@ static void inet_del_ifa(struct in_devic
- 	 */
- 	rtmsg_ifa(RTM_DELADDR, ifa1);
- 	notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
-+
-+	if (promote) {
-+		/* not sure if we should send a delete notify first? */
-+		promote->ifa_flags &= ~IFA_F_SECONDARY;
-+		rtmsg_ifa(RTM_NEWADDR, promote);
-+		for (ifa = promote; ifa; ifa = ifa->ifa_next) {
-+			if (ifa1->ifa_mask != ifa->ifa_mask ||
-+			    !inet_ifa_match(ifa1->ifa_address, ifa))
-+				continue;
-+			notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
-+		}
-+	}
-+
- 	if (destroy) {
- 		inet_free_ifa(ifa1);
- 
- 		if (!in_dev->ifa_list)
- 			inetdev_destroy(in_dev);
- 	}
--
--	if (promote && IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
--		/* not sure if we should send a delete notify first? */
--		promote->ifa_flags &= ~IFA_F_SECONDARY;
--		rtmsg_ifa(RTM_NEWADDR, promote);
--		notifier_call_chain(&inetaddr_chain, NETDEV_UP, promote);
--	}
- }
- 
- static int inet_insert_ifa(struct in_ifaddr *ifa)
-
---------------060609090206040304030406--
+Well, we could upstream, but so far no one is annoyed enough to
+overrid the driver maintainer.  I'd suggest merging a more recent
+driver into the debian kernel package.
