@@ -1,39 +1,75 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] [IPV4] Fix secondary IP addresses after promotion
-Date: Sat, 5 Nov 2005 14:46:36 +0100
-Message-ID: <20051105134636.GS23537@postel.suug.ch>
-References: <20051104184633.GA16256@skull.piratehaven.org> <436BFE08.6030906@trash.net> <20051105010740.GR23537@postel.suug.ch> <436C090D.5020201@trash.net> <436C34F8.3090903@trash.net>
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Subject: Re: [PATCH]dgrs - Fixes Warnings when CONFIG_ISA and CONFIG_PCI are
+ not enabled
+Date: Sat, 05 Nov 2005 16:29:48 +0100
+Message-ID: <436CCFEC.50709@student.ltu.se>
+References: <81083a450511012314q4ec69927gfa60cb19ba8f437a@mail.gmail.com>	<4368878D.4040406@student.ltu.se>	<c216304e0511020516o5cfcd0b9u96a3220bf2694928@mail.gmail.com>	<436927CA.3090105@student.ltu.se>	<20051104182537.741be3d9.akpm@osdl.org>	<20051104183043.27a2229c.akpm@osdl.org>	<436C6F02.90904@student.ltu.se> <20051105004609.0f04481c.akpm@osdl.org> <436C9D73.5030506@student.ltu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brian Pomerantz <bapper@piratehaven.org>, netdev@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751153AbVKENqR@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <436C34F8.3090903@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, ashutosh.lkml@gmail.com,
+	netdev@vger.kernel.org, davej@suse.de, acme@conectiva.com.br,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stable@kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932080AbVKEPZf@vger.kernel.org>
+To: Richard Knutsson <ricknu-0@student.ltu.se>
+In-Reply-To: <436C9D73.5030506@student.ltu.se>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <kaber@trash.net> 2005-11-05 05:28
-> The reason why all routes are deleted is because their prefered
-> source addresses is the primary address. fn_flush_list should
-> probably send the missing notifications for the deleted routes.
-> Changing address promotion to not delete the other routes at all
-> looks extremly complicated, I think just fixing it to behave
-> correctly is good enough (which my patch didn't do entirely,
-> I'll send a new one this weekend).
+Richard Knutsson wrote:
 
-Yes, fib_sync_down(), but even when I remove the code setting
-RTNH_F_DEAD I still see _some_ local routes disappearing which
-I cannot explain right now. I can only reproduce this with
-!CONFIG_IP_MULTIPLE_TABLES though.
+> Andrew Morton wrote:
+>
+>> Richard Knutsson <ricknu-0@student.ltu.se> wrote:
+>>  
+>>
+>>>>      */
+>>>>     
+>>>
+>>> > #ifdef CONFIG_EISA
+>>> >-    eisacount = eisa_driver_register(&dgrs_eisa_driver);
+>>> >-    if (eisacount < 0)
+>>> >-        return eisacount;
+>>> >-#endif
+>>> >-#ifdef CONFIG_PCI
+>>> >-    pcicount = pci_register_driver(&dgrs_pci_driver);
+>>> >-    if (pcicount)
+>>> >-        return pcicount;
+>>> >+    cardcount = eisa_driver_register(&dgrs_eisa_driver);
+>>> >+    if (cardcount < 0)
+>>> >+        return cardcount;
+>>> > #endif
+>>> >+    cardcount = pci_register_driver(&dgrs_pci_driver);
+>>> >+    if (cardcount)
+>>> >+        return cardcount;
+>>> >     return 0;
+>>> > }
+>>> >  >
+>>> I do not know what to think about this one:
+>>> * reduce one #ifdef: good
+>>> * check for something clearly stated not to: not so good
+>>>   
+>>
+>>
+>> Well a nicer fix would be to provide a stub implementation of
+>> eisa_driver_register() if !CONFIG_EISA, just like 
+>> pci_register_driver(). Then all the ifdefs go away and the compiler 
+>> removes all the code for us,
+>> after checking that we typed it correctly.
+>>  
+>>
+> Oh, sorry. Missed the stub implementation of the pci-driver. I "ack" 
+> your patch.
+>
+> BTW, can anyone ack or is that up to the maintainers?
+> BTW #2, why not remove #ifdef CONFIG_PCI on dgrs_cleanup_module() at 
+> the same time? Or maybe that should be in a "remove config_pci"-patch...
+>
+> /Richard
 
-Assuming this is a separate bug, I'm not sure if this is the right
-way to fix it. I think it would be better to rewrite the preferred
-source address of all related local routes and only perform a
-remove-and-add on the secondary address being promoted.
+Just realized; what happens if CONFIG_EISA && !CONFIG_PCI and 
+eisa_driver_register() returns value > 0, then the if-statement for the 
+pci-driver is going to return the value, instead of 0.
 
-_If_ we let them die, we should announce it in fib_sync_down()
-rather then in the algorithm specific flush routines.
+/Richard
