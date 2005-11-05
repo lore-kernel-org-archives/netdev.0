@@ -1,7 +1,7 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Sat, 05 Nov 2005 10:19:51 +0100
-Message-ID: <436C7937.9070901@trash.net>
+Date: Sat, 5 Nov 2005 20:38:21 +1100
+Message-ID: <20051105093821.GA30966@gondor.apana.org.au>
 References: <4352EEC8.9000602@trash.net>
 	<20051017.094919.56989341.yoshfuji@linux-ipv6.org>
 	<20051027121545.GA5530@gondor.apana.org.au>
@@ -11,13 +11,14 @@ References: <4352EEC8.9000602@trash.net>
 	<20051105083955.GA30293@gondor.apana.org.au>
 	<436C7430.5030707@trash.net>
 	<20051105090904.GA30733@gondor.apana.org.au>
+	<436C7937.9070901@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051105090904.GA30733@gondor.apana.org.au>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <436C7937.9070901@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -29,28 +30,31 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Sat, Nov 05, 2005 at 09:58:24AM +0100, Patrick McHardy wrote:
+On Sat, Nov 05, 2005 at 10:19:51AM +0100, Patrick McHardy wrote:
 > 
->>IMO the view for netfilter should be as if we called netif_rx,
->>so on the input path decapsulated packets from the innermost
->>transport mode SA should go through PRE_ROUTING->LOCAL_IN
->>or possibly FORWARD in case of NAT.
-> 
-> You mean we simply skip the pre-decapsulation LOCAL_IN step
-> and the post-encapsulation LOCAL_OUT step? That sounds great
-> to me.
+> What I propose is to keep tunnel mode handling as it is, so
+> for each tunnel mode SA we hit PRE_ROUTING and LOCAL_IN in
+> the normal packet path. If the final SA is a transport mode
+> SA, we don't call netif_rx as in my first patchset, but pass
+> the packet through a new PRE_ROUTING hook in xfrm{4,6}_input
+> and LOCAL_IN afterwards. The packet won't be processed a second
+> time by the stack, just the netfilter hooks will be called.
+> NAT be will be handled manually for IPv4 by doing a new route
+> lookup and calling dst_input if NAT took place.
 
-No, that won't be possible if we have more than one SA and
-would also make DNAT in LOCAL_OUT on the encapsulated packet
-impossible.
+In other words LOCAL_IN will still see the packet twice for
+pure transport mode packets? That's going to be a problem for
+me for the reasons that I outlined earlier:
 
-What I propose is to keep tunnel mode handling as it is, so
-for each tunnel mode SA we hit PRE_ROUTING and LOCAL_IN in
-the normal packet path. If the final SA is a transport mode
-SA, we don't call netif_rx as in my first patchset, but pass
-the packet through a new PRE_ROUTING hook in xfrm{4,6}_input
-and LOCAL_IN afterwards. The packet won't be processed a second
-time by the stack, just the netfilter hooks will be called.
-NAT be will be handled manually for IPv4 by doing a new route
-lookup and calling dst_input if NAT took place.
+<20051011131838.GA4934@gondor.apana.org.au>
+
+Also, I thought Yoshifuji-san's objection is not just about
+transport mode packets passing through netif_rx twice, but
+passing through netfilter twice as well?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
