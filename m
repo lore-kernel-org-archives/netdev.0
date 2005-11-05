@@ -1,48 +1,63 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [NF+IPsec 4/6]: Make IPsec input processing symetrical to output
-Date: Sat, 05 Nov 2005 17:23:00 +0900 (JST)
-Message-ID: <20051105.172300.76631287.yoshfuji@linux-ipv6.org>
-References: <20051027121545.GA5530@gondor.apana.org.au>
-	<20051027.235732.01166239.yoshfuji@linux-ipv6.org>
-	<20051105063030.GA32385@gondor.apana.org.au>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: ancient ieee80211/ipw2200 drivers in recent kernel (2.6.14)
+Date: Sat, 5 Nov 2005 09:25:56 +0100
+Message-ID: <20051105082556.GO5594@sunbeam.de.gnumonks.org>
+References: <873bmg9sym.fsf@vertex.dottedmag.net> <20051102020903.GG29803@verge.net.au> <871x1zk0a6.fsf@vertex.dottedmag.net> <20051102162620.GA32696@infradead.org> <20051104032918.GE4708@verge.net.au> <20051105002100.GA24128@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: herbert@gondor.apana.org.au, miyazawa@linux-ipv6.org,
-	kozakai@linux-ipv6.org
-In-Reply-To: <20051105063030.GA32385@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="uWbmMdDzzl2TXAgx"
+Cc: debian-kernel@lists.debian.org, NetDev <netdev@vger.kernel.org>
+Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
+To: Christoph Hellwig <hch@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20051105002100.GA24128@infradead.org>
+Resent-Message-ID: <C6TllD.A.qRC.iyGbDB@murphy>
+List-Post: <mailto:debian-kernel@lists.debian.org>
+List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-In article <20051105063030.GA32385@gondor.apana.org.au> (at Sat, 5 Nov 2005 17:30:30 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-> On Thu, Oct 27, 2005 at 11:57:32PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> > 
-> > Well, I really care.
-> > I strongly believe that we SHOULD NOT mix encrypted
-> > packets and plain text packets at the same hook.
-> > e.g. LOCAL_IN is NOT for decrypted plain text packets,
-> > but for the original encrypted ones.
-> 
-> OK.  Would it be workable for you if LOCAL_IN only saw the decrypted
-> packets without ever seeing the encrypted ones?
+--uWbmMdDzzl2TXAgx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Miyazawa-san, Kozakai-san and I have discussed on this issue.
-The answer is "maybe," but from the point of view of the original context,
-it'd be better to let it see encrypted packet.
-Miyazawa-san, Kozakai-san, please comment further details.
-(I'm about to fly...)
+On Sat, Nov 05, 2005 at 12:21:00AM +0000, Christoph Hellwig wrote:
+> On Fri, Nov 04, 2005 at 12:29:20PM +0900, Horms wrote:
+> > do I take that comment to mean that upstream can't update the
+> > drivers but Debian can? And if so, do you recommend updating=20
+> > Debian's kernel packages, or putting the updates elsewhere?
+>=20
+> Well, we could upstream, but so far no one is annoyed enough to
+> overrid the driver maintainer. =20
 
---yoshfuji @ NRT(->YVR)
+This is outrageous.
+
+Do you know any contacts at Intel to whom we could complain?  I guess
+there would be many people willing to write a nice email about how
+impractical (actually, insane) such a policy is?
+
+--=20
+- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
+
+--uWbmMdDzzl2TXAgx
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFDbGyUXaXGVTD0i/8RAj55AJ9UkoVBWWhOjTInnPXgMPQw9pY+YACeMu+c
+v/faaqp93kCAZ5c9ocohITk=
+=sbe7
+-----END PGP SIGNATURE-----
+
+--uWbmMdDzzl2TXAgx--
