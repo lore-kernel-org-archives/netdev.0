@@ -1,45 +1,35 @@
-From: Pantelis Antoniou <panto@intracom.gr>
-Subject: Re: [patch 2.6.14] fec_8xx: make CONFIG_FEC_8XX depend on CONFIG_8xx
-Date: Mon, 07 Nov 2005 09:53:25 +0200
-Message-ID: <436F07F5.1030206@intracom.gr>
-References: <20051106025701.GA9698@tuxdriver.com>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: [PATCH][MCAST]Clear MAF_GSQUERY flag when process MLDv1 general query
+ messages.
+Date: Mon, 07 Nov 2005 22:13:34 +0800
+Message-ID: <436F610E.8010400@21cn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-embedded@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751297AbVKGH7K@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20051106025701.GA9698@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932468AbVKGOM0@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Stevens <dlstevens@us.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Make CONFIG_FEC_8XX depend on CONFIG_8xx.  This keeps allmodconfig from
-> breaking on non-8xx (PPC) platforms.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
-> 
->  drivers/net/fec_8xx/Kconfig |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/fec_8xx/Kconfig b/drivers/net/fec_8xx/Kconfig
-> index 4560026..a84c232 100644
-> --- a/drivers/net/fec_8xx/Kconfig
-> +++ b/drivers/net/fec_8xx/Kconfig
-> @@ -1,6 +1,6 @@
->  config FEC_8XX
->  	tristate "Motorola 8xx FEC driver"
-> -	depends on NET_ETHERNET
-> +	depends on NET_ETHERNET && 8xx
->  	select MII
->  
->  config FEC_8XX_GENERIC_PHY
+Hi.
+ 
 
-Yes, this is the correct approach. Please disregard the other
-patches floating about.
+MAF_GSQUERY flag may cause problem when MLDv1 compatibility mode expires.  
 
-Regards
 
-Pantelis
+
+Signed-off-by: Yan Zheng <yanzheng@21cn.com>
+
+Index: net/ipv6/mcast.c
+================================================================================
+--- linux-2.6.14/net/ipv6/mcast.c	2005-11-05 09:09:47.000000000 +0800
++++ linux/net/ipv6/mcast.c	2005-11-07 21:57:27.000000000 +0800
+@@ -1166,6 +1166,7 @@ int igmp6_event_query(struct sk_buff *sk
+ 	if (group_type == IPV6_ADDR_ANY) {
+ 		for (ma = idev->mc_list; ma; ma=ma->next) {
+ 			spin_lock_bh(&ma->mca_lock);
++			ma->mca_flags &= ~MAF_GSQUERY;
+ 			igmp6_group_queried(ma, max_delay);
+ 			spin_unlock_bh(&ma->mca_lock);
+ 		}
