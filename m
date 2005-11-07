@@ -1,38 +1,45 @@
-From: Horms <horms@debian.org>
-Subject: Bug#337089: linux-image-2.6.14-1-powerpc: add CONFIG_TCP_CONG_BIC=y
-Date: Mon, 7 Nov 2005 15:36:54 +0900
-Message-ID: <20051107063654.GJ4780@verge.net.au>
-References: <20051102162451.0002CF64E@ibook.free.fr> <20051104032726.GD4708@verge.net.au> <cbec11ac0511041024v5aec928dh@mail.gmail.com>
-Reply-To: Horms <horms@debian.org>, 337089@bugs.debian.org
+From: Pantelis Antoniou <panto@intracom.gr>
+Subject: Re: [patch 2.6.14] fec_8xx: make CONFIG_FEC_8XX depend on CONFIG_8xx
+Date: Mon, 07 Nov 2005 09:53:25 +0200
+Message-ID: <436F07F5.1030206@intracom.gr>
+References: <20051106025701.GA9698@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?UTF-8?Q?Beno=C3=AEt?= Dejean <benoit@placenet.org>,
-	337089@bugs.debian.org, NetDev <netdev@vger.kernel.org>
-Return-path: <bounce-debian-kernel=glddk-debian-kernel=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.337089.B337089.11313460577545@bugs.debian.org>
-To: Ian McDonald <imcdnzl@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <cbec11ac0511041024v5aec928dh@mail.gmail.com>
-List-Post: <mailto:debian-kernel@lists.debian.org>
-List-Help: <mailto:debian-kernel-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-kernel-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-kernel-request@lists.debian.org?subject=unsubscribe>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-embedded@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751297AbVKGH7K@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20051106025701.GA9698@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 05, 2005 at 07:24:41AM +1300, Ian McDonald wrote:
-> > > But Debian .config has CONFIG_TCP_CONG_BIC=m (CONFIG_TCP_CONG_*=m) which
-> > > makes NewReno default. So this is like a "regression". I'd like debian kernel
-> > > to have CONFIG_TCP_CONG_BIC=y provided that one can easily switch to another
-> > > algorithm (using /proc/sys/net/ipv4/tcp_congestion_control).
-> >
-> > could someone please comment on what a good default congestion
-> > algorithm setup for distribution kernels is?
-> >
-> If you want BIC as default then do as suggested here. My personal
-> opinion is that is the correct thing to do for a standard
-> distribution.
+John W. Linville wrote:
+> Make CONFIG_FEC_8XX depend on CONFIG_8xx.  This keeps allmodconfig from
+> breaking on non-8xx (PPC) platforms.
+> 
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> ---
+> 
+>  drivers/net/fec_8xx/Kconfig |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/fec_8xx/Kconfig b/drivers/net/fec_8xx/Kconfig
+> index 4560026..a84c232 100644
+> --- a/drivers/net/fec_8xx/Kconfig
+> +++ b/drivers/net/fec_8xx/Kconfig
+> @@ -1,6 +1,6 @@
+>  config FEC_8XX
+>  	tristate "Motorola 8xx FEC driver"
+> -	depends on NET_ETHERNET
+> +	depends on NET_ETHERNET && 8xx
+>  	select MII
+>  
+>  config FEC_8XX_GENERIC_PHY
 
-Thanks, the suggestion above will be incporated into the next release.
+Yes, this is the correct approach. Please disregard the other
+patches floating about.
 
--- 
-Horms
+Regards
+
+Pantelis
