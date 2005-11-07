@@ -1,62 +1,80 @@
-From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
-Subject: [PATCH] Fix sparse warning in e100 driver.
-Date: Mon, 7 Nov 2005 18:14:12 -0200
-Message-ID: <20051107181412.084467d6.lcapitulino__7701.89832333035$1131394878$gmane$org@mandriva.com.br>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] kernel/: small cleanups
+Date: Mon, 7 Nov 2005 22:18:39 +0100
+Message-ID: <20051107211839.GY3847@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@us.ibm.com>, dwmw2@infradead.org,
+	linux-audit@redhat.com, faith@redhat.com, george@mvista.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965071AbVKGVS4@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch contains the following cleanups:
+- make needlessly global functions static
+- every file should include the headers containing the prototypes for
+  it's global functions
 
-The patch below fixes the following sparse warnings:
+The rcutorture.c part was already ACK'ed by Paul E. McKenney.
 
-drivers/net/e100.c:1481:13: warning: Using plain integer as NULL pointer
-drivers/net/e100.c:1481:13: warning: Using plain integer as NULL pointer
-drivers/net/e100.c:1767:27: warning: Using plain integer as NULL pointer
-drivers/net/e100.c:1847:27: warning: Using plain integer as NULL pointer
 
-Signed-off-by: Luiz Capitulino <lcapitulino@mandriva.com.br>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
- drivers/net/e100.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+---
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -1478,7 +1478,7 @@ static inline int e100_rx_alloc_skb(stru
+This patch was already sent on:
+- 30 Oct 2005
+
+ kernel/audit.c      |    2 +-
+ kernel/irq/proc.c   |    2 ++
+ kernel/rcutorture.c |    2 +-
+ kernel/timer.c      |    1 +
+ 4 files changed, 5 insertions(+), 2 deletions(-)
+
+--- linux-2.6.14-rc5-mm1-full/kernel/timer.c.old	2005-10-30 02:27:36.000000000 +0200
++++ linux-2.6.14-rc5-mm1-full/kernel/timer.c	2005-10-30 02:27:56.000000000 +0200
+@@ -33,6 +33,7 @@
+ #include <linux/cpu.h>
+ #include <linux/syscalls.h>
+ #include <linux/kallsyms.h>
++#include <linux/delay.h>
  
- 	if(pci_dma_mapping_error(rx->dma_addr)) {
- 		dev_kfree_skb_any(rx->skb);
--		rx->skb = 0;
-+		rx->skb = NULL;
- 		rx->dma_addr = 0;
- 		return -ENOMEM;
- 	}
-@@ -1764,7 +1764,7 @@ static int e100_up(struct nic *nic)
- 	if((err = e100_hw_init(nic)))
- 		goto err_clean_cbs;
- 	e100_set_multicast_list(nic->netdev);
--	e100_start_receiver(nic, 0);
-+	e100_start_receiver(nic, NULL);
- 	mod_timer(&nic->watchdog, jiffies);
- 	if((err = request_irq(nic->pdev->irq, e100_intr, SA_SHIRQ,
- 		nic->netdev->name, nic->netdev)))
-@@ -1844,7 +1844,7 @@ static int e100_loopback_test(struct nic
- 		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR,
- 			BMCR_LOOPBACK);
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+--- linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c.old	2005-10-30 02:31:31.000000000 +0200
++++ linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c	2005-10-30 02:31:48.000000000 +0200
+@@ -10,6 +10,8 @@
+ #include <linux/proc_fs.h>
+ #include <linux/interrupt.h>
  
--	e100_start_receiver(nic, 0);
-+	e100_start_receiver(nic, NULL);
++#include "internals.h"
++
+ static struct proc_dir_entry *root_irq_dir, *irq_dir[NR_IRQS];
  
- 	if(!(skb = dev_alloc_skb(ETH_DATA_LEN))) {
- 		err = -ENOMEM;
-
-
--- 
-Luiz Fernando N. Capitulino
+ #ifdef CONFIG_SMP
+--- linux-2.6.14-rc5-mm1-full/kernel/audit.c.old	2005-10-30 02:33:08.000000000 +0200
++++ linux-2.6.14-rc5-mm1-full/kernel/audit.c	2005-10-30 02:33:15.000000000 +0200
+@@ -272,7 +272,7 @@
+ 	return old;
+ }
+ 
+-int kauditd_thread(void *dummy)
++static int kauditd_thread(void *dummy)
+ {
+ 	struct sk_buff *skb;
+ 
+--- linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c.old	2005-10-30 02:33:35.000000000 +0200
++++ linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c	2005-10-30 02:33:53.000000000 +0200
+@@ -99,7 +99,7 @@
+ /*
+  * Allocate an element from the rcu_tortures pool.
+  */
+-struct rcu_torture *
++static struct rcu_torture *
+ rcu_torture_alloc(void)
+ {
+ 	struct list_head *p;
