@@ -1,34 +1,37 @@
-From: Yan Zheng <yzcorp@gmail.com>
-Subject: Re: [PATCH][MCAST]Clear MAF_GSQUERY flag when process MLDv1 general query messages.
-Date: Mon, 7 Nov 2005 22:46:20 +0800
-Message-ID: <7e77d27c0511070646o7b8686aes@mail.gmail.com>
-References: <436F610E.8010400@21cn.com> <20051107142517.GA13797@tuxdriver.com>
+From: "marhta gilbert" <wiltonhaus@omc.every1.net>
+Subject: Get rid of everything you owe without paying another dime
+Date: Mon, 07 Nov 2005 08:52:55 -0300
+Message-ID: <c76601c5e378$a4d21820$7f163816@wiltonhaus>
+Reply-To: "marhta gilbert" <wiltonhaus@omc.every1.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750796AbVKGOqW@vger.kernel.org>
-To: Yan Zheng <yanzheng@21cn.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <20051107142517.GA13797@tuxdriver.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Clelia Fisher" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Could you be more specific about what problem it will cause?
->
-> Thanks,
->
-> John
-> --
-> John W. Linville
-> linville@tuxdriver.com
 
+Eliminate all you are indebted for with out paying another cent.  
 
-If the first query message receive after expiration is MLDv2 general
-query and MAF_GSQUERY flag is set. The report message only contains
-sources marked by last MLDv2 Multicast Address and Source Specific
-Queries . Although this circumstance happens  rare, I think it's
-better have it fixed
+End the calls. Bring a stop to the payments! As it turns out most lending
+orgizations are doing something illegal. Astonishing but factual! Join us
+for detailed information regarding our system at N O  expense or obligation.
+You have naught to lose and plenty to gain.
 
+http://sg.geocities.com/allan_bashlineds/?a=0.Eradicate all that you owe
+without sending an other dime
+In depth information or to finish receiving or to see postal address
 
-Regards
+Boost sales and exposure overnight thru professional and massive online
+mail marketing
+Deal with the biggest and the best puregoldproducsion@yahoo.com
+
+The wind at first sent him spinning away to the south, but he continued to
+rise until he was above the air currents, and the storm raged far beneath
+him. Then he set the indicator to the northwest and breathlessly waited to
+see if it would obey
+Hurrah! away he sped at a fair rate of speed, while all his anxiety changed
+to a feeling of sweet contentment
