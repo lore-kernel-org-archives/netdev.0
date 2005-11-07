@@ -1,37 +1,51 @@
-From: "marhta gilbert" <wiltonhaus@omc.every1.net>
-Subject: Get rid of everything you owe without paying another dime
-Date: Mon, 07 Nov 2005 08:52:55 -0300
-Message-ID: <c76601c5e378$a4d21820$7f163816@wiltonhaus>
-Reply-To: "marhta gilbert" <wiltonhaus@omc.every1.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch 2.6.14] fec_8xx: make CONFIG_FEC_8XX depend on CONFIG_8xx
+Date: Mon, 7 Nov 2005 13:20:34 -0500
+Message-ID: <20051107182031.GC13797@tuxdriver.com>
+References: <20051106025701.GA9698@tuxdriver.com>
+	<436F07F5.1030206@intracom.gr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Clelia Fisher" <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Pantelis Antoniou <panto@intracom.gr>
+Content-Disposition: inline
+In-Reply-To: <436F07F5.1030206@intracom.gr>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 07, 2005 at 09:53:25AM +0200, Pantelis Antoniou wrote:
+> John W. Linville wrote:
 
-Eliminate all you are indebted for with out paying another cent.  
+> >@@ -1,6 +1,6 @@
+> > config FEC_8XX
+> > 	tristate "Motorola 8xx FEC driver"
+> >-	depends on NET_ETHERNET
+> >+	depends on NET_ETHERNET && 8xx
+> > 	select MII
+> > 
+> > config FEC_8XX_GENERIC_PHY
+> 
+> Yes, this is the correct approach. Please disregard the other
+> patches floating about.
 
-End the calls. Bring a stop to the payments! As it turns out most lending
-orgizations are doing something illegal. Astonishing but factual! Join us
-for detailed information regarding our system at N O  expense or obligation.
-You have naught to lose and plenty to gain.
+Pretty sure you are right.  However, a broken version already got
+committed.  It added FEC as a dependency.  That keeps it from breaking
+everyone else, but it make the driver available for Coldfire rather
+than for PPC 8xx...
 
-http://sg.geocities.com/allan_bashlineds/?a=0.Eradicate all that you owe
-without sending an other dime
-In depth information or to finish receiving or to see postal address
+I'll reform that patch and repost.
 
-Boost sales and exposure overnight thru professional and massive online
-mail marketing
-Deal with the biggest and the best puregoldproducsion@yahoo.com
-
-The wind at first sent him spinning away to the south, but he continued to
-rise until he was above the air currents, and the storm raged far beneath
-him. Then he set the indicator to the northwest and breathlessly waited to
-see if it would obey
-Hurrah! away he sped at a fair rate of speed, while all his anxiety changed
-to a feeling of sweet contentment
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
