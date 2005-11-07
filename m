@@ -1,80 +1,140 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] kernel/: small cleanups
-Date: Mon, 7 Nov 2005 22:18:39 +0100
-Message-ID: <20051107211839.GY3847@stusta.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] [IPV4] Fix secondary IP addresses after promotion
+Date: Mon, 7 Nov 2005 22:50:22 +0100
+Message-ID: <20051107215022.GH23537@postel.suug.ch>
+References: <20051104184633.GA16256@skull.piratehaven.org> <436BFE08.6030906@trash.net> <20051105010740.GR23537@postel.suug.ch> <436C090D.5020201@trash.net> <436C34F8.3090903@trash.net> <20051105134636.GS23537@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@us.ibm.com>, dwmw2@infradead.org,
-	linux-audit@redhat.com, faith@redhat.com, george@mvista.com,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965071AbVKGVS4@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Cc: Brian Pomerantz <bapper@piratehaven.org>, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965124AbVKGVuG@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <20051105134636.GS23537@postel.suug.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following cleanups:
-- make needlessly global functions static
-- every file should include the headers containing the prototypes for
-  it's global functions
+* Thomas Graf <tgraf@suug.ch> 2005-11-05 14:46
+> Assuming this is a separate bug, I'm not sure if this is the right
+> way to fix it. I think it would be better to rewrite the preferred
+> source address of all related local routes and only perform a
+> remove-and-add on the secondary address being promoted.
 
-The rcutorture.c part was already ACK'ed by Paul E. McKenney.
+I tried it out and although it works it's not clean yet because
+changing fib_info also changes pref_src for the routes to be
+deleted which will lead to slightly incorrect notifications later
+on. I now think that explicitely deleting and re-adding them
+later on is better as well ;-)
 
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
-This patch was already sent on:
-- 30 Oct 2005
-
- kernel/audit.c      |    2 +-
- kernel/irq/proc.c   |    2 ++
- kernel/rcutorture.c |    2 +-
- kernel/timer.c      |    1 +
- 4 files changed, 5 insertions(+), 2 deletions(-)
-
---- linux-2.6.14-rc5-mm1-full/kernel/timer.c.old	2005-10-30 02:27:36.000000000 +0200
-+++ linux-2.6.14-rc5-mm1-full/kernel/timer.c	2005-10-30 02:27:56.000000000 +0200
-@@ -33,6 +33,7 @@
- #include <linux/cpu.h>
- #include <linux/syscalls.h>
- #include <linux/kallsyms.h>
-+#include <linux/delay.h>
- 
- #include <asm/uaccess.h>
- #include <asm/unistd.h>
---- linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c.old	2005-10-30 02:31:31.000000000 +0200
-+++ linux-2.6.14-rc5-mm1-full/kernel/irq/proc.c	2005-10-30 02:31:48.000000000 +0200
-@@ -10,6 +10,8 @@
- #include <linux/proc_fs.h>
- #include <linux/interrupt.h>
- 
-+#include "internals.h"
-+
- static struct proc_dir_entry *root_irq_dir, *irq_dir[NR_IRQS];
- 
- #ifdef CONFIG_SMP
---- linux-2.6.14-rc5-mm1-full/kernel/audit.c.old	2005-10-30 02:33:08.000000000 +0200
-+++ linux-2.6.14-rc5-mm1-full/kernel/audit.c	2005-10-30 02:33:15.000000000 +0200
-@@ -272,7 +272,7 @@
- 	return old;
+Index: linux-2.6/net/ipv4/devinet.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/devinet.c
++++ linux-2.6/net/ipv4/devinet.c
+@@ -230,31 +230,38 @@ int inet_addr_onlink(struct in_device *i
+ 	return 0;
  }
  
--int kauditd_thread(void *dummy)
-+static int kauditd_thread(void *dummy)
++static inline int ifa_is_secondary(struct in_ifaddr *primary,
++				   struct in_ifaddr *candiate)
++{
++	return ((candiate->ifa_flags & IFA_F_SECONDARY) &&
++		primary->ifa_mask == candiate->ifa_mask &&
++		inet_ifa_match(primary->ifa_address, candiate));
++}
++
+ static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 			 int destroy)
  {
- 	struct sk_buff *skb;
++	int do_promote;
+ 	struct in_ifaddr *promote = NULL;
+-	struct in_ifaddr *ifa1 = *ifap;
++	struct in_ifaddr *ifa, *ifa1 = *ifap;
  
---- linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c.old	2005-10-30 02:33:35.000000000 +0200
-+++ linux-2.6.14-rc5-mm1-full/kernel/rcutorture.c	2005-10-30 02:33:53.000000000 +0200
-@@ -99,7 +99,7 @@
- /*
-  * Allocate an element from the rcu_tortures pool.
-  */
--struct rcu_torture *
-+static struct rcu_torture *
- rcu_torture_alloc(void)
- {
- 	struct list_head *p;
+ 	ASSERT_RTNL();
+ 
+ 	/* 1. Deleting primary ifaddr forces deletion all secondaries 
+ 	 * unless alias promotion is set
+ 	 **/
++	do_promote = IN_DEV_PROMOTE_SECONDARIES(in_dev);
+ 
+ 	if (!(ifa1->ifa_flags & IFA_F_SECONDARY)) {
+-		struct in_ifaddr *ifa;
+ 		struct in_ifaddr **ifap1 = &ifa1->ifa_next;
+ 
+ 		while ((ifa = *ifap1) != NULL) {
+-			if (!(ifa->ifa_flags & IFA_F_SECONDARY) ||
+-			    ifa1->ifa_mask != ifa->ifa_mask ||
+-			    !inet_ifa_match(ifa1->ifa_address, ifa)) {
++			if (!ifa_is_secondary(ifa1, ifa)) {
+ 				ifap1 = &ifa->ifa_next;
+ 				continue;
+ 			}
+ 
+-			if (!IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
++			if (!do_promote) {
+ 				*ifap1 = ifa->ifa_next;
+ 
+ 				rtmsg_ifa(RTM_DELADDR, ifa);
+@@ -271,6 +278,10 @@ static void inet_del_ifa(struct in_devic
+ 
+ 	*ifap = ifa1->ifa_next;
+ 
++	for (ifa = promote; ifa != NULL; ifa = ifa->ifa_next)
++		if (ifa_is_secondary(ifa1, ifa))
++			fib_promote(ifa1->ifa_local, ifa->ifa_local);
++
+ 	/* 3. Announce address deletion */
+ 
+ 	/* Send message first, then call notifier.
+@@ -290,7 +301,7 @@ static void inet_del_ifa(struct in_devic
+ 			inetdev_destroy(in_dev);
+ 	}
+ 
+-	if (promote && IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
++	if (promote) {
+ 		/* not sure if we should send a delete notify first? */
+ 		promote->ifa_flags &= ~IFA_F_SECONDARY;
+ 		rtmsg_ifa(RTM_NEWADDR, promote);
+Index: linux-2.6/include/net/ip_fib.h
+===================================================================
+--- linux-2.6.orig/include/net/ip_fib.h
++++ linux-2.6/include/net/ip_fib.h
+@@ -242,6 +242,7 @@ extern void fib_select_multipath(const s
+ extern int ip_fib_check_default(u32 gw, struct net_device *dev);
+ extern int fib_sync_down(u32 local, struct net_device *dev, int force);
+ extern int fib_sync_up(struct net_device *dev);
++extern int fib_promote(u32 old, u32 new);
+ extern int fib_convert_rtentry(int cmd, struct nlmsghdr *nl, struct rtmsg *rtm,
+ 			       struct kern_rta *rta, struct rtentry *r);
+ extern u32  __fib_res_prefsrc(struct fib_result *res);
+Index: linux-2.6/net/ipv4/fib_semantics.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/fib_semantics.c
++++ linux-2.6/net/ipv4/fib_semantics.c
+@@ -1338,3 +1338,24 @@ void fib_select_multipath(const struct f
+ 	spin_unlock_bh(&fib_multipath_lock);
+ }
+ #endif
++
++int fib_promote(u32 old, u32 new)
++{
++	int ret = 0;
++
++	if (old && fib_info_laddrhash) {
++		unsigned int hash = fib_laddr_hashfn(old);
++		struct hlist_head *head = &fib_info_laddrhash[hash];
++		struct hlist_node *node;
++		struct fib_info *fi;
++
++		hlist_for_each_entry(fi, node, head, fib_lhash) {
++			if (fi->fib_prefsrc == old) {
++				fi->fib_prefsrc = new;
++				ret++;
++			}
++		}
++	}
++
++	return ret;
++}
