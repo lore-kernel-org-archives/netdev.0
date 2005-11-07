@@ -1,41 +1,62 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.14 (take #2)] fec_8xx: make CONFIG_FEC_8XX depend on CONFIG_8xx
-Date: Mon, 7 Nov 2005 13:24:59 -0500
-Message-ID: <20051107182459.GD13797@tuxdriver.com>
-References: <20051106025701.GA9698@tuxdriver.com> <436F07F5.1030206@intracom.gr> <20051107182031.GC13797@tuxdriver.com>
+From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
+Subject: [PATCH] Fix sparse warning in e100 driver.
+Date: Mon, 7 Nov 2005 18:14:12 -0200
+Message-ID: <20051107181412.084467d6.lcapitulino__7701.89832333035$1131394878$gmane$org@mandriva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964879AbVKGSZP@vger.kernel.org>
-To: Pantelis Antoniou <panto@intracom.gr>,
-	linuxppc-embedded@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20051107182031.GC13797@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux.nics@intel.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: akpm@osdl.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change CONFIG_FEC_8XX to depend on CONFIG_8xx instead of CONFIG_FEC.
-CONFIG_FEC depends on ColdFire CPUs, which does not apply for the
-PPC 8xx processors.
+Hi,
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+The patch below fixes the following sparse warnings:
 
- drivers/net/fec_8xx/Kconfig |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+drivers/net/e100.c:1481:13: warning: Using plain integer as NULL pointer
+drivers/net/e100.c:1481:13: warning: Using plain integer as NULL pointer
+drivers/net/e100.c:1767:27: warning: Using plain integer as NULL pointer
+drivers/net/e100.c:1847:27: warning: Using plain integer as NULL pointer
 
-diff --git a/drivers/net/fec_8xx/Kconfig b/drivers/net/fec_8xx/Kconfig
-index 94e7a9a..a84c232 100644
---- a/drivers/net/fec_8xx/Kconfig
-+++ b/drivers/net/fec_8xx/Kconfig
-@@ -1,6 +1,6 @@
- config FEC_8XX
- 	tristate "Motorola 8xx FEC driver"
--	depends on NET_ETHERNET && FEC
-+	depends on NET_ETHERNET && 8xx
- 	select MII
+Signed-off-by: Luiz Capitulino <lcapitulino@mandriva.com.br>
+
+ drivers/net/e100.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -1478,7 +1478,7 @@ static inline int e100_rx_alloc_skb(stru
  
- config FEC_8XX_GENERIC_PHY
+ 	if(pci_dma_mapping_error(rx->dma_addr)) {
+ 		dev_kfree_skb_any(rx->skb);
+-		rx->skb = 0;
++		rx->skb = NULL;
+ 		rx->dma_addr = 0;
+ 		return -ENOMEM;
+ 	}
+@@ -1764,7 +1764,7 @@ static int e100_up(struct nic *nic)
+ 	if((err = e100_hw_init(nic)))
+ 		goto err_clean_cbs;
+ 	e100_set_multicast_list(nic->netdev);
+-	e100_start_receiver(nic, 0);
++	e100_start_receiver(nic, NULL);
+ 	mod_timer(&nic->watchdog, jiffies);
+ 	if((err = request_irq(nic->pdev->irq, e100_intr, SA_SHIRQ,
+ 		nic->netdev->name, nic->netdev)))
+@@ -1844,7 +1844,7 @@ static int e100_loopback_test(struct nic
+ 		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR,
+ 			BMCR_LOOPBACK);
+ 
+-	e100_start_receiver(nic, 0);
++	e100_start_receiver(nic, NULL);
+ 
+ 	if(!(skb = dev_alloc_skb(ETH_DATA_LEN))) {
+ 		err = -ENOMEM;
+
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+Luiz Fernando N. Capitulino
