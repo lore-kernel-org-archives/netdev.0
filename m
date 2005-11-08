@@ -1,47 +1,80 @@
-From: Yan Zheng <yzcorp@gmail.com>
-Subject: Re: [PATCH][MCAST]Clear MAF_GSQUERY flag when process MLDv1 general query messages.
-Date: Tue, 8 Nov 2005 08:33:24 +0800
-Message-ID: <7e77d27c0511071633k4a44b573o@mail.gmail.com>
-References: <7e77d27c0511070646o7b8686aes@mail.gmail.com>
-	 <OF7136C7EC.A2BD07E5-ON882570B2.00768CF6-882570B2.0077AB0D@us.ibm.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.4 patch] airo.c/airo_cs.c: correct prototypes
+Date: Tue, 8 Nov 2005 03:02:12 +0100
+Message-ID: <20051108020211.GK3847@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965606AbVKHAd0@vger.kernel.org>
-In-Reply-To: <OF7136C7EC.A2BD07E5-ON882570B2.00768CF6-882570B2.0077AB0D@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Benjamin Reed <breed@users.sourceforge.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030241AbVKHCCS@vger.kernel.org>
+To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
 Content-Disposition: inline
-To: unlisted-recipients:; (no To-header on input)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->         Do you have a test case that demonstrates this? It appears to
-> me that an MLDv2 general query doesn't execute that code (short circuited
-> above) and an MLDv1 general query (what that code is handling) will
-> have a timer expiring before switching back to MLDv2 mode (so it'll send
-> a v1 report, without any sources). Unless I'm missing something, I can't
-> see any way for the scenario you've described to happen.
->         That said, I also can't see anything it would hurt, so I don't
-> object,
-> but it looks unnecessary to me.
->
->                                                         +-DLS
->
->
+This patch creates a file airo.h containing prototypes of the global
+functions in airo.c used by airo_cs.c .
 
->MLDv2 general query doesn't execute that code
-Yes, MLDv2 general query also leave that bit unchanged. In MLDv1
-compatibility mode, igmp6_timer_handler(...) uses igmp6_send(...) to
-send report, it leaves that bit unchanged too. So when switching back
-to MLDv2 mode, MAF_GSQUERY flag set long time ago may have effect on
-the report .
+If you got strange problems with either airo_cs devices or in any other
+completely unrelated part of the kernel shortly or long after a airo_cs
+device was detected by the kernel, this might have been caused by the
+fact that caller and callee disagreed regarding the size of the first
+argument to init_airo_card()...
 
->That said, I also can't see anything it would hurt
-I agree with you. it hurts nothing but a report.
+A similar patch was already included in Linus' 2.6 tree.
 
-By the way. May I ask a question.
-Do you agree my change on is_in(...)?  That is check include/exclude
-count when type is MLD2_MODE_IS_INCLUDE or MLD2_MODE_IS_EXCLUDE.
-(especially for MLD2_MODE_IS_EXCLUDE)
 
-Regards
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ drivers/net/wireless/airo.c    |    2 ++
+ drivers/net/wireless/airo.h    |    8 ++++++++
+ drivers/net/wireless/airo_cs.c |    6 ++----
+ 3 files changed, 12 insertions(+), 4 deletions(-)
+
+--- /dev/null	2005-04-28 03:52:17.000000000 +0200
++++ linux-2.4.32-rc2-full/drivers/net/wireless/airo.h	2005-11-08 02:58:54.000000000 +0100
+@@ -0,0 +1,8 @@
++#ifndef _AIRO_H_
++#define _AIRO_H_
++
++struct net_device *init_airo_card(unsigned short irq, int port, int is_pcmcia);
++void stop_airo_card(struct net_device *dev, int freeres);
++int reset_airo_card(struct net_device *dev);
++
++#endif  /*  _AIRO_H_  */
+--- linux-2.4.32-rc2-full/drivers/net/wireless/airo.c.old	2005-11-08 02:54:44.000000000 +0100
++++ linux-2.4.32-rc2-full/drivers/net/wireless/airo.c	2005-11-08 02:55:04.000000000 +0100
+@@ -43,6 +43,8 @@
+ #include <linux/pci.h>
+ #include <asm/uaccess.h>
+ 
++#include "airo.h"
++
+ #ifdef CONFIG_PCI
+ static struct pci_device_id card_ids[] = {
+ 	{ 0x14b9, 1, PCI_ANY_ID, PCI_ANY_ID, },
+--- linux-2.4.32-rc2-full/drivers/net/wireless/airo_cs.c.old	2005-11-08 02:55:54.000000000 +0100
++++ linux-2.4.32-rc2-full/drivers/net/wireless/airo_cs.c	2005-11-08 02:56:20.000000000 +0100
+@@ -45,6 +45,8 @@
+ #include <pcmcia/cisreg.h>
+ #include <pcmcia/ds.h>
+ 
++#include "airo.h"
++
+ /*
+    All the PCMCIA modules use PCMCIA_DEBUG to control debugging.  If
+    you do not define PCMCIA_DEBUG at all, all the debug code will be
+@@ -91,10 +93,6 @@
+    event handler. 
+ */
+ 
+-struct net_device *init_airo_card( int, int, int );
+-void stop_airo_card( struct net_device *, int );
+-int reset_airo_card( struct net_device * );
+-
+ static void airo_config(dev_link_t *link);
+ static void airo_release(u_long arg);
+ static int airo_event(event_t event, int priority,
