@@ -1,29 +1,44 @@
-From: Mike Benoit <mblibertarian7@earthlink.net>
-Subject: Free referrals at All Services Finders for users and free sign ups for service providers in San Diego County
-Date: Tue, 8 Nov 2005 22:36:39 GMT
-Message-ID: <200511082233.jA8MXdO0030421@oss.sgi.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Subject: [PATCH] Fix fallout from CONFIG_IPV6_PRIVACY
+Date: Wed, 9 Nov 2005 11:16:58 +1100
+Message-ID: <17265.16378.77270.7493@berry.gelato.unsw.EDU.AU>
 Mime-Version: 1.0
-Content-Type: text/plain
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030448AbVKIARD@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+Trying to build today's 2.6.14+git snapshot gives undefined references
+to use_tempaddr
 
-The first service provider in each of our service categories who registers as a vendor at www.AllServicesFinders.com will receive a free six month ad.
+Looks like an ifdef got left out.
 
-If you are not a service provider please register as a user.  This too is totally free and we are having a five hundred dollar drawing for those who have registered at the end of the year.
+Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
 
-To register just go to www.AllServicesFinders.com After you make it there then click on the login button at the right hand top side of the page.
+ net/ipv6/addrconf.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This will take you to a login screen, immediately to the right of the login field you will find instruction on upgrading to a vendor account or opening a user account.  Just click on that arrow and carefully fill out the information asked to create your account.  
-
-You will not be asked for money or credit card information.  Even if the page has a field for that information do not fill it in.  That is for those people who are paying for ads.
-
-
-Thanks
-
-
-Mike
+Index: linux-2.6-import/net/ipv6/addrconf.c
+===================================================================
+--- linux-2.6-import.orig/net/ipv6/addrconf.c	2005-11-09 11:11:42.137993239 +1100
++++ linux-2.6-import/net/ipv6/addrconf.c	2005-11-09 11:12:39.857561898 +1100
+@@ -1022,6 +1022,7 @@ int ipv6_dev_get_saddr(struct net_device
+ 					continue;
+ 			}
+ 
++#ifdef CONFIG_IPV6_PRIVACY
+ 			/* Rule 7: Prefer public address
+ 			 * Note: prefer temprary address if use_tempaddr >= 2
+ 			 */
+@@ -1043,7 +1044,7 @@ int ipv6_dev_get_saddr(struct net_device
+ 				if (hiscore.attrs & IPV6_SADDR_SCORE_PRIVACY)
+ 					continue;
+ 			}
+-
++#endif
+ 			/* Rule 8: Use longest matching prefix */
+ 			if (hiscore.rule < 8)
+ 				hiscore.matchlen = ipv6_addr_diff(&ifa_result->addr, daddr);
