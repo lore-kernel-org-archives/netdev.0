@@ -1,51 +1,53 @@
-From: Kumar Gala <galak@gate.crashing.org>
-Subject: [PATCH] gianfar mii needs to zero out the mii_bus structure
-Date: Wed, 9 Nov 2005 12:13:11 -0600 (CST)
-Message-ID: <Pine.LNX.4.44.0511091211030.26349-100000@gate.crashing.org>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 05/11] tcp: BIC max increment too large
+Date: Wed, 9 Nov 2005 10:36:51 -0800
+Message-ID: <20051109183651.GF3670@kroah.com>
+References: <20051109182205.294803000@press.kroah.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: jgarzik@pobox.com
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751490AbVKISh7@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline; filename="tcp-bic-max-increment-too-large.patch"
+In-Reply-To: <20051109183614.GA3670@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To ensure that phy_mask and any future elements of the mii_bus
-structure are initialized use kzalloc() instead of kmalloc().
+From: Stephen Hemminger <shemminger@osdl.org>
 
-This fixes an issue in which phy_mask was not being initialized
-and we would skip random phy addresses when scanning.
+The max growth of BIC TCP is too large. Original code was based on
+BIC 1.0 and the default there was 32. Later code (2.6.13) included
+compensation for delayed acks, and should have reduced the default
+value to 16; since normally TCP gets one ack for every two packets sent.
 
-Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
+The current value of 32 makes BIC too aggressive and unfair to other
+flows.
+
+Submitted-by: Injong Rhee <rhee@eos.ncsu.edu>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
-commit 35003e02e33939b7359635f3cf7b424723ffd4b0
-tree 386160e32c51e8f1e662811738e79571c7218fdb
-parent d0876a2748ddc33ca9ed1ea26cf958726c50c7b9
-author Kumar Gala <galak@kernel.crashing.org> Wed, 09 Nov 2005 12:11:40 -0600
-committer Kumar Gala <galak@kernel.crashing.org> Wed, 09 Nov 2005 12:11:40 -0600
+ net/ipv4/tcp_bic.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/gianfar_mii.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+--- linux-2.6.14.1.orig/net/ipv4/tcp_bic.c
++++ linux-2.6.14.1/net/ipv4/tcp_bic.c
+@@ -27,7 +27,7 @@
+ 					  */
+ 
+ static int fast_convergence = 1;
+-static int max_increment = 32;
++static int max_increment = 16;
+ static int low_window = 14;
+ static int beta = 819;		/* = 819/1024 (BICTCP_BETA_SCALE) */
+ static int low_utilization_threshold = 153;
 
-diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
-index 5a74d3d..ee1a77a 100644
---- a/drivers/net/gianfar_mii.c
-+++ b/drivers/net/gianfar_mii.c
-@@ -134,7 +134,7 @@ int gfar_mdio_probe(struct device *dev)
- 	if (NULL == dev)
- 		return -EINVAL;
- 
--	new_bus = kmalloc(sizeof(struct mii_bus), GFP_KERNEL);
-+	new_bus = kzalloc(sizeof(struct mii_bus), GFP_KERNEL);
- 
- 	if (NULL == new_bus)
- 		return -ENOMEM;
+--
