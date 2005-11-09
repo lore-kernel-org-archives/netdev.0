@@ -1,84 +1,144 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: [quagga-dev 3824] Re: Patch: RFC2863 #1 (incomplete)
-Date: Wed, 9 Nov 2005 11:00:32 +0200
-Message-ID: <200511091100.33154.hasso@estpak.ee>
-References: <200511070042.28572.stefan@loplof.de>
-	<200511081714.30261.hasso@estpak.ee>
-	<20051109001921.GK23537@postel.suug.ch>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: [PATCH 2/2][MCAST] Fix for add_grec(...)
+Date: Wed, 09 Nov 2005 19:58:20 +0800
+Message-ID: <4371E45C.3020500@21cn.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, quagga-dev@lists.quagga.net,
-   Stefan Rompf <stefan@loplof.de>
-Return-path: <quagga-dev-bounces@lists.quagga.net>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20051109001921.GK23537@postel.suug.ch>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.quagga.net/mailman/listinfo/quagga-dev>,
-	<mailto:quagga-dev-request@lists.quagga.net?subject=unsubscribe>
-List-Archive: <http://lists.quagga.net/pipermail/quagga-dev>
-List-Post: <mailto:quagga-dev@lists.quagga.net>
-List-Help: <mailto:quagga-dev-request@lists.quagga.net?subject=help>
-List-Subscribe: <http://lists.quagga.net/mailman/listinfo/quagga-dev>,
-	<mailto:quagga-dev-request@lists.quagga.net?subject=subscribe>
-Sender: quagga-dev-bounces@lists.quagga.net
-Errors-To: quagga-dev-bounces@lists.quagga.net
+Content-Type: multipart/mixed;
+ boundary="------------060105020903070708040306"
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751389AbVKIL4U@vger.kernel.org>
+To: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> OK, my point might not be the best, still I think it is valid. The fact
-> that certain routes have to be excluded from the routing calculation
-> even if their link is up and running makes it obvious that the routing
-> daemon can take care of DORMANT_L3DOWN itself and we don't need the
-> kernel to hide them. Nothing more.
+This is a multi-part message in MIME format.
+--------------060105020903070708040306
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-No. Routing daemon deals only with info from neighbours. While you can
-say that "if link is down => neighbour is unreachable", you can't say
-absolutely nothing about link if neighbour is down. Even with PtP media.
-If neighbour is down, it just means that neighbour is down, but best
-route to the neighbour is still via this link.
+Hi
+
+When ifmcaddr6's mca_sources is not NULL, but none of the sources in the list can be included in report,
+(For example: when filter mode is exclude and the only source in the list has include count greater than zero.)
+add_grec(...) may returns without add any data to the sk_buff. So MLD2_CHANGE_TO_EXCLUDE or MLD2_MODE_IS_EXCLUDE
+report may be eliminated.
+
+You can check this bug by test1.c in attachments. You will notice that there is no MLD2_CHANGE_TO_EXCLUDE report.
+
+Regards
+
+Signed-off-by: Yan Zheng<yanzheng@21cn.com>
+
+Index:net/ipv6/mcast.c
+==============================================================
+--- linux-2.6.14/net/ipv6/mcast.c	2005-11-09 16:00:48.000000000 +0800
++++ linux/net/ipv6/mcast.c	2005-11-09 19:47:50.000000000 +0800
+@@ -1445,18 +1445,21 @@ static struct sk_buff *add_grec(struct s
+ 	struct mld2_report *pmr;
+ 	struct mld2_grec *pgr = NULL;
+ 	struct ip6_sf_list *psf, *psf_next, *psf_prev, **psf_list;
+-	int scount, first, isquery, truncate;
++	int scount, first, isquery, ischange, truncate;
  
-> We're talking about the auto routes in the main table, right? There
-> is no reason for the addresses to be configured as a prefix, they
-> can, and in my opinion should, be added as /~0 if the net is not
-> guaranteed to be reachable at exactly this interface at all times.
-> e.g. a user adding the address 1.1.1.1/24 on eth3 clearly says that
-> 1.1.1.0/24 is always behind eth3, no matter what.
-
-Really? How it can be behind eth3 if state of eth3 says that "no packets
-to this link - it's DOWN"?
+ 	if (pmc->mca_flags & MAF_NOREPORT)
+ 		return skb;
  
-> If the route is supposed to be non-static then the address should be
-> added as /32 to avoid the auto route in main table and the broadcast
-> routes in the local table. Instead the routing daemon should be
-> responsible of manging 1.1.1.0/24 at all times.
->
-> Does this make sense?
-
-No. This mandates usage of routing daemon even in my laptop which is
-nonsense.
+ 	isquery = type == MLD2_MODE_IS_INCLUDE ||
+ 		  type == MLD2_MODE_IS_EXCLUDE;
++	ischange = type == MLD2_CHANGE_TO_INCLUDE ||
++		   type == MLD2_CHANGE_TO_EXCLUDE; 
+ 	truncate = type == MLD2_MODE_IS_EXCLUDE ||
+-		    type == MLD2_CHANGE_TO_EXCLUDE;
++		   type == MLD2_CHANGE_TO_EXCLUDE;
  
-> Now even if this is not acceptable and you really need a way to
-> favour routes added by userspace over auto/connected routes then
-> we should fix this in the routing itself and not with a new
-> opertional state interface state.
+ 	psf_list = sdeleted ? &pmc->mca_tomb : &pmc->mca_sources;
+ 
++#if 0
+ 	if (!*psf_list) {
+ 		if (type == MLD2_ALLOW_NEW_SOURCES ||
+ 		    type == MLD2_BLOCK_OLD_SOURCES)
+@@ -1474,12 +1477,15 @@ static struct sk_buff *add_grec(struct s
+ 		}
+ 		return skb;
+ 	}
++#endif
+ 	pmr = skb ? (struct mld2_report *)skb->h.raw : NULL;
+ 
+ 	/* EX and TO_EX get a fresh packet, if needed */
+-	if (truncate) {
+-		if (pmr && pmr->ngrec &&
+-		    AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
++	if (truncate || ischange) {
++		int min_len;
++		min_len	= truncate ? grec_size(pmc, type, gdeleted, sdeleted) : 
++			  (sizeof(struct mld2_grec) + sizeof(struct in6_addr));
++		if (pmr && pmr->ngrec && AVAILABLE(skb) < min_len) {
+ 			if (skb)
+ 				mld_sendpack(skb);
+ 			skb = mld_newpack(dev, dev->mtu);
+@@ -1488,6 +1494,10 @@ static struct sk_buff *add_grec(struct s
+ 	first = 1;
+ 	scount = 0;
+ 	psf_prev = NULL;
++	if (ischange || type == MLD2_MODE_IS_EXCLUDE) {
++		skb = add_grhead(skb, pmc, type, &pgr);
++		first = 0;
++	}
+ 	for (psf=*psf_list; psf; psf=psf_next) {
+ 		struct in6_addr *psrc;
+ 
 
-I'm not talking about new operational state of interface. I'm talking
-about simple rule - if link is known to be unusable (!IFF_RUNNING), don't
-use routes pointed to this link. Whether they are connected routes
-created by kernel or static routes created by user.
-
-Simple scenario with my personal laptop - wired ethernet
-(192.168.1.10/24) and wireless (172.16.100.10/24). Two defaults, wireless
-one is with higher metric. If I walk away from my table and disconnect
-wired ethernet cable, I'd expect that it wouldn't use default pointed to
-wired network _and_ 192.168.1.0/24 pointed to it any more. Default
-pointed to the wireless is there, wireless link is known to be usable
-(IFF_RUNNING) and 192.168.1.0/24 is reachable via wireless as well.
 
 
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+
+--------------060105020903070708040306
+Content-Type: text/x-csrc;
+ name="test1.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="test1.c"
+
+#include <stdio.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#define IFINDEX 5  //Please adjust me first.
+
+int main(int argc, char argv[])
+{
+	int sockfds[2];
+	struct ipv6_mreq req;
+	struct group_filter filter;
+	struct sockaddr_in6 *psin6;
+	req.ipv6mr_interface = IFINDEX;
+	inet_pton(PF_INET6, "FF02::2000", &req.ipv6mr_multiaddr);
+
+	sockfds[0] = socket(PF_INET6, SOCK_DGRAM, 0);
+	sockfds[1] = socket(PF_INET6, SOCK_DGRAM, 0);
+
+	filter.gf_interface = IFINDEX;
+	filter.gf_fmode = MCAST_INCLUDE;
+	filter.gf_numsrc = 1;
+	psin6 = (struct sockaddr_in6 *)&filter.gf_group;
+	psin6->sin6_family = AF_INET6;
+	inet_pton(PF_INET6, "FF02::2000", &psin6->sin6_addr);
+	psin6 = (struct sockaddr_in6 *)&filter.gf_slist[0];
+	psin6->sin6_family = AF_INET6;
+	inet_pton(PF_INET6, "2002:de12:1780::1", &psin6->sin6_addr);
+
+	setsockopt(sockfds[0], SOL_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
+	setsockopt(sockfds[0], SOL_IPV6, MCAST_MSFILTER, &filter, sizeof(filter));
+	sleep(10); //wait state change reports
+	printf("change mode to exclude\n");
+	setsockopt(sockfds[1], SOL_IPV6, IPV6_ADD_MEMBERSHIP, &req, sizeof(req));
+
+	pause();
+	return 0;
+}
+
+
+
+
+--------------060105020903070708040306--
