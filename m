@@ -1,44 +1,32 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Subject: [PATCH] Fix fallout from CONFIG_IPV6_PRIVACY
-Date: Wed, 9 Nov 2005 11:16:58 +1100
-Message-ID: <17265.16378.77270.7493@berry.gelato.unsw.EDU.AU>
+From: Ben Greear <greearb@candelatech.com>
+Subject: TSO and 2.6.13.2
+Date: Tue, 08 Nov 2005 16:44:05 -0800
+Message-ID: <43714655.2050001@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030448AbVKIARD@vger.kernel.org>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+It appears that I can (almost?) completedly deadlock a
+TCP connection when using TSO on 2.6.13.2.  My test involves
+trying to send 200Mbps between two interfaces.  With TSO enabled (ie, the default
+for e1000 NICs), in less than 1 minute, there are no more packets transmitted,
+though it does run nice and fast untill it completely breaks :P
 
-Trying to build today's 2.6.14+git snapshot gives undefined references
-to use_tempaddr
+I disabled TSO with ethtool, and now it seems to be working reliably.
 
-Looks like an ifdef got left out.
+I can attempt to grab network traces if this is worth pursuing.
 
-Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+Considering the ongoing troubles with TSO, it is my opinion that it
+should be disabled by default...but maybe I'm just unlucky.
 
- net/ipv6/addrconf.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Thanks,
+Ben
 
-Index: linux-2.6-import/net/ipv6/addrconf.c
-===================================================================
---- linux-2.6-import.orig/net/ipv6/addrconf.c	2005-11-09 11:11:42.137993239 +1100
-+++ linux-2.6-import/net/ipv6/addrconf.c	2005-11-09 11:12:39.857561898 +1100
-@@ -1022,6 +1022,7 @@ int ipv6_dev_get_saddr(struct net_device
- 					continue;
- 			}
- 
-+#ifdef CONFIG_IPV6_PRIVACY
- 			/* Rule 7: Prefer public address
- 			 * Note: prefer temprary address if use_tempaddr >= 2
- 			 */
-@@ -1043,7 +1044,7 @@ int ipv6_dev_get_saddr(struct net_device
- 				if (hiscore.attrs & IPV6_SADDR_SCORE_PRIVACY)
- 					continue;
- 			}
--
-+#endif
- 			/* Rule 8: Use longest matching prefix */
- 			if (hiscore.rule < 8)
- 				hiscore.matchlen = ipv6_addr_diff(&ifa_result->addr, daddr);
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
