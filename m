@@ -1,70 +1,66 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch 2.6.14 (take #2)] fec_8xx: make CONFIG_FEC_8XX depend on
-	CONFIG_8xx
-Date: Wed, 9 Nov 2005 16:52:39 -0500
-Message-ID: <20051109215237.GC24099@tuxdriver.com>
-References: <20051106025701.GA9698@tuxdriver.com>
-	<436F07F5.1030206@intracom.gr>
-	<20051107182031.GC13797@tuxdriver.com>
-	<20051107182459.GD13797@tuxdriver.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH 2/2][MCAST] Fix for add_grec(...)
+Date: Wed, 9 Nov 2005 14:06:44 -0800
+Message-ID: <OFD5769042.0E81A890-ON882570B4.0075A92B-882570B4.00796FDC@us.ibm.com>
+References: <4371E45C.3020500@21cn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Pantelis Antoniou <panto@intracom.gr>, linuxppc-embedded@ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20051107182459.GD13797@tuxdriver.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161257AbVKIWGa@vger.kernel.org>
+In-Reply-To: <4371E45C.3020500@21cn.com>
+To: Yan Zheng <yanzheng@21cn.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 07, 2005 at 01:24:59PM -0500, John W. Linville wrote:
-> Change CONFIG_FEC_8XX to depend on CONFIG_8xx instead of CONFIG_FEC.
-> CONFIG_FEC depends on ColdFire CPUs, which does not apply for the
-> PPC 8xx processors.
+Yan,
+        I think your patch has some problems.
 
-FWIW, I have this patch available on the linville-fec_8xx branch of
-netdev-jwl as described below.
+Yan Zheng <yanzheng@21cn.com> wrote on 11/09/2005 03:58:20 AM:
 
-Thanks,
+> +#if 0
+>     if (!*psf_list) {
+>        if (type == MLD2_ALLOW_NEW_SOURCES ||
+>            type == MLD2_BLOCK_OLD_SOURCES)
+> @@ -1474,12 +1477,15 @@ static struct sk_buff *add_grec(struct s
+>        }
+>        return skb;
+>     }
+> +#endif
 
-John
 
----
+        This code is the only place in the current code where you
+can generate a group header with an empty source list (what it is
+checking for). Your patch has added an add_grhead() for change
+and EXCLUDE records, but it isn't checking mca_crcount or isquery.
+I need to check, but I'm concerned this will create a group header
+in a report for cases where it should not.
 
-The following changes since commit 330d57fb98a916fa8e1363846540dd420e99499a:
-  Al Viro:
-        Fix sysctl unregistration oops (CVE-2005-2709)
 
-are found in the git repository at:
+>     pmr = skb ? (struct mld2_report *)skb->h.raw : NULL;
+> 
+>     /* EX and TO_EX get a fresh packet, if needed */
+> -   if (truncate) {
+> -      if (pmr && pmr->ngrec &&
+> -          AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
+> +   if (truncate || ischange) {
+> +      int min_len;
+> +      min_len   = truncate ? grec_size(pmc, type, gdeleted, sdeleted) : 
 
-  git://git.tuxdriver.com/git/netdev-jwl.git linville-fec_8xx
+> +           (sizeof(struct mld2_grec) + sizeof(struct in6_addr));
+> +      if (pmr && pmr->ngrec && AVAILABLE(skb) < min_len) {
+>           if (skb)
+>              mld_sendpack(skb);
+>           skb = mld_newpack(dev, dev->mtu);
 
-John W. Linville:
-      fec_8xx: make CONFIG_FEC_8XX depend on CONFIG_8xx
+        This "truncate" code is to handle exclude records that may be
+truncated. It gets a new packet when adding this record and the whole
+thing won't fit in a single packet. This is not appropriate for anything
+but IS_EX and TO_EX, but "ischange" in your patch will be true for
+TO_IN. So, I think this will waste space in a report that could hold
+some of these TO_IN sources.
 
- drivers/net/fec_8xx/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+        I haven't run your test code, or tested with your patch yet,
+just observing the differences from the original code path and your
+patch (and they appear to be more than you intended).
 
-diff --git a/drivers/net/fec_8xx/Kconfig b/drivers/net/fec_8xx/Kconfig
-index 94e7a9a..a84c232 100644
---- a/drivers/net/fec_8xx/Kconfig
-+++ b/drivers/net/fec_8xx/Kconfig
-@@ -1,6 +1,6 @@
- config FEC_8XX
- 	tristate "Motorola 8xx FEC driver"
--	depends on NET_ETHERNET && FEC
-+	depends on NET_ETHERNET && 8xx
- 	select MII
- 
- config FEC_8XX_GENERIC_PHY
--- 
-John W. Linville
-linville@tuxdriver.com
+                                                        +-DLS
