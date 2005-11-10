@@ -1,66 +1,107 @@
-From: Mayuresh Chitale <mchitale@gmail.com>
-Subject: does routing performance degrade from 2.4.20 to 2.4.31 ?
-Date: Thu, 10 Nov 2005 16:12:29 +0600
-Message-ID: <d096a3ee0511100212o6742f5a0t608c63cc9a35d8ae@mail.gmail.com>
+From: Frank Pavlic <fpavlic@de.ibm.com>
+Subject: [patch 2/7] s390: minor modification in qeth layer2 code
+Date: Thu, 10 Nov 2005 13:49:15 +0100
+Message-ID: <20051110124915.GB7936@pavlic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netfilter-bounces@lists.netfilter.org>
-To: netdev@vger.kernel.org, netfilter@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750732AbVKJMrD@vger.kernel.org>
+To: jgarzik@pobox.com
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter>,
-	<mailto:netfilter-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter>
-List-Post: <mailto:netfilter@lists.netfilter.org>
-List-Help: <mailto:netfilter-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter>,
-	<mailto:netfilter-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-bounces@lists.netfilter.org
-Errors-To: netfilter-bounces@lists.netfilter.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+[patch 2/7] s390: minor modification in qeth layer2 code
 
-We are working on kernel version 2.4.20 and are trying to migrate to
-version 2.4.31. We are doing some performance related tests to see the
-impact of migration. The routing throughput seems to degrade from
-2.4.20 to 2.4.31.
-We have a Malta board with mips 4kc processor and are using iperf tool
-to do the testing. Two test PCs are connected to the malta and iperf
-server is run on PC and the client on another PC. With netfilter
-compiled into the kernel, version 2.4.20 shows better result than
-2.4.31. No rules except the default (all accept) have been applied.
-Without netfilter, both perform almost identical. Is this expected ??
-The dump below shows the measurements. If anyone has done similar
-tests before, please share with me their results.
+From: Frank Pavlic <fpavlic@de.ibm.com>
+	- use qeth_layer2_send_setdelvlan_cb to check
+	  return code of a SET/DELVLAN IP Assist command.
+	  It fits better in qeth's design and mechanism of IP Assist
+	  command handling.
+	  
+Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 
-Have a nice day.
-Mayuresh.
+diffstat:
+ qeth_main.c |   40 ++++++++++++++++++++++++++--------------
+ 1 files changed, 26 insertions(+), 14 deletions(-)
 
-2.4.31
-=3D=3D=3D=3D=3D
-[mayuresh@localhost ~]$ ./iperf -c 100.0.0.1 -P 2
-------------------------------------------------------------
-Client connecting to 100.0.0.1, TCP port 5001
-TCP window size: 16.0 KByte (default)
-------------------------------------------------------------
-[  4] local 10.1.1.99 port 33702 connected with 100.0.0.1 port 5001
-[  3] local 10.1.1.99 port 33701 connected with 100.0.0.1 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  16.9 MBytes  14.2 Mbits/sec
-[  4]  0.0-10.0 sec  17.0 MBytes  14.2 Mbits/sec
-[SUM]  0.0-10.0 sec  33.9 MBytes  28.3 Mbits/sec
-
-2.4.20
-=3D=3D=3D=3D=3D
-[mayuresh@localhost ~]$ ./iperf -c 100.0.0.1 -P 2
-------------------------------------------------------------
-Client connecting to 100.0.0.1, TCP port 5001
-TCP window size: 16.0 KByte (default)
-------------------------------------------------------------
-[  4] local 10.1.1.99 port 33705 connected with 100.0.0.1 port 5001
-[  3] local 10.1.1.99 port 33704 connected with 100.0.0.1 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  20.2 MBytes  16.9 Mbits/sec
-[  4]  0.0-10.0 sec  20.2 MBytes  16.9 Mbits/sec
-[SUM]  0.0-10.0 sec  40.4 MBytes  33.8 Mbits/sec
+diff -Naupr orig/drivers/s390/net/qeth_main.c patched-linux/drivers/s390/net/qeth_main.c
+--- orig/drivers/s390/net/qeth_main.c	2005-11-09 20:06:57.000000000 +0100
++++ patched-linux/drivers/s390/net/qeth_main.c	2005-11-09 20:20:06.000000000 +0100
+@@ -1,6 +1,6 @@
+ /*
+  *
+- * linux/drivers/s390/net/qeth_main.c ($Revision: 1.224 $)
++ * linux/drivers/s390/net/qeth_main.c ($Revision: 1.235 $)
+  *
+  * Linux on zSeries OSA Express and HiperSockets support
+  *
+@@ -12,7 +12,7 @@
+  *			  Frank Pavlic (pavlic@de.ibm.com) and
+  *		 	  Thomas Spatzier <tspat@de.ibm.com>
+  *
+- *    $Revision: 1.224 $	 $Date: 2005/05/04 20:19:18 $
++ *    $Revision: 1.235 $	 $Date: 2005/05/04 20:19:18 $
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License as published by
+@@ -72,7 +72,7 @@
+ #include "qeth_eddp.h"
+ #include "qeth_tso.h"
+ 
+-#define VERSION_QETH_C "$Revision: 1.224 $"
++#define VERSION_QETH_C "$Revision: 1.235 $"
+ static const char *version = "qeth S/390 OSA-Express driver";
+ 
+ /**
+@@ -5350,11 +5350,30 @@ qeth_free_vlan_addresses6(struct qeth_ca
+ #endif /* CONFIG_QETH_IPV6 */
+ }
+ 
+-static void
++static int
++qeth_layer2_send_setdelvlan_cb(struct qeth_card *card,
++                               struct qeth_reply *reply,
++                               unsigned long data)
++{
++        struct qeth_ipa_cmd *cmd;
++
++        QETH_DBF_TEXT(trace, 2, "L2sdvcb");
++        cmd = (struct qeth_ipa_cmd *) data;
++        if (cmd->hdr.return_code) {
++		PRINT_ERR("Error in processing VLAN %i on %s: 0x%x. "
++			  "Continuing\n",cmd->data.setdelvlan.vlan_id, 
++			  QETH_CARD_IFNAME(card), cmd->hdr.return_code);
++		QETH_DBF_TEXT_(trace, 2, "L2VL%4x", cmd->hdr.command);
++		QETH_DBF_TEXT_(trace, 2, "L2%s", CARD_BUS_ID(card));
++		QETH_DBF_TEXT_(trace, 2, "err%d", cmd->hdr.return_code);
++	}
++        return 0;
++}
++
++static int
+ qeth_layer2_send_setdelvlan(struct qeth_card *card, __u16 i,
+ 			    enum qeth_ipa_cmds ipacmd)
+ {
+- 	int rc;
+ 	struct qeth_ipa_cmd *cmd;
+ 	struct qeth_cmd_buffer *iob;
+ 
+@@ -5362,15 +5381,8 @@ qeth_layer2_send_setdelvlan(struct qeth_
+ 	iob = qeth_get_ipacmd_buffer(card, ipacmd, QETH_PROT_IPV4);
+ 	cmd = (struct qeth_ipa_cmd *)(iob->data+IPA_PDU_HEADER_SIZE);
+         cmd->data.setdelvlan.vlan_id = i;
+-
+-	rc = qeth_send_ipa_cmd(card, iob, NULL, NULL);
+-        if (rc) {
+-                PRINT_ERR("Error in processing VLAN %i on %s: 0x%x. "
+-			  "Continuing\n",i, QETH_CARD_IFNAME(card), rc);
+-		QETH_DBF_TEXT_(trace, 2, "L2VL%4x", ipacmd);
+-		QETH_DBF_TEXT_(trace, 2, "L2%s", CARD_BUS_ID(card));
+-		QETH_DBF_TEXT_(trace, 2, "err%d", rc);
+-        }
++	return qeth_send_ipa_cmd(card, iob, 
++				 qeth_layer2_send_setdelvlan_cb, NULL);
+ }
+ 
+ static void
