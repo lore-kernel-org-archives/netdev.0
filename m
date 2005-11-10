@@ -1,118 +1,237 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [patch 7/7] s390: mail address changed
-Date: Thu, 10 Nov 2005 13:51:42 +0100
-Message-ID: <20051110125142.GG7936@pavlic>
+Subject: [patch 6/7] s390: introduce guestLan sniffer support in qeth
+Date: Thu, 10 Nov 2005 13:51:25 +0100
+Message-ID: <20051110125125.GF7936@pavlic>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750826AbVKJMts@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750824AbVKJMtN@vger.kernel.org>
 To: jgarzik@pobox.com
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[patch 7/7] s390: mail address changed 
+[patch 6/7] s390: introduce guestLan sniffer support in qeth
 
-From: Frank Pavlic <fpavlic@de.ibm.com>
-	- mail address changed to fpavlic@de.ibm.com
-	
+From: Peter Tiedemann  <ptiedem@de.ibm.com>
+	- introduce guestLan sniffer support in qeth	
+	  feature allows a linux in a virtual machine 
+	  guest to become a network LAN sniffer, 
+	  monitoring and recording the networking traffic 
+	  within an entire guestLan.
+
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 
 diffstat:
- lcs.c       |    4 ++--
- qeth_main.c |    4 ++--
- qeth_mpc.c  |    2 +-
- qeth_mpc.h  |    2 +-
- qeth_sys.c  |    2 +-
- qeth_tso.h  |    2 +-
- 6 files changed, 8 insertions(+), 8 deletions(-)
+ qeth.h      |    2 +
+ qeth_main.c |   93 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ qeth_mpc.h  |   11 ++++---
+ 3 files changed, 102 insertions(+), 4 deletions(-)
 
-diff -Naupr orig/drivers/s390/net/lcs.c linux-patched/drivers/s390/net/lcs.c
---- orig/drivers/s390/net/lcs.c	2005-11-10 13:11:18.000000000 +0100
-+++ linux-patched/drivers/s390/net/lcs.c	2005-11-10 13:07:11.000000000 +0100
-@@ -8,7 +8,7 @@
-  *    Author(s): Original Code written by
-  *			  DJ Barrow (djbarrow@de.ibm.com,barrow_dj@yahoo.com)
-  *		 Rewritten by
-- *			  Frank Pavlic (pavlic@de.ibm.com) and
-+ *			  Frank Pavlic (fpavlic@de.ibm.com) and
-  *		 	  Martin Schwidefsky <schwidefsky@de.ibm.com>
-  *
-  *    $Revision: 1.99 $	 $Date: 2005/05/11 08:10:17 $
-@@ -2342,6 +2342,6 @@ __exit lcs_cleanup_module(void)
- module_init(lcs_init_module);
- module_exit(lcs_cleanup_module);
+diff -Naupr orig/drivers/s390/net/qeth.h patched-linux/drivers/s390/net/qeth.h
+--- orig/drivers/s390/net/qeth.h	2005-11-09 20:49:36.000000000 +0100
++++ patched-linux/drivers/s390/net/qeth.h	2005-11-09 20:52:27.000000000 +0100
+@@ -750,6 +750,7 @@ struct qeth_card_info {
+ 	int unique_id;
+ 	struct qeth_card_blkt blkt;
+ 	__u32 csum_mask;
++	enum qeth_ipa_promisc_modes promisc_mode;
+ };
  
--MODULE_AUTHOR("Frank Pavlic <pavlic@de.ibm.com>");
-+MODULE_AUTHOR("Frank Pavlic <fpavlic@de.ibm.com>");
- MODULE_LICENSE("GPL");
+ struct qeth_card_options {
+@@ -776,6 +777,7 @@ struct qeth_card_options {
+ enum qeth_threads {
+ 	QETH_SET_IP_THREAD  = 1,
+ 	QETH_RECOVER_THREAD = 2,
++	QETH_SET_PROMISC_MODE_THREAD = 4,
+ };
  
-diff -Naupr orig/drivers/s390/net/qeth_main.c linux-patched/drivers/s390/net/qeth_main.c
---- orig/drivers/s390/net/qeth_main.c	2005-11-10 13:13:21.000000000 +0100
-+++ linux-patched/drivers/s390/net/qeth_main.c	2005-11-10 13:07:56.000000000 +0100
-@@ -9,7 +9,7 @@
-  *    Author(s): Original Code written by
-  *			  Utz Bacher (utz.bacher@de.ibm.com)
-  *		 Rewritten by
-- *			  Frank Pavlic (pavlic@de.ibm.com) and
-+ *			  Frank Pavlic (fpavlic@de.ibm.com) and
-  *		 	  Thomas Spatzier <tspat@de.ibm.com>
-  *
-  *    $Revision: 1.242 $	 $Date: 2005/05/04 20:19:18 $
-@@ -8715,7 +8715,7 @@ EXPORT_SYMBOL(qeth_osn_deregister);
- EXPORT_SYMBOL(qeth_osn_assist);
- module_init(qeth_init);
- module_exit(qeth_exit);
--MODULE_AUTHOR("Frank Pavlic <pavlic@de.ibm.com>");
-+MODULE_AUTHOR("Frank Pavlic <fpavlic@de.ibm.com>");
- MODULE_DESCRIPTION("Linux on zSeries OSA Express and HiperSockets support\n" \
- 		                      "Copyright 2000,2003 IBM Corporation\n");
+ struct qeth_osn_info {
+diff -Naupr orig/drivers/s390/net/qeth_main.c patched-linux/drivers/s390/net/qeth_main.c
+--- orig/drivers/s390/net/qeth_main.c	2005-11-09 20:49:36.000000000 +0100
++++ patched-linux/drivers/s390/net/qeth_main.c	2005-11-09 20:50:03.000000000 +0100
+@@ -160,6 +160,9 @@ static void
+ qeth_set_multicast_list(struct net_device *);
  
-diff -Naupr orig/drivers/s390/net/qeth_mpc.c linux-patched/drivers/s390/net/qeth_mpc.c
---- orig/drivers/s390/net/qeth_mpc.c	2005-11-10 13:11:18.000000000 +0100
-+++ linux-patched/drivers/s390/net/qeth_mpc.c	2005-11-10 13:08:05.000000000 +0100
-@@ -4,7 +4,7 @@
-  * Linux on zSeries OSA Express and HiperSockets support
-  *
-  * Copyright 2000,2003 IBM Corporation
-- * Author(s): Frank Pavlic <pavlic@de.ibm.com>
-+ * Author(s): Frank Pavlic <fpavlic@de.ibm.com>
-  * 	      Thomas Spatzier <tspat@de.ibm.com>
-  *
-  */
-diff -Naupr orig/drivers/s390/net/qeth_mpc.h linux-patched/drivers/s390/net/qeth_mpc.h
---- orig/drivers/s390/net/qeth_mpc.h	2005-11-10 13:13:21.000000000 +0100
-+++ linux-patched/drivers/s390/net/qeth_mpc.h	2005-11-10 13:08:19.000000000 +0100
-@@ -6,7 +6,7 @@
-  * Copyright 2000,2003 IBM Corporation
-  * Author(s): Utz Bacher <utz.bacher@de.ibm.com>
-  *            Thomas Spatzier <tspat@de.ibm.com>
-- *            Frank Pavlic <pavlic@de.ibm.com>
-+ *            Frank Pavlic <fpavlic@de.ibm.com>
-  *
-  */
- #ifndef __QETH_MPC_H__
-diff -Naupr orig/drivers/s390/net/qeth_sys.c linux-patched/drivers/s390/net/qeth_sys.c
---- orig/drivers/s390/net/qeth_sys.c	2005-11-10 13:12:52.000000000 +0100
-+++ linux-patched/drivers/s390/net/qeth_sys.c	2005-11-10 13:08:30.000000000 +0100
-@@ -8,7 +8,7 @@
-  * Copyright 2000,2003 IBM Corporation
-  *
-  * Author(s): Thomas Spatzier <tspat@de.ibm.com>
-- * 	      Frank Pavlic <pavlic@de.ibm.com>
-+ * 	      Frank Pavlic <fpavlic@de.ibm.com>
-  *
-  */
- #include <linux/list.h>
-diff -Naupr orig/drivers/s390/net/qeth_tso.h linux-patched/drivers/s390/net/qeth_tso.h
---- orig/drivers/s390/net/qeth_tso.h	2005-11-10 13:11:18.000000000 +0100
-+++ linux-patched/drivers/s390/net/qeth_tso.h	2005-11-10 13:08:43.000000000 +0100
-@@ -5,7 +5,7 @@
-  *
-  * Copyright 2004 IBM Corporation
-  *
-- *    Author(s): Frank Pavlic <pavlic@de.ibm.com>
-+ *    Author(s): Frank Pavlic <fpavlic@de.ibm.com>
-  *
-  *    $Revision: 1.7 $	 $Date: 2005/05/04 20:19:18 $
-  *
+ static void
++qeth_setadp_promisc_mode(struct qeth_card *);
++
++static void
+ qeth_notify_processes(void)
+ {
+ 	/*notify all  registered processes */
+@@ -965,6 +968,24 @@ qeth_register_ip_addresses(void *ptr)
+ 	return 0;
+ }
+ 
++/*
++ * Drive the SET_PROMISC_MODE thread
++ */
++static int
++qeth_set_promisc_mode(void *ptr)
++{
++	struct qeth_card *card = (struct qeth_card *) ptr;
++
++	daemonize("qeth_setprm");
++	QETH_DBF_TEXT(trace,4,"setprm1");
++	if (!qeth_do_run_thread(card, QETH_SET_PROMISC_MODE_THREAD))
++		return 0;
++	QETH_DBF_TEXT(trace,4,"setprm2");
++	qeth_setadp_promisc_mode(card);
++	qeth_clear_thread_running_bit(card, QETH_SET_PROMISC_MODE_THREAD);
++	return 0;
++}
++
+ static int
+ qeth_recover(void *ptr)
+ {
+@@ -1031,6 +1052,8 @@ qeth_start_kernel_thread(struct qeth_car
+ 
+ 	if (qeth_do_start_thread(card, QETH_SET_IP_THREAD))
+ 		kernel_thread(qeth_register_ip_addresses, (void *)card,SIGCHLD);
++	if (qeth_do_start_thread(card, QETH_SET_PROMISC_MODE_THREAD))
++		kernel_thread(qeth_set_promisc_mode, (void *)card, SIGCHLD);
+ 	if (qeth_do_start_thread(card, QETH_RECOVER_THREAD))
+ 		kernel_thread(qeth_recover, (void *) card, SIGCHLD);
+ }
+@@ -5003,6 +5026,10 @@ qeth_default_setassparms_cb(struct qeth_
+ 			    unsigned long);
+ 
+ static int
++qeth_default_setadapterparms_cb(struct qeth_card *card,
++                                struct qeth_reply *reply,
++                                unsigned long data);
++static int
+ qeth_send_setassparms(struct qeth_card *, struct qeth_cmd_buffer *,
+ 		      __u16, long,
+ 		      int (*reply_cb)
+@@ -5476,6 +5503,59 @@ qeth_vlan_rx_kill_vid(struct net_device 
+ 	qeth_set_multicast_list(card->dev);
+ }
+ #endif
++/**
++ * Examine hardware response to SET_PROMISC_MODE
++ */
++static int
++qeth_setadp_promisc_mode_cb(struct qeth_card *card, 
++			    struct qeth_reply *reply,
++			    unsigned long data)
++{
++	struct qeth_ipa_cmd *cmd;
++	struct qeth_ipacmd_setadpparms *setparms;
++
++	QETH_DBF_TEXT(trace,4,"prmadpcb");
++
++	cmd = (struct qeth_ipa_cmd *) data;
++	setparms = &(cmd->data.setadapterparms);
++	
++        qeth_default_setadapterparms_cb(card, reply, (unsigned long)cmd);
++	if (cmd->hdr.return_code) { 
++		QETH_DBF_TEXT_(trace,4,"prmrc%2.2x",cmd->hdr.return_code);	
++		setparms->data.mode = SET_PROMISC_MODE_OFF;
++	}
++	card->info.promisc_mode = setparms->data.mode;
++	return 0;
++}
++/*
++ * Set promiscuous mode (on or off) (SET_PROMISC_MODE command)
++ */
++static void
++qeth_setadp_promisc_mode(struct qeth_card *card)
++{
++	enum qeth_ipa_promisc_modes mode;
++	struct net_device *dev = card->dev;
++	struct qeth_cmd_buffer *iob;
++	struct qeth_ipa_cmd *cmd;
++
++	QETH_DBF_TEXT(trace, 4, "setprom");
++
++	if (((dev->flags & IFF_PROMISC) &&
++	     (card->info.promisc_mode == SET_PROMISC_MODE_ON)) ||
++	    (!(dev->flags & IFF_PROMISC) &&
++	     (card->info.promisc_mode == SET_PROMISC_MODE_OFF)))
++		return;
++	mode = SET_PROMISC_MODE_OFF;
++	if (dev->flags & IFF_PROMISC)
++		mode = SET_PROMISC_MODE_ON;
++	QETH_DBF_TEXT_(trace, 4, "mode:%x", mode);
++
++	iob = qeth_get_adapter_cmd(card, IPA_SETADP_SET_PROMISC_MODE,
++			sizeof(struct qeth_ipacmd_setadpparms));
++	cmd = (struct qeth_ipa_cmd *)(iob->data + IPA_PDU_HEADER_SIZE);
++	cmd->data.setadapterparms.data.mode = mode;
++	qeth_send_ipa_cmd(card, iob, qeth_setadp_promisc_mode_cb, NULL);
++}
+ 
+ /**
+  * set multicast address on card
+@@ -5501,6 +5581,11 @@ qeth_set_multicast_list(struct net_devic
+ out:
+  	if (qeth_set_thread_start_bit(card, QETH_SET_IP_THREAD) == 0)
+ 		schedule_work(&card->kernel_thread_starter);
++	if (!qeth_adp_supported(card, IPA_SETADP_SET_PROMISC_MODE))
++		return;
++	if (qeth_set_thread_start_bit(card, QETH_SET_PROMISC_MODE_THREAD)==0)
++		schedule_work(&card->kernel_thread_starter);
++
+ }
+ 
+ static int
+@@ -6510,6 +6595,8 @@ qeth_default_setadapterparms_cb(struct q
+ 	return 0;
+ }
+ 
++
++
+ static int
+ qeth_query_setadapterparms_cb(struct qeth_card *card, struct qeth_reply *reply,
+ 			      unsigned long data)
+@@ -6676,6 +6763,12 @@ qeth_layer2_initialize(struct qeth_card 
+         QETH_DBF_TEXT(setup, 2, "doL2init");
+         QETH_DBF_TEXT_(setup, 2, "doL2%s", CARD_BUS_ID(card));
+ 
++	rc = qeth_query_setadapterparms(card);
++	if (rc) {
++		PRINT_WARN("could not query adapter parameters on device %s: "
++			   "x%x\n", CARD_BUS_ID(card), rc);
++	}
++
+ 	rc = qeth_setadpparms_change_macaddr(card);
+ 	if (rc) {
+ 		PRINT_WARN("couldn't get MAC address on "
+diff -Naupr orig/drivers/s390/net/qeth_mpc.h patched-linux/drivers/s390/net/qeth_mpc.h
+--- orig/drivers/s390/net/qeth_mpc.h	2005-11-09 20:06:57.000000000 +0100
++++ patched-linux/drivers/s390/net/qeth_mpc.h	2005-11-09 20:50:03.000000000 +0100
+@@ -14,7 +14,7 @@
+ 
+ #include <asm/qeth.h>
+ 
+-#define VERSION_QETH_MPC_H "$Revision: 1.43 $"
++#define VERSION_QETH_MPC_H "$Revision: 1.44 $"
+ 
+ extern const char *VERSION_QETH_MPC_C;
+ 
+@@ -217,7 +217,7 @@ enum qeth_ipa_setadp_cmd {
+ 	IPA_SETADP_SEND_OSA_MESSAGE 		= 0x0100,
+ 	IPA_SETADP_SET_SNMP_CONTROL 		= 0x0200,
+ 	IPA_SETADP_READ_SNMP_PARMS 		= 0x0400,
+-	IPA_SETADP_WRITE_SNMP_PARMS 		= 0x0800,
++	IPA_SETADP_SET_PROMISC_MODE		= 0x0800,
+ 	IPA_SETADP_QUERY_CARD_INFO 		= 0x1000,
+ };
+ enum qeth_ipa_mac_ops {
+@@ -232,9 +232,12 @@ enum qeth_ipa_addr_ops {
+ 	CHANGE_ADDR_ADD_ADDR 		= 1,
+ 	CHANGE_ADDR_DEL_ADDR 		= 2,
+ 	CHANGE_ADDR_FLUSH_ADDR_TABLE 	= 4,
+-
+-
+ };
++enum qeth_ipa_promisc_modes {
++	SET_PROMISC_MODE_OFF		= 0,
++	SET_PROMISC_MODE_ON		= 1,
++};
++
+ /* (SET)DELIP(M) IPA stuff ***************************************************/
+ struct qeth_ipacmd_setdelip4 {
+ 	__u8   ip_addr[4];
