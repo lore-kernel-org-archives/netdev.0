@@ -1,82 +1,78 @@
-From: Jamal Hadi Salim <hadi@cyberus.ca>
-Subject: Re: RED qdisc not working...
-Date: Wed, 09 Nov 2005 19:03:35 -0500
-Message-ID: <1131581016.6451.33.camel__33838.28957235$1131581233$gmane$org@localhost.localdomain>
-References: <6278d2220511071626j3646afa7n5ac33228e8b3fc82@mail.gmail.com>
-	 <6278d2220511091532k7b732b9bv2957763ba6f4c10f@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: Re: [PATCH 2/2][MCAST] Fix for add_grec(...)
+Date: Thu, 10 Nov 2005 09:20:33 +0800
+Message-ID: <4372A061.2030106@21cn.com>
+References: <OFD5769042.0E81A890-ON882570B4.0075A92B-882570B4.00796FDC@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-        netfilter@lists.netfilter.org, kaber@trash.net, davem@redhat.com,
-        laforge@netfilter.org, coreteam@netfilter.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniel J Blueman <daniel.blueman@gmail.com>
-In-Reply-To: <6278d2220511091532k7b732b9bv2957763ba6f4c10f@mail.gmail.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751376AbVKJBSp@vger.kernel.org>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFD5769042.0E81A890-ON882570B4.0075A92B-882570B4.00796FDC@us.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-howdy,
-When you say it is "broken" - what is this relative to?
-Did you have another kernel where you precise config worked?
+David Stevens wrote:
+> Yan,
+>         I think your patch has some problems.
+> 
+> Yan Zheng <yanzheng@21cn.com> wrote on 11/09/2005 03:58:20 AM:
+> 
+> 
+>>+#if 0
+>>    if (!*psf_list) {
+>>       if (type == MLD2_ALLOW_NEW_SOURCES ||
+>>           type == MLD2_BLOCK_OLD_SOURCES)
+>>@@ -1474,12 +1477,15 @@ static struct sk_buff *add_grec(struct s
+>>       }
+>>       return skb;
+>>    }
+>>+#endif
+> 
+> 
+> 
+>         This code is the only place in the current code where you
+> can generate a group header with an empty source list (what it is
+> checking for). Your patch has added an add_grhead() for change
+> and EXCLUDE records, but it isn't checking mca_crcount or isquery.
+> I need to check, but I'm concerned this will create a group header
+> in a report for cases where it should not.
+> 
+ischange implicits mca_crcount has already been ckecked in mld_send_cr(...)
+Actually, check mca_crcount directly will get mode change report sent one times less 
+than you intend, because mca_crcount has decreased by one before call add_grec(...).
 
-The only changes that have made it in for RED are in post 2.6.14; other
-than that all should work great as ever before.
 
-suggestions:
+Now We only have MLD2_MODE_IS_INCLUDE left. but "mode is include and source list is empty"
+is an impossible event.
+> 
+> 
+>>    pmr = skb ? (struct mld2_report *)skb->h.raw : NULL;
+>>
+>>    /* EX and TO_EX get a fresh packet, if needed */
+>>-   if (truncate) {
+>>-      if (pmr && pmr->ngrec &&
+>>-          AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
+>>+   if (truncate || ischange) {
+>>+      int min_len;
+>>+      min_len   = truncate ? grec_size(pmc, type, gdeleted, sdeleted) : 
+> 
+> 
+>>+           (sizeof(struct mld2_grec) + sizeof(struct in6_addr));
+>>+      if (pmr && pmr->ngrec && AVAILABLE(skb) < min_len) {
+>>          if (skb)
+>>             mld_sendpack(skb);
+>>          skb = mld_newpack(dev, dev->mtu);
+> 
+> 
+>         This "truncate" code is to handle exclude records that may be
+> truncated. It gets a new packet when adding this record and the whole
+> thing won't fit in a single packet. This is not appropriate for anything
+> but IS_EX and TO_EX, but "ischange" in your patch will be true for
+> TO_IN. So, I think this will waste space in a report that could hold
+> some of these TO_IN sources.
 
-could you try the latest iproute2 posted last few days by Stephen and
-see if your problem persists?
-
-Also try using something simpler than HTB like prio qdisc to help in
-debugging things for you?
-Can you look at examples directory and use some of the tricks used
-there?
-
-cheers,
-jamal
-
-On Wed, 2005-09-11 at 23:32 +0000, Daniel J Blueman wrote:
-> Has anyone been able to get the RED (random early detection) qdisc
-> working lately?
-> 
-> I can't get anything going through it to be dropped or marked; the
-> 'marked', 'early', 'pdrop' and 'other' fields remain at 0 [1]. In my
-> example script [2], I get the 3072Kbits/s transfer into eth0, which
-> you'd only expect if the RED qdisc wasn't there.
-> 
-> I have tried with a recent 2.6.12 debian kernel and stock 2.6.14 on
-> x86_64 debian. I rebuilt new iproute and iptables packages from latest
-> clean upstream sources, but to no avail.
-> 
-> Any ideas? Please CC me on replies, as I am not subscribed.
-> 
-> Thanks,
->   Dan
-> 
-> --- [1]
-> 
-> # tc -s qdisc show dev eth0
-> qdisc htb 1: r2q 10 default 10 direct_packets_stat 0
->  Sent 53985530 bytes 36757 pkts (dropped 0, overlimits 45125)
-> qdisc red 10: parent 1:10 limit 512Kb min 64Kb max 128Kb
->  Sent 53985530 bytes 36757 pkts (dropped 0, overlimits 0)
->   marked 0 early 0 pdrop 0 other 0
-> 
-> --- [2]
-> 
-> tc qdisc del dev eth0 root
-> 
-> tc qdisc add dev eth0 root handle 1: htb default 10
-> tc class add dev eth0 parent 1: classid 1:1 htb rate 4096kbit ceil 4096kbit
-> tc class add dev eth0 parent 1:1 classid 1:10 htb rate 3072kbit ceil 3072kbit
-> tc qdisc add dev eth0 parent 1:10 handle 10: red \
->   limit 4096kbit min 512kbit max 1024kbit avpkt 1000 \
->   burst 100 probability 0.02 bandwidth 1024kbit
-> ___
-> Daniel J Blueman
-> 
-> 
-> 
+When type is MLD2_MODE_IS_INCLUDE, min_len is equal to "sizeof(struct mld2_grec) + 
+sizeof(struct in6_addr)". it satisfies the comment above. (make sure we have room 
+for group header and at least one source.)
