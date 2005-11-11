@@ -1,16 +1,24 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 1/7] s390: synthax checking for VIPA addresses fixed
-Date: Fri, 11 Nov 2005 08:26:31 -0500
-Message-ID: <43749C07.9080209@pobox.com>
-References: <20051110124902.GA7936@pavlic>
+Subject: Re: [PATCH] gianfar mii needs to zero out the mii_bus structure
+Date: Fri, 11 Nov 2005 08:27:07 -0500
+Message-ID: <43749C2B.5080000@pobox.com>
+References: <Pine.LNX.4.44.0511091211030.26349-100000@gate.crashing.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750735AbVKKN0h@vger.kernel.org>
-To: Frank Pavlic <fpavlic@de.ibm.com>
-In-Reply-To: <20051110124902.GA7936@pavlic>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Kumar Gala <galak@gate.crashing.org>
+In-Reply-To: <Pine.LNX.4.44.0511091211030.26349-100000@gate.crashing.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-applied 1-7
+applied
