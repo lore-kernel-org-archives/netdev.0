@@ -1,32 +1,52 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [PATCH] TCP build fix
-Date: Fri, 11 Nov 2005 04:43:47 -0500
-Message-ID: <20051111094347.GA10876@havoc.gtf.org>
+From: "Gerd v. Egidy" <lists@egidy.de>
+Subject: Re: [PATCH 00/10]: Netfilter IPsec support
+Date: Fri, 11 Nov 2005 11:13:32 +0100
+Message-ID: <200511111113.32591.lists@egidy.de>
+References: <43740D9C.80003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932321AbVKKJnx@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
-	davem@davemloft.net, shemminger@osdl.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: netfilter-devel@lists.netfilter.org
+In-Reply-To: <43740D9C.80003@trash.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-Recent TCP changes broke the build.
+> This is the latest set patches for netfilter IPsec support.
+> The use of netif_rx for the innermost SA if it used transport
+> mode has been replaced by explicit NF_HOOK calls in
+> xfrm{4,6}_input.c.
 
-Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
+Could you please describe the solution you implemented a bit more? There was 
+just so many back and forth that I'm confused now.
 
-diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index 4376814..b7d296a 100644
---- a/net/ipv4/tcp_vegas.c
-+++ b/net/ipv4/tcp_vegas.c
-@@ -236,7 +236,7 @@ static void tcp_vegas_cong_avoid(struct 
- 			/* We don't have enough RTT samples to do the Vegas
- 			 * calculation, so we'll behave like Reno.
- 			 */
--			tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, cnt);
-+			tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
- 		} else {
- 			u32 rtt, target_cwnd, diff;
- 
+If I use it with iptables, do the transport mode packets go through INPUT and 
+OUTPUT twice, decrypted and encrypted?
+
+If I use it with iptables, do the tunnel mode packets go through FORWARD or 
+INPUT and OUTPUT twice, decrypted and encrypted?
+
+Can I do NAT in tunnel and transport mode?
+
+what about the policy match patches, why are they only posted "for 
+completeness" and as 11/12 of 10? Aren't they ready yet?
+
+Thanks for enlightment.
+
+Kind regards,
+
+Gerd
