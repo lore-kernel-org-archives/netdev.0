@@ -1,39 +1,114 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] TCP build fix
-Date: Fri, 11 Nov 2005 10:41:38 -0800
-Message-ID: <4374E5E2.70801@osdl.org>
-References: <20051111094347.GA10876@havoc.gtf.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] drivers/net/sk98lin/skge.c: make SkPciWriteCfgDWord() a static inline
+Date: Fri, 11 Nov 2005 20:44:21 +0100
+Message-ID: <20051111194421.GN5376@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751002AbVKKSmT@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20051111094347.GA10876@havoc.gtf.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751119AbVKKToZ@vger.kernel.org>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+No external user and that small - such a function should be static 
+inline and not a global function.
 
->Recent TCP changes broke the build.
->
->Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
->
->diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
->index 4376814..b7d296a 100644
->--- a/net/ipv4/tcp_vegas.c
->+++ b/net/ipv4/tcp_vegas.c
->@@ -236,7 +236,7 @@ static void tcp_vegas_cong_avoid(struct 
-> 			/* We don't have enough RTT samples to do the Vegas
-> 			 * calculation, so we'll behave like Reno.
-> 			 */
->-			tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, cnt);
->+			tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
-> 		} else {
-> 			u32 rtt, target_cwnd, diff;
-> 
->  
->
-Sorry, must have happened when juggling the test and release tree.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ drivers/net/sk98lin/h/skvpd.h |    8 ------
+ drivers/net/sk98lin/skge.c    |   43 ++++++++++++++++------------------
+ 2 files changed, 21 insertions(+), 30 deletions(-)
+
+--- linux-2.6.14-mm2-full/drivers/net/sk98lin/h/skvpd.h.old	2005-11-11 20:30:25.000000000 +0100
++++ linux-2.6.14-mm2-full/drivers/net/sk98lin/h/skvpd.h	2005-11-11 20:30:44.000000000 +0100
+@@ -130,14 +130,12 @@
+ #ifndef VPD_DO_IO
+ #define VPD_OUT8(pAC,IoC,Addr,Val)	(void)SkPciWriteCfgByte(pAC,Addr,Val)
+ #define VPD_OUT16(pAC,IoC,Addr,Val)	(void)SkPciWriteCfgWord(pAC,Addr,Val)
+-#define VPD_OUT32(pAC,IoC,Addr,Val)	(void)SkPciWriteCfgDWord(pAC,Addr,Val)
+ #define VPD_IN8(pAC,IoC,Addr,pVal)	(void)SkPciReadCfgByte(pAC,Addr,pVal)
+ #define VPD_IN16(pAC,IoC,Addr,pVal)	(void)SkPciReadCfgWord(pAC,Addr,pVal)
+ #define VPD_IN32(pAC,IoC,Addr,pVal)	(void)SkPciReadCfgDWord(pAC,Addr,pVal)
+ #else	/* VPD_DO_IO */
+ #define VPD_OUT8(pAC,IoC,Addr,Val)	SK_OUT8(IoC,PCI_C(Addr),Val)
+ #define VPD_OUT16(pAC,IoC,Addr,Val)	SK_OUT16(IoC,PCI_C(Addr),Val)
+-#define VPD_OUT32(pAC,IoC,Addr,Val)	SK_OUT32(IoC,PCI_C(Addr),Val)
+ #define VPD_IN8(pAC,IoC,Addr,pVal)	SK_IN8(IoC,PCI_C(Addr),pVal)
+ #define VPD_IN16(pAC,IoC,Addr,pVal)	SK_IN16(IoC,PCI_C(Addr),pVal)
+ #define VPD_IN32(pAC,IoC,Addr,pVal)	SK_IN32(IoC,PCI_C(Addr),pVal)
+@@ -155,12 +153,6 @@
+ 		else						\
+ 			SK_OUT16(pAC,PCI_C(Addr),Val);		\
+ 		}
+-#define VPD_OUT32(pAC,Ioc,Addr,Val) {			\
+-		if ((pAC)->DgT.DgUseCfgCycle)			\
+-			SkPciWriteCfgDWord(pAC,Addr,Val);	\
+-		else						\
+-			SK_OUT32(pAC,PCI_C(Addr),Val); 		\
+-		}
+ #define VPD_IN8(pAC,Ioc,Addr,pVal) {			\
+ 		if ((pAC)->DgT.DgUseCfgCycle) 			\
+ 			SkPciReadCfgByte(pAC,Addr,pVal);	\
+--- linux-2.6.14-mm2-full/drivers/net/sk98lin/skge.c.old	2005-11-11 20:31:05.000000000 +0100
++++ linux-2.6.14-mm2-full/drivers/net/sk98lin/skge.c	2005-11-11 20:32:39.000000000 +0100
+@@ -279,6 +279,27 @@
+ 
+ /*****************************************************************************
+  *
++ *	SkPciWriteCfgDWord - write a 32 bit value to pci config space
++ *
++ * Description:
++ *	This routine writes a 32 bit value to the pci configuration
++ *	space.
++ *
++ * Returns:
++ *	0 - indicate everything worked ok.
++ *	!= 0 - error indication
++ */
++static inline int SkPciWriteCfgDWord(
++SK_AC *pAC,	/* Adapter Control structure pointer */
++int PciAddr,		/* PCI register address */
++SK_U32 Val)		/* pointer to store the read value */
++{
++	pci_write_config_dword(pAC->PciDev, PciAddr, Val);
++	return(0);
++} /* SkPciWriteCfgDWord */
++
++/*****************************************************************************
++ *
+  * 	SkGeInitPCI - Init the PCI resources
+  *
+  * Description:
+@@ -4085,28 +4106,6 @@
+ 
+ /*****************************************************************************
+  *
+- *	SkPciWriteCfgDWord - write a 32 bit value to pci config space
+- *
+- * Description:
+- *	This routine writes a 32 bit value to the pci configuration
+- *	space.
+- *
+- * Returns:
+- *	0 - indicate everything worked ok.
+- *	!= 0 - error indication
+- */
+-int SkPciWriteCfgDWord(
+-SK_AC *pAC,	/* Adapter Control structure pointer */
+-int PciAddr,		/* PCI register address */
+-SK_U32 Val)		/* pointer to store the read value */
+-{
+-	pci_write_config_dword(pAC->PciDev, PciAddr, Val);
+-	return(0);
+-} /* SkPciWriteCfgDWord */
+-
+-
+-/*****************************************************************************
+- *
+  *	SkPciWriteCfgWord - write a 16 bit value to pci config space
+  *
+  * Description:
