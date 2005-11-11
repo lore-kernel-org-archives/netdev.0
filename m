@@ -1,16 +1,17 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 03/10]: [IPV4]: Replace dst_output by ip_dst_output
-Date: Fri, 11 Nov 2005 04:19:20 +0100
-Message-ID: <43740DB8.2030303@trash.net>
+Subject: [PATCH 09/10]: [NETFILTER]: Redo policy lookups after NAT when
+	neccessary
+Date: Fri, 11 Nov 2005 04:19:36 +0100
+Message-ID: <43740DC8.5010706@trash.net>
 Mime-Version: 1.0
 Content-Type: text/x-patch;
- name="03.diff"
+ name="09.diff"
 Content-Transfer-Encoding: 7bit
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Content-Disposition: inline;
- filename="03.diff"
+ filename="09.diff"
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -22,171 +23,161 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[IPV4]: Replace dst_output by ip_dst_output
+[NETFILTER]: Redo policy lookups after NAT when neccessary
 
-Preparation for netfilter IPsec support.
+When NAT changes the key used for the xfrm lookup on the output
+path the lookup needs to be redone.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 9271210c937a55a2e5dcba05df078e1c43b81d6c
-tree 7f510d89a5245630e33e429c9d690de0aa2b05c9
-parent dc924f62fd0611bb349e398c80ce3ffa5c3a9025
-author Patrick McHardy <kaber@trash.net> Fri, 11 Nov 2005 02:10:58 +0100
-committer Patrick McHardy <kaber@trash.net> Fri, 11 Nov 2005 02:10:58 +0100
+commit d449eeda76508f14f27d76a84350e4069c968497
+tree fa245e3599e04432ee1ef1e046eeef9c800553e3
+parent 351bc1c8a9c5c5e4aa48c153f0050f0a8b979201
+author Patrick McHardy <kaber@trash.net> Fri, 11 Nov 2005 03:21:13 +0100
+committer Patrick McHardy <kaber@trash.net> Fri, 11 Nov 2005 03:21:13 +0100
 
- include/net/dst.h               |    2 ++
- include/net/ipip.h              |    2 +-
- net/ipv4/igmp.c                 |    4 ++--
- net/ipv4/ip_forward.c           |    2 +-
- net/ipv4/ip_output.c            |    6 +++---
- net/ipv4/ipmr.c                 |    2 +-
- net/ipv4/ipvs/ip_vs_xmit.c      |    2 +-
- net/ipv4/netfilter/ipt_REJECT.c |    2 +-
- net/ipv4/raw.c                  |    2 +-
- 9 files changed, 13 insertions(+), 11 deletions(-)
+ include/net/dst.h                      |    1 +
+ include/net/ip.h                       |    1 +
+ net/ipv4/ip_output.c                   |    6 ++++++
+ net/ipv4/netfilter.c                   |    6 ++++--
+ net/ipv4/netfilter/ip_nat_standalone.c |   27 +++++++++++++++++++++++++--
+ net/ipv4/xfrm4_output.c                |    1 +
+ 6 files changed, 38 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 6c196a5..07f552b 100644
+index 7eadd0c..4630e17 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -236,6 +236,8 @@ static inline int dst_output(struct sk_b
- 	}
+@@ -237,6 +237,7 @@ static inline int dst_output(struct sk_b
  }
  
-+#define ip_dst_output	dst_output
-+
- /* Input packet from network to transport.  */
- static inline int dst_input(struct sk_buff *skb)
- {
-diff --git a/include/net/ipip.h b/include/net/ipip.h
-index f490c3c..b267496 100644
---- a/include/net/ipip.h
-+++ b/include/net/ipip.h
-@@ -34,7 +34,7 @@ struct ip_tunnel
- 	ip_select_ident(iph, &rt->u.dst, NULL);				\
- 	ip_send_check(iph);						\
- 									\
--	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, dst_output);\
-+	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev, ip_dst_output);\
- 	if (err == NET_XMIT_SUCCESS || err == NET_XMIT_CN) {		\
- 		stats->tx_bytes += pkt_len;				\
- 		stats->tx_packets++;					\
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index c6247fc..7c6bf44 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -343,7 +343,7 @@ static int igmpv3_sendpack(struct sk_buf
- 	pig->csum = ip_compute_csum((void *)skb->h.igmph, igmplen);
+ #if defined(CONFIG_XFRM) && defined(CONFIG_NETFILTER)
++extern int __ip_dst_output(struct sk_buff *skb);
+ extern int ip_dst_output(struct sk_buff *skb);
+ extern int ip6_dst_output(struct sk_buff *skb);
+ #else
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 9f09882..377036b 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -45,6 +45,7 @@ struct inet_skb_parm
+ #define IPSKB_TRANSLATED	2
+ #define IPSKB_FORWARDED		4
+ #define IPSKB_XFRM_TUNNEL_SIZE	8
++#define IPSKB_XFRM_TRANSFORMED	16
+ };
  
- 	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dev,
--		       dst_output);
-+		       ip_dst_output);
- }
- 
- static int grec_size(struct ip_mc_list *pmc, int type, int gdel, int sdel)
-@@ -674,7 +674,7 @@ static int igmp_send_report(struct in_de
- 	ih->csum=ip_compute_csum((void *)ih, sizeof(struct igmphdr));
- 
- 	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
--		       dst_output);
-+		       ip_dst_output);
- }
- 
- static void igmp_gq_timer_expire(unsigned long data)
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 0923add..486355d 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -51,7 +51,7 @@ static inline int ip_forward_finish(stru
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
- 
--	return dst_output(skb);
-+	return ip_dst_output(skb);
- }
- 
- int ip_forward(struct sk_buff *skb)
+ struct ipcm_cookie
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index b0487a2..eb6906d 100644
+index eb6906d..579877f 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
-@@ -155,7 +155,7 @@ int ip_build_and_send_pkt(struct sk_buff
+@@ -167,6 +167,12 @@ static inline int ip_finish_output3(stru
+ 	struct net_device *dev = dst->dev;
+ 	int hh_len = LL_RESERVED_SPACE(dev);
  
- 	/* Send it out. */
- 	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
--		       dst_output);
-+		       ip_dst_output);
++#if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
++	/* Policy lookup after SNAT yielded a new policy */
++	if (dst->xfrm != NULL)
++		return __ip_dst_output(skb);
++#endif
++
+ 	/* Be paranoid, rather than too clever. */
+ 	if (unlikely(skb_headroom(skb) < hh_len && dev->hard_header)) {
+ 		struct sk_buff *skb2;
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index 0f6616f..8fda96a 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -13,6 +13,7 @@
+ #include <linux/ip.h>
+ #include <net/route.h>
+ #include <net/xfrm.h>
++#include <net/ip.h>
+ 
+ /* route_me_harder function, used by iptable_nat, iptable_mangle + ip_queue */
+ int ip_route_me_harder(struct sk_buff **pskb)
+@@ -61,7 +62,8 @@ int ip_route_me_harder(struct sk_buff **
+ 		return -1;
+ 
+ #ifdef CONFIG_XFRM
+-	if (xfrm_decode_session(*pskb, &fl, AF_INET) == 0)
++	if (!(IPCB(*pskb)->flags & IPSKB_XFRM_TRANSFORMED) &&
++	    xfrm_decode_session(*pskb, &fl, AF_INET) == 0)
+ 		if (xfrm_lookup(&(*pskb)->dst, &fl, (*pskb)->sk, 0))
+ 			return -1;
+ #endif
+@@ -85,7 +87,7 @@ int ip_route_me_harder(struct sk_buff **
+ EXPORT_SYMBOL(ip_route_me_harder);
+ 
+ #ifdef CONFIG_XFRM
+-static inline int __ip_dst_output(struct sk_buff *skb)
++inline int __ip_dst_output(struct sk_buff *skb)
+ {
+ 	int err;
+ 
+diff --git a/net/ipv4/netfilter/ip_nat_standalone.c b/net/ipv4/netfilter/ip_nat_standalone.c
+index ff24bac..e383b16 100644
+--- a/net/ipv4/netfilter/ip_nat_standalone.c
++++ b/net/ipv4/netfilter/ip_nat_standalone.c
+@@ -187,6 +187,10 @@ ip_nat_out(unsigned int hooknum,
+ 	   const struct net_device *out,
+ 	   int (*okfn)(struct sk_buff *))
+ {
++	struct ip_conntrack *ct;
++	enum ip_conntrack_info ctinfo;
++	unsigned int ret;
++
+ 	/* root is playing with raw sockets. */
+ 	if ((*pskb)->len < sizeof(struct iphdr)
+ 	    || (*pskb)->nh.iph->ihl * 4 < sizeof(struct iphdr))
+@@ -194,7 +198,21 @@ ip_nat_out(unsigned int hooknum,
+ 
+ 	WARN_ON((*pskb)->nh.iph->frag_off & htons(IP_MF|IP_OFFSET));
+ 
+-	return ip_nat_fn(hooknum, pskb, in, out, okfn);
++	ret = ip_nat_fn(hooknum, pskb, in, out, okfn);
++	if (ret != NF_DROP && ret != NF_STOLEN
++	    && (ct = ip_conntrack_get(*pskb, &ctinfo)) != NULL) {
++		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
++
++		if (ct->tuplehash[dir].tuple.src.ip !=
++		    ct->tuplehash[!dir].tuple.dst.ip
++#ifdef CONFIG_XFRM
++		    || ct->tuplehash[dir].tuple.src.u.all !=
++		       ct->tuplehash[!dir].tuple.dst.u.all
++#endif
++		    )
++			return ip_route_me_harder(pskb) == 0 ? ret : NF_DROP;
++	}
++	return ret;
  }
  
- EXPORT_SYMBOL_GPL(ip_build_and_send_pkt);
-@@ -373,7 +373,7 @@ packet_routed:
- 	skb->priority = sk->sk_priority;
+ static unsigned int
+@@ -219,7 +237,12 @@ ip_nat_local_fn(unsigned int hooknum,
+ 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
  
- 	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
--		       dst_output);
-+		       ip_dst_output);
- 
- no_route:
- 	IP_INC_STATS(IPSTATS_MIB_OUTNOROUTES);
-@@ -1264,7 +1264,7 @@ int ip_push_pending_frames(struct sock *
- 
- 	/* Netfilter gets whole the not fragmented skb. */
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, 
--		      skb->dst->dev, dst_output);
-+		      skb->dst->dev, ip_dst_output);
- 	if (err) {
- 		if (err > 0)
- 			err = inet->recverr ? net_xmit_errno(err) : 0;
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 302b7eb..40af27f 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1125,7 +1125,7 @@ static inline int ipmr_forward_finish(st
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
- 
--	return dst_output(skb);
-+	return ip_dst_output(skb);
- }
- 
- /*
-diff --git a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
-index 3b87482..b66c3da 100644
---- a/net/ipv4/ipvs/ip_vs_xmit.c
-+++ b/net/ipv4/ipvs/ip_vs_xmit.c
-@@ -130,7 +130,7 @@ do {							\
- 	(skb)->ipvs_property = 1;			\
- 	(skb)->ip_summed = CHECKSUM_NONE;		\
- 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, (skb), NULL,	\
--		(rt)->u.dst.dev, dst_output);		\
-+		(rt)->u.dst.dev, ip_dst_output);	\
- } while (0)
- 
- 
-diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
-index f057025..55b601b 100644
---- a/net/ipv4/netfilter/ipt_REJECT.c
-+++ b/net/ipv4/netfilter/ipt_REJECT.c
-@@ -220,7 +220,7 @@ static void send_reset(struct sk_buff *o
- 	nf_ct_attach(nskb, oldskb);
- 
- 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
--		dst_output);
-+		ip_dst_output);
- 	return;
- 
-  free_nskb:
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 4b0d7e4..421538a 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -313,7 +313,7 @@ static int raw_send_hdrinc(struct sock *
+ 		if (ct->tuplehash[dir].tuple.dst.ip !=
+-		    ct->tuplehash[!dir].tuple.src.ip)
++		    ct->tuplehash[!dir].tuple.src.ip
++#ifdef CONFIG_XFRM
++		    || ct->tuplehash[dir].tuple.dst.u.all !=
++		       ct->tuplehash[dir].tuple.src.u.all
++#endif
++		    )
+ 			return ip_route_me_harder(pskb) == 0 ? ret : NF_DROP;
  	}
+ 	return ret;
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index c135746..9e49eeb 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -133,6 +133,7 @@ int xfrm4_output(struct sk_buff *skb)
+ 		err = -EHOSTUNREACH;
+ 		goto error_nolock;
+ 	}
++	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
+ 	nf_reset(skb);
+ 	err = NET_XMIT_BYPASS;
  
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
--		      dst_output);
-+		      ip_dst_output);
- 	if (err > 0)
- 		err = inet->recverr ? net_xmit_errno(err) : 0;
- 	if (err)
