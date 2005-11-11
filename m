@@ -1,43 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [ANNOUNCE] iproute2 2.6.14-051107
-Date: Tue, 8 Nov 2005 10:28:23 -0800
-Message-ID: <20051108102823.0ab4cf62@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 00/10]: Netfilter IPsec support
+Date: Fri, 11 Nov 2005 04:18:52 +0100
+Message-ID: <43740D9C.80003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Update to iproute2 is available.  Most of the changes were to repair the
-things that broke with the introduction of the batch mode to the ip command.
-	http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.14-051107.tar.gz
+This is the latest set patches for netfilter IPsec support.
+The use of netif_rx for the innermost SA if it used transport
+mode has been replaced by explicit NF_HOOK calls in
+xfrm{4,6}_input.c.
 
-For info on CVS ans other info see:
-	http://linux-net.osdl.org/index.php/Iproute2
-
-Masahide NAKAMURA
-        * Updating for 2.6.14
-        - Show UPD{SA,POLICY} message information from kernel instead of error
-        - Add lengh check of deleting message from kernel
-        - Use macro for struct xfrm_user{sa,policy}_id
-        * Minor fix:
-        - Add fflush at the end of normal dump
-Jamal Hadi Salim 
-        * Fix handling of XFRM monitor and state
- 	* Fix ip rule flush, need to reopen rtnl
-Stephen Hemminger 
-        * Update to 2.6.14 sanitized headers
-        * Add more CBQ examples from Fedora Core
-        * Fix buffer overrun in iproute because of bits vs. bytes confusion
-Patrick McHardy
-        * Fix ip command shortcuts
+[NETFILTER]: Remove okfn usage in ip_vs_core.c
+[NETFILTER]: Defer fragmentation in ip_output when connection tracking 
+is used
+[IPV4]: Replace dst_output by ip_dst_output
+[IPV6]: Replace dst_output by ip6_dst_output
+[IPV4/6]: Netfilter IPsec output hooks
+[IPV4/6]: Make input netfilter IPsec processing symetrical to output
+[NETFILTER]: Fix xfrm lookup in ip_route_me_harder
+[NETFILTER]: Use conntrack information to determine if packet was NATed
+[NETFILTER]: Redo policy lookups after NAT when neccessary
+[NETFILTER]: Handle NAT in IPsec policy checks
