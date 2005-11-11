@@ -1,74 +1,31 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/10]: Netfilter IPsec support
-Date: Fri, 11 Nov 2005 13:09:05 +0100 (CET)
-Message-ID: <Pine.LNX.4.62.0511111243310.32138@kaber.coreworks.de>
-References: <43740D9C.80003@trash.net> <200511111113.32591.lists@egidy.de>
+Subject: Re: [PATCH] [IPV4] Fix secondary IP addresses after promotion
+Date: Fri, 11 Nov 2005 14:16:55 +0100
+Message-ID: <437499C7.7040302@trash.net>
+References: <20051104184633.GA16256@skull.piratehaven.org> <436BFE08.6030906@trash.net> <20051105010740.GR23537@postel.suug.ch> <436C090D.5020201@trash.net> <436C34F8.3090903@trash.net> <20051105134636.GS23537@postel.suug.ch> <20051107215022.GH23537@postel.suug.ch> <4370B203.8070501@trash.net> <20051109005658.GL23537@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "Gerd v. Egidy" <lists@egidy.de>
-In-Reply-To: <200511111113.32591.lists@egidy.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Brian Pomerantz <bapper@piratehaven.org>, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750734AbVKKNRp@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20051109005658.GL23537@postel.suug.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Nov 2005, Gerd v. Egidy wrote:
-
-> Hi,
+Thomas Graf wrote:
+> * Patrick McHardy <kaber@trash.net> 2005-11-08 15:11
 >
->> This is the latest set patches for netfilter IPsec support.
->> The use of netif_rx for the innermost SA if it used transport
->> mode has been replaced by explicit NF_HOOK calls in
->> xfrm{4,6}_input.c.
->
-> Could you please describe the solution you implemented a bit more? There was
-> just so many back and forth that I'm confused now.
+>>I have a patch to do this, but it needs some debugging, for some
+>>unknown reason it crashes sometimes if I remove addresses without
+>>specifying the mask.
+>  
+> Interesting, do you use an iproute2 version with the wildcard
+> address deletion fix attached below?
 
-OK, some explanation. In tunnel mode, packets go through the stack
-again after decapsulation and hit the PRE_ROUTING and LOCAL_IN or FORWARD
-hook, depending on if it is a local packet or is forwarded. For symetry,
-there are now some additional hooks on the output path which pass the
-packet through LOCAL_OUT and POST_ROUTING after tunnel mode transforms.
-This part behaves just as any other tunnel. Transport mode is special,
-we usually don't want to see packets before or after transport mode
-transforms except if it was the plain text packet (the transport
-mode SA is the innermost SA of the bundle). On the output path this
-already works because packets always hit netfilter before reaching
-the transforms, on the input path packets are manually passed through
-PRE_ROUTING and INPUT in this case. For NAT we do two things:
-when a packet is NATed after already beeing routed (including
-the xfrm lookup), it is routed again. If an incoming packet is NATed
-before the policy check, the policy check reconstructs how the packet
-looked before NAT.
-
->
-> If I use it with iptables, do the transport mode packets go through INPUT and
-> OUTPUT twice, decrypted and encrypted?
-
-Yes, if the transport mode transform in the innermost transform
-of the bundle (or the only one).
-
->
-> If I use it with iptables, do the tunnel mode packets go through FORWARD or
-> INPUT and OUTPUT twice, decrypted and encrypted?
-
-Yes.
-
-> Can I do NAT in tunnel and transport mode?
-
-Yes, even NATing forwarded packets and protecting them using a transport
-mode SA works.
-
-> what about the policy match patches, why are they only posted "for
-> completeness" and as 11/12 of 10? Aren't they ready yet?
-
-They should be fine.
+No, its some old debian version. I'm going to try if it makes a
+difference, but it needs to be fixed to work (or at least not crash)
+with old versions anyway.
