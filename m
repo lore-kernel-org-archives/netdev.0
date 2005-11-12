@@ -1,105 +1,47 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: [PATCH] ipw2100: Fix 'Driver using old /proc/net/wireless...' message
-Date: Sat, 12 Nov 2005 12:50:12 -0600
-Message-ID: <43763964.5020503@linux.intel.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] [NETFILTER]: Allow SYN+PSH as valid flag combination
+Date: Sat, 12 Nov 2005 12:14:45 -0800 (PST)
+Message-ID: <20051112.121445.50339329.davem@davemloft.net>
+References: <4374A369.6020308@trash.net>
+	<20051111.114801.112784817.davem@davemloft.net>
+	<20051112103918.GG10584@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Benoit Boissinot <bboissin+ipw2100@gmail.com>,
-	Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932435AbVKLRlX@vger.kernel.org>
-To: NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	vlad@storewiz.com, kaber@trash.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20051112103918.GG10584@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-ipw2100: Fix 'Driver using old /proc/net/wireless...' message
+From: Harald Welte <laforge@netfilter.org>
+Date: Sat, 12 Nov 2005 11:39:18 +0100
 
-Wireless extensions moved the get_wireless_stats handler from being
-in net_device into wireless_handler.
+> [NETFILTER] {ip,nf}_conntrack TCP: Accept SYN+PUSH like SYN
+> 
+> Some devices (e.g. Qlogic iSCSI HBA hardware like QLA4010 up to firmware
+> 3.0.0.4) initiates TCP with SYN and PUSH flags set.
+> 
+> The Linux TCP/IP stack deals fine with that, but the connection tracking
+> code doesn't.
+> 
+> This patch alters TCP connection tracking to accept SYN+PUSH as a valid
+> flag combination.
+> 
+> Signed-off-by: Vlad Drukker <vlad@storewiz.com>
+> Signed-off-by: Harald Welte <laforge@netfilter.org>
 
-A prior instance of this patch resolved the issue for the ipw2200.  This
-one fixes it for the ipw2100.
+Applied.
 
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-Signed-off-by: James Ketrenos <jketreno@linux.intel.com>
----
-Also available as overlay at rsync://bughost.org/repos/ipw-delta/.git/
----
- drivers/net/wireless/ipw2100.c |   29 ++++++++++++++++++-----------
- drivers/net/wireless/ipw2100.h |    2 ++
- 2 files changed, 20 insertions(+), 11 deletions(-)
----
-diff --git a/drivers/net/wireless/ipw2100.c b/drivers/net/wireless/ipw2100.c
-index a2e6214..77d2a21 100644
---- a/drivers/net/wireless/ipw2100.c
-+++ b/drivers/net/wireless/ipw2100.c
-@@ -6344,7 +6344,8 @@ static struct net_device *ipw2100_alloc_
- 	dev->ethtool_ops = &ipw2100_ethtool_ops;
- 	dev->tx_timeout = ipw2100_tx_timeout;
- 	dev->wireless_handlers = &ipw2100_wx_handler_def;
--	dev->get_wireless_stats = ipw2100_wx_wireless_stats;
-+	priv->wireless_data.ieee80211 = priv->ieee;
-+	dev->wireless_data = &priv->wireless_data;
- 	dev->set_mac_address = ipw2100_set_address;
- 	dev->watchdog_timeo = 3 * HZ;
- 	dev->irq = 0;
-@@ -7178,6 +7179,11 @@ static int ipw2100_wx_get_range(struct n
- 	}
- 	range->num_frequency = val;
- 
-+	/* Event capability (kernel + driver) */
-+	range->event_capa[0] = (IW_EVENT_CAPA_K_0 |
-+				IW_EVENT_CAPA_MASK(SIOCGIWAP));
-+	range->event_capa[1] = IW_EVENT_CAPA_K_1;
-+
- 	IPW_DEBUG_WX("GET Range\n");
- 
- 	return 0;
-@@ -8446,16 +8452,6 @@ static iw_handler ipw2100_private_handle
- #endif				/* CONFIG_IPW2100_MONITOR */
- };
- 
--static struct iw_handler_def ipw2100_wx_handler_def = {
--	.standard = ipw2100_wx_handlers,
--	.num_standard = sizeof(ipw2100_wx_handlers) / sizeof(iw_handler),
--	.num_private = sizeof(ipw2100_private_handler) / sizeof(iw_handler),
--	.num_private_args = sizeof(ipw2100_private_args) /
--	    sizeof(struct iw_priv_args),
--	.private = (iw_handler *) ipw2100_private_handler,
--	.private_args = (struct iw_priv_args *)ipw2100_private_args,
--};
--
- /*
-  * Get wireless statistics.
-  * Called by /proc/net/wireless
-@@ -8597,6 +8593,17 @@ static struct iw_statistics *ipw2100_wx_
- 	return (struct iw_statistics *)NULL;
- }
- 
-+static struct iw_handler_def ipw2100_wx_handler_def = {
-+	.standard = ipw2100_wx_handlers,
-+	.num_standard = sizeof(ipw2100_wx_handlers) / sizeof(iw_handler),
-+	.num_private = sizeof(ipw2100_private_handler) / sizeof(iw_handler),
-+	.num_private_args = sizeof(ipw2100_private_args) /
-+	    sizeof(struct iw_priv_args),
-+	.private = (iw_handler *) ipw2100_private_handler,
-+	.private_args = (struct iw_priv_args *)ipw2100_private_args,
-+	.get_wireless_stats = ipw2100_wx_wireless_stats,
-+};
-+
- static void ipw2100_wx_event_work(struct ipw2100_priv *priv)
- {
- 	union iwreq_data wrqu;
-diff --git a/drivers/net/wireless/ipw2100.h b/drivers/net/wireless/ipw2100.h
-index a1a9cbc..7f20cf3 100644
---- a/drivers/net/wireless/ipw2100.h
-+++ b/drivers/net/wireless/ipw2100.h
-@@ -572,6 +572,8 @@ struct ipw2100_priv {
- 	struct net_device *net_dev;
- 	struct iw_statistics wstats;
- 
-+	struct iw_public_data wireless_data;
-+
- 	struct tasklet_struct irq_tasklet;
- 
- 	struct workqueue_struct *workqueue;
+I think this one is a -stable candidate (sans the nf_conntrack
+bits of course :-).  But that's up to you.
