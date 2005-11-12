@@ -1,77 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2.6.15-rc1] VFS: file-max limit 400490 reached
-Date: Sat, 12 Nov 2005 01:03:37 -0500
-Message-ID: <437585B9.5090004@pobox.com>
-References: <43757D18.9090109@pobox.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [RFC: 2.6 patch] remove ISA legacy functions
+Date: Sat, 12 Nov 2005 07:12:02 +0000
+Message-ID: <20051112071201.GA29136@infradead.org>
+References: <20051107200336.GH3847@stusta.de> <20051110042857.38b4635b.akpm@osdl.org> <20051111021258.GK5376@stusta.de> <20051110182443.514622ed.akpm@osdl.org> <20051111201849.GP5376@stusta.de> <20051111202005.GQ5376@stusta.de> <20051111203601.GR5376@stusta.de> <20051112045216.GY5376@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050008070308060006010500"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932158AbVKLGDl@vger.kernel.org>
-To: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-In-Reply-To: <43757D18.9090109@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	jonathan@buzzard.org.uk, tlinux-users@tce.toshiba-dme.co.jp,
+	Jaroslav Kysela <perex@suse.cz>, viro@ftp.linux.org.uk
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20051112045216.GY5376@stusta.de>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050008070308060006010500
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Jeff Garzik wrote:
+On Sat, Nov 12, 2005 at 05:52:16AM +0100, Adrian Bunk wrote:
+> This patch removes the ISA legacy functions that are deprecated since 
+> kernel 2.4 and that aren't available on all architectures.
 > 
-> I rebooted my RHEL4-based ipv4/ipv6 gateway/server into 2.6.15-rc1, and 
-> very soon the box was brought to its knees, spewing
-> 
->     VFS: file-max limit 400490 reached
+> The 7 drivers that were still using this obsolete API are now marked
+> as BROKEN.
 
-Follow-up:  I may have excised too much from the head of the log I posted.
+NACK.  Al has patches pending to convert them to proper APIs, please
+wait until after that patchseries has landed.
 
-It now looks like the radvd troubles may have started with a link 
-up/down event.
-
-Attached is some additional lines found at the -head- of the previously 
-posted log.
-
-
---------------050008070308060006010500
-Content-Type: text/plain;
- name="log2.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="log2.txt"
-
-Nov 11 22:38:32 pretzel dhcpd: dhcpd startup succeeded
-Nov 11 22:38:33 pretzel exim: exim startup succeeded
-Nov 11 22:38:34 pretzel httpd: httpd startup succeeded
-Nov 11 22:38:34 pretzel crond: crond startup succeeded
-Nov 11 22:38:34 pretzel anacron: anacron startup succeeded
-Nov 11 22:38:35 pretzel atd: atd startup succeeded
-Nov 11 22:38:40 pretzel login(pam_unix)[4705]: session opened for user root by LOGIN(uid=0)
-Nov 11 22:38:40 pretzel  -- root[4705]: ROOT LOGIN ON tty1
-Nov 11 22:38:55 pretzel login(pam_unix)[4705]: session closed for user root
-Nov 11 22:45:54 pretzel sshd(pam_unix)[5241]: session opened for user jgarzik by (uid=0)
-Nov 11 22:45:58 pretzel sshd(pam_unix)[5283]: session opened for user jgarzik by (uid=0)
-Nov 11 23:01:01 pretzel crond(pam_unix)[28125]: session opened for user root by (uid=0)
-Nov 11 23:01:02 pretzel crond(pam_unix)[28125]: session closed for user root
-Nov 11 23:01:39 pretzel sshd(pam_unix)[29561]: session opened for user jgarzik by (uid=0)
-Nov 11 23:01:48 pretzel sshd(pam_unix)[29561]: session closed for user jgarzik
-Nov 11 23:34:00 pretzel kernel: e1000: eth1: e1000_watchdog_task: NIC Link is Down
-Nov 11 23:34:01 pretzel netplugd[4112]: eth1: state ACTIVE flags 0x00001043 UP,BROADCAST,RUNNING,MULTICAST -> 0x00001003 UP,BROADCAST,MULTICAST
-Nov 11 23:34:01 pretzel netplugd[25700]: /etc/netplug.d/netplug eth1 out -> pid 25700
-Nov 11 23:34:01 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
-Nov 11 23:34:01 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
-Nov 11 23:34:07 pretzel kernel: e1000: eth1: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
-Nov 11 23:34:07 pretzel netplugd[4112]: eth1: state OUTING flags 0x00001003 UP,BROADCAST,MULTICAST -> 0x00001043 UP,BROADCAST,RUNNING,MULTICAST
-Nov 11 23:34:10 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
-Nov 11 23:34:10 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
-Nov 11 23:34:16 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
-Nov 11 23:34:16 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
-Nov 11 23:34:23 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
-Nov 11 23:34:23 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
-Nov 11 23:34:31 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
-Nov 11 23:34:31 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
-Nov 11 23:34:37 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
-[...]
-
---------------050008070308060006010500--
