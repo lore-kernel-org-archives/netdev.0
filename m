@@ -1,29 +1,77 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [2.6.15-rc1] VFS: file-max limit 400490 reached
-Date: Sat, 12 Nov 2005 00:34:44 -0500
-Message-ID: <43757EF4.1060600@pobox.com>
-References: <43757D18.9090109@pobox.com> <20051112053052.GA1210@taniwha.stupidest.org>
+Date: Sat, 12 Nov 2005 01:03:37 -0500
+Message-ID: <437585B9.5090004@pobox.com>
+References: <43757D18.9090109@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+Content-Type: multipart/mixed;
+ boundary="------------050008070308060006010500"
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932158AbVKLGDl@vger.kernel.org>
+To: Linux Kernel <linux-kernel@vger.kernel.org>,
 	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932138AbVKLFer@vger.kernel.org>
-To: Chris Wedgwood <cw@f00f.org>
-In-Reply-To: <20051112053052.GA1210@taniwha.stupidest.org>
+In-Reply-To: <43757D18.9090109@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Wedgwood wrote:
-> On Sat, Nov 12, 2005 at 12:26:48AM -0500, Jeff Garzik wrote:
-> 
-> 
->>	VFS: file-max limit 400490 reached
-> 
-> 
-> does lsof show anything useful?
+This is a multi-part message in MIME format.
+--------------050008070308060006010500
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Alas, no.  [from memory, I've since rebooted]
+Jeff Garzik wrote:
+> 
+> I rebooted my RHEL4-based ipv4/ipv6 gateway/server into 2.6.15-rc1, and 
+> very soon the box was brought to its knees, spewing
+> 
+>     VFS: file-max limit 400490 reached
 
-lsof | wc -l
-808
+Follow-up:  I may have excised too much from the head of the log I posted.
+
+It now looks like the radvd troubles may have started with a link 
+up/down event.
+
+Attached is some additional lines found at the -head- of the previously 
+posted log.
+
+
+--------------050008070308060006010500
+Content-Type: text/plain;
+ name="log2.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="log2.txt"
+
+Nov 11 22:38:32 pretzel dhcpd: dhcpd startup succeeded
+Nov 11 22:38:33 pretzel exim: exim startup succeeded
+Nov 11 22:38:34 pretzel httpd: httpd startup succeeded
+Nov 11 22:38:34 pretzel crond: crond startup succeeded
+Nov 11 22:38:34 pretzel anacron: anacron startup succeeded
+Nov 11 22:38:35 pretzel atd: atd startup succeeded
+Nov 11 22:38:40 pretzel login(pam_unix)[4705]: session opened for user root by LOGIN(uid=0)
+Nov 11 22:38:40 pretzel  -- root[4705]: ROOT LOGIN ON tty1
+Nov 11 22:38:55 pretzel login(pam_unix)[4705]: session closed for user root
+Nov 11 22:45:54 pretzel sshd(pam_unix)[5241]: session opened for user jgarzik by (uid=0)
+Nov 11 22:45:58 pretzel sshd(pam_unix)[5283]: session opened for user jgarzik by (uid=0)
+Nov 11 23:01:01 pretzel crond(pam_unix)[28125]: session opened for user root by (uid=0)
+Nov 11 23:01:02 pretzel crond(pam_unix)[28125]: session closed for user root
+Nov 11 23:01:39 pretzel sshd(pam_unix)[29561]: session opened for user jgarzik by (uid=0)
+Nov 11 23:01:48 pretzel sshd(pam_unix)[29561]: session closed for user jgarzik
+Nov 11 23:34:00 pretzel kernel: e1000: eth1: e1000_watchdog_task: NIC Link is Down
+Nov 11 23:34:01 pretzel netplugd[4112]: eth1: state ACTIVE flags 0x00001043 UP,BROADCAST,RUNNING,MULTICAST -> 0x00001003 UP,BROADCAST,MULTICAST
+Nov 11 23:34:01 pretzel netplugd[25700]: /etc/netplug.d/netplug eth1 out -> pid 25700
+Nov 11 23:34:01 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
+Nov 11 23:34:01 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
+Nov 11 23:34:07 pretzel kernel: e1000: eth1: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
+Nov 11 23:34:07 pretzel netplugd[4112]: eth1: state OUTING flags 0x00001003 UP,BROADCAST,MULTICAST -> 0x00001043 UP,BROADCAST,RUNNING,MULTICAST
+Nov 11 23:34:10 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
+Nov 11 23:34:10 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
+Nov 11 23:34:16 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
+Nov 11 23:34:16 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
+Nov 11 23:34:23 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
+Nov 11 23:34:23 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
+Nov 11 23:34:31 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
+Nov 11 23:34:31 pretzel radvd[4428]: can't join ipv6-allrouters on eth1
+Nov 11 23:34:37 pretzel radvd[4428]: resetting ipv6-allrouters membership on eth1
+[...]
+
+--------------050008070308060006010500--
