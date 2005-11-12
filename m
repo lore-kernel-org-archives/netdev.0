@@ -1,37 +1,26 @@
-From: "domitila ramos" <montague@prweb.com>
-Subject: Get rid of everything you are indebted for without paying an other cent
-Date: Sat, 12 Nov 2005 20:57:34 +0500
-Message-ID: <3C8AB9F1.115D5D5@prweb.com>
-Reply-To: "domitila ramos" <montague@prweb.com>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: Re: [RFC: 2.6 patch] remove ISA legacy functions
+Date: Sat, 12 Nov 2005 13:48:20 +0000
+Message-ID: <20051112134820.GG7992@ftp.linux.org.uk>
+References: <20051111021258.GK5376@stusta.de> <20051110182443.514622ed.akpm@osdl.org> <20051111201849.GP5376@stusta.de> <20051111202005.GQ5376@stusta.de> <20051111203601.GR5376@stusta.de> <20051112045216.GY5376@stusta.de> <437578CD.1080501@pobox.com> <20051112051102.GF1658@parisc-linux.org> <43757D5C.8030308@pobox.com> <20051112052918.GG1658@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Windy Murray" <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Adrian Bunk <bunk@stusta.de>,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	jonathan@buzzard.org.uk, tlinux-users@tce.toshiba-dme.co.jp,
+	Jaroslav Kysela <perex@suse.cz>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Matthew Wilcox <matthew@wil.cx>
+Content-Disposition: inline
+In-Reply-To: <20051112052918.GG1658@parisc-linux.org>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eliminate all you owe with out paying another dollar.  End the embarrassing
-phone calls. Bring a stop to the mailing of checks! As it turns out nearly
-all lending orgizations not following the laws here in the US. Unbelievable
-but true!
+On Fri, Nov 11, 2005 at 10:29:18PM -0700, Matthew Wilcox wrote:
+> I think they work fine everywhere.  Adrian wants to remove the API they
+> use.
+> 
+> I think this is a bad idea.  The drivers should be converted.
 
-Go to our web site for detailed information about our technique at N O 
-expense or commitment. You have naught to loose and ample to obtain.
-
-http://it.geocities.com/melitta_sutorius/?w=1n.Eradicate all that you are
-indebted for without sending an other dollar
-Detailed information or to stop receiving or to observe postal address
-
-Raise cash flow and your customer base within 24 hours using knowledgeable
-and massive online mail marketing blitz
-Join with biggest and the best markupholders@gawab.com
-
-
-When they saw Rob at liberty, and their comrade lying apparently dead, the
-chief cried out in surprise, using some expressive words in his own
-language. If it's just the same to you, old chap, said Rob, coolly, I won't
-be eaten to-day
-You can make a pie of that fellow on the ground
+They are - I'll send patches later today...
