@@ -1,47 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER]: Allow SYN+PSH as valid flag combination
-Date: Sat, 12 Nov 2005 12:14:45 -0800 (PST)
-Message-ID: <20051112.121445.50339329.davem@davemloft.net>
-References: <4374A369.6020308@trash.net>
-	<20051111.114801.112784817.davem@davemloft.net>
-	<20051112103918.GG10584@sunbeam.de.gnumonks.org>
+From: Yan Zheng <yanzheng@21cn.com>
+Subject: [PATCH]small fix for __ipv6_addr_type(...)
+Date: Sun, 13 Nov 2005 16:01:18 +0800
+Message-ID: <4376F2CE.4050003@21cn.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	vlad@storewiz.com, kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20051112103918.GG10584@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964906AbVKMH7b@vger.kernel.org>
+To: netdev@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Sat, 12 Nov 2005 11:39:18 +0100
+Hi.
 
-> [NETFILTER] {ip,nf}_conntrack TCP: Accept SYN+PUSH like SYN
-> 
-> Some devices (e.g. Qlogic iSCSI HBA hardware like QLA4010 up to firmware
-> 3.0.0.4) initiates TCP with SYN and PUSH flags set.
-> 
-> The Linux TCP/IP stack deals fine with that, but the connection tracking
-> code doesn't.
-> 
-> This patch alters TCP connection tracking to accept SYN+PUSH as a valid
-> flag combination.
-> 
-> Signed-off-by: Vlad Drukker <vlad@storewiz.com>
-> Signed-off-by: Harald Welte <laforge@netfilter.org>
+I think the scope for loopback address should be node local.
 
-Applied.
+Regards
 
-I think this one is a -stable candidate (sans the nf_conntrack
-bits of course :-).  But that's up to you.
+Signed-off-by: Yan Zheng <yanzheng@21cn.com>
+
+========================================================================
+--- linux-2.6.15-rc1/net/ipv6/addrconf.c	2005-11-13 12:23:06.000000000 +0800
++++ linux/net/ipv6/addrconf.c	2005-11-13 15:50:03.000000000 +0800
+@@ -249,7 +249,7 @@ int __ipv6_addr_type(const struct in6_ad
+ 
+ 			if (addr->s6_addr32[3] == htonl(0x00000001))
+ 				return (IPV6_ADDR_LOOPBACK | IPV6_ADDR_UNICAST |
+-					IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_LINKLOCAL));	/* addr-select 3.4 */
++					IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_NODELOCAL));	/* addr-select 3.4 */
+ 
+ 			return (IPV6_ADDR_COMPATv4 | IPV6_ADDR_UNICAST |
+ 				IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_GLOBAL));	/* addr-select 3.3 */
