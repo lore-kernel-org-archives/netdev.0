@@ -1,82 +1,96 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: [PATCH 00/10]: Netfilter IPsec support
-Date: Tue, 15 Nov 2005 16:50:46 +0100
-Message-ID: <BAY103-F240FCD8D8AE36A95868233B25D0@phx.gbl>
-References: <Pine.LNX.4.62.0511111243310.32138@kaber.coreworks.de>
+From: Ingo Oeser <netdev-BkyiQQGWkgE@public.gmane.org>
+Subject: Re: Re: [PATCH] ebtables: Port ebt_[u]log.c to nf[netlink]_log
+Date: Mon, 14 Nov 2005 13:09:37 +0100
+Message-ID: <200511141309.37056.netdev@axxeo.de>
+References: <20051007234903.GR4450@rama.customers.eurospot.com> <1129648337.4504.3.camel@localhost.localdomain> <20051112094936.GA27644@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-In-Reply-To: <Pine.LNX.4.62.0511111243310.32138@kaber.coreworks.de>
-To: kaber@trash.net
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Bart De Schuymer <bdschuym-LPO8gxj9N8aZIoH1IeqzKA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Harald Welte <laforge-TgoAw6mPHtdg9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <20051112094936.GA27644-XKR8MNpNCaUy1wpV0ib6OjPN8QKu1tr+@public.gmane.org>
+Content-Disposition: inline
+Sender: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
+	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
+	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ebtables-devel>
 List-Id: netdev.vger.kernel.org
 
-How are handled NAT-T packets (udp/4500) with these patches?
+Hi Harald,
 
-Patrick McHardy wrote:
+would you mind merging the prink()s ...
 
->
->On Fri, 11 Nov 2005, Gerd v. Egidy wrote:
->
->>Hi,
->>
->>>This is the latest set patches for netfilter IPsec support.
->>>The use of netif_rx for the innermost SA if it used transport
->>>mode has been replaced by explicit NF_HOOK calls in
->>>xfrm{4,6}_input.c.
->>
->>Could you please describe the solution you implemented a bit more? There 
->>was
->>just so many back and forth that I'm confused now.
->
->OK, some explanation. In tunnel mode, packets go through the stack
->again after decapsulation and hit the PRE_ROUTING and LOCAL_IN or FORWARD
->hook, depending on if it is a local packet or is forwarded. For symetry,
->there are now some additional hooks on the output path which pass the
->packet through LOCAL_OUT and POST_ROUTING after tunnel mode transforms.
->This part behaves just as any other tunnel. Transport mode is special,
->we usually don't want to see packets before or after transport mode
->transforms except if it was the plain text packet (the transport
->mode SA is the innermost SA of the bundle). On the output path this
->already works because packets always hit netfilter before reaching
->the transforms, on the input path packets are manually passed through
->PRE_ROUTING and INPUT in this case. For NAT we do two things:
->when a packet is NATed after already beeing routed (including
->the xfrm lookup), it is routed again. If an incoming packet is NATed
->before the policy check, the policy check reconstructs how the packet
->looked before NAT.
->
->>
->>If I use it with iptables, do the transport mode packets go through INPUT 
->>and
->>OUTPUT twice, decrypted and encrypted?
->
->Yes, if the transport mode transform in the innermost transform
->of the bundle (or the only one).
->
->>
->>If I use it with iptables, do the tunnel mode packets go through FORWARD 
->>or
->>INPUT and OUTPUT twice, decrypted and encrypted?
->
->Yes.
->
->>Can I do NAT in tunnel and transport mode?
->
->Yes, even NATing forwarded packets and protecting them using a transport
->mode SA works.
->
->>what about the policy match patches, why are they only posted "for
->>completeness" and as 11/12 of 10? Aren't they ready yet?
->
->They should be fine.
->
+Harald Welte wrote:
+> diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+> --- a/net/bridge/netfilter/ebt_log.c
+> +++ b/net/bridge/netfilter/ebt_log.c
+> @@ -55,17 +57,19 @@ static void print_MAC(unsigned char *p)
+>  }
+>  
+>  #define myNIPQUAD(a) a[0], a[1], a[2], a[3]
+> -static void ebt_log(const struct sk_buff *skb, unsigned int hooknr,
+> -   const struct net_device *in, const struct net_device *out,
+> -   const void *data, unsigned int datalen)
+> +static void
+> +ebt_log_packet(unsigned int pf, unsigned int hooknum,
+> +   const struct sk_buff *skb, const struct net_device *in,
+> +   const struct net_device *out, const struct nf_loginfo *loginfo,
+> +   const char *prefix)
+>  {
+> -	struct ebt_log_info *info = (struct ebt_log_info *)data;
+>  	char level_string[4] = "< >";
+> +	unsigned int bitmask;
+>  
+> -	level_string[1] = '0' + info->loglevel;
+> +	level_string[1] = '0' + loginfo->u.log.level;
+>  	spin_lock_bh(&ebt_log_lock);
+>  	printk(level_string);
+> -	printk("%s IN=%s OUT=%s ", info->prefix, in ? in->name : "",
+> +	printk("%s IN=%s OUT=%s ", prefix, in ? in->name : "",
+>  	   out ? out->name : "");
+>  
+>  	printk("MAC source = ");
+
+... here ...
+
+> @@ -75,7 +79,12 @@ static void ebt_log(const struct sk_buff
+>  
+>  	printk("proto = 0x%04x", ntohs(eth_hdr(skb)->h_proto));
+>  
+
+... and here?
+
+> -	if ((info->bitmask & EBT_LOG_IP) && eth_hdr(skb)->h_proto ==
+> +	if (loginfo->type == NF_LOG_TYPE_LOG)
+> +		bitmask = loginfo->u.log.logflags;
+> +	else
+> +		bitmask = NF_LOG_MASK;
+> +
+> +	if ((bitmask & EBT_LOG_IP) && eth_hdr(skb)->h_proto ==
+>  	   htons(ETH_P_IP)){
+>  		struct iphdr _iph, *ih;
+>  
+
+I prefer evil printk()s over multiple ones :-)
+
+
+Regards
+
+Ingo Oeser
+
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by the JBoss Inc.  Get Certified Today
+Register for a JBoss Training Course.  Free Certification Exam
+for All Training Attendees Through End of 2005. For more info visit:
+http://ads.osdn.com/?ad_id=7628&alloc_id=16845&op=click
