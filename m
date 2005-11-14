@@ -1,41 +1,55 @@
-From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
-Subject: [PATCH] - Fixes sparse warning in ipv6/ipv6_sockglue.c
-Date: Mon, 14 Nov 2005 09:54:22 -0200
-Message-ID: <20051114095422.5cc4727f.lcapitulino__46890.183518599$1131969693$gmane$org@mandriva.com.br>
+From: "John W. Linville" <linville@redhat.com>
+Subject: [ANNOUNCE] fedora-netdev kernel repository
+Date: Mon, 14 Nov 2005 15:51:10 -0500
+Message-ID: <20051114205110.GK25755@redhat.com>
+Reply-To: linville@redhat.com, linville@tuxdriver.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm <akpm@osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932113AbVKNUv0@vger.kernel.org>
+To: fedora-list@redhat.com, fedora-announce-list@redhat.com,
+	fedora-devel-list@redhat.com
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Fedora-netdev!
 
-The patch below fixes the following sparse warning:
+This message is to announce the availability of a new Fedora-based
+kernel repository.  The kernels available there are based upon
+the standard Fedora kernels, with the addition of current upstream
+networking patches which are more recent than the Fedora kernel's
+upstream base.  More information is available here:
 
-net/ipv6/ipv6_sockglue.c:291:13: warning: Using plain integer as NULL pointer
+	http://people.redhat.com/linville/kernels/fedora-netdev/
 
-Signed-off-by: Luiz Capitulino <lcapitulino@mandriva.com.br>
+The purpose of this repository is two-fold: 1) to make bleeding-edge
+linux kernel networking developments available to Fedora users who
+need or want access to them; and, 2) to open-up the Fedora user
+base as a better testing resource for the kernel netdev community.
+I hope this will prove to be a win-win situation for both camps.
 
- net/ipv6/ipv6_sockglue.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+If you are a Fedora user with an interest or need for the latest
+developments in Linux kernel networking, then _please_ try the
+kernels from this repository.  Your testing and feedback is greatly
+appreciated, desperately requested, and graciously accepted.
+Thanks in advance!
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -287,7 +287,7 @@ int ipv6_setsockopt(struct sock *sk, int
- 	{
- 		struct ipv6_txoptions *opt;
- 		if (optlen == 0)
--			optval = 0;
-+			optval = NULL;
- 
- 		/* hop-by-hop / destination options are privileged option */
- 		retv = -EPERM;
+Please feel free to contact me at this address regarding these
+kernels or other Fedora-related issues (especially networking).
+If your interest is coming from the netdev/upstream side of the house,
+you may want to contact me as linville@tuxdriver.com instead.
 
+Thanks,
+
+John
+
+P.S.  For those who just want to cut to the chase, do this (as root):
+
+   cd /etc/yum.repos.d
+   wget http://people.redhat.com/linville/kernels/fedora-netdev/fedora-netdev.repo
+   yum update
 
 -- 
-Luiz Fernando N. Capitulino
+John W. Linville
+linville@redhat.com
