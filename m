@@ -1,32 +1,46 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [RFC: 2.6 patch] remove ISA legacy functions
-Date: Wed, 16 Nov 2005 03:56:50 +0000
-Message-ID: <20051116035650.GA27946@ftp.linux.org.uk>
-References: <20051110182443.514622ed.akpm@osdl.org> <20051111201849.GP5376@stusta.de> <20051111202005.GQ5376@stusta.de> <20051111203601.GR5376@stusta.de> <20051112045216.GY5376@stusta.de> <437578CD.1080501@pobox.com> <20051112051102.GF1658@parisc-linux.org> <43757D5C.8030308@pobox.com> <20051112052918.GG1658@parisc-linux.org> <20051112134820.GG7992@ftp.linux.org.uk>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: fedora-netdev.1 IPv6 freeze [Re: [ANNOUNCE] fedora-netdev kernel
+ repository]
+Date: Wed, 16 Nov 2005 12:46:53 +0200 (EET)
+Message-ID: <Pine.LNX.4.64.0511161242260.26498@netcore.fi>
+References: <20051114205110.GK25755@redhat.com>
+Reply-To: Development discussions related to Fedora Core <fedora-devel-list@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Adrian Bunk <bunk@stusta.de>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	jonathan@buzzard.org.uk, tlinux-users@tce.toshiba-dme.co.jp,
-	Jaroslav Kysela <perex@suse.cz>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: Matthew Wilcox <matthew@wil.cx>
-Content-Disposition: inline
-In-Reply-To: <20051112134820.GG7992@ftp.linux.org.uk>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+Return-path: <fedora-devel-list-bounces@redhat.com>
+To: linville@redhat.com, linville@tuxdriver.com,
+	Development discussions related to Fedora Core <fedora-devel-list@redhat.com>
+In-Reply-To: <20051114205110.GK25755@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/fedora-devel-list>,
+	<mailto:fedora-devel-list-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/fedora-devel-list>
+List-Post: <mailto:fedora-devel-list@redhat.com>
+List-Help: <mailto:fedora-devel-list-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/fedora-devel-list>,
+	<mailto:fedora-devel-list-request@redhat.com?subject=subscribe>
+Sender: fedora-devel-list-bounces@redhat.com
+Errors-To: fedora-devel-list-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 12, 2005 at 01:48:20PM +0000, Al Viro wrote:
-> On Fri, Nov 11, 2005 at 10:29:18PM -0700, Matthew Wilcox wrote:
-> > I think they work fine everywhere.  Adrian wants to remove the API they
-> > use.
-> > 
-> > I think this is a bad idea.  The drivers should be converted.
-> 
-> They are - I'll send patches later today...
+On Mon, 14 Nov 2005, John W. Linville wrote:
+> 	http://people.redhat.com/linville/kernels/fedora-netdev/
 
-NB: never say these words on a Friday night or you'll get a visit from
-Murphy.
+I guess the test can be termed a 'success' because after updating from 
+2.6.14-1.1637_FC4 to 2.6.14-1.1637_FC4.netdev.1, I get 100% 
+reproducible kernel hang (everything just freezes as it is, no message 
+to /var/log/messages or anywhere) after I run '/sbin/ip -6 r l' or try 
+to use IPv6 in basically any other way on my ThinkPad laptop with 
+external orinoco_cs WLAN card.
 
-Apologies for delay, patches sent.
+Any thoughts for the next steps?
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+
+-- 
+fedora-devel-list mailing list
+fedora-devel-list@redhat.com
+https://www.redhat.com/mailman/listinfo/fedora-devel-list
