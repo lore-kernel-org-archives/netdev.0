@@ -1,39 +1,71 @@
-From: Brian Pomerantz <bapper@piratehaven.org>
-Subject: Re: [PATCH] [IPV4] Fix secondary IP addresses after promotion
-Date: Wed, 16 Nov 2005 11:21:09 -0800
-Message-ID: <20051116192109.GA23233@skull.piratehaven.org>
-References: <20051104184633.GA16256@skull.piratehaven.org> <436BFE08.6030906@trash.net> <20051105010740.GR23537@postel.suug.ch> <436C090D.5020201@trash.net> <436C34F8.3090903@trash.net> <20051105134636.GS23537@postel.suug.ch> <20051107215022.GH23537@postel.suug.ch> <4370B203.8070501@trash.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.15-rc1: NET_CLS_U32 not working?
+Date: Thu, 17 Nov 2005 00:58:13 +0100
+Message-ID: <20051116235813.GS5735@stusta.de>
+References: <437BBC59.70301@g-house.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030451AbVKPTVN@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161033AbVKPX6O@vger.kernel.org>
+To: Christian <evil@g-house.de>
 Content-Disposition: inline
-In-Reply-To: <4370B203.8070501@trash.net>
+In-Reply-To: <437BBC59.70301@g-house.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 08, 2005 at 03:11:15PM +0100, Patrick McHardy wrote:
+On Thu, Nov 17, 2005 at 12:10:17AM +0100, Christian wrote:
+> hi,
 > 
-> Yes, fixing it correctly looks very hard. Just changing the routes
-> doesn't seem right to me, someone might have added it with exactly
-> this prefsrc and doesn't want it to change, its also not clear how
-> to notify on this. Taking care of correct ordering of the ifa_list
-> is also more complicated without just deleting and readding them.
+> i noticed that some of my QoS rules are not working any more. oh, i 
+> forgot to enable CONFIG_NET_CLS_U32. but when enabled, i got the 
+> following errors when compiling / installing the module:
 > 
-> I have a patch to do this, but it needs some debugging, for some
-> unknown reason it crashes sometimes if I remove addresses without
-> specifying the mask.
+> * Warning: "unregister_tcf_proto_ops" [net/sched/cls_u32.ko] undefined!
+> * Warning: "register_tcf_proto_ops" [net/sched/cls_u32.ko] undefined!
+> * Warning: "tcf_exts_dump" [net/sched/cls_u32.ko] undefined!
+> * Warning: "tcf_exts_dump_stats" [net/sched/cls_u32.ko] undefined!
+> * Warning: "tcf_exts_change" [net/sched/cls_u32.ko] undefined!
+> * Warning: "tcf_exts_validate" [net/sched/cls_u32.ko] undefined!
+> * Warning: "tcf_exts_destroy" [net/sched/cls_u32.ko] undefined!
+>...
+> when i disabled CONFIG_NET_CLS_U32, everything compiles fine, but 
+> cls_u32 is missing of course :-(
+> 
+> all the missing symbols seem to be defined in include/net/pkt_cls.h. but 
+>  this file is #included by net/sched/cls_u32.c and other too, so i 
+> don't really know, why it doesn't work.
+> 
+> FWIW, i see EXPORT_SYMBOLs at the very end of net/sched/cls_api.c, but i 
+> can't see if/when cls_api.c is used (included?) at all.
+>...
 
-Looks like I'm back on this one because just sending the NETDEV_UP for
-the secondaries didn't work if a primary other than the first one is
-removed.  If you have anything that you need help testing/debugging,
-I'm stuck with this until it is fixed.  I'd prefer not to duplicate
-effort on this if you're close to a fix.  If not, then I'll try to
-come up with something and toss it out for comment.
+
+I'm assuming you are trying to insert the new module in your old kernel?
+
+This is one of the unfortunate but hardly avoidable cases where adding a 
+module requires installing a new kernel.
 
 
-BAPper
+But there's a change in 2.6.15-rc1 that makes this issue much worse:
+It is no longer user-visible.
+
+tristate's select'ing bool's that do not change parts of the (modular) 
+driver but compile additional code into the kernel are simply wrong.
+
+
+> thanks for looking into that,
+> Christian.
+>...
+
+
+cu
+Adrian
+
+BTW: Please Cc netdev@vger.kernel.org on networking issues.
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
