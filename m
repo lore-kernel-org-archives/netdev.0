@@ -1,76 +1,35 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] [RFT] ip_tables NUMA optimization
-Date: Thu, 17 Nov 2005 16:21:45 +0100
-Message-ID: <437CA009.4020006@cosmosbay.com>
-References: <20051117144328.GG14201@sunbeam.de.gnumonks.org>
+From: Christian <evil@g-house.de>
+Subject: Re: 2.6.15-rc1: NET_CLS_U32 not working?
+Date: Thu, 17 Nov 2005 16:57:14 +0100
+Message-ID: <437CA85A.9090408@g-house.de>
+References: <437BBC59.70301@g-house.de> <20051116235813.GS5735@stusta.de> <437BC98E.9020002@g-house.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20051117144328.GG14201@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932220AbVKQP60@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <437BC98E.9020002@g-house.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Harald Welte a =E9crit :
-> I've hand-merged Eric Dumazet's original ip_tables numa optimization
-> patch to current git head.  Also, I've ported it to ip6_tables and
-> arp_tables.
->=20
-> Since this is 2.6.16 stuff, I don't want to have it applied at this
-> time, but merely request testers (esp. for the non-ipv4 part).
->=20
-> Thanks,
->=20
+Christian schrieb:
+> Adrian Bunk schrieb:
+>>
+>> I'm assuming you are trying to insert the new module in your old kernel?
 
-Hi Harald
+yes, rebuilding the whole kernel (after just enabling NET_CLS_U32 as a 
+module) makes the warnings go away.
 
-Thank you for doing this, since I'm currently too busy with my day job to=
-=20
-update the patch myself.
+>> This is one of the unfortunate but hardly avoidable cases where adding 
+>> a module requires installing a new kernel.
 
-However I did read your patch and caught one vfree() call wrongly replace=
-d by=20
-a kfree() call in arp_tables.c
+i wonder why/if this is really needed. although not critical, this 
+behaviour is pretty annoying....
 
+thanks,
+Christian.
+-- 
+BOFH excuse #24:
 
->
-> @@ -911,6 +930,47 @@ static int get_entries(const struct arpt
->  	return ret;
->  }
-> =20
-> +static void free_table_info(struct arpt_table_info *info)
-> +{
-> +	int cpu;
-> +	for_each_cpu(cpu) {
-> +		if (info->size <=3D PAGE_SIZE)
-> +			kfree(info->entries[cpu]);
-> +		else
-> +			kfree(info->entries[cpu]);   !!!!
-> +	}
-> +	kfree(info);
-
-
-It should probably use vfree() like :
-
- > +	for_each_cpu(cpu) {
- > +		if (info->size <=3D PAGE_SIZE)
- > +			kfree(info->entries[cpu]);
- > +		else
- > +			vfree(info->entries[cpu]);
- > +	}
-
-
-See you
-
-Eric Dumazet
+network packets travelling uphill (use a carrier pigeon)
