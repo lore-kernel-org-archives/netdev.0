@@ -1,19 +1,15 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/10]: [NETFILTER]: Defer fragmentation in ip_output
- when connection tracking is used
-Date: Thu, 17 Nov 2005 03:28:24 +0100
-Message-ID: <437BEAC8.40904@trash.net>
-References: <43740DB5.9070206@trash.net>
-	<20051115104425.GA31719@gondor.apana.org.au>
+Subject: Re: [PATCH 00/10]: Netfilter IPsec support
+Date: Thu, 17 Nov 2005 03:35:37 +0100
+Message-ID: <437BEC79.9040004@trash.net>
+References: <BAY103-F240FCD8D8AE36A95868233B25D0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	Harald Welte <laforge@gnumonks.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051115104425.GA31719@gondor.apana.org.au>
+To: Marco Berizzi <pupilla@hotmail.com>
+In-Reply-To: <BAY103-F240FCD8D8AE36A95868233B25D0@phx.gbl>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -25,43 +21,36 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Nov 11, 2005 at 03:19:17AM +0000, Patrick McHardy wrote:
-> 
->>[NETFILTER]: Defer fragmentation in ip_output when connection tracking is used
->>
->>This allows to get rid of the okfn use in ip_refrag and save the useless
->>fragmentation/defragmentation step when NAT is used.
-> 
- >
-> I'm slightly uneasy about this change because for POST_ROUTING, the
-> defragmentation occurs in the middle of the hook, NF_IP_PRI_NAT_SRC.
-> 
-> This means that things like the mangle table currently sees the
-> fragments as opposed to the whole packet.  This patch will change
-> that.
-> 
-> Now I'm not saying that this is necessarily a bad thing.  In fact,
-> for all I know it might make more sense to do this.  But we should
-> consider the possible implications before embarking on it.
+Marco Berizzi wrote:
+> How are handled NAT-T packets (udp/4500) with these patches?
 
-Good point. I would also prefer to have fragmentation occur after
-POST_ROUTING in all cases. Looking at the in-tree targets, it means
-loosing the ability to do a couple of things:
+Instead of ESP packets you see the encapsulated UDP packets
+on the netfilter hooks:
 
-- CLASSIFY fragments differently
-- MARK fragments differently
-- DSCP/ECN/TOS mark fragments differently
-- Change TTLs of fragments to differently values
+(none):~# ping 10.0.0.1 -c 1
+PING 10.0.0.1 (10.0.0.1): 56 data bytes
+OUTPUT      IN= OUT=eth0 SRC=10.0.0.2 DST=10.0.0.1 LEN=84 TOS=0x00 
+PREC=0x00 TTL=64 ID=0 DF PROTO=ICMP TYPE=8 CODE=0 ID=16899 SEQ=0
+POSTROUTING IN= OUT=eth0 SRC=10.0.0.2 DST=10.0.0.1 LEN=84 TOS=0x00 
+PREC=0x00 TTL=64 ID=0 DF PROTO=ICMP TYPE=8 CODE=0 ID=16899 SEQ=0
 
-None of them seems very important. The DSCP and ECN targets were
-broken until not long ago without anyone noticing, the TTL target is
-relatively new. So it comes down to loosing the ability to classify
-fragments of one packet differently using iptables, which doesn't
-make much sense too me. In fact I think it would make classification
-easier if mangle would see the whole packet.
+OUTPUT      IN= OUT=eth0 SRC=10.0.0.2 DST=10.0.0.1 LEN=160 TOS=0x00 
+PREC=0x00 TTL=64 ID=256 DF PROTO=UDP SPT=4500 DPT=4500 LEN=140
+POSTROUTING IN= OUT=eth0 SRC=10.0.0.2 DST=10.0.0.1 LEN=160 TOS=0x00 
+PREC=0x00 TTL=64 ID=256 DF PROTO=UDP SPT=4500 DPT=4500 LEN=140
 
-I've CCed Harald for his opinion in case I missed something.
+PREROUTING  IN=eth0 OUT= MAC=fe:fd:0a:00:00:02:36:ec:4f:25:dc:68:08:00 
+SRC=10.0.0.1 DST=10.0.0.2 LEN=160 TOS=0x00 PREC=0x00 TTL=64 ID=19709 
+PROTO=UDP SPT=4500 DPT=4500 LEN=140
+INPUT       IN=eth0 OUT= MAC=fe:fd:0a:00:00:02:36:ec:4f:25:dc:68:08:00 
+SRC=10.0.0.1 DST=10.0.0.2 LEN=160 TOS=0x00 PREC=0x00 TTL=64 ID=19709 
+PROTO=UDP SPT=4500 DPT=4500 LEN=140
 
-Regards
-Patrick
+PREROUTING  IN=eth0 OUT= MAC=fe:fd:0a:00:00:02:36:ec:4f:25:dc:68:08:00 
+SRC=10.0.0.1 DST=10.0.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=19708 
+PROTO=ICMP TYPE=0 CODE=0 ID=16899 SEQ=0
+INPUT       IN=eth0 OUT= MAC=fe:fd:0a:00:00:02:36:ec:4f:25:dc:68:08:00 
+SRC=10.0.0.1 DST=10.0.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=19708 
+PROTO=ICMP TYPE=0 CODE=0 ID=16899 SEQ=0
+
+64 bytes from 10.0.0.1: icmp_seq=0 ttl=64 time=25.9 ms
