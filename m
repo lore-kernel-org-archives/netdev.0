@@ -1,70 +1,67 @@
-From: Yan Zheng <yanzheng@21cn.com>
-Subject: [PATCH]IPv6: Acquire addrconf_hash_lock for reading instead of writing
- in addrconf_verify(...)
-Date: Thu, 17 Nov 2005 10:14:11 +0800
-Message-ID: <437BE773.6010007@21cn.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 02/10]: [NETFILTER]: Defer fragmentation in ip_output
+ when connection tracking is used
+Date: Thu, 17 Nov 2005 03:28:24 +0100
+Message-ID: <437BEAC8.40904@trash.net>
+References: <43740DB5.9070206@trash.net>
+	<20051115104425.GA31719@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161102AbVKQCLs@vger.kernel.org>
-To: netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	Harald Welte <laforge@gnumonks.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20051115104425.GA31719@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+Herbert Xu wrote:
+> On Fri, Nov 11, 2005 at 03:19:17AM +0000, Patrick McHardy wrote:
+> 
+>>[NETFILTER]: Defer fragmentation in ip_output when connection tracking is used
+>>
+>>This allows to get rid of the okfn use in ip_refrag and save the useless
+>>fragmentation/defragmentation step when NAT is used.
+> 
+ >
+> I'm slightly uneasy about this change because for POST_ROUTING, the
+> defragmentation occurs in the middle of the hook, NF_IP_PRI_NAT_SRC.
+> 
+> This means that things like the mangle table currently sees the
+> fragments as opposed to the whole packet.  This patch will change
+> that.
+> 
+> Now I'm not saying that this is necessarily a bad thing.  In fact,
+> for all I know it might make more sense to do this.  But we should
+> consider the possible implications before embarking on it.
 
-addrconf_verify(...) only traverse address hash table when addrconf_hash_lock is held
-for writing, and it may hold addrconf_hash_lock for a long time. So I think it's better
-to acquire addrconf_hash_lock for reading instead of  writing
+Good point. I would also prefer to have fragmentation occur after
+POST_ROUTING in all cases. Looking at the in-tree targets, it means
+loosing the ability to do a couple of things:
 
-Signed-off-by: Yan Zheng <yanzheng@21cn.com>
+- CLASSIFY fragments differently
+- MARK fragments differently
+- DSCP/ECN/TOS mark fragments differently
+- Change TTLs of fragments to differently values
 
-============================================================
---- a/net/ipv6/addrconf.c	2005-11-17 09:27:54.000000000 +0800
-+++ b/net/ipv6/addrconf.c	2005-11-17 09:25:42.000000000 +0800
-@@ -2627,7 +2627,7 @@ static void addrconf_verify(unsigned lon
- 	for (i=0; i < IN6_ADDR_HSIZE; i++) {
- 
- restart:
--		write_lock(&addrconf_hash_lock);
-+		read_lock(&addrconf_hash_lock);
- 		for (ifp=inet6_addr_lst[i]; ifp; ifp=ifp->lst_next) {
- 			unsigned long age;
- #ifdef CONFIG_IPV6_PRIVACY
-@@ -2649,7 +2649,7 @@ restart:
- 			if (age >= ifp->valid_lft) {
- 				spin_unlock(&ifp->lock);
- 				in6_ifa_hold(ifp);
--				write_unlock(&addrconf_hash_lock);
-+				read_unlock(&addrconf_hash_lock);
- 				ipv6_del_addr(ifp);
- 				goto restart;
- 			} else if (age >= ifp->prefered_lft) {
-@@ -2668,7 +2668,7 @@ restart:
- 
- 				if (deprecate) {
- 					in6_ifa_hold(ifp);
--					write_unlock(&addrconf_hash_lock);
-+					read_unlock(&addrconf_hash_lock);
- 
- 					ipv6_ifa_notify(0, ifp);
- 					in6_ifa_put(ifp);
-@@ -2686,7 +2686,7 @@ restart:
- 						in6_ifa_hold(ifp);
- 						in6_ifa_hold(ifpub);
- 						spin_unlock(&ifp->lock);
--						write_unlock(&addrconf_hash_lock);
-+						read_unlock(&addrconf_hash_lock);
- 						ipv6_create_tempaddr(ifpub, ifp);
- 						in6_ifa_put(ifpub);
- 						in6_ifa_put(ifp);
-@@ -2703,7 +2703,7 @@ restart:
- 				spin_unlock(&ifp->lock);
- 			}
- 		}
--		write_unlock(&addrconf_hash_lock);
-+		read_unlock(&addrconf_hash_lock);
- 	}
- 
- 	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
+None of them seems very important. The DSCP and ECN targets were
+broken until not long ago without anyone noticing, the TTL target is
+relatively new. So it comes down to loosing the ability to classify
+fragments of one packet differently using iptables, which doesn't
+make much sense too me. In fact I think it would make classification
+easier if mangle would see the whole packet.
+
+I've CCed Harald for his opinion in case I missed something.
+
+Regards
+Patrick
