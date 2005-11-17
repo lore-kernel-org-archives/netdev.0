@@ -1,71 +1,41 @@
-From: Adrian Bunk <bunk@stusta.de>
+From: Christian <evil@g-house.de>
 Subject: Re: 2.6.15-rc1: NET_CLS_U32 not working?
-Date: Thu, 17 Nov 2005 00:58:13 +0100
-Message-ID: <20051116235813.GS5735@stusta.de>
-References: <437BBC59.70301@g-house.de>
+Date: Thu, 17 Nov 2005 01:06:38 +0100
+Message-ID: <437BC98E.9020002@g-house.de>
+References: <437BBC59.70301@g-house.de> <20051116235813.GS5735@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161033AbVKPX6O@vger.kernel.org>
-To: Christian <evil@g-house.de>
-Content-Disposition: inline
-In-Reply-To: <437BBC59.70301@g-house.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161038AbVKQAHx@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <20051116235813.GS5735@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 17, 2005 at 12:10:17AM +0100, Christian wrote:
-> hi,
+Adrian Bunk schrieb:
 > 
-> i noticed that some of my QoS rules are not working any more. oh, i 
-> forgot to enable CONFIG_NET_CLS_U32. but when enabled, i got the 
-> following errors when compiling / installing the module:
-> 
-> * Warning: "unregister_tcf_proto_ops" [net/sched/cls_u32.ko] undefined!
-> * Warning: "register_tcf_proto_ops" [net/sched/cls_u32.ko] undefined!
-> * Warning: "tcf_exts_dump" [net/sched/cls_u32.ko] undefined!
-> * Warning: "tcf_exts_dump_stats" [net/sched/cls_u32.ko] undefined!
-> * Warning: "tcf_exts_change" [net/sched/cls_u32.ko] undefined!
-> * Warning: "tcf_exts_validate" [net/sched/cls_u32.ko] undefined!
-> * Warning: "tcf_exts_destroy" [net/sched/cls_u32.ko] undefined!
->...
-> when i disabled CONFIG_NET_CLS_U32, everything compiles fine, but 
-> cls_u32 is missing of course :-(
-> 
-> all the missing symbols seem to be defined in include/net/pkt_cls.h. but 
->  this file is #included by net/sched/cls_u32.c and other too, so i 
-> don't really know, why it doesn't work.
-> 
-> FWIW, i see EXPORT_SYMBOLs at the very end of net/sched/cls_api.c, but i 
-> can't see if/when cls_api.c is used (included?) at all.
->...
+> I'm assuming you are trying to insert the new module in your old kernel?
+
+yes, i tried to "modprobe" the compiled cls_u32 module. but the "make 
+modules" errors are there anyway. i tried to compile a fresh 2.6.15-rc1 
+on a different machine (where i can't do "modprobe") and the errors were 
+there too: http://nerdbynature.de/bits/sheep/2.6.15-rc1/make-modules.log
+
+> This is one of the unfortunate but hardly avoidable cases where adding a 
+> module requires installing a new kernel.
+
+despite of the errors on "make modules" i'll reboot with the "new" 
+kernel asap.
+
+> BTW: Please Cc netdev@vger.kernel.org on networking issues.
+
+ok, will do that.
 
 
-I'm assuming you are trying to insert the new module in your old kernel?
-
-This is one of the unfortunate but hardly avoidable cases where adding a 
-module requires installing a new kernel.
-
-
-But there's a change in 2.6.15-rc1 that makes this issue much worse:
-It is no longer user-visible.
-
-tristate's select'ing bool's that do not change parts of the (modular) 
-driver but compile additional code into the kernel are simply wrong.
-
-
-> thanks for looking into that,
-> Christian.
->...
-
-
-cu
-Adrian
-
-BTW: Please Cc netdev@vger.kernel.org on networking issues.
-
+thank you,
+Christian.
 -- 
+BOFH excuse #442:
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Trojan horse ran out of hay
