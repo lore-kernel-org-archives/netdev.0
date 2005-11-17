@@ -1,32 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
-Date: Fri, 18 Nov 2005 01:08:02 -0800 (PST)
-Message-ID: <20051118.010802.67654592.davem@davemloft.net>
-References: <20051118033302.GO11494@stusta.de>
-	<20051118090158.GA11621@flint.arm.linux.org.uk>
+From: "reva bradley" <lydiaalliss@go2.pl>
+Subject: Do away with everything you are indebted for with out sending an other cent
+Date: Thu, 17 Nov 2005 17:05:04 +0800
+Message-ID: <C7294DE8.C09BC48__38943.7450831339$1132313932$gmane$org@go2.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, saw@saw.sw.com.sg, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030596AbVKRJIQ@vger.kernel.org>
-To: rmk+lkml@arm.linux.org.uk
-In-Reply-To: <20051118090158.GA11621@flint.arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Elin Lewis" <linux-xfs@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Date: Fri, 18 Nov 2005 09:01:59 +0000
+End their harassment and tell them no more calls.
+We have pioneered an advanced system of proven strategies 
+that will get the creditors and debt collectors off your back for good
 
-> On Fri, Nov 18, 2005 at 04:33:02AM +0100, Adrian Bunk wrote:
-> > This patch removes the obsolete drivers/net/eepro100.c driver.
-> > 
-> > Is there any reason why it should be kept?
-> 
-> Tt's the only driver which works correctly on ARM CPUs.  e100 is
-> basically buggy.  This has been discussed here on lkml and more
-> recently on linux-netdev.  If anyone has any further questions
-> please read the archives of those two lists.
+Our debt termination program has legally stopped millions of dollars worth
+of debt from being collected.
 
-Yes, sadly this is still true and therefore the eepro100 driver
-needs to stick around.
+
+check out our Elimination Program here
+http://it.geocities.com/henrys_chrissy/?s=d
+
+
+
+take us out, po box above in site
+
+
+
+
+You are right, and I must wait--wait--wait--patiently and silently--until
+my bonds are loosed by intelligence rather than chance! It is a dreary fate.
+But I must wait--I must wait--I must wait! I'm glad you've come to your
+senses, remarked Rob, drily
+So, if you've nothing more to say-- No! I have nothing more to say
