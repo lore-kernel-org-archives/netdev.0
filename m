@@ -1,58 +1,65 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
-Date: Fri, 18 Nov 2005 16:32:09 +0000
-Message-ID: <20051118163208.GA23355@flint.arm.linux.org.uk>
-References: <20051118033302.GO11494@stusta.de> <20051118090158.GA11621@flint.arm.linux.org.uk> <437DFD6C.1020106@pobox.com>
+From: "Sunet/KTH NOC LISTSERV Server (14.4)" <LISTSERV@SEGATE.SUNET.SE>
+Subject: Rejected posting to LANTRA-L@SEGATE.SUNET.SE
+Date: Fri, 18 Nov 2005 20:17:04 +0100
+Message-ID: <LISTSERV%200511182017042030.0BA7@SEGATE.SUNET.SE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, saw@saw.sw.com.sg,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932400AbVKRQcZ@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <437DFD6C.1020106@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="AKHRYLJeTADTIXQEXHAdGDNWbXbIcF"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2005 at 11:12:28AM -0500, Jeff Garzik wrote:
-> Russell King wrote:
-> >On Fri, Nov 18, 2005 at 04:33:02AM +0100, Adrian Bunk wrote:
-> >
-> >>This patch removes the obsolete drivers/net/eepro100.c driver.
-> >>
-> >>Is there any reason why it should be kept?
-> >
-> >
-> >Tt's the only driver which works correctly on ARM CPUs.  e100 is
-> >basically buggy.  This has been discussed here on lkml and more
-> >recently on linux-netdev.  If anyone has any further questions
-> >please read the archives of those two lists.
-> 
-> After reading the archives, one discovers the current status is:
-> 
-> 	waiting on ARM folks to test e100
-> 
-> Latest reference is public message-id <4371A373.6000308@pobox.com>, 
-> which was CC'd to you.
-> 
-> There is a patch in netdev-2.6.git#e100-sbit and in Andrew's -mm tree 
-> that should solve the ARM problems, and finally allow us to kill 
-> eepro100.  But it's waiting for feedback...
+--AKHRYLJeTADTIXQEXHAdGDNWbXbIcF
 
-So what you're saying is that it's down to me to test the thing.
+You  are  not  authorized  to  send   mail  to  the  LANTRA-L  list  from  your
+netdev@OSS.SGI.COM account.  You might be authorized  to post to the  list from
+another of your accounts, or perhaps when using another mail program configured
+to use a  different e-mail address, but  LISTSERV has no way  to associate this
+other account or address with yours. If  you need assistance or if you have any
+questions regarding  the policy of the  LANTRA-L list, please contact  the list
+owners at LANTRA-L-request@SEGATE.SUNET.SE.
 
-Ok.
+--AKHRYLJeTADTIXQEXHAdGDNWbXbIcF
+Content-Type: message/rfc822
 
-I've been extremely patient waiting for e100 to get fixed (it's been
-literally _years_), and I think it isn't surprising that the hardware
-it was noticed on has been packed away.
+Received: from oss.sgi.com (pcp0010957505pcs.muncie01.in.comcast.net [68.51.101.191])
+	by segate.sunet.se (8.12.10/8.12.10) with ESMTP id jAIJH11g009100
+	for <lantra-l@segate.sunet.se>; Fri, 18 Nov 2005 20:17:02 +0100 (MET)
+Message-Id: <200511181917.jAIJH11g009100@segate.sunet.se>
+From: netdev@oss.sgi.com
+To: lantra-l@segate.sunet.se
+Subject: status
+Date: Fri, 18 Nov 2005 14:31:21 -0500
+MIME-Version: 1.0
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MIMEOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Now I ask the same of others for when I'm (a) well enough to enter
-the cold environment in which this machine is currently stored and
-(b) can find the time to resurect the machine.
+This message was not delivered due to the following reason:
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 Serial core
+Your message was not delivered because the destination computer was
+not reachable within the allowed queue period. The amount of time
+a message is queued before it is returned depends on local configura-
+tion parameters.
+
+Most likely there is a network problem that prevented delivery, but
+it is also possible that the computer is turned off, or does not
+have a mail system running right now.
+
+Your message was not delivered within 3 days:
+Host 160.165.245.61 is not responding.
+
+The following recipients could not receive this message:
+<lantra-l@segate.sunet.se>
+
+Please reply to postmaster@segate.sunet.se
+if you feel this message to be in error.
+
+
+
+--AKHRYLJeTADTIXQEXHAdGDNWbXbIcF--
