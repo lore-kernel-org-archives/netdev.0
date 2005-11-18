@@ -1,31 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [DEBUG INFO]IPv6: sleeping function called from invalid context.
-Date: Fri, 18 Nov 2005 13:35:57 +0100
-Message-ID: <20051118123557.GD20395@postel.suug.ch>
-References: <437D23EB.4020204@21cn.com> <20051118.094721.49574151.yoshfuji@linux-ipv6.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Fri, 18 Nov 2005 11:12:28 -0500
+Message-ID: <437DFD6C.1020106@pobox.com>
+References: <20051118033302.GO11494@stusta.de> <20051118090158.GA11621@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yanzheng@21cn.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161109AbVKRMfh@vger.kernel.org>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20051118.094721.49574151.yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, saw@saw.sw.com.sg,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932342AbVKRQNI@vger.kernel.org>
+To: Russell King <rmk+lkml@arm.linux.org.uk>
+In-Reply-To: <20051118090158.GA11621@flint.arm.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org> 2005-11-18 09:47
-> In article <437D23EB.4020204@21cn.com> (at Fri, 18 Nov 2005 08:44:27 +0800), Yan Zheng <yanzheng@21cn.com> says:
+Russell King wrote:
+> On Fri, Nov 18, 2005 at 04:33:02AM +0100, Adrian Bunk wrote:
 > 
-> > I get follow message when switch to single user mode and the kernel version is 2.6.15-rc1-git5.
-> :
-> > Nov 18 08:26:23 localhost kernel: Debug: sleeping function called from invalid context at mm/slab.c:2472
-> > Nov 18 08:26:23 localhost kernel: in_atomic():1, irqs_disabled():0
-> > Nov 18 08:26:23 localhost kernel:  [<c0149d5a>] kmem_cache_alloc+0x5a/0x70
-> > Nov 18 08:26:23 localhost kernel:  [<e0f47336>] inet6_dump_fib+0xb6/0x110 [ipv6]
+>>This patch removes the obsolete drivers/net/eepro100.c driver.
+>>
+>>Is there any reason why it should be kept?
 > 
-> I remember someone replaced GFP_ATOMIC with GFP_KERNEL...
+> 
+> Tt's the only driver which works correctly on ARM CPUs.  e100 is
+> basically buggy.  This has been discussed here on lkml and more
+> recently on linux-netdev.  If anyone has any further questions
+> please read the archives of those two lists.
 
-I did. I think it was right, why would an allocation be necessary on
-the second call to inet6_dump_fib()? The walker allocated in process
-context on the first call should be reused from cb->args[0].
+After reading the archives, one discovers the current status is:
+
+	waiting on ARM folks to test e100
+
+Latest reference is public message-id <4371A373.6000308@pobox.com>, 
+which was CC'd to you.
+
+There is a patch in netdev-2.6.git#e100-sbit and in Andrew's -mm tree 
+that should solve the ARM problems, and finally allow us to kill 
+eepro100.  But it's waiting for feedback...
+
+	Jeff
