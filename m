@@ -1,37 +1,31 @@
-From: "reva bradley" <lydiaalliss@go2.pl>
-Subject: Do away with everything you are indebted for with out sending an other cent
-Date: Thu, 17 Nov 2005 17:05:04 +0800
-Message-ID: <C7294DE8.C09BC48__38943.7450831339$1132313932$gmane$org@go2.pl>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [DEBUG INFO]IPv6: sleeping function called from invalid context.
+Date: Fri, 18 Nov 2005 13:35:57 +0100
+Message-ID: <20051118123557.GD20395@postel.suug.ch>
+References: <437D23EB.4020204@21cn.com> <20051118.094721.49574151.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Elin Lewis" <linux-xfs@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: yanzheng@21cn.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161109AbVKRMfh@vger.kernel.org>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20051118.094721.49574151.yoshfuji@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-End their harassment and tell them no more calls.
-We have pioneered an advanced system of proven strategies 
-that will get the creditors and debt collectors off your back for good
+* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org> 2005-11-18 09:47
+> In article <437D23EB.4020204@21cn.com> (at Fri, 18 Nov 2005 08:44:27 +0800), Yan Zheng <yanzheng@21cn.com> says:
+> 
+> > I get follow message when switch to single user mode and the kernel version is 2.6.15-rc1-git5.
+> :
+> > Nov 18 08:26:23 localhost kernel: Debug: sleeping function called from invalid context at mm/slab.c:2472
+> > Nov 18 08:26:23 localhost kernel: in_atomic():1, irqs_disabled():0
+> > Nov 18 08:26:23 localhost kernel:  [<c0149d5a>] kmem_cache_alloc+0x5a/0x70
+> > Nov 18 08:26:23 localhost kernel:  [<e0f47336>] inet6_dump_fib+0xb6/0x110 [ipv6]
+> 
+> I remember someone replaced GFP_ATOMIC with GFP_KERNEL...
 
-Our debt termination program has legally stopped millions of dollars worth
-of debt from being collected.
-
-
-check out our Elimination Program here
-http://it.geocities.com/henrys_chrissy/?s=d
-
-
-
-take us out, po box above in site
-
-
-
-
-You are right, and I must wait--wait--wait--patiently and silently--until
-my bonds are loosed by intelligence rather than chance! It is a dreary fate.
-But I must wait--I must wait--I must wait! I'm glad you've come to your
-senses, remarked Rob, drily
-So, if you've nothing more to say-- No! I have nothing more to say
+I did. I think it was right, why would an allocation be necessary on
+the second call to inet6_dump_fib()? The walker allocated in process
+context on the first call should be reused from cb->args[0].
