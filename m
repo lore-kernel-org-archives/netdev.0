@@ -1,46 +1,31 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [RFC: 2.6 patch] remove drivers/net/tulip/xircom_tulip_cb.c
-Date: Sat, 19 Nov 2005 21:43:20 +0100
-Message-ID: <20051119204319.GN16060@stusta.de>
-References: <20051118033306.GP11494@stusta.de> <437E56EA.8070103@rtr.ca>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [DEBUG INFO]IPv6: sleeping function called from invalid context.
+Date: Sat, 19 Nov 2005 22:04:11 +0100
+Message-ID: <20051119210411.GE20395@postel.suug.ch>
+References: <20051118123557.GD20395@postel.suug.ch> <E1EdRCZ-0007uy-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, tulip-users@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750809AbVKSUnW@vger.kernel.org>
-To: Mark Lord <lkml@rtr.ca>
+Cc: yoshfuji@linux-ipv6.org, yanzheng@21cn.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750847AbVKSVDw@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <437E56EA.8070103@rtr.ca>
+In-Reply-To: <E1EdRCZ-0007uy-00@gondolin.me.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2005 at 05:34:18PM -0500, Mark Lord wrote:
-> Adrian Bunk wrote:
-> >This patch removes the obsolete drivers/net/tulip/xircom_tulip_cb.c 
-> >driver.
-> >
-> >Is there any reason why it should be kept?
+* Herbert Xu <herbert@gondor.apana.org.au> 2005-11-19 22:48
+> Thomas Graf <tgraf@suug.ch> wrote:
+> > 
+> > I did. I think it was right, why would an allocation be necessary on
+> > the second call to inet6_dump_fib()? The walker allocated in process
+> > context on the first call should be reused from cb->args[0].
 > 
-> Yes.  It is the only driver that works
-> without lockups on Xircom Cardbus cards.
-> Or so has been the case any time I've tried
-> the alternatives.
-> 
-> Is there any good reason to nuke it?
+> Continued dumps are always called under spin lock (see netlink_dump).
+> So we need to use GFP_ATOMIC in dumpers.
 
-- there's a more recent driver for the same hardware
-- the driver uses the deprecated virt_to_bus/bus_to_virt we want to get 
-  rid of
-
-Can you give me a pointer to your bug report containing more details 
-regarding the problems you had with the xircom_cb driver?
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+The continued dumps wouldn't be the problem, the walker is allocated
+on the initial dump call. It was a mistake though, nlk->cb_lock spin
+lock is always held for cb->dump() even though it should only be
+required during the nlk->cb != NULL check. netlink_dump_start()
+guarantees to only allow one dumper per socket at a time.
