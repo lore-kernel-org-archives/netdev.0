@@ -2,26 +2,18 @@ From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
 Subject: Re: build bug: ipt_CONNMARK.c: undefined reference to
  `need_ip_conntrack'
 Date: Sun, 20 Nov 2005 04:30:18 +0900 (JST)
-Message-ID: <200511191930.jAJJUJoE022266@toshiba.co.jp>
+Message-ID: <200511191930.jAJJUJEv022269@toshiba.co.jp>
 References: <m364qolfuv.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-	boundary="--Next_Part(Sun_Nov_20_04_30_18_2005_933)--"
+ boundary="--Next_Part(Sun_Nov_20_04_30_18_2005_933)--"
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+Cc: laforge@netfilter.org, netfilter-devel@lists.netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750777AbVKSTa2@vger.kernel.org>
 To: khc@pm.waw.pl
 In-Reply-To: <m364qolfuv.fsf@defiant.localdomain>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 ----Next_Part(Sun_Nov_20_04_30_18_2005_933)--
