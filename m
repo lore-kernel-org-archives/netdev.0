@@ -1,28 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [DEBUG INFO]IPv6: sleeping function called from invalid context.
-Date: Sat, 19 Nov 2005 22:48:15 +1100
-Message-ID: <E1EdRCZ-0007uy-00@gondolin.me.apana.org.au>
-References: <20051118123557.GD20395@postel.suug.ch>
-Cc: yoshfuji@linux-ipv6.org, yanzheng@21cn.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751187AbVKSLss@vger.kernel.org>
-To: tgraf@suug.ch (Thomas Graf)
-In-Reply-To: <20051118123557.GD20395@postel.suug.ch>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [git patches] 2.6.x net driver fixes
+Date: Sat, 19 Nov 2005 13:30:27 +0100
+Message-ID: <20051119123027.GA23663@electric-eye.fr.zoreil.com>
+References: <20051118201248.GA5573@havoc.gtf.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751305AbVKSMct@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20051118201248.GA5573@havoc.gtf.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> Andrew Morton:
+>       git-netdev-all-ieee80211_get_payload-warning-fix
 > 
-> I did. I think it was right, why would an allocation be necessary on
-> the second call to inet6_dump_fib()? The walker allocated in process
-> context on the first call should be reused from cb->args[0].
+> Francois Romieu:
+>       r8169: fix printk_ratelimit in the interrupt handler
 
-Continued dumps are always called under spin lock (see netlink_dump).
-So we need to use GFP_ATOMIC in dumpers.
+Actually Andrew Morton should be credited for this one as the Signed-of-by
+lines suggests it. I messed the merge in my public tree.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Sorry for the inconvenience.
+
+--
+Ueimor
