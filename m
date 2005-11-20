@@ -1,7 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 04/13]: [IPV6]: Replace dst_output by ip6_dst_output
-Date: Sun, 20 Nov 2005 17:31:33 +0100
-Message-ID: <20051120163133.16666.8634.sendpatchset@localhost.localdomain>
+Subject: [PATCH 02/13]: [NETFILTER]: Call POST_ROUTING hook before
+	fragmentation
+Date: Sun, 20 Nov 2005 17:31:31 +0100
+Message-ID: <20051120163130.16666.28180.sendpatchset@localhost.localdomain>
 References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	Patrick McHardy <kaber@trash.net>
@@ -19,164 +20,212 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[IPV6]: Replace dst_output by ip6_dst_output
+[NETFILTER]: Call POST_ROUTING hook before fragmentation
 
-Preparation for netfilter IPsec support.
+Call POST_ROUTING hook before fragmentation to get rid of the okfn use
+in ip_refrag and save the useless fragmentation/defragmentation step
+when NAT is used.
+
+The patch introduces one user-visible change, the POSTROUTING chain
+in the mangle table gets entire packets, not fragments, which should
+simplify use of the MARK and CLASSIFY targets for queueing as a nice
+side-effect.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 73f59ffcebcd0a08f6a405c8522074e8b5892b73
-tree 4be1e3bb174f611fa57ee6e1b8d9187e784c85ad
-parent 4eb320a6444a9035da8a83e4886b3691a2ea98f7
-author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:49:40 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:49:40 +0100
+commit d3c70d774e32c4d6f4cc6b8b0b73678aa14a9932
+tree 16b82a0bedbb29b6a709140a7047ce2d52bb776f
+parent ebb0baec0a5e909d4acf16a15601f013093fefb3
+author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:49:11 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:49:11 +0100
 
- include/net/dst.h                |    1 +
- net/ipv6/ip6_input.c             |    4 ++--
- net/ipv6/ip6_output.c            |    7 ++++---
- net/ipv6/ip6_tunnel.c            |    2 +-
- net/ipv6/ndisc.c                 |    8 ++++----
- net/ipv6/netfilter/ip6t_REJECT.c |    2 +-
- net/ipv6/raw.c                   |    2 +-
- 7 files changed, 14 insertions(+), 12 deletions(-)
+ include/net/ip.h                               |    1 -
+ net/ipv4/ip_output.c                           |   30 +++++++++++-------------
+ net/ipv4/netfilter/ip_conntrack_standalone.c   |   26 +--------------------
+ net/ipv4/netfilter/ip_nat_standalone.c         |   17 --------------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   26 +--------------------
+ 5 files changed, 16 insertions(+), 84 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 07f552b..4886f25 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -237,6 +237,7 @@ static inline int dst_output(struct sk_b
+diff --git a/include/net/ip.h b/include/net/ip.h
+index e4563bb..9f09882 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -310,7 +310,6 @@ enum ip_defrag_users
+ 	IP_DEFRAG_CALL_RA_CHAIN,
+ 	IP_DEFRAG_CONNTRACK_IN,
+ 	IP_DEFRAG_CONNTRACK_OUT,
+-	IP_DEFRAG_NAT_OUT,
+ 	IP_DEFRAG_VS_IN,
+ 	IP_DEFRAG_VS_OUT,
+ 	IP_DEFRAG_VS_FWD
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 11c2f68..946e812 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -202,13 +202,11 @@ static inline int ip_finish_output2(stru
+ 
+ static inline int ip_finish_output(struct sk_buff *skb)
+ {
+-	struct net_device *dev = skb->dst->dev;
+-
+-	skb->dev = dev;
+-	skb->protocol = htons(ETH_P_IP);
+-
+-	return NF_HOOK(PF_INET, NF_IP_POST_ROUTING, skb, NULL, dev,
+-		       ip_finish_output2);
++	if (skb->len > dst_mtu(skb->dst) &&
++	    !(skb_shinfo(skb)->ufo_size || skb_shinfo(skb)->tso_size))
++		return ip_fragment(skb, ip_finish_output2);
++	else
++		return ip_finish_output2(skb);
  }
  
- #define ip_dst_output	dst_output
-+#define ip6_dst_output	dst_output
- 
- /* Input packet from network to transport.  */
- static inline int dst_input(struct sk_buff *skb)
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index a6026d2..33d3b0e 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -255,9 +255,9 @@ int ip6_mc_input(struct sk_buff *skb)
- 			
- 			if (deliver) {
- 				skb2 = skb_clone(skb, GFP_ATOMIC);
--				dst_output(skb2);
-+				ip6_dst_output(skb2);
- 			} else {
--				dst_output(skb);
-+				ip6_dst_output(skb);
- 				return 0;
- 			}
- 		}
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index c1fa693..c270798 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -230,7 +230,7 @@ int ip6_xmit(struct sock *sk, struct sk_
- 	if ((skb->len <= mtu) || ipfragok) {
- 		IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
- 		return NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev,
--				dst_output);
-+				ip6_dst_output);
+ int ip_mc_output(struct sk_buff *skb)
+@@ -265,21 +263,21 @@ int ip_mc_output(struct sk_buff *skb)
+ 				newskb->dev, ip_dev_loopback_xmit);
  	}
  
- 	if (net_ratelimit())
-@@ -308,7 +308,7 @@ static int ip6_call_ra_chain(struct sk_b
+-	if (skb->len > dst_mtu(&rt->u.dst))
+-		return ip_fragment(skb, ip_finish_output);
+-	else
+-		return ip_finish_output(skb);
++	return NF_HOOK(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dev,
++		       ip_finish_output);
+ }
  
- static inline int ip6_forward_finish(struct sk_buff *skb)
+ int ip_output(struct sk_buff *skb)
  {
--	return dst_output(skb);
-+	return ip6_dst_output(skb);
++	struct net_device *dev = skb->dst->dev;
++
+ 	IP_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+ 
+-	if (skb->len > dst_mtu(skb->dst) &&
+-		!(skb_shinfo(skb)->ufo_size || skb_shinfo(skb)->tso_size))
+-		return ip_fragment(skb, ip_finish_output);
+-	else
+-		return ip_finish_output(skb);
++	skb->dev = dev;
++	skb->protocol = htons(ETH_P_IP);
++
++	return NF_HOOK(PF_INET, NF_IP_POST_ROUTING, skb, NULL, dev,
++		       ip_finish_output);
  }
  
- int ip6_forward(struct sk_buff *skb)
-@@ -1181,7 +1181,8 @@ int ip6_push_pending_frames(struct sock 
- 
- 	skb->dst = dst_clone(&rt->u.dst);
- 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);	
--	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev, dst_output);
-+	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev,
-+	              ip6_dst_output);
- 	if (err) {
- 		if (err > 0)
- 			err = np->recverr ? net_xmit_errno(err) : 0;
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index e315d0f..7c01eaf 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -746,7 +746,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
- 	nf_reset(skb);
- 	pkt_len = skb->len;
- 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, 
--		      skb->dst->dev, dst_output);
-+		      skb->dst->dev, ip6_dst_output);
- 
- 	if (err == NET_XMIT_SUCCESS || err == NET_XMIT_CN) {
- 		stats->tx_bytes += pkt_len;
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 305d9ee..287170f 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -499,7 +499,7 @@ static void ndisc_send_na(struct net_dev
- 	skb->dst = dst;
- 	idev = in6_dev_get(dst->dev);
- 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
--	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
-+	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_dst_output);
- 	if (!err) {
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTNEIGHBORADVERTISEMENTS);
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
-@@ -582,7 +582,7 @@ void ndisc_send_ns(struct net_device *de
- 	skb->dst = dst;
- 	idev = in6_dev_get(dst->dev);
- 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
--	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
-+	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_dst_output);
- 	if (!err) {
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTNEIGHBORSOLICITS);
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
-@@ -654,7 +654,7 @@ void ndisc_send_rs(struct net_device *de
- 	skb->dst = dst;
- 	idev = in6_dev_get(dst->dev);
- 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);	
--	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
-+	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_dst_output);
- 	if (!err) {
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTROUTERSOLICITS);
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
-@@ -1438,7 +1438,7 @@ void ndisc_send_redirect(struct sk_buff 
- 	buff->dst = dst;
- 	idev = in6_dev_get(dst->dev);
- 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
--	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, buff, NULL, dst->dev, dst_output);
-+	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, buff, NULL, dst->dev, ip6_dst_output);
- 	if (!err) {
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTREDIRECTS);
- 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
-diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
-index b03e87a..8579eaa 100644
---- a/net/ipv6/netfilter/ip6t_REJECT.c
-+++ b/net/ipv6/netfilter/ip6t_REJECT.c
-@@ -161,7 +161,7 @@ static void send_reset(struct sk_buff *o
- 						   sizeof(struct tcphdr), 0));
- 
- 	NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
--		dst_output);
-+		ip6_dst_output);
+ int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
+diff --git a/net/ipv4/netfilter/ip_conntrack_standalone.c b/net/ipv4/netfilter/ip_conntrack_standalone.c
+index dd476b1..13ed18a 100644
+--- a/net/ipv4/netfilter/ip_conntrack_standalone.c
++++ b/net/ipv4/netfilter/ip_conntrack_standalone.c
+@@ -450,30 +450,6 @@ static unsigned int ip_conntrack_defrag(
+ 	return NF_ACCEPT;
  }
  
- static inline void
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 8e9628f..e7fd031 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -571,7 +571,7 @@ static int rawv6_send_hdrinc(struct sock
+-static unsigned int ip_refrag(unsigned int hooknum,
+-			      struct sk_buff **pskb,
+-			      const struct net_device *in,
+-			      const struct net_device *out,
+-			      int (*okfn)(struct sk_buff *))
+-{
+-	struct rtable *rt = (struct rtable *)(*pskb)->dst;
+-
+-	/* We've seen it coming out the other side: confirm */
+-	if (ip_confirm(hooknum, pskb, in, out, okfn) != NF_ACCEPT)
+-		return NF_DROP;
+-
+-	/* Local packets are never produced too large for their
+-	   interface.  We degfragment them at LOCAL_OUT, however,
+-	   so we have to refragment them here. */
+-	if ((*pskb)->len > dst_mtu(&rt->u.dst) &&
+-	    !skb_shinfo(*pskb)->tso_size) {
+-		/* No hook can be after us, so this should be OK. */
+-		ip_fragment(*pskb, okfn);
+-		return NF_STOLEN;
+-	}
+-	return NF_ACCEPT;
+-}
+-
+ static unsigned int ip_conntrack_local(unsigned int hooknum,
+ 				       struct sk_buff **pskb,
+ 				       const struct net_device *in,
+@@ -543,7 +519,7 @@ static struct nf_hook_ops ip_conntrack_h
  
- 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);		
- 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
--		      dst_output);
-+		      ip6_dst_output);
- 	if (err > 0)
- 		err = np->recverr ? net_xmit_errno(err) : 0;
- 	if (err)
+ /* Refragmenter; last chance. */
+ static struct nf_hook_ops ip_conntrack_out_ops = {
+-	.hook		= ip_refrag,
++	.hook		= ip_confirm,
+ 	.owner		= THIS_MODULE,
+ 	.pf		= PF_INET,
+ 	.hooknum	= NF_IP_POST_ROUTING,
+diff --git a/net/ipv4/netfilter/ip_nat_standalone.c b/net/ipv4/netfilter/ip_nat_standalone.c
+index 30cd4e1..f04111f 100644
+--- a/net/ipv4/netfilter/ip_nat_standalone.c
++++ b/net/ipv4/netfilter/ip_nat_standalone.c
+@@ -190,23 +190,6 @@ ip_nat_out(unsigned int hooknum,
+ 	    || (*pskb)->nh.iph->ihl * 4 < sizeof(struct iphdr))
+ 		return NF_ACCEPT;
+ 
+-	/* We can hit fragment here; forwarded packets get
+-	   defragmented by connection tracking coming in, then
+-	   fragmented (grr) by the forward code.
+-
+-	   In future: If we have nfct != NULL, AND we have NAT
+-	   initialized, AND there is no helper, then we can do full
+-	   NAPT on the head, and IP-address-only NAT on the rest.
+-
+-	   I'm starting to have nightmares about fragments.  */
+-
+-	if ((*pskb)->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
+-		*pskb = ip_ct_gather_frags(*pskb, IP_DEFRAG_NAT_OUT);
+-
+-		if (!*pskb)
+-			return NF_STOLEN;
+-	}
+-
+ 	return ip_nat_fn(hooknum, pskb, in, out, okfn);
+ }
+ 
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 8202c1c..818ba72 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -180,30 +180,6 @@ static unsigned int ipv4_conntrack_defra
+ 	return NF_ACCEPT;
+ }
+ 
+-static unsigned int ipv4_refrag(unsigned int hooknum,
+-				struct sk_buff **pskb,
+-				const struct net_device *in,
+-				const struct net_device *out,
+-				int (*okfn)(struct sk_buff *))
+-{
+-	struct rtable *rt = (struct rtable *)(*pskb)->dst;
+-
+-	/* We've seen it coming out the other side: confirm */
+-	if (ipv4_confirm(hooknum, pskb, in, out, okfn) != NF_ACCEPT)
+-		return NF_DROP;
+-
+-	/* Local packets are never produced too large for their
+-	   interface.  We degfragment them at LOCAL_OUT, however,
+-	   so we have to refragment them here. */
+-	if ((*pskb)->len > dst_mtu(&rt->u.dst) &&
+-	    !skb_shinfo(*pskb)->tso_size) {
+-		/* No hook can be after us, so this should be OK. */
+-		ip_fragment(*pskb, okfn);
+-		return NF_STOLEN;
+-	}
+-	return NF_ACCEPT;
+-}
+-
+ static unsigned int ipv4_conntrack_in(unsigned int hooknum,
+ 				      struct sk_buff **pskb,
+ 				      const struct net_device *in,
+@@ -283,7 +259,7 @@ static struct nf_hook_ops ipv4_conntrack
+ 
+ /* Refragmenter; last chance. */
+ static struct nf_hook_ops ipv4_conntrack_out_ops = {
+-	.hook		= ipv4_refrag,
++	.hook		= ipv4_confirm,
+ 	.owner		= THIS_MODULE,
+ 	.pf		= PF_INET,
+ 	.hooknum	= NF_IP_POST_ROUTING,
