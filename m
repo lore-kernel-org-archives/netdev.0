@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 01/13]: [NETFILTER]: Remove okfn usage in ip_vs_core.c
-Date: Sun, 20 Nov 2005 17:31:29 +0100
-Message-ID: <20051120163129.16666.54743.sendpatchset@localhost.localdomain>
+Subject: [PATCH 04/13]: [IPV6]: Replace dst_output by ip6_dst_output
+Date: Sun, 20 Nov 2005 17:31:33 +0100
+Message-ID: <20051120163133.16666.8634.sendpatchset@localhost.localdomain>
 References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	Patrick McHardy <kaber@trash.net>
@@ -19,38 +19,164 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[NETFILTER]: Remove okfn usage in ip_vs_core.c
+[IPV6]: Replace dst_output by ip6_dst_output
 
-okfn should only be used from different contexts to avoid deep call stacks,
-i.e. by nf_queue.
+Preparation for netfilter IPsec support.
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit ebb0baec0a5e909d4acf16a15601f013093fefb3
-tree da877af1ad83666e8ccd54dd94da485444e6b37b
-parent b286e39207237e2f6929959372bf66d9a8d05a82
-author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:48:33 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:48:33 +0100
+commit 73f59ffcebcd0a08f6a405c8522074e8b5892b73
+tree 4be1e3bb174f611fa57ee6e1b8d9187e784c85ad
+parent 4eb320a6444a9035da8a83e4886b3691a2ea98f7
+author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:49:40 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:49:40 +0100
 
- net/ipv4/ipvs/ip_vs_core.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+ include/net/dst.h                |    1 +
+ net/ipv6/ip6_input.c             |    4 ++--
+ net/ipv6/ip6_output.c            |    7 ++++---
+ net/ipv6/ip6_tunnel.c            |    2 +-
+ net/ipv6/ndisc.c                 |    8 ++++----
+ net/ipv6/netfilter/ip6t_REJECT.c |    2 +-
+ net/ipv6/raw.c                   |    2 +-
+ 7 files changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-index 1a0843c..b63bb28 100644
---- a/net/ipv4/ipvs/ip_vs_core.c
-+++ b/net/ipv4/ipvs/ip_vs_core.c
-@@ -532,11 +532,8 @@ static unsigned int ip_vs_post_routing(u
- {
- 	if (!((*pskb)->ipvs_property))
- 		return NF_ACCEPT;
--
- 	/* The packet was sent from IPVS, exit this chain */
--	(*okfn)(*pskb);
--
--	return NF_STOLEN;
-+	return NF_STOP;
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 07f552b..4886f25 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -237,6 +237,7 @@ static inline int dst_output(struct sk_b
  }
  
- u16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+ #define ip_dst_output	dst_output
++#define ip6_dst_output	dst_output
+ 
+ /* Input packet from network to transport.  */
+ static inline int dst_input(struct sk_buff *skb)
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index a6026d2..33d3b0e 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -255,9 +255,9 @@ int ip6_mc_input(struct sk_buff *skb)
+ 			
+ 			if (deliver) {
+ 				skb2 = skb_clone(skb, GFP_ATOMIC);
+-				dst_output(skb2);
++				ip6_dst_output(skb2);
+ 			} else {
+-				dst_output(skb);
++				ip6_dst_output(skb);
+ 				return 0;
+ 			}
+ 		}
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index c1fa693..c270798 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -230,7 +230,7 @@ int ip6_xmit(struct sock *sk, struct sk_
+ 	if ((skb->len <= mtu) || ipfragok) {
+ 		IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+ 		return NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev,
+-				dst_output);
++				ip6_dst_output);
+ 	}
+ 
+ 	if (net_ratelimit())
+@@ -308,7 +308,7 @@ static int ip6_call_ra_chain(struct sk_b
+ 
+ static inline int ip6_forward_finish(struct sk_buff *skb)
+ {
+-	return dst_output(skb);
++	return ip6_dst_output(skb);
+ }
+ 
+ int ip6_forward(struct sk_buff *skb)
+@@ -1181,7 +1181,8 @@ int ip6_push_pending_frames(struct sock 
+ 
+ 	skb->dst = dst_clone(&rt->u.dst);
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);	
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev, dst_output);
++	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dst->dev,
++	              ip6_dst_output);
+ 	if (err) {
+ 		if (err > 0)
+ 			err = np->recverr ? net_xmit_errno(err) : 0;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index e315d0f..7c01eaf 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -746,7 +746,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+ 	nf_reset(skb);
+ 	pkt_len = skb->len;
+ 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, 
+-		      skb->dst->dev, dst_output);
++		      skb->dst->dev, ip6_dst_output);
+ 
+ 	if (err == NET_XMIT_SUCCESS || err == NET_XMIT_CN) {
+ 		stats->tx_bytes += pkt_len;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 305d9ee..287170f 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -499,7 +499,7 @@ static void ndisc_send_na(struct net_dev
+ 	skb->dst = dst;
+ 	idev = in6_dev_get(dst->dev);
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
++	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_dst_output);
+ 	if (!err) {
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTNEIGHBORADVERTISEMENTS);
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
+@@ -582,7 +582,7 @@ void ndisc_send_ns(struct net_device *de
+ 	skb->dst = dst;
+ 	idev = in6_dev_get(dst->dev);
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
++	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_dst_output);
+ 	if (!err) {
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTNEIGHBORSOLICITS);
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
+@@ -654,7 +654,7 @@ void ndisc_send_rs(struct net_device *de
+ 	skb->dst = dst;
+ 	idev = in6_dev_get(dst->dev);
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);	
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, dst_output);
++	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_dst_output);
+ 	if (!err) {
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTROUTERSOLICITS);
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
+@@ -1438,7 +1438,7 @@ void ndisc_send_redirect(struct sk_buff 
+ 	buff->dst = dst;
+ 	idev = in6_dev_get(dst->dev);
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+-	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, buff, NULL, dst->dev, dst_output);
++	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, buff, NULL, dst->dev, ip6_dst_output);
+ 	if (!err) {
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTREDIRECTS);
+ 		ICMP6_INC_STATS(idev, ICMP6_MIB_OUTMSGS);
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index b03e87a..8579eaa 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -161,7 +161,7 @@ static void send_reset(struct sk_buff *o
+ 						   sizeof(struct tcphdr), 0));
+ 
+ 	NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
+-		dst_output);
++		ip6_dst_output);
+ }
+ 
+ static inline void
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 8e9628f..e7fd031 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -571,7 +571,7 @@ static int rawv6_send_hdrinc(struct sock
+ 
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);		
+ 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+-		      dst_output);
++		      ip6_dst_output);
+ 	if (err > 0)
+ 		err = np->recverr ? net_xmit_errno(err) : 0;
+ 	if (err)
