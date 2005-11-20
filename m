@@ -1,8 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 10/13]: [NETFILTER]: Keep the conntrack reference until
-	after policy checks
-Date: Sun, 20 Nov 2005 17:31:41 +0100
-Message-ID: <20051120163140.16666.70958.sendpatchset@localhost.localdomain>
+Subject: [PATCH 06/13]: [IPV4/6]: Netfilter IPsec input hooks
+Date: Sun, 20 Nov 2005 17:31:36 +0100
+Message-ID: <20051120163135.16666.76993.sendpatchset@localhost.localdomain>
 References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	Patrick McHardy <kaber@trash.net>
@@ -20,137 +19,176 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[NETFILTER]: Keep the conntrack reference until after policy checks
+[IPV4/6]: Netfilter IPsec input hooks
 
-Keep the conntrack reference until policy checks have been performed for
-IPsec NAT support. The reference needs to be dropped before a packet is
-queued to avoid having the conntrack module unloadable and before icmp_send
-is called to avoid having the reference attached manually to the outgoing
-ICMP packet and the conntrack entry confirmed when ICMP packets leaves the
-machine.
+When the innermost transform uses transport mode the decapsulated packet
+is not visible to netfilter. Pass the packet through the PRE_ROUTING and
+LOCAL_IN hooks again before handing it to upper layer protocols to make
+netfilter-visibility symetrical to the output path.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 3f615f37e68903f0eea66f5b242bfbb1875ee204
-tree 4c3f9966a01f44784b9cd42e8f7091dbbc09fe5a
-parent 8cb6cfa80dd5dc4da1de280a0278746c262a2d8d
-author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 22:08:45 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 22:08:45 +0100
+commit 08cf39d5d7d8b942431a6529daa3ab69ecfb34b5
+tree 6f2a1a85f915b1b6f89ad50cf3d8855f21a561b6
+parent b847425c693f43a63137d18e36e5c8cf0187c175
+author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:50:22 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 21:50:22 +0100
 
- net/dccp/ipv4.c     |    1 +
- net/ipv4/ip_input.c |   15 +++++++--------
- net/ipv4/raw.c      |    1 +
- net/ipv4/tcp_ipv4.c |    1 +
- net/ipv4/udp.c      |    2 ++
- net/sctp/input.c    |    1 +
- 6 files changed, 13 insertions(+), 8 deletions(-)
+ include/linux/netfilter_ipv4.h |    2 +-
+ include/net/ipv6.h             |    2 ++
+ net/ipv4/netfilter.c           |   20 ++++++++++++++++++++
+ net/ipv4/xfrm4_input.c         |   14 ++++++++++++++
+ net/ipv6/ip6_input.c           |    2 +-
+ net/ipv6/xfrm6_input.c         |   13 +++++++++++++
+ 6 files changed, 51 insertions(+), 2 deletions(-)
 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index ca03521..0030923 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -1147,6 +1147,7 @@ int dccp_v4_rcv(struct sk_buff *skb)
- 		dccp_pr_debug("xfrm4_policy_check failed\n");
- 		goto discard_and_relse;
- 	}
-+	nf_reset(skb);
+diff --git a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.h
+index fdc4a95..e9103fe 100644
+--- a/include/linux/netfilter_ipv4.h
++++ b/include/linux/netfilter_ipv4.h
+@@ -79,7 +79,7 @@ enum nf_ip_hook_priorities {
  
-         if (sk_filter(sk, skb, 0)) {
- 		dccp_pr_debug("sk_filter failed\n");
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 473d0f2..1757778 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -203,10 +203,6 @@ static inline int ip_local_deliver_finis
- 
- 	__skb_pull(skb, ihl);
- 
--	/* Free reference early: we don't need it any more, and it may
--           hold ip_conntrack module loaded indefinitely. */
--	nf_reset(skb);
+ #ifdef __KERNEL__
+ extern int ip_route_me_harder(struct sk_buff **pskb);
 -
-         /* Point into the IP datagram, just past the header. */
-         skb->h.raw = skb->data;
++extern int ip_xfrm_transport_hook(struct sk_buff *skb);
+ #endif /*__KERNEL__*/
  
-@@ -231,10 +227,12 @@ static inline int ip_local_deliver_finis
- 		if ((ipprot = rcu_dereference(inet_protos[hash])) != NULL) {
- 			int ret;
+ #endif /*__LINUX_IP_NETFILTER_H*/
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 6addb4d..4fbfe43 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -414,6 +414,8 @@ extern int			ipv6_rcv(struct sk_buff *sk
+ 					 struct packet_type *pt,
+ 					 struct net_device *orig_dev);
  
--			if (!ipprot->no_policy &&
--			    !xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
--				kfree_skb(skb);
--				goto out;
-+			if (!ipprot->no_policy) {
-+				if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
-+					kfree_skb(skb);
-+					goto out;
-+				}
-+				nf_reset(skb);
- 			}
- 			ret = ipprot->handler(skb);
- 			if (ret < 0) {
-@@ -246,6 +244,7 @@ static inline int ip_local_deliver_finis
- 			if (!raw_sk) {
- 				if (xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
- 					IP_INC_STATS_BH(IPSTATS_MIB_INUNKNOWNPROTOS);
-+					nf_reset(skb);
- 					icmp_send(skb, ICMP_DEST_UNREACH,
- 						  ICMP_PROT_UNREACH, 0);
- 				}
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 421538a..8251a28 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -255,6 +255,7 @@ int raw_rcv(struct sock *sk, struct sk_b
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
++extern int			ip6_rcv_finish(struct sk_buff *skb);
++
+ /*
+  *	upper-layer output functions
+  */
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index b93e7cd..3c39296 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -105,6 +105,26 @@ int ip_dst_output(struct sk_buff *skb)
+ 	return dst_output(skb);
+ }
+ EXPORT_SYMBOL(ip_dst_output);
++
++/*
++ * okfn for transport mode xfrm_input.c hook. Basically a copy of
++ * ip_rcv_finish without statistics and option parsing.
++ */
++int ip_xfrm_transport_hook(struct sk_buff *skb)
++{
++	struct iphdr *iph = skb->nh.iph;
++
++	if (likely(skb->dst == NULL)) {
++		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
++		                         skb->dev);
++		if (unlikely(err))
++			goto drop;
++	}
++	return dst_input(skb);
++drop:
++	kfree_skb(skb);
++	return NET_RX_DROP;
++}
+ #endif /* CONFIG_XFRM */
+ 
+ /*
+diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+index 2d3849c..d90cd93 100644
+--- a/net/ipv4/xfrm4_input.c
++++ b/net/ipv4/xfrm4_input.c
+@@ -11,6 +11,8 @@
+ 
+ #include <linux/module.h>
+ #include <linux/string.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter_ipv4.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+@@ -137,6 +139,8 @@ int xfrm4_rcv_encap(struct sk_buff *skb,
+ 	memcpy(skb->sp->x+skb->sp->len, xfrm_vec, xfrm_nr*sizeof(struct sec_decap_state));
+ 	skb->sp->len += xfrm_nr;
+ 
++	nf_reset(skb);
++
+ 	if (decaps) {
+ 		if (!(skb->dev->flags&IFF_LOOPBACK)) {
+ 			dst_release(skb->dst);
+@@ -145,7 +149,17 @@ int xfrm4_rcv_encap(struct sk_buff *skb,
+ 		netif_rx(skb);
+ 		return 0;
+ 	} else {
++#ifdef CONFIG_NETFILTER
++		__skb_push(skb, skb->data - skb->nh.raw);
++		skb->nh.iph->tot_len = htons(skb->len);
++		ip_send_check(skb->nh.iph);
++
++		NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
++		        ip_xfrm_transport_hook);
++		return 0;
++#else
+ 		return -skb->nh.iph->protocol;
++#endif
  	}
+ 
+ drop_unlock:
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 33d3b0e..e84b3cd 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -48,7 +48,7 @@
+ 
+ 
+ 
+-static inline int ip6_rcv_finish( struct sk_buff *skb) 
++inline int ip6_rcv_finish(struct sk_buff *skb) 
+ {
+ 	if (skb->dst == NULL)
+ 		ip6_route_input(skb);
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index 28c29d7..9987416 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -11,6 +11,8 @@
+ 
+ #include <linux/module.h>
+ #include <linux/string.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter_ipv6.h>
+ #include <net/dsfield.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip.h>
+@@ -121,6 +123,8 @@ int xfrm6_rcv_spi(struct sk_buff **pskb,
+ 	skb->sp->len += xfrm_nr;
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
 +	nf_reset(skb);
- 
- 	skb_push(skb, skb->data - skb->nh.raw);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 4d5021e..66300f9 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1238,6 +1238,7 @@ process:
- 
- 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_and_relse;
-+	nf_reset(skb);
- 
- 	if (sk_filter(sk, skb, 0))
- 		goto discard_and_relse;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 2422a5f..483ca69 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1001,6 +1001,7 @@ static int udp_queue_rcv_skb(struct sock
- 		kfree_skb(skb);
++
+ 	if (decaps) {
+ 		if (!(skb->dev->flags&IFF_LOOPBACK)) {
+ 			dst_release(skb->dst);
+@@ -129,7 +133,16 @@ int xfrm6_rcv_spi(struct sk_buff **pskb,
+ 		netif_rx(skb);
  		return -1;
+ 	} else {
++#ifdef CONFIG_NETFILTER
++		skb->nh.ipv6h->payload_len = htons(skb->len);
++		__skb_push(skb, skb->data - skb->nh.raw);
++
++		NF_HOOK(PF_INET6, NF_IP6_PRE_ROUTING, skb, skb->dev, NULL,
++		        ip6_rcv_finish);
++		return -1;
++#else
+ 		return 1;
++#endif
  	}
-+	nf_reset(skb);
  
- 	if (up->encap_type) {
- 		/*
-@@ -1163,6 +1164,7 @@ int udp_rcv(struct sk_buff *skb)
- 
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto drop;
-+	nf_reset(skb);
- 
- 	/* No socket. Drop packet silently, if checksum is wrong */
- 	if (udp_checksum_complete(skb))
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index b24ff2c..100f577 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -225,6 +225,7 @@ int sctp_rcv(struct sk_buff *skb)
- 
- 	if (!xfrm_policy_check(sk, XFRM_POLICY_IN, skb, family))
- 		goto discard_release;
-+	nf_reset(skb);
- 
- 	ret = sk_filter(sk, skb, 1);
- 	if (ret)
+ drop_unlock:
