@@ -1,7 +1,8 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 11/13]: [NETFILTER]: Handle NAT in IPsec policy checks
-Date: Sun, 20 Nov 2005 17:31:42 +0100
-Message-ID: <20051120163142.16666.14733.sendpatchset@localhost.localdomain>
+Subject: [PATCH 10/13]: [NETFILTER]: Keep the conntrack reference until
+	after policy checks
+Date: Sun, 20 Nov 2005 17:31:41 +0100
+Message-ID: <20051120163140.16666.70958.sendpatchset@localhost.localdomain>
 References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	Patrick McHardy <kaber@trash.net>
@@ -19,170 +20,137 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[NETFILTER]: Handle NAT in IPsec policy checks
+[NETFILTER]: Keep the conntrack reference until after policy checks
 
-Handle NAT of decapsulated IPsec packets by reconstructing the struct flowi
-of the original packet from the conntrack information for IPsec policy
-checks.
+Keep the conntrack reference until policy checks have been performed for
+IPsec NAT support. The reference needs to be dropped before a packet is
+queued to avoid having the conntrack module unloadable and before icmp_send
+is called to avoid having the reference attached manually to the outgoing
+ICMP packet and the conntrack entry confirmed when ICMP packets leaves the
+machine.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 8b46eb2d8365ab18cc965f37681033162a834fe5
-tree 5e8b46d5acd6fa4b1445f181fcf8bce94cade5b0
-parent 3f615f37e68903f0eea66f5b242bfbb1875ee204
-author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 22:09:15 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 22:09:15 +0100
+commit 3f615f37e68903f0eea66f5b242bfbb1875ee204
+tree 4c3f9966a01f44784b9cd42e8f7091dbbc09fe5a
+parent 8cb6cfa80dd5dc4da1de280a0278746c262a2d8d
+author Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 22:08:45 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 19 Nov 2005 22:08:45 +0100
 
- include/linux/netfilter.h              |   16 ++++++++++
- net/ipv4/netfilter.c                   |    3 ++
- net/ipv4/netfilter/ip_nat_standalone.c |   50 +++++++++++++++++++++++++++++++-
- net/xfrm/xfrm_policy.c                 |    2 +
- 4 files changed, 69 insertions(+), 2 deletions(-)
+ net/dccp/ipv4.c     |    1 +
+ net/ipv4/ip_input.c |   15 +++++++--------
+ net/ipv4/raw.c      |    1 +
+ net/ipv4/tcp_ipv4.c |    1 +
+ net/ipv4/udp.c      |    2 ++
+ net/sctp/input.c    |    1 +
+ 6 files changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index be365e7..cc9ee97 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -261,6 +261,20 @@ struct nf_queue_rerouter {
- extern int nf_register_queue_rerouter(int pf, struct nf_queue_rerouter *rer);
- extern int nf_unregister_queue_rerouter(int pf);
- 
-+#include <net/flow.h>
-+extern void (*ip_nat_decode_session)(struct sk_buff *, struct flowi *);
-+
-+static inline void
-+nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, int family)
-+{
-+#ifdef CONFIG_IP_NF_NAT_NEEDED
-+	void (*decodefn)(struct sk_buff *, struct flowi *);
-+
-+	if (family == AF_INET && (decodefn = ip_nat_decode_session) != NULL)
-+		decodefn(skb, fl);
-+#endif
-+}
-+
- #ifdef CONFIG_PROC_FS
- #include <linux/proc_fs.h>
- extern struct proc_dir_entry *proc_net_netfilter;
-@@ -269,6 +283,8 @@ extern struct proc_dir_entry *proc_net_n
- #else /* !CONFIG_NETFILTER */
- #define NF_HOOK(pf, hook, skb, indev, outdev, okfn) (okfn)(skb)
- static inline void nf_ct_attach(struct sk_buff *new, struct sk_buff *skb) {}
-+static inline void
-+nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, int family) {}
- #endif /*CONFIG_NETFILTER*/
- 
- #endif /*__KERNEL__*/
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index 8fda96a..b66856d 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -134,6 +134,9 @@ drop:
- }
- #endif /* CONFIG_XFRM */
- 
-+void (*ip_nat_decode_session)(struct sk_buff *, struct flowi *);
-+EXPORT_SYMBOL(ip_nat_decode_session);
-+
- /*
-  * Extra routing may needed on local out, as the QUEUE target never
-  * returns control to the table.
-diff --git a/net/ipv4/netfilter/ip_nat_standalone.c b/net/ipv4/netfilter/ip_nat_standalone.c
-index b518697..8b8a1f0 100644
---- a/net/ipv4/netfilter/ip_nat_standalone.c
-+++ b/net/ipv4/netfilter/ip_nat_standalone.c
-@@ -55,6 +55,44 @@
- 			         : ((hooknum) == NF_IP_LOCAL_IN ? "LOCAL_IN"  \
- 				    : "*ERROR*")))
- 
-+#ifdef CONFIG_XFRM
-+static void nat_decode_session(struct sk_buff *skb, struct flowi *fl)
-+{
-+	struct ip_conntrack *ct;
-+	struct ip_conntrack_tuple *t;
-+	enum ip_conntrack_info ctinfo;
-+	enum ip_conntrack_dir dir;
-+	unsigned long statusbit;
-+
-+	ct = ip_conntrack_get(skb, &ctinfo);
-+	if (ct == NULL)
-+		return;
-+	dir = CTINFO2DIR(ctinfo);
-+	t = &ct->tuplehash[dir].tuple;
-+
-+	if (dir == IP_CT_DIR_ORIGINAL)
-+		statusbit = IPS_DST_NAT;
-+	else
-+		statusbit = IPS_SRC_NAT;
-+
-+	if (ct->status & statusbit) {
-+		fl->fl4_dst = t->dst.ip;
-+		if (t->dst.protonum == IPPROTO_TCP ||
-+		    t->dst.protonum == IPPROTO_UDP)
-+			fl->fl_ip_dport = t->dst.u.tcp.port;
-+	}
-+
-+	statusbit ^= IPS_NAT_MASK;
-+
-+	if (ct->status & statusbit) {
-+		fl->fl4_src = t->src.ip;
-+		if (t->dst.protonum == IPPROTO_TCP ||
-+		    t->dst.protonum == IPPROTO_UDP)
-+			fl->fl_ip_sport = t->src.u.tcp.port;
-+	}
-+}
-+#endif
-+		
- static unsigned int
- ip_nat_fn(unsigned int hooknum,
- 	  struct sk_buff **pskb,
-@@ -330,10 +368,14 @@ static int init_or_cleanup(int init)
- 
- 	if (!init) goto cleanup;
- 
-+#ifdef CONFIG_XFRM
-+	BUG_ON(ip_nat_decode_session != NULL);
-+	ip_nat_decode_session = nat_decode_session;
-+#endif
- 	ret = ip_nat_rule_init();
- 	if (ret < 0) {
- 		printk("ip_nat_init: can't setup rules.\n");
--		goto cleanup_nothing;
-+		goto cleanup_decode_session;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index ca03521..0030923 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -1147,6 +1147,7 @@ int dccp_v4_rcv(struct sk_buff *skb)
+ 		dccp_pr_debug("xfrm4_policy_check failed\n");
+ 		goto discard_and_relse;
  	}
- 	ret = nf_register_hook(&ip_nat_in_ops);
- 	if (ret < 0) {
-@@ -381,7 +423,11 @@ static int init_or_cleanup(int init)
- 	nf_unregister_hook(&ip_nat_in_ops);
-  cleanup_rule_init:
- 	ip_nat_rule_cleanup();
-- cleanup_nothing:
-+ cleanup_decode_session:
-+#ifdef CONFIG_XFRM
-+	ip_nat_decode_session = NULL;
-+	synchronize_net();
-+#endif
- 	return ret;
- }
++	nf_reset(skb);
  
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index e441f35..8351bb0 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -22,6 +22,7 @@
- #include <linux/workqueue.h>
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
-+#include <linux/netfilter.h>
- #include <linux/module.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
-@@ -938,6 +939,7 @@ int __xfrm_policy_check(struct sock *sk,
+         if (sk_filter(sk, skb, 0)) {
+ 		dccp_pr_debug("sk_filter failed\n");
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 473d0f2..1757778 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -203,10 +203,6 @@ static inline int ip_local_deliver_finis
  
- 	if (xfrm_decode_session(skb, &fl, family) < 0)
- 		return 0;
-+	nf_nat_decode_session(skb, &fl, family);
+ 	__skb_pull(skb, ihl);
  
- 	/* First, check used SA against their selectors. */
- 	if (skb->sp) {
+-	/* Free reference early: we don't need it any more, and it may
+-           hold ip_conntrack module loaded indefinitely. */
+-	nf_reset(skb);
+-
+         /* Point into the IP datagram, just past the header. */
+         skb->h.raw = skb->data;
+ 
+@@ -231,10 +227,12 @@ static inline int ip_local_deliver_finis
+ 		if ((ipprot = rcu_dereference(inet_protos[hash])) != NULL) {
+ 			int ret;
+ 
+-			if (!ipprot->no_policy &&
+-			    !xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+-				kfree_skb(skb);
+-				goto out;
++			if (!ipprot->no_policy) {
++				if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
++					kfree_skb(skb);
++					goto out;
++				}
++				nf_reset(skb);
+ 			}
+ 			ret = ipprot->handler(skb);
+ 			if (ret < 0) {
+@@ -246,6 +244,7 @@ static inline int ip_local_deliver_finis
+ 			if (!raw_sk) {
+ 				if (xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+ 					IP_INC_STATS_BH(IPSTATS_MIB_INUNKNOWNPROTOS);
++					nf_reset(skb);
+ 					icmp_send(skb, ICMP_DEST_UNREACH,
+ 						  ICMP_PROT_UNREACH, 0);
+ 				}
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 421538a..8251a28 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -255,6 +255,7 @@ int raw_rcv(struct sock *sk, struct sk_b
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
++	nf_reset(skb);
+ 
+ 	skb_push(skb, skb->data - skb->nh.raw);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4d5021e..66300f9 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1238,6 +1238,7 @@ process:
+ 
+ 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto discard_and_relse;
++	nf_reset(skb);
+ 
+ 	if (sk_filter(sk, skb, 0))
+ 		goto discard_and_relse;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 2422a5f..483ca69 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1001,6 +1001,7 @@ static int udp_queue_rcv_skb(struct sock
+ 		kfree_skb(skb);
+ 		return -1;
+ 	}
++	nf_reset(skb);
+ 
+ 	if (up->encap_type) {
+ 		/*
+@@ -1163,6 +1164,7 @@ int udp_rcv(struct sk_buff *skb)
+ 
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto drop;
++	nf_reset(skb);
+ 
+ 	/* No socket. Drop packet silently, if checksum is wrong */
+ 	if (udp_checksum_complete(skb))
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index b24ff2c..100f577 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -225,6 +225,7 @@ int sctp_rcv(struct sk_buff *skb)
+ 
+ 	if (!xfrm_policy_check(sk, XFRM_POLICY_IN, skb, family))
+ 		goto discard_release;
++	nf_reset(skb);
+ 
+ 	ret = sk_filter(sk, skb, 1);
+ 	if (ret)
