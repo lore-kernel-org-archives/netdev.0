@@ -1,33 +1,24 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Subject: Re: netlink nlmsg_pid supposed to be pid or tid?
-Date: Tue, 22 Nov 2005 07:51:03 +1100
-Message-ID: <E1EeIcx-0006i3-00@gondolin.me.apana.org.au>
-References: <438220C3.4040602@nortel.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, <kuznet@ms2.inr.ac.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932358AbVKUUvO@vger.kernel.org>
-To: cfriesen@nortel.com (Christopher Friesen)
-In-Reply-To: <438220C3.4040602@nortel.com>
+Date: Tue, 22 Nov 2005 00:35:49 +0300
+Message-ID: <20051121213549.GA28187@ms2.inr.ac.ru>
+References: <438220C3.4040602@nortel.com> <E1EeIcx-0006i3-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Christopher Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750956AbVKUVgX@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1EeIcx-0006i3-00@gondolin.me.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christopher Friesen <cfriesen@nortel.com> wrote:
-> 
-> When using netlink, should "nlmsg_pid" be set to pid (current->tgid) or 
-> tid (current->pid)?
+Hello!
 
-I tend to agree with you here that tgid makes more sense.  Dave, what
-do you think?
+> I tend to agree with you here that tgid makes more sense.
 
-However, you should never assume whatever value the kernel uses since
-it may always choose an arbitrary value should the preferred pid/tgid
-be taken by someone else.
+I agree, apparently netlink_autobind was missed when sed'ing pid->tgid.
+Of course, it does not matter, but tgid is nicer choice from user's viewpoint.
 
-So always use getsockname(2) to find out the correct address.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Alexey
