@@ -1,156 +1,142 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: Re: [PATCH -mm2] net: Fix compiler-error on dgrs.c when !CONFIG_PCI
-Date: Mon, 21 Nov 2005 13:52:49 +0100
-Message-ID: <4381C321.5010805@student.ltu.se>
-References: <E1EdmMo-00020b-00@gondolin.me.apana.org.au> <438097D2.9020607@student.ltu.se> <20051120204001.GA11043@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] do not select NET_CLS
+Date: Mon, 21 Nov 2005 16:59:55 +0100
+Message-ID: <20051121155955.GW16060@stusta.de>
+References: <437BBC59.70301@g-house.de> <20051116235813.GS5735@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, ashutosh.naik@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932289AbVKUMsq@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051120204001.GA11043@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Roman Zippel <zippel@linux-m68k.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932344AbVKUP75@vger.kernel.org>
+To: Christian <evil@g-house.de>
+Content-Disposition: inline
+In-Reply-To: <20051116235813.GS5735@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+>...
+> But there's a change in 2.6.15-rc1 that makes this issue much worse:
+> It is no longer user-visible.
+> 
+> tristate's select'ing bool's that do not change parts of the (modular) 
+> driver but compile additional code into the kernel are simply wrong.
 
->On Sun, Nov 20, 2005 at 04:35:46PM +0100, Richard Knutsson wrote:
->  
->
->>>-#ifdef CONFIG_EISA
->>>-	cardcount = eisa_driver_register(&dgrs_eisa_driver);
->>>+	cardcount = dgrs_register_eisa();
->>>	if (cardcount < 0)
->>>		return cardcount;
->>>-#endif
->>>-	cardcount = pci_register_driver(&dgrs_pci_driver);
->>>-	if (cardcount)
->>>+	cardcount = dgrs_register_pci();
->>>+	if (cardcount < 0) {
->>>      
->>>
->>Are you sure it should be "cardcount < 0" and not "cardcount"?
->>    
->>
->
->Yes if cardcount is >= 0 then the registration was successful.
->
->  
->
->>>+		dgrs_unregister_eisa();
->>>      
->>>
->>Why change the behaviour off this driver?
->>    
->>
->
->Because the driver was buggy.  When this function returns a non-zero
->value, it must return the system to its original state.
->
->That means if the EISA driver has already been registered then it must
->be unregistered.
->
->Cheers,
->  
->
-What do you think about this patch? Will you sign it? It is no longer an 
-error-warning-fix but a bug-fix (and some cleanup).
-I "took" you implementation of dgrs_(un)register_eisa(), especially 
-since eisa needed to be unregistered if pci succeeds (I take you word 
-for it to be so).
-(BTW, this patch is compiled with CONFIG_PCI set, CONFIG_EISA set and 
-both set without errors/warnings for dgrs.o.)
+The patch below (should apply against 2.6.15-rc2) fixes this issue.
 
-This patch requirer the 
-"net-fix-compiler-error-on-dgrsc-when-config_pci.patch" (added to the 
--mm tree after 2.6.15-rc1-mm2):
+cu
+Adrian
 
---- devel/drivers/net/dgrs.c~net-fix-compiler-error-on-dgrsc-when-config_pci	2005-11-19 18:00:34.000000000 -0800
-+++ devel-akpm/drivers/net/dgrs.c	2005-11-19 18:00:34.000000000 -0800
-@@ -1458,6 +1458,8 @@ static struct pci_driver dgrs_pci_driver
- 	.probe = dgrs_pci_probe,
- 	.remove = __devexit_p(dgrs_pci_remove),
- };
-+#else
-+static struct pci_driver dgrs_pci_driver = {};
- #endif
- 
- 
 
-Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
+<--  snip  -->
+
+
+2.6.15-rc changes NET_CLS to being automatically select'ed when needed.
+
+This patch confuses users since NET_CLS is a bool, and compiling an 
+additional module that select's NET_CLS causes unresolved symbols since 
+it's not user-visible that adding a module changes the kernel image.
+
+This patch therefore changes NET_CLS back to the 2.6.14 status quo of 
+being an user-visible option.
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
 ---
 
-diff -Narup a/drivers/net/dgrs.c b/drivers/net/dgrs.c
---- a/drivers/net/dgrs.c	2005-11-21 11:25:29.000000000 +0100
-+++ b/drivers/net/dgrs.c	2005-11-21 11:38:33.000000000 +0100
-@@ -1522,6 +1522,26 @@ static struct eisa_driver dgrs_eisa_driv
- 		.remove = __devexit_p(dgrs_eisa_remove),
- 	}
- };
-+
-+
-+static inline int dgrs_register_eisa(void)
-+{
-+	return eisa_driver_register(&dgrs_eisa_driver);
-+}
-+
-+static inline void dgrs_unregister_eisa(void)
-+{
-+	eisa_driver_unregister(&dgrs_eisa_driver);
-+}
-+
-+#else
-+
-+static inline int dgrs_register_eisa(void)
-+{
-+	return 0;
-+}
-+
-+static inline void dgrs_unregister_eisa(void) {}
- #endif
+ net/sched/Kconfig |   25 ++++++++++++++++---------
+ 1 file changed, 16 insertions(+), 9 deletions(-)
+
+--- linux-2.6.15-rc1-mm2-full/net/sched/Kconfig.old	2005-11-21 16:39:04.000000000 +0100
++++ linux-2.6.15-rc1-mm2-full/net/sched/Kconfig	2005-11-21 16:41:59.000000000 +0100
+@@ -254,11 +254,23 @@
+ comment "Classification"
  
- /*
-@@ -1551,7 +1571,7 @@ MODULE_PARM_DESC(nicmode, "Digi RightSwi
- static int __init dgrs_init_module (void)
- {
- 	int	i;
--	int	cardcount = 0;
-+	int	cardcount;
- 
- 	/*
- 	 *	Command line variable overrides
-@@ -1592,25 +1612,23 @@ static int __init dgrs_init_module (void
- 	/*
- 	 *	Find and configure all the cards
- 	 */
--#ifdef CONFIG_EISA
--	cardcount = eisa_driver_register(&dgrs_eisa_driver);
+ config NET_CLS
+-	boolean
++	bool "Packet classifier API"
++	help
++	  The CBQ scheduling algorithm requires that network packets which are
++	  scheduled to be sent out over a network device be classified
++	  according to some criterion. If you say Y here, you will get a
++	  choice of several different packet classifiers with the following
++	  questions.
 +
-+	cardcount = dgrs_register_eisa();
- 	if (cardcount < 0)
- 		return cardcount;
--#endif
++	  This will enable you to use Differentiated Services (diffserv) and
++	  Resource Reservation Protocol (RSVP) on your Linux router.
++	  Documentation and software is at
++	  <http://diffserv.sourceforge.net/>.
 +
- 	cardcount = pci_register_driver(&dgrs_pci_driver);
--	if (cardcount)
-+	if (cardcount < 0) {
-+		dgrs_unregister_eisa();
- 		return cardcount;
-+	}
- 	return 0;
- }
++if NET_CLS
  
- static void __exit dgrs_cleanup_module (void)
- {
--#ifdef CONFIG_EISA
--	eisa_driver_unregister (&dgrs_eisa_driver);
--#endif
--#ifdef CONFIG_PCI
-+	dgrs_unregister_eisa();
- 	pci_unregister_driver (&dgrs_pci_driver);
--#endif
- }
+ config NET_CLS_BASIC
+ 	tristate "Elementary classification (BASIC)"
+-	select NET_CLS
+ 	---help---
+ 	  Say Y here if you want to be able to classify packets using
+ 	  only extended matches and actions.
+@@ -268,7 +280,6 @@
  
- module_init(dgrs_init_module);
+ config NET_CLS_TCINDEX
+ 	tristate "Traffic-Control Index (TCINDEX)"
+-	select NET_CLS
+ 	---help---
+ 	  Say Y here if you want to be able to classify packets based on
+ 	  traffic control indices. You will want this feature if you want
+@@ -280,7 +291,6 @@
+ config NET_CLS_ROUTE4
+ 	tristate "Routing decision (ROUTE)"
+ 	select NET_CLS_ROUTE
+-	select NET_CLS
+ 	---help---
+ 	  If you say Y here, you will be able to classify packets
+ 	  according to the route table entry they matched.
+@@ -293,7 +303,6 @@
+ 
+ config NET_CLS_FW
+ 	tristate "Netfilter mark (FW)"
+-	select NET_CLS
+ 	---help---
+ 	  If you say Y here, you will be able to classify packets
+ 	  according to netfilter/firewall marks.
+@@ -303,7 +312,6 @@
+ 
+ config NET_CLS_U32
+ 	tristate "Universal 32bit comparisons w/ hashing (U32)"
+-	select NET_CLS
+ 	---help---
+ 	  Say Y here to be able to classify packetes using a universal
+ 	  32bit pieces based comparison scheme.
+@@ -326,7 +334,6 @@
+ 
+ config NET_CLS_RSVP
+ 	tristate "IPv4 Resource Reservation Protocol (RSVP)"
+-	select NET_CLS
+ 	select NET_ESTIMATOR
+ 	---help---
+ 	  The Resource Reservation Protocol (RSVP) permits end systems to
+@@ -341,7 +348,6 @@
+ 
+ config NET_CLS_RSVP6
+ 	tristate "IPv6 Resource Reservation Protocol (RSVP6)"
+-	select NET_CLS
+ 	select NET_ESTIMATOR
+ 	---help---
+ 	  The Resource Reservation Protocol (RSVP) permits end systems to
+@@ -356,7 +362,6 @@
+ 
+ config NET_EMATCH
+ 	bool "Extended Matches"
+-	select NET_CLS
+ 	---help---
+ 	  Say Y here if you want to use extended matches on top of classifiers
+ 	  and select the extended matches below.
+@@ -541,6 +546,8 @@
+ 	  automaticaly selected if needed but can be selected manually for
+ 	  statstical purposes.
+ 
++endif # NET_CLS
++
+ endif # NET_SCHED
+ 
+ endmenu
