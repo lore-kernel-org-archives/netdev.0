@@ -1,45 +1,36 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: Re: [PATCH -mm2] net: Fix compiler-error on dgrs.c when !CONFIG_PCI
-Date: Tue, 22 Nov 2005 00:20:30 +0100
-Message-ID: <4382563E.50502@student.ltu.se>
-References: <E1EeJu8-0006vr-00@gondolin.me.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netlink nlmsg_pid supposed to be pid or tid?
+Date: Tue, 22 Nov 2005 10:34:17 +1100
+Message-ID: <20051121233417.GA27327@gondor.apana.org.au>
+References: <438220C3.4040602@nortel.com> <E1EeIcx-0006i3-00@gondolin.me.apana.org.au> <20051121213549.GA28187@ms2.inr.ac.ru> <4382406D.1040508@nortel.com> <20051121224913.GA31287@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, ashutosh.naik@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932475AbVKUXPs@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1EeJu8-0006vr-00@gondolin.me.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christopher Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932485AbVKUXed@vger.kernel.org>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Disposition: inline
+In-Reply-To: <20051121224913.GA31287@ms2.inr.ac.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+On Tue, Nov 22, 2005 at 01:49:13AM +0300, Alexey Kuznetsov wrote:
+> 
+> Actually, I remember one discussion. Herbert, wait a minute...
+> That's it: February 2005, Subject: [PATCH] Add audit uid to netlink credentials
+> We decided (or not?) that binding to anything but tgid and pid
+> must be prohibited by security reasons. Apaprently, the finding was lost.
 
->Richard Knutsson <ricknu-0@student.ltu.se> wrote:
->  
->
->>We need it even if pci_register_driver() and pci_register_driver() is 
->>empty shells. And instead of removing #endif CONFIG_PCI for 
->>    
->>
->
->I don't think so.  Please see my previous patch where pci_register_driver
->is not called at all if CONFIG_PCI is not defined.
->
->Cheers,
->  
->
-Yes, I know you patch don't need it (thought you commented the patch vs. 
-dgrs.c, not vs. you patch). But to do that, you have to introduce a new 
-dgrs-specific pci-layer to compensate. If you don't want to have an 
-empty struct, is it not nicer/easier to just #ifdef CONFIG_PCI the 
-pci_*-functions? (instead of two inline functions for every used 
-pci_*-function?)
+Thanks for reminding me.  We may still need to track that down (we
+have now serialised most of the netlink processing so this my not be
+as bad as it was).
 
-Am thinking of removing the #ifdef CONFIG_PCI's in other files, to 
-"clean up" the code, but that would introduce this problem again, don't 
-you think it is more readable to make an empty struct when !CONFIG_PCI, 
-then making new pci_*-functions specific to the driver?
+However, I think explicit binding should still be allowed for root,
+so nobody should take the PID for granted.
 
-cu
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
