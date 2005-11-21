@@ -1,68 +1,127 @@
-From: "isaac hall" <liseubh@snail-mail.net>
-Subject: Judgement Processing Professional. High $ income
-Date: Sun, 20 Nov 2005 22:33:36 -0100
-Message-ID: <2F127341.7FD2B4E@snail-mail.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 06/13]: [IPV4/6]: Netfilter IPsec input hooks
+Date: Mon, 21 Nov 2005 17:50:33 +0900 (JST)
+Message-ID: <20051121.175033.87771604.yoshfuji@linux-ipv6.org>
+References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
+	<20051120163135.16666.76993.sendpatchset@localhost.localdomain>
+	<438185ED.3050005@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <outgoing@oss.sgi.com>, <netdev@oss.sgi.com>, <fam-bounce@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Kimberlee Montgomery" <apache@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	davem@davemloft.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kazunori@miyazawa.org, kaber@trash.net
+In-Reply-To: <438185ED.3050005@miyazawa.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kim, 
+Hello.
 
-Before I joined you I found myself let go from a job I held for 26 years. I
-can't thank you enough for introducting  me in this business. You have given
-me a bright lease on life.  Already earning twice as much as I earned in my
-old job.  
+In article <438185ED.3050005@miyazawa.org> (at Mon, 21 Nov 2005 17:31:41 +0900), Kazunori Miyazawa <kazunori@miyazawa.org> says:
 
+> Your ip_xfrm_transport_hook is a good idea, I think.
+> 
+> We could call ip6_rcv_finish if the netfilter changed the addresses
+> or otherwise we can continue the loop to avoid the cost in a similar
+> way because we can know the change with checking skb->dst.
 
-I drive a 2005 Jaguar S Type. Taking home 6 digit level in 18 months.
-Really having a ball in this business. It is fun and I am a hero to the
-courts and to my clients. What an exciting job to be in.
+Well, I agree.
 
-Doing exactly what your training tells me to do, is working beautifully.  I
-go to the court and locate all of the clients I can handle. 
+In article <20051120163135.16666.76993.sendpatchset@localhost.localdomain> (at Sun, 20 Nov 2005 17:31:36 +0100), Patrick McHardy <kaber@trash.net> says:
 
+> diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+> index b93e7cd..3c39296 100644
+> --- a/net/ipv4/netfilter.c
+> +++ b/net/ipv4/netfilter.c
+> @@ -105,6 +105,26 @@ int ip_dst_output(struct sk_buff *skb)
+>  	return dst_output(skb);
+>  }
+>  EXPORT_SYMBOL(ip_dst_output);
+> +
+> +/*
+> + * okfn for transport mode xfrm_input.c hook. Basically a copy of
+> + * ip_rcv_finish without statistics and option parsing.
+> + */
+> +int ip_xfrm_transport_hook(struct sk_buff *skb)
+> +{
+> +	struct iphdr *iph = skb->nh.iph;
+> +
+> +	if (likely(skb->dst == NULL)) {
+> +		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
+> +		                         skb->dev);
+> +		if (unlikely(err))
+> +			goto drop;
+> +	}
+> +	return dst_input(skb);
+> +drop:
+> +	kfree_skb(skb);
+> +	return NET_RX_DROP;
+> +}
+>  #endif /* CONFIG_XFRM */
+>  
+:
+> @@ -129,7 +133,16 @@ int xfrm6_rcv_spi(struct sk_buff **pskb,
+>  		netif_rx(skb);
+>  		return -1;
+>  	} else {
+> +#ifdef CONFIG_NETFILTER
+> +		skb->nh.ipv6h->payload_len = htons(skb->len);
+> +		__skb_push(skb, skb->data - skb->nh.raw);
+> +
+> +		NF_HOOK(PF_INET6, NF_IP6_PRE_ROUTING, skb, skb->dev, NULL,
+> +		        ip6_rcv_finish);
+> +		return -1;
+> +#else
+>  		return 1;
+> +#endif
+>  	}
+>  
 
-I utilize your advanced reporting services to find all assets and
-employment. Using your fill in the blank forms I send them out to the
-appropriate firms. Then the funds arrive to my PO Box.  Its like magic.  I
-love it. 
+Probably, we can do similarly for ipv6; e.g.:
 
-I can take a holiday when ever I have a whim to do so.  Hawaii and a 1050
-footer to the Panama Canal etc. this year. 
+int ip6_xfrm_transport_hook(struct sk_buff *skb)
+{
+#if 0 /* We NEVER support NAT. :-) */
+     if (likely(skb->dst == NULL)) {
+            int err = ip6_route_input()
+            if (unlikely(err))
+                     goto drop;
+     }
+#endif
+     __skb_pull(skb, skb->h.raw - skb->nh.raw);
+     return NET_RX_SUCCESS;
+drop:
+     kfree_skb(skb);
+     return NET_RX_DROP;
+}
 
-Please show this letter to others.  This profession is so big it needs many
-more of us assisting the courts and the  people who have been damaged.
+:
 
-Sincerely,
-Jesus A.    Ohio    
+      } else {
+#ifdef CONFIG_NETFILTER
+             skb->nh.ipv6h->payload_len = htons(skb->len);
+	     skb->h.raw = skb->data;
+             __skb_push(skb, skb->data - skb->nh.raw);
 
+             if (NF_HOOK(PF_INET6, NF_IP6_PRE_ROUTING, skb, skb->dev, NULL,
+                         ip6_xfrm_transport_hook) == NET_RX_DROP)
+                 return -1;
+#endif
+             return 1;
+      }
 
-This could be you! 
+Then, we can continue parsing extension headers, I think.
 
-Go to our site below where we provide you more indepth details about our
-system at 0 outlay or obligation. You do not have a thing to lose and lots
-to gain.
-
-
-http://it.geocities.com/woodsjeromue/?2=r.Challenge your brain. High $
-Income
-
-
-The soldiers made thrusts at him with their weapons, and an officer jabbed
-at his breast with a glittering sword, but the Garment of Repulsion
-protected him from these dangers as well as from a hail of bullets that
-followed his advancing figure. He reached the entrance of the palace only to
-face another group of guardsmen and a second order to halt, and as these
-soldiers were over six feet tall and stood shoulder to shoulder Rob saw that
-he could not hope to pass them without using his electric tube
-Stand aside, you fellows! he ordered
-
-Above to learn more or to bring an end to receiving more info and then to
-see location
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
