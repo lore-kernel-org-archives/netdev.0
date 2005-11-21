@@ -1,227 +1,83 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] kill drivers/net/irda/sir_core.c
-Date: Mon, 21 Nov 2005 00:29:04 +0100
-Message-ID: <20051120232904.GM16060@stusta.de>
+From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
+Subject: Re: [PATCH 06/13]: [IPV4/6]: Netfilter IPsec input hooks
+Date: Mon, 21 Nov 2005 13:42:24 +0900 (JST)
+Message-ID: <200511210442.jAL4gP5c001845@toshiba.co.jp>
+References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
+	<20051120163135.16666.76993.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932123AbVKTX3H@vger.kernel.org>
-To: Jean Tourrilhes <jt@hpl.hp.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	davem@davemloft.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kaber@trash.net
+In-Reply-To: <20051120163135.16666.76993.sendpatchset@localhost.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-EXPORT_SYMBOL's do nowadays belong to the files where the actual 
-functions are.
 
-Moving the module_init/module_exit to the file with the actual functions 
-has the advantage of saving a few bytes due to the removal of two 
-functions.
+Hi, Patrick,
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Sun, 20 Nov 2005 17:31:36 +0100
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> [IPV4/6]: Netfilter IPsec input hooks
+> 
+> When the innermost transform uses transport mode the decapsulated packet
+> is not visible to netfilter. Pass the packet through the PRE_ROUTING and
+> LOCAL_IN hooks again before handing it to upper layer protocols to make
+> netfilter-visibility symetrical to the output path.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
----
+At first, now I could agree to use same name for hooks before/after xfrm
+processing, if it's important to keep compatibility than to avoid difficulty
+to use. Even now I think it's confusing to pass packets before/after xfrm to
+same hook, and believe it's ideal to use different name for them.
+But people can configure correctly according to you, then my concern might be
+needless fear.
 
- drivers/net/irda/Makefile      |    2 -
- drivers/net/irda/sir-dev.h     |    2 -
- drivers/net/irda/sir_core.c    |   56 ---------------------------------
- drivers/net/irda/sir_dev.c     |   10 +++++
- drivers/net/irda/sir_dongle.c  |    2 +
- drivers/net/irda/sir_kthread.c |   11 +++++-
- 6 files changed, 21 insertions(+), 62 deletions(-)
+Next is about re-visiting stack, I'm beginning to understand your patch.
+It looks natural to re-route after DNAT on input path of IPv4. That's really
+needed if packets have been mangled.
 
---- linux-2.6.15-rc1-mm2-full/drivers/net/irda/Makefile.old	2005-11-20 20:22:17.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/drivers/net/irda/Makefile	2005-11-20 20:22:24.000000000 +0100
-@@ -45,4 +45,4 @@
- obj-$(CONFIG_MA600_DONGLE)	+= ma600-sir.o
- 
- # The SIR helper module
--sir-dev-objs := sir_core.o sir_dev.o sir_dongle.o sir_kthread.o
-+sir-dev-objs := sir_dev.o sir_dongle.o sir_kthread.o
---- linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir-dev.h.old	2005-11-20 20:18:25.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir-dev.h	2005-11-20 20:18:37.000000000 +0100
-@@ -133,8 +133,6 @@
- 
- extern void sirdev_enable_rx(struct sir_dev *dev);
- extern int sirdev_schedule_request(struct sir_dev *dev, int state, unsigned param);
--extern int __init irda_thread_create(void);
--extern void __exit irda_thread_join(void);
- 
- /* inline helpers */
- 
---- linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_kthread.c.old	2005-11-20 20:18:47.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_kthread.c	2005-11-20 20:42:21.000000000 +0100
-@@ -466,7 +466,7 @@
- 	return 0;
- }
- 
--int __init irda_thread_create(void)
-+static int __init irda_thread_create(void)
- {
- 	struct completion startup;
- 	int pid;
-@@ -488,7 +488,7 @@
- 	return 0;
- }
- 
--void __exit irda_thread_join(void) 
-+static void __exit irda_thread_join(void) 
- {
- 	if (irda_rq_queue.thread) {
- 		flush_irda_queue();
-@@ -499,3 +499,10 @@
- 	}
- }
- 
-+module_init(irda_thread_create);
-+module_exit(irda_thread_join);
-+
-+MODULE_AUTHOR("Martin Diehl <info@mdiehl.de>");
-+MODULE_DESCRIPTION("IrDA SIR core");
-+MODULE_LICENSE("GPL");
-+
---- linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_dongle.c.old	2005-11-20 20:21:23.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_dongle.c	2005-11-20 20:22:02.000000000 +0100
-@@ -50,6 +50,7 @@
- 	up(&dongle_list_lock);
- 	return 0;
- }
-+EXPORT_SYMBOL(irda_register_dongle);
- 
- int irda_unregister_dongle(struct dongle_driver *drv)
- {
-@@ -58,6 +59,7 @@
- 	up(&dongle_list_lock);
- 	return 0;
- }
-+EXPORT_SYMBOL(irda_unregister_dongle);
- 
- int sirdev_get_dongle(struct sir_dev *dev, IRDA_DONGLE type)
- {
---- linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_dev.c.old	2005-11-20 20:22:37.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_dev.c	2005-11-20 20:24:00.000000000 +0100
-@@ -60,6 +60,7 @@
- 	up(&dev->fsm.sem);
- 	return err;
- }
-+EXPORT_SYMBOL(sirdev_set_dongle);
- 
- /* used by dongle drivers for dongle programming */
- 
-@@ -94,6 +95,7 @@
- 	spin_unlock_irqrestore(&dev->tx_lock, flags);
- 	return ret;
- }
-+EXPORT_SYMBOL(sirdev_raw_write);
- 
- /* seems some dongle drivers may need this */
- 
-@@ -116,6 +118,7 @@
- 
- 	return count;
- }
-+EXPORT_SYMBOL(sirdev_raw_read);
- 
- int sirdev_set_dtr_rts(struct sir_dev *dev, int dtr, int rts)
- {
-@@ -124,7 +127,8 @@
- 		ret =  dev->drv->set_dtr_rts(dev, dtr, rts);
- 	return ret;
- }
--	
-+EXPORT_SYMBOL(sirdev_set_dtr_rts);
-+
- /**********************************************************************/
- 
- /* called from client driver - likely with bh-context - to indicate
-@@ -227,6 +231,7 @@
- done:
- 	spin_unlock_irqrestore(&dev->tx_lock, flags);
- }
-+EXPORT_SYMBOL(sirdev_write_complete);
- 
- /* called from client driver - likely with bh-context - to give us
-  * some more received bytes. We put them into the rx-buffer,
-@@ -279,6 +284,7 @@
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(sirdev_receive);
- 
- /**********************************************************************/
- 
-@@ -641,6 +647,7 @@
- out:
- 	return NULL;
- }
-+EXPORT_SYMBOL(sirdev_get_instance);
- 
- int sirdev_put_instance(struct sir_dev *dev)
- {
-@@ -673,4 +680,5 @@
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(sirdev_put_instance);
- 
---- linux-2.6.15-rc1-mm2-full/drivers/net/irda/sir_core.c	2005-11-20 20:24:09.000000000 +0100
-+++ /dev/null	2005-11-08 19:07:57.000000000 +0100
-@@ -1,56 +0,0 @@
--/*********************************************************************
-- *
-- *	sir_core.c:	module core for irda-sir abstraction layer
-- *
-- *	Copyright (c) 2002 Martin Diehl
-- * 
-- *	This program is free software; you can redistribute it and/or 
-- *	modify it under the terms of the GNU General Public License as 
-- *	published by the Free Software Foundation; either version 2 of 
-- *	the License, or (at your option) any later version.
-- *
-- ********************************************************************/    
--
--#include <linux/module.h>
--#include <linux/kernel.h>
--#include <linux/init.h>
--
--#include <net/irda/irda.h>
--
--#include "sir-dev.h"
--
--/***************************************************************************/
--
--MODULE_AUTHOR("Martin Diehl <info@mdiehl.de>");
--MODULE_DESCRIPTION("IrDA SIR core");
--MODULE_LICENSE("GPL");
--
--/***************************************************************************/
--
--EXPORT_SYMBOL(irda_register_dongle);
--EXPORT_SYMBOL(irda_unregister_dongle);
--
--EXPORT_SYMBOL(sirdev_get_instance);
--EXPORT_SYMBOL(sirdev_put_instance);
--
--EXPORT_SYMBOL(sirdev_set_dongle);
--EXPORT_SYMBOL(sirdev_write_complete);
--EXPORT_SYMBOL(sirdev_receive);
--
--EXPORT_SYMBOL(sirdev_raw_write);
--EXPORT_SYMBOL(sirdev_raw_read);
--EXPORT_SYMBOL(sirdev_set_dtr_rts);
--
--static int __init sir_core_init(void)
--{
--	return irda_thread_create();
--}
--
--static void __exit sir_core_exit(void)
--{
--	irda_thread_join();
--}
--
--module_init(sir_core_init);
--module_exit(sir_core_exit);
--
+But is there any reason that we have to allow packets to re-visit
+ip_local_deliver_finish() in the case that they have not been mangled
+at PRE_ROUTING ? I think no. This situation is like ip_nat_out().
+
+And this can be said about IPv6 input path. If packets have not been mangled
+(this is ordinary case because ip6tables doesn't have neither NAT nor
+target module to mangle addresses directly), they don't have to re-route
+and don't have to re-visit ip6_input_finish().
+
+In the other way, if their addresses have been mangled, it's necessary to
+re-route. I agree re-visiting ip6_input_finish() in this case.
+
+Then, why don't we make xfrm{4,6}_rcv_spi() return 0 (1 if IPv6)
+so that ip_local_deliver_finish()/ip6_input_finish() can continue to process
+headers if packets have not been mangled ? Is this difficult or impossible to
+implement ?
+
+This can solve the issue about twice processing of statistics and IPv6
+extension headers. Because ip_local_deliver_finish()/ip6_input_finish() can
+continue to process extension headers after ESP/AH in ordinary case.
+
+In special case, if some codes mangle IPv6 addresses, that's the codes
+to take care of the possibility of re-visiting ip6_input_finish().
+
+What do you think ?
+
+# Please note that these are just my opinions and other USAGI guys might have
+# other opinions.
+
+Regards,
+
+-- Yasuyuki Kozakai
