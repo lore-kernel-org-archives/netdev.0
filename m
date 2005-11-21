@@ -1,36 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 06/13]: [IPV4/6]: Netfilter IPsec input hooks
-Date: Mon, 21 Nov 2005 17:52:56 +0100
-Message-ID: <4381FB68.2090103@trash.net>
-References: <20051120163135.16666.76993.sendpatchset@localhost.localdomain>	<200511210442.jAL4gPoO001846@toshiba.co.jp>	<43816EB4.4080205@trash.net>
-	<20051120.230034.105307423.davem@davemloft.net>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [2.6 patch] kill drivers/net/irda/sir_core.c
+Date: Mon, 21 Nov 2005 10:09:05 -0800
+Message-ID: <20051121180905.GB26046@bougret.hpl.hp.com>
+References: <20051120232904.GM16060@stusta.de>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	yasuyuki.kozakai@toshiba.co.jp
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20051120.230034.105307423.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932437AbVKUSJi@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20051120232904.GM16060@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> I've read over Patrick's two most recent postings of these patches
-> and I think they are generally sane and I cannot find any holes in
-> them.  Herbert brought up the legitimate concern about defragmentation,
-> but I think that's a detail and does not take away from the structural
-> soundness of Patrick's approach.
+On Mon, Nov 21, 2005 at 12:29:04AM +0100, Adrian Bunk wrote:
+> EXPORT_SYMBOL's do nowadays belong to the files where the actual 
+> functions are.
+> 
+> Moving the module_init/module_exit to the file with the actual functions 
+> has the advantage of saving a few bytes due to the removal of two 
+> functions.
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-I think we implicitly agreed on moving the POST_ROUTING hook before
-fragmentation and change the user-visible behaviour of the mangle
-POSTROUTING chain. At least neither Harald not Rusty objected to
-the patch :)
+	Go for it.
+	Ack-by : Jean Tourrilhes <jt@hpl.hp.com>
+
+	Jean
