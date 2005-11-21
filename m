@@ -1,33 +1,81 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [2.6 patch] do not select NET_CLS
-Date: Mon, 21 Nov 2005 17:16:18 +0100
-Message-ID: <4381F2D2.5000605@trash.net>
-References: <437BBC59.70301@g-house.de> <20051116235813.GS5735@stusta.de> <20051121155955.GW16060@stusta.de>
+Subject: Re: [PATCH 06/13]: [IPV4/6]: Netfilter IPsec input hooks
+Date: Mon, 21 Nov 2005 17:29:31 +0100
+Message-ID: <4381F5EB.7050705@trash.net>
+References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>	<20051120163135.16666.76993.sendpatchset@localhost.localdomain>	<438185ED.3050005@miyazawa.org>
+	<20051121.175033.87771604.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Christian <evil@g-house.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Roman Zippel <zippel@linux-m68k.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932366AbVKUQQn@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20051121155955.GW16060@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	kazunori@miyazawa.org, davem@davemloft.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20051121.175033.87771604.yoshfuji@linux-ipv6.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> 2.6.15-rc changes NET_CLS to being automatically select'ed when needed.
+YOSHIFUJI Hideaki / $B5HF#1QL@ wrote:
+> Hello.
 > 
-> This patch confuses users since NET_CLS is a bool, and compiling an 
-> additional module that select's NET_CLS causes unresolved symbols since 
-> it's not user-visible that adding a module changes the kernel image.
+> In article <438185ED.3050005@miyazawa.org> (at Mon, 21 Nov 2005 17:31:41 +0900), Kazunori Miyazawa <kazunori@miyazawa.org> says:
 > 
-> This patch therefore changes NET_CLS back to the 2.6.14 status quo of 
-> being an user-visible option.
+> 
+>>Your ip_xfrm_transport_hook is a good idea, I think.
+>>
+>>We could call ip6_rcv_finish if the netfilter changed the addresses
+>>or otherwise we can continue the loop to avoid the cost in a similar
+>>way because we can know the change with checking skb->dst.
+> 
+> 
+> Well, I agree.
+> 
+> Probably, we can do similarly for ipv6; e.g.:
+> 
+> int ip6_xfrm_transport_hook(struct sk_buff *skb)
+> {
+> #if 0 /* We NEVER support NAT. :-) */
+>      if (likely(skb->dst == NULL)) {
+>             int err = ip6_route_input()
+>             if (unlikely(err))
+>                      goto drop;
+>      }
+> #endif
+>      __skb_pull(skb, skb->h.raw - skb->nh.raw);
+>      return NET_RX_SUCCESS;
+> drop:
+>      kfree_skb(skb);
+>      return NET_RX_DROP;
+> }
+> 
+> :
+> 
+>       } else {
+> #ifdef CONFIG_NETFILTER
+>              skb->nh.ipv6h->payload_len = htons(skb->len);
+> 	     skb->h.raw = skb->data;
+>              __skb_push(skb, skb->data - skb->nh.raw);
+> 
+>              if (NF_HOOK(PF_INET6, NF_IP6_PRE_ROUTING, skb, skb->dev, NULL,
+>                          ip6_xfrm_transport_hook) == NET_RX_DROP)
+>                  return -1;
+> #endif
+>              return 1;
+>       }
+> 
+> Then, we can continue parsing extension headers, I think.
 
-I disagree with this patch. NET_CLS enables the infrastructure support
-for classifiers. Users generally don't care about infrastructure but
-directly usable things, so I'd prefer to have it automatically selected. 
-And there are lots of other cases where enabling a module causes changes
-in the kernel image. Some examples include some of the netfilter stuff,
-the IPsec transforms, NET_CLS_ROUTE4, the ieee80211 stuff, and a lot
-more.
+Is it the rerouting you're concerned about? It will usually not
+happen because skb->dst is not NULL. Its needed for NFQUEUE,
+packets can be changes in userspace and need rerouting afterwards.
+In any case there would still be one path on which extension
+headers would be parsed twice, so I'm going to look into different
+ways to fix that.
