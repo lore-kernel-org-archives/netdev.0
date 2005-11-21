@@ -1,36 +1,28 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+From: "Christopher Friesen" <cfriesen@nortel.com>
 Subject: Re: netlink nlmsg_pid supposed to be pid or tid?
-Date: Tue, 22 Nov 2005 01:49:13 +0300
-Message-ID: <20051121224913.GA31287@ms2.inr.ac.ru>
-References: <438220C3.4040602@nortel.com> <E1EeIcx-0006i3-00@gondolin.me.apana.org.au> <20051121213549.GA28187@ms2.inr.ac.ru> <4382406D.1040508@nortel.com>
+Date: Mon, 21 Nov 2005 16:51:03 -0600
+Message-ID: <43824F57.1040007@nortel.com>
+References: <E1EeJwF-0006wc-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751238AbVKUWti@vger.kernel.org>
-To: Christopher Friesen <cfriesen@nortel.com>
-Content-Disposition: inline
-In-Reply-To: <4382406D.1040508@nortel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751232AbVKUWv1@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1EeJwF-0006wc-00@gondolin.me.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Herbert Xu wrote:
 
-> TIPC wants the user to fill in the pid to use in the nlmsghdr portion of 
-> a particular message.
+> As I said before, you should not rely on getpid() to work.
 
-It is wrong. netlink_pid used not to be associated with process pids.
-Kernel used pid just as a seed to calculate a random value to bind,
-when user did not bind explicitly. It is equal to current->pid occasionally.
-F.e. libnetlink from iproute autobinds and gets netlink_pid with
-getsockname().
+> You should always use getsockaddr(2) to get your local address.
 
-When user binds the socket himself, he was free to bind to any value,
-including pid and tgid.
+Should that be getsockname(2)?  Anyways, I now understand the issues.
 
-Actually, I remember one discussion. Herbert, wait a minute...
-That's it: February 2005, Subject: [PATCH] Add audit uid to netlink credentials
-We decided (or not?) that binding to anything but tgid and pid
-must be prohibited by security reasons. Apaprently, the finding was lost.
+As it turns out, we were actually already calling getsockname() a bit 
+earlier in the code path, so we can just use the "pid" value from there.
 
-Alexey
+Chris
