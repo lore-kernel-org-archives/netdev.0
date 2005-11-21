@@ -1,28 +1,45 @@
-From: "Christopher Friesen" <cfriesen@nortel.com>
-Subject: Re: netlink nlmsg_pid supposed to be pid or tid?
-Date: Mon, 21 Nov 2005 16:51:03 -0600
-Message-ID: <43824F57.1040007@nortel.com>
-References: <E1EeJwF-0006wc-00@gondolin.me.apana.org.au>
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Subject: Re: [PATCH -mm2] net: Fix compiler-error on dgrs.c when !CONFIG_PCI
+Date: Tue, 22 Nov 2005 00:20:30 +0100
+Message-ID: <4382563E.50502@student.ltu.se>
+References: <E1EeJu8-0006vr-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751232AbVKUWv1@vger.kernel.org>
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com, ashutosh.naik@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932475AbVKUXPs@vger.kernel.org>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1EeJwF-0006wc-00@gondolin.me.apana.org.au>
+In-Reply-To: <E1EeJu8-0006vr-00@gondolin.me.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Herbert Xu wrote:
 
-> As I said before, you should not rely on getpid() to work.
+>Richard Knutsson <ricknu-0@student.ltu.se> wrote:
+>  
+>
+>>We need it even if pci_register_driver() and pci_register_driver() is 
+>>empty shells. And instead of removing #endif CONFIG_PCI for 
+>>    
+>>
+>
+>I don't think so.  Please see my previous patch where pci_register_driver
+>is not called at all if CONFIG_PCI is not defined.
+>
+>Cheers,
+>  
+>
+Yes, I know you patch don't need it (thought you commented the patch vs. 
+dgrs.c, not vs. you patch). But to do that, you have to introduce a new 
+dgrs-specific pci-layer to compensate. If you don't want to have an 
+empty struct, is it not nicer/easier to just #ifdef CONFIG_PCI the 
+pci_*-functions? (instead of two inline functions for every used 
+pci_*-function?)
 
-> You should always use getsockaddr(2) to get your local address.
+Am thinking of removing the #ifdef CONFIG_PCI's in other files, to 
+"clean up" the code, but that would introduce this problem again, don't 
+you think it is more readable to make an empty struct when !CONFIG_PCI, 
+then making new pci_*-functions specific to the driver?
 
-Should that be getsockname(2)?  Anyways, I now understand the issues.
-
-As it turns out, we were actually already calling getsockname() a bit 
-earlier in the code path, so we can just use the "pid" value from there.
-
-Chris
+cu
