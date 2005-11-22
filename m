@@ -1,40 +1,38 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] do not select NET_CLS
-Date: Tue, 22 Nov 2005 14:37:13 -0800 (PST)
-Message-ID: <20051122.143713.101129339.davem@davemloft.net>
-References: <20051116235813.GS5735@stusta.de>
-	<20051121155955.GW16060@stusta.de>
-	<4381F2D2.5000605@trash.net>
+Subject: Re: [NETLINK]: Use tgid instead of pid for nlmsg_pid
+Date: Tue, 22 Nov 2005 14:43:34 -0800 (PST)
+Message-ID: <20051122.144334.23915283.davem@davemloft.net>
+References: <20051121213549.GA28187@ms2.inr.ac.ru>
+	<E1EeJxb-0006xG-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, evil@g-house.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, zippel@linux-m68k.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030207AbVKVWhO@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <4381F2D2.5000605@trash.net>
+Cc: kuznet@ms2.inr.ac.ru, cfriesen@nortel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965080AbVKVWn3@vger.kernel.org>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1EeJxb-0006xG-00@gondolin.me.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 21 Nov 2005 17:16:18 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 22 Nov 2005 09:16:27 +1100
 
-> Adrian Bunk wrote:
-> > This patch therefore changes NET_CLS back to the 2.6.14 status quo of 
-> > being an user-visible option.
+> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+> > 
+> > I agree, apparently netlink_autobind was missed when sed'ing pid->tgid.
+> > Of course, it does not matter, but tgid is nicer choice from user's viewpoint.
 > 
-> I disagree with this patch. NET_CLS enables the infrastructure support
-> for classifiers. Users generally don't care about infrastructure but
-> directly usable things, so I'd prefer to have it automatically selected. 
-> And there are lots of other cases where enabling a module causes changes
-> in the kernel image. Some examples include some of the netfilter stuff,
-> the IPsec transforms, NET_CLS_ROUTE4, the ieee80211 stuff, and a lot
-> more.
+> Great, here is the patch to do just that.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I agree with Patrick.
+Applied, of course.
 
-Changing config options of any kind can result in the main kernel
-image needing to be rebuilt.  One thing we can do to prevent human
-mistakes, is to make the "make modules" pass do a quick "is vmlinux
-uptodate?" check, and if not print out an error message explaining the
-situation and aborting the "make modules" attempt.
+I can't for the life of me figure out how we missed this when
+we fixed up all the current->pid references under net/.
+Ulrich Drepper let us know that the problem existed, and
+I was sure we eliminated all such cases.
+
+It is possible we accidently reintroduced current->pid when
+we redid all of the netlink hashing. :-)
