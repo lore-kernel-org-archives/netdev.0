@@ -1,28 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH -mm2] net: Fix compiler-error on dgrs.c when !CONFIG_PCI
-Date: Tue, 22 Nov 2005 10:36:09 +1100
-Message-ID: <20051121233609.GB27327@gondor.apana.org.au>
-References: <E1EeJu8-0006vr-00@gondolin.me.apana.org.au> <4382563E.50502@student.ltu.se>
+Subject: Re: netlink nlmsg_pid supposed to be pid or tid?
+Date: Tue, 22 Nov 2005 11:09:59 +1100
+Message-ID: <20051122000959.GA27615@gondor.apana.org.au>
+References: <E1EeJwF-0006wc-00@gondolin.me.apana.org.au> <43824F57.1040007@nortel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, ashutosh.naik@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932482AbVKUXgX@vger.kernel.org>
-To: Richard Knutsson <ricknu-0@student.ltu.se>
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932484AbVKVAKR@vger.kernel.org>
+To: Christopher Friesen <cfriesen@nortel.com>
 Content-Disposition: inline
-In-Reply-To: <4382563E.50502@student.ltu.se>
+In-Reply-To: <43824F57.1040007@nortel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 22, 2005 at 12:20:30AM +0100, Richard Knutsson wrote:
+On Mon, Nov 21, 2005 at 04:51:03PM -0600, Christopher Friesen wrote:
 > 
-> Am thinking of removing the #ifdef CONFIG_PCI's in other files, to 
-> "clean up" the code, but that would introduce this problem again, don't 
-> you think it is more readable to make an empty struct when !CONFIG_PCI, 
-> then making new pci_*-functions specific to the driver?
+> Should that be getsockname(2)?  Anyways, I now understand the issues.
 
-I think my version is more readable.  However, it's really up to Jeff
-to decide.
+Yes that's what I meant.
+
+> As it turns out, we were actually already calling getsockname() a bit 
+> earlier in the code path, so we can just use the "pid" value from there.
+
+Excellent.
 
 Cheers,
 -- 
