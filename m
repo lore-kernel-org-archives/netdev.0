@@ -1,55 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 00/13]: Netfilter IPsec support
-Date: Wed, 23 Nov 2005 07:38:25 +0900 (JST)
-Message-ID: <20051123.073825.106706639.yoshfuji@linux-ipv6.org>
-References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
-	<20051122.143438.84749134.davem@davemloft.net>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: e1000 82571 Packet Splitting
+Date: Tue, 22 Nov 2005 15:46:52 -0800
+Message-ID: <4807377b0511221546h7a16c0a9p793e441197b23118@mail.gmail.com>
+References: <43838614.9080807@soleranetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: davem@davemloft.net
-In-Reply-To: <20051122.143438.84749134.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030261AbVKVXqy@vger.kernel.org>
+To: "Jeff V. Merkey" <jmerkey@soleranetworks.com>
+In-Reply-To: <43838614.9080807@soleranetworks.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20051122.143438.84749134.davem@davemloft.net> (at Tue, 22 Nov 2005 14:34:38 -0800 (PST)), "David S. Miller" <davem@davemloft.net> says:
+this should be on netdev.
 
-> I want to do this so that Patrick doesn't have to repost
-> 13 or so patches every time one of the parts still under
-> discussion gets changed.
-> 
-> Actually, it seems the only part under discussion is how to
-> avoid extension header reparsing and routing re-lookups on
-> the ipv6 side.  That could be fixed by a follow-on patch and
-> is not %100 necessary for initial integration in my opinion.
-> 
-> Can I get agreement on that?  Patrick sends me a dump of the
-> current state of his patch set right now, we put that into
-> net-2.6.16, and fix problems with followon patches.
-> 
-> Ok?
+On 11/22/05, Jeff V. Merkey <jmerkey@soleranetworks.com> wrote:
+>
+> I have noted that the e1000 driver is now supporting DMA splitting of
+> the packet header and payload into separate pages.  I also noticed
+> that none of the config options enable it.  Is anyone using this feature
+> at present and has it even been tested on Linux?
 
-I believe he can manage these patches in his tree,
-but anyway...
+The 6.2.15 driver off http://prdownloads.sf.net/e1000 will enable it
+by default.  We've gone through our release approval, which includes
+quite a bit of testing.
+If the patches posted recently don't include that support, I missed
+something :-)
 
-Well, it is very important to fix the packet processing
-path issues (including the extension header issue)
-before we merge it to the mainline. Definitely.
-What I want to ensure is that they will not reach the mainline
-tree without resolving those issues.
-
-Thank you.
-
---yoshfuji
+This is only on the 82571 and greater hardware that packet split is
+supported, BTW.
