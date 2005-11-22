@@ -1,47 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 00/13]: Netfilter IPsec support
-Date: Tue, 22 Nov 2005 14:34:38 -0800 (PST)
-Message-ID: <20051122.143438.84749134.davem@davemloft.net>
-References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
+Subject: Re: [2.6 patch] do not select NET_CLS
+Date: Tue, 22 Nov 2005 14:37:13 -0800 (PST)
+Message-ID: <20051122.143713.101129339.davem@davemloft.net>
+References: <20051116235813.GS5735@stusta.de>
+	<20051121155955.GW16060@stusta.de>
+	<4381F2D2.5000605@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+Cc: bunk@stusta.de, evil@g-house.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, zippel@linux-m68k.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030207AbVKVWhO@vger.kernel.org>
 To: kaber@trash.net
-In-Reply-To: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <4381F2D2.5000605@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
-Date: Sun, 20 Nov 2005 17:31:28 +0100
+Date: Mon, 21 Nov 2005 17:16:18 +0100
 
-> This is the latest netfilter/IPsec patchset. Its purpose is to make
-> IPsec look as much as a normal tunnel device to netfilter as possible
-> and to enable NAT support.
+> Adrian Bunk wrote:
+> > This patch therefore changes NET_CLS back to the 2.6.14 status quo of 
+> > being an user-visible option.
+> 
+> I disagree with this patch. NET_CLS enables the infrastructure support
+> for classifiers. Users generally don't care about infrastructure but
+> directly usable things, so I'd prefer to have it automatically selected. 
+> And there are lots of other cases where enabling a module causes changes
+> in the kernel image. Some examples include some of the netfilter stuff,
+> the IPsec transforms, NET_CLS_ROUTE4, the ieee80211 stuff, and a lot
+> more.
 
-I think there are some of these patches that we can merge in
-right now into net-2.6.16...
+I agree with Patrick.
 
-I want to do this so that Patrick doesn't have to repost
-13 or so patches every time one of the parts still under
-discussion gets changed.
-
-Actually, it seems the only part under discussion is how to
-avoid extension header reparsing and routing re-lookups on
-the ipv6 side.  That could be fixed by a follow-on patch and
-is not %100 necessary for initial integration in my opinion.
-
-Can I get agreement on that?  Patrick sends me a dump of the
-current state of his patch set right now, we put that into
-net-2.6.16, and fix problems with followon patches.
-
-Ok?
+Changing config options of any kind can result in the main kernel
+image needing to be rebuilt.  One thing we can do to prevent human
+mistakes, is to make the "make modules" pass do a quick "is vmlinux
+uptodate?" check, and if not print out an error message explaining the
+situation and aborting the "make modules" attempt.
