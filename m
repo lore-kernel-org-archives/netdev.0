@@ -1,38 +1,45 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NETLINK]: Use tgid instead of pid for nlmsg_pid
-Date: Tue, 22 Nov 2005 14:43:34 -0800 (PST)
-Message-ID: <20051122.144334.23915283.davem@davemloft.net>
-References: <20051121213549.GA28187@ms2.inr.ac.ru>
-	<E1EeJxb-0006xG-00@gondolin.me.apana.org.au>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [2.6 patch] do not select NET_CLS
+Date: Tue, 22 Nov 2005 23:49:14 +0100
+Message-ID: <20051122224914.GA17575@mars.ravnborg.org>
+References: <20051116235813.GS5735@stusta.de> <20051121155955.GW16060@stusta.de> <4381F2D2.5000605@trash.net> <20051122.143713.101129339.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, cfriesen@nortel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965080AbVKVWn3@vger.kernel.org>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <E1EeJxb-0006xG-00@gondolin.me.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, bunk@stusta.de, evil@g-house.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	zippel@linux-m68k.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030215AbVKVWtI@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20051122.143713.101129339.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 22 Nov 2005 09:16:27 +1100
-
-> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
-> > 
-> > I agree, apparently netlink_autobind was missed when sed'ing pid->tgid.
-> > Of course, it does not matter, but tgid is nicer choice from user's viewpoint.
+On Tue, Nov 22, 2005 at 02:37:13PM -0800, David S. Miller wrote:
 > 
-> Great, here is the patch to do just that.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> One thing we can do to prevent human
+> mistakes, is to make the "make modules" pass do a quick "is vmlinux
+> uptodate?" check, and if not print out an error message explaining the
+> situation and aborting the "make modules" attempt.
 
-Applied, of course.
 
-I can't for the life of me figure out how we missed this when
-we fixed up all the current->pid references under net/.
-Ulrich Drepper let us know that the problem existed, and
-I was sure we eliminated all such cases.
+I do not quite follow you here.
 
-It is possible we accidently reintroduced current->pid when
-we redid all of the netlink hashing. :-)
+For a while I have considered implementing something that told why a
+given file was compiled - like:
+
+ CC     net/ipv4/ip_gre.o   due to net/dsfield.h, net/xfrm.h
+ CC     net/ipv4/raw.c   due to include/config/ip/mroute.h
+
+The latter is a config option that I do not see a possibility to change
+back to a config option syntax (at least not without doing some effort).
+
+My thinking was that 'make V=2' would give above printout.
+
+But what you request is something that keep the dense printout without
+building the kernel - right?
+
+Any suggestion for an intuitive syntax to enable that?
+'make -n V=2' will not do it.
+
+	Sam
