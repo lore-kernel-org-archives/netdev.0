@@ -1,68 +1,194 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: Re: [PATCH -mm2] net: Fix compiler-error on dgrs.c when !CONFIG_PCI
-Date: Tue, 22 Nov 2005 02:56:01 +0100
-Message-ID: <43827AB1.2090908@student.ltu.se>
-References: <E1EdmMo-00020b-00@gondolin.me.apana.org.au> <438097D2.9020607@student.ltu.se> <20051120204001.GA11043@gondor.apana.org.au> <4381C321.5010805@student.ltu.se> <20051121203758.GA25509@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 05/13]: [IPV4/6]: Netfilter IPsec output hooks
+Date: Tue, 22 Nov 2005 15:40:46 +1100
+Message-ID: <20051122044046.GA29166@gondor.apana.org.au>
+References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
+	<20051120163134.16666.9265.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com, ashutosh.naik@gmail.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964870AbVKVBzD@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051121203758.GA25509@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	davem@davemloft.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <20051120163134.16666.9265.sendpatchset@localhost.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-
->On Mon, Nov 21, 2005 at 01:52:49PM +0100, Richard Knutsson wrote:
+On Sun, Nov 20, 2005 at 04:31:34PM +0000, Patrick McHardy wrote:
+>
+> diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+> index ae0779d..b93e7cd 100644
+> --- a/net/ipv4/netfilter.c
+> +++ b/net/ipv4/netfilter.c
+> @@ -78,6 +79,34 @@ int ip_route_me_harder(struct sk_buff **
+>  }
+>  EXPORT_SYMBOL(ip_route_me_harder);
 >  
->
->>This patch requirer the 
->>"net-fix-compiler-error-on-dgrsc-when-config_pci.patch" (added to the 
->>-mm tree after 2.6.15-rc1-mm2):
->>
->>--- 
->>devel/drivers/net/dgrs.c~net-fix-compiler-error-on-dgrsc-when-config_pci 
->>2005-11-19 18:00:34.000000000 -0800
->>+++ devel-akpm/drivers/net/dgrs.c	2005-11-19 18:00:34.000000000 -0800
->>@@ -1458,6 +1458,8 @@ static struct pci_driver dgrs_pci_driver
->>	.probe = dgrs_pci_probe,
->>	.remove = __devexit_p(dgrs_pci_remove),
->>};
->>+#else
->>+static struct pci_driver dgrs_pci_driver = {};
->>#endif
->>    
->>
->
->I don't see the point.  We shouldn't have this structure at all
->if CONFIG_PCI is not set.
->
->Cheers,
->  
->
-Opps, misread your mail. Sorry.
-But in that case, why shall we have any pci_*-function in the first 
-place when !CONFIG_PCI? As it was before, they were contained within 
-#ifdef CONFIG_PCI's.
-You said your patch were easier to read, please elaborate. Yes, in the 
-dgrs_init_module() (no arguments there), but you introduces new 
-functions (who need to be checked out if you read the code for the first 
-time) and is really #ifdef's a good idea to change function behavior? 
-Isn't better to change the input? (I know, linux/pci.h does it, but at 
-least that is in a .h-file with inline functions containing at most 
-"return 0;").
+> +#ifdef CONFIG_XFRM
+> +static inline int __ip_dst_output(struct sk_buff *skb)
 
-Btw, you said Jeff should decide. Why not Rich Richardson who is the author?
+I'd like to suggest an alternative way of doing this that
 
-Apologize for the ranting.
-As I said before, thinking of deleting CONFIG_PCI's containing 
-pci_*-functions and if so, need a valid plan for it (because of the 
-pci_driver-struct). If there is any no-no in "my" way, please point it 
-out to spare me/you/lkml the patches. If not for this, I would've let 
-this rest and leave it to Jeff (or Rich ;) ).
+1) Keeps this XFRM stuff in xfrm*.c.
+2) Removes the need for ip_dst_output.
 
-cu,
-Richard
+Please see the attached patch.
+
+> +	do {
+> +		err = skb->dst->output(skb);
+> +
+> +		if (likely(err == 0))
+> +			return err;
+> +		if (unlikely(err != NET_XMIT_BYPASS))
+> +			return err;
+> +	} while (skb->dst->xfrm && !skb->dst->xfrm->props.mode);
+> +
+> +	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dst->dev,
+> +	               ip_dst_output);
+
+The idea is simply to put this stuff in xfrm[46]_output directly.
+So for your patch you would simply need to add the two NF_HOOK
+calls at the beginning and end of xfrm[46]_output once they've
+been modified in the way I outline below.
+
+> diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+> index 66620a9..c135746 100644
+> --- a/net/ipv4/xfrm4_output.c
+> +++ b/net/ipv4/xfrm4_output.c
+> @@ -133,6 +133,7 @@ int xfrm4_output(struct sk_buff *skb)
+>  		err = -EHOSTUNREACH;
+>  		goto error_nolock;
+>  	}
+> +	nf_reset(skb);
+>  	err = NET_XMIT_BYPASS;
+
+Shouldn't this sit after POST_ROUTING, i.e., once the connection
+has been confirmed?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/net/ip.h b/include/net/ip.h
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -113,26 +113,31 @@ int xfrm4_output(struct sk_buff *skb)
+ 			goto error_nolock;
+ 	}
+ 
+-	spin_lock_bh(&x->lock);
+-	err = xfrm_state_check(x, skb);
+-	if (err)
+-		goto error;
+-
+-	xfrm4_encap(skb);
+-
+-	err = x->type->output(x, skb);
+-	if (err)
+-		goto error;
++	do {
++		spin_lock_bh(&x->lock);
++		err = xfrm_state_check(x, skb);
++		if (err)
++			goto error;
++
++		xfrm4_encap(skb);
++
++		err = x->type->output(x, skb);
++		if (err)
++			goto error;
+ 
+-	x->curlft.bytes += skb->len;
+-	x->curlft.packets++;
++		x->curlft.bytes += skb->len;
++		x->curlft.packets++;
+ 
+-	spin_unlock_bh(&x->lock);
++		spin_unlock_bh(&x->lock);
+ 	
+-	if (!(skb->dst = dst_pop(dst))) {
+-		err = -EHOSTUNREACH;
+-		goto error_nolock;
+-	}
++		if (!(skb->dst = dst_pop(dst))) {
++			err = -EHOSTUNREACH;
++			goto error_nolock;
++		}
++		dst = skb->dst;
++		x = dst->xfrm;
++	} while (x && !x->props.mode);
++
+ 	err = NET_XMIT_BYPASS;
+ 
+ out_exit:
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -110,28 +110,33 @@ int xfrm6_output(struct sk_buff *skb)
+ 			goto error_nolock;
+ 	}
+ 
+-	spin_lock_bh(&x->lock);
+-	err = xfrm_state_check(x, skb);
+-	if (err)
+-		goto error;
+-
+-	xfrm6_encap(skb);
+-
+-	err = x->type->output(x, skb);
+-	if (err)
+-		goto error;
+-
+-	x->curlft.bytes += skb->len;
+-	x->curlft.packets++;
+-
+-	spin_unlock_bh(&x->lock);
++	do {
++		spin_lock_bh(&x->lock);
++		err = xfrm_state_check(x, skb);
++		if (err)
++			goto error;
++
++		xfrm6_encap(skb);
++
++		err = x->type->output(x, skb);
++		if (err)
++			goto error;
++
++		x->curlft.bytes += skb->len;
++		x->curlft.packets++;
++
++		spin_unlock_bh(&x->lock);
++
++		skb->nh.raw = skb->data;
++		
++		if (!(skb->dst = dst_pop(dst))) {
++			err = -EHOSTUNREACH;
++			goto error_nolock;
++		}
++		dst = skb->dst;
++		x = dst->xfrm;
++	} while (x && !x->props.mode);
+ 
+-	skb->nh.raw = skb->data;
+-	
+-	if (!(skb->dst = dst_pop(dst))) {
+-		err = -EHOSTUNREACH;
+-		goto error_nolock;
+-	}
+ 	err = NET_XMIT_BYPASS;
+ 
+ out_exit:
