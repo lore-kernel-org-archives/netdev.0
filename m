@@ -1,51 +1,47 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: [PATCH 00/13]: Netfilter IPsec support
-Date: Wed, 23 Nov 2005 13:52:00 +0900 (JST)
-Message-ID: <200511230452.jAN4q1Ok028256@toshiba.co.jp>
-References: <4383C31A.40101@trash.net>
-	<E1EejY9-0004fW-00@gondolin.me.apana.org.au>
-	<20051122.193631.76306901.davem@davemloft.net>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [2.6 patch] do not select NET_CLS
+Date: Wed, 23 Nov 2005 06:57:35 +0100
+Message-ID: <20051123055735.GC7579@mars.ravnborg.org>
+References: <4381F2D2.5000605@trash.net> <20051122.143713.101129339.davem@davemloft.net> <20051122224914.GA17575@mars.ravnborg.org> <20051122.150041.90521592.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	herbert@gondor.apana.org.au, kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: davem@davemloft.net
-In-Reply-To: <20051122.193631.76306901.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, bunk@stusta.de, evil@g-house.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	zippel@linux-m68k.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030321AbVKWF51@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20051122.150041.90521592.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "David S. Miller" <davem@davemloft.net>
-Date: Tue, 22 Nov 2005 19:36:31 -0800 (PST)
-
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 23 Nov 2005 12:35:53 +1100
+On Tue, Nov 22, 2005 at 03:00:41PM -0800, David S. Miller wrote:
+> From: Sam Ravnborg <sam@ravnborg.org>
+> Date: Tue, 22 Nov 2005 23:49:14 +0100
 > 
-> > How about merging the patches that everybody has agreed on first?
+> > On Tue, Nov 22, 2005 at 02:37:13PM -0800, David S. Miller wrote:
+> > > 
+> > > One thing we can do to prevent human
+> > > mistakes, is to make the "make modules" pass do a quick "is vmlinux
+> > > uptodate?" check, and if not print out an error message explaining the
+> > > situation and aborting the "make modules" attempt.
 > > 
-> > So far, I haven't see any objections to patches 1 and 2 so they
-> > can go in straight away.  They don't even touch IPv6.
-> > 
-> > Patches 3-6 could become redundant if you go with my suggestion.
-> > 
-> > The rest of them I haven't read yet so can't comment :)
+> > I do not quite follow you here.
 > 
-> View the net-2.6.16 GIT tree as a sort of playpen, much like
-> -mm, until we get close to the real 2.6.16 upstream development
-> openning up.
-> 
-> I rebase all the time, and I can pluck out and change patches
-> at will.
+> If the user tries to do a "make modules" without first rebuilding
+> their kernel image, then the make will fail if the dependencies
+> are not satisfied for the main kernel image and it is thus not
+> up to date.
 
-Then I agree. It can increase the number of tester, I think.
+OK - so a simple 'make -q vmlinux' check, except that the way we utilise
+make will let it fail at first build command.
+That will obscufate things even more in kbuild - but I will give it a
+try sometime. It will be easy to cover 95% but to reach 100%
+predictability will be though.
+- file dependencies is easy
+- command line changes is relatively easy
+- but the various scripts and user commands will be tricky..
 
--- Yasuyuki Kozakai
+Not on the top of the TODO list though.
+
+	Sam
