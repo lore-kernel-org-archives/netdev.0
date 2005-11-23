@@ -1,48 +1,45 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] net/sunrpc/xdr.c: remove xdr_decode_string()
-Date: Wed, 23 Nov 2005 17:25:28 +0100
-Message-ID: <20051123162528.GL3963@stusta.de>
-References: <044B81DE141D7443BCE91E8F44B3C1E2013327DF@exsvl02.hq.netapp.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.15-rc2-mm1
+Date: Wed, 23 Nov 2005 11:22:18 -0800
+Message-ID: <20051123112218.73f68926.akpm@osdl.org>
+References: <20051123033550.00d6a6e8.akpm@osdl.org>
+	<6bffcb0e0511230615y7531e268n@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, neilb@cse.unsw.edu.au,
-	trond.myklebust@fys.uio.no, linux-kernel@vger.kernel.org,
-	nfs@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751229AbVKWQZn@vger.kernel.org>
-To: "Lever, Charles" <Charles.Lever@netapp.com>
-Content-Disposition: inline
-In-Reply-To: <044B81DE141D7443BCE91E8F44B3C1E2013327DF@exsvl02.hq.netapp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Harald Welte <laforge@netfilter.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932228AbVKWTXF@vger.kernel.org>
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+In-Reply-To: <6bffcb0e0511230615y7531e268n@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2005 at 04:31:14AM -0800, Lever, Charles wrote:
-> > On Thu, Oct 06, 2005 at 07:13:14AM -0700, Lever, Charles wrote:
-> > 
-> > > actually, can we hold off on this change?  the RPC 
-> > transport switch will
-> > > eventually need most of those EXPORT_SYMBOLs.
-> > 
-> > Am I right to assume this will happen in the foreseeable future?
+Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
+>
+>  Debug: sleeping function called from invalid context at
+>  include/asm/semaphore.h:123
+>  in_atomic():1, irqs_disabled():0
+>   [<c0103be6>] dump_stack+0x17/0x19
+>   [<c011a0c3>] __might_sleep+0x9c/0xae
+>   [<fd9a090d>] translate_table+0x147/0xc14 [ip_tables]
+>   [<fd9a2b2a>] ipt_register_table+0x93/0x20d [ip_tables]
+>   [<f98fe027>] init+0x27/0x9e [iptable_filter]
+>   [<c01376d0>] sys_init_module+0xd7/0x26c
+>   [<c0102cc7>] sysenter_past_esp+0x54/0x75
+>  ---------------------------
+>  | preempt count: 00000001 ]
+>  | 1 level deep critical section nesting:
+>  ----------------------------------------
+>  .. [<fd9a2aca>] .... ipt_register_table+0x33/0x20d [ip_tables]
+>  .....[<f98fe027>] ..   ( <= init+0x27/0x9e [iptable_filter])
 > 
-> the first portion of the transport switch is in 2.6.15-rcX.  at this
-> point i'm expecting the EXPORT_SYMBOL changes to go in 2.6.17 or later.
 
-OK.
+ipt_register_table() does get_cpu() then calls translate_table(), and
+somewhere under translate_table() we do something which sleeps, only I'm not
+sure what it is - netfilter likes to hide things in unexpected places.
 
-> so i don't remember why you are removing xdr_decode_string.  are we sure
-> that no-one will need this functionality in the future?  it is harmless
-> to remove today, but i wonder if someone is just going to add it back
-> sometime.
+check_entry() will do sleepy things under that get_cpu(), but that doesn't
+seem to be in this particular call chain.
 
-It's unused and you said:
-  the only harmless change i see below is removing xdr_decode_string().
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Anyway, the new get_cpu() in ipt_register_table() is the problem.
