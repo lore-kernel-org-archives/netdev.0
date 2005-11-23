@@ -1,29 +1,38 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
-Date: Wed, 23 Nov 2005 23:02:50 +0000
-Message-ID: <1132786970.13095.35.camel@localhost.localdomain>
-References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Wed, 23 Nov 2005 14:39:46 -0800 (PST)
+Message-ID: <20051123.143946.41188551.davem@davemloft.net>
+References: <20051118090158.GA11621@flint.arm.linux.org.uk>
+	<437DFD6C.1020106@pobox.com>
+	<20051123221547.GM15449@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john.ronciak@intel.com, christopher.leech@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932294AbVKWWaV@vger.kernel.org>
-To: Andrew Grover <andrew.grover@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com>
+Cc: jgarzik@pobox.com, bunk@stusta.de, saw@saw.sw.com.sg,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030449AbVKWWkO@vger.kernel.org>
+To: rmk+lkml@arm.linux.org.uk
+In-Reply-To: <20051123221547.GM15449@flint.arm.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mer, 2005-11-23 at 12:26 -0800, Andrew Grover wrote:
-> early next year. Until then, the code doesn't really *do* anything, but we
-> wanted to release what we could right away, and start getting some 
-> feedback.
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Date: Wed, 23 Nov 2005 22:15:48 +0000
 
-First comment partly based on Jeff Garziks comments - if you added an
-"operation" to the base functions and an operation mask to the DMA
-engines it becomes possible to support engines that can do other ops (eg
-abusing an NCR53c8xx for both copy and clear).
+> I leave it up to you how to proceed.  Effectively I'm now completely
+> out of the loop on this with no hardware to worry about.  Sorry.
+> 
+> Finally, please don't assign any blame for this in my direction; I
+> reported it and I kept bugging people about it, and in spite of my
+> best efforts there was very little which was forthcoming.  Obviously
+> that wasn't enough.
 
-Second one - you obviously tested this somehow, was that all done by
-simulation or do you have a "CPU" memcpy test engine for use before the
-hardware pops up ?
+I think you're being unreasonable.
+
+They've worked on a fix for the problem, and now you're unable to test
+the fix, and you're angry at them because they took so long to code up
+the fix.
+
+If you're overextended and have too much work to do and that's
+stressing you out, that doesn't give you permission to take it
+out on other people.
