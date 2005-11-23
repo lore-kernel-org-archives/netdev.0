@@ -1,76 +1,151 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.15-rc2-mm1
-Date: Wed, 23 Nov 2005 11:38:54 -0800
-Message-ID: <20051123113854.07fca702.akpm@osdl.org>
-References: <20051123033550.00d6a6e8.akpm@osdl.org>
-	<20051123175045.GA6760@stiffy.osknowledge.org>
+From: Andrew Grover <andrew.grover@intel.com>
+Subject: [RFC] [PATCH 3/3] ioat: testclient
+Date: Wed, 23 Nov 2005 12:26:58 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0511231217340.32487-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Harald Welte <laforge@netfilter.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932242AbVKWTj2@vger.kernel.org>
-To: Marc Koschewski <marc@osknowledge.org>
-In-Reply-To: <20051123175045.GA6760@stiffy.osknowledge.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: john.ronciak@intel.com, <christopher.leech@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932334AbVKWU1O@vger.kernel.org>
+To: netdev@vger.kernel.org, <linux-kernel@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Marc Koschewski <marc@osknowledge.org> wrote:
->
-> * Andrew Morton <akpm@osdl.org> [2005-11-23 03:35:50 -0800]:
-> 
-> > 
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.15-rc2/2.6.15-rc2-mm1/
-> > 
-> > (temp copy at http://www.zip.com.au/~akpm/linux/patches/stuff/2.6.15-rc2-mm1.gz)
-> > 
-> > - Added git-sym2.patch to the -mm lineup: updates to the sym2 scsi driver
-> >   (Matthew Wilcox).  
-> > 
-> > - The JSM tty driver still doesn't compile.
-> > 
-> > - The git-powerpc tree is included now.
-> 
-> Just booted into 2.6.15-rc2-mm1. The 'mouse problem' (as reported earlier) still
-> persists,
 
-You'l probably need to re-report the mouse problem if the previous report
-didn't get any action.
-
-> moreover, some stuff's now really not gonna work anymore. I logged in
-> via gdm once and rebooted. 
-
-Yes, netfilter broke.
-
-> ...
-> Nov 23 18:34:01 stiffy kernel: 0.0: ttyS3 at I/O 0xe108 (irq = 3) is a 8250
-> Nov 23 18:34:01 stiffy kernel: ip_conntrack version 2.4 (4095 buckets, 32760 max) - 212 bytes per conntrack
-> Nov 23 18:34:01 stiffy kernel: ip_tables: (C) 2000-2002 Netfilter core team
-> Nov 23 18:34:01 stiffy kernel:  [schedule+1453/1679] schedule+0x5ad/0x68f
-> Nov 23 18:34:01 stiffy kernel:  [__wake_up_common+60/94] __wake_up_common+0x3c/0x5e
-> Nov 23 18:34:01 stiffy kernel:  [wait_for_completion+134/242] wait_for_completion+0x86/0xf2
-> Nov 23 18:34:01 stiffy kernel:  [default_wake_function+0/18] default_wake_function+0x0/0x12
-> Nov 23 18:34:01 stiffy kernel:  [call_usermodehelper_keys+175/186] call_usermodehelper_keys+0xaf/0xba
-> Nov 23 18:34:01 stiffy kernel:  [__call_usermodehelper+0/110] __call_usermodehelper+0x0/0x6e
-> Nov 23 18:34:01 stiffy kernel:  [request_module+175/240] request_module+0xaf/0xf0
-> Nov 23 18:34:01 stiffy kernel:  [buffered_rmqueue+241/514] buffered_rmqueue+0xf1/0x202
-> Nov 23 18:34:01 stiffy kernel:  [get_page_from_freelist+136/162] get_page_from_freelist+0x88/0xa2
-> Nov 23 18:34:01 stiffy kernel:  [pg0+553595222/1069659136] translate_table+0x95f/0xbcb [ip_tables]
-> Nov 23 18:34:01 stiffy kernel:  [map_vm_area+109/149] map_vm_area+0x6d/0x95
-> Nov 23 18:34:01 stiffy kernel:  [__vmalloc_area_node+246/362] __vmalloc_area_node+0xf6/0x16a
-> Nov 23 18:34:01 stiffy kernel:  [__vmalloc_node+79/110] __vmalloc_node+0x4f/0x6e
-> Nov 23 18:34:01 stiffy kernel:  [__vmalloc+39/43] __vmalloc+0x27/0x2b
-> Nov 23 18:34:01 stiffy kernel:  [pg0+553597367/1069659136] do_replace+0x145/0x6d6 [ip_tables]
-> Nov 23 18:34:03 stiffy kernel:  [pg0+553596209/1069659136] copy_entries_to_user+0xaf/0x1e3 [ip_tables]
-> Nov 23 18:34:04 stiffy kernel:  [pg0+553599347/1069659136] do_ipt_set_ctl+0x1e/0x62 [ip_tables]
-> Nov 23 18:34:04 stiffy kernel:  [nf_sockopt+198/277] nf_sockopt+0xc6/0x115
-> Nov 23 18:34:04 stiffy kernel:  [nf_setsockopt+55/59] nf_setsockopt+0x37/0x3b
-> Nov 23 18:34:04 stiffy kernel:  [ip_setsockopt+219/3448] ip_setsockopt+0xdb/0xd78
-> Nov 23 18:34:04 stiffy kernel:  [nf_sockopt+136/277] nf_sockopt+0x88/0x115
-> Nov 23 18:34:04 stiffy kernel:  [nf_getsockopt+55/59] nf_getsockopt+0x37/0x3b
-> Nov 23 18:34:04 stiffy kernel:  [ip_getsockopt+254/1764] ip_getsockopt+0xfe/0x6e4
-> Nov 23 18:34:04 stiffy kernel:  [prio_tree_remove+150/191] prio_tree_remove+0x96/0xbf
-> Nov 23 18:34:04 stiffy kernel:  [free_pgtables+59/167] free_pgtables+0x3b/0xa7
-> Nov 23 18:34:04 stiffy kernel:  [buffered_rmqueue+241/514] buffered_rmqueue+0xf1/0x202
-> Nov 23 18:34:04 stiffy kernel:  [get_page_from_freelist+136/162] get_page_from_freelist+0x88/0xa2
-> ...
+diff --git a/drivers/dma/testclient.c b/drivers/dma/testclient.c
+new file mode 100644
+index 0000000..9bfb979
+--- /dev/null
++++ b/drivers/dma/testclient.c
+@@ -0,0 +1,132 @@
++/*******************************************************************************
++
++  
++  Copyright(c) 2004 - 2005 Intel Corporation. All rights reserved.
++  
++  This program is free software; you can redistribute it and/or modify it 
++  under the terms of the GNU General Public License as published by the Free 
++  Software Foundation; either version 2 of the License, or (at your option) 
++  any later version.
++  
++  This program is distributed in the hope that it will be useful, but WITHOUT 
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
++  more details.
++  
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc., 59 
++  Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++  
++  The full GNU General Public License is included in this distribution in the
++  file called LICENSE.
++  
++*******************************************************************************/
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/device.h>
++#include <linux/dmaengine.h>
++#include <linux/delay.h>
++#include <asm/io.h>
++
++/* MODULE API */
++
++static volatile u8 *buffer1;
++static volatile u8 *buffer2;
++
++struct dma_client *test_dma_client;
++struct dma_chan *test_dma_chan;
++static dma_cookie_t cookie;
++
++void
++test_added_chan(void)
++{
++	int i;
++
++	printk("buffer1 = %p\n", buffer1);
++	printk("buffer2 = %p\n", buffer2);
++	for (i = 0; i < 20; i+=4)
++		printk("%u %u %u %u\n", buffer2[i], buffer2[i+1], buffer2[i+2], buffer2[i+3]);
++
++//	for (i = 0; i < 10; i++) {
++	cookie = dma_async_memcpy_buf_to_buf(test_dma_chan, 
++		(void *)buffer2,
++		(void *)buffer1,
++		2000);
++	dma_async_memcpy_issue_pending(test_dma_chan);
++//	}
++//	printk("dma cookie = %i\n", cookie);
++	if (dma_async_memcpy_complete(test_dma_chan, cookie, NULL, NULL) == DMA_IN_PROGRESS)
++		printk("DMA cookie == IN PROGRESS\n");
++	else
++		printk("DMA cookie == SUCCESS\n");
++#if 0
++	for (i = 0; i < 1000; i++) {
++		if (buffer2[1] != 0)
++			break;
++		mdelay(1);
++	}
++	printk("i = %d\n", i);
++	for (i = 0; i < 20; i+=4)
++		printk("%u %u %u %u\n", buffer2[i], buffer2[i+1], buffer2[i+2], buffer2[i+3]);
++	for (i = 0; i < 20; i+=4)
++		printk("%u %u %u %u\n", buffer1[i], buffer1[i+1], buffer1[i+2], buffer1[i+3]);
++#endif
++}
++
++void test_dma_event(struct dma_client *client, struct dma_chan *chan, enum dma_event_t event)
++{
++	switch (event) {
++	case DMA_RESOURCE_ADDED:
++		test_dma_chan = chan;
++		test_added_chan();
++		break;
++	case DMA_RESOURCE_REMOVED:
++		test_dma_chan = NULL;
++		break;
++	default:
++		break;
++	}
++}
++
++static int __init
++testclient_init_module(void)
++{
++	int i;
++
++	buffer1 = kmalloc(sizeof(u8) * 2000, SLAB_KERNEL);
++	buffer2 = kmalloc(sizeof(u8) * 2000, SLAB_KERNEL);
++
++	memset((void *)buffer2, 0, 2000);
++	for (i = 0; i < 2000; i++)
++		buffer1[i] = i;
++
++	test_dma_client = dma_async_client_register(test_dma_event);
++	if (!test_dma_client) {
++		printk(KERN_ERR "Could not register dma client!\n");
++		return 0;
++	}
++
++	dma_async_client_chan_request(test_dma_client, 1);
++
++	return 0;
++}
++
++module_init(testclient_init_module);
++
++static void __exit
++testclient_exit_module(void)
++{
++	int i;
++	for (i = 0; i < 20; i+=4)
++		printk("%u %u %u %u\n", buffer2[i], buffer2[i+1], buffer2[i+2], buffer2[i+3]);
++	if (dma_async_memcpy_complete(test_dma_chan, cookie, NULL, NULL) == DMA_SUCCESS)
++		printk("DMA cookie == SUCCESS\n");
++	else
++		printk("DMA cookie == IN PROGRESS\n");
++
++	dma_async_client_unregister(test_dma_client);
++}
++
++module_exit(testclient_exit_module);
++
