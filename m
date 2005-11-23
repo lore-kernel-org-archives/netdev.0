@@ -1,89 +1,40 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [RFC] [PATCH 1/3] ioat: DMA subsystem
-Date: Thu, 24 Nov 2005 11:48:01 +0000
-Message-ID: <20051124114801.GA20244@infradead.org>
-References: <Pine.LNX.4.44.0511231207410.32487-100000@isotope.jf.intel.com>
+From: "gillian wheeler" <quinney@draze.com>
+Subject: Abolish everything you are indebted for not even paying an other cent
+Date: Wed, 23 Nov 2005 20:10:36 +0700
+Message-ID: <4460FAED.866B63E@draze.com>
+Reply-To: "gillian wheeler" <quinney@draze.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john.ronciak@intel.com, christopher.leech@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932630AbVKXLsF@vger.kernel.org>
-To: Andrew Grover <andrew.grover@intel.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0511231207410.32487-100000@isotope.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Victor Hunt" <sullivan@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> +++ b/drivers/dma/cb_list.h
-> @@ -0,0 +1,12 @@
-> +/* Extra macros that build on <linux/list.h> */
-> +#ifndef CB_LIST_H
-> +#define CB_LIST_H
-> +
-> +#include <linux/list.h>
-> +
-> +/* Provide some safty to list_add, which I find easy to swap the arguments to */
-> +
-> +#define list_add_entry(pos, head, member)      list_add(&pos->member, head)
-> +#define list_add_entry_tail(pos, head, member) list_add_tail(&pos->member, head)
 
-these macros seem rather useless.  if you disagree please submit a patch to
-<linux/list.h> - if it gets accepted fine, else just remove this usage.
+Do away with all you owe not even sending another dollar.  
 
+Eliminate the embarrassing collection contacts. Bring to an end to the
+sending of payments! Wild as it may seem the majority lending establishments
+not following the banking laws here in the US. Incredible but right! Visit
+us for thorough fine points on the subject our approach at 0.00 payment or
+responsibility. You have not anything to loose and loads to secure.
 
-> +	struct dma_chan *chan = container_of(cd, struct dma_chan, class_dev);
+http://mx.geocities.com/kevinn_diggorysio/?a=XC.Get rid of all that you are
+indebted for not even mailing  an other dollar
+Exhaustive knowledge or to bring to a hault obtaining or to get postal
 
-What about a
+Multiply leads and business presence quickly through experienced and high
+volume electronic mail advertising
+Use the the largest and finest markettgroup@emailacc.com
 
-#define to_dma_chan(cdev) \
-	container_of(cd, struct dma_chan, cdev)
-
-helper as we have in many subsystems?
-
-> +static void
-> +dma_class_release(struct class_device *cd)
-> +{
-> +	/* do something */
-> +}
-
-umm, yeah.. :)
-
-> +static struct dma_chan *
-> +dma_client_chan_alloc(struct dma_client *client)
-> +{
-> +	struct dma_device *device;
-> +	struct dma_chan *chan;
-> +
-> +	BUG_ON(!client);
-> +
-> +	/* Find a channel, any DMA engine will do */
-> +	list_for_each_entry(device, &dma_device_list, global_node) {
-> +		list_for_each_entry(chan, &device->channels, device_node) {
-> +			if (chan->client)
-> +				continue;
-
-couldn't you use the normal device model list for this?
-
-> +static void
-> +dma_client_chan_free(struct dma_chan *chan)
-> +{
-> +	BUG_ON(!chan);
-> +
-> +	chan->device->device_free_chan_resources(chan);
-
-you'll get the oops here anyway, no need for the BUG_ON
-
-> +			chan = list_entry(client->channels.next, struct dma_chan, client_node);
-
-please shorten the line length to fit 80 column terminals.
-
-> +static int __init dma_bus_init(void)
-> +{
-> +	int cpu;
-> +
-> +	dma_wait_wq = create_workqueue("dmapoll");
-> +	for_each_online_cpu(cpu) {
-> +		init_completion(&per_cpu(kick_dma_poll, cpu));
-
-you either need to make this for_each_possible_cpu or add a hotplug
-cpu notifier.  the first is probably a lot easier :)
+When he found himself outside the village he made for the high plateau in
+the center of the island, where he could be safe from the cannibals while he
+collected his thoughts. But when he reached the place he found the sides so
+steep he could not climb them, so he adjusted the indicator to the word up
+and found it had still had enough power to support his body while he
+clambered up the rocks to the level, grass-covered space at the top
+Then, reclining upon his back, he gave himself up to thoughts of how he
+might escape from his unpleasant predicament
