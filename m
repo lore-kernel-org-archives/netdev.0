@@ -1,67 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
-Date: Wed, 23 Nov 2005 18:02:56 -0500
-Message-ID: <4384F520.3060502@pobox.com>
-References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com> <4384E7F2.2030508@pobox.com> <20051123223007.GA5921@wotan.suse.de>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [2.6 patch] net/sunrpc/xdr.c: remove xdr_decode_string()
+Date: Thu, 24 Nov 2005 10:07:13 +1100
+Message-ID: <17284.63009.25299.139531@cse.unsw.edu.au>
+References: <044B81DE141D7443BCE91E8F44B3C1E2013327DF@exsvl02.hq.netapp.com>
+	<20051123162528.GL3963@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Grover <andrew.grover@intel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
-	christopher.leech@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030485AbVKWXDG@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20051123223007.GA5921@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Lever, Charles" <Charles.Lever@netapp.com>,
+	David Miller <davem@davemloft.net>, trond.myklebust@fys.uio.no,
+	linux-kernel@vger.kernel.org, nfs@lists.sourceforge.net,
+	netdev@vger.kernel.org
+Return-path: <nfs-admin@lists.sourceforge.net>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: message from Adrian Bunk on Wednesday November 23
+Sender: nfs-admin@lists.sourceforge.net
+Errors-To: nfs-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=nfs>
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> Longer term the right way to handle this would be likely to use
-> POSIX AIO on sockets. With that interface it would be easier
-> to keep long queues of data in flight, which would be best for
-> the DMA engine.
-
-Agreed.
-
-For my own userland projects, I'm starting to feel the need for network 
-AIO, since it is more natural:  the hardware operations themselves are 
-asynchronous.
-
-
->>In addition to helping speed up network RX, I would like to see how 
->>possible it is to experiment with IOAT uses outside of networking. 
->>Sample ideas:  VM page pre-zeroing.  ATA PIO data xfers (async copy to 
->>static buffer, to dramatically shorten length of kmap+irqsave time). 
->>Extremely large memcpy() calls.
+On Wednesday November 23, bunk@stusta.de wrote:
+> On Wed, Nov 23, 2005 at 04:31:14AM -0800, Lever, Charles wrote:
+> > so i don't remember why you are removing xdr_decode_string.  are we sure
+> > that no-one will need this functionality in the future?  it is harmless
+> > to remove today, but i wonder if someone is just going to add it back
+> > sometime.
 > 
+> It's unused and you said:
+>   the only harmless change i see below is removing xdr_decode_string().
 > 
-> Another proposal was swiotlb.
 
-That's an interesting thought.
+As 'xdr_decode_string' (sometimes) modifies the buffer that it is
+decoding, I don't think it's usage should be encouraged.  If it is no
+longer in use, then I fully support and encourage removing it.
+
+NeilBrown
 
 
-> But it's not clear it's a good idea: a lot of these applications prefer to 
-> have the target in cache. And IOAT will force it out of cache.
-> 
-> 
->>Additionally, current IOAT is memory->memory.  I would love to be able 
->>to convince Intel to add transforms and checksums, to enable offload of 
->>memory->transform->memory and memory->checksum->result operations like 
->>sha-{1,256} hashing[1], crc32*, aes crypto, and other highly common 
->>operations.  All of that could be made async.
-> 
-> 
-> I remember the registers in the Amiga Blitter for this and I'm
-> still scared... Maybe it's better to keep it simple.
-
-We're talking about CISC here!  ;-) ;-)
-
-[note: I'm the type of person who would stuff the kernel + glibc onto an 
-FPGA, if I could]
-
-I would love to see Intel, AMD, VIA (others?) compete by adding selected 
-transforms/checksums/hashs to their chips, though this method.  Just 
-provide a method to enumerate what transforms are supported on <this> 
-chip...
-
-	Jeff
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
