@@ -1,121 +1,127 @@
-From: Vasily Averin <vvs@sw.ru>
-Subject: [PATCH 2.4] sis900: come alive after temporary memory shortage
-Date: Sat, 26 Nov 2005 12:23:59 +0300
-Message-ID: <438829AF.8060101__14589.0013933697$1132997269$gmane$org@sw.ru>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: [Fwd: [Bug 5644] New: NFS v3 TCP 3-way handshake incorrect,
+	iptables blocks access]
+Date: Wed, 23 Nov 2005 12:51:16 -0500
+Message-ID: <1132768276.8016.31.camel@lade.trondhjem.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030704030101010201050307"
-Cc: Konstantin Khorenko <khorenko@sw.ru>, netdev@oss.sgi.com,
-        Daniele Venzano <venza@brownhat.org>
+Content-Type: multipart/mixed; boundary="=-HxutDEdB/BdGYWP1LENI"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-        linux-kernel@vger.kernel.org
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030704030101010201050307
-Content-Type: text/plain; charset=us-ascii
+
+--=-HxutDEdB/BdGYWP1LENI
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-Hello Marcelo,
 
-I would like to inform you that unfortunately the committed patch is wrong
-http://www.kernel.org/git/?p=linux/kernel/git/marcelo/linux-2.4.git;a=commit;h=ecf3337f76eaa94c5a771308d184dc248b74b725
+Sorry to be cross-posting, but does this bug ring any bells? I'm having
+trouble seeing how the sunrpc server code could be at fault.
 
-+	int rx_work_limit =
-+		(sis_priv->dirty_rx - sis_priv->cur_rx) % NUM_RX_DESC;
+Cheers,
+  Trond
 
-when dirty_rx = cur_rx it computes limit=0, but should be NUM_RX_DESC
+--=-HxutDEdB/BdGYWP1LENI
+Content-Disposition: inline
+Content-Description: Forwarded message - [Bug 5644] New: NFS v3 TCP 3-way
+	handshake incorrect, iptables blocks access
+Content-Type: message/rfc822
 
-Could you please drop the wrong patch and use a new one based on the version
-approved by Daniele Venzano and Jeff Garzik
-http://www.kernel.org/git/?p=linux/kernel/git/jgarzik/netdev-2.6.git;a=commitdiff_plain;h=7380a78a973a8109c13cb0e47617c456b6f6e1f5;hp=b2795f596932286ef12dc08857960d654f577405
-
-Thank you,
-	Vasily Averin
-SWSoft Linux kernel Team
-
-  sis900: come alive after temporary memory shortage
-
-  1) Forgotten counter incrementation in sis900_rx() in case
-       it doesn't get memory for skb, that leads to whole interface failure.
-       Problem is accompanied with messages:
-      eth0: Memory squeeze,deferring packet.
-      eth0: NULL pointer encountered in Rx ring, skipping
-
-  2) If counter cur_rx overflows and there'll be temporary memory problems
-       buffer can't be recreated later, when memory IS available.
-
-  3) Limit the work in handler to prevent the endless packets processing
-     if new packets are generated faster then handled.
-
-  Signed-off-by: Konstantin Khorenko <khorenko@sw.ru>
-  Signed-off-by: Vasily Averin <vvs@sw.ru>
----
-
---------------030704030101010201050307
-Content-Type: text/plain;
- name="diff-drv-sis900-20051126"
+Return-Path: <www@osdl.org>
+Received: from mail-imap3.uio.no ([unix socket]) by mail-imap3.uio.no
+	(Cyrus v2.2.10) with LMTPA; Wed, 23 Nov 2005 17:04:06 +0100
+X-Sieve: CMU Sieve 2.2
+Delivery-date: Wed, 23 Nov 2005 17:04:06 +0100
+Received: from mail-mx2.uio.no ([129.240.10.30]) by mail-imap3.uio.no with
+	esmtp (Exim 4.43) id 1Eex6M-0001jD-QY for trond.myklebust@fys.uio.no; Wed,
+	23 Nov 2005 17:04:06 +0100
+Received: from smtp.osdl.org ([65.172.181.4]) by mail-mx2.uio.no with
+	esmtps (TLSv1:DES-CBC3-SHA:168) (Exim 4.43) id 1Eex6D-0005HH-3p for
+	trond.myklebust@fys.uio.no; Wed, 23 Nov 2005 17:03:57 +0100
+Received: from fire-2.osdl.org (localhost [127.0.0.1]) by smtp.osdl.org
+	(8.12.8/8.12.8) with ESMTP id jANG3rnO026282 (version=TLSv1/SSLv3
+	cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO) for
+	<trond.myklebust@fys.uio.no>; Wed, 23 Nov 2005 08:03:53 -0800
+Received: (from www@localhost) by fire-2.osdl.org (8.12.8/8.12.5/Submit) id
+	jANG3qDT026280; Wed, 23 Nov 2005 08:03:52 -0800
+Date: Wed, 23 Nov 2005 08:03:52 -0800
+Message-Id: <200511231603.jANG3qDT026280@fire-2.osdl.org>
+From: bugme-daemon@bugzilla.kernel.org
+To: trond.myklebust@fys.uio.no
+Subject: [Bug 5644] New: NFS v3 TCP 3-way handshake incorrect, iptables
+	blocks access
+X-Bugzilla-Reason: AssignedTo
+X-Bugzilla-Category: File System
+X-Bugzilla-Component: NFS
+Received-SPF: pass (localhost is always allowed.)
+X-Spam-Status: No, hits=1.088 required=5 tests=NO_REAL_NAME
+X-Spam-Level: *
+X-Spam-Checker-Version: SpamAssassin 2.63-osdl_revision__1.56__
+X-MIMEDefang-Filter: osdl$Revision: 1.127 $
+X-Scanned-By: MIMEDefang 2.36
+X-MailScanner-Information: This message has been scanned for viruses/spam.
+	Contact postmaster@uio.no if you have questions about this scanning
+X-UiO-MailScanner: No virus found
+X-UiO-Spam-info: not spam, SpamAssassin (score=0.178, required 12,
+	autolearn=disabled, NO_REAL_NAME 0.18)
+Mime-Version: 1.0
+Status: RO
+Content-Length: 2275
+X-UID: 7175
+X-Keywords: 
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="diff-drv-sis900-20051126"
 
---- a/drivers/net/sis900.c	2005-11-26 10:54:33.000000000 +0300
-+++ b/drivers/net/sis900.c	2005-11-26 11:30:17.000000000 +0300
-@@ -1613,15 +1613,20 @@ static int sis900_rx(struct net_device *
- 	long ioaddr = net_dev->base_addr;
- 	unsigned int entry = sis_priv->cur_rx % NUM_RX_DESC;
- 	u32 rx_status = sis_priv->rx_ring[entry].cmdsts;
-+	int rx_work_limit;
- 
- 	if (sis900_debug > 3)
- 		printk(KERN_INFO "sis900_rx, cur_rx:%4.4d, dirty_rx:%4.4d "
- 		       "status:0x%8.8x\n",
- 		       sis_priv->cur_rx, sis_priv->dirty_rx, rx_status);
-+	rx_work_limit = sis_priv->dirty_rx + NUM_RX_DESC - sis_priv->cur_rx;
- 
- 	while (rx_status & OWN) {
- 		unsigned int rx_size;
- 
-+		if (--rx_work_limit < 0)
-+			break;
-+
- 		rx_size = (rx_status & DSIZE) - CRC_SIZE;
- 
- 		if (rx_status & (ABORT|OVERRUN|TOOLONG|RUNT|RXISERR|CRCERR|FAERR)) {
-@@ -1648,9 +1653,11 @@ static int sis900_rx(struct net_device *
- 			   some unknow bugs, it is possible that
- 			   we are working on NULL sk_buff :-( */
- 			if (sis_priv->rx_skbuff[entry] == NULL) {
--				printk(KERN_INFO "%s: NULL pointer " 
--				       "encountered in Rx ring, skipping\n",
--				       net_dev->name);
-+				printk(KERN_WARNING "%s: NULL pointer "
-+					"encountered in Rx ring\n"
-+					"cur_rx:%4.4d, dirty_rx:%4.4d\n",
-+					net_dev->name, sis_priv->cur_rx,
-+					sis_priv->dirty_rx);
- 				break;
- 			}
- 
-@@ -1688,6 +1695,7 @@ static int sis900_rx(struct net_device *
- 				sis_priv->rx_ring[entry].cmdsts = 0;
- 				sis_priv->rx_ring[entry].bufptr = 0;
- 				sis_priv->stats.rx_dropped++;
-+				sis_priv->cur_rx++;
- 				break;
- 			}
- 			skb->dev = net_dev;
-@@ -1705,7 +1713,7 @@ static int sis900_rx(struct net_device *
- 
- 	/* refill the Rx buffer, what if the rate of refilling is slower than 
- 	   consuming ?? */
--	for (;sis_priv->cur_rx - sis_priv->dirty_rx > 0; sis_priv->dirty_rx++) {
-+	for (; sis_priv->cur_rx != sis_priv->dirty_rx; sis_priv->dirty_rx++) {
- 		struct sk_buff *skb;
- 
- 		entry = sis_priv->dirty_rx % NUM_RX_DESC;
+http://bugzilla.kernel.org/show_bug.cgi?id=5644
 
---------------030704030101010201050307--
+           Summary: NFS v3 TCP 3-way handshake incorrect, iptables blocks
+                    access
+    Kernel Version: 2.6.14
+            Status: NEW
+          Severity: blocking
+             Owner: trond.myklebust@fys.uio.no
+         Submitter: jl-icase@comcast.net
+
+
+Most recent kernel where this bug did not occur:
+Distribution: Can't remember, possibly FC2.
+Hardware Environment:
+Software Environment:
+Problem Description:
+
+Steps to reproduce:
+1. Boot NFS v3 TCP client running iptables & mount NFS filesystem
+2. Do a normal NFS client reboot & try mounting the same filesystem again
+3. Experience intermittent failure to read superblock
+
+The cause of this problem is NFS server's improper response to SYN packet sent
+by the client.  This occurs *after* successful client authorization, when the
+client tries to open the connection (i.e. sends SYN to the server's nfs port) to
+read the superblock.  The server (sometimes) responds with a pure ACK without
+the SYN bit set.  This is blocked by iptables -- thus, mount fails with a "could
+not read superblock" message.
+
+Here is an excerpt from ethereal log:
+
+      3 0.021733    client           SERVER           TCP      800 > nfs [SYN]
+Seq=0 Ack=0 Win=5840 Len=0 MSS=1460 TSV=24095 TSER=0 WS=2
+      4 0.021846    SERVER           client           TCP      nfs > 800 [ACK]
+Seq=9138391 Ack=3580883479 Win=16022 Len=0 TSV=244936050 TSER=1149400
+      5 0.021864    client           SERVER           ICMP     Destination
+unreachable (Host administratively prohibited)
+
+The above problem occurs with a very simple default+ssh iptables configuration.
+ Disabling iptables on the client makes the problem go away.  Even with iptables
+active, there is no problem when nfsd responds with a proper [SYN,ACK] instead
+of just pure ACK (this happens intermittently after the client reboot).
+
+Please fix nfsd so that it reliably responds to SYN packets with proper
+[SYN,ACK] packets instead of just ACK packets.  Apparently, nfsd state doesn't
+get properly reset on client reboots.  Other people have reported autofs
+failures which may be related (e.g. on remounts).
+
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
+
+--=-HxutDEdB/BdGYWP1LENI--
