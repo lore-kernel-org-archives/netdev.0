@@ -1,70 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/ipv4/netfilter/: small cleanups
-Date: Wed, 23 Nov 2005 01:41:08 +0100
-Message-ID: <20051123004108.GE3963@stusta.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/13]: Netfilter IPsec support
+Date: Wed, 23 Nov 2005 02:17:14 +0100
+Message-ID: <4383C31A.40101@trash.net>
+References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
+	<20051122.143438.84749134.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030280AbVKWAlL@vger.kernel.org>
-To: coreteam@netfilter.org
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20051122.143438.84749134.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following cleanups:
-- make needlessly global code static
-- ip_conntrack_core.c: ip_conntrack_flush() -> ip_conntrack_flush(void)
+David S. Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Sun, 20 Nov 2005 17:31:28 +0100
+> 
+> 
+>>This is the latest netfilter/IPsec patchset. Its purpose is to make
+>>IPsec look as much as a normal tunnel device to netfilter as possible
+>>and to enable NAT support.
+> 
+> 
+> I think there are some of these patches that we can merge in
+> right now into net-2.6.16...
+> 
+> I want to do this so that Patrick doesn't have to repost
+> 13 or so patches every time one of the parts still under
+> discussion gets changed.
+ >
+> Actually, it seems the only part under discussion is how to
+> avoid extension header reparsing and routing re-lookups on
+> the ipv6 side.  That could be fixed by a follow-on patch and
+> is not %100 necessary for initial integration in my opinion.
+> 
+> Can I get agreement on that?  Patrick sends me a dump of the
+> current state of his patch set right now, we put that into
+> net-2.6.16, and fix problems with followon patches.
+> 
+> Ok?
 
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- net/ipv4/netfilter/ip_conntrack_core.c |    4 ++--
- net/ipv4/netfilter/ip_nat_core.c       |    2 +-
- net/ipv4/netfilter/ipt_LOG.c           |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
-
---- linux-2.6.15-rc1-mm2-full/net/ipv4/netfilter/ip_conntrack_core.c.old	2005-11-22 22:52:16.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/net/ipv4/netfilter/ip_conntrack_core.c	2005-11-22 23:00:36.000000000 +0100
-@@ -1354,7 +1354,7 @@
- 			   get_order(sizeof(struct list_head) * size));
- }
- 
--void ip_conntrack_flush()
-+void ip_conntrack_flush(void)
- {
- 	/* This makes sure all current packets have passed through
-            netfilter framework.  Roll on, two-stage module
-@@ -1408,7 +1408,7 @@
- 	return hash;
- }
- 
--int set_hashsize(const char *val, struct kernel_param *kp)
-+static int set_hashsize(const char *val, struct kernel_param *kp)
- {
- 	int i, bucket, hashsize, vmalloced;
- 	int old_vmalloced, old_size;
---- linux-2.6.15-rc1-mm2-full/net/ipv4/netfilter/ipt_LOG.c.old	2005-11-22 22:57:59.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/net/ipv4/netfilter/ipt_LOG.c	2005-11-22 22:58:08.000000000 +0100
-@@ -351,7 +351,7 @@
- 	/* maxlen = 230+   91  + 230 + 252 = 803 */
- }
- 
--struct nf_loginfo default_loginfo = {
-+static struct nf_loginfo default_loginfo = {
- 	.type	= NF_LOG_TYPE_LOG,
- 	.u = {
- 		.log = {
---- linux-2.6.15-rc1-mm2-full/net/ipv4/netfilter/ip_nat_core.c.old	2005-11-22 22:58:31.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/net/ipv4/netfilter/ip_nat_core.c	2005-11-22 22:58:39.000000000 +0100
-@@ -49,7 +49,7 @@
- static struct list_head *bysource;
- 
- #define MAX_IP_NAT_PROTO 256
--struct ip_nat_protocol *ip_nat_protos[MAX_IP_NAT_PROTO];
-+static struct ip_nat_protocol *ip_nat_protos[MAX_IP_NAT_PROTO];
- 
- static inline struct ip_nat_protocol *
- __ip_nat_proto_find(u_int8_t protonum)
+I would appreciate that, but I want to have a look closer look
+at Herbert's patches first. Unfortunately its late and I have
+to get up early, so its going to take me a day.
