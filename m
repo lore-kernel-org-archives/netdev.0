@@ -1,72 +1,36 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
-Date: Wed, 23 Nov 2005 22:15:48 +0000
-Message-ID: <20051123221547.GM15449@flint.arm.linux.org.uk>
-References: <20051118033302.GO11494@stusta.de> <20051118090158.GA11621@flint.arm.linux.org.uk> <437DFD6C.1020106@pobox.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
+Date: Wed, 23 Nov 2005 22:54:04 +0000
+Message-ID: <1132786445.13095.32.camel@localhost.localdomain>
+References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com>
+	 <4384E7F2.2030508@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, saw@saw.sw.com.sg,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932277AbVKWWQB@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Grover <andrew.grover@intel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	christopher.leech@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932587AbVKWWVv@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <437DFD6C.1020106@pobox.com>
+In-Reply-To: <4384E7F2.2030508@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2005 at 11:12:28AM -0500, Jeff Garzik wrote:
-> Russell King wrote:
-> >On Fri, Nov 18, 2005 at 04:33:02AM +0100, Adrian Bunk wrote:
-> >
-> >>This patch removes the obsolete drivers/net/eepro100.c driver.
-> >>
-> >>Is there any reason why it should be kept?
-> >
-> >
-> >Tt's the only driver which works correctly on ARM CPUs.  e100 is
-> >basically buggy.  This has been discussed here on lkml and more
-> >recently on linux-netdev.  If anyone has any further questions
-> >please read the archives of those two lists.
-> 
-> After reading the archives, one discovers the current status is:
-> 
-> 	waiting on ARM folks to test e100
-> 
-> Latest reference is public message-id <4371A373.6000308@pobox.com>, 
-> which was CC'd to you.
-> 
-> There is a patch in netdev-2.6.git#e100-sbit and in Andrew's -mm tree 
-> that should solve the ARM problems, and finally allow us to kill 
-> eepro100.  But it's waiting for feedback...
+On Mer, 2005-11-23 at 17:06 -0500, Jeff Garzik wrote:
+> Sample ideas:  VM page pre-zeroing.  ATA PIO data xfers (async copy to 
+> static buffer, to dramatically shorten length of kmap+irqsave time). 
+> Extremely large memcpy() calls.
 
-Well, I've run 2.6.15-rc2 on what I think was the ARM platform which
-exhibited the problem, but it doesn't show up.  However, that's
-meaningless as it has been literally _years_ (4 or more) since the
-problem was reported.  It's rather unsurprising that I can't reproduce
-it - I don't even know if I'm using the right processor module!
+ATA PIO copies are 512 bytes of memory per sector and that is usually
+already in cache and on cache line boundaries. You won't even be able to
+measure it done by the CPU. I can't see the I/O engine sync cost being
+worth it.
 
-It's far too late to try swapping modules and rebuilding everything
-(if I can find the code for the boot loader still.)  Also since this
-platform is being returned to whence it came tomorrow, I lose the
-ability to test this.
+Might just about help large transfers I guess but you don't do
+multisector which is the only case you'd get perhaps 8K an I/O.
 
-I've been struggling all day trying to get the kernel back up and
-running on this hardware due to various issues with sizes of kernels
-and mtd/jffs2 incompatibilities with the jffs2 filesystem in flash.
+> Additionally, current IOAT is memory->memory.  I would love to be able 
+> to convince Intel to add transforms and checksums, 
 
-So, all in all, resolving this issue has taken far too long and it is
-now far too late to do any kind of positive testing.
-
-I leave it up to you how to proceed.  Effectively I'm now completely
-out of the loop on this with no hardware to worry about.  Sorry.
-
-Finally, please don't assign any blame for this in my direction; I
-reported it and I kept bugging people about it, and in spite of my
-best efforts there was very little which was forthcoming.  Obviously
-that wasn't enough.
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 Serial core
+Not just transforms but also masks and maybe even merges and textures
+would be rather handy 8)
