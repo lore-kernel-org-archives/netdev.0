@@ -1,50 +1,65 @@
-From: "Lever, Charles" <Charles.Lever@netapp.com>
-Subject: RE: [2.6 patch] net/sunrpc/xdr.c: remove xdr_decode_string()
-Date: Wed, 23 Nov 2005 04:31:14 -0800
-Message-ID: <044B81DE141D7443BCE91E8F44B3C1E2013327DF@exsvl02.hq.netapp.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: ip_conntrack: Make "hashsize" conntrack parameter writable
+Date: Wed, 23 Nov 2005 15:08:28 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0511231456360.32233@ask.diku.dk>
+References: <1132670984.17794.78.camel@localhost.localdomain>
+ <1132707085.7720.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: quoted-printable
-Cc: "David Miller" <davem@davemloft.net>, <neilb@cse.unsw.edu.au>,
-	<trond.myklebust@fys.uio.no>, <linux-kernel@vger.kernel.org>,
-	<nfs@lists.sourceforge.net>, <netdev@vger.kernel.org>
-Return-path: <nfs-admin@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-To: "Adrian Bunk" <bunk@stusta.de>
-Sender: nfs-admin@lists.sourceforge.net
-Errors-To: nfs-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=nfs>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Harald Welte <laforge@netfilter.org>, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org,
+        Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+In-Reply-To: <1132707085.7720.2.camel@localhost.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> On Thu, Oct 06, 2005 at 07:13:14AM -0700, Lever, Charles wrote:
->=20
-> > actually, can we hold off on this change?  the RPC=20
-> transport switch will
-> > eventually need most of those EXPORT_SYMBOLs.
->=20
-> Am I right to assume this will happen in the foreseeable future?
 
-the first portion of the transport switch is in 2.6.15-rcX.  at this
-point i'm expecting the EXPORT_SYMBOL changes to go in 2.6.17 or later.
+On Wed, 23 Nov 2005, Rusty Russell wrote:
 
-so i don't remember why you are removing xdr_decode_string.  are we sure
-that no-one will need this functionality in the future?  it is harmless
-to remove today, but i wonder if someone is just going to add it back
-sometime.
+> On Tue, 2005-11-22 at 15:49 +0100, Jesper Dangaard Brouer wrote:
+>> Hi Rusty (and Harald)
+>>
+>> We met at the Netfilter Workshop 2005, where I complained that the
+>> conntrack hashsize were statically set at module load time.
+>>
+>> Thank you making a kernel patch, which changes this...
+>> BUT I cannot make it work! :-(
+>>
+>> http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=eed75f191d8318a2b144da8aae9774e1cfcae492
+>>
+>> Am I missing some part of the patch?
+>>
+>> I cannot find the link to the /proc file system. Should there not be
+>> any changes to ip_conntrack_standalone.c ??
+>
+> /sys/module/ip_conntrack/parameters/hashsize
+>
+> Cheers!
+> Rusty.
 
+Aha I see, the sysfs filesystem.
 
--------------------------------------------------------
-This SF.Net email is sponsored by the JBoss Inc.  Get Certified Today
-Register for a JBoss Training Course.  Free Certification Exam
-for All Training Attendees Through End of 2005. For more info visit:
-http://ads.osdn.com/?ad_id=7628&alloc_id=16845&op=click
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
+I was confused, because the hashsize is already exported as 
+/proc/sys/net/ipv4/netfilter/ip_conntrack_buckets.
+
+It is a bit confusing, that the Netfilter team are changing away from the 
+/proc filesystem, but I don't care, it seems that the sysfs filesystem is 
+a more powerful choice.
+
+The permissions on "/sys/module/ip_conntrack/parameters/hashsize" is set 
+to 600, where the /proc/../ip_conntrack_buckets is readable to all (444). 
+I think we should change the /sys/../hashsize parameter to 644, as it does 
+not make sense as it is readable through /proc.
+
+Hilsen
+   Jesper Dangaard Brouer
+
+ps. Cc'ing -> lets keep google updated ;-)
+--
+-------------------------------------------------------------------
+Cand. scient datalog
+Dept. of Computer Science, University of Copenhagen
+-------------------------------------------------------------------
