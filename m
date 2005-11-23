@@ -1,30 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NETLINK]: Use tgid instead of pid for nlmsg_pid
-Date: Tue, 22 Nov 2005 22:18:00 -0800 (PST)
-Message-ID: <20051122.221800.53590951.davem@davemloft.net>
-References: <E1EeJxb-0006xG-00@gondolin.me.apana.org.au>
-	<20051122.144334.23915283.davem@davemloft.net>
-	<20051123000337.GA17249@gondor.apana.org.au>
+From: Robert Iakobashvili <coroberti@gmail.com>
+Subject: Re: Netlink send from the interrupt context
+Date: Wed, 23 Nov 2005 10:33:49 +0200
+Message-ID: <7e63f56c0511230033w68e60863wb8a026df3eea3077@mail.gmail.com>
+References: <7e63f56c0511210034h49917721k74ddb251b9bb1815@mail.gmail.com>
+	<00a901c5ee79$389e5040$6704a8c0@skqianyi>
+	<7e63f56c0511222328w6368f7bcl7877fe3aa62c2807@mail.gmail.com>
+	<02e501c5f002$e5094d00$6704a8c0@skqianyi>
+	<7e63f56c0511230004j79c7f080j56e25251387ebe94@mail.gmail.com>
+	<031201c5f007$0ce2e1c0$6704a8c0@skqianyi>
+	<7e63f56c0511230032x5097569dr3ddac4b05bb6019c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, cfriesen@nortel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030330AbVKWGTR@vger.kernel.org>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20051123000337.GA17249@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Yu Zhiguo <yuzg@nanjing-fnst.com>
+In-Reply-To: <7e63f56c0511230032x5097569dr3ddac4b05bb6019c@mail.gmail.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 23 Nov 2005 11:03:37 +1100
+On 11/23/05, Robert Iakobashvili <coroberti@gmail.com> wrote:
+> On 11/23/05, Yu Zhiguo <yuzg@nanjing-fnst.com> wrote:
+> > Please refer to the function netlink_broadcast(),
+> >    int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid=
+, u32 group, int allocation)
+> > I think if allocation=3DGFP_ATOMIC, it can be used in interrupt context=
+.
+> > What's your opinion?
 
-> On Tue, Nov 22, 2005 at 02:43:34PM -0800, David S. Miller wrote:
-> > It is possible we accidently reintroduced current->pid when
-> > we redid all of the netlink hashing. :-)
-> 
-> I just checked using git-whatchanged and that line goes back to
-> 2002 :)
+Allocation is OK and it uses only spinlocks in all functions called,
+no semaphores.
 
-Ho hum, I guess we just missed it on the current->pid
-scan then :-)
+My concern actually rises from here:
+http://www.ussg.iu.edu/hypermail/linux/kernel/0407.3/0455.html
+
+Sincerely,
+----------------------------------------------------------------
+Robert Iakobashvili  - NAVIGARE NECESSE EST
+coroberti at gmail dot com
+---------------------------------------------------------------
