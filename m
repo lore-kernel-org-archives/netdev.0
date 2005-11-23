@@ -1,17 +1,18 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 00/13]: Netfilter IPsec support
-Date: Tue, 22 Nov 2005 19:36:31 -0800 (PST)
-Message-ID: <20051122.193631.76306901.davem@davemloft.net>
+Date: Wed, 23 Nov 2005 15:47:54 +1100
+Message-ID: <20051123044754.GA18971@gondor.apana.org.au>
 References: <4383C31A.40101@trash.net>
 	<E1EejY9-0004fW-00@gondolin.me.apana.org.au>
+	<20051122.193631.76306901.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	kaber@trash.net
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <E1EejY9-0004fW-00@gondolin.me.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20051122.193631.76306901.davem@davemloft.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -23,21 +24,21 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 23 Nov 2005 12:35:53 +1100
-
-> How about merging the patches that everybody has agreed on first?
+On Tue, Nov 22, 2005 at 07:36:31PM -0800, David S. Miller wrote:
 > 
-> So far, I haven't see any objections to patches 1 and 2 so they
-> can go in straight away.  They don't even touch IPv6.
+> View the net-2.6.16 GIT tree as a sort of playpen, much like
+> -mm, until we get close to the real 2.6.16 upstream development
+> openning up.
 > 
-> Patches 3-6 could become redundant if you go with my suggestion.
-> 
-> The rest of them I haven't read yet so can't comment :)
+> I rebase all the time, and I can pluck out and change patches
+> at will.
 
-View the net-2.6.16 GIT tree as a sort of playpen, much like
--mm, until we get close to the real 2.6.16 upstream development
-openning up.
+Sure, I have no objections against merging the patch now and then add
+clean-ups later.
 
-I rebase all the time, and I can pluck out and change patches
-at will.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
