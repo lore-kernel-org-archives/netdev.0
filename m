@@ -1,54 +1,63 @@
-From: Frank Sorenson <frank@tuxrocks.com>
-Subject: Mouse issues in -mm
-Date: Wed, 23 Nov 2005 19:06:38 -0700
-Message-ID: <4385202E.70404@tuxrocks.com>
-References: <20051123033550.00d6a6e8.akpm@osdl.org>	<20051123175045.GA6760@stiffy.osknowledge.org> <20051123113854.07fca702.akpm@osdl.org>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [2.6 patch] do not select NET_CLS
+Date: Wed, 23 Nov 2005 18:13:32 -0800
+Message-ID: <20051123181332.0f86bfdb.rdunlap@xenotime.net>
+References: <4381F2D2.5000605@trash.net>
+	<20051122.143713.101129339.davem@davemloft.net>
+	<20051122224914.GA17575@mars.ravnborg.org>
+	<20051122.150041.90521592.davem@davemloft.net>
+	<20051123055735.GC7579@mars.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Marc Koschewski <marc@osknowledge.org>,
-	linux-kernel@vger.kernel.org, Harald Welte <laforge@netfilter.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750959AbVKXCGz@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20051123113854.07fca702.akpm@osdl.org>
+Cc: davem@davemloft.net, kaber@trash.net, bunk@stusta.de,
+	evil@g-house.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, zippel@linux-m68k.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932615AbVKXCNE@vger.kernel.org>
+To: Sam Ravnborg <sam@ravnborg.org>
+In-Reply-To: <20051123055735.GC7579@mars.ravnborg.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Wed, 23 Nov 2005 06:57:35 +0100 Sam Ravnborg wrote:
 
-Andrew Morton wrote:
-> Marc Koschewski <marc@osknowledge.org> wrote:
->>Just booted into 2.6.15-rc2-mm1. The 'mouse problem' (as reported earlier) still
->>persists,
+> On Tue, Nov 22, 2005 at 03:00:41PM -0800, David S. Miller wrote:
+> > From: Sam Ravnborg <sam@ravnborg.org>
+> > Date: Tue, 22 Nov 2005 23:49:14 +0100
+> > 
+> > > On Tue, Nov 22, 2005 at 02:37:13PM -0800, David S. Miller wrote:
+> > > > 
+> > > > One thing we can do to prevent human
+> > > > mistakes, is to make the "make modules" pass do a quick "is vmlinux
+> > > > uptodate?" check, and if not print out an error message explaining the
+> > > > situation and aborting the "make modules" attempt.
+> > > 
+> > > I do not quite follow you here.
+> > 
+> > If the user tries to do a "make modules" without first rebuilding
+> > their kernel image, then the make will fail if the dependencies
+> > are not satisfied for the main kernel image and it is thus not
+> > up to date.
 > 
-> You'l probably need to re-report the mouse problem if the previous report
-> didn't get any action.
+> OK - so a simple 'make -q vmlinux' check, except that the way we utilise
+> make will let it fail at first build command.
+> That will obscufate things even more in kbuild - but I will give it a
+> try sometime. It will be easy to cover 95% but to reach 100%
+> predictability will be though.
+> - file dependencies is easy
+> - command line changes is relatively easy
+> - but the various scripts and user commands will be tricky..
+> 
+> Not on the top of the TODO list though.
 
-I'm not certain whether this is the same 'mouse problem', but I'll
-report the mouse problems I've been seeing.  In the past several -mm
-kernels, my touchpad has initially worked at boot, but 'tapping' has
-stopped working at some point later (with no obvious kernel messages).
+So -q means "quick" ?
 
-I've experienced this problem at least with 2.6.15-rc1-mm2 and
-2.6.15-rc2-mm1, and reverting
-input-attempt-to-re-synchronize-mouse-every-5-seconds.patch gives a
-kernel without the touchpad problems.
+I wouldn't mind seeing a -quiet (even less quiet than V=0),
+not even printing the CC, AS, LD, etc. commands -- just let the
+tools print errors & warnings.  I always redirect output to a
+disk file and filter it for errors and warnings anyway, so I
+want hold my breath for this, but ISTM that V=0 could be even
+quieter than it is right now.
 
-Thanks,
-
-Frank
-- --
-Frank Sorenson - KD7TZK
-Systems Manager, Computer Science Department
-Brigham Young University
-frank@tuxrocks.com
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFDhSAuaI0dwg4A47wRAvzYAJ94ifBDBTm7MfVsbTOZE8QG3NjZUwCggHv0
-SQvehLxz6pLHs+5J+jTeaKU=
-=Pkg2
------END PGP SIGNATURE-----
+---
+~Randy
