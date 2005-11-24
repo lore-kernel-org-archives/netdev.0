@@ -1,51 +1,38 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
-Date: Thu, 24 Nov 2005 07:50:37 +0100
-Message-ID: <20051124065037.GZ20775@brahms.suse.de>
-References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com> <4384E7F2.2030508@pobox.com> <20051123223007.GA5921@wotan.suse.de> <20051124001700.GC14246@kvack.org>
+From: "Lever, Charles" <Charles.Lever@netapp.com>
+Subject: RE: [2.6 patch] net/sunrpc/xdr.c: remove xdr_decode_string()
+Date: Wed, 23 Nov 2005 22:56:51 -0800
+Message-ID: <044B81DE141D7443BCE91E8F44B3C1E2013327ED@exsvl02.hq.netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Grover <andrew.grover@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john.ronciak@intel.com, christopher.leech@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161023AbVKXGup@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20051124001700.GC14246@kvack.org>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <trond.myklebust@fys.uio.no>,
+	<linux-kernel@vger.kernel.org>, <nfs@lists.sourceforge.net>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161026AbVKXG5I@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "Neil Brown" <neilb@suse.de>, "Adrian Bunk" <bunk@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2005 at 07:17:01PM -0500, Benjamin LaHaise wrote:
-> On Wed, Nov 23, 2005 at 11:30:08PM +0100, Andi Kleen wrote:
-> > The main problem I see is that it'll likely only pay off when you can keep 
-> > the queue of copies long (to amortize the cost of 
-> > talking to an external chip). At least for the standard recvmsg 
-> > skb->user space, user space-> skb cases these queues are 
-> > likely short in most cases. That's because most applications
-> > do relatively small recvmsg or sendmsgs. 
+> On Wednesday November 23, bunk@stusta.de wrote:
+> > On Wed, Nov 23, 2005 at 04:31:14AM -0800, Lever, Charles wrote:
+> > > so i don't remember why you are removing 
+> xdr_decode_string.  are we sure
+> > > that no-one will need this functionality in the future?  
+> it is harmless
+> > > to remove today, but i wonder if someone is just going to 
+> add it back
+> > > sometime.
+> > 
+> > It's unused and you said:
+> >   the only harmless change i see below is removing 
+> xdr_decode_string().
+> > 
 > 
-> Don't forget that there are benefits of not polluting the cache with the 
-> traffic for the incoming skbs.
+> As 'xdr_decode_string' (sometimes) modifies the buffer that it is
+> decoding, I don't think it's usage should be encouraged.  If it is no
+> longer in use, then I fully support and encourage removing it.
 
-Is that a general benefit outside benchmarks? I would expect
-most real programs to actually do something with the data
-- and that usually involves needing it in cache.
-
-> > But it's not clear it's a good idea: a lot of these applications prefer to 
-> > have the target in cache. And IOAT will force it out of cache.
-> 
-> In the I/O AT case it might make sense to do a few prefetch()es of the 
-> userland data on the return-to-userspace code path.  
-
-Some prefetches for user space might be a good idea yes
-
-> Similarly, we should 
-> make sure that network drivers prefetch the header at the earliest possible 
-> time, too.
-
-It's done kind of already but tricky to get right because
-the prefetch distances upto use are not really long enough
-
-
--Andi
+actually this is a good point.  since it is unused, it is an untested
+path as we continue to evolve the code base.
