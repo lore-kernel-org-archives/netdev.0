@@ -1,77 +1,77 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: 2.6.15-rc2-mm1
-Date: Thu, 24 Nov 2005 10:04:58 +0100
-Message-ID: <20051124090457.GB31478@sunbeam.de.gnumonks.org>
-References: <20051123033550.00d6a6e8.akpm@osdl.org> <6bffcb0e0511230615y7531e268n@mail.gmail.com> <20051123112218.73f68926.akpm@osdl.org>
+From: Marc Koschewski <marc@osknowledge.org>
+Subject: Re: Mouse issues in -mm
+Date: Thu, 24 Nov 2005 10:40:22 +0100
+Message-ID: <20051124094019.GA6788@stiffy.osknowledge.org>
+References: <20051123033550.00d6a6e8.akpm@osdl.org> <20051123113854.07fca702.akpm@osdl.org> <4385202E.70404@tuxrocks.com> <200511232226.44459.dtor_core@ameritech.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="rnlqu3Le5Ibonik3"
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751351AbVKXJFR@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Frank Sorenson <frank@tuxrocks.com>, Andrew Morton <akpm@osdl.org>,
+	Marc Koschewski <marc@osknowledge.org>,
+	linux-kernel@vger.kernel.org, Harald Welte <laforge@netfilter.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932553AbVKXJkK@vger.kernel.org>
+To: Dmitry Torokhov <dtor_core@ameritech.net>
 Content-Disposition: inline
-In-Reply-To: <20051123112218.73f68926.akpm@osdl.org>
+In-Reply-To: <200511232226.44459.dtor_core@ameritech.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Dmitry Torokhov <dtor_core@ameritech.net> [2005-11-23 22:26:43 -0500]:
 
---rnlqu3Le5Ibonik3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, Nov 23, 2005 at 11:22:18AM -0800, Andrew Morton wrote:
-> Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
+> On Wednesday 23 November 2005 21:06, Frank Sorenson wrote:
+> > Andrew Morton wrote:
+> > > Marc Koschewski <marc@osknowledge.org> wrote:
+> > >>Just booted into 2.6.15-rc2-mm1. The 'mouse problem' (as reported earlier) still
+> > >>persists,
+> > >
+> > > You'l probably need to re-report the mouse problem if the previous report
+> > > didn't get any action.
+> > 
+> > I'm not certain whether this is the same 'mouse problem', but I'll
+> > report the mouse problems I've been seeing.  In the past several -mm
+> > kernels, my touchpad has initially worked at boot, but 'tapping' has
+> > stopped working at some point later (with no obvious kernel messages).
+> > 
+> > I've experienced this problem at least with 2.6.15-rc1-mm2 and
+> > 2.6.15-rc2-mm1, and reverting
+> > input-attempt-to-re-synchronize-mouse-every-5-seconds.patch gives a
+> > kernel without the touchpad problems.
 > >
-> >  Debug: sleeping function called from invalid context at
-> >  include/asm/semaphore.h:123
-> >  in_atomic():1, irqs_disabled():0
-> >   [<c0103be6>] dump_stack+0x17/0x19
-> >   [<c011a0c3>] __might_sleep+0x9c/0xae
-> >   [<fd9a090d>] translate_table+0x147/0xc14 [ip_tables]
-> >   [<fd9a2b2a>] ipt_register_table+0x93/0x20d [ip_tables]
-> >   [<f98fe027>] init+0x27/0x9e [iptable_filter]
-> >   [<c01376d0>] sys_init_module+0xd7/0x26c
-> >   [<c0102cc7>] sysenter_past_esp+0x54/0x75
-> >  ---------------------------
-> >  | preempt count: 00000001 ]
-> >  | 1 level deep critical section nesting:
-> >  ----------------------------------------
-> >  .. [<fd9a2aca>] .... ipt_register_table+0x33/0x20d [ip_tables]
-> >  .....[<f98fe027>] ..   ( <=3D init+0x27/0x9e [iptable_filter])
-> >=20
->=20
-> ipt_register_table() does get_cpu() then calls translate_table(), and
-> somewhere under translate_table() we do something which sleeps, only I'm =
-not
-> sure what it is - netfilter likes to hide things in unexpected places.
+> 
+> What kind of touchpad do you have? Could you post your
+> /pros/bus/input/devices please?
 
-I'll investigate this.  the get_cpu() scheme was introduced as a fix for
-a different (less serious) problem. =20
+Mine is like this:
 
-You'll get a reply until later today.
+I: Bus=0011 Vendor=0001 Product=0001 Version=ab41
+N: Name="AT Translated Set 2 keyboard"
+P: Phys=isa0060/serio0/input0
+S: Sysfs=/class/input/input0
+H: Handlers=kbd event0
+B: EV=120013
+B: KEY=4 2000000 3802078 f840d001 f2ffffdf ffefffff ffffffff fffffffe
+B: MSC=10
+B: LED=7
 
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+I: Bus=0010 Vendor=001f Product=0001 Version=0100
+N: Name="PC Speaker"
+P: Phys=isa0061/input0
+S: Sysfs=/class/input/input1
+H: Handlers=kbd event1
+B: EV=40001
+B: SND=6
 
---rnlqu3Le5Ibonik3
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+I: Bus=0011 Vendor=0002 Product=0005 Version=0000
+N: Name="ImPS/2 Generic Wheel Mouse"
+P: Phys=isa0060/serio1/input0
+S: Sysfs=/class/input/input2
+H: Handlers=event2 mouse0
+B: EV=7
+B: KEY=70000 0 0 0 0 0 0 0 0
+B: REL=103
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+I don't know why my touchpad is not listed. I have one and it perfectly
+works with X (same pointer as the mouse which is a Microsoft USB Wheel Mouse'
+attached to PS/2 using an appropriate adapter.
 
-iD8DBQFDhYI5XaXGVTD0i/8RAr57AJwMnfyvTxDyiQc1FV2KjYMX5ce8zACgn5X9
-/bPL939wCbi1T0zeZ6UKhsI=
-=p8cd
------END PGP SIGNATURE-----
-
---rnlqu3Le5Ibonik3--
+Marc
