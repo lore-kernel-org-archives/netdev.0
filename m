@@ -1,53 +1,40 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [2.6 patch] net/sunrpc/xdr.c: remove xdr_decode_string()
-Date: Thu, 24 Nov 2005 10:07:13 +1100
-Message-ID: <17284.63009.25299.139531@cse.unsw.edu.au>
-References: <044B81DE141D7443BCE91E8F44B3C1E2013327DF@exsvl02.hq.netapp.com>
-	<20051123162528.GL3963@stusta.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
+Date: Thu, 24 Nov 2005 00:05:40 +0000
+Message-ID: <1132790740.13095.53.camel@localhost.localdomain>
+References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com>
+	 <4384E7F2.2030508@pobox.com>  <20051123223007.GA5921@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Lever, Charles" <Charles.Lever@netapp.com>,
-	David Miller <davem@davemloft.net>, trond.myklebust@fys.uio.no,
-	linux-kernel@vger.kernel.org, nfs@lists.sourceforge.net,
-	netdev@vger.kernel.org
-Return-path: <nfs-admin@lists.sourceforge.net>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: message from Adrian Bunk on Wednesday November 23
-Sender: nfs-admin@lists.sourceforge.net
-Errors-To: nfs-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=nfs>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Grover <andrew.grover@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	john.ronciak@intel.com, christopher.leech@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932600AbVKWXdJ@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20051123223007.GA5921@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday November 23, bunk@stusta.de wrote:
-> On Wed, Nov 23, 2005 at 04:31:14AM -0800, Lever, Charles wrote:
-> > so i don't remember why you are removing xdr_decode_string.  are we sure
-> > that no-one will need this functionality in the future?  it is harmless
-> > to remove today, but i wonder if someone is just going to add it back
-> > sometime.
+On Mer, 2005-11-23 at 23:30 +0100, Andi Kleen wrote:
+> Another proposal was swiotlb.
+
+I was hoping Intel might have rediscovered the IOMMU by then and be back
+on feature parity with the VAX 11/750 
 > 
-> It's unused and you said:
->   the only harmless change i see below is removing xdr_decode_string().
-> 
+> But it's not clear it's a good idea: a lot of these applications prefer to 
+> have the target in cache. And IOAT will force it out of cache.
 
-As 'xdr_decode_string' (sometimes) modifies the buffer that it is
-decoding, I don't think it's usage should be encouraged.  If it is no
-longer in use, then I fully support and encourage removing it.
+This is true for some cases but not all for iotlb
 
-NeilBrown
+CPU generated data going out that won't be rewritten immediately should
+be a cheap path not needing the cache. Incoming data would invalidate
+the cache anyway if it arrives by DMA so the ioat would move it
+asynchronously of the CPU without cache harm
 
+Might also be interesting to use one half of a hypedthread CPU as a
+copier using the streaming instructions, might be better than turning it
+off to improve performance ?
 
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
+Alan
