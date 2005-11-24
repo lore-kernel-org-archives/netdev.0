@@ -1,38 +1,77 @@
-From: "Lever, Charles" <Charles.Lever@netapp.com>
-Subject: RE: [2.6 patch] net/sunrpc/xdr.c: remove xdr_decode_string()
-Date: Wed, 23 Nov 2005 22:56:51 -0800
-Message-ID: <044B81DE141D7443BCE91E8F44B3C1E2013327ED@exsvl02.hq.netapp.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: 2.6.15-rc2-mm1
+Date: Thu, 24 Nov 2005 10:04:58 +0100
+Message-ID: <20051124090457.GB31478@sunbeam.de.gnumonks.org>
+References: <20051123033550.00d6a6e8.akpm@osdl.org> <6bffcb0e0511230615y7531e268n@mail.gmail.com> <20051123112218.73f68926.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <trond.myklebust@fys.uio.no>,
-	<linux-kernel@vger.kernel.org>, <nfs@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161026AbVKXG5I@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "Neil Brown" <neilb@suse.de>, "Adrian Bunk" <bunk@stusta.de>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="rnlqu3Le5Ibonik3"
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751351AbVKXJFR@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20051123112218.73f68926.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Wednesday November 23, bunk@stusta.de wrote:
-> > On Wed, Nov 23, 2005 at 04:31:14AM -0800, Lever, Charles wrote:
-> > > so i don't remember why you are removing 
-> xdr_decode_string.  are we sure
-> > > that no-one will need this functionality in the future?  
-> it is harmless
-> > > to remove today, but i wonder if someone is just going to 
-> add it back
-> > > sometime.
-> > 
-> > It's unused and you said:
-> >   the only harmless change i see below is removing 
-> xdr_decode_string().
-> > 
-> 
-> As 'xdr_decode_string' (sometimes) modifies the buffer that it is
-> decoding, I don't think it's usage should be encouraged.  If it is no
-> longer in use, then I fully support and encourage removing it.
 
-actually this is a good point.  since it is unused, it is an untested
-path as we continue to evolve the code base.
+--rnlqu3Le5Ibonik3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Nov 23, 2005 at 11:22:18AM -0800, Andrew Morton wrote:
+> Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
+> >
+> >  Debug: sleeping function called from invalid context at
+> >  include/asm/semaphore.h:123
+> >  in_atomic():1, irqs_disabled():0
+> >   [<c0103be6>] dump_stack+0x17/0x19
+> >   [<c011a0c3>] __might_sleep+0x9c/0xae
+> >   [<fd9a090d>] translate_table+0x147/0xc14 [ip_tables]
+> >   [<fd9a2b2a>] ipt_register_table+0x93/0x20d [ip_tables]
+> >   [<f98fe027>] init+0x27/0x9e [iptable_filter]
+> >   [<c01376d0>] sys_init_module+0xd7/0x26c
+> >   [<c0102cc7>] sysenter_past_esp+0x54/0x75
+> >  ---------------------------
+> >  | preempt count: 00000001 ]
+> >  | 1 level deep critical section nesting:
+> >  ----------------------------------------
+> >  .. [<fd9a2aca>] .... ipt_register_table+0x33/0x20d [ip_tables]
+> >  .....[<f98fe027>] ..   ( <=3D init+0x27/0x9e [iptable_filter])
+> >=20
+>=20
+> ipt_register_table() does get_cpu() then calls translate_table(), and
+> somewhere under translate_table() we do something which sleeps, only I'm =
+not
+> sure what it is - netfilter likes to hide things in unexpected places.
+
+I'll investigate this.  the get_cpu() scheme was introduced as a fix for
+a different (less serious) problem. =20
+
+You'll get a reply until later today.
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--rnlqu3Le5Ibonik3
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFDhYI5XaXGVTD0i/8RAr57AJwMnfyvTxDyiQc1FV2KjYMX5ce8zACgn5X9
+/bPL939wCbi1T0zeZ6UKhsI=
+=p8cd
+-----END PGP SIGNATURE-----
+
+--rnlqu3Le5Ibonik3--
