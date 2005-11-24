@@ -1,89 +1,51 @@
-From: Frank Sorenson <frank@tuxrocks.com>
-Subject: Re: Mouse issues in -mm
-Date: Wed, 23 Nov 2005 23:14:40 -0700
-Message-ID: <43855A50.80808@tuxrocks.com>
-References: <20051123033550.00d6a6e8.akpm@osdl.org> <20051123113854.07fca702.akpm@osdl.org> <4385202E.70404@tuxrocks.com> <200511232226.44459.dtor_core@ameritech.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
+Date: Thu, 24 Nov 2005 07:50:37 +0100
+Message-ID: <20051124065037.GZ20775@brahms.suse.de>
+References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com> <4384E7F2.2030508@pobox.com> <20051123223007.GA5921@wotan.suse.de> <20051124001700.GC14246@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	Marc Koschewski <marc@osknowledge.org>,
-	linux-kernel@vger.kernel.org, Harald Welte <laforge@netfilter.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161011AbVKXGO7@vger.kernel.org>
-To: Dmitry Torokhov <dtor_core@ameritech.net>
-In-Reply-To: <200511232226.44459.dtor_core@ameritech.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Grover <andrew.grover@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	john.ronciak@intel.com, christopher.leech@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161023AbVKXGup@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20051124001700.GC14246@kvack.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Wed, Nov 23, 2005 at 07:17:01PM -0500, Benjamin LaHaise wrote:
+> On Wed, Nov 23, 2005 at 11:30:08PM +0100, Andi Kleen wrote:
+> > The main problem I see is that it'll likely only pay off when you can keep 
+> > the queue of copies long (to amortize the cost of 
+> > talking to an external chip). At least for the standard recvmsg 
+> > skb->user space, user space-> skb cases these queues are 
+> > likely short in most cases. That's because most applications
+> > do relatively small recvmsg or sendmsgs. 
+> 
+> Don't forget that there are benefits of not polluting the cache with the 
+> traffic for the incoming skbs.
 
-Dmitry Torokhov wrote:
-> What kind of touchpad do you have? Could you post your
-> /pros/bus/input/devices please?
+Is that a general benefit outside benchmarks? I would expect
+most real programs to actually do something with the data
+- and that usually involves needing it in cache.
 
-AlpsPS/2 ALPS GlidePoint
+> > But it's not clear it's a good idea: a lot of these applications prefer to 
+> > have the target in cache. And IOAT will force it out of cache.
+> 
+> In the I/O AT case it might make sense to do a few prefetch()es of the 
+> userland data on the return-to-userspace code path.  
 
-/proc/bus/input/devices:
-I: Bus=0010 Vendor=001f Product=0001 Version=0100
-N: Name="PC Speaker"
-P: Phys=isa0061/input0
-S: Sysfs=/class/input/input0
-H: Handlers=kbd event0
-B: EV=40001
-B: SND=46
+Some prefetches for user space might be a good idea yes
 
-I: Bus=0011 Vendor=0001 Product=0001 Version=ab41
-N: Name="AT Translated Set 2 keyboard"
-P: Phys=isa0060/serio0/input0
-S: Sysfs=/class/input/input1
-H: Handlers=kbd event1
-B: EV=120013
-B: KEY=4 2000000 3802078 f840d001 f2ffffdf ffefffff ffffffff fffffffe
-B: MSC=10
-B: LED=7
+> Similarly, we should 
+> make sure that network drivers prefetch the header at the earliest possible 
+> time, too.
 
-I: Bus=0011 Vendor=0002 Product=0008 Version=0000
-N: Name="PS/2 Mouse"
-P: Phys=isa0060/serio1/input1
-S: Sysfs=/class/input/input2
-H: Handlers=mouse0 event2
-B: EV=7
-B: KEY=70000 0 0 0 0 0 0 0 0
-B: REL=3
-
-I: Bus=0011 Vendor=0002 Product=0008 Version=7321
-N: Name="AlpsPS/2 ALPS GlidePoint"
-P: Phys=isa0060/serio1/input0
-S: Sysfs=/class/input/input3
-H: Handlers=mouse1 event3
-B: EV=f
-B: KEY=420 0 70000 0 0 0 0 0 0 0 0
-B: REL=3
-B: ABS=1000003
+It's done kind of already but tricky to get right because
+the prefetch distances upto use are not really long enough
 
 
-Note: I believe this issue may also be related to the mouse protocol
-extension.  I typically run with 'psmouse.proto=exps' on the kernel
-command line, and the psmouse resync patch seems to break tapping in
-that mode.  However, booting without proto=exps seems to continue to
-work, even with the resync patch (though the touchpad is unusably
-sensitive--hence the use of exps in the first place).
-
-Thanks,
-
-Frank
-- --
-Frank Sorenson - KD7TZK
-Systems Manager, Computer Science Department
-Brigham Young University
-frank@tuxrocks.com
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFDhVpQaI0dwg4A47wRAgxMAKCgcX59rpVR2umCUz4IBNls8L+8EQCfQprd
-4v8Qxv3890dRIus0ptIyGxs=
-=AJGF
------END PGP SIGNATURE-----
+-Andi
