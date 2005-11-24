@@ -1,25 +1,134 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
-Date: Wed, 23 Nov 2005 18:36:51 -0500
-Message-ID: <4384FD13.7060606@pobox.com>
-References: <Pine.LNX.4.44.0511231143380.32487-100000@isotope.jf.intel.com>	 <4384E7F2.2030508@pobox.com>  <20051123223007.GA5921@wotan.suse.de> <1132790740.13095.53.camel@localhost.localdomain>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC] [PATCH 1/3] ioat: DMA subsystem
+Date: Wed, 23 Nov 2005 16:07:54 -0800
+Message-ID: <20051124000754.GA1059@kroah.com>
+References: <Pine.LNX.4.44.0511231207410.32487-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, Andrew Grover <andrew.grover@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	john.ronciak@intel.com, christopher.leech@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751318AbVKWXg6@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1132790740.13095.53.camel@localhost.localdomain>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030516AbVKXAIM@vger.kernel.org>
+To: Andrew Grover <andrew.grover@intel.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0511231207410.32487-100000@isotope.jf.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> Might also be interesting to use one half of a hypedthread CPU as a
-> copier using the streaming instructions, might be better than turning it
-> off to improve performance ?
+On Wed, Nov 23, 2005 at 12:26:42PM -0800, Andrew Grover wrote:
+> +static void
+> +dma_class_release(struct class_device *cd)
+> +{
+> +	/* do something */
+> +}
 
-That's pretty interesting too...
+Well, then actually do something here.  Don't try to trick the kernel to
+not complain about the lack of a release function by giving it an empty
+function.  This is wrong.
 
-	Jeff
+> +static struct class dma_devclass = {
+> +	.name		= "dma",
+> +	.release	= dma_class_release,
+> +	.class_dev_attrs = dma_class_attrs,
+> +};
+
+Why not just use class_device_create() and friends, instead of building
+your own class this way?  It will take care of your "look at the lack of
+my release function" issues, and make things easier to handle.
+
+> +EXPORT_SYMBOL(dma_async_client_register);
+> +EXPORT_SYMBOL(dma_async_client_unregister);
+> +EXPORT_SYMBOL(dma_async_client_chan_request);
+> +EXPORT_SYMBOL(dma_async_memcpy_buf_to_buf);
+> +EXPORT_SYMBOL(dma_async_memcpy_buf_to_pg);
+> +EXPORT_SYMBOL(dma_async_memcpy_pg_to_pg);
+> +EXPORT_SYMBOL(dma_async_memcpy_complete);
+> +EXPORT_SYMBOL(dma_async_memcpy_issue_pending);
+> +EXPORT_SYMBOL(dma_async_device_register);
+> +EXPORT_SYMBOL(dma_async_device_unregister);
+> +EXPORT_SYMBOL(dma_async_wait_for_completion);
+> +EXPORT_PER_CPU_SYMBOL(kick_dma_poll);
+
+EXPORT_SYMBOL_GPL() perhaps?
+
+> +/**
+> + * enum dma_event_t - resource PNP/power managment events
+> + * @DMA_RESOURCE_SUSPEND: DMA device going into low power state
+> + * @DMA_RESOURCE_RESUME: DMA device returning to full power
+> + * @DMA_RESOURCE_ADDED: DMA device added to the system
+> + * @DMA_RESOURCE_REMOVED: DMA device removed from the system
+> + */
+> +enum dma_event_t {
+> +	DMA_RESOURCE_SUSPEND,
+> +	DMA_RESOURCE_RESUME,
+> +	DMA_RESOURCE_ADDED,
+> +	DMA_RESOURCE_REMOVED,
+> +};
+
+Why "_t" for an enum?
+
+> +/**
+> + * struct dma_device - info on the entity supplying DMA services
+> + * @chancnt: how many DMA channels are supported
+> + * @channels: the list of struct dma_chan
+> + * @global_node: list_head for global dma_device_list
+> + * Other func ptrs: used to make use of this device's capabilities
+> + */
+> +struct dma_device {
+> +
+> +	unsigned int chancnt;
+> +	struct list_head channels;
+> +	struct list_head global_node;
+> +
+> +	int dev_id;
+> +	/*struct class_device class_dev;*/
+
+Commented out?
+
+> +	int (*device_alloc_chan_resources)(struct dma_chan *chan);
+> +	void (*device_free_chan_resources)(struct dma_chan *chan);
+> +	dma_cookie_t (*device_memcpy_buf_to_buf)(struct dma_chan *chan, void *dest,
+> +		void *src, size_t len);
+> +	dma_cookie_t (*device_memcpy_buf_to_pg)(struct dma_chan *chan, struct page *page,
+> +		unsigned int offset, void *kdata, size_t len);
+> +	dma_cookie_t (*device_memcpy_pg_to_pg)(struct dma_chan *chan, struct page *dest_pg,
+> +		unsigned int dest_off, struct page *src_pg, unsigned int src_off,
+> +		size_t len);
+> +	void (*device_arm_interrupt)(struct dma_chan *chan);
+> +	enum dma_status_t (*device_memcpy_complete)(struct dma_chan *chan, dma_cookie_t cookie, dma_cookie_t *last, dma_cookie_t *used);
+> +	void (*device_memcpy_issue_pending)(struct dma_chan *chan);
+> +};
+> +
+> +/* --- public DMA engine API --- */
+> +
+> +struct dma_client *
+> +dma_async_client_register(dma_event_callback event_callback);
+> +
+> +void
+> +dma_async_client_unregister(struct dma_client *client);
+> +
+> +void
+> +dma_async_client_chan_request(struct dma_client *client, unsigned int number);
+
+Put return types on the same line as the function please.
+
+> +dma_cookie_t
+> +dma_async_memcpy_buf_to_buf(
+> +	struct dma_chan *chan,
+> +	void *dest,
+> +	void *src,
+> +	size_t len);
+
+Ick, don't duplicate the acpi coding style here please :)
+
+> +static inline enum dma_status_t
+> +dma_async_is_complete(
+> +	dma_cookie_t cookie,
+> +	dma_cookie_t last_complete,
+> +	dma_cookie_t last_used) {
+> +	
+
+Trailing space :(
+
+thanks,
+
+greg k-h
