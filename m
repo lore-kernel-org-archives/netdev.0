@@ -1,33 +1,89 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [2.6 patch] do not select NET_CLS
-Date: Thu, 24 Nov 2005 06:40:02 +0100
-Message-ID: <20051124054001.GB7618@mars.ravnborg.org>
-References: <4381F2D2.5000605@trash.net> <20051122.143713.101129339.davem@davemloft.net> <20051122224914.GA17575@mars.ravnborg.org> <20051122.150041.90521592.davem@davemloft.net> <20051123055735.GC7579@mars.ravnborg.org> <20051123181332.0f86bfdb.rdunlap@xenotime.net>
+From: Frank Sorenson <frank@tuxrocks.com>
+Subject: Re: Mouse issues in -mm
+Date: Wed, 23 Nov 2005 23:14:40 -0700
+Message-ID: <43855A50.80808@tuxrocks.com>
+References: <20051123033550.00d6a6e8.akpm@osdl.org> <20051123113854.07fca702.akpm@osdl.org> <4385202E.70404@tuxrocks.com> <200511232226.44459.dtor_core@ameritech.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, bunk@stusta.de,
-	evil@g-house.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, zippel@linux-m68k.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161006AbVKXFkF@vger.kernel.org>
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
-Content-Disposition: inline
-In-Reply-To: <20051123181332.0f86bfdb.rdunlap@xenotime.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>,
+	Marc Koschewski <marc@osknowledge.org>,
+	linux-kernel@vger.kernel.org, Harald Welte <laforge@netfilter.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161011AbVKXGO7@vger.kernel.org>
+To: Dmitry Torokhov <dtor_core@ameritech.net>
+In-Reply-To: <200511232226.44459.dtor_core@ameritech.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 23, 2005 at 06:13:32PM -0800, Randy.Dunlap wrote:
-> 
-> So -q means "quick" ?
->From make help:
--q, --question Run no commands; exit status says if up to date
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> I wouldn't mind seeing a -quiet (even less quiet than V=0),
-> not even printing the CC, AS, LD, etc. commands -- just let the
-> tools print errors & warnings.  I always redirect output to a
-> disk file and filter it for errors and warnings anyway, so I
-> want hold my breath for this, but ISTM that V=0 could be even
-> quieter than it is right now.
+Dmitry Torokhov wrote:
+> What kind of touchpad do you have? Could you post your
+> /pros/bus/input/devices please?
 
-make -s shuld give you this. I've not used it for long though...
+AlpsPS/2 ALPS GlidePoint
 
-	Sam
+/proc/bus/input/devices:
+I: Bus=0010 Vendor=001f Product=0001 Version=0100
+N: Name="PC Speaker"
+P: Phys=isa0061/input0
+S: Sysfs=/class/input/input0
+H: Handlers=kbd event0
+B: EV=40001
+B: SND=46
+
+I: Bus=0011 Vendor=0001 Product=0001 Version=ab41
+N: Name="AT Translated Set 2 keyboard"
+P: Phys=isa0060/serio0/input0
+S: Sysfs=/class/input/input1
+H: Handlers=kbd event1
+B: EV=120013
+B: KEY=4 2000000 3802078 f840d001 f2ffffdf ffefffff ffffffff fffffffe
+B: MSC=10
+B: LED=7
+
+I: Bus=0011 Vendor=0002 Product=0008 Version=0000
+N: Name="PS/2 Mouse"
+P: Phys=isa0060/serio1/input1
+S: Sysfs=/class/input/input2
+H: Handlers=mouse0 event2
+B: EV=7
+B: KEY=70000 0 0 0 0 0 0 0 0
+B: REL=3
+
+I: Bus=0011 Vendor=0002 Product=0008 Version=7321
+N: Name="AlpsPS/2 ALPS GlidePoint"
+P: Phys=isa0060/serio1/input0
+S: Sysfs=/class/input/input3
+H: Handlers=mouse1 event3
+B: EV=f
+B: KEY=420 0 70000 0 0 0 0 0 0 0 0
+B: REL=3
+B: ABS=1000003
+
+
+Note: I believe this issue may also be related to the mouse protocol
+extension.  I typically run with 'psmouse.proto=exps' on the kernel
+command line, and the psmouse resync patch seems to break tapping in
+that mode.  However, booting without proto=exps seems to continue to
+work, even with the resync patch (though the touchpad is unusably
+sensitive--hence the use of exps in the first place).
+
+Thanks,
+
+Frank
+- --
+Frank Sorenson - KD7TZK
+Systems Manager, Computer Science Department
+Brigham Young University
+frank@tuxrocks.com
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFDhVpQaI0dwg4A47wRAgxMAKCgcX59rpVR2umCUz4IBNls8L+8EQCfQprd
+4v8Qxv3890dRIus0ptIyGxs=
+=AJGF
+-----END PGP SIGNATURE-----
