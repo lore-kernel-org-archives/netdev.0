@@ -1,49 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 07/13]: [NETFILTER]: Fix xfrm lookup in
-	ip_route_me_harder/ip6_route_me_harder
-Date: Tue, 29 Nov 2005 08:06:28 +1100
-Message-ID: <20051128210628.GA15057@gondor.apana.org.au>
-References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
-	<20051120163137.16666.924.sendpatchset@localhost.localdomain>
+From: Mateusz Berezecki <mateuszb@gmail.com>
+Subject: Re[4]: net_device + pci_dev question
+Date: Mon, 28 Nov 2005 22:08:11 +0100
+Message-ID: <527051512.20051128220811@gmail.com>
+References: <2510370984.20051127205827@gmail.com>
+ <1133126713.2853.45.camel@laptopd505.fenrus.org>
+ <1653628458.20051128215644@gmail.com>
+ <1133211819.2824.82.camel@laptopd505.fenrus.org>
+Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	davem@davemloft.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <20051120163137.16666.924.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751276AbVK1VIV@vger.kernel.org>
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1133211819.2824.82.camel@laptopd505.fenrus.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 20, 2005 at 04:31:37PM +0000, Patrick McHardy wrote:
->
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index 9f09882..377036b 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -45,6 +45,7 @@ struct inet_skb_parm
->  #define IPSKB_TRANSLATED	2
->  #define IPSKB_FORWARDED		4
->  #define IPSKB_XFRM_TUNNEL_SIZE	8
-> +#define IPSKB_XFRM_TRANSFORMED	16
->  };
+Hello Arjan,
 
-My only question about this patch is where should we clear these flags?
-For instance, when ipip/gre transmits a packet, should this flag (and
-perhaps other flags here) be cleared?
+On 28th november 2005 (22:03:38) you wrote:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> oh it's *your own* netdev...
+
+Yes:-) Sorry for not being precise
+
+> that makes things a lot easier ;)
+
+
+> it's custom to have driver private data per net dev
+> (see netdev_priv() to get it, alloc_etherdev() takes the size of it as
+> argument). It's custom to make that private data a struct in which you
+> can store the pci device pointer yourself, as well as any other per card
+> data that you need to store
+
+
+Ok, I will do it like that then. Thank you for the explanation on this
+issue.
+
+kind regards,
+Mateusz Berezecki
