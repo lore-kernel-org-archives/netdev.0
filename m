@@ -1,55 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 05/13]: [IPV4/6]: Netfilter IPsec output hooks
-Date: Mon, 28 Nov 2005 13:25:48 +0100
-Message-ID: <438AF74C.6000608@trash.net>
-References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
-	<20051120163134.16666.9265.sendpatchset@localhost.localdomain>
-	<20051122044046.GA29166@gondor.apana.org.au>
-	<4382A44F.9000105@trash.net>
-	<20051122103038.GA31532@gondor.apana.org.au>
-	<20051122103139.GA4632@gondor.apana.org.au>
-	<20051122121358.GA9057@gondor.apana.org.au>
-	<438A5837.5040706@trash.net>
-	<20051128045611.GA9571@gondor.apana.org.au>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
+Date: Mon, 28 Nov 2005 08:44:05 -0800
+Message-ID: <4807377b0511280844w5ab2cb95y9955a62c0efe2f9d@mail.gmail.com>
+References: <20051128123601.GA32346@king.bitgnome.net>
+	 <dmf1kn$t2s$1@news.cistron.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	davem@davemloft.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20051128045611.GA9571@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751302AbVK1QoI@vger.kernel.org>
+To: Miquel van Smoorenburg <miquels@cistron.nl>, nipsy@bitgnome.net
+In-Reply-To: <dmf1kn$t2s$1@news.cistron.nl>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Mon, Nov 28, 2005 at 02:07:03AM +0100, Patrick McHardy wrote:
-> 
->>Thanks, this looks great. I've changed it to only call the hooks
-> 
-> 
-> Glad you liked it :)
-> 
-> 
->>before tunnel mode transforms and added a missing dst_output call
->>for the final packet.
-> 
-> 
-> This shouldn't be necessary if you apply it on top of my previous
-> patch which made xfrm[46]_output process the first SA and all subsequent
-> transport mode SAs.  I've included that patch here again.
-> 
-> I think it still makes sense to do that because this corresponds
-> with the usual representation of an IPsec connection and it
-> simplifies the handling of netfilter hooks.
+This should really be on netdev, so I copied it.
 
-I agree, I missed that your patch based on that one. Let me have
-another look :)
+On 11/28/05, Miquel van Smoorenburg <miquels@cistron.nl> wrote:
+> In article <20051128123601.GA32346@king.bitgnome.net>,
+> Mark Nipper  <nipsy@bitgnome.net> wrote:
+> >        I received the following in my system logs recently:
+> >---
+> >Nov 27 22:56:20 king kernel: KERNEL: assertion (!sk->sk_forward_alloc)
+> >failed at net/core/stream.c (279)
+> >Nov 27 22:56:20 king kernel: KERNEL: assertion (!sk->sk_forward_alloc)
+> >failed at net/ipv4/af_inet.c (151)
+> >
+> >        All I could find related to this was some potential bugs
+> >mentioned in 2.6.9 and in particular with relation to TSO.
+> >However, I'm running a vanilla 2.6.13.4 at the moment.  But, I do
+> >have an e1000 and checking ethtool does show TSO on.
+>
+> I'm seeing the same on 2.6.14.2, also with e1000. It wasn't there on
+> 2.6.11.12 which I was running previously.
+
+I don't believe this is related to e1000 because we don't mess with
+the sock (sk) struct.  Did you try disabling TSO?  I bet the netdev
+guys can help.
