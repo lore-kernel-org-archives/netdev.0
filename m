@@ -1,62 +1,106 @@
-From: Mateusz Berezecki <mateuszb@gmail.com>
-Subject: NIC irq nobody cared ? virtual to  physical  and DMA questions
-Date: Tue, 29 Nov 2005 21:28:51 +0100
-Message-ID: <745843498.20051129212851@gmail.com>
-Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
+From: Pradeep Vincent <pradeep.vincent@gmail.com>
+Subject: Re: [Patch] 2.4.32 - Neighbour Cache (ARP) State machine bug Fixed
+Date: Tue, 29 Nov 2005 12:42:02 -0800
+Message-ID: <9fda5f510511291242u3b313bddi538f724a2c35926f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932385AbVK2U3G@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	<kernel-mentors@selenic.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, torvalds@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932389AbVK2UmG@vger.kernel.org>
+To: Roberto Nibali <ratz@drugphish.ch>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello List,
+>From the source,
+/*
+   Transitions NUD_STALE <-> NUD_REACHABLE do not occur
+   when fast path is built: we have no timers associated with
+   these states, we do not have time to check state when sending.
+   neigh_periodic_timer check periodically neigh->confirmed
+   time and moves NUD_REACHABLE -> NUD_STALE.
 
-This time the questions are different.
+   If a routine wants to know TRUE entry state, it calls
+   neigh_sync before checking state.
 
-Given the following output could anyone please tell me what is wrong ?
-In explicit what does that mysterious "nobody cared" message mean?
-And another stupid question: should DMA for a network card be enabled before or maybe
-_after_ interrupts get enabled? And... how to convert virtual address
-to physical one?
+   Called with write_locked neigh.
+ */
 
-Nov 29 21:25:47 debian kernel: atheros: receive init routine called
-Nov 29 21:25:47 debian kernel: atheros: physical address of RX head is 00000000
-Nov 29 21:25:47 debian kernel: atheros: enabling DMA receive. this can crash things supposedly.
-Nov 29 21:25:47 debian kernel: irq 11: nobody cared (try booting with the "irqpoll" option)
-Nov 29 21:25:47 debian kernel:  [dump_stack+23/32] dump_stack+0x17/0x20
-Nov 29 21:25:47 debian kernel:  [__report_bad_irq+39/144] __report_bad_irq+0x27/0x90
-Nov 29 21:25:47 debian kernel:  [note_interrupt+114/192] note_interrupt+0x72/0xc0
-Nov 29 21:25:47 debian kernel:  [__do_IRQ+200/224] __do_IRQ+0xc8/0xe0
-Nov 29 21:25:47 debian kernel:  [do_IRQ+80/128] do_IRQ+0x50/0x80
-Nov 29 21:25:47 debian kernel:  =======================
-Nov 29 21:25:47 debian kernel:  [common_interrupt+26/32] common_interrupt+0x1a/0x20
-Nov 29 21:25:47 debian kernel:  [do_softirq+115/128] do_softirq+0x73/0x80
-Nov 29 21:25:47 debian kernel:  =======================
-Nov 29 21:25:47 debian kernel:  [irq_exit+67/80] irq_exit+0x43/0x50
-Nov 29 21:25:47 debian kernel:  [do_IRQ+87/128] do_IRQ+0x57/0x80
-Nov 29 21:25:47 debian kernel:  [common_interrupt+26/32] common_interrupt+0x1a/0x20
-Nov 29 21:25:47 debian kernel:  [pg0+260065664/1065075712] ath_init+0x30/0x80 [atheros]
-Nov 29 21:25:47 debian kernel:  [dev_open+70/144] dev_open+0x46/0x90
-Nov 29 21:25:47 debian kernel:  [dev_change_flags+83/288] dev_change_flags+0x53/0x120
-Nov 29 21:25:47 debian kernel:  [devinet_ioctl+1437/1472] devinet_ioctl+0x59d/0x5c0
-Nov 29 21:25:47 debian kernel:  [inet_ioctl+166/208] inet_ioctl+0xa6/0xd0
-Nov 29 21:25:47 debian kernel:  [sock_ioctl+248/592] sock_ioctl+0xf8/0x250
-Nov 29 21:25:47 debian kernel:  [do_ioctl+40/144] do_ioctl+0x28/0x90
-Nov 29 21:25:47 debian kernel:  [vfs_ioctl+87/496] vfs_ioctl+0x57/0x1f0
-Nov 29 21:25:47 debian kernel:  [sys_ioctl+57/96] sys_ioctl+0x39/0x60
-Nov 29 21:25:47 debian kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
-Nov 29 21:25:47 debian kernel: handlers:
-Nov 29 21:25:47 debian kernel: [usb_hcd_irq+0/80] (usb_hcd_irq+0x0/0x50)
-Nov 29 21:25:47 debian last message repeated 3 times
-Nov 29 21:25:47 debian kernel: [yenta_interrupt+0/192] (yenta_interrupt+0x0/0xc0)
-Nov 29 21:25:47 debian kernel: [pg0+260075488/1065075712] (ath_intr+0x0/0x150 [atheros])
-Nov 29 21:25:47 debian kernel: Disabling IRQ #11
-Nov 29 21:25:47 debian kernel: atheros: interrupts enabled
-Nov 29 21:25:47 debian kernel: atheros: device up and running
+I got the impression that neigh_periodic_timer is supposed to check
+for stale entries although it doesn't. Which tasklet are you referring
+to ? Or are you saying I should be calling neigh_sync instead of
+checking for stale entries myself.
 
--- 
-kind regards,
- Mateusz Berezecki
+VMACS are used outside the linux system - for e.g. certain routers
+present different VMACS for a default gateway ip for active-active
+load-balancing and when one dies off, the failed VMAC is removed
+eventually causing linux system using the failed VMAC to balk as it
+doesn't stale out the arp cache entries even when traffic isn't able
+to flow (confirmed doesn't move ahead).
+
+netdev folks, can you CC me on your reply.
+
+Thanks,
+
+Pradeep Vincent
+
+
+On 11/28/05, Roberto Nibali <ratz@drugphish.ch> wrote:
+> > In 2.4.21, arp code uses gc_timer to check for stale arp cache
+> > entries. In 2.6, each entry has its own timer to check for stale arp
+> > cache. 2.4.29 to 2.4.32 kernels (atleast) use neither of these timers.
+>
+> Regarding NUD_REACHABLE <-> NUD_STALE transition it has a timer check.
+> Due to the fast path it's not enabled per default. Use neigh_sync() to
+> check, although I believe the installed tasklet does this for you already.
+>
+> The knowledgeable netdev people will know better.
+>
+> > This causes problems in environments where IPs or MACs are reassigned
+> > - saw this problem on load balancing router based networks that use
+> > VMACs. Tested this code on load balancing router based networks as
+> > well as peer-linux systems.
+>
+> How do you use VMACs in 2.4.x?
+>
+> > diff -Naur old/net/core/neighbour.c new/net/core/neighbour.c
+> > --- old/net/core/neighbour.c    Wed Nov 23 17:15:30 2005
+> > +++ new/net/core/neighbour.c    Wed Nov 23 17:26:01 2005
+> > @@ -14,6 +14,7 @@
+> > *     Vitaly E. Lavrov        releasing NULL neighbor in neigh_add.
+> > *     Harald Welte            Add neighbour cache statistics like rtstat
+> > *     Harald Welte            port neighbour cache rework from 2.6.9-rcX
+> > + *      Pradeep Vincent         Move neighbour cache entry to stale state
+> > */
+> >
+> > #include <linux/config.h>
+> > @@ -705,6 +706,14 @@
+> >                        neigh_release(n);
+> >                        continue;
+> >                }
+> > +
+> > +               /* Mark it stale - To be reconfirmed later when used */
+> > +               if (n->nud_state&NUD_REACHABLE &&
+> > +                   now - n->confirmed > n->parms->reachable_time) {
+> > +                       n->nud_state = NUD_STALE;
+> > +                       neigh_suspect(n);
+> > +               }
+> > +
+>
+> If this is really a problem, why not simply call neigh_sync()? Your
+> patch also seems to be whitespace damaged.
+>
+> >                write_unlock(&n->lock);
+> >
+> > next_elt:
+>
+> I've cc'd netdev since this is where such patches should go for
+> discussion; left Linus in the loop (netiquette) although he's nothing to
+> do with this ;).
+>
+> Cheers,
+> Roberto Nibali, ratz
+> --
+> echo
+> '[q]sa[ln0=aln256%Pln256/snlbx]sb3135071790101768542287578439snlbxq' | dc
+>
