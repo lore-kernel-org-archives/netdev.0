@@ -1,61 +1,48 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: NIC irq nobody cared ? virtual to  physical  and DMA questions
-Date: Tue, 29 Nov 2005 22:05:58 +0100
-Message-ID: <200511292206.02147.IvDoorn@gmail.com>
-References: <745843498.20051129212851@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Fwd: [Bug 5644] New: NFS v3 TCP 3-way handshake incorrect,
+ iptables blocks access]
+Date: Tue, 29 Nov 2005 23:32:45 +0100
+Message-ID: <438CD70D.3030305@trash.net>
+References: <20051123.144419.16922351.davem@davemloft.net>
+	<20051124140827.GH31478@sunbeam.de.gnumonks.org>
+	<20051124144940.GV25399@suse.de>
+	<Pine.LNX.4.58.0511250937560.22835@blackhole.kfki.hu>
+	<Pine.LNX.4.58.0511291135430.31216@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1976923.1UqfYTiUxi";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-mentors@selenic.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932401AbVK2U6K@vger.kernel.org>
-To: Mateusz Berezecki <mateuszb@gmail.com>
-In-Reply-To: <745843498.20051129212851@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Olaf Kirch <okir@suse.de>, Harald Welte <laforge@netfilter.org>,
+	netfilter-devel@lists.netfilter.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+In-Reply-To: <Pine.LNX.4.58.0511291135430.31216@blackhole.kfki.hu>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1976923.1UqfYTiUxi
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Jozsef Kadlecsik wrote:
+> Mounting NFS file systems after a (warm) reboot could take a long time if
+> firewalling and connection tracking was enabled.
+> 
+> The reason is that the NFS clients tends to use the same ports (800 and
+> counting down). Now on reboot, the server would still have a TCB for an
+> existing TCP connection client:800 -> server:2049. The client sends a
+> SYN from port 800 to server:2049, which elicits an ACK from the server.
+> The firewall on the client drops the ACK because (from its point of
+> view) the connection is still in half-open state, and it expects to see
+> a SYNACK.
+> 
+> The client will eventually time out after several minutes.
+> 
+> The following patch corrects this, by accepting ACKs on half open connections
+> as well.
 
-Hi,
-
-> This time the questions are different.
->=20
-> Given the following output could anyone please tell me what is wrong ?
-> In explicit what does that mysterious "nobody cared" message mean?
-> And another stupid question: should DMA for a network card be enabled bef=
-ore or maybe
-> _after_ interrupts get enabled? And... how to convert virtual address
-> to physical one?
-
-The nobody cared error message is reported when a device is raising interru=
-pts while
-the actual driver has not yet registered the interrupt handler.
-
-The best way to handle this for network drivers (done in rt2x00, which work=
-s fine) would be:
-
-1 - Allocate DMA
-2 - Registers interrupt handler
-3 - Enable device interrupts.
-
-IvD
-
---nextPart1976923.1UqfYTiUxi
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBDjMK6aqndE37Em0gRAof8AKDQSn0ouW6mO+u1dagQlOGxykKPZACfY9bI
-DBzUqBjE1ExmoI+3e6FuUpQ=
-=I2Tq
------END PGP SIGNATURE-----
-
---nextPart1976923.1UqfYTiUxi--
+Thanks Jozsef, I'll pass it on to Dave tommorrow.
