@@ -1,57 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 07/13]: [NETFILTER]: Fix xfrm lookup in
-	ip_route_me_harder/ip6_route_me_harder
-Date: Tue, 29 Nov 2005 18:34:41 +1100
-Message-ID: <20051129073441.GA18387@gondor.apana.org.au>
-References: <20051120163128.16666.38111.sendpatchset@localhost.localdomain>
-	<20051120163137.16666.924.sendpatchset@localhost.localdomain>
-	<20051128210628.GA15057@gondor.apana.org.au>
-	<438BFD0A.5040105@trash.net>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: [PATCH] orinoco: fix setting power management parameters
+Date: Tue, 29 Nov 2005 02:59:27 -0500
+Message-ID: <1133251167.27750.93.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	davem@davemloft.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <438BFD0A.5040105@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: orinoco-devel <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 29, 2005 at 08:02:34AM +0100, Patrick McHardy wrote:
-> 
-> - IPSKB_MASQUERADED is unused
-> - IPSKB_TRANSLATED is unused
-> - IPSKB_FORWARDED is used by ipmr in a way that looks broken,
->   it expects the flags on the input path to be the same it set
->   on the output path.
-> - IPSKB_XFRM_TUNNEL_SIZE should be cleared when a packet enters
->   the IP stack
+Power management parameters could not be set by iwconfig due to
+incorrect error handling.
 
-Yes that looks correct.
+Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-> It seems in most places where only IPCB(skb)->opt is cleared
-> the entire CB should be cleared. A couple of spots also look
-> completely unnecessary, for example all places clearing the CB
-> before passing the packet to netif_rx. I would expect the next
-> user beeing responsible for clearing the space he needs if
-> neccessary.
+---
+This is a very simple bugfix, and the bug is serious enough, so I'll
+appreciate if the patch gets priority handling and goes to 2.6.15.  I
+have lots of other stuff that can wait until 2.6.16.
 
-Agreed.  However, it seems that ip_rcv() only clears the CB options
-if ihl is greater than 5.  So until that's changed the people feeding
-netif_rx will have to clear the CB.
+diff --git a/drivers/net/wireless/orinoco.c
+b/drivers/net/wireless/orinoco.c
+index 2032c56..708b146 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -3492,9 +3492,8 @@ static int orinoco_ioctl_setpower(struct
+ 			break;
+ 		default:
+ 			err = -EINVAL;
+-		}
+-		if (err)
+ 			goto out;
++		}
+ 		
+ 		if (prq->flags & IW_POWER_TIMEOUT) {
+ 			priv->pm_on = 1;
 
-Cheers,
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+Pavel Roskin
+
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
