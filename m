@@ -1,23 +1,47 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/ipv6/: make two functions static
-Date: Tue, 29 Nov 2005 16:29:05 -0800 (PST)
-Message-ID: <20051129.162905.100281236.davem@davemloft.net>
-References: <20051123012359.GH3963@stusta.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750729AbVK3A3Z@vger.kernel.org>
-To: bunk@stusta.de
-In-Reply-To: <20051123012359.GH3963@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Magnus Damm <magnus@valinux.co.jp>
+Subject: [PATCH] i82596/CONFIG_APRICOT release_region() fix
+Date: Wed, 30 Nov 2005 16:23:45 +0900 (JST)
+Message-ID: <20051130072604.7030.49055.sendpatchset@cherry.local>
+Cc: Magnus Damm <magnus@valinux.co.jp>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Wed, 23 Nov 2005 02:23:59 +0100
+Fix release_region() in i82596 driver using CONFIG_APRICOT.
 
-> This patch makes two needlessly global functions static.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+linux-2.6.15-rc3 configured with CONFIG_APRICOT=y calls release_region()
+incorrectly if no hardware is found:
 
-Also applied, thanks.
+Trying to free nonexistent resource <00000000-00000010>
+
+This patch sets up dev->base_addr before the label "out1" might be used.
+
+Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
+---
+
+ 82596.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+--- linux-2.6.15-rc3/drivers/net/82596.c	2005-11-30 16:10:34.000000000 +0900
++++ linux-2.6.15-rc3-i82596_apricot_release_region/drivers/net/82596.c	2005-11-30 16:11:13.000000000 +0900
+@@ -1203,6 +1203,9 @@
+ 			checksum += eth_addr[i];
+ 		}
+ 
++		dev->base_addr = ioaddr;
++		dev->irq = 10;
++
+ 		/* checksum is a multiple of 0x100, got this wrong first time
+ 		   some machines have 0x100, some 0x200. The DOS driver doesn't
+ 		   even bother with the checksum.
+@@ -1215,8 +1218,6 @@
+ 			goto out1;
+ 		}
+ 
+-		dev->base_addr = ioaddr;
+-		dev->irq = 10;
+ 	}
+ #endif
+ 	dev->mem_start = (int)__get_free_pages(GFP_ATOMIC, 0);
