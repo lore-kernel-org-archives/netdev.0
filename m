@@ -1,47 +1,50 @@
-From: Magnus Damm <magnus@valinux.co.jp>
-Subject: [PATCH] i82596/CONFIG_APRICOT release_region() fix
-Date: Wed, 30 Nov 2005 16:23:45 +0900 (JST)
-Message-ID: <20051130072604.7030.49055.sendpatchset@cherry.local>
-Cc: Magnus Damm <magnus@valinux.co.jp>
+From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Subject: Re: 3C905C-TX
+Date: Wed, 30 Nov 2005 08:18:26 -0500
+Message-ID: <Pine.LNX.4.61.0511300813190.18193@chaos.analogic.com>
+References: <eab8d9e30511300459j695ed942n@mail.gmail.com>
+Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Linux kernel" <linux-kernel@vger.kernel.org>, <andrewm@uow.edu.au>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+In-Reply-To: <eab8d9e30511300459j695ed942n@mail.gmail.com>
+Content-class: urn:content-classes:message
+To: =?iso-8859-1?Q?Daniel_H=F6hnle?= <hoehnle.dan@googlemail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix release_region() in i82596 driver using CONFIG_APRICOT.
 
-linux-2.6.15-rc3 configured with CONFIG_APRICOT=y calls release_region()
-incorrectly if no hardware is found:
+On Wed, 30 Nov 2005, [iso-8859-1] Daniel H=F6hnle wrote:
 
-Trying to free nonexistent resource <00000000-00000010>
+> Hello i have Suse Linux 9.3 and a 3Com 3C905C-TX Networkcard. But she
+> don't works. Where can I get a Driver??? Or give it a Dokumentation
+> how I can make the Driver??
+>
+> Thanks
+> Daniel H=F6hnle
 
-This patch sets up dev->base_addr before the label "out1" might be used.
+The 3c59x driver should work for this device. If it's real
+new, you may have to add its ID to the structure at line
+3365 in 3x59x.c or contact the maintainer.
 
-Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
----
 
- 82596.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.6.13.4 on an i686 machine (5589.55 BogoMips).
+Warning : 98.36% of all statistics are fiction.
 
---- linux-2.6.15-rc3/drivers/net/82596.c	2005-11-30 16:10:34.000000000 +0900
-+++ linux-2.6.15-rc3-i82596_apricot_release_region/drivers/net/82596.c	2005-11-30 16:11:13.000000000 +0900
-@@ -1203,6 +1203,9 @@
- 			checksum += eth_addr[i];
- 		}
- 
-+		dev->base_addr = ioaddr;
-+		dev->irq = 10;
-+
- 		/* checksum is a multiple of 0x100, got this wrong first time
- 		   some machines have 0x100, some 0x200. The DOS driver doesn't
- 		   even bother with the checksum.
-@@ -1215,8 +1218,6 @@
- 			goto out1;
- 		}
- 
--		dev->base_addr = ioaddr;
--		dev->irq = 10;
- 	}
- #endif
- 	dev->mem_start = (int)__get_free_pages(GFP_ATOMIC, 0);
+****************************************************************
+The information transmitted in this message is confidential and may be pr=
+ivileged.  Any review, retransmission, dissemination, or other use of thi=
+s information by persons or entities other than the intended recipient is=
+ prohibited.  If you are not the intended recipient, please notify Analog=
+ic Corporation immediately - by replying to this message or by sending an=
+ email to DeliveryErrors@analogic.com - and destroy all copies of this in=
+formation, including any attachments, without reading or disclosing them.
+
+Thank you.
