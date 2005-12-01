@@ -1,51 +1,33 @@
-From: Mike <mbflyers@earthlink.net>
-Subject: Flyer Delivery Service in San Diego County
-Date: Thu, 1 Dec 2005 08:31:33 GMT
-Message-ID: <200512010835.jB18Z0O0017100@oss.sgi.com>
+From: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] orinoco: fix setting power management parameters
+Date: Thu, 01 Dec 2005 02:29:08 -0500
+Message-ID: <438EA644.3010208@pobox.com>
+References: <1133251167.27750.93.camel@dv>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="boundaryDE139D23_alternative"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: orinoco-devel <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+In-Reply-To: <1133251167.27750.93.camel@dv>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in mime format.
-
---boundaryDE139D23_alternative
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Disposition: inline
-
-We deliver flyers in San Diego County, please email back for addtional i=
-nformation or call 619-258-1297
+applied
 
 
-Thanks
 
-Mike
-
---boundaryDE139D23_alternative
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/html; charset="iso-8859-1"
-Content-Disposition: inline
-
-<html>
-  <head>
-    <title>Flyer Delivery Service in San Diego County</title>
-    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dw=
-indows-1252" />
-  </head>
-  <body>
-    <div>We deliver flyers in San Diego County, please email back for a=
-ddtional information or call 619-258-1297</div>
-    <div>&nbsp;</div>
-    <div>&nbsp;</div>
-    <div>Thanks</div>
-    <div>&nbsp;</div>
-    <div>Mike</div>
-    <div>&nbsp;</div>
-  </body>
-</html>
-
---boundaryDE139D23_alternative--
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
