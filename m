@@ -1,95 +1,57 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
+From: "Jeff V. Merkey" <jmerkey@wolfmountaingroup.com>
 Subject: Re: [RFC] ip / ifconfig redesign
-Date: Fri, 2 Dec 2005 23:49:28 +0100
-Message-ID: <9a8748490512021449n3605b952jdc56eca5ffb6ec70@mail.gmail.com>
+Date: Fri, 02 Dec 2005 15:40:15 -0700
+Message-ID: <4390CD4F.105@wolfmountaingroup.com>
 References: <200512022253.19029.a1426z@gawab.com>
-	 <Pine.LNX.4.61.0512021527090.11277@chaos.analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Al Boldi <a1426z@gawab.com>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750966AbVLBWtb@vger.kernel.org>
-To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
-In-Reply-To: <Pine.LNX.4.61.0512021527090.11277@chaos.analogic.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Al Boldi <a1426z@gawab.com>
+In-Reply-To: <200512022253.19029.a1426z@gawab.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/2/05, linux-os (Dick Johnson) <linux-os@analogic.com> wrote:
->
-> On Fri, 2 Dec 2005, Al Boldi wrote:
->
-> > The current ip / ifconfig configuration is arcane and inflexible.  The reason
-> > being, that they are based on design principles inherited from the last
-> > century.
-> >
-> > In a GNU/OpenSource environment, OpenMinds should not inhibit themselves
-> > achieving new design-goals to enable a flexible non-redundant configuration.
-> >
-> > Specifically, '#> ip addr ' exhibits this issue clearly, by requiring to
-> > associate the address to a link instead of the other way around.
-> >
-> > Consider this new approach for better address management:
-> > 1. Allow the definition of an address pool
-> > 2. Relate links to addresses
-> > 3. Implement to make things backward-compatible.
-> >
-> > The obvious benefit here, would be the transparent ability for apps to bind
-> > to addresses, regardless of the link existence.
-> >
->
-> A link needs to exist for it to have an address.
->
+Al Boldi wrote:
 
-I'm only guessing since I'm not entirely sure what Mr. Boldi means,
-but my guess is that he's proposing that an app can bind to an IP
-address without that address being assigned to any currently available
-interface and then later if that IP does get assigned to an interface
-the app will start recieving traffic then. Also possibly allowing the
-address to be removed from one interface and then later assigned to
-another one without apps noticing.
-I don't know /if/ that is what was meant, but that's how I read it.
+>The current ip / ifconfig configuration is arcane and inflexible.  The reason 
+>being, that they are based on design principles inherited from the last 
+>century.
+>
+>In a GNU/OpenSource environment, OpenMinds should not inhibit themselves 
+>achieving new design-goals to enable a flexible non-redundant configuration.
+>
+>Specifically, '#> ip addr ' exhibits this issue clearly, by requiring to 
+>associate the address to a link instead of the other way around.
+>
+>Consider this new approach for better address management:
+>1. Allow the definition of an address pool
+>2. Relate links to addresses
+>3. Implement to make things backward-compatible.
+>
+>The obvious benefit here, would be the transparent ability for apps to bind 
+>to addresses, regardless of the link existence.
+>
+>Another benefit includes the ability to scale the link level transparently, 
+>regardless of the application bind state.
+>
+>And there may be many other benefits... (i.e. 100% OSI compliance)
+>
+>--
+>Al
+>
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>Please read the FAQ at  http://www.tux.org/lkml/
+>
+>  
+>
+Just what we need, another broken utility without backward 
+compatibility. Make certain you preserve the existing commands so the whole
+planet isn't broken as a result.
 
-
-> > Another benefit includes the ability to scale the link level transparently,
-> > regardless of the application bind state.
-> >
->
-> That doesn't make any sense. Multiple applications can bind to the
-> same address. Then can't bind to the same port because they won't
-> get all their data.
->
-> > And there may be many other benefits... (i.e. 100% OSI compliance)
-> >
-> What does Open Source Initiative have to do with this at all???
-> You are just spewing stuff out.
->
-
-I'm believe Mr. Boldi is refering to OSI as in Open Systems
-Interconnection (http://en.wikipedia.org/wiki/OSI_model), not as in
-Open Source Initiative.
-
-
-> > --
-> > Al
->
-> Also, how does this involve the kernel? The interface to the kernel
-> for hardware configuration is via ioctl(). For logic, sockets.
->
-> If the user-level tools suck, then they should be fixed. It
-> really doesn't have anything to do with the kernel.
->
-> Cheers,
-> Dick Johnson
->
-[snip]
->
-> Thank you.
->
-
---
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Jeff
