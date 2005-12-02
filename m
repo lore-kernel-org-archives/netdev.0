@@ -1,54 +1,45 @@
-From: "JaniD++" <djani22@dynamicweb.hu>
-Subject: Re: 2.6.15-rc3: adduser: unable to lock password file
-Date: Fri, 2 Dec 2005 12:26:34 +0100
-Message-ID: <011401c5f733$46a3cd60$0400a8c0@dcccs>
-References: <016c01c5f6cc$0e28e6d0$0400a8c0@dcccs> <1133481721.9597.37.camel@lade.trondhjem.org> <00f801c5f72e$df2e58c0$0400a8c0@dcccs> <20051202110805.GA7224@stiffy.osknowledge.org>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: Data corruption when using TCP sockets
+Date: Fri, 2 Dec 2005 09:26:25 -0500
+Message-ID: <20051202142625.GA12152@kvack.org>
+References: <Pine.LNX.4.58.0512021638130.3304@fileserver.nmsworks.co.in>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932728AbVLBLbr@vger.kernel.org>
-To: "Marc Koschewski" <marc@osknowledge.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: madanagopal <madan@nmsworks.co.in>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0512021638130.3304@fileserver.nmsworks.co.in>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+That kernel is beyond ancient -- a 2.4.9 errata kernel was released on 
+the day that Red Hat 7.2 shipped.  It is known buggy and superceeded by 
+many kernels with substantial bugfixes.
 
-> > OK, i will try it, if i can.... (this is a productive online system,
-maybe
-> > next reboot)
->
-> I'd rather suggest to _not_ run -rc kernels on productive systems. :)
+		-ben
 
-Thanks for the warning! :-)
+On Fri, Dec 02, 2005 at 05:05:28PM +0530, madanagopal wrote:
+> hai,
+>    We have a socket application in C which connects to a Java application 
+> through TCP sockets. We use read() system call to read from the socket. 
+> The Java application sends more than 20000 bytes of data sometimes. In the 
+> C program, we read those bytes as Type,Length,Value fields where a 
+> separate read() call is used for each field. This sometimes creates a data 
+> corruption while it works other times.
+>    We observe that the first 16384 bytes get read properly. Extra byte or 
+> bytes get added in the 16385 th location and this shifts the bytes from 
+> 16385 onwards. Because of this our C program gets confused and we are 
+> forced to reopen the socket. This is not predictable. Suddenly this 
+> problem occurs. Is this an already known issue and if so what 
+> is it? How to solve it?
+>    We are running both the applications in the same machine which runs 
+> Red Hat Linux release 7.2 and its kernel version is 2.4.7-10
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I know it, already.
-But have no choice. :(
-The older kernels didnt know what i have needed! :-/
-
-eg: i try the 2.6.15-rc3 because 2.6.14.2 gives me this messages:
-
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (148)
-nfs: server 192.168.2.100 not responding, still trying
-nfs: server 192.168.2.100 not responding, still trying
-nfs: server 192.168.2.100 not responding, still trying
-nfs: server 192.168.2.100 not responding, still trying
-nfs: server 192.168.2.100 not responding, still trying
-NETDEV WATCHDOG: eth0: transmit timed out
-e1000: eth0: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
-nfs: server 192.168.2.100 OK
-nfs: server 192.168.2.100 OK
-nfs: server 192.168.2.100 OK
-nfs: server 192.168.2.100 OK
-nfs: server 192.168.2.100 OK
-
-So, i really did not see different! :-D
-
-Cheers,
-
-Janos
-
->
-> Marc
+-- 
+"You know, I've seen some crystals do some pretty trippy shit, man."
+Don't Email: <dont@kvack.org>.
