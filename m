@@ -1,141 +1,88 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/: fix the WIRELESS_EXT abuse
-Date: Sat, 3 Dec 2005 13:32:29 +0100
-Message-ID: <20051203123229.GG31395@stusta.de>
+From: Al Boldi <a1426z@gawab.com>
+Subject: Re: [RFC] ip / ifconfig redesign
+Date: Sat, 3 Dec 2005 16:46:45 +0300
+Message-ID: <200512031646.45332.a1426z@gawab.com>
+References: <200512022253.19029.a1426z@gawab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751246AbVLCMc3@vger.kernel.org>
-To: jgarzik@pobox.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <200512022253.19029.a1426z@gawab.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using WIRELESS_EXT instead of CONFIG_NET_RADIO is simply ugly.
+Pekka Savola wrote:
+> Al Boldi wrote:
+> > Consider this new approach for better address management:
+> > 1. Allow the definition of an address pool
+> > 2. Relate links to addresses
+> > 3. Implement to make things backward-compatible.
+> >
+> > The obvious benefit here, would be the transparent ability for apps to
+> > bind to addresses, regardless of the link existence.
+> >
+> That's called 'the loopback address', right? :)
 
+Jan-Benedict Glaw wrote:
+> # echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind
+>
+> and/or bind to address 0 (aka 0.0.0.0) instead of a given IP address.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Ben Greear wrote:
+> > Another benefit includes the ability to scale the link level
+> > transparently, regardless of the application bind state.
+>
+> Can you do this with the current code by using scripts/whatever to move
+> virtual IPs around the interfaces?
 
----
+Maybe, but wouldn't that be a workaround?
 
- net/core/dev.c       |   10 ++++------
- net/core/net-sysfs.c |    8 --------
- net/socket.c         |    9 +++------
- 3 files changed, 7 insertions(+), 20 deletions(-)
+linux-os \(Dick Johnson\) wrote:
+> It really doesn't have anything to do with the kernel.
 
---- linux-2.6.15-rc3-mm1/net/core/dev.c.old	2005-12-03 03:04:37.000000000 +0100
-+++ linux-2.6.15-rc3-mm1/net/core/dev.c	2005-12-03 03:05:12.000000000 +0100
-@@ -109,10 +109,8 @@
- #include <linux/netpoll.h>
- #include <linux/rcupdate.h>
- #include <linux/delay.h>
--#ifdef CONFIG_NET_RADIO
--#include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
-+#include <linux/wireless.h>
- #include <net/iw_handler.h>
--#endif	/* CONFIG_NET_RADIO */
- #include <asm/current.h>
- 
- /*
-@@ -2032,7 +2030,7 @@
- 	.release = seq_release,
- };
- 
--#ifdef WIRELESS_EXT
-+#ifdef CONFIG_NET_RADIO
- extern int wireless_proc_init(void);
- #else
- #define wireless_proc_init() 0
-@@ -2585,7 +2583,7 @@
- 					ret = -EFAULT;
- 				return ret;
- 			}
--#ifdef WIRELESS_EXT
-+#ifdef CONFIG_NET_RADIO
- 			/* Take care of Wireless Extensions */
- 			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) {
- 				/* If command is `set a parameter', or
-@@ -2606,7 +2604,7 @@
- 					ret = -EFAULT;
- 				return ret;
- 			}
--#endif	/* WIRELESS_EXT */
-+#endif	/* CONFIG_NET_RADIO */
- 			return -EINVAL;
- 	}
- }
---- linux-2.6.15-rc3-mm1/net/core/net-sysfs.c.old	2005-12-03 03:05:22.000000000 +0100
-+++ linux-2.6.15-rc3-mm1/net/core/net-sysfs.c	2005-12-03 03:06:55.000000000 +0100
-@@ -306,7 +306,6 @@
- 	.attrs  = netstat_attrs,
- };
- 
--#ifdef WIRELESS_EXT
- /* helper function that does all the locking etc for wireless stats */
- static ssize_t wireless_show(struct class_device *cd, char *buf,
- 			     ssize_t (*format)(const struct iw_statistics *,
-@@ -366,7 +365,6 @@
- 	.name = "wireless",
- 	.attrs = wireless_attrs,
- };
--#endif
- 
- #ifdef CONFIG_HOTPLUG
- static int netdev_uevent(struct class_device *cd, char **envp,
-@@ -419,10 +417,8 @@
- 	if (net->get_stats)
- 		sysfs_remove_group(&class_dev->kobj, &netstat_group);
- 
--#ifdef WIRELESS_EXT
- 	if (net->get_wireless_stats)
- 		sysfs_remove_group(&class_dev->kobj, &wireless_group);
--#endif
- 	class_device_del(class_dev);
- 
- }
-@@ -452,7 +448,6 @@
- 	    (ret = sysfs_create_group(&class_dev->kobj, &netstat_group)))
- 		goto out_unreg; 
- 
--#ifdef WIRELESS_EXT
- 	if (net->get_wireless_stats &&
- 	    (ret = sysfs_create_group(&class_dev->kobj, &wireless_group)))
- 		goto out_cleanup; 
-@@ -461,9 +456,6 @@
- out_cleanup:
- 	if (net->get_stats)
- 		sysfs_remove_group(&class_dev->kobj, &netstat_group);
--#else
--	return 0;
--#endif
- 
- out_unreg:
- 	printk(KERN_WARNING "%s: sysfs attribute registration failed %d\n",
---- linux-2.6.15-rc3-mm1/net/socket.c.old	2005-12-03 03:06:03.000000000 +0100
-+++ linux-2.6.15-rc3-mm1/net/socket.c	2005-12-03 03:06:36.000000000 +0100
-@@ -84,10 +84,7 @@
- #include <linux/compat.h>
- #include <linux/kmod.h>
- #include <linux/audit.h>
--
--#ifdef CONFIG_NET_RADIO
--#include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
--#endif	/* CONFIG_NET_RADIO */
-+#include <linux/wireless.h>
- 
- #include <asm/uaccess.h>
- #include <asm/unistd.h>
-@@ -844,11 +841,11 @@
- 	if (cmd >= SIOCDEVPRIVATE && cmd <= (SIOCDEVPRIVATE + 15)) {
- 		err = dev_ioctl(cmd, argp);
- 	} else
--#ifdef WIRELESS_EXT
-+#ifdef CONFIG_NET_RADIO
- 	if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST) {
- 		err = dev_ioctl(cmd, argp);
- 	} else
--#endif	/* WIRELESS_EXT */
-+#endif	/* CONFIG_NET_RADIO */
- 	switch (cmd) {
- 		case FIOSETOWN:
- 		case SIOCSPGRP:
+Maybe I shouldn't have cc'd kernel.
+
+Marc Singer wrote:
+> It might make sense to allow the address to exist without a link in
+> order to allow a local port listener to continue to accept connections
+> even though the network moved to another link, e.g. wireless to
+> wired.  Then again, perhaps, this shouldn't matter.
+>
+> What does Mr. Boldi propose?
+
+Jesper Juhl wrote:
+> I'm only guessing since I'm not entirely sure what Mr. Boldi means,
+> but my guess is that he's proposing that an app can bind to an IP
+> address without that address being assigned to any currently available
+> interface and then later if that IP does get assigned to an interface
+> the app will start recieving traffic then. Also possibly allowing the
+> address to be removed from one interface and then later assigned to
+> another one without apps noticing.
+> I don't know /if/ that is what was meant, but that's how I read it.
+
+Yes! And much more...
+
+One reason why linux is great is because it's flexible.  But flexibility 
+sometimes leads you to fulfill requirements in a workaround fashion.  Things 
+get worse when you start building on these workarounds.
+
+GNU/OpenSource is prone to such a development.
+
+What I propose is to stop and think always; identify the problem and provide 
+for a _scalable_ solution.  Procrastinating using workarounds may make your 
+development cycle seem faster, when in fact you are inhibiting it.
+
+Here specifically, ip/ifconfig is implemented upside-down requiring a 
+link/dev to exist for an address to be defined, in effect containing layer 3 
+inside layer 2, when an address should be allowed to be defined w/o a 
+link/dev much like an app is allowed to be defined w/o an address.
+
+Thanks for all your comments!
+
+--
+Al
+
