@@ -1,7 +1,7 @@
 From: "lottery board" <lottery_board_0012@hotmail.com>
 Subject: WINING  NOTIFICATION
-Date: Sat, 03 Dec 2005 10:22:37 +0200
-Message-ID: <BAY113-F1853A9488450BA1E6D1BC1DB4F0@phx.gbl>
+Date: Sat, 03 Dec 2005 10:21:24 +0200
+Message-ID: <BAY113-F12B995B3E9F4049FAB82BCDB4F0@phx.gbl>
 Mime-Version: 1.0
 Content-Type: text/plain; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
