@@ -1,57 +1,69 @@
-From: "Jeff V. Merkey" <jmerkey@wolfmountaingroup.com>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Fri, 02 Dec 2005 15:40:15 -0700
-Message-ID: <4390CD4F.105@wolfmountaingroup.com>
-References: <200512022253.19029.a1426z@gawab.com>
+From: "지 리군" <jun7503jin7113jun7503bmw4518zzanga77077@daum.net>
+Subject: =?ISO-8859-1?Q?=BF=C0=B4=C3=B5=B5=20=C6=ED=BE=C8=C7=CF=BC=BC=BF=E4=3F?=
+Date: Fri, 02 Dec 2005 17:29:59 -0700
+Message-ID: <FITJSVBFRFHNITJWPRBCMQLO@chol.com>
+Reply-To: "골 상국" <jun7503zzanga77077jin7113bmw4518hailan410@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Al Boldi <a1426z@gawab.com>
-In-Reply-To: <200512022253.19029.a1426z@gawab.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: multipart/alternative;
+	boundary="--014475412792122"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Al Boldi wrote:
+----22381771821850152217
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
->The current ip / ifconfig configuration is arcane and inflexible.  The reason 
->being, that they are based on design principles inherited from the last 
->century.
->
->In a GNU/OpenSource environment, OpenMinds should not inhibit themselves 
->achieving new design-goals to enable a flexible non-redundant configuration.
->
->Specifically, '#> ip addr ' exhibits this issue clearly, by requiring to 
->associate the address to a link instead of the other way around.
->
->Consider this new approach for better address management:
->1. Allow the definition of an address pool
->2. Relate links to addresses
->3. Implement to make things backward-compatible.
->
->The obvious benefit here, would be the transparent ability for apps to bind 
->to addresses, regardless of the link existence.
->
->Another benefit includes the ability to scale the link level transparently, 
->regardless of the application bind state.
->
->And there may be many other benefits... (i.e. 100% OSI compliance)
->
->--
->Al
->
->-
->To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->Please read the FAQ at  http://www.tux.org/lkml/
->
->  
->
-Just what we need, another broken utility without backward 
-compatibility. Make certain you preserve the existing commands so the whole
-planet isn't broken as a result.
+<html>
+<title>___________________________________________________________________=
+______________________________</title>
+<body>
+<table width=3D"100" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">
+<tr> 
+<td colspan=3D"4"><a href=3D"http://www.%66%7a%7ao.com/%61%64m=
+%69n/order_form_mag.php?ptn_id=3Da1234" target=3D"_blank"" target=3D"_blan=
+k"><img src=3D"http://www.%7a%7a%70o.com/%69m%67_c%64/m%61%672/magnetic_01=
+jpg" border=3D"0" width=3D"752" height=3D"358"></a></td>
+</tr>
+<tr> 
+<td colspan=3D"4"><a href=3D"http://www.%66%7a%7ao.com/%61%64m=
+%69n/order_form_mag.php?ptn_id=3Da1234" target=3D"_blank"" target=3D"_blan=
+k"><img src=3D"http://www.%7a%7a%70o.com/%69m%67_c%64/m%61%672/magnetic_02=
+jpg" border=3D"0" width=3D"752" height=3D"265"></a></td>
+</tr>
+<tr> 
+<td colspan=3D"4"><a href=3D"http://www.%66%7a%7ao.com/%61%64m=
+%69n/order_form_mag.php?ptn_id=3Da1234" target=3D"_blank"" target=3D"_blan=
+k"><img src=3D"http://www.%7a%7a%70o.com/%69m%67_c%64/m%61%672/magnetic_03=
+jpg" border=3D"0" width=3D"752" height=3D"181"></a></td>
+</tr>
+<tr> 
+<td colspan=3D"4"><a href=3D"http://www.%66%7a%7ao.com/%61%64m=
+%69n/order_form_mag.php?ptn_id=3Da1234" target=3D"_blank"" target=3D"_blan=
+k"><img src=3D"http://www.%7a%7a%70o.com/%69m%67_c%64/m%61%672/magnetic_04=
+jpg" border=3D"0" width=3D"752" height=3D"500"></a></td>
+</tr>
+<tr> 
+<td> </td>
+<td align=3D"right"><a href=3D"http://www.%79%68%6a%6b.%69n%66o/=
+%69m%67/m%61%67/%69n%66o/info_bbbu.html?ptn_id=3Da1234" target=3D"_blank">=
+<img src=3D"http://www.%7a%7a%70o.com/%69m%67_c%64/m%61%672/magnetic_06.jp=
+g" border=3D"0" width=3D"327" height=3D"96" border=3D"0"></a></td>
+<td><a href=3D"http://www.%66%7a%7ao.com/%61%64m%69n/order_form_mag.php?pt=
+n_id=3Da1234" target=3D"_blank"" target=3D"_blank"><img src=3D"http://www.=
+%7a%7a%70o.com/%69m%67_c%64/m%61%672/magnetic_07.jpg" border=3D"0" width=3D=
+"323" height=3D"96"></a></td>
+<td> </td>
+</tr>
+<tr>
+<td colspan=3D"4" align=3D"center"><a href=3D"mailto:salkdfksjh@salkdfksjh=
+com"><img src=3D"http://www.%79%68%6a%6b.%69n%66o/%69m%67/%79=
+%75ton%673/yu_mail.jpg" border=3D"0"></a></td>
+</tr>
+</table>
+</body>
+</html>
 
-Jeff
+----1446413545317242565--
