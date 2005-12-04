@@ -1,18 +1,18 @@
-From: "피 상국" <hailan410jin7113bmw4518jin7113jun7503zzanga77077bmw4518zzanga77077jun7503jin7113bmw4518bmw4518jun7503hailan410@daum.net>
+From: "방 영제" <bmw4518jun7503jin7113jin7113hailan410@naver.com>
 Subject: =?ISO-8859-1?Q?=BF=C0=B4=C3=B5=B5=20=C6=ED=BE=C8=C7=CF=BC=BC=BF=E4=3F?=
-Date: Sun, 04 Dec 2005 02:47:15 +0300
-Message-ID: <UKTMYCTISVVWCMCAUYWYUA@chol.com>
-Reply-To: "천 홍구" <bmw4518bmw4518zzanga77077bmw4518bmw4518jun7503jin7113jin7113jun7503hailan410zzanga77077bmw4518hailan410@chol.com>
+Date: Sun, 04 Dec 2005 09:50:02 -0400
+Message-ID: <TBGYACRLCAJUINUSLUJSGK@naver.com>
+Reply-To: "방 선룡" <jin7113bmw4518jun7503hailan410jun7503jun7503zzanga77077@chol.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--116957883898925134"
+	boundary="--4522451178618272"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----079491414092458429
+----80064250866621602
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
@@ -66,4 +66,4 @@ com"><img src=3D"http://www.%79%68%6a%6b.%69n%66o/%69m%67/%79=
 </body>
 </html>
 
-----80862510797043624--
+----5668080108399538912--
