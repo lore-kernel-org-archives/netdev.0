@@ -1,54 +1,38 @@
-From: Johannes Stezenbach <js@linuxtv.org>
-Subject: Re: Linux 2.6.15-rc5: sk98lin broken
-Date: Mon, 5 Dec 2005 00:43:20 +0100
-Message-ID: <20051204234320.GA7478@linuxtv.org>
-References: <Pine.LNX.4.64.0512032155290.3099@g5.osdl.org>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [RFC: -mm patch] drivers/net/wireless/hostap/hostap_main.c
+	shouldn't #include C files
+Date: Sun, 4 Dec 2005 18:14:09 -0800
+Message-ID: <20051205021409.GB8953@jm.kir.nu>
+References: <20051203122309.GD31395@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	shemminger@osdl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932314AbVLDXnK@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hostap@shmoo.com, linux-kernel@vger.kernel.org
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0512032155290.3099@g5.osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20051203122309.GD31395@stusta.de>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://lists.shmoo.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 03, 2005, Linus Torvalds wrote:
-> shemminger@osdl.org:
->       sk98lin: fix checksumming code
->       sk98lin: add permanent address support
->       sk98lin: avoid message confusion with skge
+On Sat, Dec 03, 2005 at 01:23:09PM +0100, Adrian Bunk wrote:
+> This patch contains an attempt to properly build hostap.o without 
+> #incude'ing C files.
 
-I have an Asus P4P800 "Deluxe" with 3c940 LOM.
+Looks good. However, I did not test this now since this did not apply to
+netdev-2.6 (it does not have hostap_main.c). Did the hostap.c to
+hostap_main.c rename go only to -mm? I would prefer to do this kind of
+changes in a single place and I thought netdev-2.6 would be that. I'm
+not following -mm tree at all and it would be easier to go through
+patches if they are against netdev-2.6 upstream branch.
 
-If I ping the box I get the following:
-
-Dec  4 22:57:02 abc kernel: [<c0103c00>] dump_stack+0x17/0x19
-Dec  4 22:57:02 abc kernel: [<c03b99e9>] netdev_rx_csum_fault+0x27/0x2d
-Dec  4 22:57:02 abc kernel: [<c03b75a9>] __skb_checksum_complete+0x5a/0x60
-Dec  4 22:57:02 abc kernel: [<c0404c51>] icmp_error+0xbd/0x193
-Dec  4 22:57:02 abc kernel: [<c0402291>] ip_conntrack_in+0x67/0x279
-Dec  4 22:57:02 abc kernel: [<c03c8cbf>] nf_iterate+0x59/0x7d
-Dec  4 22:57:02 abc kernel: [<c03c8d3a>] nf_hook_slow+0x57/0x106
-Dec  4 22:57:02 abc kernel: [<c03d1074>] ip_rcv+0x1af/0x580
-Dec  4 22:57:02 abc kernel: [<c03ba1ed>] netif_receive_skb+0x15a/0x1ef
-Dec  4 22:57:02 abc kernel: [<c03ba301>] process_backlog+0x7f/0x10d
-Dec  4 22:57:02 abc kernel: [<c03ba40c>] net_rx_action+0x7d/0x110
-Dec  4 22:57:02 abc kernel: [<c01250a2>] __do_softirq+0x72/0xe1
-Dec  4 22:57:02 abc kernel: [<c0104ed7>] do_softirq+0x5d/0x61
-Dec  4 22:57:02 abc kernel: =======================
-Dec  4 22:57:02 abc kernel: [<c01251fa>] irq_exit+0x48/0x4a
-Dec  4 22:57:02 abc kernel: [<c0104d9d>] do_IRQ+0x5d/0x8f
-Dec  4 22:57:02 abc kernel: [<c010372e>] common_interrupt+0x1a/0x20
-Dec  4 22:57:02 abc kernel: [<c0100d51>] cpu_idle+0x49/0xa0
-Dec  4 22:57:02 abc kernel: [<c01002d7>] rest_init+0x37/0x39
-Dec  4 22:57:02 abc kernel: [<c057f8cf>] start_kernel+0x164/0x177
-Dec  4 22:57:02 abc kernel: [<c0100210>] 0xc0100210
-
-  (once for each ICMP packet)
-
-2.6.15-rc2 works fine.
-
-
-Johannes
+-- 
+Jouni Malinen                                            PGP id EFC895FA
