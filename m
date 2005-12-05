@@ -1,47 +1,64 @@
-From: "John W. Linville" <linville@tuxdriver.com>
+From: Jeroen Massar <jeroen@unfix.org>
 Subject: Re: [RFC] ip / ifconfig redesign
-Date: Mon, 5 Dec 2005 09:01:00 -0500
-Message-ID: <20051205140057.GC24764@tuxdriver.com>
-References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com>
+Date: Mon, 05 Dec 2005 15:20:36 +0100
+Message-ID: <43944CB4.60709@unfix.org>
+References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com> <20051205140057.GC24764@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Al Boldi <a1426z@gawab.com>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig2D54E97E726A371E3193CB76"
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <4391E4FC.1040200@candelatech.com>
+To: Ben Greear <greearb@candelatech.com>, Al Boldi <a1426z@gawab.com>,
+	netdev@vger.kernel.org, linux-net@vger.kernel.org
+In-Reply-To: <20051205140057.GC24764@tuxdriver.com>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 03, 2005 at 10:33:32AM -0800, Ben Greear wrote:
-> Al Boldi wrote:
-> 
-> >Here specifically, ip/ifconfig is implemented upside-down requiring a 
-> >link/dev to exist for an address to be defined, in effect containing layer 
-> >3 inside layer 2, when an address should be allowed to be defined w/o a 
-> >link/dev much like an app is allowed to be defined w/o an address.
-> 
-> [Removed lkml from CC list]
-> 
-> You can add multiple virtual IP addresses to physical interfaces.  It
-> makes no sense to have an IP without any association to an interface
-> in my opinion.  Often, when you have multiple interfaces, you most 
-> definately
-> want different IPs associated specifically with particular interfaces.
-> Think about redundant paths, routers, firewalls, and such.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2D54E97E726A371E3193CB76
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The association between IP addresses and links is already a bit murky.
-Reference the arp_announce sysctl for what I mean.  I recall Dave M.
-emphasizing on at least one occassion that IP addresses belong to
-the _box_, not to the link.
+John W. Linville wrote:
 
-I think Al B.'s idea merits some consideration.  I definitely think
-we blur the distinctions between L2 and L3 a bit too much in places.
+<SNIP>
+> Of course, patches would be helpful...
 
-Of course, patches would be helpful...
+/sbin/ipadd <address>
+#!/bin/sh
+ip addr add $1 dev lo
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+/sbin/ipdel <address>
+#!/bin/sh
+ip addr del $1 dev lo
+
+/sbin/ipactivate <address> <device>
+#!/bin/sh
+ip addr add $1 dev $2
+
+/sbin/ipdeactivate <address> <device>
+#!/bin/sh
+ip addr del $1 dev $2
+
+There are your 'patches'. Add -6's to places for IPv6 versions.
+
+Greets,
+ Jeroen
+
+
+
+--------------enig2D54E97E726A371E3193CB76
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (MingW32)
+Comment: Jeroen Massar / http://unfix.org/~jeroen/
+
+iD8DBQFDlEy0KaooUjM+fCMRAtL6AJ9okrvLX4U6+iG1phowB9etb12C7ACfflYe
+QfNHwJZMWY9TgR6EgvIK3PE=
+=G3vT
+-----END PGP SIGNATURE-----
+
+--------------enig2D54E97E726A371E3193CB76--
