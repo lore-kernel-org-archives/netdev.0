@@ -1,23 +1,27 @@
-From: <mahomaho094dsh@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A2=B3=F8L=A6?=
-Date: Mon, 05 Dec 2005 04:39:59 -0800
-Message-ID: <200512051243.jB5ChcO0026460@oss.sgi.com>
-Mime-Version: 1.0
+From: "Evangelina Vasquez" <BSCOJ@hotmail.com>
+Subject: Highly Recommended Cailis fuDkW
+Date: Mon, 05 Dec 2005 09:46:22 -0400
+Message-ID: <68FT87FE.0X24.BSCOJ@hotmail.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <murray@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-j4mC34LcgrWCxIFCgXmDWoOMg3WJ74FGkeOVXCCL4I/pkF6LfIF6gsaQXIK1gtyCt4FCDQqC
-sYLMg1SDQ4NngsmPb46RgrWCxIKigumCzILFk8GVyoLJi5aJwoLwkriCq4FBleWPV4K1gtyC
-t4FCDQqKhJDYgsGCvYzwjduC8IuBgt+C6ZROjvsxNTAwlpyIyI/jgsyPl5CrgsaCzIt0g1SD
-fIGbg2eM8I3bgvCCtYLEgt2C3IK5gvGCqYFIDQqBnZP8ie+L4IFFie+U75OZgreC14LEj5eQ
-q5WJklOBQZJqkKuCzYLcgsGCvYKtl7+L4IKqinyCqYLogtyCuYLxgUINCoGdjI4xgWAyifEo
-j5eQq4LJguaC6YFBlpSCzZhigrWNh4KigsUpDQqBnYqEkNiCwYK9itaMV4FBjIuNpZFPkvGB
-QYNyg1eDbINYg3CBW4Nng2mBW4FBj5eQq4LMltqTSYLgl2yBWILFgrcNCmh0dHA6Ly93d3cu
-NTUxNWQuY29tL35mYzUwMTIvDQqXVJWfgsiPl5Crie+I9YLNk/yJ74vggUWJ75TvgvCVpYLB
-gsSTb5hegrWCxIKigtyCt4FCDQqX4oLigqmCtYFBg1SDToOJgsyPl5Crgs2I6pBsguCCooLc
-grmC8YLMgsWCsojAkFOCrYK+grOCooFCDQoNCi0tDQqUepBNjtKBRoz8iOSQXpS/DQoxMDIt
-MDA3NQ0Kk4yLnpNzkOeR45Nji+aOT5TUkqw2lNSSbg0KlHqQTYuRlNuCzJX7gs2CsYK/gueC
-yYKymEGXjYm6grOCooFCDQptYWhvbWFobzA5NGRzaEB5YWhvby5jb20NCg==
+
+
+"Ci-ialis Softabs" is better than Pfizer Viiagrra
+and normal Ci-ialis because:
+
+- Guaaraantees 36 hours lasting
+- Safe to take, no side effects at all
+- Boost and increase se-xual performance
+- Haarder e-rectiions and quick recharge
+- Proven and certified by experts and doctors
+- only $3.99 per tabs
+
+Cllick heree:
+http://uk.geocities.com/Dominga95177Sylas3105/
+
+
+roovvQ
