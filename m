@@ -1,37 +1,42 @@
-From: Michael Renzmann <netdev@nospam.otaku42.de>
-Subject: Re: Broadcom 43xx first results
-Date: Mon, 05 Dec 2005 19:14:03 +0100
-Message-ID: <1133806444.4498.35.camel@gimli>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
-	 <20051205190038.04b7b7c1@griffin.suse.cz>
-Reply-To: netdev@nospam.otaku42.de
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC: -mm patch] drivers/net/wireless/hostap/hostap_main.c shouldn't #include C files
+Date: Mon, 5 Dec 2005 19:12:07 +0100
+Message-ID: <20051205181207.GH9973@stusta.de>
+References: <20051203122309.GD31395@stusta.de> <20051205021409.GB8953@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: mbuesch@freenet.de, linux-kernel@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751395AbVLESO4@vger.kernel.org>
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20051205190038.04b7b7c1@griffin.suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751388AbVLESMK@vger.kernel.org>
+To: hostap@shmoo.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20051205021409.GB8953@jm.kir.nu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+On Sun, Dec 04, 2005 at 06:14:09PM -0800, Jouni Malinen wrote:
+> On Sat, Dec 03, 2005 at 01:23:09PM +0100, Adrian Bunk wrote:
+> > This patch contains an attempt to properly build hostap.o without 
+> > #incude'ing C files.
+> 
+> Looks good. However, I did not test this now since this did not apply to
+> netdev-2.6 (it does not have hostap_main.c). Did the hostap.c to
+> hostap_main.c rename go only to -mm? I would prefer to do this kind of
+> changes in a single place and I thought netdev-2.6 would be that. I'm
+> not following -mm tree at all and it would be easier to go through
+> patches if they are against netdev-2.6 upstream branch.
 
-On Mon, 2005-12-05 at 19:00 +0100, Jiri Benc wrote:
-> Why yet another attempt to write 802.11 stack? Sure, the one currently
-> in the kernel is unusable and everybody knows about it. But why not to
-> improve code opensourced by Devicescape some time ago instead of
-> inventing the wheel again and again?
+The hostap_main.c rename is in the git-netdev-all tree that gets pulled 
+into -mm. I don't know the exact setup of Jeff's (Cc'ed) git trees.
 
-Or, in case there is some unknown objection to the mentioned code: use
-the 802.11 stack that comes along with MadWifi, which provides things
-like virtual interfaces (for multiple SSID support on one physical card)
-and WPA support.
+> Jouni Malinen
 
-Although I'm a bit biased towards MadWifi, I'd second your suggestion to
-make use of the Devicescape code. The benefit of having a fully-blown
-802.11 stack in the kernel that drivers can make use of has been
-discussed before, so I won't go into that yet again.
+cu
+Adrian
 
-Bye, Mike
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
