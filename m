@@ -1,36 +1,53 @@
-From: Christoph Hellwig <hch@infradead.org>
+From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: Broadcom 43xx first results
-Date: Mon, 5 Dec 2005 19:10:08 +0000
-Message-ID: <20051205191008.GA28433@infradead.org>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz>
+Date: Mon, 5 Dec 2005 20:11:58 +0100
+Message-ID: <20051205201158.7cae7c86@griffin.suse.cz>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
+	<20051205190038.04b7b7c1@griffin.suse.cz>
+	<1133806444.4498.35.camel@gimli>
+	<43948B13.2090509@pobox.com>
+	<20051205194923.3b868d50@griffin.suse.cz>
+	<43948CC8.6000107@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@nospam.otaku42.de, mbuesch@freenet.de,
 	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
 	NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932515AbVLETKQ@vger.kernel.org>
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20051205195543.5a2e2a8d@griffin.suse.cz>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964772AbVLETM0@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <43948CC8.6000107@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2005 at 07:55:43PM +0100, Jiri Benc wrote:
-> Unfortunately, the only long-term solution is to rewrite completely the
-> current in-kernel ieee80211 code (I would not call it a "stack") or
-> replace it with something another. The current code was written for
-> Intel devices and it doesn't support anything else - so every developer
-> of a wifi driver tries to implement his own "softmac" now. I cannot see
-> how this can move as forward and I think we can agree this is not the
-> way to go.
+On Mon, 05 Dec 2005 13:54:00 -0500, Jeff Garzik wrote:
+> Complete bullshit.  There is obviously 802.11 generic code in the 
+> kernel, and that's what _I_ am saying, because it's true.
+> 
+> If it doesn't support your favorite wireless chipset, then submit patches.
 
-Please stop beeing a freaking jackass.  There are various projects using
-the current code.  It's not perfect but people are working on it.  And Joseph &
-friends are writing a module to support softmac cards in that framework,
-which is one of the most urgently needed things right now, because all the
-existing softmac frameworks don't work with that code.
+I have no favorite chipset. I read tons of source code of different
+drivers instead. Current 802.11 code supports no management stuff at
+all. And nearly every driver needs support for it - ask any developer of
+wireless driver except James Ketrenos (oh, wait a moment - although ipw
+devices do, unlike other devices, a lot of work in firmware, he is
+implementing in the driver some management stuff too - strange, is not
+his own "stack" good enough even for himself?).
 
-And please stop your stupid devicespace advertisements.  If you think the
-code is so useful why don't you send patches to integrate it with the
-currently existing wireless code (after cleaning up the horrible mess
-it is currently)?
+And, as you might notice, I sent many patches. Only minor ones were
+accepted. And then I started (and attended) a debate among wireless
+developers about concepts of 802.11 stack, do you remember? And it gave
+us interesting results. That results were implemented (patches were sent
+and not accepted).
+
+It may appears that I stopped afterwards, but it is not true. Nearly
+after that debate had finished, Jouni announced opensourcing of the
+stack he has been working on for several years. From that time I have
+been trying to get familiar with that stack, it is quite complex. I have
+one semi-working driver for it now and I think I know about issues of
+the stack.
+
+
+-- 
+Jiri Benc
+SUSE Labs
