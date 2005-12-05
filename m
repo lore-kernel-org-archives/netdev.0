@@ -1,50 +1,52 @@
-From: Johannes Stezenbach <js@linuxtv.org>
-Subject: Re: [PATCH linux-2.6.15-rc5] sk98lin: rx checksum offset not set
-Date: Mon, 5 Dec 2005 20:22:39 +0100
-Message-ID: <20051205192239.GA4150@linuxtv.org>
-References: <Pine.LNX.4.64.0512032155290.3099@g5.osdl.org> <20051204234320.GA7478@linuxtv.org> <20051205110040.47adf428@localhost.localdomain>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: Broadcom 43xx first results
+Date: Mon, 5 Dec 2005 20:31:21 +0100
+Message-ID: <20051205203121.48241a08@griffin.suse.cz>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
+	<20051205190038.04b7b7c1@griffin.suse.cz>
+	<4394892D.2090100@gentoo.org>
+	<20051205195543.5a2e2a8d@griffin.suse.cz>
+	<20051205191008.GA28433@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932527AbVLETW6@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20051205110040.47adf428@localhost.localdomain>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932455AbVLETbY@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20051205191008.GA28433@infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2005, Stephen Hemminger wrote:
-> The checksum offsets for receive offload were not being set correctly.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+On Mon, 5 Dec 2005 19:10:08 +0000, Christoph Hellwig wrote:
+> Please stop beeing a freaking jackass.  There are various projects using
+> the current code.  It's not perfect but people are working on it.
 
-I can confirm that this patch fixes the problem for me.
+Yes, and everyone implements his own softmac (this is the third one I
+know about). I tried to put all of these efforts together (google
+through the netdev archives) and wrote many patches.
 
-Thanks,
-Johannes
+> And Joseph &
+> friends are writing a module to support softmac cards in that framework,
+> which is one of the most urgently needed things right now, because all the
+> existing softmac frameworks don't work with that code.
 
-> Index: linux-2.6/drivers/net/sk98lin/skge.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/sk98lin/skge.c
-> +++ linux-2.6/drivers/net/sk98lin/skge.c
-> @@ -818,7 +818,7 @@ uintptr_t VNextDescr;	/* the virtual bus
->  		/* set the pointers right */
->  		pDescr->VNextRxd = VNextDescr & 0xffffffffULL;
->  		pDescr->pNextRxd = pNextDescr;
-> -		pDescr->TcpSumStarts = 0;
-> +		if (!IsTx) pDescr->TcpSumStarts = ETH_HLEN << 16 | ETH_HLEN;
->  
->  		/* advance one step */
->  		pPrevDescr = pDescr;
-> @@ -2169,7 +2169,7 @@ rx_start:	
->  		} /* frame > SK_COPY_TRESHOLD */
->  
->  #ifdef USE_SK_RX_CHECKSUM
-> -		pMsg->csum = pRxd->TcpSums;
-> +		pMsg->csum = pRxd->TcpSums & 0xffff;
->  		pMsg->ip_summed = CHECKSUM_HW;
->  #else
->  		pMsg->ip_summed = CHECKSUM_NONE;
-> 
+And authors of rtl8180 did it too. And authors of adm8211 too.
+
+> And please stop your stupid devicespace advertisements.  If you think the
+> code is so useful why don't you send patches to integrate it with the
+> currently existing wireless code (after cleaning up the horrible mess
+> it is currently)?
+
+This is what I'm doing last two months. But it's not so easy to clean it
+up and it seems that nobody else is interested. But it has all of the
+features you need (except active scanning) - this is the reason I
+stopped to work on improving current in-kernel 802.11 code and focused
+on Devicescape's code. It is several years beyond the state that current
+code is at now. And it is not an advertisement, it is a fact.
+
+
+-- 
+Jiri Benc
+SUSE Labs
