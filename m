@@ -1,70 +1,57 @@
-From: Jeroen Massar <jeroen@unfix.org>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Tue, 06 Dec 2005 00:10:59 +0100
-Message-ID: <4394C903.40801@unfix.org>
-References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com> <20051205140057.GC24764@tuxdriver.com> <20051205174010.GA14101@buici.com> <43947FEB.7020504@unfix.org> <4394BCD5.1060505@psc.edu> <4394C3D4.9050909@unfix.org> <4394C5B6.8020301@psc.edu>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: Re: [PATCH] natsemi: NAPI support
+Date: Mon, 5 Dec 2005 23:23:01 +0000
+Message-ID: <20051205232301.GA4551@sirena.org.uk>
+References: <20051204224734.GA12962@sirena.org.uk> <20051204231209.GA28949@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig83926B3E5F20A0488BFF1DC1"
-Cc: Marc Singer <elf@buici.com>, Ben Greear <greearb@candelatech.com>,
-	Al Boldi <a1426z@gawab.com>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <4394C5B6.8020301@psc.edu>
-Sender: linux-net-owner@vger.kernel.org
+	protocol="application/pgp-signature"; boundary="KsGdsel6WgEHnImy"
+Cc: Jeff Garzik <jgarzik@pobox.com>, Tim Hockin <thockin@hockin.org>,
+	Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964857AbVLEXXs@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20051204231209.GA28949@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig83926B3E5F20A0488BFF1DC1
-Content-Type: text/plain; charset=ISO-8859-1
+
+--KsGdsel6WgEHnImy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-John Heffner wrote:
-> Jeroen Massar wrote:
->> John Heffner wrote:
->>
->>> Jeroen Massar wrote:
->>>
->>>> I wonder how many RFC's it violates. An interface must only answer
->>>> ARP's
->>>> on the interface that it is configured on, not anything else.
->>>
->>> Not true.  See RFC 1122, section 3.3.4.  The standard leaves this
->>> decision up to the implementation, for good reason.
->>
->>
->> RFC1122 is a document about multicast. ARP is broadcast see the very o=
-ld
->>  RFC826/STD0037. Multicast didn't even work on much of the hardware fr=
-om
->> the times that that document was written.
->=20
-> ???  RFC 1122 is the Hosts Requirements RFC.  It applies to any host
-> implementing IP.  Maybe you're thinking of 1112?
+On Mon, Dec 05, 2005 at 12:12:09AM +0100, Francois Romieu wrote:
 
-Oops, mixed up a number. 1122 refers to 826, with 1027 extending it
-partially for situations where one is multihomed.
-Section 3.3.4 of 1122 is about IP and not about ARP, which is, just like
-IP directly on top of Ethernet.
+> -> netif_poll_disable() may sleep while a spinlock is held.
 
-Greets,
- Jeroen
+So it can, thanks.
 
+> Btw, the poll/close routines seem racy with each other.
 
---------------enig83926B3E5F20A0488BFF1DC1
+I had been under the impression that the stack was supposed to make sure
+that no poll() is running before the driver close() gets called?  I
+could well be missing something there, though.  Indeed, now that I think
+about it the calls netif_poll_disable() in suspend() ought to mean that
+we don't need to look at hands_off inside poll().
+
+--=20
+"You grabbed my hand and we fell into it, like a daydream - or a fever."
+
+--KsGdsel6WgEHnImy
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (MingW32)
-Comment: Jeroen Massar / http://unfix.org/~jeroen/
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQFDlMkDKaooUjM+fCMRAvTVAJ4oAxX01j9D9Z5aNYQ3liHHdeS5+QCgwJak
-Ikzv7FDbJoQNul+6U0Iy9Cg=
-=qFiX
+iQCVAwUBQ5TL0w2erOLNe+68AQJaEAP/UO3bW/DMlaja/hXTTaP0mfEnjJx2JB5o
+wO5lIJjldC+NKiOOk/bMPmjJfh9u5rUXC/vGJiBvH1y6ton0WAWCbcdrV8XPVSYw
+dRBqAetDsNJ1QpGm3FsI7K1Clz+VE9ZdnlmGMMNlifCyP6oVC9jzr9HC7hhWb7M0
+HlbjZxmRNHQ=
+=BEhk
 -----END PGP SIGNATURE-----
 
---------------enig83926B3E5F20A0488BFF1DC1--
+--KsGdsel6WgEHnImy--
