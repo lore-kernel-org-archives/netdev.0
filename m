@@ -1,39 +1,48 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Mon, 5 Dec 2005 15:10:03 -0500
-Message-ID: <20051205200959.GF24764@tuxdriver.com>
-References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com> <20051205140057.GC24764@tuxdriver.com> <20051205174010.GA14101@buici.com> <43948049.3040508@candelatech.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Broadcom 43xx first results
+Date: Mon, 05 Dec 2005 15:09:19 -0500
+Message-ID: <43949E6F.9050408@pobox.com>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <4394902C.8060100@pobox.com> <20051205195329.GB19964@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Singer <elf@buici.com>, Al Boldi <a1426z@gawab.com>,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <43948049.3040508@candelatech.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, Joseph Jezak <josejx@gentoo.org>,
+	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964799AbVLEUJk@vger.kernel.org>
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20051205195329.GB19964@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2005 at 10:00:41AM -0800, Ben Greear wrote:
-> Marc Singer wrote:
-> >On Mon, Dec 05, 2005 at 09:01:00AM -0500, John W. Linville wrote:
-
-> >>The association between IP addresses and links is already a bit murky.
-> >>Reference the arp_announce sysctl for what I mean.  I recall Dave M.
-> >>emphasizing on at least one occassion that IP addresses belong to
-> >>the _box_, not to the link.
-
-> >Precisely the case.  It should be the case that a box response to an
-> >arp on *any* interface for *any* IP address known to the box.
+Dave Jones wrote:
+> On Mon, Dec 05, 2005 at 02:08:28PM -0500, Jeff Garzik wrote:
+>  > Jiri Benc wrote:
+>  > >On Mon, 05 Dec 2005 13:38:37 -0500, Joseph Jezak wrote:
+>  > >
+>  > >>We're not writing an entire stack.  We're writing a layer that sits in 
+>  > >>between the current ieee80211 stack that's already present in the kernel 
+>  > >>and drivers that do not have a hardware MAC.  Since ieee80211 is already 
+>  > >>in use in the kernel today, this seemed like a natural and useful 
+>  > >>extension to the existing code.  I agree that it's somewhat wasteful to 
+>  > >>keep rewriting 802.11 stacks and we considered other options, but it 
+>  > >>seemed like a more logical choice to work with what was available and 
+>  > >>recommended than to use an external stack.
+>  > >
+>  > >
+>  > >Unfortunately, the only long-term solution is to rewrite completely the
+>  > >current in-kernel ieee80211 code (I would not call it a "stack") or
+>  > >replace it with something another. The current code was written for
+>  > >Intel devices and it doesn't support anything else - so every developer
+>  > 
+>  > Patently false.
+>  > 
+>  > ieee80211 is used by Intel.  Some bits used by HostAP, which also 
+>  > duplicates a lot of ieee80211 code.  And bcm43xx.  And another couple 
+>  > drivers found in -mm or out-of-tree.
 > 
-> I certainly don't mind if this is a configurable, or even default
-> behaviour, but we also need the ability to only respond to particular
+> Orinoco also uses it now no ?
 
-It was not my intention to derail this discussion to the arp_announce
-topic.  I only cited it as an example where the IP address <->
-interface mapping is not 100% absolute.
+Just the headers, really.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+	Jeff
