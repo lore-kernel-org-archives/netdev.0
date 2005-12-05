@@ -1,42 +1,44 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [RFC: -mm patch] drivers/net/wireless/hostap/hostap_main.c shouldn't #include C files
-Date: Mon, 5 Dec 2005 19:12:07 +0100
-Message-ID: <20051205181207.GH9973@stusta.de>
-References: <20051203122309.GD31395@stusta.de> <20051205021409.GB8953@jm.kir.nu>
+From: Joseph Jezak <josejx-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: Re: Broadcom 43xx first results
+Date: Mon, 05 Dec 2005 13:38:37 -0500
+Message-ID: <4394892D.2090100@gentoo.org>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751388AbVLESMK@vger.kernel.org>
-To: hostap@shmoo.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20051205021409.GB8953@jm.kir.nu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+In-Reply-To: <20051205190038.04b7b7c1-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 04, 2005 at 06:14:09PM -0800, Jouni Malinen wrote:
-> On Sat, Dec 03, 2005 at 01:23:09PM +0100, Adrian Bunk wrote:
-> > This patch contains an attempt to properly build hostap.o without 
-> > #incude'ing C files.
-> 
-> Looks good. However, I did not test this now since this did not apply to
-> netdev-2.6 (it does not have hostap_main.c). Did the hostap.c to
-> hostap_main.c rename go only to -mm? I would prefer to do this kind of
-> changes in a single place and I thought netdev-2.6 would be that. I'm
-> not following -mm tree at all and it would be easier to go through
-> patches if they are against netdev-2.6 upstream branch.
+ > Why yet another attempt to write 802.11 stack? Sure, the one currently
+ > in the kernel is unusable and everybody knows about it. But why not to
+ > improve code opensourced by Devicescape some time ago instead of
+ > inventing the wheel again and again? Yes, I know that code is not
+ > perfect and needs a lot of work, but it is the best piece of code we
+ > have available now. And it _does_ support WPA and such - in fact, it
+ > is nearly complete.
+ >
+ > Please take a look at http://kernel.org/pub/linux/kernel/people/jbenc/
 
-The hostap_main.c rename is in the git-netdev-all tree that gets pulled 
-into -mm. I don't know the exact setup of Jeff's (Cc'ed) git trees.
+We're not writing an entire stack.  We're writing a layer that sits in 
+between the current ieee80211 stack that's already present in the kernel 
+and drivers that do not have a hardware MAC.  Since ieee80211 is already 
+in use in the kernel today, this seemed like a natural and useful 
+extension to the existing code.  I agree that it's somewhat wasteful to 
+keep rewriting 802.11 stacks and we considered other options, but it 
+seemed like a more logical choice to work with what was available and 
+recommended than to use an external stack.
 
-> Jouni Malinen
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+-Joe
