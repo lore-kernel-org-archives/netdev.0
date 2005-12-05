@@ -1,43 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: Broadcom 43xx first results
-Date: Mon, 05 Dec 2005 13:46:43 -0500
-Message-ID: <43948B13.2090509@pobox.com>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>	 <20051205190038.04b7b7c1@griffin.suse.cz> <1133806444.4498.35.camel@gimli>
+Date: Mon, 5 Dec 2005 19:49:23 +0100
+Message-ID: <20051205194923.3b868d50@griffin.suse.cz>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
+	<20051205190038.04b7b7c1@griffin.suse.cz>
+	<1133806444.4498.35.camel@gimli>
+	<43948B13.2090509@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, mbuesch@freenet.de,
+Cc: netdev@nospam.otaku42.de, mbuesch@freenet.de,
 	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
 	NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932506AbVLESrM@vger.kernel.org>
-To: netdev@nospam.otaku42.de
-In-Reply-To: <1133806444.4498.35.camel@gimli>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932507AbVLESt3@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <43948B13.2090509@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Renzmann wrote:
-> Hi.
+On Mon, 05 Dec 2005 13:46:43 -0500, Jeff Garzik wrote:
+> Use the stack that's already in the kernel.
 > 
-> On Mon, 2005-12-05 at 19:00 +0100, Jiri Benc wrote:
-> 
->>Why yet another attempt to write 802.11 stack? Sure, the one currently
->>in the kernel is unusable and everybody knows about it. But why not to
->>improve code opensourced by Devicescape some time ago instead of
->>inventing the wheel again and again?
-> 
-> 
-> Or, in case there is some unknown objection to the mentioned code: use
-> the 802.11 stack that comes along with MadWifi, which provides things
-> like virtual interfaces (for multiple SSID support on one physical card)
-> and WPA support.
-> 
-> Although I'm a bit biased towards MadWifi, I'd second your suggestion to
-> make use of the Devicescape code. The benefit of having a fully-blown
-> 802.11 stack in the kernel that drivers can make use of has been
-> discussed before, so I won't go into that yet again.
+> Encouraging otherwise hinders continued wireless progress under Linux.
 
-Use the stack that's already in the kernel.
+There is nothing like a "802.11 stack" currently in the kernel,
+regardless what James Ketrenos is saying. Sorry.
 
-Encouraging otherwise hinders continued wireless progress under Linux.
 
-	Jeff
+-- 
+Jiri Benc
+SUSE Labs
