@@ -1,112 +1,49 @@
-From: "¹æ ¼±Èñ" <hailan410jun7503zzanga77077jin7113zzanga77077zzanga77077jun7503zzanga77077bmw4518@baidu.com>
-Subject: =?ISO-8859-1?Q?=BF=C0=B4=C3=B5=B5=20=C6=ED=BE=C8=C7=CF=BC=BC=BF=E4=3F?=
-Date: Mon, 05 Dec 2005 10:39:20 -0600
-Message-ID: <XDLNWJUPWXBLFNLUKLMZDZ@naver.com>
-Reply-To: "ÇÇ ¼±Èñ" <zzanga77077bmw4518hailan410bmw4518hailan410zzanga77077hailan410hailan410zzanga77077zzanga77077jin7113zzanga77077@daum.net>
+From: Marc Singer <elf@buici.com>
+Subject: Re: [RFC] ip / ifconfig redesign
+Date: Mon, 5 Dec 2005 09:40:10 -0800
+Message-ID: <20051205174010.GA14101@buici.com>
+References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com> <20051205140057.GC24764@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--904769320358737726"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>, Al Boldi <a1426z@gawab.com>,
+	netdev@vger.kernel.org, linux-net@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20051205140057.GC24764@tuxdriver.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-----58223638060055229
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+On Mon, Dec 05, 2005 at 09:01:00AM -0500, John W. Linville wrote:
+> On Sat, Dec 03, 2005 at 10:33:32AM -0800, Ben Greear wrote:
+> > Al Boldi wrote:
+> > 
+> > >Here specifically, ip/ifconfig is implemented upside-down requiring a 
+> > >link/dev to exist for an address to be defined, in effect containing layer 
+> > >3 inside layer 2, when an address should be allowed to be defined w/o a 
+> > >link/dev much like an app is allowed to be defined w/o an address.
+> > 
+> > [Removed lkml from CC list]
+> > 
+> > You can add multiple virtual IP addresses to physical interfaces.  It
+> > makes no sense to have an IP without any association to an interface
+> > in my opinion.  Often, when you have multiple interfaces, you most 
+> > definately
+> > want different IPs associated specifically with particular interfaces.
+> > Think about redundant paths, routers, firewalls, and such.
+> 
+> The association between IP addresses and links is already a bit murky.
+> Reference the arp_announce sysctl for what I mean.  I recall Dave M.
+> emphasizing on at least one occassion that IP addresses belong to
+> the _box_, not to the link.
+> 
+> I think Al B.'s idea merits some consideration.  I definitely think
+> we blur the distinctions between L2 and L3 a bit too much in places.
+> 
+> Of course, patches would be helpful...
 
-<HTML>
+Precisely the case.  It should be the case that a box response to an
+arp on *any* interface for *any* IP address known to the box.
 
-
-
-
-
-
-
-<HEAD><TITLE> 
-
-<br>
- <br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9 =A1=E5=
-=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5  =B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
- <br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>        =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
- =A2=C6     =A2=C6     =A2=C6<br>
-     =A2=C6 =A2=C6 =A2=C6 <br>
-         =A2=C6 <br>
-
-
-
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Deu=
-c-kr"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </HEAD>
-
-
-
-
-
-
-
-
-
-
-
-
-
-<BODY bgColor=3D#ffffff centerMargin=3D0 topMargin=3D0 MARGINHEIGHT=3D"0" =
-MARGINWIDTH=3D"0">
-
-
-
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false"> 
-
-
-<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D700 align=3Dcenter border=3D=
-0>
-  <TBODY>
-    <TR> 
-      <TD><a href=3D"http://%65.onl%69n%65-%73o%75l.%63om/codmain.html?pro=
-d_num=3D129&pt_code=3Da1234"><IMG src=3D"http://m%65.%63o%63oyo=
-%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewawfse/sefsewawd=
-sssrfessef/sefswwsdefsefwdrfsfses/seem/murina/mail-1.files/mm_01.jpg" alt=3D=
-"" width=3D700 height=3D627 border=3D"0"></a></TD>
-    </TR>
-    <TR> 
-      <TD><a href=3D"http://%65.onl%69n%65-%73o%75l.%63om/codmain.html?pro=
-d_num=3D129&pt_code=3Da1234"><IMG src=3D"http://m%65.%63o%63oyo=
-%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewawfse/sefsewawd=
-sssrfessef/sefswwsdefsefwdrfsfses/seem/murina/mail-1.files/mm_02.gif" alt=3D=
-"" width=3D700 height=3D270 border=3D"0"></a></TD>
-    </TR>
-    <TR>
-      <TD><a href=3D"http://%65.onl%69n%65-%73o%75l.%63om/codmain.html?pro=
-d_num=3D129&pt_code=3Da1234"><img src=3D"http://m%65.%63o%63oyo=
-%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewawfse/sefsewawd=
-sssrfessef/sefswwsdefsefwdrfsfses/seem/murina/mail-1.files/mm_03_01.jpg" w=
-idth=3D"700" height=3D"524" border=3D"0"></a></TD>
-    </TR>
-    <TR> 
-      <TD><a href=3D"http://%73%75%73%69n.%75.to/"><img src=3D"http://m=
-%65.%63o%63oyo%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewa=
-wfse/sefsewawdsssrfessef/sefswwsdefsefwdrfsfses/seem/murina/mail-1.files/m=
-m_03_02.jpg" width=3D"700" height=3D"107" border=3D"0"></a></TD>
-    </TR>
-  </TBODY>
-</TABLE>
-</BODY></HTML>
-
-
-----1979792040261895--
+As for changing the behavior, I haven't seen a compelling reason to
+change it.  IMHO, without a motivating case, we would be mucking about
+without a clear goal.
