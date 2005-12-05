@@ -1,42 +1,41 @@
-From: Marc Singer <elf@buici.com>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Mon, 5 Dec 2005 13:03:29 -0800
-Message-ID: <20051205210329.GC20824@buici.com>
-References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com> <20051205140057.GC24764@tuxdriver.com> <20051205174010.GA14101@buici.com> <43948049.3040508@candelatech.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] move some code to net/ipx/af_ipx.c
+Date: Mon, 5 Dec 2005 22:35:51 +0100
+Message-ID: <20051205213550.GL9973@stusta.de>
+References: <6.282480653@selenic.com> <7.282480653@selenic.com> <20051114015707.GB5735@stusta.de> <20051118052252.GG11494@stusta.de> <39e6f6c70511181224r20801b61j87c856c703ab2b4d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Al Boldi <a1426z@gawab.com>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: Matt Mackall <mpm@selenic.com>, acme@conectiva.com.br,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932519AbVLEVfx@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Content-Disposition: inline
-In-Reply-To: <43948049.3040508@candelatech.com>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <39e6f6c70511181224r20801b61j87c856c703ab2b4d@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2005 at 10:00:41AM -0800, Ben Greear wrote:
-> >Precisely the case.  It should be the case that a box response to an
-> >arp on *any* interface for *any* IP address known to the box.
+On Fri, Nov 18, 2005 at 06:24:10PM -0200, Arnaldo Carvalho de Melo wrote:
+> On 11/18/05, Adrian Bunk <bunk@stusta.de> wrote:
+> > On Mon, Nov 14, 2005 at 02:57:07AM +0100, Adrian Bunk wrote:
+> > > On Fri, Nov 11, 2005 at 02:35:51AM -0600, Matt Mackall wrote:
+> > > > trivial: drop unused 802.3 code if we compile without IPX
+> > > >
+> > > > (originally from http://wohnheim.fh-wedel.de/~joern/software/kernel/je/25/)
 > 
-> I certainly don't mind if this is a configurable, or even default
-> behaviour, but we also need the ability to only respond to particular
-> arps on particular interfaces, based on the IP addresses assigned
-> to those interfaces.
+> Thanks Adrian, from a quick glance looks OK, I'll review it later
+> today to see if everything is fine wrt appletalk, tr, etc.
 
-Why?  The routing determines connectivity, not ARP.  AFAIK, ARP
-requests are not made on interfaces that lack that the network being
-queried.
+Any result from your review?
 
-If I put a host with an address on network 12 onto an ethernet segment
-for network 10 and then ARP for addresses on network 10, I ought to be
-able to send packets to those hosts (baring a firewal).  However, I
-won't be able to get anything back because those hosts don't know how
-to send to network 12.  Misconfiguration?  Yes.  Non-compliant?  No.
+> - Arnaldo
 
-> I am able to get this particular arp binding working today, so I'm
-> not suggesting changes, just mentioning that there are other
-> configurations than what you mention that are useful to people.
+cu
+Adrian
 
-Anyway, I haven't seen a good reason to change the current behavior.
-While the above described functionality is missing, no one has made a
-case to support it.
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
