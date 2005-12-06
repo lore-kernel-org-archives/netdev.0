@@ -1,46 +1,44 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 12/14] spidernet: check if firmware was loaded correctly
-Date: Tue, 6 Dec 2005 11:23:39 +0100
-Message-ID: <200512061123.40059.arnd@arndb.de>
-References: <20051206035220.097737000@localhost>
-	<20051206040645.193163000@localhost>
-	<17300.57951.373636.507621@cargo.ozlabs.ibm.com>
+From: Luc Saillard <luc@saillard.org>
+Subject: Re: Broadcom 43xx first results
+Date: Tue, 6 Dec 2005 11:23:40 +0100
+Message-ID: <20051206102340.GC24486@sd291.sivit.org>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <200512052123.42357.mbuesch@freenet.de> <20051205214256.492421ad@griffin.suse.cz> <D76B7270-C6A7-4068-9FDD-4C8B9F491F62@mac.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc64-dev@ozlabs.org, netdev@vger.kernel.org,
-	Jens.Osterkamp@de.ibm.com
-Return-path: <linuxppc64-dev-bounces@ozlabs.org>
-To: Paul Mackerras <paulus@samba.org>
-In-Reply-To: <17300.57951.373636.507621@cargo.ozlabs.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@suse.cz>, Michael Buesch <mbuesch@freenet.de>,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932539AbVLFKXp@vger.kernel.org>
+To: Kyle Moffett <mrmacman_g4@mac.com>
 Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
-List-Post: <mailto:linuxppc64-dev@ozlabs.org>
-List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc64-dev-bounces@ozlabs.org
-Errors-To: linuxppc64-dev-bounces@ozlabs.org
+In-Reply-To: <D76B7270-C6A7-4068-9FDD-4C8B9F491F62@mac.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Dinsdag 06 Dezember 2005 01:59, Paul Mackerras wrote:
-> Arnd Bergmann writes:
+On Tue, Dec 06, 2005 at 04:26:50AM -0500, Kyle Moffett wrote:
+> On Dec 05, 2005, at 15:42, Jiri Benc wrote:
+> >On Mon, 5 Dec 2005 21:23:42 +0100, Michael Buesch wrote:
+> >>This is __not__ "yet another stack". It is an _extension_.  It is  
+> >>all about management frames, which the in-kernel code does not  
+> >>manage.
+> >
+> >But this code should be part of the stack, as nearly every driver  
+> >needs it.
 > 
-> > Uploading the device firmware may fail if wrong input data
-> > was provided by the user. This checks for the condition.
-> > 
-> > From: Jens.Osterkamp@de.ibm.com
-> > Cc: netdev@vger.kernel.org
+> WRONG.  More than half the currently Linux-compatible wireless cards  
+> handle the wireless management packets in hardware, such that they're  
+> little more complicated than a basic ethernet device with a channel,  
+> an ESSID, and a list of MACs/APs.
 > 
-> This one should be sent to Jeff Garzik, along with patches 11, 13 and
-> 14.
+ 
+I do not want to enter in this flamewar, but the current driver i'm working
+on (marvell libertas chipset) need management frames in software. But to
+reduce cost, i think that lower chipset try to put the most in the host and
+not in the chipset. Marvell build the chipset around a ARM cpu so i think one
+day i can do it in hardware but for now i need to choose a ieee802.11 stack.
+I've began to used the in kernel solution with my own functions to
+send and received this frame. But i hope we will find a technical solution
+that please everyone. I'll try to see if the softmac layer written for
+broadcom driver can be used for my project.
 
-Ok.
-
-Jens, is it ok for you if you send the network driver stuff to
-jgarzik@pobox.com, Cc: netdev@vger.kernel.org yourself in the future?
-
-	Arnd <><
+Luc
