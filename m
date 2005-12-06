@@ -1,48 +1,71 @@
-From: "¸¶ È«±¤" <dsdfsfasd@daum.net>
-Subject: =?ISO-8859-1?Q?=A1=D9=C8=B8=BB=E7=BF=F8,=B0=F8=B9=AB=BF=F8=C8=AF=BF=B5,=B3=E25.8~12.5%=C0=C7=C3=D6=C0=FA=B1=DD=B8=AE?=
-Date: Mon, 06 Dec 2004 10:41:43 +0300
-Message-ID: <VMOQJUTKNOIZEJPXTYAQRV@kr.co.kr>
-Reply-To: "¸¶ È«±¤" <ertewr@empal.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--59646866649756459146"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: Re: Broadcom 43xx first results
+Date: Tue, 6 Dec 2005 04:26:50 -0500
+Message-ID: <D76B7270-C6A7-4068-9FDD-4C8B9F491F62@mac.com>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <200512052123.42357.mbuesch@freenet.de> <20051205214256.492421ad@griffin.suse.cz>
+Mime-Version: 1.0 (Apple Message framework v746.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mbuesch@freenet.de>, linux-kernel@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964935AbVLFJ13@vger.kernel.org>
+In-Reply-To: <20051205214256.492421ad@griffin.suse.cz>
+To: Jiri Benc <jbenc@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-----638563511913558
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+On Dec 05, 2005, at 15:42, Jiri Benc wrote:
+> On Mon, 5 Dec 2005 21:23:42 +0100, Michael Buesch wrote:
+>> This is __not__ "yet another stack". It is an _extension_.  It is  
+>> all about management frames, which the in-kernel code does not  
+>> manage.
+>
+> But this code should be part of the stack, as nearly every driver  
+> needs it.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-<title>=B9=CF=C0=BD=C0=D6=B4=C2 =C8=AE=BD=C7=C7=D1 =B4=EB=C3=E2=BC=AD=BA=F1=
-=BD=BA!</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
+WRONG.  More than half the currently Linux-compatible wireless cards  
+handle the wireless management packets in hardware, such that they're  
+little more complicated than a basic ethernet device with a channel,  
+an ESSID, and a list of MACs/APs.
 
-</head>
+> Management handling should be really managed by the kernel.
 
-<body topmargin=3D"0">
-<table width=3D"520" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr> 
-    <td><a href=3D"http://www.keep-loan.com/0919/jik_argee.html?cp=3Dtwwf1=
-&grade=3Djik"><img src=3D"http://www.keep-loan.com/m_img2/left.jpg" width=3D=
-"269" height=3D"492" border=3D"0"></a></td>
-    <td><a href=3D"http://www.keep-loan.com/jik_argeec.html?cp=3Dtwwf1&gra=
-de=3Dcard"><img src=3D"http://www.keep-loan.com/m_img2/right.jpg" width=3D=
-"251" height=3D"492" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td colspan=3D"2"><a href=3D"#"><img src=3D"http://www.keep-loan.com/m=
-_img2/bottom.jpg" width=3D"520" height=3D"108" border=3D"0"></a></td>
-  </tr>
-</table>
-</body>
-</html>
+Yes, but it might not need to be in the base stack if it's largely  
+functionally independent.
 
+> The hard part is that every driver will need a slightly different  
+> amount of this support depending on the amount of features that are  
+> provided by firmware.
 
-----52704153636098043104--
+s/firmware/hardware/g.  This is _exactly_ why an external module  
+makes a lot of sense.
+
+>> We tried the code from the RTL driver, but it is total crap.  We  
+>> dropped it again. We thought about using yet another out of kernel  
+>> ieee80211 stack, but we began to write an extension to the in- 
+>> kernel code. If that was right or wrong, well, that's the question.
+>>
+>> If you _really_ think we should have used $EXTERNAL_STACK, go and  
+>> patch the driver to work with it.
+>
+> No. I just think we (everybody) should concentrate at one  
+> particular stack, finish it and merge it. And I'm convinced Jouni's  
+> stack is currently the best solution available - far far from  
+> perfect, with many issues, but still the best - and it will finally  
+> save as much time.
+
+What you miss is that the kernel does _not_ go with the "rewrite it  
+and replace it" methodology.  See Luben Toikov in the SAS flamewar  
+for another example.  If a better stack exists, provide a nice clean  
+set of totally functional changes that convert the current one into  
+that one.  In the process, we even get to keep the nice parts of the  
+current one that aren't in his (whatever they may be), and we always  
+have a working wireless stack.  With the rewrite/replace solution,  
+you end up broken or unstable half the time.
+
+Cheers,
+Kyle Moffett
+
+--
+Simple things should be simple and complex things should be possible
+   -- Alan Kay
