@@ -1,50 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Broadcom 43xx first results
-Date: Tue, 06 Dec 2005 08:43:39 -0800
-Message-ID: <4395BFBB.8060304@candelatech.com>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <20051205191008.GA28433@infradead.org> <20051205203121.48241a08@griffin.suse.cz> <20051205194146.GA29317@infradead.org> <20051205211107.61941ab9@griffin.suse.cz> <20051206150909.GB1999@elf.ucw.cz>
+From: "°ñ ¿¬È«" <jun7503jun7503zzanga77077hailan410zzanga77077bmw4518jun7503jin7113zzanga77077bmw4518hailan410@naver.com>
+Subject: =?ISO-8859-1?Q?=A2=BB=B5=BF=C0=CF=C1=F7=C0=E53=B0=B3=BF=F9=C0=CC=BB=F3=B1=D9=B9=AB=C7=D1=C1=F7=C0=E5=C0=CE,=B0=F8=B9=AB=BF=F8?=
+	=?ISO-8859-1?Q?=BF=F90.5%=B1=DD=B8=AE?=
+Date: Tue, 06 Dec 2005 12:03:03 -0500
+Message-ID: <UUZVFYACGDSZBYCOQSCB@163.com>
+Reply-To: "Ãß ¸®±º" <jun7503bmw4518jin7113zzanga77077zzanga77077jun7503hailan410bmw4518zzanga77077jin7113jin7113hailan410bmw4518@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, Christoph Hellwig <hch@infradead.org>,
-	Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
-	linux-kernel@vger.kernel.org, NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932315AbVLFQoY@vger.kernel.org>
-To: Pavel Machek <pavel@suse.cz>
-In-Reply-To: <20051206150909.GB1999@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/alternative;
+	boundary="--3559537141785450"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek wrote:
-> Hi!
-> 
-> 
->>>That's because you still don't get how we do development.  The last thing
->>>we want is full-scale rewrites.  Submit patches to fix things based on
->>>whatever you want but do it incremental.
->>
->>We have got almost finished and working stack. Everything we need to do
->>is:
->>1. identify issues;
->>2. fix the issues; some of them will need broader discussion;
->>3. split it into several (potentially a lot of) reviewable patches;
->>4. clean up the drivers.
->>
->>I'm in phase 2 now (no interesting results yet). I don't think it is
-> 
-> 
-> No, it does not work like that. You don't get nice, reviewable,
-> mergeable patches by developing code independently for 3 years or so
-> then attempting merge.
-> 
-> If devicescape code is better than mainline, merge it _now_. If it is
-> not, drop it and start from mainline code.
+----92294031360513329
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Merge now even if it breaks the current tree?  I for one would certainly
-rather he finish his work on it and get it more polished.  Reviewing and
-testing something that actually works would be a lot more fun...
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>=B9=CF=C0=BD=C0=D6=B4=C2 =C8=AE=BD=C7=C7=D1 =B4=EB=C3=E2=BC=AD=BA=F1=
+=BD=BA!</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
+
+</head>
+
+<body topmargin=3D"0">
+<table width=3D"520" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr> 
+    <td><a href=3D"http://www.keep-loan.com/0919/jik_argee.html?cp=3Dtwwf1=
+&grade=3Djik"><img src=3D"http://www.keep-loan.com/m_img2/left.jpg" width=3D=
+"269" height=3D"492" border=3D"0"></a></td>
+    <td><a href=3D"http://www.keep-loan.com/jik_argeec.html?cp=3Dtwwf1&gra=
+de=3Dcard"><img src=3D"http://www.keep-loan.com/m_img2/right.jpg" width=3D=
+"251" height=3D"492" border=3D"0"></a></td>
+  </tr>
+  <tr> 
+    <td colspan=3D"2"><a href=3D"#"><img src=3D"http://www.keep-loan.com/m=
+_img2/bottom.jpg" width=3D"520" height=3D"108" border=3D"0"></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+----5430410617945810987--
