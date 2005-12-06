@@ -1,123 +1,28 @@
-From: "임 학준" <jun7503hoho1223jin7113hoho1223jin7113ghost1503jun7503zzanga77077sabig98ghost1503hoho1223jin7113bmw4518zzanga77077@hanmail.net>
-Subject: =?ISO-8859-1?Q?CEO=B0=A1=20=B5=C7=BE=EE=BA=B8=BC=BC=BF=E4?=
-Date: Tue, 06 Dec 2005 13:05:49 -0600
-Message-ID: <BXSHZEDFCKBBSKRKWGQRT@naver.com>
-Reply-To: "박 지운" <jun7503bmw4518ghost1503bmw4518bmw4518hoho1223jin7113@yahoo.co.kr>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Broadcom 43xx first results
+Date: Tue, 06 Dec 2005 14:24:24 -0500
+Message-ID: <4395E568.1020407@pobox.com>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <20051205191008.GA28433@infradead.org> <20051205203121.48241a08@griffin.suse.cz> <20051205194146.GA29317@infradead.org> <20051205211107.61941ab9@griffin.suse.cz> <20051206150909.GB1999@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--6458725712341886855"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, Christoph Hellwig <hch@infradead.org>,
+	Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030201AbVLFTYe@vger.kernel.org>
+To: Pavel Machek <pavel@suse.cz>
+In-Reply-To: <20051206150909.GB1999@elf.ucw.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-----9839820867969080570
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Pavel Machek wrote:
+> No, it does not work like that. You don't get nice, reviewable,
+> mergeable patches by developing code independently for 3 years or so
+> then attempting merge.
+> 
+> If devicescape code is better than mainline, merge it _now_. If it is
+> not, drop it and start from mainline code.
 
-<HTML>
+Agreed.
 
-
-
-
-
-
-
-<HEAD><TITLE> 
-
-<br>
- <br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>  =C0=DA=BC=BC=C7=D1 =C1=A4=BA=B8=B8=A6 =BA=B8=BD=C3=B7=C1=B8=E9 =A1=E5=
-=A1=E5 =BE=C6=B7=A1=C0=C7 "=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2" =A1=E5=A1=E5  =B8=
-=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4.
- <br>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC
- <br>        =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
-         =A2=C6 <br>
- =A2=C6     =A2=C6     =A2=C6<br>
-     =A2=C6 =A2=C6 =A2=C6 <br>
-         =A2=C6 <br>
-
-
-
-</TITLE><META http-equiv=3DContent-Type content=3D"text/html; charset=3Deu=
-c-kr"><META content=3D"MSHTML 6.00.2800.1498" name=3DGENERATOR> </HEAD>
-
-
-
-
-
-<BODY centermargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D=
-"0">
-
-
-<body oncontextmenu=3D"return false" ondragstart=3D"return false" onselect=
-start=3D"return false"> 
-
-
-
-
-<TABLE cellSpacing=3D0 cellPadding=3D0 width=3D500 align=3Dcenter border=3D=
-0>
-  <TBODY>
-    <TR> 
-      <TD><A 
-      href=3D"http://%65.onl%69n%65-%73o%75l.%63om/codmain.html?prod_num=3D=
-130&pt_code=3Da1234"><IMG height=3D327 src=3D"http://m%65.%63o=
-%63oyo%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewawfse/sef=
-sewawdsssrfessef/sefswwsdefsefwdrfsfses/seem/auction/mail-1.files/online_0=
-1.jpg" width=3D700 
-      border=3D0></A></TD>
-    </TR>
-    <TR> 
-      <TD><A 
-      href=3D"http://%65.onl%69n%65-%73o%75l.%63om/codmain.html?prod_num=3D=
-130&pt_code=3Da1234"><IMG height=3D343 src=3D"http://m%65.%63o=
-%63oyo%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewawfse/sef=
-sewawdsssrfessef/sefswwsdefsefwdrfsfses/seem/auction/mail-1.files/online_0=
-2.jpg" width=3D700 
-      border=3D0></A></TD>
-    </TR>
-    <TR> 
-      <TD><A 
-      href=3D"http://%65.onl%69n%65-%73o%75l.%63om/codmain.html?prod_num=3D=
-130&pt_code=3Da1234"><IMG height=3D242 src=3D"http://m%65.%63o=
-%63oyo%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3wesfsfewawfse/sef=
-sewawdsssrfessef/sefswwsdefsefwdrfsfses/seem/auction/mail-1.files/online_0=
-3.jpg" width=3D700 
-      border=3D0></A></TD>
-    </TR>
-    <TR>
-      <TD height=3D5><a href=3D"http://%65.onl%69n%65-%73o%75l.=
-%63om/codmain.html?prod_num=3D130&pt_code=3Da1234"><IMG height=3D88 src=3D=
-"http://m%65.%63o%63oyo%67%69n%69.%63om/noveo/sdsfdsedsfsefsefsefswe/sfse3=
-wesfsfewawfse/sefsewawdsssrfessef/sefswwsdefsefwdrfsfses/seem/auction/mail=
--1.files/online_04.jpg" width=3D700 
-      border=3D0></a></TD>
-    </TR>
-    <TR> 
-      <TD height=3D5><A href=3D"http://%73%75%73%69n.%75.to/"><IMG 
-      src=3D"http://m%65.%63o%63oyo%67%69n%69.%63om/noveo/sdsfdsedsfsefsef=
-sefswe/sfse3wesfsfewawfse/sefsewawdsssrfessef/sefswwsdefsefwdrfsfses/seem/=
-auction/mail-1.files/online_05.jpg" 
-border=3D0></A></TD>
-    </TR>
-  </TBODY>
-</TABLE>
-<p><br>
-</p>
-
-</BODY></HTML>
-
-
-----862395202831040--
+	Jeff
