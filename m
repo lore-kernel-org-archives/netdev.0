@@ -1,54 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: Broadcom 43xx first results
-Date: Tue, 06 Dec 2005 15:19:19 -0800 (PST)
-Message-ID: <20051206.151919.72043193.davem@davemloft.net>
-References: <4394902C.8060100@pobox.com>
-	<20051205195329.GB19964@redhat.com>
-	<20051206151046.GF4038@rama.exocore.com>
+Date: Tue, 06 Dec 2005 15:25:05 -0800 (PST)
+Message-ID: <20051206.152505.71096177.davem@davemloft.net>
+References: <20051205211107.61941ab9@griffin.suse.cz>
+	<20051206150909.GB1999@elf.ucw.cz>
+	<4395BFBB.8060304@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, jgarzik@pobox.com, jbenc@suse.cz,
-	josejx@gentoo.org, mbuesch@freenet.de,
-	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+Cc: pavel@suse.cz, jbenc@suse.cz, hch@infradead.org, josejx@gentoo.org,
+	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932660AbVLFXUL@vger.kernel.org>
-To: laforge@gnumonks.org
-In-Reply-To: <20051206151046.GF4038@rama.exocore.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030285AbVLFXZK@vger.kernel.org>
+To: greearb@candelatech.com
+In-Reply-To: <4395BFBB.8060304@candelatech.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@gnumonks.org>
-Date: Tue, 6 Dec 2005 20:40:47 +0530
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 06 Dec 2005 08:43:39 -0800
 
-> I'm also in favor of merging the devicescape code, but I don't see it
-> happening without somebody taking care to provide all the required
-> levels of interfaces (I see at least three levels of API's that a wireless
-> driver would need, depending on how much stuff is done in
-> hardware/firmware and how much in software.
+> Merge now even if it breaks the current tree?
 
-I hate to say this, but part of the problem is exactly the fact
-that all the implementors have implemented different levels of
-hardware-MAC'ness in their wireless products.
+DCCP is a good counter example, zero --> some functionality is
+always preferred.  Our DCCP stack is far from being finished, but
+it is in there and getting polished and maintained like everything
+else in the upstream tree.
 
-Stated even further, things might have been more consistent if M$ had
-specified a set of driver interfaces into their own softmac stack,
-which I am to understand they are working on now.
-
-So every M$ wireless driver essentially links in their own softmac
-stack, if needed.
-
-This has resulted in a complicated situation for an already
-complicated technology.  Therefore, the fact that it's taking this
-long to accomodate all of the cases in the vanilla tree is quite
-understandable.
-
-I'm at the point where I frankly don't care which softmac
-implementation we go with, but rather I'm more concerned that we pick
-_ONE_ and just stick with it, and then adding the necessary interfaces
-and infrastructure as different wireless devices require.
-
-Yes, you hear me right, it's more important to agree to one
-implementation as the basis, even if it's the worst one currently.
-Division of labor is something we simply cannot afford on the wireless
-stack at this time.
+And once it's in there, we can review small patches that add new
+functionality not this behemouth "here's the whole thing" jumbo
+patch that nobody will want to review.
