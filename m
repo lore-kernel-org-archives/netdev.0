@@ -1,32 +1,32 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: Broadcom 43xx first results
-Date: Tue, 06 Dec 2005 15:25:05 -0800 (PST)
-Message-ID: <20051206.152505.71096177.davem@davemloft.net>
-References: <20051205211107.61941ab9@griffin.suse.cz>
-	<20051206150909.GB1999@elf.ucw.cz>
-	<4395BFBB.8060304@candelatech.com>
+Date: Tue, 06 Dec 2005 18:45:05 -0500
+Message-ID: <43962281.2050707@pobox.com>
+References: <4394902C.8060100@pobox.com>	<20051205195329.GB19964@redhat.com>	<20051206151046.GF4038@rama.exocore.com> <20051206.151919.72043193.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pavel@suse.cz, jbenc@suse.cz, hch@infradead.org, josejx@gentoo.org,
-	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
+Cc: laforge@gnumonks.org, davej@redhat.com, jbenc@suse.cz,
+	josejx@gentoo.org, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030285AbVLFXZK@vger.kernel.org>
-To: greearb@candelatech.com
-In-Reply-To: <4395BFBB.8060304@candelatech.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030309AbVLFXp0@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20051206.151919.72043193.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 06 Dec 2005 08:43:39 -0800
+David S. Miller wrote:
+> I'm at the point where I frankly don't care which softmac
+> implementation we go with, but rather I'm more concerned that we pick
+> _ONE_ and just stick with it, and then adding the necessary interfaces
+> and infrastructure as different wireless devices require.
+> 
+> Yes, you hear me right, it's more important to agree to one
+> implementation as the basis, even if it's the worst one currently.
+> Division of labor is something we simply cannot afford on the wireless
+> stack at this time.
 
-> Merge now even if it breaks the current tree?
+Agreed.
 
-DCCP is a good counter example, zero --> some functionality is
-always preferred.  Our DCCP stack is far from being finished, but
-it is in there and getting polished and maintained like everything
-else in the upstream tree.
-
-And once it's in there, we can review small patches that add new
-functionality not this behemouth "here's the whole thing" jumbo
-patch that nobody will want to review.
+	Jeff
