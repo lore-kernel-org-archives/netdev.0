@@ -1,49 +1,32 @@
-From: "°ñ ¿¬È«" <jun7503jun7503zzanga77077hailan410zzanga77077bmw4518jun7503jin7113zzanga77077bmw4518hailan410@naver.com>
-Subject: =?ISO-8859-1?Q?=A2=BB=B5=BF=C0=CF=C1=F7=C0=E53=B0=B3=BF=F9=C0=CC=BB=F3=B1=D9=B9=AB=C7=D1=C1=F7=C0=E5=C0=CE,=B0=F8=B9=AB=BF=F8?=
-	=?ISO-8859-1?Q?=BF=F90.5%=B1=DD=B8=AE?=
-Date: Tue, 06 Dec 2005 12:03:03 -0500
-Message-ID: <UUZVFYACGDSZBYCOQSCB@163.com>
-Reply-To: "Ãß ¸®±º" <jun7503bmw4518jin7113zzanga77077zzanga77077jun7503hailan410bmw4518zzanga77077jin7113jin7113hailan410bmw4518@hotmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Broadcom 43xx first results
+Date: Tue, 06 Dec 2005 14:05:07 -0500
+Message-ID: <4395E0E3.4040601@pobox.com>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <4394902C.8060100@pobox.com> <20051205195329.GB19964@redhat.com> <20051206151046.GF4038@rama.exocore.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--3559537141785450"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>, Jiri Benc <jbenc@suse.cz>,
+	Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932626AbVLFTF3@vger.kernel.org>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20051206151046.GF4038@rama.exocore.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-----92294031360513329
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Harald Welte wrote:
+> I also think that there is a lack of knowledge on the architecture of
+> 802.11 low-level protocols and drivers among many people (including
+> myself) in the network community.  Only this way I can explain why there
+> are always people who claim that the kernel already has a 802.11
+> 'stack'.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-<title>=B9=CF=C0=BD=C0=D6=B4=C2 =C8=AE=BD=C7=C7=D1 =B4=EB=C3=E2=BC=AD=BA=F1=
-=BD=BA!</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
+This last sentence, regardless of the source, is simply playing with words.
 
-</head>
+We have 802.11 common code in the kernel, that several drivers are 
+using.  Future drivers should modify that common code to suit their 
+needs, rather than dropping it and starting from scratch.
 
-<body topmargin=3D"0">
-<table width=3D"520" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr> 
-    <td><a href=3D"http://www.keep-loan.com/0919/jik_argee.html?cp=3Dtwwf1=
-&grade=3Djik"><img src=3D"http://www.keep-loan.com/m_img2/left.jpg" width=3D=
-"269" height=3D"492" border=3D"0"></a></td>
-    <td><a href=3D"http://www.keep-loan.com/jik_argeec.html?cp=3Dtwwf1&gra=
-de=3Dcard"><img src=3D"http://www.keep-loan.com/m_img2/right.jpg" width=3D=
-"251" height=3D"492" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td colspan=3D"2"><a href=3D"#"><img src=3D"http://www.keep-loan.com/m=
-_img2/bottom.jpg" width=3D"520" height=3D"108" border=3D"0"></a></td>
-  </tr>
-</table>
-</body>
-</html>
-
-
-----5430410617945810987--
+	Jeff
