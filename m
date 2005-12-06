@@ -1,68 +1,46 @@
-From: Marc Singer <elf@buici.com>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Mon, 5 Dec 2005 21:18:22 -0800
-Message-ID: <20051206051822.GC6820@buici.com>
-References: <200512022253.19029.a1426z@gawab.com> <200512031646.45332.a1426z@gawab.com> <4391E4FC.1040200@candelatech.com> <20051205140057.GC24764@tuxdriver.com> <20051205174010.GA14101@buici.com> <43947FEB.7020504@unfix.org> <4394BCD5.1060505@psc.edu> <4394C3D4.9050909@unfix.org>
+From: Michael Renzmann <netdev@nospam.otaku42.de>
+Subject: Re: Broadcom 43xx first results
+Date: Tue, 06 Dec 2005 08:17:58 +0100
+Message-ID: <1133853478.4468.9.camel@gimli>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
+	 <20051205190038.04b7b7c1@griffin.suse.cz> <1133806444.4498.35.camel@gimli>
+	 <43948B13.2090509@pobox.com>
+Reply-To: netdev@nospam.otaku42.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Heffner <jheffner@psc.edu>,
-	Ben Greear <greearb@candelatech.com>,
-	Al Boldi <a1426z@gawab.com>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jeroen Massar <jeroen@unfix.org>
-Content-Disposition: inline
-In-Reply-To: <4394C3D4.9050909@unfix.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@nospam.otaku42.de, Jiri Benc <jbenc@suse.cz>,
+	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750727AbVLFH3K@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <43948B13.2090509@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 05, 2005 at 11:48:52PM +0100, Jeroen Massar wrote:
-> John Heffner wrote:
-> > Jeroen Massar wrote:
-> >> I wonder how many RFC's it violates. An interface must only answer ARP's
-> >> on the interface that it is configured on, not anything else.
-> > 
-> > Not true.  See RFC 1122, section 3.3.4.  The standard leaves this
-> > decision up to the implementation, for good reason.
-> 
-> RFC1122 is a document about multicast. ARP is broadcast see the very old
->  RFC826/STD0037. Multicast didn't even work on much of the hardware from
-> the times that that document was written.
-> 
-> Probably the best text about this subject can be found in RFC1027:
-> 8<-----------
-> 2.4  Sanity checks
-> 
->     Care must be taken by the network and gateway administrators to keep
->     the network masks the same on all the subnet gateway machines.  The
->     most common error is to set the network mask on a host without a
->     subnet implementation to include the subnet number.  This causes the
->     host to fail to attempt to send packets to hosts not on its local
->     subnet.  Adjusting its routing tables will not help, since it will
->     not know how to route to subnets.
-> 
->     If the IP networks of the source and target hosts of an ARP request
->     are different, an ARP subnet gateway implementation should not
->     reply.  This is to prevent the ARP subnet gateway from being used to
->     reach foreign IP networks and thus possibly bypass security checks
->     provided by IP gateways.
-> -------------->8
-> 
-> Which is almost the same as what I noted. Note that the document is
-> about Proxy ARP, when a host is responding ARP queries for an IP on a
-> different link, this is exactly what it is doing: proxy arp.
+Hi.
 
-Interesting, but I don't think it applies.  We're talking about
-reaching the node, not about using the node as a transparent gateway.
-Note the part about "an ARP subnet gateway implementation" that need
-to be careful.
+On Mon, 2005-12-05 at 13:46 -0500, Jeff Garzik wrote:
+> > Although I'm a bit biased towards MadWifi, I'd second your suggestion to
+> > make use of the Devicescape code. The benefit of having a fully-blown
+> > 802.11 stack in the kernel that drivers can make use of has been
+> > discussed before, so I won't go into that yet again.
+> Use the stack that's already in the kernel.
 
-> 
-> > This topic has been discussed many times on a variety of mailing lists.
-> >  I think the best way to do this is to make the behavior configurable,
-> > which Linux currently does.
-> 
-> As long as the default is off I am fine with it, people turning it on
-> themselves break their own network :)
+Sorry, that was my bad. I thought that the Devicescape code found its
+way to the kernel (didn't follow the discussion some months ago too
+closely). Although I think there probably are better alternatives to the
+802.11 stack that is in the kernel right now, having a central 802.11
+stack at all is a great improvement that should be used where possible.
 
-Indeed.  Safety (sanity) first.
+> Encouraging otherwise hinders continued wireless progress under Linux.
+
+That depends. If the encouraging is about an alternative, more complete
+and superior 802.11 stack for Linux which could be integrated with less
+effort than extending the existing code, that should be worth to talk
+about. 
+
+Please note that I'm not refering here to any of the related suggestions
+which have been made during the past months - it's a general statement.
+
+Bye, Mike
