@@ -1,25 +1,36 @@
-From: <mina0514kkk@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A2=B3=F8L=A6?=
-Date: Tue, 06 Dec 2005 13:29:17 -0800
-Message-ID: <200512062132.jB6LWmqY006900@oss.sgi.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] natsemi: NAPI support
+Date: Tue, 6 Dec 2005 22:56:19 +0100
+Message-ID: <20051206215619.GB3425@electric-eye.fr.zoreil.com>
+References: <20051204224734.GA12962@sirena.org.uk> <20051204231209.GA28949@electric-eye.fr.zoreil.com> <20051205232301.GA4551@sirena.org.uk> <20051206001934.GA18329@electric-eye.fr.zoreil.com> <20051206211729.GB3709@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=unknown-8bit
-Content-Transfer-Encoding: base64
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Tim Hockin <thockin@hockin.org>,
+	Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030276AbVLFWAk@vger.kernel.org>
+To: Mark Brown <broonie@sirena.org.uk>
+Content-Disposition: inline
+In-Reply-To: <20051206211729.GB3709@sirena.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-UTrSsNnOvcSCwYLEgqCC6YLxgsWCt4KpgUgNCkE6gs2CooFBgqCC6ILcgreBQg0KaHR0cDov
-LzU1MTVkLmNvbS9+YmgwMTI0Lw0KUTqCu4LqgsGCxJZ7k5aCyYKoi+CC8JbhgqaC6YLMgsWC
-t4KpgUgNCkE6gs2CooFBluGCpoLcgreBY4LGjL6CooK9gqKCxoKxguuCxYK3gqqBQYK7guqC
-zYtNlfuOn5HmgsWCt4FCDQpROpGKjuiCzZFJgteCyIKigsyCxYK3gqmBSA0KQTqRSYLXgtyC
-t4KqgqiL4ILMgqCC6Y+XkKuCzJCUgs2MwILnguqCxILcgreCzILFkYGCoo7Sj5+Cv4LFgreB
-Qg0KUTqWe5OWgsiCzIFIib2CqYlSgsGC24KtgsiCooFIDQpBOoKojo6CtYr6itSCqoKggumC
-zILFkFOUeoKgguiC3IK5gvGBQoKylnuQbILFgqiKbYKpgt+JuoKzgqKBQg0KUTqC8YK2guGI
-6pN4jo6CtYLEgt2C5oKkgqmCyIFBgseCpIK3guqCzoFIDQpBOoNSg1KBq4LFim2CqYLfgsSC
-3YLEibqCs4KigUINCmh0dHA6Ly81NTE1ZC5jb20vfmJoMDEyNC8NCg0KDQotLQ0KlHqQTY7S
-gUaWe4/wIJT8k94NCjEwNC04MDAyDQqTjIuek3OShombi+aLnou0Mi01LTQNCpR6kE2LkZTb
-gsyV+4LNgrGCv4LngsmCsphBl42JuoKzgqKBQg0KbWluYTA1MTRra2tAeWFob28uY29tDQoN
-Cg0KDQo=
+Mark Brown <broonie@sirena.org.uk> :
+[...]
+> Prior to waiting dev_close() clears __LINK_STATE_START which will cause
+> netif_rx_schedule_prep() to return false.
+> As far as I can see that should prevent the interrupt handler scheduling
+> any further poll() calls?
+
+netif_rx_schedule_prep return netif_running(dev) &&
+dev_close              clear_bit(__LINK_STATE_START, &dev->state);
+dev_close              smp_mb__after_clear_bit(); /* Commit netif_running(). */
+dev_close              while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
+dev_close                      /* No hurry. */
+dev_close                      msleep(1);
+dev_close              }
+dev_close              
+netif_rx_schedule_prep !test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state);
+
+--
+Ueimor
