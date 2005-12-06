@@ -1,27 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] natsemi: NAPI support
-Date: Tue, 6 Dec 2005 01:19:34 +0100
-Message-ID: <20051206001934.GA18329@electric-eye.fr.zoreil.com>
-References: <20051204224734.GA12962@sirena.org.uk> <20051204231209.GA28949@electric-eye.fr.zoreil.com> <20051205232301.GA4551@sirena.org.uk>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH 12/14] spidernet: check if firmware was loaded correctly
+Date: Tue, 6 Dec 2005 11:59:11 +1100
+Message-ID: <17300.57951.373636.507621@cargo.ozlabs.ibm.com>
+References: <20051206035220.097737000@localhost>
+	<20051206040645.193163000@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Tim Hockin <thockin@hockin.org>,
-	Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751515AbVLFAVg@vger.kernel.org>
-To: broonie@sirena.org.uk
-Content-Disposition: inline
-In-Reply-To: <20051205232301.GA4551@sirena.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc64-dev@ozlabs.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arndb@de.ibm.com>, Jens.Osterkamp@de.ibm.com
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: Arnd Bergmann <arnd@arndb.de>
+In-Reply-To: <20051206040645.193163000@localhost>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Mark Brown <broonie@sirena.org.uk> :
-[...]
-> I had been under the impression that the stack was supposed to make sure
-> that no poll() is running before the driver close() gets called ?
+Arnd Bergmann writes:
 
-Not exactly. dev_close() waits a bit but it can not be sure that the
-device driver will not schedule ->poll() from its irq handler later.
+> Uploading the device firmware may fail if wrong input data
+> was provided by the user. This checks for the condition.
+> 
+> From: Jens.Osterkamp@de.ibm.com
+> Cc: netdev@vger.kernel.org
 
---
-Ueimor
+This one should be sent to Jeff Garzik, along with patches 11, 13 and
+14.
+
+Paul.
