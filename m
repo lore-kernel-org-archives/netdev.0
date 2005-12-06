@@ -1,56 +1,25 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: Re: [PATCH] natsemi: NAPI support
-Date: Tue, 6 Dec 2005 21:17:30 +0000
-Message-ID: <20051206211729.GB3709@sirena.org.uk>
-References: <20051204224734.GA12962@sirena.org.uk> <20051204231209.GA28949@electric-eye.fr.zoreil.com> <20051205232301.GA4551@sirena.org.uk> <20051206001934.GA18329@electric-eye.fr.zoreil.com>
+From: <mina0514kkk@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A2=B3=F8L=A6?=
+Date: Tue, 06 Dec 2005 13:29:17 -0800
+Message-ID: <200512062132.jB6LWmqY006900@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4bRzO86E/ozDv8r1"
-Cc: Jeff Garzik <jgarzik@pobox.com>, Tim Hockin <thockin@hockin.org>,
-	Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030247AbVLFVSH@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20051206001934.GA18329@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: base64
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---4bRzO86E/ozDv8r1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Dec 06, 2005 at 01:19:34AM +0100, Francois Romieu wrote:
-> Mark Brown <broonie@sirena.org.uk> :
-
-> > I had been under the impression that the stack was supposed to make sure
-> > that no poll() is running before the driver close() gets called?
-
-> Not exactly. dev_close() waits a bit but it can not be sure that the
-> device driver will not schedule ->poll() from its irq handler later.
-
-Prior to waiting dev_close() clears __LINK_STATE_START which will cause
-netif_rx_schedule_prep() to return false.  As far as I can see that
-should prevent the interrupt handler scheduling any further poll() calls?
-
---=20
-"You grabbed my hand and we fell into it, like a daydream - or a fever."
-
---4bRzO86E/ozDv8r1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iQCVAwUBQ5X/4g2erOLNe+68AQIKJgP+LSEKTPx3eJhBB+A+K8jwF/Er7e570wtI
-HVdG1DxBe1CHsjydGSVmM7JX6Dk+txBz9MHnEmR4TQiJH47oN1vXgj1SpBearmKj
-6kKeXfIBfHwCr/rbcQj26E3RMHi7Dyz8NGXPLK5k1LV2t+GF4CGlJM5Trm9rBpoU
-Mj2E5ncd8js=
-=Q2H2
------END PGP SIGNATURE-----
-
---4bRzO86E/ozDv8r1--
+UTrSsNnOvcSCwYLEgqCC6YLxgsWCt4KpgUgNCkE6gs2CooFBgqCC6ILcgreBQg0KaHR0cDov
+LzU1MTVkLmNvbS9+YmgwMTI0Lw0KUTqCu4LqgsGCxJZ7k5aCyYKoi+CC8JbhgqaC6YLMgsWC
+t4KpgUgNCkE6gs2CooFBluGCpoLcgreBY4LGjL6CooK9gqKCxoKxguuCxYK3gqqBQYK7guqC
+zYtNlfuOn5HmgsWCt4FCDQpROpGKjuiCzZFJgteCyIKigsyCxYK3gqmBSA0KQTqRSYLXgtyC
+t4KqgqiL4ILMgqCC6Y+XkKuCzJCUgs2MwILnguqCxILcgreCzILFkYGCoo7Sj5+Cv4LFgreB
+Qg0KUTqWe5OWgsiCzIFIib2CqYlSgsGC24KtgsiCooFIDQpBOoKojo6CtYr6itSCqoKggumC
+zILFkFOUeoKgguiC3IK5gvGBQoKylnuQbILFgqiKbYKpgt+JuoKzgqKBQg0KUTqC8YK2guGI
+6pN4jo6CtYLEgt2C5oKkgqmCyIFBgseCpIK3guqCzoFIDQpBOoNSg1KBq4LFim2CqYLfgsSC
+3YLEibqCs4KigUINCmh0dHA6Ly81NTE1ZC5jb20vfmJoMDEyNC8NCg0KDQotLQ0KlHqQTY7S
+gUaWe4/wIJT8k94NCjEwNC04MDAyDQqTjIuek3OShombi+aLnou0Mi01LTQNCpR6kE2LkZTb
+gsyV+4LNgrGCv4LngsmCsphBl42JuoKzgqKBQg0KbWluYTA1MTRra2tAeWFob28uY29tDQoN
+Cg0KDQo=
