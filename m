@@ -1,72 +1,51 @@
-From: Harald Welte <laforge@gnumonks.org>
+From: Pavel Machek <pavel@suse.cz>
 Subject: Re: Broadcom 43xx first results
-Date: Tue, 6 Dec 2005 20:40:47 +0530
-Message-ID: <20051206151046.GF4038@rama.exocore.com>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <4394902C.8060100@pobox.com> <20051205195329.GB19964@redhat.com>
+Date: Tue, 6 Dec 2005 16:04:16 +0100
+Message-ID: <20051206150416.GA1999@elf.ucw.cz>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <20051205191008.GA28433@infradead.org> <20051205203121.48241a08@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Cp3Cp8fzgozWLBWL"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932591AbVLFOiQ@vger.kernel.org>
-To: Dave Jones <davej@redhat.com>, Jeff Garzik <jgarzik@pobox.com>,
-	Jiri Benc <jbenc@suse.cz>, Joseph Jezak <josejx@gentoo.org>,
-	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932608AbVLFPEf@vger.kernel.org>
+To: Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
-In-Reply-To: <20051205195329.GB19964@redhat.com>
+In-Reply-To: <20051205203121.48241a08@griffin.suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi!
 
---Cp3Cp8fzgozWLBWL
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> > Please stop beeing a freaking jackass.  There are various projects using
+> > the current code.  It's not perfect but people are working on it.
+> 
+> Yes, and everyone implements his own softmac (this is the third one I
+> know about). I tried to put all of these efforts together (google
+> through the netdev archives) and wrote many patches.
 
-On Mon, Dec 05, 2005 at 02:53:29PM -0500, Dave Jones wrote:
->  > ieee80211 is used by Intel.  Some bits used by HostAP, which also=20
->  > duplicates a lot of ieee80211 code.  And bcm43xx.  And another couple=
-=20
->  > drivers found in -mm or out-of-tree.
->=20
-> Orinoco also uses it now no ?
+Well, unfortunately people seem to disagree about "what the right
+softmac is". And James's code is in kernel, thats _huge_ advantage.
 
-Dave, the Orinoco is a wireless card that has a hardware MAC, plust
-firmware.=20
+> > And please stop your stupid devicespace advertisements.  If you think the
+> > code is so useful why don't you send patches to integrate it with the
+> > currently existing wireless code (after cleaning up the horrible mess
+> > it is currently)?
+> 
+> This is what I'm doing last two months. But it's not so easy to clean it
+> up and it seems that nobody else is interested. But it has all of the
+> features you need (except active scanning) - this is the reason I
+> stopped to work on improving current in-kernel 802.11 code and focused
+> on Devicescape's code. It is several years beyond the state that current
+> code is at now. And it is not an advertisement, it is a fact.
 
-I do agree with Jiri that there basically is no support for softmac
-devices in the ieee80211 code.
+Another fact is that it is not in kernel, and by the time you get it
+cleaned up, in-kernel code will probably get advanced enough that your
+code will not be merged.
 
-I'm also in favor of merging the devicescape code, but I don't see it
-happening without somebody taking care to provide all the required
-levels of interfaces (I see at least three levels of API's that a wireless
-driver would need, depending on how much stuff is done in
-hardware/firmware and how much in software.
+If devicescape is really so much better, submit it _now_. It may be
+slightly buggy, but so is probably current code. 
 
-I also think that there is a lack of knowledge on the architecture of
-802.11 low-level protocols and drivers among many people (including
-myself) in the network community.  Only this way I can explain why there
-are always people who claim that the kernel already has a 802.11
-'stack'.
-
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---Cp3Cp8fzgozWLBWL
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQFDlan2XaXGVTD0i/8RAiXLAJ0bjeV0IhrVI4ti5dItgTFrxH7g8ACfYlYN
-Y8K8p/wXfSshWhMYLApvyFA=
-=d9HG
------END PGP SIGNATURE-----
-
---Cp3Cp8fzgozWLBWL--
+-- 
+Thanks, Sharp!
