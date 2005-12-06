@@ -1,36 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] natsemi: NAPI support
-Date: Tue, 6 Dec 2005 22:56:19 +0100
-Message-ID: <20051206215619.GB3425@electric-eye.fr.zoreil.com>
-References: <20051204224734.GA12962@sirena.org.uk> <20051204231209.GA28949@electric-eye.fr.zoreil.com> <20051205232301.GA4551@sirena.org.uk> <20051206001934.GA18329@electric-eye.fr.zoreil.com> <20051206211729.GB3709@sirena.org.uk>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: Broadcom 43xx first results
+Date: Tue, 6 Dec 2005 14:47:28 -0800
+Message-ID: <20051206224728.GA31894@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Tim Hockin <thockin@hockin.org>,
-	Harald Welte <laforge@gnumonks.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030276AbVLFWAk@vger.kernel.org>
-To: Mark Brown <broonie@sirena.org.uk>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Michael Renzmann <netdev@nospam.otaku42.de>,
+	Pavel Machek <pavel@suse.cz>,
+	Stephen Hemminger <shemminger@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932654AbVLFWrf@vger.kernel.org>
+To: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20051206211729.GB3709@sirena.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Brown <broonie@sirena.org.uk> :
-[...]
-> Prior to waiting dev_close() clears __LINK_STATE_START which will cause
-> netif_rx_schedule_prep() to return false.
-> As far as I can see that should prevent the interrupt handler scheduling
-> any further poll() calls?
+Jiri Benc wrote :
+> On Mon, 05 Dec 2005 13:46:43 -0500, Jeff Garzik wrote:
+> > Use the stack that's already in the kernel.
+> > 
+> > Encouraging otherwise hinders continued wireless progress under Linux.
+> 
+> There is nothing like a "802.11 stack" currently in the kernel,
+> regardless what James Ketrenos is saying. Sorry.
 
-netif_rx_schedule_prep return netif_running(dev) &&
-dev_close              clear_bit(__LINK_STATE_START, &dev->state);
-dev_close              smp_mb__after_clear_bit(); /* Commit netif_running(). */
-dev_close              while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-dev_close                      /* No hurry. */
-dev_close                      msleep(1);
-dev_close              }
-dev_close              
-netif_rx_schedule_prep !test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state);
+	Hi,
 
---
-Ueimor
+	Sorry to intrude in your happy flamefest ;-)
+
+	I take offense to what your are saying. There has been many
+"802.11 stacks" floating over the years (check my web page). However,
+only James went through the pain of getting one in the kernel. That's
+not something that should be underestimated.
+	Now, with respect to the "best" stacks. Some will argue that
+the linux-wlan-ng has the most maturity. Some will argue that the
+MadWifi stack is used by *BSD. Some will argue that the devicescape
+has most features. All this arguing leads to nowhere...
+
+	Personally, I'm a pragmatic a heart. The most important thing
+to me is end-user support. 99% of our users don't care about advanced
+features, they just want their hardware to work out of the box (and
+the people who want the advanced features are usually willing to patch
+their kernels). They don't care how we do the plumbing internally.
+	Therefore, for me, a stack is only as good as the number of
+drivers that support it. And this is where the devicescape stack is
+lacking.
+
+IPW stack :
+	drivers using it : ipw2100, ipw2200
+	drivers in progress : rt2x000, bcm430x
+	potential drivers : r8180, adm8211, hostap
+
+MadWifi stack :
+	drivers using it : MadWifi (non GPL)
+	drivers in progress : FreeHAL Atheros, Prism54 softMAC, ural-ralink
+
+DeviceScape stack :
+	drivers using it : ?
+	potential drivers : hostap, ipw2100, ipw2200, r8180, adm8211
+
+	If you want to use the DeviceScape stack instead of the IPW
+stack, my first question is how do you plan to migrate the drivers
+using it to the new stack. Currently, people are hard at work
+targetting the IPW stack (see above), I don't want them to have to
+throw away all their work.
+	In particular, iwp2*00 are working today in the kernel, and I
+expect that they would be migrated to the new stack at the stack
+switchover. As both the IPW and the DeviceScape stacks are derived
+from the HostAP stack, that should not be too hard.
+	Also, what puzzle me is that Jouni doesn't seem to have
+anounced any plan to port his HostAP driver to his DeviceScape
+stack. If there is one driver that should use it, that's HostAP.
+
+	Have fun...
+
+	Jean
+
+	
