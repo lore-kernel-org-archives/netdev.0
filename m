@@ -1,71 +1,46 @@
-From: Kyle Moffett <mrmacman_g4@mac.com>
-Subject: Re: Broadcom 43xx first results
-Date: Tue, 6 Dec 2005 04:26:50 -0500
-Message-ID: <D76B7270-C6A7-4068-9FDD-4C8B9F491F62@mac.com>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <200512052123.42357.mbuesch@freenet.de> <20051205214256.492421ad@griffin.suse.cz>
-Mime-Version: 1.0 (Apple Message framework v746.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 12/14] spidernet: check if firmware was loaded correctly
+Date: Tue, 6 Dec 2005 11:23:39 +0100
+Message-ID: <200512061123.40059.arnd@arndb.de>
+References: <20051206035220.097737000@localhost>
+	<20051206040645.193163000@localhost>
+	<17300.57951.373636.507621@cargo.ozlabs.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mbuesch@freenet.de>, linux-kernel@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964935AbVLFJ13@vger.kernel.org>
-In-Reply-To: <20051205214256.492421ad@griffin.suse.cz>
-To: Jiri Benc <jbenc@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linuxppc64-dev@ozlabs.org, netdev@vger.kernel.org,
+	Jens.Osterkamp@de.ibm.com
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: Paul Mackerras <paulus@samba.org>
+In-Reply-To: <17300.57951.373636.507621@cargo.ozlabs.ibm.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Dec 05, 2005, at 15:42, Jiri Benc wrote:
-> On Mon, 5 Dec 2005 21:23:42 +0100, Michael Buesch wrote:
->> This is __not__ "yet another stack". It is an _extension_.  It is  
->> all about management frames, which the in-kernel code does not  
->> manage.
->
-> But this code should be part of the stack, as nearly every driver  
-> needs it.
+On Dinsdag 06 Dezember 2005 01:59, Paul Mackerras wrote:
+> Arnd Bergmann writes:
+> 
+> > Uploading the device firmware may fail if wrong input data
+> > was provided by the user. This checks for the condition.
+> > 
+> > From: Jens.Osterkamp@de.ibm.com
+> > Cc: netdev@vger.kernel.org
+> 
+> This one should be sent to Jeff Garzik, along with patches 11, 13 and
+> 14.
 
-WRONG.  More than half the currently Linux-compatible wireless cards  
-handle the wireless management packets in hardware, such that they're  
-little more complicated than a basic ethernet device with a channel,  
-an ESSID, and a list of MACs/APs.
+Ok.
 
-> Management handling should be really managed by the kernel.
+Jens, is it ok for you if you send the network driver stuff to
+jgarzik@pobox.com, Cc: netdev@vger.kernel.org yourself in the future?
 
-Yes, but it might not need to be in the base stack if it's largely  
-functionally independent.
-
-> The hard part is that every driver will need a slightly different  
-> amount of this support depending on the amount of features that are  
-> provided by firmware.
-
-s/firmware/hardware/g.  This is _exactly_ why an external module  
-makes a lot of sense.
-
->> We tried the code from the RTL driver, but it is total crap.  We  
->> dropped it again. We thought about using yet another out of kernel  
->> ieee80211 stack, but we began to write an extension to the in- 
->> kernel code. If that was right or wrong, well, that's the question.
->>
->> If you _really_ think we should have used $EXTERNAL_STACK, go and  
->> patch the driver to work with it.
->
-> No. I just think we (everybody) should concentrate at one  
-> particular stack, finish it and merge it. And I'm convinced Jouni's  
-> stack is currently the best solution available - far far from  
-> perfect, with many issues, but still the best - and it will finally  
-> save as much time.
-
-What you miss is that the kernel does _not_ go with the "rewrite it  
-and replace it" methodology.  See Luben Toikov in the SAS flamewar  
-for another example.  If a better stack exists, provide a nice clean  
-set of totally functional changes that convert the current one into  
-that one.  In the process, we even get to keep the nice parts of the  
-current one that aren't in his (whatever they may be), and we always  
-have a working wireless stack.  With the rewrite/replace solution,  
-you end up broken or unstable half the time.
-
-Cheers,
-Kyle Moffett
-
---
-Simple things should be simple and complex things should be possible
-   -- Alan Kay
+	Arnd <><
