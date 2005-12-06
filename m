@@ -1,41 +1,44 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] move some code to net/ipx/af_ipx.c
-Date: Mon, 5 Dec 2005 22:35:51 +0100
-Message-ID: <20051205213550.GL9973@stusta.de>
-References: <6.282480653@selenic.com> <7.282480653@selenic.com> <20051114015707.GB5735@stusta.de> <20051118052252.GG11494@stusta.de> <39e6f6c70511181224r20801b61j87c856c703ab2b4d@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>, acme@conectiva.com.br,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932519AbVLEVfx@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Content-Disposition: inline
-In-Reply-To: <39e6f6c70511181224r20801b61j87c856c703ab2b4d@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 11/14] spidernet: fix Kconfig after BPA->CELL rename
+Date: Mon, 05 Dec 2005 22:52:31 -0500
+Message-ID: <20051206040645.065973000@localhost>
+References: <20051206035220.097737000@localhost>
+Cc: linuxppc64-dev@ozlabs.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arndb@de.ibm.com>, Jens.Osterkamp@de.ibm.com
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: paulus@samba.org
+Content-Disposition: inline; filename=spidernet-with-pci-and-cell.diff
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2005 at 06:24:10PM -0200, Arnaldo Carvalho de Melo wrote:
-> On 11/18/05, Adrian Bunk <bunk@stusta.de> wrote:
-> > On Mon, Nov 14, 2005 at 02:57:07AM +0100, Adrian Bunk wrote:
-> > > On Fri, Nov 11, 2005 at 02:35:51AM -0600, Matt Mackall wrote:
-> > > > trivial: drop unused 802.3 code if we compile without IPX
-> > > >
-> > > > (originally from http://wohnheim.fh-wedel.de/~joern/software/kernel/je/25/)
-> 
-> Thanks Adrian, from a quick glance looks OK, I'll review it later
-> today to see if everything is fine wrt appletalk, tr, etc.
+We changed the name of the Kconfig symbols along with
+the move to arch/powerpc. This one hunk got lost during
+the conversion.
 
-Any result from your review?
+From: Jens.Osterkamp@de.ibm.com
+Cc: netdev@vger.kernel.org
+Signed-off-by: Arnd Bergmann <arndb@de.ibm.com>
 
-> - Arnaldo
+Index: linux-2.6.15-rc1/drivers/net/Kconfig
+===================================================================
+--- linux-2.6.15-rc1.orig/drivers/net/Kconfig
++++ linux-2.6.15-rc1/drivers/net/Kconfig
+@@ -2120,7 +2120,7 @@ config BNX2
+ 
+ config SPIDER_NET
+ 	tristate "Spider Gigabit Ethernet driver"
+-	depends on PCI && PPC_BPA
++	depends on PCI && PPC_CELL
+ 	help
+ 	  This driver supports the Gigabit Ethernet chips present on the
+ 	  Cell Processor-Based Blades from IBM.
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+--
