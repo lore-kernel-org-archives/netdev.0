@@ -1,50 +1,50 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: Broadcom 43xx first results
-Date: Wed, 7 Dec 2005 11:47:36 -0800
-Message-ID: <20051207194736.GF8942@jm.kir.nu>
-References: <20051206224728.GA31894@bougret.hpl.hp.com> <20051207071102.GC8953@jm.kir.nu> <20051207191622.GB1913@bougret.hpl.hp.com>
+From: "천 금화" <zzanga77077jin7113jun7503zzanga77077bmw4518bmw4518jun7503@163.com>
+Subject: =?ISO-8859-1?Q?=B0=F8=B9=AB=BF=F8,=C1=F7=C0=E5=C0=CE?=
+	=?ISO-8859-1?Q?=C3=D6=C0=FA=B1=DD=B8=AE=B7=CE?=
+	=?ISO-8859-1?Q?=C3=D6=B0=ED=C0=C7=C7=FD=C5=C3=C0=BB=B5=E5=B8=B3=B4=CF=B4=D9!?=
+Date: Wed, 07 Dec 2005 22:32:29 +0100
+Message-ID: <FMLKPSITHPKRLIVJCRHAHXBW@sohu.com>
+Reply-To: "추 장민" <jin7113jin7113zzanga77077bmw4518zzanga77077bmw4518bmw4518@sohu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Michael Renzmann <netdev@nospam.otaku42.de>,
-	Pavel Machek <pavel@suse.cz>,
-	Stephen Hemminger <shemminger@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965013AbVLGTsT@vger.kernel.org>
-To: Jean Tourrilhes <jt@hpl.hp.com>
-Content-Disposition: inline
-In-Reply-To: <20051207191622.GB1913@bougret.hpl.hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/alternative;
+	boundary="--1287633186254475693"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2005 at 11:16:22AM -0800, Jean Tourrilhes wrote:
+----7451396008377463345
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-> 	Well, the burning question is : Is it possible to include your
-> Atheros driver in the Linux kernel ? Meaning, will it be released, and
-> will it contain a binary blob ?
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>=B9=CF=C0=BD=C0=D6=B4=C2 =C8=AE=BD=C7=C7=D1 =B4=EB=C3=E2=BC=AD=BA=F1=
+=BD=BA!</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-If that were possible, it would have been released with the IEEE 802.11
-code. It has the same issue as madwifi in the sense of depending on
-Atheros hal code.
+</head>
 
-> 	Not cool. I usually don't like wrapper, but would it be
-> possible to wrap the IPW API around DeviceScape ?
+<body topmargin=3D"0">
+<table width=3D"520" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr> 
+    <td><a href=3D"http://www.keep-loan.com/0919/jik_argee.html?cp=3Dtwwf1=
+&grade=3Djik"><img src=3D"http://www.keep-loan.com/m_img2/left.jpg" width=3D=
+"269" height=3D"492" border=3D"0"></a></td>
+    <td><a href=3D"http://www.keep-loan.com/jik_argeec.html?cp=3Dtwwf1&gra=
+de=3Dcard"><img src=3D"http://www.keep-loan.com/m_img2/right.jpg" width=3D=
+"251" height=3D"492" border=3D"0"></a></td>
+  </tr>
+  <tr> 
+    <td colspan=3D"2"><a href=3D"#"><img src=3D"http://www.keep-loan.com/m=
+_img2/bottom.jpg" width=3D"520" height=3D"108" border=3D"0"></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
-I would not even like to think about that.. ;-) I think we are in a
-position where we are way more willing to change things than try to
-maintain current interfaces in backwards compatible ways.
 
-> > Prism2/2.5/3 is getting somewhat old nowadays and I certainly prefer
-
-> 	It's old, but because it's the only current card properly
-> supported under Linux, most people are still using it. And you have
-> many original Prism2 designs that you can't find with other chipset,
-> such as the high power version and the CF cards.
-
-Agreed and as such, it is still on my list of things to maintain.
-However, this certainly means that it is likely to be of lower priority
-than some of the newer chipsets.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+----8298531413225855392--
