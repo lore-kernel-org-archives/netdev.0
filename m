@@ -1,84 +1,22 @@
-From: Michael Buesch <mbuesch@freenet.de>
-Subject: Re: Broadcom 43xx first results
-Date: Wed, 7 Dec 2005 14:34:22 +0100
-Message-ID: <200512071434.23706.mbuesch@freenet.de>
-References: <4394902C.8060100@pobox.com> <20051206151046.GF4038@rama.exocore.com> <20051206.151919.72043193.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1801062.7lD3BpfnaP";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, jgarzik@pobox.com, jbenc@suse.cz,
-	josejx@gentoo.org, mbuesch@freenet.de,
-	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org, laforge@gnumonks.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751052AbVLGNfk@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20051206.151919.72043193.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: 8pvs2I@mail.sysnet.net.tw
+Subject: (no subject)
+Date: Wed, 7 Dec 2005 05:41:39 -0800
+Message-ID: <200512071341.jB7DfdqY010497@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: undisclosed-recipients:;
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1801062.7lD3BpfnaP
+§K¶Oºâ©R³á
+From: ozxKNraBEOJyRBL@saturn.seed.net.tw
+To: 
+Subject: 
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Content-Transfer-Encoding: Quoted-Printable
+X-Priority: 3
+X-MSMail-Priority: Normal
 
-On Wednesday 07 December 2005 00:19, you wrote:
-> From: Harald Welte <laforge@gnumonks.org>
-> Date: Tue, 6 Dec 2005 20:40:47 +0530
->=20
-> > I'm also in favor of merging the devicescape code, but I don't see it
-> > happening without somebody taking care to provide all the required
-> > levels of interfaces (I see at least three levels of API's that a wirel=
-ess
-> > driver would need, depending on how much stuff is done in
-> > hardware/firmware and how much in software.
->=20
-> I hate to say this, but part of the problem is exactly the fact
-> that all the implementors have implemented different levels of
-> hardware-MAC'ness in their wireless products.
->=20
-> Stated even further, things might have been more consistent if M$ had
-> specified a set of driver interfaces into their own softmac stack,
-> which I am to understand they are working on now.
->=20
-> So every M$ wireless driver essentially links in their own softmac
-> stack, if needed.
->=20
-> This has resulted in a complicated situation for an already
-> complicated technology.  Therefore, the fact that it's taking this
-> long to accomodate all of the cases in the vanilla tree is quite
-> understandable.
->=20
-> I'm at the point where I frankly don't care which softmac
-> implementation we go with, but rather I'm more concerned that we pick
-> _ONE_ and just stick with it, and then adding the necessary interfaces
-> and infrastructure as different wireless devices require.
->=20
-> Yes, you hear me right, it's more important to agree to one
-> implementation as the basis, even if it's the worst one currently.
-> Division of labor is something we simply cannot afford on the wireless
-> stack at this time.
+=A7K=B6O=BA=E2=A9R=B3=E1
 
-I agree with you, and that is exactly what we are doing:
-We take the existing code and add functionality to it. If the
-added functionality is an external module, well, consinder this
-as an extra cookie for devices which do not need MAC handling.
-
-=2D-=20
-Greetings Michael.
-
---nextPart1801062.7lD3BpfnaP
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBDluTflb09HEdWDKgRAkzMAKCl1t/hPpe1cfb1wygotPs+kbLa6QCZAV+i
-sSmnauJ0TnAFqxyPQ/iYd2A=
-=wzEO
------END PGP SIGNATURE-----
-
---nextPart1801062.7lD3BpfnaP--
+http://billykou.servehttp.com/xoops/
