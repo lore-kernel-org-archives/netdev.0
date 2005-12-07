@@ -1,76 +1,105 @@
-From: Harald Welte <laforge@gnumonks.org>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
 Subject: Re: Broadcom 43xx first results
-Date: Wed, 7 Dec 2005 12:46:10 +0530
-Message-ID: <20051207071610.GC4361@rama.exocore.com>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org> <20051205195543.5a2e2a8d@griffin.suse.cz> <4394902C.8060100@pobox.com> <20051205195329.GB19964@redhat.com> <20051206151046.GF4038@rama.exocore.com> <4395E0E3.4040601@pobox.com>
+Date: Tue, 6 Dec 2005 23:11:02 -0800
+Message-ID: <20051207071102.GC8953@jm.kir.nu>
+References: <20051206224728.GA31894@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="96YOpH+ONegL0A3E"
-Cc: Dave Jones <davej@redhat.com>, Jiri Benc <jbenc@suse.cz>,
-	Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
-	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
-	NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932651AbVLGGcA@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Michael Renzmann <netdev@nospam.otaku42.de>,
+	Pavel Machek <pavel@suse.cz>,
+	Stephen Hemminger <shemminger@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030327AbVLGHLj@vger.kernel.org>
+To: Jean Tourrilhes <jt@hpl.hp.com>
 Content-Disposition: inline
-In-Reply-To: <4395E0E3.4040601@pobox.com>
+In-Reply-To: <20051206224728.GA31894@bougret.hpl.hp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 06, 2005 at 02:47:28PM -0800, Jean Tourrilhes wrote:
 
---96YOpH+ONegL0A3E
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> DeviceScape stack :
+> 	drivers using it : ?
+> 	potential drivers : hostap, ipw2100, ipw2200, r8180, adm8211
 
-On Tue, Dec 06, 2005 at 02:05:07PM -0500, Jeff Garzik wrote:
-> Harald Welte wrote:
-> >I also think that there is a lack of knowledge on the architecture of
-> >802.11 low-level protocols and drivers among many people (including
-> >myself) in the network community.  Only this way I can explain why there
-> >are always people who claim that the kernel already has a 802.11
-> >'stack'.
->=20
-> This last sentence, regardless of the source, is simply playing with word=
-s.
+It's mainly used with Atheros chipsets nowadays, but it has been used
+with couple of other chipsets, too, including Prism2/2.5/3 and parts of
+Host AP driver.
 
-I don't think that having clear definitions of certain terms is playing
-with words.  I don't neccessarily care which words are used, but it's
-always useful to have common, well-defined terminology.
+> 	If you want to use the DeviceScape stack instead of the IPW
+> stack, my first question is how do you plan to migrate the drivers
+> using it to the new stack. Currently, people are hard at work
+> targetting the IPW stack (see above), I don't want them to have to
+> throw away all their work.
 
-I also wouldn't call the TCP code a stack, if it hadn't all the state
-engine in it. =20
+No matter how this is done, I think it is quite likely that lot of work
+has to be thrown away in the sense that it does not end up being in the
+kernel. Having n+1 implementations for generic 802.11 functionality is a
+good proof of this already being the case. I wouldn't say all work is
+thrown away, though, even if lots of code will get thrown away. It is
+good to get understanding on what kind of specific requirements each
+chipset has in order to be able to accommodate them in the 802.11 design
+for Linux.
 
-> We have 802.11 common code in the kernel, that several drivers are
-> using. =20
+> 	In particular, iwp2*00 are working today in the kernel, and I
+> expect that they would be migrated to the new stack at the stack
+> switchover. As both the IPW and the DeviceScape stacks are derived
+> from the HostAP stack, that should not be too hard.
 
-Yes.
+Devicescape code is not actually derived from Host AP code. The user
+space component is same (hostapd), but the kernel side is completely new
+implementation. As far as IPW is concerned, some parts of it is indeed
+derived from Host AP (I can never remember which one, but either TX or
+RX; while the other side was new design for some reason).
 
-> Future drivers should modify that common code to suit their
-> needs, rather than dropping it and starting from scratch.
+> 	Also, what puzzle me is that Jouni doesn't seem to have
+> anounced any plan to port his HostAP driver to his DeviceScape
+> stack. If there is one driver that should use it, that's HostAP.
 
-I did not state that it has to be replaced.  I'm much in favour of
-gradual changes myself.
+Prism2/2.5/3 is getting somewhat old nowadays and I certainly prefer
+other chipset designs that do not have a large firmware component
+preventing driver/802.11 stack from doing things. Anyway, I have
+actually used Devicescape code with Prism2/2.5/3 cards by taking the
+low-level parts of the Host AP driver. This just happened to be
+two-three years ago and that code has found no use after that, so it has
+not been maintained.
 
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+I would certainly like to get rid of maintaining many parts of Host AP
+driver by getting it to use shared IEEE 802.11 code. I have been quite
+occupied with other projects lately which has made it more difficult to
+get much progress done here. Anyway, the current goal is to free up my
+time by end of this year so that I could start concentrating on the open
+source IEEE 802.11 stack for Linux 2.6.
 
---96YOpH+ONegL0A3E
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+One of the things I would like to do is to make sure that there is
+somewhat more complete setup available for testing the Devicescape code
+as part of open source development. I'm most familiar with Atheros
+chipset nowadays, so I would probably prefer to work with that and maybe
+Prism2 (i.e., support from Host AP driver) would be a good example of a
+firmware-based design, so those could be the easiest low-level drivers
+to get available using Devicescape 802.11 code. Getting ipw2x00 working
+with some kind of mix of the 802.11 stacks would be good think to do in
+order to make it easier to maintain existing functionality if larger
+changes for net/ieee80211 code is desired.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+My goal is to get something into kernel tree that allows all types of
+chipset designs to benefit from the same implementation of 802.11
+functionality. I'm not sure what would be the best way to achieve this
+quickly, but I have to admit that I would prefer the design used in
+Devicescape implementation over the code that is currently in Linux 2.6
+tree.
 
-iD8DBQFDlow6XaXGVTD0i/8RAjBDAKCd78Py8EsqyE0Njc7BIL2bOiEHagCfUz6V
-IaDv+ovK8LPgWDjc23ysj4g=
-=aNsK
------END PGP SIGNATURE-----
+I need to take a closer look at what could be done to merge the 802.11
+code in a way that would not break existing in-tree drivers that are
+using net/ieee80211 (i.e., mainly ipw2x00). I'm afraid quite large
+changes will be needed to make the current in-tree code more usable for
+devices that use very minimal firmware or no firmware at all. In
+addition, the issue of dropping AP code from Host AP when merging in the
+version that ipw2x00 was using needs more attention when deciding what
+kind of design would allow all drivers to work with shared IEEE 802.11
+stack.
 
---96YOpH+ONegL0A3E--
+-- 
+Jouni Malinen                                            PGP id EFC895FA
