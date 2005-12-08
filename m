@@ -1,87 +1,60 @@
 From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: Broadcom 43xx first results
-Date: Thu, 8 Dec 2005 12:32:37 +0100
-Message-ID: <20051208123237.61367a27@griffin.suse.cz>
-References: <4394902C.8060100@pobox.com>
-	<20051206151046.GF4038@rama.exocore.com>
-	<20051206.151919.72043193.davem@davemloft.net>
-	<200512071434.23706.mbuesch@freenet.de>
+Date: Thu, 8 Dec 2005 13:07:51 +0100
+Message-ID: <20051208130751.6586c59d@griffin.suse.cz>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
+	<20051205190038.04b7b7c1@griffin.suse.cz>
+	<4394892D.2090100@gentoo.org>
+	<20051205195543.5a2e2a8d@griffin.suse.cz>
+	<4394902C.8060100@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, davej@redhat.com,
-	jgarzik@pobox.com, josejx@gentoo.org, linux-kernel@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	laforge@gnumonks.org, Michael Renzmann <netdev@nospam.otaku42.de>,
+Cc: Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	NetDev <netdev@vger.kernel.org>,
 	Jouni Malinen <jkmaline@cc.hut.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751111AbVLHLck@vger.kernel.org>
-To: Michael Buesch <mbuesch@freenet.de>
-In-Reply-To: <200512071434.23706.mbuesch@freenet.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751165AbVLHMHy@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4394902C.8060100@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Dec 2005 14:34:22 +0100, Michael Buesch wrote:
-> I agree with you, and that is exactly what we are doing:
-> We take the existing code and add functionality to it. If the
-> added functionality is an external module, well, consinder this
-> as an extra cookie for devices which do not need MAC handling.
+On Mon, 05 Dec 2005 14:08:28 -0500, Jeff Garzik wrote:
+> > Unfortunately, the only long-term solution is to rewrite completely the
+> > current in-kernel ieee80211 code (I would not call it a "stack") or
+> > replace it with something another. The current code was written for
+> > Intel devices and it doesn't support anything else - so every developer
+> 
+> Patently false.
 
-I understand why you are trying to implement "softmac" as a separate
-module. But please take a look at following:
+Maybe some explanation why current in-kernel ieee80211 code needs to be
+rewritten will be useful.
 
-1. Fragmentation. Almost every driver (the exception are devices which
-do fragmentation in their firmware) needs to pass fragments to the
-device one by one. To handle it effectively, you need fragments to be
-passed to your hard_start_xmit sequentially (and not all at once). This
-is of course solvable by a separate softmac module, if you implement it
-as a layer between ieee80211 and a driver.
+1. To support WDS and devices capable to associate with multiple
+networks, ieee80211_device needs to be separated to two (or even more,
+see below) structures - one hardware dependent (channel and so) and one
+link dependent (BSSID etc.).
 
-2. Devices capable to associate with multiple networks. Such a device
-needs to be presented to userspace as several network devices. Again, it
-is solvable by a separate softmac module, but you need softmac to be
-something like a "proxy" for drivers (because you don't want to deal
-with multiple net_devices in the driver).
+2. To support AP mode, you need to keep a list of associated stations.
+No such list exists now. Furthermore, that list (or that structure) can
+be reused also by a client to store information about AP it is
+associated to. And - possibly - for a list of APs it can associate to,
+i. e. list of found networks. Currently, informations about AP are
+hardwired into ieee80211_device structure.
 
-3. WDS. This is nearly the same as above, but in addition you need a
-different code for building 802.11 headers. So this will be built on top
-of ieee80211 (because you want to use statistics gathering and so) but
-at the same time you will have to reimplement the code responsible for
-frame encapsulation in a softmac module. Or, you can add the support for
-WDS directly to ieee80211, but then you will add the code for handling
-of multiple devices there as well.
+3. Most of WE calls can be handled by ieee80211 itself. The rest should
+be propagated to a driver in some easier way than requiring driver to
+deal with the whole WE stuff itself. Also, exporting callbacks from
+ieee80211 that driver has to set as particular WE handlers seems to be
+unnecessary complicated.
 
-4. Access point mode. There is a lot of code needed for AP mode support.
-It can be easily implemented in softmac module. But that code will be
-used even by drivers for devices with complicated firmware (think about
-communication with an userspace AP daemon which won't be easy and should
-be consistent among drivers). So in the end (we want AP mode working for
-all devices supporting it, don't we?) only a few drivers won't use
-softmac module.
+4. Callbacks like handle_auth() that were added some time ago are not
+needed (for explanation, see corresponding thread on netdev).
 
-Those above are some reasons why I prefer complete 802.11 stack to be in
-ieee80211 module. Maybe I'm wrong (and I will be more than happy to
-advocate the separate softmac module if it turns out that I'm wrong),
-but I'm thinking this way:
+5. Some less important things, e. g. current very inefficient code which
+deals with found networks.
 
-- If AP, WDS and so on is implemented in a softmac module, only a very
-small amount of drivers won't use that module.
-
-- Such softmac module needs to be implemented as a layer between
-ieee80211 and a driver. This will lead to code duplication and will be
-less effective.
-
-- If AP, WDS and so on is implemented in ieee80211 module, softmac
-module will be very tiny (especially compared to ieee80211 module) and
-it is not worth effort to implement it as a separate module.
-
-- (Not a strong argument) Most of drivers will use "softmac" anyway
-(it's more than a half of drivers as somebody mentioned earlier).
-
-Please, could you send your opinions to this issues and how to solve
-them the best way? It seems that many people agree that separate softmac
-module is the way to go, so I'm probably wrong with my conclusions. 
-
-Thanks,
 
 -- 
 Jiri Benc
