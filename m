@@ -1,34 +1,48 @@
-From: "mechelle garza" <tamikay@o2.pl>
-Subject: Get rid of all you owe not even sending another dollar
-Date: Fri, 09 Dec 2005 04:27:46 +0300
-Message-ID: <62f301c5fc78$e8132110$19bcf938@tamikay>
+From: Kumar Gala <galak@gate.crashing.org>
+Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
+Date: Thu, 8 Dec 2005 16:13:52 -0600 (CST)
+Message-ID: <Pine.LNX.4.44.0512081606060.24134-100000@gate.crashing.org>
+References: <4384F3AD.4080105@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <fam-bounce@oss.sgi.com>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Frida Greene" <ralf@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Grover <andrew.grover@intel.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <john.ronciak@intel.com>,
+	<christopher.leech@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751247AbVLHWRv@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4384F3AD.4080105@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eliminate all that you are indebted for not even mailing  an other dollar. 
-Eliminate the embarrassing collection contacts. Eliminate the mailing of
-checks! Wild as it may seem the majority lending institutions not following
-the banking laws here in the US. Unbelievable but true!
+On Wed, 23 Nov 2005, Jeff Garzik wrote:
 
-Go to our web site for comprehensive particulars about our approach at NO
-cost or commitment. You have zilch to loose and ample to secure.
+> Alan Cox wrote:
+> >>Additionally, current IOAT is memory->memory.  I would love to be able 
+> >>to convince Intel to add transforms and checksums, 
+> > 
+> > 
+> > Not just transforms but also masks and maybe even merges and textures
+> > would be rather handy 8)
+> 
+> 
+> Ah yes:  I totally forgot to mention XOR.
+> 
+> Software RAID would love that.
 
-http://ar.geocities.com/vrissy_buttermo/
-Detailed knowledge or to end obtaining or to observe our mailng address
+A number of embedded processors already have HW that does these kinda of
+things.  On Freescale PPC processors there have been general purpose DMA
+engines for mem<->mem and more recently and additional crypto engines that
+allow for hashing, XOR, and security.
 
-Multiply cash flow and your customer base within 24 hours using
-knowledgeable and high volume e-mail marketing blitz
-Join with the largest and finest markettgroup@itelgua.com
+I'm actually searching for any examples of drivers that deal with the 
+issues related to DMA'ng directly two and from user space memory.
 
+I have an ioctl based driver that does copies back and forth between user 
+and kernel space and would like to remove that since the crypto engine has 
+full scatter/gather capability.
 
-Then, said the boy, thoughtfully, I've reached home just in time. In time
-for what? she asked
-But he did not answer that question
+The only significant effort I've come across is Peter Chubb's work for 
+user mode drivers which has some code for handling pinning of the user 
+space memory and what looks like generation of a scatter list.
+
+- kumar
