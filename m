@@ -1,50 +1,35 @@
-From: "천 금화" <zzanga77077jin7113jun7503zzanga77077bmw4518bmw4518jun7503@163.com>
-Subject: =?ISO-8859-1?Q?=B0=F8=B9=AB=BF=F8,=C1=F7=C0=E5=C0=CE?=
-	=?ISO-8859-1?Q?=C3=D6=C0=FA=B1=DD=B8=AE=B7=CE?=
-	=?ISO-8859-1?Q?=C3=D6=B0=ED=C0=C7=C7=FD=C5=C3=C0=BB=B5=E5=B8=B3=B4=CF=B4=D9!?=
-Date: Wed, 07 Dec 2005 22:32:29 +0100
-Message-ID: <FMLKPSITHPKRLIVJCRHAHXBW@sohu.com>
-Reply-To: "추 장민" <jin7113jin7113zzanga77077bmw4518zzanga77077bmw4518bmw4518@sohu.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: Broadcom 43xx first results
+Date: Wed, 7 Dec 2005 19:00:27 -0500
+Message-ID: <200512071900.27669.flamingice@sourmilk.net>
+References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de> <20051205191008.GA28433@infradead.org> <20051205203121.48241a08@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--1287633186254475693"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, Christoph Hellwig <hch@infradead.org>,
+	Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965048AbVLHAAd@vger.kernel.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <20051205203121.48241a08@griffin.suse.cz>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-----7451396008377463345
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+On Monday 05 December 2005 14:31, Jiri Benc wrote:
+> > And Joseph &
+> > friends are writing a module to support softmac cards in that framework,
+> > which is one of the most urgently needed things right now, because all
+> > the existing softmac frameworks don't work with that code.
+>
+> And authors of rtl8180 did it too. And authors of adm8211 too.
+>
+The softmac code that is still in adm8211 is actually based on an early 
+version of the softmac code that Jouni made for Devicescape. The Devicescape 
+code does much more useful stuff than the code currently in the kernel. Sure, 
+I can and have been porting adm8211 to the new kernel stuff.. but it already 
+works with a much more mature piece of softmac code. I see the use of Intel's 
+802.11 code as a step backwards.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-<title>=B9=CF=C0=BD=C0=D6=B4=C2 =C8=AE=BD=C7=C7=D1 =B4=EB=C3=E2=BC=AD=BA=F1=
-=BD=BA!</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
-
-</head>
-
-<body topmargin=3D"0">
-<table width=3D"520" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
-pacing=3D"0">
-  <tr> 
-    <td><a href=3D"http://www.keep-loan.com/0919/jik_argee.html?cp=3Dtwwf1=
-&grade=3Djik"><img src=3D"http://www.keep-loan.com/m_img2/left.jpg" width=3D=
-"269" height=3D"492" border=3D"0"></a></td>
-    <td><a href=3D"http://www.keep-loan.com/jik_argeec.html?cp=3Dtwwf1&gra=
-de=3Dcard"><img src=3D"http://www.keep-loan.com/m_img2/right.jpg" width=3D=
-"251" height=3D"492" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td colspan=3D"2"><a href=3D"#"><img src=3D"http://www.keep-loan.com/m=
-_img2/bottom.jpg" width=3D"520" height=3D"108" border=3D"0"></a></td>
-  </tr>
-</table>
-</body>
-</html>
-
-
-----8298531413225855392--
+-Michael Wu
