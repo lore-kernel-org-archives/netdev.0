@@ -1,48 +1,29 @@
-From: Kumar Gala <galak@gate.crashing.org>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
-Date: Thu, 8 Dec 2005 16:13:52 -0600 (CST)
-Message-ID: <Pine.LNX.4.44.0512081606060.24134-100000@gate.crashing.org>
-References: <4384F3AD.4080105@pobox.com>
+Date: Thu, 08 Dec 2005 14:23:40 -0800
+Message-ID: <ada4q5jz0r7.fsf@cisco.com>
+References: <Pine.LNX.4.44.0512081606060.24134-100000@gate.crashing.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Grover <andrew.grover@intel.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <john.ronciak@intel.com>,
-	<christopher.leech@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751247AbVLHWRv@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4384F3AD.4080105@pobox.com>
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Grover <andrew.grover@intel.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<john.ronciak@intel.com>, <christopher.leech@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932358AbVLHWYw@vger.kernel.org>
+To: Kumar Gala <galak@gate.crashing.org>
+In-Reply-To: <Pine.LNX.4.44.0512081606060.24134-100000@gate.crashing.org> (Kumar
+ Gala's message of "Thu, 8 Dec 2005 16:13:52 -0600 (CST)")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Nov 2005, Jeff Garzik wrote:
+    Kumar> I'm actually searching for any examples of drivers that
+    Kumar> deal with the issues related to DMA'ng directly two and
+    Kumar> from user space memory.
 
-> Alan Cox wrote:
-> >>Additionally, current IOAT is memory->memory.  I would love to be able 
-> >>to convince Intel to add transforms and checksums, 
-> > 
-> > 
-> > Not just transforms but also masks and maybe even merges and textures
-> > would be rather handy 8)
-> 
-> 
-> Ah yes:  I totally forgot to mention XOR.
-> 
-> Software RAID would love that.
+It's not quite the same story as what you're doing with DMA engines
+inside the CPU, but you could look at drivers/infiniband, particularly
+drivers/infiniband/core/uverbs_mem.c.  That handles pinning and
+getting DMA addresses for user memory that will be used as a DMA
+target in the future.
 
-A number of embedded processors already have HW that does these kinda of
-things.  On Freescale PPC processors there have been general purpose DMA
-engines for mem<->mem and more recently and additional crypto engines that
-allow for hashing, XOR, and security.
-
-I'm actually searching for any examples of drivers that deal with the 
-issues related to DMA'ng directly two and from user space memory.
-
-I have an ioctl based driver that does copies back and forth between user 
-and kernel space and would like to remove that since the crypto engine has 
-full scatter/gather capability.
-
-The only significant effort I've come across is Peter Chubb's work for 
-user mode drivers which has some code for handling pinning of the user 
-space memory and what looks like generation of a scatter list.
-
-- kumar
+ - R.
