@@ -1,61 +1,36 @@
-From: Jiri Benc <jbenc@suse.cz>
+From: Arjan van de Ven <arjan@infradead.org>
 Subject: Re: Broadcom 43xx first results
-Date: Thu, 8 Dec 2005 13:07:51 +0100
-Message-ID: <20051208130751.6586c59d@griffin.suse.cz>
+Date: Thu, 08 Dec 2005 13:12:44 +0100
+Message-ID: <1134043965.2867.45.camel@laptopd505.fenrus.org>
 References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
-	<20051205190038.04b7b7c1@griffin.suse.cz>
-	<4394892D.2090100@gentoo.org>
-	<20051205195543.5a2e2a8d@griffin.suse.cz>
-	<4394902C.8060100@pobox.com>
+	 <20051205190038.04b7b7c1@griffin.suse.cz> <4394892D.2090100@gentoo.org>
+	 <20051205195543.5a2e2a8d@griffin.suse.cz> <4394902C.8060100@pobox.com>
+	 <20051208130751.6586c59d@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Joseph Jezak <josejx@gentoo.org>, mbuesch@freenet.de,
-	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
-	NetDev <netdev@vger.kernel.org>,
+Cc: Jeff Garzik <jgarzik@pobox.com>, Joseph Jezak <josejx@gentoo.org>,
+	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>,
 	Jouni Malinen <jkmaline@cc.hut.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751165AbVLHMHy@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4394902C.8060100@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751081AbVLHMMy@vger.kernel.org>
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20051208130751.6586c59d@griffin.suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 05 Dec 2005 14:08:28 -0500, Jeff Garzik wrote:
-> > Unfortunately, the only long-term solution is to rewrite completely the
-> > current in-kernel ieee80211 code (I would not call it a "stack") or
-> > replace it with something another. The current code was written for
-> > Intel devices and it doesn't support anything else - so every developer
-> 
-> Patently false.
 
-Maybe some explanation why current in-kernel ieee80211 code needs to be
-rewritten will be useful.
+> 3. Most of WE calls can be handled by ieee80211 itself. The rest should
+> be propagated to a driver in some easier way than requiring driver to
+> deal with the whole WE stuff itself. Also, exporting callbacks from
+> ieee80211 that driver has to set as particular WE handlers seems to be
+> unnecessary complicated.
 
-1. To support WDS and devices capable to associate with multiple
-networks, ieee80211_device needs to be separated to two (or even more,
-see below) structures - one hardware dependent (channel and so) and one
-link dependent (BSSID etc.).
-
-2. To support AP mode, you need to keep a list of associated stations.
-No such list exists now. Furthermore, that list (or that structure) can
-be reused also by a client to store information about AP it is
-associated to. And - possibly - for a list of APs it can associate to,
-i. e. list of found networks. Currently, informations about AP are
-hardwired into ieee80211_device structure.
-
-3. Most of WE calls can be handled by ieee80211 itself. The rest should
-be propagated to a driver in some easier way than requiring driver to
-deal with the whole WE stuff itself. Also, exporting callbacks from
-ieee80211 that driver has to set as particular WE handlers seems to be
-unnecessary complicated.
-
-4. Callbacks like handle_auth() that were added some time ago are not
-needed (for explanation, see corresponding thread on netdev).
-
-5. Some less important things, e. g. current very inefficient code which
-deals with found networks.
-
-
--- 
-Jiri Benc
-SUSE Labs
+this argument is analogue to the adaptec SAS driver one about the scsi
+host structure. ieee80211 should be a LIBRARY of functions that can do
+things, the driver should be able to use the library or not at its own
+choice. forcibly making the ieee80211 layer deal with the WE's is the
+wrong way for this kind of thing, especially since several layers of the
+stack will be optional, so it has to be possible for drivers to go
+"until this layer I use the ieee80211 library functions, below that my
+own".
