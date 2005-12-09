@@ -1,62 +1,27 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC] [PATCH 0/3] ioat: DMA engine support
-Date: Fri, 9 Dec 2005 10:12:28 +0300
-Message-ID: <20051209071228.GB19920@2ka.mipt.ru>
-References: <4384F3AD.4080105@pobox.com> <Pine.LNX.4.44.0512081606060.24134-100000@gate.crashing.org>
+From: "Mariano Joiner" <Joiner4R@glink.net.hk>
+Subject: Are you qualified?
+Date: Fri, 09 Dec 2005 08:36:07 +0100
+Message-ID: <200512090742.jB97gMmu006276@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Grover <andrew.grover@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	john.ronciak@intel.com, christopher.leech@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932269AbVLIHMm@vger.kernel.org>
-To: Kumar Gala <galak@gate.crashing.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0512081606060.24134-100000@gate.crashing.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@oss.sgi.com, mail@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: murray@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 08, 2005 at 04:13:52PM -0600, Kumar Gala (galak@gate.crashing.org) wrote:
-> On Wed, 23 Nov 2005, Jeff Garzik wrote:
-> 
-> > Alan Cox wrote:
-> > >>Additionally, current IOAT is memory->memory.  I would love to be able 
-> > >>to convince Intel to add transforms and checksums, 
-> > > 
-> > > 
-> > > Not just transforms but also masks and maybe even merges and textures
-> > > would be rather handy 8)
-> > 
-> > 
-> > Ah yes:  I totally forgot to mention XOR.
-> > 
-> > Software RAID would love that.
-> 
-> A number of embedded processors already have HW that does these kinda of
-> things.  On Freescale PPC processors there have been general purpose DMA
-> engines for mem<->mem and more recently and additional crypto engines that
-> allow for hashing, XOR, and security.
-> 
-> I'm actually searching for any examples of drivers that deal with the 
-> issues related to DMA'ng directly two and from user space memory.
-> 
-> I have an ioctl based driver that does copies back and forth between user 
-> and kernel space and would like to remove that since the crypto engine has 
-> full scatter/gather capability.
-> 
-> The only significant effort I've come across is Peter Chubb's work for 
-> user mode drivers which has some code for handling pinning of the user 
-> space memory and what looks like generation of a scatter list.
+Compete with equal qualifications
 
-Acrypto supports crypto processing directly in userspace pages.
-In 2.6 it is quite easy using get_user_pages().
+You to can have that career you have always wanted. You just need the paperwork.
+Don't get passed up for that promotion agaon when you can have the qualifications
+of your competitors.
 
-> - kumar
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Give us a call 24hrs a day to obtain a d-e-g-r-e-e based on your experience.
+Be it business, finance, Technology or what have you
 
--- 
-	Evgeniy Polyakov
+1 757 299 0086
+
+
+Happy Holidays
