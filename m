@@ -1,44 +1,37 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: PROBLEM: bug in e1000 module causes very high CPU load
-Date: Sat, 10 Dec 2005 14:16:32 -0800
-Message-ID: <4807377b0512101416t2f3a04c5ua6859ab3d99e8d07@mail.gmail.com>
-References: <20051210114100.QFYF676.mxfep01.bredband.com@ph0x>
+From: "christian green" <sharaerlyn@flytecrew.com>
+Subject: Abolish all that you owe not even mailing  an other dime
+Date: Sat, 10 Dec 2005 04:00:24 +0900
+Message-ID: <AAAB0200.B4C7BBF@flytecrew.com>
+Reply-To: "christian green" <sharaerlyn@flytecrew.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org,
-	Kernel Netdev Mailing List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965081AbVLJWQe@vger.kernel.org>
-To: ph0x <ph0x@freequest.net>
-In-Reply-To: <20051210114100.QFYF676.mxfep01.bredband.com@ph0x>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <fox@oss.sgi.com>, <sullivan@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Marni Perez" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 12/10/05, ph0x <ph0x@freequest.net> wrote:
-> [1.] One line summary of the problem: bug in e1000 (ksoftirqd eats all CPU)
-> [2.] Full description of the problem/report:
->
-> After a while of using the network (uptime is 15 days now..) it suddenly
-> goes below expected performance. Even tho the utilization of the network is
-> 2-3MiB/s the CPU load gets unrealisticly high (1.0 - 8.0 in l/a) and the
-> system is very unresponsive via ssh. When freshly rebooted, I'm able to get
-> 18-19MiB/s without noticing any lag on ssh. Files have been transferred by
-> FTP and samba, still the same result. Kernel is freshly compiled
-> (http://www.ph0x.org/kernel.config, generated today) and I noticed this
-> issue with 2.6.11.2 aswell.
->
-> eth0 is a D-Link DFL-530TX (via_rhine) and has no problems using the full
-> 100Mbit/s, but the Intel PRO/1000S has problems using over 10Mbit/s. It's
-> not related to the computer I transfer to/from, because I've got a gigabit
-> laptop aswell which can output much traffic without getting this high load.
+Do away with everything you are indebted for without paying an other cent. 
+Stop the harrasing calls. Stop the sending of payments!
 
-please send the output of cat /proc/interrupts, I'm worried you have
-an issue due to interrupt sharing.  If it does fail again and is still
-usable, please send the output of ethtool -d eth0, and ethtool -S
-eth0. Also, is there any chance you can try the 6.2.15 driver from
-http://prdownloads.sf.net/e1000
+Believe it or not almost all lendor's are operating illegally. Far-fetched
+but spot on!
 
-do you have a test to reproduce this?
+Visit us for in depth facts with reference to our structure at no fees or
+responsibility. You have zero to loose and lots to achieve.
 
-Thanks, Jesse
+http://sg.geocities.com/hirammitchelly/
+Thorough info or to being to a standstill getting or to view our location
+
+Increase leads  quickly through experienced , large quantity mail
+advertising
+Use the most experienced judicialunion@itelgua.com
+
+Never get sick; never die. Then he added, with renewed cheerfulness: Me eat
+you, too! Before Rob could think of a further protest, his captors caught up
+the end of the rope and led him away through the forest
+He was tightly bound, and one strand of rope ran across the machine on his
+wrist and pressed it into his flesh until the pain was severe
