@@ -1,22 +1,25 @@
-From: "Art Nguyen" <nrzyv@hotmail.com>
-Subject: Hard Like Rock zJwMok
-Date: Fri, 09 Dec 2005 20:05:04 +0400
-Message-ID: <CFE2.9A7.3024098B8C@mopalinux.com>
+From: <mina0514kkk@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A2=B3=F8L=A6?=
+Date: Fri, 09 Dec 2005 08:45:56 -0800
+Message-ID: <200512091649.jB9GnVms020466@oss.sgi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mills@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-High quality Herbal V available at
-affordable price. 
-Only $3.99 per tabls which last you
-36 hours of e rectiions
-
-Try us out today...
-
-http://uk.geocities.com/Jackie7180Britta93395/
-
-
-Qz4Dj
+UTrSsNnOvcSCwYLEgqCC6YLxgsWCt4KpgUgNCkE6gs2CooFBgqCC6ILcgreBQg0KaHR0cDov
+LzU1MTVkLmNvbS9+YmgwMTI0Lw0KUTqCu4LqgsGCxJZ7k5aCyYKoi+CC8JbhgqaC6YLMgsWC
+t4KpgUgNCkE6gs2CooFBluGCpoLcgreBY4LGjL6CooK9gqKCxoKxguuCxYK3gqqBQYK7guqC
+zYtNlfuOn5HmgsWCt4FCDQpROpGKjuiCzZFJgteCyIKigsyCxYK3gqmBSA0KQTqRSYLXgtyC
+t4KqgqiL4ILMgqCC6Y+XkKuCzJCUgs2MwILnguqCxILcgreCzILFkYGCoo7Sj5+Cv4LFgreB
+Qg0KUTqWe5OWgsiCzIFIib2CqYlSgsGC24KtgsiCooFIDQpBOoKojo6CtYr6itSCqoKggumC
+zILFkFOUeoKgguiC3IK5gvGBQoKylnuQbILFgqiKbYKpgt+JuoKzgqKBQg0KUTqC8YK2guGI
+6pN4jo6CtYLEgt2C5oKkgqmCyIFBgseCpIK3guqCzoFIDQpBOoNSg1KBq4LFim2CqYLfgsSC
+3YLEibqCs4KigUINCmh0dHA6Ly81NTE1ZC5jb20vfmJoMDEyNC8NCg0KDQotLQ0KlHqQTY7S
+gUaWe4/wIJT8k94NCjEwNC04MDAyDQqTjIuek3OShombi+aLnou0Mi01LTQNCpR6kE2LkZTb
+gsyV+4LNgrGCv4LngsmCsphBl42JuoKzgqKBQg0KbWluYTA1MTRra2tAeWFob28uY29tDQoN
+Cg0KDQoNCg==
