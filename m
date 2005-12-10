@@ -1,45 +1,44 @@
-From: Stefan Smietanowski <stesmi@stesmi.com>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Sat, 10 Dec 2005 19:51:52 +0100
-Message-ID: <439B23C8.3020609@stesmi.com>
-References: <200512022253.19029.a1426z@gawab.com> <Pine.LNX.4.61.0512021527090.11277@chaos.analogic.com>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: PROBLEM: bug in e1000 module causes very high CPU load
+Date: Sat, 10 Dec 2005 14:16:32 -0800
+Message-ID: <4807377b0512101416t2f3a04c5ua6859ab3d99e8d07@mail.gmail.com>
+References: <20051210114100.QFYF676.mxfep01.bredband.com@ph0x>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Al Boldi <a1426z@gawab.com>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org,
-	Linux kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161026AbVLJSwF@vger.kernel.org>
-To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
-In-Reply-To: <Pine.LNX.4.61.0512021527090.11277@chaos.analogic.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965081AbVLJWQe@vger.kernel.org>
+To: ph0x <ph0x@freequest.net>
+In-Reply-To: <20051210114100.QFYF676.mxfep01.bredband.com@ph0x>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On 12/10/05, ph0x <ph0x@freequest.net> wrote:
+> [1.] One line summary of the problem: bug in e1000 (ksoftirqd eats all CPU)
+> [2.] Full description of the problem/report:
+>
+> After a while of using the network (uptime is 15 days now..) it suddenly
+> goes below expected performance. Even tho the utilization of the network is
+> 2-3MiB/s the CPU load gets unrealisticly high (1.0 - 8.0 in l/a) and the
+> system is very unresponsive via ssh. When freshly rebooted, I'm able to get
+> 18-19MiB/s without noticing any lag on ssh. Files have been transferred by
+> FTP and samba, still the same result. Kernel is freshly compiled
+> (http://www.ph0x.org/kernel.config, generated today) and I noticed this
+> issue with 2.6.11.2 aswell.
+>
+> eth0 is a D-Link DFL-530TX (via_rhine) and has no problems using the full
+> 100Mbit/s, but the Intel PRO/1000S has problems using over 10Mbit/s. It's
+> not related to the computer I transfer to/from, because I've got a gigabit
+> laptop aswell which can output much traffic without getting this high load.
 
-Hi.
+please send the output of cat /proc/interrupts, I'm worried you have
+an issue due to interrupt sharing.  If it does fail again and is still
+usable, please send the output of ethtool -d eth0, and ethtool -S
+eth0. Also, is there any chance you can try the 6.2.15 driver from
+http://prdownloads.sf.net/e1000
 
->>And there may be many other benefits... (i.e. 100% OSI compliance)
->>
-> 
-> What does Open Source Initiative have to do with this at all???
-> You are just spewing stuff out.
+do you have a test to reproduce this?
 
-*cough*
-
-http://www.webopedia.com/quick_ref/OSI_Layers.asp
-
-He's talking about the OSI layers and not anything else.
-
-Ie networking ...
-
-// Stefan
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFDmyPIBrn2kJu9P78RAoo1AJ4vmiwaNNXjbYhOTYBTzGzeaaT8rQCdFywX
-rAaJ9HFR11fpG0fk91ezFl8=
-=qCfq
------END PGP SIGNATURE-----
+Thanks, Jesse
