@@ -1,30 +1,54 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] ACX should select, not depend on FW_LOADER
-Date: Sun, 11 Dec 2005 19:29:01 +0100
-Message-ID: <20051211182901.GP23349@stusta.de>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [PATCH 3/6] net: Remove unneeded kmalloc() return value casts
+Date: Sun, 11 Dec 2005 20:34:20 +0100
+Message-ID: <200512112034.20644.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750793AbVLKS3F@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Maxim Krasnyansky <maxk@qualcomm.com>,
+	Olaf Kirch <okir@monad.swb.de>, netdev@vger.kernel.org,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	Andrew Morton <akpm@osdl.org>,
+	Jesper Juhl <jesper.juhl@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750821AbVLKTdt@vger.kernel.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If a driver needs FW_LOADER, it should select this option, not depend on 
-it.
+
+Get rid of needless casting of kmalloc() return value in net/
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+---
 
---- linux-2.6.15-rc5-mm2-full/drivers/net/wireless/tiacx/Kconfig.old	2005-12-11 19:04:49.000000000 +0100
-+++ linux-2.6.15-rc5-mm2-full/drivers/net/wireless/tiacx/Kconfig	2005-12-11 19:05:08.000000000 +0100
-@@ -1,6 +1,7 @@
- config ACX
- 	tristate "TI acx100/acx111 802.11b/g wireless chipsets"
--	depends on NET_RADIO && EXPERIMENTAL && FW_LOADER && (USB || PCI)
-+	depends on NET_RADIO && EXPERIMENTAL && (USB || PCI)
-+	select FW_LOADER
- 	---help---
- 	A driver for 802.11b/g wireless cards based on
- 	Texas Instruments acx100 and acx111 chipsets.
+ net/bluetooth/hci_conn.c |    2 +-
+ net/sunrpc/svc.c         |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+--- linux-2.6.15-rc5-git1-orig/net/bluetooth/hci_conn.c	2005-10-28 02:02:08.000000000 +0200
++++ linux-2.6.15-rc5-git1/net/bluetooth/hci_conn.c	2005-12-11 19:50:32.000000000 +0100
+@@ -403,7 +403,7 @@ int hci_get_conn_list(void __user *arg)
+ 
+ 	size = sizeof(req) + req.conn_num * sizeof(*ci);
+ 
+-	if (!(cl = (void *) kmalloc(size, GFP_KERNEL)))
++	if (!(cl = kmalloc(size, GFP_KERNEL)))
+ 		return -ENOMEM;
+ 
+ 	if (!(hdev = hci_dev_get(req.dev_id))) {
+--- linux-2.6.15-rc5-git1-orig/net/sunrpc/svc.c	2005-12-04 18:49:00.000000000 +0100
++++ linux-2.6.15-rc5-git1/net/sunrpc/svc.c	2005-12-11 19:54:05.000000000 +0100
+@@ -167,8 +167,8 @@ svc_create_thread(svc_thread_fn func, st
+ 	memset(rqstp, 0, sizeof(*rqstp));
+ 	init_waitqueue_head(&rqstp->rq_wait);
+ 
+-	if (!(rqstp->rq_argp = (u32 *) kmalloc(serv->sv_xdrsize, GFP_KERNEL))
+-	 || !(rqstp->rq_resp = (u32 *) kmalloc(serv->sv_xdrsize, GFP_KERNEL))
++	if (!(rqstp->rq_argp = kmalloc(serv->sv_xdrsize, GFP_KERNEL))
++	 || !(rqstp->rq_resp = kmalloc(serv->sv_xdrsize, GFP_KERNEL))
+ 	 || !svc_init_buffer(rqstp, serv->sv_bufsz))
+ 		goto out_thread;
+ 
