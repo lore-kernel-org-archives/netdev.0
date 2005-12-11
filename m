@@ -1,32 +1,19 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 3/6] net: Remove unneeded kmalloc() return value casts
-Date: Sun, 11 Dec 2005 20:44:54 +0100
-Message-ID: <1134330294.15410.10.camel@blade>
-References: <200512112034.20644.jesper.juhl@gmail.com>
+From: kone85@mail.com
+Subject: =?Windows-1255?B?7unw6eH4IPf4L+ftIOE4NTD5Iucg4ezh4w==?=
+Date: 12 Dec 2005 01:38:00 +0200
+Message-ID: <20051212013800.5DDD1CA24C35CD71@mail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maxim Krasnyansky <maxk@qualcomm.com>,
-	Olaf Kirch <okir@monad.swb.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	Andrew Morton <akpm@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750842AbVLKTqY@vger.kernel.org>
-To: Jesper Juhl <jesper.juhl@gmail.com>
-In-Reply-To: <200512112034.20644.jesper.juhl@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="windows-1255"
+Content-Transfer-Encoding: base64
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jesper,
-
-> Get rid of needless casting of kmalloc() return value in net/
-
-the net/bluetooth/ part is fine with me.
-
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Regards
-
-Marcel
++OX26e0g7untIPjl+ufp7SDl9/jp7SDs7OAg5OLh7OQgPw0KDQogDQoNCu7h9vIg7unw6SDh
++CD3+C/n7SDj4u0g4Pfl5eQg4ezkDQoNCiANCg0K6+Xs7CDs5/bvIEVYVFJBIEhPVCDs7unt
+IPjl+ufp7Q0KDQogDQoNCuHu5+n4IDg1MCD5IucgKyDu8iLuICANCg0KIA0KDQrs5/blIOvg
+7yDs9Pjo6e0g8OXx9OntIDogDQoNCmh0dHA6Ly8yMTYuMTE3LjE3NC4xNTEvbWluaWJhci5K
+UEcNCg0KIA0KDQro7PTl7yDs5Obu8OX6IDogMDktOTU1NjA4NA0KDQoNCg0K
