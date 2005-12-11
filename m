@@ -1,57 +1,32 @@
-From: "ph0x" <ph0x@freequest.net>
-Subject: RE: PROBLEM: bug in e1000 module causes very high CPU load
-Date: Sun, 11 Dec 2005 20:41:18 +0100
-Message-ID: <20051211194114.GBCH17186.mxfep02.bredband.com@ph0x>
-References: <4807377b0512101416t2f3a04c5ua6859ab3d99e8d07@mail.gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 3/6] net: Remove unneeded kmalloc() return value casts
+Date: Sun, 11 Dec 2005 20:44:54 +0100
+Message-ID: <1134330294.15410.10.camel@blade>
+References: <200512112034.20644.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	"'Kernel Netdev Mailing List'" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750832AbVLKTlj@vger.kernel.org>
-To: "'Jesse Brandeburg'" <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0512101416t2f3a04c5ua6859ab3d99e8d07@mail.gmail.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maxim Krasnyansky <maxk@qualcomm.com>,
+	Olaf Kirch <okir@monad.swb.de>, netdev@vger.kernel.org,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750842AbVLKTqY@vger.kernel.org>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+In-Reply-To: <200512112034.20644.jesper.juhl@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->please send the output of cat /proc/interrupts, I'm worried you have
->an issue due to interrupt sharing.  If it does fail again and is still
->usable, please send the output of ethtool -d eth0, and ethtool -S
->eth0. Also, is there any chance you can try the 6.2.15 driver from
->http://prdownloads.sf.net/e1000
+Hi Jesper,
 
-ph0x@orion:~$ cat /proc/interrupts
-           CPU0
-  0:  113068493          XT-PIC  timer
-  2:          0          XT-PIC  cascade
-  8:          1          XT-PIC  rtc
-  9:          0          XT-PIC  acpi
- 10:   25386110          XT-PIC  eth1
- 11:   29562097          XT-PIC  eth0
- 12:     527004          XT-PIC  uhci_hcd:usb1, uhci_hcd:usb2
- 14:     565520          XT-PIC  ide0
- 15:       1887          XT-PIC  ide1
-NMI:          0
-LOC:          0
-ERR:          0
-MIS:          0
+> Get rid of needless casting of kmalloc() return value in net/
 
-The problem is that the card has never been rendered unusable, it just
-starts to have performance issues.
-I've compiled the new driver and installed it. I'll schedule a reboot later
-this week to get it working.
-I've also built 2.6.14.3, which was activeted by a reboot this Saturday.
-I'll let you know if the new driver worked.
+the net/bluetooth/ part is fine with me.
 
->do you have a test to reproduce this?
+> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 
-Yes, let the server act as usual, it just starts happening out of the blue.
-No new hardware has been added or removed, no new programs has been
-installed.
-Only thing upgrades was the kernel.
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 
->Thanks, Jesse
+Regards
 
-Thanks,
-Andreas
+Marcel
