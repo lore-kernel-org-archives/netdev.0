@@ -1,54 +1,57 @@
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Subject: [PATCH 3/6] net: Remove unneeded kmalloc() return value casts
-Date: Sun, 11 Dec 2005 20:34:20 +0100
-Message-ID: <200512112034.20644.jesper.juhl@gmail.com>
+From: "ph0x" <ph0x@freequest.net>
+Subject: RE: PROBLEM: bug in e1000 module causes very high CPU load
+Date: Sun, 11 Dec 2005 20:41:18 +0100
+Message-ID: <20051211194114.GBCH17186.mxfep02.bredband.com@ph0x>
+References: <4807377b0512101416t2f3a04c5ua6859ab3d99e8d07@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Maxim Krasnyansky <maxk@qualcomm.com>,
-	Olaf Kirch <okir@monad.swb.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	Andrew Morton <akpm@osdl.org>,
-	Jesper Juhl <jesper.juhl@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750821AbVLKTdt@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
+Cc: <linux-kernel@vger.kernel.org>,
+	"'Kernel Netdev Mailing List'" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750832AbVLKTlj@vger.kernel.org>
+To: "'Jesse Brandeburg'" <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0512101416t2f3a04c5ua6859ab3d99e8d07@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>please send the output of cat /proc/interrupts, I'm worried you have
+>an issue due to interrupt sharing.  If it does fail again and is still
+>usable, please send the output of ethtool -d eth0, and ethtool -S
+>eth0. Also, is there any chance you can try the 6.2.15 driver from
+>http://prdownloads.sf.net/e1000
 
-Get rid of needless casting of kmalloc() return value in net/
+ph0x@orion:~$ cat /proc/interrupts
+           CPU0
+  0:  113068493          XT-PIC  timer
+  2:          0          XT-PIC  cascade
+  8:          1          XT-PIC  rtc
+  9:          0          XT-PIC  acpi
+ 10:   25386110          XT-PIC  eth1
+ 11:   29562097          XT-PIC  eth0
+ 12:     527004          XT-PIC  uhci_hcd:usb1, uhci_hcd:usb2
+ 14:     565520          XT-PIC  ide0
+ 15:       1887          XT-PIC  ide1
+NMI:          0
+LOC:          0
+ERR:          0
+MIS:          0
 
+The problem is that the card has never been rendered unusable, it just
+starts to have performance issues.
+I've compiled the new driver and installed it. I'll schedule a reboot later
+this week to get it working.
+I've also built 2.6.14.3, which was activeted by a reboot this Saturday.
+I'll let you know if the new driver worked.
 
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
----
+>do you have a test to reproduce this?
 
- net/bluetooth/hci_conn.c |    2 +-
- net/sunrpc/svc.c         |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+Yes, let the server act as usual, it just starts happening out of the blue.
+No new hardware has been added or removed, no new programs has been
+installed.
+Only thing upgrades was the kernel.
 
---- linux-2.6.15-rc5-git1-orig/net/bluetooth/hci_conn.c	2005-10-28 02:02:08.000000000 +0200
-+++ linux-2.6.15-rc5-git1/net/bluetooth/hci_conn.c	2005-12-11 19:50:32.000000000 +0100
-@@ -403,7 +403,7 @@ int hci_get_conn_list(void __user *arg)
- 
- 	size = sizeof(req) + req.conn_num * sizeof(*ci);
- 
--	if (!(cl = (void *) kmalloc(size, GFP_KERNEL)))
-+	if (!(cl = kmalloc(size, GFP_KERNEL)))
- 		return -ENOMEM;
- 
- 	if (!(hdev = hci_dev_get(req.dev_id))) {
---- linux-2.6.15-rc5-git1-orig/net/sunrpc/svc.c	2005-12-04 18:49:00.000000000 +0100
-+++ linux-2.6.15-rc5-git1/net/sunrpc/svc.c	2005-12-11 19:54:05.000000000 +0100
-@@ -167,8 +167,8 @@ svc_create_thread(svc_thread_fn func, st
- 	memset(rqstp, 0, sizeof(*rqstp));
- 	init_waitqueue_head(&rqstp->rq_wait);
- 
--	if (!(rqstp->rq_argp = (u32 *) kmalloc(serv->sv_xdrsize, GFP_KERNEL))
--	 || !(rqstp->rq_resp = (u32 *) kmalloc(serv->sv_xdrsize, GFP_KERNEL))
-+	if (!(rqstp->rq_argp = kmalloc(serv->sv_xdrsize, GFP_KERNEL))
-+	 || !(rqstp->rq_resp = kmalloc(serv->sv_xdrsize, GFP_KERNEL))
- 	 || !svc_init_buffer(rqstp, serv->sv_bufsz))
- 		goto out_thread;
- 
+>Thanks, Jesse
+
+Thanks,
+Andreas
