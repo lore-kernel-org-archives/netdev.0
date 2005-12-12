@@ -1,17 +1,18 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/Kconfig: indentation fix
-Date: Mon, 12 Dec 2005 02:35:36 +0100
-Message-ID: <20051212013536.GG23349@stusta.de>
+Subject: [2.6 patch] drivers/net/gianfar.h: "extern inline" -> "static inline"
+Date: Mon, 12 Dec 2005 02:35:28 +0100
+Message-ID: <20051212013528.GE23349@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751006AbVLLBfs@vger.kernel.org>
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751024AbVLLBit@vger.kernel.org>
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a wrong indentation.
+"extern inline" doesn't make much sense.
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
@@ -19,16 +20,27 @@ Signed-off-by: Adrian Bunk <bunk@stusta.de>
 ---
 
 This patch was already sent on:
-- 19 Nov 2005
+- 18 Nov 2005
 
---- linux-2.6.15-rc1-mm2-full/drivers/net/Kconfig.old	2005-11-19 04:03:27.000000000 +0100
-+++ linux-2.6.15-rc1-mm2-full/drivers/net/Kconfig	2005-11-19 04:03:38.000000000 +0100
-@@ -129,7 +129,7 @@
+ drivers/net/gianfar.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- linux-2.6.15-rc1-mm1-full/drivers/net/gianfar.h.old	2005-11-18 02:38:02.000000000 +0100
++++ linux-2.6.15-rc1-mm1-full/drivers/net/gianfar.h	2005-11-18 02:38:10.000000000 +0100
+@@ -711,14 +711,14 @@
+ 	uint32_t msg_enable;
+ };
  
- 	  If you don't have this card, of course say N.
+-extern inline u32 gfar_read(volatile unsigned *addr)
++static inline u32 gfar_read(volatile unsigned *addr)
+ {
+ 	u32 val;
+ 	val = in_be32(addr);
+ 	return val;
+ }
  
--	source "drivers/net/arcnet/Kconfig"
-+source "drivers/net/arcnet/Kconfig"
- 
- source "drivers/net/phy/Kconfig"
- 
+-extern inline void gfar_write(volatile unsigned *addr, u32 val)
++static inline void gfar_write(volatile unsigned *addr, u32 val)
+ {
+ 	out_be32(addr, val);
+ }
