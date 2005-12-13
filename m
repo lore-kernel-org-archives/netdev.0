@@ -1,87 +1,62 @@
-From: "eurolotto eurolotto" <eurolotto23@hotmail.com>
-Subject: CONGRATULATION YOU WON EURO LOTTERY INTERNATIONAL
-Date: Tue, 13 Dec 2005 18:02:42 +0000
-Message-ID: <BAY7-F5473B103BAECBC9EF4CADAF390@phx.gbl>
+From: Greg Kroah-Hartman <gregkh@suse.de>
+Subject: [patch 2/2] [PATCH] br: fix race on bridge del if
+Date: Tue, 13 Dec 2005 13:59:54 -0800
+Message-ID: <20051213215954.GC16739__4884.00223334811$1134511632$gmane$org@kroah.com>
+References: <20051213214109.971735000@press.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+        Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+        "Theodore Ts'o" <tytso@mit.edu>, Randy Dunlap <rdunlap@xenotime.net>,
+        Dave Jones <davej@redhat.com>, Chuck Wolber <chuckw@quantumlinux.com>,
+        torvalds@osdl.org, akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
+        ryanh@us.ibm.com, davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Disposition: inline; filename="br-fix-race-on-bridge-del-if.patch"
+In-Reply-To: <20051213215936.GA16739@kroah.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+-stable review patch.  If anyone has any objections, please let us know.
 
+------------------
+From: Stephen Hemminger <shemminger@osdl.org>
 
-EURO LOTTERY INTERNATIONAL
-PLAZA DE ALFONSO
-B56-58 MADRID SPAIN
-TEL:0034-657-479-849
-FAX.+34-91-141-42-14
-Reply e-mail:euroloto123@ozu.es
-www.bonoloto.com
+This fixes the RCU race on bridge delete interface.  Basically,
+the network device has to be detached from the bridge in the first
+step (pre-RCU), rather than later. At that point, no more bridge traffic
+will come in, and the other code will not think that network device
+is part of a bridge.
 
-We are officially informing you of the result of the euro lottery
-International programs held on the 13th 0f december 2005 , Your e-mail
-address attached to ticket number 412781475-28df with reference number
-01/372/16, drew winning numbers 857/106/62 andcredited to batch number
-2231,
-which consequently won in the 2rd category.You have therefore been
-approved
-for a pay out of 250,000 euro (Two hundred and fifty thousand euro).
+This should also fix the XEN test problems. If there is another
+2.6.13-stable, add it as well.
 
-CONGRATULATIONS!!!
-You funds are now deposited and save in bank of espa=F1a and will be
-transferred into your nominated bank account either by means of wire
-transfer or by whatever suitable means.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ net/bridge/br_if.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Due to mix up of some numbers and names, we ask that you keep your
-winning
-information very confidential till your claim has been processed and
-your
-prize/money Remitted to you. This is part of our security protocol to
-avoid
-double claims and unwarranted abuse  of this program by some
-participants.
+--- linux-2.6.13.4.orig/net/bridge/br_if.c
++++ linux-2.6.13.4/net/bridge/br_if.c
+@@ -79,7 +79,6 @@ static void destroy_nbp(struct net_bridg
+ {
+ 	struct net_device *dev = p->dev;
+ 
+-	dev->br_port = NULL;
+ 	p->br = NULL;
+ 	p->dev = NULL;
+ 	dev_put(dev);
+@@ -100,6 +99,7 @@ static void del_nbp(struct net_bridge_po
+ 	struct net_bridge *br = p->br;
+ 	struct net_device *dev = p->dev;
+ 
++	dev->br_port = NULL;
+ 	dev_set_promiscuity(dev, -1);
+ 
+ 	spin_lock_bh(&br->lock);
 
-All participants were selected through a computer ballot system drawn
-from
-over 50,000 company and 20,000,000 individual email addresses and names
-from
-all over the world. This promotional program takes place annually. We
-hope
-with part of your winning you will take part in our next year three
-Million
-euro/asia International Lottery. To file for your claim, you will be
-contacting MR martins Alonso the accredited finance agent authorised to
-process your claims for your payment(You will receive more information
-from
-our fidiciary agent.
-
-
-This lottery was sponsored by Cortingles incorporation,communidad de
-madrid,and other private organisations to help individuals generate
-fortunes
-which would help them expand their business frontiers and assist with
-humanitarian concerns.
-Please Note that winnings must be claimed not later than 30th of
-December
-2005. After this date all unclaimed funds will be returned to the
-sponsors
-against the next stake coming up in 2006. Please note that in order to
-avoid
-unnecessary delays and complications remember to quote your reference
-number
-in all correspondence.
-
-Furthermore, should there be any change of address do inform us as soon
-as
-possible. Congratulations from our organisation and thank you for being
-part
-of our promotional program.
-
-Sincerely yours
-mrs LAURA JOSE
-Tel:0034-657-479-849
-FAX.+34-91-141-42-14
-Reply e-mail:euroloto123@ozu.es
-www.bonoloto.com
+--
