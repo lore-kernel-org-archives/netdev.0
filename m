@@ -1,61 +1,38 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 07/26] [NETLINK]: Fix processing of fib_lookup netlink messages
-Date: Tue, 13 Dec 2005 00:22:33 -0800
-Message-ID: <20051213082233.GH5823@kroah.com>
-References: <20051213073430.558435000@press.kroah.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [git patch] net driver build fix
+Date: Tue, 13 Dec 2005 11:37:59 -0500
+Message-ID: <20051213163759.GA23530@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, tgraf@suug.ch,
-	davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932568AbVLMI0i@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Content-Disposition: inline; filename="fix-processing-of-fib_lookup-netlink-messages.patch"
-In-Reply-To: <20051213082143.GA5823@kroah.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932390AbVLMQiN@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
 
-------------------
-From: Thomas Graf <tgraf@suug.ch>
+Please pull from 'upstream-fixes' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-The receive path for fib_lookup netlink messages is lacking sanity
-checks for header and payload and is thus vulnerable to malformed
-netlink messages causing illegal memory references.
+to receive the following updates:
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+ drivers/net/skge.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
----
- net/ipv4/fib_frontend.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Jeff Garzik:
+      [netdrvr skge] fix build
 
---- linux-2.6.14.3.orig/net/ipv4/fib_frontend.c
-+++ linux-2.6.14.3/net/ipv4/fib_frontend.c
-@@ -545,12 +545,16 @@ static void nl_fib_input(struct sock *sk
- 	struct sk_buff *skb = NULL;
-         struct nlmsghdr *nlh = NULL;
- 	struct fib_result_nl *frn;
--	int err;
- 	u32 pid;     
- 	struct fib_table *tb;
- 	
--	skb = skb_recv_datagram(sk, 0, 0, &err);
-+	skb = skb_dequeue(&sk->sk_receive_queue);
- 	nlh = (struct nlmsghdr *)skb->data;
-+	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
-+	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
-+		kfree_skb(skb);
-+		return;
-+	}
- 	
- 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
- 	tb = fib_get_table(frn->tb_id_in);
-
---
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 8b6e2a1..00d6830 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -2280,7 +2280,7 @@ static int skge_xmit_frame(struct sk_buf
+  	}
+ 
+ 	if (unlikely(skge->tx_avail < skb_shinfo(skb)->nr_frags +1)) {
+-		if (!netif_stopped(dev)) {
++		if (!netif_queue_stopped(dev)) {
+ 			netif_stop_queue(dev);
+ 
+ 			printk(KERN_WARNING PFX "%s: ring full when queue awake!\n",
