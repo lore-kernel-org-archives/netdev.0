@@ -1,56 +1,30 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [RFC][PATCH 3/3] TCP/IP Critical socket communication mechanism
-Date: Wed, 14 Dec 2005 10:29:27 -0800
-Message-ID: <1134584967.8698.41.camel@w-sridhar2.beaverton.ibm.com>
-References: <Pine.LNX.4.58.0512140052470.31720@w-sridhar.beaverton.ibm.com>
-	 <1134559039.25663.12.camel@localhost.localdomain>
-	 <20051214121253.GB23393@gaz.sfgoth.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
+Date: Wed, 14 Dec 2005 19:41:47 +0100
+Message-ID: <20051214184147.GO23384@wotan.suse.de>
+References: <Pine.LNX.4.58.0512140042280.31720@w-sridhar.beaverton.ibm.com> <20051214092228.GC18862@brahms.suse.de> <1134582945.8698.17.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932492AbVLNSay@vger.kernel.org>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20051214121253.GB23393@gaz.sfgoth.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964880AbVLNSlw@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <1134582945.8698.17.camel@w-sridhar2.beaverton.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-12-14 at 04:12 -0800, Mitchell Blank Jr wrote:
-> Alan Cox wrote:
-> > But your user space that would add the routes is not so protected so I'm
-> > not sure this is actually a solution, more of an extended fudge.
-> 
-> Yes, there's no 100% solution -- no matter how much memory you reserve and
-> how many paths you protect if you try hard enough you can come up
-> with cases where it'll fail.  ("I'm swapping to NFS across a tun/tap
-> interface to a custom userland SSL tunnel to a server across a BGP route...")
-> 
-> However, if the 'extended fundge' pushes a problem from "can happen, even
-> in a very normal setup" territory to "only happens if you're doing something
-> pretty weird" then is it really such a bad thing?  I think the cost in code
-> complexity looks pretty reasonable.
+> Here we are assuming that the pre-allocated critical page pool is big enough
+> to satisfy the requirements of all the critical sockets.
 
-Yes. This should work fine for cases where you need a limited number of
-critical allocation requests to succeed for a short period of time.
+That seems like a lot of assumptions. Is it really better than the 
+existing GFP_ATOMIC which works basically the same?  It has a lot
+more users that compete true, but likely the set of GFP_CRITICAL users
+would grow over time too and it would develop the same problem.
 
-> > > +#define SK_CRIT_ALLOC(sk, flags) ((sk->sk_allocation & __GFP_CRITICAL) | flags)
-> > 
-> > Lots of hidden conditional logic on critical paths.
-> 
-> How expensive is it compared to the allocation itself?
+I think if you really want to attack this problem and improve
+over the GFP_ATOMIC "best effort in smaller pool" approach you should
+probably add real reservations. And then really do a lot of testing
+to see if it actually helps.
 
-Also, as i said in my other response we could make it a compile-time
-configurable option with zero overhead when turned off.
-
-Thanks
-Sridhar
-
-> 
-> > > +#define CRIT_ALLOC(flags) (__GFP_CRITICAL | flags)
-> > 
-> > Pointless obfuscation
-> 
-> Fully agree.
-> 
-> -Mitch
+-Andi
