@@ -1,125 +1,74 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [RFC][PATCH 2/3] TCP/IP Critical socket communication mechanism
-Date: Wed, 14 Dec 2005 01:12:45 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0512140049140.31720@w-sridhar.beaverton.ibm.com>
+Subject: [RFC][PATCH 1/3] TCP/IP Critical socket communication mechanism
+Date: Wed, 14 Dec 2005 01:12:35 -0800 (PST)
+Message-ID: <Pine.LNX.4.58.0512140045370.31720@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932244AbVLNJMy@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932239AbVLNJMi@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When 'system_in_emergency' flag is set, drop any incoming packets that belong
-to non-critical sockets as soon as can determine the destination socket. This
-is necessary to prevent incoming non-critical packets to consume memory from
-critical page pool.
------------------------------------------------------------------------------
+Introduce a new socket option SO_CRITICAL to mark a socket as critical.
+This socket option takes a integer boolean flag that can be set using
+setsockopt() and read with getsockopt().
+-----------------------------------------------------------------------
 
- include/net/sock.h  |   14 ++++++++++++++
- net/dccp/ipv4.c     |    4 ++++
- net/ipv4/tcp_ipv4.c |    3 +++
- net/ipv4/udp.c      |    9 ++++++++-
- net/ipv6/tcp_ipv6.c |    3 +++
- net/sctp/input.c    |    3 +++
- 6 files changed, 35 insertions(+), 1 deletions(-)
+ include/asm-i386/socket.h    |    2 ++
+ include/asm-powerpc/socket.h |    2 ++
+ net/core/sock.c              |   13 ++++++++++++-
+ 3 files changed, 16 insertions(+), 1 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 982b4ec..8de8a8b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1391,4 +1391,18 @@ extern int sysctl_optmem_max;
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
+diff --git a/include/asm-i386/socket.h b/include/asm-i386/socket.h
+index 802ae76..bd4ce8e 100644
+--- a/include/asm-i386/socket.h
++++ b/include/asm-i386/socket.h
+@@ -49,4 +49,6 @@
 
-+extern int system_in_emergency;
+ #define SO_PEERSEC		31
+
++#define SO_CRITICAL		100
 +
-+static inline int emergency_check(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (system_in_emergency && !(sk->sk_allocation & __GFP_CRITICAL)) {
-+		if (net_ratelimit())
-+			printk("discarding skb:%p len:%d sk:%p protocol:%d\n",
-+                        	skb, skb->len, sk, sk->sk_protocol);
-+		return 0;
-+	}
+ #endif /* _ASM_SOCKET_H */
+diff --git a/include/asm-powerpc/socket.h b/include/asm-powerpc/socket.h
+index e4b8177..6cfb79a 100644
+--- a/include/asm-powerpc/socket.h
++++ b/include/asm-powerpc/socket.h
+@@ -56,4 +56,6 @@
+
+ #define SO_PEERSEC		31
+
++#define SO_CRITICAL		100
 +
-+	return 1;
-+}
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 13cc3be..d2d10cb 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -456,6 +456,13 @@ set_rcvbuf:
+ 			ret = -ENONET;
+ 			break;
+
++		case SO_CRITICAL:
++			if (valbool)
++				sk->sk_allocation |= __GFP_CRITICAL;
++			else
++				sk->sk_allocation &= ~__GFP_CRITICAL;
++			break;
 +
- #endif	/* _SOCK_H */
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index ca03521..405cdf8 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -1130,6 +1130,10 @@ int dccp_v4_rcv(struct sk_buff *skb)
- 		goto no_dccp_socket;
+ 		/* We implement the SO_SNDLOWAT etc to
+ 		   not be settable (1003.1g 5.3) */
+ 		default:
+@@ -616,7 +623,11 @@ int sock_getsockopt(struct socket *sock,
+
+ 		case SO_PEERSEC:
+ 			return security_socket_getpeersec(sock, optval, optlen, len);
+-
++
++		case SO_CRITICAL:
++			v.val = ((sk->sk_allocation & __GFP_CRITICAL) != 0);
++			break;
++
+ 		default:
+ 			return(-ENOPROTOOPT);
  	}
-
-+	if (!emergency_check(sk, skb)) {
-+		goto discard_and_relse;
-+	}
-+
- 	/*
- 	 * Step 2:
- 	 * 	... or S.state == TIMEWAIT,
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 4d5021e..acfb9a1 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1232,6 +1232,9 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	if (!sk)
- 		goto no_tcp_socket;
-
-+	if (!emergency_check(sk, skb))
-+		goto discard_and_relse;
-+
- process:
- 	if (sk->sk_state == TCP_TIME_WAIT)
- 		goto do_time_wait;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 2422a5f..f79cbfd 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1150,7 +1150,14 @@ int udp_rcv(struct sk_buff *skb)
- 	sk = udp_v4_lookup(saddr, uh->source, daddr, uh->dest, skb->dev->ifindex);
-
- 	if (sk != NULL) {
--		int ret = udp_queue_rcv_skb(sk, skb);
-+		int ret;
-+
-+		if (!emergency_check(sk, skb)) {
-+			sock_put(sk);
-+			goto drop;
-+		} else
-+			ret = udp_queue_rcv_skb(sk, skb);
-+
- 		sock_put(sk);
-
- 		/* a return value > 0 means to resubmit the input, but
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 62c0e5b..d017181 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1592,6 +1592,9 @@ static int tcp_v6_rcv(struct sk_buff **p
- 	if (!sk)
- 		goto no_tcp_socket;
-
-+	if (!emergency_check(sk, skb))
-+		goto discard_and_relse;
-+
- process:
- 	if (sk->sk_state == TCP_TIME_WAIT)
- 		goto do_time_wait;
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index b24ff2c..553365b 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -181,6 +181,9 @@ int sctp_rcv(struct sk_buff *skb)
- 	rcvr = asoc ? &asoc->base : &ep->base;
- 	sk = rcvr->sk;
-
-+	if (!emergency_check(sk, skb))
-+		goto discard_it;
-+
- 	/*
- 	 * If a frame arrives on an interface and the receiving socket is
- 	 * bound to another interface, via SO_BINDTODEVICE, treat it as OOTB
