@@ -1,46 +1,41 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: [RFC] ip / ifconfig redesign
-Date: Wed, 14 Dec 2005 17:19:47 +0300
-Message-ID: <200512141719.47755.a1426z@gawab.com>
-References: <200512022253.19029.a1426z@gawab.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
+Date: Wed, 14 Dec 2005 09:55:45 -0800
+Message-ID: <1134582945.8698.17.camel@w-sridhar2.beaverton.ibm.com>
+References: <Pine.LNX.4.58.0512140042280.31720@w-sridhar.beaverton.ibm.com>
+	 <20051214092228.GC18862@brahms.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932541AbVLNOW5@vger.kernel.org>
-To: Bernd Eckenfels <ecki@lina.inka.de>
-In-Reply-To: <200512022253.19029.a1426z@gawab.com>
-Content-Disposition: inline
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964788AbVLNR5W@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20051214092228.GC18862@brahms.suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bernd Eckenfels wrote:
-> Al Boldi wrote:
-> > The current ip / ifconfig configuration is arcane and inflexible.  The
-> > reason being, that they are based on design principles inherited from
-> > the last century.
->
-> Yes I agree, however note that some of the asumptions are backed up and
-> required by RFCs. For example the binding of addresses to interfaces.  This
-> is especially strongly required in the IPV6 world with all the scoping and
-> renumbering RFCs.
+On Wed, 2005-12-14 at 10:22 +0100, Andi Kleen wrote:
+> > I would appreciate any feedback or comments on this approach.
+> 
+> Maybe I'm missing something but wouldn't you need an own critical
+> pool (or at least reservation) for each socket to be safe against deadlocks?
+> 
+> Otherwise if a critical sockets needs e.g. 2 pages to finish something
+> and 2 critical sockets are active they can each steal the last pages
+> from each other and deadlock.
 
-Can you point me to those RFCs? Thanks!
+Here we are assuming that the pre-allocated critical page pool is big enough
+to satisfy the requirements of all the critical sockets.
 
-> The things you want to change need to be changed in kernel space, btw.
+In the current critical page pool implementation, there is also a limitation 
+that only order-0 allocations(single page) are supported. I think in the
+networking send/receive patch, the only place where multi-page allocs are
+requested is in the drivers if the MTU > PAGESIZE. But i guess the drivers
+are getting updated to avoid > order-0 allocations.
 
-True.
+Also during the emergency, we free the memory allocated for non-critical 
+packets as quickly as possible so that it can be re-used for critical
+allocations.
 
-I mentioned ip / ifconfig not to imply that they are the culprit, but instead 
-to expose the underlying kernel implementation.
-
-This does not mean though, that ip / ifconfig cannot offer an emulated OSI 
-compliant mode, which would be an impetus to change the underlying 
-implementation.
-
-Thanks!
-
---
-Al
+Thanks
+Sridhar
