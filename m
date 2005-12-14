@@ -1,64 +1,33 @@
-From: "lotto award" <lottoaward14@msn.com>
-Subject: CONGRATULATION  CONTACT YOUR AGENT!!!!!
-Date: Wed, 14 Dec 2005 11:49:48 +0000
-Message-ID: <BAY5-F782451C02DD1C408FEAE1CD380@phx.gbl>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [RFC][PATCH 3/3] TCP/IP Critical socket communication mechanism
+Date: Wed, 14 Dec 2005 14:18:48 +0100
+Message-ID: <200512141418.48388.netdev@axxeo.de>
+References: <Pine.LNX.4.58.0512140052470.31720@w-sridhar.beaverton.ibm.com> <1134559039.25663.12.camel@localhost.localdomain> <20051214121253.GB23393@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Return-path: <netdev-bounce@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932500AbVLNNSd@vger.kernel.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20051214121253.GB23393@gaz.sfgoth.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-FROM THE DESK OF DAYZERS E-MAIL LOTTERY INTERNATIONAL
-PROMOTIONS/PRIZE AWARD DEPT.
+Mitchell Blank Jr wrote:
+> Alan Cox wrote:
+> > > +#define SK_CRIT_ALLOC(sk, flags) ((sk->sk_allocation & __GFP_CRITICAL) | flags)
+> > 
+> > Lots of hidden conditional logic on critical paths.
+> 
+> How expensive is it compared to the allocation itself?
 
-REF: S23/15/40/12/29/
-BATCH: 54/010/0-PD
+Cost is readability here. You should open code this additional OR
 
 
-RE: EMAIL WINNING CONFIRMATION NOTICE:
+Regards
 
-We are glad to inform you that your E-mail address appears as the confirmed 
-Winner of our last Dayzers email lottery program held on the 9th December 
-2005.
-Your e-mail address attached to ticket number 216-365-787 with Serial number 
-34/15/65 drew
-lucky numbers 32-15-54-35-47, which Consequently won in the 2nd category, 
-you have therefore been approved For a lumpsum ayment of EUR 500.000.00 
-euros.
-
-CONGRATULATIONS!!!
-
-This promotional program takes place every year. All participants were 
-selected through a computer ballot system rawn from over 100,000 companies 
-and 50,000, 000 ndividual email addresses and names from all over the world.
-
-In order to avoid unnecessary delays and complications please remember to 
-quote your reference number and batch numbers in all correspondence. We ask 
-that you keep your winning information confidential until your claims has 
-been processed and your money remitted to you.
-To file for your claim or for further details, please contact our agent:
-
-CONTACT NAME:VAN BOMAN
-CITY/ COUNTRY:AMSTERDAM, THE NETHERLANDS
-FREE SERVICE NUMBER:0031-616-140-156
-EMAIL:dayzersinfo002@netscape.net
-
-In respect of our commitment towards helping the less previledge, we ask 
-that you voluntarily contribute 1% of your Global winnings to any charity 
-organization you desire at your convinience.
-
-Note that all winning must be claimed not later than 29th of December 2005. 
-After this date all unclaimed funds will be included in the next stake.
-
-Congratulations once more from our members of staff and thank you for being 
-part of our promotional program.
-Yours Sincerely,
-
-Mrs. Vanessa J. Smith
-
-This email and its attachments are confidential and may contain legally 
-privileged information. You should not disclose the contents to any other 
-person. If you are not the intended recipient, please notify the sender 
-immediately and delete this email from your
-system.
+Ingo Oeser
