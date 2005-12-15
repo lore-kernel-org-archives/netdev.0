@@ -1,53 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
-Date: Thu, 15 Dec 2005 00:58:05 -0800 (PST)
-Message-ID: <20051215.005805.114145703.davem@davemloft.net>
-References: <20051214215613.70f9cafa@localhost.localdomain>
-	<OFB8B21C56.4F9E9A3C-ON882570D8.002CBD7B-882570D8.002FF8B1@us.ibm.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC] Fine-grained memory priorities and PI
+Date: Thu, 15 Dec 2005 10:04:01 +0100
+Message-ID: <20051215090401.GV23384@wotan.suse.de>
+References: <20051215033937.GC11856@waste.org> <20051214.203023.129054759.davem@davemloft.net> <Pine.LNX.4.58.0512142318410.7197@w-sridhar.beaverton.ibm.com> <20051215.002120.133621586.davem@davemloft.net> <9E6D85FF-E546-4057-80EF-7479021AFAA1@mac.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, ak@suse.de, linux-kernel@vger.kernel.org,
-	mpm@selenic.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, sri@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965187AbVLOI7Y@vger.kernel.org>
-To: dlstevens@us.ibm.com
-In-Reply-To: <OFB8B21C56.4F9E9A3C-ON882570D8.002CBD7B-882570D8.002FF8B1@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, sri@us.ibm.com,
+	mpm@selenic.com, ak@suse.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965190AbVLOJEL@vger.kernel.org>
+To: Kyle Moffett <mrmacman_g4@mac.com>
+Content-Disposition: inline
+In-Reply-To: <9E6D85FF-E546-4057-80EF-7479021AFAA1@mac.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Thu, 15 Dec 2005 00:44:52 -0800
+> When processes request memory through any subsystem, their memory  
+> priority would be passed through the kernel layers to the allocator,  
+> along with any associated information about how to free the memory in  
+> a low-memory condition.  As a result, I could configure my database  
+> to have a much higher priority than SETI@home (or boinc or whatever),  
+> so that when the database server wants to fill memory with clean DB  
+> cache pages, the kernel will kill SETI@home for it's memory, even if  
+> we could just leave some DB cache pages unfaulted.
 
-> In our internal discussions
+Iirc most of the freeing happens in process context anyways,
+so process priority information is already available. At least
+for CPU cost it might even be taken into account during schedules
+(Freeing can take up quite a lot of CPU time)
 
-I really wish this hadn't been discussed internally before being
-implemented.  Any such internal discussions are lost completely upon
-the community that ends up reviewing such a core and invasive patch
-such as this one.
+The problem with GFP_ATOMIC is though that someone else needs
+to free the memory in advance for you because you cannot
+do it yourself. 
 
->         The critical socket(s) simply have to be out of the zero-sum game
-> for the rest of the allocations, because those are the (only) path to
-> getting a working swap device again.
+(you could call it a kind of "parasite" in the normally
+very cooperative society of memory allocators ...) 
 
-The core fault of the critical socket idea is that it is painfully
-simple to create a tree of dependant allocations that makes the
-critical pool useless.  IPSEC and tunnels are simple examples.
+That would mess up your scheme too. The priority 
+cannot be expressed because it's more a case of 
+"somewhen someone in the future might need it" 
 
-The idea to mark, for example, IPSEC key management daemon's sockets
-as critical is flawed, because the key management daemon could hit a
-swap page over the iSCSI device.  Don't even start with the idea to
-lock the IPSEC key management daemon into ram with mlock().
+> 
+> Questions? Comments? "This is a terrible idea that should never have  
+> seen the light of day"? Both constructive and destructive criticism  
+> welcomed! (Just please keep the language clean! :-D)
 
-Tunnels are similar, and realistic nesting cases can be shown that
-makes sizing via a special pool simply unfeasible, and whats more
-there are no sockets involved.
+This won't help for this problem here - even with perfect
+priorities you could still get into situations where you
+can't make any progress if progress needs more memory.
 
-Sockets do not exist in an allocation vacuum, they need to talk over
-routes, and there are therefore many types of auxiliary data
-associated with sending a packet besides the packet itself.  All you
-need is a routing change of some type and you're going to start
-burning GFP_ATOMIC allocations on the next packet send.
+Only preallocating or prereservation can help you out of 
+that trap.
 
-I think making GFP_ATOMIC better would be wise.  Alan's ideas harping
-from the old 2.0.x/2.2.x NFS days could use some consideration as well.
+-Andi
