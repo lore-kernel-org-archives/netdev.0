@@ -1,55 +1,42 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC] Fine-grained memory priorities and PI
-Date: Thu, 15 Dec 2005 10:04:01 +0100
-Message-ID: <20051215090401.GV23384@wotan.suse.de>
-References: <20051215033937.GC11856@waste.org> <20051214.203023.129054759.davem@davemloft.net> <Pine.LNX.4.58.0512142318410.7197@w-sridhar.beaverton.ibm.com> <20051215.002120.133621586.davem@davemloft.net> <9E6D85FF-E546-4057-80EF-7479021AFAA1@mac.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
+Date: Thu, 15 Dec 2005 01:27:05 -0800
+Message-ID: <OF91FE0851.3F5D5387-ON882570D8.0031E106-882570D8.0033D677@us.ibm.com>
+References: <20051215.005805.114145703.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, sri@us.ibm.com,
-	mpm@selenic.com, ak@suse.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965190AbVLOJEL@vger.kernel.org>
-To: Kyle Moffett <mrmacman_g4@mac.com>
-Content-Disposition: inline
-In-Reply-To: <9E6D85FF-E546-4057-80EF-7479021AFAA1@mac.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: ak@suse.de, linux-kernel@vger.kernel.org, mpm@selenic.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	shemminger@osdl.org, sri@us.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422662AbVLOJ0U@vger.kernel.org>
+In-Reply-To: <20051215.005805.114145703.davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> When processes request memory through any subsystem, their memory  
-> priority would be passed through the kernel layers to the allocator,  
-> along with any associated information about how to free the memory in  
-> a low-memory condition.  As a result, I could configure my database  
-> to have a much higher priority than SETI@home (or boinc or whatever),  
-> so that when the database server wants to fill memory with clean DB  
-> cache pages, the kernel will kill SETI@home for it's memory, even if  
-> we could just leave some DB cache pages unfaulted.
+"David S. Miller" <davem@davemloft.net> wrote on 12/15/2005 12:58:05 AM:
 
-Iirc most of the freeing happens in process context anyways,
-so process priority information is already available. At least
-for CPU cost it might even be taken into account during schedules
-(Freeing can take up quite a lot of CPU time)
-
-The problem with GFP_ATOMIC is though that someone else needs
-to free the memory in advance for you because you cannot
-do it yourself. 
-
-(you could call it a kind of "parasite" in the normally
-very cooperative society of memory allocators ...) 
-
-That would mess up your scheme too. The priority 
-cannot be expressed because it's more a case of 
-"somewhen someone in the future might need it" 
-
+> From: David Stevens <dlstevens@us.ibm.com>
+> Date: Thu, 15 Dec 2005 00:44:52 -0800
 > 
-> Questions? Comments? "This is a terrible idea that should never have  
-> seen the light of day"? Both constructive and destructive criticism  
-> welcomed! (Just please keep the language clean! :-D)
+> > In our internal discussions
+> 
+> I really wish this hadn't been discussed internally before being
+> implemented.  Any such internal discussions are lost completely upon
+> the community that ends up reviewing such a core and invasive patch
+> such as this one.
 
-This won't help for this problem here - even with perfect
-priorities you could still get into situations where you
-can't make any progress if progress needs more memory.
+I think those were more informal and less extensive than the
+impression I gave you. I mean simply bouncing around incomplete
+ideas and discussing some of the potential issues before coming
+up with a prototype solution, which is intended to be the starting
+point for community discussions (and the KS discussions, too). "OOM"
+came up immediately (even when naming the problem), and it isn't how
+I ever saw it.
 
-Only preallocating or prereservation can help you out of 
-that trap.
+The patches, of course, are intended to NOT be invasive, or any
+more than they need to be, and they are not "the" solution, but
+"a" solution. A completely different one that solves the problem
+is just as good to me.
 
--Andi
+                                                        +-DLS
