@@ -1,60 +1,73 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
-Date: Thu, 15 Dec 2005 00:44:52 -0800
-Message-ID: <OFB8B21C56.4F9E9A3C-ON882570D8.002CBD7B-882570D8.002FF8B1@us.ibm.com>
-References: <20051214215613.70f9cafa@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: ak@suse.de, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, mpm@selenic.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	sri@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422634AbVLOIoG@vger.kernel.org>
-In-Reply-To: <20051214215613.70f9cafa@localhost.localdomain>
-To: Stephen Hemminger <shemminger@osdl.org>
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: [RFC] Fine-grained memory priorities and PI
+Date: Thu, 15 Dec 2005 03:55:53 -0500
+Message-ID: <9E6D85FF-E546-4057-80EF-7479021AFAA1@mac.com>
+References: <20051215033937.GC11856@waste.org> <20051214.203023.129054759.davem@davemloft.net> <Pine.LNX.4.58.0512142318410.7197@w-sridhar.beaverton.ibm.com> <20051215.002120.133621586.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v746.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, mpm@selenic.com, ak@suse.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965185AbVLOI4V@vger.kernel.org>
+In-Reply-To: <20051215.002120.133621586.davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Also, all this stuff is just a band aid because linux OOM behavior is so
-> fucked up.
+On Dec 15, 2005, at 03:21, David S. Miller wrote:
+> Not when we run out, but rather when we reach some low water mark,  
+> the "critical sockets" would still use GFP_ATOMIC memory but only  
+> "critical sockets" would be allowed to do so.
+>
+> But even this has faults, consider the IPSEC scenerio I mentioned,  
+> and this applies to any kind of encapsulation actually, even simple  
+> tunneling examples can be concocted which make the "critical  
+> socket" idea fail.
+>
+> The knee jerk reaction is "mark IPSEC's sockets critical, and mark  
+> the tunneling allocations critical, and... and..."  well you have  
+> GFP_ATOMIC then my friend.
+>
+> In short, these "seperate page pool" and "critical socket" ideas do  
+> not work and we need a different solution, I'm sorry folks spent so  
+> much time on them, but they are heavily flawed.
 
-In our internal discussions, characterizing this as "OOM" came
-up a lot, and I don't think of it as that at all. OOM is exactly what the
-scheme is trying to avoid!
+What we really need in the kernel is a more fine-grained memory  
+priority system with PI, similar in concept to what's being done to  
+the scheduler in some of the RT patchsets.  Currently we have a very  
+black-and-white memory subsystem; when we go OOM, we just start  
+killing processes until we are no longer OOM.  Perhaps we should have  
+some way to pass memory allocation priorities throughout the kernel,  
+including a "this request has X priority", "this request will help  
+free up X pages of RAM", and "drop while dirty under certain OOM to  
+free X memory using this method".
 
-The actual situation we have in mind is a swap device management system
-in a cluster where a remote system tells you (via socket communication to
-a user-land management app) that a swap device is going to fail over and
-it'd be a good idea not to do anything that requires paging out or
-swapping for a short period of time. The socket communication must work,
-but the system is not at all out of memory, and the important point is
-that it never will be if you limit allocations to those things that are
-required for the critical socket to work (and nothing/little else).
-        Receiver side allocations are unavoidable, because you don't know
-if you can drop the packet or not until you look at it. Some 
-infrastructure
-must work. But everything else can fail or succeed based on ordinary churn
-in ordinary memory pools, until the "in_emergency" condition has passed.
-        The critical socket(s) simply have to be out of the zero-sum game
-for the rest of the allocations, because those are the (only) path to
-getting a working swap device again.
+The initial benefit would be that OOM handling would become more  
+reliable and less of a special case.  When we start to run low on  
+free pages, it might be OK to kill the SETI@home process long before  
+we OOM if such action might prevent the OOM.  Likewise, you might be  
+able to flag certain file pages as being "less critical", such that  
+the kernel can kill a process and drop its dirty pages for files in / 
+tmp.  Or the kernel might do a variety of other things just by  
+failing new allocations with low priority and forcing existing  
+allocations with low priority to go away using preregistered handlers.
 
-If you're out of memory without a network mechanism to get you more,
-this doesn't do anything for you (and it isn't intended to). And if you
-mark any socket that isn't going to get you failed over or otherwise
-get you more swap, it isn't going to help you, either. It isn't a priority
-scheme for low-memory, it's a failover mechanism that relies on 
-networking.
-There are exactly 2 priorities: critical (as in "you might as well crash 
-if
-these aren't satisfied") and everything else.
+When processes request memory through any subsystem, their memory  
+priority would be passed through the kernel layers to the allocator,  
+along with any associated information about how to free the memory in  
+a low-memory condition.  As a result, I could configure my database  
+to have a much higher priority than SETI@home (or boinc or whatever),  
+so that when the database server wants to fill memory with clean DB  
+cache pages, the kernel will kill SETI@home for it's memory, even if  
+we could just leave some DB cache pages unfaulted.
 
-Doing other, more general things that handle low memory, or OOM, or 
-identified
-priorities are great, but the problem we're interested in solving here is
-really just about making socket communication work when the alternative is
-a completely dead system. I think these patches do that in a reasonable 
-way.
-A better solution would be great, too, if there is one. :-)
+Questions? Comments? "This is a terrible idea that should never have  
+seen the light of day"? Both constructive and destructive criticism  
+welcomed! (Just please keep the language clean! :-D)
 
-                                                        +-DLS
+Cheers,
+Kyle Moffett
+
+--
+Q: Why do programmers confuse Halloween and Christmas?
+A: Because OCT 31 == DEC 25.
