@@ -1,42 +1,53 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: James Courtier-Dutton <James@superbug.co.uk>
 Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
-Date: Thu, 15 Dec 2005 01:27:05 -0800
-Message-ID: <OF91FE0851.3F5D5387-ON882570D8.0031E106-882570D8.0033D677@us.ibm.com>
-References: <20051215.005805.114145703.davem@davemloft.net>
+Date: Thu, 15 Dec 2005 11:38:22 +0000
+Message-ID: <43A155AE.4050105@superbug.co.uk>
+References: <Pine.LNX.4.58.0512140042280.31720@w-sridhar.beaverton.ibm.com> <9a8748490512141216x7e25ca2cucb675f11f0c9d913@mail.gmail.com> <43A08546.8040708@superbug.co.uk> <20051215015456.GC23393@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: ak@suse.de, linux-kernel@vger.kernel.org, mpm@selenic.com,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	shemminger@osdl.org, sri@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422662AbVLOJ0U@vger.kernel.org>
-In-Reply-To: <20051215.005805.114145703.davem@davemloft.net>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Juhl <jesper.juhl@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422692AbVLOLif@vger.kernel.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20051215015456.GC23393@gaz.sfgoth.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@davemloft.net> wrote on 12/15/2005 12:58:05 AM:
-
-> From: David Stevens <dlstevens@us.ibm.com>
-> Date: Thu, 15 Dec 2005 00:44:52 -0800
+Mitchell Blank Jr wrote:
+> James Courtier-Dutton wrote:
 > 
-> > In our internal discussions
+>>When I had the conversation with Matt at KS, the problem we were trying 
+>>to solve was "Memory pressure with network attached swap space".
 > 
-> I really wish this hadn't been discussed internally before being
-> implemented.  Any such internal discussions are lost completely upon
-> the community that ends up reviewing such a core and invasive patch
-> such as this one.
+> 
+> s/swap space/writable filesystems/
+> 
+> You can hit these problems even if you have no swap.  Too much of the
+> memory becomes filled with dirty pages needing writeback -- then you lose
+> your NFS server's ARP entry at the wrong moment.  If you have a local disk
+> to swap to the machine will recover after a little bit of grinding, otherwise
+> it's all pretty much over.
+> 
+> The big problem is that as long as there's network I/O coming in it's
+> likely that pages you free (as the VM gets more and more desperate about
+> dropping the few remaining non-dirty pages) will get used for sockets
+> that AREN'T helping you recover RAM.  You really need to be able to tell
+> the whole network stack "we're in really rough shape here; ignore all RX
+> work unless it's going to help me get write ACKs back from my {NFS,iSCSI}
+> server"  My understanding is that is what this patchset is trying to
+> accomplish.
+> 
+> -Mitch
+> 
+> 
 
-I think those were more informal and less extensive than the
-impression I gave you. I mean simply bouncing around incomplete
-ideas and discussing some of the potential issues before coming
-up with a prototype solution, which is intended to be the starting
-point for community discussions (and the KS discussions, too). "OOM"
-came up immediately (even when naming the problem), and it isn't how
-I ever saw it.
+You are using the wrong hammer to crack your nut.
+You should instead approach your problem of why the ARP entry gets lost.
+For example, you could give as critical priority to your TCP session, 
+but that still won't cure your ARP problem.
+I would suggest that the best way to cure your arp problem, is to 
+increase the time between arp cache refreshes.
 
-The patches, of course, are intended to NOT be invasive, or any
-more than they need to be, and they are not "the" solution, but
-"a" solution. A completely different one that solves the problem
-is just as good to me.
-
-                                                        +-DLS
+James
