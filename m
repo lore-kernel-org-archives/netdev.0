@@ -1,60 +1,91 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
-Date: Thu, 15 Dec 2005 08:32:35 -0500
-Message-ID: <1134653556.5912.126.camel@localhost.localdomain>
-References: <Pine.LNX.4.58.0512140042280.31720@w-sridhar.beaverton.ibm.com>
-	 <9a8748490512141216x7e25ca2cucb675f11f0c9d913@mail.gmail.com>
-	 <43A08546.8040708@superbug.co.uk> <20051215015456.GC23393@gaz.sfgoth.com>
-	 <43A155AE.4050105@superbug.co.uk>
-	 <1134647248.16486.37.camel@laptopd505.fenrus.org>
-	 <1134651635.5912.108.camel@localhost.localdomain>
-	 <1134652070.16486.44.camel@laptopd505.fenrus.org>
-Reply-To: hadi@cyberus.ca
+From: <harrietwilson2@virgilio.it>
+Subject: THE YEAR 2005 END OF YEAR EMAIL RESULT CONTACT YOUR CLAIM AGENCY!!!!
+Date: Thu, 15 Dec 2005 15:53:43 +0100 (GMT+01:00)
+Message-ID: <31006329.1134658423152.JavaMail.root@pswm2.cp.tin.it>
+Reply-To: <harrietwilson2@virgilio.it>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: James Courtier-Dutton <James@superbug.co.uk>,
-	Mitchell Blank Jr <mitch@sfgoth.com>,
-	Jesper Juhl <jesper.juhl@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422726AbVLONcm@vger.kernel.org>
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1134652070.16486.44.camel@laptopd505.fenrus.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: undisclosed-recipients:;
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-15-12 at 14:07 +0100, Arjan van de Ven wrote:
-> On Thu, 2005-12-15 at 08:00 -0500, jamal wrote:
+GLOBAL MICRO-SOFT E-MAIL LOTTERY INTERNATIONAL PROGRAM .
+INTERNATIONAL 
+PROMOTIONS/PRIZE AWARD DEP. 
+LAAN VAN HOORNWIJCK 55, 2289DG, 
+RIJSWIJK 
+- THE NETHERLANDS. 
+ 
 
-> > The big hole punched by DaveM is that of dependencies: a http tcp
-> > connection is tied to ICMP or the IPSEC example given; so you need a lot
-> > more intelligence than just what your app is knowledgeable about at its
-> > level. 
-> 
-> yeah well sort of. You're right of course, but that also doesn't mean
-> you can't give hints from the other side. Like "data for this socked is
-> NOT critical important". It gets tricky if you only do it for OOM stuff;
-> because then that one ACK packet could cause a LOT of memory to be
-> freed, and as such can be important for the system even if the socket
-> isn't.
-> 
+Ref. Number: 633/98/401
+Batch Number: 213-127-
+798-GSLI102
 
-true - but thats _just one input_ into a complex policy decision
-process. The other is clearly VM realizing some type of threshold has
-been crossed. The output being a policy decision of what to drop - which
-gets very interesting if one looks at it being as fine grained as "drop
-ACKS". 
 
-The fallacy in the proposed solution is that it simplisticly ties 
-the decision to VM input and the network level input to sockets; as in
-the example of sockets doing http requests.
+Sir/Madam
+We are pleased to inform you of the result of 
+the Microsoft Email Lottery Winners International programs held on the 
+14th of December, 2005. Your e-mail address attached to ticket number 
+008-115-627-609 with serial number 323-509-992 drew lucky numbers 253-
+033-530-000-114 which consequently won in the 2ND category, you have 
+therefore been approved for a lump sum pay out of US$500 000.00(Five 
+hundred thousand united states Dollars only)
 
-Methinks what is needed is something which keeps state and takes input
-from the sockets and the VM and then runs some algorithm to decide what
-needs to be the final policy that gets installed at the low level kernel
-(tc classifier level or hardware). Sockets provide hints that they are
-critical. The box admin could override what is important.
+CONGRATULATIONS!!!
 
-cheers,
-jamal
+Due 
+to mix up of some numbers and names, we ask 
+that you keep your winning 
+information confidential until your claims has been processed and your 
+money Remitted to you. This is part of our security protocol to avoid 
+double claiming and unwarranted abuse of this program by some 
+participants.
+
+All participants were selected through a computer ballot 
+system drawn from over 20,000 company and 30,000,000 individual email 
+addresses and names from all over the world.
+
+
+This promotional program 
+takes place every year. This lottery was promoted and sponsored by THE 
+MANAGEMENT OF THE MICROSOFT COMPANY WORLD WIDE, we hope with part of 
+your winning you will take part in our next year USD50 million 
+international lottery.
+
+To file for your claim, please contact our 
+Regional Office with the details below for processing and release of 
+your winning.
+
+***************************************************************
+E-mail:
+darlingtonjim100@netscape.net 
+Tel:+31-616-200-087 
+Fax:+31-847-288-457
+DAYZERS LOTTERY REDEMPTION CENTRE,AMSTERDAM.THE NETHERLANDS.
+***************************************************************
+Remember, all winning must be claimed not later than 20 Days from the 
+day of this notification After this date all unclaimed funds will be 
+included in the next stake. Please note inorder to avoid unnecessary 
+delays and complications, remember to quote your reference number and 
+batch numbers in all correspondence.
+
+
+Please be informed that all non-
+resident of NETHERLANDS are required to pay for their non resident 
+processing/legal fee for the collection of their winning prize.
+
+
+Furthermore, should there be any change of address do inform our agent 
+as soon as possible. Congratulations once more from our members of 
+staff and thank you for being part of our promotional program.
+
+Note: 
+Anybody under the age of 18 is automatically disqualified.
+
+Sincerely 
+yours,
+Mrs.Harriet Wilson.
+(Lottery Co-ordinator.)
