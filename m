@@ -1,57 +1,50 @@
-From: "gwazo daniel" <danielgwazo2004@hotmail.fr>
-Subject: FROM: DANIEL GWAZO
-Date: Fri, 16 Dec 2005 10:55:10 +0100
-Message-ID: <BAY15-F9DDE0F8EDDD10AC1441CBD33A0@phx.gbl>
-Reply-To: danielgwazo@yahoo.fr
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
+From: "System Administrator"@oss.sgi.com
+Subject: Delivery Failure
+Date: Fri, 16 Dec 2005 11:13:47 +0100
+Message-ID: <632703284271562500@mail2.iper.net>
 Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-FROM: DANIEL GWAZO
-ABIDJAN.IVORY COAST
-WEST-AFRICA
-TELEPHONE:+222507604700
 
+Could not deliver message to the following recipient(s):
 
-DEAR ,ONE
-PERMIT ME TO INFORM YOU OF MY DESIRE OF ENTERING INTO BUSINESS RELATIONSHIP 
-WITH YOU.
+Failed Recipient: bob@iper.net
+Reason: Remote host said: 550 <bob@iper.net> No such user here
 
-I PRAYED OVER IT AND SELECTED YOUR NAME AMOUNG TWO NAMES DUE TO IT'S 
-ESTEEMING NATURE AND THE RECOMMENDATIONS GIVEN TO ME AS A REPUTABLE AND 
-TRUSTWORTHY PERSON I CAN DO BUSINESS WITH .
+   -- The header and top 20 lines of the message follows --
 
-I DANIEL Gwazo THE SON OF LATE DR RAWLINGS GWAZO, MY FAHTER WAS A VERY 
-WEALTHY COCOA MERCHANTBASED IN ABIDJAN.  HE WAS POISONED TO DEATH BY HIS 
-BUSINESS ASSOCIATES, ON ONE OF THEIR OUTING TO DISCUSS ON A BUSINESS DEAL.
+Received: from UnknownHost [85.108.233.105] by mail2.iper.net with SMTP;
+   Fri, 16 Dec 2005 11:12:23 +0100
+From: netdev@oss.sgi.com
+To: bob@iper.net
+Subject: HELLO
+Date: Fri, 16 Dec 2005 12:15:26 +0200
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0002_B8CFD72F.153D6AB7"
+X-Priority: 3
+X-MSMail-Priority: Normal
 
-WHEN MY MOTHER DIED ON THE 21ST OCTOBER 2001. MY FATHER TOOK ME SO SPECIAL 
-BECAUSE I AM MOTHERLESS. BEFORE THE DEATH OF MY FATHER ON 29TH NOVEMBER 2002 
-IN A PRIVATE HOSPITAL HERE IN ABIDJAN. HE SECRETLY CALLED ME ON HIS BEDSIDE 
-AND TOLD TOLD ME THAT HE HAS A SUM OF US$15.000.000 FIFTEEN MILLION , UNITED 
-STATES DOLLARS)LEFT IN A LOCAL BANK HERE IN ABIDJAN.
+This is a multi-part message in MIME format.
 
-HE ALSO EXPLAINED TO ME THAT IT WAS BECAUSE OF THIS WEALTH THAT HE WAS 
-POISONED BY HIS BUSINESS ASSOCIATES, THAT I SHOULD SEEK FOR A FOREIGN 
-PARTNER IN A COUNTRY OF MY CHOICE WHERE I WILL TRANSFER THIS MONEY AND USE 
-IT FOR INVESTMENT PURPOSE.
+------=_NextPart_000_0002_B8CFD72F.153D6AB7
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 
-
-TO PROVIDE A BANK ACCOUNT WHERE THIS MONEY WOULD BE TRANSFERED TO SERVE AS 
-THE GUARDIAN OF THIS FUND AND TO MAKE ARRANGEMENT FOR me TO COME OVER TO 
-YOUR COUNTRY TO FURTHER my EDUCATION.
-
-MOREOVER, I AM WILLING TO OFFER YOU 10% OF THE TOTAL SUM AS COMPENSATION FOR 
-YOUR EFFORT INPUT AFTER THE SUCCESSFUL TRANSFER OF THIS FUND TO YOUR 
-NOMINATED ACCOUNT OVERSEAS.
-
-FURTHERMORE, YOU CAN INDICATE YOUR OPTION TOWARDS
-ASSISTING ME AS I BELIEVE THAT THIS TRANSACTION WOULD BE CONCLUDED WITHIN 
-SEVEN  DAYS.
-
-YOURS,
-
-DANIEL GWAZO
+ñæ∫ XqÖ∞bxÍÓT5âãd%`áüáÖèX?≥µnÃ}‰ªQK¿<1%Êãh‚Øÿ∑'\Pë‹*Ã]ﬁn˘Óé∆xÅ◊õ˜§⁄`RÇ˚Y¿ﬁƒ¨n*|[¡˘a|πE<ù∏%\Åêö2êóDıJ`Ì¡jìúﬁÒQ&È\∏Ú¶Ú™3∆9éÂü˘vß8Méu¿∫sÁdËñõR8«,’≈∏»VA*#
+}#;˘Ê‡vı˚,´œs∏ÎeûIˆíá(
+ù)ı◊^>‘(%`)≥4›iŒU‡ƒµât\‡»Ñ¨Îd“)À©íU»Ÿ(ÈıP°7æ≥*ì
+whô’”‹Ôcp‰µÀtAG41ÕÇLÂH_/ÁéS†Ñ™g≤◊ÆãÜÕ£\ΩyŒn6_/Utà-Ì¢– XàÎ˘?⁄œ{Ÿã¶∫¨äƒ[0Z˙ÜÕF
+à}î”Ã≥¯Ÿöw⁄¥s±ÅÏÒg<Á †®pÀ>ıZÁ≈TªÅOp≤B”úú›±&fj^3¡Ndí·%wv$yæó
+«Og4»Z
+Á…‚hÇ':¡¥ªb-bé ‘ƒØ4Ñ∏Î;Cc‹I#≤1QcƒtÕ€Õgáûxéj∆$ëßgäRØ∞HfÆﬁ®]ÚQÛ(Çøã◊π˜‚.Ë^Z;–_`à˜¢pª„Åßº,Û„; 3©OGÿ¢p:'-¨Ù¬ÆX∂œ ¨A‰ fFÏŸU•ÎGéüã∑¬_Å¿KìY≈U˘Ú
+P'»≠’º>awÕ⁄,µ∏Ñv˛†÷¯÷Ó7rxœ)
+ö®á7æ£©p&÷π 7|COﬂJ®m:VÑ7Q˜t!$¬cÁT‘È^Hƒ¿Ã›ﬁïÂ∫6\±Õﬁøƒ!QIX?ŸÍ•ËU›·E‡˝¬YáÑZıûÒ∏⁄/ñ™‹‚æ«wÒwJ≠˙iæ∆‘{cñ©(qÙgô÷'“‚§UzõPÈ6≈ôRFü‰¬”",x–q∂™å?Å…€u0Ôw˙ƒKF¶~<¡CÒ◊xUä∆A˜„0{’É2['≠âëx∂(áõoØ«7’ø/u¥F»
+<œäŒ˚yÕhßÌuDP•ÿÖ%˚B∫¯iHLµ‡;‘ˆ:Èi}ñ¥~ôqÁ¢¯≠Òi,ÒÊÌ*&˝JÀ¸´AÿWÕ ∫ÈJ‹ã·◊Á’ˆ÷π—ó¡UπŸΩ›|™ñ ûàX˚√?¢´,#Fﬁ’†”K&oû“°˚xö—Ç{S‹pqÜy Mq˝l,i.m±˚ò‰Z;ßﬂn¶q◊
+·?.íëÛÀÚ-p{özÉwER™Œ¢'å%*$|
+f›z;ùñQº?CJ«ıe¯x'.◊$z
+n7π^<9(Áãa3vnm3⁄f6¡Ñ±®∞—•Æ¬…ı#úÇPËê∂áÌŸ-£|ÁVˆ∏‰A¿≤∆˜`K8Ê¸]2ü6i0ZYº±÷Ë¥CNû$‰æ’fqÑ<±ºCx’∞≤Hf|e…Tä
