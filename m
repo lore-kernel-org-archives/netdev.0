@@ -1,7 +1,7 @@
 From: "Deper Gray" <g_deper@hotmail.com>
 Subject: good day
-Date: Mon, 19 Dec 2005 14:59:21 +0000
-Message-ID: <BAY24-F6FA8EFEE2C474D55132DE913F0@phx.gbl>
+Date: Mon, 19 Dec 2005 14:58:36 +0000
+Message-ID: <BAY24-F2030EB396FD53AC21A608B913F0@phx.gbl>
 Reply-To: g_deper@yahoo.fr
 Mime-Version: 1.0
 Content-Type: text/plain; format=flowed
