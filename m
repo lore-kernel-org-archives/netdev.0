@@ -1,81 +1,98 @@
 From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: [BUG][PATCH] e1000: Fix invalid memory reference
-Date: Mon, 19 Dec 2005 14:36:05 -0800
-Message-ID: <4807377b0512191436i5b68da0blf640e8a4922b2000@mail.gmail.com>
-References: <439EA1F4.3000204@jp.fujitsu.com>
+Subject: Re: Intel e1000 fails after RAM upgrade
+Date: Mon, 19 Dec 2005 15:35:57 -0800
+Message-ID: <4807377b0512191535i13d00b8chd97872b3e540e2b5@mail.gmail.com>
+References: <20051219195458.GA23650@carsten-otto.halifax.rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
-Cc: kaneshige.kenji@jp.fujitsu.com,
-	NetDEV list <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964881AbVLSWgI@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <439EA1F4.3000204@jp.fujitsu.com>
+Cc: linux-kernel@vger.kernel.org, NetDEV list <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750718AbVLSXgA@vger.kernel.org>
+To: c-otto@gmx.de
+In-Reply-To: <20051219195458.GA23650@carsten-otto.halifax.rwth-aachen.de>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for the patch!
-Jeff, if you would be so kind as to apply this, thanks...
+On 12/19/05, Carsten Otto <c-otto@gmx.de> wrote:
+> Hi there!
+>
+> First the basic system specs:
+> Athlon64 3500+ S939, Winchester
+> Kernel 2.6.14.4, X86_64
+> 4*1 GB RAM DDR 333, Dual Channel [before: 2*1 GB RAM DDR 400, Dual Channel]
+> Intel Gigabit PCI (Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02))
+> Abit AV8
+>
+> After upgrading the memory to 4 GB I noticed my e1000 did not work.
+> dmesg shows:
+>
+> e1000: eth0: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
+> e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>   TDH                  <2000>
+>   TDT                  <2000>
+>   next_to_use          <6>
+>   next_to_clean        <0>
+> buffer_info[next_to_clean]
+>   dma                  <13024c002>
+>   time_stamp           <ffffd8c7>
+>   next_to_watch        <0>
+>   jiffies              <ffffe096>
+>   next_to_watch.status <0>
 
-This patch fixes invalid memory reference in the e1000 driver which
-would cause kernel panic.
+are you using 4096 tx descriptors?  what is your MTU configured to? 
+I'm confused because it appears you have 8192 (0x2000) descriptors but
+the driver only allows 4096
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>   TDH                  <2000>
+>   TDT                  <2000>
+>   next_to_use          <6>
+>   next_to_clean        <0>
+> buffer_info[next_to_clean]
+>   dma                  <13024c002>
+>   time_stamp           <ffffd8c7>
+>   next_to_watch        <0>
+>   jiffies              <ffffe28a>
+>   next_to_watch.status <0>
+> eth0: no IPv6 routers present
+> e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>   TDH                  <2000>
+>   TDT                  <2000>
+>   next_to_use          <6>
+>   next_to_clean        <0>
+> buffer_info[next_to_clean]
+>   dma                  <13024c002>
+>   time_stamp           <ffffd8c7>
+>   next_to_watch        <0>
+>   jiffies              <ffffe47e>
+>   next_to_watch.status <0>
+> e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
+>   TDH                  <2000>
+>   TDT                  <2000>
+>   next_to_use          <6>
+>   next_to_clean        <0>
+> buffer_info[next_to_clean]
+>   dma                  <13024c002>
+>   time_stamp           <ffffd8c7>
+>   next_to_watch        <0>
+>   jiffies              <ffffe672>
+>   next_to_watch.status <0>
+>
+> ethtool -t eth0 offline:
+> The test result is FAIL
+> The test extra info:
+> Register test  (offline)         40
+> Eeprom test    (offline)         0
+> Interrupt test (offline)         4
+> Loopback test  (offline)         13
+> Link test   (on/offline)         1
+>
+> I have two of these cards. Both run fine in my (old, 32bit) server. I
+> tested with both cards with both systems. Only in my 64bit machine this
+> error occurs - with both cards.
+>
+> Please tell me what to do. I have to live with the VIA onboard in the
+> meantime and that is not the best network card...
 
----------- Forwarded message ----------
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Dec 13, 2005 2:27 AM
-Subject: [BUG][PATCH] e1000: Fix invalid memory reference
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Cc: Andrew Morton <akpm@osdl.org>
-
-
-Hi,
-
-I encountered a kernel panic which was caused by the invalid memory
-access by e1000 driver. The following patch fixes this issue.
-
-Thanks,
-Kenji Kaneshige
-
-
-This patch fixes invalid memory reference in the e1000 driver which
-would cause kernel panic.
-
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
- drivers/net/e1000/e1000_param.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
-
-Index: linux-2.6.15-rc5/drivers/net/e1000/e1000_param.c
-===================================================================
---- linux-2.6.15-rc5.orig/drivers/net/e1000/e1000_param.c
-+++ linux-2.6.15-rc5/drivers/net/e1000/e1000_param.c
-@@ -545,7 +545,7 @@ e1000_check_fiber_options(struct e1000_a
- static void __devinit
- e1000_check_copper_options(struct e1000_adapter *adapter)
- {
--       int speed, dplx;
-+       int speed, dplx, an;
-        int bd = adapter->bd_number;
-
-        { /* Speed */
-@@ -641,8 +641,12 @@ e1000_check_copper_options(struct e1000_
-                                         .p = an_list }}
-                };
-
--               int an = AutoNeg[bd];
--               e1000_validate_option(&an, &opt, adapter);
-+               if (num_AutoNeg > bd) {
-+                       an = AutoNeg[bd];
-+                       e1000_validate_option(&an, &opt, adapter);
-+               } else {
-+                       an = opt.def;
-+               }
-                adapter->hw.autoneg_advertised = an;
-        }
-
+well, lets work on what is occuring, because this should work just fine.
