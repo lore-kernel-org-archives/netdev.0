@@ -1,73 +1,47 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC][PATCH 4/5] I/OAT DMA support and TCP acceleration
-Date: Wed, 21 Dec 2005 07:20:43 +0100
-Message-ID: <43A8F43B.6020307@cosmosbay.com>
-References: <1135142263.13781.21.camel@cleech-mobl>
+From: "Raya" <stevieleo@tlen.pl>
+Subject: deane Private e consultation and big savin's on our health products. barre
+Date: Wed, 21 Dec 2005 07:08:27 +0100
+Message-ID: <4112AEF7.136E9A5__3728.07266326181$1135146501$gmane$org@tlen.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Grover, Andrew" <andrew.grover@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932288AbVLUGU4@vger.kernel.org>
-To: Chris Leech <christopher.leech@intel.com>
-In-Reply-To: <1135142263.13781.21.camel@cleech-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <knight@oss.sgi.com>, <ogl-sample-cvs@oss.sgi.com>, <schultz@oss.sgi.com>,
+        <daniel@oss.sgi.com>, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Haywood Brockney" <fletcher@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Chris Leech a =E9crit :
-> Structure changes for TCP recv offload to I/OAT
->=20
-> Adds an async_wait_queue and some additional fields to tcp_sock, a
-> copied_early flag to sb_buff and a dma_cookie_t to tcp_skb_cb
->=20
-> Renames cleanup_rbuf to tcp_cleanup_rbuf and makes it non-static so w=
-e
-> can call it from tcp_input.c=20
->=20
-> ---=20
->  include/linux/skbuff.h   |    5 +++--
->  include/linux/tcp.h      |    9 +++++++++
->  include/net/tcp.h        |   10 ++++++++++
->  net/core/skbuff.c        |    1 +
->  net/ipv4/tcp.c           |   11 ++++++-----
->  net/ipv4/tcp_ipv4.c      |    4 ++++
->  net/ipv4/tcp_minisocks.c |    1 +
->  net/ipv6/tcp_ipv6.c      |    1 +
->  8 files changed, 35 insertions(+), 7 deletions(-)
-> diff -urp a/include/linux/skbuff.h b/include/linux/skbuff.h
-> --- a/include/linux/skbuff.h	2005-12-21 12:05:09.000000000 -0800
-> +++ b/include/linux/skbuff.h	2005-12-21 12:10:14.000000000 -0800
-> @@ -248,7 +248,7 @@ struct sk_buff {
->  	 * want to keep them across layers you have to do a skb_clone()
->  	 * first. This is owned by whoever has the skb queued ATM.
->  	 */
-> -	char			cb[40];
-> +	char			cb[44];
-
-Hi Chris
-
-Please consider not enlarging cb[] if not CONFIG_NET_DMA ?
-
-I mean, most machines wont have a compatable NIC, so why should they pa=
-y the=20
-price (memory, cpu) in a critical structure named sk_buff ?
-
-#ifdef CONFIG_NET_DMA
-typedef dma_cookie_t net_dma_cookie_t;
-#else
-typedef struct {} net_dma_cookie_t;
-#endif
-
-=2E..
-
-	char   cb[40+sizeof(net_dma_cookie_t)];
 
 
-Same remark apply for the rest of your patch : Please consider to make =
-added=20
-fields and code conditional to CONFIG_NET_DMA
+Hey you, swear to me you'll swing by this e-store- I adore it!
 
-Eric
+You have to see this great deal I've found on the internet.
+Since you are always helping me out, I want to let you know about this
+great chance that you can save on health supplements.
+
+With this esite, I got a gratis consultation to find the proper medical
+products.
+The prices of these performance enhancers are up to 55% off the retail
+price.
+And the orders are delivered quick to my apartment and I can even check the
+progress online.
+
+Not only can I order at the convenience of my house, I also feel more
+relaxed cause I have the the correct health pills at the right time.
+
+cgarqynmg http://au.geocities.com/amedzephyrgoodau
+
+
+`But why? and she's so nice.' 
+
+dikas  fieldhouse  fjuang xm05 fabrication-related  flkalt
+'Your manner, no less than your actions, assures me that you have never
+forgotten it, or ceased to think of it with bitterness,' returned Mr.
+Brownlow. 'I speak of fifteen years ago, when you were not more than eleven
+years old, and your father but one-and-thirty--for he was, I repeat, a boy,
+when HIS father ordered him to marry. Must I go back to events which cast a
+shade upon the memory of your parent, or will you spare it, and disclose to
+me the truth?' 
