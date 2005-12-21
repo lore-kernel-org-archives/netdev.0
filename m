@@ -1,234 +1,415 @@
 From: Chris Leech <christopher.leech@intel.com>
-Subject: [RFC][PATCH 4/5] I/OAT DMA support and TCP acceleration
-Date: Tue, 20 Dec 2005 21:17:43 -0800
-Message-ID: <1135142263.13781.21.camel@cleech-mobl>
+Subject: [RFC][PATCH 5/5] I/OAT DMA support and TCP acceleration
+Date: Tue, 20 Dec 2005 21:17:46 -0800
+Message-ID: <1135142266.13781.22.camel@cleech-mobl>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "Grover, Andrew" <andrew.grover@intel.com>,
 	"Ronciak, John" <john.ronciak@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751120AbVLUFSK@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932180AbVLUFSJ@vger.kernel.org>
 To: lkml <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Structure changes for TCP recv offload to I/OAT
+TCP recv offload to I/OAT
 
-Adds an async_wait_queue and some additional fields to tcp_sock, a
-copied_early flag to sb_buff and a dma_cookie_t to tcp_skb_cb
+Locks down user pages and sets up for the DMA in tcp_recvmsg, then calls
+dma_async_try_early_copy in tcp_v4_do_rcv
 
-Renames cleanup_rbuf to tcp_cleanup_rbuf and makes it non-static so we
-can call it from tcp_input.c 
+---
+ tcp.c       |  166 +++++++++++++++++++++++++++++++++++++++++++++---------------
+ tcp_input.c |   63 +++++++++++++++++++++-
+ tcp_ipv4.c  |   16 +++++
+ 3 files changed, 202 insertions(+), 43 deletions(-)
 
---- 
- include/linux/skbuff.h   |    5 +++--
- include/linux/tcp.h      |    9 +++++++++
- include/net/tcp.h        |   10 ++++++++++
- net/core/skbuff.c        |    1 +
- net/ipv4/tcp.c           |   11 ++++++-----
- net/ipv4/tcp_ipv4.c      |    4 ++++
- net/ipv4/tcp_minisocks.c |    1 +
- net/ipv6/tcp_ipv6.c      |    1 +
- 8 files changed, 35 insertions(+), 7 deletions(-)
-diff -urp a/include/linux/skbuff.h b/include/linux/skbuff.h
---- a/include/linux/skbuff.h	2005-12-21 12:05:09.000000000 -0800
-+++ b/include/linux/skbuff.h	2005-12-21 12:10:14.000000000 -0800
-@@ -248,7 +248,7 @@ struct sk_buff {
- 	 * want to keep them across layers you have to do a skb_clone()
- 	 * first. This is owned by whoever has the skb queued ATM.
- 	 */
--	char			cb[40];
-+	char			cb[44];
- 
- 	unsigned int		len,
- 				data_len,
-@@ -261,7 +261,8 @@ struct sk_buff {
- 				nohdr:1,
- 				nfctinfo:3;
- 	__u8			pkt_type:3,
--				fclone:2;
-+				fclone:2,
-+				copied_early:1;
- 	__be16			protocol;
- 
- 	void			(*destructor)(struct sk_buff *skb);
-diff -urp a/include/linux/tcp.h b/include/linux/tcp.h
---- a/include/linux/tcp.h	2005-12-21 12:05:09.000000000 -0800
-+++ b/include/linux/tcp.h	2005-12-21 12:10:14.000000000 -0800
-@@ -18,6 +18,7 @@
- #define _LINUX_TCP_H
- 
- #include <linux/types.h>
+diff -rup a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	2005-12-21 12:10:49.000000000 -0800
++++ b/net/ipv4/tcp.c	2005-12-21 12:14:42.000000000 -0800
+@@ -257,6 +257,7 @@
+ #include <linux/fs.h>
+ #include <linux/random.h>
+ #include <linux/bootmem.h>
 +#include <linux/dmaengine.h>
- #include <asm/byteorder.h>
  
- struct tcphdr {
-@@ -249,6 +250,13 @@ struct tcp_sock {
- 		struct iovec		*iov;
- 		int			memory;
- 		int			len;
-+
-+		/* members for async copy */
-+		int			wakeup;
-+		struct dma_chan		*dma_chan;
-+		int			bytes_early_copied;
-+		struct dma_locked_list	*locked_list;
-+		dma_cookie_t		dma_cookie;
- 	} ucopy;
- 
- 	__u32	snd_wl1;	/* Sequence for window update		*/
-@@ -294,6 +302,7 @@ struct tcp_sock {
- 	__u32	snd_cwnd_stamp;
- 
- 	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
-+	struct sk_buff_head	async_wait_queue; /* DMA unfinished segments go here */
- 
- 	struct tcp_func		*af_specific;	/* Operations which are AF_INET{4,6} specific	*/
- 
-diff -urp a/include/net/tcp.h b/include/net/tcp.h
---- a/include/net/tcp.h	2005-12-21 12:05:09.000000000 -0800
-+++ b/include/net/tcp.h	2005-12-21 12:10:14.000000000 -0800
-@@ -563,6 +563,9 @@ extern u32	__tcp_select_window(struct so
-  * 40 bytes on 64-bit machines, if this grows please adjust
-  * skbuff.h:skbuff->cb[xxx] size appropriately.
-  */
-+
-+#include <linux/dmaengine.h>
-+
- struct tcp_skb_cb {
- 	union {
- 		struct inet_skb_parm	h4;
-@@ -602,6 +605,7 @@ struct tcp_skb_cb {
- 
- 	__u16		urg_ptr;	/* Valid w/URG flags is set.	*/
- 	__u32		ack_seq;	/* Sequence number ACK'd	*/
-+	dma_cookie_t	dma_cookie;	/* async copy token		*/
- };
- 
- #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
-@@ -867,8 +871,14 @@ static __inline__ void tcp_prequeue_init
- {
- 	tp->ucopy.task = NULL;
- 	tp->ucopy.len = 0;
-+	tp->ucopy.wakeup = 0;
- 	tp->ucopy.memory = 0;
- 	skb_queue_head_init(&tp->ucopy.prequeue);
-+
-+	tp->ucopy.dma_chan = NULL;
-+	tp->ucopy.bytes_early_copied = 0;
-+	tp->ucopy.locked_list = NULL;
-+	tp->ucopy.dma_cookie = 0;
- }
- 
- /* Packet is added to VJ-style prequeue for processing in process
-diff -urp a/net/core/skbuff.c b/net/core/skbuff.c
---- a/net/core/skbuff.c	2005-12-21 12:05:09.000000000 -0800
-+++ b/net/core/skbuff.c	2005-12-21 12:10:14.000000000 -0800
-@@ -400,6 +400,7 @@ struct sk_buff *skb_clone(struct sk_buff
- 	C(local_df);
- 	n->cloned = 1;
- 	n->nohdr = 0;
-+	C(copied_early);
- 	C(pkt_type);
- 	C(ip_summed);
- 	C(priority);
-diff -urp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
---- a/net/ipv4/tcp.c	2005-12-21 12:05:09.000000000 -0800
-+++ b/net/ipv4/tcp.c	2005-12-21 12:10:27.000000000 -0800
-@@ -936,7 +936,7 @@ static int tcp_recv_urg(struct sock *sk,
-  * calculation of whether or not we must ACK for the sake of
-  * a window update.
-  */
--static void cleanup_rbuf(struct sock *sk, int copied)
-+void tcp_cleanup_rbuf(struct sock *sk, int copied)
- {
+ #include <net/icmp.h>
+ #include <net/tcp.h>
+@@ -941,7 +942,7 @@ void tcp_cleanup_rbuf(struct sock *sk, i
  	struct tcp_sock *tp = tcp_sk(sk);
  	int time_to_ack = 0;
-@@ -1085,7 +1085,7 @@ int tcp_read_sock(struct sock *sk, read_
  
- 	/* Clean up data we have read: This will do ACK frames. */
- 	if (copied)
--		cleanup_rbuf(sk, copied);
-+		tcp_cleanup_rbuf(sk, copied);
- 	return copied;
+-#if TCP_DEBUG
++#if TCP_DEBUG && !defined(CONFIG_NET_DMA)
+ 	struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
+ 
+ 	BUG_TRAP(!skb || before(tp->copied_seq, TCP_SKB_CB(skb)->end_seq));
+@@ -1132,6 +1133,21 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ 
+ 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, len);
+ 
++#ifdef CONFIG_NET_DMA
++	if ((len > 1024) && !(flags & MSG_PEEK) && !sysctl_tcp_low_latency) {
++		preempt_disable();
++		tp->ucopy.dma_chan = __get_cpu_var(net_dma);
++		preempt_enable();
++	} else {
++		tp->ucopy.dma_chan = NULL;
++	}
++
++	if (tp->ucopy.dma_chan)
++		if (dma_lock_iovec_pages(msg->msg_iov, len,
++		                         &tp->ucopy.locked_list))
++			tp->ucopy.dma_chan = NULL;
++#endif
++
+ 	do {
+ 		struct sk_buff *skb;
+ 		u32 offset;
+@@ -1161,7 +1177,12 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ 				       "seq %X\n", *seq, TCP_SKB_CB(skb)->seq);
+ 				break;
+ 			}
+-			offset = *seq - TCP_SKB_CB(skb)->seq;
++
++			if (!skb->copied_early)
++				offset = *seq - TCP_SKB_CB(skb)->seq;
++			else
++				offset = 0;
++
+ 			if (skb->h.th->syn)
+ 				offset--;
+ 			if (offset < skb->len)
+@@ -1273,6 +1294,8 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ 		} else
+ 			sk_wait_data(sk, &timeo);
+ 
++		tp->ucopy.wakeup = 0;
++
+ 		if (user_recv) {
+ 			int chunk;
+ 
+@@ -1304,45 +1327,69 @@ do_prequeue:
+ 		}
+ 		continue;
+ 
+-	found_ok_skb:
++found_ok_skb:
+ 		/* Ok so how much can we use? */
+-		used = skb->len - offset;
+-		if (len < used)
+-			used = len;
+-
+-		/* Do we have urgent data here? */
+-		if (tp->urg_data) {
+-			u32 urg_offset = tp->urg_seq - *seq;
+-			if (urg_offset < used) {
+-				if (!urg_offset) {
+-					if (!sock_flag(sk, SOCK_URGINLINE)) {
+-						++*seq;
+-						offset++;
+-						used--;
+-						if (!used)
+-							goto skip_copy;
+-					}
+-				} else
+-					used = urg_offset;
++		if (!skb->copied_early) {
++			used = skb->len - offset;
++			if (len < used)
++				used = len;
++
++			/* Do we have urgent data here? */
++			if (tp->urg_data) {
++				u32 urg_offset = tp->urg_seq - *seq;
++				if (urg_offset < used) {
++					if (!urg_offset) {
++						if (!sock_flag(sk, SOCK_URGINLINE)) {
++							++*seq;
++							offset++;
++							used--;
++							if (!used)
++								goto skip_copy;
++						}
++					} else
++						used = urg_offset;
++				}
+ 			}
+-		}
+ 
+-		if (!(flags & MSG_TRUNC)) {
+-			err = skb_copy_datagram_iovec(skb, offset,
+-						      msg->msg_iov, used);
+-			if (err) {
+-				/* Exception. Bailout! */
+-				if (!copied)
+-					copied = -EFAULT;
+-				break;
++			if (!(flags & MSG_TRUNC)) {
++				if (tp->ucopy.dma_chan) {
++					tp->ucopy.dma_cookie = dma_skb_copy_datagram_iovec(
++						tp->ucopy.dma_chan, skb, offset,
++						msg->msg_iov, used,
++						tp->ucopy.locked_list);
++
++					if (tp->ucopy.dma_cookie < 0) {
++
++						printk(KERN_ALERT "dma_cookie < 0\n");
++
++						/* Exception. Bailout! */
++						if (!copied)
++							copied = -EFAULT;
++						break;
++					}
++					if ((offset + used) == skb->len)
++						skb->copied_early = 1;
++
++				} else {
++					err = skb_copy_datagram_iovec(skb, offset,
++							msg->msg_iov, used);
++					if (err) {
++						/* Exception. Bailout! */
++						if (!copied)
++							copied = -EFAULT;
++						break;
++					}
++				}
+ 			}
+-		}
+ 
+-		*seq += used;
+-		copied += used;
+-		len -= used;
++			*seq += used;
++			copied += used;
++			len -= used;
+ 
+-		tcp_rcv_space_adjust(sk);
++			tcp_rcv_space_adjust(sk);
++		} else {
++			used = skb->len;
++		}
+ 
+ skip_copy:
+ 		if (tp->urg_data && after(tp->copied_seq, tp->urg_seq)) {
+@@ -1354,15 +1401,27 @@ skip_copy:
+ 
+ 		if (skb->h.th->fin)
+ 			goto found_fin_ok;
+-		if (!(flags & MSG_PEEK))
+-			sk_eat_skb(sk, skb);
++		if (!(flags & MSG_PEEK)) {
++			if (!skb->copied_early)
++				sk_eat_skb(sk, skb);
++			else {
++				__skb_unlink(skb, &sk->sk_receive_queue);
++				__skb_queue_tail(&tp->async_wait_queue, skb);
++			}
++		}
+ 		continue;
+ 
+ 	found_fin_ok:
+ 		/* Process the FIN. */
+ 		++*seq;
+-		if (!(flags & MSG_PEEK))
+-			sk_eat_skb(sk, skb);
++		if (!(flags & MSG_PEEK)) {
++			if (!skb->copied_early)
++				sk_eat_skb(sk, skb);
++			else {
++				__skb_unlink(skb, &sk->sk_receive_queue);
++				__skb_queue_tail(&tp->async_wait_queue, skb);
++			}
++		}
+ 		break;
+ 	} while (len > 0);
+ 
+@@ -1383,8 +1442,37 @@ skip_copy:
+ 
+ 		tp->ucopy.task = NULL;
+ 		tp->ucopy.len = 0;
++		tp->ucopy.bytes_early_copied = 0;
+ 	}
+ 
++
++#ifdef CONFIG_NET_DMA
++	if (tp->ucopy.dma_chan) {
++		struct sk_buff *skb;
++		dma_cookie_t done, used;
++
++		dma_async_memcpy_issue_pending(tp->ucopy.dma_chan);
++
++		while (dma_async_memcpy_complete(tp->ucopy.dma_chan,
++		                                 tp->ucopy.dma_cookie, &done,
++		                                 &used) == DMA_IN_PROGRESS) {
++			/* do partial cleanup of async_wait_queue */
++			while ((skb = skb_peek(&tp->async_wait_queue)) &&
++			       (dma_async_is_complete(TCP_SKB_CB(skb)->dma_cookie,
++			                       done, used) == DMA_SUCCESS)) {
++				__skb_dequeue(&tp->async_wait_queue);
++				kfree_skb(skb);
++			}
++		}
++
++		/* Safe to free early-copied skbs now */
++		__skb_queue_purge(&tp->async_wait_queue);
++		dma_unlock_iovec_pages(tp->ucopy.locked_list);
++		tp->ucopy.dma_chan = NULL;
++		tp->ucopy.locked_list = NULL;
++	}
++#endif
++
+ 	/* According to UNIX98, msg_name/msg_namelen are ignored
+ 	 * on connected socket. I was just happy when found this 8) --ANK
+ 	 */
+diff -rup a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c	2005-12-21 12:05:00.000000000 -0800
++++ b/net/ipv4/tcp_input.c	2005-12-21 12:14:42.000000000 -0800
+@@ -70,6 +70,7 @@
+ #include <net/tcp.h>
+ #include <net/inet_common.h>
+ #include <linux/ipsec.h>
++#include <linux/dmaengine.h>
+ #include <asm/unaligned.h>
+ 
+ int sysctl_tcp_timestamps = 1;
+@@ -3623,10 +3624,12 @@ tcp_checksum_complete_user(struct sock *
+  *	the rest is checked inline. Fast processing is turned on in 
+  *	tcp_data_queue when everything is OK.
+  */
++
+ int tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+ 			struct tcphdr *th, unsigned len)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	int eaten = 0;
+ 
+ 	/*
+ 	 *	Header prediction.
+@@ -3715,12 +3718,11 @@ int tcp_rcv_established(struct sock *sk,
+ 				goto discard;
+ 			}
+ 		} else {
+-			int eaten = 0;
+-
+ 			if (tp->ucopy.task == current &&
+ 			    tp->copied_seq == tp->rcv_nxt &&
+ 			    len - tcp_header_len <= tp->ucopy.len &&
+-			    sock_owned_by_user(sk)) {
++			    sock_owned_by_user(sk) &&
++			    !skb->copied_early) {
+ 				__set_current_state(TASK_RUNNING);
+ 
+ 				if (!tcp_copy_to_iovec(sk, skb, tcp_header_len)) {
+@@ -3767,6 +3769,9 @@ int tcp_rcv_established(struct sock *sk,
+ 				__skb_queue_tail(&sk->sk_receive_queue, skb);
+ 				sk_stream_set_owner_r(skb, sk);
+ 				tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
++
++				if (skb->copied_early)
++					tcp_cleanup_rbuf(sk, skb->len);
+ 			}
+ 
+ 			tcp_event_data_recv(sk, tp, skb);
+@@ -3781,6 +3786,9 @@ int tcp_rcv_established(struct sock *sk,
+ 
+ 			__tcp_ack_snd_check(sk, 0);
+ no_ack:
++			if (skb->copied_early)
++				return 0;
++
+ 			if (eaten)
+ 				__kfree_skb(skb);
+ 			else
+@@ -3864,6 +3872,55 @@ discard:
+ 	return 0;
  }
  
-@@ -1219,7 +1219,7 @@ int tcp_recvmsg(struct kiocb *iocb, stru
- 			}
- 		}
- 
--		cleanup_rbuf(sk, copied);
-+		tcp_cleanup_rbuf(sk, copied);
- 
- 		if (!sysctl_tcp_low_latency && tp->ucopy.task == user_recv) {
- 			/* Install new reader */
-@@ -1390,7 +1390,7 @@ skip_copy:
- 	 */
- 
- 	/* Clean up data we have read: This will do ACK frames. */
--	cleanup_rbuf(sk, copied);
-+	tcp_cleanup_rbuf(sk, copied);
- 
- 	TCP_CHECK_TIMER(sk);
- 	release_sock(sk);
-@@ -1652,6 +1652,7 @@ int tcp_disconnect(struct sock *sk, int 
- 	__skb_queue_purge(&sk->sk_receive_queue);
- 	sk_stream_writequeue_purge(sk);
- 	__skb_queue_purge(&tp->out_of_order_queue);
-+	__skb_queue_purge(&tp->async_wait_queue);
- 
- 	inet->dport = 0;
- 
-@@ -1855,7 +1856,7 @@ int tcp_setsockopt(struct sock *sk, int 
- 			    (TCPF_ESTABLISHED | TCPF_CLOSE_WAIT) &&
- 			    inet_csk_ack_scheduled(sk)) {
- 				icsk->icsk_ack.pending |= ICSK_ACK_PUSHED;
--				cleanup_rbuf(sk, 1);
-+				tcp_cleanup_rbuf(sk, 1);
- 				if (!(val & 1))
- 					icsk->icsk_ack.pingpong = 1;
- 			}
-diff -urp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
---- a/net/ipv4/tcp_ipv4.c	2005-12-14 15:50:41.000000000 -0800
-+++ b/net/ipv4/tcp_ipv4.c	2005-12-21 12:10:27.000000000 -0800
-@@ -1414,6 +1414,7 @@ static int tcp_v4_init_sock(struct sock 
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
- 	skb_queue_head_init(&tp->out_of_order_queue);
-+	skb_queue_head_init(&tp->async_wait_queue);
- 	tcp_init_xmit_timers(sk);
- 	tcp_prequeue_init(tp);
- 
-@@ -1466,6 +1467,9 @@ int tcp_v4_destroy_sock(struct sock *sk)
- 	/* Cleans up our, hopefully empty, out_of_order_queue. */
-   	__skb_queue_purge(&tp->out_of_order_queue);
- 
-+	/* Cleans up our async_wait_queue */
-+  	__skb_queue_purge(&tp->async_wait_queue);
++#ifdef CONFIG_NET_DMA
++void dma_async_try_early_copy(struct sock *sk, struct sk_buff *skb)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	int dma_cookie;
++	int chunk = skb->len - tp->tcp_header_len;
++	struct tcphdr *th = skb->h.th;
 +
- 	/* Clean prequeue, it must be empty really */
- 	__skb_queue_purge(&tp->ucopy.prequeue);
++	if ((tp->ucopy.task == NULL) || (tp->ucopy.dma_chan == NULL) || tp->ucopy.wakeup)
++          	return;
++
++	if ((tcp_flag_word(th) & TCP_HP_BITS) != tp->pred_flags ||
++		TCP_SKB_CB(skb)->seq != tp->rcv_nxt)
++		return;
++
++	if (tp->ucopy.dma_chan &&
++	    chunk > 0 &&
++	    chunk <= (tp->ucopy.len) &&
++	    tp->copied_seq == tp->rcv_nxt &&
++	    skb->ip_summed == CHECKSUM_UNNECESSARY) {
++
++		dma_cookie = dma_skb_copy_datagram_iovec(tp->ucopy.dma_chan,
++			skb, tp->tcp_header_len,
++			tp->ucopy.iov, chunk, tp->ucopy.locked_list);
++
++		if (dma_cookie < 0)
++			return;
++
++		tp->ucopy.dma_cookie = dma_cookie;
++		skb->copied_early = 1;
++
++		tp->ucopy.bytes_early_copied += chunk;
++		tp->copied_seq += chunk;
++		tp->ucopy.len -= chunk;
++		tcp_rcv_space_adjust(sk);
++
++		if (tp->ucopy.len == 0) {
++			tp->ucopy.wakeup = 1;
++			wake_up_interruptible(sk->sk_sleep);
++		}
++	} else if (chunk > 0) {
++		tp->ucopy.wakeup = 1;
++		wake_up_interruptible(sk->sk_sleep);
++	}
++}
++
++EXPORT_SYMBOL(dma_async_try_early_copy);
++#endif /* CONFIG_NET_DMA */
++
+ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
+ 					 struct tcphdr *th, unsigned len)
+ {
+diff -rup a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	2005-12-21 12:10:49.000000000 -0800
++++ b/net/ipv4/tcp_ipv4.c	2005-12-21 12:14:42.000000000 -0800
+@@ -1148,6 +1148,11 @@ int tcp_v4_do_rcv(struct sock *sk, struc
+ {
+ 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
+ 		TCP_CHECK_TIMER(sk);
++
++#ifdef CONFIG_NET_DMA
++		dma_async_try_early_copy(sk, skb);
++#endif
++
+ 		if (tcp_rcv_established(sk, skb, skb->h.th, skb->len))
+ 			goto reset;
+ 		TCP_CHECK_TIMER(sk);
+@@ -1256,10 +1261,19 @@ process:
+ 	bh_lock_sock(sk);
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+-		if (!tcp_prequeue(sk, skb))
++#ifdef CONFIG_NET_DMA
++		struct tcp_sock *tp = tcp_sk(sk);
++		if (tp->ucopy.dma_chan)
+ 			ret = tcp_v4_do_rcv(sk, skb);
++		else
++#endif
++		{
++			if (!tcp_prequeue(sk, skb))
++			ret = tcp_v4_do_rcv(sk, skb);
++		}
+ 	} else
+ 		sk_add_backlog(sk, skb);
++
+ 	bh_unlock_sock(sk);
  
-diff -urp a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
---- a/net/ipv4/tcp_minisocks.c	2005-12-14 15:50:41.000000000 -0800
-+++ b/net/ipv4/tcp_minisocks.c	2005-12-21 12:10:27.000000000 -0800
-@@ -389,6 +389,7 @@ struct sock *tcp_create_openreq_child(st
- 		tcp_set_ca_state(newsk, TCP_CA_Open);
- 		tcp_init_xmit_timers(newsk);
- 		skb_queue_head_init(&newtp->out_of_order_queue);
-+		skb_queue_head_init(&newtp->async_wait_queue);
- 		newtp->rcv_wup = treq->rcv_isn + 1;
- 		newtp->write_seq = treq->snt_isn + 1;
- 		newtp->pushed_seq = newtp->write_seq;
-diff -urp a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c	2005-12-14 15:50:41.000000000 -0800
-+++ b/net/ipv6/tcp_ipv6.c	2005-12-21 12:10:27.000000000 -0800
-@@ -1863,6 +1863,7 @@ static int tcp_v6_init_sock(struct sock 
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
- 	skb_queue_head_init(&tp->out_of_order_queue);
-+	skb_queue_head_init(&tp->async_wait_queue);
- 	tcp_init_xmit_timers(sk);
- 	tcp_prequeue_init(tp);
- 
+ 	sock_put(sk);
