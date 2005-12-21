@@ -1,29 +1,56 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 4/5] I/OAT DMA support and TCP acceleration
-Date: Tue, 20 Dec 2005 23:37:39 -0800 (PST)
-Message-ID: <20051220.233739.30595170.davem@davemloft.net>
-References: <43A8F43B.6020307@cosmosbay.com>
-	<41b516cb0512202305p45439464o6b7ba6c2c88062bc@mail.gmail.com>
-	<41b516cb0512202310q78d5a25apab3c9d6fbb17089e@mail.gmail.com>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [RFC][PATCH 0/3] TCP/IP Critical socket communication mechanism
+Date: Wed, 21 Dec 2005 10:11:14 +0100
+Message-ID: <20051221091114.GA8495@elf.ucw.cz>
+References: <20051215033937.GC11856@waste.org> <20051214.203023.129054759.davem@davemloft.net> <Pine.LNX.4.58.0512142318410.7197@w-sridhar.beaverton.ibm.com> <20051215.002120.133621586.davem@davemloft.net> <1134698963.10101.43.camel@w-sridhar2.beaverton.ibm.com> <20051216094810.70082caa@dxpl.pdx.osdl.net> <1134758299.10691.28.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932314AbVLUHhk@vger.kernel.org>
-To: chris.leech@gmail.com
-In-Reply-To: <41b516cb0512202310q78d5a25apab3c9d6fbb17089e@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+	ak@suse.de, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932325AbVLUJLt@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <1134758299.10691.28.camel@w-sridhar2.beaverton.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Leech <chris.leech@gmail.com>
-Date: Tue, 20 Dec 2005 23:10:07 -0800
+Hi!
 
->  That could be a good way to deal with it.  Actually, I should double
-> check the length of tcp_skb_cb.  I took a quick look and thought that
-> there might be some room left there anyway, even though the comment in
-> tcp.h says otherwise.
+> > If it is only one place, why not pre-allocate one "I'm sick now"
+> > skb and hold onto it. Any bigger solution seems to snowball into
+> > a huge mess.
+> 
+> But the problem is even sending/receiving a single packet can cause 
+> multiple dynamic allocations in the networking path all the way from
+> the sockets layer->transport->ip->driver.
+> To successfully send a packet, we may have to do arp, send acks and 
+> create cached routes etc. So my patch tried to identify the allocations
+> that are needed to succesfully send/receive packets over a pre-established
+> socket and adds a new flag GFP_CRITICAL to those calls.
+> This doesn't make any difference when we are not in emergency. But when
+> we go into emergency, VM will try to satisfy these allocations from a
+> critical pool if the normal path leads to failure.
+> 
+> We go into emergency when some management app detects that a swap device
+> is about to fail(we are not yet in OOM, but will enter OOM soon). In order
+> to avoid entering OOM, we need to send a message over a critical socket to
+> a remote server that can initiate failover and switch to a different swap
+> device. The switchover will happen within 2 minutes after it is initiated.
+> In a cluster environment, the remote server also sends a message to other
+> nodes which are also running the management app so that they also enter
+> emergency. Once we successfully switch to a different swap device, the remote
+> server sends a message to all the nodes and they come out of emergency.
+> 
+> During the period of emergency, all other communications can block. But
+> guranteeing the successful delivery of the critical messages will help 
+> in making sure that we do not enter OOM situation.
 
-There isn't, it's basically full on 64-bit systems with ipv6 enabled.
+Why not do it the other way? "If you don't hear from me for 2 minutes,
+do a switchover". Then all you have to do is _not_ to send a packet --
+easier to do.
 
-Just put the DMA cookie object explicitly into struct sk_buff,
-protected by CONFIG_NET_DMA.
+Anything else seems overkill.
+								Pavel
+-- 
+Thanks, Sharp!
