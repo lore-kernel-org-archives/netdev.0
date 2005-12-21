@@ -1,52 +1,33 @@
-From: Chris Leech <chris.leech@gmail.com>
-Subject: Fwd: [RFC][PATCH 4/5] I/OAT DMA support and TCP acceleration
-Date: Tue, 20 Dec 2005 23:10:07 -0800
-Message-ID: <41b516cb0512202310q78d5a25apab3c9d6fbb17089e@mail.gmail.com>
-References: <1135142263.13781.21.camel@cleech-mobl>
-	 <43A8F43B.6020307@cosmosbay.com>
-	 <41b516cb0512202305p45439464o6b7ba6c2c88062bc@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC][PATCH 1/5] I/OAT DMA support and TCP acceleration
+Date: Wed, 21 Dec 2005 10:28:05 +0300
+Message-ID: <20051221072805.GA15850@2ka.mipt.ru>
+References: <1135142254.13781.18.camel@cleech-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932295AbVLUHKK@vger.kernel.org>
-To: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-In-Reply-To: <41b516cb0512202305p45439464o6b7ba6c2c88062bc@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Grover, Andrew" <andrew.grover@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932306AbVLUH2S@vger.kernel.org>
+To: Chris Leech <christopher.leech@intel.com>
 Content-Disposition: inline
+In-Reply-To: <1135142254.13781.18.camel@cleech-mobl>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, bounced from vger the first time due to formatting
+On Tue, Dec 20, 2005 at 09:17:34PM -0800, Chris Leech (christopher.leech@intel.com) wrote:
+> DMA memcpy subsystem
+> Provides an API for offloading memory copies to DMA devices.
+> Along with client registration and DMA channel allocation, the main APIs are:
+> 	dma_async_memcpy_buf_to_buf()
+> 	dma_async_memcpy_buf_to_pg()
+> 	dma_async_memcpy_pg_to_pg()
+> 	dma_async_memcpy_complete()
 
----------- Forwarded message ----------
-From: Chris Leech <christopher.leech@intel.com>
-Date: Dec 20, 2005 11:05 PM
-Subject: Re: [RFC][PATCH 4/5] I/OAT DMA support and TCP acceleration
-To: Eric Dumazet <dada1@cosmosbay.com>
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev
-<netdev@vger.kernel.org>, "Grover, Andrew" <andrew.grover@intel.com>,
-"Ronciak, John" <john.ronciak@intel.com>
+Is here at least some locking?
+All dma chain/engine list manipulations seem very suspicious.
 
-On 12/20/05, Eric Dumazet <dada1@cosmosbay.com> wrote:
->  Please consider not enlarging cb[] if not CONFIG_NET_DMA ?
->
-> I mean, most machines wont have a compatable NIC, so why should they pay the
-> price (memory, cpu) in a critical structure named sk_buff ?
->
-> #ifdef CONFIG_NET_DMA
-> typedef dma_cookie_t net_dma_cookie_t;
-> #else
-> typedef struct {} net_dma_cookie_t;
-> #endif
->
-> ...
->
->         char   cb[40+sizeof(net_dma_cookie_t)];
->
 
- That could be a good way to deal with it.  Actually, I should double
-check the length of tcp_skb_cb.  I took a quick look and thought that
-there might be some room left there anyway, even though the comment in
-tcp.h says otherwise.
-
- -Chris
+-- 
+	Evgeniy Polyakov
