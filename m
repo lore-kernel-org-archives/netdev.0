@@ -1,46 +1,25 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.15-rc6: known regressions in the kernel Bugzilla
-Date: Thu, 22 Dec 2005 02:13:20 +0100
-Message-ID: <20051222011320.GL3917@stusta.de>
-References: <Pine.LNX.4.64.0512181641580.4827@g5.osdl.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] VLAN: Add two missing checks to vlan_ioctl_handler()
+Date: Wed, 21 Dec 2005 18:39:59 -0800 (PST)
+Message-ID: <20051221.183959.77486794.davem@davemloft.net>
+References: <20051221205015.GC24213@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	aabdulla@nvidia.com, jgarzik@pobox.com, netdev@vger.kernel.org,
-	ak@suse.de, discuss@x86-64.org, perex@suse.cz,
-	alsa-devel@alsa-project.org, gregkh@suse.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965008AbVLVBNX@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0512181641580.4827@g5.osdl.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vlan@candelatech.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965038AbVLVCj5@vger.kernel.org>
+To: mikukkon@iki.fi
+In-Reply-To: <20051221205015.GC24213@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following bugs in the kernel Bugzilla [1] contain regressions in 
-2.6.15-rc compared to 2.6.14 with patches:
-- #5632 forcedeth driver occasionally hangs
-- #5758 x86_64: PANIC: early exception
+From: Mika Kukkonen <mikukkon@iki.fi>
+Date: Wed, 21 Dec 2005 22:50:15 +0200
 
-The following bug in the kernel Bugzilla contains a regressions in 
-2.6.15-rc without a patch:
-- #5760 No sound with snd_intel8x0 & ALi M5455 chipset
-        (kobject_register failed)
+> In vlan_ioctl_handler() the code misses couple checks for
+> error return values.
+> 
+> Signed-of-by: Mika Kukkonen <mikukkon@iki.fi>
 
-If we want people to test -rc kernels, we should also try hard to fix 
-the regressions they report (even more if there are already patches 
-for them)...
-
-I've Cc'ed all people who might be able comment on one or more of these 
-issues.
-
-cu
-Adrian
-
-[1] http://bugzilla.kernel.org/
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Looks good, applied, thanks.
