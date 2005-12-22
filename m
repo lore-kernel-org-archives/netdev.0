@@ -1,75 +1,46 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Integrating IXP4xx NPE support in kernel (with IXP4xx
-	accesslibrary)
-Date: Thu, 22 Dec 2005 00:37:20 +0100
-Message-ID: <20051221233720.GB24700@xi.wantstofly.org>
-References: <20051220230806.619131000@localhost.localdomain>
-	<200512211300.38163.sr@denx.de>
-	<20051221135230.GA22807@xi.wantstofly.org>
-	<200512211548.23070.sr@denx.de>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.15-rc6: known regressions in the kernel Bugzilla
+Date: Thu, 22 Dec 2005 02:13:20 +0100
+Message-ID: <20051222011320.GL3917@stusta.de>
+References: <Pine.LNX.4.64.0512181641580.4827@g5.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-To: Stefan Roese <sr@denx.de>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	aabdulla@nvidia.com, jgarzik@pobox.com, netdev@vger.kernel.org,
+	ak@suse.de, discuss@x86-64.org, perex@suse.cz,
+	alsa-devel@alsa-project.org, gregkh@suse.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965008AbVLVBNX@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <200512211548.23070.sr@denx.de>
-List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
-List-Archive: <http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel>
-List-Post: <mailto:linux-arm-kernel@lists.arm.linux.org.uk>
-List-Help: <mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=help>
-List-Subscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
+In-Reply-To: <Pine.LNX.4.64.0512181641580.4827@g5.osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 21, 2005 at 03:48:22PM +0100, Stefan Roese wrote:
+The following bugs in the kernel Bugzilla [1] contain regressions in 
+2.6.15-rc compared to 2.6.14 with patches:
+- #5632 forcedeth driver occasionally hangs
+- #5758 x86_64: PANIC: early exception
 
-> Hi Lennert,
+The following bug in the kernel Bugzilla contains a regressions in 
+2.6.15-rc without a patch:
+- #5760 No sound with snd_intel8x0 & ALi M5455 chipset
+        (kobject_register failed)
 
-Hello,
+If we want people to test -rc kernels, we should also try hard to fix 
+the regressions they report (even more if there are already patches 
+for them)...
 
+I've Cc'ed all people who might be able comment on one or more of these 
+issues.
 
-> > > The main question I have is, where should the IXP4xx access-library
-> > > be located in the kernel directory structure?
-> >
-> > Maybe you can explain to the list readers what it is and what it does?
-> 
-> It's the library needed for the NPE (network processor engines)
-> ethernet driver to access the on chip NPE's (e.g. download microcode,
-> communicate with the NPE's etc.). Unfortunately a pretty big piece of
-> software written to support multiple OS's. :-(
+cu
+Adrian
 
-So that means that there are wrappers for malloc and free and stuff
-like that?  Doesn't sound very likely that you'll get that merged..
+[1] http://bugzilla.kernel.org/
 
+-- 
 
-> > > Please comment on this and let me know if such an effort has any chance
-> > > of getting accepted into the official kernel.
-> >
-> > Assuming that the license issues have all been worked out now, it'll
-> > mostly depend on the quality of the code.  (If this is the same Intel
-> > code that I saw a while ago, I think it'll need a fair amount of work
-> > before it can go in.)
-> 
-> It most likely is the same code. Currently it's version 2.0. This
-> version is available under a special Intel license 
-> (http://www.intel.com/design/network/products/npfamily/ixp425swr1.htm)
-> and under the BSD license (when you bug your Intel contact enough).
-> The files seem to be the same, only the header with the license is
-> exchanged.
-
-That sounds very fishy -- are you 100% sure that the person doing the
-s/Proprietary/BSD/ was in fact authorized to do so?  (This is one reason
-why I'd love to see someone @intel.com submit this code upstream, BTW.)
-
-
-cheers,
-Lennert
-
--------------------------------------------------------------------
-List admin: http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel
-FAQ:        http://www.arm.linux.org.uk/mailinglists/faq.php
-Etiquette:  http://www.arm.linux.org.uk/mailinglists/etiquette.php
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
