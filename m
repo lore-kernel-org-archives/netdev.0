@@ -1,34 +1,59 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.15-rc6: known regressions in the kernel Bugzilla
-Date: Thu, 22 Dec 2005 07:16:51 -0800 (PST)
-Message-ID: <20051222.071651.43525556.davem@davemloft.net>
-References: <Pine.LNX.4.64.0512181641580.4827@g5.osdl.org>
-	<20051222011320.GL3917@stusta.de>
-	<20051222005209.0b1b25ca.akpm@osdl.org>
+From: Martin Tessun <tessun+Majordomo.Linux-Kernel.bcm43xx-xUmxicX565+Z9vWoFJJngh2eb7JE58TQ@public.gmane.org>
+Subject: Re: Machine hard lock
+Date: Thu, 22 Dec 2005 17:51:04 +0100
+Message-ID: <43AAD978.2050303@mtessun.dyndns.org>
+References: <20051222075903.3E196429EA9@mognix.dark-green.com>
+Reply-To: martin.tessun-xUmxicX565+Z9vWoFJJngh2eb7JE58TQ@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	aabdulla@nvidia.com, jgarzik@pobox.com, netdev@vger.kernel.org,
-	ak@suse.de, discuss@x86-64.org, perex@suse.cz,
-	alsa-devel@alsa-project.org, gregkh@suse.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030196AbVLVPRP@vger.kernel.org>
-To: akpm@osdl.org
-In-Reply-To: <20051222005209.0b1b25ca.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <20051222075903.3E196429EA9-LloE6OrRT0E/VVZAJlljfpowlv4uC7bZ@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 22 Dec 2005 00:52:09 -0800
+hostmaster-uTGiPWHMmZuzZXS1Dc/lvw@public.gmane.org wrote:
+> The combination of the latest devicescape stack ( 051221 )
+> and latest dscape branch makes my Powerbook hard lock after 
+> rmmod the kernel modules and stopping wpa_supplicant.
+> 
+> Basicly i do the following before it hard locks :
+> 
+> rmmod bcm43xx
+> killall wpa_supplicant 2>/dev/null
+> rmmod rate_control
+> rmmod 80211
 
-> From: Charles-Edouard Ruault <ce@ruault.com>
-> Subject: [BUG] kernel 2.6.14.2 breaks IPSEC
+At least you get them inserted ;) When I try to modprobe rate_control I 
+get the following:
 
-Herbert's reply at the end of the thread explains that what the user
-is doing, applying SNAT to IPSEC, has undefined results currently.
+Dec 22 15:27:48 kirk kernel: 80211: module license 'unspecified' taints 
+kernel.
+---> This line
+Dec 22 15:27:48 kirk kernel: 80211: ieee80211_tx_packet_data is bigger 
+than the skb->cb (48 > 40)
+---> This line
+Dec 22 15:27:48 kirk kernel: rate_control: Unknown symbol 
+ieee80211_rate_control_unregister
+Dec 22 15:27:48 kirk kernel: rate_control: Unknown symbol sta_info_release
+Dec 22 15:27:48 kirk kernel: rate_control: Unknown symbol 
+ieee80211_rate_control_register
+Dec 22 15:27:48 kirk kernel: rate_control: Unknown symbol sta_info_get
 
-Using netfilter with IPSEC is known to be broken since the beginning
-of our IPSEC implementation, and we plan to cure it in 2.6.16 with
-some excellent work done by Patrick McHardy and Herbert Xu.
+Most probably caused by my 64-bit-kernel. I have to dig into that.
 
-So just remove that from your list please, thanks.
+Nevertheless, I would address this sort of hangup to jbenc and probably 
+jgarzik on linux-kernel (or better netdev).
+
+Regards,
+Martin
