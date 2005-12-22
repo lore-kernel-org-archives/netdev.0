@@ -1,25 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] VLAN: Add two missing checks to vlan_ioctl_handler()
-Date: Wed, 21 Dec 2005 18:39:59 -0800 (PST)
-Message-ID: <20051221.183959.77486794.davem@davemloft.net>
-References: <20051221205015.GC24213@localhost.localdomain>
+Subject: Re: [2.6 patch] drivers/net/sungem.c: gem_remove_one mustn't be
+ __devexit
+Date: Wed, 21 Dec 2005 18:50:30 -0800 (PST)
+Message-ID: <20051221.185030.131647618.davem@davemloft.net>
+References: <200512211323.19242.meyer@work.de>
+	<20051221132543.GG5359@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vlan@candelatech.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965038AbVLVCj5@vger.kernel.org>
-To: mikukkon@iki.fi
-In-Reply-To: <20051221205015.GC24213@localhost.localdomain>
+Cc: meyer@work.de, akpm@osdl.org, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965044AbVLVCuk@vger.kernel.org>
+To: bunk@stusta.de
+In-Reply-To: <20051221132543.GG5359@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mika Kukkonen <mikukkon@iki.fi>
-Date: Wed, 21 Dec 2005 22:50:15 +0200
+From: Adrian Bunk <bunk@stusta.de>
+Date: Wed, 21 Dec 2005 14:25:43 +0100
 
-> In vlan_ioctl_handler() the code misses couple checks for
-> error return values.
+> gem_remove_one() is called from the __devinit gem_init_one().
 > 
-> Signed-of-by: Mika Kukkonen <mikukkon@iki.fi>
+> Therefore, gem_remove_one() mustn't be __devexit.
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Looks good, applied, thanks.
+Looks good, applied, thanks Adrian.
