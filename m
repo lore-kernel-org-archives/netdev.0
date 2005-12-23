@@ -1,44 +1,37 @@
-From: "πÊ ¡¯«ÿ" <hailan410jun7503zzanga77077jun7503hailan410jun7503jin7113zzanga77077jin7113bmw4518jin7113jun7503zzanga77077@chol.com>
-Subject: =?ISO-8859-1?Q?=BF=E4=B0=A1=C1=F6=B5=B5=BB=E7=20=C0=DA=B0=DD=C1=F5?=
-	=?ISO-8859-1?Q?=C0=DA=B7=E1=B8=A6=20=B9=AB=B7=E1=B7=CE?=
-	=?ISO-8859-1?Q?=B9=DE=BE=C6=BA=B8=BC=BC=BF=E4.?=
-Date: Sat, 24 Dec 2005 13:48:35 +0500
-Message-ID: <IQCTEPNBEMDFITLTFSSHIYL@daum.net>
-Reply-To: "√ﬂ √·∫¿" <jin7113bmw4518jin7113hailan410zzanga77077hailan410hailan410jun7503jin7113jun7503@dreamwiz.com>
+From: "taren garza" <stewaner@smsdosug.ru>
+Subject: Do away with everything you owe not even paying another dime
+Date: Fri, 23 Dec 2005 14:38:43 +1100
+Message-ID: <2f3901c607ce$92e97a70$769a0c07@stewaner>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--7628393201402509730"
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, majordomo@oss.sgi.com
+To: "Jonell Mccoy" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----0919720507101934940
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Get rid of all you are indebted for not even sending another cent.  End the
+embarrassing phone calls. Bring to an end to the sending of payments! As it
+turns out nearly all lending establishments not following the laws here in
+the US. Mind-boggling but accurate!
 
-<TABLE  BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D"center">	<TR>	=
-<TD><a href=3D"http://%77%77%77%2e%71%6br%67%55%53w%4e%2eco%2ekr/bbs/table=
-/form/yoga2_01.php?partner_id=3Da1234"><IMG SRC=3D"http://%77=
-%77%77%2e%53e%6e%67%57%4f%4e24%2eco%2ekr/bbs/table/1201/yoga2.gif" border=3D=
-"0"></a><A href=3D"http://%77%77%77%2e%72%4ca%61%6c%53%77l%2eco=
-%2ekr/bbs/table/form/yoga2_01.php?partner_id=3Da1234"><IMG src=3D"http://=
-%77%77%77%2e%53e%6e%67%57%4f%4e24%2eco%2ekr/bbs/table/1201/yoga2-1.gif" bo=
-rder=3D0></A><A href=3D"http://%77%77%77%2e%46%42%44%6c%53g%4b=
-%2eco%2ekr/bbs/table/form/yoga2_01.php?partner_id=3Da1234"><IMG src=3D"htt=
-p://%77%77%77%2e%53e%6e%67%57%4f%4e24%2eco%2ekr/bbs/table/1201/yoga2-2.gif=
-" border=3D0></A><A href=3D"http://%77%77%77%2e%64l%63%4b%64%52=
-%62%2eco%2ekr/bbs/table/form/yoga2_01.php?partner_id=3Da1234"><IMG src=3D"=
-http://%77%77%77%2e%53e%6e%67%57%4f%4e24%2eco%2ekr/bbs/table/1201/yoga2-3.=
-gif" border=3D0></A><A href=3D"http://%77%77%77%2e%45%48%61%70=
-%44%6c%53%2eco%2ekr/bbs/table/form/yoga2_01.php?partner_id=3Da1234"><IMG s=
-rc=3D"http://%77%77%77%2e%53e%6e%67%57%4f%4e24%2eco%2ekr/bbs/table/1201/yo=
-ga2-4.gif" border=3D0></A>	</TD>	</TR><TR><TD bgcolor=3D"#6666FF"><p align=
-=3D"center"><br><a href=3D"http://%77%77%77%2e%54%6e%54%4c%53=
-%72%6a%71%6e2%2eever%2eto"><IMG height=3D86 alt=3Dremail.gif src=3D"http:/=
-/cfs6.planet.daum.net/upload_control/pcp_download.php?fhandle=3DTk9NaEBmcz=
-YucGxhbmV0LmRhdW0ubmV0Oi80ODc2MTYwLzAvMC5naWY=3D&filename=3Dremail.gif&vie=
-wonly=3DY" width=3D505 border=3D0></a></p></TD></tr></table>
+Visit us for thorough fine points in relation to our technique at 0.00
+payment or responsibility. You have not anything to loose and lots to
+obtain.
 
-----7146163247309941301--
+http://mx.geocities.com/mangie_lowstetter/
+Complete information or to bring to a close receiving or to view postal
+
+Raise leads and business presence quickly through experienced and massive
+electronic mail advertising
+Use the biggest and the best markupholders@emailacc.com
+
+
+It was nearly evening, and Rob had wandered down by the wharves to look at
+the shipping, when his attention was called to an ugly looking bull dog,
+which ran toward him and began barking ferociously. Get out! said the boy,
+carelessly, and made a kick at the brute
+The dog uttered a fierce growl and sprang upon him with bared teeth and
+flashing red eyes
