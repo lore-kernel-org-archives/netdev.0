@@ -1,40 +1,50 @@
-From: Linus Torvalds <torvalds@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH] forcedeth: fix random memory scribbling bug
-Date: Sat, 24 Dec 2005 11:57:48 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0512241155250.14098__12989.5490514629$1135454367$gmane$org@g5.osdl.org>
-References: <43AD4ADC.8050004@colorfullife.com> <43AD64AB.2070306@pobox.com>
- <43AD726A.5010703@colorfullife.com>
+Date: Sat, 24 Dec 2005 14:58:26 -0500
+Message-ID: <43ADA862.6010906__15352.6237154894$1135454426$gmane$org@pobox.com>
+References: <43AD4ADC.8050004@colorfullife.com> <Pine.LNX.4.64.0512241145520.14098@g5.osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, Ayaz Abdulla <AAbdulla@nvidia.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+        Ayaz Abdulla <AAbdulla@nvidia.com>,
         Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
         Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Manfred Spraul <manfred@colorfullife.com>
-In-Reply-To: <43AD726A.5010703@colorfullife.com>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.64.0512241145520.14098@g5.osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-On Sat, 24 Dec 2005, Manfred Spraul wrote:
+Linus Torvalds wrote:
+> However, that
 > 
-> > 2) I have requested multiple times that you avoid MIME...
+> 	"skb->end - skb->data"
 > 
-> It's the first time that you complain about Content-Transfer-Encoding: 7bit
-> attachments.
+> calculation is a bit strange. It correctly maps the whole skb, but 
 
-These proper text encodings are easy to _apply_, because the raw email is 
-uncorrupted. 
+nod
 
-However, attachments are still broken for a very fundamental reason: 
-basically no email client will ever quote them on replies. Which means 
-that if somebody has commentary about some specific part of the patch, the 
-attachement is _totally_ the wrong thing to do.
 
-In other words, there's a reason I encourage people VERY STRONGLY to use 
-in-line patches. If you have a broken mailer that corrupts whitespace, 
-please just fix it.
+> wouldn't it make more sense to use the length we actually tell the card to 
+> use? 
+> 
+> In other words, wouldn't it be a whole lot more sensible and logical to 
+> use
+> 
+> 	np->rx_buf_sz
+> 
+> instead? That's the value we use for allocation and that's the size we 
+> tell the card we have.
 
-		Linus
+That's the sort of thing I prefer.
+
+
+> Of course, on the alloc path, it seems to add an additional 
+> "NV_RX_ALLOC_PAD" thing, so maybe the "end-data" thing makes sense.
+
+None of the other ethernet drivers do 'end - data', which is why I 
+hesitated quite a bit on this change.
+
+	Jeff
