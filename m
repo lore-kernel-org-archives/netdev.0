@@ -1,18 +1,19 @@
 From: Deepak Saxena <dsaxena@plexity.net>
 Subject: Re: Integrating IXP4xx NPE support in kernel (with IXP4xx
 	accesslibrary)
-Date: Sat, 24 Dec 2005 06:04:06 -0800
-Message-ID: <20051224140406.GB9840@plexity.net>
+Date: Sat, 24 Dec 2005 06:07:52 -0800
+Message-ID: <20051224140752.GC9840@plexity.net>
 References: <20051220230806.619131000@localhost.localdomain>
 	<200512211300.38163.sr@denx.de>
 	<20051221135230.GA22807@xi.wantstofly.org>
+	<200512211548.23070.sr@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.arm.linux.org.uk
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+To: Stefan Roese <sr@denx.de>
 Content-Disposition: inline
-In-Reply-To: <20051221135230.GA22807@xi.wantstofly.org>
+In-Reply-To: <200512211548.23070.sr@denx.de>
 List-Unsubscribe: <http://lists.arm.linux.org.uk/mailman/listinfo/linux-arm-kernel>,
 	<mailto:linux-arm-kernel-request@lists.arm.linux.org.uk?subject=unsubscribe>
 List-Archive: <http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel>
@@ -24,22 +25,32 @@ Sender: linux-arm-kernel-bounces@lists.arm.linux.org.uk
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.arm.linux.org.uk
 List-Id: netdev.vger.kernel.org
 
-On Dec 21 2005, at 14:52, Lennert Buytenhek was caught saying:
-> On Wed, Dec 21, 2005 at 01:00:34PM +0100, Stefan Roese wrote:
+On Dec 21 2005, at 15:48, Stefan Roese was caught saying:
+> Hi Lennert,
 > 
-> > The main question I have is, where should the IXP4xx access-library
-> > be located in the kernel directory structure?
+> On Wednesday 21 December 2005 14:52, Lennert Buytenhek wrote:
+> > On Wed, Dec 21, 2005 at 01:00:34PM +0100, Stefan Roese wrote:
+> > > The main question I have is, where should the IXP4xx access-library
+> > > be located in the kernel directory structure?
+> >
+> > Maybe you can explain to the list readers what it is and what it does?
 > 
-> Maybe you can explain to the list readers what it is and what it does?
-> 
-> If it's ixp4xx-specific, arch/arm/mach-ixp4xx might just be the best
-> place.  The ixp2000 microengine loader was put into arch/arm/mach-ixp2000
-> for mostly that reason (being ixp2000-specific), while the ethernet driver
-> that uses that microengine loader will live under drivers/net/.
+> It's the library needed for the NPE (network processor engines) ethernet 
+> driver to access the on chip NPE's (e.g. download microcode, communicate with 
+> the NPE's etc.). Unfortunately a pretty big piece of software written to 
+> support multiple OS's. :-(
 
-The access library is also used by the ixp2350 and will be used by next
-generation Intel parts, so it needs to go somewhere common.
-arch/arm/common or maybe drivers/net/ixp.
+As I mentioned in my earlier reply, we don't want all those abstractions
+in the kernel.
+
+> It most likely is the same code. Currently it's version 2.0. This version is 
+> available under a special Intel license 
+> (http://www.intel.com/design/network/products/npfamily/ixp425swr1.htm) and 
+> under the BSD license (when you bug your Intel contact enough). The files 
+> seem to be the same, only the header with the license is exchanged.
+
+I'll take a look a this some more, but is it just the HAL or the whole
+stack that's open?
 
 ~Deepak
 
