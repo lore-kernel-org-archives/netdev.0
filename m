@@ -1,30 +1,48 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] forcedeth: TSO fix for large buffers
-Date: Tue, 03 Jan 2006 21:33:55 +0100
-Message-ID: <43BADFB3.5050908@colorfullife.com>
-References: <200512251451.jBPEpgNe018712@dbl.q-ag.de> <20051225.125742.65007619.davem@davemloft.net> <3E346722.7070304@nvidia.com>
+From: Graham Gower <graham.gower@gmail.com>
+Subject: Re: [PATCH] [TRIVIAL] prism54/islpci_eth.c: dev_kfree_skb in irq context
+Date: Wed, 4 Jan 2006 09:33:27 +1030
+Message-ID: <6ec4247d0601031503k2232c472o@mail.gmail.com>
+References: <6.1.1.1.2.20060103105620.02c523e0@192.168.6.12>
+	 <6ec4247d0601030419w377fd396x@mail.gmail.com>
+	 <43BA7810.6010308@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, manfred@dbl.q-ag.de,
-	jgarzik@pobox.com, afu@fugmann.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, torvalds@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932520AbWACUfW@vger.kernel.org>
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-In-Reply-To: <3E346722.7070304@nvidia.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Roger While <simrw@sim-basis.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932511AbWACXD3@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <43BA7810.6010308@trash.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla wrote:
+On 03/01/06, Patrick McHardy <kaber@trash.net> wrote:
+> Graham Gower wrote:
+> > My logs were starting to fill with messages exatcly like that mentioned here:
+> > http://patchwork.netfilter.org/netfilter-devel/patch.pl?id=2840
+> >
+> > In any event, the patch at the end of that link was never applied (it doesn't
+> > fix the other call to dev_kfree_skb). After applying my patch, I've not had any
+> > more messages in the logs.
+>
+> The patch has been applied to 2.6.15-rc. Only the first hunk of your
+> patch is still required, but it doesn't apply anymore. Can you send
+> a new patch against 2.6.15 please?
+>
 
-> If you look at the code, I do not set the NV_TX2_VALID bit (stored in 
-> np->tx_flags) in the first tx descriptor
+Ok, here's a new one. Hope I got it right this time.
 
-You are right: tx_flags starts as 0 and is only set to np->tx_flags 
-after the first tx descriptor was set up.
-I overlooked that point, sorry.
+Signed-off-by: Graham Gower <graham.gower@gmail.com>
 
-Jeff: Could you add the patch to your tree?
+--- linux-2.6.15/drivers/net/wireless/prism54/islpci_eth.c.orig
++++ linux-2.6.15/drivers/net/wireless/prism54/islpci_eth.c
+@@ -177,7 +177,7 @@
+ #endif
 
---
-    Manfred
+ 			newskb->dev = skb->dev;
+-			dev_kfree_skb(skb);
++			dev_kfree_skb_irq(skb);
+ 			skb = newskb;
+ 		}
+ 	}
