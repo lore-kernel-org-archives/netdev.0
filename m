@@ -1,48 +1,38 @@
-From: Graham Gower <graham.gower@gmail.com>
-Subject: Re: [PATCH] [TRIVIAL] prism54/islpci_eth.c: dev_kfree_skb in irq context
-Date: Wed, 4 Jan 2006 09:33:27 +1030
-Message-ID: <6ec4247d0601031503k2232c472o@mail.gmail.com>
-References: <6.1.1.1.2.20060103105620.02c523e0@192.168.6.12>
-	 <6ec4247d0601030419w377fd396x@mail.gmail.com>
-	 <43BA7810.6010308@trash.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] forcedeth: TSO fix for large buffers
+Date: Tue, 3 Jan 2006 22:55:27 -0800
+Message-ID: <20060103225527.0e7c4ac0.akpm@osdl.org>
+References: <200512251451.jBPEpgNe018712@dbl.q-ag.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Roger While <simrw@sim-basis.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932511AbWACXD3@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <43BA7810.6010308@trash.net>
-Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, aabdulla@nvidia.com, afu@fugmann.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751581AbWADG4M@vger.kernel.org>
+To: Manfred Spraul <manfred@dbl.q-ag.de>
+In-Reply-To: <200512251451.jBPEpgNe018712@dbl.q-ag.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/01/06, Patrick McHardy <kaber@trash.net> wrote:
-> Graham Gower wrote:
-> > My logs were starting to fill with messages exatcly like that mentioned here:
-> > http://patchwork.netfilter.org/netfilter-devel/patch.pl?id=2840
-> >
-> > In any event, the patch at the end of that link was never applied (it doesn't
-> > fix the other call to dev_kfree_skb). After applying my patch, I've not had any
-> > more messages in the logs.
+Manfred Spraul <manfred@dbl.q-ag.de> wrote:
 >
-> The patch has been applied to 2.6.15-rc. Only the first hunk of your
-> patch is still required, but it doesn't apply anymore. Can you send
-> a new patch against 2.6.15 please?
->
+> This patch contains a bug fix for large buffers. Originally, if a tx 
+>  buffer to be sent was larger then the maximum size of the tx descriptor,
+> 
+>  it would overwrite other control bits. In this patch, the buffer is 
+>  split over multiple descriptors. Also, the fragments are now setup in 
+>  forward order.
+> 
+>  Signed-off-by: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+>  Rediffed against forcedeth 0.48
+>  Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
 
-Ok, here's a new one. Hope I got it right this time.
+I've assumed that this patch if From: Ayaz.   Please confirm.
 
-Signed-off-by: Graham Gower <graham.gower@gmail.com>
+If so, it should have had
 
---- linux-2.6.15/drivers/net/wireless/prism54/islpci_eth.c.orig
-+++ linux-2.6.15/drivers/net/wireless/prism54/islpci_eth.c
-@@ -177,7 +177,7 @@
- #endif
+	From: Ayaz Abdulla <aabdulla@nvidia.com>
 
- 			newskb->dev = skb->dev;
--			dev_kfree_skb(skb);
-+			dev_kfree_skb_irq(skb);
- 			skb = newskb;
- 		}
- 	}
+at the top of the changlog, thanks.
