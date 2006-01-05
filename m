@@ -1,40 +1,46 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: PCI DEVICE ID PROBLEM and Intel Intergrated eth card - a bios bug (?)
-Date: Wed, 4 Jan 2006 18:56:29 -0800
-Message-ID: <4807377b0601041856n3a9f53e8uf03dc330190432ea@mail.gmail.com>
-References: <1755038059.20060105013532@dione.ids.pl>
-	 <4807377b0601041854t4b1410fco5c307db6704e03f6@mail.gmail.com>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] hostap: allow flashing firmware
+Date: Wed, 4 Jan 2006 21:18:57 -0800
+Message-ID: <20060105051857.GO8939@jm.kir.nu>
+References: <1135984946.17805.21.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: mj@ucw.cz, linux-kernel@vger.kernel.org,
-	NetDEV list <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751241AbWAEC4c@vger.kernel.org>
-To: Krzysztof Baranowski <kgb@dione.ids.pl>
-In-Reply-To: <4807377b0601041854t4b1410fco5c307db6704e03f6@mail.gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>, hostap <hostap@shmoo.com>
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Pavel Roskin <proski@gnu.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1135984946.17805.21.camel@dv>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://lists.shmoo.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On 1/4/06, Krzysztof Baranowski <kgb@dione.ids.pl> wrote:
-<snip>
-> After the upgrade my network card disappeared from both Linux and Win.
->
-> After short investigation I noticed one strange incosistency. Under
-> the new BIOS the PCI device is reported as PCI VENDOR ID 1459 (
-> which is gigabyte) DEV_ID 1019. However Windows driver for this
-> card (the lates from both intel and gigabyte) is looking for
-> VENDOR_ID 8086 (intel).
+On Fri, Dec 30, 2005 at 06:22:26PM -0500, Pavel Roskin wrote:
 
-IMO, gigabyte should not have changed the vendor id.  Effectively
-they've said they will be the only ones supporting this hardware (not
-intel).  Generally subvendor and subdevice ids should be the only
-thing changed by OEMs.  Since it was changed by a bios upgrade i bet
-its a bios bug and should be reported to gigabyte.
+> Host AP driver has code to support writing firmware to non-volatile
+> memory, a.k.a. flash.  This code has been extensively tested when Host
+> AP was a standalone driver.
+> 
+> Add a configuration option to the kernel to allow enabling this
+> functionality.  Improve the description of the RAM download option. 
+> Mention cards that require it.  Remove obsolete scary comment.
 
-Until then you can hack your local kernel to get around it, but the
-e1000 driver probably shouldn't change to support this device ID.
+I'm not completely against this change, but that scary comment is there
+on purpose and it is not fully obsolete. It is still possible to get
+HFA3841 cards into state which require hardware modifications to recover
+from (i.e., they are as good as dead for most users). Taken into this
+account, I would prefer that the help text for HOSTAP_FIRMWARE_NVRAM
+would include a warning about the potential issues of using incorrect
+firmware images. In most cases, RAM (volatile) download can be used to
+upgrade the firmware without having to modify the flash contents. This
+is also what the current Windows drivers are doing.
 
-also, this is LKML and mentioning windows is just flame bait. :-)
-
-jesse
+-- 
+Jouni Malinen                                            PGP id EFC895FA
