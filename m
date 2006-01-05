@@ -1,66 +1,34 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] fix ipvs compilation
-Date: Thu, 5 Jan 2006 14:59:43 +0100
-Message-ID: <20060105135943.GA3831@stusta.de>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [2.6 patch] fix ipvs compilation
+Date: Thu, 5 Jan 2006 12:21:39 -0200
+Message-ID: <39e6f6c70601050621l1a63d061pd91e90035bf79873@mail.gmail.com>
+References: <20060105135943.GA3831@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750831AbWAEN7q@vger.kernel.org>
-To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751278AbWAEOVl@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060105135943.GA3831@stusta.de>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I don't know which change broke it, but I'm getting the following 
-compile error in Linus' tree:
+On 1/5/06, Adrian Bunk <bunk@stusta.de> wrote:
+> I don't know which change broke it, but I'm getting the following
+> compile error in Linus' tree:
+>
+> <--  snip  -->
+>
+> ...
+>   CC      net/ipv4/ipvs/ip_vs_sched.o
+> net/ipv4/ipvs/ip_vs_sched.c: In function 'ip_vs_sched_getbyname':
+> net/ipv4/ipvs/ip_vs_sched.c:110: warning: implicit declaration of function 'local_bh_disable'
+> net/ipv4/ipvs/ip_vs_sched.c:124: warning: implicit declaration of function 'local_bh_enable'
 
-<--  snip  -->
+Thanks Adrian, its related to some header sanitization work I did.
 
-...
-  CC      net/ipv4/ipvs/ip_vs_sched.o
-net/ipv4/ipvs/ip_vs_sched.c: In function 'ip_vs_sched_getbyname':
-net/ipv4/ipvs/ip_vs_sched.c:110: warning: implicit declaration of function 'local_bh_disable'
-net/ipv4/ipvs/ip_vs_sched.c:124: warning: implicit declaration of function 'local_bh_enable'
-...
-  CC      net/ipv4/ipvs/ip_vs_est.o
-net/ipv4/ipvs/ip_vs_est.c: In function 'ip_vs_new_estimator':
-net/ipv4/ipvs/ip_vs_est.c:147: warning: implicit declaration of function 'local_bh_disable'
-net/ipv4/ipvs/ip_vs_est.c:156: warning: implicit declaration of function 'local_bh_enable'
-...
-  LD      .tmp_vmlinux1
-net/built-in.o: In function `ip_vs_sched_getbyname':ip_vs_sched.c:(.text+0x99cfa): undefined reference to `local_bh_disable'
-net/built-in.o: In function `register_ip_vs_scheduler': undefined reference to `local_bh_disable'
-net/built-in.o: In function `unregister_ip_vs_scheduler': undefined reference to `local_bh_disable'
-net/built-in.o: In function `ip_vs_new_estimator': undefined reference to `local_bh_disable'
-net/built-in.o: In function `ip_vs_kill_estimator': undefined reference to `local_bh_disable'
-net/built-in.o: more undefined references to `local_bh_disable' follow
-make: *** [.tmp_vmlinux1] Error 1
+Acked-by: Arnaldo Carvalho de Melo <acme@mandriva.com>
 
-<--  snip  -->
-
-
-This patch fixes them by #include'ing linux/interrupt.h.
-
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-git/net/ipv4/ipvs/ip_vs_sched.c.old	2006-01-05 14:56:44.000000000 +0100
-+++ linux-git/net/ipv4/ipvs/ip_vs_sched.c	2006-01-05 14:56:59.000000000 +0100
-@@ -22,6 +22,7 @@
- #include <linux/module.h>
- #include <linux/sched.h>
- #include <linux/spinlock.h>
-+#include <linux/interrupt.h>
- #include <asm/string.h>
- #include <linux/kmod.h>
- 
---- linux-git/net/ipv4/ipvs/ip_vs_est.c.old	2006-01-05 14:57:15.000000000 +0100
-+++ linux-git/net/ipv4/ipvs/ip_vs_est.c	2006-01-05 14:57:27.000000000 +0100
-@@ -18,6 +18,7 @@
- #include <linux/jiffies.h>
- #include <linux/slab.h>
- #include <linux/types.h>
-+#include <linux/interrupt.h>
- 
- #include <net/ip_vs.h>
- 
+- Arnaldo
