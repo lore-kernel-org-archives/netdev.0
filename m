@@ -1,81 +1,66 @@
-From: Henrik Brix Andersen <brix@gentoo.org>
-Subject: Re: [PATCH] hostap: allow flashing firmware
-Date: Thu, 5 Jan 2006 12:34:58 +0100
-Message-ID: <20060105113458.GC14998@osgiliath.brixandersen.dk>
-References: <1135984946.17805.21.camel@dv> <20060105051857.GO8939@jm.kir.nu>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] fix ipvs compilation
+Date: Thu, 5 Jan 2006 14:59:43 +0100
+Message-ID: <20060105135943.GA3831@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1931543265=="
-Cc: NetDev <netdev@vger.kernel.org>
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: hostap@shmoo.com
-In-Reply-To: <20060105051857.GO8939@jm.kir.nu>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://lists.shmoo.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750831AbWAEN7q@vger.kernel.org>
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I don't know which change broke it, but I'm getting the following 
+compile error in Linus' tree:
 
---===============1931543265==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NU0Ex4SbNnrxsi6C"
-Content-Disposition: inline
+<--  snip  -->
+
+...
+  CC      net/ipv4/ipvs/ip_vs_sched.o
+net/ipv4/ipvs/ip_vs_sched.c: In function 'ip_vs_sched_getbyname':
+net/ipv4/ipvs/ip_vs_sched.c:110: warning: implicit declaration of function 'local_bh_disable'
+net/ipv4/ipvs/ip_vs_sched.c:124: warning: implicit declaration of function 'local_bh_enable'
+...
+  CC      net/ipv4/ipvs/ip_vs_est.o
+net/ipv4/ipvs/ip_vs_est.c: In function 'ip_vs_new_estimator':
+net/ipv4/ipvs/ip_vs_est.c:147: warning: implicit declaration of function 'local_bh_disable'
+net/ipv4/ipvs/ip_vs_est.c:156: warning: implicit declaration of function 'local_bh_enable'
+...
+  LD      .tmp_vmlinux1
+net/built-in.o: In function `ip_vs_sched_getbyname':ip_vs_sched.c:(.text+0x99cfa): undefined reference to `local_bh_disable'
+net/built-in.o: In function `register_ip_vs_scheduler': undefined reference to `local_bh_disable'
+net/built-in.o: In function `unregister_ip_vs_scheduler': undefined reference to `local_bh_disable'
+net/built-in.o: In function `ip_vs_new_estimator': undefined reference to `local_bh_disable'
+net/built-in.o: In function `ip_vs_kill_estimator': undefined reference to `local_bh_disable'
+net/built-in.o: more undefined references to `local_bh_disable' follow
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
 
 
---NU0Ex4SbNnrxsi6C
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch fixes them by #include'ing linux/interrupt.h.
 
-On Wed, Jan 04, 2006 at 09:18:57PM -0800, Jouni Malinen wrote:
-> I'm not completely against this change, but that scary comment is there
-> on purpose and it is not fully obsolete. It is still possible to get
-> HFA3841 cards into state which require hardware modifications to recover
-> from (i.e., they are as good as dead for most users). Taken into this
-> account, I would prefer that the help text for HOSTAP_FIRMWARE_NVRAM
-> would include a warning about the potential issues of using incorrect
-> firmware images. In most cases, RAM (volatile) download can be used to
-> upgrade the firmware without having to modify the flash contents. This
-> is also what the current Windows drivers are doing.
 
-I would welcome such a warning as well - perhaps make
-CONFIG_HOSTAP_FIRMWARE_NVRAM depend on CONFIG_EXPERIMENTAL as well?
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Regards,
-Brix
---=20
-Henrik Brix Andersen <brix@gentoo.org>
-Gentoo Metadistribution | Mobile computing herd
-
---NU0Ex4SbNnrxsi6C
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-Comment: GnuPG signed
-
-iD8DBQFDvQRiv+Q4flTiePgRAlCuAKC4HG0k/iVzxBJBfvcSdGtr4Y8hpQCeJBWV
-jIszB6HooEgZdyRDDblBxVE=
-=4x/Y
------END PGP SIGNATURE-----
-
---NU0Ex4SbNnrxsi6C--
-
---===============1931543265==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-HostAP mailing list
-HostAP@shmoo.com
-http://lists.shmoo.com/mailman/listinfo/hostap
-
---===============1931543265==--
+--- linux-git/net/ipv4/ipvs/ip_vs_sched.c.old	2006-01-05 14:56:44.000000000 +0100
++++ linux-git/net/ipv4/ipvs/ip_vs_sched.c	2006-01-05 14:56:59.000000000 +0100
+@@ -22,6 +22,7 @@
+ #include <linux/module.h>
+ #include <linux/sched.h>
+ #include <linux/spinlock.h>
++#include <linux/interrupt.h>
+ #include <asm/string.h>
+ #include <linux/kmod.h>
+ 
+--- linux-git/net/ipv4/ipvs/ip_vs_est.c.old	2006-01-05 14:57:15.000000000 +0100
++++ linux-git/net/ipv4/ipvs/ip_vs_est.c	2006-01-05 14:57:27.000000000 +0100
+@@ -18,6 +18,7 @@
+ #include <linux/jiffies.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
++#include <linux/interrupt.h>
+ 
+ #include <net/ip_vs.h>
+ 
