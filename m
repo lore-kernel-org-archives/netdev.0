@@ -1,74 +1,39 @@
-From: "Paul E. McKenney" <paulmck@us.ibm.com>
-Subject: Re: [PATCH, RFC] RCU : OOM avoidance and lower latency
-Date: Fri, 6 Jan 2006 08:47:02 -0800
-Message-ID: <20060106164702.GA5087@us.ibm.com>
-References: <20060105235845.967478000@sorel.sous-sol.org> <20060106004555.GD25207@sorel.sous-sol.org> <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org> <43BE43B6.3010105@cosmosbay.com> <1136554632.30498.7.camel@localhost.localdomain>
-Reply-To: paulmck@us.ibm.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
+Date: Fri, 06 Jan 2006 09:02:42 -0800
+Message-ID: <43BEA2B2.7060104@candelatech.com>
+References: <1136541243.4037.18.camel@localhost> <200601061200.59376.mbuesch@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>,
-	Linus Torvalds <torvalds@osdl.org>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752478AbWAFQrH@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1136554632.30498.7.camel@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, bcm43xx-dev@lists.berlios.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752480AbWAFRDY@vger.kernel.org>
+To: Michael Buesch <mbuesch@freenet.de>
+In-Reply-To: <200601061200.59376.mbuesch@freenet.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 06, 2006 at 01:37:12PM +0000, Alan Cox wrote:
-> On Gwe, 2006-01-06 at 11:17 +0100, Eric Dumazet wrote:
-> > I assume that if a CPU queued 10.000 items in its RCU queue, then the oldest 
-> > entry cannot still be in use by another CPU. This might sounds as a violation 
-> > of RCU rules, (I'm not an RCU expert) but seems quite reasonable.
-> 
-> Fixing the real problem in the routing code would be the real fix. 
-> 
-> The underlying problem of RCU and memory usage could be solved more
-> safely by making sure that the sleeping memory allocator path always
-> waits until at least one RCU cleanup has occurred after it fails an
-> allocation before it starts trying harder. That ought to also naturally
-> throttle memory consumers more in the situation which is the right
-> behaviour.
+Michael Buesch wrote:
 
-A quick look at rt_garbage_collect() leads me to believe that although
-the IP route cache does try to limit its use of memory, it does not
-fully account for memory that it has released to RCU, but that RCU has
-not yet freed due to a grace period not having elapsed.
+> How would the virtual interfaces look like? That is quite easy to answer.
+> They are net_devices, as they transfer data.
+> They should probaly _not_ be on top of the ethernet, as 80211 does not
+> have very much in common with ethernet. Basically they share the same
+> MAC address format. Does someone have another thing, which he thinks
+> is shared?
 
-The following appears to be possible:
+If you can make the virtual devices look like ethernet, I believe a lot of other things
+will just work w/out hacking, including user-space apps that think they
+know exactly what an ethernet frame/device looks like.
 
-1.	rt_garbage_collect() sees that there are too many entries,
-	and sets "goal" to the number to free up, based on a
-	computed "equilibrium" value.
+The only things I think of that won't work like ethernet is the ability to
+change the local MAC address or go into promisc mode.  And, it's always possible
+that future wifi hardware will support that as well.  Either way, the current
+API handles this fine:  the requests to change will just fail with a convenient error.
 
-2.	The number of entries is (correctly) decremented only when
-	the corresponding RCU callback is invoked, which actually
-	frees the entry.
+Ben
 
-3.	Between the time that rt_garbage_collect() is invoked the
-	first time and when the RCU grace period ends, rt_garbage_collect()
-	is invoked again.  It still sees too many entries (since
-	RCU has not yet freed the ones released by the earlier
-	invocation in step (1) above), so frees a bunch more.
-
-4.	Packets routed now miss the route cache, because the corresponding
-	entries are waiting for a grace period, slowing the system down.
-	Therefore, even more entries are freed to make room for new
-	entries corresponding to the new packets.
-
-If my (likely quite naive) reading of the IP route cache code is correct,
-it would be possible to end up in a steady state with most of the entries
-always being in RCU rather than in the route cache.
-
-Eric, could this be what is happening to your system?
-
-If it is, one straightforward fix would be to keep a count of the number
-of route-cache entries waiting on RCU, and for rt_garbage_collect()
-to subtract this number of entries from its goal.  Does this make sense?
-
-							Thanx, Paul
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
