@@ -1,90 +1,144 @@
-From: Joe <joecool1029@gmail.com>
-Subject: Re: [2.6 patch] fix ipvs compilation
-Date: Thu, 5 Jan 2006 23:43:52 -0500
-Message-ID: <d4757e600601052043u647658f1yaa15b0f396b4ad3c@mail.gmail.com>
-References: <20060105135943.GA3831@stusta.de>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH, RFC] RCU : OOM avoidance and lower latency
+Date: Fri, 06 Jan 2006 11:17:26 +0100
+Message-ID: <43BE43B6.3010105@cosmosbay.com>
+References: <20060105235845.967478000@sorel.sous-sol.org> <20060106004555.GD25207@sorel.sous-sol.org> <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752370AbWAFEny@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060105135943.GA3831@stusta.de>
-Content-Disposition: inline
+Content-Type: multipart/mixed;
+ boundary="------------030708050503000809030603"
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752390AbWAFKSo@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/5/06, Adrian Bunk <bunk@stusta.de> wrote:
-> I don't know which change broke it, but I'm getting the following
-> compile error in Linus' tree:
->
-> <--  snip  -->
->
-> ...
->   CC      net/ipv4/ipvs/ip_vs_sched.o
-> net/ipv4/ipvs/ip_vs_sched.c: In function 'ip_vs_sched_getbyname':
-> net/ipv4/ipvs/ip_vs_sched.c:110: warning: implicit declaration of function 'local_bh_disable'
-> net/ipv4/ipvs/ip_vs_sched.c:124: warning: implicit declaration of function 'local_bh_enable'
-> ...
->   CC      net/ipv4/ipvs/ip_vs_est.o
-> net/ipv4/ipvs/ip_vs_est.c: In function 'ip_vs_new_estimator':
-> net/ipv4/ipvs/ip_vs_est.c:147: warning: implicit declaration of function 'local_bh_disable'
-> net/ipv4/ipvs/ip_vs_est.c:156: warning: implicit declaration of function 'local_bh_enable'
-> ...
->   LD      .tmp_vmlinux1
-> net/built-in.o: In function `ip_vs_sched_getbyname':ip_vs_sched.c:(.text+0x99cfa): undefined reference to `local_bh_disable'
-> net/built-in.o: In function `register_ip_vs_scheduler': undefined reference to `local_bh_disable'
-> net/built-in.o: In function `unregister_ip_vs_scheduler': undefined reference to `local_bh_disable'
-> net/built-in.o: In function `ip_vs_new_estimator': undefined reference to `local_bh_disable'
-> net/built-in.o: In function `ip_vs_kill_estimator': undefined reference to `local_bh_disable'
-> net/built-in.o: more undefined references to `local_bh_disable' follow
-> make: *** [.tmp_vmlinux1] Error 1
->
-> <--  snip  -->
->
->
-> This patch fixes them by #include'ing linux/interrupt.h.
->
->
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
->
-> --- linux-git/net/ipv4/ipvs/ip_vs_sched.c.old   2006-01-05 14:56:44.000000000 +0100
-> +++ linux-git/net/ipv4/ipvs/ip_vs_sched.c       2006-01-05 14:56:59.000000000 +0100
-> @@ -22,6 +22,7 @@
->  #include <linux/module.h>
->  #include <linux/sched.h>
->  #include <linux/spinlock.h>
-> +#include <linux/interrupt.h>
->  #include <asm/string.h>
->  #include <linux/kmod.h>
->
-> --- linux-git/net/ipv4/ipvs/ip_vs_est.c.old     2006-01-05 14:57:15.000000000 +0100
-> +++ linux-git/net/ipv4/ipvs/ip_vs_est.c 2006-01-05 14:57:27.000000000 +0100
-> @@ -18,6 +18,7 @@
->  #include <linux/jiffies.h>
->  #include <linux/slab.h>
->  #include <linux/types.h>
-> +#include <linux/interrupt.h>
->
->  #include <net/ip_vs.h>
->
->
+This is a multi-part message in MIME format.
+--------------030708050503000809030603
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thats not all either,  ./net/ipv4/netfilter/ipt_helper.c has the same
-error and the same fix.
 
-Here's the patch for this one.  Sorry for the dupe.. i sent the last
-as html by accident.
+In order to avoid some OOM triggered by a flood of call_rcu() calls, we 
+increased in linux 2.6.14 maxbatch from 10 to 10000, and conditionally call 
+set_need_resched() in call_rcu().
 
---- linux/net/ipv4/netfilter/ipt_helper.c.old        2006-01-05
-19:38:32.498991515 -0500
-+++ linux/net/ipv4/netfilter/ipt_helper.c    2006-01-05 19:40:30.047057859 -0500
-@@ -13,6 +13,7 @@
- #include <linux/module.h>
- #include <linux/skbuff.h>
- #include <linux/netfilter.h>
-+#include <linux/interrupt.h>
- #if defined(CONFIG_IP_NF_CONNTRACK) || defined(CONFIG_IP_NF_CONNTRACK_MODULE)
- #include <linux/netfilter_ipv4/ip_conntrack.h>
- #include <linux/netfilter_ipv4/ip_conntrack_core.h>
+This solution doesnt solve all the problems and has drawbacks.
+
+1) Using a big maxbatch has a bad impact on latency.
+2) A flood of call_rcu_bh() still can OOM
+
+I have some servers that once in a while crashes when the ip route cache is 
+flushed. After raising /proc/sys/net/ipv4/route/secret_interval (so that *no* 
+flush is done), I got better uptime for these servers. But in some cases I 
+think the network stack can floods call_rcu_bh(), and a fatal OOM occurs.
+
+I suggest in this patch :
+
+1) To lower maxbatch to a more reasonable value (as far as the latency is 
+concerned)
+
+2) To be able to guard a RCU cpu queue against a maximal count (10.000 for 
+example). If this limit is reached, free the oldest entry of this queue.
+
+I assume that if a CPU queued 10.000 items in its RCU queue, then the oldest 
+entry cannot still be in use by another CPU. This might sounds as a violation 
+of RCU rules, (I'm not an RCU expert) but seems quite reasonable.
+
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+--------------030708050503000809030603
+Content-Type: text/plain;
+ name="RCU_OOM.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="RCU_OOM.patch"
+
+--- linux-2.6.15/kernel/rcupdate.c	2006-01-03 04:21:10.000000000 +0100
++++ linux-2.6.15-edum/kernel/rcupdate.c	2006-01-06 11:10:45.000000000 +0100
+@@ -71,14 +71,14 @@
+ 
+ /* Fake initialization required by compiler */
+ static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
+-static int maxbatch = 10000;
++static int maxbatch = 100;
+ 
+ #ifndef __HAVE_ARCH_CMPXCHG
+ /*
+  * We use an array of spinlocks for the rcurefs -- similar to ones in sparc
+  * 32 bit atomic_t implementations, and a hash function similar to that
+  * for our refcounting needs.
+- * Can't help multiprocessors which donot have cmpxchg :(
++ * Can't help multiprocessors which dont have cmpxchg :(
+  */
+ 
+ spinlock_t __rcuref_hash[RCUREF_HASH_SIZE] = {
+@@ -110,9 +110,17 @@
+ 	*rdp->nxttail = head;
+ 	rdp->nxttail = &head->next;
+ 
+-	if (unlikely(++rdp->count > 10000))
+-		set_need_resched();
+-
++/*
++ * OOM avoidance : If we queued too many items in this queue,
++ *  free the oldest entry
++ */
++	if (unlikely(++rdp->count > 10000)) {
++		rdp->count--;
++		head = rdp->donelist;
++		rdp->donelist = head->next;
++		local_irq_restore(flags);
++		return head->func(head);
++	}
+ 	local_irq_restore(flags);
+ }
+ 
+@@ -148,12 +156,17 @@
+ 	rdp = &__get_cpu_var(rcu_bh_data);
+ 	*rdp->nxttail = head;
+ 	rdp->nxttail = &head->next;
+-	rdp->count++;
+ /*
+- *  Should we directly call rcu_do_batch() here ?
+- *  if (unlikely(rdp->count > 10000))
+- *      rcu_do_batch(rdp);
++ * OOM avoidance : If we queued too many items in this queue,
++ *  free the oldest entry
+  */
++	if (unlikely(++rdp->count > 10000)) {
++		rdp->count--;
++		head = rdp->donelist;
++		rdp->donelist = head->next;
++		local_irq_restore(flags);
++		return head->func(head);
++	}
+ 	local_irq_restore(flags);
+ }
+ 
+@@ -209,7 +222,7 @@
+ static void rcu_do_batch(struct rcu_data *rdp)
+ {
+ 	struct rcu_head *next, *list;
+-	int count = 0;
++	int count = maxbatch;
+ 
+ 	list = rdp->donelist;
+ 	while (list) {
+@@ -217,7 +230,7 @@
+ 		list->func(list);
+ 		list = next;
+ 		rdp->count--;
+-		if (++count >= maxbatch)
++		if (--count <= 0)
+ 			break;
+ 	}
+ 	if (!rdp->donelist)
+
+--------------030708050503000809030603--
