@@ -1,52 +1,28 @@
-From: David Lang <dlang@digitalinsight.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
-Date: Fri, 6 Jan 2006 14:16:17 -0800 (PST)
-Message-ID: <Pine.LNX.4.62.0601061414570.334@qynat.qvtvafvgr.pbz>
-References: <1136541243.4037.18.camel@localhost>  <200601061200.59376.mbuesch@freenet.de>
-  <1136547494.7429.72.camel@localhost>  <200601061245.55978.mbuesch@freenet.de>
- <1136549423.7429.88.camel@localhost> <43BE6697.3030009@trash.net>
+Date: Fri, 06 Jan 2006 14:18:36 -0800 (PST)
+Message-ID: <20060106.141836.41371212.davem@davemloft.net>
+References: <1136549423.7429.88.camel@localhost>
+	<43BE6697.3030009@trash.net>
+	<Pine.LNX.4.62.0601061414570.334@qynat.qvtvafvgr.pbz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Michael Buesch <mbuesch@freenet.de>, jgarzik@pobox.com,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964825AbWAFWQy@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <43BE6697.3030009@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, marcel@holtmann.org, mbuesch@freenet.de,
+	jgarzik@pobox.com, bcm43xx-dev@lists.berlios.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932642AbWAFWTX@vger.kernel.org>
+To: dlang@digitalinsight.com
+In-Reply-To: <Pine.LNX.4.62.0601061414570.334@qynat.qvtvafvgr.pbz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Jan 2006, Patrick McHardy wrote:
+From: David Lang <dlang@digitalinsight.com>
+Date: Fri, 6 Jan 2006 14:16:17 -0800 (PST)
 
-> Marcel Holtmann wrote:
->
->>> I just personally liked the idea of having a device node in /dev for
->>> every existing hardware wlan card. Like we have device nodes for
->>> other real hardware, too. It felt like a bit of a "unix way" to do
->>> this to me. I don't say this is the way to go.
->>> If a netlink socket is used (which is possible, for sure), we stay with
->>> the old way of having no device node in /dev for networking devices.
->>> That is ok. But that is really only an implementation detail (and for sure
->>> a matter of taste).
->> 
->> 
->> At the OLS last year, I think the consensus was to use netlink for all
->> configuration task. However this was mainly driven by Harald Welte and
->> he might be able to talk about the pros and cons of netlink versus a
->> character device.
->
-> I think the main advantages of netlink over a character device is its
-> flexible format, which is easily extendable, and multicast capability,
-> which can be used to broadcast events and configuration changes. Its
-> also good to have all the net stuff accessible in a uniform way.
+> character devices are far easier to script. this really sounds like the 
+> type of configuration stuff that sysfs was designed for. can we avoid yet 
+> another configuration tool that's required?
 
-character devices are far easier to script. this really sounds like the 
-type of configuration stuff that sysfs was designed for. can we avoid yet 
-another configuration tool that's required?
-
-David Lang
-
--- 
-There are two ways of constructing a software design. One way is to make it so simple that there are obviously no deficiencies. And the other way is to make it so complicated that there are no obvious deficiencies.
-  -- C.A.R. Hoare
+netlink is being recommended exactly because it can result
+in only needing one tool for everything
