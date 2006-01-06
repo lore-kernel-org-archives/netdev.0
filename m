@@ -1,58 +1,98 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: Re: State of the Union: Wireless
-Date: Fri, 6 Jan 2006 12:46:20 +0100
-Message-ID: <20060106114620.GA23707@isilmar.linta.de>
-References: <20060106042218.GA18974@havoc.gtf.org> <1136547084.4037.41.camel@localhost>
+From: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
+Subject: Re: [Fwd: State of the Union: Wireless]
+Date: Fri, 6 Jan 2006 12:45:55 +0100
+Message-ID: <200601061245.55978.mbuesch@freenet.de>
+References: <1136541243.4037.18.camel@localhost> <200601061200.59376.mbuesch@freenet.de> <1136547494.7429.72.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751314AbWAFLqW@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1136547084.4037.41.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart32478718.o1LFTskAdZ";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <1136547494.7429.72.camel@localhost>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 06, 2006 at 12:31:24PM +0100, Johannes Berg wrote:
-> On Fri, 2006-01-06 at 12:00 +0100, Michael Buesch wrote:
-> 
-> > * "master" interface as real device node
-> > * Virtual interfaces (net_devices)
-> 
-> I didn't want to spam the netdev wiki with this (yet) so I collected
-> some more structured things outside. Anyone feel free to edit:
-> http://softmac.sipsolutions.net/802.11
+--nextPart32478718.o1LFTskAdZ
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
->From someone who has no idea at all (yet) about 802.11: why character
-device, and not sysfs or configfs files? Like
+On Friday 06 January 2006 12:38, you wrote:
+> Hi Michael,
+>=20
+> > How would the virtual interfaces look like? That is quite easy to answe=
+r.
+> > They are net_devices, as they transfer data.
+> > They should probaly _not_ be on top of the ethernet, as 80211 does not
+> > have very much in common with ethernet. Basically they share the same
+> > MAC address format. Does someone have another thing, which he thinks
+> > is shared?
+> > How would the master interface look like? A somewhat unusual idea came
+> > up. Using a device node in /dev. So every wireless card in the system
+> > would have a node in /dev associated (/dev/wlan0 for example).
+> > A node for the master device would be ok, because no data is transferred
+> > through it. It is only a configuration interface.
+> > So you would tell the, yet-to-be-written userspace tool wconfig (or som=
+ething
+> > like that) "I need a STA in INFRA mode and want to drive it on the
+> > wlan0 card". So wconfig goes and write()s some data to /dev/wlan0
+> > telling the 80211 code to setup a virtual net_device for the driver
+> > associated to /dev/wlan0.
+> > The virtual interface is then configured though /dev/wlan0 using write()
+> > (no ugly ioctl anymore, you see...). Config data like TX rate,
+> > current essid,.... basically everything + xyz which is done by WE today,
+> > is written to /dev/wlan0.
+> > This config data is entirely cached in the 80211 code for the /dev/wlan0
+> > instance. This is important, to have the data persistent throughout
+> > suspend/resume cycles, if up/down cycles.
+> > After configuring, a virtual net_device (let's call it wlan0) exists,
+> > which can be brought up by ifconfig and data can be transferred though
+> > it as usual.
+>=20
+> what is wrong with using netlink and/or sysfs for it? I don't see the
+> advantage of defining another /dev something interface.
 
-TASK: get list of MAC addresses available to hardware device (usually only one for current hw)
+Nothing is wrong with that.
+"brainstorming" was the most dominant word in the whole text. ;)
+I just personally liked the idea of having a device node in /dev for
+every existing hardware wlan card. Like we have device nodes for
+other real hardware, too. It felt like a bit of a "unix way" to do
+this to me. I don't say this is the way to go.
+If a netlink socket is used (which is possible, for sure), we stay with
+the old way of having no device node in /dev for networking devices.
+That is ok. But that is really only an implementation detail (and for sure
+a matter of taste).
+The _real_ main point I wanted to make was to _not_ use a net_device for
+the master device. What else should be used for master device, let it
+be a device node or a netlink socket, is rather unimportant at
+this stage.
 
-cat /sys/devices/path/to/device/wireless/address
+=2D-=20
+Greetings Michael.
 
-TASK: get list of virtual devices including (some of) their properties
+--nextPart32478718.o1LFTskAdZ
+Content-Type: application/pgp-signature
 
-ls -l /sys/devices/path/to/device/wireless/
-	...
-	wlan0 -> /sys/class/net/wlan0
-	wlan1 -> /sys/class/net/wlan1
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
 
-TASK: create virtual device (with arbitrary type, netdev name and mac address)
-						  ^^^^^^
-					   isn't nameif / udev for that?
+iD8DBQBDvlhzlb09HEdWDKgRAiUBAJ9FdlTBjq1J7UQmMI3NSlbMj5INmgCfX8DK
+wXRKGjdJPCU1uJbx7jP6YPo=
+=9mt/
+-----END PGP SIGNATURE-----
 
-echo "$type" > /sys/devices/path/to/device/wireless/new_if
-	... we get uevents for this new interface; in this we can set the
-	mac adress doing:
-echo "$mac" > /sys/class/net/wlan0/wireless/address
-
-TASK: configure virtual device (key is the device name since that needs to be unique anyway) 
-
-echo "$some_config_option_for_virtual_device" > /sys/class/net/wlan0/wireless/some_option
-echo "$some_config_option_for_physical_device"> /sys/devices/path/to/dev/wireless/some_other_option
-
-
-Of course the configuration userspace tool would use libsysfs for that, not
-"echo" scripts... but they'd work too.
-
-	Dominik
+--nextPart32478718.o1LFTskAdZ--
