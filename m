@@ -1,85 +1,62 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
-Date: Fri, 06 Jan 2006 13:10:23 +0100
-Message-ID: <1136549423.7429.88.camel@localhost>
-References: <1136541243.4037.18.camel@localhost>
-	 <200601061200.59376.mbuesch@freenet.de>
-	 <1136547494.7429.72.camel@localhost>
-	 <200601061245.55978.mbuesch@freenet.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: State of the Union: Wireless
+Date: Fri, 06 Jan 2006 13:26:24 +0100
+Message-ID: <1136550384.4037.48.camel@localhost>
+References: <20060106042218.GA18974@havoc.gtf.org>
+	 <1136547084.4037.41.camel@localhost>
+	 <20060106114620.GA23707@isilmar.linta.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751415AbWAFMKZ@vger.kernel.org>
-To: Michael Buesch <mbuesch@freenet.de>
-In-Reply-To: <200601061245.55978.mbuesch@freenet.de>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-pn4ZYF1I2OiS/FpE2WQN"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751420AbWAFM0d@vger.kernel.org>
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+In-Reply-To: <20060106114620.GA23707@isilmar.linta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Michael,
 
-> > > How would the virtual interfaces look like? That is quite easy to answer.
-> > > They are net_devices, as they transfer data.
-> > > They should probaly _not_ be on top of the ethernet, as 80211 does not
-> > > have very much in common with ethernet. Basically they share the same
-> > > MAC address format. Does someone have another thing, which he thinks
-> > > is shared?
-> > > How would the master interface look like? A somewhat unusual idea came
-> > > up. Using a device node in /dev. So every wireless card in the system
-> > > would have a node in /dev associated (/dev/wlan0 for example).
-> > > A node for the master device would be ok, because no data is transferred
-> > > through it. It is only a configuration interface.
-> > > So you would tell the, yet-to-be-written userspace tool wconfig (or something
-> > > like that) "I need a STA in INFRA mode and want to drive it on the
-> > > wlan0 card". So wconfig goes and write()s some data to /dev/wlan0
-> > > telling the 80211 code to setup a virtual net_device for the driver
-> > > associated to /dev/wlan0.
-> > > The virtual interface is then configured though /dev/wlan0 using write()
-> > > (no ugly ioctl anymore, you see...). Config data like TX rate,
-> > > current essid,.... basically everything + xyz which is done by WE today,
-> > > is written to /dev/wlan0.
-> > > This config data is entirely cached in the 80211 code for the /dev/wlan0
-> > > instance. This is important, to have the data persistent throughout
-> > > suspend/resume cycles, if up/down cycles.
-> > > After configuring, a virtual net_device (let's call it wlan0) exists,
-> > > which can be brought up by ifconfig and data can be transferred though
-> > > it as usual.
-> > 
-> > what is wrong with using netlink and/or sysfs for it? I don't see the
-> > advantage of defining another /dev something interface.
-> 
-> Nothing is wrong with that.
-> "brainstorming" was the most dominant word in the whole text. ;)
+--=-pn4ZYF1I2OiS/FpE2WQN
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-so I might got the wrong impression, because it seemed you put a lot of
-thinking into the /dev/wlanX stuff without even considering netlink or
-something else.
 
-> I just personally liked the idea of having a device node in /dev for
-> every existing hardware wlan card. Like we have device nodes for
-> other real hardware, too. It felt like a bit of a "unix way" to do
-> this to me. I don't say this is the way to go.
-> If a netlink socket is used (which is possible, for sure), we stay with
-> the old way of having no device node in /dev for networking devices.
-> That is ok. But that is really only an implementation detail (and for sure
-> a matter of taste).
+> From someone who has no idea at all (yet) about 802.11: why character
+> device, and not sysfs or configfs files? Like
 
-At the OLS last year, I think the consensus was to use netlink for all
-configuration task. However this was mainly driven by Harald Welte and
-he might be able to talk about the pros and cons of netlink versus a
-character device.
+As Michael already said -- there's no real reason for that. We were just
+brainstorming. The /dev idea seemed like a good plan at first, but then
+it isn't fixed. What you suggested below does look useful too.
 
-> The _real_ main point I wanted to make was to _not_ use a net_device for
-> the master device. What else should be used for master device, let it
-> be a device node or a netlink socket, is rather unimportant at
-> this stage.
+Coming back to the point Michael already raised: the overarching idea is
+to get rid of the net_dev for the 'master' device, even if the
+underlying hardware supports only a single virtual device (which might
+then be created by the driver automatically)
 
-I am all for it, because I don't like dummy Ethernet devices that are
-only used for configuration. I am still not happy that IrDA uses irda0
-to get somekind of packet management etc. instead of implementing a real
-suitable hardware abstraction.
+I'll move the wiki pages a bit to accomodate different models, please
+check in a few minutes.
 
-Regards
+johannes
 
-Marcel
+--=-pn4ZYF1I2OiS/FpE2WQN
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (SIP Solutions)
+
+iQIVAwUAQ75h7qVg1VMiehFYAQJ9hRAAhS1iOJEYYhn1Mcm/D0N2EkAH99y7A3Fl
+DJw0+37syAHVeyti+jntkCWVG1WEkawe6wMeh77deumRTc3fgonlTVKXRIpgVUMJ
+lPbKpblVaSQrq26cjupuSBRCS5Hu6R2Lj2kFWrilGH9aa311G9Zs60I4rPlf8GG3
+cETYSP8CsizXY17mrn+OUAHOT6fg2BOwJDsownEzI39vdYIc2JX/L6VD+uPkf1L9
+Hn/Ga+qiZxG0wgWiHV883h4XLAOwwoHtnTk/iu/ONUss7PYaO9SMf+fJqUel1SFd
+b5i2xQbKrWhWSIiUdNsPA1LPQhTAIcLrovEaiEVSV7uOtDsG5dPCszju2zDBRSAm
+d5ZqUx3DDDzUcPwH0lpDNXFwvhVgNSCNZqv4qTiPH4PClEBqci4Lrs4DMzZFiTU1
+btPEaJ2o7Zrw8y0QrIrd7RIvwGgin8M8Jz67Qv4M5CA8DEyTJZvSKCQcYQb1MweY
+ovUTgmzgQN4GWFVvJsmbLFoKGuaTtRw9qRTX1d4R0eCSLA4pFV+xu3RagXQ/WzOL
+VSPRSujxvuxQRqzWZlHM9R88j/ImSxKW5mk0MXGacUP8kPdT39XHG+IvYnQ3URvZ
+wYUQa3cYUoiQ0qF9crxoS0Akn7P7xUf7j2hz341mw2kNfJpm3xjoXCTdM9KMIJkV
+NYFId+sZJeU=
+=ZGau
+-----END PGP SIGNATURE-----
+
+--=-pn4ZYF1I2OiS/FpE2WQN--
