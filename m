@@ -1,136 +1,61 @@
-From: Michael Buesch <mbuesch@freenet.de>
-Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
-Date: Fri, 6 Jan 2006 12:00:59 +0100
-Message-ID: <200601061200.59376.mbuesch@freenet.de>
-References: <1136541243.4037.18.camel@localhost>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: State of the Union: Wireless
+Date: Fri, 06 Jan 2006 12:31:24 +0100
+Message-ID: <1136547084.4037.41.camel@localhost>
+References: <20060106042218.GA18974@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3368479.LLDLk1xIID";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932421AbWAFLBU@vger.kernel.org>
-To: jgarzik@pobox.com
-In-Reply-To: <1136541243.4037.18.camel@localhost>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-SX8kqMC7fAVHD94rzeC8"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752249AbWAFLbc@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20060106042218.GA18974@havoc.gtf.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3368479.LLDLk1xIID
-Content-Type: text/plain;
-  charset="utf-8"
+
+--=-SX8kqMC7fAVHD94rzeC8
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-> > * We really have no wireless maintainer.  I'm just the defacto guy,
-> >   with no interest in the job.  The ideal maintainer knows 802.11 well,
-> >   uses git, and isn't an asshole with no taste.  I'm just the guy who
-> >   wants to make sure the net driver portion doesn't turn out to be a
-> >   stinker (read: review and pass up the chain).
+On Fri, 2006-01-06 at 12:00 +0100, Michael Buesch wrote:
 
-That problem is easiest to solve. ;)
+> * "master" interface as real device node
+> * Virtual interfaces (net_devices)
 
-> > * Wireless management, in particular the wireless kernel<->user
-> >   interface, needs some thinking.  Wireless Extensions (WE) isn't
-> >   cutting it, but I haven't seen any netlink work yet (or some
-> >   other interface).  Whatever the userspace interface is, it will be
-> >   basically carved in stone for years (unlike kernel APIs), so this
-> >   needs a lot more thought than people have been giving it.
+I didn't want to spam the netdev wiki with this (yet) so I collected
+some more structured things outside. Anyone feel free to edit:
+http://softmac.sipsolutions.net/802.11
 
-We did some brainstorming about this yesterday evening on the bcm
-irc channel. I think we all agreed on dropping WE.
-So, now we asked: How would a sane UI look like. We had a few points:
-* The interface needs to support some kind of "master" interface to
-configure the hardware, 80211 parameters and
-to actually configure and setup the
-* Virtual interfaces.
-Data is transferred only though the virtual interfaces, which could
-be an AP interface, a STA interface in INFRA or Ad-Hoc mode, etc... .
-Configuration is done though the master interface.
+I'll move that content to the netdev wiki if anyone else thinks it would
+be a good way forward to start with requirements, API issues and
+similar.
 
-How would the virtual interfaces look like? That is quite easy to answer.
-They are net_devices, as they transfer data.
-They should probaly _not_ be on top of the ethernet, as 80211 does not
-have very much in common with ethernet. Basically they share the same
-MAC address format. Does someone have another thing, which he thinks
-is shared?
-How would the master interface look like? A somewhat unusual idea came
-up. Using a device node in /dev. So every wireless card in the system
-would have a node in /dev associated (/dev/wlan0 for example).
-A node for the master device would be ok, because no data is transferred
-through it. It is only a configuration interface.
-So you would tell the, yet-to-be-written userspace tool wconfig (or somethi=
-ng
-like that) "I need a STA in INFRA mode and want to drive it on the
-wlan0 card". So wconfig goes and write()s some data to /dev/wlan0
-telling the 80211 code to setup a virtual net_device for the driver
-associated to /dev/wlan0.
-The virtual interface is then configured though /dev/wlan0 using write()
-(no ugly ioctl anymore, you see...). Config data like TX rate,
-current essid,.... basically everything + xyz which is done by WE today,
-is written to /dev/wlan0.
-This config data is entirely cached in the 80211 code for the /dev/wlan0
-instance. This is important, to have the data persistent throughout
-suspend/resume cycles, if up/down cycles.
-After configuring, a virtual net_device (let's call it wlan0) exists,
-which can be brought up by ifconfig and data can be transferred though
-it as usual.
+Until we get there, we'll fix up softmac to make it usable for most
+people in basic station mode without any kind of virtual devices, which
+will need some slight changes to the current ieee80211.
 
-This whole concept is derived from how dscape does the stuff.
-With a major exception, that a device node instead of a net_device
-is used for the master device. With the effect of getting rid of the
-ugly WE ioctl stuff.
+johannes
 
-> > * Long term, wireless should go from being a library of common code to a
-> >   "real" wireless stack, as shown in the template developed by David Mi=
-ller:
-> >   http://kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/davem=
-=2Dp80211.tar.bz2
-> >   Zhu Yi @ Intel and Vladmir @ somewhere both independently did some
-> >   work in this area.
-
-This looks very interresting and in fact is part of our thoughts I
-explained above.
-
-> > * I prefer GPL-only code.  Dual licensing has proven in practice to
-> >   be a logistical nightmare that concentrates power in the hands of
-> >   a few.  Dual licensing, BSD licensing works for some, but GPL-only
-> >   code is quite simply the least amount of flamewars, headaches
-> >   and worry.  IOW, the P.I.T.A. level of GPL-only code is lowest.
-
-I personally prefer EXPORT_SYMBOL_GPL().
-But that's only my opinion and that does not really matter. ;)
-
-> > Dual licensed code gives kernel hackers yet more legal crapola to
-> > worry about, which is never a good thing.
-
-I don't see a point in dual licensing it.
-The only benefit would be to allow BSD people to take the code.
-Honestly, I really don't see this happening, anyway. ;)
-They have net80211.
-
-> > Patches welcome from all motivated, clueful parties.  Jiri Benc has a
-> > long series of patches that looks nice.  Johannes Berg has done some
-> > work on the ieee80211 softmac stuff and hw WEP.  But maybe DeviceScape
-> > is what people like now.
-
-Well, "like" is a strong word. I personally would say "It is better than
-all currently existing solutions, if some final polishing is done to dscape=
-=2E"
-
-=2D-=20
-Greetings Michael.
-
---nextPart3368479.LLDLk1xIID
-Content-Type: application/pgp-signature
+--=-SX8kqMC7fAVHD94rzeC8
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Johannes Berg (SIP Solutions)
 
-iD8DBQBDvk3rlb09HEdWDKgRAkUwAJ4r+QXvwfav9RE9stu6s8aVvbUTgQCgvZTZ
-JvBoYSEIIAlBuBrujDKND+o=
-=8g+0
+iQIVAwUAQ75VCqVg1VMiehFYAQIWRQ//e3w0C0uKX3DsS/r+2Yk7czllBH7xQEJ9
+Rnm5g6dBq39fEzkRKEMMsW8WLDbstsCxP+UMWBeChw9U91hoKnfx2X2DfPcaQZSO
+7EWVSpzb/h44Bji9tp7IeQkZgLnkMkEzdYL0O9VKbrznptVz04NX7etEpakJFzsG
+HXF3Is0sOLT//YaF5dM3zKMy44jb+v0XOWt09dHBA98VBFmfTniqB4f6kjsMv85J
+dUfc/RiTlRKRq1IvT7m7gNalrN5ds5sb72My1sPUow99maEUkgYruaBoi7aunWOF
+1+ZmOPDP/7Ts3vmww8pNKk8zaMFOBHegYm0IBKmPkJnwz84SFk3N3ZcUjsFye/Ie
+CX28QMkI6M8K3E7zpMa5d8bFEbgC3NChWYF0xjJGhlFks72tqNBCgoHX72Uu4+w0
+Eu+id+sHJzbD49IYglGONnGXRqDSvkIX/gVlZC+Id42WU5PnIvcTcqlwEhYOyVfp
+hbf1JS2y6XwsAGk1tZ2a5m9t8Zc83FFQDMk8DTyVgfmCRKN8JJVqxbwcKUK3ggXA
+S1EVEkfil8Ot/n7/F/PQ8TcYWPgwksw/hKvVAgacBRKEZXLRM030UmRN8VdcQnIc
+4REw4+ANX103Y40HNBsqNKU5HQkOAjTYLFEmXqfHXOo+uRHAl7JzskFXOFQZE6pr
+XDpHb2eTG3U=
+=8lph
 -----END PGP SIGNATURE-----
 
---nextPart3368479.LLDLk1xIID--
+--=-SX8kqMC7fAVHD94rzeC8--
