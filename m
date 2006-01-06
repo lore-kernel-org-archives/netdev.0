@@ -1,66 +1,74 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
-Date: Fri, 06 Jan 2006 17:25:51 +0100
-Message-ID: <1136564751.29313.1.camel@localhost>
-References: <1136541243.4037.18.camel@localhost>
-	 <200601061200.59376.mbuesch@freenet.de>
-	 <1136547494.7429.72.camel@localhost>
-	 <200601061245.55978.mbuesch@freenet.de>  <43BE96DA.1020107@seznam.cz>
+From: "Paul E. McKenney" <paulmck@us.ibm.com>
+Subject: Re: [PATCH, RFC] RCU : OOM avoidance and lower latency
+Date: Fri, 6 Jan 2006 08:47:02 -0800
+Message-ID: <20060106164702.GA5087@us.ibm.com>
+References: <20060105235845.967478000@sorel.sous-sol.org> <20060106004555.GD25207@sorel.sous-sol.org> <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org> <43BE43B6.3010105@cosmosbay.com> <1136554632.30498.7.camel@localhost.localdomain>
+Reply-To: paulmck@us.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-hamO6lsAZSD37aeQaqD0"
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752437AbWAFQ0Y@vger.kernel.org>
-To: Feyd <feyd@seznam.cz>
-In-Reply-To: <43BE96DA.1020107@seznam.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Linus Torvalds <torvalds@osdl.org>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752478AbWAFQrH@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Disposition: inline
+In-Reply-To: <1136554632.30498.7.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jan 06, 2006 at 01:37:12PM +0000, Alan Cox wrote:
+> On Gwe, 2006-01-06 at 11:17 +0100, Eric Dumazet wrote:
+> > I assume that if a CPU queued 10.000 items in its RCU queue, then the oldest 
+> > entry cannot still be in use by another CPU. This might sounds as a violation 
+> > of RCU rules, (I'm not an RCU expert) but seems quite reasonable.
+> 
+> Fixing the real problem in the routing code would be the real fix. 
+> 
+> The underlying problem of RCU and memory usage could be solved more
+> safely by making sure that the sleeping memory allocator path always
+> waits until at least one RCU cleanup has occurred after it fails an
+> allocation before it starts trying harder. That ought to also naturally
+> throttle memory consumers more in the situation which is the right
+> behaviour.
 
---=-hamO6lsAZSD37aeQaqD0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+A quick look at rt_garbage_collect() leads me to believe that although
+the IP route cache does try to limit its use of memory, it does not
+fully account for memory that it has released to RCU, but that RCU has
+not yet freed due to a grace period not having elapsed.
 
-On Fri, 2006-01-06 at 17:12 +0100, Feyd wrote:
-> Michael Buesch wrote:
-> > The _real_ main point I wanted to make was to _not_ use a net_device fo=
-r
-> > the master device. What else should be used for master device, let it
-> > be a device node or a netlink socket, is rather unimportant at
-> > this stage.
->=20
-> If the only purpose of the master device was configuration, then it
-> would be beter to use something other then a net_device, but you may
-> want to send/receive raw 802.11 packets from userspace, most logicaly
-> over a master interface.
+The following appears to be possible:
 
-We thought about that for a while, but it may not be feasible. Certain
-hardware that manages more stuff than others in firmware/hardware may
-not allow sending raw frames without going into some special mode, which
-is better handled by adding some kind of raw virtual device.
+1.	rt_garbage_collect() sees that there are too many entries,
+	and sets "goal" to the number to free up, based on a
+	computed "equilibrium" value.
 
-johannes
+2.	The number of entries is (correctly) decremented only when
+	the corresponding RCU callback is invoked, which actually
+	frees the entry.
 
---=-hamO6lsAZSD37aeQaqD0
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+3.	Between the time that rt_garbage_collect() is invoked the
+	first time and when the RCU grace period ends, rt_garbage_collect()
+	is invoked again.  It still sees too many entries (since
+	RCU has not yet freed the ones released by the earlier
+	invocation in step (1) above), so frees a bunch more.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (SIP Solutions)
+4.	Packets routed now miss the route cache, because the corresponding
+	entries are waiting for a grace period, slowing the system down.
+	Therefore, even more entries are freed to make room for new
+	entries corresponding to the new packets.
 
-iQIVAwUAQ76aDaVg1VMiehFYAQIe+w/+OmlQW2vcIsDarSgRIajUQUpS+U2liQzH
-6G5OpCtUCSbzZdckMRsMkh6rIwKFXDWoz6lPxjaAD2sZkZAYulzShSHfTgibvVni
-WISgBseGMwvuhLW7ljmz8NCzzDvr6UzHtJb0E1IoWipf/cBZqood+yYziV6NS/PX
-qGpS/FmReIpkEUvLiEsX0jWJYutAQAuA7hm+WVSTeNJM3BeDVax9EAN8dEwT0baa
-XfETuXpgYwGbUtF9vyuGeMMnxBsz7y82LliEIvjmrpNdy3xwxSg6oz51dDS19xml
-vi/6X/u7IQHx27YjvacTcCpzXhvJ49fNPft4+MuLDgFunD64vjiwfLLJr4C9h+IL
-iDp8BNa0Sd0glvCyul30n3vp7iU4+UE/krF6r7+TgvbrHWs9N2zmV7WPNKJQ1gIy
-bYF2g2LRUiIsE/mlu8V/dqNTspsGzZ5xAixhyoU6Wa5+i7zp+m3FDSFk1bb63MrA
-OobGDtLOMQI8XVWvk9FIebK4bgVjbjOKyPJ7EvqOtrMwq6nMNKg4j1iSwWVtnORJ
-tGB46DFhpKlT1AmE6mkTT1/ejN/j+PuAI/I0K2D9nKxy6OuH/cDkMzdMB6K4R1Cz
-tg3lHxHzC6BxXI5Ih6FIvIxNT9POpQNsDVOk1I/3ZD+5NXFJ4aX+cLH3igWaYRFo
-CjcbhDJrTtQ=
-=4W0e
------END PGP SIGNATURE-----
+If my (likely quite naive) reading of the IP route cache code is correct,
+it would be possible to end up in a steady state with most of the entries
+always being in RCU rather than in the route cache.
 
---=-hamO6lsAZSD37aeQaqD0--
+Eric, could this be what is happening to your system?
+
+If it is, one straightforward fix would be to keep a count of the number
+of route-cache entries waiting on RCU, and for rt_garbage_collect()
+to subtract this number of entries from its goal.  Does this make sense?
+
+							Thanx, Paul
