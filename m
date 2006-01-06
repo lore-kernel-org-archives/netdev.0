@@ -1,38 +1,29 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH, RFC] RCU : OOM avoidance and lower latency
-Date: Fri, 06 Jan 2006 14:45:12 +0000
-Message-ID: <1136558713.30498.21.camel@localhost.localdomain>
-References: <20060105235845.967478000@sorel.sous-sol.org>
-	 <20060106004555.GD25207@sorel.sous-sol.org>
-	 <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org>
-	 <43BE43B6.3010105@cosmosbay.com>
-	 <1136554632.30498.7.camel@localhost.localdomain>
-	 <43BE77F1.4090301@cosmosbay.com>
+From: Feyd <feyd@seznam.cz>
+Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
+Date: Fri, 06 Jan 2006 17:12:10 +0100
+Message-ID: <43BE96DA.1020107@seznam.cz>
+References: <1136541243.4037.18.camel@localhost> <200601061200.59376.mbuesch@freenet.de> <1136547494.7429.72.camel@localhost> <200601061245.55978.mbuesch@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@us.ibm.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751451AbWAFOqa@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <43BE77F1.4090301@cosmosbay.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>, jgarzik@pobox.com,
+	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751599AbWAFQMI@vger.kernel.org>
+To: Michael Buesch <mbuesch@freenet.de>
+In-Reply-To: <200601061245.55978.mbuesch@freenet.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Gwe, 2006-01-06 at 15:00 +0100, Eric Dumazet wrote:
-> In the case of call_rcu_bh(), you can be sure that the caller cannot afford 
-> 'sleeping memory allocations'. Better drop a frame than block the stack, no ?
+Michael Buesch wrote:
+> The _real_ main point I wanted to make was to _not_ use a net_device for
+> the master device. What else should be used for master device, let it
+> be a device node or a netlink socket, is rather unimportant at
+> this stage.
 
-atomic allocations can't sleep and will fail which is fine. If memory
-allocation pressure exists for sleeping allocations because of a large
-rcu backlog we want to be sure that the rcu backlog from the networking
-stack or other sources does not cause us to OOM kill or take incorrect
-action.
+If the only purpose of the master device was configuration, then it
+would be beter to use something other then a net_device, but you may
+want to send/receive raw 802.11 packets from userspace, most logicaly
+over a master interface.
 
-So if for example we want to grow a process stack and the memory is
-there just stuck in the RCU lists pending recovery we want to let the
-RCU recovery happen before making drastic decisions.
+Feyd
