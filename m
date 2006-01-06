@@ -1,144 +1,136 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH, RFC] RCU : OOM avoidance and lower latency
-Date: Fri, 06 Jan 2006 11:17:26 +0100
-Message-ID: <43BE43B6.3010105@cosmosbay.com>
-References: <20060105235845.967478000@sorel.sous-sol.org> <20060106004555.GD25207@sorel.sous-sol.org> <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org>
+From: Michael Buesch <mbuesch@freenet.de>
+Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
+Date: Fri, 6 Jan 2006 12:00:59 +0100
+Message-ID: <200601061200.59376.mbuesch@freenet.de>
+References: <1136541243.4037.18.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030708050503000809030603"
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@us.ibm.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752390AbWAFKSo@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0601051727070.3169@g5.osdl.org>
+Content-Type: multipart/signed;
+  boundary="nextPart3368479.LLDLk1xIID";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932421AbWAFLBU@vger.kernel.org>
+To: jgarzik@pobox.com
+In-Reply-To: <1136541243.4037.18.camel@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030708050503000809030603
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-
-In order to avoid some OOM triggered by a flood of call_rcu() calls, we 
-increased in linux 2.6.14 maxbatch from 10 to 10000, and conditionally call 
-set_need_resched() in call_rcu().
-
-This solution doesnt solve all the problems and has drawbacks.
-
-1) Using a big maxbatch has a bad impact on latency.
-2) A flood of call_rcu_bh() still can OOM
-
-I have some servers that once in a while crashes when the ip route cache is 
-flushed. After raising /proc/sys/net/ipv4/route/secret_interval (so that *no* 
-flush is done), I got better uptime for these servers. But in some cases I 
-think the network stack can floods call_rcu_bh(), and a fatal OOM occurs.
-
-I suggest in this patch :
-
-1) To lower maxbatch to a more reasonable value (as far as the latency is 
-concerned)
-
-2) To be able to guard a RCU cpu queue against a maximal count (10.000 for 
-example). If this limit is reached, free the oldest entry of this queue.
-
-I assume that if a CPU queued 10.000 items in its RCU queue, then the oldest 
-entry cannot still be in use by another CPU. This might sounds as a violation 
-of RCU rules, (I'm not an RCU expert) but seems quite reasonable.
-
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
---------------030708050503000809030603
+--nextPart3368479.LLDLk1xIID
 Content-Type: text/plain;
- name="RCU_OOM.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="RCU_OOM.patch"
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
---- linux-2.6.15/kernel/rcupdate.c	2006-01-03 04:21:10.000000000 +0100
-+++ linux-2.6.15-edum/kernel/rcupdate.c	2006-01-06 11:10:45.000000000 +0100
-@@ -71,14 +71,14 @@
- 
- /* Fake initialization required by compiler */
- static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
--static int maxbatch = 10000;
-+static int maxbatch = 100;
- 
- #ifndef __HAVE_ARCH_CMPXCHG
- /*
-  * We use an array of spinlocks for the rcurefs -- similar to ones in sparc
-  * 32 bit atomic_t implementations, and a hash function similar to that
-  * for our refcounting needs.
-- * Can't help multiprocessors which donot have cmpxchg :(
-+ * Can't help multiprocessors which dont have cmpxchg :(
-  */
- 
- spinlock_t __rcuref_hash[RCUREF_HASH_SIZE] = {
-@@ -110,9 +110,17 @@
- 	*rdp->nxttail = head;
- 	rdp->nxttail = &head->next;
- 
--	if (unlikely(++rdp->count > 10000))
--		set_need_resched();
--
-+/*
-+ * OOM avoidance : If we queued too many items in this queue,
-+ *  free the oldest entry
-+ */
-+	if (unlikely(++rdp->count > 10000)) {
-+		rdp->count--;
-+		head = rdp->donelist;
-+		rdp->donelist = head->next;
-+		local_irq_restore(flags);
-+		return head->func(head);
-+	}
- 	local_irq_restore(flags);
- }
- 
-@@ -148,12 +156,17 @@
- 	rdp = &__get_cpu_var(rcu_bh_data);
- 	*rdp->nxttail = head;
- 	rdp->nxttail = &head->next;
--	rdp->count++;
- /*
-- *  Should we directly call rcu_do_batch() here ?
-- *  if (unlikely(rdp->count > 10000))
-- *      rcu_do_batch(rdp);
-+ * OOM avoidance : If we queued too many items in this queue,
-+ *  free the oldest entry
-  */
-+	if (unlikely(++rdp->count > 10000)) {
-+		rdp->count--;
-+		head = rdp->donelist;
-+		rdp->donelist = head->next;
-+		local_irq_restore(flags);
-+		return head->func(head);
-+	}
- 	local_irq_restore(flags);
- }
- 
-@@ -209,7 +222,7 @@
- static void rcu_do_batch(struct rcu_data *rdp)
- {
- 	struct rcu_head *next, *list;
--	int count = 0;
-+	int count = maxbatch;
- 
- 	list = rdp->donelist;
- 	while (list) {
-@@ -217,7 +230,7 @@
- 		list->func(list);
- 		list = next;
- 		rdp->count--;
--		if (++count >= maxbatch)
-+		if (--count <= 0)
- 			break;
- 	}
- 	if (!rdp->donelist)
+> > * We really have no wireless maintainer.  I'm just the defacto guy,
+> >   with no interest in the job.  The ideal maintainer knows 802.11 well,
+> >   uses git, and isn't an asshole with no taste.  I'm just the guy who
+> >   wants to make sure the net driver portion doesn't turn out to be a
+> >   stinker (read: review and pass up the chain).
 
---------------030708050503000809030603--
+That problem is easiest to solve. ;)
+
+> > * Wireless management, in particular the wireless kernel<->user
+> >   interface, needs some thinking.  Wireless Extensions (WE) isn't
+> >   cutting it, but I haven't seen any netlink work yet (or some
+> >   other interface).  Whatever the userspace interface is, it will be
+> >   basically carved in stone for years (unlike kernel APIs), so this
+> >   needs a lot more thought than people have been giving it.
+
+We did some brainstorming about this yesterday evening on the bcm
+irc channel. I think we all agreed on dropping WE.
+So, now we asked: How would a sane UI look like. We had a few points:
+* The interface needs to support some kind of "master" interface to
+configure the hardware, 80211 parameters and
+to actually configure and setup the
+* Virtual interfaces.
+Data is transferred only though the virtual interfaces, which could
+be an AP interface, a STA interface in INFRA or Ad-Hoc mode, etc... .
+Configuration is done though the master interface.
+
+How would the virtual interfaces look like? That is quite easy to answer.
+They are net_devices, as they transfer data.
+They should probaly _not_ be on top of the ethernet, as 80211 does not
+have very much in common with ethernet. Basically they share the same
+MAC address format. Does someone have another thing, which he thinks
+is shared?
+How would the master interface look like? A somewhat unusual idea came
+up. Using a device node in /dev. So every wireless card in the system
+would have a node in /dev associated (/dev/wlan0 for example).
+A node for the master device would be ok, because no data is transferred
+through it. It is only a configuration interface.
+So you would tell the, yet-to-be-written userspace tool wconfig (or somethi=
+ng
+like that) "I need a STA in INFRA mode and want to drive it on the
+wlan0 card". So wconfig goes and write()s some data to /dev/wlan0
+telling the 80211 code to setup a virtual net_device for the driver
+associated to /dev/wlan0.
+The virtual interface is then configured though /dev/wlan0 using write()
+(no ugly ioctl anymore, you see...). Config data like TX rate,
+current essid,.... basically everything + xyz which is done by WE today,
+is written to /dev/wlan0.
+This config data is entirely cached in the 80211 code for the /dev/wlan0
+instance. This is important, to have the data persistent throughout
+suspend/resume cycles, if up/down cycles.
+After configuring, a virtual net_device (let's call it wlan0) exists,
+which can be brought up by ifconfig and data can be transferred though
+it as usual.
+
+This whole concept is derived from how dscape does the stuff.
+With a major exception, that a device node instead of a net_device
+is used for the master device. With the effect of getting rid of the
+ugly WE ioctl stuff.
+
+> > * Long term, wireless should go from being a library of common code to a
+> >   "real" wireless stack, as shown in the template developed by David Mi=
+ller:
+> >   http://kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/davem=
+=2Dp80211.tar.bz2
+> >   Zhu Yi @ Intel and Vladmir @ somewhere both independently did some
+> >   work in this area.
+
+This looks very interresting and in fact is part of our thoughts I
+explained above.
+
+> > * I prefer GPL-only code.  Dual licensing has proven in practice to
+> >   be a logistical nightmare that concentrates power in the hands of
+> >   a few.  Dual licensing, BSD licensing works for some, but GPL-only
+> >   code is quite simply the least amount of flamewars, headaches
+> >   and worry.  IOW, the P.I.T.A. level of GPL-only code is lowest.
+
+I personally prefer EXPORT_SYMBOL_GPL().
+But that's only my opinion and that does not really matter. ;)
+
+> > Dual licensed code gives kernel hackers yet more legal crapola to
+> > worry about, which is never a good thing.
+
+I don't see a point in dual licensing it.
+The only benefit would be to allow BSD people to take the code.
+Honestly, I really don't see this happening, anyway. ;)
+They have net80211.
+
+> > Patches welcome from all motivated, clueful parties.  Jiri Benc has a
+> > long series of patches that looks nice.  Johannes Berg has done some
+> > work on the ieee80211 softmac stuff and hw WEP.  But maybe DeviceScape
+> > is what people like now.
+
+Well, "like" is a strong word. I personally would say "It is better than
+all currently existing solutions, if some final polishing is done to dscape=
+=2E"
+
+=2D-=20
+Greetings Michael.
+
+--nextPart3368479.LLDLk1xIID
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQBDvk3rlb09HEdWDKgRAkUwAJ4r+QXvwfav9RE9stu6s8aVvbUTgQCgvZTZ
+JvBoYSEIIAlBuBrujDKND+o=
+=8g+0
+-----END PGP SIGNATURE-----
+
+--nextPart3368479.LLDLk1xIID--
