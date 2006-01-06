@@ -1,36 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bcm43xx-dev] [Fwd: State of the Union: Wireless]
-Date: Fri, 06 Jan 2006 23:22:34 +0100
-Message-ID: <43BEEDAA.5040009@trash.net>
-References: <1136541243.4037.18.camel@localhost>  <200601061200.59376.mbuesch@freenet.de>  <1136547494.7429.72.camel@localhost>  <200601061245.55978.mbuesch@freenet.de> <1136549423.7429.88.camel@localhost> <43BE6697.3030009@trash.net> <Pine.LNX.4.62.0601061414570.334@qynat.qvtvafvgr.pbz>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH, RFC] RCU : OOM avoidance and lower latency
+Date: Fri, 6 Jan 2006 23:18:34 +0100
+Message-ID: <200601062318.35464.ak@suse.de>
+References: <20060105235845.967478000@sorel.sous-sol.org> <200601061358.42344.ak@suse.de> <1136575600.17979.58.camel@mindpipe>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Michael Buesch <mbuesch@freenet.de>, jgarzik@pobox.com,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752482AbWAFWXO@vger.kernel.org>
-To: David Lang <dlang@digitalinsight.com>
-In-Reply-To: <Pine.LNX.4.62.0601061414570.334@qynat.qvtvafvgr.pbz>
+Cc: Eric Dumazet <dada1@cosmosbay.com>,
+	Linus Torvalds <torvalds@osdl.org>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750844AbWAFWd7@vger.kernel.org>
+To: Lee Revell <rlrevell@joe-job.com>
+In-Reply-To: <1136575600.17979.58.camel@mindpipe>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Lang wrote:
-> On Fri, 6 Jan 2006, Patrick McHardy wrote:
+On Friday 06 January 2006 20:26, Lee Revell wrote:
+> On Fri, 2006-01-06 at 13:58 +0100, Andi Kleen wrote:
+> > Another CPU might be stuck in a long 
+> > running interrupt
 > 
->> I think the main advantages of netlink over a character device is its
->> flexible format, which is easily extendable, and multicast capability,
->> which can be used to broadcast events and configuration changes. Its
->> also good to have all the net stuff accessible in a uniform way.
-> 
-> 
-> character devices are far easier to script. this really sounds like the 
-> type of configuration stuff that sysfs was designed for. can we avoid 
-> yet another configuration tool that's required?
+> Shouldn't a long running interrupt be considered a bug?
 
-I think its not just configuration but also event handling
-for associating, link layer authentication, ..., which is
-not something handled by scripts but by some daemon. It might
-also want to set up routes or ip addresses which is done using
-netlink anyway.
+In normal operation yes, but there can be always exceptional
+circumstances where it's unavoidable (e.g. during error handling) 
+and in the name of defensive programming the rest of the system ought 
+to tolerate it.
+
+-Andi
