@@ -1,8 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NETFILTER 05/10]: Fix xfrm lookup in
-	ip_route_me_harder/ip6_route_me_harder
-Date: Sat,  7 Jan 2006 02:09:38 +0100 (MET)
-Message-ID: <20060107010902.8712.67836.sendpatchset@localhost.localdomain>
+Subject: [NETFILTER 07/10]: Redo policy lookups after NAT when neccessary
+Date: Sat,  7 Jan 2006 02:09:40 +0100 (MET)
+Message-ID: <20060107010905.8712.53527.sendpatchset@localhost.localdomain>
 References: <20060107010855.8712.68786.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	Patrick McHardy <kaber@trash.net>
@@ -20,256 +19,116 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[NETFILTER]: Fix xfrm lookup in ip_route_me_harder/ip6_route_me_harder
+[NETFILTER]: Redo policy lookups after NAT when neccessary
 
-ip_route_me_harder doesn't use the port numbers of the xfrm lookup and
-uses ip_route_input for non-local addresses which doesn't do a xfrm
-lookup, ip6_route_me_harder doesn't do a xfrm lookup at all.
-
-Use xfrm_decode_session and do the lookup manually, make sure both
-only do the lookup if the packet hasn't been transformed already.
-
-Makeing sure the lookup only happens once needs a new field in the
-IP6CB, which exceeds the size of skb->cb. The size of skb->cb is
-increased to 48b. Apparently the IPv6 mobile extensions need some
-more room anyway.
+When NAT changes the key used for the xfrm lookup it needs to be done
+again. If a new policy is returned in POST_ROUTING the packet needs
+to be passed to xfrm4_output_one manually after all hooks were called
+because POST_ROUTING is called with fixed okfn (ip_finish_output).
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit d923d6ec05f49c2b746a7e8c6d0a71f3bcc35b4e
-tree 7005afd82b323b88784953b776f9d95671d4b9f3
-parent 0c72987fae9d4f21d80910ccca2beea4f77e1dc5
-author Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 00:57:41 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 00:57:41 +0100
+commit 00b264ce82ccc3216e3e4b0175dd1337eeb16f24
+tree e774053af87fff87b29e652c6a90588c30695224
+parent 3ba04601534a6f050fb695c92ddc62d403078cc6
+author Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 01:18:04 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 01:18:04 +0100
 
- include/linux/ipv6.h    |    3 +++
- include/linux/skbuff.h  |    2 +-
- include/net/ip.h        |    3 ++-
- include/net/xfrm.h      |    2 +-
- net/ipv4/ip_gre.c       |    2 +-
- net/ipv4/ipip.c         |    2 +-
- net/ipv4/netfilter.c    |   12 ++++++++++--
- net/ipv4/xfrm4_output.c |    1 +
- net/ipv6/netfilter.c    |    9 ++++++++-
- net/ipv6/xfrm6_output.c |    1 +
- net/xfrm/xfrm_policy.c  |    9 +++++----
- 11 files changed, 34 insertions(+), 12 deletions(-)
+ include/net/xfrm.h                     |    1 +
+ net/ipv4/ip_output.c                   |    5 +++++
+ net/ipv4/netfilter/ip_nat_standalone.c |   27 +++++++++++++++++++++++++--
+ net/ipv4/xfrm4_output.c                |    2 +-
+ 4 files changed, 32 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 5cfc715..9c8f4c9 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -192,6 +192,9 @@ struct inet6_skb_parm {
- 	__u16			dst1;
- 	__u16			lastopt;
- 	__u32			nhoff;
-+	__u16			flags;
-+
-+#define IP6SKB_XFRM_TRANSFORMED	1
- };
- 
- #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 483cfc4..e5fd66c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -251,7 +251,7 @@ struct sk_buff {
- 	 * want to keep them across layers you have to do a skb_clone()
- 	 * first. This is owned by whoever has the skb queued ATM.
- 	 */
--	char			cb[40];
-+	char			cb[48];
- 
- 	unsigned int		len,
- 				data_len,
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 52f4d9c..a494d04 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -39,7 +39,8 @@ struct inet_skb_parm
- 
- #define IPSKB_FORWARDED		1
- #define IPSKB_XFRM_TUNNEL_SIZE	2
--#define IPSKB_FRAG_COMPLETE	4
-+#define IPSKB_XFRM_TRANSFORMED	4
-+#define IPSKB_FRAG_COMPLETE	8
- };
- 
- struct ipcm_cookie
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 297d09d..d6111a2 100644
+index d6111a2..d09ca0e 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -668,7 +668,7 @@ static inline int xfrm6_policy_check(str
- 	return xfrm_policy_check(sk, dir, skb, AF_INET6);
+@@ -866,6 +866,7 @@ extern int xfrm_state_mtu(struct xfrm_st
+ extern int xfrm_init_state(struct xfrm_state *x);
+ extern int xfrm4_rcv(struct sk_buff *skb);
+ extern int xfrm4_output(struct sk_buff *skb);
++extern int xfrm4_output_finish(struct sk_buff *skb);
+ extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler);
+ extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler);
+ extern int xfrm6_rcv_spi(struct sk_buff **pskb, u32 spi);
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 71da318..5b42dbe 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -202,6 +202,11 @@ static inline int ip_finish_output2(stru
+ 
+ static inline int ip_finish_output(struct sk_buff *skb)
+ {
++#if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
++	/* Policy lookup after SNAT yielded a new policy */
++	if (skb->dst->xfrm != NULL)
++		return xfrm4_output_finish(skb);
++#endif
+ 	if (skb->len > dst_mtu(skb->dst) &&
+ 	    !(skb_shinfo(skb)->ufo_size || skb_shinfo(skb)->tso_size))
+ 		return ip_fragment(skb, ip_finish_output2);
+diff --git a/net/ipv4/netfilter/ip_nat_standalone.c b/net/ipv4/netfilter/ip_nat_standalone.c
+index 1bb5089..b518697 100644
+--- a/net/ipv4/netfilter/ip_nat_standalone.c
++++ b/net/ipv4/netfilter/ip_nat_standalone.c
+@@ -187,12 +187,30 @@ ip_nat_out(unsigned int hooknum,
+ 	   const struct net_device *out,
+ 	   int (*okfn)(struct sk_buff *))
+ {
++	struct ip_conntrack *ct;
++	enum ip_conntrack_info ctinfo;
++	unsigned int ret;
++
+ 	/* root is playing with raw sockets. */
+ 	if ((*pskb)->len < sizeof(struct iphdr)
+ 	    || (*pskb)->nh.iph->ihl * 4 < sizeof(struct iphdr))
+ 		return NF_ACCEPT;
+ 
+-	return ip_nat_fn(hooknum, pskb, in, out, okfn);
++	ret = ip_nat_fn(hooknum, pskb, in, out, okfn);
++	if (ret != NF_DROP && ret != NF_STOLEN
++	    && (ct = ip_conntrack_get(*pskb, &ctinfo)) != NULL) {
++		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
++
++		if (ct->tuplehash[dir].tuple.src.ip !=
++		    ct->tuplehash[!dir].tuple.dst.ip
++#ifdef CONFIG_XFRM
++		    || ct->tuplehash[dir].tuple.src.u.all !=
++		       ct->tuplehash[!dir].tuple.dst.u.all
++#endif
++		    )
++			return ip_route_me_harder(pskb) == 0 ? ret : NF_DROP;
++	}
++	return ret;
  }
  
--
-+extern int xfrm_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family);
- extern int __xfrm_route_forward(struct sk_buff *skb, unsigned short family);
+ static unsigned int
+@@ -217,7 +235,12 @@ ip_nat_local_fn(unsigned int hooknum,
+ 		enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
  
- static inline int xfrm_route_forward(struct sk_buff *skb, unsigned short family)
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 65c3a91..de16e94 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -832,7 +832,7 @@ static int ipgre_tunnel_xmit(struct sk_b
- 	skb->h.raw = skb->nh.raw;
- 	skb->nh.raw = skb_push(skb, gre_hlen);
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
--	IPCB(skb)->flags &= ~IPSKB_XFRM_TUNNEL_SIZE;
-+	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE|IPSKB_XFRM_TRANSFORMED);
- 	dst_release(skb->dst);
- 	skb->dst = &rt->u.dst;
- 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 078b59b..bbd85f5 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -621,7 +621,7 @@ static int ipip_tunnel_xmit(struct sk_bu
- 	skb->h.raw = skb->nh.raw;
- 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
--	IPCB(skb)->flags &= ~IPSKB_XFRM_TUNNEL_SIZE;
-+	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE|IPSKB_XFRM_TRANSFORMED);
- 	dst_release(skb->dst);
- 	skb->dst = &rt->u.dst;
- 
-diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index ae0779d..4c637a1 100644
---- a/net/ipv4/netfilter.c
-+++ b/net/ipv4/netfilter.c
-@@ -7,11 +7,13 @@
- #include <linux/netfilter.h>
- #include <linux/netfilter_ipv4.h>
- 
-+#include <linux/ip.h>
- #include <linux/tcp.h>
- #include <linux/udp.h>
- #include <linux/icmp.h>
- #include <net/route.h>
--#include <linux/ip.h>
-+#include <net/xfrm.h>
-+#include <net/ip.h>
- 
- /* route_me_harder function, used by iptable_nat, iptable_mangle + ip_queue */
- int ip_route_me_harder(struct sk_buff **pskb)
-@@ -33,7 +35,6 @@ int ip_route_me_harder(struct sk_buff **
- #ifdef CONFIG_IP_ROUTE_FWMARK
- 		fl.nl_u.ip4_u.fwmark = (*pskb)->nfmark;
- #endif
--		fl.proto = iph->protocol;
- 		if (ip_route_output_key(&rt, &fl) != 0)
- 			return -1;
- 
-@@ -60,6 +61,13 @@ int ip_route_me_harder(struct sk_buff **
- 	if ((*pskb)->dst->error)
- 		return -1;
- 
+ 		if (ct->tuplehash[dir].tuple.dst.ip !=
+-		    ct->tuplehash[!dir].tuple.src.ip)
++		    ct->tuplehash[!dir].tuple.src.ip
 +#ifdef CONFIG_XFRM
-+	if (!(IPCB(*pskb)->flags & IPSKB_XFRM_TRANSFORMED) &&
-+	    xfrm_decode_session(*pskb, &fl, AF_INET) == 0)
-+		if (xfrm_lookup(&(*pskb)->dst, &fl, (*pskb)->sk, 0))
-+			return -1;
++		    || ct->tuplehash[dir].tuple.dst.u.all !=
++		       ct->tuplehash[dir].tuple.src.u.all
 +#endif
-+
- 	/* Change in oif may mean change in hh_len. */
- 	hh_len = (*pskb)->dst->dev->hard_header_len;
- 	if (skb_headroom(*pskb) < hh_len) {
++		    )
+ 			return ip_route_me_harder(pskb) == 0 ? ret : NF_DROP;
+ 	}
+ 	return ret;
 diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index 51fabb8..160c488 100644
+index 160c488..d4df0dd 100644
 --- a/net/ipv4/xfrm4_output.c
 +++ b/net/ipv4/xfrm4_output.c
-@@ -140,6 +140,7 @@ static int xfrm4_output_one(struct sk_bu
- 		x = dst->xfrm;
- 	} while (x && !x->props.mode);
- 
-+	IPCB(skb)->flags |= IPSKB_XFRM_TRANSFORMED;
- 	err = 0;
- 
- out_exit:
-diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
-index f8626eb..b636783 100644
---- a/net/ipv6/netfilter.c
-+++ b/net/ipv6/netfilter.c
-@@ -10,6 +10,7 @@
- #include <net/dst.h>
- #include <net/ipv6.h>
- #include <net/ip6_route.h>
-+#include <net/xfrm.h>
- 
- int ip6_route_me_harder(struct sk_buff *skb)
- {
-@@ -21,11 +22,17 @@ int ip6_route_me_harder(struct sk_buff *
- 		{ .ip6_u =
- 		  { .daddr = iph->daddr,
- 		    .saddr = iph->saddr, } },
--		.proto = iph->nexthdr,
- 	};
- 
- 	dst = ip6_route_output(skb->sk, &fl);
- 
-+#ifdef CONFIG_XFRM
-+	if (!(IP6CB(skb)->flags & IP6SKB_XFRM_TRANSFORMED) &&
-+	    xfrm_decode_session(skb, &fl, AF_INET6) == 0)
-+		if (xfrm_lookup(&skb->dst, &fl, skb->sk, 0))
-+			return -1;
-+#endif
-+
- 	if (dst->error) {
- 		IP6_INC_STATS(IPSTATS_MIB_OUTNOROUTES);
- 		LIMIT_NETDEBUG(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index fc0ea38..8024217 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -139,6 +139,7 @@ static int xfrm6_output_one(struct sk_bu
- 		x = dst->xfrm;
- 	} while (x && !x->props.mode);
- 
-+	IP6CB(skb)->flags |= IP6SKB_XFRM_TRANSFORMED;
- 	err = 0;
- 
- out_exit:
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 64a4473..f2edc92 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -951,8 +951,8 @@ xfrm_policy_ok(struct xfrm_tmpl *tmpl, s
- 	return start;
+@@ -152,7 +152,7 @@ error_nolock:
+ 	goto out_exit;
  }
  
--static int
--_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family)
-+int
-+xfrm_decode_session(struct sk_buff *skb, struct flowi *fl, unsigned short family)
+-static int xfrm4_output_finish(struct sk_buff *skb)
++int xfrm4_output_finish(struct sk_buff *skb)
  {
- 	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+ 	int err;
  
-@@ -963,6 +963,7 @@ _decode_session(struct sk_buff *skb, str
- 	xfrm_policy_put_afinfo(afinfo);
- 	return 0;
- }
-+EXPORT_SYMBOL(xfrm_decode_session);
- 
- static inline int secpath_has_tunnel(struct sec_path *sp, int k)
- {
-@@ -982,7 +983,7 @@ int __xfrm_policy_check(struct sock *sk,
- 	u8 fl_dir = policy_to_flow_dir(dir);
- 	u32 sk_sid;
- 
--	if (_decode_session(skb, &fl, family) < 0)
-+	if (xfrm_decode_session(skb, &fl, family) < 0)
- 		return 0;
- 
- 	sk_sid = security_sk_sid(sk, &fl, fl_dir);
-@@ -1055,7 +1056,7 @@ int __xfrm_route_forward(struct sk_buff 
- {
- 	struct flowi fl;
- 
--	if (_decode_session(skb, &fl, family) < 0)
-+	if (xfrm_decode_session(skb, &fl, family) < 0)
- 		return 0;
- 
- 	return xfrm_lookup(&skb->dst, &fl, NULL, 0) == 0;
