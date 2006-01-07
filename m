@@ -1,33 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH, RFC] RCU : OOM avoidance and lower latency
-Date: Sat, 7 Jan 2006 02:09:01 +0100
-Message-ID: <200601070209.02157.ak@suse.de>
-References: <43BEA693.5010509@cosmosbay.com> <200601062157.42470.ak@suse.de> <20060106.161721.124249301.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [NETFILTER 00/10]: Netfilter IPsec support
+Date: Fri, 06 Jan 2006 20:21:40 -0600 (CST)
+Message-ID: <20060106.202140.97921155.yoshfuji@linux-ipv6.org>
+References: <20060107010855.8712.68786.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@us.ibm.com, dada1@cosmosbay.com, alan@lxorguk.ukuu.org.uk,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	dipankar@in.ibm.com, manfred@colorfullife.com,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752507AbWAGCSG@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060106.161721.124249301.davem@davemloft.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	usagi-core@linux-ipv6.org, davem@davemloft.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kaber@trash.net
+In-Reply-To: <20060107010855.8712.68786.sendpatchset@localhost.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 07 January 2006 01:17, David S. Miller wrote:
+In article <20060107010855.8712.68786.sendpatchset@localhost.localdomain> (at Sat,  7 Jan 2006 02:09:30 +0100 (MET)), Patrick McHardy <kaber@trash.net> says:
 
-> 
-> I mean something like this patch:
+> following are the remaining patches for netfilter IPsec support.
+> They are missing the common-case optimization for inner transport mode
+> SAs on the input path, but since its just an optimization, I think
+> it can also be done later. One note: unfortunately I had to increase
 
-Looks like a good idea to me.
+I definitely want to do it before 2.6.16.
+Anyway, we'll test this series of patches.  Thank you.
 
-I always disliked the per chain spinlocks even for other hash tables like
-TCP/UDP multiplex - it would be much nicer to use a much smaller separately 
-hashed lock table and save cache. In this case the special case of using
-a one entry only lock hash table makes sense.
-
--Andi
+--yoshfuji
