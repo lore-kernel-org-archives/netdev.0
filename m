@@ -1,51 +1,37 @@
-From: Joe Kappus <joecool1029@gmail.com>
-Subject: Re: [2.6 patch] fix ipvs compilation
-Date: Fri, 6 Jan 2006 22:30:56 -0500
-Message-ID: <d4757e600601061930v3fc113c1t9d71c951613abf09@mail.gmail.com>
-References: <20060105135943.GA3831@stusta.de>
-	 <d4757e600601052043u647658f1yaa15b0f396b4ad3c@mail.gmail.com>
-	 <20060106.131536.88566896.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH, RFC] RCU : OOM avoidance and lower latency
+Date: Fri, 06 Jan 2006 23:10:54 -0800 (PST)
+Message-ID: <20060106.231054.43576567.davem@davemloft.net>
+References: <200601062157.42470.ak@suse.de>
+	<20060106.161721.124249301.davem@davemloft.net>
+	<200601070209.02157.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: bunk@stusta.de, wensong@linux-vs.org, horms@verge.net.au,
-	ja@ssi.bg, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030332AbWAGDbE@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060106.131536.88566896.davem@davemloft.net>
-Content-Disposition: inline
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@us.ibm.com, dada1@cosmosbay.com, alan@lxorguk.ukuu.org.uk,
+	torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	dipankar@in.ibm.com, manfred@colorfullife.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751494AbWAGHLV@vger.kernel.org>
+To: ak@suse.de
+In-Reply-To: <200601070209.02157.ak@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/6/06, David S. Miller <davem@davemloft.net> wrote:
-> From: Joe <joecool1029@gmail.com>
-> Date: Thu, 5 Jan 2006 23:43:52 -0500
->
-> > Thats not all either,  ./net/ipv4/netfilter/ipt_helper.c has the same
-> > error and the same fix.
-> >
-> > Here's the patch for this one.  Sorry for the dupe.. i sent the last
-> > as html by accident.
->
-> Applied, please provide a "Signed-off-by:" line with your patch
-> next time.
->
-> Thanks.
->
+From: Andi Kleen <ak@suse.de>
+Date: Sat, 7 Jan 2006 02:09:01 +0100
 
-Why not then, we'll do this one as well since it needs it.
+> I always disliked the per chain spinlocks even for other hash tables like
+> TCP/UDP multiplex - it would be much nicer to use a much smaller separately 
+> hashed lock table and save cache. In this case the special case of using
+> a one entry only lock hash table makes sense.
 
-Signed-off-by: Joe Kappus <joecool1029@gmail.com>
+I used to think they were a great technique.  But in each case I
+thought they could be applied, better schemes have come along.
+In the case of the page cache we went to a per-address-space tree,
+and here in the routing cache we went to RCU.
 
---- ./net/ipv4/netfilter/ip_conntrack_proto_sctp.c.old  2006-01-06
-22:27:08.885583023 -0500
-+++ ./net/ipv4/netfilter/ip_conntrack_proto_sctp.c      2006-01-06
-22:27:44.606582972 -0500
-@@ -16,6 +16,7 @@
- #include <linux/types.h>
- #include <linux/sched.h>
- #include <linux/timer.h>
-+#include <linux/interrupt.h>
- #include <linux/netfilter.h>
- #include <linux/module.h>
- #include <linux/in.h>
+There are RCU patches around for the TCP hashes and I'd like to
+put those in at some point as well.  In fact, they'd be even
+more far reaching since Arnaldo abstracted away the socket
+hashing stuff into an inet_hashtables subsystem.
