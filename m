@@ -1,8 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NETFILTER 08/10]: Keep conntrack reference until IPsec policy
-	checks are done
-Date: Sat,  7 Jan 2006 02:09:42 +0100 (MET)
-Message-ID: <20060107010906.8712.84422.sendpatchset@localhost.localdomain>
+Subject: [IPV4 04/10]: reset IPCB flags when neccessary
+Date: Sat,  7 Jan 2006 02:09:36 +0100 (MET)
+Message-ID: <20060107010901.8712.62416.sendpatchset@localhost.localdomain>
 References: <20060107010855.8712.68786.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
 	Patrick McHardy <kaber@trash.net>
@@ -20,134 +19,90 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-[NETFILTER]: Keep conntrack reference until IPsec policy checks are done
+[IPV4]: reset IPCB flags when neccessary
 
-Keep the conntrack reference until policy checks have been performed for
-IPsec NAT support. The reference needs to be dropped before a packet is
-queued to avoid having the conntrack module unloadable.
+Reset IPSKB_XFRM_TUNNEL_SIZE flags in ipip and ip_gre hard_start_xmit
+function before the packet reenters IP. This is neccessary so the
+encapsulated packets are checked not to be oversized in xfrm4_output.c
+again. Reset all flags in sit when a packet changes its address family.
+
+Also remove some obsolete IPSKB flags.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 7573dacaa96b4bd8ddc1be7139d17f7c95010413
-tree 63a51c62e2d7a4730df5339a0f7d22f1121c8750
-parent 00b264ce82ccc3216e3e4b0175dd1337eeb16f24
-author Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 01:22:09 +0100
-committer Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 01:22:09 +0100
+commit 0c72987fae9d4f21d80910ccca2beea4f77e1dc5
+tree 71aa056fbac413a11a4d29053595e73803656974
+parent 0ab5982305cae5d8e4fb41d8bb849ee1808946fc
+author Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 00:42:27 +0100
+committer Patrick McHardy <kaber@trash.net> Sat, 07 Jan 2006 00:42:27 +0100
 
- net/dccp/ipv4.c     |    1 +
- net/ipv4/ip_input.c |   15 ++++++---------
- net/ipv4/raw.c      |    1 +
- net/ipv4/tcp_ipv4.c |    1 +
- net/ipv4/udp.c      |    2 ++
- net/sctp/input.c    |    1 +
- 6 files changed, 12 insertions(+), 9 deletions(-)
+ include/net/ip.h  |    8 +++-----
+ net/ipv4/ip_gre.c |    1 +
+ net/ipv4/ipip.c   |    1 +
+ net/ipv6/sit.c    |    2 ++
+ 4 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 3f24467..23ba177 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -1099,6 +1099,7 @@ int dccp_v4_destroy_sock(struct sock *sk
- 		kfree_skb(sk->sk_send_head);
- 		sk->sk_send_head = NULL;
- 	}
-+	nf_reset(skb);
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 7bb5804..52f4d9c 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -37,11 +37,9 @@ struct inet_skb_parm
+ 	struct ip_options	opt;		/* Compiled IP options		*/
+ 	unsigned char		flags;
  
- 	/* Clean up a referenced DCCP bind bucket. */
- 	if (inet_csk(sk)->icsk_bind_hash != NULL)
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index e45846a..18d7fad 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -185,7 +185,6 @@ int ip_call_ra_chain(struct sk_buff *skb
- 					raw_rcv(last, skb2);
- 			}
- 			last = sk;
--			nf_reset(skb);
- 		}
- 	}
+-#define IPSKB_MASQUERADED	1
+-#define IPSKB_TRANSLATED	2
+-#define IPSKB_FORWARDED		4
+-#define IPSKB_XFRM_TUNNEL_SIZE	8
+-#define IPSKB_FRAG_COMPLETE	16
++#define IPSKB_FORWARDED		1
++#define IPSKB_XFRM_TUNNEL_SIZE	2
++#define IPSKB_FRAG_COMPLETE	4
+ };
  
-@@ -204,10 +203,6 @@ static inline int ip_local_deliver_finis
+ struct ipcm_cookie
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 912c42f..65c3a91 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -832,6 +832,7 @@ static int ipgre_tunnel_xmit(struct sk_b
+ 	skb->h.raw = skb->nh.raw;
+ 	skb->nh.raw = skb_push(skb, gre_hlen);
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IPCB(skb)->flags &= ~IPSKB_XFRM_TUNNEL_SIZE;
+ 	dst_release(skb->dst);
+ 	skb->dst = &rt->u.dst;
  
- 	__skb_pull(skb, ihl);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 35571cf..078b59b 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -621,6 +621,7 @@ static int ipip_tunnel_xmit(struct sk_bu
+ 	skb->h.raw = skb->nh.raw;
+ 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IPCB(skb)->flags &= ~IPSKB_XFRM_TUNNEL_SIZE;
+ 	dst_release(skb->dst);
+ 	skb->dst = &rt->u.dst;
  
--	/* Free reference early: we don't need it any more, and it may
--           hold ip_conntrack module loaded indefinitely. */
--	nf_reset(skb);
--
-         /* Point into the IP datagram, just past the header. */
-         skb->h.raw = skb->data;
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 577d497..02872ae 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -381,6 +381,7 @@ static int ipip6_rcv(struct sk_buff *skb
+ 		skb->mac.raw = skb->nh.raw;
+ 		skb->nh.raw = skb->data;
+ 		memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
++		IPCB(skb)->flags = 0;
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		skb->pkt_type = PACKET_HOST;
+ 		tunnel->stat.rx_packets++;
+@@ -552,6 +553,7 @@ static int ipip6_tunnel_xmit(struct sk_b
+ 	skb->h.raw = skb->nh.raw;
+ 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IPCB(skb)->flags = 0;
+ 	dst_release(skb->dst);
+ 	skb->dst = &rt->u.dst;
  
-@@ -232,10 +227,12 @@ static inline int ip_local_deliver_finis
- 		if ((ipprot = rcu_dereference(inet_protos[hash])) != NULL) {
- 			int ret;
- 
--			if (!ipprot->no_policy &&
--			    !xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
--				kfree_skb(skb);
--				goto out;
-+			if (!ipprot->no_policy) {
-+				if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
-+					kfree_skb(skb);
-+					goto out;
-+				}
-+				nf_reset(skb);
- 			}
- 			ret = ipprot->handler(skb);
- 			if (ret < 0) {
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 4b0d7e4..165a4d8 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -255,6 +255,7 @@ int raw_rcv(struct sock *sk, struct sk_b
- 		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
-+	nf_reset(skb);
- 
- 	skb_push(skb, skb->data - skb->nh.raw);
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index e9f83e5..6ea3539 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1080,6 +1080,7 @@ process:
- 
- 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
- 		goto discard_and_relse;
-+	nf_reset(skb);
- 
- 	if (sk_filter(sk, skb, 0))
- 		goto discard_and_relse;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 223abaa..0084047 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -989,6 +989,7 @@ static int udp_queue_rcv_skb(struct sock
- 		kfree_skb(skb);
- 		return -1;
- 	}
-+	nf_reset(skb);
- 
- 	if (up->encap_type) {
- 		/*
-@@ -1149,6 +1150,7 @@ int udp_rcv(struct sk_buff *skb)
- 
- 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto drop;
-+	nf_reset(skb);
- 
- 	/* No socket. Drop packet silently, if checksum is wrong */
- 	if (udp_checksum_complete(skb))
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 238f1bf..4aa6fc6 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -225,6 +225,7 @@ int sctp_rcv(struct sk_buff *skb)
- 
- 	if (!xfrm_policy_check(sk, XFRM_POLICY_IN, skb, family))
- 		goto discard_release;
-+	nf_reset(skb);
- 
- 	ret = sk_filter(sk, skb, 1);
- 	if (ret)
