@@ -1,43 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NETFILTER 00/10]: Netfilter IPsec support
-Date: Sat, 07 Jan 2006 03:29:44 +0100
-Message-ID: <43BF2798.2030906@trash.net>
-References: <20060107010855.8712.68786.sendpatchset@localhost.localdomain>
-	<20060106.202140.97921155.yoshfuji@linux-ipv6.org>
+From: Joe Kappus <joecool1029@gmail.com>
+Subject: Re: [2.6 patch] fix ipvs compilation
+Date: Fri, 6 Jan 2006 22:30:56 -0500
+Message-ID: <d4757e600601061930v3fc113c1t9d71c951613abf09@mail.gmail.com>
+References: <20060105135943.GA3831@stusta.de>
+	 <d4757e600601052043u647658f1yaa15b0f396b4ad3c@mail.gmail.com>
+	 <20060106.131536.88566896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	usagi-core@linux-ipv6.org, davem@davemloft.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20060106.202140.97921155.yoshfuji@linux-ipv6.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: bunk@stusta.de, wensong@linux-vs.org, horms@verge.net.au,
+	ja@ssi.bg, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030332AbWAGDbE@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060106.131536.88566896.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / $B5HF#1QL@ wrote:
-> In article <20060107010855.8712.68786.sendpatchset@localhost.localdomain> (at Sat,  7 Jan 2006 02:09:30 +0100 (MET)), Patrick McHardy <kaber@trash.net> says:
-> 
-> 
->>following are the remaining patches for netfilter IPsec support.
->>They are missing the common-case optimization for inner transport mode
->>SAs on the input path, but since its just an optimization, I think
->>it can also be done later. One note: unfortunately I had to increase
-> 
-> 
-> I definitely want to do it before 2.6.16.
+On 1/6/06, David S. Miller <davem@davemloft.net> wrote:
+> From: Joe <joecool1029@gmail.com>
+> Date: Thu, 5 Jan 2006 23:43:52 -0500
+>
+> > Thats not all either,  ./net/ipv4/netfilter/ipt_helper.c has the same
+> > error and the same fix.
+> >
+> > Here's the patch for this one.  Sorry for the dupe.. i sent the last
+> > as html by accident.
+>
+> Applied, please provide a "Signed-off-by:" line with your patch
+> next time.
+>
+> Thanks.
+>
 
-That shouldn't be a problem, its not hard, but I think it might get
-a bit ugly.
+Why not then, we'll do this one as well since it needs it.
 
-> Anyway, we'll test this series of patches.
+Signed-off-by: Joe Kappus <joecool1029@gmail.com>
 
-Thanks.
+--- ./net/ipv4/netfilter/ip_conntrack_proto_sctp.c.old  2006-01-06
+22:27:08.885583023 -0500
++++ ./net/ipv4/netfilter/ip_conntrack_proto_sctp.c      2006-01-06
+22:27:44.606582972 -0500
+@@ -16,6 +16,7 @@
+ #include <linux/types.h>
+ #include <linux/sched.h>
+ #include <linux/timer.h>
++#include <linux/interrupt.h>
+ #include <linux/netfilter.h>
+ #include <linux/module.h>
+ #include <linux/in.h>
