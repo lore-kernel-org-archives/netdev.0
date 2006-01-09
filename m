@@ -1,64 +1,45 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [patch] ipw2100: support WEXT-18 enc_capa v3
-Date: Mon, 09 Jan 2006 10:54:57 -0500
-Message-ID: <1136822098.7941.13.camel@dhcp83-115.boston.redhat.com>
-References: <1136820457.7941.4.camel@dhcp83-115.boston.redhat.com>
-	 <43C282A5.6010609@pobox.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netlink oops fix due to incorrect error code
+Date: Tue, 10 Jan 2006 00:50:52 +0100
+Message-ID: <43C2F6DC.7040602@trash.net>
+References: <43C27662.2030400@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jketreno@linux.intel.com, netdev@vger.kernel.org,
-	ipw2100-devel@lists.sourceforge.net
-Return-path: <ipw2100-devel-admin@lists.sourceforge.net>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <43C282A5.6010609@pobox.com>
-Sender: ipw2100-devel-admin@lists.sourceforge.net
-Errors-To: ipw2100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
+Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org, Dmitry Mishin <dim@sw.ru>,
+	Stanislav Protassov <st@sw.ru>,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751648AbWAIXvl@vger.kernel.org>
+To: Kirill Korotaev <dev@openvz.org>,
+	"David S. Miller" <davem@davemloft.net>
+In-Reply-To: <43C27662.2030400@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Kirill Korotaev wrote:
+> Fixed oops after failed netlink socket creation.
+> Wrong parathenses in if() statement caused err to be 1,
+> instead of negative value.
+> Trivial fix, not trivial to find though.
+> 
+> Signed-Off-By: Dmitry Mishin <dim@sw.ru>
+> Signed-Off-By: Kirill Korotaev <dev@openvz.org>
 
-This patch allows ipw2100 driver to advertise the WPA-related encryption
-options that it does really support.  It's necessary to work correctly
-with NetworkManager and other programs that actually check driver & card
-capabilities.
+Good catch. Dave, please apply.
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
-
---- a/drivers/net/wireless/ipw2100.c	2006-01-08 14:04:00.000000000 -0500
-+++ b/drivers/net/wireless/ipw2100.c	2006-01-08 15:47:37.000000000 -0500
-@@ -7236,7 +7236,7 @@
- 
- 	/* Set the Wireless Extension versions */
- 	range->we_version_compiled = WIRELESS_EXT;
--	range->we_version_source = 16;
-+	range->we_version_source = 18;
- 
- //      range->retry_capa;      /* What retry options are supported */
- //      range->retry_flags;     /* How to decode max/min retry limit */
-@@ -7262,6 +7262,9 @@
- 	}
- 	range->num_frequency = val;
- 
-+	range->enc_capa = IW_ENC_CAPA_WPA | IW_ENC_CAPA_WPA2 |
-+		IW_ENC_CAPA_CIPHER_TKIP | IW_ENC_CAPA_CIPHER_CCMP;
-+
- 	IPW_DEBUG_WX("GET Range\n");
- 
- 	return 0;
-
-
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+> 
+> ------------------------------------------------------------------------
+> 
+> --- ./net/netlink/af_netlink.c.nlfix	2006-01-06 18:37:28.000000000 +0300
+> +++ ./net/netlink/af_netlink.c	2006-01-09 16:40:49.000000000 +0300
+> @@ -416,7 +416,7 @@ static int netlink_create(struct socket 
+>  	groups = nl_table[protocol].groups;
+>  	netlink_unlock_table();
+>  
+> -	if ((err = __netlink_create(sock, protocol) < 0))
+> +	if ((err = __netlink_create(sock, protocol)) < 0)
+>  		goto out_module;
+>  
+>  	nlk = nlk_sk(sock->sk);
+> 
