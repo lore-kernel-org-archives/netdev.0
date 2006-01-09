@@ -1,45 +1,55 @@
-From: Folkert van Heusden <folkert@vanheusden.com>
-Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
-Date: Mon, 9 Jan 2006 15:45:22 +0100
-Message-ID: <20060109144522.GB10955@vanheusden.com>
-References: <20060108114305.GA32425@vanheusden.com>
-	<20060109041114.6e797a9b.akpm@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch] ipw2100: support WEXT-18 enc_capa v2
+Date: Mon, 09 Jan 2006 10:43:50 -0500
+Message-ID: <43C284B6.8060909@pobox.com>
+References: <1136820457.7941.4.camel@dhcp83-115.boston.redhat.com>	 <43C282A5.6010609@pobox.com> <1136821181.7941.9.camel@dhcp83-115.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964785AbWAIOpZ@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060109041114.6e797a9b.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jketreno@linux.intel.com, netdev@vger.kernel.org,
+	ipw2100-devel@lists.sourceforge.net
+Return-path: <ipw2100-devel-admin@lists.sourceforge.net>
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1136821181.7941.9.camel@dhcp83-115.boston.redhat.com>
+Sender: ipw2100-devel-admin@lists.sourceforge.net
+Errors-To: ipw2100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
+	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
+	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
 List-Id: netdev.vger.kernel.org
 
-> > My system freezes (crashes) when I run tcpdump on the interface
-> >  connected to a 3c905b card.
-> Works for me with a 3c980-TX.  I can dig out a 905b.
-> Please send the exact commands which you're using to demonstrate this -
-> sufficient info for me to get as close as possible to what you're doing.
+Dan Williams wrote:
+> Hi,
+> 
+> This patch allows ipw2100 driver to advertise the WPA-related encryption
+> options that it does really support.  It's necessary to work correctly
+> with NetworkManager and other programs that actually check driver & card
+> capabilities.
+> 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
+> 
+> --- ipw2100.c.nowpa	2006-01-08 14:04:00.000000000 -0500
+> +++ ipw2100.c	2006-01-08 15:47:37.000000000 -0500
 
-The exact command is:
-tcpdump -i eth1
+Malformed patch:
 
-Yes, it is that simple. Not only tcpdump gives this problem; iftop as
-well.
+Applying 'ipw2100: support WEXT-18 enc_capa v2'
 
-> Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
-> boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
-> of /proc/interrupts is incrementing.
+error: ipw2100.c: does not exist in index
 
-I'll give it a try. I've added it to the append-line in the lilo config.
-Am now compiling the kernel.
+Please resend in correct format (applies with 'patch -sp1').
+
+	Jeff
 
 
-Folkert van Heusden
 
--- 
-Try MultiTail! Multiple windows with logfiles, filtered with regular
-expressions, colored output, etc. etc. www.vanheusden.com/multitail/
-----------------------------------------------------------------------
-Get your PGP/GPG key signed at www.biglumber.com!
-----------------------------------------------------------------------
-Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
