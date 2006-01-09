@@ -1,99 +1,204 @@
-From: CaT <cat@zip.com.au>
-Subject: network code assertion failed
-Date: Mon, 9 Jan 2006 10:22:17 +1100
-Message-ID: <20060108232217.GQ18905@zip.com.au>
+From: Shaun Pereira <spereira@tusc.com.au>
+Subject: [PATCH] net: 32 bit (socket layer) ioctl emulation for 64 bit
+	kernels
+Date: Mon, 09 Jan 2006 17:46:56 +1100
+Message-ID: <1136789216.6653.17.camel@spereira05.tusc.com.au>
+Reply-To: spereira@tusc.com.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161238AbWAHXVv@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: SP <pereira.shaun@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932906AbWAIGpq@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+	linux-kenel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Andi Kleen <ak@muc.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've been looking through logfiles for strange things that may have
-occoured whilst I was away and I spotted this:
+Hi all,
+The attached patch is a follow up to a post made earlier to this site
+with regard to 32 bit (socket layer) ioctl emulation for 64 bit kernels.
 
-UDP: bad checksum. From 68.56.220.203:19520 to x.x.x.x:33435 ulen 8
-printk: 22 messages suppressed.
-UDP: bad checksum. From 68.56.220.203:19520 to x.x.x.x:33438 ulen 8
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (148)
-cdrom: open failed.
-cdrom: open failed.
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (148)
-TCP: Treason uncloaked! Peer 61.69.94.12:60121/80 shrinks window 146488137:146489597. Repaired.
+I needed to implement 32 bit userland ioctl support for modular (x.25)
+socket ioctls in a 64 bit kernel. With the removal of the
+register_ioctl32_conversion() function from the kernel, one of the
+suggestions made by Andi was "to just extend the socket code to add a
+compat_ioctl vector to the socket options"
 
-Can't really give more info on it as the messages were not logged to
-syslog and so I can't check out the timing and hence check for
-strangeness elsewhere. I am wondering if it would've caused the
-webserver to not be able to get a listen socket as it failed during the
-break though.
+With Arnd's help (see previous mails with subject = 32 bit (socket
+layer) ioctl emulation for 64 bit kernels) I have prepared the following
+patchand tested with with x25 over tcp on a x26_64 kernel. 
 
-Kernel is 2.6.14.3.
+Since we are interested in ioctl's from userspace I have not added the 
+.compat_ioctl function pointer to struct net_device. The assumption
+being once the userspace data has reached the kernel via the socket api,
+if the socket layer protocol knows how to handle the data, it will
+prepare it for the device. 
 
-Network part of the .config is:
+Am not too sure whether struct proto requires modification. Since it is 
+allocated dynamically in the protocol layer I have left it alone;no
+compat_ioctl. Also it seems like the socket layer would know how to
+"ioctl" the transport layer, userspace does not need to know about
+this? 
 
-CONFIG_NET=y
-CONFIG_NET_KEY=y
-CONFIG_INET=y
-CONFIG_INET_DIAG=y
-CONFIG_INET_TCP_DIAG=y
-CONFIG_NETFILTER=y
-CONFIG_NET_CLS_ROUTE=y
-CONFIG_NETDEVICES=y
-CONFIG_IP_ADVANCED_ROUTER=y
-CONFIG_ASK_IP_FIB_HASH=y
-CONFIG_IP_FIB_HASH=y
-CONFIG_IP_MULTIPLE_TABLES=y
-CONFIG_IP_ROUTE_VERBOSE=y
-CONFIG_IP_NF_QUEUE=y
-CONFIG_IP_NF_IPTABLES=y
-CONFIG_IP_NF_MATCH_LIMIT=y
-CONFIG_IP_NF_MATCH_IPRANGE=y
-CONFIG_IP_NF_MATCH_MAC=y
-CONFIG_IP_NF_MATCH_PKTTYPE=y
-CONFIG_IP_NF_MATCH_MARK=y
-CONFIG_IP_NF_MATCH_MULTIPORT=y
-CONFIG_IP_NF_MATCH_TOS=y
-CONFIG_IP_NF_MATCH_RECENT=y
-CONFIG_IP_NF_MATCH_ECN=y
-CONFIG_IP_NF_MATCH_DSCP=y
-CONFIG_IP_NF_MATCH_AH_ESP=y
-CONFIG_IP_NF_MATCH_LENGTH=y
-CONFIG_IP_NF_MATCH_TTL=y
-CONFIG_IP_NF_MATCH_TCPMSS=y
-CONFIG_IP_NF_MATCH_OWNER=y
-CONFIG_IP_NF_MATCH_ADDRTYPE=y
-CONFIG_IP_NF_MATCH_REALM=y
-CONFIG_IP_NF_MATCH_SCTP=y
-CONFIG_IP_NF_MATCH_DCCP=y
-CONFIG_IP_NF_MATCH_COMMENT=y
-CONFIG_IP_NF_MATCH_HASHLIMIT=y
-CONFIG_IP_NF_MATCH_STRING=y
-CONFIG_IP_NF_FILTER=y
-CONFIG_IP_NF_TARGET_REJECT=y
-CONFIG_IP_NF_TARGET_LOG=y
-CONFIG_IP_NF_TARGET_ULOG=y
-CONFIG_IP_NF_TARGET_TCPMSS=y
-CONFIG_IP_NF_TARGET_NFQUEUE=y
-CONFIG_IP_NF_MANGLE=y
-CONFIG_IP_NF_TARGET_TOS=y
-CONFIG_IP_NF_TARGET_ECN=y
-CONFIG_IP_NF_TARGET_DSCP=y
-CONFIG_IP_NF_TARGET_MARK=y
-CONFIG_IP_NF_TARGET_CLASSIFY=y
-CONFIG_IP_NF_TARGET_TTL=y
-CONFIG_IP_NF_RAW=y
-CONFIG_IP_NF_ARPTABLES=y
-CONFIG_IP_NF_ARPFILTER=y
-CONFIG_IP_NF_ARP_MANGLE=y
+But if any of this is incorrect and needs to be changed please advise 
+and I will make the changes accordingly. If this patch is accepted I 
+would be in a position to submit a patch for x25 (32 bit userspace 
+for 64 bit kernel). 
 
-There are two routing tables (created with 'ip rule add') for two interfaces
-also. Both interfaces are e1000s.
+Many thanks for your help
+Regards
+Shaun
 
--- 
-    "To the extent that we overreact, we proffer the terrorists the
-    greatest tribute."
-    	- High Court Judge Michael Kirby
+
+diff -uprN -X dontdiff linux-2.6.15-vanilla/include/linux/net.h
+linux-2.6.15/include/linux/net.h
+--- linux-2.6.15-vanilla/include/linux/net.h	2006-01-03
+14:21:10.000000000 +1100
++++ linux-2.6.15/include/linux/net.h	2006-01-09 15:59:49.000000000 +1100
+@@ -143,6 +143,10 @@ struct proto_ops {
+ 				      struct poll_table_struct *wait);
+ 	int		(*ioctl)     (struct socket *sock, unsigned int cmd,
+ 				      unsigned long arg);
++#ifdef CONFIG_COMPAT
++	int	 	(*compat_ioctl) (struct socket *sock, unsigned int cmd,
++				      unsigned long arg);
++#endif
+ 	int		(*listen)    (struct socket *sock, int len);
+ 	int		(*shutdown)  (struct socket *sock, int flags);
+ 	int		(*setsockopt)(struct socket *sock, int level,
+@@ -205,6 +209,7 @@ extern int   	     kernel_recvmsg(struct
+ #ifndef CONFIG_SMP
+ #define SOCKOPS_WRAPPED(name) name
+ #define SOCKOPS_WRAP(name, fam)
++#define SOCKOPS_COMPAT_WRAP(name, fam)
+ #else
+ 
+ #define SOCKOPS_WRAPPED(name) __unlocked_##name
+@@ -279,6 +284,60 @@ static struct proto_ops name##_ops = {		
+ 	.recvmsg	= __lock_##name##_recvmsg,	\
+ 	.mmap		= __lock_##name##_mmap,		\
+ };
++
++#define SOCKOPS_COMPAT_WRAP(name, fam)					\
++SOCKCALL_WRAP(name, release, (struct socket *sock), (sock))	\
++SOCKCALL_WRAP(name, bind, (struct socket *sock, struct sockaddr *uaddr,
+int addr_len), \
++	      (sock, uaddr, addr_len))				\
++SOCKCALL_WRAP(name, connect, (struct socket *sock, struct sockaddr *
+uaddr, \
++			      int addr_len, int flags), 	\
++	      (sock, uaddr, addr_len, flags))			\
++SOCKCALL_WRAP(name, socketpair, (struct socket *sock1, struct socket
+*sock2), \
++	      (sock1, sock2))					\
++SOCKCALL_WRAP(name, accept, (struct socket *sock, struct socket
+*newsock, \
++			 int flags), (sock, newsock, flags)) \
++SOCKCALL_WRAP(name, getname, (struct socket *sock, struct sockaddr
+*uaddr, \
++			 int *addr_len, int peer), (sock, uaddr, addr_len, peer)) \
++SOCKCALL_UWRAP(name, poll, (struct file *file, struct socket *sock,
+struct poll_table_struct *wait), \
++	      (file, sock, wait)) \
++SOCKCALL_WRAP(name, ioctl, (struct socket *sock, unsigned int cmd, \
++			 unsigned long arg), (sock, cmd, arg)) \
++SOCKCALL_WRAP(name, compat_ioctl, (struct socket *sock, unsigned int
+cmd, \
++			 unsigned long arg), (sock, cmd, arg)) \
++SOCKCALL_WRAP(name, listen, (struct socket *sock, int len), (sock,
+len)) \
++SOCKCALL_WRAP(name, shutdown, (struct socket *sock, int flags), (sock,
+flags)) \
++SOCKCALL_WRAP(name, setsockopt, (struct socket *sock, int level, int
+optname, \
++			 char __user *optval, int optlen), (sock, level, optname, optval,
+optlen)) \
++SOCKCALL_WRAP(name, getsockopt, (struct socket *sock, int level, int
+optname, \
++			 char __user *optval, int __user *optlen), (sock, level, optname,
+optval, optlen)) \
++SOCKCALL_WRAP(name, sendmsg, (struct kiocb *iocb, struct socket *sock,
+struct msghdr *m, size_t len), \
++	      (iocb, sock, m, len)) \
++SOCKCALL_WRAP(name, recvmsg, (struct kiocb *iocb, struct socket *sock,
+struct msghdr *m, size_t len, int flags), \
++	      (iocb, sock, m, len, flags)) \
++SOCKCALL_WRAP(name, mmap, (struct file *file, struct socket *sock,
+struct vm_area_struct *vma), \
++	      (file, sock, vma)) \
++	      \
++static struct proto_ops name##_ops = {			\
++	.family		= fam,				\
++	.owner		= THIS_MODULE,			\
++	.release	= __lock_##name##_release,	\
++	.bind		= __lock_##name##_bind,		\
++	.connect	= __lock_##name##_connect,	\
++	.socketpair	= __lock_##name##_socketpair,	\
++	.accept		= __lock_##name##_accept,	\
++	.getname	= __lock_##name##_getname,	\
++	.poll		= __lock_##name##_poll,		\
++	.ioctl		= __lock_##name##_ioctl,	\
++	.compat_ioctl	= __lock_##name##_compat_ioctl,	\
++	.listen		= __lock_##name##_listen,	\
++	.shutdown	= __lock_##name##_shutdown,	\
++	.setsockopt	= __lock_##name##_setsockopt,	\
++	.getsockopt	= __lock_##name##_getsockopt,	\
++	.sendmsg	= __lock_##name##_sendmsg,	\
++	.recvmsg	= __lock_##name##_recvmsg,	\
++	.mmap		= __lock_##name##_mmap,		\
++};
++
+ #endif
+ 
+ #define MODULE_ALIAS_NETPROTO(proto) \
+diff -uprN -X dontdiff linux-2.6.15-vanilla/net/socket.c
+linux-2.6.15/net/socket.c
+--- linux-2.6.15-vanilla/net/socket.c	2006-01-03 14:21:10.000000000
++1100
++++ linux-2.6.15/net/socket.c	2006-01-09 15:59:49.000000000 +1100
+@@ -109,6 +109,10 @@ static unsigned int sock_poll(struct fil
+ 			      struct poll_table_struct *wait);
+ static long sock_ioctl(struct file *file,
+ 		      unsigned int cmd, unsigned long arg);
++#ifdef CONFIG_COMPAT
++static long compat_sock_ioctl(struct file *file,
++		      unsigned int cmd, unsigned long arg);
++#endif
+ static int sock_fasync(int fd, struct file *filp, int on);
+ static ssize_t sock_readv(struct file *file, const struct iovec
+*vector,
+ 			  unsigned long count, loff_t *ppos);
+@@ -130,6 +134,9 @@ static struct file_operations socket_fil
+ 	.aio_write =	sock_aio_write,
+ 	.poll =		sock_poll,
+ 	.unlocked_ioctl = sock_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl = compat_sock_ioctl,
++#endif
+ 	.mmap =		sock_mmap,
+ 	.open =		sock_no_open,	/* special open code to disallow open via /proc
+*/
+ 	.release =	sock_close,
+@@ -2084,6 +2091,20 @@ void socket_seq_show(struct seq_file *se
+ }
+ #endif /* CONFIG_PROC_FS */
+ 
++#ifdef CONFIG_COMPAT
++static long compat_sock_ioctl(struct file *file, unsigned cmd, unsigned
+long arg)
++{
++	struct socket *sock;
++	sock = file->private_data;
++
++	int ret = -ENOIOCTLCMD;
++	if(sock->ops->compat_ioctl) {
++		ret = sock->ops->compat_ioctl(sock,cmd,arg);
++	}
++	return ret;
++}
++#endif
++
+ /* ABI emulation layers need these two */
+ EXPORT_SYMBOL(move_addr_to_kernel);
+ EXPORT_SYMBOL(move_addr_to_user);
