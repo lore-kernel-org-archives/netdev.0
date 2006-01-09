@@ -1,44 +1,36 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: 2.6.16-rc1-mm4: ACX=y, ACX_USB=n compile error
-Date: Wed, 1 Feb 2006 08:57:04 +0200
-Message-ID: <200602010857.04964.vda@ilport.com.ua>
-References: <20060130133833.7b7a3f8e@zwerg> <200601311658.09423.vda@ilport.com.ua> <20060131221637.GJ3986@stusta.de>
+From: Folkert van Heusden <folkert@vanheusden.com>
+Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
+Date: Mon, 9 Jan 2006 20:37:55 +0100
+Message-ID: <20060109193754.GD12673@vanheusden.com>
+References: <20060108114305.GA32425@vanheusden.com>
+	<20060109041114.6e797a9b.akpm@osdl.org>
+	<20060109144522.GB10955@vanheusden.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"Gabriel C." <crazy@pimpmylinux.org>, da.crew@gmx.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030556AbWBAG5e@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060131221637.GJ3986@stusta.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751258AbWAITh5@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20060109144522.GB10955@vanheusden.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 01 February 2006 00:16, Adrian Bunk wrote:
-> > > > CONFIG_ACX=y
-> > > > # CONFIG_ACX_PCI is not set
-> > > > # CONFIG_ACX_USB is not set
-> > > > 
-> > > > This won't fly. You must select at least one.
-> > > > 
-> > > > Attached patch will check for this and #error out.
-> > > > Andrew, do not apply to -mm, I'll send you bigger update today.
-> > > 
-> > > Is there any way to move this into a Kconfig file?  That seems nicer
-> > > than having #ifdefs in source code to check for a configuration error.
-> > 
-> > Can't think of any at the moment.
-> 
-> There are two possible solutions ("offer" means "is user visible"):
-> - only offer ACX and always build ACX_PCI/ACX_USB depending on the
->   availability of PCI/USB
-> - only offer ACX_PCI and ACX_USB which select ACX
-> 
-> If you tell me which you prefer I can send a patch.
+> > Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
+> > boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
+> > of /proc/interrupts is incrementing.
+> I'll give it a try. I've added it to the append-line in the lilo config.
+> Am now compiling the kernel.
 
-Second one sounds okay to me.
---
-vda
+No change. Well, that is: the last message on the console now is
+"setting eth1 to promiscues mode".
+
+
+Folkert van Heusden
+
+-- 
+Try MultiTail! Multiple windows with logfiles, filtered with regular
+expressions, colored output, etc. etc. www.vanheusden.com/multitail/
+----------------------------------------------------------------------
+Get your PGP/GPG key signed at www.biglumber.com!
+----------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
