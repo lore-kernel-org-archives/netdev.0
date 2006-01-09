@@ -1,7 +1,7 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: [patch] ipw2100: support WEXT-18 enc_capa v2
-Date: Mon, 09 Jan 2006 10:39:40 -0500
-Message-ID: <1136821181.7941.9.camel@dhcp83-115.boston.redhat.com>
+Subject: [patch] ipw2100: support WEXT-18 enc_capa v3
+Date: Mon, 09 Jan 2006 10:54:57 -0500
+Message-ID: <1136822098.7941.13.camel@dhcp83-115.boston.redhat.com>
 References: <1136820457.7941.4.camel@dhcp83-115.boston.redhat.com>
 	 <43C282A5.6010609@pobox.com>
 Mime-Version: 1.0
@@ -32,8 +32,8 @@ capabilities.
 
 Signed-off-by: Dan Williams <dcbw@redhat.com>
 
---- ipw2100.c.nowpa	2006-01-08 14:04:00.000000000 -0500
-+++ ipw2100.c	2006-01-08 15:47:37.000000000 -0500
+--- a/drivers/net/wireless/ipw2100.c	2006-01-08 14:04:00.000000000 -0500
++++ b/drivers/net/wireless/ipw2100.c	2006-01-08 15:47:37.000000000 -0500
 @@ -7236,7 +7236,7 @@
  
  	/* Set the Wireless Extension versions */
