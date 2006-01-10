@@ -1,93 +1,134 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: Re: State of the Union: Wireless
-Date: Tue, 10 Jan 2006 11:41:43 +0100
-Message-ID: <20060110104143.GA28119@rhlx01.fht-esslingen.de>
-References: <20060106042218.GA18974@havoc.gtf.org> <200601100839.26052.vda@ilport.com.ua>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2 RESEND- 2.6.15] net: 32 bit (socket layer) ioctl emulation for 64 bit kernels
+Date: Tue, 10 Jan 2006 12:03:58 +0000
+Message-ID: <200601101203.59423.arnd@arndb.de>
+References: <1136871078.5742.26.camel@spereira05.tusc.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: acx100-devel@lists.sourceforge.net
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Andi Kleen <ak@muc.de>,
+	linux-kenel <linux-kernel@vger.kernel.org>,
+	x25 maintainer <eis@baty.hanse.de>,
+	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751083AbWAJME2@vger.kernel.org>
+To: spereira@tusc.com.au
+In-Reply-To: <1136871078.5742.26.camel@spereira05.tusc.com.au>
 Content-Disposition: inline
-In-Reply-To: <200601100839.26052.vda@ilport.com.ua>
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tuesday 10 January 2006 05:31, Shaun Pereira wrote:
+> Hi Arnd, Arnaldo
+> Thanks for your comments. I initially did not wish to change any of the 
+> other modules, but based on Arnd's comments I have removed the
+> extra macro, SOCKOPS_COMPAT_WRAP and use the original SOCKOPS_WRAP.
 
-On Tue, Jan 10, 2006 at 08:39:25AM +0200, Denis Vlasenko wrote:
-> On Friday 06 January 2006 06:22, Jeff Garzik wrote:
-> > 
-> > 		State of the Union - Wireless
-> > 		      January 5, 2006
+Ok, looks better now. Just a few tiny style comments:
+
+> +++ linux-2.6.15/net/appletalk/ddp.c	2006-01-10 15:56:55.000000000 +1100
+> @@ -1852,6 +1852,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname	= atalk_getname,
+>  	.poll		= datagram_poll,
+>  	.ioctl		= atalk_ioctl,
+> +	.compat_ioctl   = NULL,
+>  	.listen		= sock_no_listen,
+>  	.shutdown	= sock_no_shutdown,
+>  	.setsockopt	= sock_no_setsockopt,
+
+No need to set .compat_ioctl to NULL, that's what it already is when you
+don't assign it at all. Leaving it out makes it easier to grep for users.
+
+> @@ -709,6 +710,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname =	econet_getname, 
+>  	.poll =		datagram_poll,
+>  	.ioctl =	econet_ioctl,
+> +	.compat_ioctl=  NULL,
+>  	.listen =	sock_no_listen,
+>  	.shutdown =	sock_no_shutdown,
+>  	.setsockopt =	sock_no_setsockopt,
+> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/ipx/af_ipx.c
+> linux-2.6.15/net/ipx/af_ipx.c
+> --- linux-2.6.15-vanilla/net/ipx/af_ipx.c	2006-01-03 14:21:10.000000000
+> +1100
+> +++ linux-2.6.15/net/ipx/af_ipx.c	2006-01-10 15:56:55.000000000 +1100
+> @@ -1912,6 +1912,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname	= ipx_getname,
+>  	.poll		= datagram_poll,
+>  	.ioctl		= ipx_ioctl,
+> +	.compat_ioctl   = NULL,
+>  	.listen		= sock_no_listen,
+>  	.shutdown	= sock_no_shutdown, /* FIXME: support shutdown */
+>  	.setsockopt	= ipx_setsockopt,
+> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/irda/af_irda.c
+> linux-2.6.15/net/irda/af_irda.c
+> --- linux-2.6.15-vanilla/net/irda/af_irda.c	2006-01-03
+> 14:21:10.000000000 +1100
+> +++ linux-2.6.15/net/irda/af_irda.c	2006-01-10 15:56:55.000000000 +1100
+> @@ -2474,6 +2474,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname =	irda_getname,
+>  	.poll =		irda_poll,
+>  	.ioctl =	irda_ioctl,
+> +	.compat_ioctl=  NULL,
+>  	.listen =	irda_listen,
+>  	.shutdown =	irda_shutdown,
+>  	.setsockopt =	irda_setsockopt,
+> @@ -2495,6 +2496,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname =	irda_getname,
+>  	.poll =		datagram_poll,
+>  	.ioctl =	irda_ioctl,
+> +	.compat_ioctl=  NULL,
+>  	.listen =	irda_listen,
+>  	.shutdown =	irda_shutdown,
+>  	.setsockopt =	irda_setsockopt,
+> @@ -2516,6 +2518,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname =	irda_getname,
+>  	.poll =		datagram_poll,
+>  	.ioctl =	irda_ioctl,
+> +	.compat_ioctl=  NULL,
+>  	.listen =	irda_listen,
+>  	.shutdown =	irda_shutdown,
+>  	.setsockopt =	irda_setsockopt,
+> @@ -2538,6 +2541,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname =	irda_getname,
+>  	.poll =		datagram_poll,
+>  	.ioctl =	irda_ioctl,
+> +	.compat_ioctl=  NULL,
+>  	.listen =	sock_no_listen,
+>  	.shutdown =	irda_shutdown,
+>  	.setsockopt =	irda_setsockopt,
+>  static struct proto_ops SOCKOPS_WRAPPED(x25_proto_ops) = {
+>  	.family =	AF_X25,
+>  	.owner =	THIS_MODULE,
+> @@ -1402,6 +1403,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+>  	.getname =	x25_getname,
+>  	.poll =		datagram_poll,
+>  	.ioctl =	x25_ioctl,
+> +	.compat_ioctl=  NULL,
+>  	.listen =	x25_listen,
+>  	.shutdown =	sock_no_shutdown,
+>  	.setsockopt =	x25_setsockopt,
 > 
-> [ snip ]
 > 
-> > * Wireless drivers and the wireless stack need to be maintained IN-TREE
-> >   as a COLLECTIVE ENTITY, not piecemeal maintenance as its done now.
-> > 
-> > The whole point of working in-tree, the whole point of this open source
-> > thing is that everybody works on the same code, and the entire Internet
-> > is your test bed.  Quality improves the more people work together.
-> > The entire Linux kernel engineering process is focused on getting core
-> > kernel code out to distributions (then to end users) and power users.
-> > Out-of-tree code breaks that model, breaking the It Just Works(tm)
-> > theme applicable to other Linux-supported hardware.
-> 
-> Cool, so may I please know why acx driver is not included in the mainline?
-> In case it needs more work, well, (a) at least tell us what exactly
-> you want improved, and (b) why do you think that in-tree acx would not
-> be improved? It will get more visibility, maybe some people will
-> get interested and will send a patch or two to us...
 
-I think wording is a tad bit too aggressive here, since we (well, at least me)
-haven't made many efforts to get it included, since we had to work out
-some things. However at this point we should really go for inclusion,
-the sooner the better (right?).
+Same comment applies to all these.
 
-> > * Release early, release often.  Pushing from an external repository to
-> >   the official kernel tree every few months creates more problems
-> >   than it solves.  Out-of-tree drivers fail to take advantage of
-> >   recent kernel changes and coding practices, which leads to bugs and
-> >   incompatibilities.  Slow pushing leads to huge periodic updates,
-> >   which are awful for debugging, testing, and general use.
-> 
-> I want to avoid exactly this, and therefore want acx in mainline.
+> +static long compat_sock_ioctl(struct file *file, unsigned cmd, unsigned
+> long arg)
+> +{
+> +	struct socket *sock;
+> +	sock = file->private_data;
+> +
+> +	int ret = -ENOIOCTLCMD;
+> +	if(sock->ops->compat_ioctl) {
+> +		ret = sock->ops->compat_ioctl(sock,cmd,arg);
+> +	}
 
-ACK.
+Leave out the curly braces here and put a space between the function
+arguments, so it becomes
 
-> How are we going to find out which stack is best and which stack
-> we should concentrate our efforts on? In an absense of wifi maintainer,
-> maybe we should throw _all stacks_ (currently two) into the mainline,
-> and evolution will find the best one. Yes, it would be a bit ugly
-> at first, but I hope it will speed up evolution a lot.
++ if(sock->ops->compat_ioctl)
++ 	ret = sock->ops->compat_ioctl(sock, cmd, arg);
 
-I have to admit that a big item on our acx ToDo list was the missing ieee80211
-integration, but now that there's a second stack on the horizon and things
-look less decided I'm not that much troubled by our lack of ieee80211 use
-any more ;)
-That said, of course we should try to get rid of our own, historic (originating
-from binary TI driver!) in-driver stack very soon.
-
-I won't do any comments on which stack to use, though, I will do research first
-and then work out which one to use depending on popularity and features
-matching our chips' properties.
-
-Andreas Mohr
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+	Arnd <><
