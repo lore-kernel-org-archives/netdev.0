@@ -1,38 +1,46 @@
-From: "Johannes Berg" <johannes@sipsolutions.net>
-Subject: Re: State of the Union: Wireless
-Date: Tue, 10 Jan 2006 14:18:39 +0100 (CET)
-Message-ID: <37204.131.234.108.55.1136899119.squirrel@secure.sipsolutions.net>
-References: <20060106042218.GA18974@havoc.gtf.org>
-    <1136547084.4037.41.camel@localhost>
-    <200601071649.35321.vda@ilport.com.ua>
+From: Folkert van Heusden <folkert@vanheusden.com>
+Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
+Date: Tue, 10 Jan 2006 15:27:25 +0100
+Message-ID: <20060110142725.GH12673@vanheusden.com>
+References: <20060108114305.GA32425@vanheusden.com>
+	<20060109041114.6e797a9b.akpm@osdl.org>
+	<20060109144522.GB10955@vanheusden.com>
+	<20060109193754.GD12673@vanheusden.com>
+	<20060109224821.7a40bc69.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932207AbWAJNTF@vger.kernel.org>
-In-Reply-To: <200601071649.35321.vda@ilport.com.ua>
-To: "Denis Vlasenko" <vda@ilport.com.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751005AbWAJO12@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060109224821.7a40bc69.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko wrote:
+> > > > Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
+> > > > boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
+> > > > of /proc/interrupts is incrementing.
+> > > I'll give it a try. I've added it to the append-line in the lilo config.
+> > > Am now compiling the kernel.
+> > No change. Well, that is: the last message on the console now is
+> > "setting eth1 to promiscues mode".
+> Did you confirm that the NMI counters in /proc/interrupts are incrementing?
 
-> I am confused.
+Yes:
+root@muur:/home/folkert# for i in `seq 1 5` ; do cat /proc/interrupts  | grep NMI ; sleep 1 ; done
+NMI:    6949080    6949067
+NMI:    6949182    6949169
+NMI:    6949284    6949271
+NMI:    6949386    6949373
+NMI:    6949488    6949475
 
-Which isn't really all that surprising.
 
-> ftp://ftp.berlios.de/pub/bcm43xx/snapshots/softmac/ieee80211softmac-20060107.tar.bz2
-> which is not the same. For example, ieee80211softmac.h file exists in both
-> tarballs but is not identical.
->
-> Suppose one wants to use softmac in a project. What tarball contains
-> the bleeding edge of softmac?
+Folkert van Heusden
 
-The one from the softmac page is created from the git repository. The one
-on the bcm page is created from the now historical mercurial archive.
-
-I need to get the bcm people to take away that snapshot and link to the
-correct one.
-
-johannes
+-- 
+Try MultiTail! Multiple windows with logfiles, filtered with regular
+expressions, colored output, etc. etc. www.vanheusden.com/multitail/
+----------------------------------------------------------------------
+Get your PGP/GPG key signed at www.biglumber.com!
+----------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
