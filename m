@@ -1,233 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2 - 2.6.15]net:32 bit (socket layer) ioctl emulation for 64 bit kernels
-Date: Tue, 10 Jan 2006 13:00:40 +0000
-Message-ID: <200601101300.41351.arnd@arndb.de>
-References: <1136871083.5742.27.camel@spereira05.tusc.com.au>
+From: "Johannes Berg" <johannes@sipsolutions.net>
+Subject: Re: State of the Union: Wireless
+Date: Tue, 10 Jan 2006 14:18:39 +0100 (CET)
+Message-ID: <37204.131.234.108.55.1136899119.squirrel@secure.sipsolutions.net>
+References: <20060106042218.GA18974@havoc.gtf.org>
+    <1136547084.4037.41.camel@localhost>
+    <200601071649.35321.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Andi Kleen <ak@muc.de>,
-	linux-kenel <linux-kernel@vger.kernel.org>,
-	x25 maintainer <eis@baty.hanse.de>,
-	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750843AbWAJNBf@vger.kernel.org>
-To: spereira@tusc.com.au
-In-Reply-To: <1136871083.5742.27.camel@spereira05.tusc.com.au>
-Content-Disposition: inline
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932207AbWAJNTF@vger.kernel.org>
+In-Reply-To: <200601071649.35321.vda@ilport.com.ua>
+To: "Denis Vlasenko" <vda@ilport.com.ua>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 10 January 2006 05:31, Shaun Pereira wrote:
-> --- linux-2.6.15-vanilla/include/net/x25.h	2006-01-03 14:21:10.000000000
-> +1100
-> +++ linux-2.6.15/include/net/x25.h	2006-01-10 16:15:16.000000000 +1100
-> @@ -223,6 +223,18 @@ extern struct x25_route *x25_get_route(s
->  extern struct net_device *x25_dev_get(char *);
->  extern void x25_route_device_down(struct net_device *dev);
->  extern int  x25_route_ioctl(unsigned int, void __user *);
-> +
-> +#ifdef CONFIG_COMPAT
-> +#include <linux/compat.h>
+Denis Vlasenko wrote:
 
-Don't hide #include <...> inside #ifdef, just add this in the beginning.
+> I am confused.
 
-> +
-> +struct x25_route_struct32{
-> +	struct x25_address address;
-> +	compat_uint_t   sigdigits;
-> +	char    device[200];
-> +};
-> +extern int  compat_x25_route_ioctl(unsigned int, struct
-> x25_route_struct32 __user *);
-> +#endif
-> +
+Which isn't really all that surprising.
 
-Hmm. Declarations should not be hidden by #ifdef either, but of course
-compat_uint_t is not defined on 32 bit systems.
-Actually, the structure should already be the same on all 32 and 64 bit
-systems, there is no 'long' or  pointer in there. 
+> ftp://ftp.berlios.de/pub/bcm43xx/snapshots/softmac/ieee80211softmac-20060107.tar.bz2
+> which is not the same. For example, ieee80211softmac.h file exists in both
+> tarballs but is not identical.
+>
+> Suppose one wants to use softmac in a project. What tarball contains
+> the bleeding edge of softmac?
 
-I'm pretty sure you can simply call x25_route_ioctl instead of
-introducing a new compat_x25_route_ioctl(), or did you have a different
-reason to do this?
+The one from the softmac page is created from the git repository. The one
+on the bcm page is created from the now historical mercurial archive.
 
->  extern void x25_route_free(void);
->  
->  static __inline__ void x25_route_hold(struct x25_route *rt)
-> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/af_x25.c
-> linux-2.6.15/net/x25/af_x25.c
-> --- linux-2.6.15-vanilla/net/x25/af_x25.c	2006-01-10 16:06:29.000000000
-> +1100
-> +++ linux-2.6.15/net/x25/af_x25.c	2006-01-10 16:15:16.000000000 +1100
-> @@ -475,6 +475,12 @@ out:
->  
->  void x25_init_timers(struct sock *sk);
->  
-> +#ifdef CONFIG_COMPAT
-> +#include "x25_ioctl_compat.c"
-> +#else
-> +#define compat_x25_ioctl NULL
-> +#endif
-> +
+I need to get the bcm people to take away that snapshot and link to the
+correct one.
 
-No, this is not a good way to do it. It's good put it in a separate file,
-if the compat code is large, but then better use Makefile magic to do
-conditional compilation, like:
-
-obj-$(CONFIG_X25) += x25.o
-x25-$(CONFIG_COMPAT) += x25_ioctl_compat.o
-
-[ OTOH, with the changes I propose below, it probably becomes so small
-  that it's no longer worth doing a separate file. ]
-
->  static int x25_create(struct socket *sock, int protocol)
->  {
->  	struct sock *sk;
-> @@ -1403,7 +1409,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname =	x25_getname,
->  	.poll =		datagram_poll,
->  	.ioctl =	x25_ioctl,
-> -	.compat_ioctl=  NULL,
-> +	.compat_ioctl=  compat_x25_ioctl,
->  	.listen =	x25_listen,
->  	.shutdown =	sock_no_shutdown,
->  	.setsockopt =	x25_setsockopt,
-
-Then this normally becomes
-
-	.poll =		datagram_poll,
- 	.ioctl =	x25_ioctl,
-+#ifdef CONFIG_COMPAT
-+	.compat_ioctl=  compat_x25_ioctl,
-+#endif
- 	.listen =	x25_listen,
- 	.shutdown =	sock_no_shutdown,
-
-or you change the declaration in the header file to become
-
-#ifdef CONFIG_COMPAT
-extern long compat_x25_ioctl(struct file *, unsigned int, unsigned long);
-#else
-#define compat_x25_ioctl NULL
-#endif
-
-> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/x25_ioctl_compat.c
-> linux-2.6.15/net/x25/x25_ioctl_compat.c
-> --- linux-2.6.15-vanilla/net/x25/x25_ioctl_compat.c	1970-01-01
-> 10:00:00.000000000 +1000
-> +++ linux-2.6.15/net/x25/x25_ioctl_compat.c	2006-01-10
-> 16:15:16.000000000 +1100
-> @@ -0,0 +1,264 @@
-> +#include <linux/compat.h>
-> +
-> +struct x25_subscrip_struct32{
-> +	char device[200-sizeof(compat_ulong_t)];
-> +	compat_ulong_t global_facil_mask;
-> +	compat_uint_t extended;
-> +};
-
-Please don't use a compat_ prefix instead of a 32 postfix,
-i.e. compat_x25_subscrip_struct.
-
-> +
-> +struct x25_facilities32{
-> +	compat_uint_t	winzize_in, winsize_out;
-> +	compat_uint_t	pacsize_in, packsize_out;
-> +	compat_uint_t	throughput;
-> +	compat_uint_t   reverse;
-> +};
-> +
-> +struct x25_calluserdata32 {
-> +	compat_uint_t 	cudlength;
-> +	unsigned char   cuddata[128];
-> +};
-> +
-> +struct x25_subaddr32 {
-> +	compat_uint_t 	cudmatchlength;
-> +};
-
-These should all be compatible and not need a conversion at all.
-
-> +
-> +static int compat_x25_subscr_ioctl(unsigned int cmd,
-> +		struct x25_subscrip_struct32 __user *x25_subscr32)
-> +{
-> ...
-
-that function looks good.
-
-> +static int compat_x25_facility_ioctl(struct socket *sock, struct
-> x25_facilities32 __user *facilities32)
-
-> +static int compat_x25_get_facility_ioctl(struct socket *sock, struct
-> x25_facilities32 __user *facility32)
-
-> +static int compat_x25_cud_ioctl(struct socket *sock, struct
-> x25_calluserdata32 __user *calluserdata32)
-
-> +static int compat_x25_get_cud_ioctl(struct socket *sock, struct
-> x25_calluserdata32 __user *calluserdata32)
-
-> +static int compat_x25_cud_match_ioctl(struct socket *sock, struct
-> x25_subaddr32 __user *sub_addr32)
-
-> +static int compat_x25_accept_ctrl(struct socket *sock, unsigned int
-> cmd)
-
-All these appear pointless to me, as the arguments are the same as in
-the native 64 bit case.
-
-> +
-> +static int compat_x25_ioctl(struct socket *sock, unsigned int cmd,
-> unsigned long arg)
-> ...
-> +		case SIOCX25GFACILITIES:
-> +			rc = compat_x25_get_facility_ioctl(sock, argp);
-> +			break;
-> +		case SIOCX25SFACILITIES:
-> +			rc = compat_x25_facility_ioctl(sock, argp);
-> +			break;
-> +		case SIOCX25GCALLUSERDATA:
-> +			rc = compat_x25_get_cud_ioctl(sock, argp);
-> +			break;
-> +		case SIOCX25SCALLUSERDATA:
-> +			rc = compat_x25_cud_ioctl(sock, argp);
-> +			break;
-> +		case SIOCX25GCAUSEDIAG:
-> +		case SIOCX25SCUDMATCHLEN:
-> +			rc = compat_x25_cud_match_ioctl(sock,argp);
-> +			break;
-> +		case SIOCX25CALLACCPTAPPRV:
-> +			rc = compat_x25_accept_ctrl(sock,SIOCX25CALLACCPTAPPRV);
-> +				break;
-> +		case SIOCX25SENDCALLACCPT:
-> +			rc = compat_x25_accept_ctrl(sock,SIOCX25SENDCALLACCPT);
-> +				break;
-
-Then these could become
-+		case SIOCX25GFACILITIES:
-+		case SIOCX25SFACILITIES:
-+		case SIOCX25GCALLUSERDATA:
-+		case SIOCX25SCALLUSERDATA:
-+		case SIOCX25GCAUSEDIAG:
-+		case SIOCX25SCUDMATCHLEN:
-+		case SIOCX25CALLACCPTAPPRV:
-+		case SIOCX25SENDCALLACCPT:
-+			rc = x25_ioctl(sock, cmd, (unsigned long)argp);
-+			break;
-
-The casting argp to unsigned long instead of using arg takes care of
-the pointer type problem, so it even works on s390 (your code did as well).
-
-> +#ifdef CONFIG_COMPAT
-> +
-> +int compat_x25_route_ioctl(unsigned int cmd, struct x25_route_struct32
-> __user *rt32)
-> +{
-
-AFAICS; this function is identical to x25_route_ioctl, so just call that
-one.
-
-	Arnd <><
+johannes
