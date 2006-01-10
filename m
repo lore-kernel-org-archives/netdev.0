@@ -1,40 +1,93 @@
-From: Amnon Aaronsohn <bla@cs.huji.ac.il>
-Subject: [PATCH] net: fix PRIO qdisc bands init
-Date: Tue, 10 Jan 2006 12:30:15 +0200 (IST)
-Message-ID: <Pine.LNX.4.56.0601101217290.1420@duke.cs.huji.ac.il>
+From: Andreas Mohr <andim2@users.sourceforge.net>
+Subject: Re: Re: State of the Union: Wireless
+Date: Tue, 10 Jan 2006 11:41:43 +0100
+Message-ID: <20060110104143.GA28119@rhlx01.fht-esslingen.de>
+References: <20060106042218.GA18974@havoc.gtf.org> <200601100839.26052.vda@ilport.com.ua>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750863AbWAJKaU@vger.kernel.org>
-To: netdev@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: acx100-devel@lists.sourceforge.net
+Content-Disposition: inline
+In-Reply-To: <200601100839.26052.vda@ilport.com.ua>
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-The PRIO queuing discipline currently initializes only the bands
-that appear in the priomap. It should instead initialize all the
-configured bands.
+Hi,
 
-Signed-off-by: Amnon Aaronsohn <bla@cs.huji.ac.il>
+On Tue, Jan 10, 2006 at 08:39:25AM +0200, Denis Vlasenko wrote:
+> On Friday 06 January 2006 06:22, Jeff Garzik wrote:
+> > 
+> > 		State of the Union - Wireless
+> > 		      January 5, 2006
+> 
+> [ snip ]
+> 
+> > * Wireless drivers and the wireless stack need to be maintained IN-TREE
+> >   as a COLLECTIVE ENTITY, not piecemeal maintenance as its done now.
+> > 
+> > The whole point of working in-tree, the whole point of this open source
+> > thing is that everybody works on the same code, and the entire Internet
+> > is your test bed.  Quality improves the more people work together.
+> > The entire Linux kernel engineering process is focused on getting core
+> > kernel code out to distributions (then to end users) and power users.
+> > Out-of-tree code breaks that model, breaking the It Just Works(tm)
+> > theme applicable to other Linux-supported hardware.
+> 
+> Cool, so may I please know why acx driver is not included in the mainline?
+> In case it needs more work, well, (a) at least tell us what exactly
+> you want improved, and (b) why do you think that in-tree acx would not
+> be improved? It will get more visibility, maybe some people will
+> get interested and will send a patch or two to us...
 
----
+I think wording is a tad bit too aggressive here, since we (well, at least me)
+haven't made many efforts to get it included, since we had to work out
+some things. However at this point we should really go for inclusion,
+the sooner the better (right?).
 
---- linux-2.6.14/net/sched/sch_prio.c	2005-10-28 02:02:08.000000000 +0200
-+++ work-2.6.14/net/sched/sch_prio.c	2006-01-10 12:02:20.000000000 +0200
-@@ -227,14 +227,13 @@ static int prio_tune(struct Qdisc *sch,
- 	}
- 	sch_tree_unlock(sch);
+> > * Release early, release often.  Pushing from an external repository to
+> >   the official kernel tree every few months creates more problems
+> >   than it solves.  Out-of-tree drivers fail to take advantage of
+> >   recent kernel changes and coding practices, which leads to bugs and
+> >   incompatibilities.  Slow pushing leads to huge periodic updates,
+> >   which are awful for debugging, testing, and general use.
+> 
+> I want to avoid exactly this, and therefore want acx in mainline.
 
--	for (i=0; i<=TC_PRIO_MAX; i++) {
--		int band = q->prio2band[i];
--		if (q->queues[band] == &noop_qdisc) {
-+	for (i=0; i<q->bands; i++) {
-+		if (q->queues[i] == &noop_qdisc) {
- 			struct Qdisc *child;
- 			child = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops);
- 			if (child) {
- 				sch_tree_lock(sch);
--				child = xchg(&q->queues[band], child);
-+				child = xchg(&q->queues[i], child);
+ACK.
 
- 				if (child != &noop_qdisc)
- 					qdisc_destroy(child);
+> How are we going to find out which stack is best and which stack
+> we should concentrate our efforts on? In an absense of wifi maintainer,
+> maybe we should throw _all stacks_ (currently two) into the mainline,
+> and evolution will find the best one. Yes, it would be a bit ugly
+> at first, but I hope it will speed up evolution a lot.
+
+I have to admit that a big item on our acx ToDo list was the missing ieee80211
+integration, but now that there's a second stack on the horizon and things
+look less decided I'm not that much troubled by our lack of ieee80211 use
+any more ;)
+That said, of course we should try to get rid of our own, historic (originating
+from binary TI driver!) in-driver stack very soon.
+
+I won't do any comments on which stack to use, though, I will do research first
+and then work out which one to use depending on popularity and features
+matching our chips' properties.
+
+Andreas Mohr
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
