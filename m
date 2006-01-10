@@ -1,8 +1,8 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/2 RESEND- 2.6.15] net: 32 bit (socket layer) ioctl emulation for 64 bit kernels
-Date: Tue, 10 Jan 2006 12:03:58 +0000
-Message-ID: <200601101203.59423.arnd@arndb.de>
-References: <1136871078.5742.26.camel@spereira05.tusc.com.au>
+Subject: Re: [PATCH 2/2 - 2.6.15]net:32 bit (socket layer) ioctl emulation for 64 bit kernels
+Date: Tue, 10 Jan 2006 13:00:40 +0000
+Message-ID: <200601101300.41351.arnd@arndb.de>
+References: <1136871083.5742.27.camel@spereira05.tusc.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -12,123 +12,222 @@ Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	linux-kenel <linux-kernel@vger.kernel.org>,
 	x25 maintainer <eis@baty.hanse.de>,
 	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751083AbWAJME2@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750843AbWAJNBf@vger.kernel.org>
 To: spereira@tusc.com.au
-In-Reply-To: <1136871078.5742.26.camel@spereira05.tusc.com.au>
+In-Reply-To: <1136871083.5742.27.camel@spereira05.tusc.com.au>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tuesday 10 January 2006 05:31, Shaun Pereira wrote:
-> Hi Arnd, Arnaldo
-> Thanks for your comments. I initially did not wish to change any of the 
-> other modules, but based on Arnd's comments I have removed the
-> extra macro, SOCKOPS_COMPAT_WRAP and use the original SOCKOPS_WRAP.
-
-Ok, looks better now. Just a few tiny style comments:
-
-> +++ linux-2.6.15/net/appletalk/ddp.c	2006-01-10 15:56:55.000000000 +1100
-> @@ -1852,6 +1852,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname	= atalk_getname,
->  	.poll		= datagram_poll,
->  	.ioctl		= atalk_ioctl,
-> +	.compat_ioctl   = NULL,
->  	.listen		= sock_no_listen,
->  	.shutdown	= sock_no_shutdown,
->  	.setsockopt	= sock_no_setsockopt,
-
-No need to set .compat_ioctl to NULL, that's what it already is when you
-don't assign it at all. Leaving it out makes it easier to grep for users.
-
-> @@ -709,6 +710,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname =	econet_getname, 
->  	.poll =		datagram_poll,
->  	.ioctl =	econet_ioctl,
-> +	.compat_ioctl=  NULL,
->  	.listen =	sock_no_listen,
->  	.shutdown =	sock_no_shutdown,
->  	.setsockopt =	sock_no_setsockopt,
-> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/ipx/af_ipx.c
-> linux-2.6.15/net/ipx/af_ipx.c
-> --- linux-2.6.15-vanilla/net/ipx/af_ipx.c	2006-01-03 14:21:10.000000000
+> --- linux-2.6.15-vanilla/include/net/x25.h	2006-01-03 14:21:10.000000000
 > +1100
-> +++ linux-2.6.15/net/ipx/af_ipx.c	2006-01-10 15:56:55.000000000 +1100
-> @@ -1912,6 +1912,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname	= ipx_getname,
->  	.poll		= datagram_poll,
->  	.ioctl		= ipx_ioctl,
-> +	.compat_ioctl   = NULL,
->  	.listen		= sock_no_listen,
->  	.shutdown	= sock_no_shutdown, /* FIXME: support shutdown */
->  	.setsockopt	= ipx_setsockopt,
-> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/irda/af_irda.c
-> linux-2.6.15/net/irda/af_irda.c
-> --- linux-2.6.15-vanilla/net/irda/af_irda.c	2006-01-03
-> 14:21:10.000000000 +1100
-> +++ linux-2.6.15/net/irda/af_irda.c	2006-01-10 15:56:55.000000000 +1100
-> @@ -2474,6 +2474,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname =	irda_getname,
->  	.poll =		irda_poll,
->  	.ioctl =	irda_ioctl,
-> +	.compat_ioctl=  NULL,
->  	.listen =	irda_listen,
->  	.shutdown =	irda_shutdown,
->  	.setsockopt =	irda_setsockopt,
-> @@ -2495,6 +2496,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname =	irda_getname,
->  	.poll =		datagram_poll,
->  	.ioctl =	irda_ioctl,
-> +	.compat_ioctl=  NULL,
->  	.listen =	irda_listen,
->  	.shutdown =	irda_shutdown,
->  	.setsockopt =	irda_setsockopt,
-> @@ -2516,6 +2518,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname =	irda_getname,
->  	.poll =		datagram_poll,
->  	.ioctl =	irda_ioctl,
-> +	.compat_ioctl=  NULL,
->  	.listen =	irda_listen,
->  	.shutdown =	irda_shutdown,
->  	.setsockopt =	irda_setsockopt,
-> @@ -2538,6 +2541,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
->  	.getname =	irda_getname,
->  	.poll =		datagram_poll,
->  	.ioctl =	irda_ioctl,
-> +	.compat_ioctl=  NULL,
->  	.listen =	sock_no_listen,
->  	.shutdown =	irda_shutdown,
->  	.setsockopt =	irda_setsockopt,
->  static struct proto_ops SOCKOPS_WRAPPED(x25_proto_ops) = {
->  	.family =	AF_X25,
->  	.owner =	THIS_MODULE,
-> @@ -1402,6 +1403,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
+> +++ linux-2.6.15/include/net/x25.h	2006-01-10 16:15:16.000000000 +1100
+> @@ -223,6 +223,18 @@ extern struct x25_route *x25_get_route(s
+>  extern struct net_device *x25_dev_get(char *);
+>  extern void x25_route_device_down(struct net_device *dev);
+>  extern int  x25_route_ioctl(unsigned int, void __user *);
+> +
+> +#ifdef CONFIG_COMPAT
+> +#include <linux/compat.h>
+
+Don't hide #include <...> inside #ifdef, just add this in the beginning.
+
+> +
+> +struct x25_route_struct32{
+> +	struct x25_address address;
+> +	compat_uint_t   sigdigits;
+> +	char    device[200];
+> +};
+> +extern int  compat_x25_route_ioctl(unsigned int, struct
+> x25_route_struct32 __user *);
+> +#endif
+> +
+
+Hmm. Declarations should not be hidden by #ifdef either, but of course
+compat_uint_t is not defined on 32 bit systems.
+Actually, the structure should already be the same on all 32 and 64 bit
+systems, there is no 'long' or  pointer in there. 
+
+I'm pretty sure you can simply call x25_route_ioctl instead of
+introducing a new compat_x25_route_ioctl(), or did you have a different
+reason to do this?
+
+>  extern void x25_route_free(void);
+>  
+>  static __inline__ void x25_route_hold(struct x25_route *rt)
+> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/af_x25.c
+> linux-2.6.15/net/x25/af_x25.c
+> --- linux-2.6.15-vanilla/net/x25/af_x25.c	2006-01-10 16:06:29.000000000
+> +1100
+> +++ linux-2.6.15/net/x25/af_x25.c	2006-01-10 16:15:16.000000000 +1100
+> @@ -475,6 +475,12 @@ out:
+>  
+>  void x25_init_timers(struct sock *sk);
+>  
+> +#ifdef CONFIG_COMPAT
+> +#include "x25_ioctl_compat.c"
+> +#else
+> +#define compat_x25_ioctl NULL
+> +#endif
+> +
+
+No, this is not a good way to do it. It's good put it in a separate file,
+if the compat code is large, but then better use Makefile magic to do
+conditional compilation, like:
+
+obj-$(CONFIG_X25) += x25.o
+x25-$(CONFIG_COMPAT) += x25_ioctl_compat.o
+
+[ OTOH, with the changes I propose below, it probably becomes so small
+  that it's no longer worth doing a separate file. ]
+
+>  static int x25_create(struct socket *sock, int protocol)
+>  {
+>  	struct sock *sk;
+> @@ -1403,7 +1409,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
 >  	.getname =	x25_getname,
 >  	.poll =		datagram_poll,
 >  	.ioctl =	x25_ioctl,
-> +	.compat_ioctl=  NULL,
+> -	.compat_ioctl=  NULL,
+> +	.compat_ioctl=  compat_x25_ioctl,
 >  	.listen =	x25_listen,
 >  	.shutdown =	sock_no_shutdown,
 >  	.setsockopt =	x25_setsockopt,
-> 
-> 
 
-Same comment applies to all these.
+Then this normally becomes
 
-> +static long compat_sock_ioctl(struct file *file, unsigned cmd, unsigned
-> long arg)
-> +{
-> +	struct socket *sock;
-> +	sock = file->private_data;
+	.poll =		datagram_poll,
+ 	.ioctl =	x25_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl=  compat_x25_ioctl,
++#endif
+ 	.listen =	x25_listen,
+ 	.shutdown =	sock_no_shutdown,
+
+or you change the declaration in the header file to become
+
+#ifdef CONFIG_COMPAT
+extern long compat_x25_ioctl(struct file *, unsigned int, unsigned long);
+#else
+#define compat_x25_ioctl NULL
+#endif
+
+> diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/x25_ioctl_compat.c
+> linux-2.6.15/net/x25/x25_ioctl_compat.c
+> --- linux-2.6.15-vanilla/net/x25/x25_ioctl_compat.c	1970-01-01
+> 10:00:00.000000000 +1000
+> +++ linux-2.6.15/net/x25/x25_ioctl_compat.c	2006-01-10
+> 16:15:16.000000000 +1100
+> @@ -0,0 +1,264 @@
+> +#include <linux/compat.h>
 > +
-> +	int ret = -ENOIOCTLCMD;
-> +	if(sock->ops->compat_ioctl) {
-> +		ret = sock->ops->compat_ioctl(sock,cmd,arg);
-> +	}
+> +struct x25_subscrip_struct32{
+> +	char device[200-sizeof(compat_ulong_t)];
+> +	compat_ulong_t global_facil_mask;
+> +	compat_uint_t extended;
+> +};
 
-Leave out the curly braces here and put a space between the function
-arguments, so it becomes
+Please don't use a compat_ prefix instead of a 32 postfix,
+i.e. compat_x25_subscrip_struct.
 
-+ if(sock->ops->compat_ioctl)
-+ 	ret = sock->ops->compat_ioctl(sock, cmd, arg);
+> +
+> +struct x25_facilities32{
+> +	compat_uint_t	winzize_in, winsize_out;
+> +	compat_uint_t	pacsize_in, packsize_out;
+> +	compat_uint_t	throughput;
+> +	compat_uint_t   reverse;
+> +};
+> +
+> +struct x25_calluserdata32 {
+> +	compat_uint_t 	cudlength;
+> +	unsigned char   cuddata[128];
+> +};
+> +
+> +struct x25_subaddr32 {
+> +	compat_uint_t 	cudmatchlength;
+> +};
+
+These should all be compatible and not need a conversion at all.
+
+> +
+> +static int compat_x25_subscr_ioctl(unsigned int cmd,
+> +		struct x25_subscrip_struct32 __user *x25_subscr32)
+> +{
+> ...
+
+that function looks good.
+
+> +static int compat_x25_facility_ioctl(struct socket *sock, struct
+> x25_facilities32 __user *facilities32)
+
+> +static int compat_x25_get_facility_ioctl(struct socket *sock, struct
+> x25_facilities32 __user *facility32)
+
+> +static int compat_x25_cud_ioctl(struct socket *sock, struct
+> x25_calluserdata32 __user *calluserdata32)
+
+> +static int compat_x25_get_cud_ioctl(struct socket *sock, struct
+> x25_calluserdata32 __user *calluserdata32)
+
+> +static int compat_x25_cud_match_ioctl(struct socket *sock, struct
+> x25_subaddr32 __user *sub_addr32)
+
+> +static int compat_x25_accept_ctrl(struct socket *sock, unsigned int
+> cmd)
+
+All these appear pointless to me, as the arguments are the same as in
+the native 64 bit case.
+
+> +
+> +static int compat_x25_ioctl(struct socket *sock, unsigned int cmd,
+> unsigned long arg)
+> ...
+> +		case SIOCX25GFACILITIES:
+> +			rc = compat_x25_get_facility_ioctl(sock, argp);
+> +			break;
+> +		case SIOCX25SFACILITIES:
+> +			rc = compat_x25_facility_ioctl(sock, argp);
+> +			break;
+> +		case SIOCX25GCALLUSERDATA:
+> +			rc = compat_x25_get_cud_ioctl(sock, argp);
+> +			break;
+> +		case SIOCX25SCALLUSERDATA:
+> +			rc = compat_x25_cud_ioctl(sock, argp);
+> +			break;
+> +		case SIOCX25GCAUSEDIAG:
+> +		case SIOCX25SCUDMATCHLEN:
+> +			rc = compat_x25_cud_match_ioctl(sock,argp);
+> +			break;
+> +		case SIOCX25CALLACCPTAPPRV:
+> +			rc = compat_x25_accept_ctrl(sock,SIOCX25CALLACCPTAPPRV);
+> +				break;
+> +		case SIOCX25SENDCALLACCPT:
+> +			rc = compat_x25_accept_ctrl(sock,SIOCX25SENDCALLACCPT);
+> +				break;
+
+Then these could become
++		case SIOCX25GFACILITIES:
++		case SIOCX25SFACILITIES:
++		case SIOCX25GCALLUSERDATA:
++		case SIOCX25SCALLUSERDATA:
++		case SIOCX25GCAUSEDIAG:
++		case SIOCX25SCUDMATCHLEN:
++		case SIOCX25CALLACCPTAPPRV:
++		case SIOCX25SENDCALLACCPT:
++			rc = x25_ioctl(sock, cmd, (unsigned long)argp);
++			break;
+
+The casting argp to unsigned long instead of using arg takes care of
+the pointer type problem, so it even works on s390 (your code did as well).
+
+> +#ifdef CONFIG_COMPAT
+> +
+> +int compat_x25_route_ioctl(unsigned int cmd, struct x25_route_struct32
+> __user *rt32)
+> +{
+
+AFAICS; this function is identical to x25_route_ioctl, so just call that
+one.
 
 	Arnd <><
