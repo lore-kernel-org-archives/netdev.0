@@ -1,36 +1,39 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/irda/Kconfig: DONGLE_OLD: remove dependency on non-existing symbol
-Date: Tue, 10 Jan 2006 18:09:03 +0100
-Message-ID: <20060110170903.GQ3911@stusta.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [ANNOUNCE] iproute2 2.6.15-060110
+Date: Tue, 10 Jan 2006 11:25:34 -0800
+Message-ID: <20060110112534.5cf7e43b@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Jean-Luc Leger <reiga@dspnet.fr.eu.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932266AbWAJRJH@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
 To: netdev@vger.kernel.org
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jean-Luc Leger <reiga@dspnet.fr.eu.org> reported this alternative 
-dependency on a non-existing symbol.
+Update to iproute2 is available.  Most of the changes were to repair the
+things that broke with the introduction of the batch mode to the ip command.
+	http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.15-060110.tar.gz
+
+For information see:
+	http://linux-net.osdl.org/index.php/Iproute2
+
+Recent changes
+Masahide NAKAMURA 
+	Add ip link ntable
+
+Stephen Hemminger
+        Update headers to santized kernel 2.6.15
+        Fix ipv6 priority option in u32
+	Add corrupt feature for netem
+
+Jamal Hadi Salim
+	Add ifb documention
+
+Patrick McHardy
+        Add back ip command aliases
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.15-mm2-full/drivers/net/irda/Kconfig.old	2006-01-10 17:48:41.000000000 +0100
-+++ linux-2.6.15-mm2-full/drivers/net/irda/Kconfig	2006-01-10 17:48:59.000000000 +0100
-@@ -1,4 +1,3 @@
--
- menu "Infrared-port device drivers"
- 	depends on IRDA!=n
- 
-@@ -156,7 +155,7 @@
- 
- config DONGLE_OLD
- 	bool "Old Serial dongle support"
--	depends on (IRTTY_OLD || IRPORT_SIR) && BROKEN_ON_SMP
-+	depends on IRPORT_SIR && BROKEN_ON_SMP
- 	help
- 	  Say Y here if you have an infrared device that connects to your
- 	  computer's serial port. These devices are called dongles. Then say Y
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+OSDL http://developer.osdl.org/~shemminger
