@@ -1,33 +1,161 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] netlink oops fix due to incorrect error code
-Date: Mon, 09 Jan 2006 15:54:53 -0800 (PST)
-Message-ID: <20060109.155453.02785248.davem@davemloft.net>
-References: <43C27662.2030400@openvz.org>
-	<43C2F6DC.7040602@trash.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dev@openvz.org, torvalds@osdl.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, dim@sw.ru, st@sw.ru,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751659AbWAIX7Y@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <43C2F6DC.7040602@trash.net>
+From: "Jiri Slaby" <xslaby@fi.muni.cz>
+Subject: [PATCH] happy-meal-pci-probing
+Date: Tue, 10 Jan 2006 01:58:36 +0100
+Message-ID: <20060110005834.405D722AEAC@anxur.fi.muni.cz>
+References: <8budr11mfchfp03ncrpqjeck6f04urom8n@4ax.com>
+Cc: linux-kernel@vger.kernel.org, davem@redhat.com, akpm@osdl.org,
+	jgarzik@pobox.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750889AbWAJA7A@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
+In-reply-to: <8budr11mfchfp03ncrpqjeck6f04urom8n@4ax.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 10 Jan 2006 00:50:52 +0100
+against 2.6.15-mm2
 
-> Kirill Korotaev wrote:
-> > Fixed oops after failed netlink socket creation.
-> > Wrong parathenses in if() statement caused err to be 1,
-> > instead of negative value.
-> > Trivial fix, not trivial to find though.
-> > 
-> > Signed-Off-By: Dmitry Mishin <dim@sw.ru>
-> > Signed-Off-By: Kirill Korotaev <dev@openvz.org>
-> 
-> Good catch. Dave, please apply.
+happy-meal-pci-probing
 
-Already in Linus's tree, he applied it directly :-)
+Pci probing functions added, some functions were rewritten.
+Use PCI_DEVICE macro.
+
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+
+---
+commit eb724d05644c4a6fa80fc7f4beaeabfcd7a19905
+tree a75be76af0e6a59f2f1526c7cce188403cff63cf
+parent 43aabaed0719318490527bd09bc0b0872953c518
+author <ku@bellona.(none)> Tue, 10 Jan 2006 01:52:57 +0100
+committer <ku@bellona.(none)> Tue, 10 Jan 2006 01:52:57 +0100
+
+ drivers/net/sunhme.c |   79 +++++++++++++++++++++++++++++++++++---------------
+ 1 files changed, 55 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/sunhme.c b/drivers/net/sunhme.c
+--- a/drivers/net/sunhme.c
++++ b/drivers/net/sunhme.c
+@@ -3013,7 +3013,7 @@ static void get_hme_mac_nonsparc(struct 
+ }
+ #endif /* !(__sparc__) */
+ 
+-static int __init happy_meal_pci_init(struct pci_dev *pdev)
++static int __devinit happy_meal_pci_init(struct pci_dev *pdev)
+ {
+ 	struct quattro *qp = NULL;
+ #ifdef __sparc__
+@@ -3073,6 +3073,7 @@ static int __init happy_meal_pci_init(st
+ 	memset(hp, 0, sizeof(*hp));
+ 
+ 	hp->happy_dev = pdev;
++	pci_dev_get(pdev);
+ 
+ 	spin_lock_init(&hp->happy_lock);
+ 
+@@ -3260,6 +3261,7 @@ err_out_free_res:
+ 	pci_release_regions(pdev);
+ 
+ err_out_clear_quattro:
++	pci_dev_put(pdev);
+ 	if (qp != NULL)
+ 		qp->happy_meals[qfe_slot] = NULL;
+ 
+@@ -3304,21 +3306,58 @@ static int __init happy_meal_sbus_probe(
+ #endif
+ 
+ #ifdef CONFIG_PCI
+-static int __init happy_meal_pci_probe(void)
++static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
++	const struct pci_device_id *id)
+ {
+-	struct pci_dev *pdev = NULL;
+-	int cards = 0;
++	int retval;
++
++	retval = pci_enable_device(pdev);
++	if (retval < 0)
++		goto err;
++
++	pci_set_master(pdev);
++	happy_meal_pci_init(pdev);
++
++	return 0;
++err:
++	return retval;
++}
+ 
+-	while ((pdev = pci_find_device(PCI_VENDOR_ID_SUN,
+-				       PCI_DEVICE_ID_SUN_HAPPYMEAL, pdev)) != NULL) {
+-		if (pci_enable_device(pdev))
+-			continue;
+-		pci_set_master(pdev);
+-		cards++;
+-		happy_meal_pci_init(pdev);
++static void __devexit happy_meal_pci_remove(struct pci_dev *pdev)
++{
++	struct quattro *tmp, *qp = qfe_pci_list;
++	struct pci_dev *bdev = pdev->bus->self;
++
++	if (qp->quattro_dev == bdev) { /* is it the 1st one? */
++		qfe_pci_list = qp->next;
++		kfree(qp);
++		goto end;
+ 	}
+-	return cards;
++
++	for (; qp->next != NULL; qp = qp->next) /* some further? */
++		if (qp->next->quattro_dev == bdev)
++			break;
++
++	tmp = qp->next; /* kill it, but preserve list */
++	qp->next = qp->next->next;
++	kfree(tmp);
++end:
++	pci_dev_put(pdev);
+ }
++
++static struct pci_device_id happy_meal_pci_tbl[] = {
++	{ PCI_DEVICE(PCI_VENDOR_ID_SUN, PCI_DEVICE_ID_SUN_HAPPYMEAL) },
++	{ 0 }
++};
++MODULE_DEVICE_TABLE(pci, happy_meal_pci_tbl);
++
++static struct pci_driver happy_meal_pci_driver = {
++	.name		= "happy_meal_pci",
++	.id_table	= happy_meal_pci_tbl,
++	.probe		= happy_meal_pci_probe,
++	.remove		= __devexit_p(happy_meal_pci_remove)
++};
++
+ #endif
+ 
+ static int __init happy_meal_probe(void)
+@@ -3337,11 +3376,10 @@ static int __init happy_meal_probe(void)
+ 	cards += happy_meal_sbus_probe();
+ #endif
+ #ifdef CONFIG_PCI
+-	cards += happy_meal_pci_probe();
++	return pci_register_driver(&happy_meal_pci_driver);
++#else
++	return cards ? 0 : -ENODEV;
+ #endif
+-	if (!cards)
+-		return -ENODEV;
+-	return 0;
+ }
+ 
+ 
+@@ -3408,14 +3446,7 @@ static void __exit happy_meal_cleanup_mo
+ 	}
+ #endif
+ #ifdef CONFIG_PCI
+-	while (qfe_pci_list) {
+-		struct quattro *qfe = qfe_pci_list;
+-		struct quattro *next = qfe->next;
+-
+-		kfree(qfe);
+-
+-		qfe_pci_list = next;
+-	}
++	pci_unregister_driver(&happy_meal_pci_driver);
+ #endif
+ }
+ 
