@@ -1,396 +1,342 @@
-From: Shaun Pereira <spereira@tusc.com.au>
-Subject: [PATCH 2/2 - 2.6.15]net:32 bit (socket layer) ioctl emulation for
-	64 bit kernels
-Date: Tue, 10 Jan 2006 16:31:23 +1100
-Message-ID: <1136871083.5742.27.camel@spereira05.tusc.com.au>
-Reply-To: spereira@tusc.com.au
+From: Dan Williams <dcbw@redhat.com>
+Subject: [2.6.15 patch] wireless/atmel: add IWENCODEEXT, IWAUTH, and
+	association event support
+Date: Tue, 10 Jan 2006 00:56:11 -0500
+Message-ID: <1136872572.10082.13.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: SP <pereira.shaun@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750882AbWAJFbM@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Andi Kleen <ak@muc.de>,
-	linux-kenel <linux-kernel@vger.kernel.org>,
-	x25 maintainer <eis@baty.hanse.de>,
-	netdev <netdev@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+Return-path: <networkmanager-list-bounces@gnome.org>
+To: simon@thekelleys.org.uk
+List-Unsubscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
+	<mailto:networkmanager-list-request@gnome.org?subject=unsubscribe>
+List-Archive: </archives>
+List-Post: <mailto:networkmanager-list@gnome.org>
+List-Help: <mailto:networkmanager-list-request@gnome.org?subject=help>
+List-Subscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
+	<mailto:networkmanager-list-request@gnome.org?subject=subscribe>
+Sender: networkmanager-list-bounces@gnome.org
+Errors-To: networkmanager-list-bounces@gnome.org
 List-Id: netdev.vger.kernel.org
 
-x25 module patch
+Hi,
 
-diff -uprN -X dontdiff linux-2.6.15-vanilla/include/net/x25.h
-linux-2.6.15/include/net/x25.h
---- linux-2.6.15-vanilla/include/net/x25.h	2006-01-03 14:21:10.000000000
-+1100
-+++ linux-2.6.15/include/net/x25.h	2006-01-10 16:15:16.000000000 +1100
-@@ -223,6 +223,18 @@ extern struct x25_route *x25_get_route(s
- extern struct net_device *x25_dev_get(char *);
- extern void x25_route_device_down(struct net_device *dev);
- extern int  x25_route_ioctl(unsigned int, void __user *);
-+
-+#ifdef CONFIG_COMPAT
-+#include <linux/compat.h>
-+
-+struct x25_route_struct32{
-+	struct x25_address address;
-+	compat_uint_t   sigdigits;
-+	char    device[200];
-+};
-+extern int  compat_x25_route_ioctl(unsigned int, struct
-x25_route_struct32 __user *);
-+#endif
-+
- extern void x25_route_free(void);
- 
- static __inline__ void x25_route_hold(struct x25_route *rt)
-diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/af_x25.c
-linux-2.6.15/net/x25/af_x25.c
---- linux-2.6.15-vanilla/net/x25/af_x25.c	2006-01-10 16:06:29.000000000
-+1100
-+++ linux-2.6.15/net/x25/af_x25.c	2006-01-10 16:15:16.000000000 +1100
-@@ -475,6 +475,12 @@ out:
- 
- void x25_init_timers(struct sock *sk);
- 
-+#ifdef CONFIG_COMPAT
-+#include "x25_ioctl_compat.c"
-+#else
-+#define compat_x25_ioctl NULL
-+#endif
-+
- static int x25_create(struct socket *sock, int protocol)
+This patch allows the Atmel driver to work correctly with wpa_supplicant
+and other programs that require some conformance with WEXT-18.  It
+should not affect current behavior of the driver.  The patch does four
+things:
+
+1) Implements SIOCSIWENCODEEXT, SIOCGIWENCODEEXT, SIOCSIWAUTH, and
+SIOCGIWAUTH calls for unencrypted and WEP operation
+
+2) Accepts zero-filled addresses for SIOCSIWAP, which are legal and
+should turn off any previous forced WAP address
+
+3) Sends association and de-association events to userspace at most of
+the appropriate times
+
+4) Fixes erroneous order of CIPHER_SUITE_WEP_* arguments in one location
+which are actually unused anyway
+
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+
+
+--- a/drivers/net/wireless/atmel.c	2006-01-09 12:45:00.000000000 -0500
++++ b/drivers/net/wireless/atmel.c	2006-01-10 00:10:46.000000000 -0500
+@@ -1407,6 +1407,17 @@
  {
- 	struct sock *sk;
-@@ -1403,7 +1409,7 @@ static struct proto_ops SOCKOPS_WRAPPED(
- 	.getname =	x25_getname,
- 	.poll =		datagram_poll,
- 	.ioctl =	x25_ioctl,
--	.compat_ioctl=  NULL,
-+	.compat_ioctl=  compat_x25_ioctl,
- 	.listen =	x25_listen,
- 	.shutdown =	sock_no_shutdown,
- 	.setsockopt =	x25_setsockopt,
-diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/x25_ioctl_compat.c
-linux-2.6.15/net/x25/x25_ioctl_compat.c
---- linux-2.6.15-vanilla/net/x25/x25_ioctl_compat.c	1970-01-01
-10:00:00.000000000 +1000
-+++ linux-2.6.15/net/x25/x25_ioctl_compat.c	2006-01-10
-16:15:16.000000000 +1100
-@@ -0,0 +1,264 @@
-+#include <linux/compat.h>
+ 	struct atmel_private *priv = netdev_priv(dev);
+ 
++	/* Send event to userspace that we are disassociating */
++	if (priv->station_state == STATION_STATE_READY) {
++		union iwreq_data wrqu;
 +
-+struct x25_subscrip_struct32{
-+	char device[200-sizeof(compat_ulong_t)];
-+	compat_ulong_t global_facil_mask;
-+	compat_uint_t extended;
-+};
-+
-+struct x25_facilities32{
-+	compat_uint_t	winzize_in, winsize_out;
-+	compat_uint_t	pacsize_in, packsize_out;
-+	compat_uint_t	throughput;
-+	compat_uint_t   reverse;
-+};
-+
-+struct x25_calluserdata32 {
-+	compat_uint_t 	cudlength;
-+	unsigned char   cuddata[128];
-+};
-+
-+struct x25_subaddr32 {
-+	compat_uint_t 	cudmatchlength;
-+};
-+
-+static int compat_x25_subscr_ioctl(unsigned int cmd,
-+		struct x25_subscrip_struct32 __user *x25_subscr32)
-+{
-+	struct x25_subscrip_struct x25_subscr;
-+	struct x25_neigh *nb;
-+	struct net_device *dev;
-+	int rc = -EINVAL;
-+
-+	if (cmd != SIOCX25GSUBSCRIP && cmd != SIOCX25SSUBSCRIP)
-+		goto out;
-+
-+	rc = -EFAULT;
-+	if(copy_from_user(&x25_subscr, x25_subscr32, sizeof(*x25_subscr32)))
-+		goto out;
-+
-+	rc = -EINVAL;
-+	if ((dev = x25_dev_get(x25_subscr.device)) == NULL)
-+		goto out;
-+
-+	if ((nb = x25_get_neigh(dev)) == NULL)
-+		goto out_dev_put;
-+
-+	dev_put(dev);
-+
-+	if(cmd == SIOCX25GSUBSCRIP) {
-+		x25_subscr.extended		= nb->extended;
-+		x25_subscr.global_facil_mask	 = nb->global_facil_mask;
-+		rc = copy_to_user(x25_subscr32, &x25_subscr,
-+				sizeof(*x25_subscr32)) ? -EFAULT : 0;
-+	} else {
-+		rc = -EINVAL;
-+		if (!(x25_subscr.extended && x25_subscr.extended != 1)) {
-+			rc = 0;
-+			nb->extended		= x25_subscr.extended;
-+			nb->global_facil_mask 	= x25_subscr.global_facil_mask;
-+		}
-+	}
-+	x25_neigh_put(nb);
-+out:
-+	return rc;
-+out_dev_put:
-+	dev_put(dev);
-+	goto out;
-+}
-+
-+static int compat_x25_facility_ioctl(struct socket *sock, struct
-x25_facilities32 __user *facilities32)
-+{
-+	struct sock *sk = sock->sk;
-+	struct x25_sock *x25 = x25_sk(sk);
-+	struct x25_facilities 	facilities;
-+	int rc;
-+	rc = -EFAULT;
-+	if(copy_from_user(&facilities, facilities32, sizeof(*facilities32)))
-+	       goto out;
-+	rc = -EINVAL;
-+	if (sk->sk_state != TCP_LISTEN &&
-+		sk->sk_state != TCP_CLOSE)
-+		goto out;
-+	if (facilities.pacsize_in < X25_PS16 ||
-+		facilities.pacsize_in > X25_PS4096)
-+	       	goto out;
-+	if (facilities.pacsize_out < X25_PS16 ||
-+		facilities.pacsize_out > X25_PS4096)
-+	       	goto out;
-+	if (facilities.winsize_in < 1 ||
-+		facilities.winsize_in > 127)
-+	       	goto out;
-+	if (facilities.throughput < 0x03 ||
-+		facilities.throughput > 0xDD)
-+	       	goto out;
-+	if (facilities.reverse &&
-+		(facilities.reverse | 0x81)!= 0x81)
-+	       	goto out;
-+       	x25->facilities = facilities;
-+	rc = 0;
-+out :
-+	return rc;
-+}
-+
-+static int compat_x25_get_facility_ioctl(struct socket *sock, struct
-x25_facilities32 __user *facility32)
-+{
-+	struct sock *sk = sock->sk;
-+	struct x25_sock *x25 = x25_sk(sk);
-+	struct x25_facilities fac = x25->facilities;
-+	int rc;
-+
-+	rc = copy_to_user(facility32, &fac, sizeof(fac)) ? -EFAULT : 0;
-+	return rc;
-+}
-+
-+static int compat_x25_cud_ioctl(struct socket *sock, struct
-x25_calluserdata32 __user *calluserdata32)
-+{
-+	struct sock *sk = sock->sk;
-+	struct x25_sock *x25 = x25_sk(sk);
-+	struct x25_calluserdata calluserdata;
-+	int rc;
-+
-+	rc = -EFAULT;
-+	if(copy_from_user(&calluserdata, calluserdata32, sizeof
-(*calluserdata32)))
-+		goto out;
-+
-+	rc = -EINVAL;
-+	if (calluserdata.cudlength > X25_MAX_CUD_LEN)
-+		goto out;
-+
-+	x25->calluserdata = calluserdata;
-+	rc = 0;
-+out:
-+	return rc;
-+}
-+
-+static int compat_x25_get_cud_ioctl(struct socket *sock, struct
-x25_calluserdata32 __user *calluserdata32)
-+{
-+	struct sock *sk = sock->sk;
-+	struct x25_sock *x25 = x25_sk(sk);
-+	struct x25_calluserdata cud = x25->calluserdata;
-+	int rc;
-+
-+	rc = copy_to_user(calluserdata32, &cud, sizeof(cud))? -EFAULT : 0;
-+	return rc;
-+}
-+
-+static int compat_x25_cud_match_ioctl(struct socket *sock, struct
-x25_subaddr32 __user *sub_addr32)
-+{
-+	struct sock *sk = sock->sk;
-+	struct x25_sock *x25 = x25_sk(sk);
-+	struct x25_subaddr sub_addr;
-+	int rc;
-+
-+	rc = -EINVAL;
-+	if(sk->sk_state != TCP_CLOSE)
-+		goto out;
-+	rc = -EFAULT;
-+	if(copy_from_user(&sub_addr, sub_addr32, sizeof(*sub_addr32)))
-+		goto out;
-+	rc = -EINVAL;
-+	if(sub_addr.cudmatchlength > X25_MAX_CUD_LEN)
-+		goto out;
-+	x25->cudmatchlength = sub_addr.cudmatchlength;
-+	rc = 0;
-+out:
-+	return rc;
-+}
-+
-+static int compat_x25_accept_ctrl(struct socket *sock, unsigned int
-cmd)
-+{
-+	struct sock *sk = sock->sk;
-+	struct x25_sock *x25 = x25_sk(sk);
-+	int rc = -EINVAL;
-+
-+	switch(cmd){
-+
-+		case SIOCX25CALLACCPTAPPRV: {
-+	    		rc = -EINVAL;
-+			if (sk->sk_state != TCP_CLOSE)
-+			       	break;
-+		       	x25->accptapprv = X25_ALLOW_ACCPT_APPRV;
-+		       	rc = 0;
-+		       	break;
-+		}
-+
-+		case SIOCX25SENDCALLACCPT: {
-+			rc = -EINVAL;
-+			if (sk->sk_state != TCP_ESTABLISHED)
-+				break;
-+			if (x25->accptapprv)
-+				break;
-+			x25_write_internal(sk, X25_CALL_ACCEPTED);
-+			x25->state = X25_STATE_3;
-+			rc = 0;
-+			break;
-+		}
-+	}
-+	return rc;
-+}
-+
-+static int compat_x25_ioctl(struct socket *sock, unsigned int cmd,
-unsigned long arg)
-+{
-+	void __user *argp = compat_ptr(arg);
-+	int rc = -ENOIOCTLCMD;
-+
-+	switch(cmd) {
-+		case TIOCOUTQ:
-+		case TIOCINQ:
-+		case SIOCGSTAMP:
-+		case SIOCGIFADDR:
-+		case SIOCSIFADDR:
-+		case SIOCGIFDSTADDR:
-+		case SIOCSIFDSTADDR:
-+		case SIOCGIFBRDADDR:
-+		case SIOCSIFBRDADDR:
-+		case SIOCGIFNETMASK:
-+		case SIOCSIFNETMASK:
-+		case SIOCGIFMETRIC:
-+		case SIOCSIFMETRIC:
-+		case SIOCADDRT:
-+		case SIOCDELRT:
-+			rc = -EPERM;
-+			if (!capable(CAP_NET_ADMIN))
-+				break;
-+			rc = compat_x25_route_ioctl(cmd, argp);
-+				break;
-+		case SIOCX25GSUBSCRIP:
-+			rc = compat_x25_subscr_ioctl(cmd, argp);
-+			break;
-+		case SIOCX25SSUBSCRIP:
-+			rc = -EPERM;
-+			if (!capable(CAP_NET_ADMIN))
-+				break;
-+			rc = compat_x25_subscr_ioctl(cmd, argp);
-+			break;
-+		case SIOCX25GFACILITIES:
-+			rc = compat_x25_get_facility_ioctl(sock, argp);
-+			break;
-+		case SIOCX25SFACILITIES:
-+			rc = compat_x25_facility_ioctl(sock, argp);
-+			break;
-+		case SIOCX25GCALLUSERDATA:
-+			rc = compat_x25_get_cud_ioctl(sock, argp);
-+			break;
-+		case SIOCX25SCALLUSERDATA:
-+			rc = compat_x25_cud_ioctl(sock, argp);
-+			break;
-+		case SIOCX25GCAUSEDIAG:
-+		case SIOCX25SCUDMATCHLEN:
-+			rc = compat_x25_cud_match_ioctl(sock,argp);
-+			break;
-+		case SIOCX25CALLACCPTAPPRV:
-+			rc = compat_x25_accept_ctrl(sock,SIOCX25CALLACCPTAPPRV);
-+				break;
-+		case SIOCX25SENDCALLACCPT:
-+			rc = compat_x25_accept_ctrl(sock,SIOCX25SENDCALLACCPT);
-+				break;
-+		default:
-+			rc = -ENOIOCTLCMD;
-+			break;
++		wrqu.data.length = 0;
++		wrqu.data.flags = 0;
++		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
++		memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
++		wireless_send_event(priv->dev, SIOCGIWAP, &wrqu, NULL);
 +	}
 +
-+	return rc;
-+}
-diff -uprN -X dontdiff linux-2.6.15-vanilla/net/x25/x25_route.c
-linux-2.6.15/net/x25/x25_route.c
---- linux-2.6.15-vanilla/net/x25/x25_route.c	2006-01-03
-14:21:10.000000000 +1100
-+++ linux-2.6.15/net/x25/x25_route.c	2006-01-10 16:15:16.000000000 +1100
-@@ -204,6 +204,36 @@ out:
- 	return rc;
+ 	atmel_enter_state(priv, STATION_STATE_DOWN);
+ 
+ 	if (priv->bus_type == BUS_TYPE_PCCARD)
+@@ -1780,10 +1791,10 @@
+ 			priv->wep_is_on = 1;
+ 			priv->exclude_unencrypted = 1;
+ 			if (priv->wep_key_len[index] > 5) {
+-				priv->pairwise_cipher_suite = CIPHER_SUITE_WEP_64;
++				priv->pairwise_cipher_suite = CIPHER_SUITE_WEP_128;
+ 				priv->encryption_level = 2;
+ 			} else {
+-				priv->pairwise_cipher_suite = CIPHER_SUITE_WEP_128;
++				priv->pairwise_cipher_suite = CIPHER_SUITE_WEP_64;
+ 				priv->encryption_level = 1;
+ 			}
+ 		}
+@@ -1853,6 +1864,181 @@
+ 	return 0;
  }
  
-+#ifdef CONFIG_COMPAT
-+
-+int compat_x25_route_ioctl(unsigned int cmd, struct x25_route_struct32
-__user *rt32)
++static int atmel_set_encodeext(struct net_device *dev,
++			    struct iw_request_info *info,
++			    union iwreq_data *wrqu,
++			    char *extra)
 +{
-+	struct x25_route_struct rt;
-+	struct net_device *dev;
-+       	int rc = -EINVAL;
++	struct atmel_private *priv = netdev_priv(dev);
++	struct iw_point *encoding = &wrqu->encoding;
++	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
++	int idx, key_len;
 +
-+	if (cmd != SIOCADDRT && cmd != SIOCDELRT)
-+	     	goto out;
++	/* Determine and validate the key index */
++	idx = encoding->flags & IW_ENCODE_INDEX;
++	if (idx) {
++		if (idx < 1 || idx > WEP_KEYS)
++			return -EINVAL;
++		idx--;
++	} else
++		idx = priv->default_key;
 +
-+	rc = -EFAULT;
-+       	if(copy_from_user(&rt, rt32, sizeof(*rt32)))
-+	      	goto out;
++	if ((encoding->flags & IW_ENCODE_DISABLED) ||
++	    ext->alg == IW_ENCODE_ALG_NONE) {
++		priv->wep_is_on = 0;
++		priv->encryption_level = 0;
++		priv->pairwise_cipher_suite = CIPHER_SUITE_NONE;
++	}
 +
-+	dev = x25_dev_get(rt.device);
-+	if (!dev)
-+	     	goto out;
++	if (ext->ext_flags & IW_ENCODE_EXT_SET_TX_KEY)
++		priv->default_key = idx;
 +
-+	if (cmd == SIOCADDRT)
-+	       	rc = x25_add_route(&rt.address, rt.sigdigits, dev);
-+       	else
-+	       	rc = x25_del_route(&rt.address, rt.sigdigits, dev);
-+       	dev_put(dev);
-+out:
-+       	return rc;
++	/* Set the requested key */
++	switch (ext->alg) {
++	case IW_ENCODE_ALG_NONE:
++		break;
++	case IW_ENCODE_ALG_WEP:
++		if (ext->key_len > 5) {
++			priv->wep_key_len[idx] = 13;
++			priv->pairwise_cipher_suite = CIPHER_SUITE_WEP_128;
++			priv->encryption_level = 2;
++		} else if (ext->key_len > 0) {
++			priv->wep_key_len[idx] = 5;
++			priv->pairwise_cipher_suite = CIPHER_SUITE_WEP_64;
++			priv->encryption_level = 1;
++		} else {
++			return -EINVAL;
++		}
++		priv->wep_is_on = 1;
++		memset(priv->wep_keys[idx], 0, 13);
++		key_len = min ((int)ext->key_len, priv->wep_key_len[idx]);
++		memcpy(priv->wep_keys[idx], ext->key, key_len);
++		break;
++	default:
++		return -EINVAL;
++	}
 +
++	return -EINPROGRESS;
 +}
-+#endif
 +
- /*
-  *	Release all memory associated with X.25 routing structures.
-  */
++static int atmel_get_encodeext(struct net_device *dev,
++			    struct iw_request_info *info,
++			    union iwreq_data *wrqu,
++			    char *extra)
++{
++	struct atmel_private *priv = netdev_priv(dev);
++	struct iw_point *encoding = &wrqu->encoding;
++	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
++	int idx, max_key_len;
++
++	max_key_len = encoding->length - sizeof(*ext);
++	if (max_key_len < 0)
++		return -EINVAL;
++
++	idx = encoding->flags & IW_ENCODE_INDEX;
++	if (idx) {
++		if (idx < 1 || idx > WEP_KEYS)
++			return -EINVAL;
++		idx--;
++	} else
++		idx = priv->default_key;
++
++	encoding->flags = idx + 1;
++	memset(ext, 0, sizeof(*ext));
++	
++	if (!priv->wep_is_on) {
++		ext->alg = IW_ENCODE_ALG_NONE;
++		ext->key_len = 0;
++		encoding->flags |= IW_ENCODE_DISABLED;
++	} else {
++		if (priv->encryption_level > 0)
++			ext->alg = IW_ENCODE_ALG_WEP;
++		else
++			return -EINVAL;
++
++		ext->key_len = priv->wep_key_len[idx];
++		memcpy(ext->key, priv->wep_keys[idx], ext->key_len);
++		encoding->flags |= IW_ENCODE_ENABLED;
++	}
++
++	return 0;
++}
++
++static int atmel_set_auth(struct net_device *dev,
++			       struct iw_request_info *info,
++			       union iwreq_data *wrqu, char *extra)
++{
++	struct atmel_private *priv = netdev_priv(dev);
++	struct iw_param *param = &wrqu->param;
++
++	switch (param->flags & IW_AUTH_INDEX) {
++	case IW_AUTH_WPA_VERSION:
++	case IW_AUTH_CIPHER_PAIRWISE:
++	case IW_AUTH_CIPHER_GROUP:
++	case IW_AUTH_KEY_MGMT:
++	case IW_AUTH_RX_UNENCRYPTED_EAPOL:
++	case IW_AUTH_PRIVACY_INVOKED:
++		/*
++		 * atmel does not use these parameters
++		 */
++		break;
++
++	case IW_AUTH_DROP_UNENCRYPTED:
++		priv->exclude_unencrypted = param->value ? 1 : 0;
++		break;
++
++	case IW_AUTH_80211_AUTH_ALG: {
++			if (param->value & IW_AUTH_ALG_SHARED_KEY) {
++				priv->exclude_unencrypted = 1;
++			} else if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
++				priv->exclude_unencrypted = 0;
++			} else
++				return -EINVAL;
++			break;
++		}
++
++	case IW_AUTH_WPA_ENABLED:
++		/* Silently accept disable of WPA */
++		if (param->value > 0)
++			return -EOPNOTSUPP;
++		break;
++
++	default:
++		return -EOPNOTSUPP;
++	}
++	return -EINPROGRESS;
++}
++
++static int atmel_get_auth(struct net_device *dev,
++			       struct iw_request_info *info,
++			       union iwreq_data *wrqu, char *extra)
++{
++	struct atmel_private *priv = netdev_priv(dev);
++	struct iw_param *param = &wrqu->param;
++
++	switch (param->flags & IW_AUTH_INDEX) {
++	case IW_AUTH_DROP_UNENCRYPTED:
++		param->value = priv->exclude_unencrypted;
++		break;
++
++	case IW_AUTH_80211_AUTH_ALG:
++		if (priv->exclude_unencrypted == 1)
++			param->value = IW_AUTH_ALG_SHARED_KEY;
++		else
++			param->value = IW_AUTH_ALG_OPEN_SYSTEM;
++		break;
++
++	case IW_AUTH_WPA_ENABLED:
++		param->value = 0;
++		break;
++
++	default:
++		return -EOPNOTSUPP;
++	}
++	return 0;
++}
++
++
+ static int atmel_get_name(struct net_device *dev,
+ 			  struct iw_request_info *info,
+ 			  char *cwrq,
+@@ -2289,13 +2475,15 @@
+ {
+ 	struct atmel_private *priv = netdev_priv(dev);
+ 	int i;
+-	static const u8 bcast[] = { 255, 255, 255, 255, 255, 255 };
++	static const u8 any[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
++	static const u8 off[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+ 	unsigned long flags;
+ 
+ 	if (awrq->sa_family != ARPHRD_ETHER)
+ 		return -EINVAL;
+ 
+-	if (memcmp(bcast, awrq->sa_data, 6) == 0) {
++	if (!memcmp(any, awrq->sa_data, 6) ||
++	    !memcmp(off, awrq->sa_data, 6)) {
+ 		del_timer_sync(&priv->management_timer);
+ 		spin_lock_irqsave(&priv->irqlock, flags);
+ 		atmel_scan(priv, 1);
+@@ -2378,6 +2566,15 @@
+ 	(iw_handler) atmel_get_encode,		/* SIOCGIWENCODE */
+ 	(iw_handler) atmel_set_power,		/* SIOCSIWPOWER */
+ 	(iw_handler) atmel_get_power,		/* SIOCGIWPOWER */
++	(iw_handler) NULL,			/* -- hole -- */
++	(iw_handler) NULL,			/* -- hole -- */
++	(iw_handler) NULL,			/* SIOCSIWGENIE */
++	(iw_handler) NULL,			/* SIOCGIWGENIE */
++	(iw_handler) atmel_set_auth,		/* SIOCSIWAUTH */
++	(iw_handler) atmel_get_auth,		/* SIOCGIWAUTH */
++	(iw_handler) atmel_set_encodeext,	/* SIOCSIWENCODEEXT */
++	(iw_handler) atmel_get_encodeext,	/* SIOCGIWENCODEEXT */
++	(iw_handler) NULL,			/* SIOCSIWPMKSA */
+ };
+ 
+ static const iw_handler atmel_private_handler[] =
+@@ -2924,6 +3121,8 @@
+ 	u16 ass_id = le16_to_cpu(ass_resp->ass_id);
+ 	u16 rates_len = ass_resp->length > 4 ? 4 : ass_resp->length;
+ 
++	union iwreq_data wrqu;
++
+ 	if (frame_len < 8 + rates_len)
+ 		return;
+ 
+@@ -2954,6 +3153,14 @@
+ 		priv->station_is_associated = 1;
+ 		priv->station_was_associated = 1;
+ 		atmel_enter_state(priv, STATION_STATE_READY);
++
++		/* Send association event to userspace */
++		wrqu.data.length = 0;
++		wrqu.data.flags = 0;
++		memcpy(wrqu.ap_addr.sa_data, priv->CurrentBSSID, ETH_ALEN);
++		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
++		wireless_send_event(priv->dev, SIOCGIWAP, &wrqu, NULL);
++
+ 		return;
+ 	}
+ 
+@@ -3632,6 +3839,7 @@
+ 
+ 	struct atmel_private *priv = netdev_priv(dev);
+ 	u8 configuration;
++	int old_state = priv->station_state;
+ 
+ 	/* data to add to the firmware names, in priority order
+ 	   this implemenents firmware versioning */
+@@ -3792,6 +4000,17 @@
+ 	else
+ 		build_wep_mib(priv);
+ 
++	if (old_state == STATION_STATE_READY)
++	{
++		union iwreq_data wrqu;
++
++		wrqu.data.length = 0;
++		wrqu.data.flags = 0;
++		wrqu.ap_addr.sa_family = ARPHRD_ETHER;
++		memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
++		wireless_send_event(priv->dev, SIOCGIWAP, &wrqu, NULL);
++	}
++
+ 	return 1;
+ }
