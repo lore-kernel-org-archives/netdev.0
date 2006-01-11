@@ -1,86 +1,105 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Wireless: One small step towards a more perfect union...?
-Date: Tue, 10 Jan 2006 21:05:36 -0500
-Message-ID: <20060111020534.GA22285@tuxdriver.com>
-References: <20060106042218.GA18974@havoc.gtf.org>
+From: Robin Humble <rjh+e1000@cita.utoronto.ca>
+Subject: Re: tso off, tx hang, and codes crashing
+Date: Tue, 10 Jan 2006 23:18:44 -0500
+Message-ID: <20060111041844.GA19842@lemming.cita.utoronto.ca>
+References: <20060110051250.GA19299@lemming.cita.utoronto.ca> <Pine.WNT.4.63.0601100946400.1360@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161164AbWAKCFq@vger.kernel.org>
-To: netdev@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <e1000-devel-admin@lists.sourceforge.net>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Content-Disposition: inline
-In-Reply-To: <20060106042218.GA18974@havoc.gtf.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <Pine.WNT.4.63.0601100946400.1360@jbrandeb-desk.amr.corp.intel.com>
+Sender: e1000-devel-admin@lists.sourceforge.net
+Errors-To: e1000-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-A few days ago, Jeff Garzik reminded us all of the grossly imperfect
-state of wireless (802.11 aka WiFi) networking in Linux.  First in
-his list of key issues was the lack of a permanent maintainer for the
-kernel wireless code.  Jeff approached me to see if I was interested
-in that role, and after some discussions with Jeff and others I have
-agreed to assume it.  Consequently...
+On Tue, Jan 10, 2006 at 10:16:23AM -0800, Jesse Brandeburg wrote:
+>On Mon, 9 Jan 2006, Robin Humble wrote:
+>>until we turned off tso on our cluster using
+>>  ethtool -K eth0 tso off
+>>  ethtool -K eth1 tso off
+...
+>>the major problems only happen for >32 cpu parallel runs. smaller runs
+>>work fine. unfortunately we haven't found a simple small MPI code that
+>>triggers the tso problems.
+>do you know what packet size triggered the problem?  It sounds like the 
 
-I hereby claim responsibility for the state of wireless networking
-support in the Linux kernel.
+unfortunately not really.
 
-By that statement I do not mean to claim credit for that which has
-already been done.  Nor do I shoulder the blame for any missteps which
-have occurred to date.  I simply mean that I intend to do my best to
-improve the wireless networking support in Linux at an observable rate
-for the foreseeable future.  I intend to do that both through my own
-work and through facilitating and/or coordinating the work of others.
-I intend to do so with the ultimate goal of achieving the same sort of
-"best of breed" networking support for wireless that Linux already
-enjoys in traditional networking technologies.  I hope that I can
-count on all of you for development, testing, and/or moral support
-in that endeavour.
+>network traffic at the time of failure is lots and lots of outstanding 
+>transmits over many concurrent connections, is that correct?
 
-Who am I?
+repeatedly typing 'netstat -t' the most traffic I see is something like:
 
-Hopefully many of you recognize me through my upstream contributions.
-Others may have seen some of my work with Fedora and/or RHEL
-(http://people.redhat.com/linville/).  My recent announcement of
-the Fedora-netdev line of kernels seems to have drawn a fair amount
-of publicity.
+  [root@beer96 ~]# netstat -t | grep -v '  0      0 '
+  Active Internet connections (w/o servers)
+  Proto Recv-Q Send-Q Local Address      Foreign Address    State
+  tcp    21720      0 beer96:57747       beer82:42185       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer76:45725       ESTABLISHED
+  tcp    37176      0 beer96:38197       beer76:39912       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer86:54898       ESTABLISHED
+  tcp       24      0 beer96:57747       beer74:57982       ESTABLISHED
+  tcp       24      0 beer96:38197       beer74:59163       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer86:54883       ESTABLISHED
+  tcp       24      0 beer96:57747       beer74:57967       ESTABLISHED
+  tcp       24      0 beer96:38197       beer74:59178       ESTABLISHED
+  tcp    37176      0 beer96:38197       beer82:34102       ESTABLISHED
+  tcp    37176      0 beer96:38197       beer82:34117       ESTABLISHED
+  tcp        0  37176 beer96:38197       beer86:48448       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer84:54840       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer84:54827       ESTABLISHED
+  tcp    37176      0 beer96:38197       beer80:42088       ESTABLISHED
+  tcp    17376      0 beer96:57747       beer90:55069       ESTABLISHED
+  tcp    21720      0 beer96:57747       beer90:55058       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer81:57843       ESTABLISHED
+  tcp    37176      0 beer96:38197       beer91:51101       ESTABLISHED
+  tcp    24792      0 beer96:57747       beer75:44797       ESTABLISHED
+  tcp    37176      0 beer96:38197       beer77:54658       ESTABLISHED
+  tcp    37176      0 beer96:57747       beer83:46847       ESTABLISHED
+  tcp        0  23168 beer96:57747       beer83:46826       ESTABLISHED
+  tcp    21248    976 beer96:57747       beer89:48842       ESTABLISHED
+  tcp       24      0 beer96:38197       beer75:51657       ESTABLISHED
+  tcp       24      0 beer96:57747       beer73:52901       ESTABLISHED
+  tcp       24      0 beer96:57747       beer73:52886       ESTABLISHED
+  tcp       48      0 beer96:38197       beer73:47969       ESTABLISHED
+  [root@beer96 ~]# 
 
-Beyond that, I have spent a decade or so in networking, mostly with
-LAN switches.  I have good experience with LAN technologies, including
-Token Ring, ATM, and especially Ethernet.  I have considerably less
-experience with 802.11, but I am building on that as quickly as I can.
-I have no doubt that there are many with more 802.11 expertise than
-I have.  Still, I believe that I have enough expertise to combine with
-my judgment and experience in order to carry-out this duty effectively.
+there's about 140 sockets open total, but the rest have no traffic in
+them at this instant.
 
-Maintenance Plans
+>>we'd like to use tso as it means 5 to 10% less cpu usage for large
+>>message sizes (but strangely a few more micro-seconds latency).
+>>see attached pic.
+>Thats what TSO is supposed to help.  The latency increase can be played 
+>with or mitigated by changing tcp_tso_win_divisor in /proc/.../ipv4
 
-I will, of course, establish a public GIT tree to act as a repository
-for wireless development.  I have requested space at kernel.org, and
-I will announce that location once the tree is established.  In the
-meantime, please copy me on any wireless and/or wireless-related
-patches you may submit to make sure that I see them.
+cool. thanks.
 
-If you are the maintainer of an out-of-tree driver or other component
-(e.g. softmac), please let me hear from you (publicly or privately).
-I want to be sure to identify all the major stakeholders.  I would
-also like to hear your plans for getting your code into the tree... :-)
+>>so what's the best way I can help you debug TCP segmentation offload
+>>issue?
+>we can start with getting some transmit ring dumps at the time of failure. 
+>I have code to do this but need to port it to 2.6.15.  i'll try to get 
+>that code to you in the next couple of days.
 
-I realize there are some burning issues at the moment, especially the
-DeviceScape vs. ieee80211 stack wars.  I do not intend to pronounce
-summary judgment on any issues here or in the immediate future.
-Please do copy me on any important discussions, and feel free to
-invite me into any pertinent mailing lists or IRC channels.  I would
-also love to hear about any ongoing projects, even if they may not
-be ready to be discussed publicly.
+ok. ta.
+actually the tx reset only happens occasionally with the 2.6.15 kernel
+and 6.3.9 e1000 driver. mostly the code just stops - presumably 'cos a
+message got lost. I'll check more if it's at a repeatable place...
 
-Once again, I appreciate your support in this.  I thank Jeff for the
-role he has played to date and the role he will continue to play.
-Likewise I thank all of the wireless contributors, including driver,
-stack, and userland tool maintainers.  I hope to enjoy your continued
-contributions and your support.
+cheers,
+robin
 
-May the Force be with us!
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
