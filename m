@@ -1,63 +1,50 @@
-From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
-Subject: Re: RFC: kill acx100-devel, migrate to netdev@vger.kernel.org
-Date: Wed, 11 Jan 2006 00:16:01 +0100
-Message-ID: <200601110016.02120.carlos@cmartin.tk>
-References: <200601100829.47592.vda@ilport.com.ua>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] drivers/net/{,wireless/}Kconfig: remove dead URL
+Date: Wed, 11 Jan 2006 01:37:47 +0100
+Message-ID: <20060111003747.GJ3911@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200601100829.47592.vda@ilport.com.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932551AbWAKAhv@vger.kernel.org>
+To: jgarzik@pobox.com
 Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 10 January 2006 07:29, Denis Vlasenko wrote:
-> Hi folks,
->
-> Please read http://lkml.org/lkml/2006/1/5/671
->
-> What about moving all acx development discussion
-> to netdev@vger.kernel.org?
-
-Sure, if the driver ships with mainline. Until it does, it would be OT here=
-,=20
-IMO.
-
->
-> If yes, can acx100-devel address be automatically
-> redirected?
-
-If you'd like for people to still be able to use acx100-devel as before,=20
-you'd have to forward everything back and forth, and a discussion that star=
-ted=20
-in netdev wouldn't have an easy way to get copied to acx100-devel unless it=
-=20
-was manually CCd.
-
-I think it'd be easier just to tell people that discussion happens at netde=
-v=20
-from now/whenever on.
-
-   cmn
-=2D-=20
-Carlos Mart=EDn       http://www.cmartin.tk
+shadow.cabi.net does no longer exist.
 
 
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ drivers/net/Kconfig          |    4 ----
+ drivers/net/wireless/Kconfig |    4 ----
+ 2 files changed, 8 deletions(-)
+
+--- linux-2.6.15-mm2-full/drivers/net/Kconfig.old	2006-01-11 01:14:12.000000000 +0100
++++ linux-2.6.15-mm2-full/drivers/net/Kconfig	2006-01-11 01:16:43.000000000 +0100
+@@ -2663,10 +2663,6 @@
+ 	  Class-Based Queueing (CBQ) scheduling support which you get if you
+ 	  say Y to "QoS and/or fair queueing" above.
+ 
+-	  To set up and configure shaper devices, you need the shapecfg
+-	  program, available from <ftp://shadow.cabi.net/pub/Linux/> in the
+-	  shaper package.
+-
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called shaper.  If unsure, say N.
+ 
+--- linux-2.6.15-mm2-full/drivers/net/wireless/Kconfig.old	2006-01-11 01:16:56.000000000 +0100
++++ linux-2.6.15-mm2-full/drivers/net/wireless/Kconfig	2006-01-11 01:17:08.000000000 +0100
+@@ -24,10 +24,6 @@
+ 	  the tools from
+ 	  <http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html>.
+ 
+-	  Some user-level drivers for scarab devices which don't require
+-	  special kernel support are available from
+-	  <ftp://shadow.cabi.net/pub/Linux/>.
+-
+ # Note : the cards are obsolete (can't buy them anymore), but the drivers
+ # are not, as people are still using them...
+ comment "Obsolete Wireless cards support (pre-802.11)"
