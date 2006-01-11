@@ -1,170 +1,67 @@
-From: Shaun Pereira <spereira@tusc.com.au>
-Subject: Re: [PATCH] net: 32 bit (socket layer) ioctl emulation for 64 bit
-	kernels
-Date: Wed, 11 Jan 2006 17:28:35 +1100
-Message-ID: <1136960915.5347.10.camel@spereira05.tusc.com.au>
-References: <1136789216.6653.17.camel@spereira05.tusc.com.au>
-	 <200601091054.35010.arnd@arndb.de>
-Reply-To: spereira@tusc.com.au
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATCH] improve configopt, slightly correct acx111 radio recalib
+Date: Wed, 11 Jan 2006 08:42:24 +0200
+Message-ID: <200601110842.24245.vda@ilport.com.ua>
+References: <20060110151104.GA28270@rhlx01.fht-esslingen.de>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kenel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Andi Kleen <ak@muc.de>,
-	SP <pereira.shaun@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932591AbWAKG1t@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-In-Reply-To: <200601091054.35010.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: andi@lisas.de
+In-Reply-To: <20060110151104.GA28270@rhlx01.fht-esslingen.de>
+Content-Disposition: inline
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-And the correct x.25 patch, (will build a [PATCH] if this is ok).
-Tested with with xot to a Cisco box. 
-Thanks once again for your help 
-/Shaun
+On Tuesday 10 January 2006 17:11, Andreas Mohr wrote:
+> Hi all,
+> 
+> this patch adds support for configopt parsing for ACX100 EEPROM version v5
+> (please report whether ACX100 v5 now works, preferrably with logs showing
+> configopt activity).
+> 
+> Also, we now only start another radio recalibration interval every 5 seconds
+> on ACX111 instead of every second (in case of radio recalibration FAILURES,
+> that is). 5 recalibration attempts every second in case of repeated failure
+> is waaaaay too much, both for undistorted card operation and syslog.
 
-Index: linux-2.6.15/net/x25/af_x25.c
-===================================================================
---- linux-2.6.15.orig/net/x25/af_x25.c
-+++ linux-2.6.15/net/x25/af_x25.c
-@@ -54,6 +54,7 @@
- #include <linux/notifier.h>
- #include <linux/init.h>
- #include <net/x25.h>
-+#include <linux/compat.h>
- 
- int sysctl_x25_restart_request_timeout = X25_DEFAULT_T20;
- int sysctl_x25_call_request_timeout    = X25_DEFAULT_T21;
-@@ -68,6 +69,14 @@ static struct proto_ops x25_proto_ops;
- 
- static struct x25_address null_x25_address = {"               "};
- 
-+#ifdef CONFIG_COMPAT
-+struct compat_x25_subscrip_struct {
-+    char device[200-sizeof(compat_ulong_t)];
-+    compat_ulong_t global_facil_mask;
-+    compat_uint_t extended;
-+};
-+#endif
-+
- int x25_addr_ntoa(unsigned char *p, struct x25_address *called_addr,
- 		  struct x25_address *calling_addr)
- {
-@@ -1386,6 +1395,106 @@ static struct net_proto_family x25_famil
- 	.owner	=	THIS_MODULE,
- };
- 
-+
-+#ifdef CONFIG_COMPAT
-+static int compat_x25_subscr_ioctl(unsigned int cmd,
-+       	struct compat_x25_subscrip_struct __user *x25_subscr32)
-+{
-+	struct x25_subscrip_struct x25_subscr;
-+	struct x25_neigh *nb;
-+	struct net_device *dev;
-+	int rc = -EINVAL;
-+
-+	if (cmd != SIOCX25GSUBSCRIP && cmd != SIOCX25SSUBSCRIP)
-+   		goto out;
-+
-+	rc = -EFAULT;
-+	if(copy_from_user(&x25_subscr, x25_subscr32, sizeof(*x25_subscr32)))
-+		goto out;
-+
-+	rc = -EINVAL;
-+	if ((dev = x25_dev_get(x25_subscr.device)) == NULL)
-+		goto out;
-+
-+	if ((nb = x25_get_neigh(dev)) == NULL)
-+		goto out_dev_put;
-+
-+	dev_put(dev);
-+
-+	if(cmd == SIOCX25GSUBSCRIP) {
-+		x25_subscr.extended             = nb->extended;
-+		x25_subscr.global_facil_mask     = nb->global_facil_mask;
-+		rc = copy_to_user(x25_subscr32, &x25_subscr,
-+	    		sizeof(*x25_subscr32)) ? -EFAULT : 0;
-+	} else {
-+		rc = -EINVAL;
-+		if (!(x25_subscr.extended && x25_subscr.extended != 1)) {
-+			 rc = 0;
-+			 nb->extended            = x25_subscr.extended;
-+			 nb->global_facil_mask   = x25_subscr.global_facil_mask;
-+		}
-+	}
-+	x25_neigh_put(nb);
-+out:
-+	return rc;
-+out_dev_put:
-+	dev_put(dev);
-+	goto out;
-+}
-+
-+static int compat_x25_ioctl(struct socket *sock, unsigned int cmd,
-unsigned long arg)
-+{
-+	void __user *argp = compat_ptr(arg);
-+
-+	int rc = -ENOIOCTLCMD;
-+
-+	switch(cmd) {
-+		case TIOCOUTQ:
-+		case TIOCINQ:
-+		case SIOCGSTAMP:
-+		case SIOCGIFADDR:
-+		case SIOCSIFADDR:
-+		case SIOCGIFDSTADDR:
-+		case SIOCSIFDSTADDR:
-+		case SIOCGIFBRDADDR:
-+		case SIOCSIFBRDADDR:
-+		case SIOCGIFNETMASK:
-+		case SIOCSIFNETMASK:
-+		case SIOCGIFMETRIC:
-+		case SIOCSIFMETRIC:
-+		case SIOCADDRT:
-+		case SIOCDELRT:
-+		case SIOCX25GSUBSCRIP:
-+			rc = compat_x25_subscr_ioctl(cmd, argp);
-+			break;
-+		case SIOCX25SSUBSCRIP:
-+			rc = -EPERM;
-+			if (!capable(CAP_NET_ADMIN))
-+				break;
-+			rc = compat_x25_subscr_ioctl(cmd, argp);
-+			break;
-+		case SIOCX25GFACILITIES:
-+		case SIOCX25SFACILITIES:
-+		case SIOCX25GCALLUSERDATA:
-+		case SIOCX25SCALLUSERDATA:
-+		case SIOCX25GCAUSEDIAG:
-+		case SIOCX25SCUDMATCHLEN:
-+		case SIOCX25CALLACCPTAPPRV:
-+			rc = x25_ioctl(sock, cmd, (unsigned long)argp);
-+			break;
-+		case SIOCX25SENDCALLACCPT:
-+			rc = x25_ioctl(sock, cmd, (unsigned long)argp);
-+			break;
-+		default:
-+			rc = -ENOIOCTLCMD;
-+			break;
-+	}
-+
-+	return rc;
-+}
-+
-+#endif
-+
- static struct proto_ops SOCKOPS_WRAPPED(x25_proto_ops) = {
- 	.family =	AF_X25,
- 	.owner =	THIS_MODULE,
-@@ -1397,6 +1506,9 @@ static struct proto_ops SOCKOPS_WRAPPED(
- 	.getname =	x25_getname,
- 	.poll =		datagram_poll,
- 	.ioctl =	x25_ioctl,
-+#ifdef CONFIG_COMPAT
-+	.compat_ioctl = compat_x25_ioctl,
-+#endif
- 	.listen =	x25_listen,
- 	.shutdown =	sock_no_shutdown,
- 	.setsockopt =	x25_setsockopt,
+-unsigned int acx_debug = L_ASSOC|L_INIT;
++unsigned int acx_debug __read_mostly = L_ASSOC|L_INIT;
+
+I think __read_mostly is not worth the compat trouble it currently will require
+(#ifdef LINUX_VERSION_CODE...).
+
++       }
++       else
++       {
+
+Changing this to "} else {".
+
+Patch applied, thanks!
+
+BTW, currently we have
+
+        priv->scan_probe_delay = 200;
+        /* reported to break scanning: priv->scan_probe_delay = priv->cfgopt_probe_delay; */
+
+Do I need to uncomment that?
+--
+vda
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
