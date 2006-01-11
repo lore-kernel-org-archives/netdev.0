@@ -1,17 +1,17 @@
-From: Rogier Wolff <R.E.Wolff@BitWizard.nl>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: Transmit timeout with E1000
-Date: Wed, 11 Jan 2006 14:56:28 +0100
-Message-ID: <20060111135627.GB8292@bitwizard.nl>
-References: <20060110151254.GA24273@harddisk-recovery.com> <Pine.WNT.4.63.0601100929570.1360@jbrandeb-desk.amr.corp.intel.com> <20060111125946.GA18203@harddisk-recovery.nl> <20060111132208.GA2332@harddisk-recovery.nl> <20060111134349.GA11630@harddisk-recovery.com>
+Date: Wed, 11 Jan 2006 15:11:47 +0100
+Message-ID: <43C51223.6040309@cosmosbay.com>
+References: <20060110151254.GA24273@harddisk-recovery.com> <Pine.WNT.4.63.0601100929570.1360@jbrandeb-desk.amr.corp.intel.com> <20060111125946.GA18203@harddisk-recovery.nl> <20060111132208.GA2332@harddisk-recovery.nl> <20060111134349.GA11630@harddisk-recovery.com> <20060111135627.GB8292@bitwizard.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Rogier Wolff <R.E.Wolff@BitWizard.nl>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Erik Mouw <erik@harddisk-recovery.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Erik Mouw <erik@harddisk-recovery.com>
-Content-Disposition: inline
-In-Reply-To: <20060111134349.GA11630@harddisk-recovery.com>
+To: Rogier Wolff <R.E.Wolff@BitWizard.nl>
+In-Reply-To: <20060111135627.GB8292@bitwizard.nl>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -23,36 +23,39 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 11, 2006 at 02:43:49PM +0100, Erik Mouw wrote:
-> The system only recovers after the Netdev watchdog found out that the
-> transmit timed out. However, the e1000 register dump starts about 4 to
-> 5 seconds earlier: a possible workaround would be to trigger the
-> timeout code path as soon as the register dump starts.
+Rogier Wolff a =E9crit :
+> On Wed, Jan 11, 2006 at 02:43:49PM +0100, Erik Mouw wrote:
+>> The system only recovers after the Netdev watchdog found out that the
+>> transmit timed out. However, the e1000 register dump starts about 4 to
+>> 5 seconds earlier: a possible workaround would be to trigger the
+>> timeout code path as soon as the register dump starts.
+>=20
+> Found a typo.=20
+>=20
+> 	Roger.=20
+>=20
+>=20
+> --- e1000_main.c.orig	2006-01-11 14:53:23.000000000 +0100
+> +++ e1000_main.c	2006-01-11 14:53:38.000000000 +0100
+> @@ -3449,7 +3449,7 @@
+>  	}
+> =20
+>  	for (i =3D 0; i < E1000_MAX_INTR; i++)
+> -		if (unlikely(!adapter->clean_rx(adapter, adapter->rx_ring) &
+> +		if (unlikely(!adapter->clean_rx(adapter, adapter->rx_ring) &&
+>  		   !e1000_clean_tx_irq(adapter, adapter->tx_ring)))
+>  			break;
+> =20
+>=20
+>=20
 
-Found a typo. 
+I believe it's not a typo.
 
-	Roger. 
+The intention is to call both clean_rx() and e1000_clean_tx_irq(), and br=
+eak=20
+of the loop if both said : There was no job pending.
 
-
---- e1000_main.c.orig	2006-01-11 14:53:23.000000000 +0100
-+++ e1000_main.c	2006-01-11 14:53:38.000000000 +0100
-@@ -3449,7 +3449,7 @@
- 	}
- 
- 	for (i = 0; i < E1000_MAX_INTR; i++)
--		if (unlikely(!adapter->clean_rx(adapter, adapter->rx_ring) &
-+		if (unlikely(!adapter->clean_rx(adapter, adapter->rx_ring) &&
- 		   !e1000_clean_tx_irq(adapter, adapter->tx_ring)))
- 			break;
- 
-
-
--- 
-** R.E.Wolff@BitWizard.nl ** http://www.BitWizard.nl/ ** +31-15-2600998 **
-*-- BitWizard writes Linux device drivers for any device you may have! --*
-Q: It doesn't work. A: Look buddy, doesn't work is an ambiguous statement. 
-Does it sit on the couch all day? Is it unemployed? Please be specific! 
-Define 'it' and what it isn't doing. --------- Adapted from lxrbot FAQ
+Eric
 
 
 -------------------------------------------------------
