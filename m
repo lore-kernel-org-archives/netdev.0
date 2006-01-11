@@ -1,18 +1,19 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: RFC: kill acx100-devel, migrate to netdev@vger.kernel.org
-Date: Wed, 11 Jan 2006 10:50:52 +0200
-Message-ID: <200601111050.53028.vda@ilport.com.ua>
-References: <200601100829.47592.vda@ilport.com.ua> <200601110016.02120.carlos@cmartin.tk>
+From: Bas Vermeulen <bvermeul@blackstar.nl>
+Subject: Re: Re: RFC: kill acx100-devel, migrate to
+	netdev@vger.kernel.org
+Date: Wed, 11 Jan 2006 10:34:23 +0100
+Message-ID: <1136972063.5050.3.camel@laptop.blackstar.nl>
+References: <200601100829.47592.vda@ilport.com.ua>
+	 <200601110016.02120.carlos@cmartin.tk>
+	 <200601111050.53028.vda@ilport.com.ua>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
-Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
-In-Reply-To: <200601110016.02120.carlos@cmartin.tk>
-Content-Disposition: inline
+To: acx100-devel@lists.sourceforge.net
+In-Reply-To: <200601111050.53028.vda@ilport.com.ua>
 Sender: acx100-devel-admin@lists.sourceforge.net
 Errors-To: acx100-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
@@ -24,45 +25,36 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 11 January 2006 01:16, Carlos Mart=EDn wrote:
-> On Tuesday 10 January 2006 07:29, Denis Vlasenko wrote:
-> > Hi folks,
-> >
-> > Please read http://lkml.org/lkml/2006/1/5/671
-> >
-> > What about moving all acx development discussion
-> > to netdev@vger.kernel.org?
+On Wed, 2006-01-11 at 10:50 +0200, Denis Vlasenko wrote:
+> On Wednesday 11 January 2006 01:16, Carlos Mart=EDn wrote:
+> > On Tuesday 10 January 2006 07:29, Denis Vlasenko wrote:
+> > > Hi folks,
+> > >
+> > > Please read http://lkml.org/lkml/2006/1/5/671
+> > >
+> > > What about moving all acx development discussion
+> > > to netdev@vger.kernel.org?
+> >=20
+> > Sure, if the driver ships with mainline. Until it does, it would be O=
+T here,=20
+> > IMO.
 >=20
-> Sure, if the driver ships with mainline. Until it does, it would be OT he=
-re,=20
-> IMO.
-
-Jeff asked wireless folks to:
-
-* Please CC wireless stack/driver discussions to netdev@vger.kernel.org
-  mailing list, rather than everybody hiding in their own little
-  corner.
-
-I fully agree with him.
-
-> > If yes, can acx100-devel address be automatically
-> > redirected?
+> Jeff asked wireless folks to:
 >=20
-> If you'd like for people to still be able to use acx100-devel as before,=
-=20
-> you'd have to forward everything back and forth, and a discussion that st=
-arted=20
-> in netdev wouldn't have an easy way to get copied to acx100-devel unless =
-it=20
-> was manually CCd.
+> * Please CC wireless stack/driver discussions to netdev@vger.kernel.org
+>   mailing list, rather than everybody hiding in their own little
+>   corner.
 >=20
-> I think it'd be easier just to tell people that discussion happens at net=
-dev=20
-> from now/whenever on.
+> I fully agree with him.
 
-Makes sense.
-=2D-
-vda
+As do I, but posting to acx100-devel needs to be opened up for non-
+members in that case (if it isn't already). If it isn't, everyone who
+replies to a message on netdev that isn't also a member here will get
+the annoying 'you are not a member, piss off' message.
+
+--=20
+Bas Vermeulen <bvermeul@blackstar.nl>
+
 
 
 -------------------------------------------------------
