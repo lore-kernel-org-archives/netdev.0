@@ -1,36 +1,31 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: pcnet32 devices with incorrect trident vendor ID
-Date: Thu, 12 Jan 2006 20:49:42 +0000
-Message-ID: <43C6C0E6.7030705@gentoo.org>
-References: <20060112175051.GA17539@us.ibm.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Subject: Re: pcnet32 devices with incorrect trident vendor ID
+Date: Thu, 12 Jan 2006 13:57:14 -0700
+Message-ID: <20060112205714.GK19769@parisc-linux.org>
+References: <20060112175051.GA17539@us.ibm.com> <43C6C0E6.7030705@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mulix@mulix.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161259AbWALUtx@vger.kernel.org>
-To: Jon Mason <jdmason@us.ibm.com>
-In-Reply-To: <20060112175051.GA17539@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jon Mason <jdmason@us.ibm.com>, mulix@mulix.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161261AbWALU5P@vger.kernel.org>
+To: Daniel Drake <dsd@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <43C6C0E6.7030705@gentoo.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jon Mason wrote:
-> Some pcnet32 hardware erroneously has the Vendor ID for Trident.  The
-> pcnet32 driver looks for the PCI ethernet class before grabbing the
-> hardware, but the current trident driver does not check against the
-> PCI audio class.  This allows the trident driver to claim the pcnet32 
-> hardware.  This patch prevents that.
+On Thu, Jan 12, 2006 at 08:49:42PM +0000, Daniel Drake wrote:
+> interesting:
+> 
+> http://forums.gentoo.org/viewtopic-t-420013-highlight-trident.html
+> 
+> The user saw the correct vendor ID (AMD) in 2.4, but when upgrading to 
+> 2.6, it changed to Trident.
 
-On the subject of pcnet32 and the invalid vendor ID, you may find this 
-interesting:
+It looks to me like there used to be a quirk that knew about this bug
+and fixed it.
 
-http://forums.gentoo.org/viewtopic-t-420013-highlight-trident.html
-
-The user saw the correct vendor ID (AMD) in 2.4, but when upgrading to 
-2.6, it changed to Trident.
-
-I guess this is still likely to be a hardware bug, but it demonstrates 
-that the Linux PCI layer has something to do with it (even if it is just 
-triggering it somehow).
-
-Daniel
+The reason I say this is that the lspci -x dumps are the same -- both
+featuring the wrong vendor ID.  Want to dig through 2.4 and look for
+this quirk?
