@@ -1,51 +1,36 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/4 - 2.6.15]net: 32 bit (socket layer) ioctl emulation for 64 bit kernels
-Date: Thu, 12 Jan 2006 19:24:02 +0000
-Message-ID: <200601121924.02747.arnd@arndb.de>
-References: <1137045732.5221.21.camel@spereira05.tusc.com.au>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: pcnet32 devices with incorrect trident vendor ID
+Date: Thu, 12 Jan 2006 20:49:42 +0000
+Message-ID: <43C6C0E6.7030705@gentoo.org>
+References: <20060112175051.GA17539@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Andi Kleen <ak@muc.de>,
-	linux-kenel <linux-kernel@vger.kernel.org>,
-	x25 maintainer <eis@baty.hanse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161206AbWALTYX@vger.kernel.org>
-To: spereira@tusc.com.au
-In-Reply-To: <1137045732.5221.21.camel@spereira05.tusc.com.au>
-Content-Disposition: inline
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mulix@mulix.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161259AbWALUtx@vger.kernel.org>
+To: Jon Mason <jdmason@us.ibm.com>
+In-Reply-To: <20060112175051.GA17539@us.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 12 January 2006 06:02, Shaun Pereira wrote:
-> +int compat_sock_get_timestamp(struct sock *sk, struct timeval __user
-> *userstamp)
-> +{
-> +=A0=A0=A0=A0=A0=A0=A0struct compat_timeval __user *ctv;
-> +=A0=A0=A0=A0=A0=A0=A0ctv =3D (struct compat_timeval __user*) usersta=
-mp;
-> +=A0=A0=A0=A0=A0=A0=A0if(!sock_flag(sk, SOCK_TIMESTAMP))
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0sock_enable_timestamp(s=
-k);
-> +=A0=A0=A0=A0=A0=A0=A0if(sk->sk_stamp.tv_sec =3D=3D -1)
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return -ENOENT;
-> +=A0=A0=A0=A0=A0=A0=A0if(sk->sk_stamp.tv_sec =3D=3D 0)
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0do_gettimeofday(&sk->sk=
-_stamp);
-> +=A0=A0=A0=A0=A0=A0=A0return copy_to_user(ctv, &sk->sk_stamp, sizeof(=
-struct
-> compat_timeval)) ?
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
--EFAULT : 0;
-> +}
+Jon Mason wrote:
+> Some pcnet32 hardware erroneously has the Vendor ID for Trident.  The
+> pcnet32 driver looks for the PCI ethernet class before grabbing the
+> hardware, but the current trident driver does not check against the
+> PCI audio class.  This allows the trident driver to claim the pcnet32 
+> hardware.  This patch prevents that.
 
-This looks wrong, you're not doing any conversion here.
-You cannot just copy sk_stamp to ctv, they are not compatible.
-See compat_sys_gettimeofday on how to copy a struct timeval
-correctly.
+On the subject of pcnet32 and the invalid vendor ID, you may find this 
+interesting:
 
-The other patches look good.
+http://forums.gentoo.org/viewtopic-t-420013-highlight-trident.html
 
-	Arnd <><
+The user saw the correct vendor ID (AMD) in 2.4, but when upgrading to 
+2.6, it changed to Trident.
+
+I guess this is still likely to be a hardware bug, but it demonstrates 
+that the Linux PCI layer has something to do with it (even if it is just 
+triggering it somehow).
+
+Daniel
