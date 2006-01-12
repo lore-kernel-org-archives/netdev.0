@@ -1,49 +1,51 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [git patches] 2.6.x net driver updates
-Date: Fri, 13 Jan 2006 00:14:12 +0100
-Message-ID: <20060112231412.GB29663@stusta.de>
-References: <20060112221322.GA25470@havoc.gtf.org> <Pine.LNX.4.64.0601121423120.3535@g5.osdl.org> <20060112224227.GA26888@havoc.gtf.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch] ipw2100: support WEXT-18 enc_capa v3
+Date: Thu, 12 Jan 2006 16:38:53 -0500
+Message-ID: <43C6CC6D.3030600@pobox.com>
+References: <1136820457.7941.4.camel@dhcp83-115.boston.redhat.com>	 <43C282A5.6010609@pobox.com> <1136822098.7941.13.camel@dhcp83-115.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161454AbWALXOO@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20060112224227.GA26888@havoc.gtf.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jketreno@linux.intel.com, netdev@vger.kernel.org,
+	ipw2100-devel@lists.sourceforge.net
+Return-path: <ipw2100-devel-admin@lists.sourceforge.net>
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1136822098.7941.13.camel@dhcp83-115.boston.redhat.com>
+Sender: ipw2100-devel-admin@lists.sourceforge.net
+Errors-To: ipw2100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
+	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
+List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
+	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2006 at 05:42:27PM -0500, Jeff Garzik wrote:
-> On Thu, Jan 12, 2006 at 02:30:19PM -0800, Linus Torvalds wrote:
-> > 
-> > 
-> > On Thu, 12 Jan 2006, Jeff Garzik wrote:
-> > > 
-> > > dann frazier:
-> > >       CONFIG_AIRO needs CONFIG_CRYPTO
-> > 
-> > I think this is done wrong.
-> > 
-> > It should "select CRYPTO" rather than "depends on CRYPTO".
+Dan Williams wrote:
+> Hi,
 > 
-> OK
->...
+> This patch allows ipw2100 driver to advertise the WPA-related encryption
+> options that it does really support.  It's necessary to work correctly
+> with NetworkManager and other programs that actually check driver & card
+> capabilities.
+> 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 
-What was wrong with my patch [1] that did not only this, but also fixes 
-the same bug with AIRO_CS and removes all the #ifdef's for the 
-non-compiling CRYPTO=n case from the driver?
+content OK, but:
 
-> 	Jeff
 
-cu
-Adrian
+[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
+1 patch(es) to process.
 
-[1] http://lkml.org/lkml/2006/1/10/328
+Applying 'ipw2100: support WEXT-18 enc_capa v3'
 
--- 
+error: patch failed: drivers/net/wireless/ipw2100.c:7236
+error: drivers/net/wireless/ipw2100.c: patch does not apply
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
