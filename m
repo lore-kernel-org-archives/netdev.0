@@ -1,59 +1,49 @@
 From: Bill Nottingham <notting@redhat.com>
 Subject: Re: pcnet32 devices with incorrect trident vendor ID
-Date: Thu, 12 Jan 2006 16:22:05 -0500
-Message-ID: <20060112212205.GA28395@devserv.devel.redhat.com>
-References: <20060112175051.GA17539@us.ibm.com> <43C6C0E6.7030705@gentoo.org> <20060112205714.GK19769@parisc-linux.org> <20060112210559.GL19769@parisc-linux.org>
+Date: Thu, 12 Jan 2006 16:24:35 -0500
+Message-ID: <20060112212435.GB28395@devserv.devel.redhat.com>
+References: <20060112175051.GA17539@us.ibm.com> <43C6C0E6.7030705@gentoo.org> <20060112205714.GK19769@parisc-linux.org> <20060112210559.GL19769@parisc-linux.org> <20060112212205.GA28395@devserv.devel.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Daniel Drake <dsd@gentoo.org>, Jon Mason <jdmason@us.ibm.com>,
 	mulix@mulix.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161297AbWALVWV@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161303AbWALVYr@vger.kernel.org>
 To: Matthew Wilcox <matthew@wil.cx>
 Content-Disposition: inline
-In-Reply-To: <20060112210559.GL19769@parisc-linux.org>
+In-Reply-To: <20060112212205.GA28395@devserv.devel.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox (matthew@wil.cx) said: 
-> On Thu, Jan 12, 2006 at 01:57:14PM -0700, Matthew Wilcox wrote:
-> > On Thu, Jan 12, 2006 at 08:49:42PM +0000, Daniel Drake wrote:
-> > > interesting:
-> > > 
-> > > http://forums.gentoo.org/viewtopic-t-420013-highlight-trident.html
-> > > 
-> > > The user saw the correct vendor ID (AMD) in 2.4, but when upgrading to 
-> > > 2.6, it changed to Trident.
-> > 
-> > It looks to me like there used to be a quirk that knew about this bug
-> > and fixed it.
-> > 
-> > The reason I say this is that the lspci -x dumps are the same -- both
-> > featuring the wrong vendor ID.  Want to dig through 2.4 and look for
-> > this quirk?
-> 
-> Oh -- found it.  It's still in 2.6:
-> 
-> static void
-> fixup_broken_pcnet32(struct pci_dev* dev)
-> {
->         if ((dev->class>>8 == PCI_CLASS_NETWORK_ETHERNET)) {
->                 dev->vendor = PCI_VENDOR_ID_AMD;
->                 pci_write_config_word(dev, PCI_VENDOR_ID, PCI_VENDOR_ID_AMD);
->         }
-> }
-> DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_TRIDENT, PCI_ANY_ID,                     
-> fixup_broken_pcnet32);
-> 
-> Wonder why it isn't working now ... someone with a PPC box needs to check
-> (a) whether this function is being called and (b) if it is called, why
-> it's not doing what it's supposed to.
+Bill Nottingham (notting@redhat.com) said: 
+> I remember looking at this a while back. I think the corrected information
+> is only being propagated to the 'vendor' file, and the write_config_word
+> isn't actually updating the 'config' entry in sysfs.
 
-I remember looking at this a while back. I think the corrected information
-is only being propagated to the 'vendor' file, and the write_config_word
-isn't actually updating the 'config' entry in sysfs.
+Ah, here's an example from the box I remember working on this on
+(without the libpci change):
 
-If you remove the "#if 0" from lib/sysfs.c in pciutils, it should
-start reporting the corrected value in base lspci, etc.
+root@pseries 0000:00:0c.0]# pwd
+/sys/bus/pci/devices/0000:00:0c.0
+[root@pseries 0000:00:0c.0]# lspci | grep 0c.0
+00:0c.0 Ethernet controller: Trident Microsystems 4DWave DX (rev 26)
+[root@pseries 0000:00:0c.0]# lspci -n | grep 0c.0
+00:0c.0 Class 0200: 1023:2000 (rev 26)
+[root@pseries 0000:00:0c.0]# cat vendor
+0x1022
+[root@pseries 0000:00:0c.0]# cat device
+0x2000
+[root@pseries 0000:00:0c.0]# od -x config
+0000000 2310 0020 4701 8002 2600 0002 0048 0000
+0000020 01f0 ff00 0070 21c3 0000 0000 0000 0000
+0000040 0000 0000 0000 0000 0000 0000 0000 0000
+0000060 0000 10c3 0000 0000 0000 0000 1101 06ff
+0000100 0000 0000 0000 0000 0000 0000 0000 0000
+*
+0000400
+
+Note that the config space is different than the vendor file. This
+was with 2.6.9-ish, I don't have the box around any more to confirm
+with something more recent.
 
 Bill
