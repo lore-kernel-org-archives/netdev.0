@@ -1,32 +1,52 @@
-From: Daniel Drake <dsd@gentoo.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
 Subject: Re: pcnet32 devices with incorrect trident vendor ID
-Date: Thu, 12 Jan 2006 21:03:17 +0000
-Message-ID: <43C6C415.7030307@gentoo.org>
-References: <20060112175051.GA17539@us.ibm.com> <43C6C0E6.7030705@gentoo.org> <20060112205714.GK19769@parisc-linux.org>
+Date: Thu, 12 Jan 2006 16:05:53 -0500
+Message-ID: <20060112210553.GA18972@csclub.uwaterloo.ca>
+References: <20060112175051.GA17539@us.ibm.com> <43C6C0E6.7030705@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jon Mason <jdmason@us.ibm.com>, mulix@mulix.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	linux-pci@atrey.karlin.mff.cuni.cz
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161276AbWALVDd@vger.kernel.org>
-To: Matthew Wilcox <matthew@wil.cx>
-In-Reply-To: <20060112205714.GK19769@parisc-linux.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932692AbWALVF4@vger.kernel.org>
+To: Daniel Drake <dsd@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <43C6C0E6.7030705@gentoo.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> It looks to me like there used to be a quirk that knew about this bug
-> and fixed it.
+On Thu, Jan 12, 2006 at 08:49:42PM +0000, Daniel Drake wrote:
+> On the subject of pcnet32 and the invalid vendor ID, you may find this 
+> interesting:
 > 
-> The reason I say this is that the lspci -x dumps are the same -- both
-> featuring the wrong vendor ID.
+> http://forums.gentoo.org/viewtopic-t-420013-highlight-trident.html
+> 
+> The user saw the correct vendor ID (AMD) in 2.4, but when upgrading to 
+> 2.6, it changed to Trident.
+> 
+> I guess this is still likely to be a hardware bug, but it demonstrates 
+> that the Linux PCI layer has something to do with it (even if it is just 
+> triggering it somehow).
 
-Good catch. I didn't notice this.
+Perhaps there is a significant different in the pcnet32.c files between
+the two versions.  I also remember that there is some powerpc specific
+code in there related to MAC address detection.  There are certainly
+differences in 2.4 and 2.6's version of the driver, maybe something is
+broken in the newer one when run on powerpc.  I don't run gentoo and
+have no idea how to get a hold of the source of pcnet32.c from each of
+those two.
 
- > Want to dig through 2.4 and look for
-> this quirk?
+It does seem odd that only the pcnet32 has the pci ID change, but at the
+same time, somehow the driver is recognizing it and loading at boot
+time, so the ID can't be wrong at that time.  Does the ID get mangled as
+part of what makes the MAC addresses read incorrectly on your 2.6.14?
+The 2.4 system shows all the cards overriding the MAC based on the PROM,
+which I believe is what the driver code should do on a powerpc system.
+On 2.6 that appears to only happen on one of the cards.  At least on
+that device (pci 01:01) appears to agree what the MAC should be in both
+cases.
 
-No time for this personally.
+Perhaps the lspci being wrong is just a side effect of the real problem.
+Maybe the driver is broken and messing things up.
 
-Daniel
+Len Sorensen
