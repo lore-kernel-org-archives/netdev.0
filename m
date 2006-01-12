@@ -1,31 +1,49 @@
-From: Linus Torvalds <torvalds@osdl.org>
+From: Adrian Bunk <bunk@stusta.de>
 Subject: Re: [git patches] 2.6.x net driver updates
-Date: Thu, 12 Jan 2006 14:46:02 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0601121444030.3535@g5.osdl.org>
-References: <20060112221322.GA25470@havoc.gtf.org> <Pine.LNX.4.64.0601121423120.3535@g5.osdl.org>
- <20060112143938.5cf7d6a5.akpm@osdl.org>
+Date: Fri, 13 Jan 2006 00:14:12 +0100
+Message-ID: <20060112231412.GB29663@stusta.de>
+References: <20060112221322.GA25470@havoc.gtf.org> <Pine.LNX.4.64.0601121423120.3535@g5.osdl.org> <20060112224227.GA26888@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Roman Zippel <zippel@linux-m68k.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161379AbWALWqf@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060112143938.5cf7d6a5.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161454AbWALXOO@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20060112224227.GA26888@havoc.gtf.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Thu, 12 Jan 2006, Andrew Morton wrote:
+On Thu, Jan 12, 2006 at 05:42:27PM -0500, Jeff Garzik wrote:
+> On Thu, Jan 12, 2006 at 02:30:19PM -0800, Linus Torvalds wrote:
+> > 
+> > 
+> > On Thu, 12 Jan 2006, Jeff Garzik wrote:
+> > > 
+> > > dann frazier:
+> > >       CONFIG_AIRO needs CONFIG_CRYPTO
+> > 
+> > I think this is done wrong.
+> > 
+> > It should "select CRYPTO" rather than "depends on CRYPTO".
 > 
-> Yes, I think that's much more Aunt-Nellie-friendly, but Roman considers it
-> abuse of the Kconfig system in ways which I never completely understood?
+> OK
+>...
 
-Hmm. If Roman dislikes it, he must dislike the fact that we already do 
-exactly this for a ton of different things. There's something like 2000+ 
-"select" statements in the kernel Kconfig tree, and just grepping for 
-"select.*CRYPTO" gets 52 hits..
+What was wrong with my patch [1] that did not only this, but also fixes 
+the same bug with AIRO_CS and removes all the #ifdef's for the 
+non-compiling CRYPTO=n case from the driver?
 
-So this isn't new..
+> 	Jeff
 
-		Linus
+cu
+Adrian
+
+[1] http://lkml.org/lkml/2006/1/10/328
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
