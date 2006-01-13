@@ -1,118 +1,74 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: Tx packet fragmentation?
-Date: Fri, 13 Jan 2006 13:00:39 +0200
-Message-ID: <200601131300.39276.vda@ilport.com.ua>
-References: <20060112165853.GA17789@rhlx01.fht-esslingen.de>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/4 - 2.6.15]net: 32 bit (socket layer) ioctl emulation for 64 bit kernels
+Date: Fri, 13 Jan 2006 11:46:47 +0000
+Message-ID: <200601131146.48128.arnd@arndb.de>
+References: <1137045732.5221.21.camel@spereira05.tusc.com.au> <200601121924.02747.arnd@arndb.de> <1137122079.5589.34.camel@spereira05.tusc.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Mohr <andim2@users.sourceforge.net>
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
-In-Reply-To: <20060112165853.GA17789@rhlx01.fht-esslingen.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Andi Kleen <ak@muc.de>,
+	linux-kenel <linux-kernel@vger.kernel.org>,
+	x25 maintainer <eis@baty.hanse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161255AbWAMLrZ@vger.kernel.org>
+To: spereira@tusc.com.au
+In-Reply-To: <1137122079.5589.34.camel@spereira05.tusc.com.au>
 Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 12 January 2006 18:58, Andreas Mohr wrote:
-> Hi,
-> 
-> I'd like to ask some things about packet fragmentation (you remember I wanted
-> to work on this due to my very bad link quality?). I'm asking now since I
-> will probably have some time during the weekend to work on it.
-> 
-> Problem is that fragmenting packets requires allocating several tx descriptors
-> in a row, then preparing and sending the data packet piecemeal via those
-> various descriptors in acx_l_tx_data().
-> Do you have any recommendations on how to do it?
-> (the split between acx_l_alloc_tx() and acx_l_tx_data() is a bit problematic)
+On Friday 13 January 2006 03:14, Shaun Pereira wrote:
+> Thank you for reviewing that bit of code. =A0
+> I had a look at compat_sys_gettimeofday and sys32_gettimeofday codes.
+> They seem to work in a similar way, casting a pointer to the structur=
+e
+> from user space to a compat_timeval type.
 
-Basically you want to modify this part of acx_i_start_xmit():
+The part with the case is ok, except that you don't have to write
 
-        tx = acx_l_alloc_tx(priv);
-        if (unlikely(!tx)) {
-                printk_ratelimited("%s: start_xmit: txdesc ring is full, "
-                        "dropping tx\n", dev->name);
-                txresult = NOT_OK;
-                goto end;
-        }
+struct compat_timeval __user *ctv;
+ctv =3D (struct compat_timeval __user*) userstamp;
 
-        txbuf = acx_l_get_txbuf(priv, tx);
-        if (unlikely(!txbuf)) {
-                /* Card was removed */
-                txresult = NOT_OK;
-                acx_l_dealloc_tx(priv, tx);
-                goto end;
-        }
-        len = acx_ether_to_txbuf(priv, txbuf, skb);
-        if (unlikely(len < 0)) {
-                /* Error in packet conversion */
-                txresult = NOT_OK;
-                acx_l_dealloc_tx(priv, tx);
-                goto end;
-        }
-        acx_l_tx_data(priv, tx, len);
+Instead,
 
-As seen here, current code produces and tx'es just one wlan packet.
+struct compat_timeval __user *ctv =3D userstamp;
 
-Possible adaptation:
+is the more common way to write it. The result is the same, since
+userstamp is a 'void __user *'.
 
-struct frag_vec {
-	int len;
-	void *tx;
-	void *txbuf;
-};
-/* allocates and fills from 1 to N wlan fragments */
-int acx_ether_to_frags(wlandevice_t *priv, const struct sk_buff *skb, struct frag_vec *frag, int len);
+> But to make sure I have tested the routine by forcing the sk-
+> >sk_stamp.tv_sec value to 0 in the x25_module ( for testing purposes
+> only, as it is initialised to -1). Now when
+> I make a 32 bit userspace SIOCGSTAMP ioctl to the 64 bit kernel I sho=
+uld
+> get the current time back in user space. This seems to work, the ioct=
+l
+> returns the system time (just after TEST6:)
+>=20
+> So I have left the patch as is for now. However if necessary to use
+> the element-by-element __put_user routine as in put_tv32, then I can
+> make the change, just let me know.
 
+You need to to exactly that, yes. I'm not sure what exactly you have
+tested, but the expected result of your code would be that you see
+the sk_stamp.tv_sec value in the output, but not the tv_usec value.
 
-acx_i_start_xmit():
+On little-endian system like x86_64, that is not much of a difference
+(less than a second) that you might miss in a test case, but on
+big-endian, it would be fatal.
 
-	struct frag_vec frag[N];
-	...
-        n = acx_ether_to_frags(priv, skb, frag, N);
-        if (n <= 0) {
-                /* Error in packet conversion */
-                txresult = NOT_OK;
-                goto end;
-        }
-	for(1..n)
-	        acx_l_tx_data(priv, frag[i].tx, frag[i].len);
+The layout of the structures on most systems is=20
 
-> Or should this be the job of the OS to care about fragmenting the packets
-> to be sent? (then it would just call our data tx stuff multiple times itself
-> anyway).
+		64 bit LE	64 bit BE	32 bit
 
-Yes, it must be done by softmac layer.
+bytes 0-3	tv_sec low	tv_sec high	tv_sec low
+bytes 4-7	tv_sec high	tv_sec low	tv_usec low
+bytes 8-11	tv_usec low	tv_usec high
+bytes 12-15	tv_usec high	tv_usec low
 
-> And what about the multiple host txhostdescs that we (need to?) initialize
-> in order to work around "bugs"?
+You code copies the first eight bytes of the 64 bit data structure
+into the 32 bit data structure.
 
-It should not matter here, you won't even need to touch pci.c
-except for maybe setting some FIRSTFRAG and/or MORE_FRAG bits
-as appropriate.
-
-> Are we sure that this is a bug of specific(???) cards or not simply a bug of
-> certain firmware versions or even a bug in our driver? (maybe due to doing
-> some things in weird ways that the firmware totally doesn't expect?).
-
-I think firmware was debugged only to meet needs of Windows driver.
---
-vda
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+	Arnd <><
