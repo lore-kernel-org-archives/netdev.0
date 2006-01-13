@@ -1,37 +1,79 @@
-From: Jens Axboe <axboe@suse.de>
-Subject: Re: [git patches] 2.6.x net driver updates
-Date: Fri, 13 Jan 2006 20:36:04 +0100
-Message-ID: <20060113193603.GA3945@suse.de>
-References: <20060112221322.GA25470@havoc.gtf.org> <Pine.LNX.4.64.0601121423120.3535@g5.osdl.org> <20060112143938.5cf7d6a5.akpm@osdl.org> <20060113192316.GX3945@suse.de> <20060113192813.GA10560@mars.ravnborg.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: wireless: recap of current issues (intro)
+Date: Fri, 13 Jan 2006 16:26:08 -0500
+Message-ID: <20060113212605.GD16166@tuxdriver.com>
+References: <20060113195723.GB16166@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
-	jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Roman Zippel <zippel@linux-m68k.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422856AbWAMTeM@vger.kernel.org>
-To: Sam Ravnborg <sam@ravnborg.org>
+Cc: linux-kernel@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
+	Stefan Rompf <stefan@loplof.de>,
+	Mike Kershaw <dragorn@kismetwireless.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Robert Hancock <hancockr@shaw.ca>,
+	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
+	Dominik Brodowski <linux@dominikbrodowski.net>,
+	Denis Vlasenko <vda@ilport.com.ua>,
+	Danny van Dyk <kugelfang@gentoo.org>,
+	Stephen Hemminger <shemminger@osdl.org>, feyd <feyd@nmskb.cz>,
+	Chase Venters <chase.venters@clientec.com>,
+	Andreas Mohr <andim2@users.sourceforge.net>,
+	Bas Vermeulen <bvermeul@blackstar.nl>,
+	Jean Tourrilhes <jt@hpl.hp.com>, Daniel Drake <dsd@gentoo.org>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Phil Dibowitz <phil@ipom.com>,
+	Simon Kelley <simon@thekelleys.org.uk>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Ingo Oeser <netdev@axxeo.de>,
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422991AbWAMVhs@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060113192813.GA10560@mars.ravnborg.org>
+In-Reply-To: <20060113195723.GB16166@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 13 2006, Sam Ravnborg wrote:
-> On Fri, Jan 13, 2006 at 08:23:16PM +0100, Jens Axboe wrote:
-> > 
-> > 'select' is really cool as a concept, but when you can't figure out why
-> > you cannot disable CONFIG_FOO because CONFIG_BAR selects it it's really
-> > annoying. Would be nice to actually be able to see if another option has
-> > selected this option.
-> 
-> In menuconfig:
-> 
-> Typing '?' on CONFIG_HOTPLUG revealed:
->  Selected by: PCCARD || HOTPLUG_PCI && PCI && EXPERIMENTAL || FW_LOADER
-> 
-> Then use '/' to search for the CONFIG_ symbols to see where they are
-> defined.
+My original post got eaten by the lists -- probably too big...
 
-Live and learn, thanks, didn't know you could do that!
+I'm reposting in sections.  After this intro follow sections on
+Configuration, Compatibility, Stack, Other Issues, and Actions.
+Enjoy! :-)
 
+---
+
+WiFi-ers...
+
+Here I am, still feeling "up to the challenge"...  I have stopped
+hyper-ventilating and the nervous vomiting is all over... :-)
+
+Having accepted the wireless role, I wanted to review the discussions
+prompted by Jeff's "State of the Union" message from a little over a
+week ago.  There is lots of good talent involved in these discussions,
+and I believe a surprisingly high level of agreement (some of it
+nearly violent!) amongst the players.
+
+Below I have recapped what I saw as most of the important issues.
+I have endorsed some of the ideas, mostly those which seem to have
+broad agreement.  I have also thrown-out a few ideas of my own.
+Please do comment on all of them, as neither my summaries nor my
+original ideas are likely to be without fault. :-)
+
+I have primarily grouped the issues into configuration, compatibility,
+and stack concerns.  I also included an "other" group for a few other
+concerns that I though were worth mentioning.
+
+Finally, I have included an "actions" section to reveal some of my
+near-term plans and some of what I am thinking about beyond that.
+I would love to hear any comments you might have on these items
+as well.
+
+Thanks for taking the time to look this over.  Creating this recap
+has reinforced one thing: this is far too big for just a single person
+(or even a small group) to tackle alone!
+
+Thanks,
+
+John
 -- 
-Jens Axboe
+John W. Linville
+linville@tuxdriver.com
