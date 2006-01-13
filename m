@@ -1,79 +1,59 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: wireless: recap of current issues (intro)
-Date: Fri, 13 Jan 2006 16:26:08 -0500
-Message-ID: <20060113212605.GD16166@tuxdriver.com>
-References: <20060113195723.GB16166@tuxdriver.com>
+Subject: wireless: recap of current issues (configuration)
+Date: Fri, 13 Jan 2006 17:19:36 -0500
+Message-ID: <20060113221935.GJ16166@tuxdriver.com>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	Stefan Rompf <stefan@loplof.de>,
-	Mike Kershaw <dragorn@kismetwireless.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Robert Hancock <hancockr@shaw.ca>,
-	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
-	Dominik Brodowski <linux@dominikbrodowski.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Danny van Dyk <kugelfang@gentoo.org>,
-	Stephen Hemminger <shemminger@osdl.org>, feyd <feyd@nmskb.cz>,
-	Chase Venters <chase.venters@clientec.com>,
-	Andreas Mohr <andim2@users.sourceforge.net>,
-	Bas Vermeulen <bvermeul@blackstar.nl>,
-	Jean Tourrilhes <jt@hpl.hp.com>, Daniel Drake <dsd@gentoo.org>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Phil Dibowitz <phil@ipom.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Ingo Oeser <netdev@axxeo.de>,
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422991AbWAMVhs@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423015AbWAMWTv@vger.kernel.org>
 To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060113195723.GB16166@tuxdriver.com>
+In-Reply-To: <20060113213011.GE16166@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My original post got eaten by the lists -- probably too big...
+Configuration
+=============
 
-I'm reposting in sections.  After this intro follow sections on
-Configuration, Compatibility, Stack, Other Issues, and Actions.
-Enjoy! :-)
+Configuration seems to be coalescing around netlink.  Among other
+things, this technology provides for muliticast requests and
+asynchronous event notification.
 
----
+The kernel should provide generic handlers for netlink
+configuraion messages, and there should be a per-device 80211_ops
+(wireless_ops? akin to ethtool_ops) structure for drivers to
+populate appropriately.
 
-WiFi-ers...
+At init, physical devices should be represented by a "WiPHY" device,
+not directly by a net_device.  The list of physical devices should
+be discoverable through netlink and/or sysfs.  (A WiPHY device is an
+abstraction representing the radio interface itself.)
 
-Here I am, still feeling "up to the challenge"...  I have stopped
-hyper-ventilating and the nervous vomiting is all over... :-)
+Virtual wlan devices should be associated to a WiPHY device many-to-one
+(one-to-one for some devices).  Virtual devices correspond to a net_device.
 
-Having accepted the wireless role, I wanted to review the discussions
-prompted by Jeff's "State of the Union" message from a little over a
-week ago.  There is lots of good talent involved in these discussions,
-and I believe a surprisingly high level of agreement (some of it
-nearly violent!) amongst the players.
+Virtual devices will have a mode (e.g. station, AP, WDS, ad-hoc, rfmon,
+raw?, other modes?) which defines its "on the air" behaviour.  Should
+this mode be fixed when the wlan device is created?  Or something
+that can be changed when the net_device is down?
 
-Below I have recapped what I saw as most of the important issues.
-I have endorsed some of the ideas, mostly those which seem to have
-broad agreement.  I have also thrown-out a few ideas of my own.
-Please do comment on all of them, as neither my summaries nor my
-original ideas are likely to be without fault. :-)
+It may be necessary to remove, suspend, and/or disable wlan devices
+in order to add, resume, and/or enable other types of wlan devices
+on the same WiPHY device (especialy true for rfmon).  A mechanism is
+needed for drivers to be able to influence or disallow combinations
+of wlan devices in accordance with capabilities of the hardware.
 
-I have primarily grouped the issues into configuration, compatibility,
-and stack concerns.  I also included an "other" group for a few other
-concerns that I though were worth mentioning.
-
-Finally, I have included an "actions" section to reveal some of my
-near-term plans and some of what I am thinking about beyond that.
-I would love to hear any comments you might have on these items
-as well.
-
-Thanks for taking the time to look this over.  Creating this recap
-has reinforced one thing: this is far too big for just a single person
-(or even a small group) to tackle alone!
-
-Thanks,
-
-John
+Do "global" config requests go to any associated wlan device?
+Or must they be directed to the WiPHY device?  Does it matter?
+I think we should require "global" configuration to target the WiPHY
+device, while "local" configuration remains with the wlan device.
+(I'm not sure how important this point is?)  Either way, the WiPHY
+device will need some way to be able to reject configuration requests
+that are incompatible among its associated wlan devices.  Since the
+wlan interface implementations should not be device specific, perhaps
+the 802.11 stack can be smart enough to filter-out most conflicting
+config requests before they get to the WiPHY device?
 -- 
 John W. Linville
 linville@tuxdriver.com
