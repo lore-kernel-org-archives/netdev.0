@@ -1,113 +1,118 @@
-From: Shaun Pereira <spereira@tusc.com.au>
-Subject: Re: [PATCH 2/4 - 2.6.15]net: 32 bit (socket layer) ioctl emulation
-	for 64 bit kernels
-Date: Fri, 13 Jan 2006 14:14:39 +1100
-Message-ID: <1137122079.5589.34.camel@spereira05.tusc.com.au>
-References: <1137045732.5221.21.camel@spereira05.tusc.com.au>
-	 <200601121924.02747.arnd@arndb.de>
-Reply-To: spereira@tusc.com.au
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: Tx packet fragmentation?
+Date: Fri, 13 Jan 2006 13:00:39 +0200
+Message-ID: <200601131300.39276.vda@ilport.com.ua>
+References: <20060112165853.GA17789@rhlx01.fht-esslingen.de>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Andi Kleen <ak@muc.de>,
-	linux-kenel <linux-kernel@vger.kernel.org>,
-	x25 maintainer <eis@baty.hanse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161645AbWAMDPm@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-In-Reply-To: <200601121924.02747.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andreas Mohr <andim2@users.sourceforge.net>
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
+In-Reply-To: <20060112165853.GA17789@rhlx01.fht-esslingen.de>
+Content-Disposition: inline
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Hi Arnd
-Thank you for reviewing that bit of code.  
-I had a look at compat_sys_gettimeofday and sys32_gettimeofday codes.
-They seem to work in a similar way, casting a pointer to the structure
-from user space to a compat_timeval type.
-
-But to make sure I have tested the routine by forcing the sk-
->sk_stamp.tv_sec value to 0 in the x25_module ( for testing purposes
-only, as it is initialised to -1). Now when
-I make a 32 bit userspace SIOCGSTAMP ioctl to the 64 bit kernel I should
-get the current time back in user space. This seems to work, the ioctl
-returns the system time (just after TEST6:)
-
-So I have left the patch as is for now. However if necessary to use
-the element-by-element __put_user routine as in put_tv32, then I can
-make the change, just let me know.
-
-Lastly, if anyone following this mail can help with adding this into the
-next release, that would be really helpful. We are building a network
-management application on linux for a telco and while they have 
-the support of the SuSE's and Redhat's, any patches accepted by the
-kernel community makes a difference, besides saving us from building
-custom patches. (BTW, the application used to run on HP-UX, we are now
-porting it to linux).
-
-Many Thanks 
-Shaun
-------------------------------
-ghostview:/home/spereira/x25_32/src/func_tests/server # uname -a
-Linux ghostview 2.6.15-smp #9 SMP Fri Jan 13 12:43:27 EST 2006 x86_64
-x86_64 x86_64 GNU/Linux
-ghostview:/home/spereira/x25_32/src/func_tests/server # file server
-server: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), for
-GNU/Linux 2.2.5, dynamically linked (uses shared libs), not stripped
-ghostview:/home/spereira/x25_32/src/func_tests/server # ./server
-usage: server <local X.121 address> <interface name>
-ghostview:/home/spereira/x25_32/src/func_tests/server # ./server
-05052384500000 x25tap0
-TEST1: create socket : passed
-TEST2: bind socket : passed
-TEST3: set subscription: passed
-TEST4: set facilities: passed
-
-**************
- Window size in = 2
- Window size out = 2
- Packet size in = 7
- Packet size out = 7
- Reverse flag = 00
- Throughput  = DD
-**************
-TEST5: set call user data on listen passed
-cud[ 0 ] = 02
-cud[ 1 ] = 03
-TEST6: set matchlength on listen socket handle passed
-The time stamp is Fri Jan 13 13:37:17 2006
-TEST7: listen on socket: passed
- Waiting for X25 packets
------------------------------------------------------------
-
-
-
-
-
-On Thu, 2006-01-12 at 19:24 +0000, Arnd Bergmann wrote:
-> On Thursday 12 January 2006 06:02, Shaun Pereira wrote:
-> > +int compat_sock_get_timestamp(struct sock *sk, struct timeval __user
-> > *userstamp)
-> > +{
-> > +       struct compat_timeval __user *ctv;
-> > +       ctv = (struct compat_timeval __user*) userstamp;
-> > +       if(!sock_flag(sk, SOCK_TIMESTAMP))
-> > +               sock_enable_timestamp(sk);
-> > +       if(sk->sk_stamp.tv_sec == -1)
-> > +               return -ENOENT;
-> > +       if(sk->sk_stamp.tv_sec == 0)
-> > +               do_gettimeofday(&sk->sk_stamp);
-> > +       return copy_to_user(ctv, &sk->sk_stamp, sizeof(struct
-> > compat_timeval)) ?
-> > +                       -EFAULT : 0;
-> > +}
+On Thursday 12 January 2006 18:58, Andreas Mohr wrote:
+> Hi,
 > 
-> This looks wrong, you're not doing any conversion here.
-> You cannot just copy sk_stamp to ctv, they are not compatible.
-> See compat_sys_gettimeofday on how to copy a struct timeval
-> correctly.
+> I'd like to ask some things about packet fragmentation (you remember I wanted
+> to work on this due to my very bad link quality?). I'm asking now since I
+> will probably have some time during the weekend to work on it.
 > 
-> The other patches look good.
-> 
-> 	Arnd <><
+> Problem is that fragmenting packets requires allocating several tx descriptors
+> in a row, then preparing and sending the data packet piecemeal via those
+> various descriptors in acx_l_tx_data().
+> Do you have any recommendations on how to do it?
+> (the split between acx_l_alloc_tx() and acx_l_tx_data() is a bit problematic)
+
+Basically you want to modify this part of acx_i_start_xmit():
+
+        tx = acx_l_alloc_tx(priv);
+        if (unlikely(!tx)) {
+                printk_ratelimited("%s: start_xmit: txdesc ring is full, "
+                        "dropping tx\n", dev->name);
+                txresult = NOT_OK;
+                goto end;
+        }
+
+        txbuf = acx_l_get_txbuf(priv, tx);
+        if (unlikely(!txbuf)) {
+                /* Card was removed */
+                txresult = NOT_OK;
+                acx_l_dealloc_tx(priv, tx);
+                goto end;
+        }
+        len = acx_ether_to_txbuf(priv, txbuf, skb);
+        if (unlikely(len < 0)) {
+                /* Error in packet conversion */
+                txresult = NOT_OK;
+                acx_l_dealloc_tx(priv, tx);
+                goto end;
+        }
+        acx_l_tx_data(priv, tx, len);
+
+As seen here, current code produces and tx'es just one wlan packet.
+
+Possible adaptation:
+
+struct frag_vec {
+	int len;
+	void *tx;
+	void *txbuf;
+};
+/* allocates and fills from 1 to N wlan fragments */
+int acx_ether_to_frags(wlandevice_t *priv, const struct sk_buff *skb, struct frag_vec *frag, int len);
+
+
+acx_i_start_xmit():
+
+	struct frag_vec frag[N];
+	...
+        n = acx_ether_to_frags(priv, skb, frag, N);
+        if (n <= 0) {
+                /* Error in packet conversion */
+                txresult = NOT_OK;
+                goto end;
+        }
+	for(1..n)
+	        acx_l_tx_data(priv, frag[i].tx, frag[i].len);
+
+> Or should this be the job of the OS to care about fragmenting the packets
+> to be sent? (then it would just call our data tx stuff multiple times itself
+> anyway).
+
+Yes, it must be done by softmac layer.
+
+> And what about the multiple host txhostdescs that we (need to?) initialize
+> in order to work around "bugs"?
+
+It should not matter here, you won't even need to touch pci.c
+except for maybe setting some FIRSTFRAG and/or MORE_FRAG bits
+as appropriate.
+
+> Are we sure that this is a bug of specific(???) cards or not simply a bug of
+> certain firmware versions or even a bug in our driver? (maybe due to doing
+> some things in weird ways that the firmware totally doesn't expect?).
+
+I think firmware was debugged only to meet needs of Windows driver.
+--
+vda
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
