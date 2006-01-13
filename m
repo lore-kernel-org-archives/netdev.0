@@ -1,51 +1,113 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] ipw2100: support WEXT-18 enc_capa v3
-Date: Thu, 12 Jan 2006 16:38:53 -0500
-Message-ID: <43C6CC6D.3030600@pobox.com>
-References: <1136820457.7941.4.camel@dhcp83-115.boston.redhat.com>	 <43C282A5.6010609@pobox.com> <1136822098.7941.13.camel@dhcp83-115.boston.redhat.com>
+From: Shaun Pereira <spereira@tusc.com.au>
+Subject: Re: [PATCH 2/4 - 2.6.15]net: 32 bit (socket layer) ioctl emulation
+	for 64 bit kernels
+Date: Fri, 13 Jan 2006 14:14:39 +1100
+Message-ID: <1137122079.5589.34.camel@spereira05.tusc.com.au>
+References: <1137045732.5221.21.camel@spereira05.tusc.com.au>
+	 <200601121924.02747.arnd@arndb.de>
+Reply-To: spereira@tusc.com.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jketreno@linux.intel.com, netdev@vger.kernel.org,
-	ipw2100-devel@lists.sourceforge.net
-Return-path: <ipw2100-devel-admin@lists.sourceforge.net>
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1136822098.7941.13.camel@dhcp83-115.boston.redhat.com>
-Sender: ipw2100-devel-admin@lists.sourceforge.net
-Errors-To: ipw2100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:ipw2100-devel@lists.sourceforge.net>
-List-Help: <mailto:ipw2100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ipw2100-devel>,
-	<mailto:ipw2100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ipw2100-devel>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Andi Kleen <ak@muc.de>,
+	linux-kenel <linux-kernel@vger.kernel.org>,
+	x25 maintainer <eis@baty.hanse.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161645AbWAMDPm@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+In-Reply-To: <200601121924.02747.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> Hi,
+Hi Arnd
+Thank you for reviewing that bit of code.  
+I had a look at compat_sys_gettimeofday and sys32_gettimeofday codes.
+They seem to work in a similar way, casting a pointer to the structure
+from user space to a compat_timeval type.
+
+But to make sure I have tested the routine by forcing the sk-
+>sk_stamp.tv_sec value to 0 in the x25_module ( for testing purposes
+only, as it is initialised to -1). Now when
+I make a 32 bit userspace SIOCGSTAMP ioctl to the 64 bit kernel I should
+get the current time back in user space. This seems to work, the ioctl
+returns the system time (just after TEST6:)
+
+So I have left the patch as is for now. However if necessary to use
+the element-by-element __put_user routine as in put_tv32, then I can
+make the change, just let me know.
+
+Lastly, if anyone following this mail can help with adding this into the
+next release, that would be really helpful. We are building a network
+management application on linux for a telco and while they have 
+the support of the SuSE's and Redhat's, any patches accepted by the
+kernel community makes a difference, besides saving us from building
+custom patches. (BTW, the application used to run on HP-UX, we are now
+porting it to linux).
+
+Many Thanks 
+Shaun
+------------------------------
+ghostview:/home/spereira/x25_32/src/func_tests/server # uname -a
+Linux ghostview 2.6.15-smp #9 SMP Fri Jan 13 12:43:27 EST 2006 x86_64
+x86_64 x86_64 GNU/Linux
+ghostview:/home/spereira/x25_32/src/func_tests/server # file server
+server: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), for
+GNU/Linux 2.2.5, dynamically linked (uses shared libs), not stripped
+ghostview:/home/spereira/x25_32/src/func_tests/server # ./server
+usage: server <local X.121 address> <interface name>
+ghostview:/home/spereira/x25_32/src/func_tests/server # ./server
+05052384500000 x25tap0
+TEST1: create socket : passed
+TEST2: bind socket : passed
+TEST3: set subscription: passed
+TEST4: set facilities: passed
+
+**************
+ Window size in = 2
+ Window size out = 2
+ Packet size in = 7
+ Packet size out = 7
+ Reverse flag = 00
+ Throughput  = DD
+**************
+TEST5: set call user data on listen passed
+cud[ 0 ] = 02
+cud[ 1 ] = 03
+TEST6: set matchlength on listen socket handle passed
+The time stamp is Fri Jan 13 13:37:17 2006
+TEST7: listen on socket: passed
+ Waiting for X25 packets
+-----------------------------------------------------------
+
+
+
+
+
+On Thu, 2006-01-12 at 19:24 +0000, Arnd Bergmann wrote:
+> On Thursday 12 January 2006 06:02, Shaun Pereira wrote:
+> > +int compat_sock_get_timestamp(struct sock *sk, struct timeval __user
+> > *userstamp)
+> > +{
+> > +       struct compat_timeval __user *ctv;
+> > +       ctv = (struct compat_timeval __user*) userstamp;
+> > +       if(!sock_flag(sk, SOCK_TIMESTAMP))
+> > +               sock_enable_timestamp(sk);
+> > +       if(sk->sk_stamp.tv_sec == -1)
+> > +               return -ENOENT;
+> > +       if(sk->sk_stamp.tv_sec == 0)
+> > +               do_gettimeofday(&sk->sk_stamp);
+> > +       return copy_to_user(ctv, &sk->sk_stamp, sizeof(struct
+> > compat_timeval)) ?
+> > +                       -EFAULT : 0;
+> > +}
 > 
-> This patch allows ipw2100 driver to advertise the WPA-related encryption
-> options that it does really support.  It's necessary to work correctly
-> with NetworkManager and other programs that actually check driver & card
-> capabilities.
+> This looks wrong, you're not doing any conversion here.
+> You cannot just copy sk_stamp to ctv, they are not compatible.
+> See compat_sys_gettimeofday on how to copy a struct timeval
+> correctly.
 > 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-
-content OK, but:
-
-
-[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
-1 patch(es) to process.
-
-Applying 'ipw2100: support WEXT-18 enc_capa v3'
-
-error: patch failed: drivers/net/wireless/ipw2100.c:7236
-error: drivers/net/wireless/ipw2100.c: patch does not apply
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+> The other patches look good.
+> 
+> 	Arnd <><
