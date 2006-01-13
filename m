@@ -1,68 +1,63 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: wireless: recap of current issues (other issues)
-Date: Fri, 13 Jan 2006 23:35:11 +0100
-Message-ID: <1137191711.2520.69.camel@localhost>
+Subject: Re: wireless: recap of current issues (actions)
+Date: Fri, 13 Jan 2006 23:36:05 +0100
+Message-ID: <1137191765.2520.71.camel@localhost>
 References: <20060113195723.GB16166@tuxdriver.com>
 	 <20060113212605.GD16166@tuxdriver.com>
-	 <20060113213237.GH16166@tuxdriver.com>
-	 <20060113222408.GM16166@tuxdriver.com>
+	 <20060113213311.GI16166@tuxdriver.com>
+	 <20060113222512.GN16166@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ykjEvNySpsB7NBD/naZC"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Hsuvyh0C7jkvO5uXtjq6"
 Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423054AbWAMWfT@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423053AbWAMWgN@vger.kernel.org>
 To: netdev@vger.kernel.org
-In-Reply-To: <20060113222408.GM16166@tuxdriver.com>
+In-Reply-To: <20060113222512.GN16166@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-ykjEvNySpsB7NBD/naZC
+--=-Hsuvyh0C7jkvO5uXtjq6
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2006-01-13 at 17:24 -0500, John W. Linville wrote:
+On Fri, 2006-01-13 at 17:25 -0500, John W. Linville wrote:
 
-> Radiotap headers make sense for an rfmon virtual device.  I don't
-> think it makes sense for "normal" usage.  Should there be an option
-> for radiotap headers on non-rfmon links?
+> Since we are toying with the issue of multiple stacks (at least in the
+> wireless development kernels), some thought needs to be done w.r.t. how
+> to make a final decision between the two stacks.  An objective lists
+> of functional feature requirements seems like a good place to start.
+> IOW, I would like to have a list of features that would trigger the
+> removal of one stack shortly after the other stack achieves support
+> for the list.  Is this feasible?
 
-Yes. For hardware debugging.
-
-> Rfmon interferes w/ other interfaces, but may be handy to enter/leave
-> w/ little effort.  Perhaps a config option for physical device to
-> suspend/resume all (non-rfmon) virtual devices before/after enabling
-> rfmon virtual device?  (Would multiple rfmon devices even make sense?
-> If not, is it worth restricting that?)
-
-Multiple rfmon devices make sense in hypothetical or future hardware if
-different channels are supported on one WiPHY at once, but the rfmon
-device shall be restricted to a single one. Since we probably need a way
-to deactivate virtual devices anyway, having a config option to
-suspend/resume all others doesn't make sense -- userspace programs can
-just as well cycle over them and do it themselves.
+I started collecting some info on
+http://johannes.sipsolutions.net/802.11_stacks
+That page should probably be moved somewhere (netdev wiki?) where it is
+writable by others. I also need to update it to include comments by Jean
+Tourrilhes.
 
 johannes
 
---=-ykjEvNySpsB7NBD/naZC
+--=-Hsuvyh0C7jkvO5uXtjq6
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (SIP Solutions)
 
-iQIVAwUAQ8grHaVg1VMiehFYAQKR3xAAmJDpSsqv5KKOH4vuzA7FpqEswRPfKzgu
-XtZq0DbsjRbi2P8cRG1wyBuswHxu3kQaoU46HAuICJmbpxj/VMuzIuZOlwQXqUE8
-V+XneiwH4Aj09OxLOjlzvg6hmzy10+8XOvA9PrlnLQWmFLkpMHsoahdtG46ho6Da
-t7AU/Atzb7KuefkQgeMFejqiEmDnw5IZQTMSUwjkThwKqTowd7dxdmpv1M1EOkhA
-bK/Ion4x+4Tkkd4gX7vVuvCfK3dEGsr//PSq0pRo1pBZZlap6w+IZZ6Sxc2qOmgh
-JrUo5i314GcQIdAT4GVkbU1Ryr6vLjqCnAY9Cd/PQu8EhP0QX2weO3fB9SQZ4ktb
-ZXbgQwshV40F1RF+S7Azmyg94wK+7tixcYZFMo95GPGsKUmcMz9NP6Hv7cpfk9P1
-y/MxyVEz5zVyOEvy1Uz3vfJ09vj5P6nc0aumk2rCve3P+v/ptZp1Dxm4rHTd3sFw
-TqYODhBj7kM6hbS3RWetVZZDPbNeYxwXoZSJtmOTeLf6CnIAuVtXOUI5ma5QnGCb
-2XK+ovPm/+SeAUuW1i7nESimFjZavlOR865JGbVyXm9lP0BcoM2ZYeWaRU927atn
-U8wuC/zs3K8EA7Z6lic2kuISaXxzn0naemkISbr5UFF440LKqTjF4i3D0hlVjCmn
-DitDzVXjIMY=
-=FWgz
+iQIVAwUAQ8grUqVg1VMiehFYAQLOwQ/+N224/SglNCCoq2qJnXEPWWdaQ/NRJCID
+UhjlDR6/rlm+x/R3uEUNPPZEjslZDNbQ58CsiEHzWHZFG1W7gXpnCtNa/iVkthxe
+e0AXf5BpCuSbTamMRZOh930os1tM6WDJtxt3GIYRMeuc9Byq5PWq9SVyD1wzA8aI
+09NkUMa9jC/3vmuXnJ0Ej96+/HvL37ofvNnce3/k8Idqvmto65q4galzjGyUKks6
+FjWjJfuIHxD8Qq9KZcu7hVTmgbjPWomvFrztxwwnpZim52KD3xrL9onLM4Dcvgo/
+maHWSRqgJVJcyQHnG4g4FBvvr3EK5DUJcijsbE4fEi62v48jEd75sXLHv0tMxxAf
+NygTqGeRVhzhYZkh+yRt/78rOkaFuuejpGZBZ74aVK7gPjuT2VqA0InaivBhrBuY
+N67InAFlRdzuXc0Jp1fDbFac0pbkDBr5CxF8QGjmN/x452gqTs+GNysjdOU7yWra
+ASNEOr2LD1BdcfqRT7vqg+Aw1R37Wp/g6nkwPCjtj/iV18jwVHyUO4QamarYpTmu
++krpwRYH4MYCDWYpCLhoROB1j/wBF4EOeYYqJLgoXLWEqCoNxg9lkTDZwp7ydrfG
+1h01lq2pe75Oaggmfgq/wvX3Ffbr0uBYComblWPv6XjBrursgfqaXV2RCmPj5a1S
+1ZhWzUdPZWE=
+=62sS
 -----END PGP SIGNATURE-----
 
---=-ykjEvNySpsB7NBD/naZC--
+--=-Hsuvyh0C7jkvO5uXtjq6--
