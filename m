@@ -1,43 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: WCONF, netlink based WE replacement.
-Date: Fri, 13 Jan 2006 09:55:33 -0800
-Message-ID: <20060113095533.5d5df015@dxpl.pdx.osdl.net>
-References: <200601121824.02892.mbuesch@freenet.de>
+From: Roman Zippel <zippel@linux-m68k.org>
+Subject: Re: [git patches] 2.6.x net driver updates
+Date: Fri, 13 Jan 2006 18:56:12 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0601131844230.30994@scrub.home>
+References: <20060112221322.GA25470@havoc.gtf.org> <Pine.LNX.4.64.0601121423120.3535@g5.osdl.org>
+ <20060112143938.5cf7d6a5.akpm@osdl.org> <Pine.LNX.4.64.0601121444030.3535@g5.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422755AbWAMRzn@vger.kernel.org>
-To: Michael Buesch <mbuesch@freenet.de>
-In-Reply-To: <200601121824.02892.mbuesch@freenet.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422757AbWAMR4q@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.64.0601121444030.3535@g5.osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Jan 2006 18:24:02 +0100
-Michael Buesch <mbuesch@freenet.de> wrote:
+Hi,
 
-> This is an attempt to rewrite the Wireless Extensions
-> userspace API, using netlink sockets.
-> There should also be a notification API, to inform
-> userspace for changes (config changes, state changes, etc).
-> It is not implemented, yet.
+On Thu, 12 Jan 2006, Linus Torvalds wrote:
+
+> > Yes, I think that's much more Aunt-Nellie-friendly, but Roman considers it
+> > abuse of the Kconfig system in ways which I never completely understood?
 > 
-> This is against the devicescape stack.
-> This patch is not to be used, but only to be commented on. ;)
-> Basically I would like comments on the API definition
-> in wconf.h
-> 
+> Hmm. If Roman dislikes it, he must dislike the fact that we already do 
+> exactly this for a ton of different things. There's something like 2000+ 
+> "select" statements in the kernel Kconfig tree, and just grepping for 
+> "select.*CRYPTO" gets 52 hits..
 
-1. You will need more documentation, eventually in Documentation directory.
+The basic problem is that it overrides any other dependencies and it makes 
+easy to screw them up.
+The basic rule should be to use select only to include library 
+functionality, which is mostly independent and has no other dependencies.
+Selecting larger subsystem, which may require more configuration itself, 
+should be avoided.
 
-2. Is there 1:1 relationship between ieee80211_device and net_device or 
-    N net_devices per ieee80211_device?
-
-3. Don't put a version number on the protocol messages. The way to
-   us netlink is to us Type Length Variable structures. And write the
-   code to ignore unknown types.  Once you decide on a particular Type
-   then it has to be frozen for ABI compatibility.  The version numbering
-   in the WE API is part of the problem
-
-4. What about non-ieee80211 devices? With the growth of (mostly proprietary)
-   cell phone carrier wireless, you don't want to shut out that.
+bye, Roman
