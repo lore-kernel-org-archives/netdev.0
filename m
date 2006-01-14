@@ -1,53 +1,50 @@
-From: Simon Kelley <simon@thekelleys.org.uk>
-Subject: Re: wireless: recap of current issues (stack)
-Date: Sat, 14 Jan 2006 10:46:29 +0000
-Message-ID: <43C8D685.70805@thekelleys.org.uk>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213200.GG16166@tuxdriver.com> <200601131703.29677.chase.venters@clientec.com>
+From: Folkert van Heusden <folkert@vanheusden.com>
+Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
+Date: Sat, 14 Jan 2006 14:24:14 +0100
+Message-ID: <20060114132414.GN6087@vanheusden.com>
+References: <20060108114305.GA32425@vanheusden.com>
+	<20060109041114.6e797a9b.akpm@osdl.org>
+	<20060109144522.GB10955@vanheusden.com>
+	<20060109193754.GD12673@vanheusden.com>
+	<20060109224821.7a40bc69.akpm@osdl.org>
+	<20060110142725.GH12673@vanheusden.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Benc <jbenc@suse.cz>, Stefan Rompf <stefan@loplof.de>,
-	Mike Kershaw <dragorn@kismetwireless.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Robert Hancock <hancockr@shaw.ca>,
-	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
-	Dominik Brodowski <linux@dominikbrodowski.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Danny van Dyk <kugelfang@gentoo.org>,
-	Stephen Hemminger <shemminger@osdl.org>, feyd <feyd@nmskb.cz>,
-	Andreas Mohr <andim2@users.sourceforge.net>,
-	Bas Vermeulen <bvermeul@blackstar.nl>,
-	Jean Tourrilhes <jt@hpl.hp.com>, Daniel Drake <dsd@gentoo.org>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Phil Dibowitz <phil@ipom.com>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Ingo Oeser <netdev@axxeo.de>,
-	Harald Welte <laforge@gnumonks.org>,
-	Ben Greear <greearb@can
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751749AbWANKnV@vger.kernel.org>
-To: Chase Venters <chase.venters@clientec.com>
-In-Reply-To: <200601131703.29677.chase.venters@clientec.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751282AbWANNYR@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060110142725.GH12673@vanheusden.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chase Venters wrote:
+Hi,
 
-> As an aside to this whole thing, I know we're talking about *kernel* wireless 
-> but it's worthless to most people without good userland support as well. 
-> Anyone have any thoughts and feelings on what things look like on the 
-> desktop? I think if we work closely with some desktop people, we can shepard 
-> in some wonderful new desktop support on top of the new netlink API.
-> 
+> > > > > Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
+> > > > > boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
+> > > > > of /proc/interrupts is incrementing.
+> > > > I'll give it a try. I've added it to the append-line in the lilo config.
+> > > > Am now compiling the kernel.
+> > > No change. Well, that is: the last message on the console now is
+> > > "setting eth1 to promiscues mode".
+> > Did you confirm that the NMI counters in /proc/interrupts are incrementing?
+> Yes:
+> root@muur:/home/folkert# for i in `seq 1 5` ; do cat /proc/interrupts  | grep NMI ; sleep 1 ; done
+> NMI:    6949080    6949067
+> NMI:    6949182    6949169
+> NMI:    6949284    6949271
+> NMI:    6949386    6949373
+> NMI:    6949488    6949475
 
-An obvious place to start is the NetworkManager project. They should be 
-asked the obvious "what do you need" and "does this provide it" 
-questions. Dan Williams has been active recently producing small kernel 
-patches which make the kernel side stuff work better with NM, so he 
-might be a good contact to start with.
+Is there anything else I can try?
 
-Cheers,
 
-Simon.
+Folkert van Heusden
+
+-- 
+Try MultiTail! Multiple windows with logfiles, filtered with regular
+expressions, colored output, etc. etc. www.vanheusden.com/multitail/
+----------------------------------------------------------------------
+Get your PGP/GPG key signed at www.biglumber.com!
+----------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
