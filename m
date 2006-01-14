@@ -1,76 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Sat, 14 Jan 2006 10:28:09 +0100
-Message-ID: <1137230889.2520.82.camel@localhost>
-References: <20060113195723.GB16166@tuxdriver.com>
-	 <20060113212605.GD16166@tuxdriver.com>
-	 <20060113213011.GE16166@tuxdriver.com>
-	 <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
-	 <20060114011726.GA19950@shaftnet.org>
+From: Simon Kelley <simon@thekelleys.org.uk>
+Subject: Re: wireless: recap of current issues (stack)
+Date: Sat, 14 Jan 2006 10:46:29 +0000
+Message-ID: <43C8D685.70805@thekelleys.org.uk>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213200.GG16166@tuxdriver.com> <200601131703.29677.chase.venters@clientec.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TL8RaBOnN84tYNHX3RYT"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751529AbWANJ3M@vger.kernel.org>
-To: Stuffed Crust <pizza@shaftnet.org>
-In-Reply-To: <20060114011726.GA19950@shaftnet.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Benc <jbenc@suse.cz>, Stefan Rompf <stefan@loplof.de>,
+	Mike Kershaw <dragorn@kismetwireless.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Robert Hancock <hancockr@shaw.ca>,
+	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
+	Dominik Brodowski <linux@dominikbrodowski.net>,
+	Denis Vlasenko <vda@ilport.com.ua>,
+	Danny van Dyk <kugelfang@gentoo.org>,
+	Stephen Hemminger <shemminger@osdl.org>, feyd <feyd@nmskb.cz>,
+	Andreas Mohr <andim2@users.sourceforge.net>,
+	Bas Vermeulen <bvermeul@blackstar.nl>,
+	Jean Tourrilhes <jt@hpl.hp.com>, Daniel Drake <dsd@gentoo.org>,
+	Ulrich Kunitz <kune@deine-taler.de>,
+	Phil Dibowitz <phil@ipom.com>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Ingo Oeser <netdev@axxeo.de>,
+	Harald Welte <laforge@gnumonks.org>,
+	Ben Greear <greearb@can
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751749AbWANKnV@vger.kernel.org>
+To: Chase Venters <chase.venters@clientec.com>
+In-Reply-To: <200601131703.29677.chase.venters@clientec.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Chase Venters wrote:
 
---=-TL8RaBOnN84tYNHX3RYT
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> As an aside to this whole thing, I know we're talking about *kernel* wireless 
+> but it's worthless to most people without good userland support as well. 
+> Anyone have any thoughts and feelings on what things look like on the 
+> desktop? I think if we work closely with some desktop people, we can shepard 
+> in some wonderful new desktop support on top of the new netlink API.
+> 
 
-On Fri, 2006-01-13 at 20:17 -0500, Stuffed Crust wrote:
+An obvious place to start is the NetworkManager project. They should be 
+asked the obvious "what do you need" and "does this provide it" 
+questions. Dan Williams has been active recently producing small kernel 
+patches which make the kernel side stuff work better with NM, so he 
+might be a good contact to start with.
 
-> If you're talking about the former.. things get quite complicated, but=20
-> that could be handled by having two WiPHY devices registered.
+Cheers,
 
-The former; and yes, I thought about that too -- having a driver that
-shows two physical WiPHY devices as a single logical WiPHY device and
-distributes virtual devices among them...
-
-> As for the latter, when you factor in the needs of 802.11d and its
-> dependents (802.11j, 802.11k, and others) the stack is going to need to
-> be aware of the available channel sets; both in the sense of hardware
-> support and also the various regulatory requirements.=20
->=20
-> The hardware knows what frequencies it supports.  Unfortunately this has=20
-> to be a somewhat dynamic thing, as this is often not queryable until the=20
-> device firmware is up and running. =20
->=20
-> This can be accomplished by passing a static table to the=20
-> register_wiphy_device() call (or perhaps via a struct wiphy_dev=20
-> parameter) or through a more explicit, dynamic interface like:
->=20
->   wiphy_register_supported_frequency(hw, 2412).=20
-
-Yeah, this is about what I thought of -- and it makes me wonder if the
-stack really should be aware of the channelization, or if the WiPHY
-driver might better just handle it itself.
-
-johannes
-
---=-TL8RaBOnN84tYNHX3RYT
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (SIP Solutions)
-
-iQIVAwUAQ8jEJ6Vg1VMiehFYAQKcBg//SjtxxqYl0PYC4zCPhDvNifSoyzik7XLm
-ujKq3bHegWSz+035COK/wpNY09BfXIyEzdoHUp7JRpYgyd7HB7+76AJC8sTteJGa
-eYwvU30vbSQglmLKI0ElinUs5c1VE0jh30Xdg8h6L0vaJGy9Lc0sKF8bARz8MGUu
-G3ZgPmpxpCIFAj9JjQ9E/AuPpFsyVo8li1iImlFmf65WvSQwLzatYTcSoJOzbV4p
-WNxmqTepkmOedIm3UV3iAw+Oxh8BcnRnpfEqEaB5Qdq/Nv3eWb5zu+WNsNYAEvvX
-Wg7b9SScPzaAUdxdeCT6EqxljJOJPkcjgMxAqj6wkoqhNSZLB5qFPCifR61mcgSo
-2lRkyty1dtDimDWCQ1NL92f8EUEq8/qSLJoOrJFP9dojLRzVaiyOvViIToOmpqyq
-o8atn5gwftLHCXumY0b2TFVl0KmO8YrsJ/sQeutV3+In+03ONIGmSJ8dRue5jTmJ
-v1H+q1UqsiRuXjXuh4PKhjc344yeGdK0Dko8/qeOyeqlSEVorw/ZHGMH/c5rAnSH
-aG0n+/ZgCmMIZqmYtn/FPzoL548e+UFyBnGQlLiLKp27SnRDBv5Ur6UmAuMAg0ek
-eeDzOE5S1sS0Uckjvn/GGYA4hIglItdlKGofiwVxPNS1E4zwkimIeDoTEE5/mwgR
-RJOjW/cJwmw=
-=N4lU
------END PGP SIGNATURE-----
-
---=-TL8RaBOnN84tYNHX3RYT--
+Simon.
