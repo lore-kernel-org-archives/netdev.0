@@ -1,50 +1,31 @@
-From: Folkert van Heusden <folkert@vanheusden.com>
-Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
-Date: Sat, 14 Jan 2006 14:24:14 +0100
-Message-ID: <20060114132414.GN6087@vanheusden.com>
-References: <20060108114305.GA32425@vanheusden.com>
-	<20060109041114.6e797a9b.akpm@osdl.org>
-	<20060109144522.GB10955@vanheusden.com>
-	<20060109193754.GD12673@vanheusden.com>
-	<20060109224821.7a40bc69.akpm@osdl.org>
-	<20060110142725.GH12673@vanheusden.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: wireless: recap of current issues (compatibility)
+Date: Sat, 14 Jan 2006 14:44:03 +0100
+Message-ID: <m3u0c69b6k.fsf@defiant.localdomain>
+References: <20060113195723.GB16166@tuxdriver.com>
+	<20060113212605.GD16166@tuxdriver.com>
+	<20060113213126.GF16166@tuxdriver.com>
+	<20060113222054.GK16166@tuxdriver.com>
+	<1137191590.2520.65.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751282AbWANNYR@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060110142725.GH12673@vanheusden.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030437AbWANNoS@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1137191590.2520.65.camel@localhost> (Johannes Berg's message of "Fri, 13 Jan 2006 23:33:10 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Johannes Berg <johannes@sipsolutions.net> writes:
 
-> > > > > Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
-> > > > > boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
-> > > > > of /proc/interrupts is incrementing.
-> > > > I'll give it a try. I've added it to the append-line in the lilo config.
-> > > > Am now compiling the kernel.
-> > > No change. Well, that is: the last message on the console now is
-> > > "setting eth1 to promiscues mode".
-> > Did you confirm that the NMI counters in /proc/interrupts are incrementing?
-> Yes:
-> root@muur:/home/folkert# for i in `seq 1 5` ; do cat /proc/interrupts  | grep NMI ; sleep 1 ; done
-> NMI:    6949080    6949067
-> NMI:    6949182    6949169
-> NMI:    6949284    6949271
-> NMI:    6949386    6949373
-> NMI:    6949488    6949475
+> If you want the old userspace API to 'just work' you have to create one
+> default wlan device at WiPHY init.
 
-Is there anything else I can try?
+I'm not sure the old API is that important. This isn't something
+programs (third party, kernel utils don't count) rely on. Most users
+would switch to the new stack immediately anyway.
 
-
-Folkert van Heusden
-
+It could probably be a separate compatibility module, the core stack
+probably don't have to know about it. The last to worry about I'd say.
 -- 
-Try MultiTail! Multiple windows with logfiles, filtered with regular
-expressions, colored output, etc. etc. www.vanheusden.com/multitail/
-----------------------------------------------------------------------
-Get your PGP/GPG key signed at www.biglumber.com!
-----------------------------------------------------------------------
-Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
+Krzysztof Halasa
