@@ -1,45 +1,76 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [git patches] 2.6.x net driver updates
-Date: Fri, 13 Jan 2006 21:05:35 -0800
-Message-ID: <20060113210535.21ed3317.rdunlap@xenotime.net>
-References: <20060112221322.GA25470@havoc.gtf.org>
-	<Pine.LNX.4.64.0601121423120.3535@g5.osdl.org>
-	<20060112143938.5cf7d6a5.akpm@osdl.org>
-	<20060113192316.GX3945@suse.de>
-	<20060113192813.GA10560@mars.ravnborg.org>
-	<20060114022949.GI29663@stusta.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Sat, 14 Jan 2006 10:28:09 +0100
+Message-ID: <1137230889.2520.82.camel@localhost>
+References: <20060113195723.GB16166@tuxdriver.com>
+	 <20060113212605.GD16166@tuxdriver.com>
+	 <20060113213011.GE16166@tuxdriver.com>
+	 <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
+	 <20060114011726.GA19950@shaftnet.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: sam@ravnborg.org, axboe@suse.de, akpm@osdl.org, torvalds@osdl.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, zippel@linux-m68k.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030371AbWANFFj@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060114022949.GI29663@stusta.de>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TL8RaBOnN84tYNHX3RYT"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751529AbWANJ3M@vger.kernel.org>
+To: Stuffed Crust <pizza@shaftnet.org>
+In-Reply-To: <20060114011726.GA19950@shaftnet.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Jan 2006 03:29:49 +0100 Adrian Bunk wrote:
 
-> On Fri, Jan 13, 2006 at 08:28:13PM +0100, Sam Ravnborg wrote:
-> > On Fri, Jan 13, 2006 at 08:23:16PM +0100, Jens Axboe wrote:
-> > > 
-> > > 'select' is really cool as a concept, but when you can't figure out why
-> > > you cannot disable CONFIG_FOO because CONFIG_BAR selects it it's really
-> > > annoying. Would be nice to actually be able to see if another option has
-> > > selected this option.
-> > 
-> > In menuconfig:
-> > 
-> > Typing '?' on CONFIG_HOTPLUG revealed:
-> >  Selected by: PCCARD || HOTPLUG_PCI && PCI && EXPERIMENTAL || FW_LOADER
-> >...
-> 
-> Is there any trick to see them all when they are longer than the line in 
-> the terminal (e.g. what selects FW_LOADER?)?
+--=-TL8RaBOnN84tYNHX3RYT
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Use the right/left arrow keys to scroll horizontally.
+On Fri, 2006-01-13 at 20:17 -0500, Stuffed Crust wrote:
 
----
-~Randy
+> If you're talking about the former.. things get quite complicated, but=20
+> that could be handled by having two WiPHY devices registered.
+
+The former; and yes, I thought about that too -- having a driver that
+shows two physical WiPHY devices as a single logical WiPHY device and
+distributes virtual devices among them...
+
+> As for the latter, when you factor in the needs of 802.11d and its
+> dependents (802.11j, 802.11k, and others) the stack is going to need to
+> be aware of the available channel sets; both in the sense of hardware
+> support and also the various regulatory requirements.=20
+>=20
+> The hardware knows what frequencies it supports.  Unfortunately this has=20
+> to be a somewhat dynamic thing, as this is often not queryable until the=20
+> device firmware is up and running. =20
+>=20
+> This can be accomplished by passing a static table to the=20
+> register_wiphy_device() call (or perhaps via a struct wiphy_dev=20
+> parameter) or through a more explicit, dynamic interface like:
+>=20
+>   wiphy_register_supported_frequency(hw, 2412).=20
+
+Yeah, this is about what I thought of -- and it makes me wonder if the
+stack really should be aware of the channelization, or if the WiPHY
+driver might better just handle it itself.
+
+johannes
+
+--=-TL8RaBOnN84tYNHX3RYT
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (SIP Solutions)
+
+iQIVAwUAQ8jEJ6Vg1VMiehFYAQKcBg//SjtxxqYl0PYC4zCPhDvNifSoyzik7XLm
+ujKq3bHegWSz+035COK/wpNY09BfXIyEzdoHUp7JRpYgyd7HB7+76AJC8sTteJGa
+eYwvU30vbSQglmLKI0ElinUs5c1VE0jh30Xdg8h6L0vaJGy9Lc0sKF8bARz8MGUu
+G3ZgPmpxpCIFAj9JjQ9E/AuPpFsyVo8li1iImlFmf65WvSQwLzatYTcSoJOzbV4p
+WNxmqTepkmOedIm3UV3iAw+Oxh8BcnRnpfEqEaB5Qdq/Nv3eWb5zu+WNsNYAEvvX
+Wg7b9SScPzaAUdxdeCT6EqxljJOJPkcjgMxAqj6wkoqhNSZLB5qFPCifR61mcgSo
+2lRkyty1dtDimDWCQ1NL92f8EUEq8/qSLJoOrJFP9dojLRzVaiyOvViIToOmpqyq
+o8atn5gwftLHCXumY0b2TFVl0KmO8YrsJ/sQeutV3+In+03ONIGmSJ8dRue5jTmJ
+v1H+q1UqsiRuXjXuh4PKhjc344yeGdK0Dko8/qeOyeqlSEVorw/ZHGMH/c5rAnSH
+aG0n+/ZgCmMIZqmYtn/FPzoL548e+UFyBnGQlLiLKp27SnRDBv5Ur6UmAuMAg0ek
+eeDzOE5S1sS0Uckjvn/GGYA4hIglItdlKGofiwVxPNS1E4zwkimIeDoTEE5/mwgR
+RJOjW/cJwmw=
+=N4lU
+-----END PGP SIGNATURE-----
+
+--=-TL8RaBOnN84tYNHX3RYT--
