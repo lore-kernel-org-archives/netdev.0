@@ -1,30 +1,71 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: WCONF, netlink based WE replacement.
-Date: Sat, 14 Jan 2006 00:23:45 +0100
-Message-ID: <20060113232345.GB1896@elf.ucw.cz>
-References: <200601121824.02892.mbuesch@freenet.de> <20060113095533.5d5df015@dxpl.pdx.osdl.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Sat, 14 Jan 2006 01:05:59 +0100
+Message-ID: <m3oe2fd66w.fsf@defiant.localdomain>
+References: <20060113195723.GB16166@tuxdriver.com>
+	<20060113212605.GD16166@tuxdriver.com>
+	<20060113213011.GE16166@tuxdriver.com>
+	<20060113221935.GJ16166@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Buesch <mbuesch@freenet.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423097AbWAMXYW@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060113095533.5d5df015@dxpl.pdx.osdl.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423148AbWANAGF@vger.kernel.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <20060113221935.GJ16166@tuxdriver.com> (John W. Linville's message of "Fri, 13 Jan 2006 17:19:36 -0500")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On P=E1 13-01-06 09:55:33, Stephen Hemminger wrote:
-> On Thu, 12 Jan 2006 18:24:02 +0100
->=20
-> 4. What about non-ieee80211 devices? With the growth of (mostly propr=
-ietary)
->    cell phone carrier wireless, you don't want to shut out that.
+"John W. Linville" <linville@tuxdriver.com> writes:
 
-Don't mix it here. Mobile phones normally talk using AT interface,
-modem-like.
+> Virtual devices will have a mode (e.g. station, AP, WDS, ad-hoc, rfmon,
+> raw?, other modes?) which defines its "on the air" behaviour.  Should
+> this mode be fixed when the wlan device is created?
 
-								Pavel
---=20
-Thanks, Sharp!
+I think so. If needed one can delete and create.
+
+>  Or something
+> that can be changed when the net_device is down?
+
+IMHO: unnecessary complicates things.
+
+> It may be necessary to remove, suspend, and/or disable wlan devices
+> in order to add, resume, and/or enable other types of wlan devices
+> on the same WiPHY device (especialy true for rfmon).  A mechanism is
+> needed for drivers to be able to influence or disallow combinations
+> of wlan devices in accordance with capabilities of the hardware.
+
+If the control messages go through the main (WiPHY) driver it can
+decide and/or forward the request further, to the library.
+
+Not sure about netlink. OTOH I'm at all not sure netlink should be
+used for configuration. sysfs, ioctl seem a better options. Netlink
+is better for state monitoring etc. I don't know it very well though.
+
+> Do "global" config requests go to any associated wlan device?
+
+Are they any global config settings?
+sysctl or sysfs maybe?
+
+> Or must they be directed to the WiPHY device?  Does it matter?
+
+If you mean "settings for a particular physical card" then WiPHY.
+
+> I think we should require "global" configuration to target the WiPHY
+> device, while "local" configuration remains with the wlan device.
+
+If "local" means "concerning the wlan device" then sure, yes.
+
+> (I'm not sure how important this point is?)  Either way, the WiPHY
+> device will need some way to be able to reject configuration requests
+> that are incompatible among its associated wlan devices.  Since the
+> wlan interface implementations should not be device specific, perhaps
+> the 802.11 stack can be smart enough to filter-out most conflicting
+> config requests before they get to the WiPHY device?
+
+I don't think so. The hardware driver should get the request first,
+the rest should look like a library.
+
+I've played with both approaches for years and I would avoid
+"802.11 using the hw driver" scenario if at all possible.
+-- 
+Krzysztof Halasa
