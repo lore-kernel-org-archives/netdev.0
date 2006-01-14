@@ -1,182 +1,394 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/s2io.c: make code static
-Date: Sat, 14 Jan 2006 03:09:40 +0100
-Message-ID: <20060114020940.GA29663@stusta.de>
+Subject: [2.6 patch] move some code to net/ipx/af_ipx.c
+Date: Sat, 14 Jan 2006 03:10:53 +0100
+Message-ID: <20060114021053.GF29663@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Raghavendra Koushik <raghavendra.koushik@neterion.com>,
-	jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423264AbWANCJn@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945975AbWANCLJ@vger.kernel.org>
+To: acme@conectiva.com.br
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes some needlessly global code static.
+This patch moves some code only used in this file to net/ipx/af_ipx.c .
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
-This patch was already sent on:
-- 5 Jan 2006
+This version was slightly adapted to apply against Linus' current tree.
 
- drivers/net/s2io.c |   22 +++++++++++-----------
- drivers/net/s2io.h |   17 +++++++----------
- 2 files changed, 18 insertions(+), 21 deletions(-)
+ include/net/p8022.h   |   13 -----
+ net/802/Makefile      |   14 ++---
+ net/802/p8022.c       |   66 ---------------------------
+ net/802/p8023.c       |   61 -------------------------
+ net/8021q/vlan.c      |    1 
+ net/8021q/vlan_dev.c  |    1 
+ net/ethernet/Makefile |    2 
+ net/ethernet/pe2.c    |   39 ----------------
+ net/ipx/af_ipx.c      |  102 ++++++++++++++++++++++++++++++++++++++++--
+ 9 files changed, 106 insertions(+), 193 deletions(-)
 
---- linux-2.6.15-mm1-full/drivers/net/s2io.h.old	2006-01-05 20:46:34.000000000 +0100
-+++ linux-2.6.15-mm1-full/drivers/net/s2io.h	2006-01-05 21:10:33.000000000 +0100
-@@ -64,7 +64,7 @@
- #define	INTR_DBG	4
+--- linux-2.6.15-rc1-mm1-full/net/ethernet/Makefile.old	2005-11-18 02:15:17.000000000 +0100
++++ linux-2.6.15-rc1-mm1-full/net/ethernet/Makefile	2005-11-18 02:15:22.000000000 +0100
+@@ -4,5 +4,3 @@
  
- /* Global variable that defines the present debug level of the driver. */
--int debug_level = ERR_DBG;	/* Default level. */
-+static int debug_level = ERR_DBG;
+ obj-y					+= eth.o
+ obj-$(CONFIG_SYSCTL)			+= sysctl_net_ether.o
+-obj-$(subst m,y,$(CONFIG_IPX))		+= pe2.o
+-obj-$(subst m,y,$(CONFIG_ATALK))	+= pe2.o
+--- linux-2.6.15-rc1-mm1-full/net/8021q/vlan.c.old	2005-11-18 02:19:40.000000000 +0100
++++ linux-2.6.15-rc1-mm1-full/net/8021q/vlan.c	2005-11-18 02:19:46.000000000 +0100
+@@ -26,7 +26,6 @@
+ #include <linux/mm.h>
+ #include <linux/in.h>
+ #include <linux/init.h>
+-#include <net/p8022.h>
+ #include <net/arp.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/notifier.h>
+--- linux-2.6.15-rc1-mm1-full/net/8021q/vlan_dev.c.old	2005-11-18 02:19:55.000000000 +0100
++++ linux-2.6.15-rc1-mm1-full/net/8021q/vlan_dev.c	2005-11-18 02:19:58.000000000 +0100
+@@ -29,7 +29,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <net/datalink.h>
+-#include <net/p8022.h>
+ #include <net/arp.h>
  
- /* DEBUG message print. */
- #define DBG_PRINT(dbg_level, args...)  if(!(debug_level<dbg_level)) printk(args)
-@@ -268,7 +268,7 @@
- #define MAX_RX_RINGS 8
+ #include "vlan.h"
+--- linux-2.6.15-rc1-mm1-full/net/ipx/af_ipx.c.old	2005-11-18 02:17:00.000000000 +0100
++++ linux-2.6.15-rc1-mm1-full/net/ipx/af_ipx.c	2005-11-18 02:26:01.000000000 +0100
+@@ -48,10 +48,10 @@
+ #include <linux/termios.h>
  
- /* FIFO mappings for all possible number of fifos configured */
--int fifo_map[][MAX_TX_FIFOS] = {
-+static int fifo_map[][MAX_TX_FIFOS] = {
- 	{0, 0, 0, 0, 0, 0, 0, 0},
- 	{0, 0, 0, 0, 1, 1, 1, 1},
- 	{0, 0, 0, 1, 1, 1, 2, 2},
-@@ -911,18 +911,16 @@
- static void alarm_intr_handler(struct s2io_nic *sp);
+ #include <net/ipx.h>
+-#include <net/p8022.h>
+ #include <net/psnap.h>
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
++#include <net/llc.h>
  
- static int s2io_starter(void);
--void s2io_closer(void);
- static void s2io_tx_watchdog(struct net_device *dev);
- static void s2io_tasklet(unsigned long dev_addr);
- static void s2io_set_multicast(struct net_device *dev);
- static int rx_osm_handler(ring_info_t *ring_data, RxD_t * rxdp);
--void s2io_link(nic_t * sp, int link);
--void s2io_reset(nic_t * sp);
-+static void s2io_link(nic_t * sp, int link);
- #if defined(CONFIG_S2IO_NAPI)
- static int s2io_poll(struct net_device *dev, int *budget);
- #endif
- static void s2io_init_pci(nic_t * sp);
--int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
-+static int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
- static void s2io_alarm_handle(unsigned long data);
- static int s2io_enable_msi(nic_t *nic);
- static irqreturn_t s2io_msi_handle(int irq, void *dev_id, struct pt_regs *regs);
-@@ -930,14 +928,13 @@
- s2io_msix_ring_handle(int irq, void *dev_id, struct pt_regs *regs);
- static irqreturn_t
- s2io_msix_fifo_handle(int irq, void *dev_id, struct pt_regs *regs);
--int s2io_enable_msi_x(nic_t *nic);
- static irqreturn_t s2io_isr(int irq, void *dev_id, struct pt_regs *regs);
- static int verify_xena_quiescence(nic_t *sp, u64 val64, int flag);
- static struct ethtool_ops netdev_ethtool_ops;
- static void s2io_set_link(unsigned long data);
--int s2io_set_swapper(nic_t * sp);
-+static int s2io_set_swapper(nic_t * sp);
- static void s2io_card_down(nic_t *nic);
- static int s2io_card_up(nic_t *nic);
--int get_xena_rev_id(struct pci_dev *pdev);
--void restore_xmsi_data(nic_t *nic);
-+static int get_xena_rev_id(struct pci_dev *pdev);
-+static void restore_xmsi_data(nic_t *nic);
- #endif				/* _S2IO_H */
---- linux-2.6.15-mm1-full/drivers/net/s2io.c.old	2006-01-05 20:45:51.000000000 +0100
-+++ linux-2.6.15-mm1-full/drivers/net/s2io.c	2006-01-05 20:54:26.000000000 +0100
-@@ -72,8 +72,8 @@
- static char s2io_driver_name[] = "Neterion";
- static char s2io_driver_version[] = DRV_VERSION;
+ #include <asm/uaccess.h>
  
--int rxd_size[4] = {32,48,48,64};
--int rxd_count[4] = {127,85,85,63};
-+static int rxd_size[4] = {32,48,48,64};
-+static int rxd_count[4] = {127,85,85,63};
+@@ -1939,8 +1939,104 @@
+ 	.notifier_call	= ipxitf_device_event,
+ };
  
- static inline int RXD_IS_UP2DT(RxD_t *rxdp)
- {
-@@ -2127,7 +2127,7 @@
- 	}
- }
+-extern struct datalink_proto *make_EII_client(void);
+-extern void destroy_EII_client(struct datalink_proto *);
++static int p8022_request(struct datalink_proto *dl, struct sk_buff *skb,
++			 unsigned char *dest)
++{
++	llc_build_and_send_ui_pkt(dl->sap, skb, dest, dl->sap->laddr.lsap);
++	return 0;
++}
++
++static struct datalink_proto *register_8022_client(unsigned char type,
++					    int (*func)(struct sk_buff *skb,
++							struct net_device *dev,
++							struct packet_type *pt,
++							struct net_device *orig_dev))
++{
++	struct datalink_proto *proto;
++
++	proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
++	if (proto) {
++		proto->type[0]		= type;
++		proto->header_length	= 3;
++		proto->request		= p8022_request;
++		proto->sap = llc_sap_open(type, func);
++		if (!proto->sap) {
++			kfree(proto);
++			proto = NULL;
++		}
++	}
++	return proto;
++}
++
++static void unregister_8022_client(struct datalink_proto *proto)
++{
++	llc_sap_put(proto->sap);
++	kfree(proto);
++}
++
++/*
++ *	Place an 802.3 header on a packet. The driver will do the mac
++ *	addresses, we just need to give it the buffer length.
++ */
++static int p8023_request(struct datalink_proto *dl,
++			 struct sk_buff *skb, unsigned char *dest_node)
++{
++	struct net_device *dev = skb->dev;
++
++	dev->hard_header(skb, dev, ETH_P_802_3, dest_node, NULL, skb->len);
++	return dev_queue_xmit(skb);
++}
++
++/*
++ *	Create an 802.3 client. Note there can be only one 802.3 client
++ */
++static struct datalink_proto *make_8023_client(void)
++{
++	struct datalink_proto *proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
++
++	if (proto) {
++		proto->header_length = 0;
++		proto->request	     = p8023_request;
++	}
++	return proto;
++}
++
++/*
++ *	Destroy the 802.3 client.
++ */
++static void destroy_8023_client(struct datalink_proto *dl)
++{
++	kfree(dl);
++}
++
++static int pEII_request(struct datalink_proto *dl,
++			struct sk_buff *skb, unsigned char *dest_node)
++{
++	struct net_device *dev = skb->dev;
++
++	skb->protocol = htons(ETH_P_IPX);
++	if (dev->hard_header)
++		dev->hard_header(skb, dev, ETH_P_IPX,
++				 dest_node, NULL, skb->len);
++	return dev_queue_xmit(skb);
++}
++
++static struct datalink_proto *make_EII_client(void)
++{
++	struct datalink_proto *proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
++
++	if (proto) {
++		proto->header_length = 0;
++		proto->request = pEII_request;
++	}
++
++	return proto;
++}
++
++static void destroy_EII_client(struct datalink_proto *dl)
++{
++	kfree(dl);
++}
  
--int fill_rxd_3buf(nic_t *nic, RxD_t *rxdp, struct sk_buff *skb)
-+static int fill_rxd_3buf(nic_t *nic, RxD_t *rxdp, struct sk_buff *skb)
- {
- 	struct net_device *dev = nic->dev;
- 	struct sk_buff *frag_list;
-@@ -2852,7 +2852,7 @@
-  *  void.
-  */
+ static unsigned char ipx_8022_type = 0xE0;
+ static unsigned char ipx_snap_id[5] = { 0x0, 0x0, 0x0, 0x81, 0x37 };
+--- linux-2.6.15-rc1-mm1-full/include/net/p8022.h	2005-10-28 02:02:08.000000000 +0200
++++ /dev/null	2005-11-08 19:07:57.000000000 +0100
+@@ -1,13 +0,0 @@
+-#ifndef _NET_P8022_H
+-#define _NET_P8022_H
+-extern struct datalink_proto *
+-	register_8022_client(unsigned char type,
+-			     int (*func)(struct sk_buff *skb,
+-					 struct net_device *dev,
+-					 struct packet_type *pt,
+-					 struct net_device *orig_dev));
+-extern void unregister_8022_client(struct datalink_proto *proto);
+-
+-extern struct datalink_proto *make_8023_client(void);
+-extern void destroy_8023_client(struct datalink_proto *dl);
+-#endif
+--- linux-2.6.15-rc1-mm1-full/net/ethernet/pe2.c	2005-11-17 21:30:56.000000000 +0100
++++ /dev/null	2005-11-08 19:07:57.000000000 +0100
+@@ -1,39 +0,0 @@
+-#include <linux/in.h>
+-#include <linux/mm.h>
+-#include <linux/module.h>
+-#include <linux/netdevice.h>
+-#include <linux/skbuff.h>
+-
+-#include <net/datalink.h>
+-
+-static int pEII_request(struct datalink_proto *dl,
+-			struct sk_buff *skb, unsigned char *dest_node)
+-{
+-	struct net_device *dev = skb->dev;
+-
+-	skb->protocol = htons(ETH_P_IPX);
+-	if (dev->hard_header)
+-		dev->hard_header(skb, dev, ETH_P_IPX,
+-				 dest_node, NULL, skb->len);
+-	return dev_queue_xmit(skb);
+-}
+-
+-struct datalink_proto *make_EII_client(void)
+-{
+-	struct datalink_proto *proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
+-
+-	if (proto) {
+-		proto->header_length = 0;
+-		proto->request = pEII_request;
+-	}
+-
+-	return proto;
+-}
+-
+-void destroy_EII_client(struct datalink_proto *dl)
+-{
+-	kfree(dl);
+-}
+-
+-EXPORT_SYMBOL(destroy_EII_client);
+-EXPORT_SYMBOL(make_EII_client);
+--- linux-2.6.15-rc1-mm1-full/net/802/p8022.c	2005-10-28 02:02:08.000000000 +0200
++++ /dev/null	2005-11-08 19:07:57.000000000 +0100
+@@ -1,66 +0,0 @@
+-/*
+- *	NET3:	Support for 802.2 demultiplexing off Ethernet (Token ring
+- *		is kept separate see p8022tr.c)
+- *		This program is free software; you can redistribute it and/or
+- *		modify it under the terms of the GNU General Public License
+- *		as published by the Free Software Foundation; either version
+- *		2 of the License, or (at your option) any later version.
+- *
+- *		Demultiplex 802.2 encoded protocols. We match the entry by the
+- *		SSAP/DSAP pair and then deliver to the registered datalink that
+- *		matches. The control byte is ignored and handling of such items
+- *		is up to the routine passed the frame.
+- *
+- *		Unlike the 802.3 datalink we have a list of 802.2 entries as
+- *		there are multiple protocols to demux. The list is currently
+- *		short (3 or 4 entries at most). The current demux assumes this.
+- */
+-#include <linux/module.h>
+-#include <linux/netdevice.h>
+-#include <linux/skbuff.h>
+-#include <net/datalink.h>
+-#include <linux/mm.h>
+-#include <linux/in.h>
+-#include <linux/init.h>
+-#include <net/llc.h>
+-#include <net/p8022.h>
+-
+-static int p8022_request(struct datalink_proto *dl, struct sk_buff *skb,
+-			 unsigned char *dest)
+-{
+-	llc_build_and_send_ui_pkt(dl->sap, skb, dest, dl->sap->laddr.lsap);
+-	return 0;
+-}
+-
+-struct datalink_proto *register_8022_client(unsigned char type,
+-					    int (*func)(struct sk_buff *skb,
+-							struct net_device *dev,
+-							struct packet_type *pt,
+-							struct net_device *orig_dev))
+-{
+-	struct datalink_proto *proto;
+-
+-	proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
+-	if (proto) {
+-		proto->type[0]		= type;
+-		proto->header_length	= 3;
+-		proto->request		= p8022_request;
+-		proto->sap = llc_sap_open(type, func);
+-		if (!proto->sap) {
+-			kfree(proto);
+-			proto = NULL;
+-		}
+-	}
+-	return proto;
+-}
+-
+-void unregister_8022_client(struct datalink_proto *proto)
+-{
+-	llc_sap_put(proto->sap);
+-	kfree(proto);
+-}
+-
+-EXPORT_SYMBOL(register_8022_client);
+-EXPORT_SYMBOL(unregister_8022_client);
+-
+-MODULE_LICENSE("GPL");
+--- linux-2.6.15-rc1-mm1-full/net/802/p8023.c	2005-11-17 21:30:55.000000000 +0100
++++ /dev/null	2005-11-08 19:07:57.000000000 +0100
+@@ -1,61 +0,0 @@
+-/*
+- *	NET3:	802.3 data link hooks used for IPX 802.3
+- *
+- *	This program is free software; you can redistribute it and/or
+- *	modify it under the terms of the GNU General Public License
+- *	as published by the Free Software Foundation; either version
+- *	2 of the License, or (at your option) any later version.
+- *
+- *	802.3 isn't really a protocol data link layer. Some old IPX stuff
+- *	uses it however. Note that there is only one 802.3 protocol layer
+- *	in the system. We don't currently support different protocols
+- *	running raw 802.3 on different devices. Thankfully nobody else
+- *	has done anything like the old IPX.
+- */
+-
+-#include <linux/in.h>
+-#include <linux/mm.h>
+-#include <linux/module.h>
+-#include <linux/netdevice.h>
+-#include <linux/skbuff.h>
+-
+-#include <net/datalink.h>
+-#include <net/p8022.h>
+-
+-/*
+- *	Place an 802.3 header on a packet. The driver will do the mac
+- *	addresses, we just need to give it the buffer length.
+- */
+-static int p8023_request(struct datalink_proto *dl,
+-			 struct sk_buff *skb, unsigned char *dest_node)
+-{
+-	struct net_device *dev = skb->dev;
+-
+-	dev->hard_header(skb, dev, ETH_P_802_3, dest_node, NULL, skb->len);
+-	return dev_queue_xmit(skb);
+-}
+-
+-/*
+- *	Create an 802.3 client. Note there can be only one 802.3 client
+- */
+-struct datalink_proto *make_8023_client(void)
+-{
+-	struct datalink_proto *proto = kmalloc(sizeof(*proto), GFP_ATOMIC);
+-
+-	if (proto) {
+-		proto->header_length = 0;
+-		proto->request	     = p8023_request;
+-	}
+-	return proto;
+-}
+-
+-/*
+- *	Destroy the 802.3 client.
+- */
+-void destroy_8023_client(struct datalink_proto *dl)
+-{
+-	kfree(dl);
+-}
+-
+-EXPORT_SYMBOL(destroy_8023_client);
+-EXPORT_SYMBOL(make_8023_client);
+
+--- linux-2.6.15-mm3-full/net/802/Makefile.old	2006-01-14 02:55:28.000000000 +0100
++++ linux-2.6.15-mm3-full/net/802/Makefile	2006-01-14 02:55:50.000000000 +0100
+@@ -4,10 +4,10 @@
  
--void s2io_reset(nic_t * sp)
-+static void s2io_reset(nic_t * sp)
- {
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
- 	u64 val64;
-@@ -2940,7 +2940,7 @@
-  *  SUCCESS on success and FAILURE on failure.
-  */
- 
--int s2io_set_swapper(nic_t * sp)
-+static int s2io_set_swapper(nic_t * sp)
- {
- 	struct net_device *dev = sp->dev;
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
-@@ -3089,7 +3089,7 @@
- 	return ret;
- }
- 
--void restore_xmsi_data(nic_t *nic)
-+static void restore_xmsi_data(nic_t *nic)
- {
- 	XENA_dev_config_t __iomem *bar0 = nic->bar0;
- 	u64 val64;
-@@ -3180,7 +3180,7 @@
- 	return 0;
- }
- 
--int s2io_enable_msi_x(nic_t *nic)
-+static int s2io_enable_msi_x(nic_t *nic)
- {
- 	XENA_dev_config_t __iomem *bar0 = nic->bar0;
- 	u64 tx_mat, rx_mat;
-@@ -4128,7 +4128,7 @@
-  *  as defined in errno.h file on failure.
-  */
- 
--int s2io_set_mac_addr(struct net_device *dev, u8 * addr)
-+static int s2io_set_mac_addr(struct net_device *dev, u8 * addr)
- {
- 	nic_t *sp = dev->priv;
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
-@@ -5713,7 +5713,7 @@
-  *  void.
-  */
- 
--void s2io_link(nic_t * sp, int link)
-+static void s2io_link(nic_t * sp, int link)
- {
- 	struct net_device *dev = (struct net_device *) sp->dev;
- 
-@@ -5738,7 +5738,7 @@
-  *  returns the revision ID of the device.
-  */
- 
--int get_xena_rev_id(struct pci_dev *pdev)
-+static int get_xena_rev_id(struct pci_dev *pdev)
- {
- 	u8 id = 0;
- 	int ret;
-@@ -6343,7 +6343,7 @@
-  * Description: This function is the cleanup routine for the driver. It unregist * ers the driver.
-  */
- 
--void s2io_closer(void)
-+static void s2io_closer(void)
- {
- 	pci_unregister_driver(&s2io_driver);
- 	DBG_PRINT(INIT_DBG, "cleanup done\n");
+ # Check the p8022 selections against net/core/Makefile.
+ obj-$(CONFIG_SYSCTL)	+= sysctl_net_802.o
+-obj-$(CONFIG_LLC)	+= p8022.o psnap.o
+-obj-$(CONFIG_TR)	+= p8022.o psnap.o tr.o sysctl_net_802.o
+-obj-$(CONFIG_NET_FC)	+=                 fc.o
+-obj-$(CONFIG_FDDI)	+=                 fddi.o
+-obj-$(CONFIG_HIPPI)	+=                 hippi.o
+-obj-$(CONFIG_IPX)	+= p8022.o psnap.o p8023.o
+-obj-$(CONFIG_ATALK)	+= p8022.o psnap.o
++obj-$(CONFIG_LLC)	+= psnap.o
++obj-$(CONFIG_TR)	+= psnap.o tr.o sysctl_net_802.o
++obj-$(CONFIG_NET_FC)	+=         fc.o
++obj-$(CONFIG_FDDI)	+=         fddi.o
++obj-$(CONFIG_HIPPI)	+=         hippi.o
++obj-$(CONFIG_IPX)	+= psnap.o
++obj-$(CONFIG_ATALK)	+= psnap.o
