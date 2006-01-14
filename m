@@ -1,31 +1,30 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: wireless: recap of current issues (compatibility)
-Date: Sat, 14 Jan 2006 14:44:03 +0100
-Message-ID: <m3u0c69b6k.fsf@defiant.localdomain>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Sat, 14 Jan 2006 14:47:54 +0100
+Message-ID: <m3psmu9b05.fsf@defiant.localdomain>
 References: <20060113195723.GB16166@tuxdriver.com>
 	<20060113212605.GD16166@tuxdriver.com>
-	<20060113213126.GF16166@tuxdriver.com>
-	<20060113222054.GK16166@tuxdriver.com>
-	<1137191590.2520.65.camel@localhost>
+	<20060113213011.GE16166@tuxdriver.com>
+	<20060113221935.GJ16166@tuxdriver.com>
+	<1137191522.2520.63.camel@localhost>
+	<20060114011726.GA19950@shaftnet.org>
+	<1137230889.2520.82.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030437AbWANNoS@vger.kernel.org>
+Cc: Stuffed Crust <pizza@shaftnet.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932743AbWANNsH@vger.kernel.org>
 To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1137191590.2520.65.camel@localhost> (Johannes Berg's message of "Fri, 13 Jan 2006 23:33:10 +0100")
+In-Reply-To: <1137230889.2520.82.camel@localhost> (Johannes Berg's message of "Sat, 14 Jan 2006 10:28:09 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Johannes Berg <johannes@sipsolutions.net> writes:
 
-> If you want the old userspace API to 'just work' you have to create one
-> default wlan device at WiPHY init.
+> Yeah, this is about what I thought of -- and it makes me wonder if the
+> stack really should be aware of the channelization, or if the WiPHY
+> driver might better just handle it itself.
 
-I'm not sure the old API is that important. This isn't something
-programs (third party, kernel utils don't count) rely on. Most users
-would switch to the new stack immediately anyway.
-
-It could probably be a separate compatibility module, the core stack
-probably don't have to know about it. The last to worry about I'd say.
+The latter, possibly using library functions from the stack :-)
 -- 
 Krzysztof Halasa
