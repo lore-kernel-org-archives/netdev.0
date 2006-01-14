@@ -1,45 +1,50 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
-Date: Sat, 14 Jan 2006 06:04:57 -0800
-Message-ID: <20060114060457.06efae88.akpm@osdl.org>
-References: <20060108114305.GA32425@vanheusden.com>
-	<20060109041114.6e797a9b.akpm@osdl.org>
-	<20060109144522.GB10955@vanheusden.com>
-	<20060109193754.GD12673@vanheusden.com>
-	<20060109224821.7a40bc69.akpm@osdl.org>
-	<20060110142725.GH12673@vanheusden.com>
-	<20060114132414.GN6087@vanheusden.com>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: wireless: recap of current issues (stack)
+Date: Sat, 14 Jan 2006 15:13:39 +0100 (CET)
+Message-ID: <Pine.LNX.4.58.0601141448480.5587@p15091797.pureserver.info>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com>
+ <20060113213200.GG16166@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751507AbWANOFT@vger.kernel.org>
-To: Folkert van Heusden <folkert@vanheusden.com>
-In-Reply-To: <20060114132414.GN6087@vanheusden.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751495AbWANONy@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060113213200.GG16166@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Folkert van Heusden <folkert@vanheusden.com> wrote:
->
->  > > > > > Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
->  > > > > > boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
->  > > > > > of /proc/interrupts is incrementing.
->  > > > > I'll give it a try. I've added it to the append-line in the lilo config.
->  > > > > Am now compiling the kernel.
->  > > > No change. Well, that is: the last message on the console now is
->  > > > "setting eth1 to promiscues mode".
->  > > Did you confirm that the NMI counters in /proc/interrupts are incrementing?
->  > Yes:
->  > root@muur:/home/folkert# for i in `seq 1 5` ; do cat /proc/interrupts  | grep NMI ; sleep 1 ; done
->  > NMI:    6949080    6949067
->  > NMI:    6949182    6949169
->  > NMI:    6949284    6949271
->  > NMI:    6949386    6949373
->  > NMI:    6949488    6949475
-> 
->  Is there anything else I can try?
+On Fri, 13 Jan 2006, John W. Linville wrote:
 
-argh.   I haven't forgotten.  Hopefully after -rc1 I'll have more time...
+> Can the in-kernel stack be saved?  With the addition of softmac?
+> Is it possible to extend softmac to support virtual wlan devices?
+> If not, how do we proceed?
 
-Your report didn't mention whether that card work OK under earlier 2.6
-kernels.  If it does, a bit of bisection searching would really help.
+I don't think, that we can continue with the current model of the
+stacks. There appears a great variance in the HOST-device
+interfaces between WLAN devices of several vendors. The other
+problem is, that there is a difference depending on the bus the
+device is connected to. Register accesses in USB devices should be
+able to sleep. However the 80211 stacks I've seen so far have a
+fixed set of capabilities and do also assume, that at the driver
+layer everything can be done in atomic mode, which is only true
+for buses that support memory-mapping.
+
+In my point of view each stack layer must allow drivers to
+overwrite all entry-functions. Drivers could then do
+cherry-picking of the provided standard-functions. This is of
+course the library approach. The discussion about multiple
+stacks will then be muted, because we would have several stacks in
+the kernel and on the devices, which would have compatible interfaces.
+
+> Do we need to have both wireless-stable and wireless-devel kernels?
+> What about the suggestion of having both stacks in the kernel at once?
+> I'm not very excited about two in-kernel stacks.  Still, consolidating
+> wireless drivers down to two stacks is probably better than what we
+> have now...?  Either way, we would have to have general understanding
+> that at some point (not too far away), one of the stacks would have
+> to disappear.
+
+See above.
+
+-- 
+Ulrich Kunitz - kune@deine-taler.de
