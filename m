@@ -1,71 +1,69 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
+From: Stuffed Crust <pizza@shaftnet.org>
 Subject: Re: wireless: recap of current issues (configuration)
-Date: Sat, 14 Jan 2006 01:05:59 +0100
-Message-ID: <m3oe2fd66w.fsf@defiant.localdomain>
-References: <20060113195723.GB16166@tuxdriver.com>
-	<20060113212605.GD16166@tuxdriver.com>
-	<20060113213011.GE16166@tuxdriver.com>
-	<20060113221935.GJ16166@tuxdriver.com>
+Date: Fri, 13 Jan 2006 20:17:26 -0500
+Message-ID: <20060114011726.GA19950@shaftnet.org>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423148AbWANAGF@vger.kernel.org>
-To: netdev@vger.kernel.org
-In-Reply-To: <20060113221935.GJ16166@tuxdriver.com> (John W. Linville's message of "Fri, 13 Jan 2006 17:19:36 -0500")
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="XsQoSWH+UP9D9v3l"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423251AbWANBRk@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1137191522.2520.63.camel@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"John W. Linville" <linville@tuxdriver.com> writes:
 
-> Virtual devices will have a mode (e.g. station, AP, WDS, ad-hoc, rfmon,
-> raw?, other modes?) which defines its "on the air" behaviour.  Should
-> this mode be fixed when the wlan device is created?
+--XsQoSWH+UP9D9v3l
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I think so. If needed one can delete and create.
+On Fri, Jan 13, 2006 at 11:32:02PM +0100, Johannes Berg wrote:
+> I'm not sure this is worth it. While putting this into the WiPHY device
+> creates more logic there, putting knowledge like 'how many different
+> channels can this WiPHY device support' etc. into some representation
+> that can be used by the stack to decide is much more trouble than it is
+> worth.
 
->  Or something
-> that can be changed when the net_device is down?
+Do you mean 'simultaneous' channel operation, or something more mundane=20
+like simply 'what frequencies can I run on'?
 
-IMHO: unnecessary complicates things.
+If you're talking about the former.. things get quite complicated, but=20
+that could be handled by having two WiPHY devices registered.
 
-> It may be necessary to remove, suspend, and/or disable wlan devices
-> in order to add, resume, and/or enable other types of wlan devices
-> on the same WiPHY device (especialy true for rfmon).  A mechanism is
-> needed for drivers to be able to influence or disallow combinations
-> of wlan devices in accordance with capabilities of the hardware.
+As for the latter, when you factor in the needs of 802.11d and its
+dependents (802.11j, 802.11k, and others) the stack is going to need to
+be aware of the available channel sets; both in the sense of hardware
+support and also the various regulatory requirements.=20
 
-If the control messages go through the main (WiPHY) driver it can
-decide and/or forward the request further, to the library.
+The hardware knows what frequencies it supports.  Unfortunately this has=20
+to be a somewhat dynamic thing, as this is often not queryable until the=20
+device firmware is up and running. =20
 
-Not sure about netlink. OTOH I'm at all not sure netlink should be
-used for configuration. sysfs, ioctl seem a better options. Netlink
-is better for state monitoring etc. I don't know it very well though.
+This can be accomplished by passing a static table to the=20
+register_wiphy_device() call (or perhaps via a struct wiphy_dev=20
+parameter) or through a more explicit, dynamic interface like:
 
-> Do "global" config requests go to any associated wlan device?
+  wiphy_register_supported_frequency(hw, 2412).=20
 
-Are they any global config settings?
-sysctl or sysfs maybe?
+ - Solomon
+--=20
+Solomon Peachy        				 ICQ: 1318344
+Melbourne, FL 					=20
+Quidquid latine dictum sit, altum viditur.
 
-> Or must they be directed to the WiPHY device?  Does it matter?
+--XsQoSWH+UP9D9v3l
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-If you mean "settings for a particular physical card" then WiPHY.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-> I think we should require "global" configuration to target the WiPHY
-> device, while "local" configuration remains with the wlan device.
+iD8DBQFDyFEmPuLgii2759ARApk7AJ9vrsX3JKIgGn2/b6PhUQIkEF5jQACgzUaE
+GZgZOrx7cdf72jqEHRGsRCk=
+=QDWO
+-----END PGP SIGNATURE-----
 
-If "local" means "concerning the wlan device" then sure, yes.
-
-> (I'm not sure how important this point is?)  Either way, the WiPHY
-> device will need some way to be able to reject configuration requests
-> that are incompatible among its associated wlan devices.  Since the
-> wlan interface implementations should not be device specific, perhaps
-> the 802.11 stack can be smart enough to filter-out most conflicting
-> config requests before they get to the WiPHY device?
-
-I don't think so. The hardware driver should get the request first,
-the rest should look like a library.
-
-I've played with both approaches for years and I would avoid
-"802.11 using the hw driver" scenario if at all possible.
--- 
-Krzysztof Halasa
+--XsQoSWH+UP9D9v3l--
