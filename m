@@ -1,69 +1,471 @@
-From: Stuffed Crust <pizza@shaftnet.org>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Fri, 13 Jan 2006 20:17:26 -0500
-Message-ID: <20060114011726.GA19950@shaftnet.org>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] drivers/net/wireless/hostap/hostap_main.c shouldn't #include C files
+Date: Sat, 14 Jan 2006 03:09:34 +0100
+Message-ID: <20060114020934.GZ29663@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="XsQoSWH+UP9D9v3l"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423251AbWANBRk@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jkmaline@cc.hut.fi, hostap@shmoo.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1423265AbWANCJi@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <1137191522.2520.63.camel@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch contains an attempt to properly build hostap.o without
+#include'ing C files.
 
---XsQoSWH+UP9D9v3l
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, Jan 13, 2006 at 11:32:02PM +0100, Johannes Berg wrote:
-> I'm not sure this is worth it. While putting this into the WiPHY device
-> creates more logic there, putting knowledge like 'how many different
-> channels can this WiPHY device support' etc. into some representation
-> that can be used by the stack to decide is much more trouble than it is
-> worth.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Do you mean 'simultaneous' channel operation, or something more mundane=20
-like simply 'what frequencies can I run on'?
+---
 
-If you're talking about the former.. things get quite complicated, but=20
-that could be handled by having two WiPHY devices registered.
+This patch was already sent on:
+- 5 Jan 2006
 
-As for the latter, when you factor in the needs of 802.11d and its
-dependents (802.11j, 802.11k, and others) the stack is going to need to
-be aware of the available channel sets; both in the sense of hardware
-support and also the various regulatory requirements.=20
+ drivers/net/wireless/hostap/Makefile          |    3 
+ drivers/net/wireless/hostap/hostap.h          |   37 +++++++++++
+ drivers/net/wireless/hostap/hostap_80211.h    |    3 
+ drivers/net/wireless/hostap/hostap_80211_rx.c |   11 +++
+ drivers/net/wireless/hostap/hostap_80211_tx.c |   15 ++++
+ drivers/net/wireless/hostap/hostap_ap.c       |   36 ++++++----
+ drivers/net/wireless/hostap/hostap_ap.h       |    2 
+ drivers/net/wireless/hostap/hostap_common.h   |    3 
+ drivers/net/wireless/hostap/hostap_info.c     |    3 
+ drivers/net/wireless/hostap/hostap_ioctl.c    |   12 ++-
+ drivers/net/wireless/hostap/hostap_main.c     |   60 +-----------------
+ drivers/net/wireless/hostap/hostap_proc.c     |    8 ++
+ drivers/net/wireless/hostap/hostap_wlan.h     |    4 +
+ include/net/ieee80211_crypt.h                 |    1 
+ 14 files changed, 120 insertions(+), 78 deletions(-)
 
-The hardware knows what frequencies it supports.  Unfortunately this has=20
-to be a somewhat dynamic thing, as this is often not queryable until the=20
-device firmware is up and running. =20
 
-This can be accomplished by passing a static table to the=20
-register_wiphy_device() call (or perhaps via a struct wiphy_dev=20
-parameter) or through a more explicit, dynamic interface like:
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/Makefile.old	2005-12-03 00:40:33.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/Makefile	2005-12-03 00:49:47.000000000 +0100
+@@ -1,4 +1,5 @@
+-hostap-y := hostap_main.o
++hostap-y := hostap_80211_rx.o hostap_80211_tx.o hostap_ap.o hostap_info.o \
++            hostap_ioctl.o hostap_main.o hostap_proc.o 
+ obj-$(CONFIG_HOSTAP) += hostap.o
+ 
+ obj-$(CONFIG_HOSTAP_CS) += hostap_cs.o
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap.h.old	2005-12-03 00:41:48.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap.h	2005-12-03 02:37:21.000000000 +0100
+@@ -1,6 +1,15 @@
+ #ifndef HOSTAP_H
+ #define HOSTAP_H
+ 
++#include <linux/ethtool.h>
++
++#include "hostap_wlan.h"
++#include "hostap_ap.h"
++
++static const long freq_list[] = { 2412, 2417, 2422, 2427, 2432, 2437, 2442,
++				  2447, 2452, 2457, 2462, 2467, 2472, 2484 };
++#define FREQ_COUNT (sizeof(freq_list) / sizeof(freq_list[0]))
++
+ /* hostap.c */
+ 
+ extern struct proc_dir_entry *hostap_proc;
+@@ -40,6 +49,26 @@
+ int prism2_sta_send_mgmt(local_info_t *local, u8 *dst, u16 stype,
+ 			 u8 *body, size_t bodylen);
+ int prism2_sta_deauth(local_info_t *local, u16 reason);
++int prism2_wds_add(local_info_t *local, u8 *remote_addr,
++		   int rtnl_locked);
++int prism2_wds_del(local_info_t *local, u8 *remote_addr,
++		   int rtnl_locked, int do_not_remove);
++
++
++/* hostap_ap.c */
++
++int ap_control_add_mac(struct mac_restrictions *mac_restrictions, u8 *mac);
++int ap_control_del_mac(struct mac_restrictions *mac_restrictions, u8 *mac);
++void ap_control_flush_macs(struct mac_restrictions *mac_restrictions);
++int ap_control_kick_mac(struct ap_data *ap, struct net_device *dev, u8 *mac);
++void ap_control_kickall(struct ap_data *ap);
++void * ap_crypt_get_ptrs(struct ap_data *ap, u8 *addr, int permanent,
++			 struct ieee80211_crypt_data ***crypt);
++int prism2_ap_get_sta_qual(local_info_t *local, struct sockaddr addr[],
++			   struct iw_quality qual[], int buf_size,
++			   int aplist);
++int prism2_ap_translate_scan(struct net_device *dev, char *buffer);
++int prism2_hostapd(struct ap_data *ap, struct prism2_hostapd_param *param);
+ 
+ 
+ /* hostap_proc.c */
+@@ -54,4 +83,12 @@
+ void hostap_info_process(local_info_t *local, struct sk_buff *skb);
+ 
+ 
++/* hostap_ioctl.c */
++
++extern const struct iw_handler_def hostap_iw_handler_def;
++extern struct ethtool_ops prism2_ethtool_ops;
++
++int hostap_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
++
++
+ #endif /* HOSTAP_H */
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_common.h.old	2005-12-03 01:19:43.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_common.h	2005-12-03 01:21:13.000000000 +0100
+@@ -1,6 +1,9 @@
+ #ifndef HOSTAP_COMMON_H
+ #define HOSTAP_COMMON_H
+ 
++#include <linux/types.h>
++#include <linux/if_ether.h>
++
+ #define BIT(x) (1 << (x))
+ 
+ #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_wlan.h.old	2005-12-03 01:22:53.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_wlan.h	2005-12-03 01:26:43.000000000 +0100
+@@ -1,6 +1,10 @@
+ #ifndef HOSTAP_WLAN_H
+ #define HOSTAP_WLAN_H
+ 
++#include <linux/wireless.h>
++#include <linux/netdevice.h>
++#include <net/iw_handler.h>
++
+ #include "hostap_config.h"
+ #include "hostap_common.h"
+ 
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_ap.h.old	2005-12-03 01:28:46.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_ap.h	2005-12-03 01:29:01.000000000 +0100
+@@ -1,6 +1,8 @@
+ #ifndef HOSTAP_AP_H
+ #define HOSTAP_AP_H
+ 
++#include "hostap_80211.h"
++
+ /* AP data structures for STAs */
+ 
+ /* maximum number of frames to buffer per STA */
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_80211.h.old	2005-12-03 01:07:18.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_80211.h	2005-12-03 01:11:00.000000000 +0100
+@@ -1,6 +1,9 @@
+ #ifndef HOSTAP_80211_H
+ #define HOSTAP_80211_H
+ 
++#include <linux/types.h>
++#include <net/ieee80211_crypt.h>
++
+ struct hostap_ieee80211_mgmt {
+ 	u16 frame_control;
+ 	u16 duration;
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_main.c.old	2005-12-03 00:40:11.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_main.c	2005-12-03 02:24:34.000000000 +0100
+@@ -24,6 +24,7 @@
+ #include <linux/kmod.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/wireless.h>
++#include <linux/etherdevice.h>
+ #include <net/iw_handler.h>
+ #include <net/ieee80211.h>
+ #include <net/ieee80211_crypt.h>
+@@ -47,57 +48,6 @@
+ #define PRISM2_MAX_MTU (PRISM2_MAX_FRAME_SIZE - (6 /* LLC */ + 8 /* WEP */))
+ 
+ 
+-/* hostap.c */
+-static int prism2_wds_add(local_info_t *local, u8 *remote_addr,
+-			  int rtnl_locked);
+-static int prism2_wds_del(local_info_t *local, u8 *remote_addr,
+-			  int rtnl_locked, int do_not_remove);
+-
+-/* hostap_ap.c */
+-static int prism2_ap_get_sta_qual(local_info_t *local, struct sockaddr addr[],
+-				  struct iw_quality qual[], int buf_size,
+-				  int aplist);
+-static int prism2_ap_translate_scan(struct net_device *dev, char *buffer);
+-static int prism2_hostapd(struct ap_data *ap,
+-			  struct prism2_hostapd_param *param);
+-static void * ap_crypt_get_ptrs(struct ap_data *ap, u8 *addr, int permanent,
+-				struct ieee80211_crypt_data ***crypt);
+-static void ap_control_kickall(struct ap_data *ap);
+-#ifndef PRISM2_NO_KERNEL_IEEE80211_MGMT
+-static int ap_control_add_mac(struct mac_restrictions *mac_restrictions,
+-			      u8 *mac);
+-static int ap_control_del_mac(struct mac_restrictions *mac_restrictions,
+-			      u8 *mac);
+-static void ap_control_flush_macs(struct mac_restrictions *mac_restrictions);
+-static int ap_control_kick_mac(struct ap_data *ap, struct net_device *dev,
+-			       u8 *mac);
+-#endif /* !PRISM2_NO_KERNEL_IEEE80211_MGMT */
+-
+-
+-static const long freq_list[] = { 2412, 2417, 2422, 2427, 2432, 2437, 2442,
+-				  2447, 2452, 2457, 2462, 2467, 2472, 2484 };
+-#define FREQ_COUNT (sizeof(freq_list) / sizeof(freq_list[0]))
+-
+-
+-/* See IEEE 802.1H for LLC/SNAP encapsulation/decapsulation */
+-/* Ethernet-II snap header (RFC1042 for most EtherTypes) */
+-static unsigned char rfc1042_header[] =
+-{ 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+-/* Bridge-Tunnel header (for EtherTypes ETH_P_AARP and ETH_P_IPX) */
+-static unsigned char bridge_tunnel_header[] =
+-{ 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
+-/* No encapsulation header if EtherType < 0x600 (=length) */
+-
+-
+-/* FIX: these could be compiled separately and linked together to hostap.o */
+-#include "hostap_ap.c"
+-#include "hostap_info.c"
+-#include "hostap_ioctl.c"
+-#include "hostap_proc.c"
+-#include "hostap_80211_rx.c"
+-#include "hostap_80211_tx.c"
+-
+-
+ struct net_device * hostap_add_interface(struct local_info *local,
+ 					 int type, int rtnl_locked,
+ 					 const char *prefix,
+@@ -196,8 +146,8 @@
+ }
+ 
+ 
+-static int prism2_wds_add(local_info_t *local, u8 *remote_addr,
+-			  int rtnl_locked)
++int prism2_wds_add(local_info_t *local, u8 *remote_addr,
++		   int rtnl_locked)
+ {
+ 	struct net_device *dev;
+ 	struct list_head *ptr;
+@@ -258,8 +208,8 @@
+ }
+ 
+ 
+-static int prism2_wds_del(local_info_t *local, u8 *remote_addr,
+-			  int rtnl_locked, int do_not_remove)
++int prism2_wds_del(local_info_t *local, u8 *remote_addr,
++		   int rtnl_locked, int do_not_remove)
+ {
+ 	unsigned long flags;
+ 	struct list_head *ptr;
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_80211_rx.c.old	2005-12-03 00:53:21.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_80211_rx.c	2005-12-03 02:35:11.000000000 +0100
+@@ -1,7 +1,18 @@
+ #include <linux/etherdevice.h>
++#include <net/ieee80211_crypt.h>
+ 
+ #include "hostap_80211.h"
+ #include "hostap.h"
++#include "hostap_ap.h"
++
++/* See IEEE 802.1H for LLC/SNAP encapsulation/decapsulation */
++/* Ethernet-II snap header (RFC1042 for most EtherTypes) */
++static unsigned char rfc1042_header[] =
++{ 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
++/* Bridge-Tunnel header (for EtherTypes ETH_P_AARP and ETH_P_IPX) */
++static unsigned char bridge_tunnel_header[] =
++{ 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
++/* No encapsulation header if EtherType < 0x600 (=length) */
+ 
+ void hostap_dump_rx_80211(const char *name, struct sk_buff *skb,
+ 			  struct hostap_80211_rx_status *rx_stats)
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_80211_tx.c.old	2005-12-03 01:05:49.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_80211_tx.c	2005-12-03 02:35:19.000000000 +0100
+@@ -1,3 +1,18 @@
++#include "hostap_80211.h"
++#include "hostap_common.h"
++#include "hostap_wlan.h"
++#include "hostap.h"
++#include "hostap_ap.h"
++
++/* See IEEE 802.1H for LLC/SNAP encapsulation/decapsulation */
++/* Ethernet-II snap header (RFC1042 for most EtherTypes) */
++static unsigned char rfc1042_header[] =
++{ 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
++/* Bridge-Tunnel header (for EtherTypes ETH_P_AARP and ETH_P_IPX) */
++static unsigned char bridge_tunnel_header[] =
++{ 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
++/* No encapsulation header if EtherType < 0x600 (=length) */
++
+ void hostap_dump_tx_80211(const char *name, struct sk_buff *skb)
+ {
+ 	struct ieee80211_hdr_4addr *hdr;
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_ap.c.old	2005-12-03 01:18:28.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_ap.c	2005-12-03 02:21:57.000000000 +0100
+@@ -16,6 +16,14 @@
+  *   (8802.11: 5.5)
+  */
+ 
++#include <linux/proc_fs.h>
++#include <linux/delay.h>
++#include <linux/random.h>
++
++#include "hostap_wlan.h"
++#include "hostap.h"
++#include "hostap_ap.h"
++
+ static int other_ap_policy[MAX_PARM_DEVICES] = { AP_OTHER_AP_SKIP_ALL,
+ 						 DEF_INTS };
+ module_param_array(other_ap_policy, int, NULL, 0444);
+@@ -360,8 +368,7 @@
+ }
+ 
+ 
+-static int ap_control_add_mac(struct mac_restrictions *mac_restrictions,
+-			      u8 *mac)
++int ap_control_add_mac(struct mac_restrictions *mac_restrictions, u8 *mac)
+ {
+ 	struct mac_entry *entry;
+ 
+@@ -380,8 +387,7 @@
+ }
+ 
+ 
+-static int ap_control_del_mac(struct mac_restrictions *mac_restrictions,
+-			      u8 *mac)
++int ap_control_del_mac(struct mac_restrictions *mac_restrictions, u8 *mac)
+ {
+ 	struct list_head *ptr;
+ 	struct mac_entry *entry;
+@@ -433,7 +439,7 @@
+ }
+ 
+ 
+-static void ap_control_flush_macs(struct mac_restrictions *mac_restrictions)
++void ap_control_flush_macs(struct mac_restrictions *mac_restrictions)
+ {
+ 	struct list_head *ptr, *n;
+ 	struct mac_entry *entry;
+@@ -454,8 +460,7 @@
+ }
+ 
+ 
+-static int ap_control_kick_mac(struct ap_data *ap, struct net_device *dev,
+-			       u8 *mac)
++int ap_control_kick_mac(struct ap_data *ap, struct net_device *dev, u8 *mac)
+ {
+ 	struct sta_info *sta;
+ 	u16 resp;
+@@ -486,7 +491,7 @@
+ #endif /* PRISM2_NO_KERNEL_IEEE80211_MGMT */
+ 
+ 
+-static void ap_control_kickall(struct ap_data *ap)
++void ap_control_kickall(struct ap_data *ap)
+ {
+ 	struct list_head *ptr, *n;
+ 	struct sta_info *sta;
+@@ -2321,9 +2326,9 @@
+ }
+ 
+ 
+-static int prism2_ap_get_sta_qual(local_info_t *local, struct sockaddr addr[],
+-				  struct iw_quality qual[], int buf_size,
+-				  int aplist)
++int prism2_ap_get_sta_qual(local_info_t *local, struct sockaddr addr[],
++			   struct iw_quality qual[], int buf_size,
++			   int aplist)
+ {
+ 	struct ap_data *ap = local->ap;
+ 	struct list_head *ptr;
+@@ -2363,7 +2368,7 @@
+ 
+ /* Translate our list of Access Points & Stations to a card independant
+  * format that the Wireless Tools will understand - Jean II */
+-static int prism2_ap_translate_scan(struct net_device *dev, char *buffer)
++int prism2_ap_translate_scan(struct net_device *dev, char *buffer)
+ {
+ 	struct hostap_interface *iface;
+ 	local_info_t *local;
+@@ -2608,8 +2613,7 @@
+ }
+ 
+ 
+-static int prism2_hostapd(struct ap_data *ap,
+-			  struct prism2_hostapd_param *param)
++int prism2_hostapd(struct ap_data *ap, struct prism2_hostapd_param *param)
+ {
+ 	switch (param->cmd) {
+ 	case PRISM2_HOSTAPD_FLUSH:
+@@ -3207,8 +3211,8 @@
+ }
+ 
+ 
+-static void * ap_crypt_get_ptrs(struct ap_data *ap, u8 *addr, int permanent,
+-				struct ieee80211_crypt_data ***crypt)
++void * ap_crypt_get_ptrs(struct ap_data *ap, u8 *addr, int permanent,
++			 struct ieee80211_crypt_data ***crypt)
+ {
+ 	struct sta_info *sta;
+ 
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_info.c.old	2005-12-03 01:49:24.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_info.c	2005-12-03 01:51:43.000000000 +0100
+@@ -1,5 +1,8 @@
+ /* Host AP driver Info Frame processing (part of hostap.o module) */
+ 
++#include "hostap_wlan.h"
++#include "hostap.h"
++#include "hostap_ap.h"
+ 
+ /* Called only as a tasklet (software IRQ) */
+ static void prism2_info_commtallies16(local_info_t *local, unsigned char *buf,
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_ioctl.c.old	2005-12-03 01:52:34.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_ioctl.c	2005-12-03 02:27:09.000000000 +0100
+@@ -1,11 +1,13 @@
+ /* ioctl() (mostly Linux Wireless Extensions) routines for Host AP driver */
+ 
+-#ifdef in_atomic
+-/* Get kernel_locked() for in_atomic() */
++#include <linux/types.h>
+ #include <linux/smp_lock.h>
+-#endif
+ #include <linux/ethtool.h>
++#include <net/ieee80211_crypt.h>
+ 
++#include "hostap_wlan.h"
++#include "hostap.h"
++#include "hostap_ap.h"
+ 
+ static struct iw_statistics *hostap_get_wireless_stats(struct net_device *dev)
+ {
+@@ -3910,7 +3912,7 @@
+ 		 local->sta_fw_ver & 0xff);
+ }
+ 
+-static struct ethtool_ops prism2_ethtool_ops = {
++struct ethtool_ops prism2_ethtool_ops = {
+ 	.get_drvinfo = prism2_get_drvinfo
+ };
+ 
+@@ -3985,7 +3987,7 @@
+ 	(iw_handler) prism2_ioctl_priv_readmif,		/* 3 */
+ };
+ 
+-static const struct iw_handler_def hostap_iw_handler_def =
++const struct iw_handler_def hostap_iw_handler_def =
+ {
+ 	.num_standard	= sizeof(prism2_handler) / sizeof(iw_handler),
+ 	.num_private	= sizeof(prism2_private_handler) / sizeof(iw_handler),
+--- linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_proc.c.old	2005-12-03 02:29:08.000000000 +0100
++++ linux-2.6.15-rc3-mm1/drivers/net/wireless/hostap/hostap_proc.c	2005-12-03 02:32:00.000000000 +0100
+@@ -1,5 +1,12 @@
+ /* /proc routines for Host AP driver */
+ 
++#include <linux/types.h>
++#include <linux/proc_fs.h>
++#include <net/ieee80211_crypt.h>
++
++#include "hostap_wlan.h"
++#include "hostap.h"
++
+ #define PROC_LIMIT (PAGE_SIZE - 80)
+ 
+ 
 
-  wiphy_register_supported_frequency(hw, 2412).=20
-
- - Solomon
---=20
-Solomon Peachy        				 ICQ: 1318344
-Melbourne, FL 					=20
-Quidquid latine dictum sit, altum viditur.
-
---XsQoSWH+UP9D9v3l
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFDyFEmPuLgii2759ARApk7AJ9vrsX3JKIgGn2/b6PhUQIkEF5jQACgzUaE
-GZgZOrx7cdf72jqEHRGsRCk=
-=QDWO
------END PGP SIGNATURE-----
-
---XsQoSWH+UP9D9v3l--
+--- linux-2.6.15-mm1-full/include/net/ieee80211_crypt.h.old	2006-01-05 22:28:09.000000000 +0100
++++ linux-2.6.15-mm1-full/include/net/ieee80211_crypt.h	2006-01-05 22:28:26.000000000 +0100
+@@ -25,6 +25,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/list.h>
++#include <net/ieee80211.h>
+ #include <asm/atomic.h>
+ 
+ enum {
