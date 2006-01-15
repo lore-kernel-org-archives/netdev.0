@@ -1,51 +1,37 @@
-From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
-Subject: Re: [PATCH] ACX: swap netdevice_t for struct net_device
-Date: Sun, 15 Jan 2006 12:54:23 +0100
-Message-ID: <200601151254.24145.carlos@cmartin.tk>
-References: <200601150043.34890.carlos@cmartin.tk> <200601151306.57824.vda@ilport.com.ua>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Sun, 15 Jan 2006 13:40:10 +0100
+Message-ID: <200601151340.10730.stefan@loplof.de>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200601151306.57824.vda@ilport.com.ua>
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751922AbWAOMlS@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1137191522.2520.63.camel@localhost>
 Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 15 January 2006 12:06, Denis Vlasenko wrote:
-> On Sunday 15 January 2006 01:43, Carlos Mart=EDn wrote:
-> >  Attached patch does a s/netdevice_t/struct net_device/g on all the fil=
-es=20
-that=20
-> > required it. It's against 20060114
->=20
-> Too late :)
-> acx-20060115 already has no netdevice_t.
+Am Freitag 13 Januar 2006 23:32 schrieb Johannes Berg:
 
-Can you read my mind? :) I see you also got rid of wlandevice_t, nice.
+> [Changing mode of virtual devices]
+>
+> IMHO there's not much point in allowing changes. I have a feeling that
+> might create icky issues you don't want to have to tackle when the
+> solution is easy by just not allowing it. Part of my thinking is that
+> different virtual types have different structures associated, so
+> changing it needs re-creating structures anyway. And different virtual
+> device types might even be provided by different kernel modules so you
+> don't carry around AP mode if you don't need it.
 
-   cmn
-=2D-=20
-Carlos Mart=EDn       http://www.cmartin.tk
+Even though it is a bit more work on kernel side, we should allow changing the 
+mode of virtual devices. Let's face it, even though we find multi-BSS 
+capabilities very interesting, 999 of 1000 users won't care due to the two 
+facts that IPW firmware IMHO doesn't allow it and virtual interfaces are 
+limited to one channel anyway. These users rightfully expect to have one 
+interface and be able to do all configurations on it.
 
-"Erdbeben? Sicherlich etwas, das mit Erdberen zu tun hat." -- me, paraphras=
-ed
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+Stefan
