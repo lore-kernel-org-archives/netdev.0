@@ -1,43 +1,44 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Sat, 14 Jan 2006 18:41:56 -0500
-Message-ID: <1137282117.27849.11.camel@localhost.localdomain>
-References: <20060113195723.GB16166@tuxdriver.com>
-	 <20060113212605.GD16166@tuxdriver.com>
-	 <20060113213011.GE16166@tuxdriver.com>
-	 <20060113221935.GJ16166@tuxdriver.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Sun, 15 Jan 2006 01:43:15 +0100
+Message-ID: <20060115004315.GW29663@stusta.de>
+References: <20060105181826.GD12313@stusta.de> <43BD6C03.2080605@pobox.com> <20060105210444.GA5878@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751031AbWANXns@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060113221935.GJ16166@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, saw@saw.sw.com.sg,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751549AbWAOAnR@vger.kernel.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Disposition: inline
+In-Reply-To: <20060105210444.GA5878@xi.wantstofly.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-01-13 at 17:19 -0500, John W. Linville wrote:
-> Configuration
-> =============
+On Thu, Jan 05, 2006 at 10:04:44PM +0100, Lennert Buytenhek wrote:
+> On Thu, Jan 05, 2006 at 01:57:07PM -0500, Jeff Garzik wrote:
 > 
-> Configuration seems to be coalescing around netlink.  Among other
-> things, this technology provides for muliticast requests and
-> asynchronous event notification.
+> > >This patch removes the obsolete drivers/net/eepro100.c driver.
+> > >
+> > >Is there any known problem in e100 still preventing us from removing 
+> > >this driver (it seems noone was able anymore to verify the ARM problem)?
+> > 
+> > Still waiting to see if e100 in -mm works on ARM.
 > 
-> The kernel should provide generic handlers for netlink
-> configuraion messages, and there should be a per-device 80211_ops
-> (wireless_ops? akin to ethtool_ops) structure for drivers to
-> populate appropriately.
+> e100 seems to work okay on the (modern) ARM CPUs I've tried.  The case
+> where e100 failed but eepro100 worked was (I think) on older ARM hardware,
+> and I'm not sure whether that kind of hardware is used anymore..
 
-One other thing: capability.  It's not enough to be able to configure
-the device, user-space tools also have to know what the device is
-capable of before they try touching it.  Ie, which ciphers, protocols,
-channels, etc.  Similar to the IWRANGE ioctl that there is now.  Half
-the problem now is that you can't reliably tell what drivers support
-which features, or how much they support a particular feature.  Think of
-ethernet devices and whether or not they support carrier detection,
-there's absolutely no way to tell that now (unless they respond to
-ethtool or MII, and some cards freeze if you touch them with MII too
-often).
+Jeff, is this enough to accept my patch?
 
-Dan
+> cheers,
+> Lennert
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
