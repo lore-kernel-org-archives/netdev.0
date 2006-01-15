@@ -1,39 +1,61 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: wireless: recap of current issues (other issues)
-Date: Sun, 15 Jan 2006 09:23:29 -0200
-Message-ID: <39e6f6c70601150323v5f2764d1x4bc10d90bf2104df@mail.gmail.com>
-References: <20060113213237.GH16166@tuxdriver.com>
-	 <20060113222408.GM16166@tuxdriver.com> <43C97693.7000109@pobox.com>
-	 <20060114.175140.07007614.davem@davemloft.net>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: acxsm: migrate acx from homegrown 802.11 handling to softmac stack
+Date: Sun, 15 Jan 2006 13:52:44 +0200
+Message-ID: <200601151352.44548.vda@ilport.com.ua>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: jgarzik@pobox.com, linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751898AbWAOLXb@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060114.175140.07007614.davem@davemloft.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
+	acx100-devel@lists.sourceforge.net
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On 1/14/06, David S. Miller <davem@davemloft.net> wrote:
-> From: Jeff Garzik <jgarzik@pobox.com>
-> Date: Sat, 14 Jan 2006 17:09:23 -0500
->
-> > A big open issue:  should you fake ethernet, or represent 802.11
-> > natively throughout the rest of the net stack?
-> >
-> > The former causes various and sundry hacks, and the latter requires that
-> > you touch a bunch of non-802.11 code to make it aware of a new frame class.
->
-> The former, most importantly, can cause the packet to get copied.
-> Actually, this depends upon how you implement things and when the
-> header change occurs.
->
-> My vote is for making the whole of the networking 802.11 frame class
-> aware.
+Hi,
 
-Agreed :-)
+http://195.66.192.167/linux/acx_patches/acxsm-20060115.tar.bz2
 
-- Arnaldo
+README says:
+==================
+*** Not run tested. Almost certainly won't work. Lots of things are TODO. ***
+
+This tarball contains a port of acx driver to ieee80211softmac
+stack. Broadcom 43xx driver was used as an example.
+See http://bcm43xx.berlios.de/,
+ftp://ftp.berlios.de/pub/bcm43xx/snapshots/
+
+Latest softmac source is in softmac-snapshot/ and net/
+is a symling to softmac-snapshot/include/net/.
+softmac-snapshot/ is to be replaced regularly with newer
+snapshots from http://softmac.sipsolutions.net/SoftMAC.
+
+grep for '//SM' to see the code added to standalone acx driver code.
+...
+...
+===================
+
+This is it.
+
+P.S. It does not mean that acx driver is discontinued.
+It will be supported as before. Let's see whether acxsm
+will get any traction at all.
+--
+vda
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
