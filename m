@@ -1,49 +1,39 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: [PATCH] ACX: swap netdevice_t for struct net_device
-Date: Sun, 15 Jan 2006 13:06:57 +0200
-Message-ID: <200601151306.57824.vda@ilport.com.ua>
-References: <200601150043.34890.carlos@cmartin.tk>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: wireless: recap of current issues (other issues)
+Date: Sun, 15 Jan 2006 09:23:29 -0200
+Message-ID: <39e6f6c70601150323v5f2764d1x4bc10d90bf2104df@mail.gmail.com>
+References: <20060113213237.GH16166@tuxdriver.com>
+	 <20060113222408.GM16166@tuxdriver.com> <43C97693.7000109@pobox.com>
+	 <20060114.175140.07007614.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>,
-	netdev@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: acx100-devel@lists.sourceforge.net
-In-Reply-To: <200601150043.34890.carlos@cmartin.tk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: jgarzik@pobox.com, linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751898AbWAOLXb@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060114.175140.07007614.davem@davemloft.net>
 Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 15 January 2006 01:43, Carlos Mart=EDn wrote:
-> Hi,
->=20
->  Does netdevice_t serve any actual purpose now? It used to be for 2.2/2.4=
-=20
-> compatibility, but we don't have that anymore.
->=20
->  Attached patch does a s/netdevice_t/struct net_device/g on all the files=
- that=20
-> required it. It's against 20060114
+On 1/14/06, David S. Miller <davem@davemloft.net> wrote:
+> From: Jeff Garzik <jgarzik@pobox.com>
+> Date: Sat, 14 Jan 2006 17:09:23 -0500
+>
+> > A big open issue:  should you fake ethernet, or represent 802.11
+> > natively throughout the rest of the net stack?
+> >
+> > The former causes various and sundry hacks, and the latter requires that
+> > you touch a bunch of non-802.11 code to make it aware of a new frame class.
+>
+> The former, most importantly, can cause the packet to get copied.
+> Actually, this depends upon how you implement things and when the
+> header change occurs.
+>
+> My vote is for making the whole of the networking 802.11 frame class
+> aware.
 
-Too late :)
-acx-20060115 already has no netdevice_t.
-=2D-
-vda
+Agreed :-)
 
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+- Arnaldo
