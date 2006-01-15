@@ -1,37 +1,39 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Sun, 15 Jan 2006 13:40:10 +0100
-Message-ID: <200601151340.10730.stefan@loplof.de>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
+From: Vitaly Bordug <vbordug@ru.mvista.com>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Sun, 15 Jan 2006 16:19:58 +0300
+Message-ID: <20060115161958.07e3c7f1@vitb.dev.rtsoft.ru>
+References: <20060105181826.GD12313@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751922AbWAOMlS@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1137191522.2520.63.camel@localhost>
-Content-Disposition: inline
+Cc: jgarzik@pobox.com, saw@saw.sw.com.sg, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751928AbWAONUF@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060105181826.GD12313@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag 13 Januar 2006 23:32 schrieb Johannes Berg:
+On Thu, 5 Jan 2006 19:18:26 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-> [Changing mode of virtual devices]
+> This patch removes the obsolete drivers/net/eepro100.c driver.
+> 
+> Is there any known problem in e100 still preventing us from removing 
+> this driver (it seems noone was able anymore to verify the ARM problem)?
+> 
+I think I am recalling some problems on ppc82xx, when e100 was stuck on startup,
+and eepro100 worked just fine. 
+
+Even if the patch below will be scheduled for application, we need to set up enough time 
+for approval that e100 will be fine for all the up-to-date hw; or it should be fixed/updated before eepro100 removal.
+
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
 >
-> IMHO there's not much point in allowing changes. I have a feeling that
-> might create icky issues you don't want to have to tackle when the
-> solution is easy by just not allowing it. Part of my thinking is that
-> different virtual types have different structures associated, so
-> changing it needs re-creating structures anyway. And different virtual
-> device types might even be provided by different kernel modules so you
-> don't carry around AP mode if you don't need it.
 
-Even though it is a bit more work on kernel side, we should allow changing the 
-mode of virtual devices. Let's face it, even though we find multi-BSS 
-capabilities very interesting, 999 of 1000 users won't care due to the two 
-facts that IPW firmware IMHO doesn't allow it and virtual interfaces are 
-limited to one channel anyway. These users rightfully expect to have one 
-interface and be able to do all configurations on it.
 
-Stefan
+-- 
+Sincerely, 
+Vitaly
