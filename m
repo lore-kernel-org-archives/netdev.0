@@ -1,75 +1,32 @@
-From: Stuffed Crust <pizza@shaftnet.org>
-Subject: Re: wireless: recap of current issues (other issues)
-Date: Sun, 15 Jan 2006 10:39:20 -0500
-Message-ID: <20060115153920.GB1722@shaftnet.org>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213237.GH16166@tuxdriver.com> <20060113222408.GM16166@tuxdriver.com> <43C97693.7000109@pobox.com>
+From: "Johannes Berg" <johannes@sipsolutions.net>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Sun, 15 Jan 2006 16:51:32 +0100 (CET)
+Message-ID: <56187.84.135.205.30.1137340292.squirrel@secure.sipsolutions.net>
+References: <20060113195723.GB16166@tuxdriver.com>
+    <20060113221935.GJ16166@tuxdriver.com>
+    <1137191522.2520.63.camel@localhost>
+    <200601151340.10730.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="QKdGvSO+nmPlgiQ/"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932079AbWAOPjh@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <43C97693.7000109@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932090AbWAOPvq@vger.kernel.org>
+In-Reply-To: <200601151340.10730.stefan@loplof.de>
+To: "Stefan Rompf" <stefan@loplof.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stefan Rompf wrote:
 
---QKdGvSO+nmPlgiQ/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Even though it is a bit more work on kernel side, we should allow changing
+> the
+> mode of virtual devices. Let's face it, even though we find multi-BSS
+> capabilities very interesting, 999 of 1000 users won't care due to the two
+> facts that IPW firmware IMHO doesn't allow it and virtual interfaces are
+> limited to one channel anyway. These users rightfully expect to have one
+> interface and be able to do all configurations on it.
 
-On Sat, Jan 14, 2006 at 05:09:23PM -0500, Jeff Garzik wrote:
-> A big open issue:  should you fake ethernet, or represent 802.11=20
-> natively throughout the rest of the net stack?
->=20
-> The former causes various and sundry hacks, and the latter requires that=
-=20
-> you touch a bunch of non-802.11 code to make it aware of a new frame clas=
-s.
+Isn't that rather a question of having good user-space tools that make
+deactivating one type of interface and activating another seamless?
 
-Internally, we're pure 802.11.  One thing to keep in mind that we're not=20
-going to be bridging/translating non-data traffic to other networks, and=20
-with that in mind, 802.3<->802.11 translation is trivial, and won't lose=20
-anything except for a bit of efficiency.  (and then, just to be=20
-contrary, the prism54 hardware actually requires 802.3 frames!)
-
-That said.. we need to make the rest of the stack 802.11-aware. =20
-Translating between 802.11 and 802.3 is trivial, as we only need to know=20
-about a few operating parameters in order to perform the conversion --=20
-AP/STA mode, BSSID, QoS parametsrs. WDS link parameters.   All of these=20
-can be attached to the net_device to be used by the hard_header code.
-
-(Part of the problem is that 802.11 has a variable-length header - 24,
- 26, 30, or 32 bytes, and each address field means different things=20
- depending on which mode we're using..)
-
-Meanwhile, A current "good enough for most" solution is to make all
-"data" interfaces to the 802.11 stack appear as 802.3 interfaces.  Each
-of these net_devices could translate to/from 802.11 on the fly.  Thus=20
-internally the stack would be pure 802.11, but interacting with the=20
-outside world would depend on the "mode" of the net_device.   You want=20
-to tx/rx 802.11 management frames with QoS enabled?  Create a "type=20
-802_11_a3_qos" inteface.=20
-
- - Solomon
---=20
-Solomon Peachy        				 ICQ: 1318344
-Melbourne, FL 					=20
-Quidquid latine dictum sit, altum viditur.
-
---QKdGvSO+nmPlgiQ/
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFDymyoPuLgii2759ARAnhlAJoD0Kh8Mr2mSQEdHEq7Kw/rIaU1pwCgt2Xd
-uVPVb5TsGfGiKfl9yuTnyWk=
-=Mxyl
------END PGP SIGNATURE-----
-
---QKdGvSO+nmPlgiQ/--
+johannes
