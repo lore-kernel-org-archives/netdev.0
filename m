@@ -1,62 +1,30 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Samuel Ortiz <samuel.ortiz@nokia.com>
 Subject: Re: wireless: recap of current issues (configuration)
-Date: Sun, 15 Jan 2006 21:11:51 +0100
-Message-ID: <1137355912.2520.97.camel@localhost>
-References: <20060113195723.GB16166@tuxdriver.com>
-	 <200601151340.10730.stefan@loplof.de>
-	 <56187.84.135.205.30.1137340292.squirrel@secure.sipsolutions.net>
-	 <200601151853.31710.stefan@loplof.de>  <43CAABD4.3070004@errno.com>
+Date: Sun, 15 Jan 2006 21:05:33 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0601152038540.19953@irie>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com>
+ <20060113213011.GE16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com>
+ <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org>
+ <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org>
+Reply-To: samuel.ortiz@nokia.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VZiN2H76gR4JCmUHPpO6"
-Cc: Stefan Rompf <stefan@loplof.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932133AbWAOUMM@vger.kernel.org>
-To: Sam Leffler <sam@errno.com>
-In-Reply-To: <43CAABD4.3070004@errno.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750850AbWAOVGB@vger.kernel.org>
+To: ext Stuffed Crust <pizza@shaftnet.org>
+In-Reply-To: <20060115152034.GA1722@shaftnet.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 15 Jan 2006, ext Stuffed Crust wrote:
 
---=-VZiN2H76gR4JCmUHPpO6
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+>  * Knowing the hardware frequency capabilities, the 802.11 stack applies
+>    802.11d and regdomain rules to the available frequency set, and
+Regarding 802.11d and regulatory domains, the stack should also be able to
+stick to one regulatory domain if asked so by userspace, whatever the APs
+around tell us.
 
-On Sun, 2006-01-15 at 12:08 -0800, Sam Leffler wrote:
-
-> To do what you describe I would create a monitor mode device, switch=20
-> channel, then destroy it.  All the time you leave the station device=20
-> unchanged, though you probably need to disable it.  This may not be=20
-> possible with all devices--i.e. for those that require different=20
-> firmware to do monitoring you will be restricted to a single virtual=20
-> device and/or operating mode.
-
-Yeah, I agree with this, it is much cleaner to handle in the kernel.
-Think about the issues if you have a struct net_device that has 250
-bytes of "payload" for the struct virtual_sta_device in it and you want
-to switch that to a struct virtual_monitor_device. Icky.
-
-johannes
-
---=-VZiN2H76gR4JCmUHPpO6
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (SIP Solutions)
-
-iQIVAwUAQ8qshqVg1VMiehFYAQK/8Q//c00EMENoPgSXHOtwErL4SEFrqy3l1002
-0R320+flr0SUNUhlUq7iaZJU6j99JzW/O9zNS5FXGz2vHb29XDyILHUO6elxVckx
-BwQqyh+mFwpuLxFs3ZD8Frjdi14adTpqHyYqTTtuVgLOGq1T4fTVBuAw8AS3eZwv
-gd43FOd26KQzELNOwBHuYDdErhUNQId2ZWZhpNCHpcv5Yp7LTdooQDM1D0WvO4v6
-AnvHqOX02mWf+HLWEI0c0AAxFR95eCcO6CHIRiUym+1O4zrlr1G1iVo9BtxiA18E
-QRc7D1XtzqYTEJBNTxq77D/MLIXA+BmHQq65sBK+CIWj0XoHFkrFV2kE6HHDvILr
-5mIv1P6n+Cw7FmlFoyjBrSMedh3klbSzxJhSYNtx3BH+ILwDAyeKy4MU6JcWiHPX
-ZxdKWXUTuDwPo3/0GZlUJVqYOXXlHrrl+N+vFlVXwjAANP6BunYnbl/pQ0PGQJ5g
-eIObrMpPd6dXBdA6Iw/p5PwuZ2NaYtHY1onKnSBAyddZNQzVXOxRrwbEm2tmmgxv
-he8EdWfGoYJzeGEsn5iMfdzclwd0e7d5P7XN0jRupsqAxxu8ws9nIXlxg3g7PGsi
-s+pHES6yYOyWa6dtg8AyUkPSmeuez8YEn8Y7wNstvP3BjRCE/XEPSkw9YWzAIlC0
-Zz3NIJsopDY=
-=Hwcj
------END PGP SIGNATURE-----
-
---=-VZiN2H76gR4JCmUHPpO6--
+Cheers,
+Samuel.
