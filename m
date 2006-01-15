@@ -1,128 +1,58 @@
 From: Stuffed Crust <pizza@shaftnet.org>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Sun, 15 Jan 2006 10:20:34 -0500
-Message-ID: <20060115152034.GA1722@shaftnet.org>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com>
+Subject: Re: wireless: recap of current issues (other issues)
+Date: Sun, 15 Jan 2006 10:39:20 -0500
+Message-ID: <20060115153920.GB1722@shaftnet.org>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213237.GH16166@tuxdriver.com> <20060113222408.GM16166@tuxdriver.com> <43C97693.7000109@pobox.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="7JfCtLOvnd9MIVvH"
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932074AbWAOP0Y@vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="QKdGvSO+nmPlgiQ/"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932079AbWAOPjh@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <43C97605.9030907@pobox.com>
+In-Reply-To: <43C97693.7000109@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---7JfCtLOvnd9MIVvH
+--QKdGvSO+nmPlgiQ/
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, Jan 14, 2006 at 05:07:01PM -0500, Jeff Garzik wrote:
-> >This can be accomplished by passing a static table to the=20
-> >register_wiphy_device() call (or perhaps via a struct wiphy_dev=20
-> >parameter) or through a more explicit, dynamic interface like:
-> >
-> >  wiphy_register_supported_frequency(hw, 2412).=20
+On Sat, Jan 14, 2006 at 05:09:23PM -0500, Jeff Garzik wrote:
+> A big open issue:  should you fake ethernet, or represent 802.11=20
+> natively throughout the rest of the net stack?
 >=20
-> For completely programmable hardware, the stack should interact with a=20
-> module like ieee80211_geo, to help ensure the hardware stays within=20
-> legal limits.
+> The former causes various and sundry hacks, and the latter requires that=
+=20
+> you touch a bunch of non-802.11 code to make it aware of a new frame clas=
+s.
 
-While there is much to debate about where to draw the functionality=20
-line, completely programmable hardware is the norm these days.
+Internally, we're pure 802.11.  One thing to keep in mind that we're not=20
+going to be bridging/translating non-data traffic to other networks, and=20
+with that in mind, 802.3<->802.11 translation is trivial, and won't lose=20
+anything except for a bit of efficiency.  (and then, just to be=20
+contrary, the prism54 hardware actually requires 802.3 frames!)
 
-=2E.. and said code would be responsible for driving the scanning state
-machines, and also for more esoteric functions like handling RADAR
-traps, automatic channel switching, etc.
+That said.. we need to make the rest of the stack 802.11-aware. =20
+Translating between 802.11 and 802.3 is trivial, as we only need to know=20
+about a few operating parameters in order to perform the conversion --=20
+AP/STA mode, BSSID, QoS parametsrs. WDS link parameters.   All of these=20
+can be attached to the net_device to be used by the hard_header code.
 
-Handling scans is quite interesting -- I've seen hardware which requires=20
-manual channel changing (including full RF parameter specification),=20
-host timing for the channel dwell time, and manual probe request=20
-issuance.. and on the other end of the spectrum, a simple "issue scan"=20
-command that takes few, if any, parameters.
+(Part of the problem is that 802.11 has a variable-length header - 24,
+ 26, 30, or 32 bytes, and each address field means different things=20
+ depending on which mode we're using..)
 
-And unfortunately, many things in between.
-
-This leads me to belive that the internal scan workflow should work
-something like this:
-
- * Userspace app issues scan request (aka "refresh AP list")
-
- * Knowing the hardware frequency capabilities, the 802.11 stack applies=20
-   802.11d and regdomain rules to the available frequency set, and
-   issues multiple internal "scan request" commands to the hardware=20
-   driver.  (eg "perform an initial passive sweep across the entire=20
-   2.4G band", "perform an active scan on frequencies 2412->2437=20
-   looking for ssid "HandTossed", "perform an active scan on=20
-   frequencies 5200-5400 looking for ssid "HandTossed", etc)
-
-   (note that ideally, userspace apps/libs would be at least partially
-    aware of 802.11d rules, but the kernel must do the RightThing if=20
-    told to "scan all available channels for any access points")
- =20
- * The hardware driver takes this scan request, and maps it into the=20
-   capabilities of the hardware:
-
-   Hardware A: (very thin MAC)
-    - Using library code, generates an appropriate probe request frame,=20
-      translates it into a format the hardware expects/needs,=20
-      and schedules it appropriately.
-    - Loops through the frequency set specified, and for each:
-	- Issues a channel change command
-	- Immediately transmits the probe request (for active scans)
-	- Dwells for an appropriate time
-        - RX'ed beacon/probe response frames come down as regular 802.11=20
-          frames into the stack
-        - Moves to the next channel
-
-   Hardware B: (thinner MAC)
-    - Using library code, generates an appropriate probe request frame,=20
-      and translate it into a format the hardware expects.
-    - Program the probe request frame into the hardware as a probe=20
-      template.
-    - Loops through the frequency set specified, and for each:
-	- Issues a channel change command
-        - Wait for a scan complete signal
-        - RX'ed beacon/probe response frames come down as regular 802.11=20
-          frames into the stack
-        - Moves to the next channel
-   =20
-   Hardware C: (thick MAC, ala prism2 or prism54)
-     - Issues a hardware "scan request"
-     - Waits for the hardware to signal "scan complete"
-     - Requests hardware scan results
-     - For each scan result, the hardware returns:
-        - Translate result into an 802.11 probe response frame and
-          pass down the regular RX path.
-
-   So as you can see, I think the channel iteration, dwell, etc should=20
-   be performed by the hardware driver itself, as the variation at the=20
-   logical "tell the hardware perform a scan" step is so extreme.
-
- * Meanwhile, the 802.11 stack is receiving the beacons/probe responses=20
-   from the hardware via the regular rx path.  It diverts these (and=20
-   other 802.11 management/control) frames, decodes them, and then adds=20
-   them to the stack's internal list of available stations, updating any=20
-   internal states/counters as necessary.  (These frames could also be=20
-   echoed to a special netdev interface if desired)
-
-   (stuff like detecting an AP going away depends on us noticing a lack=20
-    of beacons arriving, for example.  Most hardware does not=20
-    notify us of this event.  Likewise, we should expire other=20
-    APs from our list if they go away.. etc.  For AP operation we need=20
-    to maintain this STA list, period -- so why not use it across the=20
-    board?  But this is another discussion for another time..)
-
- * The 802.11 stack issues a MLME-Scan-Complete notification to=20
-   userspace.
-
- * Interested userspace apps see this event, then query the=20
-   scan results and presents them to the user in some pretty format, or=20
-   alternatively perform automatic roaming based on scan results.
+Meanwhile, A current "good enough for most" solution is to make all
+"data" interfaces to the 802.11 stack appear as 802.3 interfaces.  Each
+of these net_devices could translate to/from 802.11 on the fly.  Thus=20
+internally the stack would be pure 802.11, but interacting with the=20
+outside world would depend on the "mode" of the net_device.   You want=20
+to tx/rx 802.11 management frames with QoS enabled?  Create a "type=20
+802_11_a3_qos" inteface.=20
 
  - Solomon
 --=20
@@ -130,16 +60,16 @@ Solomon Peachy        				 ICQ: 1318344
 Melbourne, FL 					=20
 Quidquid latine dictum sit, altum viditur.
 
---7JfCtLOvnd9MIVvH
+--QKdGvSO+nmPlgiQ/
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFDymhCPuLgii2759ARAnnRAKDRNx4wXCkL1i2UKh3XlRKYHa4uvQCg95YI
-mLiNAd7oaP32gotQ026Q/nE=
-=T+Lg
+iD8DBQFDymyoPuLgii2759ARAnhlAJoD0Kh8Mr2mSQEdHEq7Kw/rIaU1pwCgt2Xd
+uVPVb5TsGfGiKfl9yuTnyWk=
+=Mxyl
 -----END PGP SIGNATURE-----
 
---7JfCtLOvnd9MIVvH--
+--QKdGvSO+nmPlgiQ/--
