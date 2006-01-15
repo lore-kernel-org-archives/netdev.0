@@ -1,38 +1,67 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Sun, 15 Jan 2006 18:53:31 +0100
-Message-ID: <200601151853.31710.stefan@loplof.de>
-References: <20060113195723.GB16166@tuxdriver.com> <200601151340.10730.stefan@loplof.de> <56187.84.135.205.30.1137340292.squirrel@secure.sipsolutions.net>
+From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
+Subject: Re: acxsm: migrate acx from homegrown 802.11 handling to softmac stack
+Date: Sun, 15 Jan 2006 19:29:43 +0100
+Message-ID: <200601151929.43896.carlos@cmartin.tk>
+References: <200601151352.44548.vda@ilport.com.ua>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933541AbWAORyO@vger.kernel.org>
-To: "Johannes Berg" <johannes@sipsolutions.net>
-In-Reply-To: <56187.84.135.205.30.1137340292.squirrel@secure.sipsolutions.net>
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
+	acx100-devel@lists.sourceforge.net
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Denis Vlasenko <vda@ilport.com.ua>
+In-Reply-To: <200601151352.44548.vda@ilport.com.ua>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag 15 Januar 2006 16:51 schrieb Johannes Berg:
+On Sunday 15 January 2006 12:52, Denis Vlasenko wrote:
+> Hi,
+>=20
+> http://195.66.192.167/linux/acx_patches/acxsm-20060115.tar.bz2
 
-> Isn't that rather a question of having good user-space tools that make
-> deactivating one type of interface and activating another seamless?
+I've mirrored it at http://www.cmartin.tk/acx/ and will sync as with the=20
+'normal' tarballs.
 
-Well, it's always easy to point to userspace. However, unregister_netdev() 
-initiates a lot of actions. IPv4 addresses and routes are removed, same for 
-IPv6, IPX, Appletalk etc. Stacked VLAN devices are recursively unregistered 
-(even though I have not tried yet if it works when I create VLANs over 802.3 
-emulated wlan interfaces ;-), udev bloat runs. And all this stuff has to be 
-restored by the nifty new configuration utility, possibly including ifindex 
-and future protocols.
+>=20
+> README says:
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> *** Not run tested. Almost certainly won't work. Lots of things are TODO.
 
-This is from my usage pattern that I want to go into monitor mode on current 
-channel, look at some packets and return to the association without losing 
-layer 3 configuration.
+I'll try to try it out this week. Unfortunately, my USB device is broken=20
+again.
+=20
+> P.S. It does not mean that acx driver is discontinued.
+> It will be supported as before. Let's see whether acxsm
+> will get any traction at all.
+             at^^^^^^^^
+You mean it won't slip when the road is wet? :P
+This should make certain things easier to handle, won't it? From what I've=
+=20
+seen you don't have to worry about fragmentation of packets. Will the stack=
+=20
+also handle TKPI/WPA?
+=20
+   cmn
+=2D-=20
+Carlos Mart=EDn       http://www.cmartin.tk
 
-So after all, it is IMHO way less painful to handle a mode change in the 
-kernel.
+"Erdbeben? Sicherlich etwas, das mit Erdberen zu tun hat." -- me, paraphras=
+ed
 
-Stefan
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
