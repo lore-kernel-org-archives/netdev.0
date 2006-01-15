@@ -1,67 +1,58 @@
-From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
-Subject: Re: acxsm: migrate acx from homegrown 802.11 handling to softmac stack
-Date: Sun, 15 Jan 2006 19:29:43 +0100
-Message-ID: <200601151929.43896.carlos@cmartin.tk>
-References: <200601151352.44548.vda@ilport.com.ua>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Sam Leffler <sam@errno.com>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Sun, 15 Jan 2006 11:39:41 -0800
+Message-ID: <43CAA4FD.5070605@errno.com>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <200601151340.10730.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
-	acx100-devel@lists.sourceforge.net
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200601151352.44548.vda@ilport.com.ua>
-Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750878AbWAOTk4@vger.kernel.org>
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200601151340.10730.stefan@loplof.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 15 January 2006 12:52, Denis Vlasenko wrote:
-> Hi,
->=20
-> http://195.66.192.167/linux/acx_patches/acxsm-20060115.tar.bz2
+Stefan Rompf wrote:
+> Am Freitag 13 Januar 2006 23:32 schrieb Johannes Berg:
+> 
+>> [Changing mode of virtual devices]
+>>
+>> IMHO there's not much point in allowing changes. I have a feeling that
+>> might create icky issues you don't want to have to tackle when the
+>> solution is easy by just not allowing it. Part of my thinking is that
+>> different virtual types have different structures associated, so
+>> changing it needs re-creating structures anyway. And different virtual
+>> device types might even be provided by different kernel modules so you
+>> don't carry around AP mode if you don't need it.
+> 
+> Even though it is a bit more work on kernel side, we should allow changing the 
+> mode of virtual devices. Let's face it, even though we find multi-BSS 
+> capabilities very interesting, 999 of 1000 users won't care due to the two 
+> facts that IPW firmware IMHO doesn't allow it and virtual interfaces are 
+> limited to one channel anyway. These users rightfully expect to have one 
+> interface and be able to do all configurations on it.
 
-I've mirrored it at http://www.cmartin.tk/acx/ and will sync as with the=20
-'normal' tarballs.
+My experience is that once you can create+destroy virtual devices you'll 
+never want mode changing.  From a usability standpoint when you switch 
+modes you typically have to reconfigure lots of settings and doing 
+destroy old followed by create new is easier.  Depending on how things 
+tie into hotplug you may also find things getting complicated.
 
->=20
-> README says:
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> *** Not run tested. Almost certainly won't work. Lots of things are TODO.
+Within the kernel having the operating mode of a virtual device not 
+change is very good.  First it lets you isolate the rules for mix+match 
+of different virtual devices at create.  Second you can partition code 
+so, for example, only code required to support an ap is loaded when an 
+ap mode virtual device exists.  There are other less obvious reasons 
+such as firmware-based devices can load firmware based on the operating 
+mode at create time but if you allow mode switching then you need to 
+unload+load on the fly.  All these things can be handled with switching 
+modes but the complexity is significant and the gain is minimal.
 
-I'll try to try it out this week. Unfortunately, my USB device is broken=20
-again.
-=20
-> P.S. It does not mean that acx driver is discontinued.
-> It will be supported as before. Let's see whether acxsm
-> will get any traction at all.
-             at^^^^^^^^
-You mean it won't slip when the road is wet? :P
-This should make certain things easier to handle, won't it? From what I've=
-=20
-seen you don't have to worry about fragmentation of packets. Will the stack=
-=20
-also handle TKPI/WPA?
-=20
-   cmn
-=2D-=20
-Carlos Mart=EDn       http://www.cmartin.tk
+The big stumbling block I found to going with virtual devices is that it 
+affects user apps.  I looked at doing things like auto-create a station 
+device for backwards compatibility but decided against it.  If you 
+really want this behaviour it can be done by user code.
 
-"Erdbeben? Sicherlich etwas, das mit Erdberen zu tun hat." -- me, paraphras=
-ed
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+	Sam
