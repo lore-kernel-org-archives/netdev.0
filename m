@@ -1,15 +1,17 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: acxsm: migrate acx from homegrown 802.11 handling to softmac stack
-Date: Sun, 15 Jan 2006 13:52:44 +0200
-Message-ID: <200601151352.44548.vda@ilport.com.ua>
+From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
+Subject: Re: [PATCH] ACX: swap netdevice_t for struct net_device
+Date: Sun, 15 Jan 2006 12:54:23 +0100
+Message-ID: <200601151254.24145.carlos@cmartin.tk>
+References: <200601150043.34890.carlos@cmartin.tk> <200601151306.57824.vda@ilport.com.ua>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
-	acx100-devel@lists.sourceforge.net
+To: Denis Vlasenko <vda@ilport.com.ua>
+In-Reply-To: <200601151306.57824.vda@ilport.com.ua>
 Content-Disposition: inline
 Sender: acx100-devel-admin@lists.sourceforge.net
 Errors-To: acx100-devel-admin@lists.sourceforge.net
@@ -22,36 +24,24 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sunday 15 January 2006 12:06, Denis Vlasenko wrote:
+> On Sunday 15 January 2006 01:43, Carlos Mart=EDn wrote:
+> >  Attached patch does a s/netdevice_t/struct net_device/g on all the fil=
+es=20
+that=20
+> > required it. It's against 20060114
+>=20
+> Too late :)
+> acx-20060115 already has no netdevice_t.
 
-http://195.66.192.167/linux/acx_patches/acxsm-20060115.tar.bz2
+Can you read my mind? :) I see you also got rid of wlandevice_t, nice.
 
-README says:
-==================
-*** Not run tested. Almost certainly won't work. Lots of things are TODO. ***
+   cmn
+=2D-=20
+Carlos Mart=EDn       http://www.cmartin.tk
 
-This tarball contains a port of acx driver to ieee80211softmac
-stack. Broadcom 43xx driver was used as an example.
-See http://bcm43xx.berlios.de/,
-ftp://ftp.berlios.de/pub/bcm43xx/snapshots/
-
-Latest softmac source is in softmac-snapshot/ and net/
-is a symling to softmac-snapshot/include/net/.
-softmac-snapshot/ is to be replaced regularly with newer
-snapshots from http://softmac.sipsolutions.net/SoftMAC.
-
-grep for '//SM' to see the code added to standalone acx driver code.
-...
-...
-===================
-
-This is it.
-
-P.S. It does not mean that acx driver is discontinued.
-It will be supported as before. Let's see whether acxsm
-will get any traction at all.
---
-vda
+"Erdbeben? Sicherlich etwas, das mit Erdberen zu tun hat." -- me, paraphras=
+ed
 
 
 -------------------------------------------------------
