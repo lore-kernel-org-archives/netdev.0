@@ -1,44 +1,40 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
-Date: Sun, 15 Jan 2006 01:43:15 +0100
-Message-ID: <20060115004315.GW29663@stusta.de>
-References: <20060105181826.GD12313@stusta.de> <43BD6C03.2080605@pobox.com> <20060105210444.GA5878@xi.wantstofly.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: wireless: recap of current issues (other issues)
+Date: Sat, 14 Jan 2006 19:54:45 -0500
+Message-ID: <20060115005442.GA32206@tuxdriver.com>
+References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213237.GH16166@tuxdriver.com> <20060113222408.GM16166@tuxdriver.com> <43C97693.7000109@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, saw@saw.sw.com.sg,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751549AbWAOAnR@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751590AbWAOAz1@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20060105210444.GA5878@xi.wantstofly.org>
+In-Reply-To: <43C97693.7000109@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 05, 2006 at 10:04:44PM +0100, Lennert Buytenhek wrote:
-> On Thu, Jan 05, 2006 at 01:57:07PM -0500, Jeff Garzik wrote:
+On Sat, Jan 14, 2006 at 05:09:23PM -0500, Jeff Garzik wrote:
+> John W. Linville wrote:
+> >Other Issues
+> >============
 > 
-> > >This patch removes the obsolete drivers/net/eepro100.c driver.
-> > >
-> > >Is there any known problem in e100 still preventing us from removing 
-> > >this driver (it seems noone was able anymore to verify the ARM problem)?
-> > 
-> > Still waiting to see if e100 in -mm works on ARM.
+> A big open issue:  should you fake ethernet, or represent 802.11 
+> natively throughout the rest of the net stack?
 > 
-> e100 seems to work okay on the (modern) ARM CPUs I've tried.  The case
-> where e100 failed but eepro100 worked was (I think) on older ARM hardware,
-> and I'm not sure whether that kind of hardware is used anymore..
+> The former causes various and sundry hacks, and the latter requires that 
+> you touch a bunch of non-802.11 code to make it aware of a new frame class.
 
-Jeff, is this enough to accept my patch?
+I had this entry in the "compatibility" section:
 
-> cheers,
-> Lennert
+We need to be an 802.11 stack (i.e. drivers need to handle 802.11
+frames).  Ethernet emulation is bound to paint us into a corner
+eventually (if it hasn't already)
 
-cu
-Adrian
+My opinion is that we need to 'bite the bullet' and make the kernel
+aware of 802.11.  I figure we can leverage some existing work by
+davem and acme for this.
 
+John
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+John W. Linville
+linville@tuxdriver.com
