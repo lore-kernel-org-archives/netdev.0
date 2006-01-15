@@ -1,45 +1,62 @@
-From: Sam Leffler <sam@errno.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: wireless: recap of current issues (configuration)
-Date: Sun, 15 Jan 2006 12:08:52 -0800
-Message-ID: <43CAABD4.3070004@errno.com>
-References: <20060113195723.GB16166@tuxdriver.com> <200601151340.10730.stefan@loplof.de> <56187.84.135.205.30.1137340292.squirrel@secure.sipsolutions.net> <200601151853.31710.stefan@loplof.de>
+Date: Sun, 15 Jan 2006 21:11:51 +0100
+Message-ID: <1137355912.2520.97.camel@localhost>
+References: <20060113195723.GB16166@tuxdriver.com>
+	 <200601151340.10730.stefan@loplof.de>
+	 <56187.84.135.205.30.1137340292.squirrel@secure.sipsolutions.net>
+	 <200601151853.31710.stefan@loplof.de>  <43CAABD4.3070004@errno.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VZiN2H76gR4JCmUHPpO6"
+Cc: Stefan Rompf <stefan@loplof.de>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932138AbWAOUKN@vger.kernel.org>
-To: Stefan Rompf <stefan@loplof.de>
-In-Reply-To: <200601151853.31710.stefan@loplof.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932133AbWAOUMM@vger.kernel.org>
+To: Sam Leffler <sam@errno.com>
+In-Reply-To: <43CAABD4.3070004@errno.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stefan Rompf wrote:
-> Am Sonntag 15 Januar 2006 16:51 schrieb Johannes Berg:
-> 
->> Isn't that rather a question of having good user-space tools that make
->> deactivating one type of interface and activating another seamless?
-> 
-> Well, it's always easy to point to userspace. However, unregister_netdev() 
-> initiates a lot of actions. IPv4 addresses and routes are removed, same for 
-> IPv6, IPX, Appletalk etc. Stacked VLAN devices are recursively unregistered 
-> (even though I have not tried yet if it works when I create VLANs over 802.3 
-> emulated wlan interfaces ;-), udev bloat runs. And all this stuff has to be 
-> restored by the nifty new configuration utility, possibly including ifindex 
-> and future protocols.
-> 
-> This is from my usage pattern that I want to go into monitor mode on current 
-> channel, look at some packets and return to the association without losing 
-> layer 3 configuration.
-> 
-> So after all, it is IMHO way less painful to handle a mode change in the 
-> kernel.
 
-To do what you describe I would create a monitor mode device, switch 
-channel, then destroy it.  All the time you leave the station device 
-unchanged, though you probably need to disable it.  This may not be 
-possible with all devices--i.e. for those that require different 
-firmware to do monitoring you will be restricted to a single virtual 
-device and/or operating mode.
+--=-VZiN2H76gR4JCmUHPpO6
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-	Sam
+On Sun, 2006-01-15 at 12:08 -0800, Sam Leffler wrote:
+
+> To do what you describe I would create a monitor mode device, switch=20
+> channel, then destroy it.  All the time you leave the station device=20
+> unchanged, though you probably need to disable it.  This may not be=20
+> possible with all devices--i.e. for those that require different=20
+> firmware to do monitoring you will be restricted to a single virtual=20
+> device and/or operating mode.
+
+Yeah, I agree with this, it is much cleaner to handle in the kernel.
+Think about the issues if you have a struct net_device that has 250
+bytes of "payload" for the struct virtual_sta_device in it and you want
+to switch that to a struct virtual_monitor_device. Icky.
+
+johannes
+
+--=-VZiN2H76gR4JCmUHPpO6
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (SIP Solutions)
+
+iQIVAwUAQ8qshqVg1VMiehFYAQK/8Q//c00EMENoPgSXHOtwErL4SEFrqy3l1002
+0R320+flr0SUNUhlUq7iaZJU6j99JzW/O9zNS5FXGz2vHb29XDyILHUO6elxVckx
+BwQqyh+mFwpuLxFs3ZD8Frjdi14adTpqHyYqTTtuVgLOGq1T4fTVBuAw8AS3eZwv
+gd43FOd26KQzELNOwBHuYDdErhUNQId2ZWZhpNCHpcv5Yp7LTdooQDM1D0WvO4v6
+AnvHqOX02mWf+HLWEI0c0AAxFR95eCcO6CHIRiUym+1O4zrlr1G1iVo9BtxiA18E
+QRc7D1XtzqYTEJBNTxq77D/MLIXA+BmHQq65sBK+CIWj0XoHFkrFV2kE6HHDvILr
+5mIv1P6n+Cw7FmlFoyjBrSMedh3klbSzxJhSYNtx3BH+ILwDAyeKy4MU6JcWiHPX
+ZxdKWXUTuDwPo3/0GZlUJVqYOXXlHrrl+N+vFlVXwjAANP6BunYnbl/pQ0PGQJ5g
+eIObrMpPd6dXBdA6Iw/p5PwuZ2NaYtHY1onKnSBAyddZNQzVXOxRrwbEm2tmmgxv
+he8EdWfGoYJzeGEsn5iMfdzclwd0e7d5P7XN0jRupsqAxxu8ws9nIXlxg3g7PGsi
+s+pHES6yYOyWa6dtg8AyUkPSmeuez8YEn8Y7wNstvP3BjRCE/XEPSkw9YWzAIlC0
+Zz3NIJsopDY=
+=Hwcj
+-----END PGP SIGNATURE-----
+
+--=-VZiN2H76gR4JCmUHPpO6--
