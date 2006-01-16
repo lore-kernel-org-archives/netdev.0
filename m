@@ -1,56 +1,68 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [patch] networking ipv4: remove total socket usage count from /proc/net/sockstat
-Date: Mon, 16 Jan 2006 15:55:23 -0500
-Message-ID: <bdfc5d6e0601161255w4e1a6ac5oaa6844a6e1bbd0aa@mail.gmail.com>
-References: <20060116200432.GB14060@gospo.rdu.redhat.com>
-	 <1137442446.19444.20.camel@mindpipe>
-	 <bdfc5d6e0601161225h53554b1ahde794af93af52bdf@mail.gmail.com>
-	 <9a8748490601161235k2defec82sa51a17e4fc14b22f@mail.gmail.com>
+From: Stuffed Crust <pizza@shaftnet.org>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Mon, 16 Jan 2006 15:58:59 -0500
+Message-ID: <20060116205859.GD12748@shaftnet.org>
+References: <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <43CAA853.8020409@errno.com> <20060116172817.GB8596@shaftnet.org> <43CBDDC7.9060504@errno.com> <20060116194013.GA12748@shaftnet.org> <43CBFE90.8070208@errno.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Lee Revell <rlrevell@joe-job.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751199AbWAPUz1@vger.kernel.org>
-To: Jesper Juhl <jesper.juhl@gmail.com>
-In-Reply-To: <9a8748490601161235k2defec82sa51a17e4fc14b22f@mail.gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="5gxpn/Q6ypwruk0T"
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751194AbWAPU7b@vger.kernel.org>
+To: Sam Leffler <sam@errno.com>
 Content-Disposition: inline
+In-Reply-To: <43CBFE90.8070208@errno.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper,
 
-Thanks for the explanation.  Your reasoning makes sense.  I will
-consider other ways to solve my current problem and post a patch that
-doesn't "break userspace" if necessary.
+--5gxpn/Q6ypwruk0T
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
--andy
+On Mon, Jan 16, 2006 at 12:14:08PM -0800, Sam Leffler wrote:
+> Please read what I wrote again.  Station mode power save work involves=20
+> communicating with the ap and managing the hardware.  The first=20
+> interacts with bg scanning.  We haven't even talked about how to handle=
+=20
+> sta mode power save.
 
+I think we're arguing over semantics; what's important here is that the
+STA tells the AP to buffer frames while we're performing a scan,
+correct?
+=20
+> If you wait until the end of the scan to return to the bss channel then=
+=20
+> you potentially miss buffered mcast frames.  You can up the station's=20
+> listen interval but that only gets you so far.  As I said there are=20
+> tradeoffs in doing this.
 
+An excellent point.  This is particularly relevant for APs that have a
+DTIM interval of 1 -- if you're doing a passive scan, the dwell time on
+that other channel (you need at least one beacon interval) could cause
+you to miss bufferend MCAST frames.
 
-On 1/16/06, Jesper Juhl <jesper.juhl@gmail.com> wrote:
-> On 1/16/06, Andy Gospodarek <andy@greyhouse.net> wrote:
-> > What userspace app will break because of this?
-> >
-> > On 1/16/06, Lee Revell <rlrevell@joe-job.com> wrote:
-> > > On Mon, 2006-01-16 at 15:04 -0500, Andy Gospodarek wrote:
-> > > > Printing the total number of sockets used in /proc/net/sockstat is out
-> > > > of place in a file that is supposed to contain information related to
-> > > > ipv4 sockets.  Removed output for total socket usage.
-> > > >
-> > >
-> > > Um, you can't do that, it will break userspace.
-> > >
->
-> That's not the point. The point is you can't go around changing things
-> exported to usersace - that has the potential to break apps.  Even if
-> no app is known to the people on this list there may still be apps out
-> there depending on it - and we don't break userspace without *very*
-> good reasons, and even then it's announced for several months (years
-> sometimes) in Documentation/feature-removal.txt and elsewhere.
->
-> --
-> Jesper Juhl <jesper.juhl@gmail.com>
-> Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-> Plain text mails only, please      http://www.expita.com/nomime.html
->
+In all fairness I don't think I've seen any implementations that handle
+this cleanly.
+
+ - Solomon
+--=20
+Solomon Peachy        				 ICQ: 1318344
+Melbourne, FL 					=20
+Quidquid latine dictum sit, altum viditur.
+
+--5gxpn/Q6ypwruk0T
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFDzAkTPuLgii2759ARAm3JAJ9TPFf5WKVjYZ7jrn65IiFzJEAuiACgu2qZ
+l7BzmAzAGElff9QpgNACfBY=
+=dOnv
+-----END PGP SIGNATURE-----
+
+--5gxpn/Q6ypwruk0T--
