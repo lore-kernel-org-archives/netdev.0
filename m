@@ -1,74 +1,62 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: Re: acxsm: migrate acx from homegrown 802.11 handling to softmac stack
-Date: Mon, 16 Jan 2006 08:52:14 +0200
-Message-ID: <200601160852.14702.vda@ilport.com.ua>
-References: <200601151352.44548.vda@ilport.com.ua> <200601151929.43896.carlos@cmartin.tk>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: 32 bit (socket layer) ioctl emulation for 64 bit kernels
+Date: Mon, 16 Jan 2006 10:39:23 +0100
+Message-ID: <200601161039.24333.arnd@arndb.de>
+References: <1137045732.5221.21.camel@spereira05.tusc.com.au> <200601131146.48128.arnd@arndb.de> <1137391160.5588.32.camel@spereira05.tusc.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>,
-	netdev@vger.kernel.org, softmac-dev@sipsolutions.net
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: acx100-devel@lists.sourceforge.net
-In-Reply-To: <200601151929.43896.carlos@cmartin.tk>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Andi Kleen <ak@muc.de>,
+	linux-kenel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, SP <pereira.shaun@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932310AbWAPJjx@vger.kernel.org>
+To: spereira@tusc.com.au
+In-Reply-To: <1137391160.5588.32.camel@spereira05.tusc.com.au>
 Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 15 January 2006 20:29, Carlos Mart=EDn wrote:
-> On Sunday 15 January 2006 12:52, Denis Vlasenko wrote:
-> > Hi,
-> >=20
-> > http://195.66.192.167/linux/acx_patches/acxsm-20060115.tar.bz2
+On Monday 16 January 2006 06:59, Shaun Pereira wrote:
 >=20
-> I've mirrored it at http://www.cmartin.tk/acx/ and will sync as with the=
-=20
-> 'normal' tarballs.
->=20
-> >=20
-> > README says:
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > *** Not run tested. Almost certainly won't work. Lots of things are TOD=
-O.
->=20
-> I'll try to try it out this week. Unfortunately, my USB device is broken=
-=20
-> again.
+> I was wondering if this the compat_sock_get_timestamp function is
+> needed? If I were to remove the SIOCGSTAMP case from the
+> compat_x25_ioctl function, then a SIOCGSTAMP ioctl system call would
+> return -ENOIOCTLCMD which could =A0then be handled by do_siocgstamp
+> handler in the ioctl32_hash_table? (fs/compat_ioctl.c)
+> In which case I could remove this patch from the rest of the series.
 
-It's not ready for actual usage, but code review would be appreciated.
-I am trying to keep acxsm close enough to acx so that "diff -urp acx acxsm"
-will give good idea about the differences.
+Yes, that would also work, as I already mentioned (or tried to)
+in one of my earlier comments. I would prefer to have this patch
+though, because in the long term, I think we should migrate more
+stuff away from the hash table and having the function there
+means that others can use it as well.
 
-> > P.S. It does not mean that acx driver is discontinued.
-> > It will be supported as before. Let's see whether acxsm
-> > will get any traction at all.
->              at^^^^^^^^
-> You mean it won't slip when the road is wet? :P
-> This should make certain things easier to handle, won't it? From what I'v=
-e=20
-> seen you don't have to worry about fragmentation of packets. Will the sta=
-ck=20
-> also handle TKPI/WPA?
+> +=A0=A0=A0=A0=A0=A0=A0err =3D -EFAULT;
+> +=A0=A0=A0=A0=A0=A0=A0if(access_ok(VERIFTY_WRITE, ctv, sizeof(*ctv)))=
+ {
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0err =3D __put_user(sk->=
+sk_stamp.tv_sec, &ctv->tv_sec);
+> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0err !=3D __put_user(sk-=
+>sk_stamp.tv_usec, &ctv->tv_usec);
+> +=A0=A0=A0=A0=A0=A0=A0}
+> +=A0=A0=A0=A0=A0=A0=A0return err;
+> +}
 
-Stack is meant to eventually handle all bells and whistles.
-The first important missing thing is AP mode. There is softmac'ish
-AP mode implementation in Devicescape stack...
-=2D-
-vda
+This copies the correct data down to user space now, but might result
+in returning an invalid error code.
+In the second line you now have 'err !=3D __put_user(...);', which is
+a comparison, not an assignment!
+=46or readability, I would simply write that as:
 
+	ret =3D 0;
+	if (put_user(sk->sk_stamp.tv_sec, &ctv->tv_sec) |
+	    put_user(sk->sk_stamp.tv_usec, &ctv->tv_usec))
+		err =3D -EFAULT;
 
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
+You can also write it like your code, but with '|' instead of '!', but
+that requires the additional knowledge that __put_user can only ever
+return '0' or '-EFAULT' itself and that the bitwise or of those is
+therefore also one of these two.
+
+	Arnd <><
