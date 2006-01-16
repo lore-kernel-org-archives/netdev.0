@@ -1,37 +1,120 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Mon, 16 Jan 2006 18:02:19 -0500
-Message-ID: <20060116230215.GE5529@tuxdriver.com>
-References: <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <Pine.LNX.4.58.0601152038540.19953@irie> <20060116170951.GA8596@shaftnet.org> <Pine.LNX.4.58.0601162020260.17348@irie> <20060116190629.GB5529@tuxdriver.com> <1137450281.15553.87.camel@localhost.localdomain>
+From: Shaun Pereira <spereira@tusc.com.au>
+Subject: [PATCH 1/4 - 2.6.15 ]net : 32 bit (socket layer) ioctl emulation
+	for 64 bit kernels
+Date: Tue, 17 Jan 2006 10:11:09 +1100
+Message-ID: <1137453069.6553.17.camel@spereira05.tusc.com.au>
+References: <1137122079.5589.34.camel@spereira05.tusc.com.au>
+	 <1137391160.5588.32.camel@spereira05.tusc.com.au>
+	 <20060116.154106.64415709.yoshfuji@linux-ipv6.org>
+	 <200601161043.31742.arnd@arndb.de>
+Reply-To: spereira@tusc.com.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <samuel.ortiz@nokia.com>,
-	ext Stuffed Crust <pizza@shaftnet.org>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751258AbWAPXCr@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1137450281.15553.87.camel@localhost.localdomain>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?=
+	 =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>,
+	acme@ghostprotocols.net, ak@muc.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pereira.shaun@gmail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751031AbWAPXNR@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+In-Reply-To: <200601161043.31742.arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 16, 2006 at 10:24:41PM +0000, Alan Cox wrote:
+Hi
+Here are the corrected patches
+/Shaun
 
-> I would expect equipment to honour the subset of configurations that
-> meet BOTH the regulatory domain the system believes it exists within
-> (which may change dynamically!) AND the AP advertisement.
-> 
-> If I have told my equipment to obey UK law I expect it to do so. If I
-> hop on the train to France and forget to revise my configuration I'd
-> prefer it also believed the APs
-
-Yes, this is an excellent point.  I suppose this could result in
-a non-functional configuration, but that is probably better than
-conflicting w/ the local authorities... :-)
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+diff -uprN -X dontdiff linux-2.6.15-vanilla/include/linux/net.h
+linux-2.6.15/include/linux/net.h
+--- linux-2.6.15-vanilla/include/linux/net.h	2006-01-03
+14:21:10.000000000 +1100
++++ linux-2.6.15/include/linux/net.h	2006-01-17 09:43:56.000000000 +1100
+@@ -143,6 +143,8 @@ struct proto_ops {
+ 				      struct poll_table_struct *wait);
+ 	int		(*ioctl)     (struct socket *sock, unsigned int cmd,
+ 				      unsigned long arg);
++	int	 	(*compat_ioctl) (struct socket *sock, unsigned int cmd,
++				      unsigned long arg);
+ 	int		(*listen)    (struct socket *sock, int len);
+ 	int		(*shutdown)  (struct socket *sock, int flags);
+ 	int		(*setsockopt)(struct socket *sock, int level,
+@@ -247,6 +249,8 @@ SOCKCALL_UWRAP(name, poll, (struct file 
+ 	      (file, sock, wait)) \
+ SOCKCALL_WRAP(name, ioctl, (struct socket *sock, unsigned int cmd, \
+ 			 unsigned long arg), (sock, cmd, arg)) \
++SOCKCALL_WRAP(name, compat_ioctl, (struct socket *sock, unsigned int
+cmd, \
++			 unsigned long arg), (sock, cmd, arg)) \
+ SOCKCALL_WRAP(name, listen, (struct socket *sock, int len), (sock,
+len)) \
+ SOCKCALL_WRAP(name, shutdown, (struct socket *sock, int flags), (sock,
+flags)) \
+ SOCKCALL_WRAP(name, setsockopt, (struct socket *sock, int level, int
+optname, \
+@@ -271,6 +275,7 @@ static struct proto_ops name##_ops = {		
+ 	.getname	= __lock_##name##_getname,	\
+ 	.poll		= __lock_##name##_poll,		\
+ 	.ioctl		= __lock_##name##_ioctl,	\
++	.compat_ioctl	= __lock_##name##_compat_ioctl,	\
+ 	.listen		= __lock_##name##_listen,	\
+ 	.shutdown	= __lock_##name##_shutdown,	\
+ 	.setsockopt	= __lock_##name##_setsockopt,	\
+@@ -279,6 +284,7 @@ static struct proto_ops name##_ops = {		
+ 	.recvmsg	= __lock_##name##_recvmsg,	\
+ 	.mmap		= __lock_##name##_mmap,		\
+ };
++
+ #endif
+ 
+ #define MODULE_ALIAS_NETPROTO(proto) \
+diff -uprN -X dontdiff linux-2.6.15-vanilla/net/socket.c
+linux-2.6.15/net/socket.c
+--- linux-2.6.15-vanilla/net/socket.c	2006-01-03 14:21:10.000000000
++1100
++++ linux-2.6.15/net/socket.c	2006-01-17 09:43:56.000000000 +1100
+@@ -109,6 +109,10 @@ static unsigned int sock_poll(struct fil
+ 			      struct poll_table_struct *wait);
+ static long sock_ioctl(struct file *file,
+ 		      unsigned int cmd, unsigned long arg);
++#ifdef CONFIG_COMPAT
++static long compat_sock_ioctl(struct file *file,
++		      unsigned int cmd, unsigned long arg);
++#endif
+ static int sock_fasync(int fd, struct file *filp, int on);
+ static ssize_t sock_readv(struct file *file, const struct iovec
+*vector,
+ 			  unsigned long count, loff_t *ppos);
+@@ -130,6 +134,9 @@ static struct file_operations socket_fil
+ 	.aio_write =	sock_aio_write,
+ 	.poll =		sock_poll,
+ 	.unlocked_ioctl = sock_ioctl,
++#ifdef CONFIG_COMPAT
++	.compat_ioctl = compat_sock_ioctl,
++#endif
+ 	.mmap =		sock_mmap,
+ 	.open =		sock_no_open,	/* special open code to disallow open via /proc
+*/
+ 	.release =	sock_close,
+@@ -2084,6 +2091,20 @@ void socket_seq_show(struct seq_file *se
+ }
+ #endif /* CONFIG_PROC_FS */
+ 
++#ifdef CONFIG_COMPAT
++static long compat_sock_ioctl(struct file *file, unsigned cmd, unsigned
+long arg)
++{
++	struct socket *sock;
++	sock = file->private_data;
++
++	int ret = -ENOIOCTLCMD;
++	if(sock->ops->compat_ioctl)
++		ret = sock->ops->compat_ioctl(sock, cmd, arg);
++
++	return ret;
++}
++#endif
++
+ /* ABI emulation layers need these two */
+ EXPORT_SYMBOL(move_addr_to_kernel);
+ EXPORT_SYMBOL(move_addr_to_user);
