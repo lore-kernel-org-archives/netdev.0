@@ -1,64 +1,49 @@
-From: Mike Kershaw <dragorn@kismetwireless.net>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Sun, 15 Jan 2006 19:06:39 -0500
-Message-ID: <20060116000639.GC20344@DRD1812>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <200601151340.10730.stefan@loplof.de> <43CAA4FD.5070605@errno.com>
-Reply-To: Mike Kershaw <dragorn@kismetwireless.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Mon, 16 Jan 2006 01:08:22 +0100
+Message-ID: <20060116000822.GD29663@stusta.de>
+References: <20060105181826.GD12313@stusta.de> <20060115161958.07e3c7f1@vitb.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="/NkBOFFp2J2Af1nK"
-Cc: Stefan Rompf <stefan@loplof.de>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932111AbWAPAGk@vger.kernel.org>
-To: Sam Leffler <sam@errno.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, saw@saw.sw.com.sg, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, john.ronciak@intel.com,
+	ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932092AbWAPAIX@vger.kernel.org>
+To: Vitaly Bordug <vbordug@ru.mvista.com>
 Content-Disposition: inline
-In-Reply-To: <43CAA4FD.5070605@errno.com>
+In-Reply-To: <20060115161958.07e3c7f1@vitb.dev.rtsoft.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Jan 15, 2006 at 04:19:58PM +0300, Vitaly Bordug wrote:
+> On Thu, 5 Jan 2006 19:18:26 +0100
+> Adrian Bunk <bunk@stusta.de> wrote:
+> 
+> > This patch removes the obsolete drivers/net/eepro100.c driver.
+> > 
+> > Is there any known problem in e100 still preventing us from removing 
+> > this driver (it seems noone was able anymore to verify the ARM problem)?
+> > 
+> I think I am recalling some problems on ppc82xx, when e100 was stuck on startup,
+> and eepro100 worked just fine. 
+> 
+> Even if the patch below will be scheduled for application, we need to set up enough time 
+> for approval that e100 will be fine for all the up-to-date hw; or it should be fixed/updated before eepro100 removal.
 
---/NkBOFFp2J2Af1nK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+How/When can you/someone else test this?
 
-On Sun, Jan 15, 2006 at 11:39:41AM -0800, Sam Leffler wrote:
-> The big stumbling block I found to going with virtual devices is that it=
-=20
-> affects user apps.  I looked at doing things like auto-create a station=
-=20
-> device for backwards compatibility but decided against it.  If you=20
-> really want this behaviour it can be done by user code.
+Do the e100 maintainers (Cc'ed) know about such problems and their 
+status?
 
-Right, no reason not to just put this into a hotplug script, is there?
-Is it, when it comes down to it, significantly different than automating
-firmware loads for the user?
+> Sincerely, 
+> Vitaly
 
--m
+cu
+Adrian
 
---=20
-Mike Kershaw/Dragorn <dragorn@kismetwireless.net>
-GPG Fingerprint: 3546 89DF 3C9D ED80 3381  A661 D7B2 8822 738B BDB1
+-- 
 
-Experts in ancient Greek culture say that people back then didn't see their
-thoughts as belonging to them.  When they had a thought, it occured to them
-as a god or goddess giving them an order.  Apollo was telling them to be
-brave.  Athena was telling them to fall in love.
-Now people hear a commercial for sour cream potato chips and rush out to bu=
-y.
-	-- Chuck Palahniuk
-
---/NkBOFFp2J2Af1nK
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDyuOP17KIInOLvbERAoZTAJ9mTn+dwdKWkSufaEHWBXwJnc3BFwCg5YUi
-bNUZknbLHgUHOVZn4ZtDfCA=
-=MEGa
------END PGP SIGNATURE-----
-
---/NkBOFFp2J2Af1nK--
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
