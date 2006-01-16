@@ -1,51 +1,48 @@
 From: Stuffed Crust <pizza@shaftnet.org>
 Subject: Re: wireless: recap of current issues (configuration)
-Date: Mon, 16 Jan 2006 15:58:59 -0500
-Message-ID: <20060116205859.GD12748@shaftnet.org>
-References: <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <43CAA853.8020409@errno.com> <20060116172817.GB8596@shaftnet.org> <43CBDDC7.9060504@errno.com> <20060116194013.GA12748@shaftnet.org> <43CBFE90.8070208@errno.com>
+Date: Mon, 16 Jan 2006 16:06:26 -0500
+Message-ID: <20060116210626.GA15495@shaftnet.org>
+References: <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <Pine.LNX.4.58.0601152038540.19953@irie> <20060116170951.GA8596@shaftnet.org> <Pine.LNX.4.58.0601162020260.17348@irie> <20060116190629.GB5529@tuxdriver.com> <Pine.LNX.4.58.0601162210550.17348@irie>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="5gxpn/Q6ypwruk0T"
-Cc: Jeff Garzik <jgarzik@pobox.com>,
+	protocol="application/pgp-signature"; boundary="dDRMvlgZJXvWKvBx"
+Cc: "ext John W. Linville" <linville@tuxdriver.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751194AbWAPU7b@vger.kernel.org>
-To: Sam Leffler <sam@errno.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751206AbWAPVGx@vger.kernel.org>
+To: Samuel Ortiz <samuel.ortiz@nokia.com>
 Content-Disposition: inline
-In-Reply-To: <43CBFE90.8070208@errno.com>
+In-Reply-To: <Pine.LNX.4.58.0601162210550.17348@irie>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---5gxpn/Q6ypwruk0T
+--dDRMvlgZJXvWKvBx
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Jan 16, 2006 at 12:14:08PM -0800, Sam Leffler wrote:
-> Please read what I wrote again.  Station mode power save work involves=20
-> communicating with the ap and managing the hardware.  The first=20
-> interacts with bg scanning.  We haven't even talked about how to handle=
-=20
-> sta mode power save.
+On Mon, Jan 16, 2006 at 10:16:06PM +0200, Samuel Ortiz wrote:
+> Well, I'd rather trust a governement regulated network than my neighbour's
+> AP ;-) In fact, some phones set their 802.11 regulatory domain based on
+> the information they received from a somehow government regulated network,
+> e.g. a GSM one.
 
-I think we're arguing over semantics; what's important here is that the
-STA tells the AP to buffer frames while we're performing a scan,
-correct?
-=20
-> If you wait until the end of the scan to return to the bss channel then=
-=20
-> you potentially miss buffered mcast frames.  You can up the station's=20
-> listen interval but that only gets you so far.  As I said there are=20
-> tradeoffs in doing this.
+The asumption is that 802.11d information, like current "regdomain"
+settings, is fixed and not user-configurable.  If the regdomain is
+changeable by the user, that unit would not be approved for sale in that
+particular locale.
 
-An excellent point.  This is particularly relevant for APs that have a
-DTIM interval of 1 -- if you're doing a passive scan, the dwell time on
-that other channel (you need at least one beacon interval) could cause
-you to miss bufferend MCAST frames.
+(Now 802.11d doesn't specify what to do when you hear two conflicting=20
+ 802.11d beacons.... there go those assumptions again..)
 
-In all fairness I don't think I've seen any implementations that handle
-this cleanly.
+Stations respecting 802.11d rules are not allowed to transmit on any
+supported frequency until they hear an AP on that frequency first. =20
+
+This essentially means that all scans are passive until we hear an AP,
+and we can't transmit on any other (presumably still silent) frequencies
+unless we hear an 802.11d beacon that says we can.
 
  - Solomon
 --=20
@@ -53,16 +50,16 @@ Solomon Peachy        				 ICQ: 1318344
 Melbourne, FL 					=20
 Quidquid latine dictum sit, altum viditur.
 
---5gxpn/Q6ypwruk0T
+--dDRMvlgZJXvWKvBx
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFDzAkTPuLgii2759ARAm3JAJ9TPFf5WKVjYZ7jrn65IiFzJEAuiACgu2qZ
-l7BzmAzAGElff9QpgNACfBY=
-=dOnv
+iD8DBQFDzArSPuLgii2759ARAqx7AKCeOtC9h+zdwU5L9KozsoT4ZUgAcgCeIkT2
+APaXfKBDnDXQ32wi7IeS4/s=
+=/Oyl
 -----END PGP SIGNATURE-----
 
---5gxpn/Q6ypwruk0T--
+--dDRMvlgZJXvWKvBx--
