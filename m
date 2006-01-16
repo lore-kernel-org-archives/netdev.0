@@ -1,72 +1,35 @@
-From: Stuffed Crust <pizza@shaftnet.org>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Mon, 16 Jan 2006 14:50:08 -0500
-Message-ID: <20060116195008.GB12748@shaftnet.org>
-References: <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <43CAA853.8020409@errno.com> <20060116172817.GB8596@shaftnet.org> <Pine.LNX.4.58.0601162056261.17348@irie>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [patch] networking ipv4: remove total socket usage count from /proc/net/sockstat
+Date: Mon, 16 Jan 2006 15:04:32 -0500
+Message-ID: <20060116200432.GB14060@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="i9LlY+UWpKt15+FH"
-Cc: Sam Leffler <sam@errno.com>, Jeff Garzik <jgarzik@pobox.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751178AbWAPTu6@vger.kernel.org>
-To: Samuel Ortiz <samuel.ortiz@nokia.com>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751190AbWAPUFx@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0601162056261.17348@irie>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Printing the total number of sockets used in /proc/net/sockstat is out
+of place in a file that is supposed to contain information related to
+ipv4 sockets.  Removed output for total socket usage.
 
---i9LlY+UWpKt15+FH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
 
-On Mon, Jan 16, 2006 at 09:07:52PM +0200, Samuel Ortiz wrote:
-> That is true, thin MACs usually don't filter beacons on the same channel.
-> But in some cases (mainly power saving), you really want to avoid
-> receiving useless beacons and having the host woken up for each of them.
-> You may even want to not receive all the useful ones (the ones coming from
-> the AP you're joined with) if your softmac allows that.
+ proc.c |    1 -
+ 1 files changed, 1 deletion(-)
 
-BSSID filtering doesn't matter as far as 802.11 powersave is concerned
--- the power savings come from disabling the RF/BBP components.  In
-other words, you can't receive or transmit traffic.
 
-If you're respecting the AP's beacon interval/DTIM settings, you only=20
-wake up every couple of beacon intervals and listen for a beacon.  IF=20
-there's traffic waiting for you, then you wake up your transmitter, send=20
-out a PSPOLL (or NULL/PSEnd) frame, get your traffic, then go back to=20
-sleep again. =20
-
-You may hear another beacon when the STA is awake, you may not.  BSSID=20
-filtering has nothing to do with 802.11 power save, but rather is=20
-intented to reduce the host load (interrupts, processing overhead) and=20
-thus the host power consumption.
-
-> This kind of beacon filtering is a big power saver, which is one of the
-> most important requirement for some platforms (phones, PDA, etc...).
-
-You need to be clear if you're talking about 802.11 powersave, versus=20
-"power savings stemming from reducing the load on the host system",=20
-which is where BSSID filtering is beneficial.
-
- - Solomon
---=20
-Solomon Peachy        				 ICQ: 1318344
-Melbourne, FL 					=20
-Quidquid latine dictum sit, altum viditur.
-
---i9LlY+UWpKt15+FH
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFDy/jwPuLgii2759ARAkAmAKDaWvdZBiYlCZTEldQDQMYeaDRztgCfZvbj
-fzqcNrsbY4DyI8IbwTZqauI=
-=APT6
------END PGP SIGNATURE-----
-
---i9LlY+UWpKt15+FH--
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -60,7 +60,6 @@ static int fold_prot_inuse(struct proto 
+  */
+ static int sockstat_seq_show(struct seq_file *seq, void *v)
+ {
+-	socket_seq_show(seq);
+ 	seq_printf(seq, "TCP: inuse %d orphan %d tw %d alloc %d mem %d\n",
+ 		   fold_prot_inuse(&tcp_prot), atomic_read(&tcp_orphan_count),
+ 		   tcp_death_row.tw_count, atomic_read(&tcp_sockets_allocated),
