@@ -1,51 +1,57 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Mon, 16 Jan 2006 15:23:12 +0100
-Message-ID: <20060116152312.6b9ddfd0@griffin.suse.cz>
-References: <20060113195723.GB16166@tuxdriver.com>
-	<20060113212605.GD16166@tuxdriver.com>
-	<20060113213011.GE16166@tuxdriver.com>
-	<20060113221935.GJ16166@tuxdriver.com>
-	<1137191522.2520.63.camel@localhost>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATCH] WLAN acx100: OOPS fix, KERN_xxx, misc.
+Date: Mon, 16 Jan 2006 16:34:21 +0200
+Message-ID: <200601161634.21183.vda@ilport.com.ua>
+References: <20060116140233.GA8170@rhlx01.fht-esslingen.de>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750830AbWAPOXQ@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1137191522.2520.63.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andreas Mohr <andim2@users.sourceforge.net>,
+	netdev@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: acx100-devel@lists.sourceforge.net
+In-Reply-To: <20060116140233.GA8170@rhlx01.fht-esslingen.de>
+Content-Disposition: inline
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Jan 2006 23:32:02 +0100, Johannes Berg wrote:
-> IMHO there's not much point in allowing changes. I have a feeling that
-> might create icky issues you don't want to have to tackle when the
-> solution is easy by just not allowing it. Part of my thinking is that
-> different virtual types have different structures associated, so
-> changing it needs re-creating structures anyway.
+On Monday 16 January 2006 16:02, Andreas Mohr wrote:
+> Hi all (and especially Denis),
+> 
+> acx-20060116_misc.diff:
+> - fix OOPS in acx_l_rxmonitor() (wrong ndev->type setting leading to memcpy
+>   of negative size) by reworking monitor mode type setup and adding
+>   missing sanity checks
+> - rename acx1XX_ie_powermgmt_t to more correct acx1XX_ie_powersave_t
+> - fix format string compile warnings
+> - add <linux/compiler.h> include apparently required for __iomem define
+>   around Linux 2.6.8
+> - rework eCPU init by replacing static msleep with faster, more intelligent
+>   (hopefully) busy-wait
+> 
+> acx-20060116_KERN_xxx.diff (too large: gzipped):
 
-You are right. But it breaks compatibility with iwconfig unless we
-emulate 'iwconfig mode' command by deleting and adding interface. This
-means some events are generated, hotplug/udev gets involved etc.  In the
-worst case it can mean that we end up with interface with a different
-name.
+Applied, thanks!
 
-> And different virtual
-> device types might even be provided by different kernel modules so you
-> don't carry around AP mode if you don't need it.
+> - add proper KERN_xxx prefixes to printk() as requested recently
 
-I'm not sure about your concept of softmac modules. I wrote an e-mail
-some time ago explaining why I don't think it is useful and I haven't
-got any reply. Please, could you answer that e-mail first? (See
-http://marc.theaimsgroup.com/?l=linux-netdev&m=113404158202233&w=2)
+Please forward me that request.
+--
+vda
 
-Could you also explain how would you implement separate module for AP
-mode? How would you bind that module to the rest of ieee80211,
-especially in the rx path?
 
-Thanks,
-
--- 
-Jiri Benc
-SUSE Labs
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://ads.osdn.com/?ad_id=7637&alloc_id=16865&op=click
