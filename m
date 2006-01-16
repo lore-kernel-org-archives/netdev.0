@@ -1,60 +1,89 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: wireless: recap of current issues (actions)
-Date: Mon, 16 Jan 2006 15:44:06 +0100
-Message-ID: <1137422646.2520.102.camel@localhost>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Mon, 16 Jan 2006 15:55:55 +0100
+Message-ID: <1137423355.2520.112.camel@localhost>
 References: <20060113195723.GB16166@tuxdriver.com>
 	 <20060113212605.GD16166@tuxdriver.com>
-	 <20060113213311.GI16166@tuxdriver.com>
-	 <20060113222512.GN16166@tuxdriver.com> <43C9770F.1000400@pobox.com>
-	 <20060115005614.GB32206@tuxdriver.com>
+	 <20060113213011.GE16166@tuxdriver.com>
+	 <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
+	 <20060116152312.6b9ddfd0@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-o446jK9M8EmLr47/H5Jv"
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750842AbWAPOoe@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060115005614.GB32206@tuxdriver.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7iMWWHwt7HsYxnd7U9+v"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750846AbWAPO6f@vger.kernel.org>
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060116152312.6b9ddfd0@griffin.suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-o446jK9M8EmLr47/H5Jv
+--=-7iMWWHwt7HsYxnd7U9+v
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2006-01-14 at 19:56 -0500, John W. Linville wrote:
+On Mon, 2006-01-16 at 15:23 +0100, Jiri Benc wrote:
 
-> Yes, someone (Johannes?  Jiri?) had the beginnings of this a few days
-> ago, but I seem to have lost the link.  Could someone repost it?
+> You are right. But it breaks compatibility with iwconfig unless we
+> emulate 'iwconfig mode' command by deleting and adding interface. This
+> means some events are generated, hotplug/udev gets involved etc.  In the
+> worst case it can mean that we end up with interface with a different
+> name.
 
-http://johannes.sipsolutions.net/802.11_stacks/
+Eh, right. In that case, I guess that dropping compatibility here would
+be the only solution. Other iwconfig could still work though. I don't
+know where to draw the line.
 
-Someone should start a new page to collect all the info we're talking
-about at the moment on the netdev wiki and then also move this content
-there. I don't think I'll get to it in the next few days.
+> I'm not sure about your concept of softmac modules. I wrote an e-mail
+> some time ago explaining why I don't think it is useful and I haven't
+> got any reply. Please, could you answer that e-mail first? (See
+> http://marc.theaimsgroup.com/?l=3Dlinux-netdev&m=3D113404158202233&w=3D2)
+
+I didn't really participate much in that thread. Maybe softmac was a bad
+example for being a module -- it just seemed to fit the current model
+that the in-kernel ieee80211 module follows.
+
+> Could you also explain how would you implement separate module for AP
+> mode? How would you bind that module to the rest of ieee80211,
+> especially in the rx path?
+
+Well, if you look at p80211 that davem wrote there are functions for
+handling each type of the different receive frames. These could easily
+be multiplexed into function pointers the module provides.
+
+I really don't see why a plain STA mode card should be required to carry
+around all the code required for AP operation -- handling associations
+of clients, powersave management wrt. buffering, ... Sure, fragmentation
+is needed for all, so it needs to be in the common code, and it might
+make a lot of sense to unify WDS and STA modes, but AP mode requires
+fundamentally different things and a lot of code that will never be
+called in STA operation.
+Putting it into the same modules and then probably into the same
+structures just encourages bloat and interdependencies that I don't
+think should be there.
 
 johannes
 
---=-o446jK9M8EmLr47/H5Jv
+--=-7iMWWHwt7HsYxnd7U9+v
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (SIP Solutions)
 
-iQIVAwUAQ8uxNKVg1VMiehFYAQJ5ew/+OOrSZ5rIAD9ZlZ7kBeUIZHDOzBMfi0bN
-wpfPsbHOTcKSHZ7kUa9UmO1neRe9fLaqD0WOyhPhKQn+lhHyu9q/VCitHmxAbYb+
-CcIpB2QNfCDTw3reqjX06qwO1idOcSlqgSPi6Nq3msDI5yvH2CPkynLX0zyeqkih
-6qePFs26LgRRxr8oEu887+d9dV1FBgh8oTh4HTAnCWgYmQMQl4n0QT2zLImBtAHo
-Lu/ud/96+CArI0L1oUcR9Yzpsp4lKhPfkbKtyIrgh4FZDDdAWk5nZ4be7YV26oKe
-BvGIrNZV+qSZC2IcR0lgTKLhiL6cL/bhI5bR0SyKyZIWm+RZY8TtB8nvtB/VjbWa
-Kcf55lTZ7eTg88ji4de1947kNAFVU+aOeKAIAqeXA5BwUxzpl9lFnvLw7z/+T4Dn
-vv4TBS3PNjJNcdcmWuUsmXgwyVyYuf/jEoUYGq6sEx/zs94PC5O24Qk/xKegkxnP
-trKzbXTi9RuLmPqs/mejGi0vnLkYOSCanfRIW1jI9Av8lxDAMqwpcjqJBcVV7EGa
-pCdak+LhzWBGLSmSQl6BL20SqaoG2EVEGcx7l9W8YNLpobZbfuDUPAHrbtB8IDN2
-Z8wfGi8h7n4XnUoJ808xEto7qZYuesWdvuhskB+U3nBvCONkcTO7/6uJWXw8pIbK
-snyWVSwgi2w=
-=O8o/
+iQIVAwUAQ8uz+aVg1VMiehFYAQJJAxAAxQAtQL+7CuRRmlTJ8mCmyaaf3teJrRVE
+fSnS0HBrqckgfMIHHDzz4ZGF4qWUVbaR/ED4juW/16Uaf73jLllGZkVhC3IV0K3D
+gbrIq2w0fufAEeKt1JYCMH9hTLbHsvcXBYt31s1pIlRd8d9rqZ2A8KiOaK8WlxD7
+VKxgWzbqfVRhNKNxvTs3dKAZ6tMyTClxC0OTCDUZCNoTw5lOMSpNbudXFdwqNTPz
+EZb/cfd9GrjJHh0a3gHqRRMwg12JnAR4dmv2YhA0TEVX/fvGQAltAhlaBtDwiBDB
+4FUOUOdhrehYbeuMitd6m6uk7Wm8G4uYYVzz8YjUoFjQ3dhiym3bVI4SkdaBXYd4
+TsDALen9bX/PY/eiwsC9qdRuUp9SsCjFmPl+U+FESmcrvneoUW8HIbaiUIHMyI6C
+3HE3mhYLGcP7bl/Lh6dyg50hAOGTxh33nfVw/pr6Hnp0/Em8nUKtJtzDaaC+Cs8X
+Br+FKawzgnxroZXJJUzltIhpIX/1sMkCkSY1slH4sfqiVbe4esAkhTZX8szlwZPm
+xCrHK4IYXk5PMVIFA+YprkQtrNt4NLYh1q3zN0kfjxj9rHVuXJBnsRlBdvPZ5i/7
+A4Pa61Ctg72ww/zKKa3u6YAkt86E2bw9TuO/bQBsn9Q9MesJLkIw9dFlLREL0Xem
+uwrzxdyBfgE=
+=ktyh
 -----END PGP SIGNATURE-----
 
---=-o446jK9M8EmLr47/H5Jv--
+--=-7iMWWHwt7HsYxnd7U9+v--
