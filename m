@@ -1,76 +1,51 @@
-From: Stuffed Crust <pizza@shaftnet.org>
+From: Samuel Ortiz <samuel.ortiz@nokia.com>
 Subject: Re: wireless: recap of current issues (configuration)
-Date: Mon, 16 Jan 2006 15:16:27 -0500
-Message-ID: <20060116201627.GC12748@shaftnet.org>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com> <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060116152312.6b9ddfd0@griffin.suse.cz> <1137423355.2520.112.camel@localhost> <20060116173325.GC8596@shaftnet.org> <43CBDF32.50109@errno.com>
+Date: Mon, 16 Jan 2006 22:16:06 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0601162210550.17348@irie>
+References: <20060113212605.GD16166@tuxdriver.com> <20060113213011.GE16166@tuxdriver.com>
+ <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost>
+ <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com>
+ <20060115152034.GA1722@shaftnet.org> <Pine.LNX.4.58.0601152038540.19953@irie>
+ <20060116170951.GA8596@shaftnet.org> <Pine.LNX.4.58.0601162020260.17348@irie>
+ <20060116190629.GB5529@tuxdriver.com>
+Reply-To: samuel.ortiz@nokia.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="69pVuxX8awAiJ7fD"
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751196AbWAPURS@vger.kernel.org>
-To: Sam Leffler <sam@errno.com>
-Content-Disposition: inline
-In-Reply-To: <43CBDF32.50109@errno.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ext Stuffed Crust <pizza@shaftnet.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751192AbWAPUTY@vger.kernel.org>
+To: "ext John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060116190629.GB5529@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 16 Jan 2006, ext John W. Linville wrote:
 
---69pVuxX8awAiJ7fD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Mon, Jan 16, 2006 at 08:51:31PM +0200, Samuel Ortiz wrote:
+> > On Mon, 16 Jan 2006, ext Stuffed Crust wrote:
+> >
+> > > On Sun, Jan 15, 2006 at 09:05:33PM +0200, Samuel Ortiz wrote:
+> > > > Regarding 802.11d and regulatory domains, the stack should also be able to
+> > > > stick to one regulatory domain if asked so by userspace, whatever the APs
+> > > > around tell us.
+> > >
+> > > ...and in doing so, violate the local regulatory constraints.  :)
+> > The other option is to conform to whatever the AP you associate with
+> > advertises. In fact, this is how it should be done according to 802.11d.
+> > Unfortunately, this doesn't ensure local regulatory constraints compliance
+> > unless you expect each and every APs to do the Right Thing ;-)
+>
+> If regulators come down on someone, it seems like common sense
+> that they would be more lenient on mobile stations complying with a
+> misconfigured AP than they would be with a mobile station ignoring a
+> properly configured AP?  I know expecting common sense from government
+> regulators is optimistic, but still... :-)
+Well, I'd rather trust a governement regulated network than my neighbour's
+AP ;-) In fact, some phones set their 802.11 regulatory domain based on
+the information they received from a somehow government regulated network,
+e.g. a GSM one.
 
-On Mon, Jan 16, 2006 at 10:00:18AM -0800, Sam Leffler wrote:
-> Perhaps you haven't hit some of the more recent standards that place=20
-> more of a burden on the ap implementation?  Also some vendor-specific=20
-> protocol features suck up space for ap mode only and it is nice to be=20
-> able to include them only as needed.
-
-While there is more work to be done on the AP side, and that code may
-even be easily wrapped in an #ifdef, the majority of the complexity is
-shared by both the station and the AP.  It's worth mentioning that the
-802.11 specs do not generally differentiate between "APs vs non-APs" --
-they're all "STAs" of equal capabilities.
-
-This is at least true of 802.11d, 802.11e, 802.11i
-(supplicant/authenticator notwithstanding), 802.11j, and 802.11k.  The
-general difference is that the AP needs to be aware of the state of its
-associated STAs, and perform different actions depending on configured
-policy and the STAs' states, whereas the STAs generally do what the AP
-tells them to do.
-
-> There are several advantages to splitting up the code such as reduced=20
-> audit complexity and real space savings but I agree that it is an open=20
-> question whethere there's a big gain to modularizing the code by=20
-> operating mode.
-
-I agree that there would be some space savings, but they'd be relatively
-small, at least if the stack is designed to be generic.  This would make
-the most difference for tiny/embedded systems -- but they'd want to use
-#ifdefs to disable all AP code entirely, which includes all of the "if=20
-(ap_mode) { } else { }" clauses that would litter the whole codebase,=20
-regardless of modularity.  (then if we use function pointers... that's a=20
-*lot* of virtual functions..)
-
- - Solomon
---=20
-Solomon Peachy        				 ICQ: 1318344
-Melbourne, FL 					=20
-Quidquid latine dictum sit, altum viditur.
-
---69pVuxX8awAiJ7fD
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFDy/8bPuLgii2759ARAr8+AJ9eOvYBvCyRanBWmPcoxpFgkG77mwCgiYh1
-ThjIgjnzcX28SC2ANjNmsMU=
-=HKf2
------END PGP SIGNATURE-----
-
---69pVuxX8awAiJ7fD--
+Cheers,
+Samuel.
