@@ -1,67 +1,58 @@
-From: Stuffed Crust <pizza@shaftnet.org>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Tue, 17 Jan 2006 13:41:14 -0500
-Message-ID: <20060117184114.GB20298@shaftnet.org>
-References: <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <Pine.LNX.4.58.0601152038540.19953@irie> <20060116170951.GA8596@shaftnet.org> <Pine.LNX.4.58.0601162020260.17348@irie> <20060116190629.GB5529@tuxdriver.com> <1137450281.15553.87.camel@localhost.localdomain>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Tue, 17 Jan 2006 19:48:34 +0100
+Message-ID: <20060117184834.GD19398@stusta.de>
+References: <20060105181826.GD12313@stusta.de> <20060115161958.07e3c7f1@vitb.dev.rtsoft.ru> <20060115160340.6f8cc7d6@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="eAbsdosE1cNLO4uF"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Samuel Ortiz <samuel.ortiz@nokia.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932376AbWAQSnQ@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vitaly Bordug <vbordug@ru.mvista.com>, jgarzik@pobox.com,
+	saw@saw.sw.com.sg, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932399AbWAQSsh@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <1137450281.15553.87.camel@localhost.localdomain>
+In-Reply-To: <20060115160340.6f8cc7d6@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Jan 15, 2006 at 04:03:40PM -0800, Stephen Hemminger wrote:
+> On Sun, 15 Jan 2006 16:19:58 +0300
+> Vitaly Bordug <vbordug@ru.mvista.com> wrote:
+> 
+> > On Thu, 5 Jan 2006 19:18:26 +0100
+> > Adrian Bunk <bunk@stusta.de> wrote:
+> > 
+> > > This patch removes the obsolete drivers/net/eepro100.c driver.
+> > > 
+> > > Is there any known problem in e100 still preventing us from removing 
+> > > this driver (it seems noone was able anymore to verify the ARM problem)?
+> > > 
+> > I think I am recalling some problems on ppc82xx, when e100 was stuck on startup,
+> > and eepro100 worked just fine. 
+> > 
+> > Even if the patch below will be scheduled for application, we need to set up enough time 
+> > for approval that e100 will be fine for all the up-to-date hw; or it should be fixed/updated before eepro100 removal.
+> > 
+> > > 
+> > > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> > > 
+> > >
+> 
+> How about doing what was done with devfs removal, and remove it
+> from the config menu system for a couple of releases.
 
---eAbsdosE1cNLO4uF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+IMHO the devfs case was different since the complete devfs removal patch 
+(although being straightforward) touches many files.
 
-On Mon, Jan 16, 2006 at 10:24:41PM +0000, Alan Cox wrote:
-> If I have told my equipment to obey UK law I expect it to do so. If I
-> hop on the train to France and forget to revise my configuration I'd
-> prefer it also believed the APs
+In the eepro100 case (assuming there were no more known regressions in 
+the e100 driver), reverting the removal patch would be trivial.
 
-It's not that you might forget to revise your configuration, but that=20
-the vast majority of users will not revise anything, and still expect=20
-things to "just work".  Kind of like multi-band cell phones. =20
+cu
+Adrian
 
-This isn't that big of a deal in the 2.4GHz band, but when you start
-talking about 5GHz, especially in France, things get a lot trickier.
+-- 
 
-Of course, all of this automagic "just work" crap only affects the STAs.=20
-For AP operation, we have to trust the user to set the correct locale --
-I don't see any way of including a sane "just-works" default in the
-stock kernel.org tree, so I think the default should be be "none".  This
-way the user is forced to explicitly set the regdomain in order for the
-AP startup to succeed.
-
-=2E..and pray that the AP isn't migrating to a different regdomain, but=20
-there's really nothing anyone can do about that.
-
- - Solomon
---=20
-Solomon Peachy        				 ICQ: 1318344
-Melbourne, FL 					=20
-Quidquid latine dictum sit, altum viditur.
-
---eAbsdosE1cNLO4uF
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFDzTpKPuLgii2759ARAgO4AJ9CD7o+BR/IqBN8UhpANGQBstW2sACggIUA
-vTd3Ct+uIXzCoaTrMycNhAw=
-=oR+o
------END PGP SIGNATURE-----
-
---eAbsdosE1cNLO4uF--
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
