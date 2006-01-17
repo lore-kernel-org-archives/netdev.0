@@ -1,50 +1,68 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: wireless: recap of current issues (other issues / fake ethernet)
-Date: Wed, 18 Jan 2006 00:36:09 +0100
-Message-ID: <200601180036.10500.stefan@loplof.de>
-References: <20060113195723.GB16166@tuxdriver.com> <43C97693.7000109@pobox.com> <20060115153920.GB1722@shaftnet.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/5] [RFC] Infiniband: connection
+	abstraction
+Date: Tue, 17 Jan 2006 15:38:38 -0800
+Message-ID: <20060117153838.3dc2cd2e@dxpl.pdx.osdl.net>
+References: <ORSMSX401FRaqbC8wSA0000003e@orsmsx401.amr.corp.intel.com>
+	<ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932394AbWAQXiD@vger.kernel.org>
-To: Stuffed Crust <pizza@shaftnet.org>
-In-Reply-To: <20060115153920.GB1722@shaftnet.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Sean Hefty" <sean.hefty@intel.com>
+In-Reply-To: <ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag 15 Januar 2006 16:39 schrieb Stuffed Crust:
+Minor nits.
 
-> Internally, we're pure 802.11.  One thing to keep in mind that we're not
-> going to be bridging/translating non-data traffic to other networks, and
-> with that in mind, 802.3<->802.11 translation is trivial, and won't lose
-> anything except for a bit of efficiency.  (and then, just to be
-> contrary, the prism54 hardware actually requires 802.3 frames!)
+On Tue, 17 Jan 2006 15:24:37 -0800
+"Sean Hefty" <sean.hefty@intel.com> wrote:
 
-prism2 usb is even worse - the urb is build of some control structure, the 
-802.11 3 address header, a 802.3 header and the 802.11 data part. Some bits 
-in the control structure decide whether the 802.11 or the 802.3 header is 
-used to create the frame sent to the air.
+> The following patch extends matching connection requests to listens in the
+> Infiniband CM to include private data.
+> 
+> Signed-off-by: Sean Hefty <sean.hefty@intel.com>
+> 
+> ---
 
-Fortunately, a driver should be able to specify it's additional memory need at 
-the front of the frame via hard_header_len. Some drivers will need to do some 
-ugly memmove()s at the packet begin then.
+> +static void cm_mask_compare_data(u8 *dst, u8 *src, u8 *mask)
 
-> (Part of the problem is that 802.11 has a variable-length header - 24,
->  26, 30, or 32 bytes, and each address field means different things
->  depending on which mode we're using..)
+static void cm_mask_compare_data(u8 *dst, const u8 *src, u8 *mask)
 
-.. and it gets even worse as soon as we start encrypting packets. I think we 
-should start using the netdev wiki at http://linux-net.osdl.org/ to collect 
-information. For this part of the discussion, we need to know what transmit 
-frame formats different hardware needs.
+but I would rename it to cm_mask_copy since it doesn't really do a compare.
 
-I'll ask Stephen Hemminger to put a link for wireless development on the index 
-page and will start with frame information for prism2 and other hardware I 
-have and understand good enough.
 
-Stefan
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < IB_CM_PRIVATE_DATA_COMPARE_SIZE; i++)
+> +		dst[i] = src[i] & mask[i];
+> +}
+> +
+> +static int cm_compare_data(struct ib_cm_private_data_compare *src_data,
+> +			   struct ib_cm_private_data_compare *dst_data)
+
+static int cm_compare_data(const struct ib_cm_private_data_compare *src,
+		           cosnt struct ib_cm_private_data_compare *dst)
+Your data type names are getting too long ^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+<flamebait>
+Also should infiniband exports be EXPORT_SYMBOL_GPL, to make
+it clear that binary drivers for this are not allowed??
+</flamebait>
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+OSDL http://developer.osdl.org/~shemminger
