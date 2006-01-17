@@ -1,32 +1,28 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH ] ethtool: Remove duplex info from CTRL register dump
-Date: Tue, 17 Jan 2006 08:08:47 -0500
-Message-ID: <43CCEC5F.7020801@pobox.com>
-References: <20060112071642.29428.23880.stgit@Gecko.tarbal.com>
+Subject: Re: [2.6 patch] drivers/net/arcnet/: possible cleanups
+Date: Tue, 17 Jan 2006 08:38:25 -0500
+Message-ID: <43CCF351.2050004@pobox.com>
+References: <20060114021022.GE29663@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932467AbWAQNIw@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-In-Reply-To: <20060112071642.29428.23880.stgit@Gecko.tarbal.com>
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932480AbWAQNib@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060114021022.GE29663@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher wrote:
-> The duplex control register is used for setting the driver and is not
-> necessary for debug purposes.  The value of the duplex control register is
-> what the register's current value is and may not reflect the correct status
-> of te current connection.  That is what the duplex status register is used
-> for.  To keep from confusing the user, we are removing the duplex register
-> from the ethtool dump of the registers.
+Adrian Bunk wrote:
+> This patch contains the following possible cleanups:
+> - make needlessly global code static
+> - arcnet.c: remove the unneeded EXPORT_SYMBOL(arc_proto_null)
+> - arcnet.c: remove the unneeded EXPORT_SYMBOL(arcnet_dump_packet)
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: John Ronciak <john.ronciak@intel.com>
+> To make Jeff happy, arcnet.c still prints
+>   arcnet: v3.93 BETA 2000/04/29 - by Avery Pennarun et al.
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-applied, after replacing "ethtool:" with "e1000:" in the subject line.
-
-	Jeff
+applied
