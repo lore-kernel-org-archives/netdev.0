@@ -1,64 +1,67 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: wireless: recap of current issues (stack)
-Date: Tue, 17 Jan 2006 09:38:18 -0800
-Message-ID: <20060117173818.GA19159@bougret.hpl.hp.com>
-References: <20060113195723.GB16166@tuxdriver.com> <20060113213200.GG16166@tuxdriver.com> <200601131703.29677.chase.venters@clientec.com> <200601141451.16232.mbuesch@freenet.de>
-Reply-To: jt@hpl.hp.com
+From: Stuffed Crust <pizza@shaftnet.org>
+Subject: Re: wireless: recap of current issues (configuration)
+Date: Tue, 17 Jan 2006 13:41:14 -0500
+Message-ID: <20060117184114.GB20298@shaftnet.org>
+References: <20060113221935.GJ16166@tuxdriver.com> <1137191522.2520.63.camel@localhost> <20060114011726.GA19950@shaftnet.org> <43C97605.9030907@pobox.com> <20060115152034.GA1722@shaftnet.org> <Pine.LNX.4.58.0601152038540.19953@irie> <20060116170951.GA8596@shaftnet.org> <Pine.LNX.4.58.0601162020260.17348@irie> <20060116190629.GB5529@tuxdriver.com> <1137450281.15553.87.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chase Venters <chase.venters@clientec.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	Stefan Rompf <stefan@loplof.de>,
-	Mike Kershaw <dragorn@kismetwireless.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Robert Hancock <hancockr@shaw.ca>,
-	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
-	Dominik Brodowski <linux@dominikbrodowski.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Danny van Dyk <kugelfang@gentoo.org>,
-	Stephen Hemminger <shemminger@osdl.org>, feyd <feyd@nmskb.cz>,
-	Andreas Mohr <andim2@users.sourceforge.net>,
-	Bas Vermeulen <bvermeul@blackstar.nl>,
-	Jean Tourrilhes <jt@hpl.hp.com>, Daniel Drake <dsd@gentoo.org>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Phil Dibowitz <phil@ipom.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Ingo Oeser <netdev@axxeo.de>,
-	Harald Welte
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932251AbWAQRil@vger.kernel.org>
-To: Michael Buesch <mbuesch@freenet.de>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="eAbsdosE1cNLO4uF"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Samuel Ortiz <samuel.ortiz@nokia.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932376AbWAQSnQ@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Content-Disposition: inline
-In-Reply-To: <200601141451.16232.mbuesch@freenet.de>
+In-Reply-To: <1137450281.15553.87.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 14, 2006 at 02:51:14PM +0100, Michael Buesch wrote:
-> On Saturday 14 January 2006 00:03, you wrote:
-> > As an aside to this whole thing, I know we're talking about *kernel* wireless 
-> > but it's worthless to most people without good userland support as well. 
-> > Anyone have any thoughts and feelings on what things look like on the 
-> > desktop? I think if we work closely with some desktop people, we can shepard 
-> > in some wonderful new desktop support on top of the new netlink API.
-> 
-> I am in the KDE development and have (almost) full access to the KDE svn
-> repository. Altought I did not do much coding on KDE apps recently,
-> I will be able to help in WiFi support for KDE.
-> The first thing I thought of, was a tray icon with basic information
-> about the available interfaces and basic configuration
-> capabilities.
 
-	There is already at least 2 KDE applications for WiFi stuff,
-and both are fully fledged (i.e. not just a signal meter) :
-		http://websvn.kde.org/trunk/KDE/kdenetwork/wifi/
-		http://websvn.kde.org/trunk/kdenonbeta/kifi/
-	Note that I've used neither, so I don't know how good they are
-and what features are missing. If you decide to write another apps,
-please send me the link so I can add it on my web page.
+--eAbsdosE1cNLO4uF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Greetings Michael.
+On Mon, Jan 16, 2006 at 10:24:41PM +0000, Alan Cox wrote:
+> If I have told my equipment to obey UK law I expect it to do so. If I
+> hop on the train to France and forget to revise my configuration I'd
+> prefer it also believed the APs
 
-	Have fun...
+It's not that you might forget to revise your configuration, but that=20
+the vast majority of users will not revise anything, and still expect=20
+things to "just work".  Kind of like multi-band cell phones. =20
 
-	Jean
+This isn't that big of a deal in the 2.4GHz band, but when you start
+talking about 5GHz, especially in France, things get a lot trickier.
+
+Of course, all of this automagic "just work" crap only affects the STAs.=20
+For AP operation, we have to trust the user to set the correct locale --
+I don't see any way of including a sane "just-works" default in the
+stock kernel.org tree, so I think the default should be be "none".  This
+way the user is forced to explicitly set the regdomain in order for the
+AP startup to succeed.
+
+=2E..and pray that the AP isn't migrating to a different regdomain, but=20
+there's really nothing anyone can do about that.
+
+ - Solomon
+--=20
+Solomon Peachy        				 ICQ: 1318344
+Melbourne, FL 					=20
+Quidquid latine dictum sit, altum viditur.
+
+--eAbsdosE1cNLO4uF
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFDzTpKPuLgii2759ARAgO4AJ9CD7o+BR/IqBN8UhpANGQBstW2sACggIUA
+vTd3Ct+uIXzCoaTrMycNhAw=
+=oR+o
+-----END PGP SIGNATURE-----
+
+--eAbsdosE1cNLO4uF--
