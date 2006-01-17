@@ -1,34 +1,32 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] fix ip[6]t_policy compiler warnings after x_tables merge
-Date: Tue, 17 Jan 2006 02:26:53 -0800 (PST)
-Message-ID: <20060117.022653.31779881.davem@davemloft.net>
-References: <20060114204052.GF6740@sunbeam.de.gnumonks.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH ] ethtool: Remove duplex info from CTRL register dump
+Date: Tue, 17 Jan 2006 08:08:47 -0500
+Message-ID: <43CCEC5F.7020801@pobox.com>
+References: <20060112071642.29428.23880.stgit@Gecko.tarbal.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20060114204052.GF6740@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932467AbWAQNIw@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+In-Reply-To: <20060112071642.29428.23880.stgit@Gecko.tarbal.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Sat, 14 Jan 2006 21:40:53 +0100
-
-> [NETFILTER] ip[6]t_policy: Fix compilation warnings
+Jeff Kirsher wrote:
+> The duplex control register is used for setting the driver and is not
+> necessary for debug purposes.  The value of the duplex control register is
+> what the register's current value is and may not reflect the correct status
+> of te current connection.  That is what the duplex status register is used
+> for.  To keep from confusing the user, we are removing the duplex register
+> from the ethtool dump of the registers.
 > 
-> ip[6]t_policy argument conversion slipped when merging with x_tables
-> 
-> Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-> Signed-off-by: Harald Welte <laforge@netfilter.org>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: John Ronciak <john.ronciak@intel.com>
 
-Applied, thanks.
+applied, after replacing "ethtool:" with "e1000:" in the subject line.
+
+	Jeff
