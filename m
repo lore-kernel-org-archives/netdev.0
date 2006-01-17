@@ -1,31 +1,40 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: wireless: recap of current issues (configuration)
-Date: Tue, 17 Jan 2006 23:20:48 +0100
-Message-ID: <200601172320.49072.stefan@loplof.de>
-References: <20060113195723.GB16166@tuxdriver.com> <43CAABD4.3070004@errno.com> <1137355912.2520.97.camel@localhost>
+From: John Ronciak <john.ronciak@gmail.com>
+Subject: Re: [RFC: 2.6 patch] remove drivers/net/eepro100.c
+Date: Tue, 17 Jan 2006 14:27:16 -0800
+Message-ID: <56a8daef0601171427s75894fid0f8c4f9e2b28e50@mail.gmail.com>
+References: <20060105181826.GD12313@stusta.de>
+	 <20060115161958.07e3c7f1@vitb.dev.rtsoft.ru>
+	 <20060115160340.6f8cc7d6@localhost.localdomain>
+	 <20060117184834.GD19398@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sam Leffler <sam@errno.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964868AbWAQWV3@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1137355912.2520.97.camel@localhost>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, jgarzik@pobox.com,
+	saw@saw.sw.com.sg, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964870AbWAQW1S@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060117184834.GD19398@stusta.de>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag 15 Januar 2006 21:11 schrieb Johannes Berg:
+We don't of any problems reported against e100 that have not been
+talked about in this thread (in old ARCH types).  I think the eepro100
+driver should be removed from the config "just in case" but we are in
+full support of the e100 driver and if somebody says that it's not
+working on one of the different ARCHs we are willing to work with them
+to get it fixed.  The problem is that we don't have all these
+different ARCH systems around to test against.
 
-> [iwconfig mode ...]
->
-> Yeah, I agree with this, it is much cleaner to handle in the kernel.
-> Think about the issues if you have a struct net_device that has 250
-> bytes of "payload" for the struct virtual_sta_device in it and you want
-> to switch that to a struct virtual_monitor_device. Icky.
+Another thing is that removal of the driver (or disabling the config)
+will hopefully force the issue in that people with these ARCHs will
+use the e100 and if they have problems we can get them fixed in the
+e100 driver.  At this point nobody seems to be able to define a "real"
+problem other than talking about it.
 
-Well, nobody forces you to allocate dev->priv together with the net_device, 
-you can set and change this pointer yourself. So I don't see a problem here.
 
-Stefan
+--
+Cheers,
+John
