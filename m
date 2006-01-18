@@ -1,325 +1,201 @@
-From: Grant Grundler <iod00d@hp.com>
-Subject: Re: RE: [PATCH 2/5] [RFC] Infiniband: connection
-	abstraction
-Date: Tue, 17 Jan 2006 18:03:42 -0800
-Message-ID: <20060118020342.GB3740@esmail.cup.hp.com>
-References: <ORSMSX401FRaqbC8wSA0000003e@orsmsx401.amr.corp.intel.com>
-	<ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: net 2.6.16-rc1: multiple ipv6 failures
+Date: Tue, 17 Jan 2006 21:39:20 -0500
+Message-ID: <43CDAA58.5000904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Sean Hefty <sean.hefty@intel.com>
-Content-Disposition: inline
-In-Reply-To: <ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: multipart/mixed;
+ boundary="------------040705070602060605070104"
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964860AbWARCj2@vger.kernel.org>
+To: Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 17, 2006 at 03:24:37PM -0800, Sean Hefty wrote:
-> +static void cm_mask_compare_data(u8 *dst, u8 *src, u8 *mask)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < IB_CM_PRIVATE_DATA_COMPARE_SIZE; i++)
-> +		dst[i] = src[i] & mask[i];
-> +}
+This is a multi-part message in MIME format.
+--------------040705070602060605070104
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Is this code going to get invoked very often?
 
-If so, can the mask operation use a "native" size since
-IB_CM_PRIVATE_DATA_COMPARE_SIZE is hard coded to 64 byte?
+Just moved my firewall/gateway from 2.6.15 to 2.6.16-rc1, and had a
+couple IPv6-related problems really bite me.
 
-e.g something like:
-	for (i = 0; i < IB_CM_PRIVATE_DATA_COMPARE_SIZE/sizeof(unsigned long);
-									i++)
-		((unsigned long *)dst)[i] = ((unsigned long *)src)[i] 
-						& ((unsigned long *)mask)[i];
+1) radvd runs at 100% CPU (CentOS 4 userland, 2.6.15 worked fine).  I
+had to kill it.
 
-thanks,
-grant
+> Jan 17 21:24:43 pretzel ifup:  done.
+> Jan 17 21:24:44 pretzel ifup: radvd control enabled, but config is not complete
+> Jan 17 21:24:50 pretzel radvd[4264]: version 0.7.2 started
+> Jan 17 21:24:44 pretzel ifup: ERROR    : [ipv6_trigger_radvd] Given pidfile '/var/run/radvd/radvd.pid' doesn't exist, cannot send trigger to radvd
+> Jan 17 21:24:50 pretzel radvd: radvd startup succeeded
 
-> +
-> +static int cm_compare_data(struct ib_cm_private_data_compare *src_data,
-> +			   struct ib_cm_private_data_compare *dst_data)
-> +{
-> +	u8 src[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-> +	u8 dst[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-> +
-> +	if (!src_data || !dst_data)
-> +		return 0;
-> +	
-> +	cm_mask_compare_data(src, src_data->data, dst_data->mask);
-> +	cm_mask_compare_data(dst, dst_data->data, src_data->mask);
-> +	return memcmp(src, dst, IB_CM_PRIVATE_DATA_COMPARE_SIZE);
-> +}
-> +
-> +static int cm_compare_private_data(u8 *private_data,
-> +				   struct ib_cm_private_data_compare *dst_data)
-> +{
-> +	u8 src[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-> +
-> +	if (!dst_data)
-> +		return 0;
-> +	
-> +	cm_mask_compare_data(src, private_data, dst_data->mask);
-> +	return memcmp(src, dst_data->data, IB_CM_PRIVATE_DATA_COMPARE_SIZE);
-> +}
-> +
->  static struct cm_id_private * cm_insert_listen(struct cm_id_private *cm_id_priv)
->  {
->  	struct rb_node **link = &cm.listen_service_table.rb_node;
-> @@ -362,14 +397,18 @@ static struct cm_id_private * cm_insert_
->  	struct cm_id_private *cur_cm_id_priv;
->  	__be64 service_id = cm_id_priv->id.service_id;
->  	__be64 service_mask = cm_id_priv->id.service_mask;
-> +	int data_cmp;
->  
->  	while (*link) {
->  		parent = *link;
->  		cur_cm_id_priv = rb_entry(parent, struct cm_id_private,
->  					  service_node);
-> +		data_cmp = cm_compare_data(cm_id_priv->compare_data,
-> +					   cur_cm_id_priv->compare_data);
->  		if ((cur_cm_id_priv->id.service_mask & service_id) ==
->  		    (service_mask & cur_cm_id_priv->id.service_id) &&
-> -		    (cm_id_priv->id.device == cur_cm_id_priv->id.device))
-> +		    (cm_id_priv->id.device == cur_cm_id_priv->id.device) &&
-> +		    !data_cmp)
->  			return cur_cm_id_priv;
->  
->  		if (cm_id_priv->id.device < cur_cm_id_priv->id.device)
-> @@ -378,6 +417,10 @@ static struct cm_id_private * cm_insert_
->  			link = &(*link)->rb_right;
->  		else if (service_id < cur_cm_id_priv->id.service_id)
->  			link = &(*link)->rb_left;
-> +		else if (service_id > cur_cm_id_priv->id.service_id)
-> +			link = &(*link)->rb_right;
-> +		else if (data_cmp < 0)
-> +			link = &(*link)->rb_left;
->  		else
->  			link = &(*link)->rb_right;
->  	}
-> @@ -387,16 +430,20 @@ static struct cm_id_private * cm_insert_
->  }
->  
->  static struct cm_id_private * cm_find_listen(struct ib_device *device,
-> -					     __be64 service_id)
-> +					     __be64 service_id,
-> +					     u8 *private_data)
->  {
->  	struct rb_node *node = cm.listen_service_table.rb_node;
->  	struct cm_id_private *cm_id_priv;
-> +	int data_cmp;
->  
->  	while (node) {
->  		cm_id_priv = rb_entry(node, struct cm_id_private, service_node);
-> +		data_cmp = cm_compare_private_data(private_data,
-> +						   cm_id_priv->compare_data);
->  		if ((cm_id_priv->id.service_mask & service_id) ==
->  		     cm_id_priv->id.service_id &&
-> -		    (cm_id_priv->id.device == device))
-> +		    (cm_id_priv->id.device == device) && !data_cmp)
->  			return cm_id_priv;
->  
->  		if (device < cm_id_priv->id.device)
-> @@ -405,6 +452,10 @@ static struct cm_id_private * cm_find_li
->  			node = node->rb_right;
->  		else if (service_id < cm_id_priv->id.service_id)
->  			node = node->rb_left;
-> +		else if (service_id > cm_id_priv->id.service_id)
-> +			node = node->rb_right;
-> +		else if (data_cmp < 0)
-> +			node = node->rb_left;
->  		else
->  			node = node->rb_right;
->  	}
-> @@ -728,15 +779,14 @@ retest:
->  	wait_event(cm_id_priv->wait, !atomic_read(&cm_id_priv->refcount));
->  	while ((work = cm_dequeue_work(cm_id_priv)) != NULL)
->  		cm_free_work(work);
-> -	if (cm_id_priv->private_data && cm_id_priv->private_data_len)
-> -		kfree(cm_id_priv->private_data);
-> +	kfree(cm_id_priv->compare_data);
-> +	kfree(cm_id_priv->private_data);
->  	kfree(cm_id_priv);
->  }
->  EXPORT_SYMBOL(ib_destroy_cm_id);
->  
-> -int ib_cm_listen(struct ib_cm_id *cm_id,
-> -		 __be64 service_id,
-> -		 __be64 service_mask)
-> +int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
-> +		 struct ib_cm_private_data_compare *compare_data)
->  {
->  	struct cm_id_private *cm_id_priv, *cur_cm_id_priv;
->  	unsigned long flags;
-> @@ -750,7 +800,19 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
->  		return -EINVAL;
->  
->  	cm_id_priv = container_of(cm_id, struct cm_id_private, id);
-> -	BUG_ON(cm_id->state != IB_CM_IDLE);
-> +	if (cm_id->state != IB_CM_IDLE)
-> +		return -EINVAL;
-> +
-> +	if (compare_data) {
-> +		cm_id_priv->compare_data = kzalloc(sizeof *compare_data,
-> +						   GFP_KERNEL);
-> +		if (!cm_id_priv->compare_data)
-> +			return -ENOMEM;
-> +		cm_mask_compare_data(cm_id_priv->compare_data->data,
-> +				     compare_data->data, compare_data->mask);
-> +		memcpy(cm_id_priv->compare_data->mask, compare_data->mask,
-> +		       IB_CM_PRIVATE_DATA_COMPARE_SIZE);
-> +	}
->  
->  	cm_id->state = IB_CM_LISTEN;
->  
-> @@ -767,6 +829,8 @@ int ib_cm_listen(struct ib_cm_id *cm_id,
->  
->  	if (cur_cm_id_priv) {
->  		cm_id->state = IB_CM_IDLE;
-> +		kfree(cm_id_priv->compare_data);
-> +		cm_id_priv->compare_data = NULL;
->  		ret = -EBUSY;
->  	}
->  	return ret;
-> @@ -1239,7 +1303,8 @@ static struct cm_id_private * cm_match_r
->  
->  	/* Find matching listen request. */
->  	listen_cm_id_priv = cm_find_listen(cm_id_priv->id.device,
-> -					   req_msg->service_id);
-> +					   req_msg->service_id,
-> +					   req_msg->private_data);
->  	if (!listen_cm_id_priv) {
->  		spin_unlock_irqrestore(&cm.lock, flags);
->  		cm_issue_rej(work->port, work->mad_recv_wc,
-> @@ -2646,7 +2711,8 @@ static int cm_sidr_req_handler(struct cm
->  		goto out; /* Duplicate message. */
->  	}
->  	cur_cm_id_priv = cm_find_listen(cm_id->device,
-> -					sidr_req_msg->service_id);
-> +					sidr_req_msg->service_id,
-> +					sidr_req_msg->private_data);
->  	if (!cur_cm_id_priv) {
->  		rb_erase(&cm_id_priv->sidr_id_node, &cm.remote_sidr_table);
->  		spin_unlock_irqrestore(&cm.lock, flags);
-> diff -uprN -X linux-2.6.git/Documentation/dontdiff 
-> linux-2.6.git/drivers/infiniband/core/ucm.c 
-> linux-2.6.ib/drivers/infiniband/core/ucm.c
-> --- linux-2.6.git/drivers/infiniband/core/ucm.c	2006-01-16 16:03:08.000000000 -0800
-> +++ linux-2.6.ib/drivers/infiniband/core/ucm.c	2006-01-16 16:03:35.000000000 -0800
-> @@ -646,6 +646,17 @@ out:
->  	return result;
->  }
->  
-> +static int ucm_validate_listen(__be64 service_id, __be64 service_mask)
-> +{
-> +	service_id &= service_mask;
-> +
-> +	if (((service_id & IB_CMA_SERVICE_ID_MASK) == IB_CMA_SERVICE_ID) ||
-> +	    ((service_id & IB_SDP_SERVICE_ID_MASK) == IB_SDP_SERVICE_ID))
-> +		return -EINVAL;
-> +
-> +	return 0;
-> +}
-> +
->  static ssize_t ib_ucm_listen(struct ib_ucm_file *file,
->  			     const char __user *inbuf,
->  			     int in_len, int out_len)
-> @@ -661,7 +672,13 @@ static ssize_t ib_ucm_listen(struct ib_u
->  	if (IS_ERR(ctx))
->  		return PTR_ERR(ctx);
->  
-> -	result = ib_cm_listen(ctx->cm_id, cmd.service_id, cmd.service_mask);
-> +	result = ucm_validate_listen(cmd.service_id, cmd.service_mask);
-> +	if (result)
-> +		goto out;
-> +
-> +	result = ib_cm_listen(ctx->cm_id, cmd.service_id, cmd.service_mask,
-> +			      NULL);
-> +out:
->  	ib_ucm_ctx_put(ctx);
->  	return result;
->  }
-> diff -uprN -X linux-2.6.git/Documentation/dontdiff 
-> linux-2.6.git/include/rdma/ib_cm.h 
-> linux-2.6.ib/include/rdma/ib_cm.h
-> --- linux-2.6.git/include/rdma/ib_cm.h	2006-01-16 10:26:47.000000000 -0800
-> +++ linux-2.6.ib/include/rdma/ib_cm.h	2006-01-16 16:03:35.000000000 -0800
-> @@ -32,7 +32,7 @@
->   * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
->   * SOFTWARE.
->   *
-> - * $Id: ib_cm.h 2730 2005-06-28 16:43:03Z sean.hefty $
-> + * $Id: ib_cm.h 4311 2005-12-05 18:42:01Z sean.hefty $
->   */
->  #if !defined(IB_CM_H)
->  #define IB_CM_H
-> @@ -102,7 +102,8 @@ enum ib_cm_data_size {
->  	IB_CM_APR_INFO_LENGTH		 = 72,
->  	IB_CM_SIDR_REQ_PRIVATE_DATA_SIZE = 216,
->  	IB_CM_SIDR_REP_PRIVATE_DATA_SIZE = 136,
-> -	IB_CM_SIDR_REP_INFO_LENGTH	 = 72
-> +	IB_CM_SIDR_REP_INFO_LENGTH	 = 72,
-> +	IB_CM_PRIVATE_DATA_COMPARE_SIZE	 = 64
->  };
->  
->  struct ib_cm_id;
-> @@ -238,7 +239,6 @@ struct ib_cm_sidr_rep_event_param {
->  	u32			qpn;
->  	void			*info;
->  	u8			info_len;
-> -
->  };
->  
->  struct ib_cm_event {
-> @@ -317,6 +317,15 @@ void ib_destroy_cm_id(struct ib_cm_id *c
->  
->  #define IB_SERVICE_ID_AGN_MASK	__constant_cpu_to_be64(0xFF00000000000000ULL)
->  #define IB_CM_ASSIGN_SERVICE_ID __constant_cpu_to_be64(0x0200000000000000ULL)
-> +#define IB_CMA_SERVICE_ID	__constant_cpu_to_be64(0x0000000001000000ULL)
-> +#define IB_CMA_SERVICE_ID_MASK	__constant_cpu_to_be64(0xFFFFFFFFFF000000ULL)
-> +#define IB_SDP_SERVICE_ID	__constant_cpu_to_be64(0x0000000000010000ULL)
-> +#define IB_SDP_SERVICE_ID_MASK	__constant_cpu_to_be64(0xFFFFFFFFFFFF0000ULL)
-> +
-> +struct ib_cm_private_data_compare {
-> +	u8  data[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-> +	u8  mask[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-> +};
->  
->  /**
->   * ib_cm_listen - Initiates listening on the specified service ID for
-> @@ -330,10 +339,12 @@ void ib_destroy_cm_id(struct ib_cm_id *c
->   *   range of service IDs.  If set to 0, the service ID is matched
->   *   exactly.  This parameter is ignored if %service_id is set to
->   *   IB_CM_ASSIGN_SERVICE_ID.
-> + * @compare_data: This parameter is optional.  It specifies data that must
-> + *   appear in the private data of a connection request for the specified
-> + *   listen request.
->   */
-> -int ib_cm_listen(struct ib_cm_id *cm_id,
-> -		 __be64 service_id,
-> -		 __be64 service_mask);
-> +int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
-> +		 struct ib_cm_private_data_compare *compare_data);
->  
->  struct ib_cm_req_param {
->  	struct ib_sa_path_rec	*primary_path;
-> 
-> 
-> 
-> _______________________________________________
-> openib-general mailing list
-> openib-general@openib.org
-> http://openib.org/mailman/listinfo/openib-general
-> 
-> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+
+2) bind fails (which everyone on my network immediately noticed, and
+complained about).
+
+> Jan 17 21:29:04 pretzel named[5110]: loading configuration from '/etc/named.conf'
+> Jan 17 21:29:04 pretzel named[5110]: /proc/net/if_inet6:sscanf() -> 1 (expected 6)
+> Jan 17 21:29:04 pretzel named[5110]: interfacemgr.c:827: unexpected error:
+> Jan 17 21:29:04 pretzel named[5110]: interface iteration failed: failure
+> Jan 17 21:29:04 pretzel named[5110]: not listening on any interfaces
+> Jan 17 21:29:04 pretzel named[5110]: command channel listening on 127.0.0.1#953
+> Jan 17 21:29:04 pretzel named[5110]: /proc/net/if_inet6:sscanf() -> 1 (expected 6)
+> Jan 17 21:29:04 pretzel named[5110]: interfacemgr.c:827: unexpected error:
+> Jan 17 21:29:04 pretzel named[5110]: interface iteration failed: failure
+
+Again, 2.6.15 works just fine.
+
+Config attached.  32-bit x86 uniprocessor w/ HT (thus, SMP config).
+
+	Jeff
+
+
+
+
+--------------040705070602060605070104
+Content-Type: application/x-bzip2;
+ name="config.txt.bz2"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="config.txt.bz2"
+
+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
+--------------040705070602060605070104--
