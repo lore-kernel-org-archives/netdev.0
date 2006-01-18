@@ -1,34 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: net 2.6.16-rc1: multiple ipv6 failures
-Date: Tue, 17 Jan 2006 21:47:50 -0800 (PST)
-Message-ID: <20060117.214750.37718950.davem@davemloft.net>
-References: <43CDAA58.5000904@pobox.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH 2/5] [RFC] Infiniband: connection
+	abstraction
+Date: Wed, 18 Jan 2006 08:08:26 +0100
+Message-ID: <1137568107.3005.69.camel@laptopd505.fenrus.org>
+References: <ORSMSX401FRaqbC8wSA0000003e@orsmsx401.amr.corp.intel.com>
+	<ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
+	<20060117153838.3dc2cd2e@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751340AbWARFvf@vger.kernel.org>
-To: jgarzik@pobox.com
-In-Reply-To: <43CDAA58.5000904@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060117153838.3dc2cd2e@dxpl.pdx.osdl.net>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Tue, 17 Jan 2006 21:39:20 -0500
 
-> 2) bind fails (which everyone on my network immediately noticed, and
-> complained about).
 > 
-> > Jan 17 21:29:04 pretzel named[5110]: loading configuration from '/etc/named.conf'
-> > Jan 17 21:29:04 pretzel named[5110]: /proc/net/if_inet6:sscanf() -> 1 (expected 6)
-> > Jan 17 21:29:04 pretzel named[5110]: interfacemgr.c:827: unexpected error:
-> > Jan 17 21:29:04 pretzel named[5110]: interface iteration failed: failure
-> > Jan 17 21:29:04 pretzel named[5110]: not listening on any interfaces
-> > Jan 17 21:29:04 pretzel named[5110]: command channel listening on 127.0.0.1#953
-> > Jan 17 21:29:04 pretzel named[5110]: /proc/net/if_inet6:sscanf() -> 1 (expected 6)
-> > Jan 17 21:29:04 pretzel named[5110]: interfacemgr.c:827: unexpected error:
-> > Jan 17 21:29:04 pretzel named[5110]: interface iteration failed: failure
+> <flamebait>
+> Also should infiniband exports be EXPORT_SYMBOL_GPL, to make
+> it clear that binary drivers for this are not allowed??
+> </flamebait>
 
-Known problem, fixed by Yoshifuji in current GIT.  /proc/net/if_net6's
-output format got mistakedly changed, and this confused named and
-ifconfig, among other things.
+the dual license text needs a bit of clarification I suspect to make
+explicit that the "or BSD" part only applies when used entirely outside
+the linux kernel. (that already is the case, just it's not explicit.
+Making that explicit would be good).
