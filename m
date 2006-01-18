@@ -1,39 +1,55 @@
-From: Bryan O'Sullivan <bos@serpentine.com>
-Subject: Re: [PATCH 2/5] [RFC] Infiniband: connection
-	abstraction
-Date: Wed, 18 Jan 2006 12:27:32 -0800
-Message-ID: <1137616052.4757.85.camel@serpentine.pathscale.com>
-References: <ORSMSX401FRaqbC8wSA0000003e@orsmsx401.amr.corp.intel.com>
-	<ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
-	<20060117153838.3dc2cd2e@dxpl.pdx.osdl.net>
-	<1137568107.3005.69.camel@laptopd505.fenrus.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: wireless: the contenders
+Date: Wed, 18 Jan 2006 15:36:59 -0500
+Message-ID: <43CEA6EB.6080209@pobox.com>
+References: <20060118200616.GC6583@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
-Return-path: <openib-general-bounces@openib.org>
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1137568107.3005.69.camel@laptopd505.fenrus.org>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jbenc@suse.cz, softmac-dev@sipsolutions.net,
+	bcm43xx-dev@lists.berlios.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030425AbWARUhM@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060118200616.GC6583@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-01-18 at 08:08 +0100, Arjan van de Ven wrote:
+John W. Linville wrote:
+> First, the news everyone will like.  Thanks to the kernel.org team
+> I now have a place to publish a wireless tree:
+> 
+>    git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git
+> 
+> The tree there has a number of branches, so many that you need
+> a scorecard...
+> 
+> Branches
+> --------
+> 
+> The "master" branch of that tree is (mostly) up-to-date w/ Linus, plus
+> changes I recently sent to Jeff.  Those changes are also available on
+> the "upstream-jgarzik" branch, but it is frozen to when I requested
+> Jeff's pull.
 
-> the dual license text needs a bit of clarification I suspect to make
-> explicit that the "or BSD" part only applies when used entirely outside
-> the linux kernel. (that already is the case, just it's not explicit.
-> Making that explicit would be good).
+Minor git administrative note...  In my trees, the 'master' branch is 
+always vanilla Linus, and I never ever apply my own changes to it.  This 
+enables commands such as
 
-One appropriate way to do that would be to mark all IB-related exported
-symbols as EXPORT_SYMBOL_GPL.
+	git diff master..upstream > patch
+	git log master..upstream > log.txt
+	git log master..upstream | git shortlog > shortlog.txt
 
-	<b
+to work as expected.
+
+Typically I do not update 'master' unless I am also updating 'upstream' 
+with vanilla Linus changes, in order to avoid screwing up the tree heads 
+and the diff.  When I do update 'master' from 'upstream', it is a 
+trivial matter to then pull those changes into 'upstream':
+
+	git checkout -f upstream
+	git pull . master
+
+Regards,
+
+	Jeff
