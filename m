@@ -1,13 +1,13 @@
 From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Repost [PATCH 1 of 3] move destructor to struct
-	neigh_parms
-Date: Wed, 18 Jan 2006 23:19:26 +0200
-Message-ID: <20060118211926.GE31280@mellanox.co.il>
+Subject: Repost [PATCH 2 of 3] ipoib: move destructor to
+	struct neigh_parms
+Date: Wed, 18 Jan 2006 23:19:53 +0200
+Message-ID: <20060118211953.GF31280@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: openib-general@openib.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Content-Disposition: inline
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
@@ -24,67 +24,56 @@ Sorry about reposting: the message didnt seem to make it to netdev.
 
 ---
 
-Hi!
-struct neigh_ops currently has a destructor field, unused by in-kernel
-drivers outside the infiniband subtree.
-infiniband ipoib in-tree driver currently uses this field, and we've
-run into problems: since the destructor is shared between neighbours
-that belong to different net devices, there's no way to set/clear it
-safely.
-
-It would be good to know what the design was
-behind putting the destructor method there in the first place.
-
-The following patch moves this field to neigh_parms where it can
-be safely set, together with its twin neigh_setup.
-Two additional patches in the patch series
-update ipoib to use this new interface.
-
-Please Cc me on replies, I'm not on the list.
-
----
-
 Move destructor from neigh_ops (which is shared between devices)
 to neigh_parms which is not, so that multiple drivers can set
 it safely.
 
 Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
 
-Index: linux-2.6.15/net/core/neighbour.c
+Index: linux-2.6.15/drivers/infiniband/ulp/ipoib/ipoib_main.c
 ===================================================================
---- linux-2.6.15.orig/net/core/neighbour.c	2006-01-12 11:58:15.000000000 +0200
-+++ linux-2.6.15/net/core/neighbour.c	2006-01-12 20:10:00.000000000 +0200
-@@ -586,8 +586,8 @@ void neigh_destroy(struct neighbour *nei
- 			kfree(hh);
+--- linux-2.6.15.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2006-01-12 20:30:52.000000000 +0200
++++ linux-2.6.15/drivers/infiniband/ulp/ipoib/ipoib_main.c	2006-01-12 20:31:26.000000000 +0200
+@@ -247,7 +247,6 @@ static void path_free(struct net_device 
+ 		if (neigh->ah)
+ 			ipoib_put_ah(neigh->ah);
+ 		*to_ipoib_neigh(neigh->neighbour) = NULL;
+-		neigh->neighbour->ops->destructor = NULL;
+ 		kfree(neigh);
  	}
  
--	if (neigh->ops && neigh->ops->destructor)
--		(neigh->ops->destructor)(neigh);
-+	if (neigh->parms->neigh_destructor)
-+		(neigh->parms->neigh_destructor)(neigh);
+@@ -530,7 +529,6 @@ static void neigh_add_path(struct sk_buf
+ err:
+ 	*to_ipoib_neigh(skb->dst->neighbour) = NULL;
+ 	list_del(&neigh->list);
+-	neigh->neighbour->ops->destructor = NULL;
+ 	kfree(neigh);
  
- 	skb_queue_purge(&neigh->arp_queue);
+ 	++priv->stats.tx_dropped;
+@@ -769,21 +767,9 @@ static void ipoib_neigh_destructor(struc
+ 		ipoib_put_ah(ah);
+ }
  
-Index: linux-2.6.15/include/net/neighbour.h
-===================================================================
---- linux-2.6.15.orig/include/net/neighbour.h	2006-01-03 05:21:10.000000000 +0200
-+++ linux-2.6.15/include/net/neighbour.h	2006-01-12 20:09:27.000000000 +0200
-@@ -68,6 +68,7 @@ struct neigh_parms
- 	struct net_device *dev;
- 	struct neigh_parms *next;
- 	int	(*neigh_setup)(struct neighbour *);
-+	void	(*neigh_destructor)(struct neighbour *);
- 	struct neigh_table *tbl;
- 
- 	void	*sysctl_table;
-@@ -145,7 +146,6 @@ struct neighbour
- struct neigh_ops
+-static int ipoib_neigh_setup(struct neighbour *neigh)
+-{
+-	/*
+-	 * Is this kosher?  I can't find anybody in the kernel that
+-	 * sets neigh->destructor, so we should be able to set it here
+-	 * without trouble.
+-	 */
+-	neigh->ops->destructor = ipoib_neigh_destructor;
+-
+-	return 0;
+-}
+-
+ static int ipoib_neigh_setup_dev(struct net_device *dev, struct neigh_parms *parms)
  {
- 	int			family;
--	void			(*destructor)(struct neighbour *);
- 	void			(*solicit)(struct neighbour *, struct sk_buff*);
- 	void			(*error_report)(struct neighbour *, struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
+-	parms->neigh_setup = ipoib_neigh_setup;
++	parms->neigh_destructor = ipoib_neigh_destructor;
+ 
+ 	return 0;
+ }
+
 
 -- 
 MST
