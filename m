@@ -1,38 +1,55 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 2/5] [RFC] Infiniband: connection
-	abstraction
-Date: Wed, 18 Jan 2006 08:08:26 +0100
-Message-ID: <1137568107.3005.69.camel@laptopd505.fenrus.org>
-References: <ORSMSX401FRaqbC8wSA0000003e@orsmsx401.amr.corp.intel.com>
-	<ORSMSX401FRaqbC8wSA00000040@orsmsx401.amr.corp.intel.com>
-	<20060117153838.3dc2cd2e@dxpl.pdx.osdl.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] schedule eepro100.c for removal
+Date: Wed, 18 Jan 2006 08:41:54 +0100
+Message-ID: <20060118074154.GH19398@stusta.de>
+References: <20060105181826.GD12313@stusta.de> <20060115161958.07e3c7f1@vitb.dev.rtsoft.ru> <20060115160340.6f8cc7d6@localhost.localdomain> <20060117184834.GD19398@stusta.de> <56a8daef0601171427s75894fid0f8c4f9e2b28e50@mail.gmail.com> <20060118003232.GA28965@tuxdriver.com> <43CD8D72.6040501@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060117153838.3dc2cd2e@dxpl.pdx.osdl.net>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	John Ronciak <john.ronciak@gmail.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Vitaly Bordug <vbordug@ru.mvista.com>, saw@saw.sw.com.sg,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030306AbWARHl5@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <43CD8D72.6040501@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
+On Tue, Jan 17, 2006 at 07:36:02PM -0500, Jeff Garzik wrote:
+> John W. Linville wrote:
+> >On Tue, Jan 17, 2006 at 02:27:16PM -0800, John Ronciak wrote:
+> >
+> >
+> >>Another thing is that removal of the driver (or disabling the config)
+> >>will hopefully force the issue in that people with these ARCHs will
+> >>use the e100 and if they have problems we can get them fixed in the
+> >>e100 driver.  At this point nobody seems to be able to define a "real"
+> >>problem other than talking about it.
 > 
-> <flamebait>
-> Also should infiniband exports be EXPORT_SYMBOL_GPL, to make
-> it clear that binary drivers for this are not allowed??
-> </flamebait>
+> Someone should send me a patch that adds eepro100 to the feature-removal 
+> doc.
 
-the dual license text needs a bit of clarification I suspect to make
-explicit that the "or BSD" part only applies when used entirely outside
-the linux kernel. (that already is the case, just it's not explicit.
-Making that explicit would be good).
+Patch below.
+
+> 	jeff
+
+cu
+Adrian
+
+
+<--  snip  -->
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.15-mm4-full/Documentation/feature-removal-schedule.txt.old	2006-01-18 08:38:57.000000000 +0100
++++ linux-2.6.15-mm4-full/Documentation/feature-removal-schedule.txt	2006-01-18 08:39:59.000000000 +0100
+@@ -164,0 +165,6 @@
++---------------------------
++
++What:   eepro100 network driver
++When:   April 2006
++Why:    replaced by the e100 driver
++Who:    Adrian Bunk <bunk@stusta.de>
