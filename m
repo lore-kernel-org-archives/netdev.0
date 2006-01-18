@@ -1,8 +1,8 @@
 From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [PATCH 5/5] [RFC] Infiniband: connection
 	abstraction
-Date: Wed, 18 Jan 2006 07:43:09 -0800
-Message-ID: <adavewhwnhu.fsf@cisco.com>
+Date: Wed, 18 Jan 2006 07:44:33 -0800
+Message-ID: <adar775wnfi.fsf@cisco.com>
 References: <ORSMSX401yEXUIEAOeI00000043@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
@@ -23,13 +23,9 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
- > +struct ucma_file {
- > +	struct semaphore	mutex;
+ > +	UCMA_MAX_BACKLOG	= 128
 
-This should be a struct mutex instead, I think.
-
- > +static DECLARE_MUTEX(ctx_mutex);
-
-Same here.
+Is there any reason that we might want to make this a tunable?  Maybe
+as a module parameter that's writable in sysfs...
 
  - R.
