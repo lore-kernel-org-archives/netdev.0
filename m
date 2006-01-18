@@ -1,31 +1,37 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [git patches] e1000 fixes
-Date: Wed, 18 Jan 2006 14:11:18 -0800
-Message-ID: <20060118141118.78767e3d.akpm@osdl.org>
-References: <20060118212449.GA13260@havoc.gtf.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 1/2] MAINTAINERS: correct location for net-2.6.git
+Date: Wed, 18 Jan 2006 17:43:04 -0500
+Message-ID: <20060118224300.GF6583@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932551AbWARWLi@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20060118212449.GA13260@havoc.gtf.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932573AbWARWnL@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> Let's see how this goes...  if there are further problems, I'll just
->  revert the entire thing, and push these changes (and the previous set)
->  into upstream-2.6.17 branch.
-> 
->  I don't mind them updating the defconfig files, even though most people
->  are too slack to worry about it, since its pretty clear the default
->  choice.
-> 
-> 
->  Please pull from 'upstream-fixes' branch of
->  master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+Correct location info for net-2.6 git tree.
 
-These patches fix e1000 for me, thanks.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+
+ MAINTAINERS |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 6d1b048..0d0f8a8 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1841,7 +1841,7 @@ M:	yoshfuji@linux-ipv6.org
+ P:	Patrick McHardy
+ M:	kaber@coreworks.de
+ L:	netdev@vger.kernel.org
+-T:	git kernel.org:/pub/scm/linux/kernel/davem/net-2.6.git
++T:	git kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
+ S:	Maintained
+ 
+ IPVS
+-- 
+John W. Linville
+linville@tuxdriver.com
