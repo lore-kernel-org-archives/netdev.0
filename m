@@ -1,46 +1,75 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [Bcm43xx-dev] wireless: the contenders
-Date: Thu, 19 Jan 2006 10:27:46 -0500
-Message-ID: <20060119152741.GA12344@tuxdriver.com>
-References: <20060118200616.GC6583@tuxdriver.com> <1137629980.4385.9.camel@localhost>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: My vote against eepro* removal
+Date: Thu, 19 Jan 2006 17:20:57 +0100
+Message-ID: <20060119162056.GP19398@stusta.de>
+References: <AAD6DA242BC63C488511C611BD51F367323322@MAILIT.keba.co.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbenc@suse.cz, softmac-dev@sipsolutions.net,
-	bcm43xx-dev@lists.berlios.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161237AbWASP2O@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Lee Revell <rlrevell@joe-job.com>, linux-kernel@vger.kernel.org,
+	john.ronciak@intel.com, ganesh.venkatesan@intel.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161188AbWASQU7@vger.kernel.org>
+To: kus Kusche Klaus <kus@keba.com>
 Content-Disposition: inline
-In-Reply-To: <1137629980.4385.9.camel@localhost>
+In-Reply-To: <AAD6DA242BC63C488511C611BD51F367323322@MAILIT.keba.co.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 19, 2006 at 01:19:40AM +0100, Johannes Berg wrote:
-> On Wed, 2006-01-18 at 15:06 -0500, John W. Linville wrote:
+On Thu, Jan 19, 2006 at 11:26:51AM +0100, kus Kusche Klaus wrote:
+> > From: Lee Revell
+> > On Thu, 2006-01-19 at 08:19 +0100, kus Kusche Klaus wrote:
+> > > Last time I tested (around 2.6.12), eepro100 worked much better 
+> > > in -rt kernels w.r.t. latencies than e100:
+> > > 
+> > > e100 caused a periodic latency of about 500 microseconds
+> > > exactly every 2 seconds, no matter what the load on the interface
+> > > was (i.e. even on an idle interface).
+> > > 
+> > > eepro100 did not show any latencies that long, it worked much
+> > > smoother w.r.t. latencies.
+> > > 
+> > > Of course I would prefer to have e100 fixed over keeping eepro100
+> > > around forever, but the last time I checked, it still wasn't fixed.
+> > 
+> > Please provide latency traces to illustrate the problematic code path.
 > 
-> > The tree also has "softmac" and "dscape" branches.  The "softmac"
-> > branch includes the Johannes Berg softmac code as well as the the
-> > BCM43xx driver based upon that code.
+> It's not a "latency": As far as I can tell, interrupts or preemption
+> are not disabled, the latency tracer doesn't show anything.
 > 
-> I guess that branch also contains my enhancements to ieee80211, do you
-> have any intentions of pulling those over to your upstream tree? I
-> suppose I should rather post them as a series of patches to netdev for
-> wider consideration.
+> I just noticed that low-pri rt processes did not get scheduled for
+> about 500 microseconds when e100 was active (even if the net was
+> idle), and that there were no such breaks with eepro100.
+> 
+> I didn't analyze it in detail at that time, I believed that the e100
+> interrupt handler thread was running every 2 seconds for 500 
+> microseconds, because the interrupt count of eth0 incremented every
+> 2 seconds, exactly when my rt processes paused.
+> 
+> This would be bad: That irq thread is at rt prio 47 on my system, 
+> above many importent things.
+> 
+> However, I checked more closely now, and found out that only a small
+> portion of the 500 microseconds is spent in the irq thread. Most of
+> it is spent in the timer thread, at rt prio 1, so the whole thing
+> is a much smaller problem than I originally believed.
+> 
+> Must be the function e100_watchdog.
+>...
 
-I pulled from the softmac-2.6.git tree.  I think there was ieee80211
-stuff in there as well, but you probably know better than I do. :-)
+Is this with 2.6.12 or 2.6.16-rc1?
 
-The history in your tree isn't formatted properly for the kernel,
-so something would have to be done before that went upstream anyway.
-I think it would be best for you to post the patches to netdev,
-including patches covering softmac if you are so inclined.  Please be
-sure to follow kernel patch posting conventions:
+If it's the former, please check whether the problem is still presnt in 
+the latter.
 
-	http://linux.yyz.us/patch-format.html
+If it's the latter, I'm sure the e100 developers (Cc'ed) are interested 
+in your problem.
 
-Thanks,
+cu
+Adrian
 
-John
 -- 
-John W. Linville
-linville@tuxdriver.com
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
