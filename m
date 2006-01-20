@@ -1,63 +1,95 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: WCONF, netlink based WE replacement.
-Date: Fri, 20 Jan 2006 09:48:29 +0100
-Message-ID: <20060120084829.GW4603@sunbeam.de.gnumonks.org>
-References: <200601121824.02892.mbuesch@freenet.de> <20060113131503.GA379@postel.suug.ch>
+From: "kus Kusche Klaus" <kus@keba.com>
+Subject: RE: My vote against eepro* removal
+Date: Fri, 20 Jan 2006 10:37:43 +0100
+Message-ID: <AAD6DA242BC63C488511C611BD51F367323324@MAILIT.keba.co.at>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Rnz0oC2K6vQ5doJs"
-Cc: Michael Buesch <mbuesch@freenet.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750756AbWATIsg@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20060113131503.GA379@postel.suug.ch>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "kus Kusche Klaus" <kus@keba.com>,
+	"Lee Revell" <rlrevell@joe-job.com>,
+	<linux-kernel@vger.kernel.org>, <john.ronciak@intel.com>,
+	<ganesh.venkatesan@intel.com>, <jesse.brandeburg@intel.com>,
+	<netdev@vger.kernel.org>, "Steven Rostedt" <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750715AbWATJh7@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "John Ronciak" <john.ronciak@gmail.com>,
+	"Adrian Bunk" <bunk@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> From: John Ronciak
+> During the watchdog the e100 driver reads all of the status registers
+> from the actual hardware.  There are 26 (worst case) register reads. 
+> There is also a spin lock for another check in the watchdog.  It would
+> still surprise me that all of this would take 500 usec.  If you are
+> seeing this delay, you can comment out the scheduling of the watchdog
+> to see if this goes away.  We'll need to narrow down exactly what in
+> the watchdog is causing the delay
 
---Rnz0oC2K6vQ5doJs
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Retested it.
 
-On Fri, Jan 13, 2006 at 02:15:03PM +0100, Thomas Graf wrote:
-> * Michael Buesch <mbuesch@freenet.de> 2006-01-12 18:24
-> > This is an attempt to rewrite the Wireless Extensions
-> > userspace API, using netlink sockets.
-> > There should also be a notification API, to inform
-> > userspace for changes (config changes, state changes, etc).
-> > It is not implemented, yet.
->=20
-> I'll only comment on the netlink bits and leave the rest to
-> others. I'd highly recommend the use of attributes instead
-> of fixed message structures to allow the interface to be
-> flexible to extensions while staying binary compatible.
+Software:
+2.6.15.1-rt6, no additional patches, configured for full preemption.
 
-I can only second Thomas' suggestion.  The power and flexibility of the
-use of netlink is only really unveiled if you use attributes.   This way
-you can easily extend your data structures later on without breaking
-compatibility, etc.
+Hardware:
+500 MHz Pentium 3
+According to lspci: 82443+82371 Chipset (440 BX + PIIX4)
+According to lspci: 82559ER (09) e100
+100 Mbit full duplex
 
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+Measurement software:
+* I start the rtc at 8192 Hz.
+* I read from /dev/rtc in a usermode realtime process.
+* After each read, I read the tsc and calculate the interval.
+* It should be 122 us most of the time, and indeed it is.
+  At rtprio 2-99, practically all measurements are < 160-175 us
+  on an otherwise idle machine (160 for 99, 175 for 2).
+  At rtprio 1, there are some intervals of up to 300 us on an 
+  idle machine.
+* The program records the intervals in internal arrays and prints
+  them at the end, it doesn't perform any I/O while it is running.
 
---Rnz0oC2K6vQ5doJs
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+Basically, my software measures how long it takes for a realtime
+process at prio n to get executed after it became ready:
+The actual interval minus 122 is the time the process was waiting
+for the CPU (didn't get scheduled).
+This means that there was continuous CPU activity for at least
+that long, either at a higher or the same rt prio, on in
+non-thread kernel code.
+(the rtc threaded interrupt handler is running above all others)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+Effect of the e100 driver:
+* There is no measurable effect when my test program is running
+  at prio 2 - 99.
+* For prio 1, I get an interval of 500-650 us every 2 seconds,
+  which indicates a scheduling latency of 380-530 us.
+Hence, some piece of code is running for ~500 us at rt prio 1.
 
-iD8DBQFD0KPdXaXGVTD0i/8RAg8uAJ93BdIP+yQrQ6U6SIHOUnmsKOEhLgCfc3/D
-AT328qAVmZtfuzjG2ZeYMB8=
-=Hrag
------END PGP SIGNATURE-----
+Analysis of e100:
+* If I comment out the whole body of e100_watchdog except for the
+  timer re-registration, the delays are gone (so it is really the
+  body of e100_watchdog). However, this makes eth0 non-functional.
+* Commenting out parts of it, I found out that most of the time
+  goes into its first half: The code from mii_ethtool_gset to
+  mii_check_link (including) makes the big difference, as far as
+  I can tell especially mii_ethtool_gset.
 
---Rnz0oC2K6vQ5doJs--
+Effect of desktop preemption:
+With desktop preemption insted of full preemption, the 400-500 us
+scheduling delay hits at any rt priority, even at 99, i.e. the
+CPU is occupied by non-thread kernel code.
+Again, commenting out e100_watchdog brings the delays back to
+well below 400 us.
+
+Latency traces:
+None.
+The latency tracer does not record this scheduling latency.
+My max. traces are around 35 us with full preemption and
+around 70 us with desktop preemption, and are not related to e100.
+
+-- 
+Klaus Kusche                 (Software Development - Control Systems)
+KEBA AG             Gewerbepark Urfahr, A-4041 Linz, Austria (Europe)
+Tel: +43 / 732 / 7090-3120                 Fax: +43 / 732 / 7090-6301
+E-Mail: kus@keba.com                                WWW: www.keba.com
