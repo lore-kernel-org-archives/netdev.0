@@ -1,95 +1,135 @@
-From: "kus Kusche Klaus" <kus@keba.com>
-Subject: RE: My vote against eepro* removal
-Date: Fri, 20 Jan 2006 10:37:43 +0100
-Message-ID: <AAD6DA242BC63C488511C611BD51F367323324@MAILIT.keba.co.at>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: My vote against eepro* removal
+Date: Fri, 20 Jan 2006 12:55:48 +0300
+Message-ID: <20060120095548.GA16000@2ka.mipt.ru>
+References: <AAD6DA242BC63C488511C611BD51F367323324@MAILIT.keba.co.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "kus Kusche Klaus" <kus@keba.com>,
-	"Lee Revell" <rlrevell@joe-job.com>,
-	<linux-kernel@vger.kernel.org>, <john.ronciak@intel.com>,
-	<ganesh.venkatesan@intel.com>, <jesse.brandeburg@intel.com>,
-	<netdev@vger.kernel.org>, "Steven Rostedt" <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750715AbWATJh7@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "John Ronciak" <john.ronciak@gmail.com>,
-	"Adrian Bunk" <bunk@stusta.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Ronciak <john.ronciak@gmail.com>,
+	Adrian Bunk <bunk@stusta.de>,
+	Lee Revell <rlrevell@joe-job.com>,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750780AbWATJ5K@vger.kernel.org>
+To: kus Kusche Klaus <kus@keba.com>
+Content-Disposition: inline
+In-Reply-To: <AAD6DA242BC63C488511C611BD51F367323324@MAILIT.keba.co.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: John Ronciak
-> During the watchdog the e100 driver reads all of the status registers
-> from the actual hardware.  There are 26 (worst case) register reads. 
-> There is also a spin lock for another check in the watchdog.  It would
-> still surprise me that all of this would take 500 usec.  If you are
-> seeing this delay, you can comment out the scheduling of the watchdog
-> to see if this goes away.  We'll need to narrow down exactly what in
-> the watchdog is causing the delay
+On Fri, Jan 20, 2006 at 10:37:43AM +0100, kus Kusche Klaus (kus@keba.com) wrote:
+> > From: John Ronciak
+> > During the watchdog the e100 driver reads all of the status registers
+> > from the actual hardware.  There are 26 (worst case) register reads. 
+> > There is also a spin lock for another check in the watchdog.  It would
+> > still surprise me that all of this would take 500 usec.  If you are
+> > seeing this delay, you can comment out the scheduling of the watchdog
+> > to see if this goes away.  We'll need to narrow down exactly what in
+> > the watchdog is causing the delay
+> 
+> Retested it.
 
-Retested it.
+...
 
-Software:
-2.6.15.1-rt6, no additional patches, configured for full preemption.
+> Effect of the e100 driver:
+> * There is no measurable effect when my test program is running
+>   at prio 2 - 99.
+> * For prio 1, I get an interval of 500-650 us every 2 seconds,
+>   which indicates a scheduling latency of 380-530 us.
+> Hence, some piece of code is running for ~500 us at rt prio 1.
+> 
+> Analysis of e100:
+> * If I comment out the whole body of e100_watchdog except for the
+>   timer re-registration, the delays are gone (so it is really the
+>   body of e100_watchdog). However, this makes eth0 non-functional.
+> * Commenting out parts of it, I found out that most of the time
+>   goes into its first half: The code from mii_ethtool_gset to
+>   mii_check_link (including) makes the big difference, as far as
+>   I can tell especially mii_ethtool_gset.
 
-Hardware:
-500 MHz Pentium 3
-According to lspci: 82443+82371 Chipset (440 BX + PIIX4)
-According to lspci: 82559ER (09) e100
-100 Mbit full duplex
+Each MDIO read can take upto 2 msecs (!) and at least 20 usecs in e100,
+and this runs in timer handler.
+Concider attaching (only compile tested) patch which moves e100 watchdog
+into workqueue.
 
-Measurement software:
-* I start the rtc at 8192 Hz.
-* I read from /dev/rtc in a usermode realtime process.
-* After each read, I read the tsc and calculate the interval.
-* It should be 122 us most of the time, and indeed it is.
-  At rtprio 2-99, practically all measurements are < 160-175 us
-  on an otherwise idle machine (160 for 99, 175 for 2).
-  At rtprio 1, there are some intervals of up to 300 us on an 
-  idle machine.
-* The program records the intervals in internal arrays and prints
-  them at the end, it doesn't perform any I/O while it is running.
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-Basically, my software measures how long it takes for a realtime
-process at prio n to get executed after it became ready:
-The actual interval minus 122 is the time the process was waiting
-for the CPU (didn't get scheduled).
-This means that there was continuous CPU activity for at least
-that long, either at a higher or the same rt prio, on in
-non-thread kernel code.
-(the rtc threaded interrupt handler is running above all others)
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+index 22cd045..e884578 100644
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -549,7 +549,7 @@ struct nic {
+ 	enum phy phy;
+ 	struct params params;
+ 	struct net_device_stats net_stats;
+-	struct timer_list watchdog;
++	struct work_struct watchdog;
+ 	struct timer_list blink_timer;
+ 	struct mii_if_info mii;
+ 	struct work_struct tx_timeout_task;
+@@ -1495,7 +1495,7 @@ static void e100_adjust_adaptive_ifs(str
+ 	}
+ }
+ 
+-static void e100_watchdog(unsigned long data)
++static void e100_watchdog(void *data)
+ {
+ 	struct nic *nic = (struct nic *)data;
+ 	struct ethtool_cmd cmd;
+@@ -1539,7 +1539,7 @@ static void e100_watchdog(unsigned long 
+ 	else
+ 		nic->flags &= ~ich_10h_workaround;
+ 
+-	mod_timer(&nic->watchdog, jiffies + E100_WATCHDOG_PERIOD);
++	schedule_delayed_work(&nic->watchdog, E100_WATCHDOG_PERIOD);
+ }
+ 
+ static inline void e100_xmit_prepare(struct nic *nic, struct cb *cb,
+@@ -2004,7 +2004,7 @@ static int e100_up(struct nic *nic)
+ 		goto err_clean_cbs;
+ 	e100_set_multicast_list(nic->netdev);
+ 	e100_start_receiver(nic, NULL);
+-	mod_timer(&nic->watchdog, jiffies);
++	schedule_work(&nic->watchdog);
+ 	if((err = request_irq(nic->pdev->irq, e100_intr, SA_SHIRQ,
+ 		nic->netdev->name, nic->netdev)))
+ 		goto err_no_irq;
+@@ -2016,7 +2016,7 @@ static int e100_up(struct nic *nic)
+ 	return 0;
+ 
+ err_no_irq:
+-	del_timer_sync(&nic->watchdog);
++	cancel_rearming_delayed_work(&nic->watchdog);
+ err_clean_cbs:
+ 	e100_clean_cbs(nic);
+ err_rx_clean_list:
+@@ -2031,7 +2031,7 @@ static void e100_down(struct nic *nic)
+ 	netif_stop_queue(nic->netdev);
+ 	e100_hw_reset(nic);
+ 	free_irq(nic->pdev->irq, nic->netdev);
+-	del_timer_sync(&nic->watchdog);
++	flush_scheduled_work();
+ 	netif_carrier_off(nic->netdev);
+ 	e100_clean_cbs(nic);
+ 	e100_rx_clean_list(nic);
+@@ -2570,9 +2570,7 @@ static int __devinit e100_probe(struct p
+ 
+ 	pci_set_master(pdev);
+ 
+-	init_timer(&nic->watchdog);
+-	nic->watchdog.function = e100_watchdog;
+-	nic->watchdog.data = (unsigned long)nic;
++	INIT_WORK(&nic->watchdog, e100_watchdog, nic);
+ 	init_timer(&nic->blink_timer);
+ 	nic->blink_timer.function = e100_blink_led;
+ 	nic->blink_timer.data = (unsigned long)nic;
 
-Effect of the e100 driver:
-* There is no measurable effect when my test program is running
-  at prio 2 - 99.
-* For prio 1, I get an interval of 500-650 us every 2 seconds,
-  which indicates a scheduling latency of 380-530 us.
-Hence, some piece of code is running for ~500 us at rt prio 1.
-
-Analysis of e100:
-* If I comment out the whole body of e100_watchdog except for the
-  timer re-registration, the delays are gone (so it is really the
-  body of e100_watchdog). However, this makes eth0 non-functional.
-* Commenting out parts of it, I found out that most of the time
-  goes into its first half: The code from mii_ethtool_gset to
-  mii_check_link (including) makes the big difference, as far as
-  I can tell especially mii_ethtool_gset.
-
-Effect of desktop preemption:
-With desktop preemption insted of full preemption, the 400-500 us
-scheduling delay hits at any rt priority, even at 99, i.e. the
-CPU is occupied by non-thread kernel code.
-Again, commenting out e100_watchdog brings the delays back to
-well below 400 us.
-
-Latency traces:
-None.
-The latency tracer does not record this scheduling latency.
-My max. traces are around 35 us with full preemption and
-around 70 us with desktop preemption, and are not related to e100.
+> -- 
+> Klaus Kusche                 (Software Development - Control Systems)
+> KEBA AG             Gewerbepark Urfahr, A-4041 Linz, Austria (Europe)
+> Tel: +43 / 732 / 7090-3120                 Fax: +43 / 732 / 7090-6301
+> E-Mail: kus@keba.com                                WWW: www.keba.com
 
 -- 
-Klaus Kusche                 (Software Development - Control Systems)
-KEBA AG             Gewerbepark Urfahr, A-4041 Linz, Austria (Europe)
-Tel: +43 / 732 / 7090-3120                 Fax: +43 / 732 / 7090-6301
-E-Mail: kus@keba.com                                WWW: www.keba.com
+	Evgeniy Polyakov
