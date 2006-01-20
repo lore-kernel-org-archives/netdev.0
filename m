@@ -1,55 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: My vote against eepro* removal
-Date: Fri, 20 Jan 2006 14:02:30 +0300
-Message-ID: <20060120110230.GA24815@2ka.mipt.ru>
-References: <AAD6DA242BC63C488511C611BD51F367323325@MAILIT.keba.co.at>
+From: "kus Kusche Klaus" <kus@keba.com>
+Subject: RE: My vote against eepro* removal
+Date: Fri, 20 Jan 2006 12:27:43 +0100
+Message-ID: <AAD6DA242BC63C488511C611BD51F367323327@MAILIT.keba.co.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Ronciak <john.ronciak@gmail.com>,
-	Adrian Bunk <bunk@stusta.de>,
-	Lee Revell <rlrevell@joe-job.com>,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
-	ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750830AbWATLGO@vger.kernel.org>
-To: kus Kusche Klaus <kus@keba.com>
-Content-Disposition: inline
-In-Reply-To: <AAD6DA242BC63C488511C611BD51F367323325@MAILIT.keba.co.at>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "John Ronciak" <john.ronciak@gmail.com>,
+	"Adrian Bunk" <bunk@stusta.de>,
+	"Lee Revell" <rlrevell@joe-job.com>,
+	<linux-kernel@vger.kernel.org>, <john.ronciak@intel.com>,
+	<ganesh.venkatesan@intel.com>, <jesse.brandeburg@intel.com>,
+	<netdev@vger.kernel.org>, "Steven Rostedt" <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750850AbWATL1v@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 20, 2006 at 11:19:20AM +0100, kus Kusche Klaus (kus@keba.com) wrote:
-> From: Evgeniy Polyakov
-> > Each MDIO read can take upto 2 msecs (!) and at least 20 
-> > usecs in e100,
-> > and this runs in timer handler.
-> > Concider attaching (only compile tested) patch which moves 
-> > e100 watchdog
-> > into workqueue.
+From: Evgeniy Polyakov
+> Just a hack:
 > 
-> Hmmm, I don't think moving it around is worth the trouble
-> (nevertheless, I will test later if I find time).
-> 
-> For a full preemption kernel, both timer code and workqueue code
-> are executed in a thread of their own. If I know that there is a
-> 500 us piece of code in either of them, I have to adjust the prio
-> of the corresponding thread (and all others) accordingly anyway.
-> 
-> For a non-full preemption kernel, your patch moves the 500 us 
-> piece of code from kernel to thread context, so it really 
-> improves things. But is 500 us something to worry about in a
-> non-full preemption kernel?
+> --- drivers/net/e100.c.1	2006-01-20 13:39:19.000000000 +0300
+> +++ drivers/net/e100.c	2006-01-20 14:15:40.000000000 +0300
+> @@ -879,8 +879,8 @@
+>  
+>  	writel((reg << 16) | (addr << 21) | dir | data, 
+> &nic->csr->mdi_ctrl);
+>  
+> -	for(i = 0; i < 100; i++) {
+> -		udelay(20);
+> +	for(i = 0; i < 1000; i++) {
+> +		udelay(2);
+>  		if((data_out = readl(&nic->csr->mdi_ctrl)) & mdi_ready)
+>  			break;
+>  	}
 
-In the worst case it will be milliseconds, which is not very nice
-timeout for timer handler...
+My test environment and software is not precise enough for small 
+improvements, but I'd say this results in a 10-15 % improvement
+(i.e. something like 50 us shorter delay) on the average.
 
-P.S. above patch works without problems with my e100 card.
-
-> -- 
-> Klaus Kusche                 (Software Development - Control Systems)
-> KEBA AG             Gewerbepark Urfahr, A-4041 Linz, Austria (Europe)
-> Tel: +43 / 732 / 7090-3120                 Fax: +43 / 732 / 7090-6301
-> E-Mail: kus@keba.com                                WWW: www.keba.com
+To be sure, one would have to take and print tsc timestamps directly
+in the watchdog code, but printk's mess up my timings.
 
 -- 
-	Evgeniy Polyakov
+Klaus Kusche                 (Software Development - Control Systems)
+KEBA AG             Gewerbepark Urfahr, A-4041 Linz, Austria (Europe)
+Tel: +43 / 732 / 7090-3120                 Fax: +43 / 732 / 7090-6301
+E-Mail: kus@keba.com                                WWW: www.keba.com
