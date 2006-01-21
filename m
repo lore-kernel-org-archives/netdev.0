@@ -1,61 +1,70 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [bug] stuck localhost TCP connections, v2.6.26-rc3+
-Date: Thu, 29 May 2008 16:48:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0805291612150.16829@wrl-59.cs.helsinki.fi>
-References: <20080526115628.GA31316@elte.hu> <20080529084524.GA24892@elte.hu>
- <Pine.LNX.4.64.0805291332401.16829@wrl-59.cs.helsinki.fi> <20080529112257.GA18130@elte.hu>
- <20080529130823.GA8364@elte.hu>
+From: <samuel@sortiz.org>
+Subject: Re: [PATCH 2/2] IRDA: Do cleanup for dma
+Date: Sat, 21 Jan 2006 07:07:16 +0100
+Message-ID: <6fe1847af5073e7f50519a2ebc730653@localhost>
+References: <48365CBF.4080502@cn.fujitsu.com> <20080529.033442.175635712.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756845AbYE2Nso@vger.kernel.org>
-In-Reply-To: <20080529130823.GA8364@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: wangchen@cn.fujitsu.com, jgarzik@pobox.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 25.mail-out.ovh.net ([213.186.37.103]:38989 "HELO
+	25.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754960AbYE2NsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2008 09:48:04 -0400
+In-Reply-To: <20080529.033442.175635712.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 May 2008, Ingo Molnar wrote:
 
-> btw., i now also have a hung socket over real network:
+Hi Dave,
+
+
+
+On Thu, 29 May 2008 03:34:42 -0700 (PDT), David Miller
+
+<davem@davemloft.net> wrote:
+
+> From: Wang Chen <wangchen@cn.fujitsu.com>
+
+> Date: Fri, 23 May 2008 13:57:19 +0800
+
 > 
-> titan:~> netstat -nt
-> Active Internet connections (w/o servers)
-> Proto Recv-Q Send-Q Local Address               Foreign Address             State
-> tcp        0  86752 10.0.1.14:49921             10.0.1.16:3632              ESTABLISHED
+
+>> 1. dma should be freed when dma2 request fail.
+
+>> 2. dma2 should be freed too when device close.
+
+>>
+
+>> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
+
 > 
-> (the scenario is similar to the incident i've analyzed before, so i wont 
-> repeat the tcpdump, etc.)
 
-...Yes, also the previous one you quoted was already over the network.
-But I think the key is in the receiving end rather than in the sending 
-end. Could try to extract any information about these I mentioned earlier,
-to me there are mainly two weird things:
+> Jeff, did you get this or would you like me to pick
 
-1) Why we see orphaning with data in the first place. I think distcc would 
-be interested to read everything, unless some worker crashed in early...
-Though some timeout in distcc could explain it as well but I don't know 
-too well how distcc does everything...
+> it up directly?
 
-2) Why the receiving end of the connection is still in ESTABLISHED 
-without an owner... If it had some unread data, should be in CLOSE or in 
-FIN_WAIT1 otherwise. Ie., tcp_close() would change the state of the flow.
+I'll take it and send it along with my next IrDA patch set.
 
-These both basically happen at the receiving end, though if there was 
-unread data the RST would also reflected state change to the sending side 
-and since there's window, also FIN would be sent right away and 
-cause sender to leave ESTABLISHED rather than that FIN would get stuck 
-into the tail of the TCP queue.
 
-How to collect the information, I'm not too sure, tcp_close might well 
-work as a plain printk because I think it shouldn't be that noisy. But 
-that would likely just show that it wasn't called for a stuck receiver
-at all, so it would probably end up being a dead-end anyway.
 
--- 
- i.
+Cheers,
+
+Samuel.
+
+
+
+
+
+> Thanks.
+
+> --
+
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+
+> the body of a message to majordomo@vger.kernel.org
+
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
