@@ -1,36 +1,45 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: RE: My vote against eepro* removal
-Date: Fri, 20 Jan 2006 19:45:45 -0500
-Message-ID: <1137804346.3241.38.camel@mindpipe>
-References: <AAD6DA242BC63C488511C611BD51F367323325@MAILIT.keba.co.at>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] schedule SHAPER for removal
+Date: Sat, 21 Jan 2006 01:48:48 +0100
+Message-ID: <20060121004848.GM31803@stusta.de>
+References: <20060119021150.GC19398@stusta.de> <20060119215722.GO16285@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	John Ronciak <john.ronciak@gmail.com>,
-	Adrian Bunk <bunk@stusta.de>, linux-kernel@vger.kernel.org,
-	john.ronciak@intel.com, ganesh.venkatesan@intel.com,
-	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932350AbWAUApu@vger.kernel.org>
-To: kus Kusche Klaus <kus@keba.com>
-In-Reply-To: <AAD6DA242BC63C488511C611BD51F367323325@MAILIT.keba.co.at>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932360AbWAUAsx@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20060119215722.GO16285@kvack.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-01-20 at 11:19 +0100, kus Kusche Klaus wrote:
-> For a non-full preemption kernel, your patch moves the 500 us 
-> piece of code from kernel to thread context, so it really 
-> improves things. But is 500 us something to worry about in a
-> non-full preemption kernel? 
+On Thu, Jan 19, 2006 at 04:57:22PM -0500, Benjamin LaHaise wrote:
+> On Thu, Jan 19, 2006 at 03:11:50AM +0100, Adrian Bunk wrote:
+> > +What:   Traffic Shaper (CONFIG_SHAPER)
+> > +When:   July 2006
+> > +Why:    obsoleted by the code in net/sched/
+> > +Who:    Adrian Bunk <bunk@stusta.de
+> 
+> This length of obsolete cycles is way too short -- it's not even enough 
+> time for a single release of a distro to ship with the feature marked as 
+> obsolete.
 
-Yes, absolutely.  Once exit_mmap (a latency regression which was
-introduced in 2.6.14) and rt_run_flush/rt_garbage_collect (which have
-always been problematic) are fixed, 500usecs will stick out like a sore
-thumb even on a regular PREEMPT kernel.
+Do we really have to wait the three years between stable Debian releases 
+for removing an obsolete driver that has always been marked as 
+EXPERIMENTAL?
 
-Also, you should be able to capture this latency in /proc/latency trace
-by configuring an -rt kernel with PREEMPT_DESKTOP and hard/softirq
-preemption disabled.
+Please be serious.
 
-Lee
+> 		-ben
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
