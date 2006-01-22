@@ -1,21 +1,21 @@
 From: Denis Vlasenko <vda@ilport.com.ua>
 Subject: [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
-Date: Sun, 22 Jan 2006 13:59:31 +0200
-Message-ID: <200601221359.31482.vda@ilport.com.ua>
+Date: Sun, 22 Jan 2006 14:04:52 +0200
+Message-ID: <200601221404.52757.vda@ilport.com.ua>
 References: <20060118200616.GC6583@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_jO30DDAekfRjnnw"
+  boundary="Boundary-00=_kT30DlqSWcE16+R"
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	jbenc@suse.cz, softmac-dev@sipsolutions.net,
 	bcm43xx-dev@lists.berlios.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932424AbWAVMEn@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964775AbWAVMFR@vger.kernel.org>
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060118200616.GC6583@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_jO30DDAekfRjnnw
+--Boundary-00=_kT30DlqSWcE16+R
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
@@ -25,7 +25,7 @@ bcm43xx_rx() contains code to filter out packets from
 foreign BSSes and decide whether to call ieee80211_rx
 or ieee80211_rx_mgt. This is not bcm specific.
 
-Patch adapts that code and adds it to softmac
+Patch adapts that code and adds it to 80211
 as ieee80211_rx_any() function.
 
 Diffed against wireless-2.6.git
@@ -34,7 +34,7 @@ Signed-off-by: Denis Vlasenko <vda@ilport.com.ua>
 --
 vda
 
---Boundary-00=_jO30DDAekfRjnnw
+--Boundary-00=_kT30DlqSWcE16+R
 Content-Type: text/x-diff;
   charset="iso-8859-1";
   name="rx.patch"
@@ -42,16 +42,10 @@ Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
 	filename="rx.patch"
 
-bcm43xx_rx() contains code to filter out packets from
-foreign BSSes and decide whether to call ieee80211_rx
-or ieee80211_rx_mgt. This is not bcm specific.
-
-Patch adapts that code and adds it to softmac.
-
-diff -urpN softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/ieee80211/ieee80211_rx.c
+diff -urp softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/ieee80211/ieee80211_rx.c
 --- softmac-snapshot/net/ieee80211/ieee80211_rx.c	Wed Jan 18 07:27:03 2006
-+++ softmac-snapshot.1/net/ieee80211/ieee80211_rx.c	Sun Jan 22 13:12:30 2006
-@@ -758,6 +758,79 @@ int ieee80211_rx(struct ieee80211_device
++++ softmac-snapshot.1/net/ieee80211/ieee80211_rx.c	Sun Jan 22 14:01:43 2006
+@@ -758,6 +758,80 @@ int ieee80211_rx(struct ieee80211_device
  	/* Returning 0 indicates to caller that we have not handled the SKB--
  	 * so it is still allocated and can be used again by underlying
  	 * hardware as a DMA target */
@@ -80,7 +74,8 @@ diff -urpN softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/
 +
 +	switch (fc & IEEE80211_FCTL_FTYPE) {
 +	case IEEE80211_FTYPE_MGMT:
-+		return ieee80211_rx_mgt(ieee, hdr, stats);
++		ieee80211_rx_mgt(ieee, hdr, stats);
++		return 0;
 +	case IEEE80211_FTYPE_DATA:
 +		break;
 +	case IEEE80211_FTYPE_CTL:
@@ -132,4 +127,4 @@ diff -urpN softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/
  }
  
 
---Boundary-00=_jO30DDAekfRjnnw--
+--Boundary-00=_kT30DlqSWcE16+R--
