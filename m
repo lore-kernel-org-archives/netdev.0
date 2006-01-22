@@ -1,36 +1,44 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx
- or ieee80211_rx_mgt
-Date: Sun, 22 Jan 2006 14:32:03 +0100
-Message-ID: <43D38953.7040100@trash.net>
-References: <20060118200616.GC6583@tuxdriver.com> <200601221404.52757.vda@ilport.com.ua>
+Subject: Re: ip_finish_output2: No header cache and no neighbour! in
+	2.6.15-git7
+Date: Sun, 22 Jan 2006 15:07:01 +0100
+Message-ID: <43D39185.4070808@trash.net>
+References: <20060116071515.GA1773@gondor.apana.org.au>	<43CCBC0E.4070701@trash.net>	<200601200815.40210.ak@suse.de>
+	<20060119.235114.41595062.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbenc@suse.cz, softmac-dev@sipsolutions.net,
-	bcm43xx-dev@lists.berlios.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751247AbWAVNdE@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200601221404.52757.vda@ilport.com.ua>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	ak@suse.de, herbert@gondor.apana.org.au
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060119.235114.41595062.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko wrote:
-> bcm43xx_rx() contains code to filter out packets from
-> foreign BSSes and decide whether to call ieee80211_rx
-> or ieee80211_rx_mgt. This is not bcm specific.
+David S. Miller wrote:
+> From: Andi Kleen <ak@suse.de>
+> Date: Fri, 20 Jan 2006 08:15:39 +0100
 > 
-> +/* Kernel doesn't have it, why? */
-> +static inline int is_mcast_or_bcast_ether_addr(const u8 *addr)
-> +{
-> +        return (0x01 & addr[0]);
-> +}
+>>Sorry for the delay in testing. Looks good so far. I'm running with SNAT
+>>and the patch and the messages haven't appeared. Will keep it running
+>>for longer, but previously they would have started already, so it's probably
+>>ok now.
+> 
+> 
+> Thanks for testing Andi.
+> 
+> Patrick, please send me the final version of the fix you want me to
+> put in when you get a chance.
 
-The same function exists in include/linux/etherdevice.h:
-
-static inline int is_multicast_ether_addr(const u8 *addr)
-{
-        return (0x01 & addr[0]);
-}
+I need to rethink this, my patch breaks SNAT to non-local IPs because
+the NAT code will throw the packet away if ip_route_me_harder fails.
