@@ -1,130 +1,49 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
-Date: Sun, 22 Jan 2006 14:04:52 +0200
-Message-ID: <200601221404.52757.vda@ilport.com.ua>
-References: <20060118200616.GC6583@tuxdriver.com>
+From: Denis Vlasenko <vda-BN/BzeNzsW2SlH3FCl+8hg@public.gmane.org>
+Subject: Re: [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
+Date: Sun, 22 Jan 2006 14:08:45 +0200
+Message-ID: <200601221408.45486.vda@ilport.com.ua>
+References: <20060118200616.GC6583@tuxdriver.com> <200601221359.31482.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_kT30DlqSWcE16+R"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbenc@suse.cz, softmac-dev@sipsolutions.net,
-	bcm43xx-dev@lists.berlios.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964775AbWAVMFR@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060118200616.GC6583@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbenc-AlSwsSmVLrQ@public.gmane.org,
+   softmac-dev-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <200601221359.31482.vda-BN/BzeNzsW2SlH3FCl+8hg@public.gmane.org>
+Content-Disposition: inline
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_kT30DlqSWcE16+R
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Sunday 22 January 2006 13:59, Denis Vlasenko wrote:
+> bcm43xx_rx() contains code to filter out packets from
+> foreign BSSes and decide whether to call ieee80211_rx
+> or ieee80211_rx_mgt. This is not bcm specific.
+>=20
+> Patch adapts that code and adds it to softmac
+> as ieee80211_rx_any() function.
+>=20
+> Diffed against wireless-2.6.git
+>=20
+> Signed-off-by: Denis Vlasenko <vda-BN/BzeNzsW2SlH3FCl+8hg@public.gmane.org>
+> --
+> vda
 
-bcm43xx_rx() contains code to filter out packets from
-foreign BSSes and decide whether to call ieee80211_rx
-or ieee80211_rx_mgt. This is not bcm specific.
+Please ignore this one. This is not good:
 
-Patch adapts that code and adds it to 80211
-as ieee80211_rx_any() function.
++=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9A=9Areturn ieee80211_rx_mgt(iee=
+e, hdr, stats);
 
-Diffed against wireless-2.6.git
-
-Signed-off-by: Denis Vlasenko <vda@ilport.com.ua>
+Use corrected patch in my another email with
+"Date: Sun, 22 Jan 2006 14:04:52 +0200"
 --
 vda
-
---Boundary-00=_kT30DlqSWcE16+R
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="rx.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="rx.patch"
-
-diff -urp softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/ieee80211/ieee80211_rx.c
---- softmac-snapshot/net/ieee80211/ieee80211_rx.c	Wed Jan 18 07:27:03 2006
-+++ softmac-snapshot.1/net/ieee80211/ieee80211_rx.c	Sun Jan 22 14:01:43 2006
-@@ -758,6 +758,80 @@ int ieee80211_rx(struct ieee80211_device
- 	/* Returning 0 indicates to caller that we have not handled the SKB--
- 	 * so it is still allocated and can be used again by underlying
- 	 * hardware as a DMA target */
-+	return 0;
-+}
-+
-+/* Kernel doesn't have it, why? */
-+static inline int is_mcast_or_bcast_ether_addr(const u8 *addr)
-+{
-+        return (0x01 & addr[0]);
-+}
-+
-+/* Filter out unrelated packets, call ieee80211_rx[_mgt] */
-+int ieee80211_rx_any(struct ieee80211_device *ieee,
-+		     struct sk_buff *skb, struct ieee80211_rx_stats *stats)
-+{
-+	struct ieee80211_hdr_4addr *hdr;
-+	int is_packet_for_us;
-+	u16 fc;
-+
-+	if (ieee->iw_mode == IW_MODE_MONITOR)
-+		return ieee80211_rx(ieee, skb, stats) ? 0 : -EINVAL;
-+
-+	hdr = (struct ieee80211_hdr_4addr *)skb->data;
-+	fc = le16_to_cpu(hdr->frame_ctl);
-+
-+	switch (fc & IEEE80211_FCTL_FTYPE) {
-+	case IEEE80211_FTYPE_MGMT:
-+		ieee80211_rx_mgt(ieee, hdr, stats);
-+		return 0;
-+	case IEEE80211_FTYPE_DATA:
-+		break;
-+	case IEEE80211_FTYPE_CTL:
-+		return 0;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	is_packet_for_us = 0;
-+	switch (ieee->iw_mode) {
-+	case IW_MODE_ADHOC:
-+		/* promisc: get all */
-+		if (ieee->dev->flags & IFF_PROMISC)
-+			is_packet_for_us = 1;
-+		/* our BSS */
-+		else if (memcmp(hdr->addr3, ieee->bssid, ETH_ALEN) == 0) {
-+			/* to us */
-+			if (memcmp(hdr->addr1, ieee->dev->dev_addr, ETH_ALEN) == 0)
-+				is_packet_for_us = 1;
-+			/* mcast */
-+			else if (is_mcast_or_bcast_ether_addr(hdr->addr1))
-+				is_packet_for_us = 1;
-+		}
-+		break;
-+	case IW_MODE_INFRA:
-+		/* promisc: get all */
-+		if (ieee->dev->flags & IFF_PROMISC)
-+			is_packet_for_us = 1;
-+		/* our BSS (== from our AP) */
-+		else if (memcmp(hdr->addr2, ieee->bssid, ETH_ALEN) == 0) {
-+			/* to us */
-+			if (memcmp(hdr->addr1, ieee->dev->dev_addr, ETH_ALEN) == 0)
-+				is_packet_for_us = 1;
-+			/* mcast */
-+			else if (is_mcast_or_bcast_ether_addr(hdr->addr1))
-+				/* not our own packet bcasted from AP */
-+				if (memcmp(hdr->addr3, ieee->dev->dev_addr, ETH_ALEN))
-+					is_packet_for_us = 1;
-+		}
-+		break;
-+	default:
-+		/* ? */
-+		break;
-+	}
-+
-+	if (is_packet_for_us)
-+		return (ieee80211_rx(ieee, skb, stats) ? 0 : -EINVAL);
- 	return 0;
- }
- 
-
---Boundary-00=_kT30DlqSWcE16+R--
