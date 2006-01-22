@@ -1,58 +1,55 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [2.6 patch] schedule SHAPER for removal
-Date: Sun, 22 Jan 2006 19:32:56 +0100
-Message-ID: <1137954776.3328.31.camel@laptopd505.fenrus.org>
-References: <20060119021150.GC19398@stusta.de>
-	 <20060119215722.GO16285@kvack.org> <20060121004848.GM31803@stusta.de>
-	 <20060122174707.GC1008@kvack.org>  <20060122182034.GG10003@stusta.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Bugme-new] [Bug 5936] New: Openswan tunnels + netfilter
+ problem
+Date: Sun, 22 Jan 2006 21:56:38 +0100
+Message-ID: <43D3F186.6030206@trash.net>
+References: <20060122121301.033997ca.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>, Andrew Morton <akpm@osdl.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751311AbWAVSdI@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060122182034.GG10003@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: webmaster@elnportal.it
+In-Reply-To: <20060122121301.033997ca.akpm@osdl.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-01-22 at 19:20 +0100, Adrian Bunk wrote:
-> On Sun, Jan 22, 2006 at 12:47:07PM -0500, Benjamin LaHaise wrote:
-> > On Sat, Jan 21, 2006 at 01:48:48AM +0100, Adrian Bunk wrote:
-> > > Do we really have to wait the three years between stable Debian releases 
-> > > for removing an obsolete driver that has always been marked as 
-> > > EXPERIMENTAL?
-> > > 
-> > > Please be serious.
-> > 
-> > I am completely serious.  The traditional cycle of obsolete code that works 
-> > and is not causing a maintenence burden is 2 major releases -- one release 
-> > during which the obsolete feature spews warnings on use, and another 
-> > development cycle until it is actually removed.  That's at least 3 years, 
-> > which is still pretty short compared to distro cycles.
-> > 
-> > There seems to be a lot of this disease of removing code for the sake of 
-> > removal lately, and it's getting to the point of being really annoying.  If 
-> > the maintainer of the code in question isn't pushing for its removal, I see 
-> > no need to rush the process too much, especially when the affected users 
-> > aren't even likely to see the feature being marked obsolete since they don't 
-> > troll the source code looking for things that break setups.
+Andrew Morton wrote:
 > 
-> The only supported combinations are distributions with the kernels they 
-> ship.
+> Begin forwarded message:
+> 
+> Date: Sun, 22 Jan 2006 12:02:22 -0800
+> From: bugme-daemon@bugzilla.kernel.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 5936] New: Openswan tunnels + netfilter problem
+> 
+> 
+> http://bugzilla.kernel.org/show_bug.cgi?id=5936
+> 
+>            Summary: Openswan tunnels + netfilter problem
+>     Kernel Version: 2.6.16-rc1
+>             Status: NEW
+>           Severity: high
+>              Owner: laforge@gnumonks.org
+>          Submitter: webmaster@elnportal.it
+> 
+> 
+> Jan 22 20:23:17 router kernel: Unable to handle kernel NULL pointer 
+> dereference at 000000000000009c RIP:
+> Jan 22 20:23:17 router kernel: <ffffffff80345195>{xfrm4_output_finish+293}
+> Jan 22 20:23:17 router kernel: PGD 35377067 PUD 0
+> Jan 22 20:23:17 router kernel: Oops: 0000 [6]
+> Jan 22 20:23:17 router kernel: CPU 0
+> Jan 22 20:23:17 router kernel: Modules linked in: af_key deflate 
+> zlib_deflate twofish serpent blowfish sha256 crypto_null ae$
 
-I think you're being unreasonable here.
-
-Removing unused code from the kernel, I'm all for that. Really.
-But this is userspace visible functionality, and more care needs to be
-taken than just adding a few lines to an obscure file in the kernel.
-I agree with Ben that the kernel needs to printk a stern warning *AT USE
-OF THE FEATURE* for at least a year before such a feature can be
-removed. In addition I think that in case such a feature isn't actually
-harmful of further development (for example, it could be because it's
-fundamentally broken locking wise, or holding back major improvements)
-then a longer period of warnings should be no problem. Together with
-that should probably be something to ask distros to stop enabling the
-feature asap, or at least communicate it as deprecated in their
-respective release notes.
+Please post your iptables rules and the full list of loaded modules.
