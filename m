@@ -1,74 +1,58 @@
-From: Adrian Bunk <bunk@stusta.de>
+From: Arjan van de Ven <arjan@infradead.org>
 Subject: Re: [2.6 patch] schedule SHAPER for removal
-Date: Sun, 22 Jan 2006 19:20:34 +0100
-Message-ID: <20060122182034.GG10003@stusta.de>
-References: <20060119021150.GC19398@stusta.de> <20060119215722.GO16285@kvack.org> <20060121004848.GM31803@stusta.de> <20060122174707.GC1008@kvack.org>
+Date: Sun, 22 Jan 2006 19:32:56 +0100
+Message-ID: <1137954776.3328.31.camel@laptopd505.fenrus.org>
+References: <20060119021150.GC19398@stusta.de>
+	 <20060119215722.GO16285@kvack.org> <20060121004848.GM31803@stusta.de>
+	 <20060122174707.GC1008@kvack.org>  <20060122182034.GG10003@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751306AbWAVSUg@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20060122174707.GC1008@kvack.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Benjamin LaHaise <bcrl@kvack.org>, Andrew Morton <akpm@osdl.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751311AbWAVSdI@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060122182034.GG10003@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 22, 2006 at 12:47:07PM -0500, Benjamin LaHaise wrote:
-> On Sat, Jan 21, 2006 at 01:48:48AM +0100, Adrian Bunk wrote:
-> > Do we really have to wait the three years between stable Debian releases 
-> > for removing an obsolete driver that has always been marked as 
-> > EXPERIMENTAL?
+On Sun, 2006-01-22 at 19:20 +0100, Adrian Bunk wrote:
+> On Sun, Jan 22, 2006 at 12:47:07PM -0500, Benjamin LaHaise wrote:
+> > On Sat, Jan 21, 2006 at 01:48:48AM +0100, Adrian Bunk wrote:
+> > > Do we really have to wait the three years between stable Debian releases 
+> > > for removing an obsolete driver that has always been marked as 
+> > > EXPERIMENTAL?
+> > > 
+> > > Please be serious.
 > > 
-> > Please be serious.
+> > I am completely serious.  The traditional cycle of obsolete code that works 
+> > and is not causing a maintenence burden is 2 major releases -- one release 
+> > during which the obsolete feature spews warnings on use, and another 
+> > development cycle until it is actually removed.  That's at least 3 years, 
+> > which is still pretty short compared to distro cycles.
+> > 
+> > There seems to be a lot of this disease of removing code for the sake of 
+> > removal lately, and it's getting to the point of being really annoying.  If 
+> > the maintainer of the code in question isn't pushing for its removal, I see 
+> > no need to rush the process too much, especially when the affected users 
+> > aren't even likely to see the feature being marked obsolete since they don't 
+> > troll the source code looking for things that break setups.
 > 
-> I am completely serious.  The traditional cycle of obsolete code that works 
-> and is not causing a maintenence burden is 2 major releases -- one release 
-> during which the obsolete feature spews warnings on use, and another 
-> development cycle until it is actually removed.  That's at least 3 years, 
-> which is still pretty short compared to distro cycles.
-> 
-> There seems to be a lot of this disease of removing code for the sake of 
-> removal lately, and it's getting to the point of being really annoying.  If 
-> the maintainer of the code in question isn't pushing for its removal, I see 
-> no need to rush the process too much, especially when the affected users 
-> aren't even likely to see the feature being marked obsolete since they don't 
-> troll the source code looking for things that break setups.
+> The only supported combinations are distributions with the kernels they 
+> ship.
 
-The only supported combinations are distributions with the kernels they 
-ship.
+I think you're being unreasonable here.
 
-E.g. running Debian stable with any kernel > 2.6.8 is simply not 
-supported.
-
-The only point where users are supposed to see such changes are upgrades 
-to new releases of their distribution - and this is anyways a point 
-where you have to double-check whether it hadn't broken anything.
-
-And the kernel isn't the main thing where things break during 
-distribution upgrades - userspace breakages are much more common.
-
-As an example, not so long ago an upgrade of the hdparm package on my 
-Debian unstable system broke one local boot script I'm using because 
-upstream removed the short form of an option.
-
-And GNU make 3.81 will contain some backwards incompatible changes for 
-being more POSIX compliant.
-
-And many more changes I do not remember.
-
-Distributions can document usespace-visible changes, but avoiding them 
-is simply not possible.
-
-> 		-ben
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Removing unused code from the kernel, I'm all for that. Really.
+But this is userspace visible functionality, and more care needs to be
+taken than just adding a few lines to an obscure file in the kernel.
+I agree with Ben that the kernel needs to printk a stern warning *AT USE
+OF THE FEATURE* for at least a year before such a feature can be
+removed. In addition I think that in case such a feature isn't actually
+harmful of further development (for example, it could be because it's
+fundamentally broken locking wise, or holding back major improvements)
+then a longer period of warnings should be no problem. Together with
+that should probably be something to ask distros to stop enabling the
+feature asap, or at least communicate it as deprecated in their
+respective release notes.
