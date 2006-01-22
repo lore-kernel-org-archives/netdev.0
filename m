@@ -1,50 +1,135 @@
 From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: [PATCH] trivial fix
-Date: Sun, 22 Jan 2006 13:57:10 +0200
-Message-ID: <200601221357.10939.vda@ilport.com.ua>
+Subject: [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
+Date: Sun, 22 Jan 2006 13:59:31 +0200
+Message-ID: <200601221359.31482.vda@ilport.com.ua>
 References: <20060118200616.GC6583@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_WM30Dtv9GsA78a5"
+  boundary="Boundary-00=_jO30DDAekfRjnnw"
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jbenc@suse.cz, softmac-dev@sipsolutions.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932418AbWAVL5l@vger.kernel.org>
+	jbenc@suse.cz, softmac-dev@sipsolutions.net,
+	bcm43xx-dev@lists.berlios.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932424AbWAVMEn@vger.kernel.org>
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060118200616.GC6583@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_WM30Dtv9GsA78a5
+--Boundary-00=_jO30DDAekfRjnnw
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Patch fixes misplaced (). Diffed against wireless-2.6.git
+bcm43xx_rx() contains code to filter out packets from
+foreign BSSes and decide whether to call ieee80211_rx
+or ieee80211_rx_mgt. This is not bcm specific.
+
+Patch adapts that code and adds it to softmac
+as ieee80211_rx_any() function.
+
+Diffed against wireless-2.6.git
 
 Signed-off-by: Denis Vlasenko <vda@ilport.com.ua>
 --
 vda
 
---Boundary-00=_WM30Dtv9GsA78a5
+--Boundary-00=_jO30DDAekfRjnnw
 Content-Type: text/x-diff;
   charset="iso-8859-1";
-  name="trivial.patch"
+  name="rx.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="trivial.patch"
+	filename="rx.patch"
+
+bcm43xx_rx() contains code to filter out packets from
+foreign BSSes and decide whether to call ieee80211_rx
+or ieee80211_rx_mgt. This is not bcm specific.
+
+Patch adapts that code and adds it to softmac.
 
 diff -urpN softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/ieee80211/ieee80211_rx.c
 --- softmac-snapshot/net/ieee80211/ieee80211_rx.c	Wed Jan 18 07:27:03 2006
 +++ softmac-snapshot.1/net/ieee80211/ieee80211_rx.c	Sun Jan 22 13:12:30 2006
-@@ -562,7 +562,7 @@ int ieee80211_rx(struct ieee80211_device
- 	/* skb: hdr + (possibly fragmented) plaintext payload */
- 	// PR: FIXME: hostap has additional conditions in the "if" below:
- 	// ieee->host_decrypt && (fc & IEEE80211_FCTL_PROTECTED) &&
--	if ((frag != 0 || (fc & IEEE80211_FCTL_MOREFRAGS))) {
-+	if ((frag != 0) || (fc & IEEE80211_FCTL_MOREFRAGS)) {
- 		int flen;
- 		struct sk_buff *frag_skb = ieee80211_frag_cache_get(ieee, hdr);
- 		IEEE80211_DEBUG_FRAG("Rx Fragment received (%u)\n", frag);
+@@ -758,6 +758,79 @@ int ieee80211_rx(struct ieee80211_device
+ 	/* Returning 0 indicates to caller that we have not handled the SKB--
+ 	 * so it is still allocated and can be used again by underlying
+ 	 * hardware as a DMA target */
++	return 0;
++}
++
++/* Kernel doesn't have it, why? */
++static inline int is_mcast_or_bcast_ether_addr(const u8 *addr)
++{
++        return (0x01 & addr[0]);
++}
++
++/* Filter out unrelated packets, call ieee80211_rx[_mgt] */
++int ieee80211_rx_any(struct ieee80211_device *ieee,
++		     struct sk_buff *skb, struct ieee80211_rx_stats *stats)
++{
++	struct ieee80211_hdr_4addr *hdr;
++	int is_packet_for_us;
++	u16 fc;
++
++	if (ieee->iw_mode == IW_MODE_MONITOR)
++		return ieee80211_rx(ieee, skb, stats) ? 0 : -EINVAL;
++
++	hdr = (struct ieee80211_hdr_4addr *)skb->data;
++	fc = le16_to_cpu(hdr->frame_ctl);
++
++	switch (fc & IEEE80211_FCTL_FTYPE) {
++	case IEEE80211_FTYPE_MGMT:
++		return ieee80211_rx_mgt(ieee, hdr, stats);
++	case IEEE80211_FTYPE_DATA:
++		break;
++	case IEEE80211_FTYPE_CTL:
++		return 0;
++	default:
++		return -EINVAL;
++	}
++
++	is_packet_for_us = 0;
++	switch (ieee->iw_mode) {
++	case IW_MODE_ADHOC:
++		/* promisc: get all */
++		if (ieee->dev->flags & IFF_PROMISC)
++			is_packet_for_us = 1;
++		/* our BSS */
++		else if (memcmp(hdr->addr3, ieee->bssid, ETH_ALEN) == 0) {
++			/* to us */
++			if (memcmp(hdr->addr1, ieee->dev->dev_addr, ETH_ALEN) == 0)
++				is_packet_for_us = 1;
++			/* mcast */
++			else if (is_mcast_or_bcast_ether_addr(hdr->addr1))
++				is_packet_for_us = 1;
++		}
++		break;
++	case IW_MODE_INFRA:
++		/* promisc: get all */
++		if (ieee->dev->flags & IFF_PROMISC)
++			is_packet_for_us = 1;
++		/* our BSS (== from our AP) */
++		else if (memcmp(hdr->addr2, ieee->bssid, ETH_ALEN) == 0) {
++			/* to us */
++			if (memcmp(hdr->addr1, ieee->dev->dev_addr, ETH_ALEN) == 0)
++				is_packet_for_us = 1;
++			/* mcast */
++			else if (is_mcast_or_bcast_ether_addr(hdr->addr1))
++				/* not our own packet bcasted from AP */
++				if (memcmp(hdr->addr3, ieee->dev->dev_addr, ETH_ALEN))
++					is_packet_for_us = 1;
++		}
++		break;
++	default:
++		/* ? */
++		break;
++	}
++
++	if (is_packet_for_us)
++		return (ieee80211_rx(ieee, skb, stats) ? 0 : -EINVAL);
+ 	return 0;
+ }
+ 
 
---Boundary-00=_WM30Dtv9GsA78a5--
+--Boundary-00=_jO30DDAekfRjnnw--
