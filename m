@@ -1,91 +1,50 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 3/5] [RFC] Infiniband: connection
-	abstraction
-Date: Sat, 21 Jan 2006 15:37:12 -0800
-Message-ID: <ada3bjhrw47.fsf@cisco.com>
-References: <ORSMSX4011XvpFVjCRG00000041@orsmsx401.amr.corp.intel.com>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: [PATCH] trivial fix
+Date: Sun, 22 Jan 2006 13:57:10 +0200
+Message-ID: <200601221357.10939.vda@ilport.com.ua>
+References: <20060118200616.GC6583@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_WM30Dtv9GsA78a5"
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
-In-Reply-To: <ORSMSX4011XvpFVjCRG00000041@orsmsx401.amr.corp.intel.com> (Sean
-	Hefty's message of "Tue, 17 Jan 2006 15:28:17 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+	jbenc@suse.cz, softmac-dev@sipsolutions.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932418AbWAVL5l@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060118200616.GC6583@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BTW, it's probably worth highlighting these parts of this patch:
+--Boundary-00=_WM30Dtv9GsA78a5
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-First off, ip_dev_find() is exported again:
+Patch fixes misplaced (). Diffed against wireless-2.6.git
 
- > --- linux-2.6.git/net/ipv4/fib_frontend.c	2006-01-16 10:28:29.000000000 -0800
- > +++ linux-2.6.ib/net/ipv4/fib_frontend.c	2006-01-16 16:14:24.000000000 -0800
- > @@ -666,4 +666,5 @@ void __init ip_fib_init(void)
- >  }
- >  
- >  EXPORT_SYMBOL(inet_addr_type);
- > +EXPORT_SYMBOL(ip_dev_find);
- >  EXPORT_SYMBOL(ip_rt_ioctl);
+Signed-off-by: Denis Vlasenko <vda@ilport.com.ua>
+--
+vda
 
-And then it's used here:
+--Boundary-00=_WM30Dtv9GsA78a5
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="trivial.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="trivial.patch"
 
- > +int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr)
- > +{
- > +	struct net_device *dev;
- > +	u32 ip = ((struct sockaddr_in *) addr)->sin_addr.s_addr;
- > +	int ret;
- > +
- > +	dev = ip_dev_find(ip);
- > +	if (!dev)
- > +		return -EADDRNOTAVAIL;
- > +
- > +	ret = copy_addr(dev_addr, dev, NULL);
- > +	dev_put(dev);
- > +	return ret;
- > +}
+diff -urpN softmac-snapshot/net/ieee80211/ieee80211_rx.c softmac-snapshot.1/net/ieee80211/ieee80211_rx.c
+--- softmac-snapshot/net/ieee80211/ieee80211_rx.c	Wed Jan 18 07:27:03 2006
++++ softmac-snapshot.1/net/ieee80211/ieee80211_rx.c	Sun Jan 22 13:12:30 2006
+@@ -562,7 +562,7 @@ int ieee80211_rx(struct ieee80211_device
+ 	/* skb: hdr + (possibly fragmented) plaintext payload */
+ 	// PR: FIXME: hostap has additional conditions in the "if" below:
+ 	// ieee->host_decrypt && (fc & IEEE80211_FCTL_PROTECTED) &&
+-	if ((frag != 0 || (fc & IEEE80211_FCTL_MOREFRAGS))) {
++	if ((frag != 0) || (fc & IEEE80211_FCTL_MOREFRAGS)) {
+ 		int flen;
+ 		struct sk_buff *frag_skb = ieee80211_frag_cache_get(ieee, hdr);
+ 		IEEE80211_DEBUG_FRAG("Rx Fragment received (%u)\n", frag);
 
-And also here to find the local device to use when connecting to a
-loopback address:
-
- > +static int addr_resolve_local(struct sockaddr_in *src_in,
- > +			      struct sockaddr_in *dst_in,
- > +			      struct rdma_dev_addr *addr)
- > +{
- > +	struct net_device *dev;
- > +	u32 src_ip = src_in->sin_addr.s_addr;
- > +	u32 dst_ip = dst_in->sin_addr.s_addr;
- > +	int ret;
- > +
- > +	dev = ip_dev_find(dst_ip);
- > +	if (!dev)
- > +		return -EADDRNOTAVAIL;
- > +
- > +	if (!src_ip) {
- > +		src_in->sin_family = dst_in->sin_family;
- > +		src_in->sin_addr.s_addr = dst_ip;
- > +		ret = copy_addr(addr, dev, dev->dev_addr);
- > +	} else {
- > +		ret = rdma_translate_ip((struct sockaddr *)src_in, addr);
- > +		if (!ret)
- > +			memcpy(addr->dst_dev_addr, dev->dev_addr, MAX_ADDR_LEN);
- > +	}
- > +
- > +	dev_put(dev);
- > +	return ret;
- > +}
-
-I don't really have an opinion one way or another about this usage,
-but I think it's a good idea to make sure that this stuff doesn't get
-lost in all the other code, since it is (re)exporting a function that
-is currently private to networking.
-
- - R.
+--Boundary-00=_WM30Dtv9GsA78a5--
