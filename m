@@ -1,71 +1,27 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [softmac-dev] [PATCH] ieee80211_rx_any: filter out packets,
-	call ieee80211_rx or ieee80211_rx_mgt
-Date: Mon, 23 Jan 2006 15:32:32 +0100
-Message-ID: <1138026752.3957.98.camel@localhost>
-References: <20060118200616.GC6583@tuxdriver.com>
-	 <200601221404.52757.vda@ilport.com.ua>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [softmac-dev] [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
+Date: Mon, 23 Jan 2006 20:00:11 +0100
+Message-ID: <200601232000.12400.stefan@loplof.de>
+References: <20060118200616.GC6583@tuxdriver.com> <200601221404.52757.vda@ilport.com.ua> <1138026752.3957.98.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-IdLNskD4tsjc3BegOMeQ"
-Cc: "John W. Linville" <linville@tuxdriver.com>, jbenc@suse.cz,
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Denis Vlasenko <vda@ilport.com.ua>,
+	"John W. Linville" <linville@tuxdriver.com>, jbenc@suse.cz,
 	netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
 	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964884AbWAWSlK@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200601221404.52757.vda@ilport.com.ua>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964899AbWAWTBR@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1138026752.3957.98.camel@localhost>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Am Montag 23 Januar 2006 15:32 schrieb Johannes Berg:
 
---=-IdLNskD4tsjc3BegOMeQ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Shouldn't you BSS-filter management packets too?
 
-On Sun, 2006-01-22 at 14:04 +0200, Denis Vlasenko wrote:
-> +       hdr =3D (struct ieee80211_hdr_4addr *)skb->data;:=20
-> +       fc =3D le16_to_cpu(hdr->frame_ctl);:=20
-> +:=20
-> +       switch (fc & IEEE80211_FCTL_FTYPE) {:=20
-> +       case IEEE80211_FTYPE_MGMT:=20
-> +               ieee80211_rx_mgt(ieee, hdr, stats);:=20
-> +               return 0;:=20
+no, management packets are used to populate f.e. scanning results.
 
-Shouldn't you BSS-filter management packets too?
-
-> +       is_packet_for_us =3D 0;:=20
-> +       switch (ieee->iw_mode) {:=20
-> +       case IW_MODE_ADHOC:=20
-> +               /* promisc: get all */
-> +               if (ieee->dev->flags & IFF_PROMISC):=20
-> +                       is_packet_for_us =3D 1;
-
-And I still think BSS-filtering is correct even in the promisc case. Any
-other opinions why either way is right or not? [I think we should filter
-because upper layers won't know the packet wasn't for us if it was
-broadcast in another BSSID]
-
-johannes
-
---=-IdLNskD4tsjc3BegOMeQ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (SIP Solutions)
-
-iQIVAwUAQ9To/aVg1VMiehFYAQJORRAAuU/AJpoLxKBclt6QqQVDNqKWU1+9KuJY
-ZIvRcRrM3JEA8hJwqenufU2vBpWZOMAPbjC2ra2877MP4q2oRDfYe+4nf4EXT6d7
-SxyDn/+82PmNTXKgIZJ+oP5KyuWLVtekEZvxvui2EoKw2y1ijQARiHDu6smKF9HC
-oAYmuSw/Q/H/uZLg5/E+IUxV9W1XBWRXHwvgc5FTiyGAqjthJIhj7l5lhki16p9D
-EjEbTwVZ63pekxCEen74nL00zJHrYH++akEX5fO37w+R5XAI7W6rVo4c18J1eXhT
-5h1fJ6n0QLaAmdla2BdO2ryvh9oUyLSY6NMTeWMVlxHBQLuSOMtjnqVkVJiwXYxV
-dKpA/QzZ8dNVVGxu89Uw2OlKQPbKMzvbumIz4yOt8WN0+oAlV4jL6UNkVmIm9U9r
-gR1f0J0SiQV94GhS9RbpZT0Al6ue0Y1e0AYDbhCdN5AEbVCdPXDsURks8dPYIBI+
-rCCyngSou7RMgYlPA/kOke6KUMeW973KuDbtqOjcMQTHqJp42hYXfsVg5wCMprE6
-hKsBw/omIIxYBVvBZL3I+t0RgVPjMWRF6Lt/fTfRmnTZql2fIvc2qpWDygvnL0nh
-/T2mGF8C1WYhxA51KK4ekiy9LzLc6b+WjACEU584VH2bvig94G2Ac7q7+KjDLThG
-EbsMRAqqUjs=
-=2gig
------END PGP SIGNATURE-----
-
---=-IdLNskD4tsjc3BegOMeQ--
+Stefan
