@@ -1,36 +1,36 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH 00/00] pktgen: refinements and small fixes.
-Date: Mon, 23 Jan 2006 18:00:42 +0100
-Message-ID: <17365.3002.480408.154987@robur.slu.se>
-References: <20060123134140.b04ad994.lcapitulino@mandriva.com.br>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
+ 11ab:4362 (rev 19)
+Date: Mon, 23 Jan 2006 10:15:38 -0800
+Message-ID: <20060123101538.14d21bf4@dxpl.pdx.osdl.net>
+References: <43D1C99E.2000506@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem <davem@davemloft.net>, lkml <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, robert.olsson@its.uu.se
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964837AbWAWRW6@vger.kernel.org>
-To: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
-In-Reply-To: <20060123134140.b04ad994.lcapitulino@mandriva.com.br>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964832AbWAWSPs@vger.kernel.org>
+To: Knut Petersen <Knut_Petersen@t-online.de>
+In-Reply-To: <43D1C99E.2000506@t-online.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+O
+> 
+> It seems that the SuSE Firewall locked something ....
+> 
+> I started with kernel 2.6.15-git7, tried 2.6.15.1 and 2.6.16-rc1*.
+> At the moment I do use a kernel 2.6.15-git7 patched with an updated sky2 
+> (v.013).
+> I could not find a single working sky2 configuration.
+> 
 
-Luiz Fernando Capitulino writes:
+Are you using the full kernel.org kernel, or are you putting sky2 driver into
+the SUSE kernel? There are a number of bug fixes related to hardware checksumming
+that are in the kernel.org kernel (2.6.15 or later).  There was one in ICMP.
+These fixes relate to places in the code where a protocol decides to trim a
+packet by removing bytes. I am not familiar with the SuSE Firewall. Is it just
+standard netfilter modules or additional code?
 
- >  [PATCH 00/02] pktgen: Ports thread list to Kernel list implementation.
- >  [PATCH 00/03] pktgen: Fix kernel_thread() fail leak.
- >  [PATCH 00/04] pktgen: Fix Initialization fail leak. 
- > 
-
- >  But I'm sending these patches first, just to know if I'm doing something
- > wrong.
-
- Thanks!
-
- Looks interesting. Yes of course better to use kernel list functions. I'll 
- patch my lab version and run through some tests. 
- 
- Yes keep on hacking...
-
- Cheers.
-					--ro
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+OSDL http://developer.osdl.org/~shemminger
