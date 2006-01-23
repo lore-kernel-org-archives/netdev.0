@@ -1,98 +1,120 @@
-From: Knut Petersen <Knut_Petersen@t-online.de>
-Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
- 11ab:4362 (rev 19)
-Date: Mon, 23 Jan 2006 20:20:09 +0100
-Message-ID: <43D52C69.5090707@t-online.de>
-References: <43D1C99E.2000506@t-online.de> <20060123101538.14d21bf4@dxpl.pdx.osdl.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: RE: My vote against eepro* removal
+Date: Mon, 23 Jan 2006 12:23:26 -0800 (PST)
+Message-ID: <Pine.LNX.4.64.0601231202530.3847@lindenhurst-2.jf.intel.com>
+References: <AAD6DA242BC63C488511C611BD51F367323329@MAILIT.keba.co.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964902AbWAWTUR@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060123101538.14d21bf4@dxpl.pdx.osdl.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-2038021199-1704791452-1138047576=:3847"
+Cc: Lee Revell <rlrevell@joe-job.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Adrian Bunk <bunk@stusta.de>, linux-kernel@vger.kernel.org,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932473AbWAWUZQ@vger.kernel.org>
+To: kus Kusche Klaus <kus@keba.com>
+In-Reply-To: <AAD6DA242BC63C488511C611BD51F367323329@MAILIT.keba.co.at>
+Content-ID: <Pine.LNX.4.64.0601231220450.4263@lindenhurst-2.jf.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
->O
-> =20
->
->>It seems that the SuSE Firewall locked something ....
->>
->>I started with kernel 2.6.15-git7, tried 2.6.15.1 and 2.6.16-rc1*.
->>At the moment I do use a kernel 2.6.15-git7 patched with an updated s=
-ky2=20
->>(v.013).
->>I could not find a single working sky2 configuration.
->>
->>   =20
->>
->
->Are you using the full kernel.org kernel, or are you putting sky2 driv=
-er into
->the SUSE kernel?
->
-No SuSE kernels here. I started with kernel.org kernel 2.6.15-git7 and
-had those problems. Then I tried 2.6.16-rc3-git3, the most recent kerne=
-l
-at the time of my original writing. As I had some other problems with
-that kernel I had a look at the git tree of Linus and applied all sky2=20
-related
-patches to the otherwise unchanged 2.6.15-git7. 2.6.15.1 also was no
-solution as sky2 seems to be not available there.
+---2038021199-1704791452-1138047576=:3847
+Content-Type: TEXT/PLAIN; CHARSET=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0601231220451.4263@lindenhurst-2.jf.intel.com>
 
-> There are a number of bug fixes related to hardware checksumming
->that are in the kernel.org kernel (2.6.15 or later).  There was one in=
- ICMP.
->These fixes relate to places in the code where a protocol decides to t=
-rim a
->packet by removing bytes. I am not familiar with the SuSE Firewall. Is=
- it just
->standard netfilter modules or additional code?
-> =20
->
-I have to admit that I don=B4t know enough about the network layers
-of the kernel, so here is a list of the network modules loaded (sky2
-compiled into the kernel). SuSEFirewall is just standard netfiltering
-using those modules.
+On Mon, 23 Jan 2006, kus Kusche Klaus wrote:
+> From: John Ronciak
+> > Can we try a couple of things? 1) just comment out all the check for
+> > link code in the e100 driver and give that a try and 2) just comment
+> > out the update stats call and see if that works.  These seem to be the
+> > differences and we need to know which one is causing the problem.
+> 
+> First of all, I am still unable to get any traces of this in the
+> latency tracer. Moreover, as I told before, removing parts of the
+> watchdog usually made my eth0 nonfunctional (which is bad - this
+> is an embedded system with ssh access).
+> 
+> Hence, I explicitely instrumented the watchdog function with tsc.
+> Output of the timings is done by a background thread, so the
+> timings should not increase the runtime of the watchdog.
+> 
+> Here are my results:
+> 
+> If the watchdog doesn't get interrupted, preempted, or whatever,
+> it spends 340 us in its body:
+> * 303 us in the mii code
+> *  36 us in the following code up to e100_adjust_adaptive_ifs
+> *   1 us in the remaining code (I think my chip doesn't need any
+> of those chip-specific fixups)
+> 
+> The 303 us in the mii code are divided in the following way:
+> * 101 us in mii_ethtool_gset
+> * 135 us in the whole if
+> *  67 us in mii_check_link
+> 
+> This is with the udelay(2) instead of udelay(20) hack applied.
+> With udelay(20), the mii times are 128 + 170 + 85 us,
+> i.e. 383 us instead of 303 us, or >= 420 us for the whole watchdog.
+> 
+> As the RTC runs with 8192 Hz during my tests, the watchdog is hit
+> by 2-3 interrupts, which adds another 75 - 110 us to its total
+> execution time, i.e. the time it blocks other rtprio 1 threads.
 
-ipt_MASQUERADE          3968  1
-pppoe                  15360  2
-pppox                   4616  1 pppoe
-af_packet              23240  2
-ppp_generic            30740  6 pppoe,pppox
-slhc                    7040  1 ppp_generic
-ipt_TOS                 2816  28
-ipt_TCPMSS              4800  2
-ipt_LOG                 7232  77
-ipt_limit               2880  77
-ipt_pkttype             1984  2
-ipt_state               2240  45
-ip6t_REJECT             5824  3
-ipt_REJECT              5952  3
-iptable_mangle          3200  1
-iptable_nat             8836  1
-iptable_filter          3264  1
-ip6table_mangle         2752  0
-ip_nat_ftp              3776  0
-ip_nat                 18284  3 ipt_MASQUERADE,iptable_nat,ip_nat_ftp
-ip_conntrack_ftp        8240  1 ip_nat_ftp
-ip_conntrack           51020  6=20
-ipt_MASQUERADE,ipt_state,iptable_nat,ip_nat_ftp,ip_nat,ip_conntrack_ftp
-ip_tables              24088  11=20
-ipt_MASQUERADE,ipt_TOS,ipt_TCPMSS,ipt_LOG,ipt_limit,ipt_pkttype,ipt_sta=
-te,ipt_REJECT,iptable_mangle,iptable_nat,iptable_filter
-ip6table_filter         3136  1
-ip6_tables             25624  3 ip6t_REJECT,ip6table_mangle,ip6table_fi=
-lter
-ipv6                  271712  14 ip6t_REJECT
+Thank you very much for that detailed analysis!  okay, so calls to mii.c 
+take too long, but those depend on mmio_read in e100 to do the work, so 
+this patch attempts to minimize the latency.
 
-As said before, rtl8139 does work perfectly well, the same is true
-for an identical system with a Via Rhine adapter.
+This patch is against linus-2.6.git, I compile and ssh/ping tested it. 
+Would you be willing to send your instrumentation patches?  I could then 
+test any fixes easier.
 
+e100: attempt a shorter delay for mdio reads
 
-cu,
- Knut
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+Simply reorder our write/read sequence for mdio reads to minimize latency
+as well as delay a shorter interval for each loop.
+---
+
+  drivers/net/e100.c |   12 +++++++-----
+  1 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+--- a/drivers/net/e100.c
++++ b/drivers/net/e100.c
+@@ -891,23 +891,25 @@ static u16 mdio_ctrl(struct nic *nic, u3
+  	 * procedure it should be done under lock.
+  	 */
+  	spin_lock_irqsave(&nic->mdio_lock, flags);
+-	for (i = 100; i; --i) {
++	for (i = 1000; i; --i) {
+  		if (readl(&nic->csr->mdi_ctrl) & mdi_ready)
+  			break;
+-		udelay(20);
++		udelay(2);
+  	}
+  	if (unlikely(!i)) {
+-		printk("e100.mdio_ctrl(%s) won't go Ready\n",
++		DPRINTK(PROBE, ERR, "e100.mdio_ctrl(%s) won't go Ready\n",
+  			nic->netdev->name );
+  		spin_unlock_irqrestore(&nic->mdio_lock, flags);
+  		return 0;		/* No way to indicate timeout error */
+  	}
+  	writel((reg << 16) | (addr << 21) | dir | data, &nic->csr->mdi_ctrl);
+
+-	for (i = 0; i < 100; i++) {
+-		udelay(20);
++	/* to avoid latency, read to flush the write, then delay, and only
++	 * delay 2us per loop, manual says read should complete in < 64us */
++	for (i = 0; i < 1000; i++) {
+  		if ((data_out = readl(&nic->csr->mdi_ctrl)) & mdi_ready)
+  			break;
++		udelay(2);
+  	}
+  	spin_unlock_irqrestore(&nic->mdio_lock, flags);
+  	DPRINTK(HW, DEBUG,
+---2038021199-1704791452-1138047576=:3847--
