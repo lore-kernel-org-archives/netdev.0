@@ -1,46 +1,36 @@
-From: Kumar Gala <galak@gate.crashing.org>
-Subject: proper way to deal with a sparse warning (fwd)
-Date: Mon, 23 Jan 2006 10:21:43 -0600 (CST)
-Message-ID: <Pine.LNX.4.44.0601231021010.11937-100000@gate.crashing.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH 00/00] pktgen: refinements and small fixes.
+Date: Mon, 23 Jan 2006 18:00:42 +0100
+Message-ID: <17365.3002.480408.154987@robur.slu.se>
+References: <20060123134140.b04ad994.lcapitulino@mandriva.com.br>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751478AbWAWQ2z@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem <davem@davemloft.net>, lkml <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, robert.olsson@its.uu.se
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964837AbWAWRW6@vger.kernel.org>
+To: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
+In-Reply-To: <20060123134140.b04ad994.lcapitulino@mandriva.com.br>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I wasn't getting much of a response on lkml to this, so maybe netdev will 
-be more helpful :)
 
-thanks
+Luiz Fernando Capitulino writes:
 
-- kumar
+ >  [PATCH 00/02] pktgen: Ports thread list to Kernel list implementation.
+ >  [PATCH 00/03] pktgen: Fix kernel_thread() fail leak.
+ >  [PATCH 00/04] pktgen: Fix Initialization fail leak. 
+ > 
 
----------- Forwarded message ----------
-Date: Thu, 19 Jan 2006 00:19:47 -0600
-From: Kumar Gala <galak@kernel.crashing.org>
-To: LKML List <linux-kernel@vger.kernel.org>
-Subject: proper way to deal with a sparse warning
+ >  But I'm sending these patches first, just to know if I'm doing something
+ > wrong.
 
-I'm getting the following sparse warning:
+ Thanks!
 
-drivers/net/gianfar_mii.c:165:16: warning: incorrect type in  
-assignment (different address spaces)
-drivers/net/gianfar_mii.c:165:16:    expected void *priv
-drivers/net/gianfar_mii.c:165:16:    got struct gfar_mii [noderef] * 
-[assigned] regs<asn:2>
+ Looks interesting. Yes of course better to use kernel list functions. I'll 
+ patch my lab version and run through some tests. 
+ 
+ Yes keep on hacking...
 
-This is line 165 of gianfar_mii.c:
-
-         new_bus->priv = regs;
-
-new_bus->priv is of type void *.  regs is of type struct gfar_mii  
-__iomem *.
-
-Is it acceptable to do the following:
-
-	new_bus->priv = (void __force *)regs;
-
-- kumar
-
+ Cheers.
+					--ro
