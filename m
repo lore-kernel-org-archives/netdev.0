@@ -1,36 +1,71 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
- 11ab:4362 (rev 19)
-Date: Mon, 23 Jan 2006 10:15:38 -0800
-Message-ID: <20060123101538.14d21bf4@dxpl.pdx.osdl.net>
-References: <43D1C99E.2000506@t-online.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [softmac-dev] [PATCH] ieee80211_rx_any: filter out packets,
+	call ieee80211_rx or ieee80211_rx_mgt
+Date: Mon, 23 Jan 2006 15:32:32 +0100
+Message-ID: <1138026752.3957.98.camel@localhost>
+References: <20060118200616.GC6583@tuxdriver.com>
+	 <200601221404.52757.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964832AbWAWSPs@vger.kernel.org>
-To: Knut Petersen <Knut_Petersen@t-online.de>
-In-Reply-To: <43D1C99E.2000506@t-online.de>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-IdLNskD4tsjc3BegOMeQ"
+Cc: "John W. Linville" <linville@tuxdriver.com>, jbenc@suse.cz,
+	netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
+	linux-kernel@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964884AbWAWSlK@vger.kernel.org>
+To: Denis Vlasenko <vda@ilport.com.ua>
+In-Reply-To: <200601221404.52757.vda@ilport.com.ua>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-O
-> 
-> It seems that the SuSE Firewall locked something ....
-> 
-> I started with kernel 2.6.15-git7, tried 2.6.15.1 and 2.6.16-rc1*.
-> At the moment I do use a kernel 2.6.15-git7 patched with an updated sky2 
-> (v.013).
-> I could not find a single working sky2 configuration.
-> 
 
-Are you using the full kernel.org kernel, or are you putting sky2 driver into
-the SUSE kernel? There are a number of bug fixes related to hardware checksumming
-that are in the kernel.org kernel (2.6.15 or later).  There was one in ICMP.
-These fixes relate to places in the code where a protocol decides to trim a
-packet by removing bytes. I am not familiar with the SuSE Firewall. Is it just
-standard netfilter modules or additional code?
+--=-IdLNskD4tsjc3BegOMeQ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+On Sun, 2006-01-22 at 14:04 +0200, Denis Vlasenko wrote:
+> +       hdr =3D (struct ieee80211_hdr_4addr *)skb->data;:=20
+> +       fc =3D le16_to_cpu(hdr->frame_ctl);:=20
+> +:=20
+> +       switch (fc & IEEE80211_FCTL_FTYPE) {:=20
+> +       case IEEE80211_FTYPE_MGMT:=20
+> +               ieee80211_rx_mgt(ieee, hdr, stats);:=20
+> +               return 0;:=20
+
+Shouldn't you BSS-filter management packets too?
+
+> +       is_packet_for_us =3D 0;:=20
+> +       switch (ieee->iw_mode) {:=20
+> +       case IW_MODE_ADHOC:=20
+> +               /* promisc: get all */
+> +               if (ieee->dev->flags & IFF_PROMISC):=20
+> +                       is_packet_for_us =3D 1;
+
+And I still think BSS-filtering is correct even in the promisc case. Any
+other opinions why either way is right or not? [I think we should filter
+because upper layers won't know the packet wasn't for us if it was
+broadcast in another BSSID]
+
+johannes
+
+--=-IdLNskD4tsjc3BegOMeQ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (SIP Solutions)
+
+iQIVAwUAQ9To/aVg1VMiehFYAQJORRAAuU/AJpoLxKBclt6QqQVDNqKWU1+9KuJY
+ZIvRcRrM3JEA8hJwqenufU2vBpWZOMAPbjC2ra2877MP4q2oRDfYe+4nf4EXT6d7
+SxyDn/+82PmNTXKgIZJ+oP5KyuWLVtekEZvxvui2EoKw2y1ijQARiHDu6smKF9HC
+oAYmuSw/Q/H/uZLg5/E+IUxV9W1XBWRXHwvgc5FTiyGAqjthJIhj7l5lhki16p9D
+EjEbTwVZ63pekxCEen74nL00zJHrYH++akEX5fO37w+R5XAI7W6rVo4c18J1eXhT
+5h1fJ6n0QLaAmdla2BdO2ryvh9oUyLSY6NMTeWMVlxHBQLuSOMtjnqVkVJiwXYxV
+dKpA/QzZ8dNVVGxu89Uw2OlKQPbKMzvbumIz4yOt8WN0+oAlV4jL6UNkVmIm9U9r
+gR1f0J0SiQV94GhS9RbpZT0Al6ue0Y1e0AYDbhCdN5AEbVCdPXDsURks8dPYIBI+
+rCCyngSou7RMgYlPA/kOke6KUMeW973KuDbtqOjcMQTHqJp42hYXfsVg5wCMprE6
+hKsBw/omIIxYBVvBZL3I+t0RgVPjMWRF6Lt/fTfRmnTZql2fIvc2qpWDygvnL0nh
+/T2mGF8C1WYhxA51KK4ekiy9LzLc6b+WjACEU584VH2bvig94G2Ac7q7+KjDLThG
+EbsMRAqqUjs=
+=2gig
+-----END PGP SIGNATURE-----
+
+--=-IdLNskD4tsjc3BegOMeQ--
