@@ -1,41 +1,46 @@
-From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
-Subject: [PATCH 00/00] pktgen: refinements and small fixes.
-Date: Mon, 23 Jan 2006 13:41:40 -0200
-Message-ID: <20060123134140.b04ad994.lcapitulino@mandriva.com.br>
+From: Kumar Gala <galak@gate.crashing.org>
+Subject: proper way to deal with a sparse warning (fwd)
+Date: Mon, 23 Jan 2006 10:21:43 -0600 (CST)
+Message-ID: <Pine.LNX.4.44.0601231021010.11937-100000@gate.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	robert.olsson@its.uu.se
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932459AbWAWQO0@vger.kernel.org>
-To: davem <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751478AbWAWQ2z@vger.kernel.org>
+To: netdev@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I wasn't getting much of a response on lkml to this, so maybe netdev will 
+be more helpful :)
 
- Hi!
+thanks
 
- I have the following patches for pktgen:
+- kumar
 
- [PATCH 00/01] pktgen: Lindent run.
- [PATCH 00/02] pktgen: Ports thread list to Kernel list implementation.
- [PATCH 00/03] pktgen: Fix kernel_thread() fail leak.
- [PATCH 00/04] pktgen: Fix Initialization fail leak. 
+---------- Forwarded message ----------
+Date: Thu, 19 Jan 2006 00:19:47 -0600
+From: Kumar Gala <galak@kernel.crashing.org>
+To: LKML List <linux-kernel@vger.kernel.org>
+Subject: proper way to deal with a sparse warning
 
- All the patches were tested with QEMU, emulating a machine with 4 CPUs
-and 4 ethernet cards.
+I'm getting the following sparse warning:
 
- There is more work I'd like to do for pktgen, it includes:
+drivers/net/gianfar_mii.c:165:16: warning: incorrect type in  
+assignment (different address spaces)
+drivers/net/gianfar_mii.c:165:16:    expected void *priv
+drivers/net/gianfar_mii.c:165:16:    got struct gfar_mii [noderef] * 
+[assigned] regs<asn:2>
 
- 1. pg_cleanup() should freed the memory of the tasks it just terminated
- (there's a leak there I think)
- 2. Port the interface list to the kernel linked list implementation
- 3. Review pktgen's debug printk()s
+This is line 165 of gianfar_mii.c:
 
- But I'm sending these patches first, just to know if I'm doing something
-wrong.
+         new_bus->priv = regs;
 
- Thank you
+new_bus->priv is of type void *.  regs is of type struct gfar_mii  
+__iomem *.
 
--- 
-Luiz Fernando N. Capitulino
+Is it acceptable to do the following:
+
+	new_bus->priv = (void __force *)regs;
+
+- kumar
+
