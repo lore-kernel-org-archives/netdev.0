@@ -1,120 +1,136 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: RE: My vote against eepro* removal
-Date: Mon, 23 Jan 2006 12:23:26 -0800 (PST)
-Message-ID: <Pine.LNX.4.64.0601231202530.3847@lindenhurst-2.jf.intel.com>
-References: <AAD6DA242BC63C488511C611BD51F367323329@MAILIT.keba.co.at>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH] net: Move destructor from neigh->ops to
+	neigh_params
+Date: Mon, 23 Jan 2006 13:27:32 -0800
+Message-ID: <adazmlmmy7v.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-2038021199-1704791452-1138047576=:3847"
-Cc: Lee Revell <rlrevell@joe-job.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Adrian Bunk <bunk@stusta.de>, linux-kernel@vger.kernel.org,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932473AbWAWUZQ@vger.kernel.org>
-To: kus Kusche Klaus <kus@keba.com>
-In-Reply-To: <AAD6DA242BC63C488511C611BD51F367323329@MAILIT.keba.co.at>
-Content-ID: <Pine.LNX.4.64.0601231220450.4263@lindenhurst-2.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@vger.kernel.org, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: davem@davemloft.net
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This is a resend of a patch written by Michael S. Tsirkin
+<mst@mellanox.co.il>.  I'd like to get an ACK or NAK of it from Dave
+and other networking people, so that we can either merge it upstream
+or try a different approach.  There definitely is a problem with
+neighbour destructors that IP-over-IB is running into.
 
----2038021199-1704791452-1138047576=:3847
-Content-Type: TEXT/PLAIN; CHARSET=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0601231220451.4263@lindenhurst-2.jf.intel.com>
+It would be good to know what the design was behind putting the
+destructor method in neigh->ops in the first place.
 
-On Mon, 23 Jan 2006, kus Kusche Klaus wrote:
-> From: John Ronciak
-> > Can we try a couple of things? 1) just comment out all the check for
-> > link code in the e100 driver and give that a try and 2) just comment
-> > out the update stats call and see if that works.  These seem to be the
-> > differences and we need to know which one is causing the problem.
-> 
-> First of all, I am still unable to get any traces of this in the
-> latency tracer. Moreover, as I told before, removing parts of the
-> watchdog usually made my eth0 nonfunctional (which is bad - this
-> is an embedded system with ssh access).
-> 
-> Hence, I explicitely instrumented the watchdog function with tsc.
-> Output of the timings is done by a background thread, so the
-> timings should not increase the runtime of the watchdog.
-> 
-> Here are my results:
-> 
-> If the watchdog doesn't get interrupted, preempted, or whatever,
-> it spends 340 us in its body:
-> * 303 us in the mii code
-> *  36 us in the following code up to e100_adjust_adaptive_ifs
-> *   1 us in the remaining code (I think my chip doesn't need any
-> of those chip-specific fixups)
-> 
-> The 303 us in the mii code are divided in the following way:
-> * 101 us in mii_ethtool_gset
-> * 135 us in the whole if
-> *  67 us in mii_check_link
-> 
-> This is with the udelay(2) instead of udelay(20) hack applied.
-> With udelay(20), the mii times are 128 + 170 + 85 us,
-> i.e. 383 us instead of 303 us, or >= 420 us for the whole watchdog.
-> 
-> As the RTC runs with 8192 Hz during my tests, the watchdog is hit
-> by 2-3 interrupts, which adds another 75 - 110 us to its total
-> execution time, i.e. the time it blocks other rtprio 1 threads.
+Dave, if you want to merge this directly, that's fine.  Or I'm fine
+with merging this through the IB tree if you'd prefer (if you want me
+to do that, let me know if you think it's 2.6.16 material).
 
-Thank you very much for that detailed analysis!  okay, so calls to mii.c 
-take too long, but those depend on mmio_read in e100 to do the work, so 
-this patch attempts to minimize the latency.
+Thanks,
+  Roland
 
-This patch is against linus-2.6.git, I compile and ssh/ping tested it. 
-Would you be willing to send your instrumentation patches?  I could then 
-test any fixes easier.
 
-e100: attempt a shorter delay for mdio reads
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+struct neigh_ops currently has a destructor field, which no in-kernel
+drivers outside of infiniband use.  The infiniband/ulp/ipoib in-tree
+driver stashes some info in the neighbour structure (the results of
+the second-stage lookup from ARP results to real link-level path), and
+it uses neigh->ops->destructor to get a callback so it can clean up
+this extra info when a neighbour is freed.  We've run into problems
+with this: since the destructor is in an ops field that is shared
+between neighbours that may belong to different net devices, there's
+no way to set/clear it safely.
 
-Simply reorder our write/read sequence for mdio reads to minimize latency
-as well as delay a shorter interval for each loop.
+The following patch moves this field to neigh_parms where it can be
+safely set, together with its twin neigh_setup.  Two additional
+patches in the patch series update ipoib to use this new interface.
+
+Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+
 ---
 
-  drivers/net/e100.c |   12 +++++++-----
-  1 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -891,23 +891,25 @@ static u16 mdio_ctrl(struct nic *nic, u3
-  	 * procedure it should be done under lock.
-  	 */
-  	spin_lock_irqsave(&nic->mdio_lock, flags);
--	for (i = 100; i; --i) {
-+	for (i = 1000; i; --i) {
-  		if (readl(&nic->csr->mdi_ctrl) & mdi_ready)
-  			break;
--		udelay(20);
-+		udelay(2);
-  	}
-  	if (unlikely(!i)) {
--		printk("e100.mdio_ctrl(%s) won't go Ready\n",
-+		DPRINTK(PROBE, ERR, "e100.mdio_ctrl(%s) won't go Ready\n",
-  			nic->netdev->name );
-  		spin_unlock_irqrestore(&nic->mdio_lock, flags);
-  		return 0;		/* No way to indicate timeout error */
-  	}
-  	writel((reg << 16) | (addr << 21) | dir | data, &nic->csr->mdi_ctrl);
-
--	for (i = 0; i < 100; i++) {
--		udelay(20);
-+	/* to avoid latency, read to flush the write, then delay, and only
-+	 * delay 2us per loop, manual says read should complete in < 64us */
-+	for (i = 0; i < 1000; i++) {
-  		if ((data_out = readl(&nic->csr->mdi_ctrl)) & mdi_ready)
-  			break;
-+		udelay(2);
-  	}
-  	spin_unlock_irqrestore(&nic->mdio_lock, flags);
-  	DPRINTK(HW, DEBUG,
----2038021199-1704791452-1138047576=:3847--
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 6fa9ae1..b0666d6 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -68,6 +68,7 @@ struct neigh_parms
+ 	struct net_device *dev;
+ 	struct neigh_parms *next;
+ 	int	(*neigh_setup)(struct neighbour *);
++	void	(*neigh_destructor)(struct neighbour *);
+ 	struct neigh_table *tbl;
+ 
+ 	void	*sysctl_table;
+@@ -145,7 +146,6 @@ struct neighbour
+ struct neigh_ops
+ {
+ 	int			family;
+-	void			(*destructor)(struct neighbour *);
+ 	void			(*solicit)(struct neighbour *, struct sk_buff*);
+ 	void			(*error_report)(struct neighbour *, struct sk_buff*);
+ 	int			(*output)(struct sk_buff*);
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index e68700f..3489e23 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -586,8 +586,8 @@ void neigh_destroy(struct neighbour *nei
+ 			kfree(hh);
+ 	}
+ 
+-	if (neigh->ops && neigh->ops->destructor)
+-		(neigh->ops->destructor)(neigh);
++	if (neigh->parms->neigh_destructor)
++		(neigh->parms->neigh_destructor)(neigh);
+ 
+ 	skb_queue_purge(&neigh->arp_queue);
+ 
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index fd3f5c8..9588124 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -247,7 +247,6 @@ static void path_free(struct net_device 
+ 		if (neigh->ah)
+ 			ipoib_put_ah(neigh->ah);
+ 		*to_ipoib_neigh(neigh->neighbour) = NULL;
+-		neigh->neighbour->ops->destructor = NULL;
+ 		kfree(neigh);
+ 	}
+ 
+@@ -530,7 +529,6 @@ static void neigh_add_path(struct sk_buf
+ err:
+ 	*to_ipoib_neigh(skb->dst->neighbour) = NULL;
+ 	list_del(&neigh->list);
+-	neigh->neighbour->ops->destructor = NULL;
+ 	kfree(neigh);
+ 
+ 	++priv->stats.tx_dropped;
+@@ -769,21 +767,9 @@ static void ipoib_neigh_destructor(struc
+ 		ipoib_put_ah(ah);
+ }
+ 
+-static int ipoib_neigh_setup(struct neighbour *neigh)
+-{
+-	/*
+-	 * Is this kosher?  I can't find anybody in the kernel that
+-	 * sets neigh->destructor, so we should be able to set it here
+-	 * without trouble.
+-	 */
+-	neigh->ops->destructor = ipoib_neigh_destructor;
+-
+-	return 0;
+-}
+-
+ static int ipoib_neigh_setup_dev(struct net_device *dev, struct neigh_parms *parms)
+ {
+-	parms->neigh_setup = ipoib_neigh_setup;
++	parms->neigh_destructor = ipoib_neigh_destructor;
+ 
+ 	return 0;
+ }
