@@ -1,58 +1,45 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
-Subject: [PATCH] sky2: fix hang on Yukon-EC (0xb6) rev 1
-Date: Tue, 24 Jan 2006 14:19:56 +0100
-Message-ID: <43D6297C.8000900@gmx.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
+ 11ab:4362 (rev 19)
+Date: Tue, 24 Jan 2006 09:54:48 -0800
+Message-ID: <20060124095448.7a77346c@dxpl.pdx.osdl.net>
+References: <43D1C99E.2000506@t-online.de>
+	<20060123101538.14d21bf4@dxpl.pdx.osdl.net>
+	<43D52C69.5090707@t-online.de>
+	<20060123112751.2e3f1b15@dxpl.pdx.osdl.net>
+	<43D5F6DD.70702@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030474AbWAXNWX@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161016AbWAXRyx@vger.kernel.org>
+To: Knut Petersen <Knut_Petersen@t-online.de>
+In-Reply-To: <43D5F6DD.70702@t-online.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch for sky2 fixes a hang on Yukon-EC (0xb6) rev 1
-where suddenly no more interrupts were delivered.
+On Tue, 24 Jan 2006 10:43:57 +0100
+Knut Petersen <Knut_Petersen@t-online.de> wrote:
 
-I don't know the real cause of the hang due to lack of docs,
-but the patch has been running stable for a few hours
-whereas the unmodified driver will hang after less than
-2 minutes.
+> Stephen Hemminger schrieb:
+> 
+> >Could you try turning off rx checksumming (with ethtool).
+> >	ethtool -K eth0 rx off
+> >
+> >There probably still are (generic) bugs in the netfilter code for CHECKSUM_HW
+> >socket buffers.
+> >
+> >  
+> >
+> "ethtool -K eth0 rx off" does cure my problem with sky2.
+> 
+> Anybody is invited to send patches as the problem is 100% reproducible here.
+>
 
-Regards,
-Carl-Daniel
+Does it always show up on icmp only?
+
+What are the iptables rules (iptables -L)
+
 -- 
-http://www.hailfinger.org/
-
-Signed-off-by: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
-
---- linux-2.6.15/drivers/net/sky2.c	2006-01-23 23:41:35.000000000 +0100
-+++ linux-2.6.15/drivers/net/sky2.c	2006-01-24 14:12:12.000000000 +0100
-@@ -1913,8 +1913,26 @@
- 	}
- 
- exit_loop:
-+	/* Is this really a good idea?
-+	 * We clear all IRQs although there may be pending work due to
-+	 * - packets arrived since start of this function
-+	 * - the (++work_done >= to_do) abort
-+	 */
- 	sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
- 
-+	/* Pending resolution of the comment above, at least kick the
-+	 * STAT_LEV_TIMER_CTRL timer.
-+	 * This fixes my hangs on Yukon-EC (0xb6) rev 1.
-+	 * The if clause is there to start the timer only if it has been
-+	 * configured correctly and not been disabled via ethtool.
-+	 * Maybe it would be sufficient to only restart the timer if
-+	 * there is pending work. Without docs, that is hard to say.
-+	 */
-+	if (sky2_read8(hw, STAT_LEV_TIMER_CTRL) == TIM_START) {
-+		sky2_write8(hw, STAT_LEV_TIMER_CTRL, TIM_STOP);
-+		sky2_write8(hw, STAT_LEV_TIMER_CTRL, TIM_START);
-+	}
-+
- 	sky2_tx_check(hw, 0, tx_done[0]);
- 	sky2_tx_check(hw, 1, tx_done[1]);
- 
+Stephen Hemminger <shemminger@osdl.org>
+OSDL http://developer.osdl.org/~shemminger
