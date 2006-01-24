@@ -1,51 +1,32 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: [Bcm43xx-dev] Re: [softmac-dev] [PATCH] ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
-Date: Tue, 24 Jan 2006 10:06:10 +0200
-Message-ID: <200601241006.10372.vda@ilport.com.ua>
-References: <20060118200616.GC6583@tuxdriver.com> <200601221404.52757.vda@ilport.com.ua> <1138026752.3957.98.camel@localhost>
+From: Knut Petersen <Knut_Petersen@t-online.de>
+Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
+ 11ab:4362 (rev 19)
+Date: Tue, 24 Jan 2006 10:43:57 +0100
+Message-ID: <43D5F6DD.70702@t-online.de>
+References: <43D1C99E.2000506@t-online.de>	<20060123101538.14d21bf4@dxpl.pdx.osdl.net>	<43D52C69.5090707@t-online.de> <20060123112751.2e3f1b15@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>, jbenc@suse.cz,
-	netdev@vger.kernel.org, softmac-dev@sipsolutions.net,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030363AbWAXIHp@vger.kernel.org>
-To: bcm43xx-dev@lists.berlios.de
-In-Reply-To: <1138026752.3957.98.camel@localhost>
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030425AbWAXJoF@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060123112751.2e3f1b15@dxpl.pdx.osdl.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 23 January 2006 16:32, Johannes Berg wrote:
-> On Sun, 2006-01-22 at 14:04 +0200, Denis Vlasenko wrote:
-> > +       hdr = (struct ieee80211_hdr_4addr *)skb->data;: 
-> > +       fc = le16_to_cpu(hdr->frame_ctl);: 
-> > +: 
-> > +       switch (fc & IEEE80211_FCTL_FTYPE) {: 
-> > +       case IEEE80211_FTYPE_MGMT: 
-> > +               ieee80211_rx_mgt(ieee, hdr, stats);: 
-> > +               return 0;: 
-> 
-> Shouldn't you BSS-filter management packets too?
-> 
-> > +       is_packet_for_us = 0;: 
-> > +       switch (ieee->iw_mode) {: 
-> > +       case IW_MODE_ADHOC: 
-> > +               /* promisc: get all */
-> > +               if (ieee->dev->flags & IFF_PROMISC): 
-> > +                       is_packet_for_us = 1;
-> 
-> And I still think BSS-filtering is correct even in the promisc case. Any
-> other opinions why either way is right or not? [I think we should filter
-> because upper layers won't know the packet wasn't for us if it was
-> broadcast in another BSSID]
+Stephen Hemminger schrieb:
 
-In wired networks promisc literally means "receive all packets", right?
+>Could you try turning off rx checksumming (with ethtool).
+>	ethtool -K eth0 rx off
+>
+>There probably still are (generic) bugs in the netfilter code for CHECKSUM_HW
+>socket buffers.
+>
+>  
+>
+"ethtool -K eth0 rx off" does cure my problem with sky2.
 
-But for wireless, maybe we should filter them out, or else running tcpdump
-on the iface will force us to listen to ARP packets from unrelated networks.
-That would be rather surprising and disrupting.
---
-vda
+Anybody is invited to send patches as the problem is 100% reproducible here.
+
+cu,
+ Knut
