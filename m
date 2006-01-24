@@ -1,32 +1,30 @@
-From: Knut Petersen <Knut_Petersen@t-online.de>
-Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
- 11ab:4362 (rev 19)
-Date: Tue, 24 Jan 2006 10:43:57 +0100
-Message-ID: <43D5F6DD.70702@t-online.de>
-References: <43D1C99E.2000506@t-online.de>	<20060123101538.14d21bf4@dxpl.pdx.osdl.net>	<43D52C69.5090707@t-online.de> <20060123112751.2e3f1b15@dxpl.pdx.osdl.net>
+From: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+Subject: [PATCH] sky2: fix ethtool ops
+Date: Tue, 24 Jan 2006 13:49:26 +0100
+Message-ID: <43D62256.2080207@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030425AbWAXJoF@vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030467AbWAXMwM@vger.kernel.org>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060123112751.2e3f1b15@dxpl.pdx.osdl.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger schrieb:
+This fixes setting rx_coalesce_usecs_irq via ethtool in sky2.
+The write was directed to the wrong register.
 
->Could you try turning off rx checksumming (with ethtool).
->	ethtool -K eth0 rx off
->
->There probably still are (generic) bugs in the netfilter code for CHECKSUM_HW
->socket buffers.
->
->  
->
-"ethtool -K eth0 rx off" does cure my problem with sky2.
+Signed-off-by: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
 
-Anybody is invited to send patches as the problem is 100% reproducible here.
-
-cu,
- Knut
+--- linux/drivers/net/sky2.c	2006-01-23 23:41:35.000000000 +0100
++++ linux/drivers/net/sky2.c	2006-01-24 12:52:11.000000000 +0100
+@@ -2843,7 +2843,7 @@
+ 	if (ecmd->rx_coalesce_usecs_irq == 0)
+ 		sky2_write8(hw, STAT_ISR_TIMER_CTRL, TIM_STOP);
+ 	else {
+-		sky2_write32(hw, STAT_TX_TIMER_INI,
++		sky2_write32(hw, STAT_ISR_TIMER_INI,
+ 			     sky2_us2clk(hw, ecmd->rx_coalesce_usecs_irq));
+ 		sky2_write8(hw, STAT_ISR_TIMER_CTRL, TIM_START);
+ 	}
