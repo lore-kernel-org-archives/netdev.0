@@ -1,119 +1,66 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: e100 oops on resume
-Date: Wed, 25 Jan 2006 10:02:40 +0100
-Message-ID: <20060125090240.GA12651@suse.de>
-References: <20060124225919.GC12566@suse.de> <20060124232142.GB6174@inferi.kami.home>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Bugme-new] [Bug 5936] New: Openswan tunnels + netfilter
+ problem
+Date: Wed, 25 Jan 2006 10:25:27 +0100
+Message-ID: <43D74407.5040705@trash.net>
+References: <E1F1IYh-0001I3-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="OgqxwSJOaUobr8KG"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751060AbWAYJCo@vger.kernel.org>
-To: Stefan Seyfried <seife@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060124232142.GB6174@inferi.kami.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	webmaster@elnportal.it
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1F1IYh-0001I3-00@gondolin.me.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Herbert Xu wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+>>Andrew Morton wrote:
+>>
+>>>http://bugzilla.kernel.org/show_bug.cgi?id=5936
+>>
+>>Please post your iptables rules and the full list of loaded modules.
+> 
+> 
+> The problem is caused by SNAT on a dst that already has an xfrm set.
+> When ip_route_me_harder processes the dst it will cause the dst to
+> lose its xfrm since it has IPSKB_XFRM_TRANSFORMED set.
+> 
+> Since xfrm4_output_finish does not expect dst's to lose their xfrm's
+> after POST_ROUTING, it crashes.
+> 
+> Obviously we could add a check in xfrm4_output_finish to prevent this
+> crash, however, I think we need to consider this a bit more since it
+> breaks a fairly common setup where people just stick a rule into the
+> NAT table that says
+> 
+> iptables -t nat -I POSTROUTING -i eth1 -j MASQUERADE
+> 
+> where eth1 is the outbound interface.  If this rule catches any IPsec
+> VPN traffic then it'll SNAT them even though the intention is obviously
+> to let them through without SNAT.
+> 
+> Perhaps it's best to have SNAT not touch packets with dst->xfrm set.
+> Unfortunately that leads to problems as well (albeit rarer) since you
+> may have catch-all IPsec policies that every packet matches, but you
+> want certain packets to be SNATed so that they match more specific
+> policies.
 
---OgqxwSJOaUobr8KG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Wed, Jan 25, 2006 at 12:21:42AM +0100, Mattia Dongili wrote:
-> I experienced the same today, I was planning to get a photo tomorrow :)
-> I'm running 2.6.16-rc1-mm2 and the last working kernel was 2.6.15-mm4
-> (didn't try .16-rc1-mm1 being scared of the reiserfs breakage).
-
-I think that's because the latest driver version wants to wait for
-the ucode download, and e100_exec_cb_wait before allocating any
-control blocks.
-
-static inline int e100_exec_cb_wait(struct nic *nic, struct sk_buff *skb,
-        void (*cb_prepare)(struct nic *, struct cb *, struct sk_buff *))
-{
-        int err = 0, counter = 50;
-        struct cb *cb = nic->cb_to_clean;
-
-        if ((err = e100_exec_cb(nic, NULL, e100_setup_ucode)))
-                DPRINTK(PROBE,ERR, "ucode cmd failed with error %d\n", err);
-	/* NOTE: the oops shows that e100_exec_cb fails with ENOMEM,
-  	 * which also means there are no cbs */
-
-	/* ... other stuff...
-	 * and then we die here because cb is NULL: */
-        while (!(cb->status & cpu_to_le16(cb_complete))) {
-                msleep(10);
-                if (!--counter) break;
-        }
-
-I'm not sure what the right fix would be. e100_resume would probably
-have to call e100_alloc_cbs early on, while e100_up should avoid
-calling it a second time if nic->cbs_avail != 0. A tentative patch
-for testing is attached.
-
-Olaf
--- 
-Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
-okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
-
---OgqxwSJOaUobr8KG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=e100-resume-fix
-
-[PATCH] e100: allocate cbs early on when resuming
-
-Signed-off-by: Olaf Kirch <okir@suse.de>
-
- drivers/net/e100.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
-
-Index: build/drivers/net/e100.c
-===================================================================
---- build.orig/drivers/net/e100.c
-+++ build/drivers/net/e100.c
-@@ -1298,8 +1298,10 @@ static inline int e100_exec_cb_wait(stru
- 	int err = 0, counter = 50;
- 	struct cb *cb = nic->cb_to_clean;
- 
--	if ((err = e100_exec_cb(nic, NULL, e100_setup_ucode)))
-+	if ((err = e100_exec_cb(nic, NULL, e100_setup_ucode))) {
- 		DPRINTK(PROBE,ERR, "ucode cmd failed with error %d\n", err);
-+		return err;
-+	}
- 
- 	/* must restart cuc */
- 	nic->cuc_cmd = cuc_start;
-@@ -1721,9 +1723,11 @@ static int e100_alloc_cbs(struct nic *ni
- 	struct cb *cb;
- 	unsigned int i, count = nic->params.cbs.count;
- 
-+	/* bail out if we've been here before */
-+	if (nic->cbs_avail)
-+		return 0;
-+
- 	nic->cuc_cmd = cuc_start;
--	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
--	nic->cbs_avail = 0;
- 
- 	nic->cbs = pci_alloc_consistent(nic->pdev,
- 		sizeof(struct cb) * count, &nic->cbs_dma_addr);
-@@ -2578,6 +2582,8 @@ static int __devinit e100_probe(struct p
- 	nic->pdev = pdev;
- 	nic->msg_enable = (1 << debug) - 1;
- 	pci_set_drvdata(pdev, netdev);
-+	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
-+	nic->cbs_avail = 0;
- 
- 	if((err = pci_enable_device(pdev))) {
- 		DPRINTK(PROBE, ERR, "Cannot enable PCI device, aborting.\n");
-@@ -2752,6 +2758,8 @@ static int e100_resume(struct pci_dev *p
- 	retval = pci_enable_wake(pdev, 0, 0);
- 	if (retval)
- 		DPRINTK(PROBE,ERR, "Error clearing wake events\n");
-+	if ((retval = e100_alloc_cbs(nic)))
-+		DPRINTK(PROBE,ERR, "No memory for cbs\n");
- 	if(e100_hw_init(nic))
- 		DPRINTK(HW, ERR, "e100_hw_init failed\n");
- 
-
---OgqxwSJOaUobr8KG--
+I don't like adding this special behaviour for NAT, people need
+to adjust their rulesets for filtering etc. anyway. We could stop
+rerouting packets in between transforms (when both dst->xfrm and
+IPSKB_XFRM_TRANSFORMED are set), but this is inconsistent with what
+happens on input, when a packet is DNATed in PRE_ROUTING it does
+affect the SA lookup. So I think I'd prefer handling this case in
+xfrm[46]_output_finish, but I need to think about it a bit more.
