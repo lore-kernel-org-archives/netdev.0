@@ -1,43 +1,43 @@
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Subject: Re: e100 oops on resume
-Date: Wed, 25 Jan 2006 14:28:10 -0800
-Message-ID: <4807377b0601251428q4cd0faabve51087052714718@mail.gmail.com>
-References: <20060124225919.GC12566@suse.de>
-	 <20060124232142.GB6174@inferi.kami.home>
-	 <20060125090240.GA12651@suse.de> <20060125121125.GH5465@suse.de>
-	 <4807377b0601251137r7621216byc47b03a3c634557c@mail.gmail.com>
-	 <20060125201450.GA15102@suse.de>
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: RCU latency regression in 2.6.16-rc1
+Date: Wed, 25 Jan 2006 18:13:57 -0500
+Message-ID: <1138230838.3087.54.camel@mindpipe>
+References: <20060124080157.GA25855@elte.hu>
+	 <1138090078.2771.88.camel@mindpipe> <20060124081301.GC25855@elte.hu>
+	 <1138090527.2771.91.camel@mindpipe> <20060124091730.GA31204@us.ibm.com>
+	 <20060124092330.GA7060@elte.hu> <1138095856.2771.103.camel@mindpipe>
+	 <20060124162846.GA7139@in.ibm.com> <20060124213802.GC7139@in.ibm.com>
+	 <1138224506.3087.22.camel@mindpipe>  <20060125225639.GA1382@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Stefan Seyfried <seife@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932177AbWAYW2O@vger.kernel.org>
-To: Olaf Kirch <okir@suse.de>
-In-Reply-To: <20060125201450.GA15102@suse.de>
-Content-Disposition: inline
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: dipankar@in.ibm.com, "Paul E. McKenney" <paulmck@us.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@osdl.org>,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932209AbWAYXOA@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+In-Reply-To: <20060125225639.GA1382@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/25/06, Olaf Kirch <okir@suse.de> wrote:
-> On Wed, Jan 25, 2006 at 11:37:40AM -0800, Jesse Brandeburg wrote:
-> > its an interesting patch, but it raises the question why does
-> > e100_init_hw need to be called at all in resume?  I looked back
-> > through our history and that init_hw call has always been there.  I
-> > think its incorrect, but its taking me a while to set up a system with
-> > the ability to resume.
->
-> I'll ask the folks here to give it a try tomorrow. But I suspect at
-> least some of it will be needed. For instance I assume you'll
-> have to reload to ucode when bringing the NIC back from sleep.
+On Wed, 2006-01-25 at 23:56 +0100, Ingo Molnar wrote:
+> 
+> yes, that would be a nice test. (I'm busy now with mutex stuff to be 
+> able to do a working softirq-preemption patch, but i sent you my
+> current patches off-list - if you want to give it a shot. Be warned
+> though, there will likely be quite some merging work to do, so it's
+> definitely not for the faint hearted.)
+> 
 
-I totally agree thats what it looks like, but unless I'm missing
-something e100_up will take care of everything, and if the interface
-is not up, e100_open->e100_up afterward will take care of it.
+OK, I probably won't have time to test it this week either.
 
-we have to be really careful about what might happen when resuming on
-a system with a SMBUS link to a BMC, as there are some tricky
-transitions in the hardware that can be easily violated.
+In the meantime can anyone explain briefly why such a heavy fix is
+needed?  It seems like it would be simpler to make the route cache
+flushing operate in batches of 100 routes, rather than invalidating the
+whole thing in one shot.  This does seem to be the only softirq that
+regularly runs for much more than 1ms.
 
-Jesse
+Would this require major surgery on the networking subsystem?
+
+Lee
