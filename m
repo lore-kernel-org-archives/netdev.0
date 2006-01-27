@@ -1,81 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller 11ab:4362 (rev 19)
-Date: Fri, 27 Jan 2006 23:22:42 +1100
-Message-ID: <20060127122242.GA32128@gondor.apana.org.au>
-References: <E1F1UqC-0002XE-00@gondolin.me.apana.org.au> <43D9B8A6.5020200@t-online.de>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [-mm patch] drivers/net/wireless/tiacx/: remove code for WIRELESS_EXT < 18
+Date: Fri, 27 Jan 2006 14:49:49 +0200
+Message-ID: <200601271449.49226.vda@ilport.com.ua>
+References: <20060122171104.GC10003@stusta.de> <200601271219.24332.vda@ilport.com.ua> <1138362557.5983.26.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="d6Gm4EdcadzBjdND"
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932478AbWA0MXI@vger.kernel.org>
-To: Knut Petersen <Knut_Petersen@t-online.de>
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, acx100-devel@lists.sourceforge.net,
+	"John W. Linville" <linville@tuxdriver.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965014AbWA0MvR@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1138362557.5983.26.camel@localhost>
 Content-Disposition: inline
-In-Reply-To: <43D9B8A6.5020200@t-online.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---d6Gm4EdcadzBjdND
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, Jan 27, 2006 at 07:07:34AM +0100, Knut Petersen wrote:
->
-> Well, there are no problems if SuSEfirewall2 is disabled. But have a look
-> at the loaded modules:
+On Friday 27 January 2006 13:49, Johannes Berg wrote:
+> On Fri, 2006-01-27 at 12:19 +0200, Denis Vlasenko wrote:
 > 
-> ipt_MASQUERADE          3968  1
-> pppoe                  15360  2
-> pppox                   4616  1 pppoe
+> > I very much want to get rid of all remaining compat cruft, and
+> > I plan to do it as soon as acx will be present in mainline kernel.
+> 
+> I doubt you'll get it merged with the compat cruft.
 
-OK, although we can't rule out sky2/netfilter from the enquiry, I've
-identified two bugs in ppp/pppoe that may be responsible for what you
-are seeing.  So please try the following patch and let us know if the
-problem still exists (or deteriorates/improves).
+What cruft? This?
 
-[PPP]: Fixed hardware RX checksum handling
+# grep -r WIRELESS_EXT .
+./pci.c:                ndev->name, WIRELESS_EXT, UTS_RELEASE);
+./common.c:             "Wireless extension version:\t" STRING(WIRELESS_EXT) "\n"
+./acx_struct.h:#ifdef WIRELESS_EXT
+./acx_struct.h:#if WIRELESS_EXT > 15
+./ioctl.c:      range->we_version_compiled = WIRELESS_EXT;
 
-When we pull the PPP protocol off the skb, we forgot to update the
-hardware RX checksum.  This may lead to messages such as
+I consider this to be a really modest amount of compat code
+which makes driver users happy (that fraction of it which is not
+willing to run -mm).
 
-	dsl0: hw csum failure.
-
-Similarly, we need to clear the hardware checksum flag when we use
-the existing packet to store the decompressed result.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---d6Gm4EdcadzBjdND
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=ppp-rxcsum
-
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -1610,6 +1610,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
- 		}
- 		else if (!pskb_may_pull(skb, skb->len))
- 			goto err;
-+		else
-+			skb->ip_summed = CHECKSUM_NONE;
- 
- 		len = slhc_uncompress(ppp->vj, skb->data + 2, skb->len - 2);
- 		if (len <= 0) {
-@@ -1690,6 +1692,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
- 			kfree_skb(skb);
- 		} else {
- 			skb_pull(skb, 2);	/* chop off protocol */
-+			skb_postpull_rcsum(skb, skb->data - 2, 2);
- 			skb->dev = ppp->dev;
- 			skb->protocol = htons(npindex_to_ethertype[npi]);
- 			skb->mac.raw = skb->data;
-
---d6Gm4EdcadzBjdND--
+However, I would remove even that at Jeff's or Andrew's request,
+or without anyone's request if acx will be merged to Linus tree.
+--
+vda
