@@ -1,83 +1,58 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
 Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
-Date: Fri, 27 Jan 2006 23:30:23 +0100
-Message-ID: <43DA9EFF.1020200@cosmosbay.com>
-References: <20060126185649.GB3651@localhost.localdomain>	<20060126190357.GE3651@localhost.localdomain>	<43D9DFA1.9070802@cosmosbay.com>	<20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org>
+Date: Fri, 27 Jan 2006 14:44:33 -0800
+Message-ID: <20060127224433.GB3565@localhost.localdomain>
+References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ravikiran G Thirumalai <kiran@scalex86.org>, davem@davemloft.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, shai@scalex86.org,
 	netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751570AbWA0Wai@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751577AbWA0Woa@vger.kernel.org>
 To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 In-Reply-To: <20060127121602.18bc3f25.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton a =E9crit :
+On Fri, Jan 27, 2006 at 12:16:02PM -0800, Andrew Morton wrote:
 > Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
->> On Fri, Jan 27, 2006 at 09:53:53AM +0100, Eric Dumazet wrote:
->>> Ravikiran G Thirumalai a =E9crit :
->>>> Change the atomic_t sockets_allocated member of struct proto to a=20
->>>> per-cpu counter.
->>>>
->>>> Signed-off-by: Pravin B. Shelar <pravins@calsoftinc.com>
->>>> Signed-off-by: Ravikiran Thirumalai <kiran@scalex86.org>
->>>> Signed-off-by: Shai Fultheim <shai@scalex86.org>
->>>>
->>> Hi Ravikiran
->>>
->>> If I correctly read this patch, I think there is a scalability prob=
-lem.
->>>
->>> On a big SMP machine, read_sockets_allocated() is going to be a rea=
-l killer.
->>>
->>> Say we have 128 Opterons CPUS in a box.
->> read_sockets_allocated is being invoked when when /proc/net/protocol=
-s is read,
->> which can be assumed as not frequent. =20
->> At sk_stream_mem_schedule(), read_sockets_allocated() is invoked onl=
-y=20
->> certain conditions, under memory pressure -- on a large CPU count ma=
-chine,=20
->> you'd have large memory, and I don't think read_sockets_allocated wo=
-uld get=20
->> called often.  It did not atleast on our 8cpu/16G box.  So this shou=
-ld be OK=20
->> I think.
->=20
-> That being said, the percpu_counters aren't a terribly successful con=
-cept
+> >
+> > which can be assumed as not frequent.  
+> > At sk_stream_mem_schedule(), read_sockets_allocated() is invoked only 
+> > certain conditions, under memory pressure -- on a large CPU count machine, 
+> > you'd have large memory, and I don't think read_sockets_allocated would get 
+> > called often.  It did not atleast on our 8cpu/16G box.  So this should be OK 
+> > I think.
+> 
+> That being said, the percpu_counters aren't a terribly successful concept
 > and probably do need a revisit due to the high inaccuracy at high CPU
-> counts.  It might be better to do some generic version of vm_acct_mem=
-ory()
+> counts.  It might be better to do some generic version of vm_acct_memory()
 > instead.
 
-There are several issues here :
+AFAICS vm_acct_memory is no better.  The deviation on large cpu counts is the 
+same as percpu_counters -- (NR_CPUS * NR_CPUS * 2) ...
 
-alloc_percpu() current implementation is a a waste of ram. (because it =
-uses=20
-slab allocations that have a minimum size of 32 bytes)
+> 
+> If the benchmarks say that we need to.  If we cannot observe any problems
+> in testing of existing code and if we can't demonstrate any benefit from
+> the patched code then one option is to go off and do something else ;)
 
-Currently we cannot use per_cpu(&some_object, cpu), so a generic versio=
-n of=20
-vm_acct_memory() would need a rework of percpu.h and maybe this is not=20
-possible on every platform ?
+We first tried plain per-CPU counters for memory_allocated, found that reads
+on memory_allocated was causing cacheline transfers, and then
+switched over to batching.  So batching reads is useful.  To avoid
+inaccuracy, we can maybe change percpu_counter_init to:
 
-#define per_cpu(var, cpu) (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offse=
-t[cpu]))
+void percpu_counter_init(struct percpu_counter *fbc, int maxdev)
 
--->
+the percpu batching limit would then be maxdev/num_possible_cpus.  One would
+use batching counters only when both reads and writes are frequent.  With
+the above scheme, we would go fetch cachelines from other cpus for read
+often only on large cpu counts, which is not any worse than the global
+counter alternative, but it would still be beneficial on smaller machines,
+without sacrificing a pre-set deviation.  
 
-#define per_cpu_name(var) per_cpu__##var
-#define per_cpu_addr(var) &per_cpu_name(var)
-#define per_cpu(var, cpu) (*RELOC_HIDE(per_cpu_addr(var), __per_cpu_off=
-set[cpu])
+Comments?
 
-
-But this could render TLS migration difficult...
-
-Eric
+Thanks,
+Kiran
