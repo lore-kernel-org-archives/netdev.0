@@ -1,66 +1,83 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [Acx100-devel] Re: [-mm patch] drivers/net/wireless/tiacx/: remove code for WIRELESS_EXT < 18
-Date: Fri, 27 Jan 2006 15:46:02 +0100
-Message-ID: <20060127144602.GA5447@rhlx01.fht-esslingen.de>
-References: <20060122171104.GC10003@stusta.de> <200601271219.24332.vda@ilport.com.ua> <1138362557.5983.26.camel@localhost> <200601271449.49226.vda@ilport.com.ua>
-Reply-To: andi@lisas.de
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
+ 11ab:4362 (rev 19)
+Date: Fri, 27 Jan 2006 16:28:25 +0100
+Message-ID: <43DA3C19.2040002@trash.net>
+References: <E1F1UqC-0002XE-00@gondolin.me.apana.org.au> <43D9B8A6.5020200@t-online.de> <20060127122242.GA32128@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Adrian Bunk <bunk@stusta.de>,
-	"John W. Linville" <linville@tuxdriver.com>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751457AbWA0OqQ@vger.kernel.org>
-To: acx100-devel@lists.sourceforge.net
-Content-Disposition: inline
-In-Reply-To: <200601271449.49226.vda@ilport.com.ua>
+Content-Type: multipart/mixed;
+ boundary="------------040801050207010802010808"
+Cc: Knut Petersen <Knut_Petersen@t-online.de>, shemminger@osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@lists.netfilter.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751205AbWA0P23@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>, KdF <dkiba@yandex.ru>
+In-Reply-To: <20060127122242.GA32128@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is a multi-part message in MIME format.
+--------------040801050207010802010808
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-On Fri, Jan 27, 2006 at 02:49:49PM +0200, Denis Vlasenko wrote:
-> On Friday 27 January 2006 13:49, Johannes Berg wrote:
-> > On Fri, 2006-01-27 at 12:19 +0200, Denis Vlasenko wrote:
-> > 
-> > > I very much want to get rid of all remaining compat cruft, and
-> > > I plan to do it as soon as acx will be present in mainline kernel.
-> > 
-> > I doubt you'll get it merged with the compat cruft.
+Herbert Xu wrote:
+> On Fri, Jan 27, 2006 at 07:07:34AM +0100, Knut Petersen wrote:
 > 
-> What cruft? This?
+>>Well, there are no problems if SuSEfirewall2 is disabled. But have a look
+>>at the loaded modules:
+>>
+>>ipt_MASQUERADE          3968  1
+>>pppoe                  15360  2
+>>pppox                   4616  1 pppoe
 > 
-> # grep -r WIRELESS_EXT .
-> ./pci.c:                ndev->name, WIRELESS_EXT, UTS_RELEASE);
-> ./common.c:             "Wireless extension version:\t" STRING(WIRELESS_EXT) "\n"
-> ./acx_struct.h:#ifdef WIRELESS_EXT
-> ./acx_struct.h:#if WIRELESS_EXT > 15
-> ./ioctl.c:      range->we_version_compiled = WIRELESS_EXT;
 > 
-> I consider this to be a really modest amount of compat code
-> which makes driver users happy (that fraction of it which is not
-> willing to run -mm).
+> OK, although we can't rule out sky2/netfilter from the enquiry, I've
+> identified two bugs in ppp/pppoe that may be responsible for what you
+> are seeing.  So please try the following patch and let us know if the
+> problem still exists (or deteriorates/improves).
 > 
-> However, I would remove even that at Jeff's or Andrew's request,
-> or without anyone's request if acx will be merged to Linus tree.
+> [PPP]: Fixed hardware RX checksum handling
+> 
+> When we pull the PPP protocol off the skb, we forgot to update the
+> hardware RX checksum.  This may lead to messages such as
+> 
+> 	dsl0: hw csum failure.
+> 
+> Similarly, we need to clear the hardware checksum flag when we use
+> the existing packet to store the decompressed result.
 
-Indeed, I don't think there should be any discussion at all about this,
-since it helps users of our currently still external driver
-(not too much longer external, I guess and hope) a lot.
-Given that we don't have a stable driver ABI (for way too often discussed
-very valid and sane reasons) I really, really think we shouldn't shoot
-our foot into pieces by then additionally also bitching about *MINIMAL*
-amounts of compatibility code required to keep up with those speedily changing
-kernel requirements while our driver isn't included yet.
+We had a couple of reports of incorrect hardware checksums with
+PPPoE. KdF, can you test Herbert's patch (attached again to this
+mail) please?
 
-In the future, I'd like to ask people to be a *bit* more tolerant of newish
-compatibility cruft. It's not like we're supporting kernel 2.2.x here still,
-our driver is at 2.6.10 at a minimum(!), yet you still want to remove even
-those few pieces!
-This is simply ridiculous (again, as long as our driver isn't merged, which it
-should be soon to improve maintenance).
+--------------040801050207010802010808
+Content-Type: text/plain;
+ name="ppp-rxcsum"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ppp-rxcsum"
 
-OK, ending this rather fruitless discussion here. I better get back to hacking,
-that's more productive.
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1610,6 +1610,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+ 		}
+ 		else if (!pskb_may_pull(skb, skb->len))
+ 			goto err;
++		else
++			skb->ip_summed = CHECKSUM_NONE;
+ 
+ 		len = slhc_uncompress(ppp->vj, skb->data + 2, skb->len - 2);
+ 		if (len <= 0) {
+@@ -1690,6 +1692,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+ 			kfree_skb(skb);
+ 		} else {
+ 			skb_pull(skb, 2);	/* chop off protocol */
++			skb_postpull_rcsum(skb, skb->data - 2, 2);
+ 			skb->dev = ppp->dev;
+ 			skb->protocol = htons(npindex_to_ethertype[npi]);
+ 			skb->mac.raw = skb->data;
 
-Andreas Mohr
+--------------040801050207010802010808--
