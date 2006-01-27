@@ -1,44 +1,58 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [patch 2/4] net: Percpufy frequently used variables -- struct
- proto.memory_allocated
-Date: Fri, 27 Jan 2006 10:01:15 +0100
-Message-ID: <43D9E15B.9000407@cosmosbay.com>
-References: <20060126185649.GB3651@localhost.localdomain> <20060126190212.GD3651@localhost.localdomain>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [-mm patch] drivers/net/wireless/tiacx/: remove code for WIRELESS_EXT < 18
+Date: Fri, 27 Jan 2006 12:19:24 +0200
+Message-ID: <200601271219.24332.vda@ilport.com.ua>
+References: <20060122171104.GC10003@stusta.de>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, shai@scalex86.org,
-	netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932427AbWA0JBk@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060126190212.GD3651@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Adrian Bunk <bunk@stusta.de>, acx100-devel@lists.sourceforge.net
+In-Reply-To: <20060122171104.GC10003@stusta.de>
+Content-Disposition: inline
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Ravikiran G Thirumalai a =E9crit :
-> Change struct proto->memory_allocated to a batching per-CPU counter=20
-> (percpu_counter) from an atomic_t.  A batching counter is better than=
- a=20
-> plain per-CPU counter as this field is read often.
->=20
-> Signed-off-by: Pravin B. Shelar <pravins@calsoftinc.com>
-> Signed-off-by: Ravikiran Thirumalai <kiran@scalex86.org>
-> Signed-off-by: Shai Fultheim <shai@scalex86.org>
->=20
+Hi Adrian,
 
-Hello Ravikiran
 
-I like this patch, but I'm not sure current percpu_counter fits the nee=
-ds.
+On Sunday 22 January 2006 19:11, Adrian Bunk wrote:
+> WIRELESS_EXT < 18 will never be true in the kernel.
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-The percpu_counter_read() can return a value that is off by +-
-=46BC_BATCH*NR_CPUS, ie 2*(NR_CPUS^2) or 4*(NR_CPUS^2)
+Please don't do this. We are not in the kernel yet.
 
-if NR_CPUS =3D 128, the 'error' from percpu_counter_read() is +- 32768
+acx currently is in -mm, not in mainline.
 
-Is it acceptable ?
+We have quite a few users of it which aren't using -mm,
+but instead compile it out-of-kernel.
 
-Thank you
-Eric
+We gradually removed 2.4 compat code and most of early 2.6isms.
+Even that produced a few complains. Currently out-of-tree acx
+is working for any kernel >= 2.6.10.
+
+I very much want to get rid of all remaining compat cruft, and
+I plan to do it as soon as acx will be present in mainline kernel.
+--
+vda
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
