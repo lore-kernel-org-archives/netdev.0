@@ -1,60 +1,54 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [7/10] remove ISA legacy functions: drivers/net/lance.c
-Date: Thu, 26 Jan 2006 23:54:40 +0100
-Message-ID: <20060126225439.GL3668@stusta.de>
-References: <20060126223126.GD3668@stusta.de>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: wireless geo stuff (was Re: wireless-2.6 status (25 January 2006))
+Date: Thu, 26 Jan 2006 21:15:53 -0500
+Message-ID: <43D98259.8090406@pobox.com>
+References: <C86180A8C204554D8A3323D8F6B0A29FEB471D@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Al Viro <viro@ftp.linux.org.uk>, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964789AbWAZWyn@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060126223126.GD3668@stusta.de>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mbuesch@freenet.de>,
+	Ben Greear <greearb@candelatech.com>,
+	David Hollis <dhollis@davehollis.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Samuel Ortiz <samuel.ortiz@nokia.com>, netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030255AbWA0CQM@vger.kernel.org>
+To: Simon Barber <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29FEB471D@dhost002-46.dex002.intermedia.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+Simon Barber wrote:
+> In order to get FCC certification the manufacturer must ensure there is
+> no easy way for the user to tune to illegal frequencies. Broadcom has
+> done their job - it was not easy to reverse engineer their driver. Now
+> the cat is out of the bag. The open source driver is not illegal -
+> although it may be illegal to use it - since the chipset and driver were
+> likely certified together. I'm no expert in FCC regulation, so take all
+> of this with a pinch of salt.
 
-switch to ioremap()
+First, kernel developers should do the best they can to provide 
+facilities to limit the frequencies, including sane and safe defaults 
+for the softmac cases.  It just makes sense to do that, from a "friendly 
+neighbor" and "don't operate out of spec" perspective, if nothing else. 
+  It's damned _rude_ to use channels other than the ones selected by the 
+Responsible Authority.  Some ham radio operator -- like me -- might be 
+using that frequency to carry on a pleasant Morse code conversation with 
+someone else halfway across the world.  Linux software shalt not be 
+rude.  :)
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Second, if someone takes steps to disable these safeguards we build in, 
+that's akin to putting illegal crystals into a radio, or tuning a 
+transmitter to police/emergency bands.
 
----
+Finally, binary-only software is clearly _not_ a barrier to this sort of 
+circumvention.  Reverse engineering x86 software is a skill that's very 
+widespread, relative to other sorts of reverse engineering.  Reverse 
+engineering tools for the x86 are very mature these days, having had two 
+decades to grow and flourish.  If the _hardware_ can be programmed 
+maliciously, there's not a whole lot you can do about it... particularly 
+when the hardware manufacturer chooses a method of obfuscation (x86 
+code) practically designed for easy analysis.
 
- drivers/net/lance.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
-
-aadde842b4976445ac101c6ed04986382988d035
-diff --git a/drivers/net/lance.c b/drivers/net/lance.c
---- a/drivers/net/lance.c
-+++ b/drivers/net/lance.c
-@@ -464,20 +464,25 @@ static int __init lance_probe1(struct ne
- 	static int did_version;			/* Already printed version info. */
- 	unsigned long flags;
- 	int err = -ENOMEM;
-+	void __iomem *bios;
- 
- 	/* First we look for special cases.
- 	   Check for HP's on-board ethernet by looking for 'HP' in the BIOS.
- 	   There are two HP versions, check the BIOS for the configuration port.
- 	   This method provided by L. Julliard, Laurent_Julliard@grenoble.hp.com.
- 	   */
--	if (isa_readw(0x000f0102) == 0x5048)  {
-+	bios = ioremap(0xf00f0, 0x14);
-+	if (!bios)
-+		return -ENOMEM;
-+	if (readw(bios + 0x12) == 0x5048)  {
- 		static const short ioaddr_table[] = { 0x300, 0x320, 0x340, 0x360};
--		int hp_port = (isa_readl(0x000f00f1) & 1)  ? 0x499 : 0x99;
-+		int hp_port = (readl(bios + 1) & 1)  ? 0x499 : 0x99;
- 		/* We can have boards other than the built-in!  Verify this is on-board. */
- 		if ((inb(hp_port) & 0xc0) == 0x80
- 			&& ioaddr_table[inb(hp_port) & 3] == ioaddr)
- 			hp_builtin = hp_port;
- 	}
-+	iounmap(bios);
- 	/* We also recognize the HP Vectra on-board here, but check below. */
- 	hpJ2405A = (inb(ioaddr) == 0x08 && inb(ioaddr+1) == 0x00
- 				&& inb(ioaddr+2) == 0x09);
+	Jeff
