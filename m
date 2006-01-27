@@ -1,58 +1,33 @@
 From: Ravikiran G Thirumalai <kiran@scalex86.org>
 Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
-Date: Fri, 27 Jan 2006 14:44:33 -0800
-Message-ID: <20060127224433.GB3565@localhost.localdomain>
-References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org>
+Date: Fri, 27 Jan 2006 14:50:36 -0800
+Message-ID: <20060127225036.GC3565@localhost.localdomain>
+References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <43DA9EFF.1020200@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dada1@cosmosbay.com, davem@davemloft.net,
+Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, shai@scalex86.org,
 	netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751577AbWA0Woa@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751586AbWA0Wug@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <20060127121602.18bc3f25.akpm@osdl.org>
+In-Reply-To: <43DA9EFF.1020200@cosmosbay.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2006 at 12:16:02PM -0800, Andrew Morton wrote:
-> Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
-> >
-> > which can be assumed as not frequent.  
-> > At sk_stream_mem_schedule(), read_sockets_allocated() is invoked only 
-> > certain conditions, under memory pressure -- on a large CPU count machine, 
-> > you'd have large memory, and I don't think read_sockets_allocated would get 
-> > called often.  It did not atleast on our 8cpu/16G box.  So this should be OK 
-> > I think.
+On Fri, Jan 27, 2006 at 11:30:23PM +0100, Eric Dumazet wrote:
 > 
-> That being said, the percpu_counters aren't a terribly successful concept
-> and probably do need a revisit due to the high inaccuracy at high CPU
-> counts.  It might be better to do some generic version of vm_acct_memory()
-> instead.
-
-AFAICS vm_acct_memory is no better.  The deviation on large cpu counts is the 
-same as percpu_counters -- (NR_CPUS * NR_CPUS * 2) ...
-
+> There are several issues here :
 > 
-> If the benchmarks say that we need to.  If we cannot observe any problems
-> in testing of existing code and if we can't demonstrate any benefit from
-> the patched code then one option is to go off and do something else ;)
+> alloc_percpu() current implementation is a a waste of ram. (because it uses 
+> slab allocations that have a minimum size of 32 bytes)
 
-We first tried plain per-CPU counters for memory_allocated, found that reads
-on memory_allocated was causing cacheline transfers, and then
-switched over to batching.  So batching reads is useful.  To avoid
-inaccuracy, we can maybe change percpu_counter_init to:
+Oh there was a solution for that :).  
 
-void percpu_counter_init(struct percpu_counter *fbc, int maxdev)
+http://lwn.net/Articles/119532/
 
-the percpu batching limit would then be maxdev/num_possible_cpus.  One would
-use batching counters only when both reads and writes are frequent.  With
-the above scheme, we would go fetch cachelines from other cpus for read
-often only on large cpu counts, which is not any worse than the global
-counter alternative, but it would still be beneficial on smaller machines,
-without sacrificing a pre-set deviation.  
+I can quickly revive it if there is interest.
 
-Comments?
 
 Thanks,
 Kiran
