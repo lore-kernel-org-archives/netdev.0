@@ -1,130 +1,42 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
-Date: Sat, 28 Jan 2006 08:19:12 +0100
-Message-ID: <43DB1AF0.8040108@cosmosbay.com>
-References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <20060127224433.GB3565@localhost.localdomain> <43DAA586.5050609@cosmosbay.com> <20060127151635.3a149fe2.akpm@osdl.org> <43DABAA4.8040208@cosmosbay.com> <43DABC37.6070603@cosmosbay.com> <20060128045248.GA3584@localhost.localdomain>
+From: Mattia Dongili <malattia@linux.it>
+Subject: Re: e100 oops on resume
+Date: Sat, 28 Jan 2006 12:53:35 +0100
+Message-ID: <20060128115335.GA4511@inferi.kami.home>
+References: <20060124225919.GC12566@suse.de> <20060124232142.GB6174@inferi.kami.home> <20060125090240.GA12651@suse.de> <20060125121125.GH5465@suse.de> <4807377b0601251137r7621216byc47b03a3c634557c@mail.gmail.com> <4807377b0601251628k4227dad0ld731f2c25c211b91@mail.gmail.com> <20060126190236.GA12481@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000909030506090805000509"
-Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, shai@scalex86.org,
-	netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964869AbWA1HTR@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060128045248.GA3584@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Olaf Kirch <okir@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932322AbWA1LxH@vger.kernel.org>
+To: Stefan Seyfried <seife@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20060126190236.GA12481@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000909030506090805000509
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8bit
-
-Ravikiran G Thirumalai a écrit :
-> On Sat, Jan 28, 2006 at 01:35:03AM +0100, Eric Dumazet wrote:
->> Eric Dumazet a écrit :
->>> Andrew Morton a écrit :
->>>> Eric Dumazet <dada1@cosmosbay.com> wrote:
->>>
->>> long percpu_counter_read_accurate(struct percpu_counter *fbc)
->>> {
->>> 	long res = 0;
->>> 	int cpu;
->>> 	atomic_long_t *pcount;
->>>
->>> 	for_each_cpu(cpu) {
->>> 		pcount = per_cpu_ptr(fbc->counters, cpu);
->>> 		/* dont dirty cache line if not necessary */
->>> 		if (atomic_long_read(pcount))
->>> 			res += atomic_long_xchg(pcount, 0);
-> 				--------------------------->  (A)
->>> 	}
+On Thu, Jan 26, 2006 at 08:02:37PM +0100, Stefan Seyfried wrote:
+> On Wed, Jan 25, 2006 at 04:28:48PM -0800, Jesse Brandeburg wrote:
+>  
+> > Okay I reproduced the issue on 2.6.15.1 (with S1 sleep) and was able
+> > to show that my patch that just removes e100_init_hw works okay for
+> > me.  Let me know how it goes for you, I think this is a good fix.
 > 
->> 	atomic_long_add(res, &fbc->count);
-> 				--------------------------->  (B)
->> 	res = atomic_long_read(&fbc->count);
->>
->>> 	return res;
->>> }
-> 
-> The read is still theoritically FBC_BATCH * NR_CPUS inaccurate no?
-> What happens when other cpus update  their local counters at (A) and (B)?
+> worked for me in the Compaq Armada e500 and reportedly also fixed the
+> SONY that originally uncovered it.
 
-Well, after  atomic_read(&some_atomic) or percpu_counter_read_accurate(&s) the 
-  'value' you got may be inaccurate by whatever... You cannot 'freeze the 
-atomic / percpu_counter and gets its accurate value'. All you can do is 
-'atomically add/remove some value from this counter (atomic or percpu_counter))
+confirmed here too. The patch fixes S3 resume on this Sony (GR7/K)
+running 2.6.16-rc1-mm3.
 
-See percpu_counter_read_accurate() as an attempt to collect all local offset 
-(and atomically set them to 0) and atomically reajust the central fbc->count 
-to with the sum of all these offsets. Kind of a consolidation that might be 
-driven by a user request (read /proc/sys/...) or a periodic timer.
+0000:02:08.0 Ethernet controller: Intel Corporation 82801CAM (ICH3) PRO/100 VE (LOM) Ethernet Controller (rev 41)
+	Subsystem: Sony Corporation Vaio PCG-GR214EP/GR214MP/GR215MP/GR314MP/GR315MP
+	Flags: bus master, medium devsel, latency 66, IRQ 9
+	Memory at d0204000 (32-bit, non-prefetchable) [size=4K]
+	I/O ports at 4000 [size=64]
+	Capabilities: <available only to root>
 
-
-
-> 
-> (I am hoping we don't need percpu_counter_read_accurate anywhere yet and
-> this is just demo ;).  I certainly don't want to go on all cpus for read / 
-> add cmpxchg on the write path for the proto counters that started this 
-> discussion)
-
-As pointed by Andrew (If you decode carefully its short sentences :) ), all 
-you really need is atomic_long_xchg() (only in slow path), and 
-atomic_long_{read/add} in fast path)
-
-
-Eric
-
---------------000909030506090805000509
-Content-Type: text/plain;
- name="functions"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="functions"
-
-struct percpu_counter {
-	atomic_long_t count;
-	atomic_long_t *counters;
-};
-
-#ifdef CONFIG_SMP
-void percpu_counter_mod(struct percpu_counter *fbc, long amount)
-{
-        long new;
-	atomic_long_t *pcount;
-
-	pcount = per_cpu_ptr(fbc->counters, get_cpu());
-
-        new = atomic_long_read(pcount) + amount;
- 
-	if (new >= FBC_BATCH || new <= -FBC_BATCH) {
-                new = atomic_long_xchg(pcount, 0) + amount;
-                if (new)
-                        atomic_long_add(new, &fbc->count);
-	} else
-		atomic_long_add(amount, pcount);
-
-	put_cpu();
-}
-EXPORT_SYMBOL(percpu_counter_mod);
-
-long percpu_counter_read_accurate(struct percpu_counter *fbc)
-{
-	long res = 0;
-	int cpu;
-	atomic_long_t *pcount;
-
-	for_each_cpu(cpu) {
-		pcount = per_cpu_ptr(fbc->counters, cpu);
-		/* dont dirty cache line if not necessary */
-		if (atomic_long_read(pcount))
-			res += atomic_long_xchg(pcount, 0);
-	}
-        atomic_long_add(res, &fbc->count);
-        return atomic_long_read(&fbc->count);
-}
-EXPORT_SYMBOL(percpu_counter_read_accurate);
-#endif /* CONFIG_SMP */
-
-
---------------000909030506090805000509--
+thanks
+-- 
+mattia
+:wq!
