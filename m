@@ -1,57 +1,111 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 3/4] net: Percpufy frequently used variables --
- proto.sockets_allocated
-Date: Fri, 27 Jan 2006 16:26:11 -0800
-Message-ID: <20060127162611.5d160638.akpm@osdl.org>
-References: <20060126185649.GB3651@localhost.localdomain>
-	<20060126190357.GE3651@localhost.localdomain>
-	<43D9DFA1.9070802@cosmosbay.com>
-	<20060127195227.GA3565@localhost.localdomain>
-	<20060127121602.18bc3f25.akpm@osdl.org>
-	<20060127224433.GB3565@localhost.localdomain>
-	<20060127150106.38b9e041.akpm@osdl.org>
-	<20060127150847.48c312c0.akpm@osdl.org>
-	<20060128000100.GD3565@localhost.localdomain>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
+Date: Sat, 28 Jan 2006 01:28:20 +0100
+Message-ID: <43DABAA4.8040208@cosmosbay.com>
+References: <20060126185649.GB3651@localhost.localdomain>	<20060126190357.GE3651@localhost.localdomain>	<43D9DFA1.9070802@cosmosbay.com>	<20060127195227.GA3565@localhost.localdomain>	<20060127121602.18bc3f25.akpm@osdl.org>	<20060127224433.GB3565@localhost.localdomain>	<43DAA586.5050609@cosmosbay.com> <20060127151635.3a149fe2.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, davem@davemloft.net,
+Content-Type: multipart/mixed;
+ boundary="------------020103080003080607060501"
+Cc: kiran@scalex86.org, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, shai@scalex86.org,
 	netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422735AbWA1AY1@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060128000100.GD3565@localhost.localdomain>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422740AbWA1A2Z@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060127151635.3a149fe2.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
->
-> On Fri, Jan 27, 2006 at 03:08:47PM -0800, Andrew Morton wrote:
-> > Andrew Morton <akpm@osdl.org> wrote:
-> > >
-> > > Oh, and because vm_acct_memory() is counting a singleton object, it can use
-> > > DEFINE_PER_CPU rather than alloc_percpu(), so it saves on a bit of kmalloc
-> > > overhead.
-> > 
-> > Actually, I don't think that's true.  we're allocating a sizeof(long) with
-> > kmalloc_node() so there shouldn't be memory wastage.
+This is a multi-part message in MIME format.
+--------------020103080003080607060501
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+
+Andrew Morton a écrit :
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+>> Ravikiran G Thirumalai a écrit :
+>>> On Fri, Jan 27, 2006 at 12:16:02PM -0800, Andrew Morton wrote:
+>>>> Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+>>>>> which can be assumed as not frequent.  
+>>>>> At sk_stream_mem_schedule(), read_sockets_allocated() is invoked only 
+>>>>> certain conditions, under memory pressure -- on a large CPU count machine, 
+>>>>> you'd have large memory, and I don't think read_sockets_allocated would get 
+>>>>> called often.  It did not atleast on our 8cpu/16G box.  So this should be OK 
+>>>>> I think.
+>>>> That being said, the percpu_counters aren't a terribly successful concept
+>>>> and probably do need a revisit due to the high inaccuracy at high CPU
+>>>> counts.  It might be better to do some generic version of vm_acct_memory()
+>>>> instead.
+>>> AFAICS vm_acct_memory is no better.  The deviation on large cpu counts is the 
+>>> same as percpu_counters -- (NR_CPUS * NR_CPUS * 2) ...
+>> Ah... yes you are right, I read min(16, NR_CPUS*2)
 > 
-> Oh yeah there is. Each dynamic per-cpu object would have been  atleast
-> (NR_CPUS * sizeof (void *) + num_cpus_possible * cacheline_size ).  
-> Now kmalloc_node will fall back on size-32 for allocation of long, so
-> replace the cacheline_size above with 32 -- which then means dynamic per-cpu
-> data are not on a cacheline boundary anymore (most modern cpus have 64byte/128 
-> byte cache lines) which means per-cpu data could end up false shared....
+> So did I ;)
 > 
+>> I wonder if it is not a typo... I mean, I understand the more cpus you have, 
+>> the less updates on central atomic_t is desirable, but a quadratic offset 
+>> seems too much...
+> 
+> I'm not sure whether it was a mistake or if I intended it and didn't do the
+> sums on accuracy :(
+> 
+> An advantage of retaining a spinlock in percpu_counter is that if accuracy
+> is needed at a low rate (say, /proc reading) we can take the lock and then
+> go spill each CPU's local count into the main one.  It would need to be a
+> very low rate though.   Or we make the cpu-local counters atomic too.
 
-OK.  But isn't the core of the problem the fact that __alloc_percpu() is
-using kmalloc_node() rather than a (new, as-yet-unimplemented)
-kmalloc_cpu()?  kmalloc_cpu() wouldn't need the L1 cache alignment.
+We might use atomic_long_t only (and no spinlocks)
+Something like this ?
 
-It might be worth creating just a small number of per-cpu slabs (4-byte,
-8-byte).  A kmalloc_cpu() would just need a per-cpu array of
-kmem_cache_t*'s and it'd internally use kmalloc_node(cpu_to_node), no?
 
-Or we could just give __alloc_percpu() a custom, hand-rolled,
-not-cacheline-padded sizeof(long) slab per CPU and use that if (size ==
-sizeof(long)).  Or something.
+--------------020103080003080607060501
+Content-Type: text/plain;
+ name="functions"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="functions"
+
+struct percpu_counter {
+	atomic_long_t count;
+	atomic_long_t *counters;
+};
+
+#ifdef CONFIG_SMP
+void percpu_counter_mod(struct percpu_counter *fbc, long amount)
+{
+	long old, new;
+	atomic_long_t *pcount;
+
+	pcount = per_cpu_ptr(fbc->counters, get_cpu());
+start:
+	old = atomic_long_read(pcount);
+	new = old + amount;
+	if (new >= FBC_BATCH || new <= -FBC_BATCH) {
+		if (unlikely(atomic_long_cmpxchg(pcount, old, 0) != old))
+			goto start;
+		atomic_long_add(new, &fbc->count);
+	} else
+		atomic_long_add(amount, pcount);
+
+	put_cpu();
+}
+EXPORT_SYMBOL(percpu_counter_mod);
+
+long percpu_counter_read_accurate(struct percpu_counter *fbc)
+{
+	long res = 0;
+	int cpu;
+	atomic_long_t *pcount;
+
+	for_each_cpu(cpu) {
+		pcount = per_cpu_ptr(fbc->counters, cpu);
+		/* dont dirty cache line if not necessary */
+		if (atomic_long_read(pcount))
+			res += atomic_long_xchg(pcount, 0);
+	}
+	return res;
+}
+EXPORT_SYMBOL(percpu_counter_read_accurate);
+#endif /* CONFIG_SMP */
+
+
+--------------020103080003080607060501--
