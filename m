@@ -1,55 +1,35 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
 Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
-Date: Sat, 28 Jan 2006 00:21:07 +0100
-Message-ID: <43DAAAE3.2030107@cosmosbay.com>
-References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <43DA9EFF.1020200@cosmosbay.com> <20060127225036.GC3565@localhost.localdomain>
+Date: Fri, 27 Jan 2006 16:01:00 -0800
+Message-ID: <20060128000100.GD3565@localhost.localdomain>
+References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <20060127224433.GB3565@localhost.localdomain> <20060127150106.38b9e041.akpm@osdl.org> <20060127150847.48c312c0.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, davem@davemloft.net,
 	linux-kernel@vger.kernel.org, shai@scalex86.org,
 	netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422677AbWA0XVK@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060127225036.GC3565@localhost.localdomain>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422718AbWA1ABE@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060127150847.48c312c0.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ravikiran G Thirumalai a =E9crit :
-> On Fri, Jan 27, 2006 at 11:30:23PM +0100, Eric Dumazet wrote:
->> There are several issues here :
->>
->> alloc_percpu() current implementation is a a waste of ram. (because =
-it uses=20
->> slab allocations that have a minimum size of 32 bytes)
->=20
-> Oh there was a solution for that :). =20
->=20
-> http://lwn.net/Articles/119532/
->=20
-> I can quickly revive it if there is interest.
->=20
+On Fri, Jan 27, 2006 at 03:08:47PM -0800, Andrew Morton wrote:
+> Andrew Morton <akpm@osdl.org> wrote:
+> >
+> > Oh, and because vm_acct_memory() is counting a singleton object, it can use
+> > DEFINE_PER_CPU rather than alloc_percpu(), so it saves on a bit of kmalloc
+> > overhead.
+> 
+> Actually, I don't think that's true.  we're allocating a sizeof(long) with
+> kmalloc_node() so there shouldn't be memory wastage.
 
-Well, nice work ! :)
+Oh yeah there is. Each dynamic per-cpu object would have been  atleast
+(NR_CPUS * sizeof (void *) + num_cpus_possible * cacheline_size ).  
+Now kmalloc_node will fall back on size-32 for allocation of long, so
+replace the cacheline_size above with 32 -- which then means dynamic per-cpu
+data are not on a cacheline boundary anymore (most modern cpus have 64byte/128 
+byte cache lines) which means per-cpu data could end up false shared....
 
-Maybe a litle bit complicated if expected percpu space is 50 KB per cpu=
- ?
-
-Why not use a boot time allocated percpu area (as done today in=20
-setup_per_cpu_areas()), but instead of reserving extra space for module=
-'s=20
-percpu data, being able to serve alloc_percpu() from this reserved area=
- (ie no=20
-kmalloced data anymore), and keeping your
-
-#define per_cpu_ptr(ptr, cpu)  ((__typeof__(ptr))         \
-	(RELOC_HIDE(ptr,  PCPU_BLKSIZE * cpu)))
-
-Some code from kernel/module.c could be reworked to serve both as an al=
-locator=20
-when a module percpudata must be relocated (insmod)/freed (rmmod), and =
-serve=20
-alloc_percpu() for 'dynamic allocations'
-
-Eric
+Kiran
