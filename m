@@ -1,108 +1,60 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
-Date: Sun, 29 Jan 2006 07:54:09 +0100
-Message-ID: <43DC6691.9000001@cosmosbay.com>
-References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <20060127224433.GB3565@localhost.localdomain> <43DAA586.5050609@cosmosbay.com> <20060127151635.3a149fe2.akpm@osdl.org> <43DABAA4.8040208@cosmosbay.com> <20060129004459.GA24099@kvack.org>
+From: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
+Subject: Re: [GIT PULL] bcm43xx update
+Date: Sun, 29 Jan 2006 11:38:56 +0100
+Message-ID: <200601291138.56241.mbuesch@freenet.de>
+References: <200601271842.54347.mbuesch@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@osdl.org>, kiran@scalex86.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	shai@scalex86.org, netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750861AbWA2GyS@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
-In-Reply-To: <20060129004459.GA24099@kvack.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart2629633.E1sYnD7H2b";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+In-Reply-To: <200601271842.54347.mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-Benjamin LaHaise a =E9crit :
-> On Sat, Jan 28, 2006 at 01:28:20AM +0100, Eric Dumazet wrote:
->> We might use atomic_long_t only (and no spinlocks)
->> Something like this ?
+--nextPart2629633.E1sYnD7H2b
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+On Friday 27 January 2006 18:42, you wrote:
+> Please do a
+> git pull git://bu3sch.de/bcm43xx.git master-upstream
+> to pull the bcm43xx-softmac branch.
 >=20
-> Erk, complex and slow...  Try using local_t instead, which is substan=
-tially=20
-> cheaper on the P4 as it doesn't use the lock prefix and act as a memo=
-ry=20
-> barrier.  See asm/local.h.
->=20
+> Please do a
+> git pull git://bu3sch.de/bcm43xx.git dscape-upstream
+> to pull the bcm43xx-dscape branch.
 
-Well, I think that might be doable, maybe RCU magic ?
+Did you already pull? I did not see it in your git logs.
+I have to do some maintainance work on my public repository
+and I am waiting for your pull, before I shut down the server.
 
-1) local_t are not that nice on all archs.
+=2D-=20
+Greetings Michael.
 
-2) The consolidation phase (summing all the cpus local offset to consol=
-idate=20
-the central counter) might be more difficult to do (we would need kind =
-of 2=20
-counters per cpu, and a index that can be changed by the cpu that wants=
- a=20
-consolidation (still 'expensive'))
+--nextPart2629633.E1sYnD7H2b
+Content-Type: application/pgp-signature
 
-struct cpu_offset {
-	local_t   offset[2];
-	};
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
 
-struct percpu_counter {
-	atomic_long_t count;
-	unsigned int offidx;
-	spinlock_t   lock; /* to guard offidx changes */
-	cpu_offset *counters;
-};
+iD8DBQBD3JtAlb09HEdWDKgRAv3MAJ4mcWOD4L0zAmftjbozS91KA3jD3gCfaNAY
+c7zCbbQTZegokwga756Lddg=
+=Kyrt
+-----END PGP SIGNATURE-----
 
-void percpu_counter_mod(struct percpu_counter *fbc, long amount)
-{
-         long val;
-	struct cpu_offset *cp;
-	local_t *l;
-
-	cp =3D per_cpu_ptr(fbc->counters, get_cpu());
-	l =3D &cp[fbc->offidx];
-
-         local_add(amount, l);
-	val =3D local_read(l);
-	if (new >=3D FBC_BATCH || new <=3D -FBC_BATCH) {
-                 local_set(l, 0);
-                 atomic_long_add(val, &fbc->count);
-	}
-	put_cpu();
-}
-
-long percpu_counter_read_accurate(struct percpu_counter *fbc)
-{
-	long res =3D 0, val;
-	int cpu;
-	struct cpu_offset *cp;
-	local_t *l;
-
-	spin_lock(&fbc->lock);
-	idx =3D fbc->offidx;
-	fbc->offidx ^=3D 1;
-	mb();
-	/*
-	 * FIXME :
-	 *	must 'wait' other cpus dont touch anymore their old local_t
-	 */
-	for_each_cpu(cpu) {
-		cp =3D per_cpu_ptr(fbc->counters, cpu);
-		l =3D &cp[idx];
-		val =3D local_read(l);
-		/* dont dirty alien cache line if not necessary */
-		if (val)
-			local_set(l, 0);
-		res +=3D val;
-	}
-	spin_unlock(&fbc->lock);
-         atomic_long_add(res, &fbc->count);
-         return atomic_long_read(&fbc->count);
-}
-
-
-
-3) Are the locked ops so expensive if done on a cache line that is most=
-ly in=20
-exclusive state in cpu cache ?
-
-Thank you
-Eric
+--nextPart2629633.E1sYnD7H2b--
