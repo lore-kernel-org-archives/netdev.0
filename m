@@ -1,39 +1,53 @@
-From: "John Smith" <multisyncfe991@hotmail.com>
-Subject: Can I do a regular read to simulate prefetch instruction?
-Date: Mon, 30 Jan 2006 10:25:34 -0700
-Message-ID: <BAY108-DAV12766C7B1A084C00C833FE93090@phx.gbl>
-References: <20060124225919.GC12566@suse.de> <20060124232142.GB6174@inferi.kami.home> <20060125090240.GA12651@suse.de> <20060125121125.GH5465@suse.de> <4807377b0601251137r7621216byc47b03a3c634557c@mail.gmail.com> <4807377b0601251628k4227dad0ld731f2c25c211b91@mail.gmail.com> <BAY108-DAV111F6EF46F6682FEECCC1593140@phx.gbl> <4807377b0601271404w6dbfcff6s4de1c3f785dded9f@mail.gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.16-rc1-mm4: ACX=y, ACX_USB=n compile error
+Date: Mon, 30 Jan 2006 19:10:39 +0100
+Message-ID: <20060130181039.GC3655@stusta.de>
+References: <20060130133833.7b7a3f8e@zwerg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964830AbWA3RZg@vger.kernel.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, da.crew@gmx.net,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751040AbWA3SKm@vger.kernel.org>
+To: "Gabriel C." <crazy@pimpmylinux.org>,
+	Denis Vlasenko <vda@ilport.com.ua>, linville@tuxdriver.com
+Content-Disposition: inline
+In-Reply-To: <20060130133833.7b7a3f8e@zwerg>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Jan 30, 2006 at 01:38:33PM +0100, Gabriel C. wrote:
 
-I find out some network card drivers (e.g. e1000 driver) use prefetch 
-instruction
-to reduce memory access latency and speed up data operation. My question is:
-Support we want to pre-read a skb buffer into the cache, what is the 
-difference
-between the following two methods, i.e. what is the different when using 
-prefetch
-and using a regular read opertation?
-1. use prefetch instruction to stimulate a pre-fetch of the skb address,
-    e.g. prefetch(skb);
-2. use an assignment statement to stimulate a pre-fetch of the skb address,
-    e.g. skb1 = skb;
+> Hello,
 
-I was told the data will be prefetched into a so-called prefetching queue 
-only by
-using prefetching instruction? Is this true?
+Hi Gabriel,
 
-Thanks,
+> I got this compile error with 2.6.16-rc1-mm4 , config attached. 
+> 
+> 
+>   LD      .tmp_vmlinux1
+> drivers/built-in.o: In function
+> `acx_l_transmit_authen1':common.c:(.text+0x6cd62): undefined reference
+> to `acxusb_l_alloc_tx' :common.c:(.text+0x6cd74): undefined reference
+> to `acxusb_l_get_txbuf' :common.c:(.text+0x6cdeb): undefined reference
+> to `acxusb_l_tx_data' drivers/built-in.o: In function
+> `acx_s_configure_debug': undefined reference to
+> `acxusb_s_issue_cmd_timeo_debug' drivers/built-in.o: In function
+> [many more]
+>...
 
-John
+Thanks for your report.
+
+@Denis:
+The problem seems to be CONFIG_ACX=y, CONFIG_ACX_USB=n.
+
+> Gabriel 
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
