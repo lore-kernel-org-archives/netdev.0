@@ -1,80 +1,91 @@
-From: "Gabriel C." <crazy@pimpmylinux.org>
-Subject: Re: [2.6 patch] PCMCIA=m, HOSTAP_CS=y is not a legal configuration
-Date: Mon, 30 Jan 2006 21:30:52 +0100
-Message-ID: <20060130213052.5b1ea5cd@zwerg>
-References: <20060130133833.7b7a3f8e@zwerg>
-	<20060130182317.GD3655@stusta.de>
+From: Harald Welte <laforge@netfilter.org>
+Subject: [NETFILTER] NAT sequence adjustment: Save eight bytes per conntrack
+Date: Tue, 31 Jan 2006 00:22:09 +0100
+Message-ID: <20060130232209.GG4603@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>,
-	da.crew@gmx.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964954AbWA3Ua6@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, linville@tuxdriver.com
-In-Reply-To: <20060130182317.GD3655@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ynxsfku+JT9DNNkq"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jan 2006 19:23:17 +0100
-Adrian Bunk <bunk@stusta.de> wrote:
 
-> On Mon, Jan 30, 2006 at 01:38:33PM +0100, Gabriel C. wrote:
-> 
-> > Hello,
-> 
-> Hallo Gabriel,
-> 
-> > I got this compile error with 2.6.16-rc1-mm4 , config attached. 
-> > 
-> > 
-> >   LD      .tmp_vmlinux1
-> >...
-> > `sandisk_set_iobase':hostap_cs.c:(.text+0x801ad): undefined
-> > reference to
-> > `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x801f3):
-> > undefined reference to `pcmcia_access_configuration_register'
-> > drivers/built-in.o: In function
-> > `prism2_pccard_cor_sreset':hostap_cs.c:(.text+0x80254): undefined
-> > reference to
-> > `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x80289):
-> > undefined reference to
-> > `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x80325):
-> > undefined reference to `pcmcia_access_configuration_register' [more
-> > errors]
-> >...
-> 
-> thanks for your report, a patch is below.
-> > Gabriel 
-> 
-> cu
-> Adrian
-> 
-> 
-> <--  snip  -->
-> 
-> 
-> CONFIG_PCMCIA=m, CONFIG_HOSTAP_CS=y doesn't compile.
-> 
-> Reported by "Gabriel C." <crazy@pimpmylinux.org>.
-> 
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
-> ---
-> linux-2.6.16-rc1-mm4/drivers/net/wireless/hostap/Kconfig.old
-> 2006-01-30 19:00:44.000000000 +0100 +++
-> linux-2.6.16-rc1-mm4/drivers/net/wireless/hostap/Kconfig
-> 2006-01-30 19:01:04.000000000 +0100 @@ -75,7 +75,7 @@ config HOSTAP_CS
->  	tristate "Host AP driver for Prism2/2.5/3 PC Cards"
-> -	depends on PCMCIA!=n && HOSTAP
-> +	depends on PCMCIA && HOSTAP
->  	---help---
->  	Host AP driver's version for Prism2/2.5/3 PC Cards.
->  
-> 
+--ynxsfku+JT9DNNkq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hi Adrian,
+Hi Dave!
 
-Your patch works fine,  thanks :)
+Please apply this humble little step towards ip_conntrack shrinking,
+thanks!
 
-Gabriel
+[NETFILTER] NAT sequence adjustment: Save eight bytes per conntrack
+
+This patch reduces the size of 'struct ip_conntrack' on systems with NAT
+by eight bytes.  The sequence number delta values can be int16_t, since
+we only support one sequence number modification per window anyway, and
+one such modification is not going to exceed 32kB ;)
+
+Signed-off-by: Harald Welte <laforge@netfilter.org>
+
+---
+commit 94d3d40c84672b74e59ea5252f61602610e1513e
+tree 63e5ae5174af9f982be6d8d1bbe11e750e4ace32
+parent e3c7a1f99300fbd6de35a40fcd9c4dc1b0fbfee2
+author Harald Welte <laforge@netfilter.org> Fri, 27 Jan 2006 16:03:45 +0100
+committer Harald Welte <laforge@netfilter.org> Fri, 27 Jan 2006 16:03:45 +0=
+100
+
+ include/linux/netfilter_ipv4/ip_nat.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/netfilter_ipv4/ip_nat.h b/include/linux/netfilte=
+r_ipv4/ip_nat.h
+index 41a107d..e9f5ed1 100644
+--- a/include/linux/netfilter_ipv4/ip_nat.h
++++ b/include/linux/netfilter_ipv4/ip_nat.h
+@@ -23,7 +23,7 @@ struct ip_nat_seq {
+ 	 * modification (if any) */
+ 	u_int32_t correction_pos;
+ 	/* sequence number offset before and after last modification */
+-	int32_t offset_before, offset_after;
++	int16_t offset_before, offset_after;
+ };
+=20
+ /* Single range specification. */
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--ynxsfku+JT9DNNkq
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFD3p+hXaXGVTD0i/8RAmwtAJ4sUoPe2JOUfgYYmiG5tu330TQ7YwCeNPZm
+2ir3C9KohqSxJFPpMHpW2o0=
+=sFtV
+-----END PGP SIGNATURE-----
+
+--ynxsfku+JT9DNNkq--
