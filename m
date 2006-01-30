@@ -1,48 +1,67 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
-Date: Sun, 29 Jan 2006 14:52:42 -0500
-Message-ID: <20060129195242.GC28400@kvack.org>
-References: <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <20060127224433.GB3565@localhost.localdomain> <43DAA586.5050609@cosmosbay.com> <20060127151635.3a149fe2.akpm@osdl.org> <43DABAA4.8040208@cosmosbay.com> <20060129004459.GA24099@kvack.org> <43DC6691.9000001@cosmosbay.com>
+From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
+Subject: [PATCH 4/4]  pktgen: Fix Initialization fail leak.
+Date: Sun, 29 Jan 2006 23:21:28 -0200
+Message-ID: <20060129232128.44e6022b@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, kiran@scalex86.org,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	shai@scalex86.org, netdev@vger.kernel.org, pravins@calsoftinc.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751139AbWA2T5L@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Content-Disposition: inline
-In-Reply-To: <43DC6691.9000001@cosmosbay.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	robert.olsson@its.uu.se
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751220AbWA3BYH@vger.kernel.org>
+To: davem <davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 29, 2006 at 07:54:09AM +0100, Eric Dumazet wrote:
-> Well, I think that might be doable, maybe RCU magic ?
-> 
-> 1) local_t are not that nice on all archs.
 
-It is for the users that matter, and the hooks are there if someone finds 
-it to be a performance problem.
+ Even if pktgen's thread initialization fails for all CPUs, the module
+will be successfully loaded.
 
-> 2) The consolidation phase (summing all the cpus local offset to 
-> consolidate the central counter) might be more difficult to do (we would 
-> need kind of 2 counters per cpu, and a index that can be changed by the cpu 
-> that wants a consolidation (still 'expensive'))
+ This patch changes that behaivor, by returning error on module load time,
+and also freeing all the resources allocated. It also prints a warning if a
+thread initialization has failed.
 
-For the vast majority of these sorts of statistics counters, we don't 
-need 100% accurate counts.  And I think it should be possible to choose 
-between a lightweight implementation and the expensive implementation.  
-On a chip like the Core Duo the cost of bouncing between the two cores 
-is minimal, so all the extra code and data is a waste.
+Signed-off-by: Luiz Capitulino <lcapitulino@mandriva.com.br>
 
-> 3) Are the locked ops so expensive if done on a cache line that is mostly 
-> in exclusive state in cpu cache ?
 
-Yes.  What happens on the P4 is that it forces outstanding memory 
-transactions in the reorder buffer to be flushed so that the memory barrier 
-semantics of the lock prefix are observed.  This can take a long time as
-there can be over a hundred instructions in flight.
+---
 
-		-ben
+ net/core/pktgen.c |   15 ++++++++++++++-
+ 1 files changed, 14 insertions(+), 1 deletions(-)
+
+909df2e921dabd2f43f80f4fe067bf3b86fbc3cd
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index af310e5..3806068 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3136,11 +3136,24 @@ static int __init pg_init(void)
+ 	register_netdevice_notifier(&pktgen_notifier_block);
+ 
+ 	for_each_online_cpu(cpu) {
++		int err;
+ 		char buf[30];
+ 
+ 		sprintf(buf, "kpktgend_%i", cpu);
+-		pktgen_create_thread(buf, cpu);
++		err = pktgen_create_thread(buf, cpu);
++		if (err)
++			printk("pktgen: WARNING: Cannot create thread for cpu %d (%d)\n",
++					cpu, err);
+ 	}
++
++	if (list_empty(&pktgen_threads)) {
++		printk("pktgen: ERROR: Initialization failed for all threads\n");
++		unregister_netdevice_notifier(&pktgen_notifier_block);
++		remove_proc_entry(PGCTRL, pg_proc_dir);
++		proc_net_remove(PG_PROC_DIR);
++		return -ENODEV;
++	}
++
+ 	return 0;
+ }
+ 
 -- 
-"Ladies and gentlemen, I'm sorry to interrupt, but the police are here 
-and they've asked us to stop the party."  Don't Email: <dont@kvack.org>.
+1.1.5.g3480
+
+
+-- 
+Luiz Fernando N. Capitulino
