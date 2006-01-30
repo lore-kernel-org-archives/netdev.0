@@ -1,62 +1,21 @@
 From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
-Subject: [PATCH 3/4]  pktgen: Fix kernel_thread() fail leak.
-Date: Sun, 29 Jan 2006 23:21:36 -0200
-Message-ID: <20060129232136.6b4fd95b@localhost>
+Subject: [PATCH 1/4]  pktgen: Lindent run.
+Date: Sun, 29 Jan 2006 23:21:47 -0200
+Message-ID: <20060129232147.1a18e34a@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	robert.olsson@its.uu.se
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751224AbWA3BYT@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751221AbWA3BYi@vger.kernel.org>
 To: davem <davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
- Leak fix: free all the alocated resources if kernel_thread() call fails.
+ This patch is not in-lined because it's 120K bytes long, you can found it at:
 
-Signed-off-by: Luiz Capitulino <lcapitulino@mandriva.com.br>
-
-
----
-
- net/core/pktgen.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
-
-59115e7981073430cfcaaaabcde20840ec926cca
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index b9dea09..af310e5 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3002,6 +3002,7 @@ static struct pktgen_thread *__init pktg
- 
- static int __init pktgen_create_thread(const char *name, int cpu)
- {
-+	int err;
- 	struct pktgen_thread *t = NULL;
- 	struct proc_dir_entry *pe;
- 
-@@ -3040,9 +3041,15 @@ static int __init pktgen_create_thread(c
- 
- 	t->removed = 0;
- 
--	if (kernel_thread((void *)pktgen_thread_worker, (void *)t,
--			  CLONE_FS | CLONE_FILES | CLONE_SIGHAND) < 0)
-+	err = kernel_thread((void *)pktgen_thread_worker, (void *)t,
-+			  CLONE_FS | CLONE_FILES | CLONE_SIGHAND);
-+	if (err < 0) {
- 		printk("pktgen: kernel_thread() failed for cpu %d\n", t->cpu);
-+		remove_proc_entry(t->name, pg_proc_dir);
-+		list_del(&t->th_list);
-+		kfree(t);
-+		return err;
-+	}
- 
- 	return 0;
- }
--- 
-1.1.5.g3480
-
+http://www.cpu.eti.br/patches/0001-pktgen-Lindent-run.patch
 
 -- 
 Luiz Fernando N. Capitulino
