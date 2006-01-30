@@ -1,67 +1,34 @@
 From: Luiz Fernando Capitulino <lcapitulino@mandriva.com.br>
-Subject: [PATCH 4/4]  pktgen: Fix Initialization fail leak.
-Date: Sun, 29 Jan 2006 23:21:28 -0200
-Message-ID: <20060129232128.44e6022b@localhost>
+Subject: [PATCH 0/4] - pktgen: refinements and small fixes (V2).
+Date: Sun, 29 Jan 2006 23:23:42 -0200
+Message-ID: <20060129232342.1e481f9a@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	robert.olsson@its.uu.se
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751220AbWA3BYH@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751217AbWA3BXn@vger.kernel.org>
 To: davem <davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
- Even if pktgen's thread initialization fails for all CPUs, the module
-will be successfully loaded.
+ Hi!
 
- This patch changes that behaivor, by returning error on module load time,
-and also freeing all the resources allocated. It also prints a warning if a
-thread initialization has failed.
+ I'm sending again the following patches for pktgen:
 
-Signed-off-by: Luiz Capitulino <lcapitulino@mandriva.com.br>
+[PATCH 1/4]  pktgen: Lindent run.
+[PATCH 2/4]  pktgen: Ports thread list to Kernel list implementation.
+[PATCH 3/4]  pktgen: Fix kernel_thread() fail leak.
+[PATCH 4/4]  pktgen: Fix Initialization fail leak.
 
+ The changes from V1 are:
 
----
-
- net/core/pktgen.c |   15 ++++++++++++++-
- 1 files changed, 14 insertions(+), 1 deletions(-)
-
-909df2e921dabd2f43f80f4fe067bf3b86fbc3cd
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index af310e5..3806068 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3136,11 +3136,24 @@ static int __init pg_init(void)
- 	register_netdevice_notifier(&pktgen_notifier_block);
+ 1. More fixes made by hand after Lindent run
+ 2. Re-diffed agains't Dave's net-2.6.17 tree
  
- 	for_each_online_cpu(cpu) {
-+		int err;
- 		char buf[30];
- 
- 		sprintf(buf, "kpktgend_%i", cpu);
--		pktgen_create_thread(buf, cpu);
-+		err = pktgen_create_thread(buf, cpu);
-+		if (err)
-+			printk("pktgen: WARNING: Cannot create thread for cpu %d (%d)\n",
-+					cpu, err);
- 	}
-+
-+	if (list_empty(&pktgen_threads)) {
-+		printk("pktgen: ERROR: Initialization failed for all threads\n");
-+		unregister_netdevice_notifier(&pktgen_notifier_block);
-+		remove_proc_entry(PGCTRL, pg_proc_dir);
-+		proc_net_remove(PG_PROC_DIR);
-+		return -ENODEV;
-+	}
-+
- 	return 0;
- }
- 
--- 
-1.1.5.g3480
-
+  All the patches were tested with QEMU, emulating a machine with 4 CPUs
+and 4 ethernet cards.
 
 -- 
 Luiz Fernando N. Capitulino
