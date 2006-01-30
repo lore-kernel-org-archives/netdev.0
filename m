@@ -1,25 +1,38 @@
-From: John Ronciak <john.ronciak@gmail.com>
-Subject: Re: [2.6 patch] drivers/net/e1000/: proper prototypes
-Date: Mon, 30 Jan 2006 10:46:04 -0800
-Message-ID: <56a8daef0601301046w37ecf5c0s93b906c7d971e272@mail.gmail.com>
-References: <20060130172047.GB3655@stusta.de>
+From: Robert Love <rml@novell.com>
+Subject: Re: [2.6.15 patch] wireless/airo: add IWENCODEEXT and IWAUTH support
+Date: Mon, 30 Jan 2006 14:04:05 -0500
+Message-ID: <1138647845.23884.76.camel@betsy.boston.ximian.com>
+References: <1138640281.12551.5.camel@dhcp83-115.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: cramerj@intel.com, john.ronciak@intel.com,
-	ganesh.venkatesan@intel.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964862AbWA3SqG@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060130172047.GB3655@stusta.de>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	breed@users.sourceforge.net, networkmanager-list@gnome.org,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <networkmanager-list-bounces@gnome.org>
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1138640281.12551.5.camel@dhcp83-115.boston.redhat.com>
+List-Unsubscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
+	<mailto:networkmanager-list-request@gnome.org?subject=unsubscribe>
+List-Archive: <http://mail.gnome.org/archives/networkmanager-list>
+List-Post: <mailto:networkmanager-list@gnome.org>
+List-Help: <mailto:networkmanager-list-request@gnome.org?subject=help>
+List-Subscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
+	<mailto:networkmanager-list-request@gnome.org?subject=subscribe>
+Sender: networkmanager-list-bounces@gnome.org
+Errors-To: networkmanager-list-bounces@gnome.org
 List-Id: netdev.vger.kernel.org
 
-I ACK this patch.
+On Mon, 2006-01-30 at 11:58 -0500, Dan Williams wrote:
 
-Jeff please apply.
+> This patch adds IWENCODEEXT and IWAUTH support to the airo driver for
+> WEP and unencrypted operation.  No WPA though.  It allows the driver to
+> operate more willingly with wpa_supplicant and NetworkManager.
+> 
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 
---
-Cheers,
-John
+Tested on my airo and works.
+
+Acked-by: Robert Love <rml@novell.com>
+
+	Robert Love
