@@ -1,63 +1,80 @@
-From: Knut Petersen <Knut_Petersen@t-online.de>
-Subject: [BUG] 8139too fails for ip autoconfig and nfsroot
-Date: Mon, 30 Jan 2006 20:59:49 +0100
-Message-ID: <43DE7035.1040806@t-online.de>
+From: "Gabriel C." <crazy@pimpmylinux.org>
+Subject: Re: [2.6 patch] PCMCIA=m, HOSTAP_CS=y is not a legal configuration
+Date: Mon, 30 Jan 2006 21:30:52 +0100
+Message-ID: <20060130213052.5b1ea5cd@zwerg>
+References: <20060130133833.7b7a3f8e@zwerg>
+	<20060130182317.GD3655@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964933AbWA3T7q@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, Adrian Bunk <bunk@stusta.de>,
+	da.crew@gmx.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964954AbWA3Ua6@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, linville@tuxdriver.com
+In-Reply-To: <20060130182317.GD3655@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have a number of systems equipped with:
+On Mon, 30 Jan 2006 19:23:17 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-0000:05:05.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
-RTL-8139/8139C/8139C+ (rev 10)
-        Subsystem: Realtek Semiconductor Co., Ltd. RT8139
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- 
-ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-        Latency: 32 (8000ns min, 16000ns max)
-        Interrupt: pin A routed to IRQ 177
-        Region 0: I/O ports at d000 [size=1027M]
-        Region 1: Memory at d0320000 (32-bit, non-prefetchable) [size=256]
-        Expansion ROM at 00020000 [disabled]
-        Capabilities: [50] Power Management version 2
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA 
-PME(D0-,D1+,D2+,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> On Mon, Jan 30, 2006 at 01:38:33PM +0100, Gabriel C. wrote:
+> 
+> > Hello,
+> 
+> Hallo Gabriel,
+> 
+> > I got this compile error with 2.6.16-rc1-mm4 , config attached. 
+> > 
+> > 
+> >   LD      .tmp_vmlinux1
+> >...
+> > `sandisk_set_iobase':hostap_cs.c:(.text+0x801ad): undefined
+> > reference to
+> > `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x801f3):
+> > undefined reference to `pcmcia_access_configuration_register'
+> > drivers/built-in.o: In function
+> > `prism2_pccard_cor_sreset':hostap_cs.c:(.text+0x80254): undefined
+> > reference to
+> > `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x80289):
+> > undefined reference to
+> > `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x80325):
+> > undefined reference to `pcmcia_access_configuration_register' [more
+> > errors]
+> >...
+> 
+> thanks for your report, a patch is below.
+> > Gabriel 
+> 
+> cu
+> Adrian
+> 
+> 
+> <--  snip  -->
+> 
+> 
+> CONFIG_PCMCIA=m, CONFIG_HOSTAP_CS=y doesn't compile.
+> 
+> Reported by "Gabriel C." <crazy@pimpmylinux.org>.
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> ---
+> linux-2.6.16-rc1-mm4/drivers/net/wireless/hostap/Kconfig.old
+> 2006-01-30 19:00:44.000000000 +0100 +++
+> linux-2.6.16-rc1-mm4/drivers/net/wireless/hostap/Kconfig
+> 2006-01-30 19:01:04.000000000 +0100 @@ -75,7 +75,7 @@ config HOSTAP_CS
+>  	tristate "Host AP driver for Prism2/2.5/3 PC Cards"
+> -	depends on PCMCIA!=n && HOSTAP
+> +	depends on PCMCIA && HOSTAP
+>  	---help---
+>  	Host AP driver's version for Prism2/2.5/3 PC Cards.
+>  
+> 
 
-Those cards have PXE boot roms.
+Hi Adrian,
 
-There are no problems in normal operation, but something is totaly wrong 
-when I
-try to use those cards for network booting:
+Your patch works fine,  thanks :)
 
-I compiled a kernel for nfsroot and dhcp ip autoconfiguration, 
-configured the server and tried
-to boot. Well, booting memtest and booting msdos works perfectly fine. 
-Loading the kernel
-is also no problem, but at the point of ip autoconfiguration (ip=dhcp) 
-the kernel loops sending
-DHCPDISCOVER packets. Those packets arrive at the server, and the server 
-responds appropiately.
-ic_bootp_recv() never gets called (checked by a printk). I suspected a 
-server malconfiguration,
-but found none. Skipping ip autoconfig is no solution, the kernel then 
-fails trying rpc lookup.
-
-Then I tried to netboot another system with the same kernel + via rhine 
-driver, same server
-config. Voila, dhcp ip autoconfig and rpc port lookup is not a problem 
-on this system.
-
-During my search for a solution I tried some recent kernels, the oldest 
-2.6.14. All fail with 8139too.
-
-Any ideas?
-
-cu,
- Knut
+Gabriel
