@@ -1,69 +1,25 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] PCMCIA=m, HOSTAP_CS=y is not a legal configuration
-Date: Mon, 30 Jan 2006 19:23:17 +0100
-Message-ID: <20060130182317.GD3655@stusta.de>
-References: <20060130133833.7b7a3f8e@zwerg>
+From: John Ronciak <john.ronciak@gmail.com>
+Subject: Re: [2.6 patch] drivers/net/e1000/: proper prototypes
+Date: Mon, 30 Jan 2006 10:46:04 -0800
+Message-ID: <56a8daef0601301046w37ecf5c0s93b906c7d971e272@mail.gmail.com>
+References: <20060130172047.GB3655@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, da.crew@gmx.net,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751283AbWA3SXT@vger.kernel.org>
-To: "Gabriel C." <crazy@pimpmylinux.org>, linville@tuxdriver.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: cramerj@intel.com, john.ronciak@intel.com,
+	ganesh.venkatesan@intel.com, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964862AbWA3SqG@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060130172047.GB3655@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <20060130133833.7b7a3f8e@zwerg>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2006 at 01:38:33PM +0100, Gabriel C. wrote:
+I ACK this patch.
 
-> Hello,
+Jeff please apply.
 
-Hallo Gabriel,
-
-> I got this compile error with 2.6.16-rc1-mm4 , config attached. 
-> 
-> 
->   LD      .tmp_vmlinux1
->...
-> `sandisk_set_iobase':hostap_cs.c:(.text+0x801ad): undefined reference
-> to `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x801f3):
-> undefined reference to `pcmcia_access_configuration_register'
-> drivers/built-in.o: In function
-> `prism2_pccard_cor_sreset':hostap_cs.c:(.text+0x80254): undefined
-> reference to
-> `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x80289):
-> undefined reference to
-> `pcmcia_access_configuration_register' :hostap_cs.c:(.text+0x80325):
-> undefined reference to `pcmcia_access_configuration_register'
-> [more errors]
->...
-
-thanks for your report, a patch is below.
-
-> Gabriel 
-
-cu
-Adrian
-
-
-<--  snip  -->
-
-
-CONFIG_PCMCIA=m, CONFIG_HOSTAP_CS=y doesn't compile.
-
-Reported by "Gabriel C." <crazy@pimpmylinux.org>.
-
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.16-rc1-mm4/drivers/net/wireless/hostap/Kconfig.old	2006-01-30 19:00:44.000000000 +0100
-+++ linux-2.6.16-rc1-mm4/drivers/net/wireless/hostap/Kconfig	2006-01-30 19:01:04.000000000 +0100
-@@ -75,7 +75,7 @@
- 
- config HOSTAP_CS
- 	tristate "Host AP driver for Prism2/2.5/3 PC Cards"
--	depends on PCMCIA!=n && HOSTAP
-+	depends on PCMCIA && HOSTAP
- 	---help---
- 	Host AP driver's version for Prism2/2.5/3 PC Cards.
- 
+--
+Cheers,
+John
