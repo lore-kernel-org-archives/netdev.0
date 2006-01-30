@@ -1,45 +1,57 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: net/tipc/bcast.c:tipc_bcbearer_send() stack usage
-Date: Mon, 30 Jan 2006 03:47:48 +0100
-Message-ID: <20060130024748.GI3777@stusta.de>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATH] acxsm: Move WEP code into softmac
+Date: Mon, 30 Jan 2006 09:18:28 +0200
+Message-ID: <200601300918.28664.vda@ilport.com.ua>
+References: <200601291526.09333.carlos@cmartin.tk>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751222AbWA3Cru@vger.kernel.org>
-To: per.liden@ericsson.com, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>,
+	netdev@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: acx100-devel@lists.sourceforge.net
+In-Reply-To: <200601291526.09333.carlos@cmartin.tk>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
->From net/tipc/bcast.c:
+On Sunday 29 January 2006 16:26, Carlos Mart=EDn wrote:
+> Hi,
+>=20
+>  This patch moves the WEP handling code to use the softmac layer and=20
+> implements acx_e_ieee80211_set_security(), based on the rt2x00 project's =
+one.
 
-<--  snip  -->
+Applied, thanks!
+=20
+>  I do have a couple of questions though:
+>=20
+> 1) adev->wep_restricted =3D 0 is the same as an open auth system, and=20
+> adev->wep_restricted =3D 1 is the same as having a shared key auth system=
+,=20
+> right?
+>=20
+> 2) What is the purpose of the index field in key_struct_t? I've assumed i=
+t is=20
+> the same as adev->wep_current_index, but I'm not sure this is correct.
 
-...
-int tipc_bcbearer_send(struct sk_buff *buf,
-                       struct tipc_bearer *unused1,
-                       struct tipc_media_addr *unused2)
-{
-        static int send_count = 0;
-
-        struct node_map remains;
-        struct node_map remains_new;
-...
-
-<--  snip  -->
+To be honest, I did not pay much attention to inner WEP workings...
+=2D-
+vda
 
 
-You've just allocated 2*516 Bytes for the two structs from a stack that 
-might only be 4 kB altogether.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
