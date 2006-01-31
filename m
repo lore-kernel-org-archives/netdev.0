@@ -1,37 +1,25 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: 2.6.16-rc1-mm4: ACX=y, ACX_USB=n compile error
-Date: Tue, 31 Jan 2006 16:58:09 +0200
-Message-ID: <200601311658.09423.vda@ilport.com.ua>
-References: <20060130133833.7b7a3f8e@zwerg> <200601311416.05397.vda@ilport.com.ua> <20060131145431.GI5433@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] RealTek RTL-8169 Full Duplex Patch
+Date: Tue, 31 Jan 2006 19:19:52 +0100
+Message-ID: <20060131181952.GA20574@electric-eye.fr.zoreil.com>
+References: <20060130161029.GA11938@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Gabriel C." <crazy@pimpmylinux.org>, da.crew@gmx.net,
-	linux-kernel@vger.kernel.org, Adrian Bunk <bunk@stusta.de>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751296AbWAaRaU@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060131145431.GI5433@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751327AbWAaSYc@vger.kernel.org>
+To: Andy Gospodarek <andy@greyhouse.net>
 Content-Disposition: inline
+In-Reply-To: <20060130161029.GA11938@gospo.rdu.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 31 January 2006 16:54, John W. Linville wrote:
-> On Tue, Jan 31, 2006 at 02:16:05PM +0200, Denis Vlasenko wrote:
-> 
-> > CONFIG_ACX=y
-> > # CONFIG_ACX_PCI is not set
-> > # CONFIG_ACX_USB is not set
-> > 
-> > This won't fly. You must select at least one.
-> > 
-> > Attached patch will check for this and #error out.
-> > Andrew, do not apply to -mm, I'll send you bigger update today.
-> 
-> Is there any way to move this into a Kconfig file?  That seems nicer
-> than having #ifdefs in source code to check for a configuration error.
+Andy Gospodarek <andy@greyhouse.net> :
+> Allow the r8129 driver to set devices to be full-duplex only when
+> auto-negotiate is disabled.
 
-Can't think of any at the moment.
---
-vda
+s/8129/8169 and added to the branch 'for-jeff' at
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+
+-- 
+Ueimor
