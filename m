@@ -1,124 +1,84 @@
-From: Reuben Farrelly <reuben-lkml@reub.net>
+From: Harald Welte <laforge@netfilter.org>
 Subject: Re: ip_conntrack related slab error (Re: Fw: Re: 2.6.16-rc1-mm3)
-Date: Tue, 31 Jan 2006 23:07:57 +1300
-Message-ID: <43DF36FD.70305@reub.net>
-References: <20060130221429.5f12d947.akpm@osdl.org> <20060131092447.GL4603@sunbeam.de.gnumonks.org>
+Date: Tue, 31 Jan 2006 11:28:52 +0100
+Message-ID: <20060131102852.GV4603@sunbeam.de.gnumonks.org>
+References: <20060130221429.5f12d947.akpm@osdl.org> <20060131092447.GL4603@sunbeam.de.gnumonks.org> <43DF3677.8040701@reub.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="tWRTUBMosAF2WQf4"
 Cc: Andrew Morton <akpm@osdl.org>,
 	Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
 	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750722AbWAaKIA@vger.kernel.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20060131092447.GL4603@sunbeam.de.gnumonks.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750744AbWAaK24@vger.kernel.org>
+To: Reuben Farrelly <reuben-lkml@reub.net>
+Content-Disposition: inline
+In-Reply-To: <43DF3677.8040701@reub.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+--tWRTUBMosAF2WQf4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 31/01/2006 10:24 p.m., Harald Welte wrote:
->> Begin forwarded message:
->>
->> Date: Sat, 28 Jan 2006 00:47:06 +1300
->> From: Reuben Farrelly <reuben-lkml@reub.net>
->> To: Andrew Morton <akpm@osdl.org>
->> Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
->> Subject: Re: 2.6.16-rc1-mm3
->>
->> Just triggered this one, which had a fairly bad effect on connectivity to the box:
->>
->> i2c /dev entries driver
->> slab error in kmem_cache_destroy(): cache `ip_conntrack': Can't free all objects
->>   [<b010412b>] show_trace+0xd/0xf
->>   [<b01041cc>] dump_stack+0x17/0x19
->>   [<b0155d04>] kmem_cache_destroy+0x9b/0x1a9
->>   [<f0ebf701>] ip_conntrack_cleanup+0x5d/0x10e [ip_conntrack]
->>   [<f0ebe31e>] init_or_cleanup+0x1f8/0x283 [ip_conntrack]
->>   [<f0ec2c4e>] fini+0xa/0x66 [ip_conntrack]
->>   [<b0136d06>] sys_delete_module+0x161/0x1fb
->>   [<b0102b3f>] sysenter_past_esp+0x54/0x75
->> Removing netfilter NETLINK layer.
->> [root@tornado log]#
->>
->> I was just reading IMAP mail at the time, ie same as I'd been doing for an hour 
->> or two beforehand and not altering config of the box in any way.  I was able to 
->> log on via console but lost all network connectivity and had to reboot :(
-> 
-> The codepath you see in that backtrace is only hit during load or
-> removal of the 'ip_conntrack' module.  While this certainly still should
-> not oops, your description of 'not doing anything but IMAP reading' is
-> certainly not true.  
-> 
-> Could you please describe what actually happened when that bug happened?
-> It looks to me that you were unloading ip_conntrack_netlink.ko followed
-> by ip_conntrack.ko.
+On Tue, Jan 31, 2006 at 11:05:43PM +1300, Reuben Farrelly wrote:
 
-This just happened, in fact while I was typing up my previous mail.  I only 
-noticed because I went to send and connection to the server timed out:
+> >>slab error in kmem_cache_destroy(): cache `ip_conntrack': Can't free al=
+l objects
+> >>  [<b010412b>] show_trace+0xd/0xf
+> >>  [<b01041cc>] dump_stack+0x17/0x19
+> >>  [<b0155d04>] kmem_cache_destroy+0x9b/0x1a9
+> >>  [<f0ebf701>] ip_conntrack_cleanup+0x5d/0x10e [ip_conntrack]
+> >>  [<f0ebe31e>] init_or_cleanup+0x1f8/0x283 [ip_conntrack]
+> >>  [<f0ec2c4e>] fini+0xa/0x66 [ip_conntrack]
+> >>  [<b0136d06>] sys_delete_module+0x161/0x1fb
+> >>  [<b0102b3f>] sysenter_past_esp+0x54/0x75
+> >>Removing netfilter NETLINK layer.
+> >>[root@tornado log]#
+> >>I was just reading IMAP mail at the time, ie same as I'd been doing for=
+ an hour or two beforehand and not=20
+> >>altering config of the box in any way.  I was able to log on via consol=
+e but lost all network connectivity and=20
+> >>had to reboot :(
+> >The codepath you see in that backtrace is only hit during load or
+> >removal of the 'ip_conntrack' module.  While this certainly still should
+> >not oops, your description of 'not doing anything but IMAP reading' is
+> >certainly not true. =20
+>=20
+> With the greatest of respect (which I do have for you Harald), I don't
+> think being essentially called a liar is very fair.
 
-I'm not sure if this is related or not.
+I didn't want to imply that you are lying, but merely point out that
+something was going on on your system that you didn't be aware of.
 
+Sorry if that was to be misunderstood.
 
-Fedora Core release 4 (Rawhide)
-Kernel 2.6.16-rc1-mm4 on an i686
+Without knowing what actually happened at the time you encountered the
+bug, it is hard for me to try and reproduce / understand it.
 
-tornado.reub.net login: BUG: unable to handle kernel paging request at virtual 
-address 00200200
-  printing eip:
-f0eb410d
-*pde = 00000000
-Oops: 0000 [#1]
-SMP
-last sysfs file: /block/fd0/dev
-Modules linked in: nfsd exportfs lockd sunrpc lm85 hwmon_vid eeprom ipv6 ip_gre 
-iptable_filter iptable_nat ip_nat ip_conntrack nfnetlink iptable_mangle 
-ip_tables binfmt_misc ide_cd cdrom serio_raw hw_random piix i2c_i801
-CPU:    0
-EIP:    0060:[<f0eb410d>]    Not tainted VLI
-EFLAGS: 00010292   (2.6.16-rc1-mm4 #2)
-EIP is at ip_nat_cleanup_conntrack+0x22/0x62 [ip_nat]
-eax: dbcb0570   ebx: d6f9164c   ecx: d6f916c8   edx: 00200200
-esi: d6f9164c   edi: eef02380   ebp: b044ce74   esp: b044ce70
-ds: 007b   es: 007b   ss: 0068
-Process smbd (pid: 2517, threadinfo=b044c000 task=dbcb0570)
-Stack: <0>d6f9164c b044ce88 f0ec0251 00004599 d6f9164c d52aca80 b044cee4 b02e9914
-        b044ceb4 b02c6b49 00000000 00000277 00000277 00000002 0100007f 0100007f
-        b0487508 b044cee4 b02c6d6d 02772e80 027747ab ef856ff4 b02cd972 80000000
-Call Trace:
-  [<b0103bf5>] show_stack_log_lvl+0xc5/0xea
-  [<b0103db7>] show_registers+0x19d/0x22b
-  [<b0103f61>] die+0x11c/0x22c
-  [<b01140e4>] do_page_fault+0x27a/0x5de
-  [<b0103737>] error_code+0x4f/0x54
-  [<f0ec0251>] destroy_conntrack+0x4c/0x13e [ip_conntrack]
-  [<b02e9914>] tcp_v4_rcv+0xad9/0xb25
-  [<b02ce33e>] ip_local_deliver+0x92/0x2d4
-  [<b02cdfd2>] ip_rcv+0x331/0x60b
-  [<b02b3638>] netif_receive_skb+0x219/0x302
-  [<b02b506b>] process_backlog+0x8e/0x12e
-  [<b02b51c6>] net_rx_action+0xbb/0x1c4
-  [<b01213cd>] __do_softirq+0x70/0xd7
-  [<b0105071>] do_softirq+0x4f/0x53
-  =======================
-  [<b0121480>] local_bh_enable+0x4c/0x79
-  [<b02b536d>] dev_queue_xmit+0x9e/0x305
-  [<b02d3d72>] ip_output+0x17d/0x32b
-  [<b02d31d2>] ip_queue_xmit+0x240/0x53e
-  [<b02e2562>] tcp_transmit_skb+0x3bd/0x6c9
-  [<b02e29b1>] tcp_send_ack+0xa2/0xdf
-  [<b02d826c>] cleanup_rbuf+0x40/0xf0
-  [<b02d9f59>] tcp_recvmsg+0x1b0/0x7b2
-  [<b02ab6ab>] sock_common_recvmsg+0x3d/0x53
-  [<b02a9b1e>] sock_recvmsg+0xda/0xfe
-  [<b02aae39>] sys_recvfrom+0x79/0xbe
-  [<b02aaeb4>] sys_recv+0x36/0x38
-  [<b02ab209>] sys_socketcall+0x158/0x254
-  [<b0102b3f>] sysenter_past_esp+0x54/0x75
-Code: 5d c3 b9 60 73 eb f0 eb f5 55 89 e5 53 89 c3 f7 40 08 80 01 00 00 75 03 5b 
-5d c3 b8 40 73 eb f0 e8 f4 cc 45 bf 8d 4b 7c 8b 51 04 <3b> 0a 75 28 8b 43 7c 3b 
-48 04 75 2a 89 50 04 89 02 c7 43 7c 00
-  <0>Kernel panic - not syncing: Fatal exception in interrupt
-  <0>Rebooting in 60 seconds..
+This is not a lame excuse.
 
-reuben
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--tWRTUBMosAF2WQf4
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFD3zvkXaXGVTD0i/8RAhA1AKCxE/aFmCfpCURTvDJrUh4ZGWrd0gCfUAp6
+hkco6uCZK4UVkPMdaRO7zrA=
+=l9sR
+-----END PGP SIGNATURE-----
+
+--tWRTUBMosAF2WQf4--
