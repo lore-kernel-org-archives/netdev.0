@@ -1,41 +1,30 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] wrong firmware location in IPW2100 Kconfig entry
-Date: Tue, 31 Jan 2006 17:11:24 +0100
-Message-ID: <20060131161124.GA3986@stusta.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [2.6 patch] PCMCIA=m, HOSTAP_CS=y is not a legal configuration
+Date: Tue, 31 Jan 2006 11:19:27 -0500
+Message-ID: <20060131161922.GQ5433@tuxdriver.com>
+References: <20060130133833.7b7a3f8e@zwerg> <20060130182317.GD3655@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jesper Juhl <jesper.juhl@gmail.com>,
-	linux-kernel@vger.kernel.org, yi.zhu@intel.com,
-	jketreno@linux.intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751086AbWAaQL3@vger.kernel.org>
-To: linville@tuxdriver.com
+Cc: "Gabriel C." <crazy@pimpmylinux.org>, linux-kernel@vger.kernel.org,
+	da.crew@gmx.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751147AbWAaQWx@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
+In-Reply-To: <20060130182317.GD3655@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
+On Mon, Jan 30, 2006 at 07:23:17PM +0100, Adrian Bunk wrote:
 
-Firmware should go into /lib/firmware, not /etc/firmware.
+> CONFIG_PCMCIA=m, CONFIG_HOSTAP_CS=y doesn't compile.
+> 
+> Reported by "Gabriel C." <crazy@pimpmylinux.org>.
 
-Found by Alejandro Bonilla.
+Applied to upstream-fixes branch of wireless-2.6.
 
+Thanks,
 
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
-This patch was sent by Jesper Juhl on:
-- 6 Sep 2005
-
---- linux-2.6.13-mm1-orig/drivers/net/wireless/Kconfig	2005-09-02 23:59:51.000000000 +0200
-+++ linux-2.6.13-mm1/drivers/net/wireless/Kconfig	2005-09-06 20:39:45.000000000 +0200
-@@ -152,7 +152,7 @@
- 	  In order to use this driver, you will need a firmware image for it.
-           You can obtain the firmware from
- 	  <http://ipw2100.sf.net/>.  Once you have the firmware image, you 
--	  will need to place it in /etc/firmware.
-+	  will need to place it in /lib/firmware.
- 
-           You will also very likely need the Wireless Tools in order to
-           configure your card:
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
