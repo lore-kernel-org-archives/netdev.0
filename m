@@ -1,81 +1,41 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
+From: "John W. Linville" <linville@tuxdriver.com>
 Subject: Re: 2.6.16-rc1-mm4: ACX=y, ACX_USB=n compile error
-Date: Tue, 31 Jan 2006 14:16:05 +0200
-Message-ID: <200601311416.05397.vda@ilport.com.ua>
-References: <20060130133833.7b7a3f8e@zwerg> <200601310810.33107.vda@ilport.com.ua> <20060131100330.2931cbe9@zwerg>
+Date: Tue, 31 Jan 2006 09:54:36 -0500
+Message-ID: <20060131145431.GI5433@tuxdriver.com>
+References: <20060130133833.7b7a3f8e@zwerg> <200601310810.33107.vda@ilport.com.ua> <20060131100330.2931cbe9@zwerg> <200601311416.05397.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_FU13DPqDjbVX1Mv"
-Cc: da.crew@gmx.net, linux-kernel@vger.kernel.org,
-	Adrian Bunk <bunk@stusta.de>, linville@tuxdriver.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Gabriel C." <crazy@pimpmylinux.org>, da.crew@gmx.net,
+	linux-kernel@vger.kernel.org, Adrian Bunk <bunk@stusta.de>,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750804AbWAaNN5@vger.kernel.org>
-To: "Gabriel C." <crazy@pimpmylinux.org>
-In-Reply-To: <20060131100330.2931cbe9@zwerg>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750917AbWAaO4o@vger.kernel.org>
+To: Denis Vlasenko <vda@ilport.com.ua>
+Content-Disposition: inline
+In-Reply-To: <200601311416.05397.vda@ilport.com.ua>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_FU13DPqDjbVX1Mv
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Tue, Jan 31, 2006 at 02:16:05PM +0200, Denis Vlasenko wrote:
 
-On Tuesday 31 January 2006 11:03, Gabriel C. wrote:
-> > > > I got this compile error with 2.6.16-rc1-mm4 , config attached. 
-> > > > 
-> > > > 
-> > > >   LD      .tmp_vmlinux1
-> > > > drivers/built-in.o: In function
-> > > > `acx_l_transmit_authen1':common.c:(.text+0x6cd62): undefined
-> > > > reference to `acxusb_l_alloc_tx' :common.c:(.text+0x6cd74):
-> > > > undefined reference to
-> > > > `acxusb_l_get_txbuf' :common.c:(.text+0x6cdeb): undefined
-> > > > reference to `acxusb_l_tx_data' drivers/built-in.o: In function
-> > > > `acx_s_configure_debug': undefined reference to
-> > > > `acxusb_s_issue_cmd_timeo_debug' drivers/built-in.o: In function
-> > > > [many more]
-> > > >...
-> > > 
-> > > Thanks for your report.
-> > > 
-> > > @Denis:
-> > > The problem seems to be CONFIG_ACX=y, CONFIG_ACX_USB=n.
-> > 
-> > Thanks, will test/fix ASAP.
+> CONFIG_ACX=y
+> # CONFIG_ACX_PCI is not set
+> # CONFIG_ACX_USB is not set
+> 
+> This won't fly. You must select at least one.
+> 
+> Attached patch will check for this and #error out.
+> Andrew, do not apply to -mm, I'll send you bigger update today.
 
-CONFIG_ACX=y
-# CONFIG_ACX_PCI is not set
-# CONFIG_ACX_USB is not set
+Is there any way to move this into a Kconfig file?  That seems nicer
+than having #ifdefs in source code to check for a configuration error.
 
-This won't fly. You must select at least one.
+John
 
-Attached patch will check for this and #error out.
-Andrew, do not apply to -mm, I'll send you bigger update today.
---
-vda
+P.S.  Please post any patches with formatting according to kernel
+conventions:
 
---Boundary-00=_FU13DPqDjbVX1Mv
-Content-Type: text/x-diff;
-  charset="koi8-r";
-  name="acx.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="acx.patch"
+	http://linux.yyz.us/patch-format.html
 
-diff -urpN linux-2.6.16-rc1-mm4.org/drivers/net/wireless/tiacx.org/acx_struct.h linux-2.6.16-rc1-mm4.org/drivers/net/wireless/tiacx/acx_struct.h
---- linux-2.6.16-rc1-mm4.org/drivers/net/wireless/tiacx.org/acx_struct.h	Tue Jan 31 12:13:53 2006
-+++ linux-2.6.16-rc1-mm4.org/drivers/net/wireless/tiacx/acx_struct.h	Tue Jan 31 13:51:18 2006
-@@ -121,6 +121,10 @@ enum { acx_debug = 0 };
- #define DEVTYPE_PCI		0
- #define DEVTYPE_USB		1
- 
-+#if !defined(CONFIG_ACX_PCI) && !defined(CONFIG_ACX_USB)
-+#error Driver must include PCI and/or USB support. You selected neither.
-+#endif
-+
- #if defined(CONFIG_ACX_PCI)
-  #if !defined(CONFIG_ACX_USB)
-   #define IS_PCI(priv)	1
-
---Boundary-00=_FU13DPqDjbVX1Mv--
+-- 
+John W. Linville
+linville@tuxdriver.com
