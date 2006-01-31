@@ -1,39 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER] nfnetlink_log: add sequence numbers for
- log events
-Date: Mon, 30 Jan 2006 15:50:56 -0800 (PST)
-Message-ID: <20060130.155056.41617808.davem@davemloft.net>
-References: <20060130232348.GH4603@sunbeam.de.gnumonks.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: skge bridge & hw csum failure (Was: Re: [BUG] sky2 broken for
+ Yukon PCI-E Gigabit Ethernet Controller 11ab:4362 (rev 19))
+Date: Mon, 30 Jan 2006 16:15:51 -0800
+Message-ID: <20060130161551.623a3ad0@dxpl.pdx.osdl.net>
+References: <20060130231658.GA6952@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20060130232348.GH4603@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Knut Petersen <Knut_Petersen@t-online.de>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030238AbWAaAQW@vger.kernel.org>
+To: Pekka Pietikainen <pp@ee.oulu.fi>
+In-Reply-To: <20060130231658.GA6952@ee.oulu.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Tue, 31 Jan 2006 00:23:48 +0100
+On Tue, 31 Jan 2006 01:16:59 +0200
+Pekka Pietikainen <pp@ee.oulu.fi> wrote:
 
-> [NETFILTER] nfnetlink_log: add sequence numbers for log events
-> 
-> By using a sequence number for every logged netfilter event, we can
-> determine from userspace whether logging information was lots somewhere
-> downstream.
-> 
-> The user has a choice of either having per-instance local sequence
-> counters, or using a global sequence counter, or both.
-> 
-> Signed-off-by: Harald Welte <laforge@netfilter.org>
+> On Fri, Jan 27, 2006 at 11:22:42PM +1100, Herbert Xu wrote:
+> > OK, although we can't rule out sky2/netfilter from the enquiry, I've
+> > identified two bugs in ppp/pppoe that may be responsible for what you
+> > are seeing.  So please try the following patch and let us know if the
+> > problem still exists (or deteriorates/improves).
+> Borrowing this thread for a related problem, I'm getting lots of those on a
+> bridge device (this one running skge, rmmod skge; modprobe sk98lin actually
+> seemed to do it too, I've disabled rx checksums with ethtool for now). 
+> Kernel is a 2.6.15.1-ish Fedora one.
 
-Also applied to net-2.6.17, thanks.
+Okay, what is the hardware version:
+	dmesg | grep skge
+Maybe that chip rev is no good.
