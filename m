@@ -1,70 +1,47 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: ip_conntrack related slab error (Re: Fw: Re: 2.6.16-rc1-mm3)
-Date: Tue, 31 Jan 2006 10:24:47 +0100
-Message-ID: <20060131092447.GL4603@sunbeam.de.gnumonks.org>
-References: <20060130221429.5f12d947.akpm@osdl.org>
+Subject: Re: [NETFILTER] NAT sequence adjustment: Save eight bytes per
+	conntrack
+Date: Tue, 31 Jan 2006 10:26:24 +0100
+Message-ID: <20060131092624.GM4603@sunbeam.de.gnumonks.org>
+References: <20060130232209.GG4603@sunbeam.de.gnumonks.org>
+	<1138697452.5005.9.camel@bzorp.balabit>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="KyQYs6ZyN5PqqdMo"
-Cc: Reuben Farrelly <reuben-lkml@reub.net>,
-	Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750728AbWAaJZH@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+	protocol="application/pgp-signature"; boundary="v8j16QASIjel+GfP"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Balazs Scheidler <bazsi@balabit.hu>
 Content-Disposition: inline
-In-Reply-To: <20060130221429.5f12d947.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1138697452.5005.9.camel@bzorp.balabit>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---KyQYs6ZyN5PqqdMo
+--v8j16QASIjel+GfP
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-> Begin forwarded message:
->=20
-> Date: Sat, 28 Jan 2006 00:47:06 +1300
-> From: Reuben Farrelly <reuben-lkml@reub.net>
-> To: Andrew Morton <akpm@osdl.org>
-> Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-> Subject: Re: 2.6.16-rc1-mm3
->=20
-> Just triggered this one, which had a fairly bad effect on connectivity to=
- the box:
->=20
-> i2c /dev entries driver
-> slab error in kmem_cache_destroy(): cache `ip_conntrack': Can't free all =
-objects
->   [<b010412b>] show_trace+0xd/0xf
->   [<b01041cc>] dump_stack+0x17/0x19
->   [<b0155d04>] kmem_cache_destroy+0x9b/0x1a9
->   [<f0ebf701>] ip_conntrack_cleanup+0x5d/0x10e [ip_conntrack]
->   [<f0ebe31e>] init_or_cleanup+0x1f8/0x283 [ip_conntrack]
->   [<f0ec2c4e>] fini+0xa/0x66 [ip_conntrack]
->   [<b0136d06>] sys_delete_module+0x161/0x1fb
->   [<b0102b3f>] sysenter_past_esp+0x54/0x75
-> Removing netfilter NETLINK layer.
-> [root@tornado log]#
->=20
-> I was just reading IMAP mail at the time, ie same as I'd been doing for a=
-n hour=20
-> or two beforehand and not altering config of the box in any way.  I was a=
-ble to=20
-> log on via console but lost all network connectivity and had to reboot :(
+On Tue, Jan 31, 2006 at 09:50:52AM +0100, Balazs Scheidler wrote:
 
-The codepath you see in that backtrace is only hit during load or
-removal of the 'ip_conntrack' module.  While this certainly still should
-not oops, your description of 'not doing anything but IMAP reading' is
-certainly not true. =20
+> > -	int32_t offset_before, offset_after;
+> > +	int16_t offset_before, offset_after;
+>=20
+> Am I missing something or is it only 4 bytes?
 
-Could you please describe what actually happened when that bug happened?
-It looks to me that you were unloading ip_conntrack_netlink.ko followed
-by ip_conntrack.ko.
+I knew someone would ask that question ;)
 
-> Generic details such as .config is at http://www.reub.net/files/kernel/
-
-You don't have permission to access /files/kernel/ on this server.
+we have that structure as part of an IP_CT_DIR_MAX array, therefore it's
+twice in every conntrack, and thus we save 8 bytes ;)
 
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
@@ -76,16 +53,16 @@ You don't have permission to access /files/kernel/ on this server.
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---KyQYs6ZyN5PqqdMo
+--v8j16QASIjel+GfP
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQFD3yzfXaXGVTD0i/8RAmflAJ9l3V8XDCJrU6RvE4BR+YQno3ZMEgCfdwk9
-b8RXGYdF6vLGOhMHn1r9pT0=
-=zGaL
+iD8DBQFD3y1AXaXGVTD0i/8RAhGcAJ9chUK+6qElHaeENPaLCRlwKuxngACeP6Ey
+gxYErOrf5IKZT9pcNAXF+0s=
+=repF
 -----END PGP SIGNATURE-----
 
---KyQYs6ZyN5PqqdMo--
+--v8j16QASIjel+GfP--
