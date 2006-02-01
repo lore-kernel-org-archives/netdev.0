@@ -1,37 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] Backward compatibility and WAN netdev configuration
-Date: Wed, 1 Feb 2006 10:39:31 -0800
-Message-ID: <20060201103931.08ad581d@dxpl.pdx.osdl.net>
-References: <m3psm7tksr.fsf@defiant.localdomain>
-	<20060201144917.GA7644@wonderland.linux.it>
-	<m3r76n3p4k.fsf@defiant.localdomain>
+From: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [GIT PULL] bcm43xx: Update B6PHY initialization
+Date: Tue, 31 Jan 2006 19:21:01 -0500
+Message-ID: <20060201002101.GA8306@havoc.gtf.org>
+References: <43DFFB6C.9050907@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: md@Linux.IT (Marco d'Itri), netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422868AbWBASjk@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-In-Reply-To: <m3r76n3p4k.fsf@defiant.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <43DFFB6C.9050907-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 01 Feb 2006 19:33:47 +0100
-Krzysztof Halasa <khc@pm.waw.pl> wrote:
+On Wed, Feb 01, 2006 at 01:06:04AM +0100, Danny van Dyk wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Hi John,
+> 
+> I'm slowly trying to get accustomed to git, so I'll try a short patch
+> as a first step. So please
+> 
+> git pull rsync://pitr.amd64.dev.gentoo.org/kugelfang/wireless-2.6.git
 
-> md@Linux.IT (Marco d'Itri) writes:
-> 
-> > Why you cannot support autoloading the modules when a specific protocol
-> > is needed?
-> 
-> I probably could but it would complicate things a bit - currently only
-> the protocol module knows about existence of its protocol.
-> 
-> I will look at it, though. Thanks.
+Your git pull email needs to include a summary of included changesets,
+and a patch for others to review.
 
-The modern way is to not have any entries in modprobe.conf, and do all
-the module loading via kernel module_aliases. Modprobe.conf is then
-reserved for handling workarounds for special cases
--- 
-Stephen Hemminger <shemminger@osdl.org>
-OSDL http://developer.osdl.org/~shemminger
+	Jeff
