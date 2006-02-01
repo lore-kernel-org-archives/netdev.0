@@ -1,65 +1,71 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [PATCH] TNETW1450: successful device initialization
-Date: Wed, 1 Feb 2006 10:29:43 +0100
-Message-ID: <20060201092943.GA29096@rhlx01.fht-esslingen.de>
-References: <20060201085205.GA9315@rhlx01.fht-esslingen.de> <200602011120.15686.vda@ilport.com.ua>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [lock validator] inet6_destroy_sock(): soft-safe -> soft-unsafe lock dependency
+Date: Wed, 1 Feb 2006 21:42:14 +1100
+Message-ID: <20060201104214.GA9085@gondor.apana.org.au>
+References: <20060127001807.GA17179@elte.hu> <E1F2IcV-0007Iq-00@gondolin.me.apana.org.au> <20060128152204.GA13940@elte.hu> <20060131102758.GA31460@gondor.apana.org.au> <20060131212432.GA18812@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@lisas.de, acx100-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Denis Vlasenko <vda@ilport.com.ua>
+Content-Type: multipart/mixed; boundary="X1bOJ3K7DJ5YkBrT"
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161000AbWBAKma@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
 Content-Disposition: inline
-In-Reply-To: <200602011120.15686.vda@ilport.com.ua>
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+In-Reply-To: <20060131212432.GA18812@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-[noted that you CC'd netdev; I'd been wondering whether I should do that -
-should really have done it myself...]
+--X1bOJ3K7DJ5YkBrT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On Wed, Feb 01, 2006 at 11:20:15AM +0200, Denis Vlasenko wrote:
-> Applied, mega thanks!
-> 
-> Do you have a "HOWTO sniff USB under Windows" or URL to it?
-> May be helpful for other potential developers.
-There's a page on the internet listing many different USB sniffers for
-Windows. I don't have the URL handy right now, though, sorry.
+On Tue, Jan 31, 2006 at 10:24:32PM +0100, Ingo Molnar wrote:
+>
+>  [<c04de9e8>] _write_lock+0x8/0x10
+>  [<c0499015>] inet6_destroy_sock+0x25/0x100
+>  [<c04b8672>] tcp_v6_destroy_sock+0x12/0x20
+>  [<c046bbda>] inet_csk_destroy_sock+0x4a/0x150
+>  [<c047625c>] tcp_rcv_state_process+0xd4c/0xdd0
+>  [<c047d8e9>] tcp_v4_do_rcv+0xa9/0x340
+>  [<c047eabb>] tcp_v4_rcv+0x8eb/0x9d0
 
-> > The TNETW1450 firmware image is currently called acx111usbcRR, with RR being
-> > the currently used radio ID 0x1b ("1b"): acx111usbc1b.
-> 
-> Patch actually says "tiacx..." which is what you obviously intended.
-Uh, right.
+OK this is definitely broken.  We should never touch the dst lock in
+softirq context.  Since inet6_destroy_sock may be called from that
+context due to the asynchronous nature of sockets, we can't take the
+lock there.
 
-> > NOTE that DWL-120+ firmware image - due to unified firmware name creation -
-> > now has a different name, too:
-> > acx100usbc0d! (Denis, simply revert it if you're offended by this change).
-> 
-> No objections, only changed that to _uppercase_ hex radio id
-> ("tiacx111usbc1D") in order to match PCI firmware name convention.
-Doh! I really wonder how that managed to escape me. Thanks for catching it!
+In fact this sk_dst_reset is totally redundant since all IPv6 sockets
+use inet_sock_destruct as their socket destructor which always cleans
+up the dst anyway.  So the solution is to simply remove the call.
 
-> > Total driver size increase: less than 2kB!
-> 
-> Wonderful
-I'm still expecting this to go up to perhaps 6kB increase, though.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Andreas Mohr
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
+--X1bOJ3K7DJ5YkBrT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=inet6-destroy-sock-should-not-reset-dst
 
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -369,12 +369,6 @@ int inet6_destroy_sock(struct sock *sk)
+ 	struct sk_buff *skb;
+ 	struct ipv6_txoptions *opt;
+ 
+-	/*
+-	 *	Release destination entry
+-	 */
+-
+-	sk_dst_reset(sk);
+-
+ 	/* Release rx options */
+ 
+ 	if ((skb = xchg(&np->pktoptions, NULL)) != NULL)
+
+--X1bOJ3K7DJ5YkBrT--
