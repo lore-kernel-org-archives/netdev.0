@@ -1,35 +1,45 @@
-From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
-Subject: Re: 2.6.16-rc1-mm4: ACX=y, ACX_USB=n compile error
-Date: Tue, 31 Jan 2006 19:59:39 +0100
-Message-ID: <200601311959.39285.carlos@cmartin.tk>
-References: <20060130133833.7b7a3f8e@zwerg> <200601311658.09423.vda@ilport.com.ua> <20060131193443.5822661b@zwerg>
+From: Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [GIT PULL] bcm43xx: Update B6PHY initialization
+Date: Wed, 01 Feb 2006 01:06:04 +0100
+Message-ID: <43DFFB6C.9050907@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Denis Vlasenko <vda@ilport.com.ua>, linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Adrian Bunk <bunk@stusta.de>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751349AbWAaS7e@vger.kernel.org>
-To: "Gabriel C." <da.crew@gmx.net>
-In-Reply-To: <20060131193443.5822661b@zwerg>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 31 January 2006 19:34, Gabriel C. wrote:
->=20
-> I'm not a kernel hacker :-) and mabye I'm wrong but why not auto sele=
-ct
-> ACX_{PCI,USB} ?
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-They can still be both unselected, and that's where the problem lies.
+Hi John,
 
-Would it work if you added '&& (ACX_USB || ACX_PCI)' to the end of the=20
-'depends' line, or would that just make it unselectable?=20
+I'm slowly trying to get accustomed to git, so I'll try a short patch
+as a first step. So please
 
-   cmn
---=20
-Carlos Mart=EDn       http://www.cmartin.tk
+git pull rsync://pitr.amd64.dev.gentoo.org/kugelfang/wireless-2.6.git
 
-"Erdbeben? Sicherlich etwas, das mit Erdberen zu tun hat." -- me, parap=
-hrased
+
+I hope I did set up everything correctly :-)
+
+Danny
+- --
+Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Gentoo/AMD64 Project, Gentoo Scientific Project
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFD3/traVNL8NrtU6IRAnt1AJ9AL8PZyOQKcqX0PvoHJt83P1PGWgCgoKap
+Ye/hY6nu6Cs8dkt4HmaWqiw=
+=rbQh
+-----END PGP SIGNATURE-----
