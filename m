@@ -1,19 +1,17 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
+From: Andreas Mohr <andim2@users.sourceforge.net>
 Subject: Re: [PATCH] TNETW1450: successful device initialization
-Date: Wed, 1 Feb 2006 11:55:49 +0200
-Message-ID: <200602011155.49501.vda@ilport.com.ua>
-References: <20060201085205.GA9315@rhlx01.fht-esslingen.de> <200602011120.15686.vda@ilport.com.ua> <1138786708.26656.4.camel@curcuma.ens.fr>
+Date: Wed, 1 Feb 2006 10:29:43 +0100
+Message-ID: <20060201092943.GA29096@rhlx01.fht-esslingen.de>
+References: <20060201085205.GA9315@rhlx01.fht-esslingen.de> <200602011120.15686.vda@ilport.com.ua>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net,
-	andi@lisas.de
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@lisas.de, acx100-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
 Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Jean-Baptiste Note <jean-baptiste.note@wanadoo.fr>
-In-Reply-To: <1138786708.26656.4.camel@curcuma.ens.fr>
+To: Denis Vlasenko <vda@ilport.com.ua>
 Content-Disposition: inline
+In-Reply-To: <200602011120.15686.vda@ilport.com.ua>
 Sender: acx100-devel-admin@lists.sourceforge.net
 Errors-To: acx100-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
@@ -25,26 +23,39 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 01 February 2006 11:38, Jean-Baptiste Note wrote:
-> Hi Denis,
-> 
-> > Do you have a "HOWTO sniff USB under Windows" or URL to it?
-> > May be helpful for other potential developers.
-> > 
-> 
-> One page which I found very usefull for prism54softmac USB sniffing
-> under windows is this one :
-> 
-> http://benoit.papillault.free.fr/usbsnoop/
-> 
-> Another very good way to snoop the USB frames is under linux if your
-> driver happens to run under ndiswrapper (which is often the case),
-> either by savage printk's, or by using the USB snooping facilities from
-> Pete Zaitcev.
+Hi,
 
-Added to acx README, thanks!
---
-vda
+[noted that you CC'd netdev; I'd been wondering whether I should do that -
+should really have done it myself...]
+
+On Wed, Feb 01, 2006 at 11:20:15AM +0200, Denis Vlasenko wrote:
+> Applied, mega thanks!
+> 
+> Do you have a "HOWTO sniff USB under Windows" or URL to it?
+> May be helpful for other potential developers.
+There's a page on the internet listing many different USB sniffers for
+Windows. I don't have the URL handy right now, though, sorry.
+
+> > The TNETW1450 firmware image is currently called acx111usbcRR, with RR being
+> > the currently used radio ID 0x1b ("1b"): acx111usbc1b.
+> 
+> Patch actually says "tiacx..." which is what you obviously intended.
+Uh, right.
+
+> > NOTE that DWL-120+ firmware image - due to unified firmware name creation -
+> > now has a different name, too:
+> > acx100usbc0d! (Denis, simply revert it if you're offended by this change).
+> 
+> No objections, only changed that to _uppercase_ hex radio id
+> ("tiacx111usbc1D") in order to match PCI firmware name convention.
+Doh! I really wonder how that managed to escape me. Thanks for catching it!
+
+> > Total driver size increase: less than 2kB!
+> 
+> Wonderful
+I'm still expecting this to go up to perhaps 6kB increase, though.
+
+Andreas Mohr
 
 
 -------------------------------------------------------
