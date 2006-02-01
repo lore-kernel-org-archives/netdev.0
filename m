@@ -1,78 +1,137 @@
-From: Ashutosh Naik <ashutosh.naik@gmail.com>
-Subject: Re: [RFC] Poor Network Performance with e1000 on 2.6.14.3
-Date: Wed, 1 Feb 2006 17:49:18 +0530
-Message-ID: <81083a450602010419l16e6c2f2ldf1f87bff2582662@mail.gmail.com>
-References: <81083a450601312117p391f1780g5bb25f5f90324f85@mail.gmail.com>
-	 <43E04712.6080108@candelatech.com>
+From: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
+Subject: Re: Re: [GIT PULL] bcm43xx: Update B6PHY initialization
+Date: Wed, 1 Feb 2006 14:55:34 +0100
+Message-ID: <200602011455.34307.mbuesch@freenet.de>
+References: <43DFFB6C.9050907@gentoo.org> <20060201002101.GA8306@havoc.gtf.org> <200602011051.00973.kugelfang@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_3046_27781836.1138796358412"
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030204AbWBAMTV@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com
-In-Reply-To: <43E04712.6080108@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart30785045.rlVfY5hh3p";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+In-Reply-To: <200602011051.00973.kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-------=_Part_3046_27781836.1138796358412
-Content-Type: text/plain; charset=ISO-8859-1
+--nextPart30785045.rlVfY5hh3p
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-On 2/1/06, Ben Greear <greearb@candelatech.com> wrote:
-> Ashutosh Naik wrote:
-> > Now, I assume that on Gigabit ethernet, I should be getting Line Rate,
-> > which is around 220 MBps. Even the CPU is not getting max-ed out here
-> > and I am at a loss to understand this behaviour.
->
-> Make sure you are running 64-bit 100+Mhz PCI, otherwise you will not
-> get line speed.  ethtool -d [device]
-> may get that info for you.
+On Wednesday 01 February 2006 10:51, Danny van Dyk wrote:
+> John, please
+>=20
+> git pull rsync://pitr.amd64.dev.gentoo.org/kugelfang/wireless-2.6.git
+>=20
+> which will provide this changeset:
+>=20
+> Danny van Dyk:
+>       [bcm43xx] Sync bcm43xx_phy_initb6() with specs
 
-Thanks for that Ben. I now used a 64 bit,133 MHz PCI-X on both
-machines and I got around  180 MBps, (86259.48 + 95164.90 ), which is
-still a decent way away from Line speed. I think PCI is not a
-bottleneck now, although I could be wrong. What could I be missing,
-and has anybody seen line speed ( 220 MBps ) with e1000 ?
+Danny, _please_ make sure to apply patches to the softmac _and_ the dscape
+branch. Otherwise patches will get lost.
+It is very important to keep both branches in sync.
 
-Regards and Thanks
-Ashutosh
+I know that this is annoying work, but we must stick with it, until
+we have a usable 80211 stack in the kernel.
+I also know that 99% of the people are not interrested in the dscape
+branch, but it is important to keep it working. The only way to find
+weaknesses in d80211 is to maintain drivers which use it.
 
-ps - Attaching my ettcp log
+Besides that, you can also request a pull from me. The git snapshots
+are generated from my tree, so this is the fastest way to get your
+changes into the snapshots. But that's entirely your decision.
 
-------=_Part_3046_27781836.1138796358412
-Content-Type: text/plain; name=log.txt; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="log.txt"
+> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c=20
+> b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+> index f5e7a6a..d90f207 100644
+> --- a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+> @@ -947,7 +947,7 @@ static void bcm43xx_phy_initb6(struct bc
+>  	bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
+>  	if ((bcm->current_core->radio->manufact =3D=3D 0x17F) &&
+>  	    (bcm->current_core->radio->version =3D=3D 0x2050) &&
+> -	    (bcm->current_core->radio->revision =3D=3D 2)) {
+> +	    (bcm->current_core->radio->revision <=3D 2)) {
+>  		bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
+>  		bcm43xx_radio_write16(bcm, 0x005A, 0x0070);
+>  		bcm43xx_radio_write16(bcm, 0x005B, 0x007B);
+> @@ -984,10 +984,15 @@ static void bcm43xx_phy_initb6(struct bc
+>  		bcm43xx_write16(bcm, 0x03E4, 0x0009);
+>  	if (phy->type =3D=3D BCM43xx_PHYTYPE_B) {
+>  		bcm43xx_write16(bcm, 0x03E6, 0x8140);
+> -		bcm43xx_phy_write(bcm, 0x0016, 0x5410);
+> -		bcm43xx_phy_write(bcm, 0x0017, 0xA820);
+> -		bcm43xx_phy_write(bcm, 0x0007, 0x0062);
+> -		TODO();//TODO: calibrate stuff.
+> +		bcm43xx_phy_write(bcm, 0x0016, 0x0410);
+> +		bcm43xx_phy_write(bcm, 0x0017, 0x0820);
+> +		bcm43xx_phy_write(bcm, 0x0062, 0x0007);
+> +		(void) bcm43xx_radio_calibrationvalue(bcm);
+> +		bcm43xx_phy_lo_b_measure(bcm);
+> +		if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
+> +			bcm43xx_calc_nrssi_slope(bcm);
+> +			bcm43xx_calc_nrssi_threshold(bcm);
+> +		}
+>  		bcm43xx_phy_init_pctl(bcm);
+>  	} else
+>  		bcm43xx_write16(bcm, 0x03E6, 0x0);
+> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_radio.c=20
+> b/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+> index 5ce6ace..3901aa9 100644
+> --- a/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
+> @@ -1184,7 +1184,7 @@ int bcm43xx_radio_set_interference_mitig
+>  	return 0;
+>  }
+> =20
+> -static u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm)
+> +u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm)
+>  {
+>  	u16 reg, index, ret;
+> =20
+> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_radio.h=20
+> b/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
+> index 89fe292..a5d2e10 100644
+> --- a/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
+> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
+> @@ -89,5 +89,6 @@ void bcm43xx_nrssi_hw_update(struct bcm4
+>  void bcm43xx_nrssi_mem_update(struct bcm43xx_private *bcm);
+> =20
+>  void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm);
+> +u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm);
+> =20
+>  #endif /* BCM43xx_RADIO_H_ */
+> --=20
+> Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> Gentoo/AMD64 Project, Gentoo Scientific Project
+>=20
 
-[root@localhost ~]# ettcp -s -t -i 300ttcp-r: accept from 192.168.90.100
-User: 17553  Nice: 0  System 8885  Idle:737051  Params:4
+=2D-=20
+Greetings Michael.
 
-ttcp-t: buflen=65536, nbuf=2048, align=16384/0, port=5001  tcp  -> 192.168.90.10
-0
-nttcp-t: socket
-nttcp-t: connect
-User: 17555  Nice: 0  System 8892  Idle:737076  Params:4
-^[
-User: 19818  Nice: 0  System 14716  Idle:747604  Params:4
-User_diff: 2265  Nice_diff: 0  System_diff: 5831  Idle_diff:10553 Tot:18649
-User: 12.145423  System: 31.267092  Nice 0.000000  Idle:56.587485        
-nttcp-r: Buflen:65536 SysLoad:31.27% 29232070656 bytes 299.97secs =95164.90 KB/s
-ec
-nttcp-r: 699884 I/O calls, msec/call = 0.44, calls/sec = 2333.15
-nttcp-r: 0.2user 32.6sys 4:59real 10% 0i+0d 0maxrss 0+30pf 691228+3947csw
-User: 19834  Nice: 0  System 14722  Idle:747623  Params:4
-User_diff: 2279  Nice_diff: 0  System_diff: 5830  Idle_diff:10547 Tot:18656
-User: 12.215909  System: 31.250000  Nice 0.000000  Idle:56.534091        
-nttcp-t: Buflen:65536 SysLoad:31.25% 26499153920 bytes 300.00secs =86259.48 KB/s
-ec
-nttcp-t: 404345 I/O calls, msec/call = 0.76, calls/sec = 1347.80
-nttcp-t: 0.2user 44.9sys 5:00real 15% 0i+0d 0maxrss 0+30pf 374765+1306csw
-[1]+  Done                    ettcp -s -r -l 65536
+--nextPart30785045.rlVfY5hh3p
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
 
+iD8DBQBD4L3Wlb09HEdWDKgRAhtmAKC5rahmB7e7uHSsx6pkxooF+vX4qACeKybT
+ItvOAALfP4hcb3b8ohrNAns=
+=96IZ
+-----END PGP SIGNATURE-----
 
-
-
-------=_Part_3046_27781836.1138796358412--
+--nextPart30785045.rlVfY5hh3p--
