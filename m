@@ -1,55 +1,61 @@
-From: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
-Subject: Re: Re: [GIT PULL] bcm43xx: Update B6PHY initialization
-Date: Wed, 1 Feb 2006 19:56:19 +0100
-Message-ID: <200602011956.19966.mbuesch@freenet.de>
-References: <43DFFB6C.9050907@gentoo.org> <200602011455.34307.mbuesch@freenet.de> <200602011954.52325.kugelfang@gentoo.org>
+From: "Sean Hefty" <sean.hefty@intel.com>
+Subject: [PATCH 0/5] Infiniband: connection abstraction
+Date: Wed, 1 Feb 2006 12:03:06 -0800
+Message-ID: <ORSMSX401KZmcK8r6be00000097@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6000399.frSLE8XitS";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-   netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-In-Reply-To: <200602011954.52325.kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Cc: openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
---nextPart6000399.frSLE8XitS
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Here's an updated version of these patches based on feedback.   (The license
+did not change and continues to match that of the other Infiniband code.)
+Please consider for inclusion in 2.6.17.
 
-On Wednesday 01 February 2006 19:54, you wrote:
-> When applying it, I noticed that the dscape branch's bcm43xx is different=
-ly=20
-> named than the softmac branch's. Why ? :-)
+The following set of patches defines a connection abstraction for Infiniband and
+other RDMA devices, and serves several purposes:
 
-Both branches can co-exist in one tree (see branch "domesday")
+* It implements a connection protocol over Infiniband based on IP addressing.
+This greatly simplifies clients wishing to establish connections over
+Infiniband.
 
-=2D-=20
-Greetings Michael.
+* It defines a connection abstraction that works over multiple RDMA devices.
+The submitted implementation targets Infiniband, but has been tested over other
+RDMA devices as well.
 
---nextPart6000399.frSLE8XitS
-Content-Type: application/pgp-signature
+* It handles RDMA device insertion and removal on behalf of its clients.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
+The changes have been broken into 5 separate patches.  The basic purpose of each
+patch is:
 
-iD8DBQBD4QRTlb09HEdWDKgRAn4HAJ9/wnywG9+5JFy71YQIdny5Pnb3xgCfUtuU
-sOMthGPxGSqaH15LZ4N+c0A=
-=hoZx
------END PGP SIGNATURE-----
+1. Provide common handling for marshalling data between userspace clients and
+kernel mode Infiniband drivers.
 
---nextPart6000399.frSLE8XitS--
+2. Extend the Infiniband CM to include private data comparisons as part of its
+connection request matching process.
+
+3. Provide an address translation service that maps IP addresses to Infiniband
+addresses (GIDs).  This patch touches outside of the Infiniband core, so I'm
+including the netdev mailing list.
+
+4. Implement the kernel mode RDMA connection management agent.
+
+5. Implement the userspace RDMA connection management agent kernel support
+module.
+
+Please copy the openib-general mailing list on any replies.
+
+Thanks,
+Sean
