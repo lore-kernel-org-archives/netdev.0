@@ -1,101 +1,72 @@
-From: Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: Re: [GIT PULL] bcm43xx: Update B6PHY initialization
-Date: Wed, 1 Feb 2006 10:51:00 +0100
-Message-ID: <200602011051.00973.kugelfang@gentoo.org>
-References: <43DFFB6C.9050907@gentoo.org> <20060201002101.GA8306@havoc.gtf.org>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATCH] TNETW1450: successful device initialization
+Date: Wed, 1 Feb 2006 11:20:15 +0200
+Message-ID: <200602011120.15686.vda@ilport.com.ua>
+References: <20060201085205.GA9315@rhlx01.fht-esslingen.de>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-In-Reply-To: <20060201002101.GA8306-oTNwCEtKUwI/11+TDStg7g@public.gmane.org>
+Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: andi@lisas.de
+In-Reply-To: <20060201085205.GA9315@rhlx01.fht-esslingen.de>
 Content-Disposition: inline
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-John, please
+On Wednesday 01 February 2006 10:52, Andreas Mohr wrote:
+> Hi all,
+> 
+> - add initial support for new TNETW1450 USB chip (available on the market since
+>   June or so): successful firmware booting, driver initialization working up to
+>   a working iwconfig. Any network traffic whatsoever NOT working yet.
+>   VERY EXPERIMENTAL! (especially since TNETW1450 sometimes uses enhanced,
+>   longer structs for some IEs)
+> - add a ton of different TNETW1450 USB device VID/PID combinations; it's
+>   highly likely that there will be many more TNETW1450 devices in the future...
+> - add many more firmware command IEs
+> - firmware upload cleanup (rename variables to better names, unify the various
+>   firmware upload implementations, ...)
+> - add FIXME comment to remind about semaphore -> mutex conversion
 
-git pull rsync://pitr.amd64.dev.gentoo.org/kugelfang/wireless-2.6.git
+Applied, mega thanks!
 
-which will provide this changeset:
+Do you have a "HOWTO sniff USB under Windows" or URL to it?
+May be helpful for other potential developers.
 
-Danny van Dyk:
-      [bcm43xx] Sync bcm43xx_phy_initb6() with specs
+> The TNETW1450 firmware image is currently called acx111usbcRR, with RR being
+> the currently used radio ID 0x1b ("1b"): acx111usbc1b.
 
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c 
-b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-index f5e7a6a..d90f207 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
-@@ -947,7 +947,7 @@ static void bcm43xx_phy_initb6(struct bc
- 	bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
- 	if ((bcm->current_core->radio->manufact == 0x17F) &&
- 	    (bcm->current_core->radio->version == 0x2050) &&
--	    (bcm->current_core->radio->revision == 2)) {
-+	    (bcm->current_core->radio->revision <= 2)) {
- 		bcm43xx_radio_write16(bcm, 0x0050, 0x0020);
- 		bcm43xx_radio_write16(bcm, 0x005A, 0x0070);
- 		bcm43xx_radio_write16(bcm, 0x005B, 0x007B);
-@@ -984,10 +984,15 @@ static void bcm43xx_phy_initb6(struct bc
- 		bcm43xx_write16(bcm, 0x03E4, 0x0009);
- 	if (phy->type == BCM43xx_PHYTYPE_B) {
- 		bcm43xx_write16(bcm, 0x03E6, 0x8140);
--		bcm43xx_phy_write(bcm, 0x0016, 0x5410);
--		bcm43xx_phy_write(bcm, 0x0017, 0xA820);
--		bcm43xx_phy_write(bcm, 0x0007, 0x0062);
--		TODO();//TODO: calibrate stuff.
-+		bcm43xx_phy_write(bcm, 0x0016, 0x0410);
-+		bcm43xx_phy_write(bcm, 0x0017, 0x0820);
-+		bcm43xx_phy_write(bcm, 0x0062, 0x0007);
-+		(void) bcm43xx_radio_calibrationvalue(bcm);
-+		bcm43xx_phy_lo_b_measure(bcm);
-+		if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
-+			bcm43xx_calc_nrssi_slope(bcm);
-+			bcm43xx_calc_nrssi_threshold(bcm);
-+		}
- 		bcm43xx_phy_init_pctl(bcm);
- 	} else
- 		bcm43xx_write16(bcm, 0x03E6, 0x0);
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_radio.c 
-b/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
-index 5ce6ace..3901aa9 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_radio.c
-@@ -1184,7 +1184,7 @@ int bcm43xx_radio_set_interference_mitig
- 	return 0;
- }
+Patch actually says "tiacx..." which is what you obviously intended.
+
+> NOTE that DWL-120+ firmware image - due to unified firmware name creation -
+> now has a different name, too:
+> acx100usbc0d! (Denis, simply revert it if you're offended by this change).
+
+No objections, only changed that to _uppercase_ hex radio id
+("tiacx111usbc1D") in order to match PCI firmware name convention.
+
+> Total driver size increase: less than 2kB!
+
+Wonderful
  
--static u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm)
-+u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm)
- {
- 	u16 reg, index, ret;
- 
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_radio.h 
-b/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
-index 89fe292..a5d2e10 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_radio.h
-@@ -89,5 +89,6 @@ void bcm43xx_nrssi_hw_update(struct bcm4
- void bcm43xx_nrssi_mem_update(struct bcm43xx_private *bcm);
- 
- void bcm43xx_radio_set_tx_iq(struct bcm43xx_private *bcm);
-+u16 bcm43xx_radio_calibrationvalue(struct bcm43xx_private *bcm);
- 
- #endif /* BCM43xx_RADIO_H_ */
--- 
-Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Gentoo/AMD64 Project, Gentoo Scientific Project
+> ACX100 mini-PCI, DWL-120+ and TNETW1450 are all still working as before.
+--
+vda
 
--- 
-Danny van Dyk <kugelfang-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Gentoo/AMD64 Project, Gentoo Scientific Project
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
