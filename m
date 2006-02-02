@@ -1,18 +1,17 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [PATCH RESEND] net: Move destructor from
  neigh->ops to neigh_params
-Date: Thu, 02 Feb 2006 10:34:48 +0900 (JST)
-Message-ID: <20060202.103448.118065476.yoshfuji@linux-ipv6.org>
-References: <adazmlmmy7v.fsf@cisco.com>
-	<adabqxq1rdh.fsf@cisco.com>
+Date: Wed, 01 Feb 2006 17:33:39 -0800
+Message-ID: <ada7j8e1r4c.fsf@cisco.com>
+References: <adazmlmmy7v.fsf@cisco.com> <adabqxq1rdh.fsf@cisco.com>
+	<20060201.173137.10844554.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	davem@davemloft.net, openib-general@openib.org
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com
-In-Reply-To: <adabqxq1rdh.fsf@cisco.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060201.173137.10844554.davem@davemloft.net> (David S.
+	Miller's message of "Wed, 01 Feb 2006 17:31:37 -0800 (PST)")
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -24,16 +23,14 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-In article <adabqxq1rdh.fsf@cisco.com> (at Wed, 01 Feb 2006 17:28:10 -0800), Roland Dreier <rdreier@cisco.com> says:
+    David> It's sitting in my backlog, and will be a net-2.6.17 issue
+    David> not a net-2.6.16 one as we're in bug fix mode there.
 
-> Sorry to distract everyone from the VJ channel discussion, but on the
-> other hand it looks like Dave is back... I'm resending this because
-> I'd really like to get this problem fixed but I want to make sure
-> we're doing it the right way.  So either an ACK or a NAK with guidance
-> would be great...
+    David> Sorry if you need this in 2.6.16, but that's not really
+    David> practical.
 
-Sorry for silence.
-Since we have "setup," it'd be natural to have destruct;
-I seems sane to me.
+No, that's fine... I was just resending in case you were using RED to
+manage your backlog.  This is a real issue but I don't think it's
+hitting a lot of people.
 
---yoshfuji
+ - R.
