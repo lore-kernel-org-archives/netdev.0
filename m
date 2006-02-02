@@ -1,14 +1,15 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH RESEND] net: Move destructor from
  neigh->ops to neigh_params
-Date: Wed, 01 Feb 2006 17:31:37 -0800 (PST)
-Message-ID: <20060201.173137.10844554.davem@davemloft.net>
+Date: Thu, 02 Feb 2006 10:34:48 +0900 (JST)
+Message-ID: <20060202.103448.118065476.yoshfuji@linux-ipv6.org>
 References: <adazmlmmy7v.fsf@cisco.com>
 	<adabqxq1rdh.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, openib-general@openib.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	davem@davemloft.net, openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
 To: rdreier@cisco.com
 In-Reply-To: <adabqxq1rdh.fsf@cisco.com>
@@ -23,8 +24,7 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Wed, 01 Feb 2006 17:28:10 -0800
+In article <adabqxq1rdh.fsf@cisco.com> (at Wed, 01 Feb 2006 17:28:10 -0800), Roland Dreier <rdreier@cisco.com> says:
 
 > Sorry to distract everyone from the VJ channel discussion, but on the
 > other hand it looks like Dave is back... I'm resending this because
@@ -32,7 +32,8 @@ Date: Wed, 01 Feb 2006 17:28:10 -0800
 > we're doing it the right way.  So either an ACK or a NAK with guidance
 > would be great...
 
-It's sitting in my backlog, and will be a net-2.6.17 issue not
-a net-2.6.16 one as we're in bug fix mode there.
+Sorry for silence.
+Since we have "setup," it'd be natural to have destruct;
+I seems sane to me.
 
-Sorry if you need this in 2.6.16, but that's not really practical.
+--yoshfuji
