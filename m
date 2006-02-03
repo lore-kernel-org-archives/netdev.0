@@ -1,53 +1,222 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Linux 2.6.15.2
-Date: Fri, 3 Feb 2006 11:14:14 -0800
-Message-ID: <20060203111414.7026f46f.akpm@osdl.org>
-References: <20060131070642.GA25015@kroah.com>
-	<20060130233427.5e7912ae.akpm@osdl.org>
-	<20060203120925.GA4393@kruemel.my-eitzenberger.de>
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
+Subject: Re: [patch 3/4] net: Percpufy frequently used variables -- proto.sockets_allocated
+Date: Fri, 3 Feb 2006 11:37:14 -0800
+Message-ID: <20060203193714.GB3653@localhost.localdomain>
+References: <20060126185649.GB3651@localhost.localdomain> <20060126190357.GE3651@localhost.localdomain> <43D9DFA1.9070802@cosmosbay.com> <20060127195227.GA3565@localhost.localdomain> <20060127121602.18bc3f25.akpm@osdl.org> <20060127224433.GB3565@localhost.localdomain> <20060127150106.38b9e041.akpm@osdl.org> <20060203030547.GB3612@localhost.localdomain> <20060202191600.3bf3a64a.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, linux-kernel@vger.kernel.org, stable@kernel.org,
-	torvalds@osdl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945906AbWBCTOw@vger.kernel.org>
-To: Holger Eitzenberger <holger@my-eitzenberger.de>
-In-Reply-To: <20060203120925.GA4393@kruemel.my-eitzenberger.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: dada1@cosmosbay.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, shai@scalex86.org,
+	netdev@vger.kernel.org, pravins@calsoftinc.com, bcrl@kvack.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945919AbWBCThM@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060202191600.3bf3a64a.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Holger Eitzenberger <holger@my-eitzenberger.de> wrote:
->
-> On Mon, Jan 30, 2006 at 11:34:27PM -0800, Andrew Morton wrote:
-> 
-> > - A skbuff_head_cache leak causes oom-killings.
+On Thu, Feb 02, 2006 at 07:16:00PM -0800, Andrew Morton wrote:
+> Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+> >
+> > On Fri, Jan 27, 2006 at 03:01:06PM -0800, Andrew Morton wrote:
+> > Here's an implementation which delegates tuning of batching to the user.  We
+> > don't really need local_t at all as percpu_counter_mod is not safe against
+> > interrupts and softirqs  as it is.  If we have a counter which could be
+> > modified in process context and irq/bh context, we just have to use a
+> > wrapper like percpu_counter_mod_bh which will just disable and enable bottom
+> > halves.  Reads on the counters are safe as they are atomic_reads, and the
+> > cpu local variables are always accessed by that cpu only.
 > > 
-> > All of these only seem to affect a small minority of machines.
+> > (PS: the maxerr for ext2/ext3 is just guesstimate)
 > 
-> Hi,
-> 
-> I have searched for a description for the above mentioned bug report,
-> but havent found any.  Can you tell me?
+> Well that's the problem.  We need to choose production-quality values for
+> use in there.
 
-http://www.mail-archive.com/netdev@vger.kernel.org/msg06355.html
+The guesstimate was loosely based on keeping the per-cpu batch at atleast 8
+on reasonably sized systems, while not letting maxerr grow too big.  I guess
+machines with cpu counts more than 128 don't use ext3 :).  And if they do,
+they can tune the counters with a higher maxerr.  I guess it might be a bit
+ugly on the user side with all the if num_possibl_cpus(), but is there a
+better alternative?
 
-> The reason why I am asking that I am facing a similar problem on
-> kernel 2.6.10.  During performance tests (Intel XEON, SMP, PCI-X,
-> e1000, 2 - 4 Gig RAM) the machine was out of memory.
-> 
-> Tests showed that LowFree went linearly down to a few megabytes, where
-> most of the memory was used in skb_head_cache and size-1024 slab
-> caches.  These two summed up to ~270 MG, which was the reason for
-> that.
-> 
-> /proc/net/tcp showed that most of the memory was stuck in the RX
-> queues of some processes (two processes with ~1000 sockets each).
-> 
-> A look into /proc/sys/net/ipv4/tcp_mem showed that that the values in
-> there were way to high.  I hope that a reduction of these values will
-> help (not done yet).
-> 
+(I plan to test the counter values for ext2 and ext3 on a 16 way box, and
+change these if they turn out to be not so good)
 
-Sounds different.  Please test a more recent kernel and if the problem is
-still there, send a report to linux-kernel and cc netdev@vger.kernel.org. 
-Include the contents of /proc/meminfo and /proc/slabinfo.  Thanks.
+> 
+> > Comments?
+> 
+> Using num_possible_cpus() in that header file is just asking for build
+> errors.  Probably best to uninline the function rather than adding the
+> needed include of cpumask.h.
+
+Yup,
+
+Here it is.
+
+Change the percpu_counter interface so that user can specify the maximum
+tolerable deviation.
+
+Signed-off-by: Ravikiran Thirumalai <kiran@scalex86.org>
+
+Index: linux-2.6.16-rc1mm4/include/linux/percpu_counter.h
+===================================================================
+--- linux-2.6.16-rc1mm4.orig/include/linux/percpu_counter.h	2006-02-02 11:18:54.000000000 -0800
++++ linux-2.6.16-rc1mm4/include/linux/percpu_counter.h	2006-02-03 11:04:05.000000000 -0800
+@@ -16,24 +16,20 @@
+ 
+ struct percpu_counter {
+ 	atomic_long_t count;
++	int	percpu_batch;
+ 	long *counters;
+ };
+ 
+-#if NR_CPUS >= 16
+-#define FBC_BATCH	(NR_CPUS*2)
+-#else
+-#define FBC_BATCH	(NR_CPUS*4)
+-#endif
+-
+-static inline void percpu_counter_init(struct percpu_counter *fbc)
+-{
+-	atomic_long_set(&fbc->count, 0);
+-	fbc->counters = alloc_percpu(long);
+-}
++/* 
++ * Choose maxerr carefully. maxerr/num_possible_cpus indicates per-cpu 
++ * batching. Set maximum tolerance for better performance on large systems.
++ */
++void percpu_counter_init(struct percpu_counter *fbc, unsigned int maxerr);
+ 
+ static inline void percpu_counter_destroy(struct percpu_counter *fbc)
+ {
+-	free_percpu(fbc->counters);
++	if (fbc->percpu_batch)
++		free_percpu(fbc->counters);
+ }
+ 
+ void percpu_counter_mod(struct percpu_counter *fbc, long amount);
+@@ -63,7 +59,8 @@ struct percpu_counter {
+ 	long count;
+ };
+ 
+-static inline void percpu_counter_init(struct percpu_counter *fbc)
++static inline void percpu_counter_init(struct percpu_counter *fbc, 
++					unsigned int maxerr)
+ {
+ 	fbc->count = 0;
+ }
+Index: linux-2.6.16-rc1mm4/mm/swap.c
+===================================================================
+--- linux-2.6.16-rc1mm4.orig/mm/swap.c	2006-01-29 20:20:20.000000000 -0800
++++ linux-2.6.16-rc1mm4/mm/swap.c	2006-02-03 11:02:05.000000000 -0800
+@@ -468,15 +468,39 @@ static int cpu_swap_callback(struct noti
+ #endif /* CONFIG_SMP */
+ 
+ #ifdef CONFIG_SMP
++
++/* 
++ * Choose maxerr carefully. maxerr/num_possible_cpus indicates per-cpu
++ * batching. Set maximum tolerance for better performance on large systems.
++ */
++void percpu_counter_init(struct percpu_counter *fbc, unsigned int maxerr)
++{
++	atomic_long_set(&fbc->count, 0);
++	fbc->percpu_batch = maxerr/num_possible_cpus();
++	if (fbc->percpu_batch) {
++		fbc->counters = alloc_percpu(long);
++		if (!fbc->counters)
++			fbc->percpu_batch = 0;
++	}
++	
++}
++
+ void percpu_counter_mod(struct percpu_counter *fbc, long amount)
+ {
+-	long count;
+ 	long *pcount;
+-	int cpu = get_cpu();
++	long count;
++	int cpu;
+ 
++	/* Slow mode */
++	if (unlikely(!fbc->percpu_batch)) {
++		atomic_long_add(amount, &fbc->count);
++		return;
++	}
++	
++	cpu = get_cpu();
+ 	pcount = per_cpu_ptr(fbc->counters, cpu);
+ 	count = *pcount + amount;
+-	if (count >= FBC_BATCH || count <= -FBC_BATCH) {
++	if (count >= fbc->percpu_batch || count <= -fbc->percpu_batch) {
+ 		atomic_long_add(count, &fbc->count);
+ 		count = 0;
+ 	}
+@@ -484,6 +508,7 @@ void percpu_counter_mod(struct percpu_co
+ 	put_cpu();
+ }
+ EXPORT_SYMBOL(percpu_counter_mod);
++EXPORT_SYMBOL(percpu_counter_init);
+ #endif
+ 
+ /*
+Index: linux-2.6.16-rc1mm4/fs/ext2/super.c
+===================================================================
+--- linux-2.6.16-rc1mm4.orig/fs/ext2/super.c	2006-02-03 11:03:54.000000000 -0800
++++ linux-2.6.16-rc1mm4/fs/ext2/super.c	2006-02-03 11:04:10.000000000 -0800
+@@ -610,6 +610,7 @@ static int ext2_fill_super(struct super_
+ 	int db_count;
+ 	int i, j;
+ 	__le32 features;
++	int maxerr;
+ 
+ 	sbi = kmalloc(sizeof(*sbi), GFP_KERNEL);
+ 	if (!sbi)
+@@ -835,9 +836,14 @@ static int ext2_fill_super(struct super_
+ 		printk ("EXT2-fs: not enough memory\n");
+ 		goto failed_mount;
+ 	}
+-	percpu_counter_init(&sbi->s_freeblocks_counter);
+-	percpu_counter_init(&sbi->s_freeinodes_counter);
+-	percpu_counter_init(&sbi->s_dirs_counter);
++
++	if (num_possible_cpus() <= 16 )
++		maxerr = 256;
++	else
++		maxerr = 1024;
++	percpu_counter_init(&sbi->s_freeblocks_counter, maxerr);
++	percpu_counter_init(&sbi->s_freeinodes_counter, maxerr);
++	percpu_counter_init(&sbi->s_dirs_counter, maxerr);
+ 	bgl_lock_init(&sbi->s_blockgroup_lock);
+ 	sbi->s_debts = kmalloc(sbi->s_groups_count * sizeof(*sbi->s_debts),
+ 			       GFP_KERNEL);
+Index: linux-2.6.16-rc1mm4/fs/ext3/super.c
+===================================================================
+--- linux-2.6.16-rc1mm4.orig/fs/ext3/super.c	2006-02-03 11:03:54.000000000 -0800
++++ linux-2.6.16-rc1mm4/fs/ext3/super.c	2006-02-03 11:04:10.000000000 -0800
+@@ -1353,6 +1353,7 @@ static int ext3_fill_super (struct super
+ 	int i;
+ 	int needs_recovery;
+ 	__le32 features;
++	int maxerr;
+ 
+ 	sbi = kmalloc(sizeof(*sbi), GFP_KERNEL);
+ 	if (!sbi)
+@@ -1578,9 +1579,14 @@ static int ext3_fill_super (struct super
+ 		goto failed_mount;
+ 	}
+ 
+-	percpu_counter_init(&sbi->s_freeblocks_counter);
+-	percpu_counter_init(&sbi->s_freeinodes_counter);
+-	percpu_counter_init(&sbi->s_dirs_counter);
++	if (num_possible_cpus() <= 16)
++		maxerr = 256;
++	else
++		maxerr = 1024;
++
++	percpu_counter_init(&sbi->s_freeblocks_counter, maxerr);
++	percpu_counter_init(&sbi->s_freeinodes_counter, maxerr);
++	percpu_counter_init(&sbi->s_dirs_counter, maxerr);
+ 	bgl_lock_init(&sbi->s_blockgroup_lock);
+ 
+ 	for (i = 0; i < db_count; i++) {
