@@ -1,71 +1,76 @@
-From: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
-Subject: Please pull softmac-upsteam of bcm43xx driver
-Date: Fri, 3 Feb 2006 20:49:52 +0100
-Message-ID: <200602032049.52583.mbuesch@freenet.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 3/4] net: Percpufy frequently used variables --
+ proto.sockets_allocated
+Date: Fri, 3 Feb 2006 12:13:03 -0800
+Message-ID: <20060203121303.0f9d0249.akpm@osdl.org>
+References: <20060126185649.GB3651@localhost.localdomain>
+	<20060126190357.GE3651@localhost.localdomain>
+	<43D9DFA1.9070802@cosmosbay.com>
+	<20060127195227.GA3565@localhost.localdomain>
+	<20060127121602.18bc3f25.akpm@osdl.org>
+	<20060127224433.GB3565@localhost.localdomain>
+	<20060127150106.38b9e041.akpm@osdl.org>
+	<20060203030547.GB3612@localhost.localdomain>
+	<20060202191600.3bf3a64a.akpm@osdl.org>
+	<20060203193714.GB3653@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1444424.KxqtykkOVt";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: "Linville, John W." <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Cc: dada1@cosmosbay.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, shai@scalex86.org,
+	netdev@vger.kernel.org, pravins@calsoftinc.com, bcrl@kvack.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945941AbWBCUNl@vger.kernel.org>
+To: Ravikiran G Thirumalai <kiran@scalex86.org>
+In-Reply-To: <20060203193714.GB3653@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1444424.KxqtykkOVt
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+>
+> On Thu, Feb 02, 2006 at 07:16:00PM -0800, Andrew Morton wrote:
+> > Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+> > >
+> > > On Fri, Jan 27, 2006 at 03:01:06PM -0800, Andrew Morton wrote:
+> > > Here's an implementation which delegates tuning of batching to the user.  We
+> > > don't really need local_t at all as percpu_counter_mod is not safe against
+> > > interrupts and softirqs  as it is.  If we have a counter which could be
+> > > modified in process context and irq/bh context, we just have to use a
+> > > wrapper like percpu_counter_mod_bh which will just disable and enable bottom
+> > > halves.  Reads on the counters are safe as they are atomic_reads, and the
+> > > cpu local variables are always accessed by that cpu only.
+> > > 
+> > > (PS: the maxerr for ext2/ext3 is just guesstimate)
+> > 
+> > Well that's the problem.  We need to choose production-quality values for
+> > use in there.
+> 
+> The guesstimate was loosely based on keeping the per-cpu batch at atleast 8
+> on reasonably sized systems, while not letting maxerr grow too big.  I guess
+> machines with cpu counts more than 128 don't use ext3 :).  And if they do,
+> they can tune the counters with a higher maxerr.  I guess it might be a bit
+> ugly on the user side with all the if num_possibl_cpus(), but is there a
+> better alternative?
+> 
+> (I plan to test the counter values for ext2 and ext3 on a 16 way box, and
+> change these if they turn out to be not so good)
 
-Please do a
-git pull git://bu3sch.de/wireless-2.6 softmac-upstream
-to pull latest bcm43xx updates into softmac-all:
+OK, thanks.  Frankly I think I went overboard on the scalability thing when
+adding percpu counters to ext2 and ext3.  I suspect they're not providing
+significant benefit over per-sb-spinlock and a ulong.
 
-Michael Buesch:
-      [bcm43xx] add DEBUG Kconfig option. Also fix indention.
-      [bcm43xx] Fix makefile. Remove all the "out-of-tree" stuff.
-      [bcm43xx] Add more initvals sanity checks and error out, if one sanit=
-y check fails.
-      [bcm43xx] Remove function bcm43xx_channel_is_allowed(). Geographical =
-restriction should become part of the 80211 stack, so every driver does not=
- have to duplicate it.
-      [bcm43xx] [patch] basic ethtool support
-      [bcm43xx] Wireless Ext update:
+> > 
+> > > Comments?
+> > 
+> > Using num_possible_cpus() in that header file is just asking for build
+> > errors.  Probably best to uninline the function rather than adding the
+> > needed include of cpumask.h.
+> 
+> Yup,
+> 
+> Here it is.
+> 
+> Change the percpu_counter interface so that user can specify the maximum
+> tolerable deviation.
 
- drivers/net/wireless/Kconfig                   |   19 +-
- drivers/net/wireless/bcm43xx/Makefile          |   88 ---------
- drivers/net/wireless/bcm43xx/bcm43xx.h         |    6 -
- drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c |    8 -
- drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c |   50 +++++
- drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h |    8 +
- drivers/net/wireless/bcm43xx/bcm43xx_main.c    |  241 +++++---------------=
-=2D---
- drivers/net/wireless/bcm43xx/bcm43xx_wx.c      |   12 +
- 8 files changed, 144 insertions(+), 288 deletions(-)
-
-=2D-=20
-Greetings Michael.
-
---nextPart1444424.KxqtykkOVt
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBD47Pglb09HEdWDKgRAgLaAJ0Wi2WQTBDnq/3Sbr4fk6867okWvwCeMXcj
-1yXg29wDkxgLGUmi/SP+qZA=
-=o2Au
------END PGP SIGNATURE-----
-
---nextPart1444424.KxqtykkOVt--
+OK, thanks.  I need to sit down and a) remember why we're even discussing
+this and b) see what we've merged thus far and work out what it all does ;)
