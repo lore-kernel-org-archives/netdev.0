@@ -1,34 +1,94 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [lock validator] inet6_destroy_sock(): soft-safe ->
- soft-unsafe lock dependency
-Date: Thu, 02 Feb 2006 17:01:27 -0800 (PST)
-Message-ID: <20060202.170127.38871682.davem@davemloft.net>
-References: <20060131102758.GA31460@gondor.apana.org.au>
-	<20060131212432.GA18812@elte.hu>
-	<20060201104214.GA9085@gondor.apana.org.au>
+From: "Douglas Leith" <doug@eee.strath.ac.uk>
+Subject: Re: FW: Performance evaluation of high speed TCPs
+Date: Fri, 3 Feb 2006 02:24:33 -0000
+Message-ID: <C0FF12BB5B83E44ABAEAA47149DA9735082675@helios.eee.strath.ac.uk>
+References: <C0FF12BB5B83E44ABAEAA47149DA973508266A@helios.eee.strath.ac.uk>
+	<C0FF12BB5B83E44ABAEAA47149DA973508266D@helios.eee.strath.ac.uk>
+	<39307.60.44.142.168.1138932213.squirrel@webmail.ncsu.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, davem@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751245AbWBCBGA@vger.kernel.org>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060201104214.GA9085@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/alternative;
+	boundary="----_=_NextPart_001_01C62868.F84F52D3"
+Cc: netdev@vger.kernel.org, end2end-interest@postel.org
+Return-path: <end2end-interest-bounces@postel.org>
+Content-class: urn:content-classes:message
+To: <rhee@ncsu.edu>
+List-Unsubscribe: <http://www.postel.org/mailman/listinfo/end2end-interest>,
+	<mailto:end2end-interest-request@postel.org?subject=unsubscribe>
+List-Archive: <http://www.postel.org/pipermail/end2end-interest>
+List-Post: <mailto:end2end-interest@postel.org>
+List-Help: <mailto:end2end-interest-request@postel.org?subject=help>
+List-Subscribe: <http://www.postel.org/mailman/listinfo/end2end-interest>,
+	<mailto:end2end-interest-request@postel.org?subject=subscribe>
+Sender: end2end-interest-bounces@postel.org
+Errors-To: end2end-interest-bounces@postel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 1 Feb 2006 21:42:14 +1100
+This is a multi-part message in MIME format.
 
-> OK this is definitely broken.  We should never touch the dst lock in
-> softirq context.  Since inet6_destroy_sock may be called from that
-> context due to the asynchronous nature of sockets, we can't take the
-> lock there.
-> 
-> In fact this sk_dst_reset is totally redundant since all IPv6 sockets
-> use inet_sock_destruct as their socket destructor which always cleans
-> up the dst anyway.  So the solution is to simply remove the call.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+------_=_NextPart_001_01C62868.F84F52D3
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Looks good, applied, thanks Herbert.
+>Seriously, we can't run the tests for every fix and bug report.=20
+
+Perhaps best to view it as returning a favour.  You may recall that we =
+re-ran all our own experimental tests last year (all data and code =
+available online at www.hamilton.ie/net/eval/) on discovering a =
+previously unreported bug introduced by the linux folks when =
+implementing bic.  Something similar has happened with importing htcp =
+into linux. =20
+
+Seriously, where's the value in comparing buggy implementations - isn't =
+that just a waste of all our time ?  If we are genuine about wanting to =
+understand tcp performance then I think we just have to take the hit =
+from issues such as this that are outside all of our control.
+
+Doug
+
+Hamilton Institute
+www.hamilton.ie
+
+------_=_NextPart_001_01C62868.F84F52D3
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
+charset=3Diso-8859-1">
+<META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
+6.5.7650.5">
+<TITLE>RE: [e2e] FW: Performance evaluation of high speed TCPs</TITLE>
+</HEAD>
+<BODY>
+<!-- Converted from text/plain format -->
+
+<P><FONT SIZE=3D2>&gt;Seriously, we can't run the tests for every fix =
+and bug report.<BR>
+<BR>
+Perhaps best to view it as returning a favour.&nbsp; You may recall that =
+we re-ran all our own experimental tests last year (all data and code =
+available online at www.hamilton.ie/net/eval/) on discovering a =
+previously unreported bug introduced by the linux folks when =
+implementing bic.&nbsp; Something similar has happened with importing =
+htcp into linux.&nbsp;<BR>
+<BR>
+Seriously, where's the value in comparing buggy implementations - isn't =
+that just a waste of all our time ?&nbsp; If we are genuine about =
+wanting to understand tcp performance then I think we just have to take =
+the hit from issues such as this that are outside all of our =
+control.<BR>
+<BR>
+Doug<BR>
+<BR>
+Hamilton Institute<BR>
+www.hamilton.ie<BR>
+</FONT>
+</P>
+
+</BODY>
+</HTML>
+------_=_NextPart_001_01C62868.F84F52D3--
