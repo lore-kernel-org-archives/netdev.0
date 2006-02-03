@@ -1,76 +1,82 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 3/4] net: Percpufy frequently used variables --
- proto.sockets_allocated
-Date: Fri, 3 Feb 2006 12:13:03 -0800
-Message-ID: <20060203121303.0f9d0249.akpm@osdl.org>
-References: <20060126185649.GB3651@localhost.localdomain>
-	<20060126190357.GE3651@localhost.localdomain>
-	<43D9DFA1.9070802@cosmosbay.com>
-	<20060127195227.GA3565@localhost.localdomain>
-	<20060127121602.18bc3f25.akpm@osdl.org>
-	<20060127224433.GB3565@localhost.localdomain>
-	<20060127150106.38b9e041.akpm@osdl.org>
-	<20060203030547.GB3612@localhost.localdomain>
-	<20060202191600.3bf3a64a.akpm@osdl.org>
-	<20060203193714.GB3653@localhost.localdomain>
+From: rhee@ncsu.edu
+Subject: Re: FW: Performance evaluation of high speed TCPs
+Date: Fri, 3 Feb 2006 15:17:39 -0500 (EST)
+Message-ID: <58352.61.86.155.104.1138997859.squirrel@webmail.ncsu.edu>
+References: <C0FF12BB5B83E44ABAEAA47149DA973508266A@helios.eee.strath.ac.uk>
+	<C0FF12BB5B83E44ABAEAA47149DA973508266D@helios.eee.strath.ac.uk>
+	<39307.60.44.142.168.1138932213.squirrel@webmail.ncsu.edu>   
+	<C0FF12BB5B83E44ABAEAA47149DA9735082675@helios.eee.strath.ac.uk>
+	<48677.60.44.142.168.1138935007.squirrel@webmail.ncsu.edu>
+	<C0FF12BB5B83E44ABAEAA47149DA97350FE0F6@helios.eee.strath.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, shai@scalex86.org,
-	netdev@vger.kernel.org, pravins@calsoftinc.com, bcrl@kvack.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945941AbWBCUNl@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060203193714.GB3653@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, end2end-interest@postel.org
+Return-path: <end2end-interest-bounces@postel.org>
+In-Reply-To: <C0FF12BB5B83E44ABAEAA47149DA97350FE0F6@helios.eee.strath.ac.uk>
+To: "Douglas Leith" <doug@eee.strath.ac.uk>
+List-Unsubscribe: <http://www.postel.org/mailman/listinfo/end2end-interest>,
+	<mailto:end2end-interest-request@postel.org?subject=unsubscribe>
+List-Archive: <http://www.postel.org/pipermail/end2end-interest>
+List-Post: <mailto:end2end-interest@postel.org>
+List-Help: <mailto:end2end-interest-request@postel.org?subject=help>
+List-Subscribe: <http://www.postel.org/mailman/listinfo/end2end-interest>,
+	<mailto:end2end-interest-request@postel.org?subject=subscribe>
+Sender: end2end-interest-bounces@postel.org
+Errors-To: end2end-interest-bounces@postel.org
 List-Id: netdev.vger.kernel.org
 
-Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+Let's get off this e2e list for this discussion. It is really unnecessary
+to use this list for
+this discussion. I don't understand why you keep sending your email to
+this list even
+though we are seating next to each other in the same conference. Isn't
+this amusing
+ or abusing of this mailing list? :-)
+-- 
+to others in the list, Doug and I are attending pfldnet in japan now..
+
+
+
+
+> Injong,
 >
-> On Thu, Feb 02, 2006 at 07:16:00PM -0800, Andrew Morton wrote:
-> > Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
-> > >
-> > > On Fri, Jan 27, 2006 at 03:01:06PM -0800, Andrew Morton wrote:
-> > > Here's an implementation which delegates tuning of batching to the user.  We
-> > > don't really need local_t at all as percpu_counter_mod is not safe against
-> > > interrupts and softirqs  as it is.  If we have a counter which could be
-> > > modified in process context and irq/bh context, we just have to use a
-> > > wrapper like percpu_counter_mod_bh which will just disable and enable bottom
-> > > halves.  Reads on the counters are safe as they are atomic_reads, and the
-> > > cpu local variables are always accessed by that cpu only.
-> > > 
-> > > (PS: the maxerr for ext2/ext3 is just guesstimate)
-> > 
-> > Well that's the problem.  We need to choose production-quality values for
-> > use in there.
-> 
-> The guesstimate was loosely based on keeping the per-cpu batch at atleast 8
-> on reasonably sized systems, while not letting maxerr grow too big.  I guess
-> machines with cpu counts more than 128 don't use ext3 :).  And if they do,
-> they can tune the counters with a higher maxerr.  I guess it might be a bit
-> ugly on the user side with all the if num_possibl_cpus(), but is there a
-> better alternative?
-> 
-> (I plan to test the counter values for ext2 and ext3 on a 16 way box, and
-> change these if they turn out to be not so good)
-
-OK, thanks.  Frankly I think I went overboard on the scalability thing when
-adding percpu counters to ext2 and ext3.  I suspect they're not providing
-significant benefit over per-sb-spinlock and a ulong.
-
-> > 
-> > > Comments?
-> > 
-> > Using num_possible_cpus() in that header file is just asking for build
-> > errors.  Probably best to uninline the function rather than adding the
-> > needed include of cpumask.h.
-> 
-> Yup,
-> 
-> Here it is.
-> 
-> Change the percpu_counter interface so that user can specify the maximum
-> tolerable deviation.
-
-OK, thanks.  I need to sit down and a) remember why we're even discussing
-this and b) see what we've merged thus far and work out what it all does ;)
+>>In fact, i contacted your student "Baruch" one month and half before  we
+>> posted our
+> report -- it was CCed in the netdev mailing list as well and we gave him
+> login and
+> passwd on our result website (at that time we were just about to write the
+> report)
+> and we have not heard from your guys until just one week ago. At least we
+> did try to
+> make sure we are running a buggy version.
+>
+> We have no record of receiving such an email.  Just a mix-up I guess.
+>
+> Doug
+>
+>
+>>>Seriously, we can't run the tests for every fix and bug report.
+>>
+>> Perhaps best to view it as returning a favour.  You may recall that we
+>> re-ran all our own experimental tests last year (all data and code
+>> available online at www.hamilton.ie/net/eval/) on discovering a
+>> previously
+>> unreported bug introduced by the linux folks when implementing bic.
+>> Something similar has happened with importing htcp into linux.
+>>
+>> Seriously, where's the value in comparing buggy implementations - isn't
+>> that just a waste of all our time ?  If we are genuine about wanting to
+>> understand tcp performance then I think we just have to take the hit
+>> from
+>> issues such as this that are outside all of our control.
+>>
+>> Doug
+>>
+>> Hamilton Institute
+>> www.hamilton.ie
+>>
+>
+>
+>
+>
