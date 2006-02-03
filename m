@@ -1,49 +1,53 @@
-From: Ian McDonald <imcdnzl@gmail.com>
-Subject: Re: FW: Performance evaluation of high speed TCPs
-Date: Fri, 3 Feb 2006 15:51:02 +1300
-Message-ID: <cbec11ac0602021851s15442618u87eb33e783508fa7@mail.gmail.com>
-References: <C0FF12BB5B83E44ABAEAA47149DA973508266A@helios.eee.strath.ac.uk>
-	<C0FF12BB5B83E44ABAEAA47149DA973508266D@helios.eee.strath.ac.uk>
-	<39307.60.44.142.168.1138932213.squirrel@webmail.ncsu.edu>
-	<C0FF12BB5B83E44ABAEAA47149DA9735082675@helios.eee.strath.ac.uk>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Linux 2.6.15.2
+Date: Fri, 3 Feb 2006 11:14:14 -0800
+Message-ID: <20060203111414.7026f46f.akpm@osdl.org>
+References: <20060131070642.GA25015@kroah.com>
+	<20060130233427.5e7912ae.akpm@osdl.org>
+	<20060203120925.GA4393@kruemel.my-eitzenberger.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, end2end-interest@postel.org
-Return-path: <end2end-interest-bounces@postel.org>
-To: Douglas Leith <doug@eee.strath.ac.uk>
-In-Reply-To: <C0FF12BB5B83E44ABAEAA47149DA9735082675@helios.eee.strath.ac.uk>
-Content-Disposition: inline
-List-Unsubscribe: <http://www.postel.org/mailman/listinfo/end2end-interest>,
-	<mailto:end2end-interest-request@postel.org?subject=unsubscribe>
-List-Archive: <http://www.postel.org/pipermail/end2end-interest>
-List-Post: <mailto:end2end-interest@postel.org>
-List-Help: <mailto:end2end-interest-request@postel.org?subject=help>
-List-Subscribe: <http://www.postel.org/mailman/listinfo/end2end-interest>,
-	<mailto:end2end-interest-request@postel.org?subject=subscribe>
-Sender: end2end-interest-bounces@postel.org
-Errors-To: end2end-interest-bounces@postel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@suse.de, linux-kernel@vger.kernel.org, stable@kernel.org,
+	torvalds@osdl.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945906AbWBCTOw@vger.kernel.org>
+To: Holger Eitzenberger <holger@my-eitzenberger.de>
+In-Reply-To: <20060203120925.GA4393@kruemel.my-eitzenberger.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->  Seriously, where's the value in comparing buggy implementations - isn't
-> that just a waste of all our time ?  If we are genuine about wanting to
-> understand tcp performance then I think we just have to take the hit from
-> issues such as this that are outside all of our control.
+Holger Eitzenberger <holger@my-eitzenberger.de> wrote:
 >
-A real part of the problem here is that the Linux doesn't have a full
-TCP testing suite and doesn't have build checking to check for
-regressions in TCP variants. As I understand the only thing tested in
-nightly builds is throughput for the default TCP.
+> On Mon, Jan 30, 2006 at 11:34:27PM -0800, Andrew Morton wrote:
+> 
+> > - A skbuff_head_cache leak causes oom-killings.
+> > 
+> > All of these only seem to affect a small minority of machines.
+> 
+> Hi,
+> 
+> I have searched for a description for the above mentioned bug report,
+> but havent found any.  Can you tell me?
 
-Stephen Hemminger has done some work on TCP Probes but this is where I
-think real progress could be made in improving Linux TCP. I may get
-around to doing this myself at some point in my research but would
-welcome other people doing it also!
+http://www.mail-archive.com/netdev@vger.kernel.org/msg06355.html
 
-Ian
---
-Ian McDonald
-http://wand.net.nz/~iam4
-WAND Network Research Group
-University of Waikato
-New Zealand
+> The reason why I am asking that I am facing a similar problem on
+> kernel 2.6.10.  During performance tests (Intel XEON, SMP, PCI-X,
+> e1000, 2 - 4 Gig RAM) the machine was out of memory.
+> 
+> Tests showed that LowFree went linearly down to a few megabytes, where
+> most of the memory was used in skb_head_cache and size-1024 slab
+> caches.  These two summed up to ~270 MG, which was the reason for
+> that.
+> 
+> /proc/net/tcp showed that most of the memory was stuck in the RX
+> queues of some processes (two processes with ~1000 sockets each).
+> 
+> A look into /proc/sys/net/ipv4/tcp_mem showed that that the values in
+> there were way to high.  I hope that a reduction of these values will
+> help (not done yet).
+> 
+
+Sounds different.  Please test a more recent kernel and if the problem is
+still there, send a report to linux-kernel and cc netdev@vger.kernel.org. 
+Include the contents of /proc/meminfo and /proc/slabinfo.  Thanks.
