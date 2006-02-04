@@ -1,27 +1,21 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Patch] 2.4.32 - Neighbour Cache (ARP) State machine bug Fixed
-Date: Fri, 03 Feb 2006 18:18:39 -0800 (PST)
-Message-ID: <20060203.181839.104353534.davem@davemloft.net>
-References: <9fda5f510511281257o364acb3gd634f8e412cd7301@mail.gmail.com>
-	<9fda5f510602031806j2f9ef743t206c9ee2c3bef384@mail.gmail.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [2.6 patch] move some code to net/ipx/af_ipx.c
+Date: Sat, 4 Feb 2006 09:19:42 +0000
+Message-ID: <20060204091942.GA19863@infradead.org>
+References: <20060204010958.GY4408@stusta.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ratz@drugphish.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946250AbWBDCSm@vger.kernel.org>
-To: pradeep.vincent@gmail.com
-In-Reply-To: <9fda5f510602031806j2f9ef743t206c9ee2c3bef384@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, acme@conectiva.com.br,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946001AbWBDJTy@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20060204010958.GY4408@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pradeep Vincent <pradeep.vincent@gmail.com>
-Date: Fri, 3 Feb 2006 18:06:53 -0800
+On Sat, Feb 04, 2006 at 02:09:59AM +0100, Adrian Bunk wrote:
+> This patch moves some code only used in this file to net/ipx/af_ipx.c .
 
-> Resending..
-
-Your email client has tab and newline mangled the patch so it
-cannot be applied.  Please fix this up and also supply an
-appropriate "Signed-off-by: " line.
-
-Thanks.
+this doesn't make any sense.  the code is part of the 802.2/3 layer, not the
+ipx layer even if no other protocol makes use of it yet.
