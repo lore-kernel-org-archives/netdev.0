@@ -1,41 +1,36 @@
-From: Holger Eitzenberger <holger@my-eitzenberger.de>
-Subject: Re: Linux 2.6.15.2
-Date: Sat, 4 Feb 2006 12:52:17 +0100
-Message-ID: <20060204115217.GA5302@kruemel.my-eitzenberger.de>
-References: <20060131070642.GA25015@kroah.com> <20060130233427.5e7912ae.akpm@osdl.org> <20060203120925.GA4393@kruemel.my-eitzenberger.de> <20060203111414.7026f46f.akpm@osdl.org>
+From: "Martin J. Bligh" <mbligh@mbligh.org>
+Subject: Re: open bugzilla reports
+Date: Sat, 4 Feb 2006 08:47:29 -0800
+Message-ID: <20060204084729.defc7c19.mbligh@mbligh.org>
+References: <20060203151150.3d9aa8b3.akpm@osdl.org>
+	<20060204095023.GA11140@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@suse.de, linux-kernel@vger.kernel.org, stable@kernel.org,
-	torvalds@osdl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932277AbWBDNbE@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060203111414.7026f46f.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
+	video4linux-list@redhat.com,
+	linux-fbdev-devel@lists.sourceforge.net,
+	linux-fsdevel@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-usb-devel@lists.sourceforge.net
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: Russell King <rmk+lkml@arm.linux.org.uk>
+In-Reply-To: <20060204095023.GA11140@flint.arm.linux.org.uk>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 03, 2006 at 11:14:14AM -0800, Andrew Morton wrote:
 
-> http://www.mail-archive.com/netdev@vger.kernel.org/msg06355.html
+> > [Bug 5958] CF bluetooth card oopses machine when
+> > 	http://bugzilla.kernel.org/show_bug.cgi?id=5958
+> 
+> This isn't a serial bug - it's a bluetooth ldisc bug.  I reported it
+> to the bluetooth folk back when it first got raised by Pavel.  However,
+> they seem to be completely disinterested in fixing it.
+> 
+> Unfortunately, there isn't a category for bt crap in bugzilla, otherwise
+> I'd reassign it.  Please kick the bt folk.
 
-> > A look into /proc/sys/net/ipv4/tcp_mem showed that that the values in
-> > there were way to high.  I hope that a reduction of these values will
-> > help (not done yet).
+Stick it under Drivers/Other if you want ...
 
-> Sounds different.  Please test a more recent kernel and if the problem is
-> still there, send a report to linux-kernel and cc netdev@vger.kernel.org. 
-> Include the contents of /proc/meminfo and /proc/slabinfo.  Thanks.
-
-I solved the issue.
-
-Recent kernels have alloc_large_system_hash() exactly for that, and
-tcp_init() uses it.  It has nr_all_pages and nr_kernel_pages to
-determine the actual size of usable RAM, whereas 2.6.10 just uses
-num_physpages.  That's the reason why the values in tcp_mem are way
-too high on machines with 3-4 Gig RAM.
-
-Thanks.  /holger
-
-
--- 
-ICQ 2882018 ++ Jabber: octavian@amessage.de ++
+M.
