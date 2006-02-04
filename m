@@ -1,81 +1,91 @@
-From: Knut Petersen <Knut_Petersen@t-online.de>
-Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
- 11ab:4362 (rev 19)
-Date: Sat, 04 Feb 2006 11:32:05 +0100
-Message-ID: <43E482A5.8020306@t-online.de>
-References: <E1F1UqC-0002XE-00@gondolin.me.apana.org.au> <43D9B8A6.5020200@t-online.de> <20060127122242.GA32128@gondor.apana.org.au>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATCH] acx: make firmware statistics parsing more intelligent
+Date: Sat, 4 Feb 2006 13:31:16 +0200
+Message-ID: <200602041331.16308.vda@ilport.com.ua>
+References: <20060203105857.GB11173@rhlx01.fht-esslingen.de>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751231AbWBDKdy@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060127122242.GA32128@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andreas Mohr <andi@rhlx01.fht-esslingen.de>,
+	netdev@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: acx100-devel@lists.sourceforge.net
+In-Reply-To: <20060203105857.GB11173@rhlx01.fht-esslingen.de>
+Content-Disposition: inline
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-2.6.16-rc2 still misses your patch. Was there a special reason not to 
-send it
-to Linus?
+On Friday 03 February 2006 12:58, Andreas Mohr wrote:
+> this patch does:
+> - implement much more flexible firmware statistics parsing
+>   (for /proc/driver/acx_wlanX_diag)
+>   This has the nice effect that we now get output for both the older
+>   TNETW1100 USB and TNETW1450.
+>   Since firmware statistics information has non-stable layout depending on
+>   firmware version, please report if you suspect any parsing mismatch!
+>   This improved version now uses 2kB more driver space, unfortunately.
+> - use "% 8" modulo instead of more complicated "% 5" calculation
 
-cu,
- Knut
+Why? There will be HZ=100 and HZ=250 boxes, 8ms doesn't fit well.
+10ms is ok, 5ms or 2.5ms is more or less ok too, but 8ms?
 
->On Fri, Jan 27, 2006 at 07:07:34AM +0100, Knut Petersen wrote:
->  
->
->>Well, there are no problems if SuSEfirewall2 is disabled. But have a look
->>at the loaded modules:
->>
->>ipt_MASQUERADE          3968  1
->>pppoe                  15360  2
->>pppox                   4616  1 pppoe
->>    
->>
->
->OK, although we can't rule out sky2/netfilter from the enquiry, I've
->identified two bugs in ppp/pppoe that may be responsible for what you
->are seeing.  So please try the following patch and let us know if the
->problem still exists (or deteriorates/improves).
->
->[PPP]: Fixed hardware RX checksum handling
->
->When we pull the PPP protocol off the skb, we forgot to update the
->hardware RX checksum.  This may lead to messages such as
->
->	dsl0: hw csum failure.
->
->Similarly, we need to clear the hardware checksum flag when we use
->the existing packet to store the decompressed result.
->
->Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
->Cheers,
->  
->
->------------------------------------------------------------------------
->
->diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
->--- a/drivers/net/ppp_generic.c
->+++ b/drivers/net/ppp_generic.c
->@@ -1610,6 +1610,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
-> 		}
-> 		else if (!pskb_may_pull(skb, skb->len))
-> 			goto err;
->+		else
->+			skb->ip_summed = CHECKSUM_NONE;
-> 
-> 		len = slhc_uncompress(ppp->vj, skb->data + 2, skb->len - 2);
-> 		if (len <= 0) {
->@@ -1690,6 +1692,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
-> 			kfree_skb(skb);
-> 		} else {
-> 			skb_pull(skb, 2);	/* chop off protocol */
->+			skb_postpull_rcsum(skb, skb->data - 2, 2);
-> 			skb->dev = ppp->dev;
-> 			skb->protocol = htons(npindex_to_ethertype[npi]);
-> 			skb->mac.raw = skb->data;
->  
->
+But I'll apply this anyway.
+
+> - use
+>     if (++idx >= count)
+>       idx = 0;
+>   instead of more bloaty
+>     idx = (idx + 1) % count;
+>   We might want to add a kernel macro for this *very* common and
+>   performance-critical driver operation, say ring_advance_next or so,
+>   in order to have the most optimized version for each architecture;
+>   Or ($1 million question): Is there already such a beast somewhere!?
+
+As discussed, just use unsigned variable and compile with -Os.
+
+
+Patch applied to acx and acxsm with following edits:
+
+        if (
+            (IS_PCI(adev) && IS_ACX100(adev))
+        ||  (IS_USB(adev) && IS_ACX100(adev))
+        ) {
+
+Replaced this with "if (IS_ACX100(adev)) {"
+
+typedef struct fw_stats {
+       u16                     type;
+       u16                     len;
+       fw_stats_tx_t           tx;
+       fw_stats_rx_t           rx;
+       fw_stats_dma_t          dma;
+       fw_stats_irq_t          irq;
+       fw_stats_wep_t          wep;
+       fw_stats_pwr_t          pwr;
+       fw_stats_mic_t          mic;
+       fw_stats_aes_t          aes;
+       fw_stats_event_t        evt;
++      u8                      _padding[FW_STATS_FUTURE_EXTENSION];
+} fw_stats_t;
+
+and removed "+FW_STATS_FUTURE_EXTENSION" elsewhere.
+
+--
+vda
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
