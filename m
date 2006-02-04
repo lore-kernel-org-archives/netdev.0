@@ -1,21 +1,62 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [2.6 patch] move some code to net/ipx/af_ipx.c
-Date: Sat, 4 Feb 2006 09:19:42 +0000
-Message-ID: <20060204091942.GA19863@infradead.org>
-References: <20060204010958.GY4408@stusta.de>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: open bugzilla reports
+Date: Sat, 4 Feb 2006 09:50:23 +0000
+Message-ID: <20060204095023.GA11140@flint.arm.linux.org.uk>
+References: <20060203151150.3d9aa8b3.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, acme@conectiva.com.br,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946001AbWBDJTy@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
+Cc: linux-kernel@vger.kernel.org, video4linux-list@redhat.com,
+	linux-fbdev-devel@lists.sourceforge.net,
+	linux-fsdevel@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-usb-devel@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945987AbWBDJun@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060204010958.GY4408@stusta.de>
+In-Reply-To: <20060203151150.3d9aa8b3.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 04, 2006 at 02:09:59AM +0100, Adrian Bunk wrote:
-> This patch moves some code only used in this file to net/ipx/af_ipx.c .
+On Fri, Feb 03, 2006 at 03:11:50PM -0800, Andrew Morton wrote:
+> serial
+> ======
+> 
+> [Bug 5832] Enabling ACPI Plug and Play in kernels
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=5832
 
-this doesn't make any sense.  the code is part of the 802.2/3 layer, not the
-ipx layer even if no other protocol makes use of it yet.
+This seems to be misfiled.  Why do you think this is a serial bug?
+It seems to be talking about parallel ports.
+
+> [Bug 5875] quad RS232 port card detected as 8,
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=5875
+
+This seems to be because we have an explicit vendor/device ID listed
+in 8250_pci for (according to this bug report) something which isn't
+a serial device.  What I don't know is if these vendor/device IDs
+also exist for something which is a serial device.  Hence, removing
+them could cause more problems than keeping them.  Since it has no
+effect other than causing extra ports to appear, this is low priority.
+
+> [Bug 5942] serial driver gives up and we get IRQ3
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=5942
+
+No idea what's happening here.  No one else seems to be using IRQ3,
+we've disabled the interrupt at the UART, yet we get a stuck IRQ3.
+Don't think it's serial related, it just happens that closing the
+serial port shows it.
+
+> [Bug 5958] CF bluetooth card oopses machine when
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=5958
+
+This isn't a serial bug - it's a bluetooth ldisc bug.  I reported it
+to the bluetooth folk back when it first got raised by Pavel.  However,
+they seem to be completely disinterested in fixing it.
+
+Unfortunately, there isn't a category for bt crap in bugzilla, otherwise
+I'd reassign it.  Please kick the bt folk.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 Serial core
