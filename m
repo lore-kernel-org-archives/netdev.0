@@ -1,45 +1,25 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: open bugzilla reports
-Date: Sat, 4 Feb 2006 23:14:26 +0000
-Message-ID: <20060204231425.GA24887@flint.arm.linux.org.uk>
-References: <20060203151150.3d9aa8b3.akpm@osdl.org> <20060204095023.GA11140@flint.arm.linux.org.uk> <20060204084729.defc7c19.mbligh@mbligh.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH][ipcomp6] don't check vfree() argument for NULL.
+Date: Sat, 04 Feb 2006 15:50:42 -0800 (PST)
+Message-ID: <20060204.155042.92905949.davem@davemloft.net>
+References: <200602042049.44151.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
-	video4linux-list@redhat.com,
-	linux-fbdev-devel@lists.sourceforge.net,
-	linux-fsdevel@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-To: "Martin J. Bligh" <mbligh@mbligh.org>
-Content-Disposition: inline
-In-Reply-To: <20060204084729.defc7c19.mbligh@mbligh.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mk@linux-ipv6.org, linux-kernel@vger.kernel.org, pekkas@netcore.fi,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964884AbWBDXut@vger.kernel.org>
+To: jesper.juhl@gmail.com
+In-Reply-To: <200602042049.44151.jesper.juhl@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 04, 2006 at 08:47:29AM -0800, Martin J. Bligh wrote:
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Date: Sat, 4 Feb 2006 20:49:44 +0100
+
+> vfree does it's own NULL checking, so checking a pointer before handing
+> it to vfree is pointless.
 > 
-> > > [Bug 5958] CF bluetooth card oopses machine when
-> > > 	http://bugzilla.kernel.org/show_bug.cgi?id=5958
-> > 
-> > This isn't a serial bug - it's a bluetooth ldisc bug.  I reported it
-> > to the bluetooth folk back when it first got raised by Pavel.  However,
-> > they seem to be completely disinterested in fixing it.
-> > 
-> > Unfortunately, there isn't a category for bt crap in bugzilla, otherwise
-> > I'd reassign it.  Please kick the bt folk.
-> 
-> Stick it under Drivers/Other if you want ...
+> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 
-It _is_ under Networking/Other, yet akpm still thinks it's a serial
-bug.  I'm not sure why though, I've fully explained why it isn't
-a serial problem in the bug comments.
-
-akpm is buggy and needs fixing.  Where do I file this bug? 8)
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 Serial core
+Applied to net-2.6.17, thanks.
