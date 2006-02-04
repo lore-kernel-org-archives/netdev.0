@@ -1,91 +1,41 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: [PATCH] acx: make firmware statistics parsing more intelligent
-Date: Sat, 4 Feb 2006 13:31:16 +0200
-Message-ID: <200602041331.16308.vda@ilport.com.ua>
-References: <20060203105857.GB11173@rhlx01.fht-esslingen.de>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Holger Eitzenberger <holger@my-eitzenberger.de>
+Subject: Re: Linux 2.6.15.2
+Date: Sat, 4 Feb 2006 12:52:17 +0100
+Message-ID: <20060204115217.GA5302@kruemel.my-eitzenberger.de>
+References: <20060131070642.GA25015@kroah.com> <20060130233427.5e7912ae.akpm@osdl.org> <20060203120925.GA4393@kruemel.my-eitzenberger.de> <20060203111414.7026f46f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Mohr <andi@rhlx01.fht-esslingen.de>,
-	netdev@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: acx100-devel@lists.sourceforge.net
-In-Reply-To: <20060203105857.GB11173@rhlx01.fht-esslingen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@suse.de, linux-kernel@vger.kernel.org, stable@kernel.org,
+	torvalds@osdl.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932277AbWBDNbE@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+In-Reply-To: <20060203111414.7026f46f.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 03 February 2006 12:58, Andreas Mohr wrote:
-> this patch does:
-> - implement much more flexible firmware statistics parsing
->   (for /proc/driver/acx_wlanX_diag)
->   This has the nice effect that we now get output for both the older
->   TNETW1100 USB and TNETW1450.
->   Since firmware statistics information has non-stable layout depending on
->   firmware version, please report if you suspect any parsing mismatch!
->   This improved version now uses 2kB more driver space, unfortunately.
-> - use "% 8" modulo instead of more complicated "% 5" calculation
+On Fri, Feb 03, 2006 at 11:14:14AM -0800, Andrew Morton wrote:
 
-Why? There will be HZ=100 and HZ=250 boxes, 8ms doesn't fit well.
-10ms is ok, 5ms or 2.5ms is more or less ok too, but 8ms?
+> http://www.mail-archive.com/netdev@vger.kernel.org/msg06355.html
 
-But I'll apply this anyway.
+> > A look into /proc/sys/net/ipv4/tcp_mem showed that that the values in
+> > there were way to high.  I hope that a reduction of these values will
+> > help (not done yet).
 
-> - use
->     if (++idx >= count)
->       idx = 0;
->   instead of more bloaty
->     idx = (idx + 1) % count;
->   We might want to add a kernel macro for this *very* common and
->   performance-critical driver operation, say ring_advance_next or so,
->   in order to have the most optimized version for each architecture;
->   Or ($1 million question): Is there already such a beast somewhere!?
+> Sounds different.  Please test a more recent kernel and if the problem is
+> still there, send a report to linux-kernel and cc netdev@vger.kernel.org. 
+> Include the contents of /proc/meminfo and /proc/slabinfo.  Thanks.
 
-As discussed, just use unsigned variable and compile with -Os.
+I solved the issue.
+
+Recent kernels have alloc_large_system_hash() exactly for that, and
+tcp_init() uses it.  It has nr_all_pages and nr_kernel_pages to
+determine the actual size of usable RAM, whereas 2.6.10 just uses
+num_physpages.  That's the reason why the values in tcp_mem are way
+too high on machines with 3-4 Gig RAM.
+
+Thanks.  /holger
 
 
-Patch applied to acx and acxsm with following edits:
-
-        if (
-            (IS_PCI(adev) && IS_ACX100(adev))
-        ||  (IS_USB(adev) && IS_ACX100(adev))
-        ) {
-
-Replaced this with "if (IS_ACX100(adev)) {"
-
-typedef struct fw_stats {
-       u16                     type;
-       u16                     len;
-       fw_stats_tx_t           tx;
-       fw_stats_rx_t           rx;
-       fw_stats_dma_t          dma;
-       fw_stats_irq_t          irq;
-       fw_stats_wep_t          wep;
-       fw_stats_pwr_t          pwr;
-       fw_stats_mic_t          mic;
-       fw_stats_aes_t          aes;
-       fw_stats_event_t        evt;
-+      u8                      _padding[FW_STATS_FUTURE_EXTENSION];
-} fw_stats_t;
-
-and removed "+FW_STATS_FUTURE_EXTENSION" elsewhere.
-
---
-vda
-
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
+-- 
+ICQ 2882018 ++ Jabber: octavian@amessage.de ++
