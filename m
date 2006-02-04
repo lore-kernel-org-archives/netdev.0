@@ -1,25 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][ipcomp6] don't check vfree() argument for NULL.
-Date: Sat, 04 Feb 2006 15:50:42 -0800 (PST)
-Message-ID: <20060204.155042.92905949.davem@davemloft.net>
-References: <200602042049.44151.jesper.juhl@gmail.com>
+Subject: Re: [-mm patch] net/ipv4/fib_rules.c: make struct fib_rules static
+ again
+Date: Sat, 04 Feb 2006 15:51:45 -0800 (PST)
+Message-ID: <20060204.155145.127399521.davem@davemloft.net>
+References: <20060203000704.3964a39f.akpm@osdl.org>
+	<20060203210248.GK4408@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mk@linux-ipv6.org, linux-kernel@vger.kernel.org, pekkas@netcore.fi,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964884AbWBDXut@vger.kernel.org>
-To: jesper.juhl@gmail.com
-In-Reply-To: <200602042049.44151.jesper.juhl@gmail.com>
+Cc: akpm@osdl.org, robert.olsson@its.uu.se,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932594AbWBDXwO@vger.kernel.org>
+To: bunk@stusta.de
+In-Reply-To: <20060203210248.GK4408@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Date: Sat, 4 Feb 2006 20:49:44 +0100
+From: Adrian Bunk <bunk@stusta.de>
+Date: Fri, 3 Feb 2006 22:02:48 +0100
 
-> vfree does it's own NULL checking, so checking a pointer before handing
-> it to vfree is pointless.
+> struct fib_rules became global for no good reason.
 > 
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Applied to net-2.6.17, thanks.
+Applied, thanks Adrian.
