@@ -1,62 +1,81 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: open bugzilla reports
-Date: Sat, 4 Feb 2006 09:50:23 +0000
-Message-ID: <20060204095023.GA11140@flint.arm.linux.org.uk>
-References: <20060203151150.3d9aa8b3.akpm@osdl.org>
+From: Knut Petersen <Knut_Petersen@t-online.de>
+Subject: Re: [BUG] sky2 broken for Yukon PCI-E Gigabit Ethernet Controller
+ 11ab:4362 (rev 19)
+Date: Sat, 04 Feb 2006 11:32:05 +0100
+Message-ID: <43E482A5.8020306@t-online.de>
+References: <E1F1UqC-0002XE-00@gondolin.me.apana.org.au> <43D9B8A6.5020200@t-online.de> <20060127122242.GA32128@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, video4linux-list@redhat.com,
-	linux-fbdev-devel@lists.sourceforge.net,
-	linux-fsdevel@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1945987AbWBDJun@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060203151150.3d9aa8b3.akpm@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751231AbWBDKdy@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060127122242.GA32128@gondor.apana.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 03, 2006 at 03:11:50PM -0800, Andrew Morton wrote:
-> serial
-> ======
+2.6.16-rc2 still misses your patch. Was there a special reason not to 
+send it
+to Linus?
+
+cu,
+ Knut
+
+>On Fri, Jan 27, 2006 at 07:07:34AM +0100, Knut Petersen wrote:
+>  
+>
+>>Well, there are no problems if SuSEfirewall2 is disabled. But have a look
+>>at the loaded modules:
+>>
+>>ipt_MASQUERADE          3968  1
+>>pppoe                  15360  2
+>>pppox                   4616  1 pppoe
+>>    
+>>
+>
+>OK, although we can't rule out sky2/netfilter from the enquiry, I've
+>identified two bugs in ppp/pppoe that may be responsible for what you
+>are seeing.  So please try the following patch and let us know if the
+>problem still exists (or deteriorates/improves).
+>
+>[PPP]: Fixed hardware RX checksum handling
+>
+>When we pull the PPP protocol off the skb, we forgot to update the
+>hardware RX checksum.  This may lead to messages such as
+>
+>	dsl0: hw csum failure.
+>
+>Similarly, we need to clear the hardware checksum flag when we use
+>the existing packet to store the decompressed result.
+>
+>Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+>Cheers,
+>  
+>
+>------------------------------------------------------------------------
+>
+>diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+>--- a/drivers/net/ppp_generic.c
+>+++ b/drivers/net/ppp_generic.c
+>@@ -1610,6 +1610,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+> 		}
+> 		else if (!pskb_may_pull(skb, skb->len))
+> 			goto err;
+>+		else
+>+			skb->ip_summed = CHECKSUM_NONE;
 > 
-> [Bug 5832] Enabling ACPI Plug and Play in kernels
-> 	http://bugzilla.kernel.org/show_bug.cgi?id=5832
-
-This seems to be misfiled.  Why do you think this is a serial bug?
-It seems to be talking about parallel ports.
-
-> [Bug 5875] quad RS232 port card detected as 8,
-> 	http://bugzilla.kernel.org/show_bug.cgi?id=5875
-
-This seems to be because we have an explicit vendor/device ID listed
-in 8250_pci for (according to this bug report) something which isn't
-a serial device.  What I don't know is if these vendor/device IDs
-also exist for something which is a serial device.  Hence, removing
-them could cause more problems than keeping them.  Since it has no
-effect other than causing extra ports to appear, this is low priority.
-
-> [Bug 5942] serial driver gives up and we get IRQ3
-> 	http://bugzilla.kernel.org/show_bug.cgi?id=5942
-
-No idea what's happening here.  No one else seems to be using IRQ3,
-we've disabled the interrupt at the UART, yet we get a stuck IRQ3.
-Don't think it's serial related, it just happens that closing the
-serial port shows it.
-
-> [Bug 5958] CF bluetooth card oopses machine when
-> 	http://bugzilla.kernel.org/show_bug.cgi?id=5958
-
-This isn't a serial bug - it's a bluetooth ldisc bug.  I reported it
-to the bluetooth folk back when it first got raised by Pavel.  However,
-they seem to be completely disinterested in fixing it.
-
-Unfortunately, there isn't a category for bt crap in bugzilla, otherwise
-I'd reassign it.  Please kick the bt folk.
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 Serial core
+> 		len = slhc_uncompress(ppp->vj, skb->data + 2, skb->len - 2);
+> 		if (len <= 0) {
+>@@ -1690,6 +1692,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+> 			kfree_skb(skb);
+> 		} else {
+> 			skb_pull(skb, 2);	/* chop off protocol */
+>+			skb_postpull_rcsum(skb, skb->data - 2, 2);
+> 			skb->dev = ppp->dev;
+> 			skb->protocol = htons(npindex_to_ethertype[npi]);
+> 			skb->mac.raw = skb->data;
+>  
+>
