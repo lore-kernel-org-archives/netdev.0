@@ -1,60 +1,67 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] schedule eepro100.c for removal
-Date: Sat, 4 Feb 2006 02:10:13 +0100
-Message-ID: <20060204011013.GB4408@stusta.de>
-References: <20060203213234.GS4408@stusta.de> <20060203221858.GA3670@kvack.org>
+From: Pradeep Vincent <pradeep.vincent@gmail.com>
+Subject: Fwd: [Patch] 2.4.32 - Neighbour Cache (ARP) State machine bug Fixed
+Date: Fri, 3 Feb 2006 18:06:53 -0800
+Message-ID: <9fda5f510602031806j2f9ef743t206c9ee2c3bef384@mail.gmail.com>
+References: <9fda5f510511281257o364acb3gd634f8e412cd7301@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946247AbWBDBKv@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1946263AbWBDCG5@vger.kernel.org>
+To: Roberto Nibali <ratz@drugphish.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+In-Reply-To: <9fda5f510511281257o364acb3gd634f8e412cd7301@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20060203221858.GA3670@kvack.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 03, 2006 at 05:18:58PM -0500, Benjamin LaHaise wrote:
+Resending..
 
-> Where's the hunk to make the eepro100 driver spew messages about being 
-> obsolete out upon loading?
-
-Updated patch below.
-
-> 		-ben
-
-cu
-Adrian
+---------- Forwarded message ----------
+From: Pradeep Vincent <pradeep.vincent@gmail.com>
+Date: Nov 28, 2005 12:57 PM
+Subject: [Patch] 2.4.32 - Neighbour Cache (ARP) State machine bug Fixed
+To: linux-kernel@vger.kernel.org, torvalds@osdl.org
+Cc: pradeep.vincent@gmail.com
 
 
-<--  snip  -->
+In 2.4.21, arp code uses gc_timer to check for stale arp cache
+entries. In 2.6, each entry has its own timer to check for stale arp
+cache. 2.4.29 to 2.4.32 kernels (atleast) use neither of these timers.
+This causes problems in environments where IPs or MACs are reassigned
+- saw this problem on load balancing router based networks that use
+VMACs. Tested this code on load balancing router based networks as
+well as peer-linux systems.
+
+Let me know if I need to contact someone else about this,
+
+Thanks,
+
+Pradeep Vincent
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+diff -Naur old/net/core/neighbour.c new/net/core/neighbour.c
+--- old/net/core/neighbour.c    Wed Nov 23 17:15:30 2005
++++ new/net/core/neighbour.c    Wed Nov 23 17:26:01 2005
+@@ -14,6 +14,7 @@
+*     Vitaly E. Lavrov        releasing NULL neighbor in neigh_add.
+*     Harald Welte            Add neighbour cache statistics like rtstat
+*     Harald Welte            port neighbour cache rework from 2.6.9-rcX
++ *      Pradeep Vincent         Move neighbour cache entry to stale state
+*/
 
----
-
- Documentation/feature-removal-schedule.txt |    6 ++++++
- drivers/net/eepro100.c                     |    1 +
- 2 files changed, 7 insertions(+)
-
---- linux-2.6.15-mm4-full/Documentation/feature-removal-schedule.txt.old	2006-01-18 08:38:57.000000000 +0100
-+++ linux-2.6.15-mm4-full/Documentation/feature-removal-schedule.txt	2006-01-18 08:39:59.000000000 +0100
-@@ -164,0 +165,6 @@
-+---------------------------
+#include <linux/config.h>
+@@ -705,6 +706,14 @@
+                      neigh_release(n);
+                      continue;
+              }
 +
-+What:   eepro100 network driver
-+When:   April 2006
-+Why:    replaced by the e100 driver
-+Who:    Adrian Bunk <bunk@stusta.de>
++               /* Mark it stale - To be reconfirmed later when used */
++               if (n->nud_state&NUD_REACHABLE &&
++                   now - n->confirmed > n->parms->reachable_time) {
++                       n->nud_state = NUD_STALE;
++                       neigh_suspect(n);
++               }
++
+              write_unlock(&n->lock);
 
---- linux-2.6.16-rc1-mm5-full/drivers/net/eepro100.c.old	2006-02-03 23:37:55.000000000 +0100
-+++ linux-2.6.16-rc1-mm5-full/drivers/net/eepro100.c	2006-02-03 23:39:10.000000000 +0100
-@@ -2391,6 +2391,7 @@ static int __init eepro100_init_module(v
- #ifdef MODULE
- 	printk(version);
- #endif
-+	printk(KERN_WARNING "eepro100 will be removed soon, please use the e100 driver\n");
- 	return pci_module_init(&eepro100_driver);
- }
- 
+next_elt:
