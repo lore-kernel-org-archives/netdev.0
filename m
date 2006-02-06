@@ -1,7 +1,7 @@
 From: Dan Williams <dcbw@redhat.com>
 Subject: Re: [test] airo : first WPA-PSK support
-Date: Mon, 06 Feb 2006 13:52:34 -0500
-Message-ID: <1139251955.5831.9.camel@dhcp83-115.boston.redhat.com>
+Date: Mon, 06 Feb 2006 14:01:57 -0500
+Message-ID: <1139252518.5831.14.camel@dhcp83-115.boston.redhat.com>
 References: <4369099D.3010502@free.fr>  <43E7902E.9080002@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -47,17 +47,16 @@ On Mon, 2006-02-06 at 19:06 +0100, matthieu castet wrote:
 > people seem interested in this driver I don't plan to clean it for 
 > kernel.org integration.
 
-I can help out with the mpi350 if you'd like.  However, most of the code
-for the MPI350 should be exactly the same as with the PCMCIA version of
-the card.  They share just about everything except for the bus type.
-(unless I'm wrong?)
+Also, do you have access to the 4500/4800 Developer's Manual?  I'm
+curious what the status code 0x0600 for an EV_LINK event is (as seen in
+airo_interrupt()).
 
-Note that I added ENCODEEXT and AUTH support (for WEP only of course) in
-a previous kernel patch, so you'll likely have to rediff your patches
-against that...
+#define AUTHFAIL 0x0300 /* Authentication failure (low byte is reason
+			   code) */
+#define ASSOCIATED 0x0400 /* Assocatied */
 
-I think bits of this patch (at least the support for the WPA & RSN
-information elements in scans) should be upstreamed as soon as possible,
-I'm willing to help with that too.
+There's 0x400, but no 0x0200 which is what I'd expect is the case for a
+status code of 0x0600 (ie 0x0400 + 0x0200).
 
+Thanks!
 Dan
