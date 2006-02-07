@@ -1,37 +1,44 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: IBM_EMAC_PHY_RX_CLK_FIX depends on non-existing option 440GR
-Date: Tue, 7 Feb 2006 23:14:49 +0100
-Message-ID: <20060207221449.GB3524@stusta.de>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: IBM_EMAC_PHY_RX_CLK_FIX depends on non-existing option 440GR
+Date: Tue, 7 Feb 2006 14:57:13 -0800
+Message-ID: <20060207225713.GA6933@gate.ebshome.net>
+References: <20060207221449.GB3524@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-embedded@ozlabs.org, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
-	Jean-Luc Leger <reiga@dspnet.fr.eu.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965037AbWBGWOw@vger.kernel.org>
-To: ebs@ebshome.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jean-Luc Leger <reiga@dspnet.fr.eu.org>,
+	linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060207221449.GB3524@stusta.de>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Jean-Luc Leger <reiga@dspnet.fr.eu.org> reported the following:
+On Tue, Feb 07, 2006 at 11:14:49PM +0100, Adrian Bunk wrote:
+> Jean-Luc Leger <reiga@dspnet.fr.eu.org> reported the following:
+> 
+> from drivers/net/Kconfig:
+> config IBM_EMAC_PHY_RX_CLK_FIX
+>         bool "PHY Rx clock workaround"
+>         depends on IBM_EMAC && (405EP || 440GX || 440EP || 440GR)
+> -> maybe this is 440GP ?
+> 
+> 
+> The non-existing CONFIG_440GR is also present in the driver itself.
+> 
+> Is this a typo or a not yet merged platform?
 
-from drivers/net/Kconfig:
-config IBM_EMAC_PHY_RX_CLK_FIX
-        bool "PHY Rx clock workaround"
-        depends on IBM_EMAC && (405EP || 440GX || 440EP || 440GR)
--> maybe this is 440GP ?
-
-
-The non-existing CONFIG_440GR is also present in the driver itself.
-
-Is this a typo or a not yet merged platform?
-
-cu
-Adrian
+Not yet merged platform.
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Eugene
