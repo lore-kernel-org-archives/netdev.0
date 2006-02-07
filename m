@@ -1,63 +1,70 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: e100 oops on resume
-Date: Tue, 07 Feb 2006 01:57:07 -0500
-Message-ID: <43E844C3.5080500@pobox.com>
-References: <20060124225919.GC12566@suse.de>	 <20060124232142.GB6174@inferi.kami.home>	 <20060125090240.GA12651@suse.de> <20060125121125.GH5465@suse.de>	 <4807377b0601251137r7621216byc47b03a3c634557c@mail.gmail.com>	 <4807377b0601251628k4227dad0ld731f2c25c211b91@mail.gmail.com>	 <20060126190236.GA12481@suse.de>	 <20060128115335.GA4511@inferi.kami.home> <4807377b0601281153r618586ddhca27b7772e023d26@mail.gmail.com>
+From: Pradeep Vincent <pradeep.vincent@gmail.com>
+Subject: Re: [Patch] 2.4.32 - Neighbour Cache (ARP) State machine bug Fixed
+Date: Tue, 7 Feb 2006 00:57:43 -0700
+Message-ID: <9fda5f510602062357n38292cebk3c5738ccdbee83@mail.gmail.com>
+References: <9fda5f510511281257o364acb3gd634f8e412cd7301@mail.gmail.com>
+	 <9fda5f510602031806j2f9ef743t206c9ee2c3bef384@mail.gmail.com>
+	 <20060203.181839.104353534.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Seyfried <seife@suse.de>, Olaf Kirch <okir@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964984AbWBGG5R@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0601281153r618586ddhca27b7772e023d26@mail.gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965010AbWBGH5y@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+In-Reply-To: <20060203.181839.104353534.davem@davemloft.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg wrote:
-> On 1/28/06, Mattia Dongili <malattia@linux.it> wrote:
-> 
->>On Thu, Jan 26, 2006 at 08:02:37PM +0100, Stefan Seyfried wrote:
->>
->>>On Wed, Jan 25, 2006 at 04:28:48PM -0800, Jesse Brandeburg wrote:
->>>
->>>
->>>>Okay I reproduced the issue on 2.6.15.1 (with S1 sleep) and was able
->>>>to show that my patch that just removes e100_init_hw works okay for
->>>>me.  Let me know how it goes for you, I think this is a good fix.
->>>
->>>worked for me in the Compaq Armada e500 and reportedly also fixed the
->>>SONY that originally uncovered it.
->>
->>confirmed here too. The patch fixes S3 resume on this Sony (GR7/K)
->>running 2.6.16-rc1-mm3.
-> 
-> 
-> excellent news! thanks for testing.
-> 
-> Jeff, could you please apply to 2.6.16-rcX
-> 
-> Jesse
+In 2.4.21, arp code uses gc_timer to check for stale arp cache
+entries. In 2.6, each entry has its own timer to check for stale arp
+cache. 2.4.29 to 2.4.32 kernels (atleast) use neither of these timers.
+This causes problems in environments where IPs or MACs are reassigned
+- saw this problem on load balancing router based networks that use
+VMACs. Tested this code on load balancing router based networks as
+well as peer-linux systems.
 
-SIGH.  In your last patch submission you had it right, but Intel has yet 
-again regressed in patch submission form.
 
-Your fixes will be expedited if they can be applied by script, and then 
-quickly whisked upstream to Linus/Andrew.  This one had to be applied by 
-hand (so yes, its applied) for several reasons:
+Thanks,
 
-* Unreviewable in mail reader, due to MIME type application/octet-stream.
 
-* In general, never use MIME (attachments), they decrease the audience 
-that can easily review your patch.
+Signed off by: Pradeep Vincent <pradeep.vincent@gmail.com>
 
-* Your patch's description and signed-off-by were buried inside the 
-octet-stream attachment.
+diff -Naur old/net/core/neighbour.c new/net/core/neighbour.c
+--- old/net/core/neighbour.c    Wed Nov 23 17:15:30 2005
++++ new/net/core/neighbour.c    Wed Nov 23 17:26:01 2005
+@@ -14,6 +14,7 @@
+*     Vitaly E. Lavrov        releasing NULL neighbor in neigh_add.
+*     Harald Welte            Add neighbour cache statistics like rtstat
+*     Harald Welte            port neighbour cache rework from 2.6.9-rcX
++ *      Pradeep Vincent         Move neighbour cache entry to stale state
+*/
 
-* Please review http://linux.yyz.us/patch-format.html  (I probably 
-should add MIME admonitions to that)
+#include <linux/config.h>
+@@ -705,6 +706,14 @@
+                      neigh_release(n);
+                      continue;
+              }
++
++               /* Mark it stale - To be reconfirmed later when used */
++               if (n->nud_state&NUD_REACHABLE &&
++                   now - n->confirmed > n->parms->reachable_time) {
++                       n->nud_state = NUD_STALE;
++                       neigh_suspect(n);
++               }
++
+              write_unlock(&n->lock);
 
-	Jeff
+
+On 2/3/06, David S. Miller <davem@davemloft.net> wrote:
+> From: Pradeep Vincent <pradeep.vincent@gmail.com>
+> Date: Fri, 3 Feb 2006 18:06:53 -0800
+>
+> > Resending..
+>
+> Your email client has tab and newline mangled the patch so it
+> cannot be applied.  Please fix this up and also supply an
+> appropriate "Signed-off-by: " line.
+>
+> Thanks.
+>
