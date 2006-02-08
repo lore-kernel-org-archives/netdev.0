@@ -1,95 +1,55 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Thu, 9 Feb 2006 02:22:14 +0300
-Message-ID: <20060208232214.GC14543@mipter.zuzino.mipt.ru>
-References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au> <OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com>
+Date: Thu, 9 Feb 2006 10:08:03 +1100
+Message-ID: <20060208230803.GA26038@gondor.apana.org.au>
+References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au> <OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com> <20060208.144712.66821895.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	James Carlson <carlsonj@workingcode.com>,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
+Cc: dlstevens@us.ibm.com, adobriyan@gmail.com,
+	carlsonj@workingcode.com, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	viro@ftp.linux.org.uk
 Return-path: <linux-ppp-owner@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com>
+In-Reply-To: <20060208.144712.66821895.davem@davemloft.net>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2006 at 02:45:08PM -0800, David Stevens wrote:
-> netdev-owner@vger.kernel.org wrote on 02/08/2006 02:19:20 PM:
+On Wed, Feb 08, 2006 at 02:47:12PM -0800, David S. Miller wrote:
+> From: David Stevens <dlstevens@us.ibm.com>
+> Date: Wed, 8 Feb 2006 14:45:08 -0800
 > 
-> > James Carlson <carlsonj@workingcode.com> wrote:
-> > > Alexey Dobriyan writes:
-> > >> -     if (ap == 0)
-> > >> +     if (!ap)
-> > >
-> > > And the solution is to treat it as a boolean instead?!  I'm not sure
-> > > which is more ugly.
-> >
-> > Treating it as a boolean looks good to me.  It's better than the
-> existing
-> > code because it shuts sparse up.
->
->         Why would sparse complain about this? 0 is a well-defined
-> pointer value (the only value guaranteed to be by the language).
->         From K&R ANSI C edition, section 5.4:
->
->         "Pointers and integers are not interchangeable. Zero is the sole
-> exception: the constant zero may be assigned to a pointer, and a pointer
-> may be compared with the constant zero."
+> >         Why would sparse complain about this? 0 is a well-defined
+> > pointer value (the only value guaranteed to be by the language).
+> 
+> Because sparse goes beyond the standards and tries to
+> catch cases that usually end up being bugs.
 
-O is an integer, NULL is a pointer. You compare integers with integers
-and pointers with pointers. You don't compare integers with pointers
-because they are fundamentally different objects. The former counts
-things, the latter points to them.
+Well to be frank the only significant NULL/0 bug that I know can't
+be caught by converting 0 to NULL anyway.  The bug only exists on
+architectures where the representations of null-pointers of types
+are different.  On those architectures, if you have something like
 
-The fact that they can be represented by the same bit patterns is
-irrelevant. The fact that K&R, C89, C99 make
+int func(char *fmt, ...);
 
-	p = malloc();
-	if (p == NULL)
+...
 
-legal C is irrelevant.
+	func("foo", NULL);
 
-Because
+Then this may break if func actually expected a int * while NULL
+could be something different altogether.  The only safe way to
+write this is to have
 
-	p = malloc();
-	if (!p)
-		err;
+	func("foo", (int *)NULL);
 
-is idiomatic C, I've used this form.
+or
 
-<full-disclosure>
-Oh, and for the record: current sparse from Linus doesn't warn about
-this. Slightly modified sparse warns. Bugs which were uncovered by
-more or less trivial and slightly broken sparse patch [1] are:
+	func("foo", (int *)0);
 
-	[PATCH] dscc4: fix dscc4_init_dummy_skb check
-	[PATCH] opl3sa2: fix adding second dma channel
-	[PATCH] gusclassic: fix adding second dma channel
-	[PATCH] ipw2200: fix ->eeprom[EEPROM_VERSION] check
-	[PATCH] ixj: fix writing silence check
-
-ppp-NULL.patch is the biggest part of
-	187 files changed, 494 insertions(+), 499 deletions(-)
-so I've flushed it first.
-
-[1]:
-
---- a/evaluate.c
-+++ b/evaluate.c
-@@ -934,6 +934,10 @@ static struct symbol *evaluate_compare(s
- 	/* Pointer types? */
- 	if (is_ptr_type(ltype) || is_ptr_type(rtype)) {
- 		// FIXME! Check the types for compatibility
-+		if (is_ptr_type(ltype) && !is_ptr_type(rtype))
-+			bad_expr_type(expr);
-+		if (!is_ptr_type(ltype) && is_ptr_type(rtype))
-+			bad_expr_type(expr);
- 		expr->op = modify_for_unsigned(expr->op);
- 		goto OK;
- 	}
-
-</full-disclosure>
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
