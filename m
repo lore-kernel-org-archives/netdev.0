@@ -1,16 +1,19 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] acxsm: merge from acx 0.3.32
-Date: Tue, 7 Feb 2006 21:10:31 -0500
-Message-ID: <20060208021027.GA30115@tuxdriver.com>
-References: <200602031414.19571.vda@ilport.com.ua> <200602071741.46065.vda@ilport.com.ua>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATCH] acxsm: Add _{get,set}_encodeext and improve logging in _encode
+Date: Wed, 8 Feb 2006 11:47:54 +0200
+Message-ID: <200602081147.54843.vda@ilport.com.ua>
+References: <200602072104.39208.carlos@cmartin.tk>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Carlos =?utf-8?q?Mart=C3=ADn?= <carlos@cmartin.tk>,
+	netdev@vger.kernel.org
 Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Denis Vlasenko <vda@ilport.com.ua>
+To: acx100-devel@lists.sourceforge.net
+In-Reply-To: <200602072104.39208.carlos@cmartin.tk>
 Content-Disposition: inline
-In-Reply-To: <200602071741.46065.vda@ilport.com.ua>
 Sender: acx100-devel-admin@lists.sourceforge.net
 Errors-To: acx100-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
@@ -22,29 +25,22 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 07, 2006 at 05:41:45PM +0200, Denis Vlasenko wrote:
-> On Friday 03 February 2006 14:14, Denis Vlasenko wrote:
-> > Standalone acx driver had several fixes since
-> > acxsm fork, this patch merges them:
-> > - initial support for new TNETW1450 USB chip
-> > - support for firmware 2.3.1.31
-> > 
-> > Also we had one report that acxsm is actually working.
-> > That's quite unexpected.
-> > 
-> > Signed-off-by: Denis Vlasenko <vda@ilport.com.ua>
-> 
-> What is the status of this patch? Accepted? Rejected?
-> Other (please specify): ____________________
+On Tuesday 07 February 2006 22:04, Carlos Mart=C3=ADn wrote:
+> Content-Transfer-Encoding: quoted-printable
 
-I intened to merge it.  I had a busy week last week, with some
-personal obligations.  I apologize for my slow speed.  I'll try to
-do better! :-)
+Patch was damaged. I think sending them as plain-text attachment
+would work better.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+>     Add _{get,set}_encodeext and improve logging in _encode
+>    =20
+>     The code in _{get,set}_encode has been reordered a bit so we have
+>     better logging (function entry and exit) and _{get,set}_encodeext have
+>     been implemented as a wrapper for the ieee80211 stack functions.
+
+Applied, thanks!
+
+=2D-
+vda
 
 
 -------------------------------------------------------
