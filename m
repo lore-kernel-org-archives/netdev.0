@@ -1,49 +1,83 @@
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Subject: Re: [PATCH] acx: make firmware statistics parsing more intelligent
-Date: Wed, 8 Feb 2006 13:54:57 +0100
-Message-ID: <20060208125456.GA6517@rhlx01.fht-esslingen.de>
-References: <20060203105857.GB11173@rhlx01.fht-esslingen.de> <200602041331.16308.vda@ilport.com.ua>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
+Date: Wed, 8 Feb 2006 12:07:14 -0800
+Message-ID: <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
+References: <e282236e0602070146p1ed3fdb6k74aa75e15bbc37a3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acx100-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Denis Vlasenko <vda@ilport.com.ua>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, NetDEV list <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030590AbWBHUHR@vger.kernel.org>
+To: Yoseph Basri <yoseph.basri@gmail.com>,
+	"Boris B. Zhmurov" <bb@kernelpanic.ru>
+In-Reply-To: <e282236e0602070146p1ed3fdb6k74aa75e15bbc37a3@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <200602041331.16308.vda@ilport.com.ua>
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+this should be on netdev (cc'd), i included some of the thread here.
 
-On Sat, Feb 04, 2006 at 01:31:16PM +0200, Denis Vlasenko wrote:
-> On Friday 03 February 2006 12:58, Andreas Mohr wrote:
-> > - use "% 8" modulo instead of more complicated "% 5" calculation
-> 
-> Why? There will be HZ=100 and HZ=250 boxes, 8ms doesn't fit well.
-> 10ms is ok, 5ms or 2.5ms is more or less ok too, but 8ms?
-> 
-> But I'll apply this anyway.
+On 2/7/06, Yoseph Basri <yoseph.basri@gmail.com> wrote:
+> Hello kernel maillist,
+>
+> I'm new member maillist.
+>
+> Currently, I receive the warning log from my kernel.
+>
+> Since update to
+> Linux  2.6.14.3 #1 SMP Fri Nov 25 20:20:05 SGT 2005 i686 GNU/Linux from 2.4,
+>
+> I am getting the warning log:
+>
+> kernel: KERNEL: assertion (!sk->sk_forward_alloc) failed at
+> net/core/stream.c (279)
+> kernel: KERNEL: assertion (!sk->sk_forward_alloc) failed at
+> net/ipv4/af_inet.c (148)
+>
+> Any information about this issue, and how to solve this problem ?
+>
+> Another server that i rolled back from 2.6.14 to 2.4 kernel and has no
+> warning again. is this bug from 2.6 kernel?
+>
+> Thanks for your info.
 
-Your objection is right, I think, since trading in a more "normal" scheduling
-slice length for a *slight* gain in code size doesn't make too much sense.
-So maybe still use "% 5"?
+On 2/7/06, Yoseph Basri <yoseph.basri@gmail.com> wrote:
+> Hi Boris,
+>
+> I think so, here is from the dmeg info:
+>
+> Intel(R) PRO/1000 Network Driver - version 6.0.60-k2
+> Copyright (c) 1999-2005 Intel Corporation.
+> ACPI: PCI Interrupt 0000:06:08.0[A] -> GSI 29 (level, low) -> IRQ 16
+> e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+> ACPI: PCI Interrupt 0000:06:08.1[B] -> GSI 30 (level, low) -> IRQ 17
+> e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
+> e100: Intel(R) PRO/100 Network Driver, 3.4.14-k2-NAPI
+> e100: Copyright(c) 1999-2005 Intel Corporation
+>
+> any info regarding this warning?
+>
+> YB
+>
+> On 2/7/06, Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
+> > Hello, Yoseph Basri.
+> >
+> > On 07.02.2006 12:46 you said the following:
+> >
+> > > I am getting the warning log:
+> > >
+> > > kernel: KERNEL: assertion (!sk->sk_forward_alloc) failed at
+> > > net/core/stream.c (279)
+> > > kernel: KERNEL: assertion (!sk->sk_forward_alloc) failed at
+> > > net/ipv4/af_inet.c (148)
+> >
+> >
+> > Do you have Intel Pro 1000 network card? Same here...
 
-Sorry for the wasted discussion...
+whats the relevance of e1000?
 
-Andreas Mohr
+I though Herbert had fixed these, and it looks like half the patches
+got into 2.6.14.3, but not the fix to the fix committed on 9-6 (not in
+2.6.14.* at all)
 
-
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
+Jesse
