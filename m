@@ -1,28 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Thu, 09 Feb 2006 09:19:20 +1100
-Message-ID: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
-References: <17386.27957.822041.83512@gargle.gargle.HOWL>
-Cc: adobriyan@gmail.com, viro@ftp.linux.org.uk, netdev@vger.kernel.org,
+Date: Wed, 08 Feb 2006 14:23:56 -0800
+Message-ID: <ada8xslbibn.fsf@cisco.com>
+References: <20060208222559.GA14543@mipter.zuzino.mipt.ru>
+	<17386.27957.822041.83512@gargle.gargle.HOWL>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Al Viro <viro@ftp.linux.org.uk>, netdev@vger.kernel.org,
 	linux-ppp@vger.kernel.org
 Return-path: <linux-ppp-owner@vger.kernel.org>
-To: carlsonj@workingcode.com (James Carlson)
-In-Reply-To: <17386.27957.822041.83512@gargle.gargle.HOWL>
+To: James Carlson <carlsonj@workingcode.com>
+In-Reply-To: <17386.27957.822041.83512@gargle.gargle.HOWL> (James Carlson's
+ message of "Wed, 8 Feb 2006 17:14:13 -0500")
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Carlson <carlsonj@workingcode.com> wrote:
-> Alexey Dobriyan writes:
->> -     if (ap == 0)
->> +     if (!ap)
-> 
-> And the solution is to treat it as a boolean instead?!  I'm not sure
-> which is more ugly.
+    James> And the solution is to treat it as a boolean instead?!  I'm
+    James> not sure which is more ugly.
 
-Treating it as a boolean looks good to me.  It's better than the existing
-code because it shuts sparse up.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+    James> Why wouldn't explicit comparison against NULL be the
+    James> preferred fix?
+
+"if (ptr)" and "if (!ptr)" are the preferred idiom for testing whether
+a pointer is NULL.  What is gained by writing "if (ptr != NULL)" ?
