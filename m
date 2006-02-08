@@ -1,36 +1,38 @@
-From: Paul Mackerras <paulus@samba.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Thu, 9 Feb 2006 10:26:58 +1100
-Message-ID: <17386.32322.548974.883642@cargo.ozlabs.ibm.com>
-References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
-	<OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com>
-	<20060208232214.GC14543@mipter.zuzino.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Carlson <carlsonj@workingcode.com>,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
+Date: Thu, 09 Feb 2006 10:49:37 +1100
+Message-ID: <E1F6z45-0006qL-00@gondolin.me.apana.org.au>
+References: <20060208232214.GC14543@mipter.zuzino.mipt.ru>
+Cc: dlstevens@us.ibm.com, herbert@gondor.apana.org.au,
+	carlsonj@workingcode.com, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	viro@ftp.linux.org.uk
 Return-path: <linux-ppp-owner@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
+To: adobriyan@gmail.com (Alexey Dobriyan)
 In-Reply-To: <20060208232214.GC14543@mipter.zuzino.mipt.ru>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan writes:
+Alexey Dobriyan <adobriyan@gmail.com> wrote:
+> 
+> Oh, and for the record: current sparse from Linus doesn't warn about
+> this. Slightly modified sparse warns. Bugs which were uncovered by
+> more or less trivial and slightly broken sparse patch [1] are:
+> 
+>        [PATCH] dscc4: fix dscc4_init_dummy_skb check
+>        [PATCH] opl3sa2: fix adding second dma channel
+>        [PATCH] gusclassic: fix adding second dma channel
+>        [PATCH] ipw2200: fix ->eeprom[EEPROM_VERSION] check
+>        [PATCH] ixj: fix writing silence check
 
-> The fact that they can be represented by the same bit patterns is
-> irrelevant.
+The first two can also be caught with gcc -pedantic.  In fact, catching
+the last two should be doable there as well.  The difference between
+gcc -pedantic and sparse is that it doesn't warn about obviously correct
+cases like p != 0 or p = 0.
 
-Indeed it is.  The fact that the C standard says that "0" is a valid
-representation for a null pointer in C source code *is* relevant,
-though.  That is in fact something that *wasn't* in K&R C but was
-introduced in ISO Standard C, and I think it makes sense.
-
-Anyway, this whole discussion is silly.  Can we move on to discussing
-whether "disc" or "disk" is the correct spelling, or something else
-equally productive? :)
-
-Paul.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
