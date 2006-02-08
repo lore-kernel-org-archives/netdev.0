@@ -1,29 +1,27 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
-Date: Wed, 08 Feb 2006 14:12:05 -0800 (PST)
-Message-ID: <20060208.141205.129707967.davem@davemloft.net>
-References: <e282236e0602070146p1ed3fdb6k74aa75e15bbc37a3@mail.gmail.com>
-	<4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
+From: James Carlson <carlsonj@workingcode.com>
+Subject: Re: [PATCH] ppp: don't use 0 in pointer context
+Date: Wed, 8 Feb 2006 17:14:13 -0500
+Message-ID: <17386.27957.822041.83512@gargle.gargle.HOWL>
+References: <20060208222559.GA14543@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoseph.basri@gmail.com, bb@kernelpanic.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932491AbWBHWMP@vger.kernel.org>
-To: jesse.brandeburg@gmail.com
-In-Reply-To: <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Al Viro <viro@ftp.linux.org.uk>, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: Alexey Dobriyan's message of 9 February 2006 01:28:47
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Date: Wed, 8 Feb 2006 12:07:14 -0800
+Alexey Dobriyan writes:
+> -	if (ap == 0)
+> +	if (!ap)
 
-> this should be on netdev (cc'd), i included some of the thread here.
- ...
-> I though Herbert had fixed these, and it looks like half the patches
-> got into 2.6.14.3, but not the fix to the fix committed on 9-6 (not in
-> 2.6.14.* at all)
+And the solution is to treat it as a boolean instead?!  I'm not sure
+which is more ugly.
 
-What are the changeset IDs so I can fix this?
+Why wouldn't explicit comparison against NULL be the preferred fix?
 
-Thanks.
+-- 
+James Carlson         42.703N 71.076W         <carlsonj@workingcode.com>
