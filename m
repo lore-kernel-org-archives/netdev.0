@@ -1,26 +1,40 @@
-From: Roland Dreier <rdreier@cisco.com>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Wed, 08 Feb 2006 14:23:56 -0800
-Message-ID: <ada8xslbibn.fsf@cisco.com>
-References: <20060208222559.GA14543@mipter.zuzino.mipt.ru>
-	<17386.27957.822041.83512@gargle.gargle.HOWL>
+Date: Wed, 8 Feb 2006 14:45:08 -0800
+Message-ID: <OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com>
+References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: adobriyan@gmail.com, carlsonj@workingcode.com (James Carlson),
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
 Return-path: <linux-ppp-owner@vger.kernel.org>
-To: James Carlson <carlsonj@workingcode.com>
-In-Reply-To: <17386.27957.822041.83512@gargle.gargle.HOWL> (James Carlson's
- message of "Wed, 8 Feb 2006 17:14:13 -0500")
+In-Reply-To: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    James> And the solution is to treat it as a boolean instead?!  I'm
-    James> not sure which is more ugly.
+netdev-owner@vger.kernel.org wrote on 02/08/2006 02:19:20 PM:
 
-    James> Why wouldn't explicit comparison against NULL be the
-    James> preferred fix?
+> James Carlson <carlsonj@workingcode.com> wrote:
+> > Alexey Dobriyan writes:
+> >> -     if (ap == 0)
+> >> +     if (!ap)
+> > 
+> > And the solution is to treat it as a boolean instead?!  I'm not sure
+> > which is more ugly.
+> 
+> Treating it as a boolean looks good to me.  It's better than the 
+existing
+> code because it shuts sparse up.
 
-"if (ptr)" and "if (!ptr)" are the preferred idiom for testing whether
-a pointer is NULL.  What is gained by writing "if (ptr != NULL)" ?
+        Why would sparse complain about this? 0 is a well-defined
+pointer value (the only value guaranteed to be by the language).
+        From K&R ANSI C edition, section 5.4:
+
+        "Pointers and integers are not interchangeable. Zero is the sole
+exception: the constant zero may be assigned to a pointer, and a pointer
+may be compared with the constant zero."
+
+                                                        +-DLS
+
