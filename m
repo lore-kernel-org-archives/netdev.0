@@ -1,40 +1,39 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: Paul Mackerras <paulus@samba.org>
 Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Wed, 8 Feb 2006 14:45:08 -0800
-Message-ID: <OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com>
-References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
+Date: Thu, 9 Feb 2006 09:44:48 +1100
+Message-ID: <17386.29792.87133.852682@cargo.ozlabs.ibm.com>
+References: <20060208222559.GA14543@mipter.zuzino.mipt.ru>
+	<17386.27957.822041.83512@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: adobriyan@gmail.com, carlsonj@workingcode.com (James Carlson),
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Al Viro <viro@ftp.linux.org.uk>, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org
 Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: James Carlson <carlsonj@workingcode.com>
+In-Reply-To: <17386.27957.822041.83512@gargle.gargle.HOWL>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 02/08/2006 02:19:20 PM:
+James Carlson writes:
 
-> James Carlson <carlsonj@workingcode.com> wrote:
-> > Alexey Dobriyan writes:
-> >> -     if (ap == 0)
-> >> +     if (!ap)
-> > 
-> > And the solution is to treat it as a boolean instead?!  I'm not sure
-> > which is more ugly.
+> Alexey Dobriyan writes:
+> > -	if (ap == 0)
+> > +	if (!ap)
 > 
-> Treating it as a boolean looks good to me.  It's better than the 
-existing
-> code because it shuts sparse up.
+> And the solution is to treat it as a boolean instead?!  I'm not sure
+> which is more ugly.
+> 
+> Why wouldn't explicit comparison against NULL be the preferred fix?
 
-        Why would sparse complain about this? 0 is a well-defined
-pointer value (the only value guaranteed to be by the language).
-        From K&R ANSI C edition, section 5.4:
+I just think this whole "you shouldn't compare a pointer to 0" thing
+is completely silly, and patches like this have about the same level
+of usefulness as patches that change "color" to "colour" or vice
+versa.
 
-        "Pointers and integers are not interchangeable. Zero is the sole
-exception: the constant zero may be assigned to a pointer, and a pointer
-may be compared with the constant zero."
+However, the head penguin seems to have some bee in his bonnet about 0
+not being a pointer value (despite what the C standard says), so
+whatever.  *shrug*
 
-                                                        +-DLS
-
+Paul.
