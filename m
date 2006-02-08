@@ -1,55 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Paul Mackerras <paulus@samba.org>
 Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Thu, 9 Feb 2006 10:08:03 +1100
-Message-ID: <20060208230803.GA26038@gondor.apana.org.au>
-References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au> <OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com> <20060208.144712.66821895.davem@davemloft.net>
+Date: Thu, 9 Feb 2006 10:26:58 +1100
+Message-ID: <17386.32322.548974.883642@cargo.ozlabs.ibm.com>
+References: <E1F6xei-0006hc-00@gondolin.me.apana.org.au>
+	<OF71FA79DA.C4F20DA5-ON8825710F.007B701A-8825710F.007CB97E@us.ibm.com>
+	<20060208232214.GC14543@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dlstevens@us.ibm.com, adobriyan@gmail.com,
-	carlsonj@workingcode.com, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	viro@ftp.linux.org.uk
+Content-Transfer-Encoding: 7bit
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	James Carlson <carlsonj@workingcode.com>,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, viro@ftp.linux.org.uk
 Return-path: <linux-ppp-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060208.144712.66821895.davem@davemloft.net>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060208232214.GC14543@mipter.zuzino.mipt.ru>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2006 at 02:47:12PM -0800, David S. Miller wrote:
-> From: David Stevens <dlstevens@us.ibm.com>
-> Date: Wed, 8 Feb 2006 14:45:08 -0800
-> 
-> >         Why would sparse complain about this? 0 is a well-defined
-> > pointer value (the only value guaranteed to be by the language).
-> 
-> Because sparse goes beyond the standards and tries to
-> catch cases that usually end up being bugs.
+Alexey Dobriyan writes:
 
-Well to be frank the only significant NULL/0 bug that I know can't
-be caught by converting 0 to NULL anyway.  The bug only exists on
-architectures where the representations of null-pointers of types
-are different.  On those architectures, if you have something like
+> The fact that they can be represented by the same bit patterns is
+> irrelevant.
 
-int func(char *fmt, ...);
+Indeed it is.  The fact that the C standard says that "0" is a valid
+representation for a null pointer in C source code *is* relevant,
+though.  That is in fact something that *wasn't* in K&R C but was
+introduced in ISO Standard C, and I think it makes sense.
 
-...
+Anyway, this whole discussion is silly.  Can we move on to discussing
+whether "disc" or "disk" is the correct spelling, or something else
+equally productive? :)
 
-	func("foo", NULL);
-
-Then this may break if func actually expected a int * while NULL
-could be something different altogether.  The only safe way to
-write this is to have
-
-	func("foo", (int *)NULL);
-
-or
-
-	func("foo", (int *)0);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Paul.
