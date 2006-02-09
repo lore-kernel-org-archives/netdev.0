@@ -1,11 +1,12 @@
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 4/7] IrDA: Set proper IrLAP device address length
-Date: Thu, 9 Feb 2006 23:32:16 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0602090323140.19426@irie>
+Subject: [PATCH 3/7] IrDA: nsc-ircc: support for yet another Thinkpad IrDA
+ chipset
+Date: Thu, 9 Feb 2006 23:32:09 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0602090319180.19426@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ext Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ext Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
 	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: "ext David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
@@ -20,44 +21,43 @@ List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-This patch set IrDA's addr_len properly, i.e to 4 bytes, the size of the
-IrLAP device address.
+This patch simply adds support for a variation of the nsc-ircc PC8739x
+chipset, found in some IBM Thinkpad laptops.
 
+Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-diff --git a/include/net/irda/irlap.h b/include/net/irda/irlap.h
-index f55e86e..2127cae 100644
---- a/include/net/irda/irlap.h
-+++ b/include/net/irda/irlap.h
-@@ -50,6 +50,9 @@
- /* May be different when we get VFIR */
- #define LAP_MAX_HEADER (LAP_ADDR_HEADER + LAP_CTRL_HEADER)
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index e8ff07f..39cf5f0 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -90,9 +90,9 @@ static int qos_mtt_bits = 0x07;  /* 1 ms
+ static int dongle_id;
 
-+/* Each IrDA device gets a random 32 bits IRLAP device address */
-+#define LAP_ALEN 4
-+
- #define BROADCAST  0xffffffff /* Broadcast device address */
- #define CBROADCAST 0xfe       /* Connection broadcast address */
- #define XID_FORMAT 0x01       /* Discovery XID format */
-diff --git a/net/irda/irda_device.c b/net/irda/irda_device.c
-index 890bac0..e3debbd 100644
---- a/net/irda/irda_device.c
-+++ b/net/irda/irda_device.c
-@@ -343,12 +343,12 @@ static void irda_task_timer_expired(void
- static void irda_device_setup(struct net_device *dev)
- {
-         dev->hard_header_len = 0;
--        dev->addr_len        = 0;
-+        dev->addr_len        = LAP_ALEN;
+ /* Use BIOS settions by default, but user may supply module parameters */
+-static unsigned int io[]  = { ~0, ~0, ~0, ~0 };
+-static unsigned int irq[] = {  0,  0,  0,  0 };
+-static unsigned int dma[] = {  0,  0,  0,  0 };
++static unsigned int io[]  = { ~0, ~0, ~0, ~0, ~0 };
++static unsigned int irq[] = {  0,  0,  0,  0,  0 };
++static unsigned int dma[] = {  0,  0,  0,  0,  0 };
 
-         dev->type            = ARPHRD_IRDA;
-         dev->tx_queue_len    = 8; /* Window size + 1 s-frame */
+ static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info);
+ static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info);
+@@ -115,10 +115,12 @@ static nsc_chip_t chips[] = {
+ 	/* Contributed by Jan Frey - IBM A30/A31 */
+ 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff,
+ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
++	{ "IBM", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
++ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+ 	{ NULL }
+ };
 
--	memset(dev->broadcast, 0xff, 4);
-+	memset(dev->broadcast, 0xff, LAP_ALEN);
+-static struct nsc_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL };
++static struct nsc_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL, NULL };
 
- 	dev->mtu = 2048;
- 	dev->flags = IFF_NOARP;
+ static char *dongle_types[] = {
+ 	"Differential serial interface",
 
 
 -------------------------------------------------------
