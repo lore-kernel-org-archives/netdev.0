@@ -1,46 +1,47 @@
-From: Ian McDonald <imcdnzl@gmail.com>
-Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
-Date: Fri, 10 Feb 2006 08:37:48 +1300
-Message-ID: <cbec11ac0602091137p4ee233bdgdcfbf3d6cb62a62f@mail.gmail.com>
-References: <e282236e0602070146p1ed3fdb6k74aa75e15bbc37a3@mail.gmail.com>
-	 <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
-	 <43EB9548.9060504@kernelpanic.ru>
-	 <cbec11ac0602091125w5a5a7c6em8462131e9f9b24dc@mail.gmail.com>
-	 <43EB98B0.4@kernelpanic.ru>
+From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 7/7] IrDA: out of range array access
+Date: Thu, 9 Feb 2006 23:32:43 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0602092231470.4121@irie>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Yoseph Basri <yoseph.basri@gmail.com>,
-	linux-kernel@vger.kernel.org, NetDEV list <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750738AbWBIThx@vger.kernel.org>
-To: bb@kernelpanic.ru
-In-Reply-To: <43EB98B0.4@kernelpanic.ru>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ext Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "ext David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-On 2/10/06, Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
-> Hello, Ian McDonald.
->
-> On 09.02.2006 22:25 you said the following:
->
-> > Is it possible for you to download 2.6.16-rc2 or similar and see if it
-> > goes away?
->
-> It'll be better, if I get only patch fixs that problem, not all 2.6.16-rc2.
->
-Oops I didn't read Jesse's message earlier properly.
+This patch fixes an out of range array access in irnet_irda.c.
 
-That patch which probably fixed it is (from his message):
-I think the commit id that is missing from 2.6.14.X is
-fb5f5e6e0cebd574be737334671d1aa8f170d5f3
+Author: David Binderman <dcb314-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-but here is the web link if i gave the wrong info
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=fb5f5e6e0cebd574be737334671d1aa8f170d5f3
---
-Ian McDonald
-http://wand.net.nz/~iam4
-WAND Network Research Group
-University of Waikato
-New Zealand
+diff --git a/net/irda/irnet/irnet_irda.c b/net/irda/irnet/irnet_irda.c
+index 07ec326..e477a8d 100644
+--- a/net/irda/irnet/irnet_irda.c
++++ b/net/irda/irnet/irnet_irda.c
+@@ -696,7 +696,7 @@ irnet_daddr_to_dname(irnet_socket *	self
+ 	{
+ 	  /* Yes !!! Get it.. */
+ 	  strlcpy(self->rname, discoveries[i].info, sizeof(self->rname));
+-	  self->rname[NICKNAME_MAX_LEN + 1] = '\0';
++	  self->rname[sizeof(self->rname) - 1] = '\0';
+ 	  DEBUG(IRDA_SERV_INFO, "Device 0x%08x is in fact ``%s''.\n",
+ 		self->daddr, self->rname);
+ 	  kfree(discoveries);
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
