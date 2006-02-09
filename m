@@ -1,8 +1,7 @@
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 3/7] IrDA: nsc-ircc: support for yet another Thinkpad IrDA
- chipset
-Date: Thu, 9 Feb 2006 23:32:09 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0602090319180.19426@irie>
+Subject: [PATCH 2/7] IrDA: nsc-ircc: PM update
+Date: Thu, 9 Feb 2006 23:32:02 +0200 (EET)
+Message-ID: <Pine.LNX.4.58.0602090317250.19426@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -21,43 +20,261 @@ List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-This patch simply adds support for a variation of the nsc-ircc PC8739x
-chipset, found in some IBM Thinkpad laptops.
+This patch brings the nsc-ircc code to a more up to date power management
+scheme, following the current device model.
 
-Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Dmitry Torokhov <dtor-JGs/UdohzUI@public.gmane.org>
+Signed-off-by: Rudolf Marek <r.marek-3zVPrsR01WjrBKCeMvbIDA@public.gmane.org>
 Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
-index e8ff07f..39cf5f0 100644
---- a/drivers/net/irda/nsc-ircc.c
-+++ b/drivers/net/irda/nsc-ircc.c
-@@ -90,9 +90,9 @@ static int qos_mtt_bits = 0x07;  /* 1 ms
- static int dongle_id;
+diff --git a/drivers/net/irda/nsc-ircc.h b/drivers/net/irda/nsc-ircc.h
+index 6edf7e5..dacf671 100644
+--- a/drivers/net/irda/nsc-ircc.h
++++ b/drivers/net/irda/nsc-ircc.h
+@@ -269,7 +269,7 @@ struct nsc_ircc_cb {
+ 	__u32 new_speed;
+ 	int index;                 /* Instance index */
 
- /* Use BIOS settions by default, but user may supply module parameters */
--static unsigned int io[]  = { ~0, ~0, ~0, ~0 };
--static unsigned int irq[] = {  0,  0,  0,  0 };
--static unsigned int dma[] = {  0,  0,  0,  0 };
-+static unsigned int io[]  = { ~0, ~0, ~0, ~0, ~0 };
-+static unsigned int irq[] = {  0,  0,  0,  0,  0 };
-+static unsigned int dma[] = {  0,  0,  0,  0,  0 };
-
- static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info);
- static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info);
-@@ -115,10 +115,12 @@ static nsc_chip_t chips[] = {
- 	/* Contributed by Jan Frey - IBM A30/A31 */
- 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff,
- 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
-+	{ "IBM", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
-+ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
- 	{ NULL }
+-        struct pm_dev *dev;
++	struct platform_device *pldev;
  };
 
--static struct nsc_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL };
-+static struct nsc_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL, NULL };
+ static inline void switch_bank(int iobase, int bank)
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index 74cb38c..e8ff07f 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -55,14 +55,12 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/pnp.h>
++#include <linux/platform_device.h>
 
- static char *dongle_types[] = {
- 	"Differential serial interface",
+ #include <asm/io.h>
+ #include <asm/dma.h>
+ #include <asm/byteorder.h>
+
+-#include <linux/pm.h>
+-#include <linux/pm_legacy.h>
+-
+ #include <net/irda/wrapper.h>
+ #include <net/irda/irda.h>
+ #include <net/irda/irda_device.h>
+@@ -74,6 +72,19 @@
+
+ static char *driver_name = "nsc-ircc";
+
++/* Power Management */
++#define NSC_IRCC_DRIVER_NAME                  "nsc-ircc"
++static int nsc_ircc_suspend(struct platform_device *dev, pm_message_t state);
++static int nsc_ircc_resume(struct platform_device *dev);
++
++static struct platform_driver nsc_ircc_driver = {
++	.suspend	= nsc_ircc_suspend,
++	.resume		= nsc_ircc_resume,
++	.driver		= {
++		.name	= NSC_IRCC_DRIVER_NAME,
++	},
++};
++
+ /* Module parameters */
+ static int qos_mtt_bits = 0x07;  /* 1 ms or more */
+ static int dongle_id;
+@@ -164,7 +175,6 @@ static int  nsc_ircc_net_open(struct net
+ static int  nsc_ircc_net_close(struct net_device *dev);
+ static int  nsc_ircc_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static struct net_device_stats *nsc_ircc_net_get_stats(struct net_device *dev);
+-static int nsc_ircc_pmproc(struct pm_dev *dev, pm_request_t rqst, void *data);
+
+ /* Globals */
+ static int pnp_registered;
+@@ -186,6 +196,12 @@ static int __init nsc_ircc_init(void)
+ 	int reg;
+ 	int i = 0;
+
++	ret = platform_driver_register(&nsc_ircc_driver);
++        if (ret) {
++                IRDA_ERROR("%s, Can't register driver!\n", driver_name);
++                return ret;
++        }
++
+  	/* Register with PnP subsystem to detect disable ports */
+ 	ret = pnp_register_driver(&nsc_ircc_pnp_driver);
+
+@@ -274,6 +290,7 @@ static int __init nsc_ircc_init(void)
+ 	}
+
+ 	if (ret) {
++		platform_driver_unregister(&nsc_ircc_driver);
+ 		pnp_unregister_driver(&nsc_ircc_pnp_driver);
+ 		pnp_registered = 0;
+ 	}
+@@ -291,13 +308,13 @@ static void __exit nsc_ircc_cleanup(void
+ {
+ 	int i;
+
+-	pm_unregister_all(nsc_ircc_pmproc);
+-
+ 	for (i = 0; i < ARRAY_SIZE(dev_self); i++) {
+ 		if (dev_self[i])
+ 			nsc_ircc_close(dev_self[i]);
+ 	}
+
++	platform_driver_unregister(&nsc_ircc_driver);
++
+ 	if (pnp_registered)
+  		pnp_unregister_driver(&nsc_ircc_pnp_driver);
+
+@@ -314,7 +331,6 @@ static int __init nsc_ircc_open(chipio_t
+ {
+ 	struct net_device *dev;
+ 	struct nsc_ircc_cb *self;
+-	struct pm_dev *pmdev;
+ 	void *ret;
+ 	int err, chip_index;
+
+@@ -444,11 +460,18 @@ static int __init nsc_ircc_open(chipio_t
+ 	self->io.dongle_id = dongle_id;
+ 	nsc_ircc_init_dongle_interface(self->io.fir_base, dongle_id);
+
+-        pmdev = pm_register(PM_SYS_DEV, PM_SYS_IRDA, nsc_ircc_pmproc);
+-        if (pmdev)
+-                pmdev->data = self;
++ 	self->pldev = platform_device_register_simple(NSC_IRCC_DRIVER_NAME,
++ 						      self->index, NULL, 0);
++ 	if (IS_ERR(self->pldev)) {
++ 		err = PTR_ERR(self->pldev);
++ 		goto out5;
++ 	}
++ 	platform_set_drvdata(self->pldev, self);
+
+ 	return chip_index;
++
++ out5:
++ 	unregister_netdev(dev);
+  out4:
+ 	dma_free_coherent(NULL, self->tx_buff.truesize,
+ 			  self->tx_buff.head, self->tx_buff_dma);
+@@ -479,6 +502,8 @@ static int __exit nsc_ircc_close(struct
+
+         iobase = self->io.fir_base;
+
++	platform_device_unregister(self->pldev);
++
+ 	/* Remove netdevice */
+ 	unregister_netdev(self->netdev);
+
+@@ -2278,45 +2303,83 @@ static struct net_device_stats *nsc_ircc
+ 	return &self->stats;
+ }
+
+-static void nsc_ircc_suspend(struct nsc_ircc_cb *self)
++static int nsc_ircc_suspend(struct platform_device *dev, pm_message_t state)
+ {
+-	IRDA_MESSAGE("%s, Suspending\n", driver_name);
+-
++     	struct nsc_ircc_cb *self = platform_get_drvdata(dev);
++ 	int bank;
++	unsigned long flags;
++ 	int iobase = self->io.fir_base;
++
+ 	if (self->io.suspended)
+-		return;
+-
+-	nsc_ircc_net_close(self->netdev);
++		return 0;
+
++	IRDA_DEBUG(1, "%s, Suspending\n", driver_name);
++
++	rtnl_lock();
++	if (netif_running(self->netdev)) {
++		netif_device_detach(self->netdev);
++		spin_lock_irqsave(&self->lock, flags);
++		/* Save current bank */
++		bank = inb(iobase+BSR);
++
++		/* Disable interrupts */
++		switch_bank(iobase, BANK0);
++		outb(0, iobase+IER);
++
++		/* Restore bank register */
++		outb(bank, iobase+BSR);
++
++		spin_unlock_irqrestore(&self->lock, flags);
++		free_irq(self->io.irq, self->netdev);
++		disable_dma(self->io.dma);
++	}
+ 	self->io.suspended = 1;
++	rtnl_unlock();
++
++	return 0;
+ }
+-
+-static void nsc_ircc_wakeup(struct nsc_ircc_cb *self)
++
++static int nsc_ircc_resume(struct platform_device *dev)
+ {
++ 	struct nsc_ircc_cb *self = platform_get_drvdata(dev);
++ 	unsigned long flags;
++
+ 	if (!self->io.suspended)
+-		return;
++		return 0;
++
++	IRDA_DEBUG(1, "%s, Waking up\n", driver_name);
+
++	rtnl_lock();
+ 	nsc_ircc_setup(&self->io);
+-	nsc_ircc_net_open(self->netdev);
+-
+-	IRDA_MESSAGE("%s, Waking up\n", driver_name);
++	nsc_ircc_init_dongle_interface(self->io.fir_base, self->io.dongle_id);
+
++	if (netif_running(self->netdev)) {
++		if (request_irq(self->io.irq, nsc_ircc_interrupt, 0,
++				self->netdev->name, self->netdev)) {
++ 		    	IRDA_WARNING("%s, unable to allocate irq=%d\n",
++				     driver_name, self->io.irq);
++
++			/*
++			 * Don't fail resume process, just kill this
++			 * network interface
++			 */
++			unregister_netdevice(self->netdev);
++		} else {
++			spin_lock_irqsave(&self->lock, flags);
++			nsc_ircc_change_speed(self, self->io.speed);
++			spin_unlock_irqrestore(&self->lock, flags);
++			netif_device_attach(self->netdev);
++		}
++
++	} else {
++		spin_lock_irqsave(&self->lock, flags);
++		nsc_ircc_change_speed(self, 9600);
++		spin_unlock_irqrestore(&self->lock, flags);
++	}
+ 	self->io.suspended = 0;
+-}
++	rtnl_unlock();
+
+-static int nsc_ircc_pmproc(struct pm_dev *dev, pm_request_t rqst, void *data)
+-{
+-        struct nsc_ircc_cb *self = (struct nsc_ircc_cb*) dev->data;
+-        if (self) {
+-                switch (rqst) {
+-                case PM_SUSPEND:
+-                        nsc_ircc_suspend(self);
+-                        break;
+-                case PM_RESUME:
+-                        nsc_ircc_wakeup(self);
+-                        break;
+-                }
+-        }
+-	return 0;
++ 	return 0;
+ }
+
+ MODULE_AUTHOR("Dag Brattli <dagb-WiQn+q4tdXRhl2p70BpVqQ@public.gmane.org>");
 
 
 -------------------------------------------------------
