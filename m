@@ -1,65 +1,32 @@
-From: James Carlson <carlsonj@workingcode.com>
-Subject: Re: [PATCH] ppp: don't use 0 in pointer context
-Date: Thu, 9 Feb 2006 08:15:23 -0500
-Message-ID: <17387.16491.897130.952966@gargle.gargle.HOWL>
-References: <20060208222559.GA14543@mipter.zuzino.mipt.ru>
-	<17386.27957.822041.83512@gargle.gargle.HOWL>
-	<17386.29792.87133.852682@cargo.ozlabs.ibm.com>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
+Date: Thu, 09 Feb 2006 22:17:28 +0300
+Message-ID: <43EB9548.9060504@kernelpanic.ru>
+References: <e282236e0602070146p1ed3fdb6k74aa75e15bbc37a3@mail.gmail.com> <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
+Reply-To: bb@kernelpanic.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Al Viro <viro@ftp.linux.org.uk>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: Paul Mackerras <paulus@samba.org>
-In-Reply-To: Paul Mackerras's message of 9 February 2006 09:44:48
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: Yoseph Basri <yoseph.basri@gmail.com>,
+	linux-kernel@vger.kernel.org, NetDEV list <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750735AbWBITRb@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Mackerras writes:
-> > And the solution is to treat it as a boolean instead?!  I'm not sure
-> > which is more ugly.
-> > 
-> > Why wouldn't explicit comparison against NULL be the preferred fix?
+Hello, Jesse Brandeburg.
+
+On 08.02.2006 23:07 you said the following:
+
+> whats the relevance of e1000?
 > 
-> I just think this whole "you shouldn't compare a pointer to 0" thing
-> is completely silly,
+> I though Herbert had fixed these
 
-Indeed.
+Nope :( I had this messages on 2.6.14.2 and now I have it on 2.6.15.3.
 
-> However, the head penguin seems to have some bee in his bonnet about 0
-> not being a pointer value (despite what the C standard says), so
-> whatever.  *shrug*
-
-Yeesh.
-
-My point was that if you're going to get bent over something silly
-like this, you might as well change it to something explicit, such as
-a comparison of two pointers, rather than pretending that either
-pointers or integers are in fact booleans.
-
-I realize that it's entirely legal (per the standards) to write:
-
-	if (p)
-
-as it is to write:
-
-	if (p != 0)
-
-and also:
-
-	if (p != NULL)
-
-But if we're actually interested in clarity, rather than passing some
-woe-begotten lint-like purity test, only that third form actually says
-what the code does.  The other two may well be idiomatic in certain
-circles, but they're nowhere near as lucid for those maintaining the
-code.
-
-I think that if this patch is "important," then something other than
-just clarity is valued.  In that case, just ignore me, and do what you
-will.
 
 -- 
-James Carlson         42.703N 71.076W         <carlsonj@workingcode.com>
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
