@@ -1,243 +1,35 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: [PATCH] IPv6: Cleanups for net/ipv6/addrconf.c (kzalloc, early exit) v2
-Date: Sat, 11 Feb 2006 17:37:18 +0100
-Message-ID: <200602111737.20010.ioe-lkml@rameria.de>
-References: <200602091736.18000.ioe-lkml@rameria.de> <20060210.014853.13643277.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932175AbWBKQh3@vger.kernel.org>
-To: YOSHIFUJI Hideaki /
-	 =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
 	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20060210.014853.13643277.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+Subject: Re: [PATCH] IPv6: Cleanups for net/ipv6/addrconf.c (kzalloc, early
+ exit) v2
+Date: Sun, 12 Feb 2006 02:11:03 +0900 (JST)
+Message-ID: <20060212.021103.76157181.yoshfuji@linux-ipv6.org>
+References: <200602091736.18000.ioe-lkml@rameria.de>
+	<20060210.014853.13643277.yoshfuji@linux-ipv6.org>
+	<200602111737.20010.ioe-lkml@rameria.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ioe-lkml@rameria.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932345AbWBKRJm@vger.kernel.org>
+To: davem@davemloft.net
+In-Reply-To: <200602111737.20010.ioe-lkml@rameria.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Oeser <ioe-lkml@rameria.de>
+Hello.
 
-Here are some possible (and trivial) cleanups.
-- use kzalloc() where possible
-- remove unused label
-- invert allocation failure test like
-  if (object) {
-        /* Rest of function here */
-  }
-  to
+In article <200602111737.20010.ioe-lkml@rameria.de> (at Sat, 11 Feb 2006 17:37:18 +0100), Ingo Oeser <ioe-lkml@rameria.de> says:
 
-  if (object == NULL)
-        return NULL;
+> From: Ingo Oeser <ioe-lkml@rameria.de>
+> 
+> Here are some possible (and trivial) cleanups.
+> - use kzalloc() where possible
+> - remove unused label
+> - invert allocation failure test like
+:
+> Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-  /* Rest of function here */
-
-The last one moves quite some code, because it changes indention.
-I can split that up, if needed.
-
-Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
----
-Hello,
-
-On Thursday 09 February 2006 17:48, YOSHIFUJI Hideaki wrote:
-> Please keep nlmsg_failure, which is used by NLMSG_NEW().
-
-This issue has been adressed now. 
-
-Patch is against latest git from Linus. It has been compile tested with
-allyesconfig on ix86.
-
-Many thanks for your patience!
-
-Regards
-
-Ingo Oeer
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index b7d8822..984a9bc 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -327,86 +327,85 @@ static struct inet6_dev * ipv6_add_dev(s
- 	if (dev->mtu < IPV6_MIN_MTU)
- 		return NULL;
- 
--	ndev = kmalloc(sizeof(struct inet6_dev), GFP_KERNEL);
-+	ndev = kzalloc(sizeof(struct inet6_dev), GFP_KERNEL);
- 
--	if (ndev) {
--		memset(ndev, 0, sizeof(struct inet6_dev));
-+	if (ndev == NULL)
-+		return NULL;
- 
--		rwlock_init(&ndev->lock);
--		ndev->dev = dev;
--		memcpy(&ndev->cnf, &ipv6_devconf_dflt, sizeof(ndev->cnf));
--		ndev->cnf.mtu6 = dev->mtu;
--		ndev->cnf.sysctl = NULL;
--		ndev->nd_parms = neigh_parms_alloc(dev, &nd_tbl);
--		if (ndev->nd_parms == NULL) {
--			kfree(ndev);
--			return NULL;
--		}
--		/* We refer to the device */
--		dev_hold(dev);
-+	rwlock_init(&ndev->lock);
-+	ndev->dev = dev;
-+	memcpy(&ndev->cnf, &ipv6_devconf_dflt, sizeof(ndev->cnf));
-+	ndev->cnf.mtu6 = dev->mtu;
-+	ndev->cnf.sysctl = NULL;
-+	ndev->nd_parms = neigh_parms_alloc(dev, &nd_tbl);
-+	if (ndev->nd_parms == NULL) {
-+		kfree(ndev);
-+		return NULL;
-+	}
-+	/* We refer to the device */
-+	dev_hold(dev);
- 
--		if (snmp6_alloc_dev(ndev) < 0) {
--			ADBG((KERN_WARNING
--				"%s(): cannot allocate memory for statistics; dev=%s.\n",
--				__FUNCTION__, dev->name));
--			neigh_parms_release(&nd_tbl, ndev->nd_parms);
--			ndev->dead = 1;
--			in6_dev_finish_destroy(ndev);
--			return NULL;
--		}
-+	if (snmp6_alloc_dev(ndev) < 0) {
-+		ADBG((KERN_WARNING
-+			"%s(): cannot allocate memory for statistics; dev=%s.\n",
-+			__FUNCTION__, dev->name));
-+		neigh_parms_release(&nd_tbl, ndev->nd_parms);
-+		ndev->dead = 1;
-+		in6_dev_finish_destroy(ndev);
-+		return NULL;
-+	}
- 
--		if (snmp6_register_dev(ndev) < 0) {
--			ADBG((KERN_WARNING
--				"%s(): cannot create /proc/net/dev_snmp6/%s\n",
--				__FUNCTION__, dev->name));
--			neigh_parms_release(&nd_tbl, ndev->nd_parms);
--			ndev->dead = 1;
--			in6_dev_finish_destroy(ndev);
--			return NULL;
--		}
-+	if (snmp6_register_dev(ndev) < 0) {
-+		ADBG((KERN_WARNING
-+			"%s(): cannot create /proc/net/dev_snmp6/%s\n",
-+			__FUNCTION__, dev->name));
-+		neigh_parms_release(&nd_tbl, ndev->nd_parms);
-+		ndev->dead = 1;
-+		in6_dev_finish_destroy(ndev);
-+		return NULL;
-+	}
- 
--		/* One reference from device.  We must do this before
--		 * we invoke __ipv6_regen_rndid().
--		 */
--		in6_dev_hold(ndev);
-+	/* One reference from device.  We must do this before
-+	 * we invoke __ipv6_regen_rndid().
-+	 */
-+	in6_dev_hold(ndev);
- 
- #ifdef CONFIG_IPV6_PRIVACY
--		get_random_bytes(ndev->rndid, sizeof(ndev->rndid));
--		get_random_bytes(ndev->entropy, sizeof(ndev->entropy));
--		init_timer(&ndev->regen_timer);
--		ndev->regen_timer.function = ipv6_regen_rndid;
--		ndev->regen_timer.data = (unsigned long) ndev;
--		if ((dev->flags&IFF_LOOPBACK) ||
--		    dev->type == ARPHRD_TUNNEL ||
--		    dev->type == ARPHRD_NONE ||
--		    dev->type == ARPHRD_SIT) {
--			printk(KERN_INFO
--			       "%s: Disabled Privacy Extensions\n",
--			       dev->name);
--			ndev->cnf.use_tempaddr = -1;
--		} else {
--			in6_dev_hold(ndev);
--			ipv6_regen_rndid((unsigned long) ndev);
--		}
-+	get_random_bytes(ndev->rndid, sizeof(ndev->rndid));
-+	get_random_bytes(ndev->entropy, sizeof(ndev->entropy));
-+	init_timer(&ndev->regen_timer);
-+	ndev->regen_timer.function = ipv6_regen_rndid;
-+	ndev->regen_timer.data = (unsigned long) ndev;
-+	if ((dev->flags&IFF_LOOPBACK) ||
-+	    dev->type == ARPHRD_TUNNEL ||
-+	    dev->type == ARPHRD_NONE ||
-+	    dev->type == ARPHRD_SIT) {
-+		printk(KERN_INFO
-+		       "%s: Disabled Privacy Extensions\n",
-+		       dev->name);
-+		ndev->cnf.use_tempaddr = -1;
-+	} else {
-+		in6_dev_hold(ndev);
-+		ipv6_regen_rndid((unsigned long) ndev);
-+	}
- #endif
- 
--		if (netif_carrier_ok(dev))
--			ndev->if_flags |= IF_READY;
-+	if (netif_carrier_ok(dev))
-+		ndev->if_flags |= IF_READY;
- 
--		write_lock_bh(&addrconf_lock);
--		dev->ip6_ptr = ndev;
--		write_unlock_bh(&addrconf_lock);
-+	write_lock_bh(&addrconf_lock);
-+	dev->ip6_ptr = ndev;
-+	write_unlock_bh(&addrconf_lock);
- 
--		ipv6_mc_init_dev(ndev);
--		ndev->tstamp = jiffies;
-+	ipv6_mc_init_dev(ndev);
-+	ndev->tstamp = jiffies;
- #ifdef CONFIG_SYSCTL
--		neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6, 
--				      NET_IPV6_NEIGH, "ipv6",
--				      &ndisc_ifinfo_sysctl_change,
--				      NULL);
--		addrconf_sysctl_register(ndev, &ndev->cnf);
-+	neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6, 
-+			      NET_IPV6_NEIGH, "ipv6",
-+			      &ndisc_ifinfo_sysctl_change,
-+			      NULL);
-+	addrconf_sysctl_register(ndev, &ndev->cnf);
- #endif
--	}
- 	return ndev;
- }
- 
-@@ -524,7 +523,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
- 		goto out;
- 	}
- 
--	ifa = kmalloc(sizeof(struct inet6_ifaddr), GFP_ATOMIC);
-+	ifa = kzalloc(sizeof(struct inet6_ifaddr), GFP_ATOMIC);
- 
- 	if (ifa == NULL) {
- 		ADBG(("ipv6_add_addr: malloc failed\n"));
-@@ -538,7 +537,6 @@ ipv6_add_addr(struct inet6_dev *idev, co
- 		goto out;
- 	}
- 
--	memset(ifa, 0, sizeof(struct inet6_ifaddr));
- 	ipv6_addr_copy(&ifa->addr, addr);
- 
- 	spin_lock_init(&ifa->lock);
-@@ -2668,11 +2666,10 @@ static int if6_seq_open(struct inode *in
- {
- 	struct seq_file *seq;
- 	int rc = -ENOMEM;
--	struct if6_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+	struct if6_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
- 
- 	if (!s)
- 		goto out;
--	memset(s, 0, sizeof(*s));
- 
- 	rc = seq_open(file, &if6_seq_ops);
- 	if (rc)
+--yoshfuji
