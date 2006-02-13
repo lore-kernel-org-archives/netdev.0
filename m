@@ -1,60 +1,93 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: 2.6.16, sk98lin out of date
-Date: Mon, 13 Feb 2006 13:05:42 +0200
-Message-ID: <20060213110542.GZ3927@mea-ext.zmailer.org>
-References: <200602131058.03419.s0348365@sms.ed.ac.uk>
+From: Harald Welte <laforge@netfilter.org>
+Subject: [PATCH] 2.6.16: [NETFILTER] Fix Kconfig menu level for x_tables
+Date: Mon, 13 Feb 2006 12:06:00 +0100
+Message-ID: <20060213110600.GQ4601@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932098AbWBMLFq@vger.kernel.org>
-To: Alistair John Strachan <s0348365@sms.ed.ac.uk>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FilwpOHBrTVNlmJ3"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <200602131058.03419.s0348365@sms.ed.ac.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2006 at 10:58:03AM +0000, Alistair John Strachan wrote:
-> From:	Alistair John Strachan <s0348365@sms.ed.ac.uk>
-> To:	netdev@vger.kernel.org
-> Subject: 2.6.16, sk98lin out of date
-> Date:	Mon, 13 Feb 2006 10:58:03 +0000
-> Cc:	linux-kernel@vger.kernel.org
-> 
-> Hi,
-> 
-> As I'm sure the drivers/net maintainers are well aware, SysKonnect constantly 
-> update their sk98lin/sky2 driver without bothering to sync their changes with 
-> the official linux kernel.
 
-My understanding is, that  skge  driver has superceded the  sk98lin  in
-most uses.
+--FilwpOHBrTVNlmJ3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-There could, of course, be a change to insert vendor driver _as_is_ into
-baseline kernel with its own name.
+Hi Dave, please apply this to the 2.6.16 tree and push it to Linus.
 
+Thanks!
 
-> I quickly downloaded driver version 8.31 from http://www.skd.de/ today and 
-> used the install script to generate a diff against 2.6.16-rc3. Even after 
-> fixing up some DOS EOLs in the package, the diff was still well over 1.5MBs. 
-> This is an enormous number of changes.
-> 
-> The reason I'm posting is that my DFI LanParty-UT SLI-D works with this 
-> version of the driver, but not the version 2.6.16-rc3.
-> 
-> [alistair] 10:55 [~] dmesg | grep sk98lin
-> sk98lin: Could not read VPD data.
-> sk98lin: probe of 0000:01:0a.0 failed with error -5
-> 
-> I wonder if it's worth just identifying the "quick fix" (I've seen
-> workarounds for corrupt VPDs like mine) or whether a general merge
-> up would be beneficial..
+[NETFILTER] Fix Kconfig menu level for x_tables
 
-See if  'skge'  driver would work instead of  'sk98lin'  ?
+The new x_tables related Kconfig options appear at the wrong menu level
+without this patch.
 
-> If nobody's maintaining this driver I wouldn't mind helping out.
-> 
-> -- 
-> Cheers,
-> Alistair.
+Signed-off-by: Harald Welte <laforge@netfilter.org>
 
-  /Matti Aarnio
+---
+commit 2d3e1788278398e3d9f33409066f3232730336a6
+tree d23977bfeafb91fdbc5e5400d516ef623cde5a1d
+parent 0b2d6ca5297c6343d9ae4c2259f85046e487ed01
+author Harald Welte <laforge@netfilter.org> Mon, 13 Feb 2006 12:04:25 +0100
+committer Harald Welte <laforge@netfilter.org> Mon, 13 Feb 2006 12:04:25 +0=
+100
+
+ net/netfilter/Kconfig |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 99c0a0f..0e55012 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -102,8 +102,6 @@ config NF_CT_NETLINK
+ 	help
+ 	  This option enables support for a netlink-based userspace interface
+=20
+-endmenu
+-
+ config NETFILTER_XTABLES
+ 	tristate "Netfilter Xtables support (required for ip_tables)"
+ 	help
+@@ -361,3 +359,5 @@ config NETFILTER_XT_MATCH_TCPMSS
+=20
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+=20
++endmenu
++
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--FilwpOHBrTVNlmJ3
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFD8GgYXaXGVTD0i/8RAmJoAJoC8de1g5p+MkVprIK46nLJlWL15ACfUwYd
+spU1w4hFjPBwOmn9JmgQ/r0=
+=BTmV
+-----END PGP SIGNATURE-----
+
+--FilwpOHBrTVNlmJ3--
