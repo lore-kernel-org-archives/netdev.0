@@ -1,7 +1,7 @@
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 5/5] IrDA: pci_register_driver conversion
-Date: Tue, 14 Feb 2006 00:15:48 +0200
-Message-ID: <20060213221548.GF31091@irie>
+Subject: [PATCH 3/5] IrDA: nsc-ircc: support for yet another Thinkpad IrDA chipset
+Date: Tue, 14 Feb 2006 00:15:21 +0200
+Message-ID: <20060213221521.GD31091@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -21,39 +21,43 @@ List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-This patch converts 2 IrDA drivers pci_module_init() calls to
-pci_register_driver().
+This patch simply adds support for a variation of the nsc-ircc PC8739x
+chipset, found in some IBM Thinkpad laptops.
 
-Signed-off-by: Christophe Lucas <clucas-6bugY6I12JBBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Domen Puncer <domen-CvScVCPLwOZg9hUCZPvPmw@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org> 
+Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> 
 
-diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
-index 3137592..910c0ca 100644
---- a/drivers/net/irda/donauboe.c
-+++ b/drivers/net/irda/donauboe.c
-@@ -1778,7 +1778,7 @@ static struct pci_driver donauboe_pci_dr
- static int __init
- donauboe_init (void)
- {
--  return pci_module_init(&donauboe_pci_driver);
-+  return pci_register_driver(&donauboe_pci_driver);
- }
+diff --git a/drivers/net/irda/nsc-ircc.c b/drivers/net/irda/nsc-ircc.c
+index e8ff07f..39cf5f0 100644
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -90,9 +90,9 @@ static int qos_mtt_bits = 0x07;  /* 1 ms
+ static int dongle_id;
  
- static void __exit
-diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
-index a9f49f0..97a49e0 100644
---- a/drivers/net/irda/vlsi_ir.c
-+++ b/drivers/net/irda/vlsi_ir.c
-@@ -1887,7 +1887,7 @@ static int __init vlsi_mod_init(void)
- 		vlsi_proc_root->owner = THIS_MODULE;
- 	}
+ /* Use BIOS settions by default, but user may supply module parameters */
+-static unsigned int io[]  = { ~0, ~0, ~0, ~0 };
+-static unsigned int irq[] = {  0,  0,  0,  0 };
+-static unsigned int dma[] = {  0,  0,  0,  0 };
++static unsigned int io[]  = { ~0, ~0, ~0, ~0, ~0 };
++static unsigned int irq[] = {  0,  0,  0,  0,  0 };
++static unsigned int dma[] = {  0,  0,  0,  0,  0 };
  
--	ret = pci_module_init(&vlsi_irda_driver);
-+	ret = pci_register_driver(&vlsi_irda_driver);
+ static int nsc_ircc_probe_108(nsc_chip_t *chip, chipio_t *info);
+ static int nsc_ircc_probe_338(nsc_chip_t *chip, chipio_t *info);
+@@ -115,10 +115,12 @@ static nsc_chip_t chips[] = {
+ 	/* Contributed by Jan Frey - IBM A30/A31 */
+ 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff, 
+ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
++	{ "IBM", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
++ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+ 	{ NULL }
+ };
  
- 	if (ret && vlsi_proc_root)
- 		remove_proc_entry(PROC_DIR, NULL);
+-static struct nsc_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL };
++static struct nsc_ircc_cb *dev_self[] = { NULL, NULL, NULL, NULL, NULL };
+ 
+ static char *dongle_types[] = {
+ 	"Differential serial interface",
 
 
 -------------------------------------------------------
