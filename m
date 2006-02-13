@@ -1,89 +1,40 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH] [NETFILTER] nf_conntrack: clean up to reduce size of
-	'struct nf_conn'
-Date: Mon, 13 Feb 2006 09:17:58 +0100
-Message-ID: <20060213081758.GL4601@sunbeam.de.gnumonks.org>
-References: <20060212175622.GG4601@sunbeam.de.gnumonks.org>
-	<200602130132.k1D1WoYA003717@toshiba.co.jp>
+From: apgo@patchbomb.org (Arthur Othieno)
+Subject: Re: [RFC: 2.6 patch] CONFIG_FORCEDETH updates
+Date: Mon, 13 Feb 2006 03:36:35 -0500
+Message-ID: <20060213083635.GD14516@krypton>
+References: <20060212175202.GK30922@stusta.de> <1139781817.19342.300.camel@mindpipe>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="KjSGHOmKKB2VUiQn"
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	davem@davemloft.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751353AbWBMIkz@vger.kernel.org>
+To: Lee Revell <rlrevell@joe-job.com>
 Content-Disposition: inline
-In-Reply-To: <200602130132.k1D1WoYA003717@toshiba.co.jp>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <1139781817.19342.300.camel@mindpipe>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Feb 12, 2006 at 05:03:36PM -0500, Lee Revell wrote:
+> On Sun, 2006-02-12 at 18:52 +0100, Adrian Bunk wrote:
+> > This patch contains the following possible updates:
+> > - let FORCEDETH no longer depend on EXPERIMENTAL
+> > - remove the "Reverse Engineered" from the option text:
+> >   for the user it's important which hardware the driver supports, not
+> >   how it was developed
+> 
+> Is this driver as stable as one that was developed with proper
+> documentation?
 
---KjSGHOmKKB2VUiQn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Been using it on nForce since v0.19 (circa 2003) with no problems.
+I doubt there are that many (significant) users of the binary driver
+left..
 
-On Mon, Feb 13, 2006 at 10:32:49AM +0900, Yasuyuki KOZAKAI wrote:
->=20
-> Hi, Harald,
->=20
-> From: Harald Welte <laforge@gnumonks.org>
-> Date: Sun, 12 Feb 2006 18:56:22 +0100
->=20
-> > [NETFILTER] nf_conntrack: clean up to reduce size of 'struct nf_conn'
-> >=20
-> > This patch moves all helper related data fields of 'struct nf_conn' int=
-o a
-> > separate structure 'struct nf_conn_help'.  This new structure is only
-> > present in conntrack entries for which we actually have a helper loaded.
-> >=20
-> > Also, this patch cleans up the nf_conntrack 'features' mechanism to
-> > resemble what the original idea was:  Just glue the feature-specific
-> > data structures at the end of 'struct nf_conn', and explicitly re-calcu=
-late
-> > the pointer to it when needed rather than keeping pointers around.
-> >=20
-> > Saves 20 bytes per conntrack on my x86_64 box. A non-helped conntrack is
-> > 276 bytes. We still need to save another 20 bytes in order to fit into =
-to
-> > target of 256bytes.
-> >=20
-> > Signed-off-by: Harald Welte <laforge@netfilter.org>
->=20
-> This patch seems not to include fixes I pointed out and you said "fixed".
-> Please confirm if you really sent the intended one.
+And like Alistair pointed out:
 
-oops, thanks for checking.  Dave: Please hold, I sent an old version.
-You'll get a new one ASAP.
+  drivers/net/forcedeth:17: * Copyright (c) 2004 NVIDIA Corporation
 
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+> I prefer to know that something as elementary as a fast ethernet
+> controller had to be reverse engineered so I can avoid supporting
+> a vendor so hostile to Linux.
 
---KjSGHOmKKB2VUiQn
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQFD8EC2XaXGVTD0i/8RAqnkAJ9m/Nob52YxxPWcqbn4SRJjjAw4NQCeIoEG
-JCvGD3O+Q/PGDs7zbBarlQY=
-=cc51
------END PGP SIGNATURE-----
-
---KjSGHOmKKB2VUiQn--
+Then how about moving the "Reverse Engineered" to the help text instead?
