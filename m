@@ -1,32 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER] nf_conntrack: clean up to reduce size of
- 'struct nf_conn'
-Date: Mon, 13 Feb 2006 02:36:01 -0800 (PST)
-Message-ID: <20060213.023601.08969033.davem@davemloft.net>
-References: <20060212175622.GG4601@sunbeam.de.gnumonks.org>
-	<20060213100436.GP4601@sunbeam.de.gnumonks.org>
+From: Alistair John Strachan <s0348365@sms.ed.ac.uk>
+Subject: 2.6.16, sk98lin out of date
+Date: Mon, 13 Feb 2006 10:58:03 +0000
+Message-ID: <200602131058.03419.s0348365@sms.ed.ac.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20060213100436.GP4601@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932375AbWBMK6F@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Mon, 13 Feb 2006 11:04:36 +0100
+Hi,
 
-> This is the correct (latest) version of this patch.  Sorry for the
-> confusion.  Please apply to net-2.6.17, thanks!
+As I'm sure the drivers/net maintainers are well aware, SysKonnect constantly 
+update their sk98lin/sky2 driver without bothering to sync their changes with 
+the official linux kernel.
 
-Applied, thanks.
+I quickly downloaded driver version 8.31 from http://www.skd.de/ today and 
+used the install script to generate a diff against 2.6.16-rc3. Even after 
+fixing up some DOS EOLs in the package, the diff was still well over 1.5MBs. 
+This is an enormous number of changes.
+
+The reason I'm posting is that my DFI LanParty-UT SLI-D works with this 
+version of the driver, but not the version 2.6.16-rc3.
+
+[alistair] 10:55 [~] dmesg | grep sk98lin
+sk98lin: Could not read VPD data.
+sk98lin: probe of 0000:01:0a.0 failed with error -5
+
+I wonder if it's worth just identifying the "quick fix" (I've seen workarounds 
+for corrupt VPDs like mine) or whether a general merge up would be 
+beneficial..
+
+If nobody's maintaining this driver I wouldn't mind helping out.
+
+-- 
+Cheers,
+Alistair.
+
+'No sense being pessimistic, it probably wouldn't work anyway.'
+Third year Computer Science undergraduate.
+1F2 55 South Clerk Street, Edinburgh, UK.
