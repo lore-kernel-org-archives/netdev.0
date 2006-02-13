@@ -1,43 +1,49 @@
-From: Willy Tarreau <willy@w.ods.org>
+From: Lee Revell <rlrevell@joe-job.com>
 Subject: Re: 2.6.16, sk98lin out of date
-Date: Mon, 13 Feb 2006 21:34:34 +0100
-Message-ID: <20060213203434.GI11380@w.ods.org>
-References: <200602131058.03419.s0348365@sms.ed.ac.uk> <200602131206.26285.mws@twisted-brains.org> <1139857394.3202.38.camel@mindpipe>
+Date: Mon, 13 Feb 2006 15:40:47 -0500
+Message-ID: <1139863248.3202.64.camel@mindpipe>
+References: <200602131058.03419.s0348365@sms.ed.ac.uk>
+	 <200602131206.26285.mws@twisted-brains.org>
+	 <1139857394.3202.38.camel@mindpipe>  <20060213203434.GI11380@w.ods.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Mws <mws@twisted-brains.org>,
 	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964865AbWBMUfE@vger.kernel.org>
-To: Lee Revell <rlrevell@joe-job.com>
-Content-Disposition: inline
-In-Reply-To: <1139857394.3202.38.camel@mindpipe>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030179AbWBMUkw@vger.kernel.org>
+To: Willy Tarreau <willy@w.ods.org>
+In-Reply-To: <20060213203434.GI11380@w.ods.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2006 at 02:03:14PM -0500, Lee Revell wrote:
-> On Mon, 2006-02-13 at 12:06 +0100, Mws wrote:
-> > hi,
-> > as i do have the same problem i may help you out.
+On Mon, 2006-02-13 at 21:34 +0100, Willy Tarreau wrote:
+> On Mon, Feb 13, 2006 at 02:03:14PM -0500, Lee Revell wrote:
+> > On Mon, 2006-02-13 at 12:06 +0100, Mws wrote:
+> > > hi,
+> > > as i do have the same problem i may help you out.
+> > > 
+> > > at first, syskonnect did send their kernel diffs/patches but they
+> > > we're rejected caused
+> > > by coding style, indention and some people thinking that things can be
+> > > done better. 
 > > 
-> > at first, syskonnect did send their kernel diffs/patches but they
-> > we're rejected caused
-> > by coding style, indention and some people thinking that things can be
-> > done better. 
+> > Haha, they didn't like the LKML code review so they just stopped sending
+> > patches?  Classic.  Remind me not to buy their gear.
 > 
-> Haha, they didn't like the LKML code review so they just stopped sending
-> patches?  Classic.  Remind me not to buy their gear.
+> Lee, it's not always that simple. When you submit one driver, sometimes
+> reviewers tell you that for whatever reason your driver's structure is
+> wrong and it has to be changed a lot (and sometimes they're right of
+> course). But when you don't have enough ressource to do the job twice,
+> the best you can do is to maintain it out of tree, which is already a
+> pain. I'm not saying that it is what happened with their driver, I don't
+> know the history. However, I found your reaction somewhat hasty. I
+> personally would prefer to offer time and help before deciding that
+> I don't want anyone's products on this basis. It's not as if they
+> did not release their driver's source!
 
-Lee, it's not always that simple. When you submit one driver, sometimes
-reviewers tell you that for whatever reason your driver's structure is
-wrong and it has to be changed a lot (and sometimes they're right of
-course). But when you don't have enough ressource to do the job twice,
-the best you can do is to maintain it out of tree, which is already a
-pain. I'm not saying that it is what happened with their driver, I don't
-know the history. However, I found your reaction somewhat hasty. I
-personally would prefer to offer time and help before deciding that
-I don't want anyone's products on this basis. It's not as if they
-did not release their driver's source !
+True, that was a little harsh.  I just find it a little sad that all
+these vendors insist on throwing away months of work rather than simply
+researching what the linux kernel coding standards are ahead of time.
 
-Cheers,
-Willy
+Lee
