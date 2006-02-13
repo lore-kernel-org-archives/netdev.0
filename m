@@ -1,49 +1,48 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: Re: 2.6.16, sk98lin out of date
-Date: Mon, 13 Feb 2006 15:40:47 -0500
-Message-ID: <1139863248.3202.64.camel@mindpipe>
-References: <200602131058.03419.s0348365@sms.ed.ac.uk>
-	 <200602131206.26285.mws@twisted-brains.org>
-	 <1139857394.3202.38.camel@mindpipe>  <20060213203434.GI11380@w.ods.org>
+From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 0/7] IrDA updates
+Date: Tue, 14 Feb 2006 00:14:20 +0200
+Message-ID: <20060213221420.GA31091@irie>
+References: <Pine.LNX.4.58.0602090248090.19426@irie> <20060209.170448.122642050.davem@davemloft.net>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Mws <mws@twisted-brains.org>,
-	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030179AbWBMUkw@vger.kernel.org>
-To: Willy Tarreau <willy@w.ods.org>
-In-Reply-To: <20060213203434.GI11380@w.ods.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: IrDA users <irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: "ext David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20060209.170448.122642050.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-02-13 at 21:34 +0100, Willy Tarreau wrote:
-> On Mon, Feb 13, 2006 at 02:03:14PM -0500, Lee Revell wrote:
-> > On Mon, 2006-02-13 at 12:06 +0100, Mws wrote:
-> > > hi,
-> > > as i do have the same problem i may help you out.
-> > > 
-> > > at first, syskonnect did send their kernel diffs/patches but they
-> > > we're rejected caused
-> > > by coding style, indention and some people thinking that things can be
-> > > done better. 
-> > 
-> > Haha, they didn't like the LKML code review so they just stopped sending
-> > patches?  Classic.  Remind me not to buy their gear.
+On Thu, Feb 09, 2006 at 05:04:48PM -0800, ext David S. Miller wrote:
+> Something in your email client corrupts the patches.  For one
+> thing, it turns lines with just spaces in them into empty lines.
+> I've seen this transformation before, in patches from other
+> people.
 > 
-> Lee, it's not always that simple. When you submit one driver, sometimes
-> reviewers tell you that for whatever reason your driver's structure is
-> wrong and it has to be changed a lot (and sometimes they're right of
-> course). But when you don't have enough ressource to do the job twice,
-> the best you can do is to maintain it out of tree, which is already a
-> pain. I'm not saying that it is what happened with their driver, I don't
-> know the history. However, I found your reaction somewhat hasty. I
-> personally would prefer to offer time and help before deciding that
-> I don't want anyone's products on this basis. It's not as if they
-> did not release their driver's source!
+> So please try to send patches 1, 2, 3, 5, and 6 to yourself until
+> the emails you send out give clean applyable patches.
+I have changed my email client and sent the patches to some other people and myself. Everything seems to be ok.
 
-True, that was a little harsh.  I just find it a little sad that all
-these vendors insist on throwing away months of work rather than simply
-researching what the linux kernel coding standards are ahead of time.
+So, I will now send the remaining 5 patches.
 
-Lee
+Hopefully it will work for you as well.
+
+Cheers,
+Samuel.
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
