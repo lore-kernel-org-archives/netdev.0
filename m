@@ -1,54 +1,34 @@
-From: Alistair John Strachan <s0348365@sms.ed.ac.uk>
-Subject: Re: 2.6.16, sk98lin out of date
-Date: Mon, 13 Feb 2006 23:15:08 +0000
-Message-ID: <200602132315.08494.s0348365@sms.ed.ac.uk>
-References: <200602131058.03419.s0348365@sms.ed.ac.uk> <200602131110.34212.s0348365@sms.ed.ac.uk> <43F0E284.2040805@gentoo.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] 2.6.16: [NETFILTER] Fix Kconfig menu level for x_tables
+Date: Mon, 13 Feb 2006 15:42:59 -0800 (PST)
+Message-ID: <20060213.154259.21716277.davem@davemloft.net>
+References: <20060213110600.GQ4601@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matti Aarnio <matti.aarnio@zmailer.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030268AbWBMXPK@vger.kernel.org>
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <43F0E284.2040805@gentoo.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20060213110600.GQ4601@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 February 2006 19:48, Daniel Drake wrote:
-> Alistair John Strachan wrote:
-> > Thanks Matti, I wasn't even aware of this driver. Might I suggest the
-> > "old" driver be marked as such in Linux 2.6.16. I guess I must've
-> > skipped over it because it begins with "New", and does not contain
-> > the word "Marvell", which is indicated exclusively by lspci.
->
-> I changed the help text of all 3 drivers (sk98lin/skge/sky2) to
-> point out which ones are/aren't interchangable in 2.6.16. The situation
-> is a little confusing.
+From: Harald Welte <laforge@netfilter.org>
+Date: Mon, 13 Feb 2006 12:06:00 +0100
 
-Thanks, this would have prevented my mistake.
+> [NETFILTER] Fix Kconfig menu level for x_tables
+> 
+> The new x_tables related Kconfig options appear at the wrong menu level
+> without this patch.
+> 
+> Signed-off-by: Harald Welte <laforge@netfilter.org>
 
-> The reason that the sk98lin diff is so huge is because SysKonnect
-> effectively added support for a substantially different range of cards
-> (Yukon-2) into the existing driver. This is far from the driver quality
-> required for the kernel today, so Stephen Hemminger (skge author) wrote
-> a new driver (sky2) for the Yukon-2 range.
->
-> The long term plan is to obsolete and remove sk98lin, but we aren't
-> ready yet: skge issues pop up every month or two, and sky2 is young.
->
-> Stephen's own words:
-> > I applaud the initiative, but this it is too premature to obsolete
-> > the existing driver. There may be lots of chip versions and other
-> > variables that make the existing driver a better choice.
-
-Well, Stephen's driver works great for me and sk98lin frankly didn't.
-
--- 
-Cheers,
-Alistair.
-
-'No sense being pessimistic, it probably wouldn't work anyway.'
-Third year Computer Science undergraduate.
-1F2 55 South Clerk Street, Edinburgh, UK.
+Applied, thanks Harald.
