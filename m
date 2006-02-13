@@ -1,41 +1,43 @@
-From: Daniel Drake <dsd@gentoo.org>
+From: Willy Tarreau <willy@w.ods.org>
 Subject: Re: 2.6.16, sk98lin out of date
-Date: Mon, 13 Feb 2006 19:48:20 +0000
-Message-ID: <43F0E284.2040805@gentoo.org>
-References: <200602131058.03419.s0348365@sms.ed.ac.uk> <20060213110542.GZ3927@mea-ext.zmailer.org> <200602131110.34212.s0348365@sms.ed.ac.uk>
+Date: Mon, 13 Feb 2006 21:34:34 +0100
+Message-ID: <20060213203434.GI11380@w.ods.org>
+References: <200602131058.03419.s0348365@sms.ed.ac.uk> <200602131206.26285.mws@twisted-brains.org> <1139857394.3202.38.camel@mindpipe>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Matti Aarnio <matti.aarnio@zmailer.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964776AbWBMToK@vger.kernel.org>
-To: Alistair John Strachan <s0348365@sms.ed.ac.uk>
-In-Reply-To: <200602131110.34212.s0348365@sms.ed.ac.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mws <mws@twisted-brains.org>,
+	Alistair John Strachan <s0348365@sms.ed.ac.uk>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964865AbWBMUfE@vger.kernel.org>
+To: Lee Revell <rlrevell@joe-job.com>
+Content-Disposition: inline
+In-Reply-To: <1139857394.3202.38.camel@mindpipe>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alistair John Strachan wrote:
-> Thanks Matti, I wasn't even aware of this driver. Might I suggest the
-> "old" driver be marked as such in Linux 2.6.16. I guess I must've
-> skipped over it because it begins with "New", and does not contain
-> the word "Marvell", which is indicated exclusively by lspci.
+On Mon, Feb 13, 2006 at 02:03:14PM -0500, Lee Revell wrote:
+> On Mon, 2006-02-13 at 12:06 +0100, Mws wrote:
+> > hi,
+> > as i do have the same problem i may help you out.
+> > 
+> > at first, syskonnect did send their kernel diffs/patches but they
+> > we're rejected caused
+> > by coding style, indention and some people thinking that things can be
+> > done better. 
+> 
+> Haha, they didn't like the LKML code review so they just stopped sending
+> patches?  Classic.  Remind me not to buy their gear.
 
-I changed the help text of all 3 drivers (sk98lin/skge/sky2) to
-point out which ones are/aren't interchangable in 2.6.16. The situation 
-is a little confusing.
+Lee, it's not always that simple. When you submit one driver, sometimes
+reviewers tell you that for whatever reason your driver's structure is
+wrong and it has to be changed a lot (and sometimes they're right of
+course). But when you don't have enough ressource to do the job twice,
+the best you can do is to maintain it out of tree, which is already a
+pain. I'm not saying that it is what happened with their driver, I don't
+know the history. However, I found your reaction somewhat hasty. I
+personally would prefer to offer time and help before deciding that
+I don't want anyone's products on this basis. It's not as if they
+did not release their driver's source !
 
-The reason that the sk98lin diff is so huge is because SysKonnect
-effectively added support for a substantially different range of cards
-(Yukon-2) into the existing driver. This is far from the driver quality
-required for the kernel today, so Stephen Hemminger (skge author) wrote 
-a new driver (sky2) for the Yukon-2 range.
-
-The long term plan is to obsolete and remove sk98lin, but we aren't 
-ready yet: skge issues pop up every month or two, and sky2 is young. 
-Stephen's own words:
-
-> I applaud the initiative, but this it is too premature to obsolete
-> the existing driver. There may be lots of chip versions and other
-> variables that make the existing driver a better choice.
-
-Daniel
+Cheers,
+Willy
