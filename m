@@ -1,7 +1,7 @@
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 4/5] IrDA: sti/cli removal from EP7211 IrDA driver
-Date: Tue, 14 Feb 2006 00:15:38 +0200
-Message-ID: <20060213221538.GE31091@irie>
+Subject: [PATCH 5/5] IrDA: pci_register_driver conversion
+Date: Tue, 14 Feb 2006 00:15:48 +0200
+Message-ID: <20060213221548.GF31091@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -21,68 +21,39 @@ List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-This patch replaces the deprecated sti/cli routines with the corresponding
-spin_lock ones.
+This patch converts 2 IrDA drivers pci_module_init() calls to
+pci_register_driver().
 
-Signed-off-by: David chosrova <david.chosrova-TDf4sKD1mxeHlu7OokbhRg@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Christophe Lucas <clucas-6bugY6I12JBBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Domen Puncer <domen-CvScVCPLwOZg9hUCZPvPmw@public.gmane.org>
+Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-diff --git a/drivers/net/irda/ep7211_ir.c b/drivers/net/irda/ep7211_ir.c
-index 3189626..4cba38f 100644
---- a/drivers/net/irda/ep7211_ir.c
-+++ b/drivers/net/irda/ep7211_ir.c
-@@ -8,6 +8,7 @@
- #include <linux/delay.h>
- #include <linux/tty.h>
- #include <linux/init.h>
-+#include <linux/spinlock.h>
- 
- #include <net/irda/irda.h>
- #include <net/irda/irda_device.h>
-@@ -23,6 +24,8 @@ static void ep7211_ir_close(dongle_t *se
- static int  ep7211_ir_change_speed(struct irda_task *task);
- static int  ep7211_ir_reset(struct irda_task *task);
- 
-+static DEFINE_SPINLOCK(ep7211_lock);
-+
- static struct dongle_reg dongle = {
- 	.type = IRDA_EP7211_IR,
- 	.open = ep7211_ir_open,
-@@ -36,7 +39,7 @@ static void ep7211_ir_open(dongle_t *sel
+diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
+index 3137592..910c0ca 100644
+--- a/drivers/net/irda/donauboe.c
++++ b/drivers/net/irda/donauboe.c
+@@ -1778,7 +1778,7 @@ static struct pci_driver donauboe_pci_dr
+ static int __init
+ donauboe_init (void)
  {
- 	unsigned int syscon1, flags;
- 
--	save_flags(flags); cli();
-+	spin_lock_irqsave(&ep7211_lock, flags);
- 
- 	/* Turn on the SIR encoder. */
- 	syscon1 = clps_readl(SYSCON1);
-@@ -46,14 +49,14 @@ static void ep7211_ir_open(dongle_t *sel
- 	/* XXX: We should disable modem status interrupts on the first
- 		UART (interrupt #14). */
- 
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&ep7211_lock, flags);
+-  return pci_module_init(&donauboe_pci_driver);
++  return pci_register_driver(&donauboe_pci_driver);
  }
  
- static void ep7211_ir_close(dongle_t *self)
- {
- 	unsigned int syscon1, flags;
+ static void __exit
+diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
+index a9f49f0..97a49e0 100644
+--- a/drivers/net/irda/vlsi_ir.c
++++ b/drivers/net/irda/vlsi_ir.c
+@@ -1887,7 +1887,7 @@ static int __init vlsi_mod_init(void)
+ 		vlsi_proc_root->owner = THIS_MODULE;
+ 	}
  
--	save_flags(flags); cli();
-+	spin_lock_irqsave(&ep7211_lock, flags);
+-	ret = pci_module_init(&vlsi_irda_driver);
++	ret = pci_register_driver(&vlsi_irda_driver);
  
- 	/* Turn off the SIR encoder. */
- 	syscon1 = clps_readl(SYSCON1);
-@@ -63,7 +66,7 @@ static void ep7211_ir_close(dongle_t *se
- 	/* XXX: If we've disabled the modem status interrupts, we should
- 		reset them back to their original state. */
- 
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&ep7211_lock, flags);
- }
- 
- /*
+ 	if (ret && vlsi_proc_root)
+ 		remove_proc_entry(PROC_DIR, NULL);
 
 
 -------------------------------------------------------
