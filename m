@@ -1,47 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC,NETFILTER]: Fix xfrm lookup after SNAT
-Date: Tue, 14 Feb 2006 12:49:24 +1100
-Message-ID: <20060214014924.GA954@gondor.apana.org.au>
-References: <43F0C0ED.8000303@trash.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] schedule eepro100.c for removal
+Date: Tue, 14 Feb 2006 16:22:26 +0100
+Message-ID: <20060214152226.GK10701@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161082AbWBNPWq@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <43F0C0ED.8000303@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2006 at 06:25:01PM +0100, Patrick McHardy wrote:
-> I finally got around to fixing the "ip_finish_output2: No header cache
-> and no neighbour!" problem reported by Andi Kleen. Instead of rerouting
-> the packet in POST_ROUTING, we reuse the original route for the
-> xfrm_lookup. This introduces a small restriction (see changelog entry),
-> but I think it should work.
-> 
-> Herbert, do you see any problems with this patch?
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Looks perfect to me.  I think the restriction makes sense since SNAT
-is done in post-routing so it's counter-intuitive to repeat the lookup
-anyway.
+---
+
+This patch was already sent on:
+- 4 Feb 2006
+
+ Documentation/feature-removal-schedule.txt |    6 ++++++
+ drivers/net/eepro100.c                     |    1 +
+ 2 files changed, 7 insertions(+)
+
+--- linux-2.6.15-mm4-full/Documentation/feature-removal-schedule.txt.old	2006-01-18 08:38:57.000000000 +0100
++++ linux-2.6.15-mm4-full/Documentation/feature-removal-schedule.txt	2006-01-18 08:39:59.000000000 +0100
+@@ -164,0 +165,6 @@
++---------------------------
++
++What:   eepro100 network driver
++When:   August 2006
++Why:    replaced by the e100 driver
++Who:    Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.16-rc1-mm5-full/drivers/net/eepro100.c.old	2006-02-03 23:37:55.000000000 +0100
++++ linux-2.6.16-rc1-mm5-full/drivers/net/eepro100.c	2006-02-03 23:39:10.000000000 +0100
+@@ -2391,6 +2391,7 @@ static int __init eepro100_init_module(v
+ #ifdef MODULE
+ 	printk(version);
+ #endif
++	printk(KERN_WARNING "eepro100 will be removed soon, please use the e100 driver\n");
+ 	return pci_module_init(&eepro100_driver);
+ }
  
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
