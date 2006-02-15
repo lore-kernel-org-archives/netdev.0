@@ -1,177 +1,48 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: [RFT/PATCH] 3c509: use proper suspend/resume API
-Date: Tue, 14 Feb 2006 18:39:33 +0200
-Message-ID: <1139935173.22151.2.camel@localhost>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC,NETFILTER]: Fix xfrm lookup after SNAT
+Date: Wed, 15 Feb 2006 01:34:39 -0800 (PST)
+Message-ID: <20060215.013439.120363074.davem@davemloft.net>
+References: <43F0C0ED.8000303@trash.net>
+	<20060214014924.GA954@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161134AbWBNQjj@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	kaber@trash.net
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060214014924.GA954@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 14 Feb 2006 12:49:24 +1100
 
-I am looking for someone with 3c509 netword card that can do
-suspend/resume to test this patch.
+> On Mon, Feb 13, 2006 at 06:25:01PM +0100, Patrick McHardy wrote:
+> > I finally got around to fixing the "ip_finish_output2: No header cache
+> > and no neighbour!" problem reported by Andi Kleen. Instead of rerouting
+> > the packet in POST_ROUTING, we reuse the original route for the
+> > xfrm_lookup. This introduces a small restriction (see changelog entry),
+> > but I think it should work.
+> > 
+> > Herbert, do you see any problems with this patch?
+> 
+> Looks perfect to me.  I think the restriction makes sense since SNAT
+> is done in post-routing so it's counter-intuitive to repeat the lookup
+> anyway.
+>  
+> > Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-			Pekka
+Looks good to me too, applied to net-2.6
 
-Subject: 3c509: use proper suspend/resume API
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-
-This patch converts 3c509 driver to use proper suspend/resume API instead of
-the deprecated pm_register/pm_unregister.
-
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
----
-
-Index: 2.6/drivers/net/3c509.c
-===================================================================
---- 2.6.orig/drivers/net/3c509.c
-+++ 2.6/drivers/net/3c509.c
-@@ -174,9 +174,6 @@ struct el3_private {
- 	/* skb send-queue */
- 	int head, size;
- 	struct sk_buff *queue[SKB_QUEUE_SIZE];
--#ifdef CONFIG_PM_LEGACY
--	struct pm_dev *pmdev;
--#endif
- 	enum {
- 		EL3_MCA,
- 		EL3_PNP,
-@@ -201,11 +198,15 @@ static void el3_tx_timeout (struct net_d
- static void el3_down(struct net_device *dev);
- static void el3_up(struct net_device *dev);
- static struct ethtool_ops ethtool_ops;
--#ifdef CONFIG_PM_LEGACY
--static int el3_suspend(struct pm_dev *pdev);
--static int el3_resume(struct pm_dev *pdev);
--static int el3_pm_callback(struct pm_dev *pdev, pm_request_t rqst, void *data);
-+#ifdef CONFIG_PM
-+static int el3_suspend(struct device *, pm_message_t);
-+static int el3_resume(struct device *);
-+#else
-+#define el3_suspend NULL
-+#define el3_resume NULL
- #endif
-+
-+
- /* generic device remove for all device types */
- #if defined(CONFIG_EISA) || defined(CONFIG_MCA)
- static int el3_device_remove (struct device *device);
-@@ -229,7 +230,9 @@ static struct eisa_driver el3_eisa_drive
- 		.driver   = {
- 				.name    = "3c509",
- 				.probe   = el3_eisa_probe,
--				.remove  = __devexit_p (el3_device_remove)
-+				.remove  = __devexit_p (el3_device_remove),
-+				.suspend = el3_suspend,
-+				.resume  = el3_resume,
- 		}
- };
- #endif
-@@ -262,6 +265,8 @@ static struct mca_driver el3_mca_driver 
- 				.bus = &mca_bus_type,
- 				.probe = el3_mca_probe,
- 				.remove = __devexit_p(el3_device_remove),
-+				.suspend = el3_suspend,
-+				.resume  = el3_resume,
- 		},
- };
- #endif /* CONFIG_MCA */
-@@ -362,10 +367,6 @@ static void el3_common_remove (struct ne
- 	struct el3_private *lp = netdev_priv(dev);
- 
- 	(void) lp;				/* Keep gcc quiet... */
--#ifdef CONFIG_PM_LEGACY
--	if (lp->pmdev)
--		pm_unregister(lp->pmdev);
--#endif
- #if defined(__ISAPNP__)
- 	if (lp->type == EL3_PNP)
- 		pnp_device_detach(to_pnp_dev(lp->dev));
-@@ -572,16 +573,6 @@ no_pnp:
- 	if (err)
- 		goto out1;
- 
--#ifdef CONFIG_PM_LEGACY
--	/* register power management */
--	lp->pmdev = pm_register(PM_ISA_DEV, card_idx, el3_pm_callback);
--	if (lp->pmdev) {
--		struct pm_dev *p;
--		p = lp->pmdev;
--		p->data = (struct net_device *)dev;
--	}
--#endif
--
- 	el3_cards++;
- 	lp->next_dev = el3_root_dev;
- 	el3_root_dev = dev;
-@@ -1480,20 +1471,17 @@ el3_up(struct net_device *dev)
- }
- 
- /* Power Management support functions */
--#ifdef CONFIG_PM_LEGACY
-+#ifdef CONFIG_PM
- 
- static int
--el3_suspend(struct pm_dev *pdev)
-+el3_suspend(struct device *pdev, pm_message_t state)
- {
- 	unsigned long flags;
- 	struct net_device *dev;
- 	struct el3_private *lp;
- 	int ioaddr;
- 	
--	if (!pdev && !pdev->data)
--		return -EINVAL;
--
--	dev = (struct net_device *)pdev->data;
-+	dev = pdev->driver_data;
- 	lp = netdev_priv(dev);
- 	ioaddr = dev->base_addr;
- 
-@@ -1510,17 +1498,14 @@ el3_suspend(struct pm_dev *pdev)
- }
- 
- static int
--el3_resume(struct pm_dev *pdev)
-+el3_resume(struct device *pdev)
- {
- 	unsigned long flags;
- 	struct net_device *dev;
- 	struct el3_private *lp;
- 	int ioaddr;
- 	
--	if (!pdev && !pdev->data)
--		return -EINVAL;
--
--	dev = (struct net_device *)pdev->data;
-+	dev = pdev->driver_data;
- 	lp = netdev_priv(dev);
- 	ioaddr = dev->base_addr;
- 
-@@ -1536,20 +1521,7 @@ el3_resume(struct pm_dev *pdev)
- 	return 0;
- }
- 
--static int
--el3_pm_callback(struct pm_dev *pdev, pm_request_t rqst, void *data)
--{
--	switch (rqst) {
--		case PM_SUSPEND:
--			return el3_suspend(pdev);
--
--		case PM_RESUME:
--			return el3_resume(pdev);
--	}
--	return 0;
--}
--
--#endif /* CONFIG_PM_LEGACY */
-+#endif /* CONFIG_PM */
- 
- /* Parameters that may be passed into the module. */
- static int debug = -1;
+Thanks a lot.
