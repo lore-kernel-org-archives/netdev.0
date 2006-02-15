@@ -1,48 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC,NETFILTER]: Fix xfrm lookup after SNAT
-Date: Wed, 15 Feb 2006 01:34:39 -0800 (PST)
-Message-ID: <20060215.013439.120363074.davem@davemloft.net>
-References: <43F0C0ED.8000303@trash.net>
-	<20060214014924.GA954@gondor.apana.org.au>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [RFT/PATCH] 3c509: use proper suspend/resume API
+Date: Wed, 15 Feb 2006 02:25:23 -0800
+Message-ID: <20060215022523.1d21b9c9.akpm@osdl.org>
+References: <1139935173.22151.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060214014924.GA954@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751048AbWBOK0h@vger.kernel.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+In-Reply-To: <1139935173.22151.2.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 14 Feb 2006 12:49:24 +1100
+Pekka Enberg <penberg@cs.helsinki.fi> wrote:
+>
+> I am looking for someone with 3c509 netword card that can do
+>  suspend/resume to test this patch.
 
-> On Mon, Feb 13, 2006 at 06:25:01PM +0100, Patrick McHardy wrote:
-> > I finally got around to fixing the "ip_finish_output2: No header cache
-> > and no neighbour!" problem reported by Andi Kleen. Instead of rerouting
-> > the packet in POST_ROUTING, we reuse the original route for the
-> > xfrm_lookup. This introduces a small restriction (see changelog entry),
-> > but I think it should work.
-> > 
-> > Herbert, do you see any problems with this patch?
-> 
-> Looks perfect to me.  I think the restriction makes sense since SNAT
-> is done in post-routing so it's counter-intuitive to repeat the lookup
-> anyway.
->  
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I have a 3c509, and I'm not afraid to use it!
 
-Looks good to me too, applied to net-2.6
+Problem is, it doesn't resume correctly either with or without the patch:
+it needs rmmod+modprobe to get it going again.  (Which is better than the
+aic7xxx driver, which has a coronary and panics the kernel on post-resume
+reboot).
 
-Thanks a lot.
+But at least nothing got worse, and it makes that darn warning go away.
