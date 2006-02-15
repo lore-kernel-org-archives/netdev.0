@@ -1,31 +1,33 @@
-From: Shaun Pereira <spereira@tusc.com.au>
-Subject: [PATCH 6/6] x25: Allow 32 bit socket ioctl in 64 bit kernel
-Date: Thu, 16 Feb 2006 09:43:35 +1100
-Message-ID: <1140043416.8745.52.camel@spereira05.tusc.com.au>
-Reply-To: spereira@tusc.com.au
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [XFRM]: Fix SNAT-related crash in xfrm4_output_finish
+Date: Wed, 15 Feb 2006 15:14:50 -0800 (PST)
+Message-ID: <20060215.151450.79708438.davem@davemloft.net>
+References: <43F3640B.6070809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751129AbWBOWpg@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kenel <linux-kernel@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	herbert@gondor.apana.org.au
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kaber@trash.net
+In-Reply-To: <43F3640B.6070809@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Allow patch 5 to use 32-64 bit conversion mechanism
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 15 Feb 2006 18:25:31 +0100
 
-Signed-off-by:Shaun Pereira <spereira@tusc.com.au>
+> This patch fixes the crash in xfrm4_output_finish reported by
+> multiple people.
 
-diff -uprN -X dontdiff linux-2.6.16-rc3-vanilla/net/x25/af_x25.c linux-2.6.16-rc3/net/x25/af_x25.c
---- linux-2.6.16-rc3-vanilla/net/x25/af_x25.c	2006-02-15 11:17:03.000000000 +1100
-+++ linux-2.6.16-rc3/net/x25/af_x25.c	2006-02-15 11:17:20.000000000 +1100
-@@ -1529,6 +1529,8 @@ static int compat_x25_ioctl(struct socke
- 			break;
- 		case SIOCX25GFACILITIES:
- 		case SIOCX25SFACILITIES:
-+		case SIOCX25GDTEFACILITIES:
-+		case SIOCX25SDTEFACILITIES:
- 		case SIOCX25GCALLUSERDATA:
- 		case SIOCX25SCALLUSERDATA:
- 		case SIOCX25GCAUSEDIAG:
+Looks good, applied.
+
+Thanks Patrick.
