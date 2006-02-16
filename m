@@ -1,371 +1,42 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: [PATCH 5/6] scsi tgt: scsi target netlink interface
-Date: Thu, 16 Feb 2006 13:53:44 -0600
-Message-ID: <1140119624.20193.54.camel@max>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org
-Sender: linux-scsi-owner@vger.kernel.org
+From: Jan-Frode Myklebust <mykleb@no.ibm.com>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
+Date: Thu, 16 Feb 2006 22:02:48 +0100
+Message-ID: <slrndv9q3o.pib.mykleb@99RXZYP.ibm.com>
+References: <e282236e0602070146p1ed3fdb6k74aa75e15bbc37a3@mail.gmail.com> <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com> <43EB9548.9060504@kernelpanic.ru> <cbec11ac0602091125w5a5a7c6em8462131e9f9b24dc@mail.gmail.com> <43EB98B0.4@kernelpanic.ru>
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964794AbWBPVLX@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch implments a netlink interface for the scsi tgt framework.
-I was not sure if code using the netlink interface had to get reviewed
-by the netdev guys. I am ccing them on this patch and providing
-a basic review of why/how we want to use netlink.
+On 2006-02-09, Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
+>
+>> Is it possible for you to download 2.6.16-rc2 or similar and see if it
+>> goes away?
+>
+> It'll be better, if I get only patch fixs that problem, not all 2.6.16-rc2.
 
-I did not think the netdev people wanted to see the scsi and
-block layer code, so I am just sending the netlink interface part
-of this patchset to netdev. I can resend the other parts if
-needed.
+I just got this same warning on a system running 2.6.14.5. It's been
+up for 50 days, quite heavily loaded, and I've seen this only once. 
+Should i be conserned ? Could someone tell me what it means ?
 
-The scsi tgt framework, adds support for scsi target mode
-cards. So instead of using the scsi card in your box as a initiator/host
-you can use it as a target/server.
-
-The reason for the netlink use is becuase the target normally
-receives a interrupt indicating that a command or event is
-ready to be processed. The scsi card's driver will then call
-a scsi lib function which eventually calls scsi_tgt_uspace_send (in
-this patch below) to tell userspace to begin to process the request
-(userspace contains the state model). Later userspace will call back
-into the kernel by sending a netlink msg, and instruct the scsi driver
-what to do next. When the scsi driver is done executing the
-operation, it will send a netlink message back to userspace
-to indicate the success or failure of the operation (using 
-scsi_tgt_uspace_send_status in the patch below).
-
-
-Signed-off-by: Mike Christie <michaelc@cs.wisc.edu>
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-
-
-diff --git a/drivers/scsi/scsi_tgt_if.c b/drivers/scsi/scsi_tgt_if.c
-new file mode 100644
-index 0000000..38b35da
---- /dev/null
-+++ b/drivers/scsi/scsi_tgt_if.c
-@@ -0,0 +1,214 @@
-+/*
-+ * SCSI target kernel/user interface functions
-+ *
-+ * Copyright (C) 2005 FUJITA Tomonori <tomof@acm.org>
-+ * Copyright (C) 2005 Mike Christie <michaelc@cs.wisc.edu>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of the
-+ * License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-+ * 02110-1301 USA
-+ */
-+#include <linux/blkdev.h>
-+#include <linux/file.h>
-+#include <linux/netlink.h>
-+#include <net/tcp.h>
-+#include <scsi/scsi.h>
-+#include <scsi/scsi_cmnd.h>
-+#include <scsi/scsi_device.h>
-+#include <scsi/scsi_host.h>
-+#include <scsi/scsi_tgt.h>
-+#include <scsi/scsi_tgt_if.h>
-+
-+#include "scsi_tgt_priv.h"
-+
-+static int tgtd_pid;
-+static struct sock *nl_sk;
-+
-+static int send_event_res(uint16_t type, struct tgt_event *p,
-+			  void *data, int dlen, gfp_t flags, pid_t pid)
-+{
-+	struct tgt_event *ev;
-+	struct nlmsghdr *nlh;
-+	struct sk_buff *skb;
-+	uint32_t len;
-+
-+	len = NLMSG_SPACE(sizeof(*ev) + dlen);
-+	skb = alloc_skb(len, flags);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	nlh = __nlmsg_put(skb, pid, 0, type, len - sizeof(*nlh), 0);
-+
-+	ev = NLMSG_DATA(nlh);
-+	memcpy(ev, p, sizeof(*ev));
-+	if (dlen)
-+		memcpy(ev->data, data, dlen);
-+
-+	return netlink_unicast(nl_sk, skb, pid, 0);
-+}
-+
-+int scsi_tgt_uspace_send(struct scsi_cmnd *cmd, struct scsi_lun *lun, gfp_t gfp_mask)
-+{
-+	struct Scsi_Host *shost = scsi_tgt_cmd_to_host(cmd);
-+	struct sk_buff *skb;
-+	struct nlmsghdr *nlh;
-+	struct tgt_event *ev;
-+	struct tgt_cmd *tcmd;
-+	int err, len;
-+
-+	len = NLMSG_SPACE(sizeof(*ev) + sizeof(struct tgt_cmd));
-+	/*
-+	 * TODO: add MAX_COMMAND_SIZE to ev and add mempool
-+	 */
-+	skb = alloc_skb(NLMSG_SPACE(len), gfp_mask);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	nlh = __nlmsg_put(skb, tgtd_pid, 0, TGT_KEVENT_CMD_REQ,
-+			  len - sizeof(*nlh), 0);
-+
-+	ev = NLMSG_DATA(nlh);
-+	ev->k.cmd_req.host_no = shost->host_no;
-+	ev->k.cmd_req.cid = cmd->request->tag;
-+	ev->k.cmd_req.data_len = cmd->request_bufflen;
-+
-+	dprintk("%d %u %u\n", ev->k.cmd_req.host_no, ev->k.cmd_req.cid,
-+		ev->k.cmd_req.data_len);
-+
-+	/* FIXME: we need scsi core to do that. */
-+	memcpy(cmd->cmnd, cmd->data_cmnd, MAX_COMMAND_SIZE);
-+
-+	tcmd = (struct tgt_cmd *) ev->data;
-+	memcpy(tcmd->scb, cmd->cmnd, sizeof(tcmd->scb));
-+	memcpy(tcmd->lun, lun, sizeof(struct scsi_lun));
-+
-+	err = netlink_unicast(nl_sk, skb, tgtd_pid, 0);
-+	if (err < 0)
-+		printk(KERN_ERR "scsi_tgt_uspace_send: could not send skb %d\n",
-+		       err);
-+	return err;
-+}
-+
-+int scsi_tgt_uspace_send_status(struct scsi_cmnd *cmd, gfp_t gfp_mask)
-+{
-+	struct Scsi_Host *shost = scsi_tgt_cmd_to_host(cmd);
-+	struct tgt_event ev;
-+	char dummy[sizeof(struct tgt_cmd)];
-+
-+	memset(&ev, 0, sizeof(ev));
-+	ev.k.cmd_done.host_no = shost->host_no;
-+	ev.k.cmd_done.cid = cmd->request->tag;
-+	ev.k.cmd_done.result = cmd->result;
-+
-+	return send_event_res(TGT_KEVENT_CMD_DONE, &ev, dummy, sizeof(dummy),
-+			      gfp_mask, tgtd_pid);
-+}
-+
-+static int event_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-+{
-+	struct tgt_event *ev = NLMSG_DATA(nlh);
-+	int err = 0;
-+
-+	dprintk("%d %d %d\n", nlh->nlmsg_type,
-+		nlh->nlmsg_pid, current->pid);
-+
-+	switch (nlh->nlmsg_type) {
-+	case TGT_UEVENT_TGTD_BIND:
-+		tgtd_pid = NETLINK_CREDS(skb)->pid;
-+		break;
-+	case TGT_UEVENT_CMD_RES:
-+		/* TODO: handle multiple cmds in one event */
-+		err = scsi_tgt_kspace_exec(ev->u.cmd_res.host_no,
-+					   ev->u.cmd_res.cid,
-+					   ev->u.cmd_res.result,
-+					   ev->u.cmd_res.len,
-+					   ev->u.cmd_res.offset,
-+					   ev->u.cmd_res.uaddr,
-+					   ev->u.cmd_res.rw,
-+					   ev->u.cmd_res.try_map);
-+		break;
-+	default:
-+		eprintk("unknown type %d\n", nlh->nlmsg_type);
-+		err = -EINVAL;
-+	}
-+
-+	return err;
-+}
-+
-+static int event_recv_skb(struct sk_buff *skb)
-+{
-+	int err;
-+	uint32_t rlen;
-+	struct nlmsghdr	*nlh;
-+
-+	while (skb->len >= NLMSG_SPACE(0)) {
-+		nlh = (struct nlmsghdr *) skb->data;
-+		if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
-+			return 0;
-+		rlen = NLMSG_ALIGN(nlh->nlmsg_len);
-+		if (rlen > skb->len)
-+			rlen = skb->len;
-+		err = event_recv_msg(skb, nlh);
-+
-+		dprintk("%d %d\n", nlh->nlmsg_type, err);
-+		/*
-+		 * TODO for passthru commands the lower level should
-+		 * probably handle the result or we should modify this
-+		 */
-+		if (nlh->nlmsg_type != TGT_UEVENT_CMD_RES) {
-+			struct tgt_event ev;
-+
-+			memset(&ev, 0, sizeof(ev));
-+			ev.k.event_res.err = err;
-+			send_event_res(TGT_KEVENT_RESPONSE, &ev, NULL, 0,
-+				       GFP_KERNEL | __GFP_NOFAIL,
-+					nlh->nlmsg_pid);
-+		}
-+		skb_pull(skb, rlen);
-+	}
-+	return 0;
-+}
-+
-+static void event_recv(struct sock *sk, int length)
-+{
-+	struct sk_buff *skb;
-+
-+	while ((skb = skb_dequeue(&sk->sk_receive_queue))) {
-+		if (NETLINK_CREDS(skb)->uid) {
-+			skb_pull(skb, skb->len);
-+			kfree_skb(skb);
-+			continue;
-+		}
-+
-+		if (event_recv_skb(skb) && skb->len)
-+			skb_queue_head(&sk->sk_receive_queue, skb);
-+		else
-+			kfree_skb(skb);
-+	}
-+}
-+
-+void __exit scsi_tgt_if_exit(void)
-+{
-+	sock_release(nl_sk->sk_socket);
-+}
-+
-+int __init scsi_tgt_if_init(void)
-+{
-+	nl_sk = netlink_kernel_create(NETLINK_TGT, 1, event_recv,
-+				    THIS_MODULE);
-+	if (!nl_sk)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 6a2ccf7..580fb42 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -21,6 +21,7 @@
- #define NETLINK_DNRTMSG		14	/* DECnet routing messages */
- #define NETLINK_KOBJECT_UEVENT	15	/* Kernel messages to userspace */
- #define NETLINK_GENERIC		16
-+#define NETLINK_TGT		17	/* SCSI target */
- 
- #define MAX_LINKS 32		
- 
-diff --git a/include/scsi/scsi_tgt_if.h b/include/scsi/scsi_tgt_if.h
-new file mode 100644
-index 0000000..da3a808
---- /dev/null
-+++ b/include/scsi/scsi_tgt_if.h
-@@ -0,0 +1,88 @@
-+/*
-+ * SCSI target kernel/user interface
-+ *
-+ * Copyright (C) 2005 FUJITA Tomonori <tomof@acm.org>
-+ * Copyright (C) 2005 Mike Christie <michaelc@cs.wisc.edu>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation; either version 2 of the
-+ * License, or (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-+ * 02110-1301 USA
-+ */
-+#ifndef __SCSI_TARGET_IF_H
-+#define __SCSI_TARGET_IF_H
-+
-+enum tgt_event_type {
-+	/* user -> kernel */
-+	TGT_UEVENT_TGTD_BIND,
-+	TGT_UEVENT_TARGET_SETUP,
-+	TGT_UEVENT_CMD_RES,
-+
-+	/* kernel -> user */
-+	TGT_KEVENT_RESPONSE,
-+	TGT_KEVENT_CMD_REQ,
-+	TGT_KEVENT_CMD_DONE,
-+};
-+
-+struct tgt_event {
-+	/* user-> kernel */
-+	union {
-+		struct {
-+			int pk_fd;
-+		} tgtd_bind;
-+		struct {
-+			int host_no;
-+			uint32_t cid;
-+			uint32_t len;
-+			int result;
-+			uint64_t uaddr;
-+			uint64_t offset;
-+			uint8_t rw;
-+			uint8_t try_map;
-+		} cmd_res;
-+	} u;
-+
-+	/* kernel -> user */
-+	union {
-+		struct {
-+			int err;
-+		} event_res;
-+		struct {
-+			int host_no;
-+			uint32_t cid;
-+			uint32_t data_len;
-+			uint64_t dev_id;
-+		} cmd_req;
-+		struct {
-+			int host_no;
-+			uint32_t cid;
-+			int result;
-+		} cmd_done;
-+	} k;
-+
-+	/*
-+	 * I think a pointer is a unsigned long but this struct
-+	 * gets passed around from the kernel to userspace and
-+	 * back again so to handle some ppc64 setups where userspace is
-+	 * 32 bits but the kernel is 64 we do this odd thing
-+	 */
-+	uint64_t data[0];
-+} __attribute__ ((aligned (sizeof(uint64_t))));
-+
-+struct tgt_cmd {
-+	uint8_t scb[16];
-+	uint8_t lun[8];
-+	int tags;
-+} __attribute__ ((aligned (sizeof(uint64_t))));
-+
-+#endif
+# uname -a
+Linux mail 2.6.14.5 #1 SMP Tue Dec 27 14:39:55 CET 2005 i686 i686 i386 GNU/Linux
+# dmesg|grep KERNEL
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (148)
+# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+# ethtool -k eth1
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
 
 
+  -jf
