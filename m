@@ -1,79 +1,67 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: (usagi-users 03606) [PATCH] [NET]: NETFILTER: remove duplicated operation and fix
- order in skb_clone().
-Date: Fri, 17 Feb 2006 21:51:01 +0900 (JST)
-Message-ID: <20060217.215101.09874309.yoshfuji@linux-ipv6.org>
-References: <43F5A7B2.90803@6wind.com>
-Reply-To: usagi-users@linux-ipv6.org
+From: Stefan Rompf <stefan@loplof.de>
+Subject: ANNOUNCE: new DHCP client for linux 2.6.x
+Date: Fri, 17 Feb 2006 15:37:07 +0100
+Message-ID: <200602171537.07320.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org, olivier.matz@6wind.com,
-        yoshfuji@linux-ipv6.org
-Return-path: <usagi-users-admin@linux-ipv6.org>
-To: davem@davemloft.net
-In-Reply-To: <43F5A7B2.90803@6wind.com>
-List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
-List-Post: <mailto:usagi-users@linux-ipv6.org>
-List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
-List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
-List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751454AbWBQOgU@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-In article <43F5A7B2.90803@6wind.com> (at Fri, 17 Feb 2006 11:38:42 +0100), Olivier MATZ <olivier.matz@6wind.com> says:
+                                  dhcpclient
 
-> in skb_clone(), the following code is done twice :
-> 
-> #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-> 	C(nfct_reasm);
-> 	nf_conntrack_get_reasm(skb->nfct_reasm);
-> #endif
+   A DHCP client for linux 2.6, using modern kernel features, (c) 2006
+   Stefan Rompf.
 
-David, please apply the fillowing patch.
+Motivation
 
-Thank you.
+   Using a notebook, I'm often traveling between different networks.
+   After replugging, I always needed to issue a ifdown/ifup sequence
+   because the DHCP client did not realize the temporary disconnection.
+   This is an unneeded limitation because since 2.6, the kernel notifies
+   userspace of these disconnection/reconnection events. Actually is was
+   me who implemented this feature.
 
----
-[NET]: NETFILTER: remove duplicated lines and fix order in skb_clone().
+   Beginning with 2.6.17, the linux kernel will allow userspace to
+   influence this signalling, so that for example a wpa supplicant can
+   tell the dhcpclient that an association has finished and the client
+   should try to get an IP address.
 
-Some of netfilter-related members are initalized / copied twice in
-skb_clone(). Remove one. Pointed out by Olivier MATZ <olivier.matz@6wind.com>.
+   Of course, you need software that support this feature. Unfortunately,
+   most existing DHCP clients implemented their statemachine using
+   siglongjmp() or one huge function, so there was no easy way extending
+   them. So I wrote a new one.
 
-And this patch also fixes order of copying / clearing members.
+Features
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+     * RFC2131 compatible DHCP client, tested with ISC dhcpd directly and
+       via a Cisco IOS relay agent, Cisco IOS DHCP server and dnsmasq.
+     * uses netlink for interface configuration
+     * does act on link state messages
+     * calls a script on every state change to allow updating resolv.conf
+       etc
+     * small, compiles with [1]uclibc
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6766f11..2144952 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -411,6 +411,9 @@ struct sk_buff *skb_clone(struct sk_buff
- 	C(pkt_type);
- 	C(ip_summed);
- 	C(priority);
-+#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
-+	C(ipvs_property);
-+#endif
- 	C(protocol);
- 	n->destructor = NULL;
- #ifdef CONFIG_NETFILTER
-@@ -422,13 +425,6 @@ struct sk_buff *skb_clone(struct sk_buff
- 	C(nfct_reasm);
- 	nf_conntrack_get_reasm(skb->nfct_reasm);
- #endif
--#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
--	C(ipvs_property);
--#endif
--#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
--	C(nfct_reasm);
--	nf_conntrack_get_reasm(skb->nfct_reasm);
--#endif
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	C(nf_bridge);
- 	nf_bridge_get(skb->nf_bridge);
+Status
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+   Currently, this is alpha software. It shouldn't be used in production
+   environment, but I'm looking forward for people who like to test it in
+   different environments and for (reasonable ;-) feature suggestions!
+
+Support
+
+   The webpage is at [2]http://www.flamewarmaster.de/software/dhcpclient/
+
+   There is a mailing list available on
+   [3]http://www.flamewarmaster.de/mailman/listinfo/dhcpclient/
+
+References
+
+   1. http://www.uclibc.org/
+   2. http://www.flamewarmaster.de/software/dhcpclient/
+   3. http://www.flamewarmaster.de/mailman/listinfo/dhcpclient/
