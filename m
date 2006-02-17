@@ -1,67 +1,117 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: ANNOUNCE: new DHCP client for linux 2.6.x
-Date: Fri, 17 Feb 2006 15:37:07 +0100
-Message-ID: <200602171537.07320.stefan@loplof.de>
+From: "Seewer Philippe" <philippe.seewer@bfh.ch>
+Subject: [PATCH 1/2] pcnet32: Introduce basic AT 2700/01 FTX support
+Date: Fri, 17 Feb 2006 17:14:39 +0100
+Message-ID: <43F5F66F.6040608@bfh.ch>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+	charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751454AbWBQOgU@vger.kernel.org>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964928AbWBQQOo@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: <tsbogend@alpha.franken.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-                                  dhcpclient
+This patch extends Don Fry's last patch for AT 2700/01 FX to set the
+speed/fdx options for the FTX variants of these cards as well.
 
-   A DHCP client for linux 2.6, using modern kernel features, (c) 2006
-   Stefan Rompf.
+Additionally the option override has been moved from pcnet32_open to
+pcnet32_probe1 because it's only necessary to override the options once.
 
-Motivation
+Tested and works.
 
-   Using a notebook, I'm often traveling between different networks.
-   After replugging, I always needed to issue a ifdown/ifup sequence
-   because the DHCP client did not realize the temporary disconnection.
-   This is an unneeded limitation because since 2.6, the kernel notifies
-   userspace of these disconnection/reconnection events. Actually is was
-   me who implemented this feature.
+Patch applies to 2.6.16-rc3
 
-   Beginning with 2.6.17, the linux kernel will allow userspace to
-   influence this signalling, so that for example a wpa supplicant can
-   tell the dhcpclient that an association has finished and the client
-   should try to get an IP address.
+Signed-off-by: Philippe Seewer <philippe.seewer@bfh.ch>
+---
 
-   Of course, you need software that support this feature. Unfortunately,
-   most existing DHCP clients implemented their statemachine using
-   siglongjmp() or one huge function, so there was no easy way extending
-   them. So I wrote a new one.
+ drivers/net/pcnet32.c   |   39 ++++++++++++++++++++++++++-------------
+ include/linux/pci_ids.h |    2 ++
+ 2 files changed, 28 insertions(+), 13 deletions(-)
 
-Features
 
-     * RFC2131 compatible DHCP client, tested with ISC dhcpd directly and
-       via a Cisco IOS relay agent, Cisco IOS DHCP server and dnsmasq.
-     * uses netlink for interface configuration
-     * does act on link state messages
-     * calls a script on every state change to allow updating resolv.conf
-       etc
-     * small, compiles with [1]uclibc
+diff -uprN -X linux-2.6.16-rc3-vanilla/Documentation/dontdiff linux-2.6.16-rc3-vanilla/drivers/net/pcnet32.c linux-2.6.16-rc3/drivers/net/pcnet32.c
+--- linux-2.6.16-rc3-vanilla/drivers/net/pcnet32.c      2006-02-13 01:27:25.000000000 +0100
++++ linux-2.6.16-rc3/drivers/net/pcnet32.c      2006-02-17 15:49:41.000000000 +0100
+@@ -22,8 +22,8 @@
+  *************************************************************************/
 
-Status
+ #define DRV_NAME       "pcnet32"
+-#define DRV_VERSION    "1.31c"
+-#define DRV_RELDATE    "01.Nov.2005"
++#define DRV_VERSION    "1.31d"
++#define DRV_RELDATE    "17.Feb.2006"
+ #define PFX            DRV_NAME ": "
 
-   Currently, this is alpha software. It shouldn't be used in production
-   environment, but I'm looking forward for people who like to test it in
-   different environments and for (reasonable ;-) feature suggestions!
+ static const char *version =
+@@ -265,6 +265,8 @@ static int homepna[MAX_UNITS];
+  * v1.31c  01 Nov 2005 Don Fry Allied Telesyn 2700/2701 FX are 100Mbit only.
+  *        Force 100Mbit FD if Auto (ASEL) is selected.
+  *        See Bugzilla 2669 and 4551.
++ * v1.31d  17 Nov 2006 Philippe Seewer Extended AT 2700/01 FX support
++ *         to support FTX variants as well.
+  */
 
-Support
 
-   The webpage is at [2]http://www.flamewarmaster.de/software/dhcpclient/
+@@ -1404,6 +1406,28 @@ pcnet32_probe1(unsigned long ioaddr, int
+     if (lp->mii)
+        lp->mii_if.phy_id = ((lp->a.read_bcr (ioaddr, 33)) >> 5) & 0x1f;
 
-   There is a mailing list available on
-   [3]http://www.flamewarmaster.de/mailman/listinfo/dhcpclient/
++    /*
++     * Override options:
++     * Allied Telesyn AT 2700/2701 FX are 100Mbit only and do not
++     * negotiate. The same goes for AT 2701 FTX on fiber and
++     * autoneg on 2700FTX seems generally broken.
++     */
++    if (lp->pci_dev->subsystem_vendor == PCI_VENDOR_ID_AT &&
++       ((lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2700FX ||
++         lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2701FX ||
++         lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2700FTX)
++        ||
++        (lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2701FTX &&
++         lp->mii_if.phy_id == 1)
++        )) {
++       if (lp->options & PCNET32_PORT_ASEL) {
++           lp->options = PCNET32_PORT_MII | PCNET32_PORT_FD | PCNET32_PORT_100;
++           if (pcnet32_debug & NETIF_MSG_PROBE)
++             printk("    Setting 100Mb-Full Duplex.\n");
++       }
++    }
++
++
+     init_timer (&lp->watchdog_timer);
+     lp->watchdog_timer.data = (unsigned long) dev;
+     lp->watchdog_timer.function = (void *) &pcnet32_watchdog;
+@@ -1614,17 +1638,6 @@ pcnet32_open(struct net_device *dev)
+        val |= 0x10;
+     lp->a.write_csr (ioaddr, 124, val);
 
-References
+-    /* Allied Telesyn AT 2700/2701 FX are 100Mbit only and do not negotiate */
+-    if (lp->pci_dev->subsystem_vendor == PCI_VENDOR_ID_AT &&
+-           (lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2700FX ||
+-            lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2701FX)) {
+-       if (lp->options & PCNET32_PORT_ASEL) {
+-           lp->options = PCNET32_PORT_FD | PCNET32_PORT_100;
+-           if (netif_msg_link(lp))
+-               printk(KERN_DEBUG "%s: Setting 100Mb-Full Duplex.\n",
+-                       dev->name);
+-       }
+-    }
+     {
+        /*
+         * 24 Jun 2004 according AMD, in order to change the PHY,
+diff -uprN -X linux-2.6.16-rc3-vanilla/Documentation/dontdiff linux-2.6.16-rc3-vanilla/include/linux/pci_ids.h linux-2.6.16-rc3/include/linux/pci_ids.h
+--- linux-2.6.16-rc3-vanilla/include/linux/pci_ids.h    2006-02-13 01:27:25.000000000 +0100
++++ linux-2.6.16-rc3/include/linux/pci_ids.h    2006-02-17 15:51:37.000000000 +0100
+@@ -1538,7 +1538,9 @@
+ /* Allied Telesyn */
+ #define PCI_VENDOR_ID_AT               0x1259
+ #define PCI_SUBDEVICE_ID_AT_2700FX     0x2701
++#define PCI_SUBDEVICE_ID_AT_2700FTX    0x2702
+ #define PCI_SUBDEVICE_ID_AT_2701FX     0x2703
++#define PCI_SUBDEVICE_ID_AT_2701FTX    0x2704
 
-   1. http://www.uclibc.org/
-   2. http://www.flamewarmaster.de/software/dhcpclient/
-   3. http://www.flamewarmaster.de/mailman/listinfo/dhcpclient/
+ #define PCI_VENDOR_ID_ESS              0x125d
+ #define PCI_DEVICE_ID_ESS_ESS1968      0x1968
