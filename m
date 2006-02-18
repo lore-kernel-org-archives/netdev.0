@@ -1,8 +1,8 @@
 From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
 Subject: Re: From: Carlos   =?iso-8859-1?q?Mart=C3=ADn?= <carlos@cmartin.tk>
-Date: Sat, 18 Feb 2006 23:38:24 +0100
-Message-ID: <200602182338.24399.carlos@cmartin.tk>
-References: <11403021213131-git-send-email-carlos@cmartin.tk>
+Date: Sat, 18 Feb 2006 23:44:01 +0100
+Message-ID: <200602182344.01943.carlos@cmartin.tk>
+References: <11403024891492-git-send-email-carlos@cmartin.tk>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,7 +11,7 @@ Content-Transfer-Encoding: quoted-printable
 Cc: acx100-devel@lists.sourceforge.net
 Return-path: <acx100-devel-admin@lists.sourceforge.net>
 To: netdev@vger.kernel.org
-In-Reply-To: <11403021213131-git-send-email-carlos@cmartin.tk>
+In-Reply-To: <11403024891492-git-send-email-carlos@cmartin.tk>
 Content-Disposition: inline
 Sender: acx100-devel-admin@lists.sourceforge.net
 Errors-To: acx100-devel-admin@lists.sourceforge.net
@@ -24,9 +24,12 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Oops, sorry about that, I'll send a properly formed e-mail. I'm still manag=
-ing=20
-to get stuff wrong with git-send-email.perl
+I feel so fucking stupid right now.
+This'll have to do for now. Denis isn't using any scripts to apply patches,=
+ so=20
+it shouldn't be much of a problem...
+
+Sorry again.
 
    cmn
 =2D-=20
