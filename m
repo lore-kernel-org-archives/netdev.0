@@ -1,9 +1,8 @@
 From: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 3/5] IrDA: nsc-ircc: support for yet another Thinkpad
- IrDA chipset
-Date: Sun, 19 Feb 2006 00:35:48 -0800 (PST)
-Message-ID: <20060219.003548.72019208.davem@davemloft.net>
-References: <20060213221521.GD31091@irie>
+Subject: Re: [PATCH 4/5] IrDA: sti/cli removal from EP7211 IrDA driver
+Date: Sun, 19 Feb 2006 00:36:25 -0800 (PST)
+Message-ID: <20060219.003625.61969108.davem@davemloft.net>
+References: <20060213221538.GE31091@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -12,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jt-sDzT885Ts8HQT0dZR+AlfA@pu
 	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-In-Reply-To: <20060213221521.GD31091@irie>
+In-Reply-To: <20060213221538.GE31091@irie>
 Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
@@ -25,13 +24,13 @@ List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Date: Tue, 14 Feb 2006 00:15:21 +0200
+Date: Tue, 14 Feb 2006 00:15:38 +0200
 
-> This patch simply adds support for a variation of the nsc-ircc PC8739x
-> chipset, found in some IBM Thinkpad laptops.
+> This patch replaces the deprecated sti/cli routines with the corresponding
+> spin_lock ones.
 > 
-> Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org> 
-> Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> 
+> Signed-off-by: David chosrova <david.chosrova-TDf4sKD1mxeHlu7OokbhRg@public.gmane.org>
+> Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
 Applied.
 
