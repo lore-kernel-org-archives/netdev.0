@@ -1,40 +1,39 @@
-From: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
-Subject: Re: From: Carlos   =?iso-8859-1?q?Mart=C3=ADn?= <carlos@cmartin.tk>
-Date: Sat, 18 Feb 2006 23:44:01 +0100
-Message-ID: <200602182344.01943.carlos@cmartin.tk>
-References: <11403024891492-git-send-email-carlos@cmartin.tk>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/5] IrDA: nsc-ircc: ISAPnP support
+Date: Sun, 19 Feb 2006 00:34:32 -0800 (PST)
+Message-ID: <20060219.003432.123368137.davem@davemloft.net>
+References: <20060213221443.GB31091@irie>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: acx100-devel@lists.sourceforge.net
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: netdev@vger.kernel.org
-In-Reply-To: <11403024891492-git-send-email-carlos@cmartin.tk>
-Content-Disposition: inline
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
+In-Reply-To: <20060213221443.GB31091@irie>
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-I feel so fucking stupid right now.
-This'll have to do for now. Denis isn't using any scripts to apply patches,=
- so=20
-it shouldn't be much of a problem...
+From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Date: Tue, 14 Feb 2006 00:14:43 +0200
 
-Sorry again.
+> This enables PnP support for the nsc-ircc chipset.
+> Since we can't fetch the chipset cfg_base from the PnP layer, we just use
+> the PnP information as one more hint when probing the chip.
+> 
+> Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org> 
+> Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> 
 
-   cmn
-=2D-=20
-Carlos Mart=EDn Nieto    |   http://www.cmartin.tk
-Hobbyist programmer    |
+Applied, thanks.
 
 
 -------------------------------------------------------
