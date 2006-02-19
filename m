@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/5] IrDA: nsc-ircc: ISAPnP support
-Date: Sun, 19 Feb 2006 00:34:32 -0800 (PST)
-Message-ID: <20060219.003432.123368137.davem@davemloft.net>
-References: <20060213221443.GB31091@irie>
+Subject: Re: [PATCH 2/5] IrDA: nsc-ircc: PM update
+Date: Sun, 19 Feb 2006 00:35:09 -0800 (PST)
+Message-ID: <20060219.003509.98073464.davem@davemloft.net>
+References: <20060213221509.GC31091@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -11,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jt-sDzT885Ts8HQT0dZR+AlfA@pu
 	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-In-Reply-To: <20060213221443.GB31091@irie>
+In-Reply-To: <20060213221509.GC31091@irie>
 Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
@@ -24,16 +24,16 @@ List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Date: Tue, 14 Feb 2006 00:14:43 +0200
+Date: Tue, 14 Feb 2006 00:15:09 +0200
 
-> This enables PnP support for the nsc-ircc chipset.
-> Since we can't fetch the chipset cfg_base from the PnP layer, we just use
-> the PnP information as one more hint when probing the chip.
+> This patch brings the nsc-ircc code to a more up to date power management
+> scheme, following the current device model.
 > 
-> Signed-off-by: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org> 
-> Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org> 
+> Signed-off-by: Dmitry Torokhov <dtor-JGs/UdohzUI@public.gmane.org>
+> Signed-off-by: Rudolf Marek <r.marek-3zVPrsR01WjrBKCeMvbIDA@public.gmane.org>
+> Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-Applied, thanks.
+Applied.
 
 
 -------------------------------------------------------
