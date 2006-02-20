@@ -1,35 +1,47 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: Diff between Linus' and linux-mips git: declance
-Date: Mon, 20 Feb 2006 17:02:01 +0000 (GMT)
-Message-ID: <Pine.LNX.4.64N.0602201701350.13723@blysk.ds.pg.gda.pl>
-References: <20060219234318.GA16311@deprecation.cyrius.com>
- <20060220000141.GX10266@deprecation.cyrius.com> <20060220001724.GB17967@deprecation.cyrius.com>
- <20060220142233.GA3743@deprecation.cyrius.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] iproute2 -- add fwmarkmask
+Date: Mon, 20 Feb 2006 18:03:04 +0100
+Message-ID: <43F9F648.1060803@trash.net>
+References: <23395.1140452828@sandelman.ottawa.on.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: Martin Michlmayr <tbm@cyrius.com>
-In-Reply-To: <20060220142233.GA3743@deprecation.cyrius.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	shemminger@osdl.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
+In-Reply-To: <23395.1140452828@sandelman.ottawa.on.ca>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Feb 2006, Martin Michlmayr wrote:
+Michael Richardson wrote:
+> -	if (tb[RTA_PROTOINFO]) {
+> -		fprintf(fp, "fwmark %#x ", *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]));
+> +	if (tb[RTA_FWMARK]) {
+> +		__u32 value = *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]);
+> +		if (tb[RTA_FWMARK_MASK]) {
+> +			__u32 mask;
+> +			mask=*(__u32*)RTA_DATA(tb[RTA_FWMARK_MASK]);
+> +			fprintf(fp, "fwmark %#x&%#x ", value, mask);
 
-> Updated patch, please apply.
-> 
-> 
-> [PATCH] Remove delta between Linus' and linux-mips git trees in declance
-> 
-> There are three changes between the Linus' and linux-mips git trees
-> regarding the declaner driver.  The first change is certainly correct
-> (as it is consistent with the rest of the file) and should be applied
-> to mainline; the other change seems correct too.  And the third is
-> cosmetic.
-> 
-> Signed-off-by: Martin Michlmayr <tbm@cyrius.com>
+The normal way to display masks is with a "/". Also I think it shouldn't
+display the default mask to avoid breaking scripts that parse the
+output.
+> +		} else if (strcmp(*argv, "fwmarkmask") == 0) {
+> +			__u32 fwmarkmask;
+> +			NEXT_ARG();
+> +			if (get_u32(&fwmarkmask, *argv, 0))
+> +				invarg("fwmarkmask value is invalid\n", *argv);
+> +			addattr32(&req.n, sizeof(req), RTA_FWMARK_MASK, fwmarkmask);
 
-Acked-by: Maciej W. Rozycki <macro@linux-mips.org>
-
-  Maciej
+ip should be able to parse its own output, and it would also look nicer
+if I could just say "fwmark 0x1/32". fwmarkmask is really an incredible
+ugly expression :)
