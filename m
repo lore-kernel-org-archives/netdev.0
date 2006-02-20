@@ -1,16 +1,17 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/02] add mask options to fwmark masking code
-Date: Mon, 20 Feb 2006 18:16:30 +0100
-Message-ID: <43F9F96E.3040108@trash.net>
-References: <23140.1140452813@sandelman.ottawa.on.ca>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [NETFILTER]: Fix skb->nf_bridge lifetime issues
+Date: Mon, 20 Feb 2006 18:56:15 +0100
+Message-ID: <1140458176.3031.1.camel@localhost.localdomain>
+References: <43F97342.9050806@trash.net>  <43F98CEE.1080609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netfilter-devel <netfilter-devel@lists.netfilter.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Michael Richardson <mcr@xelerance.com>
-In-Reply-To: <23140.1140452813@sandelman.ottawa.on.ca>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <43F98CEE.1080609@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -22,12 +23,14 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Michael Richardson wrote:
-> [PATCH] This patch introduces a mask to the fwmark test cases in the advanced
-> routing. This let's one test individual bits of the fwmark to determine
-> how things should be routed (pick a routing table). This patch retains
-> compatibility with tests that do not set the mask by assuming a mask
-> of 0 is equivalent to a mask of 0xffffffff.
+Op ma, 20-02-2006 te 10:33 +0100, schreef Patrick McHardy:
+> Patrick McHardy wrote:
+> > Bart, can you please have a look at this patch and ACK/NACK it?
+> > We have a bugreport in the netfilter bugzilla of broken conntrack
+> > with tunnels on top of bridge devices (#448), which should be cured
+> > by this patch.
 
-One last comment: instead of looking at the value you should check if
-the mask attribute is present to decide when to use the compat mask.
+Looks fine to me. Nice work.
+
+cheers,
+Bart
