@@ -1,47 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] iproute2 -- add fwmarkmask
-Date: Mon, 20 Feb 2006 18:03:04 +0100
-Message-ID: <43F9F648.1060803@trash.net>
-References: <23395.1140452828@sandelman.ottawa.on.ca>
+From: John Bowler <jbowler@acm.org>
+Subject: RE: [RFC] [PATCH 1/2] Driver to remember ethernet MAC values: maclist
+Date: Mon, 20 Feb 2006 09:04:28 -0800
+Message-ID: <000301c6363f$b6c681a0$1001a8c0@kalmiopsis>
+References: <20060220142258.7299170c@inspiron>
+Reply-To: <jbowler@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	shemminger@osdl.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-In-Reply-To: <23395.1140452828@sandelman.ottawa.on.ca>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: "'David Vrabel'" <dvrabel@cantab.net>,
+	"'Adrian Bunk'" <bunk@stusta.de>,
+	"'Martin Michlmayr'" <tbm@cyrius.com>, <netdev@vger.kernel.org>,
+	"'Russell King'" <rmk+lkml@arm.linux.org.uk>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161035AbWBTREi@vger.kernel.org>
+To: "'Alessandro Zummo'" <alessandro.zummo@towertech.it>,
+	<linux-kernel@vger.kernel.org>
+In-Reply-To: <20060220142258.7299170c@inspiron>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Richardson wrote:
-> -	if (tb[RTA_PROTOINFO]) {
-> -		fprintf(fp, "fwmark %#x ", *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]));
-> +	if (tb[RTA_FWMARK]) {
-> +		__u32 value = *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]);
-> +		if (tb[RTA_FWMARK_MASK]) {
-> +			__u32 mask;
-> +			mask=*(__u32*)RTA_DATA(tb[RTA_FWMARK_MASK]);
-> +			fprintf(fp, "fwmark %#x&%#x ", value, mask);
+My latest version of this patch is here:
 
-The normal way to display masks is with a "/". Also I think it shouldn't
-display the default mask to avoid breaking scripts that parse the
-output.
-> +		} else if (strcmp(*argv, "fwmarkmask") == 0) {
-> +			__u32 fwmarkmask;
-> +			NEXT_ARG();
-> +			if (get_u32(&fwmarkmask, *argv, 0))
-> +				invarg("fwmarkmask value is invalid\n", *argv);
-> +			addattr32(&req.n, sizeof(req), RTA_FWMARK_MASK, fwmarkmask);
+http://cvs.sourceforge.net/viewcvs.py/nslu/kernel/2.6.15/91-maclist.patch?rev=1.2&only_with_tag=HEAD&view=markup
 
-ip should be able to parse its own output, and it would also look nicer
-if I could just say "fwmark 0x1/32". fwmarkmask is really an incredible
-ugly expression :)
+In "Recommendations" "With the second strategy" should be "With
+the first strategy".
+
+(Note that the '2.6.16' directory in that repo contains an old
+version - it is, in fact, rev 1.1 from the 2.6.15 directory.)
+
+John Bowler <jbowler@acm.org>
