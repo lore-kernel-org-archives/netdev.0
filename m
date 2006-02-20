@@ -1,14 +1,16 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NETFILTER]: Fix skb->nf_bridge lifetime issues
-Date: Mon, 20 Feb 2006 08:44:02 +0100
-Message-ID: <43F97342.9050806@trash.net>
+Subject: Re: [NETFILTER]: Fix skb->nf_bridge lifetime issues
+Date: Mon, 20 Feb 2006 10:33:34 +0100
+Message-ID: <43F98CEE.1080609@trash.net>
+References: <43F97342.9050806@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------000702070701030904050306"
+Content-Type: multipart/mixed; boundary="------------010901040708020201000105"
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <43F97342.9050806@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -21,20 +23,33 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000702070701030904050306
+--------------010901040708020201000105
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
-Bart, can you please have a look at this patch and ACK/NACK it?
-We have a bugreport in the netfilter bugzilla of broken conntrack
-with tunnels on top of bridge devices (#448), which should be cured
-by this patch.
+Patrick McHardy wrote:
+> Bart, can you please have a look at this patch and ACK/NACK it?
+> We have a bugreport in the netfilter bugzilla of broken conntrack
+> with tunnels on top of bridge devices (#448), which should be cured
+> by this patch.
+> 
+> +static inline void nf_reset(struct sk_buff *skb)
+> +{
+> +	nf_conntrack_put(skb->nfct);
+> +	skb->nfct = NULL;
+> +#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> +	nf_conntrack_put_reasm(skb->nfct_reasm);
+> +	skb->nfct_reasm = NULL;
+> +#endif
+> +#ifdef CONFIG_BRIDGE_NETFILTER
+> +	nf_bridge_put(skb->nfct);
+> +	skb->nfct = NULL;
+> +#endif
+> +}
 
-There is also another report of broken conntrack with vlan on top
-of bridge devices (#400) that looks related, but probably this
-patch won't help.
+This time compile tested and s/nfct/nf_bridge/ above.
 
---------------000702070701030904050306
+--------------010901040708020201000105
 Content-Type: text/plain;
  name="x"
 Content-Transfer-Encoding: 7bit
@@ -63,18 +78,18 @@ when the packet is queued to a socket.
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit 22e4dcb796d276db47a61c2382bdf2eaf76db32e
-tree ccc5173acbe70506aa60e826e1881a4513f8c868
+commit 5e5c34345f3ead2608e38d75f998dfeb7bb5df1c
+tree 17bbdf2d4efc19888ec4fc0fd27c544677bd1949
 parent 337ba256a7e68f174a88ffba805b40622297fc22
-author Patrick McHardy <kaber@trash.net> Mon, 20 Feb 2006 08:41:48 +0100
-committer Patrick McHardy <kaber@trash.net> Mon, 20 Feb 2006 08:41:48 +0100
+author Patrick McHardy <kaber@trash.net> Mon, 20 Feb 2006 10:33:14 +0100
+committer Patrick McHardy <kaber@trash.net> Mon, 20 Feb 2006 10:33:14 +0100
 
  include/linux/skbuff.h          |   24 ++++++++++++++----------
  net/ipv4/netfilter/ipt_REJECT.c |    4 ----
  2 files changed, 14 insertions(+), 14 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 838ce0f..65bf1fa 100644
+index 838ce0f..1a26110 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -1351,16 +1351,6 @@ static inline void nf_conntrack_put_reas
@@ -107,8 +122,8 @@ index 838ce0f..65bf1fa 100644
 +	skb->nfct_reasm = NULL;
 +#endif
 +#ifdef CONFIG_BRIDGE_NETFILTER
-+	nf_bridge_put(skb->nfct);
-+	skb->nfct = NULL;
++	nf_bridge_put(skb->nf_bridge);
++	skb->nf_bridge = NULL;
 +#endif
 +}
 +
@@ -131,4 +146,4 @@ index 26ea6c1..9d3b357 100644
  	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
  
 
---------------000702070701030904050306--
+--------------010901040708020201000105--
