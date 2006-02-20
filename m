@@ -1,14 +1,13 @@
-From: Michael Richardson <mcr@xelerance.com>
-Subject: [PATCH 02/02] add mask options to fwmark masking code
-Date: Mon, 20 Feb 2006 11:26:53 -0500
-Message-ID: <23140.1140452813@sandelman.ottawa.on.ca>
+From: "Michael Richardson" <mcr@sandelman.ottawa.on.ca>
+Subject: [PATCH] iproute2 -- add fwmarkmask
+Date: Mon, 20 Feb 2006 11:27:08 -0500
+Message-ID: <23395.1140452828@sandelman.ottawa.on.ca>
 Mime-Version: 1.0
 Content-Type: multipart/signed; boundary="=-=-=";
 	micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: netdev@vger.kernel.org,
-	netfilter-devel <netfilter-devel@lists.netfilter.org>
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Jamal Hadi Salim <hadi@cyberus.ca>, kuznet@ms2.inr.ac.ru
+To: shemminger@osdl.org
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -23,95 +22,109 @@ List-Id: netdev.vger.kernel.org
 --=-=-=
 
 
-[PATCH] This patch introduces a mask to the fwmark test cases in the advanced
-routing. This let's one test individual bits of the fwmark to determine
-how things should be routed (pick a routing table). This patch retains
-compatibility with tests that do not set the mask by assuming a mask
-of 0 is equivalent to a mask of 0xffffffff.
+{see discussion about RTA_FWMARK in other posting}
 
-Sign-off-by: Michael Richardson <mcr@xelerance.com>
+diff-tree 573e55d29ef2f014218508d01eee678d82c7c9b7 (from cb420780b79a1d6f5db2082bdac0b310dbc5ebcc)
+Author: Michael Richardson <mcr@xelerance.com>
+Date:   Mon Feb 20 10:21:05 2006 -0500
 
+    this patch adds a mask operation to the fwmark rule case, permitting
+    one to test for only certain bits being set in the fwmark.
+    (cherry picked from 5fb85fa9da78cc3822f929f181c651391e35de73 commit)
 
----
-
- include/linux/rtnetlink.h |    1 +
- net/ipv4/fib_rules.c      |   19 +++++++++++++++++--
- 2 files changed, 18 insertions(+), 2 deletions(-)
-
-bcdda64a16d4dfda6d95452bbf8541999121831a
+diff --git a/ChangeLog b/ChangeLog
+index 68d2342..b67b81d 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,5 +1,9 @@
++2006-02-20  Michael Richardson <mcr@xelerance.com>
++
++	* Added fwmarkmask option to ip rule to go with addition to kernel.
++	
+ 2006-01-12  Patrick McHardy <kaber@trash.net>
+ 
+ 	* Handle DCCP in ipxfrm.c to allow using port numbers in the selector.
+ 
+ 2006-01-10  Masahide NAKAMURA <nakam@linux-ipv6.org>
 diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 27fd17e..a5b55c2 100644
+index ced29f2..7f4a258 100644
 --- a/include/linux/rtnetlink.h
 +++ b/include/linux/rtnetlink.h
-@@ -266,6 +266,7 @@ enum rtattr_type_t
+@@ -263,10 +263,13 @@ enum rtattr_type_t
+ 	RTA_SESSION,
+ 	RTA_MP_ALGO,
+ 	__RTA_MAX
  };
  
- #define RTA_FWMARK      RTA_PROTOINFO
++#define RTA_FWMARK      RTA_PROTOINFO
 +#define RTA_FWMARK_MASK RTA_CACHEINFO
- 
++
  #define RTA_MAX (__RTA_MAX - 1)
  
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index de327b3..69eed89 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -68,6 +68,7 @@ struct fib_rule
- 	u8		r_tos;
- #ifdef CONFIG_IP_ROUTE_FWMARK
- 	u32		r_fwmark;
-+        u32             r_fwmark_mask;
- #endif
- 	int		r_ifindex;
- #ifdef CONFIG_NET_CLS_ROUTE
-@@ -117,6 +118,7 @@ int inet_rtm_delrule(struct sk_buff *skb
- 		    rtm->rtm_tos == r->r_tos &&
- #ifdef CONFIG_IP_ROUTE_FWMARK
- 		    (!rta[RTA_FWMARK-1] || memcmp(RTA_DATA(rta[RTA_FWMARK-1]), &r->r_fwmark, 4) == 0) &&
-+		    (!rta[RTA_FWMARK_MASK-1] || memcmp(RTA_DATA(rta[RTA_FWMARK_MASK-1]), &r->r_fwmark_mask, 4) == 0) &&
- #endif
- 		    (!rtm->rtm_type || rtm->rtm_type == r->r_action) &&
- 		    (!rta[RTA_PRIORITY-1] || memcmp(RTA_DATA(rta[RTA_PRIORITY-1]), &r->r_preference, 4) == 0) &&
-@@ -202,6 +204,17 @@ int inet_rtm_newrule(struct sk_buff *skb
- #ifdef CONFIG_IP_ROUTE_FWMARK
- 	if (rta[RTA_FWMARK-1]) 
- 		memcpy(&new_r->r_fwmark,      RTA_DATA(rta[RTA_FWMARK-1]), 4);
-+	if (rta[RTA_FWMARK_MASK-1]) 
-+		memcpy(&new_r->r_fwmark_mask, RTA_DATA(rta[RTA_FWMARK_MASK-1]), 4);
-+	/*
-+	 * if the user doesn't set a mask, then set it to care about
-+	 * all bits. This retains compatibility. Note it is impossible
-+	 * to match SOMETHING & 0xMASK == 0, because fwmark==0 means
-+	 * do not match fwmark at all.
-+	 */
-+	if(new_r->r_fwmark_mask == 0) {
-+		new_r->r_fwmark_mask = 0xffffffff;
-+	}
- #endif
- 	new_r->r_action = rtm->rtm_type;
- 	new_r->r_flags = rtm->rtm_flags;
-@@ -298,7 +311,7 @@ FRprintk("Lookup: %u.%u.%u.%u <- %u.%u.%
- 		    ((daddr^r->r_dst) & r->r_dstmask) ||
- 		    (r->r_tos && r->r_tos != flp->fl4_tos) ||
- #ifdef CONFIG_IP_ROUTE_FWMARK
--		    (r->r_fwmark && r->r_fwmark != flp->fl4_fwmark) ||
-+		    (r->r_fwmark && r->r_fwmark != (flp->fl4_fwmark & r->r_fwmark_mask)) ||
- #endif
- 		    (r->r_ifindex && r->r_ifindex != flp->iif))
- 			continue;
-@@ -382,8 +395,10 @@ static __inline__ int inet_fill_rule(str
- 	rtm->rtm_src_len = r->r_src_len;
- 	rtm->rtm_tos = r->r_tos;
- #ifdef CONFIG_IP_ROUTE_FWMARK
--	if (r->r_fwmark) 
-+	if (r->r_fwmark) {
- 		RTA_PUT(skb, RTA_FWMARK, 4, &r->r_fwmark);
-+		RTA_PUT(skb, RTA_FWMARK_MASK, 4, &r->r_fwmark_mask);
-+	}
- #endif
- 	rtm->rtm_table = r->r_table;
- 	rtm->rtm_protocol = 0;
--- 
-
+ #define RTM_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct rtmsg))))
+ #define RTM_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct rtmsg))
+ 
+diff --git a/ip/iprule.c b/ip/iprule.c
+index ccf699f..90ffcce 100644
+--- a/ip/iprule.c
++++ b/ip/iprule.c
+@@ -33,11 +33,11 @@ extern struct rtnl_handle rth;
+ static void usage(void) __attribute__((noreturn));
+ 
+ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
+-	fprintf(stderr, "SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK ]\n");
++	fprintf(stderr, "SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK ] [ fwmarkmask MASK ]\n");
+ 	fprintf(stderr, "            [ dev STRING ] [ pref NUMBER ]\n");
+ 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
+ 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
+ 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | NUMBER ]\n");
+@@ -119,14 +119,22 @@ static int print_rule(const struct socka
+ 
+ 	if (r->rtm_tos) {
+ 		SPRINT_BUF(b1);
+ 		fprintf(fp, "tos %s ", rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
+ 	}
+-	if (tb[RTA_PROTOINFO]) {
+-		fprintf(fp, "fwmark %#x ", *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]));
++	if (tb[RTA_FWMARK]) {
++		__u32 value = *(__u32*)RTA_DATA(tb[RTA_PROTOINFO]);
++		if (tb[RTA_FWMARK_MASK]) {
++			__u32 mask;
++			mask=*(__u32*)RTA_DATA(tb[RTA_FWMARK_MASK]);
++			fprintf(fp, "fwmark %#x&%#x ", value, mask);
++		} else {
++			fprintf(fp, "fwmark %#x&0xffffffff ", value);
++		}
+ 	}
+ 
++
+ 	if (tb[RTA_IIF]) {
+ 		fprintf(fp, "iif %s ", (char*)RTA_DATA(tb[RTA_IIF]));
+ 	}
+ 
+ 	if (r->rtm_table)
+@@ -242,11 +250,17 @@ static int iprule_modify(int cmd, int ar
+ 		} else if (strcmp(*argv, "fwmark") == 0) {
+ 			__u32 fwmark;
+ 			NEXT_ARG();
+ 			if (get_u32(&fwmark, *argv, 0))
+ 				invarg("fwmark value is invalid\n", *argv);
+-			addattr32(&req.n, sizeof(req), RTA_PROTOINFO, fwmark);
++			addattr32(&req.n, sizeof(req), RTA_FWMARK, fwmark);
++		} else if (strcmp(*argv, "fwmarkmask") == 0) {
++			__u32 fwmarkmask;
++			NEXT_ARG();
++			if (get_u32(&fwmarkmask, *argv, 0))
++				invarg("fwmarkmask value is invalid\n", *argv);
++			addattr32(&req.n, sizeof(req), RTA_FWMARK_MASK, fwmarkmask);
+ 		} else if (matches(*argv, "realms") == 0) {
+ 			__u32 realm;
+ 			NEXT_ARG();
+ 			if (get_rt_realms(&realm, *argv))
+ 				invarg("invalid realms\n", *argv);
 
 
 
@@ -122,12 +135,12 @@ Content-Type: application/pgp-signature
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iQEVAwUAQ/ntzYCLcPvd0N1lAQLqbAf/d0ZoX70OFZNAqK3fukKOZbuZ7f3Skni2
-FFSsn4FYbHuyjZqIbR1ZNaPh+Wi1Z6ATZV5fYe8NWYFLsMk9xrEuWfMzade7pK7U
-CFszPqiYdlAsehfa55WPWQ7GV9FEEeQHsOZy3i+os1m4dUFcHS3dTim1CPzzLo6X
-0sgHz+G0aocSUr2KgwSpAQJtyHmrsC7k/1NB69rbKThJhccYw8ec3cjP1+7sD+hX
-+3NIKkALYxiKEjYR9pH0bXFJVqxUrRqPSNv7rdVr5zcP5b4egS6mNXGQkIddRqLv
-YF3dGmwIg8KgObX8hay++8wOO2f4t2ql+vrCH41fypw82apnuF9fng==
-=1XFm
+iQEVAwUAQ/nt3ICLcPvd0N1lAQKJsAgAgMK5kUe55lsNbZNivNjAyIaIdFfkc7sb
+HZ5F4eVNliAVVFdTh3GilhSN2/K5pBdWKhr5VtuO9SsL1VxjdclhFKcmO74H2IbO
+AqO+n8b39H+3a3nDUpOu23A8YpLWjhSz+CeHMntFoFy3OU54hRXhrCc5kz5CuVrr
+oO5IZaEAaynlASfcE8TACZ9AYEyMRMyvnWixQVO7Z5uyKDvS0s4hnFr9I/462oIA
+Sq0Dfikfo8ST/ajux9MtlGFYn0VF3zwxJNewh/KT26pV0glRF0iQX7ruE/QaCpKR
+6nNMLMxC1EL7jSBsfldv3jpd/qui3TS1xaeBDVnR5J3VO9o2Vn5jVg==
+=8vsf
 -----END PGP SIGNATURE-----
 --=-=-=--
