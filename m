@@ -1,64 +1,56 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: Diff between Linus' and linux-mips git: declance
-Date: Mon, 20 Feb 2006 14:22:33 +0000
-Message-ID: <20060220142233.GA3743@deprecation.cyrius.com>
-References: <20060219234318.GA16311@deprecation.cyrius.com> <20060220000141.GX10266@deprecation.cyrius.com> <20060220001724.GB17967@deprecation.cyrius.com>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: From: Carlos =?koi8-r?q?Mart=C3=ADn?= <carlos@cmartin.tk>
+Date: Mon, 20 Feb 2006 17:30:20 +0200
+Message-ID: <200602201730.20908.vda@ilport.com.ua>
+References: <11403021213131-git-send-email-carlos@cmartin.tk>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: netdev@vger.kernel.org, linux-mips@linux-mips.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Carlos Martin <carlos@cmartin.tk>, netdev@vger.kernel.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: acx100-devel@lists.sourceforge.net
+In-Reply-To: <11403021213131-git-send-email-carlos@cmartin.tk>
 Content-Disposition: inline
-In-Reply-To: <20060220001724.GB17967@deprecation.cyrius.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Updated patch, please apply.
+On Sunday 19 February 2006 00:35, Carlos Martin wrote:
+> [PATCH] acxsm: Fix Kconfig option check
+> 
+> This check never actually worked because CONFIG_ACX_{ACX,USB} are
+> tristate. With Adrian Bunk's patch to the Kconfig, this works with the
+> _BOOL hidden Kconfig options.
+> Also update error message adding that this shouldn't happen anymore.
+
+Carlos, I didn't apply Adrian's patch to my tree.
+
+I am not sure we want to support every imaginable .config.
+Realistic goal is:
+* allnoconfig must compile
+* allyesconfig must compile
+* allmodconfig must compile
+
+Adrian's patch makes code more obfuscated and it still has one
+corner case (when one choice is 'y' and other is 'm')
+
+If you disagree, please explain why do you want Adrian's patch
+applied.
+--
+vda
 
 
-[PATCH] Remove delta between Linus' and linux-mips git trees in declance
-
-There are three changes between the Linus' and linux-mips git trees
-regarding the declaner driver.  The first change is certainly correct
-(as it is consistent with the rest of the file) and should be applied
-to mainline; the other change seems correct too.  And the third is
-cosmetic.
-
-Signed-off-by: Martin Michlmayr <tbm@cyrius.com>
-
----
-
---- a/drivers/net/declance.c	2006-02-03 03:07:02.000000000 +0000
-+++ b/drivers/net/declance.c	2006-02-19 23:50:11.000000000 +0000
-@@ -704,8 +704,8 @@
- 	return IRQ_HANDLED;
- }
- 
--static irqreturn_t
--lance_interrupt(const int irq, void *dev_id, struct pt_regs *regs)
-+static irqreturn_t lance_interrupt(const int irq, void *dev_id,
-+				   struct pt_regs *regs)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
- 	struct lance_private *lp = netdev_priv(dev);
-@@ -1255,7 +1255,7 @@
- 	return 0;
- 
- err_out_free_dev:
--	kfree(dev);
-+	free_netdev(dev);
- 
- err_out:
- 	return ret;
-@@ -1301,6 +1301,7 @@
- 	while (root_lance_dev) {
- 		struct net_device *dev = root_lance_dev;
- 		struct lance_private *lp = netdev_priv(dev);
-+
- 		unregister_netdev(dev);
- #ifdef CONFIG_TC
- 		if (lp->slot >= 0)
-
--- 
-Martin Michlmayr
-http://www.cyrius.com/
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
