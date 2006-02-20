@@ -1,50 +1,35 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [RFC] [PATCH 1/2] Driver to remember ethernet MAC values: maclist
-Date: Mon, 20 Feb 2006 03:39:00 +0100
-Message-ID: <20060220023900.GE4971@stusta.de>
-References: <20060220010113.GA19309@deprecation.cyrius.com> <20060220014735.GD4971@stusta.de> <20060220030146.11f418dc@inspiron>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: (usagi-users 03613) Re: [PATCH] [NET]: NETFILTER: remove duplicated operation and fix
+ order in skb_clone().
+Date: Sun, 19 Feb 2006 22:32:33 -0800 (PST)
+Message-ID: <20060219.223233.65613202.davem@davemloft.net>
+References: <43F5A7B2.90803@6wind.com>
+	<20060217.215101.09874309.yoshfuji@linux-ipv6.org>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin Michlmayr <tbm@cyrius.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, John Bowler <jbowler@acm.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932425AbWBTCjE@vger.kernel.org>
-To: Alessandro Zummo <alessandro.zummo@towertech.it>
-Content-Disposition: inline
-In-Reply-To: <20060220030146.11f418dc@inspiron>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-users@linux-ipv6.org, olivier.matz@6wind.com
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20060217.215101.09874309.yoshfuji@linux-ipv6.org>
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 20, 2006 at 03:01:46AM +0100, Alessandro Zummo wrote:
-> On Mon, 20 Feb 2006 02:47:35 +0100
-> Adrian Bunk <bunk@stusta.de> wrote:
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Fri, 17 Feb 2006 21:51:01 +0900 (JST)
+
+> [NET]: NETFILTER: remove duplicated lines and fix order in skb_clone().
 > 
-> > > Some Ethernet hardware implementations have no built-in storage for
-> > > allocated MAC values - an example is the Intel IXP420 chip which has
-> > > support for Ethernet but no defined way of storing allocated MAC values.
-> > > With such hardware different board level implementations store the
-> > > allocated MAC (or MACs) in different ways.  Rather than put board level
-> > > c
-> > Silly question:
-> > 
-> > Why can't this be implemented in user space using the SIOCSIFHWADDR 
-> > ioctl?
+> Some of netfilter-related members are initalized / copied twice in
+> skb_clone(). Remove one. Pointed out by Olivier MATZ <olivier.matz@6wind.com>.
 > 
->  Because sometimes you need to have networking available
->  well before userspace.
+> And this patch also fixes order of copying / clearing members.
 > 
->  (netconsole, root over nfs, ...)
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Why can't setting MAC addresses be done from initramfs?
-
->  Best regards,
->  Alessandro Zummo,
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Patch applied to net-2.6, thank you very much.
