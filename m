@@ -1,73 +1,64 @@
-From: Alessandro Zummo <alessandro.zummo@towertech.it>
-Subject: Re: [RFC] [PATCH 1/2] Driver to remember ethernet MAC values:
- maclist
-Date: Mon, 20 Feb 2006 14:28:20 +0100
-Message-ID: <20060220142820.279f766c@inspiron>
-References: <20060220010113.GA19309@deprecation.cyrius.com>
-	<20060220014735.GD4971@stusta.de>
-	<20060220030146.11f418dc@inspiron>
-	<43F9B32B.3090203@cantab.net>
-	<20060220135718.038b675b@inspiron>
-	<20060220130712.GA24784@xi.wantstofly.org>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: Diff between Linus' and linux-mips git: declance
+Date: Mon, 20 Feb 2006 14:22:33 +0000
+Message-ID: <20060220142233.GA3743@deprecation.cyrius.com>
+References: <20060219234318.GA16311@deprecation.cyrius.com> <20060220000141.GX10266@deprecation.cyrius.com> <20060220001724.GB17967@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <dvrabel@cantab.net>, Adrian Bunk <bunk@stusta.de>,
-	Martin Michlmayr <tbm@cyrius.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	John Bowler <jbowler@acm.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030212AbWBTN2p@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060220130712.GA24784@xi.wantstofly.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: netdev@vger.kernel.org, linux-mips@linux-mips.org
+Content-Disposition: inline
+In-Reply-To: <20060220001724.GB17967@deprecation.cyrius.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Feb 2006 14:07:12 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+Updated patch, please apply.
 
-> >  you're certainly right on the ixp4xx, but the are other uses
-> > for this driver which we are working on.. for example,
-> > some Cirrus Logic ARM based chips (ep93xx) have an ethernet device
-> > that could benefit from that.
 
-> Many platforms have the same problem (esp. embedded ones), but that
-> doesn't mean that maclist is necessarily the best solution.
+[PATCH] Remove delta between Linus' and linux-mips git trees in declance
 
- of course, that's why I wrote "maclist-alike"
+There are three changes between the Linus' and linux-mips git trees
+regarding the declaner driver.  The first change is certainly correct
+(as it is consistent with the rest of the file) and should be applied
+to mainline; the other change seems correct too.  And the third is
+cosmetic.
+
+Signed-off-by: Martin Michlmayr <tbm@cyrius.com>
+
+---
+
+--- a/drivers/net/declance.c	2006-02-03 03:07:02.000000000 +0000
++++ b/drivers/net/declance.c	2006-02-19 23:50:11.000000000 +0000
+@@ -704,8 +704,8 @@
+ 	return IRQ_HANDLED;
+ }
  
-
-> The main problem I see with maclist (correct me if I'm wrong) is that
-> there can be multiple devices in the system that need to get their
-> MAC address from somewhere, and maclist doesn't make the distinction
-> which address belongs to what.  The main issue I have with it is that
-> it's too general, and that it's lots of code.
-
- you're right, usually the first device will get the first mac
- and so on. it is general because it has been coded to be that way
- I think.
-
-
-> I don't think something as complex as maclist is necessary to solve
-> the problem.  For example, why don't you just have an unsigned char
-> ixp4xx_mac_addr[6] in the ixp4xx core code, have the ixp4xx board code
-> fill that in, and have the ixp4xx ethernet driver use that?
-> 
-> Or just pass the MAC along in platform device style.  What I did in
-> drivers/net/ixp2000/ was to have enp2611.c (board-specific code) read
-> the MAC from the board, and pass it to ixpdev.c (generic code) in the
-> net_device structure.
-
- that perfectly doable, but maybe having one common interface could
- be a cleaner solution. your setup is board -> netdriver
- while maclist implements board -> storage -> netdriver.
-
- It is absolutely not a requirement, just a commodity. 
+-static irqreturn_t
+-lance_interrupt(const int irq, void *dev_id, struct pt_regs *regs)
++static irqreturn_t lance_interrupt(const int irq, void *dev_id,
++				   struct pt_regs *regs)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_id;
+ 	struct lance_private *lp = netdev_priv(dev);
+@@ -1255,7 +1255,7 @@
+ 	return 0;
+ 
+ err_out_free_dev:
+-	kfree(dev);
++	free_netdev(dev);
+ 
+ err_out:
+ 	return ret;
+@@ -1301,6 +1301,7 @@
+ 	while (root_lance_dev) {
+ 		struct net_device *dev = root_lance_dev;
+ 		struct lance_private *lp = netdev_priv(dev);
++
+ 		unregister_netdev(dev);
+ #ifdef CONFIG_TC
+ 		if (lp->slot >= 0)
 
 -- 
-
- Best regards,
-
- Alessandro Zummo,
-  Tower Technologies - Turin, Italy
-
-  http://www.towertech.it
+Martin Michlmayr
+http://www.cyrius.com/
