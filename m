@@ -1,40 +1,65 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] tg3: netif_carrier_off runs too early; could still
- be queued when init fails
-Date: Tue, 21 Feb 2006 08:44:20 -0800
-Message-ID: <1140540260.20584.6.camel@rh4>
-References: <20060220194337.GA21719@locomotive.unixthugs.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: From: Carlos   Mart??n <carlos@cmartin.tk>
+Date: Tue, 21 Feb 2006 19:26:01 +0000
+Message-ID: <20060221192601.GA28560@infradead.org>
+References: <11403021213131-git-send-email-carlos@cmartin.tk>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>,
-	"Linus Torvalds" <torvalds@osdl.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932260AbWBUSZO@vger.kernel.org>
-To: "Jeff Mahoney" <jeffm@suse.com>
-In-Reply-To: <20060220194337.GA21719@locomotive.unixthugs.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Carlos Martin <carlos@cmartin.tk>
+Content-Disposition: inline
+In-Reply-To: <11403021213131-git-send-email-carlos@cmartin.tk>
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-02-20 at 14:43 -0500, Jeff Mahoney wrote:
->  This patch moves the netif_carrier_off() call from tg3_init_one()->
->  tg3_init_link_config() to tg3_open() as is the convention for most
->  other network drivers.
-
-I think moving netif_carrier_off() later is the right thing to do. We
-can also move it to the end of tg3_init_one() just before returning 0.
-
+On Sat, Feb 18, 2006 at 11:35:21PM +0100, Carlos Martin wrote:
+> [PATCH] acxsm: Fix Kconfig option check
 > 
->  I was getting a panic after a tg3 device failed to initialize due to DMA
->  failure. The oops pointed to the link watch queue with spinlock debugging
->  enabled. Without spinlock debugging, the Oops didn't occur.
-> 
->  I suspect that the link event was getting queued but not executed until
->  after the DMA test had failed and the device was freed. The link event
->  was then operating on freed memory, which could contain anything. With this
->  patch applied, the Oops no longer occurs. 
+> This check never actually worked because CONFIG_ACX_{ACX,USB} are
+> tristate. With Adrian Bunk's patch to the Kconfig, this works with the
+> _BOOL hidden Kconfig options.
+> Also update error message adding that this shouldn't happen anymore.
 
-DMA test failed? What NIC device do you have? How did it fail?
+All the fixes discussed so far are not very nice at all.  The right
+fix is the following:
 
-Thanks.
+
+ - split the module into three:
+	acx-common.ko
+	acx-pci.ko
+	acx-usb.ko
+
+ - make CONFIG_ACX_PCI and CONFIG_ACX_USB user-visible tristate
+   varibles in the Kconfig.
+ - build acx-common.ko when either of those is selected, with the
+   following makefile:
+
+---- snip ----
+acx-common-y		+= wlan.o conv.o ioctl.o common.o
+acx-pci-y		+= pci.o
+acx-usb-y		+= usb.o
+
+obj-$(CONFIG_ACX_PCI)	+= acx-common.o acx-pci.o
+obj-$(CONFIG_ACX_USB)	+= acx-common.o acx-usb.o
+---- snip ----
+
+ - kill the IS_PCI/IS_USB macros and add a acx_operations structure that
+   handles the different hardware without branches all over and allows
+   the hw-specific code to be in separate modules.
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
