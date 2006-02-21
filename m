@@ -1,43 +1,68 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: netif_carrier_off runs too early; could still be
- queued when init fails
-Date: Tue, 21 Feb 2006 16:35:17 -0800 (PST)
-Message-ID: <20060221.163517.61593616.davem@davemloft.net>
-References: <20060221.133947.05470613.davem@davemloft.net>
-	<43FB9718.4050606@suse.com>
-	<1140559048.20584.20.camel@rh4>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: From: Carlos   Mart??n <carlos@cmartin.tk>
+Date: Tue, 21 Feb 2006 20:32:11 +0000
+Message-ID: <20060221203211.GA29627@infradead.org>
+References: <11403021213131-git-send-email-carlos@cmartin.tk> <20060221192601.GA28560@infradead.org> <200602212124.23572.carlos@cmartin.tk>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffm@suse.com, akpm@osdl.org, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422639AbWBVAfe@vger.kernel.org>
-To: mchan@broadcom.com
-In-Reply-To: <1140559048.20584.20.camel@rh4>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	acx100-devel@lists.sourceforge.net
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Carlos Mart?n <carlos@cmartin.tk>
+Content-Disposition: inline
+In-Reply-To: <200602212124.23572.carlos@cmartin.tk>
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 21 Feb 2006 13:57:28 -0800
+On Tue, Feb 21, 2006 at 09:24:23PM +0100, Carlos Mart?n wrote:
+> > acx-common-y		+= wlan.o conv.o ioctl.o common.o
+> > acx-pci-y		+= pci.o
+> > acx-usb-y		+= usb.o
+> > 
+> > obj-$(CONFIG_ACX_PCI)	+= acx-common.o acx-pci.o
+> > obj-$(CONFIG_ACX_USB)	+= acx-common.o acx-usb.o
+> 
+> This is how we had it before, which leads to having a lot of the same code on 
+> both modules. The unified driver is not much larger so it was made this way, 
+> and that's where all the problem comes from.
+> Wouldn't this lead to duplicated function definitions at link time if both are 
+> compiled-in? From your module split above I understood you wanted acx-common 
+> to be another module, but here I see it goes into the modules.
+> 
 
-> On Tue, 2006-02-21 at 17:41 -0500, Jeff Mahoney wrote:
-> 
-> > dmesg after modprobe tg3:
-> > tg3.c:v3.49 (Feb 2, 2006)
-> > ACPI: PCI Interrupt 0000:0a:02.0[A] -> GSI 24 (level, low) -> IRQ 201
-> > Uhhuh. NMI received for unknown reason 21 on CPU 0.
-> > Dazed and confused, but trying to continue
-> > Do you have a strange power saving mode enabled?
-> > tg3_test_dma() Write the buffer failed -19
-> > tg3: DMA engine test failed, aborting.
-> 
-> You're getting an NMI during tg3_init_one() which means that the NIC is
-> probably bad. I did a quick test on the same version of the 5701 NIC
-> with the same tg3 driver and it worked fine.
-> 
-> Please find out if the NIC is known to be bad. Thanks.
+No.  The above makefile fragment builds three modules: acx-common.o,
+acx-pci.o and acx-usb.o as mentioned above.  The magic here is that with
+that makefile fragment is that the kbuild systems builds acx-common.o if
+either CONFIG_ACX_PCI or CONFIG_ACX_USB is set, and even makes sure to
+do the right thing if either is builtin.  There is not code duplication
+at all.
 
-I wonder if this is how this platform informs the cpu of master-abort
-or target-abort cycles?  It could maybe also be an IRQ routing
-problem...
+> > ---- snip ----
+> > 
+> >  - kill the IS_PCI/IS_USB macros and add a acx_operations structure that
+> >    handles the different hardware without branches all over and allows
+> >    the hw-specific code to be in separate modules.
+> 
+> There aren't that many IS_{PCI,USB} uses and most if not all are justified 
+> (extra step for one case). It might be a good idea to do that for the 
+> IS_ACX{100,111} macros instead of calling the generic function which then 
+> calls the chip-specific one.
+
+The important bit is that you need the pointers with the above module
+spit, because you can't call usb- or pci-specific routines from acx-common.ko
+
+
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
