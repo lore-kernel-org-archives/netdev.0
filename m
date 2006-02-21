@@ -1,26 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.16-rc4 bridge/iptables Oops
-Date: Mon, 20 Feb 2006 20:07:03 -0800 (PST)
-Message-ID: <20060220.200703.132025777.davem@davemloft.net>
-References: <43FA0C02.8000909@trash.net>
-	<200602210211.22364.earny@net4u.de>
-	<43FA8439.6080009@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [NETFILTER]: Fix skb->nf_bridge lifetime issues
+Date: Tue, 21 Feb 2006 05:17:04 +0100
+Message-ID: <43FA9440.6070103@trash.net>
+References: <43F97342.9050806@trash.net>	<43F98CEE.1080609@trash.net>
+	<20060220.200943.51907116.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: earny@net4u.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161310AbWBUEGy@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <43FA8439.6080009@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	bdschuym@pandora.be
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060220.200943.51907116.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 21 Feb 2006 04:08:41 +0100
+David S. Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 20 Feb 2006 10:33:34 +0100
+> 
+> 
+>>This time compile tested and s/nfct/nf_bridge/ above.
+> 
+> 
+> Want me to push this into net-2.6 now that Bart has ACK'd it?
 
-> Thanks for testing. Dave, please take this patch instead, it avoids
-> having to guess whether a packet originates from bridging in IP
-> netfilter by using DST_NOXFRM for bridge-netfilter's fake dst_entry.
-
-Applied, thanks Patrick.
+I think net-2.6.17 is better, the bridging stuff is really to
+fragile for this to be sure it won't break anything and this
+has never worked so far.
