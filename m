@@ -1,63 +1,45 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Subject: Re: [PATCH] tg3: netif_carrier_off runs too early; could still be
- queued when init fails
-Date: Wed, 22 Feb 2006 11:48:54 -0500
-Message-ID: <43FC95F6.8000707@suse.com>
-References: <20060220194337.GA21719@locomotive.unixthugs.org> <1140540260.20584.6.camel@rh4> <20060221.133947.05470613.davem@davemloft.net> <43FB9718.4050606@suse.com> <1140559048.20584.20.camel@rh4>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: From: Carlos   Mart??n <carlos@cmartin.tk>
+Date: Wed, 22 Feb 2006 14:36:04 +0000
+Message-ID: <20060222143604.GA16269@infradead.org>
+References: <11403021213131-git-send-email-carlos@cmartin.tk> <200602212124.23572.carlos@cmartin.tk> <20060221203211.GA29627@infradead.org> <200602212203.58216.carlos@cmartin.tk>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, akpm@osdl.org,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030216AbWBVQsT@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1140559048.20584.20.camel@rh4>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Carlos Mart?n <carlos@cmartin.tk>
+Content-Disposition: inline
+In-Reply-To: <200602212203.58216.carlos@cmartin.tk>
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Michael Chan wrote:
-> On Tue, 2006-02-21 at 17:41 -0500, Jeff Mahoney wrote:
+On Tue, Feb 21, 2006 at 10:03:58PM +0100, Carlos Mart?n wrote:
+> > The important bit is that you need the pointers with the above module
+> > spit, because you can't call usb- or pci-specific routines from 
+> > acx-common.ko 
 > 
->> dmesg after modprobe tg3:
->> tg3.c:v3.49 (Feb 2, 2006)
->> ACPI: PCI Interrupt 0000:0a:02.0[A] -> GSI 24 (level, low) -> IRQ 201
->> Uhhuh. NMI received for unknown reason 21 on CPU 0.
->> Dazed and confused, but trying to continue
->> Do you have a strange power saving mode enabled?
->> tg3_test_dma() Write the buffer failed -19
->> tg3: DMA engine test failed, aborting.
->>
-> 
-> You're getting an NMI during tg3_init_one() which means that the NIC is
-> probably bad. I did a quick test on the same version of the 5701 NIC
-> with the same tg3 driver and it worked fine.
-> 
-> Please find out if the NIC is known to be bad. Thanks.
+> Yes, I realise that (unless you export them, but I don't think we want that). 
 
-Up until recently, this NIC was reported to work. I booted our
-2.6.5-based SLES9 kernel on it. This is the kernel the machine has been
-running for a while with the NIC working, and when I booted it, I got
-the same DMA failure messages as with 2.6.16-rc4.
+even that wouldn't work with current module because the usb and pci modules
+call into the common code and thus we'd have recursive module depency.
 
-I suspect that the hardware has just recently failed, and I figured it
-was a hardware problem when I saw the NMI/DMA messages, but since I
-don't have physical access to the hardware, immediate removal wasn't an
-option.
+> This approach is probably better even if the driver is unified. Pointer 
+> dereferences are cheaper than branches/jumping, aren't they?
 
-- -Jeff
+It shouldn't matter these days as cpus have nice branch prediction.
 
-- --
-Jeff Mahoney
-SUSE Labs
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
 
-iD8DBQFD/JX2LPWxlyuTD7IRAiKOAKCmFcjKzmyJEVF63hsm5zxPFVwNBACdHTR7
-CghdO/WCfh4mwCaH1uwh1fc=
-=Z5Ey
------END PGP SIGNATURE-----
+-------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
+for problems?  Stop!  Download the new AJAX search engine that makes
+searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
