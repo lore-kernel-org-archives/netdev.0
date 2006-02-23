@@ -1,137 +1,68 @@
-From: Will Stephenson <wstephenson@kde.org>
-Subject: Re: no carrier detection after resume from swsusp (8139too)
-Date: Thu, 23 Feb 2006 10:20:51 +0100
-Message-ID: <200602231020.52298.wstephenson@kde.org>
-References: <200602212312.23903.nfilus@gmx.net>
-	<200602221612.14631.nfilus@gmx.net>
-	<1140621599.6269.10.camel@betsy.boston.ximian.com>
-Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_05X/DqmPXdAZeMs"
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <networkmanager-list-bounces@gnome.org>
-To: networkmanager-list@gnome.org, James Ettle <jhe@phys.soton.ac.uk>
-In-Reply-To: <1140621599.6269.10.camel@betsy.boston.ximian.com>
-List-Unsubscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
-	<mailto:networkmanager-list-request@gnome.org?subject=unsubscribe>
-List-Archive: <http://mail.gnome.org/archives/networkmanager-list>
-List-Post: <mailto:networkmanager-list@gnome.org>
-List-Help: <mailto:networkmanager-list-request@gnome.org?subject=help>
-List-Subscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
-	<mailto:networkmanager-list-request@gnome.org?subject=subscribe>
-Sender: networkmanager-list-bounces@gnome.org
-Errors-To: networkmanager-list-bounces@gnome.org
+From: Michael Richardson <mcr@sandelman.ottawa.on.ca>
+Subject: Re: [PATCH 02/02] add mask options to fwmark masking code
+Date: Thu, 23 Feb 2006 14:36:58 -0500
+Message-ID: <16464.1140723418@sandelman.ottawa.on.ca>
+References: <23140.1140452813@sandelman.ottawa.on.ca>
+	<43F9F4E7.5000708@trash.net>
+Cc: kuznet@ms2.inr.ac.ru, netfilter-devel <netfilter-devel@lists.netfilter.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: Message from Patrick McHardy <kaber@trash.net>
+	of "Mon, 20 Feb 2006 17:57:11 +0100." <43F9F4E7.5000708@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_05X/DqmPXdAZeMs
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-On Wednesday 22 February 2006 16:19, Robert Love wrote:
-> e100 or e1000?
-
-8139cp here.  Seems to have picked up this behaviour since SL10.1beta2 or so, 
-still in beta4.
-
-See https://bugzilla.novell.com/show_bug.cgi?id=151892
-
-> `carrier' returns EINVAL if the device is not UP.  It might be a bug in
-> NM if the device is not UP after a resume.  What does `ifconfig eth1`
-> show before and after a resume?
-
-carrier is 1 before and after, eth0 is UP before and after, restarting NM 
-doesn't help, nor does stopping NM, rmmod, modprobe, and starting NM.  
-
-I didn't think it is NM related, as I could not configure the network by hand 
-after resume.   However, I just switched my network config to SUSE 
-traditional ifup+ifplugd (joys of flexibility), and although eth0 does not 
-work on resume, rcnetwork restart fixes it, whereas when NM is in charge, 
-this does not help.  So my understanding is NM is not the direct cause but is 
-a contributing factor.
-
-Will
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
 
---Boundary-00=_05X/DqmPXdAZeMs
-Content-Type: text/plain; charset="iso-8859-15"; name="ifconfig.after.resume"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="ifconfig.after.resume"
+>>>>> "Patrick" == Patrick McHardy <kaber@trash.net> writes:
+    >> #define RTA_FWMARK RTA_PROTOINFO +#define RTA_FWMARK_MASK
+    >> RTA_CACHEINFO
 
-eth0      Link encap:Ethernet  HWaddr 00:02:3F:67:0A:E3  
-          inet addr:169.254.137.164  Bcast:169.254.255.255  Mask:255.255.0.0
-          inet6 addr: fe80::202:3fff:fe67:ae3/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:2769 errors:0 dropped:3144 overruns:0 frame:0
-          TX packets:180 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:285833 (279.1 Kb)  TX bytes:14752 (14.4 Kb)
-          Interrupt:10 Base address:0x2000 
+    Patrick> Please introduce a new attribute for this instead of
+    Patrick> overloading RTA_CACHEINFO.
 
-eth1      Link encap:Ethernet  HWaddr 00:0C:F1:13:76:CB  
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-          Interrupt:5 Memory:90000000-90000fff 
+  I would be happy to do that.
+  Should I also un-overload FWMARK, with backwards compatibility?
 
-lo        Link encap:Local Loopback  
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:277 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:277 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:21838 (21.3 Kb)  TX bytes:21838 (21.3 Kb)
+    >> diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c index
+    >> de327b3..69eed89 100644 --- a/net/ipv4/fib_rules.c +++
+    >> b/net/ipv4/fib_rules.c @@ -68,6 +68,7 @@ struct fib_rule u8
+    >> r_tos; #ifdef CONFIG_IP_ROUTE_FWMARK u32 r_fwmark; + u32
+    >> r_fwmark_mask;
+
+    Patrick> Both patches have whitespace issues. You should also change
+
+  uhm. okay.
+  I'm surprised, since I produced it with git-format-patch. Maybe there
+are tabs that emacs screwed up.
+
+- -- 
+]       ON HUMILITY: to err is human. To moo, bovine.           |  firewalls  [
+]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
+] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
+] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
 
 
---Boundary-00=_05X/DqmPXdAZeMs
-Content-Type: text/plain; charset="iso-8859-15"; name="ifconfig.before.suspend"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="ifconfig.before.suspend"
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Finger me for keys
 
-eth0      Link encap:Ethernet  HWaddr 00:02:3F:67:0A:E3  
-          inet addr:10.10.101.143  Bcast:10.10.255.255  Mask:255.255.0.0
-          inet6 addr: 2001:780:101:a00:202:3fff:fe67:ae3/64 Scope:Global
-          inet6 addr: fe80::202:3fff:fe67:ae3/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:2210 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:177 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:251842 (245.9 Kb)  TX bytes:14494 (14.1 Kb)
-          Interrupt:10 Base address:0x2000 
-
-eth1      Link encap:Ethernet  HWaddr 00:0C:F1:13:76:CB  
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-          Interrupt:5 Memory:90000000-90000fff 
-
-lo        Link encap:Local Loopback  
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:149 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:149 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:12784 (12.4 Kb)  TX bytes:12784 (12.4 Kb)
-
-
---Boundary-00=_05X/DqmPXdAZeMs
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-NetworkManager-list mailing list
-NetworkManager-list@gnome.org
-http://mail.gnome.org/mailman/listinfo/networkmanager-list
-
---Boundary-00=_05X/DqmPXdAZeMs--
+iQEVAwUBQ/4O2ICLcPvd0N1lAQK/egf6A0iQ1hvecR4BeaCrQiu53beGZd6zHldk
+o6logfar94kPP/H/D/kMcNeAvL2a3cJ8wyfyP02Cav8gP1C3X+XV+yLtA9jHIrdK
+nqQ1gw7F4Cj2+v7du/jS8GxNMWevXhJ7f9hvnzh8+DHMUCjqiksgsuIgcRQYrqOQ
+vxYERvR5TojEIaJfg8kH/lJRn3sm/APuMphM6c6SAeqrWpAdijbZb4LSNpGH50ci
+nNhUp+FxoP8vVFTMTu7M1MK4fpCIWA/PxBkmy3YDhcQx1+mE2nrEqHdbKfx9uY+t
+0mxR8UC5sthhn94/VCjcqWOoHe3S/Gi+WWoPtwN1sFe5BujwU7Vcfw==
+=yKIA
+-----END PGP SIGNATURE-----
