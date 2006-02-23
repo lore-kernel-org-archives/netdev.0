@@ -1,15 +1,15 @@
 From: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Subject: Re: [PATCH 02/02] add mask options to fwmark masking code
-Date: Thu, 23 Feb 2006 14:36:58 -0500
-Message-ID: <16464.1140723418@sandelman.ottawa.on.ca>
-References: <23140.1140452813@sandelman.ottawa.on.ca>
-	<43F9F4E7.5000708@trash.net>
-Cc: kuznet@ms2.inr.ac.ru, netfilter-devel <netfilter-devel@lists.netfilter.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+Subject: Re: [PATCH] iproute2 -- add fwmarkmask
+Date: Thu, 23 Feb 2006 14:39:32 -0500
+Message-ID: <18992.1140723572@sandelman.ottawa.on.ca>
+References: <23395.1140452828@sandelman.ottawa.on.ca>
+	<43F9F648.1060803@trash.net>
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	shemminger@osdl.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Patrick McHardy <kaber@trash.net>
 In-Reply-To: Message from Patrick McHardy <kaber@trash.net>
-	of "Mon, 20 Feb 2006 17:57:11 +0100." <43F9F4E7.5000708@trash.net>
+	of "Mon, 20 Feb 2006 18:03:04 +0100." <43F9F648.1060803@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -26,43 +26,38 @@ Hash: SHA1
 
 
 >>>>> "Patrick" == Patrick McHardy <kaber@trash.net> writes:
-    >> #define RTA_FWMARK RTA_PROTOINFO +#define RTA_FWMARK_MASK
-    >> RTA_CACHEINFO
+    Patrick> The normal way to display masks is with a "/". Also I think
+    Patrick> it shouldn't display the default mask to avoid breaking
+    Patrick> scripts that parse the output.
 
-    Patrick> Please introduce a new attribute for this instead of
-    Patrick> overloading RTA_CACHEINFO.
+  I generally dislike the /VALUE, since I expect /PREFIX-LEN.
+  I agree that it shouldn't show if it is default.
 
-  I would be happy to do that.
-  Should I also un-overload FWMARK, with backwards compatibility?
+    Patrick> ip should be able to parse its own output, and it would
+    Patrick> also look nicer if I could just say "fwmark
+    Patrick> 0x1/32". fwmarkmask is really an incredible ugly expression
+    Patrick> :)
 
-    >> diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c index
-    >> de327b3..69eed89 100644 --- a/net/ipv4/fib_rules.c +++
-    >> b/net/ipv4/fib_rules.c @@ -68,6 +68,7 @@ struct fib_rule u8
-    >> r_tos; #ifdef CONFIG_IP_ROUTE_FWMARK u32 r_fwmark; + u32
-    >> r_fwmark_mask;
+  Sure. Is that a 32-bit long mask (0xfffffff), or is it a 0x00000020?
+  fwmark is not an address.
 
-    Patrick> Both patches have whitespace issues. You should also change
-
-  uhm. okay.
-  I'm surprised, since I produced it with git-format-patch. Maybe there
-are tabs that emacs screwed up.
+  Or would you like /32 to be a prefix-based mask, and &value and/or
+fwmarkmask to be a value? 
 
 - -- 
 ]       ON HUMILITY: to err is human. To moo, bovine.           |  firewalls  [
 ]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
 ] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
 ] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
-
-
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 Comment: Finger me for keys
 
-iQEVAwUBQ/4O2ICLcPvd0N1lAQK/egf6A0iQ1hvecR4BeaCrQiu53beGZd6zHldk
-o6logfar94kPP/H/D/kMcNeAvL2a3cJ8wyfyP02Cav8gP1C3X+XV+yLtA9jHIrdK
-nqQ1gw7F4Cj2+v7du/jS8GxNMWevXhJ7f9hvnzh8+DHMUCjqiksgsuIgcRQYrqOQ
-vxYERvR5TojEIaJfg8kH/lJRn3sm/APuMphM6c6SAeqrWpAdijbZb4LSNpGH50ci
-nNhUp+FxoP8vVFTMTu7M1MK4fpCIWA/PxBkmy3YDhcQx1+mE2nrEqHdbKfx9uY+t
-0mxR8UC5sthhn94/VCjcqWOoHe3S/Gi+WWoPtwN1sFe5BujwU7Vcfw==
-=yKIA
+iQEUAwUBQ/4PcoCLcPvd0N1lAQIHhQf3XzPLA91QEx2+XpmYIm8RyB1oKmUUXDP+
+s2UrhOKbQwipcq8/hk1t4FKx8J5j/dFHzVXbgPK+ZUwX4+IjHmM3r0sCIcK08xwU
+/ZZjf0wqwUI+RcPRFw3zC0+hnwRUIAUxhl3p7h3PigDpPu7AY5tQ1dXc6WNwRjTi
+fS7Yozbo225dzvVLKHhSIqOQ4eJFJcPPQdTKQLxnc3gtVoSe41DKMM+x6uix6fG8
+se9dngJRbhye1Xgws9AGnBQT9f7JVmCSv7V4SHnNynmnRw3cra8++QEnLZ/vhm5C
+JdeVSeDGxAPuKEj6HA2RZu/UOG6RkYNZGPovGKzuPn403x0HNBuf
+=BzfV
 -----END PGP SIGNATURE-----
