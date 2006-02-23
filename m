@@ -1,45 +1,137 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: From: Carlos   Mart??n <carlos@cmartin.tk>
-Date: Wed, 22 Feb 2006 14:36:04 +0000
-Message-ID: <20060222143604.GA16269@infradead.org>
-References: <11403021213131-git-send-email-carlos@cmartin.tk> <200602212124.23572.carlos@cmartin.tk> <20060221203211.GA29627@infradead.org> <200602212203.58216.carlos@cmartin.tk>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Will Stephenson <wstephenson@kde.org>
+Subject: Re: no carrier detection after resume from swsusp (8139too)
+Date: Thu, 23 Feb 2006 10:20:51 +0100
+Message-ID: <200602231020.52298.wstephenson@kde.org>
+References: <200602212312.23903.nfilus@gmx.net>
+	<200602221612.14631.nfilus@gmx.net>
+	<1140621599.6269.10.camel@betsy.boston.ximian.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Carlos Mart?n <carlos@cmartin.tk>
-Content-Disposition: inline
-In-Reply-To: <200602212203.58216.carlos@cmartin.tk>
-Sender: acx100-devel-admin@lists.sourceforge.net
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_05X/DqmPXdAZeMs"
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <networkmanager-list-bounces@gnome.org>
+To: networkmanager-list@gnome.org, James Ettle <jhe@phys.soton.ac.uk>
+In-Reply-To: <1140621599.6269.10.camel@betsy.boston.ximian.com>
+List-Unsubscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
+	<mailto:networkmanager-list-request@gnome.org?subject=unsubscribe>
+List-Archive: <http://mail.gnome.org/archives/networkmanager-list>
+List-Post: <mailto:networkmanager-list@gnome.org>
+List-Help: <mailto:networkmanager-list-request@gnome.org?subject=help>
+List-Subscribe: <http://mail.gnome.org/mailman/listinfo/networkmanager-list>,
+	<mailto:networkmanager-list-request@gnome.org?subject=subscribe>
+Sender: networkmanager-list-bounces@gnome.org
+Errors-To: networkmanager-list-bounces@gnome.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 21, 2006 at 10:03:58PM +0100, Carlos Mart?n wrote:
-> > The important bit is that you need the pointers with the above module
-> > spit, because you can't call usb- or pci-specific routines from 
-> > acx-common.ko 
-> 
-> Yes, I realise that (unless you export them, but I don't think we want that). 
+--Boundary-00=_05X/DqmPXdAZeMs
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-even that wouldn't work with current module because the usb and pci modules
-call into the common code and thus we'd have recursive module depency.
+On Wednesday 22 February 2006 16:19, Robert Love wrote:
+> e100 or e1000?
 
-> This approach is probably better even if the driver is unified. Pointer 
-> dereferences are cheaper than branches/jumping, aren't they?
+8139cp here.  Seems to have picked up this behaviour since SL10.1beta2 or so, 
+still in beta4.
 
-It shouldn't matter these days as cpus have nice branch prediction.
+See https://bugzilla.novell.com/show_bug.cgi?id=151892
+
+> `carrier' returns EINVAL if the device is not UP.  It might be a bug in
+> NM if the device is not UP after a resume.  What does `ifconfig eth1`
+> show before and after a resume?
+
+carrier is 1 before and after, eth0 is UP before and after, restarting NM 
+doesn't help, nor does stopping NM, rmmod, modprobe, and starting NM.  
+
+I didn't think it is NM related, as I could not configure the network by hand 
+after resume.   However, I just switched my network config to SUSE 
+traditional ifup+ifplugd (joys of flexibility), and although eth0 does not 
+work on resume, rcnetwork restart fixes it, whereas when NM is in charge, 
+this does not help.  So my understanding is NM is not the direct cause but is 
+a contributing factor.
+
+Will
 
 
--------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc. Do you grep through log files
-for problems?  Stop!  Download the new AJAX search engine that makes
-searching your log files as easy as surfing the  web.  DOWNLOAD SPLUNK!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=103432&bid=230486&dat=121642
+--Boundary-00=_05X/DqmPXdAZeMs
+Content-Type: text/plain; charset="iso-8859-15"; name="ifconfig.after.resume"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ifconfig.after.resume"
+
+eth0      Link encap:Ethernet  HWaddr 00:02:3F:67:0A:E3  
+          inet addr:169.254.137.164  Bcast:169.254.255.255  Mask:255.255.0.0
+          inet6 addr: fe80::202:3fff:fe67:ae3/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2769 errors:0 dropped:3144 overruns:0 frame:0
+          TX packets:180 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:285833 (279.1 Kb)  TX bytes:14752 (14.4 Kb)
+          Interrupt:10 Base address:0x2000 
+
+eth1      Link encap:Ethernet  HWaddr 00:0C:F1:13:76:CB  
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+          Interrupt:5 Memory:90000000-90000fff 
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:277 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:277 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:21838 (21.3 Kb)  TX bytes:21838 (21.3 Kb)
+
+
+--Boundary-00=_05X/DqmPXdAZeMs
+Content-Type: text/plain; charset="iso-8859-15"; name="ifconfig.before.suspend"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ifconfig.before.suspend"
+
+eth0      Link encap:Ethernet  HWaddr 00:02:3F:67:0A:E3  
+          inet addr:10.10.101.143  Bcast:10.10.255.255  Mask:255.255.0.0
+          inet6 addr: 2001:780:101:a00:202:3fff:fe67:ae3/64 Scope:Global
+          inet6 addr: fe80::202:3fff:fe67:ae3/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2210 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:177 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:251842 (245.9 Kb)  TX bytes:14494 (14.1 Kb)
+          Interrupt:10 Base address:0x2000 
+
+eth1      Link encap:Ethernet  HWaddr 00:0C:F1:13:76:CB  
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+          Interrupt:5 Memory:90000000-90000fff 
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:149 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:149 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:12784 (12.4 Kb)  TX bytes:12784 (12.4 Kb)
+
+
+--Boundary-00=_05X/DqmPXdAZeMs
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+NetworkManager-list mailing list
+NetworkManager-list@gnome.org
+http://mail.gnome.org/mailman/listinfo/networkmanager-list
+
+--Boundary-00=_05X/DqmPXdAZeMs--
