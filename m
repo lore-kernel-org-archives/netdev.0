@@ -1,50 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Wolfgang Hoffmann <woho@woho.de>
 Subject: Re: [git patches] net driver fixes
-Date: Fri, 24 Feb 2006 08:14:09 -0800
-Message-ID: <43FF30D1.8060708@osdl.org>
-References: <20060224052214.GA14586@havoc.gtf.org> <200602240859.23062.woho@woho.de>
+Date: Fri, 24 Feb 2006 18:28:40 +0100
+Message-ID: <200602241828.40383.woho@woho.de>
+References: <20060224052214.GA14586@havoc.gtf.org> <200602240859.23062.woho@woho.de> <43FF30D1.8060708@osdl.org>
+Reply-To: woho@woho.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
 	Linus Torvalds <torvalds@osdl.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932296AbWBXQOX@vger.kernel.org>
-To: woho@woho.de
-In-Reply-To: <200602240859.23062.woho@woho.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932400AbWBXR10@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <43FF30D1.8060708@osdl.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wolfgang Hoffmann wrote:
-> On Friday 24 February 2006 06:22, Jeff Garzik wrote:
->   
->> Please pull from 'upstream-fixes' branch of
->> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
->>
->> [...]
->> Stephen Hemminger:
->>       sky2: yukon-ec-u chipset initialization
->>       sky2: limit coalescing values to ring size
->>       sky2: poke coalescing timer to fix hang
->>       sky2: force early transmit status
->>       sky2: use device iomem to access PCI config
->>       sky2: close race on IRQ mask update.
->> [...]
->>     
+On Friday 24 February 2006 17:14, Stephen Hemminger wrote:
+> There is an outstanding bug where the sky2 will hang if it receives a
+> packet larger than the MTU.  At this point, there isn't enough information
+> on chip behavior to fix.
 >
-> Thanks for the update.
->
-> Still I'm seeing reproducable hangs with this version of sky2 (as reported in 
-> bugzilla 6084 and discussed on netdev).
->
-> Stephen, if there is anything I can do to narrow down my hangs a bit more 
-> systematically, please let me know, I'd be happy to help.
->
-> Wolfgang
->   
-There is an outstanding bug where the sky2 will hang if it receives a 
-packet larger than the
-MTU.  At this point, there isn't enough information on chip behavior to fix.
+> You could try using a larger mut or patching the driver so that the
+> rx_buffer_size is always big (like 4k).
 
-You could try using a larger mut or patching the driver so that the 
-rx_buffer_size is always big (like 4k).
+I've raised the MTU from 1500 to 3000 and still reproduced the hang. Would you 
+mind sending me a patch for forcing rx_buffer_size to 4k, so I can try that, 
+or is no sense in that, given that raising the MTU didn't help?
+
+Concerning information on chip behavior, are you missing vendor specs, or 
+could I be helpful by reproducing the hang with an instrumented driver that 
+gives more information about the chip status at hang time?
+
+Another thing that may be worth to find out is why 0.13 with Carl-Daniel 
+Hailfingers fix works. I didn't see a single hang with that version. I'm 
+currently resorting to that version, but well ...
+
+I'd really like to help get this driver working robustly. I'm not enough into 
+networking to help by coding, but yes I'll give feedback on any driver 
+version you send me. I'd just like to provide you more helpful data than 
+repeating "new version still hangs" ;-)
+
+Wolfgang
