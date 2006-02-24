@@ -1,18 +1,18 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 02/02] add mask options to fwmark masking code
-Date: Fri, 24 Feb 2006 05:58:42 +0100
-Message-ID: <43FE9282.7010002@trash.net>
-References: <23140.1140452813@sandelman.ottawa.on.ca>
-	<43F9F4E7.5000708@trash.net>
-	<16464.1140723418@sandelman.ottawa.on.ca>
+Subject: Re: [PATCH] iproute2 -- add fwmarkmask
+Date: Fri, 24 Feb 2006 05:59:33 +0100
+Message-ID: <43FE92B5.4000606@trash.net>
+References: <23395.1140452828@sandelman.ottawa.on.ca>
+	<43F9F648.1060803@trash.net>
+	<18992.1140723572@sandelman.ottawa.on.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netfilter-devel <netfilter-devel@lists.netfilter.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	shemminger@osdl.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-In-Reply-To: <16464.1140723418@sandelman.ottawa.on.ca>
+In-Reply-To: <18992.1140723572@sandelman.ottawa.on.ca>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -29,13 +29,22 @@ Michael Richardson wrote:
 > 
 >>>>>>>"Patrick" == Patrick McHardy <kaber@trash.net> writes:
 > 
->     >> #define RTA_FWMARK RTA_PROTOINFO +#define RTA_FWMARK_MASK
->     >> RTA_CACHEINFO
+>     Patrick> The normal way to display masks is with a "/". Also I think
+>     Patrick> it shouldn't display the default mask to avoid breaking
+>     Patrick> scripts that parse the output.
 > 
->     Patrick> Please introduce a new attribute for this instead of
->     Patrick> overloading RTA_CACHEINFO.
+>   I generally dislike the /VALUE, since I expect /PREFIX-LEN.
+>   I agree that it shouldn't show if it is default.
 > 
->   I would be happy to do that.
->   Should I also un-overload FWMARK, with backwards compatibility?
+>     Patrick> ip should be able to parse its own output, and it would
+>     Patrick> also look nicer if I could just say "fwmark
+>     Patrick> 0x1/32". fwmarkmask is really an incredible ugly expression
+>     Patrick> :)
+> 
+>   Sure. Is that a 32-bit long mask (0xfffffff), or is it a 0x00000020?
+>   fwmark is not an address.
+> 
+>   Or would you like /32 to be a prefix-based mask, and &value and/or
+> fwmarkmask to be a value? 
 
-No, that one is fine since it doesn't already have a different meaning.
+That was not the greatest example :) I think it should be a bitmask.
