@@ -1,43 +1,63 @@
-From: Wolfgang Hoffmann <woho@woho.de>
-Subject: Re: [git patches] net driver fixes
-Date: Fri, 24 Feb 2006 08:59:22 +0100
-Message-ID: <200602240859.23062.woho@woho.de>
-References: <20060224052214.GA14586@havoc.gtf.org>
-Reply-To: woho@woho.de
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
-	Linus Torvalds <torvalds@osdl.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750916AbWBXH56@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060224052214.GA14586@havoc.gtf.org>
-Content-Disposition: inline
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH] Add Wake on LAN support to sis900 (2)
+Date: Fri, 24 Feb 2006 11:03:54 +0100
+Message-ID: <5698750A-4231-4500-B060-B06165E5C0FD@brownhat.org>
+References: <200601050223.k052Ngu2003866@hera.kernel.org> <20060224025759.GA14027@redhat.com>
+Mime-Version: 1.0 (Apple Message framework v746.2)
+Content-Type: multipart/mixed; boundary=Apple-Mail-8--740522272
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932176AbWBXKE1@vger.kernel.org>
+In-Reply-To: <20060224025759.GA14027@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 24 February 2006 06:22, Jeff Garzik wrote:
-> Please pull from 'upstream-fixes' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
->
-> [...]
-> Stephen Hemminger:
->       sky2: yukon-ec-u chipset initialization
->       sky2: limit coalescing values to ring size
->       sky2: poke coalescing timer to fix hang
->       sky2: force early transmit status
->       sky2: use device iomem to access PCI config
->       sky2: close race on IRQ mask update.
->[...]
 
-Thanks for the update.
+--Apple-Mail-8--740522272
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=US-ASCII;
+	delsp=yes;
+	format=flowed
 
-Still I'm seeing reproducable hangs with this version of sky2 (as reported in 
-bugzilla 6084 and discussed on netdev).
+Attached you find the patch that fixes two bugs in the WoL  
+implementation of sis900. The first causes hangs on some system on  
+driver load, the second causes troubles when disabling WoL support.  
+Both fixes are one liner and really simple. Patch is against latest  
+netdev-2.6 tree.
 
-Stephen, if there is anything I can do to narrow down my hangs a bit more 
-systematically, please let me know, I'd be happy to help.
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
 
-Wolfgang
+
+--Apple-Mail-8--740522272
+Content-Transfer-Encoding: 7bit
+Content-Type: application/octet-stream;
+	x-unix-mode=0644;
+	name="sis900_wol_fix.diff"
+Content-Disposition: attachment;
+	filename=sis900_wol_fix.diff
+
+--- new/drivers/net/sis900.c.old	2006-02-24 10:46:06.000000000 +0100
++++ new/drivers/net/sis900.c	2006-02-24 09:57:57.000000000 +0100
+@@ -540,7 +540,7 @@ static int __devinit sis900_probe(struct
+ 	printk("%2.2x.\n", net_dev->dev_addr[i]);
+ 
+ 	/* Detect Wake on Lan support */
+-	ret = inl(CFGPMC & PMESP);
++	ret = (inl(net_dev->base_addr + CFGPMC) & PMESP) >> 27;
+ 	if (netif_msg_probe(sis_priv) && (ret & PME_D3C) == 0)
+ 		printk(KERN_INFO "%s: Wake on LAN only available from suspend to RAM.", net_dev->name);
+ 
+@@ -2040,7 +2040,7 @@ static int sis900_set_wol(struct net_dev
+ 
+ 	if (wol->wolopts == 0) {
+ 		pci_read_config_dword(sis_priv->pci_dev, CFGPMCSR, &cfgpmcsr);
+-		cfgpmcsr |= ~PME_EN;
++		cfgpmcsr &= ~PME_EN;
+ 		pci_write_config_dword(sis_priv->pci_dev, CFGPMCSR, cfgpmcsr);
+ 		outl(pmctrl_bits, pmctrl_addr);
+ 		if (netif_msg_wol(sis_priv))
+
+--Apple-Mail-8--740522272--
