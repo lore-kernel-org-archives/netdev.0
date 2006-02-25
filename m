@@ -1,62 +1,47 @@
-From: Gene Heskett <gene.heskett@verizon.net>
+From: Stefan Rompf <stefan@loplof.de>
 Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
-Date: Sat, 25 Feb 2006 06:19:04 -0500
-Message-ID: <200602250619.04567.gene.heskett@verizon.net>
-References: <43FF88E6.6020603@linux.intel.com>
- <200602250549.47547.gene.heskett@verizon.net>
- <20060225105340.GA23643@infradead.org>
-Reply-To: gene.heskett@verizononline.net
+Date: Sat, 25 Feb 2006 13:29:03 +0100
+Message-ID: <200602251329.03933.stefan@loplof.de>
+References: <43FF88E6.6020603@linux.intel.com> <200602250549.47547.gene.heskett@verizon.net> <20060225105340.GA23643@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030218AbWBYLTI@vger.kernel.org>
-In-reply-to: <20060225105340.GA23643@infradead.org>
-To: Christoph Hellwig <hch@infradead.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: gene.heskett@verizononline.net,
 	James Ketrenos <jketreno@linux.intel.com>,
 	NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-Content-disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932684AbWBYM2c@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20060225105340.GA23643@infradead.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 25 February 2006 05:53, Christoph Hellwig wrote:
->On Sat, Feb 25, 2006 at 05:49:47AM -0500, Gene Heskett wrote:
->> As someone (a broadcast engineer with 40+ years of carrying what
->> used to be a 1st phone) obviously more familiar with the FCC R&R
->> than you apparently are, Christoph, I'll have to argue that point.
->
->Please stop spreading the bullshit.  Please quote the FCC regulation
-> on this.
+Am Samstag 25 Februar 2006 11:53 schrieb Christoph Hellwig:
 
-Its not "bullshit" as you so "eloquently" put it, Christoph.  As for 
-looking it up, I'd imagine your ability to run a search engine at 
-fcc.gov exceeds mine.  Hint, its probably in the section called "Rules 
-that apply to all". These rules go back to about the time of when they 
-outlawed any transmit tunability in CB radios in the later 70's, so its 
-not a new item by any means as its just an extension of that edict to 
-cover this newer technology. The fact that it effectively put a stop to 
-conference call type use of single sideband because no 2 radios were on 
-the same, now non-adjustable frequency was an undesirable thing, but 
-thats the breaks.  I might try and look it up after I've had some zz's, 
-as I just came from doing transmitter maintainance overnight.
+>From a short glance over the driver code, the protocol between the _open 
+source_ driver and the binary user space daemon seems to be quite defined and 
+unobfuscated. Obviously, someone owning the device has to verify that the 
+daemon doesn't tamper the hardware beyond the driver's back.
 
->> So basicly, you can accept it with the wrappers Intel provides, or
->> linux will not have access to the use of these devices, any of them
->> that fit in the category of "software radios".
->
->We have support for other software radios.  If intel doesn't do the
-> right thing support for their hardware will have to wait until
-> someone has reverse-engineered their daemon [1].
->
->[1] they disallow it in their license, but that's completely void in
-> many countries.
+> We have support for other software radios. 
 
-I don't think you'll find that to be the case here in the states.
+There is a difference. As kernel developers, we can put the responsibility to 
+verify that a device can be operated legally on the user, as you said. A 
+manufacturer, especially a huge one as Intel, is obligated to take this 
+burden from their customers - obligated may be by law, may be by company 
+policy.
 
--- 
-Cheers, Gene
-People having trouble with vz bouncing email to me should add the word
-'online' between the 'verizon', and the dot which bypasses vz's
-stupid bounce rules.  I do use spamassassin too. :-)
-Yahoo.com and AOL/TW attorneys please note, additions to the above
-message by Gene Heskett are:
-Copyright 2006 by Maurice Eugene Heskett, all rights reserved.
+> If intel doesn't do the right 
+> thing support for their hardware will have to wait until someone has
+> reverse-engineered their daemon [1].
+
+If someone else reverse engineers and replaces the daemon, it may not be 
+Intel's problem anymore - but that's all not the point.
+
+Actually, Intel invested a lot of time to avoid shipping a binary only driver 
+or a HAL like madwifi does. So however this settles, they deserve at least to 
+be adressed in a less insulting tone than you do in your mails.
+
+Thanks,
+
+Stefan
