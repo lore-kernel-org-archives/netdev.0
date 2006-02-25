@@ -1,42 +1,29 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/dccp/ipv4.c: make struct dccp_v4_prot static
-Date: Sat, 25 Feb 2006 14:27:29 +0100
-Message-ID: <20060225132729.GP3674@stusta.de>
-References: <20060224031002.0f7ff92a.akpm@osdl.org>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
+Date: Sat, 25 Feb 2006 15:19:40 +0100 (MET)
+Message-ID: <Pine.LNX.4.61.0602251518200.31692@yvahk01.tjqt.qr>
+References: <43FF88E6.6020603@linux.intel.com> <20060225084139.GB22109@infradead.org>
+ <200602250549.47547.gene.heskett@verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030245AbWBYN1d@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
-	acme@conectiva.com.br
-Content-Disposition: inline
-In-Reply-To: <20060224031002.0f7ff92a.akpm@osdl.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Christoph Hellwig <hch@infradead.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	okir@suse.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932372AbWBYOT6@vger.kernel.org>
+To: gene.heskett@verizononline.net
+In-Reply-To: <200602250549.47547.gene.heskett@verizon.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 24, 2006 at 03:10:02AM -0800, Andrew Morton wrote:
->...
-> Changes since 2.6.16-rc4-mm1:
->...
->  git-net.patch
->...
->  git trees.
->...
+>If the modules crc changes, 
+>it must do an instant disable of the transmitter functions and exit or 
+>crash, thereby precluding any 'hot rodding' of the chipset.
+>
+Would not it be easiest to have the chipset enforce the acceptable bands? 
+So that software can't switch the chipset to 1337 GHz no matter how hard 
+you forward/reverse-engineer it.
 
 
-There's no reason for struct dccp_v4_prot being global.
-
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.16-rc4-mm2-full/net/dccp/ipv4.c.old	2006-02-25 04:32:45.000000000 +0100
-+++ linux-2.6.16-rc4-mm2-full/net/dccp/ipv4.c	2006-02-25 04:32:53.000000000 +0100
-@@ -1022,7 +1022,7 @@
- 	.twsk_obj_size	= sizeof(struct inet_timewait_sock),
- };
- 
--struct proto dccp_v4_prot = {
-+static struct proto dccp_v4_prot = {
- 	.name			= "DCCP",
- 	.owner			= THIS_MODULE,
- 	.close			= dccp_close,
+Jan Engelhardt
+-- 
