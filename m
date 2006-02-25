@@ -1,49 +1,42 @@
-From: Michael Buesch <mbuesch@freenet.de>
-Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
-Date: Sat, 25 Feb 2006 14:26:54 +0100
-Message-ID: <200602251426.55318.mbuesch@freenet.de>
-References: <43FF88E6.6020603@linux.intel.com> <43FF9B3A.5010307@wolfmountaingroup.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/dccp/ipv4.c: make struct dccp_v4_prot static
+Date: Sat, 25 Feb 2006 14:27:29 +0100
+Message-ID: <20060225132729.GP3674@stusta.de>
+References: <20060224031002.0f7ff92a.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2977382.kjhCU4bg3U";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	James Ketrenos <jketreno@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030239AbWBYN05@vger.kernel.org>
-To: "Jeff V. Merkey" <jmerkey@wolfmountaingroup.com>
-In-Reply-To: <43FF9B3A.5010307@wolfmountaingroup.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030245AbWBYN1d@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
+	acme@conectiva.com.br
+Content-Disposition: inline
+In-Reply-To: <20060224031002.0f7ff92a.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2977382.kjhCU4bg3U
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, Feb 24, 2006 at 03:10:02AM -0800, Andrew Morton wrote:
+>...
+> Changes since 2.6.16-rc4-mm1:
+>...
+>  git-net.patch
+>...
+>  git trees.
+>...
 
-On Saturday 25 February 2006 00:48, you wrote:
->=20
-> Awesome. Now all we need is someone to write the bcm series for wireless=
-=20
-> and ndiswrapper
-> can go away.
 
-What, eh? We have a bcm43xx driver. Or what do you mean?
+There's no reason for struct dccp_v4_prot being global.
 
-=2D-=20
-Greetings Michael.
 
---nextPart2977382.kjhCU4bg3U
-Content-Type: application/pgp-signature
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBEAFsflb09HEdWDKgRAj/lAJ9Z+bNHAdY4oAM2k5mNxd/WAoKTigCfXfAg
-3bcln1pdXM2rSa/YYSAm/z8=
-=qTs5
------END PGP SIGNATURE-----
-
---nextPart2977382.kjhCU4bg3U--
+--- linux-2.6.16-rc4-mm2-full/net/dccp/ipv4.c.old	2006-02-25 04:32:45.000000000 +0100
++++ linux-2.6.16-rc4-mm2-full/net/dccp/ipv4.c	2006-02-25 04:32:53.000000000 +0100
+@@ -1022,7 +1022,7 @@
+ 	.twsk_obj_size	= sizeof(struct inet_timewait_sock),
+ };
+ 
+-struct proto dccp_v4_prot = {
++static struct proto dccp_v4_prot = {
+ 	.name			= "DCCP",
+ 	.owner			= THIS_MODULE,
+ 	.close			= dccp_close,
