@@ -1,36 +1,42 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
-Date: Sat, 25 Feb 2006 16:47:40 -0600
-Message-ID: <4400DE8C.1000303@lwfinger.net>
-References: <43FF88E6.6020603@linux.intel.com>	<20060225084139.GB22109@infradead.org>	<200602250549.47547.gene.heskett@verizon.net>	<Pine.LNX.4.61.0602251518200.31692@yvahk01.tjqt.qr>	<pan.2006.02.25.22.07.53.810642@free.fr> <17408.55266.948833.168988@smtp.charter.net> <4400DA0B.1060502@free.fr>
+Date: Sun, 26 Feb 2006 00:58:02 +0000
+Message-ID: <1140915482.23286.6.camel@localhost.localdomain>
+References: <43FF88E6.6020603@linux.intel.com>
+	 <20060225084139.GB22109@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: John Stoffel <john@stoffel.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932202AbWBYWrt@vger.kernel.org>
-To: matthieu castet <castet.matthieu@free.fr>
-In-Reply-To: <4400DA0B.1060502@free.fr>
+Cc: James Ketrenos <jketreno@linux.intel.com>,
+	NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	okir@suse.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750885AbWBZAyg@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20060225084139.GB22109@infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-matthieu castet wrote:
-> And what happen with the userspace binary blob ?
-> 
-> How it will know in which country you are ?
-> Does it access to a secret GPS on your computer ?
-> 
-> So there are 2 solutions :
-> - make the card work only for a country with a flag in a RO eeprom or in 
-> another place in the hardware (firmware, ....).
-> - make the card works on all the possible channels.
-> 
-> Also if the firmware need to be load each time you reset the card (this 
-> is the case with the current ipw2xxx implementation), you won't notice 
-> if you switch for a firmware for a country X to a firmware for a country Y.
+On Sad, 2006-02-25 at 08:41 +0000, Christoph Hellwig wrote:
+> the regualatory problems are not true.  
 
-I haven't looked at the driver code, but I would expect it to be like the ipw2200 where the 
-"country" code is in eeprom, which sets a code specifying the region where it will work. If you take 
-a given piece of hardware somewhere else in the world, it will likely not be in complience.
+They are although the binary interpretation isn't AFAIK from law but
+from lawyers. The same is actually true in much of the EU. The actual
+requirement is that the transmitting device must be reasonably
+tamperproof. Some of the lawyers have decided that for a software radio
+tamperproof means "binary".
 
-Larry
+Thats pretty dumb but given the hardware variant of this is "seal
+anything adjustible in plastic gunge" you can see the logic at work -
+and it *will* help make the product tamperproof to end users. Remember
+Christoph you are not an "end user" any more than hardware like that is
+designed to proof against a person who can use a scope and solder
+surface mount components.
+
+Now a smart vendor would have put MD5 sum checking into the chip so you
+can only load register sets for the transmitter as a block and that
+block is loaded such that
+
+	[Data] + Secret known only to chip = MD5sum with data
+
+or a similar cookie signing scheme. Replay attacks don't matter here so
+that should be sufficient.
