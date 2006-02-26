@@ -1,91 +1,46 @@
-From: "Paul Rolland" <rol@witbe.net>
-Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
-Date: Sun, 26 Feb 2006 16:12:48 +0100
-Message-ID: <01e101c63ae7$1b417990$2001a8c0@cortex>
-References: <9a8748490602260700s2e82a623mcf2d778aa109bb00@mail.gmail.com>
+From: Ian Kumlien <pomac@vapor.com>
+Subject: Re: [PATCH] Revert sky2 to 0.13a
+Date: Sun, 26 Feb 2006 16:28:29 +0100
+Message-ID: <1140967709.23375.0.camel@localhost>
+References: <4400FC28.1060705@gmx.net>
+	 <20060225180353.5908c955@localhost.localdomain>
+Reply-To: pomac@vapor.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_01E2_01C63AEF.7D05E190"
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux.nics@intel.com>, <cramerj@intel.com>,
-	<john.ronciak@intel.com>, <Ganesh.Venkatesan@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751218AbWBZPM1@vger.kernel.org>
-To: "'Jesper Juhl'" <jesper.juhl@gmail.com>
-In-Reply-To: <9a8748490602260700s2e82a623mcf2d778aa109bb00@mail.gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rp7gQsBI8g3XSiPF2ZxR"
+Cc: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Wolfgang Hoffmann <woho@woho.de>,
+	Pavel Volkovitskiy <int@mtx.ru>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751225AbWBZP2S@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060225180353.5908c955@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
 
-------=_NextPart_000_01E2_01C63AEF.7D05E190
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-
-Hello,
-
-> Ok, great, I was just wondering since I would have made one if you had
-> no plans to do so.
-
-Well, I was just waiting to make sure it was interesting for someone ;)
-
-Here is it, verified with tab and not spaces... but attached as my mailer
-is likely to cripple anything I try to inline...
-
-Signed-off-by: Paul Rolland <rol@as2917.net>
-
-Cheers,
-Paul
-
-------=_NextPart_000_01E2_01C63AEF.7D05E190
-Content-Type: application/octet-stream;
-	name="e1000.patch-2.6.15.4"
+--=-rp7gQsBI8g3XSiPF2ZxR
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="e1000.patch-2.6.15.4"
 
-diff -urN linux-2.6.15.4.orig/drivers/net/e1000/e1000_main.c =
-linux-2.6.15.4/drivers/net/e1000/e1000_main.c=0A=
---- linux-2.6.15.4.orig/drivers/net/e1000/e1000_main.c	Fri Feb 10 =
-07:22:48 2006=0A=
-+++ linux-2.6.15.4/drivers/net/e1000/e1000_main.c	Sun Feb 26 15:04:40 =
-2006=0A=
-@@ -4153,29 +4153,29 @@=0A=
- =0A=
- 	/* Fiber NICs only allow 1000 gbps Full duplex */=0A=
- 	if((adapter->hw.media_type =3D=3D e1000_media_type_fiber) &&=0A=
--		spddplx !=3D (SPEED_1000 + DUPLEX_FULL)) {=0A=
-+		spddplx !=3D (SPEED_1000 + FULL_DUPLEX)) {=0A=
- 		DPRINTK(PROBE, ERR, "Unsupported Speed/Duplex configuration\n");=0A=
- 		return -EINVAL;=0A=
- 	}=0A=
- =0A=
- 	switch(spddplx) {=0A=
--	case SPEED_10 + DUPLEX_HALF:=0A=
-+	case SPEED_10 + HALF_DUPLEX:=0A=
- 		adapter->hw.forced_speed_duplex =3D e1000_10_half;=0A=
- 		break;=0A=
--	case SPEED_10 + DUPLEX_FULL:=0A=
-+	case SPEED_10 + FULL_DUPLEX:=0A=
- 		adapter->hw.forced_speed_duplex =3D e1000_10_full;=0A=
- 		break;=0A=
--	case SPEED_100 + DUPLEX_HALF:=0A=
-+	case SPEED_100 + HALF_DUPLEX:=0A=
- 		adapter->hw.forced_speed_duplex =3D e1000_100_half;=0A=
- 		break;=0A=
--	case SPEED_100 + DUPLEX_FULL:=0A=
-+	case SPEED_100 + FULL_DUPLEX:=0A=
- 		adapter->hw.forced_speed_duplex =3D e1000_100_full;=0A=
- 		break;=0A=
--	case SPEED_1000 + DUPLEX_FULL:=0A=
-+	case SPEED_1000 + FULL_DUPLEX:=0A=
- 		adapter->hw.autoneg =3D 1;=0A=
- 		adapter->hw.autoneg_advertised =3D ADVERTISE_1000_FULL;=0A=
- 		break;=0A=
--	case SPEED_1000 + DUPLEX_HALF: /* not supported */=0A=
-+	case SPEED_1000 + HALF_DUPLEX: /* not supported */=0A=
- 	default:=0A=
- 		DPRINTK(PROBE, ERR, "Unsupported Speed/Duplex configuration\n");=0A=
- 		return -EINVAL;=0A=
+On Sat, 2006-02-25 at 18:03 -0800, Stephen Hemminger wrote:
+> Instead of whining, try this.
 
-------=_NextPart_000_01E2_01C63AEF.7D05E190--
+I'm sorry to say that this failed after 12h 33m =3DP
+
+--=20
+Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
+
+--=-rp7gQsBI8g3XSiPF2ZxR
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.1-ecc0.1.6 (GNU/Linux)
+
+iD8DBQBEAckd7F3Euyc51N8RAiETAKCpLeezEjnP4+LyGn7uyirG6nfj/gCeIpyH
+l3r8kb4EX+IVd2onukXhTy4=
+=LdeO
+-----END PGP SIGNATURE-----
+
+--=-rp7gQsBI8g3XSiPF2ZxR--
