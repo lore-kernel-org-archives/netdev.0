@@ -1,61 +1,60 @@
-From: Ian Kumlien <pomac@vapor.com>
+From: Wolfgang Hoffmann <woho@woho.de>
 Subject: Re: [PATCH] Revert sky2 to 0.13a
-Date: Sun, 26 Feb 2006 17:13:47 +0100
-Message-ID: <1140970427.23375.11.camel@localhost>
-References: <4400FC28.1060705@gmx.net>
-	 <20060225180353.5908c955@localhost.localdomain>
-	 <200602260957.04305.woho@woho.de>  <1140966011.22812.2.camel@localhost>
-	 <1140968831.2934.32.camel@laptopd505.fenrus.org>
-Reply-To: pomac@vapor.com
+Date: Sun, 26 Feb 2006 19:13:36 +0100
+Message-ID: <200602261913.36308.woho@woho.de>
+References: <4400FC28.1060705@gmx.net> <200602260957.04305.woho@woho.de> <1140966011.22812.2.camel@localhost>
+Reply-To: woho@woho.de
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Kgz8fB5gNgj59U192DYX"
-Cc: woho@woho.de, Stephen Hemminger <shemminger@osdl.org>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@osdl.org>,
 	Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>,
 	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
 	Pavel Volkovitskiy <int@mtx.ru>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751333AbWBZQNf@vger.kernel.org>
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1140968831.2934.32.camel@laptopd505.fenrus.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751385AbWBZSMW@vger.kernel.org>
+To: pomac@vapor.com
+In-Reply-To: <1140966011.22812.2.camel@localhost>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sunday 26 February 2006 16:00, Ian Kumlien wrote:
+> On Sun, 2006-02-26 at 09:57 +0100, Wolfgang Hoffmann wrote:
+> > Stephen, if you want me (as suggested off-list) to bisect the indiv=
+idual
+> > patches leading from 0.13a to current head, please give me a series=
+ of
+> > patches to incrementally apply, eighter via mail/ftp/git, and I'll =
+test.
+> > I don't want to hack the patches together myself, because results w=
+ould
+> > be worthless if I screw up, and given that I have no networking
+> > background chances are high ...
+>
+> There is a git bisect for that, and a link for it somewhere =3D)
 
---=-Kgz8fB5gNgj59U192DYX
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Ok, I did some reading and just started a git bisect. I didn't find hin=
+ts on=20
+how to bisect if I'm only interested in changes to sky2.[ch], so I'm ta=
+king=20
+the full kernel tree and skip testing those bisect steps that didn't ch=
+ange=20
+sky2.[ch].
 
-On Sun, 2006-02-26 at 16:47 +0100, Arjan van de Ven wrote:
-> On Sun, 2006-02-26 at 16:00 +0100, Ian Kumlien wrote:
-> > On Sun, 2006-02-26 at 09:57 +0100, Wolfgang Hoffmann wrote:
-> > > On Sunday 26 February 2006 03:03, Stephen Hemminger wrote:
-> > > > Instead of whining, try this.
-> > >=20
-> > > I tried and still see the hang.
-> >=20
-> > I'm at a record 12 hours with that patch.
->=20
-> shhh don't jinx it ;)
+Looking at Carl-Danies 0.13a and Stephens patch against 0.15 in this th=
+read,=20
+I'll patch each bisect step such that sky2_poll() has
 
-Well it died 33 mins later... =3D)
+=A0=A0=A0=A0=A0=A0=A0sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
+=A0=A0=A0=A0=A0=A0=A0if (sky2_read8(hw, STAT_LEV_TIMER_CTRL) =3D=3D TIM=
+_START) {
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0sky2_write8(hw, STAT_LEV_T=
+IMER_CTRL, TIM_STOP);
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0sky2_write8(hw, STAT_LEV_T=
+IMER_CTRL, TIM_START);
+=A0=A0=A0=A0=A0=A0=A0=A0}
 
-I also saw some oddities... portage stopped working, i dunno if this can
-be MSI related or so, else something is trashing memory in a very
-special way =3DP
+after exit_loop. Is that ok?
 
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
-
---=-Kgz8fB5gNgj59U192DYX
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.1-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBEAdO77F3Euyc51N8RAmt1AKCNWekKSejxL+ldTaKSRp9/Oy1iRACgn3sF
-n+qYBF8v6SZMdiFdBb8TOeY=
-=XCFn
------END PGP SIGNATURE-----
-
---=-Kgz8fB5gNgj59U192DYX--
+I'll report as soon as I have results.
