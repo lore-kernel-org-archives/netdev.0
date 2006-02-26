@@ -1,55 +1,48 @@
-From: Alejandro Bonilla <abonilla@linuxwireless.org>
-Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
-Date: Sun, 26 Feb 2006 14:20:03 -0600
-Message-ID: <1140985203.6862.4.camel@localhost.localdomain>
-References: <43FF88E6.6020603@linux.intel.com>
-	 <20060225084139.GB22109@infradead.org>
-	 <200602250549.47547.gene.heskett@verizon.net>
-	 <Pine.LNX.4.61.0602251518200.31692@yvahk01.tjqt.qr>
-	 <pan.2006.02.25.22.07.53.810642@free.fr>
-	 <17408.55266.948833.168988@smtp.charter.net>
+From: John Zielinski <john_ml@undead.cc>
+Subject: Re: RTL 8139 stops RX after receiving a jumbo frame
+Date: Sun, 26 Feb 2006 16:12:16 -0500
+Message-ID: <440219B0.6080301@undead.cc>
+References: <44012D53.30700@undead.cc> <1140957965.23286.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Matthieu CASTET <castet.matthieu@free.fr>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750957AbWBZUUL@vger.kernel.org>
-To: John Stoffel <john@stoffel.org>
-In-Reply-To: <17408.55266.948833.168988@smtp.charter.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751404AbWBZVMT@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1140957965.23286.9.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-02-25 at 17:19 -0500, John Stoffel wrote:
-> >>>>> "Matthieu" == Matthieu CASTET <castet.matthieu@free.fr> writes:
-> 
-> Matthieu> I will say, why not put the restriction of the firmware
-> Matthieu> binary blob ?  It run on the device so it will be difficult
-> Matthieu> for people to analyse it.
-> 
-> So what do I do when I take my US laptop and fly to country X, which
-> has comletely different rules for these radios?  Do I have to re-flash
-> my firmware to make it work properly?  
+Alan Cox wrote:
+> Should drop the packet, but it may be triggering a driver path with a
+> bug. Is this repeatable and with multiple 8139 cards
+>   
+I took the card out of my firewall and put it into my test box.  The
+test procedure was to ping a third machine from the text box and then
+start pinging the test box from the second machine using large packets.
+The rev K card would always stop receiving permanently until a
+ifdown/ifup was done.
 
-Intel has got the obligation to make sure they are not letting you use
-not allowed channels. If you as a manufacturer allow with a certain
-change to let people use the channels they want, you are actually
-encouraging people to use those channels. Letting the option available
-makes Intel liable to get sued. If you buy an US PC, you stick to the US
-channels. If you are a world traveler, buy the PC in japan or in Europe.
-Then, you will be able to use the US and ROW(Rest of World) channels.
+I tried three other cards and they only showed heavy packet loss from
+the ping running on the test box.  The packet loss went away when the
+second machine stopped pinging it with the large packets.
 
-This is just the way it works, else you are liable. Believe me, and not
-only me. Intel does not do things to give you a hard time, it is because
-of a reason and they have the best lawyers at it.
+Here's the list of cards:
 
-It is just the Law and the FCC's.
+Ethernet controller: Realtek Semiconductor Co., Ltd.
+RTL-8139/8139C/8139C+ (rev 10)
+Subsystem: Realtek Semiconductor Co., Ltd. RT8139
+eth0:  Identified 8139 chip type 'RTL-8139 rev K'
 
-.Alejandro
+Ethernet controller: Accton Technology Corporation SMC2-1211TX (rev 10)
+Subsystem: Accton Technology Corporation EN-1207D Fast Ethernet Adapter
+eth0:  Identified 8139 chip type 'RTL-8139B'
 
-> 
-> The big problem is the lack of global unity, but that will slowly get
-> fixes as more countries realize it's a problem.  The big issue will be
-> military/govt radio spectrum users, they won't want to move if they
-> can help it.
-> 
-> John
+Ethernet controller: D-Link System Inc RTL8139 Ethernet (rev 10)
+Subsystem: D-Link System Inc DFE-538TX 10/100 Ethernet Adapter
+eth0:  Identified 8139 chip type 'RTL-8139C'
+
+Ethernet controller: Realtek Semiconductor Co., Ltd.
+RTL-8139/8139C/8139C+ (rev 10)
+Subsystem: Realtek Semiconductor Co., Ltd. RT8139
+eth0:  Identified 8139 chip type 'RTL-8139C'
