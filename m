@@ -1,25 +1,24 @@
-From: "Paul Rolland" <rol@witbe.net>
-Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
-Date: Sun, 26 Feb 2006 12:39:49 +0100
-Message-ID: <01b601c63ac9$5b7612a0$2001a8c0@cortex>
-References: <20060226104206.GA11434@w.ods.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: RTL 8139 stops RX after receiving a jumbo frame
+Date: Sun, 26 Feb 2006 12:46:05 +0000
+Message-ID: <1140957965.23286.9.camel@localhost.localdomain>
+References: <44012D53.30700@undead.cc>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux.nics@intel.com>, <cramerj@intel.com>,
-	<john.ronciak@intel.com>, <Ganesh.Venkatesan@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751328AbWBZLjc@vger.kernel.org>
-To: "'Willy TARREAU'" <willy@w.ods.org>
-In-Reply-To: <20060226104206.GA11434@w.ods.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751094AbWBZMlm@vger.kernel.org>
+To: John Zielinski <john_ml@undead.cc>
+In-Reply-To: <44012D53.30700@undead.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> it's mangled, tabs have been turned into whitespaces. I fixed 
-> it so please
-> use the appended one.
+On Sad, 2006-02-25 at 23:23 -0500, John Zielinski wrote:
+> I'm surprised that the switch actually let the jumbo packet through onto 
+> a 100Mbit link.  I'm going to see if I can find a non RTL 8139 card in 
+> my parts bin and see what that one does.
+> 
+> What's the normal behavior for overruns on an interface?
 
-Sorry about that, thanks for the fix.
-
-Paul
+Should drop the packet, but it may be triggering a driver path with a
+bug. Is this repeatable and with multiple 8139 cards /
