@@ -1,67 +1,66 @@
-From: "Stephen Evanchik" <evanchsa@gmail.com>
-Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
-Date: Sat, 25 Feb 2006 20:09:38 -0500
-Message-ID: <a71293c20602251709p32a454cch746a5488a94d0e75@mail.gmail.com>
-References: <43FF88E6.6020603@linux.intel.com>
-	 <200602250549.47547.gene.heskett@verizon.net>
-	 <20060225105340.GA23643@infradead.org>
-	 <200602250619.04567.gene.heskett@verizon.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] Revert sky2 to 0.13a
+Date: Sat, 25 Feb 2006 18:03:53 -0800
+Message-ID: <20060225180353.5908c955@localhost.localdomain>
+References: <4400FC28.1060705@gmx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Christoph Hellwig" <hch@infradead.org>,
-	"James Ketrenos" <jketreno@linux.intel.com>,
-	NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751012AbWBZBJj@vger.kernel.org>
-To: gene.heskett@verizononline.net
-In-Reply-To: <200602250619.04567.gene.heskett@verizon.net>
-Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Ian Kumlien <pomac@vapor.com>,
+	Wolfgang Hoffmann <woho@woho.de>,
+	Pavel Volkovitskiy <int@mtx.ru>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751169AbWBZCAh@vger.kernel.org>
+To: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+In-Reply-To: <4400FC28.1060705@gmx.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/25/06, Gene Heskett <gene.heskett@verizon.net> wrote:
-
-> that apply to all". These rules go back to about the time of when they
-> outlawed any transmit tunability in CB radios in the later 70's, so its
-> not a new item by any means as its just an extension of that edict to
-> cover this newer technology. The fact that it effectively put a stop to
-> conference call type use of single sideband because no 2 radios were on
-> the same, now non-adjustable frequency was an undesirable thing, but
-> thats the breaks.  I might try and look it up after I've had some zz's,
-> as I just came from doing transmitter maintainance overnight.
-
-I'm not really sure what you are describing but you probably want to
-reference CFR Title 47 Telecommunications [1]. Particularly
-interesting is 15.202 "Certified operating frequency range." which
-says in part:
-
-"... Master devices marketed within the United States must be
-limited to operation on permissible part 15 frequencies. Client devices
-that can also act as master devices must meet the requirements of a
-master device. ..."
-
-Also there is a general prohibition on "harmful interference" in 15.5
-which says in part:
-
-"(b) Operation of an intentional, unintentional, or incidental
-radiator is subject to the conditions that no harmful interference is
-caused and that interference must be accepted that may be caused by the
-operation of an authorized radio station, by another intentional or
-unintentional radiator, by industrial, scientific and medical (ISM)
-equipment, or by an incidental radiator. .."
-
-I am going to guess that these two excerpts provide strong evidence
-that Intel has to keep their radios from being modified accidentally
-or purposefully. I also suspect that they only have to make it
-difficult for an end user and not a technologist. So the well defined
-interface between the closed source binary only userspace daemon and
-the open source kernel driver could be reverse engineered and an
-unencumbered replacement created.
-
-I am definitely not a lawyer and this stuff is always subject to
-someone making an argument in court.
+Instead of whining, try this.
 
 
-Stephen
-
-[1] http://www.access.gpo.gov/nara/cfr/waisidx_05/47cfr15_05.html
+--- drivers/net/sky2.c.orig	2006-02-25 18:02:10.000000000 -0800
++++ drivers/net/sky2.c	2006-02-25 18:03:13.000000000 -0800
+@@ -1895,19 +1895,6 @@
+ 	u16 hwidx;
+ 	u16 tx_done[2] = { TX_NO_STATUS, TX_NO_STATUS };
+ 
+-	sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
+-
+-	/*
+-	 * Kick the STAT_LEV_TIMER_CTRL timer.
+-	 * This fixes my hangs on Yukon-EC (0xb6) rev 1.
+-	 * The if clause is there to start the timer only if it has been
+-	 * configured correctly and not been disabled via ethtool.
+-	 */
+-	if (sky2_read8(hw, STAT_LEV_TIMER_CTRL) == TIM_START) {
+-		sky2_write8(hw, STAT_LEV_TIMER_CTRL, TIM_STOP);
+-		sky2_write8(hw, STAT_LEV_TIMER_CTRL, TIM_START);
+-	}
+-
+ 	hwidx = sky2_read16(hw, STAT_PUT_IDX);
+ 	BUG_ON(hwidx >= STATUS_RING_SIZE);
+ 	rmb();
+@@ -1995,7 +1982,20 @@
+ 		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
+ 	}
+ 
+-	if (likely(work_done < to_do)) {
++	sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
++
++	/*
++	 * Kick the STAT_LEV_TIMER_CTRL timer.
++	 * This fixes my hangs on Yukon-EC (0xb6) rev 1.
++	 * The if clause is there to start the timer only if it has been
++	 * configured correctly and not been disabled via ethtool.
++	 */
++	if (sky2_read8(hw, STAT_LEV_TIMER_CTRL) == TIM_START) {
++		sky2_write8(hw, STAT_LEV_TIMER_CTRL, TIM_STOP);
++		sky2_write8(hw, STAT_LEV_TIMER_CTRL, TIM_START);
++	}
++
++	if (sky2_read16(hw, STAT_PUT_IDX) == hw->st_idx) {
+ 		spin_lock_irq(&hw->hw_lock);
+ 		__netif_rx_complete(dev0);
+ 
