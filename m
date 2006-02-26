@@ -1,24 +1,31 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: RTL 8139 stops RX after receiving a jumbo frame
-Date: Sun, 26 Feb 2006 12:46:05 +0000
-Message-ID: <1140957965.23286.9.camel@localhost.localdomain>
-References: <44012D53.30700@undead.cc>
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
+Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
+Date: Sun, 26 Feb 2006 13:59:33 +0100
+Message-ID: <9a8748490602260459j76409f0cu287d7efad4d1781c@mail.gmail.com>
+References: <20060225085409.GA22456@infradead.org>
+	 <007801c639f3$79388060$2001a8c0@cortex>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751094AbWBZMlm@vger.kernel.org>
-To: John Zielinski <john_ml@undead.cc>
-In-Reply-To: <44012D53.30700@undead.cc>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux.nics@intel.com, cramerj@intel.com, john.ronciak@intel.com,
+	Ganesh.Venkatesan@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751093AbWBZM7h@vger.kernel.org>
+To: rol@as2917.net
+In-Reply-To: <007801c639f3$79388060$2001a8c0@cortex>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sad, 2006-02-25 at 23:23 -0500, John Zielinski wrote:
-> I'm surprised that the switch actually let the jumbo packet through onto 
-> a 100Mbit link.  I'm going to see if I can find a non RTL 8139 card in 
-> my parts bin and see what that one does.
-> 
-> What's the normal behavior for overruns on an interface?
+On 2/25/06, Paul Rolland <rol@as2917.net> wrote:
+> Hello,
+>
+> This patch is based on Linux 2.4.32, and I've verified the same problem
+> exists on 2.6.15.4.
 
-Should drop the packet, but it may be triggering a driver path with a
-bug. Is this repeatable and with multiple 8139 cards /
+are you planning a 2.6 patch as well ?
+
+--
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
