@@ -1,72 +1,33 @@
-From: Ian Kumlien <pomac@vapor.com>
-Subject: Re: [PATCH] Revert sky2 to 0.13a
-Date: Sun, 26 Feb 2006 16:00:11 +0100
-Message-ID: <1140966011.22812.2.camel@localhost>
-References: <4400FC28.1060705@gmx.net>
-	 <20060225180353.5908c955@localhost.localdomain>
-	 <200602260957.04305.woho@woho.de>
-Reply-To: pomac@vapor.com
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
+Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
+Date: Sun, 26 Feb 2006 16:00:01 +0100
+Message-ID: <9a8748490602260700s2e82a623mcf2d778aa109bb00@mail.gmail.com>
+References: <9a8748490602260459j76409f0cu287d7efad4d1781c@mail.gmail.com>
+	 <01d801c63ae4$b7d71b00$2001a8c0@cortex>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-gGwFEbi5+z/ApT70N3Xa"
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Pavel Volkovitskiy <int@mtx.ru>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751205AbWBZPAL@vger.kernel.org>
-To: woho@woho.de
-In-Reply-To: <200602260957.04305.woho@woho.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux.nics@intel.com, cramerj@intel.com, john.ronciak@intel.com,
+	Ganesh.Venkatesan@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751153AbWBZPAF@vger.kernel.org>
+To: "Paul Rolland" <rol@witbe.net>
+In-Reply-To: <01d801c63ae4$b7d71b00$2001a8c0@cortex>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 2/26/06, Paul Rolland <rol@witbe.net> wrote:
+> Hello,
+>
+> > are you planning a 2.6 patch as well ?
+> >
+> I'm preparing it, and I'll be carefull with Tab/space ;)
+>
+Ok, great, I was just wondering since I would have made one if you had
+no plans to do so.
 
---=-gGwFEbi5+z/ApT70N3Xa
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2006-02-26 at 09:57 +0100, Wolfgang Hoffmann wrote:
-> On Sunday 26 February 2006 03:03, Stephen Hemminger wrote:
-> > Instead of whining, try this.
->=20
-> I tried and still see the hang.
-
-I'm at a record 12 hours with that patch.
-
-> Stephen, if you want me (as suggested off-list) to bisect the individual=20
-> patches leading from 0.13a to current head, please give me a series of=20
-> patches to incrementally apply, eighter via mail/ftp/git, and I'll test. =
-I=20
-> don't want to hack the patches together myself, because results would be=20
-> worthless if I screw up, and given that I have no networking background=20
-> chances are high ...
-
-There is a git bisect for that, and a link for it somewhere =3D)
-
-> It takes me between 5 - 20 GB of data transfer to reproduce the hang, so =
-it=20
-> will take a while, but I'm willing to help. If you see vendor chip specs=20
-> arrive soon and feel it's not worth the hassle, that's fine for me, too.
-
-My last real test with sky2 was at 205gb, which made me think that it's
-more of a race and not data dependant (read, 2 boxes doing ping -f -s
-8000)...
-
-> In the meanwhile, I'll resort to 0.13a
->=20
-> Wolfgang
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
-
---=-gGwFEbi5+z/ApT70N3Xa
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.1-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBEAcJ77F3Euyc51N8RAlTZAKC59pzFoEGmCHMFZaHysbMZZX7zNwCePDan
-LC1kIvqBb2qkM6OsnP/n2G8=
-=gxHp
------END PGP SIGNATURE-----
-
---=-gGwFEbi5+z/ApT70N3Xa--
+--
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
