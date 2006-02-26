@@ -1,31 +1,60 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
-Date: Sun, 26 Feb 2006 13:59:33 +0100
-Message-ID: <9a8748490602260459j76409f0cu287d7efad4d1781c@mail.gmail.com>
-References: <20060225085409.GA22456@infradead.org>
-	 <007801c639f3$79388060$2001a8c0@cortex>
+From: Folkert van Heusden <folkert@vanheusden.com>
+Subject: Re: [2.6.15] running tcpdump on 3c905b causes freeze (reproducable)
+Date: Sun, 26 Feb 2006 15:03:57 +0100
+Message-ID: <20060226140357.GU1570@vanheusden.com>
+References: <20060108114305.GA32425@vanheusden.com>
+	<20060109041114.6e797a9b.akpm@osdl.org>
+	<20060109144522.GB10955@vanheusden.com>
+	<20060109193754.GD12673@vanheusden.com>
+	<20060109224821.7a40bc69.akpm@osdl.org>
+	<20060110142725.GH12673@vanheusden.com>
+	<20060114132414.GN6087@vanheusden.com>
+	<20060114060457.06efae88.akpm@osdl.org>
+	<20060114233648.GA24049@vanheusden.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux.nics@intel.com, cramerj@intel.com, john.ronciak@intel.com,
-	Ganesh.Venkatesan@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751093AbWBZM7h@vger.kernel.org>
-To: rol@as2917.net
-In-Reply-To: <007801c639f3$79388060$2001a8c0@cortex>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750854AbWBZOEA@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20060114233648.GA24049@vanheusden.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/25/06, Paul Rolland <rol@as2917.net> wrote:
-> Hello,
->
-> This patch is based on Linux 2.4.32, and I've verified the same problem
-> exists on 2.6.15.4.
+> > >  > > > > > Have you tried enabling the NMI watchdog?  Enable CONFIG_X86_LOCAL_APIC and
+> > >  > > > > > boot with `nmi_watchdog=1' on the command line, make sure that the NMI line
+> > >  > > > > > of /proc/interrupts is incrementing.
+> > >  > > > > I'll give it a try. I've added it to the append-line in the lilo config.
+> > >  > > > > Am now compiling the kernel.
+> > >  > > > No change. Well, that is: the last message on the console now is
+> > >  > > > "setting eth1 to promiscues mode".
+> > >  > > Did you confirm that the NMI counters in /proc/interrupts are incrementing?
+> > >  > Yes:
+> > >  > root@muur:/home/folkert# for i in `seq 1 5` ; do cat /proc/interrupts  | grep NMI ; sleep 1 ; done
+> > >  > NMI:    6949080    6949067
+> ...
+> > >  > NMI:    6949488    6949475
+> > > 
+> > >  Is there anything else I can try?
+> > argh.   I haven't forgotten.  Hopefully after -rc1 I'll have more time...
+> Sorry :-)
+> > Your report didn't mention whether that card work OK under earlier 2.6
+> > kernels.  If it does, a bit of bisection searching would really help.
+> 2.6.15   crash
+> 2.6.14.4 crash
+> 2.6.14   crash
+> 2.6.12.6 crash "NMI watchdog detected LOCKUP"
+> 2.6.6    crash "NMI watchdog detected LOCKUP on CPU1 eip c02500aa, registers:"
+> 2.6.1    would not boot
 
-are you planning a 2.6 patch as well ?
+It is definately a 3com 3c905b problem: I swapped that card yesterday
+with an adapter from a different brand (gigabit one) and now I can
+tcpdump without any lockups.
 
---
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+
+Folkert van Heusden
+
+-- 
+iPod winnen? --> http://keetweej.vanheusden.com/redir.php?id=62
+--------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE, www.vanheusden.com
