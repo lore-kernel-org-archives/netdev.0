@@ -1,217 +1,99 @@
-From: Wolfgang Hoffmann <woho@woho.de>
+From: Ian Kumlien <pomac@vapor.com>
 Subject: Re: [PATCH] Revert sky2 to 0.13a
-Date: Mon, 27 Feb 2006 18:48:29 +0100
-Message-ID: <200602271848.29645.woho@woho.de>
-References: <4400FC28.1060705@gmx.net> <200602271738.38675.woho@woho.de> <20060227091837.3c214435@localhost.localdomain>
-Reply-To: woho@woho.de
+Date: Mon, 27 Feb 2006 19:27:21 +0100
+Message-ID: <1141064841.23375.36.camel@localhost>
+References: <4400FC28.1060705@gmx.net> <200602270003.46353.woho@woho.de>
+	 <20060227080042.0cf3f05d@localhost.localdomain>
+	 <200602271738.38675.woho@woho.de>
+	 <20060227091837.3c214435@localhost.localdomain>
+Reply-To: pomac@vapor.com
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_ttzAEQBFOw7recu"
-Cc: pomac@vapor.com,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-abOhmutKglUVrWgsVTtL"
+Cc: woho@woho.de,
 	Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>,
 	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
 	Pavel Volkovitskiy <int@mtx.ru>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751416AbWB0RrT@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751439AbWB0S1L@vger.kernel.org>
 To: Stephen Hemminger <shemminger@osdl.org>
 In-Reply-To: <20060227091837.3c214435@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_ttzAEQBFOw7recu
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-On Monday 27 February 2006 18:18, Stephen Hemminger wrote:
-> Okay, then what I need is lspci -v of all systems that have the problem,
-> I'll make a blacklist (or update PCI quirks). I suspect that MSI doesn't
-> work for any devices on these systems, or MSI changes the timing enough to
-> expose existing races.
+--=-abOhmutKglUVrWgsVTtL
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-lspci -v attached
+On Mon, 2006-02-27 at 09:18 -0800, Stephen Hemminger wrote:
+> On Mon, 27 Feb 2006 17:38:38 +0100
+> Wolfgang Hoffmann <woho@woho.de> wrote:
+> > On Monday 27 February 2006 17:00, Stephen Hemminger wrote:
+> > 2.6.16-rc5 with disable_msi=3D1 works for me, no hangs seen so far. I r=
+synced 80=20
+> > GB of data, thats about 5-10 times more than I typically need to reprod=
+uce a=20
+> > hang, so it seems to be solid. For the record: 2.6.16-rc5 with disable_=
+msi=3D0=20
+> > does hang.
+> >=20
+> > I have not seen the memory trashing others reported, with no version I =
+tested=20
+> > so far. Maybe my scenario is not likely to trigger this, so I can't tel=
+l.
+> >=20
+> > Unless a fix for msi is at hand, may I suggest for 2.6.16 to revert the=
+ msi=20
+> > commit or switch the default to disable_msi=3D1?
+> >=20
+> > I've updated bugzilla #6084 accordingly.
+>=20
+> Okay, then what I need is lspci -v of all systems that have the problem, =
+I'll make
+> a blacklist (or update PCI quirks). I suspect that MSI doesn't work for a=
+ny devices
+> on these systems, or MSI changes the timing enough to expose existing rac=
+es.
 
---Boundary-00=_ttzAEQBFOw7recu
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="lspci.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="lspci.txt"
+Am i just tired from trying to make XSLT to do something unnatural or is
+there something odd going on in msi.c?
 
-0000:00:00.0 Host bridge: Intel Corporation Mobile 915GM/PM/GMS/910GML Express Processor to DRAM Controller (rev 03)
-        Subsystem: AOPEN Inc.: Unknown device 2580
-        Flags: bus master, fast devsel, latency 0
-        Capabilities: [e0] #09 [2109]
+static void msi_set_mask_bit(unsigned int vector, int flag)
+{
+        struct msi_desc *entry;
 
-0000:00:01.0 PCI bridge: Intel Corporation Mobile 915GM/PM Express PCI Express Root Port (rev 03) (prog-if 00 [Normal decode])
-        Flags: bus master, fast devsel, latency 0
-        Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
-        I/O behind bridge: 0000b000-0000bfff
-        Memory behind bridge: da200000-da2fffff
-        Prefetchable memory behind bridge: d0000000-d7ffffff
-        Capabilities: [88] #0d [0000]
-        Capabilities: [80] Power Management version 2
-        Capabilities: [90] Message Signalled Interrupts: 64bit- Queue=0/0 Enable+
-        Capabilities: [a0] #10 [0141]
+        entry =3D (struct msi_desc *)msi_desc[vector];
+        if (!entry || !entry->dev || !entry->mask_base)
+                return;
+        switch (entry->msi_attrib.type) {
+        case PCI_CAP_ID_MSI:
+        {
+                int             pos;		<=3D=3D
+                u32             mask_bits;
 
-0000:00:1b.0 0403: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) High Definition Audio Controller (rev 04)
-        Subsystem: AOPEN Inc.: Unknown device 0560
-        Flags: bus master, fast devsel, latency 0, IRQ 169
-        Memory at da300000 (64-bit, non-prefetchable) [size=16K]
-        Capabilities: [50] Power Management version 2
-        Capabilities: [60] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-        Capabilities: [70] #10 [0091]
+                pos =3D (long)entry->mask_base;	<=3D=3D
+...
 
-0000:00:1c.0 PCI bridge: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) PCI Express Port 1 (rev 04) (prog-if 00 [Normal decode])
-        Flags: bus master, fast devsel, latency 0
-        Bus: primary=00, secondary=02, subordinate=02, sec-latency=0
-        Capabilities: [40] #10 [0141]
-        Capabilities: [80] Message Signalled Interrupts: 64bit- Queue=0/0 Enable+
-        Capabilities: [90] #0d [0000]
-        Capabilities: [a0] Power Management version 2
+Doesn't that mean that we, a: read 64 bit from memory. b: save it in a
+32 bit area?
 
-0000:00:1c.1 PCI bridge: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) PCI Express Port 2 (rev 04) (prog-if 00 [Normal decode])
-        Flags: bus master, fast devsel, latency 0
-        Bus: primary=00, secondary=03, subordinate=03, sec-latency=0
-        I/O behind bridge: 0000c000-0000cfff
-        Memory behind bridge: da000000-da0fffff
-        Prefetchable memory behind bridge: 0000000088000000-0000000088000000
-        Capabilities: [40] #10 [0141]
-        Capabilities: [80] Message Signalled Interrupts: 64bit- Queue=0/0 Enable+
-        Capabilities: [90] #0d [0000]
-        Capabilities: [a0] Power Management version 2
+(esp since it seems to be a address pointer, which could also be using
+higher memory areas... but then i dunno what a void __iomem * is, but i
+assume that it will be 64 bits here =3D))
 
-0000:00:1c.2 PCI bridge: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) PCI Express Port 3 (rev 04) (prog-if 00 [Normal decode])
-        Flags: bus master, fast devsel, latency 0
-        Bus: primary=00, secondary=04, subordinate=04, sec-latency=0
-        I/O behind bridge: 0000d000-0000dfff
-        Memory behind bridge: da100000-da1fffff
-        Prefetchable memory behind bridge: 0000000088100000-0000000088100000
-        Capabilities: [40] #10 [0141]
-        Capabilities: [80] Message Signalled Interrupts: 64bit- Queue=0/0 Enable+
-        Capabilities: [90] #0d [0000]
-        Capabilities: [a0] Power Management version 2
+--=20
+Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
 
-0000:00:1c.3 PCI bridge: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) PCI Express Port 4 (rev 04) (prog-if 00 [Normal decode])
-        Flags: bus master, fast devsel, latency 0
-        Bus: primary=00, secondary=05, subordinate=05, sec-latency=0
-        Capabilities: [40] #10 [0141]
-        Capabilities: [80] Message Signalled Interrupts: 64bit- Queue=0/0 Enable+
-        Capabilities: [90] #0d [0000]
-        Capabilities: [a0] Power Management version 2
+--=-abOhmutKglUVrWgsVTtL
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-0000:00:1d.0 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) USB UHCI #1 (rev 04) (prog-if 00 [UHCI])
-        Subsystem: AOPEN Inc.: Unknown device 2658
-        Flags: bus master, medium devsel, latency 0, IRQ 58
-        I/O ports at e000 [size=32]
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.1-ecc0.1.6 (GNU/Linux)
 
-0000:00:1d.1 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) USB UHCI #2 (rev 04) (prog-if 00 [UHCI])
-        Subsystem: AOPEN Inc.: Unknown device 2659
-        Flags: bus master, medium devsel, latency 0, IRQ 193
-        I/O ports at e100 [size=32]
+iD8DBQBEA0SJ7F3Euyc51N8RArYzAKCWSgcdnJ+sAP/+0+itzllaOFI3SQCgrW/1
+C7DwGr6NIZnK/AoX1x7e4x0=
+=2ZhW
+-----END PGP SIGNATURE-----
 
-0000:00:1d.2 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) USB UHCI #3 (rev 04) (prog-if 00 [UHCI])
-        Subsystem: AOPEN Inc.: Unknown device 265a
-        Flags: bus master, medium devsel, latency 0, IRQ 185
-        I/O ports at e200 [size=32]
-
-0000:00:1d.3 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) USB UHCI #4 (rev 04) (prog-if 00 [UHCI])
-        Subsystem: AOPEN Inc.: Unknown device 265b
-        Flags: bus master, medium devsel, latency 0, IRQ 169
-        I/O ports at e300 [size=32]
-
-0000:00:1d.7 USB Controller: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) USB2 EHCI Controller (rev 04) (prog-if 20 [EHCI])
-        Subsystem: AOPEN Inc.: Unknown device 0553
-        Flags: bus master, medium devsel, latency 0, IRQ 58
-        Memory at da304000 (32-bit, non-prefetchable) [size=1K]
-        Capabilities: [50] Power Management version 2
-
-0000:00:1e.0 PCI bridge: Intel Corporation 82801 Mobile PCI Bridge (rev d4) (prog-if 01 [Subtractive decode])
-        Flags: bus master, fast devsel, latency 0
-        Bus: primary=00, secondary=06, subordinate=06, sec-latency=32
-        Memory behind bridge: d8000000-d9ffffff
-        Capabilities: [50] #0d [0000]
-
-0000:00:1f.0 ISA bridge: Intel Corporation 82801FBM (ICH6M) LPC Interface Bridge (rev 04)
-        Subsystem: Intel Corporation 82801FBM (ICH6M) LPC Interface Bridge
-        Flags: bus master, medium devsel, latency 0
-
-0000:00:1f.1 IDE interface: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) IDE Controller (rev 04) (prog-if 8a [Master SecP PriP])
-        Subsystem: AOPEN Inc.: Unknown device 266f
-        Flags: bus master, medium devsel, latency 0, IRQ 185
-        I/O ports at <unassigned>
-        I/O ports at <unassigned>
-        I/O ports at <unassigned>
-        I/O ports at <unassigned>
-        I/O ports at f000 [size=16]
-
-0000:00:1f.2 IDE interface: Intel Corporation 82801FBM (ICH6M) SATA Controller (rev 04) (prog-if 8f [Master SecP SecO PriP PriO])
-        Subsystem: AOPEN Inc.: Unknown device 052f
-        Flags: bus master, 66MHz, medium devsel, latency 0, IRQ 193
-        I/O ports at e400 [size=8]
-        I/O ports at e500 [size=4]
-        I/O ports at e600 [size=8]
-        I/O ports at e700 [size=4]
-        I/O ports at e800 [size=16]
-        Memory at da305000 (32-bit, non-prefetchable) [size=1K]
-        Capabilities: [70] Power Management version 2
-
-0000:00:1f.3 SMBus: Intel Corporation 82801FB/FBM/FR/FW/FRW (ICH6 Family) SMBus Controller (rev 04)
-        Subsystem: AOPEN Inc.: Unknown device 266a
-        Flags: medium devsel, IRQ 11
-        I/O ports at 5000 [size=32]
-
-0000:01:00.0 VGA compatible controller: ATI Technologies Inc RV370 5B60 [Radeon X300 (PCIE)] (prog-if 00 [VGA])
-        Subsystem: PC Partner Limited: Unknown device 0450
-        Flags: bus master, fast devsel, latency 0, IRQ 5
-        Memory at d0000000 (32-bit, prefetchable) [size=128M]
-        I/O ports at b000 [size=256]
-        Memory at da230000 (32-bit, non-prefetchable) [size=64K]
-        Expansion ROM at da200000 [disabled] [size=128K]
-        Capabilities: [50] Power Management version 2
-        Capabilities: [58] #10 [0001]
-        Capabilities: [80] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-
-0000:01:00.1 Display controller: ATI Technologies Inc RV370 [Radeon X300SE]
-        Subsystem: PC Partner Limited: Unknown device 0451
-        Flags: bus master, fast devsel, latency 0
-        Memory at da220000 (32-bit, non-prefetchable) [disabled] [size=64K]
-        Capabilities: [50] Power Management version 2
-        Capabilities: [58] #10 [0001]
-
-0000:03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053 Gigabit Ethernet Controller (rev 19)
-        Subsystem: AOPEN Inc. Marvell 88E8053 Gigabit Ethernet Controller (Aopen)
-        Flags: bus master, fast devsel, latency 0, IRQ 177
-        Memory at da020000 (64-bit, non-prefetchable) [size=16K]
-        I/O ports at c000 [size=256]
-        Expansion ROM at 88000000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 2
-        Capabilities: [50] Vital Product Data
-        Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/1 Enable-
-        Capabilities: [e0] #10 [0011]
-
-0000:04:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8053 Gigabit Ethernet Controller (rev 19)
-        Subsystem: AOPEN Inc. Marvell 88E8053 Gigabit Ethernet Controller (Aopen)
-        Flags: bus master, fast devsel, latency 0, IRQ 185
-        Memory at da120000 (64-bit, non-prefetchable) [size=16K]
-        I/O ports at d000 [size=256]
-        Expansion ROM at 88100000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 2
-        Capabilities: [50] Vital Product Data
-        Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/1 Enable-
-        Capabilities: [e0] #10 [0011]
-
-0000:06:03.0 FireWire (IEEE 1394): Agere Systems FW323 (rev 61) (prog-if 10 [OHCI])
-        Subsystem: AOPEN Inc.: Unknown device 030a
-        Flags: bus master, medium devsel, latency 32, IRQ 66
-        Memory at d9000000 (32-bit, non-prefetchable) [size=4K]
-        Capabilities: [44] Power Management version 2
-
-0000:06:05.0 Multimedia audio controller: Xilinx Corporation RME Digi96/8 Pad (rev 04)
-        Flags: slow devsel, IRQ 177
-        Memory at d8000000 (32-bit, non-prefetchable) [size=16M]
-
-
---Boundary-00=_ttzAEQBFOw7recu--
+--=-abOhmutKglUVrWgsVTtL--
