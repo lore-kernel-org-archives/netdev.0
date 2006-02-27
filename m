@@ -1,116 +1,59 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Pull request for 'for-jeff' branch
-Date: Mon, 27 Feb 2006 23:24:38 +0100
-Message-ID: <20060227222438.GA24788@electric-eye.fr.zoreil.com>
-References: <Pine.LNX.4.64.0602262122000.22647@g5.osdl.org> <4402934B.7040506@pobox.com> <20060227180433.GA20275@electric-eye.fr.zoreil.com> <4403472F.2090808@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pierre Ossman <drzeus-list@drzeus.cx>,
-	John Zielinski <john_ml@undead.cc>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751757AbWB0W2E@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4403472F.2090808@pobox.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: [patch 04/39] [PATCH] [BRIDGE]: netfilter missing symbol has_bridge_parent
+Date: Mon, 27 Feb 2006 14:32:04 -0800
+Message-ID: <20060227223321.042696000@sorel.sous-sol.org>
+References: <20060227223200.865548000@sorel.sous-sol.org>
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
+	Horms <horms@verge.net.au>, wensong@linux-vs.org,
+	netdev@vger.kernel.org, ja@ssi.bg,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751846AbWB0Wut@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Content-Disposition: inline; filename=netfilter-missing-symbol.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please pull from branch 'for-jeff' to get the changes below:
+-stable review patch.  If anyone has any objections, please let us know.
+------------------
 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+5dce971acf2ae20c80d5e9d1f6bbf17376870911 in Linus' tree,
+otherwise known as bridge-netfilter-races-on-device-removal.patch in
+2.5.15.4 removed has_bridge_parent, however this symbol is still
+called with NETFILTER_DEBUG is enabled.
 
-Shortlog
---------
-$ git rev-list --pretty master..HEAD | git shortlog
+This patch uses the already seeded realoutdev value to detect if a parent
+exists, and if so, the value of the parent.
 
-Francois Romieu:
-      via-velocity: fix memory corruption when changing the mtu
-      8139cp: fix broken suspend/resume
+Signed-Off-By: Horms <horms@verge.net.au>
+Acked-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
 
+ net/bridge/br_netfilter.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Patch
------
-diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-index f822cd3..dd41049 100644
---- a/drivers/net/8139cp.c
-+++ b/drivers/net/8139cp.c
-@@ -1118,13 +1118,18 @@ err_out:
- 	return -ENOMEM;
- }
- 
-+static void cp_init_rings_index (struct cp_private *cp)
-+{
-+	cp->rx_tail = 0;
-+	cp->tx_head = cp->tx_tail = 0;
-+}
-+
- static int cp_init_rings (struct cp_private *cp)
- {
- 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
- 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 = cpu_to_le32(RingEnd);
- 
--	cp->rx_tail = 0;
--	cp->tx_head = cp->tx_tail = 0;
-+	cp_init_rings_index(cp);
- 
- 	return cp_refill_rx (cp);
- }
-@@ -1886,30 +1891,30 @@ static int cp_suspend (struct pci_dev *p
- 
- 	spin_unlock_irqrestore (&cp->lock, flags);
- 
--	if (cp->pdev && cp->wol_enabled) {
--		pci_save_state (cp->pdev);
--		cp_set_d3_state (cp);
--	}
-+	pci_save_state(pdev);
-+	pci_enable_wake(pdev, pci_choose_state(pdev, state), cp->wol_enabled);
-+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
- 
- 	return 0;
- }
- 
- static int cp_resume (struct pci_dev *pdev)
- {
--	struct net_device *dev;
--	struct cp_private *cp;
-+	struct net_device *dev = pci_get_drvdata (pdev);
-+	struct cp_private *cp = netdev_priv(dev);
- 	unsigned long flags;
- 
--	dev = pci_get_drvdata (pdev);
--	cp  = netdev_priv(dev);
-+	if (!netif_running(dev))
-+		return 0;
- 
- 	netif_device_attach (dev);
--	
--	if (cp->pdev && cp->wol_enabled) {
--		pci_set_power_state (cp->pdev, PCI_D0);
--		pci_restore_state (cp->pdev);
--	}
--	
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+	pci_enable_wake(pdev, PCI_D0, 0);
-+
-+	/* FIXME: sh*t may happen if the Rx ring buffer is depleted */
-+	cp_init_rings_index (cp);
- 	cp_init_hw (cp);
- 	netif_start_queue (dev);
- 
-diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
-index c2d5907..ed1f837 100644
---- a/drivers/net/via-velocity.c
-+++ b/drivers/net/via-velocity.c
-@@ -1106,6 +1106,9 @@ static void velocity_free_rd_ring(struct
- 
- 	for (i = 0; i < vptr->options.numrx; i++) {
- 		struct velocity_rd_info *rd_info = &(vptr->rd_info[i]);
-+		struct rx_desc *rd = vptr->rd_ring + i;
-+
-+		memset(rd, 0, sizeof(*rd));
- 
- 		if (!rd_info->skb)
- 			continue;
+--- linux-2.6.15.4.orig/net/bridge/br_netfilter.c
++++ linux-2.6.15.4/net/bridge/br_netfilter.c
+@@ -794,8 +794,8 @@ static unsigned int br_nf_post_routing(u
+ print_error:
+ 	if (skb->dev != NULL) {
+ 		printk("[%s]", skb->dev->name);
+-		if (has_bridge_parent(skb->dev))
+-			printk("[%s]", bridge_parent(skb->dev)->name);
++		if (realoutdev)
++			printk("[%s]", realoutdev->name);
+ 	}
+ 	printk(" head:%p, raw:%p, data:%p\n", skb->head, skb->mac.raw,
+ 					      skb->data);
+
+--
