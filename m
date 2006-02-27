@@ -1,597 +1,202 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: [Patch 7/7] Generic netlink interface (delay accounting)
-Date: Mon, 27 Feb 2006 03:31:01 -0500
-Message-ID: <1141029060.5785.77.camel@elinux04.optonline.net>
-References: <1141026996.5785.38.camel@elinux04.optonline.net>
-Reply-To: nagar@watson.ibm.com
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATH][RFC] acxsm: Make acx mdoular again
+Date: Mon, 27 Feb 2006 12:20:14 +0200
+Message-ID: <200602271220.14853.vda@ilport.com.ua>
+References: <200602261710.33923.carlos@cmartin.tk>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: lse-tech <lse-tech@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932307AbWB0IbH@vger.kernel.org>
-To: linux-kernel <linux-kernel@vger.kernel.org>
-In-Reply-To: <1141026996.5785.38.camel@elinux04.optonline.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_eJtAE2W5xX0QzPl"
+Cc: netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net,
+	"Christoph Hellwig" <hch@infradead.org>
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>
+In-Reply-To: <200602261710.33923.carlos@cmartin.tk>
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-delayacct-genetlink.patch
+--Boundary-00=_eJtAE2W5xX0QzPl
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Create a generic netlink interface (NETLINK_GENERIC family), 
-called "taskstats", for getting delay and cpu statistics of 
-tasks and thread groups during their lifetime and when they exit. 
+On Sunday 26 February 2006 18:10, Carlos Mart=EDn wrote:
+> Hi,
+>=20
+> Well, here it is. I've not been able to run-test it yet, but it at least=
+=20
+> compiles and loads without problems. This is on x86_64 compiled against=20
+> Linville's wireless-2.6 git tree. (I don't have any x86 boxes running Lin=
+ux=20
+> right now, but it should be alright).
+>=20
+> I've added a struct acx_ops with function pointers and deleted the functi=
+ons=20
+> that just call the PCI/USB version depending on what we're using at the=20
+> moment. A few functions I've just made empty to simplify and not having t=
+o=20
+> check every time wether we do have it or not. These are only called on=20
+> load/unload and error conditions. Normal operation shouldn't suffer any s=
+peed=20
+> decrease it may be faster at times because we dereference a few pointers=
+=20
+> instead of calling a couple of functions (just guessing, though).
+>=20
+> The patch is 38K uncompressed. I've compressed and attached it and upload=
+ed to=20
+> http://www.cmartin.tk/acx/acxsm-modularise.patch
+>=20
+>    text    data     bss     dec     hex filename
+>   55491     588       4   56083    db13 acx-common.ko
+>   33523    1040       4   34567    8707 acx-pci.ko
+>   17109    1008       0   18117    46c5 acx-usb.ko
+>=20
+> Comments are welcome and I'll split the patch if needed.
 
-The cpu stats are available only if CONFIG_SCHEDSTATS is enabled.
+usb.c
+=3D=3D=3D=3D=3D
+#define BOGUS_SAFETY_PADDING 0x40
 
-When a task is alive, userspace can get its stats by sending a 
-command containing its pid. Sending a tgid returns the sum of stats 
-of the tasks belonging to that tgid (where such a sum makes sense). 
-Together, the command interface allows stats for a large number of 
-tasks to be collected more efficiently than would be possible 
-through /proc or any per-pid interface. 
+int
+acxusb_s_issue_cmd_timeo(
+        acx_device_t *adev,
+        unsigned cmd,
+        void *buffer,
+        unsigned buflen,
+        unsigned timeout)
+{
+#if ACX_DEBUG
+        return acx_s_issue_cmd_timeo_debug(adev, cmd, buffer, buflen, timeo=
+ut, __stringify(cmd));
+#else
+        return acx_s_issue_cmd_timeo_debug(adev, cmd, buffer, buflen, timeo=
+ut);
+#endif
+}
 
-The netlink interface also sends the stats for each task to userspace 
-when the task is exiting. This permits fine-grain accounting for 
-short-lived tasks, which is important if userspace is doing its own 
-aggregation of statistics based on some grouping of tasks 
-(e.g. CSA jobs, ELSA banks or CKRM classes).
+stringify what? We want symbolic command name, not it's numeric value.
+stringifying must occur in .h file.
 
-If the exiting task belongs to a thread group (with more members than itself)
-, the latters delay stats are also sent out on the task's exit. This allows
-userspace to get accurate data at a per-tgid level while the tid's of a tgid
-are exiting one by one.
 
-The interface has been deliberately kept distinct from the delay 
-accounting code since it is potentially usable by other kernel components
-that need to export per-pid/tgid data. The format of data returned to 
-userspace is versioned and the command interface easily extensible to 
-facilitate reuse.
+acx_func.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+#if ACX_DEBUG
 
-If reuse is not deemed useful enough, the naming, placement of functions
-and config options will be modified to make this an interface for delay 
-accounting alone.
+/* We want to log cmd names */
+int acxpci_s_issue_cmd_timeo_debug(acx_device_t *adev, unsigned cmd, void *=
+param, unsigned len, unsigned timeout, const char* cmdstr);
+int acxusb_s_issue_cmd_timeo_debug(acx_device_t *adev, unsigned cmd, void *=
+param, unsigned len, unsigned timeout, const char* cmdstr);
+static inline int
+acx_s_issue_cmd_timeo_debug(acx_device_t *adev, unsigned cmd, void *param, =
+unsigned len, unsigned timeout, const char* cmdstr)
+{
+        if (IS_PCI(adev))
+                return acxpci_s_issue_cmd_timeo_debug(adev, cmd, param, len=
+, timeout, cmdstr);
+        return acxusb_s_issue_cmd_timeo_debug(adev, cmd, param, len, timeou=
+t, cmdstr);
+}
+int acx_s_issue_cmd(acx_device_t *adev, unsigned cmd, void *param, unsigned=
+ len);
 
-Signed-off-by: Shailabh Nagar <nagar@watson.ibm.com>
-Signed-off-by: Balbir Singh <balbir@in.ibm.com>
+It will recurse: acx_s_issue_cmd_timeo_debug -> acxusb_s_issue_cmd_timeo_de=
+bug -> acx_s_issue_cmd_timeo_debug ->....
+Why do you need if (IS_PCI(adev)) at all?
 
- include/linux/delayacct.h |    2 
- include/linux/taskstats.h |  125 +++++++++++++++++++++
- init/Kconfig              |   16 ++
- kernel/Makefile           |    1 
- kernel/delayacct.c        |   49 ++++++++
- kernel/taskstats.c        |  266 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 456 insertions(+), 3 deletions(-)
+Please apply the attached style fixes on top of your patches.
 
-Index: linux-2.6.16-rc4/include/linux/delayacct.h
-===================================================================
---- linux-2.6.16-rc4.orig/include/linux/delayacct.h	2006-02-27 01:53:01.000000000 -0500
-+++ linux-2.6.16-rc4/include/linux/delayacct.h	2006-02-27 01:53:03.000000000 -0500
-@@ -16,6 +16,7 @@
+Patch is not applied. Sorry.
+=2D-
+vda
+
+--Boundary-00=_eJtAE2W5xX0QzPl
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="acxsm-modularise2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="acxsm-modularise2.patch"
+
+diff -urpN current_sm.1/acx_func.h current_sm.2/acx_func.h
+--- current_sm.1/acx_func.h	Mon Feb 27 12:13:27 2006
++++ current_sm.2/acx_func.h	Mon Feb 27 12:10:32 2006
+@@ -444,7 +444,7 @@ int acx_s_interrogate_debug(acx_device_t
+ #else
  
- #include <linux/sched.h>
- #include <linux/sysctl.h>
-+#include <linux/taskstats.h>
  
- #ifdef CONFIG_TASK_DELAY_ACCT
- extern int delayacct_on;	/* Delay accounting turned on/off */
-@@ -27,6 +28,7 @@ extern void __delayacct_tsk_init(struct 
- extern void __delayacct_tsk_exit(struct task_struct *);
- extern void __delayacct_blkio(void);
- extern void __delayacct_swapin(void);
-+extern int delayacct_add_tsk(struct taskstats_reply *, struct task_struct *);
+-/* We can't make this a #define or inline because we need to referece it. */
++/* We can't make this a #define or inline because we need to reference it. */
+ int acx_s_issue_cmd(acx_device_t *adev, unsigned cmd, void *param, unsigned len);
  
- static inline void delayacct_tsk_early_init(struct task_struct *tsk)
+ int acxpci_s_issue_cmd_timeo(acx_device_t *adev, unsigned cmd, void *param, unsigned len, unsigned timeout);
+diff -urpN current_sm.1/common.c current_sm.2/common.c
+--- current_sm.1/common.c	Mon Feb 27 12:13:28 2006
++++ current_sm.2/common.c	Mon Feb 27 12:06:33 2006
+@@ -331,10 +331,11 @@ acx_log_fn_exit_v(const char *funcname, 
+ EXPORT_SYMBOL_GPL(acx_log_fn_exit_v);
+ #endif /* ACX_DEBUG > 1 */
+ 
+-int acx_s_issue_cmd(acx_device_t *adev, unsigned cmd, void *param, unsigned len)
++int
++acx_s_issue_cmd(acx_device_t *adev, unsigned cmd, void *param, unsigned len)
  {
-Index: linux-2.6.16-rc4/include/linux/taskstats.h
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16-rc4/include/linux/taskstats.h	2006-02-27 01:53:03.000000000 -0500
-@@ -0,0 +1,125 @@
-+/* taskstats.h - exporting per-task statistics
-+ *
-+ * Copyright (C) Shailabh Nagar, IBM Corp. 2006
-+ *           (C) Balbir Singh,   IBM Corp. 2006
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2.1 of the GNU Lesser General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it would be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ */
-+
-+#ifndef _LINUX_TASKSTATS_H
-+#define _LINUX_TASKSTATS_H
-+
-+/* Format for per-task data returned to userland when
-+ *	- a task exits
-+ *	- listener requests stats for a task
-+ *
-+ * The struct is versioned. Newer versions should only add fields to
-+ * the bottom of the struct to maintain backward compatibility.
-+ *
-+ * To create the next version, bump up the taskstats_version variable
-+ * and delineate the start of newly added fields with a comment indicating
-+ * the version number.
-+ */
-+
-+#define TASKSTATS_VERSION	1
-+
-+struct taskstats {
-+
-+	/* Version 1 */
-+#define TASKSTATS_NOPID	-1
-+	pid_t	pid;
-+	pid_t	tgid;
-+
-+	/* XXX_count is number of delay values recorded.
-+	 * XXX_total is corresponding cumulative delay in nanoseconds
-+	 */
-+
-+#define TASKSTATS_NOCPUSTATS	1
-+	__u64	cpu_count;
-+	__u64	cpu_delay_total;	/* wait, while runnable, for cpu */
-+	__u64	blkio_count;
-+	__u64	blkio_delay_total;	/* sync,block io completion wait*/
-+	__u64	swapin_count;
-+	__u64	swapin_delay_total;	/* swapin page fault wait*/
-+
-+	__u64	cpu_run_total;		/* cpu running time
-+					 * no count available/provided */
-+};
-+
-+
-+#define TASKSTATS_LISTEN_GROUP	0x1
-+
-+/*
-+ * Commands sent from userspace
-+ * Not versioned. New commands should only be inserted at the enum's end
-+ */
-+
-+enum {
-+	TASKSTATS_CMD_UNSPEC,		/* Reserved */
-+	TASKSTATS_CMD_NONE,		/* Not a valid cmd to send
-+					 * Marks data sent on task/tgid exit */
-+	TASKSTATS_CMD_LISTEN,		/* Start listening */
-+	TASKSTATS_CMD_IGNORE,		/* Stop listening */
-+	TASKSTATS_CMD_PID,		/* Send stats for a pid */
-+	TASKSTATS_CMD_TGID,		/* Send stats for a tgid */
-+};
-+
-+/* Parameters for commands
-+ * New parameters should only be inserted at the struct's end
-+ */
-+
-+struct taskstats_cmd_param {
-+	union {
-+		pid_t	pid;
-+		pid_t	tgid;
-+	} id;
-+};
-+
-+/*
-+ * Reply sent from kernel
-+ * Version number affects size/format of struct taskstats only
-+ */
-+
-+struct taskstats_reply {
-+	enum outtype {
-+		TASKSTATS_REPLY_NONE = 1,	/* Control cmd response */
-+		TASKSTATS_REPLY_PID,		/* per-pid data cmd response*/
-+		TASKSTATS_REPLY_TGID,		/* per-tgid data cmd response*/
-+		TASKSTATS_REPLY_EXIT_PID,	/* Exiting task's stats */
-+		TASKSTATS_REPLY_EXIT_TGID,	/* Exiting tgid's stats
-+						 * (sent on each tid's exit) */
-+	} outtype;
-+	__u32 version;
-+	__u32 err;
-+	struct taskstats stats;			/* Invalid if err != 0 */
-+};
-+
-+/* NETLINK_GENERIC related info */
-+
-+#define TASKSTATS_GENL_NAME	"TASKSTATS"
-+#define TASKSTATS_GENL_VERSION	0x1
-+/* Following must be > NLMSG_MIN_TYPE */
-+#define TASKSTATS_GENL_ID	0x123
-+
-+#define TASKSTATS_HDRLEN	(NLMSG_SPACE(GENL_HDRLEN))
-+#define TASKSTATS_BODYLEN	(sizeof(struct taskstats_reply))
-+
-+#ifdef __KERNEL__
-+
-+#include <linux/sched.h>
-+
-+#ifdef CONFIG_TASKSTATS
-+extern void taskstats_exit_pid(struct task_struct *);
-+#else
-+static inline void taskstats_exit_pid(struct task_struct *tsk)
-+{}
-+#endif
-+
-+#endif /* __KERNEL__ */
-+#endif /* _LINUX_TASKSTATS_H */
-Index: linux-2.6.16-rc4/kernel/Makefile
-===================================================================
---- linux-2.6.16-rc4.orig/kernel/Makefile	2006-02-27 01:52:54.000000000 -0500
-+++ linux-2.6.16-rc4/kernel/Makefile	2006-02-27 01:53:03.000000000 -0500
-@@ -35,6 +35,7 @@ obj-$(CONFIG_GENERIC_HARDIRQS) += irq/
- obj-$(CONFIG_SECCOMP) += seccomp.o
- obj-$(CONFIG_RCU_TORTURE_TEST) += rcutorture.o
- obj-$(CONFIG_TASK_DELAY_ACCT) += delayacct.o
-+obj-$(CONFIG_TASKSTATS) += taskstats.o
- 
- ifneq ($(CONFIG_SCHED_NO_NO_OMIT_FRAME_POINTER),y)
- # According to Alan Modra <alan@linuxcare.com.au>, the -fno-omit-frame-pointer is
-Index: linux-2.6.16-rc4/kernel/taskstats.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16-rc4/kernel/taskstats.c	2006-02-27 01:53:03.000000000 -0500
-@@ -0,0 +1,266 @@
-+/*
-+ * taskstats.c - Export per-task statistics to userland
-+ *
-+ * Copyright (C) Shailabh Nagar, IBM Corp. 2006
-+ *           (C) Balbir Singh,   IBM Corp. 2006
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/taskstats.h>
-+#include <linux/delayacct.h>
-+#include <net/genetlink.h>
-+#include <asm/atomic.h>
-+
-+const int taskstats_version = TASKSTATS_VERSION;
-+static atomic_t taskstats_group_listeners = ATOMIC_INIT(0);
-+static DEFINE_PER_CPU(__u32, taskstats_seqnum) = { 0 };
-+
-+static struct genl_family family = {
-+//	.id             = GENL_ID_GENERATE,
-+	.id             = TASKSTATS_GENL_ID,
-+	.name           = TASKSTATS_GENL_NAME,
-+	.version        = TASKSTATS_GENL_VERSION,
-+	.hdrsize        = 0,
-+	.maxattr        = 0,
-+};
-+
-+#define genlmsg_data(genlhdr)	((char *)genlhdr + GENL_HDRLEN)
-+
-+/* Taskstat specific functions */
-+
-+static int taskstats_listen(struct sk_buff *skb, struct genl_info *info)
-+{
-+	atomic_inc(&taskstats_group_listeners);
-+	return 0;
-+}
-+
-+static int taskstats_ignore(struct sk_buff *skb, struct genl_info *info)
-+{
-+	atomic_dec(&taskstats_group_listeners);
-+	return 0;
-+}
-+
-+static int prepare_reply(struct genl_info *info, u8 cmd,
-+			 struct sk_buff **skbp, struct taskstats_reply **replyp)
-+{
-+	struct sk_buff *skb;
-+	struct taskstats_reply *reply;
-+
-+	skb = nlmsg_new(TASKSTATS_HDRLEN + TASKSTATS_BODYLEN);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	if (!info) {
-+		int seq = get_cpu_var(taskstats_seqnum)++;
-+		put_cpu_var(taskstats_seqnum);
-+
-+		reply = genlmsg_put(skb, 0, seq,
-+				    family.id, 0, NLM_F_REQUEST,
-+				    cmd, family.version);
-+	} else
-+		reply = genlmsg_put(skb, info->snd_pid, info->snd_seq,
-+				    family.id, 0, info->nlhdr->nlmsg_flags,
-+				    info->genlhdr->cmd, family.version);
-+	if (reply == NULL) {
-+		nlmsg_free(skb);
-+		return -EINVAL;
-+	}
-+	skb_put(skb, TASKSTATS_BODYLEN);
-+
-+	memset(reply, 0, sizeof(*reply));
-+	reply->version = taskstats_version;
-+	reply->err = 0;
-+
-+	*skbp = skb;
-+	*replyp = reply;
-+	return 0;
-+}
-+
-+static int send_reply(struct sk_buff *skb, int replytype)
-+{
-+	struct genlmsghdr *genlhdr = nlmsg_data((struct nlmsghdr *)skb->data);
-+	struct taskstats_reply *reply;
-+
-+	reply = (struct taskstats_reply *)genlmsg_data(genlhdr);
-+	reply->outtype = replytype;
-+
-+	genlmsg_end(skb, genlhdr);
-+	return genlmsg_multicast(skb, 0, TASKSTATS_LISTEN_GROUP);
-+}
-+
-+static inline void fill_pid(struct taskstats_reply *reply, pid_t pid, struct task_struct *pidtsk)
-+{
-+	int rc;
-+	struct task_struct *tsk = pidtsk;
-+
-+	if (!pidtsk) {
-+		read_lock(&tasklist_lock);
-+		tsk = find_task_by_pid(pid);
-+		if (!tsk) {
-+			read_unlock(&tasklist_lock);
-+			reply->err = EINVAL;
-+			return;
-+		}
-+		get_task_struct(tsk);
-+		read_unlock(&tasklist_lock);
-+	} else
-+		get_task_struct(tsk);
-+
-+	rc = delayacct_add_tsk(reply, tsk);
-+	if (!rc) {
-+		reply->stats.pid = tsk->pid;
-+		reply->stats.tgid = tsk->tgid;
-+	} else
-+		reply->err = (rc < 0) ? -rc : rc ;
-+
-+	put_task_struct(tsk);
-+}
-+
-+static int taskstats_send_pid(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int rc;
-+	struct sk_buff *rep_skb;
-+	struct taskstats_reply *reply;
-+	struct taskstats_cmd_param *param= info->userhdr;
-+
-+	if (atomic_read(&taskstats_group_listeners) < 1)
-+		return -EINVAL;
-+
-+	rc = prepare_reply(info, info->genlhdr->cmd, &rep_skb, &reply);
-+	if (rc)
-+		return rc;
-+	fill_pid(reply, param->id.pid, NULL);
-+	return send_reply(rep_skb, TASKSTATS_REPLY_PID);
-+}
-+
-+static inline void fill_tgid(struct taskstats_reply *reply, pid_t tgid, struct task_struct *tgidtsk)
-+{
-+	int rc;
-+	struct task_struct *tsk, *first;
-+
-+	first = tgidtsk;
-+	read_lock(&tasklist_lock);
-+	if (!first) {
-+		first = find_task_by_pid(tgid);
-+		if (!first) {
-+			read_unlock(&tasklist_lock);
-+			reply->err = EINVAL;
-+			return;
-+		}
-+	}
-+	tsk = first;
-+	do {
-+		rc = delayacct_add_tsk(reply, tsk);
-+		if (rc)
-+			break;
-+	} while_each_thread(first, tsk);
-+	read_unlock(&tasklist_lock);
-+
-+	if (!rc) {
-+		reply->stats.pid = TASKSTATS_NOPID;
-+		reply->stats.tgid = tgid;
-+	} else
-+		reply->err = (rc < 0) ? -rc : rc ;
-+}
-+
-+static int taskstats_send_tgid(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int rc;
-+	struct sk_buff *rep_skb;
-+	struct taskstats_reply *reply;
-+	struct taskstats_cmd_param *param= info->userhdr;
-+
-+	if (atomic_read(&taskstats_group_listeners) < 1)
-+		return -EINVAL;
-+
-+	rc = prepare_reply(info, info->genlhdr->cmd, &rep_skb, &reply);
-+	if (rc)
-+		return rc;
-+	fill_tgid(reply, param->id.tgid, NULL);
-+	return send_reply(rep_skb, TASKSTATS_REPLY_TGID);
-+}
-+
-+/* Send pid data out on exit */
-+void taskstats_exit_pid(struct task_struct *tsk)
-+{
-+	int rc;
-+	struct sk_buff *rep_skb;
-+	struct taskstats_reply *reply;
-+
-+	if (atomic_read(&taskstats_group_listeners) < 1)
-+		return;
-+
-+	rc = prepare_reply(NULL, TASKSTATS_CMD_NONE, &rep_skb, &reply);
-+	if (rc)
-+		return;
-+	fill_pid(reply, tsk->pid, tsk);
-+	rc = send_reply(rep_skb, TASKSTATS_REPLY_EXIT_PID);
-+
-+	if (rc || thread_group_empty(tsk))
-+		return;
-+
-+	/* Send tgid data too */
-+	rc = prepare_reply(NULL, TASKSTATS_CMD_NONE, &rep_skb, &reply);
-+	if (rc)
-+		return;
-+	fill_tgid(reply, tsk->tgid, tsk);
-+	send_reply(rep_skb, TASKSTATS_REPLY_EXIT_TGID);
-+}
-+
-+static struct genl_ops listen_ops = {
-+	.cmd            = TASKSTATS_CMD_LISTEN,
-+	.doit           = taskstats_listen,
-+};
-+
-+static struct genl_ops ignore_ops = {
-+	.cmd            = TASKSTATS_CMD_IGNORE,
-+	.doit           = taskstats_ignore,
-+};
-+
-+static struct genl_ops pid_ops = {
-+	.cmd            = TASKSTATS_CMD_PID,
-+	.doit           = taskstats_send_pid,
-+};
-+
-+static struct genl_ops tgid_ops = {
-+	.cmd            = TASKSTATS_CMD_TGID,
-+	.doit           = taskstats_send_tgid,
-+};
-+
-+static int family_registered = 0;
-+
-+static int __init taskstats_init(void)
-+{
-+        if (genl_register_family(&family))
-+                return -EFAULT;
-+        family_registered = 1;
-+
-+        if (genl_register_ops(&family, &listen_ops))
-+               goto err;
-+        if (genl_register_ops(&family, &ignore_ops))
-+                goto err;
-+        if (genl_register_ops(&family, &pid_ops))
-+		goto err;
-+        if (genl_register_ops(&family, &tgid_ops))
-+                goto err;
-+
-+        return 0;
-+err:
-+        genl_unregister_family(&family);
-+        family_registered = 0;
-+        return -EFAULT;
-+}
-+
-+late_initcall(taskstats_init);
-+
-Index: linux-2.6.16-rc4/init/Kconfig
-===================================================================
---- linux-2.6.16-rc4.orig/init/Kconfig	2006-02-27 01:52:54.000000000 -0500
-+++ linux-2.6.16-rc4/init/Kconfig	2006-02-27 01:53:03.000000000 -0500
-@@ -158,11 +158,21 @@ config TASK_DELAY_ACCT
- 	  in pages. Such statistics can help in setting a task's priorities
- 	  relative to other tasks for cpu, io, rss limits etc.
- 
--	  Unlike BSD process accounting, this information is available
--	  continuously during the lifetime of a task.
--
- 	  Say N if unsure.
- 
-+config TASKSTATS
-+	bool "Export task/process statistics through netlink (EXPERIMENTAL)"
-+	depends on TASK_DELAY_ACCT
-+	default y
-+	help
-+	  Export selected statistics for tasks/processes through the
-+	  generic netlink interface. Unlike BSD process accounting, the
-+	  statistics are available during the lifetime of tasks/processes as
-+	  responses to commands. Like BSD accounting, they are sent to user
-+	  space on task exit.
-+
-+	  Say Y if unsure.
-+
- config SYSCTL
- 	bool "Sysctl support"
- 	---help---
-Index: linux-2.6.16-rc4/kernel/delayacct.c
-===================================================================
---- linux-2.6.16-rc4.orig/kernel/delayacct.c	2006-02-27 01:53:01.000000000 -0500
-+++ linux-2.6.16-rc4/kernel/delayacct.c	2006-02-27 01:53:03.000000000 -0500
-@@ -17,6 +17,7 @@
- #include <linux/time.h>
- #include <linux/sysctl.h>
- #include <linux/delayacct.h>
-+#include <linux/taskstats.h>
- 
- int delayacct_on = 0;		/* Delay accounting turned on/off */
- kmem_cache_t *delayacct_cache;
-@@ -61,6 +62,7 @@ void __delayacct_tsk_init(struct task_st
- 
- void __delayacct_tsk_exit(struct task_struct *tsk)
- {
-+ 	taskstats_exit_pid(tsk);
- 	task_lock(tsk);
- 	if (tsk->delays) {
- 		kmem_cache_free(delayacct_cache, tsk->delays);
-@@ -209,3 +211,50 @@ int delayacct_sysctl_handler(ctl_table *
- 		delayacct_on = prev;
- 	return ret;
+-  return adev->ops.issue_cmd_timeo(adev, cmd, param, len,
+-				   ACX_CMD_TIMEOUT_DEFAULT);
++	return adev->ops.issue_cmd_timeo(adev, cmd, param, len,
++				ACX_CMD_TIMEOUT_DEFAULT);
  }
-+
-+#ifdef CONFIG_TASKSTATS
-+
-+int delayacct_add_tsk(struct taskstats_reply *reply, struct task_struct *tsk)
+ 
+ EXPORT_SYMBOL_GPL(acx_s_issue_cmd);
+@@ -1940,7 +1941,7 @@ acx_s_scan_chan(acx_device_t *adev)
+ 	FN_EXIT0;
+ }
+ 
+- EXPORT_SYMBOL_GPL(acx_s_scan_chan);
++EXPORT_SYMBOL_GPL(acx_s_scan_chan);
+ 
+ void
+ acx_s_cmd_start_scan(acx_device_t *adev)
+@@ -2059,7 +2060,7 @@ acx111_s_feature_set(acx_device_t *adev,
+ /***********************************************************************
+ ** acx100_s_init_memory_pools
+ */
+-int
++static int
+ acx100_s_init_memory_pools(acx_device_t *adev, const acx_ie_memmap_t *mmt)
+ {
+ 	acx100_ie_memblocksize_t MemoryBlockSize;
+diff -urpN current_sm.1/pci.c current_sm.2/pci.c
+--- current_sm.1/pci.c	Mon Feb 27 12:13:28 2006
++++ current_sm.2/pci.c	Mon Feb 27 12:08:30 2006
+@@ -3089,7 +3089,11 @@ end:
+ 	return (tx_t*)txdesc;
+ }
+ 
+-void acxpci_l_dealloc_tx(tx_t *tx_opaque){}
++void
++acxpci_l_dealloc_tx(tx_t *tx_opaque)
 +{
-+	struct taskstats *d = &reply->stats;
-+	nsec_t tmp;
-+	struct timespec ts;
-+	unsigned long t1,t2;
-+
-+	if (!tsk->delays || !delayacct_on)
-+		return -EINVAL;
-+
-+	/* zero XXX_total,non-zero XXX_count implies XXX stat overflowed */
-+#ifdef CONFIG_SCHEDSTATS
-+
-+	tmp = (nsec_t)d->cpu_run_total ;
-+	tmp += (u64)(tsk->utime+tsk->stime)*TICK_NSEC;
-+	d->cpu_run_total = (tmp < (nsec_t)d->cpu_run_total)? 0:tmp;
-+
-+	/* No locking available for sched_info. Take snapshot first. */
-+	t1 = tsk->sched_info.pcnt;
-+	t2 = tsk->sched_info.run_delay;
-+
-+	d->cpu_count += t1;
-+
-+	jiffies_to_timespec(t2, &ts);
-+	tmp = (nsec_t)d->cpu_delay_total + timespec_to_ns(&ts);
-+	d->cpu_delay_total = (tmp < (nsec_t)d->cpu_delay_total)? 0:tmp;
-+#else
-+	/* Non-zero XXX_total,zero XXX_count implies XXX stat unavailable */
-+	d->cpu_count = 0;
-+	d->cpu_run_total = d->cpu_delay_total = TASKSTATS_NOCPUSTATS;
-+#endif
-+	spin_lock(&tsk->delays->lock);
-+	tmp = d->blkio_delay_total + tsk->delays->blkio_delay;
-+	d->blkio_delay_total = (tmp < d->blkio_delay_total)? 0:tmp;
-+	tmp = d->swapin_delay_total + tsk->delays->swapin_delay;
-+	d->swapin_delay_total = (tmp < d->swapin_delay_total)? 0:tmp;
-+	d->blkio_count += tsk->delays->blkio_count;
-+	d->swapin_count += tsk->delays->swapin_count;
-+	spin_unlock(&tsk->delays->lock);
-+
-+	return 0;
 +}
 +
-+#endif /* CONFIG_TASKSTATS */
+ 
+ /***********************************************************************
+ */
+
+--Boundary-00=_eJtAE2W5xX0QzPl--
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
