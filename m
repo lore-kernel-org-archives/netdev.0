@@ -1,70 +1,59 @@
-From: Wolfgang Hoffmann <woho@woho.de>
+From: Ian Kumlien <pomac@vapor.com>
 Subject: Re: [PATCH] Revert sky2 to 0.13a
-Date: Mon, 27 Feb 2006 00:03:45 +0100
-Message-ID: <200602270003.46353.woho@woho.de>
-References: <4400FC28.1060705@gmx.net> <200602261913.36308.woho@woho.de> <200602262331.47750.woho@woho.de>
-Reply-To: woho@woho.de
+Date: Mon, 27 Feb 2006 01:43:48 +0100
+Message-ID: <1141001028.23375.14.camel@localhost>
+References: <4400FC28.1060705@gmx.net>
+	 <20060225180353.5908c955@localhost.localdomain>
+	 <200602260957.04305.woho@woho.de>  <1140966011.22812.2.camel@localhost>
+	 <1140968831.2934.32.camel@laptopd505.fenrus.org>
+	 <1140970427.23375.11.camel@localhost>  <44022DEC.1070601@gmx.net>
+Reply-To: pomac@vapor.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: pomac@vapor.com,
-	Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>,
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7Or1xrPHtpmDwZY2aHFu"
+Cc: Arjan van de Ven <arjan@infradead.org>, woho@woho.de,
+	Stephen Hemminger <shemminger@osdl.org>,
 	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
 	Pavel Volkovitskiy <int@mtx.ru>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751022AbWBZXCY@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <200602262331.47750.woho@woho.de>
-Content-Disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751467AbWB0Anh@vger.kernel.org>
+To: Carl-Daniel Hailfinger <c-d.hailfinger.devel.2006@gmx.net>
+In-Reply-To: <44022DEC.1070601@gmx.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 26 February 2006 23:31, Wolfgang Hoffmann wrote:
-> On Sunday 26 February 2006 19:13, Wolfgang Hoffmann wrote:
-> > Ok, I did some reading and just started a git bisect. I didn't find=
- hints
-> > on how to bisect if I'm only interested in changes to sky2.[ch], so=
- I'm
-> > taking the full kernel tree and skip testing those bisect steps tha=
-t
-> > didn't change sky2.[ch].
-> >
-> > Looking at Carl-Daniels 0.13a and Stephens patch against 0.15 in th=
-is
-> > thread, I'll patch each bisect step such that sky2_poll() has
-> >
-> > =A0=A0=A0=A0=A0=A0=A0sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
-> > =A0=A0=A0=A0=A0=A0=A0if (sky2_read8(hw, STAT_LEV_TIMER_CTRL) =3D=3D=
- TIM_START) {
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0sky2_write8(hw, STAT_L=
-EV_TIMER_CTRL, TIM_STOP);
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0sky2_write8(hw, STAT_L=
-EV_TIMER_CTRL, TIM_START);
-> > =A0=A0=A0=A0=A0=A0=A0=A0}
-> >
-> > after exit_loop. Is that ok?
-> >
-> > I'll report as soon as I have results.
->
-> Bisect done:
->
-> 4d52b48b43d0d1d5959fa722ee0046e3542e5e1b is first bad commit
->     [PATCH] sky2: support msi interrupt (revised)
->
-> Reverting this commit in git head seems to work, at least the driver =
-builds
-> and loads. Is that sane?
->
-> I'm currently testing this (without any further modifications), let's=
- see
-> if it hangs or not.
 
-Ok, no hangs yet.
+--=-7Or1xrPHtpmDwZY2aHFu
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-This version passed a test scenario only 0.13a has survived so far. I'l=
-l=20
-continue to use this to give it more testing tomorrow.
+On Sun, 2006-02-26 at 23:38 +0100, Carl-Daniel Hailfinger wrote:
+> Ian Kumlien schrieb:
+> > I also saw some oddities... portage stopped working, i dunno if this ca=
+n
+> > be MSI related or so, else something is trashing memory in a very
+> > special way =3DP
+>=20
+> Yes, 0.15 causes memory corruption even if MSI is disabled.
 
-Looking at the reverted commit, I wonder if modprobing sky2 with disabl=
-e_msi=3D1=20
-is equivalent to reverting the commit?
+So if i run with iommu=3Dforced or what the hell the option is called i
+should be able to catch these trashings?
+
+I also found it odd that it was only python that suffered... Starting
+large and long running C apps worked just fine.
+
+--=20
+Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
+
+--=-7Or1xrPHtpmDwZY2aHFu
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.1-ecc0.1.6 (GNU/Linux)
+
+iD8DBQBEAktE7F3Euyc51N8RAvebAJ9zXjQNhcWjWiYXZye9PcD5U0bWbgCfTBfJ
+fYPcXjnh2P1HVd5YqXgrb2M=
+=7Nws
+-----END PGP SIGNATURE-----
+
+--=-7Or1xrPHtpmDwZY2aHFu--
