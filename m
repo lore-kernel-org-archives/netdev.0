@@ -1,37 +1,61 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
-Date: Mon, 27 Feb 2006 11:26:12 -0800
-Message-ID: <4807377b0602271126s39285884gd0e1c51c14b5d6a7@mail.gmail.com>
-References: <9a8748490602260700s2e82a623mcf2d778aa109bb00@mail.gmail.com>
-	 <01e101c63ae7$1b417990$2001a8c0@cortex>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: [PATCH] e1000: Support e1000 OEMed onto Aculab cards
+Date: Mon, 27 Feb 2006 22:05:17 +0000
+Message-ID: <20060227220517.GA8611@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Jesper Juhl" <jesper.juhl@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	cramerj@intel.com, john.ronciak@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932073AbWB0T0O@vger.kernel.org>
-To: "Paul Rolland" <rol@witbe.net>, "Jeff Garzik" <jgarzik@pobox.com>
-In-Reply-To: <01e101c63ae7$1b417990$2001a8c0@cortex>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751487AbWB0WFc@vger.kernel.org>
+To: cramerj@intel.com, john.ronciak@intel.com,
+	ganesh.venkatesan@intel.com
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/26/06, Paul Rolland <rol@witbe.net> wrote:
-> Hello,
->
-> > Ok, great, I was just wondering since I would have made one if you had
-> > no plans to do so.
->
-> Well, I was just waiting to make sure it was interesting for someone ;)
->
-> Here is it, verified with tab and not spaces... but attached as my mailer
-> is likely to cripple anything I try to inline...
->
-> Signed-off-by: Paul Rolland <rol@as2917.net>
+Add PCI IDs for chips OEMed onto some Aculab cards to the e1000 driver.
 
-I've got an issue with this, as the same function is called in
-e1000_ethtool.c.  I think the correct fix is to fix the caller in the
-mii-tool case, but I am working on verifiying my assumptions.
+Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
 
-In the meantime can you send the exact command you were having the problem with?
+Index: e1000-queue/drivers/net/e1000/e1000.h
+===================================================================
+--- e1000-queue.orig/drivers/net/e1000/e1000.h	2006-02-25 12:50:12.000000000 +0000
++++ e1000-queue/drivers/net/e1000/e1000.h	2006-02-25 13:01:10.000000000 +0000
+@@ -84,6 +84,9 @@
+ #define INTEL_E1000_ETHERNET_DEVICE(device_id) {\
+ 	PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
+ 
++#define ACULAB_E1000_ETHERNET_DEVICE(device_id) {\
++	PCI_DEVICE(PCI_VENDOR_ID_ACULAB, device_id)}
++
+ struct e1000_adapter;
+ 
+ #include "e1000_hw.h"
+Index: e1000-queue/drivers/net/e1000/e1000_main.c
+===================================================================
+--- e1000-queue.orig/drivers/net/e1000/e1000_main.c	2006-02-25 12:50:12.000000000 +0000
++++ e1000-queue/drivers/net/e1000/e1000_main.c	2006-02-25 13:01:10.000000000 +0000
+@@ -98,6 +98,7 @@ static struct pci_device_id e1000_pci_tb
+ 	INTEL_E1000_ETHERNET_DEVICE(0x108B),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x108C),
+ 	INTEL_E1000_ETHERNET_DEVICE(0x109A),
++	ACULAB_E1000_ETHERNET_DEVICE(0x1078),
+ 	/* required last entry */
+ 	{0,}
+ };
+
+Index: e1000-queue/include/linux/pci_ids.h
+===================================================================
+--- e1000-queue.orig/include/linux/pci_ids.h	2006-02-25 12:50:12.000000000 +0000
++++ e1000-queue/include/linux/pci_ids.h	2006-02-25 12:51:51.000000000 +0000
+@@ -1572,6 +1572,8 @@
+ #define PCI_VENDOR_ID_NVIDIA_SGS	0x12d2
+ #define PCI_DEVICE_ID_NVIDIA_SGS_RIVA128 0x0018
+ 
++#define PCI_VENDOR_ID_ACULAB 0x12d9
++
+ #define PCI_SUBVENDOR_ID_CHASE_PCIFAST		0x12E0
+ #define PCI_SUBDEVICE_ID_CHASE_PCIFAST4		0x0031
+ #define PCI_SUBDEVICE_ID_CHASE_PCIFAST8		0x0021
+
+-- 
+"You grabbed my hand and we fell into it, like a daydream - or a fever."
