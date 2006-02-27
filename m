@@ -1,61 +1,116 @@
-From: Mark Brown <broonie@sirena.org.uk>
-Subject: [PATCH] e1000: Support e1000 OEMed onto Aculab cards
-Date: Mon, 27 Feb 2006 22:05:17 +0000
-Message-ID: <20060227220517.GA8611@sirena.org.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Pull request for 'for-jeff' branch
+Date: Mon, 27 Feb 2006 23:24:38 +0100
+Message-ID: <20060227222438.GA24788@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.64.0602262122000.22647@g5.osdl.org> <4402934B.7040506@pobox.com> <20060227180433.GA20275@electric-eye.fr.zoreil.com> <4403472F.2090808@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751487AbWB0WFc@vger.kernel.org>
-To: cramerj@intel.com, john.ronciak@intel.com,
-	ganesh.venkatesan@intel.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pierre Ossman <drzeus-list@drzeus.cx>,
+	John Zielinski <john_ml@undead.cc>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751757AbWB0W2E@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <4403472F.2090808@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add PCI IDs for chips OEMed onto some Aculab cards to the e1000 driver.
+Please pull from branch 'for-jeff' to get the changes below:
 
-Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 
-Index: e1000-queue/drivers/net/e1000/e1000.h
-===================================================================
---- e1000-queue.orig/drivers/net/e1000/e1000.h	2006-02-25 12:50:12.000000000 +0000
-+++ e1000-queue/drivers/net/e1000/e1000.h	2006-02-25 13:01:10.000000000 +0000
-@@ -84,6 +84,9 @@
- #define INTEL_E1000_ETHERNET_DEVICE(device_id) {\
- 	PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
+Shortlog
+--------
+$ git rev-list --pretty master..HEAD | git shortlog
+
+Francois Romieu:
+      via-velocity: fix memory corruption when changing the mtu
+      8139cp: fix broken suspend/resume
+
+
+Patch
+-----
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+index f822cd3..dd41049 100644
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -1118,13 +1118,18 @@ err_out:
+ 	return -ENOMEM;
+ }
  
-+#define ACULAB_E1000_ETHERNET_DEVICE(device_id) {\
-+	PCI_DEVICE(PCI_VENDOR_ID_ACULAB, device_id)}
++static void cp_init_rings_index (struct cp_private *cp)
++{
++	cp->rx_tail = 0;
++	cp->tx_head = cp->tx_tail = 0;
++}
 +
- struct e1000_adapter;
+ static int cp_init_rings (struct cp_private *cp)
+ {
+ 	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
+ 	cp->tx_ring[CP_TX_RING_SIZE - 1].opts1 = cpu_to_le32(RingEnd);
  
- #include "e1000_hw.h"
-Index: e1000-queue/drivers/net/e1000/e1000_main.c
-===================================================================
---- e1000-queue.orig/drivers/net/e1000/e1000_main.c	2006-02-25 12:50:12.000000000 +0000
-+++ e1000-queue/drivers/net/e1000/e1000_main.c	2006-02-25 13:01:10.000000000 +0000
-@@ -98,6 +98,7 @@ static struct pci_device_id e1000_pci_tb
- 	INTEL_E1000_ETHERNET_DEVICE(0x108B),
- 	INTEL_E1000_ETHERNET_DEVICE(0x108C),
- 	INTEL_E1000_ETHERNET_DEVICE(0x109A),
-+	ACULAB_E1000_ETHERNET_DEVICE(0x1078),
- 	/* required last entry */
- 	{0,}
- };
-
-Index: e1000-queue/include/linux/pci_ids.h
-===================================================================
---- e1000-queue.orig/include/linux/pci_ids.h	2006-02-25 12:50:12.000000000 +0000
-+++ e1000-queue/include/linux/pci_ids.h	2006-02-25 12:51:51.000000000 +0000
-@@ -1572,6 +1572,8 @@
- #define PCI_VENDOR_ID_NVIDIA_SGS	0x12d2
- #define PCI_DEVICE_ID_NVIDIA_SGS_RIVA128 0x0018
+-	cp->rx_tail = 0;
+-	cp->tx_head = cp->tx_tail = 0;
++	cp_init_rings_index(cp);
  
-+#define PCI_VENDOR_ID_ACULAB 0x12d9
+ 	return cp_refill_rx (cp);
+ }
+@@ -1886,30 +1891,30 @@ static int cp_suspend (struct pci_dev *p
+ 
+ 	spin_unlock_irqrestore (&cp->lock, flags);
+ 
+-	if (cp->pdev && cp->wol_enabled) {
+-		pci_save_state (cp->pdev);
+-		cp_set_d3_state (cp);
+-	}
++	pci_save_state(pdev);
++	pci_enable_wake(pdev, pci_choose_state(pdev, state), cp->wol_enabled);
++	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+ 
+ 	return 0;
+ }
+ 
+ static int cp_resume (struct pci_dev *pdev)
+ {
+-	struct net_device *dev;
+-	struct cp_private *cp;
++	struct net_device *dev = pci_get_drvdata (pdev);
++	struct cp_private *cp = netdev_priv(dev);
+ 	unsigned long flags;
+ 
+-	dev = pci_get_drvdata (pdev);
+-	cp  = netdev_priv(dev);
++	if (!netif_running(dev))
++		return 0;
+ 
+ 	netif_device_attach (dev);
+-	
+-	if (cp->pdev && cp->wol_enabled) {
+-		pci_set_power_state (cp->pdev, PCI_D0);
+-		pci_restore_state (cp->pdev);
+-	}
+-	
 +
- #define PCI_SUBVENDOR_ID_CHASE_PCIFAST		0x12E0
- #define PCI_SUBDEVICE_ID_CHASE_PCIFAST4		0x0031
- #define PCI_SUBDEVICE_ID_CHASE_PCIFAST8		0x0021
-
--- 
-"You grabbed my hand and we fell into it, like a daydream - or a fever."
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++	pci_enable_wake(pdev, PCI_D0, 0);
++
++	/* FIXME: sh*t may happen if the Rx ring buffer is depleted */
++	cp_init_rings_index (cp);
+ 	cp_init_hw (cp);
+ 	netif_start_queue (dev);
+ 
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index c2d5907..ed1f837 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -1106,6 +1106,9 @@ static void velocity_free_rd_ring(struct
+ 
+ 	for (i = 0; i < vptr->options.numrx; i++) {
+ 		struct velocity_rd_info *rd_info = &(vptr->rd_info[i]);
++		struct rx_desc *rd = vptr->rd_ring + i;
++
++		memset(rd, 0, sizeof(*rd));
+ 
+ 		if (!rd_info->skb)
+ 			continue;
