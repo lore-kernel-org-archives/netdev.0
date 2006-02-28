@@ -1,77 +1,69 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
-Date: Mon, 27 Feb 2006 18:31:52 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.63.0602271818570.284@jbrandeb-desk.amr.corp.intel.com>
-References: <20060225085409.GA22456@infradead.org> <007801c639f3$79388060$2001a8c0@cortex>
- <4807377b0602271234v4b6cdeecpbcf8d4a6ac51cd20@mail.gmail.com>
+From: Horms <horms@verge.net.au>
+Subject: Re: [patch 04/39] [PATCH] [BRIDGE]: netfilter missing symbol has_bridge_parent
+Date: Tue, 28 Feb 2006 11:38:56 +0900
+Message-ID: <20060228023853.GA30884@verge.net.au>
+References: <20060227223200.865548000@sorel.sous-sol.org> <20060227223321.042696000@sorel.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, john.ronciak@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750712AbWB1CcH@vger.kernel.org>
-To: rol@as2917.net, linux-kernel@vger.kernel.org
-In-Reply-To: <4807377b0602271234v4b6cdeecpbcf8d4a6ac51cd20@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Bernard Pidoux <pidoux@ccr.jussieu.fr>,
+	Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, wensong@linux-vs.org,
+	netdev@vger.kernel.org, ja@ssi.bg,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751792AbWB1FBT@vger.kernel.org>
+To: Chris Wright <chrisw@sous-sol.org>
+Content-Disposition: inline
+In-Reply-To: <20060227223321.042696000@sorel.sous-sol.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> From: Paul Rolland <rol@as2917.net>
+On Mon, Feb 27, 2006 at 02:32:04PM -0800, Chris Wright wrote:
+> -stable review patch.  If anyone has any objections, please let us know.
+> ------------------
 > 
-> Hello,
+> 5dce971acf2ae20c80d5e9d1f6bbf17376870911 in Linus' tree,
+> otherwise known as bridge-netfilter-races-on-device-removal.patch in
+> 2.5.15.4 removed has_bridge_parent, however this symbol is still
+> called with NETFILTER_DEBUG is enabled.
 > 
-> This patch is based on Linux 2.4.32, and I've verified the same problem
-> exists on 2.6.15.4.
-> Working on a machine with a 2.4.32 kernel, I was surprised to see the driver
-> complaining when setting the speed to 100FD using mii-tool, but accepting
-> the setting with ethtool.
-> Digging into the code, I found that there is some confusion with :
->  - DUPLEX_FULL and FULL_DUPLEX,
->  - DUPLEX_HALF and HALF_DUPLEX
-> in the code :
-> ...
->                            spddplx += (mii_reg & 0x100)
->                                        ? FULL_DUPLEX :
->                                        HALF_DUPLEX;
->                            retval = e1000_set_spd_dplx(adapter,
->                                                        spddplx);
+> This patch uses the already seeded realoutdev value to detect if a parent
+> exists, and if so, the value of the parent.
+> 
+> Signed-Off-By: Horms <horms@verge.net.au>
+> Acked-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+> ---
+> 
+>  net/bridge/br_netfilter.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> --- linux-2.6.15.4.orig/net/bridge/br_netfilter.c
+> +++ linux-2.6.15.4/net/bridge/br_netfilter.c
+> @@ -794,8 +794,8 @@ static unsigned int br_nf_post_routing(u
+>  print_error:
+>  	if (skb->dev != NULL) {
+>  		printk("[%s]", skb->dev->name);
+> -		if (has_bridge_parent(skb->dev))
+> -			printk("[%s]", bridge_parent(skb->dev)->name);
+> +		if (realoutdev)
+> +			printk("[%s]", realoutdev->name);
+>  	}
+>  	printk(" head:%p, raw:%p, data:%p\n", skb->head, skb->mac.raw,
+>  					      skb->data);
+> 
+> --
 
-Please try this patch:
+I double checked, and that is the aggregate fix that was added
+to Linus' tree, it should solve the problem at hand.
 
-e1000: fix mii-tool access to setting speed and duplex
-
-Paul Rolland reported that e1000 was having a hard time using mii-tool to
-set speed and duplex.  This patch fixes the issue on both newer hardware as
-well as fixing the code issue that originally caused the problem.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Paul Rolland <rol@as2917.net>
-
----
-
-  drivers/net/e1000/e1000_main.c |    6 +++---
-  1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 31e3329..9730c2e 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -4269,7 +4269,7 @@ e1000_mii_ioctl(struct net_device *netde
-  			spin_unlock_irqrestore(&adapter->stats_lock, flags);
-  			return -EIO;
-  		}
--		if (adapter->hw.phy_type == e1000_phy_m88) {
-+		if (adapter->hw.media_type == e1000_media_type_copper) {
-  			switch (data->reg_num) {
-  			case PHY_CTRL:
-  				if (mii_reg & MII_CR_POWER_DOWN)
-@@ -4285,8 +4285,8 @@ e1000_mii_ioctl(struct net_device *netde
-  					else
-  						spddplx = SPEED_10;
-  					spddplx += (mii_reg & 0x100)
--						   ? FULL_DUPLEX :
--						   HALF_DUPLEX;
-+						   ? DUPLEX_FULL :
-+						   DUPLEX_HALF;
-  					retval = e1000_set_spd_dplx(adapter,
-  								    spddplx);
-  					if (retval) {
+-- 
+Horms
