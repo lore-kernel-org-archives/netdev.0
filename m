@@ -1,31 +1,77 @@
-From: "John Ronciak" <john.ronciak@gmail.com>
-Subject: Re: [PATCH] e1000: Support e1000 OEMed onto Aculab cards
-Date: Mon, 27 Feb 2006 16:31:32 -0800
-Message-ID: <56a8daef0602271631y6925bdcdr7a62db920d4b1715@mail.gmail.com>
-References: <20060227220517.GA8611@sirena.org.uk>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [2.4.32 - 2.6.15.4] e1000 - Fix mii interface
+Date: Mon, 27 Feb 2006 18:31:52 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.63.0602271818570.284@jbrandeb-desk.amr.corp.intel.com>
+References: <20060225085409.GA22456@infradead.org> <007801c639f3$79388060$2001a8c0@cortex>
+ <4807377b0602271234v4b6cdeecpbcf8d4a6ac51cd20@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751852AbWB1Abe@vger.kernel.org>
-To: cramerj@intel.com, john.ronciak@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, broonie@sirena.org.uk
-In-Reply-To: <20060227220517.GA8611@sirena.org.uk>
-Content-Disposition: inline
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, john.ronciak@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750712AbWB1CcH@vger.kernel.org>
+To: rol@as2917.net, linux-kernel@vger.kernel.org
+In-Reply-To: <4807377b0602271234v4b6cdeecpbcf8d4a6ac51cd20@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please don't apply this patch.  We have taken this offline at the
-moment to work this out with the OEM, Aculab.  They have made
-modification to how the Intel controller operates which may make it
-have problems with the normal e1000 driver.  We are in contact with
-both Mark and Aculab about this offline.  The last thing Aculab talked
-to us about was to make sure that the normal Intel e1000 drivers did
-_not_ work with their hardware, hence the device ID change.  We'll
-continue this on this thread if this turns out not to be the case.  We
-(Intel) also don't know exactly how they changed the behavior of the
-hardware which is another topic for us to talk about.
 
-Thanks.
---
-Cheers,
-John
+> From: Paul Rolland <rol@as2917.net>
+> 
+> Hello,
+> 
+> This patch is based on Linux 2.4.32, and I've verified the same problem
+> exists on 2.6.15.4.
+> Working on a machine with a 2.4.32 kernel, I was surprised to see the driver
+> complaining when setting the speed to 100FD using mii-tool, but accepting
+> the setting with ethtool.
+> Digging into the code, I found that there is some confusion with :
+>  - DUPLEX_FULL and FULL_DUPLEX,
+>  - DUPLEX_HALF and HALF_DUPLEX
+> in the code :
+> ...
+>                            spddplx += (mii_reg & 0x100)
+>                                        ? FULL_DUPLEX :
+>                                        HALF_DUPLEX;
+>                            retval = e1000_set_spd_dplx(adapter,
+>                                                        spddplx);
+
+Please try this patch:
+
+e1000: fix mii-tool access to setting speed and duplex
+
+Paul Rolland reported that e1000 was having a hard time using mii-tool to
+set speed and duplex.  This patch fixes the issue on both newer hardware as
+well as fixing the code issue that originally caused the problem.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Paul Rolland <rol@as2917.net>
+
+---
+
+  drivers/net/e1000/e1000_main.c |    6 +++---
+  1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 31e3329..9730c2e 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -4269,7 +4269,7 @@ e1000_mii_ioctl(struct net_device *netde
+  			spin_unlock_irqrestore(&adapter->stats_lock, flags);
+  			return -EIO;
+  		}
+-		if (adapter->hw.phy_type == e1000_phy_m88) {
++		if (adapter->hw.media_type == e1000_media_type_copper) {
+  			switch (data->reg_num) {
+  			case PHY_CTRL:
+  				if (mii_reg & MII_CR_POWER_DOWN)
+@@ -4285,8 +4285,8 @@ e1000_mii_ioctl(struct net_device *netde
+  					else
+  						spddplx = SPEED_10;
+  					spddplx += (mii_reg & 0x100)
+-						   ? FULL_DUPLEX :
+-						   HALF_DUPLEX;
++						   ? DUPLEX_FULL :
++						   DUPLEX_HALF;
+  					retval = e1000_set_spd_dplx(adapter,
+  								    spddplx);
+  					if (retval) {
