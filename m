@@ -1,7 +1,7 @@
 From: Carlos Martin <carlos@cmartin.tk>
-Subject: [PATCH 6/7] acxsm: Assign chip-specific ops in the probe functions
-Date: Tue, 28 Feb 2006 17:30:14 +0100
-Message-ID: <11411442141984-git-send-email-carlos@cmartin.tk>
+Subject: [PATCH 1/7] acxsm: Change Kconfig and Makefile to be modular
+Date: Tue, 28 Feb 2006 17:30:13 +0100
+Message-ID: <11411442131219-git-send-email-carlos@cmartin.tk>
 References: <1141144213577-git-send-email-carlos@cmartin.tk>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
@@ -26,126 +26,108 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Assign the chip-specific ops in the probe functions. Add extern and
-dummy functions where needed.
+We now only expose ACX_PCI and ACX_USB and the Makefile creates
+acx-usb.ko, acx-pci.ko and acx-common.ko
 
 Signed-off-by: Carlos Martin <carlos@cmartin.tk>
 
 ---
 
- acx_func.h |    1 +
- pci.c      |   24 ++++++++++++++++++++++++
- usb.c      |   19 +++++++++++++++++++
- 3 files changed, 44 insertions(+), 0 deletions(-)
+ Kconfig  |   40 ++++++++++++++++++++--------------------
+ Makefile |   15 +++++++++++----
+ 2 files changed, 31 insertions(+), 24 deletions(-)
 
-1a6bb060d33906c12c6ef161b851cc1fab91d3a9
-diff --git a/acx_func.h b/acx_func.h
-index 0823aec..238c633 100644
---- a/acx_func.h
-+++ b/acx_func.h
-@@ -534,6 +534,7 @@ acx_l_alloc_tx(acx_device_t *adev)
- }
+66c1585df6e0969806b9608fb3f006eb1eb02637
+diff --git a/Kconfig b/Kconfig
+index 8ec3879..ba7889e 100644
+--- a/Kconfig
++++ b/Kconfig
+@@ -1,6 +1,6 @@
+-config ACX
+-	tristate "TI acx100/acx111 802.11b/g wireless chipsets"
+-	depends on NET_RADIO && EXPERIMENTAL && (USB || PCI)
++config ACX_PCI
++	tristate "TI acx100/acx111 802.11b/g PCI"
++	depends on NET_RADIO && EXPERIMENTAL && PCI
+ 	select FW_LOADER
+ 	select IEEE80211
+ 	select IEEE80211_SOFTMAC
+@@ -8,20 +8,7 @@ config ACX
+ 	A driver for 802.11b/g wireless cards based on
+ 	Texas Instruments acx100 and acx111 chipsets.
 =20
- void acxusb_l_dealloc_tx(tx_t *tx_opaque);
-+void acxpci_l_dealloc_tx(tx_t *tx_opaque);
- static inline void
- acx_l_dealloc_tx(acx_device_t *adev, tx_t *tx_opaque)
- {
-diff --git a/pci.c b/pci.c
-index 24224b9..23abb96 100644
---- a/pci.c
-+++ b/pci.c
-@@ -105,6 +105,9 @@ static int acxpci_e_close(struct net_dev
- static void acxpci_s_up(struct net_device *ndev);
- static void acxpci_s_down(struct net_device *ndev);
+-	This driver supports Host AP mode that allows
+-	your computer to act as an IEEE 802.11 access point.
+-	This driver is new and experimental.
+-
+-	Texas Instruments did not take part in development of this driver
+-	in any way, shape or form.
+-
+-	The driver can be compiled as a module and will be named "acx".
+-
+-config ACX_PCI
+-	bool "TI acx100/acx111 802.11b/g PCI"
+-	depends on ACX && PCI
+-	---help---
+-	Include PCI and CardBus support in acx.
++	This is the PCI code.
 =20
-+extern int acx100_s_create_dma_regions(acx_device_t *);
-+extern int acx111_s_create_dma_regions(acx_device_t *);
+ 	acx chipsets need their firmware loaded at startup.
+ 	You will need to provide a firmware image via hotplug.
+@@ -46,11 +33,20 @@ config ACX_PCI
+ 	Firmware files are not covered by GPL and are not distributed
+ 	with this driver for legal reasons.
+=20
++	Texas Instruments did not take part in development of this driver
++	in any way, shape or form.
 +
- #ifdef MODULE_LICENSE
- MODULE_LICENSE("Dual MPL/GPL");
- #endif
-@@ -1599,6 +1602,22 @@ acxpci_e_probe(struct pci_dev *pdev, con
- 	adev->ieee->sec.enabled =3D 0;
- 	adev->ieee->sec.auth_mode =3D WLAN_AUTH_OPEN;
-=20
-+#if ACX_DEBUG
-+       adev->ops.issue_cmd =3D acxpci_s_issue_cmd_timeo_debug;
-+#else
-+       adev->ops.issue_cmd  =3D acxpci_s_issue_cmd_timeo;
-+#endif /* ACX_DEBUG */
-+       adev->ops.alloc_tx =3D acxpci_l_alloc_tx;
-+       adev->ops.dealloc_tx =3D acxpci_l_dealloc_tx;
-+       adev->ops.delete_dma_regions =3D acxpci_s_delete_dma_regions;
-+       adev->ops.write_phy_reg =3D acxpci_s_write_phy_reg;
-+       adev->ops.read_phy_reg =3D acxpci_s_read_phy_reg;
+ config ACX_USB
+-	bool "TI acx100/acx111 802.11b/g USB"
+-	depends on ACX && (USB=3Dy || USB=3DACX)
++	tristate "TI acx100/acx111 802.11b/g USB"
++	depends on NET_RADIO && EXPERIMENTAL && USB
++	select FW_LOADER
++	select IEEE80211
++	select IEEE80211_SOFTMAC
+ 	---help---
+-	Include USB support in acx.
++	A driver for 802.11b/g wireless cards based on
++	Texas Instruments acx100 and acx111 chipsets.
 +
-+       if (IS_ACX100(adev)) {
-+	       adev->ops.create_dma_regions =3D acx100_s_create_dma_regions;
-+       } else {
-+	       adev->ops.create_dma_regions =3D acx111_s_create_dma_regions;
-+       }
- #ifdef NONESSENTIAL_FEATURES
- 	acx_show_card_eeprom_id(adev);
- #endif /* NONESSENTIAL_FEATURES */
-@@ -3058,6 +3077,11 @@ end:
- 	return (tx_t*)txdesc;
- }
++	This is the USB code.
 =20
-+/* Dummy function. */
-+static void
-+acxpci_l_dealloc_tx(tx_t *tx_opaque)
-+{
-+}
+ 	There is only one currently known device in this category,
+ 	D-Link DWL-120+, but newer devices seem to be on the horizon.
+@@ -63,3 +59,7 @@ config ACX_USB
 =20
- /***********************************************************************
- */
-diff --git a/usb.c b/usb.c
-index 6b0b578..5833d04 100644
---- a/usb.c
-+++ b/usb.c
-@@ -123,6 +123,8 @@ static void acxusb_l_poll_rx(acx_device_
-=20
- static void acxusb_i_tx_timeout(struct net_device *);
-=20
-+extern int acx100_s_create_dma_regions(acx_device_t *);
+ 	Firmware files are not covered by GPL and are not distributed
+ 	with this driver for legal reasons.
 +
- /* static void dump_device(struct usb_device *); */
- /* static void dump_device_descriptor(struct usb_device_descriptor *); *=
-/
- /* static void dump_config_descriptor(struct usb_config_descriptor *); *=
-/
-@@ -763,6 +765,11 @@ acxusb_s_fill_configoption(acx_device_t=20
- 	return OK;
- }
-=20
-+/* Dummy function. */
-+static void
-+acxusb_s_delete_dma_regions(acx_device_t *adev)
-+{
-+}
-=20
- /***********************************************************************
- ** acxusb_e_probe()
-@@ -891,6 +898,18 @@ acxusb_e_probe(struct usb_interface *int
- 	adev->ieee->sec.encrypt =3D 0;
- 	adev->ieee->sec.auth_mode =3D WLAN_AUTH_OPEN;
-=20
-+#if ACX_DEBUG
-+	adev->ops.issue_cmd =3D acxusb_s_issue_cmd_timeo_debug;
-+#else
-+       adev->ops.issue_cmd  =3D acxusb_s_issue_cmd_timeo;
-+#endif /* ACX_DEBUG */
-+       adev->ops.alloc_tx =3D acxusb_l_alloc_tx;
-+       adev->ops.dealloc_tx =3D acxusb_l_dealloc_tx;
-+       adev->ops.delete_dma_regions =3D acxusb_s_delete_dma_regions;
-+       adev->ops.write_phy_reg =3D acxusb_s_write_phy_reg;
-+       adev->ops.read_phy_reg =3D acxusb_s_read_phy_reg;
-+       adev->ops.create_dma_regions =3D acx100_s_create_dma_regions;
++	Texas Instruments did not take part in development of this driver
++	in any way, shape or form.
 +
- 	/* Check that this is really the hardware we know about.
- 	** If not sure, at least notify the user that he
- 	** may be in trouble...
+diff --git a/Makefile b/Makefile
+index 192e6d3..8aa56af 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,6 +1,13 @@
+-obj-$(CONFIG_ACX) +=3D acx.o
++acx-common-y +=3D wlan.o ioctl.o common.o
++acx-usb-y +=3D usb.o
++acx-pci-y +=3D pci.o
+=20
+-acx-obj-$(CONFIG_ACX_PCI) +=3D pci.o
+-acx-obj-$(CONFIG_ACX_USB) +=3D usb.o
++obj-$(CONFIG_ACX_PCI) +=3D acx-common.o acx-pci.o
++obj-$(CONFIG_ACX_USB) +=3D acx-common.o acx-usb.o
+=20
+-acx-objs :=3D wlan.o ioctl.o common.o $(acx-obj-y)
++#obj-$(CONFIG_ACX) +=3D acx.o
++#
++#acx-obj-$(CONFIG_ACX_PCI) +=3D pci.o
++#acx-obj-$(CONFIG_ACX_USB) +=3D usb.o
++#
++#acx-objs :=3D wlan.o ioctl.o common.o $(acx-obj-y)
 --=20
 1.2.1.g62a4
 
