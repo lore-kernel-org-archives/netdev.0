@@ -1,7 +1,7 @@
 From: Carlos Martin <carlos@cmartin.tk>
-Subject: [PATCH 1/7] acxsm: Change Kconfig and Makefile to be modular
-Date: Tue, 28 Feb 2006 17:30:13 +0100
-Message-ID: <11411442131219-git-send-email-carlos@cmartin.tk>
+Subject: [PATCH 3/7] acxsm: Create struct acx_ops
+Date: Tue, 28 Feb 2006 17:30:14 +0100
+Message-ID: <11411442144096-git-send-email-carlos@cmartin.tk>
 References: <1141144213577-git-send-email-carlos@cmartin.tk>
 Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
@@ -26,108 +26,75 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-We now only expose ACX_PCI and ACX_USB and the Makefile creates
-acx-usb.ko, acx-pci.ko and acx-common.ko
+struct acx_ops is where the device-specific functions go. This allows
+us to call these functions from the acx-common.ko module without
+creating recursive dependencies.
 
 Signed-off-by: Carlos Martin <carlos@cmartin.tk>
 
 ---
 
- Kconfig  |   40 ++++++++++++++++++++--------------------
- Makefile |   15 +++++++++++----
- 2 files changed, 31 insertions(+), 24 deletions(-)
+ acx_struct.h |   32 ++++++++++++++++++++++++++++----
+ 1 files changed, 28 insertions(+), 4 deletions(-)
 
-66c1585df6e0969806b9608fb3f006eb1eb02637
-diff --git a/Kconfig b/Kconfig
-index 8ec3879..ba7889e 100644
---- a/Kconfig
-+++ b/Kconfig
-@@ -1,6 +1,6 @@
--config ACX
--	tristate "TI acx100/acx111 802.11b/g wireless chipsets"
--	depends on NET_RADIO && EXPERIMENTAL && (USB || PCI)
-+config ACX_PCI
-+	tristate "TI acx100/acx111 802.11b/g PCI"
-+	depends on NET_RADIO && EXPERIMENTAL && PCI
- 	select FW_LOADER
- 	select IEEE80211
- 	select IEEE80211_SOFTMAC
-@@ -8,20 +8,7 @@ config ACX
- 	A driver for 802.11b/g wireless cards based on
- 	Texas Instruments acx100 and acx111 chipsets.
+fe7e63091292e78cb523c8060b267c0faeb3b898
+diff --git a/acx_struct.h b/acx_struct.h
+index 93495e0..227b6e3 100644
+--- a/acx_struct.h
++++ b/acx_struct.h
+@@ -87,6 +87,31 @@ enum { acx_debug =3D 0 };
+ #define SCHEDULE_WORK schedule_work
+ #define FLUSH_SCHEDULED_WORK flush_scheduled_work
 =20
--	This driver supports Host AP mode that allows
--	your computer to act as an IEEE 802.11 access point.
--	This driver is new and experimental.
++/***********************************************************************
++** Chip-specific functions get set here.
++*/
++
++struct acx_ops {
++	int (*create_dma_regions)(acx_device_t *);
++	void (*delete_dma_regions)(acx_device_t *);
++
++#if ACX_DEBUG
++	int (*issue_cmd)(acx_device_t *adev, unsigned cmd, void *param,
++			 unsigned len, unsigned cmd_timeout, const char *cmdstr);
++#else
++	int (*issue_cmd)(acx_device_t *adev, unsigned cmd, void *param,
++			 unsigned len, unsigned cmd_timeout);
++#endif /* ACX_DEBUG */
++	tx_t* (*alloc_tx)(acx_device_t *adev);
++	void (*dealloc_tx)(tx_t *tx_opaque);
++
++	void* (*get_txbuf)(acx_device_t *adev, tx_t *tx_opaque);
++	void (*tx_data)(acx_device_t *adev, tx_t *tx_opaque, int len);
++
++	int (*write_phy_reg)(acx_device_t *adev, u32 reg, u8 value);
++	int (*read_phy_reg)(acx_device_t *adev, u32 reg, u8 *charbuf);
++};
++
+=20
+ /***********************************************************************
+ ** Constants
+@@ -105,10 +130,6 @@ enum { acx_debug =3D 0 };
+ #define DEVTYPE_PCI		0
+ #define DEVTYPE_USB		1
+=20
+-#if !defined(CONFIG_ACX_PCI) && !defined(CONFIG_ACX_USB)
+-#error Driver must include PCI and/or USB support. You selected neither.
+-#endif
 -
--	Texas Instruments did not take part in development of this driver
--	in any way, shape or form.
--
--	The driver can be compiled as a module and will be named "acx".
--
--config ACX_PCI
--	bool "TI acx100/acx111 802.11b/g PCI"
--	depends on ACX && PCI
--	---help---
--	Include PCI and CardBus support in acx.
-+	This is the PCI code.
+ #if defined(CONFIG_ACX_PCI)
+  #if !defined(CONFIG_ACX_USB)
+   #define IS_PCI(adev)	1
+@@ -1198,6 +1219,9 @@ struct acx_device {
+ 	/*** Linux network device ***/
+ 	struct net_device	*ndev;		/* pointer to linux netdevice */
 =20
- 	acx chipsets need their firmware loaded at startup.
- 	You will need to provide a firmware image via hotplug.
-@@ -46,11 +33,20 @@ config ACX_PCI
- 	Firmware files are not covered by GPL and are not distributed
- 	with this driver for legal reasons.
-=20
-+	Texas Instruments did not take part in development of this driver
-+	in any way, shape or form.
++	/* Chip-specific functions */
++	struct acx_ops		ops;
 +
- config ACX_USB
--	bool "TI acx100/acx111 802.11b/g USB"
--	depends on ACX && (USB=3Dy || USB=3DACX)
-+	tristate "TI acx100/acx111 802.11b/g USB"
-+	depends on NET_RADIO && EXPERIMENTAL && USB
-+	select FW_LOADER
-+	select IEEE80211
-+	select IEEE80211_SOFTMAC
- 	---help---
--	Include USB support in acx.
-+	A driver for 802.11b/g wireless cards based on
-+	Texas Instruments acx100 and acx111 chipsets.
-+
-+	This is the USB code.
-=20
- 	There is only one currently known device in this category,
- 	D-Link DWL-120+, but newer devices seem to be on the horizon.
-@@ -63,3 +59,7 @@ config ACX_USB
-=20
- 	Firmware files are not covered by GPL and are not distributed
- 	with this driver for legal reasons.
-+
-+	Texas Instruments did not take part in development of this driver
-+	in any way, shape or form.
-+
-diff --git a/Makefile b/Makefile
-index 192e6d3..8aa56af 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1,6 +1,13 @@
--obj-$(CONFIG_ACX) +=3D acx.o
-+acx-common-y +=3D wlan.o ioctl.o common.o
-+acx-usb-y +=3D usb.o
-+acx-pci-y +=3D pci.o
-=20
--acx-obj-$(CONFIG_ACX_PCI) +=3D pci.o
--acx-obj-$(CONFIG_ACX_USB) +=3D usb.o
-+obj-$(CONFIG_ACX_PCI) +=3D acx-common.o acx-pci.o
-+obj-$(CONFIG_ACX_USB) +=3D acx-common.o acx-usb.o
-=20
--acx-objs :=3D wlan.o ioctl.o common.o $(acx-obj-y)
-+#obj-$(CONFIG_ACX) +=3D acx.o
-+#
-+#acx-obj-$(CONFIG_ACX_PCI) +=3D pci.o
-+#acx-obj-$(CONFIG_ACX_USB) +=3D usb.o
-+#
-+#acx-objs :=3D wlan.o ioctl.o common.o $(acx-obj-y)
+ 	/*** Device statistics ***/
+ 	struct net_device_stats	stats;		/* net device statistics */
+ #ifdef WIRELESS_EXT
 --=20
 1.2.1.g62a4
 
