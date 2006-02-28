@@ -1,69 +1,46 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [patch 04/39] [PATCH] [BRIDGE]: netfilter missing symbol has_bridge_parent
-Date: Tue, 28 Feb 2006 11:38:56 +0900
-Message-ID: <20060228023853.GA30884@verge.net.au>
-References: <20060227223200.865548000@sorel.sous-sol.org> <20060227223321.042696000@sorel.sous-sol.org>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATH][RFC] acxsm: Make acx mdoular again
+Date: Tue, 28 Feb 2006 08:12:00 +0200
+Message-ID: <200602280812.00781.vda@ilport.com.ua>
+References: <200602261710.33923.carlos@cmartin.tk> <200602271144.39346.carlos@cmartin.tk> <20060228013415.GD26559@tuxdriver.com>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Bernard Pidoux <pidoux@ccr.jussieu.fr>,
-	Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, wensong@linux-vs.org,
-	netdev@vger.kernel.org, ja@ssi.bg,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751792AbWB1FBT@vger.kernel.org>
-To: Chris Wright <chrisw@sous-sol.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Carlos =?iso-8859-1?q?Mart=EDn?= <carlos@cmartin.tk>,
+	netdev@vger.kernel.org, acx100-devel@lists.sourceforge.net,
+	Christoph Hellwig <hch@infradead.org>
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060228013415.GD26559@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <20060227223321.042696000@sorel.sous-sol.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: acx100-devel-admin@lists.sourceforge.net
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 27, 2006 at 02:32:04PM -0800, Chris Wright wrote:
-> -stable review patch.  If anyone has any objections, please let us know.
-> ------------------
-> 
-> 5dce971acf2ae20c80d5e9d1f6bbf17376870911 in Linus' tree,
-> otherwise known as bridge-netfilter-races-on-device-removal.patch in
-> 2.5.15.4 removed has_bridge_parent, however this symbol is still
-> called with NETFILTER_DEBUG is enabled.
-> 
-> This patch uses the already seeded realoutdev value to detect if a parent
-> exists, and if so, the value of the parent.
-> 
-> Signed-Off-By: Horms <horms@verge.net.au>
-> Acked-by: Stephen Hemminger <shemminger@osdl.org>
-> Signed-off-by: Chris Wright <chrisw@sous-sol.org>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-> ---
-> 
->  net/bridge/br_netfilter.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> --- linux-2.6.15.4.orig/net/bridge/br_netfilter.c
-> +++ linux-2.6.15.4/net/bridge/br_netfilter.c
-> @@ -794,8 +794,8 @@ static unsigned int br_nf_post_routing(u
->  print_error:
->  	if (skb->dev != NULL) {
->  		printk("[%s]", skb->dev->name);
-> -		if (has_bridge_parent(skb->dev))
-> -			printk("[%s]", bridge_parent(skb->dev)->name);
-> +		if (realoutdev)
-> +			printk("[%s]", realoutdev->name);
->  	}
->  	printk(" head:%p, raw:%p, data:%p\n", skb->head, skb->mac.raw,
->  					      skb->data);
-> 
-> --
+On Tuesday 28 February 2006 03:34, John W. Linville wrote:
+> On Mon, Feb 27, 2006 at 11:44:38AM +0100, Carlos Mart=EDn wrote:
+> > On Monday 27 February 2006 11:20, Denis Vlasenko wrote:
+> > > > Comments are welcome and I'll split the patch if needed.
+>=20
+> Denis are you applying this patch to your tree?  If so, I'll rely on
+> you to push it to me when you are ready.
 
-I double checked, and that is the aggregate fix that was added
-to Linus' tree, it should solve the problem at hand.
+Not yet, patch needs some fixes.
+=2D-
+vda
 
--- 
-Horms
+
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
