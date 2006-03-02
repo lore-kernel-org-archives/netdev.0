@@ -1,36 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] pcmcia: avoid binding hostap_cs to Orinoco cards
-Date: Wed, 01 Mar 2006 18:37:07 -0500
-Message-ID: <44063023.9010603@pobox.com>
-References: <200603012259.k21MxEN3013604@hera.kernel.org>
+From: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] IrDA: TOIM3232 dongle support
+Date: Wed, 01 Mar 2006 16:04:27 -0800 (PST)
+Message-ID: <20060301.160427.55922700.davem@davemloft.net>
+References: <20060301223623.GA17813@irie>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751944AbWCAXhM@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux@dominikbrodowski.net, Netdev List <netdev@vger.kernel.org>
-In-Reply-To: <200603012259.k21MxEN3013604@hera.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
+In-Reply-To: <20060301223623.GA17813@irie>
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-Linux Kernel Mailing List wrote:
-> commit 40e3cad61197fce63853e778db020f7637d988f2
-> tree 6e086c930e1aef0bb24eb61af42d1f3c1fb7d38c
-> parent f0892b89e3c19c7d805825ca12511d26dcdf6415
-> author Pavel Roskin <proski@gnu.org> Tue, 28 Feb 2006 11:18:31 -0500
-> committer Dominik Brodowski <linux@dominikbrodowski.net> Wed, 01 Mar 2006 11:12:00 +0100
-> 
-> [PATCH] pcmcia: avoid binding hostap_cs to Orinoco cards
-> 
-> Don't just use cards with PCMCIA ID 0x0156, 0x0002.  Make sure that the
-> vendor string is "Intersil" or "INTERSIL"
-> 
-> Signed-off-by: Pavel Roskin <proski@gnu.org>
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> 
->  drivers/net/wireless/hostap/hostap_cs.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletion(-)
+From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+Date: Thu, 2 Mar 2006 00:36:23 +0200
 
-Why was this not CC'd to the wireless maintainer and netdev list?
+> Here goes a patch for supporting TOIM3232 based serial IrDA dongles.
+> The code is based on the tekram dongle code.
+> 
+> It's been tested with a TOIM3232 based IRWave 320S dongle. It may work
+> for TOIM4232 dongles, although it's not been tested.
+> 
+> Signed-off-by: David Basden <davidb-irda-Q/PxBS77Xz0@public.gmane.org>
+> Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-	Jeff
+Applied, thanks a lot.
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
