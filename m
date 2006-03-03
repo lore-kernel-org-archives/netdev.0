@@ -1,28 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/8] Intel I/O Acceleration Technology (I/OAT)
-Date: Fri, 03 Mar 2006 17:45:28 -0500
-Message-ID: <4408C708.2090604@garzik.org>
-References: <20060303214036.11908.10499.stgit@gitlost.site>	 <4408C2CA.5010909@garzik.org> <41b516cb0603031439n13e4df4cg8e5b21b606d2b4b8@mail.gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 0/5] Infiniband: connection abstraction
+Date: Fri, 03 Mar 2006 14:53:06 -0800
+Message-ID: <adaslpz2l9p.fsf@cisco.com>
+References: <ORSMSX4011XvpFVjCRG00000015@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932069AbWCCWpb@vger.kernel.org>
-To: chris.leech@gmail.com
-In-Reply-To: <41b516cb0603031439n13e4df4cg8e5b21b606d2b4b8@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Sean Hefty" <sean.hefty@intel.com>
+In-Reply-To: <ORSMSX4011XvpFVjCRG00000015@orsmsx401.amr.corp.intel.com> (Sean
+	Hefty's message of "Fri, 3 Mar 2006 13:13:23 -0800")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Chris Leech wrote:
->>Patch #2 didn't make it.  Too big for the list?
-> 
-> 
-> Could be, it's the largest of the series.  I've attached the gziped
-> patch.  I can try and split this up for the future.
+    Sean> I can resubmit the patches if necessary.
 
-Well, for huge hunks of new code, it sometimes gets silly to split it up.
+Yes, can you please send out the patches again, with descriptive
+subjects for each patch and with the ip_dev_find() re-export split
+into its own patch?  That would make it easier for me to pull into my
+git tree.
 
-Once its not in a "reply to email" reviewable form, gzip or URL-to-patch 
-work just fine.
-
-	Jeff
+Thanks,
+  Roland
