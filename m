@@ -1,90 +1,35 @@
-From: "Sean Hefty" <sean.hefty@intel.com>
-Subject: [PATCH 3/5] export of ip_dev_find as part of
-	Infiniband connection abstraction
-Date: Fri, 3 Mar 2006 13:14:23 -0800
-Message-ID: <ORSMSX4013SOlbpH71y00000016@orsmsx401.amr.corp.intel.com>
-References: <ORSMSX401X3cf3ednHM0000009a@orsmsx401.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Hefty, Sean" <sean.hefty@intel.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-In-Reply-To: <ORSMSX401X3cf3ednHM0000009a@orsmsx401.amr.corp.intel.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+From: Chris Leech <christopher.leech@intel.com>
+Subject: [PATCH 0/8] Intel I/O Acceleration Technology (I/OAT)
+Date: Fri, 03 Mar 2006 13:40:36 -0800
+Message-ID: <20060303214036.11908.10499.stgit@gitlost.site>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751517AbWCCVkR@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I wanted to make doubly sure that this didn't get lost in the patch series, but
-ip_dev_find() is re-exported.  The use is shown below.
+This patch series is the first full release of the Intel(R) I/O
+Acceleration Technology (I/OAT) for Linux.  It includes an in kernel API
+for offloading memory copies to hardware, a driver for the I/OAT DMA memcpy
+engine, and changes to the TCP stack to offload copies of received
+networking data to application space.
 
-- Sean
+These changes apply to DaveM's net-2.6.17 tree as of commit
+2bd84a93d8bb7192ad8c23ef41008502be1cb603 ([IRDA]: TOIM3232 dongle support)
 
->+int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr)
->+{
->+	struct net_device *dev;
->+	u32 ip = ((struct sockaddr_in *) addr)->sin_addr.s_addr;
->+	int ret;
->+
->+	dev = ip_dev_find(ip);
->+	if (!dev)
->+		return -EADDRNOTAVAIL;
->+
->+	ret = copy_addr(dev_addr, dev, NULL);
->+	dev_put(dev);
->+	return ret;
->+}
+They are available to pull from
+	git://198.78.49.142/~cleech/linux-2.6 ioat-2.6.17
 
-{snip}
+There are 8 patches in the series:
+	1) The memcpy offload APIs and class code
+	2) The Intel I/OAT DMA driver (ioatdma)
+	3) Core networking code to setup networking as a DMA memcpy client
+	4) Utility functions for sk_buff to iovec offloaded copy
+	5) Structure changes needed for TCP receive offload
+	6) Rename cleanup_rbuf to tcp_cleanup_rbuf
+	7) Add a sysctl to tune the minimum offloaded I/O size for TCP
+	8) The main TCP receive offload changes
 
->+static int addr_resolve_local(struct sockaddr_in *src_in,
->+			      struct sockaddr_in *dst_in,
->+			      struct rdma_dev_addr *addr)
->+{
->+	struct net_device *dev;
->+	u32 src_ip = src_in->sin_addr.s_addr;
->+	u32 dst_ip = dst_in->sin_addr.s_addr;
->+	int ret;
->+
->+	dev = ip_dev_find(dst_ip);
->+	if (!dev)
->+		return -EADDRNOTAVAIL;
->+
->+	if (!src_ip) {
->+		src_in->sin_family = dst_in->sin_family;
->+		src_in->sin_addr.s_addr = dst_ip;
->+		ret = copy_addr(addr, dev, dev->dev_addr);
->+	} else {
->+		ret = rdma_translate_ip((struct sockaddr *)src_in, addr);
->+		if (!ret)
->+			memcpy(addr->dst_dev_addr, dev->dev_addr, MAX_ADDR_LEN);
->+	}
->+
->+	dev_put(dev);
->+	return ret;
->+}
-
-{snip}
-
->diff -uprN -X linux-2.6.git/Documentation/dontdiff
->linux-2.6.git/net/ipv4/fib_frontend.c
->linux-2.6.ib/net/ipv4/fib_frontend.c
->--- linux-2.6.git/net/ipv4/fib_frontend.c	2006-01-16 10:28:29.000000000
--0800
->+++ linux-2.6.ib/net/ipv4/fib_frontend.c	2006-01-16 16:14:24.000000000
--0800
->@@ -666,4 +666,5 @@ void __init ip_fib_init(void)
-> }
->
-> EXPORT_SYMBOL(inet_addr_type);
->+EXPORT_SYMBOL(ip_dev_find);
-> EXPORT_SYMBOL(ip_rt_ioctl);
+--
+Chris Leech <christopher.leech@intel.com>
+I/O Acceleration Technology Software Development
+LAN Access Division / Digital Enterprise Group 
