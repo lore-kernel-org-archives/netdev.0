@@ -1,25 +1,28 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [Announce] Intel PRO/Wireless 3945ABG Network Connection
-Date: Fri, 03 Mar 2006 15:31:03 -0500
-Message-ID: <4408A787.7020807@garzik.org>
-References: <43FF88E6.6020603@linux.intel.com>	 <20060225084139.GB22109@infradead.org>	 <1140915482.23286.6.camel@localhost.localdomain>	 <20060227171029.GA763@infradead.org> <1141416267.17837.1.camel@localhost>
+From: "Sean Hefty" <sean.hefty@intel.com>
+Subject: [PATCH 0/5] Infiniband: connection abstraction
+Date: Fri, 3 Mar 2006 13:13:23 -0800
+Message-ID: <ORSMSX4011XvpFVjCRG00000015__15999.4015390568$1141420440$gmane$org@orsmsx401.amr.corp.intel.com>
+References: <ORSMSX401KZmcK8r6be00000097@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	NetDev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	okir@suse.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932358AbWCCUbN@vger.kernel.org>
-To: Kasper Sandberg <lkml@metanurb.dk>
-In-Reply-To: <1141416267.17837.1.camel@localhost>
+Cc: <openib-general@openib.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750735AbWCCVN1@vger.kernel.org>
+To: "Hefty, Sean" <sean.hefty@intel.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+In-Reply-To: <ORSMSX401KZmcK8r6be00000097@orsmsx401.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kasper Sandberg wrote:
-> the binary userspace daemon protects against nothing.
+>Here's an updated version of these patches based on feedback.   (The license
+>did not change and continues to match that of the other Infiniband code.)
+>Please consider for inclusion in 2.6.17.
 
-In the technical realm, true.  In the legal realm, potentially false.
+This is just a ping for anymore feedback to this patch series, so that I can
+respond to any requests before 2.6.17 opens up.
 
-	Jeff
+I can resubmit the patches if necessary.
+
+Thanks,
+Sean
