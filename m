@@ -1,40 +1,38 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.16-rc5-mm2: IPW_QOS: two remarks
-Date: Fri, 3 Mar 2006 16:26:42 +0100
-Message-ID: <20060303152641.GR9295@stusta.de>
-References: <20060303045651.1f3b55ec.akpm@osdl.org>
+From: Atsushi Nemoto <anemo@mba.ocn.ne.jp>
+Subject: Re: [RFC] [PATCH 1/2] Driver to remember ethernet MAC values:
+ maclist
+Date: Sat, 04 Mar 2006 01:17:47 +0900 (JST)
+Message-ID: <20060304.011747.07644094.anemo@mba.ocn.ne.jp>
+References: <20060220010113.GA19309@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linville@tuxdriver.com,
-	jgarzik@pobox.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751463AbWCCP0n@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>,
-	Andreas Happe <andreashappe@snikt.net>
-Content-Disposition: inline
-In-Reply-To: <20060303045651.1f3b55ec.akpm@osdl.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jbowler@acm.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932212AbWCCQRx@vger.kernel.org>
+To: tbm@cyrius.com
+In-Reply-To: <20060220010113.GA19309@deprecation.cyrius.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 03, 2006 at 04:56:51AM -0800, Andrew Morton wrote:
->...
-> Changes since 2.6.16-rc5-mm1:
->...
->  git-netdev-all.patch
->...
->  git trees
->...
+>>>>> On Mon, 20 Feb 2006 01:01:13 +0000, Martin Michlmayr <tbm@cyrius.com> said:
 
-Two remarks regarding the new IPW_QOS option:
-- it should be named IPW2200_QOS (similar to the other IPW2200_* 
-  options)
-- please add a help text
+tbm> Some Ethernet hardware implementations have no built-in storage
+tbm> for allocated MAC values - an example is the Intel IXP420 chip
+tbm> which has support for Ethernet but no defined way of storing
+tbm> allocated MAC values.  With such hardware different board level
+tbm> implementations store the allocated MAC (or MACs) in different
+tbm> ways.  Rather than put board level code into a specific Ethernet
+tbm> driver this driver provides a generally accessible repository for
+tbm> the MACs which can be written by board level code and read by the
+tbm> driver.
 
-cu
-Adrian
+Slow response:
 
--- 
+It can be done with register_netdevice_notifier().  You can catch
+NETDEV_REGISTER event, check the device is what you expected by
+looking dev->irq or something, and initialize dev->dev_addr.  Whole
+these can be implemented in your board level code.
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+---
+Atsushi Nemoto
