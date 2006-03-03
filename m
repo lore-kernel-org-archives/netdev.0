@@ -1,17 +1,19 @@
-From: Michael Ellerman <michael@ellerman.id.au>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
 Subject: Re: [PATCH] powerpc: ibmveth: Harden driver initilisation for kexec
-Date: Fri, 3 Mar 2006 13:11:56 +1100
-Message-ID: <200603031312.00787.michael@ellerman.id.au>
+Date: Thu, 2 Mar 2006 20:12:42 -0800
+Message-ID: <20060302201242.b688f811.rdunlap@xenotime.net>
 References: <20060131041055.5623C68A46@ozlabs.org>
-	<44074A22.8060705@us.ibm.com> <44079627.6070100@pobox.com>
-Reply-To: michael@ellerman.id.au
+	<200603031122.51174.michael@ellerman.id.au>
+	<20060302163423.f758c5bc.rdunlap@xenotime.net>
+	<200603031210.53220.michael@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0894499387=="
-Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>, anton@samba.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc64-dev@ozlabs.org, jgarzik@pobox.com, anton@samba.org,
+	netdev@vger.kernel.org
 Return-path: <linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: linuxppc64-dev@ozlabs.org
-In-Reply-To: <44079627.6070100@pobox.com>
+To: michael@ellerman.id.au
+In-Reply-To: <200603031210.53220.michael@ellerman.id.au>
 List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
 	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
@@ -19,93 +21,48 @@ List-Post: <mailto:linuxppc64-dev@ozlabs.org>
 List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
 List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
 	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
 Sender: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 Errors-To: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
---===============0894499387==
-Content-Type: multipart/signed;
-  boundary="nextPart1358239.mlMNTdhI47";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
+On Fri, 3 Mar 2006 12:10:47 +1100 Michael Ellerman wrote:
 
---nextPart1358239.mlMNTdhI47
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On Fri, 3 Mar 2006 12:04, Jeff Garzik wrote:
-> Santiago Leon wrote:
-> > From: Michael Ellerman <michael@ellerman.id.au>
+> On Fri, 3 Mar 2006 11:34, Randy.Dunlap wrote:
+> > On Fri, 3 Mar 2006 11:22:45 +1100 Michael Ellerman wrote:
+> > > Hi Jeff,
+> > >
+> > > I realise it's late, but it'd be really good if you could send this up
+> > > for 2.6.16, we're hosed without it.
 > >
-> > After a kexec the veth driver will fail when trying to register with the
-> > Hypervisor because the previous kernel has not unregistered.
+> > I'm wondering if this means that for every virtual/hypervisor
+> > situation, we have to modify any $interested_drivers.
+> > Why wouldn't we come up with a cleaner solution (in the long term)?
 > >
-> > So if the registration fails, we unregister and then try again.
-> >
-> > Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
-> > Acked-by: Anton Blanchard <anton@samba.org>
-> > Signed-off-by: Santiago Leon <santil@us.ibm.com>
-> > ---
-> >
-> >  drivers/net/ibmveth.c |   32 ++++++++++++++++++++++++++------
-> >  1 files changed, 26 insertions(+), 6 deletions(-)
-> >
-> > Looks good to me, and has been around for a couple of months.
->
-> This seems completely bonkers to me:
->
-> 	are resources available?
-> 	if no
-> 		free resources
-> 		try again
+> > E.g., could the hypervisor know when one of it's virtual OSes
+> > dies or reboots and release its resources then?
+> 
+> It does exactly that for a regular reboot, but when we kexec we _don't_ die or 
+> reboot, as far as the Hypervisor is concerned it's all systems go.
+> 
+> It's something of a double-edged sword, we're totally in control which gives 
+> us lots of flexibility, and _fast_ reboot times, but we also have to do a bit 
+> of extra stuff (ie. this patch) to keep things sane.
 
-I'm not sure I follow, are you suggesting we do the h_free_logical_lan()=20
-unconditionally, followed by h_register_logical_lan() ??
+s/this patch/some patch/
 
-If that's what you mean, I didn't do it that way because it would effect th=
-e=20
-normal code path. This patch only modifies the behaviour if we fail to=20
-register the adapter. I'm much more comfortable changing the failure case=20
-than the default.
+Yes, you have certainly thought about this more/longer than I have,
+so why is something more generic like this bad instead of good:
 
-cheers
+Somewhere early in start_kernel() (e.g.), do an hv call that says
+"free all assigned resources".
 
-=2D-=20
-Michael Ellerman
-IBM OzLabs
+Maybe hv doesn't know "all assigned resources."
+Maybe it's just that this patch is simpler than an hv change,
+although this (current) patch could leave some other drivers that
+need to be "fixed," while an hv change wouldn't do that.
 
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
+So I'm not opposed to this current patch as a short-term solution,
+but I don't think it's the right long-term solution.
 
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---nextPart1358239.mlMNTdhI47
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBEB6XwdSjSd0sB4dIRAr81AJ9m++Ouyn0i6+BgdHHvUIqYmwOkgACgxAGY
-7PZEwE67866NcJZv3eIV630=
-=Hvne
------END PGP SIGNATURE-----
-
---nextPart1358239.mlMNTdhI47--
-
---===============0894499387==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc64-dev mailing list
-Linuxppc64-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc64-dev
-
---===============0894499387==--
+---
+~Randy
