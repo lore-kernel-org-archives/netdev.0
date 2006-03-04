@@ -1,33 +1,54 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] Intel I/O Acceleration Technology (I/OAT)
-Date: Sat, 04 Mar 2006 18:08:19 -0800 (PST)
-Message-ID: <20060304.180819.44228793.davem@davemloft.net>
-References: <Pine.LNX.4.61.0603041945520.29991@yvahk01.tjqt.qr>
-	<20060304.134144.122314124.davem@davemloft.net>
-	<20060305014324.GA20026@2ka.mipt.ru>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: GigE on PowerMac G5
+Date: Sun, 5 Mar 2006 10:36:18 +1100
+Message-ID: <17418.9330.763002.180595@cargo.ozlabs.ibm.com>
+References: <jebqwmfeh9.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jengelh@linux01.gwdg.de, christopher.leech@intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751860AbWCECIO@vger.kernel.org>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060305014324.GA20026@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org
+Return-path: <linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Andreas Schwab <schwab@suse.de>
+In-Reply-To: <jebqwmfeh9.fsf@sykes.suse.de>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Sun, 5 Mar 2006 04:43:25 +0300
+Andreas Schwab writes:
 
-> According to investigation made for kevent based FS AIO reading,
-> get_user_pages() performange graph looks like sqrt() function
-> with plato starting on about 64-80 pages on Xeon 2.4Ghz with 1Gb of ram,
-> while memcopy() is linear, so it can be noticebly slower than
-> copy_to_user() if get_user_pages() is used aggressively, so userspace
-> application must reuse the same, already grabbed buffer for maximum
-> performance, but Intel folks did not provide theirs usage case and any
-> benchmarks as far as I know.
+> I suppose the NIC in the PowerMac G5 can do GigE, yet when plugged into a
+> GB switch it is only willing to talk 100MB with it.  Any idea why?  Kernel
+> is 2.6.16-rc5-git2.
 
-Of course, and programming the DMA controller has overhead
-as well.  This is why would would not use I/O AT with small
-transfer sizes.
+It does 1000Mb/s here...
+
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Half 1000baseT/Full 
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Half 1000baseT/Full 
+        Advertised auto-negotiation: No
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: MII
+        PHYAD: 0
+        Transceiver: external
+        Auto-negotiation: on
+        Supports Wake-on: g
+        Wake-on: d
+        Current message level: 0x00000007 (7)
+        Link detected: yes
+
+Paul.
