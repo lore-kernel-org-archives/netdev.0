@@ -1,33 +1,29 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] let NET_CLS_ACT no longer depend on EXPERIMENTAL
-Date: Sat, 4 Mar 2006 17:07:55 +0100
-Message-ID: <20060304160755.GB9295@stusta.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC: 2.6 patch] let NET_CLS_ACT no longer depend on EXPERIMENTAL
+Date: Sat, 04 Mar 2006 17:56:26 +0100
+Message-ID: <4409C6BA.60803@trash.net>
+References: <20060304160755.GB9295@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751831AbWCDQH4@vger.kernel.org>
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932208AbWCDQ4a@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060304160755.GB9295@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This option should IMHO no longer depend on EXPERIMENTAL.
+Adrian Bunk wrote:
+> This option should IMHO no longer depend on EXPERIMENTAL.
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> ---
+> 
+> This patch was already sent on:
+> - 12 Feb 2006
 
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
-This patch was already sent on:
-- 12 Feb 2006
-
---- linux-2.6.16-rc2-mm1-full/net/sched/Kconfig.old	2006-02-12 02:21:30.000000000 +0100
-+++ linux-2.6.16-rc2-mm1-full/net/sched/Kconfig	2006-02-12 02:21:58.000000000 +0100
-@@ -434,7 +434,6 @@
- 
- config NET_CLS_ACT
- 	bool "Actions"
--	depends on EXPERIMENTAL
- 	select NET_ESTIMATOR
- 	---help---
- 	  Say Y here if you want to use traffic control actions. Actions
+Yesterday I managed to crash my machine playing around with tc actions
+within minutes. I haven't looked into it yet, but it seems it still
+needs more testing.
