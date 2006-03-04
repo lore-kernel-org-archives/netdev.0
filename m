@@ -1,28 +1,42 @@
-From: "Chris Leech" <chris.leech@gmail.com>
-Subject: Re: [PATCH 0/8] Intel I/O Acceleration Technology (I/OAT)
-Date: Fri, 3 Mar 2006 15:32:29 -0800
-Message-ID: <41b516cb0603031532n517f78efh932d452648574d2@mail.gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Fri, 03 Mar 2006 17:40:48 -0800 (PST)
+Message-ID: <20060303.174048.14793187.davem@davemloft.net>
 References: <20060303214036.11908.10499.stgit@gitlost.site>
-	 <54FF0817-23ED-47F1-8234-FD3079B3E403@kernel.crashing.org>
+	<20060303214220.11908.75517.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932593AbWCCXch@vger.kernel.org>
-To: "Kumar Gala" <galak@kernel.crashing.org>
-In-Reply-To: <54FF0817-23ED-47F1-8234-FD3079B3E403@kernel.crashing.org>
-Content-Disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750776AbWCDBkn@vger.kernel.org>
+To: christopher.leech@intel.com
+In-Reply-To: <20060303214220.11908.75517.stgit@gitlost.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/3/06, Kumar Gala <galak@kernel.crashing.org> wrote:
->
-> How does this relate to Dan William's ADMA work?
+From: Chris Leech <christopher.leech@intel.com>
+Date: Fri, 03 Mar 2006 13:42:20 -0800
 
-I only became aware of Dan's ADMA work when he posted it last month,
-and so far have not made any attempts to merge the I/OAT code with it.
- Moving forward, combining these interfaces certainly seems like the
-right way to go.  I particularly like ADMA's handling of operations
-other than just a copy (memset, compare, XOR, CRC).
+> +static spinlock_t dma_list_lock;
 
-Chris
+Please use DEFINE_SPINLOCK().
+
+> +static void dma_chan_free_rcu(struct rcu_head *rcu) {
+
+Newline before the brace please.
+
+> +static void dma_async_device_cleanup(struct kref *kref) {
+
+Newline before the brace please.
+
+> +struct dma_chan_percpu
+> +{
+
+Left brace on the same line as "struct dma_chan_percpu" please.
+
+> +struct dma_chan
+> +{
+
+Similarly.
+
+Otherwise this patch looks mostly ok.
