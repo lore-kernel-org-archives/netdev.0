@@ -1,37 +1,78 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Pavel Machek <pavel@ucw.cz>
 Subject: Re: [PATCH 8/8] [I/OAT] TCP recv offload to I/OAT
-Date: Sun, 05 Mar 2006 02:27:35 -0800 (PST)
-Message-ID: <20060305.022735.87818042.davem@davemloft.net>
-References: <20060303214036.11908.10499.stgit@gitlost.site>
-	<20060303214236.11908.98881.stgit@gitlost.site>
-	<20060305004534.1d94b3cf.akpm@osdl.org>
+Date: Sat, 4 Mar 2006 16:39:44 +0000
+Message-ID: <20060304163943.GA2724@ucw.cz>
+References: <20060303214036.11908.10499.stgit@gitlost.site> <20060303214236.11908.98881.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christopher.leech@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752241AbWCEK12@vger.kernel.org>
-To: akpm@osdl.org
-In-Reply-To: <20060305004534.1d94b3cf.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752259AbWCEMAW@vger.kernel.org>
+To: Chris Leech <christopher.leech@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20060303214236.11908.98881.stgit@gitlost.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Sun, 5 Mar 2006 00:45:34 -0800
+Hi!
 
-> The __get_cpu_var() here will run smp_processor_id() from preemptible
-> context.  You'll get a big warning if the correct debug options are set.
-> 
-> The reason for this is that preemption could cause this code to hop between
-> CPUs.
-> 
-> Please always test code with all debug options enabled and with full kernel
-> preemption.
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -262,6 +262,9 @@
+>  #include <net/tcp.h>
+>  #include <net/xfrm.h>
+>  #include <net/ip.h>
+> +#ifdef CONFIG_NET_DMA
+> +#include <net/netdma.h>
+> +#endif
+>  
 
-To be fair that warning doesn't trigger on some platforms, such as
-sparc64 where the __get_cpu_var() implementation simply takes the
-value from a fixed cpu register and doesn't do the debugging check.
+Remove the ifdefs, move them inside .h if needed.
 
-Sparc64 should add the check when debugging options are enabled, for
-sure, but the point is that it may not entirely be the tester's fault.
-:-)
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 7625eaf..9b6290d 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -71,6 +71,9 @@
+>  #include <net/inet_common.h>
+>  #include <linux/ipsec.h>
+>  #include <asm/unaligned.h>
+> +#ifdef CONFIG_NET_DMA
+> +#include <net/netdma.h>
+> +#endif
+
+Here, too.
+
+> +#ifdef CONFIG_NET_DMA
+> +			if (copied_early)
+> +				__skb_queue_tail(&sk->sk_async_wait_queue, skb);
+> +			else
+> +#endif
+>  			if (eaten)
+>  				__kfree_skb(skb);
+>  			else
+
+Could you #define copied_early to 0 and avoid ifdefs?
+
+> @@ -1091,8 +1094,18 @@ process:
+>  	bh_lock_sock(sk);
+>  	ret = 0;
+>  	if (!sock_owned_by_user(sk)) {
+> -		if (!tcp_prequeue(sk, skb))
+> +#ifdef CONFIG_NET_DMA
+> +		struct tcp_sock *tp = tcp_sk(sk);
+> +		if (!tp->ucopy.dma_chan && tp->ucopy.locked_list)
+> +			tp->ucopy.dma_chan = get_softnet_dma();
+> +		if (tp->ucopy.dma_chan)
+> +			ret = tcp_v4_do_rcv(sk, skb);
+> +		else
+> +#endif
+> +		{
+> +			if (!tcp_prequeue(sk, skb))
+>  			ret = tcp_v4_do_rcv(sk, skb);
+> +		}
+>  	} else
+
+Wrong indentation...
+								Pavel
+-- 
+Thanks, Sharp!
