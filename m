@@ -1,42 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
-Date: Fri, 03 Mar 2006 17:40:48 -0800 (PST)
-Message-ID: <20060303.174048.14793187.davem@davemloft.net>
-References: <20060303214036.11908.10499.stgit@gitlost.site>
-	<20060303214220.11908.75517.stgit@gitlost.site>
+Subject: Re: [PATCH RESEND] net: Move destructor from
+ neigh->ops to neigh_params
+Date: Fri, 03 Mar 2006 17:58:54 -0800 (PST)
+Message-ID: <20060303.175854.128571811.davem@davemloft.net>
+References: <adazmlmmy7v.fsf@cisco.com>
+	<adabqxq1rdh.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750776AbWCDBkn@vger.kernel.org>
-To: christopher.leech@intel.com
-In-Reply-To: <20060303214220.11908.75517.stgit@gitlost.site>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: rdreier@cisco.com
+In-Reply-To: <adabqxq1rdh.fsf@cisco.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Leech <christopher.leech@intel.com>
-Date: Fri, 03 Mar 2006 13:42:20 -0800
+From: Roland Dreier <rdreier@cisco.com>
+Date: Wed, 01 Feb 2006 17:28:10 -0800
 
-> +static spinlock_t dma_list_lock;
+> Dave, if you want to merge this directly, that's fine.  Or I'm fine
+> with merging this through the IB tree if you'd prefer (if you want me
+> to do that, let me know if you think it's 2.6.16 material).
 
-Please use DEFINE_SPINLOCK().
-
-> +static void dma_chan_free_rcu(struct rcu_head *rcu) {
-
-Newline before the brace please.
-
-> +static void dma_async_device_cleanup(struct kref *kref) {
-
-Newline before the brace please.
-
-> +struct dma_chan_percpu
-> +{
-
-Left brace on the same line as "struct dma_chan_percpu" please.
-
-> +struct dma_chan
-> +{
-
-Similarly.
-
-Otherwise this patch looks mostly ok.
+Applied to net-2.6.17, thanks for being so incredibly patient :)
