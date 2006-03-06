@@ -1,35 +1,27 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: RFC: move SDP from AF_INET_SDP to IPPROTO_SDP
-Date: Mon, 6 Mar 2006 22:16:03 +0200
-Message-ID: <20060306201603.GA17048@mellanox.co.il>
-References: <20060306190636.GA14849@mellanox.co.il> <OFB3CB1E4D.355F7555-ON88257129.006C1001-88257129.006C836D@us.ibm.com>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: de2104x: interrupts before interrupt handler is registered
+Date: Mon, 6 Mar 2006 21:54:06 +0100
+Message-ID: <20060306205406.GC15728@electric-eye.fr.zoreil.com>
+References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com> <20060306194821.GA15728@electric-eye.fr.zoreil.com> <20060306195953.GB10703@deprecation.cyrius.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751360AbWCFUPz@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752010AbWCFUz6@vger.kernel.org>
+To: Martin Michlmayr <tbm@cyrius.com>
 Content-Disposition: inline
-In-Reply-To: <OFB3CB1E4D.355F7555-ON88257129.006C1001-88257129.006C836D@us.ibm.com>
+In-Reply-To: <20060306195953.GB10703@deprecation.cyrius.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. David Stevens <dlstevens@us.ibm.com>:
-> Subject: Re: RFC: move SDP from AF_INET_SDP to IPPROTO_SDP
+Martin Michlmayr <tbm@cyrius.com> :
+[...]
+> By the way, I'm getting the following messages in dmesg:
 > 
-> I don't know any details about SDP, but if there are no differences at the
-> protocol layer, then neither the address family nor the protocol is
-> appropriate. If it's just an API change, the socket type is the right
-> selector. So, maybe SOCK_DIRECT to go along with SOCK_STREAM,
-> SOCK_DGRAM, etc.
+> eth0: tx err, status 0x7fffb002
 
-No, the API SDP implements is the regular SOCK_STREAM semantics.
+Tx underrun.
 
-The difference is in the way connections are established with
-infiniband connection management messages, and data is transferred
-with infiniband reliable connection send messages.
+Is there anything which could induce a noticeable load on the PCI bus ?
 
 -- 
-Michael S. Tsirkin
-Staff Engineer, Mellanox Technologies
+Ueimor
