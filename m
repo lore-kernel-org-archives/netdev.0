@@ -1,45 +1,94 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: GigE on PowerMac G5
-Date: Tue, 07 Mar 2006 00:15:06 +1100
-Message-ID: <1141650907.11221.61.camel@localhost.localdomain>
-References: <jebqwmfeh9.fsf@sykes.suse.de>
-	<1141507000.17127.4.camel@localhost.localdomain>
-	<jefylvzwhw.fsf@sykes.suse.de>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: de2104x: interrupts before interrupt handler is registered
+Date: Mon, 6 Mar 2006 14:35:12 +0000
+Message-ID: <20060306143512.GI23669@deprecation.cyrius.com>
+References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org
-Return-path: <linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Andreas Schwab <schwab@suse.de>
-In-Reply-To: <jefylvzwhw.fsf@sykes.suse.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
-List-Post: <mailto:linuxppc64-dev@ozlabs.org>
-List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751375AbWCFOf2@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20060305185948.GA24765@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-03-06 at 11:40 +0100, Andreas Schwab wrote:
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> writes:
-> 
-> > On Sat, 2006-03-04 at 15:53 +0100, Andreas Schwab wrote:
-> >> I suppose the NIC in the PowerMac G5 can do GigE, yet when plugged into a
-> >> GB switch it is only willing to talk 100MB with it.  Any idea why?  Kernel
-> >> is 2.6.16-rc5-git2.
-> >
-> > Works for me... Must be a problem with auto-neg and your switch, or the
-> > cable.... Can you check how the switch is configured maybe ? You can
-> > also try forcing the link speed with ethtool.
-> 
-> It's not the cable, I have swapped it with another system where Gb is
-> working fine.  Neither it's the switch port, I have swapped it too.  I
-> can't force the speed with ethtool either.  Any other idea what to look
-> for?
+* Francois Romieu <romieu@fr.zoreil.com> [2006-03-05 19:59]:
+> > I have a system on which I can reproduce this bug 100%.  While I have
+> > no idea how to fix the issue, I can provide debugging information and
+> > test a fix.
 
-At this point, all I can say is... does it work in OS X ?
+> (not compile-tested)
 
-Ben.
+Thanks a lot for your quick response, Francois.  I can confirm that
+this patch fixes the problem for me.
+
+> -err_out_hw:
+> -	spin_lock_irqsave(&de->lock, flags);
+> -	de_stop_hw(de);
+> -	spin_unlock_irqrestore(&de->lock, flags);
+
+flags is no longer used now, so we get a compilation warning.  Updated
+patch below.  Francois, can you please submit it with a proper
+changelog entry and your Signed-off-by.
+
+
+From: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Martin Michlmayr <tbm@cyrius.com>
+
+--- a/drivers/net/tulip/de2104x.c
++++ b/drivers/net/tulip/de2104x.c
+@@ -1362,7 +1362,6 @@ static int de_open (struct net_device *d
+ {
+ 	struct de_private *de = dev->priv;
+ 	int rc;
+-	unsigned long flags;
+ 
+ 	if (netif_msg_ifup(de))
+ 		printk(KERN_DEBUG "%s: enabling interface\n", dev->name);
+@@ -1376,18 +1375,20 @@ static int de_open (struct net_device *d
+ 		return rc;
+ 	}
+ 
+-	rc = de_init_hw(de);
+-	if (rc) {
+-		printk(KERN_ERR "%s: h/w init failure, err=%d\n",
+-		       dev->name, rc);
+-		goto err_out_free;
+-	}
++	dw32(IntrMask, 0);
+ 
+ 	rc = request_irq(dev->irq, de_interrupt, SA_SHIRQ, dev->name, dev);
+ 	if (rc) {
+ 		printk(KERN_ERR "%s: IRQ %d request failure, err=%d\n",
+ 		       dev->name, dev->irq, rc);
+-		goto err_out_hw;
++		goto err_out_free;
++	}
++
++	rc = de_init_hw(de);
++	if (rc) {
++		printk(KERN_ERR "%s: h/w init failure, err=%d\n",
++		       dev->name, rc);
++		goto err_out_free_irq;
+ 	}
+ 
+ 	netif_start_queue(dev);
+@@ -1395,11 +1396,8 @@ static int de_open (struct net_device *d
+ 
+ 	return 0;
+ 
+-err_out_hw:
+-	spin_lock_irqsave(&de->lock, flags);
+-	de_stop_hw(de);
+-	spin_unlock_irqrestore(&de->lock, flags);
+-
++err_out_free_irq:
++	free_irq(dev->irq, dev);
+ err_out_free:
+ 	de_free_rings(de);
+ 	return rc;
+
+-- 
+Martin Michlmayr
+http://www.cyrius.com/
