@@ -1,17 +1,18 @@
-From: "Sean Hefty" <sean.hefty@intel.com>
-Subject: [PATCH 3/6] net/IB: export ip_dev_find
-Date: Mon, 6 Mar 2006 11:07:44 -0800
-Message-ID: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com>
-References: <adaslpz2l9p.fsf@cisco.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Re: [PATCH 6/6] IB: userspace support for
+	RDMA connection manager
+Date: Mon, 06 Mar 2006 14:28:14 -0800 (PST)
+Message-ID: <20060306.142814.109285730.davem@davemloft.net>
+References: <adaoe0j5kd6.fsf@cisco.com> <440CACB5.2010609@ichips.intel.com>
+	<adabqwj5j7b.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org
+Cc: linux-kernel@vger.kernel.org, openib-general@openib.org,
+	netdev@vger.kernel.org
 Return-path: <openib-general-bounces@openib.org>
-To: "'Roland Dreier'" <rdreier@cisco.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-In-Reply-To: <adaslpz2l9p.fsf@cisco.com>
+To: rdreier@cisco.com
+In-Reply-To: <adabqwj5j7b.fsf@cisco.com>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -23,20 +24,16 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Export ip_dev_find to allow locating a net_device given an IP address.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 06 Mar 2006 13:58:32 -0800
 
-Signed-off-by: Sean Hefty <sean.hefty@intel.com>
+>     Sean> Unless I miss counted, they should be aligned.
+>     Sean> ib_user_path_rec is defined near the end of patch 1/6.
+> 
+> You're right.  struct sockaddr_in6 is 28 bytes long (not a multiple of
+> 8) but gcc seems to lay everything out the same on 32-bit and 64-bit
+> architectures just the same.
 
----
-
-diff -uprN -X linux-2.6.git/Documentation/dontdiff 
-linux-2.6.git/net/ipv4/fib_frontend.c 
-linux-2.6.ib/net/ipv4/fib_frontend.c
---- linux-2.6.git/net/ipv4/fib_frontend.c	2006-01-16 10:28:29.000000000 -0800
-+++ linux-2.6.ib/net/ipv4/fib_frontend.c	2006-01-16 16:14:24.000000000 -0800
-@@ -666,4 +666,5 @@ void __init ip_fib_init(void)
- }
- 
- EXPORT_SYMBOL(inet_addr_type);
-+EXPORT_SYMBOL(ip_dev_find);
- EXPORT_SYMBOL(ip_rt_ioctl);
+Please make sure you check "x86_64 vs. x86", and then something like
+"powerpc64 vs. powerpc32" or "sparc64 vs. sparc32", as those are the
+two different classes of ABI layouts.
