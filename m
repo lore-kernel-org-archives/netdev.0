@@ -1,17 +1,17 @@
-From: Sean Hefty <mshefty@ichips.intel.com>
-Subject: Re: [PATCH 2/6] IB: match connection requests based
-	on	private data
-Date: Mon, 06 Mar 2006 14:05:32 -0800
-Message-ID: <440CB22C.6090007@ichips.intel.com>
-References: <ORSMSX401FRaqbC8wSA00000005@orsmsx401.amr.corp.intel.com>
+From: "Sean Hefty" <sean.hefty@intel.com>
+Subject: [PATCH 3/6] net/IB: export ip_dev_find
+Date: Mon, 6 Mar 2006 11:07:44 -0800
+Message-ID: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com>
+References: <adaslpz2l9p.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Roland Dreier' <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
+Cc: openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: Sean Hefty <sean.hefty@intel.com>
-In-Reply-To: <ORSMSX401FRaqbC8wSA00000005@orsmsx401.amr.corp.intel.com>
+To: "'Roland Dreier'" <rdreier@cisco.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+In-Reply-To: <adaslpz2l9p.fsf@cisco.com>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -23,23 +23,20 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Sean Hefty wrote:
-> +static void cm_mask_compare_data(u8 *dst, u8 *src, u8 *mask)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < IB_CM_PRIVATE_DATA_COMPARE_SIZE; i++)
-> +		dst[i] = src[i] & mask[i];
-> +}
-> +
-> +static int cm_compare_data(struct ib_cm_private_data_compare *src_data,
-> +			   struct ib_cm_private_data_compare *dst_data)
-> +{
-> +	u8 src[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-> +	u8 dst[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
+Export ip_dev_find to allow locating a net_device given an IP address.
 
-Ugh.  I sent the wrong patch series.  This was the original set of patches, 
-before any feedback was incorporated.  I will need to resend patches 2, 4, 5, 
-and 6.  Sorry about this.
+Signed-off-by: Sean Hefty <sean.hefty@intel.com>
 
-- Sean
+---
+
+diff -uprN -X linux-2.6.git/Documentation/dontdiff 
+linux-2.6.git/net/ipv4/fib_frontend.c 
+linux-2.6.ib/net/ipv4/fib_frontend.c
+--- linux-2.6.git/net/ipv4/fib_frontend.c	2006-01-16 10:28:29.000000000 -0800
++++ linux-2.6.ib/net/ipv4/fib_frontend.c	2006-01-16 16:14:24.000000000 -0800
+@@ -666,4 +666,5 @@ void __init ip_fib_init(void)
+ }
+ 
+ EXPORT_SYMBOL(inet_addr_type);
++EXPORT_SYMBOL(ip_dev_find);
+ EXPORT_SYMBOL(ip_rt_ioctl);
