@@ -1,77 +1,32 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: Re: TSO and IPoIB performance degradation
-Date: Mon, 6 Mar 2006 19:13:34 -0800
-Message-ID: <OF336D72E6.999D2A30-ON8725712A.00117C92-8825712A.00116629@us.ibm.com>
-References: <20060306145041.320d4dd3@localhost.localdomain>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: [PATCH, RESEND] Add MWI workaround for Tulip DC21143
+Date: Mon, 6 Mar 2006 22:51:31 +0000
+Message-ID: <20060306225131.GA23327@unjust.cyrius.com>
+References: <20060129230816.GD4094@colonel-panic.org> <20060218220851.GA1601@colonel-panic.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2098467077=="
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	openib-general@openib.org, openib-general-bounces@openib.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <openib-general-bounces@openib.org>
-In-Reply-To: <20060306145041.320d4dd3@localhost.localdomain>
-To: Stephen Hemminger <shemminger@osdl.org>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-mips-bounce@linux-mips.org>
+Resent-Message-ID: <20060307034851.GB29936@unjust.cyrius.com>
+To: netdev@vger.kernel.org, linux-mips@linux-mips.org
+Content-Disposition: inline
+In-Reply-To: <20060218220851.GA1601@colonel-panic.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in MIME format.
---===============2098467077==
-Content-Type: multipart/alternative;
-	boundary="=_alternative 001166228825712A_="
+* Peter Horton <pdh@colonel-panic.org> [2006-02-18 22:08]:
+> This patch works around the MWI bug on the DC21143 rev 65 Tulip by
+> ensuring that the receive buffers don't end on a cache line boundary (as
+> documented in the errata).
+> 
+> This patch is required for the MIPs based Cobalt Qube/RaQ as supporting
+> the extra PCI commands seems to reduce the chance of a hard lockup
+> between the Tulip and the PCI bridge.
 
-This is a multipart message in MIME format.
---=_alternative 001166228825712A_=
-Content-Type: text/plain; charset="US-ASCII"
-
-> More likely you are getting hit by the fact that TSO prevents the 
-congestion
-window from increasing properly. This was fixed in 2.6.15 (around mid of 
-Nov 2005).
-
-Yep, I noticed the same problem. After updating to the new kernel, the 
-performance are much better, but it's still lower than before.
-
-Thank
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone(Fax): (503) 578-7638
---=_alternative 001166228825712A_=
-Content-Type: text/html; charset="US-ASCII"
-
-
-<br><font size=2><tt>&gt; More likely you are getting hit by the fact that
-TSO prevents the congestion<br>
-window from increasing properly. This was fixed in 2.6.15 (around mid of
-Nov 2005).</tt></font>
-<br>
-<br><font size=2 face="sans-serif">Yep, I noticed the same problem. After
-updating to the new kernel, the performance are much better, but it's still
-lower than before.<br>
-</font>
-<br><font size=2 face="sans-serif">Thank<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone(Fax): (503) 578-7638</font>
---=_alternative 001166228825712A_=--
-
---===============2098467077==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============2098467077==--
+Does anyone have comments regarding this patch?  I received
+confirmation from a number of Debian users that this patch
+significantly improves the lockup situation on Cobalt, so
+it would be nice if it could go in.
+-- 
+Martin Michlmayr
+tbm@cyrius.com
