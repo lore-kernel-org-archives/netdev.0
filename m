@@ -1,47 +1,47 @@
-From: "Chris Leech" <chris.leech@gmail.com>
-Subject: Re: Discourage duplicate symbols in the kernel? [Was: Intel I/O Acc...]
-Date: Mon, 6 Mar 2006 11:56:28 -0800
-Message-ID: <41b516cb0603061156n79d1d572n5f376819ad5f3bf4@mail.gmail.com>
-References: <20060303214036.11908.10499.stgit@gitlost.site>
-	 <4408C2CA.5010909@garzik.org>
-	 <41b516cb0603031439n13e4df4cg8e5b21b606d2b4b8@mail.gmail.com>
-	 <20060305000933.2d799138.akpm@osdl.org>
-	 <20060305090251.GA9116@mars.ravnborg.org>
-	 <20060305011852.368c016e.akpm@osdl.org>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: de2104x: interrupts before interrupt handler is registered
+Date: Mon, 6 Mar 2006 19:59:53 +0000
+Message-ID: <20060306195953.GB10703@deprecation.cyrius.com>
+References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com> <20060306194821.GA15728@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Sam Ravnborg" <sam@ravnborg.org>, jeff@garzik.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751571AbWCFT4a@vger.kernel.org>
-To: "Andrew Morton" <akpm@osdl.org>
-In-Reply-To: <20060305011852.368c016e.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752420AbWCFUAZ@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
+In-Reply-To: <20060306194821.GA15728@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/5/06, Andrew Morton <akpm@osdl.org> wrote:
-> Sam Ravnborg <sam@ravnborg.org> wrote:
-> >
-> > On Sun, Mar 05, 2006 at 12:09:33AM -0800, Andrew Morton wrote:
-> >  > > +
-> >  > > +static inline u8 read_reg8(struct cb_device *device, unsigned int offset)
-> >  > > +{
-> >  > > +        return readb(device->reg_base + offset);
-> >  > > +}
-> >  >
-> >  > These are fairly generic-sounding names.  In fact the as-yet-unmerged tiacx
-> >  > wireless driver is already using these, privately to
-> >  > drivers/net/wireless/tiacx/pci.c.
-> >
-> >  Do we in general discourage duplicate symbols even if they are static?
->
-> Well, it's a bit irritating that it confuses ctags.  But in this case, one
-> set is in a header file so the risk of collisions is much-increased.
+* Francois Romieu <romieu@fr.zoreil.com> [2006-03-06 20:48]:
+> > There's another interrupt related bug in the driver, though.  I
+> > sometimes get a kernel panic when rsycing several 100 megs of data
+> > across the LAN.  A picture showing the call trace can be found at
+> > http://www.cyrius.com/tmp/de2104x_panic.jpg
+> Can you publish the .config ?
 
-They're in a header file that's specific to a single driver, so I
-don't see where a conflict would occur.  But I didn't think about
-ctags, and these can easily be prefixed so I'll go ahead and change
-them.
+http://www.cyrius.com/tmp/config-2.6.16-rc5-486
 
-- Chris
+By the way, I'm getting the following messages in dmesg:
+
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb00a
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb00a
+eth0: tx err, status 0x7fffb00a
+eth0: tx err, status 0x7fffb00a
+eth0: tx err, status 0x7fffb002
+eth0: tx err, status 0x7fffb032
+eth0: tx err, status 0x7fffb002
+
+-- 
+Martin Michlmayr
+http://www.cyrius.com/
