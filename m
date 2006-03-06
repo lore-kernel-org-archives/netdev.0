@@ -1,17 +1,17 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 6/6] IB: userspace support for RDMA
-	connection manager
-Date: Mon, 06 Mar 2006 13:35:27 -0800
-Message-ID: <adak6b75k9s.fsf@cisco.com>
-References: <ORSMSX4011XvpFVjCRG00000009@orsmsx401.amr.corp.intel.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 3/6] net/IB: export ip_dev_find
+Date: Mon, 06 Mar 2006 13:42:34 -0800 (PST)
+Message-ID: <20060306.134234.61724983.davem@davemloft.net>
+References: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com>
+	<adaslpv5kh2.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
-In-Reply-To: <ORSMSX4011XvpFVjCRG00000009@orsmsx401.amr.corp.intel.com> (Sean
-	Hefty's message of "Mon, 6 Mar 2006 11:21:04 -0800")
+To: rdreier@cisco.com
+In-Reply-To: <adaslpv5kh2.fsf@cisco.com>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -23,14 +23,18 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-I think it makes sense to merge patches 1-5 independently of this
-patch.  The kernel interface is needed by iSER and NFS/RDMA, and
-maintaining compatibility isn't a huge deal, so we can merge it now
-(assuming it looks mergable).
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 06 Mar 2006 13:31:05 -0800
 
-On the other hand I think it would be good to let this userspace
-interface cook a little more, say in -mm.
+>     Sean> Export ip_dev_find to allow locating a net_device given an
+>     Sean> IP address.
+> 
+> My plan is to queue all of this stuff for merging in 2.6.17.
+> 
+> Is there any objection from netdev or openib-general people?
+> 
+> I just looked back, and the original "unexport ip_dev_find()" patch
+> was a de-Bunk-ing change.  Now that there is a modular user, is there
+> any problem with re-exporting it?
 
-Anyone have any problems with that plan?
-
- - R.
+I'm fine with re-exporting it.
