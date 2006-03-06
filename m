@@ -1,57 +1,27 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [PATCH 2/6] IB: match connection requests
- based on private data
-Date: Mon, 6 Mar 2006 11:20:57 -0800
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F12FBF19@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: "Chris Leech" <chris.leech@gmail.com>
+Subject: Re: [PATCH 8/8] [I/OAT] TCP recv offload to I/OAT
+Date: Mon, 6 Mar 2006 11:28:39 -0800
+Message-ID: <41b516cb0603061128x6af77a79gade442a74e44075c@mail.gmail.com>
+References: <20060303214036.11908.10499.stgit@gitlost.site>
+	 <20060303214236.11908.98881.stgit@gitlost.site>
+	 <20060304231842.GA3103@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-Content-class: urn:content-classes:message
-To: "Sean Hefty" <sean.hefty@intel.com>,
-	"Roland Dreier" <rdreier@cisco.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932352AbWCFT3A@vger.kernel.org>
+To: "Greg KH" <greg@kroah.com>
+In-Reply-To: <20060304231842.GA3103@kroah.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=20
+> #ifdef is not needed here (try not to put #ifdef in .c files.)  I think
+> a few of your other usages of #ifdef in this file can also be removed
+> with judicious use of inline functions in a .h file.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org=20
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Sean Hefty
-> Sent: Monday, March 06, 2006 11:04 AM
-> To: 'Roland Dreier'
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;=20
-> openib-general@openib.org
-> Subject: [PATCH 2/6] IB: match connection requests based on=20
-> private data
->=20
-> Extend matching connection requests to listens in the=20
-> Infiniband CM to include private data checks.
->=20
-> This allows applications to listen on the same service=20
-> identifier, with private data directing the request to the=20
-> appropriate application.
->=20
-> Signed-off-by: Sean Hefty <sean.hefty@intel.com>
->=20
+ACK on all the ifdef comments.  I may have gone a little ifdef crazy
+making sure I could get to a zero impact state with these patches
+applied but CONFIG_NET_DMA turned off.  I'll get these cleaned up.
 
-The term "private data" is intended to convey the
-intent that the data is private to the application
-layer and is opaque to middleware and the network.
-
-By what mechanism does the listening application
-delegate how much of the private data for use by
-the CM for sub-dividing a listen? What does an=20
-application do if it wishes to retain full ownership
-of the private data?
+- Chris
