@@ -1,17 +1,18 @@
 From: "Sean Hefty" <sean.hefty@intel.com>
-Subject: [PATCH 2/6] IB: match connection requests based on private data
-Date: Mon, 6 Mar 2006 11:04:09 -0800
-Message-ID: <ORSMSX401FRaqbC8wSA00000005__43776.9045275219$1141686151$gmane$org@orsmsx401.amr.corp.intel.com>
-References: <adaslpz2l9p.fsf@cisco.com>
+Subject: [PATCH 2/6 v2] IB: match connection requests based on private data
+Date: Mon, 6 Mar 2006 15:29:35 -0800
+Message-ID: <ORSMSX401FRaqbC8wSA0000000c__29973.1222251014$1141687833$gmane$org@orsmsx401.amr.corp.intel.com>
+References: <ORSMSX401FRaqbC8wSA00000005@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<openib-general@openib.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752404AbWCFTEa@vger.kernel.org>
-To: "'Roland Dreier'" <rdreier@cisco.com>
-In-Reply-To: <adaslpz2l9p.fsf@cisco.com>
+Cc: <openib-general@openib.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932453AbWCFX3j@vger.kernel.org>
+To: "Hefty, Sean" <sean.hefty@intel.com>,
+	"'Roland Dreier'" <rdreier@cisco.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+In-Reply-To: <ORSMSX401FRaqbC8wSA00000005@orsmsx401.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -24,6 +25,10 @@ data directing the request to the appropriate application.
 Signed-off-by: Sean Hefty <sean.hefty@intel.com>
 
 ---
+
+This should be the correct patch that incorporates feedback from the initial
+submission.  Sorry about the mis-post.
+
 
 diff -uprN -X linux-2.6.git/Documentation/dontdiff 
 linux-2.6.git/drivers/infiniband/core/cm.c 
@@ -43,46 +48,47 @@ linux-2.6.ib/drivers/infiniband/core/cm.c
  	/* todo: use alternate port on send failure */
  	struct cm_av av;
  	struct cm_av alt_av;
-+	struct ib_cm_private_data_compare *compare_data;
++	struct ib_cm_compare_data *compare_data;
  
  	void *private_data;
  	__be64 tid;
-@@ -355,6 +356,40 @@ static struct cm_id_private * cm_acquire
+@@ -355,6 +356,41 @@ static struct cm_id_private * cm_acquire
  	return cm_id_priv;
  }
  
-+static void cm_mask_compare_data(u8 *dst, u8 *src, u8 *mask)
++static void cm_mask_copy(u8 *dst, u8 *src, u8 *mask)
 +{
 +	int i;
 +
-+	for (i = 0; i < IB_CM_PRIVATE_DATA_COMPARE_SIZE; i++)
-+		dst[i] = src[i] & mask[i];
++	for (i = 0; i < IB_CM_COMPARE_SIZE / sizeof(unsigned long); i++)
++		((unsigned long *) dst)[i] = ((unsigned long *) src)[i] &
++					     ((unsigned long *) mask)[i];
 +}
 +
-+static int cm_compare_data(struct ib_cm_private_data_compare *src_data,
-+			   struct ib_cm_private_data_compare *dst_data)
++static int cm_compare_data(struct ib_cm_compare_data *src_data,
++			   struct ib_cm_compare_data *dst_data)
 +{
-+	u8 src[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-+	u8 dst[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
++	u8 src[IB_CM_COMPARE_SIZE];
++	u8 dst[IB_CM_COMPARE_SIZE];
 +
 +	if (!src_data || !dst_data)
 +		return 0;
 +	
-+	cm_mask_compare_data(src, src_data->data, dst_data->mask);
-+	cm_mask_compare_data(dst, dst_data->data, src_data->mask);
-+	return memcmp(src, dst, IB_CM_PRIVATE_DATA_COMPARE_SIZE);
++	cm_mask_copy(src, src_data->data, dst_data->mask);
++	cm_mask_copy(dst, dst_data->data, src_data->mask);
++	return memcmp(src, dst, IB_CM_COMPARE_SIZE);
 +}
 +
 +static int cm_compare_private_data(u8 *private_data,
-+				   struct ib_cm_private_data_compare *dst_data)
++				   struct ib_cm_compare_data *dst_data)
 +{
-+	u8 src[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
++	u8 src[IB_CM_COMPARE_SIZE];
 +
 +	if (!dst_data)
 +		return 0;
 +	
-+	cm_mask_compare_data(src, private_data, dst_data->mask);
-+	return memcmp(src, dst_data->data, IB_CM_PRIVATE_DATA_COMPARE_SIZE);
++	cm_mask_copy(src, private_data, dst_data->mask);
++	return memcmp(src, dst_data->data, IB_CM_COMPARE_SIZE);
 +}
 +
  static struct cm_id_private * cm_insert_listen(struct cm_id_private *cm_id_priv)
@@ -169,7 +175,7 @@ linux-2.6.ib/drivers/infiniband/core/cm.c
 -		 __be64 service_id,
 -		 __be64 service_mask)
 +int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
-+		 struct ib_cm_private_data_compare *compare_data)
++		 struct ib_cm_compare_data *compare_data)
  {
  	struct cm_id_private *cm_id_priv, *cur_cm_id_priv;
  	unsigned long flags;
@@ -186,10 +192,10 @@ linux-2.6.ib/drivers/infiniband/core/cm.c
 +						   GFP_KERNEL);
 +		if (!cm_id_priv->compare_data)
 +			return -ENOMEM;
-+		cm_mask_compare_data(cm_id_priv->compare_data->data,
-+				     compare_data->data, compare_data->mask);
++		cm_mask_copy(cm_id_priv->compare_data->data,
++			     compare_data->data, compare_data->mask);
 +		memcpy(cm_id_priv->compare_data->mask, compare_data->mask,
-+		       IB_CM_PRIVATE_DATA_COMPARE_SIZE);
++		       IB_CM_COMPARE_SIZE);
 +	}
  
  	cm_id->state = IB_CM_LISTEN;
@@ -281,7 +287,7 @@ linux-2.6.ib/include/rdma/ib_cm.h
  	IB_CM_SIDR_REP_PRIVATE_DATA_SIZE = 136,
 -	IB_CM_SIDR_REP_INFO_LENGTH	 = 72
 +	IB_CM_SIDR_REP_INFO_LENGTH	 = 72,
-+	IB_CM_PRIVATE_DATA_COMPARE_SIZE	 = 64
++	IB_CM_COMPARE_SIZE		 = 64
  };
  
  struct ib_cm_id;
@@ -302,9 +308,9 @@ linux-2.6.ib/include/rdma/ib_cm.h
 +#define IB_SDP_SERVICE_ID	__constant_cpu_to_be64(0x0000000000010000ULL)
 +#define IB_SDP_SERVICE_ID_MASK	__constant_cpu_to_be64(0xFFFFFFFFFFFF0000ULL)
 +
-+struct ib_cm_private_data_compare {
-+	u8  data[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
-+	u8  mask[IB_CM_PRIVATE_DATA_COMPARE_SIZE];
++struct ib_cm_compare_data {
++	u8  data[IB_CM_COMPARE_SIZE];
++	u8  mask[IB_CM_COMPARE_SIZE];
 +};
  
  /**
@@ -321,7 +327,7 @@ linux-2.6.ib/include/rdma/ib_cm.h
 -		 __be64 service_id,
 -		 __be64 service_mask);
 +int ib_cm_listen(struct ib_cm_id *cm_id, __be64 service_id, __be64 service_mask,
-+		 struct ib_cm_private_data_compare *compare_data);
++		 struct ib_cm_compare_data *compare_data);
  
  struct ib_cm_req_param {
  	struct ib_sa_path_rec	*primary_path;
