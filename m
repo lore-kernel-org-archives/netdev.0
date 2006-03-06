@@ -1,21 +1,48 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: RFC: move SDP from AF_INET_SDP to IPPROTO_SDP
-Date: Mon, 6 Mar 2006 11:48:53 -0800
-Message-ID: <OFB3CB1E4D.355F7555-ON88257129.006C1001-88257129.006C836D@us.ibm.com>
-References: <20060306190636.GA14849@mellanox.co.il>
+From: "Chris Leech" <chris.leech@gmail.com>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Mon, 6 Mar 2006 11:39:54 -0800
+Message-ID: <41b516cb0603061139qeb60783md1b088ffaa216bf2@mail.gmail.com>
+References: <20060303214036.11908.10499.stgit@gitlost.site>
+	 <20060303214220.11908.75517.stgit@gitlost.site>
+	 <20060303.174048.14793187.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751037AbWCFTpZ@vger.kernel.org>
-In-Reply-To: <20060306190636.GA14849@mellanox.co.il>
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751557AbWCFTj5@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060303.174048.14793187.davem@davemloft.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I don't know any details about SDP, but if there are no differences at the
-protocol layer, then neither the address family nor the protocol is
-appropriate. If it's just an API change, the socket type is the right
-selector. So, maybe SOCK_DIRECT to go along with SOCK_STREAM,
-SOCK_DGRAM, etc.
-                                        +-DLS
+On 3/3/06, David S. Miller <davem@davemloft.net> wrote:
+> > +static spinlock_t dma_list_lock;
+>
+> Please use DEFINE_SPINLOCK().
+>
+> > +static void dma_chan_free_rcu(struct rcu_head *rcu) {
+>
+> Newline before the brace please.
+>
+> > +static void dma_async_device_cleanup(struct kref *kref) {
+>
+> Newline before the brace please.
+>
+> > +struct dma_chan_percpu
+> > +{
+>
+> Left brace on the same line as "struct dma_chan_percpu" please.
+>
+> > +struct dma_chan
+> > +{
+>
+> Similarly.
+>
+> Otherwise this patch looks mostly ok.
+
+Thanks Dave,
+
+I'll apply these and other feedback and get updated patches generated.
+
+- Chris
