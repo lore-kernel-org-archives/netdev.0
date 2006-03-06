@@ -1,27 +1,45 @@
-From: "Chris Leech" <chris.leech@gmail.com>
-Subject: Re: [PATCH 8/8] [I/OAT] TCP recv offload to I/OAT
-Date: Mon, 6 Mar 2006 11:28:39 -0800
-Message-ID: <41b516cb0603061128x6af77a79gade442a74e44075c@mail.gmail.com>
-References: <20060303214036.11908.10499.stgit@gitlost.site>
-	 <20060303214236.11908.98881.stgit@gitlost.site>
-	 <20060304231842.GA3103@kroah.com>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: RE: [PATCH 2/6] IB: match connection requests
+	based on private data
+Date: Mon, 06 Mar 2006 11:31:07 -0800
+Message-ID: <440C8DFB.7090005@ichips.intel.com>
+References: <54AD0F12E08D1541B826BE97C98F99F12FBF19@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932352AbWCFT3A@vger.kernel.org>
-To: "Greg KH" <greg@kroah.com>
-In-Reply-To: <20060304231842.GA3103@kroah.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
+	openib-general@openib.org, linux-kernel@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: Caitlin Bestler <caitlinb@broadcom.com>
+In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F12FBF19@NT-SJCA-0751.brcm.ad.broadcom.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-> #ifdef is not needed here (try not to put #ifdef in .c files.)  I think
-> a few of your other usages of #ifdef in this file can also be removed
-> with judicious use of inline functions in a .h file.
+Caitlin Bestler wrote:
+> The term "private data" is intended to convey the
+> intent that the data is private to the application
+> layer and is opaque to middleware and the network.
 
-ACK on all the ifdef comments.  I may have gone a little ifdef crazy
-making sure I could get to a zero impact state with these patches
-applied but CONFIG_NET_DMA turned off.  I'll get these cleaned up.
+The private data area is for the use of whatever client resides above the 
+Infiniband CM only.  There is no assumption about whether that client is 
+middleware or an application.
 
-- Chris
+> By what mechanism does the listening application
+> delegate how much of the private data for use by
+> the CM for sub-dividing a listen? What does an 
+> application do if it wishes to retain full ownership
+> of the private data?
+
+An application that interfaces directly with the Infiniband CM always retains 
+full control of any private data.  Applications that interface to middleware are 
+restricted by the limitations of that middleware layer.
+
+- Sean
