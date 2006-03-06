@@ -1,32 +1,29 @@
-From: Martin Michlmayr <tbm@cyrius.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [PATCH, RESEND] Add MWI workaround for Tulip DC21143
-Date: Mon, 6 Mar 2006 22:51:31 +0000
-Message-ID: <20060306225131.GA23327@unjust.cyrius.com>
-References: <20060129230816.GD4094@colonel-panic.org> <20060218220851.GA1601@colonel-panic.org>
+Date: Tue, 7 Mar 2006 00:15:30 +0100
+Message-ID: <20060306231530.GB16082@electric-eye.fr.zoreil.com>
+References: <20060129230816.GD4094@colonel-panic.org> <20060218220851.GA1601@colonel-panic.org> <20060306225131.GA23327@unjust.cyrius.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
 Return-path: <linux-mips-bounce@linux-mips.org>
-Resent-Message-ID: <20060307034851.GB29936@unjust.cyrius.com>
-To: netdev@vger.kernel.org, linux-mips@linux-mips.org
+Resent-Message-ID: <20060307035048.GA22201@deprecation.cyrius.com>
+To: Martin Michlmayr <tbm@cyrius.com>
 Content-Disposition: inline
-In-Reply-To: <20060218220851.GA1601@colonel-panic.org>
+In-Reply-To: <20060306225131.GA23327@unjust.cyrius.com>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-* Peter Horton <pdh@colonel-panic.org> [2006-02-18 22:08]:
-> This patch works around the MWI bug on the DC21143 rev 65 Tulip by
-> ensuring that the receive buffers don't end on a cache line boundary (as
-> documented in the errata).
-> 
-> This patch is required for the MIPs based Cobalt Qube/RaQ as supporting
-> the extra PCI commands seems to reduce the chance of a hard lockup
-> between the Tulip and the PCI bridge.
+Martin Michlmayr <tbm@cyrius.com> :
+[...]
+> Does anyone have comments regarding this patch?  I received
+> confirmation from a number of Debian users that this patch
+> significantly improves the lockup situation on Cobalt, so
+> it would be nice if it could go in.
 
-Does anyone have comments regarding this patch?  I received
-confirmation from a number of Debian users that this patch
-significantly improves the lockup situation on Cobalt, so
-it would be nice if it could go in.
+I'll queue it with the pending de2104x fix(es ?) during my next
+upkeep.
+
 -- 
-Martin Michlmayr
-tbm@cyrius.com
+Ueimor
