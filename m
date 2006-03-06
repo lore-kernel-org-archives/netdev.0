@@ -1,39 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: de2104x: interrupts before interrupt handler is registered
-Date: Mon, 6 Mar 2006 22:17:45 +0100
-Message-ID: <20060306211745.GD15728@electric-eye.fr.zoreil.com>
-References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 3/6] net/IB: export ip_dev_find
+Date: Mon, 06 Mar 2006 13:31:05 -0800
+Message-ID: <adaslpv5kh2.fsf@cisco.com>
+References: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752436AbWCFVT6@vger.kernel.org>
-To: Martin Michlmayr <tbm@cyrius.com>
-Content-Disposition: inline
-In-Reply-To: <20060306191706.GA6947@deprecation.cyrius.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Sean Hefty" <sean.hefty@intel.com>
+In-Reply-To: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com> (Sean
+	Hefty's message of "Mon, 6 Mar 2006 11:07:44 -0800")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Martin Michlmayr <tbm@cyrius.com> :
-[...]
-> There's another interrupt related bug in the driver, though.  I
-> sometimes get a kernel panic when rsycing several 100 megs of data
-> across the LAN.  A picture showing the call trace can be found at
-> http://www.cyrius.com/tmp/de2104x_panic.jpg
+    Sean> Export ip_dev_find to allow locating a net_device given an
+    Sean> IP address.
 
-Not sure about this one, but...
+My plan is to queue all of this stuff for merging in 2.6.17.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Is there any objection from netdev or openib-general people?
 
-diff --git a/drivers/net/tulip/de2104x.c b/drivers/net/tulip/de2104x.c
-index d7fb3ff..49235e2 100644
---- a/drivers/net/tulip/de2104x.c
-+++ b/drivers/net/tulip/de2104x.c
-@@ -1455,6 +1455,8 @@ static void de_tx_timeout (struct net_de
- 	synchronize_irq(dev->irq);
- 	de_clean_rings(de);
- 
-+	de_init_rings(de);
-+
- 	de_init_hw(de);
- 	
- 	netif_wake_queue(dev);
+I just looked back, and the original "unexport ip_dev_find()" patch
+was a de-Bunk-ing change.  Now that there is a modular user, is there
+any problem with re-exporting it?
+
+Thanks,
+  Roland
