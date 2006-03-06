@@ -1,37 +1,45 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 3/6] net/IB: export ip_dev_find
-Date: Mon, 06 Mar 2006 13:31:05 -0800
-Message-ID: <adaslpv5kh2.fsf@cisco.com>
-References: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com>
+From: "Chris Leech" <christopher.leech@intel.com>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Mon, 6 Mar 2006 11:48:06 -0800
+Message-ID: <41b516cb0603061148v4f93778cs6b954bbb48bc25c6@mail.gmail.com>
+References: <20060303214036.11908.10499.stgit@gitlost.site>
+	 <20060303214220.11908.75517.stgit@gitlost.site>
+	 <20060304192030.GA6510@kvack.org>
+Reply-To: chris.leech@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
-In-Reply-To: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com> (Sean
-	Hefty's message of "Mon, 6 Mar 2006 11:07:44 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752414AbWCFTsJ@vger.kernel.org>
+To: "Benjamin LaHaise" <bcrl@kvack.org>
+In-Reply-To: <20060304192030.GA6510@kvack.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    Sean> Export ip_dev_find to allow locating a net_device given an
-    Sean> IP address.
+On 3/4/06, Benjamin LaHaise <bcrl@kvack.org> wrote:
+> On Fri, Mar 03, 2006 at 01:42:20PM -0800, Chris Leech wrote:
+> > +void dma_async_device_unregister(struct dma_device* device)
+> > +{
+> ...
+> > +     kref_put(&device->refcount, dma_async_device_cleanup);
+> > +     wait_for_completion(&device->done);
+> > +}
+>
+> This looks like a bug: device is dereferenced after it is potentially
+> freed.
 
-My plan is to queue all of this stuff for merging in 2.6.17.
+Actually, this is where the code is waiting to make sure it's safe to
+free device.  The release function for the kref completes
+device->done.  Each of the devices channels holds a reference to the
+device.  When a device is unregistered it's channels are removed from
+the clients, which hold a reference for each outstanding transaction. 
+When all the outstanding transactions complete, the channels kref goes
+to 0, and the reference to the device is dropped.  When the device
+kref goes to 0 the completion is set, and it's now safe to free the
+memory for the device and channel structures.
 
-Is there any objection from netdev or openib-general people?
+I have a writeup of the locking and reference counting that I'll
+finish and add in as a big comment to the code.
 
-I just looked back, and the original "unexport ip_dev_find()" patch
-was a de-Bunk-ing change.  Now that there is a modular user, is there
-any problem with re-exporting it?
-
-Thanks,
-  Roland
+-Chris
