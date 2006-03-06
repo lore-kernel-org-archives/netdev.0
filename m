@@ -1,15 +1,19 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: TSO and IPoIB performance degradation
-Date: Tue, 7 Mar 2006 00:34:38 +0200
-Message-ID: <20060306223438.GA18277@mellanox.co.il>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Re: [PATCH 6/6] IB: userspace support for
+	RDMA connection manager
+Date: Mon, 06 Mar 2006 14:39:01 -0800 (PST)
+Message-ID: <20060306.143901.26500391.davem@davemloft.net>
+References: <adabqwj5j7b.fsf@cisco.com>
+	<20060306.142814.109285730.davem@davemloft.net>
+	<aday7zn432b.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, openib-general@openib.org,
+	netdev@vger.kernel.org
 Return-path: <openib-general-bounces@openib.org>
-To: netdev@vger.kernel.org, openib-general@openib.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
-Content-Disposition: inline
+To: rdreier@cisco.com
+In-Reply-To: <aday7zn432b.fsf@cisco.com>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -21,50 +25,36 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Dave!
-As you might know, the TSO patches merged into mainline kernel
-since 2.6.11 have hurt performance for the simple (non-TSO)
-high-speed netdevice that is IPoIB driver.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 06 Mar 2006 14:32:28 -0800
 
-This was discussed at length here
-http://openib.org/pipermail/openib-general/2005-October/012271.html
+> The fundamental question seems to be whether things like
+> 
+> 	struct foo {
+> 		struct sockaddr_in6 src;
+> 		struct sockaddr_in6 dst;
+> 	};
+> 
+> and
+> 
+> 	struct bar {
+> 		struct sockaddr_in6 a;
+> 		__u32 b;
+> 	};
 
-I'm trying to figure out what can be done to improve the situation.
-In partucular, I'm looking at the Super TSO patch
-http://oss.sgi.com/archives/netdev/2005-05/msg00889.html
+I wrote a test program and it looks ok:
 
-merged into mainline here
-
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=314324121f9b94b2ca657a494cf2b9cb0e4a28cc
-
-There, you said:
-
-	When we do ucopy receive (ie. copying directly to userspace
-	during tcp input processing) we attempt to delay the ACK
-	until cleanup_rbuf() is invoked.  Most of the time this
-	technique works very well, and we emit one ACK advertising
-	the largest window.
-
-	But this explodes if the ucopy prequeue is large enough.
-	When the receiver is cpu limited and TSO frames are large,
-	the receiver is inundated with ucopy processing, such that
-	the ACK comes out very late.  Often, this is so late that
-	by the time the sender gets the ACK the window has emptied
-	too much to be kept full by the sender.
-
-	The existing TSO code mostly avoided this by keeping the
-	TSO packets no larger than 1/8 of the available window.
-	But with the new code we can get much larger TSO frames.
-
-So I'm trying to get a handle on it: could a solution be to simply
-look at the frame size, and call tcp_send_delayed_ack from
-if the frame size is no larger than 1/8?
-
-Does this make sense?
-
-Thanks,
-
-
--- 
-Michael S. Tsirkin
-Staff Engineer, Mellanox Technologies
+davem@sunset:~/src/GIT/sparc-2.6.17$ gcc -m32 -O -o foo foo.c
+davem@sunset:~/src/GIT/sparc-2.6.17$ ./foo
+SPARC32
+foo src: 0
+foo dst: 28
+bar a: 0
+bar b: 28
+davem@sunset:~/src/GIT/sparc-2.6.17$ gcc -m64 -O -o foo foo.c
+davem@sunset:~/src/GIT/sparc-2.6.17$ ./foo
+SPARC64
+foo src: 0
+foo dst: 28
+bar a: 0
+bar b: 28
