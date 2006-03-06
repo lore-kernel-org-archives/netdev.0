@@ -1,17 +1,18 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 3/6] net/IB: export ip_dev_find
-Date: Mon, 06 Mar 2006 13:42:34 -0800 (PST)
-Message-ID: <20060306.134234.61724983.davem@davemloft.net>
-References: <ORSMSX4011XvpFVjCRG00000006@orsmsx401.amr.corp.intel.com>
-	<adaslpv5kh2.fsf@cisco.com>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: Re: [PATCH 6/6] IB: userspace support for RDMA
+	connection manager
+Date: Mon, 06 Mar 2006 13:42:13 -0800
+Message-ID: <440CACB5.2010609@ichips.intel.com>
+References: <ORSMSX4011XvpFVjCRG00000009@orsmsx401.amr.corp.intel.com>
+	<adaoe0j5kd6.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com
-In-Reply-To: <adaslpv5kh2.fsf@cisco.com>
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adaoe0j5kd6.fsf@cisco.com>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -23,18 +24,43 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Mon, 06 Mar 2006 13:31:05 -0800
+Roland Dreier wrote:
+>  > +struct rdma_ucm_query_route_resp {
+>  > +	__u64 node_guid;
+>  > +	struct ib_user_path_rec ib_route[2];
+>  > +	struct sockaddr_in6 src_addr;
+>  > +	struct sockaddr_in6 dst_addr;
+>  > +	__u32 num_paths;
+>  > +	__u8 port_num;
+>  > +	__u8 reserved[3];
+>  > +};
+> 
+> Is there a 32-bit/64-bit compatibility problem here?  From a quick
+> look, struct sockaddr_in6 is not 8-byte aligned.
 
->     Sean> Export ip_dev_find to allow locating a net_device given an
->     Sean> IP address.
-> 
-> My plan is to queue all of this stuff for merging in 2.6.17.
-> 
-> Is there any objection from netdev or openib-general people?
-> 
-> I just looked back, and the original "unexport ip_dev_find()" patch
-> was a de-Bunk-ing change.  Now that there is a modular user, is there
-> any problem with re-exporting it?
+Unless I miss counted, they should be aligned.  ib_user_path_rec is defined near 
+the end of patch 1/6.
 
-I'm fine with re-exporting it.
++struct ib_user_path_rec {
++	__u8	dgid[16];
++	__u8	sgid[16];
++	__be16	dlid;
++	__be16	slid;
++	__u32	raw_traffic;
++	__be32	flow_label;
++	__u32	reversible;
++	__u32	mtu;
++	__be16	pkey;
++	__u8	hop_limit;
++	__u8	traffic_class;
++	__u8	numb_path;
++	__u8	sl;
++	__u8	mtu_selector;
++	__u8	rate_selector;
++	__u8	rate;
++	__u8	packet_life_time_selector;
++	__u8	packet_life_time;
++	__u8	preference;
++};
+
+- Sean
