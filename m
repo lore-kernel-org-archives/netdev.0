@@ -1,53 +1,50 @@
-From: nkiesel@tbdnetworks.com (Norbert Kiesel)
-Subject: [PATCH] net: drop duplicate assignment in request_sock
-Date: Sun, 5 Mar 2006 15:45:43 -0800
-Message-ID: <20060305234543.GA22550@defiant.tbdnetworks.com>
+From: Andreas Schwab <schwab@suse.de>
+Subject: Re: GigE on PowerMac G5
+Date: Mon, 06 Mar 2006 11:40:59 +0100
+Message-ID: <jefylvzwhw.fsf@sykes.suse.de>
+References: <jebqwmfeh9.fsf@sykes.suse.de>
+	<1141507000.17127.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932239AbWCEXpy@vger.kernel.org>
-To: acme@conectiva.com.br
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org
+Return-path: <linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1141507000.17127.4.camel@localhost.localdomain> (Benjamin
+	Herrenschmidt's message of "Sun, 05 Mar 2006 08:16:40 +1100")
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Norbert Kiesel <nkiesel@tbdnetworks.com>
+Benjamin Herrenschmidt <benh@kernel.crashing.org> writes:
 
-Hi,
+> On Sat, 2006-03-04 at 15:53 +0100, Andreas Schwab wrote:
+>> I suppose the NIC in the PowerMac G5 can do GigE, yet when plugged into a
+>> GB switch it is only willing to talk 100MB with it.  Any idea why?  Kern=
+el
+>> is 2.6.16-rc5-git2.
+>
+> Works for me... Must be a problem with auto-neg and your switch, or the
+> cable.... Can you check how the switch is configured maybe ? You can
+> also try forcing the link speed with ethtool.
 
-just noticed that request_sock.[ch] contain a useless assignment of
-rskq_accept_head to itself.  I assume this is a typo and the 2nd one
-was supposed to be _tail.  However, setting _tail to NULL is not
-needed, so the patch below just drops the 2nd assignment.
+It's not the cable, I have swapped it with another system where Gb is
+working fine.  Neither it's the switch port, I have swapped it too.  I
+can't force the speed with ethtool either.  Any other idea what to look
+for?
 
-Best,
-  Norbert
+Andreas.
 
-Signed-Off-By: Norbert Kiesel <nkiesel@tbdnetworks.com>
+-- =
 
----
-
-diff -ru a/include/net/request_sock.h b/include/net/request_sock.h
---- a/include/net/request_sock.h	2005-10-28 15:44:45.000000000 -0700
-+++ b/include/net/request_sock.h	2006-03-05 15:22:33.000000000 -0800
-@@ -145,7 +145,7 @@
- {
- 	struct request_sock *req = queue->rskq_accept_head;
- 
--	queue->rskq_accept_head = queue->rskq_accept_head = NULL;
-+	queue->rskq_accept_head = NULL;
- 	return req;
- }
- 
-diff -ru a/net/core/request_sock.c b/net/core/request_sock.c
---- a/net/core/request_sock.c	2006-03-05 14:40:50.000000000 -0800
-+++ b/net/core/request_sock.c	2006-03-05 15:23:11.000000000 -0800
-@@ -51,7 +51,7 @@
- 
- 	get_random_bytes(&lopt->hash_rnd, sizeof(lopt->hash_rnd));
- 	rwlock_init(&queue->syn_wait_lock);
--	queue->rskq_accept_head = queue->rskq_accept_head = NULL;
-+	queue->rskq_accept_head = NULL;
- 	lopt->nr_table_entries = nr_table_entries;
- 
- 	write_lock_bh(&queue->syn_wait_lock);
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
