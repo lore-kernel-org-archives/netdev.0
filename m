@@ -1,45 +1,26 @@
-From: Sean Hefty <mshefty@ichips.intel.com>
-Subject: Re: RE: [PATCH 2/6] IB: match connection requests
-	based on private data
-Date: Mon, 06 Mar 2006 11:31:07 -0800
-Message-ID: <440C8DFB.7090005@ichips.intel.com>
-References: <54AD0F12E08D1541B826BE97C98F99F12FBF19@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: de2104x: interrupts before interrupt handler is registered
+Date: Mon, 6 Mar 2006 20:48:21 +0100
+Message-ID: <20060306194821.GA15728@electric-eye.fr.zoreil.com>
+References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
-Return-path: <openib-general-bounces@openib.org>
-To: Caitlin Bestler <caitlinb@broadcom.com>
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F12FBF19@NT-SJCA-0751.brcm.ad.broadcom.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750715AbWCFTwB@vger.kernel.org>
+To: Martin Michlmayr <tbm@cyrius.com>
+Content-Disposition: inline
+In-Reply-To: <20060306191706.GA6947@deprecation.cyrius.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Caitlin Bestler wrote:
-> The term "private data" is intended to convey the
-> intent that the data is private to the application
-> layer and is opaque to middleware and the network.
+Martin Michlmayr <tbm@cyrius.com> :
+[...]
+> There's another interrupt related bug in the driver, though.  I
+> sometimes get a kernel panic when rsycing several 100 megs of data
+> across the LAN.  A picture showing the call trace can be found at
+> http://www.cyrius.com/tmp/de2104x_panic.jpg
 
-The private data area is for the use of whatever client resides above the 
-Infiniband CM only.  There is no assumption about whether that client is 
-middleware or an application.
+Can you publish the .config ?
 
-> By what mechanism does the listening application
-> delegate how much of the private data for use by
-> the CM for sub-dividing a listen? What does an 
-> application do if it wishes to retain full ownership
-> of the private data?
-
-An application that interfaces directly with the Infiniband CM always retains 
-full control of any private data.  Applications that interface to middleware are 
-restricted by the limitations of that middleware layer.
-
-- Sean
+-- 
+Ueimor
