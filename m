@@ -1,57 +1,105 @@
 From: Martin Michlmayr <tbm@cyrius.com>
 Subject: Re: de2104x: interrupts before interrupt handler is registered
-Date: Tue, 7 Mar 2006 14:57:39 +0000
-Message-ID: <20060307145739.GA9834@deprecation.cyrius.com>
-References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com> <20060306211745.GD15728@electric-eye.fr.zoreil.com> <20060307051152.GA1244@deprecation.cyrius.com>
+Date: Tue, 7 Mar 2006 15:16:27 +0000
+Message-ID: <20060307151627.GB9834@deprecation.cyrius.com>
+References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751042AbWCGO54@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751032AbWCGPQo@vger.kernel.org>
 To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <20060307051152.GA1244@deprecation.cyrius.com>
+In-Reply-To: <20060306191706.GA6947@deprecation.cyrius.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Martin Michlmayr <tbm@cyrius.com> [2006-03-07 05:11]:
-> * Francois Romieu <romieu@fr.zoreil.com> [2006-03-06 22:17]:
-> > Not sure about this one, but...
-> 
-> It seems to help.  It's hard to say for sure because I don't have a
-> foolproof way to reproduce this panic.  It _usually_ occurs after
-> copying a few hundred MB but there's no clear trigger.  I've now copied
-> a few GB around using a kernel with your patch and it hasn't crashed.
+* Martin Michlmayr <tbm@cyrius.com> [2006-03-06 19:17]:
+> There's another interrupt related bug in the driver, though.  I
 
-I'm pretty sure now that your patch helps.  I left the system running
-overnight and it was still alive in the morning after transferring ~10
-GB.  I do get all kind of underrun messages (see below) but the data
-got transferred alright.  I then rebooted with the kernel that doesn't
-have your patch and it crashed after ~1 GB.
+There's yet another bug (or two).
 
+I just got another kernel panic:
+http://www.cyrius.com/tmp/de2104x_panic2.jpg (which I haven't been
+able to reproduce so far; this was without your latest patch applied,
+btw).  This happened when I was doing DHCP while my server was not
+responding to DHCP.  I wonder if it's related to another issue I've
+observed.
 
-(this was at about 3 GB, but the same goes on and on; but the network
-works.)
-
-eth0      Link encap:Ethernet  HWaddr 00:80:C8:33:4F:96  
-          inet addr:192.168.1.145  Bcast:192.168.1.255  Mask:255.255.255.0
-          inet6 addr: fe80::280:c8ff:fe33:4f96/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1199533 errors:7 dropped:0 overruns:7 frame:0
-          TX packets:2344296 errors:396 dropped:252 overruns:396 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:64846004 (61.8 MiB)  TX bytes:3479989567 (3.2 GiB)
-          Interrupt:10 Base address:0x2000 
-
-lo        Link encap:Local Loopback  
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:8 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:8 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:560 (560.0 b)  TX bytes:560 (560.0 b)
+This card is a D-Link DE 530 with both a BNC and RJ-45 connector.
+When I boot my machine without having the Ethernet cable plugged in,
+Linux thinks there's a BNC connection.  When I plug in the cable, the
+link light on the card goes on but Linux doesn't seem to notice - in
+fact, when I then start DHCP again, the link light goes off again and
+Linux talks about BNC being up... [FWIW, Linux 2.4 doesn't handle this
+situation either.  Under 2.4 the link light doesn't even come up.]
 
 
+dmesg: booting without the RJ-45 cable plugged in, doing DHCP, then
+plugging the RJ-45 cable in and doing DHCP again:
+
+hda: 4999680 sectors (2559 MB) w/256KiB Cache, CHS=4960/16/63, UDMA(33)
+ hda: hda1 hda2 < hda5 hda6 >
+ACPI: PCI Interrupt 0000:00:0b.0[A] -> Link [LNKD] -> GSI 10 (level, low) -> IRQ 10
+de0: SROM leaf offset 30, default media 10baseT auto
+de0:   media block #0: 10baseT-FD
+de0:   media block #1: BNC
+de0:   media block #2: 10baseT-HD
+eth0: 21041 at 0xb8802000, 00:80:c8:33:4f:96, IRQ 10
+Probing IDE interface ide1...
+Attempting manual resume
+kjournald starting.  Commit interval 5 seconds
+EXT3-fs: mounted filesystem with ordered data mode.
+Real Time Clock Driver v1.12ac
+input: PC Speaker as /class/input/input1
+FDC 0 is a post-1991 82077
+parport: PnPBIOS parport detected.
+parport0: PC-style at 0x378, irq 7 [PCSPP,TRISTATE]
+Adding 136512k swap on /dev/hda5.  Priority:-1 extents:1 across:136512k
+EXT3 FS on hda1, internal journal
+device-mapper: 4.5.0-ioctl (2005-10-04) initialised: dm-devel@redhat.com
+eth0: enabling interface
+eth0: set link 10baseT auto
+eth0:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
+eth0:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
+eth0: set link BNC
+eth0:    mode 0x7ffc0000, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff0006
+eth0:    set mode 0x7ffc0000, set sia 0xef09,0xf7fd,0x6
+eth0: link up, media BNC
+NET: Registered protocol family 10
+lo: Disabled Privacy Extensions
+IPv6 over IPv4 tunneling driver
+eth0: no IPv6 routers present
+eth0: disabling interface
+eth0: timeout expired stopping DMA
+ACPI: PCI interrupt for device 0000:00:0b.0 disabled
+eth0: enabling interface
+eth0: set link BNC
+eth0:    mode 0x7ffc0040, sia 0x10c4,0xffffef09,0xfffff7fd,0xffff0006
+eth0:    set mode 0x7ffc0040, set sia 0xef09,0xf7fd,0x6
+ADDRCONF(NETDEV_UP): eth0: link is not ready
+eth0: link up, media BNC
+ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+eth0: no IPv6 routers present
+
+
+As a comparison, this happens when I boot with the RJ-45 cable plugged
+in:
+
+ACPI: PCI Interrupt 0000:00:0b.0[A] -> Link [LNKD] -> GSI 10 (level, low) -> IRQ 10
+de0: SROM leaf offset 30, default media 10baseT auto
+de0:   media block #0: 10baseT-FD
+de0:   media block #1: BNC
+de0:   media block #2: 10baseT-HD
+eth0: 21041 at 0xb8802000, 00:80:c8:33:4f:96, IRQ 10
+Probing IDE interface ide1...
+Attempting manual resume
+kjournald starting.  Commit interval 5 seconds
+EXT3-fs: mounted filesystem with ordered data mode.
+Real Time Clock Driver v1.12ac
+input: PC Speaker as /class/input/input1
+FDC 0 is a post-1991 82077
+parport: PnPBIOS parport detected.
+parport0: PC-style at 0x378, irq 7 [PCSPP,TRISTATE]
 Adding 136512k swap on /dev/hda5.  Priority:-1 extents:1 across:136512k
 EXT3 FS on hda1, internal journal
 device-mapper: 4.5.0-ioctl (2005-10-04) initialised: dm-devel@redhat.com
@@ -64,438 +112,6 @@ NET: Registered protocol family 10
 lo: Disabled Privacy Extensions
 IPv6 over IPv4 tunneling driver
 eth0: no IPv6 routers present
-kjournald starting.  Commit interval 5 seconds
-EXT3 FS on dm-0, internal journal
-EXT3-fs: recovery complete.
-EXT3-fs: mounted filesystem with ordered data mode.
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb022
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb012
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb032
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb02a
-eth0: tx err, status 0x7fffb01a
-eth0: tx err, status 0x7fffb02a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-NETDEV WATCHDOG: eth0: transmit timed out
-eth0: NIC status fc660000 mode 7ffc2002 sia 45e1d1c8 desc 15/37/38
-eth0: set link 10baseT auto
-eth0:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth0:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
-eth0: link up, media 10baseT auto
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb012
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 54 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-NETDEV WATCHDOG: eth0: transmit timed out
-eth0: NIC status fc660000 mode 7ffc2002 sia 45e1d1c8 desc 16/6/7
-eth0: set link 10baseT auto
-eth0:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth0:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
-eth0: link up, media 10baseT auto
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb012
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 60 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-NETDEV WATCHDOG: eth0: transmit timed out
-eth0: NIC status fc660000 mode 7ffc2002 sia 45e1d1c8 desc 41/47/48
-eth0: set link 10baseT auto
-eth0:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth0:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
-eth0: link up, media 10baseT auto
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 32 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 55 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 43 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 2 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: rx err, slot 6 status 0x508329 len 76
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
-NETDEV WATCHDOG: eth0: transmit timed out
-eth0: NIC status fc660000 mode 7ffc2002 sia 45e1d1c8 desc 17/63/0
-eth0: set link 10baseT auto
-eth0:    mode 0x7ffc0040, sia 0x10c4,0xffffef01,0xffffffff,0xffff0008
-eth0:    set mode 0x7ffc0040, set sia 0xef01,0xffff,0x8
-eth0: link up, media 10baseT auto
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb002
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb00a
-eth0: tx err, status 0x7fffb002
 
 -- 
 Martin Michlmayr
