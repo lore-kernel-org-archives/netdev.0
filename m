@@ -1,50 +1,48 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 0/8] Intel I/O Acceleration Technology (I/OAT)
-Date: Tue, 7 Mar 2006 10:44:39 +0300
-Message-ID: <20060307074438.GA22672@2ka.mipt.ru>
-References: <20060303214036.11908.10499.stgit@gitlost.site> <20060304.134144.122314124.davem@davemloft.net> <20060305014324.GA20026@2ka.mipt.ru> <200603061844.07439.netdev@axxeo.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH, RESEND] Add MWI workaround for Tulip DC21143
+Date: Tue, 7 Mar 2006 10:32:13 +0100 (CET)
+Message-ID: <Pine.LNX.4.62.0603071031520.5292@pademelon.sonytel.be>
+References: <20060129230816.GD4094@colonel-panic.org> <20060218220851.GA1601@colonel-panic.org>
+ <20060306225131.GA23327@unjust.cyrius.com> <20060306231530.GB16082@electric-eye.fr.zoreil.com>
+ <20060307035824.GA24018@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, jengelh@linux01.gwdg.de,
-	christopher.leech@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932459AbWCGHo5@vger.kernel.org>
-To: Ingo Oeser <netdev@axxeo.de>
-Content-Disposition: inline
-In-Reply-To: <200603061844.07439.netdev@axxeo.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
+	Linux/MIPS Development <linux-mips@linux-mips.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20060307035824.GA24018@linux-mips.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 06, 2006 at 06:44:07PM +0100, Ingo Oeser (netdev@axxeo.de) wrote:
-> Evgeniy Polyakov wrote:
-> > On Sat, Mar 04, 2006 at 01:41:44PM -0800, David S. Miller (davem@davemloft.net) wrote:
-> > > From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-> > > Date: Sat, 4 Mar 2006 19:46:22 +0100 (MET)
-> > > 
-> > > > Does this buy the normal standard desktop user anything?
-> > > 
-> > > Absolutely, it optimizes end-node performance.
+On Tue, 7 Mar 2006, Ralf Baechle wrote:
+> On Tue, Mar 07, 2006 at 12:15:30AM +0100, Francois Romieu wrote:
+> 
+> > [...]
+> > > Does anyone have comments regarding this patch?  I received
+> > > confirmation from a number of Debian users that this patch
+> > > significantly improves the lockup situation on Cobalt, so
+> > > it would be nice if it could go in.
 > > 
-> > It really depends on how it is used.
-> > According to investigation made for kevent based FS AIO reading,
-> > get_user_pages() performange graph looks like sqrt() function
+> > I'll queue it with the pending de2104x fix(es ?) during my next
+> > upkeep.
 > 
-> Hmm, so I should resurrect my user page table walker abstraction?
-> 
-> There I would hand each page to a "recording" function, which
-> can drop the page from the collection or coalesce it in the collector
-> if your scatter gather implementation allows it.
+> I'm just not convinced of having such a workaround as a build option.
+> The average person building a a kernel will probably not know if the
+> option needs to be enabled or not.
 
-It depends on where performance growth is stopped.
->From the first glance it does not look like find_extend_vma(),
-probably follow_page() fault and thus __handle_mm_fault().
-I can not say actually, but if it is true and performance growth is
-stopped due to increased number of faults and it's processing, 
-your approach will hit this problem too, doesn't it?
+Indeed, if it's mentioned in the errata of the chip, the driver should take
+care of it.
 
-> Regards
-> 
-> Ingo Oeser
+Gr{oetje,eeting}s,
 
--- 
-	Evgeniy Polyakov
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
