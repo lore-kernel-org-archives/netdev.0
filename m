@@ -1,48 +1,65 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH, RESEND] Add MWI workaround for Tulip DC21143
-Date: Tue, 7 Mar 2006 10:32:13 +0100 (CET)
-Message-ID: <Pine.LNX.4.62.0603071031520.5292@pademelon.sonytel.be>
-References: <20060129230816.GD4094@colonel-panic.org> <20060218220851.GA1601@colonel-panic.org>
- <20060306225131.GA23327@unjust.cyrius.com> <20060306231530.GB16082@electric-eye.fr.zoreil.com>
- <20060307035824.GA24018@linux-mips.org>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 0/8] Intel I/O Acceleration Technology (I/OAT)
+Date: Tue, 7 Mar 2006 10:43:59 +0100
+Message-ID: <200603071043.59479.netdev@axxeo.de>
+References: <20060303214036.11908.10499.stgit@gitlost.site> <200603061844.07439.netdev@axxeo.de> <20060307074438.GA22672@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
-	Linux/MIPS Development <linux-mips@linux-mips.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20060307035824.GA24018@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, jengelh@linux01.gwdg.de,
+	christopher.leech@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752133AbWCGJoM@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060307074438.GA22672@2ka.mipt.ru>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Mar 2006, Ralf Baechle wrote:
-> On Tue, Mar 07, 2006 at 12:15:30AM +0100, Francois Romieu wrote:
-> 
-> > [...]
-> > > Does anyone have comments regarding this patch?  I received
-> > > confirmation from a number of Debian users that this patch
-> > > significantly improves the lockup situation on Cobalt, so
-> > > it would be nice if it could go in.
+Evgeniy Polyakov wrote:
+> On Mon, Mar 06, 2006 at 06:44:07PM +0100, Ingo Oeser (netdev@axxeo.de) wrote:
+> > Hmm, so I should resurrect my user page table walker abstraction?
 > > 
-> > I'll queue it with the pending de2104x fix(es ?) during my next
-> > upkeep.
+> > There I would hand each page to a "recording" function, which
+> > can drop the page from the collection or coalesce it in the collector
+> > if your scatter gather implementation allows it.
 > 
-> I'm just not convinced of having such a workaround as a build option.
-> The average person building a a kernel will probably not know if the
-> option needs to be enabled or not.
+> It depends on where performance growth is stopped.
+> From the first glance it does not look like find_extend_vma(),
+> probably follow_page() fault and thus __handle_mm_fault().
+> I can not say actually, but if it is true and performance growth is
+> stopped due to increased number of faults and it's processing, 
+> your approach will hit this problem too, doesn't it?
 
-Indeed, if it's mentioned in the errata of the chip, the driver should take
-care of it.
+My approach reduced the number of loops performed and number
+of memory needed at the expense of doing more work in the main
+loop of get_user_pages. 
 
-Gr{oetje,eeting}s,
+This was mitigated for the common case of getting just one page by 
+providing a get_one_user_page() function.
 
-						Geert
+The whole problem, why we need such multiple loops is that we have
+no common container object for "IO vector + additional data".
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+So we always do a loop working over the vector returned by 
+get_user_pages() all the time. The bigger that vector, 
+the bigger the impact.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+Maybe sth. as simple as providing get_user_pages() with some offset_of 
+and container_of hackery will work these days without the disadvantages 
+my old get_user_pages() work had.
+
+The idea is, that you'll provide a vector (like arguments to calloc) and two 
+offsets: One for the page to store within the offset and one for the vma 
+to store.
+
+If the offset has a special value (e.g MAX_LONG) you don't store there at all.
+
+But if the performance problem really is get_user_pages() itself 
+(and not its callers), then my approach won't help at all.
+
+
+Regards
+
+Ingo Oeser
