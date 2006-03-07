@@ -1,17 +1,18 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: [PATCH] IPoIB: Fix build now that destructor
 	is in neigh_params
-Date: Tue, 07 Mar 2006 14:53:50 -0800 (PST)
-Message-ID: <20060307.145350.77989471.davem@davemloft.net>
-References: <adazmlmmy7v.fsf@cisco.com> <20060306211630.0df79464.akpm@osdl.org>
-	<adawtf6rrh7.fsf_-_@cisco.com>
+Date: Tue, 07 Mar 2006 14:56:44 -0800
+Message-ID: <adawtf5rhhv.fsf@cisco.com>
+References: <adazmlmmy7v.fsf@cisco.com>
+	<20060306211630.0df79464.akpm@osdl.org> <adawtf6rrh7.fsf_-_@cisco.com>
+	<20060307.145350.77989471.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: akpm@osdl.org, netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com
-In-Reply-To: <adawtf6rrh7.fsf_-_@cisco.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060307.145350.77989471.davem@davemloft.net> (David S. Miller's
+	message of "Tue, 07 Mar 2006 14:53:50 -0800 (PST)")
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -23,16 +24,9 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 07 Mar 2006 11:21:08 -0800
+    David> Why not just put this into your -ipoib patch set in -mm?
+    David> The change was for IPOIB's sake anyways...
 
-> Dave, here's an incremental patch that fixes the IPoIB build (which is
-> broken in net-2.6.17 because of my screw-up, which left out the chunk
-> below).  I'll also send a full patch that can replace the "Move
-> destructor from neigh->ops to neigh_params" patch if you'd rather
-> replace it in your tree.
-> 
-> Thanks, and sorry about the screw-up.
+OK, good idea.  I'll put this in my for-2.6.17 and for-mm queues.
 
-Why not just put this into your -ipoib patch set in -mm?
-The change was for IPOIB's sake anyways...
+ - R.
