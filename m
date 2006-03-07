@@ -1,34 +1,34 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [openib-general] Re: [PATCH 6/6] IB: userspace support for RDMA connection manager
-Date: Mon, 06 Mar 2006 16:10:56 -0800
-Message-ID: <adad5gz3yi7.fsf@cisco.com>
-References: <aday7zn432b.fsf@cisco.com>
-	<20060306.143901.26500391.davem@davemloft.net>
-	<adau0ab42ni.fsf@cisco.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Re: [PATCH 6/6] IB: userspace support for
+	RDMA connection manager
+Date: Mon, 06 Mar 2006 16:26:59 -0800 (PST)
+Message-ID: <20060306.162659.129097248.davem@davemloft.net>
+References: <adau0ab42ni.fsf@cisco.com>
 	<20060306.145053.129802994.davem@davemloft.net>
 	<adapskz3zw7.fsf@cisco.com>
-	<1141689930.3814.69.camel@serpentine.pathscale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	openib-general@openib.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751283AbWCGALA@vger.kernel.org>
-To: "Bryan O'Sullivan" <bos@pathscale.com>
-In-Reply-To: <1141689930.3814.69.camel@serpentine.pathscale.com> (Bryan O'Sullivan's message of "Mon, 06 Mar 2006 16:05:30 -0800")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, openib-general@openib.org,
+	netdev@vger.kernel.org
+Return-path: <openib-general-bounces@openib.org>
+To: rdreier@cisco.com
+In-Reply-To: <adapskz3zw7.fsf@cisco.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-    Bryan> Depends on the driver.  Ours needs the interrupt vector
-    Bryan> rather than the number, which means we don't work without
-    Bryan> CONFIG_PCI_MSI.  That is, unless there's some other way to
-    Bryan> get the vector that I don't know about (entirely likely).
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 06 Mar 2006 15:40:56 -0800
 
-OK, fair enough.  But that's a quirk of the x86 architecture that
-you're pretty tied to -- you don't actually need MSI, you just need
-the interrupt numbering that is enabled on x86 with that config option.
+> and 32 threads are probably good for flushing out SMP races.
 
-Since Niagara boxes don't have HT anyway it's kind of a moot point.
-Although I wonder what you would have to do to make your device work
-with something like the MIPS SoCs that have HT...
-
- - R.
+Indeed, guess what I've been spending most of my time working
+on lately? :)
