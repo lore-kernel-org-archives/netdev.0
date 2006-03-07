@@ -1,32 +1,43 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] IPoIB: Fix build now that destructor
-	is in neigh_params
-Date: Tue, 07 Mar 2006 14:56:44 -0800
-Message-ID: <adawtf5rhhv.fsf@cisco.com>
-References: <adazmlmmy7v.fsf@cisco.com>
-	<20060306211630.0df79464.akpm@osdl.org> <adawtf6rrh7.fsf_-_@cisco.com>
-	<20060307.145350.77989471.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] [NETFILTER] ip_queue: Fix wrong skb->len == nlmsg_len
+ assumption
+Date: Tue, 07 Mar 2006 15:01:37 -0800 (PST)
+Message-ID: <20060307.150137.63762785.davem@davemloft.net>
+References: <20060307123143.GO9559@postel.suug.ch> <440D838D.8000302@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, netdev@vger.kernel.org, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060307.145350.77989471.davem@davemloft.net> (David S. Miller's
-	message of "Tue, 07 Mar 2006 14:53:50 -0800 (PST)")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kaber@trash.net
+In-Reply-To: <440D838D.8000302@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-    David> Why not just put this into your -ipoib patch set in -mm?
-    David> The change was for IPOIB's sake anyways...
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 07 Mar 2006 13:58:53 +0100
 
-OK, good idea.  I'll put this in my for-2.6.17 and for-mm queues.
+> Thomas Graf wrote:
+> > The size of the skb carrying the netlink message is not
+> > equivalent to the length of the actual netlink message
+> > due to padding. ip_queue matches the length of the payload
+> > against the original packet size to determine if packet
+> > mangling is desired, due to the above wrong assumption
+> > arbitary packets may not be mangled depening on their
+> > original size.
+> 
+> Looks good, thanks Thomas. I think this should also go in 2.4.
 
- - R.
+Pushed to 2.6.16, 2.6.x stable, and 2.4.x.
+
+Phew!
+
+Thanks Thomas.
