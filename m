@@ -1,19 +1,17 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Re: TSO and IPoIB performance degradation
-Date: Tue, 7 Mar 2006 23:53:22 +0200
-Message-ID: <20060307215322.GD20703@mellanox.co.il>
-References: <OF336D72E6.999D2A30-ON8725712A.00117C92-8825712A.00116629@us.ibm.com>
-	<1141767891.6119.903.camel@localhost>
-	<20060307134907.733d3d27@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] IPoIB: Fix build now that destructor
+	is in neigh_params
+Date: Tue, 07 Mar 2006 14:53:50 -0800 (PST)
+Message-ID: <20060307.145350.77989471.davem@davemloft.net>
+References: <adazmlmmy7v.fsf@cisco.com> <20060306211630.0df79464.akpm@osdl.org>
+	<adawtf6rrh7.fsf_-_@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	openib-general@openib.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060307134907.733d3d27@localhost.localdomain>
+To: rdreier@cisco.com
+In-Reply-To: <adawtf6rrh7.fsf_-_@cisco.com>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -25,11 +23,16 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. Stephen Hemminger <shemminger@osdl.org>:
-> Is IB using NAPI or just doing netif_rx()?
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 07 Mar 2006 11:21:08 -0800
 
-No, IPoIB doesn't use NAPI.
+> Dave, here's an incremental patch that fixes the IPoIB build (which is
+> broken in net-2.6.17 because of my screw-up, which left out the chunk
+> below).  I'll also send a full patch that can replace the "Move
+> destructor from neigh->ops to neigh_params" patch if you'd rather
+> replace it in your tree.
+> 
+> Thanks, and sorry about the screw-up.
 
--- 
-Michael S. Tsirkin
-Staff Engineer, Mellanox Technologies
+Why not just put this into your -ipoib patch set in -mm?
+The change was for IPOIB's sake anyways...
