@@ -1,41 +1,35 @@
-From: Andreas Schwab <schwab@suse.de>
-Subject: Re: GigE on PowerMac G5
-Date: Tue, 07 Mar 2006 13:53:21 +0100
-Message-ID: <jer75exvpa.fsf@sykes.suse.de>
-References: <jebqwmfeh9.fsf@sykes.suse.de>
-	<1141507000.17127.4.camel@localhost.localdomain>
-	<jefylvzwhw.fsf@sykes.suse.de>
-	<1141650907.11221.61.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] [NETFILTER] ip_queue: Fix wrong skb->len == nlmsg_len
+ assumption
+Date: Tue, 07 Mar 2006 13:58:53 +0100
+Message-ID: <440D838D.8000302@trash.net>
+References: <20060307123143.GO9559@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, linuxppc64-dev@ozlabs.org
-Return-path: <linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1141650907.11221.61.camel@localhost.localdomain> (Benjamin
-	Herrenschmidt's message of "Tue, 07 Mar 2006 00:15:06 +1100")
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
-List-Post: <mailto:linuxppc64-dev@ozlabs.org>
-List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
-	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc64-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060307123143.GO9559@postel.suug.ch>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt <benh@kernel.crashing.org> writes:
+Thomas Graf wrote:
+> The size of the skb carrying the netlink message is not
+> equivalent to the length of the actual netlink message
+> due to padding. ip_queue matches the length of the payload
+> against the original packet size to determine if packet
+> mangling is desired, due to the above wrong assumption
+> arbitary packets may not be mangled depening on their
+> original size.
 
-> At this point, all I can say is... does it work in OS X ?
-
-Strange, OS X can't do it either.  Looks like I have a hardware problem.
-
-Andreas.
-
--- =
-
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Looks good, thanks Thomas. I think this should also go in 2.4.
