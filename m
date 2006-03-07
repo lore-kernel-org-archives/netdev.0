@@ -1,38 +1,53 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.16-rc5-mm2: IPW_QOS: two remarks
-Date: Tue, 7 Mar 2006 18:06:42 +0100
-Message-ID: <20060307170642.GE3974@stusta.de>
-References: <20060303045651.1f3b55ec.akpm@osdl.org> <20060303152641.GR9295@stusta.de> <200603050146.27529.andreashappe@snikt.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH] IPoIB: Fix build now that destructor is in
+	neigh_params
+Date: Tue, 07 Mar 2006 11:21:08 -0800
+Message-ID: <adawtf6rrh7.fsf_-_@cisco.com>
+References: <adazmlmmy7v.fsf@cisco.com> <20060306211630.0df79464.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	linville@tuxdriver.com, jgarzik@pobox.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751253AbWCGRGp@vger.kernel.org>
-To: Andreas Happe <andreashappe@snikt.net>
-Content-Disposition: inline
-In-Reply-To: <200603050146.27529.andreashappe@snikt.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060306211630.0df79464.akpm@osdl.org> (Andrew Morton's message
+	of "Mon, 6 Mar 2006 21:16:30 -0800")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 05, 2006 at 01:46:26AM +0100, Andreas Happe wrote:
-> On Friday 03 March 2006 16:26, Adrian Bunk wrote:
->...
-> > - please add a help text
-> 
-> i could add some stuff about WMM to its help text, but I think someone more 
-> involved with the ipw2200-project should do that.
+Dave, here's an incremental patch that fixes the IPoIB build (which is
+broken in net-2.6.17 because of my screw-up, which left out the chunk
+below).  I'll also send a full patch that can replace the "Move
+destructor from neigh->ops to neigh_params" patch if you'd rather
+replace it in your tree.
 
-Even a short help text is better than no help text.
+Thanks, and sorry about the screw-up.
 
-> andy
->...
+---
 
-cu
-Adrian
+Get rid of the last place in IPoIB where we clear
+neigh->neighbour->ops->destructor.  This is broken now that the
+destructor member has moved to neigh_params.
 
--- 
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+index a2408d7..19fd173 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+@@ -115,7 +115,6 @@ static void ipoib_mcast_free(struct ipoi
+ 		if (neigh->ah)
+ 			ipoib_put_ah(neigh->ah);
+ 		*to_ipoib_neigh(neigh->neighbour) = NULL;
+-		neigh->neighbour->ops->destructor = NULL;
+ 		kfree(neigh);
+ 	}
+ 
