@@ -1,20 +1,14 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: Re: Re: TSO and IPoIB performance degradation
-Date: Wed, 8 Mar 2006 14:53:11 +0200
-Message-ID: <20060308125311.GE17618@mellanox.co.il>
-References: <1141776697.6119.938.camel@localhost>
-	<20060307.161808.60227862.davem@davemloft.net>
-	<adaacc1raz9.fsf@cisco.com>
-	<20060307.172336.107863253.davem@davemloft.net>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: [PATCH][RFC] Notifier mechanism to notify RDMA
+	devices of network events
+Date: Wed, 08 Mar 2006 10:38:17 -0600
+Message-ID: <1141835897.32470.43.camel@trinity.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rdreier@cisco.com,
-	linux-kernel@vger.kernel.org, openib-general@openib.org,
-	shemminger@osdl.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060307.172336.107863253.davem@davemloft.net>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -26,29 +20,259 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. David S. Miller <davem@davemloft.net>:
-> Subject: Re: Re: TSO and IPoIB performance degradation
-> 
-> From: Roland Dreier <rdreier@cisco.com>
-> Date: Tue, 07 Mar 2006 17:17:30 -0800
-> 
-> > The reason TSO comes up is that reverting the patch described below
-> > helps (or helped at some point at least) IPoIB throughput quite a bit.
-> 
-> I wish you had started the thread by mentioning this specific patch
 
-Er, since you mention it, the first message in thread did include this link:
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=314324121f9b94b2ca657a494cf2b9cb0e4a28cc
-and I even pasted the patch description there, but oh well.
+This patch implements a mechanism that allows interested clients to 
+register for notification of certain network events. The intended use
+is to allow RDMA(OpenIB) devices to be notified of neighbour updates, 
+ICMP redirects, path MTU changes, and route changes. 
 
-Now that Roland helped us clear it all up, and now that it has been clarified
-that reverting this patch gives us back most of the performance, is the answer
-to my question the same?
+The reason these devices need update events is because they typically 
+cache this information in hardware and need to be notified when
+this information has been updated.
 
-What I was trying to figure out was, how can we re-enable the trick without
-hurting TSO? Could a solution be to simply look at the frame size, and call
-tcp_send_delayed_ack if the frame size is small?
+This approach is one of many possibilities and may be preferred because
+it uses an existing notification mechanism that has precedent in the 
+stack. 
 
--- 
-Michael S. Tsirkin
-Staff Engineer, Mellanox Technologies
+This code does not yet implement path MTU change because the number of 
+places in which this value is updated is large and if this mechanism seems
+reasonable, it would be probably be best to funnel these updates through a 
+single function.
+
+
+diff -u -r -x '.*' --new-file linux-2.6.14.5/include/net/netevent.h linux-2.6.14.5.tom/include/net/netevent.h
+--- linux-2.6.14.5/include/net/netevent.h	1969-12-31 18:00:00.000000000 -0600
++++ linux-2.6.14.5.tom/include/net/netevent.h	2006-01-16 13:42:09.000000000 -0600
+@@ -0,0 +1,41 @@
++#ifndef _NET_EVENT_H
++#define _NET_EVENT_H
++
++/*
++ *	Generic netevent notifiers
++ *
++ *	Authors:
++ *      Tom Tucker              <tom@opengridcomputing.com>
++ *
++ * 	Changes:
++ */
++
++#ifdef __KERNEL__
++
++#include <net/dst.h>
++
++struct netevent_redirect {
++	struct dst_entry *old;
++	struct dst_entry *new;
++};
++
++struct netevent_route_change {
++        int event;
++        struct fib_info *fib_info;
++};
++
++enum netevent_notif_type {
++	NETEVENT_NEIGH_UPDATE = 1, /* arg is * struct neighbour */
++	NETEVENT_ROUTE_UPDATE,	   /* arg is * netevent_route_change */
++	NETEVENT_PMTU_UPDATE,
++	NETEVENT_REDIRECT,	   /* arg is * struct netevent_redirect */
++};
++
++extern int register_netevent_notifier(struct notifier_block *nb);
++extern int unregister_netevent_notifier(struct notifier_block *nb);
++extern int call_netevent_notifiers(unsigned long val, void *v);
++
++#endif
++#endif
++
++
+diff -u -r -x '.*' --new-file linux-2.6.14.5/net/core/Makefile linux-2.6.14.5.tom/net/core/Makefile
+--- linux-2.6.14.5/net/core/Makefile	2005-12-26 18:26:33.000000000 -0600
++++ linux-2.6.14.5.tom/net/core/Makefile	2006-01-16 13:41:42.000000000 -0600
+@@ -7,7 +7,7 @@
+ 
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
+-obj-y		     += dev.o ethtool.o dev_mcast.o dst.o \
++obj-y		     += dev.o ethtool.o dev_mcast.o dst.o netevent.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
+ 
+ obj-$(CONFIG_XFRM) += flow.o
+diff -u -r -x '.*' --new-file linux-2.6.14.5/net/core/neighbour.c linux-2.6.14.5.tom/net/core/neighbour.c
+--- linux-2.6.14.5/net/core/neighbour.c	2005-12-26 18:26:33.000000000 -0600
++++ linux-2.6.14.5.tom/net/core/neighbour.c	2006-01-16 13:41:42.000000000 -0600
+@@ -30,9 +30,11 @@
+ #include <net/neighbour.h>
+ #include <net/dst.h>
+ #include <net/sock.h>
++#include <net/netevent.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/random.h>
+ #include <linux/string.h>
++#include <linux/notifier.h>
+ 
+ #define NEIGH_DEBUG 1
+ 
+@@ -756,6 +758,7 @@
+ 			NEIGH_PRINTK2("neigh %p is suspected.\n", neigh);
+ 			neigh->nud_state = NUD_STALE;
+ 			neigh_suspect(neigh);
++			call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
+ 		}
+ 	} else if (state & NUD_DELAY) {
+ 		if (time_before_eq(now, 
+@@ -763,6 +766,7 @@
+ 			NEIGH_PRINTK2("neigh %p is now reachable.\n", neigh);
+ 			neigh->nud_state = NUD_REACHABLE;
+ 			neigh_connect(neigh);
++			call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
+ 			next = neigh->confirmed + neigh->parms->reachable_time;
+ 		} else {
+ 			NEIGH_PRINTK2("neigh %p is probed.\n", neigh);
+@@ -781,6 +785,7 @@
+ 
+ 		neigh->nud_state = NUD_FAILED;
+ 		notify = 1;
++		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
+ 		NEIGH_CACHE_STAT_INC(neigh->tbl, res_failed);
+ 		NEIGH_PRINTK2("neigh %p is failed.\n", neigh);
+ 
+@@ -1051,6 +1056,9 @@
+ 			(neigh->flags | NTF_ROUTER) :
+ 			(neigh->flags & ~NTF_ROUTER);
+ 	}
++
++	call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
++
+ 	write_unlock_bh(&neigh->lock);
+ #ifdef CONFIG_ARPD
+ 	if (notify && neigh->parms->app_probes)
+diff -u -r -x '.*' --new-file linux-2.6.14.5/net/core/netevent.c linux-2.6.14.5.tom/net/core/netevent.c
+--- linux-2.6.14.5/net/core/netevent.c	1969-12-31 18:00:00.000000000 -0600
++++ linux-2.6.14.5.tom/net/core/netevent.c	2006-01-16 13:50:25.000000000 -0600
+@@ -0,0 +1,69 @@
++/*
++ *	Network event notifiers
++ *
++ *	Authors:
++ *      Tom Tucker             <tom@opengridcomputing.com>
++ *
++ *	This program is free software; you can redistribute it and/or
++ *      modify it under the terms of the GNU General Public License
++ *      as published by the Free Software Foundation; either version
++ *      2 of the License, or (at your option) any later version.
++ *
++ *	Fixes:
++ */
++
++#include <linux/rtnetlink.h>
++#include <linux/notifier.h>
++
++static struct notifier_block *netevent_notif_chain;
++
++/**
++ *	register_netevent_notifier - register a netevent notifier block
++ *	@nb: notifier
++ *
++ *	Register a notifier to be called when a netevent occurs.
++ *	The notifier passed is linked into the kernel structures and must
++ *	not be reused until it has been unregistered. A negative errno code
++ *	is returned on a failure.
++ */
++int register_netevent_notifier(struct notifier_block *nb)
++{
++	int err;
++
++	rtnl_lock();
++	err = notifier_chain_register(&netevent_notif_chain, nb);
++	rtnl_unlock();
++	return err;
++}
++
++/**
++ *	netevent_unregister_notifier - unregister a netevent notifier block
++ *	@nb: notifier
++ *
++ *	Unregister a notifier previously registered by
++ *	register_neigh_notifier(). The notifier is unlinked into the
++ *	kernel structures and may then be reused. A negative errno code
++ *	is returned on a failure.
++ */
++
++int unregister_netevent_notifier(struct notifier_block *nb)
++{
++	return notifier_chain_unregister(&netevent_notif_chain, nb);
++}
++
++/**
++ *	call_netevent_notifiers - call all netevent notifier blocks
++ *      @val: value passed unmodified to notifier function
++ *      @v:   pointer passed unmodified to notifier function
++ *
++ *	Call all neighbour notifier blocks.  Parameters and return value
++ *	are as for notifier_call_chain().
++ */
++
++int call_netevent_notifiers(unsigned long val, void *v)
++{
++	return notifier_call_chain(&netevent_notif_chain, val, v);
++}
++
++EXPORT_SYMBOL(register_netevent_notifier);
++EXPORT_SYMBOL(unregister_netevent_notifier);
+diff -u -r -x '.*' --new-file linux-2.6.14.5/net/ipv4/fib_semantics.c linux-2.6.14.5.tom/net/ipv4/fib_semantics.c
+--- linux-2.6.14.5/net/ipv4/fib_semantics.c	2005-12-26 18:26:33.000000000 -0600
++++ linux-2.6.14.5.tom/net/ipv4/fib_semantics.c	2006-01-16 13:41:42.000000000 -0600
+@@ -43,6 +43,7 @@
+ #include <net/sock.h>
+ #include <net/ip_fib.h>
+ #include <net/ip_mp_alg.h>
++#include <net/netevent.h>
+ 
+ #include "fib_lookup.h"
+ 
+@@ -276,9 +277,15 @@
+ 	       struct nlmsghdr *n, struct netlink_skb_parms *req)
+ {
+ 	struct sk_buff *skb;
++	struct netevent_route_change rev;
++
+ 	u32 pid = req ? req->pid : n->nlmsg_pid;
+ 	int size = NLMSG_SPACE(sizeof(struct rtmsg)+256);
+ 
++	rev.event = event;
++	rev.fib_info = fa->fa_info;
++	call_netevent_notifiers(NETEVENT_ROUTE_UPDATE, &rev);
++
+ 	skb = alloc_skb(size, GFP_KERNEL);
+ 	if (!skb)
+ 		return;
+diff -u -r -x '.*' --new-file linux-2.6.14.5/net/ipv4/route.c linux-2.6.14.5.tom/net/ipv4/route.c
+--- linux-2.6.14.5/net/ipv4/route.c	2005-12-26 18:26:33.000000000 -0600
++++ linux-2.6.14.5.tom/net/ipv4/route.c	2006-01-16 13:41:42.000000000 -0600
+@@ -103,6 +103,7 @@
+ #include <net/icmp.h>
+ #include <net/xfrm.h>
+ #include <net/ip_mp_alg.h>
++#include <net/netevent.h>
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
+ #endif
+@@ -1118,6 +1119,7 @@
+ 	struct rtable *rth, **rthp;
+ 	u32  skeys[2] = { saddr, 0 };
+ 	int  ikeys[2] = { dev->ifindex, 0 };
++	struct netevent_redirect netevent;
+ 
+ 	tos &= IPTOS_RT_MASK;
+ 
+@@ -1213,6 +1215,10 @@
+ 					rt_drop(rt);
+ 					goto do_next;
+ 				}
++				
++				netevent.old = &rth->u.dst;
++				netevent.new = &rt->u.dst;
++				call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
+ 
+ 				rt_del(hash, rth);
+ 				if (!rt_intern_hash(hash, rt, &rt))
