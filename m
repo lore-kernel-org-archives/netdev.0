@@ -1,44 +1,131 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] compat. ifconf: fix limits
-Date: Wed, 8 Mar 2006 09:16:08 -0800
-Message-ID: <20060308091608.c56360dd.rdunlap@xenotime.net>
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
+Subject: Re: [patch 1/4] net: percpufy frequently used vars -- add percpu_counter_mod_bh
+Date: Wed, 8 Mar 2006 12:26:56 -0800
+Message-ID: <20060308202656.GA4493@localhost.localdomain>
+References: <20060308015808.GA9062@localhost.localdomain> <20060308015934.GB9062@localhost.localdomain> <20060307181301.4dd6aa96.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexandra.Kossovsky@oktetlabs.ru, ak@suse.de, akpm@osdl.org,
-	torvalds@osdl.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-To: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, shai@scalex86.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932353AbWCHU0a@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060307181301.4dd6aa96.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+On Tue, Mar 07, 2006 at 06:13:01PM -0800, Andrew Morton wrote:
+> Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+> >
+> > +static inline void percpu_counter_mod_bh(struct percpu_counter *fbc, long amount)
+> >  +{
+> >  +	local_bh_disable();
+> >  +	percpu_counter_mod(fbc, amount);
+> >  +	local_bh_enable();
+> >  +}
+> >  +
+> 
+> percpu_counter_mod() does preempt_disable(), which is redundant in this
+> context.  So just do fbc->count += amount; here.
 
-A recent change to compat. dev_ifconf() in fs/compat_ioctl.c
-causes ifconf data to be truncated 1 entry too early when copying it
-to userspace.  The correct amount of data (length) is returned,
-but the final entry is empty (zero, not filled in).
-The for-loop 'i' check should use <= to allow the final struct
-ifreq32 to be copied.  I also used the ifconf-corruption program
-in kernel bugzilla #4746 to make sure that this change does not
-re-introduce the corruption.
-
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- fs/compat_ioctl.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2616-rc5.orig/fs/compat_ioctl.c
-+++ linux-2616-rc5/fs/compat_ioctl.c
-@@ -446,7 +446,7 @@ static int dev_ifconf(unsigned int fd, u
- 	ifr = ifc.ifc_req;
- 	ifr32 = compat_ptr(ifc32.ifcbuf);
- 	for (i = 0, j = 0;
--             i + sizeof (struct ifreq32) < ifc32.ifc_len && j < ifc.ifc_len;
-+             i + sizeof (struct ifreq32) <= ifc32.ifc_len && j < ifc.ifc_len;
- 	     i += sizeof (struct ifreq32), j += sizeof (struct ifreq)) {
- 		if (copy_in_user(ifr32, ifr, sizeof (struct ifreq32)))
- 			return -EFAULT;
+OK.  Here is the revised patch.
 
 
----
+Add percpu_counter_mod_bh for using these counters safely from
+both softirq and process context.
+
+Signed-off by: Pravin B. Shelar <pravins@calsoftinc.com>
+Signed-off by: Ravikiran G Thirumalai <kiran@scalex86.org>
+Signed-off by: Shai Fultheim <shai@scalex86.org>
+
+Index: linux-2.6.16-rc5mm3/include/linux/percpu_counter.h
+===================================================================
+--- linux-2.6.16-rc5mm3.orig/include/linux/percpu_counter.h	2006-03-07 15:08:00.000000000 -0800
++++ linux-2.6.16-rc5mm3/include/linux/percpu_counter.h	2006-03-08 10:53:13.000000000 -0800
+@@ -11,6 +11,7 @@
+ #include <linux/smp.h>
+ #include <linux/threads.h>
+ #include <linux/percpu.h>
++#include <linux/interrupt.h>
+ 
+ #ifdef CONFIG_SMP
+ 
+@@ -40,6 +41,7 @@ static inline void percpu_counter_destro
+ 
+ void percpu_counter_mod(struct percpu_counter *fbc, long amount);
+ long percpu_counter_sum(struct percpu_counter *fbc);
++void percpu_counter_mod_bh(struct percpu_counter *fbc, long amount);
+ 
+ static inline long percpu_counter_read(struct percpu_counter *fbc)
+ {
+@@ -98,6 +100,12 @@ static inline long percpu_counter_sum(st
+ 	return percpu_counter_read_positive(fbc);
+ }
+ 
++static inline void percpu_counter_mod_bh(struct percpu_counter *fbc, long amount)
++{
++	local_bh_disable();
++	fbc->count += amount;
++	local_bh_enable();
++}
+ #endif	/* CONFIG_SMP */
+ 
+ static inline void percpu_counter_inc(struct percpu_counter *fbc)
+@@ -110,4 +118,5 @@ static inline void percpu_counter_dec(st
+ 	percpu_counter_mod(fbc, -1);
+ }
+ 
++
+ #endif /* _LINUX_PERCPU_COUNTER_H */
+Index: linux-2.6.16-rc5mm3/mm/swap.c
+===================================================================
+--- linux-2.6.16-rc5mm3.orig/mm/swap.c	2006-03-07 15:08:01.000000000 -0800
++++ linux-2.6.16-rc5mm3/mm/swap.c	2006-03-08 12:11:19.000000000 -0800
+@@ -521,11 +521,11 @@ static int cpu_swap_callback(struct noti
+ #endif /* CONFIG_SMP */
+ 
+ #ifdef CONFIG_SMP
+-void percpu_counter_mod(struct percpu_counter *fbc, long amount)
++static void __percpu_counter_mod(struct percpu_counter *fbc, long amount)
+ {
+ 	long count;
+ 	long *pcount;
+-	int cpu = get_cpu();
++	int cpu = smp_processor_id();
+ 
+ 	pcount = per_cpu_ptr(fbc->counters, cpu);
+ 	count = *pcount + amount;
+@@ -537,9 +537,21 @@ void percpu_counter_mod(struct percpu_co
+ 	} else {
+ 		*pcount = count;
+ 	}
+-	put_cpu();
+ }
+-EXPORT_SYMBOL(percpu_counter_mod);
++
++void percpu_counter_mod(struct percpu_counter *fbc, long amount)
++{
++	preempt_disable();
++	__percpu_counter_mod(fbc, amount);
++	preempt_enable();
++}
++
++void percpu_counter_mod_bh(struct percpu_counter *fbc, long amount)
++{
++	local_bh_disable();
++	__percpu_counter_mod(fbc, amount);
++	local_bh_enable();
++}
+ 
+ /*
+  * Add up all the per-cpu counts, return the result.  This is a more accurate
+@@ -559,6 +571,9 @@ long percpu_counter_sum(struct percpu_co
+ 	spin_unlock(&fbc->lock);
+ 	return ret < 0 ? 0 : ret;
+ }
++
++EXPORT_SYMBOL(percpu_counter_mod);
++EXPORT_SYMBOL(percpu_counter_mod_bh);
+ EXPORT_SYMBOL(percpu_counter_sum);
+ #endif
+ 
