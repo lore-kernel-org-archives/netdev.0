@@ -1,55 +1,38 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 3/4] net: percpufy frequently used vars --
- proto.sockets_allocated
-Date: Tue, 7 Mar 2006 18:16:02 -0800
-Message-ID: <20060307181602.77030e2a.akpm@osdl.org>
-References: <20060308015808.GA9062@localhost.localdomain>
-	<20060308020227.GD9062@localhost.localdomain>
+From: Ravikiran G Thirumalai <kiran@scalex86.org>
+Subject: Re: [patch 2/4] net: percpufy frequently used vars -- struct proto.memory_allocated
+Date: Tue, 7 Mar 2006 19:08:03 -0800
+Message-ID: <20060308030803.GF9062@localhost.localdomain>
+References: <20060308015808.GA9062@localhost.localdomain> <20060308020118.GC9062@localhost.localdomain> <20060307181422.3e279ca1.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
 	netdev@vger.kernel.org, shai@scalex86.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752031AbWCHCSF@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060308020227.GD9062@localhost.localdomain>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964889AbWCHDHY@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060307181422.3e279ca1.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
->
-> --- linux-2.6.16-rc5mm3.orig/include/net/sock.h	2006-03-07 15:09:22.000000000 -0800
->  +++ linux-2.6.16-rc5mm3/include/net/sock.h	2006-03-07 15:09:52.000000000 -0800
->  @@ -543,7 +543,7 @@ struct proto {
->   	/* Memory pressure */
->   	void			(*enter_memory_pressure)(void);
->   	struct percpu_counter	*memory_allocated;	/* Current allocated memory. */
->  -	atomic_t		*sockets_allocated;	/* Current number of sockets. */
->  +	int                     *sockets_allocated;     /* Current number of sockets (percpu counter). */
->   
->   	/*
->   	 * Pressure flag: try to collapse.
->  @@ -579,6 +579,24 @@ struct proto {
->   	} stats[NR_CPUS];
->   };
->   
->  +static inline int read_sockets_allocated(struct proto *prot)
->  +{
->  +	int total = 0;
->  +	int cpu;
->  +	for_each_cpu(cpu)
->  +		total += *per_cpu_ptr(prot->sockets_allocated, cpu);
->  +	return total;
->  +}
+On Tue, Mar 07, 2006 at 06:14:22PM -0800, Andrew Morton wrote:
+> Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
+> >
+> > -	if (atomic_read(sk->sk_prot->memory_allocated) < sk->sk_prot->sysctl_mem[0]) {
+> >  +	if (percpu_counter_read(sk->sk_prot->memory_allocated) <
+> >  +			sk->sk_prot->sysctl_mem[0]) {
+> 
+> Bear in mind that percpu_counter_read[_positive] can be inaccurate on large
+> CPU counts.
+> 
+> It might be worth running percpu_counter_sum() to get the exact count if we
+> think we're about to cause something to fail.
 
-This is likely too big to be inlined, plus sock.h doesn't include enough
-headers to reliably compile this code.
-
->  +static inline void mod_sockets_allocated(int *sockets_allocated, int count)
->  +{
->  +	(*per_cpu_ptr(sockets_allocated, get_cpu())) += count;
->  +	put_cpu();
->  +}
->  +
-
-Ditto.
+The problem is percpu_counter_sum has to read all the cpus cachelines.  If
+we have to use percpu_counter_sum everywhere, then might as well use plain
+per-cpu counters instead of  batching ones no?
+ 
+sysctl_mem[0] is about 196K  and on a 16 cpu box variance is 512 bytes, which 
+is OK with just percpu_counter_read I hope.  Maybe, on very large cpu counts, 
+we should just change the FBC_BATCH so that variance does not go quadratic.
+Something like 32.  So that variance is 32 * NR_CPUS in that case, instead
+of (NR_CPUS * NR_CPUS * 2) currently.  Comments?
