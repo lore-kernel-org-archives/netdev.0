@@ -1,43 +1,131 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER] ip_queue: Fix wrong skb->len == nlmsg_len
- assumption
-Date: Tue, 07 Mar 2006 15:01:37 -0800 (PST)
-Message-ID: <20060307.150137.63762785.davem@davemloft.net>
-References: <20060307123143.GO9559@postel.suug.ch> <440D838D.8000302@trash.net>
+From: Matt Leininger <mlleinin@hpcn.ca.sandia.gov>
+Subject: Re: Re: TSO and IPoIB performance degradation
+Date: Tue, 07 Mar 2006 16:11:37 -0800
+Message-ID: <1141776697.6119.938.camel@localhost>
+References: <OF336D72E6.999D2A30-ON8725712A.00117C92-8825712A.00116629@us.ibm.com>
+	<1141767891.6119.903.camel@localhost>
+	<20060307134907.733d3d27@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: kaber@trash.net
-In-Reply-To: <440D838D.8000302@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	openib-general@openib.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <openib-general-bounces@openib.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060307134907.733d3d27@localhost.localdomain>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 07 Mar 2006 13:58:53 +0100
-
-> Thomas Graf wrote:
-> > The size of the skb carrying the netlink message is not
-> > equivalent to the length of the actual netlink message
-> > due to padding. ip_queue matches the length of the payload
-> > against the original packet size to determine if packet
-> > mangling is desired, due to the above wrong assumption
-> > arbitary packets may not be mangled depening on their
-> > original size.
+On Tue, 2006-03-07 at 13:49 -0800, Stephen Hemminger wrote:
+> On Tue, 07 Mar 2006 13:44:51 -0800
+> Matt Leininger <mlleinin@hpcn.ca.sandia.gov> wrote:
 > 
-> Looks good, thanks Thomas. I think this should also go in 2.4.
+> > On Mon, 2006-03-06 at 19:13 -0800, Shirley Ma wrote:
+> > > 
+> > > > More likely you are getting hit by the fact that TSO prevents the
+> > > congestion
+> > > window from increasing properly. This was fixed in 2.6.15 (around mid
+> > > of Nov 2005). 
+> > > 
+> > > Yep, I noticed the same problem. After updating to the new kernel, the
+> > > performance are much better, but it's still lower than before.
+> > 
+> >  Here is an updated version of OpenIB IPoIB performance for various
+> > kernels with and without one of the TSO patches.  The netperf
+> > performance for the latest kernels has not improved the TSO performance
+> > drop.
+> > 
+> >   Any comments or suggestions would be appreciated.
+> > 
+> >   - Matt
+> 
+> Configuration information? like did you increase the tcp_rmem, tcp_wmem?
+> Tcpdump traces of what is being sent and available window?
+> Is IB using NAPI or just doing netif_rx()?
 
-Pushed to 2.6.16, 2.6.x stable, and 2.4.x.
+  I used the standard setting for tcp_rmem and tcp_wmem.   Here are a
+few other runs that change those variables.  I was able to improve
+performance by ~30MB/s to 403 MB/s, but this is still a ways from the
+474 MB/s before the TSO patches.
 
-Phew!
+ Thanks,
 
-Thanks Thomas.
+	- Matt
+
+All benchmarks are with RHEL4 x86_64 with HCA FW v4.7.0
+dual EM64T 3.2 GHz PCIe IB HCA (memfull)
+patch 1 - remove changeset 314324121f9b94b2ca657a494cf2b9cb0e4a28cc
+msi_x=1 for all tests
+
+Kernel                OpenIB     netperf (MB/s)  
+2.6.16-rc5           in-kernel    403      
+tcp_wmem 4096 87380 16777216 tcp_rmem 4096 87380 16777216
+
+2.6.16-rc5           in-kernel    395      
+tcp_wmem 4096 102400 16777216 tcp_rmem 4096 102400 16777216
+
+2.6.16-rc5           in-kernel    392      
+tcp_wmem 4096 65536 16777216 tcp_rmem 4096 87380 16777216
+
+2.6.16-rc5           in-kernel    394      
+tcp_wmem 4096 131072 16777216 tcp_rmem 4096 102400 16777216
+
+2.6.16-rc5           in-kernel    377      
+tcp_wmem 4096 131072 16777216 tcp_rmem 4096 153600 16777216
+
+2.6.16-rc5           in-kernel    377      
+tcp_wmem 4096 131072 16777216 tcp_rmem 4096 131072 16777216
+
+2.6.16-rc5           in-kernel    353      
+tcp_wmem 4096 262144 16777216 tcp_rmem 4096 262144 16777216
+
+2.6.16-rc5           in-kernel    305      
+tcp_wmem 4096 262144 16777216 tcp_rmem 4096 524288 16777216
+
+2.6.16-rc5           in-kernel    303      
+tcp_wmem 4096 131072 16777216 tcp_rmem 4096 524288 16777216
+
+2.6.16-rc5           in-kernel    290      
+tcp_wmem 4096 524288 16777216 tcp_rmem 4096 524288 16777216
+
+2.6.16-rc5           in-kernel    367      default tcp values
+
+--------------------
+All with standard tcp settings
+Kernel                OpenIB     netperf (MB/s)  
+2.6.16-rc5           in-kernel    367      
+2.6.15               in-kernel    382
+2.6.14-rc4 patch 12  in-kernel    436 
+2.6.14-rc4 patch 1   in-kernel    434 
+2.6.14-rc4           in-kernel    385 
+2.6.14-rc3           in-kernel    374 
+2.6.13.2             svn3627      386 
+2.6.13.2 patch 1     svn3627      446 
+2.6.13.2             in-kernel    394 
+2.6.13-rc3 patch 12  in-kernel    442 
+2.6.13-rc3 patch 1   in-kernel    450 
+2.6.13-rc3           in-kernel    395
+2.6.12.5-lustre      in-kernel    399  
+2.6.12.5 patch 1     in-kernel    464
+2.6.12.5             in-kernel    402 
+2.6.12               in-kernel    406 
+2.6.12-rc6 patch 1   in-kernel    470 
+2.6.12-rc6           in-kernel    407
+2.6.12-rc5           in-kernel    405 
+2.6.12-rc5 patch 1   in-kernel    474
+2.6.12-rc4           in-kernel    470 
+2.6.12-rc3           in-kernel    466 
+2.6.12-rc2           in-kernel    469 
+2.6.12-rc1           in-kernel    466
+2.6.11               in-kernel    464 
+2.6.11               svn3687      464 
+2.6.9-11.ELsmp       svn3513      425  (Woody's results, 3.6Ghz EM64T) 
