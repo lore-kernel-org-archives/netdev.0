@@ -1,35 +1,178 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [patch 1/4] net: percpufy frequently used vars -- add percpu_counter_mod_bh
-Date: Wed, 8 Mar 2006 16:17:33 -0500
-Message-ID: <20060308211733.GA5410@kvack.org>
-References: <20060308015808.GA9062@localhost.localdomain> <20060308015934.GB9062@localhost.localdomain> <20060307181301.4dd6aa96.akpm@osdl.org> <20060308202656.GA4493@localhost.localdomain> <20060308203642.GZ5410@kvack.org> <20060308210726.GD4493@localhost.localdomain>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: Re: [Patch 7/7] Generic netlink interface (delay	accounting)
+Date: Wed, 08 Mar 2006 16:56:15 -0500
+Message-ID: <440F52FF.30908@watson.ibm.com>
+References: <1141026996.5785.38.camel@elinux04.optonline.net>	 <1141029060.5785.77.camel@elinux04.optonline.net>	 <1141045194.5363.12.camel@localhost.localdomain>	 <4403608E.1050304@watson.ibm.com>	 <1141652556.5185.64.camel@localhost.localdomain>	 <440C6AAA.9030301@watson.ibm.com> <1141742282.5171.55.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org, shai@scalex86.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932274AbWCHVWz@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-Content-Disposition: inline
-In-Reply-To: <20060308210726.GD4493@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	lse-tech@lists.sourceforge.net
+Return-path: <lse-tech-admin@lists.sourceforge.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1141742282.5171.55.camel@localhost.localdomain>
+Sender: lse-tech-admin@lists.sourceforge.net
+Errors-To: lse-tech-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/lse-tech>,
+	<mailto:lse-tech-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:lse-tech@lists.sourceforge.net>
+List-Help: <mailto:lse-tech-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/lse-tech>,
+	<mailto:lse-tech-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=lse-tech>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 08, 2006 at 01:07:26PM -0800, Ravikiran G Thirumalai wrote:
-> But on non x86, local_bh_disable() is gonna be cheaper than a cli/atomic op no?
-> (Even if they were switched over to do local_irq_save() and
-> local_irq_restore() from atomic_t's that is).
+jamal wrote:
 
-It's still more expensive than local_t.
+>On Mon, 2006-06-03 at 12:00 -0500, Shailabh Nagar wrote:
+>
+>  
+>
+>>My design was to have the listener get both responses (what I call 
+>>replies in the code) as well as events (data sent on exit of pid)
+>>
+>>    
+>>
+>
+>I think i may not be doing justice explaining this, so let me be more
+>elaborate so we can be in sync.
+>Here is the classical way of doing things:
+>
+>- Assume several apps in user space and a target in the kernel (this
+>could be reversed or combined in many ways, but the sake of
+>simplicity/clarity make the above assumption).
+>- suppose we have five user space apps A, B, C, D, E; these processes
+>would typically do one of the following class of activities:
+>
+>a) configure (ADD/NEW/DEL etc). This is issued towards the kernel to
+>set/create/delete/flush some scalar attribute or vector. These sorts of
+>commands are synchronous. i.e you issue them, you expect a response
+>(which may indicate success/failure etc). The response is unicast; the
+>effect of what they affected may cause an event which may be multicast.
+>
+>b) query(GET). This is issued towards the kernel to query state of
+>configured items. These class of commands are also synchronous. There
+>are special cases of the query which dump everything in the target -
+>literally called "dumps". The response is unicast.
+>
+>c) events. These are _asynchronous_ messages issued by the kernel to
+>indicate some happening in the kernel. The event may be caused by #a
+>above or any other activity in the kernel. Events are multicast.
+>To receive them you have to register for the multicast group. You do so
+>via sockets. You can register to many multicast group.
+>
+>For clarity again assume we have a multicast group where announcements
+>of pids exiting is seen and C and D are registered to such a multicast
+>group.
+>Suppose process A exits. That would fall under #c above. C and D will be
+>notified.
+>Suppose B configures something in the kernel that forces the kernel to
+>have process E exit and that such an operation is successful. B will get
+>acknowledgement it succeeded (unicast). C and D will get notified
+>(multicast). 
+>Suppose C issued a GET to find details about a specific pid, then only C
+>will get that info back (message is unicast).
+>[A response message to a GET is typically designed to be the same as an
+>ADD message i.e one should be able to take exactly the same message,
+>change one or two things and shove back into the kernel to configure].
+>Suppose D issued a GET with dump flag, then D will get the details of
+>all pids (message is unicast).
+>
+>Is this clear? Is there more than the above you need?
+>  
+>
+Thanks for the clarification of the usage model. While our needs are 
+certainly much less complex,
+it is useful to know the range of options.
 
-> And if we use local_t, we will add the overhead for the non bh 
-> percpu_counter_mod for non x86 arches.
+>There are no hard rules on what you need to be multicasting and as an
+>example you could send periodic(aka time based) samples from the kernel
+>on a multicast channel and that would be received by all. It did seem
+>odd that you want to have a semi-promiscous mode where a response to a
+>GET is multicast. If that is still what you want to achieve, then you
+>should.
+>  
+>
+Ok, we'll probably switch to the classical mode you suggest since the 
+"efficient processing"
+rationale for choosing to operate in the semi-promiscous mode earlier 
+can be overcome by
+writing a multi-threaded userspace utility.
 
-Last time I checked, all the major architectures had efficient local_t 
-implementations.  Most of the RISC CPUs are able to do a load / store 
-conditional implementation that is the same cost (since memory barriers 
-tend to be explicite on powerpc).  So why not use it?
+>>However, we could switch to the model you suggest and use a 
+>>multithreaded send/receive userspace utility.
+>>
+>>    
+>>
+>
+>This is more of the classical way of doing things. 
+>
+>
+>  
+>
+>>>There is a recent netlink addition to make sure
+>>>that events dont get sent if no listeners exist.
+>>>genetlink needs to be extended. For now assume such a thing exists.
+>>> 
+>>>
+>>>      
+>>>
+>>Ok. Will this addition work for both unicast and multicast modes ?
+>>
+>>    
+>>
+>
+>If you never open a connection to the kernel, nothing will be generated
+>towards user space. 
+>There are other techniques to rate limit event generation as well (one
+>such technique is a nagle-like algorithm used by xfrm).
+>
+>  
+>
+>>Will this be necessary ? Isn't genl_rcv_msg() going to return a -EOPNOTSUPP
+>>automatically for us since we've not registered the command ?
+>> 
+>>    
+>>
+>
+>Yes, please in your doc feedback remind me of this,
+>
+>  
+>
+>>>Also if you can provide feedback whether the doc i sent was any use
+>>>and what wasnt clear etc.
+>>> 
+>>>
+>>>      
+>>>
+>>Will do.
+>>
+>>    
+>>
+>
+>also take a look at the excellent documentation Thomas Graf has put in
+>the kernel for all the utilities for manipulating netlink messages and
+>tell me if that should also be put in this doc (It is listed as a TODO).
+>
+>
+>  
+>
+Ok.
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+Thanks,
+Shailabh
+
+>cheers,
+>jamal
+>
+>  
+>
+
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
