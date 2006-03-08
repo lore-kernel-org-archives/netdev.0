@@ -1,29 +1,67 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: de2104x: interrupts before interrupt handler is registered
-Date: Wed, 8 Mar 2006 01:15:56 +0100
-Message-ID: <20060308001556.GA9362@electric-eye.fr.zoreil.com>
-References: <20060305180757.GA22121@deprecation.cyrius.com> <20060305185948.GA24765@electric-eye.fr.zoreil.com> <20060306143512.GI23669@deprecation.cyrius.com> <20060306191706.GA6947@deprecation.cyrius.com> <20060306211745.GD15728@electric-eye.fr.zoreil.com> <20060307051152.GA1244@deprecation.cyrius.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Re: TSO and IPoIB performance degradation
+Date: Tue, 07 Mar 2006 17:17:30 -0800
+Message-ID: <adaacc1raz9.fsf@cisco.com>
+References: <1141767891.6119.903.camel@localhost>
+	<20060307134907.733d3d27@localhost.localdomain>
+	<1141776697.6119.938.camel@localhost>
+	<20060307.161808.60227862.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751711AbWCHAUG@vger.kernel.org>
-To: Martin Michlmayr <tbm@cyrius.com>
-Content-Disposition: inline
-In-Reply-To: <20060307051152.GA1244@deprecation.cyrius.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org, shemminger@osdl.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060307.161808.60227862.davem@davemloft.net> (David S. Miller's
+	message of "Tue, 07 Mar 2006 16:18:08 -0800 (PST)")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Martin Michlmayr <tbm@cyrius.com> :
-[...]
-> It seems to help.  It's hard to say for sure because I don't have a
-> foolproof way to reproduce this panic.  It _usually_ occurs after
-> copying a few hundred MB but there's no clear trigger.  I've now copied
-> a few GB around using a kernel with your patch and it hasn't crashed.
+    David> How limited are the IPoIB devices, TX descriptor wise?
 
-netdev watchdog events appear in the dmesg of the patched driver.
-The driver survived it. So I'd say that the patch does its job.
+    David> One side effect of the TSO changes is that one extra
+    David> descriptor will be used for outgoing packets.  This is
+    David> because we have to put the headers as well as the user
+    David> data, into page based buffers now.
 
-OTOH, if you ever saw the unpatched driver survive this event, yell now.
+We have essentially no limit on TX descriptors.  However I think
+there's some confusion about TSO: IPoIB does _not_ do TSO -- generic
+InfiniBand hardware does not have any TSO capability.  In the future
+we might be able to implement TSO for certain hardware that does have
+support, but even that requires some firmware help from the from the
+HCA vendors, etc.  So right now the IPoIB driver does not do TSO.
 
--- 
-Ueimor
+The reason TSO comes up is that reverting the patch described below
+helps (or helped at some point at least) IPoIB throughput quite a bit.
+Clearly this was a bug fix so we can't revert it in general but I
+think what Michael Tsirkin was suggesting at the beginning of this
+thread is to do what the last paragraph of the changelog says -- find
+some way to re-enable the trick.
+
+diff-tree 3143241... (from e16fa6b...)
+Author: David S. Miller <davem@davemloft.net>
+Date:   Mon May 23 12:03:06 2005 -0700
+
+    [TCP]: Fix stretch ACK performance killer when doing ucopy.
+
+    When we are doing ucopy, we try to defer the ACK generation to
+    cleanup_rbuf().  This works most of the time very well, but if the
+    ucopy prequeue is large, this ACKing behavior kills performance.
+
+    With TSO, it is possible to fill the prequeue so large that by the
+    time the ACK is sent and gets back to the sender, most of the window
+    has emptied of data and performance suffers significantly.
+
+    This behavior does help in some cases, so we should think about
+    re-enabling this trick in the future, using some kind of limit in
+    order to avoid the bug case.
+
+ - R.
