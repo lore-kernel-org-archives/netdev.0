@@ -1,29 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] compat. ifconf: fix limits
-Date: Wed, 08 Mar 2006 17:41:13 -0800 (PST)
-Message-ID: <20060308.174113.10667608.davem@davemloft.net>
-References: <20060308091608.c56360dd.rdunlap@xenotime.net>
-	<20060308.164627.81771250.davem@davemloft.net>
-	<20060308174116.7cae35e1.rdunlap@xenotime.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [patch 1/4] net: percpufy frequently used vars -- add percpu_counter_mod_bh
+Date: 09 Mar 2006 03:21:40 +0100
+Message-ID: <p733bhswe6j.fsf@verdi.suse.de>
+References: <20060308015808.GA9062@localhost.localdomain>
+	<20060308015934.GB9062@localhost.localdomain>
+	<20060307181301.4dd6aa96.akpm@osdl.org>
+	<20060308202656.GA4493@localhost.localdomain>
+	<20060308203642.GZ5410@kvack.org>
+	<20060308210726.GD4493@localhost.localdomain>
+	<20060308211733.GA5410@kvack.org>
+	<20060308222528.GE4493@localhost.localdomain>
+	<20060308150609.344c62fa.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Alexandra.Kossovsky@oktetlabs.ru, ak@suse.de, akpm@osdl.org,
-	torvalds@osdl.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-To: rdunlap@xenotime.net
-In-Reply-To: <20060308174116.7cae35e1.rdunlap@xenotime.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bcrl@kvack.org, linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, shai@scalex86.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932711AbWCICVu@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060308150609.344c62fa.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Date: Wed, 8 Mar 2006 17:41:16 -0800
-
-> On Wed, 08 Mar 2006 16:46:27 -0800 (PST) David S. Miller wrote:
+Andrew Morton <akpm@osdl.org> writes:
 > 
-> > Is this one relevant for -stable?
-> 
-> Yes, IMO.  Have to wait for it to be merged upstream, right?
+> x86_64 is signed 32-bit!
 
-I'll take care of everything, thanks Randy.
+I'll change it. You want signed 64bit?
+
+-Andi
