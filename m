@@ -1,60 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 1/4] net: percpufy frequently used vars -- add
- percpu_counter_mod_bh
-Date: Wed, 8 Mar 2006 16:32:58 -0800
-Message-ID: <20060308163258.36f3bd79.akpm@osdl.org>
-References: <20060308015808.GA9062@localhost.localdomain>
-	<20060308015934.GB9062@localhost.localdomain>
-	<20060307181301.4dd6aa96.akpm@osdl.org>
-	<20060308202656.GA4493@localhost.localdomain>
-	<20060308203642.GZ5410@kvack.org>
-	<20060308210726.GD4493@localhost.localdomain>
-	<20060308211733.GA5410@kvack.org>
-	<20060308222528.GE4493@localhost.localdomain>
-	<20060308224140.GC5410@kvack.org>
-	<20060308154321.0e779111.akpm@osdl.org>
-	<20060309001803.GF4493@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] compat. ifconf: fix limits
+Date: Wed, 08 Mar 2006 16:46:27 -0800 (PST)
+Message-ID: <20060308.164627.81771250.davem@davemloft.net>
+References: <20060308091608.c56360dd.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bcrl@kvack.org, linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, shai@scalex86.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932657AbWCIAfD@vger.kernel.org>
-To: Ravikiran G Thirumalai <kiran@scalex86.org>
-In-Reply-To: <20060309001803.GF4493@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Alexandra.Kossovsky@oktetlabs.ru, ak@suse.de, akpm@osdl.org,
+	torvalds@osdl.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: rdunlap@xenotime.net
+In-Reply-To: <20060308091608.c56360dd.rdunlap@xenotime.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ravikiran G Thirumalai <kiran@scalex86.org> wrote:
->
-> On Wed, Mar 08, 2006 at 03:43:21PM -0800, Andrew Morton wrote:
-> > Benjamin LaHaise <bcrl@kvack.org> wrote:
-> > >
-> > > I think it may make more sense to simply convert local_t into a long, given 
-> > > that most of the users will be things like stats counters.
-> > > 
-> > 
-> > Yes, I agree that making local_t signed would be better.  It's consistent
-> > with atomic_t, atomic64_t and atomic_long_t and it's a bit more flexible.
-> > 
-> > Perhaps.  A lot of applications would just be upcounters for statistics,
-> > where unsigned is desired.  But I think the consistency argument wins out.
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Date: Wed, 8 Mar 2006 09:16:08 -0800
+
+> From: Randy Dunlap <rdunlap@xenotime.net>
 > 
-> It already is... for most of the arches except x86_64.
-
-x86 uses unsigned long.
-
-> And on -mm, the asm-generic version uses atomic_long_t for local_t (signed
-> long) which seems right.
-
-No, it uses unsigned long.  The only place where signedness matters is
-local_read(), and there it is typecast to ulong.
-
-> Although, I wonder why we use:
+> A recent change to compat. dev_ifconf() in fs/compat_ioctl.c
+> causes ifconf data to be truncated 1 entry too early when copying it
+> to userspace.  The correct amount of data (length) is returned,
+> but the final entry is empty (zero, not filled in).
+> The for-loop 'i' check should use <= to allow the final struct
+> ifreq32 to be copied.  I also used the ifconf-corruption program
+> in kernel bugzilla #4746 to make sure that this change does not
+> re-introduce the corruption.
 > 
-> #define local_read(l) ((unsigned long)atomic_long_read(&(l)->a))
-> 
-> It would return a huge value if the local counter was even -1 no?
+> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
 
-It's casting a signed long to an unsigned long.  That does the right thing.
-Yes, it'll convert -1 to 0xffffffff[ffffffff].
+Good catch, applied.  Thanks Randy.
+
+Is this one relevant for -stable?
