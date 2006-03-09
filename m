@@ -1,60 +1,25 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] chelsio/espi.c:tricn_init(): remove dead code
-Date: Fri, 10 Mar 2006 00:06:53 +0100
-Message-ID: <20060309230653.GK21864@stusta.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] tg3.c:tg3_bus_string(): remove dead code
+Date: Thu, 09 Mar 2006 15:09:45 -0800 (PST)
+Message-ID: <20060309.150945.44837916.davem@davemloft.net>
+References: <20060309230650.GJ21864@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932082AbWCIXHk@vger.kernel.org>
-To: maintainers@chelsio.com
-Content-Disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750834AbWCIXKA@vger.kernel.org>
+To: bunk@stusta.de
+In-Reply-To: <20060309230650.GJ21864@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker spotted these two unused variables.
+From: Adrian Bunk <bunk@stusta.de>
+Date: Fri, 10 Mar 2006 00:06:50 +0100
 
-Please check whether this patch is correct or whether they should be 
-used.
+> The Coverity checker spotted this dead code (note that (clock_ctrl == 7) 
+> is already handled above).
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- drivers/net/chelsio/espi.c |   14 +++-----------
- 1 file changed, 3 insertions(+), 11 deletions(-)
-
---- linux-2.6.16-rc5-mm3-full/drivers/net/chelsio/espi.c.old	2006-03-09 23:19:54.000000000 +0100
-+++ linux-2.6.16-rc5-mm3-full/drivers/net/chelsio/espi.c	2006-03-09 23:20:35.000000000 +0100
-@@ -87,15 +87,9 @@
- static int tricn_init(adapter_t *adapter)
- {
- 	int     i               = 0;
--	int     sme             = 1;
- 	int     stat            = 0;
- 	int     timeout         = 0;
- 	int     is_ready        = 0;
--	int     dynamic_deskew  = 0;
--
--	if (dynamic_deskew)
--		sme = 0;
--
- 
- 	/* 1 */
- 	timeout=1000;
-@@ -113,11 +107,9 @@
- 	}
- 
- 	/* 2 */
--	if (sme) {
--		tricn_write(adapter, 0, 0, 0, TRICN_CNFG, 0x81);
--		tricn_write(adapter, 0, 1, 0, TRICN_CNFG, 0x81);
--		tricn_write(adapter, 0, 2, 0, TRICN_CNFG, 0x81);
--	}
-+	tricn_write(adapter, 0, 0, 0, TRICN_CNFG, 0x81);
-+	tricn_write(adapter, 0, 1, 0, TRICN_CNFG, 0x81);
-+	tricn_write(adapter, 0, 2, 0, TRICN_CNFG, 0x81);
- 	for (i=1; i<= 8; i++) tricn_write(adapter, 0, 0, i, TRICN_CNFG, 0xf1);
- 	for (i=1; i<= 2; i++) tricn_write(adapter, 0, 1, i, TRICN_CNFG, 0xf1);
- 	for (i=1; i<= 3; i++) tricn_write(adapter, 0, 2, i, TRICN_CNFG, 0xe1);
+Applied, thanks Adrian.
