@@ -1,43 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: TSO and IPoIB performance degradation
-Date: Thu, 09 Mar 2006 23:23:01 -0800 (PST)
-Message-ID: <20060309.232301.77550306.davem@davemloft.net>
-References: <20060308125311.GE17618@mellanox.co.il>
-	<20060309.154819.104282952.davem@davemloft.net>
-	<4410C671.2050300@hp.com>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
+Date: Fri, 10 Mar 2006 02:59:12 -0800 (PST)
+Message-ID: <20060310.025912.107001339.davem@davemloft.net>
+References: <cbec11ac0602091125w5a5a7c6em8462131e9f9b24dc@mail.gmail.com>
+	<43EB98B0.4@kernelpanic.ru>
+	<cbec11ac0602091137p4ee233bdgdcfbf3d6cb62a62f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com,
-	linux-kernel@vger.kernel.org, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: rick.jones2@hp.com
-In-Reply-To: <4410C671.2050300@hp.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: bb@kernelpanic.ru, jesse.brandeburg@gmail.com,
+	yoseph.basri@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752222AbWCJK7M@vger.kernel.org>
+To: imcdnzl@gmail.com
+In-Reply-To: <cbec11ac0602091137p4ee233bdgdcfbf3d6cb62a62f@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Thu, 09 Mar 2006 16:21:05 -0800
+From: Ian McDonald <imcdnzl@gmail.com>
+Date: Fri, 10 Feb 2006 08:37:48 +1300
 
-> well, there are stacks which do "stretch acks" (after a fashion) that 
-> make sure when they see packet loss to "do the right thing" wrt sending 
-> enough acks to allow cwnds to open again in a timely fashion.
+> On 2/10/06, Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
+> > Hello, Ian McDonald.
+> >
+> > On 09.02.2006 22:25 you said the following:
+> >
+> > > Is it possible for you to download 2.6.16-rc2 or similar and see if it
+> > > goes away?
+> >
+> > It'll be better, if I get only patch fixs that problem, not all 2.6.16-rc2.
+>
+> Oops I didn't read Jesse's message earlier properly.
+> 
+> That patch which probably fixed it is (from his message):
+> I think the commit id that is missing from 2.6.14.X is
+> fb5f5e6e0cebd574be737334671d1aa8f170d5f3
 
-Once a loss happens, it's too late to stop doing the stretch ACKs, the
-damage is done already.  It is going to take you at least one
-extra RTT to recover from the loss compared to if you were not doing
-stretch ACKs.
-
-You have to keep giving consistent well spaced ACKs back to the
-receiver in order to recover from loss optimally.
-
-The ACK every 2 full sized frames behavior of TCP is absolutely
-essential.
+This patch is in the linux-2.6.14 stable tree, I just
+verified this.
