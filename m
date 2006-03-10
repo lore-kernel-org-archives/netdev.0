@@ -1,26 +1,38 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
-Date: Fri, 10 Mar 2006 02:59:27 -0800 (PST)
-Message-ID: <20060310.025927.132483195.davem@davemloft.net>
-References: <4807377b0602081207s7604eceahb8bf4af6715a6534@mail.gmail.com>
-	<20060208.141205.129707967.davem@davemloft.net>
-	<4807377b0602081810l55e4cbdfyeb9102bd50d04641@mail.gmail.com>
+Subject: Re: [PATCH] IPv6: Cleanups for net/ipv6/addrconf.c (kzalloc, early
+ exit) v2
+Date: Fri, 10 Mar 2006 03:02:58 -0800 (PST)
+Message-ID: <20060310.030258.55767431.davem@davemloft.net>
+References: <20060210.014853.13643277.yoshfuji@linux-ipv6.org>
+	<200602111737.20010.ioe-lkml@rameria.de>
+	<20060212.021103.76157181.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoseph.basri@gmail.com, bb@kernelpanic.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932221AbWCJK7Z@vger.kernel.org>
-To: jesse.brandeburg@gmail.com
-In-Reply-To: <4807377b0602081810l55e4cbdfyeb9102bd50d04641@mail.gmail.com>
+Cc: ioe-lkml@rameria.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932235AbWCJLC5@vger.kernel.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20060212.021103.76157181.yoshfuji@linux-ipv6.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Date: Wed, 8 Feb 2006 18:10:21 -0800
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Sun, 12 Feb 2006 02:11:03 +0900 (JST)
 
-> I think the commit id that is missing from 2.6.14.X is
-> fb5f5e6e0cebd574be737334671d1aa8f170d5f3
+> In article <200602111737.20010.ioe-lkml@rameria.de> (at Sat, 11 Feb 2006 17:37:18 +0100), Ingo Oeser <ioe-lkml@rameria.de> says:
+> 
+> > From: Ingo Oeser <ioe-lkml@rameria.de>
+> > 
+> > Here are some possible (and trivial) cleanups.
+> > - use kzalloc() where possible
+> > - remove unused label
+> > - invert allocation failure test like
+> :
+> > Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-It's in 2.6.14.x I just double checked.
- 
+This patch no longer applied cleanly, Ingo can you generate
+a fresh version of your patch against my net-2.6.16 tree?
+
+Thanks a lot!
