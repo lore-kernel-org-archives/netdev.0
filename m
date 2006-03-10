@@ -1,50 +1,62 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [UPDATED PATCH] Re: [Lse-tech] Re: [Patch 7/7] Generic netlink
-	interface (delay	accounting)
-Date: Fri, 10 Mar 2006 10:35:34 -0500
-Message-ID: <1142004934.5255.3.camel@jzny2>
-References: <1141026996.5785.38.camel@elinux04.optonline.net>
-	 <1141029060.5785.77.camel@elinux04.optonline.net>
-	 <1141045194.5363.12.camel@localhost.localdomain>
-	 <4403608E.1050304@watson.ibm.com>
-	 <1141652556.5185.64.camel@localhost.localdomain>
-	 <440C6AAA.9030301@watson.ibm.com>
-	 <1141742282.5171.55.camel@localhost.localdomain>
-	 <440F52FF.30908@watson.ibm.com>  <20060309143759.GA4653@in.ibm.com>
-	 <1142002433.5298.42.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc) failed
+Date: Fri, 10 Mar 2006 16:51:44 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.0603101650390.11559@bizon.gios.gov.pl>
+References: <cbec11ac0602091125w5a5a7c6em8462131e9f9b24dc@mail.gmail.com>
+ <43EB98B0.4@kernelpanic.ru> <cbec11ac0602091137p4ee233bdgdcfbf3d6cb62a62f@mail.gmail.com>
+ <20060310.025912.107001339.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Shailabh Nagar <nagar@watson.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	lse-tech@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751584AbWCJPfl@vger.kernel.org>
-To: balbir@in.ibm.com
-In-Reply-To: <1142002433.5298.42.camel@jzny2>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-449679675-1142005904=:11559"
+Cc: imcdnzl@gmail.com, bb@kernelpanic.ru, jesse.brandeburg@gmail.com,
+	yoseph.basri@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751654AbWCJPwB@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060310.025912.107001339.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-10-03 at 09:53 -0500, jamal wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> 
-> a) shipping of the taskstats from kernel to user-space asynchronously to
-> all listeners on multicast channel/group TASKSTATS_LISTEN_GRP
-> at the point when some process exits.
-> b) responding to queries issued by the user to the kernel for taskstats
-> of a particular defined tgid and/or pid combination. 
-> 
-> Did i summarize your goals correctly?
-> 
-> So lets stat with #b:
-> i) the message is multicast; there has to be a user space app registered
-> to the multicast group otherwise nothing goes to user space.
-
-I mispoke:
-The above applies to #a. 
-For #b, the message from/to kernel to user is unicast.
+---187430788-449679675-1142005904=:11559
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
-cheers,
-jamal
+
+On Fri, 10 Mar 2006, David S. Miller wrote:
+
+> From: Ian McDonald <imcdnzl@gmail.com>
+> Date: Fri, 10 Feb 2006 08:37:48 +1300
+>
+>> On 2/10/06, Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
+>>> Hello, Ian McDonald.
+>>>
+>>> On 09.02.2006 22:25 you said the following:
+>>>
+>>>> Is it possible for you to download 2.6.16-rc2 or similar and see if it
+>>>> goes away?
+>>>
+>>> It'll be better, if I get only patch fixs that problem, not all 2.6.16-=
+rc2.
+>>
+>> Oops I didn't read Jesse's message earlier properly.
+>>
+>> That patch which probably fixed it is (from his message):
+>> I think the commit id that is missing from 2.6.14.X is
+>> fb5f5e6e0cebd574be737334671d1aa8f170d5f3
+>
+> This patch is in the linux-2.6.14 stable tree, I just
+> verified this.
+
+So it must be another problem: I had this message with 2.6.15.2:
+
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (148=
+)
+
+Best regards,
+
+ =09=09=09Krzysztof Ol=EAdzki
+---187430788-449679675-1142005904=:11559--
