@@ -1,37 +1,37 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: TSO and IPoIB performance degradation
-Date: Fri, 10 Mar 2006 02:38:11 +0200
-Message-ID: <20060310003811.GA23187@mellanox.co.il>
-References: <adaacc1raz9.fsf@cisco.com> <20060307.172336.107863253.davem@davemloft.net> <20060308125311.GE17618@mellanox.co.il> <20060309.154819.104282952.davem@davemloft.net> <20060310001031.GA19040@mellanox.co.il>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Date: Thu, 09 Mar 2006 23:18:06 -0800 (PST)
+Message-ID: <20060309.231806.10212645.davem@davemloft.net>
+References: <20060308125311.GE17618@mellanox.co.il>
+	<20060309.154819.104282952.davem@davemloft.net>
+	<20060310001031.GA19040@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rdreier@cisco.com,
 	linux-kernel@vger.kernel.org, openib-general@openib.org,
 	shemminger@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932617AbWCJAi5@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Return-path: <openib-general-bounces@openib.org>
+To: mst@mellanox.co.il
 In-Reply-To: <20060310001031.GA19040@mellanox.co.il>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. Michael S. Tsirkin <mst@mellanox.co.il>:
-> Or does __tcp_ack_snd_check delay until we have at least two full sized
-> segments?
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Date: Fri, 10 Mar 2006 02:10:31 +0200
 
-What I'm trying to say, since RFC 2525, 2.13 talks about
-"every second full-sized segment", so following the code from
-__tcp_ack_snd_check, why does it do
+> But with the change we are discussing, could an ack now be sent even
+> sooner than we have at least two full sized segments?  Or does
+> __tcp_ack_snd_check delay until we have at least two full sized
+> segments? David, could you explain please?
 
-	    /* More than one full frame received... */
-	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss
-
-rather than
-
-	    /* At least two full frames received... */
-	if (((tp->rcv_nxt - tp->rcv_wup) >= 2 * inet_csk(sk)->icsk_ack.rcv_mss
-
--- 
-Michael S. Tsirkin
-Staff Engineer, Mellanox Technologies
+__tcp_ack_snd_check() delays until we have at least two full
+sized segments.
