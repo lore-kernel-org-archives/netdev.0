@@ -1,35 +1,48 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/decnet/dn_route.c: fix inconsequent NULL checking
-Date: Sat, 11 Mar 2006 00:02:33 +0100
-Message-ID: <20060310230233.GB21864@stusta.de>
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Subject: Re: [PATCH] orinoco: fix BAP0 offset error after several days of
+ operation
+Date: Fri, 10 Mar 2006 18:49:48 -0500
+Message-ID: <1142034588.27311.2.camel@dv>
+References: <20060309184410.471bfc5e@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932145AbWCJXCf@vger.kernel.org>
-To: patrick@tykepenguin.com
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
+In-Reply-To: <20060309184410.471bfc5e-IhiK2ZEFs2oCVLCxKZUutA@public.gmane.org>
+Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
+	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker noted this inconsequent NULL checking in
-dnrt_drop().
+On Thu, 2006-03-09 at 18:44 +0100, Jiri Benc wrote:
+> After several days of operation of Netgear MA311 card, the card becomes
+> to seek improperly and needs reset. This patch tries to reset the card
+> when this situation occurs.
 
-Since all callers ensure that NULL isn't passed, we can simply remove 
-the check.
+Thanks, applied.  I had to move the location closer to the end because
+the current sources have more than one place where such failure can be
+detected.
 
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.16-rc5-mm3-full/net/decnet/dn_route.c.old	2006-03-10 23:34:57.000000000 +0100
-+++ linux-2.6.16-rc5-mm3-full/net/decnet/dn_route.c	2006-03-10 23:35:08.000000000 +0100
-@@ -149,8 +149,7 @@ static inline void dnrt_free(struct dn_r
+The orinoco patch series will be posted as soon as I clean them up and
+split some large patches.
  
- static inline void dnrt_drop(struct dn_route *rt)
- {
--	if (rt)
--		dst_release(&rt->u.dst);
-+	dst_release(&rt->u.dst);
- 	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
- }
- 
+-- 
+Regards,
+Pavel Roskin
+
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
