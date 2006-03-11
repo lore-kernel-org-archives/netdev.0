@@ -1,214 +1,251 @@
-From: "Leech, Christopher" <christopher.leech@intel.com>
-Subject: [PATCH 2/8] [I/OAT] Driver for the Intel(R) I/OAT DMA engine
-Date: Fri, 10 Mar 2006 18:29:46 -0800
-Message-ID: <E3A930D59AFC3345AEBA35189102A8A6060E15E7@orsmsx404.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----_=_NextPart_001_01C644B3.AA3A1DD9"
-Cc: "Leech, Christopher" <christopher.leech@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932386AbWCKC3v@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+From: Chris Leech <christopher.leech@intel.com>
+Subject: [PATCH 3/8] [I/OAT] Setup the networking subsystem as a DMA client
+Date: Fri, 10 Mar 2006 18:29:24 -0800
+Message-ID: <20060311022924.3950.33580.stgit@gitlost.site>
+References: <20060311022759.3950.58788.stgit@gitlost.site>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752301AbWCKC1Q@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+In-Reply-To: <20060311022759.3950.58788.stgit@gitlost.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
-
-------_=_NextPart_001_01C644B3.AA3A1DD9
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-From: Chris Leech [mailto:christopher.leech@intel.com]=20
-Sent: Friday, March 10, 2006 6:29 PM
-To:=20
-Subject: [PATCH 2/8] [I/OAT] Driver for the Intel(R) I/OAT DMA engine
-
-
-Adds a new ioatdma driver
+Attempts to allocate per-CPU DMA channels
 
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- drivers/dma/Kconfig             |    9=20
- drivers/dma/Makefile            |    1=20
- drivers/dma/ioatdma.c           |  783
-+++++++++++++++++++++++++++++++++++++++
- drivers/dma/ioatdma.h           |  127 ++++++
- drivers/dma/ioatdma_hw.h        |   52 +++
- drivers/dma/ioatdma_io.h        |  104 +++++
- drivers/dma/ioatdma_registers.h |  128 ++++++
- 7 files changed, 1204 insertions(+), 0 deletions(-)
+ drivers/dma/Kconfig       |   12 +++++
+ include/linux/netdevice.h |    6 +++
+ include/net/netdma.h      |   37 +++++++++++++++++
+ net/core/dev.c            |  100 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 155 insertions(+), 0 deletions(-)
 
-
-------_=_NextPart_001_01C644B3.AA3A1DD9
-Content-Type: application/x-gzip;
-	name="ioatdma_driver.gz"
-Content-Transfer-Encoding: base64
-Content-Description: ioatdma_driver.gz
-Content-Disposition: attachment;
-	filename="ioatdma_driver.gz"
-
-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
-KVDlb9ESNwP8lgAA
-
-------_=_NextPart_001_01C644B3.AA3A1DD9--
+diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
+index 0f15e76..30d021d 100644
+--- a/drivers/dma/Kconfig
++++ b/drivers/dma/Kconfig
+@@ -10,6 +10,18 @@ config DMA_ENGINE
+ 	  DMA engines offload copy operations from the CPU to dedicated
+ 	  hardware, allowing the copies to happen asynchronously.
+ 
++comment "DMA Clients"
++
++config NET_DMA
++	bool "Network: TCP receive copy offload"
++	depends on DMA_ENGINE && NET
++	default y
++	---help---
++	  This enables the use of DMA engines in the network stack to
++	  offload receive copy-to-user operations, freeing CPU cycles.
++	  Since this is the main user of the DMA engine, it should be enabled;
++	  say Y here.
++
+ comment "DMA Devices"
+ 
+ config INTEL_IOATDMA
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 950dc55..25d8610 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -37,6 +37,9 @@
+ #include <linux/config.h>
+ #include <linux/device.h>
+ #include <linux/percpu.h>
++#ifdef CONFIG_NET_DMA
++#include <linux/dmaengine.h>
++#endif
+ 
+ struct divert_blk;
+ struct vlan_group;
+@@ -592,6 +595,9 @@ struct softnet_data
+ 	struct sk_buff		*completion_queue;
+ 
+ 	struct net_device	backlog_dev;	/* Sorry. 8) */
++#ifdef CONFIG_NET_DMA
++	struct dma_chan		*net_dma;
++#endif
+ };
+ 
+ DECLARE_PER_CPU(struct softnet_data,softnet_data);
+diff --git a/include/net/netdma.h b/include/net/netdma.h
+new file mode 100644
+index 0000000..6435aef
+--- /dev/null
++++ b/include/net/netdma.h
+@@ -0,0 +1,37 @@
++/*****************************************************************************
++Copyright(c) 2004 - 2006 Intel Corporation. All rights reserved.
++
++This program is free software; you can redistribute it and/or modify it
++under the terms of the GNU General Public License as published by the Free
++Software Foundation; either version 2 of the License, or (at your option)
++any later version.
++
++This program is distributed in the hope that it will be useful, but WITHOUT
++ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++more details.
++
++You should have received a copy of the GNU General Public License along with
++this program; if not, write to the Free Software Foundation, Inc., 59
++Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++
++The full GNU General Public License is included in this distribution in the
++file called LICENSE.
++*****************************************************************************/
++#ifndef NETDMA_H
++#define NETDMA_H
++#ifdef CONFIG_NET_DMA
++#include <linux/dmaengine.h>
++
++static inline struct dma_chan *get_softnet_dma(void)
++{
++	struct dma_chan *chan;
++	rcu_read_lock();
++	chan = rcu_dereference(__get_cpu_var(softnet_data.net_dma));
++	if (chan)
++		dma_chan_get(chan);
++	rcu_read_unlock();
++	return chan;
++}
++#endif /* CONFIG_NET_DMA */
++#endif /* NETDMA_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f7f6f99..d7e61b4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -115,6 +115,7 @@
+ #include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
+ #include <net/iw_handler.h>
+ #endif	/* CONFIG_NET_RADIO */
++#include <linux/dmaengine.h>
+ #include <asm/current.h>
+ 
+ /*
+@@ -149,6 +150,11 @@ static DEFINE_SPINLOCK(ptype_lock);
+ static struct list_head ptype_base[16];	/* 16 way hashed list */
+ static struct list_head ptype_all;		/* Taps */
+ 
++#ifdef CONFIG_NET_DMA
++static struct dma_client *net_dma_client;
++static unsigned int net_dma_count;
++#endif
++
+ /*
+  * The @dev_base list is protected by @dev_base_lock and the rtln
+  * semaphore.
+@@ -1750,6 +1756,19 @@ static void net_rx_action(struct softirq
+ 		}
+ 	}
+ out:
++#ifdef CONFIG_NET_DMA
++	/*
++	 * There may not be any more sk_buffs coming right now, so push
++	 * any pending DMA copies to hardware
++	 */
++	if (net_dma_client) {
++		struct dma_chan *chan;
++		rcu_read_lock();
++		list_for_each_entry_rcu(chan, &net_dma_client->channels, client_node)
++			dma_async_memcpy_issue_pending(chan);
++		rcu_read_unlock();
++	}
++#endif
+ 	local_irq_enable();
+ 	return;
+ 
+@@ -3205,6 +3224,85 @@ static int dev_cpu_callback(struct notif
+ }
+ #endif /* CONFIG_HOTPLUG_CPU */
+ 
++#ifdef CONFIG_NET_DMA
++/**
++ * net_dma_rebalance -
++ * This is called when the number of channels allocated to the net_dma_client
++ * changes.  The net_dma_client tries to have one DMA channel per CPU.
++ */
++static void net_dma_rebalance(void)
++{
++	unsigned int cpu, i, n;
++	struct dma_chan *chan;
++
++	lock_cpu_hotplug();
++
++	if (net_dma_count == 0) {
++		for_each_online_cpu(cpu)
++			rcu_assign_pointer(per_cpu(softnet_data.net_dma, cpu), NULL);
++		unlock_cpu_hotplug();
++		return;
++	}
++
++	i = 0;
++	cpu = first_cpu(cpu_online_map);
++
++	rcu_read_lock();
++	list_for_each_entry(chan, &net_dma_client->channels, client_node) {
++		n = ((num_online_cpus() / net_dma_count)
++		   + (i < (num_online_cpus() % net_dma_count) ? 1 : 0));
++
++		while(n) {
++			per_cpu(softnet_data.net_dma, cpu) = chan;
++			cpu = next_cpu(cpu, cpu_online_map);
++			n--;
++		}
++		i++;
++	}
++	rcu_read_unlock();
++
++	unlock_cpu_hotplug();
++}
++
++/**
++ * netdev_dma_event - event callback for the net_dma_client
++ * @client: should always be net_dma_client
++ * @chan:
++ * @event:
++ */
++static void netdev_dma_event(struct dma_client *client, struct dma_chan *chan,
++	enum dma_event event)
++{
++	switch (event) {
++	case DMA_RESOURCE_ADDED:
++		net_dma_count++;
++		net_dma_rebalance();
++		break;
++	case DMA_RESOURCE_REMOVED:
++		net_dma_count--;
++		net_dma_rebalance();
++		break;
++	default:
++		break;
++	}
++}
++
++/**
++ * netdev_dma_regiser - register the networking subsystem as a DMA client
++ */
++static int __init netdev_dma_register(void)
++{
++	net_dma_client = dma_async_client_register(netdev_dma_event);
++	if (net_dma_client == NULL)
++		return -ENOMEM;
++
++	dma_async_client_chan_request(net_dma_client, num_online_cpus());
++	return 0;
++}
++
++#else
++static int __init netdev_dma_register(void) { return -ENODEV; }
++#endif /* CONFIG_NET_DMA */
+ 
+ /*
+  *	Initialize the DEV module. At boot time this walks the device list and
+@@ -3258,6 +3356,8 @@ static int __init net_dev_init(void)
+ 		atomic_set(&queue->backlog_dev.refcnt, 1);
+ 	}
+ 
++	netdev_dma_register();
++
+ 	dev_boot_phase = 0;
+ 
+ 	open_softirq(NET_TX_SOFTIRQ, net_tx_action, NULL);
