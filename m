@@ -1,109 +1,47 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: [PATCH] IPv6: Cleanup of net/ipv6/reassambly.c
-Date: Sun, 12 Mar 2006 00:49:48 +0100
-Message-ID: <200603120049.49294.ioe-lkml@rameria.de>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: Linux v2.6.16-rc6
+Date: Sun, 12 Mar 2006 02:51:40 +0100
+Message-ID: <6bffcb0e0603111751i1ed30794s@mail.gmail.com>
+References: <Pine.LNX.4.64.0603111551330.18022@g5.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751281AbWCKXvM@vger.kernel.org>
-To: "YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751454AbWCLBvm@vger.kernel.org>
+To: "Linus Torvalds" <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.64.0603111551330.18022@g5.osdl.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Oeser <ioe-lkml@rameria.de>
-
-Two minor cleanups:
-
-1. Using kzalloc() in fraq_alloc_queue() 
-   saves the memset() in ipv6_frag_create().
-
-2. Invert sense of if-statements to streamline code.
-   Inverts the comment, too.
-
-
-Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
----
 Hi,
 
-I first did the kzalloc cleanup, but then decided, 
-that I can do this change, too. If you consider it worse,
-please tell me and I'll just do the kzalloc() one.
+On 12/03/06, Linus Torvalds <torvalds@osdl.org> wrote:
+>
+> Ok, we're getting closer, although the 2.6.16 release certainly seems to
+> drag out more than it should have.
+>
 
-Regards
+I have noticed this warnings
+TCP: Treason uncloaked! Peer 82.113.55.2:11759/50967 shrinks window
+148470938:148470943. Repaired.
+TCP: Treason uncloaked! Peer 82.113.55.2:11759/50967 shrinks window
+148470938:148470943. Repaired.
+TCP: Treason uncloaked! Peer 82.113.55.2:11759/59768 shrinks window
+1124211698:1124211703. Repaired.
+TCP: Treason uncloaked! Peer 82.113.55.2:11759/59768 shrinks window
+1124211698:1124211703. Repaired.
 
-Ingo Oeser
+It maybe problem with ktorrent.
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 15e1456..6d8c9bb 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -203,7 +203,7 @@ static inline void frag_free_queue(struc
- 
- static inline struct frag_queue *frag_alloc_queue(void)
- {
--	struct frag_queue *fq = kmalloc(sizeof(struct frag_queue), GFP_ATOMIC);
-+	struct frag_queue *fq = kzalloc(sizeof(struct frag_queue), GFP_ATOMIC);
- 
- 	if(!fq)
- 		return NULL;
-@@ -288,6 +288,7 @@ static void ip6_evictor(void)
- static void ip6_frag_expire(unsigned long data)
- {
- 	struct frag_queue *fq = (struct frag_queue *) data;
-+	struct net_device *dev;
- 
- 	spin_lock(&fq->lock);
- 
-@@ -299,22 +300,22 @@ static void ip6_frag_expire(unsigned lon
- 	IP6_INC_STATS_BH(IPSTATS_MIB_REASMTIMEOUT);
- 	IP6_INC_STATS_BH(IPSTATS_MIB_REASMFAILS);
- 
--	/* Send error only if the first segment arrived. */
--	if (fq->last_in&FIRST_IN && fq->fragments) {
--		struct net_device *dev = dev_get_by_index(fq->iif);
--
--		/*
--		   But use as source device on which LAST ARRIVED
--		   segment was received. And do not use fq->dev
--		   pointer directly, device might already disappeared.
--		 */
--		if (dev) {
--			fq->fragments->dev = dev;
--			icmpv6_send(fq->fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME, 0,
--				    dev);
--			dev_put(dev);
--		}
--	}
-+	/* Don't send error if the first segment did not arrive. */
-+	if (!(fq->last_in&FIRST_IN) || !fq->fragments)
-+		goto out;
-+	
-+	dev = dev_get_by_index(fq->iif);
-+	if (!dev)
-+		goto out;
-+
-+	/*
-+	   But use as source device on which LAST ARRIVED
-+	   segment was received. And do not use fq->dev
-+	   pointer directly, device might already disappeared.
-+	 */
-+	fq->fragments->dev = dev;
-+	icmpv6_send(fq->fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME, 0, dev);
-+	dev_put(dev);
- out:
- 	spin_unlock(&fq->lock);
- 	fq_put(fq, NULL);
-@@ -368,8 +369,6 @@ ip6_frag_create(unsigned int hash, u32 i
- 	if ((fq = frag_alloc_queue()) == NULL)
- 		goto oom;
- 
--	memset(fq, 0, sizeof(struct frag_queue));
--
- 	fq->id = id;
- 	ipv6_addr_copy(&fq->saddr, src);
- 	ipv6_addr_copy(&fq->daddr, dst);
+Here is config http://www.stardust.webpages.pl/files/linux/2.6.16-rc6/config
+Here is dmesg http://www.stardust.webpages.pl/files/linux/2.6.16-rc6/dmesg
+
+Regards,
+Michal
+
+--
+Michal K. K. Piotrowski
+LTG - Linux Testers Group
+(http://www.stardust.webpages.pl/ltg/wiki/)
