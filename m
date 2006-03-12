@@ -1,35 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Linux v2.6.16-rc6
-Date: Sat, 11 Mar 2006 18:39:04 -0800 (PST)
-Message-ID: <20060311.183904.71244086.davem@davemloft.net>
-References: <Pine.LNX.4.64.0603111551330.18022@g5.osdl.org>
-	<6bffcb0e0603111751i1ed30794s@mail.gmail.com>
+From: Ingo Oeser <ioe-lkml@rameria.de>
+Subject: Re: [PATCH] IPv6: Cleanup of net/ipv6/reassambly.c
+Date: Sun, 12 Mar 2006 08:17:07 +0100
+Message-ID: <200603120817.08528.ioe-lkml@rameria.de>
+References: <200603120049.49294.ioe-lkml@rameria.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750794AbWCLCiz@vger.kernel.org>
-To: michal.k.k.piotrowski@gmail.com
-In-Reply-To: <6bffcb0e0603111751i1ed30794s@mail.gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751481AbWCLHV3@vger.kernel.org>
+To: "YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <200603120049.49294.ioe-lkml@rameria.de>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Date: Sun, 12 Mar 2006 02:51:40 +0100
+Hi,
 
-> I have noticed this warnings
-> TCP: Treason uncloaked! Peer 82.113.55.2:11759/50967 shrinks window
-> 148470938:148470943. Repaired.
-> TCP: Treason uncloaked! Peer 82.113.55.2:11759/50967 shrinks window
-> 148470938:148470943. Repaired.
-> TCP: Treason uncloaked! Peer 82.113.55.2:11759/59768 shrinks window
-> 1124211698:1124211703. Repaired.
-> TCP: Treason uncloaked! Peer 82.113.55.2:11759/59768 shrinks window
-> 1124211698:1124211703. Repaired.
+On Sunday, 12. March 2006 00:49, Ingo Oeser wrote:
+> From: Ingo Oeser <ioe-lkml@rameria.de>
 > 
-> It maybe problem with ktorrent.
+> Two minor cleanups:
+> 
+> 1. Using kzalloc() in fraq_alloc_queue() 
+>    saves the memset() in ipv6_frag_create().
+> 
+> 2. Invert sense of if-statements to streamline code.
+>    Inverts the comment, too.
+> 
 
-It is a problem with the remote TCP implementation, it is
-illegally advertising a smaller window that it previously
-did.
+These are against net-2.6.17 of course.
+
+I also compile tested this and my other kzalloc() changes.
+
+Forgot to mention this yesterday...
+
+
+Regards
+
+Ingo Oeser
