@@ -1,38 +1,51 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 2/8] [I/OAT] Driver for the Intel(R) I/OAT DMA engine
-Date: Sun, 12 Mar 2006 03:04:35 -0800
-Message-ID: <20060312030435.6a5ff2c2.akpm@osdl.org>
-References: <E3A930D59AFC3345AEBA35189102A8A6060E15E7@orsmsx404.amr.corp.intel.com>
-	<20060312104728.GA25301@2ka.mipt.ru>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: Linux v2.6.16-rc6
+Date: Sun, 12 Mar 2006 13:04:35 +0100
+Message-ID: <6bffcb0e0603120404i2640f64dh@mail.gmail.com>
+References: <Pine.LNX.4.64.0603111551330.18022@g5.osdl.org>
+	 <6bffcb0e0603111751i1ed30794s@mail.gmail.com>
+	 <20060311.183904.71244086.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: christopher.leech@intel.com, linux-kernel@vger.kernel.org,
+Content-Transfer-Encoding: 7BIT
+Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932168AbWCLLG6@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060312104728.GA25301@2ka.mipt.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932229AbWCLMEh@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060311.183904.71244086.davem@davemloft.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+Hi,
+
+On 12/03/06, David S. Miller <davem@davemloft.net> wrote:
+> From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+> Date: Sun, 12 Mar 2006 02:51:40 +0100
 >
->  On Fri, Mar 10, 2006 at 06:29:46PM -0800, Leech, Christopher (christopher.leech@intel.com) wrote:
->  > From: Chris Leech [mailto:christopher.leech@intel.com] 
->  > Sent: Friday, March 10, 2006 6:29 PM
->  > To: 
->  > Subject: [PATCH 2/8] [I/OAT] Driver for the Intel(R) I/OAT DMA engine
->  > 
->  > 
->  > Adds a new ioatdma driver
-> 
->  enumerate_dma_channels() is still broken, if it can not fail add NOFAIL
->  gfp flag.
+> > I have noticed this warnings
+> > TCP: Treason uncloaked! Peer 82.113.55.2:11759/50967 shrinks window
+> > 148470938:148470943. Repaired.
+> > TCP: Treason uncloaked! Peer 82.113.55.2:11759/50967 shrinks window
+> > 148470938:148470943. Repaired.
+> > TCP: Treason uncloaked! Peer 82.113.55.2:11759/59768 shrinks window
+> > 1124211698:1124211703. Repaired.
+> > TCP: Treason uncloaked! Peer 82.113.55.2:11759/59768 shrinks window
+> > 1124211698:1124211703. Repaired.
+> >
+> > It maybe problem with ktorrent.
+>
+> It is a problem with the remote TCP implementation, it is
+> illegally advertising a smaller window that it previously
+> did.
+>
 
-The __GFP_NOFAIL flag is there to mark lame-and-buggy-code which doesn't
-know how to handle ENOMEM.  I went through the kernel, found all the
-retry-until-it-works loops and consolidated their behaviour in the page
-allocator instead.
+Thanks for explanation.
 
-Really we should fix them all up.  Adding new users of __GFP_NOFAIL
-would not be good.
+Regards,
+Michal
+
+--
+Michal K. K. Piotrowski
+LTG - Linux Testers Group
+(http://www.stardust.webpages.pl/ltg/wiki/)
