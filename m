@@ -1,42 +1,32 @@
-From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-Subject: Re: 2.6.16-rc6-mm1
-Date: Sun, 12 Mar 2006 16:55:15 +0100
-Message-ID: <20060312155515.GD16013@ens-lyon.fr>
-References: <20060312031036.3a382581.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751207AbWCLPzJ@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060312031036.3a382581.akpm@osdl.org>
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: [patch 3/4] Add a PCI vendor ID definition for Aculab
+Date: Sun, 12 Mar 2006 19:23:02 +0000
+Message-ID: <20060312205304.924074000@mercator.sirena.org.uk>
+References: <20060312192259.929734000@mercator.sirena.org.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751800AbWCLVWA@vger.kernel.org>
+To: Tim Hockin <thockin@hockin.org>, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename=pci-vendor-aculab.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 12, 2006 at 03:10:36AM -0800, Andrew Morton wrote:
-> 
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.16-rc6/2.6.16-rc6-mm1/
-> 
-> 
+Add a vendor ID definition for Aculab.
 
-drivers/net/tg3.c:8065: warning: type qualifiers ignored on function return type
+Signed-Off-By: Mark Brown <broonie@sirena.org.uk>
 
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.fr>
-
-Index: linux/drivers/net/tg3.c
+Index: e1000-queue/include/linux/pci_ids.h
 ===================================================================
---- linux.orig/drivers/net/tg3.c
-+++ linux/drivers/net/tg3.c
-@@ -8061,7 +8061,7 @@ static int tg3_test_link(struct tg3 *tp)
- }
+--- e1000-queue.orig/include/linux/pci_ids.h	2006-02-25 12:50:12.000000000 +0000
++++ e1000-queue/include/linux/pci_ids.h	2006-02-25 12:51:51.000000000 +0000
+@@ -1572,6 +1572,8 @@
+ #define PCI_VENDOR_ID_NVIDIA_SGS	0x12d2
+ #define PCI_DEVICE_ID_NVIDIA_SGS_RIVA128 0x0018
  
- /* Only test the commonly used registers */
--static const int tg3_test_registers(struct tg3 *tp)
-+static int tg3_test_registers(struct tg3 *tp)
- {
- 	int i, is_5705;
- 	u32 offset, read_mask, write_mask, val, save_val, read_val;
++#define PCI_VENDOR_ID_ACULAB 0x12d9
++
+ #define PCI_SUBVENDOR_ID_CHASE_PCIFAST		0x12E0
+ #define PCI_SUBDEVICE_ID_CHASE_PCIFAST4		0x0031
+ #define PCI_SUBDEVICE_ID_CHASE_PCIFAST8		0x0021
 
--- 
-powered by bash/screen/(urxvt/fvwm|linux-console)/gentoo/gnu/linux OS
+--
+"You grabbed my hand and we fell into it, like a daydream - or a fever."
