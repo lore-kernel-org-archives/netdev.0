@@ -1,26 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Nearly complete kzalloc cleanup for net/ipv6
-Date: Sun, 12 Mar 2006 14:57:01 +0100
-Message-ID: <441428AD.3010902@trash.net>
-References: <200603112136.43553.ioe-lkml@rameria.de>
+From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+Subject: Re: 2.6.16-rc6-mm1
+Date: Sun, 12 Mar 2006 16:55:15 +0100
+Message-ID: <20060312155515.GD16013@ens-lyon.fr>
+References: <20060312031036.3a382581.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751541AbWCLN6z@vger.kernel.org>
-To: Ingo Oeser <ioe-lkml@rameria.de>
-In-Reply-To: <200603112136.43553.ioe-lkml@rameria.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751207AbWCLPzJ@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060312031036.3a382581.akpm@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Oeser wrote:
-> From: Ingo Oeser <ioe-lkml@rameria.de>
+On Sun, Mar 12, 2006 at 03:10:36AM -0800, Andrew Morton wrote:
 > 
-> Stupidly use kzalloc() instead of kmalloc()/memset() 
-> everywhere where this is possible in net/ipv6/*.c . 
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.16-rc6/2.6.16-rc6-mm1/
 > 
-> The netfilter part is NOT included, because Harald should see these, too.
+> 
 
-Feel free to send netfilter patches to me.
+drivers/net/tg3.c:8065: warning: type qualifiers ignored on function return type
+
+Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.fr>
+
+Index: linux/drivers/net/tg3.c
+===================================================================
+--- linux.orig/drivers/net/tg3.c
++++ linux/drivers/net/tg3.c
+@@ -8061,7 +8061,7 @@ static int tg3_test_link(struct tg3 *tp)
+ }
+ 
+ /* Only test the commonly used registers */
+-static const int tg3_test_registers(struct tg3 *tp)
++static int tg3_test_registers(struct tg3 *tp)
+ {
+ 	int i, is_5705;
+ 	u32 offset, read_mask, write_mask, val, save_val, read_val;
+
+-- 
+powered by bash/screen/(urxvt/fvwm|linux-console)/gentoo/gnu/linux OS
