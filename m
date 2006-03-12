@@ -1,204 +1,95 @@
 From: Mark Brown <broonie@sirena.org.uk>
-Subject: [patch 4/4] natsemi: Add quirks for Aculab E1/T1 PMXc cPCI carrier cards
-Date: Sun, 12 Mar 2006 19:23:03 +0000
-Message-ID: <20060312205305.629183000@mercator.sirena.org.uk>
+Subject: [patch 2/4] natsemi: Support oversized EEPROMs
+Date: Sun, 12 Mar 2006 19:23:01 +0000
+Message-ID: <20060312205304.558799000@mercator.sirena.org.uk>
 References: <20060312192259.929734000@mercator.sirena.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751820AbWCLVVx@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750996AbWCLVVt@vger.kernel.org>
 To: Tim Hockin <thockin@hockin.org>, Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=natsemi-aculab-cpci-carrier.patch
+Content-Disposition: inline; filename=natsemi-variable-eeprom-size.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Aculab E1/T1 PMXc cPCI carrier card cards present a natsemi on the cPCI
-bus wired up in a non-standard fashion.  This patch provides support in
-the natsemi driver for these cards by implementing a quirk mechanism and
-using that to configure appropriate settings for the card: forcing 100M
-full duplex, having a large EEPROM and using the MII port while ignoring
-PHYs.
+The natsemi chip can have a larger EEPROM attached than it itself uses
+for configuration.  This patch adds support for user space access
+to such an EEPROM.
 
 Signed-off-by: Mark Brown <broonie@sirena.org.uk>
 
 Index: natsemi-queue/drivers/net/natsemi.c
 ===================================================================
---- natsemi-queue.orig/drivers/net/natsemi.c	2006-02-25 17:41:59.000000000 +0000
-+++ natsemi-queue/drivers/net/natsemi.c	2006-03-08 21:44:12.000000000 +0000
-@@ -226,7 +226,6 @@ static int full_duplex[MAX_UNITS];
+--- natsemi-queue.orig/drivers/net/natsemi.c	2006-02-25 17:40:15.000000000 +0000
++++ natsemi-queue/drivers/net/natsemi.c	2006-02-25 17:40:39.000000000 +0000
+@@ -226,7 +226,7 @@ static int full_duplex[MAX_UNITS];
  				 NATSEMI_PG1_NREGS)
  #define NATSEMI_REGS_VER	1 /* v1 added RFDR registers */
  #define NATSEMI_REGS_SIZE	(NATSEMI_NREGS * sizeof(u32))
--#define NATSEMI_DEF_EEPROM_SIZE	24 /* 12 16-bit values */
+-#define NATSEMI_EEPROM_SIZE	24 /* 12 16-bit values */
++#define NATSEMI_DEF_EEPROM_SIZE	24 /* 12 16-bit values */
  
  /* Buffer sizes:
   * The nic writes 32-bit values, even if the upper bytes of
-@@ -344,12 +343,14 @@ None characterised.
- 
- 
- 
--enum pcistuff {
-+enum natsemi_quirks {
- 	PCI_USES_IO = 0x01,
- 	PCI_USES_MEM = 0x02,
- 	PCI_USES_MASTER = 0x04,
- 	PCI_ADDR0 = 0x08,
- 	PCI_ADDR1 = 0x10,
-+	MEDIA_FORCE_100FD = 0x20,
-+	MEDIA_IGNORE_PHY = 0x40,
- };
- 
- /* MMIO operations required */
-@@ -367,17 +368,21 @@ enum pcistuff {
- #define MII_FX_SEL	0x0001	/* 100BASE-FX (fiber) */
- #define MII_EN_SCRM	0x0004	/* enable scrambler (tp) */
- 
-- 
- /* array of board data directly indexed by pci_tbl[x].driver_data */
- static const struct {
- 	const char *name;
- 	unsigned long flags;
-+	int quirks;
+@@ -716,6 +716,8 @@ struct netdev_private {
+ 	unsigned int iosize;
+ 	spinlock_t lock;
+ 	u32 msg_enable;
++	/* EEPROM data */
 +	int eeprom_size;
- } natsemi_pci_info[] __devinitdata = {
--	{ "NatSemi DP8381[56]", PCI_IOTYPE },
-+	{ "NatSemi DP8381[56]", PCI_IOTYPE, 0, 24 },
-+	{ "Aculab E1/T1 PMXc cPCI carrier card", PCI_IOTYPE,
-+	                          MEDIA_FORCE_100FD | MEDIA_IGNORE_PHY, 128 },
  };
  
- static struct pci_device_id natsemi_pci_tbl[] = {
--	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_ANY_ID, PCI_ANY_ID, },
-+	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_VENDOR_ID_ACULAB, PCI_SUBDEVICE_ID_ACULAB_174, 0, 0, 1 },
-+	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	{ 0, },
- };
- MODULE_DEVICE_TABLE(pci, natsemi_pci_tbl);
-@@ -815,6 +820,39 @@ static void move_int_phy(struct net_devi
- 	udelay(1);
- }
- 
-+static void __devinit natsemi_init_media (struct net_device *dev)
-+{
-+	struct netdev_private *np = netdev_priv(dev);
-+	u32 tmp;
-+
-+	tmp            = mdio_read(dev, MII_BMCR);
-+	np->speed      = (tmp & BMCR_SPEED100)? SPEED_100     : SPEED_10;
-+	np->duplex     = (tmp & BMCR_FULLDPLX)? DUPLEX_FULL   : DUPLEX_HALF;
-+	np->autoneg    = (tmp & BMCR_ANENABLE)? AUTONEG_ENABLE: AUTONEG_DISABLE;
-+	np->advertising= mdio_read(dev, MII_ADVERTISE);
-+
-+	if ((np->advertising & ADVERTISE_ALL) != ADVERTISE_ALL
-+	 && netif_msg_probe(np)) {
-+		printk(KERN_INFO "natsemi %s: Transceiver default autonegotiation %s "
-+			"10%s %s duplex.\n",
-+			pci_name(np->pci_dev),
-+			(mdio_read(dev, MII_BMCR) & BMCR_ANENABLE)?
-+			  "enabled, advertise" : "disabled, force",
-+			(np->advertising &
-+			  (ADVERTISE_100FULL|ADVERTISE_100HALF))?
-+			    "0" : "",
-+			(np->advertising &
-+			  (ADVERTISE_100FULL|ADVERTISE_10FULL))?
-+			    "full" : "half");
-+	}
-+	if (netif_msg_probe(np))
-+		printk(KERN_INFO
-+			"natsemi %s: Transceiver status %#04x advertising %#04x.\n",
-+			pci_name(np->pci_dev), mdio_read(dev, MII_BMSR),
-+			np->advertising);
-+
-+}
-+
- static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 	const struct pci_device_id *ent)
- {
-@@ -894,17 +932,21 @@ static int __devinit natsemi_probe1 (str
+ static void move_int_phy(struct net_device *dev, int addr);
+@@ -892,6 +894,7 @@ static int __devinit natsemi_probe1 (str
  	np->msg_enable = (debug >= 0) ? (1<<debug)-1 : NATSEMI_DEF_MSG;
  	np->hands_off = 0;
  	np->intr_status = 0;
--	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
-+	np->eeprom_size = natsemi_pci_info[chip_idx].eeprom_size;
++	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
  
  	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
  	if (dev->mem_start)
- 		option = dev->mem_start;
+@@ -2601,7 +2604,8 @@ static int get_regs_len(struct net_devic
  
- 	/* Ignore the PHY status? */
--	if (option & 0x400) {
-+	if (natsemi_pci_info[chip_idx].quirks & MEDIA_IGNORE_PHY) {
- 		np->ignore_phy = 1;
- 	} else {
--		np->ignore_phy = 0;
-+		if (option & 0x400) {
-+			np->ignore_phy = 1;
-+		} else {
-+			np->ignore_phy = 0;
-+		}
- 	}
+ static int get_eeprom_len(struct net_device *dev)
+ {
+-	return NATSEMI_EEPROM_SIZE;
++	struct netdev_private *np = netdev_priv(dev);
++	return np->eeprom_size;
+ }
  
- 	/* Initial port:
-@@ -936,6 +978,12 @@ static int __devinit natsemi_probe1 (str
- 		np->phy_addr_external = PHY_ADDR_INTERNAL;
- 	}
+ static int get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+@@ -2688,15 +2692,20 @@ static u32 get_link(struct net_device *d
+ static int get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom, u8 *data)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+-	u8 eebuf[NATSEMI_EEPROM_SIZE];
++	u8 *eebuf;
+ 	int res;
  
-+	/* Apply any speed quirks. */
-+	if (natsemi_pci_info[chip_idx].quirks & MEDIA_FORCE_100FD) {
-+		np->speed = 100;
-+		np->duplex = 1;
-+	}
++	eebuf = kmalloc(np->eeprom_size, GFP_KERNEL);
++	if (!eebuf)
++		return -ENOMEM;
 +
- 	/* The lower four bits are the media type. */
- 	if (option) {
- 		if (option & 0x200)
-@@ -974,32 +1022,10 @@ static int __devinit natsemi_probe1 (str
- 	else
- 		netif_carrier_off(dev);
+ 	eeprom->magic = PCI_VENDOR_ID_NS | (PCI_DEVICE_ID_NS_83815<<16);
+ 	spin_lock_irq(&np->lock);
+ 	res = netdev_get_eeprom(dev, eebuf);
+ 	spin_unlock_irq(&np->lock);
+ 	if (!res)
+ 		memcpy(data, eebuf+eeprom->offset, eeprom->len);
++	kfree(eebuf);
+ 	return res;
+ }
  
--	/* get the initial settings from hardware */
--	tmp            = mdio_read(dev, MII_BMCR);
--	np->speed      = (tmp & BMCR_SPEED100)? SPEED_100     : SPEED_10;
--	np->duplex     = (tmp & BMCR_FULLDPLX)? DUPLEX_FULL   : DUPLEX_HALF;
--	np->autoneg    = (tmp & BMCR_ANENABLE)? AUTONEG_ENABLE: AUTONEG_DISABLE;
--	np->advertising= mdio_read(dev, MII_ADVERTISE);
--
--	if ((np->advertising & ADVERTISE_ALL) != ADVERTISE_ALL
--	 && netif_msg_probe(np)) {
--		printk(KERN_INFO "natsemi %s: Transceiver default autonegotiation %s "
--			"10%s %s duplex.\n",
--			pci_name(np->pci_dev),
--			(mdio_read(dev, MII_BMCR) & BMCR_ANENABLE)?
--			  "enabled, advertise" : "disabled, force",
--			(np->advertising &
--			  (ADVERTISE_100FULL|ADVERTISE_100HALF))?
--			    "0" : "",
--			(np->advertising &
--			  (ADVERTISE_100FULL|ADVERTISE_10FULL))?
--			    "full" : "half");
--	}
--	if (netif_msg_probe(np))
--		printk(KERN_INFO
--			"natsemi %s: Transceiver status %#04x advertising %#04x.\n",
--			pci_name(np->pci_dev), mdio_read(dev, MII_BMSR),
--			np->advertising);
-+	/* get the initial settings from hardware if we don't have any
-+ 	 * already */
-+	if (!np->speed)
-+		natsemi_init_media(dev);
+@@ -3062,9 +3071,10 @@ static int netdev_get_eeprom(struct net_
+ 	int i;
+ 	u16 *ebuf = (u16 *)buf;
+ 	void __iomem * ioaddr = ns_ioaddr(dev);
++	struct netdev_private *np = netdev_priv(dev);
  
- 	/* save the silicon revision for later querying */
- 	np->srr = readl(ioaddr + SiliconRev);
-Index: natsemi-queue/include/linux/pci_ids.h
-===================================================================
---- natsemi-queue.orig/include/linux/pci_ids.h	2006-02-25 19:19:55.000000000 +0000
-+++ natsemi-queue/include/linux/pci_ids.h	2006-02-25 19:21:28.000000000 +0000
-@@ -1573,6 +1573,7 @@
- #define PCI_DEVICE_ID_NVIDIA_SGS_RIVA128 0x0018
- 
- #define PCI_VENDOR_ID_ACULAB 0x12d9
-+#define PCI_SUBDEVICE_ID_ACULAB_174      0x000c
- 
- #define PCI_SUBVENDOR_ID_CHASE_PCIFAST		0x12E0
- #define PCI_SUBDEVICE_ID_CHASE_PCIFAST4		0x0031
+ 	/* eeprom_read reads 16 bits, and indexes by 16 bits */
+-	for (i = 0; i < NATSEMI_EEPROM_SIZE/2; i++) {
++	for (i = 0; i < np->eeprom_size/2; i++) {
+ 		ebuf[i] = eeprom_read(ioaddr, i);
+ 		/* The EEPROM itself stores data bit-swapped, but eeprom_read
+ 		 * reads it back "sanely". So we swap it back here in order to
 
 --
 "You grabbed my hand and we fell into it, like a daydream - or a fever."
