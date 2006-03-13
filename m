@@ -1,74 +1,31 @@
-From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
-Subject: RE: Router stops routing after changing MAC Address
-Date: Mon, 13 Mar 2006 16:39:16 -0500
-Message-ID: <Pine.LNX.4.61.0603131636470.5608@chaos.analogic.com>
-References: <925A849792280C4E80C5461017A4B8A20321F5@mail733.InfraSupportEtc.com>
-Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+From: Russell Stuart <russell-lartc@stuart.id.au>
+Subject: Re: [PATCH] TC: bug fixes to the "sample" clause
+Date: Tue, 14 Mar 2006 07:43:57 +1000
+Message-ID: <1142286237.17608.7.camel@ras.pc.brisbane.lube>
+References: <1139538806.15476.33.camel@ras> <1142082696.5184.53.camel@jzny2>
+	<1142225063.14909.77.camel@ras.pc.brisbane.lube>
+	<1142269090.5242.29.camel@jzny2> <4415B217.30507@trash.net>
+	<20060313100421.7df7f9ed@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Stephen Hemminger" <shemminger@osdl.org>,
-	"Chuck Ebbert" <76306.1226@compuserve.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Bart Samwel" <bart@samwel.tk>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Simon Mackinlay" <smackinlay@mail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932466AbWCMVj3@vger.kernel.org>
-in-reply-to: <925A849792280C4E80C5461017A4B8A20321F5@mail733.InfraSupportEtc.com>
-Content-class: urn:content-classes:message
-To: "Greg Scott" <GregScott@InfraSupportEtc.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca, lartc@mailman.ds9a.nl
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060313100421.7df7f9ed@localhost.localdomain>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2006-03-13 at 10:04 -0800, Stephen Hemminger wrote:
+> The memset fix is in current CVS. I just wasn't going to take the
+> patch that looked at utsname to decide what hash to use.
 
-On Mon, 13 Mar 2006, Greg Scott wrote:
-
-> But in a failover scenario you want two devices to have the same IEEE
-> (station) Address (or MAC Address or hardware address).  So many names
-> for the same thing!
->
-> When the primary unit fails, you want the backup unit to completely
-> assume the failed unit's identity - right down to the MAC Address.  The
-> other way to do it using gratuitous ARPs is not good enough because some
-> cheap router someplace with an ARP cache of several hours will not
-> listen and will never update its own ARP cache.
->
-> I like to think of this as bending the rules a little bit, not really
-> breaking them.  :)
->
-> - Greg
->
-
-Top posting, NotGood(tm). Anyway, if the device fails, you have
-routers and hosts ARPing the interface, trying to establish a
-route anyway.
-
->
->
->> Actually, it doesn't make any difference. Changing the IEEE station
->> (physical) address is not an allowed procedure even though hooks are
->> available in many drivers to do this. According to the IEEE 802
->> physical media specification, this 48-bit address must be unique
->> and must be one of a group assigned by IEEE. Failure to follow this
->> simple protocol can (will) cause an entire network to fail. If you
->> don't care, then you certainly don't care about multicast bits either,
->> basically let them set it to all ones as well.
->
->> Cheers,
->> Dick Johnson
->> Penguin : Linux version 2.6.15.4 on an i686 machine (5589.54 BogoMips).
->> Warning : 98.36% of all statistics are fiction, book release in April.
->
-
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.15.4 on an i686 machine (5589.54 BogoMips).
-Warning : 98.36% of all statistics are fiction, book release in April.
-_
-
-
-****************************************************************
-The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
-
-Thank you.
+Stephen, could you describe your objections to it please?
