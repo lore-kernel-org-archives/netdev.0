@@ -1,29 +1,51 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
-Date: Mon, 13 Mar 2006 15:22:42 -0500
-Message-ID: <20060313202242.GC27761@kvack.org>
-References: <200603130139.k2D1dpSQ021279@shell0.pdx.osdl.net> <20060312.180802.13404061.davem@davemloft.net> <200603132105.32794.ioe-lkml@rameria.de>
+From: "Greg Scott" <GregScott@InfraSupportEtc.com>
+Subject: RE: Router stops routing after changing MAC Address
+Date: Mon, 13 Mar 2006 14:57:04 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A20321F5@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, akpm@osdl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932439AbWCMU2J@vger.kernel.org>
-To: Ingo Oeser <ioe-lkml@rameria.de>
-Content-Disposition: inline
-In-Reply-To: <200603132105.32794.ioe-lkml@rameria.de>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Chuck Ebbert" <76306.1226@compuserve.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Bart Samwel" <bart@samwel.tk>,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Simon Mackinlay" <smackinlay@mail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932455AbWCMUz5@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>,
+	"Stephen Hemminger" <shemminger@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 13, 2006 at 09:05:31PM +0100, Ingo Oeser wrote:
-> From: Ingo Oeser <ioe-lkml@rameria.de>
-> 
-> Fold __scm_send() into scm_send() and remove that interface completly
-> from the kernel.
+But in a failover scenario you want two devices to have the same IEEE
+(station) Address (or MAC Address or hardware address).  So many names
+for the same thing!  
 
-Whoa, what are you doing here?  Uninlining scm_send() is a Bad Thing to do 
-given that scm_send() is in the AF_UNIX hot path.
+When the primary unit fails, you want the backup unit to completely
+assume the failed unit's identity - right down to the MAC Address.  The
+other way to do it using gratuitous ARPs is not good enough because some
+cheap router someplace with an ARP cache of several hours will not
+listen and will never update its own ARP cache.  
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+I like to think of this as bending the rules a little bit, not really
+breaking them.  :)
+
+- Greg
+
+
+
+>Actually, it doesn't make any difference. Changing the IEEE station
+>(physical) address is not an allowed procedure even though hooks are 
+>available in many drivers to do this. According to the IEEE 802 
+>physical media specification, this 48-bit address must be unique 
+>and must be one of a group assigned by IEEE. Failure to follow this 
+>simple protocol can (will) cause an entire network to fail. If you 
+>don't care, then you certainly don't care about multicast bits either, 
+>basically let them set it to all ones as well.
+
+>Cheers,
+>Dick Johnson
+>Penguin : Linux version 2.6.15.4 on an i686 machine (5589.54 BogoMips).
+>Warning : 98.36% of all statistics are fiction, book release in April.
