@@ -1,57 +1,62 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 5/6 v2] IB: IP address based RDMA
-	connection manager
-Date: Mon, 13 Mar 2006 07:43:28 -0800
-Message-ID: <adabqwafizj.fsf@cisco.com>
-References: <ORSMSX401FRaqbC8wSA0000000e@orsmsx401.amr.corp.intel.com>
+From: Balbir Singh <balbir@in.ibm.com>
+Subject: Re: [UPDATED PATCH] Re: [Lse-tech] Re: [Patch 7/7] Generic netlink interface (delay	accounting)
+Date: Mon, 13 Mar 2006 21:51:12 +0530
+Message-ID: <20060313162112.GB7004@in.ibm.com>
+References: <1141045194.5363.12.camel@localhost.localdomain> <4403608E.1050304@watson.ibm.com> <1141652556.5185.64.camel@localhost.localdomain> <440C6AAA.9030301@watson.ibm.com> <1141742282.5171.55.camel@localhost.localdomain> <440F52FF.30908@watson.ibm.com> <20060309143759.GA4653@in.ibm.com> <1142002433.5298.42.camel@jzny2> <20060310163927.GA6537@in.ibm.com> <1142083849.5184.69.camel@jzny2>
+Reply-To: balbir@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: Shailabh Nagar <nagar@watson.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	lse-tech@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932204AbWCMQVV@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1142083849.5184.69.camel@jzny2>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It seems that cma_detach_from_dev():
+On Sat, Mar 11, 2006 at 08:30:49AM -0500, jamal wrote:
+> On Fri, 2006-10-03 at 22:09 +0530, Balbir Singh wrote:
+> > On Fri, Mar 10, 2006 at 09:53:53AM -0500, jamal wrote: 
+> 
+> > > On kernel->user (in the case of response to #a or async notifiation as
+> > > in #b) you really dont need to specify the TG/PID since they appear in
+> > > the STATS etc.
+> > 
+> > I see your point now. I am looking at other users of netlink like
+> > rtnetlink and I see the classical usage.
+> > 
+> > We can implement TLV's in our code, but for the most part the data we exchange
+> > between the user <-> kernel has all the TLV's listed in the enum above.
+> >
+> > The major differnece is the type (pid/tgid). Hence we created a structure
+> > (taskstats) instead of using TLV's.
+> 
+> Something to remember:
+> 
+> 1) TLVs are essentially giving you the flexibility to send optionally
+> appearing elements. It is up to the receiver (in the kernel or user
+> space) to check for the presence of mandatory elements or execute things
+> depending on the presence of certain TLVs. Example in your case:
+> if the tgid TLV appears then the user is requesting for that TLV
+> if the pid appears then they are requesting for that
+> if both appear then it is the && of the two.
+> You should always ignore TLVs you dont understand - to allow for forward
+> compatibility.
+> 
+> 2)  The "T" part is essentially also encoding (semantically) what size
+> the value is; the "L" part is useful for validation. So the receiver
+> will always know what the size of the TLV is by definition and uses the
+> L to make sure it is the right size. Reject what is of the wrong size.
+> 
+> cheers,
+> jamal
 
- > +static void cma_detach_from_dev(struct rdma_id_private *id_priv)
- > +{
- > +	list_del(&id_priv->list);
- > +	if (atomic_dec_and_test(&id_priv->cma_dev->refcount))
- > +		wake_up(&id_priv->cma_dev->wait);
- > +	id_priv->cma_dev = NULL;
- > +}
+Thanks for the clarification, I will try and adapt our genetlink to use
+TLV's, I can see the benefits - we will work on this as an evolutionary change
+to our code.
 
-doesn't need to do atomic_dec_and_test(), because it is never dropping
-the last reference to id_priv (and in fact if it was, the last line
-would be a use-after-free bug).
-
-Does it make sense to replace it with:
-
-	static void cma_detach_from_dev(struct rdma_id_private *id_priv)
-	{
-		list_del(&id_priv->list);
-		/*
-		 * cma_detach_from_dev() will never be dropping the last
-		 * reference to id_priv, so no need to test here.
-		 */
-		atomic_dec(&id_priv->cma_dev->refcount);
-		id_priv->cma_dev = NULL;
-	}
-
-on my x86_64 build that's worth
-
-	add/remove: 0/0 grow/shrink: 0/1 up/down: 0/-40 (-40)
-	function                                     old     new   delta
-	cma_detach_from_dev                          106      66     -40
-
- - R.
+Warm Regards,
+Balbir
