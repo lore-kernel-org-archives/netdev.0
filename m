@@ -1,84 +1,37 @@
-From: "Greg Scott" <GregScott@InfraSupportEtc.com>
-Subject: RE: Router stops routing after changing MAC Address
-Date: Mon, 13 Mar 2006 16:15:03 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A20321F9@mail733.InfraSupportEtc.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
+Date: Mon, 13 Mar 2006 14:13:05 -0800
+Message-ID: <20060313141305.0cd4fe97.akpm@osdl.org>
+References: <200603130139.k2D1dpSQ021279@shell0.pdx.osdl.net>
+	<20060312.180802.13404061.davem@davemloft.net>
+	<200603132105.32794.ioe-lkml@rameria.de>
+	<20060313202242.GC27761@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Chuck Ebbert" <76306.1226@compuserve.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, "Bart Samwel" <bart@samwel.tk>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Simon Mackinlay" <smackinlay@mail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932498AbWCMWN5@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "Rick Jones" <rick.jones2@hp.com>,
-	"linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ioe-lkml@rameria.de, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932508AbWCMWPz@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
+In-Reply-To: <20060313202242.GC27761@kvack.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yup.
+Benjamin LaHaise <bcrl@kvack.org> wrote:
+>
+> On Mon, Mar 13, 2006 at 09:05:31PM +0100, Ingo Oeser wrote:
+> > From: Ingo Oeser <ioe-lkml@rameria.de>
+> > 
+> > Fold __scm_send() into scm_send() and remove that interface completly
+> > from the kernel.
+> 
+> Whoa, what are you doing here?
+>
 
-I had a situation 2 weeks ago where a customer connected a system to the
-Internet with an IP Address he should not have used.  And the little
-Cisco router on the frontend dutifully recorded it in its ARP cache -
-forever, with no TTL!  This took down their webmail for most of a day
-until we finally had to cycle the power on that nasty little Cisco 678.
+scm_send() and scm_recv() are already uninlined in Dave's tree - this patch
+does further consolidation.
 
-Bigger routers do it too.  I've had several situations over the years
-where I replaced an older firewall with a newer one with the same IP
-Addresses.  All the internal servers find it soon enough.  But I've
-waited literally hours for the routers to finally purge their ARP caches
-so they would see my replacement systems - often with the customer
-looking over my shoulders getting more and more nervous by the minute.  
+>  Uninlining scm_send() is a Bad Thing to do 
+> given that scm_send() is in the AF_UNIX hot path.
 
-And sometimes the routers are not accessible - you can't cycle them even
-if you had permission.  Consider the cases of bridged DSL service -
-where the real router could be on the other side of the country.  Try
-calling an ISP and asking the tech on the other end to purge an ARP
-cache on a router.  So the same IP Addresses but different MAC
-addresses, all you can do is wait for the passage of (lots of) time.
-That happened to me in my own network once.  I accidently took down my
-email server for something like 4 hours one time when I got careless.  
-
-> Indeed, there is a large onus on the software doing the MAC 
-> override to make sure it does not break the required uniqueness.  
-> Just as if one were using locally administered MAC addresses.
-
-Yes.  My 12:34:56 OUI scheme will work for this project but it is
-definitely not good for the long term.  I really really hope I have to
-spend some money with the IEEE soon to support lots and lots of
-rollouts.  :)
-
-- Greg Scott
-
-
-
------Original Message-----
-From: Rick Jones [mailto:rick.jones2@hp.com] 
-Sent: Monday, March 13, 2006 3:50 PM
-To: linux-os (Dick Johnson)
-Cc: Greg Scott; Chuck Ebbert; linux-kernel; netdev@vger.kernel.org; Bart
-Samwel; Alan Cox; Simon Mackinlay
-Subject: Re: Router stops routing after changing MAC Address
-
- > Anyway, if the device fails, you have
-> routers and hosts ARPing the interface, trying to establish a route 
-> anyway.
-
-But only after what may be a much longer time than the customer is
-willing to accept or able to configure.  I know of a number of HA
-situations where the "new" device is given the "old" MAC just to avoid
-that speicific situation of ARP caches not being updated except after
-quite some time.  Not necessarily on the end-systems, the issue can be
-with intermediate devices (routers).
-
-And if one has to work with static ARP entries to deal (however
-imperfectly) with ARP poisioning or whatnot...
-
-Indeed, there is a large onus on the software doing the MAC override to
-make sure it does not break the required uniqueness.  Just as if one
-were using locally administered MAC addresses.
-
-rick jones
+scm_send() and scm_recv() are in _two_ AF_UNIX hotpaths...
