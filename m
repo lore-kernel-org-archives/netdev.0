@@ -1,37 +1,65 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
-Date: Mon, 13 Mar 2006 14:13:05 -0800
-Message-ID: <20060313141305.0cd4fe97.akpm@osdl.org>
-References: <200603130139.k2D1dpSQ021279@shell0.pdx.osdl.net>
-	<20060312.180802.13404061.davem@davemloft.net>
-	<200603132105.32794.ioe-lkml@rameria.de>
-	<20060313202242.GC27761@kvack.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] hostap_{pci,plx}.c: fix memory leaks
+Date: Mon, 13 Mar 2006 23:28:41 +0100
+Message-ID: <20060313222841.GQ13973@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ioe-lkml@rameria.de, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932508AbWCMWPz@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
-In-Reply-To: <20060313202242.GC27761@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hostap@shmoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964809AbWCMW2n@vger.kernel.org>
+To: jkmaline@cc.hut.fi
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin LaHaise <bcrl@kvack.org> wrote:
->
-> On Mon, Mar 13, 2006 at 09:05:31PM +0100, Ingo Oeser wrote:
-> > From: Ingo Oeser <ioe-lkml@rameria.de>
-> > 
-> > Fold __scm_send() into scm_send() and remove that interface completly
-> > from the kernel.
-> 
-> Whoa, what are you doing here?
->
+This patch fixes two memotry leaks spotted by the Coverity checker.
 
-scm_send() and scm_recv() are already uninlined in Dave's tree - this patch
-does further consolidation.
 
->  Uninlining scm_send() is a Bad Thing to do 
-> given that scm_send() is in the AF_UNIX hot path.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-scm_send() and scm_recv() are in _two_ AF_UNIX hotpaths...
+---
+
+ drivers/net/wireless/hostap/hostap_pci.c |    6 +++---
+ drivers/net/wireless/hostap/hostap_plx.c |    6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+--- linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_pci.c.old	2006-03-13 22:34:30.000000000 +0100
++++ linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_pci.c	2006-03-13 22:37:57.000000000 +0100
+@@ -301,14 +301,14 @@ static int prism2_pci_probe(struct pci_d
+ 	struct hostap_interface *iface;
+ 	struct hostap_pci_priv *hw_priv;
+ 
++	if (pci_enable_device(pdev))
++		return -EIO;
++
+ 	hw_priv = kmalloc(sizeof(*hw_priv), GFP_KERNEL);
+ 	if (hw_priv == NULL)
+ 		return -ENOMEM;
+ 	memset(hw_priv, 0, sizeof(*hw_priv));
+ 
+-	if (pci_enable_device(pdev))
+-		return -EIO;
+-
+ 	phymem = pci_resource_start(pdev, 0);
+ 
+ 	if (!request_mem_region(phymem, pci_resource_len(pdev, 0), "Prism2")) {
+--- linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_plx.c.old	2006-03-13 22:39:40.000000000 +0100
++++ linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_plx.c	2006-03-13 22:40:09.000000000 +0100
+@@ -446,14 +446,14 @@ static int prism2_plx_probe(struct pci_d
+ 	int tmd7160;
+ 	struct hostap_plx_priv *hw_priv;
+ 
++	if (pci_enable_device(pdev))
++		return -EIO;
++
+ 	hw_priv = kmalloc(sizeof(*hw_priv), GFP_KERNEL);
+ 	if (hw_priv == NULL)
+ 		return -ENOMEM;
+ 	memset(hw_priv, 0, sizeof(*hw_priv));
+ 
+-	if (pci_enable_device(pdev))
+-		return -EIO;
+-
+ 	/* National Datacomm NCP130 based on TMD7160, not PLX9052. */
+ 	tmd7160 = (pdev->vendor == 0x15e8) && (pdev->device == 0x0131);
+ 
