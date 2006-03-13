@@ -1,31 +1,39 @@
-From: Russell Stuart <russell-lartc@stuart.id.au>
-Subject: Re: [PATCH] TC: bug fixes to the "sample" clause
-Date: Tue, 14 Mar 2006 07:43:57 +1000
-Message-ID: <1142286237.17608.7.camel@ras.pc.brisbane.lube>
-References: <1139538806.15476.33.camel@ras> <1142082696.5184.53.camel@jzny2>
-	<1142225063.14909.77.camel@ras.pc.brisbane.lube>
-	<1142269090.5242.29.camel@jzny2> <4415B217.30507@trash.net>
-	<20060313100421.7df7f9ed@localhost.localdomain>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Router stops routing after changing MAC Address
+Date: Mon, 13 Mar 2006 13:50:09 -0800
+Message-ID: <4415E911.8090504@hp.com>
+References: <925A849792280C4E80C5461017A4B8A20321F5@mail733.InfraSupportEtc.com> <Pine.LNX.4.61.0603131636470.5608@chaos.analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060313100421.7df7f9ed@localhost.localdomain>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Cc: Greg Scott <GregScott@InfraSupportEtc.com>,
+	Chuck Ebbert <76306.1226@compuserve.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Bart Samwel <bart@samwel.tk>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Simon Mackinlay <smackinlay@mail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932476AbWCMVuN@vger.kernel.org>
+To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
+In-Reply-To: <Pine.LNX.4.61.0603131636470.5608@chaos.analogic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-03-13 at 10:04 -0800, Stephen Hemminger wrote:
-> The memset fix is in current CVS. I just wasn't going to take the
-> patch that looked at utsname to decide what hash to use.
+ > Anyway, if the device fails, you have
+> routers and hosts ARPing the interface, trying to establish a
+> route anyway.
 
-Stephen, could you describe your objections to it please?
+But only after what may be a much longer time than the customer is 
+willing to accept or able to configure.  I know of a number of HA 
+situations where the "new" device is given the "old" MAC just to avoid 
+that speicific situation of ARP caches not being updated except after 
+quite some time.  Not necessarily on the end-systems, the issue can be 
+with intermediate devices (routers).
+
+And if one has to work with static ARP entries to deal (however 
+imperfectly) with ARP poisioning or whatnot...
+
+Indeed, there is a large onus on the software doing the MAC override to 
+make sure it does not break the required uniqueness.  Just as if one 
+were using locally administered MAC addresses.
+
+rick jones
