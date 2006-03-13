@@ -1,70 +1,76 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] TC: bug fixes to the "sample" clause
-Date: Mon, 13 Mar 2006 10:04:21 -0800
-Message-ID: <20060313100421.7df7f9ed@localhost.localdomain>
-References: <1139538806.15476.33.camel@ras> <1142082696.5184.53.camel@jzny2>
-	<1142225063.14909.77.camel@ras.pc.brisbane.lube>
-	<1142269090.5242.29.camel@jzny2> <4415B217.30507@trash.net>
+Subject: Re: Router stops routing after changing MAC Address
+Date: Mon, 13 Mar 2006 10:00:41 -0800
+Message-ID: <20060313100041.212cee08@localhost.localdomain>
+References: <925A849792280C4E80C5461017A4B8A20321F2@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4415B217.30507@trash.net>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Cc: "Chuck Ebbert" <76306.1226@compuserve.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Bart Samwel" <bart@samwel.tk>,
+	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Simon Mackinlay" <smackinlay@mail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932274AbWCMSIA@vger.kernel.org>
+To: "Greg Scott" <GregScott@InfraSupportEtc.com>
+In-Reply-To: <925A849792280C4E80C5461017A4B8A20321F2@mail733.InfraSupportEtc.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Mar 2006 18:55:35 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+There still is a bug in the 3c59x driver.  It doesn't include any code
+to handle changing the mac address.  It will work if you take the device
+down, change address, then bring it up. But you shouldn't have to do that.
 
-> jamal wrote:
-> > On Mon, 2006-13-03 at 14:44 +1000, Russell Stuart wrote: 
-> > 
-> >>You are wrong on both counts.
-> > 
-> > 
-> > I am wrong on why it is being rejected - but what you are seeing is
-> > worse than i thought initially. 
-> > 
-> > Lets put it this way:
-> > The only you will _ever_ get that message is if you had made a syntax
-> > error (which you did not). Please look at the code on where that message
-> > appears and:
-> > 
-> > a) tell me how you would have got that message to begin with using
-> > perfectly legal syntax.
-> > a) tell me how a memset would have fixed that.
-> 
-> He already told you, pack_key expects the selector to be initialized,
-> otherwise nkeys might contain a value >= 128, which would cause
-> exactly this error, if a matching key is not found within the
-> uninitialized memory by accident.
-> 
-> > Just send the memset fix to Stephen with a different reason. Your
-> > current reason is _wrong_ and i really dont have much time to have this
-> > kind of discussion.  
-> > If you had said "I added that memset there because it looks like the
-> > right thing to do" then we would not have had this discussion.
-> > 
-> > You made claims you fixed a bug. It cant possibly be the bug you fixed.
-> > Was it some other bug perhaps and you mixed up the two?
+Also, if the driver handles setting mac address, it could have prevented
+you from using a multicast address.
 
-The memset fix is in current CVS. I just wasn't going to take the
-patch that looked at utsname to decide what hash to use.
+Something like this is needed (untested, I don't have that hardware).
 
-> The patch as well as the description are perfectly fine.
-> 
-> BTW, running valgrind on tc shows lots of uses of uninitialized values,
-> it seems like a good idea if someone would go over these and fix them
-> up.
 
-If we had a test script of commands (code coverage), that would help.
+--- linux-2.6/drivers/net/3c59x.c.orig	2006-03-13 09:58:25.000000000 -0800
++++ linux-2.6/drivers/net/3c59x.c	2006-03-13 09:52:47.000000000 -0800
+@@ -895,6 +895,7 @@ static void dump_tx_ring(struct net_devi
+ static void update_stats(void __iomem *ioaddr, struct net_device *dev);
+ static struct net_device_stats *vortex_get_stats(struct net_device *dev);
+ static void set_rx_mode(struct net_device *dev);
++static int set_rx_address(struct net_device *dev, void *addr);
+ #ifdef CONFIG_PCI
+ static int vortex_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ #endif
+@@ -1563,6 +1564,7 @@ static int __devinit vortex_probe1(struc
+ #endif
+ 	dev->ethtool_ops = &vortex_ethtool_ops;
+ 	dev->set_multicast_list = set_rx_mode;
++	dev->set_mac_address = set_rx_address;
+ 	dev->tx_timeout = vortex_tx_timeout;
+ 	dev->watchdog_timeo = (watchdog * HZ) / 1000;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -3150,6 +3152,27 @@ static void set_rx_mode(struct net_devic
+ 	iowrite16(new_mode, ioaddr + EL3_CMD);
+ }
+ 
++
++static int set_rx_address(struct net_device *dev, void *p)
++{
++	struct vortex_private *vp = netdev_priv(dev);
++	void __iomem *ioaddr = vp->ioaddr;
++	const struct sockaddr *addr = p;
++
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EADDRNOTAVAIL;
++
++	spin_lock_bh(&vp->lock);
++	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
++
++	EL3WINDOW(2);
++	for (i = 0; i < ETH_ALEN; i++)
++		iowrite8(dev->dev_addr[i], ioaddr + i);
++	spin_unlock_bh(&vp->lock);
++	
++	return 0;
++}
++
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ /* Setup the card so that it can receive frames with an 802.1q VLAN tag.
+    Note that this must be done after each RxReset due to some backwards
