@@ -1,38 +1,59 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] TC: bug fixes to the "sample" clause
-Date: Mon, 13 Mar 2006 13:50:48 -0800
-Message-ID: <20060313135048.27b09fba@localhost.localdomain>
-References: <1139538806.15476.33.camel@ras> <1142082696.5184.53.camel@jzny2>
-	<1142225063.14909.77.camel@ras.pc.brisbane.lube>
-	<1142269090.5242.29.camel@jzny2> <4415B217.30507@trash.net>
-	<20060313100421.7df7f9ed@localhost.localdomain>
-	<1142286237.17608.7.camel@ras.pc.brisbane.lube>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: Router stops routing after changing MAC Address
+Date: Mon, 13 Mar 2006 14:10:34 -0800
+Message-ID: <20060313141034.c3cf0eea.rdunlap@xenotime.net>
+References: <925A849792280C4E80C5461017A4B8A20321F2@mail733.InfraSupportEtc.com>
+	<20060313100041.212cee08@localhost.localdomain>
+	<Pine.LNX.4.61.0603131513380.5373@chaos.analogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: Russell Stuart <russell-lartc@stuart.id.au>
-In-Reply-To: <1142286237.17608.7.camel@ras.pc.brisbane.lube>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Cc: shemminger@osdl.org, GregScott@InfraSupportEtc.com,
+	76306.1226@compuserve.com, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org, bart@samwel.tk,
+	alan@lxorguk.ukuu.org.uk, smackinlay@mail.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932468AbWCMWIu@vger.kernel.org>
+To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+In-Reply-To: <Pine.LNX.4.61.0603131513380.5373@chaos.analogic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Mar 2006 07:43:57 +1000
-Russell Stuart <russell-lartc@stuart.id.au> wrote:
+On Mon, 13 Mar 2006 15:27:26 -0500 linux-os \(Dick Johnson\) wrote:
 
-> On Mon, 2006-03-13 at 10:04 -0800, Stephen Hemminger wrote:
-> > The memset fix is in current CVS. I just wasn't going to take the
-> > patch that looked at utsname to decide what hash to use.
 > 
-> Stephen, could you describe your objections to it please?
+> On Mon, 13 Mar 2006, Stephen Hemminger wrote:
 > 
+> > There still is a bug in the 3c59x driver.  It doesn't include any code
+> > to handle changing the mac address.  It will work if you take the device
+> > down, change address, then bring it up. But you shouldn't have to do that.
+> >
+> > Also, if the driver handles setting mac address, it could have prevented
+> > you from using a multicast address.
+> >
+> > Something like this is needed (untested, I don't have that hardware).
+> >
+[cut patch]
 
-Because it means that the API for netlink isn't being used properly.
+> Actually, it doesn't make any difference. Changing the IEEE station
+> (physical) address is not an allowed procedure even though hooks are
+> available in many drivers to do this. According to the IEEE 802
+> physical media specification, this 48-bit address must be unique and
+> must be one of a group assigned by IEEE. Failure to follow this
+> simple protocol can (will) cause an entire network to fail. If
+> you don't care, then you certainly don't care about multicast
+> bits either, basically let them set it to all ones as well.
+
+They used to allow "Locally Administered Addresses."  Hrm,
+google still finds 18,000 hits for that phrase.  Is that now
+outlawed?
+
+Even ieee.org has hit(s) for it:
+http://standards.ieee.org/regauth/groupmac/tutorial.html
+
+http://en.wikipedia.org/wiki/MAC_address
+http://www.mynetwatchman.com/pckidiot/chap04.htm
+
+---
+~Randy
+You can't do anything without having to do something else first.
+-- Belefant's Law
