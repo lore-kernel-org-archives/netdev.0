@@ -1,30 +1,41 @@
-From: thockin@hockin.org
-Subject: Re: [patch 1/4] natsemi: Add support for using MII port with no PHY
-Date: Sun, 12 Mar 2006 13:41:13 -0800
-Message-ID: <20060312214113.GA15071@hockin.org>
-References: <20060312192259.929734000@mercator.sirena.org.uk> <20060312205303.869316000@mercator.sirena.org.uk>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [RFC: 2.6 patch] hostap_hw.c:hfa384x_set_rid(): fix error handling
+Date: Sun, 12 Mar 2006 17:15:38 -0800
+Message-ID: <20060313011538.GU9383@jm.kir.nu>
+References: <20060309230646.GI21864@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932258AbWCLVhr@vger.kernel.org>
-To: Mark Brown <broonie@sirena.org.uk>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hostap@shmoo.com, linux-kernel@vger.kernel.org,
+	linville@tuxdriver.com
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <20060312205303.869316000@mercator.sirena.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060309230646.GI21864@stusta.de>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://lists.shmoo.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 12, 2006 at 07:23:00PM +0000, Mark Brown wrote:
-> This patch provides a module option which configures the natsemi driver
-> to use the external MII port on the chip but ignore any PHYs that may be
-> attached to it.  The link state will be left as it was when the driver
-> started and can be configured via ethtool.  Any PHYs that are present
-> can be accessed via the MII ioctl()s.
-> 
-> This is useful for systems where the device is connected without a PHY
-> or where either information or actions outside the scope of the driver
-> are required in order to use the PHYs.
+On Fri, Mar 10, 2006 at 12:06:46AM +0100, Adrian Bunk wrote:
 
-Not that my opinion should hold much weight, having been absent from the
-driver for some time, but yuck.  Is there no better way to do this thatn
-sprinkling poo all over it?
+> The Coverity checker noted that the call to prism2_hw_reset() was dead 
+> code.
+> 
+> Does this patch change the code to what was intended?
+
+Thanks! Based on my CVS history, it looks like this was broken in 2002
+when the access command was moved from another function and verification
+of -ETIMEDOUT value was not moved correctly. The original behavior would
+be achieved by changing your patch to call printk first before the moved
+prism2_hw_reset(dev) call. I added this (with the re-ordered printk) to
+my queue for wireless-2.6.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
