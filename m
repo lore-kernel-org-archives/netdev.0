@@ -1,74 +1,29 @@
-From: "Greg Scott" <GregScott@InfraSupportEtc.com>
-Subject: RE: Router stops routing after changing MAC Address
-Date: Mon, 13 Mar 2006 06:15:35 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A20321F1@mail733.InfraSupportEtc.com>
+From: Olaf Hering <olh@suse.de>
+Subject: kmalloc_node returns unaligned memory
+Date: Mon, 13 Mar 2006 15:45:13 +0100
+Message-ID: <20060313144513.GA9542@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Bart Samwel" <bart@samwel.tk>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Simon Mackinlay" <smackinlay@mail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752003AbWCMMOa@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "Chuck Ebbert" <76306.1226@compuserve.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751237AbWCMOpR@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, Jaroslav Kysela <perex@suse.de>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On eth0 - no. My "fudged" MAC Address is based on the IP Address.  So
-1.2.3.50 becomes 001.002.003.050, which turns into 00:10:02:00:30:50.
-But 1.2.3 is fake - it isn't the one I really use.  The other one,
-172.16.16.3 - that is a real IP Address that turns into
-17:20:16:01:60:03.  And here I thought I was pretty clever - it never
-dawned on me in my wildest dreams that those bits had any special
-meaning!  I will do some homework about what all the bits mean and then
-put together another scheme for my fudged IP Addresses and post the
-results here.
 
-- Greg
+kmalloc_node returns unaligned pointers on powerpc, when CONFIG_DEBUG_SLAB
+is enabled. This makes iptables very unhappy. It checks the alignment in
+net/ipv6/netfilter/ip6_tables.c:check_entry_size_and_hooks(). 
+__alignof__(struct ip6t_entry) returns 8. But returned pointers from
+xt_alloc_table_info() are unaligned:
 
+Linux version 2.6.16-rc6-git1-default-iptables-slab (olaf@pomegranate) (gcc version 4.1.0 (SUSE Linux)) #2 Mon Mar 13 15:19:45 CET 2006
+...
+ xt_alloc_table_info(250) modprobe(1687):c0,j4294904016 newinfo/size cfc82498/0x278
+ xt_alloc_table_info(265) modprobe(1687):c0,j4294904038 entries[0] c449611c
+ ip_nat_init: can't setup rules.
+ sys_init_module(1960) modprobe(1687):c0,j4294904071 iptable_nat returned -22
+...
 
-
------Original Message-----
-From: Chuck Ebbert [mailto:76306.1226@compuserve.com] 
-Sent: Monday, March 13, 2006 12:11 AM
-To: Greg Scott
-Cc: linux-kernel; David S. Miller
-Subject: Re: Router stops routing after changing MAC Address
-
-In-Reply-To:
-<925A849792280C4E80C5461017A4B8A20321CC@mail733.InfraSupportEtc.com>
-
-On Fri, 10 Mar 2006 18:33:15 -0600, Greg Scott wrote:
-
-> How to change MAC addresses is documented well enough - and it works -
-
-> but when I change MAC addresses, my router stops routing.  From the 
-> router, I can see the systems on both sides - but the router just 
-> refuses to forward packets.  Here are my little test scripts to change
-
-> MAC Addresses.
-> 
-> First - ip-fudge-mac.sh
-> [root@test-fw2 gregs]# more ip-fudge-mac.sh ip link set eth0 down ip 
-> link set eth0 address 01:02:03:04:05:06
-                            ^
- Bit zero is set, so this is a multicast address.  Is that intentional?
-
-> ip link set eth0 up
-> 
-> ip link set eth1 down
-> ip link set eth1 address 17:20:16:01:60:03
-                            ^
- Ditto.
-
-> ip link set eth1 up
-> 
-> echo "1" > /proc/sys/net/ipv4/ip_forward
-
-
---
-Chuck
-"Penguins don't come from next door, they come from the Antarctic!"
+Any ideas how to fix that?
