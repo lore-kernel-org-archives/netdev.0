@@ -1,103 +1,62 @@
-From: Russell Stuart <russell-lartc@stuart.id.au>
-Subject: Re: [PATCH] TC: bug fixes to the "sample" clause
-Date: Tue, 14 Mar 2006 12:29:38 +1000
-Message-ID: <1142303378.17608.142.camel@ras.pc.brisbane.lube>
-References: <1139538806.15476.33.camel@ras> <1142082696.5184.53.camel@jzny2>
+From: Matt Helsley <matthltc@us.ibm.com>
+Subject: Re: [Patch 9/9] Generic netlink interface for delay accounting
+Date: Mon, 13 Mar 2006 18:33:27 -0800
+Message-ID: <1142303607.24621.63.camel@stark>
+References: <1142296834.5858.3.camel@elinux04.optonline.net>
+	 <1142297791.5858.31.camel@elinux04.optonline.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: hadi@cyberus.ca
-In-Reply-To: <1142082696.5184.53.camel@jzny2>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Jamal <hadi@cyberus.ca>, netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752131AbWCNCln@vger.kernel.org>
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <1142297791.5858.31.camel@elinux04.optonline.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-03-11 at 08:11 -0500, jamal wrote:
-> On Fri, 2006-10-02 at 12:33 +1000, Russell Stuart wrote:
-> > This patch adds a "divisor" option to tc's "sample"
-> > clause: 
+On Mon, 2006-03-13 at 19:56 -0500, Shailabh Nagar wrote:
+<snip>
+
+> Comments addressed (all in response to Jamal)
 > 
-> While this looks right - can we have more test data with tc filter ls
-> both before and after your fix? Specify divisor of 256 and 16 for
-> example. Show that for the 256 it is the same as before and for 16 it
-> does the right thing.
+> - Eliminated TASKSTATS_CMD_LISTEN and TASKSTATS_CMD_IGNORE
 
-With patch, divisor 256:
-  tc qdisc del dev eth0 root
-  tc qdisc add dev eth0 root handle 1: htb
-  tc filter add dev eth0 parent 1:0 prio 1 protocol ip u32 ht 801: divisor 256
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x01 0xff divisor 256 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x0f 0xff divisor 256 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x10 0xff divisor 256 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0xef 0xff divisor 256 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0xf0 0xff divisor 256 match u32 0 0
-  tc -s filter show dev eth0
-    filter parent 1: protocol ip pref 1 u32
-    filter parent 1: protocol ip pref 1 u32 fh 801: ht divisor 256
-    filter parent 1: protocol ip pref 1 u32 fh 801:1:800 order 2048 key ht 801 bkt 1 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:f:800 order 2048 key ht 801 bkt f flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:10:800 order 2048 key ht 801 bkt 10 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:ef:800 order 2048 key ht 801 bkt ef flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:f0:800 order 2048 key ht 801 bkt f0 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+The enums for these are still in the patch. See below.
 
-Without patch, divisor 256:
-  tc qdisc add dev eth0 root handle 1: htb
-  tc filter add dev eth0 parent 1:0 prio 1 protocol ip u32 ht 801: divisor 256
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x01 0xff match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x0f 0xff match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x10 0xff match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0xef 0xff match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0xf0 0xff match u32 0 0
-  tc -s filter show dev eth0
-    filter parent 1: protocol ip pref 1 u32
-    filter parent 1: protocol ip pref 1 u32 fh 801: ht divisor 256
-    filter parent 1: protocol ip pref 1 u32 fh 801:1:800 order 2048 key ht 801 bkt 1 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:f:800 order 2048 key ht 801 bkt f flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:10:800 order 2048 key ht 801 bkt 10 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:ef:800 order 2048 key ht 801 bkt ef flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:f0:800 order 2048 key ht 801 bkt f0 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+<snip>
 
-With patch, divisor 16:
-  tc qdisc del dev eth0 root
-  tc qdisc add dev eth0 root handle 1: htb
-  tc filter add dev eth0 parent 1:0 prio 1 protocol ip u32 ht 801: divisor 16
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x01 0xff divisor 16 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x0f 0xff divisor 16 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0x10 0xff divisor 16 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0xef 0xff divisor 16 match u32 0 0
-  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 ht 801: classid 1:0 sample u8 0xf0 0xff divisor 16 match u32 0 0
-  tc -s filter show dev eth0
-    filter parent 1: protocol ip pref 1 u32
-    filter parent 1: protocol ip pref 1 u32 fh 801: ht divisor 16
-    filter parent 1: protocol ip pref 1 u32 fh 801::800 order 2048 key ht 801 bkt 0 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801::801 order 2049 key ht 801 bkt 0 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:1:800 order 2048 key ht 801 bkt 1 flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:f:800 order 2048 key ht 801 bkt f flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 801:f:801 order 2049 key ht 801 bkt f flowid 1:
-      match 00000000/00000000 at 0
-    filter parent 1: protocol ip pref 1 u32 fh 800: ht divisor 1
+> +/*
+> + * Commands sent from userspace
+> + * Not versioned. New commands should only be inserted at the enum's end
+> + */
+> +
+> +enum {
+> +       TASKSTATS_CMD_UNSPEC,           /* Reserved */
+> +       TASKSTATS_CMD_NONE,             /* Not a valid cmd to send
+> +                                        * Marks data sent on task/tgid exit */
+> +       TASKSTATS_CMD_LISTEN,           /* Start listening */
+> +       TASKSTATS_CMD_IGNORE,           /* Stop listening */
+
+>From the description I thought you had eliminated these.
+
+> +       TASKSTATS_CMD_PID,              /* Send stats for a pid */
+> +       TASKSTATS_CMD_TGID,             /* Send stats for a tgid */
+> +};
+
+Jamal, was your Mon, 13 Mar 2006 21:29:09 -0500 reply:
+> Note, you are still not following the standard scheme of doing things.
+> Example: using command = GET and the message carrying the TGID to note
+> which TGID is of interest. Instead you have command = TGID.
+> 
+> cheers,
+> jamal
+
+meant to suggest that TASKSTATS_CMD_(P|TG)ID should be renamed to
+TASKSTATS_CMD_GET_(P|TG)ID ? Is that sufficient? Or am I
+misunderstanding?
+
+<snip>
+
+Cheers,
+	-Matt Helsley
