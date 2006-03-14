@@ -1,102 +1,53 @@
-From: "Greg Scott" <GregScott@InfraSupportEtc.com>
-Subject: RE: Router stops routing after changing MAC Address
-Date: Tue, 14 Mar 2006 09:30:25 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A20321FD@mail733.InfraSupportEtc.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Tue, 14 Mar 2006 23:13:36 +0100
+Message-ID: <20060314221336.GB2269@elf.ucw.cz>
+References: <20060311022759.3950.58788.stgit@gitlost.site> <20060311022919.3950.43835.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Rick Jones" <rick.jones2@hp.com>,
-	"Chuck Ebbert" <76306.1226@compuserve.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Simon Mackinlay" <smackinlay@mail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751418AbWCNP3S@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>,
-	"Bart Samwel" <bart@samwel.tk>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964797AbWCNWNr@vger.kernel.org>
+To: Chris Leech <christopher.leech@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20060311022919.3950.43835.stgit@gitlost.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yet I have real-world examples I've seen with my own eyes where MAC
-Address problems have messed up bridged networks.  I posted some of
-those here yesterday.  Good old Ethernet MAC Addresses can and do play a
-real role in these wide area networks.  
+Hi!
 
-Don't believe me?  Try it yourself.  Find a LAN connected to the
-Internet via bridged DSL or cablemodem with a real firewall in place.
-Swap the firewall and wait...and wait...and wait some more for ARP
-caches to clear on the other end.  
-
-When nothing changes but the passage of time and traffic starts to flow
-again - and the Internet service is bridged not routed - give me another
-explanation besides ARP caches.  
-
-- Greg
-
-
-
------Original Message-----
-From: linux-os (Dick Johnson) [mailto:linux-os@analogic.com] 
-Sent: Tuesday, March 14, 2006 6:53 AM
-To: Bart Samwel
-Cc: Greg Scott; Rick Jones; Chuck Ebbert; linux-kernel;
-netdev@vger.kernel.org; Alan Cox; Simon Mackinlay
-Subject: Re: Router stops routing after changing MAC Address
-
-
-On Tue, 14 Mar 2006, Bart Samwel wrote:
-
-> linux-os (Dick Johnson) wrote:
->> On Mon, 13 Mar 2006, Greg Scott wrote:
->> Bzzzzst... Not! There are not any MAC addresses associated with any 
->> of the intercity links, usually not even in WANs!  MAC is for 
->> Ethernet! Once you go to fiber, ATM, T-N, etc., there are no MAC
-addresses.
->
-> Bzzzzt. According to WikiPedia:
->
-> http://en.wikipedia.org/wiki/MAC_address
->
-> MAC addresses are used for:
->
-> - Token ring
-> - 802.11 wireless networks
-> - Bluetooth
-> - FDDI
-> - ATM (switched virtual connections only, as part of an NSAP address)
-> - SCSI and Fibre Channel (as part of a World Wide Name)
->
-> FDDI = fiber, ATM = ATM.
->
-> --Bart
->
-
-A name is NOT.  I can call my mail route number RFD#2 a MAC address.
-Also token-ring is a form of Ethernet as are all known wireless networks
-unless they use light. Even cable modems use Ethernet, with FDM on the
-cable side and baseband on the customer side. Calling SCSI MAC is
-absurd. All of the above, except the ethernets are forms of
-point-to-point communications links. IP (over/under or through) these
-links uses a source and destination IP and any hardware addressing
-scheme is incidental.
+> --- /dev/null
+> +++ b/drivers/dma/dmaengine.c
+> @@ -0,0 +1,360 @@
+> +/*****************************************************************************
+> +Copyright(c) 2004 - 2006 Intel Corporation. All rights reserved.
+> +
+> +This program is free software; you can redistribute it and/or modify it
+> +under the terms of the GNU General Public License as published by the Free
+> +Software Foundation; either version 2 of the License, or (at your option)
+> +any later version.
+> +
+> +This program is distributed in the hope that it will be useful, but WITHOUT
+> +ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> +FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> +more details.
+> +
+> +You should have received a copy of the GNU General Public License along with
+> +this program; if not, write to the Free Software Foundation, Inc., 59
+> +Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+> +
+> +The full GNU General Public License is included in this distribution in the
+> +file called LICENSE.
+> +*****************************************************************************/
 
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.15.4 on an i686 machine (5589.54 BogoMips).
-Warning : 98.36% of all statistics are fiction, book release in April.
-_
-
+Could you use 
+/*
+ *
+ */
 
-****************************************************************
-The information transmitted in this message is confidential and may be
-privileged.  Any review, retransmission, dissemination, or other use of
-this information by persons or entities other than the intended
-recipient is prohibited.  If you are not the intended recipient, please
-notify Analogic Corporation immediately - by replying to this message or
-by sending an email to DeliveryErrors@analogic.com - and destroy all
-copies of this information, including any attachments, without reading
-or disclosing them.
+comment style, and describe in one or two lines what the source does
+in the header?
 
-Thank you.
+								Pavel
+-- 
+209:using System.IO;
