@@ -1,71 +1,30 @@
-From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+From: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bmork@dod.no>
 Subject: Re: Router stops routing after changing MAC Address
-Date: Tue, 14 Mar 2006 07:52:38 -0500
-Message-ID: <Pine.LNX.4.61.0603140740040.8187@chaos.analogic.com>
-References: <925A849792280C4E80C5461017A4B8A20321F9@mail733.InfraSupportEtc.com> <Pine.LNX.4.61.0603131730100.5785@chaos.analogic.com> <4416ABB1.8020802@samwel.tk>
-Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Date: Tue, 14 Mar 2006 15:16:30 +0100
+Message-ID: <87pskp158h.fsf@obelix.mork.no>
+References: <925A849792280C4E80C5461017A4B8A20321F2@mail733.InfraSupportEtc.com>
+	<20060313100041.212cee08@localhost.localdomain>
+	<Pine.LNX.4.61.0603131513380.5373@chaos.analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Greg Scott" <GregScott@InfraSupportEtc.com>,
-	"Rick Jones" <rick.jones2@hp.com>,
-	"Chuck Ebbert" <76306.1226@compuserve.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Simon Mackinlay" <smackinlay@mail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751270AbWCNMxM@vger.kernel.org>
-in-reply-to: <4416ABB1.8020802@samwel.tk>
-Content-class: urn:content-classes:message
-To: "Bart Samwel" <bart@samwel.tk>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751897AbWCNOSf@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+"linux-os \(Dick Johnson\)" <linux-os@analogic.com> writes:
 
-On Tue, 14 Mar 2006, Bart Samwel wrote:
+> Actually, it doesn't make any difference. Changing the IEEE station
+> (physical) address is not an allowed procedure even though hooks are
+> available in many drivers to do this.
 
-> linux-os (Dick Johnson) wrote:
->> On Mon, 13 Mar 2006, Greg Scott wrote:
->> Bzzzzst... Not! There are not any MAC addresses associated with any
->> of the intercity links, usually not even in WANs!  MAC is for
->> Ethernet! Once you go to fiber, ATM, T-N, etc., there are no MAC addresses.
->
-> Bzzzzt. According to WikiPedia:
->
-> http://en.wikipedia.org/wiki/MAC_address
->
-> MAC addresses are used for:
->
-> - Token ring
-> - 802.11 wireless networks
-> - Bluetooth
-> - FDDI
-> - ATM (switched virtual connections only, as part of an NSAP address)
-> - SCSI and Fibre Channel (as part of a World Wide Name)
->
-> FDDI = fiber, ATM = ATM.
->
-> --Bart
->
-
-A name is NOT.  I can call my mail route number RFD#2 a MAC
-address. Also token-ring is a form of Ethernet as are all
-known wireless networks unless they use light. Even cable
-modems use Ethernet, with FDM on the cable side and baseband
-on the customer side. Calling SCSI MAC is absurd. All of the
-above, except the ethernets are forms of point-to-point
-communications links. IP (over/under or through) these
-links uses a source and destination IP and any hardware
-addressing scheme is incidental.
+Of course it is.  It's even required to support some obsolete
+networking protocols.  You could start with
+Documentation/networking/decnet.txt if you don't want to STFW
 
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.15.4 on an i686 machine (5589.54 BogoMips).
-Warning : 98.36% of all statistics are fiction, book release in April.
-_
-
-
-****************************************************************
-The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
-
-Thank you.
+Bj=F8rn
+--=20
+I mean, you're always totally wrong.
