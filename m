@@ -1,103 +1,102 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [2.6 patch] hostap_{pci,plx}.c: fix memory leaks
-Date: Tue, 14 Mar 2006 15:30:20 +0100
-Message-ID: <200603141530.20901.mb@bu3sch.de>
-References: <20060313222841.GQ13973@stusta.de>
+From: "Greg Scott" <GregScott@InfraSupportEtc.com>
+Subject: RE: Router stops routing after changing MAC Address
+Date: Tue, 14 Mar 2006 09:30:25 -0600
+Message-ID: <925A849792280C4E80C5461017A4B8A20321FD@mail733.InfraSupportEtc.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart42314815.A9ZDOVLyYl";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: jkmaline@cc.hut.fi, hostap@shmoo.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751002AbWCNOad@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060313222841.GQ13973@stusta.de>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Rick Jones" <rick.jones2@hp.com>,
+	"Chuck Ebbert" <76306.1226@compuserve.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
+	"Simon Mackinlay" <smackinlay@mail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751418AbWCNP3S@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>,
+	"Bart Samwel" <bart@samwel.tk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart42314815.A9ZDOVLyYl
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Yet I have real-world examples I've seen with my own eyes where MAC
+Address problems have messed up bridged networks.  I posted some of
+those here yesterday.  Good old Ethernet MAC Addresses can and do play a
+real role in these wide area networks.  
 
-On Monday 13 March 2006 23:28, you wrote:
-> This patch fixes two memotry leaks spotted by the Coverity checker.
->=20
->=20
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
->=20
-> ---
->=20
->  drivers/net/wireless/hostap/hostap_pci.c |    6 +++---
->  drivers/net/wireless/hostap/hostap_plx.c |    6 +++---
->  2 files changed, 6 insertions(+), 6 deletions(-)
->=20
-> --- linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_pci.c.ol=
-d	2006-03-13 22:34:30.000000000 +0100
-> +++ linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_pci.c	20=
-06-03-13 22:37:57.000000000 +0100
-> @@ -301,14 +301,14 @@ static int prism2_pci_probe(struct pci_d
->  	struct hostap_interface *iface;
->  	struct hostap_pci_priv *hw_priv;
-> =20
-> +	if (pci_enable_device(pdev))
-> +		return -EIO;
-> +
->  	hw_priv =3D kmalloc(sizeof(*hw_priv), GFP_KERNEL);
->  	if (hw_priv =3D=3D NULL)
+Don't believe me?  Try it yourself.  Find a LAN connected to the
+Internet via bridged DSL or cablemodem with a real firewall in place.
+Swap the firewall and wait...and wait...and wait some more for ARP
+caches to clear on the other end.  
 
-+               pci_disable_device(pdev);
+When nothing changes but the passage of time and traffic starts to flow
+again - and the Internet service is bridged not routed - give me another
+explanation besides ARP caches.  
 
->  		return -ENOMEM;
->  	memset(hw_priv, 0, sizeof(*hw_priv));
-> =20
-> -	if (pci_enable_device(pdev))
-> -		return -EIO;
-> -
->  	phymem =3D pci_resource_start(pdev, 0);
-> =20
->  	if (!request_mem_region(phymem, pci_resource_len(pdev, 0), "Prism2")) {
-> --- linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_plx.c.ol=
-d	2006-03-13 22:39:40.000000000 +0100
-> +++ linux-2.6.16-rc6-mm1-full/drivers/net/wireless/hostap/hostap_plx.c	20=
-06-03-13 22:40:09.000000000 +0100
-> @@ -446,14 +446,14 @@ static int prism2_plx_probe(struct pci_d
->  	int tmd7160;
->  	struct hostap_plx_priv *hw_priv;
-> =20
-> +	if (pci_enable_device(pdev))
-> +		return -EIO;
-> +
->  	hw_priv =3D kmalloc(sizeof(*hw_priv), GFP_KERNEL);
->  	if (hw_priv =3D=3D NULL)
+- Greg
 
-Seems like pci_disable_device should be done here, too.
 
->  		return -ENOMEM;
->  	memset(hw_priv, 0, sizeof(*hw_priv));
-> =20
-> -	if (pci_enable_device(pdev))
-> -		return -EIO;
-> -
->  	/* National Datacomm NCP130 based on TMD7160, not PLX9052. */
->  	tmd7160 =3D (pdev->vendor =3D=3D 0x15e8) && (pdev->device =3D=3D 0x0131=
-);
 
-=2D-=20
-Greetings Michael.
+-----Original Message-----
+From: linux-os (Dick Johnson) [mailto:linux-os@analogic.com] 
+Sent: Tuesday, March 14, 2006 6:53 AM
+To: Bart Samwel
+Cc: Greg Scott; Rick Jones; Chuck Ebbert; linux-kernel;
+netdev@vger.kernel.org; Alan Cox; Simon Mackinlay
+Subject: Re: Router stops routing after changing MAC Address
 
---nextPart42314815.A9ZDOVLyYl
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.1 (GNU/Linux)
+On Tue, 14 Mar 2006, Bart Samwel wrote:
 
-iD8DBQBEFtN8lb09HEdWDKgRAlyNAJsGh7BkxnBz5QlC9pBiTk7YWvKKvwCgjdks
-qZqO0eX+QIJ6iA5myl3ZHGQ=
-=Qlfa
------END PGP SIGNATURE-----
+> linux-os (Dick Johnson) wrote:
+>> On Mon, 13 Mar 2006, Greg Scott wrote:
+>> Bzzzzst... Not! There are not any MAC addresses associated with any 
+>> of the intercity links, usually not even in WANs!  MAC is for 
+>> Ethernet! Once you go to fiber, ATM, T-N, etc., there are no MAC
+addresses.
+>
+> Bzzzzt. According to WikiPedia:
+>
+> http://en.wikipedia.org/wiki/MAC_address
+>
+> MAC addresses are used for:
+>
+> - Token ring
+> - 802.11 wireless networks
+> - Bluetooth
+> - FDDI
+> - ATM (switched virtual connections only, as part of an NSAP address)
+> - SCSI and Fibre Channel (as part of a World Wide Name)
+>
+> FDDI = fiber, ATM = ATM.
+>
+> --Bart
+>
 
---nextPart42314815.A9ZDOVLyYl--
+A name is NOT.  I can call my mail route number RFD#2 a MAC address.
+Also token-ring is a form of Ethernet as are all known wireless networks
+unless they use light. Even cable modems use Ethernet, with FDM on the
+cable side and baseband on the customer side. Calling SCSI MAC is
+absurd. All of the above, except the ethernets are forms of
+point-to-point communications links. IP (over/under or through) these
+links uses a source and destination IP and any hardware addressing
+scheme is incidental.
+
+
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.6.15.4 on an i686 machine (5589.54 BogoMips).
+Warning : 98.36% of all statistics are fiction, book release in April.
+_
+
+
+****************************************************************
+The information transmitted in this message is confidential and may be
+privileged.  Any review, retransmission, dissemination, or other use of
+this information by persons or entities other than the intended
+recipient is prohibited.  If you are not the intended recipient, please
+notify Analogic Corporation immediately - by replying to this message or
+by sending an email to DeliveryErrors@analogic.com - and destroy all
+copies of this information, including any attachments, without reading
+or disclosing them.
+
+Thank you.
