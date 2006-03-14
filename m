@@ -1,59 +1,42 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch 9/9] Generic netlink interface for delay accounting
-Date: Mon, 13 Mar 2006 23:29:08 -0500
-Message-ID: <44164694.6080206@watson.ibm.com>
-References: <1142296834.5858.3.camel@elinux04.optonline.net>
- <1142297791.5858.31.camel@elinux04.optonline.net>
- <1142303607.24621.63.camel@stark>
+From: Bart Samwel <bart@samwel.tk>
+Subject: Re: Router stops routing after changing MAC Address
+Date: Tue, 14 Mar 2006 12:40:33 +0100
+Message-ID: <4416ABB1.8020802@samwel.tk>
+References: <925A849792280C4E80C5461017A4B8A20321F9@mail733.InfraSupportEtc.com> <Pine.LNX.4.61.0603131730100.5785@chaos.analogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Jamal <hadi@cyberus.ca>, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750886AbWCNE3N@vger.kernel.org>
-In-reply-to: <1142303607.24621.63.camel@stark>
-To: Matt Helsley <matthltc@us.ibm.com>
+Content-Transfer-Encoding: 7bit
+Cc: Greg Scott <GregScott@InfraSupportEtc.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Chuck Ebbert <76306.1226@compuserve.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Simon Mackinlay <smackinlay@mail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751138AbWCNLl2@vger.kernel.org>
+To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
+In-Reply-To: <Pine.LNX.4.61.0603131730100.5785@chaos.analogic.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matt Helsley wrote:
+linux-os (Dick Johnson) wrote:
+> On Mon, 13 Mar 2006, Greg Scott wrote:
+> Bzzzzst... Not! There are not any MAC addresses associated with any
+> of the intercity links, usually not even in WANs!  MAC is for
+> Ethernet! Once you go to fiber, ATM, T-N, etc., there are no MAC addresses.
 
->On Mon, 2006-03-13 at 19:56 -0500, Shailabh Nagar wrote:
-><snip>
->
->  
->
->>Comments addressed (all in response to Jamal)
->>
->>- Eliminated TASKSTATS_CMD_LISTEN and TASKSTATS_CMD_IGNORE
->>    
->>
->
->The enums for these are still in the patch. See below.
->
-><snip>
->
->  
->
->>+/*
->>+ * Commands sent from userspace
->>+ * Not versioned. New commands should only be inserted at the enum's end
->>+ */
->>+
->>+enum {
->>+       TASKSTATS_CMD_UNSPEC,           /* Reserved */
->>+       TASKSTATS_CMD_NONE,             /* Not a valid cmd to send
->>+                                        * Marks data sent on task/tgid exit */
->>+       TASKSTATS_CMD_LISTEN,           /* Start listening */
->>+       TASKSTATS_CMD_IGNORE,           /* Stop listening */
->>    
->>
->
->>From the description I thought you had eliminated these.
->  
->
+Bzzzzt. According to WikiPedia:
 
-Yup, typo. the commands aren't registered but the enums hang on.
-Will fix.
+http://en.wikipedia.org/wiki/MAC_address
 
---Shailabh
+MAC addresses are used for:
+
+- Token ring
+- 802.11 wireless networks
+- Bluetooth
+- FDDI
+- ATM (switched virtual connections only, as part of an NSAP address)
+- SCSI and Fibre Channel (as part of a World Wide Name)
+
+FDDI = fiber, ATM = ATM.
+
+--Bart
