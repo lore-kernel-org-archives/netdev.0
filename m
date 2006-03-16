@@ -1,52 +1,55 @@
-From: "Greg Scott" <GregScott@InfraSupportEtc.com>
-Subject: RE: Router stops routing after changing MAC Address
-Date: Thu, 16 Mar 2006 12:32:35 -0600
-Message-ID: <925A849792280C4E80C5461017A4B8A203222D@mail733.InfraSupportEtc.com>
+From: James Lentini <jlentini@netapp.com>
+Subject: [iproute2] IPoIB link layer address bug
+Date: Thu, 16 Mar 2006 17:24:41 -0500 (EST)
+Message-ID: <Pine.LNX.4.61.0603161707360.23670@jlentini-linux.nane.netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Chuck Ebbert" <76306.1226@compuserve.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Bart Samwel" <bart@samwel.tk>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-	"Simon Mackinlay" <smackinlay@mail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964807AbWCPSbZ@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "Stephen Hemminger" <shemminger@osdl.org>,
-	"Chris Wedgwood" <cw@f00f.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	openib-general <openib-general@openib.org>, lartc@mailman.ds9a.nl
+Return-path: <openib-general-bounces@openib.org>
+To: shemminger@osdl.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-I wonder if they would be more open to accepting that patch now?
 
-- Greg Scott
+The ip(8) command has a bug when dealing with IPoIB link layer 
+addresses. Specifically it does not correctly handle the addition of 
+new entries in the neighbor/arp table. For example, this command will 
+fail:
+
+ip neigh add 192.168.0.138 lladdr 00:00:04:04:fe:80:00:00:00:00:00:00:00:01:73:00:00:00:8a:91 nud permanent dev ib0
+
+An IPoIB link layer address is 20-bytes (see 
+http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-09.txt, 
+section 9.1.1).
+
+The command line parsing code expects link layer addresses to be a 
+maximum of 16-bytes. Addresses over 16-bytes are truncated.
+
+This patch (against the iproute2 cvs repository) fixes the problem:
+
+============================================
+--- iproute2/ip/ipneigh.c.orig	2005-09-01 15:21:50.000000000 -0400
++++ iproute2/ip/ipneigh.c	2006-03-16 17:03:41.339759000 -0500
+@@ -165,7 +165,7 @@ static int ipneigh_modify(int cmd, int f
+ 	addattr_l(&req.n, sizeof(req), NDA_DST, &dst.data, dst.bytelen);
  
+ 	if (lla && strcmp(lla, "null")) {
+-		char llabuf[16];
++		char llabuf[20];
+ 		int l;
+ 
+ 		l = ll_addr_a2n(llabuf, sizeof(llabuf), lla);
+============================================
 
------Original Message-----
-From: Stephen Hemminger [mailto:shemminger@osdl.org] 
-Sent: Thursday, March 16, 2006 11:55 AM
-To: Chris Wedgwood
-Cc: Greg Scott; Chuck Ebbert; linux-kernel; David S. Miller;
-netdev@vger.kernel.org; Bart Samwel; Alan Cox; Simon Mackinlay
-Subject: Re: Router stops routing after changing MAC Address
+P.S. - I've found a similar issue with the arp command, see
 
-On Thu, 16 Mar 2006 08:07:43 -0800
-Chris Wedgwood <cw@f00f.org> wrote:
-
-> On Mon, Mar 13, 2006 at 10:00:41AM -0800, Stephen Hemminger wrote:
-> 
-> > There still is a bug in the 3c59x driver.  It doesn't include any 
-> > code to handle changing the mac address.  It will work if you take 
-> > the device down, change address, then bring it up. But you shouldn't
-
-> > have to do that.
-> 
-> I sent a patch do to this probably a year or two back and it was 
-> rejected (by akpm if I recall) because of the argument that you could 
-> and should take it down, change the MAC and bring it back up.
-> 
-> Is this no longer a requirement?
-
-No. most drivers allow changes on the fly.
+http://openib.org/pipermail/openib-general/2006-March/018270.html
