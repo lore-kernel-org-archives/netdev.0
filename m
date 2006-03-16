@@ -1,39 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] IPv6: Cleanups for net/ipv6/addrconf.c (kzalloc, early
- exit) v2
-Date: Thu, 16 Mar 2006 00:20:04 -0800 (PST)
-Message-ID: <20060316.002004.97779505.davem@davemloft.net>
-References: <20060212.021103.76157181.yoshfuji@linux-ipv6.org>
-	<20060310.030258.55767431.davem@davemloft.net>
-	<200603102334.27590.ioe-lkml@rameria.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 1/4] natsemi: Add support for using MII port with no PHY
+Date: Thu, 16 Mar 2006 01:09:02 -0800
+Message-ID: <20060316010902.57e3a98b.akpm@osdl.org>
+References: <20060312192259.929734000@mercator.sirena.org.uk>
+	<20060312205303.869316000@mercator.sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752245AbWCPIUc@vger.kernel.org>
-To: ioe-lkml@rameria.de
-In-Reply-To: <200603102334.27590.ioe-lkml@rameria.de>
+Cc: thockin@hockin.org, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752187AbWCPJL6@vger.kernel.org>
+To: Mark Brown <broonie@sirena.org.uk>
+In-Reply-To: <20060312205303.869316000@mercator.sirena.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Date: Fri, 10 Mar 2006 23:34:26 +0100
+Mark Brown <broonie@sirena.org.uk> wrote:
+>
+>  +	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
+>  +			       ecmd->port == PORT_INTERNAL)) {
 
-> Here are some possible (and trivial) cleanups.
-> - use kzalloc() where possible
-> - invert allocation failure test like
->   if (object) {
->         /* Rest of function here */
->   }
->   to
-> 
->   if (object == NULL)
->         return NULL;
-> 
->   /* Rest of function here */
-> 
-> Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+What's PORT_INTERNAL?  ethtool doesn't appear to define that.
 
-Applied, thanks a lot Ingo.
+drivers/net/natsemi.c: In function `netdev_set_ecmd':
+drivers/net/natsemi.c:2989: `PORT_INTERNAL' undeclared (first use in this function)
+drivers/net/natsemi.c:2989: (Each undeclared identifier is reported only once
+drivers/net/natsemi.c:2989: for each function it appears in.)
