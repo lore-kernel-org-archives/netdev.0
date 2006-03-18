@@ -1,57 +1,24 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: 2.6.16-rc5-mm2: IPW_QOS: two remarks
-Date: Fri, 17 Mar 2006 14:14:52 -0500
-Message-ID: <20060317191447.GC21830@tuxdriver.com>
-References: <20060303045651.1f3b55ec.akpm@osdl.org> <20060303152641.GR9295@stusta.de> <200603050146.27529.andreashappe@snikt.net> <20060307170642.GE3974@stusta.de> <20060303045651.1f3b55ec.akpm@osdl.org> <20060303152641.GR9295@stusta.de> <200603050146.27529.andreashappe@snikt.net>
+Subject: Re: [2.6 patch] drivers/net/wireless/ipw2200.c: make ipw_qos_current_mode() static
+Date: Fri, 17 Mar 2006 20:11:35 -0500
+Message-ID: <20060318011130.GC25249@tuxdriver.com>
+References: <20060304121431.GN9295@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org, zhu.yi@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030269AbWCQTS1@vger.kernel.org>
-To: Andreas Happe <andreashappe@snikt.net>,
-	Adrian Bunk <bunk@stusta.de>
+Cc: yi.zhu@intel.com, jketreno@linux.intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932304AbWCRBO5@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <20060307170642.GE3974@stusta.de> <200603050146.27529.andreashappe@snikt.net>
+In-Reply-To: <20060304121431.GN9295@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 05, 2006 at 01:46:26AM +0100, Andreas Happe wrote:
+On Sat, Mar 04, 2006 at 01:14:31PM +0100, Adrian Bunk wrote:
+> This patch makes the needlessly global function ipw_qos_current_mode() 
+> static.
 
-> Add the following config entries for the ipw2200 driver to 
-> drivers/net/wireless/Kconfig
->  * IPW2200_MONITOR
-> 	enables Monitor mode, as this seems to generate lots of firmware errors
-> 	it depends upon BROKEN
->  * IPW2200_QOS
-> 	enables QoS feature - this is under development right now, so it depends 
-> 	upon EXPERIMENTAL.
-
-Your patch appears to be whitespace-damaged.  Please configure your
-mailer appropriately.
-
-Also, please stick to the patch format described here:
-
-	http://linux.yyz.us/patch-format.html
-
-In particular, don't put anything in the message that doesn't belong
-in the kernel's changelog, such as email-ish messages.
-
-On Tue, Mar 07, 2006 at 06:06:42PM +0100, Adrian Bunk wrote:
-> On Sun, Mar 05, 2006 at 01:46:26AM +0100, Andreas Happe wrote:
-> > On Friday 03 March 2006 16:26, Adrian Bunk wrote:
-> >...
-> > > - please add a help text
-> > 
-> > i could add some stuff about WMM to its help text, but I think someone more 
-> > involved with the ipw2200-project should do that.
-> 
-> Even a short help text is better than no help text.
-
-I agree w/ Adrian.  Since you are touching it, please put something
-appropriate in the Kconfig file.  Zhu Yi may be able to help if you
-aren't sure what the help text should say.
-
-Thanks!
+Merged to upstream branch of wireless-2.6...thanks!
 
 John
 -- 
