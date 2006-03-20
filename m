@@ -1,58 +1,72 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: [PATCH 5/12] [NET] Bring declance.c in sync with linux-mips tree
-Date: Mon, 20 Mar 2006 04:39:53 +0000
-Message-ID: <20060320043953.GE20416@deprecation.cyrius.com>
-References: <20060320043802.GA20389@deprecation.cyrius.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: TSO and IPoIB performance degradation
+Date: Mon, 20 Mar 2006 11:06:29 +0200
+Message-ID: <20060320090629.GA11352@mellanox.co.il>
+References: <20060308125311.GE17618@mellanox.co.il>
+	<20060309.154819.104282952.davem@davemloft.net>
+	<4410C671.2050300@hp.com>
+	<20060309.232301.77550306.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751467AbWCTEk3@vger.kernel.org>
-To: akpm@osdl.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, rick.jones2@hp.com,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060320043802.GA20389@deprecation.cyrius.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060309.232301.77550306.davem@davemloft.net>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-There are three changes between the Linus' and linux-mips git trees
-regarding the declaner driver.  Two are cosmetic and one fixes a
-call to the wrong function.
+Quoting r. David S. Miller <davem@davemloft.net>:
+> > well, there are stacks which do "stretch acks" (after a fashion) that 
+> > make sure when they see packet loss to "do the right thing" wrt sending 
+> > enough acks to allow cwnds to open again in a timely fashion.
+> 
+> Once a loss happens, it's too late to stop doing the stretch ACKs, the
+> damage is done already.  It is going to take you at least one
+> extra RTT to recover from the loss compared to if you were not doing
+> stretch ACKs.
+> 
+> You have to keep giving consistent well spaced ACKs back to the
+> receiver in order to recover from loss optimally.
 
-Signed-off-by: Martin Michlmayr <tbm@cyrius.com>
-Acked-by: Maciej W. Rozycki <macro@linux-mips.org>
+Is it the case then that this requirement is less essential on
+networks such as IP over InfiniBand, which are very low latency
+and essencially lossless (with explicit congestion contifications
+in hardware)?
 
+> The ACK every 2 full sized frames behavior of TCP is absolutely
+> essential.
 
---- linux-2.6/drivers/net/declance.c	2006-03-05 19:35:04.000000000 +0000
-+++ mips.git/drivers/net/declance.c	2006-03-05 18:51:15.000000000 +0000
-@@ -704,8 +704,8 @@
- 	return IRQ_HANDLED;
- }
- 
--static irqreturn_t
--lance_interrupt(const int irq, void *dev_id, struct pt_regs *regs)
-+static irqreturn_t lance_interrupt(const int irq, void *dev_id,
-+				   struct pt_regs *regs)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
- 	struct lance_private *lp = netdev_priv(dev);
-@@ -1255,7 +1255,7 @@
- 	return 0;
- 
- err_out_free_dev:
--	kfree(dev);
-+	free_netdev(dev);
- 
- err_out:
- 	return ret;
-@@ -1301,6 +1301,7 @@
- 	while (root_lance_dev) {
- 		struct net_device *dev = root_lance_dev;
- 		struct lance_private *lp = netdev_priv(dev);
-+
- 		unregister_netdev(dev);
- #ifdef CONFIG_TC
- 		if (lp->slot >= 0)
+Interestingly, I was pointed towards the following RFC draft
+http://www.ietf.org/internet-drafts/draft-ietf-tcpm-rfc2581bis-00.txt
+
+    The requirement that an ACK "SHOULD" be generated for at least every
+    second full-sized segment is listed in [RFC1122] in one place as a
+    SHOULD and another as a MUST.  Here we unambiguously state it is a
+    SHOULD.  We also emphasize that this is a SHOULD, meaning that an
+    implementor should indeed only deviate from this requirement after
+    careful consideration of the implications.
+
+And as Matt Leininger's research appears to show, stretch ACKs
+are good for performance in case of IP over InfiniBand.
+
+Given all this, would it make sense to add a per-netdevice (or per-neighbour)
+flag to re-enable the trick for these net devices (as was done before
+314324121f9b94b2ca657a494cf2b9cb0e4a28cc)?
+IP over InfiniBand driver would then simply set this flag.
+
+David, would you accept such a patch? It would be nice to get 2.6.17
+back to within at least 10% of 2.6.11.
 
 -- 
-Martin Michlmayr
-http://www.cyrius.com/
+Michael S. Tsirkin
+Staff Engineer, Mellanox Technologies
