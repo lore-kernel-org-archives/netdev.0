@@ -1,106 +1,50 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
-Date: Mon, 20 Mar 2006 14:31:03 -0800
-Message-ID: <20060320143103.31b7d933.akpm@osdl.org>
-References: <200603130139.k2D1dpSQ021279@shell0.pdx.osdl.net>
-	<200603132105.32794.ioe-lkml@rameria.de>
-	<20060313173103.7681b49d.akpm@osdl.org>
-	<200603201244.58507.netdev@axxeo.de>
-	<20060320201802.GS15997@sorel.sous-sol.org>
-	<20060320213636.GT15997@sorel.sous-sol.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: TSO and IPoIB performance degradation
+Date: Mon, 20 Mar 2006 15:00:29 -0800 (PST)
+Message-ID: <20060320.150029.109814021.davem@davemloft.net>
+References: <20060320114933.GA3058@xi.wantstofly.org>
+	<20060320120407.GY29929@mellanox.co.il>
+	<20060320150941.GD16108@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cxzhang@watson.ibm.com, netdev@axxeo.de, chrisw@sous-sol.org,
-	ioe-lkml@rameria.de, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751304AbWCTWea@vger.kernel.org>
-To: Chris Wright <chrisw@sous-sol.org>
-In-Reply-To: <20060320213636.GT15997@sorel.sous-sol.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, rick.jones2@hp.com,
+	linux-kernel@vger.kernel.org, openib-general@openib.org,
+	buytenh@wantstofly.org, arjan@infradead.org
+Return-path: <openib-general-bounces@openib.org>
+To: bcrl@kvack.org
+In-Reply-To: <20060320150941.GD16108@kvack.org>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Chris Wright <chrisw@sous-sol.org> wrote:
->
-> * Chris Wright (chrisw@sous-sol.org) wrote:
-> > * Ingo Oeser (netdev@axxeo.de) wrote:
-> > > Hi Chris,
-> > > 
-> > > Andrew Morton wrote:
-> > > > Ingo Oeser <ioe-lkml@rameria.de> wrote:
-> > > > >
-> > > > >  -int scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
-> > > > >  -{
-> > > > >  -	struct task_struct *p = current;
-> > > > >  -	scm->creds = (struct ucred) {
-> > > > >  -		.uid = p->uid,
-> > > > >  -		.gid = p->gid,
-> > > > >  -		.pid = p->tgid
-> > > > >  -	};
-> > > > >  -	scm->fp = NULL;
-> > > > >  -	scm->sid = security_sk_sid(sock->sk, NULL, 0);
-> > > > >  -	scm->seq = 0;
-> > > > >  -	if (msg->msg_controllen <= 0)
-> > > > >  -		return 0;
-> > > > >  -	return __scm_send(sock, msg, scm);
-> > > > >  -}
-> > > > 
-> > > > It's worth noting that scm_send() will call security_sk_sid() even if
-> > > > (msg->msg_controllen <= 0).
-> > > 
-> > > Chris, do you know if this is needed in this case?
-> > 
-> > This whole thing is looking broken.  I'm still trying to find the original
-> > patch which caused the series of broken patches on top.
-> 
-> OK, it starts here from Catherine's patch:
-> 
-> include/net/scm.h::scm_recv()
-> +	if (test_bit(SOCK_PASSSEC, &sock->flags)) {
-> +		err = security_sid_to_context(scm->sid, &scontext, &scontext_len);
-> +		if (!err)
-> + 			put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, scontext_len, scontext);
-> + }
-> 
-> Catherine, the security_sid_to_context() is a raw SELinux function which
-> crept into core code and should not have been there.  The fallout fixes
-> included conditionally exporting security_sid_to_context, and finally
-> scm_send/recv unlining.
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Mon, 20 Mar 2006 10:09:42 -0500
 
-Yes.  So we're OK up the uninlining, right?
+> Wouldn't it make sense to strech the ACK when the previous ACK is still in 
+> the TX queue of the device?  I know that sort of behaviour was always an 
+> issue on modem links where you don't want to send out redundant ACKs.
 
->  The end result in -mm looks broken to me.
-> Specifically, it now does:
-> 
-> 	ucred->uid = tsk->uid;
-> 	ucred->gid = tsk->gid;
-> 	ucred->pid = tsk->tgid;
-> 	scm->fp = NULL;
-> 	scm->seq = 0;
-> 	if (msg->msg_controllen <= 0)
-> 		return 0;
-> 
-> 	scm->sid = security_sk_sid(sock->sk, NULL, 0);
-> 
-> The point of Catherine's original patch was to make sure there's always
-> a security identifier associated with AF_UNIX messages.  So receiver
-> can always check it (same as having credentials even w/out sender
-> control message passing them).  Now we will have garbage for sid.
+I thought about doing some similar trick with TSO, wherein we would
+not defer a TSO send if all the previous packets sent are out of the
+device transmit queue.  The idea was the prevent the pipe from ever
+emptying which is the danger of deferring too much for TSO.
 
-This answers the question I've been asking all and sundry for a week, thanks ;)
+This has several problems.  It's hard to implement.  You have to
+decide if you want precise state, thereby checking the TX descriptors.
+Or you go for imprecise but easier to implement, which is very
+imprecise and therefore not very useful state, by just checking the
+SKB refcount or similar which means that you find out it's left the TX
+queue after the TX purge interrupt which can be a long time after the
+event and by then the pipe has empties which is what you were trying
+to prevent.
 
-So:
-
-- scm-fold-__scm_send-into-scm_send.patch is OK
-
-- scm_send-speedup.patch is wrong
-
-- Catherine's patch introduces a possibly-significant performance
-  problem: we're now calling the expensive-on-SELinux security_sk_sid()
-  more frequently than we used to.
-
-- That "initialise scm->creds via a temporary struct" trick still
-  generates bad code.
-
-
-I actually have enough to be going on with here - I'll drop it all.
+Lastly, you don't want to touch remote cpu state which is what such
+a hack is going to end up doing much of the time.
