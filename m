@@ -1,18 +1,19 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Subject: Re: TSO and IPoIB performance degradation
-Date: Mon, 20 Mar 2006 01:55:00 -0800 (PST)
-Message-ID: <20060320.015500.72136710.davem@davemloft.net>
+Date: Mon, 20 Mar 2006 12:22:34 +0200
+Message-ID: <20060320102234.GV29929@mellanox.co.il>
 References: <4410C671.2050300@hp.com>
 	<20060309.232301.77550306.davem@davemloft.net>
 	<20060320090629.GA11352@mellanox.co.il>
+	<20060320.015500.72136710.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, rdreier@cisco.com, rick.jones2@hp.com,
 	linux-kernel@vger.kernel.org, openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: mst@mellanox.co.il
-In-Reply-To: <20060320090629.GA11352@mellanox.co.il>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060320.015500.72136710.davem@davemloft.net>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -24,35 +25,24 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Date: Mon, 20 Mar 2006 11:06:29 +0200
+Quoting r. David S. Miller <davem@davemloft.net>:
+> The path an SKB can take is opaque and unknown until the very last
+> moment it is actually given to the device transmit function.
 
-> Is it the case then that this requirement is less essential on
-> networks such as IP over InfiniBand, which are very low latency
-> and essencially lossless (with explicit congestion contifications
-> in hardware)?
+Why, I was proposing looking at dst cache. If that's NULL, well,
+we won't stretch ACKs. Worst case we apply the wrong optimization.
+Right?
 
-You can never assume any attribute of the network whatsoever.
-Even if initially the outgoing device is IPoIB, something in
-the middle, like a traffic classification or netfilter rule,
-could rewrite the packet and make it go somewhere else.
+> People need to get the "special case this topology" ideas out of their
+> heads. :-)
 
-This even applies to loopback packets, because packets can
-get rewritten and redirected even once they are passed in
-via netif_receive_skb().
+Okay, I get that.
 
-> And as Matt Leininger's research appears to show, stretch ACKs
-> are good for performance in case of IP over InfiniBand.
->
-> Given all this, would it make sense to add a per-netdevice (or per-neighbour)
-> flag to re-enable the trick for these net devices (as was done before
-> 314324121f9b94b2ca657a494cf2b9cb0e4a28cc)?
-> IP over InfiniBand driver would then simply set this flag.
+What I'd like to clarify, however: rfc2581 explicitly states that in some cases
+it might be OK to generate ACKs less frequently than every second full-sized
+segment. Given Matt's measurements, TCP on top of IP over InfiniBand on Linux
+seems to hit one of these cases.  Do you agree to that?
 
-See above, this is not feasible.
-
-The path an SKB can take is opaque and unknown until the very last
-moment it is actually given to the device transmit function.
-
-People need to get the "special case this topology" ideas out of their
-heads. :-)
+-- 
+Michael S. Tsirkin
+Staff Engineer, Mellanox Technologies
