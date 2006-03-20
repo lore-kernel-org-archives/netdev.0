@@ -1,19 +1,18 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: TSO and IPoIB performance degradation
-Date: Mon, 20 Mar 2006 12:22:34 +0200
-Message-ID: <20060320102234.GV29929@mellanox.co.il>
-References: <4410C671.2050300@hp.com>
-	<20060309.232301.77550306.davem@davemloft.net>
-	<20060320090629.GA11352@mellanox.co.il>
+Date: Mon, 20 Mar 2006 02:37:04 -0800 (PST)
+Message-ID: <20060320.023704.70907203.davem@davemloft.net>
+References: <20060320090629.GA11352@mellanox.co.il>
 	<20060320.015500.72136710.davem@davemloft.net>
+	<20060320102234.GV29929@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, rdreier@cisco.com, rick.jones2@hp.com,
 	linux-kernel@vger.kernel.org, openib-general@openib.org
 Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060320.015500.72136710.davem@davemloft.net>
+To: mst@mellanox.co.il
+In-Reply-To: <20060320102234.GV29929@mellanox.co.il>
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -25,24 +24,47 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. David S. Miller <davem@davemloft.net>:
-> The path an SKB can take is opaque and unknown until the very last
-> moment it is actually given to the device transmit function.
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Date: Mon, 20 Mar 2006 12:22:34 +0200
 
-Why, I was proposing looking at dst cache. If that's NULL, well,
-we won't stretch ACKs. Worst case we apply the wrong optimization.
-Right?
+> Quoting r. David S. Miller <davem@davemloft.net>:
+> > The path an SKB can take is opaque and unknown until the very last
+> > moment it is actually given to the device transmit function.
+> 
+> Why, I was proposing looking at dst cache. If that's NULL, well,
+> we won't stretch ACKs. Worst case we apply the wrong optimization.
+> Right?
 
-> People need to get the "special case this topology" ideas out of their
-> heads. :-)
+Where you receive a packet from isn't very useful for determining
+even the full patch on which that packet itself flowed.
 
-Okay, I get that.
+More importantly, packets also do not necessarily go back out over the
+same path on which packets are received for a connection.  This is
+actually quite common.
 
-What I'd like to clarify, however: rfc2581 explicitly states that in some cases
-it might be OK to generate ACKs less frequently than every second full-sized
-segment. Given Matt's measurements, TCP on top of IP over InfiniBand on Linux
-seems to hit one of these cases.  Do you agree to that?
+Maybe packets for this connection come in via IPoIB but go out via
+gigabit ethernet and another route altogether.
 
--- 
-Michael S. Tsirkin
-Staff Engineer, Mellanox Technologies
+> What I'd like to clarify, however: rfc2581 explicitly states that in
+> some cases it might be OK to generate ACKs less frequently than
+> every second full-sized segment. Given Matt's measurements, TCP on
+> top of IP over InfiniBand on Linux seems to hit one of these cases.
+> Do you agree to that?
+
+I disagree with Linux changing it's behavior.  It would be great to
+turn off congestion control completely over local gigabit networks,
+but that isn't determinable in any way, so we don't do that.
+
+The IPoIB situation is no different, you can set all the bits you want
+in incoming packets, the barrier to doing this remains the same.
+
+It hurts performance if any packet drop occurs because it will require
+an extra round trip for recovery to begin to be triggered at the
+sender.
+
+The network is a black box, routes to and from a destination are
+arbitrary, and so is packet rewriting and reflection, so being able to
+say "this all occurs on IPoIB" is simply infeasible.
+
+I don't know how else to say this, we simply cannot special case IPoIB
+or any other topology type.
