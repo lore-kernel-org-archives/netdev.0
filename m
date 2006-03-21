@@ -1,74 +1,52 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver updates
-Date: Tue, 21 Mar 2006 16:55:56 -0500
-Message-ID: <20060321215556.GA23047@havoc.gtf.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Re: [PATCH 4/6 v2] IB: address translation to
+	map	IP toIB addresses (GIDs)
+Date: Tue, 21 Mar 2006 14:39:36 -0800
+Message-ID: <ada3bhba0d3.fsf@cisco.com>
+References: <ORSMSX401FRaqbC8wSA0000000d@orsmsx401.amr.corp.intel.com>
+	<adabqvza53f.fsf@cisco.com> <44206B53.8020701@ichips.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751796AbWCUV4B@vger.kernel.org>
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Sean Hefty <mshefty@ichips.intel.com>
+In-Reply-To: <44206B53.8020701@ichips.intel.com> (Sean Hefty's message of "Tue,
+	21 Mar 2006 13:08:35 -0800")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-[just pushed upstream; patch too big to inline]
+    Sean> "This is simply an attempt to reduce/combine work queues
+    Sean> used by the Infiniband code.  This keeps the threading a
+    Sean> little simpler in the rdma_cm, since all callbacks are
+    Sean> invoked using the same work queue.  (I'm also using this
+    Sean> with the local SA/multicast code, but that's not ready for
+    Sean> merging.)"
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+How does it keep the threading model simpler?  Is this an inter-module
+dependency.
 
-to receive the following updates:
+    Sean> There's no specific ordering constraint that's required.
+    Sean> We're just ending up with several Infiniband modules
+    Sean> creating their own work queues (ib_mad, ib_cm, ib_addr,
+    Sean> rdma_cm, plus a couple more in modules under development),
+    Sean> and this is an attempt to reduce that.  If having separate
+    Sean> work queues would work better, there shouldn't be anything
+    Sean> that prevents this.
 
- Documentation/networking/e100.txt  |  158 -
- Documentation/networking/e1000.txt |  634 +++--
- MAINTAINERS                        |   16 
- drivers/net/mv643xx_eth.h          |   18 
- drivers/net/pcnet32.c              | 4161 +++++++++++++++++++------------------
- drivers/net/skfp/fplustm.c         |   12 
- drivers/net/skge.c                 |  275 +-
- drivers/net/skge.h                 |    1 
- drivers/net/sky2.c                 |  583 ++---
- drivers/net/sky2.h                 |   22 
- drivers/net/smc91x.c               |   53 
- drivers/net/smc91x.h               |  478 ++--
- 12 files changed, 3467 insertions(+), 2944 deletions(-)
+It seems like it would be cleaner for each module to have its own
+workqueue if it needs one.  There's also schedule_work(), although
+that goes to a multi-threaded workqueue.  Michael Tsirkin has
+suggested creating a system-wide single-threaded workqueue (ie
+something like schedule_ordered_work()) for everyone that occasionally
+needs a single-threaded workqueue.
 
-Andrew Morton:
-      skfp warning fixes
-
-Dale Farnsworth:
-      mv643xx_eth: Cache align skb->data if CONFIG_NOT_COHERENT_CACHE
-
-Don Fry:
-      pcnet32: support boards with multiple phys
-
-Jeff Garzik:
-      [netdrvr] pcnet32: Lindent
-      [netdrvr] pcnet32: other source formatting cleanups
-
-Jesse Brandeburg:
-      e100/e1000/ixgb: update MAINTAINERS to current developers
-      e100: update e100.txt
-      e1000: update the readme with the latest text
-
-Nicolas Pitre:
-      smc91x: allow for dynamic bus access configs
-
-Stephen Hemminger:
-      skge: use NAPI for tx cleanup.
-      skge: use auto masking of irqs
-      skge: check the allocation of ring buffer
-      skge: dma configuration cleanup
-      skge: use kcalloc
-      skge: use mmiowb
-      skge: formmating and whitespace cleanup
-      skge: handle pci errors better
-      skge: version 1.4
-      sky2: remove support for untested Yukon EC/rev 0
-      sky2: drop broken wake on lan support
-      sky2: rework of NAPI and IRQ management
-      sky2: coalescing parameters
-      sky2: add MSI support
-      sky2: whitespace fixes
-      sky2: transmit recovery
-      sky2: handle all error irqs
-      sky2 version 1.1
+ - R.
