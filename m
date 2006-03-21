@@ -1,43 +1,35 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
-Date: Tue, 21 Mar 2006 08:42:08 -0500
-Message-ID: <1142948528.28120.34.camel@moss-spartans.epoch.ncsc.mil>
-References: <200603130139.k2D1dpSQ021279@shell0.pdx.osdl.net>
-	 <200603132105.32794.ioe-lkml@rameria.de>
-	 <20060313173103.7681b49d.akpm@osdl.org>
-	 <200603201244.58507.netdev@axxeo.de>
-	 <20060320201802.GS15997@sorel.sous-sol.org>
-	 <20060320213636.GT15997@sorel.sous-sol.org>
-	 <20060320143103.31b7d933.akpm@osdl.org>
-	 <20060320231508.GV15997@sorel.sous-sol.org>
-	 <1142947952.28120.29.camel@moss-spartans.epoch.ncsc.mil>
-Reply-To: sds@tycho.nsa.gov
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Please pull bcm43xx softmac-upstream and dscape-upstream branches
+Date: Tue, 21 Mar 2006 14:09:28 -0500
+Message-ID: <20060321190923.GC5007@tuxdriver.com>
+References: <200603052147.55557.mbuesch@freenet.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@namei.org>, Andrew Morton <akpm@osdl.org>,
-	cxzhang@watson.ibm.com, netdev@axxeo.de, ioe-lkml@rameria.de,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751707AbWCUNh2@vger.kernel.org>
-To: Chris Wright <chrisw@sous-sol.org>
-In-Reply-To: <1142947952.28120.29.camel@moss-spartans.epoch.ncsc.mil>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200603052147.55557.mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-03-21 at 08:32 -0500, Stephen Smalley wrote:
-> > I don't expect security_sk_sid() to be terribly expensive.  It's not
-> > an AVC check, it's just propagating a label.  But I've not done any
-> > benchmarking on that.
-> 
-> No permission check there, but it looks like it does read lock
-> sk_callback_lock.  Not sure if that is truly justified here.
+On Sun, Mar 05, 2006 at 09:47:55PM +0100, Michael Buesch wrote:
 
-Ah, that is because it is also called from the xfrm code, introduced by
-Trent's patches.  But that locking shouldn't be necessary from scm_send,
-right?  So she likely wants a separate hook for it to avoid that
-overhead, or even just a direct SELinux interface?
-  
+> Please pull branches "softmac-upstream" and "dscape-upstream"
+> from my repository at:
+> git://bu3sch.de/wireless-2.6.git
+
+Merged to softmac and dscape branches of wireless-2.6...thanks!
+
+John
 -- 
-Stephen Smalley
-National Security Agency
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
