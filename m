@@ -1,52 +1,74 @@
-From: Sean Hefty <mshefty@ichips.intel.com>
-Subject: Re: Re: [PATCH 4/6 v2] IB: address translation to
-	map	IP toIB addresses (GIDs)
-Date: Tue, 21 Mar 2006 13:08:35 -0800
-Message-ID: <44206B53.8020701@ichips.intel.com>
-References: <ORSMSX401FRaqbC8wSA0000000d@orsmsx401.amr.corp.intel.com>
-	<adabqvza53f.fsf@cisco.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver updates
+Date: Tue, 21 Mar 2006 16:55:56 -0500
+Message-ID: <20060321215556.GA23047@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <adabqvza53f.fsf@cisco.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751796AbWCUV4B@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
->  > +struct workqueue_struct *rdma_wq;
->  > +EXPORT_SYMBOL(rdma_wq);
-> 
-> Sean, I don't think I saw an answer when I asked you this before.  Why
-> is ib_addr exporting a workqueue?  Is there some sort of ordering
-> constraint that is forcing other modules to go through the same
-> workqueue for things?
-> 
-> This seems like a very fragile internal thing to be exposing, and I'm
-> wondering if there's a better way to handle it.
+[just pushed upstream; patch too big to inline]
 
-I responded in a different thread, but here's what I wrote:
+Please pull from 'upstream-linus' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-"This is simply an attempt to reduce/combine work queues used by the Infiniband 
-code.  This keeps the threading a little simpler in the rdma_cm, since all 
-callbacks are invoked using the same work queue.  (I'm also using this with the 
-local SA/multicast code, but that's not ready for merging.)"
+to receive the following updates:
 
-There's no specific ordering constraint that's required.  We're just ending up 
-with several Infiniband modules creating their own work queues (ib_mad, ib_cm, 
-ib_addr, rdma_cm, plus a couple more in modules under development), and this is 
-an attempt to reduce that.  If having separate work queues would work better, 
-there shouldn't be anything that prevents this.
+ Documentation/networking/e100.txt  |  158 -
+ Documentation/networking/e1000.txt |  634 +++--
+ MAINTAINERS                        |   16 
+ drivers/net/mv643xx_eth.h          |   18 
+ drivers/net/pcnet32.c              | 4161 +++++++++++++++++++------------------
+ drivers/net/skfp/fplustm.c         |   12 
+ drivers/net/skge.c                 |  275 +-
+ drivers/net/skge.h                 |    1 
+ drivers/net/sky2.c                 |  583 ++---
+ drivers/net/sky2.h                 |   22 
+ drivers/net/smc91x.c               |   53 
+ drivers/net/smc91x.h               |  478 ++--
+ 12 files changed, 3467 insertions(+), 2944 deletions(-)
 
-- Sean
+Andrew Morton:
+      skfp warning fixes
+
+Dale Farnsworth:
+      mv643xx_eth: Cache align skb->data if CONFIG_NOT_COHERENT_CACHE
+
+Don Fry:
+      pcnet32: support boards with multiple phys
+
+Jeff Garzik:
+      [netdrvr] pcnet32: Lindent
+      [netdrvr] pcnet32: other source formatting cleanups
+
+Jesse Brandeburg:
+      e100/e1000/ixgb: update MAINTAINERS to current developers
+      e100: update e100.txt
+      e1000: update the readme with the latest text
+
+Nicolas Pitre:
+      smc91x: allow for dynamic bus access configs
+
+Stephen Hemminger:
+      skge: use NAPI for tx cleanup.
+      skge: use auto masking of irqs
+      skge: check the allocation of ring buffer
+      skge: dma configuration cleanup
+      skge: use kcalloc
+      skge: use mmiowb
+      skge: formmating and whitespace cleanup
+      skge: handle pci errors better
+      skge: version 1.4
+      sky2: remove support for untested Yukon EC/rev 0
+      sky2: drop broken wake on lan support
+      sky2: rework of NAPI and IRQ management
+      sky2: coalescing parameters
+      sky2: add MSI support
+      sky2: whitespace fixes
+      sky2: transmit recovery
+      sky2: handle all error irqs
+      sky2 version 1.1
