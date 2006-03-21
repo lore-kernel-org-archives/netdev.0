@@ -1,35 +1,27 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Please pull bcm43xx softmac-upstream and dscape-upstream branches
-Date: Tue, 21 Mar 2006 14:09:28 -0500
-Message-ID: <20060321190923.GC5007@tuxdriver.com>
-References: <200603052147.55557.mbuesch@freenet.de>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 4/6 v2] IB: address translation to map IP toIB addresses (GIDs)
+Date: Tue, 21 Mar 2006 12:57:24 -0800
+Message-ID: <adabqvza53f.fsf@cisco.com>
+References: <ORSMSX401FRaqbC8wSA0000000d@orsmsx401.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200603052147.55557.mbuesch-KuiJ5kEpwI6ELgA04lAiVw@public.gmane.org>
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<openib-general@openib.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965111AbWCUU51@vger.kernel.org>
+To: "Sean Hefty" <sean.hefty@intel.com>
+In-Reply-To: <ORSMSX401FRaqbC8wSA0000000d@orsmsx401.amr.corp.intel.com> (Sean Hefty's message of "Mon, 6 Mar 2006 15:31:58 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 05, 2006 at 09:47:55PM +0100, Michael Buesch wrote:
+ > +struct workqueue_struct *rdma_wq;
+ > +EXPORT_SYMBOL(rdma_wq);
 
-> Please pull branches "softmac-upstream" and "dscape-upstream"
-> from my repository at:
-> git://bu3sch.de/wireless-2.6.git
+Sean, I don't think I saw an answer when I asked you this before.  Why
+is ib_addr exporting a workqueue?  Is there some sort of ordering
+constraint that is forcing other modules to go through the same
+workqueue for things?
 
-Merged to softmac and dscape branches of wireless-2.6...thanks!
+This seems like a very fragile internal thing to be exposing, and I'm
+wondering if there's a better way to handle it.
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+ - R.
