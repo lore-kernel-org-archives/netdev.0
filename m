@@ -1,265 +1,195 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [patch 5/6] s390: remove tty support from ctc network device driver
- [1/2]
-Date: Wed, 22 Mar 2006 17:42:13 +0100
-Message-ID: <20060322174213.18de6734@localhost.localdomain>
+Subject: [patch 3/6] s390: qeth driver cleanups
+Date: Wed, 22 Mar 2006 17:42:06 +0100
+Message-ID: <20060322174206.2c6fe238@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751366AbWCVQlc@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751038AbWCVQku@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[patch 5/6] s390: remove tty support from ctc network device driver [1/=
-2]
+[patch 3/6] s390: qeth driver cleanups 
 
-=46rom: Peter Tiedemann <ptiedem@de.ibm.com>
-	[1/2]:=20
-        tty support code will be removed from the ctc network device dr=
-iver.
-        Today we have a couple of alternatives which are performing muc=
-h
-        better. The second thing is that ctc should be a network=20
-	device driver only.=20
-	We should not mix tty and networking here.
-        This first patch will remove the tty code from ctcmain.c .
-       	It also removes the build entry from the Makefile as well as TT=
-Y=20
-	definitions from ctcmain.h.
-        The second patch will remove two files, ctctty.c and ctctty.h.
-
+From: Ursula Braun <braunu@de.ibm.com>
+	- code analyzing tool BEAM has found some unreachable 
+	  and unnecessary statements and also conditions 
+	  which are always true.
+	- removed some useless MII code since OSA card will never 
+	  allow to set such values.
+			
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 
 diffstat:
- Makefile  |    3 ++-
- ctcmain.c |   45 +++++++++------------------------------------
- ctcmain.h |   12 +++++-------
- 3 files changed, 16 insertions(+), 44 deletions(-)
+ qeth_main.c |   49 ++++---------------------------------------------
+ qeth_proc.c |   18 +++++++++---------
+ qeth_sys.c  |    2 +-
+ 3 files changed, 14 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/s390/net/Makefile b/drivers/s390/net/Makefile
-index 90d4d0e..6775a83 100644
---- a/drivers/s390/net/Makefile
-+++ b/drivers/s390/net/Makefile
-@@ -2,7 +2,7 @@
- # S/390 network devices
- #
-=20
--ctc-objs :=3D ctcmain.o ctctty.o ctcdbug.o
-+ctc-objs :=3D ctcmain.o ctcdbug.o
-=20
- obj-$(CONFIG_IUCV) +=3D iucv.o
- obj-$(CONFIG_NETIUCV) +=3D netiucv.o fsm.o
-@@ -10,6 +10,7 @@ obj-$(CONFIG_SMSGIUCV) +=3D smsgiucv.o
- obj-$(CONFIG_CTC) +=3D ctc.o fsm.o cu3088.o
- obj-$(CONFIG_LCS) +=3D lcs.o cu3088.o
- obj-$(CONFIG_CLAW) +=3D claw.o cu3088.o
-+obj-$(CONFIG_MPC) +=3D ctcmpc.o fsm.o cu3088.o
- qeth-y :=3D qeth_main.o qeth_mpc.o qeth_sys.o qeth_eddp.o=20
- qeth-$(CONFIG_PROC_FS) +=3D qeth_proc.o
- obj-$(CONFIG_QETH) +=3D qeth.o
-diff --git a/drivers/s390/net/ctcmain.c b/drivers/s390/net/ctcmain.c
-index af9f212..e2ccaf5 100644
---- a/drivers/s390/net/ctcmain.c
-+++ b/drivers/s390/net/ctcmain.c
-@@ -6,7 +6,7 @@
-  * Fixes by : Jochen R=C3=B6hrig (roehrig@de.ibm.com)
-  *            Arnaldo Carvalho de Melo <acme@conectiva.com.br>
- 	      Peter Tiedemann (ptiedem@de.ibm.com)
-- * Driver Model stuff by : Cornelia Huck <huckc@de.ibm.com>
-+ * Driver Model stuff by : Cornelia Huck <cornelia.huck@de.ibm.com>
-  *
-  * Documentation used:
-  *  - Principles of Operation (IBM doc#: SA22-7201-06)
-@@ -65,7 +65,6 @@
-=20
- #include <asm/idals.h>
-=20
--#include "ctctty.h"
- #include "fsm.h"
- #include "cu3088.h"
-=20
-@@ -479,10 +478,7 @@ ctc_unpack_skb(struct channel *ch, struc
- 		skb->dev =3D pskb->dev;
- 		skb->protocol =3D pskb->protocol;
- 		pskb->ip_summed =3D CHECKSUM_UNNECESSARY;
--		if (ch->protocol =3D=3D CTC_PROTO_LINUX_TTY)
--			ctc_tty_netif_rx(skb);
+diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
+index 634c395..69329ea 100644
+--- a/drivers/s390/net/qeth_main.c
++++ b/drivers/s390/net/qeth_main.c
+@@ -1364,7 +1364,7 @@ qeth_wait_for_buffer(struct qeth_channel
+ static void
+ qeth_clear_cmd_buffers(struct qeth_channel *channel)
+ {
+-	int cnt = 0;
++	int cnt;
+ 
+ 	for (cnt=0; cnt < QETH_CMD_BUFFER_NO; cnt++)
+ 		qeth_release_buffer(channel,&channel->iob[cnt]);
+@@ -2814,11 +2814,11 @@ qeth_handle_send_error(struct qeth_card 
+ 		QETH_DBF_TEXT_(trace,1,"%s",CARD_BUS_ID(card));
+ 		return QETH_SEND_ERROR_LINK_FAILURE;
+ 	case 3:
++	default:
+ 		QETH_DBF_TEXT(trace, 1, "SIGAcc3");
+ 		QETH_DBF_TEXT_(trace,1,"%s",CARD_BUS_ID(card));
+ 		return QETH_SEND_ERROR_KICK_IT;
+ 	}
+-	return QETH_SEND_ERROR_LINK_FAILURE;
+ }
+ 
+ void
+@@ -3865,6 +3865,7 @@ qeth_get_cast_type(struct qeth_card *car
+ 	        	if ((hdr_mac == QETH_TR_MAC_NC) ||
+ 			    (hdr_mac == QETH_TR_MAC_C))
+ 				return RTN_MULTICAST;
++			break;
+ 	        /* eth or so multicast? */
+                 default:
+                       	if ((hdr_mac == QETH_ETH_MAC_V4) ||
+@@ -4586,38 +4587,11 @@ qeth_mdio_read(struct net_device *dev, i
+ 	case MII_NCONFIG: /* network interface config */
+ 		break;
+ 	default:
+-		rc = 0;
+ 		break;
+ 	}
+ 	return rc;
+ }
+ 
+-static void
+-qeth_mdio_write(struct net_device *dev, int phy_id, int regnum, int value)
+-{
+-	switch(regnum){
+-	case MII_BMCR: /* Basic mode control register */
+-	case MII_BMSR: /* Basic mode status register */
+-	case MII_PHYSID1: /* PHYS ID 1 */
+-	case MII_PHYSID2: /* PHYS ID 2 */
+-	case MII_ADVERTISE: /* Advertisement control reg */
+-	case MII_LPA: /* Link partner ability reg */
+-	case MII_EXPANSION: /* Expansion register */
+-	case MII_DCOUNTER: /* disconnect counter */
+-	case MII_FCSCOUNTER: /* false carrier counter */
+-	case MII_NWAYTEST: /* N-way auto-neg test register */
+-	case MII_RERRCOUNTER: /* rx error counter */
+-	case MII_SREVISION: /* silicon revision */
+-	case MII_RESV1: /* reserved 1 */
+-	case MII_LBRERROR: /* loopback, rx, bypass error */
+-	case MII_PHYADDR: /* physical address */
+-	case MII_RESV2: /* reserved 2 */
+-	case MII_TPISTATUS: /* TPI status for 10mbps */
+-	case MII_NCONFIG: /* network interface config */
+-	default:
+-		break;
+-	}
+-}
+ 
+ static inline const char *
+ qeth_arp_get_error_cause(int *rc)
+@@ -5237,21 +5211,6 @@ qeth_do_ioctl(struct net_device *dev, st
+ 			mii_data->val_out = qeth_mdio_read(dev,mii_data->phy_id,
+ 							   mii_data->reg_num);
+ 		break;
+-	case SIOCSMIIREG:
+-		rc = -EOPNOTSUPP;
+-		break;
+-		/* TODO: remove return if qeth_mdio_write does something */
+-		if (!capable(CAP_NET_ADMIN)){
+-			rc = -EPERM;
+-			break;
+-		}
+-		mii_data = if_mii(rq);
+-		if (mii_data->phy_id != 0)
+-			rc = -EINVAL;
 -		else
--			netif_rx_ni(skb);
-+		netif_rx_ni(skb);
- 		/**
- 		 * Successful rx; reset logflags
- 		 */
-@@ -557,8 +553,7 @@ ccw_unit_check(struct channel *ch, unsig
- 	DBF_TEXT(trace, 5, __FUNCTION__);
- 	if (sense & SNS0_INTERVENTION_REQ) {
- 		if (sense & 0x01) {
--			if (ch->protocol !=3D CTC_PROTO_LINUX_TTY)
--				ctc_pr_debug("%s: Interface disc. or Sel. reset "
-+			ctc_pr_debug("%s: Interface disc. or Sel. reset "
- 					"(remote)\n", ch->id);
- 			fsm_event(ch->fsm, CH_EVENT_UC_RCRESET, ch);
- 		} else {
-@@ -2034,7 +2029,6 @@ static void
- dev_action_chup(fsm_instance * fi, int event, void *arg)
+-			qeth_mdio_write(dev, mii_data->phy_id, mii_data->reg_num,
+-					mii_data->val_in);
+-		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+@@ -6901,7 +6860,7 @@ qeth_send_setassparms(struct qeth_card *
+ 	cmd = (struct qeth_ipa_cmd *)(iob->data+IPA_PDU_HEADER_SIZE);
+ 	if (len <= sizeof(__u32))
+ 		cmd->data.setassparms.data.flags_32bit = (__u32) data;
+-	else if (len > sizeof(__u32))
++	else   /* (len > sizeof(__u32)) */
+ 		memcpy(&cmd->data.setassparms.data, (void *) data, len);
+ 
+ 	rc = qeth_send_ipa_cmd(card, iob, reply_cb, reply_param);
+diff --git a/drivers/s390/net/qeth_proc.c b/drivers/s390/net/qeth_proc.c
+index 1304641..360d782 100644
+--- a/drivers/s390/net/qeth_proc.c
++++ b/drivers/s390/net/qeth_proc.c
+@@ -74,7 +74,7 @@ qeth_procfile_seq_next(struct seq_file *
+ static inline const char *
+ qeth_get_router_str(struct qeth_card *card, int ipv)
  {
- 	struct net_device *dev =3D (struct net_device *) arg;
--	struct ctc_priv *privptr =3D dev->priv;
-=20
- 	DBF_TEXT(trace, 3, __FUNCTION__);
- 	switch (fsm_getstate(fi)) {
-@@ -2049,8 +2043,6 @@ dev_action_chup(fsm_instance * fi, int e
- 				fsm_newstate(fi, DEV_STATE_RUNNING);
- 				ctc_pr_info("%s: connected with remote side\n",
- 					    dev->name);
--				if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
--					ctc_tty_setcarrier(dev, 1);
- 				ctc_clear_busy(dev);
- 			}
- 			break;
-@@ -2059,8 +2051,6 @@ dev_action_chup(fsm_instance * fi, int e
- 				fsm_newstate(fi, DEV_STATE_RUNNING);
- 				ctc_pr_info("%s: connected with remote side\n",
- 					    dev->name);
--				if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
--					ctc_tty_setcarrier(dev, 1);
- 				ctc_clear_busy(dev);
- 			}
- 			break;
-@@ -2086,14 +2076,10 @@ dev_action_chup(fsm_instance * fi, int e
- static void
- dev_action_chdown(fsm_instance * fi, int event, void *arg)
- {
--	struct net_device *dev =3D (struct net_device *) arg;
--	struct ctc_priv *privptr =3D dev->priv;
-=20
- 	DBF_TEXT(trace, 3, __FUNCTION__);
- 	switch (fsm_getstate(fi)) {
- 		case DEV_STATE_RUNNING:
--			if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
--				ctc_tty_setcarrier(dev, 0);
- 			if (event =3D=3D DEV_EVENT_TXDOWN)
- 				fsm_newstate(fi, DEV_STATE_STARTWAIT_TX);
- 			else
-@@ -2397,8 +2383,6 @@ ctc_tx(struct sk_buff *skb, struct net_d
- 	 */
- 	if (fsm_getstate(privptr->fsm) !=3D DEV_STATE_RUNNING) {
- 		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
--		if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
--			return -EBUSY;
- 		dev_kfree_skb(skb);
- 		privptr->stats.tx_dropped++;
- 		privptr->stats.tx_errors++;
-@@ -2608,20 +2592,13 @@ ctc_netdev_unregister(struct net_device=20
- 	if (!dev)
- 		return;
- 	privptr =3D (struct ctc_priv *) dev->priv;
--	if (privptr->protocol !=3D CTC_PROTO_LINUX_TTY)
--		unregister_netdev(dev);
+-	int routing_type = 0;
++	enum qeth_routing_types routing_type = NO_ROUTER;
+ 
+ 	if (ipv == 4) {
+ 		routing_type = card->options.route4.type;
+@@ -86,26 +86,26 @@ qeth_get_router_str(struct qeth_card *ca
+ #endif /* CONFIG_QETH_IPV6 */
+ 	}
+ 
+-	if (routing_type == PRIMARY_ROUTER)
++	switch (routing_type){
++	case PRIMARY_ROUTER:
+ 		return "pri";
+-	else if (routing_type == SECONDARY_ROUTER)
++	case SECONDARY_ROUTER:
+ 		return "sec";
+-	else if (routing_type == MULTICAST_ROUTER) {
++	case MULTICAST_ROUTER:
+ 		if (card->info.broadcast_capable == QETH_BROADCAST_WITHOUT_ECHO)
+ 			return "mc+";
+ 		return "mc";
+-	} else if (routing_type == PRIMARY_CONNECTOR) {
++	case PRIMARY_CONNECTOR:
+ 		if (card->info.broadcast_capable == QETH_BROADCAST_WITHOUT_ECHO)
+ 			return "p+c";
+ 		return "p.c";
+-	} else if (routing_type == SECONDARY_CONNECTOR) {
++	case SECONDARY_CONNECTOR:
+ 		if (card->info.broadcast_capable == QETH_BROADCAST_WITHOUT_ECHO)
+ 			return "s+c";
+ 		return "s.c";
+-	} else if (routing_type == NO_ROUTER)
++	default:   /* NO_ROUTER */
+ 		return "no";
 -	else
--		ctc_tty_unregister_netdev(dev);
-+	unregister_netdev(dev);
+-		return "unk";
++	}
  }
-=20
+ 
  static int
- ctc_netdev_register(struct net_device * dev)
- {
--	struct ctc_priv *privptr =3D (struct ctc_priv *) dev->priv;
--	if (privptr->protocol !=3D CTC_PROTO_LINUX_TTY)
--		return register_netdev(dev);
--	else
--		return ctc_tty_register_netdev(dev);
-+	return register_netdev(dev);
- }
-=20
- static void
-@@ -2667,7 +2644,9 @@ ctc_proto_store(struct device *dev, stru
- 	if (!priv)
- 		return -ENODEV;
- 	sscanf(buf, "%u", &value);
--	if ((value < 0) || (value > CTC_PROTO_MAX))
-+	if (!((value =3D=3D CTC_PROTO_S390)  ||
-+	      (value =3D=3D CTC_PROTO_LINUX) ||
-+	      (value =3D=3D CTC_PROTO_OS390)))
+diff --git a/drivers/s390/net/qeth_sys.c b/drivers/s390/net/qeth_sys.c
+index c1831f5..f2a076a 100644
+--- a/drivers/s390/net/qeth_sys.c
++++ b/drivers/s390/net/qeth_sys.c
+@@ -115,7 +115,7 @@ qeth_dev_portno_store(struct device *dev
+ 		return -EPERM;
+ 
+ 	portno = simple_strtoul(buf, &tmp, 16);
+-	if ((portno < 0) || (portno > MAX_PORTNO)){
++	if (portno > MAX_PORTNO){
+ 		PRINT_WARN("portno 0x%X is out of range\n", portno);
  		return -EINVAL;
- 	priv->protocol =3D value;
-=20
-@@ -2897,10 +2876,7 @@ ctc_new_device(struct ccwgroup_device *c
- 		goto out;
  	}
-=20
--	if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
--		strlcpy(dev->name, "ctctty%d", IFNAMSIZ);
--	else
--		strlcpy(dev->name, "ctc%d", IFNAMSIZ);
-+	strlcpy(dev->name, "ctc%d", IFNAMSIZ);
-=20
- 	for (direction =3D READ; direction <=3D WRITE; direction++) {
- 		privptr->channel[direction] =3D
-@@ -3046,7 +3022,6 @@ ctc_exit(void)
- {
- 	DBF_TEXT(setup, 3, __FUNCTION__);
- 	unregister_cu3088_discipline(&ctc_group_driver);
--	ctc_tty_cleanup();
- 	ctc_unregister_dbf_views();
- 	ctc_pr_info("CTC driver unloaded\n");
- }
-@@ -3073,10 +3048,8 @@ ctc_init(void)
- 		ctc_pr_crit("ctc_init failed with ctc_register_dbf_views rc =3D %d\n=
-", ret);
- 		return ret;
- 	}
--	ctc_tty_init();
- 	ret =3D register_cu3088_discipline(&ctc_group_driver);
- 	if (ret) {
--		ctc_tty_cleanup();
- 		ctc_unregister_dbf_views();
- 	}
- 	return ret;
-diff --git a/drivers/s390/net/ctcmain.h b/drivers/s390/net/ctcmain.h
-index d2e835c..7f305d1 100644
---- a/drivers/s390/net/ctcmain.h
-+++ b/drivers/s390/net/ctcmain.h
-@@ -35,7 +35,9 @@
- #include <asm/ccwdev.h>
- #include <asm/ccwgroup.h>
-=20
--#include "ctctty.h"
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+
- #include "fsm.h"
- #include "cu3088.h"
-=20
-@@ -50,9 +52,7 @@
-=20
- #define CTC_PROTO_S390          0
- #define CTC_PROTO_LINUX         1
--#define CTC_PROTO_LINUX_TTY     2
- #define CTC_PROTO_OS390         3
--#define CTC_PROTO_MAX           3
-=20
- #define CTC_BUFSIZE_LIMIT       65535
- #define CTC_BUFSIZE_DEFAULT     32768
-@@ -257,15 +257,13 @@ static __inline__ void
- ctc_clear_busy(struct net_device * dev)
- {
- 	clear_bit(0, &(((struct ctc_priv *) dev->priv)->tbusy));
--	if (((struct ctc_priv *)dev->priv)->protocol !=3D CTC_PROTO_LINUX_TTY=
-)
--		netif_wake_queue(dev);
-+	netif_wake_queue(dev);
- }
-=20
- static __inline__ int
- ctc_test_and_set_busy(struct net_device * dev)
- {
--	if (((struct ctc_priv *)dev->priv)->protocol !=3D CTC_PROTO_LINUX_TTY=
-)
--		netif_stop_queue(dev);
-+	netif_stop_queue(dev);
- 	return test_and_set_bit(0, &((struct ctc_priv *) dev->priv)->tbusy);
- }
-=20
