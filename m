@@ -1,12 +1,12 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
 Subject: [patch 1/6] s390: minor claw driver fix
-Date: Wed, 22 Mar 2006 16:28:21 +0100
-Message-ID: <20060322162821.6ebd9af6@localhost.localdomain>
+Date: Wed, 22 Mar 2006 16:03:36 +0100
+Message-ID: <20060322160336.1becec81@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751321AbWCVP1G@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751326AbWCVP13@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
