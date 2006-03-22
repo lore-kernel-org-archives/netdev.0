@@ -1,46 +1,43 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 6/6 v2] IB: userspace support for RDMA
-	connection manager
-Date: Tue, 21 Mar 2006 17:40:54 -0800
-Message-ID: <adawten6yu1.fsf@cisco.com>
-References: <ORSMSX4011XvpFVjCRG0000000f@orsmsx401.amr.corp.intel.com>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH 2.6.16-rc6 1/1] ipw2200: Add Kconfig entries for QOS
+	and Monitor mode
+Date: Wed, 22 Mar 2006 11:11:37 +0800
+Message-ID: <1142997102.17270.131.camel@debian.sh.intel.com>
+References: <20060303045651.1f3b55ec.akpm@osdl.org>
+	 <20060303152641.GR9295@stusta.de>
+	 <200603050146.27529.andreashappe@snikt.net>
+	 <20060307170642.GE3974@stusta.de> <20060303045651.1f3b55ec.akpm@osdl.org>
+	 <20060303152641.GR9295@stusta.de>
+	 <200603050146.27529.andreashappe@snikt.net>
+	 <20060317191447.GC21830@tuxdriver.com> <20060318174703.GA22072@localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
-In-Reply-To: <ORSMSX4011XvpFVjCRG0000000f@orsmsx401.amr.corp.intel.com> (Sean
-	Hefty's message of "Mon, 6 Mar 2006 15:41:14 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750717AbWCVDUJ@vger.kernel.org>
+To: Andreas Happe <andreashappe@snikt.net>
+In-Reply-To: <20060318174703.GA22072@localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I added this patch to the rdma_cm branch in my git tree.  When I was
-doing that, I noticed that it builds rdma_ucm.ko unconditionally.  It
-seems that we want this to depend on CONFIG_INFINIBAND_USER_ACCESS,
-since that controls ib_uverbs.ko and ib_ucm.ko.
+On Sat, 2006-03-18 at 18:47 +0100, Andreas Happe wrote:
+> Adds Kconfig entries for enabling Monitor mode and Quality of service
+> to the ipw2200 driver. It also renames the IPW_QOS define to
+> IPW2200_QOS.
+> 
+> As Monitor mode generates lots of firmware errors it depends upon
+> BROKEN. QOS is under development, so it depends upon EXPERIMENTAL.
 
-To do this I rejiggered the Kconfig and Makefile changes I made
-before.  I made CONFIG_INFINIBAND_ADDR_TRANS into a bool (instead of a
-tristate), so that it's 'y' if INFINIBAND and INET are on, and made
-the top of the Makefile look like:
+Ack the rename and QoS description changes.
 
-infiniband-$(CONFIG_INFINIBAND_ADDR_TRANS)	:= ib_addr.o rdma_cm.o
-user_access-$(CONFIG_INFINIBAND_ADDR_TRANS)	:= rdma_ucm.o
+The IPW2200_MONITOR and monitor mode firmware error are already fixed in
+wireless-2.6 GIT
+http://kernel.org/git/?p=linux/kernel/git/linville/wireless-2.6.git;a=summary
 
-obj-$(CONFIG_INFINIBAND) +=		ib_core.o ib_mad.o ib_sa.o \
-					ib_cm.o $(infiniband-y)
-obj-$(CONFIG_INFINIBAND_USER_MAD) +=	ib_umad.o
-obj-$(CONFIG_INFINIBAND_USER_ACCESS) +=	ib_uverbs.o ib_ucm.o $(user_access-y)
+Wireless related development happens there. I'd suggest you create
+patches against that tree.
 
-I'm pretty sure this does exactly what we want.
-
- - R.
+Thanks,
+-yi
