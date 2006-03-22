@@ -1,13 +1,13 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
 Subject: [patch 4/6] s390: qeth :allow setting of attribute "route6" to
  "no_router".
-Date: Wed, 22 Mar 2006 16:03:44 +0100
-Message-ID: <20060322160344.230cf981@localhost.localdomain>
+Date: Wed, 22 Mar 2006 16:28:40 +0100
+Message-ID: <20060322162840.2703789e@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932229AbWCVRjp@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932240AbWCVRma@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
