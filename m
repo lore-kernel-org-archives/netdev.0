@@ -1,158 +1,125 @@
-From: Mark Butler <butlerm@middle.net>
-Subject: Re: Re: [iproute2] IPoIB link layer address bug
-Date: Thu, 23 Mar 2006 11:10:16 -0700
-Message-ID: <4422E488.3060509@middle.net>
-References: <Pine.LNX.4.61.0603161707360.23670@jlentini-linux.nane.netapp.com>
-	<20060321155617.3ae419b2@localhost.localdomain>
-	<20060322013046.GA29127@obsidianresearch.com>
-	<Pine.LNX.4.61.0603231155401.23670@jlentini-linux.nane.netapp.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver build fix + update
+Date: Thu, 23 Mar 2006 17:27:45 -0500
+Message-ID: <20060323222745.GA30296@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1895615210=="
-Cc: netdev@vger.kernel.org,
-	openib-general <openib-general@openib.org>,
-	Stephen Hemminger <shemminger@osdl.org>
-Return-path: <openib-general-bounces@openib.org>
-To: James Lentini <jlentini@netapp.com>
-In-Reply-To: <Pine.LNX.4.61.0603231155401.23670@jlentini-linux.nane.netapp.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932499AbWCWW1w@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---===============1895615210==
-Content-Type: multipart/alternative;
-	boundary="------------020206050700090503040706"
 
-This is a multi-part message in MIME format.
---------------020206050700090503040706
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+[just sent to andrew/linus; patch omitted due to size]
 
-James Lentini wrote:
+Notables:
+* merges wireless "softmac" layer, enabling support for newer wireless
+  hardware which requires software management of low-level details.
+  Not quite winmodem level, in terms of hardware simplicity, but close.
+* 'make allmodconfig' build fix, in the sky2 update.
 
->On Tue, 21 Mar 2006, Jason Gunthorpe wrote:
->
->  
->
->>On Tue, Mar 21, 2006 at 03:56:17PM -0800, Stephen Hemminger wrote:
->>
->>    
->>
->>>Okay, but there are number of other places in iproute2 that call 
->>>ll_addr_a2n() with ifr.ifr_hwaddr.sa_data. And that is 14 bytes.  
->>>If you want to fix those it will be harder since it would increase 
->>>the sizeof(struct sockaddr) and potentially break compatibility.
->>>      
->>>
->>Maybe the best thing is to upgrade ip (and or netlink?) to use 
->>netlink messages instead of ioctls for the remaining problematic 
->>operations. Since netlink already supports an arbitary length hwaddr 
->>there should be no compatability problem.
->>
->>Just browsing I see usages of SIOCSIFHWBROADCAST, SIOCSIFHWADDR, 
->>SIOCADDMULTI, SIOCDELMULTI and SIOCGIFHWADDR that use a struct 
->>ifreq..
->>
->>I know SIOCGIFHWADDR can be done over netlink, but I'm not too 
->>familiar with the others..
->>    
->>
->
->Making ip neighbor work with IPoIB address is what I'm interested in 
->now.
->
->As you and Jason point out there are a lot of places where ifreqs are 
->used and hence options that will not support IPoIB addresses.
->
->  
->
-The sockaddr union is at the end of struct ifreq.  Couldn't the union 
-sockaddr members be changed to sockaddr_storage, and the SIOCxxxx 
-encoded size bits be changed?  dev_ifsioc() would just need to mask out 
-(or substitute) the size bits before the switch statement.
+The 'upstream-linus' branch of
+git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
- - Mark
+contains the following updates:
 
+ drivers/net/skge.c                              |  105 +-
+ drivers/net/skge.h                              |    1 
+ drivers/net/sky2.c                              |    8 
+ drivers/net/wireless/Kconfig                    |    9 
+ drivers/net/wireless/airo.c                     |  455 +++++++----
+ drivers/net/wireless/hostap/hostap_ap.c         |    2 
+ drivers/net/wireless/hostap/hostap_cs.c         |    2 
+ drivers/net/wireless/hostap/hostap_hw.c         |    8 
+ drivers/net/wireless/hostap/hostap_ioctl.c      |    4 
+ drivers/net/wireless/hostap/hostap_pci.c        |    4 
+ drivers/net/wireless/hostap/hostap_plx.c        |   13 
+ include/linux/wireless.h                        |   10 
+ include/net/ieee80211softmac.h                  |  292 +++++++
+ include/net/ieee80211softmac_wx.h               |   94 ++
+ include/net/iw_handler.h                        |   12 
+ net/core/rtnetlink.c                            |   98 ++
+ net/core/wireless.c                             |  911 +++++++++++++++++++++---
+ net/ieee80211/Kconfig                           |    1 
+ net/ieee80211/Makefile                          |    1 
+ net/ieee80211/ieee80211_rx.c                    |   74 +
+ net/ieee80211/softmac/Kconfig                   |   10 
+ net/ieee80211/softmac/Makefile                  |    9 
+ net/ieee80211/softmac/ieee80211softmac_assoc.c  |  396 ++++++++++
+ net/ieee80211/softmac/ieee80211softmac_auth.c   |  364 +++++++++
+ net/ieee80211/softmac/ieee80211softmac_event.c  |  159 ++++
+ net/ieee80211/softmac/ieee80211softmac_io.c     |  474 ++++++++++++
+ net/ieee80211/softmac/ieee80211softmac_module.c |  457 ++++++++++++
+ net/ieee80211/softmac/ieee80211softmac_priv.h   |  230 ++++++
+ net/ieee80211/softmac/ieee80211softmac_scan.c   |  244 ++++++
+ net/ieee80211/softmac/ieee80211softmac_wx.c     |  412 ++++++++++
+ 30 files changed, 4531 insertions(+), 328 deletions(-)
 
+Adrian Bunk:
+      hostap: Fix hw reset after CMDCODE_ACCESS_WRITE timeout
+      hostap: Fix ap_add_sta() return value verification
 
+Dan Williams:
+      wireless/airo: clean up printk usage to print device name
+      wireless/airo: define default MTU
+      wireless/airo: cache wireless scans
 
---------------020206050700090503040706
-Content-Type: text/html; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+David Woodhouse:
+      Restore channel setting after scan.
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-  <meta content="text/html;charset=ISO-8859-1" http-equiv="Content-Type">
-  <title></title>
-</head>
-<body bgcolor="#ffffff" text="#000000">
-James Lentini wrote:<br>
-<blockquote
- cite="midPine.LNX.4.61.0603231155401.23670@jlentini-linux.nane.netapp.com"
- type="cite">
-  <pre wrap="">On Tue, 21 Mar 2006, Jason Gunthorpe wrote:
+Denis Vlasenko:
+      ieee80211_rx_any: filter out packets, call ieee80211_rx or ieee80211_rx_mgt
 
-  </pre>
-  <blockquote type="cite">
-    <pre wrap="">On Tue, Mar 21, 2006 at 03:56:17PM -0800, Stephen Hemminger wrote:
+Eugene Teo:
+      hostap: Fix double free in prism2_config() error path
 
-    </pre>
-    <blockquote type="cite">
-      <pre wrap="">Okay, but there are number of other places in iproute2 that call 
-ll_addr_a2n() with ifr.ifr_hwaddr.sa_data. And that is 14 bytes.  
-If you want to fix those it will be harder since it would increase 
-the sizeof(struct sockaddr) and potentially break compatibility.
-      </pre>
-    </blockquote>
-    <pre wrap="">Maybe the best thing is to upgrade ip (and or netlink?) to use 
-netlink messages instead of ioctls for the remaining problematic 
-operations. Since netlink already supports an arbitary length hwaddr 
-there should be no compatability problem.
+Jean Tourrilhes:
+      WE-20 for kernel 2.6.16
 
-Just browsing I see usages of SIOCSIFHWBROADCAST, SIOCSIFHWADDR, 
-SIOCADDMULTI, SIOCDELMULTI and SIOCGIFHWADDR that use a struct 
-ifreq..
+Johannes Berg:
+      wireless: Add softmac layer to the kernel
+      make softmac depend on IEEE80211 and EXPERIMENTAL
+      softmac: fix some sparse warnings
+      softmac: fix Makefiles
+      softmac: convert to use global workqueue
+      softmac: correctly use netif_carrier_{on,off}
+      softmac: try to reassociate when being disassociated from the AP
+      softmac: add fixme for disassoc
+      softmac: select "best" network based on rssi
+      softmac: check if disassociation is for us before processing it
+      softmac: scan at least once before selecting a network by essid
+      softmac: properly check return value of ieee80211softmac_alloc_mgt
+      softmac: some comment stuff
+      softmac: add copyright and license headers
+      softmac: add MODULE_DESCRIPTION and MODULE_AUTHORs
+      softmac: move EXPORT_SYMBOL_GPL right after functions
+      update copyright in softmac
+      trivial fixes to softmac
+      softmac: update deauth handler to quiet warning
+      softmac: add reassociation code
+      softmac: remove dead code
 
-I know SIOCGIFHWADDR can be done over netlink, but I'm not too 
-familiar with the others..
-    </pre>
-  </blockquote>
-  <pre wrap=""><!---->
-Making ip neighbor work with IPoIB address is what I'm interested in 
-now.
+John W. Linville:
+      softmac: remove function_enter()
 
-As you and Jason point out there are a lot of places where ifreqs are 
-used and hence options that will not support IPoIB addresses.
+Jouni Malinen:
+      hostap: Fix unlikely read overrun in CIS parsing
+      hostap: Remove dead code (duplicated idx != 0)
+      hostap: Fix memory leak on PCI probe error path
 
-  </pre>
-</blockquote>
-The sockaddr union is at the end of struct ifreq.&nbsp; Couldn't the union
-sockaddr members be changed to sockaddr_storage, and the SIOCxxxx
-encoded size bits be changed?&nbsp; dev_ifsioc() would just need to mask out
-(or substitute) the size bits before the switch statement.<br>
-<br>
-&nbsp;- Mark<br>
-<br>
-<br>
-<br>
-</body>
-</html>
+Larry Finger:
+      Fix softmac scan
 
---------------020206050700090503040706--
-
---===============1895615210==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============1895615210==--
+Stephen Hemminger:
+      sky2: typo in last stats patch
+      sky2: Fix RX stats
+      sky2: dont need to use dev_kfree_skb_any
+      skge: align receive buffers
+      skge: dont use dev_alloc_skb for rx buffs
+      skge: rx_reuse called twice
+      skge: multicast statistics fix
+      skge: dont free skb until multi-part transmit complete
+      skge: compute available ring buffers
+      skge: version 1.5
