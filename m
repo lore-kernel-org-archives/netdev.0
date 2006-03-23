@@ -1,100 +1,236 @@
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Subject: Re: [2.6.16-gitX] heavy performance regression in ipw2200 wireless driver
-Date: Thu, 23 Mar 2006 15:02:05 +0100
-Message-ID: <5a4c581d0603230602s1a868a4apbfd79ec2bc568011@mail.gmail.com>
-References: <5a4c581d0603221724m391f5466l8a2af3ae7f0aacae@mail.gmail.com>
-	 <20060322191057.304962a4.akpm@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink
+	interface for delay accounting
+Date: Thu, 23 Mar 2006 09:04:46 -0500
+Message-ID: <1143122686.5186.27.camel@jzny2>
+References: <1142296834.5858.3.camel@elinux04.optonline.net>
+	 <1142297791.5858.31.camel@elinux04.optonline.net>
+	 <1142303607.24621.63.camel@stark> <1142304506.5219.34.camel@jzny2>
+	 <20060322074922.GA1164@in.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, "Zhu, Yi" <yi.zhu@intel.com>,
-	"James Ketrenos" <jketreno@linux.intel.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932143AbWCWOCJ@vger.kernel.org>
-To: "Andrew Morton" <akpm@osdl.org>
-In-Reply-To: <20060322191057.304962a4.akpm@osdl.org>
-Content-Disposition: inline
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Matt Helsley <matthltc@us.ibm.com>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932155AbWCWOIE@vger.kernel.org>
+To: balbir@in.ibm.com
+In-Reply-To: <20060322074922.GA1164@in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/23/06, Andrew Morton <akpm@osdl.org> wrote:
-> "Alessandro Suardi" <alessandro.suardi@gmail.com> wrote:
-> >
->
-> Pleeeeze try to cc the right people.
 
-Sorry about that - should probably defer bug reporting to times
- when I'm actually supposed to be awake (2:20am doesn't fit
- the bill obviously :| )
+Hi Balbir,
 
-> > Driver - or firmware ? Don't know - since the new git snapshots run
-> >  1.1.1 which requires newer firmware from http://ipw2200.sourceforge.net.
-> >
-> > Symptom -> my new FC5 partition with 2.6.16-git kernels connects via
-> >  VNC viewer to my bittorrent box over wireless (ipw2200 to a D-Link
-> >  G604T router/AP); Dell D610 runs FC5, BT box is a K7-800 running
-> >  FC3 with a 2.6.16-rc5-git8 kernel (15+ days uptime...).
-> >
-> > I also run Firefox on the bittorrent box; noticed today (2.6.16-git5) that
-> >  the screen refresh of pages with images was from time to time very
-> >  slow (close to unusable).
-> >
-> > Rebooted into my FC4 partition with a 2.6.16 kernel, everything much
-> >  snappier. So I ran a scp test from my BT server to the laptop, three
-> >  times in a row the same file - a 38MB .flac with the laptop in the same
-> >  physical position (ie, no signal variation). Results...
-> >
-> > FC5 - 2.6.16-git3:
-> >
-> > [asuardi@donkey melua_2004-09-23_Berlin]$ scp KM_9-23-04_17_The\
-> > Closest\ Thing\ to\ Crazy.flac 192.168.1.8:/tmp
-> > asuardi@192.168.1.8's password:
-> > KM_9-23-04_17_The Closest Thing to Crazy.flac 100%   38MB 971.3KB/s   00:40
-> > [asuardi@donkey melua_2004-09-23_Berlin]$ scp KM_9-23-04_17_The\
-> > Closest\ Thing\ to\ Crazy.flac 192.168.1.8:/tmp
-> > asuardi@192.168.1.8's password:
-> > KM_9-23-04_17_The Closest Thing to Crazy.flac 100%   38MB   1.3MB/s   00:29
-> > [asuardi@donkey melua_2004-09-23_Berlin]$ scp KM_9-23-04_17_The\
-> > Closest\ Thing\ to\ Crazy.flac 192.168.1.8:/tmp
-> > asuardi@192.168.1.8's password:
-> > KM_9-23-04_17_The Closest Thing to Crazy.flac 100%   38MB 626.7KB/s   01:02
-> >
-> >
-> > FC4 - 2.6.16:
-> >
-> > [asuardi@donkey melua_2004-09-23_Berlin]$ scp KM_9-23-04_17_The\
-> > Closest\ Thing\ to\ Crazy.flac 192.168.1.8:/tmp
-> > asuardi@192.168.1.8's password:
-> > KM_9-23-04_17_The Closest Thing to Crazy.flac 100%   38MB   1.5MB/s   00:25
-> > [asuardi@donkey melua_2004-09-23_Berlin]$ scp KM_9-23-04_17_The\
-> > Closest\ Thing\ to\ Crazy.flac 192.168.1.8:/tmp
-> > asuardi@192.168.1.8's password:
-> > KM_9-23-04_17_The Closest Thing to Crazy.flac 100%   38MB   1.7MB/s   00:23
-> > [asuardi@donkey melua_2004-09-23_Berlin]$ scp KM_9-23-04_17_The\
-> > Closest\ Thing\ to\ Crazy.flac 192.168.1.8:/tmp
-> > asuardi@192.168.1.8's password:
-> > KM_9-23-04_17_The Closest Thing to Crazy.flac 100%   38MB   1.7MB/s   00:22
-> >
-> > Bottom line - old driver has better performance than the new one,
-> >  but most noticeably delivers consistent performance.
-> >
-> > I will be available for testing starting Thursday 30th as I'll be on
-> >  the road since then. Of course if the problem is identified and
-> >  fixed earlier, I won't cry ;)
->
-> Well.  It's not a huge regression.  It's a 50%ish regression.  We've done
-> worse ;)
+Looking good.
+This is a quick scan, so i didnt look at little details.
+Some comments embedded.
 
-That scp test shows 50%ish - but that was a quickie. The VNC
- client even reported a 719Kbps throughput down from the more
- usual 11500Kbps it starts off with. The first scp I tried when the
- sluggishness was intolerable was going at 200KB/s - which
- shows the problem can easily get in the neighborhood of an
- order of magnitude.
+On Wed, 2006-22-03 at 13:19 +0530, Balbir Singh wrote:
 
-Thanks,
 
---alessandro
 
- "Dreamer ? Each one of us is a dreamer. We just push it down deep because
-   we are repeatedly told that we are not allowed to dream in real life"
-     (Reinhold Ziegler)
+
+>  
+
+> diff -puN /dev/null include/linux/taskstats.h
+
+> + * The struct is versioned. Newer versions should only add fields to
+> + * the bottom of the struct to maintain backward compatibility.
+> + *
+> + * To create the next version, bump up the taskstats_version variable
+> + * and delineate the start of newly added fields with a comment indicating
+> + * the version number.
+> + */
+> +
+
+
+
+> +enum {
+> +	TASKSTATS_MSG_UNICAST,		/* send data only to requester */
+> +	TASKSTATS_MSG_MULTICAST,	/* send data to a group */
+> +};
+> +
+
+Above will never be used outside of the kernel.
+Should it go under the ifdef kernel below?
+
+
+> +#ifdef __KERNEL__
+> +
+
+Note: some people will argue that you should probably have
+two header files. One for all kernel things and includes another
+which contains all the stuff above ifdef __KERNEL__
+
+> +
+> +#endif /* __KERNEL__ */
+> +#endif /* _LINUX_TASKSTATS_H */
+
+
+
+
+> diff -puN kernel/Makefile~delayacct-genetlink kernel/Makefile
+> --- linux-2.6.16/kernel/Makefile~delayacct-genetlink	2006-03-22 11:56:03.000000000 +0530
+> +++ linux-2.6.16-balbir/kernel/Makefile	2006-03-22 11:56:03.000000000 +0530
+
+> +
+> +const int taskstats_version = TASKSTATS_VERSION;
+> +static DEFINE_PER_CPU(__u32, taskstats_seqnum) = { 0 };
+> +static int family_registered = 0;
+> +
+> +static struct genl_family family = {
+> +	.id             = GENL_ID_GENERATE,
+> +	.name           = TASKSTATS_GENL_NAME,
+> +	.version        = TASKSTATS_GENL_VERSION,
+> +	.hdrsize        = 0,
+
+Do you need to specify hdrsize of 0?
+
+
+> +static int prepare_reply(struct genl_info *info, u8 cmd, struct sk_buff **skbp,
+> +			 void **replyp)
+> +{
+> +	struct sk_buff *skb;
+> +	void *reply;
+> +
+> +	skb = nlmsg_new(NLMSG_GOODSIZE);
+
+Ok,  getting a size of NLMSG_GOODSIZE is not a good idea. 
+The max size youll ever get it seems to me is 2*32-bit-data TLVs +
+sizeof struct stats. Why dont you allocate that size?
+
+> +	if (!skb)
+> +		return -ENOMEM;
+> +
+> +	if (!info) {
+> +		int seq = get_cpu_var(taskstats_seqnum)++;
+> +		put_cpu_var(taskstats_seqnum);
+> +
+> +		reply = genlmsg_put(skb, 0, seq,
+> +				    family.id, 0, NLM_F_REQUEST,
+> +				    cmd, family.version);
+
+Double check if you need NLM_F_REQUEST
+
+> +	} else
+> +		reply = genlmsg_put(skb, info->snd_pid, info->snd_seq,
+> +				    family.id, 0, info->nlhdr->nlmsg_flags,
+> +				    info->genlhdr->cmd, family.version);
+
+A Response to a GET is a NEW. So i dont think info->genlhdr->cmd is the
+right thing?
+
+
+
+
+
+> +static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int rc;
+> +	struct sk_buff *rep_skb;
+> +	struct taskstats stats;
+> +	void *reply;
+> +
+> +	memset(&stats, 0, sizeof(stats));
+> +	rc = prepare_reply(info, info->genlhdr->cmd, &rep_skb, &reply);
+
+Same comment as before: a response to a GET is a NEW; so
+info->genlhdr->cmd doesnt seem right.
+
+> +	if (rc < 0)
+> +		return rc;
+> +
+> +	if (info->attrs[TASKSTATS_CMD_ATTR_PID]) {
+> +		u32 pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
+> +		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, pid);
+> +		rc = fill_pid((pid_t)pid, NULL, &stats);
+> +		if (rc < 0)
+> +			return rc;
+> +	}
+> +
+> +	if (info->attrs[TASKSTATS_CMD_ATTR_TGID]) {
+> +		u32 tgid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_TGID]);
+> +		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_TGID, tgid);
+> +		rc = fill_tgid((pid_t)tgid, NULL, &stats);
+> +		if (rc < 0)
+> +			return rc;
+> +	}
+> +
+
+Should there be at least either a pid or tgid? If yes, you need to
+validate here...
+
+> +	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
+> +	return send_reply(rep_skb, info->snd_pid, TASKSTATS_MSG_UNICAST);
+> +
+> +nla_put_failure:
+> +	return genlmsg_cancel(rep_skb, reply);
+> +
+
+As a general comment double check your logic for errors; if you already
+have stashed something in the skb, you need to remove it etc.
+
+> +}
+> +
+> +
+> +/* Send pid data out on exit */
+> +void taskstats_exit_pid(struct task_struct *tsk)
+> +{
+> +	int rc;
+> +	struct sk_buff *rep_skb;
+> +	void *reply;
+> +	struct taskstats stats;
+> +
+> +	/*
+> +	 * tasks can start to exit very early. Ensure that the family
+> +	 * is registered before notifications are sent out
+> +	 */
+> +	if (!family_registered)
+> +		return;
+> +
+> +	memset(&stats, 0, sizeof(stats));
+> +	rc = prepare_reply(NULL, TASKSTATS_CMD_NEW, &rep_skb, &reply);
+> +	if (rc < 0)
+> +		return;
+> +
+> +	NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, (u32)tsk->pid);
+> +	rc = fill_pid(tsk->pid, tsk, &stats);
+> +	if (rc < 0)
+> +		return;
+> +
+> +	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
+> +	rc = send_reply(rep_skb, 0, TASKSTATS_MSG_MULTICAST);
+> +
+> +	if (rc || thread_group_empty(tsk))
+> +		return;
+> +
+> +	/* Send tgid data too */
+> +	rc = prepare_reply(NULL, TASKSTATS_CMD_NEW, &rep_skb, &reply);
+> +	if (rc < 0)
+> +		return;
+> +
+
+A single message with PID+TGID sounds reasonable. Why two messages with
+two stats? all you will need to do is get rid of the prepare_reply()
+above and NLA_PUT_U32() below (just like you do in a response to a GET.
+
+> +	NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_TGID, (u32)tsk->tgid);
+> +	rc = fill_tgid(tsk->tgid, tsk, &stats);
+> +	if (rc < 0)
+> +		return;
+> +
+> +	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
+> +	send_reply(rep_skb, 0, TASKSTATS_MSG_MULTICAST);
+> +
+> +nla_put_failure:
+> +	genlmsg_cancel(rep_skb, reply);
+> +}
+
+
+Other than the above comments - I believe you have it right.
+
+cheers,
+jamal
