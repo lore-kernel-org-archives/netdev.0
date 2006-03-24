@@ -1,35 +1,36 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [2.6.16-gitX] heavy performance regression in ipw2200 wireless
-	driver
-Date: Fri, 24 Mar 2006 11:41:14 +0800
-Message-ID: <1143171674.17270.195.camel@debian.sh.intel.com>
-References: <5a4c581d0603221724m391f5466l8a2af3ae7f0aacae@mail.gmail.com>
-	 <20060322191057.304962a4.akpm@osdl.org>
-	 <5a4c581d0603230602s1a868a4apbfd79ec2bc568011@mail.gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] ip_conntrack_helper_h323.c: EXPORT_SYMBOL'ed
+ functions shouldn't be static
+Date: Thu, 23 Mar 2006 22:08:57 -0800 (PST)
+Message-ID: <20060323.220857.24982378.davem@davemloft.net>
+References: <20060324000801.GM22727@stusta.de>
+	<20060323.161314.59991770.davem@davemloft.net>
+	<44234B10.5040802@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	James Ketrenos <jketreno@linux.intel.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422691AbWCXDrp@vger.kernel.org>
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
-In-Reply-To: <5a4c581d0603230602s1a868a4apbfd79ec2bc568011@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	zhaojignmin@hotmail.com, linux-kernel@vger.kernel.org, bunk@stusta.de
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kaber@trash.net
+In-Reply-To: <44234B10.5040802@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-03-23 at 15:02 +0100, Alessandro Suardi wrote:
-> That scp test shows 50%ish - but that was a quickie. The VNC
->  client even reported a 719Kbps throughput down from the more
->  usual 11500Kbps it starts off with. The first scp I tried when the
->  sluggishness was intolerable was going at 200KB/s - which
->  shows the problem can easily get in the neighborhood of an
->  order of magnitude.
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 24 Mar 2006 02:27:44 +0100
 
-What kind of wireless encryption do you use? We turned off hardware
-encryption by default recently as a workaround for a firmware restart
-bug. You might want to load module with "modprobe ipw2200 hwcrypto=1"
-and retest.
+> I guess I should send it to lkml anyway. It boots fine, I couldn't
+> figure out how to compare checksums, since the time of compilation
+> and a couple other dynamically generated strings end up in the binary.
 
-Thanks,
--yi
+This looks fine, I'll push it in during my next round of networking
+updates.
