@@ -1,8 +1,7 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] ip_conntrack_helper_h323.c: make get_h245_addr()
-	static
-Date: Fri, 24 Mar 2006 01:09:16 +0100
-Message-ID: <20060324000916.GN22727@stusta.de>
+Subject: Two comments on the H.323 conntrack/NAT helper
+Date: Fri, 24 Mar 2006 01:13:07 +0100
+Message-ID: <20060324001307.GO22727@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
@@ -21,45 +20,17 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes a needlessly global function static.
+Two comments on the H.323 conntrack/NAT helper:
+- the function prototypes in ip_nat_helper_h323.c are _ugly_,
+  please move them to a header file
+- is there a reason for not using EXPORT_SYMBOL_GPL?
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+cu
+Adrian
 
----
+-- 
 
- net/ipv4/netfilter/ip_conntrack_helper_h323.c |    5 ++---
- net/ipv4/netfilter/ip_nat_helper_h323.c       |    2 --
- 2 files changed, 2 insertions(+), 5 deletions(-)
-
---- linux-2.6.16-mm1-full/net/ipv4/netfilter/ip_nat_helper_h323.c.old	2006-03-23 23:13:59.000000000 +0100
-+++ linux-2.6.16-mm1-full/net/ipv4/netfilter/ip_nat_helper_h323.c	2006-03-23 23:14:05.000000000 +0100
-@@ -49,8 +49,6 @@
- #define DEBUGP(format, args...)
- #endif
- 
--extern int get_h245_addr(unsigned char *data, H245_TransportAddress * addr,
--			 u_int32_t * ip, u_int16_t * port);
- extern int get_h225_addr(unsigned char *data, TransportAddress * addr,
- 			 u_int32_t * ip, u_int16_t * port);
- extern void ip_conntrack_h245_expect(struct ip_conntrack *new,
---- linux-2.6.16-mm1-full/net/ipv4/netfilter/ip_conntrack_helper_h323.c.old	2006-03-23 23:14:21.000000000 +0100
-+++ linux-2.6.16-mm1-full/net/ipv4/netfilter/ip_conntrack_helper_h323.c	2006-03-23 23:14:35.000000000 +0100
-@@ -222,8 +222,8 @@
- }
- 
- /****************************************************************************/
--int get_h245_addr(unsigned char *data, H245_TransportAddress * addr,
--		  u_int32_t * ip, u_int16_t * port)
-+static int get_h245_addr(unsigned char *data, H245_TransportAddress * addr,
-+			 u_int32_t * ip, u_int16_t * port)
- {
- 	unsigned char *p;
- 
-@@ -1713,7 +1713,6 @@
- module_init(init);
- module_exit(fini);
- 
--EXPORT_SYMBOL(get_h245_addr);
- EXPORT_SYMBOL(get_h225_addr);
- EXPORT_SYMBOL(ip_conntrack_h245_expect);
- EXPORT_SYMBOL(ip_conntrack_q931_expect);
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
