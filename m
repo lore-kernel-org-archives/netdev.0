@@ -1,46 +1,50 @@
-From: Balbir Singh <balbir@in.ibm.com>
-Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink interface for delay accounting
-Date: Fri, 24 Mar 2006 20:29:12 +0530
-Message-ID: <20060324145912.GB7495@in.ibm.com>
-References: <1142296834.5858.3.camel@elinux04.optonline.net> <1142297791.5858.31.camel@elinux04.optonline.net> <1142303607.24621.63.camel@stark> <1142304506.5219.34.camel@jzny2> <20060322074922.GA1164@in.ibm.com> <1143122686.5186.27.camel@jzny2> <20060324013229.GD13159@in.ibm.com> <1143209518.5076.21.camel@jzny2>
-Reply-To: balbir@in.ibm.com
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] PCMCIA_SPECTRUM must select FW_LOADER
+Date: Fri, 24 Mar 2006 17:56:19 +0100
+Message-ID: <20060324165619.GG22727@stusta.de>
+References: <44241FF9.9070904@ums.usu.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matt Helsley <matthltc@us.ibm.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932563AbWCXO7i@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751140AbWCXQ4b@vger.kernel.org>
+To: "Alexander E. Patrakov" <patrakov@ums.usu.ru>,
+	linville@tuxdriver.com
 Content-Disposition: inline
-In-Reply-To: <1143209518.5076.21.camel@jzny2>
+In-Reply-To: <44241FF9.9070904@ums.usu.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 24, 2006 at 09:11:58AM -0500, jamal wrote:
-> On Fri, 2006-24-03 at 07:02 +0530, Balbir Singh wrote:
-> > On Thu, Mar 23, 2006 at 09:04:46AM -0500, jamal wrote:
+On Fri, Mar 24, 2006 at 09:36:09PM +0500, Alexander E. Patrakov wrote:
+> In linux-2.6.16, it is possible to compile spectrum_cs.ko without enabling 
+> firmware loader. Result:
 > 
-> > 3. nlmsg_new() now allocates for 2*u32 + sizeof(taskstats)
-> 
-> Not the right size; the u32 covers the V part of TLV. The T = 16 bits
-> and L = 16 bits. And if you nest TLVs, then it gets more interesting.
-> 
-> Look at using proper macros instead of hard coding like you did.
-> grep for something like RTA_SPACE and perhaps send a patch to make it
-> generic for netlink.h
-> 
-> cheers,
-> jamal
->
+> WARNING: /lib/modules/2.6.16/kernel/drivers/net/wireless/spectrum_cs.ko 
+> needs unknown symbol request_firmware
 
-My bad,  but I was wondering why my test case did not segfault until
-I saw the implementation of nlmsg_new :-)
+Thanks for your report, a fix is below.
 
-I will fix this and use nla_total_size() to calculate the correct sizes
-including padding and TLV.
+> Alexander E. Patrakov
 
-Thanks again,
-Balbir
+cu
+Adrian
 
+
+<--  snip  -->
+
+
+PCMCIA_SPECTRUM must select FW_LOADER.
+
+Reported by "Alexander E. Patrakov" <patrakov@ums.usu.ru>.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.16-mm1-full/drivers/net/wireless/Kconfig.old	2006-03-24 17:45:05.000000000 +0100
++++ linux-2.6.16-mm1-full/drivers/net/wireless/Kconfig	2006-03-24 17:45:38.000000000 +0100
+@@ -397,6 +397,7 @@
+ config PCMCIA_SPECTRUM
+ 	tristate "Symbol Spectrum24 Trilogy PCMCIA card support"
+ 	depends on NET_RADIO && PCMCIA && HERMES
++	select FW_LOADER
+ 	---help---
  
+ 	  This is a driver for 802.11b cards using RAM-loadable Symbol
