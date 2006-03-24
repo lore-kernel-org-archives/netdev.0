@@ -1,41 +1,275 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: Re: [patch 2/6] s390: qeth driver statistics fixes
-Date: Fri, 24 Mar 2006 10:06:11 +0100
-Message-ID: <20060324100611.5c59e68b@localhost.localdomain>
+Subject: [RESEND patch 5/6] s390: remove tty support from ctc network device
+ driver [1/2]
+Date: Fri, 24 Mar 2006 10:07:16 +0100
+Message-ID: <20060324100716.39adc2b2@localhost.localdomain>
 References: <20060322160339.4e6cf34e@localhost.localdomain>
 	<4421FA37.4050703@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751356AbWCXJE5@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751453AbWCXJGL@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 In-Reply-To: <4421FA37.4050703@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Mar 2006 20:30:31 -0500
-Jeff Garzik <jgarzik@pobox.com> wrote:
+[patch 5/6] s390: remove tty support from ctc network device driver [1/=
+2]
 
-> Frank Pavlic wrote:
-> > [patch 2/6] s390: qeth driver statistics fixes 
-> > 
-> > From: Ursula Braun <braunu@de.ibm.com>
-> > 	- display "unsigned int" values in /proc/qeth_perf with %u instead of %i
-> > 	- omit qdio header length when increasing card->stats.tx_bytes
-> > 
-> > Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
-> 
-> applied 2-4
-> 
-> I am OK with removing tty from network driver (patches 5-6), but they 
-> didn't apply
-> 
-> 
+=46rom: Peter Tiedemann <ptiedem@de.ibm.com>
+	[1/2]:=20
+        tty support code will be removed from the ctc network device dr=
+iver.
+        Today we have a couple of alternatives which are performing muc=
+h
+        better. The second thing is that ctc should be a network=20
+	device driver only.=20
+	We should not mix tty and networking here.
+        This first patch will remove the tty code from ctcmain.c .
+       	It also removes the build entry from the Makefile as well as TT=
+Y=20
+	definitions from ctcmain.h.
+        The second patch will remove two files, ctctty.c and ctctty.h.
 
-hmm ok , I have built new ones today ...
-Let me know if you still run into problems to apply the new two ctc tty removal patches...
+Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 
-Thanks 
+diffstat:
 
-Frank
+ Makefile  |    3 ++-
+ ctcmain.c |   45 +++++++++------------------------------------
+ ctcmain.h |   12 +++++-------
+ 3 files changed, 16 insertions(+), 44 deletions(-)
+
+diff -Naupr git-linux/drivers/s390/net/ctcmain.c git-patched/drivers/s3=
+90/net/ctcmain.c
+--- git-linux/drivers/s390/net/ctcmain.c	2006-03-24 09:21:59.000000000 =
++0100
++++ git-patched/drivers/s390/net/ctcmain.c	2006-03-24 09:41:17.00000000=
+0 +0100
+@@ -6,7 +6,7 @@
+  * Fixes by : Jochen R=C3=B6hrig (roehrig@de.ibm.com)
+  *            Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+ 	      Peter Tiedemann (ptiedem@de.ibm.com)
+- * Driver Model stuff by : Cornelia Huck <huckc@de.ibm.com>
++ * Driver Model stuff by : Cornelia Huck <cornelia.huck@de.ibm.com>
+  *
+  * Documentation used:
+  *  - Principles of Operation (IBM doc#: SA22-7201-06)
+@@ -65,7 +65,6 @@
+=20
+ #include <asm/idals.h>
+=20
+-#include "ctctty.h"
+ #include "fsm.h"
+ #include "cu3088.h"
+=20
+@@ -479,10 +478,7 @@ ctc_unpack_skb(struct channel *ch, struc
+ 		skb->dev =3D pskb->dev;
+ 		skb->protocol =3D pskb->protocol;
+ 		pskb->ip_summed =3D CHECKSUM_UNNECESSARY;
+-		if (ch->protocol =3D=3D CTC_PROTO_LINUX_TTY)
+-			ctc_tty_netif_rx(skb);
+-		else
+-			netif_rx_ni(skb);
++		netif_rx_ni(skb);
+ 		/**
+ 		 * Successful rx; reset logflags
+ 		 */
+@@ -557,8 +553,7 @@ ccw_unit_check(struct channel *ch, unsig
+ 	DBF_TEXT(trace, 5, __FUNCTION__);
+ 	if (sense & SNS0_INTERVENTION_REQ) {
+ 		if (sense & 0x01) {
+-			if (ch->protocol !=3D CTC_PROTO_LINUX_TTY)
+-				ctc_pr_debug("%s: Interface disc. or Sel. reset "
++			ctc_pr_debug("%s: Interface disc. or Sel. reset "
+ 					"(remote)\n", ch->id);
+ 			fsm_event(ch->fsm, CH_EVENT_UC_RCRESET, ch);
+ 		} else {
+@@ -2034,7 +2029,6 @@ static void
+ dev_action_chup(fsm_instance * fi, int event, void *arg)
+ {
+ 	struct net_device *dev =3D (struct net_device *) arg;
+-	struct ctc_priv *privptr =3D dev->priv;
+=20
+ 	DBF_TEXT(trace, 3, __FUNCTION__);
+ 	switch (fsm_getstate(fi)) {
+@@ -2049,8 +2043,6 @@ dev_action_chup(fsm_instance * fi, int e
+ 				fsm_newstate(fi, DEV_STATE_RUNNING);
+ 				ctc_pr_info("%s: connected with remote side\n",
+ 					    dev->name);
+-				if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
+-					ctc_tty_setcarrier(dev, 1);
+ 				ctc_clear_busy(dev);
+ 			}
+ 			break;
+@@ -2059,8 +2051,6 @@ dev_action_chup(fsm_instance * fi, int e
+ 				fsm_newstate(fi, DEV_STATE_RUNNING);
+ 				ctc_pr_info("%s: connected with remote side\n",
+ 					    dev->name);
+-				if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
+-					ctc_tty_setcarrier(dev, 1);
+ 				ctc_clear_busy(dev);
+ 			}
+ 			break;
+@@ -2086,14 +2076,10 @@ dev_action_chup(fsm_instance * fi, int e
+ static void
+ dev_action_chdown(fsm_instance * fi, int event, void *arg)
+ {
+-	struct net_device *dev =3D (struct net_device *) arg;
+-	struct ctc_priv *privptr =3D dev->priv;
+=20
+ 	DBF_TEXT(trace, 3, __FUNCTION__);
+ 	switch (fsm_getstate(fi)) {
+ 		case DEV_STATE_RUNNING:
+-			if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
+-				ctc_tty_setcarrier(dev, 0);
+ 			if (event =3D=3D DEV_EVENT_TXDOWN)
+ 				fsm_newstate(fi, DEV_STATE_STARTWAIT_TX);
+ 			else
+@@ -2397,8 +2383,6 @@ ctc_tx(struct sk_buff *skb, struct net_d
+ 	 */
+ 	if (fsm_getstate(privptr->fsm) !=3D DEV_STATE_RUNNING) {
+ 		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
+-		if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
+-			return -EBUSY;
+ 		dev_kfree_skb(skb);
+ 		privptr->stats.tx_dropped++;
+ 		privptr->stats.tx_errors++;
+@@ -2608,20 +2592,13 @@ ctc_netdev_unregister(struct net_device=20
+ 	if (!dev)
+ 		return;
+ 	privptr =3D (struct ctc_priv *) dev->priv;
+-	if (privptr->protocol !=3D CTC_PROTO_LINUX_TTY)
+-		unregister_netdev(dev);
+-	else
+-		ctc_tty_unregister_netdev(dev);
++	unregister_netdev(dev);
+ }
+=20
+ static int
+ ctc_netdev_register(struct net_device * dev)
+ {
+-	struct ctc_priv *privptr =3D (struct ctc_priv *) dev->priv;
+-	if (privptr->protocol !=3D CTC_PROTO_LINUX_TTY)
+-		return register_netdev(dev);
+-	else
+-		return ctc_tty_register_netdev(dev);
++	return register_netdev(dev);
+ }
+=20
+ static void
+@@ -2667,7 +2644,9 @@ ctc_proto_store(struct device *dev, stru
+ 	if (!priv)
+ 		return -ENODEV;
+ 	sscanf(buf, "%u", &value);
+-	if ((value < 0) || (value > CTC_PROTO_MAX))
++	if (!((value =3D=3D CTC_PROTO_S390)  ||
++	      (value =3D=3D CTC_PROTO_LINUX) ||
++	      (value =3D=3D CTC_PROTO_OS390)))
+ 		return -EINVAL;
+ 	priv->protocol =3D value;
+=20
+@@ -2897,10 +2876,7 @@ ctc_new_device(struct ccwgroup_device *c
+ 		goto out;
+ 	}
+=20
+-	if (privptr->protocol =3D=3D CTC_PROTO_LINUX_TTY)
+-		strlcpy(dev->name, "ctctty%d", IFNAMSIZ);
+-	else
+-		strlcpy(dev->name, "ctc%d", IFNAMSIZ);
++	strlcpy(dev->name, "ctc%d", IFNAMSIZ);
+=20
+ 	for (direction =3D READ; direction <=3D WRITE; direction++) {
+ 		privptr->channel[direction] =3D
+@@ -3046,7 +3022,6 @@ ctc_exit(void)
+ {
+ 	DBF_TEXT(setup, 3, __FUNCTION__);
+ 	unregister_cu3088_discipline(&ctc_group_driver);
+-	ctc_tty_cleanup();
+ 	ctc_unregister_dbf_views();
+ 	ctc_pr_info("CTC driver unloaded\n");
+ }
+@@ -3073,10 +3048,8 @@ ctc_init(void)
+ 		ctc_pr_crit("ctc_init failed with ctc_register_dbf_views rc =3D %d\n=
+", ret);
+ 		return ret;
+ 	}
+-	ctc_tty_init();
+ 	ret =3D register_cu3088_discipline(&ctc_group_driver);
+ 	if (ret) {
+-		ctc_tty_cleanup();
+ 		ctc_unregister_dbf_views();
+ 	}
+ 	return ret;
+diff -Naupr git-linux/drivers/s390/net/ctcmain.h git-patched/drivers/s3=
+90/net/ctcmain.h
+--- git-linux/drivers/s390/net/ctcmain.h	2006-03-24 09:21:59.000000000 =
++0100
++++ git-patched/drivers/s390/net/ctcmain.h	2006-03-24 09:41:17.00000000=
+0 +0100
+@@ -35,7 +35,9 @@
+ #include <asm/ccwdev.h>
+ #include <asm/ccwgroup.h>
+=20
+-#include "ctctty.h"
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++
+ #include "fsm.h"
+ #include "cu3088.h"
+=20
+@@ -50,9 +52,7 @@
+=20
+ #define CTC_PROTO_S390          0
+ #define CTC_PROTO_LINUX         1
+-#define CTC_PROTO_LINUX_TTY     2
+ #define CTC_PROTO_OS390         3
+-#define CTC_PROTO_MAX           3
+=20
+ #define CTC_BUFSIZE_LIMIT       65535
+ #define CTC_BUFSIZE_DEFAULT     32768
+@@ -257,15 +257,13 @@ static __inline__ void
+ ctc_clear_busy(struct net_device * dev)
+ {
+ 	clear_bit(0, &(((struct ctc_priv *) dev->priv)->tbusy));
+-	if (((struct ctc_priv *)dev->priv)->protocol !=3D CTC_PROTO_LINUX_TTY=
+)
+-		netif_wake_queue(dev);
++	netif_wake_queue(dev);
+ }
+=20
+ static __inline__ int
+ ctc_test_and_set_busy(struct net_device * dev)
+ {
+-	if (((struct ctc_priv *)dev->priv)->protocol !=3D CTC_PROTO_LINUX_TTY=
+)
+-		netif_stop_queue(dev);
++	netif_stop_queue(dev);
+ 	return test_and_set_bit(0, &((struct ctc_priv *) dev->priv)->tbusy);
+ }
+=20
+diff -Naupr git-linux/drivers/s390/net/Makefile git-patched/drivers/s39=
+0/net/Makefile
+--- git-linux/drivers/s390/net/Makefile	2006-03-24 09:21:59.000000000 +=
+0100
++++ git-patched/drivers/s390/net/Makefile	2006-03-24 09:41:17.000000000=
+ +0100
+@@ -2,7 +2,7 @@
+ # S/390 network devices
+ #
+=20
+-ctc-objs :=3D ctcmain.o ctctty.o ctcdbug.o
++ctc-objs :=3D ctcmain.o ctcdbug.o
+=20
+ obj-$(CONFIG_IUCV) +=3D iucv.o
+ obj-$(CONFIG_NETIUCV) +=3D netiucv.o fsm.o
+@@ -10,6 +10,7 @@ obj-$(CONFIG_SMSGIUCV) +=3D smsgiucv.o
+ obj-$(CONFIG_CTC) +=3D ctc.o fsm.o cu3088.o
+ obj-$(CONFIG_LCS) +=3D lcs.o cu3088.o
+ obj-$(CONFIG_CLAW) +=3D claw.o cu3088.o
++obj-$(CONFIG_MPC) +=3D ctcmpc.o fsm.o cu3088.o
+ qeth-y :=3D qeth_main.o qeth_mpc.o qeth_sys.o qeth_eddp.o=20
+ qeth-$(CONFIG_PROC_FS) +=3D qeth_proc.o
+ obj-$(CONFIG_QETH) +=3D qeth.o
