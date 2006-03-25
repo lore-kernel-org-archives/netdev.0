@@ -1,116 +1,167 @@
-From: "Balbir Singh" <balbir@in.ibm.com>
-Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink interface for delay accounting
-Date: Sat, 25 Mar 2006 23:52:12 +0530
-Message-ID: <661de9470603251022w7f8991e9g73d70a65f5d475ea@mail.gmail.com>
-References: <1142303607.24621.63.camel@stark> <1143122686.5186.27.camel@jzny2>
-	 <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2>
-	 <20060324145459.GA7495@in.ibm.com> <1143249565.5184.6.camel@jzny2>
-	 <20060325094126.GA9376@in.ibm.com> <1143291133.5184.32.camel@jzny2>
-	 <20060325153632.GA25431@in.ibm.com> <1143308901.5184.48.camel@jzny2>
-Reply-To: balbir@in.ibm.com
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] make UNIX a bool
+Date: Sat, 25 Mar 2006 20:47:39 +0100
+Message-ID: <20060325194739.GS4053@stusta.de>
+References: <20060225160150.GX3674@stusta.de> <20060225224631.GA4085@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Matt Helsley" <matthltc@us.ibm.com>,
-	"Shailabh Nagar" <nagar@watson.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751648AbWCYSWO@vger.kernel.org>
-To: hadi@cyberus.ca
-In-Reply-To: <1143308901.5184.48.camel@jzny2>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751120AbWCYTrl@vger.kernel.org>
+To: Olaf Hering <olh@suse.de>
 Content-Disposition: inline
+In-Reply-To: <20060225224631.GA4085@suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 3/25/06, jamal <hadi@cyberus.ca> wrote:
-> On Sat, 2006-25-03 at 21:06 +0530, Balbir Singh wrote:
-> > On Sat, Mar 25, 2006 at 07:52:13AM -0500, jamal wrote:
->
->
-> I didnt pay attention to failure paths etc; i suppose your testing
-> should catch those. Getting there, a couple more comments:
->
+On Sat, Feb 25, 2006 at 11:46:31PM +0100, Olaf Hering wrote:
+>  On Sat, Feb 25, Adrian Bunk wrote:
+> 
+> > CONFIG_UNIX=m doesn't make much sense.
+> 
+> There is likely more code to support a modular unix.ko, this has to go
+> as well.
 
-Yes, I have tried several negative test cases.
+Sounds resonable, updated patch below.
 
->
-> > +enum {
-> > +     TASKSTATS_CMD_UNSPEC = 0,       /* Reserved */
-> > +     TASKSTATS_CMD_GET,              /* user->kernel request */
-> > +     TASKSTATS_CMD_NEW,              /* kernel->user event */
->
-> Should the comment read "kernel->user event/get-response"
->
-
-Yes, good catch. I will update the comment.
-
->
-> > +
-> > +static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
-> > +{
->
->
-> > +
-> > +     if (info->attrs[TASKSTATS_CMD_ATTR_PID]) {
-> > +             u32 pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
-> > +             rc = fill_pid((pid_t)pid, NULL, &stats);
-> > +             if (rc < 0)
-> > +                     goto err;
-> > +
-> > +             na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_PID);
-> > +             NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, pid);
-> > +     } else if (info->attrs[TASKSTATS_CMD_ATTR_TGID]) {
->
-> in regards to the elseif above:
-> Could you not have both PID and TGID passed? From my earlier
-> understanding it seemed legit, no? if answer is yes, then you will have
-> to do your sizes + reply TLVs at the end.
-
-No, we cannot have both passed. If we pass both a PID and a TGID and
-then the code returns just the stats for the PID.
-
->
-> Also in regards to the nesting, isnt there a need for nla_nest_cancel in
-> case of failures to add TLVs?
->
-
-I thought about it, but when I looked at the code of genlmsg_cancel()
-and nla_nest_cancel().  It seemed that genlmsg_cancel() should
-suffice.
-
-<snippet>
-static inline int genlmsg_cancel(struct sk_buff *skb, void *hdr)
-{
-        return nlmsg_cancel(skb, hdr - GENL_HDRLEN - NLMSG_HDRLEN);
-}
-
-static inline int nlmsg_cancel(struct sk_buff *skb, struct nlmsghdr *nlh)
-{
-        skb_trim(skb, (unsigned char *) nlh - skb->data);
-
-        return -1;
-}
-
-static inline int nla_nest_cancel(struct sk_buff *skb, struct nlattr *start)
-{
-        if (start)
-                skb_trim(skb, (unsigned char *) start - skb->data);
-
-        return -1;
-}
-
-</snippet>
-
-genlmsg_cancel() seemed more generic, since it handles skb_trim from
-the nlmsghdr down to skb->data, where as nla_test_cancel() does it
-only from the start of the nested attributes to skb->data.
-
-Is my understanding correct?
+cu
+Adrian
 
 
-> cheers,
-> jamal
->
+<--  snip  -->
 
-Thanks,
-Balbir
+
+CONFIG_UNIX=m doesn't make that much sense and requires us to export 
+things we don't want to export to modules.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ fs/file_table.c            |    1 -
+ include/net/af_unix.h      |    2 --
+ net/unix/Kconfig           |    2 +-
+ net/unix/af_unix.c         |   18 ------------------
+ net/unix/sysctl_net_unix.c |    9 +--------
+ 5 files changed, 2 insertions(+), 30 deletions(-)
+
+--- linux-2.6.16-mm1-full/net/unix/Kconfig.old	2006-03-25 20:10:47.000000000 +0100
++++ linux-2.6.16-mm1-full/net/unix/Kconfig	2006-03-25 20:10:54.000000000 +0100
+@@ -3,7 +3,7 @@
+ #
+ 
+ config UNIX
+-	tristate "Unix domain sockets"
++	bool "Unix domain sockets"
+ 	---help---
+ 	  If you say Y here, you will include support for Unix domain sockets;
+ 	  sockets are the standard Unix mechanism for establishing and
+--- linux-2.6.16-mm1-full/include/net/af_unix.h.old	2006-03-25 20:13:33.000000000 +0100
++++ linux-2.6.16-mm1-full/include/net/af_unix.h	2006-03-25 20:13:40.000000000 +0100
+@@ -85,10 +85,8 @@
+ #ifdef CONFIG_SYSCTL
+ extern int sysctl_unix_max_dgram_qlen;
+ extern void unix_sysctl_register(void);
+-extern void unix_sysctl_unregister(void);
+ #else
+ static inline void unix_sysctl_register(void) {}
+-static inline void unix_sysctl_unregister(void) {}
+ #endif
+ #endif
+ #endif
+--- linux-2.6.16-mm1-full/net/unix/af_unix.c.old	2006-03-25 20:11:07.000000000 +0100
++++ linux-2.6.16-mm1-full/net/unix/af_unix.c	2006-03-25 20:14:05.000000000 +0100
+@@ -475,7 +475,6 @@
+ 
+ static const struct proto_ops unix_stream_ops = {
+ 	.family =	PF_UNIX,
+-	.owner =	THIS_MODULE,
+ 	.release =	unix_release,
+ 	.bind =		unix_bind,
+ 	.connect =	unix_stream_connect,
+@@ -496,7 +495,6 @@
+ 
+ static const struct proto_ops unix_dgram_ops = {
+ 	.family =	PF_UNIX,
+-	.owner =	THIS_MODULE,
+ 	.release =	unix_release,
+ 	.bind =		unix_bind,
+ 	.connect =	unix_dgram_connect,
+@@ -517,7 +515,6 @@
+ 
+ static const struct proto_ops unix_seqpacket_ops = {
+ 	.family =	PF_UNIX,
+-	.owner =	THIS_MODULE,
+ 	.release =	unix_release,
+ 	.bind =		unix_bind,
+ 	.connect =	unix_stream_connect,
+@@ -538,7 +535,6 @@
+ 
+ static struct proto unix_proto = {
+ 	.name	  = "UNIX",
+-	.owner	  = THIS_MODULE,
+ 	.obj_size = sizeof(struct unix_sock),
+ };
+ 
+@@ -2012,7 +2008,6 @@
+ }
+ 
+ static struct file_operations unix_seq_fops = {
+-	.owner		= THIS_MODULE,
+ 	.open		= unix_seq_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
+@@ -2024,7 +2019,6 @@
+ static struct net_proto_family unix_family_ops = {
+ 	.family = PF_UNIX,
+ 	.create = unix_create,
+-	.owner	= THIS_MODULE,
+ };
+ 
+ static int __init af_unix_init(void)
+@@ -2053,16 +2047,4 @@
+ 	return rc;
+ }
+ 
+-static void __exit af_unix_exit(void)
+-{
+-	sock_unregister(PF_UNIX);
+-	unix_sysctl_unregister();
+-	proc_net_remove("unix");
+-	proto_unregister(&unix_proto);
+-}
+-
+ module_init(af_unix_init);
+-module_exit(af_unix_exit);
+-
+-MODULE_LICENSE("GPL");
+-MODULE_ALIAS_NETPROTO(PF_UNIX);
+--- linux-2.6.16-mm1-full/net/unix/sysctl_net_unix.c.old	2006-03-25 20:14:10.000000000 +0100
++++ linux-2.6.16-mm1-full/net/unix/sysctl_net_unix.c	2006-03-25 20:15:21.000000000 +0100
+@@ -46,15 +46,8 @@
+ 	{ .ctl_name = 0 }
+ };
+ 
+-static struct ctl_table_header * unix_sysctl_header;
+-
+ void unix_sysctl_register(void)
+ {
+-	unix_sysctl_header = register_sysctl_table(unix_root_table, 0);
+-}
+-
+-void unix_sysctl_unregister(void)
+-{
+-	unregister_sysctl_table(unix_sysctl_header);
++	register_sysctl_table(unix_root_table, 0);
+ }
+ 
+--- linux-2.6.16-mm1-full/fs/file_table.c.old	2006-03-25 20:39:30.000000000 +0100
++++ linux-2.6.16-mm1-full/fs/file_table.c	2006-03-25 20:39:44.000000000 +0100
+@@ -62,7 +62,6 @@
+ {
+ 	return files_stat.max_files;
+ }
+-EXPORT_SYMBOL_GPL(get_max_files);
+ 
+ /*
+  * Handle nr_files sysctl
