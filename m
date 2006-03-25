@@ -1,77 +1,106 @@
-From: Balbir Singh <balbir@in.ibm.com>
-Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink interface for delay accounting
-Date: Sat, 25 Mar 2006 15:11:26 +0530
-Message-ID: <20060325094126.GA9376@in.ibm.com>
-References: <1142296834.5858.3.camel@elinux04.optonline.net> <1142297791.5858.31.camel@elinux04.optonline.net> <1142303607.24621.63.camel@stark> <1142304506.5219.34.camel@jzny2> <20060322074922.GA1164@in.ibm.com> <1143122686.5186.27.camel@jzny2> <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2> <20060324145459.GA7495@in.ibm.com> <1143249565.5184.6.camel@jzny2>
-Reply-To: balbir@in.ibm.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink
+	interface for delay accounting
+Date: Sat, 25 Mar 2006 07:52:13 -0500
+Message-ID: <1143291133.5184.32.camel@jzny2>
+References: <1142296834.5858.3.camel@elinux04.optonline.net>
+	 <1142297791.5858.31.camel@elinux04.optonline.net>
+	 <1142303607.24621.63.camel@stark> <1142304506.5219.34.camel@jzny2>
+	 <20060322074922.GA1164@in.ibm.com> <1143122686.5186.27.camel@jzny2>
+	 <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2>
+	 <20060324145459.GA7495@in.ibm.com> <1143249565.5184.6.camel@jzny2>
+	 <20060325094126.GA9376@in.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Matt Helsley <matthltc@us.ibm.com>,
 	Shailabh Nagar <nagar@watson.ibm.com>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751138AbWCYJmK@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1143249565.5184.6.camel@jzny2>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750739AbWCYMwZ@vger.kernel.org>
+To: balbir@in.ibm.com
+In-Reply-To: <20060325094126.GA9376@in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 24, 2006 at 08:19:25PM -0500, jamal wrote:
-> On Fri, 2006-24-03 at 20:24 +0530, Balbir Singh wrote:
+On Sat, 2006-25-03 at 15:11 +0530, Balbir Singh wrote:
+
 > 
-> > Hmm... Would it be ok to send one message with the following format
-> > 
-> > 1. TLV=TASKSTATS_TYPE_PID
-> > 2. TLV=TASKSTATS_TYPE_STATS
-> > 3. TLV=TASKSTATS_TYPE_TGID
-> > 4. TLV=TASKSTATS_TYPE_STATS
-> > 
-> > It would still be one message, except that 3 and 4 would be optional.
-> > What do you think?
-> > 
+> Thanks for the advice, I will dive into nesting. I could not find any 
+> in tree users who use nesting, so I have a few questions
 > 
-> No, that wont work since #2 and #4 are basically the same TLV. [Recall
-> that "T" is used to index an array]. Your other alternative is to have
-> #4 perhaps called TASKSTATS_TGID_STATS and #2 TASKSTATS_PID_STATS
-> although that would smell a little.
-> Dont be afraid to do the nest, it will be a little painful initially but
-> i am sure once you figure it out you will appreciate it.
+
+Hrm - I have to say i am suprised theres nothing; i could have sworn
+Thomas had done some conversions already.
+
+> nla_nest_start() accepts two parameters an skb and an attribute type.
+> Do I have to create a new attribute type like TASKSTATS_TYPE_AGGR to
+> contain the nested attributes 
+> 
+> TASKSTATS_TYPE_AGGR
+>    TASKSTATS_TYPE_PID/TGID
+>    TASKSTATS_TYPE_STATS
+> 
 >
+> but this will lead to
+> 
+> TASKSTATS_TYPE_AGGR
+>    TASKSTATS_TYPE_PID
+>    TASKSTATS_TYPE_STATS
+> TASKSTATS_TYPE_AGGR
+>    TASKSTATS_TYPE_TGID
+>    TASKSTATS_TYPE_STATS
+> 
+> being returned from taskstats_exit_pid().
+> 
 
-Thanks for the advice, I will dive into nesting. I could not find any 
-in tree users who use nesting, so I have a few questions
+no this is wrong by virtue of having TASKSTATS_TYPE_AGGR twice.
+Again invoke the rule i cited earlier.
+What you could do instead is a second AGGR; and your nesting would be:
 
-nla_nest_start() accepts two parameters an skb and an attribute type.
-Do I have to create a new attribute type like TASKSTATS_TYPE_AGGR to
-contain the nested attributes 
+TASKSTATS_TYPE_AGGR1 <--- nest start with this type
+   TASKSTATS_TYPE_PID <-- NLA_U32_PUT
+   TASKSTATS_TYPE_STATS <-- NAL_PUT_TYPE
+                     <-- nest end of TASKSTATS_TYPE_AGGR1
+TASKSTATS_TYPE_AGGR2 <--- nest start with this type
+   TASKSTATS_TYPE_TGID <-- NLA_U32_PUT
+   TASKSTATS_TYPE_STATS <-- NAL_PUT_TYPE
+                       <-- nest end of TASKSTATS_TYPE_AGGR2
 
-TASKSTATS_TYPE_AGGR
-   TASKSTATS_TYPE_PID/TGID
+> The other option is to nest
+> 
+> TASKSTATS_TYPE_PID/TGID
+>    TASKSTATS_TYPE_STATS
+> 
+
+The advantage being you dont introduce another T.
+
+> but the problem with this approach is, nla_len contains the length of
+> all attributes including the nested attribute. So it is hard to find
+> the offset of TASKSTATS_TYPE_STATS in the buffer.
+> 
+
+So you would distinguish the two as have something like:
+
+TASKSTATS_TYPE_PID
+   u32 pid
    TASKSTATS_TYPE_STATS
-
-but this will lead to
-
-
-TASKSTATS_TYPE_AGGR
-   TASKSTATS_TYPE_PID
+TASKSTATS_TYPE_TGID
+   u32 tgid
    TASKSTATS_TYPE_STATS
-TASKSTATS_TYPE_AGGR
-   TASKSTATS_TYPE_TGID
-   TASKSTATS_TYPE_STATS
+or
+TASKSTATS_TYPE_PID
+   u32 pid
+TASKSTATS_TYPE_TGID
+   u32 tgid
 
-being returned from taskstats_exit_pid().
+both should be fine. The difference between the two is the length in the
+second case will be 4 and in the other case will be larger. 
 
-The other option is to nest
+But come to think of it, this will introduce unneeded semantics; you
+have very few items to do, so forget it. Go with scheme #1 but change
+the names to TASKSTATS_TYPE_AGGR_PID and TASKSTATS_TYPE_AGGR_TGID.
 
-TASKSTATS_TYPE_PID/TGID
-   TASKSTATS_TYPE_STATS
-
-but the problem with this approach is, nla_len contains the length of
-all attributes including the nested attribute. So it is hard to find
-the offset of TASKSTATS_TYPE_STATS in the buffer.
-
-Do I understand NLA nesting at all? May be I am missing something obvious.
-
-Thanks,
-Balbir
+cheers,
+jamal
