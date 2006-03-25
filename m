@@ -1,67 +1,116 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink
-	interface for delay accounting
-Date: Sat, 25 Mar 2006 12:48:21 -0500
-Message-ID: <1143308901.5184.48.camel@jzny2>
-References: <1142303607.24621.63.camel@stark>
-	 <1142304506.5219.34.camel@jzny2> <20060322074922.GA1164@in.ibm.com>
-	 <1143122686.5186.27.camel@jzny2> <20060323154106.GA13159@in.ibm.com>
-	 <1143209061.5076.14.camel@jzny2> <20060324145459.GA7495@in.ibm.com>
-	 <1143249565.5184.6.camel@jzny2> <20060325094126.GA9376@in.ibm.com>
-	 <1143291133.5184.32.camel@jzny2>  <20060325153632.GA25431@in.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: "Balbir Singh" <balbir@in.ibm.com>
+Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink interface for delay accounting
+Date: Sat, 25 Mar 2006 23:52:12 +0530
+Message-ID: <661de9470603251022w7f8991e9g73d70a65f5d475ea@mail.gmail.com>
+References: <1142303607.24621.63.camel@stark> <1143122686.5186.27.camel@jzny2>
+	 <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2>
+	 <20060324145459.GA7495@in.ibm.com> <1143249565.5184.6.camel@jzny2>
+	 <20060325094126.GA9376@in.ibm.com> <1143291133.5184.32.camel@jzny2>
+	 <20060325153632.GA25431@in.ibm.com> <1143308901.5184.48.camel@jzny2>
+Reply-To: balbir@in.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Matt Helsley <matthltc@us.ibm.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Matt Helsley" <matthltc@us.ibm.com>,
+	"Shailabh Nagar" <nagar@watson.ibm.com>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751500AbWCYRsf@vger.kernel.org>
-To: balbir@in.ibm.com
-In-Reply-To: <20060325153632.GA25431@in.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751648AbWCYSWO@vger.kernel.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1143308901.5184.48.camel@jzny2>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-25-03 at 21:06 +0530, Balbir Singh wrote:
-> On Sat, Mar 25, 2006 at 07:52:13AM -0500, jamal wrote:
+On 3/25/06, jamal <hadi@cyberus.ca> wrote:
+> On Sat, 2006-25-03 at 21:06 +0530, Balbir Singh wrote:
+> > On Sat, Mar 25, 2006 at 07:52:13AM -0500, jamal wrote:
+>
+>
+> I didnt pay attention to failure paths etc; i suppose your testing
+> should catch those. Getting there, a couple more comments:
+>
+
+Yes, I have tried several negative test cases.
+
+>
+> > +enum {
+> > +     TASKSTATS_CMD_UNSPEC = 0,       /* Reserved */
+> > +     TASKSTATS_CMD_GET,              /* user->kernel request */
+> > +     TASKSTATS_CMD_NEW,              /* kernel->user event */
+>
+> Should the comment read "kernel->user event/get-response"
+>
+
+Yes, good catch. I will update the comment.
+
+>
+> > +
+> > +static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
+> > +{
+>
+>
+> > +
+> > +     if (info->attrs[TASKSTATS_CMD_ATTR_PID]) {
+> > +             u32 pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
+> > +             rc = fill_pid((pid_t)pid, NULL, &stats);
+> > +             if (rc < 0)
+> > +                     goto err;
+> > +
+> > +             na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_PID);
+> > +             NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, pid);
+> > +     } else if (info->attrs[TASKSTATS_CMD_ATTR_TGID]) {
+>
+> in regards to the elseif above:
+> Could you not have both PID and TGID passed? From my earlier
+> understanding it seemed legit, no? if answer is yes, then you will have
+> to do your sizes + reply TLVs at the end.
+
+No, we cannot have both passed. If we pass both a PID and a TGID and
+then the code returns just the stats for the PID.
+
+>
+> Also in regards to the nesting, isnt there a need for nla_nest_cancel in
+> case of failures to add TLVs?
+>
+
+I thought about it, but when I looked at the code of genlmsg_cancel()
+and nla_nest_cancel().  It seemed that genlmsg_cancel() should
+suffice.
+
+<snippet>
+static inline int genlmsg_cancel(struct sk_buff *skb, void *hdr)
+{
+        return nlmsg_cancel(skb, hdr - GENL_HDRLEN - NLMSG_HDRLEN);
+}
+
+static inline int nlmsg_cancel(struct sk_buff *skb, struct nlmsghdr *nlh)
+{
+        skb_trim(skb, (unsigned char *) nlh - skb->data);
+
+        return -1;
+}
+
+static inline int nla_nest_cancel(struct sk_buff *skb, struct nlattr *start)
+{
+        if (start)
+                skb_trim(skb, (unsigned char *) start - skb->data);
+
+        return -1;
+}
+
+</snippet>
+
+genlmsg_cancel() seemed more generic, since it handles skb_trim from
+the nlmsghdr down to skb->data, where as nla_test_cancel() does it
+only from the start of the nested attributes to skb->data.
+
+Is my understanding correct?
 
 
-I didnt pay attention to failure paths etc; i suppose your testing
-should catch those. Getting there, a couple more comments:
+> cheers,
+> jamal
+>
 
-
-> +enum {
-> +	TASKSTATS_CMD_UNSPEC = 0,	/* Reserved */
-> +	TASKSTATS_CMD_GET,		/* user->kernel request */
-> +	TASKSTATS_CMD_NEW,		/* kernel->user event */
-
-Should the comment read "kernel->user event/get-response"
-
-
-> +
-> +static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
-> +{
-
-
-> +
-> +	if (info->attrs[TASKSTATS_CMD_ATTR_PID]) {
-> +		u32 pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
-> +		rc = fill_pid((pid_t)pid, NULL, &stats);
-> +		if (rc < 0)
-> +			goto err;
-> +
-> +		na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_PID);
-> +		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, pid);
-> +	} else if (info->attrs[TASKSTATS_CMD_ATTR_TGID]) {
-
-in regards to the elseif above:
-Could you not have both PID and TGID passed? From my earlier
-understanding it seemed legit, no? if answer is yes, then you will have
-to do your sizes + reply TLVs at the end.
-
-Also in regards to the nesting, isnt there a need for nla_nest_cancel in
-case of failures to add TLVs?
-
-cheers,
-jamal
+Thanks,
+Balbir
