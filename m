@@ -1,47 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink
-	interface for delay accounting
-Date: Fri, 24 Mar 2006 20:19:25 -0500
-Message-ID: <1143249565.5184.6.camel@jzny2>
-References: <1142296834.5858.3.camel@elinux04.optonline.net>
-	 <1142297791.5858.31.camel@elinux04.optonline.net>
-	 <1142303607.24621.63.camel@stark> <1142304506.5219.34.camel@jzny2>
-	 <20060322074922.GA1164@in.ibm.com> <1143122686.5186.27.camel@jzny2>
-	 <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2>
-	 <20060324145459.GA7495@in.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] PCI Error Recovery: e1000 network device driver
+Date: Fri, 24 Mar 2006 18:22:06 -0800
+Message-ID: <20060325022206.GA6361@kroah.com>
+References: <20060324220002.GC26137@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Matt Helsley <matthltc@us.ibm.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751070AbWCYBUE@vger.kernel.org>
-To: balbir@in.ibm.com
-In-Reply-To: <20060324145459.GA7495@in.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linuxppc-dev@ozlabs.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751655AbWCYCWh@vger.kernel.org>
+To: Linas Vepstas <linas@austin.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20060324220002.GC26137@austin.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-24-03 at 20:24 +0530, Balbir Singh wrote:
+On Fri, Mar 24, 2006 at 04:00:02PM -0600, Linas Vepstas wrote:
+> +	/* Perform card reset only on one instance of the card */
+> +	if(0 != PCI_FUNC (pdev->devfn))
+> +		return PCI_ERS_RESULT_RECOVERED;
 
-> Hmm... Would it be ok to send one message with the following format
-> 
-> 1. TLV=TASKSTATS_TYPE_PID
-> 2. TLV=TASKSTATS_TYPE_STATS
-> 3. TLV=TASKSTATS_TYPE_TGID
-> 4. TLV=TASKSTATS_TYPE_STATS
-> 
-> It would still be one message, except that 3 and 4 would be optional.
-> What do you think?
-> 
+You seem to have forgotton to put a ' ' after the 'if' in a number of
+different places in this patch.  Also the (0 != foo) form is a bit
+different from the traditional kernel coding style.
 
-No, that wont work since #2 and #4 are basically the same TLV. [Recall
-that "T" is used to index an array]. Your other alternative is to have
-#4 perhaps called TASKSTATS_TGID_STATS and #2 TASKSTATS_PID_STATS
-although that would smell a little.
-Dont be afraid to do the nest, it will be a little painful initially but
-i am sure once you figure it out you will appreciate it.
+> +	switch(adapter->hw.mac_type) {
 
-cheers,
-jamal
+And here too.
+
+Remember, "if" and "switch" are not functions...
+
+thanks,
+
+greg k-h
