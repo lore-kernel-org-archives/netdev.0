@@ -1,61 +1,69 @@
 From: Balbir Singh <balbir@in.ibm.com>
-Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink interface for delay accounting
-Date: Sun, 26 Mar 2006 22:10:59 +0530
-Message-ID: <20060326164059.GB13362@in.ibm.com>
-References: <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2> <20060324145459.GA7495@in.ibm.com> <1143249565.5184.6.camel@jzny2> <20060325094126.GA9376@in.ibm.com> <1143291133.5184.32.camel@jzny2> <20060325153632.GA25431@in.ibm.com> <1143308901.5184.48.camel@jzny2> <661de9470603251022w7f8991e9g73d70a65f5d475ea@mail.gmail.com> <1143381918.5184.52.camel@jzny2>
+Subject: Re: [Patch 8/9] generic netlink utility functions
+Date: Sun, 26 Mar 2006 22:14:35 +0530
+Message-ID: <20060326164434.GC13362@in.ibm.com>
+References: <1142296834.5858.3.camel@elinux04.optonline.net> <1142297705.5858.28.camel@elinux04.optonline.net>
 Reply-To: balbir@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matt Helsley <matthltc@us.ibm.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751482AbWCZQns@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Jamal <hadi@cyberus.ca>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751490AbWCZQrW@vger.kernel.org>
+To: Shailabh Nagar <nagar@watson.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <1143381918.5184.52.camel@jzny2>
+In-Reply-To: <1142297705.5858.28.camel@elinux04.optonline.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 26, 2006 at 09:05:18AM -0500, jamal wrote:
-> On Sat, 2006-25-03 at 23:52 +0530, Balbir Singh wrote:
+On Mon, Mar 13, 2006 at 07:55:05PM -0500, Shailabh Nagar wrote:
+> genetlink-utils.patch
 > 
+> Two utilities for simplifying usage of NETLINK_GENERIC
+> interface.
 > 
-> > No, we cannot have both passed. If we pass both a PID and a TGID and
-> > then the code returns just the stats for the PID.
-> > 
+> Signed-off-by: Balbir Singh <balbir@in.ibm.com>
+> Signed-off-by: Shailabh Nagar <nagar@watson.ibm.com>
 > 
-> ok, that clears it then; i think you are ready to go.
-
-Cool! Thanks for all your help and review.
-
+>  include/net/genetlink.h |   20 ++++++++++++++++++++
+>  1 files changed, 20 insertions(+)
 > 
-> > >
-> > > Also in regards to the nesting, isnt there a need for nla_nest_cancel in
-> > > case of failures to add TLVs?
-> > >
-> > 
-> > I thought about it, but when I looked at the code of genlmsg_cancel()
-> > and nla_nest_cancel().  It seemed that genlmsg_cancel() should
-> > suffice.
-> > 
-> 
-> If your policy is to never send a message if anything fails, then you
-> are fine.
-> 
-> What would be really useful now that you understand this, is if you can
-> help extending/cleaning the document i sent you. Or send me a table of
-> contents of how it would have flowed better for you.
-
-I will start looking at the document and see what changes can be made.
-I will try and update the document from a genetlink programmers perspective
-i.e. things to know, avoid, etc.
-
-> 
-> cheers,
-> jamal
+> Index: linux-2.6.16-rc5/include/net/genetlink.h
+> ===================================================================
+> --- linux-2.6.16-rc5.orig/include/net/genetlink.h	2006-03-11 07:41:32.000000000 -0500
+> +++ linux-2.6.16-rc5/include/net/genetlink.h	2006-03-11 07:41:41.000000000 -0500
+> @@ -150,4 +150,24 @@ static inline int genlmsg_unicast(struct
+>  	return nlmsg_unicast(genl_sock, skb, pid);
+>  }
+>  
+> +/**
+> + * gennlmsg_data - head of message payload
+> + * @gnlh: genetlink messsage header
+> + */
+> +static inline void *genlmsg_data(const struct genlmsghdr *gnlh)
+> +{
+> +       return ((unsigned char *) gnlh + GENL_HDRLEN);
+> +}
+> +
+> +/**
+> + * genlmsg_len - length of message payload
+> + * @gnlh: genetlink message header
+> + */
+> +static inline int genlmsg_len(const struct genlmsghdr *gnlh)
+> +{
+> +       struct nlmsghdr *nlh = (struct nlmsghdr *)((unsigned char *)gnlh -
+> +                                                   NLMSG_HDRLEN);
+> +       return (nlh->nlmsg_len - GENL_HDRLEN - NLMSG_HDRLEN);
+> +}
+> +
+>  #endif	/* __NET_GENERIC_NETLINK_H */
 > 
 >
+
+Jamal,
+
+Does the implementation of these utilities look ok? We use genlmsg_data()
+in the delay accounting code but not genlmsg_len(), hence it might not
+be very well tested (just reviewed).
 
 Thanks,
 Balbir 
