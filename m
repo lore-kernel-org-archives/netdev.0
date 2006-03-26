@@ -1,62 +1,61 @@
-From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
-Subject: Re: [2.6 patch] make UNIX a bool
-Date: Sun, 26 Mar 2006 17:20:44 +0200
-Message-ID: <20060326152044.GV31387@lug-owl.de>
-References: <20060225160150.GX3674@stusta.de> <20060225224631.GA4085@suse.de> <20060325194739.GS4053@stusta.de>
+From: Balbir Singh <balbir@in.ibm.com>
+Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink interface for delay accounting
+Date: Sun, 26 Mar 2006 22:10:59 +0530
+Message-ID: <20060326164059.GB13362@in.ibm.com>
+References: <20060323154106.GA13159@in.ibm.com> <1143209061.5076.14.camel@jzny2> <20060324145459.GA7495@in.ibm.com> <1143249565.5184.6.camel@jzny2> <20060325094126.GA9376@in.ibm.com> <1143291133.5184.32.camel@jzny2> <20060325153632.GA25431@in.ibm.com> <1143308901.5184.48.camel@jzny2> <661de9470603251022w7f8991e9g73d70a65f5d475ea@mail.gmail.com> <1143381918.5184.52.camel@jzny2>
+Reply-To: balbir@in.ibm.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qa1NXTiqN6KSzHv0"
-Cc: Olaf Hering <olh@suse.de>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751313AbWCZPUt@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Helsley <matthltc@us.ibm.com>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751482AbWCZQns@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20060325194739.GS4053@stusta.de>
+In-Reply-To: <1143381918.5184.52.camel@jzny2>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Mar 26, 2006 at 09:05:18AM -0500, jamal wrote:
+> On Sat, 2006-25-03 at 23:52 +0530, Balbir Singh wrote:
+> 
+> 
+> > No, we cannot have both passed. If we pass both a PID and a TGID and
+> > then the code returns just the stats for the PID.
+> > 
+> 
+> ok, that clears it then; i think you are ready to go.
 
---qa1NXTiqN6KSzHv0
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Cool! Thanks for all your help and review.
 
-On Sat, 2006-03-25 20:47:39 +0100, Adrian Bunk <bunk@stusta.de> wrote:
-> On Sat, Feb 25, 2006 at 11:46:31PM +0100, Olaf Hering wrote:
-> >  On Sat, Feb 25, Adrian Bunk wrote:
-> > > CONFIG_UNIX=3Dm doesn't make much sense.
-> >=20
-> > There is likely more code to support a modular unix.ko, this has to go
-> > as well.
->=20
-> Sounds resonable, updated patch below.
+> 
+> > >
+> > > Also in regards to the nesting, isnt there a need for nla_nest_cancel in
+> > > case of failures to add TLVs?
+> > >
+> > 
+> > I thought about it, but when I looked at the code of genlmsg_cancel()
+> > and nla_nest_cancel().  It seemed that genlmsg_cancel() should
+> > suffice.
+> > 
+> 
+> If your policy is to never send a message if anything fails, then you
+> are fine.
+> 
+> What would be really useful now that you understand this, is if you can
+> help extending/cleaning the document i sent you. Or send me a table of
+> contents of how it would have flowed better for you.
 
-Thanks for the patch. I'll save it somewhere to have it handy for
-"patch -R" use IFF it makes its ways into Linus's repo.
+I will start looking at the document and see what changes can be made.
+I will try and update the document from a genetlink programmers perspective
+i.e. things to know, avoid, etc.
 
-MfG, JBG
+> 
+> cheers,
+> jamal
+> 
+>
 
---=20
-Jan-Benedict Glaw       jbglaw@lug-owl.de    . +49-172-7608481             =
-_ O _
-"Eine Freie Meinung in  einem Freien Kopf    | Gegen Zensur | Gegen Krieg  =
-_ _ O
- f=C3=BCr einen Freien Staat voll Freier B=C3=BCrger"  | im Internet! |   i=
-m Irak!   O O O
-ret =3D do_actions((curr | FREE_SPEECH) & ~(NEW_COPYRIGHT_LAW | DRM | TCPA)=
-);
-
---qa1NXTiqN6KSzHv0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFEJrFMHb1edYOZ4bsRAgJWAJ0UmyyPdwnFhjjbBRPnIr/EFYujxQCfWO9/
-MGJ0ZDiE7pUj6ecikUKG2N0=
-=lxzA
------END PGP SIGNATURE-----
-
---qa1NXTiqN6KSzHv0--
+Thanks,
+Balbir 
