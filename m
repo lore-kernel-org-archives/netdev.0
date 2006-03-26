@@ -1,83 +1,53 @@
-From: "Darren Jenkins\\" <darrenrjenkins@gmail.com>
-Subject: [KJ][Patch] fix array overflows in de4x5.c
-Date: Sun, 26 Mar 2006 17:45:49 +1100
-Message-ID: <1143355550.8088.47.camel@localhost.localdomain>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net: drop duplicate assignment in request_sock
+Date: Sun, 26 Mar 2006 14:24:10 +0200
+Message-ID: <20060326122410.GG4053@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6788772498607738=="
-Cc: NetDev <netdev@vger.kernel.org>
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: kernel Janitors <kernel-janitors@lists.osdl.org>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Norbert Kiesel <nkiesel@tbdnetworks.com>, acme@conectiva.com.br,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751296AbWCZMYN@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============6788772498607738==
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+From: Norbert Kiesel <nkiesel@tbdnetworks.com>
 
-G'day list
+Just noticed that request_sock.[ch] contain a useless assignment of
+rskq_accept_head to itself.  I assume this is a typo and the 2nd one
+was supposed to be _tail.  However, setting _tail to NULL is not
+needed, so the patch below just drops the 2nd assignment.
 
-Coverity found 3 'OVERRUN_STATIC' in de4x5.c, @ lines 4814, 5115 and
-5125.
+Signed-Off-By: Norbert Kiesel <nkiesel@tbdnetworks.com>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Looking at the code these look like very minor problems, but as they are
-easy to fix I though I would do a patch.
+---
 
-The patch below just adds an explicit check for the array index in
-type3_infoblock() and corrects a loop exit check, to eliminate an 
-(array+1) error in mii_get_phy().
+This patch was sent by Norbert Kiesel on:
+-  5 Mar 2006
 
-Note: A better solution in type3_infoblock() may be to change 
-- #define MOTO_SROM_BUG    ((lp->active == 8) && (((le32_to_cpu(get_unaligned(((s32 *)dev->dev_addr))))&0x00ffffff)==0x3e0008))
-+ #define MOTO_SROM_BUG    ((lp->active >= DE4X5_MAX_PHY) || (((le32_to_cpu(get_unaligned(((s32 *)dev->dev_addr))))&0x00ffffff)==0x3e0008
-
-as this seems to make sense, but as i am not sure that this bug happens
-when (lp->active < 8) I am reluctant to change this.
-
-
-
-Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
-
---- linux-2.6.16-git8/drivers/net/tulip/de4x5.c.orig	2006-03-26 14:36:17.000000000 +1100
-+++ linux-2.6.16-git8/drivers/net/tulip/de4x5.c	2006-03-26 17:06:06.000000000 +1100
-@@ -4810,7 +4810,8 @@ type3_infoblock(struct net_device *dev, 
-     if (lp->state == INITIALISED) {
-         lp->ibn = 3;
-         lp->active = *p++;
--	if (MOTO_SROM_BUG) lp->active = 0;
-+	if (MOTO_SROM_BUG || lp->active >= DE4X5_MAX_PHY)
-+		lp->active = 0;
- 	lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
- 	lp->phy[lp->active].rst = (*p ? p : NULL); p += (2 * (*p) + 1);
- 	lp->phy[lp->active].mc  = TWIDDLE(p); p += 2;
-@@ -5111,7 +5112,7 @@ mii_get_phy(struct net_device *dev)
- 	    break;
- 	}
- 	if ((j == limit) && (i < DE4X5_MAX_MII)) {
--	    for (k=0; lp->phy[k].id && (k < DE4X5_MAX_PHY); k++);
-+	    for (k=0; lp->phy[k].id && (k < DE4X5_MAX_PHY - 1); k++);
- 	    lp->phy[k].addr = i;
- 	    lp->phy[k].id = id;
- 	    lp->phy[k].spd.reg = GENERIC_REG;      /* ANLPA register         */
-
-
-
---===============6788772498607738==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-https://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============6788772498607738==--
+diff -ru a/include/net/request_sock.h b/include/net/request_sock.h
+--- a/include/net/request_sock.h	2005-10-28 15:44:45.000000000 -0700
++++ b/include/net/request_sock.h	2006-03-05 15:22:33.000000000 -0800
+@@ -145,7 +145,7 @@
+ {
+ 	struct request_sock *req = queue->rskq_accept_head;
+ 
+-	queue->rskq_accept_head = queue->rskq_accept_head = NULL;
++	queue->rskq_accept_head = NULL;
+ 	return req;
+ }
+ 
+diff -ru a/net/core/request_sock.c b/net/core/request_sock.c
+--- a/net/core/request_sock.c	2006-03-05 14:40:50.000000000 -0800
++++ b/net/core/request_sock.c	2006-03-05 15:23:11.000000000 -0800
+@@ -51,7 +51,7 @@
+ 
+ 	get_random_bytes(&lopt->hash_rnd, sizeof(lopt->hash_rnd));
+ 	rwlock_init(&queue->syn_wait_lock);
+-	queue->rskq_accept_head = queue->rskq_accept_head = NULL;
++	queue->rskq_accept_head = NULL;
+ 	lopt->nr_table_entries = nr_table_entries;
+ 
+ 	write_lock_bh(&queue->syn_wait_lock);
