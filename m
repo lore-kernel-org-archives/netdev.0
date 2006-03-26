@@ -1,45 +1,83 @@
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Subject: Re: [2.6.16-gitX] heavy performance regression in ipw2200 wireless driver
-Date: Sat, 25 Mar 2006 23:48:29 +0100
-Message-ID: <5a4c581d0603251448k1df0c7bdob1f7a2a39749a8be@mail.gmail.com>
-References: <5a4c581d0603221724m391f5466l8a2af3ae7f0aacae@mail.gmail.com>
-	 <20060322191057.304962a4.akpm@osdl.org>
-	 <5a4c581d0603230602s1a868a4apbfd79ec2bc568011@mail.gmail.com>
-	 <1143171674.17270.195.camel@debian.sh.intel.com>
+From: "Darren Jenkins\\" <darrenrjenkins@gmail.com>
+Subject: [KJ][Patch] fix array overflows in de4x5.c
+Date: Sun, 26 Mar 2006 17:45:49 +1100
+Message-ID: <1143355550.8088.47.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andrew Morton" <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	"James Ketrenos" <jketreno@linux.intel.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751961AbWCYWsb@vger.kernel.org>
-To: "Zhu Yi" <yi.zhu@intel.com>
-In-Reply-To: <1143171674.17270.195.camel@debian.sh.intel.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============6788772498607738=="
+Cc: NetDev <netdev@vger.kernel.org>
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: kernel Janitors <kernel-janitors@lists.osdl.org>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On 3/24/06, Zhu Yi <yi.zhu@intel.com> wrote:
-> On Thu, 2006-03-23 at 15:02 +0100, Alessandro Suardi wrote:
-> > That scp test shows 50%ish - but that was a quickie. The VNC
-> >  client even reported a 719Kbps throughput down from the more
-> >  usual 11500Kbps it starts off with. The first scp I tried when the
-> >  sluggishness was intolerable was going at 200KB/s - which
-> >  shows the problem can easily get in the neighborhood of an
-> >  order of magnitude.
->
-> What kind of wireless encryption do you use? We turned off hardware
-> encryption by default recently as a workaround for a firmware restart
-> bug. You might want to load module with "modprobe ipw2200 hwcrypto=1"
-> and retest.
+--===============6788772498607738==
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-The issue seems to have vanished in more recent kernel snapshots
- (namely, 2.6.16-git3 and -git5 exhibited the problem; -git8 and -git9
- did not).
+G'day list
 
-I will holler if the problem pops up again... thanks,
+Coverity found 3 'OVERRUN_STATIC' in de4x5.c, @ lines 4814, 5115 and
+5125.
 
---alessandro
+Looking at the code these look like very minor problems, but as they are
+easy to fix I though I would do a patch.
 
- "Dreamer ? Each one of us is a dreamer. We just push it down deep because
-   we are repeatedly told that we are not allowed to dream in real life"
-     (Reinhold Ziegler)
+The patch below just adds an explicit check for the array index in
+type3_infoblock() and corrects a loop exit check, to eliminate an 
+(array+1) error in mii_get_phy().
+
+Note: A better solution in type3_infoblock() may be to change 
+- #define MOTO_SROM_BUG    ((lp->active == 8) && (((le32_to_cpu(get_unaligned(((s32 *)dev->dev_addr))))&0x00ffffff)==0x3e0008))
++ #define MOTO_SROM_BUG    ((lp->active >= DE4X5_MAX_PHY) || (((le32_to_cpu(get_unaligned(((s32 *)dev->dev_addr))))&0x00ffffff)==0x3e0008
+
+as this seems to make sense, but as i am not sure that this bug happens
+when (lp->active < 8) I am reluctant to change this.
+
+
+
+Signed-off-by: Darren Jenkins <darrenrjenkins@gmail.com>
+
+--- linux-2.6.16-git8/drivers/net/tulip/de4x5.c.orig	2006-03-26 14:36:17.000000000 +1100
++++ linux-2.6.16-git8/drivers/net/tulip/de4x5.c	2006-03-26 17:06:06.000000000 +1100
+@@ -4810,7 +4810,8 @@ type3_infoblock(struct net_device *dev, 
+     if (lp->state == INITIALISED) {
+         lp->ibn = 3;
+         lp->active = *p++;
+-	if (MOTO_SROM_BUG) lp->active = 0;
++	if (MOTO_SROM_BUG || lp->active >= DE4X5_MAX_PHY)
++		lp->active = 0;
+ 	lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
+ 	lp->phy[lp->active].rst = (*p ? p : NULL); p += (2 * (*p) + 1);
+ 	lp->phy[lp->active].mc  = TWIDDLE(p); p += 2;
+@@ -5111,7 +5112,7 @@ mii_get_phy(struct net_device *dev)
+ 	    break;
+ 	}
+ 	if ((j == limit) && (i < DE4X5_MAX_MII)) {
+-	    for (k=0; lp->phy[k].id && (k < DE4X5_MAX_PHY); k++);
++	    for (k=0; lp->phy[k].id && (k < DE4X5_MAX_PHY - 1); k++);
+ 	    lp->phy[k].addr = i;
+ 	    lp->phy[k].id = id;
+ 	    lp->phy[k].spd.reg = GENERIC_REG;      /* ANLPA register         */
+
+
+
+--===============6788772498607738==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+_______________________________________________
+Kernel-janitors mailing list
+Kernel-janitors@lists.osdl.org
+https://lists.osdl.org/mailman/listinfo/kernel-janitors
+
+--===============6788772498607738==--
