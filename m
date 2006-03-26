@@ -1,53 +1,54 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net: drop duplicate assignment in request_sock
-Date: Sun, 26 Mar 2006 14:24:10 +0200
-Message-ID: <20060326122410.GG4053@stusta.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][UPDATED PATCH 2.6.16] [Patch 9/9] Generic netlink
+	interface for delay accounting
+Date: Sun, 26 Mar 2006 09:05:18 -0500
+Message-ID: <1143381918.5184.52.camel@jzny2>
+References: <1142303607.24621.63.camel@stark>
+	 <1143122686.5186.27.camel@jzny2> <20060323154106.GA13159@in.ibm.com>
+	 <1143209061.5076.14.camel@jzny2> <20060324145459.GA7495@in.ibm.com>
+	 <1143249565.5184.6.camel@jzny2> <20060325094126.GA9376@in.ibm.com>
+	 <1143291133.5184.32.camel@jzny2> <20060325153632.GA25431@in.ibm.com>
+	 <1143308901.5184.48.camel@jzny2>
+	 <661de9470603251022w7f8991e9g73d70a65f5d475ea@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Norbert Kiesel <nkiesel@tbdnetworks.com>, acme@conectiva.com.br,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751296AbWCZMYN@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Matt Helsley <matthltc@us.ibm.com>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751205AbWCZOFh@vger.kernel.org>
+To: balbir@in.ibm.com
+In-Reply-To: <661de9470603251022w7f8991e9g73d70a65f5d475ea@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Norbert Kiesel <nkiesel@tbdnetworks.com>
+On Sat, 2006-25-03 at 23:52 +0530, Balbir Singh wrote:
 
-Just noticed that request_sock.[ch] contain a useless assignment of
-rskq_accept_head to itself.  I assume this is a typo and the 2nd one
-was supposed to be _tail.  However, setting _tail to NULL is not
-needed, so the patch below just drops the 2nd assignment.
 
-Signed-Off-By: Norbert Kiesel <nkiesel@tbdnetworks.com>
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> No, we cannot have both passed. If we pass both a PID and a TGID and
+> then the code returns just the stats for the PID.
+> 
 
----
+ok, that clears it then; i think you are ready to go.
 
-This patch was sent by Norbert Kiesel on:
--  5 Mar 2006
+> >
+> > Also in regards to the nesting, isnt there a need for nla_nest_cancel in
+> > case of failures to add TLVs?
+> >
+> 
+> I thought about it, but when I looked at the code of genlmsg_cancel()
+> and nla_nest_cancel().  It seemed that genlmsg_cancel() should
+> suffice.
+> 
 
-diff -ru a/include/net/request_sock.h b/include/net/request_sock.h
---- a/include/net/request_sock.h	2005-10-28 15:44:45.000000000 -0700
-+++ b/include/net/request_sock.h	2006-03-05 15:22:33.000000000 -0800
-@@ -145,7 +145,7 @@
- {
- 	struct request_sock *req = queue->rskq_accept_head;
- 
--	queue->rskq_accept_head = queue->rskq_accept_head = NULL;
-+	queue->rskq_accept_head = NULL;
- 	return req;
- }
- 
-diff -ru a/net/core/request_sock.c b/net/core/request_sock.c
---- a/net/core/request_sock.c	2006-03-05 14:40:50.000000000 -0800
-+++ b/net/core/request_sock.c	2006-03-05 15:23:11.000000000 -0800
-@@ -51,7 +51,7 @@
- 
- 	get_random_bytes(&lopt->hash_rnd, sizeof(lopt->hash_rnd));
- 	rwlock_init(&queue->syn_wait_lock);
--	queue->rskq_accept_head = queue->rskq_accept_head = NULL;
-+	queue->rskq_accept_head = NULL;
- 	lopt->nr_table_entries = nr_table_entries;
- 
- 	write_lock_bh(&queue->syn_wait_lock);
+If your policy is to never send a message if anything fails, then you
+are fine.
+
+What would be really useful now that you understand this, is if you can
+help extending/cleaning the document i sent you. Or send me a table of
+contents of how it would have flowed better for you.
+
+cheers,
+jamal
