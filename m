@@ -1,55 +1,30 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH] powerpc: ibmveth: Harden driver initilisation for kexec
-Date: Mon, 27 Mar 2006 12:11:16 +1100
-Message-ID: <1143421876.7795.2.camel@localhost.localdomain>
-References: <20060131041055.5623C68A46@ozlabs.org>
-	<20060131042903.GF28896@krispykreme>  <44074A22.8060705@us.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] net: drop duplicate assignment in request_sock
+Date: Sun, 26 Mar 2006 17:39:18 -0800 (PST)
+Message-ID: <20060326.173918.15234485.davem@davemloft.net>
+References: <20060326122410.GG4053@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc64-dev@ozlabs.org, netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: jgarzik@pobox.com
-In-Reply-To: <44074A22.8060705@us.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: akpm@osdl.org, nkiesel@tbdnetworks.com, acme@conectiva.com.br,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751535AbWC0Bj1@vger.kernel.org>
+To: bunk@stusta.de
+In-Reply-To: <20060326122410.GG4053@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-03-02 at 13:40 -0600, Santiago Leon wrote:
-> From: Michael Ellerman <michael@ellerman.id.au>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Sun, 26 Mar 2006 14:24:10 +0200
+
+> From: Norbert Kiesel <nkiesel@tbdnetworks.com>
 > 
-> After a kexec the veth driver will fail when trying to register with the
-> Hypervisor because the previous kernel has not unregistered.
+> Just noticed that request_sock.[ch] contain a useless assignment of
+> rskq_accept_head to itself.  I assume this is a typo and the 2nd one
+> was supposed to be _tail.  However, setting _tail to NULL is not
+> needed, so the patch below just drops the 2nd assignment.
 > 
-> So if the registration fails, we unregister and then try again.
-> 
-> Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
-> Acked-by: Anton Blanchard <anton@samba.org>
-> Signed-off-by: Santiago Leon <santil@us.ibm.com>
-> ---
-> 
->   drivers/net/ibmveth.c |   32 ++++++++++++++++++++++++++------
->   1 files changed, 26 insertions(+), 6 deletions(-)
+> Signed-Off-By: Norbert Kiesel <nkiesel@tbdnetworks.com>
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Looks like this hit the floor. Any chance of getting it into to 2.6.17
-Jeff? AFAICT it should still apply cleanly.
-
-cheers
-
--- 
-Michael Ellerman
-IBM OzLabs
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
+Applied, thanks.
