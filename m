@@ -1,52 +1,50 @@
-From: Sebastian <sebastian@expires0606.datenknoten.de>
-Subject: Re: [PATCH] pcmcia: avoid binding hostap_cs to Orinoco cards
-Date: Mon, 27 Mar 2006 13:44:44 +0200
-Message-ID: <1143459885.9691.6.camel@coruscant.datenknoten.de>
-References: <200603012259.k21MxEN3013604@hera.kernel.org>
-	 <44063023.9010603@pobox.com>
+From: Peter Horton <phorton@bitbox.co.uk>
+Subject: Re: [PATCH, RESEND] Add MWI workaround for Tulip DC21143
+Date: Mon, 27 Mar 2006 13:39:00 +0100
+Message-ID: <4427DCE4.4000807@bitbox.co.uk>
+References: <20060129230816.GD4094@colonel-panic.org> <20060218220851.GA1601@colonel-panic.org> <20060306225131.GA23327@unjust.cyrius.com> <20060306231530.GB16082@electric-eye.fr.zoreil.com> <20060307035824.GA24018@linux-mips.org> <Pine.LNX.4.62.0603071031520.5292@pademelon.sonytel.be> <20060308224139.GA7536@electric-eye.fr.zoreil.com> <Pine.LNX.4.62.0603091032490.9741@pademelon.sonytel.be> <20060309224456.GB9103@electric-eye.fr.zoreil.com> <20060327070112.GA10906@deprecation.cyrius.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux@dominikbrodowski.net, Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750933AbWC0Lo0@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44063023.9010603@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "P. Horton" <pdh@colonel-panic.org>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	netdev@vger.kernel.org,
+	Linux/MIPS Development <linux-mips@linux-mips.org>,
+	Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: Martin Michlmayr <tbm@cyrius.com>
+In-Reply-To: <20060327070112.GA10906@deprecation.cyrius.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-> commit 40e3cad61197fce63853e778db020f7637d988f2
-> tree 6e086c930e1aef0bb24eb61af42d1f3c1fb7d38c
-> parent f0892b89e3c19c7d805825ca12511d26dcdf6415
-> author Pavel Roskin <proski@gnu.org> Tue, 28 Feb 2006 11:18:31 -0500
-> committer Dominik Brodowski <linux@dominikbrodowski.net> Wed, 01 Mar 
-> 2006 11:12:00 +0100
-> 
-> [PATCH] pcmcia: avoid binding hostap_cs to Orinoco cards
-> 
-> Don't just use cards with PCMCIA ID 0x0156, 0x0002.  Make sure that
-> the vendor string is "Intersil" or "INTERSIL"
-> 
-> Signed-off-by: Pavel Roskin <proski@gnu.org>
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> 
->  drivers/net/wireless/hostap/hostap_cs.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletion(-)
+Martin Michlmayr wrote:
+> * Francois Romieu <romieu@fr.zoreil.com> [2006-03-09 23:44]:
+>   
+>>> So when compiling for Cobalt, we work around the hardware bug, while for other
+>>> platforms, we just disable MWI?
+>>>
+>>> Wouldn't it be possible to always (I mean, when a rev 65 chip is detected)
+>>> work around the bug?
+>>>       
+>> Of course it is possible but it is not the same semantic as the initial
+>> patch (not that I know if it is right or not).
+>>
+>> So:
+>> - does the issue exist beyond Cobalt hosts ?
+>> - is the fix Cobalt-only ?
+>>     
+>
+> I don't think anyone has replied to this message yet.  My
+> understanding is that it's not Cobalt only but a problem in a specific
+> revision of the chip, which the Cobalt happens to use.  However, I'd
+> be glad if somone else could comment.  Peter, you read the errata
+> right?
+>   
 
+According to the errata it applies to all DEC 21143-PD and 21143-TD 
+which are the chips with the revision code 0x41 (65). The errata states 
+the receive buffers should not end on a cache aligned boundary when 
+using MWI otherwise the receiver will not close the last descriptor.
 
-Hello,
-
-this patch seems to break my setup. The hostap_cs driver included in
-kernel 2.6.16 does not detect my Prism 2 WLAN card anymore, although it
-is *not* Orinoco. With 2.6.15.5 it still worked.
-
-FYI:
-pccardctl info
-PRODID_1=""
-PRODID_2="Link DWL-650 11Mbps WLAN Card"
-PRODID_3="Version 01.02"
-PRODID_4=""
-MANFID=0156,0002
-FUNCID=6
-
-Sebastian
+P.
