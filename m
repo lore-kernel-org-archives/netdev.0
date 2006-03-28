@@ -1,48 +1,81 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH] Janitor: drivers/net/pcnet32: fix incorrect comments
-Date: Tue, 28 Mar 2006 16:36:23 -0600
-Message-ID: <20060328223623.GD2172@austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jklewis@us.bm.com, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932470AbWC1Wgh@vger.kernel.org>
-To: tsbogend@alpha.franken.de, donf@us.ibm.com
-Content-Disposition: inline
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Tue, 28 Mar 2006 17:03:09 -0600
+Message-ID: <3B202D51-1683-465D-AE3D-DE301017BD69@kernel.crashing.org>
+References: <20060311022759.3950.58788.stgit@gitlost.site> <20060311022919.3950.43835.stgit@gitlost.site> <2FF801BB-F96C-4864-AC44-09B4B92531F7@kernel.crashing.org> <c0a09e5c0603281044i57730c66ye08c45aadd352cf8@mail.gmail.com> <D760971F-3C6A-400B-99EA-E95358B37F82@kernel.crashing.org> <c0a09e5c0603281401uaeea6aci57054aef444a5e1@mail.gmail.com>
+Mime-Version: 1.0 (Apple Message framework v746.3)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Chris Leech" <christopher.leech@intel.com>,
+	"linux kernel mailing list" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964791AbWC1XDJ@vger.kernel.org>
+In-Reply-To: <c0a09e5c0603281401uaeea6aci57054aef444a5e1@mail.gmail.com>
+To: Andrew Grover <andy.grover@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Please sign-off/ack/apply and/or forward upstream.
+On Mar 28, 2006, at 4:01 PM, Andrew Grover wrote:
 
-[PATCH] Janitor: drivers/net/pcnet32: fix incorrect comments
+> On 3/28/06, Kumar Gala <galak@kernel.crashing.org> wrote:
+>
+>>>> Also, what do you think about adding an operation type (MEMCPY,  
+>>>> XOR,
+>>>> CRYPTO_AES, etc).  We can than validate if the operation type
+>>>> expected is supported by the devices that exist.
+>>>
+>>> No objections, but this speculative support doesn't need to be in  
+>>> our
+>>> initial patchset.
+>>
+>> I don't consider it speculative.  The patch is for a generic DMA
+>> engine interface.  That interface should encompass all users.  I have
+>> a security/crypto DMA engine that I'd like to front with the generic
+>> DMA interface today.  Also, I believe there is another Intel group
+>> with an XOR engine that had a similar concept called ADMA posted a
+>> while ago.
+>
+> Please submit patches then. We will be doing another rev of the I/OAT
+> patch very soon, which you will be able to patch against. Or, once the
+> patch gets in mainline then we can enhance it. Code in the Linux
+> kernel is never "done", and the burden of implementing additional
+> functionality falls on those who want it.
 
-The comments concerning how the pcnet32 ethernet device driver selects 
-the MAC addr to use are incorrect. A recent patch (in the last 3 months)
-changed how the code worked, but did not change the comments.
+I completely understand that.  However, I think putting something  
+into mainline that only works or solves the particular problem you  
+have is a bad idea.  I'll provide patches for the changes I'd like to  
+see.  However, I figured a little discussion on the subject before I  
+went off an spent time on it was worth while.
 
-Side comment: the new behaviour is good; I've got a pcnet32 card which
-powers up with garbage in the CSR's, and a good MAC addr in the PROM.
+>> Can you explain what the semantics are.
+>>
+>> It's been a little while since I posted so my thoughts on the subject
+>> are going to take a little while to come back to me :)
+>
+> Yeah. Basically you register as a DMA client, and say how many DMA
+> channels you want. Our net_dma patch for example uses multiple
+> channels to help lock contention. Then when channels are available
+> (i.e. a DMA device added or another client gives them up) then you get
+> a callback. If the channel goes away (i.e. DMA device is removed
+> (theoretically possible but practically never happens) or *you* are
+> going away and change your request to 0 channels) then you get a
+> remove callback.
 
-Signed-off-by: Linas Vepstas <linas@linas.org>
+Do you only get callback when a channel is available?  How do you  
+decide to do to provide PIO to the client?
 
-----
+A client should only request multiple channel to handle multiple  
+concurrent operations.
 
- drivers/net/pcnet32.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+> This gets around the problem of DMA clients registering (and therefore
+> not getting) channels simply because they init before the DMA device
+> is discovered.
 
-Index: linux-2.6.16-git6/drivers/net/pcnet32.c
-===================================================================
---- linux-2.6.16-git6.orig/drivers/net/pcnet32.c	2006-03-23 12:21:41.000000000 -0600
-+++ linux-2.6.16-git6/drivers/net/pcnet32.c	2006-03-28 16:08:23.398158717 -0600
-@@ -1167,8 +1167,8 @@ pcnet32_probe1(unsigned long ioaddr, int
- 	 * station address PROM at the base address and programmed into the
- 	 * "Physical Address Registers" CSR12-14.
- 	 * As a precautionary measure, we read the PROM values and complain if
--	 * they disagree with the CSRs.  Either way, we use the CSR values, and
--	 * double check that they are valid.
-+	 * they disagree with the CSRs.  If they miscompare, and the PROM addr
-+	 * is valid, then the PROM addr is used.
- 	 */
- 	for (i = 0; i < 3; i++) {
- 		unsigned int val;
+What do you expect to happen in a system in which the channels are  
+over subscribed?
+
+Do you expect the DMA device driver to handle scheduling of channels  
+between multiple clients?
+
+- kumar
