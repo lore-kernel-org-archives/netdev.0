@@ -1,81 +1,108 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
-Date: Tue, 28 Mar 2006 17:03:09 -0600
-Message-ID: <3B202D51-1683-465D-AE3D-DE301017BD69@kernel.crashing.org>
-References: <20060311022759.3950.58788.stgit@gitlost.site> <20060311022919.3950.43835.stgit@gitlost.site> <2FF801BB-F96C-4864-AC44-09B4B92531F7@kernel.crashing.org> <c0a09e5c0603281044i57730c66ye08c45aadd352cf8@mail.gmail.com> <D760971F-3C6A-400B-99EA-E95358B37F82@kernel.crashing.org> <c0a09e5c0603281401uaeea6aci57054aef444a5e1@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v746.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Andi Kleen <ak@suse.de>
+Subject: Re: dcache leak in 2.6.16-git8 II
+Date: Thu, 30 Mar 2006 00:26:58 +0200
+Message-ID: <200603300026.59131.ak@suse.de>
+References: <200603270750.28174.ak@suse.de> <200603271822.28043.ak@suse.de> <20060327190027.24498e3a.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Chris Leech" <christopher.leech@intel.com>,
-	"linux kernel mailing list" <linux-kernel@vger.kernel.org>,
+Cc: bharata@in.ibm.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964791AbWC1XDJ@vger.kernel.org>
-In-Reply-To: <c0a09e5c0603281401uaeea6aci57054aef444a5e1@mail.gmail.com>
-To: Andrew Grover <andy.grover@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751031AbWC2W1H@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060327190027.24498e3a.akpm@osdl.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tuesday 28 March 2006 05:00, Andrew Morton wrote:
+> Andi Kleen <ak@suse.de> wrote:
+> >
+> > On Monday 27 March 2006 13:48, Bharata B Rao wrote:
+> > > On Mon, Mar 27, 2006 at 07:50:20AM +0200, Andi Kleen wrote:
+> > > > 
+> > > > A 2GB x86-64 desktop system here is currently swapping itself to death after
+> > > > a few days uptime.
+> > > > 
+> > > > Some investigation shows this:
+> > > > 
+> > > > inode_cache         1287   1337    568    7    1 : tunables   54   27    8 : slabdata    191    191      0
+> > > > dentry_cache      1867436 1867643    208   19    1 : tunables  120   60    8 : slabdata  98297  98297      0
+> > > > 
+> > > 
+> > > Would it be possible to try out this experimental patch which
+> > > gets some stats from the dentry cache ?
+> > 
+> > It should be trivial to reproduce by other people. Biggest workload
+> > is kernel compiles and quilt.
+> > 
+> > After a few hours with -git12 it's already at
+> > 
+> > dentry_cache      947013 952014    208   19    1 : tunables  120   60    8 : slabdata  50100  50106    480
+> > 
+> > and starting to go into swap.
+> > 
+> > I can't imagine I'm the only one seeing this?
+> > 
+> > I have a few x86-64 patches applied too, but they don't change anything
+> > in this area.
+> 
+> I don't think I can reproduce this on x86 uniproc.  (avtab_node_cache
+> is a different story - maintainers separately pinged).
 
-On Mar 28, 2006, at 4:01 PM, Andrew Grover wrote:
 
-> On 3/28/06, Kumar Gala <galak@kernel.crashing.org> wrote:
->
->>>> Also, what do you think about adding an operation type (MEMCPY,  
->>>> XOR,
->>>> CRYPTO_AES, etc).  We can than validate if the operation type
->>>> expected is supported by the devices that exist.
->>>
->>> No objections, but this speculative support doesn't need to be in  
->>> our
->>> initial patchset.
->>
->> I don't consider it speculative.  The patch is for a generic DMA
->> engine interface.  That interface should encompass all users.  I have
->> a security/crypto DMA engine that I'd like to front with the generic
->> DMA interface today.  Also, I believe there is another Intel group
->> with an XOR engine that had a similar concept called ADMA posted a
->> while ago.
->
-> Please submit patches then. We will be doing another rev of the I/OAT
-> patch very soon, which you will be able to patch against. Or, once the
-> patch gets in mainline then we can enhance it. Code in the Linux
-> kernel is never "done", and the burden of implementing additional
-> functionality falls on those who want it.
+I got another OOM from this with -git13. Unfortunately it seems to take a few days at least
+to trigger.
 
-I completely understand that.  However, I think putting something  
-into mainline that only works or solves the particular problem you  
-have is a bad idea.  I'll provide patches for the changes I'd like to  
-see.  However, I figured a little discussion on the subject before I  
-went off an spent time on it was worth while.
+dentry_cache      999168 1024594    208   19    1 : tunables  120   60    8 : slabdata  53926  53926      0 : shrinker stat 18522624 8871000
 
->> Can you explain what the semantics are.
->>
->> It's been a little while since I posted so my thoughts on the subject
->> are going to take a little while to come back to me :)
->
-> Yeah. Basically you register as a DMA client, and say how many DMA
-> channels you want. Our net_dma patch for example uses multiple
-> channels to help lock contention. Then when channels are available
-> (i.e. a DMA device added or another client gives them up) then you get
-> a callback. If the channel goes away (i.e. DMA device is removed
-> (theoretically possible but practically never happens) or *you* are
-> going away and change your request to 0 channels) then you get a
-> remove callback.
+Hrm interesting is this one:
 
-Do you only get callback when a channel is available?  How do you  
-decide to do to provide PIO to the client?
+sock_inode_cache  996784 996805    704    5    1 : tunables   54   27    8 : slabdata 199361 199361      0
 
-A client should only request multiple channel to handle multiple  
-concurrent operations.
+Most of the leaked dentries seem to be sockets. I didn't notice this earlier.
 
-> This gets around the problem of DMA clients registering (and therefore
-> not getting) channels simply because they init before the DMA device
-> is discovered.
+This was with the debugging patches applied btw. 
 
-What do you expect to happen in a system in which the channels are  
-over subscribed?
+So maybe we have a socket leak?
 
-Do you expect the DMA device driver to handle scheduling of channels  
-between multiple clients?
+I still got a copy of the /proc in case anybody wants more information.
 
-- kumar
+-Andi
+ 
+meminfo debugging was
+
+r_dentries/page        nr_pages        nr_inuse
+         0              0               0
+         1              139             139
+         2              115             230
+         3              99              297
+         4              103             412
+         5              84              419
+         6              80              480
+         7              75              519
+         8              65              520
+         9              52              466
+        10              58              580
+        11              55              605
+        12              73              868
+        13              124             1610
+        14              184             2576
+        15              313             4685
+        16              518             8288
+        17              1338            22744
+        18              4591            82633
+        19              45843           870758
+        20              0               0
+        21              0               0
+        22              0               0
+        23              0               0
+        24              0               0
+        25              0               0
+        26              0               0
+        27              0               0
+        28              0               0
+        29              0               0
+Total:                  53909           998829
+dcache lru: total 232 inuse 1
