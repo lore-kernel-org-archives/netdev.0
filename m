@@ -1,141 +1,191 @@
-From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 5/9] [I/OAT] Structure changes for TCP recv offload to I/OAT
-Date: Wed, 29 Mar 2006 14:55:58 -0800
-Message-ID: <20060329225557.25585.13462.stgit@gitlost.site>
-References: <20060329225505.25585.30392.stgit@gitlost.site>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751181AbWC2W4L@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <20060329225505.25585.30392.stgit@gitlost.site>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver updates
+Date: Wed, 29 Mar 2006 18:00:40 -0500
+Message-ID: <20060329230040.GA23939@havoc.gtf.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751210AbWC2XAr@vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds an async_wait_queue and some additional fields to tcp_sock, and a
-dma_cookie_t to sk_buff.
 
-Signed-off-by: Chris Leech <christopher.leech@intel.com>
----
+[just sent upstream]
 
- include/linux/skbuff.h |    4 ++++
- include/linux/tcp.h    |    8 ++++++++
- include/net/sock.h     |    2 ++
- include/net/tcp.h      |    7 +++++++
- net/core/sock.c        |    6 ++++++
- 5 files changed, 27 insertions(+), 0 deletions(-)
+The 'upstream-linus' branch of
+git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 613b951..76861a8 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -29,6 +29,7 @@
- #include <linux/net.h>
- #include <linux/textsearch.h>
- #include <net/checksum.h>
-+#include <linux/dmaengine.h>
- 
- #define HAVE_ALLOC_SKB		/* For the drivers to know */
- #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
-@@ -285,6 +286,9 @@ struct sk_buff {
- 	__u16			tc_verd;	/* traffic control verdict */
- #endif
- #endif
-+#ifdef CONFIG_NET_DMA
-+	dma_cookie_t		dma_cookie;
-+#endif
- 
- 
- 	/* These elements must be at the end, see alloc_skb() for details.  */
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 542d395..c90daa5 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -18,6 +18,7 @@
- #define _LINUX_TCP_H
- 
- #include <linux/types.h>
-+#include <linux/dmaengine.h>
- #include <asm/byteorder.h>
- 
- struct tcphdr {
-@@ -233,6 +234,13 @@ struct tcp_sock {
- 		struct iovec		*iov;
- 		int			memory;
- 		int			len;
-+#ifdef CONFIG_NET_DMA
-+		/* members for async copy */
-+		struct dma_chan		*dma_chan;
-+		int			wakeup;
-+		struct dma_pinned_list	*pinned_list;
-+		dma_cookie_t		dma_cookie;
-+#endif
- 	} ucopy;
- 
- 	__u32	snd_wl1;	/* Sequence for window update		*/
-diff --git a/include/net/sock.h b/include/net/sock.h
-index af2b054..190809c 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -132,6 +132,7 @@ struct sock_common {
-   *	@sk_receive_queue: incoming packets
-   *	@sk_wmem_alloc: transmit queue bytes committed
-   *	@sk_write_queue: Packet sending queue
-+  *	@sk_async_wait_queue: DMA copied packets
-   *	@sk_omem_alloc: "o" is "option" or "other"
-   *	@sk_wmem_queued: persistent queue size
-   *	@sk_forward_alloc: space allocated forward
-@@ -205,6 +206,7 @@ struct sock {
- 	atomic_t		sk_omem_alloc;
- 	struct sk_buff_head	sk_receive_queue;
- 	struct sk_buff_head	sk_write_queue;
-+	struct sk_buff_head	sk_async_wait_queue;
- 	int			sk_wmem_queued;
- 	int			sk_forward_alloc;
- 	gfp_t			sk_allocation;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9418f4d..54e4367 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -28,6 +28,7 @@
- #include <linux/cache.h>
- #include <linux/percpu.h>
- #include <linux/skbuff.h>
-+#include <linux/dmaengine.h>
- 
- #include <net/inet_connection_sock.h>
- #include <net/inet_timewait_sock.h>
-@@ -820,6 +821,12 @@ static inline void tcp_prequeue_init(str
- 	tp->ucopy.len = 0;
- 	tp->ucopy.memory = 0;
- 	skb_queue_head_init(&tp->ucopy.prequeue);
-+#ifdef CONFIG_NET_DMA
-+	tp->ucopy.dma_chan = NULL;
-+	tp->ucopy.wakeup = 0;
-+	tp->ucopy.pinned_list = NULL;
-+	tp->ucopy.dma_cookie = 0;
-+#endif
- }
- 
- /* Packet is added to VJ-style prequeue for processing in process
-diff --git a/net/core/sock.c b/net/core/sock.c
-index a96ea7d..d2acd35 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -818,6 +818,9 @@ struct sock *sk_clone(const struct sock 
- 		atomic_set(&newsk->sk_omem_alloc, 0);
- 		skb_queue_head_init(&newsk->sk_receive_queue);
- 		skb_queue_head_init(&newsk->sk_write_queue);
-+#ifdef CONFIG_NET_DMA
-+		skb_queue_head_init(&newsk->sk_async_wait_queue);
-+#endif
- 
- 		rwlock_init(&newsk->sk_dst_lock);
- 		rwlock_init(&newsk->sk_callback_lock);
-@@ -1369,6 +1372,9 @@ void sock_init_data(struct socket *sock,
- 	skb_queue_head_init(&sk->sk_receive_queue);
- 	skb_queue_head_init(&sk->sk_write_queue);
- 	skb_queue_head_init(&sk->sk_error_queue);
-+#ifdef CONFIG_NET_DMA
-+	skb_queue_head_init(&sk->sk_async_wait_queue);
-+#endif
- 
- 	sk->sk_send_head	=	NULL;
- 
+contains the following updates:
+
+ Documentation/networking/bcm43xx.txt            |   36 
+ drivers/net/8390.h                              |    2 
+ drivers/net/acenic_firmware.h                   |   10 
+ drivers/net/b44.c                               |   14 
+ drivers/net/bonding/bond_3ad.c                  |   28 
+ drivers/net/bonding/bond_3ad.h                  |    1 
+ drivers/net/bonding/bond_main.c                 |   97 
+ drivers/net/bonding/bonding.h                   |    4 
+ drivers/net/ixp2000/ixpdev.c                    |    5 
+ drivers/net/natsemi.c                           |   18 
+ drivers/net/pcmcia/axnet_cs.c                   |   61 
+ drivers/net/pcnet32.c                           |    4 
+ drivers/net/spider_net.c                        |    4 
+ drivers/net/via-rhine.c                         |   21 
+ drivers/net/wireless/Kconfig                    |    7 
+ drivers/net/wireless/Makefile                   |    1 
+ drivers/net/wireless/bcm43xx/Kconfig            |   62 
+ drivers/net/wireless/bcm43xx/Makefile           |   12 
+ drivers/net/wireless/bcm43xx/bcm43xx.h          |  926 +++++
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c  |  499 +++
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h  |  117 
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.c      |  968 +++++
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.h      |  218 +
+ drivers/net/wireless/bcm43xx/bcm43xx_ethtool.c  |   50 
+ drivers/net/wireless/bcm43xx/bcm43xx_ethtool.h  |    8 
+ drivers/net/wireless/bcm43xx/bcm43xx_ilt.c      |  337 ++
+ drivers/net/wireless/bcm43xx/bcm43xx_ilt.h      |   32 
+ drivers/net/wireless/bcm43xx/bcm43xx_leds.c     |  293 +
+ drivers/net/wireless/bcm43xx/bcm43xx_leds.h     |   56 
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c     | 3973 ++++++++++++++++++++++++
+ drivers/net/wireless/bcm43xx/bcm43xx_main.h     |  168 +
+ drivers/net/wireless/bcm43xx/bcm43xx_phy.c      | 2345 ++++++++++++++
+ drivers/net/wireless/bcm43xx/bcm43xx_phy.h      |   74 
+ drivers/net/wireless/bcm43xx/bcm43xx_pio.c      |  606 +++
+ drivers/net/wireless/bcm43xx/bcm43xx_pio.h      |  138 
+ drivers/net/wireless/bcm43xx/bcm43xx_power.c    |  358 ++
+ drivers/net/wireless/bcm43xx/bcm43xx_power.h    |   47 
+ drivers/net/wireless/bcm43xx/bcm43xx_radio.c    | 2026 ++++++++++++
+ drivers/net/wireless/bcm43xx/bcm43xx_radio.h    |   99 
+ drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c    |  322 +
+ drivers/net/wireless/bcm43xx/bcm43xx_sysfs.h    |   25 
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.c       | 1002 ++++++
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.h       |   36 
+ drivers/net/wireless/bcm43xx/bcm43xx_xmit.c     |  582 +++
+ drivers/net/wireless/bcm43xx/bcm43xx_xmit.h     |  156 
+ drivers/net/wireless/hostap/hostap_80211.h      |    2 
+ drivers/net/wireless/hostap/hostap_80211_tx.c   |    9 
+ drivers/usb/net/zd1201.c                        |    2 
+ net/ieee80211/ieee80211_wx.c                    |    4 
+ net/ieee80211/softmac/ieee80211softmac_module.c |   17 
+ net/ieee80211/softmac/ieee80211softmac_priv.h   |    2 
+ net/ieee80211/softmac/ieee80211softmac_wx.c     |   12 
+ 52 files changed, 15820 insertions(+), 76 deletions(-)
+
+Adrian Bunk:
+      PCMCIA_SPECTRUM must select FW_LOADER
+
+Arthur Othieno:
+      net: remove CONFIG_NET_CBUS conditional for NS8390
+
+Danny van Dyk:
+      Sync bcm43xx_phy_initb6() with specs
+
+David Woodhouse:
+      softmac: reduce scan dwell time
+      softmac: reduce default rate to 11Mbps.
+
+Gary Zambrano:
+      b44: fix force mac address before ifconfig up
+      b44: ensure valid mac addr
+
+Jay Vosburgh:
+      bonding: support carrier state for master
+
+Jean Tourrilhes:
+      zd1201 wireless stat update
+
+Jens Osterkamp:
+      spidernet : reduce console spam
+      spidernet : enable tx checksum offloading by default
+
+John W. Linville:
+      wireless: import bcm43xx sources
+      bcm43xx: patch Kconfig and wireless/Makefile for import
+
+Jouni Malinen:
+      hostap: Make hostap_tx_encrypt() static
+      hostap: Fix EAPOL frame encryption
+
+Komuro:
+      axnet_cs.c : add hardware multicast support
+
+Larry Finger:
+      Minor (janitorial) change to ieee80211
+
+Lennert Buytenhek:
+      ixp2000: fix gcc4 breakage
+
+Linas Vepstas:
+      Janitor: drivers/net/pcnet32: fix incorrect comments
+
+Mark Brown:
+      natsemi: Support oversized EEPROMs
+
+Michael Buesch:
+      bcm43xx: sync with svn.berlios.de
+      bcm43xx: remove linux version compatibility code.
+      bcm43xx: Move README file to Documentation directory.
+      bcm43xx: remove redundant COPYING file.
+      bcm43xx: add DEBUG Kconfig option. Also fix indention.
+      bcm43xx: Fix makefile. Remove all the "out-of-tree" stuff.
+      bcm43xx: Add more initvals sanity checks and error out, if one sanity check fails.
+      bcm43xx: Remove function bcm43xx_channel_is_allowed()
+      bcm43xx: basic ethtool support
+      bcm43xx: Wireless Ext update
+      bcm43xx: fix txpower reporting in WE.
+      bcm43xx: enable SPROM writing.
+      bcm43xx: heavily increase mac_suspend timeout.
+      bcm43xx: fix compiletime warning (phy_xmitpower)
+      bcm43xx: remove WX debugging.
+      bcm43xx: Partially fix PIO code. Add Kconfig option for PIO or DMA mode (or both).
+      bcm43xx: add a note that not all devices support PIO.
+      Apple Airport: Add Kconfig note that the bcm43xx driver has to be used for Airport Extreme cards.
+      bcm43xx: update README
+      bcm43xx: fix LED code.
+      bcm43xx: rewrite and simplify the periodic task handling.
+      bcm43xx: Code cleanups. This removes various "inline" statements and reduces codesize.
+      bcm43xx: Move sprom lowlevel reading/writing to its own functions.
+      bcm43xx: make bcm43xx_sprom_crc() static.
+      bcm43xx: split the channel helper functions, so that they can be used without a valid running core.
+      bcm43xx: remove old unused struct.
+      bcm43xx: Fix Kconfig typo (transfer mode default)
+      bcm43xx: Workaround init_board vs IRQ race.
+      bcm43xx: move initialized = 1 to the end of init_board.
+      bcm43xx: add assert(bcm->initialized) to periodic_tasks_setup().
+      bcm43xx: Move TX/RX related functions to its own file. Add basic RTS/CTS code.
+      bcm43xx: Add sysfs attributes for device specific tunables.
+      bcm43xx: Set both, the DMAmask and the coherent DMAmask.
+      bcm43xx: Abstract the locking mechanism.
+      bcm43xx: Remove the mmio access printing facility overhead.
+      bcm43xx: fix some stuff, add a few missing mmiowb(), remove dead code.
+      bcm43xx: receive TX status on MMIO or DMA unconditionally regarding the 80211 core rev.
+      bcm43xx: add functions bcm43xx_dma_read/write, bcm43xx_dma_tx_suspend/resume.
+      bcm43xx: reduce the size of bcm43xx_private by removing unneeded members.
+      bcm43xx: Fix crash on ifdown, by being careful in pio/dma freeing.
+      bcm43xx: Remove the workaround in dummy_transmission,
+      bcm43xx: Do boardflags workarounds for specific boards.
+      bcm43xx: properly mask txctl1 before writing it to hardware.
+      bcm43xx: remove check for mmio length, as it differs among platforms. (especially embedded)
+      bcm43xx: fix some gpio register trashing (hopefully :D)
+      bcm43xx: merge all iwmode code into the set_iwmode function.
+      bcm43xx: some IRQ handler cleanups.
+      bcm43xx: set default attenuation values.
+      bcm43xx: sync interference mitigation code to the specs.
+      bcm43xx: fix nrssi_threshold calculation.
+      bcm43xx: add useless and broken statistics stuff. People seem to want it. well...
+      bcm43xx: get rid of "/* vim: ..." lines at the end of several files.
+      bcm43xx: fix "include" issues on some platforms.
+      bcm43xx: remove some compilerwarnings.
+      bcm43xx: fix the remaining sparse warnings.
+      bcm43xx: sync GPHY init with the specs.
+      bcm43xx: don't set the channel on a device, which is down.
+
+Pete Zaitcev:
+      bcm43xx: fix DMA TX skb freeing in case of fragmented packets.
+
+Randy Dunlap:
+      acenic: fix section mismatches
+
+Roger Luethi:
+      via-rhine: link state fix
