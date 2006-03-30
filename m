@@ -1,19 +1,20 @@
-From: Krzysztof Oledzki <olel@ans.pl>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Thu, 30 Mar 2006 12:27:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0603301206390.13108@bizon.gios.gov.pl>
-References: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408>
+Date: Thu, 30 Mar 2006 21:12:18 +1100
+Message-ID: <20060330101218.GA2905@gondor.apana.org.au>
+References: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408> <20060329.204409.109404254.davem@davemloft.net> <20060330095245.GA2385@gondor.apana.org.au> <442BAC99.2090404@kernelpanic.ru>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1041970610-1143714456=:13108"
-Cc: nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, bb@kernelpanic.ru,
-	mykleb@no.ibm.com, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>, davem@davemloft.net,
+Content-Type: multipart/mixed; boundary="oyUTqETQ0mS9luUI"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
 	E1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-In-Reply-To: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408>
+To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Content-Disposition: inline
+In-Reply-To: <442BAC99.2090404@kernelpanic.ru>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -25,74 +26,81 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----187430788-1041970610-1143714456=:13108
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+--oyUTqETQ0mS9luUI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+On Thu, Mar 30, 2006 at 10:02:01AM +0000, Boris B. Zhmurov wrote:
+> 
+> [zhmurov@builds linux-2.6.16]$ patch -p1 < 
+> ../../../SOURCES/linux-2.6.16-e1000-try-to-fix-assertion_sk_forward_alloc_failed_by_Herbert_Xu.patch 
+> 
+> patching file drivers/net/e1000/e1000_main.c
+> Reversed (or previously applied) patch detected!  Assume -R? [n]
+> 
+> Herbert, is that patch already included in 2.6.16.1?
 
+Not really.  It's just patch being silly (or too smart :)
 
-On Wed, 29 Mar 2006, Brandeburg, Jesse wrote:
+Here it is again rediffed against 2.6.16.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-> Hi all, I've identified you as people who have at some point in the past
-> emailed one of the Linux lists with problems with e1000 and
-> sk_forward_alloc.  It seems to be fairly widespread, but only seems to
-> have appeared with recent kernel changes (after 2.6.12...)
->
-> What I need from you is a reproducible test, and some information.  I
-> have never been able to reproduce this, and I'm trying to isolate the
-> problem a bit.  What motherboards are you using?
-RIOWORKS/PDRCA.
+--oyUTqETQ0mS9luUI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="e1000-1.patch"
 
-# lspci
-00:00.0 Host bridge: ServerWorks GCNB-LE Host Bridge (rev 32)
-00:00.1 Host bridge: ServerWorks GCNB-LE Host Bridge
-00:02.0 VGA compatible controller: ATI Technologies Inc Rage XL (rev 27)
-00:03.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Con=
-troller (rev 02)
-00:04.0 I2O: Adaptec (formerly DPT) SmartRAID V Controller (rev 01)
-00:04.1 PCI bridge: Adaptec (formerly DPT) PCI Bridge (rev 01)
-00:06.0 Ethernet controller: D-Link System Inc DL2000-based Gigabit Etherne=
-t (rev 0c)
-00:08.0 SCSI storage controller: Initio Corporation INI-A100U2W (rev 01)
-00:0e.0 IDE interface: ServerWorks CSB6 IDE Controller (rev a0)
-00:0f.0 Host bridge: ServerWorks CSB6 South Bridge (rev a0)
-00:0f.1 IDE interface: ServerWorks CSB6 RAID/IDE Controller (rev a0)
-00:0f.2 USB Controller: ServerWorks CSB6 OHCI USB Controller (rev 05)
-00:0f.3 ISA bridge: ServerWorks GCLE-2 Host Bridge
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 84dcca3..847d168 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2932,13 +2932,6 @@
+ 		count++;
+ #endif
+ 
+-#ifdef NETIF_F_TSO
+-	/* Controller Erratum workaround */
+-	if (!skb->data_len && tx_ring->last_tx_tso &&
+-		!skb_shinfo(skb)->tso_size)
+-		count++;
+-#endif
+-
+ 	count += TXD_USE_COUNT(len, max_txd_pwr);
+ 
+ 	if (adapter->pcix_82544)
+@@ -2957,9 +2950,6 @@
+ 				       max_txd_pwr);
+ 	if (adapter->pcix_82544)
+ 		count += nr_frags;
+-
+-	if (adapter->hw.tx_pkt_filtering && (adapter->hw.mac_type == e1000_82573) )
+-		e1000_transfer_dhcp_info(adapter, skb);
+ 
+ 	local_irq_save(flags);
+ 	if (!spin_trylock(&tx_ring->tx_lock)) {
+@@ -2967,6 +2957,16 @@
+ 		local_irq_restore(flags);
+ 		return NETDEV_TX_LOCKED;
+ 	}
++
++#ifdef NETIF_F_TSO
++	/* Controller Erratum workaround */
++	if (!skb->data_len && tx_ring->last_tx_tso &&
++		!skb_shinfo(skb)->tso_size)
++		count++;
++#endif
++
++	if (adapter->hw.tx_pkt_filtering && (adapter->hw.mac_type == e1000_82573) )
++		e1000_transfer_dhcp_info(adapter, skb);
+ 
+ 	/* need: count + 2 desc gap to keep tail from touching
+ 	 * head, otherwise try next time */
 
-> What seems to cause this problem?
-Don't known as this problem occurs only occasionally.
-
-> Are you all using iptables?
-Yes, this is a www proxy server with "-j REDIRECT".
-
->  Are you all routing?
-Some kind as this is a transparent www proxy.
-
-> From the reports I assume none of you are using an 82571/2/3 (pci=20
-> express)
-
-
-00:03.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Con=
-troller (rev 02)
-         Subsystem: Rioworks: Unknown device 3011
-         Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 169
-         Memory at d0000000 (32-bit, non-prefetchable) [size=3D128K]
-         I/O ports at 2c00 [size=3D64]
-         Capabilities: [dc] Power Management version 2
-         Capabilities: [e4] PCI-X non-bridge device.
-         Capabilities: [f0] Message Signalled Interrupts: 64bit+ Queue=3D0/=
-0 Enable-
-
-Thank you.
-
-Best regards,
-
- =09=09=09Krzysztof Ol=EAdzki
----187430788-1041970610-1143714456=:13108--
+--oyUTqETQ0mS9luUI--
 
 
 -------------------------------------------------------
