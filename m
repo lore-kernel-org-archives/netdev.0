@@ -1,604 +1,312 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: [Patch 5/8] generic netlink interface for delay accounting
-Date: Wed, 29 Mar 2006 19:52:06 -0500
-Message-ID: <442B2BB6.9020309@watson.ibm.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Patch 5/8] generic netlink interface for delay accounting
+Date: Wed, 29 Mar 2006 21:04:06 -0800
+Message-ID: <20060329210406.08d1c929.akpm@osdl.org>
 References: <442B271D.10208@watson.ibm.com>
+	<442B2BB6.9020309@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-	Jamal <hadi@cyberus.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751326AbWC3Aw0@vger.kernel.org>
-To: linux-kernel <linux-kernel@vger.kernel.org>
-In-Reply-To: <442B271D.10208@watson.ibm.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	tgraf@suug.ch, hadi@cyberus.ca
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751002AbWC3FFQ@vger.kernel.org>
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <442B2BB6.9020309@watson.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-delayacct-genetlink.patch
+Shailabh Nagar <nagar@watson.ibm.com> wrote:
+>
+> delayacct-genetlink.patch
+> 
+> Create a generic netlink interface (NETLINK_GENERIC family),
+> called "taskstats", for getting delay and cpu statistics of
+> tasks and thread groups during their lifetime and when they exit.
+> 
+> 
 
-Create a generic netlink interface (NETLINK_GENERIC family),
-called "taskstats", for getting delay and cpu statistics of
-tasks and thread groups during their lifetime and when they exit.
+It's be best to have a netlink person review the netlinkisms here.
 
+> +static inline int delayacct_add_tsk(struct taskstats *d,
+> +				    struct task_struct *tsk)
+> +{
+> +	if (!tsk->delays)
+> +		return -EINVAL;
+> +	return __delayacct_add_tsk(d, tsk);
+> +}
 
-Signed-off-by: Shailabh Nagar <nagar@us.ibm.com>
-Signed-off-by: Balbir Singh <balbir@in.ibm.com>
+hm.  It's a worry that this can return an error if delay accounting simply
+isn't enabled.
 
- include/linux/delayacct.h |   11 +
- include/linux/taskstats.h |  113 +++++++++++++++++
- init/Kconfig              |   16 ++
- kernel/Makefile           |    1
- kernel/delayacct.c        |   44 ++++++
- kernel/taskstats.c        |  292 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 474 insertions(+), 3 deletions(-)
+> +struct taskstats {
+> +	/* Maintain 64-bit alignment while extending */
+> +	/* Version 1 */
+> +
+> +	/* XXX_count is number of delay values recorded.
+> +	 * XXX_total is corresponding cumulative delay in nanoseconds
+> +	 */
+> +
+> +#define TASKSTATS_NOCPUSTATS	1
+> +	__u64	cpu_count;
+> +	__u64	cpu_delay_total;	/* wait, while runnable, for cpu */
+> +	__u64	blkio_count;
+> +	__u64	blkio_delay_total;	/* sync,block io completion wait*/
+> +	__u64	swapin_count;
+> +	__u64	swapin_delay_total;	/* swapin page fault wait*/
+> +
+> +	__u64	cpu_run_total;		/* cpu running time
+> +					 * no count available/provided */
+> +};
 
-Index: linux-2.6.16/include/linux/delayacct.h
-===================================================================
---- linux-2.6.16.orig/include/linux/delayacct.h	2006-03-29 18:13:13.000000000 -0500
-+++ linux-2.6.16/include/linux/delayacct.h	2006-03-29 18:13:18.000000000 -0500
-@@ -18,6 +18,7 @@
- #define _LINUX_TASKDELAYS_H
+What locking is used to make updates to these u64's appear to be atomic? 
+Maybe it's deliberately nonatomic.  Either way, it needs a comment.
 
- #include <linux/sched.h>
-+#include <linux/taskstats.h>
+>  void __delayacct_tsk_exit(struct task_struct *tsk)
+>  {
+> +	/*
+> +	 * Protect against racing thread group exits
+> +	 */
+> +	mutex_lock(&delayacct_exit_mutex);
+> +	taskstats_exit_pid(tsk);
+>  	if (tsk->delays) {
+>  		kmem_cache_free(delayacct_cache, tsk->delays);
+>  		tsk->delays = NULL;
+>  	}
+> +	mutex_unlock(&delayacct_exit_mutex);
+>  }
 
- #ifdef CONFIG_TASK_DELAY_ACCT
- extern int delayacct_on;	/* Delay accounting turned on/off */
-@@ -27,6 +28,7 @@ extern void __delayacct_tsk_init(struct
- extern void __delayacct_tsk_exit(struct task_struct *);
- extern void __delayacct_blkio_start(void);
- extern void __delayacct_blkio_end(void);
-+extern int __delayacct_add_tsk(struct taskstats *, struct task_struct *);
+hm, I wonder how contended that lock is likely to be.
 
- static inline void delayacct_tsk_init(struct task_struct *tsk)
- {
-@@ -64,4 +66,13 @@ static inline void delayacct_blkio_start
- static inline void delayacct_blkio_end(void)
- {}
- #endif /* CONFIG_TASK_DELAY_ACCT */
-+#ifdef CONFIG_TASKSTATS
-+static inline int delayacct_add_tsk(struct taskstats *d,
-+				    struct task_struct *tsk)
-+{
-+	if (!tsk->delays)
-+		return -EINVAL;
-+	return __delayacct_add_tsk(d, tsk);
-+}
-+#endif
- #endif /* _LINUX_TASKDELAYS_H */
-Index: linux-2.6.16/include/linux/taskstats.h
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16/include/linux/taskstats.h	2006-03-29 18:13:18.000000000 -0500
-@@ -0,0 +1,113 @@
-+/* taskstats.h - exporting per-task statistics
-+ *
-+ * Copyright (C) Shailabh Nagar, IBM Corp. 2006
-+ *           (C) Balbir Singh,   IBM Corp. 2006
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2.1 of the GNU Lesser General Public License
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it would be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-+ */
-+
-+#ifndef _LINUX_TASKSTATS_H
-+#define _LINUX_TASKSTATS_H
-+
-+/* Format for per-task data returned to userland when
-+ *	- a task exits
-+ *	- listener requests stats for a task
-+ *
-+ * The struct is versioned. Newer versions should only add fields to
-+ * the bottom of the struct to maintain backward compatibility.
-+ *
-+ * To create the next version, bump up the taskstats_version variable
-+ * and delineate the start of newly added fields with a comment indicating
-+ * the version number.
-+ */
-+
-+#define TASKSTATS_VERSION	1
-+#define TASKSTATS_NOPID	-1
-+
-+struct taskstats {
-+	/* Maintain 64-bit alignment while extending */
-+	/* Version 1 */
-+
-+	/* XXX_count is number of delay values recorded.
-+	 * XXX_total is corresponding cumulative delay in nanoseconds
-+	 */
-+
-+#define TASKSTATS_NOCPUSTATS	1
-+	__u64	cpu_count;
-+	__u64	cpu_delay_total;	/* wait, while runnable, for cpu */
-+	__u64	blkio_count;
-+	__u64	blkio_delay_total;	/* sync,block io completion wait*/
-+	__u64	swapin_count;
-+	__u64	swapin_delay_total;	/* swapin page fault wait*/
-+
-+	__u64	cpu_run_total;		/* cpu running time
-+					 * no count available/provided */
-+};
-+
-+
-+#define TASKSTATS_LISTEN_GROUP	0x1
-+
-+/*
-+ * Commands sent from userspace
-+ * Not versioned. New commands should only be inserted at the enum's end
-+ */
-+
-+enum {
-+	TASKSTATS_CMD_UNSPEC = 0,	/* Reserved */
-+	TASKSTATS_CMD_GET,		/* user->kernel request/get-response */
-+	TASKSTATS_CMD_NEW,		/* kernel->user event */
-+	__TASKSTATS_CMD_MAX,
-+};
-+
-+#define TASKSTATS_CMD_MAX (__TASKSTATS_CMD_MAX - 1)
-+
-+enum {
-+	TASKSTATS_TYPE_UNSPEC = 0,	/* Reserved */
-+	TASKSTATS_TYPE_PID,		/* Process id */
-+	TASKSTATS_TYPE_TGID,		/* Thread group id */
-+	TASKSTATS_TYPE_STATS,		/* taskstats structure */
-+	TASKSTATS_TYPE_AGGR_PID,	/* contains pid + stats */
-+	TASKSTATS_TYPE_AGGR_TGID,	/* contains tgid + stats */
-+	__TASKSTATS_TYPE_MAX,
-+};
-+
-+#define TASKSTATS_TYPE_MAX (__TASKSTATS_TYPE_MAX - 1)
-+
-+enum {
-+	TASKSTATS_CMD_ATTR_UNSPEC = 0,
-+	TASKSTATS_CMD_ATTR_PID,
-+	TASKSTATS_CMD_ATTR_TGID,
-+	__TASKSTATS_CMD_ATTR_MAX,
-+};
-+
-+#define TASKSTATS_CMD_ATTR_MAX (__TASKSTATS_CMD_ATTR_MAX - 1)
-+
-+/* NETLINK_GENERIC related info */
-+
-+#define TASKSTATS_GENL_NAME	"TASKSTATS"
-+#define TASKSTATS_GENL_VERSION	0x1
-+
-+#ifdef __KERNEL__
-+
-+#include <linux/sched.h>
-+
-+enum {
-+	TASKSTATS_MSG_UNICAST,		/* send data only to requester */
-+	TASKSTATS_MSG_MULTICAST,	/* send data to a group */
-+};
-+
-+#ifdef CONFIG_TASKSTATS
-+extern void taskstats_exit_pid(struct task_struct *);
-+#else
-+static inline void taskstats_exit_pid(struct task_struct *tsk)
-+{}
-+#endif
-+
-+#endif /* __KERNEL__ */
-+#endif /* _LINUX_TASKSTATS_H */
-Index: linux-2.6.16/init/Kconfig
-===================================================================
---- linux-2.6.16.orig/init/Kconfig	2006-03-29 18:12:57.000000000 -0500
-+++ linux-2.6.16/init/Kconfig	2006-03-29 18:13:18.000000000 -0500
-@@ -158,11 +158,21 @@ config TASK_DELAY_ACCT
- 	  in pages. Such statistics can help in setting a task's priorities
- 	  relative to other tasks for cpu, io, rss limits etc.
+The kmem_cache_free() can happen outside the lock.
 
--	  Unlike BSD process accounting, this information is available
--	  continuously during the lifetime of a task.
--
- 	  Say N if unsure.
+> +#ifdef CONFIG_TASKSTATS
+> +int __delayacct_add_tsk(struct taskstats *d, struct task_struct *tsk)
+> +{
+> +	nsec_t tmp;
+> +	struct timespec ts;
+> +	unsigned long t1,t2;
+> +
+> +	/* zero XXX_total,non-zero XXX_count implies XXX stat overflowed */
+> +
+> +	tmp = (nsec_t)d->cpu_run_total ;
 
-+config TASKSTATS
-+	bool "Export task/process statistics through netlink (EXPERIMENTAL)"
-+	depends on TASK_DELAY_ACCT
-+	default y
-+	help
-+	  Export selected statistics for tasks/processes through the
-+	  generic netlink interface. Unlike BSD process accounting, the
-+	  statistics are available during the lifetime of tasks/processes as
-+	  responses to commands. Like BSD accounting, they are sent to user
-+	  space on task exit.
-+
-+	  Say Y if unsure.
-+
- config SYSCTL
- 	bool "Sysctl support"
- 	---help---
-Index: linux-2.6.16/kernel/delayacct.c
-===================================================================
---- linux-2.6.16.orig/kernel/delayacct.c	2006-03-29 18:13:13.000000000 -0500
-+++ linux-2.6.16/kernel/delayacct.c	2006-03-29 18:13:18.000000000 -0500
-@@ -1,6 +1,7 @@
- /* delayacct.c - per-task delay accounting
-  *
-  * Copyright (C) Shailabh Nagar, IBM Corp. 2006
-+ * Copyright (C) Balbir Singh, IBM Corp. 2006
-  *
-  * This program is free software;  you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -18,9 +19,12 @@
- #include <linux/time.h>
- #include <linux/sysctl.h>
- #include <linux/delayacct.h>
-+#include <linux/taskstats.h>
-+#include <linux/mutex.h>
+stray space before semicolon.
 
- int delayacct_on __read_mostly = 0;	/* Delay accounting turned on/off */
- kmem_cache_t *delayacct_cache;
-+static DEFINE_MUTEX(delayacct_exit_mutex);
+> +	tmp += (u64)(tsk->utime+tsk->stime)*TICK_NSEC;
+> +	d->cpu_run_total = (tmp < (nsec_t)d->cpu_run_total)? 0: tmp;
 
- static int __init delayacct_setup_enable(char *str)
- {
-@@ -50,10 +54,16 @@ void __delayacct_tsk_init(struct task_st
+Missing space before ?, missing space before :
 
- void __delayacct_tsk_exit(struct task_struct *tsk)
- {
-+	/*
-+	 * Protect against racing thread group exits
-+	 */
-+	mutex_lock(&delayacct_exit_mutex);
-+	taskstats_exit_pid(tsk);
- 	if (tsk->delays) {
- 		kmem_cache_free(delayacct_cache, tsk->delays);
- 		tsk->delays = NULL;
- 	}
-+	mutex_unlock(&delayacct_exit_mutex);
- }
+> +	d->blkio_delay_total = (tmp < d->blkio_delay_total)? 0: tmp;
+> +	d->swapin_delay_total = (tmp < d->swapin_delay_total)? 0: tmp;
 
- /*
-@@ -108,3 +118,37 @@ void __delayacct_blkio_end(void)
- 			      &current->delays->blkio_delay,
- 			      &current->delays->blkio_count);
- }
-+#ifdef CONFIG_TASKSTATS
-+int __delayacct_add_tsk(struct taskstats *d, struct task_struct *tsk)
-+{
-+	nsec_t tmp;
-+	struct timespec ts;
-+	unsigned long t1,t2;
-+
-+	/* zero XXX_total,non-zero XXX_count implies XXX stat overflowed */
-+
-+	tmp = (nsec_t)d->cpu_run_total ;
-+	tmp += (u64)(tsk->utime+tsk->stime)*TICK_NSEC;
-+	d->cpu_run_total = (tmp < (nsec_t)d->cpu_run_total)? 0: tmp;
-+
-+	/* No locking available for sched_info. Take snapshot first. */
-+	t1 = tsk->sched_info.pcnt;
-+	t2 = tsk->sched_info.run_delay;
-+
-+	d->cpu_count += t1;
-+
-+	jiffies_to_timespec(t2, &ts);
-+	tmp = (nsec_t)d->cpu_delay_total + timespec_to_ns(&ts);
-+	d->cpu_delay_total = (tmp < (nsec_t)d->cpu_delay_total)? 0: tmp;
-+
-+	spin_lock(&tsk->delays->lock);
-+	tmp = d->blkio_delay_total + tsk->delays->blkio_delay;
-+	d->blkio_delay_total = (tmp < d->blkio_delay_total)? 0: tmp;
-+	tmp = d->swapin_delay_total + tsk->delays->swapin_delay;
-+	d->swapin_delay_total = (tmp < d->swapin_delay_total)? 0: tmp;
-+	d->blkio_count += tsk->delays->blkio_count;
-+	d->swapin_count += tsk->delays->swapin_count;
-+	spin_unlock(&tsk->delays->lock);
-+	return 0;
-+}
-+#endif /* CONFIG_TASKSTATS */
-Index: linux-2.6.16/kernel/Makefile
-===================================================================
---- linux-2.6.16.orig/kernel/Makefile	2006-03-29 18:12:57.000000000 -0500
-+++ linux-2.6.16/kernel/Makefile	2006-03-29 18:13:18.000000000 -0500
-@@ -35,6 +35,7 @@ obj-$(CONFIG_GENERIC_HARDIRQS) += irq/
- obj-$(CONFIG_SECCOMP) += seccomp.o
- obj-$(CONFIG_RCU_TORTURE_TEST) += rcutorture.o
- obj-$(CONFIG_TASK_DELAY_ACCT) += delayacct.o
-+obj-$(CONFIG_TASKSTATS) += taskstats.o
+dittos.
 
- ifneq ($(CONFIG_SCHED_NO_NO_OMIT_FRAME_POINTER),y)
- # According to Alan Modra <alan@linuxcare.com.au>, the -fno-omit-frame-pointer is
-Index: linux-2.6.16/kernel/taskstats.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16/kernel/taskstats.c	2006-03-29 18:13:18.000000000 -0500
-@@ -0,0 +1,292 @@
-+/*
-+ * taskstats.c - Export per-task statistics to userland
-+ *
-+ * Copyright (C) Shailabh Nagar, IBM Corp. 2006
-+ *           (C) Balbir Singh,   IBM Corp. 2006
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/taskstats.h>
-+#include <linux/delayacct.h>
-+#include <net/genetlink.h>
-+#include <asm/atomic.h>
-+
-+const int taskstats_version = TASKSTATS_VERSION;
-+static DEFINE_PER_CPU(__u32, taskstats_seqnum) = { 0 };
-+static int family_registered = 0;
-+
-+static struct genl_family family = {
-+	.id             = GENL_ID_GENERATE,
-+	.name           = TASKSTATS_GENL_NAME,
-+	.version        = TASKSTATS_GENL_VERSION,
-+	.maxattr        = TASKSTATS_CMD_ATTR_MAX,
-+};
-+
-+static struct nla_policy taskstats_cmd_get_policy[TASKSTATS_CMD_ATTR_MAX+1] __read_mostly = {
-+	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
-+	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
-+};
-+
-+
-+static int prepare_reply(struct genl_info *info, u8 cmd, struct sk_buff **skbp,
-+			 void **replyp, size_t size)
-+{
-+	struct sk_buff *skb;
-+	void *reply;
-+
-+	/*
-+	 * If new attributes are added, please revisit this allocation
-+	 */
-+	skb = nlmsg_new(size);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	if (!info) {
-+		int seq = get_cpu_var(taskstats_seqnum)++;
-+		put_cpu_var(taskstats_seqnum);
-+
-+		reply = genlmsg_put(skb, 0, seq,
-+				    family.id, 0, 0,
-+				    cmd, family.version);
-+	} else
-+		reply = genlmsg_put(skb, info->snd_pid, info->snd_seq,
-+				    family.id, 0, 0,
-+				    cmd, family.version);
-+	if (reply == NULL) {
-+		nlmsg_free(skb);
-+		return -EINVAL;
-+	}
-+
-+	*skbp = skb;
-+	*replyp = reply;
-+	return 0;
-+}
-+
-+static int send_reply(struct sk_buff *skb, pid_t pid, int event)
-+{
-+	struct genlmsghdr *genlhdr = nlmsg_data((struct nlmsghdr *)skb->data);
-+	void *reply;
-+	int rc;
-+
-+	reply = genlmsg_data(genlhdr);
-+
-+	rc = genlmsg_end(skb, reply);
-+	if (rc < 0) {
-+		nlmsg_free(skb);
-+		return rc;
-+	}
-+
-+	if (event == TASKSTATS_MSG_MULTICAST)
-+		return genlmsg_multicast(skb, pid, TASKSTATS_LISTEN_GROUP);
-+	return genlmsg_unicast(skb, pid);
-+}
-+
-+static inline int fill_pid(pid_t pid, struct task_struct *pidtsk,
-+			   struct taskstats *stats)
-+{
-+	int rc;
-+	struct task_struct *tsk = pidtsk;
-+
-+	if (!pidtsk) {
-+		read_lock(&tasklist_lock);
-+		tsk = find_task_by_pid(pid);
-+		if (!tsk) {
-+			read_unlock(&tasklist_lock);
-+			return -ESRCH;
-+		}
-+		get_task_struct(tsk);
-+		read_unlock(&tasklist_lock);
-+	} else
-+		get_task_struct(tsk);
-+
-+	rc = delayacct_add_tsk(stats, tsk);
-+	put_task_struct(tsk);
-+
-+	return rc;
-+
-+}
-+
-+static inline int fill_tgid(pid_t tgid, struct task_struct *tgidtsk,
-+			    struct taskstats *stats)
-+{
-+	int rc;
-+	struct task_struct *tsk, *first;
-+
-+	first = tgidtsk;
-+	read_lock(&tasklist_lock);
-+	if (!first) {
-+		first = find_task_by_pid(tgid);
-+		if (!first) {
-+			read_unlock(&tasklist_lock);
-+			return -ESRCH;
-+		}
-+	}
-+	tsk = first;
-+	do {
-+		rc = delayacct_add_tsk(stats, tsk);
-+		if (rc)
-+			break;
-+	} while_each_thread(first, tsk);
-+	read_unlock(&tasklist_lock);
-+
-+	return rc;
-+}
-+
-+static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int rc = 0;
-+	struct sk_buff *rep_skb;
-+	struct taskstats stats;
-+	void *reply;
-+	size_t size;
-+	struct nlattr *na;
-+
-+	/*
-+	 * Size includes space for nested attribute as well
-+	 * The returned data is of the format
-+	 * TASKSTATS_TYPE_AGGR_PID/TGID
-+	 * --> TASKSTATS_TYPE_PID/TGID
-+	 * --> TASKSTATS_TYPE_STATS
-+	 */
-+	size = nla_total_size(sizeof(u32)) +
-+		nla_total_size(sizeof(struct taskstats)) + nla_total_size(0);
-+
-+	memset(&stats, 0, sizeof(stats));
-+	rc = prepare_reply(info, TASKSTATS_CMD_NEW, &rep_skb, &reply, size);
-+	if (rc < 0)
-+		return rc;
-+
-+	if (info->attrs[TASKSTATS_CMD_ATTR_PID]) {
-+		u32 pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
-+		rc = fill_pid((pid_t)pid, NULL, &stats);
-+		if (rc < 0)
-+			goto err;
-+
-+		na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_PID);
-+		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, pid);
-+	} else if (info->attrs[TASKSTATS_CMD_ATTR_TGID]) {
-+		u32 tgid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_TGID]);
-+		rc = fill_tgid((pid_t)tgid, NULL, &stats);
-+		if (rc < 0)
-+			goto err;
-+
-+		na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_TGID);
-+		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_TGID, tgid);
-+	} else {
-+		rc = -EINVAL;
-+		goto err;
-+	}
-+
-+	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
-+	nla_nest_end(rep_skb, na);
-+
-+	return send_reply(rep_skb, info->snd_pid, TASKSTATS_MSG_UNICAST);
-+
-+nla_put_failure:
-+	return  genlmsg_cancel(rep_skb, reply);
-+err:
-+	nlmsg_free(rep_skb);
-+	return rc;
-+}
-+
-+
-+/* Send pid data out on exit */
-+void taskstats_exit_pid(struct task_struct *tsk)
-+{
-+	int rc = 0;
-+	struct sk_buff *rep_skb;
-+	void *reply;
-+	struct taskstats stats;
-+	size_t size;
-+	int is_thread_group = !thread_group_empty(tsk);
-+	struct nlattr *na;
-+
-+	/*
-+	 * tasks can start to exit very early. Ensure that the family
-+	 * is registered before notifications are sent out
-+	 */
-+	if (!family_registered)
-+		return;
-+
-+	/*
-+	 * Size includes space for nested attributes
-+	 */
-+	size = nla_total_size(sizeof(u32)) +
-+		nla_total_size(sizeof(struct taskstats)) + nla_total_size(0);
-+
-+	if (is_thread_group)
-+		size = 2 * size;	// PID + STATS + TGID + STATS
-+
-+	memset(&stats, 0, sizeof(stats));
-+	rc = prepare_reply(NULL, TASKSTATS_CMD_NEW, &rep_skb, &reply, size);
-+	if (rc < 0)
-+		return;
-+
-+	rc = fill_pid(tsk->pid, tsk, &stats);
-+	if (rc < 0)
-+		goto err;
-+
-+	na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_PID);
-+	NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, (u32)tsk->pid);
-+	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
-+	nla_nest_end(rep_skb, na);
-+
-+	if (!is_thread_group) {
-+		send_reply(rep_skb, 0, TASKSTATS_MSG_MULTICAST);
-+		return;
-+	}
-+
-+	memset(&stats, 0, sizeof(stats));
-+	rc = fill_tgid(tsk->tgid, tsk, &stats);
-+	if (rc < 0)
-+		goto err;
-+
-+	na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_TGID);
-+	NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_TGID, (u32)tsk->tgid);
-+	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
-+	nla_nest_end(rep_skb, na);
-+
-+	send_reply(rep_skb, 0, TASKSTATS_MSG_MULTICAST);
-+	return;
-+
-+nla_put_failure:
-+	genlmsg_cancel(rep_skb, reply);
-+	return;
-+err:
-+	nlmsg_free(rep_skb);
-+}
-+
-+static struct genl_ops taskstats_ops = {
-+	.cmd            = TASKSTATS_CMD_GET,
-+	.doit           = taskstats_send_stats,
-+	.policy		= taskstats_cmd_get_policy,
-+};
-+
-+static int __init taskstats_init(void)
-+{
-+	if (genl_register_family(&family))
-+		return -EFAULT;
-+        family_registered = 1;
-+
-+	if (genl_register_ops(&family, &taskstats_ops))
-+		goto err;
-+
-+	return 0;
-+err:
-+	genl_unregister_family(&family);
-+	family_registered = 0;
-+	return -EFAULT;
-+}
-+
-+late_initcall(taskstats_init);
+> ===================================================================
+> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
+> +++ linux-2.6.16/kernel/taskstats.c	2006-03-29 18:13:18.000000000 -0500
+> @@ -0,0 +1,292 @@
+> +/*
+> + * taskstats.c - Export per-task statistics to userland
+> + *
+> + * Copyright (C) Shailabh Nagar, IBM Corp. 2006
+> + *           (C) Balbir Singh,   IBM Corp. 2006
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/taskstats.h>
+> +#include <linux/delayacct.h>
+> +#include <net/genetlink.h>
+> +#include <asm/atomic.h>
+> +
+> +const int taskstats_version = TASKSTATS_VERSION;
+
+Odd.  It'd be better to put TASKSTATS_VERSION in the header file, use that
+directly.
+
+> +
+> +static inline int fill_pid(pid_t pid, struct task_struct *pidtsk,
+> +			   struct taskstats *stats)
+> +{
+> +	int rc;
+> +	struct task_struct *tsk = pidtsk;
+> +
+> +	if (!pidtsk) {
+> +		read_lock(&tasklist_lock);
+> +		tsk = find_task_by_pid(pid);
+> +		if (!tsk) {
+> +			read_unlock(&tasklist_lock);
+> +			return -ESRCH;
+> +		}
+> +		get_task_struct(tsk);
+> +		read_unlock(&tasklist_lock);
+> +	} else
+> +		get_task_struct(tsk);
+> +
+> +	rc = delayacct_add_tsk(stats, tsk);
+> +	put_task_struct(tsk);
+> +
+> +	return rc;
+> +
+> +}
+
+Has two callsites, should be uninlined.
+
+> +static inline int fill_tgid(pid_t tgid, struct task_struct *tgidtsk,
+> +			    struct taskstats *stats)
+> +{
+> +	int rc;
+> +	struct task_struct *tsk, *first;
+> +
+> +	first = tgidtsk;
+> +	read_lock(&tasklist_lock);
+> +	if (!first) {
+> +		first = find_task_by_pid(tgid);
+> +		if (!first) {
+> +			read_unlock(&tasklist_lock);
+> +			return -ESRCH;
+> +		}
+> +	}
+> +	tsk = first;
+> +	do {
+> +		rc = delayacct_add_tsk(stats, tsk);
+> +		if (rc)
+> +			break;
+> +	} while_each_thread(first, tsk);
+> +	read_unlock(&tasklist_lock);
+> +
+> +	return rc;
+> +}
+
+Ditto.
+
+It's somewhat similar to fill_pid() - perhaps they can be combined, halving
+the overhead?
+
+> +static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
+> +{
+> +	int rc = 0;
+> +	struct sk_buff *rep_skb;
+> +	struct taskstats stats;
+> +	void *reply;
+> +	size_t size;
+> +	struct nlattr *na;
+> +
+> +	/*
+> +	 * Size includes space for nested attribute as well
+> +	 * The returned data is of the format
+> +	 * TASKSTATS_TYPE_AGGR_PID/TGID
+> +	 * --> TASKSTATS_TYPE_PID/TGID
+> +	 * --> TASKSTATS_TYPE_STATS
+> +	 */
+> +	size = nla_total_size(sizeof(u32)) +
+> +		nla_total_size(sizeof(struct taskstats)) + nla_total_size(0);
+> +
+> +	memset(&stats, 0, sizeof(stats));
+> +	rc = prepare_reply(info, TASKSTATS_CMD_NEW, &rep_skb, &reply, size);
+> +	if (rc < 0)
+> +		return rc;
+> +
+> +	if (info->attrs[TASKSTATS_CMD_ATTR_PID]) {
+> +		u32 pid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_PID]);
+> +		rc = fill_pid((pid_t)pid, NULL, &stats);
+
+We shouldn't have a typecast here.  If it generates a warning then we need
+to get in there and find out why.
+
+> +		if (rc < 0)
+> +			goto err;
+> +
+> +		na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_PID);
+> +		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_PID, pid);
+> +	} else if (info->attrs[TASKSTATS_CMD_ATTR_TGID]) {
+> +		u32 tgid = nla_get_u32(info->attrs[TASKSTATS_CMD_ATTR_TGID]);
+> +		rc = fill_tgid((pid_t)tgid, NULL, &stats);
+
+Ditto.
+
+> +		if (rc < 0)
+> +			goto err;
+> +
+> +		na = nla_nest_start(rep_skb, TASKSTATS_TYPE_AGGR_TGID);
+> +		NLA_PUT_U32(rep_skb, TASKSTATS_TYPE_TGID, tgid);
+> +	} else {
+> +		rc = -EINVAL;
+> +		goto err;
+> +	}
+> +
+> +	NLA_PUT_TYPE(rep_skb, struct taskstats, TASKSTATS_TYPE_STATS, stats);
+> +	nla_nest_end(rep_skb, na);
+> +
+> +	return send_reply(rep_skb, info->snd_pid, TASKSTATS_MSG_UNICAST);
+> +
+> +nla_put_failure:
+> +	return  genlmsg_cancel(rep_skb, reply);
+
+Extra space.
+
+> +err:
+> +	nlmsg_free(rep_skb);
+> +	return rc;
+> +}
+> +
+> +
+> +/* Send pid data out on exit */
+> +void taskstats_exit_pid(struct task_struct *tsk)
+> +{
+> +	int rc = 0;
+> +	struct sk_buff *rep_skb;
+> +	void *reply;
+> +	struct taskstats stats;
+> +	size_t size;
+> +	int is_thread_group = !thread_group_empty(tsk);
+> +	struct nlattr *na;
+> +
+> +	/*
+> +	 * tasks can start to exit very early. Ensure that the family
+> +	 * is registered before notifications are sent out
+> +	 */
+> +	if (!family_registered)
+> +		return;
+
+This code risks evaluating thread_group_empty() even if !family_registered.
+The compiler will most likely sort that out in this case, but it's a risk
+when using these initialisers.
+
+> +
+> +static int __init taskstats_init(void)
+> +{
+> +	if (genl_register_family(&family))
+> +		return -EFAULT;
+
+EFAULT?
+
+> +        family_registered = 1;
+
+whitespace broke.
+
+> +
+> +	if (genl_register_ops(&family, &taskstats_ops))
+> +		goto err;
+> +
+> +	return 0;
+> +err:
+> +	genl_unregister_family(&family);
+> +	family_registered = 0;
+> +	return -EFAULT;
+> +}
+> +
+> +late_initcall(taskstats_init);
+
+Why late_initcall()?  (A comment would be appropriate)
