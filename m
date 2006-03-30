@@ -1,63 +1,60 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Thu, 30 Mar 2006 19:21:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0603301919280.5777@bizon.gios.gov.pl>
-References: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408>
- <20060330082441.GA3149@king.bitgnome.net> <20060330162213.GA18426@linuxace.com>
+From: "Andrew Grover" <andy.grover@gmail.com>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Thu, 30 Mar 2006 10:27:44 -0800
+Message-ID: <c0a09e5c0603301027j50f09acbq9ed2df95f80cfa8d@mail.gmail.com>
+References: <20060311022759.3950.58788.stgit@gitlost.site>
+	 <20060311022919.3950.43835.stgit@gitlost.site>
+	 <2FF801BB-F96C-4864-AC44-09B4B92531F7@kernel.crashing.org>
+	 <c0a09e5c0603281044i57730c66ye08c45aadd352cf8@mail.gmail.com>
+	 <D760971F-3C6A-400B-99EA-E95358B37F82@kernel.crashing.org>
+	 <c0a09e5c0603281401uaeea6aci57054aef444a5e1@mail.gmail.com>
+	 <3B202D51-1683-465D-AE3D-DE301017BD69@kernel.crashing.org>
+	 <c0a09e5c0603291505h10f062d5qd6e1861ef052d07b@mail.gmail.com>
+	 <F9901EAA-FA85-4C9C-94F5-BE6A9C62A4A4@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-821063348-1143739296=:5777"
-Cc: Mark Nipper <nipsy@bitgnome.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
-	yoseph.basri@gmail.com, bb@kernelpanic.ru, mykleb@no.ibm.com,
-	michal@feix.cz, chris@scorpion.nl, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>, davem@davemloft.net,
-	E1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Phil Oester <kernel@linuxace.com>
-In-Reply-To: <20060330162213.GA18426@linuxace.com>
-Sender: e1000-devel-admin@lists.sourceforge.net
-Errors-To: e1000-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Chris Leech" <christopher.leech@intel.com>,
+	"linux kernel mailing list" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751361AbWC3S1q@vger.kernel.org>
+To: "Kumar Gala" <galak@kernel.crashing.org>
+In-Reply-To: <F9901EAA-FA85-4C9C-94F5-BE6A9C62A4A4@kernel.crashing.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On 3/30/06, Kumar Gala <galak@kernel.crashing.org> wrote:
+> I was under the impression that the DMA engine would provide a "sync"
+> cpu based memcpy (PIO) if a real HW channel wasn't avail, if this is
+> left to the client that's fine.  So how does the client know he
+> should use normal memcpy()?
 
----187430788-821063348-1143739296=:5777
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+It has to keep track of what DMA channel to use, which it gets when
+the channel ADDED callback happens. So it's basically
 
+if (some_client_struct->dma_chan)
+    dma_memcpy()
+else
+    memcpy()
 
+The async memcpy has the added requirement that at some point the
+client must verify the copies have been completed, so doing async
+memcopies does require more work on the client's part.
 
-On Thu, 30 Mar 2006, Phil Oester wrote:
-
->> On 29 Mar 2006, Brandeburg, Jesse wrote:
->> What I need from you is a reproducible test, and some information.  I
+> Sounds good for a start.  Have you given any thoughts on handling
+> priorities between clients?
 >
-> From all the reports which have come in thus far, it seems everyone
-> has > 1 e1000.  One person even reported that removing one of the two
-> nics solved the problem for him.  Does this help narrow down the search
-> area?
+> I need to take a look at the latest patches. How would you guys like
+> modifications?
 
-I have only one. Anyway, this massage happens _very_ occasionally in my
-case.
+Haven't given any thought to priorities yet -- we've been focusing on
+getting the 1 client case to perform well. :)
 
+Chris posted a link to this: git://198.78.49.142/~cleech/linux-2.6
+branch ioat-2.6.17
 
-Best regrads,
+So you can post patches against that, or the patches posted here apply
+against davem's git tree.
 
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-821063348-1143739296=:5777--
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
+Regards -- Andy
