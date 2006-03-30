@@ -1,40 +1,37 @@
-From: Balbir Singh <balbir@in.ibm.com>
-Subject: Re: dcache leak in 2.6.16-git8 II
-Date: Thu, 30 Mar 2006 12:11:04 +0530
-Message-ID: <20060330064104.GC18387@in.ibm.com>
-References: <200603270750.28174.ak@suse.de> <200603300026.59131.ak@suse.de> <20060329145013.37c87323.akpm@osdl.org> <200603300053.25235.ak@suse.de>
-Reply-To: balbir@in.ibm.com
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 2/9] I/OAT
+Date: Thu, 30 Mar 2006 10:21:24 +0400
+Message-ID: <20060330062124.GA8545@2ka.mipt.ru>
+References: <1143672844.27644.5.camel@black-lazer.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, bharata@in.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751165AbWC3Gnk@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751237AbWC3HVl@vger.kernel.org>
+To: Chris Leech <christopher.leech@intel.com>
 Content-Disposition: inline
-In-Reply-To: <200603300053.25235.ak@suse.de>
+In-Reply-To: <1143672844.27644.5.camel@black-lazer.jf.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2006 at 12:53:24AM +0200, Andi Kleen wrote:
-> On Thursday 30 March 2006 00:50, Andrew Morton wrote:
+On Wed, Mar 29, 2006 at 02:54:04PM -0800, Chris Leech (christopher.leech@intel.com) wrote:
+> [I/OAT] Driver for the Intel(R) I/OAT DMA engine
 > 
-> > It looks that way.  Didn't someone else report a sock_inode_cache leak?
+> From: Chris Leech <christopher.leech@intel.com>
 > 
-> Didn't see it.
->  
-> > > I still got a copy of the /proc in case anybody wants more information.
-> > 
-> > We have this fancy new /proc/slab_allocators now, it might show something
-> > interesting.  It needs CONFIG_DEBUG_SLAB_LEAK.
+> Adds a new ioatdma driver
 > 
-> I didn't have that enabled unfortunately. I can try it on the next round.
-> 
-> -Andi
->
+> Signed-off-by: Chris Leech <christopher.leech@intel.com>
 
-There is also a new sysctl to drop caches. It is called vm.drop_caches.
-It will be interesting to see if it is able to free up some dcache memory
-for you.
+Let's do it again.
+Could you please describe how struct ioat_dma_chan channels are freed?
+For example when device is removed just after it has been added.
 
-Balbir
- 
+ioat_probe() -> enumerate_dma_channels() (failures are ok now) ->
+kmalloc a lot of channels.
+
+ioat_remove() -> dma_async_device_unregister() which does not cleanup
+ioat_dma_chan channels, but only clients.
+It ends up in dma_async_device_cleanup() only.
+
+-- 
+	Evgeniy Polyakov
