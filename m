@@ -1,36 +1,61 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/9] [I/OAT] DMA memcpy subsystem
-Date: Thu, 30 Mar 2006 13:57:51 -0600
-Message-ID: <351C5BDA-D7E3-4257-B07E-ABDDCF254954@kernel.crashing.org>
-References: <20060329225505.25585.30392.stgit@gitlost.site> <20060329225548.25585.73037.stgit@gitlost.site> <8C52750C-8BC3-4815-834C-6DBEA714BA0F@kernel.crashing.org> <c0a09e5c0603301036s4e9a63e5v476d89ff8ba37760@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v746.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Chris Leech" <christopher.leech@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750791AbWC3T5m@vger.kernel.org>
-In-Reply-To: <c0a09e5c0603301036s4e9a63e5v476d89ff8ba37760@mail.gmail.com>
-To: Andrew Grover <andy.grover@gmail.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH]: e1000: prevent statistics from getting garbled during reset.
+Date: Thu, 30 Mar 2006 15:39:28 -0600
+Message-ID: <20060330213928.GQ2172@austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	linuxppc-dev@ozlabs.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750987AbWC3Vju@vger.kernel.org>
+To: john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Mar 30, 2006, at 12:36 PM, Andrew Grover wrote:
+Please review, sign-off/ack, and forward upstream.
+--linas
 
-> On 3/30/06, Kumar Gala <galak@kernel.crashing.org> wrote:
->> What is the utility of exporting memcpy_count, and bytes_transferred
->> to userspace via sysfs?  Is this really for debug (and thus should be
->> under debugfs?)
->
-> Well....it's true they're useful for debugging but I would put them in
-> the category of system statistics that shouldn't go in debugfs. I
-> think they are like /proc/interrupts' interrupt counts or the TX/RX
-> stats reported by ifconfig.
+[PATCH]: e1000: prevent statistics from getting garbled during reset.
 
-Fair, but wouldn't it be better to have the association per client.
+If a PCI bus error/fault triggers a PCI bus reset, attempts to get the
+ethernet packet count statistics from the hardware will fail, returning
+garbage data upstream.  This patch skips statistics data collection
+if the PCI device is not on the bus. 
 
-Maybe leave the one as a summary and have a dir per client with  
-similar stats that are for each client and add a per channel summary  
-at the top level as well.
+This patch presumes that an earlier patch,
+[PATCH] PCI Error Recovery: e1000 network device driver
+has already been applied.
 
-- kumar
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+
+----
+ drivers/net/e1000/e1000_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.16-git6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.16-git6.orig/drivers/net/e1000/e1000_main.c	2006-03-30 14:42:33.000000000 -0600
++++ linux-2.6.16-git6/drivers/net/e1000/e1000_main.c	2006-03-30 14:44:52.000000000 -0600
+@@ -3069,13 +3069,17 @@ void
+ e1000_update_stats(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct pci_dev *pdev = adapter->pdev;
+ 	unsigned long flags;
+ 	uint16_t phy_tmp;
+ 
+ #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+ 
+-	/* Prevent stats update while adapter is being reset */
+-	if (adapter->link_speed == 0)
++	/* Prevent stats update while adapter is being reset, or if
++	 * the pci connection is down. */
++	if ((adapter->link_speed == 0) ||
++       ((pdev->error_state != 0) &&
++	    (pdev->error_state != pci_channel_io_normal)))
+ 		return;
+ 
+ 	spin_lock_irqsave(&adapter->stats_lock, flags);
