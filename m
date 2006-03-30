@@ -1,21 +1,20 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Wed, 29 Mar 2006 18:53:57 -0800
-Message-ID: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
+Date: Thu, 30 Mar 2006 14:02:01 +0400
+Message-ID: <442BAC99.2090404@kernelpanic.ru>
+References: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408> <20060329.204409.109404254.davem@davemloft.net> <20060330095245.GA2385@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: <netdev@vger.kernel.org>,
-	"Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
-	<davem@davemloft.net>, <E1000-devel@lists.sourceforge.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	E1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-To: <nipsy@bitgnome.net>, <jrlundgren@gmail.com>, <cat@zip.com.au>,
-	<djani22@dynamicweb.hu>, <yoseph.basri@gmail.com>,
-	<bb@kernelpanic.ru>, <mykleb@no.ibm.com>, <olel@ans.pl>,
-	<michal@feix.cz>, <chris@scorpion.nl>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060330095245.GA2385@gondor.apana.org.au>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -27,42 +26,43 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hi all, I've identified you as people who have at some point in the past
-emailed one of the Linux lists with problems with e1000 and
-sk_forward_alloc.  It seems to be fairly widespread, but only seems to
-have appeared with recent kernel changes (after 2.6.12...)
+Hello, Herbert Xu.
 
-What I need from you is a reproducible test, and some information.  I
-have never been able to reproduce this, and I'm trying to isolate the
-problem a bit.  What motherboards are you using?  What seems to cause
-this problem?  Are you all using iptables?  Are you all routing? From
-the reports I assume none of you are using an 82571/2/3 (pci express)
+On 30.03.2006 13:52 you said the following:
 
-As far as I know e1000 has the same requirement as tg3 and some others
-where we have to modify the header of the skb in the case of transmits
-using TSO.  I don't see anywhere else that the driver modifies the skb.
-Tomorrow I'll generate a patch to try a more paranoid copying of the
-skb, I hope some of you can test.
+> On Wed, Mar 29, 2006 at 08:44:09PM -0800, David S. Miller wrote:
+> 
+>>Herbert do you see any holes here?
+> 
+> 
+> Well I started from the beginning again, and found this.  This may be
+> the smoking gun that we're after :)
+> 
+> The xmit routine is lockless but checks last_tx_tso outside the locked
+> section.  So if a TSO packet wins a race against a non-TSO packet with
+> last_tx_tso == 0 then we'll have memory corruption.
+> 
+> Everyone, please try this patch and let us know whether the problem
+> goes away.
+> 
+> Thanks,
 
-To do this we have code like so in e1000_tso:
-2529         if (skb_shinfo(skb)->tso_size) {
-2530                 if (skb_header_cloned(skb)) {
-2531                         err =3D pskb_expand_head(skb, 0, 0,
-GFP_ATOMIC);
-2532                         if (err)
-2533                                 return err;
-2534                 }
-2535=20
-2536                 hdr_len =3D ((skb->h.raw - skb->data) +
-(skb->h.th->doff << 2));
-2537                 mss =3D skb_shinfo(skb)->tso_size;
-2538                 if (skb->protocol =3D=3D ntohs(ETH_P_IP)) {
-2539                         skb->nh.iph->tot_len =3D 0;
-2540                         skb->nh.iph->check =3D 0;
 
-Thanks for your assistance
 
-Jesse
+[zhmurov@builds linux-2.6.16]$ patch -p1 < 
+../../../SOURCES/linux-2.6.16-e1000-try-to-fix-assertion_sk_forward_alloc_failed_by_Herbert_Xu.patch 
+
+patching file drivers/net/e1000/e1000_main.c
+Reversed (or previously applied) patch detected!  Assume -R? [n]
+
+
+Herbert, is that patch already included in 2.6.16.1?
+
+-- 
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
+
 
 
 -------------------------------------------------------
