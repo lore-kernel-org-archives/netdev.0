@@ -1,21 +1,20 @@
-From: "Johan Lundgren" <johan.lundgren@airliners.net>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Thu, 30 Mar 2006 11:49:35 +0200
-Message-ID: <2399bdcc0603300149k18983d06xead26286b69b8fdd@mail.gmail.com>
-References: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408>
+Date: Thu, 30 Mar 2006 17:29:09 +0400
+Message-ID: <442BDD25.1060000@kernelpanic.ru>
+References: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408> <20060329.204409.109404254.davem@davemloft.net> <20060330095245.GA2385@gondor.apana.org.au> <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: nipsy@bitgnome.net, cat@zip.com.au, djani22@dynamicweb.hu,
-	yoseph.basri@gmail.com, bb@kernelpanic.ru, mykleb@no.ibm.com,
-	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org,
-	"Jesse Brandeburg" <jesse.brandeburg@gmail.com>, davem@davemloft.net,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
 	E1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-In-Reply-To: <C925F8B43D79CC49ACD0601FB68FF50C07461F59@orsmsx408>
-Content-Disposition: inline
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060330101218.GA2905@gondor.apana.org.au>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -27,70 +26,44 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello, Herbert Xu.
 
->What seems to cause this problem?
+On 30.03.2006 14:12 you said the following:
 
-That I cannot say but the problem was fixed by removing one e1000 card
-from the server (I initially had two e1000 cards installed in addition
-to the two tg3 cards on the board).
-
-Another fix was to disable TSO with ethtool.
-
->What motherboards are you using?
-
-Supermicro H8DAE (dual Opteron)
-
->Are you all using iptables?  Are you all routing?
-
-Iptables yes, routing no.
-
->none of you are using an 82571/2/3 (pci express)
-
-Correct.
-
-Regards,
-Johan
+> On Thu, Mar 30, 2006 at 10:02:01AM +0000, Boris B. Zhmurov wrote:
+> 
+>>[zhmurov@builds linux-2.6.16]$ patch -p1 < 
+>>../../../SOURCES/linux-2.6.16-e1000-try-to-fix-assertion_sk_forward_alloc_failed_by_Herbert_Xu.patch 
+>>
+>>patching file drivers/net/e1000/e1000_main.c
+>>Reversed (or previously applied) patch detected!  Assume -R? [n]
+>>
+>>Herbert, is that patch already included in 2.6.16.1?
+> 
+> 
+> Not really.  It's just patch being silly (or too smart :)
+> 
+> Here it is again rediffed against 2.6.16.
 
 
-On 3/30/06, Brandeburg, Jesse <jesse.brandeburg@intel.com> wrote:
-> Hi all, I've identified you as people who have at some point in the past
-> emailed one of the Linux lists with problems with e1000 and
-> sk_forward_alloc.  It seems to be fairly widespread, but only seems to
-> have appeared with recent kernel changes (after 2.6.12...)
->
-> What I need from you is a reproducible test, and some information.  I
-> have never been able to reproduce this, and I'm trying to isolate the
-> problem a bit.  What motherboards are you using?  What seems to cause
-> this problem?  Are you all using iptables?  Are you all routing? From
-> the reports I assume none of you are using an 82571/2/3 (pci express)
->
-> As far as I know e1000 has the same requirement as tg3 and some others
-> where we have to modify the header of the skb in the case of transmits
-> using TSO.  I don't see anywhere else that the driver modifies the skb.
-> Tomorrow I'll generate a patch to try a more paranoid copying of the
-> skb, I hope some of you can test.
->
-> To do this we have code like so in e1000_tso:
-> 2529         if (skb_shinfo(skb)->tso_size) {
-> 2530                 if (skb_header_cloned(skb)) {
-> 2531                         err =3D pskb_expand_head(skb, 0, 0,
-> GFP_ATOMIC);
-> 2532                         if (err)
-> 2533                                 return err;
-> 2534                 }
-> 2535
-> 2536                 hdr_len =3D ((skb->h.raw - skb->data) +
-> (skb->h.th->doff << 2));
-> 2537                 mss =3D skb_shinfo(skb)->tso_size;
-> 2538                 if (skb->protocol =3D=3D ntohs(ETH_P_IP)) {
-> 2539                         skb->nh.iph->tot_len =3D 0;
-> 2540                         skb->nh.iph->check =3D 0;
->
-> Thanks for your assistance
->
-> Jesse
->
+Nope, with this patch the problem still exists. After 25 min. uptime 
+with patched kernel 2.6.16.1, I have:
+
+Mar 30 16:30:31 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/core/stream.c (283)
+Mar 30 16:30:31 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/ipv4/af_inet.c (150)
+Mar 30 17:05:42 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/core/stream.c (283)
+Mar 30 17:05:42 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/ipv4/af_inet.c (150)
+
+
+-- 
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
+
 
 
 -------------------------------------------------------
