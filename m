@@ -1,20 +1,45 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: dcache leak in 2.6.16-git8 II
-Date: Thu, 30 Mar 2006 11:36:52 +0100
-Message-ID: <20060330103651.GY27946@ftp.linux.org.uk>
-References: <200603270750.28174.ak@suse.de> <200603271822.28043.ak@suse.de> <20060327190027.24498e3a.akpm@osdl.org> <200603300026.59131.ak@suse.de> <20060330095048.GW27946@ftp.linux.org.uk> <20060330101256.GX27946@ftp.linux.org.uk>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: (usagi-users 03645) Re: How to retrieve kernel's IPv6 routing cache table?
+Date: Thu, 30 Mar 2006 23:58:38 +0900 (JST)
+Message-ID: <20060330.235838.30940800.yoshfuji@linux-ipv6.org>
+References: <442BED92.4030007@bieringer.de>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, bharata@in.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932168AbWC3Kg5@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20060330101256.GX27946@ftp.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: pb@bieringer.de
+In-Reply-To: <442BED92.4030007@bieringer.de>
+Resent-Message-Id: <20060330.235925.02236800.yoshfuji@linux-ipv6.org>
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-BTW, it allows even funnier stuff: instead of "I'd been allocated by <place>"
-you can do "I'd passed through <place>".  E.g. if object has different states
-you can slap slab_charge_here() in state transitions and /proc/slab_allocators
-will count them separately, showing how many objects are in which state, etc.
+Hello.
+
+In article <442BED92.4030007@bieringer.de> (at Thu, 30 Mar 2006 16:39:14 +0200), Peter Bieringer <pb@bieringer.de> says:
+
+> IPv6:
+> # ip -6 route show table cache
+> ff02::1 via ff02::1 dev eth0  metric 0
+>     cache  mtu 1280 advmss 1220 metric 10 4294967295
+> ff02::1:ffea:7781 via ff02::1:ffea:7781 dev eth0  metric 0
+>     cache  mtu 1280 advmss 1220 metric 10 4294967295
+> 
+> That's all? I would expect similar to IPv4 like:
+
+No surprise, that's all.
+
+> # ip -4 route show table cache
+> local 127.0.0.1 from 127.0.0.1 dev lo
+>     cache <local>  mtu 16436 advmss 16396 metric 10 64
+:
+
+We don't have "cache" route unless it is link-local, or
+you got e.g. "too big" or "redirect", so far.
+
+--yoshfuji
