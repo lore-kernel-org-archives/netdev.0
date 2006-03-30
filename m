@@ -1,239 +1,67 @@
 From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/9] [I/OAT] DMA memcpy subsystem
-Date: Thu, 30 Mar 2006 02:01:20 -0600
-Message-ID: <8C52750C-8BC3-4815-834C-6DBEA714BA0F@kernel.crashing.org>
-References: <20060329225505.25585.30392.stgit@gitlost.site> <20060329225548.25585.73037.stgit@gitlost.site>
+Subject: Re: [PATCH 1/8] [I/OAT] DMA memcpy subsystem
+Date: Thu, 30 Mar 2006 02:01:50 -0600
+Message-ID: <F9901EAA-FA85-4C9C-94F5-BE6A9C62A4A4@kernel.crashing.org>
+References: <20060311022759.3950.58788.stgit@gitlost.site> <20060311022919.3950.43835.stgit@gitlost.site> <2FF801BB-F96C-4864-AC44-09B4B92531F7@kernel.crashing.org> <c0a09e5c0603281044i57730c66ye08c45aadd352cf8@mail.gmail.com> <D760971F-3C6A-400B-99EA-E95358B37F82@kernel.crashing.org> <c0a09e5c0603281401uaeea6aci57054aef444a5e1@mail.gmail.com> <3B202D51-1683-465D-AE3D-DE301017BD69@kernel.crashing.org> <c0a09e5c0603291505h10f062d5qd6e1861ef052d07b@mail.gmail.com>
 Mime-Version: 1.0 (Apple Message framework v746.3)
 Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751324AbWC3IBN@vger.kernel.org>
-In-Reply-To: <20060329225548.25585.73037.stgit@gitlost.site>
-To: Chris Leech <christopher.leech@intel.com>
+Cc: "Chris Leech" <christopher.leech@intel.com>,
+	"linux kernel mailing list" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751320AbWC3IBj@vger.kernel.org>
+In-Reply-To: <c0a09e5c0603291505h10f062d5qd6e1861ef052d07b@mail.gmail.com>
+To: "Andrew Grover" <andy.grover@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On Mar 29, 2006, at 4:55 PM, Chris Leech wrote:
+On Mar 29, 2006, at 5:05 PM, Andrew Grover wrote:
 
-> Provides an API for offloading memory copies to DMA devices
+> On 3/28/06, Kumar Gala <galak@kernel.crashing.org> wrote:
+>> Do you only get callback when a channel is available?
 >
-> Signed-off-by: Chris Leech <christopher.leech@intel.com>
-> ---
+> Yes
 >
->  drivers/Kconfig           |    2
->  drivers/Makefile          |    1
->  drivers/dma/Kconfig       |   13 +
->  drivers/dma/Makefile      |    1
->  drivers/dma/dmaengine.c   |  405 ++++++++++++++++++++++++++++++++++ 
-> +++++++++++
->  include/linux/dmaengine.h |  337 ++++++++++++++++++++++++++++++++++ 
-> +++
->  6 files changed, 759 insertions(+), 0 deletions(-)
+>> How do you
+>> decide to do to provide PIO to the client?
 >
-> diff --git a/drivers/Kconfig b/drivers/Kconfig
-> index 9f5c0da..f89ac05 100644
-> --- a/drivers/Kconfig
-> +++ b/drivers/Kconfig
-> @@ -72,4 +72,6 @@ source "drivers/edac/Kconfig"
->
->  source "drivers/rtc/Kconfig"
->
-> +source "drivers/dma/Kconfig"
-> +
->  endmenu
-> diff --git a/drivers/Makefile b/drivers/Makefile
-> index 4249552..9b808a6 100644
-> --- a/drivers/Makefile
-> +++ b/drivers/Makefile
-> @@ -74,3 +74,4 @@ obj-$(CONFIG_SGI_SN)		+= sn/
->  obj-y				+= firmware/
->  obj-$(CONFIG_CRYPTO)		+= crypto/
->  obj-$(CONFIG_SUPERH)		+= sh/
-> +obj-$(CONFIG_DMA_ENGINE)	+= dma/
-> diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
-> new file mode 100644
-> index 0000000..f9ac4bc
-> --- /dev/null
-> +++ b/drivers/dma/Kconfig
-> @@ -0,0 +1,13 @@
-> +#
-> +# DMA engine configuration
-> +#
-> +
-> +menu "DMA Engine support"
-> +
-> +config DMA_ENGINE
-> +	bool "Support for DMA engines"
-> +	---help---
-> +	  DMA engines offload copy operations from the CPU to dedicated
-> +	  hardware, allowing the copies to happen asynchronously.
-> +
-> +endmenu
-> diff --git a/drivers/dma/Makefile b/drivers/dma/Makefile
-> new file mode 100644
-> index 0000000..10b7391
-> --- /dev/null
-> +++ b/drivers/dma/Makefile
-> @@ -0,0 +1 @@
-> +obj-y += dmaengine.o
-> diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-> new file mode 100644
-> index 0000000..683456a
-> --- /dev/null
-> +++ b/drivers/dma/dmaengine.c
-> @@ -0,0 +1,405 @@
-> +/*
-> + * Copyright(c) 2004 - 2006 Intel Corporation. All rights reserved.
-> + *
-> + * This program is free software; you can redistribute it and/or  
-> modify it
-> + * under the terms of the GNU General Public License as published  
-> by the Free
-> + * Software Foundation; either version 2 of the License, or (at  
-> your option)
-> + * any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,  
-> but WITHOUT
-> + * ANY WARRANTY; without even the implied warranty of  
-> MERCHANTABILITY or
-> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public  
-> License for
-> + * more details.
-> + *
-> + * You should have received a copy of the GNU General Public  
-> License along with
-> + * this program; if not, write to the Free Software Foundation,  
-> Inc., 59
-> + * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-> + *
-> + * The full GNU General Public License is included in this  
-> distribution in the
-> + * file called COPYING.
-> + */
-> +
-> +/*
-> + * This code implements the DMA subsystem. It provides a HW- 
-> neutral interface
-> + * for other kernel code to use asynchronous memory copy  
-> capabilities,
-> + * if present, and allows different HW DMA drivers to register as  
-> providing
-> + * this capability.
-> + *
-> + * Due to the fact we are accelerating what is already a  
-> relatively fast
-> + * operation, the code goes to great lengths to avoid additional  
-> overhead,
-> + * such as locking.
-> + *
-> + * LOCKING:
-> + *
-> + * The subsystem keeps two global lists, dma_device_list and  
-> dma_client_list.
-> + * Both of these are protected by a spinlock, dma_list_lock.
-> + *
-> + * Each device has a channels list, which runs unlocked but is  
-> never modified
-> + * once the device is registered, it's just setup by the driver.
-> + *
-> + * Each client has a channels list, it's only modified under the  
-> client->lock
-> + * and in an RCU callback, so it's safe to read under rcu_read_lock 
-> ().
-> + *
-> + * Each device has a kref, which is initialized to 1 when the  
-> device is
-> + * registered. A kref_put is done for each class_device  
-> registered.  When the
-> + * class_device is released, the coresponding kref_put is done in  
-> the release
-> + * method. Every time one of the device's channels is allocated to  
-> a client,
-> + * a kref_get occurs.  When the channel is freed, the coresponding  
-> kref_put
-> + * happens. The device's release function does a completion, so
-> + * unregister_device does a remove event, class_device_unregister,  
-> a kref_put
-> + * for the first reference, then waits on the completion for all  
-> other
-> + * references to finish.
-> + *
-> + * Each channel has an open-coded implementation of Rusty  
-> Russell's "bigref,"
-> + * with a kref and a per_cpu local_t.  A single reference is set  
-> when on an
-> + * ADDED event, and removed with a REMOVE event.  Net DMA client  
-> takes an
-> + * extra reference per outstanding transaction.  The relase  
-> function does a
-> + * kref_put on the device. -ChrisL
-> + */
-> +
-> +#include <linux/init.h>
-> +#include <linux/module.h>
-> +#include <linux/device.h>
-> +#include <linux/dmaengine.h>
-> +#include <linux/hardirq.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/percpu.h>
-> +#include <linux/rcupdate.h>
-> +
-> +static DEFINE_SPINLOCK(dma_list_lock);
-> +static LIST_HEAD(dma_device_list);
-> +static LIST_HEAD(dma_client_list);
-> +
-> +/* --- sysfs implementation --- */
-> +
-> +static ssize_t show_memcpy_count(struct class_device *cd, char *buf)
-> +{
-> +	struct dma_chan *chan = container_of(cd, struct dma_chan,  
-> class_dev);
-> +	unsigned long count = 0;
-> +	int i;
-> +
-> +	for_each_cpu(i)
-> +		count += per_cpu_ptr(chan->local, i)->memcpy_count;
-> +
-> +	return sprintf(buf, "%lu\n", count);
-> +}
-> +
-> +static ssize_t show_bytes_transferred(struct class_device *cd,  
-> char *buf)
-> +{
-> +	struct dma_chan *chan = container_of(cd, struct dma_chan,  
-> class_dev);
-> +	unsigned long count = 0;
-> +	int i;
-> +
-> +	for_each_cpu(i)
-> +		count += per_cpu_ptr(chan->local, i)->bytes_transferred;
-> +
-> +	return sprintf(buf, "%lu\n", count);
-> +}
-> +
+> The client is responsible for using any channels it gets, or falling
+> back to memcpy() if it doesn't get any. (I don't understand how PIO
+> comes into the picture..?)
 
-What is the utility of exporting memcpy_count, and bytes_transferred  
-to userspace via sysfs?  Is this really for debug (and thus should be  
-under debugfs?)
+I was under the impression that the DMA engine would provide a "sync"  
+cpu based memcpy (PIO) if a real HW channel wasn't avail, if this is  
+left to the client that's fine.  So how does the client know he  
+should use normal memcpy()?
 
-> +static ssize_t show_in_use(struct class_device *cd, char *buf)
-> +{
-> +	struct dma_chan *chan = container_of(cd, struct dma_chan,  
-> class_dev);
-> +
-> +	return sprintf(buf, "%d\n", (chan->client ? 1 : 0));
-> +}
-> +
-> +static struct class_device_attribute dma_class_attrs[] = {
-> +	__ATTR(memcpy_count, S_IRUGO, show_memcpy_count, NULL),
-> +	__ATTR(bytes_transferred, S_IRUGO, show_bytes_transferred, NULL),
-> +	__ATTR(in_use, S_IRUGO, show_in_use, NULL),
-> +	__ATTR_NULL
-> +};
-> +
+>> A client should only request multiple channel to handle multiple
+>> concurrent operations.
+>
+> Correct, if there aren't any CPU concurrency issues then 1 channel
+> will use the device's full bandwidth (unless some other client has
+> acquired the other channels and is using them, of course.)
+>
+>>> This gets around the problem of DMA clients registering (and  
+>>> therefore
+>>> not getting) channels simply because they init before the DMA device
+>>> is discovered.
+>>
+>> What do you expect to happen in a system in which the channels are
+>> over subscribed?
+>>
+>> Do you expect the DMA device driver to handle scheduling of channels
+>> between multiple clients?
+>
+> It does the simplest thing that could possibly work right now:
+> channels are allocated first come first serve. When there is a need,
+> it should be straightforward to allow multiple clients to share DMA
+> channels.
 
-[snip]
+Sounds good for a start.  Have you given any thoughts on handling  
+priorities between clients?
 
-- kumar
+I need to take a look at the latest patches. How would you guys like  
+modifications?
+
+- k
