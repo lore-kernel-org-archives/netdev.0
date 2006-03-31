@@ -1,23 +1,21 @@
-From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 21:19:59 +0400
-Message-ID: <442D64BF.3000406@kernelpanic.ru>
-References: <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru> <442D45EA.9010309@kernelpanic.ru> <442D486D.909@kernelpanic.ru> <20060331160121.GA19110@king.bitgnome.net>
-Reply-To: bb@kernelpanic.ru
+Date: Fri, 31 Mar 2006 09:22:32 -0800 (Pacific Standard Time)
+Message-ID: <Pine.WNT.4.63.0603310839070.3752@jbrandeb-desk.amr.corp.intel.com>
+References: <200603311057.07213.netdev@axxeo.de> <20060331.013540.95485284.davem@davemloft.net>
+ <20060331094240.GA11040@gondor.apana.org.au> <200603311418.47626.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christiaan den Besten <chris@prolocation.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
-	yoseph.basri@gmail.com, mykleb@no.ibm.com, olel@ans.pl,
-	michal@feix.cz, netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
-	Jeff Garzik <jgarzik@pobox.com>
+	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
+	djani22@dynamicweb.hu, yoseph.basri@gmail.com, bb@kernelpanic.ru,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	E1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Mark Nipper <nipsy@bitgnome.net>
-In-Reply-To: <20060331160121.GA19110@king.bitgnome.net>
+To: Ingo Oeser <netdev@axxeo.de>
+In-Reply-To: <200603311418.47626.netdev@axxeo.de>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -29,28 +27,49 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hello, Mark Nipper.
-
-On 31.03.2006 20:01 you said the following:
-
-> On 31 Mar 2006, Boris B. Zhmurov wrote:
-> 
->>stream.c (279) -> stream.c (283)
->>af_inet.c (148) -> af_inet.c (150)
-> 
-> 
->         That will be because the patches changed the line numbers
-> in the source I believe.  Nothing helpful unfortunately.
-> 
 
 
-Ok. Anyway, as assertion is 100% repeatable on my server, I'm ready to 
-try any patches to get rid of this.
+On Fri, 31 Mar 2006, Ingo Oeser wrote:
 
--- 
-Boris B. Zhmurov
-mailto: bb@kernelpanic.ru
-"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
+> Hi,
+>
+> Herbert Xu wrote:
+>> On Fri, Mar 31, 2006 at 01:35:40AM -0800, David S. Miller wrote:
+>>> He does not have TSO enabled, e1000 disables TSO when on a link speed
+>>> slower than gigabit.
+>
+> dmesg|grep eth0
+> [4294671.426000] e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+> [4294679.125000] e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
+>
+>
+> # ethtool -k eth0
+> Offload parameters for eth0:
+> rx-checksumming: on
+> tx-checksumming: on
+> scatter-gather: on
+> tcp segmentation offload: on
+>
+> So this theory doesn't seem to hold :-(
+>
+>> Indeed.  But I think that only happens on PCI Express and I don't think
+>> Ingo is using PCI Express.
+>
+> Right. PCI-Express is not available in this machine.
+>
+
+First, thanks for all the responses.
+
+6.3.9-k4 in 2.6.16 doesn't turn off TSO for 10/100, 7.0.33 in 2.6.17-pre 
+does, I think that will help alleviate some of the confusion.
+
+I've been working hard to try to reproduce here, no luck so far.
+
+Herbert's fixes are interesting and appreciated.  I'm going to try to 
+generate tests today that will show that the bugs he's mentioned could 
+occur.
+
+Jesse
 
 
 
