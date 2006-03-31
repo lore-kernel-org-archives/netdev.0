@@ -1,62 +1,42 @@
-From: Mark Nipper <nipsy@bitgnome.net>
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 10:01:22 -0600
-Message-ID: <20060331160121.GA19110@king.bitgnome.net>
-References: <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru> <442D45EA.9010309@kernelpanic.ru> <442D486D.909@kernelpanic.ru>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH]: e1000: prevent statistics from getting garbled during reset.
+Date: Fri, 31 Mar 2006 11:03:19 -0600
+Message-ID: <20060331170319.GV2172@austin.ibm.com>
+References: <20060330213928.GQ2172@austin.ibm.com> <20060331000208.GS2172@austin.ibm.com> <442C8069.507@wolfmountaingroup.com> <20060331003506.GU2172@austin.ibm.com> <442CACC0.1060308@wolfmountaingroup.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Christiaan den Besten <chris@prolocation.net>,
-	Mark Nipper <nipsy@bitgnome.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
-	yoseph.basri@gmail.com, mykleb@no.ibm.com, olel@ans.pl,
-	michal@feix.cz, netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
-	Jeff Garzik <jgarzik@pobox.com>
-Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com, Jeff Garzik <jgarzik@pobox.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linuxppc-dev@ozlabs.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751035AbWCaRDe@vger.kernel.org>
+To: "Jeffrey V. Merkey" <jmerkey@wolfmountaingroup.com>
 Content-Disposition: inline
-In-Reply-To: <442D486D.909@kernelpanic.ru>
-Sender: e1000-devel-admin@lists.sourceforge.net
-Errors-To: e1000-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+In-Reply-To: <442CACC0.1060308@wolfmountaingroup.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31 Mar 2006, Boris B. Zhmurov wrote:
-> stream.c (279) -> stream.c (283)
-> af_inet.c (148) -> af_inet.c (150)
+On Thu, Mar 30, 2006 at 09:14:56PM -0700, Jeffrey V. Merkey wrote:
+> Yes, we need one. The adapter needs to maintain these stats from the
+> registers in the kernel structure and not
+> its own local variables. 
 
-        That will be because the patches changed the line numbers
-in the source I believe.  Nothing helpful unfortunately.
+Did you read the code to see what the adapter does with these stats? 
+Among other things, it uses them to adaptively modulate transmit rates 
+to avoid collisions. Just clearing the hardware-private stats will mess
+up that function.
 
--- 
-Mark Nipper                                                e-contacts:
-832 Tanglewood Drive                                nipsy@bitgnome.net
-Bryan, Texas 77802-4013                     http://nipsy.bitgnome.net/
-(979)575-3193                      AIM/Yahoo: texasnipsy ICQ: 66971617
+> That way, when someone calls to clear the stats
+> for testing and analysis purposes,
+> they zero out and are reset.
 
------BEGIN GEEK CODE BLOCK-----
-Version: 3.1
-GG/IT d- s++:+ a- C++$ UBL++++$ P--->+++ L+++$ !E---
-W++(--) N+ o K++ w(---) O++ M V(--) PS+++(+) PE(--)
-Y+ PGP t+ 5 X R tv b+++@ DI+(++) D+ G e h r++ y+(**)
-------END GEEK CODE BLOCK------
+1) ifdown/ifup is guarenteed to to clear things. Try that.
 
----begin random quote of the moment---
-"Whiskey-Tango-Foxtrot, over."
- -- anonymous
-----end random quote of the moment----
+2) What's wrong with taking deltas? Typical through-put performance
+measurement is done by pre-loading the pipes (i.e. running for
+a few minutes wihtout measuring, then starting the measurement).
+I'd think that snapshotting the numbers would be easier, and is 
+trivially doable in user-space. I guess I don't understand why 
+you need a new kernel featre to imlement this.
 
-
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
+--linas
