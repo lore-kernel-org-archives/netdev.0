@@ -1,22 +1,21 @@
-From: Ingo Oeser <netdev@axxeo.de>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 14:18:46 +0200
-Message-ID: <200603311418.47626.netdev@axxeo.de>
-References: <200603311057.07213.netdev@axxeo.de> <20060331.013540.95485284.davem@davemloft.net> <20060331094240.GA11040@gondor.apana.org.au>
+Date: Fri, 31 Mar 2006 16:23:02 +0400
+Message-ID: <442D1F26.8050601@kernelpanic.ru>
+References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
-	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
-	bb@kernelpanic.ru, mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz,
-	chris@scorpion.nl, netdev@vger.kernel.org,
-	jesse.brandeburg@gmail.com, E1000-devel@lists.sourceforge.net
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
+	yoseph.basri@gmail.com, mykleb@no.ibm.com, olel@ans.pl,
+	michal@feix.cz, chris@scorpion.nl, netdev@vger.kernel.org,
+	jesse.brandeburg@gmail.com, E1000-devel@lists.sourceforge.net,
+	Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060331094240.GA11040@gondor.apana.org.au>
-Content-Disposition: inline
+To: Mark Nipper <nipsy@bitgnome.net>
+In-Reply-To: <20060331121007.GA2146@king.bitgnome.net>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -28,38 +27,30 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello, Mark Nipper.
 
-Herbert Xu wrote:
-> On Fri, Mar 31, 2006 at 01:35:40AM -0800, David S. Miller wrote:
-> > He does not have TSO enabled, e1000 disables TSO when on a link speed
-> > slower than gigabit.
+On 31.03.2006 16:10 you said the following:
 
-dmesg|grep eth0
-[4294671.426000] e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
-[4294679.125000] e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
+>         This unfortunately is not the case.  I have two e1000
+> interfaces but only eth1 is up and in use.  And I still had
+> assertions.
 
 
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: on
-
-So this theory doesn't seem to hold :-(
-
-> Indeed.  But I think that only happens on PCI Express and I don't think
-> Ingo is using PCI Express.
-
-Right. PCI-Express is not available in this machine.
-
-Maybe the traffic is not enough to trigger it. External connect is just a 6MBit DSL.
+Can you switch to eth0? There is no problem with _eth0_, my friend says.
 
 
-Regards
+ > And I still had
+ > assertions.
 
-Ingo Oeser
+
+I'm already using kernel with second Herbert's patch. We'll see...
+
+
+-- 
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
+
 
 
 -------------------------------------------------------
