@@ -1,67 +1,61 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH]: e1000: prevent statistics from getting garbled during reset.
-Date: Fri, 31 Mar 2006 11:06:20 -0600
-Message-ID: <20060331170620.GW2172@austin.ibm.com>
-References: <20060330213928.GQ2172@austin.ibm.com> <20060331000208.GS2172@austin.ibm.com> <20060331054654.GA6632@kroah.com>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
+Date: Fri, 31 Mar 2006 21:19:59 +0400
+Message-ID: <442D64BF.3000406@kernelpanic.ru>
+References: <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru> <442D45EA.9010309@kernelpanic.ru> <442D486D.909@kernelpanic.ru> <20060331160121.GA19110@king.bitgnome.net>
+Reply-To: bb@kernelpanic.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, Jeff Garzik <jgarzik@pobox.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, linuxppc-dev@ozlabs.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751428AbWCaRGY@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-Content-Disposition: inline
-In-Reply-To: <20060331054654.GA6632@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christiaan den Besten <chris@prolocation.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
+	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
+	yoseph.basri@gmail.com, mykleb@no.ibm.com, olel@ans.pl,
+	michal@feix.cz, netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
+	Jeff Garzik <jgarzik@pobox.com>
+Return-path: <e1000-devel-admin@lists.sourceforge.net>
+To: Mark Nipper <nipsy@bitgnome.net>
+In-Reply-To: <20060331160121.GA19110@king.bitgnome.net>
+Sender: e1000-devel-admin@lists.sourceforge.net
+Errors-To: e1000-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2006 at 09:46:54PM -0800, Greg KH wrote:
+Hello, Mark Nipper.
+
+On 31.03.2006 20:01 you said the following:
+
+> On 31 Mar 2006, Boris B. Zhmurov wrote:
 > 
-> (hint, use a tab...)
+>>stream.c (279) -> stream.c (283)
+>>af_inet.c (148) -> af_inet.c (150)
+> 
+> 
+>         That will be because the patches changed the line numbers
+> in the source I believe.  Nothing helpful unfortunately.
+> 
 
-glurg.
+
+Ok. Anyway, as assertion is 100% repeatable on my server, I'm ready to 
+try any patches to get rid of this.
+
+-- 
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
 
 
 
-[PATCH]: e1000: prevent statistics from getting garbled during reset.
-
-If a PCI bus error/fault triggers a PCI bus reset, attempts to get the
-ethernet packet count statistics from the hardware will fail, returning
-garbage data upstream.  This patch skips statistics data collection
-if the PCI device is not on the bus. 
-
-This patch presumes that an earlier patch,
-[PATCH] PCI Error Recovery: e1000 network device driver
-has already been applied.
-
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-
-----
- drivers/net/e1000/e1000_main.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletion(-)
-
-Index: linux-2.6.16-git6/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux-2.6.16-git6.orig/drivers/net/e1000/e1000_main.c	2006-03-30 17:51:37.924162779 -0600
-+++ linux-2.6.16-git6/drivers/net/e1000/e1000_main.c	2006-03-30 17:54:07.659188391 -0600
-@@ -3069,14 +3069,18 @@ void
- e1000_update_stats(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-+	struct pci_dev *pdev = adapter->pdev;
- 	unsigned long flags;
- 	uint16_t phy_tmp;
- 
- #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
- 
--	/* Prevent stats update while adapter is being reset */
-+	/* Prevent stats update while adapter is being reset,
-+	 * or if the pci connection is down. */
- 	if (adapter->link_speed == 0)
- 		return;
-+	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
-+		return;
- 
- 	spin_lock_irqsave(&adapter->stats_lock, flags);
- 
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
