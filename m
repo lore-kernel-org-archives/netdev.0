@@ -1,21 +1,21 @@
-From: "JaniD++" <djani22@dynamicweb.hu>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 14:02:04 +0200
-Message-ID: <00f701c654ba$f3c6cc60$1600a8c0@dcccs>
-References: <200603311057.07213.netdev@axxeo.de> <E1FPFkT-0002om-00@gondolin.me.apana.org.au> <20060331.013540.95485284.davem@davemloft.net> <20060331094240.GA11040@gondor.apana.org.au>
+Date: Fri, 31 Mar 2006 16:07:03 +0400
+Message-ID: <442D1B67.8000804@kernelpanic.ru>
+References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: <netdev@axxeo.de>, <jesse.brandeburg@intel.com>,
-	<nipsy@bitgnome.net>, <jrlundgren@gmail.com>, <cat@zip.com.au>,
-	<djani22@dynamicweb.hu>, <yoseph.basri@gmail.com>,
-	<bb@kernelpanic.ru>, <mykleb@no.ibm.com>, <olel@ans.pl>,
-	<michal@feix.cz>, <chris@scorpion.nl>, <netdev@vger.kernel.org>,
-	"Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
-	<E1000-devel@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060331103956.GA12181@gondor.apana.org.au>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -27,64 +27,50 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
+Hello, Herbert Xu.
 
------ Original Message -----=20
-From: "Herbert Xu" <herbert@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>
-Cc: <netdev@axxeo.de>; <jesse.brandeburg@intel.com>; <nipsy@bitgnome.net>=
-;
-<jrlundgren@gmail.com>; <cat@zip.com.au>; <djani22@dynamicweb.hu>;
-<yoseph.basri@gmail.com>; <bb@kernelpanic.ru>; <mykleb@no.ibm.com>;
-<olel@ans.pl>; <michal@feix.cz>; <chris@scorpion.nl>;
-<netdev@vger.kernel.org>; <jesse.brandeburg@gmail.com>;
-<E1000-devel@lists.sourceforge.net>
-Sent: Friday, March 31, 2006 11:42 AM
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed..=
-.
+On 31.03.2006 14:39 you said the following:
 
-
-> On Fri, Mar 31, 2006 at 01:35:40AM -0800, David S. Miller wrote:
-> >
-> > He does not have TSO enabled, e1000 disables TSO when on a link speed
-> > slower than gigabit.
->
-> Indeed.  But I think that only happens on PCI Express and I don't think
-> Ingo is using PCI Express.
-
-No, my card is "64-bit PCI-X Rev. 1.0 master interface".  - from the
-datasheet
-Number : "82546GB"
-This is not PCI Express issue!
-
-Cheers,
-
->
+> On Fri, Mar 31, 2006 at 02:16:38PM +0400, Boris B. Zhmurov wrote:
+> 
+>>And xdelta tells, that e1000.ko was modified :)
+> 
+> 
+> Thanks for checking again.
+> 
+> Anyway, it didn't take long to find another bug in the same area.
+> I'm afraid this driver does seem to be full of them :)
+> 
+> It sets last_tx_tso in between computing the number of descriptors and
+> calling e1000_tx_map.  This is bad because e1000_tx_map gets the wrong
+> value for last_tx_tso and therefore may corrupt memory for every TSO
+> packet when the ring is almost full.
+> 
+> This bug exists on UP as well as SMP.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Please try this in conjunction with the previous patch.
+> 
 > Cheers,
-> --=20
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  _____________ NOD32 1.584 (20031220) Inform=E1ci=F3 _____________
->
-> Az =FCzenetet a NOD32 Antivirus System megvizsg=E1lta.
-> http://www.nod32.hu
->
->
+
+
+David, Herbert - FYI. One of my colleague confirmed, that idea "bug 
+reproducible only if there is more then one e1000 adapter onboard" is 
+true. He has a 3 servers with double intel pro 1000 adapters, and that 
+bug occurs. Also, he has 4 servers with double intel pro 1000 adapters 
+onboard, but _only one_ of them is up. And there is no such messages in 
+dmesg at all! Inetresting...
+
+-- 
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
 
 
 
 -------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting langua=
-ge
-that extends applications into web and mobile media. Attend the live webc=
-ast
-and join the prime developer group breaking into this new coding territor=
-y!
-http://sel.as-us.falkag.net/sel?cmd=3Dlnk&kid=3D110944&bid=3D241720&dat=3D=
-121642
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
