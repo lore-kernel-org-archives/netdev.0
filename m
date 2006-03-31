@@ -1,17 +1,20 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 21:52:49 +1100
-Message-ID: <E1FPHFJ-0003Fq-00@gondolin.me.apana.org.au>
-References: <442D09A3.3020700@kernelpanic.ru>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
-	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
-	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+Date: Fri, 31 Mar 2006 15:02:33 +0400
+Message-ID: <442D0C49.6070200@kernelpanic.ru>
+References: <E1FPHFJ-0003Fq-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jesse.brandeburg@intel.com,
+	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
+	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
+	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
 	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
 	E1000-devel@lists.sourceforge.net, ak@suse.de, jgarzik@pobox.com
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: bb@kernelpanic.ru (Boris B. Zhmurov)
-In-Reply-To: <442D09A3.3020700@kernelpanic.ru>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1FPHFJ-0003Fq-00@gondolin.me.apana.org.au>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -23,19 +26,25 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
+Hello, Herbert Xu.
+
+On 31.03.2006 14:52 you said the following:
+
+> BTW, if you kept the built tree it is possible to apply the patch and
+> then do a make which should compile just the e1000 driver.
 > 
-> Recompiling the kernel. I need about 2 hours to get the answer...
+> Cheers,
 
-BTW, if you kept the built tree it is possible to apply the patch and
-then do a make which should compile just the e1000 driver.
+Thank's for the tip, actually I knew that :) First of, I've already 
+applied some other new patches from bk-commits-head. Not for the e1000 
+driver. And second - I didn't keep the tree, rpmbuild cleaned it up :) 
+That's why I'm recompiling entire kernel.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Boris B. Zhmurov
+mailto: bb@kernelpanic.ru
+"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
+
 
 
 -------------------------------------------------------
