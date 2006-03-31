@@ -1,21 +1,20 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Mark Nipper <nipsy@bitgnome.net>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 21:39:56 +1100
-Message-ID: <20060331103956.GA12181@gondor.apana.org.au>
-References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru>
+Date: Fri, 31 Mar 2006 04:51:36 -0600
+Message-ID: <20060331105135.GE25240@king.bitgnome.net>
+References: <200603311057.07213.netdev@axxeo.de> <E1FPFkT-0002om-00@gondolin.me.apana.org.au> <20060331.013540.95485284.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="W/nzBZO5zC0uMSeA"
-Cc: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, netdev@axxeo.de,
 	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
 	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
-	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
-	Jeff Garzik <jgarzik@pobox.com>
+	bb@kernelpanic.ru, mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz,
+	chris@scorpion.nl, netdev@vger.kernel.org,
+	jesse.brandeburg@gmail.com, E1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <442D0186.8090705@kernelpanic.ru>
+In-Reply-To: <20060331.013540.95485284.davem@davemloft.net>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -27,65 +26,55 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-
---W/nzBZO5zC0uMSeA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, Mar 31, 2006 at 02:16:38PM +0400, Boris B. Zhmurov wrote:
+On 31 Mar 2006, David S. Miller wrote:
+> He does not have TSO enabled, e1000 disables TSO when on a link speed
+> slower than gigabit.
 > 
-> And xdelta tells, that e1000.ko was modified :)
+> You'll see something like the following in your logs:
+> 
+> e1000: eth0: e1000_watchdog_task: 10/100 speed: disabling TSO
 
-Thanks for checking again.
+        Um...
+---
+$ uname -a
+Linux king 2.6.16.1 #1 SMP Thu Mar 30 06:11:33 CST 2006 i686 GNU/Linux
+$ dmesg | grep -i task
+e1000: eth1: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
+$ ethtool -k eth1
+Offload parameters for eth1:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+---
 
-Anyway, it didn't take long to find another bug in the same area.
-I'm afraid this driver does seem to be full of them :)
+        I know for a fact the link is 100Mbps (other than the
+output from the driver itself) and I have been bitten by the
+assertion.
 
-It sets last_tx_tso in between computing the number of descriptors and
-calling e1000_tx_map.  This is bad because e1000_tx_map gets the wrong
-value for last_tx_tso and therefore may corrupt memory for every TSO
-packet when the ring is almost full.
+        I've been running the first patch for about the last 24
+hours and have not seen any assertions yet (although they don't
+occur that frequently on this server).  I'll be adding the
+second, most recent patch in a bit and rebooting again.
+Hopefully between the two of them, that will have fixed the
+problem.
 
-This bug exists on UP as well as SMP.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Please try this in conjunction with the previous patch.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Mark Nipper                                                e-contacts:
+832 Tanglewood Drive                                nipsy@bitgnome.net
+Bryan, Texas 77802-4013                     http://nipsy.bitgnome.net/
+(979)575-3193                      AIM/Yahoo: texasnipsy ICQ: 66971617
 
---W/nzBZO5zC0uMSeA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="e1000-tso.patch"
+-----BEGIN GEEK CODE BLOCK-----
+Version: 3.1
+GG/IT d- s++:+ a- C++$ UBL++++$ P--->+++ L+++$ !E---
+W++(--) N+ o K++ w(---) O++ M V(--) PS+++(+) PE(--)
+Y+ PGP t+ 5 X R tv b+++@ DI+(++) D+ G e h r++ y+(**)
+------END GEEK CODE BLOCK------
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 49cd096..38aeff9 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -2891,7 +2891,6 @@
- 	}
- 
- 	if (likely(tso)) {
--		tx_ring->last_tx_tso = 1;
- 		tx_flags |= E1000_TX_FLAGS_TSO;
- 	} else if (likely(e1000_tx_csum(adapter, tx_ring, skb)))
- 		tx_flags |= E1000_TX_FLAGS_CSUM;
-@@ -2905,6 +2904,8 @@
- 	e1000_tx_queue(adapter, tx_ring, tx_flags,
- 	               e1000_tx_map(adapter, tx_ring, skb, first,
- 	                            max_per_txd, nr_frags, mss));
-+
-+	tx_ring->last_tx_tso = tso;
- 
- 	netdev->trans_start = jiffies;
- 
-
---W/nzBZO5zC0uMSeA--
+---begin random quote of the moment---
+And if I close my mind in fear, please pry it open.
+----end random quote of the moment----
 
 
 -------------------------------------------------------
