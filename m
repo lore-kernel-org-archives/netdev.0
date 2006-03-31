@@ -1,8 +1,8 @@
 From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 19:08:26 +0400
-Message-ID: <442D45EA.9010309@kernelpanic.ru>
-References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru>
+Date: Fri, 31 Mar 2006 19:19:09 +0400
+Message-ID: <442D486D.909@kernelpanic.ru>
+References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru> <442D45EA.9010309@kernelpanic.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -17,7 +17,7 @@ Cc: Christiaan den Besten <chris@prolocation.net>,
 	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
 To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
-In-Reply-To: <442D2EF6.1040703@kernelpanic.ru>
+In-Reply-To: <442D45EA.9010309@kernelpanic.ru>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -31,24 +31,32 @@ List-Id: netdev.vger.kernel.org
 
 Hello, Boris B. Zhmurov.
 
-On 31.03.2006 17:30 you said the following:
+On 31.03.2006 19:08 you said the following:
 
-> Herbert, with your second patch still no luck. After an hour of uptime I 
-> have assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (283) 
-> again...
-> 
-> Trying your debug patch.
+> Hmm... with lastest debug patch I can't see any of debug info:
+
+But wait a minute. Two days ago, without Herbert's patches, assertion's 
+errors was like this:
+
+Mar 29 20:03:23 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/core/stream.c (279)
+Mar 29 20:03:23 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/ipv4/af_inet.c (148)
 
 
-Hmm... with lastest debug patch I can't see any of debug info:
+and after appling patches, errors looks like this:
 
-e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
-e1000: eth1: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
-e1000: eth1: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (283)
-KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (150)
+Mar 31 18:21:06 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/core/stream.c (283)
+Mar 31 18:21:06 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
+failed at net/ipv4/af_inet.c (150)
 
-Is it normal?
+
+stream.c (279) -> stream.c (283)
+af_inet.c (148) -> af_inet.c (150)
+
+
+Does it really matters?
 
 -- 
 Boris B. Zhmurov
