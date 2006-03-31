@@ -1,45 +1,51 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH]: e1000: prevent statistics from getting garbled during
-	reset.
-Date: Thu, 30 Mar 2006 21:46:54 -0800
-Message-ID: <20060331054654.GA6632@kroah.com>
-References: <20060330213928.GQ2172@austin.ibm.com>
-	<20060331000208.GS2172@austin.ibm.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 1/9] [I/OAT] DMA memcpy subsystem
+Date: Fri, 31 Mar 2006 10:26:33 +0200
+Message-ID: <200603311026.33391.netdev@axxeo.de>
+References: <20060329225505.25585.30392.stgit@gitlost.site> <c0a09e5c0603301036s4e9a63e5v476d89ff8ba37760@mail.gmail.com> <351C5BDA-D7E3-4257-B07E-ABDDCF254954@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com, linuxppc-dev@ozlabs.org,
-	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
-	linux-pci@atrey.karlin.mff.cuni.cz, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Linas Vepstas <linas@austin.ibm.com>
+Cc: Andrew Grover <andy.grover@gmail.com>,
+	"Chris Leech" <christopher.leech@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751274AbWCaI0x@vger.kernel.org>
+To: Kumar Gala <galak@kernel.crashing.org>
+In-Reply-To: <351C5BDA-D7E3-4257-B07E-ABDDCF254954@kernel.crashing.org>
 Content-Disposition: inline
-In-Reply-To: <20060331000208.GS2172@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 30, 2006 at 06:02:08PM -0600, Linas Vepstas wrote:
-> -	/* Prevent stats update while adapter is being reset */
-> +	/* Prevent stats update while adapter is being reset,
-> +	 * or if the pci connection is down. */
->  	if (adapter->link_speed == 0)
->  		return;
-> +   if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
-> +		return;
+Kumar Gala wrote:
+> On Mar 30, 2006, at 12:36 PM, Andrew Grover wrote:
+> > Well....it's true they're useful for debugging but I would put them in
+> > the category of system statistics that shouldn't go in debugfs. I
+> > think they are like /proc/interrupts' interrupt counts or the TX/RX
+> > stats reported by ifconfig.
+> 
+> Fair, but wouldn't it be better to have the association per client.
+> 
+> Maybe leave the one as a summary and have a dir per client with  
+> similar stats that are for each client and add a per channel summary  
+> at the top level as well.
 
-Coding style is still wrong here :(
+Such level of detail really belongs to debugging, IMHO.
 
-(hint, use a tab...)
+I think, it would suffer to say, how many channels are in use.
+So you can answer the question, whether your customers are actually
+using this experimental technology. 
 
-thanks,
+If you want more, let them mount debugfs. 
+If it becomes really important, we can revisit this later.
 
-greg k-h
+Thats the advantage of files under debugfs 
+not being stable API in any way.
+
+BTW: What is the actual frequency, at which such counters 
+will be incremented?
+
+
+Regards
+
+Ingo Oeser
