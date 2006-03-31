@@ -1,456 +1,386 @@
 From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 29/33] pcmcia: convert DEV_OK to pcmcia_dev_present
-Date: Fri, 31 Mar 2006 22:30:14 +0200
-Message-ID: <20060331203014.GH28168@dominikbrodowski.de>
+Subject: [PATCH 18/33] pcmcia: convert remaining users of pcmcia_release_io and _irq
+Date: Fri, 31 Mar 2006 22:17:44 +0200
+Message-ID: <20060331201744.GG28037@dominikbrodowski.de>
 References: <20060331195852.GB27888@dominikbrodowski.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-serial@vger.kernel.org,
-	alsa-devel@alsa-project.org, laforge@gnumonks.org
-Return-path: <alsa-devel-admin@lists.sourceforge.net>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
 To: linux-pcmcia@lists.infradead.org
 Content-Disposition: inline
 In-Reply-To: <20060331195852.GB27888@dominikbrodowski.de>
-Sender: alsa-devel-admin@lists.sourceforge.net
-Errors-To: alsa-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:alsa-devel@lists.sourceforge.net>
-List-Help: <mailto:alsa-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/alsa-devel>,
-	<mailto:alsa-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=alsa-devel>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of the DEV_OK macro, drivers should use pcmcia_dev_present().
+Convert the remaining drivers which use pcmcia_release_io or
+pcmcia_release_irq, and remove the EXPORT of these symbols.
 
 Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 
 ---
 
- drivers/char/pcmcia/cm4000_cs.c         |    4 ++--
- drivers/char/pcmcia/cm4040_cs.c         |    2 +-
- drivers/net/pcmcia/3c574_cs.c           |    4 ++--
- drivers/net/pcmcia/3c589_cs.c           |    8 ++++----
- drivers/net/pcmcia/axnet_cs.c           |    2 +-
- drivers/net/pcmcia/fmvj18x_cs.c         |    2 +-
- drivers/net/pcmcia/nmclan_cs.c          |    2 +-
- drivers/net/pcmcia/pcnet_cs.c           |    2 +-
- drivers/net/pcmcia/smc91c92_cs.c        |    2 +-
- drivers/net/pcmcia/xirc2ps_cs.c         |    2 +-
- drivers/net/wireless/atmel_cs.c         |    9 ++++-----
- drivers/net/wireless/hostap/hostap_cs.c |    2 +-
- drivers/net/wireless/netwave_cs.c       |    4 ++--
- drivers/net/wireless/ray_cs.c           |    2 +-
- drivers/net/wireless/wl3501_cs.c        |    2 +-
- drivers/pcmcia/ds.c                     |   27 +++++++++++++++++++++++++++
- drivers/serial/serial_cs.c              |    2 +-
- include/pcmcia/cs.h                     |    1 +
- include/pcmcia/ds.h                     |   12 ++++--------
- sound/pcmcia/pdaudiocf/pdaudiocf.c      |    2 +-
- sound/pcmcia/vx/vxpocket.c              |    2 +-
- 21 files changed, 59 insertions(+), 36 deletions(-)
+ Documentation/pcmcia/driver-changes.txt |    4 ++--
+ drivers/isdn/hardware/avm/avm_cs.c      |   10 +++++-----
+ drivers/isdn/hisax/avma1_cs.c           |    8 ++++----
+ drivers/isdn/hisax/sedlbauer_cs.c       |    8 ++------
+ drivers/net/pcmcia/smc91c92_cs.c        |   10 ++++++++--
+ drivers/net/wireless/orinoco_cs.c       |    3 +--
+ drivers/net/wireless/ray_cs.c           |    8 +-------
+ drivers/net/wireless/spectrum_cs.c      |    3 +--
+ drivers/pcmcia/pcmcia_resource.c        |    3 ---
+ drivers/scsi/pcmcia/nsp_cs.c            |    5 +----
+ drivers/scsi/pcmcia/qlogic_stub.c       |    7 +------
+ drivers/telephony/ixj_pcmcia.c          |    5 +----
+ drivers/usb/host/sl811_cs.c             |   14 ++------------
+ include/pcmcia/cs.h                     |    2 --
+ sound/pcmcia/pdaudiocf/pdaudiocf.c      |    4 +---
+ sound/pcmcia/vx/vxpocket.c              |    5 +----
+ 16 files changed, 31 insertions(+), 68 deletions(-)
 
-9940ec3617fec1db13e589bbc3f37e37878c7683
-diff --git a/drivers/char/pcmcia/cm4000_cs.c b/drivers/char/pcmcia/cm4000_cs.c
-index 16e105d..02114a0 100644
---- a/drivers/char/pcmcia/cm4000_cs.c
-+++ b/drivers/char/pcmcia/cm4000_cs.c
-@@ -1458,7 +1458,7 @@ static int cmm_ioctl(struct inode *inode
- 	       iminor(inode), ioctl_names[_IOC_NR(cmd)]);
+50db3fdbbc98260fb538c1cc3f8cc597ba7bffe7
+diff --git a/Documentation/pcmcia/driver-changes.txt b/Documentation/pcmcia/driver-changes.txt
+index c89a5e2..4739c5c 100644
+--- a/Documentation/pcmcia/driver-changes.txt
++++ b/Documentation/pcmcia/driver-changes.txt
+@@ -3,8 +3,8 @@ This file details changes in 2.6 which a
+ * New release helper (as of 2.6.17)
+    Instead of calling pcmcia_release_{configuration,io,irq,win}, all that's
+    necessary now is calling pcmcia_disable_device. As there is no valid
+-   reason left to call pcmcia_release_io and pcmcia_release_irq, they will
+-   be removed soon.
++   reason left to call pcmcia_release_io and pcmcia_release_irq, the
++   exports for them were removed.
  
- 	link = dev_table[iminor(inode)];
--	if (!(DEV_OK(link))) {
-+	if (!pcmcia_dev_present(link)) {
- 		DEBUGP(4, dev, "DEV_OK false\n");
- 		return -ENODEV;
+ * Unify detach and REMOVAL event code, as well as attach and INSERTION
+   code (as of 2.6.16)
+diff --git a/drivers/isdn/hardware/avm/avm_cs.c b/drivers/isdn/hardware/avm/avm_cs.c
+index f3889bd..5f70661 100644
+--- a/drivers/isdn/hardware/avm/avm_cs.c
++++ b/drivers/isdn/hardware/avm/avm_cs.c
+@@ -284,25 +284,25 @@ found_port:
+ 	    cs_error(link->handle, RequestIO, i);
+ 	    break;
  	}
-@@ -1667,7 +1667,7 @@ static int cmm_open(struct inode *inode,
- 		return -ENODEV;
- 
- 	link = dev_table[minor];
--	if (link == NULL || !(DEV_OK(link)))
-+	if (link == NULL || !pcmcia_dev_present(link))
- 		return -ENODEV;
- 
- 	if (link->open)
-diff --git a/drivers/char/pcmcia/cm4040_cs.c b/drivers/char/pcmcia/cm4040_cs.c
-index 74609c3..29efa64 100644
---- a/drivers/char/pcmcia/cm4040_cs.c
-+++ b/drivers/char/pcmcia/cm4040_cs.c
-@@ -452,7 +452,7 @@ static int cm4040_open(struct inode *ino
- 		return -ENODEV;
- 
- 	link = dev_table[minor];
--	if (link == NULL || !(DEV_OK(link)))
-+	if (link == NULL || !pcmcia_dev_present(link))
- 		return -ENODEV;
- 
- 	if (link->open)
-diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
-index 70e3cca..fab9336 100644
---- a/drivers/net/pcmcia/3c574_cs.c
-+++ b/drivers/net/pcmcia/3c574_cs.c
-@@ -728,7 +728,7 @@ static int el3_open(struct net_device *d
- 	struct el3_private *lp = netdev_priv(dev);
- 	struct pcmcia_device *link = lp->p_dev;
- 
--	if (!DEV_OK(link))
-+	if (!pcmcia_dev_present(link))
- 		return -ENODEV;
- 	
- 	link->open++;
-@@ -1176,7 +1176,7 @@ static int el3_close(struct net_device *
- 
- 	DEBUG(2, "%s: shutting down ethercard.\n", dev->name);
- 	
--	if (DEV_OK(link)) {
-+	if (pcmcia_dev_present(link)) {
- 		unsigned long flags;
- 
- 		/* Turn off statistics ASAP.  We update lp->stats below. */
-diff --git a/drivers/net/pcmcia/3c589_cs.c b/drivers/net/pcmcia/3c589_cs.c
-index 3d05f66..875a0fe 100644
---- a/drivers/net/pcmcia/3c589_cs.c
-+++ b/drivers/net/pcmcia/3c589_cs.c
-@@ -557,7 +557,7 @@ static int el3_open(struct net_device *d
-     struct el3_private *lp = netdev_priv(dev);
-     struct pcmcia_device *link = lp->p_dev;
-     
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
- 
-     link->open++;
-@@ -818,7 +818,7 @@ static struct net_device_stats *el3_get_
-     unsigned long flags;
-     struct pcmcia_device *link = lp->p_dev;
- 
--    if (DEV_OK(link)) {
-+    if (pcmcia_dev_present(link)) {
-     	spin_lock_irqsave(&lp->lock, flags);
- 	update_stats(dev);
- 	spin_unlock_irqrestore(&lp->lock, flags);
-@@ -922,7 +922,7 @@ static void set_multicast_list(struct ne
-     kio_addr_t ioaddr = dev->base_addr;
-     u16 opts = SetRxFilter | RxStation | RxBroadcast;
- 
--    if (!(DEV_OK(link))) return;
-+    if (!pcmcia_dev_present(link)) return;
-     if (dev->flags & IFF_PROMISC)
- 	opts |= RxMulticast | RxProm;
-     else if (dev->mc_count || (dev->flags & IFF_ALLMULTI))
-@@ -938,7 +938,7 @@ static int el3_close(struct net_device *
-     
-     DEBUG(1, "%s: shutting down ethercard.\n", dev->name);
- 
--    if (DEV_OK(link)) {
-+    if (pcmcia_dev_present(link)) {
- 	/* Turn off statistics ASAP.  We update lp->stats below. */
- 	outw(StatsDisable, ioaddr + EL3_CMD);
- 	
-diff --git a/drivers/net/pcmcia/axnet_cs.c b/drivers/net/pcmcia/axnet_cs.c
-index 0f1219c..56233af 100644
---- a/drivers/net/pcmcia/axnet_cs.c
-+++ b/drivers/net/pcmcia/axnet_cs.c
-@@ -530,7 +530,7 @@ static int axnet_open(struct net_device 
-     
-     DEBUG(2, "axnet_open('%s')\n", dev->name);
- 
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
- 
-     link->open++;
-diff --git a/drivers/net/pcmcia/fmvj18x_cs.c b/drivers/net/pcmcia/fmvj18x_cs.c
-index 7cb20b6..09b1176 100644
---- a/drivers/net/pcmcia/fmvj18x_cs.c
-+++ b/drivers/net/pcmcia/fmvj18x_cs.c
-@@ -1112,7 +1112,7 @@ static int fjn_open(struct net_device *d
- 
-     DEBUG(4, "fjn_open('%s').\n", dev->name);
- 
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
-     
-     link->open++;
-diff --git a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
-index fd19114..4260c21 100644
---- a/drivers/net/pcmcia/nmclan_cs.c
-+++ b/drivers/net/pcmcia/nmclan_cs.c
-@@ -853,7 +853,7 @@ static int mace_open(struct net_device *
-   mace_private *lp = netdev_priv(dev);
-   struct pcmcia_device *link = lp->p_dev;
- 
--  if (!DEV_OK(link))
-+  if (!pcmcia_dev_present(link))
-     return -ENODEV;
- 
-   link->open++;
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index d966141..506e777 100644
---- a/drivers/net/pcmcia/pcnet_cs.c
-+++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -992,7 +992,7 @@ static int pcnet_open(struct net_device 
- 
-     DEBUG(2, "pcnet_open('%s')\n", dev->name);
- 
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
- 
-     link->open++;
-diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
-index 7d565f2..e74bf50 100644
---- a/drivers/net/pcmcia/smc91c92_cs.c
-+++ b/drivers/net/pcmcia/smc91c92_cs.c
-@@ -1259,7 +1259,7 @@ static int smc_open(struct net_device *d
- #endif
- 
-     /* Check that the PCMCIA card is still here. */
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
-     /* Physical device present signature. */
-     if (check_sig(link) < 0) {
-diff --git a/drivers/net/pcmcia/xirc2ps_cs.c b/drivers/net/pcmcia/xirc2ps_cs.c
-index 0141c50..a92a313 100644
---- a/drivers/net/pcmcia/xirc2ps_cs.c
-+++ b/drivers/net/pcmcia/xirc2ps_cs.c
-@@ -1525,7 +1525,7 @@ do_open(struct net_device *dev)
- 
-     /* Check that the PCMCIA card is still here. */
-     /* Physical device present signature. */
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
- 
-     /* okay */
-diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
-index 25fb919..26bf112 100644
---- a/drivers/net/wireless/atmel_cs.c
-+++ b/drivers/net/wireless/atmel_cs.c
-@@ -216,13 +216,12 @@ do { last_fn = (fn); if ((last_ret = (re
- /* Call-back function to interrogate PCMCIA-specific information
-    about the current existance of the card */
- static int card_present(void *arg)
--{ 
-+{
- 	struct pcmcia_device *link = (struct pcmcia_device *)arg;
--	if (link->suspended)
--		return 0;
--	else if (pcmcia_dev_present(link))
-+
-+	if (pcmcia_dev_present(link))
- 		return 1;
 -	
 +
- 	return 0;
- }
- 
-diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
-index a2cb9b0..55bed92 100644
---- a/drivers/net/wireless/hostap/hostap_cs.c
-+++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -210,7 +210,7 @@ static int prism2_config(struct pcmcia_d
- static int prism2_pccard_card_present(local_info_t *local)
- {
- 	struct hostap_cs_priv *hw_priv = local->hw_priv;
--	if (hw_priv != NULL && hw_priv->link != NULL && DEV_OK(hw_priv->link))
-+	if (hw_priv != NULL && hw_priv->link != NULL && pcmcia_dev_present(hw_priv->link))
- 		return 1;
- 	return 0;
- }
-diff --git a/drivers/net/wireless/netwave_cs.c b/drivers/net/wireless/netwave_cs.c
-index fbc8595..9343d97 100644
---- a/drivers/net/wireless/netwave_cs.c
-+++ b/drivers/net/wireless/netwave_cs.c
-@@ -1107,7 +1107,7 @@ static irqreturn_t netwave_interrupt(int
- 	
-         status = inb(iobase + NETWAVE_REG_ASR);
- 		
--	if (!DEV_OK(link)) {
-+	if (!pcmcia_dev_present(link)) {
- 	    DEBUG(1, "netwave_interrupt: Interrupt with status 0x%x "
- 		  "from removed or suspended card!\n", status);
+ 	/*
+ 	 * allocate an interrupt line
+ 	 */
+ 	i = pcmcia_request_irq(link->handle, &link->irq);
+ 	if (i != CS_SUCCESS) {
+ 	    cs_error(link->handle, RequestIRQ, i);
+-	    pcmcia_release_io(link->handle, &link->io);
++	    /* undo */
++	    pcmcia_disable_device(link->handle);
  	    break;
-@@ -1346,7 +1346,7 @@ static int netwave_open(struct net_devic
+ 	}
+-	
++
+ 	/*
+          * configure the PCMCIA socket
+ 	  */
+ 	i = pcmcia_request_configuration(link->handle, &link->conf);
+ 	if (i != CS_SUCCESS) {
+ 	    cs_error(link->handle, RequestConfiguration, i);
+-	    pcmcia_release_io(link->handle, &link->io);
+-	    pcmcia_release_irq(link->handle, &link->irq);
++	    pcmcia_disable_device(link->handle);
+ 	    break;
+ 	}
  
-     DEBUG(1, "netwave_open: starting.\n");
-     
--    if (!DEV_OK(link))
-+    if (!pcmcia_dev_present(link))
- 	return -ENODEV;
+diff --git a/drivers/isdn/hisax/avma1_cs.c b/drivers/isdn/hisax/avma1_cs.c
+index 729c2de..845fa14 100644
+--- a/drivers/isdn/hisax/avma1_cs.c
++++ b/drivers/isdn/hisax/avma1_cs.c
+@@ -313,18 +313,18 @@ found_port:
+ 	i = pcmcia_request_irq(link->handle, &link->irq);
+ 	if (i != CS_SUCCESS) {
+ 	    cs_error(link->handle, RequestIRQ, i);
+-	    pcmcia_release_io(link->handle, &link->io);
++	    /* undo */
++	    pcmcia_disable_device(link->handle);
+ 	    break;
+ 	}
+-	
++
+ 	/*
+ 	 * configure the PCMCIA socket
+ 	 */
+ 	i = pcmcia_request_configuration(link->handle, &link->conf);
+ 	if (i != CS_SUCCESS) {
+ 	    cs_error(link->handle, RequestConfiguration, i);
+-	    pcmcia_release_io(link->handle, &link->io);
+-	    pcmcia_release_irq(link->handle, &link->irq);
++	    pcmcia_disable_device(link->handle);
+ 	    break;
+ 	}
  
-     link->open++;
+diff --git a/drivers/isdn/hisax/sedlbauer_cs.c b/drivers/isdn/hisax/sedlbauer_cs.c
+index e595391..fd0f127 100644
+--- a/drivers/isdn/hisax/sedlbauer_cs.c
++++ b/drivers/isdn/hisax/sedlbauer_cs.c
+@@ -374,15 +374,11 @@ static void sedlbauer_config(dev_link_t 
+ 	}
+ 	/* If we got this far, we're cool! */
+ 	break;
+-	
++
+     next_entry:
+-/* new in dummy.cs 2001/01/28 MN 
+-        if (link->io.NumPorts1)
+-           pcmcia_release_io(link->handle, &link->io);
+-*/
+ 	CS_CHECK(GetNextTuple, pcmcia_get_next_tuple(handle, &tuple));
+     }
+-    
++
+     /*
+        Allocate an interrupt line.  Note that this does not assign a
+        handler to the interrupt, unless the 'Handler' member of the
+diff --git a/drivers/net/pcmcia/smc91c92_cs.c b/drivers/net/pcmcia/smc91c92_cs.c
+index 56700b1..03b1d8f 100644
+--- a/drivers/net/pcmcia/smc91c92_cs.c
++++ b/drivers/net/pcmcia/smc91c92_cs.c
+@@ -49,6 +49,7 @@
+ #include <pcmcia/cisreg.h>
+ #include <pcmcia/ciscode.h>
+ #include <pcmcia/ds.h>
++#include <pcmcia/ss.h>
+ 
+ #include <asm/io.h>
+ #include <asm/system.h>
+@@ -965,10 +966,15 @@ static int check_sig(dev_link_t *link)
+ 
+     if (width) {
+ 	printk(KERN_INFO "smc91c92_cs: using 8-bit IO window.\n");
++	/* call pcmcia_release_configuration() in _suspend */
+ 	smc91c92_suspend(link->handle);
+-	pcmcia_release_io(link->handle, &link->io);
++
+ 	link->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
+-	pcmcia_request_io(link->handle, &link->io);
++	link->handle->socket->io[0].res->flags &= ~IO_DATA_PATH_WIDTH;
++	link->handle->socket->io[0].res->flags |= IO_DATA_PATH_WIDTH_8;
++
++	/* call pcmcia_request_configuration() in _resume, it handles the
++	 * flag update */
+ 	smc91c92_resume(link->handle);
+ 	return check_sig(link);
+     }
+diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/orinoco_cs.c
+index 7fdc4ff..0ce4165 100644
+--- a/drivers/net/wireless/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco_cs.c
+@@ -317,8 +317,7 @@ orinoco_cs_config(dev_link_t *link)
+ 		break;
+ 		
+ 	next_entry:
+-		if (link->io.NumPorts1)
+-			pcmcia_release_io(link->handle, &link->io);
++		pcmcia_disable_device(handle);
+ 		last_ret = pcmcia_get_next_tuple(handle, &tuple);
+ 		if (last_ret  == CS_NO_MORE_ITEMS) {
+ 			printk(KERN_ERR PFX "GetNextTuple(): No matching "
 diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 85712ff..879eb42 100644
+index 7880d8c..fc81ac6 100644
 --- a/drivers/net/wireless/ray_cs.c
 +++ b/drivers/net/wireless/ray_cs.c
-@@ -1961,7 +1961,7 @@ static irqreturn_t ray_interrupt(int irq
+@@ -849,22 +849,16 @@ static void ray_release(dev_link_t *link
+     DEBUG(1, "ray_release(0x%p)\n", link);
  
-     local = (ray_dev_t *)dev->priv;
-     link = (struct pcmcia_device *)local->finder;
--    if (!(pcmcia_dev_present(link))  || link->suspended ) {
-+    if (!pcmcia_dev_present(link)) {
-         DEBUG(2,"ray_cs interrupt from device not present or suspended.\n");
-         return IRQ_NONE;
-     }
-diff --git a/drivers/net/wireless/wl3501_cs.c b/drivers/net/wireless/wl3501_cs.c
-index b657805..e52a650 100644
---- a/drivers/net/wireless/wl3501_cs.c
-+++ b/drivers/net/wireless/wl3501_cs.c
-@@ -1387,7 +1387,7 @@ static int wl3501_open(struct net_device
- 	link = this->p_dev;
+     del_timer(&local->timer);
+-    link->state &= ~DEV_CONFIG;
  
- 	spin_lock_irqsave(&this->lock, flags);
--	if (!DEV_OK(link))
-+	if (!pcmcia_dev_present(link))
- 		goto out;
- 	netif_device_attach(dev);
- 	link->open++;
-diff --git a/drivers/pcmcia/ds.c b/drivers/pcmcia/ds.c
-index 8c87343..677105e 100644
---- a/drivers/pcmcia/ds.c
-+++ b/drivers/pcmcia/ds.c
-@@ -469,6 +469,7 @@ static void pcmcia_card_remove(struct pc
- 		}
- 		p_dev = list_entry((&s->devices_list)->next, struct pcmcia_device, socket_device_list);
- 		list_del(&p_dev->socket_device_list);
-+		p_dev->_removed=1;
- 		spin_unlock_irqrestore(&pcmcia_dev_list_lock, flags);
+     iounmap(local->sram);
+     iounmap(local->rmem);
+     iounmap(local->amem);
+     /* Do bother checking to see if these succeed or not */
+-    i = pcmcia_release_window(link->win);
+-    if ( i != CS_SUCCESS ) DEBUG(0,"ReleaseWindow(link->win) ret = %x\n",i);
+     i = pcmcia_release_window(local->amem_handle);
+     if ( i != CS_SUCCESS ) DEBUG(0,"ReleaseWindow(local->amem) ret = %x\n",i);
+     i = pcmcia_release_window(local->rmem_handle);
+     if ( i != CS_SUCCESS ) DEBUG(0,"ReleaseWindow(local->rmem) ret = %x\n",i);
+-    i = pcmcia_release_configuration(link->handle);
+-    if ( i != CS_SUCCESS ) DEBUG(0,"ReleaseConfiguration ret = %x\n",i);
+-    i = pcmcia_release_irq(link->handle, &link->irq);
+-    if ( i != CS_SUCCESS ) DEBUG(0,"ReleaseIRQ ret = %x\n",i);
++    pcmcia_disable_device(link->handle);
  
- 		device_unregister(&p_dev->dev);
-@@ -1163,6 +1164,32 @@ static int ds_event(struct pcmcia_socket
- } /* ds_event */
+     DEBUG(2,"ray_release ending\n");
+ }
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/spectrum_cs.c
+index 78320c1..b7ed99f 100644
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -790,8 +790,7 @@ spectrum_cs_config(dev_link_t *link)
+ 		break;
+ 		
+ 	next_entry:
+-		if (link->io.NumPorts1)
+-			pcmcia_release_io(link->handle, &link->io);
++		pcmcia_disable_device(handle);
+ 		last_ret = pcmcia_get_next_tuple(handle, &tuple);
+ 		if (last_ret  == CS_NO_MORE_ITEMS) {
+ 			printk(KERN_ERR PFX "GetNextTuple(): No matching "
+diff --git a/drivers/pcmcia/pcmcia_resource.c b/drivers/pcmcia/pcmcia_resource.c
+index 555c869..f4dcea6 100644
+--- a/drivers/pcmcia/pcmcia_resource.c
++++ b/drivers/pcmcia/pcmcia_resource.c
+@@ -514,7 +514,6 @@ int pcmcia_release_io(struct pcmcia_devi
+ 
+ 	return CS_SUCCESS;
+ } /* pcmcia_release_io */
+-EXPORT_SYMBOL(pcmcia_release_io);
  
  
-+struct pcmcia_device * pcmcia_dev_present(struct pcmcia_device *_p_dev)
-+{
-+	struct pcmcia_device *p_dev;
-+	struct pcmcia_device *ret = NULL;
-+
-+	p_dev = pcmcia_get_dev(_p_dev);
-+	if (!p_dev)
-+		return NULL;
-+
-+	if (!p_dev->socket->pcmcia_state.present)
-+		goto out;
-+
-+	if (p_dev->_removed)
-+		goto out;
-+
-+	if (p_dev->suspended)
-+		goto out;
-+
-+	ret = p_dev;
-+ out:
-+	pcmcia_put_dev(p_dev);
-+	return ret;
-+}
-+EXPORT_SYMBOL(pcmcia_dev_present);
-+
-+
- static struct pcmcia_callback pcmcia_bus_callback = {
- 	.owner = THIS_MODULE,
- 	.event = ds_event,
-diff --git a/drivers/serial/serial_cs.c b/drivers/serial/serial_cs.c
-index eec05a0..389d847 100644
---- a/drivers/serial/serial_cs.c
-+++ b/drivers/serial/serial_cs.c
-@@ -155,7 +155,7 @@ static int serial_suspend(struct pcmcia_
+ int pcmcia_release_irq(struct pcmcia_device *p_dev, irq_req_t *req)
+@@ -547,7 +546,6 @@ int pcmcia_release_irq(struct pcmcia_dev
  
- static int serial_resume(struct pcmcia_device *link)
+ 	return CS_SUCCESS;
+ } /* pcmcia_release_irq */
+-EXPORT_SYMBOL(pcmcia_release_irq);
+ 
+ 
+ int pcmcia_release_window(window_handle_t win)
+@@ -937,6 +935,5 @@ void pcmcia_disable_device(struct pcmcia
+ 		pcmcia_release_window(p_dev->instance->win);
+ 
+ 	p_dev->instance->dev = NULL;
+-	p_dev->instance->state &= ~DEV_CONFIG;
+ }
+ EXPORT_SYMBOL(pcmcia_disable_device);
+diff --git a/drivers/scsi/pcmcia/nsp_cs.c b/drivers/scsi/pcmcia/nsp_cs.c
+index dd383c5..d469e0d 100644
+--- a/drivers/scsi/pcmcia/nsp_cs.c
++++ b/drivers/scsi/pcmcia/nsp_cs.c
+@@ -1802,10 +1802,7 @@ static void nsp_cs_config(dev_link_t *li
+ 
+ 	next_entry:
+ 		nsp_dbg(NSP_DEBUG_INIT, "next");
+-
+-		if (link->io.NumPorts1) {
+-			pcmcia_release_io(link->handle, &link->io);
+-		}
++		pcmcia_disable_device(handle);
+ 		CS_CHECK(GetNextTuple, pcmcia_get_next_tuple(handle, &tuple));
+ 	}
+ 
+diff --git a/drivers/scsi/pcmcia/qlogic_stub.c b/drivers/scsi/pcmcia/qlogic_stub.c
+index 70269fc..1e27059 100644
+--- a/drivers/scsi/pcmcia/qlogic_stub.c
++++ b/drivers/scsi/pcmcia/qlogic_stub.c
+@@ -288,12 +288,7 @@ out:
+ 
+ cs_failed:
+ 	cs_error(link->handle, last_fn, last_ret);
+-	link->dev = NULL;
+-
+-	pcmcia_release_configuration(link->handle);
+-	pcmcia_release_io(link->handle, &link->io);
+-	pcmcia_release_irq(link->handle, &link->irq);
+-	link->state &= ~DEV_CONFIG;
++	pcmcia_disable_device(link->handle);
+ 	return;
+ 
+ }				/* qlogic_config */
+diff --git a/drivers/telephony/ixj_pcmcia.c b/drivers/telephony/ixj_pcmcia.c
+index d3a7b0c..fe3cde0 100644
+--- a/drivers/telephony/ixj_pcmcia.c
++++ b/drivers/telephony/ixj_pcmcia.c
+@@ -229,10 +229,7 @@ static void ixj_cs_release(dev_link_t *l
+ 	ixj_info_t *info = link->priv;
+ 	DEBUG(0, "ixj_cs_release(0x%p)\n", link);
+ 	info->ndev = 0;
+-	link->dev = NULL;
+-	pcmcia_release_configuration(link->handle);
+-	pcmcia_release_io(link->handle, &link->io);
+-	link->state &= ~DEV_CONFIG;
++	pcmcia_disable_device(link->handle);
+ }
+ 
+ static int ixj_suspend(struct pcmcia_device *dev)
+diff --git a/drivers/usb/host/sl811_cs.c b/drivers/usb/host/sl811_cs.c
+index 134d200..ee81167 100644
+--- a/drivers/usb/host/sl811_cs.c
++++ b/drivers/usb/host/sl811_cs.c
+@@ -154,19 +154,10 @@ static void sl811_cs_detach(struct pcmci
+ 
+ static void sl811_cs_release(dev_link_t * link)
  {
--	if (DEV_OK(link)) {
-+	if (pcmcia_dev_present(link)) {
- 		struct serial_info *info = link->priv;
- 		int i;
+-
+ 	DBG(0, "sl811_cs_release(0x%p)\n", link);
+ 
+-	/* Unlink the device chain */
+-	link->dev = NULL;
+-
++	pcmcia_disable_device(link->handle);
+ 	platform_device_unregister(&platform_dev);
+-	pcmcia_release_configuration(link->handle);
+-	if (link->io.NumPorts1)
+-		pcmcia_release_io(link->handle, &link->io);
+-	if (link->irq.AssignedIRQ)
+-		pcmcia_release_irq(link->handle, &link->irq);
+-	link->state &= ~DEV_CONFIG;
+ }
+ 
+ static void sl811_cs_config(dev_link_t *link)
+@@ -260,8 +251,7 @@ static void sl811_cs_config(dev_link_t *
+ 		break;
+ 
+ next_entry:
+-		if (link->io.NumPorts1)
+-			pcmcia_release_io(link->handle, &link->io);
++		pcmcia_disable_device(handle);
+ 		last_ret = pcmcia_get_next_tuple(handle, &tuple);
+ 	}
  
 diff --git a/include/pcmcia/cs.h b/include/pcmcia/cs.h
-index e0835d6..d5838c3 100644
+index a5d8df2..7b91520 100644
 --- a/include/pcmcia/cs.h
 +++ b/include/pcmcia/cs.h
-@@ -390,6 +390,7 @@ int pcmcia_eject_card(struct pcmcia_sock
- int pcmcia_insert_card(struct pcmcia_socket *skt);
- int pccard_reset_card(struct pcmcia_socket *skt);
- 
-+struct pcmcia_device * pcmcia_dev_present(struct pcmcia_device *p_dev);
- void pcmcia_disable_device(struct pcmcia_device *p_dev);
- 
- struct pcmcia_socket * pcmcia_get_socket(struct pcmcia_socket *skt);
-diff --git a/include/pcmcia/ds.h b/include/pcmcia/ds.h
-index a8ce8fc..8c339f5 100644
---- a/include/pcmcia/ds.h
-+++ b/include/pcmcia/ds.h
-@@ -104,12 +104,6 @@ typedef struct dev_node_t {
-     struct dev_node_t	*next;
- } dev_node_t;
- 
--#define pcmcia_dev_present(p_dev) \
--    (p_dev->socket->pcmcia_state.present)
--
--#define DEV_OK(l) \
--    ((l) && (!l->suspended) && pcmcia_dev_present(l))
--
- 
- struct pcmcia_socket;
- struct config_t;
-@@ -155,8 +149,10 @@ struct pcmcia_device {
- 	config_req_t		conf;
- 	window_handle_t		win;
- 
--	/* Is the device suspended? */
-+	/* Is the device suspended, or in the process of
-+	 * being removed? */
- 	u16			suspended:1;
-+	u16			_removed:1;
- 
- 	/* Flags whether io, irq, win configurations were
- 	 * requested, and whether the configuration is "locked" */
-@@ -174,7 +170,7 @@ struct pcmcia_device {
- 	u16			has_card_id:1;
- 	u16			has_func_id:1;
- 
--	u16			reserved:4;
-+	u16			reserved:3;
- 
- 	u8			func_id;
- 	u16			manf_id;
+@@ -379,8 +379,6 @@ int pcmcia_get_mem_page(window_handle_t 
+ int pcmcia_map_mem_page(window_handle_t win, memreq_t *req);
+ int pcmcia_modify_configuration(struct pcmcia_device *p_dev, modconf_t *mod);
+ int pcmcia_release_configuration(struct pcmcia_device *p_dev);
+-int pcmcia_release_io(struct pcmcia_device *p_dev, io_req_t *req);
+-int pcmcia_release_irq(struct pcmcia_device *p_dev, irq_req_t *req);
+ int pcmcia_release_window(window_handle_t win);
+ int pcmcia_request_configuration(struct pcmcia_device *p_dev, config_req_t *req);
+ int pcmcia_request_io(struct pcmcia_device *p_dev, io_req_t *req);
 diff --git a/sound/pcmcia/pdaudiocf/pdaudiocf.c b/sound/pcmcia/pdaudiocf/pdaudiocf.c
-index a1333fa..adfdce7 100644
+index a2d3eb4..80c5355 100644
 --- a/sound/pcmcia/pdaudiocf/pdaudiocf.c
 +++ b/sound/pcmcia/pdaudiocf/pdaudiocf.c
-@@ -280,7 +280,7 @@ static int pdacf_resume(struct pcmcia_de
- 	struct snd_pdacf *chip = link->priv;
+@@ -273,9 +273,7 @@ static void pdacf_config(dev_link_t *lin
+ cs_failed:
+ 	cs_error(link->handle, last_fn, last_ret);
+ failed:
+-	pcmcia_release_configuration(link->handle);
+-	pcmcia_release_io(link->handle, &link->io);
+-	pcmcia_release_irq(link->handle, &link->irq);
++	pcmcia_disable_device(link->handle);
+ }
  
- 	snd_printdd(KERN_DEBUG "RESUME\n");
--	if (DEV_OK(link)) {
-+	if (pcmcia_dev_present(link)) {
- 		if (chip) {
- 			snd_printdd(KERN_DEBUG "calling snd_pdacf_resume\n");
- 			snd_pdacf_resume(chip);
+ #ifdef CONFIG_PM
 diff --git a/sound/pcmcia/vx/vxpocket.c b/sound/pcmcia/vx/vxpocket.c
-index f5f4a57..7e0cda2 100644
+index 9278874..8093e50 100644
 --- a/sound/pcmcia/vx/vxpocket.c
 +++ b/sound/pcmcia/vx/vxpocket.c
-@@ -291,7 +291,7 @@ static int vxp_resume(struct pcmcia_devi
- 	struct vx_core *chip = link->priv;
+@@ -272,10 +272,7 @@ static void vxpocket_config(dev_link_t *
+ cs_failed:
+ 	cs_error(link->handle, last_fn, last_ret);
+ failed:
+-	pcmcia_release_configuration(link->handle);
+-	pcmcia_release_io(link->handle, &link->io);
+-	pcmcia_release_irq(link->handle, &link->irq);
+-	link->state &= ~DEV_CONFIG;
++	pcmcia_disable_device(link->handle);
+ 	kfree(parse);
+ }
  
- 	snd_printdd(KERN_DEBUG "RESUME\n");
--	if (DEV_OK(link)) {
-+	if (pcmcia_dev_present(link)) {
- 		//struct snd_vxpocket *vxp = (struct snd_vxpocket *)chip;
- 		if (chip) {
- 			snd_printdd(KERN_DEBUG "calling snd_vx_resume\n");
 -- 
 1.2.4
 
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
