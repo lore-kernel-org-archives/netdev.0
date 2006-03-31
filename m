@@ -1,22 +1,21 @@
-From: Andi Kleen <ak@suse.de>
+From: Ingo Oeser <netdev@axxeo.de>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 13:15:27 +0200
-Message-ID: <200603311315.28636.ak@suse.de>
-References: <442BAC99.2090404@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru>
+Date: Fri, 31 Mar 2006 14:18:46 +0200
+Message-ID: <200603311418.47626.netdev@axxeo.de>
+References: <200603311057.07213.netdev@axxeo.de> <20060331.013540.95485284.davem@davemloft.net> <20060331094240.GA11040@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
-	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net, Jeff Garzik <jgarzik@pobox.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	bb@kernelpanic.ru, mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz,
+	chris@scorpion.nl, netdev@vger.kernel.org,
+	jesse.brandeburg@gmail.com, E1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
-In-Reply-To: <442D1B67.8000804@kernelpanic.ru>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060331094240.GA11040@gondor.apana.org.au>
 Content-Disposition: inline
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
@@ -29,22 +28,38 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-On Friday 31 March 2006 14:07, Boris B. Zhmurov wrote:
+Hi,
 
-> David, Herbert - FYI. One of my colleague confirmed, that idea "bug
-> reproducible only if there is more then one e1000 adapter onboard" is
-> true. He has a 3 servers with double intel pro 1000 adapters, and that
-> bug occurs. Also, he has 4 servers with double intel pro 1000 adapters
-> onboard, but _only one_ of them is up. And there is no such messages in
-> dmesg at all! Inetresting...
+Herbert Xu wrote:
+> On Fri, Mar 31, 2006 at 01:35:40AM -0800, David S. Miller wrote:
+> > He does not have TSO enabled, e1000 disables TSO when on a link speed
+> > slower than gigabit.
 
-At least all our systems with troubles seem to have more than one e1000
-though. Usually only one is active though.
+dmesg|grep eth0
+[4294671.426000] e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+[4294679.125000] e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
 
-We're still not 100% it is actually the E1000, it is a bit hard to reproduce 
-the memory corruption :/
 
--Andi
+# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+
+So this theory doesn't seem to hold :-(
+
+> Indeed.  But I think that only happens on PCI Express and I don't think
+> Ingo is using PCI Express.
+
+Right. PCI-Express is not available in this machine.
+
+Maybe the traffic is not enough to trigger it. External connect is just a 6MBit DSL.
+
+
+Regards
+
+Ingo Oeser
 
 
 -------------------------------------------------------
