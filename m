@@ -1,20 +1,17 @@
-From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 14:51:15 +0400
-Message-ID: <442D09A3.3020700@kernelpanic.ru>
-References: <20060331.011245.26474207.davem@davemloft.net>	<442D0186.8090705@kernelpanic.ru>	<20060331103956.GA12181@gondor.apana.org.au> <20060331.024544.96296223.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jesse.brandeburg@intel.com,
-	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
-	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+Date: Fri, 31 Mar 2006 21:52:49 +1100
+Message-ID: <E1FPHFJ-0003Fq-00@gondolin.me.apana.org.au>
+References: <442D09A3.3020700@kernelpanic.ru>
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	jesse.brandeburg@intel.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
 	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
 	E1000-devel@lists.sourceforge.net, ak@suse.de, jgarzik@pobox.com
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060331.024544.96296223.davem@davemloft.net>
+To: bb@kernelpanic.ru (Boris B. Zhmurov)
+In-Reply-To: <442D09A3.3020700@kernelpanic.ru>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -26,31 +23,19 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hello, David S. Miller.
-
-On 31.03.2006 14:45 you said the following:
-
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Fri, 31 Mar 2006 21:39:56 +1100
+Boris B. Zhmurov <bb@kernelpanic.ru> wrote:
 > 
-> 
->>Anyway, it didn't take long to find another bug in the same area.
->>I'm afraid this driver does seem to be full of them :)
-> 
-> 
-> Indeed.
-> 
-> Thanks for picking through this some more Herbert.  I hope we got it
-> this time.
+> Recompiling the kernel. I need about 2 hours to get the answer...
 
+BTW, if you kept the built tree it is possible to apply the patch and
+then do a make which should compile just the e1000 driver.
 
-Recompiling the kernel. I need about 2 hours to get the answer...
-
+Cheers,
 -- 
-Boris B. Zhmurov
-mailto: bb@kernelpanic.ru
-"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
 
 -------------------------------------------------------
