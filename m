@@ -1,76 +1,26 @@
-From: "Jeff V. Merkey" <jmerkey@wolfmountaingroup.com>
-Subject: Re: [PATCH]: e1000: prevent statistics from getting garbled during
-	reset.
-Date: Fri, 31 Mar 2006 11:40:16 -0700
-Message-ID: <442D7790.2010300@wolfmountaingroup.com>
-References: <20060330213928.GQ2172@austin.ibm.com>
-	<20060331000208.GS2172@austin.ibm.com>
-	<442C8069.507@wolfmountaingroup.com>
-	<20060331003506.GU2172@austin.ibm.com>
-	<442CACC0.1060308@wolfmountaingroup.com>
-	<20060331170319.GV2172@austin.ibm.com>
+From: "Chris Leech" <christopher.leech@intel.com>
+Subject: Re: [PATCH 2/9] I/OAT
+Date: Fri, 31 Mar 2006 11:04:14 -0800
+Message-ID: <41b516cb0603311104h617a0a7bnc0daefc024911f17@mail.gmail.com>
+References: <1143672844.27644.5.camel@black-lazer.jf.intel.com>
+	 <20060330062124.GA8545@2ka.mipt.ru>
+Reply-To: chris.leech@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com, linuxppc-dev@ozlabs.org,
-	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
-	linux-pci@atrey.karlin.mff.cuni.cz, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060331170319.GV2172@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751289AbWCaTES@vger.kernel.org>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060330062124.GA8545@2ka.mipt.ru>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
+> Could you please describe how struct ioat_dma_chan channels are freed?
 
->On Thu, Mar 30, 2006 at 09:14:56PM -0700, Jeffrey V. Merkey wrote:
->  
->
->>Yes, we need one. The adapter needs to maintain these stats from the
->>registers in the kernel structure and not
->>its own local variables. 
->>    
->>
->
->Did you read the code to see what the adapter does with these stats? 
->Among other things, it uses them to adaptively modulate transmit rates 
->to avoid collisions. Just clearing the hardware-private stats will mess
->up that function.
->
->  
->
-I noticed that.
+Sorry, I got distracted by other issues and never ended up following
+up on this.  You're right, and it's just sloppiness on my part for
+missing it, those structs are being leaked on module unload.  I'll fix
+it.  Thanks.
 
->>That way, when someone calls to clear the stats
->>for testing and analysis purposes,
->>they zero out and are reset.
->>    
->>
->
->1) ifdown/ifup is guarenteed to to clear things. Try that.
->  
->
-No, not dynamic. I'll patch the driver locally, thanks.
-
-Jeff
-
->2) What's wrong with taking deltas? Typical through-put performance
->measurement is done by pre-loading the pipes (i.e. running for
->a few minutes wihtout measuring, then starting the measurement).
->I'd think that snapshotting the numbers would be easier, and is 
->trivially doable in user-space. I guess I don't understand why 
->you need a new kernel featre to imlement this.
->
->--linas
->
->  
->
+-Chris
