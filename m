@@ -1,12 +1,13 @@
 From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 17:30:30 +0400
-Message-ID: <442D2EF6.1040703@kernelpanic.ru>
-References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy>
+Date: Fri, 31 Mar 2006 19:08:26 +0400
+Message-ID: <442D45EA.9010309@kernelpanic.ru>
+References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mark Nipper <nipsy@bitgnome.net>,
+Cc: Christiaan den Besten <chris@prolocation.net>,
+	Mark Nipper <nipsy@bitgnome.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
 	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
@@ -15,8 +16,8 @@ Cc: Mark Nipper <nipsy@bitgnome.net>,
 	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
 	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Christiaan den Besten <chris@prolocation.net>
-In-Reply-To: <045601c654c4$c3dece80$3d64880a@speedy>
+To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+In-Reply-To: <442D2EF6.1040703@kernelpanic.ru>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -28,30 +29,26 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hello, Christiaan den Besten.
+Hello, Boris B. Zhmurov.
 
-On 31.03.2006 17:12 you said the following:
+On 31.03.2006 17:30 you said the following:
 
-> Hi !
+> Herbert, with your second patch still no luck. After an hour of uptime I 
+> have assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (283) 
+> again...
 > 
->> P.S. I have another high-load server as gateway. Same distro, same 
->> kernels, but less memory (512Mb lowmem). eth0 up - e100, eth1 up - 
->> e1000. No errors at all! It kinda looks like assertions happens on 
->> systems, where the _only_ interface _eth1_ e1000 is up.
-> 
-> 
-> No, we have a couple gateway's asserting.
+> Trying your debug patch.
 
 
-Yes, my mistake :( My server asserting with eth0 and eth1 is up both...
+Hmm... with lastest debug patch I can't see any of debug info:
 
+e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
+e1000: eth1: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
+e1000: eth1: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (283)
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (150)
 
-Herbert, with your second patch still no luck. After an hour of uptime I 
-have assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (283) 
-again...
-
-Trying your debug patch.
-
+Is it normal?
 
 -- 
 Boris B. Zhmurov
