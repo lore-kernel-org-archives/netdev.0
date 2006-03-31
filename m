@@ -1,80 +1,29 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 09:22:32 -0800 (Pacific Standard Time)
-Message-ID: <Pine.WNT.4.63.0603310839070.3752@jbrandeb-desk.amr.corp.intel.com>
-References: <200603311057.07213.netdev@axxeo.de> <20060331.013540.95485284.davem@davemloft.net>
- <20060331094240.GA11040@gondor.apana.org.au> <200603311418.47626.netdev@axxeo.de>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH]: e1000: prevent statistics from getting garbled during
+ reset.
+Date: Fri, 31 Mar 2006 09:36:30 -0800
+Message-ID: <442D689E.9080209@hp.com>
+References: <20060330213928.GQ2172@austin.ibm.com>	<20060331000208.GS2172@austin.ibm.com>	<442C8069.507@wolfmountaingroup.com>	<20060331003506.GU2172@austin.ibm.com>	<442CACC0.1060308@wolfmountaingroup.com> <20060331170319.GV2172@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, bb@kernelpanic.ru,
-	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Ingo Oeser <netdev@axxeo.de>
-In-Reply-To: <200603311418.47626.netdev@axxeo.de>
-Sender: e1000-devel-admin@lists.sourceforge.net
-Errors-To: e1000-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, linuxppc-dev@ozlabs.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932138AbWCaRgc@vger.kernel.org>
+In-Reply-To: <20060331170319.GV2172@austin.ibm.com>
+To: unlisted-recipients:; (no To-header on input)
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> 2) What's wrong with taking deltas? Typical through-put performance
+> measurement is done by pre-loading the pipes (i.e. running for
+> a few minutes wihtout measuring, then starting the measurement).
+> I'd think that snapshotting the numbers would be easier, and is 
+> trivially doable in user-space. I guess I don't understand why 
+> you need a new kernel featre to imlement this.
 
+ftp://ftp.cup.hp.com/dist/networking/tools/beforeafter.tar.gz
 
-On Fri, 31 Mar 2006, Ingo Oeser wrote:
+Not my code, I've used it with success against ethtool -S output.
 
-> Hi,
->
-> Herbert Xu wrote:
->> On Fri, Mar 31, 2006 at 01:35:40AM -0800, David S. Miller wrote:
->>> He does not have TSO enabled, e1000 disables TSO when on a link speed
->>> slower than gigabit.
->
-> dmesg|grep eth0
-> [4294671.426000] e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
-> [4294679.125000] e1000: eth0: e1000_watchdog_task: NIC Link is Up 100 Mbps Full Duplex
->
->
-> # ethtool -k eth0
-> Offload parameters for eth0:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp segmentation offload: on
->
-> So this theory doesn't seem to hold :-(
->
->> Indeed.  But I think that only happens on PCI Express and I don't think
->> Ingo is using PCI Express.
->
-> Right. PCI-Express is not available in this machine.
->
-
-First, thanks for all the responses.
-
-6.3.9-k4 in 2.6.16 doesn't turn off TSO for 10/100, 7.0.33 in 2.6.17-pre 
-does, I think that will help alleviate some of the confusion.
-
-I've been working hard to try to reproduce here, no luck so far.
-
-Herbert's fixes are interesting and appreciated.  I'm going to try to 
-generate tests today that will show that the bugs he's mentioned could 
-occur.
-
-Jesse
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
+rick jones
