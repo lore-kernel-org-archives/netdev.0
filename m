@@ -1,11 +1,10 @@
-From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
+From: Mark Nipper <nipsy@bitgnome.net>
 Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 31 Mar 2006 19:19:09 +0400
-Message-ID: <442D486D.909@kernelpanic.ru>
-References: <442BAC99.2090404@kernelpanic.ru> <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru> <442D45EA.9010309@kernelpanic.ru>
+Date: Fri, 31 Mar 2006 10:01:22 -0600
+Message-ID: <20060331160121.GA19110@king.bitgnome.net>
+References: <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <442D24AA.8080609@kernelpanic.ru> <045601c654c4$c3dece80$3d64880a@speedy> <442D2EF6.1040703@kernelpanic.ru> <442D45EA.9010309@kernelpanic.ru> <442D486D.909@kernelpanic.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Christiaan den Besten <chris@prolocation.net>,
 	Mark Nipper <nipsy@bitgnome.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
@@ -17,7 +16,8 @@ Cc: Christiaan den Besten <chris@prolocation.net>,
 	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <e1000-devel-admin@lists.sourceforge.net>
 To: "Boris B. Zhmurov" <bb@kernelpanic.ru>
-In-Reply-To: <442D45EA.9010309@kernelpanic.ru>
+Content-Disposition: inline
+In-Reply-To: <442D486D.909@kernelpanic.ru>
 Sender: e1000-devel-admin@lists.sourceforge.net
 Errors-To: e1000-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -29,40 +29,30 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Hello, Boris B. Zhmurov.
+On 31 Mar 2006, Boris B. Zhmurov wrote:
+> stream.c (279) -> stream.c (283)
+> af_inet.c (148) -> af_inet.c (150)
 
-On 31.03.2006 19:08 you said the following:
-
-> Hmm... with lastest debug patch I can't see any of debug info:
-
-But wait a minute. Two days ago, without Herbert's patches, assertion's 
-errors was like this:
-
-Mar 29 20:03:23 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
-failed at net/core/stream.c (279)
-Mar 29 20:03:23 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
-failed at net/ipv4/af_inet.c (148)
-
-
-and after appling patches, errors looks like this:
-
-Mar 31 18:21:06 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
-failed at net/core/stream.c (283)
-Mar 31 18:21:06 msk4 kernel: KERNEL: assertion (!sk->sk_forward_alloc) 
-failed at net/ipv4/af_inet.c (150)
-
-
-stream.c (279) -> stream.c (283)
-af_inet.c (148) -> af_inet.c (150)
-
-
-Does it really matters?
+        That will be because the patches changed the line numbers
+in the source I believe.  Nothing helpful unfortunately.
 
 -- 
-Boris B. Zhmurov
-mailto: bb@kernelpanic.ru
-"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
+Mark Nipper                                                e-contacts:
+832 Tanglewood Drive                                nipsy@bitgnome.net
+Bryan, Texas 77802-4013                     http://nipsy.bitgnome.net/
+(979)575-3193                      AIM/Yahoo: texasnipsy ICQ: 66971617
 
+-----BEGIN GEEK CODE BLOCK-----
+Version: 3.1
+GG/IT d- s++:+ a- C++$ UBL++++$ P--->+++ L+++$ !E---
+W++(--) N+ o K++ w(---) O++ M V(--) PS+++(+) PE(--)
+Y+ PGP t+ 5 X R tv b+++@ DI+(++) D+ G e h r++ y+(**)
+------END GEEK CODE BLOCK------
+
+---begin random quote of the moment---
+"Whiskey-Tango-Foxtrot, over."
+ -- anonymous
+----end random quote of the moment----
 
 
 -------------------------------------------------------
