@@ -1,90 +1,64 @@
-From: David Daney <ddaney@avtrex.com>
-Subject: [PATCH] net: Broadcast ARP packets on link local addresses
-Date: Fri, 31 Mar 2006 15:26:00 -0800
-Message-ID: <17453.47752.914390.692779@dl2.hq2.avtrex.com>
-Reply-To: ddaney@avtrex.com
+From: Adrian Bunk <bunk@stusta.de>
+Subject: netfilter: IP_NF_CONNTRACK_NETLINK=y, IP_NF_NAT=m compile error
+Date: Sat, 1 Apr 2006 11:18:47 +0200
+Message-ID: <20060401091847.GC28310@stusta.de>
+References: <Pine.LNX.4.64.0603192216450.3622@g5.osdl.org> <20060328163932.GJ28030@miggy.org> <20060331170916.GL28030@miggy.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751431AbWCaX0M@vger.kernel.org>
-To: netdev@vger.kernel.org
-CC: freek@macfreek.nl
-CC: pgf@foxharp.boston.ma.us
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750920AbWDAJSu@vger.kernel.org>
+To: Athanasius <link@miggy.org>, Linus Torvalds <torvalds@osdl.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	coreteam@netfilter.org
+Content-Disposition: inline
+In-Reply-To: <20060331170916.GL28030@miggy.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Daney
+On Fri, Mar 31, 2006 at 06:09:16PM +0100, Athanasius wrote:
+> On Tue, Mar 28, 2006 at 05:39:32PM +0100, Athanasius wrote:
+> >   CC      init/version.o
+> >   LD      init/built-in.o
+> >   LD      .tmp_vmlinux1
+> > net/built-in.o(.text+0x7c990): In function `ctnetlink_parse_nat_proto':
+> > : undefined reference to `ip_nat_proto_find_get'
+> > net/built-in.o(.text+0x7c9b2): In function `ctnetlink_parse_nat_proto':
+> > : undefined reference to `ip_nat_proto_put'
+> > net/built-in.o(.text+0x7d695): In function `ctnetlink_change_conntrack':
+> > : undefined reference to `ip_nat_setup_info'
+> > net/built-in.o(.text+0x7da9f): In function `ctnetlink_create_conntrack':
+> > : undefined reference to `ip_nat_setup_info'
+> > make: *** [.tmp_vmlinux1] Error 1
+> ...
+> > CONFIG_IP_NF_TARGET_TCPMSS=m
+> > CONFIG_IP_NF_NAT=m
+> > CONFIG_IP_NF_NAT_NEEDED=y
+> > CONFIG_IP_NF_TARGET_MASQUERADE=m
+> 
+> ...
+> 
+>   It looks like the problem was that "CONFIG_IP_NF_NAT=m".  I changed
+> this to 'y' and things look to be compiling fine now.
+>...
 
-Greetings,
+First of all thanks for your report.
 
-When an internet host joins a network where there is no DHCP server,
-it may auto-allocate an IP address by the method described in RFC
-3927.  There are several user space daemons available that implement
-most of the protocol (zcip, busybox, ...).  The kernel's APR driver
-should function in the normal manner except that it is required to
-broadcast all ARP packets that it originates in the link local address
-space (169.254.0.0/16).  RFC 3927 section 2.5 explains the requirement.
+More exactly, it's the combination CONFIG_IP_NF_CONNTRACK_NETLINK=y, 
+CONFIG_IP_NF_NAT=m.
 
-The current ARP code is non-compliant because it does not broadcast
-some ARP packets as required by RFC 3927.
+Can someone who understands the netfilter dependencies please look into 
+this bug?
 
-This patch to net/ipv4/arp.c checks the source address of all ARP
-packets and if the fall in 169.254.0.0/16, they are broadcast instead
-of unicast.  I would like to thank Freek Dijkstra wrote the first
-version of the patch.  He was kind enough to sign off on it in his
-(off-list) e-mail to me:
-
->David Daney wrote:
->
->
->> For the linux kernel the requirements for contributing are quite easy.
->> All people who wrote the patch simply affirm that they are have the
->> right to contribute and that they are doing so.  See section 11 of
->> Documentation/SubmittingPatches in the kernel source tree.
->
->
-> Just read. (a) and (d) apply (I wrote it, and I'm fine that you use it):
-> Signed-off-by: Freek Dijkstra <freek@macfreek.nl>
->
-.
-.
-.
->
-> I hereby release the above patch in the public domain.
-> (You may credit me or not, I don't think it's needed).
->
-> Have fun.
-> Freek
-
-This patch is against 2.6.16.1 
-
-Signed-off-by: David Daney <ddaney@avtrex.com>
-
----
-
---- net/ipv4/arp.c.orig	2006-03-31 13:44:50.000000000 -0800
-+++ net/ipv4/arp.c	2006-03-31 13:48:26.000000000 -0800
-@@ -682,6 +682,7 @@ void arp_send(int type, int ptype, u32 d
- 	      unsigned char *target_hw)
- {
- 	struct sk_buff *skb;
-+	int lla;
+It's present in both 2.6.16.1 and 2.6.16-mm2.
  
- 	/*
- 	 *	No arp on this interface.
-@@ -690,8 +691,13 @@ void arp_send(int type, int ptype, u32 d
- 	if (dev->flags&IFF_NOARP)
- 		return;
- 
-+	/* If link local address (169.254.0.0/16) we must broadcast
-+         * the ARP packet.  See RFC 3927 section 2.5 for details.
-+	 */
-+	lla = (dest_ip & htonl(0xFFFF0000UL)) == htonl(0xA9FE0000UL);
-+
- 	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
--			 dest_hw, src_hw, target_hw);
-+			 lla ? NULL : dest_hw, src_hw, target_hw);
- 	if (skb == NULL) {
- 		return;
- 	}
+> -Ath
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
