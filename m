@@ -1,62 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
 Subject: Re: bridge+netfilter broken for IP fragments in 2.6.16?
-Date: Mon, 03 Apr 2006 01:11:46 +0200
-Message-ID: <44305A32.1010109@trash.net>
-References: <20060401143011.GA28333@swan.nt.tuwien.ac.at>
-	<443023C2.6020401@trash.net>
-	<20060402225625.GA22612@swan.nt.tuwien.ac.at>
+Date: Mon, 3 Apr 2006 01:36:53 +0200
+Message-ID: <20060402233653.GA30271@swan.nt.tuwien.ac.at>
+References: <20060401143011.GA28333@swan.nt.tuwien.ac.at> <443023C2.6020401@trash.net> <20060402225625.GA22612@swan.nt.tuwien.ac.at> <44305A32.1010109@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	linux-kernel@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
-In-Reply-To: <20060402225625.GA22612@swan.nt.tuwien.ac.at>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750906AbWDBXg4@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <44305A32.1010109@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Zeitlhofer wrote:
-> On Sun, Apr 02, 2006 at 09:19:30PM +0200, Patrick McHardy wrote:
+On Mon, Apr 03, 2006 at 01:11:46AM +0200, Patrick McHardy wrote:
+> Thomas Zeitlhofer wrote:
+> > On Sun, Apr 02, 2006 at 09:19:30PM +0200, Patrick McHardy wrote:
+> > 
+> >>>Doing the same on 2.6.15.x shows:
+> >>>
+> >>>  1) on tap1: fragmented packets
+> >>>  2) on br0: the defragmented packet (connection tracking)
+> >>>  3) on eth1: fragmented packets
+> >>
+> >>Are you sure this is correct? I think in 2.6.15 you should see
+> >>the fragments on br0 already.
+> > 
+> > 
+> > Just verified it, at least in 2.6.15.6 tcpdump shows the defragmented
+> > packet on br0.
 > 
->>>Doing the same on 2.6.15.x shows:
->>>
->>>  1) on tap1: fragmented packets
->>>  2) on br0: the defragmented packet (connection tracking)
->>>  3) on eth1: fragmented packets
->>
->>Are you sure this is correct? I think in 2.6.15 you should see
->>the fragments on br0 already.
-> 
-> 
-> Just verified it, at least in 2.6.15.6 tcpdump shows the defragmented
-> packet on br0.
+> I'm probably missing something, but that still seems stange.
+> Are you also seeing the defragmented packet on br0 with my
+> patch?
 
-I'm probably missing something, but that still seems stange.
-Are you also seeing the defragmented packet on br0 with my
-patch?
+Yes, here is the tcpdump output on all interfaces: 
 
->>Anyway, since 2.6.16 ip_conntrack doesn't do refragmentation anymore
->>but relies on fragmentation in the IP layer. Purely bridged packets
->>don't go through the IP layer, so the bridge netfilter code needs to
->>take care of fragmentation itself. Please try if this patch helps.
-> 
-> 
-> Your patch solves the problem - tcpdump now shows the refragmented
-> packets on eth1. Thanks for the quick solution.
-> 
-> Just a note, your patch does not work when bridge is compiled as a
-> module. In this case modprobe failes with "bridge: Unknown symbol
-> ip_fragment". Using CONFIG_BRIDGE=y works.
+1) on tap1
+23:22:51.830046 IP (tos 0x0, ttl  64, id 21174, offset 0, flags [+], proto: UDP (17), length: 1500) 192.168.10.1.500 > 192.168.20.1.500: isakmp 1.0 msgid : phase 1 I ident[E]: [encrypted id] (len mismatch: isakmp 2572/ip 1472)
+23:22:51.830084 IP (tos 0x0, ttl  64, id 21174, offset 1480, flags [none], proto: UDP (17), length: 1120) 192.168.10.1 > 192.168.20.1: udp 
 
-Thanks, I missed that the Makefile adds br_netfilter.o to
-bridge-$(CONFIG_BRIDGE_NETFILTER), not obj-$(...).
+2) on br0
+23:22:51.830084 IP (tos 0x0, ttl  64, id 21174, offset 0, flags [none], proto: UDP (17), length: 2600) 192.168.10.1.500 > 192.168.20.1.500: isakmp 1.0 msgid : phase 1 I ident[E]: [encrypted id]
+
+3) on eth1 
+23:22:51.830120 IP (tos 0x0, ttl  64, id 21174, offset 0, flags [+], proto: UDP (17), length: 1500) 192.168.10.1.500 > 192.168.20.1.500: isakmp 1.0 msgid : phase 1 I ident[E]: [encrypted id] (len mismatch: isakmp 2572/ip 1472)
+23:22:51.830133 IP (tos 0x0, ttl  64, id 21174, offset 1480, flags [none], proto: UDP (17), length: 1120) 192.168.10.1 > 192.168.20.1: udp
+
+--
+Thomas
