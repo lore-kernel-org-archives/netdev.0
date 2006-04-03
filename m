@@ -1,54 +1,69 @@
-From: Thomas Zeitlhofer <thomas.zeitlhofer@nt.tuwien.ac.at>
-Subject: Re: bridge+netfilter broken for IP fragments in 2.6.16?
-Date: Mon, 3 Apr 2006 01:36:53 +0200
-Message-ID: <20060402233653.GA30271@swan.nt.tuwien.ac.at>
-References: <20060401143011.GA28333@swan.nt.tuwien.ac.at> <443023C2.6020401@trash.net> <20060402225625.GA22612@swan.nt.tuwien.ac.at> <44305A32.1010109@trash.net>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [IPSEC]: Kill unused decap state argument
+Date: Sun, 2 Apr 2006 23:31:34 -0500
+Message-ID: <20060403043134.GA7173@redhat.com>
+References: <200604022014.k32KE6LH011600@hera.kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750906AbWDBXg4@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932095AbWDCEbh@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <44305A32.1010109@trash.net>
+In-Reply-To: <200604022014.k32KE6LH011600@hera.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 03, 2006 at 01:11:46AM +0200, Patrick McHardy wrote:
-> Thomas Zeitlhofer wrote:
-> > On Sun, Apr 02, 2006 at 09:19:30PM +0200, Patrick McHardy wrote:
-> > 
-> >>>Doing the same on 2.6.15.x shows:
-> >>>
-> >>>  1) on tap1: fragmented packets
-> >>>  2) on br0: the defragmented packet (connection tracking)
-> >>>  3) on eth1: fragmented packets
-> >>
-> >>Are you sure this is correct? I think in 2.6.15 you should see
-> >>the fragments on br0 already.
-> > 
-> > 
-> > Just verified it, at least in 2.6.15.6 tcpdump shows the defragmented
-> > packet on br0.
-> 
-> I'm probably missing something, but that still seems stange.
-> Are you also seeing the defragmented packet on br0 with my
-> patch?
+On Sun, Apr 02, 2006 at 08:14:06PM +0000, Linux Kernel wrote:
+ > commit e695633e21ffb6a443a8c2f8b3f095c7f1a48eb0
+ > tree 52a679683a11eb42ec5888309a82ec5811a21e03
+ > parent 15901dc93fa4253bfb3661644ecad67c2e83213c
+ > author Herbert Xu <herbert@gondor.apana.org.au> Sat, 01 Apr 2006 16:52:46 -0800
+ > committer David S. Miller <davem@davemloft.net> Sat, 01 Apr 2006 16:52:46 -0800
+ > 
+ > [IPSEC]: Kill unused decap state argument
+ > 
+ > This patch removes the decap_state argument from the xfrm input hook.
+ > Previously this function allowed the input hook to share state with
+ > the post_input hook.  The latter has since been removed.
+ > 
+ > The only purpose for it now is to check the encap type.  However, it
+ > is easier and better to move the encap type check to the generic
+ > xfrm_rcv function.  This allows us to get rid of the decap state
+ > argument altogether.
+ > 
+ > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ > Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Yes, here is the tcpdump output on all interfaces: 
+This breaks SELinux compilation.
+security/selinux/xfrm.c: In function 'selinux_socket_getpeer_dgram':
+security/selinux/xfrm.c:284: error: 'struct sec_path' has no member named 'x'
+security/selinux/xfrm.c: In function 'selinux_xfrm_sock_rcv_skb':
+security/selinux/xfrm.c:317: error: 'struct sec_path' has no member named 'x'
 
-1) on tap1
-23:22:51.830046 IP (tos 0x0, ttl  64, id 21174, offset 0, flags [+], proto: UDP (17), length: 1500) 192.168.10.1.500 > 192.168.20.1.500: isakmp 1.0 msgid : phase 1 I ident[E]: [encrypted id] (len mismatch: isakmp 2572/ip 1472)
-23:22:51.830084 IP (tos 0x0, ttl  64, id 21174, offset 1480, flags [none], proto: UDP (17), length: 1120) 192.168.10.1 > 192.168.20.1: udp 
+Does this look sane ?
 
-2) on br0
-23:22:51.830084 IP (tos 0x0, ttl  64, id 21174, offset 0, flags [none], proto: UDP (17), length: 2600) 192.168.10.1.500 > 192.168.20.1.500: isakmp 1.0 msgid : phase 1 I ident[E]: [encrypted id]
+Signed-off-by: Dave Jones <davej@redhat.com>
 
-3) on eth1 
-23:22:51.830120 IP (tos 0x0, ttl  64, id 21174, offset 0, flags [+], proto: UDP (17), length: 1500) 192.168.10.1.500 > 192.168.20.1.500: isakmp 1.0 msgid : phase 1 I ident[E]: [encrypted id] (len mismatch: isakmp 2572/ip 1472)
-23:22:51.830133 IP (tos 0x0, ttl  64, id 21174, offset 1480, flags [none], proto: UDP (17), length: 1120) 192.168.10.1 > 192.168.20.1: udp
+--- linux-2.6.16.noarch/security/selinux/xfrm.c~	2006-04-02 23:27:07.000000000 -0500
++++ linux-2.6.16.noarch/security/selinux/xfrm.c	2006-04-02 23:27:40.000000000 -0500
+@@ -281,7 +281,7 @@ u32 selinux_socket_getpeer_dgram(struct 
+ 		int i;
+ 
+ 		for (i = sp->len-1; i >= 0; i--) {
+-			struct xfrm_state *x = sp->x[i].xvec;
++			struct xfrm_state *x = sp->xvec[i];
+ 			if (selinux_authorizable_xfrm(x)) {
+ 				struct xfrm_sec_ctx *ctx = x->security;
+ 				return ctx->ctx_sid;
+@@ -314,7 +314,7 @@ int selinux_xfrm_sock_rcv_skb(u32 isec_s
+ 		 *  Only need to verify the existence of an authorizable sp.
+ 		 */
+ 		for (i = 0; i < sp->len; i++) {
+-			struct xfrm_state *x = sp->x[i].xvec;
++			struct xfrm_state *x = sp->xvec[i];
+ 
+ 			if (x && selinux_authorizable_xfrm(x))
+ 				goto accept;
 
---
-Thomas
+-- 
+http://www.codemonkey.org.uk
