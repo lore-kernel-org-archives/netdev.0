@@ -1,64 +1,34 @@
-From: "Boris B. Zhmurov" <bb@kernelpanic.ru>
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Tue, 04 Apr 2006 02:00:31 +0400
-Message-ID: <44319AFF.4090101@kernelpanic.ru>
-References: <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <20060331123514.GA13500@gondor.apana.org.au> <20060403210123.GA27698@king.bitgnome.net> <20060403213907.GA32406@linuxace.com>
-Reply-To: bb@kernelpanic.ru
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [NETFILTER]: Fix fragmentation issues with bridge netfilter
+Date: Mon, 03 Apr 2006 20:12:24 +0200
+Message-ID: <1144087944.3024.5.camel@localhost.localdomain>
+References: <44312671.3090904@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mark Nipper <nipsy@bitgnome.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, jesse.brandeburg@intel.com,
-	jrlundgren@gmail.com, cat@zip.com.au, djani22@dynamicweb.hu,
-	yoseph.basri@gmail.com, mykleb@no.ibm.com, olel@ans.pl,
-	michal@feix.cz, chris@scorpion.nl, netdev@vger.kernel.org,
-	jesse.brandeburg@gmail.com, E1000-devel@lists.sourceforge.net,
-	Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Phil Oester <kernel@linuxace.com>
-In-Reply-To: <20060403213907.GA32406@linuxace.com>
-Sender: e1000-devel-admin@lists.sourceforge.net
-Errors-To: e1000-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44312671.3090904@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Phil Oester.
+Op ma, 03-04-2006 te 15:43 +0200, schreef Patrick McHardy:
+> Fix a regression from the netfilter/IPsec patches with bridging.
+> Bart, please review this patch, if everything is fine I think it
+> should also go in -stable.
 
-On 04.04.2006 01:39 you said the following:
+Looks fine to me.
 
-> On Mon, Apr 03, 2006 at 04:01:23PM -0500, Mark Nipper wrote:
-> 
->>        After three days and some hours, I finally saw another
->>event:
-> 
-> 
-> Ack, same here.  Looked hopeful, but finally saw the error today.
-> 
-> Phil
-
-
-[root@msk4 ~]# dmesg |grep assertion |wc -l
-176
-
-[root@msk4 ~]# uptime
-  02:00:01 up 3 days,  7:31,  2 users,  load average: 1.32, 0.59, 0.41
-
--- 
-Boris B. Zhmurov
-mailto: bb@kernelpanic.ru
-"wget http://kernelpanic.ru/bb_public_key.pgp -O - | gpg --import"
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
+Thanks,
+Bart
