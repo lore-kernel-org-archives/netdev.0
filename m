@@ -1,50 +1,32 @@
-From: gregkh@suse.de
-Subject: [patch 24/26] hostap: Fix EAPOL frame encryption
-Date: Tue, 4 Apr 2006 17:01:18 -0700
-Message-ID: <20060405000118.GY27049@kroah.com>
-References: <20060404235634.696852000@quad.kroah.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [NETFILTER]: Fix fragmentation issues with bridge netfilter
+Date: Tue, 04 Apr 2006 13:42:55 -0700 (PDT)
+Message-ID: <20060404.134255.108672274.davem@davemloft.net>
+References: <44312671.3090904@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Jouni Malinen <jkmaline@cc.hut.fi>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751002AbWDEADc@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline; filename="hostap_fix_eapol_crypt.patch"
-In-Reply-To: <20060404235927.GA27049@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	bdschuym@pandora.be
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: kaber@trash.net
+In-Reply-To: <44312671.3090904@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Fixed encrypted of EAPOL frames from wlan#ap interface (hostapd). This
-was broken when moving to use new frame control field defines in
-net/ieee80211.h. hostapd uses Protected flag, not protocol version
-(which was cleared in this function anyway). This fixes WPA group key
-handshake and re-authentication.
-http://hostap.epitest.fi/bugz/show_bug.cgi?id=126
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 03 Apr 2006 15:43:13 +0200
 
-Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
+> Fix a regression from the netfilter/IPsec patches with bridging.
+> Bart, please review this patch, if everything is fine I think it
+> should also go in -stable.
 
-
----
- drivers/net/wireless/hostap/hostap_80211_tx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2.6.16.1.orig/drivers/net/wireless/hostap/hostap_80211_tx.c
-+++ linux-2.6.16.1/drivers/net/wireless/hostap/hostap_80211_tx.c
-@@ -469,7 +469,7 @@ int hostap_master_start_xmit(struct sk_b
- 	}
- 
- 	if (local->ieee_802_1x && meta->ethertype == ETH_P_PAE && tx.crypt &&
--	    !(fc & IEEE80211_FCTL_VERS)) {
-+	    !(fc & IEEE80211_FCTL_PROTECTED)) {
- 		no_encrypt = 1;
- 		PDEBUG(DEBUG_EXTRA2, "%s: TX: IEEE 802.1X - passing "
- 		       "unencrypted EAPOL frame\n", dev->name);
-
---
+Applied, thanks Patrick.  Please submit this to -stable.
