@@ -1,65 +1,53 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: bcm43xx_sysfs.c: strange code
-Date: Tue, 4 Apr 2006 20:44:35 +0200
-Message-ID: <20060404184435.GV6529@stusta.de>
+Subject: [2.6 patch] bcm43xx_phy.c: fix a memory leak
+Date: Tue, 4 Apr 2006 20:56:22 +0200
+Message-ID: <20060404185622.GX6529@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750796AbWDDSoi@vger.kernel.org>
-To: Michael Buesch <mbuesch@freenet.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750803AbWDDS4Y@vger.kernel.org>
+To: Martin Langer <martin-langer@gmx.de>,
+	Stefano Brivio <st3@riseup.net>,
+	Michael Buesch <mbuesch@freenet.de>,
+	Danny van Dyk <kugelfang@gentoo.org>,
+	Andreas Jaggi <andreas.jaggi@waterwave.ch>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker spotted the following strange code:
+This patch fixes a memory leak spotted by the Coverity checker.
 
-<--  snip  -->
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-static ssize_t bcm43xx_attr_interfmode_show(struct device *dev,
-                                            struct device_attribute *attr,
-                                            char *buf)
-{
-...
-        err = 0;
+---
 
-        bcm43xx_unlock(bcm, flags);
+ drivers/net/wireless/bcm43xx/bcm43xx_phy.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-        return err ? err : count;
-
-}
-...
-static ssize_t bcm43xx_attr_preamble_show(struct device *dev,
-                                          struct device_attribute *attr,
-                                          char *buf)
-{
-...
-        err = 0;
-        bcm43xx_unlock(bcm, flags);
-
-        return err ? err : count;
-}
-...
-static ssize_t bcm43xx_attr_preamble_store(struct device *dev,
-                                           struct device_attribute *attr,
-                                           const char *buf, size_t count)
-{
-...
-        err = 0;
-        bcm43xx_unlock(bcm, flags);
-
-        return err ? err : count;
-}
-...
-
-<--  snip  -->
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+--- linux-2.6.17-rc1-mm1-full/drivers/net/wireless/bcm43xx/bcm43xx_phy.c.old	2006-04-04 19:43:04.000000000 +0200
++++ linux-2.6.17-rc1-mm1-full/drivers/net/wireless/bcm43xx/bcm43xx_phy.c	2006-04-04 19:43:38.000000000 +0200
+@@ -2143,22 +2143,23 @@ int bcm43xx_phy_init_tssi2dbm_table(stru
+ 		dyn_tssi2dbm = kmalloc(64, GFP_KERNEL);
+ 		if (dyn_tssi2dbm == NULL) {
+ 			printk(KERN_ERR PFX "Could not allocate memory"
+ 					    "for tssi2dbm table\n");
+ 			return -ENOMEM;
+ 		}
+ 		for (idx = 0; idx < 64; idx++)
+ 			if (bcm43xx_tssi2dbm_entry(dyn_tssi2dbm, idx, pab0, pab1, pab2)) {
+ 				phy->tssi2dbm = NULL;
+ 				printk(KERN_ERR PFX "Could not generate "
+ 						    "tssi2dBm table\n");
++				kfree(dyn_tssi2dbm);
+ 				return -ENODEV;
+ 			}
+ 		phy->tssi2dbm = dyn_tssi2dbm;
+ 		phy->dyn_tssi_tbl = 1;
+ 	} else {
+ 		/* pabX values not set in SPROM. */
+ 		switch (phy->type) {
+ 		case BCM43xx_PHYTYPE_A:
+ 			/* APHY needs a generated table. */
+ 			phy->tssi2dbm = NULL;
+ 			printk(KERN_ERR PFX "Could not generate tssi2dBm "
