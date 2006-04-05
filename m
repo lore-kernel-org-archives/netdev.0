@@ -1,7 +1,7 @@
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] IrDA: smcinit merged into smsc-ircc driver
-Date: Thu, 6 Apr 2006 02:21:25 +0300
-Message-ID: <20060405232125.GA377@irie>
+Subject: [PATCH] IrDA: Support for Sigmatel STIR421x chip
+Date: Thu, 6 Apr 2006 02:21:37 +0300
+Message-ID: <20060405232137.GB377@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -24,370 +24,672 @@ List-Id: netdev.vger.kernel.org
 
 Hi David,
 
-This patch integrates the smcinit code into the smsc-ircc driver.
-Some laptops have their smsc-ircc chip not properly configured by the BIOS and needs some preconfiguration. Currently, this can be done from userspace with smcinit, a utility that comes with the irda-utils package. It messes with ioports and PCI settings, from userspace.
-Now with this patch, if we happen to be on one of the known to be faulty laptops, we preconfigure the chip from the driver.
+This patch enables support for the Sigmatel's STIR421x IrDA chip.
+Once patched with Sigmatel's firmware, this chip "almost" follows the USB-IrDA spec. Thus this patch is against irda-usb.[ch].
 
-Patch from Linus Walleij <triad-HEm3bjczhZmzQB+pC5nmwQ@public.gmane.org>
+The code has been tested by Nick Fedchik on an STIR4210 chipset based dongle.
+
 Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-diff --git a/drivers/net/irda/smsc-ircc2.c b/drivers/net/irda/smsc-ircc2.c
-index ec94ecd..f6d98b4 100644
---- a/drivers/net/irda/smsc-ircc2.c
-+++ b/drivers/net/irda/smsc-ircc2.c
-@@ -11,6 +11,7 @@
-  *     Copyright (c) 2002      Daniele Peri
-  *     All Rights Reserved.
-  *     Copyright (c) 2002      Jean Tourrilhes
-+ *     Copyright (c) 2006      Linus Walleij
+diff --git a/drivers/net/irda/irda-usb.h b/drivers/net/irda/irda-usb.h
+index 4026af4..4e12217 100644
+--- a/drivers/net/irda/irda-usb.h
++++ b/drivers/net/irda/irda-usb.h
+@@ -1,7 +1,7 @@
+ /*****************************************************************************
   *
-  *
-  * Based on smc-ircc.c:
-@@ -61,6 +62,9 @@
- 
- #include <linux/spinlock.h>
- #include <linux/pm.h>
-+#ifdef CONFIG_PCI
-+#include <linux/pci.h>
-+#endif
- 
- #include <net/irda/wrapper.h>
+  * Filename:      irda-usb.h
+- * Version:       0.9b
++ * Version:       0.10
+  * Description:   IrDA-USB Driver
+  * Status:        Experimental 
+  * Author:        Dag Brattli <dag-1K3ejsF8QZHR7s880joybQ@public.gmane.org>
+@@ -9,6 +9,9 @@
+  *	Copyright (C) 2001, Roman Weissgaerber <weissg-TVDPYGuBT+ReoWH0uzbU5w@public.gmane.org>
+  *      Copyright (C) 2000, Dag Brattli <dag-1K3ejsF8QZHR7s880joybQ@public.gmane.org>
+  *      Copyright (C) 2001, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
++ *      Copyright (C) 2004, SigmaTel, Inc. <irquality-0iljnS1bRDtWk0Htik3J/w@public.gmane.org>
++ *      Copyright (C) 2005, Milan Beno <beno-Rm0zKEqwvD4@public.gmane.org>
++ *      Copyright (C) 2006, Nick FEdchik <nick-UvdXiu2sajOKBXSJ/Qx0JQ@public.gmane.org>
+  *          
+  *	This program is free software; you can redistribute it and/or modify
+  *	it under the terms of the GNU General Public License as published by
+@@ -31,6 +34,9 @@
  #include <net/irda/irda.h>
-@@ -100,6 +104,22 @@ MODULE_PARM_DESC(ircc_transceiver, "Tran
+ #include <net/irda/irda_device.h>      /* struct irlap_cb */
  
- /* Types */
- 
-+#ifdef CONFIG_PCI
-+struct smsc_ircc_subsystem_configuration {
-+	unsigned short vendor; /* PCI vendor ID */
-+	unsigned short device; /* PCI vendor ID */
-+	unsigned short subvendor; /* PCI subsystem vendor ID */
-+	unsigned short subdevice; /* PCI sybsystem device ID */
-+	unsigned short sir_io; /* I/O port for SIR */
-+	unsigned short fir_io; /* I/O port for FIR */
-+	unsigned char  fir_irq; /* FIR IRQ */
-+	unsigned char  fir_dma; /* FIR DMA */
-+	unsigned short cfg_base; /* I/O port for chip configuration */
-+	int (*preconfigure)(struct pci_dev *dev, struct smsc_ircc_subsystem_configuration *conf); /* Preconfig function */
-+	const char *name;	/* name shown as info */
-+};
-+#endif
++#define PATCH_FILE_SIZE_MAX     65536
++#define PATCH_FILE_SIZE_MIN     80
 +
- struct smsc_transceiver {
- 	char *name;
- 	void (*set_for_speed)(int fir_base, u32 speed);
-@@ -202,6 +222,16 @@ static int __init smsc_superio_flat(cons
- static int __init smsc_superio_paged(const struct smsc_chip *chips, unsigned short cfg_base, char *type);
- static int __init smsc_superio_fdc(unsigned short cfg_base);
- static int __init smsc_superio_lpc(unsigned short cfg_base);
-+#ifdef CONFIG_PCI
-+static int __init preconfigure_smsc_chip(struct smsc_ircc_subsystem_configuration *conf);
-+static int __init preconfigure_through_82801(struct pci_dev *dev, struct smsc_ircc_subsystem_configuration *conf);
-+static int __init preconfigure_through_ali(struct pci_dev *dev, struct smsc_ircc_subsystem_configuration *conf);
-+static int __init smsc_ircc_preconfigure_subsystems(unsigned short ircc_cfg, 
-+						    unsigned short ircc_fir, 
-+						    unsigned short ircc_sir, 
-+						    unsigned char ircc_dma, 
-+						    unsigned char ircc_irq);
-+#endif
+ #define RX_COPY_THRESHOLD 200
+ #define IRDA_USB_MAX_MTU 2051
+ #define IRDA_USB_SPEED_MTU 64		/* Weird, but work like this */
+@@ -79,15 +85,16 @@
+ /* Inbound header */
+ #define MEDIA_BUSY    0x80
  
- /* Transceivers specific functions */
+-#define SPEED_2400    0x01
+-#define SPEED_9600    0x02
+-#define SPEED_19200   0x03
+-#define SPEED_38400   0x04
+-#define SPEED_57600   0x05
+-#define SPEED_115200  0x06
+-#define SPEED_576000  0x07
+-#define SPEED_1152000 0x08
+-#define SPEED_4000000 0x09
++#define SPEED_2400     0x01
++#define SPEED_9600     0x02
++#define SPEED_19200    0x03
++#define SPEED_38400    0x04
++#define SPEED_57600    0x05
++#define SPEED_115200   0x06
++#define SPEED_576000   0x07
++#define SPEED_1152000  0x08
++#define SPEED_4000000  0x09
++#define SPEED_16000000 0x0a
  
-@@ -353,6 +383,13 @@ static int __init smsc_ircc_init(void)
- 		return ret;
- 	}
+ /* Basic capabilities */
+ #define IUC_DEFAULT	0x00	/* Basic device compliant with 1.0 spec */
+@@ -100,11 +107,14 @@
+ #define IUC_SMALL_PKT	0x10	/* Device doesn't behave with big Rx packets */
+ #define IUC_MAX_WINDOW	0x20	/* Device underestimate the Rx window */
+ #define IUC_MAX_XBOFS	0x40	/* Device need more xbofs than advertised */
++#define IUC_STIR_4210	0x80	/* SigmaTel 4210/4220/4116 VFIR */
  
-+#ifdef CONFIG_PCI
-+	if (smsc_ircc_preconfigure_subsystems(ircc_cfg, ircc_fir, ircc_sir, ircc_dma, ircc_irq) < 0) {
-+		/* Ignore errors from preconfiguration */
-+		IRDA_ERROR("%s, Preconfiguration failed !\n", driver_name);
+ /* USB class definitions */
+-#define USB_IRDA_HEADER   0x01
+-#define USB_CLASS_IRDA    0x02 /* USB_CLASS_APP_SPEC subclass */ 
+-#define USB_DT_IRDA       0x21
++#define USB_IRDA_HEADER            0x01
++#define USB_CLASS_IRDA             0x02 /* USB_CLASS_APP_SPEC subclass */ 
++#define USB_DT_IRDA                0x21
++#define USB_IRDA_SIGMATEL_HEADER   0x03
++#define IU_SIGMATEL_MAX_RX_URBS    (IU_MAX_ACTIVE_RX_URBS + USB_IRDA_SIGMATEL_HEADER)
+ 
+ struct irda_class_desc {
+ 	__u8  bLength;
+@@ -123,6 +133,7 @@ struct irda_class_desc {
+  * (6.2.5, USB-IrDA class spec 1.0) */
+ 
+ #define IU_REQ_GET_CLASS_DESC	0x06
++#define STIR421X_MAX_PATCH_DOWNLOAD_SIZE 1023
+ 
+ struct irda_usb_cb {
+ 	struct irda_class_desc *irda_desc;
+@@ -136,7 +147,8 @@ struct irda_usb_cb {
+ 	__u16 bulk_out_mtu;		/* Max Tx packet size in bytes */
+ 	__u8  bulk_int_ep;		/* Interrupt Endpoint assignments */
+ 
+-	struct urb *rx_urb[IU_MAX_RX_URBS];	/* URBs used to receive data frames */
++	__u8  max_rx_urb;
++	struct urb **rx_urb;	        /* URBs used to receive data frames */
+ 	struct urb *idle_rx_urb;	/* Pointer to idle URB in Rx path */
+ 	struct urb *tx_urb;		/* URB used to send data frames */
+ 	struct urb *speed_urb;		/* URB used to send speed commands */
+@@ -156,6 +168,9 @@ struct irda_usb_cb {
+ 	__s16 new_xbofs;		/* xbofs we need to set */
+ 	__u32 speed;			/* Current speed */
+ 	__s32 new_speed;		/* speed we need to set */
++	
++	__u8 header_length;             /* USB-IrDA frame header size */
++	int needspatch;        		/* device needs firmware patch */
+ 
+ 	struct timer_list rx_defer_timer;	/* Wait for Rx error to clear */
+ };
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+index 6e2ec56..390d23b 100644
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -1,7 +1,7 @@
+ /*****************************************************************************
+  *
+  * Filename:      irda-usb.c
+- * Version:       0.9b
++ * Version:       0.10
+  * Description:   IrDA-USB Driver
+  * Status:        Experimental 
+  * Author:        Dag Brattli <dag-1K3ejsF8QZHR7s880joybQ@public.gmane.org>
+@@ -9,6 +9,9 @@
+  *	Copyright (C) 2000, Roman Weissgaerber <weissg-TVDPYGuBT+ReoWH0uzbU5w@public.gmane.org>
+  *      Copyright (C) 2001, Dag Brattli <dag-1K3ejsF8QZHR7s880joybQ@public.gmane.org>
+  *      Copyright (C) 2001, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
++ *      Copyright (C) 2004, SigmaTel, Inc. <irquality-0iljnS1bRDtWk0Htik3J/w@public.gmane.org>
++ *      Copyright (C) 2005, Milan Beno <beno-Rm0zKEqwvD4@public.gmane.org>
++ *      Copyright (C) 2006, Nick Fedchik <nick-UvdXiu2sajOKBXSJ/Qx0JQ@public.gmane.org>
+  *          
+  *	This program is free software; you can redistribute it and/or modify
+  *	it under the terms of the GNU General Public License as published by
+@@ -61,6 +64,7 @@
+ #include <linux/slab.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/usb.h>
++#include <linux/firmware.h>
+ 
+ #include "irda-usb.h"
+ 
+@@ -78,8 +82,12 @@ static struct usb_device_id dongles[] = 
+ 	{ USB_DEVICE(0x50f, 0x180), .driver_info = IUC_SPEED_BUG | IUC_NO_WINDOW },
+ 	/* Extended Systems, Inc.,  XTNDAccess IrDA USB (ESI-9685) */
+ 	{ USB_DEVICE(0x8e9, 0x100), .driver_info = IUC_SPEED_BUG | IUC_NO_WINDOW },
+-	{ .match_flags = USB_DEVICE_ID_MATCH_INT_CLASS |
+-	               USB_DEVICE_ID_MATCH_INT_SUBCLASS,
++	/* SigmaTel STIR4210/4220/4116 USB IrDA (VFIR) Bridge */
++	{ USB_DEVICE(0x66f, 0x4210), .driver_info = IUC_STIR_4210 | IUC_SPEED_BUG },
++	{ USB_DEVICE(0x66f, 0x4220), .driver_info = IUC_STIR_4210 | IUC_SPEED_BUG },
++	{ USB_DEVICE(0x66f, 0x4116), .driver_info = IUC_STIR_4210 | IUC_SPEED_BUG },
++	{ .match_flags = USB_DEVICE_ID_MATCH_INT_CLASS | 
++	  USB_DEVICE_ID_MATCH_INT_SUBCLASS,
+ 	  .bInterfaceClass = USB_CLASS_APP_SPEC,
+ 	  .bInterfaceSubClass = USB_CLASS_IRDA,
+ 	  .driver_info = IUC_DEFAULT, },
+@@ -99,6 +107,7 @@ MODULE_DEVICE_TABLE(usb, dongles);
+ 
+ /*------------------------------------------------------------------*/
+ 
++static void irda_usb_init_qos(struct irda_usb_cb *self) ;
+ static struct irda_class_desc *irda_usb_find_class_desc(struct usb_interface *intf);
+ static void irda_usb_disconnect(struct usb_interface *intf);
+ static void irda_usb_change_speed_xbofs(struct irda_usb_cb *self);
+@@ -141,7 +150,24 @@ static void irda_usb_build_header(struct
+ 				  __u8 *header,
+ 				  int	force)
+ {
+-	/* Set the negotiated link speed */
++	/* Here we check if we have an STIR421x chip,
++	 * and if either speed or xbofs (or both) needs
++	 * to be changed.
++	 */
++	if (self->capability & IUC_STIR_4210 &&
++	    ((self->new_speed != -1) || (self->new_xbofs != -1))) {
++	
++		/* With STIR421x, speed and xBOFs must be set at the same
++		 * time, even if only one of them changes. 
++		 */
++		if (self->new_speed == -1)
++			self->new_speed = self->speed ;
++		
++		if (self->new_xbofs == -1)
++			self->new_xbofs = self->xbofs ;
 +	}
-+#endif
-+
- 	dev_count = 0;
- 
- 	if (ircc_fir > 0 && ircc_sir > 0) {
-@@ -2285,6 +2322,280 @@ static int __init smsc_superio_lpc(unsig
- 	return ret;
++	
++	/* Set the link speed */
+ 	if (self->new_speed != -1) {
+ 		/* Hum... Ugly hack :-(
+ 		 * Some device are not compliant with the spec and change
+@@ -191,7 +217,11 @@ static void irda_usb_build_header(struct
+ 		        *header = SPEED_4000000;
+ 			self->new_xbofs = 0;
+ 			break;
+-		}
++		case 16000000:
++			*header = SPEED_16000000;
++  			self->new_xbofs = 0;
++  			break;
++  		}
+ 	} else
+ 		/* No change */
+ 		*header = 0;
+@@ -235,6 +265,32 @@ static void irda_usb_build_header(struct
+ 	}
  }
  
 +/*
-+ * Look for some specific subsystem setups that need 
-+ * pre-configuration not properly done by the BIOS (especially laptops)
-+ * This code is based in part on smcinit.c, tosh1800-smcinit.c
-+ * and tosh2450-smcinit.c. The table lists the device entries
-+ * for ISA bridges with an LPC (Local Peripheral Configurator)
-+ * that are in turn used to configure the SMSC device with default 
-+ * SIR and FIR I/O ports, DMA and IRQ.
++*   calculate turnaround time for SigmaTel header
++*/
++static __u8 get_turnaround_time(struct sk_buff *skb)
++{
++	int turnaround_time = irda_get_mtt(skb);
++
++	if ( turnaround_time == 0 )
++		return 0;
++	else if ( turnaround_time <= 10 )
++		return 1;
++	else if ( turnaround_time <= 50 )
++		return 2;
++	else if ( turnaround_time <= 100 )
++		return 3;
++	else if ( turnaround_time <= 500 )
++		return 4;
++	else if ( turnaround_time <= 1000 )
++		return 5;
++	else if ( turnaround_time <= 5000 )
++		return 6;
++	else
++		return 7;
++}
++
++
+ /*------------------------------------------------------------------*/
+ /*
+  * Send a command to change the speed of the dongle
+@@ -262,12 +318,18 @@ static void irda_usb_change_speed_xbofs(
+ 	/* Set the new speed and xbofs in this fake frame */
+ 	irda_usb_build_header(self, frame, 1);
+ 
++	if ( self->capability & IUC_STIR_4210 ) {
++		if (frame[0] == 0) return ; // do nothing if no change
++		frame[1] = 0; // other parameters don't change here
++		frame[2] = 0;
++	}
++
+ 	/* Submit the 0 length IrDA frame to trigger new speed settings */
+         usb_fill_bulk_urb(urb, self->usbdev,
+ 		      usb_sndbulkpipe(self->usbdev, self->bulk_out_ep),
+                       frame, IRDA_USB_SPEED_MTU,
+                       speed_bulk_callback, self);
+-	urb->transfer_buffer_length = USB_IRDA_HEADER;
++	urb->transfer_buffer_length = self->header_length;
+ 	urb->transfer_flags = 0;
+ 
+ 	/* Irq disabled -> GFP_ATOMIC */
+@@ -383,16 +445,35 @@ static int irda_usb_hard_xmit(struct sk_
+ 	 * allocation will be done lower in skb_push().
+ 	 * Also, we don't use directly skb_cow(), because it require
+ 	 * headroom >= 16, which force unnecessary copies - Jean II */
+-	if (skb_headroom(skb) < USB_IRDA_HEADER) {
++	if (skb_headroom(skb) < self->header_length) {
+ 		IRDA_DEBUG(0, "%s(), Insuficient skb headroom.\n", __FUNCTION__);
+-		if (skb_cow(skb, USB_IRDA_HEADER)) {
++		if (skb_cow(skb, self->header_length)) {
+ 			IRDA_WARNING("%s(), failed skb_cow() !!!\n", __FUNCTION__);
+ 			goto drop;
+ 		}
+ 	}
+ 
+ 	/* Change setting for next frame */
+-	irda_usb_build_header(self, skb_push(skb, USB_IRDA_HEADER), 0);
++
++	if ( self->capability & IUC_STIR_4210 ) {
++		__u8 turnaround_time;
++		__u8* frame;
++		turnaround_time = get_turnaround_time( skb );
++		frame= skb_push(skb, self->header_length);
++		irda_usb_build_header(self, frame, 0);
++		frame[2] = turnaround_time;
++		if ((skb->len != 0) &&
++		    ((skb->len % 128) == 0) &&
++		    ((skb->len % 512) != 0)) {
++			/* add extra byte for special SigmaTel feature */
++			frame[1] = 1;
++			skb_put(skb, 1);
++		} else {
++			frame[1] = 0;
++		}
++	} else {
++		irda_usb_build_header(self, skb_push(skb, self->header_length), 0);
++	}
+ 
+ 	/* FIXME: Make macro out of this one */
+ 	((struct irda_skb_cb *)skb->cb)->context = self;
+@@ -795,7 +876,7 @@ static void irda_usb_receive(struct urb 
+ 	}
+ 	
+ 	/* Check for empty frames */
+-	if (urb->actual_length <= USB_IRDA_HEADER) {
++	if (urb->actual_length <= self->header_length) {
+ 		IRDA_WARNING("%s(), empty frame!\n", __FUNCTION__);
+ 		goto done;
+ 	}
+@@ -815,8 +896,12 @@ static void irda_usb_receive(struct urb 
+ 	 * called Rx-copy-break). Jean II */
+ 	docopy = (urb->actual_length < IRDA_RX_COPY_THRESHOLD);
+ 
+-	/* Allocate a new skb */
+-	newskb = dev_alloc_skb(docopy ? urb->actual_length : IRDA_SKB_MAX_MTU);
++	/* Allocate a new skb */	
++	if ( self->capability & IUC_STIR_4210 )
++		newskb = dev_alloc_skb(docopy ? urb->actual_length : IRDA_SKB_MAX_MTU + USB_IRDA_SIGMATEL_HEADER);
++	else
++		newskb = dev_alloc_skb(docopy ? urb->actual_length : IRDA_SKB_MAX_MTU);
++
+ 	if (!newskb)  {
+ 		self->stats.rx_dropped++;
+ 		/* We could deliver the current skb, but this would stall
+@@ -845,7 +930,7 @@ static void irda_usb_receive(struct urb 
+ 
+ 	/* Set proper length on skb & remove USB-IrDA header */
+ 	skb_put(dataskb, urb->actual_length);
+-	skb_pull(dataskb, USB_IRDA_HEADER);
++	skb_pull(dataskb, self->header_length);
+ 
+ 	/* Ask the networking layer to queue the packet for the IrDA stack */
+ 	dataskb->dev = self->netdev;
+@@ -937,6 +1022,191 @@ static int irda_usb_is_receiving(struct 
+ 	return 0; /* For now */
+ }
+ 
++
++#define STIR421X_PATCH_PRODUCT_VERSION_STR       "Product Version: "
++#define STIR421X_PATCH_COMPONENT_VERSION_STR     "Component Version: "
++#define STIR421X_PATCH_DATA_TAG_STR              "STMP"
++#define STIR421X_PATCH_FILE_VERSION_MAX_OFFSET   512     /* version info is before here */
++#define STIR421X_PATCH_FILE_IMAGE_MAX_OFFSET     512     /* patch image starts before here */
++#define STIR421X_PATCH_FILE_END_OF_HEADER_TAG    0x1A    /* marks end of patch file header (PC DOS text file EOF character) */
++
++/* 
++ * Known firmware patches for STIR421x dongles
 + */
-+#ifdef CONFIG_PCI
-+#define PCIID_VENDOR_INTEL 0x8086
-+#define PCIID_VENDOR_ALI 0x10b9
-+static struct smsc_ircc_subsystem_configuration subsystem_configurations[] __devinitdata = {
-+	{
-+		.vendor = PCIID_VENDOR_INTEL, /* Intel 82801DBM LPC bridge */
-+		.device = 0x24cc,
-+		.subvendor = 0x103c,
-+		.subdevice = 0x088c,
-+		.sir_io = 0x02f8, /* Quite certain these are the same for nc8000 as for nc6000 */
-+		.fir_io = 0x0130,
-+		.fir_irq = 0x09,
-+		.fir_dma = 0x03,
-+		.cfg_base = 0x004e,
-+		.preconfigure = preconfigure_through_82801,
-+		.name = "HP nc8000",
-+	},
-+	{
-+		.vendor = PCIID_VENDOR_INTEL, /* Intel 82801DBM LPC bridge */
-+		.device = 0x24cc,
-+		.subvendor = 0x103c,
-+		.subdevice = 0x0890,
-+		.sir_io = 0x02f8,
-+		.fir_io = 0x0130,
-+		.fir_irq = 0x09,
-+		.fir_dma = 0x03,
-+		.cfg_base = 0x004e,
-+		.preconfigure = preconfigure_through_82801,
-+		.name = "HP nc6000",
-+	},
-+	{
-+		.vendor = PCIID_VENDOR_INTEL, /* Intel 82801DB/DBL (ICH4/ICH4-L) LPC Interface Bridge */
-+		.device = 0x24c0,
-+		.subvendor = 0x1179,
-+		.subdevice = 0xffff, /* 0xffff is "any", Not sure, 0x0001 or 0x0002 */
-+		.sir_io = 0x03f8,
-+		.fir_io = 0x0130,
-+		.fir_irq = 0x07,
-+		.fir_dma = 0x01,
-+		.cfg_base = 0x002e,
-+		.preconfigure = preconfigure_through_82801,
-+		.name = "Toshiba Satellite 2450",
-+	},
-+	{
-+		.vendor = PCIID_VENDOR_INTEL, /* Intel 82801CAM ISA bridge */
-+		.device = 0x248c, /* Some use 24cc? */
-+		.subvendor = 0x1179,
-+		.subdevice = 0xffff, /* 0xffff is "any", Not sure, 0x0001 or 0x0002 */
-+		.sir_io = 0x03f8,
-+		.fir_io = 0x0130,
-+		.fir_irq = 0x03,
-+		.fir_dma = 0x03,
-+		.cfg_base = 0x002e,
-+		.preconfigure = preconfigure_through_82801,
-+		.name = "Toshiba Satellite 5100/5200, Tecra 9100",
-+	},
-+	{
-+		.vendor = PCIID_VENDOR_ALI, /* ALi M1533/M1535 PCI to ISA Bridge [Aladdin IV/V/V+] */
-+		.device = 0x1533,
-+		.subvendor = 0x1179,
-+		.subdevice = 0xffff, /* 0xffff is "any", Not sure, 0x0001 or 0x0002 */
-+		.sir_io = 0x02e8,
-+		.fir_io = 0x02f8,
-+		.fir_irq = 0x07,
-+		.fir_dma = 0x03,
-+		.cfg_base = 0x002e,
-+		.preconfigure = preconfigure_through_ali,
-+		.name = "Toshiba Satellite 1800",
-+	},
-+	{ } // Terminator
++static char * stir421x_patches[] = {
++	"42101001.sb",
++	"42101002.sb",
 +};
 +
-+
-+/*
-+ * This sets up the basic SMSC parameters (FIR port, SIR port, FIR DMA, FIR IRQ)
-+ * through the chip configuration port.
-+ */
-+static int __init preconfigure_smsc_chip(struct smsc_ircc_subsystem_configuration *conf)
++static int stir421x_get_patch_version(unsigned char * patch, const unsigned long patch_len)
 +{
-+	unsigned short iobase = conf->cfg_base;
-+	unsigned char tmpbyte;
++	unsigned int version_offset;
++	unsigned long version_major, version_minor, version_build;
++	unsigned char * version_start;
++	int version_found = 0;
 +
-+	outb(LPC47N227_CFGACCESSKEY, iobase); // enter configuration state
-+	outb(SMSCSIOFLAT_DEVICEID_REG, iobase); // set for device ID
-+	tmpbyte = inb(iobase +1); // Read device ID
-+	IRDA_DEBUG(0, "Detected Chip id: 0x%02x, setting up registers...\n",tmpbyte);
-+	
-+	/* Disable UART1 and set up SIR I/O port */
-+	outb(0x24, iobase);  // select CR24 - UART1 base addr
-+	outb(0x00, iobase + 1); // disable UART1
-+	outb(SMSCSIOFLAT_UART2BASEADDR_REG, iobase);  // select CR25 - UART2 base addr
-+	outb( (conf->sir_io >> 2), iobase + 1); // bits 2-9 of 0x3f8
-+	tmpbyte = inb(iobase + 1);
-+	if (tmpbyte != (conf->sir_io >> 2) ) {
-+		IRDA_WARNING("ERROR: could not configure SIR ioport.\n");
-+		return -ENXIO;
-+	}
-+	
-+	/* Set up FIR IRQ channel for UART2 */
-+	outb(SMSCSIOFLAT_UARTIRQSELECT_REG, iobase); // select CR28 - UART1,2 IRQ select
-+	tmpbyte = inb(iobase + 1);
-+	tmpbyte &= SMSCSIOFLAT_UART1IRQSELECT_MASK; // Do not touch the UART1 portion
-+	tmpbyte |= (conf->fir_irq & SMSCSIOFLAT_UART2IRQSELECT_MASK);
-+	outb(tmpbyte, iobase + 1);
-+	tmpbyte = inb(iobase + 1) & SMSCSIOFLAT_UART2IRQSELECT_MASK;
-+	if (tmpbyte != conf->fir_irq) {
-+		IRDA_WARNING("ERROR: could not configure FIR IRQ channel.\n");
-+		return -ENXIO;
-+	}
-+	
-+	/* Set up FIR I/O port */
-+	outb(SMSCSIOFLAT_FIRBASEADDR_REG, iobase);  // CR2B - SCE (FIR) base addr
-+	outb((conf->fir_io >> 3), iobase + 1);
-+	tmpbyte = inb(iobase + 1);
-+	if (tmpbyte != (conf->fir_io >> 3) ) {
-+		IRDA_WARNING("ERROR: could not configure FIR I/O port.\n");
-+		return -ENXIO;
-+	}
-+
-+	/* Set up FIR DMA channel */
-+	outb(SMSCSIOFLAT_FIRDMASELECT_REG, iobase);  // CR2C - SCE (FIR) DMA select
-+	outb((conf->fir_dma & LPC47N227_FIRDMASELECT_MASK), iobase + 1); // DMA
-+	tmpbyte = inb(iobase + 1) & LPC47N227_FIRDMASELECT_MASK;
-+	if (tmpbyte != (conf->fir_dma & LPC47N227_FIRDMASELECT_MASK)) {
-+		IRDA_WARNING("ERROR: could not configure FIR DMA channel.\n");
-+		return -ENXIO;
-+	}
-+	
-+	outb(SMSCSIOFLAT_UARTMODE0C_REG, iobase);  // CR0C - UART mode
-+	tmpbyte = inb(iobase + 1);
-+	tmpbyte &= ~SMSCSIOFLAT_UART2MODE_MASK | SMSCSIOFLAT_UART2MODE_VAL_IRDA;
-+	outb(tmpbyte, iobase + 1); // enable IrDA (HPSIR) mode, high speed
-+
-+	outb(LPC47N227_APMBOOTDRIVE_REG, iobase);  // CR07 - Auto Pwr Mgt/boot drive sel
-+	tmpbyte = inb(iobase + 1);
-+	outb(tmpbyte | LPC47N227_UART2AUTOPWRDOWN_MASK, iobase + 1); // enable UART2 autopower down
-+
-+	/* This one was not part of tosh1800 */
-+	outb(0x0a, iobase);  // CR0a - ecp fifo / ir mux
-+	tmpbyte = inb(iobase + 1);
-+	outb(tmpbyte | 0x40, iobase + 1); // send active device to ir port
-+
-+	outb(LPC47N227_UART12POWER_REG, iobase);  // CR02 - UART 1,2 power
-+	tmpbyte = inb(iobase + 1);
-+	outb(tmpbyte | LPC47N227_UART2POWERDOWN_MASK, iobase + 1); // UART2 power up mode, UART1 power down
-+
-+	outb(LPC47N227_FDCPOWERVALIDCONF_REG, iobase);  // CR00 - FDC Power/valid config cycle
-+	tmpbyte = inb(iobase + 1);
-+	outb(tmpbyte | LPC47N227_VALID_MASK, iobase + 1); // valid config cycle done
-+
-+	outb(LPC47N227_CFGEXITKEY, iobase);  // Exit configuration
-+
-+	return 0;
-+}
-+
-+/* 82801CAM registers */
-+#define VID 0x00
-+#define DID 0x02
-+#define PIRQA_ROUT 0x60
-+#define PCI_DMA_C 0x90
-+#define COM_DEC 0xe0
-+#define LPC_EN 0xe6
-+#define GEN2_DEC 0xec
-+/*
-+ * Sets up the I/O range using the 82801CAM ISA bridge, 82801DBM LPC bridge or
-+ * Intel 82801DB/DBL (ICH4/ICH4-L) LPC Interface Bridge. They all work the same way!
-+ */
-+static int __init preconfigure_through_82801(struct pci_dev *dev, 
-+				  struct smsc_ircc_subsystem_configuration *conf)
-+{
-+	unsigned short tmpword;
-+	int ret;
-+
-+	IRDA_MESSAGE("Setting up the SMSC device via the 82801 controller.\n");
-+	pci_write_config_byte(dev, COM_DEC, 0x10);
-+
-+	/* Enable LPC */
-+	pci_read_config_word(dev, LPC_EN, &tmpword); /* LPC_EN register */
-+	tmpword &= 0xfffd; /* mask bit 1 */
-+	tmpword |= 0x0001; /* set bit 0 : COMA addr range enable */
-+	pci_write_config_word(dev, LPC_EN, tmpword);
-+
-+	/* Setup DMA */
-+	pci_write_config_word(dev, PCI_DMA_C, 0xc0c0); /* LPC I/F DMA on, channel 3  -- rtm (?? PCI DMA ?) */
-+	pci_write_config_word(dev, GEN2_DEC, 0x131); /* LPC I/F 2nd decode range */
-+
-+	/* Pre-configure chip */
-+	ret = preconfigure_smsc_chip(conf);
-+
-+	/* Disable LPC */
-+	pci_read_config_word(dev, LPC_EN, &tmpword); /* LPC_EN register */
-+	tmpword &= 0xfffc; /* mask bit 1 and bit 0, COMA addr range disable */
-+	pci_write_config_word(dev, LPC_EN, tmpword);
-+	return ret;
-+}
-+
-+static int __init preconfigure_through_ali(struct pci_dev *dev, 
-+				  struct smsc_ircc_subsystem_configuration *conf)
-+{
-+	/* TODO: put in ALi 1533 configuration here. */
-+	IRDA_MESSAGE("SORRY: %s has an unsupported bridge controller (ALi): not pre-configured.\n", conf->name);
-+	return -ENODEV;
-+}
-+
-+static int __init smsc_ircc_preconfigure_subsystems(unsigned short ircc_cfg, 
-+						    unsigned short ircc_fir, 
-+						    unsigned short ircc_sir, 
-+						    unsigned char ircc_dma, 
-+						    unsigned char ircc_irq)
-+{
-+	struct pci_dev *dev = NULL;
-+	unsigned short ss_vendor = 0x0000;
-+	unsigned short ss_device = 0x0000;
-+	int ret = 0;
-+
-+	dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev);
-+
-+	while (dev != NULL) {
-+		struct smsc_ircc_subsystem_configuration *conf;
-+
-+		/* 
-+		 * Cache the subsystem vendor/device: some manufacturers fail to set 
-+		 * this for all components, so we save it in case there is just
-+		 * 0x0000 0x0000 on the device we want to check.
-+		 */
-+		if (dev->subsystem_vendor != 0x0000U) {
-+			ss_vendor = dev->subsystem_vendor;
-+			ss_device = dev->subsystem_device;
++	for (version_offset = 0; 
++	     version_offset < STIR421X_PATCH_FILE_END_OF_HEADER_TAG; 
++	     version_offset++) {
++		if (!memcmp(patch + version_offset,
++			    STIR421X_PATCH_PRODUCT_VERSION_STR, 
++			    sizeof(STIR421X_PATCH_PRODUCT_VERSION_STR) - 1)) {
++				    version_found = 1;
++				    version_start = patch + 
++					    version_offset + 
++					    sizeof(STIR421X_PATCH_PRODUCT_VERSION_STR) - 1;
++				    break;
 +		}
-+		conf = subsystem_configurations;
-+		for( ; conf->subvendor; conf++) {
-+			if(conf->vendor == dev->vendor &&
-+			   conf->device == dev->device &&
-+			   conf->subvendor == ss_vendor && /* Sometimes these are cached values */
-+			   (conf->subdevice == ss_device || conf->subdevice == 0xffff)) {
-+				struct smsc_ircc_subsystem_configuration tmpconf;
-+
-+				memcpy(&tmpconf, conf, sizeof(struct smsc_ircc_subsystem_configuration));
-+
-+				/* Override the default values with anything passed in as parameter */
-+				if (ircc_cfg != 0)
-+					tmpconf.cfg_base = ircc_cfg;
-+				if (ircc_fir != 0)
-+					tmpconf.fir_io = ircc_fir;
-+				if (ircc_sir != 0)
-+					tmpconf.sir_io = ircc_sir;
-+				if (ircc_dma != 0xff)
-+					tmpconf.fir_dma = ircc_dma;
-+				if (ircc_irq != 0xff)
-+					tmpconf.fir_irq = ircc_irq;
-+
-+				IRDA_MESSAGE("Detected unconfigured %s SMSC IrDA chip, pre-configuring device.\n", conf->name);
-+				if (conf->preconfigure)
-+					ret = conf->preconfigure(dev, &tmpconf);
-+				else
-+					ret = -ENODEV;
-+			}
-+		}
-+		dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev);
 +	}
 +
-+	return ret;
-+}
-+#endif // CONFIG_PCI
++	/* We couldn't find a product version on this patch */
++	if (!version_found)
++		return -EINVAL;
 +
- /************************************************
-  *
-  * Transceivers specific functions
++	/* Let's check if the product version is dotted */
++	if (version_start[3] != '.' || 
++	    version_start[7] != '.')
++		return -EINVAL;
++
++	version_major = simple_strtoul(version_start, NULL, 10);
++	version_minor = simple_strtoul(version_start + 4, NULL, 10);
++	version_build = simple_strtoul(version_start + 8, NULL, 10);
++	
++	IRDA_DEBUG(2, "%s(), Major: %ld Minor: %ld Build: %ld\n",
++		   __FUNCTION__,
++		   version_major, version_minor, version_build);
++	
++	return (((version_major) << 12) +
++		((version_minor) << 8) +
++		((version_build / 10) << 4) + 
++		(version_build % 10));
++
++}
++
++
++static int stir421x_upload_patch (struct irda_usb_cb *self,
++				  unsigned char * patch,
++				  const unsigned int patch_len)
++{
++    int retval = 0;
++    int actual_len;
++    unsigned int i = 0, download_amount = 0;
++    unsigned char * patch_chunk;
++    
++    IRDA_DEBUG (2, "%s(), Uploading STIR421x Patch\n", __FUNCTION__);
++
++    patch_chunk = kzalloc(STIR421X_MAX_PATCH_DOWNLOAD_SIZE, GFP_KERNEL);
++    if (patch_chunk == NULL)
++	    return -ENOMEM;
++    
++    /* break up patch into 1023-byte sections */
++    for (i = 0; retval >= 0 && i < patch_len; i += download_amount) {
++	    download_amount = patch_len - i;
++	    if (download_amount > STIR421X_MAX_PATCH_DOWNLOAD_SIZE)
++		    download_amount = STIR421X_MAX_PATCH_DOWNLOAD_SIZE;
++	    
++	    /* download the patch section */
++	    memcpy(patch_chunk, patch + i, download_amount);
++	    
++	    retval = usb_bulk_msg (self->usbdev,
++				   usb_sndbulkpipe (self->usbdev,
++						    self->bulk_out_ep),
++				   patch_chunk, download_amount,
++				   &actual_len, msecs_to_jiffies (500));
++	    IRDA_DEBUG (2, "%s(), Sent %u bytes\n", __FUNCTION__,
++			actual_len);
++	    if (retval == 0)
++		    mdelay(10);
++    }
++
++    kfree(patch_chunk);
++    
++    if (i != patch_len) {
++	    IRDA_ERROR ("%s(), Pushed %d bytes (!= patch_len (%d))\n", 
++		       __FUNCTION__, i, patch_len);
++	    retval = -EIO;
++    }
++    
++    if (retval < 0)
++	    /* todo - mark device as not ready */
++	    IRDA_ERROR ("%s(), STIR421x patch upload failed (%d)\n", 
++			__FUNCTION__, retval);
++    
++    return retval;
++}
++
++
++static int stir421x_patch_device(struct irda_usb_cb *self)
++{
++	unsigned int i, patch_found = 0, data_found = 0, data_offset;
++	int patch_version, ret = 0;
++	const struct firmware *fw_entry;
++
++	for (i = 0; i < ARRAY_SIZE(stir421x_patches); i++) {		
++		if(request_firmware(&fw_entry, stir421x_patches[i], &self->usbdev->dev) != 0) {
++			IRDA_ERROR( "%s(), Patch %s is not available\n", __FUNCTION__, stir421x_patches[i]);
++			continue;
++		}
++		
++                /* We found a patch from userspace */
++		patch_version = stir421x_get_patch_version (fw_entry->data, fw_entry->size);
++		
++		if (patch_version < 0) {				
++			/* Couldn't fetch a version, let's move on to the next file */
++			IRDA_ERROR("%s(), version parsing failed\n", __FUNCTION__);
++			ret = patch_version;
++			release_firmware(fw_entry);
++			continue;
++		}
++
++		if (patch_version != self->usbdev->descriptor.bcdDevice) {
++			/* Patch version and device don't match */
++			IRDA_ERROR ("%s(), wrong patch version (%d <-> %d)\n", 
++				    __FUNCTION__,
++				    patch_version, self->usbdev->descriptor.bcdDevice);
++			ret = -EINVAL;
++			release_firmware(fw_entry);
++			continue;
++		}
++		
++		/* If we're here, we've found a correct patch */
++		patch_found = 1;
++		break;
++
++	} 
++
++	/* We couldn't find a valid firmware, let's leave */
++	if (!patch_found)
++		return ret;
++	
++	/* The actual image starts after the "STMP" keyword */
++	for (data_offset = 0; data_offset < STIR421X_PATCH_FILE_IMAGE_MAX_OFFSET; data_offset++) {
++		if (!memcmp(fw_entry->data + data_offset, 
++			    STIR421X_PATCH_DATA_TAG_STR, 
++			    sizeof(STIR421X_PATCH_FILE_IMAGE_MAX_OFFSET))) {
++			IRDA_DEBUG(2, "%s(), found patch data for STIR421x at offset %d\n", 
++				   __FUNCTION__, data_offset);
++			data_found = 1;
++			break;
++		}
++	}
++	
++	/* We couldn't find "STMP" from the header */
++	if (!data_found)
++		return -EINVAL;
++
++	/* Let's upload the patch to the target */
++	ret = stir421x_upload_patch(self, 
++				    &fw_entry->data[data_offset + sizeof(STIR421X_PATCH_FILE_IMAGE_MAX_OFFSET)],
++				    fw_entry->size - (data_offset + sizeof(STIR421X_PATCH_FILE_IMAGE_MAX_OFFSET)));
++
++	release_firmware(fw_entry);
++	
++	return ret;
++	
++}
++
++
+ /********************** IRDA DEVICE CALLBACKS **********************/
+ /*
+  * Main calls from the IrDA/Network subsystem.
+@@ -972,6 +1242,11 @@ static int irda_usb_net_open(struct net_
+ 		return -1;
+ 	}
+ 
++	if(self->needspatch) {
++		IRDA_WARNING("%s(), device needs patch\n", __FUNCTION__) ;
++		return -EIO ;
++	}
++
+ 	/* Initialise default speed and xbofs value
+ 	 * (IrLAP will change that soon) */
+ 	self->speed = -1;
+@@ -1050,7 +1325,7 @@ static int irda_usb_net_close(struct net
+ 	del_timer(&self->rx_defer_timer);
+ 
+ 	/* Deallocate all the Rx path buffers (URBs and skb) */
+-	for (i = 0; i < IU_MAX_RX_URBS; i++) {
++	for (i = 0; i < self->max_rx_urb; i++) {
+ 		struct urb *urb = self->rx_urb[i];
+ 		struct sk_buff *skb = (struct sk_buff *) urb->context;
+ 		/* Cancel the receive command */
+@@ -1426,8 +1701,22 @@ static int irda_usb_probe(struct usb_int
+ 	spin_lock_init(&self->lock);
+ 	init_timer(&self->rx_defer_timer);
+ 
++	self->capability = id->driver_info;
++	self->needspatch = ((self->capability & IUC_STIR_4210) != 0) ;
++
+ 	/* Create all of the needed urbs */
+-	for (i = 0; i < IU_MAX_RX_URBS; i++) {
++	if (self->capability & IUC_STIR_4210) {
++		self->max_rx_urb = IU_SIGMATEL_MAX_RX_URBS;
++		self->header_length = USB_IRDA_SIGMATEL_HEADER;
++	} else {
++		self->max_rx_urb = IU_MAX_RX_URBS;
++		self->header_length = USB_IRDA_HEADER;
++	}
++
++	self->rx_urb = kzalloc(self->max_rx_urb * sizeof(struct urb *),
++				GFP_KERNEL);
++
++	for (i = 0; i < self->max_rx_urb; i++) {
+ 		self->rx_urb[i] = usb_alloc_urb(0, GFP_KERNEL);
+ 		if (!self->rx_urb[i]) {
+ 			goto err_out_1;
+@@ -1478,18 +1767,29 @@ static int irda_usb_probe(struct usb_int
+ 		ret = -EIO;
+ 		goto err_out_3;
+ 	}
++	
++	self->usbdev = dev;
+ 
+ 	/* Find IrDA class descriptor */
+ 	irda_desc = irda_usb_find_class_desc(intf);
+ 	ret = -ENODEV;
+ 	if (irda_desc == NULL)
+ 		goto err_out_3;
++	
++	if (self->needspatch) {
++		ret = usb_control_msg (self->usbdev, usb_sndctrlpipe (self->usbdev, 0),
++				       0x02, 0x40, 0, 0, 0, 0, msecs_to_jiffies(500));
++		if (ret < 0) {
++			IRDA_DEBUG (0, "usb_control_msg failed %d\n", ret);
++			goto err_out_3;
++		} else {
++			mdelay(10);
++		}	
++	}
+ 
+ 	self->irda_desc =  irda_desc;
+ 	self->present = 1;
+ 	self->netopen = 0;
+-	self->capability = id->driver_info;
+-	self->usbdev = dev;
+ 	self->usbintf = intf;
+ 
+ 	/* Allocate the buffer for speed changes */
+@@ -1508,6 +1808,28 @@ static int irda_usb_probe(struct usb_int
+ 
+ 	IRDA_MESSAGE("IrDA: Registered device %s\n", net->name);
+ 	usb_set_intfdata(intf, self);
++
++	if (self->needspatch) {
++		/* Now we fetch and upload the firmware patch */
++		ret = stir421x_patch_device(self);
++		self->needspatch = (ret < 0);
++		if (ret < 0) {
++			printk("patch_device failed\n");
++			goto err_out_4;
++		}
++
++		/* replace IrDA class descriptor with what patched device is now reporting */
++		irda_desc = irda_usb_find_class_desc (self->usbintf);
++		if (irda_desc == NULL) {			
++			ret = -ENODEV;
++			goto err_out_4;
++		}
++		if (self->irda_desc)
++			kfree (self->irda_desc);
++		self->irda_desc = irda_desc;
++		irda_usb_init_qos(self);
++	}
++
+ 	return 0;
+ 
+ err_out_4:
+@@ -1518,7 +1840,7 @@ err_out_3:
+ err_out_2:
+ 	usb_free_urb(self->tx_urb);
+ err_out_1:
+-	for (i = 0; i < IU_MAX_RX_URBS; i++) {
++	for (i = 0; i < self->max_rx_urb; i++) {
+ 		if (self->rx_urb[i])
+ 			usb_free_urb(self->rx_urb[i]);
+ 	}
+@@ -1571,7 +1893,7 @@ static void irda_usb_disconnect(struct u
+ 		/*netif_device_detach(self->netdev);*/
+ 		netif_stop_queue(self->netdev);
+ 		/* Stop all the receive URBs. Must be synchronous. */
+-		for (i = 0; i < IU_MAX_RX_URBS; i++)
++		for (i = 0; i < self->max_rx_urb; i++)
+ 			usb_kill_urb(self->rx_urb[i]);
+ 		/* Cancel Tx and speed URB.
+ 		 * Make sure it's synchronous to avoid races. */
+@@ -1586,8 +1908,9 @@ static void irda_usb_disconnect(struct u
+ 	self->usbintf = NULL;
+ 
+ 	/* Clean up our urbs */
+-	for (i = 0; i < IU_MAX_RX_URBS; i++)
++	for (i = 0; i < self->max_rx_urb; i++)
+ 		usb_free_urb(self->rx_urb[i]);
++	kfree(self->rx_urb);
+ 	/* Clean up Tx and speed URB */
+ 	usb_free_urb(self->tx_urb);
+ 	usb_free_urb(self->speed_urb);
+@@ -1648,6 +1971,6 @@ module_exit(usb_irda_cleanup);
+  */
+ module_param(qos_mtt_bits, int, 0);
+ MODULE_PARM_DESC(qos_mtt_bits, "Minimum Turn Time");
+-MODULE_AUTHOR("Roman Weissgaerber <weissg-TVDPYGuBT+ReoWH0uzbU5w@public.gmane.org>, Dag Brattli <dag-1K3ejsF8QZHR7s880joybQ@public.gmane.org> and Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>");
+-MODULE_DESCRIPTION("IrDA-USB Dongle Driver"); 
++MODULE_AUTHOR("Roman Weissgaerber <weissg-TVDPYGuBT+ReoWH0uzbU5w@public.gmane.org>, Dag Brattli <dag-1K3ejsF8QZHR7s880joybQ@public.gmane.org>, Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org> and Nick Fedchik <nick-UvdXiu2sajOKBXSJ/Qx0JQ@public.gmane.org>");
++MODULE_DESCRIPTION("IrDA-USB Dongle Driver");
+ MODULE_LICENSE("GPL");
 
 
 
