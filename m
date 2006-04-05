@@ -1,56 +1,76 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] drivers/char/random.c: unexport secure_ipv6_port_ephemeral
-Date: Wed, 5 Apr 2006 19:19:21 +0200
-Message-ID: <20060405171921.GJ8673@stusta.de>
-References: <20060405163610.GG8673@stusta.de> <20060405101111.0edc161a@localhost.localdomain>
+From: David Daney <ddaney@avtrex.com>
+Subject: [PATCH] net: Broadcast ARP packets on link local addresses (Version2).
+Date: Wed, 5 Apr 2006 14:22:08 -0700
+Message-ID: <17460.13568.175877.44476@dl2.hq2.avtrex.com>
+Reply-To: ddaney@avtrex.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751295AbWDERTe@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060405101111.0edc161a@localhost.localdomain>
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932075AbWDEVW2@vger.kernel.org>
+To: netdev@vger.kernel.org
+CC: pgf@foxharp.boston.ma.us
+CC: freek@macfreek.nl
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 05, 2006 at 10:11:11AM -0700, Stephen Hemminger wrote:
-> On Wed, 5 Apr 2006 18:36:10 +0200
-> Adrian Bunk <bunk@stusta.de> wrote:
-> 
-> > This patch removes the unused EXPORT_SYMBOL(secure_ipv6_port_ephemeral).
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> > 
-> > --- linux-2.6.17-rc1-mm1-full/drivers/char/random.c.old	2006-04-05 17:00:04.000000000 +0200
-> > +++ linux-2.6.17-rc1-mm1-full/drivers/char/random.c	2006-04-05 17:00:22.000000000 +0200
-> > @@ -1584,7 +1584,6 @@
-> >  
-> >  	return twothirdsMD4Transform(daddr, hash);
-> >  }
-> > -EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
-> >  #endif
-> >  
-> >  #if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
-> > 
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> NAK
-> 
-> If IPV6 is built as a module, then it is needed.
+From: David Daney
 
-No, it isn't:
-  obj-$(subst m,y,$(CONFIG_IPV6)) += inet6_hashtables.o
+Here is a new version of the patch I sent March 31.  For background,
+this is my description from the first patch:
 
-cu
-Adrian
+> When an internet host joins a network where there is no DHCP server,
+> it may auto-allocate an IP address by the method described in RFC
+> 3927.  There are several user space daemons available that implement
+> most of the protocol (zcip, busybox, ...).  The kernel's APR driver
+> should function in the normal manner except that it is required to
+> broadcast all ARP packets that it originates in the link local address
+> space (169.254.0.0/16).  RFC 3927 section 2.5 explains the requirement.
 
--- 
+> The current ARP code is non-compliant because it does not broadcast
+> some ARP packets as required by RFC 3927.
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+> This patch to net/ipv4/arp.c checks the source address of all ARP
+> packets and if the fall in 169.254.0.0/16, they are broadcast instead
+> of unicast.
+
+All of that is still true.
+
+The changes in this version are that it tests the source IP address
+instead of the destination.  The test now matches the test described
+in the RFC.  Also a small cleanup as suggested by Herbert Xu.
+
+Some comments on the first version of the patch suggested that I do
+'X' instead.  Where 'X' was behavior different than that REQUIRED by
+the RFC (the RFC's always seem to capitalize the word 'required').
+
+The reason that I implemented the behavior required by the RFC is so
+that a device running the kernel can pass compliance tests that
+mandate RFC compliance.
+
+If the patch is deemed good and correct, great, please apply it.
+
+Othwise comments about how to improve it are always welcome.  But keep
+in mind that I would like to end up with something that complies with
+the RFC.
+
+This patch is against 2.6.16.1
+
+Signed-off-by: David Daney <ddaney@avtrex.com>
+
+---
+
+--- net/ipv4/arp.c.orig	2006-03-31 13:44:50.000000000 -0800
++++ net/ipv4/arp.c	2006-04-05 13:33:19.000000000 -0700
+@@ -690,6 +690,11 @@ void arp_send(int type, int ptype, u32 d
+ 	if (dev->flags&IFF_NOARP)
+ 		return;
+ 
++        /* If link local address (169.254.0.0/16) we must broadcast
++         * the ARP packet.  See RFC 3927 section 2.5 for details. */
++	if ((src_ip & htonl(0xFFFF0000UL)) == htonl(0xA9FE0000UL))
++		dest_hw = NULL;
++
+ 	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
+ 			 dest_hw, src_hw, target_hw);
+ 	if (skb == NULL) {
