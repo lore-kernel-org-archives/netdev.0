@@ -1,48 +1,50 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/tg3.c: fix a memory leak
-Date: Tue, 4 Apr 2006 21:09:35 +0200
-Message-ID: <20060404190935.GB6529@stusta.de>
+From: gregkh@suse.de
+Subject: [patch 24/26] hostap: Fix EAPOL frame encryption
+Date: Tue, 4 Apr 2006 17:01:18 -0700
+Message-ID: <20060405000118.GY27049@kroah.com>
+References: <20060404235634.696852000@quad.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750818AbWDDTJh@vger.kernel.org>
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Jouni Malinen <jkmaline@cc.hut.fi>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751002AbWDEADc@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline; filename="hostap_fix_eapol_crypt.patch"
+In-Reply-To: <20060404235927.GA27049@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a memory leak (buf wasn't freed) spotted by the 
-Coverity checker.
+Fixed encrypted of EAPOL frames from wlan#ap interface (hostapd). This
+was broken when moving to use new frame control field defines in
+net/ieee80211.h. hostapd uses Protected flag, not protocol version
+(which was cleared in this function anyway). This fixes WPA group key
+handshake and re-authentication.
+http://hostap.epitest.fi/bugz/show_bug.cgi?id=126
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
+
 
 ---
+ drivers/net/wireless/hostap/hostap_80211_tx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/tg3.c |   10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
---- linux-2.6.17-rc1-mm1-full/drivers/net/tg3.c.old	2006-04-04 19:53:24.000000000 +0200
-+++ linux-2.6.17-rc1-mm1-full/drivers/net/tg3.c	2006-04-04 19:54:40.000000000 +0200
-@@ -8031,15 +8031,19 @@ static int tg3_test_nvram(struct tg3 *tp
- 	if (cpu_to_be32(buf[0]) != TG3_EEPROM_MAGIC) {
- 		u8 *buf8 = (u8 *) buf, csum8 = 0;
- 
- 		for (i = 0; i < size; i++)
- 			csum8 += buf8[i];
- 
--		if (csum8 == 0)
--			return 0;
--		return -EIO;
-+		if (csum8 == 0) {
-+			err = 0;
-+			goto out;
-+		}
-+
-+		err = -EIO;
-+		goto out;
+--- linux-2.6.16.1.orig/drivers/net/wireless/hostap/hostap_80211_tx.c
++++ linux-2.6.16.1/drivers/net/wireless/hostap/hostap_80211_tx.c
+@@ -469,7 +469,7 @@ int hostap_master_start_xmit(struct sk_b
  	}
  
- 	/* Bootstrap checksum at offset 0x10 */
- 	csum = calc_crc((unsigned char *) buf, 0x10);
- 	if(csum != cpu_to_le32(buf[0x10/4]))
- 		goto out;
+ 	if (local->ieee_802_1x && meta->ethertype == ETH_P_PAE && tx.crypt &&
+-	    !(fc & IEEE80211_FCTL_VERS)) {
++	    !(fc & IEEE80211_FCTL_PROTECTED)) {
+ 		no_encrypt = 1;
+ 		PDEBUG(DEBUG_EXTRA2, "%s: TX: IEEE 802.1X - passing "
+ 		       "unencrypted EAPOL frame\n", dev->name);
+
+--
