@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] IrDA: smcinit merged into smsc-ircc driver
-Date: Wed, 05 Apr 2006 22:34:57 -0700 (PDT)
-Message-ID: <20060405.223457.117830244.davem@davemloft.net>
-References: <20060405232125.GA377@irie>
+Subject: Re: [PATCH] IrDA: Support for Sigmatel STIR421x chip
+Date: Wed, 05 Apr 2006 22:41:26 -0700 (PDT)
+Message-ID: <20060405.224126.19316235.davem@davemloft.net>
+References: <20060405232137.GB377@irie>
 Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -11,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9
 	jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org
 Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 To: samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-In-Reply-To: <20060405232125.GA377@irie>
+In-Reply-To: <20060405232137.GB377@irie>
 Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
@@ -24,24 +24,33 @@ List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
 From: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-Date: Thu, 6 Apr 2006 02:21:25 +0300
+Date: Thu, 6 Apr 2006 02:21:37 +0300
 
-> This patch integrates the smcinit code into the smsc-ircc driver.
-> Some laptops have their smsc-ircc chip not properly configured by the BIOS and needs some preconfiguration. Currently, this can be done from userspace with smcinit, a utility that comes with the irda-utils package. It messes with ioports and PCI settings, from userspace.
-> Now with this patch, if we happen to be on one of the known to be faulty laptops, we preconfigure the chip from the driver.
+> This patch enables support for the Sigmatel's STIR421x IrDA chip.
+> Once patched with Sigmatel's firmware, this chip "almost" follows the USB-IrDA spec. Thus this patch is against irda-usb.[ch].
 > 
-> Patch from Linus Walleij <triad-HEm3bjczhZmzQB+pC5nmwQ@public.gmane.org>
+> The code has been tested by Nick Fedchik on an STIR4210 chipset based dongle.
+> 
 > Signed-off-by: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
 
-Applied.
+Applied, but I had to fix up an enormous amount of trailing
+white space on this patch too.
 
-This patch added a lot of trailing whitespace which I had to
-fix up by hand, I did it for you this time but next time I
-will not.  You can check you patches with this simple command:
+Also, functions such as stir421x_upload_patch() were not properly
+indented using tabs, it's using a 4 space indentation.
 
-git apply --check --whitespace=error-all diff
+Lots of other coding style errors such as:
 
-Thanks.
+	if(cond) {
+
+instead of:
+
+	if (cond) {
+
+You may wish to review Documentation/CodingStyle before submitting
+future IRDA patches.
+
+Thanks a lot.
 
 
 -------------------------------------------------------
