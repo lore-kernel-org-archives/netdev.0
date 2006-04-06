@@ -1,46 +1,77 @@
-From: Xiaolan Zhang <cxzhang@us.ibm.com>
-Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
-Date: Thu, 6 Apr 2006 13:52:48 -0400
-Message-ID: <OFD873D233.5BCDC487-ON85257148.0061E542-85257148.00623838@us.ibm.com>
-References: <1142948528.28120.34.camel@moss-spartans.epoch.ncsc.mil>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [PATCH] Unaligned accesses in the ethernet bridge
+Date: Thu, 6 Apr 2006 22:37:08 +0200
+Message-ID: <20060406203708.GA7118@stusta.de>
+References: <17442.650.874609.271109@berry.ken.nicta.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Andrew Morton <akpm@osdl.org>, Chris Wright <chrisw@sous-sol.org>,
-	cxzhang@watson.ibm.com, davem@davemloft.net, ioe-lkml@rameria.de,
-	James Morris <jmorris@namei.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netdev@axxeo.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751302AbWDFRxa@vger.kernel.org>
-In-Reply-To: <1142948528.28120.34.camel@moss-spartans.epoch.ncsc.mil>
-To: sds@tycho.nsa.gov
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751312AbWDFUhN@vger.kernel.org>
+To: Peter Chubb <peterc@gelato.unsw.edu.au>
+Content-Disposition: inline
+In-Reply-To: <17442.650.874609.271109@berry.ken.nicta.com.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Stephen and James,
-
-Looks like the selinux_sk_ctxid() call implemented in James' patch also 
-requires the sk_callback_lock (see below).  I am planning to introduce a 
-new exported fucntion selinux_sock_ctxid() which does not require any 
-locking.  Comments?
-
-thanks,
-Catherine
-
-Stephen Smalley <sds@tycho.nsa.gov> wrote on 03/21/2006 08:42:08 AM:
-
-> On Tue, 2006-03-21 at 08:32 -0500, Stephen Smalley wrote:
-> > > I don't expect security_sk_sid() to be terribly expensive.  It's not
-> > > an AVC check, it's just propagating a label.  But I've not done any
-> > > benchmarking on that.
-> > 
-> > No permission check there, but it looks like it does read lock
-> > sk_callback_lock.  Not sure if that is truly justified here.
+On Thu, Mar 23, 2006 at 01:06:02PM +1100, Peter Chubb wrote:
 > 
-> Ah, that is because it is also called from the xfrm code, introduced by
-> Trent's patches.  But that locking shouldn't be necessary from scm_send,
-> right?  So she likely wants a separate hook for it to avoid that
-> overhead, or even just a direct SELinux interface?
+> I see lots of
+> 	kernel unaligned access to 0xa0000001009dbb6f, ip=0xa000000100811591
+> 	kernel unaligned access to 0xa0000001009dbb6b, ip=0xa0000001008115c1
+> 	kernel unaligned access to 0xa0000001009dbb6d, ip=0xa0000001008115f1
+> messages in my logs on IA64 when using the ethernet bridge with 2.6.16.
 > 
-> -- 
-> Stephen Smalley
-> National Security Agency
 > 
+> Appended is a patch to fix them.
+
+
+I see this patch already made it into 2.6.17-rc1.
+
+It seems to be a candidate for 2.6.16.3, too?
+If yes, please submit it to stable@kernel.org.
+
+
+> Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+> 
+> 
+>  net/bridge/br_stp_bpdu.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> Index: linux-2.6-import/net/bridge/br_stp_bpdu.c
+> ===================================================================
+> --- linux-2.6-import.orig/net/bridge/br_stp_bpdu.c	2006-03-22 09:11:01.349886375 +1100
+> +++ linux-2.6-import/net/bridge/br_stp_bpdu.c	2006-03-23 12:52:13.719239205 +1100
+> @@ -19,6 +19,7 @@
+>  #include <linux/llc.h>
+>  #include <net/llc.h>
+>  #include <net/llc_pdu.h>
+> +#include <asm/unaligned.h>
+>  
+>  #include "br_private.h"
+>  #include "br_private_stp.h"
+> @@ -59,12 +60,12 @@ static inline void br_set_ticks(unsigned
+>  {
+>  	unsigned long ticks = (STP_HZ * j)/ HZ;
+>  
+> -	*((__be16 *) dest) = htons(ticks);
+> +	put_unaligned(htons(ticks), (__be16 *)dest);
+>  }
+>  
+>  static inline int br_get_ticks(const unsigned char *src)
+>  {
+> -	unsigned long ticks = ntohs(*(__be16 *)src);
+> +	unsigned long ticks = ntohs(get_unaligned((__be16 *)src));
+>  
+>  	return (ticks * HZ + STP_HZ - 1) / STP_HZ;
+>  }
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
