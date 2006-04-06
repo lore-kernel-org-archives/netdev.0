@@ -1,52 +1,46 @@
-From: "Janos Farkas" <chexum+dev@gmail.com>
-Subject: Re: Broadcast ARP packets on link local addresses (Version2).
-Date: Thu, 6 Apr 2006 18:53:07 +0200
-Message-ID: <493eee610604060953jcfdd2b6wdf773f4fb828aafa@mail.gmail.com>
-References: <17460.13568.175877.44476@dl2.hq2.avtrex.com>
-	 <priv$efbe06144502$2d51735f79@200604.gmail.com>
-	 <44353F36.9070404@avtrex.com>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: [PATCH] scm: fold __scm_send() into scm_send()
+Date: Thu, 6 Apr 2006 13:52:48 -0400
+Message-ID: <OFD873D233.5BCDC487-ON85257148.0061E542-85257148.00623838@us.ibm.com>
+References: <1142948528.28120.34.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pgf@foxharp.boston.ma.us, freek@macfreek.nl
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932192AbWDFQxK@vger.kernel.org>
-To: "David Daney" <ddaney@avtrex.com>
-In-Reply-To: <44353F36.9070404@avtrex.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Andrew Morton <akpm@osdl.org>, Chris Wright <chrisw@sous-sol.org>,
+	cxzhang@watson.ibm.com, davem@davemloft.net, ioe-lkml@rameria.de,
+	James Morris <jmorris@namei.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netdev@axxeo.de
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751302AbWDFRxa@vger.kernel.org>
+In-Reply-To: <1142948528.28120.34.camel@moss-spartans.epoch.ncsc.mil>
+To: sds@tycho.nsa.gov
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/6/06, David Daney <ddaney@avtrex.com> wrote:
-> Janos Farkas wrote:
-> > Shouldn't it
-> > be more correct to not depend on the ip address of the used network,
-> > but to use the "scope" parameter of the given address?
+Hi, Stephen and James,
 
-> RFC 3927 specifies the Ethernet arp broadcast behavior for only
-> 169.254.0.0/16.  Presumably you could set the scope parameter to local
-> for addresses outside of that range or even for protocols other than
-> Ethernet.  Since broadcasting ARP packets usually adversely effects
-> usable network bandwidth, we should probably only do it where it is
-> absolutely required.  The overhead of testing the value required by the
-> RFC is quite low (3 machine instructions on i686 is the size of the
-> entire patch), so using some proxy like the scope parameter would not
-> even be a performance win.
+Looks like the selinux_sk_ctxid() call implemented in James' patch also 
+requires the sk_callback_lock (see below).  I am planning to introduce a 
+new exported fucntion selinux_sock_ctxid() which does not require any 
+locking.  Comments?
 
-Indeed, I just have a bad feeling about hardwiring IP addresses this deep.
+thanks,
+Catherine
 
-The problems with "my" idea would be, summarily, after a day:
+Stephen Smalley <sds@tycho.nsa.gov> wrote on 03/21/2006 08:42:08 AM:
 
-Q: Is there are reason to use broadcast ARP semantics for other IP
-address ranges?
-A: Maybe, but no RFC defines that.
-Q: Is there are reason to NOT use broadcast ARP semantics for the
-defined IP address ranges?
-A: Maybe, but the RFC is against it.
-Q: Is there a reason to expect people (and tools) to use/define scopes?
-A: Probably, but it's still uncommon practice :)  I mean, how many of
-us have 192.168.x.x addresses with "global" scope? I know I do.
-
-I'm still in a losing position :)
-
-Janos
+> On Tue, 2006-03-21 at 08:32 -0500, Stephen Smalley wrote:
+> > > I don't expect security_sk_sid() to be terribly expensive.  It's not
+> > > an AVC check, it's just propagating a label.  But I've not done any
+> > > benchmarking on that.
+> > 
+> > No permission check there, but it looks like it does read lock
+> > sk_callback_lock.  Not sure if that is truly justified here.
+> 
+> Ah, that is because it is also called from the xfrm code, introduced by
+> Trent's patches.  But that locking shouldn't be necessary from scm_send,
+> right?  So she likely wants a separate hook for it to avoid that
+> overhead, or even just a direct SELinux interface?
+> 
+> -- 
+> Stephen Smalley
+> National Security Agency
+> 
