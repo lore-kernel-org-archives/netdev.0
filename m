@@ -1,88 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: tcf_generic_walker(): what's going on?
-Date: Thu, 06 Apr 2006 10:50:57 +0200
-Message-ID: <4434D671.6060103@trash.net>
-References: <200604060911.01140.vda@ilport.com.ua>
+From: Janos Farkas <chexum+dev@gmail.com>
+Subject: Re: Broadcast ARP packets on link local addresses (Version2).
+Date: Thu, 6 Apr 2006 12:24:31 +0200
+Message-ID: <priv$efbe06144502$2d51735f79@200604.gmail.com>
+References: <17460.13568.175877.44476@dl2.hq2.avtrex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751139AbWDFIx1@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200604060911.01140.vda@ilport.com.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pgf@foxharp.boston.ma.us, freek@macfreek.nl
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932091AbWDFKYs@vger.kernel.org>
+To: David Daney <ddaney@avtrex.com>
+Content-Disposition: inline
+In-Reply-To: <17460.13568.175877.44476@dl2.hq2.avtrex.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko wrote:
-> While hunting down oversized inlines
-> I stumbled on tcf_generic_walker().
-> 
-> It is defined in two separate files:
-> once as an inline in include/net/pkt_act.h
-> (really big one, ~750 bytes of code)
-> and once as a static function in net/sched/act_police.c
-> 
-> These two instances are not identical.
-> Second one has one extra parameter (int type)
-> and it uses it like this:
-> 
->         for (i = 0; i < MY_TAB_SIZE; i++) {
->                 p = tcf_police_ht[tcf_police_hash(i)];
-> 
->                 for (; p; p = p->next) {
->                         index++;
->                         if (index < s_i)
->                                 continue;
->                         a->priv = p;
->                         a->order = index;
->                         r = (struct rtattr*) skb->tail;
->                         RTA_PUT(skb, a->order, 0, NULL);
-> +                       if (type == RTM_DELACTION)
-> +                               err = tcf_action_dump_1(skb, a, 0, 1);
-> +                       else
-> +                               err = tcf_action_dump_1(skb, a, 0, 0);
-> 
-> Having two functions with same name is rather confusing.
-> Worse, they are both are called via five different
-> tc_action_ops structs: 
-> 
-> static struct tc_action_ops act_ipt_ops = {
-> ...
->         .walk           =       tcf_generic_walker
-> 
-> and I fail to understand how it is supposed to work,
-> considering the fact that these two tcf_generic_walker's
-> have different prototypes.
+On 2006-04-05 at 14:22:08, David Daney wrote:
+> The changes in this version are that it tests the source IP address
+> instead of the destination.  The test now matches the test described
+> in the RFC.  Also a small cleanup as suggested by Herbert Xu.
+>
+> Some comments on the first version of the patch suggested that I do
+> 'X' instead.  Where 'X' was behavior different than that REQUIRED by
+> the RFC (the RFC's always seem to capitalize the word 'required').
+>
+> The reason that I implemented the behavior required by the RFC is so
+> that a device running the kernel can pass compliance tests that
+> mandate RFC compliance.
 
-This code is a lazy hack to achieve "genericness" by using
-a "generic" inline functions and #defines to create
-specialized instances.
+Sorry for chiming in this late in the discussion, but...  Shouldn't it
+be more correct to not depend on the ip address of the used network,
+but to use the "scope" parameter of the given address?
 
-> 1) What should I do with tcf_generic_walker?
-> 2) Should I deinline huge inlines in include/net/pkt_act.h?
->    If yes, to which .c file should I move them?
+Example
 
-Unforunately you can't do this without further restructuring,
-look at how the tc actions use that file:
+# ip ad sh
+...
+N: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether ...
+    inet 169.254.3.3/16 brd 169.254.255.255 scope link eth0
+    inet ... scope global eth0
 
-/* use generic hash table */
-#define MY_TAB_SIZE     8
-#define MY_TAB_MASK     (MY_TAB_SIZE - 1)
-static u32 idx_gen;
-static struct tcf_mirred *tcf_mirred_ht[MY_TAB_SIZE];
-static DEFINE_RWLOCK(mirred_lock);
+The only drawback is that the scope is usually set manually, and maybe
+some tools don't handle it right now, since it's available since just a
+few years :)  Scopes, when set right, also may do some appropriate
+magic, as I understand, like selecting the correct the source address,
+and not allowing link-local addresses to reach out to other scopes.
+(Which is also mentioned in the RFC, but this strictness prevent
+transparent NAT of clients to the internet.)
 
-/* ovewrride the defaults */
-#define tcf_st          tcf_mirred
-#define tc_st           tc_mirred
-#define tcf_t_lock      mirred_lock
-#define tcf_ht          tcf_mirred_ht
+I did not look however, whether the scope is available on the place the
+patch is modifying currently.  Does the idea look sane to anyone else?
 
-#define CONFIG_NET_ACT_INIT 1
-#include <net/pkt_act.h>
+> +        /* If link local address (169.254.0.0/16) we must broadcast
+> +         * the ARP packet.  See RFC 3927 section 2.5 for details. */
+> +     if ((src_ip & htonl(0xFFFF0000UL)) == htonl(0xA9FE0000UL))
+> +             dest_hw = NULL;
 
-What needs to be done is to put a pointer to the hash, its size
-and its lock in struct tc_action_ops and move the "generic"
-functions to a seperate .c file and make them work on a struct
-tcf_act_common.
+Janos
