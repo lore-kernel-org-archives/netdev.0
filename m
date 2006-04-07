@@ -1,60 +1,66 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Broadcast ARP packets on link local addresses (Version2).
-Date: Fri, 07 Apr 2006 09:30:38 -0400
-Message-ID: <1144416638.5082.33.camel@jzny2>
-References: <17460.13568.175877.44476@dl2.hq2.avtrex.com>
-	 <priv$efbe06144502$2d51735f79@200604.gmail.com>
-	 <44353F36.9070404@avtrex.com>
+Subject: Re: [PATCH] net: Broadcast ARP packets on link local addresses
+Date: Fri, 07 Apr 2006 09:37:06 -0400
+Message-ID: <1144417027.5082.41.camel@jzny2>
+References: <17453.47752.914390.692779@dl2.hq2.avtrex.com>
+	 <pan.2006.04.07.07.20.44.797909@progsoc.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Janos Farkas <chexum+dev@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pgf@foxharp.boston.ma.us,
-	freek@macfreek.nl
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964785AbWDGNaz@vger.kernel.org>
-To: David Daney <ddaney@avtrex.com>
-In-Reply-To: <44353F36.9070404@avtrex.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964792AbWDGNhO@vger.kernel.org>
+To: Anand Kumria <wildfire@progsoc.org>
+In-Reply-To: <pan.2006.04.07.07.20.44.797909@progsoc.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-06-04 at 09:17 -0700, David Daney wrote:
-> Janos Farkas wrote:
-
-> > Sorry for chiming in this late in the discussion, but...  Shouldn't it
-> > be more correct to not depend on the ip address of the used network,
-> > but to use the "scope" parameter of the given address?
+On Fri, 2006-07-04 at 17:20 +1000, Anand Kumria wrote:
+> On Fri, 31 Mar 2006 15:26:00 -0800, David Daney wrote:
+> 
+> > From: David Daney
 > > 
+> > Greetings,
+> > 
+> > When an internet host joins a network where there is no DHCP server,
+> > it may auto-allocate an IP address by the method described in RFC
+> > 3927.  There are several user space daemons available that implement
+> > most of the protocol (zcip, busybox, ...).  The kernel's APR driver
+> > should function in the normal manner except that it is required to
+> > broadcast all ARP packets that it originates in the link local address
+> > space (169.254.0.0/16).  RFC 3927 section 2.5 explains the requirement.
+> > 
+> > The current ARP code is non-compliant because it does not broadcast
+> > some ARP packets as required by RFC 3927.
+> 
+> I haven't seem anyone comment on this, 
+
+Theres a lot of comments - check the archives of netdev on the thread
+as well as a newer thread under "Broadcast ARP packets on link local
+addresses (Version2)"
+
+> but it would be useful to see this
+> integrated.
+
+IMO not the way it is defined right now in that patch. 
+As suggested in the thread, best way is for the kernel to check
+if it is link local and do the advert in broadcast instead of unicast.
+
+> 
+> Something else I've noticed while I've been implementing my zeroconf
+> daemon is that the kernel returns link-scoped primary addresses first to
+> 'ifconfig'.  Unfortunately quite a lot of user-space programs parse its
+> output and interpret the address it presents as the primary for the
+> specified interface.
 > 
 
-Excellent point! It was bothering me as well but i couldnt express my
-view eloquently as you did.
+Not sure i followed.
 
-> RFC 3927 specifies the Ethernet arp broadcast behavior for only 
-> 169.254.0.0/16.
+> Is that a case of user-space breakage that the kernel team would
+> ordinarily worry about?
 
-Thats besides the point. You could, for example, use 1.1.1.1/24 in your
-network instead of the 10.x or 192.x; and i have seen people use 10.x
-in what appears to be public networks. We dont have speacial checks for 
-RFC 1918 IP addresses for example.
-
-169.254.0.0/16 is by definition link local. I think point made by Janos
-is we should look at the attributes rather than value.
-
-Have your user space set it to be link local and then fix the kernel if
-it doesnt do the right thing.
-
->   Presumably you could set the scope parameter to local 
-> for addresses outside of that range or even for protocols other than 
-> Ethernet.  Since broadcasting ARP packets usually adversely effects 
-> usable network bandwidth, we should probably only do it where it is 
-> absolutely required.  The overhead of testing the value required by the 
-> RFC is quite low (3 machine instructions on i686 is the size of the 
-> entire patch), so using some proxy like the scope parameter would not 
-> even be a performance win.
-> 
-
-Again, that is beside the point. 
+I think user space setting the attribute of the address to be link local
+would be a sufficient hint to the kernel to broadcast the arps.
 
 cheers,
 jamal
