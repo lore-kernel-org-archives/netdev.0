@@ -1,66 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] net: Broadcast ARP packets on link local addresses
-Date: Fri, 07 Apr 2006 09:37:06 -0400
-Message-ID: <1144417027.5082.41.camel@jzny2>
-References: <17453.47752.914390.692779@dl2.hq2.avtrex.com>
-	 <pan.2006.04.07.07.20.44.797909@progsoc.org>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [patch] ipv4: initialize arp_tbl rw lock
+Date: Fri, 7 Apr 2006 07:46:27 -0700
+Message-ID: <20060407074627.2f525b2e@localhost.localdomain>
+References: <20060407081533.GC11353@osiris.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964792AbWDGNhO@vger.kernel.org>
-To: Anand Kumria <wildfire@progsoc.org>
-In-Reply-To: <pan.2006.04.07.07.20.44.797909@progsoc.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Frank Pavlic <fpavlic@de.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932446AbWDGOqq@vger.kernel.org>
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
+In-Reply-To: <20060407081533.GC11353@osiris.boeblingen.de.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-07-04 at 17:20 +1000, Anand Kumria wrote:
-> On Fri, 31 Mar 2006 15:26:00 -0800, David Daney wrote:
+On Fri, 7 Apr 2006 10:15:33 +0200
+Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
+
+> From: Heiko Carstens <heiko.carstens@de.ibm.com>
 > 
-> > From: David Daney
-> > 
-> > Greetings,
-> > 
-> > When an internet host joins a network where there is no DHCP server,
-> > it may auto-allocate an IP address by the method described in RFC
-> > 3927.  There are several user space daemons available that implement
-> > most of the protocol (zcip, busybox, ...).  The kernel's APR driver
-> > should function in the normal manner except that it is required to
-> > broadcast all ARP packets that it originates in the link local address
-> > space (169.254.0.0/16).  RFC 3927 section 2.5 explains the requirement.
-> > 
-> > The current ARP code is non-compliant because it does not broadcast
-> > some ARP packets as required by RFC 3927.
+> The qeth driver makes use of the arp_tbl rw lock. CONFIG_DEBUG_SPINLOCK
+> detects that this lock is not initialized as it is supposed to be.
 > 
-> I haven't seem anyone comment on this, 
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> ---
 
-Theres a lot of comments - check the archives of netdev on the thread
-as well as a newer thread under "Broadcast ARP packets on link local
-addresses (Version2)"
+This is a initialization order problem then, because:
+	arp_init
+	   neigh_table_init
+		rwlock_init
 
-> but it would be useful to see this
-> integrated.
+does the initialization already. So fix the initialization sequence
+of the qeth driver or you will have other problems.
 
-IMO not the way it is defined right now in that patch. 
-As suggested in the thread, best way is for the kernel to check
-if it is link local and do the advert in broadcast instead of unicast.
-
-> 
-> Something else I've noticed while I've been implementing my zeroconf
-> daemon is that the kernel returns link-scoped primary addresses first to
-> 'ifconfig'.  Unfortunately quite a lot of user-space programs parse its
-> output and interpret the address it presents as the primary for the
-> specified interface.
-> 
-
-Not sure i followed.
-
-> Is that a case of user-space breakage that the kernel team would
-> ordinarily worry about?
-
-I think user space setting the attribute of the address to be link local
-would be a sufficient hint to the kernel to broadcast the arps.
-
-cheers,
-jamal
+My impression was the -rt folks wanted all lock initializations t be
+done at runtime not compile time.
