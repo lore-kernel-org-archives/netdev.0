@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 15/21] orinoco: delay FID allocation after firmware initialization
-Date: Fri, 07 Apr 2006 04:10:49 -0400
-Message-ID: <20060407081049.16107.42123.stgit@dv.roinet.com>
+Subject: [PATCH 08/21] orinoco: optimize Tx exception handling in orinoco
+Date: Fri, 07 Apr 2006 04:10:34 -0400
+Message-ID: <20060407081034.16107.89621.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -22,81 +22,96 @@ List-Id: netdev.vger.kernel.org
 
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-This is needed to identify the card before possible allocation problems,
-so that the user at least can report the firmware version that fails.
+When processing Tx exception, only read data until addr1.  Rename
+hermes_tx_descriptor_802_11 to hermes_txexc_data since it's only used to
+Tx exceptions.  Reuse existing hermes_tx_descriptor structure.  Remove
+fields after addr1 - they are not read from the card.
 
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/orinoco.c |   28 ++++++++++++++++++++++------
- 1 files changed, 22 insertions(+), 6 deletions(-)
+ drivers/net/wireless/orinoco.c |   42 ++++++----------------------------=
+------
+ 1 files changed, 6 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoc=
 o.c
-index 80cf6fb..d4c13ff 100644
+index 9550bf3..ceea494 100644
 --- a/drivers/net/wireless/orinoco.c
 +++ b/drivers/net/wireless/orinoco.c
-@@ -1345,15 +1345,11 @@ int __orinoco_down(struct net_device *de
- 	return 0;
- }
+@@ -201,41 +201,12 @@ #define BITRATE_TABLE_SIZE ARRAY_SIZE(bi
+ /* Data types                                                       */
+ /********************************************************************/
 =20
--int orinoco_reinit_firmware(struct net_device *dev)
-+static int orinoco_allocate_fid(struct net_device *dev)
- {
- 	struct orinoco_private *priv =3D netdev_priv(dev);
- 	struct hermes *hw =3D &priv->hw;
- 	int err;
+-/* Used in Event handling.
+- * We avoid nested structures as they break on ARM -- Moustafa */
+-struct hermes_tx_descriptor_802_11 {
+-	/* hermes_tx_descriptor */
+-	__le16 status;
+-	__le16 reserved1;
+-	__le16 reserved2;
+-	__le32 sw_support;
+-	u8 retry_count;
+-	u8 tx_rate;
+-	__le16 tx_control;
 -
--	err =3D hermes_init(hw);
--	if (err)
--		return err;
+-	/* ieee80211_hdr */
++/* Beginning of the Tx descriptor, used in TxExc handling */
++struct hermes_txexc_data {
++	struct hermes_tx_descriptor desc;
+ 	__le16 frame_ctl;
+ 	__le16 duration_id;
+ 	u8 addr1[ETH_ALEN];
+-	u8 addr2[ETH_ALEN];
+-	u8 addr3[ETH_ALEN];
+-	__le16 seq_ctl;
+-	u8 addr4[ETH_ALEN];
+-
+-	__le16 data_len;
+-
+-	/* ethhdr */
+-	u8 h_dest[ETH_ALEN];	/* destination eth addr */
+-	u8 h_source[ETH_ALEN];	/* source ether addr    */
+-	__be16 h_proto;		/* packet type ID field */
+-
+-	/* p8022_hdr */
+-	u8 dsap;
+-	u8 ssap;
+-	u8 ctrl;
+-	u8 oui[3];
+-
+-	__be16 ethertype;
+ } __attribute__ ((packed));
 =20
- 	err =3D hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
- 	if (err =3D=3D -EIO && priv->nicbuf_size > TX_NICBUF_SIZE_BUG) {
-@@ -1372,7 +1368,20 @@ int orinoco_reinit_firmware(struct net_d
+ /* Rx frame header except compatibility 802.3 header */
+@@ -620,7 +591,7 @@ static void __orinoco_ev_txexc(struct ne
+ 	struct net_device_stats *stats =3D &priv->stats;
+ 	u16 fid =3D hermes_read_regn(hw, TXCOMPLFID);
+ 	u16 status;
+-	struct hermes_tx_descriptor_802_11 hdr;
++	struct hermes_txexc_data hdr;
+ 	int err =3D 0;
 =20
- 	return err;
- }
-+
-+int orinoco_reinit_firmware(struct net_device *dev)
-+{
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	struct hermes *hw =3D &priv->hw;
-+	int err;
+ 	if (fid =3D=3D DUMMY_FID)
+@@ -628,8 +599,7 @@ static void __orinoco_ev_txexc(struct ne
 =20
-+	err =3D hermes_init(hw);
-+	if (!err)
-+		err =3D orinoco_allocate_fid(dev);
-+
-+	return err;
-+}
-+
- static int __orinoco_hw_set_bitrate(struct orinoco_private *priv)
- {
- 	hermes_t *hw =3D &priv->hw;
-@@ -2224,7 +2233,7 @@ static int orinoco_init(struct net_devic
- 	priv->nicbuf_size =3D IEEE80211_FRAME_LEN + ETH_HLEN;
+ 	/* Read part of the frame header - we need status and addr1 */
+ 	err =3D hermes_bap_pread(hw, IRQ_BAP, &hdr,
+-			       offsetof(struct hermes_tx_descriptor_802_11,
+-					addr2),
++			       sizeof(struct hermes_txexc_data),
+ 			       fid, 0);
 =20
- 	/* Initialize the firmware */
--	err =3D orinoco_reinit_firmware(dev);
-+	err =3D hermes_init(hw);
- 	if (err !=3D 0) {
- 		printk(KERN_ERR "%s: failed to initialize firmware (err =3D %d)\n",
- 		       dev->name, err);
-@@ -2281,6 +2290,13 @@ static int orinoco_init(struct net_devic
- 	priv->nick[len] =3D '\0';
+ 	hermes_write_regn(hw, TXCOMPLFID, DUMMY_FID);
+@@ -649,7 +619,7 @@ static void __orinoco_ev_txexc(struct ne
+ 	 * exceeded, because that's the only status that really mean
+ 	 * that this particular node went away.
+ 	 * Other errors means that *we* screwed up. - Jean II */
+-	status =3D le16_to_cpu(hdr.status);
++	status =3D le16_to_cpu(hdr.desc.status);
+ 	if (status & (HERMES_TXSTAT_RETRYERR | HERMES_TXSTAT_AGEDERR)) {
+ 		union iwreq_data	wrqu;
 =20
- 	printk(KERN_DEBUG "%s: Station name \"%s\"\n", dev->name, priv->nick);
-+
-+	err =3D orinoco_allocate_fid(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: failed to allocate NIC buffer!\n",
-+		       dev->name);
-+		goto out;
-+	}
-=20
- 	/* Get allowed channels */
- 	err =3D hermes_read_wordrec(hw, USER_BAP, HERMES_RID_CHANNELLIST,
 
 
 
