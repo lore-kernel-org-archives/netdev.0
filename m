@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 16/21] orinoco_pci: disable device and free IRQ when suspending
-Date: Fri, 07 Apr 2006 04:10:51 -0400
-Message-ID: <20060407081051.16107.87289.stgit@dv.roinet.com>
+Subject: [PATCH 21/21] orinoco: bump version to 0.15
+Date: Fri, 07 Apr 2006 04:11:02 -0400
+Message-ID: <20060407081102.16107.94285.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -25,41 +25,23 @@ From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/orinoco_pci.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/wireless/orinoco.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco_pci.c b/drivers/net/wireless/or=
-inoco_pci.c
-index 5362c21..e57e92b 100644
---- a/drivers/net/wireless/orinoco_pci.c
-+++ b/drivers/net/wireless/orinoco_pci.c
-@@ -304,7 +304,9 @@ static int orinoco_pci_suspend(struct pc
- =09
- 	orinoco_unlock(priv, &flags);
+diff --git a/drivers/net/wireless/orinoco.h b/drivers/net/wireless/orinoc=
+o.h
+index ca01e45..16db3e1 100644
+--- a/drivers/net/wireless/orinoco.h
++++ b/drivers/net/wireless/orinoco.h
+@@ -7,7 +7,7 @@
+ #ifndef _ORINOCO_H
+ #define _ORINOCO_H
 =20
-+	free_irq(pdev->irq, dev);
- 	pci_save_state(pdev);
-+	pci_disable_device(pdev);
- 	pci_set_power_state(pdev, PCI_D3hot);
+-#define DRIVER_VERSION "0.15rc3"
++#define DRIVER_VERSION "0.15"
 =20
- 	return 0;
-@@ -320,7 +322,16 @@ static int orinoco_pci_resume(struct pci
- 	printk(KERN_DEBUG "%s: Orinoco-PCI waking up\n", dev->name);
-=20
- 	pci_set_power_state(pdev, 0);
-+	pci_enable_device(pdev);
- 	pci_restore_state(pdev);
-+
-+	err =3D request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
-+			  dev->name, dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: Cannot re-allocate IRQ\n", dev->name);
-+		pci_disable_device(pdev);
-+		return -EBUSY;
-+	}
-=20
- 	err =3D orinoco_reinit_firmware(dev);
- 	if (err) {
+ #include <linux/netdevice.h>
+ #include <linux/wireless.h>
 
 
 
