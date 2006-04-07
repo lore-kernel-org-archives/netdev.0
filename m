@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 18/21] orinoco: support PCI suspend/resume for Nortel, PLX and TMD adaptors
-Date: Fri, 07 Apr 2006 04:10:55 -0400
-Message-ID: <20060407081055.16107.7233.stgit@dv.roinet.com>
+Subject: [PATCH 11/21] orinoco: don't use any padding for Tx frames
+Date: Fri, 07 Apr 2006 04:10:41 -0400
+Message-ID: <20060407081041.16107.255.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -22,324 +22,156 @@ List-Id: netdev.vger.kernel.org
 
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-Copy PCI suspend/resume functions from orinoco_pci.c.
+hermes_bap_pwrite() supports odd-sized packets now.   There is no
+minimal packet size for 802.11.  Also, hermes_bap_pwrite() supports
+odd-sized packets now.  This removes all reasons to pad the Tx data.
 
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/orinoco_nortel.c |   87 +++++++++++++++++++++++++++=
-++++--
- drivers/net/wireless/orinoco_plx.c    |   79 +++++++++++++++++++++++++++=
-+++
- drivers/net/wireless/orinoco_tmd.c    |   79 +++++++++++++++++++++++++++=
-+++
- 3 files changed, 241 insertions(+), 4 deletions(-)
+ drivers/net/wireless/hermes.c  |   38 ----------------------------------=
+----
+ drivers/net/wireless/hermes.h  |    2 --
+ drivers/net/wireless/orinoco.c |   25 +++++++------------------
+ 3 files changed, 7 insertions(+), 58 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco_nortel.c b/drivers/net/wireless=
-/orinoco_nortel.c
-index d1a670b..3fff013 100644
---- a/drivers/net/wireless/orinoco_nortel.c
-+++ b/drivers/net/wireless/orinoco_nortel.c
-@@ -263,6 +263,83 @@ static void __devexit nortel_pci_remove_
- 	pci_disable_device(pdev);
+diff --git a/drivers/net/wireless/hermes.c b/drivers/net/wireless/hermes.=
+c
+index be24f01..2aa2f38 100644
+--- a/drivers/net/wireless/hermes.c
++++ b/drivers/net/wireless/hermes.c
+@@ -424,43 +424,6 @@ int hermes_bap_pwrite(hermes_t *hw, int=20
+ 	return err;
  }
 =20
-+static int orinoco_nortel_suspend(struct pci_dev *pdev, pm_message_t sta=
-te)
-+{
-+	struct net_device *dev =3D pci_get_drvdata(pdev);
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	unsigned long flags;
-+	int err;
-+
-+	err =3D orinoco_lock(priv, &flags);
-+	if (err) {
-+		printk(KERN_ERR "%s: cannot lock hardware for suspend\n",
-+		       dev->name);
-+		return err;
-+	}
-+
-+	err =3D __orinoco_down(dev);
-+	if (err)
-+		printk(KERN_WARNING "%s: error %d bringing interface down "
-+		       "for suspend\n", dev->name, err);
-+=09
-+	netif_device_detach(dev);
-+
-+	priv->hw_unavailable++;
-+=09
-+	orinoco_unlock(priv, &flags);
-+
-+	free_irq(pdev->irq, dev);
-+	pci_save_state(pdev);
-+	pci_disable_device(pdev);
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
-+}
-+
-+static int orinoco_nortel_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev =3D pci_get_drvdata(pdev);
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	unsigned long flags;
-+	int err;
-+
-+	pci_set_power_state(pdev, 0);
-+	pci_enable_device(pdev);
-+	pci_restore_state(pdev);
-+
-+	err =3D request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
-+			  dev->name, dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: cannot re-allocate IRQ on resume\n",
-+		       dev->name);
-+		pci_disable_device(pdev);
-+		return -EBUSY;
-+	}
-+
-+	err =3D orinoco_reinit_firmware(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: error %d re-initializing firmware "
-+		       "on resume\n", dev->name, err);
-+		return err;
-+	}
-+
-+	spin_lock_irqsave(&priv->lock, flags);
-+
-+	netif_device_attach(dev);
-+
-+	priv->hw_unavailable--;
-+
-+	if (priv->open && (! priv->hw_unavailable)) {
-+		err =3D __orinoco_up(dev);
-+		if (err)
-+			printk(KERN_ERR "%s: Error %d restarting card on resume\n",
-+			       dev->name, err);
-+	}
-+=09
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
-+	return 0;
-+}
+-/* Write a block of data to the chip's buffer with padding if
+- * neccessary, via the BAP. Synchronization/serialization is the
+- * caller's problem.
+- *
+- * Returns: < 0 on internal failure (errno), 0 on success, > 0 on error =
+from firmware
+- */
+-int hermes_bap_pwrite_pad(hermes_t *hw, int bap, const void *buf, unsign=
+ed data_len, int len,
+-		      u16 id, u16 offset)
+-{
+-	int dreg =3D bap ? HERMES_DATA1 : HERMES_DATA0;
+-	int err =3D 0;
+-
+-	if (len < 0 || data_len > len)
+-		return -EINVAL;
+-
+-	err =3D hermes_bap_seek(hw, bap, id, offset);
+-	if (err)
+-		goto out;
+-
+-	/* Transfer all the complete words of data */
+-	hermes_write_bytes(hw, dreg, buf, data_len);
+-	/* If there is an odd byte left over pad and transfer it */
+-	if (data_len & 1) {
+-		u8 end[2];
+-		end[1] =3D 0;
+-		end[0] =3D ((unsigned char *)buf)[data_len - 1];
+-		hermes_write_bytes(hw, dreg, end, 2);
+-		data_len ++;
+-	}
+-	/* Now send zeros for the padding */
+-	if (data_len < len)
+-		hermes_clear_words(hw, dreg, (len - data_len) / 2);
+-	/* Complete */
+- out:
+-	return err;
+-}
+-
+ /* Read a Length-Type-Value record from the card.
+  *
+  * If length is NULL, we ignore the length read from the card, and
+@@ -548,7 +511,6 @@ EXPORT_SYMBOL(hermes_allocate);
 =20
- static struct pci_device_id nortel_pci_id_table[] =3D {
- 	/* Nortel emobility PCI */
-@@ -275,10 +352,12 @@ static struct pci_device_id nortel_pci_i
- MODULE_DEVICE_TABLE(pci, nortel_pci_id_table);
+ EXPORT_SYMBOL(hermes_bap_pread);
+ EXPORT_SYMBOL(hermes_bap_pwrite);
+-EXPORT_SYMBOL(hermes_bap_pwrite_pad);
+ EXPORT_SYMBOL(hermes_read_ltv);
+ EXPORT_SYMBOL(hermes_write_ltv);
 =20
- static struct pci_driver nortel_pci_driver =3D {
--	.name =3D DRIVER_NAME,
--	.id_table =3D nortel_pci_id_table,
--	.probe =3D nortel_pci_init_one,
--	.remove =3D __devexit_p(nortel_pci_remove_one),
-+	.name		=3D DRIVER_NAME,
-+	.id_table	=3D nortel_pci_id_table,
-+	.probe		=3D nortel_pci_init_one,
-+	.remove		=3D __devexit_p(nortel_pci_remove_one),
-+	.suspend	=3D orinoco_nortel_suspend,
-+	.resume		=3D orinoco_nortel_resume,
- };
+diff --git a/drivers/net/wireless/hermes.h b/drivers/net/wireless/hermes.=
+h
+index e1b279e..8e3f0e3 100644
+--- a/drivers/net/wireless/hermes.h
++++ b/drivers/net/wireless/hermes.h
+@@ -359,8 +359,6 @@ int hermes_bap_pread(hermes_t *hw, int b
+ 		       u16 id, u16 offset);
+ int hermes_bap_pwrite(hermes_t *hw, int bap, const void *buf, int len,
+ 			u16 id, u16 offset);
+-int hermes_bap_pwrite_pad(hermes_t *hw, int bap, const void *buf,
+-			unsigned data_len, int len, u16 id, u16 offset);
+ int hermes_read_ltv(hermes_t *hw, int bap, u16 rid, unsigned buflen,
+ 		    u16 *length, void *buf);
+ int hermes_write_ltv(hermes_t *hw, int bap, u16 rid,
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoc=
+o.c
+index 173e9e4..9fde17b 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -423,7 +423,7 @@ static int orinoco_xmit(struct sk_buff *
+ 	u16 txfid =3D priv->txfid;
+ 	char *p;
+ 	struct ethhdr *eh;
+-	int len, data_len, data_off;
++	int data_len, data_off;
+ 	struct hermes_tx_descriptor desc;
+ 	unsigned long flags;
 =20
- static char version[] __initdata =3D DRIVER_NAME " " DRIVER_VERSION
-diff --git a/drivers/net/wireless/orinoco_plx.c b/drivers/net/wireless/or=
-inoco_plx.c
-index 210e737..3fe7a2f 100644
---- a/drivers/net/wireless/orinoco_plx.c
-+++ b/drivers/net/wireless/orinoco_plx.c
-@@ -343,6 +343,83 @@ static void __devexit orinoco_plx_remove
- 	pci_disable_device(pdev);
- }
+@@ -455,13 +455,10 @@ static int orinoco_xmit(struct sk_buff *
+ 		return NETDEV_TX_OK;
+ 	}
 =20
-+static int orinoco_plx_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *dev =3D pci_get_drvdata(pdev);
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	unsigned long flags;
-+	int err;
-+
-+	err =3D orinoco_lock(priv, &flags);
-+	if (err) {
-+		printk(KERN_ERR "%s: cannot lock hardware for suspend\n",
-+		       dev->name);
-+		return err;
-+	}
-+
-+	err =3D __orinoco_down(dev);
-+	if (err)
-+		printk(KERN_WARNING "%s: error %d bringing interface down "
-+		       "for suspend\n", dev->name, err);
-+=09
-+	netif_device_detach(dev);
-+
-+	priv->hw_unavailable++;
-+=09
-+	orinoco_unlock(priv, &flags);
-+
-+	free_irq(pdev->irq, dev);
-+	pci_save_state(pdev);
-+	pci_disable_device(pdev);
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
-+}
-+
-+static int orinoco_plx_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev =3D pci_get_drvdata(pdev);
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	unsigned long flags;
-+	int err;
-+
-+	pci_set_power_state(pdev, 0);
-+	pci_enable_device(pdev);
-+	pci_restore_state(pdev);
-+
-+	err =3D request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
-+			  dev->name, dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: cannot re-allocate IRQ on resume\n",
-+		       dev->name);
-+		pci_disable_device(pdev);
-+		return -EBUSY;
-+	}
-+
-+	err =3D orinoco_reinit_firmware(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: error %d re-initializing firmware "
-+		       "on resume\n", dev->name, err);
-+		return err;
-+	}
-+
-+	spin_lock_irqsave(&priv->lock, flags);
-+
-+	netif_device_attach(dev);
-+
-+	priv->hw_unavailable--;
-+
-+	if (priv->open && (! priv->hw_unavailable)) {
-+		err =3D __orinoco_up(dev);
-+		if (err)
-+			printk(KERN_ERR "%s: Error %d restarting card on resume\n",
-+			       dev->name, err);
-+	}
-+=09
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
-+	return 0;
-+}
+-	/* Length of the packet body */
+-	/* FIXME: what if the skb is smaller than this? */
+-	len =3D max_t(int, ALIGN(skb->len, 2), ETH_ZLEN);
+-	skb =3D skb_padto(skb, len);
+-	if (skb =3D=3D NULL)
++	/* Check packet length */
++	data_len =3D skb->len;
++	if (data_len < ETH_HLEN)
+ 		goto fail;
+-	len -=3D ETH_HLEN;
 =20
- static struct pci_device_id orinoco_plx_pci_id_table[] =3D {
- 	{0x111a, 0x1023, PCI_ANY_ID, PCI_ANY_ID,},	/* Siemens SpeedStream SS102=
-3 */
-@@ -369,6 +446,8 @@ static struct pci_driver orinoco_plx_dri
- 	.id_table	=3D orinoco_plx_pci_id_table,
- 	.probe		=3D orinoco_plx_init_one,
- 	.remove		=3D __devexit_p(orinoco_plx_remove_one),
-+	.suspend	=3D orinoco_plx_suspend,
-+	.resume		=3D orinoco_plx_resume,
- };
+ 	eh =3D (struct ethhdr *)skb->data;
 =20
- static char version[] __initdata =3D DRIVER_NAME " " DRIVER_VERSION
-diff --git a/drivers/net/wireless/orinoco_tmd.c b/drivers/net/wireless/or=
-inoco_tmd.c
-index 5e68b70..b74807d 100644
---- a/drivers/net/wireless/orinoco_tmd.c
-+++ b/drivers/net/wireless/orinoco_tmd.c
-@@ -215,6 +215,83 @@ static void __devexit orinoco_tmd_remove
- 	pci_disable_device(pdev);
- }
+@@ -485,7 +482,7 @@ static int orinoco_xmit(struct sk_buff *
+ 	/* Encapsulate Ethernet-II frames */
+ 	if (ntohs(eh->h_proto) > ETH_DATA_LEN) { /* Ethernet-II frame */
+ 		struct header_struct hdr;
+-		data_len =3D len;
++		data_len =3D skb->len - ETH_HLEN;
+ 		data_off =3D HERMES_802_3_OFFSET + sizeof(hdr);
+ 		p =3D skb->data + ETH_HLEN;
 =20
-+static int orinoco_tmd_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *dev =3D pci_get_drvdata(pdev);
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	unsigned long flags;
-+	int err;
-+
-+	err =3D orinoco_lock(priv, &flags);
-+	if (err) {
-+		printk(KERN_ERR "%s: cannot lock hardware for suspend\n",
-+		       dev->name);
-+		return err;
-+	}
-+
-+	err =3D __orinoco_down(dev);
-+	if (err)
-+		printk(KERN_WARNING "%s: error %d bringing interface down "
-+		       "for suspend\n", dev->name, err);
-+=09
-+	netif_device_detach(dev);
-+
-+	priv->hw_unavailable++;
-+=09
-+	orinoco_unlock(priv, &flags);
-+
-+	free_irq(pdev->irq, dev);
-+	pci_save_state(pdev);
-+	pci_disable_device(pdev);
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
-+}
-+
-+static int orinoco_tmd_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev =3D pci_get_drvdata(pdev);
-+	struct orinoco_private *priv =3D netdev_priv(dev);
-+	unsigned long flags;
-+	int err;
-+
-+	pci_set_power_state(pdev, 0);
-+	pci_enable_device(pdev);
-+	pci_restore_state(pdev);
-+
-+	err =3D request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
-+			  dev->name, dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: cannot re-allocate IRQ on resume\n",
-+		       dev->name);
-+		pci_disable_device(pdev);
-+		return -EBUSY;
-+	}
-+
-+	err =3D orinoco_reinit_firmware(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s: error %d re-initializing firmware "
-+		       "on resume\n", dev->name, err);
-+		return err;
-+	}
-+
-+	spin_lock_irqsave(&priv->lock, flags);
-+
-+	netif_device_attach(dev);
-+
-+	priv->hw_unavailable--;
-+
-+	if (priv->open && (! priv->hw_unavailable)) {
-+		err =3D __orinoco_up(dev);
-+		if (err)
-+			printk(KERN_ERR "%s: Error %d restarting card on resume\n",
-+			       dev->name, err);
-+	}
-+=09
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
-+	return 0;
-+}
+@@ -507,21 +504,13 @@ static int orinoco_xmit(struct sk_buff *
+ 			stats->tx_errors++;
+ 			goto fail;
+ 		}
+-		/* Actual xfer length - allow for padding */
+-		len =3D ALIGN(data_len, 2);
+-		if (len < ETH_ZLEN - ETH_HLEN)
+-			len =3D ETH_ZLEN - ETH_HLEN;
+ 	} else { /* IEEE 802.3 frame */
+-		data_len =3D len + ETH_HLEN;
++		data_len =3D skb->len;
+ 		data_off =3D HERMES_802_3_OFFSET;
+ 		p =3D skb->data;
+-		/* Actual xfer length - round up for odd length packets */
+-		len =3D ALIGN(data_len, 2);
+-		if (len < ETH_ZLEN)
+-			len =3D ETH_ZLEN;
+ 	}
 =20
- static struct pci_device_id orinoco_tmd_pci_id_table[] =3D {
- 	{0x15e8, 0x0131, PCI_ANY_ID, PCI_ANY_ID,},      /* NDC and OEMs, e.g. p=
-heecom */
-@@ -228,6 +305,8 @@ static struct pci_driver orinoco_tmd_dri
- 	.id_table	=3D orinoco_tmd_pci_id_table,
- 	.probe		=3D orinoco_tmd_init_one,
- 	.remove		=3D __devexit_p(orinoco_tmd_remove_one),
-+	.suspend	=3D orinoco_tmd_suspend,
-+	.resume		=3D orinoco_tmd_resume,
- };
-=20
- static char version[] __initdata =3D DRIVER_NAME " " DRIVER_VERSION
+-	err =3D hermes_bap_pwrite_pad(hw, USER_BAP, p, data_len, len,
++	err =3D hermes_bap_pwrite(hw, USER_BAP, p, data_len,
+ 				txfid, data_off);
+ 	if (err) {
+ 		printk(KERN_ERR "%s: Error %d writing packet to BAP\n",
 
 
 
