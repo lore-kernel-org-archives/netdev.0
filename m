@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 02/21] orinoco: remove PCMCIA audio support, it's useless for wireless cards
-Date: Fri, 07 Apr 2006 04:10:21 -0400
-Message-ID: <20060407081021.16107.81864.stgit@dv.roinet.com>
+Subject: [PATCH 04/21] orinoco: fix truncating commsquality RID with the latest Symbol firmware
+Date: Fri, 07 Apr 2006 04:10:26 -0400
+Message-ID: <20060407081026.16107.89622.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -22,49 +22,29 @@ List-Id: netdev.vger.kernel.org
 
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
+Symbol firmware F3.91-71 has an additional word in the commsquality RID.
+Extend the receiving buffer by one word to accomodate it.
+
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/orinoco_cs.c  |    6 ------
- drivers/net/wireless/spectrum_cs.c |    6 ------
- 2 files changed, 0 insertions(+), 12 deletions(-)
+ drivers/net/wireless/orinoco.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/ori=
-noco_cs.c
-index 05f1762..eda01a7 100644
---- a/drivers/net/wireless/orinoco_cs.c
-+++ b/drivers/net/wireless/orinoco_cs.c
-@@ -248,12 +248,6 @@ orinoco_cs_config(dev_link_t *link)
- 			goto next_entry;
- 		link->conf.ConfigIndex =3D cfg->index;
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoc=
+o.c
+index 8dfdfbd..06523e2 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -390,7 +390,7 @@ static struct iw_statistics *orinoco_get
+ 		}
+ 	} else {
+ 		struct {
+-			__le16 qual, signal, noise;
++			__le16 qual, signal, noise, unused;
+ 		} __attribute__ ((packed)) cq;
 =20
--		/* Does this card need audio output? */
--		if (cfg->flags & CISTPL_CFTABLE_AUDIO) {
--			link->conf.Attributes |=3D CONF_ENABLE_SPKR;
--			link->conf.Status =3D CCSR_AUDIO_ENA;
--		}
--
- 		/* Use power settings for Vcc and Vpp if present */
- 		/* Note that the CIS values need to be rescaled */
- 		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
-diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/sp=
-ectrum_cs.c
-index 87178a3..0b0bce7 100644
---- a/drivers/net/wireless/spectrum_cs.c
-+++ b/drivers/net/wireless/spectrum_cs.c
-@@ -721,12 +721,6 @@ spectrum_cs_config(dev_link_t *link)
- 			goto next_entry;
- 		link->conf.ConfigIndex =3D cfg->index;
-=20
--		/* Does this card need audio output? */
--		if (cfg->flags & CISTPL_CFTABLE_AUDIO) {
--			link->conf.Attributes |=3D CONF_ENABLE_SPKR;
--			link->conf.Status =3D CCSR_AUDIO_ENA;
--		}
--
- 		/* Use power settings for Vcc and Vpp if present */
- 		/* Note that the CIS values need to be rescaled */
- 		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+ 		err =3D HERMES_READ_RECORD(hw, USER_BAP,
 
 
 
