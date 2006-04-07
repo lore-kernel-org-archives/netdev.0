@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 10/21] orinoco replace hermes_write_words() with hermes_write_bytes()
-Date: Fri, 07 Apr 2006 04:10:39 -0400
-Message-ID: <20060407081038.16107.39910.stgit@dv.roinet.com>
+Subject: [PATCH 06/21] orinoco: remove debug buffer code and userspace include support
+Date: Fri, 07 Apr 2006 04:10:30 -0400
+Message-ID: <20060407081030.16107.57728.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -22,144 +22,118 @@ List-Id: netdev.vger.kernel.org
 
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-The new function can write an odd number of bytes, thus making padding
-unnecessary.
-
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/hermes.c      |   17 ++++++++---------
- drivers/net/wireless/hermes.h      |    7 +++++--
- drivers/net/wireless/spectrum_cs.c |    7 +++----
- 3 files changed, 16 insertions(+), 15 deletions(-)
+ drivers/net/wireless/hermes.c |   19 -------------------
+ drivers/net/wireless/hermes.h |   34 ----------------------------------
+ 2 files changed, 0 insertions(+), 53 deletions(-)
 
 diff --git a/drivers/net/wireless/hermes.c b/drivers/net/wireless/hermes.=
 c
-index 456d934..be24f01 100644
+index 346c6fe..456d934 100644
 --- a/drivers/net/wireless/hermes.c
 +++ b/drivers/net/wireless/hermes.c
-@@ -400,8 +400,7 @@ int hermes_bap_pread(hermes_t *hw, int b
+@@ -121,12 +121,6 @@ void hermes_struct_init(hermes_t *hw, vo
+ 	hw->iobase =3D address;
+ 	hw->reg_spacing =3D reg_spacing;
+ 	hw->inten =3D 0x0;
+-
+-#ifdef HERMES_DEBUG_BUFFER
+-	hw->dbufp =3D 0;
+-	memset(&hw->dbuf, 0xff, sizeof(hw->dbuf));
+-	memset(&hw->profile, 0, sizeof(hw->profile));
+-#endif
  }
 =20
- /* Write a block of data to the chip's buffer, via the
-- * BAP. Synchronization/serialization is the caller's problem. len
-- * must be even.
-+ * BAP. Synchronization/serialization is the caller's problem.
-  *
-  * Returns: < 0 on internal failure (errno), 0 on success, > 0 on error =
-from firmware
-  */
-@@ -411,7 +410,7 @@ int hermes_bap_pwrite(hermes_t *hw, int=20
- 	int dreg =3D bap ? HERMES_DATA1 : HERMES_DATA0;
- 	int err =3D 0;
-=20
--	if ( (len < 0) || (len % 2) )
-+	if (len < 0)
- 		return -EINVAL;
-=20
- 	err =3D hermes_bap_seek(hw, bap, id, offset);
-@@ -419,7 +418,7 @@ int hermes_bap_pwrite(hermes_t *hw, int=20
- 		goto out;
- =09
- 	/* Actually do the transfer */
--	hermes_write_words(hw, dreg, buf, len/2);
-+	hermes_write_bytes(hw, dreg, buf, len);
-=20
-  out:=09
- 	return err;
-@@ -427,7 +426,7 @@ int hermes_bap_pwrite(hermes_t *hw, int=20
-=20
- /* Write a block of data to the chip's buffer with padding if
-  * neccessary, via the BAP. Synchronization/serialization is the
-- * caller's problem. len must be even.
-+ * caller's problem.
-  *
-  * Returns: < 0 on internal failure (errno), 0 on success, > 0 on error =
-from firmware
-  */
-@@ -437,7 +436,7 @@ int hermes_bap_pwrite_pad(hermes_t *hw,=20
- 	int dreg =3D bap ? HERMES_DATA1 : HERMES_DATA0;
- 	int err =3D 0;
-=20
--	if (len < 0 || len % 2 || data_len > len)
-+	if (len < 0 || data_len > len)
- 		return -EINVAL;
-=20
- 	err =3D hermes_bap_seek(hw, bap, id, offset);
-@@ -445,13 +444,13 @@ int hermes_bap_pwrite_pad(hermes_t *hw,=20
- 		goto out;
-=20
- 	/* Transfer all the complete words of data */
--	hermes_write_words(hw, dreg, buf, data_len/2);
-+	hermes_write_bytes(hw, dreg, buf, data_len);
- 	/* If there is an odd byte left over pad and transfer it */
- 	if (data_len & 1) {
- 		u8 end[2];
- 		end[1] =3D 0;
- 		end[0] =3D ((unsigned char *)buf)[data_len - 1];
--		hermes_write_words(hw, dreg, end, 1);
-+		hermes_write_bytes(hw, dreg, end, 2);
- 		data_len ++;
+ int hermes_init(hermes_t *hw)
+@@ -345,20 +339,7 @@ static int hermes_bap_seek(hermes_t *hw,
+ 		k--;
+ 		udelay(1);
+ 		reg =3D hermes_read_reg(hw, oreg);
+-	}
+-
+-#ifdef HERMES_DEBUG_BUFFER
+-	hw->profile[HERMES_BAP_BUSY_TIMEOUT - k]++;
+-
+-	if (k < HERMES_BAP_BUSY_TIMEOUT) {
+-		struct hermes_debug_entry *e =3D=20
+-			&hw->dbuf[(hw->dbufp++) % HERMES_DEBUG_BUFSIZE];
+-		e->bap =3D bap;
+-		e->id =3D id;
+-		e->offset =3D offset;
+-		e->cycles =3D HERMES_BAP_BUSY_TIMEOUT - k;
  	}
- 	/* Now send zeros for the padding */
-@@ -534,7 +533,7 @@ int hermes_write_ltv(hermes_t *hw, int b
+-#endif
 =20
- 	count =3D length - 1;
-=20
--	hermes_write_words(hw, dreg, value, count);
-+	hermes_write_bytes(hw, dreg, value, count << 1);
-=20
- 	err =3D hermes_docmd_wait(hw, HERMES_CMD_ACCESS | HERMES_CMD_WRITE,=20
- 				rid, NULL);
+ 	if (reg & HERMES_OFFSET_BUSY)
+ 		return -ETIMEDOUT;
 diff --git a/drivers/net/wireless/hermes.h b/drivers/net/wireless/hermes.=
 h
-index 34ccba2..e1b279e 100644
+index 7644f72..34ccba2 100644
 --- a/drivers/net/wireless/hermes.h
 +++ b/drivers/net/wireless/hermes.h
-@@ -408,10 +408,13 @@ static inline void hermes_read_words(str
- 	ioread16_rep(hw->iobase + off, buf, count);
+@@ -328,16 +328,6 @@ struct hermes_multicast {
+ 	u8 addr[HERMES_MAX_MULTICAST][ETH_ALEN];
+ } __attribute__ ((packed));
+=20
+-// #define HERMES_DEBUG_BUFFER 1
+-#define HERMES_DEBUG_BUFSIZE 4096
+-struct hermes_debug_entry {
+-	int bap;
+-	u16 id, offset;
+-	int cycles;
+-};
+-
+-#ifdef __KERNEL__
+-
+ /* Timeouts */
+ #define HERMES_BAP_BUSY_TIMEOUT (10000) /* In iterations of ~1us */
+=20
+@@ -347,14 +337,7 @@ typedef struct hermes {
+ 	int reg_spacing;
+ #define HERMES_16BIT_REGSPACING	0
+ #define HERMES_32BIT_REGSPACING	1
+-
+ 	u16 inten; /* Which interrupts should be enabled? */
+-
+-#ifdef HERMES_DEBUG_BUFFER
+-	struct hermes_debug_entry dbuf[HERMES_DEBUG_BUFSIZE];
+-	unsigned long dbufp;
+-	unsigned long profile[HERMES_BAP_BUSY_TIMEOUT+1];
+-#endif
+ } hermes_t;
+=20
+ /* Register access convenience macros */
+@@ -461,22 +444,5 @@ static inline int hermes_write_wordrec(h
+ 	__le16 rec =3D cpu_to_le16(word);
+ 	return HERMES_WRITE_RECORD(hw, bap, rid, &rec);
  }
+-
+-#else /* ! __KERNEL__ */
+-
+-/* These are provided for the benefit of userspace drivers and testing p=
+rograms
+-   which use ioperm() or iopl() */
+-
+-#define hermes_read_reg(base, off) (inw((base) + (off)))
+-#define hermes_write_reg(base, off, val) (outw((val), (base) + (off)))
+-
+-#define hermes_read_regn(base, name) (hermes_read_reg((base), HERMES_##n=
+ame))
+-#define hermes_write_regn(base, name, val) (hermes_write_reg((base), HER=
+MES_##name, (val)))
+-
+-/* Note that for the next two, the count is in 16-bit words, not bytes *=
+/
+-#define hermes_read_data(base, off, buf, count) (insw((base) + (off), (b=
+uf), (count)))
+-#define hermes_write_data(base, off, buf, count) (outsw((base) + (off), =
+(buf), (count)))
+-
+-#endif /* ! __KERNEL__ */
 =20
--static inline void hermes_write_words(struct hermes *hw, int off, const =
-void *buf, unsigned count)
-+static inline void hermes_write_bytes(struct hermes *hw, int off,
-+				      const char *buf, unsigned count)
- {
- 	off =3D off << hw->reg_spacing;
--	iowrite16_rep(hw->iobase + off, buf, count);
-+	iowrite16_rep(hw->iobase + off, buf, count >> 1);
-+	if (unlikely(count & 1))
-+		iowrite8(buf[count - 1], hw->iobase + off);
- }
-=20
- static inline void hermes_clear_words(struct hermes *hw, int off, unsign=
-ed count)
-diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/sp=
-ectrum_cs.c
-index 14f4daa..c13a5b6 100644
---- a/drivers/net/wireless/spectrum_cs.c
-+++ b/drivers/net/wireless/spectrum_cs.c
-@@ -343,8 +343,7 @@ spectrum_plug_pdi(hermes_t *hw, struct p
-=20
- 	/* do the actual plugging */
- 	spectrum_aux_setaddr(hw, pdr_addr(pdr));
--	hermes_write_words(hw, HERMES_AUXDATA, pdi->data,
--			   pdi_len(pdi) / 2);
-+	hermes_write_bytes(hw, HERMES_AUXDATA, pdi->data, pdi_len(pdi));
-=20
- 	return 0;
- }
-@@ -424,8 +423,8 @@ spectrum_load_blocks(hermes_t *hw, const
-=20
- 	while (dblock_addr(blk) !=3D BLOCK_END) {
- 		spectrum_aux_setaddr(hw, blkaddr);
--		hermes_write_words(hw, HERMES_AUXDATA, blk->data,
--				   blklen / 2);
-+		hermes_write_bytes(hw, HERMES_AUXDATA, blk->data,
-+				   blklen);
-=20
- 		blk =3D (struct dblock *) &blk->data[blklen];
- 		blkaddr =3D dblock_addr(blk);
+ #endif  /* _HERMES_H */
 
 
 
