@@ -1,13 +1,14 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCHES] Bringing Orinoco to 0.15
-Date: Fri, 07 Apr 2006 04:07:31 -0400
-Message-ID: <1144397251.14299.6.camel@dv>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH 02/21] orinoco: remove PCMCIA audio support, it's useless for wireless cards
+Date: Fri, 07 Apr 2006 04:10:21 -0400
+Message-ID: <20060407081021.16107.81864.stgit@dv.roinet.com>
+References: <20060407081019.16107.67672.stgit@dv.roinet.com>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: quoted-printable
+Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Andrew Morton <akpm-LL/9OlyS9hIAvxtiuMwx3w@public.gmane.org>, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20060407081019.16107.67672.stgit-fdEtzkpK75rby3iVrkZq2A@public.gmane.org>
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -19,76 +20,60 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-I'm about to submit series of 21 patches for Orinoco drivers.  Those
-patches have been in Orinoco CVS for months, and there have been no bug
-reports.  I believe it's about time that I submit the patches to the
-kernel.
+Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+---
 
-I know, I've missed the boat for 2.6.17 (sorry for that, I was really
-overworked), but I hope it's better to submit the patches as early as
-possible so that they get some public exposure before ending up in the
-kernel.
+ drivers/net/wireless/orinoco_cs.c  |    6 ------
+ drivers/net/wireless/spectrum_cs.c |    6 ------
+ 2 files changed, 0 insertions(+), 12 deletions(-)
 
-The changes are minimal, despite the size of the patches.  The intention
-was to make as much cleanup as possible and call it 0.15, and then start
-doing real changes.
-
-The patches are available at http://red-bean.com/proski/orinoco/
-This includes the cumulative patch and a zip archive with all patches.
-
-Andrew, maybe you you include the patches into the "mm" kernel?
-
-Here's a brief overview of the changes:
-
-1) Remove old cruft, such as obsolete PCMCIA code, obsolete comments,
-obsolete debug code.
-
-2) Fix misleading comments.  For instance, Symbol Spectrum24 LA4137 was
-called Symbol Spectrum24 LA4100.
-
-3) Fixes for minor annoyances, such as a kernel warning emitted every
-time when iwconfig requests stats on recent Symbol firmware.
-
-4) Optimization for Tx exception handling.  No need to read the complete
-Tx descriptor if just a few fields are needed.
-
-5) Serious rework of the Tx code.  The low level function for copying
-data to the card has been changed to accept odd number of bytes, which
-allows to remove all padding code used in the kernel.  Not a single
-unwanted byte would leak to the air.  Also, error handling has been
-redone, transmit errors are counted in one place, and orinoco_xmit()
-returns what the network layer expects it to, rather than -errno.  802.3
-encapsulation has been slightly simplified.
-
-6) The driver will reset the card in case of some bad Tx errors.
-
-7) The driver will print the firmware version before trying to allocate
-the transmission buffer, so that users can report the firmware version
-in case of errors.
-
-8) "Pseudo-PCI" drivers (i.e. drivers for cards in primitive
-PCI-to-PCMCIA adaptors) support suspend and resume now.
-
-9) PCI suspend frees the IRQ and disables the device.
-
-10) All I/O is done using the iomem API.
-
-11) The code common between PCI and pseudo-PCI drivers has been put to
-orinoco_pci.h.  The drivers have been changed to minimize differences
-between them.  Sorry, it's a big patch, but that's how it was made, and
-splitting it would be rewriting history.  I did split what I could
-(comment changes).
-
--- 
-Regards,
-Pavel Roskin
+diff --git a/drivers/net/wireless/orinoco_cs.c b/drivers/net/wireless/ori=
+noco_cs.c
+index 05f1762..eda01a7 100644
+--- a/drivers/net/wireless/orinoco_cs.c
++++ b/drivers/net/wireless/orinoco_cs.c
+@@ -248,12 +248,6 @@ orinoco_cs_config(dev_link_t *link)
+ 			goto next_entry;
+ 		link->conf.ConfigIndex =3D cfg->index;
+=20
+-		/* Does this card need audio output? */
+-		if (cfg->flags & CISTPL_CFTABLE_AUDIO) {
+-			link->conf.Attributes |=3D CONF_ENABLE_SPKR;
+-			link->conf.Status =3D CCSR_AUDIO_ENA;
+-		}
+-
+ 		/* Use power settings for Vcc and Vpp if present */
+ 		/* Note that the CIS values need to be rescaled */
+ 		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/sp=
+ectrum_cs.c
+index 87178a3..0b0bce7 100644
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -721,12 +721,6 @@ spectrum_cs_config(dev_link_t *link)
+ 			goto next_entry;
+ 		link->conf.ConfigIndex =3D cfg->index;
+=20
+-		/* Does this card need audio output? */
+-		if (cfg->flags & CISTPL_CFTABLE_AUDIO) {
+-			link->conf.Attributes |=3D CONF_ENABLE_SPKR;
+-			link->conf.Status =3D CCSR_AUDIO_ENA;
+-		}
+-
+ 		/* Use power settings for Vcc and Vpp if present */
+ 		/* Note that the CIS values need to be rescaled */
+ 		if (cfg->vcc.present & (1 << CISTPL_POWER_VNOM)) {
 
 
 
 -------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
+This SF.Net email is sponsored by xPML, a groundbreaking scripting langua=
+ge
+that extends applications into web and mobile media. Attend the live webc=
+ast
+and join the prime developer group breaking into this new coding territor=
+y!
+http://sel.as-us.falkag.net/sel?cmd=3Dlnk&kid=3D110944&bid=3D241720&dat=3D=
+121642
