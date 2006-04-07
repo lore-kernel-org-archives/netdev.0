@@ -1,21 +1,15 @@
-From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: Re: [PATCH 17/21] orinoco_pci: use pci_iomap() for resources
-Date: Fri,  7 Apr 2006 20:07:31 -0400
-Message-ID: <20060407200731.mqskowo8808gccs8@webmail.spamcop.net>
-References: <20060407081019.16107.67672.stgit@dv.roinet.com>
-	<20060407081053.16107.19347.stgit@dv.roinet.com>
-	<20060407213619.GB15720@electric-eye.fr.zoreil.com>
-	<1144448517.5618.14.camel@dv>
-	<20060407233819.GB15667@electric-eye.fr.zoreil.com>
+From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 16/21] orinoco_pci: disable device and free IRQ when suspending
+Date: Fri, 7 Apr 2006 23:24:29 +0200
+Message-ID: <20060407212429.GA15720@electric-eye.fr.zoreil.com>
+References: <20060407081019.16107.67672.stgit@dv.roinet.com> <20060407081051.16107.87289.stgit@dv.roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-In-Reply-To: <20060407233819.GB15667-lmTtMILVy1jWQcoT9B9Ug5SCg42XY1Uw0E9HWUfgJXw@public.gmane.org>
+To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <20060407081051.16107.87289.stgit-fdEtzkpK75rby3iVrkZq2A@public.gmane.org>
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -27,29 +21,30 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Quoting Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>:
-> > > Is there a reason why dev->mem_{start/end} should not be removed ?
-> >
-> > Is there a reason why it should? Is it going to be obsolete?
->
-> It is slowly obsoleting for a few years (don't laugh...). It is preferred
-> to store the relevant address in the private part of the (pci) device.
->
-> Moderately recent drivers do not use it at all. However it's fairly common
-> in the setup code of the (legacy) isa devices.
+Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org> :
+[...]
+> diff --git a/drivers/net/wireless/orinoco_pci.c b/drivers/net/wireless/orinoco_pci.c
+> index 5362c21..e57e92b 100644
+> --- a/drivers/net/wireless/orinoco_pci.c
+> +++ b/drivers/net/wireless/orinoco_pci.c
+> @@ -304,7 +304,9 @@ static int orinoco_pci_suspend(struct pc
+>  	
+>  	orinoco_unlock(priv, &flags);
+>  
+> +	free_irq(pdev->irq, dev);
+>  	pci_save_state(pdev);
+> +	pci_disable_device(pdev);
+>  	pci_set_power_state(pdev, PCI_D3hot);
+>  
+>  	return 0;
 
-I agree that many drivers don't use it.  But it would be nice to have a document
-describing what is going on.  On one hand we are adding new information elements
-(such as the bus in "ethtool -i"), on the other hand we are removing addresses
-from the ifconfig output.  Who is deciding which information is useful and 
-which is not?
+/me stares at the thread behind http://lkml.org/lkml/2005/7/30/143
 
-How about netdev->irq?  Is it going to be obsolete too?  Then I can easily
-remove orinoco_pci_setup_netdev() with very minimal adjustments.
+Imho {free/request}_irq during suspend/resume deserves some
+explanation.
 
---
-Regards,
-Pavel Roskin
+-- 
+Ueimor
 
 
 -------------------------------------------------------
