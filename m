@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 08/21] orinoco: optimize Tx exception handling in orinoco
-Date: Fri, 07 Apr 2006 04:10:34 -0400
-Message-ID: <20060407081034.16107.89621.stgit@dv.roinet.com>
+Subject: [PATCH 14/21] orinoco: fix BAP0 offset error after several days of operation
+Date: Fri, 07 Apr 2006 04:10:47 -0400
+Message-ID: <20060407081047.16107.85223.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -20,98 +20,46 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+From: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
 
-When processing Tx exception, only read data until addr1.  Rename
-hermes_tx_descriptor_802_11 to hermes_txexc_data since it's only used to
-Tx exceptions.  Reuse existing hermes_tx_descriptor structure.  Remove
-fields after addr1 - they are not read from the card.
+After several days of operation of Netgear MA311 card, the card becomes
+to seek improperly and needs reset. This patch tries to reset the card
+when this situation occurs.
 
+Mar  9 06:45:16 berkeley kernel: wlan0: Error -5 writing packet to BAP
+Mar  9 06:45:16 berkeley kernel: hermes @ f992a000: BAP0 offset error: re=
+g=3D0x4044 id=3D0x128 offset=3D0x44
+Mar  9 06:45:16 berkeley kernel: wlan0: Error -5 writing packet to BAP
+Mar  9 06:45:16 berkeley kernel: hermes @ f992a000: BAP0 offset error: re=
+g=3D0x4044 id=3D0x128 offset=3D0x44
+(etc.)
+
+A more detailed description of the problem can be found at
+https://bugzilla.novell.com/show_bug.cgi?id=3D154773
+The same problem with different card is reported at
+http://sourceforge.net/mailarchive/message.php?msg_id=3D14597046
+
+Signed-off-by: Jiri Benc <jbenc-AlSwsSmVLrQ@public.gmane.org>
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/orinoco.c |   42 ++++++----------------------------=
-------
- 1 files changed, 6 insertions(+), 36 deletions(-)
+ drivers/net/wireless/orinoco.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoc=
 o.c
-index 9550bf3..ceea494 100644
+index 4d63738..80cf6fb 100644
 --- a/drivers/net/wireless/orinoco.c
 +++ b/drivers/net/wireless/orinoco.c
-@@ -201,41 +201,12 @@ #define BITRATE_TABLE_SIZE ARRAY_SIZE(bi
- /* Data types                                                       */
- /********************************************************************/
+@@ -536,6 +536,8 @@ static int orinoco_xmit(struct sk_buff *
+ 	return NETDEV_TX_OK;
 =20
--/* Used in Event handling.
-- * We avoid nested structures as they break on ARM -- Moustafa */
--struct hermes_tx_descriptor_802_11 {
--	/* hermes_tx_descriptor */
--	__le16 status;
--	__le16 reserved1;
--	__le16 reserved2;
--	__le32 sw_support;
--	u8 retry_count;
--	u8 tx_rate;
--	__le16 tx_control;
--
--	/* ieee80211_hdr */
-+/* Beginning of the Tx descriptor, used in TxExc handling */
-+struct hermes_txexc_data {
-+	struct hermes_tx_descriptor desc;
- 	__le16 frame_ctl;
- 	__le16 duration_id;
- 	u8 addr1[ETH_ALEN];
--	u8 addr2[ETH_ALEN];
--	u8 addr3[ETH_ALEN];
--	__le16 seq_ctl;
--	u8 addr4[ETH_ALEN];
--
--	__le16 data_len;
--
--	/* ethhdr */
--	u8 h_dest[ETH_ALEN];	/* destination eth addr */
--	u8 h_source[ETH_ALEN];	/* source ether addr    */
--	__be16 h_proto;		/* packet type ID field */
--
--	/* p8022_hdr */
--	u8 dsap;
--	u8 ssap;
--	u8 ctrl;
--	u8 oui[3];
--
--	__be16 ethertype;
- } __attribute__ ((packed));
-=20
- /* Rx frame header except compatibility 802.3 header */
-@@ -620,7 +591,7 @@ static void __orinoco_ev_txexc(struct ne
- 	struct net_device_stats *stats =3D &priv->stats;
- 	u16 fid =3D hermes_read_regn(hw, TXCOMPLFID);
- 	u16 status;
--	struct hermes_tx_descriptor_802_11 hdr;
-+	struct hermes_txexc_data hdr;
- 	int err =3D 0;
-=20
- 	if (fid =3D=3D DUMMY_FID)
-@@ -628,8 +599,7 @@ static void __orinoco_ev_txexc(struct ne
-=20
- 	/* Read part of the frame header - we need status and addr1 */
- 	err =3D hermes_bap_pread(hw, IRQ_BAP, &hdr,
--			       offsetof(struct hermes_tx_descriptor_802_11,
--					addr2),
-+			       sizeof(struct hermes_txexc_data),
- 			       fid, 0);
-=20
- 	hermes_write_regn(hw, TXCOMPLFID, DUMMY_FID);
-@@ -649,7 +619,7 @@ static void __orinoco_ev_txexc(struct ne
- 	 * exceeded, because that's the only status that really mean
- 	 * that this particular node went away.
- 	 * Other errors means that *we* screwed up. - Jean II */
--	status =3D le16_to_cpu(hdr.status);
-+	status =3D le16_to_cpu(hdr.desc.status);
- 	if (status & (HERMES_TXSTAT_RETRYERR | HERMES_TXSTAT_AGEDERR)) {
- 		union iwreq_data	wrqu;
-=20
+  busy:
++	if (err =3D=3D -EIO)
++		schedule_work(&priv->reset_work);
+ 	orinoco_unlock(priv, &flags);
+ 	return NETDEV_TX_BUSY;
+ }
 
 
 
