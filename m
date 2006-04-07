@@ -1,37 +1,53 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] PCI Error Recovery: e100 network device driver
-Date: Thu, 6 Apr 2006 15:46:43 -0700
-Message-ID: <20060406224643.GA6278@kroah.com>
-References: <20060406222359.GA30037@austin.ibm.com>
+From: Anand Kumria <wildfire@progsoc.org>
+Subject: Re: [PATCH] net: Broadcast ARP packets on link local addresses
+Date: Fri, 07 Apr 2006 17:20:48 +1000
+Message-ID: <pan.2006.04.07.07.20.44.797909@progsoc.org>
+References: <17453.47752.914390.692779@dl2.hq2.avtrex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com, linuxppc-dev@ozlabs.org,
-	john.ronciak@intel.com, jeffrey.t.kirsher@intel.com,
-	linux-pci@atrey.karlin.mff.cuni.cz, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Linas Vepstas <linas@austin.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20060406222359.GA30037@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932323AbWDGHV5@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 06, 2006 at 05:24:00PM -0500, Linas Vepstas wrote:
-> +	if(pci_enable_device(pdev)) {
+On Fri, 31 Mar 2006 15:26:00 -0800, David Daney wrote:
 
-Add a space after "if" and before "(" please.
+> From: David Daney
+> 
+> Greetings,
+> 
+> When an internet host joins a network where there is no DHCP server,
+> it may auto-allocate an IP address by the method described in RFC
+> 3927.  There are several user space daemons available that implement
+> most of the protocol (zcip, busybox, ...).  The kernel's APR driver
+> should function in the normal manner except that it is required to
+> broadcast all ARP packets that it originates in the link local address
+> space (169.254.0.0/16).  RFC 3927 section 2.5 explains the requirement.
+> 
+> The current ARP code is non-compliant because it does not broadcast
+> some ARP packets as required by RFC 3927.
 
-You do this in a few different places.
+I haven't seem anyone comment on this, but it would be useful to see this
+integrated.
 
-thanks,
+If you have a bunch of Linux machines and two machines have the same
+address allocated (not so impossible) they won't notice until they start
+communicating with each other.
 
-greg k-h
+A third machine attempting to communicate with either party won't be able
+to do so.  With this patch in place, overlapping assignments are noticed
+much faster due to the broadcast.
+
+Something else I've noticed while I've been implementing my zeroconf
+daemon is that the kernel returns link-scoped primary addresses first to
+'ifconfig'.  Unfortunately quite a lot of user-space programs parse its
+output and interpret the address it presents as the primary for the
+specified interface.
+
+Is that a case of user-space breakage that the kernel team would
+ordinarily worry about?
+
+Thanks,
+Anand
