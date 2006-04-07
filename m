@@ -1,7 +1,7 @@
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
-Subject: [PATCH 09/21] orinoco: orinoco_xmit() should only return valid symbolic constants
-Date: Fri, 07 Apr 2006 04:10:36 -0400
-Message-ID: <20060407081036.16107.96227.stgit@dv.roinet.com>
+Subject: [PATCH 07/21] orinoco: Symbol card supported by spectrum_cs is LA4137, not LA4100
+Date: Fri, 07 Apr 2006 04:10:32 -0400
+Message-ID: <20060407081032.16107.84514.stgit@dv.roinet.com>
 References: <20060407081019.16107.67672.stgit@dv.roinet.com>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: quoted-printable
@@ -22,67 +22,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 
-Don't ever return -errno from orinoco_xmit() - the network layer doesn't
-expect it.
-
 Signed-off-by: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
 ---
 
- drivers/net/wireless/orinoco.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/wireless/spectrum_cs.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoc=
-o.c
-index ceea494..173e9e4 100644
---- a/drivers/net/wireless/orinoco.c
-+++ b/drivers/net/wireless/orinoco.c
-@@ -430,19 +430,19 @@ static int orinoco_xmit(struct sk_buff *
- 	if (! netif_running(dev)) {
- 		printk(KERN_ERR "%s: Tx on stopped device!\n",
- 		       dev->name);
--		return 1;
-+		return NETDEV_TX_BUSY;
- 	}
- =09
- 	if (netif_queue_stopped(dev)) {
- 		printk(KERN_DEBUG "%s: Tx while transmitter busy!\n",=20
- 		       dev->name);
--		return 1;
-+		return NETDEV_TX_BUSY;
- 	}
- =09
- 	if (orinoco_lock(priv, &flags) !=3D 0) {
- 		printk(KERN_ERR "%s: orinoco_xmit() called while hw_unavailable\n",
- 		       dev->name);
--		return 1;
-+		return NETDEV_TX_BUSY;
- 	}
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/sp=
+ectrum_cs.c
+index 58c153a..14f4daa 100644
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -1,6 +1,6 @@
+ /*
+  * Driver for 802.11b cards using RAM-loadable Symbol firmware, such as
+- * Symbol Wireless Networker LA4100, CompactFlash cards by Socket
++ * Symbol Wireless Networker LA4137, CompactFlash cards by Socket
+  * Communications and Intel PRO/Wireless 2011B.
+  *
+  * The driver implements Symbol firmware download.  The rest is handled
+@@ -958,7 +958,7 @@ static char version[] __initdata =3D DRIVE
+ 	" David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>, et al)";
 =20
- 	if (! netif_carrier_ok(dev) || (priv->iw_mode =3D=3D IW_MODE_MONITOR)) =
-{
-@@ -452,7 +452,7 @@ static int orinoco_xmit(struct sk_buff *
- 		stats->tx_errors++;
- 		orinoco_unlock(priv, &flags);
- 		dev_kfree_skb(skb);
--		return 0;
-+		return NETDEV_TX_OK;
- 	}
-=20
- 	/* Length of the packet body */
-@@ -551,11 +551,11 @@ static int orinoco_xmit(struct sk_buff *
-=20
- 	dev_kfree_skb(skb);
-=20
--	return 0;
-+	return NETDEV_TX_OK;
-  fail:
-=20
- 	orinoco_unlock(priv, &flags);
--	return err;
-+	return NETDEV_TX_BUSY;
- }
-=20
- static void __orinoco_ev_alloc(struct net_device *dev, hermes_t *hw)
+ static struct pcmcia_device_id spectrum_cs_ids[] =3D {
+-	PCMCIA_DEVICE_MANF_CARD(0x026c, 0x0001), /* Symbol Spectrum24 LA4100 */
++	PCMCIA_DEVICE_MANF_CARD(0x026c, 0x0001), /* Symbol Spectrum24 LA4137 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x0104, 0x0001), /* Socket Communications CF */
+ 	PCMCIA_DEVICE_PROD_ID12("Intel", "PRO/Wireless LAN PC Card", 0x816cc815=
+, 0x6fbf459a), /* 2011B, not 2011 */
+ 	PCMCIA_DEVICE_NULL,
 
 
 
