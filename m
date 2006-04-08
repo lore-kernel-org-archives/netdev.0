@@ -1,55 +1,60 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] PCI Error Recovery: e100 network device driver
-Date: Sat, 8 Apr 2006 10:12:31 +0200
-Message-ID: <20060408081231.GA29323@electric-eye.fr.zoreil.com>
-References: <20060406222359.GA30037@austin.ibm.com> <20060406224643.GA6278@kroah.com> <20060407231134.GN25225@austin.ibm.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [patch] ipv4: initialize arp_tbl rw lock
+Date: Sat, 8 Apr 2006 12:02:13 +0200
+Message-ID: <20060408100213.GA9412@osiris.boeblingen.de.ibm.com>
+References: <20060407081533.GC11353@osiris.boeblingen.de.ibm.com> <20060407074627.2f525b2e@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Jeff Garzik <jgarzik@pobox.com>,
-	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751405AbWDHINl@vger.kernel.org>
-To: Linas Vepstas <linas@austin.ibm.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Frank Pavlic <fpavlic@de.ibm.com>,
+	"David S. Miller" <davem@sunset.davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964813AbWDHKCY@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060407231134.GN25225@austin.ibm.com>
+In-Reply-To: <20060407074627.2f525b2e@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas <linas@austin.ibm.com> :
-> Index: linux-2.6.17-rc1/drivers/net/e100.c
-> ===================================================================
-> --- linux-2.6.17-rc1.orig/drivers/net/e100.c	2006-04-07 16:21:46.000000000 -0500
-> +++ linux-2.6.17-rc1/drivers/net/e100.c	2006-04-07 18:10:52.411266545 -0500
-[...]
-> +static pci_ers_result_t e100_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
+> > The qeth driver makes use of the arp_tbl rw lock. CONFIG_DEBUG_SPINLOCK
+> > detects that this lock is not initialized as it is supposed to be.
+>
+> This is a initialization order problem then, because:
+> 	arp_init
+> 	   neigh_table_init
+> 		rwlock_init
+> 
+> does the initialization already. So fix the initialization sequence
+> of the qeth driver or you will have other problems.
+> 
+> My impression was the -rt folks wanted all lock initializations t be
+> done at runtime not compile time.
 
-80 cols limit.
+Ok, so the problem seems to be that inet_init gets called after qeth_init.
+Looking at the top level Makefile this seems to be true for all network
+drivers in drivers/net/ and drivers/s390/net/ since we have
 
-[...]
-> +static pci_ers_result_t e100_io_slot_reset(struct pci_dev *pdev)
-> +{
-> +	struct net_device *netdev = pci_get_drvdata(pdev);
-> +	struct nic *nic = netdev_priv(netdev);
-> +
-> +	if (pci_enable_device(pdev)) {
-> +		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
+vmlinux-main := $(core-y) $(libs-y) $(drivers-y) $(net-y)
 
-- The driver supports {get/set}_msglevel. Please consider using netif_msg_xxx
-  (see include/linux/netdevice.h).
+The patch below works for me... I guess there must be a better way to make
+sure that any networking driver's initcall is made before inet_init?
 
-- s/e100/DRV_NAME/ (or netdev->name, or pci_name(...) depending on the
-  context).
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+---
 
-[...]
-> +static struct pci_error_handlers e100_err_handler = {
-> +	.error_detected = e100_io_error_detected,
-> +	.slot_reset = e100_io_slot_reset,
-> +	.resume = e100_io_resume,
-> +};
+ Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Nit: I'd rather follow the style in the declaration of e100_driver.
-
--- 
-Ueimor
+diff --git a/Makefile b/Makefile
+index b401942..c5cea07 100644
+--- a/Makefile
++++ b/Makefile
+@@ -567,7 +567,7 @@ #
+ # System.map is generated to document addresses of all kernel symbols
+ 
+ vmlinux-init := $(head-y) $(init-y)
+-vmlinux-main := $(core-y) $(libs-y) $(drivers-y) $(net-y)
++vmlinux-main := $(core-y) $(libs-y) $(net-y) $(drivers-y)
+ vmlinux-all  := $(vmlinux-init) $(vmlinux-main)
+ vmlinux-lds  := arch/$(ARCH)/kernel/vmlinux.lds
+ 
