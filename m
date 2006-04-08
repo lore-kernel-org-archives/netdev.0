@@ -1,76 +1,32 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fw: [Bugme-new] [Bug 6349] New: iptables DNAT returns unknown
- error 4294967295
-Date: Sat, 08 Apr 2006 13:58:10 +0200
-Message-ID: <4437A552.902@trash.net>
-References: <20060407142331.26e6b653.akpm@osdl.org>
-	<4437A3B9.8000000@trash.net>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [patch] ipv4: initialize arp_tbl rw lock
+Date: Sat, 8 Apr 2006 14:14:54 +0200
+Message-ID: <20060408121454.GA16761@mars.ravnborg.org>
+References: <20060407081533.GC11353@osiris.boeblingen.de.ibm.com> <20060407074627.2f525b2e@localhost.localdomain> <20060408100213.GA9412@osiris.boeblingen.de.ibm.com> <20060408.031404.111884281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------040609080205000300020202"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: dmb@pochta.ru
-In-Reply-To: <4437A3B9.8000000@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: heiko.carstens@de.ibm.com, shemminger@osdl.org, jgarzik@pobox.com,
+	akpm@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fpavlic@de.ibm.com,
+	davem@sunset.davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964841AbWDHMP3@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060408.031404.111884281.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040609080205000300020202
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
-Patrick McHardy wrote:
-> Please try if this patch helps.
-> 
-> +	.hooks		= 1 << NF_IP_PRE_ROUTING || 1 << NF_IP_LOCAL_OUT,
-
-I shouldn't send patches before getting out of bed .. :)
-
-Please try this one instead.
-
-
---------------040609080205000300020202
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NETFILTER]: Fix DNAT in LOCAL_OUT
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 2ceefa038e908d5da21aefedae02da4eab1b2787
-tree 417f03eca3b97b16a78321ace1556e57f5c60351
-parent 8cc24d7ca2ffc6d9d70e1d94dc8dffbdf677e58f
-author Patrick McHardy <kaber@trash.net> Sat, 08 Apr 2006 13:59:53 +0200
-committer Patrick McHardy <kaber@trash.net> Sat, 08 Apr 2006 13:59:53 +0200
-
- net/ipv4/netfilter/ip_nat_rule.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ip_nat_rule.c b/net/ipv4/netfilter/ip_nat_rule.c
-index efba8c4..1aba926 100644
---- a/net/ipv4/netfilter/ip_nat_rule.c
-+++ b/net/ipv4/netfilter/ip_nat_rule.c
-@@ -279,7 +279,7 @@ static struct ipt_target ipt_dnat_reg = 
- 	.target		= ipt_dnat_target,
- 	.targetsize	= sizeof(struct ip_nat_multi_range_compat),
- 	.table		= "nat",
--	.hooks		= 1 << NF_IP_PRE_ROUTING,
-+	.hooks		= (1 << NF_IP_PRE_ROUTING) | (1 << NF_IP_LOCAL_OUT),
- 	.checkentry	= ipt_dnat_checkentry,
- };
+On Sat, Apr 08, 2006 at 03:14:04AM -0700, David S. Miller wrote:
  
+> Perhaps fs_initcall() would work better.  Or if that causes
+> problems we could create a net_initcall() that sits between
+> fs_initcall() and device_initcall().
 
---------------040609080205000300020202--
+fs_initcall() seems to be used mainly for "init after subsystem" stuff.
+Within fs/ only pipe.c uses fs_initcall().
+
+If we are going to overload the usage of fs_initcall() even more then
+we should maybe try to rename it?
+
+
+	Sam
