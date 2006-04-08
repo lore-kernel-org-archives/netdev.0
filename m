@@ -1,55 +1,55 @@
-From: Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH 17/21] orinoco_pci: use pci_iomap() for resources
-Date: Sat, 8 Apr 2006 01:38:19 +0200
-Message-ID: <20060407233819.GB15667@electric-eye.fr.zoreil.com>
-References: <20060407081019.16107.67672.stgit@dv.roinet.com> <20060407081053.16107.19347.stgit@dv.roinet.com> <20060407213619.GB15720@electric-eye.fr.zoreil.com> <1144448517.5618.14.camel@dv>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] PCI Error Recovery: e100 network device driver
+Date: Sat, 8 Apr 2006 10:12:31 +0200
+Message-ID: <20060408081231.GA29323@electric-eye.fr.zoreil.com>
+References: <20060406222359.GA30037@austin.ibm.com> <20060406224643.GA6278@kroah.com> <20060407231134.GN25225@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>
+Cc: Greg KH <greg@kroah.com>, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751405AbWDHINl@vger.kernel.org>
+To: Linas Vepstas <linas@austin.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <1144448517.5618.14.camel@dv>
-Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
+In-Reply-To: <20060407231134.GN25225@austin.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org> :
-> On Fri, 2006-04-07 at 23:36 +0200, Francois Romieu wrote:
-> 
-> > > @@ -208,8 +205,8 @@ static int orinoco_pci_init_one(struct p
-> > >  	priv = netdev_priv(dev);
-> > >  	card = priv->card;
-> > >  	card->pci_ioaddr = pci_ioaddr;
-> > > -	dev->mem_start = pci_iorange;
-> > > -	dev->mem_end = pci_iorange + pci_iolen - 1;
-> > > +	dev->mem_start = pci_resource_start(pdev, 0);
-> > > +	dev->mem_end = dev->mem_start + pci_resource_len(pdev, 0) - 1;
-> > 
-> > Is there a reason why dev->mem_{start/end} should not be removed ?
-> 
-> Is there a reason why it should? Is it going to be obsolete?
+Linas Vepstas <linas@austin.ibm.com> :
+> Index: linux-2.6.17-rc1/drivers/net/e100.c
+> ===================================================================
+> --- linux-2.6.17-rc1.orig/drivers/net/e100.c	2006-04-07 16:21:46.000000000 -0500
+> +++ linux-2.6.17-rc1/drivers/net/e100.c	2006-04-07 18:10:52.411266545 -0500
+[...]
+> +static pci_ers_result_t e100_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
 
-It is slowly obsoleting for a few years (don't laugh...). It is preferred
-to store the relevant address in the private part of the (pci) device.
+80 cols limit.
 
-Moderately recent drivers do not use it at all. However it's fairly common
-in the setup code of the (legacy) isa devices.
+[...]
+> +static pci_ers_result_t e100_io_slot_reset(struct pci_dev *pdev)
+> +{
+> +	struct net_device *netdev = pci_get_drvdata(pdev);
+> +	struct nic *nic = netdev_priv(netdev);
+> +
+> +	if (pci_enable_device(pdev)) {
+> +		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
+
+- The driver supports {get/set}_msglevel. Please consider using netif_msg_xxx
+  (see include/linux/netdevice.h).
+
+- s/e100/DRV_NAME/ (or netdev->name, or pci_name(...) depending on the
+  context).
+
+[...]
+> +static struct pci_error_handlers e100_err_handler = {
+> +	.error_detected = e100_io_error_detected,
+> +	.slot_reset = e100_io_slot_reset,
+> +	.resume = e100_io_resume,
+> +};
+
+Nit: I'd rather follow the style in the declaration of e100_driver.
 
 -- 
 Ueimor
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
