@@ -1,33 +1,25 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/char/random.c: unexport secure_ipv6_port_ephemeral
-Date: Sun, 9 Apr 2006 17:58:22 +0200
-Message-ID: <20060409155822.GI8454@stusta.de>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [2.6 patch] drivers/char/random.c: unexport secure_ipv6_port_ephemeral
+Date: Sun, 9 Apr 2006 11:56:16 -0500
+Message-ID: <20060409165616.GW15445@waste.org>
+References: <20060409155822.GI8454@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750808AbWDIP6k@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750822AbWDIQ5N@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
+In-Reply-To: <20060409155822.GI8454@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the unused EXPORT_SYMBOL(secure_ipv6_port_ephemeral).
+On Sun, Apr 09, 2006 at 05:58:22PM +0200, Adrian Bunk wrote:
+> This patch removes the unused EXPORT_SYMBOL(secure_ipv6_port_ephemeral).
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Acked-by: Matt Mackall <mpm@selenic.com>
 
----
-
-This patch was already sent on:
-- 5 Apr 2006
-
---- linux-2.6.17-rc1-mm1-full/drivers/char/random.c.old	2006-04-05 17:00:04.000000000 +0200
-+++ linux-2.6.17-rc1-mm1-full/drivers/char/random.c	2006-04-05 17:00:22.000000000 +0200
-@@ -1584,7 +1584,6 @@
- 
- 	return twothirdsMD4Transform(daddr, hash);
- }
--EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
- #endif
- 
- #if defined(CONFIG_IP_DCCP) || defined(CONFIG_IP_DCCP_MODULE)
+Adrian appears to be correct that this doesn't break modular ipv6.
+-- 
+Mathematics is the supreme nostalgia of our time.
