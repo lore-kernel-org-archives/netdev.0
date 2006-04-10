@@ -1,72 +1,62 @@
-From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-Subject: [RFC/PATCH] remove unneeded check in bcm43xx
-Date: Mon, 10 Apr 2006 06:01:20 +0200
-Message-ID: <20060410040120.GA4860@ens-lyon.fr>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Mon, 10 Apr 2006 06:07:32 +0200
+Message-ID: <200604100607.33362.mb@bu3sch.de>
+References: <20060410040120.GA4860@ens-lyon.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750969AbWDJECP@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Content-disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1809729.AZ0Zxlm8vr";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+   linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+   benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Benoit Boissinot <benoit.boissinot-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <20060410040120.GA4860-vYW+cPY1g1pWj0EZb7rXcA@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-Since the driver already sets the correct dma_mask, there is no reason
-to bail there. In fact if you have an iommu, I think you can have a
-address above 1G which will be ok for the device (if it isn't true then
-the powerpc dma_alloc_coherent with iommu needs to be fixed because it
-doesn't respect the the dma_mask).
+--nextPart1809729.AZ0Zxlm8vr
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Please comment or apply.
+On Monday 10 April 2006 06:01, you wrote:
+> Since the driver already sets the correct dma_mask, there is no reason
+> to bail there. In fact if you have an iommu, I think you can have a
+> address above 1G which will be ok for the device (if it isn't true then
+> the powerpc dma_alloc_coherent with iommu needs to be fixed because it
+> doesn't respect the the dma_mask).
+>=20
+> Please comment or apply.
 
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.fr>
+NACK. Don't apply that patch.
+I know it is odd, but people are actually hitting these messages.
+Maybe benh can explain the issues. I don't know...
 
-Index: linux/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-===================================================================
---- linux.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-+++ linux/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
-@@ -194,14 +194,6 @@ static int alloc_ringmemory(struct bcm43
- 		printk(KERN_ERR PFX "DMA ringmemory allocation failed\n");
- 		return -ENOMEM;
- 	}
--	if (ring->dmabase + BCM43xx_DMA_RINGMEMSIZE > BCM43xx_DMA_BUSADDRMAX) {
--		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RINGMEMORY >1G "
--				    "(0x%08x, len: %lu)\n",
--		       ring->dmabase, BCM43xx_DMA_RINGMEMSIZE);
--		dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
--				  ring->vbase, ring->dmabase);
--		return -ENOMEM;
--	}
- 	assert(!(ring->dmabase & 0x000003FF));
- 	memset(ring->vbase, 0, BCM43xx_DMA_RINGMEMSIZE);
- 
-@@ -303,14 +295,6 @@ static int setup_rx_descbuffer(struct bc
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 	dmaaddr = map_descbuffer(ring, skb->data, ring->rx_buffersize, 0);
--	if (unlikely(dmaaddr + ring->rx_buffersize > BCM43xx_DMA_BUSADDRMAX)) {
--		unmap_descbuffer(ring, dmaaddr, ring->rx_buffersize, 0);
--		dev_kfree_skb_any(skb);
--		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G "
--				    "(0x%08x, len: %u)\n",
--		       dmaaddr, ring->rx_buffersize);
--		return -ENOMEM;
--	}
- 	meta->skb = skb;
- 	meta->dmaaddr = dmaaddr;
- 	skb->dev = ring->bcm->net_dev;
-@@ -726,13 +710,6 @@ static int dma_tx_fragment(struct bcm43x
- 
- 	meta->skb = skb;
- 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
--	if (unlikely(meta->dmaaddr + skb->len > BCM43xx_DMA_BUSADDRMAX)) {
--		return_slot(ring, slot);
--		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G "
--				    "(0x%08x, len: %u)\n",
--		       meta->dmaaddr, skb->len);
--		return -ENOMEM;
--	}
- 
- 	desc_addr = (u32)(meta->dmaaddr + ring->memoffset);
- 	desc_ctl = BCM43xx_DMADTOR_FRAMESTART | BCM43xx_DMADTOR_FRAMEEND;
+=2D-=20
+Greetings Michael.
+
+--nextPart1809729.AZ0Zxlm8vr
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
+
+iD8DBQBEOdoFlb09HEdWDKgRAt3bAKCInf21ju7xYfsQjmf/6au74GwUfgCfcUt2
+f+FkUw4JGXf3uqlM6VSxNaM=
+=jZAG
+-----END PGP SIGNATURE-----
+
+--nextPart1809729.AZ0Zxlm8vr--
