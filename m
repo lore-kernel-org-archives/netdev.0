@@ -1,42 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 6349] New: iptables DNAT returns unknown
- error 4294967295
-Date: Sun, 09 Apr 2006 22:39:07 -0700 (PDT)
-Message-ID: <20060409.223907.11399328.davem@davemloft.net>
-References: <20060407142331.26e6b653.akpm@osdl.org>
-	<4437A3B9.8000000@trash.net> <4437A552.902@trash.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Mon, 10 Apr 2006 09:46:30 -0400
+Message-ID: <20060410134625.GA25360@tuxdriver.com>
+References: <20060410040120.GA4860@ens-lyon.fr> <200604100607.33362.mb@bu3sch.de> <20060410042228.GN27596@ens-lyon.fr> <200604100628.01483.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dmb@pochta.ru, akpm@osdl.org, netfilter-devel@lists.netfilter.org,
-	netdev@vger.kernel.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: kaber@trash.net
-In-Reply-To: <4437A552.902@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Benoit Boissinot <benoit.boissinot@ens-lyon.org>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	linux-kernel@vger.kernel.org, benh@kernel.crashing.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751138AbWDJNq4@vger.kernel.org>
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200604100628.01483.mb@bu3sch.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 08 Apr 2006 13:58:10 +0200
+On Mon, Apr 10, 2006 at 06:28:00AM +0200, Michael Buesch wrote:
 
-> Patrick McHardy wrote:
-> > Please try if this patch helps.
-> > 
-> > +	.hooks		= 1 << NF_IP_PRE_ROUTING || 1 << NF_IP_LOCAL_OUT,
-> 
-> I shouldn't send patches before getting out of bed .. :)
-> 
-> Please try this one instead.
+> To summerize: I actually added these messages, because people were
+> hitting "this does not work with >1G" issues and did not get an error message.
+> So I decided to insert warnings until the issue is fixed inside the arch code.
+> I will remove them once the issue is fixed.
 
-I'm applying this to my tree.
+This sounds like the same sort of problems w/ the b44 driver.
+I surmise that both use the same (broken) DMA engine from Broadcom.
 
-If it's wrong for some reason, we still have time in the 2.6.17-X
-devel cycle to correct it.
+Unfortunately, I don't know of any good solution to this.  There are
+a few hacks in b44 that deal with the issue.  I don't like them,
+although I am the perpetrator of at least one of them.  It might be
+worth looking at what was done there?
+
+YMMV...
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
