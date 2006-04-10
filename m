@@ -1,183 +1,70 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: 2.4.32: unresolved symbol unregister_qdisc
-Date: Mon, 10 Apr 2006 06:24:17 +0200
-Message-ID: <20060410042417.GA13027@w.ods.org>
-References: <33083.128.2.140.234.1144538327.squirrel@128.2.140.234> <20060408163743.c59d6e59.rdunlap@xenotime.net> <1786.128.2.140.234.1144604245.squirrel@128.2.140.234> <20060409130315.50daaec9.rdunlap@xenotime.net> <1949.128.2.140.234.1144634733.squirrel@128.2.140.234> <20060409192929.28320c00.rdunlap@xenotime.net> <2474.128.2.140.234.1144637390.squirrel@128.2.140.234> <20060409195906.77744b9b.rdunlap@xenotime.net> <2595.128.2.140.234.1144639201.squirrel@128.2.140.234> <20060409202912.22d496e7.rdunlap@xenotime.net>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Mon, 10 Apr 2006 06:28:00 +0200
+Message-ID: <200604100628.01483.mb@bu3sch.de>
+References: <20060410040120.GA4860@ens-lyon.fr> <200604100607.33362.mb@bu3sch.de> <20060410042228.GN27596@ens-lyon.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: George P Nychis <gnychis@cmu.edu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750976AbWDJEYZ@vger.kernel.org>
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
-Content-Disposition: inline
-In-Reply-To: <20060409202912.22d496e7.rdunlap@xenotime.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart3112089.dRx02SJYqy";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+   linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+   benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Benoit Boissinot <benoit.boissinot-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <20060410042228.GN27596-vYW+cPY1g1pWj0EZb7rXcA@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 09, 2006 at 08:29:12PM -0700, Randy.Dunlap wrote:
-> On Sun, 9 Apr 2006 23:20:01 -0400 (EDT) George P Nychis wrote:
-> 
-> > 
-> > > On Sun, 9 Apr 2006 22:49:50 -0400 (EDT) George P Nychis wrote:
-> > > 
-> > >> 
-> > >>> On Sun, 9 Apr 2006 22:05:33 -0400 (EDT) George P Nychis wrote:
-> > >>> 
-> > >>>> 
-> > >>>>> On Sun, 9 Apr 2006 13:37:25 -0400 (EDT) George P Nychis wrote:
-> > >>>>> 
-> > >>>>>> Thanks for the help.
-> > >>>>>> 
-> > >>>>>> Here is the makefile:
-> > >>>>>> http://rafb.net/paste/results/auchPH75.html
-> > >>>>>> 
-> > >>>>>> And here is the full errors I receive: 
-> > >>>>>> http://rafb.net/paste/results/Qplpqw74.html
-> > >>>>>> 
-> > >>>>>> Greatly appreciate it
-> > >>>>>> 
-> > >>>>>> - George
-> > >>>>> 
-> > >>>>> [repeat: please don't top-post]
-> > >>>>> 
-> > >>>>> I don't know how much I can help you.  It's been a long time
-> > >>>>> since I've built external modules on 2.4.x.
-> > >>>>> 
-> > >>>>> Problems that I see: - the Makefile does not use the expected 2.4
-> > >>>>>  kernel build infrastructure; - kernel Makefile uses -nostdinc to
-> > >>>>>  prevent use of userspace headers; - Makefile is trying to
-> > >>>>> include userspace headers instead of kernel headers, e.g.: In file
-> > >>>>> included from /usr/include/linux/if_ether.h:107, from 
-> > >>>>> /usr/include/linux/netdevice.h:29, from sch_xcp.c:8: - this
-> > >>>>> specified include directory is only in 2.6.x, not 2.4.x:
-> > >>>>> -I/lib/modules/`uname -r`/build/include/asm/mach-default
-> > >>>>> 
-> > >>>>> It's not clear to me how this makefile could work with 2.4.x at
-> > >>>>> all. Is it supposed to, or that's just what you want to see it do?
-> > >>>>> 
-> > >>>>> 
-> > >>>>> You could try to fix the Makefile based on makefile-changes
-> > >>>>> articles at lwn.net. E.g.: http://lwn.net/Articles/151784/ 
-> > >>>>> http://lwn.net/Articles/79984/ http://lwn.net/Articles/74767/ 
-> > >>>>> http://lwn.net/Articles/69148/ http://lwn.net/Articles/21823/
-> > >>>>> 
-> > >>>>> 
-> > >>>>> 
-> > >>>>>>> On Sat, 8 Apr 2006 19:18:47 -0400 (EDT) George P Nychis
-> > >>>>>>> wrote:
-> > >>>>>>> 
-> > >>>>>>>> Yeah, this module is unfortunately not under the GPL, it
-> > >>>>>>>> was made for research and i am not the author, I was only
-> > >>>>>>>> given the code for my own research.
-> > >>>>>>>> 
-> > >>>>>>>> I enabled that support in the kernel, and then tried to 
-> > >>>>>>>> recompile and get tons of errors/warnings... so maybe I am 
-> > >>>>>>>> missing something else to be enabled in the kernel... here
-> > >>>>>>>> are a few examples of errors:
-> > >>>>>>>> /usr/include/linux/skbuff.h:30:26: net/checksum.h: No such
-> > >>>>>>>> file or directory /usr/include/asm/irq.h:16:25:
-> > >>>>>>>> irq_vectors.h: No such file or directory
-> > >>>>>>>> /usr/include/linux/irq.h:72: error: `NR_IRQS' undeclared
-> > >>>>>>>> here (not in a function) /usr/include/asm/hw_irq.h:28:
-> > >>>>>>>> error: `NR_IRQ_VECTORS' undeclared here (not in a function)
-> > >>>>>>>> 
-> > >>>>>>>> I think those are the top most errors, so if i can fix
-> > >>>>>>>> those hopefully the rest shall vanish!
-> > >>>>>>> 
-> > >>>>>>> Looks like a Makefile problem then.  Can you post the
-> > >>>>>>> Makefile? Hopefully it is using a Makefile and not just an
-> > >>>>>>> elaborate gcc command line.
-> > >>>>>>> 
-> > >>>>>>> [and please don't top-post]
-> > >>>>>>> 
-> > >>>>>>>> - George
-> > >>>>>>>> 
-> > >>>>>>>> 
-> > >>>>>>>>> From: "George P Nychis" <gnychis@cmu.edu> Date: Sat, 8
-> > >>>>>>>>> Apr 2006 18:47:34 -0400 (EDT)
-> > >>>>>>>>> 
-> > >>>>>>>>>> Hey,
-> > >>>>>>>>>> 
-> > >>>>>>>>>> I have a kernel module that uses unregister_qdisc and 
-> > >>>>>>>>>> register_qdisc, whenever i try to insert the module I
-> > >>>>>>>>>> get: /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: 
-> > >>>>>>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o:
-> > >>>>>>>>>> unresolved symbol unregister_qdisc 
-> > >>>>>>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: 
-> > >>>>>>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o:
-> > >>>>>>>>>> unresolved symbol register_qdisc
-> > >>>>>>>>>> 
-> > >>>>>>>>>> Am i missing some sort of support in the kernel?
-> > >>>>>>>>> 
-> > >>>>>>>>> Make sure CONFIG_NET_SCHED is enabled and that you
-> > >>>>>>>>> compiled your module against that kernel.
-> > >>>>>>>>> 
-> > >>>>>>>>> Where does this sch_xcp come from?  It's not in the
-> > >>>>>>>>> vanilla sources.
-> > >>>>>>>>> 
-> > >>>>>>>>> Also, please direct networking questions to the 
-> > >>>>>>>>> netdev@vger.kernel.org mailing list which I have added to
-> > >>>>>>>>> the CC:.
-> > >>>>> 
-> > >>>>> --- ~Randy
-> > >>>>> 
-> > >>>>> 
-> > >>>> 
-> > >>>> By the way, if I add -I/usr/src/linux/include to the compile line,
-> > >>>> it successfully compiles, however, i am back to the start:
-> > >>>> lanthanum-ini src-1.0.1 # insmod sch_xcp Using 
-> > >>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o 
-> > >>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: 
-> > >>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: unresolved symbol 
-> > >>>> unregister_qdisc /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: 
-> > >>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: unresolved symbol 
-> > >>>> register_qdisc
-> > >>> 
-> > >>> Yet your 2.4.32 kernel image file does have those symbols in it? Can
-> > >>> you verify that by using 'nm' on the kernel image file?
-> > >>> 
-> > >>> If so, then I suppose that you'll need to make a small module test
-> > >>> case that exhibits this behavior, or just tell us where to get the
-> > >>> sch_xcp files...
-> > >>> 
-> > >>> (re-added cc: for netdev)
-> > >>> 
-> > >>> --- ~Randy
-> > >>> 
-> > >>> 
-> > >> 
-> > >> By kernel image, do you mean /usr/src/linux/vmlinux ? if so, 
-> > >> lanthanum-ini linux # nm vmlinux | grep register_qdisc c0399200 R
-> > >> __kstrtab_register_qdisc c0399240 R __kstrtab_unregister_qdisc c039ebc8 R
-> > >> __ksymtab_register_qdisc c039ebd0 R __ksymtab_unregister_qdisc c02eda40 T
-> > >> register_qdisc c02edaf0 T unregister_qdisc
-> > > 
-> > > Yes.  That's good, then.
-> > > 
-> > > --- ~Randy
-> > > 
-> > > 
-> > 
-> > *sigh* ... still getting the unresolved symbols, i totally don't get it, my /usr/src/linux/vmlinux says that the symbols exist, i install the kernel, reboot, and still get the same errors
-> 
-> Yes, I understood that.
+--nextPart3112089.dRx02SJYqy
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-There is also the possibility that you're running another kernel. Please
-check /proc/ksyms to be sure that register_qdisc is there.
+On Monday 10 April 2006 06:22, you wrote:
+> Either the ppc code is wrong (it doesn't enforce dma_mask) either the
+> driver still works without the check.
+>=20
+> Maybe ppc should do the same thing as i386:
+>=20
+> 47         if (dev =3D=3D NULL || (dev->coherent_dma_mask < 0xffffffff))
+> 48                 gfp |=3D GFP_DMA;
 
-> > Any other way of doing this or reason i can find out whats causing this?
-> 
-> Well, one of the makefile gods can step in and spot the problem, or you can
-> create a test case so that others can try to help out with it.  Or tell us
-> where to get the code that you are using.
+No, GFP_DMA is a NOP on PPC.
+Actually the problems seems much more complex and a correct fix
+seems to be hard to do.
+I think benh is actually fixing this.
 
-That would clearly help. If you cannot post the whole driver, please at
-least post the source without any function except init_module(). Check
-net/sched/sch_ingress.c for very minimal code.
- 
-> > thanks for your help
->
-> ---
-> ~Randy
+To summerize: I actually added these messages, because people were
+hitting "this does not work with >1G" issues and did not get an error messa=
+ge.
+So I decided to insert warnings until the issue is fixed inside the arch co=
+de.
+I will remove them once the issue is fixed.
 
-Willy
+=2D-=20
+Greetings Michael.
+
+--nextPart3112089.dRx02SJYqy
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
+
+iD8DBQBEOd7Rlb09HEdWDKgRAh6OAJ9fL3QpHb10LA8/ih1+u9pNIb77uwCgkXXD
+lKZ5HphLno7YZT9R1t08GXI=
+=IqNS
+-----END PGP SIGNATURE-----
+
+--nextPart3112089.dRx02SJYqy--
