@@ -1,7 +1,7 @@
 From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] bcm43xx-d80211: use pci_iomap() for convenience.
-Date: Mon, 10 Apr 2006 02:05:42 +0200
-Message-ID: <200604100205.42982.mb@bu3sch.de>
+Subject: [PATCH] bcm43xx: use pci_iomap() for convenience.
+Date: Mon, 10 Apr 2006 02:08:33 +0200
+Message-ID: <200604100208.34362.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -23,9 +23,9 @@ List-Id: netdev.vger.kernel.org
 
 This reduces codesize.
 
---- a/drivers/net/wireless/bcm43xx-d80211/bcm43xx.h
-+++ b/drivers/net/wireless/bcm43xx-d80211/bcm43xx.h
-@@ -639,7 +639,6 @@ struct bcm43xx_private {
+--- a/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ b/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -648,7 +648,6 @@ struct bcm43xx_private {
  	unsigned int irq;
  
  	void __iomem *mmio_addr;
@@ -33,8 +33,8 @@ This reduces codesize.
  
  	/* Do not use the lock directly. Use the bcm43xx_lock* helper
  	 * functions, to be MMIO-safe. */
---- a/drivers/net/wireless/bcm43xx-d80211/bcm43xx_debugfs.c
-+++ b/drivers/net/wireless/bcm43xx-d80211/bcm43xx_debugfs.c
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
 @@ -92,7 +92,7 @@ static ssize_t devinfo_read_file(struct 
  	fappend("subsystem_vendor: 0x%04x   subsystem_device: 0x%04x\n",
  		pci_dev->subsystem_vendor, pci_dev->subsystem_device);
@@ -44,19 +44,19 @@ This reduces codesize.
  	fappend("chip_id: 0x%04x   chip_rev: 0x%02x\n", bcm->chip_id, bcm->chip_rev);
  	if ((bcm->core_80211[0].rev >= 3) && (bcm43xx_read32(bcm, 0x0158) & (1 << 16)))
  		fappend("Radio disabled by hardware!\n");
---- a/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-+++ b/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-@@ -3770,8 +3770,7 @@ static void bcm43xx_detach_board(struct 
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3287,8 +3287,7 @@ static void bcm43xx_detach_board(struct 
  
  	bcm43xx_chipset_detach(bcm);
  	/* Do _not_ access the chip, after it is detached. */
 -	iounmap(bcm->mmio_addr);
--
+-	
 +	pci_iounmap(pci_dev, bcm->mmio_addr);
  	pci_release_regions(pci_dev);
  	pci_disable_device(pci_dev);
  
-@@ -3845,40 +3844,26 @@ static int bcm43xx_attach_board(struct b
+@@ -3378,40 +3377,26 @@ static int bcm43xx_attach_board(struct b
  	struct net_device *net_dev = bcm->net_dev;
  	int err;
  	int i;
@@ -101,7 +101,7 @@ This reduces codesize.
  	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
  
  	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
-@@ -3969,7 +3954,7 @@ err_80211_unwind:
+@@ -3504,7 +3489,7 @@ err_80211_unwind:
  err_chipset_detach:
  	bcm43xx_chipset_detach(bcm);
  err_iounmap:
