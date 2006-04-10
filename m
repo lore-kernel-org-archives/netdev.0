@@ -1,55 +1,133 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] bcm43xx-d80211: protect tx_stat callback from uninitialized device
-Date: Mon, 10 Apr 2006 02:25:00 +0200
-Message-ID: <200604100225.01548.mb@bu3sch.de>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: 2.4.32: unresolved symbol unregister_qdisc
+Date: Sun, 9 Apr 2006 19:29:29 -0700
+Message-ID: <20060409192929.28320c00.rdunlap@xenotime.net>
+References: <32947.128.2.140.234.1144536454.squirrel@128.2.140.234>
+	<20060408.155430.111013393.davem@davemloft.net>
+	<33083.128.2.140.234.1144538327.squirrel@128.2.140.234>
+	<20060408163743.c59d6e59.rdunlap@xenotime.net>
+	<1786.128.2.140.234.1144604245.squirrel@128.2.140.234>
+	<20060409130315.50daaec9.rdunlap@xenotime.net>
+	<1949.128.2.140.234.1144634733.squirrel@128.2.140.234>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, jbenc-AlSwsSmVLrQ@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Content-Disposition: inline
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750925AbWDJC1M@vger.kernel.org>
+To: "George P Nychis" <gnychis@cmu.edu>
+In-Reply-To: <1949.128.2.140.234.1144634733.squirrel@128.2.140.234>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff --git a/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c b/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-index 043a5cf..f0f4f78 100644
---- a/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-+++ b/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-@@ -4128,15 +4128,19 @@ static int bcm43xx_net_get_tx_stats(stru
- {
- 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
- 	unsigned long flags;
-+	int err = -ENODEV;
- 
- 	bcm43xx_lock(bcm, flags);
--	if (bcm43xx_using_pio(bcm))
--		bcm43xx_pio_get_tx_stats(bcm, stats);
--	else
--		bcm43xx_dma_get_tx_stats(bcm, stats);
-+	if (likely(bcm->initialized)) {
-+		if (bcm43xx_using_pio(bcm))
-+			bcm43xx_pio_get_tx_stats(bcm, stats);
-+		else
-+			bcm43xx_dma_get_tx_stats(bcm, stats);
-+		err = 0;
-+	}
- 	bcm43xx_unlock(bcm, flags);
- 
--	return 0;
-+	return err;
- }
- 
- static int bcm43xx_net_get_stats(struct net_device *net_dev,
+On Sun, 9 Apr 2006 22:05:33 -0400 (EDT) George P Nychis wrote:
 
--- 
-Greetings Michael.
+> 
+> > On Sun, 9 Apr 2006 13:37:25 -0400 (EDT) George P Nychis wrote:
+> > 
+> >> Thanks for the help.
+> >> 
+> >> Here is the makefile: http://rafb.net/paste/results/auchPH75.html
+> >> 
+> >> And here is the full errors I receive: 
+> >> http://rafb.net/paste/results/Qplpqw74.html
+> >> 
+> >> Greatly appreciate it
+> >> 
+> >> - George
+> > 
+> > [repeat: please don't top-post]
+> > 
+> > I don't know how much I can help you.  It's been a long time since I've
+> > built external modules on 2.4.x.
+> > 
+> > Problems that I see: - the Makefile does not use the expected 2.4 kernel
+> > build infrastructure; - kernel Makefile uses -nostdinc to prevent use of
+> > userspace headers; - Makefile is trying to include userspace headers
+> > instead of kernel headers, e.g.: In file included from
+> > /usr/include/linux/if_ether.h:107, from /usr/include/linux/netdevice.h:29,
+> >  from sch_xcp.c:8: - this specified include directory is only in 2.6.x,
+> > not 2.4.x: -I/lib/modules/`uname -r`/build/include/asm/mach-default
+> > 
+> > It's not clear to me how this makefile could work with 2.4.x at all. Is it
+> > supposed to, or that's just what you want to see it do?
+> > 
+> > You could try to fix the Makefile based on makefile-changes articles at
+> > lwn.net. E.g.: http://lwn.net/Articles/151784/ 
+> > http://lwn.net/Articles/79984/ http://lwn.net/Articles/74767/ 
+> > http://lwn.net/Articles/69148/ http://lwn.net/Articles/21823/
+> > 
+> > 
+> > 
+> >>> On Sat, 8 Apr 2006 19:18:47 -0400 (EDT) George P Nychis wrote:
+> >>> 
+> >>>> Yeah, this module is unfortunately not under the GPL, it was made
+> >>>> for research and i am not the author, I was only given the code for
+> >>>> my own research.
+> >>>> 
+> >>>> I enabled that support in the kernel, and then tried to recompile
+> >>>> and get tons of errors/warnings... so maybe I am missing something
+> >>>> else to be enabled in the kernel... here are a few examples of
+> >>>> errors: /usr/include/linux/skbuff.h:30:26: net/checksum.h: No such
+> >>>> file or directory /usr/include/asm/irq.h:16:25: irq_vectors.h: No
+> >>>> such file or directory /usr/include/linux/irq.h:72: error: `NR_IRQS'
+> >>>> undeclared here (not in a function) /usr/include/asm/hw_irq.h:28:
+> >>>> error: `NR_IRQ_VECTORS' undeclared here (not in a function)
+> >>>> 
+> >>>> I think those are the top most errors, so if i can fix those
+> >>>> hopefully the rest shall vanish!
+> >>> 
+> >>> Looks like a Makefile problem then.  Can you post the Makefile?
+> >>> Hopefully it is using a Makefile and not just an elaborate gcc command
+> >>> line.
+> >>> 
+> >>> [and please don't top-post]
+> >>> 
+> >>>> - George
+> >>>> 
+> >>>> 
+> >>>>> From: "George P Nychis" <gnychis@cmu.edu> Date: Sat, 8 Apr 2006 
+> >>>>> 18:47:34 -0400 (EDT)
+> >>>>> 
+> >>>>>> Hey,
+> >>>>>> 
+> >>>>>> I have a kernel module that uses unregister_qdisc and 
+> >>>>>> register_qdisc, whenever i try to insert the module I get: 
+> >>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: 
+> >>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: unresolved
+> >>>>>> symbol unregister_qdisc
+> >>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: 
+> >>>>>> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: unresolved
+> >>>>>> symbol register_qdisc
+> >>>>>> 
+> >>>>>> Am i missing some sort of support in the kernel?
+> >>>>> 
+> >>>>> Make sure CONFIG_NET_SCHED is enabled and that you compiled your 
+> >>>>> module against that kernel.
+> >>>>> 
+> >>>>> Where does this sch_xcp come from?  It's not in the vanilla
+> >>>>> sources.
+> >>>>> 
+> >>>>> Also, please direct networking questions to the 
+> >>>>> netdev@vger.kernel.org mailing list which I have added to the
+> >>>>> CC:.
+> > 
+> > --- ~Randy
+> > 
+> > 
+> 
+> By the way, if I add -I/usr/src/linux/include to the compile line, it successfully compiles, however, i am back to the start:
+> lanthanum-ini src-1.0.1 # insmod sch_xcp
+> Using /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o
+> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: unresolved symbol unregister_qdisc
+> /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: /lib/modules/2.4.32/kernel/net/sched/sch_xcp.o: unresolved symbol register_qdisc
+
+Yet your 2.4.32 kernel image file does have those symbols in it?
+Can you verify that by using 'nm' on the kernel image file?
+
+If so, then I suppose that you'll need to make a small module test case
+that exhibits this behavior, or just tell us where to get the sch_xcp files...
+
+(re-added cc: for netdev)
+
+---
+~Randy
