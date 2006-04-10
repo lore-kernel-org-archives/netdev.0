@@ -1,62 +1,50 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
 Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
-Date: Mon, 10 Apr 2006 06:07:32 +0200
-Message-ID: <200604100607.33362.mb@bu3sch.de>
-References: <20060410040120.GA4860@ens-lyon.fr>
+Date: Mon, 10 Apr 2006 06:22:28 +0200
+Message-ID: <20060410042228.GN27596@ens-lyon.fr>
+References: <20060410040120.GA4860@ens-lyon.fr> <200604100607.33362.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1809729.AZ0Zxlm8vr";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-   linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-   benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Benoit Boissinot <benoit.boissinot-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org>
-In-Reply-To: <20060410040120.GA4860-vYW+cPY1g1pWj0EZb7rXcA@public.gmane.org>
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	linux-kernel@vger.kernel.org, linville@tuxdriver.com,
+	benh@kernel.crashing.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750972AbWDJEVc@vger.kernel.org>
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200604100607.33362.mb@bu3sch.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1809729.AZ0Zxlm8vr
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Mon, Apr 10, 2006 at 06:07:32AM +0200, Michael Buesch wrote:
+> On Monday 10 April 2006 06:01, you wrote:
+> > Since the driver already sets the correct dma_mask, there is no reason
+> > to bail there. In fact if you have an iommu, I think you can have a
+> > address above 1G which will be ok for the device (if it isn't true then
+> > the powerpc dma_alloc_coherent with iommu needs to be fixed because it
+> > doesn't respect the the dma_mask).
+> > 
+> > Please comment or apply.
+> 
+> NACK. Don't apply that patch.
+> I know it is odd, but people are actually hitting these messages.
+> Maybe benh can explain the issues. I don't know...
+> 
+Yes, I know they hit the message, that's from a message in some forum
+that i got interested in the issue. It probably comes from an allocation
+from:
+http://www.linux-m32r.org/lxr/http/source/arch/powerpc/kernel/pci_direct_iommu.c#L32
 
-On Monday 10 April 2006 06:01, you wrote:
-> Since the driver already sets the correct dma_mask, there is no reason
-> to bail there. In fact if you have an iommu, I think you can have a
-> address above 1G which will be ok for the device (if it isn't true then
-> the powerpc dma_alloc_coherent with iommu needs to be fixed because it
-> doesn't respect the the dma_mask).
->=20
-> Please comment or apply.
+Either the ppc code is wrong (it doesn't enforce dma_mask) either the
+driver still works without the check.
 
-NACK. Don't apply that patch.
-I know it is odd, but people are actually hitting these messages.
-Maybe benh can explain the issues. I don't know...
+Maybe ppc should do the same thing as i386:
 
-=2D-=20
-Greetings Michael.
+47         if (dev == NULL || (dev->coherent_dma_mask < 0xffffffff))
+48                 gfp |= GFP_DMA;
 
---nextPart1809729.AZ0Zxlm8vr
-Content-Type: application/pgp-signature
+thanks,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
+Benoit
 
-iD8DBQBEOdoFlb09HEdWDKgRAt3bAKCInf21ju7xYfsQjmf/6au74GwUfgCfcUt2
-f+FkUw4JGXf3uqlM6VSxNaM=
-=jZAG
------END PGP SIGNATURE-----
-
---nextPart1809729.AZ0Zxlm8vr--
+-- 
+powered by bash/screen/(urxvt/fvwm|linux-console)/gentoo/gnu/linux OS
