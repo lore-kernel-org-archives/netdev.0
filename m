@@ -1,41 +1,38 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
-Date: Tue, 11 Apr 2006 23:20:42 +0100
-Message-ID: <443C2BBA.5010804@gentoo.org>
-References: <443C03E6.7080202@gentoo.org> <443C024C.2070107@psc.edu> <443C0B74.50305@gentoo.org> <443C09A7.2040900@psc.edu> <443C1738.20605@gentoo.org> <443C178B.3030805@psc.edu>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Wed, 12 Apr 2006 08:20:28 +1000
+Message-ID: <1144794028.19353.51.camel@localhost.localdomain>
+References: <1144719972.19353.24.camel@localhost.localdomain>
+	 <20060410.224933.39567033.davem@davemloft.net>
+	 <1144788541.19353.41.camel@localhost.localdomain>
+	 <20060411.143407.74615246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751146AbWDKWII@vger.kernel.org>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <443C178B.3030805@psc.edu>
+Cc: benoit.boissinot@ens-lyon.org, mb@bu3sch.de,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	linux-kernel@vger.kernel.org, linville@tuxdriver.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751165AbWDKWVG@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060411.143407.74615246.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
-> This is almost certainly due to a buggy firewall that doesn't understand 
-> TCP window scaling.  I've usually seen this in the past with OpenBSD 
-> firewalls.  Do you have one of these in your path?
+On Tue, 2006-04-11 at 14:34 -0700, David S. Miller wrote:
 
-At home I'm behind a Linux gateway box currently running 2.6.15-rc6 - I 
-am connected through ethernet to that.
+> I still think we shouldn't reward shit hardware by complicating
+> up our DMA mappings internals. :-)
 
-At my student house I am connected wirelessly to a Linksys WRT54Gv5 
-router (the model that doesnt run Linux).
+Heh, it's a good point but in that specific case, it's a bit difficult
+to tell that to users who don't have a choice of what card to put in
+apple proprietary slot ... =P
 
-I have reproduced it at both those locations (same ISP).
+> If you're going to do it anyways, we use a nearly identical
+> allocation bitmap algorithm under sparc64 so maybe you can
+> take a stab at trying to put your code there too.  I'm more
+> than happy to test and integrate.
 
-This is very familiar, and I just found the article I was thinking of: 
-http://lwn.net/Articles/92727/
+I may give it a go later this week. I don't have a wireless card in my
+g5 so I'll need to ping-pong the patch with testers first tho.
 
-I was also hit by that bug, on the same collection of websites, but that 
-particular problem was fixed for 2.6.8 or so. So I guess it is extremely 
-likely that my ISP has broken routers. nmap isn't able to identify the 
-OS of any ISP routers in my path.
-
-It's a huge ISP over here, so contacting them over technical matters is 
-not easy...
-
-Thanks,
-Daniel
+Ben.
