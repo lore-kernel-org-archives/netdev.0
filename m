@@ -1,46 +1,66 @@
-From: Meelis Roos <mroos-Y27EyoLml9s@public.gmane.org>
-Subject: Re: [PATCH] IrDA: smcinit merged into smsc-ircc driver
-Date: Tue, 11 Apr 2006 09:53:15 +0300 (EEST)
-Message-ID: <Pine.SOC.4.61.0604110952590.27520@math.ut.ee>
-References: <20060411040958.5B27913D8B@rhn.tartu-labor>
- <Pine.GSO.4.60.0604110841130.6504@igloo.df.lth.se>
-Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH] deinline a few large functions in vlan code v2
+Date: Tue, 11 Apr 2006 11:49:24 +0200
+Message-ID: <200604111149.24862.netdev@axxeo.de>
+References: <200604071628.30486.vda@ilport.com.ua> <1144682807.12177.22.camel@dillow.idleaire.com> <200604111028.54813.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Samuel Ortiz <samuel.ortiz-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Linus Walleij <triad-HEm3bjczhZmzQB+pC5nmwQ@public.gmane.org>
-In-Reply-To: <Pine.GSO.4.60.0604110841130.6504-fcPyB2Jy8d0vOS8lKHy7yQ@public.gmane.org>
-Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Dillow <dave@thedillows.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750704AbWDKJtr@vger.kernel.org>
+To: Denis Vlasenko <vda@ilport.com.ua>
+In-Reply-To: <200604111028.54813.vda@ilport.com.ua>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Detected unconfigured Toshiba Satellite 1800 SMSC IrDA chip, 
->> pre-configuring device.
->> SORRY: Toshiba Satellite 1800 has an unsupported bridge controller (ALi): 
->> not pre-configured.
->> smsc-ircc2, Preconfiguration failed !
->
-> Yep we don't have support for ALi bridges yet, the Toshiba 1800 still needs 
-> tosh1800 smcinit. But if you're willing to test, I can make a try to create a 
-> 1800-compliant ALi initializer implementation out of the blue...
+Hi Denis,
 
-I am willing to test patches.
+Denis Vlasenko wrote:
+> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+>  	if(vlan_tx_tag_present(skb)) {
+>  		first_txd->processFlags |=
+>  		    TYPHOON_TX_PF_INSERT_VLAN | TYPHOON_TX_PF_VLAN_PRIORITY;
+> @@ -844,6 +849,7 @@ typhoon_start_tx(struct sk_buff *skb, st
+>  		    cpu_to_le32(htons(vlan_tx_tag_get(skb)) <<
+>  				TYPHOON_TX_PF_VLAN_TAG_SHIFT);
+>  	}
+> +#endif
 
--- 
-Meelis Roos (mroos-Y27EyoLml9s@public.gmane.org)
+Wouldn't it be much easier to just do
+
+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+static inline int  vlan_tx_tag_present(...) {
+ /** get VLAN tag */
+}
+#else
+static inline  int vlan_tx_tag_present(...) {return 0;}
+#endif
+
+in some header file?
+
+Similiar in typhoon.c:
+
+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+static inline  has_vlan_group(...) {
+  /* get VLAN group */
+}
+#else
+static inline  has_vlan_group(...) {return 0;}
+#endif
+
+With this and similiar changes in the drivers, 
+your patch might be less intrusive and thus more acceptable to maintainers.
+
+Just let the compiler remove the extra code with constant folding and dead
+code elemination. The result will be even cleaner code, I think.
+
+What do you think?
 
 
--------------------------------------------------------
-This SF.Net email is sponsored by xPML, a groundbreaking scripting language
-that extends applications into web and mobile media. Attend the live webcast
-and join the prime developer group breaking into this new coding territory!
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
+Regards
+
+Ingo Oeser
