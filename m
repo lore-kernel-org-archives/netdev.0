@@ -1,41 +1,37 @@
-From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
-Date: Tue, 11 Apr 2006 04:23:11 +0200
-Message-ID: <20060411022311.GB31118@ens-lyon.fr>
-References: <20060410040120.GA4860@ens-lyon.fr> <20060410042228.GN27596@ens-lyon.fr> <1144719972.19353.24.camel@localhost.localdomain> <200604110353.52067.mb@bu3sch.de>
+Date: Mon, 10 Apr 2006 22:49:33 -0700 (PDT)
+Message-ID: <20060410.224933.39567033.davem@davemloft.net>
+References: <200604100607.33362.mb@bu3sch.de>
+	<20060410042228.GN27596@ens-lyon.fr>
+	<1144719972.19353.24.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: benoit.boissinot@ens-lyon.org, mb@bu3sch.de,
 	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
 	linux-kernel@vger.kernel.org, linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932261AbWDKCW3@vger.kernel.org>
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200604110353.52067.mb@bu3sch.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751233AbWDKFtt@vger.kernel.org>
+To: benh@kernel.crashing.org
+In-Reply-To: <1144719972.19353.24.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 11, 2006 at 03:53:51AM +0200, Michael Buesch wrote:
-> On Tuesday 11 April 2006 03:46, you wrote:
-> > 
-> > 
-> > Now, for ppc32, it should still sort-of work because all of lowmem is
-> > below 1Gb and people generally don't hack their lowmem size (well, I do
-> > but heh, that doesn't count :) and I don't think you'll get skb's in
-> > highmem. But ppc64 hits the problem and at this point, there is nothing
-> > I can do other than either implementing a split zone allocation mecanism
-> > in the ppc64 architecture
-> 
-> > for the sole sake of bcm43xx (ick !)
-> 
-> Nope. For every broadcom device, which has this stupid DMA engine.
-> That is b44 and bcm43xx, as far as I can tell. But likely there are more.
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Tue, 11 Apr 2006 11:46:12 +1000
 
-On the other hand, bcm43xx looks very common with apple hardware, so there
-are probably a lot of users who cannot use their wifi card in G5's.
+> But ppc64 hits the problem and at this point, there is nothing
+> I can do other than either implementing a split zone allocation mecanism
+> in the ppc64 architecture for the sole sake of bcm43xx (ick !) or doing
+> some trick with the iommu...
 
-regards,
+I think allowing DMA mask range limiting in the IOMMU layer is going
+to set a very bad precedence, just don't do it.
 
-Benoit
--- 
-powered by bash/screen/(urxvt/fvwm|linux-console)/gentoo/gnu/linux OS
+It's 2006, we should be way past the era of not putting the full 32
+PCI DMA address bits in devices.  In this day and age it is simply
+inexscusable.
+
+Maybe we could understand chips coming out 8 years ago when a lot of
+designs were transitioning from ISA to PCI, but that no longer applies
+in any way today.
