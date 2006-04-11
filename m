@@ -1,32 +1,38 @@
-From: Tim Shepard <shep@alum.mit.edu>
-Subject: Re: Re: created new q_disc, inserted module,
-	tc tells me unknown qdisc
-Date: Tue, 11 Apr 2006 16:29:41 -0400
-Message-ID: <E1FTPUb-00017v-00@alva.home>
-References: <3568.128.2.140.234.1144783610.squirrel@128.2.140.234>
-Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: "George P Nychis" <gnychis@cmu.edu>
-In-reply-to: Your message of Tue, 11 Apr 2006 15:26:50 -0400.
-	<3568.128.2.140.234.1144783610.squirrel@128.2.140.234>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
+Date: Tue, 11 Apr 2006 21:53:12 +0100
+Message-ID: <443C1738.20605@gentoo.org>
+References: <443C03E6.7080202@gentoo.org> <443C024C.2070107@psc.edu> <443C0B74.50305@gentoo.org> <443C09A7.2040900@psc.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751384AbWDKUkh@vger.kernel.org>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <443C09A7.2040900@psc.edu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+John Heffner wrote:
+>> tcp_wmem: 4096    16384   131072
+>> tcp_rmem: 4096    87380   174760
+>> tcp_mem: 98304   131072  196608
+> 
+> These are (I assume) with the patch reversed.  What are the values with 
+> the patch applied?
 
-> Maybe i should add debugging in tc.c and see if it sees the .so and fails to load it or something.
+Yes- that was on a good kernel, with the patch reversed.
 
-Yes.   I would do that next.
+On a bad kernel, with the patch applied (2.6.16-git16):
 
-Compile tc with -g and then run it under gdb and step through that
-part to see what happens.
+tcp_wmem: 4096    16384   4194304
+tcp_rmem: 4096    87380   4194304
+tcp_mem: 98304   131072  196608
 
-			-Tim Shepard
-			 shep@alum.mit.edu
+They seem to be identical, which makes sense, since most websites work 
+just fine.
+
+I am sending tcpdump's privately to you and Stephen. If anyone else 
+wants to see them, just ask.
+
+Daniel
