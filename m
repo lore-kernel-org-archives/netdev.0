@@ -1,30 +1,32 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
-Date: Tue, 11 Apr 2006 15:55:19 -0400
-Message-ID: <443C09A7.2040900@psc.edu>
-References: <443C03E6.7080202@gentoo.org> <443C024C.2070107@psc.edu> <443C0B74.50305@gentoo.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751348AbWDKTz2@vger.kernel.org>
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <443C0B74.50305@gentoo.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Tim Shepard <shep@alum.mit.edu>
+Subject: Re: Re: created new q_disc, inserted module,
+	tc tells me unknown qdisc
+Date: Tue, 11 Apr 2006 16:29:41 -0400
+Message-ID: <E1FTPUb-00017v-00@alva.home>
+References: <3568.128.2.140.234.1144783610.squirrel@128.2.140.234>
+Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+To: "George P Nychis" <gnychis@cmu.edu>
+In-reply-to: Your message of Tue, 11 Apr 2006 15:26:50 -0400.
+	<3568.128.2.140.234.1144783610.squirrel@128.2.140.234>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
-Daniel Drake wrote:
-> John Heffner wrote:
->> I'm not seeing this behavior myself.  What are the values of 
->> /proc/sys/net/ipv4/tcp_wmem, tcp_rmem, and tcp_mem?  How much memory 
->> does this system have?  (A binary tcpdump might be good, too.)
-> 
-> tcp_wmem: 4096    16384   131072
-> tcp_rmem: 4096    87380   174760
-> tcp_mem: 98304   131072  196608
 
-These are (I assume) with the patch reversed.  What are the values with 
-the patch applied?
+> Maybe i should add debugging in tc.c and see if it sees the .so and fails to load it or something.
 
-Thanks,
-   -John
+Yes.   I would do that next.
+
+Compile tc with -g and then run it under gdb and step through that
+part to see what happens.
+
+			-Tim Shepard
+			 shep@alum.mit.edu
