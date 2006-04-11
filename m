@@ -1,92 +1,89 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: created new q_disc, inserted module,
-	tc tells me unknown qdisc
-Date: Tue, 11 Apr 2006 11:16:44 -0700
-Message-ID: <20060411111644.59573edc@localhost.localdomain>
-References: <1707.128.2.140.234.1144719699.squirrel@128.2.140.234>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [RFC: 2.6 patch] the overdue removal of ip{,6}_queue
+Date: Tue, 11 Apr 2006 20:26:24 +0200
+Message-ID: <20060411182624.GD31616@sunbeam.de.gnumonks.org>
+References: <20060409180105.GK8454@stusta.de> <44395505.1070608@trash.net>
+	<20060411090139.GI5167@rama.linbit> <443BC06A.8020103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
-Return-path: <lartc-bounces@mailman.ds9a.nl>
-To: "George P Nychis" <gnychis@cmu.edu>
-In-Reply-To: <1707.128.2.140.234.1144719699.squirrel@128.2.140.234>
-List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-Sender: lartc-bounces@mailman.ds9a.nl
-Errors-To: lartc-bounces@mailman.ds9a.nl
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="GpGaEY17fSl8rd50"
+Cc: netdev@vger.kernel.org,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	Adrian Bunk <bunk@stusta.de>, coreteam@netfilter.org, sds@tycho.nsa.gov
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <443BC06A.8020103@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Apr 2006 21:41:39 -0400 (EDT)
-"George P Nychis" <gnychis@cmu.edu> wrote:
 
-> Hi,
-> 
-> I am trying to install a proprietary qdisc made for research, it is not publically released yet, however its been used several times so i know it works.
-> 
-> The files included are:
-> q_xcp.c:
->    static int xcp_parse_opt()
->    static int xcp_print_opt()
->    static int xcp_print_xstats()
->    struct qdisc_util xcp_util = { "NULL", "xcp" ..... };
-> 
-> sch_xcp.c:
->    static int xcp_enqueue()
->    static int xcp_requeue()
->    static struct sk_buff * xcp_dequeue()
->    ....
->    ....
->    struct Qdisc_ops xcp_qdisc_ops ={ NULL,NULL,"xcp",.... };
-> 
->    printk(KERN_INFO "XCP qdisc module loaded.\n");
->    return register_qdisc(&xcp_qdisc_ops);
-> 
-> 
-> So, i make everything successfully, it creates q_xcp.so and copies it to /usr/lib and sch_xcp.o which it copies to /lib/modules/... so then I "insmod sch_xcp" and i see in dmesg:
-> "XCP qdisc module loaded."
-> 
-> I then try:
-> "tc qdisc add dev eth0 root xcp capacity 10Mbit limit 500" and get:
-> "Unknown qdisc "xcp", hence option "capacity" is unparsable"
-> 
-> So then I read the INSTALL further to find some sort of solution and it mentions:
-> This again assumes "tc" version is 2.4.7.  If your "tc" is a different
-> version, download the iproute2 source code, and edit Makefile to
-> point "TC_INCLUDE" to "-I..../iproute2/include -I..../iproute2/tc"
-> 
-> So, i did that, and i recompiled the q_xcp.so:
-> lanthanum-ini src-1.0.1 # make q_xcp.so
-> cc -O2 -fPIC -I/var/tmp/portage/iproute2-2.6.11.20050310-r1/work/iproute2-2.6.11/include/ -I/var/tmp/portage/iproute2-2.6.11.20050310-r1/work/iproute2-2.6.11/tc_include -o q_xcp.o -c q_xcp.c
-> ld -shared -o q_xcp.so q_xcp.o
-> rm -f q_xcp.o
-> 
-> But i still get the same error.... so then my very final last effort was to move q_xcp.c to my iproute2 source code tc/ directory and added this to the makefile:
-> TCMODULES += q_xcp.o
-> 
-> Then I compiled tc, and i check tc to see if the xcp qdisc functions were loaded:
-> lanthanum-ini tc # nm tc | grep xcp
-> 080531ec t xcp_parse_opt
-> 080533e0 t xcp_print_opt
-> 08053426 t xcp_print_xstats
-> 08070cc0 D xcp_util
-> 
-> And finally:
-> lanthanum-ini tc # ./tc qdisc add dev ath0 root xcp capacity 54Mbit limit 500
-> Unknown qdisc "xcp", hence option "capacity" is unparsable
-> 
-> 
-> I have no clue :(  I figured that putting the .so into /usr/lib would have been enough.  Sorry for the long e-mail, I hope someone can help, and thank you for your time even if you don't know the solution but read this :)
-> 
-> - George
-> 
+--GpGaEY17fSl8rd50
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The .so needs to go in /usr/lib/tc (assuming you are running relatively recent version
-of iproute2 tools).
+On Tue, Apr 11, 2006 at 04:42:50PM +0200, Patrick McHardy wrote:
+> > Maybe we should add a printk ('app foo is using obsolete ip_queue
+> > system').
+>=20
+> Good idea, that will probably help speed it up. But I still think
+> we need to give them at least another six month.
 
-Read source to tc.c where it calls dlopen.
+ok. I'll prepare a patch for both the printk and the update of
+feature-removal-schedule.
+
+> I think we need to do two things:
+>=20
+> - make libipq_compat a drop-in replacement that doesn't require
+>   recompilation
+
+libipq is not distributed as a shared library (at least not by us), so I
+don't see any purpose for doing so.  Do you think anyone is going to
+re-link statically linked code against the new lib
+
+> - make it work with both ipq and nfnetlink_queue
+
+that should be possible, though. =20
+
+I still don't really think that it is worth all the effort, especially
+since there is only one hand full of applications using libipq.
+
+The backwards compatibility library is expected to perform a lot worse
+thna both the old libipq as well as the new native libnetfilter_queue
+due to additional data copies, etc.  When I wrote it, it was more
+intended as some intermediate aid, something that helps while people
+migrate.  We shouldn't make it too perfect, otherwise they won't migrate
+at all.
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--GpGaEY17fSl8rd50
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+
+iD8DBQFEO/TQXaXGVTD0i/8RAuZAAJ452DftSOTWxazNqeXxLl3WD0Y7IwCfXft1
+pvmrIixEqpIXKW2S63KRaz0=
+=AhMA
+-----END PGP SIGNATURE-----
+
+--GpGaEY17fSl8rd50--
