@@ -1,21 +1,42 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
-Date: Tue, 11 Apr 2006 16:54:35 -0400
-Message-ID: <443C178B.3030805@psc.edu>
-References: <443C03E6.7080202@gentoo.org> <443C024C.2070107@psc.edu> <443C0B74.50305@gentoo.org> <443C09A7.2040900@psc.edu> <443C1738.20605@gentoo.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Tue, 11 Apr 2006 14:34:07 -0700 (PDT)
+Message-ID: <20060411.143407.74615246.davem@davemloft.net>
+References: <1144719972.19353.24.camel@localhost.localdomain>
+	<20060410.224933.39567033.davem@davemloft.net>
+	<1144788541.19353.41.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750941AbWDKUyp@vger.kernel.org>
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <443C1738.20605@gentoo.org>
+Cc: benoit.boissinot@ens-lyon.org, mb@bu3sch.de,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	linux-kernel@vger.kernel.org, linville@tuxdriver.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751124AbWDKVeV@vger.kernel.org>
+To: benh@kernel.crashing.org
+In-Reply-To: <1144788541.19353.41.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is almost certainly due to a buggy firewall that doesn't understand 
-TCP window scaling.  I've usually seen this in the past with OpenBSD 
-firewalls.  Do you have one of these in your path?
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 12 Apr 2006 06:49:00 +1000
 
-Thanks,
-   -John
+> I would tend to agree... except that the broadcom is _the_ wireless
+> card shipped by Apple with all of their machines for the last few
+> years, and thus, the problem will be hit by pretty much any G5 user
+> trying to use theirs...
+>
+> I don't have another idea on how to fix that at hand... a dma mask
+> limit in the iommu layer is fairly easy to implement with our iommu
+> implementation (though it wouldn't work on pseries where ranges are
+> allocated per slot, but it would work fine on a g5). Still sounds
+> better than introducing a ZONE_DMA separate from ZONE_NORMAL ...
+
+I still think we shouldn't reward shit hardware by complicating
+up our DMA mappings internals. :-)
+
+If you're going to do it anyways, we use a nearly identical
+allocation bitmap algorithm under sparc64 so maybe you can
+take a stab at trying to put your code there too.  I'm more
+than happy to test and integrate.
+
+Thanks.
