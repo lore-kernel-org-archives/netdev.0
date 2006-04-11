@@ -1,58 +1,62 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
-Date: Tue, 11 Apr 2006 15:33:15 -0700
-Message-ID: <20060411153315.4132b477@localhost.localdomain>
-References: <443C03E6.7080202@gentoo.org>
-	<443C024C.2070107@psc.edu>
-	<443C0B74.50305@gentoo.org>
-	<443C09A7.2040900@psc.edu>
-	<443C1738.20605@gentoo.org>
-	<443C178B.3030805@psc.edu>
-	<443C2BBA.5010804@gentoo.org>
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Wed, 12 Apr 2006 08:35:39 +1000
+Message-ID: <1144794939.19353.63.camel@localhost.localdomain>
+References: <1144719972.19353.24.camel@localhost.localdomain>
+	 <20060410.224933.39567033.davem@davemloft.net>
+	 <1144788541.19353.41.camel@localhost.localdomain>
+	 <20060411.143407.74615246.davem@davemloft.net>
+	 <1144794077.19353.53.camel@localhost.localdomain>
+	 <20060411223024.GA6543@ens-lyon.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: John Heffner <jheffner@psc.edu>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751241AbWDKWdd@vger.kernel.org>
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <443C2BBA.5010804@gentoo.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
+   netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+   linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Benoit Boissinot <benoit.boissinot-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org>
+In-Reply-To: <20060411223024.GA6543-vYW+cPY1g1pWj0EZb7rXcA@public.gmane.org>
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Apr 2006 23:20:42 +0100
-Daniel Drake <dsd@gentoo.org> wrote:
+On Wed, 2006-04-12 at 00:30 +0200, Benoit Boissinot wrote:
+> On Wed, Apr 12, 2006 at 08:21:17AM +1000, Benjamin Herrenschmidt wrote:
+> > 
+> > > I still think we shouldn't reward shit hardware by complicating
+> > > up our DMA mappings internals. :-)
+> > 
+> > BTW. In the meantime, can't that driver work in PIO only mode ?
+> 
+> yes, I think you just have to have the pci_set_dma_mask fail with
+> DMA30BIT_MASK.
 
-> John Heffner wrote:
-> > This is almost certainly due to a buggy firewall that doesn't understand 
-> > TCP window scaling.  I've usually seen this in the past with OpenBSD 
-> > firewalls.  Do you have one of these in your path?
-> 
-> At home I'm behind a Linux gateway box currently running 2.6.15-rc6 - I 
-> am connected through ethernet to that.
-> 
-> At my student house I am connected wirelessly to a Linksys WRT54Gv5 
-> router (the model that doesnt run Linux).
-> 
-> I have reproduced it at both those locations (same ISP).
-> 
-> This is very familiar, and I just found the article I was thinking of: 
-> http://lwn.net/Articles/92727/
-> 
-> I was also hit by that bug, on the same collection of websites, but that 
-> particular problem was fixed for 2.6.8 or so. So I guess it is extremely 
-> likely that my ISP has broken routers. nmap isn't able to identify the 
-> OS of any ISP routers in my path.
+Ok, _that_ makes sense in fact to have ppc do that when the mask is too
+big... now the problem is should I compare the mask to the available
+RAM ? That is, there is little point in failing for a 30 bits mask if
+hte machine only has 512M of RAM.
 
-We never fixed it, its kind of hard to fix other peoples equipment ;-)
+By extension of the above, what to do on 32 bits kernels, should I test
+the mask against total memory or specifically against lowmem ? There is
+no clear answer here as some drivers will get highmem pages for DMA,
+just not network drivers afaik (block drivers will), though I can't be
+sure what will happen with thing like nbd... I'm not familiar enough
+with the network stack. It would be sad to have 32 bits laptop switch to
+PIO when they have too much RAM if, in practice, skbs are always only in
+lowmem..
 
-> 
-> It's a huge ISP over here, so contacting them over technical matters is 
-> not easy...
-> 
-> Thanks,
-> Daniel
-> 
+I think for now, what I may do is just add such a test for ppc64 and not
+ppc32 and will talk to paulus see if he happens to have a better idea.
 
-Turn off TCP window scaling, your performance will be limited but about
-as good as you can get with a corrupting firewall in between.
+It's all very sad that bcm gets away with such crap though and that so
+many vendors just bought it without complaining...
+
+Ben.
