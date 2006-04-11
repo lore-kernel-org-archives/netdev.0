@@ -1,38 +1,44 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
-Date: Tue, 11 Apr 2006 21:53:12 +0100
-Message-ID: <443C1738.20605@gentoo.org>
-References: <443C03E6.7080202@gentoo.org> <443C024C.2070107@psc.edu> <443C0B74.50305@gentoo.org> <443C09A7.2040900@psc.edu>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
+Date: Wed, 12 Apr 2006 06:49:00 +1000
+Message-ID: <1144788541.19353.41.camel@localhost.localdomain>
+References: <200604100607.33362.mb@bu3sch.de>
+	 <20060410042228.GN27596@ens-lyon.fr>
+	 <1144719972.19353.24.camel@localhost.localdomain>
+	 <20060410.224933.39567033.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751384AbWDKUkh@vger.kernel.org>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <443C09A7.2040900@psc.edu>
+Cc: benoit.boissinot@ens-lyon.org, mb@bu3sch.de,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	linux-kernel@vger.kernel.org, linville@tuxdriver.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750902AbWDKUt4@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060410.224933.39567033.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
->> tcp_wmem: 4096    16384   131072
->> tcp_rmem: 4096    87380   174760
->> tcp_mem: 98304   131072  196608
+
+> I think allowing DMA mask range limiting in the IOMMU layer is going
+> to set a very bad precedence, just don't do it.
 > 
-> These are (I assume) with the patch reversed.  What are the values with 
-> the patch applied?
+> It's 2006, we should be way past the era of not putting the full 32
+> PCI DMA address bits in devices.  In this day and age it is simply
+> inexscusable.
+> 
+> Maybe we could understand chips coming out 8 years ago when a lot of
+> designs were transitioning from ISA to PCI, but that no longer applies
+> in any way today.
 
-Yes- that was on a good kernel, with the patch reversed.
+I would tend to agree... except that the broadcom is _the_ wireless card
+shipped by Apple with all of their machines for the last few years, and
+thus, the problem will be hit by pretty much any G5 user trying to use
+theirs...
 
-On a bad kernel, with the patch applied (2.6.16-git16):
+I don't have another idea on how to fix that at hand... a dma mask limit
+in the iommu layer is fairly easy to implement with our iommu
+implementation (though it wouldn't work on pseries where ranges are
+allocated per slot, but it would work fine on a g5). Still sounds better
+than introducing a ZONE_DMA separate from ZONE_NORMAL ...
 
-tcp_wmem: 4096    16384   4194304
-tcp_rmem: 4096    87380   4194304
-tcp_mem: 98304   131072  196608
-
-They seem to be identical, which makes sense, since most websites work 
-just fine.
-
-I am sending tcpdump's privately to you and Stephen. If anyone else 
-wants to see them, just ask.
-
-Daniel
+Ben.
