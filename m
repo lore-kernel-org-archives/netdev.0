@@ -1,38 +1,273 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] deinline a few large functions in vlan code v2
-Date: Tue, 11 Apr 2006 01:02:43 -0700 (PDT)
-Message-ID: <20060411.010243.132136674.davem@davemloft.net>
-References: <200604101716.58463.vda@ilport.com.ua>
-	<1144682807.12177.22.camel@dillow.idleaire.com>
-	<200604111028.54813.vda@ilport.com.ua>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: [PATCH 3/3] deinline a few large functions in vlan code - v3
+Date: Tue, 11 Apr 2006 11:11:12 +0300
+Message-ID: <200604111111.12554.vda@ilport.com.ua>
+References: <200604111043.13605.vda@ilport.com.ua> <200604111047.36941.vda@ilport.com.ua> <20060411.005858.49205474.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dave@thedillows.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932348AbWDKIC7@vger.kernel.org>
-To: vda@ilport.com.ua
-In-Reply-To: <200604111028.54813.vda@ilport.com.ua>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_gS2OEAQ6TLxI9u+"
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060411.005858.49205474.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Denis Vlasenko <vda@ilport.com.ua>
-Date: Tue, 11 Apr 2006 10:28:54 +0300
+--Boundary-00=_gS2OEAQ6TLxI9u+
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> But it saves some text (~5k total in all network drivers)
-> and removes a branch on rx path on non-VLAN enabled kernels...
+On Tuesday 11 April 2006 10:58, David S. Miller wrote:
+> This is not very nice, there is no way I'm applying these patches.
+> 
+> I think the current situation is far better than the large pile of
+> ifdefs these patches are adding to the tree.
+> 
+> Let's just leave things the way they are ok?
 
-It removes "5K total" when you build every single networking driver
-statically into the main kernel image.
+:(
 
-Nobody does that except for build sanity testing.  Folks will
-enable the drivers they need for their testing into a static
-kernel, or build all the net drivers they want modular.
+Ok, one last try. Would you like this smallish patch instead?
+It takes care of those BIG inlines.
+--
+vda
 
-Please resist the urge to work on things like this in a robotic
-fashion.  Consider whether the thing you're working on really matters
-in real life, and whether the alternative you're providing is really
-an overall improvement.  In this case you're "improving" a case only
-kernel build testers will use, and the amount of ifdef's added by
-your patches uglify the code immensely.  To me, that's a clear net
-loss.
+--Boundary-00=_gS2OEAQ6TLxI9u+
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="2.6.16.vlan_inline5_core-1.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="2.6.16.vlan_inline5_core-1.patch"
+
+diff -urpN linux-2.6.16.org/net/core/Makefile linux-2.6.16.vlan/net/core/Makefile
+--- linux-2.6.16.org/net/core/Makefile	Mon Mar 20 07:53:29 2006
++++ linux-2.6.16.vlan/net/core/Makefile	Tue Apr 11 10:15:59 2006
+@@ -7,7 +7,7 @@ obj-y := sock.o request_sock.o skbuff.o 
+ 
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
+-obj-y		     += dev.o ethtool.o dev_mcast.o dst.o \
++obj-y		     += dev.o ethtool.o dev_mcast.o dev_vlan.o dst.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
+ 
+ obj-$(CONFIG_XFRM) += flow.o
+diff -urpN linux-2.6.16.org/include/linux/if_vlan.h linux-2.6.16.vlan/include/linux/if_vlan.h
+--- linux-2.6.16.org/include/linux/if_vlan.h	Mon Mar 20 07:53:29 2006
++++ linux-2.6.16.vlan/include/linux/if_vlan.h	Tue Apr 11 10:15:59 2006
+@@ -149,49 +149,9 @@ struct vlan_skb_tx_cookie {
+ #define vlan_tx_tag_get(__skb)	(VLAN_TX_SKB_CB(__skb)->vlan_tag)
+ 
+ /* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
+-static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
++int __vlan_hwaccel_rx(struct sk_buff *skb,
+ 				    struct vlan_group *grp,
+-				    unsigned short vlan_tag, int polling)
+-{
+-	struct net_device_stats *stats;
+-
+-	skb->dev = grp->vlan_devices[vlan_tag & VLAN_VID_MASK];
+-	if (skb->dev == NULL) {
+-		dev_kfree_skb_any(skb);
+-
+-		/* Not NET_RX_DROP, this is not being dropped
+-		 * due to congestion.
+-		 */
+-		return 0;
+-	}
+-
+-	skb->dev->last_rx = jiffies;
+-
+-	stats = vlan_dev_get_stats(skb->dev);
+-	stats->rx_packets++;
+-	stats->rx_bytes += skb->len;
+-
+-	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
+-	switch (skb->pkt_type) {
+-	case PACKET_BROADCAST:
+-		break;
+-
+-	case PACKET_MULTICAST:
+-		stats->multicast++;
+-		break;
+-
+-	case PACKET_OTHERHOST:
+-		/* Our lower layer thinks this is not local, let's make sure.
+-		 * This allows the VLAN to have a different MAC than the underlying
+-		 * device, and still route correctly.
+-		 */
+-		if (!memcmp(eth_hdr(skb)->h_dest, skb->dev->dev_addr, ETH_ALEN))
+-			skb->pkt_type = PACKET_HOST;
+-		break;
+-	};
+-
+-	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
+-}
++				    unsigned short vlan_tag, int polling);
+ 
+ static inline int vlan_hwaccel_rx(struct sk_buff *skb,
+ 				  struct vlan_group *grp,
+@@ -218,43 +178,7 @@ static inline int vlan_hwaccel_receive_s
+  * Following the skb_unshare() example, in case of error, the calling function
+  * doesn't have to worry about freeing the original skb.
+  */
+-static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
+-{
+-	struct vlan_ethhdr *veth;
+-
+-	if (skb_headroom(skb) < VLAN_HLEN) {
+-		struct sk_buff *sk_tmp = skb;
+-		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
+-		kfree_skb(sk_tmp);
+-		if (!skb) {
+-			printk(KERN_ERR "vlan: failed to realloc headroom\n");
+-			return NULL;
+-		}
+-	} else {
+-		skb = skb_unshare(skb, GFP_ATOMIC);
+-		if (!skb) {
+-			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
+-			return NULL;
+-		}
+-	}
+-
+-	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
+-
+-	/* Move the mac addresses to the beginning of the new header. */
+-	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
+-
+-	/* first, the ethernet type */
+-	veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
+-
+-	/* now, the tag */
+-	veth->h_vlan_TCI = htons(tag);
+-
+-	skb->protocol = __constant_htons(ETH_P_8021Q);
+-	skb->mac.raw -= VLAN_HLEN;
+-	skb->nh.raw -= VLAN_HLEN;
+-
+-	return skb;
+-}
++struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag);
+ 
+ /**
+  * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
+diff -urpN linux-2.6.16.org/net/core/dev_vlan.c linux-2.6.16.vlan/net/core/dev_vlan.c
+--- linux-2.6.16.org/net/core/dev_vlan.c	Thu Jan  1 03:00:00 1970
++++ linux-2.6.16.vlan/net/core/dev_vlan.c	Tue Apr 11 10:15:59 2006
+@@ -0,0 +1,110 @@
++/* 802.1q helpers.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++/* #if defined(CONFIG_VLAN_8021Q) || defined (CONFIG_VLAN_8021Q_MODULE) */
++
++#include <linux/skbuff.h>
++#include <linux/if_vlan.h>
++
++/* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
++int __vlan_hwaccel_rx(struct sk_buff *skb,
++				    struct vlan_group *grp,
++				    unsigned short vlan_tag, int polling)
++{
++	struct net_device_stats *stats;
++
++	skb->dev = grp->vlan_devices[vlan_tag & VLAN_VID_MASK];
++	if (skb->dev == NULL) {
++		dev_kfree_skb_any(skb);
++
++		/* Not NET_RX_DROP, this is not being dropped
++		 * due to congestion.
++		 */
++		return 0;
++	}
++
++	skb->dev->last_rx = jiffies;
++
++	stats = vlan_dev_get_stats(skb->dev);
++	stats->rx_packets++;
++	stats->rx_bytes += skb->len;
++
++	skb->priority = vlan_get_ingress_priority(skb->dev, vlan_tag);
++	switch (skb->pkt_type) {
++	case PACKET_BROADCAST:
++		break;
++
++	case PACKET_MULTICAST:
++		stats->multicast++;
++		break;
++
++	case PACKET_OTHERHOST:
++		/* Our lower layer thinks this is not local, let's make sure.
++		 * This allows the VLAN to have a different MAC than the underlying
++		 * device, and still route correctly.
++		 */
++		if (!memcmp(eth_hdr(skb)->h_dest, skb->dev->dev_addr, ETH_ALEN))
++			skb->pkt_type = PACKET_HOST;
++		break;
++	};
++
++	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
++}
++EXPORT_SYMBOL(__vlan_hwaccel_rx);
++
++/**
++ * __vlan_put_tag - regular VLAN tag inserting
++ * @skb: skbuff to tag
++ * @tag: VLAN tag to insert
++ *
++ * Inserts the VLAN tag into @skb as part of the payload
++ * Returns a VLAN tagged skb. If a new skb is created, @skb is freed.
++ * 
++ * Following the skb_unshare() example, in case of error, the calling function
++ * doesn't have to worry about freeing the original skb.
++ */
++struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
++{
++	struct vlan_ethhdr *veth;
++
++	if (skb_headroom(skb) < VLAN_HLEN) {
++		struct sk_buff *sk_tmp = skb;
++		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
++		kfree_skb(sk_tmp);
++		if (!skb) {
++			printk(KERN_ERR "vlan: failed to realloc headroom\n");
++			return NULL;
++		}
++	} else {
++		skb = skb_unshare(skb, GFP_ATOMIC);
++		if (!skb) {
++			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
++			return NULL;
++		}
++	}
++
++	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
++
++	/* Move the mac addresses to the beginning of the new header. */
++	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
++
++	/* first, the ethernet type */
++	veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
++
++	/* now, the tag */
++	veth->h_vlan_TCI = htons(tag);
++
++	skb->protocol = __constant_htons(ETH_P_8021Q);
++	skb->mac.raw -= VLAN_HLEN;
++	skb->nh.raw -= VLAN_HLEN;
++
++	return skb;
++}
++EXPORT_SYMBOL(__vlan_put_tag);
++
++/* #endif */
+
+--Boundary-00=_gS2OEAQ6TLxI9u+--
