@@ -1,94 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] atm: clip causes unregister hang
-Date: Wed, 12 Apr 2006 12:45:33 -0700
-Message-ID: <20060412124533.14e0c4ff@localhost.localdomain>
-References: <20060412105545.3b089dd8@localhost.localdomain>
-	<E1FTjlM-00050V-00@gondolin.me.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] atm: clip causes unregister hang
+Date: Thu, 13 Apr 2006 06:00:15 +1000
+Message-ID: <20060412200015.GA19878@gondor.apana.org.au>
+References: <20060412105545.3b089dd8@localhost.localdomain> <E1FTjlM-00050V-00@gondolin.me.apana.org.au> <20060412124533.14e0c4ff@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, chas@cmf.nrl.navy.mil,
 	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:24224 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932175AbWDLTqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2006 15:46:06 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1FTjlM-00050V-00@gondolin.me.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:14351 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932194AbWDLUAi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Apr 2006 16:00:38 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060412124533.14e0c4ff@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If Classical IP over ATM module is loaded, its neighbor table gets
-populated when permanent neighbor entries are created; but these entries
-are not flushed when the device is removed. Since the entry never gets
-flushed the unregister of the network device never completes.
+Hi Stephen:
 
-Bug-reference: http://bugzilla.kernel.org/show_bug.cgi?id=6295
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+On Wed, Apr 12, 2006 at 12:45:33PM -0700, Stephen Hemminger wrote:
+>
+>  	/* ignore non-CLIP devices */
+> -	if (((struct net_device *) dev)->type != ARPHRD_ATM ||
+> -	    ((struct net_device *) dev)->hard_start_xmit != clip_start_xmit)
+> +	if (dev->type != ARPHRD_ATM || dev->hard_start_xmit != clip_start_xmit)
+>  		return NOTIFY_DONE;
 
---- linux-2.6.16.2.orig/net/atm/clip.c	2006-04-12 10:10:43.000000000 -0700
-+++ linux-2.6.16.2/net/atm/clip.c	2006-04-12 11:22:47.000000000 -0700
-@@ -613,12 +613,19 @@
- 
- 
- static int clip_device_event(struct notifier_block *this,unsigned long event,
--    void *dev)
-+			     void *arg)
- {
-+	struct net_device *dev = arg;
-+
-+	if (event == NETDEV_UNREGISTER) {
-+		neigh_ifdown(&clip_tbl, dev);
-+		return NOTIFY_DONE;
-+	}
-+
- 	/* ignore non-CLIP devices */
--	if (((struct net_device *) dev)->type != ARPHRD_ATM ||
--	    ((struct net_device *) dev)->hard_start_xmit != clip_start_xmit)
-+	if (dev->type != ARPHRD_ATM || dev->hard_start_xmit != clip_start_xmit)
- 		return NOTIFY_DONE;
-+
- 	switch (event) {
- 		case NETDEV_UP:
- 			DPRINTK("clip_device_event NETDEV_UP\n");
-@@ -688,8 +695,7 @@
- 	DPRINTK("atmarpd_close\n");
- 	atmarpd = NULL; /* assumed to be atomic */
- 	barrier();
--	unregister_inetaddr_notifier(&clip_inet_notifier);
--	unregister_netdevice_notifier(&clip_dev_notifier);
-+
- 	if (skb_peek(&sk_atm(vcc)->sk_receive_queue))
- 		printk(KERN_ERR "atmarpd_close: closing with requests "
- 		    "pending\n");
-@@ -731,10 +737,6 @@
- 	vcc->push = NULL;
- 	vcc->pop = NULL; /* crash */
- 	vcc->push_oam = NULL; /* crash */
--	if (register_netdevice_notifier(&clip_dev_notifier))
--		printk(KERN_ERR "register_netdevice_notifier failed\n");
--	if (register_inetaddr_notifier(&clip_inet_notifier))
--		printk(KERN_ERR "register_inetaddr_notifier failed\n");
- 	return 0;
- }
- 
-@@ -992,6 +994,8 @@
- 
- 	clip_tbl_hook = &clip_tbl;
- 	register_atm_ioctl(&clip_ioctl_ops);
-+	register_netdevice_notifier(&clip_dev_notifier);
-+	register_inetaddr_notifier(&clip_inet_notifier);
- 
- #ifdef CONFIG_PROC_FS
- {
-@@ -1012,6 +1016,9 @@
- 
- 	remove_proc_entry("arp", atm_proc_root);
- 
-+	unregister_inetaddr_notifier(&clip_inet_notifier);
-+	unregister_netdevice_notifier(&clip_dev_notifier);
-+
- 	deregister_atm_ioctl(&clip_ioctl_ops);
- 
- 	/* First, stop the idle timer, so it stops banging
+I think we need to check whether atm_init_atmarp has been done before
+passing this point.  We also need to make sure that it doesn't get pulled
+out from under us while we're doing this.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
