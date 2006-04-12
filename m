@@ -1,47 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] atm: clip causes unregister hang
-Date: Thu, 13 Apr 2006 04:08:20 +1000
-Message-ID: <E1FTjlM-00050V-00@gondolin.me.apana.org.au>
-References: <20060412105545.3b089dd8@localhost.localdomain>
-Cc: davem@davemloft.net, chas@cmf.nrl.navy.mil,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	stable@kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC: 2.6 patch] the overdue removal of ip{,6}_queue
+Date: Wed, 12 Apr 2006 20:14:13 +0200
+Message-ID: <443D4375.2060105@trash.net>
+References: <20060409180105.GK8454@stusta.de> <44395505.1070608@trash.net> <20060411090139.GI5167@rama.linbit> <443BC06A.8020103@trash.net> <20060411182624.GD31616@sunbeam.de.gnumonks.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@stusta.de>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, sds@tycho.nsa.gov, jmorris@namei.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:23565 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932303AbWDLSIi
+Received: from stinky.trash.net ([213.144.137.162]:44470 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932306AbWDLSQw
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Apr 2006 14:08:38 -0400
-To: shemminger@osdl.org (Stephen Hemminger)
-In-Reply-To: <20060412105545.3b089dd8@localhost.localdomain>
+	Wed, 12 Apr 2006 14:16:52 -0400
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20060411182624.GD31616@sunbeam.de.gnumonks.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen:
-
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Harald Welte wrote:
+> On Tue, Apr 11, 2006 at 04:42:50PM +0200, Patrick McHardy wrote:
 > 
-> --- linux-2.6.16.2.orig/net/atm/clip.c  2006-04-12 10:10:43.000000000 -0700
-> +++ linux-2.6.16.2/net/atm/clip.c       2006-04-12 10:15:46.000000000 -0700
-> @@ -613,12 +613,19 @@
+>>I think we need to do two things:
+>>
+>>- make libipq_compat a drop-in replacement that doesn't require
+>>  recompilation
 > 
 > 
-> static int clip_device_event(struct notifier_block *this,unsigned long event,
-> -    void *dev)
-> +                            void *arg)
-> {
-> +       struct net_device *dev = arg;
-> +
-> +       if (event == NETDEV_DOWN) {
-> +               neigh_ifdown(&clip_tbl, dev);
-> +               return NOTIFY_DONE;
-> +       }
+> libipq is not distributed as a shared library (at least not by us), so I
+> don't see any purpose for doing so.  Do you think anyone is going to
+> re-link statically linked code against the new lib
 
-You want NETDEV_UNREGISTER because neigh entries may get added
-even if the device is down.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I wasn't aware of that. That makes it even worse, old applications
+will break and we can't do anything about it. I think this is
+normally considered not acceptable.
