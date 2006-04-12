@@ -1,33 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] Avoid multi-page allocs for large mtu datagram sends
-Date: Thu, 13 Apr 2006 02:20:35 +1000
-Message-ID: <20060412162035.GA18572@gondor.apana.org.au>
-References: <20060405175102.GA28166@tetsuo.zabbo.net>
+From: Florian Reitmeir <florian@reitmeir.org>
+Subject: VLAN & ARP requests
+Date: Wed, 12 Apr 2006 18:32:43 +0200
+Message-ID: <20060412163242.GU25152@squat.noreply.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:15883 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932091AbWDLQUj
+Received: from opium.multi24.com ([213.239.202.166]:17637 "EHLO
+	opium.multi24.com") by vger.kernel.org with ESMTP id S932127AbWDLQco
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Apr 2006 12:20:39 -0400
-To: Zach Brown <zach.brown@oracle.com>
+	Wed, 12 Apr 2006 12:32:44 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060405175102.GA28166@tetsuo.zabbo.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 05, 2006 at 05:51:02PM +0000, Zach Brown wrote:
-> 
-> 2) I changed the final-frag test to be length + fraggap as the math later on
->    seemed to match that.. is that OK?
+Hi,
 
-Yes that's a real bug introduced by a previous rework.  Could you
-please split that off into a separate patch?
+I don't if this a bug, and i tried to get some documentation about the
+behavier but failed, so here is my question..
 
-Thanks,
+(i tested this with 2.6.14 & 2.6.16.1)
+I have two network interfaces,
+
+lan = a1000 ethernet
+wlan = ipw2200 wireless
+
+then I give them the same network address/subnet
+
+ifconfig lan 10.200.20.20 netmask 255.255.255.0
+ifconfig wlan 10.200.20.20 netmask 255.255.255.0
+
+(there is no promisc mode or any other non default config)
+
+now I try to ping an address which is not on my network for e.g.
+ping 10.200.20.30
+and use tcpdump -pni lan|wlan to look at the arp requests. The kernel asking
+arp on the two interfaces. Everything is OK.
+(also there are two routes for the networks, one for each interface)
+
+
+now I add VLANs, 
+vconfig add lan 12
+vconfig add lan 20
+
+and give them also the same ip address:
+ifconfig lan.12 10.200.20.20 netmask 255.255.255.0
+ifconfig lan.20 10.200.20.20 netmask 255.255.255.0
+
+and try to ping.. 
+
+and now .. there are no arp requests for those two interfaces. sometime when
+i disable for example the wlan interface, there is an arp request on _one_
+of the vlan interfaces (that one which has the first route), but never on
+all.
+
+On the lan interface are always arp requests, even if i try to change the
+macaddress of the vlan interfaces, or change the ip to an other subnet.
+
+
+In my opinion the kernel should also send arp request on the vlan interfaces,
+so they behave identical like the physical ones.
+
+Any clues to that problem? (btw. I now that this is'nt a common configuration)
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Florian Reitmeir
