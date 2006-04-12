@@ -1,67 +1,78 @@
-From: Florian Reitmeir <florian@reitmeir.org>
-Subject: VLAN & ARP requests
-Date: Wed, 12 Apr 2006 18:32:43 +0200
-Message-ID: <20060412163242.GU25152@squat.noreply.org>
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: [PATCH] deinline a few large functions in vlan code v2
+Date: Wed, 12 Apr 2006 13:18:45 -0400
+Message-ID: <1144862325.18319.32.camel@dillow.idleaire.com>
+References: <200604071628.30486.vda@ilport.com.ua>
+	 <200604111028.54813.vda@ilport.com.ua>
+	 <1144763984.16193.9.camel@dillow.idleaire.com>
+	 <200604121155.55561.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from opium.multi24.com ([213.239.202.166]:17637 "EHLO
-	opium.multi24.com") by vger.kernel.org with ESMTP id S932127AbWDLQco
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Apr 2006 12:32:44 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932264AbWDLRSv@vger.kernel.org>
+To: Denis Vlasenko <vda@ilport.com.ua>
+In-Reply-To: <200604121155.55561.vda@ilport.com.ua>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 2006-04-12 at 11:55 +0300, Denis Vlasenko wrote:
+> On Tuesday 11 April 2006 16:59, Dave Dillow wrote:
+> > DaveM beat me to it, but as he said, it saves 5K only if you have all
+> > the drivers built in
+> 
+> I have most of network drivers built in.
+> I want network card to work right away in early boot,
+> and I prefer to not regenerate initrd with new nic modules for
+> each new kernel which I build for diskless stations.
 
-I don't if this a bug, and i tried to get some documentation about the
-behavier but failed, so here is my question..
+Do you really intend to say that you are the common case, and that this
+5K really matters? I'm all for removing bloat, but not without looking
+at the real savings vs the cost.
 
-(i tested this with 2.6.14 & 2.6.16.1)
-I have two network interfaces,
+> > or loaded. And even if it saves 200 bytes in one 
+> > module, unless that module text was already less than 200 bytes into a
+> > page, you've saved no memory -- a 4300 byte module takes 2 pages on x86,
+> > as does a 4100 byte module.
+> 
+> Sometimes, those 200 bytes can bring module size just under 4096.
+> Thus on the average, on many modules you get the same size savings
+> as on built-in code. (Not that we have THAT many network modules...)
 
-lan = a1000 ethernet
-wlan = ipw2200 wireless
+You're making a bogus leap from "sometimes" to "average".
 
-then I give them the same network address/subnet
+Assuming an even distribution of lengths mod 4096, less than 5% of the
+time will 200 bytes save any memory on a module.
 
-ifconfig lan 10.200.20.20 netmask 255.255.255.0
-ifconfig wlan 10.200.20.20 netmask 255.255.255.0
+Since we're both making big assumptions, only real numbers from built
+modules would be convincing.
 
-(there is no promisc mode or any other non default config)
+> > NAK. The #ifdefs are ugly, for no significant gain.
+> > 
+> > And you introduced a race condition when you moved the spin_locks. The
+> > test for tp->vlgrp is no longer protected.
+> 
+> See attached. Much less #ifdefs (most of the time I test for compile time
+> constant VLAN_ENABLED in the if()s instead), the race is fixed.
 
-now I try to ping an address which is not on my network for e.g.
-ping 10.200.20.30
-and use tcpdump -pni lan|wlan to look at the arp requests. The kernel asking
-arp on the two interfaces. Everything is OK.
-(also there are two routes for the networks, one for each interface)
+Testing for VLAN_ENABLED in an if statement is better than the ifdefs, I
+agree, but I still find it ugly. Probably not ugly enough to argue about
+it any more.
 
+I don't like "VLAN_ENABLED" as a global define -- it looks too much like
+something local. The CONFIG_VLAN... defines were more descriptive.
 
-now I add VLANs, 
-vconfig add lan 12
-vconfig add lan 20
+I didn't think about this before, but I'm pretty sure you're taking away
+functionality. When I wrote the typhoon driver, ISTR that I looked
+through the vlan implantation, and determined that all the #ifdefs on
+CONFIG_VLAN_8021Q were not really needed, since all the hooks were
+there. You could just load the 8021q module (even perhaps building it at
+a later date), and it would work if you had filled in the hooks in
+struct net_device. So I didn't #ifdef out code in my driver to let the
+user have the option.
 
-and give them also the same ip address:
-ifconfig lan.12 10.200.20.20 netmask 255.255.255.0
-ifconfig lan.20 10.200.20.20 netmask 255.255.255.0
-
-and try to ping.. 
-
-and now .. there are no arp requests for those two interfaces. sometime when
-i disable for example the wlan interface, there is an arp request on _one_
-of the vlan interfaces (that one which has the first route), but never on
-all.
-
-On the lan interface are always arp requests, even if i try to change the
-macaddress of the vlan interfaces, or change the ip to an other subnet.
-
-
-In my opinion the kernel should also send arp request on the vlan interfaces,
-so they behave identical like the physical ones.
-
-Any clues to that problem? (btw. I now that this is'nt a common configuration)
-
+You're taking that away in the name of a total of 5K, which most users
+won't actually get back?
 -- 
-Florian Reitmeir
+Dave Dillow <dave@thedillows.org>
