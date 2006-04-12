@@ -1,40 +1,51 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [RFC/PATCH] remove unneeded check in bcm43xx
-Date: Wed, 12 Apr 2006 01:04:46 +0200
-Message-ID: <200604120104.47470.mb@bu3sch.de>
-References: <1144719972.19353.24.camel@localhost.localdomain> <20060411.143407.74615246.davem@davemloft.net> <1144794077.19353.53.camel@localhost.localdomain>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: 2.6.17 regression: Very slow net transfer from some hosts
+Date: Wed, 12 Apr 2006 01:06:09 +0100
+Message-ID: <443C4471.7040407@gentoo.org>
+References: <443C03E6.7080202@gentoo.org>	<443C024C.2070107@psc.edu>	<443C0B74.50305@gentoo.org>	<443C09A7.2040900@psc.edu>	<443C1738.20605@gentoo.org>	<443C178B.3030805@psc.edu>	<443C2BBA.5010804@gentoo.org> <20060411153315.4132b477@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: benoit.boissinot-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-   bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-   linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1144794077.19353.53.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Content-Disposition: inline
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Cc: John Heffner <jheffner@psc.edu>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751385AbWDKXxd@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060411153315.4132b477@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 12 April 2006 00:21, you wrote:
+Stephen Hemminger wrote:
+>> This is very familiar, and I just found the article I was thinking of: 
+>> http://lwn.net/Articles/92727/
+>>
+>> I was also hit by that bug, on the same collection of websites, but that 
+>> particular problem was fixed for 2.6.8 or so. So I guess it is extremely 
+>> likely that my ISP has broken routers. nmap isn't able to identify the 
+>> OS of any ISP routers in my path.
 > 
-> > I still think we shouldn't reward shit hardware by complicating
-> > up our DMA mappings internals. :-)
-> 
-> BTW. In the meantime, can't that driver work in PIO only mode ?
+> We never fixed it, its kind of hard to fix other peoples equipment ;-)
 
-No, because I did not finish debugging that, yet. ;)
-And a second half-no, because some newer chips don't support
-PIO anymore (4318 for example).
+Weird, things started working for me around 2.6.9 without having to 
+modify any sysctl stuff.
 
--- 
-Greetings Michael.
+> Turn off TCP window scaling, your performance will be limited but about
+> as good as you can get with a corrupting firewall in between.
+
+I was wrong in my previous mail where I said that the rmem/wmem output 
+hasn't changed over the two kernels - it has, the 3rd column differs. I 
+simply set those values back to what they were on 2.6.16 and now things 
+work again - I presumably have window scale 2 (scale factor 4) again, 
+which appears to be a decent compromise between having a window and 
+things actually working.
+
+For anyone else interested, the ISP is NTL (UK). The fix:
+
+	echo "4096    16384   131072 " > /proc/sys/net/ipv4/tcp_wmem
+	echo "4096    87380   174760 " > /proc/sys/net/ipv4/tcp_rmem
+
+
+This issue is visible on my 1GB system but not on my laptop (256mb RAM). 
+The key thing is that more memory means a higher window scale factor is 
+used, which appears to trigger ntl's brokenness.
+
+Daniel
