@@ -1,51 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFD][PATCH] typhoon and core sample for folding away VLAN
- stuff
-Date: Wed, 12 Apr 2006 13:23:22 -0700
-Message-ID: <20060412132322.7786111b@localhost.localdomain>
-References: <200604071628.30486.vda@ilport.com.ua>
-	<200604111502.52302.vda@ilport.com.ua>
-	<200604111517.37215.netdev@axxeo.de>
-	<200604122132.46113.ioe-lkml@rameria.de>
-	<443D5E9E.80002@candelatech.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] atm: clip causes unregister hang
+Date: Thu, 13 Apr 2006 06:25:51 +1000
+Message-ID: <20060412202551.GA20085@gondor.apana.org.au>
+References: <20060412105545.3b089dd8@localhost.localdomain> <E1FTjlM-00050V-00@gondolin.me.apana.org.au> <20060412124533.14e0c4ff@localhost.localdomain> <20060412200015.GA19878@gondor.apana.org.au> <20060412131527.71f42d58@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Oeser <ioe-lkml@rameria.de>, Ingo Oeser <netdev@axxeo.de>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Dave Dillow <dave@thedillows.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, chas@cmf.nrl.navy.mil,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:430 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932222AbWDLUY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2006 16:24:57 -0400
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <443D5E9E.80002@candelatech.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:58127 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932226AbWDLU0P
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Apr 2006 16:26:15 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060412131527.71f42d58@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Apr 2006 13:10:06 -0700
-Ben Greear <greearb@candelatech.com> wrote:
-
-> What is the reasoning for this change?  Is the compiler
-> able to optomize the right-hand-side to a constant with your
-> change in place?
+On Wed, Apr 12, 2006 at 01:15:27PM -0700, Stephen Hemminger wrote:
 > 
-> > -	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
-> > +	if (veth->h_vlan_proto != htons(ETH_P_8021Q)) {
-> >  		return -EINVAL;
-> >  	}
+> If atm_init_atmarp has not been done, then to_atamarpd is a nop because
+> atmarpd == NULL.
 
-Read the source, the macro handles it.
+Good point.  But I don't see anything that will keep atmarpd from
+closing the socket.  Previously the unregister_notifier calls served
+as sort of a barrier which prevented the close from proceeding until
+we're out of the event handlers.
 
-For i386:
-	htons maps to __cpu_to_be16
-	cpu_to_be16 maps to swab16 which is defined in swab.h
+Now that thw unregister_notifier calls have been moved we need some
+other way of ensuring that.  Holding the RTNL should be enough.
 
-#  define __swab16(x) \
-(__builtin_constant_p((__u16)(x)) ? \
- ___swab16((x)) : \
- __fswab16((x)))
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
