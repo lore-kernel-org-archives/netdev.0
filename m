@@ -1,102 +1,94 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 6378] New: bonding mode=1 does not always pick
- right primary interface
-Date: Wed, 12 Apr 2006 12:45:02 -0700
-Message-ID: <20060412124502.6bf136d4.akpm@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] atm: clip causes unregister hang
+Date: Wed, 12 Apr 2006 12:45:33 -0700
+Message-ID: <20060412124533.14e0c4ff@localhost.localdomain>
+References: <20060412105545.3b089dd8@localhost.localdomain>
+	<E1FTjlM-00050V-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux@hrunting.org
+Cc: davem@davemloft.net, chas@cmf.nrl.navy.mil,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:54943 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932168AbWDLTpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2006 15:45:11 -0400
-To: netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:24224 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932175AbWDLTqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2006 15:46:06 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1FTjlM-00050V-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+If Classical IP over ATM module is loaded, its neighbor table gets
+populated when permanent neighbor entries are created; but these entries
+are not flushed when the device is removed. Since the entry never gets
+flushed the unregister of the network device never completes.
 
+Bug-reference: http://bugzilla.kernel.org/show_bug.cgi?id=6295
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Begin forwarded message:
-
-Date: Wed, 12 Apr 2006 05:57:27 -0700
-From: bugme-daemon@bugzilla.kernel.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 6378] New: bonding mode=1 does not always pick right primary interface
-
-
-http://bugzilla.kernel.org/show_bug.cgi?id=6378
-
-           Summary: bonding mode=1 does not always pick right primary
-                    interface
-    Kernel Version: 2.6.16
-            Status: NEW
-          Severity: normal
-             Owner: acme@conectiva.com.br
-         Submitter: linux@hrunting.org
-
-
-Most recent kernel where this bug did not occur: 2.6.10
-Distribution: Fedora Core 4
-Hardware Environment: Dual P4 2.4GHz, dual onboard e1000 NICs, one unused e100
-management NIC
-Software Environment: FC4, 2.6.16-1.2069_FC4
-Problem Description: Picking a primary interface does not always work
-
-Steps to reproduce:
-Configure /etc/modprobe.conf with lines like such:
-
-alias eth0 e1000
-alias eth1 e1000
-alias bond0 bonding
-options bond0 miimon=100 mode=1 primary=eth1
-
-Reboot the box.
-
-When the box comes up, it's using eth0 as the primary NIC and eth1 as a backup.
- If you drop the connection on eth0 (I do this by shutting down a port on the
-router), it fails over properly to eth1.  If I then bring back up eth0, it stays
-on eth0 correctly.  Shutting down the port to eth1 fails over to eth0 properly.
- Bringing back up the port for eth1 causes it to fail back over to eth1 properly.
-
-So it looks like the primary mode is being set right, but isn't being
-acknowledged or handled properly when the bond is first brought up.
-
-I also have Opteron servers running this config and they do not seem to be
-affected by this bug.  It might be a timing issue on boot that affects Intel
-systems more than Opterons, though.  I've seen it once or twice on Opteron with
-kernel 2.6.15.  It's regularly reproducible with the Intel systems, though, with
-both 2.6.15 and 2.6.16 FC4 kernels.
-
-The relevant portions of lspci -v:
-
-03:01.0 Ethernet controller: Intel Corporation 82541EI Gigabit Ethernet
-Controller (Copper)
-        Subsystem: Intel Corporation: Unknown device 1213
-        Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 28
-        Memory at fd8c0000 (32-bit, non-prefetchable) [size=128K]
-        I/O ports at c400 [size=64]
-        Capabilities: [dc] Power Management version 2
-        Capabilities: [e4] PCI-X non-bridge device.
-
-03:02.0 Ethernet controller: Intel Corporation 82541EI Gigabit Ethernet
-Controller (Copper)
-        Subsystem: Intel Corporation: Unknown device 1213
-        Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 29
-        Memory at fd8e0000 (32-bit, non-prefetchable) [size=128K]
-        I/O ports at c800 [size=64]
-        Capabilities: [dc] Power Management version 2
-        Capabilities: [e4] PCI-X non-bridge device.
-
-Relevant lines from dmesg (boot):
-
-Ethernet Channel Bonding Driver: v3.0.1 (January 9, 2006)
-bonding: MII link monitoring set to 100 ms
-e1000: eth0: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
-bonding: bond0: making interface eth0 the new active one.
-bonding: bond0: enslaving eth0 as an active interface with an up link.
-e1000: eth1: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
-bonding: bond0: enslaving eth1 as a backup interface with an up link.
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+--- linux-2.6.16.2.orig/net/atm/clip.c	2006-04-12 10:10:43.000000000 -0700
++++ linux-2.6.16.2/net/atm/clip.c	2006-04-12 11:22:47.000000000 -0700
+@@ -613,12 +613,19 @@
+ 
+ 
+ static int clip_device_event(struct notifier_block *this,unsigned long event,
+-    void *dev)
++			     void *arg)
+ {
++	struct net_device *dev = arg;
++
++	if (event == NETDEV_UNREGISTER) {
++		neigh_ifdown(&clip_tbl, dev);
++		return NOTIFY_DONE;
++	}
++
+ 	/* ignore non-CLIP devices */
+-	if (((struct net_device *) dev)->type != ARPHRD_ATM ||
+-	    ((struct net_device *) dev)->hard_start_xmit != clip_start_xmit)
++	if (dev->type != ARPHRD_ATM || dev->hard_start_xmit != clip_start_xmit)
+ 		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 		case NETDEV_UP:
+ 			DPRINTK("clip_device_event NETDEV_UP\n");
+@@ -688,8 +695,7 @@
+ 	DPRINTK("atmarpd_close\n");
+ 	atmarpd = NULL; /* assumed to be atomic */
+ 	barrier();
+-	unregister_inetaddr_notifier(&clip_inet_notifier);
+-	unregister_netdevice_notifier(&clip_dev_notifier);
++
+ 	if (skb_peek(&sk_atm(vcc)->sk_receive_queue))
+ 		printk(KERN_ERR "atmarpd_close: closing with requests "
+ 		    "pending\n");
+@@ -731,10 +737,6 @@
+ 	vcc->push = NULL;
+ 	vcc->pop = NULL; /* crash */
+ 	vcc->push_oam = NULL; /* crash */
+-	if (register_netdevice_notifier(&clip_dev_notifier))
+-		printk(KERN_ERR "register_netdevice_notifier failed\n");
+-	if (register_inetaddr_notifier(&clip_inet_notifier))
+-		printk(KERN_ERR "register_inetaddr_notifier failed\n");
+ 	return 0;
+ }
+ 
+@@ -992,6 +994,8 @@
+ 
+ 	clip_tbl_hook = &clip_tbl;
+ 	register_atm_ioctl(&clip_ioctl_ops);
++	register_netdevice_notifier(&clip_dev_notifier);
++	register_inetaddr_notifier(&clip_inet_notifier);
+ 
+ #ifdef CONFIG_PROC_FS
+ {
+@@ -1012,6 +1016,9 @@
+ 
+ 	remove_proc_entry("arp", atm_proc_root);
+ 
++	unregister_inetaddr_notifier(&clip_inet_notifier);
++	unregister_netdevice_notifier(&clip_dev_notifier);
++
+ 	deregister_atm_ioctl(&clip_ioctl_ops);
+ 
+ 	/* First, stop the idle timer, so it stops banging
