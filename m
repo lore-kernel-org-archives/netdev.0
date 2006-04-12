@@ -1,78 +1,96 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: [PATCH] deinline a few large functions in vlan code v2
-Date: Wed, 12 Apr 2006 13:18:45 -0400
-Message-ID: <1144862325.18319.32.camel@dillow.idleaire.com>
-References: <200604071628.30486.vda@ilport.com.ua>
-	 <200604111028.54813.vda@ilport.com.ua>
-	 <1144763984.16193.9.camel@dillow.idleaire.com>
-	 <200604121155.55561.vda@ilport.com.ua>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] atm: clip causes unregister hang
+Date: Wed, 12 Apr 2006 10:55:45 -0700
+Message-ID: <20060412105545.3b089dd8@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932264AbWDLRSv@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200604121155.55561.vda@ilport.com.ua>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	stable@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:16875 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932277AbWDLR4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2006 13:56:21 -0400
+To: "David S. Miller" <davem@davemloft.net>, chas@cmf.nrl.navy.mil
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-04-12 at 11:55 +0300, Denis Vlasenko wrote:
-> On Tuesday 11 April 2006 16:59, Dave Dillow wrote:
-> > DaveM beat me to it, but as he said, it saves 5K only if you have all
-> > the drivers built in
-> 
-> I have most of network drivers built in.
-> I want network card to work right away in early boot,
-> and I prefer to not regenerate initrd with new nic modules for
-> each new kernel which I build for diskless stations.
+If Classical IP over ATM module is loaded or compile in to the kernel.
+Its neighbor table gets populated when permanent neighbor entries are created;
+but these entries are not flushed when the device is removed. 
+Since the entry never gets flushed the unregister of the network device never
+completes.
 
-Do you really intend to say that you are the common case, and that this
-5K really matters? I'm all for removing bloat, but not without looking
-at the real savings vs the cost.
+The problem is that the driver doesn't register a notify handler unless
+ATM is started, and it doesn't do the proper cleanup in the event handler.
 
-> > or loaded. And even if it saves 200 bytes in one 
-> > module, unless that module text was already less than 200 bytes into a
-> > page, you've saved no memory -- a 4300 byte module takes 2 pages on x86,
-> > as does a 4100 byte module.
-> 
-> Sometimes, those 200 bytes can bring module size just under 4096.
-> Thus on the average, on many modules you get the same size savings
-> as on built-in code. (Not that we have THAT many network modules...)
+Please apply for 2.6.17 and 2.6.16 stable.
 
-You're making a bogus leap from "sometimes" to "average".
+Bug-reference: http://bugzilla.kernel.org/show_bug.cgi?id=6295
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Assuming an even distribution of lengths mod 4096, less than 5% of the
-time will 200 bytes save any memory on a module.
-
-Since we're both making big assumptions, only real numbers from built
-modules would be convincing.
-
-> > NAK. The #ifdefs are ugly, for no significant gain.
-> > 
-> > And you introduced a race condition when you moved the spin_locks. The
-> > test for tp->vlgrp is no longer protected.
-> 
-> See attached. Much less #ifdefs (most of the time I test for compile time
-> constant VLAN_ENABLED in the if()s instead), the race is fixed.
-
-Testing for VLAN_ENABLED in an if statement is better than the ifdefs, I
-agree, but I still find it ugly. Probably not ugly enough to argue about
-it any more.
-
-I don't like "VLAN_ENABLED" as a global define -- it looks too much like
-something local. The CONFIG_VLAN... defines were more descriptive.
-
-I didn't think about this before, but I'm pretty sure you're taking away
-functionality. When I wrote the typhoon driver, ISTR that I looked
-through the vlan implantation, and determined that all the #ifdefs on
-CONFIG_VLAN_8021Q were not really needed, since all the hooks were
-there. You could just load the 8021q module (even perhaps building it at
-a later date), and it would work if you had filled in the hooks in
-struct net_device. So I didn't #ifdef out code in my driver to let the
-user have the option.
-
-You're taking that away in the name of a total of 5K, which most users
-won't actually get back?
--- 
-Dave Dillow <dave@thedillows.org>
+--- linux-2.6.16.2.orig/net/atm/clip.c	2006-04-12 10:10:43.000000000 -0700
++++ linux-2.6.16.2/net/atm/clip.c	2006-04-12 10:15:46.000000000 -0700
+@@ -613,12 +613,19 @@
+ 
+ 
+ static int clip_device_event(struct notifier_block *this,unsigned long event,
+-    void *dev)
++			     void *arg)
+ {
++	struct net_device *dev = arg;
++
++	if (event == NETDEV_DOWN) {
++		neigh_ifdown(&clip_tbl, dev);
++		return NOTIFY_DONE;
++	}
++
+ 	/* ignore non-CLIP devices */
+-	if (((struct net_device *) dev)->type != ARPHRD_ATM ||
+-	    ((struct net_device *) dev)->hard_start_xmit != clip_start_xmit)
++	if (dev->type != ARPHRD_ATM || dev->hard_start_xmit != clip_start_xmit)
+ 		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 		case NETDEV_UP:
+ 			DPRINTK("clip_device_event NETDEV_UP\n");
+@@ -688,8 +695,7 @@
+ 	DPRINTK("atmarpd_close\n");
+ 	atmarpd = NULL; /* assumed to be atomic */
+ 	barrier();
+-	unregister_inetaddr_notifier(&clip_inet_notifier);
+-	unregister_netdevice_notifier(&clip_dev_notifier);
++
+ 	if (skb_peek(&sk_atm(vcc)->sk_receive_queue))
+ 		printk(KERN_ERR "atmarpd_close: closing with requests "
+ 		    "pending\n");
+@@ -731,10 +737,6 @@
+ 	vcc->push = NULL;
+ 	vcc->pop = NULL; /* crash */
+ 	vcc->push_oam = NULL; /* crash */
+-	if (register_netdevice_notifier(&clip_dev_notifier))
+-		printk(KERN_ERR "register_netdevice_notifier failed\n");
+-	if (register_inetaddr_notifier(&clip_inet_notifier))
+-		printk(KERN_ERR "register_inetaddr_notifier failed\n");
+ 	return 0;
+ }
+ 
+@@ -992,6 +994,8 @@
+ 
+ 	clip_tbl_hook = &clip_tbl;
+ 	register_atm_ioctl(&clip_ioctl_ops);
++	register_netdevice_notifier(&clip_dev_notifier);
++	register_inetaddr_notifier(&clip_inet_notifier);
+ 
+ #ifdef CONFIG_PROC_FS
+ {
+@@ -1012,6 +1016,9 @@
+ 
+ 	remove_proc_entry("arp", atm_proc_root);
+ 
++	unregister_inetaddr_notifier(&clip_inet_notifier);
++	unregister_netdevice_notifier(&clip_dev_notifier);
++
+ 	deregister_atm_ioctl(&clip_ioctl_ops);
+ 
+ 	/* First, stop the idle timer, so it stops banging
