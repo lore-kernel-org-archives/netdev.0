@@ -1,32 +1,50 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/xfrm/xfrm_state: unexport xfrm_state_mtu
-Date: Wed, 12 Apr 2006 22:54:56 +0200
-Message-ID: <20060412205456.GE6517@stusta.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] acxsm: Reduce the number of ACX_PACKED instructions
+Date: Wed, 12 Apr 2006 16:58:01 -0400
+Message-ID: <20060412205756.GD12788@tuxdriver.com>
+References: <11433168763687-git-send-email-carlos@cmartin.tk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Denis Vlasenko <vda@ilport.com.ua>,
+	acx100-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:11016 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S932237AbWDLUy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Apr 2006 16:54:57 -0400
-To: netdev@vger.kernel.org
+Received: from ra.tuxdriver.com ([24.172.12.4]:56328 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S932144AbWDLU6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Apr 2006 16:58:33 -0400
+To: Carlos Martin <carlos@cmartin.tk>
 Content-Disposition: inline
+In-Reply-To: <11433168763687-git-send-email-carlos@cmartin.tk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the unused EXPORT_SYMBOL(xfrm_state_mtu).
+On Sat, Mar 25, 2006 at 09:01:16PM +0100, Carlos Martin wrote:
+> Up to now, we were using ACX_PACKED after every field. I've finally
+> found out how to use only one at the end of each struct whilst
+> maintaining the typedef where it is now.
+> 
+> This should also apply to acx with a bit of fuzz, but I consider it to
+> be in maintenance mode, so this doesn't qualify for it.
+> 
+> Signed-off-by: Carlos Martin <carlos@cmartin.tk>
+> 
+> ---
+> 
+>  acx_struct.h |  874 +++++++++++++++++++++++++++++-----------------------------
+>  common.c     |   26 +-
+>  ioctl.c      |   10 -
+>  usb.c        |    8 -
+>  4 files changed, 457 insertions(+), 461 deletions(-)
+> 
+> 5fb2fdfd8c028a40921bbf9ef7ec4c53c03fcab4
+> diff --git a/acx_struct.h b/acx_struct.h
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Denis, have you got this patch?  Or do I need to apply it?
 
---- linux-2.6.17-rc1-mm2-full/net/xfrm/xfrm_state.c.old	2006-04-12 22:38:57.000000000 +0200
-+++ linux-2.6.17-rc1-mm2-full/net/xfrm/xfrm_state.c	2006-04-12 22:39:03.000000000 +0200
-@@ -1152,8 +1152,6 @@
- 	return res;
- }
- 
--EXPORT_SYMBOL(xfrm_state_mtu);
--
- int xfrm_init_state(struct xfrm_state *x)
- {
- 	struct xfrm_state_afinfo *afinfo;
+Carlos, please make your diffs from the root of the kernel tree.
 
+Thanks,
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
