@@ -1,65 +1,98 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 05/22] sky2: bad memory reference on dual port cards
-Date: Thu, 13 Apr 2006 16:07:20 -0700
-Message-ID: <20060413230720.GF5613@kroah.com>
-References: <20060413230141.330705000@quad.kroah.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 1/3] eth: use constant size address (revised)
+Date: Thu, 13 Apr 2006 16:24:25 -0700
+Message-ID: <20060413162425.4e50bec2@localhost.localdomain>
+References: <20060411181053.862087000@localhost.localdomain>
+	<20060411181136.913572000@localhost.localdomain>
+	<20060411.172401.67034166.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965007AbWDMXIo@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename="sky2-bad-memory-reference-on-dual-port-cards.patch"
-In-Reply-To: <20060413230637.GA5613@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:20386 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965041AbWDMXYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 19:24:43 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060411.172401.67034166.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
-
-------------------
-Sky2 driver will oops referencing bad memory if used on
-a dual port card.  The problem is accessing past end of
-MIB counter space.
+Change the ethernet support routines to use constant address size.
+This generates smaller faster code.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 
----
- drivers/net/sky2.c |    4 ++--
- drivers/net/sky2.h |    1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
---- linux-2.6.16.5.orig/drivers/net/sky2.c
-+++ linux-2.6.16.5/drivers/net/sky2.c
-@@ -579,8 +579,8 @@ static void sky2_mac_init(struct sky2_hw
- 	reg = gma_read16(hw, port, GM_PHY_ADDR);
- 	gma_write16(hw, port, GM_PHY_ADDR, reg | GM_PAR_MIB_CLR);
+--- sky2-2.6.17.orig/net/ethernet/eth.c	2006-03-07 13:28:54.000000000 -0800
++++ sky2-2.6.17/net/ethernet/eth.c	2006-04-12 13:10:56.000000000 -0700
+@@ -77,6 +77,8 @@
+ {
+ 	struct ethhdr *eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
  
--	for (i = 0; i < GM_MIB_CNT_SIZE; i++)
--		gma_read16(hw, port, GM_MIB_CNT_BASE + 8 * i);
-+	for (i = GM_MIB_CNT_BASE; i <= GM_MIB_CNT_END; i += 4)
-+		gma_read16(hw, port, i);
- 	gma_write16(hw, port, GM_PHY_ADDR, reg);
++	BUG_ON(dev->addr_len != ETH_ALEN);
++
+ 	/* 
+ 	 *	Set the protocol type. For a packet of type ETH_P_802_3 we put the length
+ 	 *	in here instead. It is up to the 802.2 layer to carry protocol information.
+@@ -93,11 +95,11 @@
+ 	 
+ 	if(!saddr)
+ 		saddr = dev->dev_addr;
+-	memcpy(eth->h_source,saddr,dev->addr_len);
++	memcpy(eth->h_source,saddr, ETH_ALEN);
  
- 	/* transmit control */
---- linux-2.6.16.5.orig/drivers/net/sky2.h
-+++ linux-2.6.16.5/drivers/net/sky2.h
-@@ -1380,6 +1380,7 @@ enum {
- /* MIB Counters */
- #define GM_MIB_CNT_BASE	0x0100		/* Base Address of MIB Counters */
- #define GM_MIB_CNT_SIZE	44		/* Number of MIB Counters */
-+#define GM_MIB_CNT_END	0x025C		/* Last MIB counter */
+ 	if(daddr)
+ 	{
+-		memcpy(eth->h_dest,daddr,dev->addr_len);
++		memcpy(eth->h_dest,daddr, ETH_ALEN);
+ 		return ETH_HLEN;
+ 	}
+ 	
+@@ -107,7 +109,7 @@
  
- /*
-  * MIB Counters base address definitions (low word) -
-
---
+ 	if (dev->flags & (IFF_LOOPBACK|IFF_NOARP)) 
+ 	{
+-		memset(eth->h_dest, 0, dev->addr_len);
++		memset(eth->h_dest, 0, ETH_ALEN);
+ 		return ETH_HLEN;
+ 	}
+ 	
+@@ -140,7 +142,7 @@
+ 		       "%s: unable to resolve type %X addresses.\n", 
+ 		       dev->name, (int)eth->h_proto);
+ 		
+-		memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
++		memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
+ 		break;
+ 	}
+ 
+@@ -223,8 +225,8 @@
+ 		return -1;
+ 
+ 	eth->h_proto = type;
+-	memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
+-	memcpy(eth->h_dest, neigh->ha, dev->addr_len);
++	memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
++	memcpy(eth->h_dest, neigh->ha, ETH_ALEN);
+ 	hh->hh_len = ETH_HLEN;
+ 	return 0;
+ }
+@@ -236,7 +238,7 @@
+ void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev, unsigned char * haddr)
+ {
+ 	memcpy(((u8*)hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
+-	       haddr, dev->addr_len);
++	       haddr, ETH_ALEN);
+ }
+ 
+ EXPORT_SYMBOL(eth_type_trans);
+@@ -246,7 +248,7 @@
+ 	struct sockaddr *addr=p;
+ 	if (netif_running(dev))
+ 		return -EBUSY;
+-	memcpy(dev->dev_addr, addr->sa_data,dev->addr_len);
++	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 	return 0;
+ }
+ 
