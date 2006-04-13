@@ -1,68 +1,61 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
-Date: Thu, 13 Apr 2006 11:06:16 +0200
-Message-ID: <1144919176.4187.44.camel@localhost>
-References: <20060411085805.949313000@sipsolutions.net>
-	 <20060411085841.252064000@sipsolutions.net>
-	 <20060413020010.2ab16d7b.zaitcev@redhat.com>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH] ipw2100: wraps the debug module param within #ifdefs
+Date: Thu, 13 Apr 2006 17:14:23 +0800
+Message-ID: <20060413091423.GA28623@mail.intel.com>
+Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/u+2f1/JmrpVn27AzGn7"
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com,
-	softmac-dev@sipsolutions.net, Jean Tourrilhes <jt@hpl.hp.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([213.151.39.204]:33482 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751220AbWDMJGX
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:06:23 -0400
-To: Pete Zaitcev <zaitcev@redhat.com>
-In-Reply-To: <20060413020010.2ab16d7b.zaitcev@redhat.com>
+Received: from fmr20.intel.com ([134.134.136.19]:22960 "EHLO
+	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751175AbWDMJVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:21:30 -0400
+To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Henrik Brix Andersen <brix@gentoo.org>
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
---=-/u+2f1/JmrpVn27AzGn7
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+---
 
-On Thu, 2006-04-13 at 02:00 -0700, Pete Zaitcev wrote:
+ drivers/net/wireless/ipw2100.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-> This sounds completely wrong. Do you guys remember the Subject: string
-> of this discussion by any chance?
-
-Discussed offline at the wireless summit, sorry.
-
-> It's very likely that tools do indeed loop when they see EAGAIN, but
-> this is a workaround, not the main mode of operation. It seems obvious
-> to me that the get method should wait until the scan results are
-> available. Perhaps the discussion had a specific scenario where
-> EAGAIN would make sense, but I cannot imagine what it might be.
-
-Right, they do loop, but they don't have a method to indicate
-completion. Thus we'd have to actually wait for the completion in the
-kernel. Jean, what is the intended use here?
-
-johannes
-
---=-/u+2f1/JmrpVn27AzGn7
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIVAwUARD4UhqVg1VMiehFYAQKUFBAAk2eMOc7ItoXFygQQqwvXubbPlL6gynTt
-crc/b6QrsG6IaF8lJVtSZNZWZhvcnhdOqPLWsDkmW1NPRqIr3YW8dnqQgxqtheHZ
-72e+x4l0cQ9SQPDHi+3kWQ6NLyBWjpiVgzRiKyyUkfyAfOSFJWLBAAXCNB7dOVJn
-bjlas04sDAxU6blmNWDn489Zesf4+T9I0k2MLKzkX8S8dyjJySazpTvrI2UPEWWJ
-eN6AxdjqKCKT5RRD/KNCxnfO7AIesYgB9WK0YawT8PAt+srxVQgMKU/oBQfh2Ggs
-7OkLDWJFuKrGaRWQJA31CRK3cOKGtIWFHQCCQkO+ZM2nuPhMKYAuaX9CmX2H7WIH
-bliStTvCp1sYi9b8eGfRekWDF2c1Ulwzc5D7WUjfVFdJLVquBsdebNs5sldVWduN
-wnQmPbe+OkzeFABsDuOkkI4MAxZ5NLPJwd33kDo2BSnADksOivOkC53lSJHqBW64
-wXf7L3KqlppQk7XzUknn8nt0vG37qlofq2UNylM/T+Y2aeozVCUx8/Sg3W+s+zy5
-6qtRy4TMImqbcWXALph/MG+q+LTdY0yVhgxzpoxADPfQB93l2ANkWKIO7CWv07LC
-4KCkI5qnaZBv/uZc8phx+HM0zMtJX6n5NKzvv73x0vXtuq/GPbJiwH1alR+5v+0k
-+qKhoMlpfio=
-=JAXh
------END PGP SIGNATURE-----
-
---=-/u+2f1/JmrpVn27AzGn7--
+e78cfdab91a809722be99c06574d2e0a60467644
+diff --git a/drivers/net/wireless/ipw2100.c b/drivers/net/wireless/ipw2100.c
+index 72335c8..2cd32a4 100644
+--- a/drivers/net/wireless/ipw2100.c
++++ b/drivers/net/wireless/ipw2100.c
+@@ -184,7 +184,9 @@ MODULE_VERSION(DRV_VERSION);
+ MODULE_AUTHOR(DRV_COPYRIGHT);
+ MODULE_LICENSE("GPL");
+ 
++#ifdef CONFIG_IPW2100_DEBUG
+ static int debug = 0;
++#endif
+ static int mode = 0;
+ static int channel = 0;
+ static int associate = 1;
+@@ -194,13 +196,17 @@ static struct ipw2100_fw ipw2100_firmwar
+ #endif
+ 
+ #include <linux/moduleparam.h>
++#ifdef CONFIG_IPW2100_DEBUG
+ module_param(debug, int, 0444);
++#endif
+ module_param(mode, int, 0444);
+ module_param(channel, int, 0444);
+ module_param(associate, int, 0444);
+ module_param(disable, int, 0444);
+ 
++#ifdef CONFIG_IPW2100_DEBUG
+ MODULE_PARM_DESC(debug, "debug level");
++#endif
+ MODULE_PARM_DESC(mode, "network mode (0=BSS,1=IBSS,2=Monitor)");
+ MODULE_PARM_DESC(channel, "channel");
+ MODULE_PARM_DESC(associate, "auto associate when scanning (default on)");
+-- 
+1.2.6
 
