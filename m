@@ -1,101 +1,100 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 15/18] wireless Kconfig add IPW2200_RADIOTAP
-Date: Thu, 13 Apr 2006 17:20:54 +0800
-Message-ID: <20060413092054.GA28808@mail.intel.com>
+Subject: [PATCH 16/18] ipw2200: rename CONFIG_IEEE80211_RADIOTAP to CONFIG_IPW2200_RADIOTAP
+Date: Thu, 13 Apr 2006 17:21:00 +0800
+Message-ID: <20060413092100.GA28815@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:32938 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964854AbWDMJ16 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:27:58 -0400
+Received: from fmr19.intel.com ([134.134.136.18]:38605 "EHLO
+	orsfmr004.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964856AbWDMJ2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:28:05 -0400
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Makefile both IPW2200_RADIOTAP and IPW2200_PROMISCUOUS depend on
-IPW2200_MONITOR. Let IPW2200_PROMISCUOUS select IPW2200_RADIOTAP.
-
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
 ---
 
- drivers/net/wireless/Kconfig |   52 +++++++++++++++++++++++-------------------
- 1 files changed, 28 insertions(+), 24 deletions(-)
+ drivers/net/wireless/ipw2200.c |   12 ++++++------
+ drivers/net/wireless/ipw2200.h |    2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-d2baa760aa4ba72495da0ada29f877470f687de3
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index 073b4a3..2da2833 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -235,6 +235,34 @@ config IPW2200_MONITOR
- 	  promiscuous mode via the Wireless Tool's Monitor mode.  While in this
- 	  mode, no packets can be sent.
+70646d6a1c055a3bbd5b29f471ca49d43c534267
+diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+index 426f306..62ebec8 100644
+--- a/drivers/net/wireless/ipw2200.c
++++ b/drivers/net/wireless/ipw2200.c
+@@ -58,7 +58,7 @@
+ #define VP
+ #endif
  
-+config IPW2200_RADIOTAP
-+	bool "Enable radiotap format 802.11 raw packet support"
-+	depends on IPW2200_MONITOR
-+
-+config IPW2200_PROMISCUOUS
-+	bool "Enable creation of a RF radiotap promiscuous interface"
-+	depends on IPW2200_MONITOR
-+	select IPW2200_RADIOTAP
-+	---help---
-+          Enables the creation of a second interface prefixed 'rtap'. 
-+          This second interface will provide every received in radiotap
-+	  format.
-+
-+          This is useful for performing wireless network analysis while
-+          maintaining an active association.
-+
-+          Example usage:
-+
-+            % modprobe ipw2200 rtap_iface=1
-+            % ifconfig rtap0 up
-+            % tethereal -i rtap0
-+
-+          If you do not specify 'rtap_iface=1' as a module parameter then 
-+          the rtap interface will not be created and you will need to turn 
-+          it on via sysfs:
-+	
-+            % echo 1 > /sys/bus/pci/drivers/ipw2200/*/rtap_iface
-+
- config IPW2200_QOS
-         bool "Enable QoS support"
-         depends on IPW2200 && EXPERIMENTAL
-@@ -263,30 +291,6 @@ config IPW2200_DEBUG
- 	  If you are not trying to debug or develop the IPW2200 driver, you 
- 	  most likely want to say N here.
+-#ifdef CONFIG_IEEE80211_RADIOTAP
++#ifdef CONFIG_IPW2200_RADIOTAP
+ #define VR "r"
+ #else
+ #define VR
+@@ -7586,7 +7586,7 @@ static void ipw_handle_data_packet(struc
+ 	}
+ }
  
--config IPW2200_PROMISCUOUS
--	bool "Enable creation of a RF radiotap promiscuous interface."
--	depends on IPW2200
--	select IEEE80211_RADIOTAP
--	---help---
--          Enables the creation of a second interface prefixed 'rtap'. 
--          This second interface will provide every received in radiotap
--	  format.
--
--          This is useful for performing wireless network analysis while
--          maintaining an active association.
--
--          Example usage:
--
--            % modprobe ipw2200 rtap_iface=1
--            % ifconfig rtap0 up
--            % tethereal -i rtap0
--
--          If you do not specify 'rtap_iface=1' as a module parameter then 
--          the rtap interface will not be created and you will need to turn 
--          it on via sysfs:
--	
--            % echo 1 > /sys/bus/pci/drivers/ipw2200/*/rtap_iface
--
- config AIRO
- 	tristate "Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards"
-  	depends on NET_RADIO && ISA_DMA_API && (PCI || BROKEN)
+-#ifdef CONFIG_IEEE80211_RADIOTAP
++#ifdef CONFIG_IPW2200_RADIOTAP
+ static void ipw_handle_data_packet_monitor(struct ipw_priv *priv,
+ 					   struct ipw_rx_mem_buffer *rxb,
+ 					   struct ieee80211_rx_stats *stats)
+@@ -8194,7 +8194,7 @@ static void ipw_rx(struct ipw_priv *priv
+ 
+ #ifdef CONFIG_IPW2200_MONITOR
+ 				if (priv->ieee->iw_mode == IW_MODE_MONITOR) {
+-#ifdef CONFIG_IEEE80211_RADIOTAP
++#ifdef CONFIG_IPW2200_RADIOTAP
+ 
+                 ipw_handle_data_packet_monitor(priv,
+ 					       rxb,
+@@ -8381,7 +8381,7 @@ static int ipw_sw_reset(struct ipw_priv 
+ #ifdef CONFIG_IPW2200_MONITOR
+ 	case 2:
+ 		priv->ieee->iw_mode = IW_MODE_MONITOR;
+-#ifdef CONFIG_IEEE80211_RADIOTAP
++#ifdef CONFIG_IPW2200_RADIOTAP
+ 		priv->net_dev->type = ARPHRD_IEEE80211_RADIOTAP;
+ #else
+ 		priv->net_dev->type = ARPHRD_IEEE80211;
+@@ -8636,7 +8636,7 @@ static int ipw_wx_set_mode(struct net_de
+ 		priv->net_dev->type = ARPHRD_ETHER;
+ 
+ 	if (wrqu->mode == IW_MODE_MONITOR)
+-#ifdef CONFIG_IEEE80211_RADIOTAP
++#ifdef CONFIG_IPW2200_RADIOTAP
+ 		priv->net_dev->type = ARPHRD_IEEE80211_RADIOTAP;
+ #else
+ 		priv->net_dev->type = ARPHRD_IEEE80211;
+@@ -9738,7 +9738,7 @@ static int ipw_wx_set_monitor(struct net
+ 	IPW_DEBUG_WX("SET MONITOR: %d %d\n", enable, parms[1]);
+ 	if (enable) {
+ 		if (priv->ieee->iw_mode != IW_MODE_MONITOR) {
+-#ifdef CONFIG_IEEE80211_RADIOTAP
++#ifdef CONFIG_IPW2200_RADIOTAP
+ 			priv->net_dev->type = ARPHRD_IEEE80211_RADIOTAP;
+ #else
+ 			priv->net_dev->type = ARPHRD_IEEE80211;
+diff --git a/drivers/net/wireless/ipw2200.h b/drivers/net/wireless/ipw2200.h
+index 14fe79a..6044c0b 100644
+--- a/drivers/net/wireless/ipw2200.h
++++ b/drivers/net/wireless/ipw2200.h
+@@ -1146,7 +1146,7 @@ struct ipw_prom_priv {
+ };
+ #endif
+ 
+-#if defined(CONFIG_IEEE80211_RADIOTAP) || defined(CONFIG_IPW2200_PROMISCUOUS)
++#if defined(CONFIG_IPW2200_RADIOTAP) || defined(CONFIG_IPW2200_PROMISCUOUS)
+ /* Magic struct that slots into the radiotap header -- no reason
+  * to build this manually element by element, we can write it much
+  * more efficiently than we can parse it. ORDER MATTERS HERE
 -- 
 1.2.6
 
