@@ -1,41 +1,43 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 08/18] ipw2200: Set the 'fixed' flags in wext get_rate
-Date: Thu, 13 Apr 2006 17:20:05 +0800
-Message-ID: <20060413092005.GA28755@mail.intel.com>
+Subject: [PATCH 10/18] README.ipw2200: rename CONFIG_IPW_DEBUG to CONFIG_IPW2200_DEBUG
+Date: Thu, 13 Apr 2006 17:20:21 +0800
+Message-ID: <20060413092021.GA28773@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr20.intel.com ([134.134.136.19]:65456 "EHLO
-	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964849AbWDMJ1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:27:09 -0400
+Received: from fmr17.intel.com ([134.134.136.16]:27562 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964847AbWDMJ10 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:27:26 -0400
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
 ---
 
- drivers/net/wireless/ipw2200.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ Documentation/networking/README.ipw2200 |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-773cfa85e3c221a9d8284da73ff9e087e98dea12
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index 057faa0..4b02920 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -8759,6 +8759,7 @@ static int ipw_wx_get_rate(struct net_de
- 	struct ipw_priv *priv = ieee80211_priv(dev);
- 	mutex_lock(&priv->mutex);
- 	wrqu->bitrate.value = priv->last_rate;
-+	wrqu->bitrate.fixed = (priv->config & CFG_FIXED_RATE) ? 1 : 0;
- 	mutex_unlock(&priv->mutex);
- 	IPW_DEBUG_WX("GET Rate -> %d \n", wrqu->bitrate.value);
- 	return 0;
+4836217fd2a5f20600b2c053a19273d75d5e6f4c
+diff --git a/Documentation/networking/README.ipw2200 b/Documentation/networking/README.ipw2200
+index acb30c5..c3504f5 100644
+--- a/Documentation/networking/README.ipw2200
++++ b/Documentation/networking/README.ipw2200
+@@ -247,8 +247,8 @@ and can set the contents via echo.  For 
+ % cat /sys/bus/pci/drivers/ipw2200/debug_level
+ 
+ Will report the current debug level of the driver's logging subsystem 
+-(only available if CONFIG_IPW_DEBUG was configured when the driver was 
+-built).
++(only available if CONFIG_IPW2200_DEBUG was configured when the driver
++was built).
+ 
+ You can set the debug level via:
+ 
 -- 
 1.2.6
 
