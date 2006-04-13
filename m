@@ -1,65 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCH] softmac: (v2) send WEXT assoc/disassoc events to
-	userspace
-Date: Thu, 13 Apr 2006 01:56:48 +0200
-Message-ID: <1144886208.4187.26.camel@localhost>
-References: <1141928917.26954.7.camel@localhost.localdomain>
-	 <1141935893.28038.2.camel@localhost.localdomain>
-	 <441091B8.4010103@lwfinger.net>
-	 <1141936896.28038.6.camel@localhost.localdomain>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: [PATCH] bcm43xx: fix dyn tssi2dbm memleak
+Date: Thu, 13 Apr 2006 02:27:49 +0200
+Message-ID: <200604130227.51059.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/IwJKH1LYbsWSjrgGFhn"
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
-	softmac-dev@sipsolutions.net, David Woodhouse <dwmw2@redhat.com>,
-	bcm43xx-dev@lists.berlios.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([213.151.39.204]:25730 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932340AbWDLX6t
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Apr 2006 19:58:49 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1141936896.28038.6.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   "Bunk, Adrian" <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
+Content-Disposition: inline
+Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
 List-Id: netdev.vger.kernel.org
 
+This patch fixes a memory leak spotted by the Coverity checker.
 
---=-/IwJKH1LYbsWSjrgGFhn
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 
-On Thu, 2006-03-09 at 15:41 -0500, Dan Williams wrote:
+Index: wireless-dev/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.c	2006-04-13 02:21:39.000000000 +0200
++++ wireless-dev/drivers/net/wireless/bcm43xx/bcm43xx_phy.c	2006-04-13 02:23:31.000000000 +0200
+@@ -2151,6 +2151,7 @@
+ 				phy->tssi2dbm = NULL;
+ 				printk(KERN_ERR PFX "Could not generate "
+ 						    "tssi2dBm table\n");
++				kfree(dyn_tssi2dbm);
+ 				return -ENODEV;
+ 			}
+ 		phy->tssi2dbm = dyn_tssi2dbm;
 
-> Can you grab a debug log from wpa_supplicant?  Run wpa_supplicant with
-> the args "-ddd", and _don't_ run it as a daemon.  Mail the output to me
-> if you don't want it to go to everyone on the cc list (might include
-> SSIDs and such).  That should allow us to figure out exactly where
-> wpa_supplicant and/or the driver are having issues.
-
-Did this ever happen? I'm currently trying to collect all the pending
-patches
-
-johannes
-
---=-/IwJKH1LYbsWSjrgGFhn
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIVAwUARD2TvaVg1VMiehFYAQKvtA/9HrrsQQIX8iaHir74e/Huva0ufsQTMDDe
-76Uwa+YGjbsEpq00gPTW9oAw4LDmWnHGEDvIC8KXNdfEXtnIVsno+YaKc1phHdPW
-43dMVA39uy13J1z+cMNu2Fd7JzHF7ePAnLnIfLfu3LX1rQmEdOTOB6ZnDCuHGyrz
-KdaTUhmHaP9Id4T1EtsrHrPxIEIWQ7+dzlt/f/09iTElalhfGSs8PmrY9Ke/4Ejv
-cELRty3v4kfkTBwpyn2WB/bZvuUoILA06loAid0vhcunIijxHKwZ4fA90Agf7u8K
-rOpjHW4BWsGg9gjUECLmcNdZGCZqE4kI72ZQ6MhfiaysX9egSDFVHYHm9crJjMpp
-b+Pgr62ln8/g/DeZpbmZJr+TU3PUyquKBJhBXiCWm0i/gq+dRdSflcwfb6j9uKhq
-2wuoo0Y6dzpce+/jzX1PtRohNDXbDYL86S4bUL9sRvvwo3alBh/TrkZeXdwcrE6h
-/4+q0hC73p0uomcxhokM1kM1CwBJiReKV2N7L4lE31r8y6RhOsLPMf768apo03Gn
-Wq37p1rxE2hk0ltRQ0F79A71fOtzc5Lf93e/MbgzItl3wtQeSfP4FxcT8I/Y31RV
-VtUjheKccFv8cwtb8s53vCDKGLZH++dUJ97VE4RxczJ9UVVUyJnjopPAC1BeeLxF
-LD037VK8FEc=
-=jaEE
------END PGP SIGNATURE-----
-
---=-/IwJKH1LYbsWSjrgGFhn--
-
+-- 
+Greetings Michael.
