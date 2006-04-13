@@ -1,58 +1,46 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [patch 5] softmac: report when scanning has finished
-Date: Thu, 13 Apr 2006 08:15:01 -0400
-Message-ID: <1144930501.2372.14.camel@localhost.localdomain>
+Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
+Date: Thu, 13 Apr 2006 08:14:01 -0400
+Message-ID: <1144930441.2372.12.camel@localhost.localdomain>
 References: <20060411085805.949313000@sipsolutions.net>
-	 <1144921288.4187.54.camel@localhost>
+	 <20060411085841.252064000@sipsolutions.net>
+	 <20060413020010.2ab16d7b.zaitcev@redhat.com>
+	 <1144919176.4187.44.camel@localhost>  <1144920890.4187.50.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	softmac-dev@sipsolutions.net
+Cc: Pete Zaitcev <zaitcev@redhat.com>, Jean Tourrilhes <jt@hpl.hp.com>,
+	netdev@vger.kernel.org, softmac-dev@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:3213 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S964894AbWDMMQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 08:16:32 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:47245 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S964897AbWDMMRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 08:17:37 -0400
 To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1144921288.4187.54.camel@localhost>
+In-Reply-To: <1144920890.4187.50.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-04-13 at 11:41 +0200, Johannes Berg wrote:
-> Make softmac report a scan event when scanning has finished, that way
-> userspace can wait for the event to happen instead of polling for the
-> results.
+On Thu, 2006-04-13 at 11:34 +0200, Johannes Berg wrote:
+> On Thu, 2006-04-13 at 11:06 +0200, Johannes Berg wrote:
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-
-ACK, good catch.
-
-Signed-off-by: Dan Williams <dcbw@redhat.com>
-
-> ---
-> This patch depends on the previous patch 4. If you want, I can resend
-> the whole series with proper patch x/5 headers etc. I don't know if
-> these can still go in before .17, but it'd be very good if they could,
-> they're essentially bug fixes for things I either didn't know or just
-> plain bugs :)
+> > > It's very likely that tools do indeed loop when they see EAGAIN, but
+> > > this is a workaround, not the main mode of operation. It seems obvious
+> > > to me that the get method should wait until the scan results are
+> > > available. Perhaps the discussion had a specific scenario where
+> > > EAGAIN would make sense, but I cannot imagine what it might be.
+> > 
+> > Right, they do loop, but they don't have a method to indicate
+> > completion. Thus we'd have to actually wait for the completion in the
+> > kernel. Jean, what is the intended use here?
 > 
-> Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c
-> ===================================================================
-> --- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_event.c	2006-04-13 02:42:59.000000000 +0200
-> +++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c	2006-04-13 11:30:59.896998787 +0200
-> @@ -152,6 +152,12 @@
->  			wrqu.ap_addr.sa_family = ARPHRD_ETHER;
->  			we_event = SIOCGIWAP;
->  			break;
-> +		case IEEE80211SOFTMAC_EVENT_SCAN_FINISHED:
-> +			wrqu.data.length = 0;
-> +			wrqu.data.flags = 0;
-> +			memset(&wrqu, '\0', sizeof (union iwreq_data));
-> +			we_event = SIOCGIWSCAN;
-> +			break;
->  		default:
->  			msg = event_descriptions[event];
->  			wrqu.data.length = strlen(msg);
-> 
+> Hah, never mind, I guess we're just supposed to send SIOCGIWSCAN. Will
+> send a patch in a minute.
+
+No, you should be doing both really.  If you don't do EAGAIN, then tools
+like iwlist and other simple ones that don't want to spend 100 lines of
+code in netlink message processing just to receive the wireless event
+won't work very well.
+
+Dan
+
 
