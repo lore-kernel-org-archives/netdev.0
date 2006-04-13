@@ -1,79 +1,83 @@
-From: Marc Zyngier <maz@misterjones.org>
-Subject: [PATCH] Repost : Convert cassini to pci_iomap
-Date: Thu, 13 Apr 2006 11:38:20 +0200
-Message-ID: <wrp1ww1izn7.fsf@wild-wind.fr.eu.org>
-Reply-To: maz@misterjones.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [patch 5] softmac: report when scanning has finished
+Date: Thu, 13 Apr 2006 11:41:28 +0200
+Message-ID: <1144921288.4187.54.camel@localhost>
+References: <20060411085805.949313000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-qy8P4gs7UoEK0GeSyv8E"
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	softmac-dev@sipsolutions.net, Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lopsy-lu.misterjones.org ([62.4.18.26]:41609 "EHLO
-	young-lust.wild-wind.fr.eu.org") by vger.kernel.org with ESMTP
-	id S964862AbWDMJi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:38:27 -0400
+Received: from crystal.sipsolutions.net ([213.151.39.204]:20106 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S964865AbWDMJmk
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:42:40 -0400
 To: netdev@vger.kernel.org
+In-Reply-To: <20060411085805.949313000@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Folks,
 
-This patch (against 2.6.17-rc1) converts the cassini driver to the
-pci_iomap API that will do the right thing, so architectures like
-PARISC can stop screaming about illegal usage of ioremap() on
-non-cacheable regions.
+--=-qy8P4gs7UoEK0GeSyv8E
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Tested on 64bit PARISC kernel.
+Make softmac report a scan event when scanning has finished, that way
+userspace can wait for the event to happen instead of polling for the
+results.
 
-Signed-off-by: Marc Zyngier <maz@misterjones.org>
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-diff --git a/drivers/net/cassini.c b/drivers/net/cassini.c
-index ac48f75..39f36aa 100644
---- a/drivers/net/cassini.c
-+++ b/drivers/net/cassini.c
-@@ -4877,7 +4877,7 @@ static int __devinit cas_init_one(struct
- 				  const struct pci_device_id *ent)
- {
- 	static int cas_version_printed = 0;
--	unsigned long casreg_base, casreg_len;
-+	unsigned long casreg_len;
- 	struct net_device *dev;
- 	struct cas *cp;
- 	int i, err, pci_using_dac;
-@@ -4972,7 +4972,6 @@ static int __devinit cas_init_one(struct
- 		pci_using_dac = 0;
- 	}
- 
--	casreg_base = pci_resource_start(pdev, 0);
- 	casreg_len = pci_resource_len(pdev, 0);
- 
- 	cp = netdev_priv(dev);
-@@ -5024,7 +5023,7 @@ static int __devinit cas_init_one(struct
- 	cp->timer_ticks = 0;
- 
- 	/* give us access to cassini registers */
--	cp->regs = ioremap(casreg_base, casreg_len);
-+	cp->regs = pci_iomap(pdev, 0, casreg_len);
- 	if (cp->regs == 0UL) {
- 		printk(KERN_ERR PFX "Cannot map device registers, "
- 		       "aborting.\n");
-@@ -5123,7 +5122,7 @@ err_out_iounmap:
- 		cas_shutdown(cp);
- 	mutex_unlock(&cp->pm_mutex);
- 
--	iounmap(cp->regs);
-+	pci_iounmap(pdev, cp->regs);
- 
- 
- err_out_free_res:
-@@ -5171,7 +5170,7 @@ static void __devexit cas_remove_one(str
- #endif
- 	pci_free_consistent(pdev, sizeof(struct cas_init_block),
- 			    cp->init_block, cp->block_dvma);
--	iounmap(cp->regs);
-+	pci_iounmap(pdev, cp->regs);
- 	free_netdev(dev);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
+---
+This patch depends on the previous patch 4. If you want, I can resend
+the whole series with proper patch x/5 headers etc. I don't know if
+these can still go in before .17, but it'd be very good if they could,
+they're essentially bug fixes for things I either didn't know or just
+plain bugs :)
 
--- 
-And if you don't know where you're going, any road will take you there...
+Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_event.c	2006-0=
+4-13 02:42:59.000000000 +0200
++++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c	2006-04-13 =
+11:30:59.896998787 +0200
+@@ -152,6 +152,12 @@
+ 			wrqu.ap_addr.sa_family =3D ARPHRD_ETHER;
+ 			we_event =3D SIOCGIWAP;
+ 			break;
++		case IEEE80211SOFTMAC_EVENT_SCAN_FINISHED:
++			wrqu.data.length =3D 0;
++			wrqu.data.flags =3D 0;
++			memset(&wrqu, '\0', sizeof (union iwreq_data));
++			we_event =3D SIOCGIWSCAN;
++			break;
+ 		default:
+ 			msg =3D event_descriptions[event];
+ 			wrqu.data.length =3D strlen(msg);
+
+
+--=-qy8P4gs7UoEK0GeSyv8E
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIVAwUARD4cxqVg1VMiehFYAQJMxRAAibTGk5+FoqtddJPa9FpA4FRgS1IZTxLx
+B39oYHRtcS7xzkrogL1FUMXXFVmYXs2jdjLBJew2sIDOgwaqQGzAbWcE6nqB1748
+GgS2hSxveFEHvx7ynU16QDKPHchwOBrMEqza0x6XxB5XuuRRQa20vrcGPMRGut1P
+cBAcAu57c0Zn/5sh+YXHynXyYSG04AAjbCga0EiUbIg4DAYzSWQlWTwMU9dWw2MU
+n1/j4dgsB2QTRJGYV0FBpgQvQbSBFbFsbQVl3XiiEz4npL1qJH4bm2t0R7Xpt3Ia
+hqH6TxSmyHgt2RSKLFgvv3gSnc6er6UWH3I51qki8znyG9QYViN9kql0UFYvE3YO
+Bj4Xhp9f4Ygw6ksqNMmx+Z82hk3l8jPYdApMW1hvCkc/G1X1gSFGF43amX0SZL55
+D6u9QDDdNh76DUC97UXOgn+kOWcYg9qRX4/uXc9DrOHjqNzXkzZ97FR9ewjfGvws
+ekLiqj1CqIbNJZos/63qeGBLtg0+OQOPeUJPwBwFf09M08b6vp314ldxR64lvRvq
+iviLU4Xg8SsktmbykTsWdfOig8D2/SpK2Qt2UVHoblAzgaDOrfVJuX48Zwpj/qUi
+0/syxQ0P38QhaxSfKnyz+49k66LXXD8zKnKEdxxcGa6x56qF+YtSdL6Mopkllpaw
+aWn2Q8/g3+I=
+=wBO7
+-----END PGP SIGNATURE-----
+
+--=-qy8P4gs7UoEK0GeSyv8E--
+
