@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [patch 22/22] atm: clip causes unregister hang
-Date: Thu, 13 Apr 2006 16:09:46 -0700
-Message-ID: <20060413230946.GW5613@kroah.com>
+Subject: [patch 05/22] sky2: bad memory reference on dual port cards
+Date: Thu, 13 Apr 2006 16:07:20 -0700
+Message-ID: <20060413230720.GF5613@kroah.com>
 References: <20060413230141.330705000@quad.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,131 +11,55 @@ Cc: Justin Forbes <jmforbes@linuxtx.org>,
 	Randy Dunlap <rdunlap@xenotime.net>,
 	Dave Jones <davej@redhat.com>,
 	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, chas@cmf.nrl.navy.mil,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
 	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:22735 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S965025AbWDMXKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 19:10:48 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965007AbWDMXIo@vger.kernel.org>
 To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
-Content-Disposition: inline; filename="atm-clip-causes-unregister-hang.patch"
+	Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename="sky2-bad-memory-reference-on-dual-port-cards.patch"
 In-Reply-To: <20060413230637.GA5613@kroah.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 -stable review patch.  If anyone has any objections, please let us know.
 
 ------------------
-
-If Classical IP over ATM module is loaded, its neighbor table gets
-populated when permanent neighbor entries are created; but these entries
-are not flushed when the device is removed. Since the entry never gets
-flushed the unregister of the network device never completes.
-
-This version of the patch also adds locking around the reference to
-the atm arp daemon to avoid races with events and daemon state changes.
-(Note: barrier() was never really safe)
-
-Bug-reference: http://bugzilla.kernel.org/show_bug.cgi?id=6295
+Sky2 driver will oops referencing bad memory if used on
+a dual port card.  The problem is accessing past end of
+MIB counter space.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
----
- net/atm/clip.c |   42 +++++++++++++++++++++++++++---------------
- 1 file changed, 27 insertions(+), 15 deletions(-)
 
---- linux-2.6.16.5.orig/net/atm/clip.c
-+++ linux-2.6.16.5/net/atm/clip.c
-@@ -613,12 +613,19 @@ static int clip_create(int number)
+---
+ drivers/net/sky2.c |    4 ++--
+ drivers/net/sky2.h |    1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+--- linux-2.6.16.5.orig/drivers/net/sky2.c
++++ linux-2.6.16.5/drivers/net/sky2.c
+@@ -579,8 +579,8 @@ static void sky2_mac_init(struct sky2_hw
+ 	reg = gma_read16(hw, port, GM_PHY_ADDR);
+ 	gma_write16(hw, port, GM_PHY_ADDR, reg | GM_PAR_MIB_CLR);
  
+-	for (i = 0; i < GM_MIB_CNT_SIZE; i++)
+-		gma_read16(hw, port, GM_MIB_CNT_BASE + 8 * i);
++	for (i = GM_MIB_CNT_BASE; i <= GM_MIB_CNT_END; i += 4)
++		gma_read16(hw, port, i);
+ 	gma_write16(hw, port, GM_PHY_ADDR, reg);
  
- static int clip_device_event(struct notifier_block *this,unsigned long event,
--    void *dev)
-+			     void *arg)
- {
-+	struct net_device *dev = arg;
-+
-+	if (event == NETDEV_UNREGISTER) {
-+		neigh_ifdown(&clip_tbl, dev);
-+		return NOTIFY_DONE;
-+	}
-+
- 	/* ignore non-CLIP devices */
--	if (((struct net_device *) dev)->type != ARPHRD_ATM ||
--	    ((struct net_device *) dev)->hard_start_xmit != clip_start_xmit)
-+	if (dev->type != ARPHRD_ATM || dev->hard_start_xmit != clip_start_xmit)
- 		return NOTIFY_DONE;
-+
- 	switch (event) {
- 		case NETDEV_UP:
- 			DPRINTK("clip_device_event NETDEV_UP\n");
-@@ -686,14 +693,12 @@ static struct notifier_block clip_inet_n
- static void atmarpd_close(struct atm_vcc *vcc)
- {
- 	DPRINTK("atmarpd_close\n");
--	atmarpd = NULL; /* assumed to be atomic */
--	barrier();
--	unregister_inetaddr_notifier(&clip_inet_notifier);
--	unregister_netdevice_notifier(&clip_dev_notifier);
--	if (skb_peek(&sk_atm(vcc)->sk_receive_queue))
--		printk(KERN_ERR "atmarpd_close: closing with requests "
--		    "pending\n");
-+
-+	rtnl_lock();
-+	atmarpd = NULL;
- 	skb_queue_purge(&sk_atm(vcc)->sk_receive_queue);
-+	rtnl_unlock();
-+
- 	DPRINTK("(done)\n");
- 	module_put(THIS_MODULE);
- }
-@@ -714,7 +719,12 @@ static struct atm_dev atmarpd_dev = {
+ 	/* transmit control */
+--- linux-2.6.16.5.orig/drivers/net/sky2.h
++++ linux-2.6.16.5/drivers/net/sky2.h
+@@ -1380,6 +1380,7 @@ enum {
+ /* MIB Counters */
+ #define GM_MIB_CNT_BASE	0x0100		/* Base Address of MIB Counters */
+ #define GM_MIB_CNT_SIZE	44		/* Number of MIB Counters */
++#define GM_MIB_CNT_END	0x025C		/* Last MIB counter */
  
- static int atm_init_atmarp(struct atm_vcc *vcc)
- {
--	if (atmarpd) return -EADDRINUSE;
-+	rtnl_lock();
-+	if (atmarpd) {
-+		rtnl_unlock();
-+		return -EADDRINUSE;
-+	}
-+
- 	if (start_timer) {
- 		start_timer = 0;
- 		init_timer(&idle_timer);
-@@ -731,10 +741,7 @@ static int atm_init_atmarp(struct atm_vc
- 	vcc->push = NULL;
- 	vcc->pop = NULL; /* crash */
- 	vcc->push_oam = NULL; /* crash */
--	if (register_netdevice_notifier(&clip_dev_notifier))
--		printk(KERN_ERR "register_netdevice_notifier failed\n");
--	if (register_inetaddr_notifier(&clip_inet_notifier))
--		printk(KERN_ERR "register_inetaddr_notifier failed\n");
-+	rtnl_unlock();
- 	return 0;
- }
- 
-@@ -992,6 +999,8 @@ static int __init atm_clip_init(void)
- 
- 	clip_tbl_hook = &clip_tbl;
- 	register_atm_ioctl(&clip_ioctl_ops);
-+	register_netdevice_notifier(&clip_dev_notifier);
-+	register_inetaddr_notifier(&clip_inet_notifier);
- 
- #ifdef CONFIG_PROC_FS
- {
-@@ -1012,6 +1021,9 @@ static void __exit atm_clip_exit(void)
- 
- 	remove_proc_entry("arp", atm_proc_root);
- 
-+	unregister_inetaddr_notifier(&clip_inet_notifier);
-+	unregister_netdevice_notifier(&clip_dev_notifier);
-+
- 	deregister_atm_ioctl(&clip_ioctl_ops);
- 
- 	/* First, stop the idle timer, so it stops banging
+ /*
+  * MIB Counters base address definitions (low word) -
 
 --
