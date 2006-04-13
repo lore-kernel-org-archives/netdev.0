@@ -1,73 +1,60 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 03/18] ipw2200: generates a scan event after a scan has completed
-Date: Thu, 13 Apr 2006 17:19:25 +0800
-Message-ID: <20060413091925.GA28720@mail.intel.com>
+Subject: [PATCH 04/18] ipw2200: add module_param support for antenna selection
+Date: Thu, 13 Apr 2006 17:19:36 +0800
+Message-ID: <20060413091936.GA28727@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr20.intel.com ([134.134.136.19]:58032 "EHLO
-	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964843AbWDMJ0a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:26:30 -0400
+Received: from fmr19.intel.com ([134.134.136.18]:26573 "EHLO
+	orsfmr004.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964844AbWDMJ0k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:26:40 -0400
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patch make ipw2200 generate the scan event every time a scan has
-completed, so that user space know when to get fresh results.
-Dan Williams would like to go towards this model in Network Manager
-rather than having to poll.
-
-Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
 ---
 
- drivers/net/wireless/ipw2200.c |   21 ++++++++++++++++++++-
- 1 files changed, 20 insertions(+), 1 deletions(-)
+ drivers/net/wireless/ipw2200.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-edf85b053dafee701cbdda19507485455f97e544
+cfcb7bc915320b44d0d2825a8554211249c7bbcd
 diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index a4d8d49..536af9f 100644
+index 536af9f..6b8c47b 100644
 --- a/drivers/net/wireless/ipw2200.c
 +++ b/drivers/net/wireless/ipw2200.c
-@@ -4489,6 +4489,24 @@ static void ipw_rx_notification(struct i
- 				 && priv->status & STATUS_ASSOCIATED)
- 				queue_delayed_work(priv->workqueue,
- 						   &priv->request_scan, HZ);
-+
-+			/* Send an empty event to user space.
-+			 * We don't send the received data on the event because
-+			 * it would require us to do complex transcoding, and
-+			 * we want to minimise the work done in the irq handler
-+			 * Use a request to extract the data.
-+			 * Also, we generate this even for any scan, regardless
-+			 * on how the scan was initiated. User space can just
-+			 * sync on periodic scan to get fresh data...
-+			 * Jean II */
-+			if (x->status == SCAN_COMPLETED_STATUS_COMPLETE) {
-+				union iwreq_data wrqu;
-+
-+				wrqu.data.length = 0;
-+				wrqu.data.flags = 0;
-+				wireless_send_event(priv->net_dev, SIOCGIWSCAN,
-+						    &wrqu, NULL);
-+			}
- 			break;
- 		}
+@@ -61,6 +61,7 @@ static int roaming = 1;
+ static const char ipw_modes[] = {
+ 	'a', 'b', 'g', '?'
+ };
++static int antenna = CFG_SYS_ANTENNA_BOTH;
  
-@@ -8382,7 +8400,8 @@ static int ipw_wx_get_range(struct net_d
- 	/* Event capability (kernel + driver) */
- 	range->event_capa[0] = (IW_EVENT_CAPA_K_0 |
- 				IW_EVENT_CAPA_MASK(SIOCGIWTHRSPY) |
--				IW_EVENT_CAPA_MASK(SIOCGIWAP));
-+				IW_EVENT_CAPA_MASK(SIOCGIWAP) |
-+				IW_EVENT_CAPA_MASK(SIOCGIWSCAN));
- 	range->event_capa[1] = IW_EVENT_CAPA_K_1;
+ #ifdef CONFIG_IPW_QOS
+ static int qos_enable = 0;
+@@ -9630,7 +9631,9 @@ static  void init_sys_config(struct ipw_
+ 	sys_config->disable_unicast_decryption = 1;
+ 	sys_config->exclude_multicast_unencrypted = 0;
+ 	sys_config->disable_multicast_decryption = 1;
+-	sys_config->antenna_diversity = CFG_SYS_ANTENNA_SLOW_DIV;
++	if (antenna < CFG_SYS_ANTENNA_BOTH || antenna > CFG_SYS_ANTENNA_B)
++		antenna = CFG_SYS_ANTENNA_BOTH;
++	sys_config->antenna_diversity = antenna;
+ 	sys_config->pass_crc_to_host = 0;	/* TODO: See if 1 gives us FCS */
+ 	sys_config->dot11g_auto_detection = 0;
+ 	sys_config->enable_cts_to_self = 0;
+@@ -11261,5 +11264,8 @@ MODULE_PARM_DESC(cmdlog,
+ module_param(roaming, int, 0444);
+ MODULE_PARM_DESC(roaming, "enable roaming support (default on)");
  
- 	range->enc_capa = IW_ENC_CAPA_WPA | IW_ENC_CAPA_WPA2 |
++module_param(antenna, int, 0444);
++MODULE_PARM_DESC(antenna, "select antenna 1=Main, 3=Aux, default 0 [both], 2=slow_diversity (choose the one with lower background noise)");
++
+ module_exit(ipw_exit);
+ module_init(ipw_init);
 -- 
 1.2.6
 
