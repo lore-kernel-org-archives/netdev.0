@@ -1,83 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [patch 5] softmac: report when scanning has finished
-Date: Thu, 13 Apr 2006 11:41:28 +0200
-Message-ID: <1144921288.4187.54.camel@localhost>
-References: <20060411085805.949313000@sipsolutions.net>
+From: Ingo Oeser <ioe-lkml@rameria.de>
+Subject: Re: [PATCH] deinline a few large functions in vlan code v2
+Date: Thu, 13 Apr 2006 13:32:50 +0200
+Message-ID: <200604131332.51784.ioe-lkml@rameria.de>
+References: <200604071628.30486.vda@ilport.com.ua> <200604121155.55561.vda@ilport.com.ua> <1144862325.18319.32.camel@dillow.idleaire.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-qy8P4gs7UoEK0GeSyv8E"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	softmac-dev@sipsolutions.net, Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Denis Vlasenko <vda@ilport.com.ua>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([213.151.39.204]:20106 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S964865AbWDMJmk
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:42:40 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <20060411085805.949313000@sipsolutions.net>
+Received: from smtprelay01.ispgateway.de ([80.67.18.13]:21441 "EHLO
+	smtprelay01.ispgateway.de") by vger.kernel.org with ESMTP
+	id S964884AbWDMLfE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 07:35:04 -0400
+To: Dave Dillow <dave@thedillows.org>
+In-Reply-To: <1144862325.18319.32.camel@dillow.idleaire.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Dave,
 
---=-qy8P4gs7UoEK0GeSyv8E
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+On Wednesday, 12. April 2006 19:18, Dave Dillow wrote:
+> you've left the spin_locks in, and have more #ifdefs.
 
-Make softmac report a scan event when scanning has finished, that way
-userspace can wait for the event to happen instead of polling for the
-results.
+Ok, I can refactor your driver to even remove this and reduce it to exaxtly 
+two ifdef sections for your driver. Acceptable?
+ 
+> Regardless, I remain opposed to this particular instance of bloat 
+> busting. While both patches have improved in style, they remove a useful 
+> feature and make the code less clean, for no net gain.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+s/useful feature/unreachable code/g
 
----
-This patch depends on the previous patch 4. If you want, I can resend
-the whole series with proper patch x/5 headers etc. I don't know if
-these can still go in before .17, but it'd be very good if they could,
-they're essentially bug fixes for things I either didn't know or just
-plain bugs :)
+> On SMP FC4, typhoon.ko has a text size of 68330, so you need to cut 2794 
+> bytes to see an actual difference in memory usage for a module. Non-SMP 
+> it is 67741, so there you only need to cut 2205 bytes to get a win.
 
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_event.c	2006-0=
-4-13 02:42:59.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c	2006-04-13 =
-11:30:59.896998787 +0200
-@@ -152,6 +152,12 @@
- 			wrqu.ap_addr.sa_family =3D ARPHRD_ETHER;
- 			we_event =3D SIOCGIWAP;
- 			break;
-+		case IEEE80211SOFTMAC_EVENT_SCAN_FINISHED:
-+			wrqu.data.length =3D 0;
-+			wrqu.data.flags =3D 0;
-+			memset(&wrqu, '\0', sizeof (union iwreq_data));
-+			we_event =3D SIOCGIWSCAN;
-+			break;
- 		default:
- 			msg =3D event_descriptions[event];
- 			wrqu.data.length =3D strlen(msg);
+   text    data     bss     dec     hex filename
+  62079     973       4   63056    f650 no-vlan/drivers/net/typhoon.o
+  62654     973       4   63631    f88f vlan/drivers/net/typhoon.o
+
+with allyesconfig (minus CONFIG_INFO) and my patches applied.
+So maybe the uninlining is enough. Gain after this is just 575 bytes here.
 
 
---=-qy8P4gs7UoEK0GeSyv8E
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Regards
 
------BEGIN PGP SIGNATURE-----
-
-iQIVAwUARD4cxqVg1VMiehFYAQJMxRAAibTGk5+FoqtddJPa9FpA4FRgS1IZTxLx
-B39oYHRtcS7xzkrogL1FUMXXFVmYXs2jdjLBJew2sIDOgwaqQGzAbWcE6nqB1748
-GgS2hSxveFEHvx7ynU16QDKPHchwOBrMEqza0x6XxB5XuuRRQa20vrcGPMRGut1P
-cBAcAu57c0Zn/5sh+YXHynXyYSG04AAjbCga0EiUbIg4DAYzSWQlWTwMU9dWw2MU
-n1/j4dgsB2QTRJGYV0FBpgQvQbSBFbFsbQVl3XiiEz4npL1qJH4bm2t0R7Xpt3Ia
-hqH6TxSmyHgt2RSKLFgvv3gSnc6er6UWH3I51qki8znyG9QYViN9kql0UFYvE3YO
-Bj4Xhp9f4Ygw6ksqNMmx+Z82hk3l8jPYdApMW1hvCkc/G1X1gSFGF43amX0SZL55
-D6u9QDDdNh76DUC97UXOgn+kOWcYg9qRX4/uXc9DrOHjqNzXkzZ97FR9ewjfGvws
-ekLiqj1CqIbNJZos/63qeGBLtg0+OQOPeUJPwBwFf09M08b6vp314ldxR64lvRvq
-iviLU4Xg8SsktmbykTsWdfOig8D2/SpK2Qt2UVHoblAzgaDOrfVJuX48Zwpj/qUi
-0/syxQ0P38QhaxSfKnyz+49k66LXXD8zKnKEdxxcGa6x56qF+YtSdL6Mopkllpaw
-aWn2Q8/g3+I=
-=wBO7
------END PGP SIGNATURE-----
-
---=-qy8P4gs7UoEK0GeSyv8E--
-
+Ingo Oeser
