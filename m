@@ -1,36 +1,37 @@
 From: Roger Luethi <rl@hellgate.ch>
 Subject: Re: via_rhine modules error on 2.6.16 with mii-tool
-Date: Thu, 13 Apr 2006 22:31:48 +0200
-Message-ID: <20060413203147.GA2874@k3.hellgate.ch>
-References: <BAY103-F401F96F0B06D75E70AF0BFB2DF0@phx.gbl> <20060327203946.GA11824@k3.hellgate.ch> <20060413182638.GC25854@tuxdriver.com>
+Date: Thu, 13 Apr 2006 22:47:31 +0200
+Message-ID: <20060413204731.GB2874@k3.hellgate.ch>
+References: <BAY103-F401F96F0B06D75E70AF0BFB2DF0@phx.gbl> <20060327203946.GA11824@k3.hellgate.ch> <20060413182638.GC25854@tuxdriver.com> <20060413114018.65fba555@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Marco Berizzi <pupilla@hotmail.com>, netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Marco Berizzi <pupilla@hotmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail15.bluewin.ch ([195.186.18.63]:1770 "EHLO mail15.bluewin.ch")
-	by vger.kernel.org with ESMTP id S964868AbWDMUcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 16:32:52 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from mail14.bluewin.ch ([195.186.19.62]:14292 "EHLO
+	mail14.bluewin.ch") by vger.kernel.org with ESMTP id S932465AbWDMUse
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 16:48:34 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060413182638.GC25854@tuxdriver.com>
+In-Reply-To: <20060413114018.65fba555@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Apr 2006 14:26:43 -0400, John W. Linville wrote:
-> > I wonder if low latency for ancient Rhine-I chips is worth the trouble.
-> 
-> IIRC, the point was that mdelay was getting called in interrupt
-> context and causing ugly messages to show-up in dmesg.
+On Thu, 13 Apr 2006 11:40:18 -0700, Stephen Hemminger wrote:
+> The right thing to do is get rid of the locking in via_rhine:netdev_ioctl
+> and push the locking down into mdio_read, mdio_write.
 
-I suppose the patch back then was to reduce latency; the ugly messages in
-the kernel ring buffer were _introduced_ with the patch (you shouldn't get 
-error messages calling mdelay in interrupt context because that's what
-mdelay is for).
+As I said before, a dozen other network drivers do the exact same thing --
+they call generic_mii_ioctl right after grabbing the private spin lock (and
+only one driver calls generic_mii_ioctl without taking the lock).
 
-> Would the patch below be sufficient?  Or does the whole patch need
-> to be reverted?
+I am not keen on patches that make via-rhine more of a special case even if
+it was safe now; next thing you know generic_mii_ioctl is changed in a way
+that breaks the only driver that foolishly made assumptions about the
+side-effects of that function.
 
-I'd revert the whole thing. There's no point in having the additional
-work_struct complexity if we end up calling mdelay anyway.
+If you can safely move the locking down for all network drivers, that would
+be a different story, of course.
 
 Roger
