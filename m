@@ -1,98 +1,50 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/3] eth: use constant size address (revised)
-Date: Thu, 13 Apr 2006 16:24:25 -0700
-Message-ID: <20060413162425.4e50bec2@localhost.localdomain>
-References: <20060411181053.862087000@localhost.localdomain>
-	<20060411181136.913572000@localhost.localdomain>
-	<20060411.172401.67034166.davem@davemloft.net>
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
+Date: Thu, 13 Apr 2006 16:35:25 -0700
+Message-ID: <20060413163525.6d866fee.zaitcev@redhat.com>
+References: <20060413160051.GE15499@instant802.com>
+	<20060413152853.149186fb.zaitcev@redhat.com>
+	<20060413224522.GK15499@instant802.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: johannes@sipsolutions.net, dcbw@redhat.com, netdev@vger.kernel.org,
+	linville@tuxdriver.com, softmac-dev@sipsolutions.net,
+	zaitcev@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20386 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965041AbWDMXYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 19:24:43 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060411.172401.67034166.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:19368 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S965049AbWDMXhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 19:37:25 -0400
+To: "Jouni Malinen" <jkm@devicescape.com>
+In-Reply-To: <20060413224522.GK15499@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change the ethernet support routines to use constant address size.
-This generates smaller faster code.
+On Thu, 13 Apr 2006 15:45:22 -0700, "Jouni Malinen" <jkm@devicescape.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> > [...] I can guess now what your concern is, even though
+> > you failed to articulate it: a single-threaded GUI application,
+> > which cannot respond to events when blocked in getting scan results.
+> > If that's the case, we should be looking at having both blocking
+> > and non-blocking calls to fetch scan results.
+> 
+> No, my main concern was single-threaded design in wpa_suppliant.. If the
+> ioctl call is blocking, I would need to create a new (well, the first
+> additional) thread just for this use. Without that, the blocking call
+> would also block all control interface commands (interaction with
+> external programs) and controlling of other interfaces (if more than one
+> is used).
 
+I see... Thanks for explainig it.
 
---- sky2-2.6.17.orig/net/ethernet/eth.c	2006-03-07 13:28:54.000000000 -0800
-+++ sky2-2.6.17/net/ethernet/eth.c	2006-04-12 13:10:56.000000000 -0700
-@@ -77,6 +77,8 @@
- {
- 	struct ethhdr *eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
- 
-+	BUG_ON(dev->addr_len != ETH_ALEN);
-+
- 	/* 
- 	 *	Set the protocol type. For a packet of type ETH_P_802_3 we put the length
- 	 *	in here instead. It is up to the 802.2 layer to carry protocol information.
-@@ -93,11 +95,11 @@
- 	 
- 	if(!saddr)
- 		saddr = dev->dev_addr;
--	memcpy(eth->h_source,saddr,dev->addr_len);
-+	memcpy(eth->h_source,saddr, ETH_ALEN);
- 
- 	if(daddr)
- 	{
--		memcpy(eth->h_dest,daddr,dev->addr_len);
-+		memcpy(eth->h_dest,daddr, ETH_ALEN);
- 		return ETH_HLEN;
- 	}
- 	
-@@ -107,7 +109,7 @@
- 
- 	if (dev->flags & (IFF_LOOPBACK|IFF_NOARP)) 
- 	{
--		memset(eth->h_dest, 0, dev->addr_len);
-+		memset(eth->h_dest, 0, ETH_ALEN);
- 		return ETH_HLEN;
- 	}
- 	
-@@ -140,7 +142,7 @@
- 		       "%s: unable to resolve type %X addresses.\n", 
- 		       dev->name, (int)eth->h_proto);
- 		
--		memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
-+		memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
- 		break;
- 	}
- 
-@@ -223,8 +225,8 @@
- 		return -1;
- 
- 	eth->h_proto = type;
--	memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
--	memcpy(eth->h_dest, neigh->ha, dev->addr_len);
-+	memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
-+	memcpy(eth->h_dest, neigh->ha, ETH_ALEN);
- 	hh->hh_len = ETH_HLEN;
- 	return 0;
- }
-@@ -236,7 +238,7 @@
- void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev, unsigned char * haddr)
- {
- 	memcpy(((u8*)hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
--	       haddr, dev->addr_len);
-+	       haddr, ETH_ALEN);
- }
- 
- EXPORT_SYMBOL(eth_type_trans);
-@@ -246,7 +248,7 @@
- 	struct sockaddr *addr=p;
- 	if (netif_running(dev))
- 		return -EBUSY;
--	memcpy(dev->dev_addr, addr->sa_data,dev->addr_len);
-+	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
- 	return 0;
- }
- 
+> [...] Furthermore, blocking ioctl
+> handlers is not really something I would like to see in the kernel..
+> Aren't there some locks/semaphores/etc. kept for some cases?
+
+I think you are taking this concept too far. Consider things like
+an ioctl to seek a magnetic tape N files forward, or an ioctl to
+flush characters to a terminal. They seem to work fine in blocking
+mode. And no, we do not have a generic API to expose semaphores
+(I suppose you did not mean SYSV IPC above :-).
+
+-- Pete
