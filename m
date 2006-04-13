@@ -1,50 +1,55 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
-Date: Thu, 13 Apr 2006 15:21:48 -0700
-Message-ID: <20060413152148.eba6a4de.zaitcev@redhat.com>
-References: <20060411085805.949313000@sipsolutions.net>
-	<20060411085841.252064000@sipsolutions.net>
-	<20060413020010.2ab16d7b.zaitcev@redhat.com>
-	<1144930375.2372.10.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2/4] clip: get rid of PROC_FS ifdef
+Date: Thu, 13 Apr 2006 15:23:15 -0700
+Message-ID: <20060413152315.05051c08@localhost.localdomain>
+References: <20060412105545.3b089dd8@localhost.localdomain>
+	<20060413151945.0f181d04@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linville@tuxdriver.com, zaitcev@redhat.com
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41953 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S932464AbWDMWWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 18:22:15 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1144930375.2372.10.camel@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:14224 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932467AbWDMWZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 18:25:56 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060413151945.0f181d04@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Apr 2006 08:12:55 -0400, Dan Williams <dcbw@redhat.com> wrote:
+Don't need the ifdef here since create_proc_entry() is stubbed to always
+return NULL.
 
-> > This sounds completely wrong. Do you guys remember the Subject: string
-> > of this discussion by any chance?
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-> There are two options for tools: (a) request scan and block on GIWSCAN
-> until it doesn't return EAGAIN, or (b) request a scan, enter a loop,
-> wait for the GIWSCAN netlink message to come back.  The point here is
-> that if you have to write a tool with 100 lines of netlink message
-> processing code _just_ to get the "scan done!" message, that's a bitch.
-> More complicated programs can obviously do this, but simple tools don't
-> want or need to.
 
-Do you realize that "block" means "enterering the kernel and calling
-schedule()", which is exactly what is NOT happening in the patch?
-I would not mind if the tools "blocked in GIWSCAN", only until
-it returns success and not EGAIN.
-
-With EAGAIN returned, you have to a) block elsewhere and not in
-GIWSCAN (perhaps in sleep(2) or select(2)), or b) not block at all
-and loop.
-
-> I believe that the patch for softmac/bcm43xx EAGAIN is correct.
-
-It is correct, no doubt. The discussion is about wether it is
-desirable.
-
--- Pete
+--- clip.orig/net/atm/clip.c	2006-04-13 15:18:21.000000000 -0700
++++ clip/net/atm/clip.c	2006-04-13 15:20:26.000000000 -0700
+@@ -976,6 +976,7 @@
+ 
+ static int __init atm_clip_init(void)
+ {
++	struct proc_dir_entry *p;
+ 	neigh_table_init(&clip_tbl);
+ 
+ 	clip_tbl_hook = &clip_tbl;
+@@ -985,15 +986,9 @@
+ 
+ 	setup_timer(&idle_timer, idle_timer_check, 0);
+ 
+-#ifdef CONFIG_PROC_FS
+-	{
+-		struct proc_dir_entry *p;
+-
+-		p = create_proc_entry("arp", S_IRUGO, atm_proc_root);
+-		if (p)
+-			p->proc_fops = &arp_seq_fops;
+-	}
+-#endif
++	p = create_proc_entry("arp", S_IRUGO, atm_proc_root);
++	if (p)
++		p->proc_fops = &arp_seq_fops;
+ 
+ 	return 0;
+ }
