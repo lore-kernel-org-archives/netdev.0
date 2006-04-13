@@ -1,37 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] atm: clip timer race
-Date: Fri, 14 Apr 2006 08:11:14 +1000
-Message-ID: <E1FUA1y-0007XP-00@gondolin.me.apana.org.au>
-References: <adaek01p4j6.fsf@cisco.com>
-Cc: herbert@gondor.apana.org.au, shemminger@osdl.org,
-	davem@davemloft.net, chas@cmf.nrl.navy.mil,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
+Date: Thu, 13 Apr 2006 15:21:48 -0700
+Message-ID: <20060413152148.eba6a4de.zaitcev@redhat.com>
+References: <20060411085805.949313000@sipsolutions.net>
+	<20060411085841.252064000@sipsolutions.net>
+	<20060413020010.2ab16d7b.zaitcev@redhat.com>
+	<1144930375.2372.10.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linville@tuxdriver.com, zaitcev@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:8720 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932470AbWDMWLn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 18:11:43 -0400
-To: rdreier@cisco.com (Roland Dreier)
-In-Reply-To: <adaek01p4j6.fsf@cisco.com>
+Received: from mx1.redhat.com ([66.187.233.31]:41953 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932464AbWDMWWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 18:22:15 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1144930375.2372.10.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier <rdreier@cisco.com> wrote:
-> 
-> I'm probably missing an obvious race but it seems del_timer_sync()
-> should be fine on a timer that reschedules itself.  del_timer_sync()
-> loops until try_to_del_timer_sync() succeeds, and
-> try_to_del_timer_sync() will fail unless the timer being killed is not
-> running (and it does this test with the timer base lock held).
-> 
-> OK, how am I being stupid?
+On Thu, 13 Apr 2006 08:12:55 -0400, Dan Williams <dcbw@redhat.com> wrote:
 
-No you're definitely right.  I just missed the fix that was made
-to del_timer_sync last year.
+> > This sounds completely wrong. Do you guys remember the Subject: string
+> > of this discussion by any chance?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> There are two options for tools: (a) request scan and block on GIWSCAN
+> until it doesn't return EAGAIN, or (b) request a scan, enter a loop,
+> wait for the GIWSCAN netlink message to come back.  The point here is
+> that if you have to write a tool with 100 lines of netlink message
+> processing code _just_ to get the "scan done!" message, that's a bitch.
+> More complicated programs can obviously do this, but simple tools don't
+> want or need to.
+
+Do you realize that "block" means "enterering the kernel and calling
+schedule()", which is exactly what is NOT happening in the patch?
+I would not mind if the tools "blocked in GIWSCAN", only until
+it returns success and not EGAIN.
+
+With EAGAIN returned, you have to a) block elsewhere and not in
+GIWSCAN (perhaps in sleep(2) or select(2)), or b) not block at all
+and loop.
+
+> I believe that the patch for softmac/bcm43xx EAGAIN is correct.
+
+It is correct, no doubt. The discussion is about wether it is
+desirable.
+
+-- Pete
