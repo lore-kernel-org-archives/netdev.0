@@ -1,49 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC: 2.6 patch] net/netlink/: possible cleanups
-Date: Thu, 13 Apr 2006 13:26:03 -0700 (PDT)
-Message-ID: <20060413.132603.94193712.davem@davemloft.net>
-References: <20060413162710.GE4162@stusta.de>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: via_rhine modules error on 2.6.16 with mii-tool
+Date: Thu, 13 Apr 2006 22:31:48 +0200
+Message-ID: <20060413203147.GA2874@k3.hellgate.ch>
+References: <BAY103-F401F96F0B06D75E70AF0BFB2DF0@phx.gbl> <20060327203946.GA11824@k3.hellgate.ch> <20060413182638.GC25854@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Marco Berizzi <pupilla@hotmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30386
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964966AbWDMU0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 16:26:18 -0400
-To: bunk@stusta.de
-In-Reply-To: <20060413162710.GE4162@stusta.de>
+Received: from mail15.bluewin.ch ([195.186.18.63]:1770 "EHLO mail15.bluewin.ch")
+	by vger.kernel.org with ESMTP id S964868AbWDMUcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Apr 2006 16:32:52 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20060413182638.GC25854@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Thu, 13 Apr 2006 18:27:10 +0200
-
-> This patch contains the following possible cleanups plus changes related 
-> to them:
-> - make the following needlessly global functions static:
->   - attr.c: __nla_reserve()
->   - attr.c: __nla_put()
-> - #if 0 the following unused global functions:
->   - attr.c: nla_validate()
->   - attr.c: nla_find()
->   - attr.c: nla_memcpy()
->   - attr.c: nla_memcmp()
->   - attr.c: nla_strcmp()
->   - attr.c: nla_reserve()
->   - genetlink.c: genl_unregister_ops()
-> - remove the following unused EXPORT_SYMBOL's:
->   - af_netlink.c: netlink_set_nonroot
->   - attr.c: nla_parse
->   - attr.c: nla_strlcpy
->   - attr.c: nla_put
+On Thu, 13 Apr 2006 14:26:43 -0400, John W. Linville wrote:
+> > I wonder if low latency for ancient Rhine-I chips is worth the trouble.
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> IIRC, the point was that mdelay was getting called in interrupt
+> context and causing ugly messages to show-up in dmesg.
 
-Bunk-bot, you have to stop.
+I suppose the patch back then was to reduce latency; the ugly messages in
+the kernel ring buffer were _introduced_ with the patch (you shouldn't get 
+error messages calling mdelay in interrupt context because that's what
+mdelay is for).
 
-These interfaces were added so that new users of netlink could
-write their code more easily.
+> Would the patch below be sufficient?  Or does the whole patch need
+> to be reverted?
 
-Unused does not equate to "comment out or delete".
+I'd revert the whole thing. There's no point in having the additional
+work_struct complexity if we end up calling mdelay anyway.
+
+Roger
