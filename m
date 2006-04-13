@@ -1,31 +1,77 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 0/6] ieee80211 updates
-Date: Thu, 13 Apr 2006 17:16:54 +0800
-Message-ID: <20060413091654.GA28634@mail.intel.com>
+Subject: [PATCH 1/6] ieee80211: Fix TKIP MIC calculation for QoS frames
+Date: Thu, 13 Apr 2006 17:17:06 +0800
+Message-ID: <20060413091706.GA28641@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr19.intel.com ([134.134.136.18]:973 "EHLO
-	orsfmr004.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751231AbWDMJX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:23:58 -0400
+Received: from fmr20.intel.com ([134.134.136.19]:37296 "EHLO
+	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751227AbWDMJYK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:24:10 -0400
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Fix TKIP MIC verification failure when receiving QoS frames from AP.
 
-Here are some patches for ieee80211, please apply.
+Signed-off-by: Hong Liu <hong.liu@intel.com>
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
+---
 
-[PATCH 1/6] ieee80211: Fix TKIP MIC calculation for QoS frames
-[PATCH 2/6] ieee80211: Fix TX code doesn't enable QoS when using WPA + QoS
-[PATCH 3/6] ieee80211: export list of bit rates with standard WEXT procdures
-[PATCH 4/6] ieee80211: remove unnecessary CONFIG_WIRELESS_EXT checking
-[PATCH 5/6] ieee80211: replace debug IEEE80211_WARNING with each own debug macro
-[PATCH 6/6] ieee80211: update version stamp to 1.1.13
+ include/net/ieee80211.h              |    3 +++
+ net/ieee80211/ieee80211_crypt_tkip.c |   11 ++++++++++-
+ 2 files changed, 13 insertions(+), 1 deletions(-)
 
-Thanks,
--yi
+2a0ee963da3c8a125e2af4dec07aca8bf4357d03
+diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
+index 4725ff8..66dc136 100644
+--- a/include/net/ieee80211.h
++++ b/include/net/ieee80211.h
+@@ -104,6 +104,9 @@
+ #define IEEE80211_SCTL_FRAG		0x000F
+ #define IEEE80211_SCTL_SEQ		0xFFF0
+ 
++/* QOS control */
++#define IEEE80211_QCTL_TID		0x000F
++
+ /* debug macros */
+ 
+ #ifdef CONFIG_IEEE80211_DEBUG
+diff --git a/net/ieee80211/ieee80211_crypt_tkip.c b/net/ieee80211/ieee80211_crypt_tkip.c
+index 93def94..3fa5df2 100644
+--- a/net/ieee80211/ieee80211_crypt_tkip.c
++++ b/net/ieee80211/ieee80211_crypt_tkip.c
+@@ -501,8 +501,11 @@ static int michael_mic(struct ieee80211_
+ static void michael_mic_hdr(struct sk_buff *skb, u8 * hdr)
+ {
+ 	struct ieee80211_hdr_4addr *hdr11;
++	u16 stype;
+ 
+ 	hdr11 = (struct ieee80211_hdr_4addr *)skb->data;
++	stype  = WLAN_FC_GET_STYPE(le16_to_cpu(hdr11->frame_ctl));
++
+ 	switch (le16_to_cpu(hdr11->frame_ctl) &
+ 		(IEEE80211_FCTL_FROMDS | IEEE80211_FCTL_TODS)) {
+ 	case IEEE80211_FCTL_TODS:
+@@ -523,7 +526,13 @@ static void michael_mic_hdr(struct sk_bu
+ 		break;
+ 	}
+ 
+-	hdr[12] = 0;		/* priority */
++	if (stype & IEEE80211_STYPE_QOS_DATA) {
++		const struct ieee80211_hdr_3addrqos *qoshdr =
++			(struct ieee80211_hdr_3addrqos *)skb->data;
++		hdr[12] = le16_to_cpu(qoshdr->qos_ctl) & IEEE80211_QCTL_TID;
++	} else
++		hdr[12] = 0;		/* priority */
++
+ 	hdr[13] = hdr[14] = hdr[15] = 0;	/* reserved */
+ }
+ 
+-- 
+1.2.6
+
