@@ -1,83 +1,101 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 12/18] ipw2200: version string rework
-Date: Thu, 13 Apr 2006 17:20:34 +0800
-Message-ID: <20060413092034.GA28787@mail.intel.com>
+Subject: [PATCH 15/18] wireless Kconfig add IPW2200_RADIOTAP
+Date: Thu, 13 Apr 2006 17:20:54 +0800
+Message-ID: <20060413092054.GA28808@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr19.intel.com ([134.134.136.18]:33485 "EHLO
-	orsfmr004.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964852AbWDMJ1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 05:27:45 -0400
+Received: from fmr17.intel.com ([134.134.136.16]:32938 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964854AbWDMJ16 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Apr 2006 05:27:58 -0400
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Added version string fields so the version string indicates what is
-configured (ie, you'll see 1.1.1kpmd if you are using a GIT snapshot
-(Kernel.. previously -git), promiscuous (p), monitor (m), debug (d) build.
+Makefile both IPW2200_RADIOTAP and IPW2200_PROMISCUOUS depend on
+IPW2200_MONITOR. Let IPW2200_PROMISCUOUS select IPW2200_RADIOTAP.
 
-Signed-off-by: James Ketrenos <jketreno@linux.intel.com>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
 ---
 
- drivers/net/wireless/ipw2200.c |   39 ++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 38 insertions(+), 1 deletions(-)
+ drivers/net/wireless/Kconfig |   52 +++++++++++++++++++++++-------------------
+ 1 files changed, 28 insertions(+), 24 deletions(-)
 
-c6f5917d6d8a5a5c44d1386a5ca52b1670ba09cb
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index bbf17f6..8b20d6c 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -33,7 +33,44 @@
- #include "ipw2200.h"
- #include <linux/version.h>
+d2baa760aa4ba72495da0ada29f877470f687de3
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index 073b4a3..2da2833 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -235,6 +235,34 @@ config IPW2200_MONITOR
+ 	  promiscuous mode via the Wireless Tool's Monitor mode.  While in this
+ 	  mode, no packets can be sent.
  
--#define IPW2200_VERSION "git-1.1.1"
++config IPW2200_RADIOTAP
++	bool "Enable radiotap format 802.11 raw packet support"
++	depends on IPW2200_MONITOR
 +
-+#ifndef KBUILD_EXTMOD
-+#define VK "k"
-+#else
-+#define VK
-+#endif
++config IPW2200_PROMISCUOUS
++	bool "Enable creation of a RF radiotap promiscuous interface"
++	depends on IPW2200_MONITOR
++	select IPW2200_RADIOTAP
++	---help---
++          Enables the creation of a second interface prefixed 'rtap'. 
++          This second interface will provide every received in radiotap
++	  format.
 +
-+#ifdef CONFIG_IPW2200_DEBUG
-+#define VD "d"
-+#else
-+#define VD
-+#endif
++          This is useful for performing wireless network analysis while
++          maintaining an active association.
 +
-+#ifdef CONFIG_IPW2200_MONITOR
-+#define VM "m"
-+#else
-+#define VM
-+#endif
++          Example usage:
 +
-+#ifdef CONFIG_IPW2200_PROMISCUOUS
-+#define VP "p"
-+#else
-+#define VP
-+#endif
++            % modprobe ipw2200 rtap_iface=1
++            % ifconfig rtap0 up
++            % tethereal -i rtap0
 +
-+#ifdef CONFIG_IEEE80211_RADIOTAP
-+#define VR "r"
-+#else
-+#define VR
-+#endif
++          If you do not specify 'rtap_iface=1' as a module parameter then 
++          the rtap interface will not be created and you will need to turn 
++          it on via sysfs:
++	
++            % echo 1 > /sys/bus/pci/drivers/ipw2200/*/rtap_iface
 +
-+#ifdef CONFIG_IPW2200_QOS
-+#define VQ "q"
-+#else
-+#define VQ
-+#endif
-+
-+#define IPW2200_VERSION "1.1.1" VK VD VM VP VR VQ
- #define DRV_DESCRIPTION	"Intel(R) PRO/Wireless 2200/2915 Network Driver"
- #define DRV_COPYRIGHT	"Copyright(c) 2003-2006 Intel Corporation"
- #define DRV_VERSION     IPW2200_VERSION
+ config IPW2200_QOS
+         bool "Enable QoS support"
+         depends on IPW2200 && EXPERIMENTAL
+@@ -263,30 +291,6 @@ config IPW2200_DEBUG
+ 	  If you are not trying to debug or develop the IPW2200 driver, you 
+ 	  most likely want to say N here.
+ 
+-config IPW2200_PROMISCUOUS
+-	bool "Enable creation of a RF radiotap promiscuous interface."
+-	depends on IPW2200
+-	select IEEE80211_RADIOTAP
+-	---help---
+-          Enables the creation of a second interface prefixed 'rtap'. 
+-          This second interface will provide every received in radiotap
+-	  format.
+-
+-          This is useful for performing wireless network analysis while
+-          maintaining an active association.
+-
+-          Example usage:
+-
+-            % modprobe ipw2200 rtap_iface=1
+-            % ifconfig rtap0 up
+-            % tethereal -i rtap0
+-
+-          If you do not specify 'rtap_iface=1' as a module parameter then 
+-          the rtap interface will not be created and you will need to turn 
+-          it on via sysfs:
+-	
+-            % echo 1 > /sys/bus/pci/drivers/ipw2200/*/rtap_iface
+-
+ config AIRO
+ 	tristate "Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards"
+  	depends on NET_RADIO && ISA_DMA_API && (PCI || BROKEN)
 -- 
 1.2.6
 
