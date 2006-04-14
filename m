@@ -1,43 +1,40 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] net: expose vlan structure to user space
-Date: Fri, 14 Apr 2006 17:10:59 -0400
-Message-ID: <44400FE3.9030507@roinet.com>
-References: <4436BB69.3010205@roinet.com>	<443FA08A.8040900@roinet.com> <20060414.135556.91849056.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 05/10] e1000: Update truesize with the length of the packet
+ for packet split
+Date: Fri, 14 Apr 2006 17:16:29 -0400
+Message-ID: <4440112D.9040509@pobox.com>
+References: <20060414183423.3461.32772.stgit@gitlost.site> <20060414183658.3461.4975.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "Miller, David" <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:10684
-	"HELO roinet.com") by vger.kernel.org with SMTP id S965166AbWDNVLA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 17:11:00 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060414.135556.91849056.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:25223 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965167AbWDNVQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 17:16:33 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20060414183658.3461.4975.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: David Acker <dacker@roinet.com>
-> Date: Fri, 14 Apr 2006 09:15:54 -0400
-> 
-> 
->>David S. Miller wrote:
->> > I think this really belongs in a portable header file
->> > in glibc somewhere.
->>
->>David, while I can try to work with the glibc folks, I don't understand 
->>how this patch would be different from what if_ether.h exposes to user 
->>space today.  Why is one appropriate and the other not?  I am not trying 
->>to be a pain; I am just trying to understand the rationale so that I can 
->>explain it to others.
-> 
-> 
-> Doing stupid things in the past does not equate to being a reason
-> to keep doing so in the future.
-> 
-> 
+Kok, Auke wrote:
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 2cc9955..7ba1b16 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -3770,6 +3770,7 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
+>  			ps_page->ps_page[j] = NULL;
+>  			skb->len += length;
+>  			skb->data_len += length;
+> +			skb->truesize += length;
 
-Understood.  I will see what I can do in glibc land instead.
--Ack
+NAK, apparently this is adding a very serious bug.
+
+	Jeff
+
+
 
