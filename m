@@ -1,59 +1,31 @@
-From: Hans Fugal <hans@fugal.net>
-Subject: Re: [RFC PATCH] softmac: (v2) send WEXT assoc/disassoc events to userspace
-Date: Thu, 13 Apr 2006 19:05:45 -0600
-Message-ID: <20060414010545.GA10636@falcon.fugal.net>
-References: <1141928917.26954.7.camel@localhost.localdomain> <1141935893.28038.2.camel@localhost.localdomain> <441091B8.4010103@lwfinger.net> <1141936896.28038.6.camel@localhost.localdomain> <1144886208.4187.26.camel@localhost> <20060413001909.GB23116@falcon.fugal.net> <1144887916.4187.28.camel@localhost> <20060413002816.GC23116@falcon.fugal.net> <1144888334.4187.32.camel@localhost>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: [PATCH] ipw2100: wraps the debug module param within #ifdefs
+Date: Fri, 14 Apr 2006 13:18:31 +0800
+Message-ID: <1144991911.968.157.camel@debian.sh.intel.com>
+References: <20060413091423.GA28623@mail.intel.com>
+	 <20060413103048.64f8d0f0@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vkogqOf2sHV7VnPd"
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
-	softmac-dev@sipsolutions.net, David Woodhouse <dwmw2@redhat.com>,
-	Dan Williams <dcbw@redhat.com>, bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgr2.xmission.com ([198.60.22.202]:51393 "EHLO
-	mgr2.xmission.com") by vger.kernel.org with ESMTP id S965047AbWDNBFz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Apr 2006 21:05:55 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1144888334.4187.32.camel@localhost>
+Received: from fmr17.intel.com ([134.134.136.16]:63930 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S965105AbWDNFZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 01:25:52 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060413103048.64f8d0f0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2006-04-13 at 10:30 -0700, Stephen Hemminger wrote:
+> Please get rid of the debug config option. Make the debug code, default
+> off and be low enough impact that everyone can ship with it.
 
---vkogqOf2sHV7VnPd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch is exactly doing so. There won't be the debug module param if
+CONFIG_IPW2200_DEBUG is not defined. Otherwise it could be used to set
+different debug level, which helps a lot for the driver debuging.
 
-With the patch, wpa_supplicant is able to work properly for WEP and
-plaintext as tested with my bcm4306 (iBook), and the latest git.
+Thanks,
+-yi
 
-However, and this may not be related, I still must issue an=20
-
-    ip link set up eth1
-
-after loading the bcm43xx module but before starting wpa_supplicant or
-it will not work.=20
-
---=20
-Hans Fugal ; http://hans.fugal.net
-=20
-There's nothing remarkable about it. All one has to do is hit the=20
-right keys at the right time and the instrument plays itself.
-    -- Johann Sebastian Bach
-
---vkogqOf2sHV7VnPd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQFEPvVp/JjozeCq1GARAonMAKDQXqAUm6G9DZ/VonnXqdBwJNadHgCg4opI
-bQFgRdTJRP5N8UOvQGrxha8=
-=HySI
------END PGP SIGNATURE-----
-
---vkogqOf2sHV7VnPd--
