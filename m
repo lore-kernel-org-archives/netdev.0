@@ -1,16 +1,16 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 08/10] e1000: implement more efficient tx queue locking
-Date: Fri, 14 Apr 2006 11:37:05 -0700
-Message-ID: <20060414183705.3461.52759.stgit@gitlost.site>
+Subject: [PATCH 09/10] e1000: Version bump, contact fix, year string change
+Date: Fri, 14 Apr 2006 11:37:08 -0700
+Message-ID: <20060414183707.3461.1236.stgit@gitlost.site>
 References: <20060414183423.3461.32772.stgit@gitlost.site>
 Cc: "Ronciak, John" <john.ronciak@intel.com>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:56836 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1751403AbWDNSd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 14:33:27 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:58372 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751406AbWDNSda (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 14:33:30 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
 	"Miller, David" <davem@davemloft.net>
 In-Reply-To: <20060414183423.3461.32772.stgit@gitlost.site>
@@ -18,45 +18,198 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Implement more efficient locking (avoid the lock) when checking for
-a stopped queue.  Also don't wake the queue unless the threshold is
-reached to avoid queue on/off thrash.
+Add the sourceforge project mailinglist to the contact information.
+
+Bump version to 7.0.38-k2
+
+Update copyright string with the new year.
 
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/e1000/Makefile        |    1 +
+ drivers/net/e1000/e1000.h         |    3 ++-
+ drivers/net/e1000/e1000_ethtool.c |    3 ++-
+ drivers/net/e1000/e1000_hw.c      |    3 ++-
+ drivers/net/e1000/e1000_hw.h      |    3 ++-
+ drivers/net/e1000/e1000_main.c    |    7 ++++---
+ drivers/net/e1000/e1000_osdep.h   |    3 ++-
+ drivers/net/e1000/e1000_param.c   |    3 ++-
+ 8 files changed, 17 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/e1000/Makefile b/drivers/net/e1000/Makefile
+index ca9f895..92823ac 100644
+--- a/drivers/net/e1000/Makefile
++++ b/drivers/net/e1000/Makefile
+@@ -22,6 +22,7 @@
+ # 
+ # Contact Information:
+ # Linux NICS <linux.nics@intel.com>
++# e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+ # Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ #
+ ################################################################################
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index 2dfabdb..2bc34fb 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ 
+ *******************************************************************************/
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+index ecccca3..e48dc57 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ 
+ *******************************************************************************/
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index 523c2c9..4c796e5 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ 
+ *******************************************************************************/
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 150e45e..03d07eb 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ 
+ *******************************************************************************/
 diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index f604a1d..3c37c40 100644
+index 3c37c40..82d443b 100644
 --- a/drivers/net/e1000/e1000_main.c
 +++ b/drivers/net/e1000/e1000_main.c
-@@ -3400,13 +3400,15 @@ e1000_clean_tx_irq(struct e1000_adapter 
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- 	tx_ring->next_to_clean = i;
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
  
--	spin_lock(&tx_ring->tx_lock);
--
-+#define TX_WAKE_THRESHOLD 32
- 	if (unlikely(cleaned && netif_queue_stopped(netdev) &&
--		    netif_carrier_ok(netdev)))
--		netif_wake_queue(netdev);
--
--	spin_unlock(&tx_ring->tx_lock);
-+	             netif_carrier_ok(netdev))) {
-+		spin_lock(&tx_ring->tx_lock);
-+		if (netif_queue_stopped(netdev) &&
-+		    (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))
-+			netif_wake_queue(netdev);
-+		spin_unlock(&tx_ring->tx_lock);
-+	}
+ *******************************************************************************/
+@@ -74,9 +75,9 @@ static char e1000_driver_string[] = "Int
+ #else
+ #define DRIVERNAPI "-NAPI"
+ #endif
+-#define DRV_VERSION "7.0.33-k2"DRIVERNAPI
++#define DRV_VERSION "7.0.38-k2"DRIVERNAPI
+ char e1000_driver_version[] = DRV_VERSION;
+-static char e1000_copyright[] = "Copyright (c) 1999-2005 Intel Corporation.";
++static char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
  
- 	if (adapter->detect_tx_hung) {
- 		/* Detect a transmit hang in hardware, this serializes the
+ /* e1000_pci_tbl - PCI Device ID Table
+  *
+diff --git a/drivers/net/e1000/e1000_osdep.h b/drivers/net/e1000/e1000_osdep.h
+index 9790db9..048d052 100644
+--- a/drivers/net/e1000/e1000_osdep.h
++++ b/drivers/net/e1000/e1000_osdep.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ 
+ *******************************************************************************/
+diff --git a/drivers/net/e1000/e1000_param.c b/drivers/net/e1000/e1000_param.c
+index e0a4d37..e55f896 100644
+--- a/drivers/net/e1000/e1000_param.c
++++ b/drivers/net/e1000/e1000_param.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   
+-  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
++  Copyright(c) 1999 - 2006 Intel Corporation. All rights reserved.
+   
+   This program is free software; you can redistribute it and/or modify it 
+   under the terms of the GNU General Public License as published by the Free 
+@@ -22,6 +22,7 @@
+   
+   Contact Information:
+   Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+ 
+ *******************************************************************************/
 
 
 
