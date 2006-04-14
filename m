@@ -1,16 +1,16 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 2.6.17-rc1] Fix RtNetlink ENCODE security permissions
-Date: Fri, 14 Apr 2006 11:06:59 -0700
-Message-ID: <20060414180659.GA24482@bougret.hpl.hp.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] Re: [PATCH 2.6.17-rc1] Fix RtNetlink ENCODE security permissions
+Date: Fri, 14 Apr 2006 11:06:52 -0700
+Message-ID: <20060414180652.GA3797@kroah.com>
 References: <20060414174726.GA24421@bougret.hpl.hp.com> <20060414105913.0222a8a6.rdunlap@xenotime.net>
-Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org, stable@kernel.org
+Cc: jt@hpl.hp.com, netdev@vger.kernel.org, linville@tuxdriver.com,
+	stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:28898 "EHLO palrel10.hp.com")
-	by vger.kernel.org with ESMTP id S1751372AbWDNSHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 14:07:03 -0400
+Received: from ns1.suse.de ([195.135.220.2]:48848 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1751373AbWDNSIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 14:08:01 -0400
 To: "Randy.Dunlap" <rdunlap@xenotime.net>
 Content-Disposition: inline
 In-Reply-To: <20060414105913.0222a8a6.rdunlap@xenotime.net>
@@ -30,7 +30,8 @@ On Fri, Apr 14, 2006 at 10:59:13AM -0700, Randy.Dunlap wrote:
 > 
 > and for -stable ??
 
-	The RtNetlink code (WE-20) was only included in 2.6.17-rc1 and
-therefore is not available in 2.6.16.
+At first glance, I'd agree with this.  Jean?
 
-	Jean
+thanks,
+
+greg k-h
