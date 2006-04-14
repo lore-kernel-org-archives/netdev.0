@@ -1,48 +1,58 @@
-From: Faidon Liambotis <faidon@cube.gr>
-Subject: Re: [RFC] Geographical/regulatory information for ieee80211
-Date: Fri, 14 Apr 2006 14:58:18 +0300
-Message-ID: <e1o2oq$40p$1@sea.gmane.org>
-References: <443EF3E9.7050303@lwfinger.net> <Pine.LNX.4.58.0604141339580.6730@p15091797.pureserver.info>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] net: expose vlan structure to user space
+Date: Fri, 14 Apr 2006 09:15:54 -0400
+Message-ID: <443FA08A.8040900@roinet.com>
+References: <4436BB69.3010205@roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:7640 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S932204AbWDNMFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 08:05:14 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1FUN2s-0002ZP-RK
-	for netdev@vger.kernel.org; Fri, 14 Apr 2006 14:05:03 +0200
-Received: from void.photonics.ece.ntua.gr ([147.102.26.135])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2006 14:05:02 +0200
-Received: from faidon by void.photonics.ece.ntua.gr with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Fri, 14 Apr 2006 14:05:02 +0200
-To: netdev@vger.kernel.org
-In-Reply-To: <Pine.LNX.4.58.0604141339580.6730@p15091797.pureserver.info>
+Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:58806
+	"HELO roinet.com") by vger.kernel.org with SMTP id S1751250AbWDNNPz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 09:15:55 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <4436BB69.3010205@roinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ulrich Kunitz wrote:
-> For the 802.11a frequencies, there are three bands: 
+David Acker wrote:
+>  From Dave Acker <dacker@roinet.com>
 > 
-> Annex 3 Band B 5150-5250 MHz for indoor use (36-48)
-> Annex 3 Band C 5250-5350 MHz for indoor use (52-64)
-> Annex 3 Band D 5470-5725 MHz for outdoor use (100-140)
+> The purpose is to allow a user space program to use the vlan_ethhdr
+> structure when directly handling 802.1Q packets.  This can be done
+> by using a raw socket like:
+> int s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+> This socket should see VLAN packets from the base interface unchanged
+> (i.e. vlan tag still in packet).
+> Currently other user space programs that understand VLANs seem to all
+> create their own definitions for this structure.
+> This patch does NOT expose the defines related to the sizes of VLAN 
+> packets and
+> their fields; it only exposes the vlan_ethhdr structure.  It was determined
+> that these sizes are not useful since the packet could be as large the MTU
+> of the underlying physical network.  Also, you can have nested VLAN headers
+> such that the actual data offset is greater than the size of the 
+> vlan_ethhdr
+> structure.
+> -Dave Acker
 > 
-> However these bands are not available in all European states,
-> details can be found in the recommendation. Spain, Portugal,
-> Greece and Belgium for instance don't allow Annex 3 Band D.
-Actually, Greece allows 5150-5250 and 5250-5350MHz for indoor use and
-5470-5725 for indoor and outdoor use.
-This is quite new though (3rd April) :-)
 
-As I've mailed Larry in private, EU countries will eventually conform to
-this:
-http://europa.eu.int/eur-lex/lex/LexUriServ/LexUriServ.do?uri=CELEX:32005D0513:EN:NOT
+Hello folks.  Although some conversation appeared on earlier postings of 
+this patch, I though I would reply here since the post I am replying to 
+here gets the diff format right (from the top level instead of deep in 
+the source).  Last I heard:
 
-Regards,
-Faidon
+David S. Miller wrote:
+ > I think this really belongs in a portable header file
+ > in glibc somewhere.
 
+David, while I can try to work with the glibc folks, I don't understand 
+how this patch would be different from what if_ether.h exposes to user 
+space today.  Why is one appropriate and the other not?  I am not trying 
+to be a pain; I am just trying to understand the rationale so that I can 
+explain it to others.
+
+Thanks,
+Dave Acker
