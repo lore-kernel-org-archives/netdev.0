@@ -1,44 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 14 Apr 2006 14:02:25 -0700 (PDT)
-Message-ID: <20060414.140225.113553109.davem@davemloft.net>
-References: <Pine.LNX.4.64.0604051734230.9255@lindenhurst-2.jf.intel.com>
-	<44350056.80501@kernelpanic.ru>
-	<444005DA.4090606@intel.com>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] net: expose vlan structure to user space
+Date: Fri, 14 Apr 2006 17:10:59 -0400
+Message-ID: <44400FE3.9030507@roinet.com>
+References: <4436BB69.3010205@roinet.com>	<443FA08A.8040900@roinet.com> <20060414.135556.91849056.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bb@kernelpanic.ru, herbert@gondor.apana.org.au,
-	kernel@linuxace.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
-	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
-	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net, ak@suse.de, jgarzik@pobox.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50584
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965165AbWDNVK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 17:10:56 -0400
-To: jesse.brandeburg@intel.com
-In-Reply-To: <444005DA.4090606@intel.com>
+Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:10684
+	"HELO roinet.com") by vger.kernel.org with SMTP id S965166AbWDNVLA
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 17:11:00 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060414.135556.91849056.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Fri, 14 Apr 2006 13:28:10 -0700
+David S. Miller wrote:
+> From: David Acker <dacker@roinet.com>
+> Date: Fri, 14 Apr 2006 09:15:54 -0400
+> 
+> 
+>>David S. Miller wrote:
+>> > I think this really belongs in a portable header file
+>> > in glibc somewhere.
+>>
+>>David, while I can try to work with the glibc folks, I don't understand 
+>>how this patch would be different from what if_ether.h exposes to user 
+>>space today.  Why is one appropriate and the other not?  I am not trying 
+>>to be a pain; I am just trying to understand the rationale so that I can 
+>>explain it to others.
+> 
+> 
+> Doing stupid things in the past does not equate to being a reason
+> to keep doing so in the future.
+> 
+> 
 
-> We also have some new data from the last couple of days.  First, I think 
-> that this problem is likely not just E1000's fault.  We have multiple 
-> reports both in bugzilla.kernel.org and from a distro that show this 
-> problem has occurred on (at least) tg3 driven adapters as well as e1000.
+Understood.  I will see what I can do in glibc land instead.
+-Ack
 
-That's interesting since tg3 does not enable TSO by default for any
-chip until very recent versions of the tg3 driver.  And even with
-those recent tg3 drivers which will enable TSO by default, it is only
-done for a very specific selection of chip revisions.
-
-Where are these reports that precisely implicate tg3?
-
-Note that there were legitimate TSO retransmit bugs in the 2.6.14
-timeframe that triggered those messages and did get fixed.  And yes
-some of those reports were with tg3.
