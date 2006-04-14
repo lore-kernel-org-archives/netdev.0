@@ -1,31 +1,41 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [PATCH] ipw2100: wraps the debug module param within #ifdefs
-Date: Fri, 14 Apr 2006 13:18:31 +0800
-Message-ID: <1144991911.968.157.camel@debian.sh.intel.com>
-References: <20060413091423.GA28623@mail.intel.com>
-	 <20060413103048.64f8d0f0@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [stable] [PATCH 1/4] clip: run through Lindent
+Date: Fri, 14 Apr 2006 02:01:21 -0700 (PDT)
+Message-ID: <20060414.020121.56547342.davem@davemloft.net>
+References: <20060412105545.3b089dd8@localhost.localdomain>
+	<20060413152224.2d46df99@localhost.localdomain>
+	<20060413224529.GA2476@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Cc: shemminger@osdl.org, chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:63930 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965105AbWDNFZw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 01:25:52 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060413103048.64f8d0f0@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22502
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965123AbWDNJBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 05:01:20 -0400
+To: greg@kroah.com
+In-Reply-To: <20060413224529.GA2476@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-04-13 at 10:30 -0700, Stephen Hemminger wrote:
-> Please get rid of the debug config option. Make the debug code, default
-> off and be low enough impact that everyone can ship with it.
+From: Greg KH <greg@kroah.com>
+Date: Thu, 13 Apr 2006 15:45:29 -0700
 
-This patch is exactly doing so. There won't be the debug module param if
-CONFIG_IPW2200_DEBUG is not defined. Otherwise it could be used to set
-different debug level, which helps a lot for the driver debuging.
+> On Thu, Apr 13, 2006 at 03:22:24PM -0700, Stephen Hemminger wrote:
+> > Run CLIP driver through Lindent script to fix formatting.
+> 
+> That's well and good, but really not a -stable thing.  In fact, I don't
+> see any of these 4 patches being -stable material, do you?
 
-Thanks,
--yi
+Me neither.
 
+Stephen please don't push patches into -stable until they've
+been fully reviewed and integrated into Linus's tree first.
+
+Please let me do my job as networking maintainer and let the
+netdev list do it's job in reviewing your changes before they
+go in.
+
+Thanks.
