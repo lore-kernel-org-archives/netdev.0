@@ -1,58 +1,45 @@
-From: David Acker <dacker@roinet.com>
-Subject: Re: [PATCH] net: expose vlan structure to user space
-Date: Fri, 14 Apr 2006 09:15:54 -0400
-Message-ID: <443FA08A.8040900@roinet.com>
-References: <4436BB69.3010205@roinet.com>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [RFC] Geographical/regulatory information for ieee80211
+Date: Fri, 14 Apr 2006 08:27:15 -0700
+Message-ID: <20060414152715.GC29461@instant802.com>
+References: <443EF3E9.7050303@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeffl@comix.santa-cruz.ca.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:58806
-	"HELO roinet.com") by vger.kernel.org with SMTP id S1751250AbWDNNPz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 09:15:55 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <4436BB69.3010205@roinet.com>
+Received: from dhost002-10.dex002.intermedia.net ([64.78.21.75]:32884 "EHLO
+	dhost002-10.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S964992AbWDNP1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 11:27:23 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Disposition: inline
+In-Reply-To: <443EF3E9.7050303@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Acker wrote:
->  From Dave Acker <dacker@roinet.com>
-> 
-> The purpose is to allow a user space program to use the vlan_ethhdr
-> structure when directly handling 802.1Q packets.  This can be done
-> by using a raw socket like:
-> int s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-> This socket should see VLAN packets from the base interface unchanged
-> (i.e. vlan tag still in packet).
-> Currently other user space programs that understand VLANs seem to all
-> create their own definitions for this structure.
-> This patch does NOT expose the defines related to the sizes of VLAN 
-> packets and
-> their fields; it only exposes the vlan_ethhdr structure.  It was determined
-> that these sizes are not useful since the packet could be as large the MTU
-> of the underlying physical network.  Also, you can have nested VLAN headers
-> such that the actual data offset is greater than the size of the 
-> vlan_ethhdr
-> structure.
-> -Dave Acker
-> 
+On Thu, Apr 13, 2006 at 07:59:21PM -0500, Larry Finger wrote:
 
-Hello folks.  Although some conversation appeared on earlier postings of 
-this patch, I though I would reply here since the post I am replying to 
-here gets the diff format right (from the top level instead of deep in 
-the source).  Last I heard:
+> I am planning on writing a new routine to be added to 
+> net/ieee80211/ieee80211_geo.c that will populate an ieee80211_geo object 
+> given a country code. The new routine will eliminate the need for each 
+> driver to do their own.
 
-David S. Miller wrote:
- > I think this really belongs in a portable header file
- > in glibc somewhere.
+> Neglecting any discussion of maximum power, I have been able to arrange the 
+> countries into the following groups:
 
-David, while I can try to work with the glibc folks, I don't understand 
-how this patch would be different from what if_ether.h exposes to user 
-space today.  Why is one appropriate and the other not?  I am not trying 
-to be a pain; I am just trying to understand the rationale so that I can 
-explain it to others.
+The maximum power would be quite useful--I would say required--part of
+regulatory domain information.. In other words, I would like to see the
+groups created in a way that would take differences in power limits into
+account. Without this, the groups will need to be re-created at some
+point in the future when IEEE 802.11d and IEEE 802.11h would like to use
+the same table.. In addition, flag of specifying indoor/outdoor/both
+would be a nice addition.
 
-Thanks,
-Dave Acker
+It would be useful to have a text file with all the information in an
+easily parseable format. I would like to be able to add a user space
+tool that uses this file to take care of channel/TX power policies. The
+needed parameters would then be configured for the kernel side 802.11
+whenever needed.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
