@@ -1,52 +1,34 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 05/10] e1000: Update truesize with the length of the
- packet for packet split
-Date: Fri, 14 Apr 2006 15:51:29 -0700 (PDT)
-Message-ID: <20060414.155129.121789313.davem@davemloft.net>
-References: <Pine.WNT.4.63.0604141448520.2116@jbrandeb-desk.amr.corp.intel.com>
-	<20060414.153219.62111494.davem@davemloft.net>
-	<Pine.WNT.4.63.0604141533250.2116@jbrandeb-desk.amr.corp.intel.com>
+Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
+Date: Fri, 14 Apr 2006 15:52:02 -0700 (PDT)
+Message-ID: <20060414.155202.82987818.davem@davemloft.net>
+References: <Pine.WNT.4.63.0604141527420.2116@jbrandeb-desk.amr.corp.intel.com>
+	<20060414.154240.30125561.davem@davemloft.net>
+	<Pine.WNT.4.63.0604141543170.2116@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org, john.ronciak@intel.com,
-	Jeffrey.t.kirsher@intel.com, auke@foo-projects.org
+Cc: bb@kernelpanic.ru, herbert@gondor.apana.org.au,
+	kernel@linuxace.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	E1000-devel@lists.sourceforge.net, ak@suse.de, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48807
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57511
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751327AbWDNWvO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 18:51:14 -0400
+	id S1751327AbWDNWwA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 18:52:00 -0400
 To: jesse.brandeburg@intel.com
-In-Reply-To: <Pine.WNT.4.63.0604141533250.2116@jbrandeb-desk.amr.corp.intel.com>
+In-Reply-To: <Pine.WNT.4.63.0604141543170.2116@jbrandeb-desk.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Fri, 14 Apr 2006 15:43:02 -0700 (Pacific Daylight Time)
+Date: Fri, 14 Apr 2006 15:46:31 -0700 (Pacific Daylight Time)
 
-> Please help me understand how you think it should work when we have a 
-> device that wants to receive a packet using header in the skb->data, and 
-> application data in the ->frags[]? 
+> sure, thats fine, but we just reproduced it in two seperate systems 
+> without the e1000 driver loaded, using the instructions as mentioned in a 
+> previous email.  We used a 5704 with TSO enabled.
 
-If you're removing the pages from ->frags[] and you already accounted
-for them in skb->truesize, then yes I guess it could be correct to
-subtract it back out.
-
-Looking at S2IO it's doing something very wrong with it's modification
-of skb->truesize.  It's not changing the amount of memory allocated
-to an SKB in any way yet it's bumping skb->truesize for some reason.
-That will definitely lead to performance problems.
-
-That's why generally when we see an skb->truesize modification, it's
-just assumed to be a bug, it's generally not necessary but may be
-so in your e1000 situation here.
-
-Another problem to look out for is that once a socket has a reference
-to an SKB you must never ever modify skb->truesize because doing so
-will break socket memory accounting.  There is exactly one spot in
-the TCP stack where we are able to do this by adjusting the socket
-memory accounting variables carefully in a locked context at the same
-time, but otherwise it's not safe to modify skb->truesize when there
-is an attached socket.
-
+That I didn't notice, thanks for the datapoint.
