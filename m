@@ -1,41 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [stable] [PATCH 1/4] clip: run through Lindent
-Date: Fri, 14 Apr 2006 02:01:21 -0700 (PDT)
-Message-ID: <20060414.020121.56547342.davem@davemloft.net>
-References: <20060412105545.3b089dd8@localhost.localdomain>
-	<20060413152224.2d46df99@localhost.localdomain>
-	<20060413224529.GA2476@kroah.com>
+From: Erik Mouw <erik@harddisk-recovery.com>
+Subject: Re: [PATCH] bcm43xx: iw_priv_args names should be <16 characters
+Date: Fri, 14 Apr 2006 11:35:03 +0200
+Message-ID: <20060414093503.GF20839@harddisk-recovery.com>
+References: <20060413130227.GD20839@harddisk-recovery.nl> <20060413102919.5e0bdb2e@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, stable@kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	torvalds@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22502
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965123AbWDNJBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 05:01:20 -0400
-To: greg@kroah.com
-In-Reply-To: <20060413224529.GA2476@kroah.com>
+Received: from dtp.xs4all.nl ([80.126.206.180]:43081 "HELO abra2.bitwizard.nl")
+	by vger.kernel.org with SMTP id S965119AbWDNJfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 05:35:04 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060413102919.5e0bdb2e@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Greg KH <greg@kroah.com>
-Date: Thu, 13 Apr 2006 15:45:29 -0700
-
-> On Thu, Apr 13, 2006 at 03:22:24PM -0700, Stephen Hemminger wrote:
-> > Run CLIP driver through Lindent script to fix formatting.
+On Thu, Apr 13, 2006 at 10:29:19AM -0700, Stephen Hemminger wrote:
+> On Thu, 13 Apr 2006 15:02:27 +0200
+> Erik Mouw <erik@harddisk-recovery.com> wrote:
 > 
-> That's well and good, but really not a -stable thing.  In fact, I don't
-> see any of these 4 patches being -stable material, do you?
+> > The room for the names in bcm43xx_priv_wx_args[] are IFNAMSIZ long and
+> > IFNAMSIZ is defined as 16, so the names in bcm43xx_priv_wx_args should
+> > be 15 characters (16 including the trailing \0). This patch fixes that
+> > for the "set_shortpreambl", "get_shortpreambl", "set_swencryption", and
+> > "get_swencryption" private calls. Patch is against 2.6.17-rc1.
+> > 
+> > Signed-off-by: Erik Mouw <erik@harddisk-recovery.com>
+> 
+> Shouldn't compiler have gagged on this?
 
-Me neither.
+Apparently not. At least the compiler I use doesn't warn about it (gcc
+version 3.3.5 (Debian 1:3.3.5-13)).
 
-Stephen please don't push patches into -stable until they've
-been fully reviewed and integrated into Linus's tree first.
+Linus, this might be be something for sparse to check:
 
-Please let me do my job as networking maintainer and let the
-netdev list do it's job in reviewing your changes before they
-go in.
+  struct mystruct {
+	char name[16];
+  };
 
-Thanks.
+  mystruct ms = { .name = "muchlongerthan16characters" };
+
+
+Erik
+
+-- 
++-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
+| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
