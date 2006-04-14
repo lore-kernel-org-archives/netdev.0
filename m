@@ -1,34 +1,68 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] ipw2100: wraps the debug module param within #ifdefs
-Date: Fri, 14 Apr 2006 09:33:07 -0700
-Message-ID: <20060414093307.3ff1c016@localhost.localdomain>
-References: <20060413091423.GA28623@mail.intel.com>
-	<20060413103048.64f8d0f0@localhost.localdomain>
-	<1144991911.968.157.camel@debian.sh.intel.com>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [RFC: 2.6 patch] net/irda/irias_object.c: remove unused exports
+Date: Fri, 14 Apr 2006 09:42:03 -0700
+Message-ID: <20060414164203.GA24146@bougret.hpl.hp.com>
+References: <20060414114446.GL4162@stusta.de>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:40107 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751267AbWDNQdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 12:33:24 -0400
-To: Zhu Yi <yi.zhu@intel.com>
-In-Reply-To: <1144991911.968.157.camel@debian.sh.intel.com>
+Received: from tayrelbas04.tay.hp.com ([161.114.80.247]:65217 "EHLO
+	tayrelbas04.tay.hp.com") by vger.kernel.org with ESMTP
+	id S1751275AbWDNQmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 12:42:05 -0400
+To: Adrian Bunk <bunk@stusta.de>, Samuel.Ortiz@nokia.com
+Content-Disposition: inline
+In-Reply-To: <20060414114446.GL4162@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Apr 2006 13:18:31 +0800
-Zhu Yi <yi.zhu@intel.com> wrote:
+	Hi,
 
-> On Thu, 2006-04-13 at 10:30 -0700, Stephen Hemminger wrote:
-> > Please get rid of the debug config option. Make the debug code, default
-> > off and be low enough impact that everyone can ship with it.
-> 
-> This patch is exactly doing so. There won't be the debug module param if
-> CONFIG_IPW2200_DEBUG is not defined. Otherwise it could be used to set
-> different debug level, which helps a lot for the driver debuging.
-> 
+	You now need to send those patches to :
+		Samuel.Ortiz@nokia.com
+	Personally, I don't see what this patch buy us...
 
-I meant get rid of CONFIG_IPW2200_DEBUG completely. Having the debug code isn't
-bad, and there is no reason not to have it always there.
+	Jean
+
+On Fri, Apr 14, 2006 at 01:44:46PM +0200, Adrian Bunk wrote:
+> This patch removes the following unused EXPORT_SYMBOL's:
+> - irias_find_attrib
+> - irias_new_string_value
+> - irias_new_octseq_value
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> ---
+> 
+>  net/irda/irias_object.c |    3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> --- linux-2.6.17-rc1-mm2-full/net/irda/irias_object.c.old	2006-04-14 12:37:49.000000000 +0200
+> +++ linux-2.6.17-rc1-mm2-full/net/irda/irias_object.c	2006-04-14 12:39:26.000000000 +0200
+> @@ -257,7 +257,6 @@
+>  	/* Unsafe (locking), attrib might change */
+>  	return attrib;
+>  }
+> -EXPORT_SYMBOL(irias_find_attrib);
+>  
+>  /*
+>   * Function irias_add_attribute (obj, attrib)
+> @@ -484,7 +483,6 @@
+>  
+>  	return value;
+>  }
+> -EXPORT_SYMBOL(irias_new_string_value);
+>  
+>  /*
+>   * Function irias_new_octseq_value (octets, len)
+> @@ -519,7 +517,6 @@
+>  	memcpy(value->t.oct_seq, octseq , len);
+>  	return value;
+>  }
+> -EXPORT_SYMBOL(irias_new_octseq_value);
+>  
+>  struct ias_value *irias_new_missing_value(void)
+>  {
+> 
