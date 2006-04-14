@@ -1,55 +1,42 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 00/10] e1000: Driver fixes and update to 7.0.38-k2
-Date: Fri, 14 Apr 2006 12:32:40 -0700
-Message-ID: <443FF8D8.4050804@intel.com>
-References: <20060414183423.3461.32772.stgit@gitlost.site> <443FF1A1.4000204@pobox.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [RFC] Geographical/regulatory information for ieee80211
+Date: Fri, 14 Apr 2006 15:01:20 -0500
+Message-ID: <443FFF90.7030204@lwfinger.net>
+References: <443EF3E9.7050303@lwfinger.net> <20060414152715.GC29461@instant802.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Miller, David" <davem@davemloft.net>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr18.intel.com ([134.134.136.17]:8680 "EHLO
-	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751429AbWDNTeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 15:34:13 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <443FF1A1.4000204@pobox.com>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:32729 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S965094AbWDNUB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 16:01:26 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20060414152715.GC29461@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> 01/10: [FIX] Remove PM warning DPRINTKs breaking 2.4.x kernels
->> 02/10: [FIX] Esb2 wol link cycle bug and uninitialized registers
->> 03/10: [PATCH] De-inline functions to benefit from compiler smartness
->> 04/10: [PATCH] Made an adapter struct variable into a local (txb2b)
->> 05/10: [PATCH] Update truesize with the length of the packet for
->>                       packet split
->> 06/10: [PATCH] Dead variable cleanup
->> 07/10: [PATCH] Buffer optimizations for small MTU
->> 08/10: [PATCH] implement more efficient tx queue locking
->> 09/10: [DOC] Version bump, contact fix, year string change
->> 10/10: [MAINTAINERS] {e100{,0},ixgb}: Add Auke Kok as new patch 
->> maintainer
+Jouni Malinen wrote:
+> The maximum power would be quite useful--I would say required--part of
+> regulatory domain information.. In other words, I would like to see the
+> groups created in a way that would take differences in power limits into
+> account. Without this, the groups will need to be re-created at some
+> point in the future when IEEE 802.11d and IEEE 802.11h would like to use
+> the same table.. In addition, flag of specifying indoor/outdoor/both
+> would be a nice addition.
 > 
-> These 10 patches look OK, but since the current kernel version is 
-> 2.6.17-rc1, that means we are in "bug fix only" mode right now.
-> 
-> Should I (a) apply these all to netdev2-.6.git#upstream, queueing them 
-> for 2.6.18, or (b) let you split the submission into two parts, bug 
-> fixes only and everything else?
+> It would be useful to have a text file with all the information in an
+> easily parseable format. I would like to be able to add a user space
+> tool that uses this file to take care of channel/TX power policies. The
+> needed parameters would then be configured for the kernel side 802.11
+> whenever needed.
 
-jeff,
+Good idea to include power and indoor etc. flags. I will also include flags to indicate that 
+scanning should be passive on a given channel.
 
-The two fixes are for low-impact bugs with workarounds, not justifying 
-applying them to 2.6.17-rc1 or stable@.
+Have you any thoughts on the structure of the text file for parsing?
 
-Please apply to netdev-2.6.git#upstream and queue them for 2.6.18. (a).
+Larry
 
-Cheers,
 
-Auke
