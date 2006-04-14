@@ -1,42 +1,125 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [RFC] Geographical/regulatory information for ieee80211
-Date: Fri, 14 Apr 2006 15:01:20 -0500
-Message-ID: <443FFF90.7030204@lwfinger.net>
-References: <443EF3E9.7050303@lwfinger.net> <20060414152715.GC29461@instant802.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
+Date: Fri, 14 Apr 2006 13:28:10 -0700
+Message-ID: <444005DA.4090606@intel.com>
+References: <20060330101218.GA2905@gondor.apana.org.au> <442BDD25.1060000@kernelpanic.ru> <20060331.011245.26474207.davem@davemloft.net> <442D0186.8090705@kernelpanic.ru> <20060331103956.GA12181@gondor.apana.org.au> <442D1B67.8000804@kernelpanic.ru> <20060331121007.GA2146@king.bitgnome.net> <442D1F26.8050601@kernelpanic.ru> <20060331123514.GA13500@gondor.apana.org.au> <20060403210123.GA27698@king.bitgnome.net> <20060403213907.GA32406@linuxace.com> <44319AFF.4090101@kernelpanic.ru> <Pine.WNT.4.63.0604051500530.2496@jbrandeb-desk.amr.corp.intel.com> <Pine.LNX.4.64.0604051734230.9255@lindenhurst-2.jf.intel.com> <44350056.80501@kernelpanic.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:32729 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S965094AbWDNUB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 16:01:26 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060414152715.GC29461@instant802.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Phil Oester <kernel@linuxace.com>,
+	Mark Nipper <nipsy@bitgnome.net>,
+	"David S. Miller" <davem@davemloft.net>, jrlundgren@gmail.com,
+	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
+	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	E1000-devel@lists.sourceforge.net, Andi Kleen <ak@suse.de>,
+	Jeff Garzik <jgarzik@pobox.com>
+Return-path: <e1000-devel-admin@lists.sourceforge.net>
+To: "Boris B. Zhmurov" <bb@kernelpanic.ru>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <44350056.80501@kernelpanic.ru>
+Sender: e1000-devel-admin@lists.sourceforge.net
+Errors-To: e1000-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-Jouni Malinen wrote:
-> The maximum power would be quite useful--I would say required--part of
-> regulatory domain information.. In other words, I would like to see the
-> groups created in a way that would take differences in power limits into
-> account. Without this, the groups will need to be re-created at some
-> point in the future when IEEE 802.11d and IEEE 802.11h would like to use
-> the same table.. In addition, flag of specifying indoor/outdoor/both
-> would be a nice addition.
-> 
-> It would be useful to have a text file with all the information in an
-> easily parseable format. I would like to be able to add a user space
-> tool that uses this file to take care of channel/TX power policies. The
-> needed parameters would then be configured for the kernel side 802.11
-> whenever needed.
+Boris B. Zhmurov wrote:
+> Hello, Jesse Brandeburg.
+>
+> On 06.04.2006 04:42 you said the following:
+>
+>> I built and tested the driver with patches on 2.6.16, with pci-x 
+>> adapters.  I removed some workarounds for PCIe adapters, but I dont 
+>> think anyone having this problem has a PCIe adapter anyway.  I saw no 
+>> TX hangs and ran some bi-directional tests, so i think the driver 
+>> should work okay.  Just warning you I did minimal testing.
+>>
+>> *********************
+>> e1000: transmit the old fashioned way
+>>
+>> It seems back in the day of 2.6.11, there were no sk_forward_alloc
+>> asserions.  Forward port that transmit code to see if it fixes the 
+>> issues
+>> in today's kernel.  Unfortunately it doesn't have all the bug fixes that
+>> the current code has, but if we get transmit timeouts we can add in
+>> workarounds appropriately.
+>>
+>> this changes only the e1000_tso function
+>
+> With this one still having:
+>
+> TCP: Treason uncloaked! Peer 80.72.16.78:11460/80 shrinks window 
+> 2223569515:2223569516. Repaired.
+> KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c 
+> (283)
+> KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c 
+> (150)
+This is a very important result.  It shows that the changes to the 
+driver to call pskb_expand_head for TSO operations are not the cause of 
+this problem.
 
-Good idea to include power and indoor etc. flags. I will also include flags to indicate that 
-scanning should be passive on a given channel.
+We also have some new data from the last couple of days.  First, I think 
+that this problem is likely not just E1000's fault.  We have multiple 
+reports both in bugzilla.kernel.org and from a distro that show this 
+problem has occurred on (at least) tg3 driven adapters as well as e1000.
 
-Have you any thoughts on the structure of the text file for parsing?
+I've been able to reliably reproduce this issue in house (finally) 
+thanks to one of our testers.  The test is using the tbench application 
+from the dbench package at samba.org.
 
-Larry
+on the server, start tbench_srv
+on the machine you're trying to repro the issue on, start tbench 500 
+<server ip>, on another client start tbench 50 <server ip>
+I've seen sk_forward_alloc assertions on both server and client both 
+running 2.6.16.  We're trying to figure out where there might be a stale 
+pointer to an sk that accesses the data after free.  something seems to 
+write ff ff ff ff 00 00 00 00 to memory after it is freed maybe?
+
+It does seem that the load (the 500 threads) is important to this 
+failure.  I've also seen a report that a memory poisoning kernel caught 
+the failure.
+
+Any investigation hints for me?
+>> e1000: implement old xmit_frame
+>>
+>> It seems back in the day of 2.6.11, there were no sk_forward_alloc
+>> asserions.  Forward port that transmit code to see if it fixes the 
+>> issues
+>> in today's kernel.  Unfortunately it doesn't have all the bug fixes that
+>> the current code has, but if we get transmit timeouts we can add in
+>> workarounds appropriately.
+>>
+>> this changes the e1000_xmit_frame function, and some ancilliaries
+>>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>
+>
+>
+> Can't apply this one:
+>
+> [zhmurov@builds linux-2.6.16]$ patch -p1 < 
+> ../../../SOURCES/linux-2.6.16-e1000-implement_old_xmit_frame.patch
+> patching file drivers/net/e1000/e1000_main.c
+> Hunk #1 succeeded at 2620 (offset -105 lines).
+> Hunk #2 FAILED at 2695.
+> Hunk #4 FAILED at 2837.
+> Hunk #5 FAILED at 2868.
+> Hunk #6 FAILED at 2899.
+> 4 out of 6 hunks FAILED -- saving rejects to file 
+> drivers/net/e1000/e1000_main.c.rej
+
+well that seems kind of lame, but I think we got the data that we needed 
+from the first patch.
 
 
+-------------------------------------------------------
+This SF.Net email is sponsored by xPML, a groundbreaking scripting language
+that extends applications into web and mobile media. Attend the live webcast
+and join the prime developer group breaking into this new coding territory!
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=110944&bid=241720&dat=121642
