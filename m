@@ -1,62 +1,51 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: [RFC] Geographical/regulatory information for ieee80211
-Date: Fri, 14 Apr 2006 13:41:26 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0604141339580.6730@p15091797.pureserver.info>
-References: <443EF3E9.7050303@lwfinger.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [RFC: 2.6 patch] net/irda/irias_object.c: remove unused exports
+Date: Fri, 14 Apr 2006 13:44:46 +0200
+Message-ID: <20060414114446.GL4162@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, jeffl@comix.santa-cruz.ca.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:49851 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S932253AbWDNLn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 07:43:59 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <443EF3E9.7050303@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932315AbWDNLot@vger.kernel.org>
+To: Jean Tourrilhes <jt@hpl.hp.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Larry,
+This patch removes the following unused EXPORT_SYMBOL's:
+- irias_find_attrib
+- irias_new_string_value
+- irias_new_octseq_value
 
-the CISCO list is not correct. For Europe the detailed information
-can be found in the recommendation ERC/REC 70-03 of the European
-Radiocommunications Office. It is downloadable from this page:
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-http://www.ero.dk/documentation/docs/doccategory.asp?catid=2&catname=ECC/ERC/ECTRA%20Recommendations
+---
 
-The WLAN frequencies are specified in Annex 3 and the national
-restrictions can be found in Appendix 3.
+ net/irda/irias_object.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-So for 802.11b/g channels 1-13 can be used across Europe. France
-has some differing power requirements. Italy require license for
-outdoor usage. Luxembourg authorisation for public usage. Romania
-requires an individual license.
-
-For the 802.11a frequencies, there are three bands: 
-
-Annex 3 Band B 5150-5250 MHz for indoor use (36-48)
-Annex 3 Band C 5250-5350 MHz for indoor use (52-64)
-Annex 3 Band D 5470-5725 MHz for outdoor use (100-140)
-
-However these bands are not available in all European states,
-details can be found in the recommendation. Spain, Portugal,
-Greece and Belgium for instance don't allow Annex 3 Band D.
-
-Uli
-
-On Thu, 13 Apr 2006, Larry Finger wrote:
-
-> I am planning on writing a new routine to be added to
-> net/ieee80211/ieee80211_geo.c that will populate an ieee80211_geo object given
-> a country code. The new routine will eliminate the need for each driver to do
-> their own.
-> 
-> Finding the allowable channels, etc. for various countries has not been easy;
-> however, Cisco
-> (http://www.cisco.com/en/US/products/ps6305/products_configuration_guide_chapter
-> 09186a008059c96f.html) has what seems to be the most complete listing of
-> country information. Neglecting any discussion of maximum power, I have been
-> able to arrange the countries into the following groups:
-
--- 
-Ulrich Kunitz - kune@deine-taler.de
+--- linux-2.6.17-rc1-mm2-full/net/irda/irias_object.c.old	2006-04-14 12:37:49.000000000 +0200
++++ linux-2.6.17-rc1-mm2-full/net/irda/irias_object.c	2006-04-14 12:39:26.000000000 +0200
+@@ -257,7 +257,6 @@
+ 	/* Unsafe (locking), attrib might change */
+ 	return attrib;
+ }
+-EXPORT_SYMBOL(irias_find_attrib);
+ 
+ /*
+  * Function irias_add_attribute (obj, attrib)
+@@ -484,7 +483,6 @@
+ 
+ 	return value;
+ }
+-EXPORT_SYMBOL(irias_new_string_value);
+ 
+ /*
+  * Function irias_new_octseq_value (octets, len)
+@@ -519,7 +517,6 @@
+ 	memcpy(value->t.oct_seq, octseq , len);
+ 	return value;
+ }
+-EXPORT_SYMBOL(irias_new_octseq_value);
+ 
+ struct ias_value *irias_new_missing_value(void)
+ {
