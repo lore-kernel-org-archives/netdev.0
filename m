@@ -1,60 +1,55 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [PATCH] bcm43xx: iw_priv_args names should be <16 characters
-Date: Fri, 14 Apr 2006 03:33:21 -0700
-Message-ID: <20060414103321.GD26289@gaz.sfgoth.com>
-References: <20060413130227.GD20839@harddisk-recovery.nl> <20060413102919.5e0bdb2e@localhost.localdomain> <20060414093503.GF20839@harddisk-recovery.com>
+From: Samuel Ortiz <samuel.ortiz@nokia.com>
+Subject: [PATCH] IrDA: irda-usb, unregister netdev when patch upload fails
+Date: Fri, 14 Apr 2006 13:16:07 +0300
+Message-ID: <20060414101607.GA32724@irie>
+Reply-To: Samuel Ortiz <samuel.ortiz@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	torvalds@osdl.org
+Cc: IrDA users <irda-users@lists.sourceforge.net>,
+	Jean Tourrilhes <jt@hpl.hp.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gaz.sfgoth.com ([69.36.241.230]:27618 "EHLO gaz.sfgoth.com")
-	by vger.kernel.org with ESMTP id S965138AbWDNK2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 06:28:21 -0400
-To: Erik Mouw <erik@harddisk-recovery.com>
+Received: from mgw-ext11.nokia.com ([131.228.20.170]:62867 "EHLO
+	mgw-ext11.nokia.com") by vger.kernel.org with ESMTP id S965136AbWDNK3q
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 06:29:46 -0400
+To: "ext David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060414093503.GF20839@harddisk-recovery.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Erik Mouw wrote:
-> On Thu, Apr 13, 2006 at 10:29:19AM -0700, Stephen Hemminger wrote:
-> > Shouldn't compiler have gagged on this?
-> 
-> Apparently not. At least the compiler I use doesn't warn about it (gcc
-> version 3.3.5 (Debian 1:3.3.5-13)).
-> 
-> Linus, this might be be something for sparse to check:
-> 
->   struct mystruct {
-> 	char name[16];
->   };
-> 
->   mystruct ms = { .name = "muchlongerthan16characters" };
+Hi David,
 
-If you actually try that example you'd see that gcc (even really old
-versions) will warn you about that code.
+In the STIR421x case, when the firmware upload fails, we need to unregister_netdev. Otherwise we hit a BUG on free_netdev(), if sysfs is enabled.
+ 
+Signed-off-by: Samuel Ortiz <samuel.ortiz@nokia.com>
 
-What gcc WON'T warn about is if everything but the final '\0' fits in
-the array.
-
-So the code:
-	struct mystruct { char name[16]; };
-	struct mystruct exact_length = { .name = "0123456789abcdef" };
-	struct mystruct one_too_long = { .name = "0123456789abcdefg" };
-
-Produces:
-	a.c:3: warning: initializer-string for array of chars is too long
-	a.c:3: warning: (near initialization for 'one_too_long.name')
-
-I believe this is intentional and in line with the C specs.  It's also
-useful since it allows you to define macros like:
-
-	#define DECLARE_NON_TERMINATED_STRING(name, val) \
-			const name[sizeof(val "") - 1] = val;
-
-Making sparse a bit stricter than gcc in this case might not be a bad idea,
-though.
-
--Mitch
+diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+index 606243d..96bdb73 100644
+--- a/drivers/net/irda/irda-usb.c
++++ b/drivers/net/irda/irda-usb.c
+@@ -1815,14 +1815,14 @@ static int irda_usb_probe(struct usb_int
+ 		self->needspatch = (ret < 0);
+ 		if (ret < 0) {
+ 			printk("patch_device failed\n");
+-			goto err_out_4;
++			goto err_out_5;
+ 		}
+ 
+ 		/* replace IrDA class descriptor with what patched device is now reporting */
+ 		irda_desc = irda_usb_find_class_desc (self->usbintf);
+ 		if (irda_desc == NULL) {
+ 			ret = -ENODEV;
+-			goto err_out_4;
++			goto err_out_5;
+ 		}
+ 		if (self->irda_desc)
+ 			kfree (self->irda_desc);
+@@ -1832,6 +1832,8 @@ static int irda_usb_probe(struct usb_int
+ 
+ 	return 0;
+ 
++err_out_5:
++	unregister_netdev(self->netdev);
+ err_out_4:
+ 	kfree(self->speed_buff);
+ err_out_3:
