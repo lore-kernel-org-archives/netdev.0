@@ -1,54 +1,29 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: [PATCH] Fix crash on big-endian systems during scan
-Date: Fri, 14 Apr 2006 17:59:11 -0400
-Message-ID: <20060414215911.17273.40460.stgit@dv.roinet.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [XFRM] Fix aevent timer
+Date: Fri, 14 Apr 2006 15:03:15 -0700 (PDT)
+Message-ID: <20060414.150315.99711235.davem@davemloft.net>
+References: <1144932959.5262.5.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hostap@shmoo.com
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: netdev@vger.kernel.org
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://lists.shmoo.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	hidden@balabit.hu
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:25534
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030197AbWDNWDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 18:03:10 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1144932959.5262.5.camel@jzny2>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski@gnu.org>
+From: jamal <hadi@cyberus.ca>
+Date: Thu, 13 Apr 2006 08:55:58 -0400
 
-The original code was doing arithmetics on a little-endian value.
-Reported by Stelios Koroneos <stelios@stelioscellar.com>
+> Finally got an opportunity to test this. I have incorporated all the
+> feedback and it passes all the scenarios i know.
+> 
+> Dave, please apply to Linus tree since this is a bug fix.
 
-Signed-off-by: Pavel Roskin <proski@gnu.org>
----
-
- drivers/net/wireless/hostap/hostap_ioctl.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
-index 8b37e82..8399de5 100644
---- a/drivers/net/wireless/hostap/hostap_ioctl.c
-+++ b/drivers/net/wireless/hostap/hostap_ioctl.c
-@@ -1860,7 +1860,7 @@ static char * __prism2_translate_scan(lo
- 	memset(&iwe, 0, sizeof(iwe));
- 	iwe.cmd = SIOCGIWFREQ;
- 	if (scan) {
--		chan = scan->chid;
-+		chan = le16_to_cpu(scan->chid);
- 	} else if (bss) {
- 		chan = bss->chan;
- 	} else {
-@@ -1868,7 +1868,7 @@ static char * __prism2_translate_scan(lo
- 	}
- 
- 	if (chan > 0) {
--		iwe.u.freq.m = freq_list[le16_to_cpu(chan - 1)] * 100000;
-+		iwe.u.freq.m = freq_list[chan - 1] * 100000;
- 		iwe.u.freq.e = 1;
- 		current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
- 						  IW_EV_FREQ_LEN);
+Applied, thanks.
