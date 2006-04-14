@@ -1,64 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC: 2.6 patch] net/netlink/: possible cleanups
-Date: Fri, 14 Apr 2006 14:56:12 +0400
-Message-ID: <20060414105610.GA18149@2ka.mipt.ru>
-References: <20060413162710.GE4162@stusta.de> <20060413.132603.94193712.davem@davemloft.net> <20060414103202.GF4162@stusta.de>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [RFC] Geographical/regulatory information for ieee80211
+Date: Fri, 14 Apr 2006 13:41:26 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0604141339580.6730@p15091797.pureserver.info>
+References: <443EF3E9.7050303@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, jeffl@comix.santa-cruz.ca.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:36007 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751203AbWDNK7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Apr 2006 06:59:30 -0400
-To: Adrian Bunk <bunk@stusta.de>
-Content-Disposition: inline
-In-Reply-To: <20060414103202.GF4162@stusta.de>
+Received: from deine-taler.de ([217.160.107.63]:49851 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S932253AbWDNLn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 07:43:59 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <443EF3E9.7050303@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 14, 2006 at 12:32:02PM +0200, Adrian Bunk (bunk@stusta.de) wrote:
-> On Thu, Apr 13, 2006 at 01:26:03PM -0700, David S. Miller wrote:
-> > From: Adrian Bunk <bunk@stusta.de>
-> > Date: Thu, 13 Apr 2006 18:27:10 +0200
-> > 
-> > > This patch contains the following possible cleanups plus changes related 
-> > > to them:
-> > > - make the following needlessly global functions static:
-> > >   - attr.c: __nla_reserve()
-> > >   - attr.c: __nla_put()
-> > > - #if 0 the following unused global functions:
-> > >   - attr.c: nla_validate()
-> > >   - attr.c: nla_find()
-> > >   - attr.c: nla_memcpy()
-> > >   - attr.c: nla_memcmp()
-> > >   - attr.c: nla_strcmp()
-> > >   - attr.c: nla_reserve()
-> > >   - genetlink.c: genl_unregister_ops()
-> > > - remove the following unused EXPORT_SYMBOL's:
-> > >   - af_netlink.c: netlink_set_nonroot
-> > >   - attr.c: nla_parse
-> > >   - attr.c: nla_strlcpy
-> > >   - attr.c: nla_put
-> > > 
-> > > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-...
-> Anything else where a removal might be OK?
+Larry,
 
-__nla_* helpers were created for small performance optimisation
-if reservation is heavily used.
-nla_* helpers were created to be used, but not to be removed or
-commented. Some of them are used in generic netlink family.
+the CISCO list is not correct. For Europe the detailed information
+can be found in the recommendation ERC/REC 70-03 of the European
+Radiocommunications Office. It is downloadable from this page:
 
-Others and genl_register/unregister_ops() might be used in recenly 
-announced accounting patches.
-genl_unregister_ops() is supposed to be used in, for example, 
-generic netlink exit path (which can not be called though).
+http://www.ero.dk/documentation/docs/doccategory.asp?catid=2&catname=ECC/ERC/ECTRA%20Recommendations
 
-Although it is always statically built systems, it is still very
-convenient way of netlink usage for others (future modular systems).
+The WLAN frequencies are specified in Annex 3 and the national
+restrictions can be found in Appendix 3.
 
-> cu
-> Adrian
+So for 802.11b/g channels 1-13 can be used across Europe. France
+has some differing power requirements. Italy require license for
+outdoor usage. Luxembourg authorisation for public usage. Romania
+requires an individual license.
+
+For the 802.11a frequencies, there are three bands: 
+
+Annex 3 Band B 5150-5250 MHz for indoor use (36-48)
+Annex 3 Band C 5250-5350 MHz for indoor use (52-64)
+Annex 3 Band D 5470-5725 MHz for outdoor use (100-140)
+
+However these bands are not available in all European states,
+details can be found in the recommendation. Spain, Portugal,
+Greece and Belgium for instance don't allow Annex 3 Band D.
+
+Uli
+
+On Thu, 13 Apr 2006, Larry Finger wrote:
+
+> I am planning on writing a new routine to be added to
+> net/ieee80211/ieee80211_geo.c that will populate an ieee80211_geo object given
+> a country code. The new routine will eliminate the need for each driver to do
+> their own.
+> 
+> Finding the allowable channels, etc. for various countries has not been easy;
+> however, Cisco
+> (http://www.cisco.com/en/US/products/ps6305/products_configuration_guide_chapter
+> 09186a008059c96f.html) has what seems to be the most complete listing of
+> country information. Neglecting any discussion of maximum power, I have been
+> able to arrange the countries into the following groups:
 
 -- 
-	Evgeniy Polyakov
+Ulrich Kunitz - kune@deine-taler.de
