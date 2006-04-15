@@ -1,56 +1,38 @@
-From: "Thomas A. Oehser" <tom@toms.net>
-Subject: r8169 locks up in 2.6.16.5
-Date: Sat, 15 Apr 2006 16:47:16 -0400
-Message-ID: <20060415204716.GA1755@jupiter.toms.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
+Date: Sat, 15 Apr 2006 17:27:16 -0400
+Message-ID: <1145136436.5963.6.camel@localhost.localdomain>
+References: <20060411085805.949313000@sipsolutions.net>
+	 <20060411085841.252064000@sipsolutions.net>
+	 <20060413020010.2ab16d7b.zaitcev@redhat.com>
+	 <1144919176.4187.44.camel@localhost> <1144920890.4187.50.camel@localhost>
+	 <1144930441.2372.12.camel@localhost.localdomain>
+	 <20060413161359.GA21074@bougret.hpl.hp.com>
+	 <1145129056.6560.0.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jt@hpl.hp.com, Pete Zaitcev <zaitcev@redhat.com>,
+	netdev@vger.kernel.org, softmac-dev@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jupiter.toms.net ([207.145.105.50]:17027 "EHLO jupiter.toms.net")
-	by vger.kernel.org with ESMTP id S1751455AbWDOUrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 16:47:23 -0400
-Received: from jupiter.toms.net (localhost [127.0.0.1])
-	by jupiter.toms.net (8.12.10/8.12.10) with ESMTP id k3FKlHrj002164
-	for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 16:47:17 -0400
-Received: (from tom@localhost)
-	by jupiter.toms.net (8.12.10/8.12.10/Submit) id k3FKlG7e002163
-	for netdev@vger.kernel.org; Sat, 15 Apr 2006 16:47:16 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:26501 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751622AbWDOVbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 17:31:21 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1145129056.6560.0.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 2006-04-15 at 21:24 +0200, Johannes Berg wrote:
+> On Thu, 2006-04-13 at 09:13 -0700, Jean Tourrilhes wrote:
+> 
+> > 	Yes, Dan is 100% correct.
+> 
+> Right, slightly later I posted a patch to do it that way. After everyone
+> else has discussed, do we agree to leave the patches as they are now?
 
-Hi,
+Current patch set looks good to me.
 
-The r8169 driver seems not to be able to handle high loads?
-
-On a dual Athlon 2600+ MP with 2GB RAM, and nothing else running.
-
-I'm doing:
-
-	nc -l -p 12345|buffer|cpio -iuvmdB
-
-On the other machine, also with a gigabit card, I'm doing:
-
-	find .|cpio -o -Hnewc -B|nc 192.168.111.1 12345
-
-It works fine- for about 10 minutes- then, suddenly one of 3 things happens-
-even if I stop the high-throughput transfer and quiescse everything.....
-
-- Pings to the router take 9000ms instead of <1 ms (ifconfig down/up fixes it)
-- or, it completely stops working, but ifconfig down/up makes it work again
-- or, if iptables is natting, sometimes itg completely crashdump oopses
-
-None of these problems occurs using the other NIC, an eepro100 or something.
-
-Should I just give these cards away and forget I ever heard of RealTeK?
-
-Is it known that this driver, or this card, or the comgination, is unstable?
-
-Note, I have another machine using r8169, with some other OS- it doesn't fail.
+Dan
 
 
--Tom
-
--- 
-May 4, 1970: Alison Krause, Jeffrey Miller, Sandra Scheuer, William Schroeder.
