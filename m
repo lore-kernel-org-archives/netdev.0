@@ -1,40 +1,56 @@
-From: Samuel Ortiz <samuel.ortiz@nokia.com>
-Subject: Re: [RFC: 2.6 patch] net/irda/irias_object.c: remove unused exports
-Date: Sat, 15 Apr 2006 22:35:33 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0604152235001.1212@irie>
-References: <20060414114446.GL4162@stusta.de> <Pine.LNX.4.58.0604151157320.1032@irie>
- <20060415.022702.120267858.davem@davemloft.net>
-Reply-To: samuel.ortiz@nokia.com
+From: "Thomas A. Oehser" <tom@toms.net>
+Subject: r8169 locks up in 2.6.16.5
+Date: Sat, 15 Apr 2006 16:47:16 -0400
+Message-ID: <20060415204716.GA1755@jupiter.toms.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: bunk@stusta.de, ext Jean Tourrilhes <jt@hpl.hp.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw-ext13.nokia.com ([131.228.20.172]:26007 "EHLO
-	mgw-ext13.nokia.com") by vger.kernel.org with ESMTP
-	id S1751388AbWDOTyg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Apr 2006 15:54:36 -0400
-To: "ext David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060415.022702.120267858.davem@davemloft.net>
+Received: from jupiter.toms.net ([207.145.105.50]:17027 "EHLO jupiter.toms.net")
+	by vger.kernel.org with ESMTP id S1751455AbWDOUrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 16:47:23 -0400
+Received: from jupiter.toms.net (localhost [127.0.0.1])
+	by jupiter.toms.net (8.12.10/8.12.10) with ESMTP id k3FKlHrj002164
+	for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 16:47:17 -0400
+Received: (from tom@localhost)
+	by jupiter.toms.net (8.12.10/8.12.10/Submit) id k3FKlG7e002163
+	for netdev@vger.kernel.org; Sat, 15 Apr 2006 16:47:16 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 15 Apr 2006, ext David S. Miller wrote:
 
-> From: Samuel Ortiz <samuel.ortiz@nokia.com>
-> Date: Sat, 15 Apr 2006 11:58:21 +0300 (EEST)
->
-> > On Fri, 14 Apr 2006, ext Adrian Bunk wrote:
-> >
-> > > This patch removes the following unused EXPORT_SYMBOL's:
-> > > - irias_find_attrib
-> > > - irias_new_string_value
-> > > - irias_new_octseq_value
-> > >
-> > > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> > Looks good to me.
-> >
-> > Signed-off-by: Samuel Ortiz <samuel.ortiz@nokia.com>
->
-> Sam, just add this to your IRDA queue.  Ok?
-Sure, I will.
+Hi,
+
+The r8169 driver seems not to be able to handle high loads?
+
+On a dual Athlon 2600+ MP with 2GB RAM, and nothing else running.
+
+I'm doing:
+
+	nc -l -p 12345|buffer|cpio -iuvmdB
+
+On the other machine, also with a gigabit card, I'm doing:
+
+	find .|cpio -o -Hnewc -B|nc 192.168.111.1 12345
+
+It works fine- for about 10 minutes- then, suddenly one of 3 things happens-
+even if I stop the high-throughput transfer and quiescse everything.....
+
+- Pings to the router take 9000ms instead of <1 ms (ifconfig down/up fixes it)
+- or, it completely stops working, but ifconfig down/up makes it work again
+- or, if iptables is natting, sometimes itg completely crashdump oopses
+
+None of these problems occurs using the other NIC, an eepro100 or something.
+
+Should I just give these cards away and forget I ever heard of RealTeK?
+
+Is it known that this driver, or this card, or the comgination, is unstable?
+
+Note, I have another machine using r8169, with some other OS- it doesn't fail.
+
+
+-Tom
+
+-- 
+May 4, 1970: Alison Krause, Jeffrey Miller, Sandra Scheuer, William Schroeder.
