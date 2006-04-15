@@ -1,50 +1,61 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: skb diet
-Date: Sat, 15 Apr 2006 21:22:01 +0200
-Message-ID: <200604152122.01914.ak@suse.de>
-References: <baebb9a00604150417h1ffb3f97g102253dca0b3a53e@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 1/3] softmac: return -EAGAIN from getscan while scanning
+Date: Sat, 15 Apr 2006 21:24:16 +0200
+Message-ID: <1145129056.6560.0.camel@localhost>
+References: <20060411085805.949313000@sipsolutions.net>
+	 <20060411085841.252064000@sipsolutions.net>
+	 <20060413020010.2ab16d7b.zaitcev@redhat.com>
+	 <1144919176.4187.44.camel@localhost> <1144920890.4187.50.camel@localhost>
+	 <1144930441.2372.12.camel@localhost.localdomain>
+	 <20060413161359.GA21074@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-oLcgeSw6OMQ5plw1eHlY"
+Cc: Dan Williams <dcbw@redhat.com>, Pete Zaitcev <zaitcev@redhat.com>,
+	netdev@vger.kernel.org, softmac-dev@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:2021 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1751268AbWDOTWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 15:22:14 -0400
-To: "Hisham Kotry" <hkotry@gmail.com>
-In-Reply-To: <baebb9a00604150417h1ffb3f97g102253dca0b3a53e@mail.gmail.com>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([213.151.39.204]:5767 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751268AbWDOTY1
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Apr 2006 15:24:27 -0400
+To: jt@hpl.hp.com
+In-Reply-To: <20060413161359.GA21074@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 15 April 2006 13:17, Hisham Kotry wrote:
-> I just read David S. Miller's skb redundancy page and in it he seems to suggest
-> taking an approach similar to that of BSD's mbufs to reduce the skb's
-> size. I was going to do some janitor work on the network stack and I
-> thought that maybe I could start by adding a tag list to the skb
-> similar to BSD's mbuf tags and change the code to store its private
-> variables in tags rather than in skb->cb. That should save 40 bytes
-> per skb and maybe later the tc and nf related variables could go in
-> tags too. The transition shouldn't be hard for the most part, many
-> users of skb->cb use macros like FRAG_CB(skb) so I could redefine
-> those macros to search the tag-list for the appropriate tag and return
-> its contents. Is this approach acceptable or is there a consensus on
-> another approach?
 
-Where would that tag list be stored if you want to remove the 
-40 bytes of ->cb?
+--=-oLcgeSw6OMQ5plw1eHlY
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-In general I don't think it will help much even if you find
-a magic way to store it without using memory @) because
-->cb is already private to each layer, so it's only the single 40 bytes
-which is reused as needed.
+On Thu, 2006-04-13 at 09:13 -0700, Jean Tourrilhes wrote:
 
-You seem to think they accumulate which is not the case.
+> 	Yes, Dan is 100% correct.
 
-Linux 2.0 did something like this, but that was removed for good 
-reasons. Now TCP always clones skbs before sending it out.
+Right, slightly later I posted a patch to do it that way. After everyone
+else has discussed, do we agree to leave the patches as they are now?
 
-And optimizing for uncommon cases (not TCP) doesn't seem too useful.
+johannes
 
--Andi
+--=-oLcgeSw6OMQ5plw1eHlY
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIVAwUAREFIX6Vg1VMiehFYAQJhAQ//QidCBVfRFUsgNFKh+0d9vrjmAdvfTN7D
+GKdrqYsBmC3J9wH7q7QIonOMqeRH+0RtW0EeoIUwMoP0GnuFiiWTm/+jPCZ8eoNw
+A5KB1v4ZoMrj1qu+OM/VdUhTkJGLo3u42OyVGsnfvMFBRvm0+bkIP40wDT2ZHKwx
+LJ+yVeMn+Np5xMblJWB5ynFEcIgUBRbs+MGZUs7bfb3OKRSnVldcSqpmcGHBUmYM
+llt9xULW97bNugGsPfBZLJpBc09wSeTbOywzepbvdo9+Wu4K+Bz4n8zeGetbdE4Z
+wttdJQkwj4KESJ9v9Tm00crBBVYOSbCjvebXJdFfR3sV2Ac7UQTx/aaAaaL0kDBE
+YuLIY5mkBipxRn+fMkKTZcjxsq0lLLd4E+ZKukg5X97FOqU9M+EoDG/FNqmGqgIx
+bv0Ux1HXfbHU8U/4kpwGrAjx/MsG1pRA20lm/YLE/GbKFhP+DMo6g5NiiRlgSecj
+oZlWdwfgwoTXlg4gwcuKwo4DLet6VIIS3TJGafBal83JwcQVN5RgUJi8dffLhDYk
+PMEr/tSFJ188judTcsyQYuPlH4qWMznu1SbZxzjRXn/o5+jcEqz2myYmaQ1N3PQC
+lnHeJDcMKbjZ8BjQBy3wyumqFQPchnkGJUIk/CWPHWLD2d7Qdo9u305XBbyLvMKy
+T7JfQUYTBe4=
+=AL6/
+-----END PGP SIGNATURE-----
+
+--=-oLcgeSw6OMQ5plw1eHlY--
+
