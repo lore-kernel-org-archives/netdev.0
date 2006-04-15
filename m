@@ -1,38 +1,44 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH] sir: switch to a workqueue
-Date: Sat, 15 Apr 2006 18:37:12 +0200
-Message-ID: <20060415163712.GA13342@lst.de>
-References: <20060414182015.GA20662@lst.de> <Pine.LNX.4.44.0604151444521.19061-100000@notebook.home.mdiehl.de>
+From: Faidon Liambotis <faidon@cube.gr>
+Subject: Re: [RFC] Geographical/regulatory information for ieee80211
+Date: Sat, 15 Apr 2006 20:07:30 +0300
+Message-ID: <e1r98k$882$1@sea.gmane.org>
+References: <443EF3E9.7050303@lwfinger.net> <20060414152715.GC29461@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, Jean Tourrilhes <jt@hpl.hp.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:14300 "EHLO mail.lst.de")
-	by vger.kernel.org with ESMTP id S1030284AbWDOQhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 12:37:35 -0400
-To: Martin Diehl <info@mdiehl.de>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0604151444521.19061-100000@notebook.home.mdiehl.de>
+Received: from main.gmane.org ([80.91.229.2]:42458 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1030295AbWDORHx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 13:07:53 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1FUoFN-0005G2-2v
+	for netdev@vger.kernel.org; Sat, 15 Apr 2006 19:07:46 +0200
+Received: from 147.102.26.135 ([147.102.26.135])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 19:07:45 +0200
+Received: from faidon by 147.102.26.135 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 19:07:45 +0200
+To: netdev@vger.kernel.org
+In-Reply-To: <20060414152715.GC29461@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 15, 2006 at 04:24:15PM +0200, Martin Diehl wrote:
-> 
-> My only concern with this patch is this:
+Jouni Malinen wrote:
+> The maximum power would be quite useful--I would say required--part of
+> regulatory domain information.. In other words, I would like to see the
+> groups created in a way that would take differences in power limits into
+> account. Without this, the groups will need to be re-created at some
+> point in the future when IEEE 802.11d and IEEE 802.11h would like to use
+> the same table.. In addition, flag of specifying indoor/outdoor/both
+> would be a nice addition.
+Speaking of 802.11h, for the table to be complete, it should specify
+which protocol is allowed on a given channel.
+EU members allow 802.11h (DFS/TPC) but not 802.11a. This is an important
+distinction that, IMHO, should be included in a regulatory information
+table.
 
-<..>
-
-> Hm, queue_work might fail (like it was possible with irda_queue_request), 
-> if work->pending is set. In that case, chances are we have a partially 
-> configured irda device dangling around. The idea was to (re-)enable rx and 
-> restore the xmit queue state on netdev so we can rely on the upper layers 
-> to recover. I think without the fallback the netdev might become unuseable 
-> until ifdown/ifup-cycle, if queue_work would ever fail.
-
-queue_work doesn't fail if work->pending, it just noticed this
-particular work_Struct is already beeing serviced and tells you that.
-In the sir code that can't happen because the work_struct has ben
-allocated and initialized a few lines above, so there's zero chance for
-someone else to call queue_work on it concurrently.
+Regards,
+Faidon
 
