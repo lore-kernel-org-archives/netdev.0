@@ -1,66 +1,78 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [e1000 debug] KERNEL: assertion (!sk_forward_alloc) failed...
-Date: Fri, 14 Apr 2006 16:53:29 -0700 (PDT)
-Message-ID: <20060414.165329.24988172.davem@davemloft.net>
-References: <Pine.WNT.4.63.0604141543170.2116@jbrandeb-desk.amr.corp.intel.com>
-	<20060414.155202.82987818.davem@davemloft.net>
-	<Pine.WNT.4.63.0604141553210.2116@jbrandeb-desk.amr.corp.intel.com>
+Subject: fixing sk_stream_rfree()
+Date: Fri, 14 Apr 2006 20:59:27 -0700 (PDT)
+Message-ID: <20060414.205927.13626300.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bb@kernelpanic.ru, herbert@gondor.apana.org.au,
-	kernel@linuxace.com, nipsy@bitgnome.net, jrlundgren@gmail.com,
-	cat@zip.com.au, djani22@dynamicweb.hu, yoseph.basri@gmail.com,
-	mykleb@no.ibm.com, olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	E1000-devel@lists.sourceforge.net, ak@suse.de, jgarzik@pobox.com
+Cc: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63885
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22168
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751332AbWDNX5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Apr 2006 19:57:15 -0400
-To: jesse.brandeburg@intel.com
-In-Reply-To: <Pine.WNT.4.63.0604141553210.2116@jbrandeb-desk.amr.corp.intel.com>
+	id S1030231AbWDOD7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Apr 2006 23:59:35 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Date: Fri, 14 Apr 2006 15:55:10 -0700 (Pacific Daylight Time)
 
-> I'm trying to isolate more of a reproduction case, I'll be sure to
-> post if I can find anything with more detail.
+Herbert, as you may have noticed we found some missing
+locking in sk_stream_rfree().  It could explain the
+"!sk_forward_alloc" BUG() we thought was caused by e1000's
+TSO implementation and the Intel folks have provided enough
+datapoints to prove that it is indeed not an e1000 specific
+problem.
 
-I think I see the bug.
+sk_stream_rfree() modifies sk->sk_forward_alloc without holding any
+locks from the __kfree_skb() callback.
 
-If tbench with large numbers of clients is part of what helps
-reproduce it, the key might be hitting the memory limits in tcp_mem[]
-and friends, or something to do with concurrent access to
-sk->sk_forward_alloc.
+Now, _most_ of the time it is OK because we're being invoked with the
+socket lock held as ACKs come back to liberate the transmit queue or
+during socket shutdown which also holds the socket locked.  (I did
+audit this, but I may have missed something, please double check this
+assertion)
 
-I bet there is some race in there.
+However, if skb->users is incremented or similar, that entity could
+end up being the context in which the skb is freed up and that will
+not necessarily have the socket locked correctly when the
+skb->destructor callback invokes sk_stream_rfree().  Consider tcpdump
+or similar.
 
-A lot of the action is in net/core/stream.c  We modify
-sk->sk_forward_alloc non-atomically but that should be ok
-since we ought to be holding all of the correct locks when
-we hit these accesses.  But it is the first thing to audit.
+But we're stuck if we try to cure this:
 
-Let's look at sk_stream_rfree() as that is invoked from SKB
-freeing callbacks and is the most likely suspect for these
-kinds of problems.
+1) We can't take bh_lock_sock().  Well, we could if we disabled
+   BH explicitly first but even then if the socket is locked
+   by the user we can't tell if that's the current cpu and there
+   is no easy way to handle deferring this work.
 
-It is hooked up to the skb->destructor by sk_stream_set_owner_r() and
-then invoked via __kfree_skb().
+   We really can't consider using a workqueue or something like
+   that to handle this, that's way too heavy handed.
 
-Nothing here takes any locks, and as stated above we modify
-sk->sk_forward_alloc non-atomically, and this is therefore the bug.
+2) We can't turn sk_forward_alloc easily into an atomic_t.  The
+   masking operation in __sk_stream_mem_reclaim() does not translate
+   readily into an atomic_t op:
 
-Shit.
+		sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
 
-I'll think of how to fix this in the least invasive manner.  I also
-want to search the changelog history to see if this race was always
-present or if it was "introduced".
+   That line has always driven me nuts, but I know that it is there
+   to handle partial page allocations existing when that function
+   is called.
 
-Making sk->sk_forward_alloc an atomic_t would be incredibly expensive
-so I'll try to find a way to avoid that.  We may be able to just do
-a bh_lock_sock()/bh_unlock_sock() around the body of sk_stream_rfree()
-to fix this.
+I guess for #2 we could change those two lines into:
+
+		int n = atomic_read(&sk->sk_forward_alloc) /
+				SK_STREAM_MEM_QUANTUM;
+
+		atomic_sub(n, sk->sk_prot->memory_allocated);
+		sk->sk_forward_alloc -= n * SK_STREAM_MEM_QUANTUM;
+
+in order to make it "atomic_t op" translatable.
+
+But even if we did this with sk->sk_forward_alloc as an atomic_t
+it would have the same kinds of races we're trying to cure here,
+namely that we test the value and then act upon it while an unlocked
+asynchronous context can modify the value in another thread of
+execution in between the test and the action.
+
+Any ideas?  Come to think of it, __sk_stream_mem_reclaim() looks
+really racey even as-is.
