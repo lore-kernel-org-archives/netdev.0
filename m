@@ -1,44 +1,31 @@
-From: Faidon Liambotis <faidon@cube.gr>
+From: Christoph Hellwig <hch@infradead.org>
 Subject: Re: [RFC] Geographical/regulatory information for ieee80211
-Date: Sat, 15 Apr 2006 20:07:30 +0300
-Message-ID: <e1r98k$882$1@sea.gmane.org>
-References: <443EF3E9.7050303@lwfinger.net> <20060414152715.GC29461@instant802.com>
+Date: Sat, 15 Apr 2006 18:47:35 +0100
+Message-ID: <20060415174734.GA10595@infradead.org>
+References: <443EF3E9.7050303@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeffl@comix.santa-cruz.ca.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:42458 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1030295AbWDORHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Apr 2006 13:07:53 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1FUoFN-0005G2-2v
-	for netdev@vger.kernel.org; Sat, 15 Apr 2006 19:07:46 +0200
-Received: from 147.102.26.135 ([147.102.26.135])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 19:07:45 +0200
-Received: from faidon by 147.102.26.135 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 19:07:45 +0200
-To: netdev@vger.kernel.org
-In-Reply-To: <20060414152715.GC29461@instant802.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:22421 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1030299AbWDORr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Apr 2006 13:47:57 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Disposition: inline
+In-Reply-To: <443EF3E9.7050303@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jouni Malinen wrote:
-> The maximum power would be quite useful--I would say required--part of
-> regulatory domain information.. In other words, I would like to see the
-> groups created in a way that would take differences in power limits into
-> account. Without this, the groups will need to be re-created at some
-> point in the future when IEEE 802.11d and IEEE 802.11h would like to use
-> the same table.. In addition, flag of specifying indoor/outdoor/both
-> would be a nice addition.
-Speaking of 802.11h, for the table to be complete, it should specify
-which protocol is allowed on a given channel.
-EU members allow 802.11h (DFS/TPC) but not 802.11a. This is an important
-distinction that, IMHO, should be included in a regulatory information
-table.
+On Thu, Apr 13, 2006 at 07:59:21PM -0500, Larry Finger wrote:
+> I am planning on writing a new routine to be added to 
+> net/ieee80211/ieee80211_geo.c that will populate an ieee80211_geo object 
+> given a country code. The new routine will eliminate the need for each 
+> driver to do their own.
 
-Regards,
-Faidon
+This sounds like a generally good idea, but the question is:  do we want
+this inside a kernel module or in userspace, either like the regulartory
+daemon intel has (unfortunately in binary only form) or as a simple init
+script.  I really don't want to recompile my kernel just because regulations
+changed, and they seems to do that quite often.
 
