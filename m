@@ -1,62 +1,46 @@
-From: "Saurabh Jain" <jassduec@gmail.com>
-Subject: Kernel error
-Date: Sun, 16 Apr 2006 01:43:08 -0500
-Message-ID: <3a1eedb70604152343u2f720781o40fbd910f6558041@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: fixing sk_stream_rfree()
+Date: Sun, 16 Apr 2006 21:18:31 +1000
+Message-ID: <20060416111831.GA15093@gondor.apana.org.au>
+References: <20060414.205927.13626300.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.193]:19928 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751230AbWDPGnI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2006 02:43:08 -0400
-Received: by nz-out-0102.google.com with SMTP id o37so363217nzf
-        for <netdev@vger.kernel.org>; Sat, 15 Apr 2006 23:43:08 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from rhun.apana.org.au ([64.62.148.172]:8710 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750715AbWDPLSe
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Apr 2006 07:18:34 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20060414.205927.13626300.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Guys,
+Hi David:
 
-I am getting the following kernel error while doing some experiments.
-Any idea where things are going wrong. To me it looks like there is an
-error while copying data from user space to kernel space. The
-application which i am running is iperf. However i also have netem
-module for emulating some wide area network characteristics like
-delay. I am using delay of 100ms.
+I've been flying on and off for the last two days so I only saw this now.
 
-##################Error Message#############################
-Unable to handle kernel NULL pointer dereference at virtual address 00000004
- printing eip:
-c02fee3c
-*pde = 7ded4067
-Oops: 0002 [#5]
-Modules linked in: setparam(U) sch_netem(U) nfs(U) lockd(U) autofs4(U)
-sunrpc(U)CPU:    0
-EIP:    0060:[<c02fee3c>]    Not tainted VLI
-EFLAGS: 00010286   (2.6.12-1.1390_FC4-emulab-1)
-EIP is at tcp_transmit_skb+0x3ef/0x8de
-eax: 00000000   ebx: f71a1a40   ecx: ed64f960   edx: ed64ff60
-esi: 00000000   edi: f2f98500   ebp: ed71b780   esp: f47bddd4
-ds: 007b   es: 007b   ss: 0068
-Process iperf (pid: 2443, threadinfo=f47bc000 task=f71a1a40)
-Stack: f2f9854c c02d1019 ed71b7b8 f2f98500 ed15cc80 00000282 ed71b780 00000100
-       c02ce99f f71a1a40 f2f98500 f71a1a40 00000000 f2f98500 f2f9854c c02f53ad
-       00000000 ed335db8 f2f98500 f2f98500 f47bdeb8 00000000 00000000 002ce99f
-Call Trace:
- [<c02d1019>] skb_copy_datagram_iovec+0x180/0x1f8
- [<c02ce99f>] alloc_skb+0x31/0xc1
- [<c02f53ad>] tcp_recvmsg+0x2b1/0x74e
- [<c02fd83f>] tcp_rcv_established+0x5d2/0x77a
- [<c02ce2e0>] sock_common_recvmsg+0x41/0x57
- [<c02cb052>] sock_aio_read+0xf9/0x12b
- [<c014fccb>] do_sync_read+0x9e/0xec
- [<c01291ae>] autoremove_wake_function+0x0/0x37
- [<c014fe23>] vfs_read+0x10a/0x10e
- [<c0150064>] sys_read+0x41/0x6a
- [<c0102d29>] syscall_call+0x7/0xb
-Code: a1 04 07 39 c0 e8 c0 e5 e3 ff 89 c2 85 c0 74 2d 83 87 08 04 00 00 01 8b 8
-#############################################################
+On Fri, Apr 14, 2006 at 08:59:27PM -0700, David S. Miller wrote:
+> 
+> Herbert, as you may have noticed we found some missing
+> locking in sk_stream_rfree().  It could explain the
+> "!sk_forward_alloc" BUG() we thought was caused by e1000's
+> TSO implementation and the Intel folks have provided enough
+> datapoints to prove that it is indeed not an e1000 specific
+> problem.
 
-Thanks in advance
+Great eyes! Yes that bug seems to have been around forever.  I'll
+look over the patch tomorrow as right now I'm still on west-coast
+time :)
+
+I have one niggling doubt though as to why turning off TSO seems
+to cure the problem for people.  Perhaps it'll become clearer
+tomorrow morning when I look at it again :)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
