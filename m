@@ -1,82 +1,52 @@
-From: "Thomas A. Oehser" <tom@toms.net>
-Subject: Re: r8169 locks up in 2.6.16.5
-Date: Sun, 16 Apr 2006 13:26:39 -0400
-Message-ID: <20060416172639.GA12243@jupiter.toms.net>
-References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net> <20060416144354.GA11433@electric-eye.fr.zoreil.com>
+From: Auke Kok <sofar@foo-projects.org>
+Subject: Re: [PATCH-2.6] e1000: fix media_type <-> phy_type thinko
+Date: Sun, 16 Apr 2006 10:48:24 -0700
+Message-ID: <44428368.2000703@foo-projects.org>
+References: <20060415110025.GA6266@w.ods.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Thomas A. Oehser" <tom@toms.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, rol@as2917.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jupiter.toms.net ([207.145.105.50]:48552 "EHLO jupiter.toms.net")
-	by vger.kernel.org with ESMTP id S1750763AbWDPR0s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2006 13:26:48 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20060416144354.GA11433@electric-eye.fr.zoreil.com>
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:5315 "EHLO
+	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1750768AbWDPRsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Apr 2006 13:48:25 -0400
+To: Willy TARREAU <willy@w.ods.org>
+In-Reply-To: <20060415110025.GA6266@w.ods.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Willy TARREAU wrote:
+> Recent patch cb764326dff0ee51aca0d450e1a292de65661055 introduced
+> a thinko in e1000_main.c : e1000_media_type_copper is compared
+> to hw.phy_type instead of hw.media_type. Original patch proposed
+> by Jesse Brandeburg was correct, but what has been merged is not.
 
-> I'll welcome a complete dmesg after you have recovered through
-> ifconfig down/up though.
+Indeed this seems like a mistake to me. I'll make sure this is checked 
+tomorrow with Jeff Kirsher who submitted the original patch.
 
-_Nothing_ on dmesg.
+Auke Kok
 
-> No problem. One more question: have you enabled NAPI ? If not, you
-> should.
 
-Doesn't seem to make a difference.  Here, with it on, after failing it:
+> ---
+> 
+>  drivers/net/e1000/e1000_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> 3df8a180d50c89a72c28abf37151e38ffda75f39
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index add8dc4..590a456 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -4156,7 +4156,7 @@ e1000_mii_ioctl(struct net_device *netde
+>  			spin_unlock_irqrestore(&adapter->stats_lock, flags);
+>  			return -EIO;
+>  		}
+> -		if (adapter->hw.phy_type == e1000_media_type_copper) {
+> +		if (adapter->hw.media_type == e1000_media_type_copper) {
+>  			switch (data->reg_num) {
+>  			case PHY_CTRL:
+>  				if (mii_reg & MII_CR_POWER_DOWN)
 
-  --- 192.168.99.100 ping statistics ---
-  1362 packets transmitted, 903 packets received, 33% packet loss
-  round-trip min/avg/max = 0.1/35803.4/65264.8 ms
-
-Worse than I thought, to a machine on the same gigabit copper switch...
-
-ifconfig eth1:
-
-eth1      Link encap:Ethernet  HWaddr 00:E0:4C:13:A9:56  
-          inet addr:192.168.99.99  Bcast:192.168.99.255  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:528416 errors:252 dropped:620 overruns:0 frame:966
-          TX packets:243040 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          Interrupt:161 Base address:0xe000 
-
-ethtool eth1:
-
-Settings for eth1:
-	Supported ports: [ TP ]
-	Supported link modes:   10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Full 
-	Supports auto-negotiation: Yes
-	Advertised link modes:  10baseT/Half 10baseT/Full 
-	                        100baseT/Half 100baseT/Full 
-	                        1000baseT/Full 
-	Advertised auto-negotiation: Yes
-	Speed: 1000Mb/s
-	Duplex: Full
-	Port: Twisted Pair
-	PHYAD: 0
-	Transceiver: internal
-	Auto-negotiation: on
-	Supports Wake-on: pumbg
-	Wake-on: g
-	Current message level: 0x00000033 (51)
-	Link detected: yes
-
-Note, without having thrown traffic through it, I have:
-
-PING 192.168.99.100 (192.168.99.100): 56 data bytes
-64 bytes from 192.168.99.100: icmp_seq=0 ttl=128 time=0.1 ms
-64 bytes from 192.168.99.100: icmp_seq=1 ttl=128 time=0.1 ms
-64 bytes from 192.168.99.100: icmp_seq=2 ttl=128 time=0.1 ms
-64 bytes from 192.168.99.100: icmp_seq=3 ttl=128 time=0.1 ms
---- 192.168.99.100 ping statistics ---
-4 packets transmitted, 4 packets received, 0% packet loss
-round-trip min/avg/max = 0.1/0.1/0.1 ms
-
-What next?
-
--Tom
