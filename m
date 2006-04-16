@@ -1,49 +1,82 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: softmac: semantics of SIOCSIWFREQ
-Date: Sun, 16 Apr 2006 19:17:50 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0604161913250.22040@p15091797.pureserver.info>
-References: <1145190888.6560.22.camel@localhost>
+From: "Thomas A. Oehser" <tom@toms.net>
+Subject: Re: r8169 locks up in 2.6.16.5
+Date: Sun, 16 Apr 2006 13:26:39 -0400
+Message-ID: <20060416172639.GA12243@jupiter.toms.net>
+References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net> <20060416144354.GA11433@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, softmac-dev@vger.kernel.org,
-	Jean Tourrilhes <jt@hpl.hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Thomas A. Oehser" <tom@toms.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:60347 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1750762AbWDPRUc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Apr 2006 13:20:32 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1145190888.6560.22.camel@localhost>
+Received: from jupiter.toms.net ([207.145.105.50]:48552 "EHLO jupiter.toms.net")
+	by vger.kernel.org with ESMTP id S1750763AbWDPR0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2006 13:26:48 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20060416144354.GA11433@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Apr 2006, Johannes Berg wrote:
 
-> > - If the flag IW_FREQ_FIXED is set, should all activitity
-> >   including scanning only be allowed on this frequency? (Actually
-> >   a better would even be to work with channel/frequency sets.
-> >   These sets would make a lot of sense for parallel scanning
-> >   whith more than one device.)
-> 
-> Yeah, but that's impossible to code on top of the current wext
-> structures I'd say.
+> I'll welcome a complete dmesg after you have recovered through
+> ifconfig down/up though.
 
-I could be done via an iwpriv. Actually the Personal Telco people,
-would like to use WLAN devices in parallel to do WAR driving. At
-least I would like to support the fixed channel semantics.
+_Nothing_ on dmesg.
 
-> > SIOCSIWFREQ and SIOCGIWFREQ appear to be good candidates to be
-> > included in the softmac. If I would have a rough idea, what the
-> > semantics should be, I would even volunteer to implement it.
-> 
-> I was thinking of adding all the 'what is this ioctl supposed to do'
-> things we came up with to the softmac or netdev wiki. Would that be
-> good/useful, or should we just put it into that driver writers guide?
+> No problem. One more question: have you enabled NAPI ? If not, you
+> should.
 
-Regarding the wireless extension ioctls, I think the best would be
-to add kerneldoc comments.
+Doesn't seem to make a difference.  Here, with it on, after failing it:
 
-Uli
+  --- 192.168.99.100 ping statistics ---
+  1362 packets transmitted, 903 packets received, 33% packet loss
+  round-trip min/avg/max = 0.1/35803.4/65264.8 ms
 
--- 
-Ulrich Kunitz - kune@deine-taler.de
+Worse than I thought, to a machine on the same gigabit copper switch...
+
+ifconfig eth1:
+
+eth1      Link encap:Ethernet  HWaddr 00:E0:4C:13:A9:56  
+          inet addr:192.168.99.99  Bcast:192.168.99.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:528416 errors:252 dropped:620 overruns:0 frame:966
+          TX packets:243040 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          Interrupt:161 Base address:0xe000 
+
+ethtool eth1:
+
+Settings for eth1:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 1000Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Supports Wake-on: pumbg
+	Wake-on: g
+	Current message level: 0x00000033 (51)
+	Link detected: yes
+
+Note, without having thrown traffic through it, I have:
+
+PING 192.168.99.100 (192.168.99.100): 56 data bytes
+64 bytes from 192.168.99.100: icmp_seq=0 ttl=128 time=0.1 ms
+64 bytes from 192.168.99.100: icmp_seq=1 ttl=128 time=0.1 ms
+64 bytes from 192.168.99.100: icmp_seq=2 ttl=128 time=0.1 ms
+64 bytes from 192.168.99.100: icmp_seq=3 ttl=128 time=0.1 ms
+--- 192.168.99.100 ping statistics ---
+4 packets transmitted, 4 packets received, 0% packet loss
+round-trip min/avg/max = 0.1/0.1/0.1 ms
+
+What next?
+
+-Tom
