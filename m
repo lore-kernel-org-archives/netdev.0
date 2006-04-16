@@ -1,46 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: fixing sk_stream_rfree()
-Date: Sun, 16 Apr 2006 21:18:31 +1000
-Message-ID: <20060416111831.GA15093@gondor.apana.org.au>
-References: <20060414.205927.13626300.davem@davemloft.net>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: softmac: semantics of SIOCSIWFREQ
+Date: Sun, 16 Apr 2006 13:24:42 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0604161302270.18618@p15091797.pureserver.info>
+References: <1141928917.26954.7.camel@localhost.localdomain>
+ <1141935893.28038.2.camel@localhost.localdomain>  <441091B8.4010103@lwfinger.net>
+  <1141936896.28038.6.camel@localhost.localdomain>  <1144886208.4187.26.camel@localhost>
+  <20060413001909.GB23116@falcon.fugal.net>  <1144887916.4187.28.camel@localhost>
+  <20060413002816.GC23116@falcon.fugal.net>  <1144888334.4187.32.camel@localhost>
+  <20060414010545.GA10636@falcon.fugal.net> <1145129105.6560.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, softmac-dev@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:8710 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750715AbWDPLSe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Apr 2006 07:18:34 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060414.205927.13626300.davem@davemloft.net>
+Received: from deine-taler.de ([217.160.107.63]:56507 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1750716AbWDPLZT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Apr 2006 07:25:19 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1145129105.6560.2.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David:
+Hi,
 
-I've been flying on and off for the last two days so I only saw this now.
+I'm just reviewing the zd1211 code and I'm wondering about the
+semantics of SIOCSIWFREQ and actually, what is good for. It looks
+like that softmac's set_channel can be called at any time and will
+ignore any settings of SIOCSIWFREQ even it is has been given the
+flag IW_FREQ_FIXED. 
 
-On Fri, Apr 14, 2006 at 08:59:27PM -0700, David S. Miller wrote:
-> 
-> Herbert, as you may have noticed we found some missing
-> locking in sk_stream_rfree().  It could explain the
-> "!sk_forward_alloc" BUG() we thought was caused by e1000's
-> TSO implementation and the Intel folks have provided enough
-> datapoints to prove that it is indeed not an e1000 specific
-> problem.
+Following questions come to mind:
 
-Great eyes! Yes that bug seems to have been around forever.  I'll
-look over the patch tomorrow as right now I'm still on west-coast
-time :)
+- Is SIOCSIWFREQ allowed while associated?
+- If the flag IW_FREQ_FIXED is set, should all activitity
+  including scanning only be allowed on this frequency? (Actually
+  a better would even be to work with channel/frequency sets.
+  These sets would make a lot of sense for parallel scanning
+  whith more than one device.)
+- Is there any use of the control, if the frequency is not fixed?
 
-I have one niggling doubt though as to why turning off TSO seems
-to cure the problem for people.  Perhaps it'll become clearer
-tomorrow morning when I look at it again :)
+SIOCSIWFREQ and SIOCGIWFREQ appear to be good candidates to be
+included in the softmac. If I would have a rough idea, what the
+semantics should be, I would even volunteer to implement it. 
 
-Cheers,
+Uli
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ulrich Kunitz - kune@deine-taler.de
