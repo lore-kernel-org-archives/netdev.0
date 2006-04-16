@@ -1,38 +1,49 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [RFC: 2.6 patch] net/irda/irias_object.c: remove unused exports
-Date: Sun, 16 Apr 2006 21:07:26 +0200
-Message-ID: <1145214446.3809.26.camel@laptopd505.fenrus.org>
-References: <20060414114446.GL4162@stusta.de>
-	 <20060414164203.GA24146@bougret.hpl.hp.com>
-	 <1145209616.3809.14.camel@laptopd505.fenrus.org>
-	 <1145212639.5656.3.camel@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 locks up in 2.6.16.5
+Date: Sun, 16 Apr 2006 21:53:27 +0200
+Message-ID: <20060416195327.GA14173@electric-eye.fr.zoreil.com>
+References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net> <20060416144354.GA11433@electric-eye.fr.zoreil.com> <20060416172639.GA12243@jupiter.toms.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, Adrian Bunk <bunk@stusta.de>,
-	Samuel.Ortiz@nokia.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750801AbWDPTKm@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1145212639.5656.3.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:22171 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750734AbWDPT5h
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Apr 2006 15:57:37 -0400
+To: "Thomas A. Oehser" <tom@toms.net>
+Content-Disposition: inline
+In-Reply-To: <20060416172639.GA12243@jupiter.toms.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-04-16 at 19:37 +0100, Alan Cox wrote:
-> On Sul, 2006-04-16 at 19:46 +0200, Arjan van de Ven wrote:
-> > > 	Personally, I don't see what this patch buy us...
-> > 
-> > all the unused exports in the kernel together make a binary kernel 100Kb
-> > bigger. It's a case of a lot of little steps I suppose (each export
-> > taking like 100 to 150 bytes depending on the size of the function name)
+Thomas A. Oehser <tom@toms.net> :
+[...]
+> > I'll welcome a complete dmesg after you have recovered through
+> > ifconfig down/up though.
 > 
-> 
-> So why are exports taking us 100-150 bytes, not say 20 which is what I'd
-> expect ?
+> _Nothing_ on dmesg.
 
-there is the name, the crc, the address, a module name thingy (which I
-think is only filled for non-built-in symbols) and I'm sure there's some
-padding here and there... 
+Huh... Nothing appears when you issue 'dmesg' ?
 
-About 1/3rd of all exports is unused, so killing those is an easy way to
-gain back the space...
+[...]
+> eth1      Link encap:Ethernet  HWaddr 00:E0:4C:13:A9:56  
+>           inet addr:192.168.99.99  Bcast:192.168.99.255  Mask:255.255.255.0
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:528416 errors:252 dropped:620 overruns:0 frame:966
+>           TX packets:243040 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000 
+>           Interrupt:161 Base address:0xe000 
+
+How much long was the card under load ? A few seconds ?
+The same 1500 bytes mtu is used everywhere and the issue can not be
+reproduced with a simple ping -f -q -l 64 -s what_you_want aimed at
+the 8169, right ?
+
+[...]
+> What next?
+
+ethtool -d/-S before and after failure, .config and /proc/interrupts.
+
+-- 
+Ueimor
