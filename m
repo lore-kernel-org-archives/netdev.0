@@ -1,49 +1,30 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: softmac: semantics of SIOCSIWFREQ
-Date: Sun, 16 Apr 2006 13:24:42 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0604161302270.18618@p15091797.pureserver.info>
-References: <1141928917.26954.7.camel@localhost.localdomain>
- <1141935893.28038.2.camel@localhost.localdomain>  <441091B8.4010103@lwfinger.net>
-  <1141936896.28038.6.camel@localhost.localdomain>  <1144886208.4187.26.camel@localhost>
-  <20060413001909.GB23116@falcon.fugal.net>  <1144887916.4187.28.camel@localhost>
-  <20060413002816.GC23116@falcon.fugal.net>  <1144888334.4187.32.camel@localhost>
-  <20060414010545.GA10636@falcon.fugal.net> <1145129105.6560.2.camel@localhost>
+From: bert hubert <bert.hubert@netherlabs.nl>
+Subject: Re: skb diet
+Date: Sun, 16 Apr 2006 13:43:58 +0200
+Message-ID: <20060416114358.GA12333@outpost.ds9a.nl>
+References: <baebb9a00604150417h1ffb3f97g102253dca0b3a53e@mail.gmail.com> <200604152122.01914.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, softmac-dev@sipsolutions.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Hisham Kotry <hkotry@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:56507 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1750716AbWDPLZT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Apr 2006 07:25:19 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1145129105.6560.2.camel@localhost>
+Received: from outpost.ds9a.nl ([213.244.168.210]:9618 "EHLO outpost.ds9a.nl")
+	by vger.kernel.org with ESMTP id S1750722AbWDPLoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Apr 2006 07:44:06 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200604152122.01914.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, Apr 15, 2006 at 09:22:01PM +0200, Andi Kleen wrote:
 
-I'm just reviewing the zd1211 code and I'm wondering about the
-semantics of SIOCSIWFREQ and actually, what is good for. It looks
-like that softmac's set_channel can be called at any time and will
-ignore any settings of SIOCSIWFREQ even it is has been given the
-flag IW_FREQ_FIXED. 
+> And optimizing for uncommon cases (not TCP) doesn't seem too useful.
 
-Following questions come to mind:
+There are servers that do tens of megabits of UDP these days (think VoIP, or
+in my case, DNS), so it not that uncommon.
 
-- Is SIOCSIWFREQ allowed while associated?
-- If the flag IW_FREQ_FIXED is set, should all activitity
-  including scanning only be allowed on this frequency? (Actually
-  a better would even be to work with channel/frequency sets.
-  These sets would make a lot of sense for parallel scanning
-  whith more than one device.)
-- Is there any use of the control, if the frequency is not fixed?
-
-SIOCSIWFREQ and SIOCGIWFREQ appear to be good candidates to be
-included in the softmac. If I would have a rough idea, what the
-semantics should be, I would even volunteer to implement it. 
-
-Uli
+	Bert
 
 -- 
-Ulrich Kunitz - kune@deine-taler.de
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
