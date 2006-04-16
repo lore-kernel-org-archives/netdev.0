@@ -1,45 +1,36 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 locks up in 2.6.16.5
-Date: Sun, 16 Apr 2006 02:58:21 +0200
-Message-ID: <20060416005821.GA9821@electric-eye.fr.zoreil.com>
-References: <20060415204716.GA1755@jupiter.toms.net>
+From: "Zachary Roberts" <1gu@soccervibe.com>
+Subject: Obtaining a DIPLOMA has never been so easy!
+Date: Sat, 15 Apr 2006 21:37:34 -0700
+Message-ID: <000001c66129$859f4980$0100007f@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="windows-1251"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:63912 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932178AbWDPBBm
+Received: from 24-216-223-47.dhcp.stls.mo.charter.com ([24.216.223.47]:12552
+	"helo localhost") by vger.kernel.org with SMTP id S932131AbWDPCht
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Apr 2006 21:01:42 -0400
-To: "Thomas A. Oehser" <tom@toms.net>
-Content-Disposition: inline
-In-Reply-To: <20060415204716.GA1755@jupiter.toms.net>
+	Sat, 15 Apr 2006 22:37:49 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas A. Oehser <tom@toms.net> :
-[...]
-> On a dual Athlon 2600+ MP with 2GB RAM, and nothing else running.
-       ^^^^^^^^^^^^      ^^
-Which motherboard and filesystem do you use ?
 
-[...]
-> Should I just give these cards away and forget I ever heard of RealTeK?
+NO ONE is turned down.
 
-I don't think so.
+According to the U.S. Census Bureau, with the following degrees, 
+here's how much you can  expect to make in your lifetime:
 
-> Is it known that this driver, or this card, or the combination, is unstable?
+High School Diploma:  $1,100,000
+Bachelor's Degree:    $2,100,000
+Master's Degree:      $2,500,000
+Doctorate:            $4,400,000
 
-Some r8169 PR are still open (mac address change, acpi suspend/resume
-and "special" motherboard) but there is no clear pattern related to
-stability under load. 
+You Need a Better Degree, and we can Help!
+Obtain degrees from Prestigious non-accredited
+Universities based on you life experience.
+NO ONE is turned down.
 
-Can you send before and after the ping takes 9000 ms:
-- ifconfig output
-- registers dump via ethtool 
+Call Now 7 days a week.
+"1-718-504-5376"
 
-9000ms seems quite close to the watchdog timeout (6 s) + ping
-interval. Complete dmesg and .config will be welcome.
-
--- 
-Ueimor
