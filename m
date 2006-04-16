@@ -1,82 +1,45 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] sungem: Marvell PHY suspend
-Date: Sun, 16 Apr 2006 02:52:17 +0200
-Message-ID: <1145148738.6560.12.camel@localhost>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 locks up in 2.6.16.5
+Date: Sun, 16 Apr 2006 02:58:21 +0200
+Message-ID: <20060416005821.GA9821@electric-eye.fr.zoreil.com>
+References: <20060415204716.GA1755@jupiter.toms.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([213.151.39.204]:49055 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932180AbWDPAw0
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:63912 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932178AbWDPBBm
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Apr 2006 20:52:26 -0400
-To: netdev@vger.kernel.org
+	Sat, 15 Apr 2006 21:01:42 -0400
+To: "Thomas A. Oehser" <tom@toms.net>
+Content-Disposition: inline
+In-Reply-To: <20060415204716.GA1755@jupiter.toms.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In a short discussion with Benjamin Herrenschmidt he mentioned
-that Marvell PHYs are powered down the same way as the other
-ones we currently handle. Thus actually do that, hopefully
-saving some power during suspend.
+Thomas A. Oehser <tom@toms.net> :
+[...]
+> On a dual Athlon 2600+ MP with 2GB RAM, and nothing else running.
+       ^^^^^^^^^^^^      ^^
+Which motherboard and filesystem do you use ?
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+[...]
+> Should I just give these cards away and forget I ever heard of RealTeK?
 
---- a/drivers/net/sungem_phy.c
-+++ b/drivers/net/sungem_phy.c
-@@ -275,7 +275,7 @@ static int bcm5411_init(struct mii_phy* 
- 	return 0;
- }
- 
--static int bcm5411_suspend(struct mii_phy* phy)
-+static int generic_suspend(struct mii_phy* phy)
- {
- 	phy_write(phy, MII_BMCR, BMCR_PDOWN);
- 
-@@ -738,7 +738,7 @@ static struct mii_phy_def bcm5401_phy_de
- /* Broadcom BCM 5411 */
- static struct mii_phy_ops bcm5411_phy_ops = {
- 	.init		= bcm5411_init,
--	.suspend	= bcm5411_suspend,
-+	.suspend	= generic_suspend,
- 	.setup_aneg	= bcm54xx_setup_aneg,
- 	.setup_forced	= bcm54xx_setup_forced,
- 	.poll_link	= genmii_poll_link,
-@@ -757,7 +757,7 @@ static struct mii_phy_def bcm5411_phy_de
- /* Broadcom BCM 5421 */
- static struct mii_phy_ops bcm5421_phy_ops = {
- 	.init		= bcm5421_init,
--	.suspend	= bcm5411_suspend,
-+	.suspend	= generic_suspend,
- 	.setup_aneg	= bcm54xx_setup_aneg,
- 	.setup_forced	= bcm54xx_setup_forced,
- 	.poll_link	= genmii_poll_link,
-@@ -776,7 +776,7 @@ static struct mii_phy_def bcm5421_phy_de
- /* Broadcom BCM 5421 built-in K2 */
- static struct mii_phy_ops bcm5421k2_phy_ops = {
- 	.init		= bcm5421_init,
--	.suspend	= bcm5411_suspend,
-+	.suspend	= generic_suspend,
- 	.setup_aneg	= bcm54xx_setup_aneg,
- 	.setup_forced	= bcm54xx_setup_forced,
- 	.poll_link	= genmii_poll_link,
-@@ -795,7 +795,7 @@ static struct mii_phy_def bcm5421k2_phy_
- /* Broadcom BCM 5462 built-in Vesta */
- static struct mii_phy_ops bcm5462V_phy_ops = {
- 	.init		= bcm5421_init,
--	.suspend	= bcm5411_suspend,
-+	.suspend	= generic_suspend,
- 	.setup_aneg	= bcm54xx_setup_aneg,
- 	.setup_forced	= bcm54xx_setup_forced,
- 	.poll_link	= genmii_poll_link,
-@@ -816,6 +816,7 @@ static struct mii_phy_def bcm5462V_phy_d
-  * would be useful here) --BenH.
-  */
- static struct mii_phy_ops marvell_phy_ops = {
-+	.suspend	= generic_suspend,
- 	.setup_aneg	= marvell_setup_aneg,
- 	.setup_forced	= marvell_setup_forced,
- 	.poll_link	= genmii_poll_link,
+I don't think so.
 
+> Is it known that this driver, or this card, or the combination, is unstable?
 
+Some r8169 PR are still open (mac address change, acpi suspend/resume
+and "special" motherboard) but there is no clear pattern related to
+stability under load. 
+
+Can you send before and after the ping takes 9000 ms:
+- ifconfig output
+- registers dump via ethtool 
+
+9000ms seems quite close to the watchdog timeout (6 s) + ping
+interval. Complete dmesg and .config will be welcome.
+
+-- 
+Ueimor
