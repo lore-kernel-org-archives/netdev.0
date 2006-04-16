@@ -1,52 +1,59 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 locks up in 2.6.16.5
-Date: Sun, 16 Apr 2006 16:43:54 +0200
-Message-ID: <20060416144354.GA11433@electric-eye.fr.zoreil.com>
-References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: skb diet
+Date: Sun, 16 Apr 2006 17:16:31 +0200
+Message-ID: <200604161716.31276.ak@suse.de>
+References: <baebb9a00604150417h1ffb3f97g102253dca0b3a53e@mail.gmail.com> <200604152122.01914.ak@suse.de> <baebb9a00604160556o2abe6df1y4a185a0fd8f45e7b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59343 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750730AbWDPOpc
+Received: from cantor.suse.de ([195.135.220.2]:5604 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1750747AbWDPQRv convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Apr 2006 10:45:32 -0400
-To: "Thomas A. Oehser" <tom@toms.net>
+	Sun, 16 Apr 2006 12:17:51 -0400
+To: "Hisham Kotry" <hkotry@gmail.com>
+In-Reply-To: <baebb9a00604160556o2abe6df1y4a185a0fd8f45e7b@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20060416134201.GA2681@jupiter.toms.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas A. Oehser <tom@toms.net> :
-[...]
-> I tested with everything turned off (no SMP, no swap, no
-> USB, no firewire, no iptables, no lmsensors, flat 1G memory,
-> etc. etc. etc.) except the bare minimum (LSI new Megaraid for the
-> SCSI and SATA raid arrays, both of which use the same driver, EXT3,
-> VGA console, keyboard, mouse).  Also, with everything static and
-> no modules.
+On Sunday 16 April 2006 14:56, Hisham Kotry wrote:
+> > Where would that tag list be stored if you want to remove the
+> > 40 bytes of ->cb?
+>
+> I apologize if I wasn't clear, the tag list would go in a new
+> skb->tags field replacing the existsing skb->cb array, so the skb
+> would lose 40-sizeof(void*) bytes wich seems reasonable to me.
 
-Ok, it really looks like a genuine bug.
+This means for the common TCP case you would actually 
+need more memory than before - a new pointer and overhead
+from the tags. Currently we neither need pointer nor tags 
+for anything.
 
-[...]
-> Changing _nothing_ other than replacing EEPRO100 with R8169 and
-> vice versa causes it to work perfectly or fail abominably... the
-> machine always had both nics physically connected, so it was just
-> the software change of one driver or the other as eth0.
-> 
-> There was no dmesg output.
+Also you would need to complicate alloc_skb to preallocate
+this memory and complicate the freeing by checking for it
+and freeing it if it was allocated dynamically 
+(e.g. if a later layer needed it, not the layer that first allocates
+it you would need to allocate a new buffer later which would then
+need to be freed) 
 
-Then the Rx part of the driver is more screwed than the Tx one.
+>
+> > Linux 2.0 did something like this, but that was removed for good
+> > reasons. Now TCP always clones skbs before sending it out.
+>
+> Do you remember what those reasons were? I couldn't find a related
+> discussion in the archives. I think the BSD mbuf tags approach is
+> sound enough to justify the move.
 
-I'll welcome a complete dmesg after you have recovered through
-ifconfig down/up though.
+>From your description so far it seems to only have disadvantages.
 
-[...]
-> Note, it will be a day or few before I can retest with ethtool etc.,
-> I have to do my taxes today.
+> > And optimizing for uncommon cases (not TCP) doesn't seem too useful.
+>
+> As pointed out by Bert Hubert, there are people who have heavy traffic
+> on non-tcp connections.
 
-No problem. One more question: have you enabled NAPI ? If not, you
-should.
+It's a small minority compared to TCP users.
 
--- 
-Ueimor
+-Andi
+
