@@ -1,96 +1,69 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: softmac: semantics of SIOCSIWFREQ
-Date: Mon, 17 Apr 2006 12:06:49 -0700
-Message-ID: <20060417190649.GA28534@bougret.hpl.hp.com>
-References: <1145190888.6560.22.camel@localhost> <20060417163759.GB28203@bougret.hpl.hp.com> <1145299691.4116.11.camel@localhost>
-Reply-To: jt@hpl.hp.com
+Date: Mon, 17 Apr 2006 21:27:09 +0200
+Message-ID: <1145302029.4116.14.camel@localhost>
+References: <1145190888.6560.22.camel@localhost>
+	 <20060417163759.GB28203@bougret.hpl.hp.com>
+	 <1145299691.4116.11.camel@localhost>
+	 <20060417190649.GA28534@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-mQ1DFSYyxQ5laYAElkfq"
 Cc: netdev@vger.kernel.org, softmac-dev@vger.kernel.org,
 	Ulrich Kunitz <kune@deine-taler.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:38324 "EHLO palrel12.hp.com")
-	by vger.kernel.org with ESMTP id S1751212AbWDQTGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 15:06:53 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1145299691.4116.11.camel@localhost>
+Received: from crystal.sipsolutions.net ([213.151.39.204]:11201 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751236AbWDQT1N
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Apr 2006 15:27:13 -0400
+To: jt@hpl.hp.com
+In-Reply-To: <20060417190649.GA28534@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 17, 2006 at 08:48:10PM +0200, Johannes Berg wrote:
-> On Mon, 2006-04-17 at 09:37 -0700, Jean Tourrilhes wrote:
-> 
-> > 	Usually no, but...
-> > 	If you are in managed mode, SIOCSIWFREQ usually should return
-> > an error, because it is not allowed.
-> 
-> Ok.
-> 
-> > 	If you are in ad-hoc mode, SIOCSIWFREQ is used if a IBSS needs
-> > to be created. After scanning is done, if you did not find any
-> > network, you will create your own, and you will use the frequency that
-> > was set. You should never return an error.
-> 
-> Right. Well it should return an error if it is 'associated' in ad-hoc
-> mode too, no?
 
-	Nope, you want to store it for later reuse.
-	Let suppose the following sequence :
-		iwconfig eth0 mode ad-hoc essid another-ibss
-		sleep(2)
-		iwconfig eth0 freq 2.42G essid a-new-ibss
-	You don't want the second call to fail.
+--=-mQ1DFSYyxQ5laYAElkfq
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> > 	The struct iw_scan_req has all the goodies you need to control
-> > scanning.
-> 
-> Right, so that's just a matter of using a different call to say where to
-> scan. Gotcha. IOW -- those people that want wardriving should use kismet
-> or whatever and properly control the driver via the iw_scan_req.
+On Mon, 2006-04-17 at 12:06 -0700, Jean Tourrilhes wrote:
 
-	Definitely. I was just pointing out that scanning behaviour is
-not dictated by current setting of the drivers (except when the
-hardware does it, cf. Ornoco).
+> 	Definitely. I was just pointing out that scanning behaviour is
+> not dictated by current setting of the drivers (except when the
+> hardware does it, cf. Ornoco).
 
-> > 	The IW_FREQ_FIXED is mostly use for SIOCGIWFREQ, when
-> > getting. It tells you if the frequency was set by the user or
-> > automatically picked as the result of scanning.
-> 
-> Ah, but in which case is it set by the user? And is that 'fixed' then?
+Yeah, I was just repeating it for Ulrich :)
 
-	It's easier to explain with bitrate. If the user does not set
-the bitrate, or set it to 'auto', it's never 'fixed'. If the user set
-explicitely a bitrate, it's 'fixed'.
-	For freq, it's simpler. In managed mode, it's never 'fixed',
-because the card/driver choose the frequency. In master mode, it's
-almost always 'fixed', because the user has to set the frequency. In
-ad-hoc mode, it depend in the node creates or not the IBSS.
+> 	For freq, it's simpler. In managed mode, it's never 'fixed',
+> because the card/driver choose the frequency. In master mode, it's
+> almost always 'fixed', because the user has to set the frequency. In
+> ad-hoc mode, it depend in the node creates or not the IBSS.
 
-> > 	I don't think any driver/hardware has the ability to set the
-> > frequency to auto, so IW_FREQ_FIXED is the default.
-> 
-> What would 'auto' be?
+But isn't that a detail the user shouldn't have to know? See, if a node
+with a higher TSF joins the IBSS, then it gets to send out the beacons
+for it, IIRC.
 
-	Well, in auto, I would expect the node to look either at the
-scan result and/or noise level on the various frequency to decide where
-to create the IBSS (ad-hoc) or BSS (master).
+johannes
 
-> > 	It's because softmac only implements managed mode.
-> 
-> We might do some sort of ad-hoc client-only with Pete's patch, but we'll
-> never do master or wds I think.
-> 
-> > 	I've heard the call, I'll try to find some time for that.
-> 
-> Oh I was more thinking that I myself could add it somewhere after all
-> our discussion. If you do that, even better, but with the things we have
-> discussed already I can definitely help out.
-> 
-> johannes
+--=-mQ1DFSYyxQ5laYAElkfq
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-	Have fun...
+-----BEGIN PGP SIGNATURE-----
 
-	Jean
+iQIVAwUAREPsCqVg1VMiehFYAQJcCQ//aeySdxtXKmYPyLa/Bvr4OhDWiZreE+6M
+wc9i1MgoSWMaDQq7v5jtJ99LITJugrX9b1Bnh/tCk0V5q7dGNoDl2xC7FxDDdJGI
+hGhd29IvUmDlpnJuC1NNHf5GqklthnRvjXnJJ3lKDgEa0XpYIazvntQyTI3wXTws
+hBTBqr3WypJ0BJoN8S9YxrSD61mNJf1jtqXnH564oeyfX9EHMrHIe+GbUE4JN1Tw
++QCLJnZcElMDXzZkyV8iOMVVzvNNsf4hFp5tExFUrZnONACGnCnP2g5Twe3O2ax1
+Sq7kVIR8K4EAh//ia3F+aunOT2wKEAbqKOx/W3qSTQhytMd9/YX1Tyv/iWjxfv+F
+VsmJlKGPnmVFm9k5e6Q+wkPn5UIcCX4UrVdK9rgC1490IhpxQ65X8gNr/z5+0+jM
+vqgkppq6I8GDeKhCirXqgPdM4UTef0kKUaoGLch144dKi9zC6PRcgaOSem/OOC5Y
+7+T3IjwcI66lJdsbo1CzayTPMTuXJRTVzLTsWgAw21ga7UaaeM2poFI/onfrsMv/
+YrQ3m+pcQglLdrnDM79sJPGqkeJ+iGC/Otc7Rlp+savJkPkGJ+DZevevvhPcmLQ4
+HtRQ8uiu2Ha2TxDMDLiGSrwh8mUXdWMmfj5GlPOWJfjIeASdI6WnXI0yiq3keMGv
+5lok/F7mOLA=
+=MA71
+-----END PGP SIGNATURE-----
 
+--=-mQ1DFSYyxQ5laYAElkfq--
 
