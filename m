@@ -1,37 +1,44 @@
-From: Jan Engelhardt <jengelh@linux01.gwdg.de>
-Subject: Re: want to randomly drop packets based on percent
-Date: Mon, 17 Apr 2006 16:21:58 +0200 (MEST)
-Message-ID: <Pine.LNX.4.61.0604171618590.7579@yvahk01.tjqt.qr>
-References: <444345F9.4090100@cmu.edu>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] Fix crash on big-endian systems during scan
+Date: Mon, 17 Apr 2006 10:34:03 -0400
+Message-ID: <1145284443.2212.5.camel@localhost.localdomain>
+References: <20060414215911.17273.40460.stgit@dv.roinet.com>
+	 <20060417010602.GL9551@jm.kir.nu>  <20060417132105.GF5042@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hostap@shmoo.com,
+	Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from linux01.gwdg.de ([134.76.13.21]:51693 "EHLO linux01.gwdg.de")
-	by vger.kernel.org with ESMTP id S1751011AbWDQOWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 10:22:01 -0400
-To: George Nychis <gnychis@cmu.edu>
-In-Reply-To: <444345F9.4090100@cmu.edu>
+Received: from mx1.redhat.com ([66.187.233.31]:51437 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751026AbWDQOfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 10:35:46 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060417132105.GF5042@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->
-> I'm using the 2.4.32 kernel with madwifi and iproute2 version
-> 2-2.6.16-060323.tar.gz
->
-> I wanted to insert artificial packet loss based on a percent so i found:
-> network emulab qdisc could do it, so i compiled support into the kernel and
-> tried:
-> tc qdisc change dev eth0 root netem loss .1%
+On Mon, 2006-04-17 at 09:21 -0400, John W. Linville wrote:
+> On Sun, Apr 16, 2006 at 06:06:02PM -0700, Jouni Malinen wrote:
+> > On Fri, Apr 14, 2006 at 05:59:11PM -0400, Pavel Roskin wrote:
+> > 
+> > > The original code was doing arithmetics on a little-endian value.
+> > 
+> > John, please apply this to wireless-2.6 tree. This code is triggered at
+> > least for the case where WPA is not used. I had noticed it before, but I
+> > think I've only tested WPA/WPA2 on big endian systems..
+> 
+> Can someone repost this patch?  I seem to have missed it.
 
-You could just use the 'random' match module from netfilter/POMng, but I 
-doubt it will compile out-of-the-box on 2.4.32. It would then be as simple 
-as
-	iptables -t mangle -I PREROUTING -m random --average 1 -j DROP
+Pavel posted to netdev originally on Friday April 14th with the patch
+included in the email, with the title "[PATCH] Fix crash on big-endian
+systems during scan"...
 
-> I really only need to drop random packets being forwarded through ip_forward
-> ... however randomly dropping any packet based on a % is sufficient so I
-> figured netem would be great.
+http://www.spinics.net/lists/netdev/msg03023.html
 
-Jan Engelhardt
--- 
+Sure you don't have it somewhere?  If not, I'm sure somebody can
+resend...
+
+Dan
+
+
