@@ -1,44 +1,46 @@
-From: Dan Williams <dcbw@redhat.com>
+From: "John W. Linville" <linville@tuxdriver.com>
 Subject: Re: [PATCH] Fix crash on big-endian systems during scan
-Date: Mon, 17 Apr 2006 11:01:29 -0400
-Message-ID: <1145286089.2649.0.camel@localhost.localdomain>
-References: <20060414215911.17273.40460.stgit@dv.roinet.com>
-	 <20060417010602.GL9551@jm.kir.nu> <20060417132105.GF5042@tuxdriver.com>
-	 <1145284443.2212.5.camel@localhost.localdomain>
-	 <20060417144541.GK5042@tuxdriver.com>
+Date: Mon, 17 Apr 2006 11:17:04 -0400
+Message-ID: <20060417151659.GL5042@tuxdriver.com>
+References: <20060414215911.17273.40460.stgit@dv.roinet.com> <20060417010602.GL9551@jm.kir.nu> <20060417132105.GF5042@tuxdriver.com> <1145284443.2212.5.camel@localhost.localdomain> <20060417144541.GK5042@tuxdriver.com> <1145286089.2649.0.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, hostap@shmoo.com,
 	Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54161 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751071AbWDQPDN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 11:03:13 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060417144541.GK5042@tuxdriver.com>
+Received: from ra.tuxdriver.com ([24.172.12.4]:65042 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751080AbWDQPRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 11:17:20 -0400
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1145286089.2649.0.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-04-17 at 10:45 -0400, John W. Linville wrote:
-> On Mon, Apr 17, 2006 at 10:34:03AM -0400, Dan Williams wrote:
-> 
-> > Pavel posted to netdev originally on Friday April 14th with the patch
-> > included in the email, with the title "[PATCH] Fix crash on big-endian
-> > systems during scan"...
+On Mon, Apr 17, 2006 at 11:01:29AM -0400, Dan Williams wrote:
+> On Mon, 2006-04-17 at 10:45 -0400, John W. Linville wrote:
+> > On Mon, Apr 17, 2006 at 10:34:03AM -0400, Dan Williams wrote:
 > > 
-> > http://www.spinics.net/lists/netdev/msg03023.html
+> > > Pavel posted to netdev originally on Friday April 14th with the patch
+> > > included in the email, with the title "[PATCH] Fix crash on big-endian
+> > > systems during scan"...
+> > > 
+> > > http://www.spinics.net/lists/netdev/msg03023.html
+> > > 
+> > > Sure you don't have it somewhere?  If not, I'm sure somebody can
+> > > resend...
 > > 
-> > Sure you don't have it somewhere?  If not, I'm sure somebody can
-> > resend...
+> > I must have fat-fingered a delete...sorry!
+> > 
+> > A repost would be most welcome...
 > 
-> I must have fat-fingered a delete...sorry!
-> 
-> A repost would be most welcome...
+> I think Pavel just resent the patch with a "(repost)" at the end of the
+> subject line.
 
-I think Pavel just resent the patch with a "(repost)" at the end of the
-subject line.
+Hmmm...Randy Dunlap said offline that he had reposted, but I haven't
+seen one from him either...is it a big patch?
 
-Dan
-
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
