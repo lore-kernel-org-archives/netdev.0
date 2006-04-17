@@ -1,128 +1,56 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH][RFC] softmac: suggest TX rate
-Date: Mon, 17 Apr 2006 01:28:46 +0100
-Message-ID: <4442E13E.80507@gentoo.org>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH][RFC] softmac: suggest TX rate
+Date: Mon, 17 Apr 2006 02:33:55 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0604170230400.32281@p15091797.pureserver.info>
+References: <4442E13E.80507@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050906090803050809080000"
-Cc: softmac-dev@sipsolutions.net, netdev@vger.kernel.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	softmac-dev@sipsolutions.net, netdev@vger.kernel.org,
 	Ulrich Kunitz <kune@deine-taler.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:48750 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750847AbWDQAPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Apr 2006 20:15:32 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from deine-taler.de ([217.160.107.63]:63931 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1750869AbWDQAe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Apr 2006 20:34:58 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <4442E13E.80507@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050906090803050809080000
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 17 Apr 2006, Daniel Drake wrote:
 
-While developing the ZD1211 driver we realised how much we'd like to be 
-advised from the upper layers which rate to transmit a packet at.
+> While developing the ZD1211 driver we realised how much we'd like to be
+> advised from the upper layers which rate to transmit a packet at.
+> 
+> An example: We have a frame to transmit. What rate should we transmit it at?
+> While taking any user-specified rate into account too, we want to transmit it
+> at a rate supported by the access point, but that information is not available
+> to us (softmac handled all scanning and association, so we don't know anything
+> about the AP capabilities).
+> 
+> Here is a patch I cooked up, which implements some basic logic for suggesting
+> TX rates based on the packet type, whether it is multicast/unicast, whether we
+> are associated, and the current user-specified default_rate.
+> 
+> I'm still uncertain where this functionality should fit into the stack.
+> 
+> Rather than having to explicitly call ieee80211softmac_suggest_tx_rate() from
+> the driver's hard_start_xmit function, it would be nicer if the suggested rate
+> was passed as a parameter. But not all drivers would need it, so maybe the
+> extra calculations should be controlled by a new flag.
+> 
+> Passing an extra parameter to hard_start_xmit would involve modifying
+> ieee80211, and ieee80211 doesn't seem to have any concept of whether it is
+> associated or not (plus softmac only does that loosely). So that might lead us
+> on to do something silly like wrapping hard_start_xmit inside softmac, etc
+> etc...
+> 
+> Note that even in it's current form, this patch eliminates an annoying (and
+> inaccurate) chunk of code from our driver.
+> 
+> Ideas/comments?
+> 
 
-An example: We have a frame to transmit. What rate should we transmit it 
-at? While taking any user-specified rate into account too, we want to 
-transmit it at a rate supported by the access point, but that 
-information is not available to us (softmac handled all scanning and 
-association, so we don't know anything about the AP capabilities).
-
-Here is a patch I cooked up, which implements some basic logic for 
-suggesting TX rates based on the packet type, whether it is 
-multicast/unicast, whether we are associated, and the current 
-user-specified default_rate.
-
-I'm still uncertain where this functionality should fit into the stack.
-
-Rather than having to explicitly call ieee80211softmac_suggest_tx_rate() 
-from the driver's hard_start_xmit function, it would be nicer if the 
-suggested rate was passed as a parameter. But not all drivers would need 
-it, so maybe the extra calculations should be controlled by a new flag.
-
-Passing an extra parameter to hard_start_xmit would involve modifying 
-ieee80211, and ieee80211 doesn't seem to have any concept of whether it 
-is associated or not (plus softmac only does that loosely). So that 
-might lead us on to do something silly like wrapping hard_start_xmit 
-inside softmac, etc etc...
-
-Note that even in it's current form, this patch eliminates an annoying 
-(and inaccurate) chunk of code from our driver.
-
-Ideas/comments?
-
---------------050906090803050809080000
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="patch"
-
-LS0tIGxpbnV4L25ldC9pZWVlODAyMTEvc29mdG1hYy9pZWVlODAyMTFzb2Z0bWFjX21vZHVs
-ZS5jLm9yaWcJMjAwNi0wNC0xNyAwMTowNDo0Mi4wMDAwMDAwMDAgKzAxMDAKKysrIGxpbnV4
-L25ldC9pZWVlODAyMTEvc29mdG1hYy9pZWVlODAyMTFzb2Z0bWFjX21vZHVsZS5jCTIwMDYt
-MDQtMTcgMDA6NDQ6MzYuMDAwMDAwMDAwICswMTAwCkBAIC0yNiw2ICsyNiw3IEBACiAKICNp
-bmNsdWRlICJpZWVlODAyMTFzb2Z0bWFjX3ByaXYuaCIKICNpbmNsdWRlIDxsaW51eC9zb3J0
-Lmg+CisjaW5jbHVkZSA8bGludXgvZXRoZXJkZXZpY2UuaD4KIAogc3RydWN0IG5ldF9kZXZp
-Y2UgKmFsbG9jX2llZWU4MDIxMXNvZnRtYWMoaW50IHNpemVvZl9wcml2KQogewpAQCAtMzE1
-LDYgKzMxNiw0OCBAQCBzdGF0aWMgaW50IHJhdGVfY21wKGNvbnN0IHZvaWQgKmFfLCBjb25z
-CiAJcmV0dXJuICgoKmEgJiB+SUVFRTgwMjExX0JBU0lDX1JBVEVfTUFTSykgLSAoKmIgJiB+
-SUVFRTgwMjExX0JBU0lDX1JBVEVfTUFTSykpOwogfQogCitzdGF0aWMgdTggc3VnZ2VzdF9y
-YXRlX2Zyb21fYXNzb2NpbmZvKHN0cnVjdCBpZWVlODAyMTFzb2Z0bWFjX2RldmljZSAqbWFj
-KQoreworCXN0cnVjdCBpZWVlODAyMTFzb2Z0bWFjX3JhdGVzaW5mbyAqbmV0X3JhdGVzID0g
-Jm1hYy0+YXNzb2NpbmZvLnN1cHBvcnRlZF9yYXRlczsKKwl1OCBuZXRfbWF4OworCisJaWYg
-KHVubGlrZWx5KG5ldF9yYXRlcy0+Y291bnQgPT0gMCkpIHsKKwkJZHByaW50a2woS0VSTl9F
-UlJPUiBQRlggInN1Z2dlc3RfcmF0ZTogTmV0d29yayBoYXMgbm8gcmF0ZXM/XG4iKTsKKwkJ
-cmV0dXJuIElFRUU4MDIxMV9DQ0tfUkFURV8xTUI7CisJfQorCisJLyogRklYTUU6IHdlIG5l
-ZWQgdG8gY2hlY2sgdGhhdCB0aGUgcmF0ZSBpcyBzdXBwb3J0ZWQgaW4gbWFjLT5yYXRlc2lu
-Zm8gKi8KKwluZXRfbWF4ID0gbmV0X3JhdGVzLT5yYXRlc1tuZXRfcmF0ZXMtPmNvdW50IC0g
-MV07CisJcmV0dXJuIG1pbihtYWMtPnR4cmF0ZXMuZGVmYXVsdF9yYXRlLCBuZXRfbWF4KTsK
-K30KKwordTggaWVlZTgwMjExc29mdG1hY19zdWdnZXN0X3R4X3JhdGUoc3RydWN0IGllZWU4
-MDIxMXNvZnRtYWNfZGV2aWNlICptYWMsCisJc3RydWN0IGllZWU4MDIxMV9oZHJfMWFkZHIg
-KmhkcikKK3sKKwlzd2l0Y2ggKFdMQU5fRkNfR0VUX1RZUEUobGUxNl90b19jcHUoaGRyLT5m
-cmFtZV9jdGwpKSkgeworCWNhc2UgSUVFRTgwMjExX0ZUWVBFX01HTVQ6CisJCS8qCisJCSAq
-IElmIHdlIGFyZW4ndCBhc3NvY2lhdGVkLCBvciB3ZSBhcmUgbXVsdGljYXN0aW5nLCB0aGVu
-CisJCSAqIHN0aWNrIHRvIDFNQiBmb3Igc2FmZXR5LgorCQkgKi8KKwkJaWYgKCFtYWMtPmFz
-c29jaWF0ZWQgfHwgaXNfbXVsdGljYXN0X2V0aGVyX2FkZHIoaGRyLT5hZGRyMSkpCisJCQly
-ZXR1cm4gSUVFRTgwMjExX0NDS19SQVRFXzFNQjsKKworCQkvKiBPdGhlcndpc2UsIHdlIGNh
-biBzZW5kIGF0IHRoZSBzcGVlZCBvZiB0aGUgQVAuICovCisJCXJldHVybiBzdWdnZXN0X3Jh
-dGVfZnJvbV9hc3NvY2luZm8obWFjKTsKKwljYXNlIElFRUU4MDIxMV9GVFlQRV9EQVRBOgor
-CQlpZiAodW5saWtlbHkoIW1hYy0+YXNzb2NpYXRlZCkpIHsKKwkJCWRwcmludGtsKEtFUk5f
-RVJST1IgUEZYICJzdWdnZXN0X3R4X3JhdGU6IE5vdCBhc3NvY2lhdGVkXG4iKTsKKwkJCXJl
-dHVybiBJRUVFODAyMTFfQ0NLX1JBVEVfMU1COworCQl9CisJCXJldHVybiBzdWdnZXN0X3Jh
-dGVfZnJvbV9hc3NvY2luZm8obWFjKTsKKwlkZWZhdWx0OgorCQlkcHJpbnRrbChLRVJOX0VS
-Uk9SIFBGWCAic3VnZ2VzdF90eF9yYXRlOiBVbmhhbmRsZWQgZnR5cGUgJXhcbiIsIGZ0eXBl
-KTsKKwkJcmV0dXJuIElFRUU4MDIxMV9DQ0tfUkFURV8xTUI7CisJfQorfQorRVhQT1JUX1NZ
-TUJPTF9HUEwoaWVlZTgwMjExc29mdG1hY19zdWdnZXN0X3R4X3JhdGUpOworCiAvKiBBbGxv
-Y2F0ZSBhIHNvZnRtYWMgbmV0d29yayBzdHJ1Y3QgYW5kIGZpbGwgaXQgZnJvbSBhIG5ldHdv
-cmsgKi8KIHN0cnVjdCBpZWVlODAyMTFzb2Z0bWFjX25ldHdvcmsgKgogaWVlZTgwMjExc29m
-dG1hY19jcmVhdGVfbmV0d29yayhzdHJ1Y3QgaWVlZTgwMjExc29mdG1hY19kZXZpY2UgKm1h
-YywKLS0tIGxpbnV4L25ldC9pZWVlODAyMTEvc29mdG1hYy9pZWVlODAyMTFzb2Z0bWFjX2Fz
-c29jLmMub3JpZwkyMDA2LTA0LTE2IDIzOjU1OjIzLjAwMDAwMDAwMCArMDEwMAorKysgbGlu
-dXgvbmV0L2llZWU4MDIxMS9zb2Z0bWFjL2llZWU4MDIxMXNvZnRtYWNfYXNzb2MuYwkyMDA2
-LTA0LTE2IDIzOjU1OjM5LjAwMDAwMDAwMCArMDEwMApAQCAtMjgzLDYgKzI4Myw3IEBAIGll
-ZWU4MDIxMXNvZnRtYWNfYXNzb2NpYXRlZChzdHJ1Y3QgaWVlZTgKIAlzdHJ1Y3QgaWVlZTgw
-MjExc29mdG1hY19uZXR3b3JrICpuZXQpCiB7CiAJbWFjLT5hc3NvY2luZm8uYXNzb2NpYXRp
-bmcgPSAwOworCW1hYy0+YXNzb2NpbmZvLnN1cHBvcnRlZF9yYXRlcyA9IG5ldC0+c3VwcG9y
-dGVkX3JhdGVzOwogCW1hYy0+YXNzb2NpYXRlZCA9IDE7CiAJaWYgKG1hYy0+c2V0X2Jzc2lk
-X2ZpbHRlcikKIAkJbWFjLT5zZXRfYnNzaWRfZmlsdGVyKG1hYy0+ZGV2LCBuZXQtPmJzc2lk
-KTsKLS0tIGxpbnV4L2luY2x1ZGUvbmV0L2llZWU4MDIxMXNvZnRtYWMuaC5vcmlnCTIwMDYt
-MDQtMTYgMjM6Mzc6MzIuMDAwMDAwMDAwICswMTAwCisrKyBsaW51eC9pbmNsdWRlL25ldC9p
-ZWVlODAyMTFzb2Z0bWFjLmgJMjAwNi0wNC0xNyAwMDo0NDo0Ny4wMDAwMDAwMDAgKzAxMDAK
-QEAgLTg2LDYgKzg2LDkgQEAgc3RydWN0IGllZWU4MDIxMXNvZnRtYWNfYXNzb2NfaW5mbyB7
-CiAJCiAJLyogQlNTSUQgd2UncmUgdHJ5aW5nIHRvIGFzc29jaWF0ZSB0byAqLwogCWNoYXIg
-YnNzaWRbRVRIX0FMRU5dOworCisJLyogUmF0ZXMgc3VwcG9ydGVkIGJ5IHRoZSBuZXR3b3Jr
-ICovCisJc3RydWN0IGllZWU4MDIxMXNvZnRtYWNfcmF0ZXNpbmZvIHN1cHBvcnRlZF9yYXRl
-czsKIAkKIAkvKiBzb21lIGZsYWdzLgogCSAqIHN0YXRpY19lc3NpZCBpcyB2YWxpZCBpZiB0
-aGUgZXNzaWQgaXMgY29uc3RhbnQsCkBAIC0yNDYsNiArMjQ5LDggQEAgZXh0ZXJuIHZvaWQg
-aWVlZTgwMjExc29mdG1hY19mcmFnbWVudF9sbwogICogTm90ZSB0aGF0IHRoZSByYXRlcyBu
-ZWVkIHRvIGJlIHNvcnRlZC4gKi8KIGV4dGVybiB2b2lkIGllZWU4MDIxMXNvZnRtYWNfc2V0
-X3JhdGVzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHU4IGNvdW50LCB1OCAqcmF0ZXMpOwog
-CitleHRlcm4gdTggaWVlZTgwMjExc29mdG1hY19zdWdnZXN0X3R4X3JhdGUoc3RydWN0IGll
-ZWU4MDIxMXNvZnRtYWNfZGV2aWNlICptYWMsIHN0cnVjdCBpZWVlODAyMTFfaGRyXzFhZGRy
-ICpoZHIpOworCiAvKiBTdGFydCB0aGUgU29mdE1BQy4gQ2FsbCB0aGlzIGFmdGVyIHlvdSBp
-bml0aWFsaXplZCB0aGUgZGV2aWNlCiAgKiBhbmQgaXQgaXMgcmVhZHkgdG8gcnVuLgogICov
-Cg==
---------------050906090803050809080000--
+-- 
+Ulrich Kunitz - kune@deine-taler.de
