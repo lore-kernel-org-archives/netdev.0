@@ -1,64 +1,59 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 12/18] ipw2200: version string rework
-Date: Mon, 17 Apr 2006 09:37:45 -0700
-Message-ID: <20060417093745.6e76b957@localhost.localdomain>
-References: <20060413092034.GA28787@mail.intel.com>
-	<20060413102820.4fabf028@localhost.localdomain>
-	<4443C2EE.6030302@linux.intel.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] Fix crash on big-endian systems during scan
+Date: Mon, 17 Apr 2006 12:44:55 -0400
+Message-ID: <20060417164450.GM5042@tuxdriver.com>
+References: <20060414215911.17273.40460.stgit@dv.roinet.com> <20060417010602.GL9551@jm.kir.nu> <20060417132105.GF5042@tuxdriver.com> <1145284443.2212.5.camel@localhost.localdomain> <20060417144541.GK5042@tuxdriver.com> <1145286089.2649.0.camel@localhost.localdomain> <20060417151659.GL5042@tuxdriver.com> <1145288203.2649.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, hostap@shmoo.com,
+	Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18632 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751141AbWDQQht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:37:49 -0400
-To: James Ketrenos <jketreno@linux.intel.com>
-In-Reply-To: <4443C2EE.6030302@linux.intel.com>
+Received: from ra.tuxdriver.com ([24.172.12.4]:49924 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751037AbWDQQpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:45:18 -0400
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1145288203.2649.3.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Apr 2006 11:31:42 -0500
-James Ketrenos <jketreno@linux.intel.com> wrote:
+On Mon, Apr 17, 2006 at 11:36:43AM -0400, Dan Williams wrote:
+> On Mon, 2006-04-17 at 11:17 -0400, John W. Linville wrote:
+> > On Mon, Apr 17, 2006 at 11:01:29AM -0400, Dan Williams wrote:
+> > > On Mon, 2006-04-17 at 10:45 -0400, John W. Linville wrote:
+> > > > On Mon, Apr 17, 2006 at 10:34:03AM -0400, Dan Williams wrote:
+> > > > 
+> > > > > Pavel posted to netdev originally on Friday April 14th with the patch
+> > > > > included in the email, with the title "[PATCH] Fix crash on big-endian
+> > > > > systems during scan"...
+> > > > > 
+> > > > > http://www.spinics.net/lists/netdev/msg03023.html
+> > > > > 
+> > > > > Sure you don't have it somewhere?  If not, I'm sure somebody can
+> > > > > resend...
+> > > > 
+> > > > I must have fat-fingered a delete...sorry!
+> > > > 
+> > > > A repost would be most welcome...
+> > > 
+> > > I think Pavel just resent the patch with a "(repost)" at the end of the
+> > > subject line.
+> > 
+> > Hmmm...Randy Dunlap said offline that he had reposted, but I haven't
+> > seen one from him either...is it a big patch?
+> 
+> Two liner...
+> 
+> From: Pavel Roskin <proski@gnu.org>
+> 
+> The original code was doing arithmetics on a little-endian value.
+> Reported by Stelios Koroneos <stelios@stelioscellar.com>
+> 
+> Signed-off-by: Pavel Roskin <proski@gnu.org>
+> ---
 
-> Stephen Hemminger wrote:
-> > On Thu, 13 Apr 2006 17:20:34 +0800
-> > Zhu Yi <yi.zhu@intel.com> wrote:
-> > 
-> > 
-> >>Added version string fields so the version string indicates what is
-> >>configured (ie, you'll see 1.1.1kpmd if you are using a GIT snapshot
-> >>(Kernel.. previously -git), promiscuous (p), monitor (m), debug (d) build.
-> > 
-> > 
-> > No, this is completely the wrong direction.
-> > 
-> > Stop with the config option nonsense. It makes it impossible for linux distributions
-> > and others that want to ship one kernel and modules.
-> 
-> How does it make it impossible for someone to ship one kernel?
-> 
-> There are are various configuration options to enable, some of which are
-> experimental and/or unstable, some add code and/or impact performance
-> when enabled, etc.  Not all users want all features.
-> 
-> Easily determining what is enabled in the driver is a requirement.
-> 
-> The distributors should default to not enabling any feature that does
-> not default to =y or =m in Kconfig.  In the default configuration, there
-> shouldn't be any post-fix fields appended to the version string.  If
-> there is, we need to either fix the version string or the default
-> Kconfig setting.
-> 
-> Is there an alternative method for quickly and easily determining what
-> all features are enabled in a module--even if the module isn't loaded?
-> We didn't see one, and using the fields post-fixed to the version string
-> has quickly resolved various support issues.
-> 
-> Thanks,
-> James
+Got this one...thanks!
 
-The version string is good idea, it is just the NxM complexity of possibilities
-that gets nasty.  Also, is this a permanent fixture of these drivers, or just
-some transitional stage as new features get added that aren't stable yet?
+-- 
+John W. Linville
+linville@tuxdriver.com
