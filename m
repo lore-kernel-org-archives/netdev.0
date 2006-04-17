@@ -1,38 +1,37 @@
-From: "Teresa Dewitt" <paxtfdeknaeivt@come-over.to>
-Subject: Re:
-Date: Mon, 17 Apr 2006 18:44:15 +0400
-Message-ID: <NCBBK596ALMIN461IOENFKEPFE443.anastomotic.Hampson@arctan.Com>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: want to randomly drop packets based on percent
+Date: Mon, 17 Apr 2006 16:21:58 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0604171618590.7579@yvahk01.tjqt.qr>
+References: <444345F9.4090100@cmu.edu>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host224.200-45-60.telecom.net.ar ([200.45.60.224]:32264 "HELO
-	host224.200-45-60.telecom.net.ar") by vger.kernel.org with SMTP
-	id S1750992AbWDQNv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Apr 2006 09:51:29 -0400
-To: netdev@vger.kernel.org
+Received: from linux01.gwdg.de ([134.76.13.21]:51693 "EHLO linux01.gwdg.de")
+	by vger.kernel.org with ESMTP id S1751011AbWDQOWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 10:22:01 -0400
+To: George Nychis <gnychis@cmu.edu>
+In-Reply-To: <444345F9.4090100@cmu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--Sensattional revolution in medicine!
+>
+> I'm using the 2.4.32 kernel with madwifi and iproute2 version
+> 2-2.6.16-060323.tar.gz
+>
+> I wanted to insert artificial packet loss based on a percent so i found:
+> network emulab qdisc could do it, so i compiled support into the kernel and
+> tried:
+> tc qdisc change dev eth0 root netem loss .1%
 
--Enlarge your penis up to 10 cm or up to 4 inches!
+You could just use the 'random' match module from netfilter/POMng, but I 
+doubt it will compile out-of-the-box on 2.4.32. It would then be as simple 
+as
+	iptables -t mangle -I PREROUTING -m random --average 1 -j DROP
 
--It's herbal solution what hasn't side effect, but has 100% guaranted results!
+> I really only need to drop random packets being forwarded through ip_forward
+> ... however randomly dropping any packet based on a % is sufficient so I
+> figured netem would be great.
 
--Don't lose your chance and but know wihtout doubts, you will be i`mpressed with results!
-
- Clisk here: http://beardeddragonworld.info
-
-
-
-
-
-
-
-
-
-
-everybody photogenic roomy scenic crosslink part chaotic bravura asynchronous wichita
-cloven avid testamentary antisemitism blackbody dauphin gear accuse kirchner
-indium religion adulthood burma expenditure attract emasculate ashen magneto degumming manuel
-endogamous courageous low landau transfinite pastiche abbott solitaire
-vignette sooth delight coauthor bali auckland artisan chimera
-brigade ellipsometer masonry vella childbear gloucester beat peppy
+Jan Engelhardt
+-- 
