@@ -1,30 +1,30 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH][RFC] softmac: suggest TX rate
-Date: Mon, 17 Apr 2006 02:02:24 +0100
-Message-ID: <4442E920.60603@gentoo.org>
-References: <4442E13E.80507@gentoo.org> <Pine.LNX.4.58.0604170230400.32281@p15091797.pureserver.info> <Pine.LNX.4.58.0604170235020.32457@p15091797.pureserver.info>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] Fix crash on big-endian systems during scan
+Date: Sun, 16 Apr 2006 18:06:02 -0700
+Message-ID: <20060417010602.GL9551@jm.kir.nu>
+References: <20060414215911.17273.40460.stgit@dv.roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	softmac-dev@sipsolutions.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, hostap@shmoo.com,
+	Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:25028 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750898AbWDQAtG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Apr 2006 20:49:06 -0400
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <Pine.LNX.4.58.0604170235020.32457@p15091797.pureserver.info>
+Received: from mail2.genealogia.fi ([194.100.116.229]:34793 "EHLO
+	mail2.genealogia.fi") by vger.kernel.org with ESMTP
+	id S1750885AbWDQBGS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Apr 2006 21:06:18 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20060414215911.17273.40460.stgit@dv.roinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ulrich Kunitz wrote:
-> I just wanted to say, I agree with the approach, but wonder how
-> transmission timeouts come into play here, which should lead to a
-> decrease of the tranmission rate. 
+On Fri, Apr 14, 2006 at 05:59:11PM -0400, Pavel Roskin wrote:
 
-That's a separate issue, to do with rate management, which I'm not 
-tackling yet. Note that the functions in my patch can easily be extended 
-to bring rate management into the equation.
+> The original code was doing arithmetics on a little-endian value.
 
-Daniel
+John, please apply this to wireless-2.6 tree. This code is triggered at
+least for the case where WPA is not used. I had noticed it before, but I
+think I've only tested WPA/WPA2 on big endian systems..
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
