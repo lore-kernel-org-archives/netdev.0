@@ -1,213 +1,100 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: fixing sk_stream_rfree()
-Date: Mon, 17 Apr 2006 14:09:43 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.63.0604171405470.3848@jbrandeb-desk.amr.corp.intel.com>
-References: <20060416111831.GA15093@gondor.apana.org.au><20060416.223203.47773632.davem@davemloft.net><20060417061700.GA21709@gondor.apana.org.au>
- <20060417.132904.55913090.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 6401] New: tg3 hardware address issue
+Date: Mon, 17 Apr 2006 14:17:15 -0700
+Message-ID: <20060417141715.30afbdd8.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="18038855-16786-1145308183=:3848"
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: zef@cektek.net,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr20.intel.com ([134.134.136.19]:37608 "EHLO
-	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751297AbWDQVK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Apr 2006 17:10:59 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060417.132904.55913090.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:22716 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751309AbWDQVSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 17:18:41 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---18038855-16786-1145308183=:3848
-Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
-On Mon, 17 Apr 2006, David S. Miller wrote:
+Begin forwarded message:
 
-> 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Mon, 17 Apr 2006 16:17:00 +1000
-> 
-> > On Sun, Apr 16, 2006 at 10:32:03PM -0700, David S. Miller wrote:
-> > > So it nearly has to be a send side issue that can only trigger with
-> > > TSO enabled, and my next planned chore is to audit the TSO splitting
-> > > during ACK processing.  We may be doing something stupid there.
-> >
-> > BTW, do we have a dmesg log from the machine that did this with tg3?
-> 
-> I don't know, Jesse do you have it?
-> 
-> Jesse, my previously lead was a dead end, we're looking into other
-> possibilities, so if you have the kernel log from reproducing this
-> BUG(!sk_forward_alloc) problem with tg3 it would be very valuable at
-> this point.
+Date: Mon, 17 Apr 2006 13:39:47 -0700
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 6401] New: tg3 hardware address issue
 
-we explicitly enabled TSO before performing the test.
-attached bz2 due to size:
 
-Let me know if there is anything else I can do,
-Jesse
---18038855-16786-1145308183=:3848
-Content-Type: APPLICATION/octet-stream; name=sk_alloc_forward_tg3_dmesg.bz2
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.WNT.4.63.0604171409430.3848@jbrandeb-desk.amr.corp.intel.com>
-Content-Description: 
-Content-Disposition: attachment; filename=sk_alloc_forward_tg3_dmesg.bz2
+http://bugzilla.kernel.org/show_bug.cgi?id=6401
 
-QlpoOTFBWSZTWUwoH8oAGIN/gH20EQJ+////f////r////BgIB63r6FxxcqH
-Q22htlB5D6e1u8+3rs+Xed7x9arfbdiqTfd9895vKV3d0c1Z2D777r4Mbu77
-b266n3Zt3KXu7Nvr3XuU92l9M33db7p7PR2yR7ub28nsMhJIQAhowgjTCZMl
-PE0xT1GFPKem0ptTTTJk0G1AaaCUER6RoECaGppMaYo2Uw1JgAaNAmg9TIDa
-NEBJJimhJ5UyPUGahoAaBtRoNA0BoAAAAAJCiaKp/iT0mVP0U9EPKGjT1A00
-PTKPSZAGjQA0A9RoBEoQEEwJMAmRJ+pM1GMkGyjCaaPUyHpAA0NAJEgQCAJi
-BMUeqm8VPwnqUzUPKfqJtRsp6GkaAAGjqQF1nsCEaQIq0JSSIgUSKw+w+z5Q
-OwY2MbWCUNidQqXrh02H3a0jq89fywET+mDoiFH4U/HVMpi1o2egSTyDP+Pp
-8gotHSdy50LS92cHRkSv5Xqvm3HVbU+9fzYX/7pG229V2zRX6ZBCrxkkklDM
-mnFmH0gQD0seltPPt9+VmXIzr6FeP+xhamZavQsS8O0KhsxoAhsAVXraf/Lp
-W+n9nX2lE+2d2N93kI0V+VK/6nJ9fVvyuDh4H7xtuwr6qBLRiyPWrTy1WKm5
-RPXS/PofH2eFbeLv9fR1aPObSk2tIrmqqqqq868pORs8LeuOp4o10Jpv5wtr
-3NfJx7I7G7CpjTYNpWvJPNrmYVcGbcGN0lpLUAaw+hhE+0VANG8Z6d7H+FMM
-LPy/j5u38Fmf1MVtxHFJASzp6BNKrAnEFGc8zojsg4ux8aCEi/q4oSM9wbHo
-SHH48uOrbbScCoDogOC5+hmZmbSYZuMdapD6L5k+wPMIY37yuzfEPPyCmVSs
-1JdR4DvmjdDNvDexfkVpGY73Uzuap6f62l16BIcJGkm8wh2/F5dbuPmL+EMw
-YWschIQkISEH1lJFJFJFIREp4a00daNwbGxySTC8LMEb4YAmBSzbbbbbbbbb
-asjQ7AUMjr9nMOjl6D73JtP7oJzm9FGBdfpHDEqTlO1odbuTL4xo5YotBDkw
-7L2uv5zeKD8gVI4oQtEfB+1Q5vwYZvGBPpAeOaeOWghd74f3ELxwm48xlXQw
-MrNVu7XcG4hT0zKVg9aokPC3HzXEteK8E536A4ns3vHPlZkyz4tAt/F/Y4uI
-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
-i7kinChIJhQP5QA=
+           Summary: tg3 hardware address issue
+    Kernel Version: > 2.6.14
+            Status: NEW
+          Severity: normal
+             Owner: jgarzik@pobox.com
+         Submitter: zef@cektek.net
 
---18038855-16786-1145308183=:3848--
+
+Most recent kernel where this bug did not occur: Havent tried anything older 
+than 2.6.14 and it was also affected.
+Distribution: Fedora Core 4
+Hardware Environment: Dual Core Opteron on Nforce Professional Mobo
+Software Environment: Minimal FC4 Install
+Problem Description: 
+Onboard Broadcom BCM5721 dual port gigabit ethernet (pci express) is not 
+functioning, have tried reverting all the way back to 2.6.14 based on this 
+thread suggesting it was not an issue in earlier versions: http://www.spinics.
+net/lists/netdev/msg01858.html.
+
+Right now I am using the tg3.c contained in linus's git tree with a 2.6.15 
+kernel because this driver version (3.56) seems to be least broken, or atleast 
+hides it best.
+
+dmesg upon loading (modprobe):
+
+tg3.c:v3.56 (Apr 1, 2006)
+ACPI: PCI Interrupt 0000:04:00.0[A] -> Link [LNKB] -> GSI 19 (level, low) -> IRQ 
+50
+PCI: Setting latency timer of device 0000:04:00.0 to 64
+eth1: Tigon3 [partno(none) rev 4101 PHY(5750)] (PCI Express) 10/100/1000BaseT 
+Ethernet ff:ff:ff:ff:ff:ff
+eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1]
+eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+ACPI: PCI Interrupt 0000:03:00.0[A] -> Link [LNKA] -> GSI 18 (level, low) -> IRQ
+58
+PCI: Setting latency timer of device 0000:03:00.0 to 64
+eth2: Tigon3 [partno(none) rev 4101 PHY(5750)] (PCI Express) 10/100/1000BaseT 
+Ethernet ff:ff:ff:ff:ff:ff
+eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1]
+eth2: dma_rwctrl[76180000] dma_mask[64-bit]
+ADDRCONF(NETDEV_UP): eth0: link is not ready
+
+dmesg after `ifconfig eth1 up 192.168.2.122'
+
+tg3: tg3_reset_hw timed out for eth1, firmwared will not restart magic=4b657654
+tg3: tg3_reset_hw timed out for eth1, firmwared will not restart magic=4b657654
+tg3: tg3_reset_hw timed out for eth1, firmwared will not restart magic=4b657654
+tg3: tg3_reset_hw timed out for eth1, firmwared will not restart magic=4b657654
+
+
+
+Note: this is my relevant dmesg from any older version of tg3.c I have tried:
+
+PCI: Enabling device 0000:04:00.0
+ACPI: PCI Interrupt 0000:04:00.0[A] -> GSI 18 (level, low) -> IRQ 50
+tg3: Could not obtain valid ethernet address, aborting.
+ACPI: PCI interrupt for device 0000:04:00.0 disabled
+tg3: probe of 0000:04:00.0 failed with error -22
+
+Neither of the nic's dual interfaces show up when doing `ifconfig -a' after 
+this.
+
+Steps to reproduce:
+Load module, attempt to bring up interface.
+
+I am willing to grant access to this machine if i can figure out how since it 
+doesnt really have networking abilities atm.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
