@@ -1,77 +1,36 @@
-From: George Nychis <gnychis@cmu.edu>
-Subject: Re: want to randomly drop packets based on percent
-Date: Mon, 17 Apr 2006 19:08:16 -0400
-Message-ID: <44441FE0.6080908@cmu.edu>
-References: <444345F9.4090100@cmu.edu>	<20060417091915.67e28361@localhost.localdomain>	<4444171B.90507@cmu.edu>	<20060417094634.7191fea5@localhost.localdomain>	<4443CAD1.9050701@cmu.edu> <20060417103211.24115952@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 locks up in 2.6.16.5
+Date: Tue, 18 Apr 2006 01:09:27 +0200
+Message-ID: <20060417230927.GA8893@electric-eye.fr.zoreil.com>
+References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net> <20060416144354.GA11433@electric-eye.fr.zoreil.com> <20060416172639.GA12243@jupiter.toms.net> <20060416195327.GA14173@electric-eye.fr.zoreil.com> <20060416225843.GA2274@jupiter.toms.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.andrew.cmu.edu ([128.2.10.82]:25312 "EHLO
-	smtp.andrew.cmu.edu") by vger.kernel.org with ESMTP
-	id S1750705AbWDQXIU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Apr 2006 19:08:20 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060417103211.24115952@localhost.localdomain>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:51367 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750964AbWDQXNx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Apr 2006 19:13:53 -0400
+To: "Thomas A. Oehser" <tom@toms.net>
+Content-Disposition: inline
+In-Reply-To: <20060416225843.GA2274@jupiter.toms.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Thomas A. Oehser <tom@toms.net> :
+[...]
+> Ok, here it all is, the attached archive has:
+> 
+> - .before is right after the interface came up
+> - .mid is after flooding it with ping -f commands from 2 machines at once
+> - .bad is after doing the cpio over nc that killed it after 170MB
+> - .back is after ifconfig down / ifconfig up that restored it
 
+Thanks for the report. It is quite clear. The device is (almost surely)
+killed by a rx fifo overflow. Expect a patch shortly.
 
-Stephen Hemminger wrote:
+I wonder why it overflows in the first place though. How much time does
+the 170 Mb transfer need ?
 
->O
->  
->
->>>>>>I wanted to insert artificial packet loss based on a percent so i found:
->>>>>>network emulab qdisc could do it, so i compiled support into the kernel 
->>>>>>and tried:
->>>>>>tc qdisc change dev eth0 root netem loss .1%
->>>>>>       
->>>>>>
->>>>>>            
->>>>>>
->>>            ^^^^^^
->>>
->>>You need to do add not change. Add will set the queue discipline
->>>to netem (default is pfifo_fast).  Change is for changing netem parameters
->>>after it is loaded.
->>>
->>> 
->>>
->>>      
->>>
->>bahhh I see... the wiki has "change" instead of add.  Now i'm running 
->>into another problem, I have an XCP qdisc that I have already added via:
->>tc qdisc add dev ath0 root xcp capacity 54Mbit size 500
->>
->>    
->>
->
->Wiki reads as a set of examples.  First uses, "add" after that "change".
->
->
->  
->
->>therefore when I also try to incorperate loss:
->>tcq disc add dev ath0 root netem loss .1%
->>
->>I get:
->>RTNETLINK answers: File exists
->>
->>Is it possible to use two qdiscs on the same interface?
->>
->>    
->>
->
->No, but netem is "classful" so you can put xcp inside netem.
->Look at the token bucket example on the wiki.
->
->  
->
-Sorry, I was looking at the LARTC guide, completely skipped over the 
-blatently obvious block of commands you were pointing me too :P
-
-Thanks!
-George
+-- 
+Ueimor
