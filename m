@@ -1,17 +1,17 @@
 From: George Nychis <gnychis@cmu.edu>
 Subject: Re: want to randomly drop packets based on percent
-Date: Mon, 17 Apr 2006 19:04:33 -0400
-Message-ID: <44441F01.5010002@cmu.edu>
+Date: Mon, 17 Apr 2006 19:08:16 -0400
+Message-ID: <44441FE0.6080908@cmu.edu>
 References: <444345F9.4090100@cmu.edu>	<20060417091915.67e28361@localhost.localdomain>	<4444171B.90507@cmu.edu>	<20060417094634.7191fea5@localhost.localdomain>	<4443CAD1.9050701@cmu.edu> <20060417103211.24115952@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.andrew.cmu.edu ([128.2.10.81]:40621 "EHLO
+Received: from smtp.andrew.cmu.edu ([128.2.10.82]:25312 "EHLO
 	smtp.andrew.cmu.edu") by vger.kernel.org with ESMTP
-	id S1751376AbWDQXEp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Apr 2006 19:04:45 -0400
+	id S1750705AbWDQXIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Apr 2006 19:08:20 -0400
 To: Stephen Hemminger <shemminger@osdl.org>
 In-Reply-To: <20060417103211.24115952@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
@@ -70,7 +70,8 @@ Stephen Hemminger wrote:
 >
 >  
 >
-Okay I'm slightly confused... I would like to have the traffic  traverse 
-both the XCP qdisc and the netem qdisc... looking through the wiki it 
-shows me how to classify two sets of traffic, but how do i push all 
-traffic through both?
+Sorry, I was looking at the LARTC guide, completely skipped over the 
+blatently obvious block of commands you were pointing me too :P
+
+Thanks!
+George
