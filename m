@@ -1,87 +1,67 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] Fix crash on big-endian systems during scan
-Date: Mon, 17 Apr 2006 11:36:43 -0400
-Message-ID: <1145288203.2649.3.camel@localhost.localdomain>
-References: <20060414215911.17273.40460.stgit@dv.roinet.com>
-	 <20060417010602.GL9551@jm.kir.nu> <20060417132105.GF5042@tuxdriver.com>
-	 <1145284443.2212.5.camel@localhost.localdomain>
-	 <20060417144541.GK5042@tuxdriver.com>
-	 <1145286089.2649.0.camel@localhost.localdomain>
-	 <20060417151659.GL5042@tuxdriver.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Kernel error
+Date: Mon, 17 Apr 2006 09:12:56 -0700
+Message-ID: <20060417091256.27ad1f09@localhost.localdomain>
+References: <3a1eedb70604152343u2f720781o40fbd910f6558041@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hostap@shmoo.com,
-	Pavel Roskin <proski@gnu.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:10665 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751130AbWDQPib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 11:38:31 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060417151659.GL5042@tuxdriver.com>
+Received: from smtp.osdl.org ([65.172.181.4]:16062 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751079AbWDQQM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:12:56 -0400
+To: "Saurabh Jain" <jassduec@gmail.com>
+In-Reply-To: <3a1eedb70604152343u2f720781o40fbd910f6558041@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-04-17 at 11:17 -0400, John W. Linville wrote:
-> On Mon, Apr 17, 2006 at 11:01:29AM -0400, Dan Williams wrote:
-> > On Mon, 2006-04-17 at 10:45 -0400, John W. Linville wrote:
-> > > On Mon, Apr 17, 2006 at 10:34:03AM -0400, Dan Williams wrote:
-> > > 
-> > > > Pavel posted to netdev originally on Friday April 14th with the patch
-> > > > included in the email, with the title "[PATCH] Fix crash on big-endian
-> > > > systems during scan"...
-> > > > 
-> > > > http://www.spinics.net/lists/netdev/msg03023.html
-> > > > 
-> > > > Sure you don't have it somewhere?  If not, I'm sure somebody can
-> > > > resend...
-> > > 
-> > > I must have fat-fingered a delete...sorry!
-> > > 
-> > > A repost would be most welcome...
-> > 
-> > I think Pavel just resent the patch with a "(repost)" at the end of the
-> > subject line.
+On Sun, 16 Apr 2006 01:43:08 -0500
+"Saurabh Jain" <jassduec@gmail.com> wrote:
+
+> Hi Guys,
 > 
-> Hmmm...Randy Dunlap said offline that he had reposted, but I haven't
-> seen one from him either...is it a big patch?
+> I am getting the following kernel error while doing some experiments.
+> Any idea where things are going wrong. To me it looks like there is an
+> error while copying data from user space to kernel space. The
+> application which i am running is iperf. However i also have netem
+> module for emulating some wide area network characteristics like
+> delay. I am using delay of 100ms.
+> 
+> ##################Error Message#############################
+> Unable to handle kernel NULL pointer dereference at virtual address 00000004
+>  printing eip:
+> c02fee3c
+> *pde = 7ded4067
+> Oops: 0002 [#5]
+> Modules linked in: setparam(U) sch_netem(U) nfs(U) lockd(U) autofs4(U)
+> sunrpc(U)CPU:    0
+> EIP:    0060:[<c02fee3c>]    Not tainted VLI
+> EFLAGS: 00010286   (2.6.12-1.1390_FC4-emulab-1)
+> EIP is at tcp_transmit_skb+0x3ef/0x8de
+> eax: 00000000   ebx: f71a1a40   ecx: ed64f960   edx: ed64ff60
+> esi: 00000000   edi: f2f98500   ebp: ed71b780   esp: f47bddd4
+> ds: 007b   es: 007b   ss: 0068
+> Process iperf (pid: 2443, threadinfo=f47bc000 task=f71a1a40)
+> Stack: f2f9854c c02d1019 ed71b7b8 f2f98500 ed15cc80 00000282 ed71b780 00000100
+>        c02ce99f f71a1a40 f2f98500 f71a1a40 00000000 f2f98500 f2f9854c c02f53ad
+>        00000000 ed335db8 f2f98500 f2f98500 f47bdeb8 00000000 00000000 002ce99f
+> Call Trace:
+>  [<c02d1019>] skb_copy_datagram_iovec+0x180/0x1f8
+>  [<c02ce99f>] alloc_skb+0x31/0xc1
+>  [<c02f53ad>] tcp_recvmsg+0x2b1/0x74e
+>  [<c02fd83f>] tcp_rcv_established+0x5d2/0x77a
+>  [<c02ce2e0>] sock_common_recvmsg+0x41/0x57
+>  [<c02cb052>] sock_aio_read+0xf9/0x12b
+>  [<c014fccb>] do_sync_read+0x9e/0xec
+>  [<c01291ae>] autoremove_wake_function+0x0/0x37
+>  [<c014fe23>] vfs_read+0x10a/0x10e
+>  [<c0150064>] sys_read+0x41/0x6a
+>  [<c0102d29>] syscall_call+0x7/0xb
+> Code: a1 04 07 39 c0 e8 c0 e5 e3 ff 89 c2 85 c0 74 2d 83 87 08 04 00 00 01 8b 8
+> #############################################################
 
-Two liner...
-
-From: Pavel Roskin <proski@gnu.org>
-
-The original code was doing arithmetics on a little-endian value.
-Reported by Stelios Koroneos <stelios@stelioscellar.com>
-
-Signed-off-by: Pavel Roskin <proski@gnu.org>
----
-
- drivers/net/wireless/hostap/hostap_ioctl.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
-index 8b37e82..8399de5 100644
---- a/drivers/net/wireless/hostap/hostap_ioctl.c
-+++ b/drivers/net/wireless/hostap/hostap_ioctl.c
-@@ -1860,7 +1860,7 @@ static char * __prism2_translate_scan(lo
- 	memset(&iwe, 0, sizeof(iwe));
- 	iwe.cmd = SIOCGIWFREQ;
- 	if (scan) {
--		chan = scan->chid;
-+		chan = le16_to_cpu(scan->chid);
- 	} else if (bss) {
- 		chan = bss->chan;
- 	} else {
-@@ -1868,7 +1868,7 @@ static char * __prism2_translate_scan(lo
- 	}
- 
- 	if (chan > 0) {
--		iwe.u.freq.m = freq_list[le16_to_cpu(chan - 1)] * 100000;
-+		iwe.u.freq.m = freq_list[chan - 1] * 100000;
- 		iwe.u.freq.e = 1;
- 		current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
- 						  IW_EV_FREQ_LEN);
-
-
-
-
+Please provide full info: kernel version and configuration as well
+as hardware information (lspci).
+Since it looks like a Fedora Core kernel, you may have to ask the fedora
+list.
