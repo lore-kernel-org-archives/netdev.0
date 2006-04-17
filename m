@@ -1,38 +1,40 @@
-From: edwin@gurde.com
+From: James Morris <jmorris@namei.org>
 Subject: Re: [PATCH][RFC] Security marking
-Date: Mon, 17 Apr 2006 21:40:53 +0300 (EEST)
-Message-ID: <20060417184053.6D618378FD@localhost.localdomain>
-Cc: netdev@vger.kernel.org, fireflier-devel@lists.sourceforge.net
+Date: Mon, 17 Apr 2006 14:43:15 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0604171440480.17563@d.namei>
+References: <Pine.LNX.4.64.0604160012500.16600@d.namei> <4443D5BA.6060605@trash.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Chris Wright <chrisw@sous-sol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216.255.188.82-custblock.intercage.com ([216.255.188.82]:33724
-	"EHLO main.astronetworks.net") by vger.kernel.org with ESMTP
-	id S1751174AbWDQSlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Apr 2006 14:41:20 -0400
-To: jmorris@namei.org
-In-Reply-To: Pine.LNX.4.64.0604160012500.16600@d.namei
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:37535 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751201AbWDQSnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Apr 2006 14:43:17 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4443D5BA.6060605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 17 Apr 2006, Patrick McHardy wrote:
 
-Secmark, or skfilter is exactly what fireflier needs to solve the shared socket issue. Thanks for working on this.
-If this gets integrated in mainline, fireflier LSM will be dropped. 
+> >From a pure netfilter POV it would still be nice to have the socket
+> hooks for userspace queueing in socket context and filtering hard
+> to track protocols. My only question is: if I would port the skfilter
+> patches to the current kernel today and fix the unresolved issues,
+> would you still prefer this approach?
 
-Is it possible to have an SELinux policy that reinjects the packets if didn't match any rules?
-I.e. if a program that listens on port 80 doesn't have access to the packet, (because it doesn't have the proper domain,)
-and the SELinux won't allow the program to read the packet: is it possible to reinject this packet in the netfilter chain,
-instead of dropping it?
+I think the newer model of marking the packets first via Netfilter then 
+interpreting them at the socket layer is superior.  i.e. skfilter is 
+probably not preferred for SELinux now.
 
-This would allow creating rules interactively (fireflier). 
+However, it's still useful for incoming user matching for things like 
+user-level firewalling.
 
-But it could also be used for other purposes.
-For example: if the program that listens on that port crashes, that means no program would match the required domain+port.
-if in that case the packet would be reinjected, then the packet could be rerouted (by adding proper rules to mangle the packet)
-to a different program/computer. AFAIK this isn't currently possible with netfilter (please correct me if I'm wrong).
 
-What does the secmark currently do with packets that aren't allowed by policy to be received?
-
-P.S.: Where can I get the full secmark patches, so I can test them to see if they really fit my needs?
-Do you have an estimate timeline for mainline integration? (in terms of n weeks, m months)
-
-Cheers,
-Edwin
+- James
+-- 
+James Morris
+<jmorris@namei.org>
