@@ -1,67 +1,33 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Kernel error
-Date: Mon, 17 Apr 2006 09:12:56 -0700
-Message-ID: <20060417091256.27ad1f09@localhost.localdomain>
-References: <3a1eedb70604152343u2f720781o40fbd910f6558041@mail.gmail.com>
+Subject: Re: want to randomly drop packets based on percent
+Date: Mon, 17 Apr 2006 09:19:15 -0700
+Message-ID: <20060417091915.67e28361@localhost.localdomain>
+References: <444345F9.4090100@cmu.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16062 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751079AbWDQQM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:12:56 -0400
-To: "Saurabh Jain" <jassduec@gmail.com>
-In-Reply-To: <3a1eedb70604152343u2f720781o40fbd910f6558041@mail.gmail.com>
+Received: from smtp.osdl.org ([65.172.181.4]:23745 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751035AbWDQQTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:19:21 -0400
+To: George Nychis <gnychis@cmu.edu>
+In-Reply-To: <444345F9.4090100@cmu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Apr 2006 01:43:08 -0500
-"Saurabh Jain" <jassduec@gmail.com> wrote:
+On Mon, 17 Apr 2006 03:38:33 -0400
+George Nychis <gnychis@cmu.edu> wrote:
 
-> Hi Guys,
+> Hey,
 > 
-> I am getting the following kernel error while doing some experiments.
-> Any idea where things are going wrong. To me it looks like there is an
-> error while copying data from user space to kernel space. The
-> application which i am running is iperf. However i also have netem
-> module for emulating some wide area network characteristics like
-> delay. I am using delay of 100ms.
+> I'm using the 2.4.32 kernel with madwifi and iproute2 version 
+> 2-2.6.16-060323.tar.gz
 > 
-> ##################Error Message#############################
-> Unable to handle kernel NULL pointer dereference at virtual address 00000004
->  printing eip:
-> c02fee3c
-> *pde = 7ded4067
-> Oops: 0002 [#5]
-> Modules linked in: setparam(U) sch_netem(U) nfs(U) lockd(U) autofs4(U)
-> sunrpc(U)CPU:    0
-> EIP:    0060:[<c02fee3c>]    Not tainted VLI
-> EFLAGS: 00010286   (2.6.12-1.1390_FC4-emulab-1)
-> EIP is at tcp_transmit_skb+0x3ef/0x8de
-> eax: 00000000   ebx: f71a1a40   ecx: ed64f960   edx: ed64ff60
-> esi: 00000000   edi: f2f98500   ebp: ed71b780   esp: f47bddd4
-> ds: 007b   es: 007b   ss: 0068
-> Process iperf (pid: 2443, threadinfo=f47bc000 task=f71a1a40)
-> Stack: f2f9854c c02d1019 ed71b7b8 f2f98500 ed15cc80 00000282 ed71b780 00000100
->        c02ce99f f71a1a40 f2f98500 f71a1a40 00000000 f2f98500 f2f9854c c02f53ad
->        00000000 ed335db8 f2f98500 f2f98500 f47bdeb8 00000000 00000000 002ce99f
-> Call Trace:
->  [<c02d1019>] skb_copy_datagram_iovec+0x180/0x1f8
->  [<c02ce99f>] alloc_skb+0x31/0xc1
->  [<c02f53ad>] tcp_recvmsg+0x2b1/0x74e
->  [<c02fd83f>] tcp_rcv_established+0x5d2/0x77a
->  [<c02ce2e0>] sock_common_recvmsg+0x41/0x57
->  [<c02cb052>] sock_aio_read+0xf9/0x12b
->  [<c014fccb>] do_sync_read+0x9e/0xec
->  [<c01291ae>] autoremove_wake_function+0x0/0x37
->  [<c014fe23>] vfs_read+0x10a/0x10e
->  [<c0150064>] sys_read+0x41/0x6a
->  [<c0102d29>] syscall_call+0x7/0xb
-> Code: a1 04 07 39 c0 e8 c0 e5 e3 ff 89 c2 85 c0 74 2d 83 87 08 04 00 00 01 8b 8
-> #############################################################
+> I wanted to insert artificial packet loss based on a percent so i found:
+> network emulab qdisc could do it, so i compiled support into the kernel 
+> and tried:
+> tc qdisc change dev eth0 root netem loss .1%
 
-Please provide full info: kernel version and configuration as well
-as hardware information (lspci).
-Since it looks like a Fedora Core kernel, you may have to ask the fedora
-list.
+Most likely, you the version of the kernel you are running was not
+configured with netem enabled.
