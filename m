@@ -1,116 +1,76 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 6402] New: KERNEL 2.6.16-rX (Gentoo) && PPPD
- && SNAT
-Date: Mon, 17 Apr 2006 15:27:24 -0700
-Message-ID: <20060417152724.0d7321aa.akpm@osdl.org>
+From: George Nychis <gnychis@cmu.edu>
+Subject: Re: want to randomly drop packets based on percent
+Date: Mon, 17 Apr 2006 19:04:33 -0400
+Message-ID: <44441F01.5010002@cmu.edu>
+References: <444345F9.4090100@cmu.edu>	<20060417091915.67e28361@localhost.localdomain>	<4444171B.90507@cmu.edu>	<20060417094634.7191fea5@localhost.localdomain>	<4443CAD1.9050701@cmu.edu> <20060417103211.24115952@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: slavon@bigtelecom.ru,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15066 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751327AbWDQW2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 18:28:18 -0400
-To: netdev@vger.kernel.org
+Received: from smtp.andrew.cmu.edu ([128.2.10.81]:40621 "EHLO
+	smtp.andrew.cmu.edu") by vger.kernel.org with ESMTP
+	id S1751376AbWDQXEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Apr 2006 19:04:45 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060417103211.24115952@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-Begin forwarded message:
+Stephen Hemminger wrote:
 
-Date: Mon, 17 Apr 2006 14:57:03 -0700
-From: bugme-daemon@bugzilla.kernel.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 6402] New: KERNEL 2.6.16-rX (Gentoo) && PPPD && SNAT
-
-
-http://bugzilla.kernel.org/show_bug.cgi?id=6402
-
-           Summary: KERNEL 2.6.16-rX (Gentoo) && PPPD && SNAT
-    Kernel Version: 2.6.16.ALL
-            Status: NEW
-          Severity: high
-             Owner: shemminger@osdl.org
-         Submitter: slavon@bigtelecom.ru
-
-
-After start download file its stop after 4-10 mb and network is down.
-
-Interface ppp0 is UP.
-No new dmeseg or debug of syslog
-
-try to ping ppp client:
-
-slavon ~ # ping 192.168.0.2
-PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-ping: sendmsg: No buffer space available
-
-#ifconfig ppp0
-ppp0      Link encap:Point-to-Point Protocol
-          inet addr:192.168.0.1  P-t-P:192.168.0.2  Mask:255.255.255.255
-          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1396  Metric:1
-          RX packets:1648 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:2407 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:3
-          RX bytes:75765 (73.9 Kb)  TX bytes:3242633 (3.0 Mb)
-
-#iptables-save
-*nat
-:PREROUTING ACCEPT [6826:411515]
-:POSTROUTING ACCEPT [11117:531811]
-:OUTPUT ACCEPT [11118:531895]
--A POSTROUTING -s 192.168.0.0/255.255.255.0 -j SNAT --to-source XXX.XXX.XXX.XXX
-COMMIT
-
-slavon ~ # pppd --version
-pppd version 2.4.3
-
-slavon ~ # pptpd --version
-pptpd v1.3.1
-
-I try it in 3 Computers 2 - x86 and 1 - x86-64 - All have this trouble
-
-its gentoo patches for kernel
-
- * Applying 1000_linux-2.6.16.1.patch (-p0+) 
- * Applying 1001_linux-2.6.16.2.patch (-p0+) 
- * Applying 1002_linux-2.6.16.3.patch (-p0+) 
- * Applying 1003_linux-2.6.16.4.patch (-p0+) 
- * Applying 1700_sparc-obp64-naming.patch (-p0+) 
- * Applying 1705_sparc-U1-hme-lockup.patch (-p0+) 
- * Applying 1710_sparc-sparsemem.patch (-p0+) 
- * Applying 1715_ppc32-crosscc-ssp.patch (-p0+) 
- * Applying 2400_sky2-1.1.patch (-p0+) 
- * Applying 2405_skge-1.5.patch (-p0+) 
- * Applying 2600_input-mod-devicetable.patch (-p0+) 
- * Applying 4000_deprecate-sk98lin.patch (-p0+) 
- * Applying 4100_libata-enable-atapi.patch (-p0+) 
- * Applying 4105_dm-bbr.patch (-p0+) 
- * Applying 4110_promise-pdc2037x.patch (-p0+) 
- * Applying 4200_fbsplash-0.9.2-r5.patch (-p0+) 
- * Applying 4205_vesafb-tng-1.0-rc1-r3.patch (-p0+) 
- * Applying 4300_squashfs-3.0.patch (-p0+) 
- * Applying 4400_speakup-20060103.patch (-p0+) 
- * Applying 4401_speakup-highlight-tracking-amd64.patch (-p0+) 
- * Applying 4405_alpha-sysctl-uac.patch (-p0+) 
-
-
-!! In 2.6.15 kernel ALL WORK.
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+>O
+>  
+>
+>>>>>>I wanted to insert artificial packet loss based on a percent so i found:
+>>>>>>network emulab qdisc could do it, so i compiled support into the kernel 
+>>>>>>and tried:
+>>>>>>tc qdisc change dev eth0 root netem loss .1%
+>>>>>>       
+>>>>>>
+>>>>>>            
+>>>>>>
+>>>            ^^^^^^
+>>>
+>>>You need to do add not change. Add will set the queue discipline
+>>>to netem (default is pfifo_fast).  Change is for changing netem parameters
+>>>after it is loaded.
+>>>
+>>> 
+>>>
+>>>      
+>>>
+>>bahhh I see... the wiki has "change" instead of add.  Now i'm running 
+>>into another problem, I have an XCP qdisc that I have already added via:
+>>tc qdisc add dev ath0 root xcp capacity 54Mbit size 500
+>>
+>>    
+>>
+>
+>Wiki reads as a set of examples.  First uses, "add" after that "change".
+>
+>
+>  
+>
+>>therefore when I also try to incorperate loss:
+>>tcq disc add dev ath0 root netem loss .1%
+>>
+>>I get:
+>>RTNETLINK answers: File exists
+>>
+>>Is it possible to use two qdiscs on the same interface?
+>>
+>>    
+>>
+>
+>No, but netem is "classful" so you can put xcp inside netem.
+>Look at the token bucket example on the wiki.
+>
+>  
+>
+Okay I'm slightly confused... I would like to have the traffic  traverse 
+both the XCP qdisc and the netem qdisc... looking through the wiki it 
+shows me how to classify two sets of traffic, but how do i push all 
+traffic through both?
