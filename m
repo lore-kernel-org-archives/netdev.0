@@ -1,59 +1,47 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] Fix crash on big-endian systems during scan
-Date: Mon, 17 Apr 2006 12:44:55 -0400
-Message-ID: <20060417164450.GM5042@tuxdriver.com>
-References: <20060414215911.17273.40460.stgit@dv.roinet.com> <20060417010602.GL9551@jm.kir.nu> <20060417132105.GF5042@tuxdriver.com> <1145284443.2212.5.camel@localhost.localdomain> <20060417144541.GK5042@tuxdriver.com> <1145286089.2649.0.camel@localhost.localdomain> <20060417151659.GL5042@tuxdriver.com> <1145288203.2649.3.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: want to randomly drop packets based on percent
+Date: Mon, 17 Apr 2006 09:46:34 -0700
+Message-ID: <20060417094634.7191fea5@localhost.localdomain>
+References: <444345F9.4090100@cmu.edu>
+	<20060417091915.67e28361@localhost.localdomain>
+	<4444171B.90507@cmu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hostap@shmoo.com,
-	Pavel Roskin <proski@gnu.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	matt.keenan@btinternet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:49924 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751037AbWDQQpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:45:18 -0400
-To: Dan Williams <dcbw@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <1145288203.2649.3.camel@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:59082 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750734AbWDQQqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:46:36 -0400
+To: George Nychis <gnychis@cmu.edu>
+In-Reply-To: <4444171B.90507@cmu.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 17, 2006 at 11:36:43AM -0400, Dan Williams wrote:
-> On Mon, 2006-04-17 at 11:17 -0400, John W. Linville wrote:
-> > On Mon, Apr 17, 2006 at 11:01:29AM -0400, Dan Williams wrote:
-> > > On Mon, 2006-04-17 at 10:45 -0400, John W. Linville wrote:
-> > > > On Mon, Apr 17, 2006 at 10:34:03AM -0400, Dan Williams wrote:
-> > > > 
-> > > > > Pavel posted to netdev originally on Friday April 14th with the patch
-> > > > > included in the email, with the title "[PATCH] Fix crash on big-endian
-> > > > > systems during scan"...
-> > > > > 
-> > > > > http://www.spinics.net/lists/netdev/msg03023.html
-> > > > > 
-> > > > > Sure you don't have it somewhere?  If not, I'm sure somebody can
-> > > > > resend...
-> > > > 
-> > > > I must have fat-fingered a delete...sorry!
-> > > > 
-> > > > A repost would be most welcome...
-> > > 
-> > > I think Pavel just resent the patch with a "(repost)" at the end of the
-> > > subject line.
-> > 
-> > Hmmm...Randy Dunlap said offline that he had reposted, but I haven't
-> > seen one from him either...is it a big patch?
-> 
-> Two liner...
-> 
-> From: Pavel Roskin <proski@gnu.org>
-> 
-> The original code was doing arithmetics on a little-endian value.
-> Reported by Stelios Koroneos <stelios@stelioscellar.com>
-> 
-> Signed-off-by: Pavel Roskin <proski@gnu.org>
-> ---
+On Mon, 17 Apr 2006 18:30:51 -0400
+George Nychis <gnychis@cmu.edu> wrote:
 
-Got this one...thanks!
+> 
+> 
+> Stephen Hemminger wrote:
+> 
+> >On Mon, 17 Apr 2006 03:38:33 -0400
+> >George Nychis <gnychis@cmu.edu> wrote:
+> >
+> >  
+> >
+> >>Hey,
+> >>
+> >>I'm using the 2.4.32 kernel with madwifi and iproute2 version 
+> >>2-2.6.16-060323.tar.gz
+> >>
+> >>I wanted to insert artificial packet loss based on a percent so i found:
+> >>network emulab qdisc could do it, so i compiled support into the kernel 
+> >>and tried:
+> >>tc qdisc change dev eth0 root netem loss .1%
+             ^^^^^^
 
--- 
-John W. Linville
-linville@tuxdriver.com
+You need to do add not change. Add will set the queue discipline
+to netem (default is pfifo_fast).  Change is for changing netem parameters
+after it is loaded.
