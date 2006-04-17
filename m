@@ -1,33 +1,43 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: want to randomly drop packets based on percent
-Date: Mon, 17 Apr 2006 09:19:15 -0700
-Message-ID: <20060417091915.67e28361@localhost.localdomain>
-References: <444345F9.4090100@cmu.edu>
+Subject: Re: [PATCH] ipw2100: wraps the debug module param within #ifdefs
+Date: Mon, 17 Apr 2006 09:24:45 -0700
+Message-ID: <20060417092445.22952efa@localhost.localdomain>
+References: <20060413091423.GA28623@mail.intel.com>
+	<20060413103048.64f8d0f0@localhost.localdomain>
+	<1144991911.968.157.camel@debian.sh.intel.com>
+	<20060414093307.3ff1c016@localhost.localdomain>
+	<1145240263.968.203.camel@debian.sh.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:23745 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751035AbWDQQTV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:19:21 -0400
-To: George Nychis <gnychis@cmu.edu>
-In-Reply-To: <444345F9.4090100@cmu.edu>
+Received: from smtp.osdl.org ([65.172.181.4]:24515 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751142AbWDQQYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 12:24:54 -0400
+To: Zhu Yi <yi.zhu@intel.com>
+In-Reply-To: <1145240263.968.203.camel@debian.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Apr 2006 03:38:33 -0400
-George Nychis <gnychis@cmu.edu> wrote:
+On Mon, 17 Apr 2006 10:17:43 +0800
+Zhu Yi <yi.zhu@intel.com> wrote:
 
-> Hey,
+> On Fri, 2006-04-14 at 09:33 -0700, Stephen Hemminger wrote:
+> > I meant get rid of CONFIG_IPW2200_DEBUG completely. Having the debug code isn't
+> > bad, and there is no reason not to have it always there.
 > 
-> I'm using the 2.4.32 kernel with madwifi and iproute2 version 
-> 2-2.6.16-060323.tar.gz
+> There are lots of IPW_DEBUG_XXX in the driver, even in TX and RX paths.
+> It cause extra cycles for those who really don't need it.
 > 
-> I wanted to insert artificial packet loss based on a percent so i found:
-> network emulab qdisc could do it, so i compiled support into the kernel 
-> and tried:
-> tc qdisc change dev eth0 root netem loss .1%
+> Thanks,
+> -yi
 
-Most likely, you the version of the kernel you are running was not
-configured with netem enabled.
+IMHO. There is never a reason for a driver specific config option for debugging.
+Either it the debug option is generally useful for support (ie distro's will want it on),
+in which case the debugging should be runtime settable but always available;
+or the debug option is so meant for the driver developers in which case it should
+be enabled by a source modification (see #define DEBUG and pr_debug).
+
+But, those are opinions only and certainly, you can do what you want with your
+driver.
