@@ -1,80 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [TCP]: Fix truesize underflow
-Date: Tue, 18 Apr 2006 22:32:04 +1000
-Message-ID: <20060418123204.GA3962@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [RFC: 2.6 patch] net/netlink/: possible cleanups
+Date: Tue, 18 Apr 2006 16:19:46 +0200
+Message-ID: <20060418141946.GC11582@stusta.de>
+References: <20060413162710.GE4162@stusta.de> <20060413.132603.94193712.davem@davemloft.net> <20060414103202.GF4162@stusta.de> <20060414105610.GA18149@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="BXVAT5kNtrzKuDFl"
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55055 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750897AbWDRMdm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 08:33:42 -0400
-To: "Boris B. Zhmurov" <bb@kernelpanic.ru>,
-	Phil Oester <kernel@linuxace.com>,
-	Mark Nipper <nipsy@bitgnome.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	jesse.brandeburg@intel.com, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
-	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:23813 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S932159AbWDROTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Apr 2006 10:19:47 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
+In-Reply-To: <20060414105610.GA18149@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Apr 14, 2006 at 02:56:12PM +0400, Evgeniy Polyakov wrote:
+>...
+> Although it is always statically built systems, it is still very
+> convenient way of netlink usage for others (future modular systems).
 
---BXVAT5kNtrzKuDFl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I do understand Dave's "new API, users are expected soon" point.
 
-Hi Dave:
+OTOH, we also have to always check whether users are expected soon (and 
+recheck whether there are really users after some time) since every 
+single export makes the kernel larger for nearly everyone.
 
-You're absolutely right about there being a problem with the TSO packet
-trimming code.  The cause of this lies in the tcp_fragment() function.
+> 	Evgeniy Polyakov
 
-When we allocate a fragment for a completely non-linear packet the
-truesize is calculated for a payload length of zero.  This means that
-truesize could in fact be less than the real payload length.
+cu
+Adrian
 
-When that happens the TSO packet trimming can cause truesize to become
-negative.  This in turn can cause sk_forward_alloc to be -n * PAGE_SIZE
-which would trigger the warning.
-
-I've copied the code you used in tso_fragment which should work here.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Everyone who's having the sk_forward_alloc warning problem should give
-this patch a go to see if it cures things.
-
-Just in case this still doesn't fix it, could everyone please also verify
-whether disabling SMP has any effect on reproducing this?
-
-Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---BXVAT5kNtrzKuDFl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="tcp-fragment.patch"
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b871db6..44df1db 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -551,7 +551,9 @@
- 	buff = sk_stream_alloc_skb(sk, nsize, GFP_ATOMIC);
- 	if (buff == NULL)
- 		return -ENOMEM; /* We'll just try again later. */
--	sk_charge_skb(sk, buff);
-+
-+	buff->truesize = skb->len - len;
-+	skb->truesize -= buff->truesize;
- 
- 	/* Correct the sequence numbers. */
- 	TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
-
---BXVAT5kNtrzKuDFl--
