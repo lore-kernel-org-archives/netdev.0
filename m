@@ -1,44 +1,52 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [TCP]: Fix truesize underflow
-Date: Tue, 18 Apr 2006 18:29:59 +0200
-Message-ID: <200604181829.59686.netdev@axxeo.de>
-References: <20060418123204.GA3962@gondor.apana.org.au>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: [Patch] Dead code in net/sunrpc/auth_gss/auth_gss.c
+Date: Tue, 18 Apr 2006 12:34:02 -0400
+Message-ID: <1145378042.8115.25.camel@lade.trondhjem.org>
+References: <1145376431.11649.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Boris B. Zhmurov" <bb@kernelpanic.ru>,
-	Phil Oester <kernel@linuxace.com>,
-	Mark Nipper <nipsy@bitgnome.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	jesse.brandeburg@intel.com, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
-	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
-	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
-	Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org, dugsong@monkey.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:13511 "EHLO mail.axxeo.de")
-	by vger.kernel.org with ESMTP id S1750947AbWDRQaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 12:30:46 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060418123204.GA3962@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from pat.uio.no ([129.240.10.6]:20704 "EHLO pat.uio.no")
+	by vger.kernel.org with ESMTP id S1751023AbWDRQeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 12:34:14 -0400
+To: Eric Sesterhenn <snakebyte@gmx.de>
+In-Reply-To: <1145376431.11649.2.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+On Tue, 2006-04-18 at 18:07 +0200, Eric Sesterhenn wrote:
+> Hi,
+> 
+> the coverity checker spotted that cred is always NULL
+> when we jump to out_err ( there is just one case, when
+> we fail to allocate the memory for cred )
+> This is Coverity ID #79
+> 
+> Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
+> 
 
-Herbert Xu wrote:
-> I've copied the code you used in tso_fragment which should work here.
+I'll take it, but please send sunrpc patches to the NFS lists, not
+netdev.
 
-I'm happy to see, that this got resolved and this is a nice minimalistic fix 
-for -stable. 
+Cheers,
+  Trond
 
-But shouldn't we put this kind of hairy manipulation into some nice functions?
-Driver writers were already confused by all that size, len and truesize stuff, 
-as this bug showed.
+> --- linux-2.6.17-rc1/net/sunrpc/auth_gss/auth_gss.c.orig	2006-04-18 13:23:22.000000000 +0200
+> +++ linux-2.6.17-rc1/net/sunrpc/auth_gss/auth_gss.c	2006-04-18 13:24:10.000000000 +0200
+> @@ -794,7 +794,6 @@ gss_create_cred(struct rpc_auth *auth, s
+>  
+>  out_err:
+>  	dprintk("RPC:      gss_create_cred failed with error %d\n", err);
+> -	if (cred) gss_destroy_cred(&cred->gc_base);
+>  	return ERR_PTR(err);
+>  }
+>  
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-
-Regards
-
-Ingo Oeser
