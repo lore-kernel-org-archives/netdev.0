@@ -1,61 +1,80 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: fixing sk_stream_rfree()
-Date: Tue, 18 Apr 2006 13:49:36 +0200
-Message-ID: <200604181349.36949.netdev@axxeo.de>
-References: <20060414.205927.13626300.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [TCP]: Fix truesize underflow
+Date: Tue, 18 Apr 2006 22:32:04 +1000
+Message-ID: <20060418123204.GA3962@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="BXVAT5kNtrzKuDFl"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a81-14-224-183.net-htp.de ([81.14.224.183]:56513 "EHLO
-	mail.axxeo.de") by vger.kernel.org with ESMTP id S932214AbWDRLty
+Received: from rhun.apana.org.au ([64.62.148.172]:55055 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750897AbWDRMdm
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 07:49:54 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060414.205927.13626300.davem@davemloft.net>
+	Tue, 18 Apr 2006 08:33:42 -0400
+To: "Boris B. Zhmurov" <bb@kernelpanic.ru>,
+	Phil Oester <kernel@linuxace.com>,
+	Mark Nipper <nipsy@bitgnome.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, jrlundgren@gmail.com, cat@zip.com.au,
+	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
+	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
 
-You wrote:
-> 2) We can't turn sk_forward_alloc easily into an atomic_t.  The
->    masking operation in __sk_stream_mem_reclaim() does not translate
->    readily into an atomic_t op:
-> 
-> 		sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
-> 
->    That line has always driven me nuts, but I know that it is there
->    to handle partial page allocations existing when that function
->    is called.
-> 
-> I guess for #2 we could change those two lines into:
-> 
-> 		int n = atomic_read(&sk->sk_forward_alloc) /
-> 				SK_STREAM_MEM_QUANTUM;
-> 
-> 		atomic_sub(n, sk->sk_prot->memory_allocated);
-> 		sk->sk_forward_alloc -= n * SK_STREAM_MEM_QUANTUM;
-> 
-> in order to make it "atomic_t op" translatable.
+--BXVAT5kNtrzKuDFl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It is possible. Just view this as an register with size SK_STREAM_MEM_QUANTUM.
+Hi Dave:
 
-Mask on every read and always after the read.
-Always add/subtract the intended value.
-Wraparound happens within the modulo/mask value.
+You're absolutely right about there being a problem with the TSO packet
+trimming code.  The cause of this lies in the tcp_fragment() function.
 
-This works without problems as long as SK_STREAM_MEM_QUANTUM 
-is a power of two. If not, just use modulo arithmetics.
+When we allocate a fragment for a completely non-linear packet the
+truesize is calculated for a payload length of zero.  This means that
+truesize could in fact be less than the real payload length.
 
+When that happens the TSO packet trimming can cause truesize to become
+negative.  This in turn can cause sk_forward_alloc to be -n * PAGE_SIZE
+which would trigger the warning.
 
-The non-atomic wrapround doesn't change the atomic nature of
-read, add, sub. Only problem is atomic_dec_and_test() or similiar ops.
+I've copied the code you used in tso_fragment which should work here.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Regards
+Everyone who's having the sk_forward_alloc warning problem should give
+this patch a go to see if it cures things.
 
-Ingo Oeser
+Just in case this still doesn't fix it, could everyone please also verify
+whether disabling SMP has any effect on reproducing this?
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--BXVAT5kNtrzKuDFl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="tcp-fragment.patch"
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b871db6..44df1db 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -551,7 +551,9 @@
+ 	buff = sk_stream_alloc_skb(sk, nsize, GFP_ATOMIC);
+ 	if (buff == NULL)
+ 		return -ENOMEM; /* We'll just try again later. */
+-	sk_charge_skb(sk, buff);
++
++	buff->truesize = skb->len - len;
++	skb->truesize -= buff->truesize;
+ 
+ 	/* Correct the sequence numbers. */
+ 	TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
+
+--BXVAT5kNtrzKuDFl--
