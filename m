@@ -1,46 +1,39 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [RFC PATCH 1/8] pcmcia: add new ID to pcnet_cs
-Date: Tue, 18 Apr 2006 22:15:22 +0200
-Message-ID: <20060418201522.GA32341@isilmar.linta.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [TCP]: Fix truesize underflow
+Date: Tue, 18 Apr 2006 13:19:48 -0700 (PDT)
+Message-ID: <20060418.131948.25497627.davem@davemloft.net>
+References: <20060418123204.GA3962@gondor.apana.org.au>
+	<200604181829.59686.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, bb@kernelpanic.ru,
+	kernel@linuxace.com, nipsy@bitgnome.net,
+	jesse.brandeburg@intel.com, jrlundgren@gmail.com, cat@zip.com.au,
+	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
+	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com, ak@suse.de,
+	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.239.214.66]:29089 "EHLO linta.de")
-	by vger.kernel.org with ESMTP id S932313AbWDRUPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 16:15:23 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2690
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932303AbWDRUUg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Apr 2006 16:20:36 -0400
+To: netdev@axxeo.de
+In-Reply-To: <200604181829.59686.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please review these patches which I inted to push upstream for 2.6.17 soon.
-Thanks,
-	Dominik
+From: Ingo Oeser <netdev@axxeo.de>
+Date: Tue, 18 Apr 2006 18:29:59 +0200
 
-Subject: [PATCH] pcmcia: add new ID to pcnet_cs
+> But shouldn't we put this kind of hairy manipulation into some nice
+> functions?  Driver writers were already confused by all that size,
+> len and truesize stuff, as this bug showed.
 
-This adds a new ID to pcnet_cs, as noted by Kuro Moji.
+It's 2 lines and frankly it's a bit context dependant.  I think
+Herbert's fix is fine for now.
 
-Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-
----
-
- drivers/net/pcmcia/pcnet_cs.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-af6f85925c2984c3596ba480c19573e55724bbdf
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index 506e777..d090df4 100644
---- a/drivers/net/pcmcia/pcnet_cs.c
-+++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -1639,6 +1639,7 @@ static struct pcmcia_device_id pcnet_ids
- 	PCMCIA_DEVICE_PROD_ID12("CONTEC", "C-NET(PC)C-10L", 0x21cab552, 0xf6f90722),
- 	PCMCIA_DEVICE_PROD_ID12("corega", "FEther PCC-TXF", 0x0a21501a, 0xa51564a2),
- 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega EtherII PCC-T", 0x5261440f, 0xfa9d85bd),
-+	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega EtherII PCC-TD", 0x5261440f, 0xc49bd73d),
- 	PCMCIA_DEVICE_PROD_ID12("Corega K.K.", "corega EtherII PCC-TD", 0xd4fdcbd8, 0xc49bd73d),
- 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega Ether PCC-T", 0x5261440f, 0x6705fcaa),
- 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "corega FastEther PCC-TX", 0x5261440f, 0x485e85d9),
--- 
-1.2.6
-
+In the long term, yes, a lot of these weird manipulations need to
+be consolidated in well defined functions to make maintainence
+and auditing easier.
