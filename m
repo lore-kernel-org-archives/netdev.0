@@ -1,46 +1,48 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [RFC: 2.6 patch] net/netlink/: possible cleanups
-Date: Tue, 18 Apr 2006 21:09:54 +0200
-Message-ID: <20060418190954.GM11582@stusta.de>
-References: <20060413162710.GE4162@stusta.de> <20060413.132603.94193712.davem@davemloft.net> <20060414103202.GF4162@stusta.de> <20060414105610.GA18149@2ka.mipt.ru> <20060418141946.GC11582@stusta.de> <1145386121.21723.28.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH 0/2] e1000: fix two mispatches
+Date: Tue, 18 Apr 2006 12:39:50 -0700
+Message-ID: <20060418193950.16262.10757.stgit@gitlost.site>
+Cc: "Ronciak, John" <john.ronciak@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:28936 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S932295AbWDRTJz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 15:09:55 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1145386121.21723.28.camel@localhost.localdomain>
+Received: from [63.64.152.142] ([63.64.152.142]:517 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932297AbWDRTgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 15:36:49 -0400
+To: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Miller, David" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 18, 2006 at 07:48:41PM +0100, Alan Cox wrote:
-> On Maw, 2006-04-18 at 16:19 +0200, Adrian Bunk wrote:
-> > OTOH, we also have to always check whether users are expected soon (and 
-> > recheck whether there are really users after some time) since every 
-> > single export makes the kernel larger for nearly everyone.
-> 
-> Of course fixing the amount of memory used by an EXPORT_SYMBOL would be
-> far more productive.
 
-Both is productive.
-You can decrease the amount of memory used by an EXPORT_SYMBOL, but you 
-can't get it down to 0.
+Hi,
 
-And in some cases the memory used by an EXPORT_SYMBOL mostly consists of 
-an otherwise unused function...
+This patch series implements two e100 fixes for an old and new patch mishap.
 
-cu
-Adrian
+[1] fix mispatch for media type detect.
+[2] fix mismerge skb_put.
 
--- 
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+These changes are available through git.
 
+git://63.64.152.142/~ahkok/git/netdev-2.6 e1000-7.0.38-k2-fixes
+
+these patches are against
+ netdev-2.6#upstream 8fc65162a8f25929be80c8d6321a3479e92b5aae
+
+
+Cheers,
+
+Auke
+
+
+---
+ drivers/net/e1000/e1000_main.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
+
+
+--
+Auke Kok <auke-jan.h.kok@intel.com>
+Intel Pro Ethernet Driver Group
+LAN Access Division / Digital Enterprise Group 
