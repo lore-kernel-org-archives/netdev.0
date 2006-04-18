@@ -1,44 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] ip_route_input panic fix
-Date: Wed, 19 Apr 2006 08:08:24 +1000
-Message-ID: <20060418220824.GA11374@gondor.apana.org.au>
-References: <20060417171253.4e988afc@localhost.localdomain> <E1FVk6q-0000Tf-00@gondolin.me.apana.org.au> <20060418.145416.114278524.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch] Re: r8169 locks up in 2.6.16.5
+Date: Wed, 19 Apr 2006 01:04:27 +0200
+Message-ID: <20060418230427.GA4639@electric-eye.fr.zoreil.com>
+References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net> <20060416144354.GA11433@electric-eye.fr.zoreil.com> <20060416172639.GA12243@jupiter.toms.net> <20060416195327.GA14173@electric-eye.fr.zoreil.com> <20060416225843.GA2274@jupiter.toms.net> <20060417230927.GA8893@electric-eye.fr.zoreil.com> <20060418004358.GA8967@jupiter.toms.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:15117 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750753AbWDRWIi
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45463 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750792AbWDRXFa
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 18:08:38 -0400
-To: "David S. Miller" <davem@davemloft.net>
+	Tue, 18 Apr 2006 19:05:30 -0400
+To: "Thomas A. Oehser" <tom@toms.net>
 Content-Disposition: inline
-In-Reply-To: <20060418.145416.114278524.davem@davemloft.net>
+In-Reply-To: <20060418004358.GA8967@jupiter.toms.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 18, 2006 at 02:54:16PM -0700, David S. Miller wrote:
-> 
-> There are other areas of the packet which are interpreted in various
-> ways.  For example, the martian source handling will dump the MAC
-> directly from skb->mac.raw into the kernel logs.
+Thomas A. Oehser <tom@toms.net> :
+[...]
+> It is actually about a 30GB transfer, it was just after the first
+> 170Mb that it failed.  The command in question is just a simple
+> "nc -l -p 12345|buffer|cpio -iumdB", and the sender may well be
+> able to generate the data faster than the receiving disk can save
+> it, as the sender is a raid-1 mirror and the receiver is a raid-5
+> array, I would expect the raid-5 write penalty and the raid-1 read
+> speed to make it have to block for most of the transfer.  It didn't
+> take long to get that far- um, I think only 2 or 3 minutes before
+> it locked up.
 
-That's scary.  I think this stuff needs an audit.
+The r8169 offers 48 kb of Rx fifo. 170 Mb in 2~3 minutes is under 2 Mb/s.
+Even if the traffic is very bursty, something seems to stall the PCI bus.
+I'm a bit surprized.
 
-> The output path is so much cleaner, because things like the protocol
-> are filled out in the struct flowi so there is no need to be parsing
-> the SKB in any way.
+Anyway, can you give the patch below a try and tell if it changes
+something ? If so, an updated output of 'ethtool -S' would be welcome.
 
-Absolutely.  I think we should put Stephen's patch in ASAP.  Once the
-immediate problem is gone we can take our time and make the input path
-more like the output.
-
-At the end of this I'd like to see the skb argument from ip_route_input
-replaced by a dst_entry.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 0ad3310..f9da390 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -256,10 +256,11 @@ enum RTL8169_register_content {
+ 	RxOK = 0x01,
+ 
+ 	/* RxStatusDesc */
+-	RxRES = 0x00200000,
+-	RxCRC = 0x00080000,
+-	RxRUNT = 0x00100000,
+-	RxRWT = 0x00400000,
++	RxFOVF	= (1 << 23),
++	RxRWT	= (1 << 22),
++	RxRES	= (1 << 21),
++	RxRUNT	= (1 << 20),
++	RxCRC	= (1 << 19),
+ 
+ 	/* ChipCmdBits */
+ 	CmdReset = 0x10,
+@@ -2435,6 +2436,10 @@ rtl8169_rx_interrupt(struct net_device *
+ 				tp->stats.rx_length_errors++;
+ 			if (status & RxCRC)
+ 				tp->stats.rx_crc_errors++;
++			if (status & RxFOVF) {
++				rtl8169_schedule_work(dev, rtl8169_reset_task);
++				tp->stats.rx_fifo_errors++;
++			}
+ 			rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+ 		} else {
+ 			struct sk_buff *skb = tp->Rx_skbuff[entry];
