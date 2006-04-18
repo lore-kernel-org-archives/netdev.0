@@ -1,46 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] ip_route_input panic fix
-Date: Tue, 18 Apr 2006 16:54:48 +1000
-Message-ID: <E1FVk6q-0000Tf-00@gondolin.me.apana.org.au>
-References: <20060417171253.4e988afc@localhost.localdomain>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: fixing sk_stream_rfree()
+Date: Tue, 18 Apr 2006 13:49:36 +0200
+Message-ID: <200604181349.36949.netdev@axxeo.de>
+References: <20060414.205927.13626300.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:8708 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932244AbWDRGyx
+Received: from a81-14-224-183.net-htp.de ([81.14.224.183]:56513 "EHLO
+	mail.axxeo.de") by vger.kernel.org with ESMTP id S932214AbWDRLty
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 02:54:53 -0400
-To: shemminger@osdl.org (Stephen Hemminger)
-In-Reply-To: <20060417171253.4e988afc@localhost.localdomain>
+	Tue, 18 Apr 2006 07:49:54 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060414.205927.13626300.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Hi David,
+
+You wrote:
+> 2) We can't turn sk_forward_alloc easily into an atomic_t.  The
+>    masking operation in __sk_stream_mem_reclaim() does not translate
+>    readily into an atomic_t op:
 > 
-> --- linux-2.6.16.6.orig/net/ipv4/route.c
-> +++ linux-2.6.16.6/net/ipv4/route.c
-> @@ -2750,7 +2750,10 @@ int inet_rtm_getroute(struct sk_buff *in
->        /* Reserve room for dummy headers, this skb can pass
->           through good chunk of routing engine.
->         */
-> -       skb->mac.raw = skb->data;
-> +       skb->mac.raw = skb->nh.raw = skb->data;
-> +
-> +       /* Bugfix: need to give ip_route_input enough of an IP header to not gag. */
-> +       skb->nh.iph->protocol = IPPROTO_ICMP;
+> 		sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
+> 
+>    That line has always driven me nuts, but I know that it is there
+>    to handle partial page allocations existing when that function
+>    is called.
+> 
+> I guess for #2 we could change those two lines into:
+> 
+> 		int n = atomic_read(&sk->sk_forward_alloc) /
+> 				SK_STREAM_MEM_QUANTUM;
+> 
+> 		atomic_sub(n, sk->sk_prot->memory_allocated);
+> 		sk->sk_forward_alloc -= n * SK_STREAM_MEM_QUANTUM;
+> 
+> in order to make it "atomic_t op" translatable.
 
-Looking at this again, the root of this problem is the IGMPv3
-patch which started using the skb->nh.iph->protocol as a key.
+It is possible. Just view this as an register with size SK_STREAM_MEM_QUANTUM.
 
-So what we really should do is make the protocol an explicit parameter
-to the ip_route_input function.  This will make it clear to all the
-users which include some pretty weird cases that the protocol is needed.
+Mask on every read and always after the read.
+Always add/subtract the intended value.
+Wraparound happens within the modulo/mask value.
 
-In fact I'm unsure as to whether all the other users of ip_route_input
-is safe as it is regarding the protocol.
+This works without problems as long as SK_STREAM_MEM_QUANTUM 
+is a power of two. If not, just use modulo arithmetics.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+The non-atomic wrapround doesn't change the atomic nature of
+read, add, sub. Only problem is atomic_dec_and_test() or similiar ops.
+
+
+Regards
+
+Ingo Oeser
