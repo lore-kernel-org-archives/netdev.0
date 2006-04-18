@@ -1,38 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] ip_route_input panic fix
-Date: Mon, 17 Apr 2006 17:12:53 -0700
-Message-ID: <20060417171253.4e988afc@localhost.localdomain>
+From: "Thomas A. Oehser" <tom@toms.net>
+Subject: Re: r8169 locks up in 2.6.16.5
+Date: Mon, 17 Apr 2006 20:43:58 -0400
+Message-ID: <20060418004358.GA8967@jupiter.toms.net>
+References: <20060415204716.GA1755@jupiter.toms.net> <20060416005821.GA9821@electric-eye.fr.zoreil.com> <20060416134201.GA2681@jupiter.toms.net> <20060416144354.GA11433@electric-eye.fr.zoreil.com> <20060416172639.GA12243@jupiter.toms.net> <20060416195327.GA14173@electric-eye.fr.zoreil.com> <20060416225843.GA2274@jupiter.toms.net> <20060417230927.GA8893@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Thomas A. Oehser" <tom@toms.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:10374 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932071AbWDRANA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 20:13:00 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from jupiter.toms.net ([207.145.105.50]:22223 "EHLO jupiter.toms.net")
+	by vger.kernel.org with ESMTP id S932091AbWDRAoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Apr 2006 20:44:02 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20060417230927.GA8893@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes http://bugzilla.kernel.org/show_bug.cgi?id=6388
-The bug is caused by ip_route_input dereferencing skb->nh.protocol of
-the dummy skb passed dow from inet_rtm_getroute (Thanks Thomas for seeing
-it). It only happens if the route requested is for a multicast IP
-address.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
---- linux-2.6.16.6.orig/net/ipv4/route.c
-+++ linux-2.6.16.6/net/ipv4/route.c
-@@ -2750,7 +2750,10 @@ int inet_rtm_getroute(struct sk_buff *in
- 	/* Reserve room for dummy headers, this skb can pass
- 	   through good chunk of routing engine.
- 	 */
--	skb->mac.raw = skb->data;
-+	skb->mac.raw = skb->nh.raw = skb->data;
-+
-+	/* Bugfix: need to give ip_route_input enough of an IP header to not gag. */
-+	skb->nh.iph->protocol = IPPROTO_ICMP;
- 	skb_reserve(skb, MAX_HEADER + sizeof(struct iphdr));
+> Thanks for the report. It is quite clear. The device is (almost surely)
+> killed by a rx fifo overflow. Expect a patch shortly.
  
- 	if (rta[RTA_SRC - 1])
+> I wonder why it overflows in the first place though. How much time does
+> the 170 Mb transfer need ?
+
+It is actually about a 30GB transfer, it was just after the first
+170Mb that it failed.  The command in question is just a simple
+"nc -l -p 12345|buffer|cpio -iumdB", and the sender may well be
+able to generate the data faster than the receiving disk can save
+it, as the sender is a raid-1 mirror and the receiver is a raid-5
+array, I would expect the raid-5 write penalty and the raid-1 read
+speed to make it have to block for most of the transfer.  It didn't
+take long to get that far- um, I think only 2 or 3 minutes before
+it locked up.
+
+-Tom
+
+-- 
+May 4, 1970: Alison Krause, Jeffrey Miller, Sandra Scheuer, William Schroeder.
