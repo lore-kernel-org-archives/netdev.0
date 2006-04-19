@@ -1,69 +1,64 @@
 From: akpm@osdl.org
-Subject: [patch 01/10] tulip: NatSemi DP83840A PHY fix
-Date: Tue, 18 Apr 2006 21:03:59 -0700
-Message-ID: <200604190404.k3J44f8A007977@shell0.pdx.osdl.net>
+Subject: [patch 05/10] e1000: prevent statistics from getting garbled during reset
+Date: Tue, 18 Apr 2006 21:04:15 -0700
+Message-ID: <200604190404.k3J44vOX007992@shell0.pdx.osdl.net>
 Cc: linville@tuxdriver.com, netdev@vger.kernel.org, akpm@osdl.org,
-	T-Bone@parisc-linux.org, grundler@parisc-linux.org,
-	jgarzik@pobox.com, varenet@parisc-linux.org
+	linas@austin.ibm.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:41675 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750708AbWDSEFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:05 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:48843 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750770AbWDSEFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:19 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Thibaut VARENE <T-Bone@parisc-linux.org>
+From: Linas Vepstas <linas@austin.ibm.com>
 
-Fix a problem with Tulip 21142 HP branded PCI cards (PN#: B5509-66001),
-which feature a NatSemi DP83840A PHY.
+If a PCI bus error/fault triggers a PCI bus reset, attempts to get the
+ethernet packet count statistics from the hardware will fail, returning
+garbage data upstream.  This patch skips statistics data collection if the
+PCI device is not on the bus.
 
-Without that patch, it is impossible to properly initialize the card's PHY,
-and it's thus impossible to monitor/configure it.
+This patch presumes that an earlier patch,
+[PATCH] PCI Error Recovery: e1000 network device driver
+has already been applied.
 
-It's a timing/posting problem, and it is solved exactly the same way Grant
-fixed it elsewhere already.
-
-Signed-off-by: Thibaut VARENE <varenet@parisc-linux.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: John Ronciak <john.ronciak@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/tulip/media.c |   18 +++++++++++++++++-
- 1 files changed, 17 insertions(+), 1 deletion(-)
+ drivers/net/e1000/e1000_main.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix drivers/net/tulip/media.c
---- devel/drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix	2006-04-10 23:21:18.000000000 -0700
-+++ devel-akpm/drivers/net/tulip/media.c	2006-04-10 23:21:18.000000000 -0700
-@@ -261,11 +261,27 @@ void tulip_select_media(struct net_devic
- 				u16 *reset_sequence = &((u16*)(p+3))[init_length];
- 				int reset_length = p[2 + init_length*2];
- 				misc_info = reset_sequence + reset_length;
--				if (startup)
-+				if (startup) {
-+					int timeout = 10;	/* max 1 ms */
- 					for (i = 0; i < reset_length; i++)
- 						iowrite32(get_u16(&reset_sequence[i]) << 16, ioaddr + CSR15);
-+
-+					/* flush posted writes */
-+					ioread32(ioaddr + CSR15);
-+
-+					/* Sect 3.10.3 in DP83840A.pdf (p39) */
-+					udelay(500);
-+
-+					/* Section 4.2 in DP83840A.pdf (p43) */
-+					/* and IEEE 802.3 "22.2.4.1.1 Reset" */
-+					while (timeout-- &&
-+						(tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
-+						udelay(100);
-+				}
- 				for (i = 0; i < init_length; i++)
- 					iowrite32(get_u16(&init_sequence[i]) << 16, ioaddr + CSR15);
-+
-+				ioread32(ioaddr + CSR15);	/* flush posted writes */
- 			} else {
- 				u8 *init_sequence = p + 2;
- 				u8 *reset_sequence = p + 3 + init_length;
+diff -puN drivers/net/e1000/e1000_main.c~e1000-prevent-statistics-from-getting-garbled-during-reset drivers/net/e1000/e1000_main.c
+--- devel/drivers/net/e1000/e1000_main.c~e1000-prevent-statistics-from-getting-garbled-during-reset	2006-04-14 23:41:34.000000000 -0700
++++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-14 23:41:34.000000000 -0700
+@@ -3082,14 +3082,20 @@ void
+ e1000_update_stats(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct pci_dev *pdev = adapter->pdev;
+ 	unsigned long flags;
+ 	uint16_t phy_tmp;
+ 
+ #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+ 
+-	/* Prevent stats update while adapter is being reset */
++	/*
++	 * Prevent stats update while adapter is being reset, or if the pci
++	 * connection is down.
++	 */
+ 	if (adapter->link_speed == 0)
+ 		return;
++	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
++		return;
+ 
+ 	spin_lock_irqsave(&adapter->stats_lock, flags);
+ 
 _
