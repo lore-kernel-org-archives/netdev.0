@@ -1,122 +1,69 @@
 From: akpm@osdl.org
-Subject: [patch 04/10] PCI Error Recovery: e100 network device driver
-Date: Tue, 18 Apr 2006 21:04:12 -0700
-Message-ID: <200604190404.k3J44rcV007989@shell0.pdx.osdl.net>
+Subject: [patch 01/10] tulip: NatSemi DP83840A PHY fix
+Date: Tue, 18 Apr 2006 21:03:59 -0700
+Message-ID: <200604190404.k3J44f8A007977@shell0.pdx.osdl.net>
 Cc: linville@tuxdriver.com, netdev@vger.kernel.org, akpm@osdl.org,
-	linas@linas.org, jesse.brandeburg@intel.com
+	T-Bone@parisc-linux.org, grundler@parisc-linux.org,
+	jgarzik@pobox.com, varenet@parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:44491 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750768AbWDSEFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:11 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:41675 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750708AbWDSEFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:05 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: linas@austin.ibm.com (Linas Vepstas)
+From: Thibaut VARENE <T-Bone@parisc-linux.org>
 
-Various PCI bus errors can be signaled by newer PCI controllers.  This
-patch adds the PCI error recovery callbacks to the intel ethernet e100
-device driver.  The patch has been tested, and appears to work well.
+Fix a problem with Tulip 21142 HP branded PCI cards (PN#: B5509-66001),
+which feature a NatSemi DP83840A PHY.
 
-Signed-off-by: Linas Vepstas <linas@linas.org>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Without that patch, it is impossible to properly initialize the card's PHY,
+and it's thus impossible to monitor/configure it.
+
+It's a timing/posting problem, and it is solved exactly the same way Grant
+fixed it elsewhere already.
+
+Signed-off-by: Thibaut VARENE <varenet@parisc-linux.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/e100.c |   75 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 75 insertions(+)
+ drivers/net/tulip/media.c |   18 +++++++++++++++++-
+ 1 files changed, 17 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/e100.c~pci-error-recovery-e100-network-device-driver drivers/net/e100.c
---- devel/drivers/net/e100.c~pci-error-recovery-e100-network-device-driver	2006-04-10 23:21:20.000000000 -0700
-+++ devel-akpm/drivers/net/e100.c	2006-04-10 23:21:20.000000000 -0700
-@@ -2726,6 +2726,80 @@ static void e100_shutdown(struct pci_dev
- 		DPRINTK(PROBE,ERR, "Error enabling wake\n");
- }
- 
-+/* ------------------ PCI Error Recovery infrastructure  -------------- */
-+/**
-+ * e100_io_error_detected - called when PCI error is detected.
-+ * @pdev: Pointer to PCI device
-+ * @state: The current pci conneection state
-+ */
-+static pci_ers_result_t e100_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
+diff -puN drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix drivers/net/tulip/media.c
+--- devel/drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix	2006-04-10 23:21:18.000000000 -0700
++++ devel-akpm/drivers/net/tulip/media.c	2006-04-10 23:21:18.000000000 -0700
+@@ -261,11 +261,27 @@ void tulip_select_media(struct net_devic
+ 				u16 *reset_sequence = &((u16*)(p+3))[init_length];
+ 				int reset_length = p[2 + init_length*2];
+ 				misc_info = reset_sequence + reset_length;
+-				if (startup)
++				if (startup) {
++					int timeout = 10;	/* max 1 ms */
+ 					for (i = 0; i < reset_length; i++)
+ 						iowrite32(get_u16(&reset_sequence[i]) << 16, ioaddr + CSR15);
 +
-+	/* Similar to calling e100_down(), but avoids adpater I/O. */
-+	netdev->stop(netdev);
++					/* flush posted writes */
++					ioread32(ioaddr + CSR15);
 +
-+	/* Detach; put netif into state similar to hotplug unplug. */
-+	netif_poll_enable(netdev);
-+	netif_device_detach(netdev);
++					/* Sect 3.10.3 in DP83840A.pdf (p39) */
++					udelay(500);
 +
-+	/* Request a slot reset. */
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
++					/* Section 4.2 in DP83840A.pdf (p43) */
++					/* and IEEE 802.3 "22.2.4.1.1 Reset" */
++					while (timeout-- &&
++						(tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
++						udelay(100);
++				}
+ 				for (i = 0; i < init_length; i++)
+ 					iowrite32(get_u16(&init_sequence[i]) << 16, ioaddr + CSR15);
 +
-+/**
-+ * e100_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Restart the card from scratch.
-+ */
-+static pci_ers_result_t e100_io_slot_reset(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct nic *nic = netdev_priv(netdev);
-+
-+	if (pci_enable_device(pdev)) {
-+		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+	pci_set_master(pdev);
-+
-+	/* Only one device per card can do a reset */
-+	if (0 != PCI_FUNC(pdev->devfn))
-+		return PCI_ERS_RESULT_RECOVERED;
-+	e100_hw_reset(nic);
-+	e100_phy_init(nic);
-+
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * e100_io_resume - resume normal operations
-+ * @pdev: Pointer to PCI device
-+ *
-+ * Resume normal operations after an error recovery
-+ * sequence has been completed.
-+ */
-+static void e100_io_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct nic *nic = netdev_priv(netdev);
-+
-+	/* ack any pending wake events, disable PME */
-+	pci_enable_wake(pdev, 0, 0);
-+
-+	netif_device_attach(netdev);
-+	if (netif_running(netdev)) {
-+		e100_open(netdev);
-+		mod_timer(&nic->watchdog, jiffies);
-+	}
-+}
-+
-+static struct pci_error_handlers e100_err_handler = {
-+	.error_detected = e100_io_error_detected,
-+	.slot_reset = e100_io_slot_reset,
-+	.resume = e100_io_resume,
-+};
- 
- static struct pci_driver e100_driver = {
- 	.name =         DRV_NAME,
-@@ -2737,6 +2811,7 @@ static struct pci_driver e100_driver = {
- 	.resume =       e100_resume,
- #endif
- 	.shutdown =     e100_shutdown,
-+	.err_handler = &e100_err_handler,
- };
- 
- static int __init e100_init_module(void)
++				ioread32(ioaddr + CSR15);	/* flush posted writes */
+ 			} else {
+ 				u8 *init_sequence = p + 2;
+ 				u8 *reset_sequence = p + 3 + init_length;
 _
