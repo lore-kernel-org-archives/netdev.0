@@ -1,177 +1,122 @@
 From: akpm@osdl.org
-Subject: [patch 03/10] PCI Error Recovery: e1000 network device driver
-Date: Tue, 18 Apr 2006 21:04:08 -0700
-Message-ID: <200604190404.k3J44otI007986@shell0.pdx.osdl.net>
+Subject: [patch 04/10] PCI Error Recovery: e100 network device driver
+Date: Tue, 18 Apr 2006 21:04:12 -0700
+Message-ID: <200604190404.k3J44rcV007989@shell0.pdx.osdl.net>
 Cc: linville@tuxdriver.com, netdev@vger.kernel.org, akpm@osdl.org,
 	linas@linas.org, jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:43979 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750766AbWDSEFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:09 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:44491 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750768AbWDSEFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:11 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Linas Vepstas <linas@linas.org>
+From: linas@austin.ibm.com (Linas Vepstas)
 
 Various PCI bus errors can be signaled by newer PCI controllers.  This
-patch adds the PCI error recovery callbacks to the intel gigabit ethernet
-e1000 device driver.  The patch has been tested, and appears to work well.
+patch adds the PCI error recovery callbacks to the intel ethernet e100
+device driver.  The patch has been tested, and appears to work well.
 
-[akpm@osdl.org: minor cleanups]
 Signed-off-by: Linas Vepstas <linas@linas.org>
 Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/e1000/e1000_main.c |  116 ++++++++++++++++++++++++++++++-
- 1 files changed, 115 insertions(+), 1 deletion(-)
+ drivers/net/e100.c |   75 +++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 75 insertions(+)
 
-diff -puN drivers/net/e1000/e1000_main.c~pci-error-recovery-e1000-network-device-driver drivers/net/e1000/e1000_main.c
---- devel/drivers/net/e1000/e1000_main.c~pci-error-recovery-e1000-network-device-driver	2006-04-14 23:41:33.000000000 -0700
-+++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-14 23:41:33.000000000 -0700
-@@ -227,6 +227,16 @@ static int e1000_resume(struct pci_dev *
- static void e1000_netpoll (struct net_device *netdev);
- #endif
- 
-+static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
-+                     pci_channel_state_t state);
-+static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev);
-+static void e1000_io_resume(struct pci_dev *pdev);
-+
-+static struct pci_error_handlers e1000_err_handler = {
-+	.error_detected = e1000_io_error_detected,
-+	.slot_reset = e1000_io_slot_reset,
-+	.resume = e1000_io_resume,
-+};
- 
- static struct pci_driver e1000_driver = {
- 	.name     = e1000_driver_name,
-@@ -236,8 +246,9 @@ static struct pci_driver e1000_driver = 
- 	/* Power Managment Hooks */
- #ifdef CONFIG_PM
- 	.suspend  = e1000_suspend,
--	.resume   = e1000_resume
-+	.resume   = e1000_resume,
- #endif
-+	.err_handler = &e1000_err_handler,
- };
- 
- MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
-@@ -3076,6 +3087,10 @@ e1000_update_stats(struct e1000_adapter 
- 
- #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
- 
-+	/* Prevent stats update while adapter is being reset */
-+	if (adapter->link_speed == 0)
-+		return;
-+
- 	spin_lock_irqsave(&adapter->stats_lock, flags);
- 
- 	/* these counters are modified from e1000_adjust_tbi_stats,
-@@ -4626,4 +4641,103 @@ e1000_netpoll(struct net_device *netdev)
+diff -puN drivers/net/e100.c~pci-error-recovery-e100-network-device-driver drivers/net/e100.c
+--- devel/drivers/net/e100.c~pci-error-recovery-e100-network-device-driver	2006-04-10 23:21:20.000000000 -0700
++++ devel-akpm/drivers/net/e100.c	2006-04-10 23:21:20.000000000 -0700
+@@ -2726,6 +2726,80 @@ static void e100_shutdown(struct pci_dev
+ 		DPRINTK(PROBE,ERR, "Error enabling wake\n");
  }
- #endif
  
++/* ------------------ PCI Error Recovery infrastructure  -------------- */
 +/**
-+ * e1000_io_error_detected - called when PCI error is detected
++ * e100_io_error_detected - called when PCI error is detected.
 + * @pdev: Pointer to PCI device
 + * @state: The current pci conneection state
-+ *
-+ * This function is called after a PCI bus error affecting
-+ * this device has been detected.
 + */
-+static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
-+						pci_channel_state_t state)
++static pci_ers_result_t e100_io_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
 +{
 +	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct e1000_adapter *adapter = netdev->priv;
 +
++	/* Similar to calling e100_down(), but avoids adpater I/O. */
++	netdev->stop(netdev);
++
++	/* Detach; put netif into state similar to hotplug unplug. */
++	netif_poll_enable(netdev);
 +	netif_device_detach(netdev);
 +
-+	if (netif_running(netdev))
-+		e1000_down(adapter);
-+
-+	/* Request a slot slot reset. */
++	/* Request a slot reset. */
 +	return PCI_ERS_RESULT_NEED_RESET;
 +}
 +
 +/**
-+ * e1000_io_slot_reset - called after the pci bus has been reset.
++ * e100_io_slot_reset - called after the pci bus has been reset.
 + * @pdev: Pointer to PCI device
 + *
-+ * Restart the card from scratch, as if from a cold-boot. Implementation
-+ * resembles the first-half of the e1000_resume routine.
++ * Restart the card from scratch.
 + */
-+static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
++static pci_ers_result_t e100_io_slot_reset(struct pci_dev *pdev)
 +{
 +	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct e1000_adapter *adapter = netdev->priv;
++	struct nic *nic = netdev_priv(netdev);
 +
 +	if (pci_enable_device(pdev)) {
-+		printk(KERN_ERR "e1000: Cannot re-enable PCI device after "
-+				"reset.\n");
++		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
 +		return PCI_ERS_RESULT_DISCONNECT;
 +	}
 +	pci_set_master(pdev);
 +
-+	pci_enable_wake(pdev, 3, 0);
-+	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
-+
-+	/* Perform card reset only on one instance of the card */
-+	if (PCI_FUNC (pdev->devfn) != 0)
++	/* Only one device per card can do a reset */
++	if (0 != PCI_FUNC(pdev->devfn))
 +		return PCI_ERS_RESULT_RECOVERED;
-+
-+	e1000_reset(adapter);
-+	E1000_WRITE_REG(&adapter->hw, WUS, ~0);
++	e100_hw_reset(nic);
++	e100_phy_init(nic);
 +
 +	return PCI_ERS_RESULT_RECOVERED;
 +}
 +
 +/**
-+ * e1000_io_resume - called when traffic can start flowing again.
++ * e100_io_resume - resume normal operations
 + * @pdev: Pointer to PCI device
 + *
-+ * This callback is called when the error recovery driver tells us that
-+ * its OK to resume normal operation. Implementation resembles the
-+ * second-half of the e1000_resume routine.
++ * Resume normal operations after an error recovery
++ * sequence has been completed.
 + */
-+static void e1000_io_resume(struct pci_dev *pdev)
++static void e100_io_resume(struct pci_dev *pdev)
 +{
 +	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct e1000_adapter *adapter = netdev->priv;
-+	uint32_t manc, swsm;
++	struct nic *nic = netdev_priv(netdev);
 +
-+	if (netif_running(netdev)) {
-+		if (e1000_up(adapter)) {
-+			printk(KERN_ERR "e1000: can't bring device back up "
-+					"after reset\n");
-+			return;
-+		}
-+	}
++	/* ack any pending wake events, disable PME */
++	pci_enable_wake(pdev, 0, 0);
 +
 +	netif_device_attach(netdev);
-+
-+	if (adapter->hw.mac_type >= e1000_82540 &&
-+	    adapter->hw.media_type == e1000_media_type_copper) {
-+		manc = E1000_READ_REG(&adapter->hw, MANC);
-+		manc &= ~(E1000_MANC_ARP_EN);
-+		E1000_WRITE_REG(&adapter->hw, MANC, manc);
++	if (netif_running(netdev)) {
++		e100_open(netdev);
++		mod_timer(&nic->watchdog, jiffies);
 +	}
-+
-+	switch (adapter->hw.mac_type) {
-+	case e1000_82573:
-+		swsm = E1000_READ_REG(&adapter->hw, SWSM);
-+		E1000_WRITE_REG(&adapter->hw, SWSM, swsm | E1000_SWSM_DRV_LOAD);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	if (netif_running(netdev))
-+		mod_timer(&adapter->watchdog_timer, jiffies);
 +}
 +
- /* e1000_main.c */
++static struct pci_error_handlers e100_err_handler = {
++	.error_detected = e100_io_error_detected,
++	.slot_reset = e100_io_slot_reset,
++	.resume = e100_io_resume,
++};
+ 
+ static struct pci_driver e100_driver = {
+ 	.name =         DRV_NAME,
+@@ -2737,6 +2811,7 @@ static struct pci_driver e100_driver = {
+ 	.resume =       e100_resume,
+ #endif
+ 	.shutdown =     e100_shutdown,
++	.err_handler = &e100_err_handler,
+ };
+ 
+ static int __init e100_init_module(void)
 _
