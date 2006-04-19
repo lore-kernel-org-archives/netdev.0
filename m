@@ -1,66 +1,79 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RESEND][PATCH] ebtables: clean up vmalloc usage in
- net/bridge/netfilter/ebtables.c
-Date: Wed, 19 Apr 2006 15:41:26 -0700 (PDT)
-Message-ID: <20060419.154126.64036253.davem@davemloft.net>
-References: <20060419065025.GE17192@random.pao.digeo.com>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH 2.6.16-rc5] S2io: Receive packet classification and steering mechanisms
+Date: Wed, 19 Apr 2006 15:45:48 -0700
+Message-ID: <MAEEKMLDLDFEGKHNIJHIEEJDCDAA.ravinandan.arakali@neterion.com>
+References: <200604190259.14854.ak@suse.de>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: bridge@osdl.org, bdschuym@pandora.be, netdev@vger.kernel.org,
-	akpm@osdl.org
+Cc: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61922
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751291AbWDSWlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Apr 2006 18:41:25 -0400
-To: jchandra@digeo.com
-In-Reply-To: <20060419065025.GE17192@random.pao.digeo.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:19600 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751297AbWDSWp1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Apr 2006 18:45:27 -0400
+To: "Andi Kleen" <ak@suse.de>
+In-Reply-To: <200604190259.14854.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andi,
+We would like to explain that this patch is tier-1 of a two
+tiered approach. It implements all the steering
+functionality at driver-only level, and it is fairly Neterion-specific.
 
-An earlier variant of your patch was applied already, included below.
-You'll need to submit the newer parts relative to the current tree.
+The second upcoming submission will add a generic netlink-based
+interface for channel data flow and configuration(including receive steering
+parameters) on per-channel basis, that will utilize the lower level
+implementation from the current patch.
 
-diff-tree 7ad4d2f6901437ba4717a26d395a73ea362d25c6 (from b8282dcf0417bbc8a0786c129fdff9cc768f8f3c)
-Author: Jayachandran C <c.jayachandran@gmail.com>
-Date:   Tue Apr 11 17:25:38 2006 -0700
+Thanks,
+Ravi
 
-    [BRIDGE] ebtables: fix allocation in net/bridge/netfilter/ebtables.c
-    
-    Allocate an array of 'struct ebt_chainstack *', the current code allocates
-    array of 'struct ebt_chainstack'.
-    
-    akpm: converted to use the
-    
-    	foo = alloc(sizeof(*foo))
-    
-    form.  Which would have prevented this from happening in the first place.
-    
-    akpm: also removed unneeded typecast.
-    
-    akpm: what on earth is this code doing anyway?  cpu_possible_map can be
-    sparse..
-    
-    Signed-off-by: Jayachandran C. <c.jayachandran@gmail.com>
-    Signed-off-by: Andrew Morton <akpm@osdl.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+-----Original Message-----
+From: Andi Kleen [mailto:ak@suse.de]
+Sent: Tuesday, April 18, 2006 5:59 PM
+To: ravinandan.arakali@neterion.com
+Cc: jgarzik@pobox.com; netdev@vger.kernel.org
+Subject: Re: [PATCH 2.6.16-rc5] S2io: Receive packet classification and
+steering mechanisms
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 66bd932..84b9af7 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -824,9 +824,9 @@ static int translate_table(struct ebt_re
- 	if (udc_cnt) {
- 		/* this will get free'd in do_replace()/ebt_register_table()
- 		   if an error occurs */
--		newinfo->chainstack = (struct ebt_chainstack **)
--		   vmalloc((highest_possible_processor_id()+1) 
--				   		* sizeof(struct ebt_chainstack));
-+		newinfo->chainstack =
-+			vmalloc((highest_possible_processor_id()+1)
-+				   	* sizeof(*(newinfo->chainstack)));
- 		if (!newinfo->chainstack)
- 			return -ENOMEM;
- 		for_each_possible_cpu(i) {
+
+On Wednesday 19 April 2006 02:38, Ravinandan Arakali wrote:
+
+> configuration: A mask(specified using loadable parameter rth_fn_and_mask)
+> can be used to select a subset of TCP/UDP tuple for hash calculation.
+> eg. To mask source port for TCP/IPv4 configuration,
+> # insmod s2io.ko rx_steering_type=2 rth_fn_and_mask=0x0101
+> LSB specifies RTH function type and MSB the mask. A full description
+> is provided at the beginning of s2io.c
+
+I don't think it's a good idea to introduce such weird and hard to
+understand
+module parameters for this.  I would be better to define a generic
+internal kernel interface between stack and driver. Perhaps starting
+with a standard netlink interface for this might be a good start
+until the stack learns how to use this on its own.
+
+> 3. MAC address-based:
+> Done based on destination MAC address of packet. Xframe can be
+> configured with multiple unicast MAC addresses.
+>
+> configuration: Load-time parameters multi_mac_cnt and multi_macs
+> can be used to specify no. of MAC addresses and list of unicast
+> addresses.
+> eg. insmod s2io.ko rx_steering_type=8 multi_mac_cnt=3
+> 	multi_macs=00:0c:fc:00:00:22, 00:0c:fc:00:01:22, 00:0c:fc:00:02:22
+> Packets received with default destination MAC address will be steered to
+> ring0. Packets with destination MAC addresses specified by multi_macs are
+> steered to ring1, ring2... respectively.
+
+The obvious way to do this nicely would be to allow to define multiple
+virtual interfaces where the mac addresses can be set using the usual
+ioctls.
+
+
+-Andi
+
