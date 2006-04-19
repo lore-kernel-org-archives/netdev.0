@@ -1,34 +1,28 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch 08/10] bcm43xx: sysfs code cleanup
-Date: Thu, 20 Apr 2006 00:17:57 +0200
-Message-ID: <20060419221757.GA29110@electric-eye.fr.zoreil.com>
-References: <200604190405.k3J457Zj008004@shell0.pdx.osdl.net> <20060419215035.GA29122@electric-eye.fr.zoreil.com> <200604200005.01087.mb@bu3sch.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] sockfd_lookup_light() returns random error for -EBADFD
+Date: Wed, 19 Apr 2006 15:25:34 -0700 (PDT)
+Message-ID: <20060419.152534.02098739.davem@davemloft.net>
+References: <444688F2.5060909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, linville@tuxdriver.com, netdev@vger.kernel.org,
-	greg@kroah.com, akpm@osdl.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@osdl.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:6052 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751283AbWDSWXI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Apr 2006 18:23:08 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200604200005.01087.mb@bu3sch.de>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34785
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751286AbWDSWZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Apr 2006 18:25:33 -0400
+To: hzhong@gmail.com
+In-Reply-To: <444688F2.5060909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch <mb@bu3sch.de> :
-[...]
-> the deleted code parses binary input. The
-> new code parses human readable hex input.
+From: Hua Zhong <hzhong@gmail.com>
+Date: Wed, 19 Apr 2006 12:01:06 -0700
 
-No offence intended but it was not clear from the description of
-the patch.
+> There is a missing initialization of err in sockfd_lookup_light() that could return random error for an invalid file handle.
+> 
+> Signed-off-by: Hua Zhong <hzhong@gmail.com>
 
-<pavlov>
-Does it imply an user space visible API change ?
-</pavlov>
-
--- 
-Ueimor
+Applied, thanks a lot for this bug fix.
