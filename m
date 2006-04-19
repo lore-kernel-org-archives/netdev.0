@@ -1,31 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 0/4]: Fix several errors in extension header handling.
-Date: Wed, 19 Apr 2006 11:17:15 +0900 (JST)
-Message-ID: <20060419.111715.57421726.yoshfuji@linux-ipv6.org>
-References: <20060419.002045.85775401.yoshfuji@linux-ipv6.org>
-	<20060418.144914.24796175.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] ip_route_input panic fix
+Date: Tue, 18 Apr 2006 20:53:17 -0700 (PDT)
+Message-ID: <20060418.205317.18564378.davem@davemloft.net>
+References: <20060417171253.4e988afc@localhost.localdomain>
+	<E1FVk6q-0000Tf-00@gondolin.me.apana.org.au>
+	<20060418235222.GA20504@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, shemminger@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:12307 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1750759AbWDSCOe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 22:14:34 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by yue.st-paulia.net (Postfix) with ESMTP id 200EC33CC2
-	for <netdev@vger.kernel.org>; Wed, 19 Apr 2006 11:17:17 +0900 (JST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060418.144914.24796175.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21731
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750746AbWDSDyd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Apr 2006 23:54:33 -0400
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <20060418235222.GA20504@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20060418.144914.24796175.davem@davemloft.net> (at Tue, 18 Apr 2006 14:49:14 -0700 (PDT)), "David S. Miller" <davem@davemloft.net> says:
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Wed, 19 Apr 2006 03:52:22 +0400
 
-> All applied, and I agree with pushing 1-3 into -stable,
-> please send it.
+> Actually, this weird case in inet_get_route() is the only place, where
+> a dummy skb is used and it is needed mostly to resolve multicast routes.
+> In this case this fake skb really passes through all the engine, even
+> delivered to user space in some sense, and when the route is resolved,
+> the same skb is submitted to netlink socket. I remember, Dave found
+> something very bad about this and this even deserved a place in TODO list,
+> but franky speaking I did not understand what is so wrong with this trick.
 
-Done. Thanks.
+Problem there is via rt_fill_info().  When multicast route cannot be
+found by ipmr, it tries to use this netlink SKB to send out a probe.
 
---yoshfuji
+ipmr_get_route() is the trouble maker.  If ipmr_cache_find() cannot
+find an entry, it tries to use the netlink SKB to send out an ipv4
+packet, completely mangling it, via ipmr_cache_unresolved().
+
+Even worse it may even free the skb on us, or queue it to
+mroute_socket.
+
+It is pure disaster, this entire code path.
