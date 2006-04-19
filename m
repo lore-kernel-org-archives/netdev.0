@@ -1,69 +1,34 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [RFC] Netlink and user-space buffer pointers
-Date: Wed, 19 Apr 2006 16:32:48 -0500
-Message-ID: <4446AC80.6040604@cs.wisc.edu>
-References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Netpoll checksum issue
+Date: Thu, 20 Apr 2006 07:33:45 +1000
+Message-ID: <20060419213345.GA18997@gondor.apana.org.au>
+References: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com> <20060419103153.64ef0054@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Aubrey <aubreylee@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:6027 "EHLO sabe.cs.wisc.edu")
-	by vger.kernel.org with ESMTP id S1751166AbWDSVcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 17:32:53 -0400
-To: James.Smart@Emulex.Com
-In-Reply-To: <444633B5.5030208@emulex.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:37380 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751167AbWDSVdx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Apr 2006 17:33:53 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060419103153.64ef0054@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Smart wrote:
-> Folks,
-> 
-> To take netlink to where we want to use it within the SCSI subsystem (as
-> the mechanism of choice to replace ioctls), we're going to need to pass
-> user-space buffer pointers.
-> 
-> What is the best, portable manner to pass a pointer between user and kernel
-> space within a netlink message ?  The example I've seen is in the iscsi
-> target code - and it's passed between user-kernel space as a u64, then
-> typecast to a void *, and later within the bio_map_xxx functions, as an
-> unsigned long. I assume we are going to continue with this method ?
-> 
+On Wed, Apr 19, 2006 at 10:31:53AM -0700, Stephen Hemminger wrote:
+> The changes to how hardware receive checksums are handled broke
+> the netpoll checksum code (for CHECKSUM_HW).  Since this is not at
+> all performance critical, try this patch. It changes to always to
+> normal software checksum.
 
-I do not know if it is needed. For the target code, we use the
-bio_map_xxx to avoid having to copy the command data which is needed for
-decent performance. We have also been trying to figure out ways of
-getting out of using netlink to send the command info (cdb, tag info,
-etc) around, because in some of Tomo's tests using mmaped packet sockets
-he was able to imporove performance by removing that copy from the
-kernel to userspace. We had problems with that though and other nice
-interfaces like relayfs only allowed us to pass data from the kernel to
-userspace so we still need another interface to pass things from
-userspace to the kernel. Still working on this though. If someone knows
-a interface please let us know.
+Hmm, why don't we try to find out what's actually broken? Papering over
+this means that we could miss driver bugs in future.
 
-For the tasks you want to do for the fc class is performance critical?
-If not, you could do what the iscsi class (for the netdev people this is
-drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
-copies. For iscsi we do this in userspace to send down a login pdu:
-
-	/*
-	 * xmitbuf is a buffer that is large enough for the iscsi_event,
-	 * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
-	 */
-        memset(xmitbuf, 0, sizeof(*ev) + hdr_size + data_size);
-        xmitlen = sizeof(*ev);
-        ev = xmitbuf;
-        ev->type = ISCSI_UEVENT_SEND_PDU;
-        ev->transport_handle = transport_handle;
-        ev->u.send_pdu.sid = sid;
-        ev->u.send_pdu.cid = cid;
-        ev->u.send_pdu.hdr_size = hdr_size;
-        ev->u.send_pdu.data_size = data_size;
-
-then later we do sendmsg()to send down the xmitbuf to the kernel iscsi
-driver. I think there may be issues with packing structs or 32 bit
-userspace and 64 bit kernels and other fun things like this so the iscsi
-pdu and iscsi event have to be defined correctly and I guess we are back
-to some of the problems with ioctls :(
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
