@@ -1,43 +1,35 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Fw: Netpoll checksum issue
-Date: Wed, 19 Apr 2006 10:15:57 -0700
-Message-ID: <20060419101557.30ac8461@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] Netlink and user-space buffer pointers
+Date: Wed, 19 Apr 2006 19:16:10 +0200
+Message-ID: <4446705A.2080101@trash.net>
+References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <444663A9.9020502@trash.net> <44466EA7.3030206@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:718 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751123AbWDSRP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 13:15:59 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: James.Smart@Emulex.Com
+In-Reply-To: <44466EA7.3030206@emulex.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+James Smart wrote:
+> 
+> 
+> Patrick McHardy wrote:
+> 
+>> This might be problematic, since there is a shared receive-queue in
+>> the kernel netlink message might get processed in the context of
+>> a different process. I didn't find any spots where ISCSI passes
+>> pointers over netlink, can you point me to it?
+> 
+> 
+> Please explain... Would the pid be set erroneously as well ?  Ignoring
+> the kernel-user space pointer issue, we're going to have a tight
+> pid + request_id relationship being maintained across multiple messages.
+> We'll also be depending on the pid events for clean up if an app dies.
+> So I hope pid is consistent.
 
-
-Begin forwarded message:
-
-Date: Thu, 20 Apr 2006 00:22:16 +0800
-From: Aubrey <aubreylee@gmail.com>
-Newsgroups: linux.dev.kernel
-Subject: Netpoll checksum issue
-
-
-Hi all,
-I'm porting my network driver from 2.6.12 to 2.6.16. It almostly work
-without any change, except the netpoll mode. When I use kgdb to debug
-kernel, gdb client can not establish the connection with gdb server.
-Then I digged into the code, and I found in the routine "__netpoll_rx"
-in the file "net/core/netpoll.c", the "checksum_udp" call always
-failed, but it works on 2.6.12.
-Could you please give me some suggestions?
-Thanks a lot.
-
-Regards,
--Aubrey
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+The PID contained in the netlink message itself is correct, current->pid
+might not be.
