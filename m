@@ -1,44 +1,107 @@
 From: akpm@osdl.org
-Subject: [patch 10/10] e1000: fix media_type <-> phy_type thinko
-Date: Tue, 18 Apr 2006 21:04:42 -0700
-Message-ID: <200604190405.k3J45Oln008022@shell0.pdx.osdl.net>
+Subject: [patch 06/10] e100: disable interrupts at boot
+Date: Tue, 18 Apr 2006 21:04:18 -0700
+Message-ID: <200604190405.k3J450WW007995@shell0.pdx.osdl.net>
 Cc: linville@tuxdriver.com, netdev@vger.kernel.org, akpm@osdl.org,
-	willy@w.ods.org, jesse.brandeburg@intel.com, john.ronciak@intel.com
+	bjorn.helgaas@hp.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	nils.rennebarth@packetalarm.com, stern@rowland.harvard.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:1228 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750771AbWDSEFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:41 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:4044 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750773AbWDSEFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:49 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Willy TARREAU <willy@w.ods.org>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Recent patch cb764326dff0ee51aca0d450e1a292de65661055 introduced a thinko
-in e1000_main.c : e1000_media_type_copper is compared to hw.phy_type
-instead of hw.media_type.  Original patch proposed by Jesse Brandeburg was
-correct, but what has been merged is not.
+Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
+firmware explicitly disables PRO/100 interrupts, we can get a flood of
+interrupts when a driver attaches to an unrelated device that happens to
+share the PRO/100 IRQ.
 
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: "Ronciak, John" <john.ronciak@intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+This should resolve this "irq 11: nobody cared" bug report:
+    http://bugzilla.kernel.org/show_bug.cgi?id=5918
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: John Ronciak <john.ronciak@intel.com>
+Cc: <stern@rowland.harvard.edu>
+Cc: <nils.rennebarth@packetalarm.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/e1000/e1000_main.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/pci/quirks.c |   57 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 57 insertions(+)
 
-diff -puN drivers/net/e1000/e1000_main.c~e1000-fix-media_type-phy_type-thinko drivers/net/e1000/e1000_main.c
---- devel/drivers/net/e1000/e1000_main.c~e1000-fix-media_type-phy_type-thinko	2006-04-17 21:42:32.000000000 -0700
-+++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-17 21:43:30.000000000 -0700
-@@ -4195,7 +4195,7 @@ e1000_mii_ioctl(struct net_device *netde
- 			spin_unlock_irqrestore(&adapter->stats_lock, flags);
- 			return -EIO;
- 		}
--		if (adapter->hw.phy_type == e1000_media_type_copper) {
-+		if (adapter->hw.media_type == e1000_media_type_copper) {
- 			switch (data->reg_num) {
- 			case PHY_CTRL:
- 				if (mii_reg & MII_CR_POWER_DOWN)
+diff -puN drivers/pci/quirks.c~e100-disable-interrupts-at-boot drivers/pci/quirks.c
+--- devel/drivers/pci/quirks.c~e100-disable-interrupts-at-boot	2006-04-14 23:41:34.000000000 -0700
++++ devel-akpm/drivers/pci/quirks.c	2006-04-14 23:41:34.000000000 -0700
+@@ -1374,6 +1374,63 @@ static void __devinit quirk_netmos(struc
+ }
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID, quirk_netmos);
+ 
++static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
++{
++	u16 command;
++	u32 bar;
++	u8 __iomem *csr;
++	u8 cmd_hi;
++
++	switch (dev->device) {
++	/* PCI IDs taken from drivers/net/e100.c */
++	case 0x1029:
++	case 0x1030 ... 0x1034:
++	case 0x1038 ... 0x103E:
++	case 0x1050 ... 0x1057:
++	case 0x1059:
++	case 0x1064 ... 0x106B:
++	case 0x1091 ... 0x1095:
++	case 0x1209:
++	case 0x1229:
++	case 0x2449:
++	case 0x2459:
++	case 0x245D:
++	case 0x27DC:
++		break;
++	default:
++		return;
++	}
++
++	/*
++	 * Some firmware hands off the e100 with interrupts enabled,
++	 * which can cause a flood of interrupts if packets are
++	 * received before the driver attaches to the device.  So
++	 * disable all e100 interrupts here.  The driver will
++	 * re-enable them when it's ready.
++	 */
++	pci_read_config_word(dev, PCI_COMMAND, &command);
++	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
++
++	if (!(command & PCI_COMMAND_MEMORY) || !bar)
++		return;
++
++	csr = ioremap(bar, 8);
++	if (!csr) {
++		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
++			pci_name(dev));
++		return;
++	}
++
++	cmd_hi = readb(csr + 3);
++	if (cmd_hi == 0) {
++		printk(KERN_WARNING "PCI: Firmware left %s e100 interrupts "
++			"enabled, disabling\n", pci_name(dev));
++		writeb(1, csr + 3);
++	}
++
++	iounmap(csr);
++}
++DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
+ 
+ static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
+ {
 _
