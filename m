@@ -1,56 +1,49 @@
-From: George Nychis <gnychis@cmu.edu>
-Subject: Re: [offlist] Re: [LARTC] how to do probabilistic packet loss in
- kernel?
-Date: Wed, 19 Apr 2006 09:55:51 -0400
-Message-ID: <44464167.40702@cmu.edu>
-References: <4902.128.2.140.224.1145227461.squirrel@128.2.140.224> <Pine.LNX.4.61.0604161909310.6147@virgule.wonderfrog.net> <4442E319.50309@cmu.edu> <Pine.LNX.4.61.0604161933210.6147@virgule.wonderfrog.net> <2959.128.237.238.138.1145242426.squirrel@128.237.238.138> <Pine.LNX.4.61.0604190741260.6853@virgule.wonderfrog.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [TCP]: Fix truesize underflow
+Date: Wed, 19 Apr 2006 09:07:00 -0700
+Message-ID: <44466024.9040800@intel.com>
+References: <20060418123204.GA3962@gondor.apana.org.au> <20060418.132256.110004342.davem@davemloft.net> <20060418232713.GA11938@gondor.apana.org.au> <4445D305.8080505@kernelpanic.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, kernel@linuxace.com,
+	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
+	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
+	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com, ak@suse.de,
+	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.andrew.cmu.edu ([128.2.10.81]:59521 "EHLO
-	smtp.andrew.cmu.edu") by vger.kernel.org with ESMTP
-	id S1750777AbWDSN4S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Apr 2006 09:56:18 -0400
-To: "Martin A. Brown" <martin@linux-ip.net>, lartc@mailman.ds9a.nl,
-	netdev@vger.kernel.org
-In-Reply-To: <Pine.LNX.4.61.0604190741260.6853@virgule.wonderfrog.net>
+Received: from fmr17.intel.com ([134.134.136.16]:65457 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1750892AbWDSQKo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Apr 2006 12:10:44 -0400
+To: bb@kernelpanic.ru
+In-Reply-To: <4445D305.8080505@kernelpanic.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Martin,
-
-I was able to do it with netem and its working great now.
-
-I've actually moved on to another challenge, I would like to drop 
-packets at the hardware level such as to see rate control.
-
-Because when netem drops a packet, TCP responds, however the lower level 
-card will not interact because it never sees the loss.
-
-What I want to do is somehow cause the card to send a corrupted packet 
-based on a probability, or not send the packet but make it think that it 
-did.
-
-I'm using madwifi and I've found in the code where it does rate control 
-and sends out the data, so i'm hoping to make this happen, but having 
-troubles!
-
-So if anyone else has any ideas on how to get rate control interactive 
-packet loss, i'd love it.
-
-- George
-
-
-Martin A. Brown wrote:
-> Hello George,
-> 
-> Unfortunately, I cannot answer your most recent question.  I'm 
-> hoping that Stephen Hemminger can answer your question.  He is 
-> subscribed to the LARTC list, is also the author of netem and 
-> seems to be a smart cookie.
-> 
-> Good luck,
-> 
-> -Martin
-> 
+Boris B. Zhmurov wrote:
+> Hello, Herbert Xu.
+>
+> On 19.04.2006 03:27 you said the following:
+>
+>> On Tue, Apr 18, 2006 at 01:22:56PM -0700, David S. Miller wrote:
+>>
+>>> I think it is deserving of some run time assertions, else these bugs
+>>> will elude us continually.  Luckily there are only a few places that
+>>> would need the run time assertion checks on skb->truesize, and I'll
+>>> try to spend a few cycles on implementing this soon.
+>>
+>>
+>> Yes indeed.  One place that comes to mind would be tcp_trim_head just
+>> before we munge truesize.
+>>
+>> Cheers,
+>
+>
+> I confirm, finally I don't see messages in dmesg about assertions. 
+> Nice work :)
+>
+I can also confirm that both machines here had no problems after 
+applying this patch. Good work!
