@@ -1,49 +1,55 @@
-From: "Grover, Andrew" <andrew.grover@intel.com>
-Subject: I/OAT: Call for discussion
-Date: Wed, 19 Apr 2006 09:39:37 -0700
-Message-ID: <5389061B65D50446B1783B97DFDB392D8E9F0A@orsmsx411.amr.corp.intel.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [TCP]: Fix truesize underflow
+Date: Wed, 19 Apr 2006 09:53:48 -0700
+Message-ID: <20060419095348.0de93eaf@localhost.localdomain>
+References: <20060418123204.GA3962@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Boris B. Zhmurov" <bb@kernelpanic.ru>,
+	Phil Oester <kernel@linuxace.com>,
+	Mark Nipper <nipsy@bitgnome.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	jesse.brandeburg@intel.com, jrlundgren@gmail.com, cat@zip.com.au,
+	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
+	olel@ans.pl, michal@feix.cz, chris@scorpion.nl,
+	netdev@vger.kernel.org, jesse.brandeburg@gmail.com,
+	Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39970 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1750750AbWDSQk1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 12:40:27 -0400
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:29124 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751002AbWDSQzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 12:55:04 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060418123204.GA3962@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Over the past few months, we (the Intel networking group) have been
-working hard, often off-list, to get the I/OAT patches we've posted here
-merged into the mainline kernel branch, as well as Red Hat and SuSE.
-We've had some success, but not what's really important: getting it into
-the mainline kernel releases.
+On Tue, 18 Apr 2006 22:32:04 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Of course some of this can be blamed on how a corporate culture
-approaches the open source community when it thinks it has something
-that gives it a competitive advantage in the marketplace. If we acted
-like jerks, it's just because we think we have something good here! :) 
+> Hi Dave:
+> 
+> You're absolutely right about there being a problem with the TSO packet
+> trimming code.  The cause of this lies in the tcp_fragment() function.
+> 
+> When we allocate a fragment for a completely non-linear packet the
+> truesize is calculated for a payload length of zero.  This means that
+> truesize could in fact be less than the real payload length.
+> 
+> When that happens the TSO packet trimming can cause truesize to become
+> negative.  This in turn can cause sk_forward_alloc to be -n * PAGE_SIZE
+> which would trigger the warning.
+> 
+> I've copied the code you used in tso_fragment which should work here.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Everyone who's having the sk_forward_alloc warning problem should give
+> this patch a go to see if it cures things.
+> 
+> Just in case this still doesn't fix it, could everyone please also verify
+> whether disabling SMP has any effect on reproducing this?
+> 
+> Thanks,
 
-But seriously, I know we've had longer turnaround times in releases and
-replying to comments than people have liked. All we can say is sorry, we
-really have been doing our best. People were kind enough to review our
-patches and suggest over 50 improvements, we have fixed the patches
-accordingly, and we really do appreciate it.
-
-So OK assume we have a nice pretty patchset. Why should it go in? Since
-we have an NDA with Red Hat we've been trying to convince DaveM and Red
-Hat of I/OAT's merits off-list, but this kind of change needs a more
-public airing of all its pros and cons.
-
-We have posted all the performance data we have gathered so far on the
-linux-net wiki: http://linux-net.osdl.org/index.php/I/OAT , and listed
-the overall concerns that have been expressed in private. I'm hoping you
-will look at the data, re-examine the patches, and then we can talk
-about the technical issues here on the list, getting down to the
-specifics, so we can hash it out in public and settle on the right path
-to take.
-
-Thanks -- Regards -- Andy
+Please put this in the next -stable load...
