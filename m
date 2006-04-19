@@ -1,44 +1,177 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] ip_route_input panic fix
-Date: Tue, 18 Apr 2006 20:53:17 -0700 (PDT)
-Message-ID: <20060418.205317.18564378.davem@davemloft.net>
-References: <20060417171253.4e988afc@localhost.localdomain>
-	<E1FVk6q-0000Tf-00@gondolin.me.apana.org.au>
-	<20060418235222.GA20504@ms2.inr.ac.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, shemminger@osdl.org,
-	netdev@vger.kernel.org
+From: akpm@osdl.org
+Subject: [patch 03/10] PCI Error Recovery: e1000 network device driver
+Date: Tue, 18 Apr 2006 21:04:08 -0700
+Message-ID: <200604190404.k3J44otI007986@shell0.pdx.osdl.net>
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org, akpm@osdl.org,
+	linas@linas.org, jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21731
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750746AbWDSDyd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 23:54:33 -0400
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <20060418235222.GA20504@ms2.inr.ac.ru>
+Received: from smtp.osdl.org ([65.172.181.4]:43979 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750766AbWDSEFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:09 -0400
+To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Wed, 19 Apr 2006 03:52:22 +0400
 
-> Actually, this weird case in inet_get_route() is the only place, where
-> a dummy skb is used and it is needed mostly to resolve multicast routes.
-> In this case this fake skb really passes through all the engine, even
-> delivered to user space in some sense, and when the route is resolved,
-> the same skb is submitted to netlink socket. I remember, Dave found
-> something very bad about this and this even deserved a place in TODO list,
-> but franky speaking I did not understand what is so wrong with this trick.
+From: Linas Vepstas <linas@linas.org>
 
-Problem there is via rt_fill_info().  When multicast route cannot be
-found by ipmr, it tries to use this netlink SKB to send out a probe.
+Various PCI bus errors can be signaled by newer PCI controllers.  This
+patch adds the PCI error recovery callbacks to the intel gigabit ethernet
+e1000 device driver.  The patch has been tested, and appears to work well.
 
-ipmr_get_route() is the trouble maker.  If ipmr_cache_find() cannot
-find an entry, it tries to use the netlink SKB to send out an ipv4
-packet, completely mangling it, via ipmr_cache_unresolved().
+[akpm@osdl.org: minor cleanups]
+Signed-off-by: Linas Vepstas <linas@linas.org>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-Even worse it may even free the skb on us, or queue it to
-mroute_socket.
+ drivers/net/e1000/e1000_main.c |  116 ++++++++++++++++++++++++++++++-
+ 1 files changed, 115 insertions(+), 1 deletion(-)
 
-It is pure disaster, this entire code path.
+diff -puN drivers/net/e1000/e1000_main.c~pci-error-recovery-e1000-network-device-driver drivers/net/e1000/e1000_main.c
+--- devel/drivers/net/e1000/e1000_main.c~pci-error-recovery-e1000-network-device-driver	2006-04-14 23:41:33.000000000 -0700
++++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-14 23:41:33.000000000 -0700
+@@ -227,6 +227,16 @@ static int e1000_resume(struct pci_dev *
+ static void e1000_netpoll (struct net_device *netdev);
+ #endif
+ 
++static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
++                     pci_channel_state_t state);
++static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev);
++static void e1000_io_resume(struct pci_dev *pdev);
++
++static struct pci_error_handlers e1000_err_handler = {
++	.error_detected = e1000_io_error_detected,
++	.slot_reset = e1000_io_slot_reset,
++	.resume = e1000_io_resume,
++};
+ 
+ static struct pci_driver e1000_driver = {
+ 	.name     = e1000_driver_name,
+@@ -236,8 +246,9 @@ static struct pci_driver e1000_driver = 
+ 	/* Power Managment Hooks */
+ #ifdef CONFIG_PM
+ 	.suspend  = e1000_suspend,
+-	.resume   = e1000_resume
++	.resume   = e1000_resume,
+ #endif
++	.err_handler = &e1000_err_handler,
+ };
+ 
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+@@ -3076,6 +3087,10 @@ e1000_update_stats(struct e1000_adapter 
+ 
+ #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+ 
++	/* Prevent stats update while adapter is being reset */
++	if (adapter->link_speed == 0)
++		return;
++
+ 	spin_lock_irqsave(&adapter->stats_lock, flags);
+ 
+ 	/* these counters are modified from e1000_adjust_tbi_stats,
+@@ -4626,4 +4641,103 @@ e1000_netpoll(struct net_device *netdev)
+ }
+ #endif
+ 
++/**
++ * e1000_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci conneection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
++						pci_channel_state_t state)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev->priv;
++
++	netif_device_detach(netdev);
++
++	if (netif_running(netdev))
++		e1000_down(adapter);
++
++	/* Request a slot slot reset. */
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * e1000_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot. Implementation
++ * resembles the first-half of the e1000_resume routine.
++ */
++static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev->priv;
++
++	if (pci_enable_device(pdev)) {
++		printk(KERN_ERR "e1000: Cannot re-enable PCI device after "
++				"reset.\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++	pci_set_master(pdev);
++
++	pci_enable_wake(pdev, 3, 0);
++	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
++
++	/* Perform card reset only on one instance of the card */
++	if (PCI_FUNC (pdev->devfn) != 0)
++		return PCI_ERS_RESULT_RECOVERED;
++
++	e1000_reset(adapter);
++	E1000_WRITE_REG(&adapter->hw, WUS, ~0);
++
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * e1000_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation. Implementation resembles the
++ * second-half of the e1000_resume routine.
++ */
++static void e1000_io_resume(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev->priv;
++	uint32_t manc, swsm;
++
++	if (netif_running(netdev)) {
++		if (e1000_up(adapter)) {
++			printk(KERN_ERR "e1000: can't bring device back up "
++					"after reset\n");
++			return;
++		}
++	}
++
++	netif_device_attach(netdev);
++
++	if (adapter->hw.mac_type >= e1000_82540 &&
++	    adapter->hw.media_type == e1000_media_type_copper) {
++		manc = E1000_READ_REG(&adapter->hw, MANC);
++		manc &= ~(E1000_MANC_ARP_EN);
++		E1000_WRITE_REG(&adapter->hw, MANC, manc);
++	}
++
++	switch (adapter->hw.mac_type) {
++	case e1000_82573:
++		swsm = E1000_READ_REG(&adapter->hw, SWSM);
++		E1000_WRITE_REG(&adapter->hw, SWSM, swsm | E1000_SWSM_DRV_LOAD);
++		break;
++	default:
++		break;
++	}
++
++	if (netif_running(netdev))
++		mod_timer(&adapter->watchdog_timer, jiffies);
++}
++
+ /* e1000_main.c */
+_
