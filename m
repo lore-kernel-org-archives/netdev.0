@@ -1,49 +1,69 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Netpoll checksum issue
-Date: Wed, 19 Apr 2006 10:31:53 -0700
-Message-ID: <20060419103153.64ef0054@localhost.localdomain>
-References: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 6409] New: llc_rcv doesn't handle receives
+ using nr_frags and frags[]
+Date: Wed, 19 Apr 2006 11:38:06 -0700
+Message-ID: <20060419113806.29ba0d23.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:3027 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750732AbWDSRb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 13:31:57 -0400
-To: Aubrey <aubreylee@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com>
+Received: from smtp.osdl.org ([65.172.181.4]:19176 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751085AbWDSSjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 14:39:08 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The changes to how hardware receive checksums are handled broke
-the netpoll checksum code (for CHECKSUM_HW).  Since this is not at
-all performance critical, try this patch. It changes to always to
-normal software checksum.
 
---- linux-2.6.orig/net/core/netpoll.c	2006-03-22 09:30:56.000000000 -0800
-+++ linux-2.6/net/core/netpoll.c	2006-04-19 10:30:13.000000000 -0700
-@@ -102,20 +102,11 @@
- static int checksum_udp(struct sk_buff *skb, struct udphdr *uh,
- 			     unsigned short ulen, u32 saddr, u32 daddr)
- {
--	unsigned int psum;
--
- 	if (uh->check == 0 || skb->ip_summed == CHECKSUM_UNNECESSARY)
- 		return 0;
- 
--	psum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
--
--	if (skb->ip_summed == CHECKSUM_HW &&
--	    !(u16)csum_fold(csum_add(psum, skb->csum)))
--		return 0;
--
--	skb->csum = psum;
--
--	return __skb_checksum_complete(skb);
-+	skb->csum = csum_tcpudp_nofold(saddr, daddr, ulen, IPPROTO_UDP, 0);
-+	return (u16) csum_fold(skb_checksum(skb, 0, skb->len, skb->csum));
- }
- 
- /*
+
+Begin forwarded message:
+
+Date: Wed, 19 Apr 2006 11:32:18 -0700
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 6409] New: llc_rcv doesn't handle receives using nr_frags and frags[]
+
+
+http://bugzilla.kernel.org/show_bug.cgi?id=6409
+
+           Summary: llc_rcv doesn't handle receives using nr_frags and
+                    frags[]
+    Kernel Version: 2.6.16
+            Status: NEW
+          Severity: normal
+             Owner: acme@conectiva.com.br
+         Submitter: jesse.brandeburg@intel.com
+
+
+Most recent kernel where this bug did not occur:
+Distribution: n/a
+Hardware Environment: i686
+Software Environment: n/a
+Problem Description:
+after hitting a *very hard to repro* BUG in a distro kernel I did some code
+inspection that seems to show that llc_rcv does not handle receive packets using 
+skb->data *and* skb_shinfo(skb)->frags[]/nr_frags
+
+Steps to reproduce:
+Apparently receiving some netware (802_2) traffic when using one of the
+PCI-Express e1000 adapters with packet splitting enabled.  Even if the packet is
+not split a large frame will use skb->data and ->frags[]
+
+Analysis:
+llc_rcv 
+  does a skb_clone inside skb_share_check
+llc_fixup_skb
+skb_trim
+__skb_trim
+___pskb_trim(x,x,0) <-- realloc set to 0
+___pskb_trim BUG on !realloc inside skb_cloned check
+
+I'll attach the trace from the vendor kernel, I believe the problem is still
+relevant to 2.6.16.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
