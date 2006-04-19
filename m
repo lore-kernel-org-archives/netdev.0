@@ -1,69 +1,69 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [TCP]: Fix truesize underflow
-Date: Wed, 19 Apr 2006 23:29:51 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0604192329160.13738@bizon.gios.gov.pl>
-References: <20060418123204.GA3962@gondor.apana.org.au>
- <20060418.132256.110004342.davem@davemloft.net> <20060418232713.GA11938@gondor.apana.org.au>
- <4445D305.8080505@kernelpanic.ru> <44466024.9040800@intel.com>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [RFC] Netlink and user-space buffer pointers
+Date: Wed, 19 Apr 2006 16:32:48 -0500
+Message-ID: <4446AC80.6040604@cs.wisc.edu>
+References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-393972010-1145482191=:13738"
-Cc: bb@kernelpanic.ru, Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, kernel@linuxace.com,
-	nipsy@bitgnome.net, jrlundgren@gmail.com, cat@zip.com.au,
-	djani22@dynamicweb.hu, yoseph.basri@gmail.com, mykleb@no.ibm.com,
-	michal@feix.cz, chris@scorpion.nl, netdev@vger.kernel.org,
-	jesse.brandeburg@gmail.com, ak@suse.de, jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:63717 "EHLO
-	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S1751158AbWDSVbT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Apr 2006 17:31:19 -0400
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-In-Reply-To: <44466024.9040800@intel.com>
+Received: from sabe.cs.wisc.edu ([128.105.6.20]:6027 "EHLO sabe.cs.wisc.edu")
+	by vger.kernel.org with ESMTP id S1751166AbWDSVcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 17:32:53 -0400
+To: James.Smart@Emulex.Com
+In-Reply-To: <444633B5.5030208@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+James Smart wrote:
+> Folks,
+> 
+> To take netlink to where we want to use it within the SCSI subsystem (as
+> the mechanism of choice to replace ioctls), we're going to need to pass
+> user-space buffer pointers.
+> 
+> What is the best, portable manner to pass a pointer between user and kernel
+> space within a netlink message ?  The example I've seen is in the iscsi
+> target code - and it's passed between user-kernel space as a u64, then
+> typecast to a void *, and later within the bio_map_xxx functions, as an
+> unsigned long. I assume we are going to continue with this method ?
+> 
 
----187430788-393972010-1145482191=:13738
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+I do not know if it is needed. For the target code, we use the
+bio_map_xxx to avoid having to copy the command data which is needed for
+decent performance. We have also been trying to figure out ways of
+getting out of using netlink to send the command info (cdb, tag info,
+etc) around, because in some of Tomo's tests using mmaped packet sockets
+he was able to imporove performance by removing that copy from the
+kernel to userspace. We had problems with that though and other nice
+interfaces like relayfs only allowed us to pass data from the kernel to
+userspace so we still need another interface to pass things from
+userspace to the kernel. Still working on this though. If someone knows
+a interface please let us know.
 
+For the tasks you want to do for the fc class is performance critical?
+If not, you could do what the iscsi class (for the netdev people this is
+drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
+copies. For iscsi we do this in userspace to send down a login pdu:
 
+	/*
+	 * xmitbuf is a buffer that is large enough for the iscsi_event,
+	 * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
+	 */
+        memset(xmitbuf, 0, sizeof(*ev) + hdr_size + data_size);
+        xmitlen = sizeof(*ev);
+        ev = xmitbuf;
+        ev->type = ISCSI_UEVENT_SEND_PDU;
+        ev->transport_handle = transport_handle;
+        ev->u.send_pdu.sid = sid;
+        ev->u.send_pdu.cid = cid;
+        ev->u.send_pdu.hdr_size = hdr_size;
+        ev->u.send_pdu.data_size = data_size;
 
-On Wed, 19 Apr 2006, Jesse Brandeburg wrote:
-
-> Boris B. Zhmurov wrote:
->> Hello, Herbert Xu.
->>=20
->> On 19.04.2006 03:27 you said the following:
->>=20
->>> On Tue, Apr 18, 2006 at 01:22:56PM -0700, David S. Miller wrote:
->>>=20
->>>> I think it is deserving of some run time assertions, else these bugs
->>>> will elude us continually.  Luckily there are only a few places that
->>>> would need the run time assertion checks on skb->truesize, and I'll
->>>> try to spend a few cycles on implementing this soon.
->>>=20
->>>=20
->>> Yes indeed.  One place that comes to mind would be tcp_trim_head just
->>> before we munge truesize.
->>>=20
->>> Cheers,
->>=20
->>=20
->> I confirm, finally I don't see messages in dmesg about assertions. Nice=
-=20
->> work :)
->>=20
-> I can also confirm that both machines here had no problems after applying=
-=20
-> this patch. Good work!
-
-Me too, me too. Thank you! :)
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-393972010-1145482191=:13738--
+then later we do sendmsg()to send down the xmitbuf to the kernel iscsi
+driver. I think there may be issues with packing structs or 32 bit
+userspace and 64 bit kernels and other fun things like this so the iscsi
+pdu and iscsi event have to be defined correctly and I guess we are back
+to some of the problems with ioctls :(
