@@ -1,48 +1,31 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] ip_route_input panic fix
-Date: Wed, 19 Apr 2006 04:59:37 +0400
-Message-ID: <20060419005937.GA12501@ms2.inr.ac.ru>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 0/4]: Fix several errors in extension header handling.
+Date: Wed, 19 Apr 2006 11:17:15 +0900 (JST)
+Message-ID: <20060419.111715.57421726.yoshfuji@linux-ipv6.org>
+References: <20060419.002045.85775401.yoshfuji@linux-ipv6.org>
+	<20060418.144914.24796175.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dust.inr.ac.ru ([194.67.69.100]:48260 "HELO dust.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1750962AbWDSA75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 20:59:57 -0400
-To: herbert@gondor.apana.org.au, shemminger@osdl.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from yue.linux-ipv6.org ([203.178.140.15]:12307 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1750759AbWDSCOe
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Apr 2006 22:14:34 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by yue.st-paulia.net (Postfix) with ESMTP id 200EC33CC2
+	for <netdev@vger.kernel.org>; Wed, 19 Apr 2006 11:17:17 +0900 (JST)
+To: netdev@vger.kernel.org
+In-Reply-To: <20060418.144914.24796175.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+In article <20060418.144914.24796175.davem@davemloft.net> (at Tue, 18 Apr 2006 14:49:14 -0700 (PDT)), "David S. Miller" <davem@davemloft.net> says:
 
-> There is also the ARP code which passes an ARP packet through that
-> would get dereferenced as an IP packet.  Granted this shouldn't crash
-> because nh is set properly.
+> All applied, and I agree with pushing 1-3 into -stable,
+> please send it.
 
-And point to something which is not an IP header. So, iph->protocol
-is something funny. :-)
+Done. Thanks.
 
-It is plain luck that this never happens, ARP packets
-with multicast addresses are filtered out.
-
-Mess, I agree.
-
-
-> But we really should make up our mind as to whether the routing key
-> comes from the arguments to ip_route_input (src/dst/...) or the skb.
->
-> Using both is just asking for trouble.
-
-Well, both sets are present only for use the same function in ARP.
-
-So, arguments. skb can be even preserved, but it should not be used
-for anything but debugging or for hints, when we should not create
-cache entry.
-
-
-BTW, I cannot figure out what ip_check_mc tries to do with protocol
-(which is __u16 by some reason). If it creates cache entry, protocol
-is not checked. Funny.
-
-Alexey
+--yoshfuji
