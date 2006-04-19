@@ -1,35 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] Netlink and user-space buffer pointers
-Date: Wed, 19 Apr 2006 19:16:10 +0200
-Message-ID: <4446705A.2080101@trash.net>
-References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <444663A9.9020502@trash.net> <44466EA7.3030206@emulex.com>
+From: "John Ronciak" <john.ronciak@gmail.com>
+Subject: Re: I/OAT: Call for discussion
+Date: Wed, 19 Apr 2006 10:28:41 -0700
+Message-ID: <56a8daef0604191028v7b3f501dm167a68709e8dea5f@mail.gmail.com>
+References: <5389061B65D50446B1783B97DFDB392D8E9F0A@orsmsx411.amr.corp.intel.com>
+	 <20060419101217.0f5d84cf@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: James.Smart@Emulex.Com
-In-Reply-To: <44466EA7.3030206@emulex.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Grover, Andrew" <andrew.grover@intel.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nproxy.gmail.com ([64.233.182.187]:4881 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1750709AbWDSR2o convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Apr 2006 13:28:44 -0400
+Received: by nproxy.gmail.com with SMTP id k26so391337nfc
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2006 10:28:43 -0700 (PDT)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+In-Reply-To: <20060419101217.0f5d84cf@localhost.localdomain>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Smart wrote:
-> 
-> 
-> Patrick McHardy wrote:
-> 
->> This might be problematic, since there is a shared receive-queue in
->> the kernel netlink message might get processed in the context of
->> a different process. I didn't find any spots where ISCSI passes
->> pointers over netlink, can you point me to it?
-> 
-> 
-> Please explain... Would the pid be set erroneously as well ?  Ignoring
-> the kernel-user space pointer issue, we're going to have a tight
-> pid + request_id relationship being maintained across multiple messages.
-> We'll also be depending on the pid events for clean up if an app dies.
-> So I hope pid is consistent.
+On 4/19/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+> Off list lobbying usually has a negative impact.
+The lobbying was for vendor inclusion and not necessarily for upstream
+acceptance.
 
-The PID contained in the netlink message itself is correct, current->pid
-might not be.
+> The biggest barrier at this point seems to be hardware availability.
+> People generally don't care unless they use or are going to get that hardware.
+> Also the big benchmark data, although interesting, is usually only
+> interesting to vendors.
+The hardware is going to generally available in June.  There are also
+lots of OEMs, OSVs and hardware vendors that have the system to test
+on today.  The early rollout of hardware has been very large.
+
+>
+> You probably will have to suffer out of tree for a while until the hardware
+> becomes more available. When the hardware is more common, then the implementation
+> details will be sorted out. Also after the 2+ years of getting TSO to work
+> right, maybe the developers are a little gun shy at this point.
+Some OSVs (at least one very large one) is supporting it.
+
+John
