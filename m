@@ -1,43 +1,31 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [RESEND][PATCH] ebtables: clean up vmalloc usage in
- net/bridge/netfilter/ebtables.c
-Date: Wed, 19 Apr 2006 16:13:24 -0700
-Message-ID: <20060419161324.02e46449.akpm@osdl.org>
-References: <20060419065025.GE17192@random.pao.digeo.com>
-	<20060419.154126.64036253.davem@davemloft.net>
-	<20060419155925.7aae7d25.akpm@osdl.org>
-	<20060419.160328.128989267.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: TOE info page
+Date: Wed, 19 Apr 2006 19:22:14 -0400
+Message-ID: <4446C626.806@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jchandra@digeo.com, bridge@osdl.org, bdschuym@pandora.be,
-	netdev@vger.kernel.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:48080 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751209AbWDSXLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 19:11:33 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060419.160328.128989267.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:32992 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751298AbWDSXWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 19:22:17 -0400
+To: Netdev List <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@davemloft.net> wrote:
->
-> From: Andrew Morton <akpm@osdl.org>
-> Date: Wed, 19 Apr 2006 15:59:25 -0700
-> 
-> > "David S. Miller" <davem@davemloft.net> wrote:
-> > >
-> > > An earlier variant of your patch was applied already, included below.
-> > > You'll need to submit the newer parts relative to the current tree.
-> > 
-> > This is a similar-but-different patch.  It applies OK.
-> > 
-> > I reviewed it (mostly - it's somewhat non-trivial to do this) and queued it
-> > up and was planning on sending it to you for post-2.6.17.
-> 
-> It's at least fixing a few bugs, and the parts which are cleanups
-> undoubtedly should prevent bugs in the future, so I think we
-> should consider it for 2.6.17 right?
 
-afaict it's just a cleanup, but whatever - I'll send it over now.
+I created a TOE (TCP Offload Engine) info page for Linux, on the 
+linux-net wiki:
+
+	http://linux-net.osdl.org/index.php/TOE
+
+As soon as I can find a wiki admin, it will get added to the main page. 
+  I don't seem to have such access.
+
+	Jeff
+
+
+
