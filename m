@@ -1,109 +1,49 @@
-From: "Jayachandran C" <jchandra@digeo.com>
-Subject: [RESEND][PATCH] ebtables: clean up vmalloc usage in net/bridge/netfilter/ebtables.c
-Date: Tue, 18 Apr 2006 23:50:25 -0700
-Message-ID: <20060419065025.GE17192@random.pao.digeo.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] ip_route_input panic fix
+Date: Wed, 19 Apr 2006 13:46:59 +0400
+Message-ID: <20060419094659.GA16973@ms2.inr.ac.ru>
+References: <20060417171253.4e988afc@localhost.localdomain> <E1FVk6q-0000Tf-00@gondolin.me.apana.org.au> <20060418235222.GA20504@ms2.inr.ac.ru> <20060418.205317.18564378.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@osdl.org
+Cc: herbert@gondor.apana.org.au, shemminger@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packet.digeo.com ([12.110.80.53]:12274 "EHLO packet.digeo.com")
-	by vger.kernel.org with ESMTP id S1750819AbWDSGul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 02:50:41 -0400
-To: bridge@osdl.org, bdschuym@pandora.be
+Received: from minus.inr.ac.ru ([194.67.69.97]:37531 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1750842AbWDSJry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 05:47:54 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20060418.205317.18564378.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Second try, added netdev to the cc: list this time.
+Hello!
 
-This cleans up other usages of of vmalloc in ebtables.c. The 
-changes are similar to the cleanup done in 
-ebtables-fix-allocation-in-net-bridge-netfilter-ebtablesc.patch
+> ipmr_get_route() is the trouble maker.  If ipmr_cache_find() cannot
+> find an entry, it tries to use the netlink SKB to send out an ipv4
+> packet, completely mangling it, via ipmr_cache_unresolved().
 
-Patch Description:
+It just adds dummy IP header to tail of this skb. Nothing illegal.
+The skb is not sent out, it is enqueued in an ARP-like queue and
+the IP header is submitted to mroute_socket.
 
-This patch makes all the vmalloc calls in net/bridge/netfilter/ebtables.c
-follow the standard convention. Remove unnecessary casts, and use '*object'
-instead of 'type'.
+When user level mrouter resolves the route, ipmr_cache_resolve()
+removes this, completes filling netlink attributes and sends it to netlink.
 
-Signed-off-by: Jayachandran C. <c.jayachandran at gmail.com>
 
----
+> Even worse it may even free the skb on us,
 
- net/bridge/netfilter/ebtables.c |   20 +++++++-------------
- 1 files changed, 7 insertions(+), 13 deletions(-)
+Oops, seems, this is a real bug... Need to think how to fix.
 
-diff -ur linux-2.6.16-rc6.clean/net/bridge/netfilter/ebtables.c linux-2.6.16-rc6/net/bridge/netfilter/ebtables.c
---- linux-2.6.16-rc6.clean/net/bridge/netfilter/ebtables.c	2006-04-14 14:00:28.000000000 +0530
-+++ linux-2.6.16-rc6/net/bridge/netfilter/ebtables.c	2006-04-14 14:22:36.000000000 +0530
-@@ -830,7 +830,7 @@
- 			return -ENOMEM;
- 		for_each_cpu(i) {
- 			newinfo->chainstack[i] =
--			   vmalloc(udc_cnt * sizeof(struct ebt_chainstack));
-+			  vmalloc(udc_cnt * sizeof(*(newinfo->chainstack[0])));
- 			if (!newinfo->chainstack[i]) {
- 				while (i)
- 					vfree(newinfo->chainstack[--i]);
-@@ -840,8 +840,7 @@
- 			}
- 		}
- 
--		cl_s = (struct ebt_cl_stack *)
--		   vmalloc(udc_cnt * sizeof(struct ebt_cl_stack));
-+		cl_s = vmalloc(udc_cnt * sizeof(*cl_s));
- 		if (!cl_s)
- 			return -ENOMEM;
- 		i = 0; /* the i'th udc */
-@@ -943,8 +942,7 @@
- 
- 	countersize = COUNTER_OFFSET(tmp.nentries) * 
- 					(highest_possible_processor_id()+1);
--	newinfo = (struct ebt_table_info *)
--	   vmalloc(sizeof(struct ebt_table_info) + countersize);
-+	newinfo = vmalloc(sizeof(*newinfo) + countersize);
- 	if (!newinfo)
- 		return -ENOMEM;
- 
-@@ -966,8 +964,7 @@
- 	/* the user wants counters back
- 	   the check on the size is done later, when we have the lock */
- 	if (tmp.num_counters) {
--		counterstmp = (struct ebt_counter *)
--		   vmalloc(tmp.num_counters * sizeof(struct ebt_counter));
-+		counterstmp = vmalloc(tmp.num_counters * sizeof(*counterstmp));
- 		if (!counterstmp) {
- 			ret = -ENOMEM;
- 			goto free_entries;
-@@ -1147,8 +1144,7 @@
- 
- 	countersize = COUNTER_OFFSET(table->table->nentries) *
- 					(highest_possible_processor_id()+1);
--	newinfo = (struct ebt_table_info *)
--	   vmalloc(sizeof(struct ebt_table_info) + countersize);
-+	newinfo = vmalloc(sizeof(*newinfo) + countersize);
- 	ret = -ENOMEM;
- 	if (!newinfo)
- 		return -ENOMEM;
-@@ -1246,8 +1242,7 @@
- 	if (hlp.num_counters == 0)
- 		return -EINVAL;
- 
--	if ( !(tmp = (struct ebt_counter *)
--	   vmalloc(hlp.num_counters * sizeof(struct ebt_counter))) ){
-+	if ( !(tmp = vmalloc(hlp.num_counters * sizeof(*tmp))) ){
- 		MEMPRINT("Update_counters && nomemory\n");
- 		return -ENOMEM;
- 	}
-@@ -1376,8 +1371,7 @@
- 			BUGPRINT("Num_counters wrong\n");
- 			return -EINVAL;
- 		}
--		counterstmp = (struct ebt_counter *)
--		   vmalloc(nentries * sizeof(struct ebt_counter));
-+		counterstmp = vmalloc(nentries * sizeof(*counterstmp));
- 		if (!counterstmp) {
- 			MEMPRINT("Couldn't copy counters, out of memory\n");
- 			return -ENOMEM;
 
------ End forwarded message -----
+> or queue it to mroute_socket.
+
+It is OK, it is the purpose.
+
+
+> It is pure disaster, this entire code path.
+
+Well, it may be buggy, but esentially there is nothing to simplify.
+At least, I do not see.
+
+Alexey
