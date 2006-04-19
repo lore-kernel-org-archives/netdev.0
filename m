@@ -1,50 +1,39 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] softmac: report SIOCGIWAP event upon association
-Date: Wed, 19 Apr 2006 01:02:31 +0100 (BST)
-Message-ID: <20060419000231.04C3C87C093@zog.reactivated.net>
-Cc: softmac-dev@sipsolutions.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ip_route_input panic fix
+Date: Wed, 19 Apr 2006 10:17:21 +1000
+Message-ID: <20060419001721.GA12233@gondor.apana.org.au>
+References: <20060417171253.4e988afc@localhost.localdomain> <E1FVk6q-0000Tf-00@gondolin.me.apana.org.au> <20060418235222.GA20504@ms2.inr.ac.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:30965 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750861AbWDSAC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Apr 2006 20:02:26 -0400
-To: johannes@sipsolutions.net
-Cc: netdev@vger.kernel.org
+Received: from rhun.apana.org.au ([64.62.148.172]:33295 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750702AbWDSARe
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Apr 2006 20:17:34 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Disposition: inline
+In-Reply-To: <20060418235222.GA20504@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-wpa_supplicant requires some notification when association has completed, and
-this is the way to do it.
+On Wed, Apr 19, 2006 at 03:52:22AM +0400, Alexey Kuznetsov wrote:
+> 
+> Actually, this weird case in inet_get_route() is the only place, where
 
-Before this patch, wpa_supplicant just times out when trying to associate,
-even though the association completed successfully in the background. This was
-reported at 
-http://www.mail-archive.com/bcm43xx-dev@lists.berlios.de/msg00959.html
+There is also the ARP code which passes an ARP packet through that
+would get dereferenced as an IP packet.  Granted this shouldn't crash
+because nh is set properly.
 
-After this patch, wpa_supplicant works for me. I have tested connecting to a
-WEP network.
+But we really should make up our mind as to whether the routing key
+comes from the arguments to ip_route_input (src/dst/...) or the skb.
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Using both is just asking for trouble.
 
---- linux/net/ieee80211/softmac/ieee80211softmac_assoc.c.orig	2006-04-16 23:55:23.000000000 +0100
-+++ linux/net/ieee80211/softmac/ieee80211softmac_assoc.c	2006-04-19 01:08:40.000000000 +0100
-@@ -282,6 +282,8 @@ ieee80211softmac_associated(struct ieee8
- 	struct ieee80211_assoc_response * resp,
- 	struct ieee80211softmac_network *net)
- {
-+	union iwreq_data wrqu;
-+
- 	mac->associnfo.associating = 0;
- 	mac->associated = 1;
- 	if (mac->set_bssid_filter)
-@@ -290,6 +292,10 @@ ieee80211softmac_associated(struct ieee8
- 	netif_carrier_on(mac->dev);
- 	
- 	mac->association_id = le16_to_cpup(&resp->aid);
-+
-+	wrqu.ap_addr.sa_family = ARPHRD_ETHER;
-+	memcpy(wrqu.ap_addr.sa_data, net->bssid, ETH_ALEN);
-+	wireless_send_event(mac->dev, SIOCGIWAP, &wrqu, NULL);
- }
- 
- /* received frame handling functions */
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
