@@ -1,178 +1,215 @@
 From: akpm@osdl.org
-Subject: [patch 07/10] forcedeth: suggested cleanups
-Date: Tue, 18 Apr 2006 21:04:22 -0700
-Message-ID: <200604190405.k3J454VA008001@shell0.pdx.osdl.net>
+Subject: [patch 09/10] bcm43xx: fix pctl slowclock limit calculation
+Date: Tue, 18 Apr 2006 21:04:34 -0700
+Message-ID: <200604190405.k3J45G9R008015@shell0.pdx.osdl.net>
 Cc: linville@tuxdriver.com, netdev@vger.kernel.org, akpm@osdl.org,
-	ioe-lkml@rameria.de, manfred@colorfullife.com
+	mb@bu3sch.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7628 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750765AbWDSEFz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:05:55 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:16332 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750774AbWDSEGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 00:06:08 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Ingo Oeser <ioe-lkml@rameria.de>
+From: Michael Buesch <mb@bu3sch.de>
 
-general:
-	- endian annotation of the ring descriptors
+This fixes coverity bug:
+http://marc.theaimsgroup.com/?l=linux-netdev&m=114417628413880&w=2
 
-nv_getlen():
-	- use htons() instead of __constant_htons()
-          to improvde readability and let the compiler constant fold it.
-
-nv_rx_process():
-	- use a real for() loop in processing instead of goto and break
-	- consolidate rx_errors increment
-	- count detected rx_length_errors
-
-Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
-Cc: Manfred Spraul <manfred@colorfullife.com>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/forcedeth.c |   59 ++++++++++++++++----------------------
- 1 files changed, 26 insertions(+), 33 deletions(-)
+ drivers/net/wireless/bcm43xx/bcm43xx_power.c |  115 ++++++++++-------
+ drivers/net/wireless/bcm43xx/bcm43xx_power.h |    9 +
+ 2 files changed, 77 insertions(+), 47 deletions(-)
 
-diff -puN drivers/net/forcedeth.c~forcedeth-suggested-cleanups drivers/net/forcedeth.c
---- devel/drivers/net/forcedeth.c~forcedeth-suggested-cleanups	2006-04-10 23:21:26.000000000 -0700
-+++ devel-akpm/drivers/net/forcedeth.c	2006-04-10 23:21:26.000000000 -0700
-@@ -328,17 +328,18 @@ enum {
- 	NvRegMSIXIrqStatus = 0x3f0,
- };
+diff -puN drivers/net/wireless/bcm43xx/bcm43xx_power.c~bcm43xx-fix-pctl-slowclock-limit-calculation drivers/net/wireless/bcm43xx/bcm43xx_power.c
+--- devel/drivers/net/wireless/bcm43xx/bcm43xx_power.c~bcm43xx-fix-pctl-slowclock-limit-calculation	2006-04-12 18:12:22.000000000 -0700
++++ devel-akpm/drivers/net/wireless/bcm43xx/bcm43xx_power.c	2006-04-12 18:12:22.000000000 -0700
+@@ -35,77 +35,101 @@
+ #include "bcm43xx_main.h"
  
--/* Big endian: should work, but is untested */
-+/* Big endian: should work, but is untested.
-+ * So give arch maintainers a hint here. -ioe */
- struct ring_desc {
--	u32 PacketBuffer;
--	u32 FlagLen;
-+	__le32 PacketBuffer;
-+	__le32 FlagLen;
- };
  
- struct ring_desc_ex {
--	u32 PacketBufferHigh;
--	u32 PacketBufferLow;
--	u32 TxVlan;
--	u32 FlagLen;
-+	__le32 PacketBufferHigh;
-+	__le32 PacketBufferLow;
-+	__le32 TxVlan;
-+	__le32 FlagLen;
- };
++/* Get the Slow Clock Source */
++static int bcm43xx_pctl_get_slowclksrc(struct bcm43xx_private *bcm)
++{
++	u32 tmp;
++	int err;
++
++	assert(bcm->current_core == &bcm->core_chipcommon);
++	if (bcm->current_core->rev < 6) {
++		if (bcm->bustype == BCM43xx_BUSTYPE_PCMCIA ||
++		    bcm->bustype == BCM43xx_BUSTYPE_SB)
++			return BCM43xx_PCTL_CLKSRC_XTALOS;
++		if (bcm->bustype == BCM43xx_BUSTYPE_PCI) {
++			err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCTL_OUT, &tmp);
++			assert(!err);
++			if (tmp & 0x10)
++				return BCM43xx_PCTL_CLKSRC_PCI;
++			return BCM43xx_PCTL_CLKSRC_XTALOS;
++		}
++	}
++	if (bcm->current_core->rev < 10) {
++		tmp = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_SLOWCLKCTL);
++		tmp &= 0x7;
++		if (tmp == 0)
++			return BCM43xx_PCTL_CLKSRC_LOPWROS;
++		if (tmp == 1)
++			return BCM43xx_PCTL_CLKSRC_XTALOS;
++		if (tmp == 2)
++			return BCM43xx_PCTL_CLKSRC_PCI;
++	}
++
++	return BCM43xx_PCTL_CLKSRC_XTALOS;
++}
++
+ /* Get max/min slowclock frequency
+  * as described in http://bcm-specs.sipsolutions.net/PowerControl
+  */
+ static int bcm43xx_pctl_clockfreqlimit(struct bcm43xx_private *bcm,
+ 				       int get_max)
+ {
+-	int limit = 0;
++	int limit;
++	int clocksrc;
+ 	int divisor;
+-	int selection;
+-	int err;
+ 	u32 tmp;
+-	struct bcm43xx_coreinfo *old_core;
  
- typedef union _ring_type {
-@@ -1403,7 +1404,7 @@ static int nv_getlen(struct net_device *
- 	int protolen;	/* length as stored in the proto field */
+-	if (!(bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL))
+-		goto out;
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+-	if (err)
+-		goto out;
++	assert(bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL);
++	assert(bcm->current_core == &bcm->core_chipcommon);
  
- 	/* 1) calculate len according to header */
--	if ( ((struct vlan_ethhdr *)packet)->h_vlan_proto == __constant_htons(ETH_P_8021Q)) {
-+	if (((struct vlan_ethhdr *)packet)->h_vlan_proto == htons(ETH_P_8021Q)) {
- 		protolen = ntohs( ((struct vlan_ethhdr *)packet)->h_vlan_encapsulated_proto );
- 		hdrlen = VLAN_HLEN;
++	clocksrc = bcm43xx_pctl_get_slowclksrc(bcm);
+ 	if (bcm->current_core->rev < 6) {
+-		if ((bcm->bustype == BCM43xx_BUSTYPE_PCMCIA) ||
+-			(bcm->bustype == BCM43xx_BUSTYPE_SB)) {
+-			selection = 1;
++		switch (clocksrc) {
++		case BCM43xx_PCTL_CLKSRC_PCI:
++			divisor = 64;
++			break;
++		case BCM43xx_PCTL_CLKSRC_XTALOS:
+ 			divisor = 32;
+-		} else {
+-			err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCTL_OUT, &tmp);
+-			if (err) {
+-				printk(KERN_ERR PFX "clockfreqlimit pcicfg read failure\n");
+-				goto out_switchback;
+-			}
+-			if (tmp & 0x10) {
+-				/* PCI */
+-				selection = 2;
+-				divisor = 64;
+-			} else {
+-				/* XTAL */
+-				selection = 1;
+-				divisor = 32;
+-			}
++			break;
++		default:
++			assert(0);
++			divisor = 1;
+ 		}
+ 	} else if (bcm->current_core->rev < 10) {
+-		selection = (tmp & 0x07);
+-		if (selection) {
++		switch (clocksrc) {
++		case BCM43xx_PCTL_CLKSRC_LOPWROS:
++			divisor = 1;
++			break;
++		case BCM43xx_PCTL_CLKSRC_XTALOS:
++		case BCM43xx_PCTL_CLKSRC_PCI:
+ 			tmp = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_SLOWCLKCTL);
+-			divisor = 4 * (1 + ((tmp & 0xFFFF0000) >> 16));
+-		} else
++			divisor = ((tmp & 0xFFFF0000) >> 16) + 1;
++			divisor *= 4;
++			break;
++		default:
++			assert(0);
+ 			divisor = 1;
++		}
  	} else {
-@@ -1453,12 +1454,10 @@ static void nv_rx_process(struct net_dev
- 	u32 vlanflags = 0;
- 
- 
--	for (;;) {
-+	for (; np->cur_rx - np->refill_rx < RX_RING; np->cur_rx++) {
- 		struct sk_buff *skb;
- 		int len;
- 		int i;
--		if (np->cur_rx - np->refill_rx >= RX_RING)
--			break;	/* we scanned the whole ring - do not continue */
- 
- 		i = np->cur_rx % RX_RING;
- 		if (np->desc_ver == DESC_VER_1 || np->desc_ver == DESC_VER_2) {
-@@ -1498,33 +1497,29 @@ static void nv_rx_process(struct net_dev
- 		/* look at what we actually got: */
- 		if (np->desc_ver == DESC_VER_1) {
- 			if (!(Flags & NV_RX_DESCRIPTORVALID))
--				goto next_pkt;
-+				continue;
- 
- 			if (Flags & NV_RX_ERROR) {
- 				if (Flags & NV_RX_MISSEDFRAME) {
- 					np->stats.rx_missed_errors++;
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & (NV_RX_ERROR1|NV_RX_ERROR2|NV_RX_ERROR3)) {
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & NV_RX_CRCERR) {
- 					np->stats.rx_crc_errors++;
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & NV_RX_OVERFLOW) {
- 					np->stats.rx_over_errors++;
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & NV_RX_ERROR4) {
- 					len = nv_getlen(dev, np->rx_skbuff[i]->data, len);
- 					if (len < 0) {
--						np->stats.rx_errors++;
--						goto next_pkt;
-+						np->stats.rx_length_errors++;
-+						goto error_pkt;
- 					}
- 				}
- 				/* framing errors are soft errors. */
-@@ -1536,28 +1531,25 @@ static void nv_rx_process(struct net_dev
- 			}
- 		} else {
- 			if (!(Flags & NV_RX2_DESCRIPTORVALID))
--				goto next_pkt;
-+				continue;
- 
- 			if (Flags & NV_RX2_ERROR) {
- 				if (Flags & (NV_RX2_ERROR1|NV_RX2_ERROR2|NV_RX2_ERROR3)) {
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & NV_RX2_CRCERR) {
- 					np->stats.rx_crc_errors++;
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & NV_RX2_OVERFLOW) {
- 					np->stats.rx_over_errors++;
--					np->stats.rx_errors++;
--					goto next_pkt;
-+					goto error_pkt;
- 				}
- 				if (Flags & NV_RX2_ERROR4) {
- 					len = nv_getlen(dev, np->rx_skbuff[i]->data, len);
- 					if (len < 0) {
--						np->stats.rx_errors++;
--						goto next_pkt;
-+						np->stats.rx_length_errors++;
-+						goto error_pkt;
- 					}
- 				}
- 				/* framing errors are soft errors */
-@@ -1593,8 +1585,9 @@ static void nv_rx_process(struct net_dev
- 		dev->last_rx = jiffies;
- 		np->stats.rx_packets++;
- 		np->stats.rx_bytes += len;
--next_pkt:
--		np->cur_rx++;
-+		continue;
-+error_pkt:
-+		np->stats.rx_errors++;
+ 		tmp = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_SYSCLKCTL);
+-		divisor = 4 * (1 + ((tmp & 0xFFFF0000) >> 16));
+-		selection = 1;
++		divisor = ((tmp & 0xFFFF0000) >> 16) + 1;
++		divisor *= 4;
  	}
+-	
+-	switch (selection) {
+-	case 0:
+-		/* LPO */
++
++	switch (clocksrc) {
++	case BCM43xx_PCTL_CLKSRC_LOPWROS:
+ 		if (get_max)
+ 			limit = 43000;
+ 		else
+ 			limit = 25000;
+ 		break;
+-	case 1:
+-		/* XTAL */
++	case BCM43xx_PCTL_CLKSRC_XTALOS:
+ 		if (get_max)
+ 			limit = 20200000;
+ 		else
+ 			limit = 19800000;
+ 		break;
+-	case 2:
+-		/* PCI */
++	case BCM43xx_PCTL_CLKSRC_PCI:
+ 		if (get_max)
+ 			limit = 34000000;
+ 		else
+@@ -113,17 +137,14 @@ static int bcm43xx_pctl_clockfreqlimit(s
+ 		break;
+ 	default:
+ 		assert(0);
++		limit = 0;
+ 	}
+ 	limit /= divisor;
+ 
+-out_switchback:
+-	err = bcm43xx_switch_core(bcm, old_core);
+-	assert(err == 0);
+-
+-out:
+ 	return limit;
  }
+ 
++
+ /* init power control
+  * as described in http://bcm-specs.sipsolutions.net/PowerControl
+  */
+diff -puN drivers/net/wireless/bcm43xx/bcm43xx_power.h~bcm43xx-fix-pctl-slowclock-limit-calculation drivers/net/wireless/bcm43xx/bcm43xx_power.h
+--- devel/drivers/net/wireless/bcm43xx/bcm43xx_power.h~bcm43xx-fix-pctl-slowclock-limit-calculation	2006-04-12 18:12:22.000000000 -0700
++++ devel-akpm/drivers/net/wireless/bcm43xx/bcm43xx_power.h	2006-04-12 18:12:22.000000000 -0700
+@@ -33,6 +33,15 @@
+ 
+ #include <linux/types.h>
+ 
++/* Clock sources */
++enum {
++	/* PCI clock */
++	BCM43xx_PCTL_CLKSRC_PCI,
++	/* Crystal slow clock oscillator */
++	BCM43xx_PCTL_CLKSRC_XTALOS,
++	/* Low power oscillator */
++	BCM43xx_PCTL_CLKSRC_LOPWROS,
++};
+ 
+ struct bcm43xx_private;
  
 _
