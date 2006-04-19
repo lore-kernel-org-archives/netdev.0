@@ -1,53 +1,48 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 2.6.16-rc5] S2io: Receive packet classification and steering mechanisms
-Date: Wed, 19 Apr 2006 02:59:14 +0200
-Message-ID: <200604190259.14854.ak@suse.de>
-References: <MAEEKMLDLDFEGKHNIJHIAEIGCDAA.ravinandan.arakali@neterion.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] ip_route_input panic fix
+Date: Wed, 19 Apr 2006 04:59:37 +0400
+Message-ID: <20060419005937.GA12501@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:8381 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750960AbWDSA71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 20:59:27 -0400
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <MAEEKMLDLDFEGKHNIJHIAEIGCDAA.ravinandan.arakali@neterion.com>
+Received: from dust.inr.ac.ru ([194.67.69.100]:48260 "HELO dust.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1750962AbWDSA75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Apr 2006 20:59:57 -0400
+To: herbert@gondor.apana.org.au, shemminger@osdl.org,
+	davem@davemloft.net, netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 19 April 2006 02:38, Ravinandan Arakali wrote:
+Hello!
 
-> configuration: A mask(specified using loadable parameter rth_fn_and_mask)
-> can be used to select a subset of TCP/UDP tuple for hash calculation.
-> eg. To mask source port for TCP/IPv4 configuration,
-> # insmod s2io.ko rx_steering_type=2 rth_fn_and_mask=0x0101
-> LSB specifies RTH function type and MSB the mask. A full description
-> is provided at the beginning of s2io.c 
+> There is also the ARP code which passes an ARP packet through that
+> would get dereferenced as an IP packet.  Granted this shouldn't crash
+> because nh is set properly.
 
-I don't think it's a good idea to introduce such weird and hard to understand
-module parameters for this.  I would be better to define a generic
-internal kernel interface between stack and driver. Perhaps starting
-with a standard netlink interface for this might be a good start
-until the stack learns how to use this on its own.
+And point to something which is not an IP header. So, iph->protocol
+is something funny. :-)
 
-> 3. MAC address-based:
-> Done based on destination MAC address of packet. Xframe can be
-> configured with multiple unicast MAC addresses.
-> 
-> configuration: Load-time parameters multi_mac_cnt and multi_macs
-> can be used to specify no. of MAC addresses and list of unicast
-> addresses.
-> eg. insmod s2io.ko rx_steering_type=8 multi_mac_cnt=3 
-> 	multi_macs=00:0c:fc:00:00:22, 00:0c:fc:00:01:22, 00:0c:fc:00:02:22 
-> Packets received with default destination MAC address will be steered to 
-> ring0. Packets with destination MAC addresses specified by multi_macs are 
-> steered to ring1, ring2... respectively.
+It is plain luck that this never happens, ARP packets
+with multicast addresses are filtered out.
 
-The obvious way to do this nicely would be to allow to define multiple
-virtual interfaces where the mac addresses can be set using the usual ioctls.
+Mess, I agree.
 
 
--Andi
+> But we really should make up our mind as to whether the routing key
+> comes from the arguments to ip_route_input (src/dst/...) or the skb.
+>
+> Using both is just asking for trouble.
+
+Well, both sets are present only for use the same function in ARP.
+
+So, arguments. skb can be even preserved, but it should not be used
+for anything but debugging or for hints, when we should not create
+cache entry.
+
+
+BTW, I cannot figure out what ip_check_mc tries to do with protocol
+(which is __u16 by some reason). If it creates cache entry, protocol
+is not checked. Funny.
+
+Alexey
