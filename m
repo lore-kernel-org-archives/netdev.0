@@ -1,53 +1,56 @@
-From: Shaun Pereira <spereira@tusc.com.au>
-Subject: [PATCH 1/1]x25: fix for spinlock recurse and spinlock lockup with
-	timer handler in x25
-Date: Thu, 20 Apr 2006 15:03:23 +1000
-Message-ID: <1145509403.16180.10.camel@spereira05.tusc.com.au>
-Reply-To: spereira@tusc.com.au
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb->truesize assertion checking for TCP
+Date: Thu, 20 Apr 2006 15:04:06 +1000
+Message-ID: <20060420050406.GA22105@gondor.apana.org.au>
+References: <20060419.215513.13034269.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-x25-owner@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	x25 maintainer <eis@baty.hanse.de>,
-	linux-x25 <linux-x25@vger.kernel.org>,
-	linux-kenel <linux-kernel@vger.kernel.org>
-Sender: linux-x25-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:54029 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750887AbWDTFEJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 01:04:09 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060419.215513.13034269.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: spereira@tusc.com.au
+Hi David:
 
-When the sk_timer function x25_heartbeat_expiry() is called by the kernel
-in a running/terminating process, spinlock-recursion and spinlock-lockup
-locks up the kernel. 
-This has happened with testing on some distro's and the patch below fixed it.
+On Wed, Apr 19, 2006 at 09:55:13PM -0700, David S. Miller wrote:
+> 
+> Herbert what do you think of this?
+> 
+> I know it might be better to check this right where we
+> make the manipulations, but this catch-all trap at the
+> end points seems to make sense and will catch other kinds
+> of errors.
 
-Signed-off-by:Shaun Pereira <spereira@tusc.com.au>
+Yes that should do the trick.
 
-diff -uprN -X dontdiff linux-2.6.17-rc2-vanilla/net/x25/x25_timer.c linux-2.6.17-rc2/net/x25/x25_timer.c
---- linux-2.6.17-rc2-vanilla/net/x25/x25_timer.c	2006-04-20 12:00:03.000000000 +1000
-+++ linux-2.6.17-rc2/net/x25/x25_timer.c	2006-04-20 12:02:43.000000000 +1000
-@@ -114,8 +114,9 @@ static void x25_heartbeat_expiry(unsigne
- 			if (sock_flag(sk, SOCK_DESTROY) ||
- 			    (sk->sk_state == TCP_LISTEN &&
- 			     sock_flag(sk, SOCK_DEAD))) {
-+				bh_unlock_sock(sk);
- 				x25_destroy_socket(sk);
--				goto unlock;
-+				return;
- 			}
- 			break;
- 
-@@ -128,7 +129,6 @@ static void x25_heartbeat_expiry(unsigne
- 	}
- restart_heartbeat:
- 	x25_start_heartbeat(sk);
--unlock:
- 	bh_unlock_sock(sk);
- }
- 
+> +static inline void skb_truesize_check(struct sk_buff *skb)
+> +{
+> +	if (unlikely((int)skb->truesize < sizeof(struct sk_buff)))
+> +		skb_truesize_bug(skb);
+> +}
 
+I think we can go for the stronger test:
 
+skb->truesize < sizeof(struct sk_buff) + skb->len
 
+> +void skb_truesize_bug(struct sk_buff *skb)
+> +{
+> +	printk("SKB BUG: Invalid truesize (%u) sizeof(sk_buff)=%Zd\n",
+> +	       skb->truesize, sizeof(struct sk_buff));
+> +}
 
+Printing out skb->len would be good too if we changed the test.
 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
