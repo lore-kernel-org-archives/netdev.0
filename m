@@ -1,50 +1,66 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: SIOCGIWSCAN wireless event behaviour
-Date: Thu, 20 Apr 2006 10:26:43 -0700
-Message-ID: <20060420172643.GF1321@instant802.com>
-References: <4447979F.4050603@gentoo.org> <1145543852.2654.11.camel@localhost.localdomain> <20060420164354.GA32409@bougret.hpl.hp.com>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [RFC] Netlink and user-space buffer pointers
+Date: Thu, 20 Apr 2006 12:45:38 -0500
+Message-ID: <4447C8C2.30909@cs.wisc.edu>
+References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <4446AC80.6040604@cs.wisc.edu> <44479BA8.1000405@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, Daniel Drake <dsd@gentoo.org>,
-	softmac-dev@sipsolutions.net, netdev@vger.kernel.org,
-	hostap@shmoo.com, jkmaline@cc.hut.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-75.dex002.intermedia.net ([64.78.20.105]:59975 "EHLO
-	DHOST002-75.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751177AbWDTR07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 13:26:59 -0400
-To: Jean Tourrilhes <jt@hpl.hp.com>
-Content-Disposition: inline
-In-Reply-To: <20060420164354.GA32409@bougret.hpl.hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: James.Smart@Emulex.Com
+In-Reply-To: <44479BA8.1000405@emulex.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 20, 2006 at 09:43:54AM -0700, Jean Tourrilhes wrote:
-> 	After we changed to behaviour of ipw, various users reported
-> that wpa_supplicant was confused. I particularly trust the report of
-> Bill Moss, who has been hacking ipw for a long time :
+James Smart wrote:
 > 
-> http://sourceforge.net/mailarchive/forum.php?thread_id=10091113&forum_id=38938
-
-Hmm.. Can someone please describe what was changed? Just sending
-SIOCGIWSCAN events more frequently? I have not seen any problems with
-this in my tests (though, mainly with madwifi-ng). Is the broken case
-available in one of the kernel trees? 2.6.16? wireless-2.6? (i.e., where
-can I get the exact version of ipw2200 driver that is expected to show
-incorrect behavior)?
-
-> 	Jouni was notified, but did not really answer to that bug report.
-> 	Then, the ipw maintainers commited the following patch to ipw
-> that fix or workaround that issue :
+> Mike Christie wrote:
+>> For the tasks you want to do for the fc class is performance critical?
 > 
-> http://marc.theaimsgroup.com/?l=linux-netdev&m=114492056522667&w=2
+> No, it should not be.
+> 
+>> If not, you could do what the iscsi class (for the netdev people this is
+>> drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
+>> copies. For iscsi we do this in userspace to send down a login pdu:
+>>
+>>     /*
+>>      * xmitbuf is a buffer that is large enough for the iscsi_event,
+>>      * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
+>>      */
+> 
+> Well, the real difference is that the payload of the "message" is actually
+> the payload of the SCSI command or ELS/CT Request. Thus, the payload may
 
-Hmm.. I don't remember having seen that report from Bill Moss.. How was
-I notified? ;-) The patch here seems to be moving ipw_disassociate()
-call, so it is not obviously clear from that what the impact on behavior
-is. I can try to reproduce this, but I would like to know what version
-to test with in order to avoid any possible workarounds from hiding the
-issue.
+I am not sure I follow. For iscsi, everything after the iscsi_event
+struct can be the iscsi request that is to be transmitted. The payload
+will not normally be Mbytes but it is not a couple if bytes.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+> range in size from a few hundred bytes to several kbytes (> 1 page) to
+> Mbyte's in size. Rather than buffer all of this, and push it over the
+> socket,
+> thus the extra copies - it would best to have the LLDD simply DMA the
+> payload like on a typical SCSI command.  Additionally, there will be
+> response data that can be several kbytes in length.
+> 
+
+Once you have got the buffer to the class, the class can create a
+scatterlist to DMA from for the LLD. I thought. iscsi does not do this
+just because it is software right now. For qla4xxx we do not need
+something like what you are talking about (see below for what I was
+thinking about for the initiators). If you are saying the extra step of
+the copy is plain dumb, I agree, but this happens (you have to suffer
+some copy and cannot do dio) for sg io as well in some cases. I think
+for the sg driver the copy_*_user is the default.
+
+Instead of netlink for scsi commands and transport requests....
+
+For scsi commands could we just use sg io, or is there something special
+about the command you want to send? If you can use sg io for scsi
+commands, maybe for transport level requests (in my example iscsi pdu)
+we could modify something like sg/bsg/block layer scsi_ioctl.c to send
+down transport requests to the classes and encapsulate them in some new
+struct transport_requests or use the existing struct request but do that
+thing people keep taling about using the request/request_queue for
+message passing.
