@@ -1,83 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [TCP]: Account skb overhead in tcp_fragment
-Date: Thu, 20 Apr 2006 13:26:02 +1000
-Message-ID: <20060420032602.GA21406@gondor.apana.org.au>
-References: <20060420010111.GA20576@gondor.apana.org.au>
+From: "Andrew Grover" <andy.grover@gmail.com>
+Subject: Re: I/OAT: Call for discussion
+Date: Wed, 19 Apr 2006 21:12:34 -0700
+Message-ID: <c0a09e5c0604192112m6014235fw8b8df28b9bd1f206@mail.gmail.com>
+References: <5389061B65D50446B1783B97DFDB392D8E9F0A@orsmsx411.amr.corp.intel.com>
+	 <200604200249.03167.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Grover, Andrew" <andrew.grover@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50700 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751156AbWDTD0E
+Received: from xproxy.gmail.com ([66.249.82.206]:23273 "EHLO xproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1751254AbWDTEMe convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Apr 2006 23:26:04 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+	Thu, 20 Apr 2006 00:12:34 -0400
+Received: by xproxy.gmail.com with SMTP id t10so51718wxc
+        for <netdev@vger.kernel.org>; Wed, 19 Apr 2006 21:12:34 -0700 (PDT)
+To: "Andi Kleen" <ak@suse.de>
+In-Reply-To: <200604200249.03167.ak@suse.de>
 Content-Disposition: inline
-In-Reply-To: <20060420010111.GA20576@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 4/19/06, Andi Kleen <ak@suse.de> wrote:
+> On Wednesday 19 April 2006 18:39, Grover, Andrew wrote:
+>
+> > We have posted all the performance data we have gathered so far on the
+> > linux-net wiki: http://linux-net.osdl.org/index.php/I/OAT , and listed
+> > the overall concerns that have been expressed in private. I'm hoping you
+> > will look at the data, re-examine the patches, and then we can talk
+> > about the technical issues here on the list, getting down to the
+> > specifics, so we can hash it out in public and settle on the right path
+> > to take.
+>
+> Maybe it would be best if you just reposted the patches?
 
---ew6BAiZeqk4r7MaW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+OK, I can do that tomorrow. For now I put them on the wiki (see link above)
 
-On Thu, Apr 20, 2006 at 11:01:11AM +1000, herbert wrote:
-> Hi Dave:
-> 
-> Since sk_stream_alloc_pskb takes an extra argument that accounts for
-> paged data all we need to do to account sk_buff overhead correctly
-> is to use that instead of sk_stream_alloc_skb.
-
-Here is a better version that does not double-count the paged bits
-that get moved across.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---ew6BAiZeqk4r7MaW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="tcp-fragment-charge-2.patch"
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 44df1db..a28ae59 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -533,6 +533,7 @@
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *buff;
- 	int nsize, old_factor;
-+	int nlen;
- 	u16 flags;
- 
- 	BUG_ON(len > skb->len);
-@@ -552,8 +553,10 @@
- 	if (buff == NULL)
- 		return -ENOMEM; /* We'll just try again later. */
- 
--	buff->truesize = skb->len - len;
--	skb->truesize -= buff->truesize;
-+	sk_charge_skb(sk, buff);
-+	nlen = skb->len - len - nsize;
-+	buff->truesize += nlen;
-+	skb->truesize -= nlen;
- 
- 	/* Correct the sequence numbers. */
- 	TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
-@@ -1039,7 +1042,8 @@
- 	if (unlikely(buff == NULL))
- 		return -ENOMEM;
- 
--	buff->truesize = nlen;
-+	sk_charge_skb(sk, buff);
-+	buff->truesize += nlen;
- 	skb->truesize -= nlen;
- 
- 	/* Correct the sequence numbers. */
-
---ew6BAiZeqk4r7MaW--
+-- Andy
