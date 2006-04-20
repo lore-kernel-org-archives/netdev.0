@@ -1,69 +1,98 @@
-From: James Smart <James.Smart@Emulex.Com>
+From: Douglas Gilbert <dougg@torque.net>
 Subject: Re: [RFC] Netlink and user-space buffer pointers
-Date: Thu, 20 Apr 2006 16:03:42 -0400
-Message-ID: <4447E91E.7030603@emulex.com>
+Date: Thu, 20 Apr 2006 16:18:12 -0400
+Message-ID: <4447EC84.7030502@torque.net>
 References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <4446AC80.6040604@cs.wisc.edu> <44479BA8.1000405@emulex.com> <4447C8C2.30909@cs.wisc.edu>
-Reply-To: James.Smart@Emulex.Com
+Reply-To: dougg@torque.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: James.Smart@Emulex.Com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emulex.emulex.com ([138.239.112.1]:8865 "EHLO emulex.emulex.com")
-	by vger.kernel.org with ESMTP id S1750865AbWDTUED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 16:04:03 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:59869 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1751250AbWDTUSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 16:18:23 -0400
 To: Mike Christie <michaelc@cs.wisc.edu>
 In-Reply-To: <4447C8C2.30909@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Note: We've transitioned off topic. If what this means is "there isn't a good
-way except by ioctls (which still isn't easily portable) or system calls",
-then that's ok. Then at least we know the limits and can look at other
-implementation alternatives.
-
 Mike Christie wrote:
 > James Smart wrote:
->> Mike Christie wrote:
->>> For the tasks you want to do for the fc class is performance critical?
->> No, it should not be.
+> 
+>>Mike Christie wrote:
 >>
->>> If not, you could do what the iscsi class (for the netdev people this is
->>> drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
->>> copies. For iscsi we do this in userspace to send down a login pdu:
+>>>For the tasks you want to do for the fc class is performance critical?
+>>
+>>No, it should not be.
+>>
+>>
+>>>If not, you could do what the iscsi class (for the netdev people this is
+>>>drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
+>>>copies. For iscsi we do this in userspace to send down a login pdu:
 >>>
->>>     /*
->>>      * xmitbuf is a buffer that is large enough for the iscsi_event,
->>>      * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
->>>      */
->> Well, the real difference is that the payload of the "message" is actually
->> the payload of the SCSI command or ELS/CT Request. Thus, the payload may
+>>>    /*
+>>>     * xmitbuf is a buffer that is large enough for the iscsi_event,
+>>>     * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
+>>>     */
+>>
+>>Well, the real difference is that the payload of the "message" is actually
+>>the payload of the SCSI command or ELS/CT Request. Thus, the payload may
+> 
 > 
 > I am not sure I follow. For iscsi, everything after the iscsi_event
 > struct can be the iscsi request that is to be transmitted. The payload
 > will not normally be Mbytes but it is not a couple if bytes.
+> 
+> 
+>>range in size from a few hundred bytes to several kbytes (> 1 page) to
+>>Mbyte's in size. Rather than buffer all of this, and push it over the
+>>socket,
+>>thus the extra copies - it would best to have the LLDD simply DMA the
+>>payload like on a typical SCSI command.  Additionally, there will be
+>>response data that can be several kbytes in length.
+>>
+> 
+> 
+> Once you have got the buffer to the class, the class can create a
+> scatterlist to DMA from for the LLD. I thought. iscsi does not do this
+> just because it is software right now. For qla4xxx we do not need
+> something like what you are talking about (see below for what I was
+> thinking about for the initiators). If you are saying the extra step of
+> the copy is plain dumb, I agree, but this happens (you have to suffer
+> some copy and cannot do dio) for sg io as well in some cases. I think
+> for the sg driver the copy_*_user is the default.
 
-True... For a large read/write - it will eventually total what the i/o
-request size was, and you did have to push it through the socekt.
-What this discussion really comes down to is the difference between initiator
-offload and what a target does.
-
-The initiator offloads the "full" i/o from the users - e.g. send command,
-get response. In the initiator case, the user isn't aware of each and
-every IU that makes up the i/o. As it's on an i/o basis, the LLDD doing
-the offload needs the full buffer sitting and ready. DMA is preferred so
-the buffer doesn't have to be consuming socket/kernel/driver buffers while
-it's pending - plus speed.
-
-In the target case, the target controls each IU and it's size, thus it
-only has to have access to as much buffer space as it wants to push the next
-IU. The i/o can be "paced" by the target. Unfortunately, this is an entirely
-different use model than users of a scsi initiator expect, and it won't map
-well into replacing things like our sg_io ioctls.
+Mike,
+Indirect IO is the default in the sg driver because:
+  - it has always been thus
+  - the sg driver is less constrained (e.g. max number
+    of scatg elements is a bigger issue with dio)
+  - the only alignment to worry about is byte
+    alignment (some folks would like bit alignment
+    but you can't please everybody)
+  - there is no need for the sg driver to pin user
+    pages in memory (as there is with direct IO and
+    mmaped-IO)
 
 > Instead of netlink for scsi commands and transport requests....
-> 
+
+With a netlink based pass through one might:
+  - improve on the SG_IO ioctl and add things like
+    tags that are currently missing
+  - introduce a proper SCSI task management function
+    pass through (no request queue please)
+  - make other pass throughs for SAS: SMP and STP
+  - have an alternative to sysfs for various control
+    functions in a HBA (e.g. in SAS: link and hard
+    reset) and fetching performance data from a HBA
+
+Apart from how to get data efficiently between the HBA
+and the user space, another major issue is the flexibility
+of the bind() in s_netlink (storage netlink??).
+
 > For scsi commands could we just use sg io, or is there something special
 > about the command you want to send? If you can use sg io for scsi
 > commands, maybe for transport level requests (in my example iscsi pdu)
@@ -73,25 +102,9 @@ well into replacing things like our sg_io ioctls.
 > thing people keep taling about using the request/request_queue for
 > message passing.
 
-Well - there's 2 parts to this answer:
+Some SG_IO ioctl users want up to 32 MB in one transaction
+and others want their data fast. Many pass through users
+view the kernel as an impediment (not so much as "the way"
+as "in the way").
 
-First : IOCTL's are considered dangerous/bad practice and therefore it would
-   be nice to find a replacement mechanism that eliminates them. If that
-   mechanism has some of the cool features that netlink does, even better.
-   Using sg io, in the manner you indicate, wouldn't remove the ioctl use.
-   Note: I have OEMs/users that are very confused about the community's statement
-   about ioctls. They've heard they are bad, should never be allowed, will no
-   be longer supported, but yet they are at the heart of DM and sg io and other
-   subsystems. Other than a "grandfathered" explanation, they don't understand
-   why the rules bend for one piece of code but not for another. To them, all
-   the features are just as critical regardless of whose providing them.
-
-Second: transport level i/o could be done like you suggest, and we've
-   prototyped some of this as well. However, there's something very wrong
-   about putting "block device" wrappers and settings around something that
-   is not a block device.  In general, it's a heck of a lot of overhead and
-   still doesn't solve the real issue - how to portably pass that user buffer
-   in to/out of the kernel.
-
-
--- james s
+Doug Gilbert
