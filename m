@@ -1,43 +1,37 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Cannot receive multicast packets
-Date: Thu, 20 Apr 2006 17:15:02 -0700
-Message-ID: <OF10DE8AFB.1FB28740-ON88257156.0083D32C-88257157.0000E5BE@us.ibm.com>
-References: <4447DFDD.8010008@cloakmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit
+ buffers
+Date: Thu, 20 Apr 2006 15:36:57 -0700
+Message-ID: <1145572617.3310.4.camel@rh4>
+References: <200604201035.00100.shaw@vranix.com>
+ <20060420233631.GA28380@gondor.apana.org.au>
+ <20060420235149.GA28503@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: shawvrana@gmail.com, netdev@vger.kernel.org,
+	"Auke Kok" <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:59780 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S932159AbWDUALT
+Received: from mms1.broadcom.com ([216.31.210.17]:60677 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S932168AbWDUARL
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 20:11:19 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e34.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k3L09pqS010280
-	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:09:51 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by westrelay02.boulder.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k3L06AJi091586
-	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 18:06:10 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11/8.13.3) with ESMTP id k3L09pEN026312
-	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 18:09:51 -0600
-In-Reply-To: <4447DFDD.8010008@cloakmail.com>
-To: Andrew Athan <aathan_linux_net_1542@cloakmail.com>
+	Thu, 20 Apr 2006 20:17:11 -0400
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <20060420235149.GA28503@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've run your test program and it receives fine for me.
+On Fri, 2006-04-21 at 09:51 +1000, Herbert Xu wrote:
 
-I note that the source address is not on the same subnet as
-(any of) the receiver's addresses. Are the packets being
-routed? The default multicasting TTL is 1, though I don't
-know if it'll be checked or dropped on the receiver, seeing
-as we aren't forwarding it.
+> 
+> Actually TG3 is buggy too.  If the reset task is scheduled but
+> isn't running yet there is no synchronisation here to prevent the
+> reset task from running after tg3_close releases the tp lock.
+> 
 
-Also, you might want to run "netstat -s" to see if any of the
-drop counters are being incremented (e.g., checksum error).
+If we're in tg3_close() and the reset task isn't running yet, tg3_close
+() will proceed. However, when the reset task finally runs, it will see
+that netif_running() is zero and will just return.
 
-Finally, I'm assuming you don't have any firewall rules that
-are matching, right?
-
-                                        +-DLS
 
