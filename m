@@ -1,56 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: skb->truesize assertion checking for TCP
-Date: Thu, 20 Apr 2006 15:04:06 +1000
-Message-ID: <20060420050406.GA22105@gondor.apana.org.au>
-References: <20060419.215513.13034269.davem@davemloft.net>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: TOE info page
+Date: Thu, 20 Apr 2006 01:25:19 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7760656B@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Netdev List" <netdev@vger.kernel.org>,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>,
+	"Arnaldo Carvalho de Melo" <acme@conectiva.com.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54029 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750887AbWDTFEJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 01:04:09 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060419.215513.13034269.davem@davemloft.net>
+Received: from barracuda.s2io.com ([72.1.205.138]:21143 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751324AbWDTFZN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 01:25:13 -0400
+Content-class: urn:content-classes:message
+To: "Stephen Hemminger" <shemminger@osdl.org>,
+	"Jeff Garzik" <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David:
+ 
 
-On Wed, Apr 19, 2006 at 09:55:13PM -0700, David S. Miller wrote:
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org 
+> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Stephen Hemminger
+> Sent: Wednesday, April 19, 2006 9:35 PM
+> To: Jeff Garzik
+> Cc: Netdev List; Linux Kernel; Arnaldo Carvalho de Melo
+> Subject: Re: TOE info page
 > 
-> Herbert what do you think of this?
+> On Wed, 19 Apr 2006 19:22:14 -0400
+> Jeff Garzik <jeff@garzik.org> wrote:
 > 
-> I know it might be better to check this right where we
-> make the manipulations, but this catch-all trap at the
-> end points seems to make sense and will catch other kinds
-> of errors.
+> > 
+> > I created a TOE (TCP Offload Engine) info page for Linux, on the 
+> > linux-net wiki:
+> > 
+> > 	http://linux-net.osdl.org/index.php/TOE
+> > 
+> > As soon as I can find a wiki admin, it will get added to 
+> the main page. 
+> >   I don't seem to have such access.
+> > 
+> > 	Jeff
+> 
+> I am the main administrator. I updated the front page, and 
+> added a couple more stubs for NAPI, TSO, UFO.
 
-Yes that should do the trick.
+Stephen, could you add a stab for LRO (Large Receive Offload) as well?
+Thanks, Leonid
 
-> +static inline void skb_truesize_check(struct sk_buff *skb)
-> +{
-> +	if (unlikely((int)skb->truesize < sizeof(struct sk_buff)))
-> +		skb_truesize_bug(skb);
-> +}
-
-I think we can go for the stronger test:
-
-skb->truesize < sizeof(struct sk_buff) + skb->len
-
-> +void skb_truesize_bug(struct sk_buff *skb)
-> +{
-> +	printk("SKB BUG: Invalid truesize (%u) sizeof(sk_buff)=%Zd\n",
-> +	       skb->truesize, sizeof(struct sk_buff));
-> +}
-
-Printing out skb->len would be good too if we changed the test.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> -
+> To unsubscribe from this list: send the line "unsubscribe 
+> netdev" in the body of a message to majordomo@vger.kernel.org 
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
