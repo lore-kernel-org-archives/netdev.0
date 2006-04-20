@@ -1,58 +1,36 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: RE: TOE info page
-Date: Thu, 20 Apr 2006 01:25:19 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7760656B@nekter>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: skb->truesize assertion checking for TCP
+Date: Wed, 19 Apr 2006 23:17:03 -0700 (PDT)
+Message-ID: <20060419.231703.35841080.davem@davemloft.net>
+References: <20060419.215513.13034269.davem@davemloft.net>
+	<20060420050406.GA22105@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Netdev List" <netdev@vger.kernel.org>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>,
-	"Arnaldo Carvalho de Melo" <acme@conectiva.com.br>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:21143 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S1751324AbWDTFZN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 01:25:13 -0400
-Content-class: urn:content-classes:message
-To: "Stephen Hemminger" <shemminger@osdl.org>,
-	"Jeff Garzik" <jeff@garzik.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28365
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751102AbWDTGRX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 02:17:23 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060420050406.GA22105@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 20 Apr 2006 15:04:06 +1000
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org 
-> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Stephen Hemminger
-> Sent: Wednesday, April 19, 2006 9:35 PM
-> To: Jeff Garzik
-> Cc: Netdev List; Linux Kernel; Arnaldo Carvalho de Melo
-> Subject: Re: TOE info page
+> On Wed, Apr 19, 2006 at 09:55:13PM -0700, David S. Miller wrote:
+> > +static inline void skb_truesize_check(struct sk_buff *skb)
+> > +{
+> > +	if (unlikely((int)skb->truesize < sizeof(struct sk_buff)))
+> > +		skb_truesize_bug(skb);
+> > +}
 > 
-> On Wed, 19 Apr 2006 19:22:14 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
+> I think we can go for the stronger test:
 > 
-> > 
-> > I created a TOE (TCP Offload Engine) info page for Linux, on the 
-> > linux-net wiki:
-> > 
-> > 	http://linux-net.osdl.org/index.php/TOE
-> > 
-> > As soon as I can find a wiki admin, it will get added to 
-> the main page. 
-> >   I don't seem to have such access.
-> > 
-> > 	Jeff
-> 
-> I am the main administrator. I updated the front page, and 
-> added a couple more stubs for NAPI, TSO, UFO.
+> skb->truesize < sizeof(struct sk_buff) + skb->len
 
-Stephen, could you add a stab for LRO (Large Receive Offload) as well?
-Thanks, Leonid
-
-> -
-> To unsubscribe from this list: send the line "unsubscribe 
-> netdev" in the body of a message to majordomo@vger.kernel.org 
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Agreed, let me see if that triggers on my machine before
+I commit this :-)
