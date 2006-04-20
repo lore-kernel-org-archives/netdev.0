@@ -1,93 +1,42 @@
 From: Andrew Grover <andrew.grover@intel.com>
-Subject: [PATCH 1/10] [IOAT] DMA memcpy subsystem
-Date: Thu, 20 Apr 2006 13:49:30 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0604201326570.22544-100000@isotope.jf.intel.com>
+Subject: [PATCH 3/10] [IOAT] Driver for the I/OAT DMA engine part 2
+Date: Thu, 20 Apr 2006 13:49:50 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0604201336210.22544-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:27609 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751269AbWDTUtb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 16:49:31 -0400
+Received: from fmr19.intel.com ([134.134.136.18]:64917 "EHLO
+	orsfmr004.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751270AbWDTUtv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 16:49:51 -0400
 Received: from orsfmr100.jf.intel.com (orsfmr100.jf.intel.com [10.7.209.16])
-	by orsfmr002.jf.intel.com (8.12.10/8.12.10/d: major-outer.mc,v 1.1 2004/09/17 17:50:56 root Exp $) with ESMTP id k3KKnVgv022272
-	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:49:31 GMT
+	by orsfmr004.jf.intel.com (8.12.10/8.12.10/d: major-outer.mc,v 1.1 2004/09/17 17:50:56 root Exp $) with ESMTP id k3KKnoiN024834
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:49:50 GMT
 Received: from nwlxmail01.jf.intel.com (nwlxmail01.jf.intel.com [10.7.171.40])
-	by orsfmr100.jf.intel.com (8.12.10/8.12.10/d: major-inner.mc,v 1.2 2004/09/17 18:05:01 root Exp $) with ESMTP id k3KKnU2u015667
-	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:49:30 GMT
+	by orsfmr100.jf.intel.com (8.12.10/8.12.10/d: major-inner.mc,v 1.2 2004/09/17 18:05:01 root Exp $) with ESMTP id k3KKno2u015775
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:49:50 GMT
 Received: from isotope.jf.intel.com (isotope.jf.intel.com [10.23.35.8])
-	by nwlxmail01.jf.intel.com (8.12.10/8.12.9/MailSET/Hub) with ESMTP id k3KKnUhF021484
-	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 13:49:30 -0700
+	by nwlxmail01.jf.intel.com (8.12.10/8.12.9/MailSET/Hub) with ESMTP id k3KKnohF021523
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 13:49:50 -0700
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Provides an API for offloading memory copies to DMA devices
+Adds a new ioatdma driver, ioatdma.c
 
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 
 ---
 
- drivers/Kconfig           |    2 
- drivers/Makefile          |    1 
- drivers/dma/Kconfig       |   13 +
- drivers/dma/Makefile      |    1 
- drivers/dma/dmaengine.c   |  405 +++++++++++++++++++++++++++++++++++++++++++++
- include/linux/dmaengine.h |  337 +++++++++++++++++++++++++++++++++++++
+ drivers/dma/ioatdma.c           |  805 +++++++++++++++++++++++++++++++++++++++
 
-diff --git a/drivers/Kconfig b/drivers/Kconfig
-index 9f5c0da..f89ac05 100644
---- a/drivers/Kconfig
-+++ b/drivers/Kconfig
-@@ -72,4 +72,6 @@ source "drivers/edac/Kconfig"
- 
- source "drivers/rtc/Kconfig"
- 
-+source "drivers/dma/Kconfig"
-+
- endmenu
-diff --git a/drivers/Makefile b/drivers/Makefile
-index 4249552..9b808a6 100644
---- a/drivers/Makefile
-+++ b/drivers/Makefile
-@@ -74,3 +74,4 @@ obj-$(CONFIG_SGI_SN)		+= sn/
- obj-y				+= firmware/
- obj-$(CONFIG_CRYPTO)		+= crypto/
- obj-$(CONFIG_SUPERH)		+= sh/
-+obj-$(CONFIG_DMA_ENGINE)	+= dma/
-diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
+diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
 new file mode 100644
-index 0000000..f9ac4bc
+index 0000000..ffe47dd
 --- /dev/null
-+++ b/drivers/dma/Kconfig
-@@ -0,0 +1,13 @@
-+#
-+# DMA engine configuration
-+#
-+
-+menu "DMA Engine support"
-+
-+config DMA_ENGINE
-+	bool "Support for DMA engines"
-+	---help---
-+	  DMA engines offload copy operations from the CPU to dedicated
-+	  hardware, allowing the copies to happen asynchronously.
-+
-+endmenu
-diff --git a/drivers/dma/Makefile b/drivers/dma/Makefile
-new file mode 100644
-index 0000000..10b7391
---- /dev/null
-+++ b/drivers/dma/Makefile
-@@ -0,0 +1 @@
-+obj-y += dmaengine.o
-diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
-new file mode 100644
-index 0000000..683456a
---- /dev/null
-+++ b/drivers/dma/dmaengine.c
-@@ -0,0 +1,405 @@
++++ b/drivers/dma/ioatdma.c
+@@ -0,0 +1,805 @@
 +/*
 + * Copyright(c) 2004 - 2006 Intel Corporation. All rights reserved.
 + *
@@ -110,734 +59,788 @@ index 0000000..683456a
 + */
 +
 +/*
-+ * This code implements the DMA subsystem. It provides a HW-neutral interface
-+ * for other kernel code to use asynchronous memory copy capabilities,
-+ * if present, and allows different HW DMA drivers to register as providing
-+ * this capability.
-+ *
-+ * Due to the fact we are accelerating what is already a relatively fast
-+ * operation, the code goes to great lengths to avoid additional overhead,
-+ * such as locking.
-+ *
-+ * LOCKING:
-+ *
-+ * The subsystem keeps two global lists, dma_device_list and dma_client_list.
-+ * Both of these are protected by a spinlock, dma_list_lock.
-+ *
-+ * Each device has a channels list, which runs unlocked but is never modified
-+ * once the device is registered, it's just setup by the driver.
-+ *
-+ * Each client has a channels list, it's only modified under the client->lock
-+ * and in an RCU callback, so it's safe to read under rcu_read_lock().
-+ *
-+ * Each device has a kref, which is initialized to 1 when the device is
-+ * registered. A kref_put is done for each class_device registered.  When the
-+ * class_device is released, the coresponding kref_put is done in the release
-+ * method. Every time one of the device's channels is allocated to a client,
-+ * a kref_get occurs.  When the channel is freed, the coresponding kref_put
-+ * happens. The device's release function does a completion, so
-+ * unregister_device does a remove event, class_device_unregister, a kref_put
-+ * for the first reference, then waits on the completion for all other
-+ * references to finish.
-+ *
-+ * Each channel has an open-coded implementation of Rusty Russell's "bigref,"
-+ * with a kref and a per_cpu local_t.  A single reference is set when on an
-+ * ADDED event, and removed with a REMOVE event.  Net DMA client takes an
-+ * extra reference per outstanding transaction.  The relase function does a
-+ * kref_put on the device. -ChrisL
++ * This driver supports an Intel I/OAT DMA engine, which does asynchronous
++ * copy operations.
 + */
 +
 +#include <linux/init.h>
 +#include <linux/module.h>
-+#include <linux/device.h>
++#include <linux/pci.h>
++#include <linux/interrupt.h>
 +#include <linux/dmaengine.h>
-+#include <linux/hardirq.h>
-+#include <linux/spinlock.h>
-+#include <linux/percpu.h>
-+#include <linux/rcupdate.h>
++#include <linux/delay.h>
++#include "ioatdma.h"
++#include "ioatdma_io.h"
++#include "ioatdma_registers.h"
++#include "ioatdma_hw.h"
 +
-+static DEFINE_SPINLOCK(dma_list_lock);
-+static LIST_HEAD(dma_device_list);
-+static LIST_HEAD(dma_client_list);
++#define to_ioat_chan(chan) container_of(chan, struct ioat_dma_chan, common)
++#define to_ioat_device(dev) container_of(dev, struct ioat_device, common)
++#define to_ioat_desc(lh) container_of(lh, struct ioat_desc_sw, node)
 +
-+/* --- sysfs implementation --- */
++/* internal functions */
++static int __devinit ioat_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
++static void __devexit ioat_remove(struct pci_dev *pdev);
 +
-+static ssize_t show_memcpy_count(struct class_device *cd, char *buf)
++static int enumerate_dma_channels(struct ioat_device *device)
 +{
-+	struct dma_chan *chan = container_of(cd, struct dma_chan, class_dev);
-+	unsigned long count = 0;
++	u8 xfercap_scale;
++	u32 xfercap;
 +	int i;
++	struct ioat_dma_chan *ioat_chan;
 +
-+	for_each_cpu(i)
-+		count += per_cpu_ptr(chan->local, i)->memcpy_count;
++	device->common.chancnt = ioatdma_read8(device, IOAT_CHANCNT_OFFSET);
++	xfercap_scale = ioatdma_read8(device, IOAT_XFERCAP_OFFSET);
++	xfercap = (xfercap_scale == 0 ? -1 : (1UL << xfercap_scale));
 +
-+	return sprintf(buf, "%lu\n", count);
-+}
-+
-+static ssize_t show_bytes_transferred(struct class_device *cd, char *buf)
-+{
-+	struct dma_chan *chan = container_of(cd, struct dma_chan, class_dev);
-+	unsigned long count = 0;
-+	int i;
-+
-+	for_each_cpu(i)
-+		count += per_cpu_ptr(chan->local, i)->bytes_transferred;
-+
-+	return sprintf(buf, "%lu\n", count);
-+}
-+
-+static ssize_t show_in_use(struct class_device *cd, char *buf)
-+{
-+	struct dma_chan *chan = container_of(cd, struct dma_chan, class_dev);
-+
-+	return sprintf(buf, "%d\n", (chan->client ? 1 : 0));
-+}
-+
-+static struct class_device_attribute dma_class_attrs[] = {
-+	__ATTR(memcpy_count, S_IRUGO, show_memcpy_count, NULL),
-+	__ATTR(bytes_transferred, S_IRUGO, show_bytes_transferred, NULL),
-+	__ATTR(in_use, S_IRUGO, show_in_use, NULL),
-+	__ATTR_NULL
-+};
-+
-+static void dma_async_device_cleanup(struct kref *kref);
-+
-+static void dma_class_dev_release(struct class_device *cd)
-+{
-+	struct dma_chan *chan = container_of(cd, struct dma_chan, class_dev);
-+	kref_put(&chan->device->refcount, dma_async_device_cleanup);
-+}
-+
-+static struct class dma_devclass = {
-+	.name            = "dma",
-+	.class_dev_attrs = dma_class_attrs,
-+	.release = dma_class_dev_release,
-+};
-+
-+/* --- client and device registration --- */
-+
-+/**
-+ * dma_client_chan_alloc - try to allocate a channel to a client
-+ * @client: &dma_client
-+ *
-+ * Called with dma_list_lock held.
-+ */
-+static struct dma_chan *dma_client_chan_alloc(struct dma_client *client)
-+{
-+	struct dma_device *device;
-+	struct dma_chan *chan;
-+	unsigned long flags;
-+	int desc;	/* allocated descriptor count */
-+
-+	/* Find a channel, any DMA engine will do */
-+	list_for_each_entry(device, &dma_device_list, global_node) {
-+		list_for_each_entry(chan, &device->channels, device_node) {
-+			if (chan->client)
-+				continue;
-+
-+			desc = chan->device->device_alloc_chan_resources(chan);
-+			if (desc >= 0) {
-+				kref_get(&device->refcount);
-+				kref_init(&chan->refcount);
-+				chan->slow_ref = 0;
-+				INIT_RCU_HEAD(&chan->rcu);
-+				chan->client = client;
-+				spin_lock_irqsave(&client->lock, flags);
-+				list_add_tail_rcu(&chan->client_node,
-+				                  &client->channels);
-+				spin_unlock_irqrestore(&client->lock, flags);
-+				return chan;
-+			}
++	for (i = 0; i < device->common.chancnt; i++) {
++		ioat_chan = kzalloc(sizeof(*ioat_chan), GFP_KERNEL);
++		if (!ioat_chan) {
++			device->common.chancnt = i;
++			break;
 +		}
++
++		ioat_chan->device = device;
++		ioat_chan->reg_base = device->reg_base + (0x80 * (i + 1));
++		ioat_chan->xfercap = xfercap;
++		spin_lock_init(&ioat_chan->cleanup_lock);
++		spin_lock_init(&ioat_chan->desc_lock);
++		INIT_LIST_HEAD(&ioat_chan->free_desc);
++		INIT_LIST_HEAD(&ioat_chan->used_desc);
++		/* This should be made common somewhere in dmaengine.c */
++		ioat_chan->common.device = &device->common;
++		ioat_chan->common.client = NULL;
++		list_add_tail(&ioat_chan->common.device_node,
++		              &device->common.channels);
 +	}
-+
-+	return NULL;
++	return device->common.chancnt;
 +}
 +
-+/**
-+ * dma_client_chan_free - release a DMA channel
-+ * @chan: &dma_chan
-+ */
-+void dma_chan_cleanup(struct kref *kref)
++static struct ioat_desc_sw *ioat_dma_alloc_descriptor(struct ioat_dma_chan *ioat_chan, int flags)
 +{
-+	struct dma_chan *chan = container_of(kref, struct dma_chan, refcount);
-+	chan->device->device_free_chan_resources(chan);
-+	chan->client = NULL;
-+	kref_put(&chan->device->refcount, dma_async_device_cleanup);
-+}
++	struct ioat_dma_descriptor *desc;
++	struct ioat_desc_sw *desc_sw;
++	struct ioat_device *ioat_device;
++	dma_addr_t phys;
 +
-+static void dma_chan_free_rcu(struct rcu_head *rcu)
-+{
-+	struct dma_chan *chan = container_of(rcu, struct dma_chan, rcu);
-+	int bias = 0x7FFFFFFF;
-+	int i;
-+	for_each_cpu(i)
-+		bias -= local_read(&per_cpu_ptr(chan->local, i)->refcount);
-+	atomic_sub(bias, &chan->refcount.refcount);
-+	kref_put(&chan->refcount, dma_chan_cleanup);
-+}
-+
-+static void dma_client_chan_free(struct dma_chan *chan)
-+{
-+	atomic_add(0x7FFFFFFF, &chan->refcount.refcount);
-+	chan->slow_ref = 1;
-+	call_rcu(&chan->rcu, dma_chan_free_rcu);
-+}
-+
-+/**
-+ * dma_chans_rebalance - reallocate channels to clients
-+ *
-+ * When the number of DMA channel in the system changes,
-+ * channels need to be rebalanced among clients
-+ */
-+static void dma_chans_rebalance(void)
-+{
-+	struct dma_client *client;
-+	struct dma_chan *chan;
-+	unsigned long flags;
-+
-+	spin_lock(&dma_list_lock);
-+	list_for_each_entry(client, &dma_client_list, global_node) {
-+		while (client->chans_desired > client->chan_count) {
-+			chan = dma_client_chan_alloc(client);
-+			if (!chan)
-+				break;
-+			client->chan_count++;
-+			client->event_callback(client,
-+	                                       chan,
-+	                                       DMA_RESOURCE_ADDED);
-+		}
-+		while (client->chans_desired < client->chan_count) {
-+			spin_lock_irqsave(&client->lock, flags);
-+			chan = list_entry(client->channels.next,
-+			                  struct dma_chan,
-+			                  client_node);
-+			list_del_rcu(&chan->client_node);
-+			spin_unlock_irqrestore(&client->lock, flags);
-+			client->chan_count--;
-+			client->event_callback(client,
-+			                       chan,
-+			                       DMA_RESOURCE_REMOVED);
-+			dma_client_chan_free(chan);
-+		}
-+	}
-+	spin_unlock(&dma_list_lock);
-+}
-+
-+/**
-+ * dma_async_client_register - allocate and register a &dma_client
-+ * @event_callback: callback for notification of channel addition/removal
-+ */
-+struct dma_client *dma_async_client_register(dma_event_callback event_callback)
-+{
-+	struct dma_client *client;
-+
-+	client = kzalloc(sizeof(*client), GFP_KERNEL);
-+	if (!client)
++	ioat_device = to_ioat_device(ioat_chan->common.device);
++	desc = pci_pool_alloc(ioat_device->dma_pool, flags, &phys);
++	if (unlikely(!desc))
 +		return NULL;
 +
-+	INIT_LIST_HEAD(&client->channels);
-+	spin_lock_init(&client->lock);
-+	client->chans_desired = 0;
-+	client->chan_count = 0;
-+	client->event_callback = event_callback;
++	desc_sw = kzalloc(sizeof(*desc_sw), flags);
++	if (unlikely(!desc_sw)) {
++		pci_pool_free(ioat_device->dma_pool, desc, phys);
++		return NULL;
++	}
 +
-+	spin_lock(&dma_list_lock);
-+	list_add_tail(&client->global_node, &dma_client_list);
-+	spin_unlock(&dma_list_lock);
++	memset(desc, 0, sizeof(*desc));
++	desc_sw->hw = desc;
++	desc_sw->phys = phys;
 +
-+	return client;
++	return desc_sw;
++}
++
++#define INITIAL_IOAT_DESC_COUNT 128
++
++static void ioat_start_null_desc(struct ioat_dma_chan *ioat_chan);
++
++/* returns the actual number of allocated descriptors */
++static int ioat_dma_alloc_chan_resources(struct dma_chan *chan)
++{
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++	struct ioat_desc_sw *desc = NULL;
++	u16 chanctrl;
++	u32 chanerr;
++	int i;
++
++	/*
++	 * In-use bit automatically set by reading chanctrl
++	 * If 0, we got it, if 1, someone else did
++	 */
++	chanctrl = ioatdma_chan_read16(ioat_chan, IOAT_CHANCTRL_OFFSET);
++	if (chanctrl & IOAT_CHANCTRL_CHANNEL_IN_USE)
++		return -EBUSY;
++
++        /* Setup register to interrupt and write completion status on error */
++	chanctrl = IOAT_CHANCTRL_CHANNEL_IN_USE |
++		IOAT_CHANCTRL_ERR_INT_EN |
++		IOAT_CHANCTRL_ANY_ERR_ABORT_EN |
++		IOAT_CHANCTRL_ERR_COMPLETION_EN;
++        ioatdma_chan_write16(ioat_chan, IOAT_CHANCTRL_OFFSET, chanctrl);
++
++	chanerr = ioatdma_chan_read32(ioat_chan, IOAT_CHANERR_OFFSET);
++	if (chanerr) {
++		printk("IOAT: CHANERR = %x, clearing\n", chanerr);
++		ioatdma_chan_write32(ioat_chan, IOAT_CHANERR_OFFSET, chanerr);
++	}
++
++	/* Allocate descriptors */
++	spin_lock_bh(&ioat_chan->desc_lock);
++	for (i = 0; i < INITIAL_IOAT_DESC_COUNT; i++) {
++		desc = ioat_dma_alloc_descriptor(ioat_chan, GFP_KERNEL);
++		if (!desc) {
++			printk(KERN_ERR "IOAT: Only %d initial descriptors\n", i);
++			break;
++		}
++		list_add_tail(&desc->node, &ioat_chan->free_desc);
++	}
++	spin_unlock_bh(&ioat_chan->desc_lock);
++
++	/* allocate a completion writeback area */
++	/* doing 2 32bit writes to mmio since 1 64b write doesn't work */
++	ioat_chan->completion_virt =
++		pci_pool_alloc(ioat_chan->device->completion_pool,
++		               GFP_KERNEL,
++		               &ioat_chan->completion_addr);
++	memset(ioat_chan->completion_virt, 0,
++	       sizeof(*ioat_chan->completion_virt));
++	ioatdma_chan_write32(ioat_chan, IOAT_CHANCMP_OFFSET_LOW,
++	               ((u64) ioat_chan->completion_addr) & 0x00000000FFFFFFFF);
++	ioatdma_chan_write32(ioat_chan, IOAT_CHANCMP_OFFSET_HIGH,
++	               ((u64) ioat_chan->completion_addr) >> 32);
++
++	ioat_start_null_desc(ioat_chan);
++	return i;
++}
++
++static void ioat_dma_memcpy_cleanup(struct ioat_dma_chan *ioat_chan);
++
++static void ioat_dma_free_chan_resources(struct dma_chan *chan)
++{
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++	struct ioat_device *ioat_device = to_ioat_device(chan->device);
++	struct ioat_desc_sw *desc, *_desc;
++	u16 chanctrl;
++	int in_use_descs = 0;
++
++	ioat_dma_memcpy_cleanup(ioat_chan);
++
++	ioatdma_chan_write8(ioat_chan, IOAT_CHANCMD_OFFSET, IOAT_CHANCMD_RESET);
++
++	spin_lock_bh(&ioat_chan->desc_lock);
++	list_for_each_entry_safe(desc, _desc, &ioat_chan->used_desc, node) {
++		in_use_descs++;
++		list_del(&desc->node);
++		pci_pool_free(ioat_device->dma_pool, desc->hw, desc->phys);
++		kfree(desc);
++	}
++	list_for_each_entry_safe(desc, _desc, &ioat_chan->free_desc, node) {
++		list_del(&desc->node);
++		pci_pool_free(ioat_device->dma_pool, desc->hw, desc->phys);
++		kfree(desc);
++	}
++	spin_unlock_bh(&ioat_chan->desc_lock);
++
++	pci_pool_free(ioat_device->completion_pool,
++	              ioat_chan->completion_virt,
++	              ioat_chan->completion_addr);
++
++	/* one is ok since we left it on there on purpose */
++	if (in_use_descs > 1)
++		printk(KERN_ERR "IOAT: Freeing %d in use descriptors!\n",
++			in_use_descs - 1);
++
++	ioat_chan->last_completion = ioat_chan->completion_addr = 0;
++
++	/* Tell hw the chan is free */
++	chanctrl = ioatdma_chan_read16(ioat_chan, IOAT_CHANCTRL_OFFSET);
++	chanctrl &= ~IOAT_CHANCTRL_CHANNEL_IN_USE;
++	ioatdma_chan_write16(ioat_chan, IOAT_CHANCTRL_OFFSET, chanctrl);
 +}
 +
 +/**
-+ * dma_async_client_unregister - unregister a client and free the &dma_client
-+ * @client:
-+ *
-+ * Force frees any allocated DMA channels, frees the &dma_client memory
++ * do_ioat_dma_memcpy - actual function that initiates a IOAT DMA transaction
++ * @chan: IOAT DMA channel handle
++ * @dest: DMA destination address
++ * @src: DMA source address
++ * @len: transaction length in bytes
 + */
-+void dma_async_client_unregister(struct dma_client *client)
-+{
-+	struct dma_chan *chan;
 +
-+	if (!client)
++static dma_cookie_t do_ioat_dma_memcpy(struct ioat_dma_chan *ioat_chan, dma_addr_t dest, dma_addr_t src, size_t len)
++{
++	struct ioat_desc_sw *first;
++	struct ioat_desc_sw *prev;
++	struct ioat_desc_sw *new;
++	dma_cookie_t cookie;
++	LIST_HEAD(new_chain);
++	u32 copy;
++	size_t orig_len;
++	dma_addr_t orig_src, orig_dst;
++	unsigned int desc_count = 0;
++	unsigned int append = 0;
++
++	if (!ioat_chan || !dest || !src)
++		return -EFAULT;
++
++	if (!len)
++		return ioat_chan->common.cookie;
++
++	orig_len = len;
++	orig_src = src;
++	orig_dst = dest;
++
++	first = NULL;
++	prev = NULL;
++
++	spin_lock_bh(&ioat_chan->desc_lock);
++
++	while (len) {
++		if (!list_empty(&ioat_chan->free_desc)) {
++			new = to_ioat_desc(ioat_chan->free_desc.next);
++			list_del(&new->node);
++		} else {
++			/* try to get another desc */
++			new = ioat_dma_alloc_descriptor(ioat_chan, GFP_ATOMIC);
++			/* will this ever happen? */
++			/* TODO add upper limit on these */
++			BUG_ON(!new);
++		}
++
++		copy = min((u32) len, ioat_chan->xfercap);
++
++		new->hw->size = copy;
++		new->hw->ctl = 0;
++		new->hw->src_addr = src;
++		new->hw->dst_addr = dest;
++		new->cookie = 0;
++
++		/* chain together the physical address list for the HW */
++		if (!first)
++			first = new;
++		else
++			prev->hw->next = (u64) new->phys;
++
++		prev = new;
++
++		len  -= copy;
++		dest += copy;
++		src  += copy;
++
++		list_add_tail(&new->node, &new_chain);
++		desc_count++;
++	}
++	new->hw->ctl = IOAT_DMA_DESCRIPTOR_CTL_CP_STS;
++	new->hw->next = 0;
++
++	/* cookie incr and addition to used_list must be atomic */
++
++	cookie = ioat_chan->common.cookie;
++	cookie++;
++	if (cookie < 0)
++		cookie = 1;
++	ioat_chan->common.cookie = new->cookie = cookie;
++
++	pci_unmap_addr_set(new, src, orig_src);
++	pci_unmap_addr_set(new, dst, orig_dst);
++	pci_unmap_len_set(new, src_len, orig_len);
++	pci_unmap_len_set(new, dst_len, orig_len);
++
++	/* write address into NextDescriptor field of last desc in chain */
++	to_ioat_desc(ioat_chan->used_desc.prev)->hw->next = first->phys;
++	list_splice_init(&new_chain, ioat_chan->used_desc.prev);
++
++	ioat_chan->pending += desc_count;
++	if (ioat_chan->pending >= 20) {
++		append = 1;
++		ioat_chan->pending = 0;
++	}
++
++	spin_unlock_bh(&ioat_chan->desc_lock);
++
++	if (append)
++		ioatdma_chan_write8(ioat_chan,
++		                    IOAT_CHANCMD_OFFSET,
++		                    IOAT_CHANCMD_APPEND);
++	return cookie;
++}
++
++/**
++ * ioat_dma_memcpy_buf_to_buf - wrapper that takes src & dest bufs
++ * @chan: IOAT DMA channel handle
++ * @dest: DMA destination address
++ * @src: DMA source address
++ * @len: transaction length in bytes
++ */
++
++static dma_cookie_t ioat_dma_memcpy_buf_to_buf(struct dma_chan *chan, void *dest, void *src, size_t len)
++{
++	dma_addr_t dest_addr;
++	dma_addr_t src_addr;
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++
++	dest_addr = pci_map_single(ioat_chan->device->pdev,
++		dest, len, PCI_DMA_FROMDEVICE);
++	src_addr = pci_map_single(ioat_chan->device->pdev,
++		src, len, PCI_DMA_TODEVICE);
++
++	return do_ioat_dma_memcpy(ioat_chan, dest_addr, src_addr, len);
++}
++
++/**
++ * ioat_dma_memcpy_buf_to_pg - wrapper, copying from a buf to a page
++ * @chan: IOAT DMA channel handle
++ * @page: pointer to the page to copy to
++ * @offset: offset into that page
++ * @src: DMA source address
++ * @len: transaction length in bytes
++ */
++
++static dma_cookie_t ioat_dma_memcpy_buf_to_pg(struct dma_chan *chan, struct page *page, unsigned int offset, void *src, size_t len)
++{
++	dma_addr_t dest_addr;
++	dma_addr_t src_addr;
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++
++	dest_addr = pci_map_page(ioat_chan->device->pdev,
++		page, offset, len, PCI_DMA_FROMDEVICE);
++	src_addr = pci_map_single(ioat_chan->device->pdev,
++		src, len, PCI_DMA_TODEVICE);
++
++	return do_ioat_dma_memcpy(ioat_chan, dest_addr, src_addr, len);
++}
++
++/**
++ * ioat_dma_memcpy_pg_to_pg - wrapper, copying between two pages
++ * @chan: IOAT DMA channel handle
++ * @dest_pg: pointer to the page to copy to
++ * @dest_off: offset into that page
++ * @src_pg: pointer to the page to copy from
++ * @src_off: offset into that page
++ * @len: transaction length in bytes. This is guaranteed to not make a copy
++ *	 across a page boundary.
++ */
++
++static dma_cookie_t ioat_dma_memcpy_pg_to_pg(struct dma_chan *chan, struct page *dest_pg, unsigned int dest_off, struct page *src_pg, unsigned int src_off, size_t len)
++{
++	dma_addr_t dest_addr;
++	dma_addr_t src_addr;
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++
++	dest_addr = pci_map_page(ioat_chan->device->pdev,
++		dest_pg, dest_off, len, PCI_DMA_FROMDEVICE);
++	src_addr = pci_map_page(ioat_chan->device->pdev,
++		src_pg, src_off, len, PCI_DMA_TODEVICE);
++
++	return do_ioat_dma_memcpy(ioat_chan, dest_addr, src_addr, len);
++}
++
++/**
++ * ioat_dma_memcpy_issue_pending - push potentially unrecognoized appended descriptors to hw
++ * @chan: DMA channel handle
++ */
++
++static void ioat_dma_memcpy_issue_pending(struct dma_chan *chan)
++{
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++
++	if (ioat_chan->pending != 0) {
++		ioat_chan->pending = 0;
++		ioatdma_chan_write8(ioat_chan,
++		                    IOAT_CHANCMD_OFFSET,
++		                    IOAT_CHANCMD_APPEND);
++	}
++}
++
++static void ioat_dma_memcpy_cleanup(struct ioat_dma_chan *chan)
++{
++	unsigned long phys_complete;
++	struct ioat_desc_sw *desc, *_desc;
++	dma_cookie_t cookie = 0;
++
++	prefetch(chan->completion_virt);
++
++	if (!spin_trylock(&chan->cleanup_lock))
 +		return;
 +
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(chan, &client->channels, client_node)
-+		dma_client_chan_free(chan);
-+	rcu_read_unlock();
++	/* The completion writeback can happen at any time,
++	   so reads by the driver need to be atomic operations
++	   The descriptor physical addresses are limited to 32-bits
++	   when the CPU can only do a 32-bit mov */
 +
-+	spin_lock(&dma_list_lock);
-+	list_del(&client->global_node);
-+	spin_unlock(&dma_list_lock);
++#if (BITS_PER_LONG == 64)
++	phys_complete = chan->completion_virt->full & IOAT_CHANSTS_COMPLETED_DESCRIPTOR_ADDR;
++#else
++	phys_complete = chan->completion_virt->low & IOAT_LOW_COMPLETION_MASK;
++#endif
 +
-+	kfree(client);
-+	dma_chans_rebalance();
-+}
++	if ((chan->completion_virt->full & IOAT_CHANSTS_DMA_TRANSFER_STATUS) ==
++		IOAT_CHANSTS_DMA_TRANSFER_STATUS_HALTED) {
++		printk("IOAT: Channel halted, chanerr = %x\n",
++			ioatdma_chan_read32(chan, IOAT_CHANERR_OFFSET));
 +
-+/**
-+ * dma_async_client_chan_request - request DMA channels
-+ * @client: &dma_client
-+ * @number: count of DMA channels requested
-+ *
-+ * Clients call dma_async_client_chan_request() to specify how many
-+ * DMA channels they need, 0 to free all currently allocated.
-+ * The resulting allocations/frees are indicated to the client via the
-+ * event callback.
-+ */
-+void dma_async_client_chan_request(struct dma_client *client,
-+			unsigned int number)
-+{
-+	client->chans_desired = number;
-+	dma_chans_rebalance();
-+}
-+
-+/**
-+ * dma_async_device_register -
-+ * @device: &dma_device
-+ */
-+int dma_async_device_register(struct dma_device *device)
-+{
-+	static int id;
-+	int chancnt = 0;
-+	struct dma_chan* chan;
-+
-+	if (!device)
-+		return -ENODEV;
-+
-+	init_completion(&device->done);
-+	kref_init(&device->refcount);
-+	device->dev_id = id++;
-+
-+	/* represent channels in sysfs. Probably want devs too */
-+	list_for_each_entry(chan, &device->channels, device_node) {
-+		chan->local = alloc_percpu(typeof(*chan->local));
-+		if (chan->local == NULL)
-+			continue;
-+
-+		chan->chan_id = chancnt++;
-+		chan->class_dev.class = &dma_devclass;
-+		chan->class_dev.dev = NULL;
-+		snprintf(chan->class_dev.class_id, BUS_ID_SIZE, "dma%dchan%d",
-+		         device->dev_id, chan->chan_id);
-+
-+		kref_get(&device->refcount);
-+		class_device_register(&chan->class_dev);
++		/* TODO do something to salvage the situation */
 +	}
 +
-+	spin_lock(&dma_list_lock);
-+	list_add_tail(&device->global_node, &dma_device_list);
-+	spin_unlock(&dma_list_lock);
++	if (phys_complete == chan->last_completion) {
++		spin_unlock(&chan->cleanup_lock);
++		return;
++	}
 +
-+	dma_chans_rebalance();
++	spin_lock_bh(&chan->desc_lock);
++	list_for_each_entry_safe(desc, _desc, &chan->used_desc, node) {
++
++		/*
++		 * Incoming DMA requests may use multiple descriptors, due to
++		 * exceeding xfercap, perhaps. If so, only the last one will
++		 * have a cookie, and require unmapping.
++		 */
++		if (desc->cookie) {
++			cookie = desc->cookie;
++
++			/* yes we are unmapping both _page and _single alloc'd
++			   regions with unmap_page. Is this *really* that bad?
++			*/
++			pci_unmap_page(chan->device->pdev,
++					pci_unmap_addr(desc, dst),
++					pci_unmap_len(desc, dst_len),
++					PCI_DMA_FROMDEVICE);
++			pci_unmap_page(chan->device->pdev,
++					pci_unmap_addr(desc, src),
++					pci_unmap_len(desc, src_len),
++					PCI_DMA_TODEVICE);
++		}
++
++		if (desc->phys != phys_complete) {
++			/* a completed entry, but not the last, so cleanup */
++			list_del(&desc->node);
++			list_add_tail(&desc->node, &chan->free_desc);
++		} else {
++			/* last used desc. Do not remove, so we can append from
++			   it, but don't look at it next time, either */
++			desc->cookie = 0;
++
++			/* TODO check status bits? */
++			break;
++		}
++	}
++
++	spin_unlock_bh(&chan->desc_lock);
++
++	chan->last_completion = phys_complete;
++	if (cookie != 0)
++		chan->completed_cookie = cookie;
++
++	spin_unlock(&chan->cleanup_lock);
++}
++
++/**
++ * ioat_dma_is_complete - poll the status of a IOAT DMA transaction
++ * @chan: IOAT DMA channel handle
++ * @cookie: DMA transaction identifier
++ */
++
++static enum dma_status ioat_dma_is_complete(struct dma_chan *chan, dma_cookie_t cookie, dma_cookie_t *done, dma_cookie_t *used)
++{
++	struct ioat_dma_chan *ioat_chan = to_ioat_chan(chan);
++	dma_cookie_t last_used;
++	dma_cookie_t last_complete;
++	enum dma_status ret;
++
++	last_used = chan->cookie;
++	last_complete = ioat_chan->completed_cookie;
++
++	if (done)
++		*done= last_complete;
++	if (used)
++		*used = last_used;
++
++	ret = dma_async_is_complete(cookie, last_complete, last_used);
++	if (ret == DMA_SUCCESS)
++		return ret;
++
++	ioat_dma_memcpy_cleanup(ioat_chan);
++
++	last_used = chan->cookie;
++	last_complete = ioat_chan->completed_cookie;
++
++	if (done)
++		*done= last_complete;
++	if (used)
++		*used = last_used;
++
++	return dma_async_is_complete(cookie, last_complete, last_used);
++}
++
++/* PCI API */
++
++static struct pci_device_id ioat_pci_tbl[] = {
++	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_IOAT) },
++	{ 0, }
++};
++
++static struct pci_driver ioat_pci_drv = {
++	.name 	= "ioatdma",
++	.id_table = ioat_pci_tbl,
++	.probe	= ioat_probe,
++	.remove	= __devexit_p(ioat_remove),
++};
++
++static irqreturn_t ioat_do_interrupt(int irq, void *data, struct pt_regs *regs)
++{
++	struct ioat_device *instance = data;
++	unsigned long attnstatus;
++	u8 intrctrl;
++
++	intrctrl = ioatdma_read8(instance, IOAT_INTRCTRL_OFFSET);
++
++	if (!(intrctrl & IOAT_INTRCTRL_MASTER_INT_EN))
++		return IRQ_NONE;
++
++	if (!(intrctrl & IOAT_INTRCTRL_INT_STATUS)) {
++		ioatdma_write8(instance, IOAT_INTRCTRL_OFFSET, intrctrl);
++		return IRQ_NONE;
++	}
++
++	attnstatus = ioatdma_read32(instance, IOAT_ATTNSTATUS_OFFSET);
++
++	printk(KERN_ERR "ioatdma error: interrupt! status %lx\n", attnstatus);
++
++	ioatdma_write8(instance, IOAT_INTRCTRL_OFFSET, intrctrl);
++	return IRQ_HANDLED;
++}
++
++static void ioat_start_null_desc(struct ioat_dma_chan *ioat_chan)
++{
++	struct ioat_desc_sw *desc;
++
++	spin_lock_bh(&ioat_chan->desc_lock);
++
++	if (!list_empty(&ioat_chan->free_desc)) {
++		desc = to_ioat_desc(ioat_chan->free_desc.next);
++		list_del(&desc->node);
++	} else {
++		/* try to get another desc */
++		desc = ioat_dma_alloc_descriptor(ioat_chan, GFP_KERNEL);
++		/* will this ever happen? */
++		BUG_ON(!desc);
++	}
++
++	desc->hw->ctl = IOAT_DMA_DESCRIPTOR_NUL;
++	desc->hw->next = 0;
++
++	list_add_tail(&desc->node, &ioat_chan->used_desc);
++
++#if (BITS_PER_LONG == 64)
++	ioatdma_chan_write64(ioat_chan, IOAT_CHAINADDR_OFFSET, desc->phys);
++#else
++	ioatdma_chan_write32(ioat_chan, IOAT_CHAINADDR_OFFSET_LOW, (u32) desc->phys);
++	ioatdma_chan_write32(ioat_chan, IOAT_CHAINADDR_OFFSET_HIGH, 0);
++#endif
++	ioatdma_chan_write8(ioat_chan, IOAT_CHANCMD_OFFSET, IOAT_CHANCMD_START);
++
++	spin_unlock_bh(&ioat_chan->desc_lock);
++}
++
++/*
++ * Perform a IOAT transaction to verify the HW works.
++ */
++#define IOAT_TEST_SIZE 2000
++
++static int ioat_self_test(struct ioat_device *device)
++{
++	int i;
++	u8 *src;
++	u8 *dest;
++	struct dma_chan *dma_chan;
++	dma_cookie_t cookie;
++	int err = 0;
++
++	src = kzalloc(sizeof(u8) * IOAT_TEST_SIZE, SLAB_KERNEL);
++	if (!src)
++		return -ENOMEM;
++	dest = kzalloc(sizeof(u8) * IOAT_TEST_SIZE, SLAB_KERNEL);
++	if (!dest) {
++		kfree(src);
++		return -ENOMEM;
++	}
++
++	/* Fill in src buffer */
++	for (i = 0; i < IOAT_TEST_SIZE; i++)
++		src[i] = (u8)i;
++
++	/* Start copy, using first DMA channel */
++	dma_chan = container_of(device->common.channels.next,
++	                        struct dma_chan,
++	                        device_node);
++	if (ioat_dma_alloc_chan_resources(dma_chan) < 1) {
++		err = -ENODEV;
++		goto out;
++	}
++
++	cookie = ioat_dma_memcpy_buf_to_buf(dma_chan, dest, src, IOAT_TEST_SIZE);
++	ioat_dma_memcpy_issue_pending(dma_chan);
++	msleep(1);
++
++	if (ioat_dma_is_complete(dma_chan, cookie, NULL, NULL) != DMA_SUCCESS) {
++		printk(KERN_ERR "ioatdma: Self-test copy timed out, disabling\n");
++		err = -ENODEV;
++		goto free_resources;
++	}
++	if (memcmp(src, dest, IOAT_TEST_SIZE)) {
++		printk(KERN_ERR "ioatdma: Self-test copy failed compare, disabling\n");
++		err = -ENODEV;
++		goto free_resources;
++	}
++
++free_resources:
++	ioat_dma_free_chan_resources(dma_chan);
++out:
++	kfree(src);
++	kfree(dest);
++	return err;
++}
++
++static int __devinit ioat_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++{
++	int err;
++	unsigned long mmio_start, mmio_len;
++	void *reg_base;
++	struct ioat_device *device;
++
++	err = pci_enable_device(pdev);
++	if (err)
++		goto err_enable_device;
++
++	err = pci_set_dma_mask(pdev, DMA_64BIT_MASK);
++	if (err)
++		err = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
++	if (err)
++		goto err_set_dma_mask;
++
++	err = pci_request_regions(pdev, ioat_pci_drv.name);
++	if (err)
++		goto err_request_regions;
++
++	mmio_start = pci_resource_start(pdev, 0);
++	mmio_len = pci_resource_len(pdev, 0);
++
++	reg_base = ioremap(mmio_start, mmio_len);
++	if (!reg_base) {
++		err = -ENOMEM;
++		goto err_ioremap;
++	}
++
++	device = kzalloc(sizeof(*device), GFP_KERNEL);
++	if (!device) {
++		err = -ENOMEM;
++		goto err_kzalloc;
++	}
++
++	/* DMA coherent memory pool for DMA descriptor allocations */
++	device->dma_pool = pci_pool_create("dma_desc_pool", pdev,
++		sizeof(struct ioat_dma_descriptor), 64, 0);
++	if (!device->dma_pool) {
++		err = -ENOMEM;
++		goto err_dma_pool;
++	}
++
++	device->completion_pool = pci_pool_create("completion_pool", pdev, sizeof(u64), SMP_CACHE_BYTES, SMP_CACHE_BYTES);
++	if (!device->completion_pool) {
++		err = -ENOMEM;
++		goto err_completion_pool;
++	}
++
++	device->pdev = pdev;
++	pci_set_drvdata(pdev, device);
++#ifdef CONFIG_PCI_MSI
++	if (pci_enable_msi(pdev) == 0) {
++		device->msi = 1;
++	} else {
++		device->msi = 0;
++	}
++#endif
++	err = request_irq(pdev->irq, &ioat_do_interrupt, SA_SHIRQ, "ioat",
++		device);
++	if (err)
++		goto err_irq;
++
++	device->reg_base = reg_base;
++
++	ioatdma_write8(device, IOAT_INTRCTRL_OFFSET, IOAT_INTRCTRL_MASTER_INT_EN);
++	pci_set_master(pdev);
++
++	INIT_LIST_HEAD(&device->common.channels);
++	enumerate_dma_channels(device);
++
++	device->common.device_alloc_chan_resources = ioat_dma_alloc_chan_resources;
++	device->common.device_free_chan_resources = ioat_dma_free_chan_resources;
++	device->common.device_memcpy_buf_to_buf = ioat_dma_memcpy_buf_to_buf;
++	device->common.device_memcpy_buf_to_pg = ioat_dma_memcpy_buf_to_pg;
++	device->common.device_memcpy_pg_to_pg = ioat_dma_memcpy_pg_to_pg;
++	device->common.device_memcpy_complete = ioat_dma_is_complete;
++	device->common.device_memcpy_issue_pending = ioat_dma_memcpy_issue_pending;
++	printk(KERN_INFO "Intel(R) I/OAT DMA Engine found, %d channels\n",
++		device->common.chancnt);
++
++	err = ioat_self_test(device);
++	if (err)
++		goto err_self_test;
++
++	dma_async_device_register(&device->common);
 +
 +	return 0;
++
++err_self_test:
++err_irq:
++	pci_pool_destroy(device->completion_pool);
++err_completion_pool:
++	pci_pool_destroy(device->dma_pool);
++err_dma_pool:
++	kfree(device);
++err_kzalloc:
++	iounmap(reg_base);
++err_ioremap:
++	pci_release_regions(pdev);
++err_request_regions:
++err_set_dma_mask:
++	pci_disable_device(pdev);
++err_enable_device:
++	return err;
 +}
 +
-+/**
-+ * dma_async_device_unregister -
-+ * @device: &dma_device
-+ */
-+static void dma_async_device_cleanup(struct kref *kref)
++static void __devexit ioat_remove(struct pci_dev *pdev)
 +{
-+	struct dma_device *device;
++	struct ioat_device *device;
 +
-+	device = container_of(kref, struct dma_device, refcount);
-+	complete(&device->done);
++	device = pci_get_drvdata(pdev);
++	dma_async_device_unregister(&device->common);
++
++	free_irq(device->pdev->irq, device);
++#ifdef CONFIG_PCI_MSI
++	if (device->msi)
++		pci_disable_msi(device->pdev);
++#endif
++	pci_pool_destroy(device->dma_pool);
++	pci_pool_destroy(device->completion_pool);
++	iounmap(device->reg_base);
++	pci_release_regions(pdev);
++	pci_disable_device(pdev);
++	kfree(device);
 +}
 +
-+void dma_async_device_unregister(struct dma_device* device)
++/* MODULE API */
++MODULE_VERSION("1.3");
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Intel Corporation");
++
++static int __init ioat_init_module(void)
 +{
-+	struct dma_chan *chan;
-+	unsigned long flags;
++	/* it's currently unsafe to unload this module */
++	/* if forced, worst case is that rmmod hangs */
++	if (THIS_MODULE != NULL)
++		THIS_MODULE->unsafe = 1;
 +
-+	spin_lock(&dma_list_lock);
-+	list_del(&device->global_node);
-+	spin_unlock(&dma_list_lock);
-+
-+	list_for_each_entry(chan, &device->channels, device_node) {
-+		if (chan->client) {
-+			spin_lock_irqsave(&chan->client->lock, flags);
-+			list_del(&chan->client_node);
-+			chan->client->chan_count--;
-+			spin_unlock_irqrestore(&chan->client->lock, flags);
-+			chan->client->event_callback(chan->client,
-+			                             chan,
-+			                             DMA_RESOURCE_REMOVED);
-+			dma_client_chan_free(chan);
-+		}
-+		class_device_unregister(&chan->class_dev);
-+	}
-+	dma_chans_rebalance();
-+
-+	kref_put(&device->refcount, dma_async_device_cleanup);
-+	wait_for_completion(&device->done);
++	return pci_module_init(&ioat_pci_drv);
 +}
 +
-+static int __init dma_bus_init(void)
++module_init(ioat_init_module);
++
++static void __exit ioat_exit_module(void)
 +{
-+	spin_lock_init(&dma_list_lock);
-+	return class_register(&dma_devclass);
++	pci_unregister_driver(&ioat_pci_drv);
 +}
 +
-+subsys_initcall(dma_bus_init);
-+
-+EXPORT_SYMBOL(dma_async_client_register);
-+EXPORT_SYMBOL(dma_async_client_unregister);
-+EXPORT_SYMBOL(dma_async_client_chan_request);
-+EXPORT_SYMBOL(dma_async_memcpy_buf_to_buf);
-+EXPORT_SYMBOL(dma_async_memcpy_buf_to_pg);
-+EXPORT_SYMBOL(dma_async_memcpy_pg_to_pg);
-+EXPORT_SYMBOL(dma_async_memcpy_complete);
-+EXPORT_SYMBOL(dma_async_memcpy_issue_pending);
-+EXPORT_SYMBOL(dma_async_device_register);
-+EXPORT_SYMBOL(dma_async_device_unregister);
-+EXPORT_SYMBOL(dma_chan_cleanup);
-diff --git a/include/linux/dmaengine.h b/include/linux/dmaengine.h
-new file mode 100644
-index 0000000..3078154
---- /dev/null
-+++ b/include/linux/dmaengine.h
-@@ -0,0 +1,337 @@
-+/*
-+ * Copyright(c) 2004 - 2006 Intel Corporation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option)
-+ * any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59
-+ * Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called COPYING.
-+ */
-+#ifndef DMAENGINE_H
-+#define DMAENGINE_H
-+#include <linux/config.h>
-+#ifdef CONFIG_DMA_ENGINE
-+
-+#include <linux/device.h>
-+#include <linux/uio.h>
-+#include <linux/kref.h>
-+#include <linux/completion.h>
-+#include <linux/rcupdate.h>
-+
-+/**
-+ * enum dma_event - resource PNP/power managment events
-+ * @DMA_RESOURCE_SUSPEND: DMA device going into low power state
-+ * @DMA_RESOURCE_RESUME: DMA device returning to full power
-+ * @DMA_RESOURCE_ADDED: DMA device added to the system
-+ * @DMA_RESOURCE_REMOVED: DMA device removed from the system
-+ */
-+enum dma_event {
-+	DMA_RESOURCE_SUSPEND,
-+	DMA_RESOURCE_RESUME,
-+	DMA_RESOURCE_ADDED,
-+	DMA_RESOURCE_REMOVED,
-+};
-+
-+/**
-+ * typedef dma_cookie_t
-+ *
-+ * if dma_cookie_t is >0 it's a DMA request cookie, <0 it's an error code
-+ */
-+typedef s32 dma_cookie_t;
-+
-+#define dma_submit_error(cookie) ((cookie) < 0 ? 1 : 0)
-+
-+/**
-+ * enum dma_status - DMA transaction status
-+ * @DMA_SUCCESS: transaction completed successfully
-+ * @DMA_IN_PROGRESS: transaction not yet processed
-+ * @DMA_ERROR: transaction failed
-+ */
-+enum dma_status {
-+	DMA_SUCCESS,
-+	DMA_IN_PROGRESS,
-+	DMA_ERROR,
-+};
-+
-+/**
-+ * struct dma_chan_percpu - the per-CPU part of struct dma_chan
-+ * @refcount: local_t used for open-coded "bigref" counting
-+ * @memcpy_count: transaction counter
-+ * @bytes_transferred: byte counter
-+ */
-+
-+struct dma_chan_percpu {
-+	local_t refcount;
-+	/* stats */
-+	unsigned long memcpy_count;
-+	unsigned long bytes_transferred;
-+};
-+
-+/**
-+ * struct dma_chan - devices supply DMA channels, clients use them
-+ * @client: ptr to the client user of this chan, will be NULL when unused
-+ * @device: ptr to the dma device who supplies this channel, always !NULL
-+ * @cookie: last cookie value returned to client
-+ * @chan_id:
-+ * @class_dev:
-+ * @refcount: kref, used in "bigref" slow-mode
-+ * @slow_ref:
-+ * @rcu:
-+ * @client_node: used to add this to the client chan list
-+ * @device_node: used to add this to the device chan list
-+ * @local: per-cpu pointer to a struct dma_chan_percpu
-+ */
-+struct dma_chan {
-+	struct dma_client *client;
-+	struct dma_device *device;
-+	dma_cookie_t cookie;
-+
-+	/* sysfs */
-+	int chan_id;
-+	struct class_device class_dev;
-+
-+	struct kref refcount;
-+	int slow_ref;
-+	struct rcu_head rcu;
-+
-+	struct list_head client_node;
-+	struct list_head device_node;
-+	struct dma_chan_percpu *local;
-+};
-+
-+void dma_chan_cleanup(struct kref *kref);
-+
-+static inline void dma_chan_get(struct dma_chan *chan)
-+{
-+	if (unlikely(chan->slow_ref))
-+		kref_get(&chan->refcount);
-+	else {
-+		local_inc(&(per_cpu_ptr(chan->local, get_cpu())->refcount));
-+		put_cpu();
-+	}
-+}
-+
-+static inline void dma_chan_put(struct dma_chan *chan)
-+{
-+	if (unlikely(chan->slow_ref))
-+		kref_put(&chan->refcount, dma_chan_cleanup);
-+	else {
-+		local_dec(&(per_cpu_ptr(chan->local, get_cpu())->refcount));
-+		put_cpu();
-+	}
-+}
-+
-+/*
-+ * typedef dma_event_callback - function pointer to a DMA event callback
-+ */
-+typedef void (*dma_event_callback) (struct dma_client *client,
-+		struct dma_chan *chan, enum dma_event event);
-+
-+/**
-+ * struct dma_client - info on the entity making use of DMA services
-+ * @event_callback: func ptr to call when something happens
-+ * @chan_count: number of chans allocated
-+ * @chans_desired: number of chans requested. Can be +/- chan_count
-+ * @lock: protects access to the channels list
-+ * @channels: the list of DMA channels allocated
-+ * @global_node: list_head for global dma_client_list
-+ */
-+struct dma_client {
-+	dma_event_callback	event_callback;
-+	unsigned int		chan_count;
-+	unsigned int		chans_desired;
-+
-+	spinlock_t		lock;
-+	struct list_head	channels;
-+	struct list_head	global_node;
-+};
-+
-+/**
-+ * struct dma_device - info on the entity supplying DMA services
-+ * @chancnt: how many DMA channels are supported
-+ * @channels: the list of struct dma_chan
-+ * @global_node: list_head for global dma_device_list
-+ * @refcount:
-+ * @done:
-+ * @dev_id:
-+ * Other func ptrs: used to make use of this device's capabilities
-+ */
-+struct dma_device {
-+
-+	unsigned int chancnt;
-+	struct list_head channels;
-+	struct list_head global_node;
-+
-+	struct kref refcount;
-+	struct completion done;
-+
-+	int dev_id;
-+
-+	int (*device_alloc_chan_resources)(struct dma_chan *chan);
-+	void (*device_free_chan_resources)(struct dma_chan *chan);
-+	dma_cookie_t (*device_memcpy_buf_to_buf)(struct dma_chan *chan,
-+			void *dest, void *src, size_t len);
-+	dma_cookie_t (*device_memcpy_buf_to_pg)(struct dma_chan *chan,
-+			struct page *page, unsigned int offset, void *kdata,
-+			size_t len);
-+	dma_cookie_t (*device_memcpy_pg_to_pg)(struct dma_chan *chan,
-+			struct page *dest_pg, unsigned int dest_off,
-+			struct page *src_pg, unsigned int src_off, size_t len);
-+	enum dma_status (*device_memcpy_complete)(struct dma_chan *chan,
-+			dma_cookie_t cookie, dma_cookie_t *last,
-+			dma_cookie_t *used);
-+	void (*device_memcpy_issue_pending)(struct dma_chan *chan);
-+};
-+
-+/* --- public DMA engine API --- */
-+
-+struct dma_client *dma_async_client_register(dma_event_callback event_callback);
-+void dma_async_client_unregister(struct dma_client *client);
-+void dma_async_client_chan_request(struct dma_client *client,
-+		unsigned int number);
-+
-+/**
-+ * dma_async_memcpy_buf_to_buf - offloaded copy between virtual addresses
-+ * @chan: DMA channel to offload copy to
-+ * @dest: destination address (virtual)
-+ * @src: source address (virtual)
-+ * @len: length
-+ *
-+ * Both @dest and @src must be mappable to a bus address according to the
-+ * DMA mapping API rules for streaming mappings.
-+ * Both @dest and @src must stay memory resident (kernel memory or locked
-+ * user space pages)
-+ */
-+static inline dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
-+	void *dest, void *src, size_t len)
-+{
-+	int cpu = get_cpu();
-+	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;
-+	per_cpu_ptr(chan->local, cpu)->memcpy_count++;
-+	put_cpu();
-+
-+	return chan->device->device_memcpy_buf_to_buf(chan, dest, src, len);
-+}
-+
-+/**
-+ * dma_async_memcpy_buf_to_pg - offloaded copy
-+ * @chan: DMA channel to offload copy to
-+ * @page: destination page
-+ * @offset: offset in page to copy to
-+ * @kdata: source address (virtual)
-+ * @len: length
-+ *
-+ * Both @page/@offset and @kdata must be mappable to a bus address according
-+ * to the DMA mapping API rules for streaming mappings.
-+ * Both @page/@offset and @kdata must stay memory resident (kernel memory or
-+ * locked user space pages)
-+ */
-+static inline dma_cookie_t dma_async_memcpy_buf_to_pg(struct dma_chan *chan,
-+	struct page *page, unsigned int offset, void *kdata, size_t len)
-+{
-+	int cpu = get_cpu();
-+	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;
-+	per_cpu_ptr(chan->local, cpu)->memcpy_count++;
-+	put_cpu();
-+
-+	return chan->device->device_memcpy_buf_to_pg(chan, page, offset,
-+	                                             kdata, len);
-+}
-+
-+/**
-+ * dma_async_memcpy_buf_to_pg - offloaded copy
-+ * @chan: DMA channel to offload copy to
-+ * @dest_page: destination page
-+ * @dest_off: offset in page to copy to
-+ * @src_page: source page
-+ * @src_off: offset in page to copy from
-+ * @len: length
-+ *
-+ * Both @dest_page/@dest_off and @src_page/@src_off must be mappable to a bus
-+ * address according to the DMA mapping API rules for streaming mappings.
-+ * Both @dest_page/@dest_off and @src_page/@src_off must stay memory resident
-+ * (kernel memory or locked user space pages)
-+ */
-+static inline dma_cookie_t dma_async_memcpy_pg_to_pg(struct dma_chan *chan,
-+	struct page *dest_pg, unsigned int dest_off, struct page *src_pg,
-+	unsigned int src_off, size_t len)
-+{
-+	int cpu = get_cpu();
-+	per_cpu_ptr(chan->local, cpu)->bytes_transferred += len;
-+	per_cpu_ptr(chan->local, cpu)->memcpy_count++;
-+	put_cpu();
-+
-+	return chan->device->device_memcpy_pg_to_pg(chan, dest_pg, dest_off,
-+	                                            src_pg, src_off, len);
-+}
-+
-+/**
-+ * dma_async_memcpy_issue_pending - flush pending copies to HW
-+ * @chan:
-+ *
-+ * This allows drivers to push copies to HW in batches,
-+ * reducing MMIO writes where possible.
-+ */
-+static inline void dma_async_memcpy_issue_pending(struct dma_chan *chan)
-+{
-+	return chan->device->device_memcpy_issue_pending(chan);
-+}
-+
-+/**
-+ * dma_async_memcpy_complete - poll for transaction completion
-+ * @chan: DMA channel
-+ * @cookie: transaction identifier to check status of
-+ * @last: returns last completed cookie, can be NULL
-+ * @used: returns last issued cookie, can be NULL
-+ *
-+ * If @last and @used are passed in, upon return they reflect the driver
-+ * internal state and can be used with dma_async_is_complete() to check
-+ * the status of multiple cookies without re-checking hardware state.
-+ */
-+static inline enum dma_status dma_async_memcpy_complete(struct dma_chan *chan,
-+	dma_cookie_t cookie, dma_cookie_t *last, dma_cookie_t *used)
-+{
-+	return chan->device->device_memcpy_complete(chan, cookie, last, used);
-+}
-+
-+/**
-+ * dma_async_is_complete - test a cookie against chan state
-+ * @cookie: transaction identifier to test status of
-+ * @last_complete: last know completed transaction
-+ * @last_used: last cookie value handed out
-+ *
-+ * dma_async_is_complete() is used in dma_async_memcpy_complete()
-+ * the test logic is seperated for lightweight testing of multiple cookies
-+ */
-+static inline enum dma_status dma_async_is_complete(dma_cookie_t cookie,
-+			dma_cookie_t last_complete, dma_cookie_t last_used)
-+{
-+	if (last_complete <= last_used) {
-+		if ((cookie <= last_complete) || (cookie > last_used))
-+			return DMA_SUCCESS;
-+	} else {
-+		if ((cookie <= last_complete) && (cookie > last_used))
-+			return DMA_SUCCESS;
-+	}
-+	return DMA_IN_PROGRESS;
-+}
-+
-+
-+/* --- DMA device --- */
-+
-+int dma_async_device_register(struct dma_device *device);
-+void dma_async_device_unregister(struct dma_device *device);
-+
-+#endif /* CONFIG_DMA_ENGINE */
-+#endif /* DMAENGINE_H */
--- 
-1.2.6
-
++module_exit(ioat_exit_module);
 
 
