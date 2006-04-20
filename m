@@ -1,84 +1,53 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: skb->truesize assertion checking for TCP
-Date: Wed, 19 Apr 2006 21:55:13 -0700 (PDT)
-Message-ID: <20060419.215513.13034269.davem@davemloft.net>
+From: Shaun Pereira <spereira@tusc.com.au>
+Subject: [PATCH 1/1]x25: fix for spinlock recurse and spinlock lockup with
+	timer handler in x25
+Date: Thu, 20 Apr 2006 15:03:23 +1000
+Message-ID: <1145509403.16180.10.camel@spereira05.tusc.com.au>
+Reply-To: spereira@tusc.com.au
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61351
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750877AbWDTEzg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 00:55:36 -0400
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-x25-owner@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	x25 maintainer <eis@baty.hanse.de>,
+	linux-x25 <linux-x25@vger.kernel.org>,
+	linux-kenel <linux-kernel@vger.kernel.org>
+Sender: linux-x25-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: spereira@tusc.com.au
 
-Herbert what do you think of this?
+When the sk_timer function x25_heartbeat_expiry() is called by the kernel
+in a running/terminating process, spinlock-recursion and spinlock-lockup
+locks up the kernel. 
+This has happened with testing on some distro's and the patch below fixed it.
 
-I know it might be better to check this right where we
-make the manipulations, but this catch-all trap at the
-end points seems to make sense and will catch other kinds
-of errors.
+Signed-off-by:Shaun Pereira <spereira@tusc.com.au>
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c4619a4..60a7c5a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -344,6 +344,13 @@ extern void	      skb_over_panic(struct 
- 				     void *here);
- extern void	      skb_under_panic(struct sk_buff *skb, int len,
- 				      void *here);
-+extern void	      skb_truesize_bug(struct sk_buff *skb);
-+
-+static inline void skb_truesize_check(struct sk_buff *skb)
-+{
-+	if (unlikely((int)skb->truesize < sizeof(struct sk_buff)))
-+		skb_truesize_bug(skb);
-+}
+diff -uprN -X dontdiff linux-2.6.17-rc2-vanilla/net/x25/x25_timer.c linux-2.6.17-rc2/net/x25/x25_timer.c
+--- linux-2.6.17-rc2-vanilla/net/x25/x25_timer.c	2006-04-20 12:00:03.000000000 +1000
++++ linux-2.6.17-rc2/net/x25/x25_timer.c	2006-04-20 12:02:43.000000000 +1000
+@@ -114,8 +114,9 @@ static void x25_heartbeat_expiry(unsigne
+ 			if (sock_flag(sk, SOCK_DESTROY) ||
+ 			    (sk->sk_state == TCP_LISTEN &&
+ 			     sock_flag(sk, SOCK_DEAD))) {
++				bh_unlock_sock(sk);
+ 				x25_destroy_socket(sk);
+-				goto unlock;
++				return;
+ 			}
+ 			break;
  
- extern int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
- 			int getfrag(void *from, char *to, int offset,
-diff --git a/include/net/sock.h b/include/net/sock.h
-index af2b054..ff8b0da 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -454,6 +454,7 @@ static inline void sk_stream_set_owner_r
- 
- static inline void sk_stream_free_skb(struct sock *sk, struct sk_buff *skb)
- {
-+	skb_truesize_check(skb);
- 	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
- 	sk->sk_wmem_queued   -= skb->truesize;
- 	sk->sk_forward_alloc += skb->truesize;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 09464fa..f2b4238 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -112,6 +112,12 @@ void skb_under_panic(struct sk_buff *skb
- 	BUG();
+@@ -128,7 +129,6 @@ static void x25_heartbeat_expiry(unsigne
+ 	}
+ restart_heartbeat:
+ 	x25_start_heartbeat(sk);
+-unlock:
+ 	bh_unlock_sock(sk);
  }
  
-+void skb_truesize_bug(struct sk_buff *skb)
-+{
-+	printk("SKB BUG: Invalid truesize (%u) sizeof(sk_buff)=%Zd\n",
-+	       skb->truesize, sizeof(struct sk_buff));
-+}
-+
- /* 	Allocate a new skbuff. We do this ourselves so we can fill in a few
-  *	'private' fields and also do memory statistics to find all the
-  *	[BEEP] leaks.
-diff --git a/net/core/stream.c b/net/core/stream.c
-index 35e2525..e948969 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -176,6 +176,7 @@ void sk_stream_rfree(struct sk_buff *skb
- {
- 	struct sock *sk = skb->sk;
- 
-+	skb_truesize_check(skb);
- 	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
- 	sk->sk_forward_alloc += skb->truesize;
- }
+
+
+
+
+
