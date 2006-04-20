@@ -1,33 +1,46 @@
 From: Andi Kleen <ak@suse.de>
-Subject: Re: I/OAT: Call for discussion
-Date: Thu, 20 Apr 2006 02:49:02 +0200
-Message-ID: <200604200249.03167.ak@suse.de>
-References: <5389061B65D50446B1783B97DFDB392D8E9F0A@orsmsx411.amr.corp.intel.com>
+Subject: Re: [PATCH 2.6.16-rc5] S2io: Receive packet classification and steering mechanisms
+Date: Thu, 20 Apr 2006 02:51:14 +0200
+Message-ID: <200604200251.14309.ak@suse.de>
+References: <MAEEKMLDLDFEGKHNIJHIEEJDCDAA.ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:22732 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1750702AbWDTAtQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 20:49:16 -0400
-To: "Grover, Andrew" <andrew.grover@intel.com>
-In-Reply-To: <5389061B65D50446B1783B97DFDB392D8E9F0A@orsmsx411.amr.corp.intel.com>
+Received: from mail.suse.de ([195.135.220.2]:12444 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1750704AbWDTAvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Apr 2006 20:51:20 -0400
+To: ravinandan.arakali@neterion.com
+In-Reply-To: <MAEEKMLDLDFEGKHNIJHIEEJDCDAA.ravinandan.arakali@neterion.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 19 April 2006 18:39, Grover, Andrew wrote:
+On Thursday 20 April 2006 00:45, Ravinandan Arakali wrote:
+> Andi,
+> We would like to explain that this patch is tier-1 of a two
+> tiered approach. It implements all the steering
+> functionality at driver-only level, and it is fairly Neterion-specific.
 
-> We have posted all the performance data we have gathered so far on the
-> linux-net wiki: http://linux-net.osdl.org/index.php/I/OAT , and listed
-> the overall concerns that have been expressed in private. I'm hoping you
-> will look at the data, re-examine the patches, and then we can talk
-> about the technical issues here on the list, getting down to the
-> specifics, so we can hash it out in public and settle on the right path
-> to take.
+That's fine for experiments, but probably not something
+that should be in tree.
 
-Maybe it would be best if you just reposted the patches? 
+> 
+> The second upcoming submission will add a generic netlink-based
+> interface for channel data flow and configuration(including receive steering
+> parameters) on per-channel basis, that will utilize the lower level
+> implementation from the current patch.
+
+Will the driver itself listening to netlink? 
+
+My feeling would be to teach the stack to use this would require
+efficient interfaces and netlink isn't particularly. But if it's just
+a glue module outside the driver that would be reasonable as a first
+step I guess.
+
+Do you also plan to release user tools to use it?
+
 
 -Andi
