@@ -1,58 +1,43 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: SIOCGIWSCAN wireless event behaviour
-Date: Thu, 20 Apr 2006 10:37:32 -0400
-Message-ID: <1145543852.2654.11.camel@localhost.localdomain>
-References: <4447979F.4050603@gentoo.org>
+From: "Jack Vogel" <jfvogel@gmail.com>
+Subject: Re: I/OAT: Call for discussion
+Date: Thu, 20 Apr 2006 08:17:28 -0700
+Message-ID: <2a41acea0604200817g48265b32y87d4d332d1690604@mail.gmail.com>
+References: <5389061B65D50446B1783B97DFDB392D8E9F0A@orsmsx411.amr.corp.intel.com>
+	 <20060419101217.0f5d84cf@localhost.localdomain>
+	 <56a8daef0604191028v7b3f501dm167a68709e8dea5f@mail.gmail.com>
+	 <20060419214417.GA25815@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, softmac-dev@sipsolutions.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "John Ronciak" <john.ronciak@gmail.com>,
+	"Stephen Hemminger" <shemminger@osdl.org>,
+	"Grover, Andrew" <andrew.grover@intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54158 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750797AbWDTOlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 10:41:18 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <4447979F.4050603@gentoo.org>
+Received: from pproxy.gmail.com ([64.233.166.179]:53307 "EHLO pproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1750981AbWDTPR3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 11:17:29 -0400
+Received: by pproxy.gmail.com with SMTP id i49so227536pye
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 08:17:28 -0700 (PDT)
+To: "Christoph Hellwig" <hch@infradead.org>
+In-Reply-To: <20060419214417.GA25815@infradead.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-04-20 at 15:15 +0100, Daniel Drake wrote:
-> Hi Jean,
-> 
-> A query regarding wireless events: under which circumstances should a 
-> driver/stack send a SIOCGIWSCAN event to userspace?
-> 
-> Should it be sent whenever a driver has new scan results available, or 
-> only when the user requested a scan a short time beforehand (via 
-> SIOCSIWSCAN)?
-
-Similar situation:  when wpa_supplicant requests a scan, the driver
-scans and pushes the GIWSCAN at completion.  _Every_ process (like
-NetworkManager) listening for netlink WE messages gets the GIWSCAN event
-even though only wpa_supplicant requested the original scan.
-
-So what I'm saying is that applications that process GIWSCAN netlink
-messages today should _already_ be able to handle random GIWSCAN events
-at any time even when they have not explicitly requested a scan with
-SIWSCAN.  The events are broadcast and the driver shouldn't really care
-which user app initiated any particular request.  Multiple apps can
-theoretically request scans at any time, though this isn't so good in
-practice.
-
-> I ask this because softmac is sending the SIOCGIWSCAN event even when 
-> the user did not explicitly ask for it.
-
-Given the above, I think this behavior is fine and even desirable.
-
-> I think the 'extra' SIOCGIWSCAN event may be confusing wpa_supplicant 
-> (but have not confirmed that yet).
-
-If this is the case, wpa_supplicant should not be getting confused by
-GIWSCAN events happening at random times, and should be fixed.  However,
-in my experience with 0.4.8, this isn't a problem and wpa_supplicant
-handles random scan events correctly.  Not sure about the 0.5.x branch
-though.
-
-Dan
+On 4/19/06, Christoph Hellwig <hch@infradead.org> wrote:
+> On Wed, Apr 19, 2006 at 10:28:41AM -0700, John Ronciak wrote:
+> > The hardware is going to generally available in June.  There are also
+> > lots of OEMs, OSVs and hardware vendors that have the system to test
+> > on today.  The early rollout of hardware has been very large.
+>
+> As a start to get people actually interested you should stop talking
+> like a jerk and kill all these silly three-letter acronyms from your language.
 
 
+??? For a community absolutely FILLED with everyday use of acronyms
+it boggles the mind why you would call someone names for using them.
+
+So if they were 4 letter ones it would make him a savant instead??
+
+Jack
