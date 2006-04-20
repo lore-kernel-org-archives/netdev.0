@@ -1,87 +1,37 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [RFC] Netlink and user-space buffer pointers
-Date: Thu, 20 Apr 2006 15:40:25 -0500
-Message-ID: <4447F1B9.1010003@cs.wisc.edu>
-References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <4446AC80.6040604@cs.wisc.edu> <44479BA8.1000405@emulex.com> <4447C8C2.30909@cs.wisc.edu> <4447E91E.7030603@emulex.com> <4447F09D.9090501@cs.wisc.edu>
+From: Andrew Grover <andrew.grover@intel.com>
+Subject: [PATCH 0/10] [IOAT] I/OAT patches repost
+Date: Thu, 20 Apr 2006 13:49:16 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0604201329300.22544-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: James.Smart@Emulex.Com
-In-Reply-To: <4447F09D.9090501@cs.wisc.edu>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmr18.intel.com ([134.134.136.17]:61072 "EHLO
+	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751266AbWDTUtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 16:49:17 -0400
+Received: from orsfmr100.jf.intel.com (orsfmr100.jf.intel.com [10.7.209.16])
+	by orsfmr003.jf.intel.com (8.12.10/8.12.10/d: major-outer.mc,v 1.1 2004/09/17 17:50:56 root Exp $) with ESMTP id k3KKnHS4032691
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:49:17 GMT
+Received: from nwlxmail01.jf.intel.com (nwlxmail01.jf.intel.com [10.7.171.40])
+	by orsfmr100.jf.intel.com (8.12.10/8.12.10/d: major-inner.mc,v 1.2 2004/09/17 18:05:01 root Exp $) with ESMTP id k3KKnH2u015571
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:49:17 GMT
+Received: from isotope.jf.intel.com (isotope.jf.intel.com [10.23.35.8])
+	by nwlxmail01.jf.intel.com (8.12.10/8.12.9/MailSET/Hub) with ESMTP id k3KKnGhF021463
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 13:49:17 -0700
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mike Christie wrote:
-> James Smart wrote:
->> Note: We've transitioned off topic. If what this means is "there isn't a
->> good
->> way except by ioctls (which still isn't easily portable) or system calls",
->> then that's ok. Then at least we know the limits and can look at other
->> implementation alternatives.
->>
->> Mike Christie wrote:
->>> James Smart wrote:
->>>> Mike Christie wrote:
->>>>> For the tasks you want to do for the fc class is performance critical?
->>>> No, it should not be.
->>>>
->>>>> If not, you could do what the iscsi class (for the netdev people
->>>>> this is
->>>>> drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
->>>>> copies. For iscsi we do this in userspace to send down a login pdu:
->>>>>
->>>>>     /*
->>>>>      * xmitbuf is a buffer that is large enough for the iscsi_event,
->>>>>      * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
->>>>>      */
->>>> Well, the real difference is that the payload of the "message" is
->>>> actually
->>>> the payload of the SCSI command or ELS/CT Request. Thus, the payload may
->>> I am not sure I follow. For iscsi, everything after the iscsi_event
->>> struct can be the iscsi request that is to be transmitted. The payload
->>> will not normally be Mbytes but it is not a couple if bytes.
->> True... For a large read/write - it will eventually total what the i/o
->> request size was, and you did have to push it through the socekt.
->> What this discussion really comes down to is the difference between
->> initiator
->> offload and what a target does.
->>
->> The initiator offloads the "full" i/o from the users - e.g. send command,
->> get response. In the initiator case, the user isn't aware of each and
->> every IU that makes up the i/o. As it's on an i/o basis, the LLDD doing
->> the offload needs the full buffer sitting and ready. DMA is preferred so
->> the buffer doesn't have to be consuming socket/kernel/driver buffers while
->> it's pending - plus speed.
->>
->> In the target case, the target controls each IU and it's size, thus it
->> only has to have access to as much buffer space as it wants to push the
->> next
->> IU. The i/o can be "paced" by the target. Unfortunately, this is an
->> entirely
->> different use model than users of a scsi initiator expect, and it won't map
->> well into replacing things like our sg_io ioctls.
-> 
-> 
-> I am not talking about the target here. For the open-iscsi initiator
-> that is in mainline that I referecnced in the example we send pdus from
-> userpsace to the LLD. In the future, initaitors that offload some iscsi
-> processing and will login from userspace or have userspace monitor the
-> transport by doing iscsi pings, we need to be able to send these pdus.
-> And the iscsi pdu cannot be broken up at the iscsi level (they can at
-> the interconect level though). From the iscsi host level they have to go
-> out like a scsi command would in that the LLD cannot decide to send out
-> mutiple pdus for he pdu that userspace sends down.
-> 
-> I do agree with you that targets can break down a scsi command into
-> multiple transport level packets as it sees fit.
-> 
+Hi I'm reposting these, originally posted by Chris Leech a few weeks ago.
+However, there is an extra part since I broke up one patch that was too 
+big for netdev last time into two (patches 2 and 3).
 
-Oh yeah is
+Of course we're always looking for more style improvement comments, but 
+more importantly we're posting these to talk about the larger issues 
+around I/OAT and this code making it in upstream at some point.
 
-FC IU == iscsi tcp packet
-or
-FC IU == iscsi pdu
-?
+These are also available on the wiki,  
+http://linux-net.osdl.org/index.php/I/OAT .
+
+Thanks -- Andy
+
