@@ -1,37 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: sendpage and high mem pages
-Date: Thu, 20 Apr 2006 12:35:43 -0700 (PDT)
-Message-ID: <20060420.123543.113480414.davem@davemloft.net>
-References: <4447E102.5080203@cs.wisc.edu>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Please pull upstream-fixes branch of wireless-2.6
+Date: Thu, 20 Apr 2006 12:58:16 -0700
+Message-ID: <20060420125816.678901bd.akpm@osdl.org>
+References: <20060420011232.GA9268@tuxdriver.com>
+	<200604201051.03881.mb@bu3sch.de>
+	<20060420015752.01d36087.akpm@osdl.org>
+	<20060420125336.GA23062@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: mb@bu3sch.de, jeff@garzik.org, netdev@vger.kernel.org,
+	torvalds@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44235
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751127AbWDTTfx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 15:35:53 -0400
-To: michaelc@cs.wisc.edu
-In-Reply-To: <4447E102.5080203@cs.wisc.edu>
+Received: from smtp.osdl.org ([65.172.181.4]:35813 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751221AbWDTT7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 15:59:30 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060420125336.GA23062@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mike Christie <michaelc@cs.wisc.edu>
-Date: Thu, 20 Apr 2006 14:29:06 -0500
+"John W. Linville" <linville@tuxdriver.com> wrote:
+>
+> At present, all the branches in wireless-2.6 only pull from linux-2.6.
+>  I am still pushing (i.e. requesting Jeff's pull) to netdev-2.6,
+>  if that matters.
+> 
+>  Maybe the current wireless-2.6 tree fits into your system better?
 
-> I was wondering if it is ok to pass sendpage high mem pages. If a piece
-> of code does this:
-> 
-> struct socket *sock;
-> 
-> sock->ops->sendpage(pg...)
-> 
-> and pg is a highmem page will the network layer do the right thing or
-> should the caller check the page type and call sock_no_sendpage() for
-> highmen? It looks like net/sunrpc/xprtsock.c does a check but
-> drivers/scsi/iscsi_tcp.c and some others do not.
-
-TCP and others handle this just fine, if something doesn't then it
-needs to be fixed.  Any page in the page cache can be sent over this
-interface.
+Works well, thanks.   I have some patches for you ;)
