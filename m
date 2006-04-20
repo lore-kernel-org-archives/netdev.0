@@ -1,36 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [TCP]: Account skb overhead in tcp_fragment
-Date: Wed, 19 Apr 2006 21:31:15 -0700 (PDT)
-Message-ID: <20060419.213115.74232309.davem@davemloft.net>
-References: <20060420010111.GA20576@gondor.apana.org.au>
-	<20060420032602.GA21406@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TOE info page
+Date: Wed, 19 Apr 2006 21:34:34 -0700
+Message-ID: <20060419213434.4dfb4a93@localhost.localdomain>
+References: <4446C626.806@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23715
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751256AbWDTEbh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 00:31:37 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060420032602.GA21406@gondor.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.4]:33714 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751258AbWDTEet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 00:34:49 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4446C626.806@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 20 Apr 2006 13:26:02 +1000
+On Wed, 19 Apr 2006 19:22:14 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-> On Thu, Apr 20, 2006 at 11:01:11AM +1000, herbert wrote:
-> > Hi Dave:
-> > 
-> > Since sk_stream_alloc_pskb takes an extra argument that accounts for
-> > paged data all we need to do to account sk_buff overhead correctly
-> > is to use that instead of sk_stream_alloc_skb.
 > 
-> Here is a better version that does not double-count the paged bits
-> that get moved across.
->  
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I created a TOE (TCP Offload Engine) info page for Linux, on the 
+> linux-net wiki:
+> 
+> 	http://linux-net.osdl.org/index.php/TOE
+> 
+> As soon as I can find a wiki admin, it will get added to the main page. 
+>   I don't seem to have such access.
+> 
+> 	Jeff
 
-Looks good, I'll apply this.
+I am the main administrator. I updated the front page, and added a couple
+more stubs for NAPI, TSO, UFO.
