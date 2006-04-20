@@ -1,30 +1,38 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH RESEND 1/2]  s390: remove tty support from ctc network
- device driver [1/2]
-Date: Thu, 20 Apr 2006 17:28:16 -0400
-Message-ID: <4447FCF0.3080101@pobox.com>
-References: <20060413201912.47915b3c@localhost.localdomain>
+Subject: Re: [PATCH 0/2] e1000: fix two mispatches
+Date: Thu, 20 Apr 2006 17:31:25 -0400
+Message-ID: <4447FDAD.4000904@pobox.com>
+References: <20060418193950.16262.10757.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "Miller, David" <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45212 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751328AbWDTV2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 17:28:20 -0400
-To: Frank Pavlic <fpavlic@de.ibm.com>
-In-Reply-To: <20060413201912.47915b3c@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:54172 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751331AbWDTVb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 17:31:27 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20060418193950.16262.10757.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Frank Pavlic wrote:
-> Hi jeff, 
-> after the first shot I sent to you did not apply I
-> resend  two new patches I've made today to remove tty from ctc network driver.
-> Please apply ....
+Kok, Auke wrote:
+> Hi,
 > 
-> Thank you ...
+> This patch series implements two e100 fixes for an old and new patch mishap.
+> 
+> [1] fix mispatch for media type detect.
+> [2] fix mismerge skb_put.
+> 
+> 
+> These changes are available through git.
+> 
+> git://63.64.152.142/~ahkok/git/netdev-2.6 e1000-7.0.38-k2-fixes
 
-applied 1-2 to #upstream (queued for 2.6.18, since 2.6.17 is in -rc)
+applied
 
 
