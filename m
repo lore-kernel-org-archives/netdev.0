@@ -1,38 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit buffers
-Date: Fri, 21 Apr 2006 09:36:31 +1000
-Message-ID: <20060420233631.GA28380@gondor.apana.org.au>
-References: <200604201035.00100.shaw@vranix.com>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH 2.6.16-rc5] S2io: Receive packet classification and steering mechanisms
+Date: Thu, 20 Apr 2006 16:41:39 -0700
+Message-ID: <MAEEKMLDLDFEGKHNIJHIIEKBCDAA.ravinandan.arakali@neterion.com>
+References: <200604200251.14309.ak@suse.de>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <jgarzik@pobox.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:273 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1751281AbWDTXgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 19:36:36 -0400
-To: shawvrana@gmail.com
-Content-Disposition: inline
-In-Reply-To: <200604201035.00100.shaw@vranix.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:14768 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751285AbWDTXlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 19:41:39 -0400
+To: "Andi Kleen" <ak@suse.de>
+In-Reply-To: <200604200251.14309.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 20, 2006 at 05:35:00PM +0000, shawvrana@gmail.com wrote:
-> 
-> If the e1000_tx_timeout_task were running concurrently with e1000_down, it 
-> seems that they could both attempt to kfree_skb concurrently when running 
-> e1000_unmap_and_free_tx_resource.   I googled around to find mention of this 
-> anywhere with no luck.  Has this been discussed already?
+Andi,
+The driver will be polling(listening) to netlink for
+any configuration requests. We could release the user
+tools but not sure where(in the tree) they would reside.
 
-Yes that's definitely buggy.  There needs to be some form of
-synchronisation as the TG3 driver does.  However, to be frank
-I'm not too fond of what the TG3 driver does either.  Is there
-no better way than an msleep loop?
+Thanks,
+Ravi
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-----Original Message-----
+From: Andi Kleen [mailto:ak@suse.de]
+Sent: Wednesday, April 19, 2006 5:51 PM
+To: ravinandan.arakali@neterion.com
+Cc: jgarzik@pobox.com; netdev@vger.kernel.org
+Subject: Re: [PATCH 2.6.16-rc5] S2io: Receive packet classification and
+steering mechanisms
+
+
+On Thursday 20 April 2006 00:45, Ravinandan Arakali wrote:
+> Andi,
+> We would like to explain that this patch is tier-1 of a two
+> tiered approach. It implements all the steering
+> functionality at driver-only level, and it is fairly Neterion-specific.
+
+That's fine for experiments, but probably not something
+that should be in tree.
+
+>
+> The second upcoming submission will add a generic netlink-based
+> interface for channel data flow and configuration(including receive
+steering
+> parameters) on per-channel basis, that will utilize the lower level
+> implementation from the current patch.
+
+Will the driver itself listening to netlink?
+
+My feeling would be to teach the stack to use this would require
+efficient interfaces and netlink isn't particularly. But if it's just
+a glue module outside the driver that would be reasonable as a first
+step I guess.
+
+Do you also plan to release user tools to use it?
+
+
+-Andi
+
