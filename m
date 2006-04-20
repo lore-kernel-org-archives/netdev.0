@@ -1,75 +1,95 @@
-From: Mike Christie <michaelc@cs.wisc.edu>
-Subject: Re: [RFC] Netlink and user-space buffer pointers
-Date: Thu, 20 Apr 2006 12:58:52 -0500
-Message-ID: <4447CBDC.6010002@cs.wisc.edu>
-References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <4446AC80.6040604@cs.wisc.edu> <44479BA8.1000405@emulex.com> <4447C8C2.30909@cs.wisc.edu>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [patch 3/3] softmac: clean up event handling code
+Date: Thu, 20 Apr 2006 20:02:04 +0200
+Message-ID: <20060420180240.591313000@sipsolutions.net>
+References: <20060420180201.092857000@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabe.cs.wisc.edu ([128.105.6.20]:38546 "EHLO sabe.cs.wisc.edu")
-	by vger.kernel.org with ESMTP id S1751206AbWDTR7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 13:59:03 -0400
-To: James.Smart@Emulex.Com
-In-Reply-To: <4447C8C2.30909@cs.wisc.edu>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:42987 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751209AbWDTS34
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 14:29:56 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Cc: softmac-dev@sipsolutions.net
+Content-Disposition: inline; filename=fix-event-code.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mike Christie wrote:
-> James Smart wrote:
->> Mike Christie wrote:
->>> For the tasks you want to do for the fc class is performance critical?
->> No, it should not be.
->>
->>> If not, you could do what the iscsi class (for the netdev people this is
->>> drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
->>> copies. For iscsi we do this in userspace to send down a login pdu:
->>>
->>>     /*
->>>      * xmitbuf is a buffer that is large enough for the iscsi_event,
->>>      * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
->>>      */
->> Well, the real difference is that the payload of the "message" is actually
->> the payload of the SCSI command or ELS/CT Request. Thus, the payload may
-> 
-> I am not sure I follow. For iscsi, everything after the iscsi_event
-> struct can be the iscsi request that is to be transmitted. The payload
-> will not normally be Mbytes but it is not a couple if bytes.
-> 
->> range in size from a few hundred bytes to several kbytes (> 1 page) to
->> Mbyte's in size. Rather than buffer all of this, and push it over the
->> socket,
->> thus the extra copies - it would best to have the LLDD simply DMA the
->> payload like on a typical SCSI command.  Additionally, there will be
->> response data that can be several kbytes in length.
->>
-> 
-> Once you have got the buffer to the class, the class can create a
-> scatterlist to DMA from for the LLD. I thought. iscsi does not do this
-> just because it is software right now. For qla4xxx we do not need
-> something like what you are talking about (see below for what I was
-> thinking about for the initiators). If you are saying the extra step of
-> the copy is plain dumb, I agree, but this happens (you have to suffer
-> some copy and cannot do dio) for sg io as well in some cases. I think
-> for the sg driver the copy_*_user is the default.
-> 
-> Instead of netlink for scsi commands and transport requests....
-> 
-> For scsi commands could we just use sg io, or is there something special
-> about the command you want to send? If you can use sg io for scsi
-> commands, maybe for transport level requests (in my example iscsi pdu)
-> we could modify something like sg/bsg/block layer scsi_ioctl.c to send
-> down transport requests to the classes and encapsulate them in some new
-> struct transport_requests or use the existing struct request but do that
-> thing people keep taling about using the request/request_queue for
-> message passing.
+This patch cleans up the event handling code in ieee80211softmac_event.c and
+makes the module slightly smaller by removing some strings that are not used
+any more and consolidating some code.
 
-And just to be complete, the problem with this is that it is tied to the
-request queue and so you cannot just send a transport level request
-unless it is tied to the device. But for the target stuff we added a
-request queue to the host so we could inject requests (the idea was to
-send down those magic message requests) at a higher level.  To be able
-to use that for sg io though it would require some more code and magic
-as you know.
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
+--- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_event.c	2006-04-20 18:51:24.190142823 +0200
++++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_event.c	2006-04-20 18:54:07.540142823 +0200
+@@ -38,7 +38,8 @@
+  * The event context is private and can only be used from
+  * within this module. Its meaning varies with the event
+  * type:
+- *  SCAN_FINISHED:	no special meaning
++ *  SCAN_FINISHED,
++ *  DISASSOCIATED:	NULL
+  *  ASSOCIATED,
+  *  ASSOCIATE_FAILED,
+  *  ASSOCIATE_TIMEOUT,
+@@ -59,15 +60,15 @@
+  */
+ 
+ static char *event_descriptions[IEEE80211SOFTMAC_EVENT_LAST+1] = {
+-	"scan finished",
+-	"associated",
++	NULL, /* scan finished */
++	NULL, /* associated */
+ 	"associating failed",
+ 	"associating timed out",
+ 	"authenticated",
+ 	"authenticating failed",
+ 	"authenticating timed out",
+ 	"associating failed because no suitable network was found",
+-	"disassociated",
++	NULL, /* disassociated */
+ };
+ 
+ 
+@@ -136,30 +137,24 @@ ieee80211softmac_call_events_locked(stru
+ 		int we_event;
+ 		char *msg = NULL;
+ 
++		memset(&wrqu, '\0', sizeof (union iwreq_data));
++
+ 		switch(event) {
+ 		case IEEE80211SOFTMAC_EVENT_ASSOCIATED:
+ 			network = (struct ieee80211softmac_network *)event_ctx;
+-			wrqu.data.length = 0;
+-			wrqu.data.flags = 0;
+ 			memcpy(wrqu.ap_addr.sa_data, &network->bssid[0], ETH_ALEN);
+-			wrqu.ap_addr.sa_family = ARPHRD_ETHER;
+-			we_event = SIOCGIWAP;
+-			break;
++			/* fall through */
+ 		case IEEE80211SOFTMAC_EVENT_DISASSOCIATED:
+-			wrqu.data.length = 0;
+-			wrqu.data.flags = 0;
+-			memset(&wrqu, '\0', sizeof (union iwreq_data));
+ 			wrqu.ap_addr.sa_family = ARPHRD_ETHER;
+ 			we_event = SIOCGIWAP;
+ 			break;
+ 		case IEEE80211SOFTMAC_EVENT_SCAN_FINISHED:
+-			wrqu.data.length = 0;
+-			wrqu.data.flags = 0;
+-			memset(&wrqu, '\0', sizeof (union iwreq_data));
+ 			we_event = SIOCGIWSCAN;
+ 			break;
+ 		default:
+ 			msg = event_descriptions[event];
++			if (!msg)
++				msg = "SOFTMAC EVENT BUG";
+ 			wrqu.data.length = strlen(msg);
+ 			we_event = IWEVCUSTOM;
+ 			break;
+
+--
+
