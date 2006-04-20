@@ -1,36 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: skb->truesize assertion checking for TCP
-Date: Wed, 19 Apr 2006 23:17:03 -0700 (PDT)
-Message-ID: <20060419.231703.35841080.davem@davemloft.net>
-References: <20060419.215513.13034269.davem@davemloft.net>
-	<20060420050406.GA22105@gondor.apana.org.au>
+From: "Jayachandran C" <jchandra@digeo.com>
+Subject: Re: [RESEND][PATCH] ebtables: clean up vmalloc usage in net/bridge/netfilter/ebtables.c
+Date: Thu, 20 Apr 2006 00:32:55 -0700
+Message-ID: <20060420073255.GA25288@random.pao.digeo.com>
+References: <20060419065025.GE17192@random.pao.digeo.com> <20060419.154126.64036253.davem@davemloft.net> <20060419155925.7aae7d25.akpm@osdl.org> <20060419.160328.128989267.davem@davemloft.net> <20060419161324.02e46449.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bridge@osdl.org, bdschuym@pandora.be, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28365
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751102AbWDTGRX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 02:17:23 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060420050406.GA22105@gondor.apana.org.au>
+Received: from packet.digeo.com ([12.110.80.53]:43166 "EHLO packet.digeo.com")
+	by vger.kernel.org with ESMTP id S1750739AbWDTHdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 03:33:55 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060419161324.02e46449.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 20 Apr 2006 15:04:06 +1000
-
-> On Wed, Apr 19, 2006 at 09:55:13PM -0700, David S. Miller wrote:
-> > +static inline void skb_truesize_check(struct sk_buff *skb)
-> > +{
-> > +	if (unlikely((int)skb->truesize < sizeof(struct sk_buff)))
-> > +		skb_truesize_bug(skb);
-> > +}
+On Wed, Apr 19, 2006 at 04:13:24PM -0700, Andrew Morton wrote:
+> "David S. Miller" <davem@davemloft.net> wrote:
+> >
+> > From: Andrew Morton <akpm@osdl.org>
+> > Date: Wed, 19 Apr 2006 15:59:25 -0700
+> > 
+> > > "David S. Miller" <davem@davemloft.net> wrote:
+> > > >
+> > > > An earlier variant of your patch was applied already, included below.
+> > > > You'll need to submit the newer parts relative to the current tree.
+> > > 
+> > > This is a similar-but-different patch.  It applies OK.
+> > > 
+> > > I reviewed it (mostly - it's somewhat non-trivial to do this) and queued it
+> > > up and was planning on sending it to you for post-2.6.17.
+> > 
+> > It's at least fixing a few bugs, and the parts which are cleanups
+> > undoubtedly should prevent bugs in the future, so I think we
+> > should consider it for 2.6.17 right?
 > 
-> I think we can go for the stronger test:
-> 
-> skb->truesize < sizeof(struct sk_buff) + skb->len
+> afaict it's just a cleanup, but whatever - I'll send it over now.
 
-Agreed, let me see if that triggers on my machine before
-I commit this :-)
+The first patch (which is already applied) was a bug fix. This one
+is just a clean up, it makes the same clean-up that Andrew did to
+the original patch, in other places in the same file.
+
+This is not at all critical, so it can be moved post-2.6.17 without
+any problem.
+
+Regards,
+JC.
