@@ -1,41 +1,83 @@
-From: Aubrey <aubreylee@gmail.com>
-Subject: Re: Netpoll checksum issue
-Date: Thu, 20 Apr 2006 09:54:54 +0800
-Message-ID: <6d6a94c50604191854m73b241e3v104d713b7bb93674@mail.gmail.com>
-References: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com>
-	 <20060419103153.64ef0054@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [TCP]: Account skb overhead in tcp_fragment
+Date: Thu, 20 Apr 2006 13:26:02 +1000
+Message-ID: <20060420032602.GA21406@gondor.apana.org.au>
+References: <20060420010111.GA20576@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.190]:6478 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1750729AbWDTBy4 convert rfc822-to-8bit
+Received: from rhun.apana.org.au ([64.62.148.172]:50700 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751156AbWDTD0E
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Apr 2006 21:54:56 -0400
-Received: by nproxy.gmail.com with SMTP id l24so11516nfc
-        for <netdev@vger.kernel.org>; Wed, 19 Apr 2006 18:54:54 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060419103153.64ef0054@localhost.localdomain>
+	Wed, 19 Apr 2006 23:26:04 -0400
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Content-Disposition: inline
+In-Reply-To: <20060420010111.GA20576@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/20/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> The changes to how hardware receive checksums are handled broke
-> the netpoll checksum code (for CHECKSUM_HW).  Since this is not at
-> all performance critical, try this patch. It changes to always to
-> normal software checksum.
->
-Hi Stephen - The patch doesn't work for my driver.
 
-Hi Herbert - I'm working on blackfin uclinux platform. My network
-driver is for blackfin on-chip EMAC. Of course it's open source, but
-so far it's not committed into mainline tree. We can be found at here:
-http://www.blackfin.uclinux.org
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-My driver didn't assign any value to skb->ip_summed,  and didn't
-define tx/rx checksum routine like "e1000_rx_checksum", but it did
-work before on 2.6.12. I'm trying to find what's broken.
-Thanks,
--Aubrey
+On Thu, Apr 20, 2006 at 11:01:11AM +1000, herbert wrote:
+> Hi Dave:
+> 
+> Since sk_stream_alloc_pskb takes an extra argument that accounts for
+> paged data all we need to do to account sk_buff overhead correctly
+> is to use that instead of sk_stream_alloc_skb.
+
+Here is a better version that does not double-count the paged bits
+that get moved across.
+ 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="tcp-fragment-charge-2.patch"
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 44df1db..a28ae59 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -533,6 +533,7 @@
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *buff;
+ 	int nsize, old_factor;
++	int nlen;
+ 	u16 flags;
+ 
+ 	BUG_ON(len > skb->len);
+@@ -552,8 +553,10 @@
+ 	if (buff == NULL)
+ 		return -ENOMEM; /* We'll just try again later. */
+ 
+-	buff->truesize = skb->len - len;
+-	skb->truesize -= buff->truesize;
++	sk_charge_skb(sk, buff);
++	nlen = skb->len - len - nsize;
++	buff->truesize += nlen;
++	skb->truesize -= nlen;
+ 
+ 	/* Correct the sequence numbers. */
+ 	TCP_SKB_CB(buff)->seq = TCP_SKB_CB(skb)->seq + len;
+@@ -1039,7 +1042,8 @@
+ 	if (unlikely(buff == NULL))
+ 		return -ENOMEM;
+ 
+-	buff->truesize = nlen;
++	sk_charge_skb(sk, buff);
++	buff->truesize += nlen;
+ 	skb->truesize -= nlen;
+ 
+ 	/* Correct the sequence numbers. */
+
+--ew6BAiZeqk4r7MaW--
