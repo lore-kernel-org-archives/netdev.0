@@ -1,33 +1,30 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/802/tr.c: remove an unsed export
-Date: Thu, 20 Apr 2006 23:07:02 +0200
-Message-ID: <20060420210702.GY25047@stusta.de>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH RESEND 1/2]  s390: remove tty support from ctc network
+ device driver [1/2]
+Date: Thu, 20 Apr 2006 17:28:16 -0400
+Message-ID: <4447FCF0.3080101@pobox.com>
+References: <20060413201912.47915b3c@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:26897 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1751318AbWDTVHD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 17:07:03 -0400
-To: acme@conectiva.com.br
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:45212 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751328AbWDTV2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 17:28:20 -0400
+To: Frank Pavlic <fpavlic@de.ibm.com>
+In-Reply-To: <20060413201912.47915b3c@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the unused EXPORT_SYMBOL(tr_source_route).
+Frank Pavlic wrote:
+> Hi jeff, 
+> after the first shot I sent to you did not apply I
+> resend  two new patches I've made today to remove tty from ctc network driver.
+> Please apply ....
+> 
+> Thank you ...
 
-(No, the usage in net/llc/llc_output.c can't be modular.)
+applied 1-2 to #upstream (queued for 2.6.18, since 2.6.17 is in -rc)
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.17-rc1-mm3-full/net/802/tr.c.old	2006-04-20 22:45:07.000000000 +0200
-+++ linux-2.6.17-rc1-mm3-full/net/802/tr.c	2006-04-20 22:45:18.000000000 +0200
-@@ -643,6 +643,5 @@
- 
- module_init(rif_init);
- 
--EXPORT_SYMBOL(tr_source_route);
- EXPORT_SYMBOL(tr_type_trans);
- EXPORT_SYMBOL(alloc_trdev);
 
