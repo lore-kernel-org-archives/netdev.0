@@ -1,39 +1,50 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: SIOCGIWSCAN wireless event behaviour
-Date: Thu, 20 Apr 2006 15:15:59 +0100
-Message-ID: <4447979F.4050603@gentoo.org>
+From: James Smart <James.Smart@Emulex.Com>
+Subject: Re: [RFC] Netlink and user-space buffer pointers
+Date: Thu, 20 Apr 2006 10:33:12 -0400
+Message-ID: <44479BA8.1000405@emulex.com>
+References: <1145306661.4151.0.camel@localhost.localdomain> <20060418160121.GA2707@us.ibm.com> <444633B5.5030208@emulex.com> <4446AC80.6040604@cs.wisc.edu>
+Reply-To: James.Smart@Emulex.Com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: softmac-dev@sipsolutions.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:53102 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750751AbWDTOCK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 10:02:10 -0400
-To: jt@hpl.hp.com
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Mike Christie <michaelc@cs.wisc.edu>
+In-Reply-To: <4446AC80.6040604@cs.wisc.edu>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jean,
 
-A query regarding wireless events: under which circumstances should a 
-driver/stack send a SIOCGIWSCAN event to userspace?
+Mike Christie wrote:
+> For the tasks you want to do for the fc class is performance critical?
 
-Should it be sent whenever a driver has new scan results available, or 
-only when the user requested a scan a short time beforehand (via 
-SIOCSIWSCAN)?
+No, it should not be.
 
-I ask this because softmac is sending the SIOCGIWSCAN event even when 
-the user did not explicitly ask for it.
+> If not, you could do what the iscsi class (for the netdev people this is
+> drivers/scsi/scsi_transport_iscsi.c) does and just suffer a couple
+> copies. For iscsi we do this in userspace to send down a login pdu:
+> 
+> 	/*
+> 	 * xmitbuf is a buffer that is large enough for the iscsi_event,
+> 	 * iscsi pdu (hdr_size) and iscsi pdu data (data_size)
+> 	 */
 
-For example, the user sets an essid. softmac starts a scan in order to 
-find the requested network. The network is found, the scan completes, 
-and softmac sends SIOCGIWSCAN. softmac then authenticates to that 
-network, associates, and then sends SIOCGIWAP.
+Well, the real difference is that the payload of the "message" is actually
+the payload of the SCSI command or ELS/CT Request. Thus, the payload may
+range in size from a few hundred bytes to several kbytes (> 1 page) to
+Mbyte's in size. Rather than buffer all of this, and push it over the socket,
+thus the extra copies - it would best to have the LLDD simply DMA the
+payload like on a typical SCSI command.  Additionally, there will be
+response data that can be several kbytes in length.
 
-I think the 'extra' SIOCGIWSCAN event may be confusing wpa_supplicant 
-(but have not confirmed that yet).
+> ... I think there may be issues with packing structs or 32 bit
+> userspace and 64 bit kernels and other fun things like this so the iscsi
+> pdu and iscsi event have to be defined correctly and I guess we are back
+> to some of the problems with ioctls :(
 
-Thanks,
-Daniel
+Agreed. In this use of netlink, there's not a lot of wins for netlink over
+ioctls. It all comes down to 2 things: a) proper portable message definition;
+and b) what do you do with that non-portable user space buffer pointer ?
+
+-- james s
