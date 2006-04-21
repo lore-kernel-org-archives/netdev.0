@@ -1,64 +1,73 @@
-From: shaw@vranix.com
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit buffers
-Date: Thu, 20 Apr 2006 20:05:53 -0700
-Message-ID: <200604202005.53504.shaw@vranix.com>
-References: <200604201035.00100.shaw@vranix.com> <20060421013340.GA29123@gondor.apana.org.au> <1145578214.3195.6.camel@rh4>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH 0/10] [IOAT] I/OAT patches repost
+Date: Thu, 20 Apr 2006 22:04:26 -0500
+Message-ID: <20060421030426.GM26746@pb15.lixom.net>
+References: <Pine.LNX.4.44.0604201329300.22544-100000@isotope.jf.intel.com> <20060420213305.GK26746@pb15.lixom.net> <20060420.172742.132879746.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_RwESE6L2TAzRagW"
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, shawvrana@gmail.com,
-	netdev@vger.kernel.org, "Auke Kok" <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: olof@lixom.net, andrew.grover@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ws6-3.us4.outblaze.com ([205.158.62.199]:47083 "HELO
-	ws6-3.us4.outblaze.com") by vger.kernel.org with SMTP
-	id S1750905AbWDUDGE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 23:06:04 -0400
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1145578214.3195.6.camel@rh4>
+Received: from lixom.net ([66.141.50.11]:59097 "EHLO mail.lixom.net")
+	by vger.kernel.org with ESMTP id S1751018AbWDUDFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 23:05:45 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060420.172742.132879746.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_RwESE6L2TAzRagW
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Thu, Apr 20, 2006 at 05:27:42PM -0700, David S. Miller wrote:
+> From: Olof Johansson <olof@lixom.net>
+> Date: Thu, 20 Apr 2006 16:33:05 -0500
+> 
+> > From the wiki:
+> > 
+> > >    3. Data copied by I/OAT is not cached
+> > 
+> > This is a I/OAT device limitation and not a global statement of the
+> > DMA infrastructure. Other platforms might be able to prime caches
+> > with the DMA traffic. Hint flags should be added on either the channel
+> > allocation calls, or per-operation calls, depending on where it makes
+> > sense driver/client wise.
+> 
+> This sidesteps the whole question of _which_ cache to warm.  And if
+> you choose wrongly, then what?
+>
+> Besides the control overhead of the DMA engines, the biggest thing
+> lost in my opinion is the perfect cache warming that a cpu based copy
+> does from the kernel socket buffer into userspace.
 
-I've replied to this once before, but haven't seen my last two emails on the 
-list, so I'm sending again with different settings.  Sorry for the noise.
+It's definitely the easiest way to always make sure the right caches
+are warm for the app, that I agree with.
 
-On Thursday 20 April 2006 17:10, Michael Chan wrote:
-> In tg3_remove_one(), we call flush_scheduled_work() in case the
-> reset_task is still pending. Here, it is safe to call
-> flush_scheduled_work() because we're not holding the rtnl. Again, when
-> it runs, nothing bad will happen because it will see netif_running() ==
-> 0.
+But, when warming those caches by copying, the data is pulled in through
+a potentially cold cache in the first place. So the cache misses are
+just moved from the copy loop to userspace with dma offload. Or am I
+missing something?
 
-I'll bite!  Here's a patch to add a call to flush_scheduled_work() in 
-e1000_down.  It's against 2.6.16.9.
+> The first thing an application is going to do is touch that data.  So
+> I think it's very important to prewarm the caches and the only
+> straightforward way I know of to always warm up the correct cpu's
+> caches is copy_to_user().
 
-Thanks,
-Shaw
+The other way (assuming the hardware supports cache warming) would be
+to pass down affinities (or look them up during receive processing,
+I'm not sure that's practical the way things work now), and dispatch
+on a DMA channel with the right cache affinity. I've got a feeling that
+"straightforward" is not a term to use for describing that solution
+though.
 
---Boundary-00=_RwESE6L2TAzRagW
-Content-Type: text/x-diff;
-  charset="iso-8859-6";
-  name="e1000_flush_in_close.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="e1000_flush_in_close.patch"
+> Unfortunately, many benchmarks just do raw bandwidth tests sending to
+> a receiver that just doesn't even look at the data.  They just return
+> from recvmsg() and loop back into it.  This is not what applications
+> using networking actually do, so it's important to make sure we look
+> intelligently at any benchmarks done and do not fall into the trap of
+> saying "even without cache warming it made things faster" when in fact
+> the tested receiver did not touch the data at all so was a false test.
 
-diff -u -uprN -X linux-2.6.16.9/Documentation/dontdiff linux-2.6.16.9/drivers/net/e1000/e1000_main.c linux-2.6.16.9-patch/drivers/net/e1000/e1000_main.c
---- linux-2.6.16.9/drivers/net/e1000/e1000_main.c	2006-04-18 23:10:14.000000000 -0700
-+++ linux-2.6.16.9-patch/drivers/net/e1000/e1000_main.c	2006-04-20 19:36:55.000000000 -0700
-@@ -538,6 +538,7 @@ e1000_down(struct e1000_adapter *adapter
- 	del_timer_sync(&adapter->tx_fifo_stall_timer);
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
-+	flush_scheduled_work();	
- 
- #ifdef CONFIG_E1000_NAPI
- 	netif_poll_disable(netdev);
+Yes, some real-life-like benchmarking is definitiely needed. Unfortunately
+I'm not at a position where I can do much (and share numbers) at the
+moment myself.
 
---Boundary-00=_RwESE6L2TAzRagW--
+
+-Olof
