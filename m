@@ -1,75 +1,100 @@
-From: "Andy Gospodarek" <andy@greyhouse.net>
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit buffers
-Date: Fri, 21 Apr 2006 16:01:52 -0400
-Message-ID: <bdfc5d6e0604211301k682b35d1r52a52cd3fec80ddc@mail.gmail.com>
-References: <1145578214.3195.6.camel@rh4>
-	 <E1FWlWa-0007hN-00@gondolin.me.apana.org.au>
-	 <20060421024024.GA29644@gondor.apana.org.au>
-	 <1145582676.3195.18.camel@rh4>
-	 <20060421132758.GA26161@gospo.rdu.redhat.com>
-	 <1145633287.3194.10.camel@rh4>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 1/2] class device: add attribute_group creation
+Date: Fri, 21 Apr 2006 12:52:55 -0700
+Message-ID: <20060421125255.3451959f@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, shawvrana@gmail.com,
-	netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
-	davem@davemloft.net, jgarzik@pobox.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.197]:41936 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751347AbWDUUBx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:01:53 -0400
-Received: by nz-out-0102.google.com with SMTP id 40so481075nzk
-        for <netdev@vger.kernel.org>; Fri, 21 Apr 2006 13:01:52 -0700 (PDT)
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1145633287.3194.10.camel@rh4>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:41123 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932291AbWDUUEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:04:00 -0400
+To: Greg KH <greg@kroah.com>, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/21/06, Michael Chan <mchan@broadcom.com> wrote:
-> On Fri, 2006-04-21 at 09:27 -0400, Andy Gospodarek wrote:
->
-> >
-> > Isn't the only possibility for a linkwatch deadlock when the
-> > __LINK_STATE_LINKWATCH_PENDING but is set in dev->state?
->
-> This device that you're about to close may be on the linkwatch list, or
-> other devices may also be on the linkwatch list. As long as
-> linkwatch_event is in front of your driver's task on the same workqueue,
-> it will deadlock.
+Extend the support of attribute groups in class_device's to allow groups
+to be created as part of the registration process. This allows network device's
+to avoid race between registration and creating groups.
 
-My thought was that you would only try and service the linkwatch queue
-if the device you are closing has the __LINK_STATE_LINKWATCH_PENDING
-bit set in that device's dev->state.    I agree there still could be
-problems with ordering of events on the workqueue, so it may make
-sense to use a separate workqueue for linkwatch events if we can't
-come up with a more consistent way to call flush_scheduled_work across
-all drivers.
+Note that unlike attributes that are a property of the class object, the groups
+are a property of the class_device object. This is done because there are different
+types of network devices (wireless for example).
 
-I just hate to see extra resources used to solve problems that good
-coding can solve (not that my suggestion is necessarily a 'good' one),
-so I was trying to think of a way to resolve this without explicitly
-adding another workqueue.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 
->
-> >
-> > Off the top of my head...
-> >
-> > Would it be interesting to change the calls for flush_scheduled_work()
-> > to a new function net_flush_scheduled_work() with the intent on
-> > eventually creating new a new work queue but temporarily just checking
-> > to make sure there are no linkwatch events pending and if there are
-> > allowing them to run first before calling flush_scheduled_work()?
-> >
->
-> Using the same workqueue and holding the rtnl_lock, I'm not sure how you
-> can let linkwatch_event run first without deadlocking.
->
->
-
-You wouldn't call linkwatch_event, you would call linkwatch_run_queue
-(with special care taken to make sure you take the rtnl_lock if
-needed).  See a similar example for calling linkwatch_run_queue in
-netdev_wait_allrefs.
+--- sky2-2.6.17.orig/drivers/base/class.c	2006-04-21 12:19:26.000000000 -0700
++++ sky2-2.6.17/drivers/base/class.c	2006-04-21 12:21:21.000000000 -0700
+@@ -456,6 +456,35 @@
+ 	}
+ }
+ 
++static int class_device_add_groups(struct class_device * cd)
++{
++	int i;
++	int error = 0;
++
++	if (cd->groups) {
++		for (i = 0; cd->groups[i]; i++) {
++			error = sysfs_create_group(&cd->kobj, cd->groups[i]);
++			if (error) {
++				while (--i >= 0)
++					sysfs_remove_group(&cd->kobj, cd->groups[i]);
++				goto out;
++			}
++		}
++	}
++out:
++	return error;
++}
++
++static void class_device_remove_groups(struct class_device * cd)
++{
++	int i;
++	if (cd->groups) {
++		for (i = 0; cd->groups[i]; i++) {
++			sysfs_remove_group(&cd->kobj, cd->groups[i]);
++		}
++	}
++}
++
+ static ssize_t show_dev(struct class_device *class_dev, char *buf)
+ {
+ 	return print_dev_t(buf, class_dev->devt);
+@@ -559,6 +588,8 @@
+ 				  class_name);
+ 	}
+ 
++	class_device_add_groups(class_dev);
++
+ 	kobject_uevent(&class_dev->kobj, KOBJ_ADD);
+ 
+ 	/* notify any interfaces this device is now here */
+@@ -672,6 +703,7 @@
+ 	if (class_dev->devt_attr)
+ 		class_device_remove_file(class_dev, class_dev->devt_attr);
+ 	class_device_remove_attrs(class_dev);
++	class_device_remove_groups(class_dev);
+ 
+ 	kobject_uevent(&class_dev->kobj, KOBJ_REMOVE);
+ 	kobject_del(&class_dev->kobj);
+--- sky2-2.6.17.orig/include/linux/device.h	2006-04-21 12:19:26.000000000 -0700
++++ sky2-2.6.17/include/linux/device.h	2006-04-21 12:19:36.000000000 -0700
+@@ -200,6 +200,7 @@
+  * @node: for internal use by the driver core only.
+  * @kobj: for internal use by the driver core only.
+  * @devt_attr: for internal use by the driver core only.
++ * @groups: optional additional groups to be created
+  * @dev: if set, a symlink to the struct device is created in the sysfs
+  * directory for this struct class device.
+  * @class_data: pointer to whatever you want to store here for this struct
+@@ -228,6 +229,7 @@
+ 	struct device		* dev;		/* not necessary, but nice to have */
+ 	void			* class_data;	/* class-specific data */
+ 	struct class_device	*parent;	/* parent of this child device, if there is one */
++	struct attribute_group  ** groups;	/* optional groups */
+ 
+ 	void	(*release)(struct class_device *dev);
+ 	int	(*uevent)(struct class_device *dev, char **envp,
