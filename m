@@ -1,185 +1,67 @@
-From: "Gary Zambrano" <zambrano@broadcom.com>
-Subject: [PATCH] b44: fix ethool link settings support
-Date: Fri, 21 Apr 2006 06:04:08 -0700
-Message-ID: <1145624648.18928.8.camel@dhcp-10-7-81-7.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [PATCH 0/17] d80211 patches
+Date: Fri, 21 Apr 2006 22:11:31 +0200 (CEST)
+Message-ID: <20060421220951.205579000.midnight@suse.cz>
+Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:53514 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932378AbWDUUF3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Apr 2006 16:05:29 -0400
-To: jgarzik@pobox.com
+Received: from styx.suse.cz ([82.119.242.94]:9351 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S932397AbWDUULF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:11:05 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the driver support for ethtool settings for speed/duplex/autoneg.
+Hi John,
 
+please pull to your wireless-dev tree from
 
-Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
+git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git up
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 3d30668..be266a9 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -433,10 +433,10 @@ static int b44_setup_phy(struct b44 *bp)
- 	u32 val;
- 	int err;
- 
--	if ((err = b44_readphy(bp, B44_MII_ALEDCTRL, &val)) != 0)
-+	if ((err = b44_readphy(bp, B44_MII_INTERRUPTS, &val)) != 0)
- 		goto out;
--	if ((err = b44_writephy(bp, B44_MII_ALEDCTRL,
--				val & MII_ALEDCTRL_ALLMSK)) != 0)
-+	if ((err = b44_writephy(bp, B44_MII_INTERRUPTS,
-+				val & MII_INTS_ALLMSK)) != 0)
- 		goto out;
- 	if ((err = b44_readphy(bp, B44_MII_TLEDCTRL, &val)) != 0)
- 		goto out;
-@@ -465,11 +465,7 @@ static int b44_setup_phy(struct b44 *bp)
- 						       BMCR_ANRESTART))) != 0)
- 			goto out;
- 	} else {
--		u32 bmcr;
--
--		if ((err = b44_readphy(bp, MII_BMCR, &bmcr)) != 0)
--			goto out;
--		bmcr &= ~(BMCR_FULLDPLX | BMCR_ANENABLE | BMCR_SPEED100);
-+		u32 bmcr = 0;
- 		if (bp->flags & B44_FLAG_100_BASE_T)
- 			bmcr |= BMCR_SPEED100;
- 		if (bp->flags & B44_FLAG_FULL_DUPLEX)
-@@ -1612,8 +1608,6 @@ static int b44_get_settings(struct net_d
- {
- 	struct b44 *bp = netdev_priv(dev);
- 
--	if (!netif_running(dev))
--		return -EAGAIN;
- 	cmd->supported = (SUPPORTED_Autoneg);
- 	cmd->supported |= (SUPPORTED_100baseT_Half |
- 			  SUPPORTED_100baseT_Full |
-@@ -1621,7 +1615,6 @@ static int b44_get_settings(struct net_d
- 			  SUPPORTED_10baseT_Full |
- 			  SUPPORTED_MII);
- 
--	cmd->advertising = 0;
- 	if (bp->flags & B44_FLAG_ADV_10HALF)
- 		cmd->advertising |= ADVERTISED_10baseT_Half;
- 	if (bp->flags & B44_FLAG_ADV_10FULL)
-@@ -1631,18 +1624,22 @@ static int b44_get_settings(struct net_d
- 	if (bp->flags & B44_FLAG_ADV_100FULL)
- 		cmd->advertising |= ADVERTISED_100baseT_Full;
- 	cmd->advertising |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
--	cmd->speed = (bp->flags & B44_FLAG_100_BASE_T) ?
--		SPEED_100 : SPEED_10;
--	cmd->duplex = (bp->flags & B44_FLAG_FULL_DUPLEX) ?
--		DUPLEX_FULL : DUPLEX_HALF;
--	cmd->port = 0;
--	cmd->phy_address = bp->phy_addr;
- 	cmd->transceiver = (bp->flags & B44_FLAG_INTERNAL_PHY) ?
- 		XCVR_INTERNAL : XCVR_EXTERNAL;
--	cmd->autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
--		AUTONEG_DISABLE : AUTONEG_ENABLE;
-+	if (netif_running(dev)){
-+		cmd->autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
-+			AUTONEG_DISABLE : AUTONEG_ENABLE;
-+		cmd->speed = (bp->flags & B44_FLAG_100_BASE_T) ?
-+			SPEED_100 : SPEED_10;
-+		cmd->duplex = (bp->flags & B44_FLAG_FULL_DUPLEX) ?
-+			DUPLEX_FULL : DUPLEX_HALF;
-+	}
-+	if (cmd->autoneg == AUTONEG_ENABLE)	
-+		cmd->advertising |= ADVERTISED_Autoneg;
-+	cmd->port = 0;
- 	cmd->maxtxpkt = 0;
- 	cmd->maxrxpkt = 0;
-+	cmd->phy_address = bp->phy_addr;
- 	return 0;
- }
- 
-@@ -1650,30 +1647,16 @@ static int b44_set_settings(struct net_d
- {
- 	struct b44 *bp = netdev_priv(dev);
- 
--	if (!netif_running(dev))
--		return -EAGAIN;
--
--	/* We do not support gigabit. */
--	if (cmd->autoneg == AUTONEG_ENABLE) {
--		if (cmd->advertising &
--		    (ADVERTISED_1000baseT_Half |
--		     ADVERTISED_1000baseT_Full))
--			return -EINVAL;
--	} else if ((cmd->speed != SPEED_100 &&
--		    cmd->speed != SPEED_10) ||
--		   (cmd->duplex != DUPLEX_HALF &&
--		    cmd->duplex != DUPLEX_FULL)) {
--			return -EINVAL;
--	}
--
- 	spin_lock_irq(&bp->lock);
--
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
--		bp->flags &= ~B44_FLAG_FORCE_LINK;
-+		bp->flags &= ~(B44_FLAG_FORCE_LINK |
-+				B44_FLAG_100_BASE_T |
-+				B44_FLAG_FULL_DUPLEX); 
- 		bp->flags &= ~(B44_FLAG_ADV_10HALF |
- 			       B44_FLAG_ADV_10FULL |
- 			       B44_FLAG_ADV_100HALF |
- 			       B44_FLAG_ADV_100FULL);
-+	
- 		if (cmd->advertising & ADVERTISE_10HALF)
- 			bp->flags |= B44_FLAG_ADV_10HALF;
- 		if (cmd->advertising & ADVERTISE_10FULL)
-@@ -1682,15 +1665,22 @@ static int b44_set_settings(struct net_d
- 			bp->flags |= B44_FLAG_ADV_100HALF;
- 		if (cmd->advertising & ADVERTISE_100FULL)
- 			bp->flags |= B44_FLAG_ADV_100FULL;
-+		if ((cmd->advertising & ADVERTISE_ALL) == 0)
-+			bp->flags |= (B44_FLAG_ADV_10HALF |
-+				      B44_FLAG_ADV_10FULL |
-+				      B44_FLAG_ADV_100HALF |
-+				      B44_FLAG_ADV_100FULL);
- 	} else {
- 		bp->flags |= B44_FLAG_FORCE_LINK;
-+		bp->flags &= ~(B44_FLAG_100_BASE_T | B44_FLAG_FULL_DUPLEX); 
- 		if (cmd->speed == SPEED_100)
- 			bp->flags |= B44_FLAG_100_BASE_T;
- 		if (cmd->duplex == DUPLEX_FULL)
- 			bp->flags |= B44_FLAG_FULL_DUPLEX;
- 	}
- 
--	b44_setup_phy(bp);
-+	if (netif_running(dev))
-+		b44_setup_phy(bp);
- 
- 	spin_unlock_irq(&bp->lock);
- 
-diff --git a/drivers/net/b44.h b/drivers/net/b44.h
-index b178662..c882391 100644
---- a/drivers/net/b44.h
-+++ b/drivers/net/b44.h
-@@ -293,13 +293,14 @@
- #define SSB_PCI_MASK2		0xc0000000
- 
- /* 4400 PHY registers */
--#define B44_MII_AUXCTRL		24	/* Auxiliary Control */
-+#define B44_MII_AUXCTRL		0x18	/* Auxiliary Control */
- #define  MII_AUXCTRL_DUPLEX	0x0001  /* Full Duplex */
- #define  MII_AUXCTRL_SPEED	0x0002  /* 1=100Mbps, 0=10Mbps */
- #define  MII_AUXCTRL_FORCED	0x0004	/* Forced 10/100 */
--#define B44_MII_ALEDCTRL	26	/* Activity LED */
--#define  MII_ALEDCTRL_ALLMSK	0x7fff
--#define B44_MII_TLEDCTRL	27	/* Traffic Meter LED */
-+#define  MII_AUXCTRL_ANEGEN	0x0008	/* Autoneg enabled */
-+#define B44_MII_INTERRUPTS	0x1a	/* Interrupt Reg */
-+#define  MII_INTS_ALLMSK	0x7fff
-+#define B44_MII_TLEDCTRL	0x1b	/* Traffic Meter LED */
- #define  MII_TLEDCTRL_ENABLE	0x0040
- 
- struct dma_desc {
+to obtain following patches. They were all posted to netdev previously and
+are all discussed with Jouni (except 7th patch, but that is quite simple and
+shouldn't cause any harm).
 
+Also, the new rule of required kerneldoc documentation is hopefully
+fulfilled - the only exception is ieee80211_hw structure, which is
+well-commented but with comments inside. I think it will be best to convert
+comments in ieee80211_hw by a separate patch.
 
+Please note that these changes break d80211 drivers.
+
+Jiri Benc:
+      d80211: symlinks to wiphy in sysfs
+      d80211: allow WDS remote to by set by WE
+      d80211: add IBSS and monitor interface types
+      d80211: non-shared interface types
+      d80211: remove local->bssid variable
+      d80211: rename IEEE80211_SUB_IF_TYPE_ constants
+      d80211: ask driver for allowed iface combinations
+      d80211: remove obsolete stuff
+      d80211: fix interface configuration
+      d80211: rename adm_status to radio_enabled
+      d80211: interface types changeable by SIOCSIWMODE
+      d80211: master interface auto up/down
+      d80211: set_multicast_list
+      d80211: fix handling of received frames
+      d80211: fix monitor interfaces
+      d80211: fix AP interfaces
+
+Jouni Malinen:
+      d80211: Replace MODULE_PARM with module_param
+
+ include/net/d80211.h         |  179 ++++-
+ net/d80211/Makefile          |    1 
+ net/d80211/hostapd_ioctl.h   |    3 
+ net/d80211/ieee80211.c       | 1473 +++++++++++++++----------------------------
+ net/d80211/ieee80211_dev.c   |   16 
+ net/d80211/ieee80211_i.h     |   80 +-
+ net/d80211/ieee80211_iface.c |  299 ++++++++
+ net/d80211/ieee80211_ioctl.c |  468 ++++++-------
+ net/d80211/ieee80211_proc.c  |   34 
+ net/d80211/ieee80211_sta.c   |  109 +--
+ net/d80211/ieee80211_sysfs.c |   95 +-
+ net/d80211/wme.c             |    3 
+ 12 files changed, 1376 insertions(+), 1384 deletions(-)
+
+Jiri Benc
+SUSE Labs
