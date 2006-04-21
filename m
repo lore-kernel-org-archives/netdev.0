@@ -1,332 +1,241 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 10/17] d80211: fix interface configuration
-Date: Fri, 21 Apr 2006 22:11:41 +0200 (CEST)
-Message-ID: <20060421201141.8DAD7482CA@silver.suse.cz>
+Subject: [PATCH 16/17] d80211: fix monitor interfaces
+Date: Fri, 21 Apr 2006 22:11:47 +0200 (CEST)
+Message-ID: <20060421201147.D4F76482CF@silver.suse.cz>
 References: <20060421220951.205579000.midnight@suse.cz>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:13447 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S932408AbWDUULO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:11:14 -0400
+Received: from styx.suse.cz ([82.119.242.94]:14983 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S932426AbWDUULU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:11:20 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <20060421220951.205579000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes some problems in interface configuration.
+This patch allows monitor interfaces to be set by SIOCSIWMODE and to receive
+frames.
 
-- Pass interface ID to add_interface and remove_interface callbacks. This ID
-  is used by a driver when calling ieee80211_beacon_get and
-  ieee80211_get_buffered_bc functions.
-- New configuration callback, config_interface, is introduced.
-- Allow BSSID to be set per-interface.
+Also, "soft" and "hard" monitor modes are introduced.
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- include/net/d80211.h         |   63 ++++++++++++++++++++++++++++++++++--------
- net/d80211/ieee80211.c       |   35 +++++++++++++++++++----
+ include/net/d80211.h         |   10 ++++++
+ net/d80211/ieee80211.c       |   67 ++++++++++++++++++++++++++++++++++++++++--
  net/d80211/ieee80211_i.h     |    1 +
- net/d80211/ieee80211_ioctl.c |   11 -------
- net/d80211/ieee80211_sta.c   |   15 +++++++++-
- 5 files changed, 93 insertions(+), 32 deletions(-)
+ net/d80211/ieee80211_iface.c |    7 ++++
+ 4 files changed, 81 insertions(+), 4 deletions(-)
 
-9b4d05977dda50bec721e696ec3cf98afd7d1ca9
+738241025b5e0091237d8c9d809d9affbdfaee29
 diff --git a/include/net/d80211.h b/include/net/d80211.h
-index 5dff49a..84abd7c 100644
+index 7bc66b5..23bcbfa 100644
 --- a/include/net/d80211.h
 +++ b/include/net/d80211.h
-@@ -286,8 +286,6 @@ struct ieee80211_conf {
- 
- 	int atheros_xr;
- 
--	u8 client_bssid[ETH_ALEN];
--
- 	/* Following five fields are used for IEEE 802.11H */
- 	unsigned int radar_detect;
- 	unsigned int spect_mgmt;
-@@ -325,6 +323,9 @@ enum ieee80211_if_types {
- 
- /**
-  * struct ieee80211_if_init_conf - initial configuration of an interface
-+ * @if_id: internal interface ID. This number has no particular meaning to
-+ *	drivers and the only allowed usage is to pass it to
-+ *	ieee80211_beacon_get() and ieee80211_get_buffered_bc() functions.
+@@ -330,6 +330,8 @@ enum ieee80211_if_types {
+  * @if_id: internal interface ID. This number has no particular meaning to
+  *	drivers and the only allowed usage is to pass it to
+  *	ieee80211_beacon_get() and ieee80211_get_buffered_bc() functions.
++ *	This field is not valid for monitor interfaces
++ *	(interfaces of %IEEE80211_IF_TYPE_MNTR type).
   * @type: one of &enum ieee80211_if_types constants. Determines the type of
   *	added/removed interface.
   * @mac_addr: pointer to MAC address of the interface. This pointer is valid
-@@ -335,10 +336,27 @@ enum ieee80211_if_types {
-  * callbacks of &struct ieee80211_hw.
-  */
- struct ieee80211_if_init_conf {
-+	int if_id;
- 	int type;
- 	void *mac_addr;
- };
+@@ -476,6 +478,10 @@ struct ieee80211_hw {
+ 	 */
+ 	unsigned int device_strips_mic:1;
  
-+/**
-+ * struct ieee80211_if_conf - configuration of an interface
-+ * @type: type of the interface. This is always the same as was specified in
-+ *	&struct ieee80211_if_init_conf. The type of interface never change
-+ *	during the live of the interface; this field is present only for
-+ *	convenience.
-+ * @bssid: BSSID of the network we are associated to/creating.
-+ *
-+ * This structure is passed to config_interface() callback of
-+ * &struct ieee80211_hw.
-+ */
-+struct ieee80211_if_conf {
-+	int type;
-+	u8 *bssid;
-+};
++	/* Device is capable of performing full monitor mode even during
++	 * normal operation. */
++	unsigned int monitor_during_oper:1;
 +
- typedef enum { ALG_NONE, ALG_WEP, ALG_TKIP, ALG_CCMP, ALG_NULL }
- ieee80211_key_alg;
- 
-@@ -505,6 +523,11 @@ struct ieee80211_hw {
- 	 * function to change hardware configuration, e.g., channel. */
- 	int (*config)(struct net_device *dev, struct ieee80211_conf *conf);
- 
-+	/* Handler for configuration requests related to interfaces (e.g.
-+	 * BSSID). */
-+	int (*config_interface)(struct net_device *dev, int if_id,
-+				struct ieee80211_if_conf *conf);
-+
- 	/* Set TIM bit handler. If the hardware/firmware takes care of beacon
- 	 * generation, IEEE 802.11 code uses this function to tell the
- 	 * low-level to set (or clear if set==0) TIM bit for the given aid. If
-@@ -682,16 +705,31 @@ void ieee80211_tx_status(struct net_devi
- void ieee80211_tx_status_irqsafe(struct net_device *dev, struct sk_buff *skb,
- 				 struct ieee80211_tx_status *status);
- 
--/* Beacon generation function. If the beacon frames are generated by the host
-- * system (i.e., not in hardware/firmware), the low-level driver uses this
-- * function to receive the next beacon frame from the 802.11 code. The
-- * low-level is responsible for calling this function before beacon data is
-- * needed (e.g., based on hardware interrupt). Returned skb is used only once
-- * and low-level driver is responsible of freeing it. */
--struct sk_buff * ieee80211_beacon_get(struct net_device *dev, int bss_idx,
-+/**
-+ * ieee80211_beacon_get - beacon generation function
-+ * @dev: pointer to &struct net_device as obtained from
-+ *	ieee80211_alloc_hw().
-+ * @if_id: interface ID from &struct ieee80211_if_init_conf.
-+ * @control: will be filled with information needed to send this beacon.
-+ *
-+ * If the beacon frames are generated by the host system (i.e., not in
-+ * hardware/firmware), the low-level driver uses this function to receive
-+ * the next beacon frame from the 802.11 code. The low-level is responsible
-+ * for calling this function before beacon data is needed (e.g., based on
-+ * hardware interrupt). Returned skb is used only once and low-level driver
-+ * is responsible of freeing it.
-+ */
-+struct sk_buff * ieee80211_beacon_get(struct net_device *dev, int if_id,
- 				      struct ieee80211_tx_control *control);
- 
--/* Function for accessing buffered broadcast and multicast frames. If
-+/**
-+ * ieee80211_beacon_get - accessing buffered broadcast and multicast frames
-+ * @dev: pointer to &struct net_device as obtained from
-+ *	ieee80211_alloc_hw().
-+ * @if_id: interface ID from &struct ieee80211_if_init_conf.
-+ * @control: will be filled with information needed to send returned frame.
-+ *
-+ * Function for accessing buffered broadcast and multicast frames. If
-  * hardware/firmware does not implement buffering of broadcast/multicast
-  * frames when power saving is used, 802.11 code buffers them in the host
-  * memory. The low-level driver uses this function to fetch next buffered
-@@ -704,9 +742,10 @@ struct sk_buff * ieee80211_beacon_get(st
-  * call ieee80211_beacon_get() first. ieee80211_get_buffered_bc() returns
-  * NULL if the previous generated beacon was not DTIM, so the low-level driver
-  * does not need to check for DTIM beacons separately and should be able to
-- * use common code for all beacons. */
-+ * use common code for all beacons.
-+ */
- struct sk_buff *
--ieee80211_get_buffered_bc(struct net_device *dev, int bss_idx,
-+ieee80211_get_buffered_bc(struct net_device *dev, int if_id,
- 			  struct ieee80211_tx_control *control);
- 
- /* Low level drivers that have their own MLME and MAC indicate
+ 	/* 1 = low-level driver supports skb fraglist (NETIF_F_FRAGLIST), i.e.,
+ 	 * more than one skb per frame */
+ 	unsigned int fraglist;
+@@ -511,7 +517,9 @@ struct ieee80211_hw {
+ 	 * more exactly, set UP). If the handler returns zero, the interface
+ 	 * is added. Driver should perform any initialization it needs prior
+ 	 * to returning zero. By returning non-zero, adding of the interface
+-	 * is not permitted. The open() handler is called after
++	 * is not permitted. Unless monitor_during_oper is set, it is
++	 * guaranteed that monitor interfaces and normal interfaces are
++	 * mutually exclusive. The open() handler is called after
+ 	 * add_interface() if this is the first device added. At least one
+ 	 * of open() and add_interface() handler has to be non-NULL. If
+ 	 * add_interface() is NULL, one STA interface is permitted only. */
 diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index e3e155e..e6d4342 100644
+index e2a42af..b199b9e 100644
 --- a/net/d80211/ieee80211.c
 +++ b/net/d80211/ieee80211.c
-@@ -1556,7 +1556,7 @@ static void ieee80211_beacon_add_tim(str
+@@ -1891,7 +1891,9 @@ static struct net_device_stats *ieee8021
+ 
+ static inline int identical_mac_addr_allowed(int type1, int type2)
+ {
+-	return ((type1 == IEEE80211_IF_TYPE_AP &&
++	return (type1 == IEEE80211_IF_TYPE_MNTR ||
++		type2 == IEEE80211_IF_TYPE_MNTR ||
++		(type1 == IEEE80211_IF_TYPE_AP &&
+ 		 type2 == IEEE80211_IF_TYPE_WDS) ||
+ 		(type1 == IEEE80211_IF_TYPE_WDS &&
+ 		 (type2 == IEEE80211_IF_TYPE_WDS ||
+@@ -1925,6 +1927,36 @@ static int ieee80211_master_stop(struct 
+ 	return 0;
  }
  
- 
--struct sk_buff * ieee80211_beacon_get(struct net_device *dev, int bss_idx,
-+struct sk_buff * ieee80211_beacon_get(struct net_device *dev, int if_id,
- 				      struct ieee80211_tx_control *control)
- {
- 	struct ieee80211_local *local = dev->priv;
-@@ -1569,18 +1569,19 @@ struct sk_buff * ieee80211_beacon_get(st
- 	u8 *b_head, *b_tail;
- 	int bh_len, bt_len;
- 
--	bdev = dev_get_by_index(bss_idx);
-+	bdev = dev_get_by_index(if_id);
- 	if (bdev) {
- 		sdata = IEEE80211_DEV_TO_SUB_IF(bdev);
- 		ap = &sdata->u.ap;
- 		dev_put(bdev);
- 	}
- 
--	if (ap == NULL || ap->beacon_head == NULL) {
-+	if (ap == NULL || sdata->type != IEEE80211_IF_TYPE_AP ||
-+	    ap->beacon_head == NULL) {
- #ifdef CONFIG_D80211_VERBOSE_DEBUG
- 		if (net_ratelimit())
- 			printk(KERN_DEBUG "no beacon data avail for idx=%d "
--			       "(%s)\n", bss_idx, bdev ? bdev->name : "N/A");
-+			       "(%s)\n", if_id, bdev ? bdev->name : "N/A");
- #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 		return NULL;
- 	}
-@@ -1632,7 +1633,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 
- 
- struct sk_buff *
--ieee80211_get_buffered_bc(struct net_device *dev, int bss_idx,
-+ieee80211_get_buffered_bc(struct net_device *dev, int if_id,
- 			  struct ieee80211_tx_control *control)
- {
- 	struct ieee80211_local *local = dev->priv;
-@@ -1645,13 +1646,14 @@ ieee80211_get_buffered_bc(struct net_dev
- 	struct ieee80211_sub_if_data *sdata;
- 	struct ieee80211_if_ap *bss = NULL;
- 
--	bdev = dev_get_by_index(bss_idx);
-+	bdev = dev_get_by_index(if_id);
- 	if (bdev) {
- 		sdata = IEEE80211_DEV_TO_SUB_IF(bdev);
- 		bss = &sdata->u.ap;
- 		dev_put(bdev);
- 	}
--	if (bss == NULL || bss->beacon_head == NULL)
-+	if (bss == NULL || sdata->type != IEEE80211_IF_TYPE_AP ||
-+	    bss->beacon_head == NULL)
- 		return NULL;
- 
- 	if (bss->dtim_count != 0)
-@@ -1694,6 +1696,23 @@ ieee80211_get_buffered_bc(struct net_dev
- 	return skb;
- }
- 
-+int ieee80211_if_config(struct net_device *dev)
++/* Check if running monitor interfaces should go to a "soft monitor" mode
++ * and switch them if necessary. */
++static inline void ieee80211_start_soft_monitor(struct ieee80211_local *local)
 +{
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	struct ieee80211_local *local = dev->priv;
-+	struct ieee80211_if_conf conf;
++	struct ieee80211_if_init_conf conf;
 +
-+	if (!local->hw->config_interface)
-+		return 0;
-+
-+	memset(&conf, 0, sizeof(conf));
-+	conf.type = sdata->type;
-+	if (sdata->type == IEEE80211_IF_TYPE_STA ||
-+	    sdata->type == IEEE80211_IF_TYPE_IBSS) {
-+		conf.bssid = sdata->u.sta.bssid;
++	if (local->open_count && local->open_count == local->monitors &&
++	    !local->hw->monitor_during_oper && local->hw->remove_interface) {
++		conf.if_id = -1;
++		conf.type = IEEE80211_IF_TYPE_MNTR;
++		conf.mac_addr = NULL;
++		local->hw->remove_interface(local->mdev, &conf);
 +	}
-+	return local->hw->config_interface(local->mdev, dev->ifindex, &conf);
 +}
- 
- int ieee80211_hw_config(struct net_device *dev)
++
++/* Check if running monitor interfaces should go to a "hard monitor" mode
++ * and switch them if necessary. */
++static void ieee80211_start_hard_monitor(struct ieee80211_local *local)
++{
++	struct ieee80211_if_init_conf conf;
++
++	if (local->open_count && local->open_count == local->monitors &&
++	    !local->hw->monitor_during_oper && local->hw->add_interface) {
++		conf.if_id = -1;
++		conf.type = IEEE80211_IF_TYPE_MNTR;
++		conf.mac_addr = NULL;
++		local->hw->add_interface(local->mdev, &conf);
++	}
++}
++
+ static int ieee80211_open(struct net_device *dev)
  {
-@@ -1824,6 +1843,7 @@ static int ieee80211_open(struct net_dev
- 	if (local->hw->add_interface) {
- 		struct ieee80211_if_init_conf conf;
+ 	struct ieee80211_sub_if_data *sdata, *nsdata;
+@@ -1948,13 +1980,25 @@ static int ieee80211_open(struct net_dev
+ 	    memcmp(sdata->u.wds.remote_addr, "\0\0\0\0\0\0", ETH_ALEN) == 0)
+ 		return -ENOLINK;
  
-+		conf.if_id = dev->ifindex;
++	if (sdata->type == IEEE80211_IF_TYPE_MNTR && local->open_count &&
++	    !local->hw->monitor_during_oper) {
++		/* run the interface in a "soft monitor" mode */
++		local->monitors++;
++		local->open_count++;
++		return 0;
++	}
++	ieee80211_start_soft_monitor(local);
++
+ 	if (local->hw->add_interface) {
+ 		conf.if_id = dev->ifindex;
  		conf.type = sdata->type;
  		conf.mac_addr = dev->dev_addr;
  		res = local->hw->add_interface(sdata->master, &conf);
-@@ -1868,6 +1888,7 @@ static int ieee80211_stop(struct net_dev
- 	if (local->hw->remove_interface) {
- 		struct ieee80211_if_init_conf conf;
+-		if (res)
++		if (res) {
++			if (sdata->type == IEEE80211_IF_TYPE_MNTR)
++				ieee80211_start_hard_monitor(local);
+ 			return res;
++		}
+ 	} else {
+ 		if (sdata->type != IEEE80211_IF_TYPE_STA)
+ 			return -EOPNOTSUPP;
+@@ -1980,6 +2024,9 @@ static int ieee80211_open(struct net_dev
+ 	}
+         local->open_count++;
  
-+		conf.if_id = dev->ifindex;
- 		conf.type = sdata->type;
- 		conf.mac_addr = dev->dev_addr;
++	if (sdata->type == IEEE80211_IF_TYPE_MNTR)
++		local->monitors++;
++
+ 	netif_start_queue(dev);
+ 	return 0;
+ }
+@@ -1992,8 +2039,19 @@ static int ieee80211_stop(struct net_dev
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
++	if (sdata->type == IEEE80211_IF_TYPE_MNTR &&
++	    local->open_count > 1 && !local->hw->monitor_during_oper) {
++		/* remove "soft monitor" interface */
++		local->open_count--;
++		local->monitors--;
++		return 0;
++	}
++
+         netif_stop_queue(dev);
+ 
++	if (sdata->type == IEEE80211_IF_TYPE_MNTR)
++		local->monitors--;
++
+ 	local->open_count--;
+         if (local->open_count == 0) {
+ 		ieee80211_stop_scan(sdata->master);
+@@ -2010,6 +2068,8 @@ static int ieee80211_stop(struct net_dev
  		local->hw->remove_interface(sdata->master, &conf);
+ 	}
+ 
++	ieee80211_start_hard_monitor(local);
++
+ 	return 0;
+ }
+ 
+@@ -2242,7 +2302,8 @@ ieee80211_rx_mgmt(struct net_device *dev
+         size_t hlen;
+         struct ieee80211_sub_if_data *sdata;
+ 
+-        dev = local->apdev;
++	if (msg_type != ieee80211_msg_monitor)
++		dev = local->apdev;
+         skb->dev = dev;
+ 
+         sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index 3766232..8fd0ac4 100644
+index 37d533d..2dbb132 100644
 --- a/net/d80211/ieee80211_i.h
 +++ b/net/d80211/ieee80211_i.h
-@@ -484,6 +484,7 @@ #endif /* CONFIG_D80211_DEBUG_COUNTERS *
+@@ -305,6 +305,7 @@ struct ieee80211_local {
+         struct net_device *wdev; /* wlan# - default Ethernet (data) devide */
+ 	struct net_device *apdev; /* wlan#ap - management frames (hostapd) */
+ 	int open_count;
++	int monitors;
+ 	struct ieee80211_conf conf;
  
- /* ieee80211.c */
- int ieee80211_hw_config(struct net_device *dev);
-+int ieee80211_if_config(struct net_device *dev);
- struct ieee80211_key_conf *
- ieee80211_key_data2conf(struct ieee80211_local *local,
- 			struct ieee80211_key *data);
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 461e2d9..00efe47 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -1782,22 +1782,11 @@ static int ieee80211_ioctl_siwap(struct 
- 				 struct iw_request_info *info,
- 				 struct sockaddr *ap_addr, char *extra)
- {
--	struct ieee80211_local *local = dev->priv;
- 	struct ieee80211_sub_if_data *sdata;
- 
- 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
- 	if (sdata->type == IEEE80211_IF_TYPE_STA ||
- 	    sdata->type == IEEE80211_IF_TYPE_IBSS) {
--		int changed_bssid = 0;
--		if (memcmp(local->conf.client_bssid, (u8 *) &ap_addr->sa_data,
--			   ETH_ALEN) != 0)
--			changed_bssid = 1;
--		memcpy(local->conf.client_bssid, (u8 *) &ap_addr->sa_data,
--		       ETH_ALEN);
--		if (changed_bssid && ieee80211_hw_config(dev)) {
--			printk(KERN_DEBUG "%s: Failed to config new BSSID to "
--			       "the low-level driver\n", dev->name);
--		}
- 		return ieee80211_sta_set_bssid(dev, (u8 *) &ap_addr->sa_data);
- 	} else if (sdata->type == IEEE80211_IF_TYPE_WDS) {
- 		if (memcmp(sdata->u.wds.remote_addr, (u8 *) &ap_addr->sa_data,
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 49c1b62..d9c3d67 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -1990,7 +1990,9 @@ static int ieee80211_sta_join_ibss(struc
- 		local->hw->reset_tsf(local->mdev);
+ 	int dev_index;
+diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
+index 2151bd9..dd809c2 100644
+--- a/net/d80211/ieee80211_iface.c
++++ b/net/d80211/ieee80211_iface.c
+@@ -8,6 +8,7 @@
+  * published by the Free Software Foundation.
+  */
+ #include <linux/kernel.h>
++#include <linux/if_arp.h>
+ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
+ #include <net/d80211.h>
+@@ -124,6 +125,9 @@ void ieee80211_if_set_type(struct net_de
+ 		sdata->bss = &msdata->u.ap;
+ 		break;
  	}
- 	memcpy(ifsta->bssid, bss->bssid, ETH_ALEN);
--	memcpy(local->conf.client_bssid, bss->bssid, ETH_ALEN);
-+	res = ieee80211_if_config(dev);
-+	if (res)
-+		return res;
++	case IEEE80211_IF_TYPE_MNTR:
++		dev->type = ARPHRD_IEEE80211_PRISM;
++		break;
+ 	default:
+ 		printk(KERN_WARNING "%s: %s: Unknown interface type 0x%x",
+ 		       dev->name, __FUNCTION__, type);
+@@ -211,6 +215,9 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
+ 		}
  
- 	local->conf.beacon_int = bss->beacon_int >= 10 ? bss->beacon_int : 10;
+ 		break;
++	case IEEE80211_IF_TYPE_MNTR:
++		dev->type = ARPHRD_ETHER;
++		break;
+ 	}
  
-@@ -2345,11 +2347,20 @@ int ieee80211_sta_set_bssid(struct net_d
- {
- 	struct ieee80211_sub_if_data *sdata;
- 	struct ieee80211_if_sta *ifsta;
-+	int res;
- 
- 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
- 	ifsta = &sdata->u.sta;
- 
--	memcpy(ifsta->bssid, bssid, ETH_ALEN);
-+	if (memcmp(ifsta->bssid, bssid, ETH_ALEN) != 0) {
-+		memcpy(ifsta->bssid, bssid, ETH_ALEN);
-+		res = ieee80211_if_config(dev);
-+		if (res) {
-+			printk(KERN_DEBUG "%s: Failed to config new BSSID to "
-+			       "the low-level driver\n", dev->name);
-+			return res;
-+		}
-+	}
- 
- 	if (memcmp(bssid, "\x00\x00\x00\x00\x00\x00", ETH_ALEN) == 0)
- 		ifsta->bssid_set = 0;
+ 	/* remove all STAs that are bound to this virtual interface */
 -- 
 1.3.0
 
