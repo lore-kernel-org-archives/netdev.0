@@ -1,40 +1,43 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit
- buffers
-Date: Fri, 21 Apr 2006 12:00:31 -0700
-Message-ID: <1145646031.3843.5.camel@rh4>
-References: <1145578214.3195.6.camel@rh4>
- <E1FWlWa-0007hN-00@gondolin.me.apana.org.au>
- <20060421024024.GA29644@gondor.apana.org.au>
- <1145582676.3195.18.camel@rh4>
- <20060421132758.GA26161@gospo.rdu.redhat.com>
- <1145633287.3194.10.camel@rh4>
- <bdfc5d6e0604211301k682b35d1r52a52cd3fec80ddc@mail.gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFC] netdev sysfs failure handling
+Date: Fri, 21 Apr 2006 13:42:05 -0700
+Message-ID: <20060421134205.2786a0ee@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, shawvrana@gmail.com,
-	netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
-	davem@davemloft.net, jgarzik@pobox.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:53260 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932385AbWDUUki
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Apr 2006 16:40:38 -0400
-To: "Andy Gospodarek" <andy@greyhouse.net>
-In-Reply-To: <bdfc5d6e0604211301k682b35d1r52a52cd3fec80ddc@mail.gmail.com>
+Received: from smtp.osdl.org ([65.172.181.4]:54444 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932426AbWDUUmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:42:07 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-04-21 at 16:01 -0400, Andy Gospodarek wrote:
+In case of sysfs failure, don't let device be brought up.
+It can be cleared by unregister_netdevice so module can be unloaded
+normally.
 
-> I just hate to see extra resources used to solve problems that good
-> coding can solve (not that my suggestion is necessarily a 'good' one),
-> so I was trying to think of a way to resolve this without explicitly
-> adding another workqueue.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-If you don't want to add another workqueue, then look at tg3, bnx2, and
-one of the smc drivers on how to effectively wait for the driver's
-workqueue task to finish without deadlocking with linkwatch_event.
-
-
+--- sky2-2.6.17.orig/net/core/dev.c	2006-04-21 12:21:45.000000000 -0700
++++ sky2-2.6.17/net/core/dev.c	2006-04-21 12:46:48.000000000 -0700
+@@ -3043,10 +3043,17 @@
+ 
+ 		switch(dev->reg_state) {
+ 		case NETREG_REGISTERING:
++			/* Can't do proper error handling here because
++			 * this is a delayed call after register_netdevice
++			 * so no way to tell device driver what is wrong.
++			 */
+ 			err = netdev_register_sysfs(dev);
+-			if (err)
++			if (err) {
+ 				printk(KERN_ERR "%s: failed sysfs registration (%d)\n",
+ 				       dev->name, err);
++				/* Don't let device be brought up */
++				clear_bit(__LINK_STATE_PRESENT, &dev->state);
++			}
+ 			dev->reg_state = NETREG_REGISTERED;
+ 			break;
+ 
