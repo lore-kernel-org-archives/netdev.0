@@ -1,51 +1,69 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 0/17] d80211 patches
-Date: Fri, 21 Apr 2006 22:52:08 +0200
-Message-ID: <200604212252.08325.mb@bu3sch.de>
-References: <20060421220951.205579000.midnight@suse.cz>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 16/17] d80211: fix monitor interfaces
+Date: Fri, 21 Apr 2006 22:49:35 +0200
+Message-ID: <20060421224935.5acd79bf@griffin.suse.cz>
+References: <20060421201147.D4F76482CF@silver.suse.cz>
+	<1145651369.3897.33.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1650400.2dny8HhOcq";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:2182
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932434AbWDUUru
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Apr 2006 16:47:50 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060421220951.205579000.midnight@suse.cz>
+Received: from styx.suse.cz ([82.119.242.94]:58791 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932436AbWDUUth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:49:37 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1145651369.3897.33.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1650400.2dny8HhOcq
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, 21 Apr 2006 22:29:29 +0200, Johannes Berg wrote:
+> On Fri, 2006-04-21 at 22:11 +0200, Jiri Benc wrote:
+> 
+> > Also, "soft" and "hard" monitor modes are introduced.
+> 
+> What's the distinction? The code might want some comments about what
+> that
+> 
+> > +       /* Device is capable of performing full monitor mode even during
+> > +        * normal operation. */
+> 
+> actually means. I suppose it means that the device will receive control
+> frames too, but I don't know if that's right.
 
-On Friday 21 April 2006 22:11, you wrote:
-> Please note that these changes break d80211 drivers.
+Some devices need to be switched to completely different mode to be able
+to receive all frames (including control ones) or even load another
+firmware. Such devices are not capable to transmit anything while in
+monitor mode and their drivers won't set monitor_during_oper.
 
-Can you please send your hacky patch for the bcm43xx
-to me, so I can come up with a clean one?
-(I think you already sent it to me, but I lost it :) )
-Thanks.
+Another devices are capable to receive all frames while continuing their
+normal operation. Driver will probably set monitor_during_oper in that
+case.
 
-=2D-=20
-Greetings Michael.
+"Hard" monitor mode means the card is operating in a true rfmon mode -
+i.e. you get everything on the given channel. "Soft" monitor mode means
+that you will get only frames the device is willing to give you at the
+time - this probably means only frames belonging to your BSS in case of
+fullmac cards.
 
---nextPart1650400.2dny8HhOcq
-Content-Type: application/pgp-signature
+So, you can always do
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
+echo -n sta0 > /sys/class/ieee80211/wiphy0/add_iface
+echo -n mon0 > /sys/class/ieee80211/wiphy0/add_iface
+iwconfig sta0 mode managed
+iwconfig mon0 mode monitor
+ifconfig sta0 up
+ifconfig mon0 up
 
-iD8DBQBESUX4lb09HEdWDKgRAp3wAJ4hJXyQTL0lSCIiMuuE3R6Kk31lbwCfVluf
-PVHwGktNYMdj2ZweXmETqJ0=
-=REj2
------END PGP SIGNATURE-----
+and this will work - independently of the value of monitor_during_oper.
+The difference is that in case of monitor_during_oper == 0, you won't
+probably receive much more frames from mon0 than from sta0. But - you
+will most likely receive beacons on mon0 and also monitoring headers
+(prism2 headers presently).
 
---nextPart1650400.2dny8HhOcq--
+When monitor_during_oper == 1, you are able to watch all traffic on the
+current channel on mon0 without interrupting normal functionality.
+
+-- 
+Jiri Benc
+SUSE Labs
