@@ -1,34 +1,44 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: Open ethernet hardware specs
-Date: Fri, 21 Apr 2006 05:41:50 +0400
-Message-ID: <20060421014150.GA15505@mipter.zuzino.mipt.ru>
-References: <4448117E.3010708@garzik.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit
+ buffers
+Date: Thu, 20 Apr 2006 17:10:13 -0700
+Message-ID: <1145578214.3195.6.camel@rh4>
+References: <200604201035.00100.shaw@vranix.com>
+ <20060420233631.GA28380@gondor.apana.org.au>
+ <20060420235149.GA28503@gondor.apana.org.au>
+ <1145572617.3310.4.camel@rh4>
+ <20060421012701.GA29053@gondor.apana.org.au>
+ <20060421013340.GA29123@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: shawvrana@gmail.com, netdev@vger.kernel.org,
+	"Auke Kok" <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.186]:57849 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S932116AbWDUBoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 21:44:46 -0400
-Received: by nproxy.gmail.com with SMTP id l24so256094nfc
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 18:44:45 -0700 (PDT)
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <4448117E.3010708@garzik.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:51462 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1750890AbWDUBu0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 21:50:26 -0400
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <20060421013340.GA29123@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 20, 2006 at 06:55:58PM -0400, Jeff Garzik wrote:
-> Also, janitors, there are more NIC specs at
-> http://gkernel.sourceforge.net/specs/ than are listed on the wiki.  What
-> I posted is just a starter list.  If someone were to comb through each
-> PDF in the /specs/ sub-directories, and make sure it is linked on the
-> wiki, I would be grateful.
+On Fri, 2006-04-21 at 11:33 +1000, Herbert Xu wrote:
 
-Almost done.
+> Actually, what if the tg3_close is followed by a tg3_open? That could
+> produce a spurious reset which I suppose isn't that bad.
 
-P.S.:
-http://gkernel.sourceforge.net/specs/via/501designguide.pdf.bz2 is
-broken.
+Yes, an extra reset. And yes, it isn't too bad.
+
+> Also if the
+> module is unloaded bad things will happen as well.
+
+In tg3_remove_one(), we call flush_scheduled_work() in case the
+reset_task is still pending. Here, it is safe to call
+flush_scheduled_work() because we're not holding the rtnl. Again, when
+it runs, nothing bad will happen because it will see netif_running() ==
+0.
+
 
