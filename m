@@ -1,62 +1,53 @@
-From: Shaw Vrana <shawvrana@gmail.com>
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit buffers
-Date: Thu, 20 Apr 2006 19:42:06 -0700
-Message-ID: <200604201942.07009.shawvrana@acm.org>
-References: <200604201035.00100.shaw@vranix.com> <20060421013340.GA29123@gondor.apana.org.au> <1145578214.3195.6.camel@rh4>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Cannot receive multicast packets
+Date: Thu, 20 Apr 2006 20:05:27 -0700
+Message-ID: <OFCD64E8C0.53CFCD68-ON88257157.000ED254-88257157.00107FAB@us.ibm.com>
+References: <44482C8D.7010401@cloakmail.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_/ZESEQAxXh4ox2d"
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, shawvrana@gmail.com,
-	netdev@vger.kernel.org, "Auke Kok" <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.204]:16621 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1750876AbWDUCmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 22:42:16 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so355897nzf
-        for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 19:42:16 -0700 (PDT)
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1145578214.3195.6.camel@rh4>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:32916 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750946AbWDUDAR
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 23:00:17 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e33.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k3L30GHe001060
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 23:00:16 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by westrelay02.boulder.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k3L2uYJi258406
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 20:56:34 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11/8.13.3) with ESMTP id k3L30Fqp028152
+	for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 21:00:15 -0600
+In-Reply-To: <44482C8D.7010401@cloakmail.com>
+To: Andrew Athan <aathan_linux_net_1542@cloakmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_/ZESEQAxXh4ox2d
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Andrew,
 
-On Thursday 20 April 2006 17:10, Michael Chan wrote:
-> In tg3_remove_one(), we call flush_scheduled_work() in case the
-> reset_task is still pending. Here, it is safe to call
-> flush_scheduled_work() because we're not holding the rtnl. Again, when
-> it runs, nothing bad will happen because it will see netif_running() ==
-> 0.
+>  I did not 
+> think the source IP was relevant to the matching code in linux, since 
+> there are no source squelching socket options. 
+> 
+> There are no firewall rules active on this machine, and the packets are 
+> definitely visible at the interface (see tcpdump output in my email).
 
-I'll bite!  Here's a patch to add a call to flush_scheduled_work() in 
-e1000_down.  It's against 2.6.16.9.
+        The source address is not relevant (other than potentially
+for firewall rules), and I understand from your original mail that
+they are arriving at the machine. The IP TTL is what I wanted to
+know there; but "netstat -s" will normally tell you why a packet
+was dropped, if it's arriving but not making it through the UDP/IP
+stack (as is your case).
 
-Shaw
+> I am going to try upgrading the kernel, and turning off the multicast 
+> router kernel options as a next step.  But if you have any other ideas 
+> at all, I'm all ears.
 
---Boundary-00=_/ZESEQAxXh4ox2d
-Content-Type: text/x-diff;
-  charset="iso-8859-6";
-  name="e1000_flush_in_close.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="e1000_flush_in_close.patch"
+        "netstat -s" would be a good start. :-) tcpdump receiving a copy
+of the packet does not mean UDP or IP won't drop it, but those drops
+are counted.
 
-diff -u -uprN -X linux-2.6.16.9/Documentation/dontdiff linux-2.6.16.9/drivers/net/e1000/e1000_main.c linux-2.6.16.9-patch/drivers/net/e1000/e1000_main.c
---- linux-2.6.16.9/drivers/net/e1000/e1000_main.c	2006-04-18 23:10:14.000000000 -0700
-+++ linux-2.6.16.9-patch/drivers/net/e1000/e1000_main.c	2006-04-20 19:36:55.000000000 -0700
-@@ -538,6 +538,7 @@ e1000_down(struct e1000_adapter *adapter
- 	del_timer_sync(&adapter->tx_fifo_stall_timer);
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
-+	flush_scheduled_work();	
- 
- #ifdef CONFIG_E1000_NAPI
- 	netif_poll_disable(netdev);
+                                                        +-DLS
 
---Boundary-00=_/ZESEQAxXh4ox2d--
