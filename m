@@ -1,37 +1,63 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 0/10] [IOAT] I/OAT patches repost
-Date: Thu, 20 Apr 2006 17:44:38 -0700 (PDT)
-Message-ID: <20060420.174438.15249396.davem@davemloft.net>
-References: <20060420213305.GK26746@pb15.lixom.net>
-	<c0a09e5c0604201514x16490b13v68644a24078b99de@mail.gmail.com>
-	<20060420233343.GL26746@pb15.lixom.net>
+From: Andrew Athan <aathan_linux_net_1542@cloakmail.com>
+Subject: Re: Cannot receive multicast packets
+Date: Thu, 20 Apr 2006 20:51:25 -0400
+Message-ID: <44482C8D.7010401@cloakmail.com>
+References: <OF10DE8AFB.1FB28740-ON88257156.0083D32C-88257157.0000E5BE@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andy.grover@gmail.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36542
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932186AbWDUAou (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 20:44:50 -0400
-To: olof@lixom.net
-In-Reply-To: <20060420233343.GL26746@pb15.lixom.net>
+Received: from mail.thinktradellc.com ([66.54.171.98]:45574 "EHLO
+	mail.thinktradellc.com") by vger.kernel.org with ESMTP
+	id S1751178AbWDUAv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Apr 2006 20:51:26 -0400
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF10DE8AFB.1FB28740-ON88257156.0083D32C-88257157.0000E5BE@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Thu, 20 Apr 2006 18:33:43 -0500
 
-> On Thu, Apr 20, 2006 at 03:14:15PM -0700, Andrew Grover wrote:
-> > In
-> > addition, there may be workloads (file serving? backup?) where we
-> > could do a skb->page-in-page-cache copy and avoid cache pollution?
-> 
-> Yes, NFS is probably a prime example of where most of the data isn't
-> looked at; just written to disk. I'm not sure how well-optimized the
-> receive path is there already w.r.t. avoiding copying though. I don't
-> remember seeing memcpy and friends being high on the profile when I
-> looked at SPECsfs last.
+David:
 
-If that makes sense then the cpu copy can be made to use non-temporal
-stores.
+Thank you for taking the time to respond.
+
+The packets are arriving via a switched network composed of Cisco 
+devices in PIM dense mode.  The packets pass through several switch 
+hops, but no routing hops that have been documented to me.  I did not 
+think the source IP was relevant to the matching code in linux, since 
+there are no source squelching socket options.
+
+There are no firewall rules active on this machine, and the packets are 
+definitely visible at the interface (see tcpdump output in my email).
+
+I am going to try upgrading the kernel, and turning off the multicast 
+router kernel options as a next step.  But if you have any other ideas 
+at all, I'm all ears.
+
+This seems too much like Mr. Murphy's in the room.
+
+A.
+
+David Stevens wrote:
+> I've run your test program and it receives fine for me.
+>
+> I note that the source address is not on the same subnet as
+> (any of) the receiver's addresses. Are the packets being
+> routed? The default multicasting TTL is 1, though I don't
+> know if it'll be checked or dropped on the receiver, seeing
+> as we aren't forwarding it.
+>
+> Also, you might want to run "netstat -s" to see if any of the
+> drop counters are being incremented (e.g., checksum error).
+>
+> Finally, I'm assuming you don't have any firewall rules that
+> are matching, right?
+>
+>                                         +-DLS
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   
