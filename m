@@ -1,63 +1,65 @@
-From: Andrew Athan <aathan_linux_net_1542@cloakmail.com>
-Subject: Re: Cannot receive multicast packets
-Date: Thu, 20 Apr 2006 20:51:25 -0400
-Message-ID: <44482C8D.7010401@cloakmail.com>
-References: <OF10DE8AFB.1FB28740-ON88257156.0083D32C-88257157.0000E5BE@us.ibm.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 0/10] [IOAT] I/OAT patches repost
+Date: Thu, 20 Apr 2006 18:00:37 -0700
+Message-ID: <44482EB5.9030605@hp.com>
+References: <Pine.LNX.4.44.0604201329300.22544-100000@isotope.jf.intel.com>	<20060420213305.GK26746@pb15.lixom.net> <20060420.172742.132879746.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: olof@lixom.net, andrew.grover@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.thinktradellc.com ([66.54.171.98]:45574 "EHLO
-	mail.thinktradellc.com") by vger.kernel.org with ESMTP
-	id S1751178AbWDUAv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 20:51:26 -0400
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF10DE8AFB.1FB28740-ON88257156.0083D32C-88257157.0000E5BE@us.ibm.com>
+Received: from palrel12.hp.com ([156.153.255.237]:15249 "EHLO palrel12.hp.com")
+	by vger.kernel.org with ESMTP id S932193AbWDUBAk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 21:00:40 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060420.172742.132879746.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> Unfortunately, many benchmarks just do raw bandwidth tests sending to
+> a receiver that just doesn't even look at the data.  They just return
+> from recvmsg() and loop back into it.  This is not what applications
+> using networking actually do, so it's important to make sure we look
+> intelligently at any benchmarks done and do not fall into the trap of
+> saying "even without cache warming it made things faster" when in fact
+> the tested receiver did not touch the data at all so was a false test.
 
-David:
+FWIW, netperf can be configured to access the buffers it gives to send() 
+or gets from recv().  A ./configure --enable-dirty in TOT:
 
-Thank you for taking the time to respond.
+http://www.netperf.org/svn/netperf2/trunk
 
-The packets are arriving via a switched network composed of Cisco 
-devices in PIM dense mode.  The packets pass through several switch 
-hops, but no routing hops that have been documented to me.  I did not 
-think the source IP was relevant to the matching code in linux, since 
-there are no source squelching socket options.
+will enable two global options:
 
-There are no firewall rules active on this machine, and the packets are 
-definitely visible at the interface (see tcpdump output in my email).
+  -k dirty,clean # bytes to dirty, bytes to read clean on netperf side
 
-I am going to try upgrading the kernel, and turning off the multicast 
-router kernel options as a next step.  But if you have any other ideas 
-at all, I'm all ears.
+  -K dirty,clean # as above, on netserver side.
 
-This seems too much like Mr. Murphy's in the room.
+And in such a netperf the test banner will include the string "dirty 
+data" (alas the default output will not say how much :)
 
-A.
+In say a TCP_STREAM test -k will affect what is done with a buffer 
+before send() is called, and -K will affect what is done with a buffer 
+_before_ recv() is called with that buffer.
 
-David Stevens wrote:
-> I've run your test program and it receives fine for me.
->
-> I note that the source address is not on the same subnet as
-> (any of) the receiver's addresses. Are the packets being
-> routed? The default multicasting TTL is 1, though I don't
-> know if it'll be checked or dropped on the receiver, seeing
-> as we aren't forwarding it.
->
-> Also, you might want to run "netstat -s" to see if any of the
-> drop counters are being incremented (e.g., checksum error).
->
-> Finally, I'm assuming you don't have any firewall rules that
-> are matching, right?
->
->                                         +-DLS
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
+-k N will cause the first N bytes of the buffer to be dirtied, and the 
+next N bytes to be read clean
+
+-k N, will cause the first N bytes of the buffer to be dirtied
+
+-k ,N will cause the first N bytes of the buffer to be read clean
+
+-k M,N will cause the first M bytes to be dirtied, the next N bytes to 
+be read clean
+
+Actually, that brings-up a question - presently, and for reasons that 
+are lost to me in the mists of time - netperf will "access" the buffer 
+before it calls recv().  I'm wondering if that should be changed to an 
+access of the buffer after it calls recv()?
+
+And I suspect related to all this is whether or not one should alter the 
+size of the buffer ring being used by netperf, which by default is the 
+SO_*BUF size divided by the send_size (or recv_size) plus one buffers - 
+the -W option can control that.
+
+rick jones
