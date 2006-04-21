@@ -1,132 +1,185 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/2] netdev: create attribute_groups with class_device_add
-Date: Fri, 21 Apr 2006 12:54:38 -0700
-Message-ID: <20060421125438.50f93a34@localhost.localdomain>
-References: <20060421125255.3451959f@localhost.localdomain>
+From: "Gary Zambrano" <zambrano@broadcom.com>
+Subject: [PATCH] b44: fix ethool link settings support
+Date: Fri, 21 Apr 2006 06:04:08 -0700
+Message-ID: <1145624648.18928.8.camel@dhcp-10-7-81-7.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:42403 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932378AbWDUUED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:04:03 -0400
-To: Greg KH <greg@kroah.com>, "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060421125255.3451959f@localhost.localdomain>
+Received: from mms3.broadcom.com ([216.31.210.19]:53514 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932378AbWDUUF3
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Apr 2006 16:05:29 -0400
+To: jgarzik@pobox.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Atomically create attributes when class device is added. This avoids the
-race between registering class_device (which generates hotplug event),
-and the creation of attribute groups.
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+This patch fixes the driver support for ethtool settings for speed/duplex/autoneg.
 
 
---- sky2-2.6.17.orig/net/core/dev.c	2006-04-21 12:20:58.000000000 -0700
-+++ sky2-2.6.17/net/core/dev.c	2006-04-21 12:21:45.000000000 -0700
-@@ -3043,11 +3043,11 @@
+Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
+
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 3d30668..be266a9 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -433,10 +433,10 @@ static int b44_setup_phy(struct b44 *bp)
+ 	u32 val;
+ 	int err;
  
- 		switch(dev->reg_state) {
- 		case NETREG_REGISTERING:
--			dev->reg_state = NETREG_REGISTERED;
- 			err = netdev_register_sysfs(dev);
- 			if (err)
- 				printk(KERN_ERR "%s: failed sysfs registration (%d)\n",
- 				       dev->name, err);
-+			dev->reg_state = NETREG_REGISTERED;
- 			break;
- 
- 		case NETREG_UNREGISTERING:
---- sky2-2.6.17.orig/net/core/net-sysfs.c	2006-04-21 12:20:58.000000000 -0700
-+++ sky2-2.6.17/net/core/net-sysfs.c	2006-04-21 12:21:45.000000000 -0700
-@@ -29,7 +29,7 @@
- 
- static inline int dev_isalive(const struct net_device *dev) 
+-	if ((err = b44_readphy(bp, B44_MII_ALEDCTRL, &val)) != 0)
++	if ((err = b44_readphy(bp, B44_MII_INTERRUPTS, &val)) != 0)
+ 		goto out;
+-	if ((err = b44_writephy(bp, B44_MII_ALEDCTRL,
+-				val & MII_ALEDCTRL_ALLMSK)) != 0)
++	if ((err = b44_writephy(bp, B44_MII_INTERRUPTS,
++				val & MII_INTS_ALLMSK)) != 0)
+ 		goto out;
+ 	if ((err = b44_readphy(bp, B44_MII_TLEDCTRL, &val)) != 0)
+ 		goto out;
+@@ -465,11 +465,7 @@ static int b44_setup_phy(struct b44 *bp)
+ 						       BMCR_ANRESTART))) != 0)
+ 			goto out;
+ 	} else {
+-		u32 bmcr;
+-
+-		if ((err = b44_readphy(bp, MII_BMCR, &bmcr)) != 0)
+-			goto out;
+-		bmcr &= ~(BMCR_FULLDPLX | BMCR_ANENABLE | BMCR_SPEED100);
++		u32 bmcr = 0;
+ 		if (bp->flags & B44_FLAG_100_BASE_T)
+ 			bmcr |= BMCR_SPEED100;
+ 		if (bp->flags & B44_FLAG_FULL_DUPLEX)
+@@ -1612,8 +1608,6 @@ static int b44_get_settings(struct net_d
  {
--	return dev->reg_state == NETREG_REGISTERED;
-+	return dev->reg_state <= NETREG_REGISTERED;
+ 	struct b44 *bp = netdev_priv(dev);
+ 
+-	if (!netif_running(dev))
+-		return -EAGAIN;
+ 	cmd->supported = (SUPPORTED_Autoneg);
+ 	cmd->supported |= (SUPPORTED_100baseT_Half |
+ 			  SUPPORTED_100baseT_Full |
+@@ -1621,7 +1615,6 @@ static int b44_get_settings(struct net_d
+ 			  SUPPORTED_10baseT_Full |
+ 			  SUPPORTED_MII);
+ 
+-	cmd->advertising = 0;
+ 	if (bp->flags & B44_FLAG_ADV_10HALF)
+ 		cmd->advertising |= ADVERTISED_10baseT_Half;
+ 	if (bp->flags & B44_FLAG_ADV_10FULL)
+@@ -1631,18 +1624,22 @@ static int b44_get_settings(struct net_d
+ 	if (bp->flags & B44_FLAG_ADV_100FULL)
+ 		cmd->advertising |= ADVERTISED_100baseT_Full;
+ 	cmd->advertising |= ADVERTISED_Pause | ADVERTISED_Asym_Pause;
+-	cmd->speed = (bp->flags & B44_FLAG_100_BASE_T) ?
+-		SPEED_100 : SPEED_10;
+-	cmd->duplex = (bp->flags & B44_FLAG_FULL_DUPLEX) ?
+-		DUPLEX_FULL : DUPLEX_HALF;
+-	cmd->port = 0;
+-	cmd->phy_address = bp->phy_addr;
+ 	cmd->transceiver = (bp->flags & B44_FLAG_INTERNAL_PHY) ?
+ 		XCVR_INTERNAL : XCVR_EXTERNAL;
+-	cmd->autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
+-		AUTONEG_DISABLE : AUTONEG_ENABLE;
++	if (netif_running(dev)){
++		cmd->autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
++			AUTONEG_DISABLE : AUTONEG_ENABLE;
++		cmd->speed = (bp->flags & B44_FLAG_100_BASE_T) ?
++			SPEED_100 : SPEED_10;
++		cmd->duplex = (bp->flags & B44_FLAG_FULL_DUPLEX) ?
++			DUPLEX_FULL : DUPLEX_HALF;
++	}
++	if (cmd->autoneg == AUTONEG_ENABLE)	
++		cmd->advertising |= ADVERTISED_Autoneg;
++	cmd->port = 0;
+ 	cmd->maxtxpkt = 0;
+ 	cmd->maxrxpkt = 0;
++	cmd->phy_address = bp->phy_addr;
+ 	return 0;
  }
  
- /* use same locking rules as GIF* ioctl's */
-@@ -445,58 +445,33 @@
- 
- void netdev_unregister_sysfs(struct net_device * net)
+@@ -1650,30 +1647,16 @@ static int b44_set_settings(struct net_d
  {
--	struct class_device * class_dev = &(net->class_dev);
+ 	struct b44 *bp = netdev_priv(dev);
+ 
+-	if (!netif_running(dev))
+-		return -EAGAIN;
 -
--	if (net->get_stats)
--		sysfs_remove_group(&class_dev->kobj, &netstat_group);
--
--#ifdef WIRELESS_EXT
--	if (net->get_wireless_stats || (net->wireless_handlers &&
--			net->wireless_handlers->get_wireless_stats))
--		sysfs_remove_group(&class_dev->kobj, &wireless_group);
--#endif
--	class_device_del(class_dev);
--
-+	class_device_del(&(net->class_dev));
- }
- 
- /* Create sysfs entries for network device. */
- int netdev_register_sysfs(struct net_device *net)
- {
- 	struct class_device *class_dev = &(net->class_dev);
--	int ret;
-+	struct attribute_group **groups = net->sysfs_groups;
- 
-+	class_device_initialize(class_dev);
- 	class_dev->class = &net_class;
- 	class_dev->class_data = net;
-+	class_dev->groups = groups;
- 
-+	BUILD_BUG_ON(BUS_ID_SIZE < IFNAMSIZ);
- 	strlcpy(class_dev->class_id, net->name, BUS_ID_SIZE);
--	if ((ret = class_device_register(class_dev)))
--		goto out;
- 
--	if (net->get_stats &&
--	    (ret = sysfs_create_group(&class_dev->kobj, &netstat_group)))
--		goto out_unreg; 
-+	if (net->get_stats)
-+		*groups++ = &netstat_group;
- 
- #ifdef WIRELESS_EXT
--	if (net->get_wireless_stats || (net->wireless_handlers &&
--			net->wireless_handlers->get_wireless_stats)) {
--		ret = sysfs_create_group(&class_dev->kobj, &wireless_group);
--		if (ret)
--			goto out_cleanup;
+-	/* We do not support gigabit. */
+-	if (cmd->autoneg == AUTONEG_ENABLE) {
+-		if (cmd->advertising &
+-		    (ADVERTISED_1000baseT_Half |
+-		     ADVERTISED_1000baseT_Full))
+-			return -EINVAL;
+-	} else if ((cmd->speed != SPEED_100 &&
+-		    cmd->speed != SPEED_10) ||
+-		   (cmd->duplex != DUPLEX_HALF &&
+-		    cmd->duplex != DUPLEX_FULL)) {
+-			return -EINVAL;
 -	}
--	return 0;
--out_cleanup:
--	if (net->get_stats)
--		sysfs_remove_group(&class_dev->kobj, &netstat_group);
--#else
--	return 0;
-+	if (net->get_wireless_stats
-+	    || (net->wireless_handlers && net->wireless_handlers->get_wireless_stats))
-+		*groups++ = &wireless_group;
- #endif
+-
+ 	spin_lock_irq(&bp->lock);
+-
+ 	if (cmd->autoneg == AUTONEG_ENABLE) {
+-		bp->flags &= ~B44_FLAG_FORCE_LINK;
++		bp->flags &= ~(B44_FLAG_FORCE_LINK |
++				B44_FLAG_100_BASE_T |
++				B44_FLAG_FULL_DUPLEX); 
+ 		bp->flags &= ~(B44_FLAG_ADV_10HALF |
+ 			       B44_FLAG_ADV_10FULL |
+ 			       B44_FLAG_ADV_100HALF |
+ 			       B44_FLAG_ADV_100FULL);
++	
+ 		if (cmd->advertising & ADVERTISE_10HALF)
+ 			bp->flags |= B44_FLAG_ADV_10HALF;
+ 		if (cmd->advertising & ADVERTISE_10FULL)
+@@ -1682,15 +1665,22 @@ static int b44_set_settings(struct net_d
+ 			bp->flags |= B44_FLAG_ADV_100HALF;
+ 		if (cmd->advertising & ADVERTISE_100FULL)
+ 			bp->flags |= B44_FLAG_ADV_100FULL;
++		if ((cmd->advertising & ADVERTISE_ALL) == 0)
++			bp->flags |= (B44_FLAG_ADV_10HALF |
++				      B44_FLAG_ADV_10FULL |
++				      B44_FLAG_ADV_100HALF |
++				      B44_FLAG_ADV_100FULL);
+ 	} else {
+ 		bp->flags |= B44_FLAG_FORCE_LINK;
++		bp->flags &= ~(B44_FLAG_100_BASE_T | B44_FLAG_FULL_DUPLEX); 
+ 		if (cmd->speed == SPEED_100)
+ 			bp->flags |= B44_FLAG_100_BASE_T;
+ 		if (cmd->duplex == DUPLEX_FULL)
+ 			bp->flags |= B44_FLAG_FULL_DUPLEX;
+ 	}
  
--out_unreg:
--	printk(KERN_WARNING "%s: sysfs attribute registration failed %d\n",
--	       net->name, ret);
--	class_device_unregister(class_dev);
--out:
--	return ret;
-+	return class_device_add(class_dev);
- }
+-	b44_setup_phy(bp);
++	if (netif_running(dev))
++		b44_setup_phy(bp);
  
- int netdev_sysfs_init(void)
---- sky2-2.6.17.orig/include/linux/netdevice.h	2006-04-21 12:20:58.000000000 -0700
-+++ sky2-2.6.17/include/linux/netdevice.h	2006-04-21 12:21:45.000000000 -0700
-@@ -506,6 +506,8 @@
+ 	spin_unlock_irq(&bp->lock);
  
- 	/* class/net/name entry */
- 	struct class_device	class_dev;
-+	/* space for optional statistics and wireless sysfs groups */
-+	struct attribute_group  *sysfs_groups[3];
- };
+diff --git a/drivers/net/b44.h b/drivers/net/b44.h
+index b178662..c882391 100644
+--- a/drivers/net/b44.h
++++ b/drivers/net/b44.h
+@@ -293,13 +293,14 @@
+ #define SSB_PCI_MASK2		0xc0000000
  
- #define	NETDEV_ALIGN		32
+ /* 4400 PHY registers */
+-#define B44_MII_AUXCTRL		24	/* Auxiliary Control */
++#define B44_MII_AUXCTRL		0x18	/* Auxiliary Control */
+ #define  MII_AUXCTRL_DUPLEX	0x0001  /* Full Duplex */
+ #define  MII_AUXCTRL_SPEED	0x0002  /* 1=100Mbps, 0=10Mbps */
+ #define  MII_AUXCTRL_FORCED	0x0004	/* Forced 10/100 */
+-#define B44_MII_ALEDCTRL	26	/* Activity LED */
+-#define  MII_ALEDCTRL_ALLMSK	0x7fff
+-#define B44_MII_TLEDCTRL	27	/* Traffic Meter LED */
++#define  MII_AUXCTRL_ANEGEN	0x0008	/* Autoneg enabled */
++#define B44_MII_INTERRUPTS	0x1a	/* Interrupt Reg */
++#define  MII_INTS_ALLMSK	0x7fff
++#define B44_MII_TLEDCTRL	0x1b	/* Traffic Meter LED */
+ #define  MII_TLEDCTRL_ENABLE	0x0040
+ 
+ struct dma_desc {
+
+
