@@ -1,41 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit buffers
-Date: Fri, 21 Apr 2006 11:33:40 +1000
-Message-ID: <20060421013340.GA29123@gondor.apana.org.au>
-References: <200604201035.00100.shaw@vranix.com> <20060420233631.GA28380@gondor.apana.org.au> <20060420235149.GA28503@gondor.apana.org.au> <1145572617.3310.4.camel@rh4> <20060421012701.GA29053@gondor.apana.org.au>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: Open ethernet hardware specs
+Date: Fri, 21 Apr 2006 05:41:50 +0400
+Message-ID: <20060421014150.GA15505@mipter.zuzino.mipt.ru>
+References: <4448117E.3010708@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shawvrana@gmail.com, netdev@vger.kernel.org,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:49682 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932097AbWDUBdv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Apr 2006 21:33:51 -0400
-To: Michael Chan <mchan@broadcom.com>
+Received: from nproxy.gmail.com ([64.233.182.186]:57849 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S932116AbWDUBoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Apr 2006 21:44:46 -0400
+Received: by nproxy.gmail.com with SMTP id l24so256094nfc
+        for <netdev@vger.kernel.org>; Thu, 20 Apr 2006 18:44:45 -0700 (PDT)
+To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <20060421012701.GA29053@gondor.apana.org.au>
+In-Reply-To: <4448117E.3010708@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 21, 2006 at 11:27:01AM +1000, herbert wrote:
-> On Thu, Apr 20, 2006 at 03:36:57PM -0700, Michael Chan wrote:
-> >
-> > If we're in tg3_close() and the reset task isn't running yet, tg3_close
-> > () will proceed. However, when the reset task finally runs, it will see
-> > that netif_running() is zero and will just return.
-> 
-> Yes you're absolutely right.
+On Thu, Apr 20, 2006 at 06:55:58PM -0400, Jeff Garzik wrote:
+> Also, janitors, there are more NIC specs at
+> http://gkernel.sourceforge.net/specs/ than are listed on the wiki.  What
+> I posted is just a starter list.  If someone were to comb through each
+> PDF in the /specs/ sub-directories, and make sure it is linked on the
+> wiki, I would be grateful.
 
-Actually, what if the tg3_close is followed by a tg3_open? That could
-produce a spurious reset which I suppose isn't that bad.  Also if the
-module is unloaded bad things will happen as well.  So I still don't
-feel too comfortable about leaving it scheduled after a close.
+Almost done.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+P.S.:
+http://gkernel.sourceforge.net/specs/via/501designguide.pdf.bz2 is
+broken.
+
