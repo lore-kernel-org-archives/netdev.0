@@ -1,123 +1,90 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 0/17] d80211 patches
-Date: Fri, 21 Apr 2006 22:52:10 +0200
-Message-ID: <20060421225210.36a0225b@griffin.suse.cz>
-References: <20060421220951.205579000.midnight@suse.cz>
-	<200604212252.08325.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Subject: [PATCH 4/10] d80211: don't use pointer in ieee80211_tx_control
+Date: Fri, 21 Apr 2006 22:53:24 +0200 (CEST)
+Message-ID: <20060421205324.0F6A4482C0@silver.suse.cz>
+References: <20060421225314.048983000.midnight@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:4264 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S932437AbWDUUwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:52:11 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200604212252.08325.mb@bu3sch.de>
+Received: from styx.suse.cz ([82.119.242.94]:45953 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S932442AbWDUUwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 16:52:55 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060421225314.048983000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Apr 2006 22:52:08 +0200, Michael Buesch wrote:
-> Can you please send your hacky patch for the bcm43xx
-> to me, so I can come up with a clean one?
+A problem similar to the one with ieee80211_sub_if_data and skb->cb happens
+to ieee80211_sub_if_data and ieee80211_tx_control. When originating
+interface is removed while packet is sent to the driver, bad things will
+happen. Use ifindex instead.
 
-Sure, actually I planned to do it in a few minutes :-)
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
+---
 
- drivers/net/wireless/bcm43xx-d80211/bcm43xx.h      |    1 
- drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c |   45 +++++++++++++++++++--
- 2 files changed, 42 insertions(+), 4 deletions(-)
+ include/net/d80211.h   |    3 ++-
+ net/d80211/ieee80211.c |   12 +++++++-----
+ 2 files changed, 9 insertions(+), 6 deletions(-)
 
---- dscape.orig/drivers/net/wireless/bcm43xx-d80211/bcm43xx.h
-+++ dscape/drivers/net/wireless/bcm43xx-d80211/bcm43xx.h
-@@ -721,6 +721,7 @@ struct bcm43xx_private {
- 	/* Informational stuff. */
- 	char nick[IW_ESSID_MAX_SIZE + 1];
- 	u8 bssid[ETH_ALEN];
-+	int interfaces;
+2f1956069a10abdc9a1d4f38ba413ae511428224
+diff --git a/include/net/d80211.h b/include/net/d80211.h
+index e44e21c..3943e30 100644
+--- a/include/net/d80211.h
++++ b/include/net/d80211.h
+@@ -185,7 +185,8 @@ struct ieee80211_tx_control {
+ 			     * struct ieee80211_rate). To be used to limit
+ 			     * packet dropping when probing higher rates, if hw
+ 			     * supports multiple retry rates. -1 = not used */
+-	struct ieee80211_sub_if_data *sdata; /* internal */
++	int type;	/* internal */
++	int ifindex;	/* internal */
+ };
  
- 	/* encryption/decryption */
- 	u16 security_offset;
---- dscape.orig/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-+++ dscape/drivers/net/wireless/bcm43xx-d80211/bcm43xx_main.c
-@@ -4029,9 +4029,6 @@ static int bcm43xx_net_config(struct net
- 	if (conf->channel != radio->channel)
- 		bcm43xx_radio_selectchannel(bcm, conf->channel, 0);
+ #define RX_FLAG_MMIC_ERROR       0x1
+diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+index f768de5..425bd51 100644
+--- a/net/d80211/ieee80211.c
++++ b/net/d80211/ieee80211.c
+@@ -1242,7 +1242,7 @@ static int ieee80211_master_start_xmit(s
+ 	struct ieee80211_tx_control control;
+ 	struct ieee80211_tx_packet_data *pkt_data;
+ 	struct net_device *odev = NULL;
+-	struct ieee80211_sub_if_data *sdata;
++	struct ieee80211_sub_if_data *sdata, *osdata;
+ 	int ret;
  
--	if (conf->mode != bcm->iw_mode)
--		bcm43xx_set_iwmode(bcm, conf->mode);
--
- 	if (conf->short_slot_time != bcm->short_slot) {
- 		assert(phy->type == BCM43xx_PHYTYPE_G);
- 		if (conf->short_slot_time)
-@@ -4186,8 +4183,13 @@ static void bcm43xx_net_poll_controller(
- static int bcm43xx_net_open(struct net_device *net_dev)
- {
- 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
-+	int res;
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+@@ -1267,8 +1267,10 @@ #endif
+ 		dev_kfree_skb(skb);
+ 		return 0;
+ 	}
++	osdata = IEEE80211_DEV_TO_SUB_IF(odev);
  
--	return bcm43xx_init_board(bcm);
-+	res = bcm43xx_init_board(bcm);
-+	if (!res)
-+		return res;
-+	bcm43xx_set_iwmode(bcm, bcm->iw_mode);
-+	return 0;
- }
+-	control.sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	control.ifindex = odev->ifindex;
++	control.type = osdata->type;
+ 	control.req_tx_status = pkt_data->req_tx_status;
+ 	control.do_not_encrypt = pkt_data->do_not_encrypt;
+ 	control.pkt_type =
+@@ -1277,7 +1279,7 @@ #endif
+ 	control.queue = pkt_data->queue;
  
- static int bcm43xx_net_stop(struct net_device *net_dev)
-@@ -4202,6 +4204,39 @@ static int bcm43xx_net_stop(struct net_d
- 	return 0;
- }
+ 	ret = ieee80211_tx(odev, skb, &control,
+-			   control.sdata->type == IEEE80211_IF_TYPE_MGMT);
++			   control.type == IEEE80211_IF_TYPE_MGMT);
+ 	dev_put(odev);
  
-+static int bcm43xx_add_interface(struct net_device *net_dev,
-+				 struct ieee80211_if_init_conf *conf)
-+{
-+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
-+
-+	if (bcm->interfaces > 0)
-+		return -ENOBUFS;
-+	if (conf->type == IEEE80211_IF_TYPE_MNTR) {
-+		bcm->iw_mode = IW_MODE_MONITOR;
-+	} else {
-+		if (memcmp(bcm->net_dev->dev_addr, conf->mac_addr, ETH_ALEN) != 0)
-+			return -EADDRNOTAVAIL;
-+		if (conf->type == IEEE80211_IF_TYPE_STA)
-+			bcm->iw_mode = IW_MODE_INFRA;
-+		else if (conf->type == IEEE80211_IF_TYPE_IBSS)
-+			bcm->iw_mode = IW_MODE_ADHOC;
-+		else if (conf->type == IEEE80211_IF_TYPE_AP)
-+			bcm->iw_mode = IW_MODE_MASTER;
-+		else
-+			return -EOPNOTSUPP;
-+	}
-+	bcm->interfaces++;
-+	return 0;
-+}
-+
-+static void bcm43xx_remove_interface(struct net_device *net_dev,
-+				     struct ieee80211_if_init_conf *conf)
-+{
-+	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
-+
-+	bcm->interfaces--;
-+}
-+
- /* Initialization of struct net_device, just after allocation. */
- static void bcm43xx_netdev_setup(struct net_device *net_dev)
- {
-@@ -4276,6 +4311,8 @@ static int __devinit bcm43xx_init_one(st
- 	ieee->tx = bcm43xx_net_hard_start_xmit;
- 	ieee->open = bcm43xx_net_open;
- 	ieee->stop = bcm43xx_net_stop;
-+	ieee->add_interface = bcm43xx_add_interface;
-+	ieee->remove_interface = bcm43xx_remove_interface;
- 	ieee->reset = bcm43xx_net_reset;
- 	ieee->config = bcm43xx_net_config;
- //TODO	ieee->set_key = bcm43xx_net_set_key;
-
-
-
-
+         return ret;
+@@ -3694,8 +3696,8 @@ static void ieee80211_remove_tx_extra(st
+ 	struct ieee80211_tx_packet_data *pkt_data;
+ 
+ 	pkt_data = (struct ieee80211_tx_packet_data *)skb->cb;
+-	pkt_data->ifindex = control->sdata->dev->ifindex;
+-	pkt_data->mgmt_iface = (control->sdata->type == IEEE80211_IF_TYPE_MGMT);
++	pkt_data->ifindex = control->ifindex;
++	pkt_data->mgmt_iface = (control->type == IEEE80211_IF_TYPE_MGMT);
+ 	pkt_data->req_tx_status = control->req_tx_status;
+ 	pkt_data->do_not_encrypt = control->do_not_encrypt;
+ 	pkt_data->pkt_probe_resp = (control->pkt_type == PKT_PROBE_RESP);
 -- 
-Jiri Benc
-SUSE Labs
+1.3.0
+
