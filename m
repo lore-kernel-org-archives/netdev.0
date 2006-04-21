@@ -1,351 +1,373 @@
 From: Ananda Raju <Ananda.Raju@neterion.com>
-Subject: [patch 1/5] s2io driver updates
-Date: Fri, 21 Apr 2006 19:03:13 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10604211900320.15266-100000@guinness>
+Subject: [patch 2/5] s2io driver updates
+Date: Fri, 21 Apr 2006 19:05:41 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10604211903180.15266-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: leonid.grossman@neterion.com, ravinandan.arakali@neterion.com,
 	rapuru.sriram@neterion.com, alicia.pena@neterion.com,
 	ananda.raju@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:53194 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:57802 "EHLO
 	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S1750714AbWDUXDR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Apr 2006 19:03:17 -0400
+	id S1750725AbWDUXFo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Apr 2006 19:05:44 -0400
 To: jgarzik@pobox.com, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi,
-	This patch contains all the changes that were done to improve 
-	performance of s2io driver. one line  description of the changes 
-	are 
+hi, 
+	This patch contains the modification and bug fixes with respect to 
+	input parameters and outupt dmesages. following is brief description 
+	of the changes.
 
-	1. For Non NAPI case the rx interrupt handler is being called 
-	   unconditionally
-	2. code optimization and adding prefetch skb->data
-	3. Remove modulo operations in fast path
-	4. Enable Group Reads and set backoff interval to 0x1000
-	5. correct PIC_CNTL_SHARED_SPLITS  macro definition, and reduce 
-	   pause parameter
-	6. Corrected logic of identifying rx buffer level in rx_buffer_level()
-	7. fix DMA map and unmap done with different sizes in 1-buf mode
-	8. Removed forcible disabling of ERO
-	9. Send up the packets with transfer code = 0x5
+	1. Set default values for rx_ring_sz[0..7] and tx_fifo_len[0..7]
+	2. verify few basic load parameters
+	3. read product description from VPD
+	4. clean up of dmesg  when driver is loaded
 
 Signed-off-by: Ananda Raju <ananda.raju@neterion.com>
 ---
-diff -upNr netdev/drivers/net/s2io-regs.h perf_fixes/drivers/net/s2io-regs.h
---- netdev/drivers/net/s2io-regs.h	2006-04-13 06:47:17.000000000 -0700
-+++ perf_fixes/drivers/net/s2io-regs.h	2006-04-13 06:48:16.000000000 -0700
-@@ -187,7 +187,7 @@ typedef struct _XENA_dev_config {
- /* PIC Control registers */
- 	u64 pic_control;
- #define PIC_CNTL_RX_ALARM_MAP_1                BIT(0)
--#define PIC_CNTL_SHARED_SPLITS(n)              vBIT(n,11,4)
-+#define PIC_CNTL_SHARED_SPLITS(n)              vBIT(n,11,5)
+diff -upNr perf_fixes/drivers/net/s2io.c dmesg_param_fixes/drivers/net/s2io.c
+--- perf_fixes/drivers/net/s2io.c	2006-04-13 08:02:56.000000000 -0700
++++ dmesg_param_fixes/drivers/net/s2io.c	2006-04-13 09:08:22.000000000 -0700
+@@ -26,15 +26,22 @@
+  *
+  * The module loadable parameters that are supported by the driver and a brief
+  * explaination of all the variables.
++ *
+  * rx_ring_num : This can be used to program the number of receive rings used
+  * in the driver.
+- * rx_ring_sz: This defines the number of descriptors each ring can have. This
+- * is also an array of size 8.
++ * rx_ring_sz: This defines the number of receive blocks each ring can have.
++ *     This is also an array of size 8.
+  * rx_ring_mode: This defines the operation mode of all 8 rings. The valid
+  *		values are 1, 2 and 3.
+  * tx_fifo_num: This defines the number of Tx FIFOs thats used int the driver.
+  * tx_fifo_len: This too is an array of 8. Each element defines the number of
+  * Tx descriptors that can be associated with each corresponding FIFO.
++ * intr_type: This defines the type of interrupt. The values can be 0(INTA),
++ *     1(MSI), 2(MSI_X). Default value is '0(INTA)'
++ * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
++ *     Possible values '1' for enable '0' for disable. Default is '0'
++ * lro_max_pkts: This parameter defines maximum number of packets can be
++ *     aggregated as a single large packet
+  ************************************************************************/
  
- 	u64 swapper_ctrl;
- #define SWAPPER_CTRL_PIF_R_FE                  BIT(0)
-@@ -284,9 +284,13 @@ typedef struct _XENA_dev_config {
- 	u64 gpio_control;
- #define GPIO_CTRL_GPIO_0		BIT(8)
- 	u64 misc_control;
-+#define EXT_REQ_EN			BIT(1)
- #define MISC_LINK_STABILITY_PRD(val)   vBIT(val,29,3)
- 
--	u8 unused7_1[0x240 - 0x208];
-+	u8 unused7_1[0x230 - 0x208];
-+
-+	u64 pic_control2;
-+	u64 ini_dperr_ctrl;
- 
- 	u64 wreq_split_mask;
- #define	WREQ_SPLIT_MASK_SET_MASK(val)	vBIT(val, 52, 12)
-@@ -493,6 +497,7 @@ typedef struct _XENA_dev_config {
- #define PRC_CTRL_NO_SNOOP_DESC                 BIT(22)
- #define PRC_CTRL_NO_SNOOP_BUFF                 BIT(23)
- #define PRC_CTRL_BIMODAL_INTERRUPT             BIT(37)
-+#define PRC_CTRL_GROUP_READS                   BIT(38)
- #define PRC_CTRL_RXD_BACKOFF_INTERVAL(val)     vBIT(val,40,24)
- 
- 	u64 prc_alarm_action;
-diff -upNr netdev/drivers/net/s2io.c perf_fixes/drivers/net/s2io.c
---- netdev/drivers/net/s2io.c	2006-04-13 06:47:17.000000000 -0700
-+++ perf_fixes/drivers/net/s2io.c	2006-04-13 08:02:56.000000000 -0700
-@@ -106,18 +106,14 @@ static inline int RXD_IS_UP2DT(RxD_t *rx
- #define LOW	2
- static inline int rx_buffer_level(nic_t * sp, int rxb_size, int ring)
- {
--	int level = 0;
- 	mac_info_t *mac_control;
- 
- 	mac_control = &sp->mac_control;
--	if ((mac_control->rings[ring].pkt_cnt - rxb_size) > 16) {
--		level = LOW;
--		if (rxb_size <= rxd_count[sp->rxd_mode]) {
--			level = PANIC;
--		}
--	}
--
--	return level;
-+	if (rxb_size <= rxd_count[sp->rxd_mode])
-+		return PANIC;
-+	else if ((mac_control->rings[ring].pkt_cnt - rxb_size) > 16)
-+		return  LOW;
-+	return 0;
- }
- 
- /* Ethtool related variables and Macros. */
-@@ -311,7 +307,7 @@ static unsigned int rts_frm_len[MAX_RX_R
+ #include <linux/config.h>
+@@ -299,10 +306,10 @@ static const u64 fix_mac[] = {
+ /* Module Loadable parameters. */
+ static unsigned int tx_fifo_num = 1;
+ static unsigned int tx_fifo_len[MAX_TX_FIFOS] =
+-    {[0 ...(MAX_TX_FIFOS - 1)] = 0 };
++    {DEFAULT_FIFO_0_LEN, [1 ...(MAX_TX_FIFOS - 1)] = DEFAULT_FIFO_1_7_LEN};
+ static unsigned int rx_ring_num = 1;
+ static unsigned int rx_ring_sz[MAX_RX_RINGS] =
+-    {[0 ...(MAX_RX_RINGS - 1)] = 0 };
++    {[0 ...(MAX_RX_RINGS - 1)] = SMALL_BLK_CNT};
+ static unsigned int rts_frm_len[MAX_RX_RINGS] =
      {[0 ...(MAX_RX_RINGS - 1)] = 0 };
  static unsigned int rx_ring_mode = 1;
- static unsigned int use_continuous_tx_intrs = 1;
--static unsigned int rmac_pause_time = 65535;
-+static unsigned int rmac_pause_time = 0x100;
- static unsigned int mc_pause_threshold_q0q3 = 187;
- static unsigned int mc_pause_threshold_q4q7 = 187;
- static unsigned int shared_splits;
-@@ -1545,13 +1541,22 @@ static int init_nic(struct s2io_nic *nic
- 	val64 |= PIC_CNTL_SHARED_SPLITS(shared_splits);
- 	writeq(val64, &bar0->pic_control);
- 
-+	if (nic->config.bus_speed == 266) {
-+		writeq(TXREQTO_VAL(0x7f) | TXREQTO_EN, &bar0->txreqtimeout);
-+		writeq(0x0, &bar0->read_retry_delay);
-+		writeq(0x0, &bar0->write_retry_delay);
-+	}
-+
- 	/*
- 	 * Programming the Herc to split every write transaction
- 	 * that does not start on an ADB to reduce disconnects.
- 	 */
- 	if (nic->device_type == XFRAME_II_DEVICE) {
--		val64 = WREQ_SPLIT_MASK_SET_MASK(255);
--		writeq(val64, &bar0->wreq_split_mask);
-+		val64 = EXT_REQ_EN | MISC_LINK_STABILITY_PRD(3);
-+		writeq(val64, &bar0->misc_control);
-+		val64 = readq(&bar0->pic_control2);
-+		val64 &= ~(BIT(13)|BIT(14)|BIT(15));
-+		writeq(val64, &bar0->pic_control2);
- 	}
- 
- 	/* Setting Link stability period to 64 ms */ 
-@@ -1948,6 +1953,10 @@ static int start_nic(struct s2io_nic *ni
- 			val64 |= PRC_CTRL_RC_ENABLED;
- 		else
- 			val64 |= PRC_CTRL_RC_ENABLED | PRC_CTRL_RING_MODE_3;
-+		if (nic->device_type == XFRAME_II_DEVICE)
-+			val64 |= PRC_CTRL_GROUP_READS;
-+		val64 &= ~PRC_CTRL_RXD_BACKOFF_INTERVAL(0xFFFFFF);
-+		val64 |= PRC_CTRL_RXD_BACKOFF_INTERVAL(0x1000);
- 		writeq(val64, &bar0->prc_ctrl_n[i]);
- 	}
- 
-@@ -2231,13 +2240,12 @@ static int fill_rx_buffers(struct s2io_n
- 	alloc_cnt = mac_control->rings[ring_no].pkt_cnt -
- 	    atomic_read(&nic->rx_bufs_left[ring_no]);
- 
-+	block_no1 = mac_control->rings[ring_no].rx_curr_get_info.block_index;
-+	off1 = mac_control->rings[ring_no].rx_curr_get_info.offset;
- 	while (alloc_tab < alloc_cnt) {
- 		block_no = mac_control->rings[ring_no].rx_curr_put_info.
- 		    block_index;
--		block_no1 = mac_control->rings[ring_no].rx_curr_get_info.
--		    block_index;
- 		off = mac_control->rings[ring_no].rx_curr_put_info.offset;
--		off1 = mac_control->rings[ring_no].rx_curr_get_info.offset;
- 
- 		rxdp = mac_control->rings[ring_no].
- 				rx_blocks[block_no].rxds[off].virt_addr;
-@@ -2307,9 +2315,9 @@ static int fill_rx_buffers(struct s2io_n
- 			memset(rxdp, 0, sizeof(RxD1_t));
- 			skb_reserve(skb, NET_IP_ALIGN);
- 			((RxD1_t*)rxdp)->Buffer0_ptr = pci_map_single
--			    (nic->pdev, skb->data, size, PCI_DMA_FROMDEVICE);
--			rxdp->Control_2 &= (~MASK_BUFFER0_SIZE_1);
--			rxdp->Control_2 |= SET_BUFFER0_SIZE_1(size);
-+			    (nic->pdev, skb->data, size - NET_IP_ALIGN,
-+				PCI_DMA_FROMDEVICE);
-+			rxdp->Control_2 = SET_BUFFER0_SIZE_1(size - NET_IP_ALIGN);
- 
- 		} else if (nic->rxd_mode >= RXD_MODE_3A) {
- 			/*
-@@ -2516,7 +2524,7 @@ static int s2io_poll(struct net_device *
- 	mac_info_t *mac_control;
- 	struct config_param *config;
- 	XENA_dev_config_t __iomem *bar0 = nic->bar0;
--	u64 val64;
-+	u64 val64 = 0xFFFFFFFFFFFFFFFFULL;
- 	int i;
- 
- 	atomic_inc(&nic->isr_cnt);
-@@ -2528,8 +2536,8 @@ static int s2io_poll(struct net_device *
- 		nic->pkts_to_process = dev->quota;
- 	org_pkts_to_process = nic->pkts_to_process;
- 
--	val64 = readq(&bar0->rx_traffic_int);
- 	writeq(val64, &bar0->rx_traffic_int);
-+	val64 = readl(&bar0->rx_traffic_int);
- 
- 	for (i = 0; i < config->rx_ring_num; i++) {
- 		rx_intr_handler(&mac_control->rings[i]);
-@@ -2666,6 +2674,7 @@ static void rx_intr_handler(ring_info_t 
- 					 ((RxD3_t*)rxdp)->Buffer2_ptr,
- 					 dev->mtu, PCI_DMA_FROMDEVICE);
- 		}
-+		prefetch(skb->data);
- 		rx_osm_handler(ring_data, rxdp);
- 		get_info.offset++;
- 		ring_data->rx_curr_get_info.offset = get_info.offset;
-@@ -2760,7 +2769,8 @@ to loss of link\n");
- 		dev_kfree_skb_irq(skb);
- 
- 		get_info.offset++;
--		get_info.offset %= get_info.fifo_len + 1;
-+		if (get_info.offset == get_info.fifo_len + 1)
-+			get_info.offset = 0;
- 		txdlp = (TxD_t *) fifo_data->list_info
- 		    [get_info.offset].list_virt_addr;
- 		fifo_data->tx_curr_get_info.offset =
-@@ -3545,7 +3555,8 @@ static int s2io_xmit(struct sk_buff *skb
- 
- 	queue_len = mac_control->fifos[queue].tx_curr_put_info.fifo_len + 1;
- 	/* Avoid "put" pointer going beyond "get" pointer */
--	if (txdp->Host_Control || (((put_off + 1) % queue_len) == get_off)) {
-+	if (txdp->Host_Control ||
-+		   ((put_off+1) == queue_len ? 0 : (put_off+1)) == get_off) {
- 		DBG_PRINT(TX_DBG, "Error in xmit, No free TXDs.\n");
- 		netif_stop_queue(dev);
- 		dev_kfree_skb(skb);
-@@ -3655,11 +3666,12 @@ static int s2io_xmit(struct sk_buff *skb
- 	mmiowb();
- 
- 	put_off++;
--	put_off %= mac_control->fifos[queue].tx_curr_put_info.fifo_len + 1;
-+	if (put_off == mac_control->fifos[queue].tx_curr_put_info.fifo_len + 1)
-+		put_off = 0;
- 	mac_control->fifos[queue].tx_curr_put_info.offset = put_off;
- 
- 	/* Avoid "put" pointer going beyond "get" pointer */
--	if (((put_off + 1) % queue_len) == get_off) {
-+	if (((put_off+1) == queue_len ? 0 : (put_off+1)) == get_off) {
- 		DBG_PRINT(TX_DBG,
- 			  "No free TxDs for xmit, Put: 0x%x Get:0x%x\n",
- 			  put_off, get_off);
-@@ -3887,43 +3899,37 @@ static irqreturn_t s2io_isr(int irq, voi
- 		return IRQ_NONE;
- 	}
- 
-+	val64 = 0xFFFFFFFFFFFFFFFFULL;
- #ifdef CONFIG_S2IO_NAPI
- 	if (reason & GEN_INTR_RXTRAFFIC) {
- 		if (netif_rx_schedule_prep(dev)) {
--			en_dis_able_nic_intrs(sp, RX_TRAFFIC_INTR,
--					      DISABLE_INTRS);
-+			writeq(val64, &bar0->rx_traffic_mask);
- 			__netif_rx_schedule(dev);
- 		}
- 	}
- #else
--	/* If Intr is because of Rx Traffic */
--	if (reason & GEN_INTR_RXTRAFFIC) {
--		/*
--		 * rx_traffic_int reg is an R1 register, writing all 1's
--		 * will ensure that the actual interrupt causing bit get's
--		 * cleared and hence a read can be avoided.
--		 */
--		val64 = 0xFFFFFFFFFFFFFFFFULL;
--		writeq(val64, &bar0->rx_traffic_int);
--		for (i = 0; i < config->rx_ring_num; i++) {
--			rx_intr_handler(&mac_control->rings[i]);
--		}
-+	/*
-+	 * Rx handler is called by default, without checking for the
-+	 * cause of interrupt.
-+	 * rx_traffic_int reg is an R1 register, writing all 1's
-+	 * will ensure that the actual interrupt causing bit get's
-+	 * cleared and hence a read can be avoided.
-+	 */
-+	writeq(val64, &bar0->rx_traffic_int);
-+	for (i = 0; i < config->rx_ring_num; i++) {
-+		rx_intr_handler(&mac_control->rings[i]);
- 	}
- #endif
- 
--	/* If Intr is because of Tx Traffic */
--	if (reason & GEN_INTR_TXTRAFFIC) {
--		/*
--		 * tx_traffic_int reg is an R1 register, writing all 1's
--		 * will ensure that the actual interrupt causing bit get's
--		 * cleared and hence a read can be avoided.
--		 */
--		val64 = 0xFFFFFFFFFFFFFFFFULL;
--		writeq(val64, &bar0->tx_traffic_int);
-+	/*
-+	 * tx_traffic_int reg is an R1 register, writing all 1's
-+	 * will ensure that the actual interrupt causing bit get's
-+	 * cleared and hence a read can be avoided.
-+	 */
-+	writeq(val64, &bar0->tx_traffic_int);
- 
--		for (i = 0; i < config->tx_fifo_num; i++)
--			tx_intr_handler(&mac_control->fifos[i]);
--	}
-+	for (i = 0; i < config->tx_fifo_num; i++)
-+		tx_intr_handler(&mac_control->fifos[i]);
- 
- 	if (reason & GEN_INTR_TXPIC)
- 		s2io_txpic_intr_handle(sp);
-@@ -5695,18 +5701,27 @@ static int rx_osm_handler(ring_info_t *r
- 		((unsigned long) rxdp->Host_Control);
- 	int ring_no = ring_data->ring_no;
- 	u16 l3_csum, l4_csum;
-+	unsigned long long err = rxdp->Control_1 & RXD_T_CODE;
- 	lro_t *lro;
- 
- 	skb->dev = dev;
--	if (rxdp->Control_1 & RXD_T_CODE) {
--		unsigned long long err = rxdp->Control_1 & RXD_T_CODE;
--		DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%llx\n",
--			  dev->name, err);
--		dev_kfree_skb(skb);
--		sp->stats.rx_crc_errors++;
--		atomic_dec(&sp->rx_bufs_left[ring_no]);
--		rxdp->Host_Control = 0;
--		return 0;
-+	if (err) {
-+		/*
-+		* Drop the packet if bad transfer code. Exception being
-+		* 0x5, which could be due to unsupported IPv6 extension header.
-+		* In this case, we let stack handle the packet.
-+		* Note that in this case, since checksum will be incorrect,
-+		* stack will validate the same.
-+		*/
-+		if (err && ((err >> 48) != 0x5)) {
-+			DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%llx\n",
-+				dev->name, err);
-+			sp->stats.rx_crc_errors++;
-+			dev_kfree_skb(skb);
-+			atomic_dec(&sp->rx_bufs_left[ring_no]);
-+			rxdp->Host_Control = 0;
-+			return 0;
-+		}
- 	}
- 
- 	/* Updating statistics */
-@@ -5918,13 +5933,6 @@ static void s2io_init_pci(nic_t * sp)
- 	pci_write_config_word(sp->pdev, PCI_COMMAND,
- 			      (pci_cmd | PCI_COMMAND_PARITY));
- 	pci_read_config_word(sp->pdev, PCI_COMMAND, &pci_cmd);
--
--	/* Forcibly disabling relaxed ordering capability of the card. */
--	pcix_cmd &= 0xfffd;
--	pci_write_config_word(sp->pdev, PCIX_COMMAND_REGISTER,
--			      pcix_cmd);
--	pci_read_config_word(sp->pdev, PCIX_COMMAND_REGISTER,
--			     &(pcix_cmd));
+@@ -4626,6 +4633,45 @@ static int write_eeprom(nic_t * sp, int 
+ 	return ret;
  }
  
- MODULE_AUTHOR("Raghavendra Koushik <raghavendra.koushik@neterion.com>");
++static void s2io_vpd_read(nic_t *nic)
++{
++	u8 vpd_data[256],data;
++	int i=0, cnt, fail = 0;
++	int vpd_addr = 0x80;
++
++	if (nic->device_type == XFRAME_II_DEVICE) {
++		strcpy(nic->product_name, "Xframe II 10GbE network adapter");
++		vpd_addr = 0x80;
++	}
++	else {
++		strcpy(nic->product_name, "Xframe I 10GbE network adapter");
++		vpd_addr = 0x50;
++	}
++
++	for (i = 0; i < 256; i +=4 ) {
++		pci_write_config_byte(nic->pdev, (vpd_addr + 2), i);
++		pci_read_config_byte(nic->pdev,  (vpd_addr + 2), &data);
++		pci_write_config_byte(nic->pdev, (vpd_addr + 3), 0);
++		for (cnt = 0; cnt <5; cnt++) {
++			msleep(2);
++			pci_read_config_byte(nic->pdev, (vpd_addr + 3), &data);
++			if (data == 0x80)
++				break;
++		}
++		if (cnt >= 5) {
++			DBG_PRINT(ERR_DBG, "Read of VPD data failed\n");
++			fail = 1;
++			break;
++		}
++		pci_read_config_dword(nic->pdev,  (vpd_addr + 4),
++				      (u32 *)&vpd_data[i]);
++	}
++	if ((!fail) && (vpd_data[1] < VPD_PRODUCT_NAME_LEN)) {
++		memset(nic->product_name, 0, vpd_data[1]);
++		memcpy(nic->product_name, &vpd_data[3], vpd_data[1]);
++	}
++}
++
+ /**
+  *  s2io_ethtool_geeprom  - reads the value stored in the Eeprom.
+  *  @sp : private member of the device structure, which is a pointer to the *       s2io_nic structure.
+@@ -5962,6 +6008,55 @@ module_param(intr_type, int, 0);
+ module_param(lro, int, 0);
+ module_param(lro_max_pkts, int, 0);
+ 
++static int s2io_verify_parm(struct pci_dev *pdev, u8 *dev_intr_type)
++{
++	if ( tx_fifo_num > 8) {
++		DBG_PRINT(ERR_DBG, "s2io: Requested number of Tx fifos not "
++			 "supported\n");
++		DBG_PRINT(ERR_DBG, "s2io: Default to 8 Tx fifos\n");
++		tx_fifo_num = 8;
++	}
++	if ( rx_ring_num > 8) {
++		DBG_PRINT(ERR_DBG, "s2io: Requested number of Rx rings not "
++			 "supported\n");
++		DBG_PRINT(ERR_DBG, "s2io: Default to 8 Rx rings\n");
++		rx_ring_num = 8;
++	}
++#ifdef CONFIG_S2IO_NAPI
++	if (*dev_intr_type != INTA) {
++		DBG_PRINT(ERR_DBG, "s2io: NAPI cannot be enabled when "
++			  "MSI/MSI-X is enabled. Defaulting to INTA\n");
++		*dev_intr_type = INTA;
++	}
++#endif
++#ifndef CONFIG_PCI_MSI
++	if (*dev_intr_type != INTA) {
++		DBG_PRINT(ERR_DBG, "s2io: This kernel does not support"
++			  "MSI/MSI-X. Defaulting to INTA\n");
++		*dev_intr_type = INTA;
++	}
++#else
++	if (*dev_intr_type > MSI_X) {
++		DBG_PRINT(ERR_DBG, "s2io: Wrong intr_type requested. "
++			  "Defaulting to INTA\n");
++		*dev_intr_type = INTA;
++	}
++#endif
++	if ((*dev_intr_type == MSI_X) &&
++			((pdev->device != PCI_DEVICE_ID_HERC_WIN) &&
++			(pdev->device != PCI_DEVICE_ID_HERC_UNI))) {
++		DBG_PRINT(ERR_DBG, "s2io: Xframe I does not support MSI_X. " 
++					"Defaulting to INTA\n");
++		*dev_intr_type = INTA;
++	}
++	if (rx_ring_mode > 3) {
++		DBG_PRINT(ERR_DBG, "s2io: Requested ring mode not supported\n");
++		DBG_PRINT(ERR_DBG, "s2io: Defaulting to 3-buffer mode\n");
++		rx_ring_mode = 3;
++	}
++	return SUCCESS;
++}
++
+ /**
+  *  s2io_init_nic - Initialization of the adapter .
+  *  @pdev : structure containing the PCI related information of the device.
+@@ -5992,15 +6087,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	int mode;
+ 	u8 dev_intr_type = intr_type;
+ 
+-#ifdef CONFIG_S2IO_NAPI
+-	if (dev_intr_type != INTA) {
+-		DBG_PRINT(ERR_DBG, "NAPI cannot be enabled when MSI/MSI-X \
+-is enabled. Defaulting to INTA\n");
+-		dev_intr_type = INTA;
+-	}
+-	else
+-		DBG_PRINT(ERR_DBG, "NAPI support has been enabled\n");
+-#endif
++	if ((ret = s2io_verify_parm(pdev, &dev_intr_type)))
++		return ret;
+ 
+ 	if ((ret = pci_enable_device(pdev))) {
+ 		DBG_PRINT(ERR_DBG,
+@@ -6025,14 +6113,6 @@ is enabled. Defaulting to INTA\n");
+ 		pci_disable_device(pdev);
+ 		return -ENOMEM;
+ 	}
+-
+-	if ((dev_intr_type == MSI_X) && 
+-			((pdev->device != PCI_DEVICE_ID_HERC_WIN) &&
+-			(pdev->device != PCI_DEVICE_ID_HERC_UNI))) {
+-		DBG_PRINT(ERR_DBG, "Xframe I does not support MSI_X. \
+-Defaulting to INTA\n");
+-		dev_intr_type = INTA;
+-	}
+ 	if (dev_intr_type != MSI_X) {
+ 		if (pci_request_regions(pdev, s2io_driver_name)) {
+ 			DBG_PRINT(ERR_DBG, "Request Regions failed\n"),
+@@ -6108,8 +6188,6 @@ Defaulting to INTA\n");
+ 	config = &sp->config;
+ 
+ 	/* Tx side parameters. */
+-	if (tx_fifo_len[0] == 0)
+-		tx_fifo_len[0] = DEFAULT_FIFO_LEN; /* Default value. */
+ 	config->tx_fifo_num = tx_fifo_num;
+ 	for (i = 0; i < MAX_TX_FIFOS; i++) {
+ 		config->tx_cfg[i].fifo_len = tx_fifo_len[i];
+@@ -6133,8 +6211,6 @@ Defaulting to INTA\n");
+ 	config->max_txds = MAX_SKB_FRAGS + 2;
+ 
+ 	/* Rx side parameters. */
+-	if (rx_ring_sz[0] == 0)
+-		rx_ring_sz[0] = SMALL_BLK_CNT; /* Default value. */
+ 	config->rx_ring_num = rx_ring_num;
+ 	for (i = 0; i < MAX_RX_RINGS; i++) {
+ 		config->rx_cfg[i].num_rxd = rx_ring_sz[i] *
+@@ -6330,82 +6406,63 @@ Defaulting to INTA\n");
+ 		ret = -ENODEV;
+ 		goto register_failed;
+ 	}
+-
+-	if (sp->device_type & XFRAME_II_DEVICE) {
+-		DBG_PRINT(ERR_DBG, "%s: Neterion Xframe II 10GbE adapter ",
+-			  dev->name);
+-		DBG_PRINT(ERR_DBG, "(rev %d), Version %s",
++	s2io_vpd_read(sp);
++	DBG_PRINT(ERR_DBG, "%s: Neterion %s",dev->name, sp->product_name);
++	DBG_PRINT(ERR_DBG, "(rev %d), Driver version %s\n",
+ 				get_xena_rev_id(sp->pdev),
+ 				s2io_driver_version);
+-		switch(sp->intr_type) {
+-			case INTA:
+-				DBG_PRINT(ERR_DBG, ", Intr type INTA");
+-				break;
+-			case MSI:
+-				DBG_PRINT(ERR_DBG, ", Intr type MSI");
+-				break;
+-			case MSI_X:
+-				DBG_PRINT(ERR_DBG, ", Intr type MSI-X");
+-				break;
+-		}
+-
+-		DBG_PRINT(ERR_DBG, "\nCopyright(c) 2002-2005 Neterion Inc.\n");
+-		DBG_PRINT(ERR_DBG, "MAC ADDR: %02x:%02x:%02x:%02x:%02x:%02x\n",
++	DBG_PRINT(ERR_DBG, "Copyright(c) 2002-2005 Neterion Inc.\n");
++	DBG_PRINT(ERR_DBG, "%s: MAC ADDR: "
++			  "%02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
+ 			  sp->def_mac_addr[0].mac_addr[0],
+ 			  sp->def_mac_addr[0].mac_addr[1],
+ 			  sp->def_mac_addr[0].mac_addr[2],
+ 			  sp->def_mac_addr[0].mac_addr[3],
+ 			  sp->def_mac_addr[0].mac_addr[4],
+ 			  sp->def_mac_addr[0].mac_addr[5]);
++	if (sp->device_type & XFRAME_II_DEVICE) {
+ 		mode = s2io_print_pci_mode(sp);
+ 		if (mode < 0) {
+-			DBG_PRINT(ERR_DBG, " Unsupported PCI bus mode ");
++			DBG_PRINT(ERR_DBG, " Unsupported PCI bus mode\n");
+ 			ret = -EBADSLT;
++			unregister_netdev(dev);
+ 			goto set_swap_failed;
+ 		}
+-	} else {
+-		DBG_PRINT(ERR_DBG, "%s: Neterion Xframe I 10GbE adapter ",
+-			  dev->name);
+-		DBG_PRINT(ERR_DBG, "(rev %d), Version %s",
+-					get_xena_rev_id(sp->pdev),
+-					s2io_driver_version);
+-		switch(sp->intr_type) {
+-			case INTA:
+-				DBG_PRINT(ERR_DBG, ", Intr type INTA");
+-				break;
+-			case MSI:
+-				DBG_PRINT(ERR_DBG, ", Intr type MSI");
+-				break;
+-			case MSI_X:
+-				DBG_PRINT(ERR_DBG, ", Intr type MSI-X");
+-				break;
+-		}
+-		DBG_PRINT(ERR_DBG, "\nCopyright(c) 2002-2005 Neterion Inc.\n");
+-		DBG_PRINT(ERR_DBG, "MAC ADDR: %02x:%02x:%02x:%02x:%02x:%02x\n",
+-			  sp->def_mac_addr[0].mac_addr[0],
+-			  sp->def_mac_addr[0].mac_addr[1],
+-			  sp->def_mac_addr[0].mac_addr[2],
+-			  sp->def_mac_addr[0].mac_addr[3],
+-			  sp->def_mac_addr[0].mac_addr[4],
+-			  sp->def_mac_addr[0].mac_addr[5]);
+ 	}
+-	if (sp->rxd_mode == RXD_MODE_3B)
+-		DBG_PRINT(ERR_DBG, "%s: 2-Buffer mode support has been "
+-			  "enabled\n",dev->name);
+-	if (sp->rxd_mode == RXD_MODE_3A)
+-		DBG_PRINT(ERR_DBG, "%s: 3-Buffer mode support has been "
+-			  "enabled\n",dev->name);
+-
++	switch(sp->rxd_mode) {
++		case RXD_MODE_1:
++		    DBG_PRINT(ERR_DBG, "%s: 1-Buffer receive mode enabled\n",
++						dev->name);
++		    break;
++		case RXD_MODE_3B:
++		    DBG_PRINT(ERR_DBG, "%s: 2-Buffer receive mode enabled\n",
++						dev->name);
++		    break;
++		case RXD_MODE_3A:
++		    DBG_PRINT(ERR_DBG, "%s: 3-Buffer receive mode enabled\n",
++						dev->name);
++		    break;
++	}
++#ifdef CONFIG_S2IO_NAPI
++	DBG_PRINT(ERR_DBG, "%s: NAPI enabled\n", dev->name);
++#endif
++	switch(sp->intr_type) {
++		case INTA:
++		    DBG_PRINT(ERR_DBG, "%s: Interrupt type INTA\n", dev->name);
++		    break;
++		case MSI:
++		    DBG_PRINT(ERR_DBG, "%s: Interrupt type MSI\n", dev->name);
++		    break;
++		case MSI_X:
++		    DBG_PRINT(ERR_DBG, "%s: Interrupt type MSI-X\n", dev->name);
++		    break;
++	}
+ 	if (sp->lro)
+ 		DBG_PRINT(ERR_DBG, "%s: Large receive offload enabled\n",
+-			dev->name);
++			  dev->name);
+ 
+ 	/* Initialize device name */
+-	strcpy(sp->name, dev->name);
+-	if (sp->device_type & XFRAME_II_DEVICE)
+-		strcat(sp->name, ": Neterion Xframe II 10GbE adapter");
+-	else
+-		strcat(sp->name, ": Neterion Xframe I 10GbE adapter");
++	sprintf(sp->name, "%s Neterion %s", dev->name, sp->product_name);
+ 
+ 	/* Initialize bimodal Interrupts */
+ 	sp->config.bimodal = bimodal;
+diff -upNr perf_fixes/drivers/net/s2io.h dmesg_param_fixes/drivers/net/s2io.h
+--- perf_fixes/drivers/net/s2io.h	2006-04-13 06:48:13.000000000 -0700
++++ dmesg_param_fixes/drivers/net/s2io.h	2006-04-13 09:08:26.000000000 -0700
+@@ -659,9 +659,10 @@ typedef struct {
+ } usr_addr_t;
+ 
+ /* Default Tunable parameters of the NIC. */
+-#define DEFAULT_FIFO_LEN 4096
+-#define SMALL_BLK_CNT	30
+-#define LARGE_BLK_CNT	100
++#define DEFAULT_FIFO_0_LEN 4096
++#define DEFAULT_FIFO_1_7_LEN 512
++#define SMALL_BLK_CNT   30
++#define LARGE_BLK_CNT   100
+ 
+ /*
+  * Structure to keep track of the MSI-X vectors and the corresponding
+@@ -824,6 +825,8 @@ struct s2io_nic {
+ 	spinlock_t	rx_lock;
+ 	atomic_t	isr_cnt;
+ 	u64 *ufo_in_band_v;
++#define VPD_PRODUCT_NAME_LEN 50
++	u8  product_name[VPD_PRODUCT_NAME_LEN];
+ };
+ 
+ #define RESET_ERROR 1;
 
