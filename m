@@ -1,54 +1,43 @@
-From: "alpha @ steudten Engineering" <alpha@steudten.com>
-Subject: Re: Fw: [Bug 6421] New: kernel 2.6.10-2.6.16 on alpha: arch/alpha/kernel/io.c,
- iowrite16_rep() BUG_ON((unsigned long)src & 0x1) triggered
-Date: Sat, 22 Apr 2006 09:56:07 +0200
-Message-ID: <4449E197.1020102@steudten.org>
-References: <20060421102757.45d26db0@localhost.localdomain>	<200604211945.37129.netdev@axxeo.de> <20060421161227.00d688d6.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Oeser <netdev@axxeo.de>,
-	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
-	Richard Henderson <rth@twiddle.net>, shemminger@osdl.org,
-	p_gortmaker@yahoo.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ioe-lkml@rameria.de
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 00/10] e1000: Driver fixes and update to 7.0.38-k2
+Date: Sat, 22 Apr 2006 15:22:54 +1000
+Message-ID: <E1FXAa6-0001Wt-00@gondolin.me.apana.org.au>
+References: <443FF1A1.4000204@pobox.com>
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, Jeffrey.t.kirsher@intel.com,
+	auke@foo-projects.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:34722 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1750878AbWDVSLH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2006 14:11:07 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060421161227.00d688d6.akpm@osdl.org>
+Received: from zeus1.kernel.org ([204.152.191.4]:59067 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751038AbWDVTZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2006 15:25:03 -0400
+Received: from arnor.apana.org.au (rhun.apana.org.au [64.62.148.172])
+	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k3M5QBWe008648
+	for <netdev@vger.kernel.org>; Sat, 22 Apr 2006 05:26:12 GMT
+To: jgarzik@pobox.com (Jeff Garzik)
+In-Reply-To: <443FF1A1.4000204@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Running this on my alpha gives (gcc 4.0.2):
+Jeff Garzik <jgarzik@pobox.com> wrote:
+>
+>> 05/10: [PATCH] Update truesize with the length of the packet for
+>>                       packet split
+> 
+> These 10 patches look OK, but since the current kernel version is 
+> 2.6.17-rc1, that means we are in "bug fix only" mode right now.
+> 
+> Should I (a) apply these all to netdev2-.6.git#upstream, queueing them 
+> for 2.6.18, or (b) let you split the submission into two parts, bug 
+> fixes only and everything else?
 
-3000
-0123456A01234567
+It turns out that the truesize patch is pretty important as otherwise
+most of TCP receive socket buffer accounting falls apart.  So it should
+probably go into 2.6.17 and even 2.6.16-stable.
 
-
-Andrew Morton wrote:
-
->> Because networking does read/write "short" fields in various packet
->> header structures. Results are illustrated in a following example:
->>
->> char foo[] __attribute__((aligned(8))) = "0123456701234567";
->>
->> int main()
->> {
->> 	short *bar = (short *)&foo[7];
->> 	printf("%04x\n", *bar); /* 3037 */
->> 	*bar = 0x4241; /* "AB" */
->> 	printf("%s\n", foo);
->> 	return 0;
->> }
->> --------
->> 0037
->> ^^
->> 0123456A01234567
->>         ^
->> Misalignment by two bytes for ints and longs is often unavoidable in
->> networking and we can cope with it, but there is no excuse of 1-byte
->> misalignment.
-
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
