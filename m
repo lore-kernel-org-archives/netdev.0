@@ -1,15 +1,15 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 06/11] ixgb: Fix TSO
-Date: Fri, 21 Apr 2006 18:00:43 -0700
-Message-ID: <20060422010043.24255.8531.stgit@jk-desktop.jf.intel.com>
+Subject: [PATCH 07/11] ixgb: Fixed flow control parameters
+Date: Fri, 21 Apr 2006 18:00:46 -0700
+Message-ID: <20060422010045.24255.14686.stgit@jk-desktop.jf.intel.com>
 References: <20060422010016.24255.50772.stgit@jk-desktop.jf.intel.com>
 Cc: John Rociak <john.ronciak@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr18.intel.com ([134.134.136.17]:12718 "EHLO
-	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1750812AbWDVA5i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Apr 2006 20:57:38 -0400
+Received: from fmr19.intel.com ([134.134.136.18]:34989 "EHLO
+	orsfmr004.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1750817AbWDVA5j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Apr 2006 20:57:39 -0400
 To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
 	David Miller <davem@davemloft.net>
 In-Reply-To: <20060422010016.24255.50772.stgit@jk-desktop.jf.intel.com>
@@ -17,70 +17,95 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-- this fixes an issue of premature desc writeback by hardware
+- make default flow control only have *sending* of flow control packets enabled
+- fix to disable / enable flow control correctly
 
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
 ---
 
- drivers/net/ixgb/ixgb_main.c |   17 +++++++++++++++--
- 1 files changed, 15 insertions(+), 2 deletions(-)
+ drivers/net/ixgb/ixgb_param.c |   22 ++++++++++------------
+ 1 files changed, 10 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 93a518f..9d262c8 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -1280,6 +1280,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter
- 	struct ixgb_buffer *buffer_info;
- 	int len = skb->len;
- 	unsigned int offset = 0, size, count = 0, i;
-+	unsigned int mss = skb_shinfo(skb)->tso_size;
+diff --git a/drivers/net/ixgb/ixgb_param.c b/drivers/net/ixgb/ixgb_param.c
+index 8a83dfd..39e0a47 100644
+--- a/drivers/net/ixgb/ixgb_param.c
++++ b/drivers/net/ixgb/ixgb_param.c
+@@ -137,7 +137,7 @@ IXGB_PARAM(RxFCLowThresh, "Receive Flow 
+  *
+  * Valid Range: 1 - 65535 
+  *
+- * Default Value:  256 (0x100)
++ * Default Value:  65535 (0xffff) (we'll send an xon if we recover)
+  */
  
- 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
- 	unsigned int f;
-@@ -1291,6 +1292,11 @@ ixgb_tx_map(struct ixgb_adapter *adapter
- 	while(len) {
- 		buffer_info = &tx_ring->buffer_info[i];
- 		size = min(len, IXGB_MAX_JUMBO_FRAME_SIZE);
-+		/* Workaround for premature desc write-backs
-+		 * in TSO mode.  Append 4-byte sentinel desc */
-+		if(unlikely(mss && !nr_frags && size == len && size > 8))
-+			size -= 4;
-+
- 		buffer_info->length = size;
- 		buffer_info->dma =
- 			pci_map_single(adapter->pdev,
-@@ -1315,6 +1321,12 @@ ixgb_tx_map(struct ixgb_adapter *adapter
- 		while(len) {
- 			buffer_info = &tx_ring->buffer_info[i];
- 			size = min(len, IXGB_MAX_JUMBO_FRAME_SIZE);
-+			/* Workaround for premature desc write-backs
-+			 * in TSO mode.  Append 4-byte sentinel desc */
-+			if(unlikely(mss && (f == (nr_frags-1)) && (size == len)
-+						&& (size > 8)))
-+				size -= 4;
-+
- 			buffer_info->length = size;
- 			buffer_info->dma =
- 				pci_map_page(adapter->pdev,
-@@ -1392,7 +1404,8 @@ ixgb_tx_queue(struct ixgb_adapter *adapt
- #define TXD_USE_COUNT(S) (((S) >> IXGB_MAX_TXD_PWR) + \
- 			 (((S) & (IXGB_MAX_DATA_PER_TXD - 1)) ? 1 : 0))
- #define DESC_NEEDED TXD_USE_COUNT(IXGB_MAX_DATA_PER_TXD) + \
--	MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE) + 1
-+	MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE) + 1 \
-+	/* one more for TSO workaround */ + 1
+ IXGB_PARAM(FCReqTimeout, "Flow Control Request Timeout");
+@@ -165,8 +165,6 @@ IXGB_PARAM(IntDelayEnable, "Transmit Int
  
- static int
- ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-@@ -1430,7 +1443,7 @@ ixgb_xmit_frame(struct sk_buff *skb, str
- 		return NETDEV_TX_OK;
+ #define XSUMRX_DEFAULT		 OPTION_ENABLED
+ 
+-#define FLOW_CONTROL_FULL	   ixgb_fc_full
+-#define FLOW_CONTROL_DEFAULT  FLOW_CONTROL_FULL
+ #define DEFAULT_FCRTL	  		0x28000
+ #define DEFAULT_FCRTH			0x30000
+ #define MIN_FCRTL			      0
+@@ -174,9 +172,9 @@ IXGB_PARAM(IntDelayEnable, "Transmit Int
+ #define MIN_FCRTH			      8
+ #define MAX_FCRTH			0x3FFF0
+ 
+-#define DEFAULT_FCPAUSE		  	0x100	/* this may be too long */
+ #define MIN_FCPAUSE			      1
+ #define MAX_FCPAUSE			 0xffff
++#define DEFAULT_FCPAUSE		  	 0xFFFF /* this may be too long */
+ 
+ struct ixgb_option {
+ 	enum { enable_option, range_option, list_option } type;
+@@ -336,7 +334,7 @@ ixgb_check_options(struct ixgb_adapter *
+ 			.type = list_option,
+ 			.name = "Flow Control",
+ 			.err  = "reading default settings from EEPROM",
+-			.def  = ixgb_fc_full,
++			.def  = ixgb_fc_tx_pause,
+ 			.arg  = { .l = { .nr = LIST_LEN(fc_list),
+ 					 .p = fc_list }}
+ 		};
+@@ -365,8 +363,8 @@ ixgb_check_options(struct ixgb_adapter *
+ 		} else {
+ 			adapter->hw.fc.high_water = opt.def;
+ 		}
+-		if(!(adapter->hw.fc.type & ixgb_fc_rx_pause) )
+-			printk (KERN_INFO 
++		if( !(adapter->hw.fc.type & ixgb_fc_tx_pause) )
++			printk (KERN_INFO
+ 				"Ignoring RxFCHighThresh when no RxFC\n");
  	}
- 
--	if (tso)
-+	if (likely(tso))
- 		tx_flags |= IXGB_TX_FLAGS_TSO;
- 	else if(ixgb_tx_csum(adapter, skb))
- 		tx_flags |= IXGB_TX_FLAGS_CSUM;
+ 	{ /* Receive Flow Control Low Threshold */
+@@ -385,8 +383,8 @@ ixgb_check_options(struct ixgb_adapter *
+ 		} else {
+ 			adapter->hw.fc.low_water = opt.def;
+ 		}
+-		if(!(adapter->hw.fc.type & ixgb_fc_rx_pause) )
+-			printk (KERN_INFO 
++		if( !(adapter->hw.fc.type & ixgb_fc_tx_pause) )
++			printk (KERN_INFO
+ 				"Ignoring RxFCLowThresh when no RxFC\n");
+ 	}
+ 	{ /* Flow Control Pause Time Request*/
+@@ -406,12 +404,12 @@ ixgb_check_options(struct ixgb_adapter *
+ 		} else {
+ 			adapter->hw.fc.pause_time = opt.def;
+ 		}
+-		if(!(adapter->hw.fc.type & ixgb_fc_rx_pause) )
+-			printk (KERN_INFO 
++		if( !(adapter->hw.fc.type & ixgb_fc_tx_pause) )
++			printk (KERN_INFO
+ 				"Ignoring FCReqTimeout when no RxFC\n");
+ 	}
+ 	/* high low and spacing check for rx flow control thresholds */
+-	if (adapter->hw.fc.type & ixgb_fc_rx_pause) {
++	if (adapter->hw.fc.type & ixgb_fc_tx_pause) {
+ 		/* high must be greater than low */
+ 		if (adapter->hw.fc.high_water < (adapter->hw.fc.low_water + 8)) {
+ 			/* set defaults */
 
