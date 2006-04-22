@@ -1,31 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Hotplug race on name change
-Date: Sat, 22 Apr 2006 10:28:44 +1000
-Message-ID: <E1FX5zQ-000177-00@gondolin.me.apana.org.au>
-References: <20060421102503.4e44eb28@localhost.localdomain>
-Cc: patrakov@ums.usu.ru, netdev@vger.kernel.org, davem@davemloft.net
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 00/11] ixgb: driver update (upstream)
+Date: Fri, 21 Apr 2006 18:00:16 -0700
+Message-ID: <20060422010016.24255.50772.stgit@jk-desktop.jf.intel.com>
+Cc: John Rociak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:268 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1750782AbWDVA3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 20:29:35 -0400
-To: shemminger@osdl.org (Stephen Hemminger)
-In-Reply-To: <20060421102503.4e44eb28@localhost.localdomain>
+Received: from fmr20.intel.com ([134.134.136.19]:46977 "EHLO
+	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1750805AbWDVA5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Apr 2006 20:57:24 -0400
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> Introduces new races in netdev_register_sysfs if the name changes, because
-> netdev_register_sysfs runs without RTNL at this point. So if some application gets
-> in and changes the device name while netdev_register_sysfs is running, then
-> the class_dev->class_id would end up not matching the netdevice->name.
+The following patches were diff's against Garzik's latest "upstream" branch and can be pulled from the following location:
 
-Indeed.  It also seems to be possible now for someone to do an
-unregister_netdevice while netdev_register_sysfs is still going.
+git://lost.foo-projects.org/linux-2.6.git ixgb-upstream
 
+
+The following series implements...
+01. Fix compilation errors by initializing variables
+02. Fix the use of dprintk rather than printk
+03. Fix hard coded numbers
+04. Fix duplicate code
+05. Fix timeout code
+06. Fix TSO
+07. Fixed flow control parameters
+08. Add support for copper 10GbE
+09. Add performance enhancements to the buffer_info struct
+10. Add whitespace changes
+11. Add prefetch
+--
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jeff
+
