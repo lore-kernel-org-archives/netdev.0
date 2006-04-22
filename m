@@ -1,15 +1,15 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 08/11] ixgb: Add support for copper 10GbE
-Date: Fri, 21 Apr 2006 18:00:48 -0700
-Message-ID: <20060422010048.24255.65982.stgit@jk-desktop.jf.intel.com>
+Subject: [PATCH 04/11] ixgb: Fix duplicate code
+Date: Fri, 21 Apr 2006 18:00:39 -0700
+Message-ID: <20060422010039.24255.56047.stgit@jk-desktop.jf.intel.com>
 References: <20060422010016.24255.50772.stgit@jk-desktop.jf.intel.com>
 Cc: John Rociak <john.ronciak@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr20.intel.com ([134.134.136.19]:50305 "EHLO
+Received: from fmr20.intel.com ([134.134.136.19]:48769 "EHLO
 	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1750819AbWDVA5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Apr 2006 20:57:42 -0400
+	id S1750811AbWDVA5d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Apr 2006 20:57:33 -0400
 To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
 	David Miller <davem@davemloft.net>
 In-Reply-To: <20060422010016.24255.50772.stgit@jk-desktop.jf.intel.com>
@@ -17,67 +17,88 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-- Add support for Copper 10GbE device ID 109E
+- created function ixgb_set_speed_duplex to remove duplicate code
 
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
 ---
 
- drivers/net/ixgb/ixgb_hw.h   |    1 +
- drivers/net/ixgb/ixgb_ids.h  |    4 +++-
- drivers/net/ixgb/ixgb_main.c |    7 +++++--
- 3 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ixgb/ixgb_ethtool.c |   35 ++++++++++++++---------------------
+ 1 files changed, 14 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_hw.h b/drivers/net/ixgb/ixgb_hw.h
-index 382c630..19513c6 100644
---- a/drivers/net/ixgb/ixgb_hw.h
-+++ b/drivers/net/ixgb/ixgb_hw.h
-@@ -57,6 +57,7 @@ typedef enum {
- typedef enum {
- 	ixgb_media_type_unknown = 0,
- 	ixgb_media_type_fiber = 1,
-+	ixgb_media_type_copper = 2,
- 	ixgb_num_media_types
- } ixgb_media_type;
+diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+index 978be30..55a54bb 100644
+--- a/drivers/net/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ixgb/ixgb_ethtool.c
+@@ -119,6 +119,16 @@ ixgb_get_settings(struct net_device *net
+ 	return 0;
+ }
  
-diff --git a/drivers/net/ixgb/ixgb_ids.h b/drivers/net/ixgb/ixgb_ids.h
-index aee207e..e119c05 100644
---- a/drivers/net/ixgb/ixgb_ids.h
-+++ b/drivers/net/ixgb/ixgb_ids.h
-@@ -43,6 +43,8 @@
- #define IXGB_SUBDEVICE_ID_A11F      0xA11F   
- #define IXGB_SUBDEVICE_ID_A01F      0xA01F   
++static void ixgb_set_speed_duplex(struct net_device *netdev)
++{
++	struct ixgb_adapter *adapter = netdev_priv(netdev);
++	/* be optimistic about our link, since we were up before */
++	adapter->link_speed = 10000;
++	adapter->link_duplex = FULL_DUPLEX;
++	netif_carrier_on(netdev);
++	netif_wake_queue(netdev);
++}
++
+ static int
+ ixgb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ {
+@@ -132,12 +142,7 @@ ixgb_set_settings(struct net_device *net
+ 		ixgb_down(adapter, TRUE);
+ 		ixgb_reset(adapter);
+ 		ixgb_up(adapter);
+-		/* be optimistic about our link, since we were up before */
+-		adapter->link_speed = 10000;
+-		adapter->link_duplex = FULL_DUPLEX;
+-		netif_carrier_on(netdev);
+-		netif_wake_queue(netdev);
+-		
++		ixgb_set_speed_duplex(netdev);
+ 	} else
+ 		ixgb_reset(adapter);
  
--#endif /* #ifndef _IXGB_IDS_H_ */
-+#define IXGB_DEVICE_ID_82597EX_CX4   0x109E
-+#define IXGB_SUBDEVICE_ID_A00C  0xA00C
+@@ -185,11 +190,7 @@ ixgb_set_pauseparam(struct net_device *n
+ 	if(netif_running(adapter->netdev)) {
+ 		ixgb_down(adapter, TRUE);
+ 		ixgb_up(adapter);
+-		/* be optimistic about our link, since we were up before */
+-		adapter->link_speed = 10000;
+-		adapter->link_duplex = FULL_DUPLEX;
+-		netif_carrier_on(netdev);
+-		netif_wake_queue(netdev);
++		ixgb_set_speed_duplex(netdev);
+ 	} else
+ 		ixgb_reset(adapter);
+ 		
+@@ -214,11 +215,7 @@ ixgb_set_rx_csum(struct net_device *netd
+ 	if(netif_running(netdev)) {
+ 		ixgb_down(adapter,TRUE);
+ 		ixgb_up(adapter);
+-		/* be optimistic about our link, since we were up before */
+-		adapter->link_speed = 10000;
+-		adapter->link_duplex = FULL_DUPLEX;
+-		netif_carrier_on(netdev);
+-		netif_wake_queue(netdev);
++		ixgb_set_speed_duplex(netdev);
+ 	} else
+ 		ixgb_reset(adapter);
+ 	return 0;
+@@ -609,11 +606,7 @@ ixgb_set_ringparam(struct net_device *ne
+ 		adapter->tx_ring = tx_new;
+ 		if((err = ixgb_up(adapter)))
+ 			return err;
+-		/* be optimistic about our link, since we were up before */
+-		adapter->link_speed = 10000;
+-		adapter->link_duplex = FULL_DUPLEX;
+-		netif_carrier_on(netdev);
+-		netif_wake_queue(netdev);
++		ixgb_set_speed_duplex(netdev);
+ 	}
  
-+#endif /* #ifndef _IXGB_IDS_H_ */
- /* End of File */
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 9d262c8..be7b43b 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -67,6 +67,8 @@ static char ixgb_copyright[] = "Copyrigh
- static struct pci_device_id ixgb_pci_tbl[] = {
- 	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-+	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_CX4,
-+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_SR,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_LR,  
-@@ -570,8 +572,9 @@ ixgb_sw_init(struct ixgb_adapter *adapte
- 	hw->max_frame_size = netdev->mtu + ENET_HEADER_SIZE + ENET_FCS_LENGTH;
- 
- 	if((hw->device_id == IXGB_DEVICE_ID_82597EX)
--	   ||(hw->device_id == IXGB_DEVICE_ID_82597EX_LR)
--	   ||(hw->device_id == IXGB_DEVICE_ID_82597EX_SR))
-+	   || (hw->device_id == IXGB_DEVICE_ID_82597EX_CX4)
-+	   || (hw->device_id == IXGB_DEVICE_ID_82597EX_LR)
-+	   || (hw->device_id == IXGB_DEVICE_ID_82597EX_SR))
- 			hw->mac_type = ixgb_82597;
- 	else {
- 		/* should never have loaded on this device */
+ 	return 0;
 
