@@ -1,40 +1,64 @@
-From: "Marcus Echols" <AZJUEMXNFE@suada.lt>
-Subject: Hosting Solutions
-Date: Sat, 22 Apr 2006 19:35:42 +0600
-Message-ID: <NCBBK529ALMIN023IOENFKEPFE404.cambridge.Hampson@handicapped.Com>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: Re: Van Jacobson's net channels and real-time
+Date: Sat, 22 Apr 2006 13:48:46 +0200
+Message-ID: <20060422114846.GA6629@wohnheim.fh-wedel.de>
+References: <Pine.LNX.4.44L0.0604201819040.19330-100000@lifa01.phys.au.dk> <20060420.120955.28255828.davem@davemloft.net> <200604211852.47335.netdev@axxeo.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, simlo@phys.au.dk,
+	linux-kernel@vger.kernel.org, mingo@elte.hu,
+	netdev@vger.kernel.org, Ingo Oeser <ioe-lkml@rameria.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:16584 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1751122AbWDVUJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2006 16:09:35 -0400
-Received: from 204.152.191.4 ([60.10.120.40])
-	by zeus1.kernel.org (8.13.1/8.13.1) with SMTP id k3MChTjG002020
-	for <netdev@vger.kernel.org>; Sat, 22 Apr 2006 12:43:32 GMT
-To: netdev@vger.kernel.org
+Received: from zeus1.kernel.org ([204.152.191.4]:28112 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751169AbWDVUl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Apr 2006 16:41:58 -0400
+To: Ingo Oeser <netdev@axxeo.de>
+Content-Disposition: inline
+In-Reply-To: <200604211852.47335.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--Sensattional revolution in medicine!
+On Fri, 21 April 2006 18:52:47 +0200, Ingo Oeser wrote:
+> What about sth. like
+>=20
+> struct netchannel {
+>    /* This is only read/written by the writer (producer) */
+>    unsigned long write_ptr;
+>   struct netchannel_buftrailer *netchan_queue[NET_CHANNEL_ENTRIES];
+>=20
+>    /* This is modified by both */
+>   atomic_t filled_entries; /* cache_line_align this? */
+>=20
+>    /* This is only read/written by the reader (consumer) */
+>    unsigned long read_ptr;
+> }
+>=20
+> This would prevent this bug from the beginning and let us still use t=
+he
+> full queue size.
+>=20
+> If cacheline bouncing because of the shared filled_entries becomes an=
+ issue,
+> you are receiving or sending a lot.
 
--Enlarge your penis up to 10 cm or up to 4 inches!
+Unless I completely misunderstand something, one of the main points of
+the netchannels if to have *zero* fields written to by both producer
+and consumer.  Receiving and sending a lot can be expected to be the
+common case, so taking a performance hit in this case is hardly a good
+idea.
 
--It's herbal solution what hasn't side effect, but has 100% guaranted results!
+I haven't looked at Davem's implementation at all, but Van simply
+seperated fields in consumer-written and producer-written, with proper
+alignment between them.  Some consumer-written fields are also read by
+the producer and vice versa.  But none of this results in cacheline
+pingpong.
 
--Don't lose your chance and but know wihtout doubts, you will be i`mpressed with results!
+If your description of the problem is correct, it should only mean
+that the implementation has a problem, not the concept.
 
- Clisk here: http://flomatrix.info
+J=F6rn
 
-
-
-
-
-
-
-
-
-
-birgit monarchy walton remedial prone lanky disc beachhead hepatica mcguire
-lansing seismograph saloonkeep surreptitious inviable deer modulus sen holt
-tactician copperas assyriology conspire recurred opposable singe salvation jeopardy claudia trigonal
-ant began enquire cavernous bred chlorophyll pegboard potatoes
-libel carcinogenic emitted sibling chaise hashish grove announce
-camber christendom larynx dynast hovel guzzle fourteenth armhole
+--=20
+Time? What's that? Time is only worth what you do with it.
+-- Theo de Raadt
