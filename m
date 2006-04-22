@@ -1,35 +1,31 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Fw: Bug: PPP dropouts in >=2.6.16
-Date: Sat, 22 Apr 2006 02:02:59 +0200
-Message-ID: <200604220202.59434.ak@suse.de>
-References: <20060421010809.6c3cfc34.akpm@osdl.org> <4807377b0604211015j16b40cccpe215668f8fdcfc24@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>, netdev@vger.kernel.org,
-	"Nuri Jawad" <lkml@jawad.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Hotplug race on name change
+Date: Sat, 22 Apr 2006 10:28:44 +1000
+Message-ID: <E1FX5zQ-000177-00@gondolin.me.apana.org.au>
+References: <20060421102503.4e44eb28@localhost.localdomain>
+Cc: patrakov@ums.usu.ru, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:3274 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1750761AbWDVAER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 20:04:17 -0400
-To: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0604211015j16b40cccpe215668f8fdcfc24@mail.gmail.com>
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:268 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S1750782AbWDVA3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Apr 2006 20:29:35 -0400
+To: shemminger@osdl.org (Stephen Hemminger)
+In-Reply-To: <20060421102503.4e44eb28@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 21 April 2006 19:15, Jesse Brandeburg wrote:
-> On 4/21/06, Andrew Morton <akpm@osdl.org> wrote:
-> >
-> > We do seem to have had a few reports of ppp regressions around this
-> > timeframe.
+Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> me too.  I couldn't use 2.6.16 at home on my pppoe connected router
-> because it was so slow.  I didn't have time to debug.  I can probably
-> try patches and provide more data too.  Tell me what is needed.
+> Introduces new races in netdev_register_sysfs if the name changes, because
+> netdev_register_sysfs runs without RTNL at this point. So if some application gets
+> in and changes the device name while netdev_register_sysfs is running, then
+> the class_dev->class_id would end up not matching the netdevice->name.
 
-I seem to have some trouble on my PPPoE too. But it's not really unusable,
-just dropouts now and then.
+Indeed.  It also seems to be possible now for someone to do an
+unregister_netdevice while netdev_register_sysfs is still going.
 
--Andi
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
