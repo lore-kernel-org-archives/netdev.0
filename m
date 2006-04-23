@@ -1,51 +1,46 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipsec tunnel asymmetrical mtu
-Date: Sun, 23 Apr 2006 13:51:55 +1000
-Message-ID: <E1FXVdb-0003Tt-00@gondolin.me.apana.org.au>
-References: <BAY103-F21399F30719D1EBD180B04B2CC0@phx.gbl>
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Subject: Re: Fw: [Bug 6421] New: kernel 2.6.10-2.6.16 on alpha: arch/alpha/kernel/io.c, iowrite16_rep() BUG_ON((unsigned long)src & 0x1) triggered
+Date: Sun, 23 Apr 2006 15:43:22 +1000
+Message-ID: <E1FXXNS-0003dJ-00@gondolin.me.apana.org.au>
+References: <20060421102757.45d26db0@localhost.localdomain>
+Cc: p_gortmaker@yahoo.com, netdev@vger.kernel.org, tomri@gmx.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:24839 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751044AbWDWDv6
+Received: from rhun.apana.org.au ([64.62.148.172]:26888 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751285AbWDWFni
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Apr 2006 23:51:58 -0400
-To: pupilla@hotmail.com (Marco Berizzi)
-In-Reply-To: <BAY103-F21399F30719D1EBD180B04B2CC0@phx.gbl>
+	Sun, 23 Apr 2006 01:43:38 -0400
+To: shemminger@osdl.org (Stephen Hemminger)
+In-Reply-To: <20060421102757.45d26db0@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Marco Berizzi <pupilla@hotmail.com> wrote:
-> 
-> Is there any news about this issue?
+<tomri@gmx.net> wrote:
+>
+> And the output in the kernel ring buffer is:
+> dmesg | grep xmit
+> ei_start_xmit(): skb->data unaligned fffffc0019be55d5 align to fffffc001ef37620
+> length 60
 
-Sorry for the delay, I've been travelling.
+Very weird.  The length seems to indicate that this packet went through
+skb_padto.  However, I can't see how skb_padto can produce an unaligned
+skb if the input was aligned (the input coming out of TCP should definitely
+be aligned).
 
-The fact that tcpdump with "host 172.16.0.138" does not fix it tells
-us that this is related to the NAT that you're doing to the 172.16
-side of the network.
+Can you please put some printks in to find out if
 
-Looking at your packet dump your setup is definitely suboptimal in
-that correct MTU information is not being provided to either side
-of the connection.
+1) skb_padto is being called.
+2) Is the input to skb_padto aligned?
+ 
+> Here some stack traces with BUG_ON/ WARN_ON added by me in more places to trace
+> down the problem:
+> Kernel bug at net/ipv4/ip_output.c:297
+> cc1(2841): Kernel Bug 1
+> pc = [<fffffc000062a92c>]  ra = [<fffffc00006407c8>]  ps = 0000    Not tainted
+> pc is at ip_queue_xmit+0x59c/0x690
+> ra is at tcp_transmit_skb+0x588/0xbb0
 
-The result is that the 10.16 end is sending fragments which have to
-be reassembled at mimosa before immediately getting refragmented on
-its way to pleiadi.
-
-So if it was my network this would be the first issue I'd try to
-address, possibly through MSS clamping.
-
-However, the fact that the tcpdump causes more chunky packets to
-make it through could be an indication that there is a bug somewhere
-in our NAT/IPsec code or at least a suboptimal memory allocation
-strategy that's somehow avoided when AF_PACKET pins the skb down.
-
-So I would like your help in tracking that down before you fix your
-network properly.
-
-For a start could you please send me the complete kern.log messages
-on mimosa from boot time to the point after a slow connection has
-occured.  I'd also like to see /proc/net/snmp at that point.
+This is pretty meaningless if you don't show us the check that you added
+to produce this.
 
 Thanks,
 -- 
