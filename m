@@ -1,45 +1,46 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: Re: Van Jacobson's net channels and real-time
-Date: Sun, 23 Apr 2006 16:15:42 +0200
-Message-ID: <200604231615.43399.ioe-lkml@rameria.de>
-References: <Pine.LNX.4.44L0.0604201819040.19330-100000@lifa01.phys.au.dk> <200604211852.47335.netdev@axxeo.de> <20060422.225639.93889487.davem@davemloft.net>
+From: James Bourne <jbourne@hardrock.org>
+Subject: Re: via_rhine/qdisc Dead loop on netdevice eth1, fix it urgently!
+Date: Sun, 23 Apr 2006 11:04:05 -0600 (MDT)
+Message-ID: <Pine.LNX.4.64.0604231102420.27317@bama.hardrock.org>
+References: <Pine.LNX.4.58.0604140935220.4085@ldap2.hardrock.org>
+ <20060423113107.GA16193@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@axxeo.de, simlo@phys.au.dk, linux-kernel@vger.kernel.org,
-	mingo@elte.hu, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay05.ispgateway.de ([80.67.18.43]:37064 "EHLO
-	smtprelay05.ispgateway.de") by vger.kernel.org with ESMTP
-	id S1751404AbWDWOSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Apr 2006 10:18:07 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060422.225639.93889487.davem@davemloft.net>
-Content-Disposition: inline
+Received: from bama.hardrock.org ([68.146.16.251]:65484 "EHLO
+	mail.hardrock.org") by vger.kernel.org with ESMTP id S1751427AbWDWREH
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Apr 2006 13:04:07 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060423113107.GA16193@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Sun, 23 Apr 2006, Herbert Xu wrote:
 
-On Sunday, 23. April 2006 07:56, David S. Miller wrote:
-> > If cacheline bouncing because of the shared filled_entries becomes an issue,
-> > you are receiving or sending a lot.
-> 
-> Cacheline bouncing is the core issue being addressed by this
-> data structure, so we really can't consider your idea seriously.
+> On Fri, Apr 14, 2006 at 03:51:15PM +0000, James Bourne wrote:
+>>
+>> Apr 14 08:32:54 bama kernel:  [<c02becbb>] netpoll_send_skb+0xa8/0x100     [<f8c4c174>] write_msg+0x140/0x181 [netconsole]
+>
+> This is the culprit.  Disable that and the problem will go away.
 
-Ok, I can see it now more clearly. Many thanks for clearing that up 
-in the other replies. I had a major misunderstanding there.
+That's done now, but...  This has been happening for a while now, and I had
+enabled netdump/netconsole to try and troubleshoot the problem if there was
+a crash involved (which unfortunately there never has been).
 
-> I've just got an off-by-one error, no need to wreck the entire
-> data structure just to solve that :-)
-
-Yes, you are right. But even then I can still implement the
-reserve/commit once you provide the helpers for
-producer_space and consumer_space.
-
+Thanks though, and if/when it happens I'll let you know.
 
 Regards
+James
 
-Ingo Oeser
+>
+> Cheers,
+>
+
+-- 
+James Bourne                  | Email:            jbourne@hardrock.org
+UNIX Systems Administration   | WWW:           http://www.hardrock.org
+Custom UNIX Programming       | Linux:  The choice of a GNU generation
+----------------------------------------------------------------------
+  "All you need's an occasional kick in the philosophy." Frank Herbert
