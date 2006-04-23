@@ -1,115 +1,60 @@
-From: "Revd. Fr.Fredrick Nelson" <nelsonfred@mixmal.com>
-Subject: Your Awaiting Payment ...
-Date: Sun, 23 Apr 2006 20:30:50 +0100
-Message-ID: <thomascole123$196.207.195.176$.444bd486.c4caf.4abd.20651@chlorine.onspeed.com>
-Reply-To: nelsonfred@mixmail.com
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 6430] New: ipsec tunnel : reply is not
+ forwarded
+Date: Sun, 23 Apr 2006 12:53:42 -0700
+Message-ID: <20060423125342.71a6e0d5.akpm@osdl.org>
+References: <200604231526.k3NFQ5dO010175@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: astier.raphael@free.fr, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chlorine.onspeed.com ([83.138.189.74]:48811 "EHLO
-	chlorine.onspeed.com") by vger.kernel.org with ESMTP
-	id S1751445AbWDWTa5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2006 15:30:57 -0400
-Received: from localhst2240.com (localhost [127.0.0.1])
-	by chlorine.onspeed.com (8.12.11.20060308/8.12.11) with SMTP id k3NJOr72025722
-	for <netdev@vger.kernel.org>; Sun, 23 Apr 2006 20:24:54 +0100
-To: netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:50149 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751452AbWDWTzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2006 15:55:00 -0400
+To: bugme-daemon@bugzilla.kernel.org
+In-Reply-To: <200604231526.k3NFQ5dO010175@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OFFICE OF REVD.FR FREDRICK NELSON
-DIRECTOR SPECIAL DUTIES, UNITED NATIONS ORGANISATION
-IN CONJUNCTION WITH THE INTERNATIONAL MONETARY FUND
-WORLD BANK FACT-FINDING & SPECIAL DUTIES OFFICE
-DAKAR, SENEGAL.
-TEL: + 221 5545692
-EMAIL:fr.frednelson@katamail.com
+bugme-daemon@bugzilla.kernel.org wrote:
+>
+> http://bugzilla.kernel.org/show_bug.cgi?id=6430
+> 
+>            Summary: ipsec tunnel : reply is not forwarded
+>     Kernel Version: 2.6.14.5
+>             Status: NEW
+>           Severity: normal
+>              Owner: shemminger@osdl.org
+>          Submitter: astier.raphael@free.fr
+> 
+> 
+> Most recent kernel where this bug did not occur: 2.6.14
+> Distribution: debian sarge 3.1
+> Hardware Environment: 
+> Software Environment: isakmpd
+> Problem Description: 
+> The situation is the following :
+> hostA -- GW1 <==> GW2 -- hostB, with an ipsec tunnel between GW1 and GW2.
+> Encryption : des-cbc, Auth : hmac-md5, and automatic keyring with isakmpd
+> on GW1 and GW2. 
+> The tunnel is correctly mounted, with symmetrical spi on both sides GW1 and GW2.
+> (I have verified with setkey)
+> When hostA ping hostB, packets are correctly send to hostB, and returns
+> to GW1, and are decrypted here, but are not forwarded to hostA. 
+> (Symmetrically when hostB ping hostA packet returned on GW2 are not 
+> forwarded to hostB). I have verified with tcpdump.
+> I have try exactly the same configuration with standard kernel 2.6.8 from
+> sarge distrib. and it works perfectly.
+> I also try to echo 0 > /proc/...eth0/rp_filter where eth0 is the interface on
+> GW2  "connected" to GW1 but result is the same.
+> I have also try replacing GW2 by a Cisco PIX, and I have same result 
+> on linux (2.6.14.5) GW1.
+> 
+> Steps to reproduce:
+> Configure an ipsec tunnel between GW1 and GW2 as described above. I have done 
+> it with isakmpd, and with standard support of ipsec in kernel, not with 
+> freeswan.
+> 
 
-Dear Friend.
-
-I am Revd. Fr.Fredrick Nelson, a senior staff with 
-the World Bank fact finding & special duties office. 
-I am writing you this letter based on the fact that 
-cool penny is better than millions of dollars means 
-it's better for one to live and die poor honest man 
-than a rich dishonest one.
-
-I and the Chief security officer (CSO) of this 
-organization have arranged with an officer in the 
-computer section Engineer Peter Cliff to bring out 
-part of your total pending payment with reference 
-number (LM-05-371) amounting to US$10 million. Why we 
-did this is because according to information gathered 
-from the banks security computer, you have been 
-waiting for a long time to receive this payment 
-without success. As I found out that you have almost 
-met all the statutory requirements in respect of your 
-pending payment. The problem we feel you are having 
-is that of interest groups. A lot of people are 
-interested in your payment and those people are 
-merely doing paper works with you and that explains 
-why you receive different kinds of untrue email and 
-phone messages from different people everyday. For 
-security reasons you do not have to tell anybody that 
-your have your payment on the way until the payment 
-gets to you.
-
-The said payment is been arranged in a security-proof 
-box weighing 75kg. In order to get this box shipped 
-to you I and the (CSO) Yesterday went to this four 
-courier companies Dhl, Ems, FedEx and Ups to make 
-arrangements on how to get the box shipped to you by 
-courier, but to no avail the above courier companies 
-all made us to understand that they will have to open 
-the box for inspection by the customs before 
-shipment. This is something we want to avoid because 
-this box is been padded with synthetic nylon and to 
-open it you will have to cut the pad before you will 
-meet the button that you will press to open the dial 
-code-lock. There is no way you can open the box and 
-be able to close it again because it was padded with 
-machine. We told the courier services that the box 
-contained film materials and when open will spoil the 
-materials. N B:  we did not declare money because 
-courier does not carry money.
-
-Today a friend of mine who is diplomat disclosed to 
-me that there is a security courier service company 
-that is specialized in sending diplomatic materials 
-and information from one country to another, which 
-also has diplomatic immunity and consignment such as 
-this, cannot be checked by any customs anywhere in 
-the world. I have therefore met the official of the 
-security courier service and concluded shipping 
-arrangement with them, which they will commence as 
-soon as I have your go ahead order. The diplomat who 
-will be bring in this consignment to you is an expert 
-and has been in this line of work for many years now 
-so we have Nothing to worry about. After all 
-arrangements we have concluded that you must donate 
-Five Hundred Thousand United States dollars 
-(US$500,000.00) to any charity organization I 
-designate as soon as you receive your money. To this 
-effect, you will send to us a promissory note for the 
-donation along with your address where you will like 
-the box to be delivered by courier. Please maintain 
-topmost secrecy as it may cause a lot of problems if 
-found out that we are using this way to help you. You 
-are advised not to inform anyone about this until you 
-received your money. Am helping you on this because 
-something in me is tells me that you are an honest 
-person. When you conclude this and you send our 
-promise, we will help to ship the final part of your 
-money to you.
-
-May God be with you as i wait for your response 
-through this Email:fr.frednelson@katamail.com . Feel free to call 
-me if you will like us to discuses more on this TEL:  
-+ 221 5545692.
-
-Yours Faithfully
-Revd. Fr.Fredrick Nelson
-Director, Special Duties. UNO/WBF
-
-
+That's quite an old kernel.  Are you able to test 2.6.16?
