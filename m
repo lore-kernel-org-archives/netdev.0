@@ -1,40 +1,46 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: Congestion Avoidance Monitoring Tools
-Date: Mon, 24 Apr 2006 00:52:35 +0200
-Message-ID: <20060423225235.GA23714@c3po.0xdef.net>
-References: <1145597174.12413.17.camel@piet2.bluelane.com> <20060421081917.34ea952b@localhost.localdomain>
+From: Florian Zumbiehl <florz@gmx.de>
+Subject: Re: TCP not retransmitting supposedly lost segment
+Date: Mon, 24 Apr 2006 01:56:09 +0200
+Message-ID: <20060423235609.GB17254@florz.florz.dyndns.org>
+References: <20060406171926.GA8142@florz.florz.dyndns.org> <20060410010005.GA9282@florz.florz.dyndns.org> <20060423122718.GA16504@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: piet@bluelane.com, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c3po.0xdef.net ([217.172.181.57]:4879 "EHLO c3po.0xdef.net")
-	by vger.kernel.org with ESMTP id S1750775AbWDWWwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Apr 2006 18:52:36 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from dialin111053.justdsl.de ([85.25.111.53]:43017 "EHLO
+	rain.florz.dyndns.org") by vger.kernel.org with ESMTP
+	id S1751464AbWDWX4R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Apr 2006 19:56:17 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20060421081917.34ea952b@localhost.localdomain>
+In-Reply-To: <20060423122718.GA16504@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Stephen Hemminger | 2006-04-21 08:19:17 [-0700]:
+Hi,
 
->2.6.13 still had lots of problems, things didn't really get working
->right till 2.6.15 or later. Especially with TSO.
+> This tells us that the kernel was indeed retransmitting but the
+> packet didn't make it out of the interface according to your
+> tcpdump.
 
---verbose?
+Well, at least the tcp part of it, it seems, yep. The debugging I've
+done so far also seems to confirm that the problem is somewhere beyond
+the tcp code, but I don't have any real clue yet ...
 
->I have a tool using kprobe's see http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
->I try to keep it up to date with current kernel and build process, last used it
->on 2.6.16.
+> Do you have any firewall rules? Any tc rules?
 
-wget http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
+ip6tables rules, yes, but none in the filter/OUTPUT chain (and policy
+ACCEPT, of course) and only counting rules in mangle/OUTPUT (using
+only user-defined chains and target RETURN, with policy ACCEPT, once
+again).
 
-Ended with following error code: ;-)
+So i'd wonder if that'd be the cause of the problem.
 
-00:32:48 ERROR 403: Forbidden.
+BTW, other TCP/IPv6 (IRC) connections active at the same time work
+without problems - but each of them fails in that way now and
+then ...
 
-HGN
+Well, all in all that probably doesn't help you much - but any
+hints as to how/where to further debug are welcome :-)
 
--- 
-Microsoft is to software what McDonalds is to gourmet cooking.
+Florian
