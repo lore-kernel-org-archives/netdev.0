@@ -1,42 +1,62 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [Fireflier-devel] Re: [PATCH][RFC] Security marking
-Date: Mon, 24 Apr 2006 08:56:29 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0604240855130.8523@d.namei>
-References: <20060417184053.6D618378FD@localhost.localdomain>
- <Pine.LNX.4.64.0604172051510.20174@d.namei> <200604232157.59758.edwin@gurde.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 8/10] d80211: get rid of default management interface
+Date: Mon, 24 Apr 2006 15:01:48 +0200
+Message-ID: <20060424150148.642b057f@griffin.suse.cz>
+References: <20060421225314.048983000.midnight@suse.cz>
+	<20060421205328.39BE2482C1@silver.suse.cz>
+	<20060422024431.GJ27215@instant802.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="537530981-251661884-1145883389=:8523"
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	fireflier-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:17892 "EHLO
-	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750753AbWDXM4d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 08:56:33 -0400
-To: =?iso-8859-1?q?T=F6r=F6k_Edwin?= <edwin@gurde.com>
-In-Reply-To: <200604232157.59758.edwin@gurde.com>
+Received: from styx.suse.cz ([82.119.242.94]:63642 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1750772AbWDXNBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2006 09:01:50 -0400
+To: "Jouni Malinen" <jkm@devicescape.com>
+In-Reply-To: <20060422024431.GJ27215@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, 21 Apr 2006 19:44:31 -0700, Jouni Malinen wrote:
+> On Fri, Apr 21, 2006 at 10:53:28PM +0200, Jiri Benc wrote:
+> > Default management interface (wlanXap) confuses users. It is only needed for
+> > AP mode (and only until interfaces are converted to use native 802.11
+> > frames).
+> 
+> Or when using user space MLME in client mode which is something that I
+> just got working as far as scanning and association is concerned. In
+> other words, wpa_supplicant will be needing this interface..
 
---537530981-251661884-1145883389=:8523
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+I think we can (and should) wait with userspace MLME until the netlink
+interface is implemented.
 
-On Sun, 23 Apr 2006, Török Edwin wrote:
+> That sounds like something that could break multi-BSSID/SSID aware
+> hostapd. Are you saying that there would be new wlanXap like interface
+> for each BSS/VLAN interface? What are the problems this is fixing with
+> multiple AP interfaces?
 
-> > This could be done with nfqueue, modular policy and a pretty simple tool.
-> How do I determine if the policy needs to be changed? I.e. how do I determine 
-> if the packet would be dropped? You say packets are silently dropped, won't 
-> they generate an avc denied at least? (at least the first time?)
+Thinking about it more, only implementation problems. I was just lazy
+and implementing things the way I did seemed to be easier. My fault,
+sorry, didn't realize hostapd is aware of multiple BSSes.
 
-Actually, yes, you'll get avc messages.
+> So far, hostapd has been responsible for
+> receiving all management from a single interface and then internally
+> decide which BSS/multi-SSID entry to use for each.
+> 
+> I would assume that hostapd could be changed to process frames from
+> multiple interfaces (at least if this is only for multi-BSSID, not for
+> multi-SSID/VLAN case).
 
+There is no point in changing hostapd as this solution is temporary only
+and hostapd will need to be changed for netlink anyway.
 
+I will fix the patch.
+
+Thanks,
+
+ Jiri
 
 -- 
-James Morris
-<jmorris@namei.org>
---537530981-251661884-1145883389=:8523--
+Jiri Benc
+SUSE Labs
