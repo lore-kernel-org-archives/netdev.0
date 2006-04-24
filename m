@@ -1,45 +1,77 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Congestion Avoidance Monitoring Tools
-Date: Mon, 24 Apr 2006 10:39:19 -0700
-Message-ID: <20060424103919.36707728@localhost.localdomain>
-References: <1145597174.12413.17.camel@piet2.bluelane.com>
-	<20060421081917.34ea952b@localhost.localdomain>
-	<20060423225235.GA23714@c3po.0xdef.net>
+From: "Ananda Raju" <ananda.raju@neterion.com>
+Subject: RE: [patch 2/5] s2io driver updates
+Date: Mon, 24 Apr 2006 10:39:52 -0700
+Message-ID: <200604241740.k3OHepDr023452@guinness.s2io.com>
+References: <20060424102203.3cb5e29b@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: piet@bluelane.com, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
+Cc: <jgarzik@pobox.com>, <netdev@vger.kernel.org>,
+	<leonid.grossman@neterion.com>, <ravinandan.arakali@neterion.com>,
+	<rapuru.sriram@neterion.com>, <alicia.pena@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30169 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751052AbWDXRkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2006 13:40:22 -0400
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-In-Reply-To: <20060423225235.GA23714@c3po.0xdef.net>
+Received: from barracuda.s2io.com ([72.1.205.138]:36236 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751053AbWDXRk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Apr 2006 13:40:59 -0400
+To: "'Stephen Hemminger'" <shemminger@osdl.org>,
+	"'Francois Romieu'" <romieu@fr.zoreil.com>
+In-Reply-To: <20060424102203.3cb5e29b@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Apr 2006 00:52:35 +0200
-Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+Hi, 
 
-> * Stephen Hemminger | 2006-04-21 08:19:17 [-0700]:
+Currently the only way we can differentiate between copper CX4 transponder
+adapters from optical transponder adapters is by reading the product name
+string in vpd. 
+
+Actually we added the VPD read function for identifying CX4 adapter. While
+submitting the patch the CX4 changes went in patch 3 and reading of vpd went
+in patch 2. 
+
+Also we have one more product Xframe-E which is a PCIe adapter. This also
+has same device ID of Xframe-II PCI-X adapter. As we have multiple product
+with same Device_ID and only way to differentiate between them is through
+VPD string we are reading VPD string in driver. 
+
+Thanks 
+Ananda. 
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@osdl.org] 
+Sent: Monday, April 24, 2006 10:22 AM
+To: Francois Romieu
+Cc: Ananda Raju; jgarzik@pobox.com; netdev@vger.kernel.org;
+leonid.grossman@neterion.com; ravinandan.arakali@neterion.com;
+rapuru.sriram@neterion.com; alicia.pena@neterion.com
+Subject: Re: [patch 2/5] s2io driver updates
+
+On Sat, 22 Apr 2006 11:28:02 +0200
+Francois Romieu <romieu@fr.zoreil.com> wrote:
+
+> Ananda Raju <Ananda.Raju@neterion.com> :
+> [...]
+> > Signed-off-by: Ananda Raju <ananda.raju@neterion.com>
+> > ---
+> > diff -upNr perf_fixes/drivers/net/s2io.c
+dmesg_param_fixes/drivers/net/s2io.c
+> > --- perf_fixes/drivers/net/s2io.c	2006-04-13 08:02:56.000000000 -0700
+> > +++ dmesg_param_fixes/drivers/net/s2io.c	2006-04-13
+09:08:22.000000000 -0700
+> [...]
+> > @@ -4626,6 +4633,45 @@ static int write_eeprom(nic_t * sp, int 
+> >  	return ret;
+> >  }
+> >  
+> > +static void s2io_vpd_read(nic_t *nic)
+> > +{
+> > +	u8 vpd_data[256],data;
 > 
-> >2.6.13 still had lots of problems, things didn't really get working
-> >right till 2.6.15 or later. Especially with TSO.
-> 
-> --verbose?
-> 
-> >I have a tool using kprobe's see http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
-> >I try to keep it up to date with current kernel and build process, last used it
-> >on 2.6.16.
-> 
-> wget http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
-> 
-> Ended with following error code: ;-)
-> 
-> 00:32:48 ERROR 403: Forbidden.
-> 
-> HGN
+> You may consider removing vpd_data from the stack and kmallocing it.
 > 
 
-Fixed
+Since there lsvpd tool doesn't in user space, why add more kernel code
+to do it?  Adding more code to just print prettier console log's is bogus.
+
