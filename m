@@ -1,22 +1,54 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: ipsec tunnel asymmetrical mtu
-Date: Mon, 24 Apr 2006 11:26:59 +0200
-Message-ID: <BAY103-F304724C166C3FC72986CBAB2BE0@phx.gbl>
-References: <BAY103-F290B963EE35123CC2E6DB8B2BE0@phx.gbl>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [patch] ipv4: initialize arp_tbl rw lock
+Date: Mon, 24 Apr 2006 12:18:52 +0200
+Message-ID: <20060424101852.GA16007@osiris.boeblingen.de.ibm.com>
+References: <20060408100213.GA9412@osiris.boeblingen.de.ibm.com> <20060408.031404.111884281.davem@davemloft.net> <20060415072745.GA17011@osiris.boeblingen.de.ibm.com> <20060415.003457.103031290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay103-f30.bay103.hotmail.com ([65.54.174.40]:52231 "EHLO
-	hotmail.com") by vger.kernel.org with ESMTP id S932089AbWDXJ1E
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 05:27:04 -0400
-In-Reply-To: <BAY103-F290B963EE35123CC2E6DB8B2BE0@phx.gbl>
-To: herbert@gondor.apana.org.au
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, jgarzik@pobox.com, akpm@osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fpavlic@de.ibm.com, davem@sunset.davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750714AbWDXKS4@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060415.003457.103031290.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-mhhhh I have forgotten to tell you that both mimosa & pleiadi
-are running 2.6.16.9 driven by openswan 2.4.5
+> > Tried to figure out what is causing the delays I experienced when I replaced
+> > module_init() in af_inet.c with fs_initcall(). After all it turned out that
+> > synchronize_net() which is basicically nothing else than synchronize_rcu()
+> > sometimes takes several seconds to complete?! No idea why that is...
+> > 
+> > callchain: inet_init() -> inet_register_protosw() -> synchronize_net()
+> 
+> The problem can't be rcu_init(), that gets done very early
+> in init/main.c
+> 
+> Maybe it's some timer or something else specific to s390?
+> 
+> It could also be that there's perhaps nothing to context
+> switch to, thus the RCU takes forever to "happen".
 
+Yes, it's more or less s390 specific.
 
+What happens is the following: synchronize_rcu() enqueues an RCU callback on
+cpu 0. Later on cpu 0 handles a bunch of RCU batches, but without handling
+this specific request (it's in rdp->curlist). Since this cpu has nothing else
+to do it enters cpu_idle() (it's a nohz idle, therefore it might be quite a
+long time in idle state).
+While cpu 0 is in idle state cpu 2 calls cpu_quiet() which in turn will call
+rcu_start_batch(). If cpu 0 would run now, it would notice rdp->curlist moved
+to rdp->donelist and that there is something to do. Unfortunately it doesn't
+get notified from rcu_start_batch(). That's why I ended up waiting several
+seconds until finally some interrupt arrived at cpu 0 which made things go
+on finally.
+
+Avoiding this could be done if we look at rdp->curlist before going into
+a nohz idle wait, or we could send an interprocessor interrupt to idle
+cpus. Sending an interrupt while looking only on nohz_cpu_mask seems to
+be a bit racy, since other cpus might have entered cpu idle after
+nohz_cpu_mask has been read...
+
+At least the initcall change for inet_init() can go in, since it just
+revealed a problem that we have anyway.
