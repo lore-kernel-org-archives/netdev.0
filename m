@@ -1,80 +1,45 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: Van Jacobson's net channels and real-time
-Date: Mon, 24 Apr 2006 10:28:41 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F143AAE5@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Congestion Avoidance Monitoring Tools
+Date: Mon, 24 Apr 2006 10:39:19 -0700
+Message-ID: <20060424103919.36707728@localhost.localdomain>
+References: <1145597174.12413.17.camel@piet2.bluelane.com>
+	<20060421081917.34ea952b@localhost.localdomain>
+	<20060423225235.GA23714@c3po.0xdef.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: piet@bluelane.com, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:15115 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1750949AbWDXR2x convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 13:28:53 -0400
-Received: from mail-irva-8.broadcom.com (mail-irva-8 [10.10.64.221]) by
- mail-irva-10.broadcom.com (Postfix) with ESMTP id 81A3E2AE for
- <netdev@vger.kernel.org>; Mon, 24 Apr 2006 10:28:42 -0700 (PDT)
-Received: from NT-SJCA-0751.brcm.ad.broadcom.com (nt-sjca-0751
- [10.16.192.221]) by mail-sj1-12.sj.broadcom.com (Postfix) with ESMTP id
- 2CB1E20501 for <netdev@vger.kernel.org>; Mon, 24 Apr 2006 10:28:42
- -0700 (PDT)
-Content-class: urn:content-classes:message
-To: netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:30169 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751052AbWDXRkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2006 13:40:22 -0400
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+In-Reply-To: <20060423225235.GA23714@c3po.0xdef.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
-> Subject: Re: Van Jacobson's net channels and real-time
->=20
->=20
-> On Mon, 24 Apr 2006, Auke Kok wrote:
->=20
->> Ingo Oeser wrote:
->>> On Saturday, 22. April 2006 15:49, J=F6rn Engel wrote:
->>>> That was another main point, yes.  And the endpoints should be as
->>>> little burden on the bottlenecks as possible.  One bottleneck is
->>>> the receive interrupt, which shouldn't wait for cachelines from
->>>> other cpus too much.
->>>=20
->>> Thats right. This will be made a non issue with early demuxing on
->>> the NIC and MSI (or was it MSI-X?) which will select the right CPU
->>> based on hardware channels.
->>=20
->> MSI-X. with MSI you still have only one cpu handling all MSI
->> interrupts and that doesn't look any different than ordinary
->> interrupts. MSI-X will allow much better interrupt handling across
->> several cpu's.=20
->>=20
->> Auke
->> -
->=20
-> Message signaled interrupts are just a kudge to save a trace
-> on a PC board (read make junk cheaper still). They are not
-> faster and may even be slower. They will not be the salvation
-> of any interrupt latency problems. The solutions for
-> increasing networking speed, where the bit-rate on the wire
-> gets close to the bit-rate on the bus, is to put more and
-> more of the networking code inside the network board. The CPU
-> get interrupted after most things (like network handshakes)
-> are complete.
->=20
+On Mon, 24 Apr 2006 00:52:35 +0200
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
 
-The number of hardware interrupts supported is a bit out of scope.
-Whatever the capacity is, the key is to have as few meaningless
-interrupts as possible.
+> * Stephen Hemminger | 2006-04-21 08:19:17 [-0700]:
+> 
+> >2.6.13 still had lots of problems, things didn't really get working
+> >right till 2.6.15 or later. Especially with TSO.
+> 
+> --verbose?
+> 
+> >I have a tool using kprobe's see http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
+> >I try to keep it up to date with current kernel and build process, last used it
+> >on 2.6.16.
+> 
+> wget http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
+> 
+> Ended with following error code: ;-)
+> 
+> 00:32:48 ERROR 403: Forbidden.
+> 
+> HGN
+> 
 
-In the context of netchannels this would mean that an interrupt
-should only be fired when there is a sufficient number of packets
-for the user-mode code to process. Fully offloading the protocol
-to the hardware is certainly one option, that I also thinks make
-sense, but the goal of netchannels is to try to optimize performance
-while keeping TCP processing on host.
-
-More hardware offload is distinctly possible and relevant in this
-context. Statefull offload, such as TSO, are fully relevant.
-Going directly from the NIC to the channel is also possible (after
-the channel is set up by the kernel, of course). If the NIC is
-aware of the channels directly then interrupts can be limited to
-packets that cross per-channel thresholds configured directly
-by the ring consumer.
-
-
+Fixed
