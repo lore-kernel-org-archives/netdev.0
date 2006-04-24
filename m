@@ -1,53 +1,42 @@
-From: Aubrey <aubreylee@gmail.com>
-Subject: Re: Netpoll checksum issue
-Date: Mon, 24 Apr 2006 21:22:26 +0800
-Message-ID: <6d6a94c50604240622v4cc3f0efi20429b474927c814@mail.gmail.com>
-References: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com>
-	 <20060419103153.64ef0054@localhost.localdomain>
-	 <6d6a94c50604191854m73b241e3v104d713b7bb93674@mail.gmail.com>
-	 <20060423113432.GA16424@gondor.apana.org.au>
-	 <6d6a94c50604232242hd091922q8a2a0c78f1163b3c@mail.gmail.com>
-	 <20060424102250.GA24437@gondor.apana.org.au>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: Van Jacobson's net channels and real-time
+Date: Mon, 24 Apr 2006 09:42:13 -0700
+Message-ID: <444CFFE5.1020509@intel.com>
+References: <Pine.LNX.4.44L0.0604201819040.19330-100000@lifa01.phys.au.dk> <200604221529.59899.ioe-lkml@rameria.de> <20060422134956.GC6629@wohnheim.fh-wedel.de> <200604230205.33668.ioe-lkml@rameria.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Stephen Hemminger" <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>,
+	Ingo Oeser <netdev@axxeo.de>,
+	"David S. Miller" <davem@davemloft.net>, simlo@phys.au.dk,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.189]:8007 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1750742AbWDXNW1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 09:22:27 -0400
-Received: by nproxy.gmail.com with SMTP id l24so892077nfc
-        for <netdev@vger.kernel.org>; Mon, 24 Apr 2006 06:22:26 -0700 (PDT)
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-In-Reply-To: <20060424102250.GA24437@gondor.apana.org.au>
-Content-Disposition: inline
+Received: from fmr17.intel.com ([134.134.136.16]:54998 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1750897AbWDXQnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Apr 2006 12:43:17 -0400
+To: Ingo Oeser <ioe-lkml@rameria.de>
+In-Reply-To: <200604230205.33668.ioe-lkml@rameria.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/24/06, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Mon, Apr 24, 2006 at 01:42:12PM +0800, Aubrey wrote:
-> >
-> >   dev->last_rx = jiffies;
-> >   skb->dev = dev;
-> >   skb->protocol = eth_type_trans(skb, dev);
-> >   skb->ip_summed = CHECKSUM_UNNECESSARY;
-> >   netif_rx(skb);
->
-> This doesn't make sense.  First of all you're setting ip_summed to
-> CHECK_UNNECESSARY unconditionally which is most likely wrong.
->
-> What's more, if this was the driver that you were using, then
-> checksum_udp couldn't possibly fail since the first thing it does
-> is check ip_summed.
+Ingo Oeser wrote:
+> On Saturday, 22. April 2006 15:49, J=F6rn Engel wrote:
+>> That was another main point, yes.  And the endpoints should be as
+>> little burden on the bottlenecks as possible.  One bottleneck is the
+>> receive interrupt, which shouldn't wait for cachelines from other cp=
+us
+>> too much.
+>=20
+> Thats right. This will be made a non issue with early demuxing
+> on the NIC and MSI (or was it MSI-X?) which will select
+> the right CPU based on hardware channels.
 
-Hmm, when I change the code in __netpoll_rx, there is no the following
-one line in the driver:
-==============================================
-skb->ip_summed = CHECKSUM_UNNECESSARY;
-==============================================
+MSI-X. with MSI you still have only one cpu handling all MSI interrupts=
+ and=20
+that doesn't look any different than ordinary interrupts. MSI-X will al=
+low=20
+much better interrupt handling across several cpu's.
 
-The above one line code in the driver is just a workaround.
-
-Regards,
--Aubrey
+Auke
