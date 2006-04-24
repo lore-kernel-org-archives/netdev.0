@@ -1,40 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Netpoll checksum issue
-Date: Mon, 24 Apr 2006 20:22:50 +1000
-Message-ID: <20060424102250.GA24437@gondor.apana.org.au>
-References: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com> <20060419103153.64ef0054@localhost.localdomain> <6d6a94c50604191854m73b241e3v104d713b7bb93674@mail.gmail.com> <20060423113432.GA16424@gondor.apana.org.au> <6d6a94c50604232242hd091922q8a2a0c78f1163b3c@mail.gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [Fireflier-devel] Re: [PATCH][RFC] Security marking
+Date: Mon, 24 Apr 2006 08:56:29 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0604240855130.8523@d.namei>
+References: <20060417184053.6D618378FD@localhost.localdomain>
+ <Pine.LNX.4.64.0604172051510.20174@d.namei> <200604232157.59758.edwin@gurde.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="537530981-251661884-1145883389=:8523"
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	fireflier-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:21519 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750722AbWDXKW6
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 06:22:58 -0400
-To: Aubrey <aubreylee@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <6d6a94c50604232242hd091922q8a2a0c78f1163b3c@mail.gmail.com>
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:17892 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1750753AbWDXM4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Apr 2006 08:56:33 -0400
+To: =?iso-8859-1?q?T=F6r=F6k_Edwin?= <edwin@gurde.com>
+In-Reply-To: <200604232157.59758.edwin@gurde.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 24, 2006 at 01:42:12PM +0800, Aubrey wrote:
->
->   dev->last_rx = jiffies;
->   skb->dev = dev;
->   skb->protocol = eth_type_trans(skb, dev);
->   skb->ip_summed = CHECKSUM_UNNECESSARY;
->   netif_rx(skb);
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-This doesn't make sense.  First of all you're setting ip_summed to
-CHECK_UNNECESSARY unconditionally which is most likely wrong.
+--537530981-251661884-1145883389=:8523
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-What's more, if this was the driver that you were using, then
-checksum_udp couldn't possibly fail since the first thing it does
-is check ip_summed.
+On Sun, 23 Apr 2006, Török Edwin wrote:
 
-Cheers,
+> > This could be done with nfqueue, modular policy and a pretty simple tool.
+> How do I determine if the policy needs to be changed? I.e. how do I determine 
+> if the packet would be dropped? You say packets are silently dropped, won't 
+> they generate an avc denied at least? (at least the first time?)
+
+Actually, yes, you'll get avc messages.
+
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+James Morris
+<jmorris@namei.org>
+--537530981-251661884-1145883389=:8523--
