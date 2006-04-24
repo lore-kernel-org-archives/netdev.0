@@ -1,28 +1,40 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: is it a backwards compatability catch-22?
-Date: Mon, 24 Apr 2006 17:38:16 -0700
-Message-ID: <444D6F78.9080309@hp.com>
-References: <444D6396.4010004@hp.com> <20060424165407.202a86f4@dxpl.pdx.osdl.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Van Jacobson's net channels and real-time
+Date: Mon, 24 Apr 2006 16:17:07 -0700
+Message-ID: <1145920628.7998.8.camel@rh4>
+References: <Pine.LNX.4.44L0.0604201819040.19330-100000@lifa01.phys.au.dk>
+ <200604221529.59899.ioe-lkml@rameria.de>
+ <20060422134956.GC6629@wohnheim.fh-wedel.de>
+ <200604230205.33668.ioe-lkml@rameria.de> <444CFFE5.1020509@intel.com>
+ <Pine.LNX.4.61.0604241254180.24099@chaos.analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
+Cc: "Auke Kok" <auke-jan.h.kok@intel.com>,
+	"Ingo Oeser" <ioe-lkml@rameria.de>,
+	"=?ISO-8859-1?Q?J=F6rn?= Engel" <joern@wohnheim.fh-wedel.de>,
+	"Ingo Oeser" <netdev@axxeo.de>,
+	"David S. Miller" <davem@davemloft.net>, simlo@phys.au.dk,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:49304 "EHLO palrel12.hp.com")
-	by vger.kernel.org with ESMTP id S932131AbWDYAiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Apr 2006 20:38:19 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060424165407.202a86f4@dxpl.pdx.osdl.net>
+Received: from mms3.broadcom.com ([216.31.210.19]:54281 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1751284AbWDYA53
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Apr 2006 20:57:29 -0400
+To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
+In-Reply-To: <Pine.LNX.4.61.0604241254180.24099@chaos.analogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2006-04-24 at 12:59 -0400, linux-os (Dick Johnson) wrote:
 
-> The udev stuff runs after the device has already chosen it's default name.
-> It has to, it's part of the hotplug infrastructure, and we don't want
-> to depend on usermode to define the name.  Just choose some other
-> convention "eth_0"  or something like that.
+> Message signaled interrupts are just a kudge to save a trace on a
+> PC board (read make junk cheaper still). They are not faster and
+> may even be slower. They will not be the salvation of any interrupt
+> latency problems.
 
-Is that because adding another NIC at a later time might cause it to 
-grab ethN out from under what I'm trying to do with udev?
+MSI has 2 very nice properties: MSI is never shared and MSI guarantees
+that all DMA activities before the MSI have completed. When you take
+advantage of these guarantees in your MSI handler, there can be
+noticeable improvements compared to using INTA.
 
-rick jones
