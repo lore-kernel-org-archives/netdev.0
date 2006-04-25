@@ -1,34 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: TCP not retransmitting supposedly lost segment
-Date: Tue, 25 Apr 2006 12:42:47 +1000
-Message-ID: <20060425024247.GA29782@gondor.apana.org.au>
-References: <20060406171926.GA8142@florz.florz.dyndns.org> <20060410010005.GA9282@florz.florz.dyndns.org> <20060423122718.GA16504@gondor.apana.org.au> <20060423235609.GB17254@florz.florz.dyndns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Subject: Re: [PATCH]: suspicious unlikely usage in tcp_transmit_skb()
+Date: Tue, 25 Apr 2006 15:34:06 +1000
+Message-ID: <E1FYGBa-00085C-00@gondolin.me.apana.org.au>
+References: <444D5E73.7020803@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:27662 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751346AbWDYCmx
+Received: from rhun.apana.org.au ([64.62.148.172]:11536 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932113AbWDYFeP
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 22:42:53 -0400
-To: Florian Zumbiehl <florz@gmx.de>
-Content-Disposition: inline
-In-Reply-To: <20060423235609.GB17254@florz.florz.dyndns.org>
+	Tue, 25 Apr 2006 01:34:15 -0400
+To: hzhong@gmail.com (Hua Zhong)
+In-Reply-To: <444D5E73.7020803@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 24, 2006 at 01:56:09AM +0200, Florian Zumbiehl wrote:
+Hua Zhong <hzhong@gmail.com> wrote:
 > 
-> Well, at least the tcp part of it, it seems, yep. The debugging I've
-> done so far also seems to confirm that the problem is somewhere beyond
-> the tcp code, but I don't have any real clue yet ...
+> I am developing a profiling tool to check if likely/unlikely usages are wise. I find that the following one is always a miss:
+> 
+>      # Hit    # miss Function:Filename@Line
+> !         0     50505 tcp_transmit_skb():net/ipv4/tcp_output.c@468
+> 
+> There is a chance that my tool is buggy, but I just want to confirm with you whether this does look suspicious and what your opinion is.
 
-One way to proceed is to add printk's to the error paths in the output
-path through TCP, IPv6, netfilter, ...
-
-These should be rare so the it shouldn't flood your syslog.  Based on
-which error path is taken or not taken you should be able to work out
-where you need to focus your search on.
+Your tool is correct.  The only way for it to fall through is if
+we encounter local congestion.
 
 Cheers,
 -- 
