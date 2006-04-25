@@ -1,35 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH]: suspicious unlikely usage in tcp_transmit_skb()
-Date: Tue, 25 Apr 2006 15:16:35 -0700
-Message-ID: <20060425151635.549d3400@localhost.localdomain>
-References: <444D5E73.7020803@gmail.com>
-	<20060425100149.636d6a1d@localhost.localdomain>
-	<20060425.144649.129407913.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/5] sky2: add fake idle irq timer
+Date: Wed, 26 Apr 2006 00:39:00 +0200
+Message-ID: <20060425223900.GB18035@electric-eye.fr.zoreil.com>
+References: <20060425175849.372221000@localhost.localdomain> <20060425175951.444629000@localhost.localdomain> <20060425212329.GA18035@electric-eye.fr.zoreil.com> <20060425143042.29d636a8@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hzhong@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:47513 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751577AbWDYWQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2006 18:16:53 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060425.144649.129407913.davem@davemloft.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:4062 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751628AbWDYWje
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Apr 2006 18:39:34 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060425143042.29d636a8@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Apr 2006 14:46:49 -0700 (PDT)
-"David S. Miller" <davem@davemloft.net> wrote:
-
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Tue, 25 Apr 2006 10:01:49 -0700
+Stephen Hemminger <shemminger@osdl.org> :
+[...]
+> > Any objection against moving mod_timer() from sky2_poll() to sky2_idle()
+> > so as to keep poll() path unmodified ?
+> > 
 > 
-> > >       # Hit    # miss Function:Filename@Line
-> > > !         0     50505 tcp_transmit_skb():net/ipv4/tcp_output.c@468
->  ...
-> > How about just taking off the likely/unlikely in this case.
-> 
-> Why remove it when we'll now get a 50505 to 0 hit rate?
+> If traffic is moving, then I want the timer to keep getting rescheduled
+> farther out.
 
-Depends on the data stream, but I guess if we are seeing high loss
-we really don't care about the CPU branch prediction.
+If my version of the driver is not stale, the timer will not be
+rescheduled when work_done >= work_limit. I.e. the optimization
+tends to vanish when the load goes up. Before this point is reached,
+the long path of mod_timer() can be taken up to HZ per second.
+
+I have no idea which balance works best.
+
+-- 
+Ueimor
