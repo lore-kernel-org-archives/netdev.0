@@ -1,52 +1,53 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: tune back idle cwnd closing?
-Date: Tue, 25 Apr 2006 10:27:37 -0400
-Message-ID: <444E31D9.1010705@psc.edu>
-References: <44493980.1040708@oracle.com>
+From: "John Que" <qwejohn@gmail.com>
+Subject: Re: determine outgoing interface (eth0,eth1) for a packet according to the dest IP
+Date: Tue, 25 Apr 2006 17:44:37 +0300
+Message-ID: <ada605fb0604250744w73c7766as1d3ceb0d62511764@mail.gmail.com>
+References: <ada605fb0604250031r2e4a74e7id0b5079fabde9517@mail.gmail.com>
+	 <200604250943.49422.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:44512 "EHLO mailer2.psc.edu")
-	by vger.kernel.org with ESMTP id S932233AbWDYO1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2006 10:27:42 -0400
-To: Zach Brown <zach.brown@oracle.com>
-In-Reply-To: <44493980.1040708@oracle.com>
+Received: from uproxy.gmail.com ([66.249.92.168]:15256 "EHLO uproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S932242AbWDYOoj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Apr 2006 10:44:39 -0400
+Received: by uproxy.gmail.com with SMTP id c2so1054873ugf
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2006 07:44:37 -0700 (PDT)
+To: "Andi Kleen" <ak@suse.de>
+In-Reply-To: <200604250943.49422.ak@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Zach Brown wrote:
-> My apologies if this is a FAQ, I couldn't find it in the archives.
-> 
-> We have some dudes who are syncing large amounts of data across a
-> dedicated long fat pipe at somewhat irregular intervals that are, sadly,
-> longer than the rto.  They feel the pain of having to reopen the window
-> between transmissions.
-> 
-> Is there room for a compromise tunable that would be less aggressive
-> about closing cwnd during idle periods but which wouldn't violate the
-> spirit of 2861?  No one wants broken TCP here.
-> 
-> They mention that Solaris has the tcp_slow_start_after_idle tunable and
-> that it helps their situation.  I mention that only as a data point, I
-> wouldn't be foolish enough to try and use the presence of something in
-> Solaris as justification :)
+Thanks a lot !
 
-
-Yours is the first complaint of this kind I recall seeing, but I've 
-expected for a while someone would have this type of problem.  RFC2861 
-seems conceptually nice at first, but there are a few things about it 
-that bother me.  One thing in particular is that a naturally bursty 
-application (like yours) will actually perform better by padding its 
-connection with junk data whenever it doesn't have real data to send. 
-Or equivalently, it's punished for not sending data when it doesn't need 
-to.  I also think it may not do much good when there are connections 
-with significantly different RTTs.
-
-Given that RFC2681 is Experimental (and I'm not aware of any current 
-efforts in the IETF to push it to the standard track), IHMO it would not 
-be inappropriate to make this behavior controlled via sysctl.
-
-Thanks,
-   -John
+  I had tried the sending RTM_GETROUTE message using a NETLINK_ROUTE
+	socket in a User Space program and it went OK.
+	
+	It gaves correct routing struct which I could parse.
+	In fact it gave the rotuing table.
+	But in sending that message I did not specify a certain
+	dest IP.
+	Consider the follwing simple scenario: I have 2 gateways
+	(one on eth0,one on eth1), and I am sending
+	a packet to some dest IP ; I want to know according to
+	that ip on which interface (or gw) it will be out
+	
+	But where do I specify that certain dest IP ?
+Regards,
+John
+On 4/25/06, Andi Kleen <ak@suse.de> wrote:
+> On Tuesday 25 April 2006 09:31, John Que wrote:
+> > Hello,
+> > What is the right way to determine on which interface card
+> > (eth0 or eth1) will a packet be sent (according to the dest IP)?
+>
+> You can send a rtnetlink RTM_GETROUTE message to ask the kernel.
+> Result is the interface index in RTA_OIF, which can be converted
+> into a name.
+>
+> -Andi
+>
+>
