@@ -1,40 +1,44 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: determine outgoing interface (eth0,eth1) for a packet according to the dest IP
-Date: Tue, 25 Apr 2006 16:48:09 +0200
-Message-ID: <200604251648.10113.ak@suse.de>
-References: <ada605fb0604250031r2e4a74e7id0b5079fabde9517@mail.gmail.com> <200604250943.49422.ak@suse.de> <ada605fb0604250744w73c7766as1d3ceb0d62511764@mail.gmail.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: is it a backwards compatability catch-22?
+Date: Tue, 25 Apr 2006 09:09:31 -0700
+Message-ID: <4807377b0604250909m34f6030ar19735b3343884399@mail.gmail.com>
+References: <444D6396.4010004@hp.com>
+	 <20060424165407.202a86f4@dxpl.pdx.osdl.net> <444D6F78.9080309@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Stephen Hemminger" <shemminger@osdl.org>,
+	"Linux Network Development list" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:37324 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932247AbWDYOs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2006 10:48:29 -0400
-To: "John Que" <qwejohn@gmail.com>
-In-Reply-To: <ada605fb0604250744w73c7766as1d3ceb0d62511764@mail.gmail.com>
+Received: from xproxy.gmail.com ([66.249.82.205]:7123 "EHLO xproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1751555AbWDYQJr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Apr 2006 12:09:47 -0400
+Received: by xproxy.gmail.com with SMTP id t10so878999wxc
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2006 09:09:46 -0700 (PDT)
+To: "Rick Jones" <rick.jones2@hp.com>
+In-Reply-To: <444D6F78.9080309@hp.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 25 April 2006 16:44, John Que wrote:
-> Thanks a lot !
-> 
->   I had tried the sending RTM_GETROUTE message using a NETLINK_ROUTE
-> 	socket in a User Space program and it went OK.
-> 	
-> 	It gaves correct routing struct which I could parse.
-> 	In fact it gave the rotuing table.
-> 	But in sending that message I did not specify a certain
-> 	dest IP.
-> 	Consider the follwing simple scenario: I have 2 gateways
-> 	(one on eth0,one on eth1), and I am sending
-> 	a packet to some dest IP ; I want to know according to
-> 	that ip on which interface (or gw) it will be out
-> 	
-> 	But where do I specify that certain dest IP ?
+On 4/24/06, Rick Jones <rick.jones2@hp.com> wrote:
+>
+> > The udev stuff runs after the device has already chosen it's default name.
+> > It has to, it's part of the hotplug infrastructure, and we don't want
+> > to depend on usermode to define the name.  Just choose some other
+> > convention "eth_0"  or something like that.
+>
+> Is that because adding another NIC at a later time might cause it to
+> grab ethN out from under what I'm trying to do with udev?
 
-You add RTA_SRC and RTA_DST attributes to the query.
+>From what I read its likely to be because there may already be a
+device named "eth1" due to default naming when you are trying to
+rename a device (say eth0) to eth1.
 
--Andi
+this is all because Debian now has async init, right?
+
+BTW, since the letters in udev are all hex, it shouldn't matter
+whether they are upper or lower case, IMO
+
+Jesse
