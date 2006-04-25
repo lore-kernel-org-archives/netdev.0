@@ -1,31 +1,35 @@
-From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
-Subject: Re: is it a backwards compatability catch-22?
-Date: Tue, 25 Apr 2006 21:10:46 +0200
-Message-ID: <444E7436.1000403@stud.feec.vutbr.cz>
-References: <444D6396.4010004@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 4/5] sky2: reset function can be devinit
+Date: Tue, 25 Apr 2006 10:58:53 -0700
+Message-ID: <20060425175952.104222000@localhost.localdomain>
+References: <20060425175849.372221000@localhost.localdomain>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tron.kn.vutbr.cz ([147.229.191.152]:16908 "EHLO
-	tron.kn.vutbr.cz") by vger.kernel.org with ESMTP id S932294AbWDYTK4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Apr 2006 15:10:56 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <444D6396.4010004@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:30081 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932306AbWDYVCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2006 17:02:37 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename=sky2-devinit.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> lumber:~# cat /etc/udev/rules.d/010_netinterfaces.rules
-> KERNEL="eth*",SYSFS{address}=="00:30:6e:4c:27:3c", NAME="eth0"
-> KERNEL="eth*",SYSFS{address}=="00:30:6e:4c:27:3d", NAME="eth1"
-> KERNEL="eth*",SYSFS{address}=="00:12:79:9e:0e:d2", NAME="eth2"
-> KERNEL="eth*",SYSFS{address}=="00:12:79:9e:0e:d3", NAME="eth3"
-> KERNEL="eth*",SYSFS{address}=="00:0c:fc:00:08:71", NAME="eth4"
-        ^^^
-BTW, you should use "==" here instead of "=". Otherwise the rules will 
-break with newer udev versions which behave strictly in this regard.
+The sky2_reset function only called from sky2_probe.
+Maybe the compiler was smart enough to figure this out already.
 
-Michal
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+
+--- sky2-2.6.17.orig/drivers/net/sky2.c	2006-04-25 10:53:37.000000000 -0700
++++ sky2-2.6.17/drivers/net/sky2.c	2006-04-25 10:54:57.000000000 -0700
+@@ -2219,7 +2219,7 @@
+ }
+ 
+ 
+-static int sky2_reset(struct sky2_hw *hw)
++static int __devinit sky2_reset(struct sky2_hw *hw)
+ {
+ 	u16 status;
+ 	u8 t8, pmd_type;
+
+--
+
