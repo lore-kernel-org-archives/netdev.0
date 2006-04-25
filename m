@@ -1,34 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]: suspicious unlikely usage in tcp_transmit_skb()
-Date: Tue, 25 Apr 2006 15:34:06 +1000
-Message-ID: <E1FYGBa-00085C-00@gondolin.me.apana.org.au>
-References: <444D5E73.7020803@gmail.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+From: "John Que" <qwejohn@gmail.com>
+Subject: determine outgoing interface (eth0,eth1) for a packet according to the dest IP
+Date: Tue, 25 Apr 2006 10:31:09 +0300
+Message-ID: <ada605fb0604250031r2e4a74e7id0b5079fabde9517@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11536 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932113AbWDYFeP
+Received: from uproxy.gmail.com ([66.249.92.171]:37357 "EHLO uproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1751373AbWDYHbL convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Apr 2006 01:34:15 -0400
-To: hzhong@gmail.com (Hua Zhong)
-In-Reply-To: <444D5E73.7020803@gmail.com>
+	Tue, 25 Apr 2006 03:31:11 -0400
+Received: by uproxy.gmail.com with SMTP id c2so990359ugf
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2006 00:31:09 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hua Zhong <hzhong@gmail.com> wrote:
-> 
-> I am developing a profiling tool to check if likely/unlikely usages are wise. I find that the following one is always a miss:
-> 
->      # Hit    # miss Function:Filename@Line
-> !         0     50505 tcp_transmit_skb():net/ipv4/tcp_output.c@468
-> 
-> There is a chance that my tool is buggy, but I just want to confirm with you whether this does look suspicious and what your opinion is.
+Hello,
+What is the right way to determine on which interface card
+(eth0 or eth1) will a packet be sent (according to the dest IP)?
 
-Your tool is correct.  The only way for it to fall through is if
-we encounter local congestion.
+I have a machine with two NICS (eth0 and eth1).
+I have 2 different gateways.
+I need to know on which interface (eth0 or eth1) will the
+packet be send according to the dest IP.
+I want to do in in a User Space function.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I think of one way to do this is:
+Parse the routing table (/proc/net/route) as is done in
+net-tools. (to be more specific rprint_fib() in lib/inet_gr.c
+of net-tools.
+Than according to the IP address and the netmask check if the
+dest IP is for one gatway or the second.
+If not - than it is the default gateway.
+
+Is there another way ? Is it the correct way ?
+Regards,
+John
