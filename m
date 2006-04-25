@@ -1,110 +1,38 @@
-From: Auke Kok <sofar@foo-projects.org>
-Subject: Re: Van Jacobson's net channels and real-time
-Date: Mon, 24 Apr 2006 18:49:59 -0700
-Message-ID: <444D8047.9080403@foo-projects.org>
-References: <Pine.LNX.4.44L0.0604201819040.19330-100000@lifa01.phys.au.dk> <200604221529.59899.ioe-lkml@rameria.de> <20060422134956.GC6629@wohnheim.fh-wedel.de> <200604230205.33668.ioe-lkml@rameria.de> <444CFFE5.1020509@intel.com> <Pine.LNX.4.61.0604241254180.24099@chaos.analogic.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: TCP not retransmitting supposedly lost segment
+Date: Tue, 25 Apr 2006 12:42:47 +1000
+Message-ID: <20060425024247.GA29782@gondor.apana.org.au>
+References: <20060406171926.GA8142@florz.florz.dyndns.org> <20060410010005.GA9282@florz.florz.dyndns.org> <20060423122718.GA16504@gondor.apana.org.au> <20060423235609.GB17254@florz.florz.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	Ingo Oeser <ioe-lkml@rameria.de>,
-	=?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>,
-	Ingo Oeser <netdev@axxeo.de>,
-	"David S. Miller" <davem@davemloft.net>, simlo@phys.au.dk,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:19855 "EHLO
-	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751514AbWDYBuD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Apr 2006 21:50:03 -0400
-To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
-In-Reply-To: <Pine.LNX.4.61.0604241254180.24099@chaos.analogic.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:27662 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751346AbWDYCmx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Apr 2006 22:42:53 -0400
+To: Florian Zumbiehl <florz@gmx.de>
+Content-Disposition: inline
+In-Reply-To: <20060423235609.GB17254@florz.florz.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-linux-os (Dick Johnson) wrote:
-> On Mon, 24 Apr 2006, Auke Kok wrote:
->=20
->> Ingo Oeser wrote:
->>> On Saturday, 22. April 2006 15:49, J=F6rn Engel wrote:
->>>> That was another main point, yes.  And the endpoints should be as
->>>> little burden on the bottlenecks as possible.  One bottleneck is t=
-he
->>>> receive interrupt, which shouldn't wait for cachelines from other =
-cpus
->>>> too much.
->>> Thats right. This will be made a non issue with early demuxing
->>> on the NIC and MSI (or was it MSI-X?) which will select
->>> the right CPU based on hardware channels.
->> MSI-X. with MSI you still have only one cpu handling all MSI interru=
-pts and
->> that doesn't look any different than ordinary interrupts. MSI-X will=
- allow
->> much better interrupt handling across several cpu's.
->>
->> Auke
->> -
->=20
-> Message signaled interrupts are just a kudge to save a trace on a
-> PC board (read make junk cheaper still).
+On Mon, Apr 24, 2006 at 01:56:09AM +0200, Florian Zumbiehl wrote:
+> 
+> Well, at least the tcp part of it, it seems, yep. The debugging I've
+> done so far also seems to confirm that the problem is somewhere beyond
+> the tcp code, but I don't have any real clue yet ...
 
-yes. Also in PCI-Express there is no physical interrupt line anymore du=
-e to=20
-the architecture, so even classical interrupts are sent as "message" ov=
-er the bus.
+One way to proceed is to add printk's to the error paths in the output
+path through TCP, IPv6, netfilter, ...
 
-> They are not faster and may even be slower.
-
-thus in the case of PCI-Express, MSI interrupts are just as fast as the=
-=20
-ordinary ones. I have no numbers on whether MSI is faster or not then e=
-=2Eg.=20
-interrupts on PCI-X, but generally speaking, the PCI-Express bus is not=
-=20
-designed to be "low latency" at all, at best it gives you X latency, wh=
-ere X=20
-is something like microseconds. The MSI message itself only takes 10-20=
-=20
-nanoseconds though, but all the handling probably adds a large factor t=
-o that=20
-(1000 or so). No clue on classical interrupt line latency - anyone?
-
-> They will not be the salvation of any interrupt latency problems.=20
-
-This is also not the problem - we really don't care that our 100.000 pa=
-ckets=20
-arrive 20usec slower per packet, just as long as the bus is not idle fo=
-r those=20
-intervals. We would care a lot if 25.000 of those arrive directly at th=
-e=20
-proper CPU, without the need for one of the cpu's to arbitrate on every=
-=20
-interrupt. That's the idea anyway.
-
-Nowadays with irq throttling we introduce a lot of designed latency any=
-way,=20
-especially with network devices.
-
-> The solutions for increasing networking speed,
-> where the bit-rate on the wire gets close to the bit-rate on the
-> bus, is to put more and more of the networking code inside the
-> network board. The CPU get interrupted after most things (like
-> network handshakes) are complete.
-
-That is a limited vision of the situation. You could argue that the cur=
-rent=20
-CPU's have so much power that they can easily do a lot of the processin=
-g=20
-instead of the hardware, and thus warm caches for userspace, setup sock=
-ets=20
-etc. This is the whole idea of Van Jacobsen's net channels. Putting mor=
-e=20
-offloading into the hardware just brings so much problems with itself, =
-that=20
-are just far easier solved in the OS.
-
+These should be rare so the it shouldn't flood your syslog.  Based on
+which error path is taken or not taken you should be able to work out
+where you need to focus your search on.
 
 Cheers,
-
-Auke
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
