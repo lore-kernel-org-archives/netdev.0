@@ -1,35 +1,39 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: determine outgoing interface (eth0,eth1) for a packet
- according to the dest IP
-Date: Tue, 25 Apr 2006 00:58:31 -0700 (PDT)
-Message-ID: <20060425.005831.64868698.davem@davemloft.net>
-References: <ada605fb0604250031r2e4a74e7id0b5079fabde9517@mail.gmail.com>
-	<200604250943.49422.ak@suse.de>
+From: Hua Zhong <hzhong@gmail.com>
+Subject: [PATCH] remove likely in ip_rcv_finish()
+Date: Tue, 25 Apr 2006 02:10:27 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0604250204470.4481@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: qwejohn@gmail.com, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61652
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751414AbWDYH6m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Apr 2006 03:58:42 -0400
-To: ak@suse.de
-In-Reply-To: <200604250943.49422.ak@suse.de>
+Received: from wproxy.gmail.com ([64.233.184.232]:20126 "EHLO wproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S932154AbWDYJL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Apr 2006 05:11:59 -0400
+Received: by wproxy.gmail.com with SMTP id 69so906812wra
+        for <netdev@vger.kernel.org>; Tue, 25 Apr 2006 02:11:59 -0700 (PDT)
+To: davem@savemloft.net, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Tue, 25 Apr 2006 09:43:49 +0200
+Hi,
 
-> On Tuesday 25 April 2006 09:31, John Que wrote:
-> > Hello,
-> > What is the right way to determine on which interface card
-> > (eth0 or eth1) will a packet be sent (according to the dest IP)?
-> 
-> You can send a rtnetlink RTM_GETROUTE message to ask the kernel.
-> Result is the interface index in RTA_OIF, which can be converted
-> into a name.
+This is another result from my likely profiling tool (dwalker@mvista.com just sent the patch of the profiling tool to linux-kernel mailing list, which is similar to what I use).
 
-That scheme does not handle netfilter nor packet scheduler
-classifier mangling and redirection of the packet.
+On my system (not very busy, normal development machine within a VMWare workstation), I see a 6/5 miss/hit ratio for the following "likely".
+
+I am not sure what would happen for a busy system though (on which performance actually matters), but I am just reporting what I find and hope it might help.
+
+Signed-off-by: Hua Zhong <hzhong@gmail.com>
+
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 18d7fad..9f44359 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -337,7 +337,7 @@ static inline int ip_rcv_finish(struct s
+  	 *	Initialise the virtual path cache for the packet. It describes
+  	 *	how the packet travels inside Linux networking.
+  	 */ 
+-	if (likely(skb->dst == NULL)) {
++	if (skb->dst) {
+  		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
+  					 skb->dev);
+  		if (unlikely(err)) {
