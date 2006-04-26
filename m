@@ -1,36 +1,40 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: hotplug napi race cleanup
-Date: Wed, 26 Apr 2006 02:43:05 -0700 (PDT)
-Message-ID: <20060426.024305.122924499.davem@davemloft.net>
-References: <20060421102503.4e44eb28@localhost.localdomain>
-	<E1FX5zQ-000177-00@gondolin.me.apana.org.au>
-	<20060424152341.094b72d8@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] e1000: skb truesize fix
+Date: Wed, 26 Apr 2006 06:16:25 -0400
+Message-ID: <444F4879.2010801@pobox.com>
+References: <20060426061229.25966.83974.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, patrakov@ums.usu.ru,
-	netdev@vger.kernel.org, akpm@osdl.org
+Cc: stable@kernel.org, netdev@vger.kernel.org,
+	"Miller, David" <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:62687
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751393AbWDZJnR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Apr 2006 05:43:17 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060424152341.094b72d8@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:18407 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751398AbWDZKQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 06:16:39 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20060426061229.25966.83974.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 24 Apr 2006 15:23:41 -0700
-
-> This follows after the earlier two patches.
+Kok, Auke wrote:
+> Hi,
 > 
-> Change the initialization of the class device portion of the net device
-> to be done earlier, so that any races before registration completes are
-> harmless.  Add a mutex to avoid changes to netdevice during the
-> class device registration. 
+> This patch was already merged in Jeff Garzik's netdev upstream branch but
+> needs to go into 12.6.16.y and 2.6.17rc* as it fixes a critical buffersize
+> skb bug that is exposed by an earlier patch by Dave Miller and Herbert
+> Xiu. I'm therefore resending it:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Please apply to 2.6.16.y and queue for 2.6.17-rc.
+> 
+> These changes are available through git. Jeff, please pull from:
+> 
+> git://lost.foo-projects.org/~ahkok/git/linux-2.6 skb_truesize
 
-Once Greg KH puts in the necessary infrastructure patches, I'll put
-this one in too.
+pulled, queued for 2.6.17-rc
+
+
