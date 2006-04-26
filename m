@@ -1,37 +1,32 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Wed, 26 Apr 2006 12:30:13 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F143AE6C@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 0/17] d80211 patches
+Date: Wed, 26 Apr 2006 15:39:12 -0400
+Message-ID: <20060426193907.GB7922@tuxdriver.com>
+References: <20060421220951.205579000.midnight@suse.cz> <200604212252.08325.mb@bu3sch.de> <20060421225210.36a0225b@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: kelly@au1.ibm.com, netdev@vger.kernel.org, rusty@rustcorp.com.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:24337 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S964851AbWDZTa0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Apr 2006 15:30:26 -0400
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>
+Received: from ra.tuxdriver.com ([24.172.12.4]:11793 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S964854AbWDZTjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 15:39:25 -0400
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20060421225210.36a0225b@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-
+On Fri, Apr 21, 2006 at 10:52:10PM +0200, Jiri Benc wrote:
+> On Fri, 21 Apr 2006 22:52:08 +0200, Michael Buesch wrote:
+> > Can you please send your hacky patch for the bcm43xx
+> > to me, so I can come up with a clean one?
 > 
-> I personally think allowing sockets to trump firewall rules
-> is an acceptable relaxation of the rules in order to simplify
-> the implementation.
+> Sure, actually I planned to do it in a few minutes :-)
 
-I agree.  I have never seen a set of netfilter rules that
-would block arbitrary packets *within* an established connection.
+Hacky or not, I'm applying this patch to keep the bcm43xx driver
+from breaking.  I don't suppose you have a patch for the rt2x00 driver?
 
-Technically you can create such rules, but every single set
-of rules actually deployed that I have ever seen started with
-a rule to pass all packets for established connections, and
-then proceeded to control which connections could be initiated
-or accepted.
-
-
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
