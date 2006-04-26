@@ -1,29 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Wed, 26 Apr 2006 06:18:36 -0400
-Message-ID: <444F48FC.4010006@garzik.org>
-References: <20060424194006.GB21761@tuxdriver.com> <20060424204044.GC21761@tuxdriver.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/5] sky2: reschedule if irq still pending
+Date: Wed, 26 Apr 2006 06:20:10 -0400
+Message-ID: <444F495A.1020008@pobox.com>
+References: <20060425175849.372221000@localhost.localdomain> <20060425175951.185516000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34279 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932285AbWDZKSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 06:18:38 -0400
-To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-In-Reply-To: <20060424204044.GC21761@tuxdriver.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:41703 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932073AbWDZKUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 06:20:12 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060425175951.185516000@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit 7c241d37fe0e6442c5cf3b5d73f7f58f2dc66352:
->   Michael Buesch:
->         bcm43xx: make PIO mode usable
+Stephen Hemminger wrote:
+> This is a workaround for the case edge-triggered irq's. Several users
+> seem to have broken configurations sharing edge-triggered irq's. To avoid
+> losing IRQ's, reshedule if more work arrives.
 > 
-> are found in the git repository at:
+> The changes to netdevice.h are to extract the part that puts device
+> back in list into separate inline.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-pulled
+applied 1-5 to #upstream-fixes
 
 
