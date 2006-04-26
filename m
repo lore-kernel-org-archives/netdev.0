@@ -1,75 +1,78 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: e1000 Invalid truesize
-Date: Wed, 26 Apr 2006 08:24:45 -0700
-Message-ID: <F50A4280B6033741B1DD2B4E902258B13F4EAD@orsmsx411.amr.corp.intel.com>
+From: Alex Davis <alex14641@yahoo.com>
+Subject: Re: [PATCH] compile error in ieee80211_ioctl.c
+Date: Wed, 26 Apr 2006 09:29:46 -0700 (PDT)
+Message-ID: <20060426162946.38818.qmail@web50212.mail.yahoo.com>
+References: <20060425211236.GC19116@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52606 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932480AbWDZPYs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 11:24:48 -0400
-Content-class: urn:content-classes:message
-To: "Jens Axboe" <axboe@suse.de>, <netdev@vger.kernel.org>
+Received: from web50212.mail.yahoo.com ([206.190.39.176]:25683 "HELO
+	web50212.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S964810AbWDZQ3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Apr 2006 12:29:47 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060425211236.GC19116@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please follow what has been happening on netdev.  Dave Miller added this
-BUG to 2.6.17-rc as something we (Intel LAD) pointed out to them.  Jeff
-Garzik has, as of this morning, queued our e1000 patch for this.  He's
-been a little behind.
-
-If you want to know more about the problem, please read the entire
-netdev discussion about this.
-
-Cheers,
-John
------------------------------------------------------------
-"Those who would give up essential Liberty, to purchase a little
-temporary Safety, deserve neither Liberty nor Safety.", Benjamin
-Franklin 1755 
 
 
-> -----Original Message-----
-> From: Jens Axboe [mailto:axboe@suse.de] 
-> Sent: Wednesday, April 26, 2006 7:25 AM
-> To: netdev@vger.kernel.org
-> Cc: Ronciak, John; Brandeburg, Jesse; Kirsher, Jeffrey T
-> Subject: BUG: e1000 Invalid truesize
+--- "John W. Linville" <linville@tuxdriver.com> wrote:
+
+> On Tue, Apr 25, 2006 at 02:04:50PM -0700, Alex Davis wrote:
+> > Hello:
+> > 
+> > I sent this patch earlier and got no response, so I'm sending it again.
+> > 
+> > 
+> > I cloned git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
+> > last night and got compile errors while compiling net/d80211/ieee80211_ioctl.c
+> > into a module:
 > 
+> You need to address Randy's concerns as well.
 > 
-> Hi,
+> Thanks,
 > 
-> My problematic e1000 card (that sporadically gets transmit 
-> timeouts with
-> a driver newer than 2.6.14) hits new problems in current git 
-> after this
-> commit:
+> John
+
+Here is an updated patch which addresses Randy's issues. I'm currently running
+this with no problems:
+
+Signed-off-by: Alex Davis <alex14641@yahoo.com>
+
+diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
+index 42a7abe..1b14e6c 100644
+--- a/net/d80211/ieee80211_ioctl.c
++++ b/net/d80211/ieee80211_ioctl.c
+@@ -30,7 +30,7 @@ #include "aes_ccm.h"
+
+
+ static int ieee80211_regdom = 0x10; /* FCC */
+-MODULE_PARM(ieee80211_regdom, "i");
++module_param(ieee80211_regdom, int, 0666);
+ MODULE_PARM_DESC(ieee80211_regdom, "IEEE 802.11 regulatory domain; 64=MKK");
+
+ /*
+@@ -40,7 +40,7 @@ MODULE_PARM_DESC(ieee80211_regdom, "IEEE
+  * module.
+  */
+ static int ieee80211_japan_5ghz /* = 0 */;
+-MODULE_PARM(ieee80211_japan_5ghz, "i");
++module_param(ieee80211_japan_5ghz, int, 0666);
+ MODULE_PARM_DESC(ieee80211_japan_5ghz, "Vendor-updated firmware for 5 GHz");
+
+
+> John W. Linville
+> linville@tuxdriver.com
 > 
->     [NET]: Add skb->truesize assertion checking.
-> 
-> I thought I'd mention it, since it may help fix the real problem.
-> Basically I get tons of:
-> 
-> SKB BUG: Invalid truesize (592) len=712, sizeof(sk_buff)=208
-> SKB BUG: Invalid truesize (592) len=448, sizeof(sk_buff)=208
-> SKB BUG: Invalid truesize (592) len=712, sizeof(sk_buff)=208
-> SKB BUG: Invalid truesize (592) len=448, sizeof(sk_buff)=208
-> SKB BUG: Invalid truesize (592) len=500, sizeof(sk_buff)=208
-> SKB BUG: Invalid truesize (592) len=500, sizeof(sk_buff)=208
-> SKB BUG: Invalid truesize (592) len=500, sizeof(sk_buff)=208
-> [...]
-> 
-> and some net connections don't work well. Putting the 2.6.14 
-> driver back
-> into current git makes things work smoothly, as always.
-> 
-> (Please be sure to cc me, I'm not on netdev)
-> 
-> -- 
-> Jens Axboe
-> 
+
+
+
+I code, therefore I am
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
