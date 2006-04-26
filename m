@@ -1,38 +1,37 @@
-From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Subject: RE: [PATCH 00/11] ixgb: driver update (upstream)
-Date: Wed, 26 Apr 2006 12:21:01 -0700
-Message-ID: <AF7D59D407754042853128F68DEA34860463B3B2@orsmsx409>
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Wed, 26 Apr 2006 12:30:13 -0700
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F143AE6C@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
+ charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "David Miller" <davem@davemloft.net>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: kelly@au1.ibm.com, netdev@vger.kernel.org, rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23869 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S964849AbWDZT24 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 15:28:56 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:24337 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S964851AbWDZTa0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Apr 2006 15:30:26 -0400
 Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
 
-Jeff Garzik wrote: 
+> 
+> I personally think allowing sockets to trump firewall rules
+> is an acceptable relaxation of the rules in order to simplify
+> the implementation.
 
->pull failed:
+I agree.  I have never seen a set of netfilter rules that
+would block arbitrary packets *within* an established connection.
+
+Technically you can create such rules, but every single set
+of rules actually deployed that I have ever seen started with
+a rule to pass all packets for established connections, and
+then proceeded to control which connections could be initiated
+or accepted.
 
 
->[jgarzik@pretzel netdev-2.6]$ git pull 
->git://lost.foo-projects.org/linux-2.6.git ixgb-upstream
->error: no such remote ref refs/heads/ixgb-upstream
->Fetch failure: git://lost.foo-projects.org/linux-2.6.git
 
-Hmm, I apologize, I gave the wrong URL.
-
-git://lost.foo-projects.org/~jtkirshe/netdev-2.6 ixgb-upstream
-
-cheers,
-Jeff
