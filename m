@@ -1,59 +1,88 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] e1000 performance patch
-Date: Wed, 26 Apr 2006 15:26:17 -0700
-Message-ID: <444FF389.2090002@hp.com>
-References: <20060426221353.GA22143@lemming.cita.utoronto.ca>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC] bridge: partial rtnetlink hooks
+Date: Thu, 27 Apr 2006 00:24:01 +0200
+Message-ID: <20060426222401.GA6860@electric-eye.fr.zoreil.com>
+References: <20060426104521.44682924@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:62617 "EHLO palrel10.hp.com")
-	by vger.kernel.org with ESMTP id S964872AbWDZW0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 18:26:20 -0400
-To: Robin Humble <rjh@cita.utoronto.ca>
-In-Reply-To: <20060426221353.GA22143@lemming.cita.utoronto.ca>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46479 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S964874AbWDZW1e
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Apr 2006 18:27:34 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060426104521.44682924@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robin Humble wrote:
-> [I sent this to the e1000-devel folks, and they suggested netdev might
->  have opinions too. the below text has changed a little bit to reflect
->  feedback from Auke Kok]
-> 
-> attached is a small patch for e1000 that dynamically changes Interrupt
-> Throttle Rate for best performance - both latency and bandwidth.
-> it makes e1000 look really good on netpipe with a ~28 us latency and
-> 890 Mbit/s bandwidth.
-> 
-> the basic idea is that high InterruptThrottleRate (~200k) is best for
-> small messages, 
+Stephen Hemminger <shemminger@osdl.org> :
+[...]
+> --- /dev/null
+> +++ bridge-2.6/net/bridge/br_netlink.c
+[...]
+> +static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *port,
+> +			  u32 pid, u32 seq, int event, unsigned int flags)
+> +{
+[...]
+> +nlmsg_failure:
+> +rtattr_failure:
+> +
+> +	skb_trim(skb, b - skb->data);
+> +	return -1;
 
-Best for small numbers of small messages?  If one is looking to have 
-high aggregate small packet rates, the higher throttle rate may degrade 
-the peak PPS one can achieve.
+	return -EINVAL;
 
-> I've done an analysis of performance on this page:
->   http://www.cita.utoronto.ca/mediawiki/index.php/E1000_performance_patch
-> our hardware details are there too.
-> there's also a link to another analysis of how the patch affects routing
-> performance and cpu usage (surprisingly better).
-> 
-> despite the netpipe improvements, I haven't seen much in the way of real
-> world code differences (either +ve or -ve) from a regular 15k ITR. I've
-> seen an improvement in one code, and a slight degradation (~1%) in HPL
-> (top500.org benchmark). it should probably make the most difference for
-> codes that consistantly send small (< 1k) messages.
+(see below)
 
-Tweaking interrupt coalescing parameters was rather common in SPECweb 
-benchmarking. If you examine some of the results on www.spec.org you may 
-see examples.  IIRC the last ones I submitted used an interrupt throttle 
-rate of something like 700.  It was a small but non-trivial percentage 
-difference in the SPECweb result.
+> +}
+> +
+> +
+> +void br_ifinfo_notify(int event, struct net_bridge_port *port)
+> +{
+> +	struct sk_buff *skb;
+> +
+> +	printk(KERN_DEBUG "bridge notify event=%d\n", event);
+> +	skb = alloc_skb(NLMSG_SPACE(sizeof(struct ifinfomsg) + 128),
+> +			GFP_ATOMIC);
+> +	if (!skb) {
+> +		netlink_set_err(rtnl, 0, RTNLGRP_BRIDGE_IFINFO, ENOBUFS);
+> +		return;
+> +	}
+> +	if (br_fill_ifinfo(skb, port, current->pid, 0, event, 0) < 0) {
+> +		kfree_skb(skb);
+> +		netlink_set_err(rtnl, 0, RTNLGRP_BRIDGE_IFINFO, EINVAL);
+> +		return;
+> +	}
+> +	NETLINK_CB(skb).dst_group = RTNLGRP_IPV6_IFINFO;
+> +	netlink_broadcast(rtnl, skb, 0, RTNLGRP_BRIDGE_IFINFO, GFP_ATOMIC);
+> +}
 
-rick jones
+void br_ifinfo_notify(int event, struct net_bridge_port *port)
+{
+	struct sk_buff *skb;
+	int err = -ENOBUFS;
 
-It is a bit rough/messy as a writeup, but here is what I've seen wrt the 
-latency vs throughput tradeoffs:
+	printk(KERN_DEBUG "bridge notify event=%d\n", event);
+	skb = alloc_skb(NLMSG_SPACE(sizeof(struct ifinfomsg) + 128),
+			GFP_ATOMIC);
+	if (!skb)
+		goto err_out;
 
-ftp://ftp.cup.hp.com/dist/networking/briefs/nic_latency_vs_tput.txt
+	err = br_fill_ifinfo(skb, port, current->pid, 0, event, 0);
+	if (unlikely((err < 0))
+		goto err_kfree;
+
+	NETLINK_CB(skb).dst_group = RTNLGRP_IPV6_IFINFO;
+	netlink_broadcast(rtnl, skb, 0, RTNLGRP_BRIDGE_IFINFO, GFP_ATOMIC);
+	return;
+
+err_kfree:
+	kfree_skb(skb);
+err_out:
+	netlink_set_err(rtnl, 0, RTNLGRP_BRIDGE_IFINFO, -err);
+}
+
+-- 
+Ueimor
