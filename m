@@ -1,38 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: determine outgoing interface (eth0,eth1) for a packet according to the dest IP
-Date: Wed, 26 Apr 2006 23:58:00 +1000
-Message-ID: <E1FYkWm-0003MM-00@gondolin.me.apana.org.au>
-References: <ada605fb0604260324n4dc99556j300bfd433a9027d9@mail.gmail.com>
-Cc: ak@suse.de, netdev@vger.kernel.org
+From: Jens Axboe <axboe@suse.de>
+Subject: BUG: e1000 Invalid truesize
+Date: Wed, 26 Apr 2006 16:25:23 +0200
+Message-ID: <20060426142523.GA5002@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:56848 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932453AbWDZN6H
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Apr 2006 09:58:07 -0400
-To: qwejohn@gmail.com (John Que)
-In-Reply-To: <ada605fb0604260324n4dc99556j300bfd433a9027d9@mail.gmail.com>
+Received: from ns.virtualhost.dk ([195.184.98.160]:4692 "EHLO virtualhost.dk")
+	by vger.kernel.org with ESMTP id S964792AbWDZOYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 10:24:43 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Que <qwejohn@gmail.com> wrote:
-> 
-> I had spent time trying to write something which
-> uses RTA_SRC and RTA_DST and got some problems.
-> (I probably made something stupid.)
-> I googled for such examples and did not get much.
-> I saw that the zebra project and iproute uses
-> netlinks but it is complex.,
+Hi,
 
-Have a look at
+My problematic e1000 card (that sporadically gets transmit timeouts with
+a driver newer than 2.6.14) hits new problems in current git after this
+commit:
 
-http://gondor.apana.org.au/~herbert/findsaddr-linux.c
+    [NET]: Add skb->truesize assertion checking.
 
-which I wrote for traceroute some years back.  It should be easy
-to adapt to get the interface instead of the source address.
+I thought I'd mention it, since it may help fix the real problem.
+Basically I get tons of:
 
-Cheers,
+SKB BUG: Invalid truesize (592) len=712, sizeof(sk_buff)=208
+SKB BUG: Invalid truesize (592) len=448, sizeof(sk_buff)=208
+SKB BUG: Invalid truesize (592) len=712, sizeof(sk_buff)=208
+SKB BUG: Invalid truesize (592) len=448, sizeof(sk_buff)=208
+SKB BUG: Invalid truesize (592) len=500, sizeof(sk_buff)=208
+SKB BUG: Invalid truesize (592) len=500, sizeof(sk_buff)=208
+SKB BUG: Invalid truesize (592) len=500, sizeof(sk_buff)=208
+[...]
+
+and some net connections don't work well. Putting the 2.6.14 driver back
+into current git makes things work smoothly, as always.
+
+(Please be sure to cc me, I'm not on netdev)
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jens Axboe
+
