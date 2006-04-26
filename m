@@ -1,50 +1,79 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH] e1000: Update truesize with the length of the packet for packet split
-Date: Tue, 25 Apr 2006 23:16:29 -0700
-Message-ID: <20060426061628.25966.93051.stgit@gitlost.site>
-References: <20060426061229.25966.83974.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org, "Miller, David" <davem@davemloft.net>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kirsher, Jeff" <Jeffrey.t.kirsher@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+From: varun <varun@rocsys.com>
+Subject: iptables doubt
+Date: Wed, 26 Apr 2006 12:39:22 +0530
+Message-ID: <444F1CA2.4030904@rocsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:11525 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1750784AbWDZGM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 02:12:27 -0400
-To: stable@kernel.org, "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20060426061229.25966.83974.stgit@gitlost.site>
+Received: from [202.125.80.81] ([202.125.80.81]:65411 "EHLO rocsys.com")
+	by vger.kernel.org with ESMTP id S1750896AbWDZHB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 03:01:56 -0400
+Received: from rocsys.com (localhost [127.0.0.1] (may be forged))
+	by rocsys.com (8.12.10/8.12.10) with ESMTP id k3QHkMFt027197
+	for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 00:22:57 +0530
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
-Update skb with the real packet size.
+              Ive been trying to understand iptables kernel code and 
+basically how it functions. In doing so i have a few questions.
+              In the file ip_tables.c there is call do_replace() which 
+is used as the start point entry from sockopt.
+               That is this gets called everytime a user entrers 
+policies from user. Here that data is given to me in the form of
+                void __user *user.
+                 This iam copying to kernel space and dereferencing into 
+ipt_replace and so on. Am i right?
+                  The first question is user seems to send a size as 860 
+when trying to add the first policy. Does that mean that user is 
+maintaining the offset of the policies added?
+                    tmp.size shows as 768 which is (4 default policies x 
+sizeof(struct ipt_standard)) + sizeof(struct ipt_error)
+                    Am i correct in understanding? If so why should user 
+space kernel policy offset?
+                         Next thing is i added one extra field (int 
+num)in the struct ipt_entry_target . This is added after the  unsigned 
+char data[0] field.
+struct ipt_entry_target
+{
+       union {
+               struct {
+                       u_int16_t target_size;
 
+                       /* Used by userspace */
+                       char name[IPT_FUNCTION_MAXNAMELEN-1];
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
----
+                       u_int8_t revision;
+               } user;
+               struct {
+                       u_int16_t target_size;
 
- drivers/net/e1000/e1000_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+                       /* Used inside the kernel */
+                       struct ipt_target *target;
+               } kernel;
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index add8dc4..c99e878 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3768,6 +3768,7 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
- 			ps_page->ps_page[j] = NULL;
- 			skb->len += length;
- 			skb->data_len += length;
-+			skb->truesize += length;
- 		}
- 
- copydone:
+               /* Total length */
+               u_int16_t target_size;
+       } u;
 
+       unsigned char data[0];
+       unsigned int uniqueId;  /*I added this*/
+};
 
+    Iam using this field to give a global id from my kernel for every 
+policy added excluding the default ones added by kernel. So if someone 
+calls for iptables -F or iptables -t filter -D .... then this number 
+should not be assigned to the structure.
+   I want to know where is the correct place to add this value to 
+structure without effecting the functionality.
 
---
-Auke Kok <auke-jan.h.kok@intel.com>
-Intel Pro(R) Ethernet Driver Group
-LAN Access Division / Digital Enterprise Group 
+ Iam also aware that making this change in structure will result in 
+segmentation fault un userspace. Ill handel it seperately.
+ Can this be done? Please help me in this regard.
+
+ How can i know from the kernel structures if the policy is for -A or -D 
+or -F ?
+Varun
