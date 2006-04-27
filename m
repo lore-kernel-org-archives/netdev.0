@@ -1,107 +1,177 @@
 From: akpm@osdl.org
-Subject: [patch 7/9] e100: disable interrupts at boot
-Date: Thu, 27 Apr 2006 02:30:43 -0700
-Message-ID: <200604270932.k3R9WBhr025327@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, nils.rennebarth@packetalarm.com,
-	stern@rowland.harvard.edu
+Subject: [patch 4/9] PCI Error Recovery: e1000 network device driver
+Date: Thu, 27 Apr 2006 02:30:38 -0700
+Message-ID: <200604270932.k3R9W6j6025318@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, linas@linas.org,
+	jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25807 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965028AbWD0Jc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:26 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:15823 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965024AbWD0JcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:13 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+From: Linas Vepstas <linas@linas.org>
 
-Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
-firmware explicitly disables PRO/100 interrupts, we can get a flood of
-interrupts when a driver attaches to an unrelated device that happens to
-share the PRO/100 IRQ.
+Various PCI bus errors can be signaled by newer PCI controllers.  This
+patch adds the PCI error recovery callbacks to the intel gigabit ethernet
+e1000 device driver.  The patch has been tested, and appears to work well.
 
-This should resolve this "irq 11: nobody cared" bug report:
-    http://bugzilla.kernel.org/show_bug.cgi?id=5918
-
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: John Ronciak <john.ronciak@intel.com>
-Cc: <stern@rowland.harvard.edu>
-Cc: <nils.rennebarth@packetalarm.com>
+[akpm@osdl.org: minor cleanups]
+Signed-off-by: Linas Vepstas <linas@linas.org>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/pci/quirks.c |   57 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 57 insertions(+)
+ drivers/net/e1000/e1000_main.c |  116 ++++++++++++++++++++++++++++++-
+ 1 files changed, 115 insertions(+), 1 deletion(-)
 
-diff -puN drivers/pci/quirks.c~e100-disable-interrupts-at-boot drivers/pci/quirks.c
---- devel/drivers/pci/quirks.c~e100-disable-interrupts-at-boot	2006-04-14 23:41:34.000000000 -0700
-+++ devel-akpm/drivers/pci/quirks.c	2006-04-14 23:41:34.000000000 -0700
-@@ -1374,6 +1374,63 @@ static void __devinit quirk_netmos(struc
- }
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID, quirk_netmos);
+diff -puN drivers/net/e1000/e1000_main.c~pci-error-recovery-e1000-network-device-driver drivers/net/e1000/e1000_main.c
+--- devel/drivers/net/e1000/e1000_main.c~pci-error-recovery-e1000-network-device-driver	2006-04-22 01:39:15.000000000 -0700
++++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-22 01:39:15.000000000 -0700
+@@ -227,6 +227,16 @@ static int e1000_resume(struct pci_dev *
+ static void e1000_netpoll (struct net_device *netdev);
+ #endif
  
-+static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
-+{
-+	u16 command;
-+	u32 bar;
-+	u8 __iomem *csr;
-+	u8 cmd_hi;
++static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
++                     pci_channel_state_t state);
++static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev);
++static void e1000_io_resume(struct pci_dev *pdev);
 +
-+	switch (dev->device) {
-+	/* PCI IDs taken from drivers/net/e100.c */
-+	case 0x1029:
-+	case 0x1030 ... 0x1034:
-+	case 0x1038 ... 0x103E:
-+	case 0x1050 ... 0x1057:
-+	case 0x1059:
-+	case 0x1064 ... 0x106B:
-+	case 0x1091 ... 0x1095:
-+	case 0x1209:
-+	case 0x1229:
-+	case 0x2449:
-+	case 0x2459:
-+	case 0x245D:
-+	case 0x27DC:
++static struct pci_error_handlers e1000_err_handler = {
++	.error_detected = e1000_io_error_detected,
++	.slot_reset = e1000_io_slot_reset,
++	.resume = e1000_io_resume,
++};
+ 
+ static struct pci_driver e1000_driver = {
+ 	.name     = e1000_driver_name,
+@@ -236,8 +246,9 @@ static struct pci_driver e1000_driver = 
+ 	/* Power Managment Hooks */
+ #ifdef CONFIG_PM
+ 	.suspend  = e1000_suspend,
+-	.resume   = e1000_resume
++	.resume   = e1000_resume,
+ #endif
++	.err_handler = &e1000_err_handler,
+ };
+ 
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+@@ -3076,6 +3087,10 @@ e1000_update_stats(struct e1000_adapter 
+ 
+ #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+ 
++	/* Prevent stats update while adapter is being reset */
++	if (adapter->link_speed == 0)
++		return;
++
+ 	spin_lock_irqsave(&adapter->stats_lock, flags);
+ 
+ 	/* these counters are modified from e1000_adjust_tbi_stats,
+@@ -4625,4 +4640,103 @@ e1000_netpoll(struct net_device *netdev)
+ }
+ #endif
+ 
++/**
++ * e1000_io_error_detected - called when PCI error is detected
++ * @pdev: Pointer to PCI device
++ * @state: The current pci conneection state
++ *
++ * This function is called after a PCI bus error affecting
++ * this device has been detected.
++ */
++static pci_ers_result_t e1000_io_error_detected(struct pci_dev *pdev,
++						pci_channel_state_t state)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev->priv;
++
++	netif_device_detach(netdev);
++
++	if (netif_running(netdev))
++		e1000_down(adapter);
++
++	/* Request a slot slot reset. */
++	return PCI_ERS_RESULT_NEED_RESET;
++}
++
++/**
++ * e1000_io_slot_reset - called after the pci bus has been reset.
++ * @pdev: Pointer to PCI device
++ *
++ * Restart the card from scratch, as if from a cold-boot. Implementation
++ * resembles the first-half of the e1000_resume routine.
++ */
++static pci_ers_result_t e1000_io_slot_reset(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev->priv;
++
++	if (pci_enable_device(pdev)) {
++		printk(KERN_ERR "e1000: Cannot re-enable PCI device after "
++				"reset.\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++	pci_set_master(pdev);
++
++	pci_enable_wake(pdev, 3, 0);
++	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
++
++	/* Perform card reset only on one instance of the card */
++	if (PCI_FUNC (pdev->devfn) != 0)
++		return PCI_ERS_RESULT_RECOVERED;
++
++	e1000_reset(adapter);
++	E1000_WRITE_REG(&adapter->hw, WUS, ~0);
++
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++/**
++ * e1000_io_resume - called when traffic can start flowing again.
++ * @pdev: Pointer to PCI device
++ *
++ * This callback is called when the error recovery driver tells us that
++ * its OK to resume normal operation. Implementation resembles the
++ * second-half of the e1000_resume routine.
++ */
++static void e1000_io_resume(struct pci_dev *pdev)
++{
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct e1000_adapter *adapter = netdev->priv;
++	uint32_t manc, swsm;
++
++	if (netif_running(netdev)) {
++		if (e1000_up(adapter)) {
++			printk(KERN_ERR "e1000: can't bring device back up "
++					"after reset\n");
++			return;
++		}
++	}
++
++	netif_device_attach(netdev);
++
++	if (adapter->hw.mac_type >= e1000_82540 &&
++	    adapter->hw.media_type == e1000_media_type_copper) {
++		manc = E1000_READ_REG(&adapter->hw, MANC);
++		manc &= ~(E1000_MANC_ARP_EN);
++		E1000_WRITE_REG(&adapter->hw, MANC, manc);
++	}
++
++	switch (adapter->hw.mac_type) {
++	case e1000_82573:
++		swsm = E1000_READ_REG(&adapter->hw, SWSM);
++		E1000_WRITE_REG(&adapter->hw, SWSM, swsm | E1000_SWSM_DRV_LOAD);
 +		break;
 +	default:
-+		return;
++		break;
 +	}
 +
-+	/*
-+	 * Some firmware hands off the e100 with interrupts enabled,
-+	 * which can cause a flood of interrupts if packets are
-+	 * received before the driver attaches to the device.  So
-+	 * disable all e100 interrupts here.  The driver will
-+	 * re-enable them when it's ready.
-+	 */
-+	pci_read_config_word(dev, PCI_COMMAND, &command);
-+	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
-+
-+	if (!(command & PCI_COMMAND_MEMORY) || !bar)
-+		return;
-+
-+	csr = ioremap(bar, 8);
-+	if (!csr) {
-+		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
-+			pci_name(dev));
-+		return;
-+	}
-+
-+	cmd_hi = readb(csr + 3);
-+	if (cmd_hi == 0) {
-+		printk(KERN_WARNING "PCI: Firmware left %s e100 interrupts "
-+			"enabled, disabling\n", pci_name(dev));
-+		writeb(1, csr + 3);
-+	}
-+
-+	iounmap(csr);
++	if (netif_running(netdev))
++		mod_timer(&adapter->watchdog_timer, jiffies);
 +}
-+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
- 
- static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
- {
++
+ /* e1000_main.c */
 _
