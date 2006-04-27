@@ -1,25 +1,25 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 22/32] rt2x00: Allocate ring structures in single array
-Date: Fri, 28 Apr 2006 00:03:13 +0200
-Message-ID: <200604280003.14287.IvDoorn@gmail.com>
+Subject: [PATCH 26/32] rt2x00: Move all USB and PCI common data into seperate headers
+Date: Fri, 28 Apr 2006 00:03:16 +0200
+Message-ID: <200604280003.17311.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart3715162.7rb1dEp2d7";
+  boundary="nextPart6102534.G7P62Lqag1";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
 Cc: rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nproxy.gmail.com ([64.233.182.190]:44908 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1751798AbWD0WCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 18:02:15 -0400
+	by vger.kernel.org with ESMTP id S1751794AbWD0WCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 18:02:17 -0400
 Received: by nproxy.gmail.com with SMTP id x30so1388639nfb
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 15:02:15 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 15:02:17 -0700 (PDT)
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3715162.7rb1dEp2d7
+--nextPart6102534.G7P62Lqag1
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -27,28 +27,25 @@ Content-Disposition: inline
 
 From: Ivo van Doorn <IvDoorn@gmail.com>
 
-Allocate all ring structures seperately and
-as an array of rings. This will make the
-rt2x00_pci and rt2x00_usb structures more generic
-for all rt2x00 modules.
-Use seperate function to convert a dscape ring ID
-to the address of the actual ring.
+Now that rt2x00_pci and rt2x00_usb structures in the various
+headers are generic enough, add 2 header files rt2x00pci and rt2x00usb
+and make them contain all common information of the PCI or USB modules.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
 Available on server:
 
-http://mendiosus.nl/rt2x00/rt2x00-22-rings.diff
+http://mendiosus.nl/rt2x00/rt2x00-26-dev.diff
 
---nextPart3715162.7rb1dEp2d7
+--nextPart6102534.G7P62Lqag1
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBEUT+iaqndE37Em0gRAqfbAJ4jTbZrLkGt8Ua4Yh4NQMZIFjbBAACePige
-pN9T4xzXJswiL2RjG8ALHvs=
-=vqzD
+iD8DBQBEUT+laqndE37Em0gRAtP6AJ4s63cSBC5Ay2rqsspct6d95AERTwCfUxgI
+j25Cco+vEc9hWakP+2yzG0M=
+=5bjY
 -----END PGP SIGNATURE-----
 
---nextPart3715162.7rb1dEp2d7--
+--nextPart6102534.G7P62Lqag1--
