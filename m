@@ -1,62 +1,35 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: tune back idle cwnd closing?
-Date: Thu, 27 Apr 2006 13:47:33 -0400
-Message-ID: <445103B5.2090603@psc.edu>
-References: <44493980.1040708@oracle.com>	<444E31D9.1010705@psc.edu> <20060426.144540.39973302.davem@davemloft.net>
+From: "Cureington, Tony" <tony.cureington@hp.com>
+Subject: Re: [RFC] selective ethtool diagnostic test method
+Date: Thu, 27 Apr 2006 12:54:10 -0500
+Message-ID: <72A87F7160C0994D8C5A36E2FDC227F50934F61F@txnexc01.americas.cpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: zach.brown@oracle.com, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:27844 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S965005AbWD0RtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 13:49:13 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060426.144540.39973302.davem@davemloft.net>
+Received: from palrel13.hp.com ([156.153.255.238]:39392 "EHLO palrel13.hp.com")
+	by vger.kernel.org with ESMTP id S965011AbWD0RyM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Apr 2006 13:54:12 -0400
+Received: from cacexg12.americas.cpqcorp.net (cacexg12.americas.cpqcorp.net [16.92.1.72])
+	by palrel13.hp.com (Postfix) with ESMTP id 0278737F50
+	for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 10:54:11 -0700 (PDT)
+Content-class: urn:content-classes:message
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: John Heffner <jheffner@psc.edu>
->> Given that RFC2681 is Experimental (and I'm not aware of any current 
->> efforts in the IETF to push it to the standard track), IHMO it would not 
->> be inappropriate to make this behavior controlled via sysctl.
-> 
-> I have to respectfully disagree.
-> 
-> This is the price you pay when the network's congestion is being
-> measured by probing, information becomes stale over time if you don't
-> send any probes.
-> 
-> And this change of congestion state is real and happens frequently for
-> most end to end users.
-> 
-> When you're bursty application is not sending, other flows can take up
-> the pipe space you are not using, and you must reprobe to figure that
-> out.
-
-
-A lot of the time doing 2861 is a good thing, since if you have a long 
-pause, you've lost your ack clock, and you don't want to send a 
-window-sized burst because you'll probably overflow a queue somewhere 
-and step on your own feet.  Since we don't have a pacing mechanism, a 
-slow start is really the only way to do this.
-
-I don't entirely buy the "staleness" argument.  I don't think that *not* 
-doing 2861 will affect the stability of congestion control, since all of 
-the response mechanisms are still in place.  (Most OS's don't do 2861, 
-and it is not a standard.)  If you have a long RTT, short RTT flows can 
-make a big difference in congestion in a period much smaller than your 
-timeout.  In fact, congestion information is *always* stale by the time 
-you get it. :)
-
-Sometimes having cwnd validation turned on will make your applications 
-perform better, sometimes worse.  I don't think it would be incorrect to 
-add a switch.  One question is whether it's worth adding the switch 
-(i.e., do enough people care?).
-
-Myself, I'd be interested to see some quantitative comparisons of 
-performance with a "real" application affected by this.
-
+Ethtool Maintainers,
+WRT my RFC (http://www.spinics.net/lists/netdev/msg02806.html) regarding
+enhancing
+ethtool posted on 04/11/06, would such a patch be accepted by the
+maintainers of
+ethtool? I don't want to spend time on these changes just to have them
+rejected.
+I've not received any objections for such changes thus far. It may be
+several
+months before we can get to implementing the changes. Please, can I get
+a thumbs
+up or down from the ethtool maintainers on netdev?
 Thanks,
-   -John
+Tc
