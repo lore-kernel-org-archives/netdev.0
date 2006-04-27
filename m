@@ -1,74 +1,65 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] e1000 performance patch
-Date: Thu, 27 Apr 2006 09:07:36 -0700
-Message-ID: <4450EC48.5060304@hp.com>
-References: <20060426221353.GA22143@lemming.cita.utoronto.ca>	<444FF389.2090002@hp.com> <20060427024326.GA6318@lemming.cita.utoronto.ca>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [RFC PATCH] [IPV6]: Fix race in route selection.
+Date: Fri, 28 Apr 2006 02:04:56 +0900 (JST)
+Message-ID: <20060428.020456.35552581.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:41645 "EHLO palrel10.hp.com")
-	by vger.kernel.org with ESMTP id S1030193AbWD0QHh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 12:07:37 -0400
-To: Robin Humble <rjh@cita.utoronto.ca>
-In-Reply-To: <20060427024326.GA6318@lemming.cita.utoronto.ca>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:24069 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S965141AbWD0RE4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Apr 2006 13:04:56 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-> 
-> but clearly I should be using netperf to get more accurate cpu numbers
-> and a more convincing aggregate table :-)
+We eliminated rt6_dflt_lock (to protect default router pointer)
+at 2.6.17-rc1, and introduced rt6_select() for general router selection.
+The function is called in the context of rt6_lock read-lock held,
+but this means, we have some race conditions when we do round-robin.
 
-Well, I'll not stop you  :)
+Am I correct?
 
-> 
-> 
->>It is a bit rough/messy as a writeup, but here is what I've seen wrt the 
->>latency vs throughput tradeoffs:
->>ftp://ftp.cup.hp.com/dist/networking/briefs/nic_latency_vs_tput.txt
-> 
-> 
-> from a quick read it looks like just the case with 32kB messages,
-> multiple simultaneous clients, and driver set to unlimited ITR sees
-> reduced throughput. is that right?
-> 
-> if so, then I'm not surprised.
+If so, we should put some spin_lock for serialization.
 
-There should be three basic measures there - one is the single-instance 
-request-response test. The idea is to see minimum latency.  That test 
-likes to see the interrupt throttle rate made very high, or disabled 
-completely.
+Comments?
 
-The aggregate TCP_RR's and the TCP_STREAM tests are there to show what 
-effect that has on the ability to do aggregate request/response and a 
-bulk transfer.
+Signed-off-by; YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-> but overall I'm actually more worried about a mix of small and large
-> messages than multiple clients.
+Or, should we run whole part of rt6_select() under some lock?
 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 7907874..0190e39 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -317,7 +317,7 @@ static struct rt6_info *rt6_select(struc
+ 		  __FUNCTION__, head, head ? *head : NULL, oif);
+ 
+ 	for (rt = rt0, metric = rt0->rt6i_metric;
+-	     rt && rt->rt6i_metric == metric;
++	     rt && rt->rt6i_metric == metric && (!last || rt != rt0);
+ 	     rt = rt->u.next) {
+ 		int m;
+ 
+@@ -343,9 +343,12 @@ static struct rt6_info *rt6_select(struc
+ 	    (strict & RT6_SELECT_F_REACHABLE) &&
+ 	    last && last != rt0) {
+ 		/* no entries matched; do round-robin */
++		static spinlock_t lock = SPIN_LOCK_UNLOCKED;
++		spin_lock(&lock);
+ 		*head = rt0->u.next;
+ 		rt0->u.next = last->u.next;
+ 		last->u.next = rt0;
++		spin_unlock(&lock);
+ 	}
+ 
+ 	RT6_TRACE("%s() => %p, score=%d\n",
 
-> 
-> a large/small mix might well occur in 'the real world' and it'll be 2s
-> until the watchdog routine can adapt the ITR. potentially that 2s will
-> be at 200k ITR which is too high for large messages, and up to 2s of
-> cpu will be burnt needlessly.
-> 
-> can netperf (or some other tool) mix up big and small message sizes
-> like 'the real world' perhaps does?
-> that might help me find a good frequency at which to try to adapt the
-> ITR... (eg. 1, 10, 100 or 1000 times a second)
-
-There is the "vst" (variable size test IIRC) in netperf4:
-
-http://www.netperf.org/svn/netperf4/branches/glib_migration
-
-The docs for netperf4 are presently pathetic.  Feel free to email me for 
-bootstrapping information.  Basically, you'll need pkg-config, libxml2 
-and glib-2.0 on the system.
-
-> 
-> cheers,
-> robin
-
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
