@@ -1,75 +1,222 @@
 From: akpm@osdl.org
-Subject: [patch 9/9] via-rhine: zero pad short packets on Rhine I ethernet cards
-Date: Thu, 27 Apr 2006 02:30:46 -0700
-Message-ID: <200604270932.k3R9WE6c025339@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, craigbrind@gmail.com,
-	rl@hellgate.ch
+Subject: [patch 3/9] natsemi: Add support for using MII port with no PHY
+Date: Thu, 27 Apr 2006 02:30:37 -0700
+Message-ID: <200604270932.k3R9W5lK025315@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, broonie@sirena.org.uk,
+	jgarzik@pobox.com, thockin@hockin.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:24527 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965027AbWD0JcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:24 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:31695 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965030AbWD0Jcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:43 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Craig Brind <craigbrind@gmail.com>
+From: Mark Brown <broonie@sirena.org.uk>
 
-Fixes Rhine I cards disclosing fragments of previously transmitted frames
-in new transmissions.
+Provide a module option which configures the natsemi driver to use the
+external MII port on the chip but ignore any PHYs that may be attached to it. 
+The link state will be left as it was when the driver started and can be
+configured via ethtool.  Any PHYs that are present can be accessed via the MII
+ioctl()s.
 
-Before transmission, any socket buffer (skb) shorter than the ethernet
-minimum length of 60 bytes was zero-padded.  On Rhine I cards the data can
-later be copied into an aligned transmission buffer without copying this
-padding.  This resulted in the transmission of the frame with the extra
-bytes beyond the provided content leaking the previous contents of this
-buffer on to the network.
+This is useful for systems where the device is connected without a PHY or
+where either information or actions outside the scope of the driver are
+required in order to use the PHYs.
 
-Now zero-padding is repeated in the local aligned buffer if one is used.
-
-Following a suggestion from the via-rhine maintainer, no attempt is made
-here to avoid the duplicated effort of padding the skb if it is known that
-an aligned buffer will definitely be used.  This is to make the change
-"obviously correct" and allow it to be applied to a stable kernel if
-necessary.  There is no change to the flow of control and the changes are
-only to the Rhine I code path.
-
-The patch has run on an in-service Rhine-I host without incident.  Frames
-shorter than 60 bytes are now correctly zero-padded when captured on a
-separate host.  I see no unusual stats reported by ifconfig, and no unusual
-log messages.
-
-Signed-off-by: Craig Brind <craigbrind@gmail.com>
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Mark Brown <broonie@sirena.org.uk>
+Cc: Tim Hockin <thockin@hockin.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/via-rhine.c |    6 ++++++
- 1 files changed, 6 insertions(+)
+ drivers/net/natsemi.c |  105 +++++++++++++++++++++++++---------------
+ 1 files changed, 67 insertions(+), 38 deletions(-)
 
-diff -puN drivers/net/via-rhine.c~via-rhine-zero-pad-short-packets-on-rhine-i-ethernet-cards drivers/net/via-rhine.c
---- devel/drivers/net/via-rhine.c~via-rhine-zero-pad-short-packets-on-rhine-i-ethernet-cards	2006-04-24 18:22:43.000000000 -0700
-+++ devel-akpm/drivers/net/via-rhine.c	2006-04-24 18:22:43.000000000 -0700
-@@ -129,6 +129,7 @@
- 	- Massive clean-up
- 	- Rewrite PHY, media handling (remove options, full_duplex, backoff)
- 	- Fix Tx engine race for good
-+	- Craig Brind: Zero padded aligned buffers for short packets.
+diff -puN drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy drivers/net/natsemi.c
+--- devel/drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy	2006-04-10 23:21:19.000000000 -0700
++++ devel-akpm/drivers/net/natsemi.c	2006-04-10 23:21:19.000000000 -0700
+@@ -259,7 +259,7 @@ MODULE_PARM_DESC(debug, "DP8381x default
+ MODULE_PARM_DESC(rx_copybreak, 
+ 	"DP8381x copy breakpoint for copy-only-tiny-frames");
+ MODULE_PARM_DESC(options, 
+-	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
++	"DP8381x: Bits 0-3: media type, bit 17: full duplex, bit 18: ignore PHY");
+ MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
  
- */
+ /*
+@@ -690,6 +690,8 @@ struct netdev_private {
+ 	u32 intr_status;
+ 	/* Do not touch the nic registers */
+ 	int hands_off;
++	/* Don't pay attention to the reported link state. */
++	int ignore_phy;
+ 	/* external phy that is used: only valid if dev->if_port != PORT_TP */
+ 	int mii;
+ 	int phy_addr_external;
+@@ -894,7 +896,19 @@ static int __devinit natsemi_probe1 (str
+ 	np->intr_status = 0;
+ 	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
  
-@@ -1326,7 +1327,12 @@ static int rhine_start_tx(struct sk_buff
- 			rp->stats.tx_dropped++;
- 			return 0;
- 		}
++	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
++	if (dev->mem_start)
++		option = dev->mem_start;
 +
-+		/* Padding is not copied and so must be redone. */
- 		skb_copy_and_csum_dev(skb, rp->tx_buf[entry]);
-+		if (skb->len < ETH_ZLEN)
-+			memset(rp->tx_buf[entry] + skb->len, 0,
-+			       ETH_ZLEN - skb->len);
- 		rp->tx_skbuff_dma[entry] = 0;
- 		rp->tx_ring[entry].addr = cpu_to_le32(rp->tx_bufs_dma +
- 						      (rp->tx_buf[entry] -
++	/* Ignore the PHY status? */
++	if (option & 0x400) {
++		np->ignore_phy = 1;
++	} else {
++		np->ignore_phy = 0;
++	}
++
+ 	/* Initial port:
++	 * - If configured to ignore the PHY set up for external.
+ 	 * - If the nic was configured to use an external phy and if find_mii
+ 	 *   finds a phy: use external port, first phy that replies.
+ 	 * - Otherwise: internal port.
+@@ -902,7 +916,7 @@ static int __devinit natsemi_probe1 (str
+ 	 * The address would be used to access a phy over the mii bus, but
+ 	 * the internal phy is accessed through mapped registers.
+ 	 */
+-	if (readl(ioaddr + ChipConfig) & CfgExtPhy)
++	if (np->ignore_phy || readl(ioaddr + ChipConfig) & CfgExtPhy)
+ 		dev->if_port = PORT_MII;
+ 	else
+ 		dev->if_port = PORT_TP;
+@@ -912,7 +926,9 @@ static int __devinit natsemi_probe1 (str
+ 
+ 	if (dev->if_port != PORT_TP) {
+ 		np->phy_addr_external = find_mii(dev);
+-		if (np->phy_addr_external == PHY_ADDR_NONE) {
++		/* If we're ignoring the PHY it doesn't matter if we can't
++		 * find one. */
++		if (!np->ignore_phy && np->phy_addr_external == PHY_ADDR_NONE) {
+ 			dev->if_port = PORT_TP;
+ 			np->phy_addr_external = PHY_ADDR_INTERNAL;
+ 		}
+@@ -920,10 +936,6 @@ static int __devinit natsemi_probe1 (str
+ 		np->phy_addr_external = PHY_ADDR_INTERNAL;
+ 	}
+ 
+-	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
+-	if (dev->mem_start)
+-		option = dev->mem_start;
+-
+ 	/* The lower four bits are the media type. */
+ 	if (option) {
+ 		if (option & 0x200)
+@@ -957,7 +969,10 @@ static int __devinit natsemi_probe1 (str
+ 	if (mtu)
+ 		dev->mtu = mtu;
+ 
+-	netif_carrier_off(dev);
++	if (np->ignore_phy)
++		netif_carrier_on(dev);
++	else
++		netif_carrier_off(dev);
+ 
+ 	/* get the initial settings from hardware */
+ 	tmp            = mdio_read(dev, MII_BMCR);
+@@ -1005,6 +1020,8 @@ static int __devinit natsemi_probe1 (str
+ 		printk("%02x, IRQ %d", dev->dev_addr[i], irq);
+ 		if (dev->if_port == PORT_TP)
+ 			printk(", port TP.\n");
++		else if (np->ignore_phy)
++			printk(", port MII, ignoring PHY\n");
+ 		else
+ 			printk(", port MII, phy ad %d.\n", np->phy_addr_external);
+ 	}
+@@ -1685,42 +1702,44 @@ static void check_link(struct net_device
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem * ioaddr = ns_ioaddr(dev);
+-	int duplex;
++	int duplex = np->full_duplex;
+ 	u16 bmsr;
+-       
+-	/* The link status field is latched: it remains low after a temporary
+-	 * link failure until it's read. We need the current link status,
+-	 * thus read twice.
+-	 */
+-	mdio_read(dev, MII_BMSR);
+-	bmsr = mdio_read(dev, MII_BMSR);
+ 
+-	if (!(bmsr & BMSR_LSTATUS)) {
+-		if (netif_carrier_ok(dev)) {
++	/* If we're not paying attention to the PHY status then don't check. */
++	if (!np->ignore_phy) {
++		/* The link status field is latched: it remains low
++		 * after a temporary link failure until it's read. We
++		 * need the current link status, thus read twice.
++		 */
++		mdio_read(dev, MII_BMSR);
++		bmsr = mdio_read(dev, MII_BMSR);
++
++		if (!(bmsr & BMSR_LSTATUS)) {
++			if (netif_carrier_ok(dev)) {
++				if (netif_msg_link(np))
++					printk(KERN_NOTICE "%s: link down.\n",
++					       dev->name);
++				netif_carrier_off(dev);
++				undo_cable_magic(dev);
++			}
++			return;
++		}
++		if (!netif_carrier_ok(dev)) {
+ 			if (netif_msg_link(np))
+-				printk(KERN_NOTICE "%s: link down.\n",
+-					dev->name);
+-			netif_carrier_off(dev);
+-			undo_cable_magic(dev);
++				printk(KERN_NOTICE "%s: link up.\n", dev->name);
++			netif_carrier_on(dev);
++			do_cable_magic(dev);
+ 		}
+-		return;
+-	}
+-	if (!netif_carrier_ok(dev)) {
+-		if (netif_msg_link(np))
+-			printk(KERN_NOTICE "%s: link up.\n", dev->name);
+-		netif_carrier_on(dev);
+-		do_cable_magic(dev);
+-	}
+ 
+-	duplex = np->full_duplex;
+-	if (!duplex) {
+-		if (bmsr & BMSR_ANEGCOMPLETE) {
+-			int tmp = mii_nway_result(
+-				np->advertising & mdio_read(dev, MII_LPA));
+-			if (tmp == LPA_100FULL || tmp == LPA_10FULL)
++		if (!duplex) {
++			if (bmsr & BMSR_ANEGCOMPLETE) {
++				int tmp = mii_nway_result(
++					np->advertising & mdio_read(dev, MII_LPA));
++				if (tmp == LPA_100FULL || tmp == LPA_10FULL)
++					duplex = 1;
++			} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
+ 				duplex = 1;
+-		} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
+-			duplex = 1;
++		}
+ 	}
+ 
+ 	/* if duplex is set then bit 28 must be set, too */
+@@ -2936,6 +2955,16 @@ static int netdev_set_ecmd(struct net_de
+ 	}
+ 
+ 	/*
++	 * If we're ignoring the PHY then autoneg and the internal
++	 * transciever are really not going to work so don't let the
++	 * user select them.
++	 */
++	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
++			       ecmd->port == PORT_TP)) {
++		return -EINVAL;
++	}
++
++	/*
+ 	 * maxtxpkt, maxrxpkt: ignored for now.
+ 	 *
+ 	 * transceiver:
 _
