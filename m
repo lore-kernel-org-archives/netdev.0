@@ -1,49 +1,48 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [RFC] Geographical/regulatory information for ieee80211
-Date: Wed, 26 Apr 2006 19:54:31 -0500
-Message-ID: <44501647.8070308@lwfinger.net>
-References: <443EF3E9.7050303@lwfinger.net> <20060415174734.GA10595@infradead.org> <4443D694.8090809@hp.com>
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Wed, 26 Apr 2006 18:02:43 -0700
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F143AEE0@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: jeff@garzik.org, kelly@au1.ibm.com, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:39088 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1750959AbWD0Ayj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Apr 2006 20:54:39 -0400
-To: Rick Jones <rick.jones2@hp.com>,
-	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
-In-Reply-To: <4443D694.8090809@hp.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:1551 "EHLO mms2.broadcom.com")
+	by vger.kernel.org with ESMTP id S1751061AbWD0BCz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Apr 2006 21:02:55 -0400
+Content-class: urn:content-classes:message
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> Christoph Hellwig wrote:
->> On Thu, Apr 13, 2006 at 07:59:21PM -0500, Larry Finger wrote:
->>
->>> I am planning on writing a new routine to be added to 
->>> net/ieee80211/ieee80211_geo.c that will populate an ieee80211_geo 
->>> object given a country code. The new routine will eliminate the need 
->>> for each driver to do their own.
->>
->>
->> This sounds like a generally good idea, but the question is:  do we want
->> this inside a kernel module or in userspace, either like the regulartory
->> daemon intel has (unfortunately in binary only form) or as a simple init
->> script.  I really don't want to recompile my kernel just because 
->> regulations
->> changed, and they seems to do that quite often.
+netdev-owner@vger.kernel.org wrote:
+> From: "Caitlin Bestler" <caitlinb@broadcom.com>
+> Date: Wed, 26 Apr 2006 15:53:44 -0700
 > 
-> Yet I would expect the regulatory bodies to look less favorably on 
-> something more easily maleable by the end-user.
+>> The netchannel qualifiers should only deal with TCP packets for
+>> established connections. Listens would continue to be dealt with by
+>> the existing stack logic, vj_channelizing only occurring when the the
+>> connection was accepted.
+> 
+> I consider netchannel support for listening TCP sockets to be
+> absolutely essential. -
 
-I don't think it would make that much difference as the user could easily lie about their locality 
-and get any set of parameters that they wanted. Intel avoids this problem by hiding the locality in 
-an EEPROM (ipw2200) or by combining the EEPROM information with the binary-only daemon (3945).
+Meaning that inbound SYNs would be placed in a net channel
+for processing by a Consumer at the other end of the ring?
 
-I am leaning toward putting the geographical information into a userland daemon. That way we won't 
-have to patch the kernel every time a country modifies its regulations. In addition, the kernel will 
-be smaller. The downside is that the daemon will have to be updated and supplied in some convenient 
-form, perhaps as part of a wireless tools package.
+If so the rules filtering SYNs would have to be applied either
+before it went into the ring, or when the consumer end takes
+them out. The latter makes more sense to me, because the rules
+about what remote hosts can initiate a connection request to
+a given TCP port can be fairly complex for a variety of
+legitimate reasons.
 
-Larry
+Would it be reasonable to state that a net channel carrying
+SYNs should not be set up when the consumer is a user mode
+process?
+
+
+
