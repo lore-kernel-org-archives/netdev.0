@@ -1,50 +1,41 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Subject: Re: [patch 7/9] e100: disable interrupts at boot
-Date: Thu, 27 Apr 2006 09:05:47 -0600
-Message-ID: <200604270905.47774.bjorn.helgaas@hp.com>
-References: <200604270932.k3R9WBhr025327@shell0.pdx.osdl.net> <44509628.4090704@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	nils.rennebarth@packetalarm.com, stern@rowland.harvard.edu
+From: "Vanessa Rivers" <xeaal@pearlmanveneers.co.za>
+Subject: Fwd: More
+Date: Thu, 27 Apr 2006 21:54:30 +0500
+Message-ID: <21201130090241.CFB0585DE@champaign.starnetusa.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:60307 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S965141AbWD0PFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 11:05:53 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44509628.4090704@garzik.org>
-Content-Disposition: inline
+Received: from cp778232-a.landg1.lb.home.nl ([84.25.29.101]:43272 "HELO
+	cp778232-a.landg1.lb.home.nl") by vger.kernel.org with SMTP
+	id S965159AbWD0P4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Apr 2006 11:56:34 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 27 April 2006 04:00, Jeff Garzik wrote:
-> akpm@osdl.org wrote:
-> > From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-> > 
-> > Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
-> > firmware explicitly disables PRO/100 interrupts, we can get a flood of
-> > interrupts when a driver attaches to an unrelated device that happens to
-> > share the PRO/100 IRQ.
-> > 
-> > This should resolve this "irq 11: nobody cared" bug report:
-> >     http://bugzilla.kernel.org/show_bug.cgi?id=5918
-> > 
-> > Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-> > Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> > Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Cc: John Ronciak <john.ronciak@intel.com>
-> > Cc: <stern@rowland.harvard.edu>
-> > Cc: <nils.rennebarth@packetalarm.com>
-> > Signed-off-by: Andrew Morton <akpm@osdl.org>
-> 
-> I'm really worried that we are burdening the kernel for a very very rare 
-> condition.  Do we want to apply this for one stupid firmware?
-> 
-> Can't early userspace just run setpci to fix this one?
+"Cia-lis Sof`tabs" is better than Pfizer V`ia`g`ra
+and normal Ci-ialis because:
 
-I don't think so, because the problem occurs as soon as any driver
-enables IRQ 11.  I agree that it's rare, but it's a real pain to
-debug it and identify it when it occurs.
+- Guarantes 40 hours lasting
+- Safe to take, no side efects at all
+- Boost and increase se-xual performance
+- Harder e`rectiiions and quick recharge
+- Proven and certified by experts and doctors
+- only $1.56 per tabs
+- Special offeer! These prices 
+- are valid until 30th of April!
+ 
+ Clisk here: http://sq-design.info
+
+
+
+
+
+
+
+
+
+eleven springe toolkit shave indonesia bean chili graph constitutive bruegel
+decompile effluent demarcate contrast arcadia pariah transferring buttress safety
+callahan conjugate diamagnetic strengthen eben wasp appreciable esquire peek fatigue zachary
+exacerbate chaise sloven alistair chant etch animosity aaron
+dim abc jay shire vagary pest cap flabbergast
+chevron directrix vasectomy angelina counsel enos cube falsify
