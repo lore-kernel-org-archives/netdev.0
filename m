@@ -1,25 +1,25 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 18/32] rt2x00: Make sure device has reached requested state while suspend/resume
-Date: Fri, 28 Apr 2006 00:03:10 +0200
-Message-ID: <200604280003.10710.IvDoorn@gmail.com>
+Subject: [PATCH 27/32] rt2x00: Put Hardware button in generic header
+Date: Fri, 28 Apr 2006 00:03:17 +0200
+Message-ID: <200604280003.18118.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart2767725.o4s6eHzY6B";
+  boundary="nextPart2271025.03C2O3d55h";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
 Cc: rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.191]:40300 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1751794AbWD0WCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 18:02:11 -0400
-Received: by nproxy.gmail.com with SMTP id x30so1388658nfb
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 15:02:10 -0700 (PDT)
+Received: from nproxy.gmail.com ([64.233.182.184]:37997 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1751799AbWD0WCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 18:02:19 -0400
+Received: by nproxy.gmail.com with SMTP id n29so1463914nfc
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 15:02:18 -0700 (PDT)
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2767725.o4s6eHzY6B
+--nextPart2271025.03C2O3d55h
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
@@ -27,10 +27,10 @@ Content-Disposition: inline
 
 =46rom: Ivo van Doorn <IvDoorn@gmail.com>
 
-Add the *_set_state functions which makes sure
-the device is switching state to awake or sleep.
-=46ix bad behaviour in the suspend routine,
-and disable the radio before suspending.
+Put the hardware button handling as much as possible
+in the new generic header for PCI.
+The individial .c files should now only contain
+the polling function to check the state of the hardware button.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
@@ -38,585 +38,487 @@ diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci=
 =2Ec wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci=
 =2Ec
 =2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	20=
-06-04-27 21:49:08.000000000 +0200
+06-04-27 21:57:18.000000000 +0200
 +++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci.=
-c	2006-04-27 21:49:59.000000000 +0200
-@@ -653,6 +653,44 @@ rt2400pci_link_tuner(struct rt2x00_pci *
- }
+c	2006-04-27 22:03:48.000000000 +0200
+@@ -38,10 +38,6 @@
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+=20
+=2D#ifdef CONFIG_RT2400PCI_BUTTON
+=2D#include <acpi/acpi_bus.h>
+=2D#endif /* CONFIG_RT2400PCI_BUTTON */
+=2D
+ #include <asm/io.h>
 =20
  /*
-+ * Device state switch.
-+ * This will put the device to sleep, or awake it.
-+ */
-+static int
-+rt2400pci_set_state(struct rt2x00_pci *rt2x00pci, enum dev_state state)
-+{
-+	u32			reg;
-+	int			counter;
-+	char			put_to_sleep;
-+
-+	put_to_sleep =3D (state !=3D STATE_AWAKE);
-+
-+	rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-+	rt2x00_set_field32(&reg, PWRCSR1_SET_STATE, 1);
-+	rt2x00_set_field32(&reg, PWRCSR1_BBP_DESIRE_STATE, state);
-+	rt2x00_set_field32(&reg, PWRCSR1_RF_DESIRE_STATE, state);
-+	rt2x00_set_field32(&reg, PWRCSR1_PUT_TO_SLEEP, put_to_sleep);
-+	rt2x00_register_write(rt2x00pci, PWRCSR1, reg);
-+
-+	/*
-+	 * Device is not guarenteed to be in the requested state yet.
-+	 * We must wait untill the register indicates that the
-+	 * device has entered the correct state.
-+	 */
-+	for (counter =3D 0; counter < REGISTER_BUSY_COUNT; counter++) {
-+		rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-+		if ((rt2x00_get_field32(reg, PWRCSR1_BBP_CURR_STATE) =3D=3D state)
-+		&& (rt2x00_get_field32(reg, PWRCSR1_RF_CURR_STATE) =3D=3D state))
-+			return 0;
-+		msleep(10);
-+	}
-+
-+	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
-+
-+	return -EBUSY;
-+}
-+
+@@ -364,6 +360,24 @@ rt2x00_eeprom_multiread(
+ 		rt2x00_eeprom_read(rt2x00pci, word + counter, data++);
+ }
+=20
++#ifdef CONFIG_RT2400PCI_BUTTON
 +/*
-  * TX descriptor initialization
++ * Hardware button poll handler.
++ */
++static void
++rt2400pci_button_poll(unsigned long data)
++{
++	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
++	u32			reg;
++
++	rt2x00_register_read(rt2x00pci, GPIOCSR, &reg);
++	rt2x00pci_button_status(
++		rt2x00pci, rt2x00_get_field32(reg, GPIOCSR_BIT0));
++}
++#else /* CONFIG_RT2400PCI_BUTTON */
++static void rt2400pci_button_poll(struct rt2x00_pci *rt2x00pci){}
++#endif /* CONFIG_RT2400PCI_BUTTON */
++
+ /*
+  * Configuration handlers.
   */
- static void
-@@ -1190,6 +1228,9 @@ rt2400pci_init_registers(struct rt2x00_p
- {
- 	u32		reg;
+@@ -2258,24 +2272,10 @@ rt2400pci_initialize(struct pci_dev *pci
+ 	|| rt2400pci_init_hw(rt2x00pci))
+ 		goto exit_destroy_workqueue;
 =20
-+	if (rt2400pci_set_state(rt2x00pci, STATE_AWAKE))
-+		return -EBUSY;
-+
- 	rt2x00_register_write(rt2x00pci, PWRCSR0, cpu_to_le32(0x3f3b3100));
-=20
- 	rt2x00_register_write(rt2x00pci, PSCSR0, cpu_to_le32(0x00020002));
-@@ -2342,57 +2383,42 @@ rt2400pci_remove(struct pci_dev *pci_dev
- }
-=20
- #ifdef CONFIG_PM
-=2Dstatic int rt2400pci_resume(struct pci_dev *pci_dev);
+=2D#ifdef CONFIG_RT2400PCI_BUTTON
+=2D	strcpy(acpi_device_class(&rt2x00pci->acpi_dev), DRV_NAME "_button");
+=2D	strcpy(acpi_device_bid(&rt2x00pci->acpi_dev), DRV_NAME);
+=2D	strcpy(acpi_device_name(&rt2x00pci->acpi_dev), DRV_NAME);
 =2D
- static int
- rt2400pci_suspend(struct pci_dev *pci_dev, pm_message_t state)
+=2D	init_timer(&rt2x00pci->poll_timer);
+=2D
+=2D	if (rt2x00_poll_delay
+=2D	&& rt2x00pci->button_status !=3D BUTTON_STATUS_UNAVAILABLE) {
+=2D		rt2x00pci->button_status =3D rt2400pci_poll(rt2x00pci);
+=2D		rt2x00pci->poll_delay =3D rt2x00_poll_delay * (HZ / 10);
+=2D		rt2x00pci->poll_timer.function =3D rt2400pci_poll_expire;
+=2D		rt2x00pci->poll_timer.data =3D (unsigned long)rt2x00pci;
+=2D		rt2x00pci->poll_timer.expires =3D
+=2D			jiffies + rt2x00pci->poll_delay;
+=2D		add_timer(&rt2x00pci->poll_timer);
+=2D	};
+=2D#endif /* CONFIG_RT2400PCI_BUTTON */
++	/*
++	 * If required start hardware button polling.
++	 */
++	rt2x00pci_button_start(rt2x00pci, rt2400pci_button_poll);
+=20
+ 	return 0;
+=20
+@@ -2294,13 +2294,10 @@ rt2400pci_uninitialize(struct net_device
  {
- 	struct net_device	*net_dev =3D pci_get_drvdata(pci_dev);
  	struct rt2x00_pci	*rt2x00pci =3D ieee80211_dev_hw_data(net_dev);
-=2D	int			counter;
-=2D	u32			reg;
 =20
- 	NOTICE("Going to sleep.\n");
-=20
-=2D	if (ieee80211_netif_oper(net_dev, NETIF_DETACH))
-=2D		return -EBUSY;
-=2D
-=2D	rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_SET_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_BBP_DESIRE_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_RF_DESIRE_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_PUT_TO_SLEEP, 1);
-=2D	rt2x00_register_write(rt2x00pci, PWRCSR1, reg);
-=2D
+=2D#ifdef CONFIG_RT2400PCI_BUTTON
  	/*
-=2D	 * Device is not guarenteed to be asleep yet.
-=2D	 * We must wait untill the register indicates
-=2D	 * device has been correctly put to sleep.
-+	 * If radio was enabled, stop radio and
-+	 * set the resume flag to the radio will be enabled
-+	 * when resuming.
+ 	 * Shutdown poll_timer for hardware button.
  	 */
-=2D	for (counter =3D 0; counter < REGISTER_BUSY_COUNT; counter++) {
-=2D		rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-=2D		if ((rt2x00_get_field32(reg, PWRCSR1_BBP_CURR_STATE) =3D=3D 1)
-=2D		&& (rt2x00_get_field32(reg, PWRCSR1_RF_CURR_STATE) =3D=3D 1))
-=2D			break;
-=2D		NOTICE("Waiting for device to sleep.\n");
-=2D		msleep(10);
-+	if (GET_FLAG(rt2x00pci, RADIO_ENABLED)) {
-+		if (net_dev->stop(net_dev))
-+			return -EBUSY;
-+		SET_FLAG(rt2x00pci, RADIO_RESUME);
- 	}
+=2D	rt2x00pci->button_status =3D BUTTON_STATUS_UNAVAILABLE;
+=2D	del_timer_sync(&rt2x00pci->poll_timer);
+=2D#endif /* CONFIG_RT2400PCI_BUTTON */
++	rt2x00pci_button_stop(rt2x00pci);
 =20
-=2D	if (counter =3D=3D REGISTER_BUSY_COUNT)
-=2D		goto exit;
-=2D
-=2D	if (pci_enable_wake(pci_dev, pci_choose_state(pci_dev, state), 1)
-=2D	|| pci_save_state(pci_dev)
-=2D	|| pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state)))
-=2D		goto exit;
-=2D
-=2D	return 0;
-+	/*
-+	 * Set device mode to sleep for power management.
-+	 */
-+	if (rt2400pci_set_state(rt2x00pci, STATE_SLEEP))
-+		return -EBUSY;
+ 	kfree(rt2x00pci->eeprom);
 =20
-=2Dexit:
-=2D	ERROR("Failed to suspend device.\n");
-+	/*
-+	 * Uninitialize hardware.
-+	 */
-+	rt2400pci_uninitialize(net_dev);
-=20
-=2D	rt2400pci_resume(pci_dev);
-=2D	return -EIO;
-+	/*
-+	 * Disable PCI.
-+	 */
-+	pci_save_state(pci_dev);
-+	pci_disable_device(pci_dev);
-+	return pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
- }
-=20
- static int
-@@ -2400,25 +2426,44 @@ rt2400pci_resume(struct pci_dev *pci_dev
- {
- 	struct net_device	*net_dev =3D pci_get_drvdata(pci_dev);
- 	struct rt2x00_pci	*rt2x00pci =3D ieee80211_dev_hw_data(net_dev);
-=2D	u32			reg;
-=20
- 	NOTICE("Waking up.\n");
-=20
-+	/*
-+	 * Enable PCI.
-+	 */
- 	if (pci_set_power_state(pci_dev, PCI_D0)
-=2D	|| pci_restore_state(pci_dev)
-=2D	|| pci_enable_wake(pci_dev, PCI_D0, 0)) {
-+	|| pci_enable_device(pci_dev)
-+	|| pci_restore_state(pci_dev)) {
- 		ERROR("Failed to resume device.\n");
- 		return -EIO;
- 	}
-=20
-=2D	rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_SET_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_BBP_DESIRE_STATE, 3);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_RF_DESIRE_STATE, 3);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_PUT_TO_SLEEP, 0);
-=2D	rt2x00_register_write(rt2x00pci, PWRCSR1, reg);
-+	/*
-+	 * Initialize hardware.
-+	 */
-+	if (rt2400pci_initialize(pci_dev, net_dev)) {
-+		ERROR("Failed to initialize device.\n");
-+		return -ENOMEM;
-+	}
-=20
-=2D	return ieee80211_netif_oper(net_dev, NETIF_ATTACH);
-+	/*
-+	 * Set device mode to awake.
-+	 */
-+	if (rt2400pci_set_state(rt2x00pci, STATE_AWAKE))
-+		return -EBUSY;
-+
-+	/*
-+	 * Only enable radio when it was enabled
-+	 * when we suspended.
-+	 */
-+	if (GET_FLAG(rt2x00pci, RADIO_RESUME)) {
-+		if (net_dev->open(net_dev))
-+			return -EBUSY;
-+		CLEAR_FLAG(rt2x00pci, RADIO_RESUME);
-+	}
-+
-+	return 0;
+@@ -2506,40 +2503,6 @@ rt2400pci_resume(struct pci_dev *pci_dev
  }
  #endif /* CONFIG_PM */
 =20
+=2D#ifdef CONFIG_RT2400PCI_BUTTON
+=2Dstatic int
+=2Drt2400pci_poll(struct rt2x00_pci *rt2x00pci)
+=2D{
+=2D	u32			reg;
+=2D
+=2D	rt2x00_register_read(rt2x00pci, GPIOCSR, &reg);
+=2D	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
+=2D}
+=2D
+=2Dstatic void
+=2Drt2400pci_poll_expire(unsigned long data)
+=2D{
+=2D	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
+=2D	u16			status;
+=2D
+=2D	status =3D rt2400pci_poll(rt2x00pci);
+=2D
+=2D	if (rt2x00pci->button_status !=3D BUTTON_STATUS_UNAVAILABLE)
+=2D		return;
+=2D
+=2D	if (status !=3D rt2x00pci->button_status) {
+=2D		rt2x00pci->button_status =3D status;
+=2D		acpi_bus_generate_event(&rt2x00pci->acpi_dev,
+=2D			ACPI_TYPE_EVENT, rt2x00pci->button_status);
+=2D	}
+=2D
+=2D	rt2x00pci->poll_timer.expires =3D jiffies + rt2x00pci->poll_delay;
+=2D
+=2D	if (rt2x00pci->button_status !=3D BUTTON_STATUS_UNAVAILABLE)
+=2D		add_timer(&rt2x00pci->poll_timer);
+=2D}
+=2D#endif /* CONFIG_RT2400PCI_BUTTON */
+=2D
+ /*
+  * RT2400pci module information.
+  */
+diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci=
+=2Eh wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci=
+=2Eh
+=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	20=
+06-04-27 21:57:18.000000000 +0200
++++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci.=
+h	2006-04-27 22:03:48.000000000 +0200
+@@ -863,21 +863,4 @@ static int rt2400pci_beacon_update(struc
+ 	struct sk_buff *skb, struct ieee80211_tx_control *control);
+ static int rt2400pci_tx_last_beacon(struct net_device *net_dev);
+=20
+=2D/*
+=2D * HW button support structures and variables.
+=2D * The delay between each poll is set by the module parameter.
+=2D */
+=2D#ifdef CONFIG_RT2400PCI_BUTTON
+=2D/*
+=2D * Module parameter.
+=2D */
+=2Dstatic int rt2x00_poll_delay =3D 100;
+=2D
+=2D/*
+=2D * Declaration of several required functions.
+=2D */
+=2Dstatic int rt2400pci_poll(struct rt2x00_pci *rt2x00pci);
+=2Dstatic void rt2400pci_poll_expire(unsigned long data);
+=2D#endif /* CONFIG_RT2400PCI_BUTTON */
+=2D
+ #endif /* RT2400PCI_H */
 diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci=
 =2Ec wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci=
 =2Ec
 =2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	20=
-06-04-27 21:49:08.000000000 +0200
+06-04-27 21:57:18.000000000 +0200
 +++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci.=
-c	2006-04-27 21:49:59.000000000 +0200
-@@ -706,6 +706,44 @@ dynamic_cca_tune:
- }
+c	2006-04-27 22:03:48.000000000 +0200
+@@ -38,10 +38,6 @@
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+=20
+=2D#ifdef CONFIG_RT2500PCI_BUTTON
+=2D#include <acpi/acpi_bus.h>
+=2D#endif /* CONFIG_RT2500PCI_BUTTON */
+=2D
+ #include <asm/io.h>
 =20
  /*
-+ * Device state switch.
-+ * This will put the device to sleep, or awake it.
+@@ -364,6 +360,24 @@ rt2x00_eeprom_multiread(
+ 		rt2x00_eeprom_read(rt2x00pci, word + counter, data++);
+ }
+=20
++#ifdef CONFIG_RT2500PCI_BUTTON
++/*
++ * Hardware button poll handler.
 + */
-+static int
-+rt2500pci_set_state(struct rt2x00_pci *rt2x00pci, enum dev_state state)
++static void
++rt2500pci_button_poll(unsigned long data)
 +{
++	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
 +	u32			reg;
-+	int			counter;
-+	char			put_to_sleep;
 +
-+	put_to_sleep =3D (state !=3D STATE_AWAKE);
-+
-+	rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-+	rt2x00_set_field32(&reg, PWRCSR1_SET_STATE, 1);
-+	rt2x00_set_field32(&reg, PWRCSR1_BBP_DESIRE_STATE, state);
-+	rt2x00_set_field32(&reg, PWRCSR1_RF_DESIRE_STATE, state);
-+	rt2x00_set_field32(&reg, PWRCSR1_PUT_TO_SLEEP, put_to_sleep);
-+	rt2x00_register_write(rt2x00pci, PWRCSR1, reg);
-+
-+	/*
-+	 * Device is not guarenteed to be in the requested state yet.
-+	 * We must wait untill the register indicates that the
-+	 * device has entered the correct state.
-+	 */
-+	for (counter =3D 0; counter < REGISTER_BUSY_COUNT; counter++) {
-+		rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-+		if ((rt2x00_get_field32(reg, PWRCSR1_BBP_CURR_STATE) =3D=3D state)
-+		&& (rt2x00_get_field32(reg, PWRCSR1_RF_CURR_STATE) =3D=3D state))
-+			return 0;
-+		msleep(10);
-+	}
-+
-+	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
-+
-+	return -EBUSY;
++	rt2x00_register_read(rt2x00pci, GPIOCSR, &reg);
++	rt2x00pci_button_status(
++		rt2x00pci, rt2x00_get_field32(reg, GPIOCSR_BIT0));
 +}
++#else /* CONFIG_RT2500PCI_BUTTON */
++static void rt2500pci_button_poll(struct rt2x00_pci *rt2x00pci){}
++#endif /* CONFIG_RT2500PCI_BUTTON */
 +
-+/*
-  * TX descriptor initialization
+ /*
+  * Configuration handlers.
   */
- static void
-@@ -1272,6 +1310,9 @@ rt2500pci_init_registers(struct rt2x00_p
- {
- 	u32		reg;
+@@ -2547,24 +2561,10 @@ rt2500pci_initialize(struct pci_dev *pci
+ 	|| rt2500pci_init_hw(rt2x00pci))
+ 		goto exit_destroy_workqueue;
 =20
-+	if (rt2500pci_set_state(rt2x00pci, STATE_AWAKE))
-+		return -EBUSY;
-+
- 	rt2x00_register_write(rt2x00pci, PWRCSR0, cpu_to_le32(0x3f3b3100));
-=20
- 	rt2x00_register_write(rt2x00pci, PSCSR0, cpu_to_le32(0x00020002));
-@@ -2636,57 +2677,42 @@ rt2500pci_remove(struct pci_dev *pci_dev
- }
-=20
- #ifdef CONFIG_PM
-=2Dstatic int rt2500pci_resume(struct pci_dev *pci_dev);
+=2D#ifdef CONFIG_RT2500PCI_BUTTON
+=2D	strcpy(acpi_device_class(&rt2x00pci->acpi_dev), DRV_NAME "_button");
+=2D	strcpy(acpi_device_bid(&rt2x00pci->acpi_dev), DRV_NAME);
+=2D	strcpy(acpi_device_name(&rt2x00pci->acpi_dev), DRV_NAME);
 =2D
- static int
- rt2500pci_suspend(struct pci_dev *pci_dev, pm_message_t state)
+=2D	init_timer(&rt2x00pci->poll_timer);
+=2D
+=2D	if (rt2x00_poll_delay
+=2D	&& rt2x00pci->button_status !=3D BUTTON_STATUS_UNAVAILABLE) {
+=2D		rt2x00pci->button_status =3D rt2500pci_poll(rt2x00pci);
+=2D		rt2x00pci->poll_delay =3D rt2x00_poll_delay * (HZ / 10);
+=2D		rt2x00pci->poll_timer.function =3D rt2500pci_poll_expire;
+=2D		rt2x00pci->poll_timer.data =3D (unsigned long)rt2x00pci;
+=2D		rt2x00pci->poll_timer.expires =3D
+=2D			jiffies + rt2x00pci->poll_delay;
+=2D		add_timer(&rt2x00pci->poll_timer);
+=2D	};
+=2D#endif /* CONFIG_RT2500PCI_BUTTON */
++	/*
++	 * If required start hardware button polling.
++	 */
++	rt2x00pci_button_start(rt2x00pci, rt2500pci_button_poll);
+=20
+ 	return 0;
+=20
+@@ -2583,13 +2583,10 @@ rt2500pci_uninitialize(struct net_device
  {
- 	struct net_device	*net_dev =3D pci_get_drvdata(pci_dev);
  	struct rt2x00_pci	*rt2x00pci =3D ieee80211_dev_hw_data(net_dev);
-=2D	int			counter;
-=2D	u32			reg;
 =20
- 	NOTICE("Going to sleep.\n");
-=20
-=2D	if (ieee80211_netif_oper(net_dev, NETIF_DETACH))
-=2D		return -EBUSY;
-=2D
-=2D	rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_SET_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_BBP_DESIRE_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_RF_DESIRE_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_PUT_TO_SLEEP, 1);
-=2D	rt2x00_register_write(rt2x00pci, PWRCSR1, reg);
-=2D
+=2D#ifdef CONFIG_RT2500PCI_BUTTON
  	/*
-=2D	 * Device is not guarenteed to be asleep yet.
-=2D	 * We must wait untill the register indicates
-=2D	 * device has been correctly put to sleep.
-+	 * If radio was enabled, stop radio and
-+	 * set the resume flag to the radio will be enabled
-+	 * when resuming.
+ 	 * Shutdown poll_timer for hardware button.
  	 */
-=2D	for (counter =3D 0; counter < REGISTER_BUSY_COUNT; counter++) {
-=2D		rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-=2D		if ((rt2x00_get_field32(reg, PWRCSR1_BBP_CURR_STATE) =3D=3D 1)
-=2D		&& (rt2x00_get_field32(reg, PWRCSR1_RF_CURR_STATE) =3D=3D 1))
-=2D			break;
-=2D		NOTICE("Waiting for device to sleep.\n");
-=2D		msleep(10);
-+	if (GET_FLAG(rt2x00pci, RADIO_ENABLED)) {
-+		if (net_dev->stop(net_dev))
-+			return -EBUSY;
-+		SET_FLAG(rt2x00pci, RADIO_RESUME);
- 	}
+=2D	rt2x00pci->button_status =3D BUTTON_STATUS_UNAVAILABLE;
+=2D	del_timer_sync(&rt2x00pci->poll_timer);
+=2D#endif /* CONFIG_RT2500PCI_BUTTON */
++	rt2x00pci_button_stop(rt2x00pci);
 =20
-=2D	if (counter =3D=3D REGISTER_BUSY_COUNT)
-=2D		goto exit;
-=2D
-=2D	if (pci_enable_wake(pci_dev, pci_choose_state(pci_dev, state), 1)
-=2D	|| pci_save_state(pci_dev)
-=2D	|| pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state)))
-=2D		goto exit;
-=2D
-=2D	return 0;
-+	/*
-+	 * Set device mode to sleep for power management.
-+	 */
-+	if (rt2500pci_set_state(rt2x00pci, STATE_SLEEP))
-+		return -EBUSY;
+ 	kfree(rt2x00pci->eeprom);
 =20
-=2Dexit:
-=2D	ERROR("Failed to suspend device.\n");
-+	/*
-+	 * Uninitialize hardware.
-+	 */
-+	rt2500pci_uninitialize(net_dev);
-=20
-=2D	rt2500pci_resume(pci_dev);
-=2D	return -EIO;
-+	/*
-+	 * Disable PCI.
-+	 */
-+	pci_save_state(pci_dev);
-+	pci_disable_device(pci_dev);
-+	return pci_set_power_state(pci_dev, pci_choose_state(pci_dev, state));
- }
-=20
- static int
-@@ -2694,25 +2720,44 @@ rt2500pci_resume(struct pci_dev *pci_dev
- {
- 	struct net_device	*net_dev =3D pci_get_drvdata(pci_dev);
- 	struct rt2x00_pci	*rt2x00pci =3D ieee80211_dev_hw_data(net_dev);
-=2D	u32			reg;
-=20
- 	NOTICE("Waking up.\n");
-=20
-+	/*
-+	 * Enable PCI.
-+	 */
- 	if (pci_set_power_state(pci_dev, PCI_D0)
-=2D	|| pci_restore_state(pci_dev)
-=2D	|| pci_enable_wake(pci_dev, PCI_D0, 0)) {
-+	|| pci_enable_device(pci_dev)
-+	|| pci_restore_state(pci_dev)) {
- 		ERROR("Failed to resume device.\n");
- 		return -EIO;
- 	}
-=20
-=2D	rt2x00_register_read(rt2x00pci, PWRCSR1, &reg);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_SET_STATE, 1);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_BBP_DESIRE_STATE, 3);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_RF_DESIRE_STATE, 3);
-=2D	rt2x00_set_field32(&reg, PWRCSR1_PUT_TO_SLEEP, 0);
-=2D	rt2x00_register_write(rt2x00pci, PWRCSR1, reg);
-+	/*
-+	 * Initialize hardware.
-+	 */
-+	if (rt2500pci_initialize(pci_dev, net_dev)) {
-+		ERROR("Failed to initialize device.\n");
-+		return -ENOMEM;
-+	}
-=20
-=2D	return ieee80211_netif_oper(net_dev, NETIF_ATTACH);
-+	/*
-+	 * Set device mode to awake.
-+	 */
-+	if (rt2500pci_set_state(rt2x00pci, STATE_AWAKE))
-+		return -EBUSY;
-+
-+	/*
-+	 * Only enable radio when it was enabled
-+	 * when we suspended.
-+	 */
-+	if (GET_FLAG(rt2x00pci, RADIO_RESUME)) {
-+		if (net_dev->open(net_dev))
-+			return -EBUSY;
-+		CLEAR_FLAG(rt2x00pci, RADIO_RESUME);
-+	}
-+
-+	return 0;
+@@ -2791,40 +2788,6 @@ rt2500pci_resume(struct pci_dev *pci_dev
  }
  #endif /* CONFIG_PM */
 =20
-diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500usb=
-=2Ec wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500usb=
-=2Ec
-=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	20=
-06-04-27 21:49:08.000000000 +0200
-+++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500usb.=
-c	2006-04-27 21:49:59.000000000 +0200
-@@ -547,6 +547,46 @@ rt2500usb_link_tuner(struct rt2x00_usb *
- }
+=2D#ifdef CONFIG_RT2500PCI_BUTTON
+=2Dstatic int
+=2Drt2500pci_poll(struct rt2x00_pci *rt2x00pci)
+=2D{
+=2D	u32			reg;
+=2D
+=2D	rt2x00_register_read(rt2x00pci, GPIOCSR, &reg);
+=2D	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
+=2D}
+=2D
+=2Dstatic void
+=2Drt2500pci_poll_expire(unsigned long data)
+=2D{
+=2D	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
+=2D	u16			status;
+=2D
+=2D	status =3D rt2500pci_poll(rt2x00pci);
+=2D
+=2D	if (rt2x00pci->button_status !=3D BUTTON_STATUS_UNAVAILABLE)
+=2D		return;
+=2D
+=2D	if (status !=3D rt2x00pci->button_status) {
+=2D		rt2x00pci->button_status =3D status;
+=2D		acpi_bus_generate_event(&rt2x00pci->acpi_dev,
+=2D			ACPI_TYPE_EVENT, rt2x00pci->button_status);
+=2D	}
+=2D
+=2D	rt2x00pci->poll_timer.expires =3D jiffies + rt2x00pci->poll_delay;
+=2D
+=2D	if (rt2x00pci->button_status !=3D BUTTON_STATUS_UNAVAILABLE)
+=2D		add_timer(&rt2x00pci->poll_timer);
+=2D}
+=2D#endif /* CONFIG_RT2500PCI_BUTTON */
+=2D
+ /*
+  * RT2500pci module information.
+  */
+diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci=
+=2Eh wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci=
+=2Eh
+=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	20=
+06-04-27 21:57:18.000000000 +0200
++++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci.=
+h	2006-04-27 22:03:48.000000000 +0200
+@@ -1132,21 +1132,4 @@ static int rt2500pci_beacon_update(struc
+ 	struct sk_buff *skb, struct ieee80211_tx_control *control);
+ static int rt2500pci_tx_last_beacon(struct net_device *net_dev);
+=20
+=2D/*
+=2D * HW button support structures and variables.
+=2D * The delay between each poll is set by the module parameter.
+=2D */
+=2D#ifdef CONFIG_RT2500PCI_BUTTON
+=2D/*
+=2D * Module parameter.
+=2D */
+=2Dstatic int rt2x00_poll_delay =3D 100;
+=2D
+=2D/*
+=2D * Declaration of several required functions.
+=2D */
+=2Dstatic int rt2500pci_poll(struct rt2x00_pci *rt2x00pci);
+=2Dstatic void rt2500pci_poll_expire(unsigned long data);
+=2D#endif /* CONFIG_RT2500PCI_BUTTON */
+=2D
+ #endif /* RT2500PCI_H */
+diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00pci=
+=2Eh wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2x00pci=
+=2Eh
+=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	20=
+06-04-27 22:00:04.000000000 +0200
++++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2x00pci.=
+h	2006-04-27 22:03:48.000000000 +0200
+@@ -45,6 +45,37 @@
+ #define EEPROM_READ_OPCODE		0x06
 =20
  /*
-+ * Device state switch.
-+ * This will put the device to sleep, or awake it.
++ * HW button structure.
 + */
-+static int
-+rt2500usb_set_state(struct rt2x00_usb *rt2x00usb, enum dev_state state)
-+{
-+	u16			reg;
-+	int			counter;
-+	char			put_to_sleep;
++#ifdef CONFIG_RT2X00_BUTTON
++#include <acpi/acpi_bus.h>
 +
-+	put_to_sleep =3D (state !=3D STATE_AWAKE);
-+
-+	rt2x00_register_read(rt2x00usb, MAC_CSR17, &reg);
-+	rt2x00_set_field16_nb(&reg, MAC_CSR17_SET_STATE, 1);
-+	rt2x00_set_field16_nb(&reg, MAC_CSR17_BBP_DESIRE_STATE, state);
-+	rt2x00_set_field16_nb(&reg, MAC_CSR17_RF_DESIRE_STATE, state);
-+	rt2x00_set_field16_nb(&reg, MAC_CSR17_PUT_TO_SLEEP, put_to_sleep);
-+	rt2x00_register_write(rt2x00usb, MAC_CSR17, reg);
++struct rt2x00_button{
++	/*
++	 * ACPI device for generation of ACPI events.
++	 */
++	struct acpi_device			acpi_dev;
 +
 +	/*
-+	 * Device is not guarenteed to be in the requested state yet.
-+	 * We must wait untill the register indicates that the
-+	 * device has entered the correct state.
++	 * Timer for register polling.
 +	 */
-+	for (counter =3D 0; counter < REGISTER_BUSY_COUNT; counter++) {
-+		rt2x00_register_read(rt2x00usb, MAC_CSR17, &reg);
-+		if ((rt2x00_get_field16_nb(
-+			reg, MAC_CSR17_BBP_CURR_STATE) =3D=3D state)
-+		&& (rt2x00_get_field16_nb(
-+			reg, MAC_CSR17_RF_CURR_STATE) =3D=3D state))
-+			return 0;
-+		msleep(10);
-+	}
++	struct timer_list			poll_timer;
 +
-+	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
++	/*
++	 * Timer delay.
++	 */
++	short					poll_delay;
 +
-+	return -EBUSY;
-+}
++	/*
++	 * Current status of button.
++	 */
++	short					button_status:1;
++	short					active_poll:1;
++	short					__pad:14;
++} __attribute__ ((packed));
++#endif /* CONFIG_RT2X00_BUTTON */
 +
 +/*
-  * TX descriptor initialization
-  */
- static void
-@@ -1082,6 +1122,9 @@ rt2500usb_init_registers(struct rt2x00_u
- {
- 	u16			reg;
+  * data_entry
+  * The data ring is a list of data entries.
+  * Each entry holds a reference to the descriptor
+@@ -92,28 +123,7 @@ struct rt2x00_pci{
+ 	struct pci_dev				*pci_dev;
 =20
-+	if (rt2500usb_set_state(rt2x00usb, STATE_AWAKE))
-+		return -EBUSY;
-+
- 	rt2x00_vendor_request(rt2x00usb, USB_DEVICE_MODE,
- 		USB_VENDOR_REQUEST_OUT, USB_MODE_TEST, 0x00, NULL, 0);
- 	rt2x00_vendor_request(rt2x00usb, USB_SINGLE_WRITE,
-@@ -2221,44 +2264,42 @@ rt2500usb_disconnect(struct usb_interfac
- }
-=20
- #ifdef CONFIG_PM
-=2Dstatic int rt2500usb_resume(struct usb_interface *usb_intf);
+ #ifdef CONFIG_RT2X00_BUTTON
+=2D	/*
+=2D	 * ACPI device for generation of ACPI events.
+=2D	 */
+=2D	struct acpi_device			acpi_dev;
 =2D
- static int
- rt2500usb_suspend(struct usb_interface *usb_intf, pm_message_t state)
- {
- 	struct net_device	*net_dev =3D usb_get_intfdata(usb_intf);
- 	struct rt2x00_usb	*rt2x00usb =3D ieee80211_dev_hw_data(net_dev);
-=2D	int			counter;
-=2D	u16			reg;
-=20
- 	NOTICE("Going to sleep.\n");
-=20
-=2D	if (ieee80211_netif_oper(net_dev, NETIF_DETACH))
-+	/*
-+	 * If radio was enabled, stop radio and
-+	 * set the resume flag to the radio will be enabled
-+	 * when resuming.
-+	 */
-+	if (GET_FLAG(rt2x00usb, RADIO_ENABLED)) {
-+		if (net_dev->stop(net_dev))
-+			return -EBUSY;
-+		SET_FLAG(rt2x00usb, RADIO_RESUME);
-+	}
-+
-+	/*
-+	 * Set device mode to sleep for power management.
-+	 */
-+	if (rt2500usb_set_state(rt2x00usb, STATE_SLEEP))
- 		return -EBUSY;
-=20
-=2D	rt2x00_register_read(rt2x00usb, MAC_CSR17, &reg);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_SET_STATE, 1);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_BBP_DESIRE_STATE, 1);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_RF_DESIRE_STATE, 1);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_PUT_TO_SLEEP, 1);
-=2D	rt2x00_register_write(rt2x00usb, MAC_CSR17, reg);
-+	/*
-+	 * Uninitialize hardware.
-+	 */
-+	rt2500usb_uninitialize(net_dev);
+=2D	/*
+=2D	 * Timer for register polling.
+=2D	 */
+=2D	struct timer_list			poll_timer;
+=2D
+=2D	/*
+=2D	 * Timer delay.
+=2D	 */
+=2D	u16					poll_delay;
+=2D
+=2D	/*
+=2D	 * Current status of button.
+=2D	 */
+=2D	u16					button_status;
+=2D#define BUTTON_STATUS_UNAVAILABLE		2
+=2D#define BUTTON_STATUS_ON			1
+=2D#define BUTTON_STATUS_OFF			0
++	struct rt2x00_button			button;
+ #endif /* CONFIG_RT2X00_BUTTON */
 =20
  	/*
-=2D	 * Device is not guarenteed to be asleep yet.
-=2D	 * We must wait untill the register indicates
-=2D	 * device has been correctly put to sleep.
-+	 * Decrease usbdev refcount.
- 	 */
-=2D	for (counter =3D 0; counter < REGISTER_BUSY_COUNT; counter++) {
-=2D		rt2x00_register_read(rt2x00usb, MAC_CSR17, &reg);
-=2D		if ((rt2x00_get_field16_nb(reg, MAC_CSR17_BBP_CURR_STATE) =3D=3D 1)
-=2D		&& (rt2x00_get_field16_nb(reg, MAC_CSR17_RF_CURR_STATE) =3D=3D 1))
-=2D	return 0;
-=2D		NOTICE("Waiting for device to sleep.\n");
-=2D		msleep(10);
-=2D	}
-+	usb_put_dev(interface_to_usbdev(usb_intf));
-=20
-=2D	rt2500usb_resume(usb_intf);
-=2D	return -EIO;
-+	return 0;
+@@ -257,4 +267,85 @@ rt2x00pci_get_ring(struct rt2x00_pci *rt
+ 	return NULL;
  }
 =20
- static int
-@@ -2266,18 +2307,39 @@ rt2500usb_resume(struct usb_interface *u
- {
- 	struct net_device	*net_dev =3D usb_get_intfdata(usb_intf);
- 	struct rt2x00_usb	*rt2x00usb =3D ieee80211_dev_hw_data(net_dev);
-=2D	u16			reg;
-=20
- 	NOTICE("Waking up.\n");
-=20
-=2D	rt2x00_register_read(rt2x00usb, MAC_CSR17, &reg);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_SET_STATE, 1);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_BBP_DESIRE_STATE, 3);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_RF_DESIRE_STATE, 3);
-=2D	rt2x00_set_field16_nb(&reg, MAC_CSR17_PUT_TO_SLEEP, 0);
-=2D	rt2x00_register_write(rt2x00usb, MAC_CSR17, reg);
-+	/*
-+	 * Increase usbdev refcount.
-+	 */
-+	usb_get_dev(interface_to_usbdev(usb_intf));
-=20
-=2D	return ieee80211_netif_oper(net_dev, NETIF_ATTACH);
-+	/*
-+	 * Initialize hardware.
-+	 */
-+	if (rt2500usb_initialize(usb_intf, net_dev)) {
-+		ERROR("Failed to initialize device.\n");
-+		return -ENOMEM;
++/*
++ * HW button variables & functions.
++ * The delay between each poll is set by the module parameter.
++ */
++#ifdef CONFIG_RT2X00_BUTTON
++/*
++ * Module parameter.
++ */
++static short rt2x00_poll_delay =3D 0;
++
++static inline void
++rt2x00pci_button_status(struct rt2x00_pci *rt2x00pci, char status)
++{
++	struct rt2x00_button	*button =3D &rt2x00pci->button;
++
++	if (!button->active_poll)
++		return;
++
++	if (status !=3D button->button_status) {
++		button->button_status =3D status;
++		acpi_bus_generate_event(
++			&button->acpi_dev, ACPI_TYPE_EVENT, status);
 +	}
 +
-+	/*
-+	 * Set device mode to awake.
-+	 */
-+	if (rt2500usb_set_state(rt2x00usb, STATE_AWAKE))
-+		return -EBUSY;
++	button->poll_timer.expires =3D jiffies + button->poll_delay;
++
++	if (button->active_poll)
++		add_timer(&button->poll_timer);
++}
++
++static inline void
++rt2x00pci_button_start(struct rt2x00_pci *rt2x00pci,
++	void (*handler)(unsigned long data))
++{
++	struct rt2x00_button	*button =3D &rt2x00pci->button;
 +
 +	/*
-+	 * Only enable radio when it was enabled
-+	 * when we suspended.
++	 * Only enable polling when the user has
++	 * set the poll delay module parameter,
++	 * and the device contains a hardware button.
 +	 */
-+	if (GET_FLAG(rt2x00usb, RADIO_RESUME)) {
-+		if (net_dev->open(net_dev))
-+			return -EBUSY;
-+		CLEAR_FLAG(rt2x00usb, RADIO_RESUME);
-+	}
++	if(!GET_FLAG(rt2x00pci, HARDWARE_BUTTON) || !rt2x00_poll_delay)
++		return;
 +
-+	return 0;
- }
- #endif /* CONFIG_PM */
-=20
++	strcpy(acpi_device_class(&button->acpi_dev), DRV_NAME "_button");
++	strcpy(acpi_device_bid(&button->acpi_dev), DRV_NAME);
++	strcpy(acpi_device_name(&button->acpi_dev), DRV_NAME);
++
++	init_timer(&button->poll_timer);
++
++	button->poll_delay =3D rt2x00_poll_delay * (HZ / 10);
++	button->button_status =3D 0;
++	button->active_poll =3D 1;
++
++	button->poll_timer.function =3D handler;
++	button->poll_timer.data =3D (unsigned long)rt2x00pci;
++	button->poll_timer.expires =3D jiffies + button->poll_delay;
++
++	add_timer(&button->poll_timer);
++}
++
++static inline void
++rt2x00pci_button_stop(struct rt2x00_pci *rt2x00pci)
++{
++	/*
++	 * Shutdown poll_timer for hardware button,
++	 * make sure only to disable polling when
++	 * it was enabled in the first place.
++	 */
++	if(!rt2x00pci->button.active_poll)
++		return;
++
++	rt2x00pci->button.active_poll =3D 0;
++	del_timer_sync(&rt2x00pci->button.poll_timer);
++}
++#else /* CONFIG_RT2X00_BUTTON */
++static inline void rt2x00pci_button_start(struct rt2x00_pci *rt2x00pci,
++	int (*handler)(struct rt2x00_pci *rt2x00pci)){}
++static inline void rt2x00pci_button_stop(struct rt2x00_pci *rt2x00pci){}
++#endif /* CONFIG_RT2X00_BUTTON */
++
+ #endif /* RT2X00PCI_H */
 
---nextPart2767725.o4s6eHzY6B
+--nextPart2271025.03C2O3d55h
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBEUT+eaqndE37Em0gRAsFbAKDhX75I8+OQs4Oa10R2x38pEP1IzACghy+J
-zyLhbWLwWNn+WLm1HwrtT0s=
-=ojy9
+iD8DBQBEUT+maqndE37Em0gRAg9JAJ9YFus2z5pVh4QPkFBw2WdxmZnBaACg338M
+DZTRA+tQC/2Yp1THVnHSp/4=
+=WObL
 -----END PGP SIGNATURE-----
 
---nextPart2767725.o4s6eHzY6B--
+--nextPart2271025.03C2O3d55h--
