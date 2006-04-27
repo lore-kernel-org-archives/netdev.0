@@ -1,58 +1,63 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 0/17] d80211 patches
-Date: Thu, 27 Apr 2006 14:49:51 +0200
-Message-ID: <200604271449.51741.mb@bu3sch.de>
-References: <20060421220951.205579000.midnight@suse.cz> <20060421225210.36a0225b@griffin.suse.cz> <20060426193907.GB7922@tuxdriver.com>
+From: Aubrey <aubreylee@gmail.com>
+Subject: Re: Netpoll checksum issue
+Date: Thu, 27 Apr 2006 20:57:33 +0800
+Message-ID: <6d6a94c50604270557w434945d2v4b934c328abaa92e@mail.gmail.com>
+References: <6d6a94c50604190922m189b9d99gdd428a870e12c2c3@mail.gmail.com>
+	 <20060419103153.64ef0054@localhost.localdomain>
+	 <6d6a94c50604191854m73b241e3v104d713b7bb93674@mail.gmail.com>
+	 <20060423113432.GA16424@gondor.apana.org.au>
+	 <6d6a94c50604232242hd091922q8a2a0c78f1163b3c@mail.gmail.com>
+	 <20060424102250.GA24437@gondor.apana.org.au>
+	 <6d6a94c50604240622v4cc3f0efi20429b474927c814@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart5514745.pGZKWGAVoE";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Stephen Hemminger" <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42201
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965123AbWD0Moa
+Received: from nproxy.gmail.com ([64.233.182.187]:33255 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S965024AbWD0M5e convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Apr 2006 08:44:30 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060426193907.GB7922@tuxdriver.com>
+	Thu, 27 Apr 2006 08:57:34 -0400
+Received: by nproxy.gmail.com with SMTP id x30so1289856nfb
+        for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 05:57:33 -0700 (PDT)
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <6d6a94c50604240622v4cc3f0efi20429b474927c814@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart5514745.pGZKWGAVoE
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Hi Herbert,
 
-On Wednesday 26 April 2006 21:39, John W. Linville wrote:
-> On Fri, Apr 21, 2006 at 10:52:10PM +0200, Jiri Benc wrote:
-> > On Fri, 21 Apr 2006 22:52:08 +0200, Michael Buesch wrote:
-> > > Can you please send your hacky patch for the bcm43xx
-> > > to me, so I can come up with a clean one?
-> >=20
-> > Sure, actually I planned to do it in a few minutes :-)
->=20
-> Hacky or not, I'm applying this patch to keep the bcm43xx driver
-> from breaking.
-That's perfectly fine.
-The correct patch needs a little bit of rewriting in the "mode" code.
-I will do that after I finished the 4318 fixes (should take quite
-some time).
+Is there any update of this issue?
 
-=2D-=20
-Greetings Michael.
+Regards,
+- Aubrey
 
---nextPart5514745.pGZKWGAVoE
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBEUL3vlb09HEdWDKgRAnNxAJ9I5T3uw8i6GXdRKY/iKETtaY5WqQCdHtqL
-Sa0pB4hkp2NyXychmHKY0ZI=
-=6NBN
------END PGP SIGNATURE-----
-
---nextPart5514745.pGZKWGAVoE--
+On 4/24/06, Aubrey <aubreylee@gmail.com> wrote:
+> On 4/24/06, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > On Mon, Apr 24, 2006 at 01:42:12PM +0800, Aubrey wrote:
+> > >
+> > >   dev->last_rx = jiffies;
+> > >   skb->dev = dev;
+> > >   skb->protocol = eth_type_trans(skb, dev);
+> > >   skb->ip_summed = CHECKSUM_UNNECESSARY;
+> > >   netif_rx(skb);
+> >
+> > This doesn't make sense.  First of all you're setting ip_summed to
+> > CHECK_UNNECESSARY unconditionally which is most likely wrong.
+> >
+> > What's more, if this was the driver that you were using, then
+> > checksum_udp couldn't possibly fail since the first thing it does
+> > is check ip_summed.
+>
+> Hmm, when I change the code in __netpoll_rx, there is no the following
+> one line in the driver:
+> ==============================================
+> skb->ip_summed = CHECKSUM_UNNECESSARY;
+> ==============================================
+>
+> The above one line code in the driver is just a workaround.
+>
+> Regards,
+> -Aubrey
+>
