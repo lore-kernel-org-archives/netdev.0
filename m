@@ -1,46 +1,43 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 3/9] natsemi: Add support for using MII port with no PHY
-Date: Thu, 27 Apr 2006 05:54:58 -0400
-Message-ID: <445094F2.1060807@garzik.org>
-References: <200604270932.k3R9W5lK025315@shell0.pdx.osdl.net>
+Subject: Re: [patch 8/9] forcedeth: suggested cleanups
+Date: Thu, 27 Apr 2006 05:56:49 -0400
+Message-ID: <44509561.3090006@garzik.org>
+References: <200604270932.k3R9WD14025332@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, broonie@sirena.org.uk, jgarzik@pobox.com,
-	thockin@hockin.org
+Cc: netdev@vger.kernel.org, ioe-lkml@rameria.de,
+	manfred@colorfullife.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:6053 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965065AbWD0JzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:55:03 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:11429 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965055AbWD0J4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:56:51 -0400
 To: akpm@osdl.org
-In-Reply-To: <200604270932.k3R9W5lK025315@shell0.pdx.osdl.net>
+In-Reply-To: <200604270932.k3R9WD14025332@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 akpm@osdl.org wrote:
-> From: Mark Brown <broonie@sirena.org.uk>
+> From: Ingo Oeser <ioe-lkml@rameria.de>
 > 
-> Provide a module option which configures the natsemi driver to use the
-> external MII port on the chip but ignore any PHYs that may be attached to it. 
-> The link state will be left as it was when the driver started and can be
-> configured via ethtool.  Any PHYs that are present can be accessed via the MII
-> ioctl()s.
+> general:
+> 	- endian annotation of the ring descriptors
 > 
-> This is useful for systems where the device is connected without a PHY or
-> where either information or actions outside the scope of the driver are
-> required in order to use the PHYs.
+> nv_getlen():
+> 	- use htons() instead of __constant_htons()
+>           to improvde readability and let the compiler constant fold it.
 > 
-> Signed-off-by: Mark Brown <broonie@sirena.org.uk>
-> Cc: Tim Hockin <thockin@hockin.org>
-> Cc: Jeff Garzik <jgarzik@pobox.com>
+> nv_rx_process():
+> 	- use a real for() loop in processing instead of goto and break
+> 	- consolidate rx_errors increment
+> 	- count detected rx_length_errors
+> 
+> Signed-off-by: Ingo Oeser <ioe-lkml@rameria.de>
+> Cc: Manfred Spraul <manfred@colorfullife.com>
 > Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-NAK.
-
-The proper way to do this is via the force_media boolean flag found in 
-several net drivers.
-
-In general I agree with the motivation to do something like this...
+ACK, but I'm holding off applying this while trying to get 4 apply-able 
+patches out of NVIDIA and Manfred :)
 
 	Jeff
 
