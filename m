@@ -1,51 +1,72 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Thu, 27 Apr 2006 13:40:26 +1000
-Message-ID: <1146109226.11864.37.camel@localhost.localdomain>
-References: <54AD0F12E08D1541B826BE97C98F99F143AE6C@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Troy Benjegerdes <hozer@hozed.org>
+Subject: Re: TSO and IPoIB performance degradation
+Date: Wed, 26 Apr 2006 23:13:24 -0500
+Message-ID: <20060427041323.GX15855@narn.hozed.org>
+References: <20060320090629.GA11352@mellanox.co.il> <20060320.015500.72136710.davem@davemloft.net> <20060320102234.GV29929@mellanox.co.il> <20060320.023704.70907203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, kelly@au1.ibm.com,
-	netdev@vger.kernel.org
+Cc: mst@mellanox.co.il, rick.jones2@hp.com, netdev@vger.kernel.org,
+	rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37600 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S932354AbWD0Dky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Apr 2006 23:40:54 -0400
-To: Caitlin Bestler <caitlinb@broadcom.com>
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F143AE6C@NT-SJCA-0751.brcm.ad.broadcom.com>
+Received: from narn.hozed.org ([209.234.73.39]:21656 "EHLO narn.hozed.org")
+	by vger.kernel.org with ESMTP id S964922AbWD0ENY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 00:13:24 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060320.023704.70907203.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-04-26 at 12:30 -0700, Caitlin Bestler wrote:
-> David S. Miller wrote:
+On Mon, Mar 20, 2006 at 02:37:04AM -0800, David S. Miller wrote:
+> From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+> Date: Mon, 20 Mar 2006 12:22:34 +0200
 > 
+> > Quoting r. David S. Miller <davem@davemloft.net>:
+> > > The path an SKB can take is opaque and unknown until the very last
+> > > moment it is actually given to the device transmit function.
 > > 
-> > I personally think allowing sockets to trump firewall rules
-> > is an acceptable relaxation of the rules in order to simplify
-> > the implementation.
+> > Why, I was proposing looking at dst cache. If that's NULL, well,
+> > we won't stretch ACKs. Worst case we apply the wrong optimization.
+> > Right?
 > 
-> I agree.  I have never seen a set of netfilter rules that
-> would block arbitrary packets *within* an established connection.
+> Where you receive a packet from isn't very useful for determining
+> even the full patch on which that packet itself flowed.
+> 
+> More importantly, packets also do not necessarily go back out over the
+> same path on which packets are received for a connection.  This is
+> actually quite common.
+> 
+> Maybe packets for this connection come in via IPoIB but go out via
+> gigabit ethernet and another route altogether.
+> 
+> > What I'd like to clarify, however: rfc2581 explicitly states that in
+> > some cases it might be OK to generate ACKs less frequently than
+> > every second full-sized segment. Given Matt's measurements, TCP on
+> > top of IP over InfiniBand on Linux seems to hit one of these cases.
+> > Do you agree to that?
+> 
+> I disagree with Linux changing it's behavior.  It would be great to
+> turn off congestion control completely over local gigabit networks,
+> but that isn't determinable in any way, so we don't do that.
+> 
+> The IPoIB situation is no different, you can set all the bits you want
+> in incoming packets, the barrier to doing this remains the same.
+> 
+> It hurts performance if any packet drop occurs because it will require
+> an extra round trip for recovery to begin to be triggered at the
+> sender.
+> 
+> The network is a black box, routes to and from a destination are
+> arbitrary, and so is packet rewriting and reflection, so being able to
+> say "this all occurs on IPoIB" is simply infeasible.
+> 
+> I don't know how else to say this, we simply cannot special case IPoIB
+> or any other topology type.
 
-Intelligent or no, this does happen.  More importantly, people rely on
-packet counters.  Basically I don't think we can "relax" our firewall
-implementation and retain trust 8(
-
-I started thinking about this back in January.  We could force
-everything through the "slow" path when something is registered with
-netfilter (similarly raw sockets, bonding, divert).  Or, we could delay
-LOCAL_IN hook processing until we get to socket receive.
-
-Delaying netfilter hook processing won't work for intelligent NICs that
-write straight to mmapped buffers, but we could make that CAP_NET_RAW.
-
-We *used* to have an nf_cache mechanism to determine exactly when the
-netfilter hooks cared about a packet, but it was never used and was hard
-to reconcile with connection-tracking timeouts...
-
-Cheers,
-Rusty.
--- 
- ccontrol: http://ozlabs.org/~rusty/ccontrol
+David is right. If you care about performance, you are already using SDP
+or verbs layer for the transport anyway. If I am going to be doing IPoIB,
+it's because eventually I expect the packet might get off the IB network
+and onto some other network and go halfway across the country.
 
