@@ -1,69 +1,68 @@
-From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
-Subject: Re: [patch 2/9] tulip: NatSemi DP83840A PHY fix
-Date: Thu, 27 Apr 2006 12:21:17 +0200
-Message-ID: <7d01f9f00604270321y46baf76v2f334bc78c31c1a4@mail.gmail.com>
-References: <200604270932.k3R9W4Xj025312@shell0.pdx.osdl.net>
-	 <44509477.4010001@garzik.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Thu, 27 Apr 2006 15:51:26 +0400
+Message-ID: <20060427115126.GA11570@2ka.mipt.ru>
+References: <200604261147.34221.kelly@au.ibm.com> <20060426.003335.26972263.davem@davemloft.net> <200604271331.37073.kelly@au.ibm.com> <20060426.232501.119306252.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: akpm@osdl.org, netdev@vger.kernel.org, grundler@parisc-linux.org,
-	jgarzik@pobox.com, "Francois Romieu" <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: kelly@au1.ibm.com, rusty@rustcorp.com.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.199]:20458 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S965079AbWD0KVR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 06:21:17 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so1901674nzf
-        for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 03:21:17 -0700 (PDT)
-To: "Jeff Garzik" <jeff@garzik.org>
-In-Reply-To: <44509477.4010001@garzik.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:39385 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965026AbWD0LwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 07:52:16 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20060426.232501.119306252.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/27/06, Jeff Garzik <jeff@garzik.org> wrote:
-> akpm@osdl.org wrote:
-> > +                             if (startup) {
-> > +                                     int timeout = 10;       /* max 1 ms */
-> >                                       for (i = 0; i < reset_length; i++)
-> >                                               iowrite32(get_u16(&reset_sequence[i]) << 16, ioaddr + CSR15);
-> > +
-> > +                                     /* flush posted writes */
-> > +                                     ioread32(ioaddr + CSR15);
-> > +
-> > +                                     /* Sect 3.10.3 in DP83840A.pdf (p39) */
-> > +                                     udelay(500);
-> > +
-> > +                                     /* Section 4.2 in DP83840A.pdf (p43) */
-> > +                                     /* and IEEE 802.3 "22.2.4.1.1 Reset" */
-> > +                                     while (timeout-- &&
-> > +                                             (tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
-> > +                                             udelay(100);
->
->
-> What can we do about this?
->
-> Its a huge delay to be taken inside a spinlock.
+On Wed, Apr 26, 2006 at 11:25:01PM -0700, David S. Miller (davem@davemloft.net) wrote:
+> > We approached this from the understanding that an intelligent NIC
+> > will be able to transition directly to userspace, which is a major
+> > win.  0 copies to userspace would be sweet.  I think we can still
+> > achieve this using your scheme without *too* much pain.
+> 
+> Understood.  What's your basic idea?  Just make the buffers in the
+> pool large enough to fit the SKB encapsulation at the end?
 
-This is device setup code. ISTR Grant showing other similar examples
-of delays in such code in the kernel. Unless you keep
-configuring/deconfiguring the device, and assuming you hit worst case
-scenario everytime, it won't be a problem. But if you're doing that,
-you already have a problem elsewhere. Or am I missing something?
+There are some caveats here found while developing zero-copy sniffer
+[1]. Project's goal was to remap skbs into userspace in real-time.
+While absolute numbers (posted to netdev@) were really high, it is only
+applicable to read-only application. As was shown in IOAT thread,
+data must be warmed in caches, so reading from mapped area will be as
+fast as memcpy() (read+write), and copy_to_user() actually almost equal
+to memcpy() (benchmarks were posted to netdev@). And we must add
+remapping overhead.
 
-> Anybody interested to converting the driver to use schedule_work() or
-> similar?
+If we want to dma data from nic into premapped userspace area, this will
+strike with message sizes/misalignment/slow read and so on, so
+preallocation has even more problems.
 
-That question has been raised months ago without any significant
-outcome. Maybe it's time to move on? This code does respect hardware
-specs, at least, which isn't the case of existing code, and fixes a
-bug...
+This change also requires significant changes in application, at least
+until recv/send are changed, which is not the best thing to do.
 
-HTH
+So I think that mapping itself can be done as some additional socket
+option or something not turnedon by default.
 
-T-Bone
 
---
-Thibaut VARENE
-http://www.parisc-linux.org/~varenet/
+I do think that significant win in VJ's tests belongs not to remapping
+and cache-oriented changes, but to move all protocol processing into
+process' context.
+
+I fully agree with Dave that it must be implemented step-by-step, and
+the most significant, IMHO, is moving protocol processing into socket's
+"place". This will force to netfilter changes, but I do think that for
+the proof-of-concept code we can turn it off.
+
+I will start to work in this direction next week after aio_sendfile() is
+completed.
+
+So, we will have three attempts to write incompatible stacks - and that is good :)
+No one need an excuse to rewrite something, as I read in Rusty's blog...
+
+Thanks.
+
+[1]. http://tservice.net.ru/~s0mbre/old/?section=projects&item=af_tlb
+
+-- 
+	Evgeniy Polyakov
