@@ -1,35 +1,55 @@
-From: "Cureington, Tony" <tony.cureington@hp.com>
-Subject: Re: [RFC] selective ethtool diagnostic test method
-Date: Thu, 27 Apr 2006 12:54:10 -0500
-Message-ID: <72A87F7160C0994D8C5A36E2FDC227F50934F61F@txnexc01.americas.cpqcorp.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: IP1000 gigabit nic driver
+Date: Thu, 27 Apr 2006 20:56:27 +0200
+Message-ID: <20060427185627.GA30871@electric-eye.fr.zoreil.com>
+References: <20060427142939.GA31473@fargo>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:39392 "EHLO palrel13.hp.com")
-	by vger.kernel.org with ESMTP id S965011AbWD0RyM convert rfc822-to-8bit
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:63156 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S964947AbWD0S7b
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Apr 2006 13:54:12 -0400
-Received: from cacexg12.americas.cpqcorp.net (cacexg12.americas.cpqcorp.net [16.92.1.72])
-	by palrel13.hp.com (Postfix) with ESMTP id 0278737F50
-	for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 10:54:11 -0700 (PDT)
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
+	Thu, 27 Apr 2006 14:59:31 -0400
+To: Linux-kernel <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20060427142939.GA31473@fargo>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ethtool Maintainers,
-WRT my RFC (http://www.spinics.net/lists/netdev/msg02806.html) regarding
-enhancing
-ethtool posted on 04/11/06, would such a patch be accepted by the
-maintainers of
-ethtool? I don't want to spend time on these changes just to have them
-rejected.
-I've not received any objections for such changes thus far. It may be
-several
-months before we can get to implementing the changes. Please, can I get
-a thumbs
-up or down from the ethtool maintainers on netdev?
-Thanks,
-Tc
+David G=C3=B3mez <david@pleyades.net> :
+[...]
+> Does anybody in this list know why the IP1000 driver is not
+> included in the kernel ?
+
+Afaik the driver has never been submitted for inclusion.
+At least not on netdev@vger.kernel.org (hint, hint).
+
+[...]
+> The card in question is:
+>=20
+> Sundance Technology Inc IC Plus IP1000
+>=20
+> and the driver can be found in sundance web, sources=20
+
+URL please ?
+
+> included. I tried to contact the author but my email
+> bounced.
+>=20
+> There's no LICENSE in the source, just copyrigth
+> sentences in the .c files, so i'm not sure under
+> which license it's distributed :-?.
+
+/me goes to http://www.icplus.com.tw/driver-pp-IP1000A.html
+
+$ unzip -c IP1000A-Linux-driver-v2.09f.zip | grep MODULE_LICENSE
+    MODULE_LICENSE("GPL");
+
+It's a bit bloaty but it does not seem too bad (not mergeable "as
+is" though). Do you volunteer to test random cra^W^W carefully
+engineered code on your computer to help the rework/merging process ?
+
+--=20
+Ueimor
