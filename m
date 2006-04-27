@@ -1,53 +1,58 @@
-From: Patrick Caulfield <patrick@tykepenguin.com>
-Subject: [PATCH] DECnet: Fix level1 router hello
-Date: Thu, 27 Apr 2006 13:37:23 +0100
-Message-ID: <4450BB03.4050404@tykepenguin.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 0/17] d80211 patches
+Date: Thu, 27 Apr 2006 14:49:51 +0200
+Message-ID: <200604271449.51741.mb@bu3sch.de>
+References: <20060421220951.205579000.midnight@suse.cz> <20060421225210.36a0225b@griffin.suse.cz> <20060426193907.GB7922@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed;
+  boundary="nextPart5514745.pGZKWGAVoE";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Steven Whitehouse <steve@chygwyn.com>
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spc1-leed3-0-0-cust958.seac.broadband.ntl.com ([82.8.19.191]:60398
-	"EHLO fentible.pjc.net") by vger.kernel.org with ESMTP
-	id S965117AbWD0Mh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Apr 2006 08:37:28 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42201
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965123AbWD0Moa
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Apr 2006 08:44:30 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060426193907.GB7922@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes hello messages sent when a node is a level 1 router. Slightly
-contrary to the spec (maybe) VMS ignores hello messages that do not name
-level2 routers that it also knows about.
+--nextPart5514745.pGZKWGAVoE
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-So, here we simply name all the routers that the node knows about rather just
-other level1 routers.
-(I hope the patch is clearer than the description. sorry).
+On Wednesday 26 April 2006 21:39, John W. Linville wrote:
+> On Fri, Apr 21, 2006 at 10:52:10PM +0200, Jiri Benc wrote:
+> > On Fri, 21 Apr 2006 22:52:08 +0200, Michael Buesch wrote:
+> > > Can you please send your hacky patch for the bcm43xx
+> > > to me, so I can come up with a clean one?
+> >=20
+> > Sure, actually I planned to do it in a few minutes :-)
+>=20
+> Hacky or not, I'm applying this patch to keep the bcm43xx driver
+> from breaking.
+That's perfectly fine.
+The correct patch needs a little bit of rewriting in the "mode" code.
+I will do that after I finished the 4318 fixes (should take quite
+some time).
 
-Patrick
+=2D-=20
+Greetings Michael.
 
-Signed-off-by: Patrick Caulfield <patrick@tykepenguin.com>
+--nextPart5514745.pGZKWGAVoE
+Content-Type: application/pgp-signature
 
-diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
-index 7c8692c..66e230c 100644
---- a/net/decnet/dn_neigh.c
-+++ b/net/decnet/dn_neigh.c
-@@ -493,7 +493,6 @@ struct elist_cb_state {
- static void neigh_elist_cb(struct neighbour *neigh, void *_info)
- {
- 	struct elist_cb_state *s = _info;
--	struct dn_dev *dn_db;
- 	struct dn_neigh *dn;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
 
- 	if (neigh->dev != s->dev)
-@@ -503,10 +502,6 @@ static void neigh_elist_cb(struct neighb
- 	if (!(dn->flags & (DN_NDFLAG_R1|DN_NDFLAG_R2)))
- 		return;
+iD8DBQBEUL3vlb09HEdWDKgRAnNxAJ9I5T3uw8i6GXdRKY/iKETtaY5WqQCdHtqL
+Sa0pB4hkp2NyXychmHKY0ZI=
+=6NBN
+-----END PGP SIGNATURE-----
 
--	dn_db = (struct dn_dev *) s->dev->dn_ptr;
--	if (dn_db->parms.forwarding == 1 && (dn->flags & DN_NDFLAG_R2))
--		return;
--
- 	if (s->t == s->n)
- 		s->rs = dn_find_slot(s->ptr, s->n, dn->priority);
- 	else
-
+--nextPart5514745.pGZKWGAVoE--
