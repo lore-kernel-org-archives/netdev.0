@@ -1,41 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] bridge: partial rtnetlink hooks
-Date: Thu, 27 Apr 2006 10:24:18 +0200
-Message-ID: <44507FB2.5050002@trash.net>
-References: <20060426104521.44682924@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: akpm@osdl.org
+Subject: [patch 1/9] smc911x Kconfig fix
+Date: Thu, 27 Apr 2006 02:30:35 -0700
+Message-ID: <200604270932.k3R9W3Gv025309@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, dustin@sensoria.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:25521 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S964976AbWD0IYU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Apr 2006 04:24:20 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060426104521.44682924@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:12495 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964986AbWD0JcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:08 -0400
+To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> This is the start of adding support for rtnetlink to the bridge code.
-> So far it only supports accessing the list of links and notifying
-> about link changes. It is just a prototype to get early feedback, don't
-> use to build your own masterpiece yet.
-> 
 
-> +static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
-> +{
-> +	struct net_device *dev;
-> +	int idx = 0;
-> +	int err = 0;
-> +
-> +	printk(KERN_DEBUG "bridge dump ifinfo\n");
-> +	for (dev = dev_base; dev; dev = dev->next) {
-> +		struct net_bridge_port *p = rcu_dereference(dev->br_port);
+From: Andrew Morton <akpm@osdl.org>
 
+In file included from drivers/net/smc911x.c:84:
+drivers/net/smc911x.h:46:9: warning: "SMC_USE_16BIT" is not defined
+drivers/net/smc911x.h:60:9: warning: "SMC_USE_32BIT" is not defined
+drivers/net/smc911x.h:73:10: warning: "SMC_USE_PXA_DMA" is not defined
+drivers/net/smc911x.c: In function `smc911x_reset':
+drivers/net/smc911x.c:247: warning: implicit declaration of function `SMC_inl'
+drivers/net/smc911x.c:249: warning: implicit declaration of function `SMC_outl'
 
-I think using rcu_dereference (especially without rcu_read_lock()) is
-a bit misleading, the pointer is actually protected by the RTNL at
-this point.
+Cc: Dustin McIntire <dustin@sensoria.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
+ drivers/net/Kconfig |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN drivers/net/Kconfig~smc911x-Kconfig-fix drivers/net/Kconfig
+--- devel/drivers/net/Kconfig~smc911x-Kconfig-fix	2006-04-26 20:42:30.000000000 -0700
++++ devel-akpm/drivers/net/Kconfig	2006-04-26 20:42:56.000000000 -0700
+@@ -869,7 +869,7 @@ config SMC911X
+ 	tristate "SMSC LAN911[5678] support"
+ 	select CRC32
+ 	select MII
+-	depends on NET_ETHERNET
++	depends on NET_ETHERNET && ARCH_PXA
+ 	help
+ 	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
+ 	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
+_
