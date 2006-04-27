@@ -1,69 +1,107 @@
 From: akpm@osdl.org
-Subject: [patch 2/9] tulip: NatSemi DP83840A PHY fix
-Date: Thu, 27 Apr 2006 02:30:36 -0700
-Message-ID: <200604270932.k3R9W4Xj025312@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, T-Bone@parisc-linux.org,
-	grundler@parisc-linux.org, jgarzik@pobox.com,
-	varenet@parisc-linux.org
+Subject: [patch 7/9] e100: disable interrupts at boot
+Date: Thu, 27 Apr 2006 02:30:43 -0700
+Message-ID: <200604270932.k3R9WBhr025327@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, nils.rennebarth@packetalarm.com,
+	stern@rowland.harvard.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:17359 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965026AbWD0JcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:14 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:25807 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965028AbWD0Jc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 05:32:26 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Thibaut VARENE <T-Bone@parisc-linux.org>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Fix a problem with Tulip 21142 HP branded PCI cards (PN#: B5509-66001),
-which feature a NatSemi DP83840A PHY.
+Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
+firmware explicitly disables PRO/100 interrupts, we can get a flood of
+interrupts when a driver attaches to an unrelated device that happens to
+share the PRO/100 IRQ.
 
-Without that patch, it is impossible to properly initialize the card's PHY,
-and it's thus impossible to monitor/configure it.
+This should resolve this "irq 11: nobody cared" bug report:
+    http://bugzilla.kernel.org/show_bug.cgi?id=5918
 
-It's a timing/posting problem, and it is solved exactly the same way Grant
-fixed it elsewhere already.
-
-Signed-off-by: Thibaut VARENE <varenet@parisc-linux.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: John Ronciak <john.ronciak@intel.com>
+Cc: <stern@rowland.harvard.edu>
+Cc: <nils.rennebarth@packetalarm.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/tulip/media.c |   18 +++++++++++++++++-
- 1 files changed, 17 insertions(+), 1 deletion(-)
+ drivers/pci/quirks.c |   57 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 57 insertions(+)
 
-diff -puN drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix drivers/net/tulip/media.c
---- devel/drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix	2006-04-10 23:21:18.000000000 -0700
-+++ devel-akpm/drivers/net/tulip/media.c	2006-04-10 23:21:18.000000000 -0700
-@@ -261,11 +261,27 @@ void tulip_select_media(struct net_devic
- 				u16 *reset_sequence = &((u16*)(p+3))[init_length];
- 				int reset_length = p[2 + init_length*2];
- 				misc_info = reset_sequence + reset_length;
--				if (startup)
-+				if (startup) {
-+					int timeout = 10;	/* max 1 ms */
- 					for (i = 0; i < reset_length; i++)
- 						iowrite32(get_u16(&reset_sequence[i]) << 16, ioaddr + CSR15);
+diff -puN drivers/pci/quirks.c~e100-disable-interrupts-at-boot drivers/pci/quirks.c
+--- devel/drivers/pci/quirks.c~e100-disable-interrupts-at-boot	2006-04-14 23:41:34.000000000 -0700
++++ devel-akpm/drivers/pci/quirks.c	2006-04-14 23:41:34.000000000 -0700
+@@ -1374,6 +1374,63 @@ static void __devinit quirk_netmos(struc
+ }
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID, quirk_netmos);
+ 
++static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
++{
++	u16 command;
++	u32 bar;
++	u8 __iomem *csr;
++	u8 cmd_hi;
 +
-+					/* flush posted writes */
-+					ioread32(ioaddr + CSR15);
++	switch (dev->device) {
++	/* PCI IDs taken from drivers/net/e100.c */
++	case 0x1029:
++	case 0x1030 ... 0x1034:
++	case 0x1038 ... 0x103E:
++	case 0x1050 ... 0x1057:
++	case 0x1059:
++	case 0x1064 ... 0x106B:
++	case 0x1091 ... 0x1095:
++	case 0x1209:
++	case 0x1229:
++	case 0x2449:
++	case 0x2459:
++	case 0x245D:
++	case 0x27DC:
++		break;
++	default:
++		return;
++	}
 +
-+					/* Sect 3.10.3 in DP83840A.pdf (p39) */
-+					udelay(500);
++	/*
++	 * Some firmware hands off the e100 with interrupts enabled,
++	 * which can cause a flood of interrupts if packets are
++	 * received before the driver attaches to the device.  So
++	 * disable all e100 interrupts here.  The driver will
++	 * re-enable them when it's ready.
++	 */
++	pci_read_config_word(dev, PCI_COMMAND, &command);
++	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
 +
-+					/* Section 4.2 in DP83840A.pdf (p43) */
-+					/* and IEEE 802.3 "22.2.4.1.1 Reset" */
-+					while (timeout-- &&
-+						(tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
-+						udelay(100);
-+				}
- 				for (i = 0; i < init_length; i++)
- 					iowrite32(get_u16(&init_sequence[i]) << 16, ioaddr + CSR15);
++	if (!(command & PCI_COMMAND_MEMORY) || !bar)
++		return;
 +
-+				ioread32(ioaddr + CSR15);	/* flush posted writes */
- 			} else {
- 				u8 *init_sequence = p + 2;
- 				u8 *reset_sequence = p + 3 + init_length;
++	csr = ioremap(bar, 8);
++	if (!csr) {
++		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
++			pci_name(dev));
++		return;
++	}
++
++	cmd_hi = readb(csr + 3);
++	if (cmd_hi == 0) {
++		printk(KERN_WARNING "PCI: Firmware left %s e100 interrupts "
++			"enabled, disabling\n", pci_name(dev));
++		writeb(1, csr + 3);
++	}
++
++	iounmap(csr);
++}
++DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
+ 
+ static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
+ {
 _
