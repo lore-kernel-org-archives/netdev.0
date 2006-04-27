@@ -1,37 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Thu, 27 Apr 2006 00:52:36 -0700 (PDT)
-Message-ID: <20060427.005236.33630374.davem@davemloft.net>
-References: <200604270817.36041.ak@suse.de>
-	<20060426.232724.07687472.davem@davemloft.net>
-	<200604270841.52349.ak@suse.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] bridge: partial rtnetlink hooks
+Date: Thu, 27 Apr 2006 10:24:18 +0200
+Message-ID: <44507FB2.5050002@trash.net>
+References: <20060426104521.44682924@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: caitlinb@broadcom.com, jeff@garzik.org, kelly@au1.ibm.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35244
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932428AbWD0HxM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Apr 2006 03:53:12 -0400
-To: ak@suse.de
-In-Reply-To: <200604270841.52349.ak@suse.de>
+Received: from stinky.trash.net ([213.144.137.162]:25521 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S964976AbWD0IYU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Apr 2006 04:24:20 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060426104521.44682924@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Thu, 27 Apr 2006 08:41:51 +0200
+Stephen Hemminger wrote:
+> This is the start of adding support for rtnetlink to the bridge code.
+> So far it only supports accessing the list of links and notifying
+> about link changes. It is just a prototype to get early feedback, don't
+> use to build your own masterpiece yet.
+> 
 
-> Yes but all clients will see all the data from all sockets don't
-> they?  [Unless you have a RDMA nic that can scale to hundred
-> thousands of connections, but let's assume standard hardware for
-> now]
+> +static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+> +{
+> +	struct net_device *dev;
+> +	int idx = 0;
+> +	int err = 0;
+> +
+> +	printk(KERN_DEBUG "bridge dump ifinfo\n");
+> +	for (dev = dev_base; dev; dev = dev->next) {
+> +		struct net_bridge_port *p = rcu_dereference(dev->br_port);
 
-Each netchannel, which goes to a specific socket, has a ring
-buffer of packets the NIC can use.  Those packets are mmap()'d
-into userspace so we can control the layout, the page boundaries,
-etc. and the NIC will only DMA packets matching that channel ID
-into that userland area.
 
-Have a look at the code Kelly posted.
+I think using rcu_dereference (especially without rcu_read_lock()) is
+a bit misleading, the pointer is actually protected by the RTNL at
+this point.
+
