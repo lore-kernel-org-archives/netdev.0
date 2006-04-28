@@ -1,95 +1,72 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 2/6] rt2x00 update: Deactivate monitor_during_oper for now
-Date: Fri, 28 Apr 2006 16:52:26 +0200
-Message-ID: <200604281652.27149.IvDoorn@gmail.com>
+Subject: Re: [PATCH 20/32] rt2x00: byte ordering correctness
+Date: Fri, 28 Apr 2006 17:01:32 +0200
+Message-ID: <200604281701.33512.IvDoorn@gmail.com>
+References: <200604280003.12743.IvDoorn@gmail.com> <200604281542.29534.mb@bu3sch.de> <20060428134632.GA4526@infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart6828701.gBFqCU93oe";
+  boundary="nextPart3865250.pgA6czVHLs";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: rt2x00-devel@lfcorreia.dyndns.org
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.191]:61151 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S965217AbWD1Ov0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 10:51:26 -0400
-Received: by nproxy.gmail.com with SMTP id n29so1594528nfc
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2006 07:51:25 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from nproxy.gmail.com ([64.233.182.189]:34295 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1030425AbWD1PAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 11:00:24 -0400
+Received: by nproxy.gmail.com with SMTP id n29so1596267nfc
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2006 08:00:23 -0700 (PDT)
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20060428134632.GA4526@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart6828701.gBFqCU93oe
+--nextPart3865250.pgA6czVHLs
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-=46rom: Ivo van Doorn <IvDoorn@gmail.com>
+On Friday 28 April 2006 15:46, Christoph Hellwig wrote:
+> On Fri, Apr 28, 2006 at 03:42:29PM +0200, Michael Buesch wrote:
+> > I guess you are confusing something here:
+> > MMIO access versus values in structs (for example) that=20
+> > are accessed through DMA (for example).
+>=20
+> so there's two general problems:
+>=20
+>   mmio/pio   - linux expects the device to be le there by defalt and
+>                {read,write}{b,s,l} do the switch automatically
+>   dmaed data - you always need to switch data yourself, data is commonly
+>   	       either be or le
+>=20
+> now there's devices that are always be for mmio or can be switched to it
+> during initialization.  For Linux you'd traditionally have to switch befo=
+re
+> calling {read,write}{b,s,l} or use the __raw_ version that have other iss=
+ues.
+> The ioread*/iowrite* APIs now have a BE version, too.
 
-Set monitor_during_oper to 0 for the time being,
-this feature will be supported in the future.
+Unless I am mistaken, or the ralink design sheets are outdated on that issu=
+e,
+I do recall that there was a big endian switch in one of the registers.
+I think I need to definately investigate that to see if it would be usefull=
+=2E :)
 
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+Thanks,
 
-diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci=
-=2Ec wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci=
-=2Ec
-=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	20=
-06-04-28 15:13:49.000000000 +0200
-+++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci.=
-c	2006-04-28 15:16:23.000000000 +0200
-@@ -2362,7 +2362,7 @@ rt2400pci_init_hw(struct rt2x00_pci *rt2
- 	hw->no_tkip_wmm_hwaccel =3D 1;
- 	hw->extra_hdr_room =3D 0;
- 	hw->device_strips_mic =3D 0;
-=2D	hw->monitor_during_oper =3D 1;
-+	hw->monitor_during_oper =3D 0;
- 	hw->fraglist =3D 0;
-=20
- 	/*
-diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci=
-=2Ec wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci=
-=2Ec
-=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	20=
-06-04-28 15:12:23.000000000 +0200
-+++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci.=
-c	2006-04-28 15:16:23.000000000 +0200
-@@ -2619,7 +2619,7 @@ rt2500pci_init_hw(struct rt2x00_pci *rt2
- 	hw->no_tkip_wmm_hwaccel =3D 1;
- 	hw->extra_hdr_room =3D 0;
- 	hw->device_strips_mic =3D 0;
-=2D	hw->monitor_during_oper =3D 1;
-+	hw->monitor_during_oper =3D 0;
- 	hw->fraglist =3D 0;
- 	hw->channel_change_time =3D 2000;
-=20
-diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500usb=
-=2Ec wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500usb=
-=2Ec
-=2D-- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	20=
-06-04-28 15:13:01.000000000 +0200
-+++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500usb.=
-c	2006-04-28 15:16:22.000000000 +0200
-@@ -2233,7 +2233,7 @@ rt2500usb_init_hw(struct rt2x00_usb *rt2
- 	hw->no_tkip_wmm_hwaccel =3D 1;
- 	hw->extra_hdr_room =3D 0;
- 	hw->device_strips_mic =3D 0;
-=2D	hw->monitor_during_oper =3D 1;
-+	hw->monitor_during_oper =3D 0;
- 	hw->fraglist =3D 0;
- 	hw->channel_change_time =3D 500000;
-=20
+Ivo
 
---nextPart6828701.gBFqCU93oe
+--nextPart3865250.pgA6czVHLs
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBEUiwraqndE37Em0gRArEbAKCdjvsF9cJY26pzZgEGel8thrDexACgqh9j
-qwvmYTgDYxKZlzYN4jbq+1o=
-=dHUQ
+iD8DBQBEUi5NaqndE37Em0gRAlnXAJ0SjBLp5RQ5hu30yWABmkMY1dN47ACgnYXb
+EpishO08jAFo+LbUKMLbv00=
+=Hhhg
 -----END PGP SIGNATURE-----
 
---nextPart6828701.gBFqCU93oe--
+--nextPart3865250.pgA6czVHLs--
