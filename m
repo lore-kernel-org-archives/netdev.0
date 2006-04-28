@@ -1,30 +1,44 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 20/32] rt2x00: byte ordering correctness
-Date: Fri, 28 Apr 2006 14:14:30 +0100
-Message-ID: <20060428131430.GA3288@infradead.org>
-References: <200604280003.12743.IvDoorn@gmail.com> <20060427221321.GB22135@infradead.org> <200604281459.24186.IvDoorn@gmail.com>
+Subject: Re: [PATCH 3/32] rt2x00: use pci_*_consistent for DMA mapping
+Date: Fri, 28 Apr 2006 14:15:33 +0100
+Message-ID: <20060428131533.GB3288@infradead.org>
+References: <200604280002.52839.IvDoorn@gmail.com> <20060427221127.GA22135@infradead.org> <200604281457.35460.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
 	rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:20139 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:31695 "EHLO
 	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1030392AbWD1NOc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Apr 2006 09:14:32 -0400
+	id S1030388AbWD1NPe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 09:15:34 -0400
 To: Ivo van Doorn <ivdoorn@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <200604281459.24186.IvDoorn@gmail.com>
+In-Reply-To: <200604281457.35460.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 28, 2006 at 02:59:23PM +0200, Ivo van Doorn wrote:
-> I am not sure if that would be a wise idea,
-> there is no byte ordering done in rt2500usb except for the EEPROM
-> contents which is little endian.
-> So when the module is used on a normal x86 platform, there won't be
-> any big endian structures or fields.
+On Fri, Apr 28, 2006 at 02:57:31PM +0200, Ivo van Doorn wrote:
+> On Friday 28 April 2006 00:11, Christoph Hellwig wrote:
+> > On Fri, Apr 28, 2006 at 12:02:52AM +0200, Ivo van Doorn wrote:
+> > > From: Ivo van Doorn <IvDoorn@gmail.com>
+> > > 
+> > > Instead of dma_*_coherent
+> > > use pci_*consistent functions.
+> > 
+> > No point in doing that, quite reverse as you use the gfp_mask argument
+> > which is a (small) pessimation here.
+> 
+> Would it be recommended that I replace the usb_alloc_buffers in the
+> rt2570 driver with dma_*coherent?
+> This would get the dma rings allocation and freeing a bit more generic
+> between PCI and USB and could reduce some duplicate code between them.
+> But I am not sure if there is any major difference between the two.
 
-Well, then you'll need __le* annotation and the le*_to_cpu/cpu_to_le*
-instead.  Any new driver should be endian clean.
+I don't have the full code for your driver anywhere near me so I can't
+comment on this.  Maybe you could send the code of 'usb_alloc_buffers'
+for comments?
 
+
+
+---end quoted text---
