@@ -1,42 +1,53 @@
-From: Dave Jones <davej@redhat.com>
-Subject: E1000 stopped transmitting in rc3.
-Date: Thu, 27 Apr 2006 20:13:52 -0400
-Message-ID: <20060428001352.GA3319@redhat.com>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 20/24] NET: e1000: Update truesize with the length of the packet for packet split
+Date: Thu, 27 Apr 2006 17:22:23 -0700
+Message-ID: <20060428002223.GU18750@kroah.com>
+References: <20060428001226.204293000@quad.kroah.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:21693 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751736AbWD1ANy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Apr 2006 20:13:54 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id k3S0DsZN017390
-	for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 20:13:54 -0400
-Received: from nwo.kernelslacker.org (vpn83-146.boston.redhat.com [172.16.83.146])
-	by int-mx1.corp.redhat.com (8.12.11.20060308/8.11.6) with ESMTP id k3S0DrQZ001390
-	for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 20:13:53 -0400
-Received: from nwo.kernelslacker.org (localhost.localdomain [127.0.0.1])
-	by nwo.kernelslacker.org (8.13.6/8.13.5) with ESMTP id k3S0DqSb005386
-	for <netdev@vger.kernel.org>; Thu, 27 Apr 2006 20:13:52 -0400
-Received: (from davej@localhost)
-	by nwo.kernelslacker.org (8.13.6/8.13.6/Submit) id k3S0DqRQ005385
-	for netdev@vger.kernel.org; Thu, 27 Apr 2006 20:13:52 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, john.ronciak@intel.com,
+	Jeffrey.t.kirsher@intel.com, auke@foo-projects.org,
+	davem@davemloft.net, Auke Kok <auke-jan.h.kok@intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965169AbWD1AYu@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org, jgarzik@pobox.com
+Content-Disposition: inline; filename="net-e1000-update-truesize-with-the-length-of-the-packet-for-packet-split.patch"
+In-Reply-To: <20060428001557.GA18750@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With 2.6.17-rc3, my E1000 won't get a dhcp lease.
-Looking at tcpdump and ifconfig output, it's easy to see why.
-It's recieving packets, but the packets transmitted field
-of ifconfig never increases.
+-stable review patch.  If anyone has any objections, please let us know.
 
-The last version I have built that worked ok was 2.6.17rc2-git3
+------------------
 
-NIC is ..
-03:0e.0 Ethernet controller: Intel Corporation 82545GM Gigabit Ethernet Controller (rev 04)
-(8086:1026)
+Update skb with the real packet size.
 
-		Dave
 
--- 
-http://www.codemonkey.org.uk
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ drivers/net/e1000/e1000_main.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-2.6.16.11.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6.16.11/drivers/net/e1000/e1000_main.c
+@@ -3851,6 +3851,7 @@ e1000_clean_rx_irq_ps(struct e1000_adapt
+ 			skb_shinfo(skb)->nr_frags++;
+ 			skb->len += length;
+ 			skb->data_len += length;
++			skb->truesize += length;
+ 		}
+ 
+ 		e1000_rx_checksum(adapter, staterr,
+
+--
