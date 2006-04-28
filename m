@@ -1,55 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Fireflier-devel] Re: [PATCH][RFC] Security marking
-Date: Fri, 28 Apr 2006 09:19:04 +0200
-Message-ID: <4451C1E8.9040104@trash.net>
-References: <20060417184053.6D618378FD@localhost.localdomain> <Pine.LNX.4.64.0604172051510.20174@d.namei> <200604232157.59758.edwin@gurde.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Fri, 28 Apr 2006 00:20:27 -0700 (PDT)
+Message-ID: <20060428.002027.51369887.davem@davemloft.net>
+References: <54AD0F12E08D1541B826BE97C98F99F143B020@NT-SJCA-0751.brcm.ad.broadcom.com>
+	<20060428061054.GD17360@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, James Morris <jmorris@namei.org>,
-	fireflier-devel@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: caitlinb@broadcom.com, kelly@au1.ibm.com, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:6053 "EHLO stinky.trash.net")
-	by vger.kernel.org with ESMTP id S1030287AbWD1HTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 03:19:06 -0400
-To: =?ISO-8859-1?Q?T=F6r=F6k_Edwin?= <edwin@gurde.com>
-In-Reply-To: <200604232157.59758.edwin@gurde.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:8330
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030283AbWD1HUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 03:20:35 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060428061054.GD17360@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T=F6r=F6k Edwin wrote:
-> Patrick what is the status of solving the skfilter issues? Can I help=
- with=20
-> testing patches,  etc.?
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Fri, 28 Apr 2006 10:10:54 +0400
 
-Not yet. If nothing gets in between I plan to get the patches ready
-next week.
+> On Thu, Apr 27, 2006 at 02:12:09PM -0700, Caitlin Bestler (caitlinb@broadcom.com) wrote:
+> > So the real issue is when there is an intelligent device that
+> > uses hardware packet classification to place the packet in
+> > the correct ring. We don't want to bypass packet filtering,
+> > but it would be terribly wasteful to reclassify the packet.
+> > Intelligent NICs will have packet classification capabilities
+> > to support RDMA and iSCSI. Those capabilities should be available
+> > to benefit SOCK_STREAM and SOCK_DGRAM users as well without it
+> > being a choice of either turning all stack control over to
+> > the NIC or ignorign all NIC capabilities beyound pretending
+> > to be a dumb Ethernet NIC.
+> 
+> Btw, how is it supposed to work without header split capabale hardware?
 
-> On Monday 20 February 2006 18:42, Patrick McHardy wrote:
->=20
->>Confirmation of conntrack entries. They shouldn't be confirmed before
->>packets have passed the socket hooks. This is the tricky part because
->>we don't know if packets will be delivered to a raw socket or not
->>when calling the regular LOCAL_IN hook.
->>The only way to solve this=20
->>seems to be to use the socket hooks for all incoming packets, that
->>way we can defer confirmation unconditionally.
->=20
-> Are there any problems with using socket hooks for all packets?
+I do not see header splitting as a requirement, let the raw
+headers sit in the user queue and provide an offset to the data.
+All of this page alignment stuff is unnecessary complexity.
 
-Not really, just that some protocols don't use sockets, so its a bit
-pointless for them. OTOH it should make rule management easier if
-everything can be done in the same table.
+I know you think applications are too dumb to be expected to handle
+these kinds of things, but how many apps do you expect to convert over
+to these new interfaces?
 
->>The nicest way would=20
->>be to just move the regular LOCAL_IN hook to the socket hooks, but
->>this doesn't work with SNAT in LOCAL_IN because the socket lookup
->>needs the already NATed address.
->=20
-> Move just the non SNAT part of LOCAL_IN to socket hooks?(does this ma=
-ke=20
-> sense?)
-
-That would be my prefered way, but it changes user-visible behaviour.
-Currently filtering is done before SNAT, this change would reverse
-that.
+The ones that matter will, and great care will be made by the
+programmer who does this.
