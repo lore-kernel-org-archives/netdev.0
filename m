@@ -1,41 +1,76 @@
-From: David =?utf-8?B?R8OzbWV6?= <david@pleyades.net>
-Subject: Re: IP1000 gigabit nic driver
-Date: Fri, 28 Apr 2006 13:37:55 +0200
-Message-ID: <20060428113755.GA7419@fargo>
-References: <20060427142939.GA31473@fargo> <20060427185627.GA30871@electric-eye.fr.zoreil.com> <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo> <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 17/32] rt2x00: Put net_device structure in data_ring
+Date: Fri, 28 Apr 2006 13:45:21 +0200
+Message-ID: <200604281345.22006.netdev@axxeo.de>
+References: <200604280003.09753.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Vrabel <dvrabel@cantab.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.hostinglmi.net ([213.194.149.12]:9622 "EHLO
-	ns2.hostinglmi.net") by vger.kernel.org with ESMTP id S965004AbWD1Lc3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Apr 2006 07:32:29 -0400
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+Received: from mail.axxeo.de ([82.100.226.146]:55764 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S965201AbWD1Lpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 07:45:33 -0400
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200604280003.09753.IvDoorn@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pekka,
+Hi Ivo,
 
-On Apr 28 at 01:58:04, Pekka Enberg wrote:
-> Needs some serious coding style cleanup and conversion to proper 2.6
-> APIs for starters.
+Ivo van Doorn wrote:
+> diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+> --- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-04-27 21:48:21.000000000 +0200
+> +++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-04-27 21:49:08.000000000 +0200
+> @@ -760,10 +760,8 @@ rt2400pci_write_tx_desc(
+>  static void
+>  rt2400pci_beacondone(void *data)
+>  {
+> -	struct data_ring	*ring = (struct data_ring*)data;
+> -	struct rt2x00_pci	*rt2x00pci = (struct rt2x00_pci*)ring->dev;
+> -	struct net_device	*net_dev = pci_get_drvdata(rt2x00pci->pci_dev);
+> -	struct sk_buff		*skb;
+> +	struct data_ring		*ring = (struct data_ring*)data;
 
-Ok, i could take care of that, and it's a good way of getting my hands
-dirty with kernel programming ;). David, if it's ok to you i'll do the
-cleanup thing.
+No need for a cast here. 
+In C you can cast from any struct pointer to void pointer and back
+without problems.
 
-What about 2.4/2.2 code? It's supposed to stay for compatibility
-or it should be removed before submitting?
+> @@ -784,8 +782,8 @@ static void
+>  rt2400pci_rxdone(void *data)
+>  {
+>  	struct data_ring	*ring = (struct data_ring*)data;
 
-cheers,
+No need for casting.
 
---=20
-David G=C3=B3mez                                      Jabber ID: davidg=
-e@jabber.org
+> @@ -835,8 +834,8 @@ static void
+>  rt2400pci_txdone(void *data)
+>  {
+>  	struct data_ring	*ring = (struct data_ring*)data;
+
+No need for casting.
+
+> diff -uprN wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+> --- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-04-27 21:48:21.000000000 +0200
+> +++ wireless-dev-rt2x00-patch/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-04-27 21:49:08.000000000 +0200
+> @@ -834,10 +834,8 @@ rt2500pci_write_tx_desc(
+>  static void
+>  rt2500pci_beacondone(void *data)
+>  {
+> -	struct data_ring	*ring = (struct data_ring*)data;
+> -	struct rt2x00_pci	*rt2x00pci = (struct rt2x00_pci*)ring->dev;
+> -	struct net_device	*net_dev = pci_get_drvdata(rt2x00pci->pci_dev);
+> -	struct sk_buff		*skb;
+> +	struct data_ring		*ring = (struct data_ring*)data;
+
+No need for casting.
+
+Many more of them.
+
+I guess you could just do a fgrep for "*ring = (struct data_ring*)data;"
+
+Regards
+
+Ingo Oeser
