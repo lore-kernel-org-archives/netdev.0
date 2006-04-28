@@ -1,72 +1,51 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 20/32] rt2x00: byte ordering correctness
-Date: Fri, 28 Apr 2006 17:01:32 +0200
-Message-ID: <200604281701.33512.IvDoorn@gmail.com>
-References: <200604280003.12743.IvDoorn@gmail.com> <200604281542.29534.mb@bu3sch.de> <20060428134632.GA4526@infradead.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [PATCH] bcm43xx_d80211: fix bug in open
+Date: Fri, 28 Apr 2006 17:45:49 +0200
+Message-ID: <20060428174549.5480ed9a@griffin.suse.cz>
+References: <20060421220951.205579000.midnight@suse.cz>
+	<200604212252.08325.mb@bu3sch.de>
+	<20060421225210.36a0225b@griffin.suse.cz>
+	<20060426193907.GB7922@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3865250.pgA6czVHLs";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	rt2x00-devel@lfcorreia.dyndns.org
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.189]:34295 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1030425AbWD1PAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 11:00:24 -0400
-Received: by nproxy.gmail.com with SMTP id n29so1596267nfc
-        for <netdev@vger.kernel.org>; Fri, 28 Apr 2006 08:00:23 -0700 (PDT)
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20060428134632.GA4526@infradead.org>
+Received: from styx.suse.cz ([82.119.242.94]:10417 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1030440AbWD1Ppv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 11:45:51 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060426193907.GB7922@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3865250.pgA6czVHLs
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 26 Apr 2006 15:39:12 -0400, John W. Linville wrote:
+> Hacky or not, I'm applying this patch to keep the bcm43xx driver
+> from breaking.  I don't suppose you have a patch for the rt2x00 driver?
 
-On Friday 28 April 2006 15:46, Christoph Hellwig wrote:
-> On Fri, Apr 28, 2006 at 03:42:29PM +0200, Michael Buesch wrote:
-> > I guess you are confusing something here:
-> > MMIO access versus values in structs (for example) that=20
-> > are accessed through DMA (for example).
->=20
-> so there's two general problems:
->=20
->   mmio/pio   - linux expects the device to be le there by defalt and
->                {read,write}{b,s,l} do the switch automatically
->   dmaed data - you always need to switch data yourself, data is commonly
->   	       either be or le
->=20
-> now there's devices that are always be for mmio or can be switched to it
-> during initialization.  For Linux you'd traditionally have to switch befo=
-re
-> calling {read,write}{b,s,l} or use the __raw_ version that have other iss=
-ues.
-> The ioread*/iowrite* APIs now have a BE version, too.
+The patch for bcm43xx was really just quick fix, only partially
+tested...
 
-Unless I am mistaken, or the ralink design sheets are outdated on that issu=
-e,
-I do recall that there was a big endian switch in one of the registers.
-I think I need to definately investigate that to see if it would be usefull=
-=2E :)
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
-Thanks,
+---
 
-Ivo
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
---nextPart3865250.pgA6czVHLs
-Content-Type: application/pgp-signature
+--- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -4172,7 +4172,7 @@ static int bcm43xx_net_open(struct net_d
+ 	int res;
+ 
+ 	res = bcm43xx_init_board(bcm);
+-	if (!res)
++	if (res)
+ 		return res;
+ 	bcm43xx_set_iwmode(bcm, bcm->iw_mode);
+ 	return 0;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBEUi5NaqndE37Em0gRAlnXAJ0SjBLp5RQ5hu30yWABmkMY1dN47ACgnYXb
-EpishO08jAFo+LbUKMLbv00=
-=Hhhg
------END PGP SIGNATURE-----
-
---nextPart3865250.pgA6czVHLs--
+-- 
+Jiri Benc
+SUSE Labs
