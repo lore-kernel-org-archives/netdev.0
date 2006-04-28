@@ -1,45 +1,95 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
 Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 15:00:56 -0700 (PDT)
-Message-ID: <20060428.150056.18940876.davem@davemloft.net>
-References: <20060428.121636.54294183.davem@davemloft.net>
-	<20060428124915.686911c1@localhost.localdomain>
-	<20060428195930.GB21294@2ka.mipt.ru>
+Date: Sat, 29 Apr 2006 08:04:04 +1000
+Message-ID: <1146261844.8029.54.camel@localhost.localdomain>
+References: <54AD0F12E08D1541B826BE97C98F99F143B020@NT-SJCA-0751.brcm.ad.broadcom.com>
+	 <1146212660.8029.38.camel@localhost.localdomain>
+	 <20060428.122102.76435590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org
+Cc: caitlinb@broadcom.com, johnpol@2ka.mipt.ru, kelly@au1.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13260
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751679AbWD1WA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Apr 2006 18:00:59 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060428195930.GB21294@2ka.mipt.ru>
+Received: from ozlabs.org ([203.10.76.45]:23195 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S1751456AbWD1WEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 18:04:33 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060428.122102.76435590.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Fri, 28 Apr 2006 23:59:30 +0400
-
-> kevent can be used as poll without any changes to the socket code.
-> There are two types of network related kevents - socket events
-> (recv/send/accept) and network aio, which can be turned completely off
-> in config.
-> There are following events which are supported by kevent:
-> o usual poll/select notifications
-> o inode notifications (create/remove)
-> o timer notifications
-> o socket notifications (send/recv/accept)
-> o network aio system
-> o fs aio (project closed, aio_sendfile() is being developed instead)
+On Fri, 2006-04-28 at 12:21 -0700, David S. Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Fri, 28 Apr 2006 18:24:08 +1000
 > 
-> Any of the above can be turned off by config option.
+> > Note that the problem space AFAICT includes strange advanced routing
+> > setups, ingress qos and possibly others, not just netfilter.  But
+> > perhaps the same solutions apply, so I'll concentrate on nf.
+> 
+> Yes, this hasn't been mentioned explicitly yet.
+> 
+> The big problem is that we don't want the classifier to become
+> overly complex.
+> 
+> One scheme I'm thinking about right now is an ordered lookup
+> that looks like:
+> 
+> 1) Check for established sockets, they trump everything else.
+> 
+> 2) Check for classifier rules, ie. netfilter and packet scheduler
+>    stuff
+> 
+> 3) Check for listening sockets
+> 
+> 4) default channel
+> 
+> #2 is still an unsolved problem, we don't want this big complex
+> classifier to be required in the hardware implementations.
+> However, using just IP addresses and ports does not map well to
+> what netfilter and co. want.
 
-Feel free to post the current version of your kevent patch
-here so we can discuss something concrete.
+You're still thinking you can bypass classifiers for established
+sockets, but I really don't think you can.  I think the simplest
+solution is to effectively remove from (or flag) the established &
+listening hashes anything which could be effected by classifiers, so
+those packets get send through the default channel.
 
-Maybe you have even some toy example user applications that
-use kevent that people can look at too?  That might help
-in understanding how it's supposed to be used.
+This can graduate from "all or nothing" to some more fine-grained scheme
+over time.  I have some early thoughts on how we could really do this
+with filtering by connection tracking state; serious work, but feasible.
+
+> > Ah, this is a different problem.  Our idea was to have a syscall which
+> > would check & sanitize the buffers for output.  To do this, you need the
+> > ability to chain buffers (a simple next entry in the header, for us).
+> > 
+> > Sanitization would copy the header into a global buffer (ie. not one
+> > reachable by userspace), check the flowid, and chain on the rest of the
+> > user buffer.  After it had sanitized the buffers, it would activate the
+> > NIC, which would only send out buffers which started with a kernel
+> > buffer.
+> > 
+> > Of course, the first step (CAP_NET_RAW-only) wouldn't need this.  And,
+> > if the "sanitize_and_send" syscall were PF_VJCHAN's write(), then the
+> > contents of the write() could actually be the header: userspace would
+> > never deal with chained buffers.
+> 
+> I am not sure any of this is anything more than overhead.
+> 
+> If we just pop the buffers directly into the user mmap()'d ring
+> buffer, headers and all, and give an offset+length pair so the
+> user knows where the data starts and how much data is there, it
+> should all just work out.  Where to put the offset+length is
+> just a detail.
+
+Agreed, but I was talking about userspace *send*, in reply to Caitlin
+bringing it up.  A little off-topic, but I mentioned our thoughts simply
+to show that it's possible to do unpriv'ed output...
+
+(Kelly is taking a couple of well-earned days off ATM).
+
+Cheers!
+Rusty.
+-- 
+ ccontrol: http://ozlabs.org/~rusty/ccontrol
+
