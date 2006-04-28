@@ -1,56 +1,36 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Sat, 29 Apr 2006 08:17:01 +1000
-Message-ID: <1146262622.8029.63.camel@localhost.localdomain>
-References: <54AD0F12E08D1541B826BE97C98F99F143B10A@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [IPSEC]: Fix IP ID selection
+Date: Fri, 28 Apr 2006 15:23:19 -0700 (PDT)
+Message-ID: <20060428.152319.58444954.davem@davemloft.net>
+References: <20060427115645.GA20140@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"David S. Miller" <davem@davemloft.net>, kelly@au1.ibm.com,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:53147 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1751728AbWD1WRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 18:17:30 -0400
-To: Caitlin Bestler <caitlinb@broadcom.com>
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F143B10A@NT-SJCA-0751.brcm.ad.broadcom.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20364
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751775AbWD1WXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 18:23:08 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060427115645.GA20140@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-04-28 at 10:55 -0700, Caitlin Bestler wrote:
-> vj_netchannels represent a strategy of minimizing
-> registration/pinning costs even if it means paying for an extra copy.
-> Because the extra copy is closely tied to the activation of the data
-> sink consumer the cost of that extra copy is greatly reduced because
-> it places the data in the cache immediately before the application
-> will in fact use the received data.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 27 Apr 2006 21:56:45 +1000
 
-Just to be clear here: I agree with Dave that without classifying
-hardware, there's no point (and much pain) in going all the way to
-userspace with the channel (ie. mmap).  If you're going to copy anyway,
-might as well do it in the socket's read() call: then the user can then
-aim the copy exactly where they want, too.  We'll need that TCP code in
-the kernel for the foreseeable future anyway 8)
+> I was looking through the xfrm input/output code in order to abstract
+> out the address family specific encapsulation/decapsulation code.  During
+> that process I found this bug in the IP ID selection code in xfrm4_output.c.
+> 
+> At that point dst is still the xfrm_dst for the current SA which
+> represents an internal flow as far as the IPsec tunnel is concerned.
+> Since the IP ID is going to sit on the outside of the encapsulated
+> packet, we obviously want the external flow which is just dst->child.
+> 
+> The fix is trivial.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-However, in future, if intelligent cards exist, having an API which lets
-them do zero-copy and not overly penalize less intelligent cards makes
-sense.
-
-Side note: my Xen I/O patches allow the implementation of exactly this
-kind of virtual hardware (no coincidence 8), so intelligent cards might
-not be as far away as you think...
-
-> Also keep in mind that once the issues are resolved to allow the
-> netchannel rings to be directly visible to a user-mode client that
-> enhanced/specialized interfaces can easily be added in user-mode
-> libraries. So focusing on supporting existing conventional interfaces
-> is probably the best approach for the initial efforts.
-
-Absolutely.
-
-Cheers!
-Rusty.
--- 
- ccontrol: http://ozlabs.org/~rusty/ccontrol
-
+Thanks for catching this, applied, thanks Herbert.
