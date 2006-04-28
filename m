@@ -1,32 +1,41 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH 7/32] rt2x00: make vals static
-Date: Fri, 28 Apr 2006 13:26:43 +0200
-Message-ID: <200604281326.43769.netdev@axxeo.de>
-References: <200604280002.58147.IvDoorn@gmail.com>
+From: David =?utf-8?B?R8OzbWV6?= <david@pleyades.net>
+Subject: Re: IP1000 gigabit nic driver
+Date: Fri, 28 Apr 2006 13:37:55 +0200
+Message-ID: <20060428113755.GA7419@fargo>
+References: <20060427142939.GA31473@fargo> <20060427185627.GA30871@electric-eye.fr.zoreil.com> <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo> <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rt2x00-devel@lfcorreia.dyndns.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Vrabel <dvrabel@cantab.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:29841 "EHLO mail.axxeo.de")
-	by vger.kernel.org with ESMTP id S965022AbWD1L0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 07:26:55 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200604280002.58147.IvDoorn@gmail.com>
+Received: from ns2.hostinglmi.net ([213.194.149.12]:9622 "EHLO
+	ns2.hostinglmi.net") by vger.kernel.org with ESMTP id S965004AbWD1Lc3
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 07:32:29 -0400
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Content-Disposition: inline
+In-Reply-To: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sie schrieben:
-> From: Ivo van Doorn <IvDoorn@gmail.com>
-> 
-> The vals[] arrays in *_init_hw_channels can be made
-> static to optimize memory and reduce stack size.
+Hi Pekka,
 
-What about static const? They are also constants, right?
-But please try first, if this helps in terms of code size.
+On Apr 28 at 01:58:04, Pekka Enberg wrote:
+> Needs some serious coding style cleanup and conversion to proper 2.6
+> APIs for starters.
 
-Regards
+Ok, i could take care of that, and it's a good way of getting my hands
+dirty with kernel programming ;). David, if it's ok to you i'll do the
+cleanup thing.
 
-Ingo Oeser
+What about 2.4/2.2 code? It's supposed to stay for compatibility
+or it should be removed before submitting?
+
+cheers,
+
+--=20
+David G=C3=B3mez                                      Jabber ID: davidg=
+e@jabber.org
