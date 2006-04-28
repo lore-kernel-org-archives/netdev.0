@@ -1,41 +1,42 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 11:32:16 +0400
-Message-ID: <20060428073216.GB3378@2ka.mipt.ru>
-References: <54AD0F12E08D1541B826BE97C98F99F143B020@NT-SJCA-0751.brcm.ad.broadcom.com> <20060428061054.GD17360@2ka.mipt.ru> <20060428.002027.51369887.davem@davemloft.net>
+From: David =?utf-8?B?R8OzbWV6?= <david@pleyades.net>
+Subject: Re: IP1000 gigabit nic driver
+Date: Fri, 28 Apr 2006 09:54:52 +0200
+Message-ID: <20060428075452.GA18740@fargo>
+References: <20060427142939.GA31473@fargo> <20060427185627.GA30871@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: caitlinb@broadcom.com, kelly@au1.ibm.com, rusty@rustcorp.com.au,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux-kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58033 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030289AbWD1Hcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 03:32:50 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from ns2.hostinglmi.net ([213.194.149.12]:15842 "EHLO
+	ns2.hostinglmi.net") by vger.kernel.org with ESMTP id S1030306AbWD1HtX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 03:49:23 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <20060428.002027.51369887.davem@davemloft.net>
+In-Reply-To: <20060427185627.GA30871@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 28, 2006 at 12:20:27AM -0700, David S. Miller (davem@davemloft.net) wrote:
-> > Btw, how is it supposed to work without header split capabale hardware?
-> 
-> I do not see header splitting as a requirement, let the raw
-> headers sit in the user queue and provide an offset to the data.
-> All of this page alignment stuff is unnecessary complexity.
-> 
-> I know you think applications are too dumb to be expected to handle
-> these kinds of things, but how many apps do you expect to convert over
-> to these new interfaces?
-> 
-> The ones that matter will, and great care will be made by the
-> programmer who does this.
+Hi Francois,
 
-Ugh, so it will not ring buffer of data _flow_, but ring buffer of
-(header+data) packets.
+On Apr 27 at 08:56:27, Francois Romieu wrote:
+> /me goes to http://www.icplus.com.tw/driver-pp-IP1000A.html
+>=20
+> $ unzip -c IP1000A-Linux-driver-v2.09f.zip | grep MODULE_LICENSE
+>     MODULE_LICENSE("GPL");
 
-Definitely, userspace application must be very smart to deal with 
-ip/tcp/option headers...
+Thanks, i didn't notice it ;-)
 
--- 
-	Evgeniy Polyakov
+> It's a bit bloaty but it does not seem too bad (not mergeable "as
+> is" though). Do you volunteer to test random cra^W^W carefully
+> engineered code on your computer to help the rework/merging process ?
+
+Yes, i am. Send me all the the cra=17=17=17 ;-), i'm ready to
+test it.
+
+cheers,
+
+--=20
+David G=C3=B3mez                                      Jabber ID: davidg=
+e@jabber.org
