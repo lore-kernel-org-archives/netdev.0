@@ -1,51 +1,47 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH] bcm43xx_d80211: fix bug in open
-Date: Fri, 28 Apr 2006 17:45:49 +0200
-Message-ID: <20060428174549.5480ed9a@griffin.suse.cz>
-References: <20060421220951.205579000.midnight@suse.cz>
-	<200604212252.08325.mb@bu3sch.de>
-	<20060421225210.36a0225b@griffin.suse.cz>
-	<20060426193907.GB7922@tuxdriver.com>
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Fri, 28 Apr 2006 08:59:19 -0700
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F143B0E2@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>, kelly@au1.ibm.com,
+	rusty@rustcorp.com.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:10417 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1030440AbWD1Ppv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 11:45:51 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060426193907.GB7922@tuxdriver.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:61968 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1030448AbWD1P7a convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 11:59:30 -0400
+Content-class: urn:content-classes:message
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Apr 2006 15:39:12 -0400, John W. Linville wrote:
-> Hacky or not, I'm applying this patch to keep the bcm43xx driver
-> from breaking.  I don't suppose you have a patch for the rt2x00 driver?
+Evgeniy Polyakov wrote:
+> On Thu, Apr 27, 2006 at 02:12:09PM -0700, Caitlin Bestler
+> (caitlinb@broadcom.com) wrote:
+>> So the real issue is when there is an intelligent device that uses
+>> hardware packet classification to place the packet in the correct
+>> ring. We don't want to bypass packet filtering, but it would be
+>> terribly wasteful to reclassify the packet.
+>> Intelligent NICs will have packet classification capabilities to
+>> support RDMA and iSCSI. Those capabilities should be available to
+>> benefit SOCK_STREAM and SOCK_DGRAM users as well without it being a
+>> choice of either turning all stack control over to the NIC or
+>> ignorign all NIC capabilities beyound pretending to be a dumb
+>> Ethernet NIC. 
+> 
+> Btw, how is it supposed to work without header split capabale
+> hardware?
 
-The patch for bcm43xx was really just quick fix, only partially
-tested...
+Hardware that can classify packets is obviously capable of doing
+header data separation, but that does not mean that it has to do so.
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+If the host wants header data separation it's real value is that when
+packets arrive in order that fewer distinct copies are required to
+move the data to the user buffer (because separated data can
+be placed back-to-back in a data-only ring). But that's an optimization,
+it's not needed to make the idea worth doing, or even necessarily
+in the first implementation.
 
----
-
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
---- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-+++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -4172,7 +4172,7 @@ static int bcm43xx_net_open(struct net_d
- 	int res;
- 
- 	res = bcm43xx_init_board(bcm);
--	if (!res)
-+	if (res)
- 		return res;
- 	bcm43xx_set_iwmode(bcm, bcm->iw_mode);
- 	return 0;
-
-
--- 
-Jiri Benc
-SUSE Labs
