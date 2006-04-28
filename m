@@ -1,66 +1,57 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: IP1000 gigabit nic driver
-Date: Fri, 28 Apr 2006 13:59:47 +0200
-Message-ID: <200604281359.47321.netdev@axxeo.de>
-References: <20060427142939.GA31473@fargo> <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com> <20060428113755.GA7419@fargo>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 3/32] rt2x00: use pci_*_consistent for DMA mapping
+Date: Fri, 28 Apr 2006 14:57:31 +0200
+Message-ID: <200604281457.35460.IvDoorn@gmail.com>
+References: <200604280002.52839.IvDoorn@gmail.com> <20060427221127.GA22135@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	David Vrabel <dvrabel@cantab.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1848679.fY311vE2JL";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:53993 "EHLO mail.axxeo.de")
-	by vger.kernel.org with ESMTP id S1030295AbWD1MAG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Apr 2006 08:00:06 -0400
-To: David =?utf-8?q?G=C3=B3mez?= <david@pleyades.net>
-In-Reply-To: <20060428113755.GA7419@fargo>
-Content-Disposition: inline
+Received: from nproxy.gmail.com ([64.233.182.185]:23977 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1030377AbWD1M41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 08:56:27 -0400
+Received: by nproxy.gmail.com with SMTP id x30so1488147nfb
+        for <netdev@vger.kernel.org>; Fri, 28 Apr 2006 05:56:25 -0700 (PDT)
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20060427221127.GA22135@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+--nextPart1848679.fY311vE2JL
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-David G=C3=B3mez wrote:
-> On Apr 28 at 01:58:04, Pekka Enberg wrote:
-> > Needs some serious coding style cleanup and conversion to proper 2.=
-6
-> > APIs for starters.
+On Friday 28 April 2006 00:11, Christoph Hellwig wrote:
+> On Fri, Apr 28, 2006 at 12:02:52AM +0200, Ivo van Doorn wrote:
+> > From: Ivo van Doorn <IvDoorn@gmail.com>
+> >=20
+> > Instead of dma_*_coherent
+> > use pci_*consistent functions.
 >=20
-> Ok, i could take care of that, and it's a good way of getting my hand=
-s
-> dirty with kernel programming ;). David, if it's ok to you i'll do th=
-e
-> cleanup thing.
+> No point in doing that, quite reverse as you use the gfp_mask argument
+> which is a (small) pessimation here.
 
-Have fun! Great that you do this.
-=20
-> What about 2.4/2.2 code? It's supposed to stay for compatibility
-> or it should be removed before submitting?
+Would it be recommended that I replace the usb_alloc_buffers in the
+rt2570 driver with dma_*coherent?
+This would get the dma rings allocation and freeing a bit more generic
+between PCI and USB and could reduce some duplicate code between them.
+But I am not sure if there is any major difference between the two.
 
-Usually it should be removed.
+--nextPart1848679.fY311vE2JL
+Content-Type: application/pgp-signature
 
-The way to remove 2.4/2.2. code is by reimplementation
-of 2.6-APIs in seperate files and headers and not submitting
-these into latest kernel. Keep these somewhere else=20
-(e.g. a project web site).
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-That way your drivers ALWAYS work with latest kernels
-and you notice breakage of backward compatiblity quite easily.
-If maintaining these parts becomes a pain with no gain,=20
-you can simply stop providing these yourself.
+iD8DBQBEUhE/aqndE37Em0gRAgu/AKDPZfFcJKtdbY/GcVqTg8pfpvJstwCfdRSZ
+su8daxRM6SG/51s9c3qddlQ=
+=B8no
+-----END PGP SIGNATURE-----
 
-"#ifdef KERNEL_VERSON" stuff in submitted drivers
-is generally not acceptable. Since it is hard to test these parts.
-
-I ported some off-tree drivers from 2.2 to 2.4. using this technique
-and it works good, reduces maintainence burden and keeps
-your driver current to latest APIs automatically.
-
-
-Regards
-
-Ingo Oeser
+--nextPart1848679.fY311vE2JL--
