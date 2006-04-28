@@ -1,50 +1,66 @@
-From: Pekka J Enberg <penberg@cs.Helsinki.FI>
+From: Ingo Oeser <netdev@axxeo.de>
 Subject: Re: IP1000 gigabit nic driver
-Date: Fri, 28 Apr 2006 14:59:01 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
-References: <20060427142939.GA31473@fargo> <20060427185627.GA30871@electric-eye.fr.zoreil.com>
- <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>
- <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
- <20060428113755.GA7419@fargo>
+Date: Fri, 28 Apr 2006 13:59:47 +0200
+Message-ID: <200604281359.47321.netdev@axxeo.de>
+References: <20060427142939.GA31473@fargo> <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com> <20060428113755.GA7419@fargo>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Vrabel <dvrabel@cantab.net>,
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	David Vrabel <dvrabel@cantab.net>,
 	Francois Romieu <romieu@fr.zoreil.com>,
 	Linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:28063 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
-	id S1030290AbWD1L7C convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 07:59:02 -0400
-To: "David =?utf-8?B?R8OzbWV6?=" <david@pleyades.net>
+Received: from mail.axxeo.de ([82.100.226.146]:53993 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1030295AbWD1MAG convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 08:00:06 -0400
+To: David =?utf-8?q?G=C3=B3mez?= <david@pleyades.net>
 In-Reply-To: <20060428113755.GA7419@fargo>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi David,
 
-On Fri, 28 Apr 2006, David G=F3mezz wrote:
+David G=C3=B3mez wrote:
+> On Apr 28 at 01:58:04, Pekka Enberg wrote:
+> > Needs some serious coding style cleanup and conversion to proper 2.=
+6
+> > APIs for starters.
+>=20
 > Ok, i could take care of that, and it's a good way of getting my hand=
 s
 > dirty with kernel programming ;). David, if it's ok to you i'll do th=
 e
 > cleanup thing.
 
-Here are some suggestions for coding style cleanups:
+Have fun! Great that you do this.
+=20
+> What about 2.4/2.2 code? It's supposed to stay for compatibility
+> or it should be removed before submitting?
 
-  - Use Lindet for initial formatting
-  - Kill use of LINUX_VERSION_CODE macro for compatability
-  - Kill obfuscating macros. For example, IPG_DEV_KFREE_SKB and=20
-    IPG_DEVICE_TYPE.
-  - Move changelogs outside of source files
-  - Convert kmalloc/memset to kzalloc and kcalloc
-  - Remove redundant typecasts
-  - Remove dead code
-  - Use dev_{dbg,err,info,warn} for logging
-  - Remove unnecessary curly braces
-  - Use proper naming convention for things like Length and pPHYParam
-  - Convert macro functions to static inline functions for type safety
+Usually it should be removed.
 
-				Pekka
+The way to remove 2.4/2.2. code is by reimplementation
+of 2.6-APIs in seperate files and headers and not submitting
+these into latest kernel. Keep these somewhere else=20
+(e.g. a project web site).
+
+That way your drivers ALWAYS work with latest kernels
+and you notice breakage of backward compatiblity quite easily.
+If maintaining these parts becomes a pain with no gain,=20
+you can simply stop providing these yourself.
+
+"#ifdef KERNEL_VERSON" stuff in submitted drivers
+is generally not acceptable. Since it is hard to test these parts.
+
+I ported some off-tree drivers from 2.2 to 2.4. using this technique
+and it works good, reduces maintainence burden and keeps
+your driver current to latest APIs automatically.
+
+
+Regards
+
+Ingo Oeser
