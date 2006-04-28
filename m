@@ -1,43 +1,46 @@
-From: Alexey Toptygin <alexeyt@freeshell.org>
-Subject: Re: [PATCH] fix unlikely usage in tcp_transmit_skb()
-Date: Fri, 28 Apr 2006 23:45:01 +0000 (UTC)
-Message-ID: <Pine.NEB.4.62.0604282324180.3253@norge.freeshell.org>
-References: <Pine.LNX.4.64.0604260947040.2907@localhost.localdomain>
- <20060428.152551.50641016.davem@davemloft.net>
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Fri, 28 Apr 2006 16:45:24 -0700
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F143B177@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: hzhong@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: johnpol@2ka.mipt.ru, kelly@au1.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.freeshell.ORG ([192.94.73.18]:31711 "EHLO sdf.lonestar.org")
-	by vger.kernel.org with ESMTP id S965004AbWD1Xpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 19:45:43 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060428.152551.50641016.davem@davemloft.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:25098 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S965004AbWD1Xpx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 19:45:53 -0400
+Content-class: urn:content-classes:message
+To: "David S. Miller" <davem@davemloft.net>, rusty@rustcorp.com.au
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Apr 2006, David S. Miller wrote:
+David S. Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Sat, 29 Apr 2006 08:04:04 +1000
+> 
+>> You're still thinking you can bypass classifiers for established
+>> sockets, but I really don't think you can.  I think the simplest
+>> solution is to effectively remove from (or flag) the established &
+>> listening hashes anything which could be effected by classifiers, so
+>> those packets get send through the default channel.
+> 
+> OK, when rules are installed, the socket channel mappings are
+> flushed.  This is your idea right?
 
-> From: Hua Zhong <hzhong@gmail.com>
-> Date: Wed, 26 Apr 2006 09:50:28 -0700 (PDT)
->
->> [I hope this time it's OK - I'm sending from pine/Linux]
->
-> It adds an extra space in the diff lines which corrupts
-> the patch.
+You mean when new rules are installed that would conflict with
+an existing mapping, right?
 
-You can work around this by enabling quell-flowed-text - then pine will 
-never mangle patches. Currently (pine4.64), if you're disabling flowed 
-text on a per-message basis with ^V before sending, patches containing 
-trailing whitespace will get mangled. Pine labels the message as not 
-flowed, but does the mangling anyway :-/
+Bumping every connection out of vj-channel mode whenever any new
+rule was installed would be very counter-productive.
 
-Tooting my own horn here, but I submitted a pine patch this week which 
-fixes the issue. Hopefully, the next pine release will behave correctly. 
-You'll still have to remember to hit ^V before sending mail containing 
-patches, and you should always use ^R to include patch files, since 
-newlines in the input are treated magically. Or, you can enable 
-quell-flowed-text, and pretend the whole flowed text feature never 
-happened. I'll shut up about pine now :-)
+Ultimately, you only want a direct-to-user vj-channel when all
+packets assigned to it would be passed by netchannels, and maybe
+increment a single packet counter. Checking a single QoS rate
+limiter may be possible too, but if there are more complex
+rules then the channel has to be kept in kernel because it
+wouldn't make sense to trust user-mode code to apply the
+netchannel rules reliably.
 
- 			Alexey
