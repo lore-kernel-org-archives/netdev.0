@@ -1,28 +1,23 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 12:49:15 -0700
-Message-ID: <20060428124915.686911c1@localhost.localdomain>
-References: <20060428172932.GB16916@2ka.mipt.ru>
-	<20060428104118.6a056a59@localhost.localdomain>
-	<20060428175538.GA13898@2ka.mipt.ru>
-	<20060428.121636.54294183.davem@davemloft.net>
+Date: Fri, 28 Apr 2006 23:52:40 +0400
+Message-ID: <20060428195238.GA21294@2ka.mipt.ru>
+References: <20060428172932.GB16916@2ka.mipt.ru> <20060428104118.6a056a59@localhost.localdomain> <20060428175538.GA13898@2ka.mipt.ru> <20060428.121636.54294183.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, caitlinb@broadcom.com, kelly@au1.ibm.com,
+Content-Type: text/plain; charset=koi8-r
+Cc: shemminger@osdl.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
 	rusty@rustcorp.com.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:54989 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751447AbWD1Tty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 15:49:54 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:58848 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751449AbWD1Txz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 15:53:55 -0400
 To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 In-Reply-To: <20060428.121636.54294183.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Apr 2006 12:16:36 -0700 (PDT)
-"David S. Miller" <davem@davemloft.net> wrote:
-
+On Fri, Apr 28, 2006 at 12:16:36PM -0700, David S. Miller (davem@davemloft.net) wrote:
 > From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 > Date: Fri, 28 Apr 2006 21:55:39 +0400
 > 
@@ -37,9 +32,9 @@ On Fri, 28 Apr 2006 12:16:36 -0700 (PDT)
 > 
 > Frankly I found kevents to be a very strong idea.
 
-But there is this huge semantic overload of kevent, poll, epoll, aio,
-regular sendmsg/recv, posix aio, etc.  
+Glad to hear this.
+I probably should resend patches netdev@ and (mar my karma) send it to
+lkml@...?
 
-Perhaps a clean break with the socket interface is needed. Otherwise, there
-are nasty complications with applications that mix old socket calls and new interface
-on the same connection.
+-- 
+	Evgeniy Polyakov
