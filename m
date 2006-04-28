@@ -1,35 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 10:10:54 +0400
-Message-ID: <20060428061054.GD17360@2ka.mipt.ru>
-References: <54AD0F12E08D1541B826BE97C98F99F143B020@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: E1000 stopped transmitting in rc3.
+Date: Fri, 28 Apr 2006 00:14:40 -0700 (PDT)
+Message-ID: <20060428.001440.33235399.davem@davemloft.net>
+References: <20060428001352.GA3319@redhat.com>
+	<445175D4.8010209@foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "David S. Miller" <davem@davemloft.net>, kelly@au1.ibm.com,
-	rusty@rustcorp.com.au, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37256 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030270AbWD1GLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 02:11:45 -0400
-To: Caitlin Bestler <caitlinb@broadcom.com>
-Content-Disposition: inline
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F143B020@NT-SJCA-0751.brcm.ad.broadcom.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23234
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030278AbWD1HOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 03:14:36 -0400
+To: sofar@foo-projects.org
+In-Reply-To: <445175D4.8010209@foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 27, 2006 at 02:12:09PM -0700, Caitlin Bestler (caitlinb@broadcom.com) wrote:
-> So the real issue is when there is an intelligent device that
-> uses hardware packet classification to place the packet in
-> the correct ring. We don't want to bypass packet filtering,
-> but it would be terribly wasteful to reclassify the packet.
-> Intelligent NICs will have packet classification capabilities
-> to support RDMA and iSCSI. Those capabilities should be available
-> to benefit SOCK_STREAM and SOCK_DGRAM users as well without it
-> being a choice of either turning all stack control over to
-> the NIC or ignorign all NIC capabilities beyound pretending
-> to be a dumb Ethernet NIC.
+From: Auke Kok <sofar@foo-projects.org>
+Date: Thu, 27 Apr 2006 18:54:28 -0700
 
-Btw, how is it supposed to work without header split capabale hardware?
+> Dave Jones wrote:
+> > With 2.6.17-rc3, my E1000 won't get a dhcp lease.
+> > Looking at tcpdump and ifconfig output, it's easy to see why.
+> > It's recieving packets, but the packets transmitted field
+> > of ifconfig never increases.
+> > 
+> > The last version I have built that worked ok was 2.6.17rc2-git3
+> 
+> *puzzled*
+> 
+> the only patch between 2.6.17rc2 and 2.6.17rc3 contains an rx-path patch, but 
+> nothing that affects tx. All the other patches sent earlier are queued for 
+> 2.6.18 so they don't apply.
 
--- 
-	Evgeniy Polyakov
+If the rx path is corrupting the packets or providing bad
+checksums, there will be nothing to transmit back.
+
+So RX changes could explain the behavior.
