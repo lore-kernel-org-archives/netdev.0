@@ -1,49 +1,34 @@
-From: "George P Nychis" <gnychis@cmu.edu>
-Subject: Re: [LARTC] how to change classful netem loss probability?
-Date: Thu, 27 Apr 2006 21:18:23 -0400 (EDT)
-Message-ID: <32923.128.2.140.234.1146187103.squirrel@128.2.140.234>
-References: <444FF846.7050600@cmu.edu>
+From: Auke Kok <sofar@foo-projects.org>
+Subject: Re: E1000 stopped transmitting in rc3.
+Date: Thu, 27 Apr 2006 18:54:28 -0700
+Message-ID: <445175D4.8010209@foo-projects.org>
+References: <20060428001352.GA3319@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: lartc@mailman.ds9a.nl, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.andrew.cmu.edu ([128.2.10.82]:10124 "EHLO
-	smtp.andrew.cmu.edu") by vger.kernel.org with ESMTP id S965184AbWD1BS2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Apr 2006 21:18:28 -0400
-In-Reply-To: <444FF846.7050600@cmu.edu>
-To: "George Nychis" <gnychis@cmu.edu>
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:3516 "EHLO
+	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S965170AbWD1Byd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Apr 2006 21:54:33 -0400
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20060428001352.GA3319@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-And if its not possible to change the probability, is there another method I can use instead?
+Dave Jones wrote:
+> With 2.6.17-rc3, my E1000 won't get a dhcp lease.
+> Looking at tcpdump and ifconfig output, it's easy to see why.
+> It's recieving packets, but the packets transmitted field
+> of ifconfig never increases.
+> 
+> The last version I have built that worked ok was 2.6.17rc2-git3
 
-> Hi,
-> 
-> I am using netem to add loss and then adding another qdisc within netem 
-> according to the wiki.  Then i want to change the netem drop probability 
-> without having to delete the qdisc and recreate it.  I try it but I get 
-> invalid argument:
-> 
-> thorium-ini hedpe # tc qdisc add dev ath0 root handle 1:0 netem drop 1% 
-> thorium-ini hedpe # tc qdisc add dev ath0 parent 1:1 handle 10: xcp 
-> capacity 54Mbit limit 500 thorium-ini hedpe # tc -s qdisc ls dev ath0 qdisc
-> netem 1: limit 1000 loss 1% Sent 0 bytes 0 pkts (dropped 0, overlimits 0) 
-> qdisc xcp 10: parent 1:1 capacity 52734Kbit limit 500p Sent 0 bytes 0 pkts
-> (dropped 0, overlimits 0) thorium-ini hedpe # tc qdisc change dev ath0
-> root handle 1:0 netem drop 1% RTNETLINK answers: Invalid argument 
-> thorium-ini hedpe # tc qdisc change dev ath0 root netem drop 1% RTNETLINK
-> answers: Invalid argument
-> 
-> any ideas?
-> 
-> Thanks! George _______________________________________________ LARTC mailing
-> list LARTC@mailman.ds9a.nl 
-> http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc
-> 
-> 
+*puzzled*
 
+the only patch between 2.6.17rc2 and 2.6.17rc3 contains an rx-path patch, but 
+nothing that affects tx. All the other patches sent earlier are queued for 
+2.6.18 so they don't apply.
 
--- 
-
+Auke
