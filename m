@@ -1,47 +1,42 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 08:59:19 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F143B0E2@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Fri, 28 Apr 2006 20:12:21 +0400
+Message-ID: <20060428161221.GA12357@2ka.mipt.ru>
+References: <54AD0F12E08D1541B826BE97C98F99F143B0E2@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=koi8-r
 Cc: "David S. Miller" <davem@davemloft.net>, kelly@au1.ibm.com,
 	rusty@rustcorp.com.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:61968 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1030448AbWD1P7a convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Apr 2006 11:59:30 -0400
-Content-class: urn:content-classes:message
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:51662 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030471AbWD1QN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 12:13:27 -0400
+To: Caitlin Bestler <caitlinb@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F143B0E2@NT-SJCA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Thu, Apr 27, 2006 at 02:12:09PM -0700, Caitlin Bestler
-> (caitlinb@broadcom.com) wrote:
->> So the real issue is when there is an intelligent device that uses
->> hardware packet classification to place the packet in the correct
->> ring. We don't want to bypass packet filtering, but it would be
->> terribly wasteful to reclassify the packet.
->> Intelligent NICs will have packet classification capabilities to
->> support RDMA and iSCSI. Those capabilities should be available to
->> benefit SOCK_STREAM and SOCK_DGRAM users as well without it being a
->> choice of either turning all stack control over to the NIC or
->> ignorign all NIC capabilities beyound pretending to be a dumb
->> Ethernet NIC. 
+On Fri, Apr 28, 2006 at 08:59:19AM -0700, Caitlin Bestler (caitlinb@broadcom.com) wrote:
+> > Btw, how is it supposed to work without header split capabale
+> > hardware?
 > 
-> Btw, how is it supposed to work without header split capabale
-> hardware?
+> Hardware that can classify packets is obviously capable of doing
+> header data separation, but that does not mean that it has to do so.
+> 
+> If the host wants header data separation it's real value is that when
+> packets arrive in order that fewer distinct copies are required to
+> move the data to the user buffer (because separated data can
+> be placed back-to-back in a data-only ring). But that's an optimization,
+> it's not needed to make the idea worth doing, or even necessarily
+> in the first implementation.
 
-Hardware that can classify packets is obviously capable of doing
-header data separation, but that does not mean that it has to do so.
+If there is dataflow, not flow of packets or flow of data with holes,
+it could be possible to modify recv() to just return the right pointer,
+so in theory userspace modifications would be minimal.
+With copy in place it completely does not differ from current design
+with copy_to_user() being used since memcpy() is just slightly faster
+than copy*user().
 
-If the host wants header data separation it's real value is that when
-packets arrive in order that fewer distinct copies are required to
-move the data to the user buffer (because separated data can
-be placed back-to-back in a data-only ring). But that's an optimization,
-it's not needed to make the idea worth doing, or even necessarily
-in the first implementation.
-
+-- 
+	Evgeniy Polyakov
