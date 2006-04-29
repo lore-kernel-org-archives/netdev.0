@@ -1,61 +1,58 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Sat, 29 Apr 2006 10:22:40 +1000
-Message-ID: <1146270160.8029.78.camel@localhost.localdomain>
-References: <54AD0F12E08D1541B826BE97C98F99F143B10A@NT-SJCA-0751.brcm.ad.broadcom.com>
-	 <1146262622.8029.63.camel@localhost.localdomain>
-	 <20060428.154003.25335370.davem@davemloft.net>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [RFC] Geographical/regulatory information for ieee80211
+Date: Fri, 28 Apr 2006 17:31:35 -0700
+Message-ID: <20060429003135.GP31601@instant802.com>
+References: <443EF3E9.7050303@lwfinger.net> <20060415174734.GA10595@infradead.org> <4443D694.8090809@hp.com> <44501647.8070308@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: caitlinb@broadcom.com, johnpol@2ka.mipt.ru, kelly@au1.ibm.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:30641 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1030253AbWD2AXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 20:23:08 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060428.154003.25335370.davem@davemloft.net>
+Received: from dhost002-38.dex002.intermedia.net ([64.78.21.123]:17955 "EHLO
+	dhost002-38.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751044AbWD2Abn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Apr 2006 20:31:43 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Disposition: inline
+In-Reply-To: <44501647.8070308@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-04-28 at 15:40 -0700, David S. Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Sat, 29 Apr 2006 08:17:01 +1000
-> > However, in future, if intelligent cards exist, having an API which lets
-> > them do zero-copy and not overly penalize less intelligent cards makes
-> > sense.
-> 
-> I do not think intelligent cards imply protocol in user space.
-> You can still get the zero copy, and moving the work to the
-> remote cpu, without all the complexity assosciated with putting
-> the protocol in userspace.  It buys nothing but complexity.
+On Wed, Apr 26, 2006 at 07:54:31PM -0500, Larry Finger wrote:
 
-You're thinking the card would place the packet in the mmap'ed buffer,
-but the protocol handling would still be done (on that user-accessible
-buffer) in kernelspace?
+> I don't think it would make that much difference as the user could easily 
+> lie about their locality and get any set of parameters that they wanted. 
 
-I hadn't considered that.  Are the userspace-kernel interactions here
-are a lesser problem than telling userspace "you want direct access to
-the packets?  Great, *you* handle the whole thing".
+Well, not any set.. One of the configured countries, yes, but that is
+not same as setting arbitrary TX power limit and allowed channel sets..
+Anyway, users should be allowed to move from one country to another and
+still being able to use their wlan card (within the limits of the
+current location).
 
-I am thinking the big payoff for this would be MPI et al (RDMA), so we
-might be best leaving it alone.
+> I am leaning toward putting the geographical information into a userland 
+> daemon. That way we won't have to patch the kernel every time a country 
+> modifies its regulations. In addition, the kernel will be smaller. The 
+> downside is that the daemon will have to be updated and supplied in some 
+> convenient form, perhaps as part of a wireless tools package.
 
-> > Side note: my Xen I/O patches allow the implementation of exactly this
-> > kind of virtual hardware (no coincidence 8), so intelligent cards might
-> > not be as far away as you think...
-> 
-> Such hardware can be prototyped in QEMU as well.
+I'm strongly in favor of doing this in user space, too. In order to
+provide some control on what end users do with this, I would consider
+including a signature on a data file and have the user space tool verify
+that signature before accepting the data. This signature need not be
+anything extra secure, i.e., it could just be a keyed checksum of the
+file using a well-known key. The main point here is that it shows some
+attempt on limiting end users from setting random values to regulatory
+limits. Of course, if someone really wants to change these values, they
+could do so since the source code for the tool would be available and so
+would the key used for signing the file in the first place.
 
-Absolutely (and writing QEMU devices is easier than writing a Linux
-device driver, which says something sad).  
+I don't know how secure a system would be needed to pass requirements
+that FCC and similar organizations place on wireless devices. I would
+like to handle this with fully open source tools and having some kind of
+simple signature on the data file would be good starting point. It is up
+to vendors then to decide whether they are fine with such a mechanism or
+whether some additional tool (like the Intel plan on using a closed
+source user space tool) would be needed on top of this.
 
-But the Xen virtual intelligent NIC would be a "real" NIC, not (just) a
-prototype.
-
-Cheers!
-Rusty.
 -- 
- ccontrol: http://ozlabs.org/~rusty/ccontrol
-
+Jouni Malinen                                            PGP id EFC895FA
