@@ -1,38 +1,41 @@
-From: Nuri Jawad <lkml@jawad.org>
-Subject: Re: Fw: Bug: PPP dropouts in >=2.6.16
-Date: Sat, 29 Apr 2006 02:05:29 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0604272330360.14398@pc>
-References: <20060421010809.6c3cfc34.akpm@osdl.org>
- <4807377b0604211015j16b40cccpe215668f8fdcfc24@mail.gmail.com>
- <200604220202.59434.ak@suse.de> <20060424074148.GB23340@zion.homelinux.com>
- <Pine.LNX.4.64.0604260126020.12542@pc> <20060426060442.GA8875@zion.homelinux.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Sat, 29 Apr 2006 10:10:22 +1000
+Message-ID: <1146269423.8029.65.camel@localhost.localdomain>
+References: <1146212660.8029.38.camel@localhost.localdomain>
+	 <20060428.122102.76435590.davem@davemloft.net>
+	 <1146261844.8029.54.camel@localhost.localdomain>
+	 <20060428.153833.68265167.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Andi Kleen <ak@suse.de>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: caitlinb@broadcom.com, johnpol@2ka.mipt.ru, kelly@au1.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from leitseite.net ([213.239.214.51]:7384 "EHLO mail.leitseite.net")
-	by vger.kernel.org with ESMTP id S965037AbWD2AGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 20:06:00 -0400
-To: Sven Schuster <schuster.sven@gmx.de>
-In-Reply-To: <20060426060442.GA8875@zion.homelinux.com>
+Received: from ozlabs.org ([203.10.76.45]:19121 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S932464AbWD2AKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 20:10:51 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060428.153833.68265167.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Apr 2006, Sven Schuster wrote:
+On Fri, 2006-04-28 at 15:38 -0700, David S. Miller wrote:
+> From: Rusty Russell <rusty@rustcorp.com.au>
+> Date: Sat, 29 Apr 2006 08:04:04 +1000
+> 
+> > You're still thinking you can bypass classifiers for established
+> > sockets, but I really don't think you can.  I think the simplest
+> > solution is to effectively remove from (or flag) the established &
+> > listening hashes anything which could be effected by classifiers, so
+> > those packets get send through the default channel.
+> 
+> OK, when rules are installed, the socket channel mappings are
+> flushed.  This is your idea right?
 
-> but don't hold your breath waiting for me, kernel compile
-> takes more than two hours on my box :-)
+Yeah.  First off, all flushed.  Later on, we get selective.
 
-Ouch. Takes 5/7 minutes here on the AMD64 resp. P4. Computer museum? :P
-Anyhow, I tested PPP for 2.5 hours on the AMD64 the day before 
-yesterday with a bidirectional transfer that maxed out the upstream.
-Last night, I additionally put some load on the CPU. Another 3 hours, no 
-problems whatsoever. Looks like the bug does not manifest on that system.
+Rusty.
+-- 
+ ccontrol: http://ozlabs.org/~rusty/ccontrol
 
-The next step will be to clone .config's settings as far as possible with 
-the different hardware and try again.
-
-Regards,
-Nuri
