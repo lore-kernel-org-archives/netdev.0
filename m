@@ -1,48 +1,46 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 2/3] rt2x00 drivers: rt61pci
-Date: Sat, 29 Apr 2006 11:47:26 +0200
-Message-ID: <200604291147.26887.IvDoorn@gmail.com>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: IP1000 gigabit nic driver
+Date: Sat, 29 Apr 2006 13:29:26 +0300
+Message-ID: <1146306567.1642.3.camel@localhost>
+References: <20060427142939.GA31473@fargo>
+	 <20060427185627.GA30871@electric-eye.fr.zoreil.com>
+	 <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>
+	 <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
+	 <20060428113755.GA7419@fargo>
+	 <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1226338.EyjfzNBjMR";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: rt2x00-devel@lfcorreia.dyndns.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Vrabel <dvrabel@cantab.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nproxy.gmail.com ([64.233.182.189]:39710 "EHLO nproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1751859AbWD2JqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2006 05:46:17 -0400
-Received: by nproxy.gmail.com with SMTP id x30so1607007nfb
-        for <netdev@vger.kernel.org>; Sat, 29 Apr 2006 02:46:16 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:25286 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
+	id S1750704AbWD2K3a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Apr 2006 06:29:30 -0400
+To: "David =?ISO-8859-1?Q?G=F3mez?=" <david@pleyades.net>
+In-Reply-To: <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1226338.EyjfzNBjMR
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, 28 Apr 2006, David G=F3mezz wrote:
+> > Ok, i could take care of that, and it's a good way of getting my ha=
+nds
+> > dirty with kernel programming ;). David, if it's ok to you i'll do =
+the
+> > cleanup thing.
 
-=46rom: Ivo van Doorn <IvDoorn@gmail.com>
+On Fri, 2006-04-28 at 14:59 +0300, Pekka J Enberg wrote:
+> Here are some suggestions for coding style cleanups:
 
-This adds the rt61pci driver to the tree=20
+[snip]
 
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+I ended up doing most of them myself [1]. Sorry :-) Are the datasheets
+public by the way?
 
-Available on server:
-http://mendiosus.nl/rt2x00/rt61pci.diff
+			Pekka
 
---nextPart1226338.EyjfzNBjMR
-Content-Type: application/pgp-signature
+  1. http://www.cs.helsinki.fi/u/penberg/linux/ip1000-driver.patch
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEUzYuaqndE37Em0gRAjO6AJ49d5HUJMRMuydjACQI70K4kwINSQCgj/6H
-HaDH8QRRJ7WzKAkb3aQ1eOU=
-=vkZE
------END PGP SIGNATURE-----
-
---nextPart1226338.EyjfzNBjMR--
