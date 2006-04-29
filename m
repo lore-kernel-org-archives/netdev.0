@@ -1,44 +1,57 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 23:46:55 -0700 (PDT)
-Message-ID: <20060428.234655.22652563.davem@davemloft.net>
-References: <1146262622.8029.63.camel@localhost.localdomain>
-	<20060428.154003.25335370.davem@davemloft.net>
-	<1146270160.8029.78.camel@localhost.localdomain>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] rt2x00: Compile fix and kernel version cleanup
+Date: Sat, 29 Apr 2006 11:26:39 +0200
+Message-ID: <200604291126.56978.IvDoorn@gmail.com>
+References: <200604282052.44767.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart1251548.PP4yHxGDBX";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: caitlinb@broadcom.com, johnpol@2ka.mipt.ru, kelly@au1.ibm.com,
-	netdev@vger.kernel.org
+Cc: rt2x00-devel@lfcorreia.dyndns.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34769
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751488AbWD2GsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Apr 2006 02:48:19 -0400
-To: rusty@rustcorp.com.au
-In-Reply-To: <1146270160.8029.78.camel@localhost.localdomain>
+Received: from nproxy.gmail.com ([64.233.182.189]:41718 "EHLO nproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1750864AbWD2JZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2006 05:25:50 -0400
+Received: by nproxy.gmail.com with SMTP id x30so1605782nfb
+        for <netdev@vger.kernel.org>; Sat, 29 Apr 2006 02:25:49 -0700 (PDT)
+To: netdev@vger.kernel.org
+In-Reply-To: <200604282052.44767.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Sat, 29 Apr 2006 10:22:40 +1000
+--nextPart1251548.PP4yHxGDBX
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> You're thinking the card would place the packet in the mmap'ed buffer,
-> but the protocol handling would still be done (on that user-accessible
-> buffer) in kernelspace?
+On Friday 28 April 2006 20:52, Ivo van Doorn wrote:
+> From: Ivo van Doorn <IvDoorn@gmail.com>
+>=20
+> During CVS merge I noticed several compilation errors have sneaked
+> into the git version of rt2x00.
+> - PRIO_ENTRIES define has been removed, TX_ENTRIES should be used
+> - poll_delay module argument is of the type short
+> - Remove LINUX_VERSION_CODE checks.
+> - Fix missing byteordering type
+> - Fix typo in usb_device
+>=20
+> Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-Exactly.
+Please drop this patch, I'll resend a correct verion in a few minutes.
+The LINUX_VERSION_CODE checks removal was obviously wrong.
 
-> I hadn't considered that.  Are the userspace-kernel interactions here
-> are a lesser problem than telling userspace "you want direct access to
-> the packets?  Great, *you* handle the whole thing".
+--nextPart1251548.PP4yHxGDBX
+Content-Type: application/pgp-signature
 
-I've very much weary of putting a second TCP stack in userspace
-for the same reasons most folks are weary of TOE.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-And frankly we should only go towards that kind of duplication if it
-shows a real performance gain.
+iD8DBQBEUzFgaqndE37Em0gRAjNbAJ9JTUM7t3/n966kaQtnZoUJIUOgRACfaBfk
+a1NLdneCzUBAwssZQf4lTu0=
+=NbmP
+-----END PGP SIGNATURE-----
 
-Nevertheless I do highly encourage folks to experiment with that
-as much as possible, I could be dead wrong on my hunch that it
-won't help enough to justify allowing it.
+--nextPart1251548.PP4yHxGDBX--
