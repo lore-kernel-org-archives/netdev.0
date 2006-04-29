@@ -1,49 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] rt2x00 drivers: rt61pci
-Date: Sat, 29 Apr 2006 18:10:02 +0200
-Message-ID: <20060429161002.GA3345@electric-eye.fr.zoreil.com>
-References: <200604291147.26887.IvDoorn@gmail.com> <20060429145850.GA2456@electric-eye.fr.zoreil.com> <200604291735.12720.IvDoorn@gmail.com>
+From: Bertrand Jacquin <beber@gna.org>
+Subject: Re: [PATCH 0/5] sky2: version 1.2
+Date: Sat, 29 Apr 2006 20:15:42 +0200
+Message-ID: <20060429201542.26aef27c.beber@gna.org>
+References: <20060425175849.372221000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rt2x00-devel@lfcorreia.dyndns.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Sat__29_Apr_2006_20_15_42_+0200_J6=iCOi2vPrRnmnR"
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:37008 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750753AbWD2QLl
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Apr 2006 12:11:41 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200604291735.12720.IvDoorn@gmail.com>
+Received: from smtp3-g19.free.fr ([212.27.42.29]:39381 "EHLO smtp3-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1750775AbWD2SPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2006 14:15:23 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060425175849.372221000@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ivo van Doorn <ivdoorn@gmail.com> :
-[...]
-> Not sure about that either. I usually choose the type of the counter
-> depending on the max size of that counter.
+--Signature=_Sat__29_Apr_2006_20_15_42_+0200_J6=iCOi2vPrRnmnR
+Content-Type: text/plain; charset=UTF-8
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
 
-It is not arch-neutral. powerpc favors unsigned int over int but I am
-too lazy to check if the size matters.
+TGUgVHVlLCAyNSBBcHIgMjAwNiAxMDo1ODo0OSAtMDcwMCwgU3RlcGhlbiBIZW1taW5nZXIgPHNo
+ZW1taW5nZXJAb3NkbC5vcmc+IG0nYSBhdm91w6k6DQoNCj4gVXBkYXRlIHRvIHNreTIgZHJpdmVy
+LiBNb3N0bHkgZml4ZXMgdG8gdHJ5IGFuZCBoYW5kbGUgdXNlcnMNCj4gc3R1Y2sgd2l0aCBlZGdl
+LXRyaWdnZXJlZCBpbnRlcnJ1cHRzLiBBbHNvLCBzb21lIG1pbm9yIGNsZWFudXBzLg0KPiANCj4g
+UGF0Y2hlcyBhcHBseSBvbnRvIDEuMSB2ZXJzaW9uIGluIDIuNi4xNy1yYzINCg0KSGksDQoNCkkn
+dmUganVzdCB0ZXN0aW5nIHBhdGNoZXMgYW5kIEkgZ2V0IHN0aWxsIHRoZSBzYW1lIGJ1Zy4NCg0K
+LS0gDQovKiBCZWJlciA6IGJlYmVyIChBVCkgZ25hIChET1QpIG9yZw0KICogaHR0cDovL2d1eWJy
+dXNoLmF0aC5jeCwgaXJjOi8vaXJjLmZyZWVub2RlLm5ldC8je2UuZnIsZ2VudG9vZnJ9DQogKiBH
+dXlicnVzaCBAIE1lbGVlICovDQo=
 
-[...]
-> Perhaps, but I prefer the usage of the name "counter".
-> I am not sure if there is a coding style about this? If so I could
-> rename "counter" to "i".
+--Signature=_Sat__29_Apr_2006_20_15_42_+0200_J6=iCOi2vPrRnmnR
+Content-Type: application/pgp-signature
 
-Chapter 4 of Documentation/CodingStyle goes in this direction.
-The document is not meant to be a taken too literally though.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
 
-The repetitive use of 'counter' + foo[counter].blah tends to be a
-bit bloaty.
+iD8DBQFEU61POoDxkpMsDusRAiOsAKDWJ+dSarWAPKCk3uGSwOvgZ9KDOwCgvJcO
+jD4VU43Jpyik6VBNGSp3DG8=
+=qioR
+-----END PGP SIGNATURE-----
 
-[...]
-> I'll create a bugreport in the rt2x00 project bugzilla
-> with some of the coding style change requests.
-
-I will not complain if you open a bugreport to provide a git repo
-as well.
-
-/me hides...
-
--- 
-Ueimor
+--Signature=_Sat__29_Apr_2006_20_15_42_+0200_J6=iCOi2vPrRnmnR--
