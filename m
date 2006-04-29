@@ -1,67 +1,37 @@
-From: "Shaw Vrana" <shawvrana@gmail.com>
-Subject: Re: e1000_down and tx_timeout worker race cleaning the transmit buffers
-Date: Sat, 29 Apr 2006 14:57:28 -0700
-Message-ID: <7bb8b8de0604291457i10474ceeudcea33ed93621045@mail.gmail.com>
-References: <1145578214.3195.6.camel@rh4>
-	 <20060421024024.GA29644@gondor.apana.org.au>
-	 <1145582676.3195.18.camel@rh4>
-	 <20060421132758.GA26161@gospo.rdu.redhat.com>
-	 <1145633287.3194.10.camel@rh4>
-	 <bdfc5d6e0604211301k682b35d1r52a52cd3fec80ddc@mail.gmail.com>
-	 <1145646031.3843.5.camel@rh4>
-	 <bdfc5d6e0604211346n50b15f56g4ebc2fe5fe88a63a@mail.gmail.com>
-	 <7bb8b8de0604261714h2471420xa06bb6639ddb6cea@mail.gmail.com>
-	 <44504EA7.5050901@foo-projects.org>
+From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Subject: Re: [ROSE] Fix routing table locking in rose_remove_neigh.
+Date: Sun, 30 Apr 2006 00:59:47 +0200
+Message-ID: <4453EFE3.4070302@ccr.jussieu.fr>
+References: <20060429133141.GA31820@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: "Andy Gospodarek" <andy@greyhouse.net>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	auke-jan.h.kok@intel.com, davem@davemloft.net, jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wproxy.gmail.com ([64.233.184.236]:20687 "EHLO wproxy.gmail.com")
-	by vger.kernel.org with ESMTP id S1750812AbWD2V52 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Apr 2006 17:57:28 -0400
-Received: by wproxy.gmail.com with SMTP id i11so372181wra
-        for <netdev@vger.kernel.org>; Sat, 29 Apr 2006 14:57:28 -0700 (PDT)
-To: "Auke Kok" <sofar@foo-projects.org>
-In-Reply-To: <44504EA7.5050901@foo-projects.org>
-Content-Disposition: inline
+Received: from smtp2-g19.free.fr ([212.27.42.28]:13736 "EHLO smtp2-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1750821AbWD2XAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2006 19:00:10 -0400
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20060429133141.GA31820@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Auke,
 
-On 4/26/06, Auke Kok <sofar@foo-projects.org> wrote:
 
-> > I'm concerned about the addition of the netif_running check to
-> > e1000_down.  While something like this is needed, I'm not familiar
-> > enough w/ the code to know if this is okay.
-> > All explanations and comments are greatly appreciated.
-> While I appreciate patches ;^) I think we're on a better path by making these
-> cleanups, and actually reducing the code in large places. I hope to be able to
-> push something out for RFC soon. Added benefit will be that we're dropping a
-> whole bunch of irq operations where we didn't need to (soft resets).
+Ralf Baechle wrote:
+> The locking rule for rose_remove_neigh() are that the called needs to
+> hold rose_neigh_list_lock, so we better don't take it yet again in
+> rose_neigh_list_lock.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-Well, it looks like my patch won't work as the e1000_close is called
-by dev.c only after it clears the __LINK_STATE_START bit, which means
-that e1000_down will exit prematurely when called from e1000_close in
-my approach.  Any feedback on the approach would be appreciated, as
-your upcoming patch sounds like it might be too aggressive to get put
-into a stabilization patch.  ;)
+All ROSE and HZ patches applied to kernel 2.6.16
+Many thanks Ralf.
 
-I understand the need to fix the problems associated with the
-watchdog_task as well, though I wonder if it wouldn't be better to
-remove it altogether given the complexity of cleaning up after these
-tasks in general.  I've personally had more problems with the watchdog
-task than with the possible sleep in the watchdog timer code.  I can't
-help but siding with the RedHat folks who currently ship a version of
-the e1000 driver that fixes the mechanism used to sleep instead of the
-watchdog_task approach.  Perhaps I missed the discussion of this, I'm
-only finding the patch itself with google.
+73 de Bernard, f6bvp
 
-Thanks,
-Shaw
+http://f6bvp.org
+http://rose.fpac.free.fr/MINI-HOWTO/
+http://rose.fpac.free.fr/MINI-HOWTO-FR/
+
