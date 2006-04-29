@@ -1,46 +1,38 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 28 Apr 2006 16:45:24 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F143B177@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Nuri Jawad <lkml@jawad.org>
+Subject: Re: Fw: Bug: PPP dropouts in >=2.6.16
+Date: Sat, 29 Apr 2006 02:05:29 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0604272330360.14398@pc>
+References: <20060421010809.6c3cfc34.akpm@osdl.org>
+ <4807377b0604211015j16b40cccpe215668f8fdcfc24@mail.gmail.com>
+ <200604220202.59434.ak@suse.de> <20060424074148.GB23340@zion.homelinux.com>
+ <Pine.LNX.4.64.0604260126020.12542@pc> <20060426060442.GA8875@zion.homelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: johnpol@2ka.mipt.ru, kelly@au1.ibm.com, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andi Kleen <ak@suse.de>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:25098 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S965004AbWD1Xpx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Apr 2006 19:45:53 -0400
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>, rusty@rustcorp.com.au
+Received: from leitseite.net ([213.239.214.51]:7384 "EHLO mail.leitseite.net")
+	by vger.kernel.org with ESMTP id S965037AbWD2AGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Apr 2006 20:06:00 -0400
+To: Sven Schuster <schuster.sven@gmx.de>
+In-Reply-To: <20060426060442.GA8875@zion.homelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Sat, 29 Apr 2006 08:04:04 +1000
-> 
->> You're still thinking you can bypass classifiers for established
->> sockets, but I really don't think you can.  I think the simplest
->> solution is to effectively remove from (or flag) the established &
->> listening hashes anything which could be effected by classifiers, so
->> those packets get send through the default channel.
-> 
-> OK, when rules are installed, the socket channel mappings are
-> flushed.  This is your idea right?
+On Wed, 26 Apr 2006, Sven Schuster wrote:
 
-You mean when new rules are installed that would conflict with
-an existing mapping, right?
+> but don't hold your breath waiting for me, kernel compile
+> takes more than two hours on my box :-)
 
-Bumping every connection out of vj-channel mode whenever any new
-rule was installed would be very counter-productive.
+Ouch. Takes 5/7 minutes here on the AMD64 resp. P4. Computer museum? :P
+Anyhow, I tested PPP for 2.5 hours on the AMD64 the day before 
+yesterday with a bidirectional transfer that maxed out the upstream.
+Last night, I additionally put some load on the CPU. Another 3 hours, no 
+problems whatsoever. Looks like the bug does not manifest on that system.
 
-Ultimately, you only want a direct-to-user vj-channel when all
-packets assigned to it would be passed by netchannels, and maybe
-increment a single packet counter. Checking a single QoS rate
-limiter may be possible too, but if there are more complex
-rules then the channel has to be kept in kernel because it
-wouldn't make sense to trust user-mode code to apply the
-netchannel rules reliably.
+The next step will be to clone .config's settings as far as possible with 
+the different hardware and try again.
 
+Regards,
+Nuri
