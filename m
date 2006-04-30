@@ -1,41 +1,43 @@
-From: Nuri Jawad <lkml@jawad.org>
-Subject: Re: Fw: Bug: PPP dropouts in >=2.6.16 - updates
-Date: Sun, 30 Apr 2006 06:31:14 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0604300558001.2331@pc>
-References: <20060421010809.6c3cfc34.akpm@osdl.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: determine outgoing interface (eth0,eth1) for a packet according to the dest IP
+Date: Sun, 30 Apr 2006 11:17:11 +0200
+Message-ID: <20060430091711.GL24458@xi.wantstofly.org>
+References: <ada605fb0604260324n4dc99556j300bfd433a9027d9@mail.gmail.com> <E1FYkWm-0003MM-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=us-ascii
+Cc: John Que <qwejohn@gmail.com>, ak@suse.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from leitseite.net ([213.239.214.51]:20956 "EHLO mail.leitseite.net")
-	by vger.kernel.org with ESMTP id S1750915AbWD3Ebg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2006 00:31:36 -0400
-Received: from pc ([10.1.0.2] helo=nj.yi.org)
-	by mail.leitseite.net with esmtp (Exim 4.34)
-	id 1Fa3ag-0001Hj-NV
-	for netdev@vger.kernel.org; Sun, 30 Apr 2006 06:31:26 +0200
-Received: from localhost (localhost [127.0.0.1])
-	by nj.yi.org (Postfix) with ESMTP id 715781D889C
-	for <netdev@vger.kernel.org>; Sun, 30 Apr 2006 06:31:14 +0200 (CEST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060421010809.6c3cfc34.akpm@osdl.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:26241 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1751073AbWD3JRN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Apr 2006 05:17:13 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1FYkWm-0003MM-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some more info:
+On Wed, Apr 26, 2006 at 11:58:00PM +1000, Herbert Xu wrote:
 
-- turning off Hyper Threading and using a uniprocessor kernel
-   did not improve things
-- so didn't using 2.6.17rc3, in fact the bug manifested after
-   only 4 minutes with a 43 seconds gap
-- those kernel debug watchdog routines don't detect anything
+> > I had spent time trying to write something which
+> > uses RTA_SRC and RTA_DST and got some problems.
+> > (I probably made something stupid.)
+> > I googled for such examples and did not get much.
+> > I saw that the zebra project and iproute uses
+> > netlinks but it is complex.,
+> 
+> Have a look at
+> 
+> http://gondor.apana.org.au/~herbert/findsaddr-linux.c
+> 
+> which I wrote for traceroute some years back.
 
-Going to try kernel PPPoE next time. Btw, at least with rp-pppoe 
-it requires HDLC and that dependency isn't caught in menuconfig.
+A fragile and ugly but easier/shorter way of getting the source address
+(which I've used a couple of times in the past) is to open a SOCK_DGRAM
+socket, connect() it to the intended destination, and then do
+getsockname().
 
-I would try to roll back some patches between 2.6.15.7 and 2.6.16 but
-that changelog is pretty large. I'm sure there are good reasons for 
-the current development model, but with the old unstable/stable
-system and its few changes between stable versions, the right
-one could've been spotted easily :/.
+(That doesn't give you the interface, though.)
 
-Regards, Nuri
+
+--L
