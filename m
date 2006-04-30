@@ -1,37 +1,30 @@
-From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
-Subject: Re: [ROSE] Fix routing table locking in rose_remove_neigh.
-Date: Sun, 30 Apr 2006 00:59:47 +0200
-Message-ID: <4453EFE3.4070302@ccr.jussieu.fr>
-References: <20060429133141.GA31820@linux-mips.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 1/6] tg3: Call netif_carrier_off() during phy reset
+Date: Sat, 29 Apr 2006 18:55:58 -0700 (PDT)
+Message-ID: <20060429.185558.40930722.davem@davemloft.net>
+References: <1146267307.4780.14.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g19.free.fr ([212.27.42.28]:13736 "EHLO smtp2-g19.free.fr")
-	by vger.kernel.org with ESMTP id S1750821AbWD2XAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Apr 2006 19:00:10 -0400
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20060429133141.GA31820@linux-mips.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59618
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750857AbWD3Bzr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Apr 2006 21:55:47 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1146267307.4780.14.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Fri, 28 Apr 2006 16:35:06 -0700
 
-
-Ralf Baechle wrote:
-> The locking rule for rose_remove_neigh() are that the called needs to
-> hold rose_neigh_list_lock, so we better don't take it yet again in
-> rose_neigh_list_lock.
+> Add netif_carrier_off() call during tg3_phy_reset(). This is needed
+> to properly track the netif_carrier state in cases where we do a
+> PHY reset with interrupts disabled. The SerDes code will not run
+> properly if the netif_carrier state is wrong.
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-All ROSE and HZ patches applied to kernel 2.6.16
-Many thanks Ralf.
-
-73 de Bernard, f6bvp
-
-http://f6bvp.org
-http://rose.fpac.free.fr/MINI-HOWTO/
-http://rose.fpac.free.fr/MINI-HOWTO-FR/
-
+Applied, thanks.
