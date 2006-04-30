@@ -1,77 +1,33 @@
-From: md@Linux.IT (Marco d'Itri)
-Subject: VLAN subinterfaces, bridges and udev
-Date: Sun, 30 Apr 2006 16:29:29 +0200
-Message-ID: <20060430142929.GA8901@wonderland.linux.it>
-Reply-To: netdev@vger.kernel.org, md@Linux.IT
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [AX25, ROSE] Remove useless SET_MODULE_OWNER calls.
+Date: Sun, 30 Apr 2006 13:04:20 -0400
+Message-ID: <1146416660.2336.0.camel@localhost.localdomain>
+References: <E1FaC7e-0003Cj-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from attila.bofh.it ([213.92.8.2]:36304 "EHLO attila.bofh.it")
-	by vger.kernel.org with ESMTP id S1751136AbWD3OdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2006 10:33:09 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:58074 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751173AbWD3RGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2006 13:06:25 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1FaC7e-0003Cj-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Please Cc me, I am not subscribed to netdev.]
+On Sun, 2006-04-30 at 23:38 +1000, Herbert Xu wrote:
+> Dan Williams <dcbw@redhat.com> wrote:
+> > 
+> > Are these done by anything else now?  Did something change to make
+> > SET_MODULE_OWNER useless in individual drivers?  I'm asking because I
+> 
+> SET_MODULE_OWNER has been a no-op ever since Dave made live network
+> device driver modules unloadable nearly three years ago.
 
-Can I rely on the presence of the $DEVPATH/driver symlink (e.g.
-/sys/class/net/eth0/driver) to check if a network interface is a "real"
-device insteaf of a VLAN or a bridge?
+Ah, thanks for the clarification.
 
------ Forwarded message from Marco d'Itri <md@Linux.IT> -----
-
-To: linux-hotplug-devel@lists.sourceforge.net
-Subject: VLAN subinterfaces
-From: Marco d'Itri <md@Linux.IT>
-
-I wrote a script to handle persistent rules for network interfaces, but
-I noticed that VLAN subinterfaces have the same MAC address of the
-parent interface and I could not find in sysfs anything evident which I
-could use in a rule. The only difference I noticed is that the VLAN
-subinterfaces lack the device and drivers symlinks.
-This problem affects anybody using VLANs, is there a good solution?
-
--- 
-ciao,
-Marco
-
------ End forwarded message -----
------ Forwarded message from Marco d'Itri <md@Linux.IT> -----
-
-To: linux-hotplug-devel@lists.sourceforge.net
-Subject: Re: VLAN subinterfaces
-From: Marco d'Itri <md@Linux.IT>
-
-On Apr 23, Marco d'Itri <md@Linux.IT> wrote:
-
-> I wrote a script to handle persistent rules for network interfaces, but
-> I noticed that VLAN subinterfaces have the same MAC address of the
-> parent interface and I could not find in sysfs anything evident which I
-> could use in a rule. The only difference I noticed is that the VLAN
-> subinterfaces lack the device and drivers symlinks.
-> This problem affects anybody using VLANs, is there a good solution?
-Another user (Debian bug #365248) reported that this applies to bridges
-too. Is adding DRIVER=="?*" to the rules the correct workaround?
-
--- 
-ciao,
-Marco
+dan
 
 
--------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
-_______________________________________________
-Linux-hotplug-devel mailing list  http://linux-hotplug.sourceforge.net
-Linux-hotplug-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel
-
------ End forwarded message -----
-
--- 
-ciao,
-Marco
