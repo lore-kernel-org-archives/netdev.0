@@ -1,37 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [AX25, ROSE] Remove useless SET_MODULE_OWNER calls.
-Date: Sun, 30 Apr 2006 23:38:02 +1000
-Message-ID: <E1FaC7e-0003Cj-00@gondolin.me.apana.org.au>
-References: <1146398606.2252.1.camel@localhost.localdomain>
-Cc: ralf@linux-mips.org, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
+From: Nuri Jawad <lkml@jawad.org>
+Subject: Re: Fw: Bug: PPP dropouts in >=2.6.16
+Date: Sun, 30 Apr 2006 16:10:25 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0604301520030.5512@pc>
+References: <20060430114356.GA9810@ats.dyn.bawue.de>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58120 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751076AbWD3NiQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Apr 2006 09:38:16 -0400
-To: dcbw@redhat.com (Dan Williams)
-In-Reply-To: <1146398606.2252.1.camel@localhost.localdomain>
+Received: from leitseite.net ([213.239.214.51]:65245 "EHLO mail.leitseite.net")
+	by vger.kernel.org with ESMTP id S1751125AbWD3OKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2006 10:10:47 -0400
+Received: from pc ([10.1.0.2] helo=nj.yi.org)
+	by mail.leitseite.net with esmtp (Exim 4.34)
+	id 1FaCdC-0001g1-Ig
+	for netdev@vger.kernel.org; Sun, 30 Apr 2006 16:10:38 +0200
+Received: from localhost (localhost [127.0.0.1])
+	by nj.yi.org (Postfix) with ESMTP id CA3181D889C
+	for <netdev@vger.kernel.org>; Sun, 30 Apr 2006 16:10:25 +0200 (CEST)
+To: netdev@vger.kernel.org
+In-Reply-To: <20060430114356.GA9810@ats.dyn.bawue.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Williams <dcbw@redhat.com> wrote:
-> 
-> Are these done by anything else now?  Did something change to make
-> SET_MODULE_OWNER useless in individual drivers?  I'm asking because I
+On Sun, 30 Apr 2006, theosch@gmx.net wrote:
 
-SET_MODULE_OWNER has been a no-op ever since Dave made live network
-device driver modules unloadable nearly three years ago.
+> I observed a 1-2 sec stalling behaviour for the complete system every
+> 10 seconds or so _seemingly_ only when my ADSL connection was up.
 
-> was fairly sure that SET_MODULE_OWNER set up some sysfs links and such
-> that HAL depends on to figure out information about the driver and
-> hardware device, much like SET_NETDEV_DEV.
+I had that idea too, but that sounds different from what I have here. I 
+have also transfered lots of data at >900 MBits/s with the e1000 and 
+never had a single problem. The packets are not vanishing on the wire and 
+the system does not stall, there's just nothing appearing on ppp0 tx at 
+all. That sounds like an unrelated issue to me. 
+BTW, there was no dropout in the last 8 hours, only after I started some 
+tx load a while ago one of them came up within minutes.
 
-For PCI drivers the module information is injected by pci_register_driver.
+> erroneous patch I realized I had changed the driver when upgrading the
+> kernel to 2.6.14.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+What does 2.6.14 have to do with it? The ppp problem appeared exactly with 
+*2.6.16*. It looks like it will also be in 2.6.17 because nobody is 
+stepping on the brake :/. All this with code that had worked perfectly 
+fine for ages. I'm getting a bit frustrated here.
+
+Well, I might try disabling the onboard e1000 and replacing it with a 
+"good" old Realtek.
+
+Regards, Nuri
