@@ -1,48 +1,52 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] softmac: don't reassociate if user asked for deauthentication
-Date: Sun, 30 Apr 2006 19:49:30 +0100 (BST)
-Message-ID: <20060430184930.62BC3886AB6@zog.reactivated.net>
-Cc: netdev@vger.kernel.org
+From: Xu Nakajima <xunakaj@yahoo.com>
+Subject: RtNetlink in wireless.c and netlink_broadcast(uevent_sock,...) - newbie
+Date: Sun, 30 Apr 2006 12:14:56 -0700 (PDT)
+Message-ID: <20060430191456.80796.qmail@web38310.mail.mud.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta09-winn.ispmail.ntl.com ([81.103.221.49]:18894 "EHLO
-	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750980AbWD3Stf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Apr 2006 14:49:35 -0400
-To: linville@tuxdriver.com
-Cc: johannes@sipsolutions.net
-Cc: softmac-dev@sipsolutions.net
+Received: from web38310.mail.mud.yahoo.com ([209.191.125.26]:39590 "HELO
+	web38310.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1750984AbWD3TO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Apr 2006 15:14:58 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When wpa_supplicant exits, it uses SIOCSIWMLME to request deauthentication.
-softmac then tries to reassociate without any user intervention, which isn't
-the desired behaviour of this signal.
+Hello,
 
-This change makes softmac only attempt reassociation if the remote network
-itself deauthenticated us.
+I saw that in the wireless linux stack, there is usage
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
+of sending messages to user space via the RtNetlink
+event channel : 
+in net/core/wireless.c,  wireless_send_event() method
+calls rtmsg_iwinfo() which calls
+netlink_broadcast(rtnl, skb, 0, RTNLGRP_LINK,
+GFP_ATOMIC); (it fills a struct with 
+rtnetlink_fill_iwinfo before).
 
-Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_auth.c
-===================================================================
---- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_auth.c
-+++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_auth.c
-@@ -301,8 +301,6 @@ ieee80211softmac_deauth_from_net(struct 
- 	
- 	/* can't transmit data right now... */
- 	netif_carrier_off(mac->dev);
--	/* let's try to re-associate */
--	schedule_work(&mac->associnfo.work);
- 	spin_unlock_irqrestore(&mac->lock, flags);
- }
- 
-@@ -363,5 +361,8 @@ ieee80211softmac_deauth_resp(struct net_
- 	}
- 
- 	ieee80211softmac_deauth_from_net(mac, net);
-+
-+	/* let's try to re-associate */
-+	schedule_work(&mac->associnfo.work);
- 	return 0;
- }
+On the other hand, I see that for example, in the case
+of 
+sending messeges to userspace udev socket, the
+netlink_broadcast() call is with a different
+mecahinsm;  
+In lib/kobject_uevent.c, there is the following call
+netlink_broadcast(uevent_sock, skb, 0, 1, GFP_KERNEL);
+
+Is there something special about RtNetlink event
+channel
+which makes it needed fot wireless.c (for example)? 
+While udev can use some other mechanism ?
+What is special about RtNetlink event channel
+in comaprison to non RtNetlink channels?
+
+Regards,
+Xu
+
+
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
