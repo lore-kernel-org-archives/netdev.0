@@ -1,70 +1,64 @@
-From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
-Subject: Re: [PATCH 3/3] Eleminate HZ from ROSE kernel interfaces
-Date: Sun, 30 Apr 2006 11:35:54 +0200
-Message-ID: <445484FA.6050008@ccr.jussieu.fr>
-References: <20060429141924.GA2941@linux-mips.org>
+From: theosch@gmx.net
+Subject: Re: Fw: Bug: PPP dropouts in >=2.6.16
+Date: Sun, 30 Apr 2006 13:43:56 +0200
+Message-ID: <20060430114356.GA9810@ats.dyn.bawue.de>
+References: <Pine.LNX.4.58.0604202217450.4014@pc>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090802090601000706050501"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20060429141924.GA2941@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-in-03.arcor-online.net ([151.189.21.43]:38311 "EHLO
+	mail-in-03.arcor-online.net") by vger.kernel.org with ESMTP
+	id S1751095AbWD3LoV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Apr 2006 07:44:21 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0604202217450.4014@pc>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090802090601000706050501
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+
+Maybe this is an issue of the e100 driver?
+
+I observed a 1-2 sec stalling behaviour for the complete system every
+10 seconds or so _seemingly_ only when my ADSL connection was up. That
+was after I had changed the ethernet driver for a card _not_ connected
+to the modem from eepro100 to e100.
+
+After a lot of fiddling around with git-bisect trying to find the
+erroneous patch I realized I had changed the driver when upgrading the
+kernel to 2.6.14. The problem also existed in later kernel versions.
+Going back to e100 helped.
+
+Cheers
+Arnold
 
 
-Ralf Baechle wrote :
+If you have any question, please Cc to theosch at gmx.net as I am not
+subscibed to the list.
 
-> Index: linux-net.git/net/rose/af_rose.c
-> ===================================================================
-> --- linux-net.git.orig/net/rose/af_rose.c	2006-04-29 01:54:21.000000000 +0100
-> +++ linux-net.git/net/rose/af_rose.c	2006-04-29 11:37:34.000000000 +0100
++ + + + +
+Using Kernel pppoe
+PCI-Rev: Don't know (well, it says "PCI: PCI BIOS revision 2.10...")
 
-While patching af_rose.c, would you consider the following patch 
-ROSE/FPAC users have introduced a year ago with good success.
+# CONFIG_SMP is not set
+# CONFIG_PREEMPT_NONE is not set
+CONFIG_PREEMPT_VOLUNTARY=y
+# CONFIG_PREEMPT is not set
 
-73 de Bernard, f6bvp
+First ethernet (connected to ADSL modem): 
+PCI: Found IRQ 11 for device 0000:00:0c.0
+3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
+0000:00:0c.0: 3Com PCI 3c905B Cyclone 100baseTx at e0800000. Vers LK1.1.19
 
-http://f6bvp.org
-http://rose.fpac.free.fr/MINI-HOWTO/
-http://rose.fpac.free.fr/MINI-HOWTO-FR/
+Second ethernet (local LAN):
+eepro100.c:v1.09j-t 9/29/99 Donald Becker http://www.scyld.com/network/eepro100.html
+eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others
+PCI: Found IRQ 10 for device 0000:00:0b.0
+eth1: 0000:00:0b.0, 00:D0:B7:83:58:26, IRQ 10.
+  Board assembly 721383-009, Physical connectors present: RJ45
+  Primary interface chip i82555 PHY #1.
+  General self-test: passed.
+  Serial sub-system self-test: passed.
+  Internal registers self-test: passed.
+  ROM checksum self-test: passed (0x04f4518b).
 
-
---------------090802090601000706050501
-Content-Type: text/x-patch;
- name="af_rose.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="af_rose.diff"
-
---- linux/net/rose/af_rose.c.orig	2006-04-30 11:30:48.000000000 +0200
-+++ linux/net/rose/af_rose.c	2006-04-30 11:27:35.000000000 +0200
-@@ -753,6 +753,7 @@
- 
- 		rose_insert_socket(sk);		/* Finish the bind */
- 	}
-+rose_try_next_neigh:
- 	rose->dest_addr   = addr->srose_addr;
- 	rose->dest_call   = addr->srose_call;
- 	rose->rand        = ((long)rose & 0xFFFF) + rose->lci;
-@@ -810,6 +811,11 @@
- 	}
- 
- 	if (sk->sk_state != TCP_ESTABLISHED) {
-+	/* Try next neighbour */
-+		rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause, &diagnostic);
-+		if (rose->neighbour)
-+			goto rose_try_next_neigh;
-+	/* No more neighbour */
- 		sock->state = SS_UNCONNECTED;
- 		return sock_error(sk);	/* Always set at this point */
- 	}
-
---------------090802090601000706050501--
