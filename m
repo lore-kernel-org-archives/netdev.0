@@ -1,58 +1,33 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: wireless-dev: warnings while removing bcm43xx-d80211
-Date: Sun, 30 Apr 2006 14:49:45 +0200
-Message-ID: <200604301449.46431.mb@bu3sch.de>
-References: <1146308425.5019.38.camel@localhost> <20060430141520.5f0ef66a@logostar.upir.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: determine outgoing interface (eth0,eth1) for a packet according to the dest IP
+Date: Sun, 30 Apr 2006 22:55:39 +1000
+Message-ID: <20060430125539.GA11977@gondor.apana.org.au>
+References: <ada605fb0604260324n4dc99556j300bfd433a9027d9@mail.gmail.com> <E1FYkWm-0003MM-00@gondolin.me.apana.org.au> <20060430091711.GL24458@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart10830473.4zreOQX36Q";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Broadcom Linux <bcm43xx-dev@berlios.de>,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Que <qwejohn@gmail.com>, ak@suse.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:11754
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751104AbWD3MoB
+Received: from rhun.apana.org.au ([64.62.148.172]:10248 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751106AbWD3Mzx
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Apr 2006 08:44:01 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060430141520.5f0ef66a@logostar.upir.cz>
+	Sun, 30 Apr 2006 08:55:53 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Disposition: inline
+In-Reply-To: <20060430091711.GL24458@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart10830473.4zreOQX36Q
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Sun, Apr 30, 2006 at 11:17:11AM +0200, Lennert Buytenhek wrote:
+> 
+> A fragile and ugly but easier/shorter way of getting the source address
+> (which I've used a couple of times in the past) is to open a SOCK_DGRAM
+> socket, connect() it to the intended destination, and then do
+> getsockname().
 
-On Sunday 30 April 2006 14:15, you wrote:
-> Sat, 29 Apr 2006 13:00:25 +0200, Johannes Berg pise:
-> > This didn't look too good to me, maybe someone can investigate?
-> >=20
-> > [24070.841580] Badness in remove_proc_entry at fs/proc/generic.c:732
-> > [24070.841593] Call Trace:
-> > [...]
->=20
-> I know about this (also mentioned it at Wireless summit), I'm working on
-> it.
-
-Hm, seems like I did not listen to you. :P
-How does this happen? I never saw it.
-
-=2D-=20
-Greetings Michael.
-
---nextPart10830473.4zreOQX36Q
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBEVLJqlb09HEdWDKgRAnjJAJ0TzInXS8N9iwlGl8ogCiyfg9wMBQCfWAiz
-SUxbWi5ABndrzen0k9Rvy7M=
-=cats
------END PGP SIGNATURE-----
-
---nextPart10830473.4zreOQX36Q--
+Yes you're quite right that this would've been a much simpler solution.
+I suppose I was quite fond of the netlink hammer at the time :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
