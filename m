@@ -1,34 +1,43 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: wireless-dev: warnings while removing bcm43xx-d80211
-Date: Sun, 30 Apr 2006 21:18:04 +0200
-Message-ID: <20060430211804.14751754@logostar.upir.cz>
-References: <1146308425.5019.38.camel@localhost>
-	<20060430141520.5f0ef66a@logostar.upir.cz>
-	<200604301449.46431.mb@bu3sch.de>
+From: Bernard Pidoux <pidoux@ccr.jussieu.fr>
+Subject: Re: [PATCH 2/3] Eleminate HZ from NET/ROM kernel interfaces
+Date: Sun, 30 Apr 2006 21:34:32 +0200
+Message-ID: <44551148.5010503@ccr.jussieu.fr>
+References: <20060429141613.GA2811@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Broadcom Linux <bcm43xx-dev@berlios.de>,
-	Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from r2u241.chello.upc.cz ([62.245.84.241]:32688 "EHLO
-	localhost.localdomain") by vger.kernel.org with ESMTP
-	id S1750981AbWD3TSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Apr 2006 15:18:11 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200604301449.46431.mb@bu3sch.de>
+Received: from smtp5-g19.free.fr ([212.27.42.35]:11419 "EHLO smtp5-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1751007AbWD3Tei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Apr 2006 15:34:38 -0400
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20060429141613.GA2811@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sun, 30 Apr 2006 14:49:45 +0200, Michael Buesch pise:
-> Hm, seems like I did not listen to you. :P
-> How does this happen? I never saw it.
+Ralf Baechle wrote :
 
-Usually when a net interface is renamed (by udev for example). The stack
-then tries to remove wrong procfs directory.
+> Convert all NET/ROM sysctl time values from jiffies to ms as units.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 
 
- Jiri
+With such extensive patches for netrom and rose modules that will go 
+into a future 2.6.x kernel, I think it would be justified to update the 
+following banners in af_rose.c and af_netrom.c respectively for they 
+appear during boot :
 
--- 
-Jiri Benc
-SUSE Labs
+static const char banner[] = KERN_INFO "F6FBB/G4KLX ROSE for Linux. 
+Version 0.62 for AX25.037 Linux 2.4\n";
+
+static char banner[] __initdata = KERN_INFO "G4KLX NET/ROM for Linux. 
+Version 0.7 for AX25.037 Linux 2.4\n";
+
+73 de Bernard, f6bvp
+
+http://f6bvp.org
+http://rose.fpac.free.fr/MINI-HOWTO/
+http://rose.fpac.free.fr/MINI-HOWTO-FR/
+
