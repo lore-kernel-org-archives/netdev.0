@@ -1,160 +1,68 @@
-From: David Vrabel <dvrabel@cantab.net>
-Subject: Re: IP1000 gigabit nic driver
-Date: Mon, 01 May 2006 12:32:40 +0100
-Message-ID: <4455F1D8.5030102@cantab.net>
-References: <20060427142939.GA31473@fargo>	 <20060427185627.GA30871@electric-eye.fr.zoreil.com>	 <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>	 <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>	 <20060428113755.GA7419@fargo>	 <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>	 <1146306567.1642.3.camel@localhost>  <20060429122119.GA22160@fargo>	 <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070402040805090704080609"
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>, romieu@fr.zoreil.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	david@pleyades.net
+From: Herbert Valerio Riedel <hvr@gnu.org>
+Subject: [PATCH] au1000_eth.c: use ether_crc() from <linux/crc32.h>
+Date: Mon, 1 May 2006 13:46:04 +0000 (UTC)
+Message-ID: <E1FaYil-0007A8-HB@fencepost.gnu.org>
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	sshtylyov@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from heisenberg.zen.co.uk ([212.23.3.141]:40428 "EHLO
-	heisenberg.zen.co.uk") by vger.kernel.org with ESMTP
-	id S932067AbWEALcp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 07:32:45 -0400
-To: David Vrabel <dvrabel@cantab.net>
-In-Reply-To: <44554ADE.8030200@cantab.net>
+Received: from fencepost.gnu.org ([199.232.76.164]:2220 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932103AbWEANpy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 09:45:54 -0400
+To: jgarzik@pobox.com
+Date: Mon May 1 15:37:09 2006 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070402040805090704080609
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+since the au1000 driver already selects the CRC32 routines, simply replace
+the internal ether_crc() implementation with the semantically equivalent
+one from <linux/crc32.h>
 
-David Vrabel wrote:
-> 
->     - something (PHY reset/auto negotiation?) takes 2-3 seconds and
->       appears to be done with interrupts disabled.
+Signed-off-by: Herbert Valerio Riedel <hvr@gnu.org>
 
-It was clocking the MII management interface (MDC) at 500 Hz so each PHY
-register access took some 130 ms, and many registers accesses were being
-done on initialization. According to the datasheet, the maximum
-frequency for MDC is 2.5 MHz.  Delays have been adjusted accordingly.
 
-David Vrabel
+---
 
---------------070402040805090704080609
-Content-Type: text/plain;
- name="drivers-net-ipg-speed-up-phy-access"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="drivers-net-ipg-speed-up-phy-access"
+ drivers/net/au1000_eth.c |   18 +-----------------
+ 1 files changed, 1 insertions(+), 17 deletions(-)
 
-Reduce delays when reading/writing the PHY registers so we clock the
-MII management interface at 2.5 MHz (the maximum according to the
-datasheet) instead of 500 Hz.
-
-Signed-off-by: David Vrabel <dvrabel@cantab.net>
-
-Index: linux-source-2.6.16/drivers/net/ipg.c
-===================================================================
---- linux-source-2.6.16.orig/drivers/net/ipg.c	2006-05-01 11:52:32.555800238 +0100
-+++ linux-source-2.6.16/drivers/net/ipg.c	2006-05-01 12:08:45.316188064 +0100
-@@ -176,13 +176,13 @@
- 		 (IPG_PC_MGMTCLK_LO | (IPG_PC_MGMTDATA & 0) | IPG_PC_MGMTDIR |
- 		  phyctrlpolarity), ioaddr + IPG_PHYCTRL);
- 
--	mdelay(IPG_PC_PHYCTRLWAIT);
-+	ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 
- 	iowrite8(IPG_PC_RSVD_MASK &
- 		 (IPG_PC_MGMTCLK_HI | (IPG_PC_MGMTDATA & 0) | IPG_PC_MGMTDIR |
- 		  phyctrlpolarity), ioaddr + IPG_PHYCTRL);
- 
--	mdelay(IPG_PC_PHYCTRLWAIT);
-+	ndelay(IPG_PC_PHYCTRLWAIT_NS);
+9360df5368deaaaa8fc7dcaacf9b7ca446af94c4
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index 29adebb..0823cb8 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -52,6 +52,7 @@
+ #include <linux/mii.h>
+ #include <linux/skbuff.h>
+ #include <linux/delay.h>
++#include <linux/crc32.h>
+ #include <asm/mipsregs.h>
+ #include <asm/irq.h>
+ #include <asm/io.h>
+@@ -2070,23 +2071,6 @@ static void au1000_tx_timeout(struct net
+ 	netif_wake_queue(dev);
  }
  
- static void send_end(void __iomem * ioaddr, u8 phyctrlpolarity)
-@@ -198,7 +198,7 @@
- 	iowrite8(IPG_PC_RSVD_MASK & (IPG_PC_MGMTCLK_LO | phyctrlpolarity),
- 		 ioaddr + IPG_PHYCTRL);
- 
--	mdelay(IPG_PC_PHYCTRLWAIT);
-+	ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 
- 	bit_data =
- 	    ((ioread8(ioaddr + IPG_PHYCTRL) & IPG_PC_MGMTDATA) >> 1) & 1;
-@@ -206,7 +206,7 @@
- 	iowrite8(IPG_PC_RSVD_MASK & (IPG_PC_MGMTCLK_HI | phyctrlpolarity),
- 		 ioaddr + IPG_PHYCTRL);
- 
--	mdelay(IPG_PC_PHYCTRLWAIT);
-+	ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 	return bit_data;
- }
- 
-@@ -290,14 +290,14 @@
- 				  (IPG_PC_MGMTDATA & databit) | IPG_PC_MGMTDIR |
- 				  phyctrlpolarity), ioaddr + IPG_PHYCTRL);
- 
--			mdelay(IPG_PC_PHYCTRLWAIT);
-+			ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 
- 			iowrite8(IPG_PC_RSVD_MASK &
- 				 (IPG_PC_MGMTCLK_HI |
- 				  (IPG_PC_MGMTDATA & databit) | IPG_PC_MGMTDIR |
- 				  phyctrlpolarity), ioaddr + IPG_PHYCTRL);
- 
--			mdelay(IPG_PC_PHYCTRLWAIT);
-+			ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 		}
- 
- 	send_three_state(ioaddr, phyctrlpolarity);
-@@ -403,14 +403,14 @@
- 				  (IPG_PC_MGMTDATA & databit) | IPG_PC_MGMTDIR |
- 				  phyctrlpolarity), ioaddr + IPG_PHYCTRL);
- 
--			mdelay(IPG_PC_PHYCTRLWAIT);
-+			ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 
- 			iowrite8(IPG_PC_RSVD_MASK &
- 				 (IPG_PC_MGMTCLK_HI |
- 				  (IPG_PC_MGMTDATA & databit) | IPG_PC_MGMTDIR |
- 				  phyctrlpolarity), ioaddr + IPG_PHYCTRL);
- 
--			mdelay(IPG_PC_PHYCTRLWAIT);
-+			ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 		}
- 
- 	/* The last cycle is a tri-state, so read from the PHY.
-@@ -421,7 +421,7 @@
- 				 (IPG_PC_MGMTCLK_LO | phyctrlpolarity),
- 				 ioaddr + IPG_PHYCTRL);
- 
--			mdelay(IPG_PC_PHYCTRLWAIT);
-+			ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 
- 			field[j] |= ((ioread8(ioaddr + IPG_PHYCTRL) &
- 				      IPG_PC_MGMTDATA) >> 1)
-@@ -431,7 +431,7 @@
- 				 (IPG_PC_MGMTCLK_HI | phyctrlpolarity),
- 				 ioaddr + IPG_PHYCTRL);
- 
--			mdelay(IPG_PC_PHYCTRLWAIT);
-+			ndelay(IPG_PC_PHYCTRLWAIT_NS);
- 
- 		}
- }
-Index: linux-source-2.6.16/drivers/net/ipg.h
-===================================================================
---- linux-source-2.6.16.orig/drivers/net/ipg.h	2006-05-01 12:08:58.343035854 +0100
-+++ linux-source-2.6.16/drivers/net/ipg.h	2006-05-01 12:09:37.282602113 +0100
-@@ -672,10 +672,10 @@
- /* Number of IPG_AC_RESETWAIT timeperiods before declaring timeout. */
- #define         IPG_AC_RESET_TIMEOUT         0x0A
- 
--/* Minimum number of miliseconds used to toggle MDC clock during
-+/* Minimum number of nanoseconds used to toggle MDC clock during
-  * MII/GMII register access.
-  */
--#define         IPG_PC_PHYCTRLWAIT           0x01
-+#define		IPG_PC_PHYCTRLWAIT_NS		200
- 
- #define		IPG_TFDLIST_LENGTH		0x100
- 
+-
+-static unsigned const ethernet_polynomial = 0x04c11db7U;
+-static inline u32 ether_crc(int length, unsigned char *data)
+-{
+-    int crc = -1;
+-
+-    while(--length >= 0) {
+-		unsigned char current_octet = *data++;
+-		int bit;
+-		for (bit = 0; bit < 8; bit++, current_octet >>= 1)
+-			crc = (crc << 1) ^
+-				((crc < 0) ^ (current_octet & 1) ? 
+-				 ethernet_polynomial : 0);
+-    }
+-    return crc;
+-}
+-
+ static void set_rx_mode(struct net_device *dev)
+ {
+ 	struct au1000_private *aup = (struct au1000_private *) dev->priv;
+-- 
+1.2.6
 
---------------070402040805090704080609--
