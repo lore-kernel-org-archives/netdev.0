@@ -1,189 +1,289 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2/3] ipg: leaks in ipg_probe
-Date: Tue, 2 May 2006 01:10:50 +0200
-Message-ID: <20060501231050.GC7419@electric-eye.fr.zoreil.com>
+Subject: [PATCH 3/3] ipg: plug leaks in the error path of ipg_nic_open
+Date: Tue, 2 May 2006 01:12:06 +0200
+Message-ID: <20060501231206.GD7419@electric-eye.fr.zoreil.com>
 References: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com> <20060428113755.GA7419@fargo> <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI> <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48026 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932312AbWEAXLu
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:22926 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932314AbWEAXPt
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 19:11:50 -0400
+	Mon, 1 May 2006 19:15:49 -0400
 To: Pekka Enberg <penberg@cs.helsinki.fi>
 Content-Disposition: inline
 In-Reply-To: <1146506939.23931.2.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The error paths are badly broken.
-
-Bonus:
-- remove duplicate initialization of sp;
-- remove useless NULL initialization of dev;
-- USE_IO_OPS is not used (and the driver does not seem to care about
-  posted writes, rejoice).
+Added ipg_{rx/tx}_clear() to factor out some code.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
 ---
 
- drivers/net/ipg.c |   93 ++++++++++++++++++++++++-----------------------------
- 1 files changed, 42 insertions(+), 51 deletions(-)
+ drivers/net/ipg.c |  161 +++++++++++++++++++++++++++++++----------------------
+ 1 files changed, 93 insertions(+), 68 deletions(-)
 
-5ea54e95a2319311aaae857ecf2adb7fbe068c92
+96f29e9d57f503f1275757f4bbec76c0f7f421fc
 diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index 42396ca..da0fa22 100644
+index da0fa22..393b617 100644
 --- a/drivers/net/ipg.c
 +++ b/drivers/net/ipg.c
-@@ -2914,11 +2914,8 @@ static void ipg_remove(struct pci_dev *p
- 	/* Un-register Ethernet device. */
- 	unregister_netdev(dev);
+@@ -16,6 +16,9 @@
+  */
+ #include <linux/crc32.h>
  
--#ifdef USE_IO_OPS
--	ioport_unmap(ioaddr);
--#else
--	iounmap(sp->ioaddr);
--#endif
-+	pci_iounmap(pdev, sp->ioaddr);
++#define IPG_RX_RING_BYTES	(sizeof(struct RFD) * IPG_RFDLIST_LENGTH)
++#define IPG_TX_RING_BYTES	(sizeof(struct TFD) * IPG_TFDLIST_LENGTH)
 +
- 	pci_release_regions(pdev);
+ #define JUMBO_FRAME_4k_ONLY
+ enum {
+ 	netdev_io_size = 128
+@@ -1485,15 +1488,46 @@ static void ipg_nic_txfree(struct net_de
+ 	} while (maxtfdcount != 0);
+ }
  
- 	free_netdev(dev);
-@@ -2929,19 +2926,15 @@ #endif
- static int __devinit ipg_probe(struct pci_dev *pdev,
- 			       const struct pci_device_id *id)
+-static int ipg_nic_open(struct net_device *dev)
++static void ipg_rx_clear(struct ipg_nic_private *sp)
  {
--	int err, i;
--	struct net_device *dev = NULL;
-+	unsigned int i = id->driver_data;
- 	struct ipg_nic_private *sp;
-+	struct net_device *dev;
- 	void __iomem *ioaddr;
--	unsigned long pio_start, pio_len;
--	unsigned long mmio_start;
+-	/* The IPG NIC Ethernet interface is opened when activated
+-	 * by ifconfig.
+-	 */
++	struct pci_dev *pdev = sp->pdev;
++	unsigned int i;
+ 
+-	int error = 0;
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
++	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
++		if (sp->RxBuff[i]) {
++			struct ipg_dmabuff *desc = sp->RxBuffDMAhandle + i;
++
++			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
++			sp->RxBuff[i] = NULL;
++			pci_unmap_single(pdev, desc->dmahandle, desc->len,
++					 PCI_DMA_FROMDEVICE);
++		}
++	}
++}
++
++static void ipg_tx_clear(struct ipg_nic_private *sp)
++{
++	struct pci_dev *pdev = sp->pdev;
++	unsigned int i;
++
++	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
++		if (sp->TxBuff[i]) {
++			struct ipg_dmabuff *desc = sp->TxBuffDMAhandle + i;
++
++			IPG_DEV_KFREE_SKB(sp->TxBuff[i]);
++			sp->TxBuff[i] = NULL;
++			pci_unmap_single(pdev, desc->dmahandle, desc->len,
++					 PCI_DMA_TODEVICE);
++		}
++	}
++}
++
++static int ipg_nic_open(struct net_device *dev)
++{
+ 	struct ipg_nic_private *sp = netdev_priv(dev);
++	void __iomem *ioaddr = ipg_ioaddr(dev);
++	struct pci_dev *pdev = sp->pdev;
 +	int rc;
  
--	err = pci_enable_device(pdev);
--	if (err)
--		return err;
--
--	/* Get the index for the driver description string. */
--	i = id->driver_data;
-+	rc = pci_enable_device(pdev);
-+	if (rc < 0)
-+		goto out;
+ 	IPG_DEBUG_MSG("_nic_open\n");
  
- 	printk(KERN_INFO "%s found.\n", nics_supported[i].NICname);
- 	printk(KERN_INFO "Bus %x Slot %x\n",
-@@ -2949,10 +2942,14 @@ static int __devinit ipg_probe(struct pc
- 
- 	pci_set_master(pdev);
- 
--	if (!pci_dma_supported(pdev, 0xFFFFFFFF)) {
--		printk(KERN_INFO "pci_dma_supported out.\n");
--		err = -ENODEV;
--		goto out;
-+	rc = pci_set_dma_mask(pdev, DMA_40BIT_MASK);
-+	if (rc < 0) {
-+		rc = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
-+		if (rc < 0) {
-+			printk(KERN_ERR "%s: DMA config failed.\n",
-+			       pci_name(pdev));
-+			goto err_disable_0;
-+		}
- 	}
- 
- 	/*
-@@ -2960,9 +2957,9 @@ static int __devinit ipg_probe(struct pc
+@@ -1508,59 +1542,53 @@ static int ipg_nic_open(struct net_devic
+ 	/* Register the interrupt line to be used by the IPG within
+ 	 * the Linux system.
  	 */
- 	dev = alloc_etherdev(sizeof(struct ipg_nic_private));
- 	if (!dev) {
--		printk(KERN_ERR "ipg: alloc_etherdev failed\n");
--		err = -ENOMEM;
--		goto out;
-+		printk(KERN_ERR "%s: alloc_etherdev failed\n", pci_name(pdev));
-+		rc = -ENOMEM;
-+		goto err_disable_0;
+-	if ((error = request_irq(sp->pdev->irq,
+-				 &ipg_interrupt_handler,
+-				 SA_SHIRQ, dev->name, dev)) < 0) {
++	rc = request_irq(pdev->irq, &ipg_interrupt_handler, SA_SHIRQ,
++			 dev->name, dev);
++	if (rc < 0) {
+ 		printk(KERN_INFO "%s: Error when requesting interrupt.\n",
+ 		       dev->name);
+-		return error;
++		goto out;
  	}
  
- 	sp = netdev_priv(dev);
-@@ -2981,50 +2978,44 @@ static int __devinit ipg_probe(struct pc
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
+-	dev->irq = sp->pdev->irq;
++	dev->irq = pdev->irq;
  
--	err = pci_request_regions(pdev, DRV_NAME);
--	if (err)
--		goto out;
--
--	pio_start = pci_resource_start(pdev, 0) & 0xffffff80;
--	pio_len = pci_resource_len(pdev, 0);
--	mmio_start = pci_resource_start(pdev, 1) & 0xffffff80;
-+	rc = pci_request_regions(pdev, DRV_NAME);
-+	if (rc)
-+		goto err_free_dev_1;
- 
--#ifdef USE_IO_OPS
--	ioaddr = ioport_map(pio_start, pio_len);
--	if (!ioaddr) {
--		printk(KERN_ERR "%s cannot map PIO\n", pci_name(pdev));
--		err = -EIO;
--		goto out;
--	}
--#else
--	ioaddr = ioremap(mmio_start, netdev_io_size);
-+	ioaddr = pci_iomap(pdev, 1, pci_resource_len(pdev, 1));
- 	if (!ioaddr) {
- 		printk(KERN_ERR "%s cannot map MMIO\n", pci_name(pdev));
--		err = -EIO;
--		goto out;
-+		rc = -EIO;
-+		goto err_release_regions_2;
- 	}
--#endif
--	sp = netdev_priv(dev);
+-	sp->RFDList = pci_alloc_consistent(sp->pdev,
+-					   (sizeof(struct RFD) *
+-					    IPG_RFDLIST_LENGTH),
++	rc = -ENOMEM;
 +
- 	/* Save the pointer to the PCI device information. */
- 	sp->ioaddr = ioaddr;
- 	sp->pdev = pdev;
++	sp->RFDList = pci_alloc_consistent(pdev, IPG_RX_RING_BYTES,
+ 					   &sp->RFDListDMAhandle);
++	if (!sp->RFDList)
++		goto err_free_irq_0;
  
- 	pci_set_drvdata(pdev, dev);
+-	sp->TFDList = pci_alloc_consistent(sp->pdev,
+-					   (sizeof(struct TFD) *
+-					    IPG_TFDLIST_LENGTH),
++	sp->TFDList = pci_alloc_consistent(pdev, IPG_TX_RING_BYTES,
+ 					   &sp->TFDListDMAhandle);
++	if (!sp->TFDList)
++		goto err_free_rx_1;
  
--	err = ipg_hw_init(dev);
--	if (err)
--		goto out;
-+	rc = ipg_hw_init(dev);
-+	if (rc < 0)
-+		goto err_unmap_3;
+-	if ((sp->RFDList == NULL) || (sp->TFDList == NULL)) {
+-		printk(KERN_INFO
+-		       "%s: No memory available for IP1000 RFD and/or TFD lists.\n",
+-		       dev->name);
+-		return -ENOMEM;
+-	}
+-
+-	error = init_rfdlist(dev);
+-	if (error < 0) {
++	rc = init_rfdlist(dev);
++	if (rc < 0) {
+ 		printk(KERN_INFO "%s: Error during configuration.\n",
+ 		       dev->name);
+-		return error;
++		goto err_free_tx_2;
+ 	}
  
--	err = register_netdev(dev);
--	if (err)
--		goto out;
-+	rc = register_netdev(dev);
-+	if (rc < 0)
-+		goto err_unmap_3;
+-	error = init_tfdlist(dev);
+-	if (error < 0) {
++	rc = init_tfdlist(dev);
++	if (rc < 0) {
+ 		printk(KERN_INFO "%s: Error during configuration.\n",
+ 		       dev->name);
+-		return error;
++		goto err_release_rfdlist_3;
+ 	}
  
- 	printk(KERN_INFO "Ethernet device registered as: %s\n", dev->name);
--	return 0;
+-	/* Configure IPG I/O registers. */
+-	error = ipg_io_config(dev);
+-	if (error < 0) {
++	rc = ipg_io_config(dev);
++	if (rc < 0) {
+ 		printk(KERN_INFO "%s: Error during configuration.\n",
+ 		       dev->name);
+-		return error;
++		goto err_release_tfdlist_4;
+ 	}
+ 
+ 	/* Resolve autonegotiation. */
+-	if (ipg_config_autoneg(dev) < 0) {
++	if (ipg_config_autoneg(dev) < 0)
+ 		printk(KERN_INFO "%s: Auto-negotiation error.\n", dev->name);
+-	}
++
+ #ifdef JUMBO_FRAME
+ 	/* initialize JUMBO Frame control variable */
+ 	sp->Jumbo.FoundStart = 0;
+@@ -1575,8 +1603,22 @@ #endif
+ 		   IPG_MC_TX_ENABLE), ioaddr + IPG_MACCTRL);
+ 
+ 	netif_start_queue(dev);
 +out:
 +	return rc;
  
--      out:
-+err_unmap_3:
-+	pci_iounmap(pdev, ioaddr);
-+err_release_regions_2:
-+	pci_release_regions(pdev);
-+err_free_dev_1:
-+	free_netdev(dev);
-+err_disable_0:
- 	pci_disable_device(pdev);
--	return err;
+-	return 0;
++err_release_tfdlist_4:
++	ipg_tx_clear(sp);
++err_release_rfdlist_3:
++	ipg_rx_clear(sp);
++err_free_tx_2:
++	pci_free_consistent(pdev, IPG_TX_RING_BYTES, sp->TFDList,
++			    sp->TFDListDMAhandle);
++err_free_rx_1:
++	pci_free_consistent(pdev, IPG_RX_RING_BYTES, sp->RFDList,
++			    sp->RFDListDMAhandle);
++err_free_irq_0:
++	free_irq(pdev->irq, dev);
 +	goto out;
  }
  
- static void ipg_set_phy_default_param(unsigned char rev,
+ static int init_rfdlist(struct net_device *dev)
+@@ -1593,13 +1635,16 @@ static int init_rfdlist(struct net_devic
+ 	sp->RxBuffNotReady = 0;
+ 
+ 	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
++		if (!sp->RxBuff[i])
++			continue;
++
+ 		/* Free any allocated receive buffers. */
+ 		pci_unmap_single(sp->pdev,
+ 				 sp->RxBuffDMAhandle[i].dmahandle,
+ 				 sp->RxBuffDMAhandle[i].len,
+ 				 PCI_DMA_FROMDEVICE);
+-		if (sp->RxBuff[i] != NULL)
+-			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
++
++		IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
+ 		sp->RxBuff[i] = NULL;
+ 
+ 		/* Clear out the RFS field. */
+@@ -1727,11 +1772,11 @@ static int ipg_get_rxbuff(struct net_dev
+ 
+ static int ipg_nic_stop(struct net_device *dev)
+ {
+-	/* Release resources requested by driver open function. */
++	struct ipg_nic_private *sp = netdev_priv(dev);
++	struct pci_dev *pdev = sp->pdev;
+ 
+ 	int i;
+ 	int error;
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+ 
+ 	IPG_DEBUG_MSG("_nic_stop\n");
+ 
+@@ -1752,40 +1797,20 @@ static int ipg_nic_stop(struct net_devic
+ 
+ 	error = ipg_reset(dev, i);
+ 	if (error < 0) {
++		// FIXME FIXME FIXME: giant leak alert
+ 		return error;
+ 	}
+ 
+-	/* Free all receive buffers. */
+-	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
+-		pci_unmap_single(sp->pdev,
+-				 sp->RxBuffDMAhandle[i].dmahandle,
+-				 sp->RxBuffDMAhandle[i].len,
+-				 PCI_DMA_FROMDEVICE);
+-		if (sp->RxBuff[i] != NULL)
+-			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
+-		sp->RxBuff[i] = NULL;
+-	}
++	ipg_rx_clear(sp);
+ 
+-	/* Free all transmit buffers. */
+-	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
+-		if (sp->TxBuff[i] != NULL)
+-			IPG_DEV_KFREE_SKB(sp->TxBuff[i]);
+-		sp->TxBuff[i] = NULL;
+-	}
++	ipg_tx_clear(sp);
+ 
+ 	netif_stop_queue(dev);
+ 
+-	/* Free memory associated with the RFDList. */
+-	pci_free_consistent(sp->pdev,
+-			    (sizeof(struct RFD) *
+-			     IPG_RFDLIST_LENGTH),
+-			    sp->RFDList, sp->RFDListDMAhandle);
+-
+-	/* Free memory associated with the TFDList. */
+-	pci_free_consistent(sp->pdev,
+-			    (sizeof(struct TFD) *
+-			     IPG_TFDLIST_LENGTH),
+-			    sp->TFDList, sp->TFDListDMAhandle);
++	pci_free_consistent(pdev, IPG_RX_RING_BYTES, sp->RFDList,
++			    sp->RFDListDMAhandle);
++	pci_free_consistent(pdev, IPG_TX_RING_BYTES, sp->TFDList,
++			    sp->TFDListDMAhandle);
+ 
+ 	/* Release interrupt line. */
+ 	free_irq(dev->irq, dev);
 -- 
 1.3.1
 
