@@ -1,122 +1,169 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFC] vlan: add sysfs support
-Date: Mon, 1 May 2006 14:08:34 -0700
-Message-ID: <20060501140834.43a006fd@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vlan@candelatech.com
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH resend] softmac: deauthentication implies deassociation
+Date: Mon,  1 May 2006 22:23:27 +0100 (BST)
+Message-ID: <20060501212327.364A3887A34@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:17795 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750945AbWEAVIk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 May 2006 17:08:40 -0400
-To: Ben Greear <greearb@candelatech.com>,
-	"David S. Miller" <davem@davemloft.net>
+Received: from mta09-winn.ispmail.ntl.com ([81.103.221.49]:59435 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932272AbWEAVX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 17:23:26 -0400
+To: linville@tuxdriver.com
+Cc: johannes@sipsolutions.net
+Cc: softmac-dev@sipsolutions.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add basic sysfs support for vlan device. It creates an entry in the
-vlan pseudo-device to display tag.  
-	/sys/class/net/eth0.5/vlan_id
+The 802.11 specs state that deauthenticating also implies disassociating. This
+patch implements that, which improve the behaviour of SIOCSIWMLME.
 
-It would be nice at some future to have something like:
-	/sys/class/net/eth0/tags/5  -> ../../eth0.5
-as well.
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
 
-There is a race with udev though. The sysfs entry can't be created
-until after the the class_device is registered but the registration
-doesn't happen until  rtnl_unlock after register_netdevice. The class_device
-registration causes the hotplug event, so the hotplug user program
-might get there before vlan_id is created.
+--
 
+Sorry, missed a file (ieee80211softmac_priv.h) in the last attempt.
 
---- vlan.orig/net/8021q/Makefile	2006-05-01 12:50:58.000000000 -0700
-+++ vlan/net/8021q/Makefile	2006-05-01 14:04:56.000000000 -0700
-@@ -6,7 +6,5 @@
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_assoc.c
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_assoc.c
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_assoc.c
+@@ -82,28 +82,37 @@ ieee80211softmac_assoc_timeout(void *d)
+ 	ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT, NULL);
+ }
  
- 8021q-objs := vlan.o vlan_dev.o
- 
--ifeq ($(CONFIG_PROC_FS),y)
--8021q-objs += vlanproc.o
--endif
--
-+8021q-$(CONFIG_PROC_FS) += vlanproc.o
-+8021q-$(CONFIG_SYSFS) += vlan_sysfs.o
---- vlan.orig/net/8021q/vlan.c	2006-05-01 12:50:58.000000000 -0700
-+++ vlan/net/8021q/vlan.c	2006-05-01 13:48:35.000000000 -0700
-@@ -232,6 +232,8 @@
- 			/* Remove proc entry */
- 			vlan_proc_rem_dev(dev);
- 
-+			vlan_sysfs_remove(dev);
+-/* Sends out a disassociation request to the desired AP */
+ void
+-ieee80211softmac_disassoc(struct ieee80211softmac_device *mac, u16 reason)
++ieee80211softmac_disassoc(struct ieee80211softmac_device *mac)
+ {
+ 	unsigned long flags;
 +
- 			/* Take it out of our own structures, but be sure to
- 			 * interlock with HW accelerating devices or SW vlan
- 			 * input packet processing.
-@@ -557,6 +559,9 @@
- 
- 	rtnl_unlock();
- 
-+	if (vlan_sysfs_add(new_dev))
-+		printk(KERN_WARNING "VLAN: failed to create sysfs entry for %s\n",
-+		       new_dev->name);
- 
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "Allocated new device successfully, returning.\n");
---- vlan.orig/net/8021q/vlan.h	2006-05-01 12:50:58.000000000 -0700
-+++ vlan/net/8021q/vlan.h	2006-05-01 13:17:16.000000000 -0700
-@@ -69,4 +69,13 @@
- int vlan_dev_get_vid(const char* dev_name, unsigned short* result);
- void vlan_dev_set_multicast_list(struct net_device *vlan_dev);
- 
-+#ifdef CONFIG_SYSFS
-+int vlan_sysfs_add(struct net_device *dev);
-+void vlan_sysfs_remove(struct net_device *dev);
-+#else
-+#define vlan_sysfs_add(dev)	(0)
-+#define vlan_sysfs_remove(dev)  do { } while (0)
-+#endif
++	spin_lock_irqsave(&mac->lock, flags);
++	if (mac->associnfo.associating)
++		cancel_delayed_work(&mac->associnfo.timeout);
 +
++	netif_carrier_off(mac->dev);
 +
- #endif /* !(__BEN_VLAN_802_1Q_INC__) */
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ vlan/net/8021q/vlan_sysfs.c	2006-05-01 14:04:49.000000000 -0700
-@@ -0,0 +1,38 @@
-+/*
-+ * VLAN sysfs interface.
-+ *
-+ * Basic access to vlan information via sysfs.
-+ * Authors:
-+ * Stephen Hemminger		<shemminger@osdl.org>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include "vlan.h"
-+
-+static ssize_t show_vlan_id(struct class_device *cd, char *buf)
-+{
-+	struct net_device *vlandev = container_of(cd, struct net_device, class_dev);
-+
-+	return sprintf(buf, "%d\n", VLAN_DEV_INFO(vlandev)->vlan_id);
++	mac->associated = 0;
++	mac->associnfo.bssvalid = 0;
++	mac->associnfo.associating = 0;
++	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
++	spin_unlock_irqrestore(&mac->lock, flags);
 +}
 +
-+static CLASS_DEVICE_ATTR(vlan_id, S_IRUGO, show_vlan_id, NULL);
-+
-+int vlan_sysfs_add(struct net_device *dev)
++/* Sends out a disassociation request to the desired AP */
++void
++ieee80211softmac_send_disassoc_req(struct ieee80211softmac_device *mac, u16 reason)
 +{
-+	return class_device_create_file(&dev->class_dev,
-+					&class_device_attr_vlan_id);
-+}
+ 	struct ieee80211softmac_network *found;
+ 
+ 	if (mac->associnfo.bssvalid && mac->associated) {
+ 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);
+ 		if (found)
+ 			ieee80211softmac_send_mgt_frame(mac, found, IEEE80211_STYPE_DISASSOC, reason);
+-	} else if (mac->associnfo.associating) {
+-		cancel_delayed_work(&mac->associnfo.timeout);
+ 	}
+ 
+-	/* Change our state */
+-	spin_lock_irqsave(&mac->lock, flags);
+-	/* Do NOT clear bssvalid as that will break ieee80211softmac_assoc_work! */
+-	mac->associated = 0;
+-	mac->associnfo.associating = 0;
+-	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
+-	spin_unlock_irqrestore(&mac->lock, flags);
++	ieee80211softmac_disassoc(mac);
+ }
+ 
+ static inline int
+@@ -176,14 +185,18 @@ ieee80211softmac_assoc_work(void *d)
+ 	struct ieee80211softmac_device *mac = (struct ieee80211softmac_device *)d;
+ 	struct ieee80211softmac_network *found = NULL;
+ 	struct ieee80211_network *net = NULL, *best = NULL;
++	int bssvalid;
+ 	unsigned long flags;
+-	
 +
-+void vlan_sysfs_remove(struct net_device *dev)
-+{
-+	return class_device_remove_file(&dev->class_dev,
-+					&class_device_attr_vlan_id);
++	/* ieee80211_disassoc might clear this */
++	bssvalid = mac->associnfo.bssvalid;
 +
-+}
+ 	/* meh */
+ 	if (mac->associated)
+-		ieee80211softmac_disassoc(mac, WLAN_REASON_DISASSOC_STA_HAS_LEFT);
++		ieee80211softmac_send_disassoc_req(mac, WLAN_REASON_DISASSOC_STA_HAS_LEFT);
+ 
+ 	/* try to find the requested network in our list, if we found one already */
+-	if (mac->associnfo.bssvalid || mac->associnfo.bssfixed)
++	if (bssvalid || mac->associnfo.bssfixed)
+ 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);	
+ 	
+ 	/* Search the ieee80211 networks for this network if we didn't find it by bssid,
+@@ -380,7 +393,6 @@ ieee80211softmac_handle_disassoc(struct 
+ 				 struct ieee80211_disassoc *disassoc)
+ {
+ 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
+-	unsigned long flags;
+ 
+ 	if (unlikely(!mac->running))
+ 		return -ENODEV;
+@@ -392,14 +404,11 @@ ieee80211softmac_handle_disassoc(struct 
+ 		return 0;
+ 
+ 	dprintk(KERN_INFO PFX "got disassoc frame\n");
+-	netif_carrier_off(dev);
+-	spin_lock_irqsave(&mac->lock, flags);
+-	mac->associnfo.bssvalid = 0;
+-	mac->associated = 0;
+-	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
++	ieee80211softmac_disassoc(mac);
++
++	/* try to reassociate */
+ 	schedule_work(&mac->associnfo.work);
+-	spin_unlock_irqrestore(&mac->lock, flags);
+-	
++
+ 	return 0;
+ }
+ 
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_auth.c
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_auth.c
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_auth.c
+@@ -279,6 +279,9 @@ ieee80211softmac_deauth_from_net(struct 
+ 	struct list_head *list_ptr;
+ 	unsigned long flags;
+ 
++	/* deauthentication implies disassociation */
++	ieee80211softmac_disassoc(mac);
++
+ 	/* Lock and reset status flags */
+ 	spin_lock_irqsave(&mac->lock, flags);
+ 	net->authenticating = 0;
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_wx.c
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_wx.c
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_wx.c
+@@ -456,7 +456,7 @@ ieee80211softmac_wx_set_mlme(struct net_
+ 		}
+ 		return ieee80211softmac_deauth_req(mac, net, reason);
+ 	case IW_MLME_DISASSOC:
+-		ieee80211softmac_disassoc(mac, reason);
++		ieee80211softmac_send_disassoc_req(mac, reason);
+ 		return 0;
+ 	default:
+ 		return -EOPNOTSUPP;
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_priv.h
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_priv.h
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_priv.h
+@@ -150,7 +150,8 @@ int ieee80211softmac_handle_disassoc(str
+ int ieee80211softmac_handle_reassoc_req(struct net_device * dev,
+ 				        struct ieee80211_reassoc_request * reassoc);
+ void ieee80211softmac_assoc_timeout(void *d);
+-void ieee80211softmac_disassoc(struct ieee80211softmac_device *mac, u16 reason);
++void ieee80211softmac_send_disassoc_req(struct ieee80211softmac_device *mac, u16 reason);
++void ieee80211softmac_disassoc(struct ieee80211softmac_device *mac);
+ 
+ /* some helper functions */
+ static inline int ieee80211softmac_scan_handlers_check_self(struct ieee80211softmac_device *sm)
