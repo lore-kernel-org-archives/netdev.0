@@ -1,17 +1,14 @@
 From: Herbert Valerio Riedel <hvr@gnu.org>
 Subject: [PATCH] au1000_eth.c: use ether_crc() from <linux/crc32.h>
-Date: Mon, 1 May 2006 13:46:04 +0000 (UTC)
-Message-ID: <E1FaYil-0007A8-HB@fencepost.gnu.org>
+Date: Mon, 1 May 2006 13:46:52 +0000 (UTC)
+Message-ID: <E1FaYil-0007A8-HB__38493.8045674518$1146491212$gmane$org@fencepost.gnu.org>
 Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
 	sshtylyov@ru.mvista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:2220 "EHLO
-	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932103AbWEANpy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 09:45:54 -0400
+Return-path: <linux-mips-bounce@linux-mips.org>
 To: jgarzik@pobox.com
 Date: Mon May 1 15:37:09 2006 +0200
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
 since the au1000 driver already selects the CRC32 routines, simply replace
@@ -65,4 +62,3 @@ index 29adebb..0823cb8 100644
  	struct au1000_private *aup = (struct au1000_private *) dev->priv;
 -- 
 1.2.6
-
