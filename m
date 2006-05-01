@@ -1,289 +1,215 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 3/3] ipg: plug leaks in the error path of ipg_nic_open
-Date: Tue, 2 May 2006 01:12:06 +0200
-Message-ID: <20060501231206.GD7419@electric-eye.fr.zoreil.com>
-References: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com> <20060428113755.GA7419@fargo> <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI> <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] vlan: sysfs support
+Date: Mon, 1 May 2006 16:28:49 -0700
+Message-ID: <20060501162849.5263708b@localhost.localdomain>
+References: <20060501140834.43a006fd@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	vlan@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:22926 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932314AbWEAXPt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 19:15:49 -0400
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Content-Disposition: inline
-In-Reply-To: <1146506939.23931.2.camel@localhost>
+Received: from smtp.osdl.org ([65.172.181.4]:60841 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932320AbWEAX3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 May 2006 19:29:06 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060501140834.43a006fd@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Added ipg_{rx/tx}_clear() to factor out some code.
+Here is a more complete version of vlan sysfs support. Sysfs support is
+good because it means scripts don't have to depend on parsing interface
+names that may change.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Assuming there is a vlan 5 added to eth0 then the following links are added:
 
----
+/sys/class/net/eth0/vlan_group/5 -> ../../../../class/net/eth0.5
+/sys/class/net/eth0.5/vlan_device -> ../../../class/net/eth0
+and one file /sys/class/net/eth0/vlan_id  that contains "5\n"
 
- drivers/net/ipg.c |  161 +++++++++++++++++++++++++++++++----------------------
- 1 files changed, 93 insertions(+), 68 deletions(-)
+It handles the reference counts on the vlan_groups properly, but still
+has a race between hotplug and creating these sysfs objects because
+of the chicken/egg problem with register_netdevice interface.
 
-96f29e9d57f503f1275757f4bbec76c0f7f421fc
-diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index da0fa22..393b617 100644
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-@@ -16,6 +16,9 @@
-  */
- #include <linux/crc32.h>
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+--- vlan.orig/net/8021q/Makefile	2006-05-01 12:50:58.000000000 -0700
++++ vlan/net/8021q/Makefile	2006-05-01 15:27:55.000000000 -0700
+@@ -4,9 +4,7 @@
  
-+#define IPG_RX_RING_BYTES	(sizeof(struct RFD) * IPG_RFDLIST_LENGTH)
-+#define IPG_TX_RING_BYTES	(sizeof(struct TFD) * IPG_TFDLIST_LENGTH)
-+
- #define JUMBO_FRAME_4k_ONLY
- enum {
- 	netdev_io_size = 128
-@@ -1485,15 +1488,46 @@ static void ipg_nic_txfree(struct net_de
- 	} while (maxtfdcount != 0);
+ obj-$(CONFIG_VLAN_8021Q) += 8021q.o
+ 
+-8021q-objs := vlan.o vlan_dev.o
+-
+-ifeq ($(CONFIG_PROC_FS),y)
+-8021q-objs += vlanproc.o
+-endif
++8021q-y := vlan.o vlan_dev.o
+ 
++8021q-$(CONFIG_PROC_FS) += vlanproc.o
++8021q-$(CONFIG_SYSFS) += vlan_sysfs.o
+--- vlan.orig/net/8021q/vlan.c	2006-05-01 12:50:58.000000000 -0700
++++ vlan/net/8021q/vlan.c	2006-05-01 16:17:12.000000000 -0700
+@@ -193,9 +193,21 @@
+ 	return NULL;
  }
  
--static int ipg_nic_open(struct net_device *dev)
-+static void ipg_rx_clear(struct ipg_nic_private *sp)
++/* Callback after last packet and any open sysfs handles are gone. */
++static void vlan_grp_release(struct kobject *kobj)
++{
++	kfree(container_of(kobj, struct vlan_group, kobj));
++}
++
++static struct kobj_type vlan_grp_ktype = {
++	.release = vlan_grp_release,
++};
++
++/* Callback after last packet in flight has passed. */
+ static void vlan_rcu_free(struct rcu_head *rcu)
  {
--	/* The IPG NIC Ethernet interface is opened when activated
--	 * by ifconfig.
--	 */
-+	struct pci_dev *pdev = sp->pdev;
-+	unsigned int i;
+-	kfree(container_of(rcu, struct vlan_group, rcu));
++	struct vlan_group *grp = container_of(rcu, struct vlan_group, rcu);
++	kobject_put(&grp->kobj);
+ }
  
--	int error = 0;
--	void __iomem *ioaddr = ipg_ioaddr(dev);
-+	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
-+		if (sp->RxBuff[i]) {
-+			struct ipg_dmabuff *desc = sp->RxBuffDMAhandle + i;
-+
-+			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
-+			sp->RxBuff[i] = NULL;
-+			pci_unmap_single(pdev, desc->dmahandle, desc->len,
-+					 PCI_DMA_FROMDEVICE);
-+		}
-+	}
-+}
-+
-+static void ipg_tx_clear(struct ipg_nic_private *sp)
-+{
-+	struct pci_dev *pdev = sp->pdev;
-+	unsigned int i;
-+
-+	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
-+		if (sp->TxBuff[i]) {
-+			struct ipg_dmabuff *desc = sp->TxBuffDMAhandle + i;
-+
-+			IPG_DEV_KFREE_SKB(sp->TxBuff[i]);
-+			sp->TxBuff[i] = NULL;
-+			pci_unmap_single(pdev, desc->dmahandle, desc->len,
-+					 PCI_DMA_TODEVICE);
-+		}
-+	}
-+}
-+
-+static int ipg_nic_open(struct net_device *dev)
-+{
- 	struct ipg_nic_private *sp = netdev_priv(dev);
-+	void __iomem *ioaddr = ipg_ioaddr(dev);
-+	struct pci_dev *pdev = sp->pdev;
-+	int rc;
  
- 	IPG_DEBUG_MSG("_nic_open\n");
+@@ -232,6 +244,8 @@
+ 			/* Remove proc entry */
+ 			vlan_proc_rem_dev(dev);
  
-@@ -1508,59 +1542,53 @@ static int ipg_nic_open(struct net_devic
- 	/* Register the interrupt line to be used by the IPG within
- 	 * the Linux system.
++			vlan_sysfs_remove(dev, real_dev,  grp, vlan_id);
++
+ 			/* Take it out of our own structures, but be sure to
+ 			 * interlock with HW accelerating devices or SW vlan
+ 			 * input packet processing.
+@@ -265,6 +279,8 @@
+ 				hlist_del_rcu(&grp->hlist);
+ 
+ 				/* Free the group, after all cpu's are done. */
++				kobject_uevent(&grp->kobj, KOBJ_REMOVE);
++				kobject_del(&grp->kobj);
+ 				call_rcu(&grp->rcu, vlan_rcu_free);
+ 
+ 				grp = NULL;
+@@ -531,13 +547,17 @@
+ 	 * so it cannot "appear" on us.
  	 */
--	if ((error = request_irq(sp->pdev->irq,
--				 &ipg_interrupt_handler,
--				 SA_SHIRQ, dev->name, dev)) < 0) {
-+	rc = request_irq(pdev->irq, &ipg_interrupt_handler, SA_SHIRQ,
-+			 dev->name, dev);
-+	if (rc < 0) {
- 		printk(KERN_INFO "%s: Error when requesting interrupt.\n",
- 		       dev->name);
--		return error;
+ 	if (!grp) { /* need to add a new group */
+-		grp = kmalloc(sizeof(struct vlan_group), GFP_KERNEL);
++		grp = kzalloc(sizeof(struct vlan_group), GFP_KERNEL);
+ 		if (!grp)
+ 			goto out_free_unregister;
+ 					
+ 		/* printk(KERN_ALERT "VLAN REGISTER:  Allocated new group.\n"); */
+-		memset(grp, 0, sizeof(struct vlan_group));
+ 		grp->real_dev_ifindex = real_dev->ifindex;
++		kobject_init(&grp->kobj);
++		kobject_set_name(&grp->kobj, "vlan_group");
++		grp->kobj.parent = &real_dev->class_dev.kobj;
++		grp->kobj.ktype = &vlan_grp_ktype;
++		kobject_register(&grp->kobj);
+ 
+ 		hlist_add_head_rcu(&grp->hlist, 
+ 				   &vlan_group_hash[vlan_grp_hashfn(real_dev->ifindex)]);
+@@ -557,6 +577,9 @@
+ 
+ 	rtnl_unlock();
+ 
++	if (vlan_sysfs_add(new_dev, real_dev, grp, VLAN_ID))
++		printk(KERN_WARNING "VLAN: failed to create sysfs entry for %s\n",
++		       new_dev->name);
+ 
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "Allocated new device successfully, returning.\n");
+--- vlan.orig/net/8021q/vlan.h	2006-05-01 12:50:58.000000000 -0700
++++ vlan/net/8021q/vlan.h	2006-05-01 16:08:18.000000000 -0700
+@@ -69,4 +69,15 @@
+ int vlan_dev_get_vid(const char* dev_name, unsigned short* result);
+ void vlan_dev_set_multicast_list(struct net_device *vlan_dev);
+ 
++#ifdef CONFIG_SYSFS
++int vlan_sysfs_add(struct net_device *dev, struct net_device *real_dev,
++		   struct vlan_group *grp, unsigned short tag);
++void vlan_sysfs_remove(struct net_device *dev, struct net_device *real_dev,
++		       struct vlan_group *grp, unsigned short tag);
++#else
++#define vlan_sysfs_add(dev, realdev, grp, tag)	(0)
++#define vlan_sysfs_remove(dev, realdev, grp, tag)  do { } while (0)
++#endif
++
++
+ #endif /* !(__BEN_VLAN_802_1Q_INC__) */
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ vlan/net/8021q/vlan_sysfs.c	2006-05-01 16:08:18.000000000 -0700
+@@ -0,0 +1,59 @@
++/*
++ * VLAN sysfs interface.
++ *
++ * Basic access to vlan information via sysfs.
++ * Authors:
++ * Stephen Hemminger		<shemminger@osdl.org>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include "vlan.h"
++
++static ssize_t show_vlan_id(struct class_device *cd, char *buf)
++{
++	struct net_device *vlandev = container_of(cd, struct net_device, class_dev);
++
++	return sprintf(buf, "%d\n", VLAN_DEV_INFO(vlandev)->vlan_id);
++}
++
++static CLASS_DEVICE_ATTR(vlan_id, S_IRUGO, show_vlan_id, NULL);
++
++int vlan_sysfs_add(struct net_device *dev, struct net_device *real_dev,
++		   struct vlan_group *grp, unsigned short tag)
++{
++	int ret;
++	char buf[IFNAMSIZ];
++
++	ret = sysfs_create_link(&dev->class_dev.kobj,
++				&real_dev->class_dev.kobj, "vlan_device");
++	if (ret)
 +		goto out;
- 	}
- 
--	dev->irq = sp->pdev->irq;
-+	dev->irq = pdev->irq;
- 
--	sp->RFDList = pci_alloc_consistent(sp->pdev,
--					   (sizeof(struct RFD) *
--					    IPG_RFDLIST_LENGTH),
-+	rc = -ENOMEM;
 +
-+	sp->RFDList = pci_alloc_consistent(pdev, IPG_RX_RING_BYTES,
- 					   &sp->RFDListDMAhandle);
-+	if (!sp->RFDList)
-+		goto err_free_irq_0;
- 
--	sp->TFDList = pci_alloc_consistent(sp->pdev,
--					   (sizeof(struct TFD) *
--					    IPG_TFDLIST_LENGTH),
-+	sp->TFDList = pci_alloc_consistent(pdev, IPG_TX_RING_BYTES,
- 					   &sp->TFDListDMAhandle);
-+	if (!sp->TFDList)
-+		goto err_free_rx_1;
- 
--	if ((sp->RFDList == NULL) || (sp->TFDList == NULL)) {
--		printk(KERN_INFO
--		       "%s: No memory available for IP1000 RFD and/or TFD lists.\n",
--		       dev->name);
--		return -ENOMEM;
--	}
--
--	error = init_rfdlist(dev);
--	if (error < 0) {
-+	rc = init_rfdlist(dev);
-+	if (rc < 0) {
- 		printk(KERN_INFO "%s: Error during configuration.\n",
- 		       dev->name);
--		return error;
-+		goto err_free_tx_2;
- 	}
- 
--	error = init_tfdlist(dev);
--	if (error < 0) {
-+	rc = init_tfdlist(dev);
-+	if (rc < 0) {
- 		printk(KERN_INFO "%s: Error during configuration.\n",
- 		       dev->name);
--		return error;
-+		goto err_release_rfdlist_3;
- 	}
- 
--	/* Configure IPG I/O registers. */
--	error = ipg_io_config(dev);
--	if (error < 0) {
-+	rc = ipg_io_config(dev);
-+	if (rc < 0) {
- 		printk(KERN_INFO "%s: Error during configuration.\n",
- 		       dev->name);
--		return error;
-+		goto err_release_tfdlist_4;
- 	}
- 
- 	/* Resolve autonegotiation. */
--	if (ipg_config_autoneg(dev) < 0) {
-+	if (ipg_config_autoneg(dev) < 0)
- 		printk(KERN_INFO "%s: Auto-negotiation error.\n", dev->name);
--	}
++	sprintf(buf, "%d", tag);
++	ret = sysfs_create_link(&grp->kobj, &dev->class_dev.kobj, buf);
++	if (ret)
++		goto out;
 +
- #ifdef JUMBO_FRAME
- 	/* initialize JUMBO Frame control variable */
- 	sp->Jumbo.FoundStart = 0;
-@@ -1575,8 +1603,22 @@ #endif
- 		   IPG_MC_TX_ENABLE), ioaddr + IPG_MACCTRL);
- 
- 	netif_start_queue(dev);
-+out:
-+	return rc;
- 
--	return 0;
-+err_release_tfdlist_4:
-+	ipg_tx_clear(sp);
-+err_release_rfdlist_3:
-+	ipg_rx_clear(sp);
-+err_free_tx_2:
-+	pci_free_consistent(pdev, IPG_TX_RING_BYTES, sp->TFDList,
-+			    sp->TFDListDMAhandle);
-+err_free_rx_1:
-+	pci_free_consistent(pdev, IPG_RX_RING_BYTES, sp->RFDList,
-+			    sp->RFDListDMAhandle);
-+err_free_irq_0:
-+	free_irq(pdev->irq, dev);
-+	goto out;
- }
- 
- static int init_rfdlist(struct net_device *dev)
-@@ -1593,13 +1635,16 @@ static int init_rfdlist(struct net_devic
- 	sp->RxBuffNotReady = 0;
- 
- 	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
-+		if (!sp->RxBuff[i])
-+			continue;
++	ret = class_device_create_file(&dev->class_dev, &class_device_attr_vlan_id);
++ out:
++	return ret;
++}
 +
- 		/* Free any allocated receive buffers. */
- 		pci_unmap_single(sp->pdev,
- 				 sp->RxBuffDMAhandle[i].dmahandle,
- 				 sp->RxBuffDMAhandle[i].len,
- 				 PCI_DMA_FROMDEVICE);
--		if (sp->RxBuff[i] != NULL)
--			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
++void vlan_sysfs_remove(struct net_device *dev, struct net_device *real_dev,
++		       struct vlan_group *grp, unsigned short id)
++{
++	char buf[IFNAMSIZ];
 +
-+		IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
- 		sp->RxBuff[i] = NULL;
++	sprintf(buf, "%d", id);
++	sysfs_remove_link(&grp->kobj, buf);
++	sysfs_remove_link(&dev->class_dev.kobj, "vlan_device");
++
++	return class_device_remove_file(&dev->class_dev,
++					&class_device_attr_vlan_id);
++}
+--- vlan.orig/include/linux/if_vlan.h	2006-05-01 16:07:16.000000000 -0700
++++ vlan/include/linux/if_vlan.h	2006-05-01 16:08:18.000000000 -0700
+@@ -77,6 +77,7 @@
+ 	struct hlist_node	hlist;	/* linked list */
+ 	struct net_device *vlan_devices[VLAN_GROUP_ARRAY_LEN];
+ 	struct rcu_head		rcu;
++	struct kobject 	        kobj;
+ };
  
- 		/* Clear out the RFS field. */
-@@ -1727,11 +1772,11 @@ static int ipg_get_rxbuff(struct net_dev
- 
- static int ipg_nic_stop(struct net_device *dev)
- {
--	/* Release resources requested by driver open function. */
-+	struct ipg_nic_private *sp = netdev_priv(dev);
-+	struct pci_dev *pdev = sp->pdev;
- 
- 	int i;
- 	int error;
--	struct ipg_nic_private *sp = netdev_priv(dev);
- 
- 	IPG_DEBUG_MSG("_nic_stop\n");
- 
-@@ -1752,40 +1797,20 @@ static int ipg_nic_stop(struct net_devic
- 
- 	error = ipg_reset(dev, i);
- 	if (error < 0) {
-+		// FIXME FIXME FIXME: giant leak alert
- 		return error;
- 	}
- 
--	/* Free all receive buffers. */
--	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
--		pci_unmap_single(sp->pdev,
--				 sp->RxBuffDMAhandle[i].dmahandle,
--				 sp->RxBuffDMAhandle[i].len,
--				 PCI_DMA_FROMDEVICE);
--		if (sp->RxBuff[i] != NULL)
--			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
--		sp->RxBuff[i] = NULL;
--	}
-+	ipg_rx_clear(sp);
- 
--	/* Free all transmit buffers. */
--	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
--		if (sp->TxBuff[i] != NULL)
--			IPG_DEV_KFREE_SKB(sp->TxBuff[i]);
--		sp->TxBuff[i] = NULL;
--	}
-+	ipg_tx_clear(sp);
- 
- 	netif_stop_queue(dev);
- 
--	/* Free memory associated with the RFDList. */
--	pci_free_consistent(sp->pdev,
--			    (sizeof(struct RFD) *
--			     IPG_RFDLIST_LENGTH),
--			    sp->RFDList, sp->RFDListDMAhandle);
--
--	/* Free memory associated with the TFDList. */
--	pci_free_consistent(sp->pdev,
--			    (sizeof(struct TFD) *
--			     IPG_TFDLIST_LENGTH),
--			    sp->TFDList, sp->TFDListDMAhandle);
-+	pci_free_consistent(pdev, IPG_RX_RING_BYTES, sp->RFDList,
-+			    sp->RFDListDMAhandle);
-+	pci_free_consistent(pdev, IPG_TX_RING_BYTES, sp->TFDList,
-+			    sp->TFDListDMAhandle);
- 
- 	/* Release interrupt line. */
- 	free_irq(dev->irq, dev);
--- 
-1.3.1
-
+ struct vlan_priority_tci_mapping {
