@@ -1,64 +1,37 @@
-From: Herbert Valerio Riedel <hvr@gnu.org>
-Subject: [PATCH] au1000_eth.c: use ether_crc() from <linux/crc32.h>
-Date: Mon, 1 May 2006 13:46:52 +0000 (UTC)
-Message-ID: <E1FaYil-0007A8-HB__38493.8045674518$1146491212$gmane$org@fencepost.gnu.org>
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	sshtylyov@ru.mvista.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: jgarzik@pobox.com
-Date: Mon May 1 15:37:09 2006 +0200
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: wireless softmac origin (net/ieee80211/softmac)
+Date: Mon, 1 May 2006 17:19:17 +0300
+Message-ID: <d0383f90605010719p616243d0l8da568c02815f504@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from uproxy.gmail.com ([66.249.92.175]:5956 "EHLO uproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S932104AbWEAOTS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 10:19:18 -0400
+Received: by uproxy.gmail.com with SMTP id c2so1941854ugf
+        for <netdev@vger.kernel.org>; Mon, 01 May 2006 07:19:17 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-since the au1000 driver already selects the CRC32 routines, simply replace
-the internal ether_crc() implementation with the semantically equivalent
-one from <linux/crc32.h>
+Hello,
+I am looking at 2.6.17-rc3 kernel.
+ I wonder: what is the origin of softmac in
+2.6.17-rc3 kernel ?
+I see in the *.c files under that folder:
+Copyright (c) 2005, 2006 Johannes Berg <johannes@sipsolutions.net>
+ *                          Joseph Jezak <josejx@gentoo.org>
+ *                          Larry Finger <Larry.Finger@lwfinger.net>
+ *                          Danny van Dyk <kugelfang@gentoo.org>
+ *                          Michael Buesch <mbuesch@freenet.de>
 
-Signed-off-by: Herbert Valerio Riedel <hvr@gnu.org>
+Is this softmac layer was written from scratch ? or was it
+taken (fully/partially) from softmac in the devicescape linux kernel stack ?
+http://devicescape.com/
 
-
----
-
- drivers/net/au1000_eth.c |   18 +-----------------
- 1 files changed, 1 insertions(+), 17 deletions(-)
-
-9360df5368deaaaa8fc7dcaacf9b7ca446af94c4
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 29adebb..0823cb8 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -52,6 +52,7 @@
- #include <linux/mii.h>
- #include <linux/skbuff.h>
- #include <linux/delay.h>
-+#include <linux/crc32.h>
- #include <asm/mipsregs.h>
- #include <asm/irq.h>
- #include <asm/io.h>
-@@ -2070,23 +2071,6 @@ static void au1000_tx_timeout(struct net
- 	netif_wake_queue(dev);
- }
- 
--
--static unsigned const ethernet_polynomial = 0x04c11db7U;
--static inline u32 ether_crc(int length, unsigned char *data)
--{
--    int crc = -1;
--
--    while(--length >= 0) {
--		unsigned char current_octet = *data++;
--		int bit;
--		for (bit = 0; bit < 8; bit++, current_octet >>= 1)
--			crc = (crc << 1) ^
--				((crc < 0) ^ (current_octet & 1) ? 
--				 ethernet_polynomial : 0);
--    }
--    return crc;
--}
--
- static void set_rx_mode(struct net_device *dev)
- {
- 	struct au1000_private *aup = (struct au1000_private *) dev->priv;
--- 
-1.2.6
+Best,
+IB
