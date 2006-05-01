@@ -1,25 +1,78 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Eleminate HZ from AX.25, NETROM and ROSE kernel
- interfaces
-Date: Mon, 01 May 2006 01:00:29 -0700 (PDT)
-Message-ID: <20060501.010029.71024948.davem@davemloft.net>
-References: <20060429140327.GA2173@linux-mips.org>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: IP1000 gigabit nic driver
+Date: Mon, 01 May 2006 12:31:40 +0300
+Message-ID: <1146475901.11271.3.camel@localhost>
+References: <20060427142939.GA31473@fargo>
+	 <20060427185627.GA30871@electric-eye.fr.zoreil.com>
+	 <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>
+	 <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
+	 <20060428113755.GA7419@fargo>
+	 <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
+	 <1146306567.1642.3.camel@localhost>  <20060429122119.GA22160@fargo>
+	 <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
+	 <44554ADE.8030200@cantab.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64933
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751324AbWEAIAl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 04:00:41 -0400
-To: ralf@linux-mips.org
-In-Reply-To: <20060429140327.GA2173@linux-mips.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:32942 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
+	id S1750819AbWEAJbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 05:31:45 -0400
+To: David Vrabel <dvrabel@cantab.net>
+In-Reply-To: <44554ADE.8030200@cantab.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2006-05-01 at 00:40 +0100, David Vrabel wrote:
+> Thanks for doing this Pekka.  I've fixed up some stuff and given it some 
+> brief testing on a 100BaseT network and it seems to work now.
 
-Ralf, I have all of your patches queued up, I'll review them
-and merge them in soon.
+Thanks! I merged your stuff and pushed out an updated patch.
 
-Thanks a lot.
+				Pekka
+
+[PATCH] IP1000 Gigabit Ethernet device driver
+
+This is a cleaned up fork of the IP1000A device driver:
+
+  http://www.icplus.com.tw/driver-pp-IP1000A.html
+
+Open issues:
+
+  - ipg_probe() looks really fishy and doesn't handle all errors
+    (e.g. ioremap failing).
+  - ipg_nic_do_ioctl() is playing games with user-space pointer.
+    We should use ethtool ioctl instead as suggested by Arjan.
+  - something (PHY reset/auto negotiation?) takes 2-3 seconds and
+    appears to be done with interrupts disabled.
+
+Changelog:
+
+  - Kill 2.2 and 2.4 compatability macros
+  - Use proper module API
+  - Use proper PCI API
+  - Use netdev_priv
+  - Consolidate headers to one file
+  - Use __iomem annotations
+  - Use iomap instead of read/out for I/O
+  - Remove obfuscating register access macros
+  - Remove changelogs
+  - Remove ether_crc_le() -- use crc32_le() instead.
+  - No more nonsense with root_dev -- ipg_remove() now works.
+  - Move PHY and MAC address initialization into the ipg_probe().  It was
+    previously filling in the MAC address on open which breaks some user
+    space.
+  - Folded ipg_nic_init into ipg_probe since it was broke otherwise.
+
+I don't have the hardware, so I don't know if I broke anything.
+The patch is 128 KB in size, so I am not including it in this
+mail. You can find the patch here:
+
+  http://www.cs.helsinki.fi/u/penberg/linux/ip1000-driver.patch
+
+Signed-off-by: David Vrabel <dvrabel@cantab.net>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+
