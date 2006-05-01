@@ -1,34 +1,436 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: IP1000 gigabit nic driver
-Date: Mon, 01 May 2006 12:43:34 +0300
-Message-ID: <1146476614.11271.8.camel@localhost>
-References: <20060427142939.GA31473@fargo>
-	 <20060427185627.GA30871@electric-eye.fr.zoreil.com>
-	 <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>
-	 <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
-	 <20060428113755.GA7419@fargo>
-	 <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
-	 <1146306567.1642.3.camel@localhost>  <20060429122119.GA22160@fargo>
-	 <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
-	 <44554ADE.8030200@cantab.net>
+From: "Wong Edison" <hswong3i@gmail.com>
+Subject: [PATCH 001/100] TCP congestion module: add TCP-LP supporting for 2.6.16
+Date: Mon, 1 May 2006 18:05:52 +0800
+Message-ID: <3feffd230605010305o6e3b1511of1f75b17f2797e66@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751007AbWEAJnh@vger.kernel.org>
-To: David Vrabel <dvrabel@cantab.net>
-In-Reply-To: <44554ADE.8030200@cantab.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pproxy.gmail.com ([64.233.166.182]:39940 "EHLO pproxy.gmail.com")
+	by vger.kernel.org with ESMTP id S1751106AbWEAKFw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 06:05:52 -0400
+Received: by pproxy.gmail.com with SMTP id i49so2965920pye
+        for <netdev@vger.kernel.org>; Mon, 01 May 2006 03:05:52 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-05-01 at 00:40 +0100, David Vrabel wrote:
-> Still pending.  Also:
-> 
->      - something (PHY reset/auto negotiation?) takes 2-3 seconds and
->        appears to be done with interrupts disabled.
+TCP Low Priority is a distributed algorithm whose goal is to utilize only
+the excess network bandwidth as compared to the ``fair share`` of
+bandwidth as targeted by TCP. Available from:
+  http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
 
-Are you seeing this at module initialization? Does Sysrq-t show anything
-useful?
+See http://www-ece.rice.edu/networks/TCP-LP/ for their implementation.
+Our group take the following changes from
+the original TCP-LP implementation:
+  o We use newReno in most core CA handling. Only add some checking
+    within cong_avoid.
+  o Error correcting in remote HZ, therefore remote HZ will be keeped
+    on checking and updating.
+  o Handling calculation of One-Way-Delay (OWD) within rtt_sample, sicne
+    OWD have a similar meaning as RTT. Also correct the buggy formular.
+  o Handle reaction for Early Congestion Indication (ECI) within
+    pkts_acked, as mentioned within pseudo code.
+  o OWD is handled in relative format, where local time stamp will in
+    tcp_time_stamp format.
 
-					Pekka
+Port from 2.4.19 to 2.6.16 as module by:
+  Wong Hoi Sing Edison <hswong3i@gmail.com>
+  Hung Hing Lun <hlhung3i@gmail.com>
+
+Signed-off-by: Wong Hoi Sing Edison <hswong3i@gmail.com>
+
+
+diff -urN linux-2.6.16.1/net/ipv4/Kconfig linux/net/ipv4/Kconfig
+--- linux-2.6.16.1/net/ipv4/Kconfig	2006-03-28 14:49:02.000000000 +0800
++++ linux/net/ipv4/Kconfig	2006-04-19 02:40:27.000000000 +0800
+@@ -531,6 +531,27 @@
+ 	properties, though is known to have fairness issues.
+ 	See http://www-lce.eng.cam.ac.uk/~ctk21/scalable/
+
++config TCP_CONG_LP
++	tristate "TCP Low Priority"
++	depends on EXPERIMENTAL
++	default n
++	---help---
++	TCP Low Priority (TCP-LP), a distributed algorithm whose goal is
++	to utiliza only the excess network bandwidth as compared to the
++	``fair share`` of bandwidth as targeted by TCP.
++	See http://www-ece.rice.edu/networks/TCP-LP/
++
++config TCP_CONG_LP_DEBUG
++	bool "TCP-LP Debug"
++	depends on TCP_CONG_LP
++	default n
++	---help---
++	Turn on/off the debug message for TCP-LP. The debug message will
++	print to default kernel debug log file, e.g. /var/log/debug as
++	default. You can use dmesg to obtain the log too.
++	
++	If unsure, say N.
++
+ endmenu
+
+ config TCP_CONG_BIC
+diff -urN linux-2.6.16.1/net/ipv4/Makefile linux/net/ipv4/Makefile
+--- linux-2.6.16.1/net/ipv4/Makefile	2006-03-28 14:49:02.000000000 +0800
++++ linux/net/ipv4/Makefile	2006-04-19 02:40:27.000000000 +0800
+@@ -41,6 +41,7 @@
+ obj-$(CONFIG_TCP_CONG_HTCP) += tcp_htcp.o
+ obj-$(CONFIG_TCP_CONG_VEGAS) += tcp_vegas.o
+ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
++obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
+
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+ 		      xfrm4_output.o
+diff -urN linux-2.6.16.1/net/ipv4/tcp_lp.c linux/net/ipv4/tcp_lp.c
+--- linux-2.6.16.1/net/ipv4/tcp_lp.c	1970-01-01 08:00:00.000000000 +0800
++++ linux/net/ipv4/tcp_lp.c	2006-04-25 15:54:54.000000000 +0800
+@@ -0,0 +1,343 @@
++/*
++ * TCP Low Priority (TCP-LP)
++ *
++ * TCP Low Priority is a distributed algorithm whose goal is to utilize only
++ *   the excess network bandwidth as compared to the ``fair share`` of
++ *   bandwidth as targeted by TCP. Available from:
++ *     http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
++ *
++ * Original Author:
++ *   Aleksandar Kuzmanovic <akuzma@northwestern.edu>
++ *
++ * See http://www-ece.rice.edu/networks/TCP-LP/ for their implementation.
++ * As of 2.6.13, Linux supports pluggable congestion control algorithms.
++ * Due to the limitation of the API, we take the following changes from
++ * the original TCP-LP implementation:
++ *   o We use newReno in most core CA handling. Only add some checking
++ *     within cong_avoid.
++ *   o Error correcting in remote HZ, therefore remote HZ will be keeped
++ *     on checking and updating.
++ *   o Handling calculation of One-Way-Delay (OWD) within rtt_sample, sicne
++ *     OWD have a similar meaning as RTT. Also correct the buggy formular.
++ *   o Handle reaction for Early Congestion Indication (ECI) within
++ *     pkts_acked, as mentioned within pseudo code.
++ *   o OWD is handled in relative format, where local time stamp will in
++ *     tcp_time_stamp format.
++ *
++ * Port from 2.4.19 to 2.6.16 as module by:
++ *   Wong Hoi Sing Edison <hswong3i@gmail.com>
++ *   Hung Hing Lun <hlhung3i@gmail.com>
++ *
++ * Version: $Id: tcp_lp.c,v 1.20 2006-04-22 06:34:20 hswong3i Exp $
++ */
++
++#include <linux/config.h>
++#include <linux/module.h>
++#include <net/tcp.h>
++
++#ifndef CONFIG_TCP_CONG_LP_DEBUG
++#define CONFIG_TCP_CONG_LP_DEBUG 0
++#endif
++
++/* resolution of owd */
++#define LP_RESOL	1000
++
++/**
++ * enum tcp_lp_state
++ * @LP_VALID_RHZ: is remote HZ valid?
++ * @LP_VALID_OWD: is OWD valid?
++ * @LP_WITHIN_THR: are we within threshold?
++ * @LP_WITHIN_INF: are we within inference?
++ *
++ * TCP-LP's state flags.
++ * We create this set of state flag mainly for debugging.
++ */
++enum tcp_lp_state {
++	LP_VALID_RHZ = (1 << 0),
++	LP_VALID_OWD = (1 << 1),
++	LP_WITHIN_THR = (1 << 3),
++	LP_WITHIN_INF = (1 << 4),
++};
++
++/**
++ * struct lp
++ * @flag: TCP-LP state flag
++ * @sowd: smoothed OWD << 3
++ * @owd_min: min OWD
++ * @owd_max: max OWD
++ * @owd_max_rsv: resrved max owd
++ * @RHZ: estimated remote HZ
++ * @remote_ref_time: remote reference time
++ * @local_ref_time: local reference time
++ * @last_drop: time for last active drop
++ * @inference: current inference
++ *
++ * TCP-LP's private struct.
++ * We get the idea from original TCP-LP implementation where only left those we
++ * found are really useful.
++ */
++struct lp {
++	u32 flag;
++	u32 sowd;
++	u32 owd_min;
++	u32 owd_max;
++	u32 owd_max_rsv;
++	u32 RHZ;
++	u32 remote_ref_time;
++	u32 local_ref_time;
++	u32 last_drop;
++	u32 inference;
++};
++
++/**
++ * tcp_lp_init
++ *
++ * Init all required variables.
++ * Clone the handling from Vegas module implementation.
++ */
++static void tcp_lp_init(struct sock *sk)
++{
++	struct lp *lp = inet_csk_ca(sk);
++
++	lp->flag = 0;
++	lp->sowd = 0;
++	lp->owd_min = 0xffffffff;
++	lp->owd_max = 0;
++	lp->owd_max_rsv = 0;
++	lp->RHZ = 0;
++	lp->remote_ref_time = 0;
++	lp->local_ref_time = 0;
++	lp->last_drop = 0;
++	lp->inference = 0;
++}
++
++/**
++ * tcp_lp_cong_avoid
++ *
++ * Implementation of cong_avoid.
++ * Will only call newReno CA when away from inference.
++ * From TCP-LP's paper, this will be handled in additive increasement.
++ */
++static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 rtt, u32 in_flight,
++			      int flag)
++{
++	struct lp *lp = inet_csk_ca(sk);
++
++	if (!(lp->flag & LP_WITHIN_INF))
++		tcp_reno_cong_avoid(sk, ack, rtt, in_flight, flag);
++}
++
++/**
++ * tcp_lp_remote_hz_estimator
++ *
++ * Estimate remote HZ.
++ * We keep on updating the estimated value, where original TCP-LP
++ * implementation only guest it for once and use forever.
++ */
++static inline u32 tcp_lp_remote_hz_estimator(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct lp *lp = inet_csk_ca(sk);
++	s64 rhz = lp->RHZ << 6;	/* remote HZ << 6 */
++	s64 m = 0;
++
++	/* not yet record reference time
++	 * go away!! record it before come back!! */
++	if (lp->remote_ref_time == 0 || lp->local_ref_time == 0)
++		goto out;
++
++	/* we can't calc remote HZ with no different!! */
++	if (tp->rx_opt.rcv_tsval == lp->remote_ref_time
++	    || tp->rx_opt.rcv_tsecr == lp->local_ref_time)
++		goto out;
++
++	m = HZ * (tp->rx_opt.rcv_tsval -
++		  lp->remote_ref_time) / (tp->rx_opt.rcv_tsecr -
++					  lp->local_ref_time);
++	if (m < 0)
++		m = -m;
++
++	if (rhz != 0) {
++		m -= (rhz >> 6);	/* m is now error in remote HZ est */
++		rhz += m;	/* 63/64 old + 1/64 new */
++	} else
++		rhz = m << 6;
++
++	/* record time for successful remote HZ calc */
++	lp->flag |= LP_VALID_RHZ;
++
++      out:
++	/* record reference time stamp */
++	lp->remote_ref_time = tp->rx_opt.rcv_tsval;
++	lp->local_ref_time = tp->rx_opt.rcv_tsecr;
++
++	return rhz >> 6;
++}
++
++/**
++ * tcp_lp_owd_calculator
++ *
++ * Calculate one way delay (in relative format).
++ * Original implement OWD as minus of remote time difference to local time
++ * difference directly. As this time difference just simply equal to RTT, when
++ * the network status is stable, remote RTT will equal to local RTT, and result
++ * OWD into zero.
++ * It seems to be a bug and so we fixed it.
++ */
++static inline u32 tcp_lp_owd_calculator(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct lp *lp = inet_csk_ca(sk);
++	s64 owd = 0;
++
++	lp->RHZ = tcp_lp_remote_hz_estimator(sk);
++
++	if (lp->flag & LP_VALID_RHZ) {
++		owd =
++		    tp->rx_opt.rcv_tsval * (LP_RESOL / lp->RHZ) -
++		    tp->rx_opt.rcv_tsecr * (LP_RESOL / HZ);
++		if (owd < 0)
++			owd = -owd;
++	}
++
++	if (owd > 0)
++		lp->flag |= LP_VALID_OWD;
++	else
++		lp->flag &= ~LP_VALID_OWD;
++
++	return owd;
++}
++
++/**
++ * tcp_lp_rtt_sample
++ *
++ * Implementation or rtt_sample.
++ * Will take the following action,
++ *   1. calc OWD,
++ *   2. record the min/max OWD,
++ *   3. calc smoothed OWD (SOWD).
++ * Most ideas come from the original TCP-LP implementation.
++ */
++static void tcp_lp_rtt_sample(struct sock *sk, u32 usrtt)
++{
++	struct lp *lp = inet_csk_ca(sk);
++	s64 mowd = tcp_lp_owd_calculator(sk);
++
++	/* sorry that we don't have valid data */
++	if (!(lp->flag & LP_VALID_RHZ) || !(lp->flag & LP_VALID_OWD))
++		return;
++
++	/* record the next min owd */
++	if (mowd < lp->owd_min)
++		lp->owd_min = mowd;
++
++	/* always forget the max of the max
++	 * we just set owd_max as one below it */
++	if (mowd > lp->owd_max) {
++		if (mowd > lp->owd_max_rsv) {
++			if (lp->owd_max_rsv == 0)
++				lp->owd_max = mowd;
++			else
++				lp->owd_max = lp->owd_max_rsv;
++			lp->owd_max_rsv = mowd;
++		} else
++			lp->owd_max = mowd;
++	}
++
++	/* calc for smoothed owd */
++	if (lp->sowd != 0) {
++		mowd -= (lp->sowd >> 3);	/* m is now error in owd est */
++		lp->sowd += mowd;	/* owd = 7/8 owd + 1/8 new */
++	} else
++		lp->sowd = mowd << 3;	/* take the measured time be owd */
++}
++
++/**
++ * tcp_lp_pkts_acked
++ *
++ * Implementation of pkts_acked.
++ * Deal with active drop under Early Congestion Indication.
++ * Only drop to half and 1 will be handle, because we hope to use back
++ * newReno in increase case.
++ * We work it out by following the idea from TCP-LP's paper directly
++ */
++static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++	struct lp *lp = inet_csk_ca(sk);
++
++	/* calc inference */
++	if (tcp_time_stamp > tp->rx_opt.rcv_tsecr)
++		lp->inference = 3 * (tcp_time_stamp - tp->rx_opt.rcv_tsecr);
++
++	/* test if within inference */
++	if (lp->last_drop && (tcp_time_stamp - lp->last_drop < lp->inference))
++		lp->flag |= LP_WITHIN_INF;
++	else
++		lp->flag &= ~LP_WITHIN_INF;
++
++	/* test if within threshold */
++	if (lp->sowd >> 3 <
++	    lp->owd_min + 15 * (lp->owd_max - lp->owd_min) / 100)
++		lp->flag |= LP_WITHIN_THR;
++	else
++		lp->flag &= ~LP_WITHIN_THR;
++
++#if CONFIG_TCP_CONG_LP_DEBUG == 1
++	printk(KERN_DEBUG "TCP-LP: %05o|%5u|%5u|%15u|%15u|%15u\n", lp->flag,
++	       tp->snd_cwnd, lp->RHZ, lp->owd_min, lp->owd_max, lp->sowd >> 3);
++#endif
++
++	if (lp->flag & LP_WITHIN_THR)
++		return;
++
++	/* FIXME: try to reset owd_min and owd_max here
++	 * so decrease the chance the min/max is no longer suitable
++	 * and will usually within threshold when whithin inference */
++	lp->owd_min = (lp->sowd >> 3);
++	lp->owd_max = (lp->sowd >> 2);
++	lp->owd_max_rsv = (lp->sowd >> 2);
++
++	/* happened within inference
++	 * drop snd_cwnd into 1 */
++	if (lp->flag & LP_WITHIN_INF)
++		tp->snd_cwnd = 1U;
++
++	/* happened after inference
++	 * cut snd_cwnd into half */
++	else
++		tp->snd_cwnd = max(tp->snd_cwnd >> 1U, 1U);
++
++	/* record this drop time */
++	lp->last_drop = tcp_time_stamp;
++}
++
++static struct tcp_congestion_ops tcp_lp = {
++	.init = tcp_lp_init,
++	.ssthresh = tcp_reno_ssthresh,
++	.cong_avoid = tcp_lp_cong_avoid,
++	.min_cwnd = tcp_reno_min_cwnd,
++	.rtt_sample = tcp_lp_rtt_sample,
++	.pkts_acked = tcp_lp_pkts_acked,
++
++	.owner = THIS_MODULE,
++	.name = "lp"
++};
++
++static int __init lp_register(void)
++{
++	BUG_ON(sizeof(struct lp) > ICSK_CA_PRIV_SIZE);
++	return tcp_register_congestion_control(&tcp_lp);
++}
++
++static void __exit lp_unregister(void)
++{
++	tcp_unregister_congestion_control(&tcp_lp);
++}
++
++module_init(lp_register);
++module_exit(lp_unregister);
++
++MODULE_AUTHOR("Wong Hoi Sing Edison, Hung Hing Lun");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("TCP Low Priority");
