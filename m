@@ -1,35 +1,151 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: IP1000 gigabit nic driver
-Date: Mon, 1 May 2006 22:41:50 +0200
-Message-ID: <20060501204150.GC1450@xi.wantstofly.org>
-References: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com> <20060428113755.GA7419@fargo> <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI> <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <20060501203847.GA7419@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Vrabel <dvrabel@cantab.net>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	david@pleyades.net
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] softmac: deauthentication implies deassociation
+Date: Mon,  1 May 2006 22:00:30 +0100 (BST)
+Message-ID: <20060501210030.5412688791B@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:49289 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S932241AbWEAUlw
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 16:41:52 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20060501203847.GA7419@electric-eye.fr.zoreil.com>
+Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:24849 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932229AbWEAVAe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 17:00:34 -0400
+To: linville@tuxdriver.com
+Cc: johannes@sipsolutions.net
+Cc: softmac-dev@sipsolutions.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 01, 2006 at 10:38:47PM +0200, Francois Romieu wrote:
+The 802.11 specs state that deauthenticating also implies disassociating. This
+patch implements that, which improve the behaviour of SIOCSIWMLME.
 
-> > -/* Minimum number of miliseconds used to toggle MDC clock during
-> > +/* Minimum number of nanoseconds used to toggle MDC clock during
-> >   * MII/GMII register access.
-> >   */
-> > -#define         IPG_PC_PHYCTRLWAIT           0x01
-> > +#define		IPG_PC_PHYCTRLWAIT_NS		200
-> 
-> I would have expected a cycle of 400 ns (p.72/77 of the datasheet)
-> for a 2.5 MHz clock. Why is it cut by a two factor ?
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
 
-200 ns high + 200 ns low = 400 ns clock period?
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_assoc.c
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_assoc.c
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_assoc.c
+@@ -82,28 +82,37 @@ ieee80211softmac_assoc_timeout(void *d)
+ 	ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT, NULL);
+ }
+ 
+-/* Sends out a disassociation request to the desired AP */
+ void
+-ieee80211softmac_disassoc(struct ieee80211softmac_device *mac, u16 reason)
++ieee80211softmac_disassoc(struct ieee80211softmac_device *mac)
+ {
+ 	unsigned long flags;
++
++	spin_lock_irqsave(&mac->lock, flags);
++	if (mac->associnfo.associating)
++		cancel_delayed_work(&mac->associnfo.timeout);
++
++	netif_carrier_off(mac->dev);
++
++	mac->associated = 0;
++	mac->associnfo.bssvalid = 0;
++	mac->associnfo.associating = 0;
++	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
++	spin_unlock_irqrestore(&mac->lock, flags);
++}
++
++/* Sends out a disassociation request to the desired AP */
++void
++ieee80211softmac_send_disassoc_req(struct ieee80211softmac_device *mac, u16 reason)
++{
+ 	struct ieee80211softmac_network *found;
+ 
+ 	if (mac->associnfo.bssvalid && mac->associated) {
+ 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);
+ 		if (found)
+ 			ieee80211softmac_send_mgt_frame(mac, found, IEEE80211_STYPE_DISASSOC, reason);
+-	} else if (mac->associnfo.associating) {
+-		cancel_delayed_work(&mac->associnfo.timeout);
+ 	}
+ 
+-	/* Change our state */
+-	spin_lock_irqsave(&mac->lock, flags);
+-	/* Do NOT clear bssvalid as that will break ieee80211softmac_assoc_work! */
+-	mac->associated = 0;
+-	mac->associnfo.associating = 0;
+-	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
+-	spin_unlock_irqrestore(&mac->lock, flags);
++	ieee80211softmac_disassoc(mac);
+ }
+ 
+ static inline int
+@@ -176,14 +185,18 @@ ieee80211softmac_assoc_work(void *d)
+ 	struct ieee80211softmac_device *mac = (struct ieee80211softmac_device *)d;
+ 	struct ieee80211softmac_network *found = NULL;
+ 	struct ieee80211_network *net = NULL, *best = NULL;
++	int bssvalid;
+ 	unsigned long flags;
+-	
++
++	/* ieee80211_disassoc might clear this */
++	bssvalid = mac->associnfo.bssvalid;
++
+ 	/* meh */
+ 	if (mac->associated)
+-		ieee80211softmac_disassoc(mac, WLAN_REASON_DISASSOC_STA_HAS_LEFT);
++		ieee80211softmac_send_disassoc_req(mac, WLAN_REASON_DISASSOC_STA_HAS_LEFT);
+ 
+ 	/* try to find the requested network in our list, if we found one already */
+-	if (mac->associnfo.bssvalid || mac->associnfo.bssfixed)
++	if (bssvalid || mac->associnfo.bssfixed)
+ 		found = ieee80211softmac_get_network_by_bssid(mac, mac->associnfo.bssid);	
+ 	
+ 	/* Search the ieee80211 networks for this network if we didn't find it by bssid,
+@@ -380,7 +393,6 @@ ieee80211softmac_handle_disassoc(struct 
+ 				 struct ieee80211_disassoc *disassoc)
+ {
+ 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
+-	unsigned long flags;
+ 
+ 	if (unlikely(!mac->running))
+ 		return -ENODEV;
+@@ -392,14 +404,11 @@ ieee80211softmac_handle_disassoc(struct 
+ 		return 0;
+ 
+ 	dprintk(KERN_INFO PFX "got disassoc frame\n");
+-	netif_carrier_off(dev);
+-	spin_lock_irqsave(&mac->lock, flags);
+-	mac->associnfo.bssvalid = 0;
+-	mac->associated = 0;
+-	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
++	ieee80211softmac_disassoc(mac);
++
++	/* try to reassociate */
+ 	schedule_work(&mac->associnfo.work);
+-	spin_unlock_irqrestore(&mac->lock, flags);
+-	
++
+ 	return 0;
+ }
+ 
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_auth.c
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_auth.c
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_auth.c
+@@ -279,6 +279,9 @@ ieee80211softmac_deauth_from_net(struct 
+ 	struct list_head *list_ptr;
+ 	unsigned long flags;
+ 
++	/* deauthentication implies disassociation */
++	ieee80211softmac_disassoc(mac);
++
+ 	/* Lock and reset status flags */
+ 	spin_lock_irqsave(&mac->lock, flags);
+ 	net->authenticating = 0;
+Index: linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_wx.c
+===================================================================
+--- linux-2.6.17-rc3.orig/net/ieee80211/softmac/ieee80211softmac_wx.c
++++ linux-2.6.17-rc3/net/ieee80211/softmac/ieee80211softmac_wx.c
+@@ -456,7 +456,7 @@ ieee80211softmac_wx_set_mlme(struct net_
+ 		}
+ 		return ieee80211softmac_deauth_req(mac, net, reason);
+ 	case IW_MLME_DISASSOC:
+-		ieee80211softmac_disassoc(mac, reason);
++		ieee80211softmac_send_disassoc_req(mac, reason);
+ 		return 0;
+ 	default:
+ 		return -EOPNOTSUPP;
