@@ -1,41 +1,51 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] vlan: add sysfs support
-Date: Mon, 1 May 2006 15:26:37 -0700
-Message-ID: <20060501152637.012fc67b@localhost.localdomain>
-References: <20060501140834.43a006fd@localhost.localdomain>
-	<44568692.6020409@candelatech.com>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [PATCH] irda-usb: use NULL instead of 0
+Date: Mon, 1 May 2006 15:31:34 -0700
+Message-ID: <20060501153134.811ac2d4.rdunlap@xenotime.net>
+References: <20060501150807.b05fe450.rdunlap@xenotime.net>
+	<200605020019.25382.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	vlan@candelatech.com
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15258 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932305AbWEAW0q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 May 2006 18:26:46 -0400
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <44568692.6020409@candelatech.com>
+Received: from xenotime.net ([66.160.160.81]:17880 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S932287AbWEAW3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 May 2006 18:29:09 -0400
+Received: from midway.site ([71.111.157.99]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 1 May 2006 15:29:08 -0700
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200605020019.25382.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 01 May 2006 15:07:14 -0700
-Ben Greear <greearb@candelatech.com> wrote:
 
-> Stephen Hemminger wrote:
-> > Add basic sysfs support for vlan device. It creates an entry in the
-> > vlan pseudo-device to display tag.  
-> > 	/sys/class/net/eth0.5/vlan_id
-> 
-> Looks fine to me, though I don't know enough about sysfs to notice
-> any bugs with it...
-> 
-> I do have a question:  Will this work for > 256 vlans?
-> 
-> /proc had a limit of around 256 directories last I
-> checked, so just curious.
-> 
-> Thanks,
-> Ben
-> 
+> I could be mistaken, but wasn't the usb_control_msg timeout type changed in kernel 2.6.12?
+> The timeout value is no longer in jiffies but in msecs.
 
-There should be no limits caused by sysfs...
+ugh, correct.  Here's a new patch.
+Thanks.
+
+---
+From: Randy Dunlap <rdunlap@xenotime.net>
+
+Use NULL instead of 0 for a null pointer value (sparse warning):
+drivers/net/irda/irda-usb.c:1781:30: warning: Using plain integer as NULL pointer
+
+Correct timeout argument to use milliseconds instead of jiffies.
+
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ drivers/net/irda/irda-usb.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2617-rc3.orig/drivers/net/irda/irda-usb.c
++++ linux-2617-rc3/drivers/net/irda/irda-usb.c
+@@ -1778,7 +1778,7 @@ static int irda_usb_probe(struct usb_int
+ 
+ 	if (self->needspatch) {
+ 		ret = usb_control_msg (self->usbdev, usb_sndctrlpipe (self->usbdev, 0),
+-				       0x02, 0x40, 0, 0, 0, 0, msecs_to_jiffies(500));
++				       0x02, 0x40, 0, 0, NULL, 0, 500);
+ 		if (ret < 0) {
+ 			IRDA_DEBUG (0, "usb_control_msg failed %d\n", ret);
+ 			goto err_out_3;
