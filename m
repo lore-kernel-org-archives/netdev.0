@@ -1,51 +1,62 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH] irda-usb: use NULL instead of 0
-Date: Mon, 1 May 2006 15:31:34 -0700
-Message-ID: <20060501153134.811ac2d4.rdunlap@xenotime.net>
-References: <20060501150807.b05fe450.rdunlap@xenotime.net>
-	<200605020019.25382.IvDoorn@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/3] ipg: removal of unreachable code
+Date: Tue, 2 May 2006 01:10:07 +0200
+Message-ID: <20060501231007.GB7419@electric-eye.fr.zoreil.com>
+References: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com> <20060428113755.GA7419@fargo> <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI> <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:17880 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S932287AbWEAW3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 May 2006 18:29:09 -0400
-Received: from midway.site ([71.111.157.99]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 1 May 2006 15:29:08 -0700
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200605020019.25382.IvDoorn@gmail.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:47770 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932309AbWEAXLu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 19:11:50 -0400
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Disposition: inline
+In-Reply-To: <1146506939.23931.2.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+map/unmap is done in ipg_{probe/remove}
 
-> I could be mistaken, but wasn't the usb_control_msg timeout type changed in kernel 2.6.12?
-> The timeout value is no longer in jiffies but in msecs.
-
-ugh, correct.  Here's a new patch.
-Thanks.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
 ---
-From: Randy Dunlap <rdunlap@xenotime.net>
 
-Use NULL instead of 0 for a null pointer value (sparse warning):
-drivers/net/irda/irda-usb.c:1781:30: warning: Using plain integer as NULL pointer
+ drivers/net/ipg.c |   18 ------------------
+ 1 files changed, 0 insertions(+), 18 deletions(-)
 
-Correct timeout argument to use milliseconds instead of jiffies.
-
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- drivers/net/irda/irda-usb.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2617-rc3.orig/drivers/net/irda/irda-usb.c
-+++ linux-2617-rc3/drivers/net/irda/irda-usb.c
-@@ -1778,7 +1778,7 @@ static int irda_usb_probe(struct usb_int
+2b14ddef0c29f43c07ffd33c3d1d9e652db3a571
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index 5d4d023..42396ca 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -1790,24 +1790,6 @@ static int ipg_nic_stop(struct net_devic
+ 	/* Release interrupt line. */
+ 	free_irq(dev->irq, dev);
+ 	return 0;
+-
+-#ifdef USE_IO_OPS
+-
+-	/* Release I/O range reserved for IPG registers. */
+-	release_region(dev->base_addr, IPG_IO_REG_RANGE);
+-
+-#else				/* Not using I/O space. */
+-
+-	/* Unmap memory used for IPG registers. */
+-
+-	/* The following line produces strange results unless
+-	 * unregister_netdev precedes it.
+-	 */
+-	iounmap(sp->ioaddr);
+-
+-#endif
+-
+-	return 0;
+ }
  
- 	if (self->needspatch) {
- 		ret = usb_control_msg (self->usbdev, usb_sndctrlpipe (self->usbdev, 0),
--				       0x02, 0x40, 0, 0, 0, 0, msecs_to_jiffies(500));
-+				       0x02, 0x40, 0, 0, NULL, 0, 500);
- 		if (ret < 0) {
- 			IRDA_DEBUG (0, "usb_control_msg failed %d\n", ret);
- 			goto err_out_3;
+ static int ipg_nic_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-- 
+1.3.1
+
