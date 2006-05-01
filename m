@@ -1,7 +1,7 @@
 From: Pekka Enberg <penberg@cs.helsinki.fi>
 Subject: Re: IP1000 gigabit nic driver
-Date: Mon, 01 May 2006 12:31:40 +0300
-Message-ID: <1146475901.11271.3.camel@localhost>
+Date: Mon, 01 May 2006 12:43:34 +0300
+Message-ID: <1146476614.11271.8.camel@localhost>
 References: <20060427142939.GA31473@fargo>
 	 <20060427185627.GA30871@electric-eye.fr.zoreil.com>
 	 <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>
@@ -16,63 +16,19 @@ Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, david@pleyades.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:32942 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
-	id S1750819AbWEAJbp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 05:31:45 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751007AbWEAJnh@vger.kernel.org>
 To: David Vrabel <dvrabel@cantab.net>
 In-Reply-To: <44554ADE.8030200@cantab.net>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, 2006-05-01 at 00:40 +0100, David Vrabel wrote:
-> Thanks for doing this Pekka.  I've fixed up some stuff and given it some 
-> brief testing on a 100BaseT network and it seems to work now.
+> Still pending.  Also:
+> 
+>      - something (PHY reset/auto negotiation?) takes 2-3 seconds and
+>        appears to be done with interrupts disabled.
 
-Thanks! I merged your stuff and pushed out an updated patch.
+Are you seeing this at module initialization? Does Sysrq-t show anything
+useful?
 
-				Pekka
-
-[PATCH] IP1000 Gigabit Ethernet device driver
-
-This is a cleaned up fork of the IP1000A device driver:
-
-  http://www.icplus.com.tw/driver-pp-IP1000A.html
-
-Open issues:
-
-  - ipg_probe() looks really fishy and doesn't handle all errors
-    (e.g. ioremap failing).
-  - ipg_nic_do_ioctl() is playing games with user-space pointer.
-    We should use ethtool ioctl instead as suggested by Arjan.
-  - something (PHY reset/auto negotiation?) takes 2-3 seconds and
-    appears to be done with interrupts disabled.
-
-Changelog:
-
-  - Kill 2.2 and 2.4 compatability macros
-  - Use proper module API
-  - Use proper PCI API
-  - Use netdev_priv
-  - Consolidate headers to one file
-  - Use __iomem annotations
-  - Use iomap instead of read/out for I/O
-  - Remove obfuscating register access macros
-  - Remove changelogs
-  - Remove ether_crc_le() -- use crc32_le() instead.
-  - No more nonsense with root_dev -- ipg_remove() now works.
-  - Move PHY and MAC address initialization into the ipg_probe().  It was
-    previously filling in the MAC address on open which breaks some user
-    space.
-  - Folded ipg_nic_init into ipg_probe since it was broke otherwise.
-
-I don't have the hardware, so I don't know if I broke anything.
-The patch is 128 KB in size, so I am not including it in this
-mail. You can find the patch here:
-
-  http://www.cs.helsinki.fi/u/penberg/linux/ip1000-driver.patch
-
-Signed-off-by: David Vrabel <dvrabel@cantab.net>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
-
+					Pekka
