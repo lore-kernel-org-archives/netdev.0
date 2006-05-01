@@ -1,84 +1,42 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: IP1000 gigabit nic driver
-Date: Mon, 01 May 2006 21:08:59 +0300
-Message-ID: <1146506939.23931.2.camel@localhost>
-References: <20060427142939.GA31473@fargo>
-	 <20060427185627.GA30871@electric-eye.fr.zoreil.com>
-	 <445144FF.4070703@cantab.net> <20060428075725.GA18957@fargo>
-	 <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
-	 <20060428113755.GA7419@fargo>
-	 <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
-	 <1146306567.1642.3.camel@localhost>  <20060429122119.GA22160@fargo>
-	 <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
-	 <44554ADE.8030200@cantab.net>  <4455F1D8.5030102@cantab.net>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH] Add some new card IDs to hostap_cs
+Date: Mon, 01 May 2006 14:36:38 -0400
+Message-ID: <1146508598.14309.24.camel@dv>
+References: <20060501180425.GB32508@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Cc: Marcin Juszkiewicz <openembedded@hrw.one.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46782 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
-	id S1750701AbWEASJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 May 2006 14:09:01 -0400
-To: David Vrabel <dvrabel@cantab.net>
-In-Reply-To: <4455F1D8.5030102@cantab.net>
+Received: from fencepost.gnu.org ([199.232.76.164]:21735 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S1751274AbWEASgm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 May 2006 14:36:42 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1FadGD-0007e1-IL
+	for netdev@vger.kernel.org; Mon, 01 May 2006 14:36:41 -0400
+To: jt@hpl.hp.com, netdev@vger.kernel.org
+In-Reply-To: <20060501180425.GB32508@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Mon, 2006-05-01 at 11:04 -0700, Jean Tourrilhes wrote:
+> Marcin Juszkiewicz wrote :
+> > 
+> > When I use pcmcia-cs then my Pretec WiFi card is handled by hostap
+> > driver and everything is working fine. Recently I switched to
+> > pcmciautils and after card insert orinoco modules are loaded. I prefer
+> > to use hostap modules because they work the same under 2.4 and 2.6
+> > kernels (with orinoco I have to use 0.13e ones because never ones does
+> > not work under 2.4/arm).
+> 
+> 	I'm sorry, but I have to veto part of your patch because it's
+> clear you don't know what you are doing.
+> 	Some of those cards are Orinoco or Symbol cards.
 
-On Mon, 2006-05-01 at 12:32 +0100, David Vrabel wrote:
-> It was clocking the MII management interface (MDC) at 500 Hz so each PHY
-> register access took some 130 ms, and many registers accesses were being
-> done on initialization. According to the datasheet, the maximum
-> frequency for MDC is 2.5 MHz.  Delays have been adjusted accordingly.
+I agree.  Please don't apply this patch.
 
-Thanks. Merged your patch.
-
-				Pekka
-
-[PATCH] IP1000 Gigabit Ethernet device driver
-
-This is a cleaned up fork of the IP1000A device driver:
-
-  http://www.icplus.com.tw/driver-pp-IP1000A.html
-
-Open issues:
-
-  - ipg_probe() looks really fishy and doesn't handle all errors
-    (e.g. ioremap failing).
-  - ipg_nic_do_ioctl() is playing games with user-space pointer
-    and lets userspace do PCI access. I think we should nuke the
-    ioctl. Arjan suggested ethtool ioctl instead, but we don't
-    seem to have that kind of functionality now anyway.
-
-Changelog:
-
-  - Kill 2.2 and 2.4 compatability macros (Pekka)
-  - Use proper module API (Pekka)
-  - Use proper PCI API (Pekka)
-  - Use netdev_priv (Pekka)
-  - Consolidate headers to one file (Pekka)
-  - Use __iomem annotations (Pekka)
-  - Use iomap instead of read/out for I/O (Pekka)
-  - Remove obfuscating register access macros (Pekka)
-  - Remove changelogs (David)
-  - Remove ether_crc_le() and use crc32_le() instead (David)
-  - No more nonsense with root_dev. ipg_remove() now works (David)
-  - Move PHY and MAC address initialization into the ipg_probe().  It was
-    previously filling in the MAC address on open which breaks some user
-    space. (David)
-  - Folded ipg_nic_init into ipg_probe since it was broke otherwise (David)
-  - Reduce delays when reading/writing the PHY registers so we clock the
-    MII management interface at 2.5 MHz (the maximum according to the
-    datasheet) instead of 500 Hz. (David)
-
-The patch is 128 KB in size, so I am not including it in this
-mail. You can find the patch here:
-
-  http://www.cs.helsinki.fi/u/penberg/linux/ip1000-driver.patch
-
-Signed-off-by: David Vrabel <dvrabel@cantab.net>
-Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+-- 
+Regards,
+Pavel Roskin
 
