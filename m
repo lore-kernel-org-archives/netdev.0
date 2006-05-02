@@ -1,143 +1,520 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Tue, 2 May 2006 23:55:59 +0200
-Message-ID: <20060502215559.GA1119@electric-eye.fr.zoreil.com>
-References: <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com>
+From: David =?utf-8?B?R8OzbWV6?= <david@pleyades.net>
+Subject: [PATCH] ipg: removing more dead code
+Date: Wed, 3 May 2006 00:30:48 +0200
+Message-ID: <20060502223048.GA32038@fargo>
+References: <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231050.GC7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020936420.4066@sbz-30.cs.Helsinki.FI> <20060502183313.GA26357@electric-eye.fr.zoreil.com> <1146596687.13675.1.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Content-Type: text/plain; charset=utf-8
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Vrabel <dvrabel@cantab.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:13704 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S965016AbWEBV7y
+Received: from ns2.hostinglmi.net ([213.194.149.12]:51656 "EHLO
+	ns2.hostinglmi.net") by vger.kernel.org with ESMTP id S965021AbWEBW3R
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 May 2006 17:59:54 -0400
-To: Pekka J Enberg <penberg@cs.Helsinki.FI>
+	Tue, 2 May 2006 18:29:17 -0400
+To: Pekka Enberg <penberg@cs.helsinki.fi>
 Content-Disposition: inline
-In-Reply-To: <20060502214520.GC26357@electric-eye.fr.zoreil.com>
+In-Reply-To: <1146596687.13675.1.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Btw the whole serie is available in branch 'netdev-ipg' at:
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+Hi Pekka,
 
-The interim steps may be useful if testing reveals something wrong
-(especially if it happens in a few weeks/months).
+On May 02 at 10:04:47, Pekka Enberg wrote:
+> OK. David & David, would appreciate if either you could give the patch a
+> spin with Francois' changes. Thanks.
 
-$ git rev-list --pretty ebf34c9b6fcd22338ef764b039b3ac55ed0e297b..HEAD 
+I'll test it tomorrow ASAP. For now, here is another patch removing
+more dead code. This code is never reached (NOTGRACE is not defined)
+and the *fiber_detect functions are subsequently never used.
 
-commit 8a98963033425729158d48066a3380f811c711b3
-Author: Romieu Francois <romieu@fr.zoreil.com>
-Date:   Tue May 2 23:25:44 2006 +0200
-
-    ipg: redundancy with mii.h
-    
-    Replace a bunch of #define with their counterpart from mii.h
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit 291360d4000e0b93baf0fb97aa15af48677e46af
-Author: Romieu Francois <romieu@fr.zoreil.com>
-Date:   Tue May 2 22:15:34 2006 +0200
-
-    ipg: sanitize the pci device table
-    
-    - vendor id belong to include/linux/pci_id.h ;
-    - the pci table does not include all the devices in nics_supported ;
-    - qualify the pci table as __devinitdata ;
-    - kill 50 LOC.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit 8b534f66d6be247b9f0d341b0ae7acbf46f128fb
-Author: Romieu Francois <romieu@fr.zoreil.com>
-Date:   Tue May 2 01:07:48 2006 +0200
-
-    ipg: plug leaks in the error path of ipg_nic_open
-    
-    Added ipg_{rx/tx}_clear() to factor out some code.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit 87c8b13dceccc42439e7262f1b60c9cbb14d5440
-Author: Romieu Francois <romieu@fr.zoreil.com>
-Date:   Tue May 2 00:15:54 2006 +0200
-
-    ipg: leaks in ipg_probe
-    
-    The error paths are badly broken.
-    
-    Bonus:
-    - remove duplicate initialization of sp;
-    - remove useless NULL initialization of dev;
-    - USE_IO_OPS is not used (and the driver does not seem to care about
-      posted writes, rejoice).
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit befd7e543fcdfb2d2c75de1748ae751fefdff58a
-Author: Romieu Francois <romieu@fr.zoreil.com>
-Date:   Mon May 1 23:52:37 2006 +0200
-
-    ipg: removal of unreachable code
-    
-    map/unmap is done in ipg_{probe/remove}
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit 17a9ce93ba6b6744489aa9168d757e9457158952
-Author: Romieu Francois <romieu@fr.zoreil.com>
-Date:   Mon May 1 22:40:29 2006 +0200
-
-    ipg: speed-up access to the PHY registers
-    
-    Reduce delays when reading/writing the PHY registers so we clock the
-    MII management interface at 2.5 MHz (the maximum according to the
-    datasheet) instead of 500 Hz.
-    
-    Signed-off-by: David Vrabel <dvrabel@cantab.net>
-
-commit e18c33d6fa62b735426b8fe5a0f1aa61c0b5d7f7
-Author: David Vrabel <dvrabel@cantab.net>
-Date:   Mon May 1 21:34:19 2006 +0200
-
-    ipg: root_dev removal and PHY initialization
-    
-    - Remove ether_crc_le() -- use crc32_le() instead.
-    - No more nonsense with root_dev -- ipg_remove() now works.
-    - Move PHY and MAC address initialization into the ipg_probe().
-      It was previously filling in the MAC address on open which breaks
-      some user space.
-    - Folded ipg_nic_init into ipg_probe since it was broke otherwise.
-    
-    Signed-off-by: David Vrabel <dvrabel@cantab.net>
-
-commit e99fcd4253f231b2c7a96e3be5067341de45ac2e
-Author: David Vrabel <dvrabel@cantab.net>
-Date:   Mon May 1 13:20:49 2006 +0200
-
-    ipg: remove changelogs
-    
-    Signed-off-by: David Vrabel <dvrabel@cantab.net>
-
-commit 8fd59026a272d3132f096965985e907d655ee087
-Author: Pekka Enberg <penberg@cs.helsinki.fi>
-Date:   Mon May 1 12:53:43 2006 +0200
-
-    ipg: initial inclusion of IC Plus IP1000 driver
-    
-    This is a cleaned up fork of the IP1000A device driver:
-    
-      <http://www.icplus.com.tw/driver-pp-IP1000A.html>
-    
-    Open issues include but are not limited to:
-    
-      - ipg_probe() looks really fishy and doesn't handle all errors
-        (e.g. ioremap failing).
-      - ipg_nic_do_ioctl() is playing games with user-space pointer.
-        We should use ethtool ioctl instead as suggested by Arjan.
-      - For multiple devices, the driver uses a global root_dev and
-        ipg_remove() play some tricks which look fishy.
-    
-    Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
-
+--- drivers/net/ipg.c.old	2006-05-03 00:16:47.000000000 +0200
++++ drivers/net/ipg.c	2006-05-03 00:28:02.000000000 +0200
+@@ -461,43 +461,6 @@
+ 	return 0;
+ }
+ 
+-#ifdef IPG_TMI_FIBER_DETECT
+-static int ipg_sti_fiber_detect(struct net_device *dev)
+-{
+-	/* Determine if NIC is fiber based by reading the PhyMedia
+-	 * bit in the AsicCtrl register.
+-	 */
+-
+-	u32 asicctrl;
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-
+-	IPG_DEBUG_MSG("_sti_fiber_detect\n");
+-
+-	asicctrl = ioread32(ioaddr + IPG_ASICCTRL);
+-
+-	return asicctrl & IPG_AC_PHY_MEDIA;
+-}
+-
+-static int ipg_tmi_fiber_detect(struct net_device *dev, int phyaddr)
+-{
+-	/* Determine if NIC is fiber based by reading the ID register
+-	 * of the PHY and the GMII address.
+-	 */
+-
+-	u16 phyid;
+-
+-	IPG_DEBUG_MSG("_tmi_fiber_detect\n");
+-
+-	phyid = read_phy_register(dev, phyaddr, GMII_PHY_ID_1);
+-
+-	IPG_DEBUG_MSG("PHY ID = %x\n", phyid);
+-
+-	/* We conclude the mode is fiber if the GMII address
+-	 * is 0x1 and the PHY ID is 0x0000.
+-	 */
+-	return (phyaddr == 0x1) && (phyid == 0x0000);
+-}
+-#endif
+ 
+ static int ipg_find_phyaddr(struct net_device *dev)
+ {
+@@ -524,434 +487,6 @@
+ 	return -1;
+ }
+ 
+-#ifdef NOTGRACE
+-static int ipg_config_autoneg(struct net_device *dev)
+-{
+-	/* Configure IPG based on result of IEEE 802.3 PHY
+-	 * auto-negotiation.
+-	 */
+-
+-	int phyaddr = 0;
+-	u8 phyctrl;
+-	u32 asicctrl;
+-	void __iomem *ioaddr = ipg_ioaddr(dev);
+-	u16 status = 0;
+-	u16 advertisement;
+-	u16 linkpartner_ability;
+-	u16 gigadvertisement;
+-	u16 giglinkpartner_ability;
+-	u16 techabilities;
+-	int fiber;
+-	int gig;
+-	int fullduplex;
+-	int txflowcontrol;
+-	int rxflowcontrol;
+-	struct ipg_nic_private *sp = netdev_priv(dev);
+-
+-	IPG_DEBUG_MSG("_config_autoneg\n");
+-
+-	asicctrl = ioread32(ioaddr + IPG_ASICCTRL);
+-	phyctrl = ioread8(ioaddr + IPG_PHYCTRL);
+-
+-	/* Set flags for use in resolving auto-negotation, assuming
+-	 * non-1000Mbps, half duplex, no flow control.
+-	 */
+-	fiber = 0;
+-	fullduplex = 0;
+-	txflowcontrol = 0;
+-	rxflowcontrol = 0;
+-	gig = 0;
+-
+-	/* To accomodate a problem in 10Mbps operation,
+-	 * set a global flag if PHY running in 10Mbps mode.
+-	 */
+-	sp->tenmbpsmode = 0;
+-
+-	printk("Link speed = ");
+-
+-	/* Determine actual speed of operation. */
+-	switch (phyctrl & IPG_PC_LINK_SPEED) {
+-	case IPG_PC_LINK_SPEED_10MBPS:
+-		printk("10Mbps.\n");
+-		printk(KERN_INFO "%s: 10Mbps operational mode enabled.\n",
+-		       dev->name);
+-		sp->tenmbpsmode = 1;
+-		break;
+-	case IPG_PC_LINK_SPEED_100MBPS:
+-		printk("100Mbps.\n");
+-		break;
+-	case IPG_PC_LINK_SPEED_1000MBPS:
+-		printk("1000Mbps.\n");
+-		gig = 1;
+-		break;
+-	default:
+-		printk("undefined!\n");
+-	}
+-
+-#ifndef IPG_TMI_FIBER_DETECT
+-	fiber = ipg_sti_fiber_detect(dev);
+-
+-	/* Determine if auto-negotiation resolution is necessary.
+-	 * First check for fiber based media 10/100 media.
+-	 */
+-	if ((fiber == 1) && (asicctrl &
+-			     (IPG_AC_PHY_SPEED10 | IPG_AC_PHY_SPEED100))) {
+-		printk(KERN_INFO
+-		       "%s: Fiber based PHY, setting full duplex, no flow control.\n",
+-		       dev->name);
+-		return -EILSEQ;
+-		iowrite32(IPG_MC_RSVD_MASK &
+-			  ((ioread32(ioaddr + IPG_MACCTRL) |
+-			    IPG_MC_DUPLEX_SELECT_FD) &
+-			   ~IPG_MC_TX_FLOW_CONTROL_ENABLE &
+-			   ~IPG_MC_RX_FLOW_CONTROL_ENABLE),
+-			  ioaddr + IPG_MACCTRL);
+-
+-		return 0;
+-	}
+-#endif
+-
+-	/* Determine if PHY is auto-negotiation capable. */
+-	phyaddr = ipg_find_phyaddr(dev);
+-
+-	if (phyaddr == -1) {
+-		printk(KERN_INFO
+-		       "%s: Error on read to GMII/MII Status register.\n",
+-		       dev->name);
+-		return -EILSEQ;
+-	}
+-
+-	IPG_DEBUG_MSG("GMII/MII PHY address = %x\n", phyaddr);
+-
+-	status = read_phy_register(dev, phyaddr, GMII_PHY_STATUS);
+-
+-	printk("PHYStatus = %x \n", status);
+-	if ((status & GMII_PHY_STATUS_AUTONEG_ABILITY) == 0) {
+-		printk(KERN_INFO
+-		       "%s: Error PHY unable to perform auto-negotiation.\n",
+-		       dev->name);
+-		return -EILSEQ;
+-	}
+-
+-	advertisement = read_phy_register(dev, phyaddr,
+-					  GMII_PHY_AUTONEGADVERTISEMENT);
+-	linkpartner_ability = read_phy_register(dev, phyaddr,
+-						GMII_PHY_AUTONEGLINKPARTABILITY);
+-
+-	printk("PHYadvertisement=%x LinkPartner=%x \n", advertisement,
+-	       linkpartner_ability);
+-	if ((advertisement == 0xFFFF) || (linkpartner_ability == 0xFFFF)) {
+-		printk(KERN_INFO
+-		       "%s: Error on read to GMII/MII registers 4 and/or 5.\n",
+-		       dev->name);
+-		return -EILSEQ;
+-	}
+-#ifdef IPG_TMI_FIBER_DETECT
+-	fiber = ipg_tmi_fiber_detect(dev, phyaddr);
+-#endif
+-
+-	/* Resolve full/half duplex if 1000BASE-X. */
+-	if ((gig == 1) && (fiber == 1)) {
+-		/* Compare the full duplex bits in the GMII registers
+-		 * for the local device, and the link partner. If these
+-		 * bits are logic 1 in both registers, configure the
+-		 * IPG for full duplex operation.
+-		 */
+-		if ((advertisement & GMII_PHY_ADV_FULL_DUPLEX) ==
+-		    (linkpartner_ability & GMII_PHY_ADV_FULL_DUPLEX)) {
+-			fullduplex = 1;
+-
+-			/* In 1000BASE-X using IPG's internal PCS
+-			 * layer, so write to the GMII duplex bit.
+-			 */
+-			write_phy_register(dev,
+-					   phyaddr,
+-					   GMII_PHY_CONTROL,
+-					   read_phy_register
+-					   (dev, phyaddr,
+-					    GMII_PHY_CONTROL) |
+-					   GMII_PHY_CONTROL_FULL_DUPLEX);
+-
+-		} else {
+-			fullduplex = 0;
+-
+-			/* In 1000BASE-X using IPG's internal PCS
+-			 * layer, so write to the GMII duplex bit.
+-			 */
+-			write_phy_register(dev,
+-					   phyaddr,
+-					   GMII_PHY_CONTROL,
+-					   read_phy_register
+-					   (dev, phyaddr,
+-					    GMII_PHY_CONTROL) &
+-					   ~GMII_PHY_CONTROL_FULL_DUPLEX);
+-		}
+-	}
+-
+-	/* Resolve full/half duplex if 1000BASE-T. */
+-	if ((gig == 1) && (fiber == 0)) {
+-		/* Read the 1000BASE-T "Control" and "Status"
+-		 * registers which represent the advertised and
+-		 * link partner abilities exchanged via next page
+-		 * transfers.
+-		 */
+-		gigadvertisement = read_phy_register(dev,
+-						     phyaddr,
+-						     GMII_PHY_1000BASETCONTROL);
+-		giglinkpartner_ability = read_phy_register(dev,
+-							   phyaddr,
+-							   GMII_PHY_1000BASETSTATUS);
+-
+-		/* Compare the full duplex bits in the 1000BASE-T GMII
+-		 * registers for the local device, and the link partner.
+-		 * If these bits are logic 1 in both registers, configure
+-		 * the IPG for full duplex operation.
+-		 */
+-		if ((gigadvertisement & GMII_PHY_1000BASETCONTROL_FULL_DUPLEX)
+-		    && (giglinkpartner_ability &
+-			GMII_PHY_1000BASETSTATUS_FULL_DUPLEX)) {
+-			fullduplex = 1;
+-		} else {
+-			fullduplex = 0;
+-		}
+-	}
+-
+-	/* Resolve full/half duplex for 10/100BASE-T. */
+-	if (gig == 0) {
+-		/* Autonegotiation Priority Resolution algorithm, as defined in
+-		 * IEEE 802.3 Annex 28B.
+-		 */
+-		if (((advertisement & MII_PHY_SELECTORFIELD) ==
+-		     MII_PHY_SELECTOR_IEEE8023) &&
+-		    ((linkpartner_ability & MII_PHY_SELECTORFIELD) ==
+-		     MII_PHY_SELECTOR_IEEE8023)) {
+-			techabilities = (advertisement & linkpartner_ability &
+-					 MII_PHY_TECHABILITYFIELD);
+-
+-			fullduplex = 0;
+-
+-			/* 10BASE-TX half duplex is lowest priority. */
+-			if (techabilities & MII_PHY_TECHABILITY_10BT) {
+-				fullduplex = 0;
+-			}
+-
+-			if (techabilities & MII_PHY_TECHABILITY_10BTFD) {
+-				fullduplex = 1;
+-			}
+-
+-			if (techabilities & MII_PHY_TECHABILITY_100BTX) {
+-				fullduplex = 0;
+-			}
+-
+-			if (techabilities & MII_PHY_TECHABILITY_100BT4) {
+-				fullduplex = 0;
+-			}
+-
+-			/* 100BASE-TX half duplex is highest priority. *///Sorbica full duplex ?
+-			if (techabilities & MII_PHY_TECHABILITY_100BTXFD) {
+-				fullduplex = 1;
+-			}
+-
+-			if (fullduplex == 1) {
+-				/* If in full duplex mode, determine if PAUSE
+-				 * functionality is supported by the local
+-				 * device, and the link partner.
+-				 */
+-				if (techabilities & MII_PHY_TECHABILITY_PAUSE) {
+-					txflowcontrol = 1;
+-					rxflowcontrol = 1;
+-				} else {
+-					txflowcontrol = 0;
+-					rxflowcontrol = 0;
+-				}
+-			}
+-		}
+-	}
+-
+-	/* If in 1000Mbps, fiber, and full duplex mode, resolve
+-	 * 1000BASE-X PAUSE capabilities. */
+-	if ((fullduplex == 1) && (fiber == 1) && (gig == 1)) {
+-		/* In full duplex mode, resolve PAUSE
+-		 * functionality.
+-		 */
+-		switch (((advertisement & GMII_PHY_ADV_PAUSE) >> 5) |
+-			((linkpartner_ability & GMII_PHY_ADV_PAUSE) >> 7)) {
+-		case 0x7:
+-			txflowcontrol = 1;
+-			rxflowcontrol = 0;
+-			break;
+-
+-		case 0xA:
+-		case 0xB:
+-		case 0xE:
+-		case 0xF:
+-			txflowcontrol = 1;
+-			rxflowcontrol = 1;
+-			break;
+-
+-		case 0xD:
+-			txflowcontrol = 0;
+-			rxflowcontrol = 1;
+-			break;
+-
+-		default:
+-			txflowcontrol = 0;
+-			rxflowcontrol = 0;
+-		}
+-	}
+-
+-	/* If in 1000Mbps, non-fiber, full duplex mode, resolve
+-	 * 1000BASE-T PAUSE capabilities. */
+-	if ((fullduplex == 1) && (fiber == 0) && (gig == 1)) {
+-		/* Make sure the PHY is advertising we are PAUSE
+-		 * capable.
+-		 */
+-		if (!(advertisement & (MII_PHY_TECHABILITY_PAUSE |
+-				       MII_PHY_TECHABILITY_ASM_DIR))) {
+-			/* PAUSE is not being advertised. Advertise
+-			 * PAUSE and restart auto-negotiation.
+-			 */
+-			write_phy_register(dev,
+-					   phyaddr,
+-					   MII_PHY_AUTONEGADVERTISEMENT,
+-					   (advertisement |
+-					    MII_PHY_TECHABILITY_PAUSE |
+-					    MII_PHY_TECHABILITY_ASM_DIR));
+-			write_phy_register(dev,
+-					   phyaddr,
+-					   MII_PHY_CONTROL,
+-					   MII_PHY_CONTROL_RESTARTAN);
+-
+-			return -EAGAIN;
+-		}
+-
+-		/* In full duplex mode, resolve PAUSE
+-		 * functionality.
+-		 */
+-		switch (((advertisement &
+-			  MII_PHY_TECHABILITY_PAUSE_FIELDS) >> 0x8) |
+-			((linkpartner_ability &
+-			  MII_PHY_TECHABILITY_PAUSE_FIELDS) >> 0xA)) {
+-		case 0x7:
+-			txflowcontrol = 1;
+-			rxflowcontrol = 0;
+-			break;
+-
+-		case 0xA:
+-		case 0xB:
+-		case 0xE:
+-		case 0xF:
+-			txflowcontrol = 1;
+-			rxflowcontrol = 1;
+-			break;
+-
+-		case 0xD:
+-			txflowcontrol = 0;
+-			rxflowcontrol = 1;
+-			break;
+-
+-		default:
+-			txflowcontrol = 0;
+-			rxflowcontrol = 0;
+-		}
+-	}
+-
+-	/* If in 10/100Mbps, non-fiber, full duplex mode, assure
+-	 * 10/100BASE-T PAUSE capabilities are advertised. */
+-	if ((fullduplex == 1) && (fiber == 0) && (gig == 0)) {
+-		/* Make sure the PHY is advertising we are PAUSE
+-		 * capable.
+-		 */
+-		if (!(advertisement & (MII_PHY_TECHABILITY_PAUSE))) {
+-			/* PAUSE is not being advertised. Advertise
+-			 * PAUSE and restart auto-negotiation.
+-			 */
+-			write_phy_register(dev,
+-					   phyaddr,
+-					   MII_PHY_AUTONEGADVERTISEMENT,
+-					   (advertisement |
+-					    MII_PHY_TECHABILITY_PAUSE));
+-			write_phy_register(dev,
+-					   phyaddr,
+-					   MII_PHY_CONTROL,
+-					   MII_PHY_CONTROL_RESTARTAN);
+-
+-			return -EAGAIN;
+-		}
+-
+-	}
+-
+-	if (fiber == 1) {
+-		printk(KERN_INFO "%s: Fiber based PHY, ", dev->name);
+-	} else {
+-		printk(KERN_INFO "%s: Copper based PHY, ", dev->name);
+-	}
+-
+-	/* Configure full duplex, and flow control. */
+-	if (fullduplex == 1) {
+-		/* Configure IPG for full duplex operation. */
+-		printk("setting full duplex, ");
+-
+-		iowrite32(IPG_MC_RSVD_MASK &
+-			  (ioread32(ioaddr + IPG_MACCTRL) |
+-			   IPG_MC_DUPLEX_SELECT_FD), ioaddr + IPG_MACCTRL);
+-
+-		if (txflowcontrol == 1) {
+-			printk("TX flow control");
+-			iowrite32(IPG_MC_RSVD_MASK &
+-				  (ioread32(ioaddr + IPG_MACCTRL) |
+-				   IPG_MC_TX_FLOW_CONTROL_ENABLE),
+-				  ioaddr + IPG_MACCTRL);
+-		} else {
+-			printk("no TX flow control");
+-			iowrite32(IPG_MC_RSVD_MASK &
+-				  (ioread32(ioaddr + IPG_MACCTRL) &
+-				   ~IPG_MC_TX_FLOW_CONTROL_ENABLE),
+-				  ioaddr + IPG_MACCTRL);
+-		}
+-
+-		if (rxflowcontrol == 1) {
+-			printk(", RX flow control.");
+-			iowrite32(IPG_MC_RSVD_MASK &
+-				  (ioread32(ioaddr + IPG_MACCTRL) |
+-				   IPG_MC_RX_FLOW_CONTROL_ENABLE),
+-				  ioaddr + IPG_MACCTRL);
+-		} else {
+-			printk(", no RX flow control.");
+-			iowrite32(IPG_MC_RSVD_MASK &
+-				  (ioread32(ioaddr + IPG_MACCTRL) &
+-				   ~IPG_MC_RX_FLOW_CONTROL_ENABLE),
+-				  ioaddr + IPG_MACCTRL);
+-		}
+-
+-		printk("\n");
+-	} else {
+-		/* Configure IPG for half duplex operation. */
+-		printk
+-		    ("setting half duplex, no TX flow control, no RX flow control.\n");
+-
+-		iowrite32(IPG_MC_RSVD_MASK &
+-			  (ioread32(ioaddr + IPG_MACCTRL) &
+-			   ~IPG_MC_DUPLEX_SELECT_FD &
+-			   ~IPG_MC_TX_FLOW_CONTROL_ENABLE &
+-			   ~IPG_MC_RX_FLOW_CONTROL_ENABLE),
+-			  ioaddr + IPG_MACCTRL);
+-	}
+-
+-	IPG_DEBUG_MSG("G/MII reg 4 (advertisement) = %4.4x\n", advertisement);
+-	IPG_DEBUG_MSG("G/MII reg 5 (link partner)  = %4.4x\n",
+-		      linkpartner_ability);
+-	IPG_DEBUG_MSG("G/MII reg 9 (1000BASE-T control) = %4.4x\n",
+-		      advertisement);
+-	IPG_DEBUG_MSG("G/MII reg 10 (1000BASE-T status) = %4.4x\n",
+-		      linkpartner_ability);
+-
+-	IPG_DEBUG_MSG("Auto-neg complete, MACCTRL = %8.8x\n",
+-		      ioread32(ioaddr + IPG_MACCTRL));
+-
+-	return 0;
+-}
+-#else
+ static int ipg_config_autoneg(struct net_device *dev)
+ {
+ 	/* Configure IPG based on result of IEEE 802.3 PHY
+@@ -1072,7 +607,6 @@
+ 	return 0;
+ }
+ 
+-#endif
+ 
+ static int ipg_io_config(struct net_device *dev)
+ {
