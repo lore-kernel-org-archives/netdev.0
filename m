@@ -1,62 +1,27 @@
-From: Balbir Singh <balbir@in.ibm.com>
-Subject: [Patch 4/8] Utilities for genetlink usage
-Date: Tue, 2 May 2006 11:46:49 +0530
-Message-ID: <20060502061649.GA22607@in.ibm.com>
-Reply-To: balbir@in.ibm.com
+From: Pekka J Enberg <penberg@cs.Helsinki.FI>
+Subject: Re: [PATCH 1/3] ipg: removal of unreachable code
+Date: Tue, 2 May 2006 09:36:26 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0605020936140.4066@sbz-30.cs.Helsinki.FI>
+References: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
+ <20060428113755.GA7419@fargo> <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
+ <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo>
+ <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
+ <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net>
+ <1146506939.23931.2.camel@localhost> <20060501231007.GB7419@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lse-tech@lists.sourceforge.net, jlan@engr.sgi.com,
-	Jamal <hadi@cyberus.ca>, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:27010 "EHLO
-	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S932396AbWEBGTo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 May 2006 02:19:44 -0400
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932412AbWEBGgd@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060501231007.GB7419@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2 May 2006, Francois Romieu wrote:
+> map/unmap is done in ipg_{probe/remove}
 
-genetlink-utils.patch
+Applied. Thanks!
 
-Two utilities for simplifying usage of NETLINK_GENERIC
-interface.
-
-Signed-off-by: Balbir Singh <balbir@in.ibm.com>
-Signed-off-by: Shailabh Nagar <nagar@watson.ibm.com>
----
-
- include/net/genetlink.h |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+)
-
-diff -puN include/net/genetlink.h~genetlink-utils include/net/genetlink.h
---- linux-2.6.17-rc3/include/net/genetlink.h~genetlink-utils	2006-05-02 07:35:15.000000000 +0530
-+++ linux-2.6.17-rc3-balbir/include/net/genetlink.h	2006-05-02 07:35:52.000000000 +0530
-@@ -150,4 +150,24 @@ static inline int genlmsg_unicast(struct
- 	return nlmsg_unicast(genl_sock, skb, pid);
- }
- 
-+/**
-+ * gennlmsg_data - head of message payload
-+ * @gnlh: genetlink messsage header
-+ */
-+static inline void *genlmsg_data(const struct genlmsghdr *gnlh)
-+{
-+	return ((unsigned char *) gnlh + GENL_HDRLEN);
-+}
-+
-+/**
-+ * genlmsg_len - length of message payload
-+ * @gnlh: genetlink message header
-+ */
-+static inline int genlmsg_len(const struct genlmsghdr *gnlh)
-+{
-+	struct nlmsghdr *nlh = (struct nlmsghdr *)((unsigned char *)gnlh -
-+							NLMSG_HDRLEN);
-+	return (nlh->nlmsg_len - GENL_HDRLEN - NLMSG_HDRLEN);
-+}
-+
- #endif	/* __NET_GENERIC_NETLINK_H */
-_
+				Pekka
