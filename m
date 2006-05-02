@@ -1,520 +1,179 @@
-From: David =?utf-8?B?R8OzbWV6?= <david@pleyades.net>
-Subject: [PATCH] ipg: removing more dead code
-Date: Wed, 3 May 2006 00:30:48 +0200
-Message-ID: <20060502223048.GA32038@fargo>
-References: <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231050.GC7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020936420.4066@sbz-30.cs.Helsinki.FI> <20060502183313.GA26357@electric-eye.fr.zoreil.com> <1146596687.13675.1.camel@localhost>
+From: Alex Aizman <alex@neterion.com>
+Subject: VJ Channel API - driver level (README)
+Date: Tue, 02 May 2006 15:53:21 -0700
+Message-ID: <4457E2E1.3030809@neterion.com>
+References: <1145118379.2324.18.camel@localhost.localdomain> <4457CF53.7050000@stud.feec.vutbr.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	David Vrabel <dvrabel@cantab.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.hostinglmi.net ([213.194.149.12]:51656 "EHLO
-	ns2.hostinglmi.net") by vger.kernel.org with ESMTP id S965021AbWEBW3R
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 May 2006 18:29:17 -0400
-To: Pekka Enberg <penberg@cs.helsinki.fi>
-Content-Disposition: inline
-In-Reply-To: <1146596687.13675.1.camel@localhost>
+Received: from barracuda.s2io.com ([72.1.205.138]:29417 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S965016AbWEBWx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 May 2006 18:53:29 -0400
+Received: from guinness.s2io.com (owa.neterion.com [72.1.205.136])
+	by barracuda.mail.s2io.com (Spam Firewall) with ESMTP id 2AA6B2000329
+	for <netdev@vger.kernel.org>; Tue,  2 May 2006 18:53:23 -0400 (EDT)
+Received: from [10.16.16.76] ([10.16.16.76])
+	by guinness.s2io.com (8.12.6/8.12.6) with ESMTP id k42MrMDr003073
+	for <netdev@vger.kernel.org>; Tue, 2 May 2006 18:53:22 -0400 (EDT)
+To: netdev@vger.kernel.org
+In-Reply-To: <4457CF53.7050000@stud.feec.vutbr.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pekka,
+The following "soaks" on our side for a couple months now... Noticed [1][2] and
+thought it'd make sense to add it to the mix.
 
-On May 02 at 10:04:47, Pekka Enberg wrote:
-> OK. David & David, would appreciate if either you could give the patch a
-> spin with Francois' changes. Thanks.
+Contents
+======
 
-I'll test it tomorrow ASAP. For now, here is another patch removing
-more dead code. This code is never reached (NOTGRACE is not defined)
-and the *fiber_detect functions are subsequently never used.
+	* README (inlined below)
+	* netdevice.h patch with the preliminary/draft driver-level API (next message).
 
---- drivers/net/ipg.c.old	2006-05-03 00:16:47.000000000 +0200
-+++ drivers/net/ipg.c	2006-05-03 00:28:02.000000000 +0200
-@@ -461,43 +461,6 @@
- 	return 0;
- }
- 
--#ifdef IPG_TMI_FIBER_DETECT
--static int ipg_sti_fiber_detect(struct net_device *dev)
--{
--	/* Determine if NIC is fiber based by reading the PhyMedia
--	 * bit in the AsicCtrl register.
--	 */
--
--	u32 asicctrl;
--	void __iomem *ioaddr = ipg_ioaddr(dev);
--
--	IPG_DEBUG_MSG("_sti_fiber_detect\n");
--
--	asicctrl = ioread32(ioaddr + IPG_ASICCTRL);
--
--	return asicctrl & IPG_AC_PHY_MEDIA;
--}
--
--static int ipg_tmi_fiber_detect(struct net_device *dev, int phyaddr)
--{
--	/* Determine if NIC is fiber based by reading the ID register
--	 * of the PHY and the GMII address.
--	 */
--
--	u16 phyid;
--
--	IPG_DEBUG_MSG("_tmi_fiber_detect\n");
--
--	phyid = read_phy_register(dev, phyaddr, GMII_PHY_ID_1);
--
--	IPG_DEBUG_MSG("PHY ID = %x\n", phyid);
--
--	/* We conclude the mode is fiber if the GMII address
--	 * is 0x1 and the PHY ID is 0x0000.
--	 */
--	return (phyaddr == 0x1) && (phyid == 0x0000);
--}
--#endif
- 
- static int ipg_find_phyaddr(struct net_device *dev)
- {
-@@ -524,434 +487,6 @@
- 	return -1;
- }
- 
--#ifdef NOTGRACE
--static int ipg_config_autoneg(struct net_device *dev)
--{
--	/* Configure IPG based on result of IEEE 802.3 PHY
--	 * auto-negotiation.
--	 */
--
--	int phyaddr = 0;
--	u8 phyctrl;
--	u32 asicctrl;
--	void __iomem *ioaddr = ipg_ioaddr(dev);
--	u16 status = 0;
--	u16 advertisement;
--	u16 linkpartner_ability;
--	u16 gigadvertisement;
--	u16 giglinkpartner_ability;
--	u16 techabilities;
--	int fiber;
--	int gig;
--	int fullduplex;
--	int txflowcontrol;
--	int rxflowcontrol;
--	struct ipg_nic_private *sp = netdev_priv(dev);
--
--	IPG_DEBUG_MSG("_config_autoneg\n");
--
--	asicctrl = ioread32(ioaddr + IPG_ASICCTRL);
--	phyctrl = ioread8(ioaddr + IPG_PHYCTRL);
--
--	/* Set flags for use in resolving auto-negotation, assuming
--	 * non-1000Mbps, half duplex, no flow control.
--	 */
--	fiber = 0;
--	fullduplex = 0;
--	txflowcontrol = 0;
--	rxflowcontrol = 0;
--	gig = 0;
--
--	/* To accomodate a problem in 10Mbps operation,
--	 * set a global flag if PHY running in 10Mbps mode.
--	 */
--	sp->tenmbpsmode = 0;
--
--	printk("Link speed = ");
--
--	/* Determine actual speed of operation. */
--	switch (phyctrl & IPG_PC_LINK_SPEED) {
--	case IPG_PC_LINK_SPEED_10MBPS:
--		printk("10Mbps.\n");
--		printk(KERN_INFO "%s: 10Mbps operational mode enabled.\n",
--		       dev->name);
--		sp->tenmbpsmode = 1;
--		break;
--	case IPG_PC_LINK_SPEED_100MBPS:
--		printk("100Mbps.\n");
--		break;
--	case IPG_PC_LINK_SPEED_1000MBPS:
--		printk("1000Mbps.\n");
--		gig = 1;
--		break;
--	default:
--		printk("undefined!\n");
--	}
--
--#ifndef IPG_TMI_FIBER_DETECT
--	fiber = ipg_sti_fiber_detect(dev);
--
--	/* Determine if auto-negotiation resolution is necessary.
--	 * First check for fiber based media 10/100 media.
--	 */
--	if ((fiber == 1) && (asicctrl &
--			     (IPG_AC_PHY_SPEED10 | IPG_AC_PHY_SPEED100))) {
--		printk(KERN_INFO
--		       "%s: Fiber based PHY, setting full duplex, no flow control.\n",
--		       dev->name);
--		return -EILSEQ;
--		iowrite32(IPG_MC_RSVD_MASK &
--			  ((ioread32(ioaddr + IPG_MACCTRL) |
--			    IPG_MC_DUPLEX_SELECT_FD) &
--			   ~IPG_MC_TX_FLOW_CONTROL_ENABLE &
--			   ~IPG_MC_RX_FLOW_CONTROL_ENABLE),
--			  ioaddr + IPG_MACCTRL);
--
--		return 0;
--	}
--#endif
--
--	/* Determine if PHY is auto-negotiation capable. */
--	phyaddr = ipg_find_phyaddr(dev);
--
--	if (phyaddr == -1) {
--		printk(KERN_INFO
--		       "%s: Error on read to GMII/MII Status register.\n",
--		       dev->name);
--		return -EILSEQ;
--	}
--
--	IPG_DEBUG_MSG("GMII/MII PHY address = %x\n", phyaddr);
--
--	status = read_phy_register(dev, phyaddr, GMII_PHY_STATUS);
--
--	printk("PHYStatus = %x \n", status);
--	if ((status & GMII_PHY_STATUS_AUTONEG_ABILITY) == 0) {
--		printk(KERN_INFO
--		       "%s: Error PHY unable to perform auto-negotiation.\n",
--		       dev->name);
--		return -EILSEQ;
--	}
--
--	advertisement = read_phy_register(dev, phyaddr,
--					  GMII_PHY_AUTONEGADVERTISEMENT);
--	linkpartner_ability = read_phy_register(dev, phyaddr,
--						GMII_PHY_AUTONEGLINKPARTABILITY);
--
--	printk("PHYadvertisement=%x LinkPartner=%x \n", advertisement,
--	       linkpartner_ability);
--	if ((advertisement == 0xFFFF) || (linkpartner_ability == 0xFFFF)) {
--		printk(KERN_INFO
--		       "%s: Error on read to GMII/MII registers 4 and/or 5.\n",
--		       dev->name);
--		return -EILSEQ;
--	}
--#ifdef IPG_TMI_FIBER_DETECT
--	fiber = ipg_tmi_fiber_detect(dev, phyaddr);
--#endif
--
--	/* Resolve full/half duplex if 1000BASE-X. */
--	if ((gig == 1) && (fiber == 1)) {
--		/* Compare the full duplex bits in the GMII registers
--		 * for the local device, and the link partner. If these
--		 * bits are logic 1 in both registers, configure the
--		 * IPG for full duplex operation.
--		 */
--		if ((advertisement & GMII_PHY_ADV_FULL_DUPLEX) ==
--		    (linkpartner_ability & GMII_PHY_ADV_FULL_DUPLEX)) {
--			fullduplex = 1;
--
--			/* In 1000BASE-X using IPG's internal PCS
--			 * layer, so write to the GMII duplex bit.
--			 */
--			write_phy_register(dev,
--					   phyaddr,
--					   GMII_PHY_CONTROL,
--					   read_phy_register
--					   (dev, phyaddr,
--					    GMII_PHY_CONTROL) |
--					   GMII_PHY_CONTROL_FULL_DUPLEX);
--
--		} else {
--			fullduplex = 0;
--
--			/* In 1000BASE-X using IPG's internal PCS
--			 * layer, so write to the GMII duplex bit.
--			 */
--			write_phy_register(dev,
--					   phyaddr,
--					   GMII_PHY_CONTROL,
--					   read_phy_register
--					   (dev, phyaddr,
--					    GMII_PHY_CONTROL) &
--					   ~GMII_PHY_CONTROL_FULL_DUPLEX);
--		}
--	}
--
--	/* Resolve full/half duplex if 1000BASE-T. */
--	if ((gig == 1) && (fiber == 0)) {
--		/* Read the 1000BASE-T "Control" and "Status"
--		 * registers which represent the advertised and
--		 * link partner abilities exchanged via next page
--		 * transfers.
--		 */
--		gigadvertisement = read_phy_register(dev,
--						     phyaddr,
--						     GMII_PHY_1000BASETCONTROL);
--		giglinkpartner_ability = read_phy_register(dev,
--							   phyaddr,
--							   GMII_PHY_1000BASETSTATUS);
--
--		/* Compare the full duplex bits in the 1000BASE-T GMII
--		 * registers for the local device, and the link partner.
--		 * If these bits are logic 1 in both registers, configure
--		 * the IPG for full duplex operation.
--		 */
--		if ((gigadvertisement & GMII_PHY_1000BASETCONTROL_FULL_DUPLEX)
--		    && (giglinkpartner_ability &
--			GMII_PHY_1000BASETSTATUS_FULL_DUPLEX)) {
--			fullduplex = 1;
--		} else {
--			fullduplex = 0;
--		}
--	}
--
--	/* Resolve full/half duplex for 10/100BASE-T. */
--	if (gig == 0) {
--		/* Autonegotiation Priority Resolution algorithm, as defined in
--		 * IEEE 802.3 Annex 28B.
--		 */
--		if (((advertisement & MII_PHY_SELECTORFIELD) ==
--		     MII_PHY_SELECTOR_IEEE8023) &&
--		    ((linkpartner_ability & MII_PHY_SELECTORFIELD) ==
--		     MII_PHY_SELECTOR_IEEE8023)) {
--			techabilities = (advertisement & linkpartner_ability &
--					 MII_PHY_TECHABILITYFIELD);
--
--			fullduplex = 0;
--
--			/* 10BASE-TX half duplex is lowest priority. */
--			if (techabilities & MII_PHY_TECHABILITY_10BT) {
--				fullduplex = 0;
--			}
--
--			if (techabilities & MII_PHY_TECHABILITY_10BTFD) {
--				fullduplex = 1;
--			}
--
--			if (techabilities & MII_PHY_TECHABILITY_100BTX) {
--				fullduplex = 0;
--			}
--
--			if (techabilities & MII_PHY_TECHABILITY_100BT4) {
--				fullduplex = 0;
--			}
--
--			/* 100BASE-TX half duplex is highest priority. *///Sorbica full duplex ?
--			if (techabilities & MII_PHY_TECHABILITY_100BTXFD) {
--				fullduplex = 1;
--			}
--
--			if (fullduplex == 1) {
--				/* If in full duplex mode, determine if PAUSE
--				 * functionality is supported by the local
--				 * device, and the link partner.
--				 */
--				if (techabilities & MII_PHY_TECHABILITY_PAUSE) {
--					txflowcontrol = 1;
--					rxflowcontrol = 1;
--				} else {
--					txflowcontrol = 0;
--					rxflowcontrol = 0;
--				}
--			}
--		}
--	}
--
--	/* If in 1000Mbps, fiber, and full duplex mode, resolve
--	 * 1000BASE-X PAUSE capabilities. */
--	if ((fullduplex == 1) && (fiber == 1) && (gig == 1)) {
--		/* In full duplex mode, resolve PAUSE
--		 * functionality.
--		 */
--		switch (((advertisement & GMII_PHY_ADV_PAUSE) >> 5) |
--			((linkpartner_ability & GMII_PHY_ADV_PAUSE) >> 7)) {
--		case 0x7:
--			txflowcontrol = 1;
--			rxflowcontrol = 0;
--			break;
--
--		case 0xA:
--		case 0xB:
--		case 0xE:
--		case 0xF:
--			txflowcontrol = 1;
--			rxflowcontrol = 1;
--			break;
--
--		case 0xD:
--			txflowcontrol = 0;
--			rxflowcontrol = 1;
--			break;
--
--		default:
--			txflowcontrol = 0;
--			rxflowcontrol = 0;
--		}
--	}
--
--	/* If in 1000Mbps, non-fiber, full duplex mode, resolve
--	 * 1000BASE-T PAUSE capabilities. */
--	if ((fullduplex == 1) && (fiber == 0) && (gig == 1)) {
--		/* Make sure the PHY is advertising we are PAUSE
--		 * capable.
--		 */
--		if (!(advertisement & (MII_PHY_TECHABILITY_PAUSE |
--				       MII_PHY_TECHABILITY_ASM_DIR))) {
--			/* PAUSE is not being advertised. Advertise
--			 * PAUSE and restart auto-negotiation.
--			 */
--			write_phy_register(dev,
--					   phyaddr,
--					   MII_PHY_AUTONEGADVERTISEMENT,
--					   (advertisement |
--					    MII_PHY_TECHABILITY_PAUSE |
--					    MII_PHY_TECHABILITY_ASM_DIR));
--			write_phy_register(dev,
--					   phyaddr,
--					   MII_PHY_CONTROL,
--					   MII_PHY_CONTROL_RESTARTAN);
--
--			return -EAGAIN;
--		}
--
--		/* In full duplex mode, resolve PAUSE
--		 * functionality.
--		 */
--		switch (((advertisement &
--			  MII_PHY_TECHABILITY_PAUSE_FIELDS) >> 0x8) |
--			((linkpartner_ability &
--			  MII_PHY_TECHABILITY_PAUSE_FIELDS) >> 0xA)) {
--		case 0x7:
--			txflowcontrol = 1;
--			rxflowcontrol = 0;
--			break;
--
--		case 0xA:
--		case 0xB:
--		case 0xE:
--		case 0xF:
--			txflowcontrol = 1;
--			rxflowcontrol = 1;
--			break;
--
--		case 0xD:
--			txflowcontrol = 0;
--			rxflowcontrol = 1;
--			break;
--
--		default:
--			txflowcontrol = 0;
--			rxflowcontrol = 0;
--		}
--	}
--
--	/* If in 10/100Mbps, non-fiber, full duplex mode, assure
--	 * 10/100BASE-T PAUSE capabilities are advertised. */
--	if ((fullduplex == 1) && (fiber == 0) && (gig == 0)) {
--		/* Make sure the PHY is advertising we are PAUSE
--		 * capable.
--		 */
--		if (!(advertisement & (MII_PHY_TECHABILITY_PAUSE))) {
--			/* PAUSE is not being advertised. Advertise
--			 * PAUSE and restart auto-negotiation.
--			 */
--			write_phy_register(dev,
--					   phyaddr,
--					   MII_PHY_AUTONEGADVERTISEMENT,
--					   (advertisement |
--					    MII_PHY_TECHABILITY_PAUSE));
--			write_phy_register(dev,
--					   phyaddr,
--					   MII_PHY_CONTROL,
--					   MII_PHY_CONTROL_RESTARTAN);
--
--			return -EAGAIN;
--		}
--
--	}
--
--	if (fiber == 1) {
--		printk(KERN_INFO "%s: Fiber based PHY, ", dev->name);
--	} else {
--		printk(KERN_INFO "%s: Copper based PHY, ", dev->name);
--	}
--
--	/* Configure full duplex, and flow control. */
--	if (fullduplex == 1) {
--		/* Configure IPG for full duplex operation. */
--		printk("setting full duplex, ");
--
--		iowrite32(IPG_MC_RSVD_MASK &
--			  (ioread32(ioaddr + IPG_MACCTRL) |
--			   IPG_MC_DUPLEX_SELECT_FD), ioaddr + IPG_MACCTRL);
--
--		if (txflowcontrol == 1) {
--			printk("TX flow control");
--			iowrite32(IPG_MC_RSVD_MASK &
--				  (ioread32(ioaddr + IPG_MACCTRL) |
--				   IPG_MC_TX_FLOW_CONTROL_ENABLE),
--				  ioaddr + IPG_MACCTRL);
--		} else {
--			printk("no TX flow control");
--			iowrite32(IPG_MC_RSVD_MASK &
--				  (ioread32(ioaddr + IPG_MACCTRL) &
--				   ~IPG_MC_TX_FLOW_CONTROL_ENABLE),
--				  ioaddr + IPG_MACCTRL);
--		}
--
--		if (rxflowcontrol == 1) {
--			printk(", RX flow control.");
--			iowrite32(IPG_MC_RSVD_MASK &
--				  (ioread32(ioaddr + IPG_MACCTRL) |
--				   IPG_MC_RX_FLOW_CONTROL_ENABLE),
--				  ioaddr + IPG_MACCTRL);
--		} else {
--			printk(", no RX flow control.");
--			iowrite32(IPG_MC_RSVD_MASK &
--				  (ioread32(ioaddr + IPG_MACCTRL) &
--				   ~IPG_MC_RX_FLOW_CONTROL_ENABLE),
--				  ioaddr + IPG_MACCTRL);
--		}
--
--		printk("\n");
--	} else {
--		/* Configure IPG for half duplex operation. */
--		printk
--		    ("setting half duplex, no TX flow control, no RX flow control.\n");
--
--		iowrite32(IPG_MC_RSVD_MASK &
--			  (ioread32(ioaddr + IPG_MACCTRL) &
--			   ~IPG_MC_DUPLEX_SELECT_FD &
--			   ~IPG_MC_TX_FLOW_CONTROL_ENABLE &
--			   ~IPG_MC_RX_FLOW_CONTROL_ENABLE),
--			  ioaddr + IPG_MACCTRL);
--	}
--
--	IPG_DEBUG_MSG("G/MII reg 4 (advertisement) = %4.4x\n", advertisement);
--	IPG_DEBUG_MSG("G/MII reg 5 (link partner)  = %4.4x\n",
--		      linkpartner_ability);
--	IPG_DEBUG_MSG("G/MII reg 9 (1000BASE-T control) = %4.4x\n",
--		      advertisement);
--	IPG_DEBUG_MSG("G/MII reg 10 (1000BASE-T status) = %4.4x\n",
--		      linkpartner_ability);
--
--	IPG_DEBUG_MSG("Auto-neg complete, MACCTRL = %8.8x\n",
--		      ioread32(ioaddr + IPG_MACCTRL));
--
--	return 0;
--}
--#else
- static int ipg_config_autoneg(struct net_device *dev)
- {
- 	/* Configure IPG based on result of IEEE 802.3 PHY
-@@ -1072,7 +607,6 @@
- 	return 0;
- }
- 
--#endif
- 
- static int ipg_io_config(struct net_device *dev)
- {
+Introduction
+========
+
+Van Jacobson's Net Channels presentation at LCA2006 is available at [3] and
+further discussed, for instance, at [4].
+
+Within this context we defined the following goals for our implementation:
+1) There are separate transport-neutral hardware supported channels for
+     transmit and receive traffic.
+2) We are interested in a proof-of-concept, as well as an initial pass at a
+     concrete API.
+
+The API introduces the concept of a unidirectional "flow" that can be "bound"
+to a specific hardware supported channel.  Within this framework TCP flow
+is simply a special case where the transmit traffic flow is all the traffic
+from a local TCP endpoint to a remote TCP endpoint and the receive
+traffic flow is the exact opposite.
+
+The API introduces - and is structured around - the following objects:
+
+	* hardware channel - hw_channelh
+	* kernel channel - kernel_channelh
+	* receive flow - netdev_rx_flow
+
+Note:
+	More exactly, hw_channelh and kernel_channelh are opaque
+	(void*) handles to the corresponding stateful and
+	implementation-dependent objects. The rest of this text
+	talks about channels and denotes handles - for shortness sake
+	we'll now assume that the difference is clear enough.
+	
+Channels & Channel Handles
+===================
+
+Both the hardware and kernel channels (hw_channelh and kernel_channelh,
+respectively) are strictly unidirectional. When a channel is opened it
+is specified as a transmit or a receive channel. In order to create a
+bi-directional send/receive channel there must be an additional API
+which provides a higher level abstraction by using a pair
+of uni-directional channels.
+
+Hardware channel handle and kernel channel handle are opaque handles
+designated to reference the corresponding stateful objects when used in an
+appropriate context, i.e., driver and kernel, respectively.
+
+Hardware channel handle (hw_channelh) is an opaque handles used to reference
+the corresponding device driver-specific channel object. It is up to the
+device driver developers to define the actual channel structures which work
+best to their specific hardware. The API knows nothing about these except as
+opaque pointers.
+
+Similarly, kernel channel handle (kernel_channelh) is opaque, as far as
+network drivers are concerned. There is a 1-to-1 correspondence between a
+kernel channel and a hardware channel. This assists in separating domain
+knowledge between the device driver and the kernel proper. It is assumed
+that kernel developers will be able to make use of kernel_channelh by
+casting it to the appropriate structure when, for instance, processing
+frames received on a corresponding hardware channel (hw_channelh).
+
+Receive Flow
+=========
+
+Receive flow (netdev_rx_flow) contains a criteria that allows to steer
+a certain type of incoming packets (L2 frames, IP or UDP datagrams,
+TCP segments, etc.) to a receive channel. For instance, a single channel
+can be used to only receive traffic for a given MAC, or all traffic to TCP
+port 80. Furthermore, several flows can be added (or more exactly, can be
+"bound" via the corresponding bind_rx_hwchannel() API call) to the same
+channel. This means, one can create a channel that accepts traffic for
+destination MAC A and MAC B, or a channel used to transfer TCP packets with
+destination port 80 and 8080, or a channel to for a number of TCP connections
+defined by their respective 4-tuples.
+
+For more discussion see Section "Neterion XFrame-II Specific Notes" below.
+
+One can also assign a custom receive function to each separate receive channel.
+If a callback function is specified, this function will be used to pass up
+traffic instead of the netif_* API. This allows for a direct data path for
+applications should they wish to use it.  This callback function is entirely
+optional and must be set per channel. If the function pointer is NULL the
+standard netif_* API is used.
+
+With respect to receive flow binding sequence, the last channel
+that is bound to a specific flow is the one that "wins", i.e., gets the
+traffic. In general, sharing of channels in a consistent fashion and
+tracking of receive flows is currently considered outside of the scope
+of this API.
+
+System Scalability ("The Big Picture")
+========================
+
+The API has its place in the entire picture that, as per Van Jacobson,
+includes "channelized" application, "channelized" socket, and "channelized"
+driver. It is meant to provide a mechanism, which, if used correctly,
+will ultimately allow to achieve system-level per-CPU scalability.
+
+It is outside the scope of this API to provide an interface to automatically
+place a transmit channel and the user-space application using it onto a given
+CPU. But if the transmitting application is in fact bound to a CPU, and if the
+kernel socket is "channel-aware", and if this particular channel is always
+used with the same CPU - if all of the above is true, then the ultimate goal
+of scalability can be reached.
+
+Similarly, on the inbound, the API can be used to:
+
+	(1) channelize received traffic based on a number of available
+	     receive flow classification mechanisms
+	     (see netdev_hwchannel_rx_flow_e),
+
+	(2) process the per-channel MSI/MSI-X on a given CPU
+	     specified at channel open time (see open_rx_hwchannel()).
+
+It's outside of scope of this particular API what happens with the packets
+received on a given channel after netif_rx*() callback hands the over to the
+stack.
+
+Neterion XFrame-II Specific Note
+=====================
+
+The API is (an attempt of) a generalized kernel <=> driver interface.
+This section talks about Xframe-specific restrictions. We are assuming that
+other multi-channel capable network adapters might have adapter-specific
+restrictions; the idea however is not to propagate those restrictions on the
+level of API, if possible.
+
+The XFrame-II adapter supports multiple receive traffic flow types.
+However, it is not possible to mix the receive flow types
+(netdev_hwchannel_rx_flow_e) with the current Xframe hardware. In other
+words, one cannot use a single hardware channel to receive, for instance,
+all TCP traffic for destination port 80 and all L2 traffic for destination MAC A.
+
+References
+=======
+
+[1] http://www.spinics.net/lists/netdev/msg03584.html
+[2] http://www.spinics.net/lists/netdev/msg03583.html
+[3] http://www.lemis.com/grog/Documentation/vj/lca06vj.pdf
+[4] http://vger.kernel.org/~davem/cgi-bin/blog.cgi/2006/01/27
+
+
+Thanks!
+Neterion Team.
+
+
+
+
