@@ -1,203 +1,143 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/2] ipg: sanitize the pci device table
-Date: Tue, 2 May 2006 23:44:32 +0200
-Message-ID: <20060502214432.GB26357@electric-eye.fr.zoreil.com>
-References: <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI> <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI>
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Date: Tue, 2 May 2006 23:55:59 +0200
+Message-ID: <20060502215559.GA1119@electric-eye.fr.zoreil.com>
+References: <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39653 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S964996AbWEBVr4
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:13704 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S965016AbWEBV7y
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 May 2006 17:47:56 -0400
+	Tue, 2 May 2006 17:59:54 -0400
 To: Pekka J Enberg <penberg@cs.Helsinki.FI>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI>
+In-Reply-To: <20060502214520.GC26357@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- vendor id belong to include/linux/pci_id.h ;
-- the pci table does not include all the devices in nics_supported ;
-- qualify the pci table as __devinitdata ;
-- kill 50 LOC.
+Btw the whole serie is available in branch 'netdev-ipg' at:
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+The interim steps may be useful if testing reveals something wrong
+(especially if it happens in a few weeks/months).
 
----
+$ git rev-list --pretty ebf34c9b6fcd22338ef764b039b3ac55ed0e297b..HEAD 
 
- drivers/net/ipg.c       |   46 ++++++--------------------------
- drivers/net/ipg.h       |   67 +++++++++++------------------------------------
- include/linux/pci_ids.h |    2 +
- 3 files changed, 27 insertions(+), 88 deletions(-)
+commit 8a98963033425729158d48066a3380f811c711b3
+Author: Romieu Francois <romieu@fr.zoreil.com>
+Date:   Tue May 2 23:25:44 2006 +0200
 
-aa5b322a6f91ca12a580dfa7022fca1a088b4abd
-diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index 393b617..ea7c1f8 100644
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-@@ -32,40 +32,14 @@ MODULE_DESCRIPTION("IC Plus IP1000 Gigab
- 		   DrvVer);
- MODULE_LICENSE("GPL");
- 
--static struct pci_device_id ipg_pci_tbl[] = {
--	{PCI_VENDOR_ID_ICPLUS,
--	 PCI_DEVICE_ID_IP1000,
--	 PCI_ANY_ID,
--	 PCI_ANY_ID,
--	 0x020000,
--	 0xFFFFFF,
--	 0},
--
--	{PCI_VENDOR_ID_SUNDANCE,
--	 PCI_DEVICE_ID_SUNDANCE_ST2021,
--	 PCI_ANY_ID,
--	 PCI_ANY_ID,
--	 0x020000,
--	 0xFFFFFF,
--	 1},
--
--	{PCI_VENDOR_ID_SUNDANCE,
--	 PCI_DEVICE_ID_TAMARACK_TC9020_9021,
--	 PCI_ANY_ID,
--	 PCI_ANY_ID,
--	 0x020000,
--	 0xFFFFFF,
--	 2},
--
--	{PCI_VENDOR_ID_DLINK,
--	 PCI_DEVICE_ID_DLINK_1002,
--	 PCI_ANY_ID,
--	 PCI_ANY_ID,
--	 0x020000,
--	 0xFFFFFF,
--	 3},
--
--	{0,}
-+static struct pci_device_id ipg_pci_tbl[] __devinitdata = {
-+	{ PCI_DEVICE(PCI_VENDOR_ID_SUNDANCE,	0x1023), 0, 0, 0 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_SUNDANCE,	0x2021), 0, 0, 1 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_SUNDANCE,	0x1021), 0, 0, 2 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x9021), 0, 0, 3 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4000), 0, 0, 4 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4020), 0, 0, 5 },
-+	{ 0, }
- };
- 
- MODULE_DEVICE_TABLE(pci, ipg_pci_tbl);
-@@ -2961,9 +2935,7 @@ static int __devinit ipg_probe(struct pc
- 	if (rc < 0)
- 		goto out;
- 
--	printk(KERN_INFO "%s found.\n", nics_supported[i].NICname);
--	printk(KERN_INFO "Bus %x Slot %x\n",
--	       pdev->bus->number, PCI_SLOT(pdev->devfn));
-+	printk(KERN_INFO "%s: %s\n", pci_name(pdev), nics_supported[i].name);
- 
- 	pci_set_master(pdev);
- 
-diff --git a/drivers/net/ipg.h b/drivers/net/ipg.h
-index ae3424a..03bc6f1 100644
---- a/drivers/net/ipg.h
-+++ b/drivers/net/ipg.h
-@@ -589,34 +589,6 @@ #define IPG_RI_RXDMAWAIT_TIME           
-  *	Tune
-  */
- 
--#ifndef PCI_VENDOR_ID_ICPLUS
--#  define       PCI_VENDOR_ID_ICPLUS            0x13F0
--#endif
--#ifndef PCI_DEVICE_ID_IP1000
--#  define       PCI_DEVICE_ID_IP1000		    0x1023
--#endif
--#ifndef PCI_VENDOR_ID_SUNDANCE
--#  define       PCI_VENDOR_ID_SUNDANCE          0x13F0
--#endif
--#ifndef PCI_DEVICE_ID_SUNDANCE_IPG
--#  define       PCI_DEVICE_ID_SUNDANCE_ST2021   0x2021
--#endif
--#ifndef PCI_DEVICE_ID_TAMARACK_TC9020_9021_ALT
--#  define       PCI_DEVICE_ID_TAMARACK_TC9020_9021_ALT 0x9021
--#endif
--#ifndef PCI_DEVICE_ID_TAMARACK_TC9020_9021
--#  define       PCI_DEVICE_ID_TAMARACK_TC9020_9021 0x1021
--#endif
--#ifndef PCI_VENDOR_ID_DLINK
--#  define       PCI_VENDOR_ID_DLINK             0x1186
--#endif
--#ifndef PCI_DEVICE_ID_DLINK_1002
--#  define       PCI_DEVICE_ID_DLINK_1002        0x4000
--#endif
--#ifndef PCI_DEVICE_ID_DLINK_IP1000A
--#  define PCI_DEVICE_ID_DLINK_IP1000A		0x4020
--#endif
--
- /* Miscellaneous Constants. */
- #define   TRUE  1
- #define   FALSE 0
-@@ -990,32 +962,25 @@ #endif
- };
- 
- struct nic_id {
--	char *NICname;
--	int vendorid;
--	int deviceid;
-+	char *name;
-+	u32 vendor;
-+	u32 device;
- };
- 
- struct nic_id nics_supported[] = {
--	{"IC PLUS IP1000 1000/100/10 based NIC",
--	 PCI_VENDOR_ID_ICPLUS,
--	 PCI_DEVICE_ID_IP1000},
--	{"Sundance Technology ST2021 based NIC",
--	 PCI_VENDOR_ID_SUNDANCE,
--	 PCI_DEVICE_ID_SUNDANCE_ST2021},
--	{"Tamarack Microelectronics TC9020/9021 based NIC",
--	 PCI_VENDOR_ID_SUNDANCE,
--	 PCI_DEVICE_ID_TAMARACK_TC9020_9021},
--	{"Tamarack Microelectronics TC9020/9021 based NIC",
--	 PCI_VENDOR_ID_SUNDANCE,
--	 PCI_DEVICE_ID_TAMARACK_TC9020_9021_ALT},
--	{"D-Link NIC",
--	 PCI_VENDOR_ID_DLINK,
--	 PCI_DEVICE_ID_DLINK_1002},
--	{"D-Link NIC IP1000A",
--	 PCI_VENDOR_ID_DLINK,
--	 PCI_DEVICE_ID_DLINK_IP1000A},
--
--	{"N/A", 0xFFFF, 0}
-+	{ "IC PLUS IP1000 1000/100/10 based NIC",
-+		PCI_VENDOR_ID_SUNDANCE,	0x1023 },
-+	{ "Sundance Technology ST2021 based NIC",
-+		PCI_VENDOR_ID_SUNDANCE,	0x2021 },
-+	{ "Tamarack Microelectronics TC9020/9021 based NIC",
-+		PCI_VENDOR_ID_SUNDANCE, 0x1021 },
-+	{ "Tamarack Microelectronics TC9020/9021 based NIC",
-+		PCI_VENDOR_ID_SUNDANCE, 0x9021 },
-+	{ "D-Link NIC",
-+		PCI_VENDOR_ID_DLINK,	0x4000 },
-+	{ "D-Link NIC IP1000A",
-+		PCI_VENDOR_ID_DLINK,	0x4020 },
-+	{ NULL, 0xffff, 0 }
- };
- 
- //variable record -- index by leading revision/length
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index d6fe048..b772f2b 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -1788,6 +1788,8 @@ #define PCI_DEVICE_ID_IOMEGA_BUZ	0x4231
- #define PCI_VENDOR_ID_ABOCOM		0x13D1
- #define PCI_DEVICE_ID_ABOCOM_2BD1       0x2BD1
- 
-+#define PCI_VENDOR_ID_SUNDANCE		0x13f0
-+
- #define PCI_VENDOR_ID_CMEDIA		0x13f6
- #define PCI_DEVICE_ID_CMEDIA_CM8338A	0x0100
- #define PCI_DEVICE_ID_CMEDIA_CM8338B	0x0101
--- 
-1.3.1
+    ipg: redundancy with mii.h
+    
+    Replace a bunch of #define with their counterpart from mii.h
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit 291360d4000e0b93baf0fb97aa15af48677e46af
+Author: Romieu Francois <romieu@fr.zoreil.com>
+Date:   Tue May 2 22:15:34 2006 +0200
+
+    ipg: sanitize the pci device table
+    
+    - vendor id belong to include/linux/pci_id.h ;
+    - the pci table does not include all the devices in nics_supported ;
+    - qualify the pci table as __devinitdata ;
+    - kill 50 LOC.
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit 8b534f66d6be247b9f0d341b0ae7acbf46f128fb
+Author: Romieu Francois <romieu@fr.zoreil.com>
+Date:   Tue May 2 01:07:48 2006 +0200
+
+    ipg: plug leaks in the error path of ipg_nic_open
+    
+    Added ipg_{rx/tx}_clear() to factor out some code.
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit 87c8b13dceccc42439e7262f1b60c9cbb14d5440
+Author: Romieu Francois <romieu@fr.zoreil.com>
+Date:   Tue May 2 00:15:54 2006 +0200
+
+    ipg: leaks in ipg_probe
+    
+    The error paths are badly broken.
+    
+    Bonus:
+    - remove duplicate initialization of sp;
+    - remove useless NULL initialization of dev;
+    - USE_IO_OPS is not used (and the driver does not seem to care about
+      posted writes, rejoice).
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit befd7e543fcdfb2d2c75de1748ae751fefdff58a
+Author: Romieu Francois <romieu@fr.zoreil.com>
+Date:   Mon May 1 23:52:37 2006 +0200
+
+    ipg: removal of unreachable code
+    
+    map/unmap is done in ipg_{probe/remove}
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit 17a9ce93ba6b6744489aa9168d757e9457158952
+Author: Romieu Francois <romieu@fr.zoreil.com>
+Date:   Mon May 1 22:40:29 2006 +0200
+
+    ipg: speed-up access to the PHY registers
+    
+    Reduce delays when reading/writing the PHY registers so we clock the
+    MII management interface at 2.5 MHz (the maximum according to the
+    datasheet) instead of 500 Hz.
+    
+    Signed-off-by: David Vrabel <dvrabel@cantab.net>
+
+commit e18c33d6fa62b735426b8fe5a0f1aa61c0b5d7f7
+Author: David Vrabel <dvrabel@cantab.net>
+Date:   Mon May 1 21:34:19 2006 +0200
+
+    ipg: root_dev removal and PHY initialization
+    
+    - Remove ether_crc_le() -- use crc32_le() instead.
+    - No more nonsense with root_dev -- ipg_remove() now works.
+    - Move PHY and MAC address initialization into the ipg_probe().
+      It was previously filling in the MAC address on open which breaks
+      some user space.
+    - Folded ipg_nic_init into ipg_probe since it was broke otherwise.
+    
+    Signed-off-by: David Vrabel <dvrabel@cantab.net>
+
+commit e99fcd4253f231b2c7a96e3be5067341de45ac2e
+Author: David Vrabel <dvrabel@cantab.net>
+Date:   Mon May 1 13:20:49 2006 +0200
+
+    ipg: remove changelogs
+    
+    Signed-off-by: David Vrabel <dvrabel@cantab.net>
+
+commit 8fd59026a272d3132f096965985e907d655ee087
+Author: Pekka Enberg <penberg@cs.helsinki.fi>
+Date:   Mon May 1 12:53:43 2006 +0200
+
+    ipg: initial inclusion of IC Plus IP1000 driver
+    
+    This is a cleaned up fork of the IP1000A device driver:
+    
+      <http://www.icplus.com.tw/driver-pp-IP1000A.html>
+    
+    Open issues include but are not limited to:
+    
+      - ipg_probe() looks really fishy and doesn't handle all errors
+        (e.g. ioremap failing).
+      - ipg_nic_do_ioctl() is playing games with user-space pointer.
+        We should use ethtool ioctl instead as suggested by Arjan.
+      - For multiple devices, the driver uses a global root_dev and
+        ipg_remove() play some tricks which look fishy.
+    
+    Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
 
