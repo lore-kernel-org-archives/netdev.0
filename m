@@ -1,27 +1,54 @@
 From: Pekka J Enberg <penberg@cs.Helsinki.FI>
-Subject: Re: [PATCH 1/3] ipg: removal of unreachable code
-Date: Tue, 2 May 2006 09:36:26 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0605020936140.4066@sbz-30.cs.Helsinki.FI>
+Subject: Re: [PATCH 2/3] ipg: leaks in ipg_probe
+Date: Tue, 2 May 2006 09:41:24 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0605020936420.4066@sbz-30.cs.Helsinki.FI>
 References: <84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
  <20060428113755.GA7419@fargo> <Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
  <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo>
  <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
  <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net>
- <1146506939.23931.2.camel@localhost> <20060501231007.GB7419@electric-eye.fr.zoreil.com>
+ <1146506939.23931.2.camel@localhost> <20060501231050.GC7419@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, david@pleyades.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932412AbWEBGgd@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:980 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S932392AbWEBGl0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 May 2006 02:41:26 -0400
 To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060501231007.GB7419@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060501231050.GC7419@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2 May 2006, Francois Romieu wrote:
-> map/unmap is done in ipg_{probe/remove}
+> The error paths are badly broken.
+> 
+> Bonus:
+> - remove duplicate initialization of sp;
+> - remove useless NULL initialization of dev;
+> - USE_IO_OPS is not used (and the driver does not seem to care about
+>   posted writes, rejoice).
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Applied. Thanks!
+Applied. Thanks! One comment below.
+
+On Tue, 2 May 2006, Francois Romieu wrote:
+> -	err = pci_request_regions(pdev, DRV_NAME);
+> -	if (err)
+> -		goto out;
+> -
+> -	pio_start = pci_resource_start(pdev, 0) & 0xffffff80;
+> -	pio_len = pci_resource_len(pdev, 0);
+> -	mmio_start = pci_resource_start(pdev, 1) & 0xffffff80;
+> +	rc = pci_request_regions(pdev, DRV_NAME);
+> +	if (rc)
+> +		goto err_free_dev_1;
+
+Is this tested with hardware? Alignment of the start address looks bogus 
+for sure, but any idea why they had it in the first place?
 
 				Pekka
