@@ -1,42 +1,39 @@
-From: Pekka J Enberg <penberg@cs.Helsinki.FI>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Wed, 3 May 2006 09:16:35 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
-References: <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo>
- <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
- <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net>
- <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com>
- <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI>
- <20060502214520.GC26357@electric-eye.fr.zoreil.com>
- <20060502215559.GA1119@electric-eye.fr.zoreil.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Disabling "TCP Treason uncloaked"
+Date: Tue, 02 May 2006 23:32:46 -0700 (PDT)
+Message-ID: <20060502.233246.92272407.davem@davemloft.net>
+References: <44578691.4020402@corky.net>
+	<200605021802.43301.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Cc: marc@corky.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:3733 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S965099AbWECGQj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 02:16:39 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060502215559.GA1119@electric-eye.fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32957
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964887AbWECGd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 May 2006 02:33:27 -0400
+To: ak@suse.de
+In-Reply-To: <200605021802.43301.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois,
+From: Andi Kleen <ak@suse.de>
+Date: Tue, 2 May 2006 18:02:43 +0200
 
-On Tue, 2 May 2006, Francois Romieu wrote:
-> Btw the whole serie is available in branch 'netdev-ipg' at:
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+> On Tuesday 02 May 2006 18:19, Just Marc wrote:
 > 
-> The interim steps may be useful if testing reveals something wrong
-> (especially if it happens in a few weeks/months).
+> > I thought that maybe it's time to either set TCP_DEBUG to 0 or 
+> > alternatively allow an admin to toggle the printing of this message 
+> > off/on?  On a few busy web servers running usually latest versions of 
+> > 2.6 I have this message displaying hundreds (if not more) times a day, 
+> 
+> You're talking to a lot of broken TCP clients then.
 
-I have all the interim steps in a private git tree also. I asked for a 
-kernel.org account so I could publish the tree. However, if you wish to 
-maintain the tree, I can send you my patches so you can recreate the full 
-history. The first steps were produced by quilt on the original 
-out-of-tree driver, though, so they're probably not helpful.
+Herbert Xu also fixed a bug that would cause that message
+to be emitted erroneously, 9 times out of 10 that is why
+people are seeing these messages.
 
-					Pekka
+I think disabling that message is a non-starter, we want to
+see the message because as we've seen it can point to bugs
+on our end too.
