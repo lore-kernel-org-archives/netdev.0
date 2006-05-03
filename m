@@ -1,48 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Disabling "TCP Treason uncloaked"
-Date: Wed, 3 May 2006 21:56:53 +1000
-Message-ID: <20060503115653.GA1353@gondor.apana.org.au>
-References: <E1FbBPy-0007Iu-00@gondolin.me.apana.org.au> <4458A6C1.90103@corky.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: net/d80211 and management interface (wmaster0ap)
+Date: Wed, 3 May 2006 14:08:26 +0200
+Message-ID: <20060503140826.0a5df04a@griffin.suse.cz>
+References: <20060502183930.GA28777@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:20753 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965159AbWECL44
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 07:56:56 -0400
-To: Just Marc <marc@corky.net>
-Content-Disposition: inline
-In-Reply-To: <4458A6C1.90103@corky.net>
+Received: from styx.suse.cz ([82.119.242.94]:44965 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S965162AbWECMI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 08:08:29 -0400
+To: "Jouni Malinen" <jkm@devicescape.com>
+In-Reply-To: <20060502183930.GA28777@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 03, 2006 at 01:49:05PM +0100, Just Marc wrote:
->
-> You're right, actually this box serves http/ftp file transfers only, 
-> it's a mirror with a large amount of downloads a day.
+On Tue, 2 May 2006 11:39:30 -0700, Jouni Malinen wrote:
+> It looks like one of your patches in wireless-dev.git broke management
+> interface. I'm not completely sure about how this was supposed to work,
+> but are the low-level drivers now expected to accept
+> IEEE80211_IF_TYPE_MGMT in add_interface handler or should ieee80211.c be
+> modified to accept wmaster0ap to be set UP without asking the low-level
+> driver?
 
-That's interesting.  The RX bug that I fixed earlier would usually
-manifest itself under exactly these conditions.  Alas you're running
-a fixed kernel.
+It shouldn't ask the driver. This was a part of the dropped patch for
+removing default management device. I will send a patch to address this
+particular issue later today.
 
-> I gave it another look, many of the prints are repeat prints for the 
-> same remote IPs,
+> In addition to this, it looked like sending packets from wmaster0ap did
+> not work. The packets were being dropped since originating device
+> (wmaster0ap) did not match in is_ieee80211_device(). This function
+> seemed to use wireless_handlers pointer for recognizing interfaces which
+> (like to comment says) is not that nice. wireless_handlers were not set
+> for apdev, so the patch below adds it to make TX work through
+> wmaster0ap.
 
-Can you take a tcpdump of the TCP sessions involving those IPs and
-then show me the sections that occur when those messages are triggered?
+Oh, thanks for finding this. But we probably don't want wmaster0ap to
+have wireless_handlers set. I will try to rewrite is_ieee80211_device in
+some another way.
 
-> I agree, however, I think it's pretty good to allow an admin to toggle 
-> it off completely.  Maybe that's all we need, really.
+Thanks,
 
-The question is always what you want to be off and what to leave on.
-After all, you can turn off all printk's to the console through /proc.
-If you also tell klogd to ignore them then you won't see anything at
-all (unless you run dmesg).
+ Jiri
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jiri Benc
+SUSE Labs
