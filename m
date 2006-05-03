@@ -1,63 +1,48 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: VJ Channel API - driver level (PATCH)
-Date: Wed, 3 May 2006 08:56:23 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F149E880@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH wireless-dev] d80211: Add support for user space client
+ MLME
+Date: Wed, 3 May 2006 18:28:15 +0200
+Message-ID: <20060503182815.1a9ebb5e@griffin.suse.cz>
+References: <20060502211817.GA30842@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: alex@neterion.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:47110 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1030222AbWECP4k convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 11:56:40 -0400
-Content-class: urn:content-classes:message
-To: "Leonid Grossman" <Leonid.Grossman@neterion.com>,
-	"David S. Miller" <davem@davemloft.net>, shemminger@osdl.org
+Received: from styx.suse.cz ([82.119.242.94]:21941 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1030237AbWECQ2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 12:28:17 -0400
+To: "Jouni Malinen" <jkm@devicescape.com>
+In-Reply-To: <20060502211817.GA30842@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org
->> [mailto:netdev-owner@vger.kernel.org] On Behalf Of David S. Miller
->> Sent: Tuesday, May 02, 2006 11:48 PM
->> To: shemminger@osdl.org
->> Cc: alex@neterion.com; netdev@vger.kernel.org
->> Subject: Re: VJ Channel API - driver level (PATCH)
->> 
->> 
->> I don't think we should be defining driver APIs when we haven't even
->> figured out how the core of it would even work yet.
->> 
->> A key part of this is the netfilter bits, that will require
->> non-trivial flow identification, a hash will simply not be enough,
->> and it will not be allowed to not support the netfilter bits properly
->> since everyone will have netfilter enabled in one way or another.
-> 
-> Hi Dave,
-> 
-> Do you have suggestions on potential hardware
-> assists/offloads for netfilter?
-> 
-> I suppose some of it can be worthwhile, although in general
-> may be too complex to implement - especially above 1 Gig.
-> 
-> I'd expect high end NIC ASICs to implement rx steering based
-> upon some sort of hash (for load balancing), as well as
-> explicit "1:1" steering between a sw channel and a hw
-> channel. Both options for channel configuration are present
-> in the driver interface.
-> If netfilter assists can be done in hardware, I agree the
-> driver interface will need to add support for these -
-> otherwise, netfilter processing will stay above the driver.
-> 
-> 
+On Tue, 2 May 2006 14:18:17 -0700, Jouni Malinen wrote:
+> Add a configuration option for disabling client MLME in kernel
+> code. This is used to enable user space MLME for client mode (e.g.,
+> with wpa_supplicant). The kernel MLME implementation is unmodified,
+> but it could be removed or at least made optional in build
+> configuration in the future.
 
-Even if the hardware cannot fully implement netfilter rules
-there is still value in having an interface that documents 
-exactly how much filtering a given piece of hardware can do.
-There is no point in having the kernel repeat packet classifications
-that have already been done by the NIC.
+It is too early for this. We need to implement some better communication
+interface between kernel and hostapd (or what will implement userspace
+MLME) first. The current solution, where there is some special
+net_device interface (wmaster0ap) abused to dump informations to
+userspace, is ugly and confusing for users.
 
+There is no userspace MLME implementation yet. And if one is going to be
+written, I'm really convinced it should be written in a clean way. I
+think Simon said he would examine a possibility to convert this stuff to
+netlink - is there some progress there?
+
+Also, I'm not sure how fullmac cards could be (potentially) supported
+with this approach.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
