@@ -1,46 +1,45 @@
-From: Just Marc <marc@corky.net>
-Subject: Re: Disabling "TCP Treason uncloaked"
-Date: Wed, 03 May 2006 14:25:25 +0100
-Message-ID: <4458AF45.9050108@corky.net>
-References: <E1FbGCo-0000OS-00@gondolin.me.apana.org.au>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: IP1000 gigabit nic driver
+Date: Wed, 3 May 2006 05:43:00 -0700
+Message-ID: <20060503054300.b5e8b95f.akpm@osdl.org>
+References: <20060427142939.GA31473@fargo>
+	<20060427185627.GA30871@electric-eye.fr.zoreil.com>
+	<445144FF.4070703@cantab.net>
+	<20060428075725.GA18957@fargo>
+	<84144f020604280358ie9990c7h399f4a5588e575f8@mail.gmail.com>
+	<20060428113755.GA7419@fargo>
+	<Pine.LNX.4.58.0604281458110.19801@sbz-30.cs.Helsinki.FI>
+	<1146306567.1642.3.camel@localhost>
+	<20060429122119.GA22160@fargo>
+	<1146342905.11271.3.camel@localhost>
+	<1146389171.11524.1.camel@localhost>
+	<44554ADE.8030200@cantab.net>
+	<1146475901.11271.3.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@axxeo.de, netdev@vger.kernel.org
+Cc: dvrabel@cantab.net, romieu@fr.zoreil.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from corky.net ([212.150.53.130]:40901 "EHLO zebday.corky.net")
-	by vger.kernel.org with ESMTP id S965168AbWECM0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 08:26:32 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1FbGCo-0000OS-00@gondolin.me.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.4]:61852 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965186AbWECMnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 08:43:20 -0400
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+In-Reply-To: <1146475901.11271.3.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
-> Just Marc <marc@corky.net> wrote:
->   
->>   
->> That's good, but it may (and probably will) suppress many other messages 
->> which may be of more interest...
->>     
->
-> That's the crux of the matter.  There is no way we can satisfy everyone
-> short of putting a knob on each individual printk.
->
-> So the only solution is to do the filtering yourself in userspace through
-> klogd/syslogd.
->   
-It is the crux of the matter. This print is a purely informational one, 
-absolutely harmless (unless I'm mistaken) and clogs kernel  logs 
-throughout the universe :)
+On Mon, 01 May 2006 12:31:40 +0300
+Pekka Enberg <penberg@cs.helsinki.fi> wrote:
 
-Seriously, other kernel prints are usually not so harmless and are 
-generally more important to see.  Let me  put it another way, except 
-this print, I have no other prints whatsoever on any of my machines and 
-if there are prints, I usually do want to know about them, I learned to 
-ignore this print over the years.   I believe many people are in the 
-same boat.
+> [PATCH] IP1000 Gigabit Ethernet device driver
+> 
+> This is a cleaned up fork of the IP1000A device driver:
+> 
+>   http://www.icplus.com.tw/driver-pp-IP1000A.html
 
-That's my opinion, anyway.
+Please remember that to merge this we'll need a signed-off-by from the
+original developers.  (That's not very gplish, but such is life).
 
-Thanks
+
