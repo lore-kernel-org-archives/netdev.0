@@ -1,36 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Just Marc <marc@corky.net>
 Subject: Re: Disabling "TCP Treason uncloaked"
-Date: Wed, 3 May 2006 22:21:10 +1000
-Message-ID: <20060503122110.GA1675@gondor.apana.org.au>
-References: <E1FbBPy-0007Iu-00@gondolin.me.apana.org.au> <200605031347.31281.netdev@axxeo.de>
+Date: Wed, 03 May 2006 14:25:25 +0100
+Message-ID: <4458AF45.9050108@corky.net>
+References: <E1FbGCo-0000OS-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Just Marc <marc@corky.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@axxeo.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58641 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965179AbWECMVO
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 08:21:14 -0400
-To: Ingo Oeser <netdev@axxeo.de>
-Content-Disposition: inline
-In-Reply-To: <200605031347.31281.netdev@axxeo.de>
+Received: from corky.net ([212.150.53.130]:40901 "EHLO zebday.corky.net")
+	by vger.kernel.org with ESMTP id S965168AbWECM0c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 08:26:32 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1FbGCo-0000OS-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 03, 2006 at 01:47:31PM +0200, Ingo Oeser wrote:
-> 
-> Already there: /proc/sys/net/core/{message_cost,message_burst}
-> 
-> Just set burst to 0 and cost to a very big value to basically supppress
-> all net_ratelimit()ed messages.
-> 
-> Or did you think of sth. else?
+Hi
+> Just Marc <marc@corky.net> wrote:
+>   
+>>   
+>> That's good, but it may (and probably will) suppress many other messages 
+>> which may be of more interest...
+>>     
+>
+> That's the crux of the matter.  There is no way we can satisfy everyone
+> short of putting a knob on each individual printk.
+>
+> So the only solution is to do the filtering yourself in userspace through
+> klogd/syslogd.
+>   
+It is the crux of the matter. This print is a purely informational one, 
+absolutely harmless (unless I'm mistaken) and clogs kernel  logs 
+throughout the universe :)
 
-No that'll do just fine.
+Seriously, other kernel prints are usually not so harmless and are 
+generally more important to see.  Let me  put it another way, except 
+this print, I have no other prints whatsoever on any of my machines and 
+if there are prints, I usually do want to know about them, I learned to 
+ignore this print over the years.   I believe many people are in the 
+same boat.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+That's my opinion, anyway.
+
+Thanks
