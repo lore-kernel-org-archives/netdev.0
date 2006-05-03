@@ -1,58 +1,60 @@
-From: Simon Kelley <simon@thekelleys.org.uk>
-Subject: netlink+ARP+CLIP == broken,
-Date: Wed, 03 May 2006 22:32:39 +0100
-Message-ID: <44592177.5080801@thekelleys.org.uk>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: netlink+ARP+CLIP == broken,
+Date: Wed, 3 May 2006 14:43:06 -0700
+Message-ID: <20060503144306.574c567e@localhost.localdomain>
+References: <44592177.5080801@thekelleys.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpc1-cmbg4-0-0-cust914.cmbg.cable.ntl.com ([81.98.247.147]:5903
-	"EHLO thekelleys.org.uk") by vger.kernel.org with ESMTP
-	id S1751357AbWECVcT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 17:32:19 -0400
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:7899 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751363AbWECVnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 17:43:10 -0400
+To: Simon Kelley <simon@thekelleys.org.uk>
+In-Reply-To: <44592177.5080801@thekelleys.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both net/ipv4/arp.c and net/arm/clip.c create neighbour tables with
-family == AF_INET. For most purposes this is fine, since the two modules
- each hold a pointer to their table and pass it into the neigh_* functions.
+On Wed, 03 May 2006 22:32:39 +0100
+Simon Kelley <simon@thekelleys.org.uk> wrote:
 
-A problem arises in neigh_add, which is called by the rtnetlink code and
-which iterates through all the neighbour tables looking for the first
-one with the correct family. Since there are two different tables with
-family == AF_INET, sometimes it picks the wrong one.
+> Both net/ipv4/arp.c and net/arm/clip.c create neighbour tables with
+> family == AF_INET. For most purposes this is fine, since the two modules
+>  each hold a pointer to their table and pass it into the neigh_* functions.
+> 
+> A problem arises in neigh_add, which is called by the rtnetlink code and
+> which iterates through all the neighbour tables looking for the first
+> one with the correct family. Since there are two different tables with
+> family == AF_INET, sometimes it picks the wrong one.
+> 
+> This leads to the situation where sending a RTM_NEWNEIGH message via
+> netlink can generate an ignored and useless entry in the clip table,
+> whilst the not affecting another entry in the ARP table, both entries
+> for the same IP.
+> 
+> Viz:
+> sid:~# ip neigh
+> 192.168.3.40 dev eth0 lladdr 52:54:00:12:34:59 REACHABLE
+> 192.168.3.40 dev eth0  FAILED
+> 
+> 
+> It's not immediately obvious how to fix this in a conceptually clean
+> manner: neighbour tables are not associated with single netdevices, and
+> they don't carry an address-type field. Given a {IP,lladdr,device}
+> triple, its easy to determine if the device is ether-like or CLIP, but
+> then the update call would have to go via the ARP and CLIP modules,
+> instead of direct to the neighbour module in an address independent way.
+> New address types would need further additions to the netlink/neighbour
+> code.
+> 
+> OTOH there are several obvious hacks that will fix the immediate
+> problem. I'm happy to provide a patch implementing one if that's desired.
+> 
+> Looking again, I think this is also a security hole, since the CLIP code
+> keeps a whole struct including pointers in the neighbour table entry
+> where ARP has the MAC address. So this might provide a way to poke
+> arbitrary pointers into the kernel via RTM_NEWNEIGH. Only for root, though.
+>
 
-This leads to the situation where sending a RTM_NEWNEIGH message via
-netlink can generate an ignored and useless entry in the clip table,
-whilst the not affecting another entry in the ARP table, both entries
-for the same IP.
-
-Viz:
-sid:~# ip neigh
-192.168.3.40 dev eth0 lladdr 52:54:00:12:34:59 REACHABLE
-192.168.3.40 dev eth0  FAILED
-
-
-It's not immediately obvious how to fix this in a conceptually clean
-manner: neighbour tables are not associated with single netdevices, and
-they don't carry an address-type field. Given a {IP,lladdr,device}
-triple, its easy to determine if the device is ether-like or CLIP, but
-then the update call would have to go via the ARP and CLIP modules,
-instead of direct to the neighbour module in an address independent way.
-New address types would need further additions to the netlink/neighbour
-code.
-
-OTOH there are several obvious hacks that will fix the immediate
-problem. I'm happy to provide a patch implementing one if that's desired.
-
-Looking again, I think this is also a security hole, since the CLIP code
-keeps a whole struct including pointers in the neighbour table entry
-where ARP has the MAC address. So this might provide a way to poke
-arbitrary pointers into the kernel via RTM_NEWNEIGH. Only for root, though.
-
-Cheers,
-
-Simon.
-
-
+This was fixed in 2.6.16.6 and current 2.6.17
