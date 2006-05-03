@@ -1,55 +1,76 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: VJ Channel API - driver level (PATCH)
-Date: Wed, 3 May 2006 11:12:15 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F149E8B4@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Question on e1000 patch, rx-copy-break related.
+Date: Wed, 03 May 2006 11:12:50 -0700
+Message-ID: <4458F2A2.60605@candelatech.com>
+References: <4457B96A.4030808@candelatech.com> <4807377b0605031022s3b5bfad2x757fbd470884c6fd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Leonid Grossman" <Leonid.Grossman@neterion.com>,
-	"David S. Miller" <davem@davemloft.net>, shemminger@osdl.org,
-	alex@neterion.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:7429 "EHLO mms2.broadcom.com")
-	by vger.kernel.org with ESMTP id S1751338AbWECSMZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 14:12:25 -0400
-Content-class: urn:content-classes:message
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Received: from ns2.lanforge.com ([66.165.47.211]:3775 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1751343AbWECSM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 14:12:57 -0400
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0605031022s3b5bfad2x757fbd470884c6fd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Wed, May 03, 2006 at 08:56:23AM -0700, Caitlin Bestler
-> (caitlinb@broadcom.com) wrote:
->>> I'd expect high end NIC ASICs to implement rx steering based upon
->>> some sort of hash (for load balancing), as well as explicit "1:1"
->>> steering between a sw channel and a hw channel. Both options for
->>> channel configuration are present in the driver interface.
->>> If netfilter assists can be done in hardware, I agree the driver
->>> interface will need to add support for these - otherwise, netfilter
->>> processing will stay above the driver.
->>> 
->>> 
->> 
->> Even if the hardware cannot fully implement netfilter rules there is
->> still value in having an interface that documents exactly how much
->> filtering a given piece of hardware can do.
->> There is no point in having the kernel repeat packet classifications
->> that have already been done by the NIC.
+Jesse Brandeburg wrote:
+> On 5/2/06, Ben Greear <greearb@candelatech.com> wrote:
 > 
-> Please do not suppose that vj channel must rely on
-> underlaying hardware.
-> New interface MUST work better or at least not worse than
-> existing skb queueing for majority of users, and I doubt
-> users with netfilter capable hardware are there.
-> It is only some hint to the SW, not rules, that hardware can provide.
-> The best would be ipv4/ipv6 hashing, and I think it is enough.
+>> In commit:  a292ca6efbc1f259ddfb9c902367f2588e0e8b0f
+>> to e1000_main.c, there is the change below.
+>>
+>> I am curious why the skb_put no longer subtracts ETHERNET_FCS_SIZE
+>> from the length.  Is the idea that we will now always include the
+>> FCS at the end of the skb?
+> 
+> 
+> This is a long and hairy story behind this, but there is a bit called
+> SECRC that controls hardware stripping of the CRC.  In *this* driver
+> we turned that bit on, so that we didn't have to mess with skb->len -=
+> 4 and the nasty negative unwrap if we were using multiple descriptors
+> for rx.
+> 
+> Since then, we've removed multiple descriptor rx.
+> 
+> And after that, I've discovered that some BMCs are very unhappy if we
+> strip CRCs using SECRC.
+> 
+> So, my related question is: is it okay if we just always leave the CRC
+> on the end of the data?  It doesn't seem to harm anything.
 
-I agree. I was just stating that *if* there is direct hardware 
-support then the software should be enabled to skip 
-redundant checks. What I'm suggesting is really the
-equivalent of knowing whether the hardware generates
-or checks CRCs and TCP checksums. Don't mandate
-the feature, just have the option to avoid redundant work.
+I believe it might mess up bridging logic if it tries to send the entire
+skb to a peer interface, ie cause an extra 4 bytes to be written.
+
+I know that this 'save-crc' feature did mess up my particular bridge-like
+thing, but that could have been just bugs in my code.
+
+Also, if the CRC data is there, but it is never 'put' into the skb, then
+it will be correctly ignored by the stacks, including bridging, and hacks
+such as my own that simply increase the skb-put by 4 bytes will work.
+
+My personal preference is to set a flag in the skb struct indicating whether
+or not the crc is appended (and skb_put).  Then, bridging code can ignore it if needed,
+and sniffers and such can get the CRC in user-land.  To remain backwards compat,
+at least the skb-put of the crc logic should default to OFF so that we don't
+break any existing user-land bridging logic.  I have the ethtool API logic written to
+twiddle this save-crc behaviour if someone decides this is worthy of the kernel.
+
+
+> Well, its a changing picture.  I had planned to eventually enable the
+> hardware to strip the CRC if we aren't connected to some kind of
+> offboard management.  We'll get there in steps.
+
+So, as of 2.6.16.13, is the hardware stripping (SERC) enabled?  Could
+you also let me know where this bit is defined in case I want to twiddle
+it myself (a quick grep for SERC in 2.6.16.13 yields nothing.)
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
