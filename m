@@ -1,60 +1,87 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: netlink+ARP+CLIP == broken,
-Date: Wed, 3 May 2006 14:43:06 -0700
-Message-ID: <20060503144306.574c567e@localhost.localdomain>
-References: <44592177.5080801@thekelleys.org.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Date: Thu, 4 May 2006 01:35:58 +0200
+Message-ID: <20060503233558.GA27232@electric-eye.fr.zoreil.com>
+References: <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7899 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751363AbWECVnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 17:43:10 -0400
-To: Simon Kelley <simon@thekelleys.org.uk>
-In-Reply-To: <44592177.5080801@thekelleys.org.uk>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:11722 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751399AbWECXjQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 May 2006 19:39:16 -0400
+To: Pekka J Enberg <penberg@cs.Helsinki.FI>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 03 May 2006 22:32:39 +0100
-Simon Kelley <simon@thekelleys.org.uk> wrote:
+Pekka J Enberg <penberg@cs.Helsinki.FI> :
+[...]
+> maintain the tree, I can send you my patches so you can recreate the full 
+> history. The first steps were produced by quilt on the original 
+> out-of-tree driver, though, so they're probably not helpful.
 
-> Both net/ipv4/arp.c and net/arm/clip.c create neighbour tables with
-> family == AF_INET. For most purposes this is fine, since the two modules
->  each hold a pointer to their table and pass it into the neigh_* functions.
-> 
-> A problem arises in neigh_add, which is called by the rtnetlink code and
-> which iterates through all the neighbour tables looking for the first
-> one with the correct family. Since there are two different tables with
-> family == AF_INET, sometimes it picks the wrong one.
-> 
-> This leads to the situation where sending a RTM_NEWNEIGH message via
-> netlink can generate an ignored and useless entry in the clip table,
-> whilst the not affecting another entry in the ARP table, both entries
-> for the same IP.
-> 
-> Viz:
-> sid:~# ip neigh
-> 192.168.3.40 dev eth0 lladdr 52:54:00:12:34:59 REACHABLE
-> 192.168.3.40 dev eth0  FAILED
-> 
-> 
-> It's not immediately obvious how to fix this in a conceptually clean
-> manner: neighbour tables are not associated with single netdevices, and
-> they don't carry an address-type field. Given a {IP,lladdr,device}
-> triple, its easy to determine if the device is ether-like or CLIP, but
-> then the update call would have to go via the ARP and CLIP modules,
-> instead of direct to the neighbour module in an address independent way.
-> New address types would need further additions to the netlink/neighbour
-> code.
-> 
-> OTOH there are several obvious hacks that will fix the immediate
-> problem. I'm happy to provide a patch implementing one if that's desired.
-> 
-> Looking again, I think this is also a security hole, since the CLIP code
-> keeps a whole struct including pointers in the neighbour table entry
-> where ARP has the MAC address. So this might provide a way to poke
-> arbitrary pointers into the kernel via RTM_NEWNEIGH. Only for root, though.
->
+It will be welcome.
 
-This was fixed in 2.6.16.6 and current 2.6.17
+I have added a few little things (changelog below). Next step will
+probably be some mii/ethtool stuff.
+
+The branch 'netdev-ipg' is available at:
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git.
+
+Serie of patches (ala 'git format-patch'):
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.17-rc3/ip1000a/
+
+All-in-one patch:
+http://www.fr.zoreil.com/people/francois/misc/20060504-2.6.17-rc3-git-ip1000-test.patch
+
+ChangeLog from yesterday version:
+
+commit 8b0a8db32d1ac6e9bc23300a6a0533b4d7e251e3
+Author: Francois Romieu <romieu@fr.zoreil.com>
+Date:   Thu May 4 00:29:59 2006 +0200
+
+    ipg: remove forward declarations
+    
+    It makes no sense in a new driver.
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit 65940e5e0ab88d92fbac0f96b5d46ddfbd5cfa93
+Author: Francois Romieu <romieu@fr.zoreil.com>
+Date:   Thu May 4 00:04:57 2006 +0200
+
+    ipg: replace #define with enum
+    
+    Added some underscores to improve readability.
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit ab87a106690d6eaba4b7426fb074270e2e503e40
+Author: Francois Romieu <romieu@fr.zoreil.com>
+Date:   Wed May 3 22:51:16 2006 +0200
+
+    ipg: removal of useless #defines
+    
+    IPG_TX_NOTBUSY apart (one occurence in ipg.c), the #defines appear
+    nowhere in the sources.
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+commit ef7bfd886bc436d14649e962edb6f5189cc4dcac
+Author: Francois Romieu <romieu@fr.zoreil.com>
+Date:   Wed May 3 22:44:47 2006 +0200
+
+    ipg: redundancy with mii.h - take II
+    
+    Replace a bunch of #define with their counterpart from mii.h
+    
+    It is applied to the usual MII registers this time.
+    
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+-- 
+Ueimor
