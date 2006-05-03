@@ -1,56 +1,48 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: VJ Channel API - driver level (PATCH)
-Date: Wed, 3 May 2006 13:40:06 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F149E8D5@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: David =?utf-8?B?R8OzbWV6?= <david@pleyades.net>
+Subject: Re: [PATCH 2/3] ipg: leaks in ipg_probe
+Date: Wed, 3 May 2006 23:00:35 +0200
+Message-ID: <20060503205945.GA18353@fargo>
+References: <20060429122119.GA22160@fargo> <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231050.GC7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020936420.4066@sbz-30.cs.Helsinki.FI> <20060502183313.GA26357@electric-eye.fr.zoreil.com> <1146596687.13675.1.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Leonid.Grossman@neterion.com, shemminger@osdl.org,
-	alex@neterion.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Vrabel <dvrabel@cantab.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:41232 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1750869AbWECUkU convert rfc822-to-8bit
+Received: from ns2.hostinglmi.net ([213.194.149.12]:38123 "EHLO
+	ns2.hostinglmi.net") by vger.kernel.org with ESMTP id S1751157AbWECU6q
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 16:40:20 -0400
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>, johnpol@2ka.mipt.ru
+	Wed, 3 May 2006 16:58:46 -0400
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Disposition: inline
+In-Reply-To: <1146596687.13675.1.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Wed, 3 May 2006 22:07:40 +0400
-> 
->> On Wed, May 03, 2006 at 08:56:23AM -0700, Caitlin Bestler
-> (caitlinb@broadcom.com) wrote:
->>>> I'd expect high end NIC ASICs to implement rx steering based upon
->>>> some sort of hash (for load balancing), as well as explicit "1:1"
->>>> steering between a sw channel and a hw channel. Both options for
->>>> channel configuration are present in the driver interface.
->>>> If netfilter assists can be done in hardware, I agree the driver
->>>> interface will need to add support for these - otherwise,
->>>> netfilter processing will stay above the driver.
->>>> 
->>>> 
->>> 
->>> Even if the hardware cannot fully implement netfilter rules there is
->>> still value in having an interface that documents exactly how much
->>> filtering a given piece of hardware can do.
->>> There is no point in having the kernel repeat packet classifications
->>> that have already been done by the NIC.
->> 
->> Please do not suppose that vj channel must rely on underlaying
->> hardware. 
-> 
-> I am not.  I am just saying that it is futile to build
-> hardware that cannot handle netfilter at least to some
-> extent, because this will result in HW net channels being
-> disabled for %99 of real users which makes the hardware just a waste.
+Hi Pekka,
 
-Or netfilters being disabled, which would be just as bad or worse.
-The kernel and hardware need to co-operate so that users are not
-asked to make artificial choices between performance and security.
+On May 02 at 10:04:47, Pekka Enberg wrote:
+> > No clear idea but it matches the significant part of the BAR regist=
+er
+> > for the 256 bytes of I/O space that the device uses.
+>=20
+> OK. David & David, would appreciate if either you could give the patc=
+h a
+> spin with Francois' changes. Thanks.
 
+I applied latest Francois patch and the changes (and specially the dma
+changes) seems to be ok.
 
+On the other hand i'm having some problems. Nothing related to the
+patches, because it happens with the original driver too: After some
+time using it, the driver becomes unresponsive and i need to restart
+the interface and/or unload-load the ipg module. I'd need to compile
+it with debug enabled when i have some time to see what it's going
+on...
 
+cheers,
+
+--=20
+David G=C3=B3mez                                      Jabber ID: davidg=
+e@jabber.org
