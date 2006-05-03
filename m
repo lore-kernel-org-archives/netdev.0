@@ -1,31 +1,42 @@
-From: Auke Kok <sofar@foo-projects.org>
-Subject: Re: Disabling "TCP Treason uncloaked"
-Date: Tue, 02 May 2006 21:10:05 -0700
-Message-ID: <44582D1D.909@foo-projects.org>
-References: <E1Fb3qv-0005Vp-00@gondolin.me.apana.org.au>
+From: Pekka J Enberg <penberg@cs.Helsinki.FI>
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Date: Wed, 3 May 2006 09:16:35 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
+References: <1146306567.1642.3.camel@localhost> <20060429122119.GA22160@fargo>
+ <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost>
+ <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net>
+ <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com>
+ <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI>
+ <20060502214520.GC26357@electric-eye.fr.zoreil.com>
+ <20060502215559.GA1119@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Just Marc <marc@corky.net>, netdev@vger.kernel.org
+Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:25026 "EHLO
-	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S965081AbWECEKK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 00:10:10 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1Fb3qv-0005Vp-00@gondolin.me.apana.org.au>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:3733 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S965099AbWECGQj
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 May 2006 02:16:39 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060502215559.GA1119@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Just Marc <marc@corky.net> wrote:
->> Looking at mailing list archives there has been much talk of this print 
->> in the past, given the fact that this check/print is surrounded by an 
+Hi Francois,
+
+On Tue, 2 May 2006, Francois Romieu wrote:
+> Btw the whole serie is available in branch 'netdev-ipg' at:
+> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 > 
-> A good number of these turned out to be a bug in the Linux TCP stack.
-> If this message wasn't there we would've never found it.
+> The interim steps may be useful if testing reveals something wrong
+> (especially if it happens in a few weeks/months).
 
-I am surprised that this never made it as a sysctl option that defaulted "on" 
-in the first place really.
+I have all the interim steps in a private git tree also. I asked for a 
+kernel.org account so I could publish the tree. However, if you wish to 
+maintain the tree, I can send you my patches so you can recreate the full 
+history. The first steps were produced by quilt on the original 
+out-of-tree driver, though, so they're probably not helpful.
 
-Auke
+					Pekka
