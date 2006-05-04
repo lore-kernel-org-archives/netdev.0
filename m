@@ -1,159 +1,65 @@
-From: Kelly Daly <kelly@au1.ibm.com>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Thu, 4 May 2006 17:28:27 +1000
-Message-ID: <200605041728.27131.kelly@au.ibm.com>
-References: <200604261147.34221.kelly@au.ibm.com> <20060426.005949.125174303.davem@davemloft.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH wireless-dev] d80211: Add support for user space client
+ MLME
+Date: Thu, 4 May 2006 11:00:28 +0200
+Message-ID: <20060504110028.5af3a22a@griffin.suse.cz>
+References: <20060503164458.GB10524@instant802.com>
+	<20060503201059.58477ea6@griffin.suse.cz>
+	<20060503183524.GD10524@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kelly@au1.ibm.com, netdev@vger.kernel.org, rusty@rustcorp.com.au
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:6620 "EHLO
-	ausmtp04.au.ibm.com") by vger.kernel.org with ESMTP
-	id S1751426AbWEDH2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 03:28:43 -0400
-Received: from sd0208e0.au.ibm.com (d23rh904.au.ibm.com [202.81.18.202])
-	by ausmtp04.au.ibm.com (8.13.6/8.13.5) with ESMTP id k447d11M252018
-	for <netdev@vger.kernel.org>; Thu, 4 May 2006 17:39:01 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
-	by sd0208e0.au.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k447VkQB233628
-	for <netdev@vger.kernel.org>; Thu, 4 May 2006 17:31:51 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11/8.13.3) with ESMTP id k447SPDB006484
-	for <netdev@vger.kernel.org>; Thu, 4 May 2006 17:28:26 +1000
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060426.005949.125174303.davem@davemloft.net>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:211 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751446AbWEDJAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 05:00:30 -0400
+To: "Jouni Malinen" <jkm@devicescape.com>
+In-Reply-To: <20060503183524.GD10524@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 26 April 2006 17:59, David S. Miller wrote:
-> Next, you can't even begin to work on the protocol channels before you
-> do one very important piece of work.  Integration of all of the ipv4
-> and ipv6 protocol hash tables into a central code, it's a total
-> prerequisite.  Then you modify things to use a generic
-> inet_{,listen_}lookup() or inet6_{,listen_}lookup() that takes a
-> protocol number as well as saddr/daddr/sport/dport and searches
-> from a central table.
+On Wed, 3 May 2006 11:35:24 -0700, Jouni Malinen wrote:
+> I think it would be nice to get this in so that both client and AP modes
+> can use the same mechanism (user space MLME); hostapd already needs this
+> wmaster0ap interface. In other words, if we do not want to see that
+> interface by default, we could just add a generic mechanism for
+> registering wmaster0ap that both hostapd and wpa_supplicant could use.
+> The Host AP driver (driver/net/wireless/hostap) is doing this with
+> PRISM2_PARAM_HOSTAPD parameter. I don't care how it's done, but some
+> simple mechanism would be preferred.
 
-Back here again  ;)
+Ok. So what about PRISM2_HOSTAPD_MGMT_IF ioctl that will add management
+interface (if not added yet) and return its ifindex? It would accept a
+boolean parameter (like PRISM2_PARAM_HOSTAPD) to add/remove that
+interface. If you agree with this, I will make a patch.
 
-Is this on the right track (see patch below)?
+Of course, both hostapd and wpa_supplicant needs to be changed for that.
+This should not be a problem now as the d80211 stack is not in a common
+use yet.
 
-K
+> No, move of MLME to user space should not change this at all. As an
+> example, wpa_supplicant supports both cases and the patch I'm working on
+> for getting Prism2 (full MAC for client mode) working with d80211 is
+> modifying the kernel side to allow this to be done. Both changes are
+> touching the same areas in the code, but there is no major change in
+> whether fullmac can be supported or not.
 
+So wpa_supplicant needs to know if the card is softmac or fullmac and
+behave accordingly, right?
 
+> That is not up-to-date with wireless-dev.git anymore, though. The key
+> patch is d80211_fullmac_client.diff which is small enough to include
+> here. Please note that this is not yet complete, so consider it more an
+> example on what type of changes are needed.
 
-_____________________
+Oh, thanks, now I remember, I have seen that.
 
+Thanks,
 
-diff -urp davem_orig/include/net/inet_hashtables.h kelly/include/net/inet_hashtables.h
---- davem_orig/include/net/inet_hashtables.h	2006-04-27 00:08:32.000000000 +1000
-+++ kelly/include/net/inet_hashtables.h	2006-05-04 14:28:59.000000000 +1000
-@@ -418,4 +418,6 @@ static inline struct sock *inet_lookup(s
- 
- extern int inet_hash_connect(struct inet_timewait_death_row *death_row,
- 			     struct sock *sk);
-+
-+extern struct inet_hashinfo *inet_hashes[256];
- #endif /* _INET_HASHTABLES_H */
-diff -urp davem_orig/include/net/sock.h kelly/include/net/sock.h
---- davem_orig/include/net/sock.h	2006-05-02 13:42:10.000000000 +1000
-+++ kelly/include/net/sock.h	2006-05-04 14:28:59.000000000 +1000
-@@ -196,6 +196,7 @@ struct sock {
- 	unsigned short		sk_type;
- 	int			sk_rcvbuf;
- 	socket_lock_t		sk_lock;
-+	struct netchannel	*sk_channel;
- 	wait_queue_head_t	*sk_sleep;
- 	struct dst_entry	*sk_dst_cache;
- 	struct xfrm_policy	*sk_policy[2];
-diff -urp davem_orig/net/core/dev.c kelly/net/core/dev.c
---- davem_orig/net/core/dev.c	2006-04-27 15:49:27.000000000 +1000
-+++ kelly/net/core/dev.c	2006-05-04 16:58:49.000000000 +1000
-@@ -116,6 +116,7 @@
- #include <net/iw_handler.h>
- #include <asm/current.h>
- #include <linux/audit.h>
-+#include <net/inet_hashtables.h>
- 
- /*
-  *	The list of packet types we will receive (as opposed to discard)
-@@ -190,6 +191,8 @@ static inline struct hlist_head *dev_ind
- 	return &dev_index_head[ifindex & ((1<<NETDEV_HASHBITS)-1)];
- }
- 
-+static struct netchannel default_netchannel;
-+
- /*
-  *	Our notifier list
-  */
-@@ -1907,6 +1910,37 @@ struct netchannel_buftrailer *__netchann
- }
- EXPORT_SYMBOL_GPL(__netchannel_dequeue);
- 
-+
-+/* Find the channel for a packet, or return default channel. */
-+struct netchannel *find_netchannel(const struct netchannel_buftrailer *np)
-+{
-+	struct sock *sk = NULL;
-+	unsigned long dlen = np->netchan_buf_len - np->netchan_buf_offset;
-+	void *data = (void *)np - dlen;
-+
-+	switch (np->netchan_buf_proto) {
-+	case __constant_htons(ETH_P_IP): {
-+		struct iphdr *ip = data;
-+		int iphl = ip->ihl * 4;
-+
-+		if (dlen >= (iphl + 4) && iphl == sizeof(struct iphdr)) {
-+			u16 *ports = (u16 *)(ip + 1);
-+
-+			if (inet_hashes[ip->protocol]) {
-+				sk = inet_lookup(inet_hashes[ip->protocol], 
-+						 ip->saddr, ports[0],
-+						 ip->daddr, ports[1],
-+						 np->netchan_buf_dev->ifindex);
-+			}
-+			break;
-+		}
-+	}
-+	}
-+	if (sk && sk->sk_channel)
-+		return sk->sk_channel;
-+	return &default_netchannel;
-+}
-+
- static gifconf_func_t * gifconf_list [NPROTO];
- 
- /**
-@@ -3421,6 +3455,9 @@ static int __init net_dev_init(void)
- 	hotcpu_notifier(dev_cpu_callback, 0);
- 	dst_init();
- 	dev_mcast_init();
-+
-+	/* FIXME: This should be attached to thread/threads. */
-+	netchannel_init(&default_netchannel, NULL, NULL);
- 	rc = 0;
- out:
- 	return rc;
-diff -urp davem_orig/net/ipv4/inet_hashtables.c kelly/net/ipv4/inet_hashtables.c
---- davem_orig/net/ipv4/inet_hashtables.c	2006-04-27 00:08:33.000000000 +1000
-+++ kelly/net/ipv4/inet_hashtables.c	2006-05-04 14:28:59.000000000 +1000
-@@ -337,3 +337,5 @@ out:
- }
- 
- EXPORT_SYMBOL_GPL(inet_hash_connect);
-+
-+struct inet_hashinfo *inet_hashes[256];
-diff -urp davem_orig/net/ipv4/tcp.c kelly/net/ipv4/tcp.c
---- davem_orig/net/ipv4/tcp.c	2006-04-27 00:08:33.000000000 +1000
-+++ kelly/net/ipv4/tcp.c	2006-05-04 14:28:59.000000000 +1000
-@@ -2173,6 +2173,7 @@ void __init tcp_init(void)
- 	       tcp_hashinfo.ehash_size << 1, tcp_hashinfo.bhash_size);
- 
- 	tcp_register_congestion_control(&tcp_reno);
-+	inet_hashes[IPPROTO_TCP] = &tcp_hashinfo;
- }
- 
- EXPORT_SYMBOL(tcp_close);
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
