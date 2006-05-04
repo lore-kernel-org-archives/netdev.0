@@ -1,44 +1,47 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: latest -stable breaks Squid
-Date: Thu, 04 May 2006 16:25:46 -0700 (PDT)
-Message-ID: <20060504.162546.88959729.davem@davemloft.net>
-References: <E1FbSM8-0002lx-00@gondolin.me.apana.org.au>
-	<4459574D.6000303@candelatech.com>
-	<cbec11ac0605031859n5ef0babcib5f970da1ced7df7@mail.gmail.com>
+From: Stefano Brivio <stefano.brivio@polimi.it>
+Subject: [PATCH] bcm43xx: check for valid MAC address in SPROM
+Date: Fri, 5 May 2006 01:26:29 +0200
+Message-ID: <20060505012629.14f38928@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, herbert@gondor.apana.org.au,
-	davej@redhat.com, netdev@vger.kernel.org, stable@vger.kernel.org,
-	fedora-list@list.zikzak.de, fedoralist@kotoulas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52654
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932348AbWEDX0J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 19:26:09 -0400
-To: imcdnzl@gmail.com
-In-Reply-To: <cbec11ac0605031859n5ef0babcib5f970da1ced7df7@mail.gmail.com>
+Received: from mail.polimi.it ([131.175.12.3]:13452 "EHLO polimi.it")
+	by vger.kernel.org with ESMTP id S932432AbWEDX13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 19:27:29 -0400
+To: "John W. Linville" <linville@tuxdriver.com>,
+	Andrew Morton <akpm@osdl.org>, bcm43xx-dev@lists.berlios.de,
+	netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ian McDonald" <imcdnzl@gmail.com>
-Date: Thu, 4 May 2006 13:59:04 +1200
+Please apply to 2.6.17, as it fixes a problem that prevents bcm43xx devices
+which support 802.11a in addition to 802.11b/g from working, as the MAC
+address isn't detected correctly. This applies to 2.6.17-rc3.
 
-> Wouldn't it be more likely commit 5d0b6f2bdaf7e016e750cd24164a241512d968a3
-> 
-> as this touches net/ipv4/tcp_output.c and is also in same general area?
+--
 
-This commit makes us account transmit memory properly.  Previously we
-were underaccounting which is a serious error and in fact could result
-in assertion failures due to sk->sk_forward_alloc going negative if
-things were just right.
+Check for valid MAC address in SPROM fields instead of relying on PHY type
+while setting the MAC address in the networking subsystem, as some devices
+have multiple PHYs.
 
-If this change is what makes an application go slower, then the
-problem is likely that the socket send buffer limits are not being set
-large enough.
+Signed-off-by: Stefano Brivio <stefano.brivio@polimi.it>
 
-That being said, the first thing that should be tried is reverting
-the above mentioned change and see if the problem goes away.  If
-so, then we need to investigate what the bandwidth delay product is
-for the connection, and whether the socket send buffer is set large
-enough for that size of pipe.
+Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-05 00:50:00.370034536 +0200
++++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-05 00:50:03.926493872 +0200
+@@ -3482,7 +3482,7 @@
+	bcm43xx_pctl_set_crystal(bcm, 0);
+
+	/* Set the MAC address in the networking subsystem */
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_A)
++	if (is_valid_ether_addr(bcm->sprom.et1macaddr))
+		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
+	else
+		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
+
+
+--
+Ciao
+Stefano
