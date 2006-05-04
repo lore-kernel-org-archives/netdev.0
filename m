@@ -1,52 +1,81 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH] bcm43xx-d80211: proper implementation of virtual
- interface support
-Date: Fri, 5 May 2006 00:22:15 +0200
-Message-ID: <20060505002215.1972e12b@logostar.upir.cz>
-References: <200605012135.00895.mb@bu3sch.de>
-	<20060502132037.059a7cb2@griffin.suse.cz>
-	<e3dkfd$pc5$1@sea.gmane.org>
-	<200605042256.02333.IvDoorn@gmail.com>
+From: Alex Aizman <alex@neterion.com>
+Subject: Re: VJ Channel API - driver level (PATCH)
+Date: Thu, 04 May 2006 15:49:11 -0700
+Message-ID: <445A84E7.1060906@neterion.com>
+References: <54AD0F12E08D1541B826BE97C98F99F149E8D5@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marcus Better <marcus@better.se>, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, johnpol@2ka.mipt.ru,
+	Leonid.Grossman@neterion.com, shemminger@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from r2u241.chello.upc.cz ([62.245.84.241]:37760 "EHLO
-	localhost.localdomain") by vger.kernel.org with ESMTP
-	id S1750770AbWEDWWS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 18:22:18 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200605042256.02333.IvDoorn@gmail.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:40883 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751446AbWEDWtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 May 2006 18:49:19 -0400
+To: Caitlin Bestler <caitlinb@broadcom.com>
+In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F149E8D5@NT-SJCA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thu, 4 May 2006 22:55:58 +0200, Ivo van Doorn pise:
-> On Thursday 4 May 2006 21:26, Marcus Better wrote:
-> > I wonder what exactly is causing this limitation? Why isn't it just a
-> > matter of software support?
+So, what are the requirements? The hardware already parses L2, L3, L4 headers, 
+and for the future generation we could add to the set of already supported 
+steering/filtering criteria. Having some discussion on the essential vs. 
+optional requirements seems like the right thing at this point.
+
+On one hand, this describes what's available:
+
+http://www.spinics.net/lists/netdev/msg04001.html
+
+OTOH, and this is just my opinion - it'd be unrealistic to expect a general 
+purpose NIC to offload the entire netfilter. On the third hand, one could 
+think of IPsec and/or NAT, and what happens then with the hardware-supported 
+filtering. And so on.
+
+There's also a question of relative importance specifically for the Data 
+Center environment.
+
+Anyway, discussion would help.
+
+Caitlin Bestler wrote:
+> David S. Miller wrote:
+>> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+>> Date: Wed, 3 May 2006 22:07:40 +0400
+>>
+>>> On Wed, May 03, 2006 at 08:56:23AM -0700, Caitlin Bestler
+>> (caitlinb@broadcom.com) wrote:
+>>>>> I'd expect high end NIC ASICs to implement rx steering based upon
+>>>>> some sort of hash (for load balancing), as well as explicit "1:1"
+>>>>> steering between a sw channel and a hw channel. Both options for
+>>>>> channel configuration are present in the driver interface.
+>>>>> If netfilter assists can be done in hardware, I agree the driver
+>>>>> interface will need to add support for these - otherwise,
+>>>>> netfilter processing will stay above the driver.
+>>>>>
+>>>>>
+>>>> Even if the hardware cannot fully implement netfilter rules there is
+>>>> still value in having an interface that documents exactly how much
+>>>> filtering a given piece of hardware can do.
+>>>> There is no point in having the kernel repeat packet classifications
+>>>> that have already been done by the NIC.
+>>> Please do not suppose that vj channel must rely on underlaying
+>>> hardware. 
+>> I am not.  I am just saying that it is futile to build
+>> hardware that cannot handle netfilter at least to some
+>> extent, because this will result in HW net channels being
+>> disabled for %99 of real users which makes the hardware just a waste.
 > 
-> Hardware limitations probably. For example the Ralink devices.
-> The MAC address must be written into the registers for correct behaviour.
-> When multiple virtual interfaces are going to be used, the device
-> should be working under multiple MAC addresses. While the device
-> could be tricked into doing that (I believe rt61 and rt73 drivers from
-> Ralink are making such an attempt) it could give quite some overhead when
-> for each frame that is being send the driver should sort out from which
-> virtual interface it came, write the matching MAC address to the register,
-> and hope that the device will like it when the MAC address is changed so
-> often and the RX is not being affected because of some hardware filter.
+> Or netfilters being disabled, which would be just as bad or worse.
+> The kernel and hardware need to co-operate so that users are not
+> asked to make artificial choices between performance and security.
+> 
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
 
-The actual problem is with receiving. ACK frames need to be sent exactly
-after SIFS interval (10 or 16 microseconds depending on a PHY, +/- 10%)
-after last bit of the frame was received. This means it cannot be done in a
-software. You need to tell the hardware about MAC address you are using and
-hardware will ACK all frames destined to that address (well, actually only
-that received with valid FCS, but it doesn't matter). And most hardware
-don't allow to specify more MAC addresses.
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
