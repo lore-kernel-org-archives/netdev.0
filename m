@@ -1,60 +1,57 @@
-From: "Robin H. Johnson" <robbat2@gentoo.org>
-Subject: Re: RFC: au1000_etc.c phylib rewrite
-Date: Wed, 3 May 2006 23:49:45 -0700
-Message-ID: <20060504064945.GE12203@curie-int.vc.shawcable.net>
-References: <5.1.0.14.2.20060501144633.025e4e20@205.166.54.3> <1146510542.16643.10.camel@localhost.localdomain> <1146510542.16643.10.camel@localhost.localdomain> <5.1.0.14.2.20060501144633.025e4e20@205.166.54.3> <5.1.0.14.2.20060502095256.01fd4210@205.166.54.3> <1146674056.31241.18.camel@localhost.localdomain>
+From: David Vrabel <dvrabel@cantab.net>
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Date: Thu, 04 May 2006 07:52:22 +0100
+Message-ID: <4459A4A6.1080207@cantab.net>
+References: <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI> <20060503233558.GA27232@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="maH1Gajj2nflutpK"
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pekka J Enberg <penberg@cs.Helsinki.FI>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pops.net-conex.com ([204.244.176.3]:36536 "EHLO
-	mail.net-conex.com") by vger.kernel.org with ESMTP id S1750710AbWEDGtk
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 02:49:40 -0400
-Received: from curie.orbis-terrarum.net (S01060050da688d47.vc.shawcable.net [24.80.100.253])
-	by mail.net-conex.com (8.13.4/8.12.11) with ESMTP id k446nd9o017199
-	for <netdev@vger.kernel.org>; Wed, 3 May 2006 23:49:39 -0700
-To: Herbert Valerio Riedel <hvr@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1146674056.31241.18.camel@localhost.localdomain>
+Received: from rutherford.zen.co.uk ([212.23.3.142]:21384 "EHLO
+	rutherford.zen.co.uk") by vger.kernel.org with ESMTP
+	id S1751377AbWEDGwX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 May 2006 02:52:23 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060503233558.GA27232@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu wrote:
+> 
+>     ipg: remove forward declarations
+>     
+>     It makes no sense in a new driver.
+>     
+>     Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
---maH1Gajj2nflutpK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Ack.
 
-On Wed, May 03, 2006 at 06:34:16PM +0200, Herbert Valerio Riedel wrote:
-> while at it, does anyone happen to know what the phy-addr/MAC assignment
-> on the XXS1500 is?
-Nope.
+>     ipg: replace #define with enum
+>     
+>     Added some underscores to improve readability.
+>     
+>     Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-> but one thing that seems strange to me; CONFIG_BCM5222_DUAL_PHY doesn't
-> seem to be defined anywhere; shouldn't that be at least defined in some
-> Kconfig file, especially if the XXS1550 board is supposed to make use of
-> it?=20
-Hmm, I do recall submitting a patch previously that added=20
-'select BCM5222_DUAL_PHY' for the XXS1500 unit.
+Nack.  Register names in code should match those used in the 
+documentation (even if they are a bit unreadable).  Though I will 
+conceed that the available datasheet doesn't actually describe the 
+majority of the registers.
 
---=20
-Robin Hugh Johnson
-E-Mail     : robbat2@gentoo.org
-GnuPG FP   : 11AC BA4F 4778 E3F6 E4ED  F38E B27B 944E 3488 4E85
+>     ipg: removal of useless #defines
+>     
+>     IPG_TX_NOTBUSY apart (one occurence in ipg.c), the #defines appear
+>     nowhere in the sources.
 
---maH1Gajj2nflutpK
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+Ack.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2-ecc0.1.6 (GNU/Linux)
-Comment: Robbat2 @ Orbis-Terrarum Networks
+>     ipg: redundancy with mii.h - take II
+>     
+>     Replace a bunch of #define with their counterpart from mii.h
+>     
+>     It is applied to the usual MII registers this time.
 
-iD8DBQFEWaQJPpIsIjIzwiwRAmnIAJwJWwob8g8a1FGR0B/lRFYpihXchACglqdK
-Wgfl2lz8nmJvKy0KPPzPW6M=
-=zwe8
------END PGP SIGNATURE-----
+Ack.
 
---maH1Gajj2nflutpK--
