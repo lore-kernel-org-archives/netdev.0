@@ -1,63 +1,59 @@
-From: "Ian McDonald" <imcdnzl@gmail.com>
-Subject: Re: latest -stable breaks Squid
-Date: Thu, 4 May 2006 13:59:04 +1200
-Message-ID: <cbec11ac0605031859n5ef0babcib5f970da1ced7df7@mail.gmail.com>
-References: <E1FbSM8-0002lx-00@gondolin.me.apana.org.au>
-	 <4459574D.6000303@candelatech.com>
+From: Kelly Daly <kelly@au1.ibm.com>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Thu, 4 May 2006 12:59:23 +1000
+Message-ID: <200605041259.23204.kelly@au.ibm.com>
+References: <200604261147.34221.kelly@au.ibm.com> <200604271331.37073.kelly@au.ibm.com> <20060426.232501.119306252.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Dave Jones" <davej@redhat.com>, netdev@vger.kernel.org,
-	stable@vger.kernel.org, fedora-list@list.zikzak.de,
-	fedoralist@kotoulas.de
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, rusty@rustcorp.com.au,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.230]:25581 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1750856AbWEDB7F convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 21:59:05 -0400
-Received: by wr-out-0506.google.com with SMTP id i12so274676wra
-        for <netdev@vger.kernel.org>; Wed, 03 May 2006 18:59:05 -0700 (PDT)
-To: "Ben Greear" <greearb@candelatech.com>
-In-Reply-To: <4459574D.6000303@candelatech.com>
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:42955 "EHLO
+	ausmtp04.au.ibm.com") by vger.kernel.org with ESMTP
+	id S1750898AbWEDC7m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 May 2006 22:59:42 -0400
+Received: from sd0208e0.au.ibm.com (d23rh904.au.ibm.com [202.81.18.202])
+	by ausmtp04.au.ibm.com (8.13.6/8.13.5) with ESMTP id k4439vAV242982
+	for <netdev@vger.kernel.org>; Thu, 4 May 2006 13:09:58 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.250.244])
+	by sd0208e0.au.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k4432nQB245890
+	for <netdev@vger.kernel.org>; Thu, 4 May 2006 13:02:49 +1000
+Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
+	by d23av03.au.ibm.com (8.12.11/8.13.3) with ESMTP id k442xSjv006766
+	for <netdev@vger.kernel.org>; Thu, 4 May 2006 12:59:29 +1000
+In-Reply-To: <20060426.232501.119306252.davem@davemloft.net>
 Content-Disposition: inline
+To: "Undisclosed.Recipients":;
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/4/06, Ben Greear <greearb@candelatech.com> wrote:
-> Herbert Xu wrote:
-> > Dave Jones <davej@redhat.com> wrote:
-> >
-> >>So I pushed out an update for Fedora Core 5 users yesterday
-> >>that moved the kernel from 2.6.16.9 to 2.6.16.13.
-> >>I've since heard "My network performance is awful", and worse
-> >>yet, some apps seem broken as in the report below.
-> >>
-> >>Anyone have any ideas ?
-> >
-> >
-> > Try reverting the e1000 truesize patch.  Although the fix is 100%
-> > correct, it might have a negative impact on user-space apps with
-> > particuarly small rcvbuf settings.  Prior to the fix, due to the
-> > incorrect accounting we are essentially enlarging rcvbuf by as much
-> > as 10 times.
+On Thursday 27 April 2006 16:25, you wrote:
+> So the idea in your scheme is to give the buffer pools to the NIC
+> in a per-channel way via a simple descriptor table?  And the u32's
+> are arbitrary keys that index into this descriptor table, right?
 >
-> At least one of the reports shows problems with non e1000 NICs, so it's
-> probably not just the e1000 change.
->
-> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=190620
->
-> Ben
->
-Wouldn't it be more likely commit 5d0b6f2bdaf7e016e750cd24164a241512d968a3
 
-as this touches net/ipv4/tcp_output.c and is also in same general area?
---
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+yeah - it _was_...  Although since having a play with coding it into your 
+implementation we've come up with the following:
+
+Using the descriptor table adds excess complexity for kernel buffers, and is 
+really only useful for userspace.  So instead of using descriptor tables for 
+everything we've come up with a dynamic descriptor table scheme instead where 
+they are used only for userspace.
+
+The move to skb-ising the buffers has made it more difficult to keep track of 
+buffer lifetimes.  Previously we were leaving the buffers in the ring until 
+completely finished with them.  The producer could reuse the buffer once the 
+consumer head had moved on.  With the graft to skb we can no longer do this 
+unless the packets are processed serially (which is ok for socket channels, 
+but not realistic for the default).
+
+We DID write an infrastructure to resolve this issue, although it is more 
+complex than the dynamic descriptor scheme for userspace.  And we want to 
+keep this simple - right?
+
+Cheers,
+K
+
