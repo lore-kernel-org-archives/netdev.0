@@ -1,46 +1,48 @@
-From: Pekka Enberg <penberg@cs.helsinki.fi>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Thu, 04 May 2006 16:44:35 +0300
-Message-ID: <1146750276.11422.0.camel@localhost>
-References: <1146342905.11271.3.camel@localhost>
-	 <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net>
-	 <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost>
-	 <20060501231206.GD7419@electric-eye.fr.zoreil.com>
-	 <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI>
-	 <20060502214520.GC26357@electric-eye.fr.zoreil.com>
-	 <20060502215559.GA1119@electric-eye.fr.zoreil.com>
-	 <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
-	 <20060503233558.GA27232@electric-eye.fr.zoreil.com>
+From: "Xiaoliang (David) Wei" <davidwei79@gmail.com>
+Subject: a question on tcp_highspeed.c (in 2.6.16)
+Date: Thu, 4 May 2006 07:03:54 -0700
+Message-ID: <7335583a0605040703x1d6e8a20n515b22241795d3ab@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:4315 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
-	id S1750979AbWEDNpI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 09:45:08 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060503233558.GA27232@electric-eye.fr.zoreil.com>
+Received: from wr-out-0506.google.com ([64.233.184.234]:50218 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1751122AbWEDOD5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 10:03:57 -0400
+Received: by wr-out-0506.google.com with SMTP id i12so364591wra
+        for <netdev@vger.kernel.org>; Thu, 04 May 2006 07:03:57 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pekka J Enberg <penberg@cs.Helsinki.FI> :
-> [...]
-> > maintain the tree, I can send you my patches so you can recreate the full 
-> > history. The first steps were produced by quilt on the original 
-> > out-of-tree driver, though, so they're probably not helpful.
+Hi gurus,
 
-On Thu, 2006-05-04 at 01:35 +0200, Francois Romieu wrote:
-> It will be welcome.
+    I am reading the code of tcp_highspeed.c in the kernel and have a
+question on the hstcp_cong_avoid function, specifically the following
+AI part (line 136~143 in net/ipv4/tcp_highspeed.c ):
 
-My initial patches are here:
+                /* Do additive increase */
+                if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
+                        tp->snd_cwnd_cnt += ca->ai;
+                        if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
+                                tp->snd_cwnd++;
+                                tp->snd_cwnd_cnt -= tp->snd_cwnd;
+                        }
+                }
 
-http://www.cs.helsinki.fi/u/penberg/linux/ip1000/
+    In this part, when (tp->snd_cwnd_cnt == tp->snd_cwnd),
+snd_cwnd_cnt will be -1... snd_cwnd_cnt is defined as u16, will this
+small chance of getting -1 becomes a problem?
+Shall we change it by reversing the order of the cwnd++ and cwnd_cnt -= cwnd?
 
-I consider your tree the master now. Please let me know when you have
-recreated the history, so I can clone your tree. Thanks.
+    Thanks.
 
-			Pekka
+-David
 
+--
+Xiaoliang (David) Wei      Graduate Student, CS@Caltech
+http://davidwei.org
+***********************************************
