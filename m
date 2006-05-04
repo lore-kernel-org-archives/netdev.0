@@ -1,87 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Thu, 4 May 2006 01:35:58 +0200
-Message-ID: <20060503233558.GA27232@electric-eye.fr.zoreil.com>
-References: <1146342905.11271.3.camel@localhost> <1146389171.11524.1.camel@localhost> <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: latest -stable breaks Squid
+Date: Wed, 3 May 2006 20:43:13 -0400
+Message-ID: <20060504004313.GB3350@redhat.com>
+References: <20060503211915.GD27368@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Vrabel <dvrabel@cantab.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Cc: stable@vger.kernel.org,
+	"Andreas M. Kirchwitz" <fedora-list@list.zikzak.de>,
+	Vassilios Kotoulas <fedoralist@kotoulas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:11722 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751399AbWECXjQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 May 2006 19:39:16 -0400
-To: Pekka J Enberg <penberg@cs.Helsinki.FI>
+Received: from mx1.redhat.com ([66.187.233.31]:42124 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750829AbWEDAnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 May 2006 20:43:21 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI>
+In-Reply-To: <20060503211915.GD27368@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pekka J Enberg <penberg@cs.Helsinki.FI> :
-[...]
-> maintain the tree, I can send you my patches so you can recreate the full 
-> history. The first steps were produced by quilt on the original 
-> out-of-tree driver, though, so they're probably not helpful.
+On Wed, May 03, 2006 at 05:19:15PM -0400, Dave Jones wrote:
+ > So I pushed out an update for Fedora Core 5 users yesterday
+ > that moved the kernel from 2.6.16.9 to 2.6.16.13.
+ > I've since heard "My network performance is awful", and worse
+ > yet, some apps seem broken as in the report below.
 
-It will be welcome.
+Further problems found (not all network related, but there does
+seem to be a pattern amongst some of them) can be seen at
+http://tinyurl.com/o7uqj
 
-I have added a few little things (changelog below). Next step will
-probably be some mii/ethtool stuff.
-
-The branch 'netdev-ipg' is available at:
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git.
-
-Serie of patches (ala 'git format-patch'):
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.17-rc3/ip1000a/
-
-All-in-one patch:
-http://www.fr.zoreil.com/people/francois/misc/20060504-2.6.17-rc3-git-ip1000-test.patch
-
-ChangeLog from yesterday version:
-
-commit 8b0a8db32d1ac6e9bc23300a6a0533b4d7e251e3
-Author: Francois Romieu <romieu@fr.zoreil.com>
-Date:   Thu May 4 00:29:59 2006 +0200
-
-    ipg: remove forward declarations
-    
-    It makes no sense in a new driver.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit 65940e5e0ab88d92fbac0f96b5d46ddfbd5cfa93
-Author: Francois Romieu <romieu@fr.zoreil.com>
-Date:   Thu May 4 00:04:57 2006 +0200
-
-    ipg: replace #define with enum
-    
-    Added some underscores to improve readability.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit ab87a106690d6eaba4b7426fb074270e2e503e40
-Author: Francois Romieu <romieu@fr.zoreil.com>
-Date:   Wed May 3 22:51:16 2006 +0200
-
-    ipg: removal of useless #defines
-    
-    IPG_TX_NOTBUSY apart (one occurence in ipg.c), the #defines appear
-    nowhere in the sources.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-commit ef7bfd886bc436d14649e962edb6f5189cc4dcac
-Author: Francois Romieu <romieu@fr.zoreil.com>
-Date:   Wed May 3 22:44:47 2006 +0200
-
-    ipg: redundancy with mii.h - take II
-    
-    Replace a bunch of #define with their counterpart from mii.h
-    
-    It is applied to the usual MII registers this time.
-    
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+		Dave
 
 -- 
-Ueimor
+http://www.codemonkey.org.uk
