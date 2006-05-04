@@ -1,58 +1,67 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [rfc][patch] ipvs: use proper timeout instead of fixed value
-Date: Thu, 4 May 2006 16:11:16 -0400
-Message-ID: <20060504201116.GA24394@gospo.rdu.redhat.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] bcm43xx-d80211: proper implementation of virtual interface support
+Date: Thu, 4 May 2006 22:55:58 +0200
+Message-ID: <200605042256.02333.IvDoorn@gmail.com>
+References: <200605012135.00895.mb@bu3sch.de> <20060502132037.059a7cb2@griffin.suse.cz> <e3dkfd$pc5$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
+Content-Type: multipart/signed;
+  boundary="nextPart3449645.TcGz06YUtC";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:10886 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1030310AbWEDULd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 16:11:33 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from nf-out-0910.google.com ([64.233.182.186]:11054 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751175AbWEDVMR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 May 2006 17:12:17 -0400
+Received: by nf-out-0910.google.com with SMTP id m18so248713nfc
+        for <netdev@vger.kernel.org>; Thu, 04 May 2006 14:12:16 -0700 (PDT)
+To: Marcus Better <marcus@better.se>
+In-Reply-To: <e3dkfd$pc5$1@sea.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--nextPart3449645.TcGz06YUtC
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Instead of using the default timeout of 3 minutes, this uses the timeout
-specific to the protocol used for the connection. The 3 minute timeout
-seems somewhat arbitrary (though I know it is used other places in the
-ipvs code) and when failing over it would be much nicer to use one of
-the configured timeout values.
+On Thursday 4 May 2006 21:26, Marcus Better wrote:
+> Jiri Benc wrote:
+> > This is unnecessary. AFAIK bcm43xx hardware doesn't support more than o=
+ne
+> > interface at a time (not counting monitor interfaces as those are somew=
+hat
+> > special).
+>=20
+> I wonder what exactly is causing this limitation? Why isn't it just a mat=
+ter
+> of software support?
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
+Hardware limitations probably. For example the Ralink devices.
+The MAC address must be written into the registers for correct behaviour.
+When multiple virtual interfaces are going to be used, the device
+should be working under multiple MAC addresses. While the device
+could be tricked into doing that (I believe rt61 and rt73 drivers from Rali=
+nk
+are making such an attempt) it could give quite some overhead when for
+each frame that is being send the driver should sort out from which
+virtual interface it came, write the matching MAC address to the register,
+and hope that the device will like it when the MAC address is changed so of=
+ten
+and the RX is not being affected because of some hardware filter.
 
- ip_vs_sync.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+--nextPart3449645.TcGz06YUtC
+Content-Type: application/pgp-signature
 
-diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
---- a/net/ipv4/ipvs/ip_vs_sync.c
-+++ b/net/ipv4/ipvs/ip_vs_sync.c
-@@ -67,7 +67,6 @@ struct ip_vs_sync_conn_options {
- 	struct ip_vs_seq        out_seq;        /* outgoing seq. struct */
- };
- 
--#define IP_VS_SYNC_CONN_TIMEOUT (3*60*HZ)
- #define SIMPLE_CONN_SIZE  (sizeof(struct ip_vs_sync_conn))
- #define FULL_CONN_SIZE  \
- (sizeof(struct ip_vs_sync_conn) + sizeof(struct ip_vs_sync_conn_options))
-@@ -279,6 +278,7 @@ static void ip_vs_process_message(const 
- 	struct ip_vs_sync_conn *s;
- 	struct ip_vs_sync_conn_options *opt;
- 	struct ip_vs_conn *cp;
-+	struct ip_vs_protocol *pp;
- 	char *p;
- 	int i;
- 
-@@ -337,7 +337,8 @@ static void ip_vs_process_message(const 
- 			p += SIMPLE_CONN_SIZE;
- 
- 		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
--		cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
-+		pp = ip_vs_proto_get(s->protocol);
-+		cp->timeout = pp->timeout_table[cp->state];
- 		ip_vs_conn_put(cp);
- 
- 		if (p > buffer+buflen) {
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBEWmpiaqndE37Em0gRAmb1AJ9L5gIU6baytIGCKK9LHL5ASAyb3gCdGPwj
+nwwxkKpIgV/opfWnfcwYXv8=
+=AtjK
+-----END PGP SIGNATURE-----
+
+--nextPart3449645.TcGz06YUtC--
