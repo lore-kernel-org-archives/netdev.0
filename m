@@ -1,126 +1,159 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [DCCP]: Fix sock_orphan dead lock
-Date: Thu, 4 May 2006 17:17:50 +1000
-Message-ID: <20060504071750.GA17180@gondor.apana.org.au>
-References: <20060427123404.GA20489@gondor.apana.org.au> <20060429111507.GA3077@gondor.apana.org.au> <20060429131320.GA4145@gondor.apana.org.au> <20060503.233223.24747225.davem@davemloft.net>
+From: Kelly Daly <kelly@au1.ibm.com>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Thu, 4 May 2006 17:28:27 +1000
+Message-ID: <200605041728.27131.kelly@au.ibm.com>
+References: <200604261147.34221.kelly@au.ibm.com> <20060426.005949.125174303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="X1bOJ3K7DJ5YkBrT"
-Cc: mingo@elte.hu, arjan@infradead.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: kelly@au1.ibm.com, netdev@vger.kernel.org, rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:62729 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751419AbWEDHR7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 03:17:59 -0400
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:6620 "EHLO
+	ausmtp04.au.ibm.com") by vger.kernel.org with ESMTP
+	id S1751426AbWEDH2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 May 2006 03:28:43 -0400
+Received: from sd0208e0.au.ibm.com (d23rh904.au.ibm.com [202.81.18.202])
+	by ausmtp04.au.ibm.com (8.13.6/8.13.5) with ESMTP id k447d11M252018
+	for <netdev@vger.kernel.org>; Thu, 4 May 2006 17:39:01 +1000
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
+	by sd0208e0.au.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k447VkQB233628
+	for <netdev@vger.kernel.org>; Thu, 4 May 2006 17:31:51 +1000
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.12.11/8.13.3) with ESMTP id k447SPDB006484
+	for <netdev@vger.kernel.org>; Thu, 4 May 2006 17:28:26 +1000
 To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060426.005949.125174303.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060503.233223.24747225.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 26 April 2006 17:59, David S. Miller wrote:
+> Next, you can't even begin to work on the protocol channels before you
+> do one very important piece of work.  Integration of all of the ipv4
+> and ipv6 protocol hash tables into a central code, it's a total
+> prerequisite.  Then you modify things to use a generic
+> inet_{,listen_}lookup() or inet6_{,listen_}lookup() that takes a
+> protocol number as well as saddr/daddr/sport/dport and searches
+> from a central table.
 
---X1bOJ3K7DJ5YkBrT
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Back here again  ;)
 
-On Wed, May 03, 2006 at 11:32:23PM -0700, David S. Miller wrote:
-> 
-> Ok, it took me a while to review this one as verifying such
-> a set of changes is always tricky, but looks good!
+Is this on the right track (see patch below)?
 
-Thanks.  It took me quite a while to assure myself that it was OK
-as well :)
+K
 
-Anyway, the same issue affects DCCP (and SCTP too probably).  Here
-is a patch that does the same thing for DCCP.
 
-[DCCP]: Fix sock_orphan dead lock
 
-Calling sock_orphan inside bh_lock_sock in dccp_close can lead to dead
-locks.  For example, the inet_diag code holds sk_callback_lock without
-disabling BH.  If an inbound packet arrives during that admittedly tiny
-window, it will cause a dead lock on bh_lock_sock.  Another possible
-path would be through sock_wfree if the network device driver frees the
-tx skb in process context with BH enabled.
+_____________________
 
-We can fix this by moving sock_orphan out of bh_lock_sock.
 
-The tricky bit is to work out when we need to destroy the socket
-ourselves and when it has already been destroyed by someone else.
-
-By moving sock_orphan before the release_sock we can solve this
-problem.  This is because as long as we own the socket lock its
-state cannot change.
-
-So we simply record the socket state before the release_sock
-and then check the state again after we regain the socket lock.
-If the socket state has transitioned to DCCP_CLOSED in the time being,
-we know that the socket has been destroyed.  Otherwise the socket is
-still ours to keep.
-
-This problem was discoverd by Ingo Molnar using his lock validator.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---X1bOJ3K7DJ5YkBrT
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="dccp-sock-orphan.patch"
-
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index 1ff7328..2e0ee83 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -848,6 +848,7 @@
- void dccp_close(struct sock *sk, long timeout)
- {
- 	struct sk_buff *skb;
-+	int state;
+diff -urp davem_orig/include/net/inet_hashtables.h kelly/include/net/inet_hashtables.h
+--- davem_orig/include/net/inet_hashtables.h	2006-04-27 00:08:32.000000000 +1000
++++ kelly/include/net/inet_hashtables.h	2006-05-04 14:28:59.000000000 +1000
+@@ -418,4 +418,6 @@ static inline struct sock *inet_lookup(s
  
- 	lock_sock(sk);
- 
-@@ -882,6 +883,11 @@
- 	sk_stream_wait_close(sk, timeout);
- 
- adjudge_to_death:
-+	state = sk->sk_state;
-+	sock_hold(sk);
-+	sock_orphan(sk);
-+	atomic_inc(sk->sk_prot->orphan_count);
+ extern int inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 			     struct sock *sk);
 +
- 	/*
- 	 * It is the last release_sock in its life. It will remove backlog.
- 	 */
-@@ -894,8 +900,9 @@
- 	bh_lock_sock(sk);
- 	BUG_TRAP(!sock_owned_by_user(sk));
++extern struct inet_hashinfo *inet_hashes[256];
+ #endif /* _INET_HASHTABLES_H */
+diff -urp davem_orig/include/net/sock.h kelly/include/net/sock.h
+--- davem_orig/include/net/sock.h	2006-05-02 13:42:10.000000000 +1000
++++ kelly/include/net/sock.h	2006-05-04 14:28:59.000000000 +1000
+@@ -196,6 +196,7 @@ struct sock {
+ 	unsigned short		sk_type;
+ 	int			sk_rcvbuf;
+ 	socket_lock_t		sk_lock;
++	struct netchannel	*sk_channel;
+ 	wait_queue_head_t	*sk_sleep;
+ 	struct dst_entry	*sk_dst_cache;
+ 	struct xfrm_policy	*sk_policy[2];
+diff -urp davem_orig/net/core/dev.c kelly/net/core/dev.c
+--- davem_orig/net/core/dev.c	2006-04-27 15:49:27.000000000 +1000
++++ kelly/net/core/dev.c	2006-05-04 16:58:49.000000000 +1000
+@@ -116,6 +116,7 @@
+ #include <net/iw_handler.h>
+ #include <asm/current.h>
+ #include <linux/audit.h>
++#include <net/inet_hashtables.h>
  
--	sock_hold(sk);
--	sock_orphan(sk);
-+	/* Have we already been destroyed by a softirq or backlog? */
-+	if (state != DCCP_CLOSED && sk->sk_state == DCCP_CLOSED)
-+		goto out;
+ /*
+  *	The list of packet types we will receive (as opposed to discard)
+@@ -190,6 +191,8 @@ static inline struct hlist_head *dev_ind
+ 	return &dev_index_head[ifindex & ((1<<NETDEV_HASHBITS)-1)];
+ }
  
- 	/*
- 	 * The last release_sock may have processed the CLOSE or RESET
-@@ -915,12 +922,12 @@
- #endif
- 	}
++static struct netchannel default_netchannel;
++
+ /*
+  *	Our notifier list
+  */
+@@ -1907,6 +1910,37 @@ struct netchannel_buftrailer *__netchann
+ }
+ EXPORT_SYMBOL_GPL(__netchannel_dequeue);
  
--	atomic_inc(sk->sk_prot->orphan_count);
- 	if (sk->sk_state == DCCP_CLOSED)
- 		inet_csk_destroy_sock(sk);
++
++/* Find the channel for a packet, or return default channel. */
++struct netchannel *find_netchannel(const struct netchannel_buftrailer *np)
++{
++	struct sock *sk = NULL;
++	unsigned long dlen = np->netchan_buf_len - np->netchan_buf_offset;
++	void *data = (void *)np - dlen;
++
++	switch (np->netchan_buf_proto) {
++	case __constant_htons(ETH_P_IP): {
++		struct iphdr *ip = data;
++		int iphl = ip->ihl * 4;
++
++		if (dlen >= (iphl + 4) && iphl == sizeof(struct iphdr)) {
++			u16 *ports = (u16 *)(ip + 1);
++
++			if (inet_hashes[ip->protocol]) {
++				sk = inet_lookup(inet_hashes[ip->protocol], 
++						 ip->saddr, ports[0],
++						 ip->daddr, ports[1],
++						 np->netchan_buf_dev->ifindex);
++			}
++			break;
++		}
++	}
++	}
++	if (sk && sk->sk_channel)
++		return sk->sk_channel;
++	return &default_netchannel;
++}
++
+ static gifconf_func_t * gifconf_list [NPROTO];
  
- 	/* Otherwise, socket is reprieved until protocol close. */
+ /**
+@@ -3421,6 +3455,9 @@ static int __init net_dev_init(void)
+ 	hotcpu_notifier(dev_cpu_callback, 0);
+ 	dst_init();
+ 	dev_mcast_init();
++
++	/* FIXME: This should be attached to thread/threads. */
++	netchannel_init(&default_netchannel, NULL, NULL);
+ 	rc = 0;
+ out:
+ 	return rc;
+diff -urp davem_orig/net/ipv4/inet_hashtables.c kelly/net/ipv4/inet_hashtables.c
+--- davem_orig/net/ipv4/inet_hashtables.c	2006-04-27 00:08:33.000000000 +1000
++++ kelly/net/ipv4/inet_hashtables.c	2006-05-04 14:28:59.000000000 +1000
+@@ -337,3 +337,5 @@ out:
+ }
  
-+out:
- 	bh_unlock_sock(sk);
- 	local_bh_enable();
- 	sock_put(sk);
-
---X1bOJ3K7DJ5YkBrT--
+ EXPORT_SYMBOL_GPL(inet_hash_connect);
++
++struct inet_hashinfo *inet_hashes[256];
+diff -urp davem_orig/net/ipv4/tcp.c kelly/net/ipv4/tcp.c
+--- davem_orig/net/ipv4/tcp.c	2006-04-27 00:08:33.000000000 +1000
++++ kelly/net/ipv4/tcp.c	2006-05-04 14:28:59.000000000 +1000
+@@ -2173,6 +2173,7 @@ void __init tcp_init(void)
+ 	       tcp_hashinfo.ehash_size << 1, tcp_hashinfo.bhash_size);
+ 
+ 	tcp_register_congestion_control(&tcp_reno);
++	inet_hashes[IPPROTO_TCP] = &tcp_hashinfo;
+ }
+ 
+ EXPORT_SYMBOL(tcp_close);
