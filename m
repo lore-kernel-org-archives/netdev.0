@@ -1,56 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Thu, 04 May 2006 16:11:48 -0700 (PDT)
-Message-ID: <20060504.161148.44973535.davem@davemloft.net>
-References: <200604261147.34221.kelly@au.ibm.com>
-	<20060426.005949.125174303.davem@davemloft.net>
-	<200605041728.27131.kelly@au.ibm.com>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: pci_enable_msix throws up error
+Date: Thu, 4 May 2006 16:16:13 -0700
+Message-ID: <MAEEKMLDLDFEGKHNIJHIOECKCEAA.ravinandan.arakali@neterion.com>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au
+Cc: "Ananda. Raju" <ananda.raju@neterion.com>,
+	<netdev@vger.kernel.org>,
+	"Leonid Grossman" <Leonid.Grossman@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54404
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751524AbWEDXL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 19:11:58 -0400
-To: kelly@au1.ibm.com
-In-Reply-To: <200605041728.27131.kelly@au.ibm.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:8628 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751469AbWEDXQE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 May 2006 19:16:04 -0400
+To: <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kelly Daly <kelly@au1.ibm.com>
-Date: Thu, 4 May 2006 17:28:27 +1000
+Hi,
+I am seeing the following problem with MSI/MSI-X.
 
-> On Wednesday 26 April 2006 17:59, David S. Miller wrote:
-> > Next, you can't even begin to work on the protocol channels before you
-> > do one very important piece of work.  Integration of all of the ipv4
-> > and ipv6 protocol hash tables into a central code, it's a total
-> > prerequisite.  Then you modify things to use a generic
-> > inet_{,listen_}lookup() or inet6_{,listen_}lookup() that takes a
-> > protocol number as well as saddr/daddr/sport/dport and searches
-> > from a central table.
-> 
-> Back here again  ;)
-> 
-> Is this on the right track (see patch below)?
+Note: I am copying netdev since other network drivers use
+this feature and somebody on the list could throw light.
 
-It is on the right track.
+Our 10G network card(Xframe II) supports MSI and MSI-X.
+When I load/unload the driver with MSI support followed
+by an attempt to load with MSI-X, I get the following
+message from pci_enable_msix:
 
-I very much fear abuse of the inet_hashes[] array.  So I'd rather
-hide it behind a programmatic interface, something like:
+"Can't enable MSI-X.  Device already has an MSI vector assigned"
 
-extern struct sock *inet_lookup_proto(u16 protocol, u32 saddr, u16 sport,
-				      u32 daddr, u16 dport, int ifindex);
+I seem to be doing the correct things when unloading the
+MSI driver. Basically, I do free_irq() followed by pci_disable_msi().
+Any idea what I am missing ?
 
-and export that from inet_hashtables.c
+Further analysis:
+Looking at the code, the following check(when it finds a match) in
+msi_lookup_vector(called by pci_enable_msix) seems to throw up this
+message:
+if (!msi_desc[vector] || msi_desc[vector]->dev != dev ||
+    msi_desc[vector]->msi_attrib.type != type ||
+    msi_desc[vector]->msi_attrib.default_vector != dev->irq)
 
-Then you have registry and unregistry functions in inet_hashtables.c
-that setup the static inet_hashes[] array.  So TCP would go:
+pci_enable_msi, on successful completion will populate the
+fields in msi_desc. But neither pci_disable_msi nor free_irq
+seems to undo/unpopulate the msi_desc table.
+Could this be the cause for the problem ?
 
-	inet_hash_register(IPPROTO_TCP, &tcp_hashinfo);
+Thanks,
+Ravi
 
-instead of the direct assignment to inet_hashes[] it makes right
-now in your patch.
 
-Thanks!
