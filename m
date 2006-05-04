@@ -1,47 +1,58 @@
-From: Marcus Better <marcus@better.se>
-Subject: Re: [PATCH] bcm43xx-d80211: proper implementation of virtual interface support
-Date: Thu, 04 May 2006 21:26:56 +0200
-Message-ID: <e3dkfd$pc5$1@sea.gmane.org>
-References: <200605012135.00895.mb@bu3sch.de> <20060502132037.059a7cb2@griffin.suse.cz>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [rfc][patch] ipvs: use proper timeout instead of fixed value
+Date: Thu, 4 May 2006 16:11:16 -0400
+Message-ID: <20060504201116.GA24394@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
+Cc: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:46738 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1030302AbWEDT1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 15:27:36 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1FbjTk-0001jR-Bq
-	for netdev@vger.kernel.org; Thu, 04 May 2006 21:27:12 +0200
-Received: from 67.152.216.81.g-va.siw.siwnet.net ([81.216.152.67])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 04 May 2006 21:27:12 +0200
-Received: from marcus by 67.152.216.81.g-va.siw.siwnet.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 04 May 2006 21:27:12 +0200
+Received: from mx1.redhat.com ([66.187.233.31]:10886 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1030310AbWEDULd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 16:11:33 -0400
 To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
 
-Jiri Benc wrote:
-> This is unnecessary. AFAIK bcm43xx hardware doesn't support more than one
-> interface at a time (not counting monitor interfaces as those are somewhat
-> special).
+Instead of using the default timeout of 3 minutes, this uses the timeout
+specific to the protocol used for the connection. The 3 minute timeout
+seems somewhat arbitrary (though I know it is used other places in the
+ipvs code) and when failing over it would be much nicer to use one of
+the configured timeout values.
 
-I wonder what exactly is causing this limitation? Why isn't it just a matter
-of software support?
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
 
-Marcus
+ ip_vs_sync.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQFEWlUrXjXn6TzcAQkRAoa6AJ97kI8F7Q42orjNQC6HBIXwj3I/DwCgux18
-RBkhEcOFBDtQGEHFq2eMxKU=
-=3WoL
------END PGP SIGNATURE-----
-
+diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+--- a/net/ipv4/ipvs/ip_vs_sync.c
++++ b/net/ipv4/ipvs/ip_vs_sync.c
+@@ -67,7 +67,6 @@ struct ip_vs_sync_conn_options {
+ 	struct ip_vs_seq        out_seq;        /* outgoing seq. struct */
+ };
+ 
+-#define IP_VS_SYNC_CONN_TIMEOUT (3*60*HZ)
+ #define SIMPLE_CONN_SIZE  (sizeof(struct ip_vs_sync_conn))
+ #define FULL_CONN_SIZE  \
+ (sizeof(struct ip_vs_sync_conn) + sizeof(struct ip_vs_sync_conn_options))
+@@ -279,6 +278,7 @@ static void ip_vs_process_message(const 
+ 	struct ip_vs_sync_conn *s;
+ 	struct ip_vs_sync_conn_options *opt;
+ 	struct ip_vs_conn *cp;
++	struct ip_vs_protocol *pp;
+ 	char *p;
+ 	int i;
+ 
+@@ -337,7 +337,8 @@ static void ip_vs_process_message(const 
+ 			p += SIMPLE_CONN_SIZE;
+ 
+ 		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
+-		cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
++		pp = ip_vs_proto_get(s->protocol);
++		cp->timeout = pp->timeout_table[cp->state];
+ 		ip_vs_conn_put(cp);
+ 
+ 		if (p > buffer+buflen) {
