@@ -1,47 +1,38 @@
-From: Stefano Brivio <stefano.brivio@polimi.it>
-Subject: [PATCH] bcm43xx: check for valid MAC address in SPROM
-Date: Fri, 5 May 2006 01:26:29 +0200
-Message-ID: <20060505012629.14f38928@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: latest -stable breaks Squid
+Date: Fri, 5 May 2006 09:30:12 +1000
+Message-ID: <20060504233012.GA31033@gondor.apana.org.au>
+References: <E1FbSM8-0002lx-00@gondolin.me.apana.org.au> <4459574D.6000303@candelatech.com> <cbec11ac0605031859n5ef0babcib5f970da1ced7df7@mail.gmail.com> <20060504.162546.88959729.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: imcdnzl@gmail.com, greearb@candelatech.com, davej@redhat.com,
+	netdev@vger.kernel.org, stable@vger.kernel.org,
+	fedora-list@list.zikzak.de, fedoralist@kotoulas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.polimi.it ([131.175.12.3]:13452 "EHLO polimi.it")
-	by vger.kernel.org with ESMTP id S932432AbWEDX13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 19:27:29 -0400
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Andrew Morton <akpm@osdl.org>, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org
+Received: from rhun.apana.org.au ([64.62.148.172]:51466 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932348AbWEDXaY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 May 2006 19:30:24 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060504.162546.88959729.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please apply to 2.6.17, as it fixes a problem that prevents bcm43xx devices
-which support 802.11a in addition to 802.11b/g from working, as the MAC
-address isn't detected correctly. This applies to 2.6.17-rc3.
+On Thu, May 04, 2006 at 04:25:46PM -0700, David S. Miller wrote:
+> 
+> That being said, the first thing that should be tried is reverting
+> the above mentioned change and see if the problem goes away.  If
+> so, then we need to investigate what the bandwidth delay product is
+> for the connection, and whether the socket send buffer is set large
+> enough for that size of pipe.
 
---
+I've tracked the networking breakage down to a broken Xen patch.
+So 2.6.16.13 is all OK.
 
-Check for valid MAC address in SPROM fields instead of relying on PHY type
-while setting the MAC address in the networking subsystem, as some devices
-have multiple PHYs.
-
-Signed-off-by: Stefano Brivio <stefano.brivio@polimi.it>
-
-Index: linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-05 00:50:00.370034536 +0200
-+++ linux-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-05 00:50:03.926493872 +0200
-@@ -3482,7 +3482,7 @@
-	bcm43xx_pctl_set_crystal(bcm, 0);
-
-	/* Set the MAC address in the networking subsystem */
--	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_A)
-+	if (is_valid_ether_addr(bcm->sprom.et1macaddr))
-		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
-	else
-		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
-
-
---
-Ciao
-Stefano
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
