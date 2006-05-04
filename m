@@ -1,72 +1,47 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: [PATCH] Re: a question on tcp_highspeed.c (in 2.6.16)
-Date: Thu, 04 May 2006 15:06:00 -0400
-Message-ID: <445A5098.6010306@psc.edu>
-References: <7335583a0605040703x1d6e8a20n515b22241795d3ab@mail.gmail.com>
+From: Marcus Better <marcus@better.se>
+Subject: Re: [PATCH] bcm43xx-d80211: proper implementation of virtual interface support
+Date: Thu, 04 May 2006 21:26:56 +0200
+Message-ID: <e3dkfd$pc5$1@sea.gmane.org>
+References: <200605012135.00895.mb@bu3sch.de> <20060502132037.059a7cb2@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050505090007070109080808"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7Bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:56010 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S1750803AbWEDTGN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 15:06:13 -0400
-To: "Xiaoliang (David) Wei" <davidwei79@gmail.com>
-In-Reply-To: <7335583a0605040703x1d6e8a20n515b22241795d3ab@mail.gmail.com>
+Received: from main.gmane.org ([80.91.229.2]:46738 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1030302AbWEDT1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 15:27:36 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1FbjTk-0001jR-Bq
+	for netdev@vger.kernel.org; Thu, 04 May 2006 21:27:12 +0200
+Received: from 67.152.216.81.g-va.siw.siwnet.net ([81.216.152.67])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 04 May 2006 21:27:12 +0200
+Received: from marcus by 67.152.216.81.g-va.siw.siwnet.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 04 May 2006 21:27:12 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050505090007070109080808
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Xiaoliang (David) Wei wrote:
-> Hi gurus,
-> 
->    I am reading the code of tcp_highspeed.c in the kernel and have a
-> question on the hstcp_cong_avoid function, specifically the following
-> AI part (line 136~143 in net/ipv4/tcp_highspeed.c ):
-> 
->                /* Do additive increase */
->                if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
->                        tp->snd_cwnd_cnt += ca->ai;
->                        if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
->                                tp->snd_cwnd++;
->                                tp->snd_cwnd_cnt -= tp->snd_cwnd;
->                        }
->                }
-> 
->    In this part, when (tp->snd_cwnd_cnt == tp->snd_cwnd),
-> snd_cwnd_cnt will be -1... snd_cwnd_cnt is defined as u16, will this
-> small chance of getting -1 becomes a problem?
-> Shall we change it by reversing the order of the cwnd++ and cwnd_cnt -= 
-> cwnd?
+Jiri Benc wrote:
+> This is unnecessary. AFAIK bcm43xx hardware doesn't support more than one
+> interface at a time (not counting monitor interfaces as those are somewhat
+> special).
 
-Absolutely correct.  Thanks.
+I wonder what exactly is causing this limitation? Why isn't it just a matter
+of software support?
 
-Signed-off-by: John Heffner <jheffner@psc.edu>
+Marcus
 
---------------050505090007070109080808
-Content-Type: text/plain; x-mac-type="0"; x-mac-creator="0";
- name="highspeed_cwnd_cnt.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="highspeed_cwnd_cnt.patch"
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
 
-diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
-index e0e9d13..b72fa55 100644
---- a/net/ipv4/tcp_highspeed.c
-+++ b/net/ipv4/tcp_highspeed.c
-@@ -137,8 +137,8 @@ static void hstcp_cong_avoid(struct sock
- 		if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
- 			tp->snd_cwnd_cnt += ca->ai;
- 			if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
--				tp->snd_cwnd++;
- 				tp->snd_cwnd_cnt -= tp->snd_cwnd;
-+				tp->snd_cwnd++;
- 			}
- 		}
- 	}
+iD8DBQFEWlUrXjXn6TzcAQkRAoa6AJ97kI8F7Q42orjNQC6HBIXwj3I/DwCgux18
+RBkhEcOFBDtQGEHFq2eMxKU=
+=3WoL
+-----END PGP SIGNATURE-----
 
---------------050505090007070109080808--
