@@ -1,39 +1,56 @@
-From: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
-Subject: Re: sky2 1.3-rc1
-Date: Fri, 5 May 2006 19:35:09 +0200
-Message-ID: <20060505173509.GK2757@cip.informatik.uni-erlangen.de>
-References: <1146667951.3056.25.camel@fc5test.deadmoose.com> <20060503120507.4558c675@localhost.localdomain> <445B626B.1070407@gentoo.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: Machine check in bcm43xx_phy_initg
+Date: Fri, 5 May 2006 19:42:39 +0200
+Message-ID: <200605051942.39552.mb@bu3sch.de>
+References: <1146847015.2766.10.camel@pmac.infradead.org> <445B8474.302@gentoo.org> <1146849577.2766.18.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Bill Hoover <bill@luminescent.com>,
-	Bertrand Jacquin <beber@gna.org>, micheleschi@libero.it,
-	netdev@vger.kernel.org, teppic74@hotmail.com
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:41860 "EHLO
-	faui03.informatik.uni-erlangen.de") by vger.kernel.org with ESMTP
-	id S1751675AbWEERfL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 May 2006 13:35:11 -0400
-To: Daniel Drake <dsd@gentoo.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:4032
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751687AbWEERgX
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 May 2006 13:36:23 -0400
+To: linville@tuxdriver.com
+In-Reply-To: <1146849577.2766.18.camel@pmac.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <445B626B.1070407@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Friday 05 May 2006 19:19, David Woodhouse wrote:
+> On Fri, 2006-05-05 at 12:59 -0400, Joseph Jezak wrote:
+> > I fixed the specs, it should be bcm->chip_package == 2, sorry for the
+> > mistake.
+> 
+> Thanks. The correct patch should look like this then...
+> 
+> [BCM43xx] Fix access to non-existent PHY registers
+> 
+> Fix the conditions under which we poke at the APHY registers in
+> bcm43xx_phy_initg() to avoid a machine check on chips where they don't
+> exist.
+> 
+> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
 
-> >	http://developer.osdl.org/shemminger/prototypes/sky2-1.3-rc1.tar.bz2
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-> v0.15:
-> 64 bytes from 10.0.0.138: icmp_seq=2 ttl=64 time=0.467 ms
+John, please apply. I will also send a patch for d80211.
 
-> v1.3-rc1:
-> 64 bytes from 10.0.0.138: icmp_seq=4 ttl=64 time=32.9 ms
+> --- linux-2.6.16.ppc64/drivers/net/wireless/bcm43xx/bcm43xx_phy.c~	2006-05-04 19:16:09.000000000 +0100
+> +++ linux-2.6.16.ppc64/drivers/net/wireless/bcm43xx/bcm43xx_phy.c	2006-05-05 17:22:57.000000000 +0100
+> @@ -1287,7 +1287,7 @@ static void bcm43xx_phy_initg(struct bcm
+>  	if (radio->revision == 8)
+>  		bcm43xx_phy_write(bcm, 0x0805, 0x3230);
+>  	bcm43xx_phy_init_pctl(bcm);
+> -	if (bcm->chip_id == 0x4306 && bcm->chip_package != 2) {
+> +	if (bcm->chip_id == 0x4306 && bcm->chip_package == 2) {
+>  		bcm43xx_phy_write(bcm, 0x0429,
+>  				  bcm43xx_phy_read(bcm, 0x0429) & 0xBFFF);
+>  		bcm43xx_phy_write(bcm, 0x04C3,
+> 
 
-I can't confirm this. For me it is just perfect:
-
-64 bytes from 89.106.66.1: icmp_seq=1 ttl=64 time=0.278 ms
-
-0000:04:00.0 Ethernet controller: Marvell Technology Group Ltd.: Unknown device 4361 (rev 17)
-
-        Thomas
+-- 
+Greetings Michael.
