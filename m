@@ -1,173 +1,93 @@
-From: Kelly Daly <kelly@au1.ibm.com>
-Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
-Date: Fri, 5 May 2006 12:48:42 +1000
-Message-ID: <200605051248.42662.kelly@au.ibm.com>
-References: <200604261147.34221.kelly@au.ibm.com> <200605041728.27131.kelly@au.ibm.com> <20060504.161148.44973535.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [rfc][patch] ipvs: use proper timeout instead of fixed value
+Date: Thu, 4 May 2006 22:51:11 -0400
+Message-ID: <20060505025111.GA29142@gospo.rdu.redhat.com>
+References: <20060504201116.GA24394@gospo.rdu.redhat.com> <20060505004754.GA6943@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	wensong@linux-vs.org, ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:14783 "EHLO
-	ausmtp04.au.ibm.com") by vger.kernel.org with ESMTP id S932431AbWEECs7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 May 2006 22:48:59 -0400
-Received: from sd0208e0.au.ibm.com (d23rh904.au.ibm.com [202.81.18.202])
-	by ausmtp04.au.ibm.com (8.13.6/8.13.5) with ESMTP id k452xM6E228412
-	for <netdev@vger.kernel.org>; Fri, 5 May 2006 12:59:22 +1000
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.250.242])
-	by sd0208e0.au.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k452q4Cj194464
-	for <netdev@vger.kernel.org>; Fri, 5 May 2006 12:52:10 +1000
-Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
-	by d23av01.au.ibm.com (8.12.11/8.13.3) with ESMTP id k452mi5V008726
-	for <netdev@vger.kernel.org>; Fri, 5 May 2006 12:48:44 +1000
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060504.161148.44973535.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:17877 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1030289AbWEECvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 May 2006 22:51:39 -0400
+To: Horms <horms@verge.net.au>
 Content-Disposition: inline
+In-Reply-To: <20060505004754.GA6943@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 05 May 2006 09:11, David S. Miller wrote:
-> I very much fear abuse of the inet_hashes[] array.  So I'd rather
-> hide it behind a programmatic interface, something like:
+On Fri, May 05, 2006 at 09:47:56AM +0900, Horms wrote:
+> On Thu, May 04, 2006 at 04:11:16PM -0400, Andy Gospodarek wrote:
+> > 
+> > Instead of using the default timeout of 3 minutes, this uses the timeout
+> > specific to the protocol used for the connection. The 3 minute timeout
+> > seems somewhat arbitrary (though I know it is used other places in the
+> > ipvs code) and when failing over it would be much nicer to use one of
+> > the configured timeout values.
+> 
+> Hi Andy,
+> 
+> I agree that the current value is somewhat arbitary, 
+> however I'm more in favour of setting it idependantly
+> of other timeouts, perhaps via proc. In any case,
+> won't pp->timeout_table[cp->state] be rather long in
+> the ESTABLISHED case?
+> 
 
-done!  I will continue with implementation of default netchannel for now.
+Horms,
+
+I agree that there could be a long timeout for ESTABLISHED connections,
+but I've run across a situation where I need exactly that.  When testing
+failover from master to backup I realize that all of my interactive
+sessions get dropped much sooner than the timeout I've configured (mine
+is currently set for much longer than 3 minutes).  If I wanted
+established connections to timeout quickly I would set the timeout to be
+a small value.
+
+-andy
 
 
-> Thanks!
-anytime  =)
-
-Cheers,
-K
-
-
-______________________
-
-diff -urp davem_orig/include/net/inet_hashtables.h kelly/include/net/inet_hashtables.h
---- davem_orig/include/net/inet_hashtables.h	2006-04-27 00:08:32.000000000 +1000
-+++ kelly/include/net/inet_hashtables.h	2006-05-05 12:05:33.000000000 +1000
-@@ -418,4 +418,7 @@ static inline struct sock *inet_lookup(s
- 
- extern int inet_hash_connect(struct inet_timewait_death_row *death_row,
- 			     struct sock *sk);
-+extern void inet_hash_register(u8 proto, struct inet_hashinfo *hashinfo);
-+extern struct sock *inet_lookup_proto(u8 protocol, u32 saddr, u16 sport, u32 daddr, u16 dport, int ifindex);
-+
- #endif /* _INET_HASHTABLES_H */
-diff -urp davem_orig/include/net/sock.h kelly/include/net/sock.h
---- davem_orig/include/net/sock.h	2006-05-02 13:42:10.000000000 +1000
-+++ kelly/include/net/sock.h	2006-05-04 14:28:59.000000000 +1000
-@@ -196,6 +196,7 @@ struct sock {
- 	unsigned short		sk_type;
- 	int			sk_rcvbuf;
- 	socket_lock_t		sk_lock;
-+	struct netchannel	*sk_channel;
- 	wait_queue_head_t	*sk_sleep;
- 	struct dst_entry	*sk_dst_cache;
- 	struct xfrm_policy	*sk_policy[2];
-diff -urp davem_orig/net/core/dev.c kelly/net/core/dev.c
---- davem_orig/net/core/dev.c	2006-04-27 15:49:27.000000000 +1000
-+++ kelly/net/core/dev.c	2006-05-05 10:39:22.000000000 +1000
-@@ -116,6 +116,7 @@
- #include <net/iw_handler.h>
- #include <asm/current.h>
- #include <linux/audit.h>
-+#include <net/inet_hashtables.h>
- 
- /*
-  *	The list of packet types we will receive (as opposed to discard)
-@@ -190,6 +191,8 @@ static inline struct hlist_head *dev_ind
- 	return &dev_index_head[ifindex & ((1<<NETDEV_HASHBITS)-1)];
- }
- 
-+static struct netchannel default_netchannel;
-+
- /*
-  *	Our notifier list
-  */
-@@ -1907,6 +1910,34 @@ struct netchannel_buftrailer *__netchann
- }
- EXPORT_SYMBOL_GPL(__netchannel_dequeue);
- 
-+
-+/* Find the channel for a packet, or return default channel. */
-+struct netchannel *find_netchannel(const struct netchannel_buftrailer *np)
-+{
-+	struct sock *sk = NULL;
-+	unsigned long dlen = np->netchan_buf_len - np->netchan_buf_offset;
-+	void *data = (void *)np - dlen;
-+
-+	switch (np->netchan_buf_proto) {
-+	case __constant_htons(ETH_P_IP): {
-+		struct iphdr *ip = data;
-+		int iphl = ip->ihl * 4;
-+
-+		if (dlen >= (iphl + 4) && iphl == sizeof(struct iphdr)) {
-+			u16 *ports = (u16 *)(ip + 1);
-+			sk = inet_lookup_proto(ip->protocol,
-+					       ip->saddr, ports[0],
-+					       ip->daddr, ports[1],
-+					       np->netchan_buf_dev->ifindex);
-+			break;
-+		}
-+	}
-+	}
-+	if (sk && sk->sk_channel)
-+		return sk->sk_channel;
-+	return &default_netchannel;
-+}
-+
- static gifconf_func_t * gifconf_list [NPROTO];
- 
- /**
-@@ -3421,6 +3452,9 @@ static int __init net_dev_init(void)
- 	hotcpu_notifier(dev_cpu_callback, 0);
- 	dst_init();
- 	dev_mcast_init();
-+
-+	/* FIXME: This should be attached to thread/threads. */
-+	netchannel_init(&default_netchannel, NULL, NULL);
- 	rc = 0;
- out:
- 	return rc;
-diff -urp davem_orig/net/ipv4/inet_hashtables.c kelly/net/ipv4/inet_hashtables.c
---- davem_orig/net/ipv4/inet_hashtables.c	2006-04-27 00:08:33.000000000 +1000
-+++ kelly/net/ipv4/inet_hashtables.c	2006-05-05 12:05:33.000000000 +1000
-@@ -337,3 +337,25 @@ out:
- }
- 
- EXPORT_SYMBOL_GPL(inet_hash_connect);
-+
-+static struct inet_hashinfo *inet_hashes[256];
-+
-+void inet_hash_register(u8 proto, struct inet_hashinfo *hashinfo)
-+{
-+	BUG_ON(inet_hashes[proto]);
-+	inet_hashes[proto] = hashinfo;
-+}
-+EXPORT_SYMBOL(inet_hash_register);
-+
-+struct sock *inet_lookup_proto(u8 protocol, u32 saddr, u16 sport, u32 daddr, u16 dport, int ifindex)
-+{
-+	struct sock *sk = NULL;
-+	if (inet_hashes[protocol]) {
-+		sk = inet_lookup(inet_hashes[protocol], 
-+				 saddr, sport,
-+				 daddr, dport,
-+				 ifindex);
-+	}
-+	return sk;
-+}
-+EXPORT_SYMBOL(inet_lookup_proto);
-diff -urp davem_orig/net/ipv4/tcp.c kelly/net/ipv4/tcp.c
---- davem_orig/net/ipv4/tcp.c	2006-04-27 00:08:33.000000000 +1000
-+++ kelly/net/ipv4/tcp.c	2006-05-05 11:29:18.000000000 +1000
-@@ -2173,6 +2173,7 @@ void __init tcp_init(void)
- 	       tcp_hashinfo.ehash_size << 1, tcp_hashinfo.bhash_size);
- 
- 	tcp_register_congestion_control(&tcp_reno);
-+	inet_hash_register(IPPROTO_TCP, &tcp_hashinfo);
- }
- 
- EXPORT_SYMBOL(tcp_close);
+> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> > ---
+> > 
+> >  ip_vs_sync.c |    5 +++--
+> >  1 files changed, 3 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+> > --- a/net/ipv4/ipvs/ip_vs_sync.c
+> > +++ b/net/ipv4/ipvs/ip_vs_sync.c
+> > @@ -67,7 +67,6 @@ struct ip_vs_sync_conn_options {
+> >  	struct ip_vs_seq        out_seq;        /* outgoing seq. struct */
+> >  };
+> >  
+> > -#define IP_VS_SYNC_CONN_TIMEOUT (3*60*HZ)
+> >  #define SIMPLE_CONN_SIZE  (sizeof(struct ip_vs_sync_conn))
+> >  #define FULL_CONN_SIZE  \
+> >  (sizeof(struct ip_vs_sync_conn) + sizeof(struct ip_vs_sync_conn_options))
+> > @@ -279,6 +278,7 @@ static void ip_vs_process_message(const 
+> >  	struct ip_vs_sync_conn *s;
+> >  	struct ip_vs_sync_conn_options *opt;
+> >  	struct ip_vs_conn *cp;
+> > +	struct ip_vs_protocol *pp;
+> >  	char *p;
+> >  	int i;
+> >  
+> > @@ -337,7 +337,8 @@ static void ip_vs_process_message(const 
+> >  			p += SIMPLE_CONN_SIZE;
+> >  
+> >  		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
+> > -		cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
+> > +		pp = ip_vs_proto_get(s->protocol);
+> > +		cp->timeout = pp->timeout_table[cp->state];
+> >  		ip_vs_conn_put(cp);
+> >  
+> >  		if (p > buffer+buflen) {
+> 
+> -- 
+> Horms                                           http://www.vergenet.net/~horms/
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
