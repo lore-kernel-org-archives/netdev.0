@@ -1,46 +1,39 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [x86_64, NET] smp_rmb() in dst_destroy() seems very expensive, ditto in kfree_skb()
-Date: Fri, 5 May 2006 19:05:30 +0200
-Message-ID: <200605051905.31130.ak@suse.de>
-References: <E1FbSM8-0002lx-00@gondolin.me.apana.org.au> <20060504.162546.88959729.davem@davemloft.net> <445B11A3.1020407@cosmosbay.com>
+From: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+Subject: Re: sky2 1.3-rc1
+Date: Fri, 5 May 2006 19:35:09 +0200
+Message-ID: <20060505173509.GK2757@cip.informatik.uni-erlangen.de>
+References: <1146667951.3056.25.camel@fc5test.deadmoose.com> <20060503120507.4558c675@localhost.localdomain> <445B626B.1070407@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Bill Hoover <bill@luminescent.com>,
+	Bertrand Jacquin <beber@gna.org>, micheleschi@libero.it,
+	netdev@vger.kernel.org, teppic74@hotmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:3469 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1751664AbWEER3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 13:29:38 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <445B11A3.1020407@cosmosbay.com>
+Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:41860 "EHLO
+	faui03.informatik.uni-erlangen.de") by vger.kernel.org with ESMTP
+	id S1751675AbWEERfL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 May 2006 13:35:11 -0400
+To: Daniel Drake <dsd@gentoo.org>
 Content-Disposition: inline
+In-Reply-To: <445B626B.1070407@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 05 May 2006 10:49, Eric Dumazet wrote:
-> On a dual opteron box, I noticed high oprofile numbers in net/core/dst.c 
-> , function dst_destroy(struct dst_entry * dst)
-> 
-> It appears the smb_rmb() done at the begining of  dst_destroy() is the 
-> killer  (this is a lfence machine instruction, that apparently is doing 
-> a *lot* of things... may be IO related...) that is responsible for 80% 
-> of the cpu time used by the whole function.
-> 
-> I dont understand very much all variety of available barriers, and why 
-> this smb_rmb() is used in dst_destroy().
-> I missed the corresponding wmb that should be done somewhere in the dst 
-> code.
-> 
-> Do we have an alternative to smp_rmb() in the dst_destroy()/ kfree_skb() 
-> context ?
+Hello,
 
-Eliminating it probably wouldn't help very much - it just flushes the 
-loads already in flight. If it didn't do that the next smp_rmb() would.
-I'm surprised there are that many though. Normally kernel code is spagetti
-enough that the CPU cannot speculate too many loads ahead.
+> >	http://developer.osdl.org/shemminger/prototypes/sky2-1.3-rc1.tar.bz2
 
-But are you 100% sure the cost is not in the lock decl ? That would make
-more sense. Perhaps profile for cache misses too and double check?
+> v0.15:
+> 64 bytes from 10.0.0.138: icmp_seq=2 ttl=64 time=0.467 ms
 
--Andi
+> v1.3-rc1:
+> 64 bytes from 10.0.0.138: icmp_seq=4 ttl=64 time=32.9 ms
+
+I can't confirm this. For me it is just perfect:
+
+64 bytes from 89.106.66.1: icmp_seq=1 ttl=64 time=0.278 ms
+
+0000:04:00.0 Ethernet controller: Marvell Technology Group Ltd.: Unknown device 4361 (rev 17)
+
+        Thomas
