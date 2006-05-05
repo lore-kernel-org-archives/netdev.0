@@ -1,127 +1,69 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFC] Proposed structure for Regulatory/Geographical Wireless database
-Date: Fri, 05 May 2006 15:14:35 -0500
-Message-ID: <445BB22B.30505@lwfinger.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: IPv6 connect() from site-local to global IPv6 address.
+Date: Fri, 05 May 2006 22:00:32 +0100
+Message-ID: <1146862832.2766.54.camel@pmac.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:22465 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751706AbWEEUOr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 May 2006 16:14:47 -0400
-To: netdev@vger.kernel.org, Faidon Liambotis <faidon@cube.gr>,
-	Rick Jones <rick.jones2@hp.com>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	Harald Welte <laforge@gnumonks.org>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Christoph Hellwig <hch@infradead.org>
+Received: from canuck.infradead.org ([205.233.218.70]:17877 "EHLO
+	canuck.infradead.org") by vger.kernel.org with ESMTP
+	id S1751779AbWEEVAj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 May 2006 17:00:39 -0400
+Received: from pmac.infradead.org ([81.187.2.168])
+	by canuck.infradead.org with esmtpsa (Exim 4.61 #1 (Red Hat Linux))
+	id 1Fc7Ph-0005MD-1y
+	for netdev@vger.kernel.org; Fri, 05 May 2006 17:00:38 -0400
+To: NetDev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks to all that responded to my earlier RFC. A number of changes in my thinking are based on 
-those comments, which came from Christoph Hellwig, Rick Jones, Ulrich Kunitz, Faidon Liambotis, 
-Jouni Malinen,  and Harald Welte.  The important points of my proposal are as follows:
+I've been using and testing IPv6 on a private network.
 
-* The database will be maintained as a text file to be processed by a userland daemon that will 
-transform this database into the data structure needed by the ieee80211 code. In addition to the 
-regulatory data, this file will also contain the information needed for the daemon to set the size 
-of its data arrays dynamically.
+Machines have RFC1918 IPv4 addresses, with connectivity by NAT to the
+outside world. They also have site-local IPv6 addresses. There is
+approximately zero chance of getting corporate approval to have external
+IPv6 connectivity.
 
-* A new routine (ieee80211_init_geo ?) will be written to be called by the driver to load the geo 
-structure into the kernel. Information passed to the daemon will be the country code in ASCII and 
-whether the interface is to be used indoors or outdoors.
+Since updating the kernel to 2.6.16, I've got problems with external
+connectivity to hosts which have both IPv4 and (Global) IPv6 addresses
+in DNS. Glibc used to return the IPv4 address in the A record first, and
+all was well. But now it returns the IPv6 address in the AAAA record
+first, and I can't communicate with that. So I get a three-minute
+timeout whenever I try to connect to anything in the outside which has
+both A and AAAA records.
 
-* Checksum routines will be used to validate the data base. Such a simple scheme will not inhibit 
-anyone with moderate skills from hacking the channel/power settings, but such hacking will require 
-some effort.
+One of the things which glibc's implementation of RFC3484 address
+selection (http://people.redhat.com/drepper/linux-rfc3484.html) does is
+to perform a dummy connect() of a SOCK_DGRAM socket to each of the
+potential addresses. On older kernels this used to fail when we
+attempted to connect to a global IPv6 address and we didn't have a
+global IPv6 address of our own...
 
-* Each channel in the resulting kernel data structure will have appropriate flags set indicating if 
-it is to be used indoors, outdoors, or both. In addition, if the channel should be used only for 
-passive scanning, a suitable flag will be set. In the 2.4 GHz band, a flag will indicate if it 
-should be used for 802.11b, otherwise both b and g mode will be assumed. In the 5.0 GHz bands, a 
-flag will be set if the channel is to conform with 802.11h or 802.11a standards.
+socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
+connect(3, {sa_family=AF_INET6, sin6_port=htons(80), inet_pton(AF_INET6, "2001:8b0:10b:1:20d:93ff:fe7a:3f2c", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EADDRNOTAVAIL (Cannot assign requested address)
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
+connect(3, {sa_family=AF_INET, sin_port=htons(80), sin_addr=inet_addr("81.187.2.168")}, 16) = 0
+getsockname(3, {sa_family=AF_INET, sin_port=htons(33450), sin_addr=inet_addr("172.16.18.126")}, [16]) = 0
+Trying 81.187.2.168...
 
-The database consists of two sections. The first relates the Country Codes to a wireless group. The 
-second section describes the channel parameters for the groups. Shown below is a fragment showing 
-the Country Code - Group info for a few countries and the definitions for a few of the groups.
+On the newer kernel, the connect() succeeds:
 
-Please send me any comments, etc.
+socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
+connect(3, {sa_family=AF_INET6, sin6_port=htons(80), inet_pton(AF_INET6, "2001:8b0:10b:1:20d:93ff:fe7a:3f2c", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0
+getsockname(3, {sa_family=AF_INET6, sin6_port=htons(32772), inet_pton(AF_INET6, "::172.16.18.67", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, [28]) = 0
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
+connect(3, {sa_family=AF_INET, sin_port=htons(80), sin_addr=inet_addr("81.187.2.168")}, 16) = 0
+getsockname(3, {sa_family=AF_INET, sin_port=htons(32772), sin_addr=inet_addr("172.16.18.67")}, [16]) = 0
+Trying 2001:8b0:10b:1:20d:93ff:fe7a:3f2c...
 
-Larry
+Is this change in behaviour intentional? Is it useful?
 
-===================================================================
-# text file for IEEE80211 Regulatory/Geographical information
-#
-# Version of 04 May 2006
-#
-# Information for dynamic array sizing
-#
-Number of Countries: 100
-Number of Groups: 15
-#
-# Countries listed first
-#
-# group Country Code    Description
-#
-1       AT              Austria (Standard EU)
-1       DE              Germany (Standard EU)
-2       FRI             France Indoor (Not Guyana or La Reunion)
-3       FRO             France Outdoor (Not Guyana or La Reunion)
-4       FR1             French Departments of Guyana and La Reunion Indoor
-5       FR2             French Departments of Guyana and La Reunion Outdoor
-.
-.
-.
-9       US              United States (FCC)
-#
-#
-# Groups follow countries
-#
-Group 0         - Unspecified Country
-#
-# Band  Ch. Range       Ch. Spacing     Power   Flags
-#
-# Band - b, bg, a, or h
-# Ch. Range - Minimum and Maximum Channels for this range
-# Ch. Spacing - Number of channels between adjacent entries
-# Power in mW EIRP
-# Flag Codes
-# B - Both Indoor and Outdoor
-# I - Indoor Only
-# O - Outdoor Only
-# P - Passive Scan Only
-#
-bg        1 - 11        1                100    B
-#
-Group 1         - General European Union (EU)
-#
-bg        1 -  13       1                100    B
-h        36 -  40       4                200    I
-h        52 -  64       4                200    IP
-h       100 - 140       4               1000    BP
-#
-Group 2         - France Indoor (Not Guyana or La Reunion)
-#
-bg        1 -  13       1                100    I
-h        36 -  48       4                200    I
-h        52 -  64       4                200    IP
-h       100 - 140       4               1000    IP
-#
-Group 3         - France Outdoor (Not Guyana or La Reunion)
-#
-bg        1 -   8       1                100    O
-bg        9 -  13       1                 10    O
-h       100 - 140       4               1000    OP
-.
-.
-.
-.
-#
-Group 9         - US (FCC)
-#
-bg        1 -  11       1                100    B
-a        36 -  40       4                200    I
-a        52 -  64       4                200    B
-a       149 - 161       4               1000    B
-#
+How can we get sane behaviour from glibc again? What we had before was
+ideal -- if we have an IPv6 default route _and_ we have a Global IPv6
+address of our own, then return the Global IPv6 address in the AAAA
+record first. Else return the IPv4 address in the A record.
+
+-- 
+dwmw2
+
