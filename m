@@ -1,32 +1,174 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [rfc][patch] ipvs: use proper timeout instead of fixed value
-Date: Fri, 5 May 2006 14:57:26 -0400
-Message-ID: <20060505185726.GB24394@gospo.rdu.redhat.com>
-References: <20060504201116.GA24394@gospo.rdu.redhat.com> <20060505004754.GA6943@verge.net.au> <20060505025111.GA29142@gospo.rdu.redhat.com> <20060505032052.GY32328@verge.net.au>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 1/4] [SCTP]: Allow spillover of receiver buffer to avoid
+	deadlock
+Date: Fri, 05 May 2006 12:14:28 -0700
+Message-ID: <1146856468.7861.33.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	wensong@linux-vs.org, ja@ssi.bg
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:2456 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751485AbWEES5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 14:57:42 -0400
-To: Horms <horms@verge.net.au>
-Content-Disposition: inline
-In-Reply-To: <20060505032052.GY32328@verge.net.au>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:33490 "EHLO e5.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751718AbWEETO3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 15:14:29 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e5.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k45JESUo031411
+	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:28 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k45JESP0254150
+	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:28 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11/8.13.3) with ESMTP id k45JERIk001036
+	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:27 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 05, 2006 at 12:20:54PM +0900, Horms wrote:
-> 
-> Sorry, I missunderstood your patch completely the first time around.
-> Yes I think this is an excellent idea. Assuming its tested and works
-> I'm happy to sign off on it and prod DaveM.
+Dave,
 
-Horms,
+Please apply the following 4 SCTP patches to 2.6 tree.
 
-I'll get a setup together and post results when I have them.
+Thanks
+Sridhar
 
--andy
+[SCTP]: Allow spillover of receive buffer to avoid deadlock.
+
+This patch fixes a deadlock situation in the receive path by allowing
+temporary spillover of the receive buffer.
+
+- If the chunk we receive has a tsn that immediately follows the ctsn,
+  accept it even if we run out of receive buffer space and renege data with
+  higher TSNs.
+- Once we accept one chunk in a packet, accept all the remaining chunks
+  even if we run out of receive buffer space.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Acked-by: Mark Butler <butlerm@middle.net>
+Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+---
+ include/net/sctp/structs.h |    1 +
+ net/sctp/inqueue.c         |    1 +
+ net/sctp/sm_statefuns.c    |   46 ++++++++++++++++++++++++++++++++++----------
+ 3 files changed, 38 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index eba99f3..7f4fea1 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -712,6 +712,7 @@ struct sctp_chunk {
+ 	__u8 tsn_gap_acked;	/* Is this chunk acked by a GAP ACK? */
+ 	__s8 fast_retransmit;	 /* Is this chunk fast retransmitted? */
+ 	__u8 tsn_missing_report; /* Data chunk missing counter. */
++	__u8 data_accepted; 	/* At least 1 chunk in this packet accepted */
+ };
+ 
+ void sctp_chunk_hold(struct sctp_chunk *);
+diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+index 297b895..cf0c767 100644
+--- a/net/sctp/inqueue.c
++++ b/net/sctp/inqueue.c
+@@ -149,6 +149,7 @@ struct sctp_chunk *sctp_inq_pop(struct s
+ 		/* This is the first chunk in the packet.  */
+ 		chunk->singleton = 1;
+ 		ch = (sctp_chunkhdr_t *) chunk->skb->data;
++		chunk->data_accepted = 0;
+ 	}
+ 
+         chunk->chunk_hdr = ch;
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 2b9a832..6834032 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -5151,7 +5151,9 @@ static int sctp_eat_data(const struct sc
+ 	int tmp;
+ 	__u32 tsn;
+ 	int account_value;
++	struct sctp_tsnmap *map = (struct sctp_tsnmap *)&asoc->peer.tsn_map;
+ 	struct sock *sk = asoc->base.sk;
++	int rcvbuf_over = 0;
+ 
+ 	data_hdr = chunk->subh.data_hdr = (sctp_datahdr_t *)chunk->skb->data;
+ 	skb_pull(chunk->skb, sizeof(sctp_datahdr_t));
+@@ -5162,10 +5164,16 @@ static int sctp_eat_data(const struct sc
+ 	/* ASSERT:  Now skb->data is really the user data.  */
+ 
+ 	/*
+-	 * if we are established, and we have used up our receive
+-	 * buffer memory, drop the frame
+-	 */
+-	if (asoc->state == SCTP_STATE_ESTABLISHED) {
++	 * If we are established, and we have used up our receive buffer 
++	 * memory, think about droping the frame.
++	 * Note that we have an opportunity to improve performance here.
++	 * If we accept one chunk from an skbuff, we have to keep all the
++	 * memory of that skbuff around until the chunk is read into user 
++	 * space. Therefore, once we accept 1 chunk we may as well accept all
++	 * remaining chunks in the skbuff. The data_accepted flag helps us do
++	 * that.
++	 */
++	if ((asoc->state == SCTP_STATE_ESTABLISHED) && (!chunk->data_accepted)) {
+ 		/*
+ 		 * If the receive buffer policy is 1, then each
+ 		 * association can allocate up to sk_rcvbuf bytes
+@@ -5176,9 +5184,25 @@ static int sctp_eat_data(const struct sc
+ 			account_value = atomic_read(&asoc->rmem_alloc);
+ 		else
+ 			account_value = atomic_read(&sk->sk_rmem_alloc);
+-
+-		if (account_value > sk->sk_rcvbuf)
+-			return SCTP_IERROR_IGNORE_TSN;
++		if (account_value > sk->sk_rcvbuf) {
++			/*
++			 * We need to make forward progress, even when we are
++			 * under memory pressure, so we always allow the 
++			 * next tsn after the ctsn ack point to be accepted.
++			 * This lets us avoid deadlocks in which we have to 
++			 * drop frames that would otherwise let us drain the 
++			 * receive queue.
++			 */
++			if ((sctp_tsnmap_get_ctsn(map) + 1) != tsn)
++				return SCTP_IERROR_IGNORE_TSN;
++
++			/*
++			 * We're going to accept the frame but we should renege
++			 * to make space for it. This will send us down that
++			 * path later in this function.
++			 */
++			rcvbuf_over = 1;
++		}
+ 	}
+ 
+ 	/* Process ECN based congestion.
+@@ -5226,6 +5250,7 @@ static int sctp_eat_data(const struct sc
+ 	datalen -= sizeof(sctp_data_chunk_t);
+ 
+ 	deliver = SCTP_CMD_CHUNK_ULP;
++	chunk->data_accepted = 1;
+ 
+ 	/* Think about partial delivery. */
+ 	if ((datalen >= asoc->rwnd) && (!asoc->ulpq.pd_mode)) {
+@@ -5242,7 +5267,8 @@ static int sctp_eat_data(const struct sc
+ 	 * large spill over.
+ 	 */
+ 	if (!asoc->rwnd || asoc->rwnd_over ||
+-	    (datalen > asoc->rwnd + asoc->frag_point)) {
++	    (datalen > asoc->rwnd + asoc->frag_point) ||
++	    rcvbuf_over) {
+ 
+ 		/* If this is the next TSN, consider reneging to make
+ 		 * room.   Note: Playing nice with a confused sender.  A
+@@ -5250,8 +5276,8 @@ static int sctp_eat_data(const struct sc
+ 		 * space and in the future we may want to detect and
+ 		 * do more drastic reneging.
+ 		 */
+-		if (sctp_tsnmap_has_gap(&asoc->peer.tsn_map) &&
+-		    (sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + 1) == tsn) {
++		if (sctp_tsnmap_has_gap(map) &&
++		    (sctp_tsnmap_get_ctsn(map) + 1) == tsn) {
+ 			SCTP_DEBUG_PRINTK("Reneging for tsn:%u\n", tsn);
+ 			deliver = SCTP_CMD_RENEGE;
+ 		} else {
 
 
