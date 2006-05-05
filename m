@@ -1,78 +1,41 @@
-From: "Ayaz Abdulla" <AAbdulla@nvidia.com>
-Subject: RE: pci_enable_msix throws up error
-Date: Thu, 4 May 2006 22:14:09 -0700
-Message-ID: <DBFABB80F7FD3143A911F9E6CFD477B00BA5E264@hqemmail02.nvidia.com>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH] bcm43xx-d80211: proper implementation of virtual interface
+ support
+Date: Fri, 5 May 2006 07:45:09 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0605050738240.21178@p15091797.pureserver.info>
+References: <200605012135.00895.mb@bu3sch.de> <20060502132037.059a7cb2@griffin.suse.cz>
+ <e3dkfd$pc5$1@sea.gmane.org> <200605042256.02333.IvDoorn@gmail.com>
+ <20060505002215.1972e12b@logostar.upir.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ananda. Raju" <ananda.raju@neterion.com>,
-	<netdev@vger.kernel.org>,
-	"Leonid Grossman" <Leonid.Grossman@neterion.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ivo van Doorn <ivdoorn@gmail.com>,
+	Marcus Better <marcus@better.se>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:52780 "EHLO
-	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
-	id S932467AbWEEFOQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 01:14:16 -0400
-Content-class: urn:content-classes:message
-To: <ravinandan.arakali@neterion.com>, <linux-kernel@vger.kernel.org>
+Received: from deine-taler.de ([217.160.107.63]:49596 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1750972AbWEEFpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 May 2006 01:45:18 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060505002215.1972e12b@logostar.upir.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I noticed the same behaviour, i.e. can not use both MSI and MSIX without
-rebooting.
+> The actual problem is with receiving. ACK frames need to be sent exactly
+> after SIFS interval (10 or 16 microseconds depending on a PHY, +/- 10%)
+> after last bit of the frame was received. This means it cannot be done in a
+> software. You need to tell the hardware about MAC address you are using and
+> hardware will ACK all frames destined to that address (well, actually only
+> that received with valid FCS, but it doesn't matter). And most hardware
+> don't allow to specify more MAC addresses.
+> 
+>  Jiri
 
-I had sent a message to the maintainer of the MSI/MSIX source a few
-months ago and got a response that they were working on fixing it. Not
-sure what the progress is on it.
+Good explanation. ZD1211 allows to specify a second RX address, I
+wondered, what this is good for. So for ZD1211 we could support
+two virtual interfaces. However in AP mode one virtual device
+would have to send the beacons on its own. But there could be also
+support for one interface in AP and the other in STA mode.
 
-Ayaz
-
-nvpublic
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Ravinandan Arakali
-Sent: Thursday, May 04, 2006 4:16 PM
-To: linux-kernel@vger.kernel.org
-Cc: Ananda. Raju; netdev@vger.kernel.org; Leonid Grossman
-Subject: pci_enable_msix throws up error
-
-
-Hi,
-I am seeing the following problem with MSI/MSI-X.
-
-Note: I am copying netdev since other network drivers use
-this feature and somebody on the list could throw light.
-
-Our 10G network card(Xframe II) supports MSI and MSI-X.
-When I load/unload the driver with MSI support followed
-by an attempt to load with MSI-X, I get the following
-message from pci_enable_msix:
-
-"Can't enable MSI-X.  Device already has an MSI vector assigned"
-
-I seem to be doing the correct things when unloading the
-MSI driver. Basically, I do free_irq() followed by pci_disable_msi().
-Any idea what I am missing ?
-
-Further analysis:
-Looking at the code, the following check(when it finds a match) in
-msi_lookup_vector(called by pci_enable_msix) seems to throw up this
-message:
-if (!msi_desc[vector] || msi_desc[vector]->dev != dev ||
-    msi_desc[vector]->msi_attrib.type != type ||
-    msi_desc[vector]->msi_attrib.default_vector != dev->irq)
-
-pci_enable_msi, on successful completion will populate the
-fields in msi_desc. But neither pci_disable_msi nor free_irq
-seems to undo/unpopulate the msi_desc table.
-Could this be the cause for the problem ?
-
-Thanks,
-Ravi
-
-
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Uli
+-- 
+Ulrich Kunitz - kune@deine-taler.de
