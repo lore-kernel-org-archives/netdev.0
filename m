@@ -1,66 +1,60 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH wireless-dev] d80211: Add support for user space client
-	MLME
-Date: Fri, 05 May 2006 12:13:14 +0200
-Message-ID: <1146823994.1137.65.camel@localhost>
-References: <20060503183524.GD10524@instant802.com>
-	 <20060504110028.5af3a22a@griffin.suse.cz>
-	 <20060504164423.GA12204@instant802.com>
+Subject: Re: [PATCH] bcm43xx-d80211: proper implementation of virtual
+	interface support
+Date: Fri, 05 May 2006 12:15:40 +0200
+Message-ID: <1146824140.1137.67.camel@localhost>
+References: <200605012135.00895.mb@bu3sch.de>
+	 <20060502132037.059a7cb2@griffin.suse.cz> <e3dkfd$pc5$1@sea.gmane.org>
+	 <200605042256.02333.IvDoorn@gmail.com>
+	 <20060505002215.1972e12b@logostar.upir.cz>
+	 <Pine.LNX.4.58.0605050738240.21178@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-KGuqMULUf2qvmhkjd9tV"
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, jkmaline@cc.hut.fi
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-vf2kZJbMm0iOptVQV9e2"
+Cc: Jiri Benc <jbenc@suse.cz>, Ivo van Doorn <ivdoorn@gmail.com>,
+	Marcus Better <marcus@better.se>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:23447 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751079AbWEEKN3
+Received: from crystal.sipsolutions.net ([195.210.38.204]:11922 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751084AbWEEKQH
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 May 2006 06:13:29 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060504164423.GA12204@instant802.com>
+	Fri, 5 May 2006 06:16:07 -0400
+To: Ulrich Kunitz <kune@deine-taler.de>
+In-Reply-To: <Pine.LNX.4.58.0605050738240.21178@p15091797.pureserver.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-KGuqMULUf2qvmhkjd9tV
+--=-vf2kZJbMm0iOptVQV9e2
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2006-05-04 at 09:44 -0700, Jouni Malinen wrote:
+On Fri, 2006-05-05 at 07:45 +0200, Ulrich Kunitz wrote:
+>  But there could be also
+> support for one interface in AP and the other in STA mode.
 
-> Yes. Currently, I'm just using a configuration file parameter for this,
-> but this information should eventually be exported by the kernel code to
-> allow wpa_supplicant to select which mode to use without requiring user
-> configuration.
-
-For the upcoming netlink interface, I'd suggest having a group of calls
-that are needed for full-mac devices (similar to the current wext) and a
-second group that are needed for soft-mlme, that way you simply try out
-one for the soft-mlme and if not implemented fall back to hard, or the
-other way around. Maybe.
+That's actually a much more interesting use case for WDS.
 
 johannes
 
---=-KGuqMULUf2qvmhkjd9tV
+--=-vf2kZJbMm0iOptVQV9e2
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIVAwUARFslN6Vg1VMiehFYAQIZdg/6AtxwpXxrbYX3fnQyCSw0Oee1gmJ8zmQG
-4dy9uA/QUKq0HpCcYF357vtMGkgCRqAShu/BjGPZut5kuIUDttWOIwvXxfJh39gA
-nU8gVwnc13MaVek8EKKpFdATYWrA1eGY/00fa7SqcIWLeWq9hw4EygeouSo779TA
-ny1UehGElxJ9qLtt6IxQC9aSCCez94x8mJgmpSctpprGudA9JA30jMYzwG6IY3xc
-p/p1SL60kGPERpa9bYie5FUdTssy73enNM8EomzW8LEnMUP0jfOPwIqv9QKRuspE
-DKJTj8CVjh2LQEbP744Q4bAESyY9BHnP/7Y7O+UPkDxYAzLtPO2y8E/A7QriU8EG
-wZVZDbVSETFHEcNkFv86+7BCbL5YgqZ47V8ah9tWDYEIbp0/fZ3bGYIueC4ihImu
-f//6deXwGZ85X/0gH8oLQMMH9+sFCU0EfBnB3F44TXcjPl6k2fd8ACg1JGrrzIi9
-UdJPKWGd2lKjOR0dwXkhfnJIfj+TQsFQm+/6lvfVGHk4qGGFjcxwjeFL1wTkctNy
-e6O6PxRfz6/9LorLspFpBfvg3bOLufj/mWs31ETZTaz1hjiDp1rRzvpBXrE21Fi2
-KrIDOPOWzD7D8LPC3SoZt2qjQVSNVxeusUx4OP8+iR7wlSTng4Az3p82C580P/c+
-btocmM8+kjU=
-=bIHg
+iQIVAwUARFslyaVg1VMiehFYAQK0Fw//br4Ekr/ArK8+T+uGgaQeM3DzUJjr3Am0
+zWdPE14mQWS+l0/NuGKiYdlmwwC3UnPpxzZKjS0g+jgUdeWAlG/Ee18V4aSuW0dv
+Ah6aFQt3KQQsx0zxVO7dA43VZ7oMKc9aTCcTnNqAgU8OfIUbNJVqUKW0/rU1ANGm
+t0+2rLkaBEaNzJXsrL0fRdm/Dk43PwH9JxWt4dLZezfLSdiDce0PY2AYJMD5dC5p
+3nDc4QFOWhhnGiFSZ8ZzcMFw/eVqda5jCY+9PjJi6zLb3o+KTzBBUrJR3cqJkH44
+vMvLyY5N/W2sc6WVBXlJ1hqlqFAnL4Z9CEVI3CIIMtQkDjsAuyz3FvHiMzdJ0VYE
+mGcaLnqZj4yjPHvuEJNpS2EQnX1vN5+LsJnEBmcATqv0GBfYxY2qIWUe0hoV7SPJ
+rpRbdrnCKv8EjzBNOi4sO1TqheTtAwHg56cFo3s+9wFBHAF9CyU+oNHgzBTezoJG
+Dfo7CB2TwNoW8MrmjwXzu7/ZrrAEMsuqy7kycxs+7gsMDYGST5IClzayQrJ5gLtn
+QeLdDJGDbGrDrc3RKeuwec83dUML0Q7IqE/o7SyJ+0K9RJJ2pSaGyLgICqzHrfdN
+8lhSlDqlIVefZDKFK1ukm5is0j3PG99gQlS8kR4FWNSlHpw5z7yBnHyaBEcGEbeB
+I7TzFoU3JWM=
+=hxkK
 -----END PGP SIGNATURE-----
 
---=-KGuqMULUf2qvmhkjd9tV--
+--=-vf2kZJbMm0iOptVQV9e2--
 
