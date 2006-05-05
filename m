@@ -1,174 +1,100 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 1/4] [SCTP]: Allow spillover of receiver buffer to avoid
-	deadlock
-Date: Fri, 05 May 2006 12:14:28 -0700
-Message-ID: <1146856468.7861.33.camel@w-sridhar2.beaverton.ibm.com>
+Subject: [PATCH 2/4] [SCTP]: Prevent possible infinite recursion with
+	multiple bundled DATA.
+Date: Fri, 05 May 2006 12:14:38 -0700
+Message-ID: <1146856478.7861.34.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:33490 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751718AbWEETO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 15:14:29 -0400
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:9687 "EHLO e6.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751207AbWEETOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 15:14:38 -0400
 Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k45JESUo031411
-	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:28 -0400
+	by e6.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k45JEbGo031147
+	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:37 -0400
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k45JESP0254150
-	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:28 -0400
+	by d01relay02.pok.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k45JEbP0254190
+	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:37 -0400
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11/8.13.3) with ESMTP id k45JERIk001036
-	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:27 -0400
+	by d01av04.pok.ibm.com (8.12.11/8.13.3) with ESMTP id k45JEbc6001583
+	for <netdev@vger.kernel.org>; Fri, 5 May 2006 15:14:37 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+[SCTP]: Prevent possible infinite recursion with multiple bundled DATA.
 
-Please apply the following 4 SCTP patches to 2.6 tree.
+There is a rare situation that causes lksctp to go into infinite recursion
+and crash the system.  The trigger is a packet that contains at least the
+first two DATA fragments of a message bundled together. The recursion is
+triggered when the user data buffer is smaller that the full data message.
+The problem is that we clone the skb for every fragment in the message.
+When reassembling the full message, we try to link skbs from the "first
+fragment" clone using the frag_list. However, since the frag_list is shared
+between two clones in this rare situation, we end up setting the frag_list
+pointer of the second fragment to point to itself.  This causes
+sctp_skb_pull() to potentially recurse indefinitely.
 
-Thanks
-Sridhar
+Proposed solution is to make a copy of the skb when attempting to link
+things using frag_list.
 
-[SCTP]: Allow spillover of receive buffer to avoid deadlock.
-
-This patch fixes a deadlock situation in the receive path by allowing
-temporary spillover of the receive buffer.
-
-- If the chunk we receive has a tsn that immediately follows the ctsn,
-  accept it even if we run out of receive buffer space and renege data with
-  higher TSNs.
-- Once we accept one chunk in a packet, accept all the remaining chunks
-  even if we run out of receive buffer space.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Acked-by: Mark Butler <butlerm@middle.net>
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Signed-off-by: Vladislav Yasevich <vladsilav.yasevich@hp.com>
 Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
 ---
- include/net/sctp/structs.h |    1 +
- net/sctp/inqueue.c         |    1 +
- net/sctp/sm_statefuns.c    |   46 ++++++++++++++++++++++++++++++++++----------
- 3 files changed, 38 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index eba99f3..7f4fea1 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -712,6 +712,7 @@ struct sctp_chunk {
- 	__u8 tsn_gap_acked;	/* Is this chunk acked by a GAP ACK? */
- 	__s8 fast_retransmit;	 /* Is this chunk fast retransmitted? */
- 	__u8 tsn_missing_report; /* Data chunk missing counter. */
-+	__u8 data_accepted; 	/* At least 1 chunk in this packet accepted */
- };
- 
- void sctp_chunk_hold(struct sctp_chunk *);
-diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
-index 297b895..cf0c767 100644
---- a/net/sctp/inqueue.c
-+++ b/net/sctp/inqueue.c
-@@ -149,6 +149,7 @@ struct sctp_chunk *sctp_inq_pop(struct s
- 		/* This is the first chunk in the packet.  */
- 		chunk->singleton = 1;
- 		ch = (sctp_chunkhdr_t *) chunk->skb->data;
-+		chunk->data_accepted = 0;
- 	}
- 
-         chunk->chunk_hdr = ch;
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 2b9a832..6834032 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -5151,7 +5151,9 @@ static int sctp_eat_data(const struct sc
- 	int tmp;
- 	__u32 tsn;
- 	int account_value;
-+	struct sctp_tsnmap *map = (struct sctp_tsnmap *)&asoc->peer.tsn_map;
- 	struct sock *sk = asoc->base.sk;
-+	int rcvbuf_over = 0;
- 
- 	data_hdr = chunk->subh.data_hdr = (sctp_datahdr_t *)chunk->skb->data;
- 	skb_pull(chunk->skb, sizeof(sctp_datahdr_t));
-@@ -5162,10 +5164,16 @@ static int sctp_eat_data(const struct sc
- 	/* ASSERT:  Now skb->data is really the user data.  */
- 
- 	/*
--	 * if we are established, and we have used up our receive
--	 * buffer memory, drop the frame
--	 */
--	if (asoc->state == SCTP_STATE_ESTABLISHED) {
-+	 * If we are established, and we have used up our receive buffer 
-+	 * memory, think about droping the frame.
-+	 * Note that we have an opportunity to improve performance here.
-+	 * If we accept one chunk from an skbuff, we have to keep all the
-+	 * memory of that skbuff around until the chunk is read into user 
-+	 * space. Therefore, once we accept 1 chunk we may as well accept all
-+	 * remaining chunks in the skbuff. The data_accepted flag helps us do
-+	 * that.
-+	 */
-+	if ((asoc->state == SCTP_STATE_ESTABLISHED) && (!chunk->data_accepted)) {
- 		/*
- 		 * If the receive buffer policy is 1, then each
- 		 * association can allocate up to sk_rcvbuf bytes
-@@ -5176,9 +5184,25 @@ static int sctp_eat_data(const struct sc
- 			account_value = atomic_read(&asoc->rmem_alloc);
- 		else
- 			account_value = atomic_read(&sk->sk_rmem_alloc);
--
--		if (account_value > sk->sk_rcvbuf)
--			return SCTP_IERROR_IGNORE_TSN;
-+		if (account_value > sk->sk_rcvbuf) {
-+			/*
-+			 * We need to make forward progress, even when we are
-+			 * under memory pressure, so we always allow the 
-+			 * next tsn after the ctsn ack point to be accepted.
-+			 * This lets us avoid deadlocks in which we have to 
-+			 * drop frames that would otherwise let us drain the 
-+			 * receive queue.
-+			 */
-+			if ((sctp_tsnmap_get_ctsn(map) + 1) != tsn)
-+				return SCTP_IERROR_IGNORE_TSN;
-+
-+			/*
-+			 * We're going to accept the frame but we should renege
-+			 * to make space for it. This will send us down that
-+			 * path later in this function.
-+			 */
-+			rcvbuf_over = 1;
-+		}
- 	}
- 
- 	/* Process ECN based congestion.
-@@ -5226,6 +5250,7 @@ static int sctp_eat_data(const struct sc
- 	datalen -= sizeof(sctp_data_chunk_t);
- 
- 	deliver = SCTP_CMD_CHUNK_ULP;
-+	chunk->data_accepted = 1;
- 
- 	/* Think about partial delivery. */
- 	if ((datalen >= asoc->rwnd) && (!asoc->ulpq.pd_mode)) {
-@@ -5242,7 +5267,8 @@ static int sctp_eat_data(const struct sc
- 	 * large spill over.
+ net/sctp/ulpqueue.c |   27 +++++++++++++++++++++++++--
+ 1 files changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index 2080b2d..9505c88 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -279,6 +279,7 @@ static inline void sctp_ulpq_store_reasm
+ static struct sctp_ulpevent *sctp_make_reassembled_event(struct sk_buff_head *queue, struct sk_buff *f_frag, struct sk_buff *l_frag)
+ {
+ 	struct sk_buff *pos;
++	struct sk_buff *new = NULL;
+ 	struct sctp_ulpevent *event;
+ 	struct sk_buff *pnext, *last;
+ 	struct sk_buff *list = skb_shinfo(f_frag)->frag_list;
+@@ -297,11 +298,33 @@ static struct sctp_ulpevent *sctp_make_r
  	 */
- 	if (!asoc->rwnd || asoc->rwnd_over ||
--	    (datalen > asoc->rwnd + asoc->frag_point)) {
-+	    (datalen > asoc->rwnd + asoc->frag_point) ||
-+	    rcvbuf_over) {
+ 	if (last)
+ 		last->next = pos;
+-	else
+-		skb_shinfo(f_frag)->frag_list = pos;
++ 	else {
++ 		if (skb_cloned(f_frag)) {
++ 			/* This is a cloned skb, we can't just modify
++ 			 * the frag_list.  We need a new skb to do that.
++ 			 * Instead of calling skb_unshare(), we'll do it
++ 			 * ourselves since we need to delay the free.
++ 			 */
++ 			new = skb_copy(f_frag, GFP_ATOMIC);
++ 			if (!new)
++ 				return NULL;	/* try again later */
++ 
++ 			new->sk = f_frag->sk;
++ 
++ 			skb_shinfo(new)->frag_list = pos;
++ 		} else
++ 			skb_shinfo(f_frag)->frag_list = pos;
++ 	}
  
- 		/* If this is the next TSN, consider reneging to make
- 		 * room.   Note: Playing nice with a confused sender.  A
-@@ -5250,8 +5276,8 @@ static int sctp_eat_data(const struct sc
- 		 * space and in the future we may want to detect and
- 		 * do more drastic reneging.
- 		 */
--		if (sctp_tsnmap_has_gap(&asoc->peer.tsn_map) &&
--		    (sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + 1) == tsn) {
-+		if (sctp_tsnmap_has_gap(map) &&
-+		    (sctp_tsnmap_get_ctsn(map) + 1) == tsn) {
- 			SCTP_DEBUG_PRINTK("Reneging for tsn:%u\n", tsn);
- 			deliver = SCTP_CMD_RENEGE;
- 		} else {
+ 	/* Remove the first fragment from the reassembly queue.  */
+ 	__skb_unlink(f_frag, queue);
++ 
++ 	/* if we did unshare, then free the old skb and re-assign */
++ 	if (new) {
++ 		kfree_skb(f_frag);
++ 		f_frag = new;
++ 	}
++ 
+ 	while (pos) {
+ 
+ 		pnext = pos->next;
 
 
