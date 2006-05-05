@@ -1,48 +1,53 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] bcm43xx-d80211: Fix access to non-existent PHY registers
-Date: Fri, 5 May 2006 19:50:54 +0200
-Message-ID: <200605051950.54391.mb@bu3sch.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 1.3-rc1
+Date: Fri, 5 May 2006 10:45:36 -0700
+Message-ID: <20060505104536.2baefa5e@localhost.localdomain>
+References: <1146667951.3056.25.camel@fc5test.deadmoose.com>
+	<20060503120507.4558c675@localhost.localdomain>
+	<445B626B.1070407@gentoo.org>
+	<20060505173509.GK2757@cip.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>
+Cc: Daniel Drake <dsd@gentoo.org>, Bill Hoover <bill@luminescent.com>,
+	Bertrand Jacquin <beber@gna.org>, micheleschi@libero.it,
+	netdev@vger.kernel.org, teppic74@hotmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:26307
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751697AbWEERoZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 May 2006 13:44:25 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:2703 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751156AbWEESHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 14:07:39 -0400
+To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+In-Reply-To: <20060505173509.GK2757@cip.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John, this is the same patch as before, but for d80211.
-Please apply to wireless-dev.
+On Fri, 5 May 2006 19:35:09 +0200
+Thomas Glanzmann <sithglan@stud.uni-erlangen.de> wrote:
 
---
+> Hello,
+> 
+> > >	http://developer.osdl.org/shemminger/prototypes/sky2-1.3-rc1.tar.bz2
+> 
+> > v0.15:
+> > 64 bytes from 10.0.0.138: icmp_seq=2 ttl=64 time=0.467 ms
+> 
+> > v1.3-rc1:
+> > 64 bytes from 10.0.0.138: icmp_seq=4 ttl=64 time=32.9 ms
+> 
+> I can't confirm this. For me it is just perfect:
+> 
+> 64 bytes from 89.106.66.1: icmp_seq=1 ttl=64 time=0.278 ms
+> 
+> 0000:04:00.0 Ethernet controller: Marvell Technology Group Ltd.: Unknown device 4361 (rev 17)
+> 
+>         Thomas
 
-Fix the conditions under which we poke at the APHY registers in
-bcm43xx_phy_initg() to avoid a machine check on chips where they don't
-exist.
+What is happening is that if there is a misconfiguration and irq routing
+is messed up (ie edge trigged). The driver will degenerate to polling every 100ms.
+If your system is this misconfigured, then ACPI or the BIOS needs to be fixed
+and the driver really only needs to work well enough to get the bug report out ;-)
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+The older driver was doing rewhacking the Transmit IRQ status timer,
+so it would give a bogus transmit status interrupt and that was masking
+issues.
 
-diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c
-index 45da79d..1816f66 100644
---- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c
-+++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c
-@@ -1287,7 +1287,7 @@ static void bcm43xx_phy_initg(struct bcm
- 	if (radio->revision == 8)
- 		bcm43xx_phy_write(bcm, 0x0805, 0x3230);
- 	bcm43xx_phy_init_pctl(bcm);
--	if (bcm->chip_id == 0x4306 && bcm->chip_package != 2) {
-+	if (bcm->chip_id == 0x4306 && bcm->chip_package == 2) {
- 		bcm43xx_phy_write(bcm, 0x0429,
- 				  bcm43xx_phy_read(bcm, 0x0429) & 0xBFFF);
- 		bcm43xx_phy_write(bcm, 0x04C3,
-
-
--- 
-Greetings Michael.
