@@ -1,36 +1,74 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 connect() from site-local to global IPv6 address.
-Date: Sat, 06 May 2006 11:39:04 +0900 (JST)
-Message-ID: <20060506.113904.63157190.yoshfuji@linux-ipv6.org>
-References: <1146862832.2766.54.camel@pmac.infradead.org>
-	<20060506.091920.122414672.yoshfuji@linux-ipv6.org>
-	<1146876802.2503.32.camel@shinybook.infradead.org>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Fw: [Bugme-new] [Bug 6495] New: Vlan MTU Fragmentation
+Date: Fri, 5 May 2006 19:39:03 -0700
+Message-ID: <20060505193903.249feaf8.akpm@osdl.org>
+References: <20060504235628.33041b55.akpm@osdl.org>
+	<445B75D2.6080702@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	slavon@bigtelecom.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:38917 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751802AbWEFCjE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 May 2006 22:39:04 -0400
-To: dwmw2@infradead.org
-In-Reply-To: <1146876802.2503.32.camel@shinybook.infradead.org>
+Received: from smtp.osdl.org ([65.172.181.4]:6040 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751811AbWEFCjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 22:39:19 -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <445B75D2.6080702@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <1146876802.2503.32.camel@shinybook.infradead.org> (at Sat, 06 May 2006 01:53:21 +0100), David Woodhouse <dwmw2@infradead.org> says:
+On Fri, 05 May 2006 08:57:06 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> There is a default route, because I believe that's the only thing that
-> radvd can do. I cannot advertise a route to _only_ fec0::/16, can I?
+> Andrew Morton wrote:
+> > 
+> > Begin forwarded message:
+> > 
+> > Date: Thu, 4 May 2006 23:15:56 -0700
+> > From: bugme-daemon@bugzilla.kernel.org
+> > To: bugme-new@lists.osdl.org
+> > Subject: [Bugme-new] [Bug 6495] New: Vlan MTU Fragmentation
+> > 
+> > 
+> > http://bugzilla.kernel.org/show_bug.cgi?id=6495
+> > 
+> >            Summary: Vlan MTU Fragmentation
+> >     Kernel Version: 2.6.16.12
+> >             Status: NEW
+> >           Severity: normal
+> >              Owner: shemminger@osdl.org
+> >          Submitter: slavon@bigtelecom.ru
+> > 
+> > 
+> > Steps to reproduce:
+> > 
+> > ifconfing eth0 mtu 1500
+> > ifconfing eth0.100 mtu 1500
+> > 
+> > ping www.ru -s 2000
+> > -- BAD --
+> > 
+> > ----------------
+> > 
+> > ifconfing eth0 mtu 1500
+> > ifconfing eth0.100 mtu 1496
+> > 
+> > ping www.ru -s 2000
+> > --NORMAL--
+> 
+> This is almost definately a bug in the ethernet driver.  The driver needs
+> to be modified so that it can send/receive pkts that are MTU + 4 bytes for the
+> VLAN header.
+> 
+> We need to know what NIC/driver this user is using...
+> 
+> Ben
+> 
 
-Yes, you can, via Route Information option.
-(>= 2.6.17-rc1 support this.)
+Sorry, I should have added Badalian to Cc:.  He's using 3c905C (3c59x.c,
+allegedly maintained by myself).
 
-Anyway, it is valid to use (obsolete) site-local source address
-for global destination address.
-The problem seems that router does NOT send ICMPv6 destination
-unreachable to the sender. I don't know why, but it SHOULD.
+(Badalian, please use emailed reply-to-all rather than the bugzilla
+interface for the remainder of this discussion, thanks).
 
---yoshfuji
