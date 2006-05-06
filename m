@@ -1,58 +1,45 @@
-From: Uli Kunitz <kune@deine-taler.de>
-Subject: Re: [RFC] Proposed structure for Regulatory/Geographical Wireless
- database
-Date: Sat, 6 May 2006 07:07:20 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0605060702001.28448@p15091797.pureserver.info>
-References: <445BB22B.30505@lwfinger.net> <Pine.LNX.4.58.0605052256570.26787@p15091797.pureserver.info>
- <445BC234.4060909@lwfinger.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] netdev: create attribute_groups with
+ class_device_add
+Date: Fri, 05 May 2006 23:00:50 -0700 (PDT)
+Message-ID: <20060505.230050.56609951.davem@davemloft.net>
+References: <20060421125438.50f93a34@localhost.localdomain>
+	<20060505.184158.131584956.davem@davemloft.net>
+	<20060506040839.GA12636@kroah.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Uli Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org,
-	Faidon Liambotis <faidon@cube.gr>,
-	Rick Jones <rick.jones2@hp.com>,
-	Harald Welte <laforge@gnumonks.org>,
-	Jouni Malinen <jkm@devicescape.com>,
-	Christoph Hellwig <hch@infradead.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:58044 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1751146AbWEFFIG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 01:08:06 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <445BC234.4060909@lwfinger.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44191
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750857AbWEFGA5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 02:00:57 -0400
+To: greg@kroah.com
+In-Reply-To: <20060506040839.GA12636@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Larry Finger wrote:
+From: Greg KH <greg@kroah.com>
+Date: Fri, 5 May 2006 21:08:39 -0700
 
-> Uli Kunitz wrote:
-> > Larry Finger wrote:
+> On Fri, May 05, 2006 at 06:41:58PM -0700, David S. Miller wrote:
+> > From: Stephen Hemminger <shemminger@osdl.org>
+> > Date: Fri, 21 Apr 2006 12:54:38 -0700
 > > 
-> > > * A new routine (ieee80211_init_geo ?) will be written to be called by the
-> > > driver to load the geo structure into the kernel. Information passed to
-> > > the
-> > > daemon will be the country code in ASCII and whether the interface is to
-> > > be
-> > > used indoors or outdoors.
+> > > Atomically create attributes when class device is added. This avoids the
+> > > race between registering class_device (which generates hotplug event),
+> > > and the creation of attribute groups.
+> > > 
+> > > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 > > 
-> > Would it be possible to support the regulatory domain codes as
-> > used in the outdated table 105 in Corrigendum 1 for 802.11b? The
-> > ZD1211 EEPROM contains only this code. An easy translation
-> > function would be sufficient. Maybe the group codes could be
-> > misused for it.
+> > Did the first patch that adds the attribute_group creation
+> > infrastructure go in so that we can get this networking fix in?
 > 
-> That certainly shouldn't be any difficulty. It could be done in the ZD1211
-> driver before it calls the ieee80211_init_geo routine, or it could be done in
-> the regulatory daemon. I assume that the EEPROM contains X'10' for FCC
-> regulations, X'31' for Spain, etc.
-> 
-> Larry
+> It and the netdev patch are setting in my tree which is showing up in
+> -mm.  I'm going to wait until 2.6.17 is out to send the first patch.  I
+> can send the second one then too if you want me to (probably make it
+> easier that way.)
 
-Yes, it could be done in the driver. But if there are other
-drivers having the same issue, the helper function should be
-integrated in the geo code.
-
-Uli
-
--- 
-Uli Kunitz - kune@deine-taler.de
+The networking bit by Stephen is a bug fix.
