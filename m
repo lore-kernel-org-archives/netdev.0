@@ -1,50 +1,88 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Re: a question on tcp_highspeed.c (in 2.6.16)
-Date: Fri, 05 May 2006 17:42:03 -0700 (PDT)
-Message-ID: <20060505.174203.40998208.davem@davemloft.net>
-References: <7335583a0605040703x1d6e8a20n515b22241795d3ab@mail.gmail.com>
-	<445A5098.6010306@psc.edu>
+From: <tantiques@earthlink.net>
+Subject: =?koi8-r?B?IEZpbmFuY2UgbWFuYWdlciAg?=
+	=?koi8-r?B?KG1zZyBpZCA9IDFkSSAp?=
+Date: Sat, 6 May 2006 02:45:08 +0200
+Message-ID: <007101c48add$a5db11e5$05d89dbd@oydeluea>
+Reply-To: <tapseram@mindspring.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davidwei79@gmail.com, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+        boundary="----=_NextPart_000_0070_01C49DBD.05D811E5"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12438
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751617AbWEFAmE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 May 2006 20:42:04 -0400
-To: jheffner@psc.edu
-In-Reply-To: <445A5098.6010306@psc.edu>
+Received: from venus.interxion.site2host.be ([217.22.61.234]:59595 "HELO
+	venus.interxion.site2host.be") by vger.kernel.org with SMTP
+	id S1751804AbWEFApK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 May 2006 20:45:10 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Thu, 04 May 2006 15:06:00 -0400
+------=_NextPart_000_0070_01C49DBD.05D811E5
+Content-Type: text/plain;
+        charset="koi8-r"
+Content-Transfer-Encoding: quoted-printable
 
-> Xiaoliang (David) Wei wrote:
-> > Hi gurus,
-> > 
-> >    I am reading the code of tcp_highspeed.c in the kernel and have a
-> > question on the hstcp_cong_avoid function, specifically the following
-> > AI part (line 136~143 in net/ipv4/tcp_highspeed.c ):
-> > 
-> >                /* Do additive increase */
-> >                if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
-> >                        tp->snd_cwnd_cnt += ca->ai;
-> >                        if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
-> >                                tp->snd_cwnd++;
-> >                                tp->snd_cwnd_cnt -= tp->snd_cwnd;
-> >                        }
-> >                }
-> > 
-> >    In this part, when (tp->snd_cwnd_cnt == tp->snd_cwnd),
-> > snd_cwnd_cnt will be -1... snd_cwnd_cnt is defined as u16, will this
-> > small chance of getting -1 becomes a problem?
-> > Shall we change it by reversing the order of the cwnd++ and cwnd_cnt -= 
-> > cwnd?
-> 
-> Absolutely correct.  Thanks.
-> 
-> Signed-off-by: John Heffner <jheffner@psc.edu>
+Hello, your e-mail address netdev@vger.kernel.org ,  has been taken from th=
+e open sources. My name is Alex Brewster. I am the main manager of Web Clic=
+k Company. =0D
+We are engaged in software developing and design. The main office of our Co=
+mpany is located in Lithuania. =0D
+We are searching for employees to work in our company worldwide. If you wis=
+h to have additional income from 4000 to 10 000 dollars a month, =0D
+working from your house this offer is for you. The choice of vacancies is h=
+uge (designers, managers, auditors, financiers). =0D
+We will offer you the best conditions to work. =0D
+Also if you own a company or if you are managing director of the company we=
+ offer you to cooperation with us.  =0D
+=0D
+=0D
+ Please do not reply to this letter. Send your contact data and your CV  to=
+ this e-mail: aomqg6gg37@yahoo.com -  it is our temproary e-mail. =0D
+=0D
+=0D
+=0D
+=0D
+=0D
+=0D
+netdev@vger.kernel.org sorry for possible disturbance=0D
+=0D
+------------------------------------------------------------=0D
+This email is not sent unsolicited and is in compliance with the=0D
+federal CAN-SPAM act.  Your email address was provided to us as=0D
+either a reciprocal user of website promotion system(s), or as an=0D
+email initially sent by you or your company to which this response=0D
+is being provided.=0D
+--------------------------------------------------------------=0D
+=0D
+=0D
+=0D
+ETLs2Fu8=0D
+=0D
+this mailing conforms to all federal laws.  please reply=0D
+back with "stop mailings" in subject line netdev@vger.kernel.org to =0D
+stop mailings.  per can-spam you must allow up to 7=0D
+business days for your email deletion.=0D
+=0D
+=0D
+=0D
+7tQ=0D
+=0D
+=0D
+TBau7=0D
+MKbx=0D
+Q=0D
+=0D
+4dJ=0D
+cjzuEZNb=0D
+=0D
+ma=0D
+=0D
+=0D
+l=0D
+=0D
+xTj5W=0D
+Hd=0D
+=0D
 
-Applied, thanks a lot everyone.
+------=_NextPart_000_0070_01C49DBD.05D811E5--
+
+
