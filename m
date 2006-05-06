@@ -1,84 +1,55 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Dscape ieee80211: enabling/disabling the radio
-Date: Sat, 6 May 2006 14:00:58 +0200
-Message-ID: <200605061401.01795.IvDoorn@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull upstream-fixes branch of wireless-2.6
+Date: Sat, 6 May 2006 09:45:34 -0400
+Message-ID: <20060506134533.GA12812@tuxdriver.com>
+References: <20060506010613.GA26189@tuxdriver.com> <20060505200812.1e76785c.akpm@osdl.org> <Pine.LNX.4.64.0605052017070.16343@g5.osdl.org> <445C2219.5060204@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2141649.9AmNkeybrB";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.230]:56462 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1750798AbWEFL7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 07:59:33 -0400
-Received: by wr-out-0506.google.com with SMTP id i12so729446wra
-        for <netdev@vger.kernel.org>; Sat, 06 May 2006 04:59:33 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from ra.tuxdriver.com ([24.172.12.4]:17170 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1750817AbWEFNzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 09:55:38 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <445C2219.5060204@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2141649.9AmNkeybrB
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Fri, May 05, 2006 at 09:12:09PM -0700, Stephen Hemminger wrote:
+> Linus Torvalds wrote:
+> >On Fri, 5 May 2006, Andrew Morton wrote:
+> >  
+> >>On Fri, 5 May 2006 21:06:18 -0400
+> >>"John W. Linville" <linville@tuxdriver.com> wrote:
+> >>    
+> >>>These are fixes intended for 2.6.17...thanks!
+> >>>      
+> >>Jeff is offline for a couple of weeks.   Please prepare a pull for Linus.
+> >>    
+> >
+> >Actually, while Jeff is off, Steve Hemminger is supposed to be the network 
+> >driver overlord ("All bow down before the mighty Shemminger"), so please 
+> >do synchronize with him.
+> >
+> >Of course, that might be just Steve taking a look and telling me "yeah, 
+> >please pull directly from John".
+> >
+> >		Linus
+> >  
+> I had a bunch ready for monday...
 
-Hi,
+So, Stephen, you will pull from me and have Linus pull all from you?
+Just trying to clarify the plan... :-)
 
-While working on the rt2x00 driver, I keep hitting against some problems with scanning.
-Basicly the dscape stack handles scanning in 2 ways, through the
-passive_scan() handler in the ieee80211_hw structure, and by calling
-the config() handler in the ieee80211_hw stucture.
+It makes no difference to me.  I'll include the git url "just in case":
 
-The usage of the first handler, does not give any problems at this time.
-The main source of problems during scanning in rt2x00 seems to come
-when the config() handler is used.
+	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
 
-In rt2x00 the config() handler schedules all configuration changes by using a workqueue,
-this is required since several configuration changes in rt2x00 need sleeping and for
-USB devices all register access requires sleeping. And the config() handler is often
-called from interrupt context so it complains a lot when the workqueue is not used.
+Thanks!
 
-This seemed fine, untill the radio_enabled field was introduced to the configuration structure.
-When the radio_enable field is set, the radio must be enabled, but enabling
-the radio is something that can (at least in rt2x00) fail. So scheduling the enabling of the radio
-to the workqueue is not something that is desired since the stack can not be notified that the
-device is not able to enable the radio.
-
-Moving the enabling of the radio outside the workqueue function and into the config()
-handler results in scheduling while atomic issues since the enabling of the radio requires
-sleeping for both PCI and USB devices.
-
-Instead of using a config field radio_enabled, wouldn't it be better to add 2 handlers
-to the ieee80211_hw structure, something like enable_radio() and disable_radio()?
-If these functions are called from normal context the dscape stack can still enable
-and disable the radio whenever it is desired, and it is able to check the return value
-to see if the request has actually succeeded.
-
-What I am wondering about afterwards is what exactly should happen when the open()
-and stop() handlers are being called? Because those are basicly intented to enable
-and stop the radio as well. I checked bcm43xx to see what they do, and they don't seem
-to check the radio_enabled field, so I don't know what they do besides enabling the radio.
-
-Well this was just some stuff I have been trying to figure out while trying to solve several
-rt2x00 bugs... ;)
-
-Regards,
-
-Ivo
-
---nextPart2141649.9AmNkeybrB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEXI/9aqndE37Em0gRAlazAJ9L5hg8EYRBxlfLm0/9R0EAbrds1gCggCmI
-ym+dp3hFsk5kpVQx/v8AeXc=
-=X+Ex
------END PGP SIGNATURE-----
-
---nextPart2141649.9AmNkeybrB--
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
