@@ -1,17 +1,17 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [RFC 1/3] [IPSEC] xfrm: Undo afinfo lock proliferation
-Date: Sat, 6 May 2006 21:21:23 +1000
-Message-ID: <20060506112123.GA27904@gondor.apana.org.au>
+Subject: [RFC 2/3] [IPSEC] xfrm: Abstract out encapsulation modes
+Date: Sat, 6 May 2006 21:21:57 +1000
+Message-ID: <20060506112157.GB27904@gondor.apana.org.au>
 References: <1145343829.44448f556684c@webmail.hiit.fi> <20060418080340.GA2206@gondor.apana.org.au> <Pine.SOL.4.64.0604181512460.26361@kekkonen.cs.hut.fi> <20060419110209.GA15584@gondor.apana.org.au> <Pine.SOL.4.64.0604191529100.11141@kekkonen.cs.hut.fi> <20060506112026.GA27671@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="k1lZvvs/B4yU6o8G"
+Content-Type: multipart/mixed; boundary="aVD9QWMuhilNxW9f"
 Cc: Diego Beltrami <Diego.Beltrami@hiit.fi>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:16654 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750725AbWEFLVb
+Received: from rhun.apana.org.au ([64.62.148.172]:21006 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750777AbWEFLWG
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 07:21:31 -0400
+	Sat, 6 May 2006 07:22:06 -0400
 To: Miika Komu <miika@iki.fi>
 Content-Disposition: inline
 In-Reply-To: <20060506112026.GA27671@gondor.apana.org.au>
@@ -19,25 +19,20 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---k1lZvvs/B4yU6o8G
+--aVD9QWMuhilNxW9f
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi:
 
-The number of locks used to manage afinfo structures can easily be reduced
-down to one each for policy and state respectively.  This is based on the
-observation that the write locks are only held by module insertion/removal
-which are very rare events so there is no need to further differentiate
-between the insertion of modules like ipv6 versus esp6.
+This patch adds the structure xfrm_mode.  It is meant to represent
+the operations carried out by transport/tunnel modes.
 
-The removal of the read locks in xfrm4_policy.c/xfrm6_policy.c might look
-suspicious at first.  However, after you realise that nobody ever takes
-the corresponding write lock you'll feel better :)
+By doing this we allow additional encapsulation modes to be added
+without clogging up the xfrm_input/xfrm_output paths.
 
-As far as I can gather it's an attempt to guard against the removal of
-the corresponding modules.  Since neither module can be unloaded at all
-we can leave it to whoever fixes up IPv6 unloading :)
+Candidate modes include 4-to-6 tunnel mode, 6-to-4 tunnel mode, and
+BEET modes.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -48,271 +43,952 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---k1lZvvs/B4yU6o8G
+--aVD9QWMuhilNxW9f
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="p1.patch"
+Content-Disposition: attachment; filename="p2.patch"
 
+diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+--- a/include/linux/xfrm.h
++++ b/include/linux/xfrm.h
+@@ -118,6 +118,10 @@ enum
+ 	XFRM_SHARE_UNIQUE	/* Use once */
+ };
+ 
++#define XFRM_MODE_TRANSPORT 0
++#define XFRM_MODE_TUNNEL 1
++#define XFRM_MODE_MAX 2
++
+ /* Netlink configuration messages.  */
+ enum {
+ 	XFRM_MSG_BASE = 0x10,
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -204,8 +204,7 @@ struct xfrm_type;
- struct xfrm_dst;
+@@ -20,6 +20,8 @@
+ #include <net/ip6_fib.h>
+ 
+ #define XFRM_ALIGN8(len)	(((len) + 7) & ~7)
++#define MODULE_ALIAS_XFRM_MODE(family, encap) \
++	MODULE_ALIAS("xfrm-mode-" __stringify(family) "-" __stringify(encap))
+ 
+ extern struct sock *xfrm_nl;
+ extern u32 sysctl_xfrm_aevent_etime;
+@@ -164,6 +166,7 @@ struct xfrm_state
+ 	/* Reference to data common to all the instances of this
+ 	 * transformer. */
+ 	struct xfrm_type	*type;
++	struct xfrm_mode	*mode;
+ 
+ 	/* Security context */
+ 	struct xfrm_sec_ctx	*security;
+@@ -205,6 +208,7 @@ struct xfrm_dst;
  struct xfrm_policy_afinfo {
  	unsigned short		family;
--	rwlock_t		lock;
--	struct xfrm_type_map	*type_map;
-+	struct xfrm_type	*type_map[256];
+ 	struct xfrm_type	*type_map[256];
++	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
  	struct dst_ops		*dst_ops;
  	void			(*garbage_collect)(void);
  	int			(*dst_lookup)(struct xfrm_dst **dst, struct flowi *fl);
-@@ -232,7 +231,6 @@ extern int __xfrm_state_delete(struct xf
- 
- struct xfrm_state_afinfo {
- 	unsigned short		family;
--	rwlock_t		lock;
- 	struct list_head	*state_bydst;
- 	struct list_head	*state_byspi;
- 	int			(*init_flags)(struct xfrm_state *x);
-@@ -264,11 +262,6 @@ struct xfrm_type
- 	u32			(*get_max_size)(struct xfrm_state *, int size);
- };
- 
--struct xfrm_type_map {
--	rwlock_t		lock;
--	struct xfrm_type	*map[256];
--};
--
- extern int xfrm_register_type(struct xfrm_type *type, unsigned short family);
- extern int xfrm_unregister_type(struct xfrm_type *type, unsigned short family);
+@@ -267,6 +271,19 @@ extern int xfrm_unregister_type(struct x
  extern struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family);
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -17,8 +17,6 @@
- static struct dst_ops xfrm4_dst_ops;
- static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
+ extern void xfrm_put_type(struct xfrm_type *type);
  
--static struct xfrm_type_map xfrm4_type_map = { .lock = RW_LOCK_UNLOCKED };
++struct xfrm_mode {
++	int (*input)(struct xfrm_state *x, struct sk_buff *skb);
++	int (*output)(struct sk_buff *skb);
++
++	struct module *owner;
++	int encap;
++};
++
++extern int xfrm_register_mode(struct xfrm_mode *mode, int family);
++extern int xfrm_unregister_mode(struct xfrm_mode *mode, int family);
++extern struct xfrm_mode *xfrm_get_mode(int encap, int family);
++extern void xfrm_put_mode(struct xfrm_mode *mode);
++
+ struct xfrm_tmpl
+ {
+ /* id in template is interpreted as:
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -414,6 +414,24 @@ config INET_TUNNEL
+ 	tristate
+ 	default n
+ 
++config INET_XFRM_MODE_TRANSPORT
++	tristate "IP: IPsec transport mode"
++	default y
++	select XFRM
++	---help---
++	  Support for IPsec transport mode.
++
++	  If unsure, say Y.
++
++config INET_XFRM_MODE_TUNNEL
++	tristate "IP: IPsec tunnel mode"
++	default y
++	select XFRM
++	---help---
++	  Support for IPsec tunnel mode.
++
++	  If unsure, say Y.
++
+ config INET_DIAG
+ 	tristate "INET: socket monitoring interface"
+ 	default y
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -24,6 +24,8 @@ obj-$(CONFIG_INET_ESP) += esp4.o
+ obj-$(CONFIG_INET_IPCOMP) += ipcomp.o
+ obj-$(CONFIG_INET_XFRM_TUNNEL) += xfrm4_tunnel.o
+ obj-$(CONFIG_INET_TUNNEL) += tunnel4.o
++obj-$(CONFIG_INET_XFRM_MODE_TRANSPORT) += xfrm4_mode_transport.o
++obj-$(CONFIG_INET_XFRM_MODE_TUNNEL) += xfrm4_mode_tunnel.o
+ obj-$(CONFIG_IP_PNP) += ipconfig.o
+ obj-$(CONFIG_IP_ROUTE_MULTIPATH_RR) += multipath_rr.o
+ obj-$(CONFIG_IP_ROUTE_MULTIPATH_RANDOM) += multipath_random.o
+diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+--- a/net/ipv4/xfrm4_input.c
++++ b/net/ipv4/xfrm4_input.c
+@@ -13,7 +13,6 @@
+ #include <linux/string.h>
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+-#include <net/inet_ecn.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ 
+@@ -24,15 +23,6 @@ int xfrm4_rcv(struct sk_buff *skb)
+ 
+ EXPORT_SYMBOL(xfrm4_rcv);
+ 
+-static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
+-{
+-	struct iphdr *outer_iph = skb->nh.iph;
+-	struct iphdr *inner_iph = skb->h.ipiph;
 -
- static int xfrm4_dst_lookup(struct xfrm_dst **dst, struct flowi *fl)
- {
- 	return __ip_route_output_key((struct rtable**)dst, fl);
-@@ -237,9 +235,7 @@ _decode_session4(struct sk_buff *skb, st
- 
- static inline int xfrm4_garbage_collect(void)
- {
--	read_lock(&xfrm4_policy_afinfo.lock);
- 	xfrm4_policy_afinfo.garbage_collect();
--	read_unlock(&xfrm4_policy_afinfo.lock);
- 	return (atomic_read(&xfrm4_dst_ops.entries) > xfrm4_dst_ops.gc_thresh*2);
- }
- 
-@@ -299,8 +295,6 @@ static struct dst_ops xfrm4_dst_ops = {
- 
- static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
- 	.family = 		AF_INET,
--	.lock = 		RW_LOCK_UNLOCKED,
--	.type_map = 		&xfrm4_type_map,
- 	.dst_ops =		&xfrm4_dst_ops,
- 	.dst_lookup =		xfrm4_dst_lookup,
- 	.find_bundle = 		__xfrm4_find_bundle,
-diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
---- a/net/ipv4/xfrm4_state.c
-+++ b/net/ipv4/xfrm4_state.c
-@@ -131,7 +131,6 @@ __xfrm4_find_acq(u8 mode, u32 reqid, u8 
- 
- static struct xfrm_state_afinfo xfrm4_state_afinfo = {
- 	.family			= AF_INET,
--	.lock			= RW_LOCK_UNLOCKED,
- 	.init_flags		= xfrm4_init_flags,
- 	.init_tempsel		= __xfrm4_init_tempsel,
- 	.state_lookup		= __xfrm4_state_lookup,
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -23,8 +23,6 @@
- static struct dst_ops xfrm6_dst_ops;
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
- 
--static struct xfrm_type_map xfrm6_type_map = { .lock = RW_LOCK_UNLOCKED };
+-	if (INET_ECN_is_ce(outer_iph->tos))
+-		IP_ECN_set_ce(inner_iph);
+-}
 -
- static int xfrm6_dst_lookup(struct xfrm_dst **dst, struct flowi *fl)
+ static int xfrm4_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi, u32 *seq)
  {
- 	int err = 0;
-@@ -249,9 +247,7 @@ _decode_session6(struct sk_buff *skb, st
+ 	switch (nexthdr) {
+@@ -113,24 +103,10 @@ int xfrm4_rcv_encap(struct sk_buff *skb,
  
- static inline int xfrm6_garbage_collect(void)
+ 		xfrm_vec[xfrm_nr++] = x;
+ 
+-		iph = skb->nh.iph;
++		if (x->mode->input(x, skb))
++			goto drop;
+ 
+ 		if (x->props.mode) {
+-			if (iph->protocol != IPPROTO_IPIP)
+-				goto drop;
+-			if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+-				goto drop;
+-			if (skb_cloned(skb) &&
+-			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+-				goto drop;
+-			if (x->props.flags & XFRM_STATE_DECAP_DSCP)
+-				ipv4_copy_dscp(iph, skb->h.ipiph);
+-			if (!(x->props.flags & XFRM_STATE_NOECN))
+-				ipip_ecn_decapsulate(skb);
+-			skb->mac.raw = memmove(skb->data - skb->mac_len,
+-					       skb->mac.raw, skb->mac_len);
+-			skb->nh.raw = skb->data;
+-			memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+ 			decaps = 1;
+ 			break;
+ 		}
+diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
+new file mode 100644
+--- /dev/null
++++ b/net/ipv4/xfrm4_mode_transport.c
+@@ -0,0 +1,69 @@
++/*
++ * xfrm4_mode_transport.c - Transport mode encapsulation for IPv4.
++ *
++ * Copyright (c) 2004-2006 Herbert Xu <herbert@gondor.apana.org.au>
++ */
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/stringify.h>
++#include <net/dst.h>
++#include <net/ip.h>
++#include <net/xfrm.h>
++
++/* Add encapsulation header.
++ *
++ * The IP header will be moved forward to make space for the encapsulation
++ * header.
++ *
++ * On exit, skb->h will be set to the start of the payload to be processed
++ * by x->type->output and skb->nh will be set to the top IP header.
++ */
++static int xfrm4_transport_output(struct sk_buff *skb)
++{
++	struct xfrm_state *x;
++	struct iphdr *iph;
++	int ihl;
++
++	iph = skb->nh.iph;
++	skb->h.ipiph = iph;
++
++	ihl = iph->ihl * 4;
++	skb->h.raw += ihl;
++
++	x = skb->dst->xfrm;
++	skb->nh.raw = memmove(skb_push(skb, x->props.header_len), iph, ihl);
++	return 0;
++}
++
++static int xfrm4_transport_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	return 0;
++}
++
++static struct xfrm_mode xfrm4_transport_mode = {
++	.input = xfrm4_transport_input,
++	.output = xfrm4_transport_output,
++	.owner = THIS_MODULE,
++	.encap = XFRM_MODE_TRANSPORT,
++};
++
++static int __init xfrm4_transport_init(void)
++{
++	return xfrm_register_mode(&xfrm4_transport_mode, AF_INET);
++}
++
++static void __exit xfrm4_transport_exit(void)
++{
++	int err;
++
++	err = xfrm_unregister_mode(&xfrm4_transport_mode, AF_INET);
++	BUG_ON(err);
++}
++
++module_init(xfrm4_transport_init);
++module_exit(xfrm4_transport_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_XFRM_MODE(AF_INET, XFRM_MODE_TRANSPORT);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+new file mode 100644
+--- /dev/null
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -0,0 +1,125 @@
++/*
++ * xfrm4_mode_tunnel.c - Tunnel mode encapsulation for IPv4.
++ *
++ * Copyright (c) 2004-2006 Herbert Xu <herbert@gondor.apana.org.au>
++ */
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/stringify.h>
++#include <net/dst.h>
++#include <net/inet_ecn.h>
++#include <net/ip.h>
++#include <net/xfrm.h>
++
++static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
++{
++	struct iphdr *outer_iph = skb->nh.iph;
++	struct iphdr *inner_iph = skb->h.ipiph;
++
++	if (INET_ECN_is_ce(outer_iph->tos))
++		IP_ECN_set_ce(inner_iph);
++}
++
++/* Add encapsulation header.
++ *
++ * The top IP header will be constructed per RFC 2401.  The following fields
++ * in it shall be filled in by x->type->output:
++ *      tot_len
++ *      check
++ *
++ * On exit, skb->h will be set to the start of the payload to be processed
++ * by x->type->output and skb->nh will be set to the top IP header.
++ */
++static int xfrm4_tunnel_output(struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb->dst;
++	struct xfrm_state *x = dst->xfrm;
++	struct iphdr *iph, *top_iph;
++	int flags;
++
++	iph = skb->nh.iph;
++	skb->h.ipiph = iph;
++
++	skb->nh.raw = skb_push(skb, x->props.header_len);
++	top_iph = skb->nh.iph;
++
++	top_iph->ihl = 5;
++	top_iph->version = 4;
++
++	/* DS disclosed */
++	top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
++
++	flags = x->props.flags;
++	if (flags & XFRM_STATE_NOECN)
++		IP_ECN_clear(top_iph);
++
++	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
++		0 : (iph->frag_off & htons(IP_DF));
++	if (!top_iph->frag_off)
++		__ip_select_ident(top_iph, dst->child, 0);
++
++	top_iph->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
++
++	top_iph->saddr = x->props.saddr.a4;
++	top_iph->daddr = x->id.daddr.a4;
++	top_iph->protocol = IPPROTO_IPIP;
++
++	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
++	return 0;
++}
++
++static int xfrm4_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct iphdr *iph = skb->nh.iph;
++	int err = -EINVAL;
++
++	if (iph->protocol != IPPROTO_IPIP)
++		goto out;
++	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++		goto out;
++
++	if (skb_cloned(skb) &&
++	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
++		goto out;
++
++	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
++		ipv4_copy_dscp(iph, skb->h.ipiph);
++	if (!(x->props.flags & XFRM_STATE_NOECN))
++		ipip_ecn_decapsulate(skb);
++	skb->mac.raw = memmove(skb->data - skb->mac_len,
++			       skb->mac.raw, skb->mac_len);
++	skb->nh.raw = skb->data;
++	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
++	err = 0;
++
++out:
++	return err;
++}
++
++static struct xfrm_mode xfrm4_tunnel_mode = {
++	.input = xfrm4_tunnel_input,
++	.output = xfrm4_tunnel_output,
++	.owner = THIS_MODULE,
++	.encap = XFRM_MODE_TUNNEL,
++};
++
++static int __init xfrm4_tunnel_init(void)
++{
++	return xfrm_register_mode(&xfrm4_tunnel_mode, AF_INET);
++}
++
++static void __exit xfrm4_tunnel_exit(void)
++{
++	int err;
++
++	err = xfrm_unregister_mode(&xfrm4_tunnel_mode, AF_INET);
++	BUG_ON(err);
++}
++
++module_init(xfrm4_tunnel_init);
++module_exit(xfrm4_tunnel_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_XFRM_MODE(AF_INET, XFRM_MODE_TUNNEL);
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -12,67 +12,10 @@
+ #include <linux/skbuff.h>
+ #include <linux/spinlock.h>
+ #include <linux/netfilter_ipv4.h>
+-#include <net/inet_ecn.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ #include <net/icmp.h>
+ 
+-/* Add encapsulation header.
+- *
+- * In transport mode, the IP header will be moved forward to make space
+- * for the encapsulation header.
+- *
+- * In tunnel mode, the top IP header will be constructed per RFC 2401.
+- * The following fields in it shall be filled in by x->type->output:
+- *	tot_len
+- *	check
+- *
+- * On exit, skb->h will be set to the start of the payload to be processed
+- * by x->type->output and skb->nh will be set to the top IP header.
+- */
+-static void xfrm4_encap(struct sk_buff *skb)
+-{
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x = dst->xfrm;
+-	struct iphdr *iph, *top_iph;
+-	int flags;
+-
+-	iph = skb->nh.iph;
+-	skb->h.ipiph = iph;
+-
+-	skb->nh.raw = skb_push(skb, x->props.header_len);
+-	top_iph = skb->nh.iph;
+-
+-	if (!x->props.mode) {
+-		skb->h.raw += iph->ihl*4;
+-		memmove(top_iph, iph, iph->ihl*4);
+-		return;
+-	}
+-
+-	top_iph->ihl = 5;
+-	top_iph->version = 4;
+-
+-	/* DS disclosed */
+-	top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
+-
+-	flags = x->props.flags;
+-	if (flags & XFRM_STATE_NOECN)
+-		IP_ECN_clear(top_iph);
+-
+-	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
+-		0 : (iph->frag_off & htons(IP_DF));
+-	if (!top_iph->frag_off)
+-		__ip_select_ident(top_iph, dst->child, 0);
+-
+-	top_iph->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
+-
+-	top_iph->saddr = x->props.saddr.a4;
+-	top_iph->daddr = x->id.daddr.a4;
+-	top_iph->protocol = IPPROTO_IPIP;
+-
+-	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+-}
+-
+ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
  {
--	read_lock(&xfrm6_policy_afinfo.lock);
- 	xfrm6_policy_afinfo.garbage_collect();
--	read_unlock(&xfrm6_policy_afinfo.lock);
- 	return (atomic_read(&xfrm6_dst_ops.entries) > xfrm6_dst_ops.gc_thresh*2);
+ 	int mtu, ret = 0;
+@@ -121,7 +64,9 @@ static int xfrm4_output_one(struct sk_bu
+ 		if (err)
+ 			goto error;
+ 
+-		xfrm4_encap(skb);
++		err = x->mode->output(skb);
++		if (err)
++			goto error;
+ 
+ 		err = x->type->output(x, skb);
+ 		if (err)
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -106,6 +106,26 @@ config INET6_TUNNEL
+ 	tristate
+ 	default n
+ 
++config INET6_XFRM_MODE_TRANSPORT
++	tristate "IPv6: IPsec transport mode"
++	depends on IPV6
++	default IPV6
++	select XFRM
++	---help---
++	  Support for IPsec transport mode.
++
++	  If unsure, say Y.
++
++config INET6_XFRM_MODE_TUNNEL
++	tristate "IPv6: IPsec tunnel mode"
++	depends on IPV6
++	default IPV6
++	select XFRM
++	---help---
++	  Support for IPsec tunnel mode.
++
++	  If unsure, say Y.
++
+ config IPV6_TUNNEL
+ 	tristate "IPv6: IPv6-in-IPv6 tunnel"
+ 	select INET6_TUNNEL
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -20,6 +20,8 @@ obj-$(CONFIG_INET6_ESP) += esp6.o
+ obj-$(CONFIG_INET6_IPCOMP) += ipcomp6.o
+ obj-$(CONFIG_INET6_XFRM_TUNNEL) += xfrm6_tunnel.o
+ obj-$(CONFIG_INET6_TUNNEL) += tunnel6.o
++obj-$(CONFIG_INET6_XFRM_MODE_TRANSPORT) += xfrm6_mode_transport.o
++obj-$(CONFIG_INET6_XFRM_MODE_TUNNEL) += xfrm6_mode_tunnel.o
+ obj-$(CONFIG_NETFILTER)	+= netfilter/
+ 
+ obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -39,6 +39,7 @@
+ #include <linux/in6.h>
+ #include <linux/tcp.h>
+ #include <linux/route.h>
++#include <linux/module.h>
+ 
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+@@ -488,6 +489,7 @@ int ip6_find_1stfragopt(struct sk_buff *
+ 
+ 	return offset;
  }
++EXPORT_SYMBOL_GPL(ip6_find_1stfragopt);
  
-@@ -311,8 +307,6 @@ static struct dst_ops xfrm6_dst_ops = {
+ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ {
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -13,21 +13,9 @@
+ #include <linux/string.h>
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+-#include <net/dsfield.h>
+-#include <net/inet_ecn.h>
+-#include <net/ip.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
  
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
- 	.family =		AF_INET6,
--	.lock = 		RW_LOCK_UNLOCKED,
--	.type_map = 		&xfrm6_type_map,
- 	.dst_ops =		&xfrm6_dst_ops,
- 	.dst_lookup =		xfrm6_dst_lookup,
- 	.find_bundle =		__xfrm6_find_bundle,
-diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
---- a/net/ipv6/xfrm6_state.c
-+++ b/net/ipv6/xfrm6_state.c
-@@ -135,7 +135,6 @@ __xfrm6_find_acq(u8 mode, u32 reqid, u8 
+-static inline void ipip6_ecn_decapsulate(struct sk_buff *skb)
+-{
+-	struct ipv6hdr *outer_iph = skb->nh.ipv6h;
+-	struct ipv6hdr *inner_iph = skb->h.ipv6h;
+-
+-	if (INET_ECN_is_ce(ipv6_get_dsfield(outer_iph)))
+-		IP6_ECN_set_ce(inner_iph);
+-}
+-
+ int xfrm6_rcv_spi(struct sk_buff *skb, u32 spi)
+ {
+ 	int err;
+@@ -81,21 +69,10 @@ int xfrm6_rcv_spi(struct sk_buff *skb, u
  
- static struct xfrm_state_afinfo xfrm6_state_afinfo = {
- 	.family			= AF_INET6,
--	.lock			= RW_LOCK_UNLOCKED,
- 	.init_tempsel		= __xfrm6_init_tempsel,
- 	.state_lookup		= __xfrm6_state_lookup,
- 	.find_acq		= __xfrm6_find_acq,
+ 		xfrm_vec[xfrm_nr++] = x;
+ 
++		if (x->mode->input(x, skb))
++			goto drop;
++
+ 		if (x->props.mode) { /* XXX */
+-			if (nexthdr != IPPROTO_IPV6)
+-				goto drop;
+-			if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+-				goto drop;
+-			if (skb_cloned(skb) &&
+-			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+-				goto drop;
+-			if (x->props.flags & XFRM_STATE_DECAP_DSCP)
+-				ipv6_copy_dscp(skb->nh.ipv6h, skb->h.ipv6h);
+-			if (!(x->props.flags & XFRM_STATE_NOECN))
+-				ipip6_ecn_decapsulate(skb);
+-			skb->mac.raw = memmove(skb->data - skb->mac_len,
+-					       skb->mac.raw, skb->mac_len);
+-			skb->nh.raw = skb->data;
+ 			decaps = 1;
+ 			break;
+ 		}
+diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
+new file mode 100644
+--- /dev/null
++++ b/net/ipv6/xfrm6_mode_transport.c
+@@ -0,0 +1,73 @@
++/*
++ * xfrm6_mode_transport.c - Transport mode encapsulation for IPv6.
++ *
++ * Copyright (C) 2002 USAGI/WIDE Project
++ * Copyright (c) 2004-2006 Herbert Xu <herbert@gondor.apana.org.au>
++ */
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/stringify.h>
++#include <net/dst.h>
++#include <net/ipv6.h>
++#include <net/xfrm.h>
++
++/* Add encapsulation header.
++ *
++ * The IP header and mutable extension headers will be moved forward to make
++ * space for the encapsulation header.
++ *
++ * On exit, skb->h will be set to the start of the encapsulation header to be
++ * filled in by x->type->output and skb->nh will be set to the nextheader field
++ * of the extension header directly preceding the encapsulation header, or in
++ * its absence, that of the top IP header.  The value of skb->data will always
++ * point to the top IP header.
++ */
++static int xfrm6_transport_output(struct sk_buff *skb)
++{
++	struct xfrm_state *x = skb->dst->xfrm;
++	struct ipv6hdr *iph;
++	u8 *prevhdr;
++	int hdr_len;
++
++	skb_push(skb, x->props.header_len);
++	iph = skb->nh.ipv6h;
++
++	hdr_len = ip6_find_1stfragopt(skb, &prevhdr);
++	skb->nh.raw = prevhdr - x->props.header_len;
++	skb->h.raw = skb->data + hdr_len;
++	memmove(skb->data, iph, hdr_len);
++	return 0;
++}
++
++static int xfrm6_transport_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	return 0;
++}
++
++static struct xfrm_mode xfrm6_transport_mode = {
++	.input = xfrm6_transport_input,
++	.output = xfrm6_transport_output,
++	.owner = THIS_MODULE,
++	.encap = XFRM_MODE_TRANSPORT,
++};
++
++static int __init xfrm6_transport_init(void)
++{
++	return xfrm_register_mode(&xfrm6_transport_mode, AF_INET6);
++}
++
++static void __exit xfrm6_transport_exit(void)
++{
++	int err;
++
++	err = xfrm_unregister_mode(&xfrm6_transport_mode, AF_INET6);
++	BUG_ON(err);
++}
++
++module_init(xfrm6_transport_init);
++module_exit(xfrm6_transport_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_XFRM_MODE(AF_INET6, XFRM_MODE_TRANSPORT);
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+new file mode 100644
+--- /dev/null
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -0,0 +1,121 @@
++/*
++ * xfrm6_mode_tunnel.c - Tunnel mode encapsulation for IPv6.
++ *
++ * Copyright (C) 2002 USAGI/WIDE Project
++ * Copyright (c) 2004-2006 Herbert Xu <herbert@gondor.apana.org.au>
++ */
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/stringify.h>
++#include <net/dsfield.h>
++#include <net/dst.h>
++#include <net/inet_ecn.h>
++#include <net/ipv6.h>
++#include <net/xfrm.h>
++
++static inline void ipip6_ecn_decapsulate(struct sk_buff *skb)
++{
++	struct ipv6hdr *outer_iph = skb->nh.ipv6h;
++	struct ipv6hdr *inner_iph = skb->h.ipv6h;
++
++	if (INET_ECN_is_ce(ipv6_get_dsfield(outer_iph)))
++		IP6_ECN_set_ce(inner_iph);
++}
++
++/* Add encapsulation header.
++ *
++ * The top IP header will be constructed per RFC 2401.  The following fields
++ * in it shall be filled in by x->type->output:
++ *	payload_len
++ *
++ * On exit, skb->h will be set to the start of the encapsulation header to be
++ * filled in by x->type->output and skb->nh will be set to the nextheader field
++ * of the extension header directly preceding the encapsulation header, or in
++ * its absence, that of the top IP header.  The value of skb->data will always
++ * point to the top IP header.
++ */
++static int xfrm6_tunnel_output(struct sk_buff *skb)
++{
++	struct dst_entry *dst = skb->dst;
++	struct xfrm_state *x = dst->xfrm;
++	struct ipv6hdr *iph, *top_iph;
++	int dsfield;
++
++	skb_push(skb, x->props.header_len);
++	iph = skb->nh.ipv6h;
++
++	skb->nh.raw = skb->data;
++	top_iph = skb->nh.ipv6h;
++	skb->nh.raw = &top_iph->nexthdr;
++	skb->h.ipv6h = top_iph + 1;
++
++	top_iph->version = 6;
++	top_iph->priority = iph->priority;
++	top_iph->flow_lbl[0] = iph->flow_lbl[0];
++	top_iph->flow_lbl[1] = iph->flow_lbl[1];
++	top_iph->flow_lbl[2] = iph->flow_lbl[2];
++	dsfield = ipv6_get_dsfield(top_iph);
++	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
++	if (x->props.flags & XFRM_STATE_NOECN)
++		dsfield &= ~INET_ECN_MASK;
++	ipv6_change_dsfield(top_iph, 0, dsfield);
++	top_iph->nexthdr = IPPROTO_IPV6; 
++	top_iph->hop_limit = dst_metric(dst->child, RTAX_HOPLIMIT);
++	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
++	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
++	return 0;
++}
++
++static int xfrm6_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	int err = -EINVAL;
++
++	if (skb->nh.raw[IP6CB(skb)->nhoff] != IPPROTO_IPV6)
++		goto out;
++	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
++		goto out;
++
++	if (skb_cloned(skb) &&
++	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
++		goto out;
++
++	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
++		ipv6_copy_dscp(skb->nh.ipv6h, skb->h.ipv6h);
++	if (!(x->props.flags & XFRM_STATE_NOECN))
++		ipip6_ecn_decapsulate(skb);
++	skb->mac.raw = memmove(skb->data - skb->mac_len,
++			       skb->mac.raw, skb->mac_len);
++	skb->nh.raw = skb->data;
++	err = 0;
++
++out:
++	return err;
++}
++
++static struct xfrm_mode xfrm6_tunnel_mode = {
++	.input = xfrm6_tunnel_input,
++	.output = xfrm6_tunnel_output,
++	.owner = THIS_MODULE,
++	.encap = XFRM_MODE_TUNNEL,
++};
++
++static int __init xfrm6_tunnel_init(void)
++{
++	return xfrm_register_mode(&xfrm6_tunnel_mode, AF_INET6);
++}
++
++static void __exit xfrm6_tunnel_exit(void)
++{
++	int err;
++
++	err = xfrm_unregister_mode(&xfrm6_tunnel_mode, AF_INET6);
++	BUG_ON(err);
++}
++
++module_init(xfrm6_tunnel_init);
++module_exit(xfrm6_tunnel_exit);
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_XFRM_MODE(AF_INET6, XFRM_MODE_TUNNEL);
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -14,68 +14,9 @@
+ #include <linux/spinlock.h>
+ #include <linux/icmpv6.h>
+ #include <linux/netfilter_ipv6.h>
+-#include <net/dsfield.h>
+-#include <net/inet_ecn.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
+ 
+-/* Add encapsulation header.
+- *
+- * In transport mode, the IP header and mutable extension headers will be moved
+- * forward to make space for the encapsulation header.
+- *
+- * In tunnel mode, the top IP header will be constructed per RFC 2401.
+- * The following fields in it shall be filled in by x->type->output:
+- *	payload_len
+- *
+- * On exit, skb->h will be set to the start of the encapsulation header to be
+- * filled in by x->type->output and skb->nh will be set to the nextheader field
+- * of the extension header directly preceding the encapsulation header, or in
+- * its absence, that of the top IP header.  The value of skb->data will always
+- * point to the top IP header.
+- */
+-static void xfrm6_encap(struct sk_buff *skb)
+-{
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x = dst->xfrm;
+-	struct ipv6hdr *iph, *top_iph;
+-	int dsfield;
+-
+-	skb_push(skb, x->props.header_len);
+-	iph = skb->nh.ipv6h;
+-
+-	if (!x->props.mode) {
+-		u8 *prevhdr;
+-		int hdr_len;
+-
+-		hdr_len = ip6_find_1stfragopt(skb, &prevhdr);
+-		skb->nh.raw = prevhdr - x->props.header_len;
+-		skb->h.raw = skb->data + hdr_len;
+-		memmove(skb->data, iph, hdr_len);
+-		return;
+-	}
+-
+-	skb->nh.raw = skb->data;
+-	top_iph = skb->nh.ipv6h;
+-	skb->nh.raw = &top_iph->nexthdr;
+-	skb->h.ipv6h = top_iph + 1;
+-
+-	top_iph->version = 6;
+-	top_iph->priority = iph->priority;
+-	top_iph->flow_lbl[0] = iph->flow_lbl[0];
+-	top_iph->flow_lbl[1] = iph->flow_lbl[1];
+-	top_iph->flow_lbl[2] = iph->flow_lbl[2];
+-	dsfield = ipv6_get_dsfield(top_iph);
+-	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
+-	if (x->props.flags & XFRM_STATE_NOECN)
+-		dsfield &= ~INET_ECN_MASK;
+-	ipv6_change_dsfield(top_iph, 0, dsfield);
+-	top_iph->nexthdr = IPPROTO_IPV6; 
+-	top_iph->hop_limit = dst_metric(dst->child, RTAX_HOPLIMIT);
+-	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
+-	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
+-}
+-
+ static int xfrm6_tunnel_check_size(struct sk_buff *skb)
+ {
+ 	int mtu, ret = 0;
+@@ -118,7 +59,9 @@ static int xfrm6_output_one(struct sk_bu
+ 		if (err)
+ 			goto error;
+ 
+-		xfrm6_encap(skb);
++		err = x->mode->output(skb);
++		if (err)
++			goto error;
+ 
+ 		err = x->type->output(x, skb);
+ 		if (err)
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -46,45 +46,43 @@ static DEFINE_SPINLOCK(xfrm_policy_gc_lo
+@@ -138,6 +138,76 @@ void xfrm_put_type(struct xfrm_type *typ
+ 	module_put(type->owner);
+ }
  
- static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family);
- static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo);
-+static struct xfrm_policy_afinfo *xfrm_policy_lock_afinfo(unsigned int family);
-+static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo);
- 
- int xfrm_register_type(struct xfrm_type *type, unsigned short family)
- {
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
--	struct xfrm_type_map *typemap;
++int xfrm_register_mode(struct xfrm_mode *mode, int family)
++{
 +	struct xfrm_policy_afinfo *afinfo = xfrm_policy_lock_afinfo(family);
-+	struct xfrm_type **typemap;
- 	int err = 0;
- 
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 	typemap = afinfo->type_map;
- 
--	write_lock_bh(&typemap->lock);
--	if (likely(typemap->map[type->proto] == NULL))
--		typemap->map[type->proto] = type;
-+	if (likely(typemap[type->proto] == NULL))
-+		typemap[type->proto] = type;
- 	else
- 		err = -EEXIST;
--	write_unlock_bh(&typemap->lock);
--	xfrm_policy_put_afinfo(afinfo);
-+	xfrm_policy_unlock_afinfo(afinfo);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_register_type);
- 
- int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
- {
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
--	struct xfrm_type_map *typemap;
-+	struct xfrm_policy_afinfo *afinfo = xfrm_policy_lock_afinfo(family);
-+	struct xfrm_type **typemap;
- 	int err = 0;
- 
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 	typemap = afinfo->type_map;
- 
--	write_lock_bh(&typemap->lock);
--	if (unlikely(typemap->map[type->proto] != type))
-+	if (unlikely(typemap[type->proto] != type))
- 		err = -ENOENT;
- 	else
--		typemap->map[type->proto] = NULL;
--	write_unlock_bh(&typemap->lock);
--	xfrm_policy_put_afinfo(afinfo);
-+		typemap[type->proto] = NULL;
-+	xfrm_policy_unlock_afinfo(afinfo);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_unregister_type);
-@@ -92,7 +90,7 @@ EXPORT_SYMBOL(xfrm_unregister_type);
- struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
- {
- 	struct xfrm_policy_afinfo *afinfo;
--	struct xfrm_type_map *typemap;
-+	struct xfrm_type **typemap;
- 	struct xfrm_type *type;
- 	int modload_attempted = 0;
- 
-@@ -102,11 +100,9 @@ retry:
- 		return NULL;
- 	typemap = afinfo->type_map;
- 
--	read_lock(&typemap->lock);
--	type = typemap->map[proto];
-+	type = typemap[proto];
- 	if (unlikely(type && !try_module_get(type->owner)))
- 		type = NULL;
--	read_unlock(&typemap->lock);
- 	if (!type && !modload_attempted) {
- 		xfrm_policy_put_afinfo(afinfo);
- 		request_module("xfrm-type-%d-%d",
-@@ -1306,17 +1302,31 @@ static struct xfrm_policy_afinfo *xfrm_p
- 		return NULL;
- 	read_lock(&xfrm_policy_afinfo_lock);
- 	afinfo = xfrm_policy_afinfo[family];
--	if (likely(afinfo != NULL))
--		read_lock(&afinfo->lock);
--	read_unlock(&xfrm_policy_afinfo_lock);
-+	if (unlikely(!afinfo))
-+		read_unlock(&xfrm_policy_afinfo_lock);
- 	return afinfo;
- }
- 
- static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo)
- {
--	if (unlikely(afinfo == NULL))
--		return;
--	read_unlock(&afinfo->lock);
-+	read_unlock(&xfrm_policy_afinfo_lock);
-+}
++	struct xfrm_mode **modemap;
++	int err = 0;
 +
-+static struct xfrm_policy_afinfo *xfrm_policy_lock_afinfo(unsigned int family)
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++	modemap = afinfo->mode_map;
++
++	if (likely(modemap[mode->encap] == NULL))
++		modemap[mode->encap] = mode;
++	else
++		err = -EEXIST;
++	xfrm_policy_unlock_afinfo(afinfo);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_register_mode);
++
++int xfrm_unregister_mode(struct xfrm_mode *mode, int family)
++{
++	struct xfrm_policy_afinfo *afinfo = xfrm_policy_lock_afinfo(family);
++	struct xfrm_mode **modemap;
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++	modemap = afinfo->mode_map;
++
++	if (unlikely(modemap[mode->encap] != mode))
++		err = -ENOENT;
++	else
++		modemap[mode->encap] = NULL;
++	xfrm_policy_unlock_afinfo(afinfo);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_unregister_mode);
++
++struct xfrm_mode *xfrm_get_mode(int encap, int family)
 +{
 +	struct xfrm_policy_afinfo *afinfo;
-+	if (unlikely(family >= NPROTO))
++	struct xfrm_mode **modemap;
++	struct xfrm_mode *mode;
++	int modload_attempted = 0;
++
++retry:
++	afinfo = xfrm_policy_get_afinfo(family);
++	if (unlikely(afinfo == NULL))
 +		return NULL;
-+	write_lock_bh(&xfrm_policy_afinfo_lock);
-+	afinfo = xfrm_policy_afinfo[family];
-+	if (unlikely(!afinfo))
-+		write_unlock_bh(&xfrm_policy_afinfo_lock);
-+	return afinfo;
++	modemap = afinfo->mode_map;
++
++	mode = modemap[encap];
++	if (unlikely(mode && !try_module_get(mode->owner)))
++		mode = NULL;
++	if (!mode && !modload_attempted) {
++		xfrm_policy_put_afinfo(afinfo);
++		request_module("xfrm-mode-%d-%d", family, encap);
++		modload_attempted = 1;
++		goto retry;
++	}
++
++	xfrm_policy_put_afinfo(afinfo);
++	return mode;
 +}
 +
-+static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo)
++void xfrm_put_mode(struct xfrm_mode *mode)
 +{
-+	write_unlock_bh(&xfrm_policy_afinfo_lock);
- }
- 
- static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
++	module_put(mode->owner);
++}
++
+ static inline unsigned long make_jiffies(long secs)
+ {
+ 	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -1103,17 +1103,14 @@ static struct xfrm_state_afinfo *xfrm_st
- 		return NULL;
- 	read_lock(&xfrm_state_afinfo_lock);
- 	afinfo = xfrm_state_afinfo[family];
--	if (likely(afinfo != NULL))
--		read_lock(&afinfo->lock);
--	read_unlock(&xfrm_state_afinfo_lock);
-+	if (unlikely(!afinfo))
-+		read_unlock(&xfrm_state_afinfo_lock);
- 	return afinfo;
- }
+@@ -77,6 +77,8 @@ static void xfrm_state_gc_destroy(struct
+ 	kfree(x->ealg);
+ 	kfree(x->calg);
+ 	kfree(x->encap);
++	if (x->mode)
++		xfrm_put_mode(x->mode);
+ 	if (x->type) {
+ 		x->type->destructor(x);
+ 		xfrm_put_type(x->type);
+@@ -1193,6 +1195,10 @@ int xfrm_init_state(struct xfrm_state *x
+ 	if (err)
+ 		goto error;
  
- static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo)
- {
--	if (unlikely(afinfo == NULL))
--		return;
--	read_unlock(&afinfo->lock);
-+	read_unlock(&xfrm_state_afinfo_lock);
- }
++	x->mode = xfrm_get_mode(x->props.mode, family);
++	if (x->mode == NULL)
++		goto error;
++
+ 	x->km.state = XFRM_STATE_VALID;
  
- /* Temporarily located here until net/xfrm/xfrm_tunnel.c is created */
+ error:
 
---k1lZvvs/B4yU6o8G--
+--aVD9QWMuhilNxW9f--
