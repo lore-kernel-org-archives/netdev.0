@@ -1,43 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Fw: [Bugme-new] [Bug 6495] New: Vlan MTU Fragmentation
-Date: Fri, 05 May 2006 21:39:14 -0700
-Message-ID: <445C2872.5060208@candelatech.com>
-References: <20060504235628.33041b55.akpm@osdl.org>	<445B75D2.6080702@candelatech.com> <20060505193903.249feaf8.akpm@osdl.org>
+From: Uli Kunitz <kune@deine-taler.de>
+Subject: Re: [RFC] Proposed structure for Regulatory/Geographical Wireless
+ database
+Date: Sat, 6 May 2006 07:07:20 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0605060702001.28448@p15091797.pureserver.info>
+References: <445BB22B.30505@lwfinger.net> <Pine.LNX.4.58.0605052256570.26787@p15091797.pureserver.info>
+ <445BC234.4060909@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	slavon@bigtelecom.ru
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Uli Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org,
+	Faidon Liambotis <faidon@cube.gr>,
+	Rick Jones <rick.jones2@hp.com>,
+	Harald Welte <laforge@gnumonks.org>,
+	Jouni Malinen <jkm@devicescape.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:48266 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S932427AbWEFEjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 00:39:22 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060505193903.249feaf8.akpm@osdl.org>
+Received: from deine-taler.de ([217.160.107.63]:58044 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1751146AbWEFFIG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 01:08:06 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <445BC234.4060909@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
+Larry Finger wrote:
 
-> Sorry, I should have added Badalian to Cc:.  He's using 3c905C (3c59x.c,
-> allegedly maintained by myself).
+> Uli Kunitz wrote:
+> > Larry Finger wrote:
+> > 
+> > > * A new routine (ieee80211_init_geo ?) will be written to be called by the
+> > > driver to load the geo structure into the kernel. Information passed to
+> > > the
+> > > daemon will be the country code in ASCII and whether the interface is to
+> > > be
+> > > used indoors or outdoors.
+> > 
+> > Would it be possible to support the regulatory domain codes as
+> > used in the outdated table 105 in Corrigendum 1 for 802.11b? The
+> > ZD1211 EEPROM contains only this code. An easy translation
+> > function would be sufficient. Maybe the group codes could be
+> > misused for it.
 > 
-> (Badalian, please use emailed reply-to-all rather than the bugzilla
-> interface for the remainder of this discussion, thanks).
+> That certainly shouldn't be any difficulty. It could be done in the ZD1211
+> driver before it calls the ieee80211_init_geo routine, or it could be done in
+> the regulatory daemon. I assume that the EEPROM contains X'10' for FCC
+> regulations, X'31' for Spain, etc.
 > 
+> Larry
 
-There is an ancient patch on this page:
+Yes, it could be done in the driver. But if there are other
+drivers having the same issue, the helper function should be
+integrated in the geo code.
 
-http://www.bewley.net/linux/vlan/patches/
-
-I have no idea if this would apply or if it has already been put into the
-kernel.  I also don't have any 3com nics to test with, but there are probably
-folks on the vlan mailing list that could try patches...
-
-Thanks,
-Ben
+Uli
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Uli Kunitz - kune@deine-taler.de
