@@ -1,170 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [RFC 3/3] [IPSEC]: Abstract out transport mode input code
-Date: Sat, 6 May 2006 21:24:44 +1000
-Message-ID: <20060506112444.GC27904@gondor.apana.org.au>
-References: <1145343829.44448f556684c@webmail.hiit.fi> <20060418080340.GA2206@gondor.apana.org.au> <Pine.SOL.4.64.0604181512460.26361@kekkonen.cs.hut.fi> <20060419110209.GA15584@gondor.apana.org.au> <Pine.SOL.4.64.0604191529100.11141@kekkonen.cs.hut.fi> <20060506112026.GA27671@gondor.apana.org.au>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Dscape ieee80211: enabling/disabling the radio
+Date: Sat, 6 May 2006 14:00:58 +0200
+Message-ID: <200605061401.01795.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="yVhtmJPUSI46BTXb"
-Cc: Diego Beltrami <Diego.Beltrami@hiit.fi>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart2141649.9AmNkeybrB";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:28430 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750790AbWEFLYu
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 07:24:50 -0400
-To: Miika Komu <miika@iki.fi>
-Content-Disposition: inline
-In-Reply-To: <20060506112026.GA27671@gondor.apana.org.au>
+Received: from wr-out-0506.google.com ([64.233.184.230]:56462 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1750798AbWEFL7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 07:59:33 -0400
+Received: by wr-out-0506.google.com with SMTP id i12so729446wra
+        for <netdev@vger.kernel.org>; Sat, 06 May 2006 04:59:33 -0700 (PDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---yVhtmJPUSI46BTXb
-Content-Type: text/plain; charset=us-ascii
+--nextPart2141649.9AmNkeybrB
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Hi:
+Hi,
 
-This patch is totally untested but shows how we can use xfrm_mode to
-remove unnecessary code sharing between modes that in fact end up
-slowing things down.  In particular, notice how we've eliminated a
-double IP header copying for tunnel mode which is in fact the common
-case.
+While working on the rt2x00 driver, I keep hitting against some problems with scanning.
+Basicly the dscape stack handles scanning in 2 ways, through the
+passive_scan() handler in the ieee80211_hw structure, and by calling
+the config() handler in the ieee80211_hw stucture.
 
-I need to finish it for IPv6 and actually test this one :)
+The usage of the first handler, does not give any problems at this time.
+The main source of problems during scanning in rt2x00 seems to come
+when the config() handler is used.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+In rt2x00 the config() handler schedules all configuration changes by using a workqueue,
+this is required since several configuration changes in rt2x00 need sleeping and for
+USB devices all register access requires sleeping. And the config() handler is often
+called from interrupt context so it complains a lot when the workqueue is not used.
 
---yVhtmJPUSI46BTXb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="p3.patch"
+This seemed fine, untill the radio_enabled field was introduced to the configuration structure.
+When the radio_enable field is set, the radio must be enabled, but enabling
+the radio is something that can (at least in rt2x00) fail. So scheduling the enabling of the radio
+to the workqueue is not something that is desired since the stack can not be notified that the
+device is not able to enable the radio.
 
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index e2e4771..30524b9 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -172,11 +172,8 @@
- 		}
- 	}
- 	((struct iphdr*)work_buf)->protocol = ah->nexthdr;
--	skb->nh.raw = skb_pull(skb, ah_hlen);
--	memcpy(skb->nh.raw, work_buf, iph->ihl*4);
--	skb->nh.iph->tot_len = htons(skb->len);
--	skb_pull(skb, skb->nh.iph->ihl*4);
--	skb->h.raw = skb->data;
-+	skb->h.raw = memcpy(skb->nh.raw, work_buf, iph->ihl * 4) + ah_hlen;
-+	__skb_pull(skb, ah_hlen + iph->ihl * 4);
- 
- 	return 0;
- 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 9d1881c..451803e 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -143,10 +143,8 @@
- 	int alen = esp->auth.icv_trunc_len;
- 	int elen = skb->len - sizeof(struct ip_esp_hdr) - esp->conf.ivlen - alen;
- 	int nfrags;
--	int encap_len = 0;
- 	u8 nexthdr[2];
- 	struct scatterlist *sg;
--	u8 workbuf[60];
- 	int padlen;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
-@@ -209,7 +207,6 @@
- 		struct udphdr *uh;
- 
- 		uh = (struct udphdr *)(iph + 1);
--		encap_len = (void*)esph - (void*)uh;
- 
- 		/*
- 		 * 1) if the NAT-T peer's IP or port changed then
-@@ -246,11 +243,9 @@
- 
- 	iph->protocol = nexthdr[1];
- 	pskb_trim(skb, skb->len - alen - padlen - 2);
--	memcpy(workbuf, skb->nh.raw, iph->ihl*4);
--	skb->h.raw = skb_pull(skb, sizeof(struct ip_esp_hdr) + esp->conf.ivlen);
--	skb->nh.raw += encap_len + sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
--	memcpy(skb->nh.raw, workbuf, iph->ihl*4);
--	skb->nh.iph->tot_len = htons(skb->len);
-+	skb->h.raw = __skb_pull(skb,
-+				sizeof(struct ip_esp_hdr) + esp->conf.ivlen) -
-+		     iph->ihl * 4;
- 
- 	return 0;
- 
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index cd810f4..704937b 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -45,7 +45,6 @@
- static int ipcomp_decompress(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int err, plen, dlen;
--	struct iphdr *iph;
- 	struct ipcomp_data *ipcd = x->data;
- 	u8 *start, *scratch;
- 	struct crypto_tfm *tfm;
-@@ -74,8 +73,6 @@
- 		
- 	skb_put(skb, dlen - plen);
- 	memcpy(skb->data, scratch, dlen);
--	iph = skb->nh.iph;
--	iph->tot_len = htons(dlen + iph->ihl * 4);
- out:	
- 	put_cpu();
- 	return err;
-@@ -108,9 +105,8 @@
- 	skb->nh.raw += sizeof(struct ip_comp_hdr);
- 	memcpy(skb->nh.raw, &tmp_iph, tmp_iph.iph.ihl * 4);
- 	iph = skb->nh.iph;
--	iph->tot_len = htons(ntohs(iph->tot_len) - sizeof(struct ip_comp_hdr));
- 	iph->protocol = nexthdr;
--	skb->h.raw = skb->data;
-+	skb->h.raw = skb->nh.raw;
- 	err = ipcomp_decompress(x, skb);
- 
- out:	
-diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
-index e46d9a4..c2e507e 100644
---- a/net/ipv4/xfrm4_mode_transport.c
-+++ b/net/ipv4/xfrm4_mode_transport.c
-@@ -40,6 +40,11 @@
- 
- static int xfrm4_transport_input(struct xfrm_state *x, struct sk_buff *skb)
- {
-+	if (skb->h.raw != skb->nh.raw)
-+		skb->nh.raw = memmove(skb->h.raw, skb->nh.raw,
-+				      skb->nh.iph->ihl * 4);
-+	skb->nh.iph->tot_len = htons(skb->len);
-+	skb->h.raw = skb->data;
- 	return 0;
- }
- 
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index f8d880b..a304d1d 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -73,9 +73,11 @@
- 
- static int xfrm4_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- {
--	struct iphdr *iph = skb->nh.iph;
-+	struct iphdr *iph;
- 	int err = -EINVAL;
- 
-+	skb->nh.raw = skb->data;
-+	iph = skb->nh.iph;
- 	if (iph->protocol != IPPROTO_IPIP)
- 		goto out;
- 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
+Moving the enabling of the radio outside the workqueue function and into the config()
+handler results in scheduling while atomic issues since the enabling of the radio requires
+sleeping for both PCI and USB devices.
 
---yVhtmJPUSI46BTXb--
+Instead of using a config field radio_enabled, wouldn't it be better to add 2 handlers
+to the ieee80211_hw structure, something like enable_radio() and disable_radio()?
+If these functions are called from normal context the dscape stack can still enable
+and disable the radio whenever it is desired, and it is able to check the return value
+to see if the request has actually succeeded.
+
+What I am wondering about afterwards is what exactly should happen when the open()
+and stop() handlers are being called? Because those are basicly intented to enable
+and stop the radio as well. I checked bcm43xx to see what they do, and they don't seem
+to check the radio_enabled field, so I don't know what they do besides enabling the radio.
+
+Well this was just some stuff I have been trying to figure out while trying to solve several
+rt2x00 bugs... ;)
+
+Regards,
+
+Ivo
+
+--nextPart2141649.9AmNkeybrB
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBEXI/9aqndE37Em0gRAlazAJ9L5hg8EYRBxlfLm0/9R0EAbrds1gCggCmI
+ym+dp3hFsk5kpVQx/v8AeXc=
+=X+Ex
+-----END PGP SIGNATURE-----
+
+--nextPart2141649.9AmNkeybrB--
