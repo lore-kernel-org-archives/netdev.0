@@ -1,125 +1,88 @@
-From: Simon Kelley <simon@thekelleys.org.uk>
-Subject: [PATCH] fix IP-over-ATM and ARP interaction.
-Date: Sat, 06 May 2006 17:13:29 +0100
-Message-ID: <E1FcPPN-0004xi-00@thekelleys.org.uk>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 6502] New: SIOCSIFHWBROADCAST needs compat
+ layer
+Date: Sat, 6 May 2006 09:27:51 -0700
+Message-ID: <20060506092751.5077857e.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpc1-cmbg4-0-0-cust914.cmbg.cable.ntl.com ([81.98.247.147]:48652
-	"EHLO thekelleys.org.uk") by vger.kernel.org with ESMTP
-	id S1750907AbWEFQNo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 12:13:44 -0400
-To: davem@davemloft.net, netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:64942 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750759AbWEFQ2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 12:28:03 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The classical IP over ATM code maintains its own IPv4 <-> <ATM stuff>
-ARP table, using the standard neighbour-table code. The
-neigh_table_init function adds this neighbour table to a linked 
-list of all neighbor tables which is used by the functions 
-neigh_delete() neigh_add() and neightbl_set(), all called by 
-the netlink code.
 
-Once the ATM neighbour table is added to the list, there are two tables 
-with family == AF_INET there, and  ARP entries sent via netlink go into 
-the first table with matching family. This is indeterminate and often wrong.
 
-To see the bug, on a kernel with CLIP enabled, create a standard IPv4
-ARP entry by pinging an unused address on a local subnet. Then attempt
-to complete that entry by doing
+Begin forwarded message:
 
-ip neigh replace <ip address> lladdr <some mac address> nud reachable
+Date: Sat, 6 May 2006 08:24:25 -0700
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 6502] New: SIOCSIFHWBROADCAST needs compat layer
 
-Looking at the ARP tables by using 
 
-ip neigh show
+http://bugzilla.kernel.org/show_bug.cgi?id=6502
 
-will reveal two ARP entries for the same address. One of these can be
-found in /proc/net/arp, and the other in /proc/net/atm/arp.
+           Summary: SIOCSIFHWBROADCAST needs compat layer
+    Kernel Version: 2.6.15
+            Status: NEW
+          Severity: normal
+             Owner: ak@suse.de
+         Submitter: Alexandra.Kossovsky@oktetlabs.ru
 
-This patch adds a new function, neigh_table_init_no_netlink() which
-does everything the neigh_table_init() does, except add the table to
-the netlink all-arp-tables chain. In addition neigh_table_init() has a
-check that all tables on the chain have a distinct address family.
-The init call in clip.c is changed to call neigh_table_init_no_netlink().
 
-Since ATM ARP tables are rather more complicated than can currently be
-handled by the available rtattrs in the netlink protocol, no
-functionality is lost by this patch, and non-ATM ARP manipulation via
-netlink is rescued. A more complete solution would involve a rtattr for 
-ATM ARP entries and some way for the netlink code to give neigh_add 
-and friends more information than just address family with which to find 
-the correct ARP table.
+Most recent kernel where this bug did not occur: all kernels has this problem;
+I've tested 2.6.8, 2.6.9, 2.6.15
 
-Signed-off-by: Simon Kelley <simon@thekelleys.org.uk>
- 
+Distribution:
+Hardware Environment: ethernet interface
+Software Environment: 32-bit libc with 64-bit kernel
+Problem Description:
+32-bit program running with 64-bit kernel fails to set hardware broadcast
+address via ioctl(SIOCSIFHWBROADCAST).
 
--- 
+Steps to reproduce:
+Compile the following sample program:
+#include <stdio.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <linux/if.h>
 
-diff -Naur linux-2.6.16.11.orig/include/net/neighbour.h linux-2.6.16.11/include/net/neighbour.h
---- linux-2.6.16.11.orig/include/net/neighbour.h	2006-04-24 21:20:24.000000000 +0100
-+++ linux-2.6.16.11/include/net/neighbour.h	2006-05-04 20:09:17.000000000 +0100
-@@ -211,6 +211,7 @@
- #define NEIGH_UPDATE_F_ADMIN			0x80000000
- 
- extern void			neigh_table_init(struct neigh_table *tbl);
-+extern void			neigh_table_init_no_netlink(struct neigh_table *tbl);
- extern int			neigh_table_clear(struct neigh_table *tbl);
- extern struct neighbour *	neigh_lookup(struct neigh_table *tbl,
- 					     const void *pkey,
-diff -Naur linux-2.6.16.11.orig/net/atm/clip.c linux-2.6.16.11/net/atm/clip.c
---- linux-2.6.16.11.orig/net/atm/clip.c	2006-04-24 21:20:24.000000000 +0100
-+++ linux-2.6.16.11/net/atm/clip.c	2006-05-04 20:10:00.000000000 +0100
-@@ -995,7 +995,7 @@
- 
- static int __init atm_clip_init(void)
- {
--	neigh_table_init(&clip_tbl);
-+	neigh_table_init_no_netlink(&clip_tbl);
- 
- 	clip_tbl_hook = &clip_tbl;
- 	register_atm_ioctl(&clip_ioctl_ops);
-diff -Naur linux-2.6.16.11.orig/net/core/neighbour.c linux-2.6.16.11/net/core/neighbour.c
---- linux-2.6.16.11.orig/net/core/neighbour.c	2006-04-24 21:20:24.000000000 +0100
-+++ linux-2.6.16.11/net/core/neighbour.c	2006-05-04 20:07:55.000000000 +0100
-@@ -1322,8 +1322,7 @@
- 	kfree(parms);
- }
- 
--
--void neigh_table_init(struct neigh_table *tbl)
-+void neigh_table_init_no_netlink(struct neigh_table *tbl)
- {
- 	unsigned long now = jiffies;
- 	unsigned long phsize;
-@@ -1381,10 +1380,19 @@
- 
- 	tbl->last_flush = now;
- 	tbl->last_rand	= now + tbl->parms.reachable_time * 20;
--	write_lock(&neigh_tbl_lock);
--	tbl->next	= neigh_tables;
--	neigh_tables	= tbl;
--	write_unlock(&neigh_tbl_lock);
-+}
-+
-+void neigh_table_init(struct neigh_table *tbl)
-+{
-+  struct neigh_table *tmp;
-+
-+  neigh_table_init_no_netlink(tbl);
-+  write_lock(&neigh_tbl_lock);
-+  for (tmp = neigh_tables; tmp; tmp = tmp->next)
-+        BUG_ON(tmp->family == tbl->family);
-+  tbl->next	= neigh_tables;
-+  neigh_tables	= tbl;
-+  write_unlock(&neigh_tbl_lock);
- }
- 
- int neigh_table_clear(struct neigh_table *tbl)
-@@ -2655,6 +2663,7 @@
- EXPORT_SYMBOL(neigh_resolve_output);
- EXPORT_SYMBOL(neigh_table_clear);
- EXPORT_SYMBOL(neigh_table_init);
-+EXPORT_SYMBOL(neigh_table_init_no_netlink);
- EXPORT_SYMBOL(neigh_update);
- EXPORT_SYMBOL(neigh_update_hhs);
- EXPORT_SYMBOL(pneigh_enqueue);
+main()
+{
+    int             s = socket(AF_INET, SOCK_DGRAM, 0);
+    struct ifreq    req;
+    int             rc;
+    
+    if (s < 0)
+    {
+        perror("failed to open socket");
+        return -1;
+    }
+    strcpy(req.ifr_name, "eth0");
+    req.ifr_hwaddr.sa_family = AF_LOCAL;
+    memset(req.ifr_hwaddr.sa_data, 0xff, 6);
+    rc = ioctl(s, SIOCSIFHWBROADCAST, &req);
+    if (rc != 0)
+    {
+        perror("ioctl failed");
+        return -1;
+    }
+    printf("ioctl(SIOCSIFHWBROADCAST) passed\n");
+    return 0;
+}
 
+When compiled to 64-bit binary, it works OK:
+ioctl(SIOCSIFHWBROADCAST) passed
+When compiled to 32-bit binary, it does not work:
+ioctl failed: Invalid argument
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
