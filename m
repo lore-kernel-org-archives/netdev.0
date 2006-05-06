@@ -1,46 +1,37 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH,RFT] bcm43xx: use softmac-suggested TX rate
-Date: Sat,  6 May 2006 10:16:51 +0100 (BST)
-Message-ID: <20060506091651.26BCD88A2C3@zog.reactivated.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [RFC 0/3] [IPSEC]: Add xfrm_mode support
+Date: Sat, 6 May 2006 21:20:26 +1000
+Message-ID: <20060506112026.GA27671@gondor.apana.org.au>
+References: <1145343829.44448f556684c@webmail.hiit.fi> <20060418080340.GA2206@gondor.apana.org.au> <Pine.SOL.4.64.0604181512460.26361@kekkonen.cs.hut.fi> <20060419110209.GA15584@gondor.apana.org.au> <Pine.SOL.4.64.0604191529100.11141@kekkonen.cs.hut.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Diego Beltrami <Diego.Beltrami@hiit.fi>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:11230 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1751082AbWEFJQv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 05:16:51 -0400
-Received: from aamtaout01-winn.ispmail.ntl.com ([81.103.221.35])
-          by mtaout01-winn.ispmail.ntl.com with ESMTP
-          id <20060506091650.WFUQ29343.mtaout01-winn.ispmail.ntl.com@aamtaout01-winn.ispmail.ntl.com>
-          for <netdev@vger.kernel.org>; Sat, 6 May 2006 10:16:50 +0100
-Received: from zog.reactivated.net ([86.14.216.162])
-          by aamtaout01-winn.ispmail.ntl.com with ESMTP
-          id <20060506091650.DCMO19763.aamtaout01-winn.ispmail.ntl.com@zog.reactivated.net>
-          for <netdev@vger.kernel.org>; Sat, 6 May 2006 10:16:50 +0100
-To: netdev@vger.kernel.org
+Received: from rhun.apana.org.au ([64.62.148.172]:14094 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750774AbWEFLUk
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 07:20:40 -0400
+To: Miika Komu <miika@iki.fi>
+Content-Disposition: inline
+In-Reply-To: <Pine.SOL.4.64.0604191529100.11141@kekkonen.cs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Can a bcm43xx user please test this. It uses the new txrate stuff found in
-the wireless-dev tree.
+Hi:
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
+These patches abstract out the protocol-specific encapsulation parts of
+IPsec into what I've termed xfrm_mode objects.  This allows us to share
+a little bit more code.  But more importantly, it allows us to add new
+encapsulation modes such as BEET or v4/v6 and v6/v4 without polluting
+the generic xfrm_input/xfrm_output paths.
 
-Index: linux/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-===================================================================
---- linux.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-+++ linux/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-@@ -296,11 +296,14 @@ void bcm43xx_generate_txhdr(struct bcm43
- 	u16 control = 0;
- 	u16 wsec_rate = 0;
- 	u16 encrypt_frame;
-+	u16 ftype = WLAN_FC_GET_TYPE(le16_to_cpu(wireless_header->frame_ctl));
-+	int is_mgt = (ftype == IEEE80211_FTYPE_MGMT) != 0;
- 
- 	/* Now construct the TX header. */
- 	memset(txhdr, 0, sizeof(*txhdr));
- 
--	bitrate = bcm->softmac->txrates.default_rate;
-+	bitrate = ieee80211softmac_suggest_txrate(bcm->softmac,
-+		is_multicast_ether_addr(wireless_header->addr1), is_mgt);
- 	ofdm_modulation = !(ieee80211_is_cck_rate(bitrate));
- 	fallback_bitrate = bcm43xx_calc_fallback_rate(bitrate);
- 	fallback_ofdm_modulation = !(ieee80211_is_cck_rate(fallback_bitrate));
+These patches are not yet ready to be applied as I need to test them
+a bit more.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
