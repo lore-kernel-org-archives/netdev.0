@@ -1,41 +1,43 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Please pull upstream-fixes branch of wireless-2.6
-Date: Fri, 05 May 2006 21:12:09 -0700
-Message-ID: <445C2219.5060204@osdl.org>
-References: <20060506010613.GA26189@tuxdriver.com> <20060505200812.1e76785c.akpm@osdl.org> <Pine.LNX.4.64.0605052017070.16343@g5.osdl.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Fw: [Bugme-new] [Bug 6495] New: Vlan MTU Fragmentation
+Date: Fri, 05 May 2006 21:39:14 -0700
+Message-ID: <445C2872.5060208@candelatech.com>
+References: <20060504235628.33041b55.akpm@osdl.org>	<445B75D2.6080702@candelatech.com> <20060505193903.249feaf8.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, jeff@garzik.org
+Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
+	slavon@bigtelecom.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:5030 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932424AbWEFEMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 00:12:20 -0400
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0605052017070.16343@g5.osdl.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:48266 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S932427AbWEFEjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 00:39:22 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060505193903.249feaf8.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds wrote:
-> On Fri, 5 May 2006, Andrew Morton wrote:
->   
->> On Fri, 5 May 2006 21:06:18 -0400
->> "John W. Linville" <linville@tuxdriver.com> wrote:
->>     
->>> These are fixes intended for 2.6.17...thanks!
->>>       
->> Jeff is offline for a couple of weeks.   Please prepare a pull for Linus.
->>     
->
-> Actually, while Jeff is off, Steve Hemminger is supposed to be the network 
-> driver overlord ("All bow down before the mighty Shemminger"), so please 
-> do synchronize with him.
->
-> Of course, that might be just Steve taking a look and telling me "yeah, 
-> please pull directly from John".
->
-> 		Linus
->   
-I had a bunch ready for monday...
+Andrew Morton wrote:
+
+> Sorry, I should have added Badalian to Cc:.  He's using 3c905C (3c59x.c,
+> allegedly maintained by myself).
+> 
+> (Badalian, please use emailed reply-to-all rather than the bugzilla
+> interface for the remainder of this discussion, thanks).
+> 
+
+There is an ancient patch on this page:
+
+http://www.bewley.net/linux/vlan/patches/
+
+I have no idea if this would apply or if it has already been put into the
+kernel.  I also don't have any 3com nics to test with, but there are probably
+folks on the vlan mailing list that could try patches...
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
