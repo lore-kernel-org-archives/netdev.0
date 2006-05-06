@@ -1,44 +1,46 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: VJ Channel API - driver level (PATCH)
-Date: Sat, 6 May 2006 12:57:06 +0400
-Message-ID: <20060506085706.GA22324@2ka.mipt.ru>
-References: <445A84E7.1060906@neterion.com> <20060504.160432.48902082.davem@davemloft.net> <20060505093656.GB23540@2ka.mipt.ru> <20060505.173533.55820251.davem@davemloft.net> <20060506084238.GB16558@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: alex@neterion.com, caitlinb@broadcom.com,
-	Leonid.Grossman@neterion.com, shemminger@osdl.org,
-	netdev@vger.kernel.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH,RFT] bcm43xx: use softmac-suggested TX rate
+Date: Sat,  6 May 2006 10:16:51 +0100 (BST)
+Message-ID: <20060506091651.26BCD88A2C3@zog.reactivated.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:45225 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750963AbWEFI50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 04:57:26 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060506084238.GB16558@2ka.mipt.ru>
+Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:11230 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1751082AbWEFJQv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 05:16:51 -0400
+Received: from aamtaout01-winn.ispmail.ntl.com ([81.103.221.35])
+          by mtaout01-winn.ispmail.ntl.com with ESMTP
+          id <20060506091650.WFUQ29343.mtaout01-winn.ispmail.ntl.com@aamtaout01-winn.ispmail.ntl.com>
+          for <netdev@vger.kernel.org>; Sat, 6 May 2006 10:16:50 +0100
+Received: from zog.reactivated.net ([86.14.216.162])
+          by aamtaout01-winn.ispmail.ntl.com with ESMTP
+          id <20060506091650.DCMO19763.aamtaout01-winn.ispmail.ntl.com@zog.reactivated.net>
+          for <netdev@vger.kernel.org>; Sat, 6 May 2006 10:16:50 +0100
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 06, 2006 at 12:42:38PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Fri, May 05, 2006 at 05:35:33PM -0700, David S. Miller (davem@davemloft.net) wrote:
-> > From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> > Date: Fri, 5 May 2006 13:36:56 +0400
-> > 
-> > > Hardware folks could also create it's own implementation and show
-> > > community if theirs approach is good or not.
-> > 
-> > Designing hardware for non-existing software infrastructure is
-> > risky buisness :-)
-> 
-> There are companies that do TOE and crypto accelerators without
-> support from even windows :)
+Can a bcm43xx user please test this. It uses the new txrate stuff found in
+the wireless-dev tree.
 
-And actually most of them have research departments which do new
-interesting developments.
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
-It is Open Source after all - just do everything you want and show
-community that it is usefull. Neterion did that right with UFO and LRO.
-
-IBM started to do it with netchannels.
-
--- 
-	Evgeniy Polyakov
+Index: linux/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- linux.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
++++ linux/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+@@ -296,11 +296,14 @@ void bcm43xx_generate_txhdr(struct bcm43
+ 	u16 control = 0;
+ 	u16 wsec_rate = 0;
+ 	u16 encrypt_frame;
++	u16 ftype = WLAN_FC_GET_TYPE(le16_to_cpu(wireless_header->frame_ctl));
++	int is_mgt = (ftype == IEEE80211_FTYPE_MGMT) != 0;
+ 
+ 	/* Now construct the TX header. */
+ 	memset(txhdr, 0, sizeof(*txhdr));
+ 
+-	bitrate = bcm->softmac->txrates.default_rate;
++	bitrate = ieee80211softmac_suggest_txrate(bcm->softmac,
++		is_multicast_ether_addr(wireless_header->addr1), is_mgt);
+ 	ofdm_modulation = !(ieee80211_is_cck_rate(bitrate));
+ 	fallback_bitrate = bcm43xx_calc_fallback_rate(bitrate);
+ 	fallback_ofdm_modulation = !(ieee80211_is_cck_rate(fallback_bitrate));
