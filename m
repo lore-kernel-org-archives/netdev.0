@@ -1,40 +1,66 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Fw: [Bugme-new] [Bug 6495] New: Vlan MTU Fragmentation
-Date: Sat, 06 May 2006 10:20:01 -0700
-Message-ID: <445CDAC1.2010209@candelatech.com>
-References: <20060504235628.33041b55.akpm@osdl.org>	<445B75D2.6080702@candelatech.com>	<20060505193903.249feaf8.akpm@osdl.org>	<445C2872.5060208@candelatech.com> <20060505231759.5ad77e95.akpm@osdl.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 2/3] bcm43xx-d80211: fix whitespace
+Date: Sat, 6 May 2006 19:43:51 +0200
+Message-ID: <200605061943.51654.mb@bu3sch.de>
+References: <20060505215542.25d310dd@localhost> <20060505215959.35be978d@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugme-daemon@bugzilla.kernel.org,
-	slavon@bigtelecom.ru
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:2788 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1750916AbWEFRUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 13:20:10 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060505231759.5ad77e95.akpm@osdl.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:33937
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750967AbWEFRhL
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 13:37:11 -0400
+To: Stefano Brivio <stefano.brivio@polimi.it>
+In-Reply-To: <20060505215959.35be978d@localhost>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
+On Friday 05 May 2006 21:59, Stefano Brivio wrote:
+> Fix whitespace.
+> 
+> Signed-off-by: Stefano Brivio <stefano.brivio@polimi.it>
+> 
+> Index: wireless-dev/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> ===================================================================
+> --- wireless-dev.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-05 00:50:00.370034536 +0200
+> +++ wireless-dev/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-05 02:43:44.981535888 +0200
 
-> I guess I can type simple commands and add printks.  Do you have time to
-> take a look at the driver and suggest what I should be looking for?
+All your d80211 patches are _not_ against the dscape port
+of the bcm43xx driver. The dscape port is located at:
+wireless-dev/drivers/net/wireless/d80211/bcm43xx/
 
-I can only offer vague hints:
-
-TX usually works, but RX often has isues.  There is usually a bit
-or two that needs setting to enable the larger than MTU pkt RX.
-
-It seems some older chipsets had issues with doing checksum offload
-for VLAN packets, so could try disabling the UDP/TCP checksum logic
-and see if that helps.
-
-Thanks,
-Ben
+> @@ -128,13 +128,13 @@
+>  	static struct pci_device_id bcm43xx_pci_tbl[] = {
+>  	/* Broadcom 4303 802.11b */
+>  	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> -		/* Broadcom 4307 802.11b */
+> +	/* Broadcom 4307 802.11b */
+>  	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> -		/* Broadcom 4318 802.11b/g */
+> +	/* Broadcom 4318 802.11b/g */
+>  	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+>  	/* Broadcom 4306 802.11b/g */
+>  	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> -		/* Broadcom 4306 802.11a */
+> +	/* Broadcom 4306 802.11a */
+>  //	{ PCI_VENDOR_ID_BROADCOM, 0x4321, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+>  	/* Broadcom 4309 802.11a/b/g */
+>  	{ PCI_VENDOR_ID_BROADCOM, 0x4324, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> 
+> 
+> --
+> Ciao
+> Stefano
+> _______________________________________________
+> Bcm43xx-dev mailing list
+> Bcm43xx-dev@lists.berlios.de
+> http://lists.berlios.de/mailman/listinfo/bcm43xx-dev
+> 
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Greetings Michael.
