@@ -1,36 +1,40 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: Please pull upstream-fixes branch of wireless-2.6
-Date: Fri, 5 May 2006 20:20:45 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0605052017070.16343@g5.osdl.org>
-References: <20060506010613.GA26189@tuxdriver.com> <20060505200812.1e76785c.akpm@osdl.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 2/2] netdev: create attribute_groups with class_device_add
+Date: Fri, 5 May 2006 21:08:39 -0700
+Message-ID: <20060506040839.GA12636@kroah.com>
+References: <20060421125255.3451959f@localhost.localdomain> <20060421125438.50f93a34@localhost.localdomain> <20060505.184158.131584956.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, jeff@garzik.org, shemminger@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:58781 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750753AbWEFDUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 May 2006 23:20:54 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060505200812.1e76785c.akpm@osdl.org>
+Received: from mx2.suse.de ([195.135.220.15]:9660 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751139AbWEFEK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 6 May 2006 00:10:26 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060505.184158.131584956.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Fri, 5 May 2006, Andrew Morton wrote:
-> On Fri, 5 May 2006 21:06:18 -0400
-> "John W. Linville" <linville@tuxdriver.com> wrote:
-> >
-> > These are fixes intended for 2.6.17...thanks!
+On Fri, May 05, 2006 at 06:41:58PM -0700, David S. Miller wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Fri, 21 Apr 2006 12:54:38 -0700
 > 
-> Jeff is offline for a couple of weeks.   Please prepare a pull for Linus.
+> > Atomically create attributes when class device is added. This avoids the
+> > race between registering class_device (which generates hotplug event),
+> > and the creation of attribute groups.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> Did the first patch that adds the attribute_group creation
+> infrastructure go in so that we can get this networking fix in?
 
-Actually, while Jeff is off, Steve Hemminger is supposed to be the network 
-driver overlord ("All bow down before the mighty Shemminger"), so please 
-do synchronize with him.
+It and the netdev patch are setting in my tree which is showing up in
+-mm.  I'm going to wait until 2.6.17 is out to send the first patch.  I
+can send the second one then too if you want me to (probably make it
+easier that way.)
 
-Of course, that might be just Steve taking a look and telling me "yeah, 
-please pull directly from John".
+thanks,
 
-		Linus
+greg k-h
