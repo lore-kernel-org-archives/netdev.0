@@ -1,74 +1,90 @@
-From: James Morris <jmorris@namei.org>
-Subject: [RFC] SECMARK 1.0
-Date: Sun, 7 May 2006 11:31:38 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605071104590.8588@d.namei>
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: Re: [rfc][patch] ipvs: use proper timeout instead of fixed value
+Date: Sun, 7 May 2006 23:32:00 +0800 (CST)
+Message-ID: <Pine.LNX.4.64.0605072302370.7007@penguin.linux-vs.org>
+References: <20060504201116.GA24394@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Daniel J Walsh <dwalsh@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, horms@verge.net.au, ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:60801 "EHLO
-	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932173AbWEGPbp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 May 2006 11:31:45 -0400
-To: selinux@tycho.nsa.gov
+Received: from [202.109.113.90] ([202.109.113.90]:7131 "EHLO
+	dragon.linux-vs.org") by vger.kernel.org with ESMTP id S932180AbWEGPcO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 May 2006 11:32:14 -0400
+To: Andy Gospodarek <andy@greyhouse.net>
+In-Reply-To: <20060504201116.GA24394@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following patchsets implement a new scheme for adding security 
-markings to packets via iptables, as well as changes to SELinux to use 
-these markings for security policy enforcement.
 
-Along with these patches, assorted files including policy examples and 
-patches for SELinux userland may be found at:
-http://people.redhat.com/jmorris/selinux/secmark/
+Hi Andy,
 
-The requirements for secmark arise from the current per-packet network 
-controls in SELinux, which are rudimentary, and not as expressive or 
-powerful as the controls provided by Netfilter/iptables.
+Yes, the original sychronziation design is a sort of arbitary or 
+compromised solution. We don't want to synchronize every state change from 
+master to backup load balancer, because we were afraid that there were too 
+much state change synchronization messages and there would be some 
+performance penalty. So, we only sychronize the connection of TCP 
+ESTABLISHED state or UDP to backup load balancer, and use the timeout of 3 
+minutes.
 
-Thus, the idea is to leverage Netfilter/iptables for packet selection and 
-labeling, so that SELinux can have more powerful and expressive network 
-controls.  This also allows for increased security, as the policy is more 
-effective, allowing access to the full range of iptables selectors and 
-support mechanisms.
+Your change is probably ok, but we should be aware that it may create a 
+lot of connection entries at backup load balancer for TCP applications, 
+which is much more than that at master load balancer, because there is no 
+connection close synchronization and timeout is changed to 3 minutes to 15 
+minutes.
 
-For example, SELinux will now be able to utilize connection tracking, so 
-that only packets which are known to be valid for a specific connection 
-will be allowed to reach the subject.
+The simple solution is probably to make timeout value tuneable, so that 
+users can tune it for their application. The better solution is to 
+synchronize very connection state change from master to backup, so that 
+backup have almost the same state of connections.
 
-Sample iptables rules for labeling packets are at:
-http://people.redhat.com/jmorris/selinux/secmark/rules/
+Thanks,
 
-And examples of new policy controls may be found here:
-http://people.redhat.com/jmorris/selinux/secmark/policy/
+Wensong
 
 
-The sample policy for ftpd demonstrates how the vsftpd server can be 
-confined so that it only receives SYN packets on the ftp control port for 
-new connections, as well as any packets related to the ftp control or data 
-connections and related ICMP packets.  It is also allowed to send DNS 
-requests.
+On Thu, 4 May 2006, Andy Gospodarek wrote:
 
-Note that only the per-packet network controls are being replaced -- the 
-existing socket-based controls such as name_bind, node_bind and 
-name_connect are being retained as they are useful for applications in 
-that they return error messages in response to socket calls, and prevent, 
-for example, an application from binding to specific local IP addresses.
-
-Also, this local packet marking is orthogonal to the xfrm network labeling 
-(which is for mediating access based on the security context of the 
-endpoints across a network connection).
-
-
-Please review these patches and let me know if there are any queries.
-
-I would like to get the kernel components upstream in the 2.6.18 merge 
-window.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+>
+> Instead of using the default timeout of 3 minutes, this uses the timeout
+> specific to the protocol used for the connection. The 3 minute timeout
+> seems somewhat arbitrary (though I know it is used other places in the
+> ipvs code) and when failing over it would be much nicer to use one of
+> the configured timeout values.
+>
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> ---
+>
+> ip_vs_sync.c |    5 +++--
+> 1 files changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+> --- a/net/ipv4/ipvs/ip_vs_sync.c
+> +++ b/net/ipv4/ipvs/ip_vs_sync.c
+> @@ -67,7 +67,6 @@ struct ip_vs_sync_conn_options {
+> 	struct ip_vs_seq        out_seq;        /* outgoing seq. struct */
+> };
+>
+> -#define IP_VS_SYNC_CONN_TIMEOUT (3*60*HZ)
+> #define SIMPLE_CONN_SIZE  (sizeof(struct ip_vs_sync_conn))
+> #define FULL_CONN_SIZE  \
+> (sizeof(struct ip_vs_sync_conn) + sizeof(struct ip_vs_sync_conn_options))
+> @@ -279,6 +278,7 @@ static void ip_vs_process_message(const
+> 	struct ip_vs_sync_conn *s;
+> 	struct ip_vs_sync_conn_options *opt;
+> 	struct ip_vs_conn *cp;
+> +	struct ip_vs_protocol *pp;
+> 	char *p;
+> 	int i;
+>
+> @@ -337,7 +337,8 @@ static void ip_vs_process_message(const
+> 			p += SIMPLE_CONN_SIZE;
+>
+> 		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
+> -		cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
+> +		pp = ip_vs_proto_get(s->protocol);
+> +		cp->timeout = pp->timeout_table[cp->state];
+> 		ip_vs_conn_put(cp);
+>
+> 		if (p > buffer+buflen) {
+>
