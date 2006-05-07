@@ -1,45 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: hotplug napi race cleanup
-Date: Sat, 06 May 2006 18:09:47 -0700 (PDT)
-Message-ID: <20060506.180947.35317492.davem@davemloft.net>
-References: <20060421102503.4e44eb28@localhost.localdomain>
-	<E1FX5zQ-000177-00@gondolin.me.apana.org.au>
-	<20060424152341.094b72d8@localhost.localdomain>
+Subject: Re: [PATCH] irda-usb: use NULL instead of 0
+Date: Sat, 06 May 2006 18:34:32 -0700 (PDT)
+Message-ID: <20060506.183432.36022730.davem@davemloft.net>
+References: <20060501150807.b05fe450.rdunlap@xenotime.net>
+	<200605020019.25382.IvDoorn@gmail.com>
+	<20060501153134.811ac2d4.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, patrakov@ums.usu.ru,
-	netdev@vger.kernel.org, akpm@osdl.org
+Cc: ivdoorn@gmail.com, netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22209
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53904
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751172AbWEGBJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 6 May 2006 21:09:51 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060424152341.094b72d8@localhost.localdomain>
+	id S1751173AbWEGBeb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 6 May 2006 21:34:31 -0400
+To: rdunlap@xenotime.net
+In-Reply-To: <20060501153134.811ac2d4.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 24 Apr 2006 15:23:41 -0700
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Date: Mon, 1 May 2006 15:31:34 -0700
 
-> This follows after the earlier two patches.
+> Use NULL instead of 0 for a null pointer value (sparse warning):
+> drivers/net/irda/irda-usb.c:1781:30: warning: Using plain integer as NULL pointer
 > 
-> Change the initialization of the class device portion of the net device
-> to be done earlier, so that any races before registration completes are
-> harmless.  Add a mutex to avoid changes to netdevice during the
-> class device registration. 
+> Correct timeout argument to use milliseconds instead of jiffies.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
 
-I'm not going to apply this patch and instead request that we think
-about why this problem exists in the first place.
-
-This patch is even stronger evidence that doing the sysfs registry in
-the todo list processing is wrong.  If you can legally do this while
-holding the rtnl semaphore, you can just as equally do it inside of
-register_netdevice() which is where it truly belongs.
-
-Then you can handle errors properly, unwind the state, and return the
-error to the caller instead of just losing the error and leaving the
-device in a half-registered state.
+Applied, thanks Randy.
