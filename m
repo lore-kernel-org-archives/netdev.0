@@ -1,90 +1,155 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [rfc][patch] ipvs: use proper timeout instead of fixed value
-Date: Sun, 7 May 2006 23:32:00 +0800 (CST)
-Message-ID: <Pine.LNX.4.64.0605072302370.7007@penguin.linux-vs.org>
-References: <20060504201116.GA24394@gospo.rdu.redhat.com>
+From: James Morris <jmorris@namei.org>
+Subject: [RFC] [SECMARK 01/08] Add secmark support to core networking
+Date: Sun, 7 May 2006 11:33:10 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605071131500.8588@d.namei>
+References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, horms@verge.net.au, ja@ssi.bg
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Daniel J Walsh <dwalsh@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [202.109.113.90] ([202.109.113.90]:7131 "EHLO
-	dragon.linux-vs.org") by vger.kernel.org with ESMTP id S932180AbWEGPcO
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 May 2006 11:32:14 -0400
-To: Andy Gospodarek <andy@greyhouse.net>
-In-Reply-To: <20060504201116.GA24394@gospo.rdu.redhat.com>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:19661 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932181AbWEGPdN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 May 2006 11:33:13 -0400
+To: selinux@tycho.nsa.gov
+In-Reply-To: <Pine.LNX.4.64.0605071104590.8588@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch adds a secmark field to the skbuff structure, to allow security 
+subsystems to place security markings on network packets.  This is similar 
+to the nfmark field, except is intended for implementing security policy, 
+rather than than networking policy.
 
-Hi Andy,
-
-Yes, the original sychronziation design is a sort of arbitary or 
-compromised solution. We don't want to synchronize every state change from 
-master to backup load balancer, because we were afraid that there were too 
-much state change synchronization messages and there would be some 
-performance penalty. So, we only sychronize the connection of TCP 
-ESTABLISHED state or UDP to backup load balancer, and use the timeout of 3 
-minutes.
-
-Your change is probably ok, but we should be aware that it may create a 
-lot of connection entries at backup load balancer for TCP applications, 
-which is much more than that at master load balancer, because there is no 
-connection close synchronization and timeout is changed to 3 minutes to 15 
-minutes.
-
-The simple solution is probably to make timeout value tuneable, so that 
-users can tune it for their application. The better solution is to 
-synchronize very connection state change from master to backup, so that 
-backup have almost the same state of connections.
-
-Thanks,
-
-Wensong
+This patch was already acked in principle by Dave Miller.
 
 
-On Thu, 4 May 2006, Andy Gospodarek wrote:
+Signed-off-by: James Morris <jmorris@namei.org>
 
->
-> Instead of using the default timeout of 3 minutes, this uses the timeout
-> specific to the protocol used for the connection. The 3 minute timeout
-> seems somewhat arbitrary (though I know it is used other places in the
-> ipvs code) and when failing over it would be much nicer to use one of
-> the configured timeout values.
->
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> ---
->
-> ip_vs_sync.c |    5 +++--
-> 1 files changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
-> --- a/net/ipv4/ipvs/ip_vs_sync.c
-> +++ b/net/ipv4/ipvs/ip_vs_sync.c
-> @@ -67,7 +67,6 @@ struct ip_vs_sync_conn_options {
-> 	struct ip_vs_seq        out_seq;        /* outgoing seq. struct */
-> };
->
-> -#define IP_VS_SYNC_CONN_TIMEOUT (3*60*HZ)
-> #define SIMPLE_CONN_SIZE  (sizeof(struct ip_vs_sync_conn))
-> #define FULL_CONN_SIZE  \
-> (sizeof(struct ip_vs_sync_conn) + sizeof(struct ip_vs_sync_conn_options))
-> @@ -279,6 +278,7 @@ static void ip_vs_process_message(const
-> 	struct ip_vs_sync_conn *s;
-> 	struct ip_vs_sync_conn_options *opt;
-> 	struct ip_vs_conn *cp;
-> +	struct ip_vs_protocol *pp;
-> 	char *p;
-> 	int i;
->
-> @@ -337,7 +337,8 @@ static void ip_vs_process_message(const
-> 			p += SIMPLE_CONN_SIZE;
->
-> 		atomic_set(&cp->in_pkts, sysctl_ip_vs_sync_threshold[0]);
-> -		cp->timeout = IP_VS_SYNC_CONN_TIMEOUT;
-> +		pp = ip_vs_proto_get(s->protocol);
-> +		cp->timeout = pp->timeout_table[cp->state];
-> 		ip_vs_conn_put(cp);
->
-> 		if (p > buffer+buflen) {
->
+---
+
+ include/linux/skbuff.h          |   22 ++++++++++++++++++++++
+ net/Kconfig                     |    7 +++++++
+ net/core/skbuff.c               |    3 ++-
+ net/ipv4/ip_output.c            |    1 +
+ net/ipv4/netfilter/ipt_REJECT.c |    1 +
+ net/ipv6/ip6_output.c           |    1 +
+ 6 files changed, 34 insertions(+), 1 deletion(-)
+
+diff -purN -X dontdiff linux-2.6.17-rc2-mm1.p/include/linux/skbuff.h linux-2.6.17-rc2-mm1.w/include/linux/skbuff.h
+--- linux-2.6.17-rc2-mm1.p/include/linux/skbuff.h	2006-04-27 10:44:26.000000000 -0400
++++ linux-2.6.17-rc2-mm1.w/include/linux/skbuff.h	2006-04-27 23:43:32.000000000 -0400
+@@ -209,6 +209,7 @@ enum {
+  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
+  *	@tc_index: Traffic control index
+  *	@tc_verd: traffic control verdict
++ *	@secmark: security marking
+  */
+ 
+ struct sk_buff {
+@@ -285,6 +286,9 @@ struct sk_buff {
+ 	__u16			tc_verd;	/* traffic control verdict */
+ #endif
+ #endif
++#ifdef CONFIG_NETWORK_SECMARK
++	__u32			secmark;
++#endif
+ 
+ 
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+@@ -1396,5 +1400,23 @@ static inline void nf_reset(struct sk_bu
+ static inline void nf_reset(struct sk_buff *skb) {}
+ #endif /* CONFIG_NETFILTER */
+ 
++#ifdef CONFIG_NETWORK_SECMARK
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{
++	to->secmark = from->secmark;
++}
++
++static inline void skb_init_secmark(struct sk_buff *skb)
++{
++	skb->secmark = 0;
++}
++#else
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{ }
++
++static inline void skb_init_secmark(struct sk_buff *skb)
++{ }
++#endif
++
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff -purN -X dontdiff linux-2.6.17-rc2-mm1.p/net/core/skbuff.c linux-2.6.17-rc2-mm1.w/net/core/skbuff.c
+--- linux-2.6.17-rc2-mm1.p/net/core/skbuff.c	2006-04-27 10:44:26.000000000 -0400
++++ linux-2.6.17-rc2-mm1.w/net/core/skbuff.c	2006-04-27 23:43:32.000000000 -0400
+@@ -464,7 +464,7 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
+ 	C(input_dev);
+ #endif
+-
++	skb_copy_secmark(n, skb);
+ #endif
+ 	C(truesize);
+ 	atomic_set(&n->users, 1);
+@@ -526,6 +526,7 @@ static void copy_skb_header(struct sk_bu
+ #endif
+ 	new->tc_index	= old->tc_index;
+ #endif
++	skb_copy_secmark(new, old);
+ 	atomic_set(&new->users, 1);
+ 	skb_shinfo(new)->tso_size = skb_shinfo(old)->tso_size;
+ 	skb_shinfo(new)->tso_segs = skb_shinfo(old)->tso_segs;
+diff -purN -X dontdiff linux-2.6.17-rc2-mm1.p/net/ipv4/ip_output.c linux-2.6.17-rc2-mm1.w/net/ipv4/ip_output.c
+--- linux-2.6.17-rc2-mm1.p/net/ipv4/ip_output.c	2006-04-19 23:31:25.000000000 -0400
++++ linux-2.6.17-rc2-mm1.w/net/ipv4/ip_output.c	2006-04-27 23:43:32.000000000 -0400
+@@ -410,6 +410,7 @@ static void ip_copy_metadata(struct sk_b
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
+ }
+ 
+ /*
+diff -purN -X dontdiff linux-2.6.17-rc2-mm1.p/net/ipv4/netfilter/ipt_REJECT.c linux-2.6.17-rc2-mm1.w/net/ipv4/netfilter/ipt_REJECT.c
+--- linux-2.6.17-rc2-mm1.p/net/ipv4/netfilter/ipt_REJECT.c	2006-04-19 23:31:25.000000000 -0400
++++ linux-2.6.17-rc2-mm1.w/net/ipv4/netfilter/ipt_REJECT.c	2006-04-27 23:43:32.000000000 -0400
+@@ -147,6 +147,7 @@ static void send_reset(struct sk_buff *o
+ 	/* This packet will not be the same as the other: clear nf fields */
+ 	nf_reset(nskb);
+ 	nskb->nfmark = 0;
++	skb_init_secmark(nskb);
+ 
+ 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
+ 
+diff -purN -X dontdiff linux-2.6.17-rc2-mm1.p/net/ipv6/ip6_output.c linux-2.6.17-rc2-mm1.w/net/ipv6/ip6_output.c
+--- linux-2.6.17-rc2-mm1.p/net/ipv6/ip6_output.c	2006-04-19 23:31:25.000000000 -0400
++++ linux-2.6.17-rc2-mm1.w/net/ipv6/ip6_output.c	2006-04-27 23:43:32.000000000 -0400
+@@ -458,6 +458,7 @@ static void ip6_copy_metadata(struct sk_
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
+ }
+ 
+ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+diff -purN -X dontdiff linux-2.6.17-rc2-mm1.p/net/Kconfig linux-2.6.17-rc2-mm1.w/net/Kconfig
+--- linux-2.6.17-rc2-mm1.p/net/Kconfig	2006-04-19 23:31:25.000000000 -0400
++++ linux-2.6.17-rc2-mm1.w/net/Kconfig	2006-04-27 23:43:32.000000000 -0400
+@@ -66,6 +66,13 @@ source "net/ipv6/Kconfig"
+ 
+ endif # if INET
+ 
++config NETWORK_SECMARK
++	bool "Security Marking"
++	help
++	  This enables security marking of network packets, similar
++	  to nfmark, but designated for security purposes.
++	  If you are unsure how to answer this question, answer N.
++
+ menuconfig NETFILTER
+ 	bool "Network packet filtering (replaces ipchains)"
+ 	---help---
