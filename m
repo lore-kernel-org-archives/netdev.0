@@ -1,179 +1,58 @@
-From: James Morris <jmorris@namei.org>
-Subject: [RFC][SECMARK userland 03/03] Add libip6t_SECMARK
-Date: Sun, 7 May 2006 11:44:49 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605071143590.8588@d.namei>
+From: Joshua Brindle <method@gentoo.org>
+Subject: Re: [RFC] SECMARK 1.0
+Date: Sun, 07 May 2006 13:04:11 -0400
+Message-ID: <445E288B.4040908@gentoo.org>
 References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	netfilter-devel@lists.samba.org,
 	Stephen Smalley <sds@tycho.nsa.gov>,
 	Daniel J Walsh <dwalsh@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:6359 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932174AbWEGPov (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 May 2006 11:44:51 -0400
-To: selinux@tycho.nsa.gov
+Received: from tresys.irides.com ([216.250.243.126]:23453 "EHLO
+	exchange.columbia.tresys.com") by vger.kernel.org with ESMTP
+	id S932192AbWEGREL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 May 2006 13:04:11 -0400
+To: James Morris <jmorris@namei.org>
 In-Reply-To: <Pine.LNX.4.64.0605071104590.8588@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the shared library module for the SECMARK target (IPv6).
+James Morris wrote:
+> For example, SELinux will now be able to utilize connection tracking, so 
+> that only packets which are known to be valid for a specific connection 
+> will be allowed to reach the subject.
+>
+> Sample iptables rules for labeling packets are at:
+> http://people.redhat.com/jmorris/selinux/secmark/rules/
+>
+> And examples of new policy controls may be found here:
+> http://people.redhat.com/jmorris/selinux/secmark/policy/
+>   
+It looks like you are labeling all packets on an established connection 
+as tracked_packet_t. What is the rationale for not labeling all ftp 
+traffic as ftpd_packet_t? Granted that its very unlikely for established 
+connections to go to the wrong process but the SELinux policy should be 
+able to clearly show that ftpd and sshd cannot see each others packets 
+but these policies say that they can both send/receive tracked_packet_t.
 
+Obviously these are just examples, I'm just curious if there was a 
+reason to label established packets differently from the new connection 
+packets (and the same as all the other established packets)
 
-Signed-off-by: James Morris <jmorris@namei.org>
+I imagine that, at least at first, it would be good to have allow domain 
+unlabeled_t:packet { send recv }; in an (enabled) conditional so that 
+the migration will be easier.
 
----
+Also, we need to come up with a mechanism for distributing default 
+marking rules that can accompany a policy. The rules could go into a 
+section in the .pp file but how does that integrate with various 
+firewall systems that take control of the iptables rules?
 
-diff -purN -X dontdiff iptables.p/extensions/libip6t_SECMARK.c iptables.w/extensions/libip6t_SECMARK.c
---- iptables.p/extensions/libip6t_SECMARK.c	1969-12-31 19:00:00.000000000 -0500
-+++ iptables.w/extensions/libip6t_SECMARK.c	2006-04-27 02:31:36.000000000 -0400
-@@ -0,0 +1,125 @@
-+/*
-+ * Shared library add-on to iptables to add SECMARK target support.
-+ *
-+ * Based on the MARK target.
-+ *
-+ * IPv6 version.
-+ *
-+ * Copyright (C) 2006 Red Hat, Inc., James Morris <jmorris@redhat.com>
-+ */
-+#include <stdio.h>
-+#include <string.h>
-+#include <stdlib.h>
-+#include <getopt.h>
-+#include <ip6tables.h>
-+#include <linux/netfilter/xt_SECMARK.h>
-+
-+#define PFX "SECMARK target: "
-+
-+static void help(void)
-+{
-+	printf(
-+"SECMARK target v%s options:\n"
-+"  --selctx value                     Set the SELinux security context\n"
-+"\n",
-+IPTABLES_VERSION);
-+}
-+
-+static struct option opts[] = {
-+	{ "selctx", 1, 0, '1' },
-+	{ 0 }
-+};
-+
-+/* Initialize the target. */
-+static void init(struct ip6t_entry_target *t, unsigned int *nfcache)
-+{ }
-+
-+/*
-+ * Function which parses command options; returns true if it
-+ * ate an option.
-+ */
-+static int parse(int c, char **argv, int invert, unsigned int *flags,
-+                 const struct ip6t_entry *entry, struct ip6t_entry_target **target)
-+{
-+	struct xt_secmark_target_info *info =
-+		(struct xt_secmark_target_info*)(*target)->data;
-+
-+	switch (c) {
-+	case '1':
-+		if (*flags & SECMARK_MODE_SEL)
-+			exit_error(PARAMETER_PROBLEM, PFX
-+				   "Can't specify --selctx twice");
-+		info->mode = SECMARK_MODE_SEL;
-+
-+		if (strlen(optarg) > SECMARK_SELCTX_MAX-1)
-+			exit_error(PARAMETER_PROBLEM, PFX
-+				   "Maximum length %u exceeded by --selctx"
-+				   " parameter (%zu)",
-+				   SECMARK_SELCTX_MAX-1, strlen(optarg));
-+
-+		strcpy(info->u.sel.selctx, optarg);
-+		*flags |= SECMARK_MODE_SEL;
-+		break;
-+	default:
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static void final_check(unsigned int flags)
-+{
-+	if (!flags)
-+		exit_error(PARAMETER_PROBLEM, PFX "parameter required");
-+}
-+
-+static void print_secmark(struct xt_secmark_target_info *info)
-+{
-+	switch (info->mode) {
-+	case SECMARK_MODE_SEL:
-+		printf("selctx %s ", info->u.sel.selctx);\
-+		break;
-+	
-+	default:
-+		exit_error(OTHER_PROBLEM, PFX "invalid mode %hhu\n", info->mode);
-+	}
-+}
-+
-+static void print(const struct ip6t_ip6 *ip,
-+		  const struct ip6t_entry_target *target, int numeric)
-+{
-+	struct xt_secmark_target_info *info =
-+		(struct xt_secmark_target_info*)(target)->data;
-+
-+	printf("SECMARK ");
-+	print_secmark(info);
-+}
-+
-+/* Saves the target info in parsable form to stdout. */
-+static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_target *target)
-+{
-+	struct xt_secmark_target_info *info =
-+		(struct xt_secmark_target_info*)target->data;
-+
-+	printf("--");
-+	print_secmark(info);
-+}
-+
-+static struct ip6tables_target secmark = {
-+	.name		= "SECMARK",
-+	.version	= IPTABLES_VERSION,
-+	.size		= IP6T_ALIGN(sizeof(struct xt_secmark_target_selinux_info)),
-+	.userspacesize	= IP6T_ALIGN(sizeof(struct xt_secmark_target_selinux_info)),
-+	.help		= &help,
-+	.init		= &init,
-+	.parse		= &parse,
-+	.final_check	= &final_check,
-+	.print		= &print,
-+	.save		= &save,
-+	.extra_opts	= opts
-+};
-+
-+void _init(void)
-+{
-+	register_target6(&secmark);
-+}
-diff -purN -X dontdiff iptables.p/extensions/libip6t_SECMARK.man iptables.w/extensions/libip6t_SECMARK.man
---- iptables.p/extensions/libip6t_SECMARK.man	1969-12-31 19:00:00.000000000 -0500
-+++ iptables.w/extensions/libip6t_SECMARK.man	2006-04-27 02:23:09.000000000 -0400
-@@ -0,0 +1,7 @@
-+This is used to set the security mark value associated with the
-+packet for use by security subsystems such as SELinux.  It is only
-+valid in the
-+.B mangle
-+table.
-+.TP
-+.BI "--selctx " "security_context"
-diff -purN -X dontdiff iptables.p/extensions/Makefile iptables.w/extensions/Makefile
---- iptables.p/extensions/Makefile	2006-04-27 02:22:22.000000000 -0400
-+++ iptables.w/extensions/Makefile	2006-04-27 02:25:34.000000000 -0400
-@@ -10,7 +10,7 @@ PF6_EXT_SLIB:=connmark eui64 hl icmp6 le
- 
- ifeq ($(DO_SELINUX), 1)
- PF_EXT_SE_SLIB:=SECMARK
--PF6_EXT_SE_SLIB:=
-+PF6_EXT_SE_SLIB:=SECMARK
- endif
- 
- # Optionals
+And finally, what happens if the labeling rule changes during an 
+established connection? Do the packets related to that connection retain 
+the original label or will they get the new label?
+
+Thanks, this will be very beneficial to the SELinux community
