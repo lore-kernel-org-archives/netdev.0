@@ -1,36 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.4 kern: want to print TCP cwnd with every packet
-Date: Mon, 8 May 2006 10:31:23 -0700
-Message-ID: <20060508103123.38b10e56@localhost.localdomain>
-References: <28365.128.237.227.255.1146925156.squirrel@128.237.227.255>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] TCP congestion module: add TCP-LP supporting for
+ 2.6.16.14
+Date: Mon, 08 May 2006 10:43:22 -0700 (PDT)
+Message-ID: <20060508.104322.58430929.davem@davemloft.net>
+References: <3feffd230605062232m1b9a3951h6d21071cdacc890f@mail.gmail.com>
+	<20060508112915.GB4162@ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: hswong3i@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:12233 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932497AbWEHRbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 May 2006 13:31:37 -0400
-To: "George P Nychis" <gnychis@cmu.edu>
-In-Reply-To: <28365.128.237.227.255.1146925156.squirrel@128.237.227.255>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:46016
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932424AbWEHRng (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 May 2006 13:43:36 -0400
+To: pavel@suse.cz
+In-Reply-To: <20060508112915.GB4162@ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 6 May 2006 10:19:16 -0400 (EDT)
-"George P Nychis" <gnychis@cmu.edu> wrote:
+From: Pavel Machek <pavel@suse.cz>
+Date: Mon, 8 May 2006 11:29:15 +0000
 
-> Hi,
+> Hi!
 > 
-> I'd like to print the TCP cwnd for the sender, with every packet before it is sent out.  This way i could plot the sender window over time to show TCP's behavior in certain conditions.
+> > TCP Low Priority is a distributed algorithm whose goal 
+> > is to utilize only
+> > the excess network bandwidth as compared to the ``fair 
+> > share`` of
+> > bandwidth as targeted by TCP. Available from:
+> >   http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
 > 
-> I see in tcp_input.c several places where i could print the current window, but i'd have to add code in multiple places.  I was wondering if there is any 1 place, right before a packet is sent out, that i could printk() tp->snd_cwnd
+> Nice... I'd like to use something like this on my (overloaded)
+> GPRS/EDGE link.
 > 
-> Thanks!
-> George
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Unfortunately, patch does not include documentation update AFAICS. How
+> do I use it? net-nice -n 19 rsync would be nice, but I guess that
+> would be quite complex...?
 
-Look at http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
+You could select it as the default congestion control algorithm
+in your kernel config, but that's probably not what you want.
+
+Or, just include it, and select it with the TCP_CONGESTION socket
+option when you want it.  Sorry, this does require app modifications.
