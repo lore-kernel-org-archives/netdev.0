@@ -1,51 +1,45 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: IPv6 connect() from site-local to global IPv6 address.
-Date: Mon, 08 May 2006 19:48:00 +0100
-Message-ID: <1147114080.2885.164.camel@hades.cambridge.redhat.com>
-References: <1146862832.2766.54.camel@pmac.infradead.org>
-	 <20060506.091920.122414672.yoshfuji@linux-ipv6.org>
-	 <1146876802.2503.32.camel@shinybook.infradead.org>
-	 <20060506.113904.63157190.yoshfuji@linux-ipv6.org>
-	 <1146926830.2503.67.camel@shinybook.infradead.org>
-	 <445F7576.5080102@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] netdev: hotplug napi race cleanup
+Date: Mon, 8 May 2006 12:02:24 -0700
+Message-ID: <20060508120224.63c84ad6@localhost.localdomain>
+References: <20060424152341.094b72d8@localhost.localdomain>
+	<20060506.180947.35317492.davem@davemloft.net>
+	<20060508095458.0debd022@localhost.localdomain>
+	<20060508.113731.97080992.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, patrakov@ums.usu.ru,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:8416 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751067AbWEHSrq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 May 2006 14:47:46 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <445F7576.5080102@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:33515 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751277AbWEHTC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 May 2006 15:02:29 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060508.113731.97080992.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-05-08 at 09:44 -0700, Rick Jones wrote:
-> Or get the applications fixed no?  Kludging around application bugs 
-> sounds a bit like the "Fram Oil Filter" commercial where the mechanic is 
-> grinning while he says "You can pay me now, or you can pay be later." As 
-> in pay for the slightly more expensive oil filter now, or engine repair 
-> later.
+On Mon, 08 May 2006 11:37:31 -0700 (PDT)
+"David S. Miller" <davem@davemloft.net> wrote:
 
-Well, obviously. That's _why_ I want to deploy IPv6 and get it tested.
-But I used to be able to do this without actually breaking the network,
-and without being told to _stop_ running radvd because it breaks things.
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Mon, 8 May 2006 09:54:58 -0700
+> 
+> > The issue is are there network devices that can't sleep during
+> > register_netdevice?
+> 
+> Oh right, I forgot about that.
 
-> Other than fixing the applications that only take the first response 
-> (isn't that a generic application bug going back nearly decades now? 
-> amazing how things stay the same isn't it) Can you run a caching-only 
-> name server at the edge that filters-out the IPv6 responses so your 
-> systems never see Global IPV6 responses?
+We could do something like this in register_netdevice()
 
-I don't think that kind of answer is going to be sufficient to persuade
-Uli to switch back from favouring IPv4 over IPv6. That's done the trick,
-admittedly -- by ensuring that we get _no_ testing of IPv6 unless we run
-with IPv6-only networking :)
+	if (in_atomic() || irqs_disabled())
+		net_set_todo(dev);
+	else {
+		dev->reg_state = NETREG_REGISTERED;
+		ret = netdev_register_sysfs(dev);
+		if (ret) {
+			... 
+	}
 
--- 
-dwmw2
-
+It seems a bit grotty, and might cause pain later.
