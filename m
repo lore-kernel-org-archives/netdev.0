@@ -1,65 +1,52 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC] SECMARK 1.0
-Date: Mon, 8 May 2006 17:29:33 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605081719440.18947@d.namei>
-References: <Pine.LNX.4.64.0605071104590.8588@d.namei>  <445E288B.4040908@gentoo.org>
-  <Pine.LNX.4.64.0605071323330.9423@d.namei> <1147110088.32719.56.camel@jackjack.columbia.tresys.com>
+From: Samuel Ortiz <samuel.ortiz@nokia.com>
+Subject: [PATCH 1/4] New IrDA maintainer
+Date: Tue, 9 May 2006 00:23:33 +0300
+Message-ID: <20060508212333.GB20933@irie>
+Reply-To: Samuel Ortiz <samuel.ortiz@nokia.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joshua Brindle <method@gentoo.org>, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Daniel J Walsh <dwalsh@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jean Tourrilhes <jt@hpl.hp.com>,
+	IrDA users <irda-users@lists.sourceforge.net>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:19949 "EHLO
-	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751097AbWEHV3f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 May 2006 17:29:35 -0400
-To: Karl MacMillan <kmacmillan@tresys.com>
-In-Reply-To: <1147110088.32719.56.camel@jackjack.columbia.tresys.com>
+Received: from mgw-ext13.nokia.com ([131.228.20.172]:32739 "EHLO
+	mgw-ext13.nokia.com") by vger.kernel.org with ESMTP
+	id S1751103AbWEHVaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 May 2006 17:30:12 -0400
+To: "ext David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 May 2006, Karl MacMillan wrote:
+As agreed with Jean Tourrilhes, I am taking over IrDA
+maintainership.
 
-> Something like CONNMARK seems preferable to me (perhaps even allowing
-> type_transition rules to give the related packets a unique type). This
-> makes the labeling reflect the real security property of the packets.
+Signed-off-by: Samuel Ortiz <samuel.ortiz@nokia.com>
 
-That's arguable.  The real security property afaict is that the packets 
-are of some state (established or related to an existing connection).  It 
-is implicit in the mechanism that they're tracked as part of an authorized 
-connection.
+---
 
-> Yes, we are trusting the conntrack to mark the packets accurately, but
-> it makes the policy match the intent. Otherwise it is not possible to
-> reason about information flow using just the policy.
+ MAINTAINERS |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Why not?  You just state that all established and related packets reaching 
-vsftpd are valid, and that no invalid packets can deliver data to the 
-application.  You can play tricks and stick a label on a packet but that 
-doesn't change what's actually happening or your ability to reason about 
-it.  You assume conntrack works correctly (and if it doesn't, then 
-labeling connections will break, too).
-
-> Are there serious downsides to this approach?
-
-Yes, it's an ugly hack which is not needed.
-
-> > You can always not use conntrack and emulate the existing controls, as 
-> > well.
-> 
-> Yes, but gaining connection tracking is a major advantage of this
-> approach over the existing controls.
-
-The point is to show that this scheme provides much stonger security 
-assurrances, and that if you wished, you could easily rervert to stateless 
-filtering and have the "correct" labels on the packets; which would be 
-worse.
-
-
-
-- James
+e6a1573bed4cefc91fafcd56eb67dd3d1e92dddc
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 61060e8..502dadc 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1472,10 +1472,11 @@ L:	netdev@vger.kernel.org
+ S:	Maintained
+ 
+ IRDA SUBSYSTEM
+-P:	Jean Tourrilhes
++P:	Samuel Ortiz
++M:	samuel@sortiz.org
+ L:	irda-users@lists.sourceforge.net (subscribers-only)
+ W:	http://irda.sourceforge.net/
+-S:	Odd Fixes
++S:	Maintained
+ 
+ ISAPNP
+ P:	Jaroslav Kysela
 -- 
-James Morris
-<jmorris@namei.org>
+1.2.4
+
