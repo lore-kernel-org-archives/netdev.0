@@ -1,140 +1,41 @@
-From: Karl MacMillan <kmacmillan@tresys.com>
-Subject: Re: [RFC] SECMARK 1.0
-Date: Mon, 08 May 2006 13:41:28 -0400
-Message-ID: <1147110088.32719.56.camel@jackjack.columbia.tresys.com>
-References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
-	 <445E288B.4040908@gentoo.org>  <Pine.LNX.4.64.0605071323330.9423@d.namei>
+From: "Wong Edison" <hswong3i@gmail.com>
+Subject: Re: [PATCH] TCP congestion module: add TCP-LP supporting for 2.6.16.14
+Date: Tue, 9 May 2006 01:50:36 +0800
+Message-ID: <3feffd230605081050x104461fcj76f2821cfc311a6e@mail.gmail.com>
+References: <3feffd230605062232m1b9a3951h6d21071cdacc890f@mail.gmail.com>
+	 <20060508112915.GB4162@ucw.cz>
+	 <20060508.104322.58430929.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Joshua Brindle <method@gentoo.org>, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Daniel J Walsh <dwalsh@redhat.com>
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: pavel@suse.cz, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tresys.irides.com ([216.250.243.126]:56262 "EHLO
-	exchange.columbia.tresys.com") by vger.kernel.org with ESMTP
-	id S932460AbWEHRoF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 May 2006 13:44:05 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0605071323330.9423@d.namei>
+Received: from py-out-1112.google.com ([64.233.166.180]:22107 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S932477AbWEHRuh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 May 2006 13:50:37 -0400
+Received: by py-out-1112.google.com with SMTP id f28so1356142pyf
+        for <netdev@vger.kernel.org>; Mon, 08 May 2006 10:50:37 -0700 (PDT)
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060508.104322.58430929.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-05-07 at 13:43 -0400, James Morris wrote:
-> On Sun, 7 May 2006, Joshua Brindle wrote:
-> 
-> > It looks like you are labeling all packets on an established connection as
-> > tracked_packet_t. What is the rationale for not labeling all ftp traffic as
-> > ftpd_packet_t? Granted that its very unlikely for established connections to
-> > go to the wrong process but the SELinux policy should be able to clearly show
-> > that ftpd and sshd cannot see each others packets but these policies say that
-> > they can both send/receive tracked_packet_t.
-> 
-> Yes.  This is due to the way connection tracking works, there's no 
-> indication of which connection the packet belongs to, just its state.  We 
-> depend on conntrack to correctly determine the state of the packet, 
-> anyway, and we don't have real IP security without something like IPsec.
-> 
-> SELinux policy analysis will need to work on the assumption that conntrack 
-> is working correctly, and that a packet which is a valid part of an ftp 
-> connection won't end up delivering data to sshd.
-> 
-> We could look at something similar to the CONNMARK target, where 
-> connections are labeled, but it's very ugly and really not useful, as we 
-> assume that conntrack is working correctly.
-> 
+> Or, just include it, and select it with the TCP_CONGESTION socket
+> option when you want it.  Sorry, this does require app modifications.
 
-Something like CONNMARK seems preferable to me (perhaps even allowing
-type_transition rules to give the related packets a unique type). This
-makes the labeling reflect the real security property of the packets.
-Yes, we are trusting the conntrack to mark the packets accurately, but
-it makes the policy match the intent. Otherwise it is not possible to
-reason about information flow using just the policy.
+i would like to have more information about this
+so within the app
+after create the socket
+then call setsockopt (!?)
+to set the TCP_CONGESTION into "lp" (in my case) ??
 
-Are there serious downsides to this approach?
+is that means the socket's congestion algorithm will then be what i set ??
+in this socket within this app only ??
 
-> You can always not use conntrack and emulate the existing controls, as 
-> well.
-> 
+how about the socket create by "accept" ??
+it will still use the default ?? or as listen socket ??
 
-Yes, but gaining connection tracking is a major advantage of this
-approach over the existing controls.
-
-Karl
-
--- 
-Karl MacMillan
-Tresys Technology
-www.tresys.com
-> > Obviously these are just examples, I'm just curious if there was a reason to
-> > label established packets differently from the new connection packets (and the
-> > same as all the other established packets)
-> 
-> The label for the new connection packet is essential for ensuring that the 
-> connection being created is the right type.  We know that if a valid SYN 
-> arrives on port 22, that this is an attempt to establish a connection with 
-> sshd (assuming it's configured to listen on port 22).  Then, conntrack 
-> observes the TCP handshake, and creates connection state if successful.
-> 
-> Also, we only want sshd to receive new connections here, not create them.
-> 
-> > I imagine that, at least at first, it would be good to have allow domain
-> > unlabeled_t:packet { send recv }; in an (enabled) conditional so that the
-> > migration will be easier.
-> 
-> See 
-> 
-> http://people.redhat.com/jmorris/selinux/secmark/policy/packettest/packettest.te
-> 
-> # Totally insecure, for testing.
-> #
-> # Allow all unlabled packets to all domains.
-> #
-> allow domain unlabeled_t:packet { send recv };
-> 
-> As the policy is generated by macros, it should be very simple to change 
-> just a few of the macros to generate compatible policy rules for the new 
-> controls.
-> 
-> > Also, we need to come up with a mechanism for distributing default marking
-> > rules that can accompany a policy. The rules could go into a section in the
-> > .pp file but how does that integrate with various firewall systems that take
-> > control of the iptables rules?
-> 
-> I believe the way to handle this is to create SELinux input and output 
-> chains and then add all of the SELinux labeling rules via them, so the 
-> SELinux rules are at least partitioned off, and these tools will be able 
-> to treat them opaquely. Have a look at the example rulesets I posted on 
-> the web site.
-> 
-> > And finally, what happens if the labeling rule changes during an established
-> > connection? Do the packets related to that connection retain the original
-> > label or will they get the new label?
-> 
-> It depends on which rule is changed.  If it's for a NEW connection, only 
-> packets hitting that will get the new label.  For ESTABLISHED & RELATED, 
-> all packets on those rules will get the new label once the rule is 
-> updated.
-> 
-> > Thanks, this will be very beneficial to the SELinux community
-> 
-> I hope so, the SELinux policy should be pretty simple, and the iptables 
-> rules perhaps not so much, but they'll be generated by macros.
-> 
-> I've also seen some interesting performance improvements (especially if 
-> conntrack is not loaded), although we won't really know the overall 
-> picture until all of the current policy is converted over.  Then it'll be 
-> a case of how well iptables performs with lots of rules and chains.
-> 
-> 
-> - James
-> -- 
-> James Morris
-> <jmorris@namei.org>
-> 
-> --
-> This message was distributed to subscribers of the selinux mailing list.
-> If you no longer wish to subscribe, send mail to majordomo@tycho.nsa.gov with
-> the words "unsubscribe selinux" without quotes as the message.
-
+thanks
