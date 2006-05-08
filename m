@@ -1,29 +1,38 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: hotplug napi race cleanup
-Date: Mon, 08 May 2006 11:37:31 -0700 (PDT)
-Message-ID: <20060508.113731.97080992.davem@davemloft.net>
-References: <20060424152341.094b72d8@localhost.localdomain>
-	<20060506.180947.35317492.davem@davemloft.net>
-	<20060508095458.0debd022@localhost.localdomain>
+Subject: Re: [PATCH] TCP congestion module: add TCP-LP supporting for
+ 2.6.16.14
+Date: Mon, 08 May 2006 11:38:42 -0700 (PDT)
+Message-ID: <20060508.113842.82892402.davem@davemloft.net>
+References: <20060508112915.GB4162@ucw.cz>
+	<20060508.104322.58430929.davem@davemloft.net>
+	<3feffd230605081050x104461fcj76f2821cfc311a6e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, patrakov@ums.usu.ru,
-	netdev@vger.kernel.org, akpm@osdl.org
+Cc: pavel@suse.cz, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55952
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6310
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932480AbWEHShj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 May 2006 14:37:39 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060508095458.0debd022@localhost.localdomain>
+	id S932504AbWEHSiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 May 2006 14:38:51 -0400
+To: hswong3i@gmail.com
+In-Reply-To: <3feffd230605081050x104461fcj76f2821cfc311a6e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 8 May 2006 09:54:58 -0700
+From: "Wong Edison" <hswong3i@gmail.com>
+Date: Tue, 9 May 2006 01:50:36 +0800
 
-> The issue is are there network devices that can't sleep during
-> register_netdevice?
+> > Or, just include it, and select it with the TCP_CONGESTION socket
+> > option when you want it.  Sorry, this does require app modifications.
+> 
+> i would like to have more information about this
+> so within the app
+> after create the socket
+> then call setsockopt (!?)
+> to set the TCP_CONGESTION into "lp" (in my case) ??
+> 
+> is that means the socket's congestion algorithm will then be what i set ??
+> in this socket within this app only ??
 
-Oh right, I forgot about that.
+Yes, it applies to the socket.
