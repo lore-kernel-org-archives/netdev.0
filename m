@@ -1,69 +1,36 @@
-From: "Wong Edison" <hswong3i@gmail.com>
-Subject: Re: [PATCH] TCP congestion module: add TCP-LP supporting for 2.6.16.14
-Date: Tue, 9 May 2006 01:25:45 +0800
-Message-ID: <3feffd230605081025t6fa078abm5c610b9a597a1ca@mail.gmail.com>
-References: <3feffd230605062232m1b9a3951h6d21071cdacc890f@mail.gmail.com>
-	 <20060508112915.GB4162@ucw.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.4 kern: want to print TCP cwnd with every packet
+Date: Mon, 8 May 2006 10:31:23 -0700
+Message-ID: <20060508103123.38b10e56@localhost.localdomain>
+References: <28365.128.237.227.255.1146925156.squirrel@128.237.227.255>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:14624 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S932462AbWEHRZr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 May 2006 13:25:47 -0400
-Received: by py-out-1112.google.com with SMTP id f28so1348757pyf
-        for <netdev@vger.kernel.org>; Mon, 08 May 2006 10:25:46 -0700 (PDT)
-To: "Pavel Machek" <pavel@suse.cz>
-In-Reply-To: <20060508112915.GB4162@ucw.cz>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:12233 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932497AbWEHRbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 May 2006 13:31:37 -0400
+To: "George P Nychis" <gnychis@cmu.edu>
+In-Reply-To: <28365.128.237.227.255.1146925156.squirrel@128.237.227.255>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-umum...
-as i am new in submitting patch...
-althought i have already read for a lot of reference...
-i know only a little about the format required :(
+On Sat, 6 May 2006 10:19:16 -0400 (EDT)
+"George P Nychis" <gnychis@cmu.edu> wrote:
 
-i would like to do whatever i need to do
-may u give me some hints about how to do so ??
+> Hi,
+> 
+> I'd like to print the TCP cwnd for the sender, with every packet before it is sent out.  This way i could plot the sender window over time to show TCP's behavior in certain conditions.
+> 
+> I see in tcp_input.c several places where i could print the current window, but i'd have to add code in multiple places.  I was wondering if there is any 1 place, right before a packet is sent out, that i could printk() tp->snd_cwnd
+> 
+> Thanks!
+> George
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-net-nice -n 19 rsync ??
-sorry that i don't know what is it... :(
-
-for how to use it
-1. patch the source tree
-2. chose TCP-LP as modules and make it
-3. after install use:
-  sysctl -w net.ipv4.tcp_congestion_control=lp
-4. you will then find your connection is relatively lower priority
-than other computers
-
-i put my work in my site:
-http://edin.no-ip.com/project/tcp-lp/
-
-Regard,
-Edison
-
-2006/5/8, Pavel Machek <pavel@suse.cz>:
-> Hi!
->
-> > TCP Low Priority is a distributed algorithm whose goal
-> > is to utilize only
-> > the excess network bandwidth as compared to the ``fair
-> > share`` of
-> > bandwidth as targeted by TCP. Available from:
-> >   http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
->
-> Nice... I'd like to use something like this on my (overloaded)
-> GPRS/EDGE link.
->
-> Unfortunately, patch does not include documentation update AFAICS. How
-> do I use it? net-nice -n 19 rsync would be nice, but I guess that
-> would be quite complex...?
->                                                         Pavel
-> --
-> Thanks for all the (sleeping) penguins.
->
+Look at http://developer.osdl.org/shemminger/prototypes/tcpprobe.tar.gz
