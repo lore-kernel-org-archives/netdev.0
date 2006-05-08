@@ -1,40 +1,104 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Initial benchmarks of some VJ ideas [mmap memcpy vs
- copy_to_user].
-Date: Mon, 08 May 2006 13:15:47 -0700 (PDT)
-Message-ID: <20060508.131547.73910171.davem@davemloft.net>
-References: <20060508122418.GA22554@2ka.mipt.ru>
-	<20060508195132.GB19091@2ka.mipt.ru>
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] Fix RTL8019AS init for Toshiba RBTX49xx boards
+Date: Tue, 09 May 2006 00:58:28 +0400
+Message-ID: <445FB0F4.4050103@ru.mvista.com>
+References: <444291E9.2070407@ru.mvista.com>	<20060417.110945.59031594.nemoto@toshiba-tops.co.jp>	<444392CF.7070808@ru.mvista.com> <20060418.000918.95064811.anemo@mba.ocn.ne.jp> <4443BD39.4030200@ru.mvista.com> <4443BE71.6090908@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
-	rusty@rustcorp.com.au
+Content-Type: multipart/mixed;
+ boundary="------------070200070802050502020507"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59272
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750773AbWEHUR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 May 2006 16:17:28 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060508195132.GB19091@2ka.mipt.ru>
+Received: from rtsoft2.corbina.net ([85.21.88.2]:32214 "HELO
+	mail.dev.rtsoft.ru") by vger.kernel.org with SMTP id S1750859AbWEHU7e
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 May 2006 16:59:34 -0400
+To: shemminger@osdl.org
+In-Reply-To: <4443BE71.6090908@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Mon, 8 May 2006 23:51:32 +0400
+This is a multi-part message in MIME format.
+--------------070200070802050502020507
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Since nocopy is actually equal to dma into mapped buffer,
-> so we get something close to 6 times less CPU usage, and if it can be
-> lineary transferred into performance gain, we found where the most
-> significant part of VJ channels lives.
+    Ensure that 8-bit mode is selected for the on-board Realtek RTL8019AS chip
+on Toshiba RBHMA4x00, get rid of the duplicate #ifdef's when setting
+ei_status.word16.
+    The chip's datasheet says that the PSTOP register shouldn't exceed 0x60 in
+8-bit mode -- ensure this too.
 
-Van's machines were cpu limited.  And once cpu limit was removed,
-they became bus bandwidth limited.
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-> Unfortunately it is not backward compatible with recv() system call,
-> and requires major changes in application to use this advantage.
 
-I have stopped believing that compatible API for getting top
-performance in networking receive is possible a very long time ago.
+--------------070200070802050502020507
+Content-Type: text/plain;
+ name="RBTX49xx-RTL8019AS-init-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="RBTX49xx-RTL8019AS-init-fix.patch"
 
-ABI change is an absolutely requirement.
+Index: linus/drivers/net/ne.c
+===================================================================
+--- linus.orig/drivers/net/ne.c
++++ linus/drivers/net/ne.c
+@@ -139,8 +139,9 @@ bad_clone_list[] __initdata = {
+ 
+ #if defined(CONFIG_PLAT_MAPPI)
+ #  define DCR_VAL 0x4b
+-#elif defined(CONFIG_PLAT_OAKS32R)
+-#  define DCR_VAL 0x48
++#elif defined(CONFIG_PLAT_OAKS32R)  || \
++   defined(CONFIG_TOSHIBA_RBTX4927) || defined(CONFIG_TOSHIBA_RBTX4938)
++#  define DCR_VAL 0x48		/* 8-bit mode */
+ #else
+ #  define DCR_VAL 0x49
+ #endif
+@@ -396,10 +397,22 @@ static int __init ne_probe1(struct net_d
+ 		/* We must set the 8390 for word mode. */
+ 		outb_p(DCR_VAL, ioaddr + EN0_DCFG);
+ 		start_page = NESM_START_PG;
+-		stop_page = NESM_STOP_PG;
++
++		/*
++		 * Realtek RTL8019AS datasheet says that the PSTOP register
++		 * shouldn't exceed 0x60 in 8-bit mode.
++		 * This chip can be identified by reading the signature from
++		 * the  remote byte count registers (otherwise write-only)...
++		 */
++		if ((DCR_VAL & 0x01) == 0 &&		/* 8-bit mode */
++		    inb(ioaddr + EN0_RCNTLO) == 0x50 &&
++		    inb(ioaddr + EN0_RCNTHI) == 0x70)
++			stop_page = 0x60;
++		else
++			stop_page = NESM_STOP_PG;
+ 	} else {
+ 		start_page = NE1SM_START_PG;
+-		stop_page = NE1SM_STOP_PG;
++		stop_page  = NE1SM_STOP_PG;
+ 	}
+ 
+ #if  defined(CONFIG_PLAT_MAPPI) || defined(CONFIG_PLAT_OAKS32R)
+@@ -509,15 +522,9 @@ static int __init ne_probe1(struct net_d
+ 	ei_status.name = name;
+ 	ei_status.tx_start_page = start_page;
+ 	ei_status.stop_page = stop_page;
+-#if defined(CONFIG_TOSHIBA_RBTX4927) || defined(CONFIG_TOSHIBA_RBTX4938)
+-	wordlength = 1;
+-#endif
+ 
+-#ifdef CONFIG_PLAT_OAKS32R
+-	ei_status.word16 = 0;
+-#else
+-	ei_status.word16 = (wordlength == 2);
+-#endif
++	/* Use 16-bit mode only if this wasn't overridden by DCR_VAL */
++	ei_status.word16 = (wordlength == 2 && (DCR_VAL & 0x01));
+ 
+ 	ei_status.rx_start_page = start_page + TX_PAGES;
+ #ifdef PACKETBUF_MEMSIZE
+
+
+
+
+--------------070200070802050502020507--
