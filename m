@@ -1,32 +1,29 @@
-From: Uli Kunitz <kune@deine-taler.de>
-Subject: Re: Scanning in ieee80211 softmac layer and setting essid (newbie)
-Date: Wed, 10 May 2006 00:27:57 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0605100025510.17506@p15091797.pureserver.info>
-References: <d0383f90605090638u3ca7a5c0je1a4ce8bc3dc696e@mail.gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [NET] linkwatch: Handle jiffies wrap-around
+Date: Tue, 09 May 2006 15:28:04 -0700 (PDT)
+Message-ID: <20060509.152804.91261302.davem@davemloft.net>
+References: <200605082028.57328.stefan@loplof.de>
+	<20060509112626.GA29361@gondor.apana.org.au>
+	<200605091851.49775.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:445 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1751247AbWEIW17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 May 2006 18:27:59 -0400
-To: Ian Brown <ianbrn@gmail.com>
-In-Reply-To: <d0383f90605090638u3ca7a5c0je1a4ce8bc3dc696e@mail.gmail.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33681
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751250AbWEIW2K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 May 2006 18:28:10 -0400
+To: stefan@loplof.de
+In-Reply-To: <200605091851.49775.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ian Brown wrote:
+From: Stefan Rompf <stefan@loplof.de>
+Date: Tue, 9 May 2006 18:51:49 +0200
 
-> My question is : why is this scanning needed when set essid is called?
-> and why is the repeatition?
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Acked-by: Stefan Rompf <stefan@loplof.de>
 
-ESSID doesn't tell you the channel nummber, so you have to scan
-for a beacon containing the ESSID in passive scanning. Even if you
-do active scanning you need to check all channels because your
-ESSID could be on anyone of the channels.
-
-Uli
-
--- 
-Uli Kunitz - kune@deine-taler.de
+Applied, thanks everyone.
