@@ -1,53 +1,50 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: Scanning in ieee80211 softmac layer and setting essid (newbie)
-Date: Tue, 9 May 2006 16:38:04 +0300
-Message-ID: <d0383f90605090638u3ca7a5c0je1a4ce8bc3dc696e@mail.gmail.com>
+From: Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual
+	network	device	driver.
+Date: Tue, 9 May 2006 15:00:27 +0100
+Message-ID: <20060509140027.GD7834@cl.cam.ac.uk>
+References: <20060509131632.GB7834@cl.cam.ac.uk>
+	<E1FdSDz-0008Lv-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:30092 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S932511AbWEINiF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 May 2006 09:38:05 -0400
-Received: by ug-out-1314.google.com with SMTP id y2so1914122uge
-        for <netdev@vger.kernel.org>; Tue, 09 May 2006 06:38:04 -0700 (PDT)
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xensource.com, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chrisw@sous-sol.org, ian.pratt@xensource.com
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <E1FdSDz-0008Lv-00@gondolin.me.apana.org.au>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-I see that setting the essid of a wireless card
-(by iwconfig eth1 essid homenet)
-triggers scanning;
-namely , it calls ieee80211softmac_assoc_work() method which in
-turn calls ieee80211softmac_start_scan().
+On Tue, May 09, 2006 at 11:26:03PM +1000, Herbert Xu wrote:
+> Christian Limpach <Christian.Limpach@cl.cam.ac.uk> wrote:
+> > 
+> > Possibly having to page in the process and switching to it would add
+> > to the live migration time.  More importantly, having to install an
+> > additional program in the guest is certainly not very convenient.
+> 
+> Sorry I'm still not convinced.  What's there to stop me from suspending
+> my laptop to disk, moving it from port A to port B and resuming it?
+> 
+> Wouldn't I be in exactly the same situation? By the same reasoning we'd
+> be adding a gratuitous ARP routine to every single laptop network driver.
 
-I use zd1211 driver which works with the softmac layer
-of the last git kernel.
+It is the same situation except that in the laptop case you don't care
+that reconfiguring your network will take a second or a few.  For live
+migration we're looking at network downtime from as low as 60ms to
+something like 210ms on a busy virtual machine.  I'm not saying that
+a userspace solution wouldn't work but it would probably add a measurable
+delay to the network downtime during live migration.
 
-I saw that this scanning call occurs wheter the card is down
-or up (namely, ifconfig eth1 up was called).
+You might also find the following paper an interesting read:
+http://www.cl.cam.ac.uk/Research/SRG/netos/papers/2005-migration-nsdi-pre.pdf
 
-Only in the first case (card is down) ,it only says:
-Associate: Scanning for networks first.
-SoftMAC: Associate: failed to initiate scan. Is device up?
-
-and when card is up it says:
-
-SoftMAC: Associate: Scanning for networks first.
-SoftMAC: Start scanning with channel: 1
-SoftMAC: Scanning 13 channels
-SoftMAC: Scanning finished
-
-several times.
-
-My question is : why is this scanning needed when set essid is called?
-and why is the repeatition?
-
-I am a little newbie in this...
-
-Regards,
-IB
+    christian
