@@ -1,28 +1,30 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [Xen-devel] [RFC PATCH 34/35] Add the Xen virtual =?utf-8?q?network=09device=09driver=2E?=
-Date: Tue, 9 May 2006 15:14:28 +0200
-Message-ID: <200605091514.29205.ak@suse.de>
-References: <E1FdRpp-0008HG-00@gondolin.me.apana.org.au>
+From: Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual
+	network	device	driver.
+Date: Tue, 9 May 2006 14:16:32 +0100
+Message-ID: <20060509131632.GB7834@cl.cam.ac.uk>
+References: <20060509124359.GA5407@cl.cam.ac.uk>
+	<E1FdRpp-0008HG-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
-	chrisw@sous-sol.org, ian.pratt@xensource.com,
-	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:55684 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750974AbWEINOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 May 2006 09:14:36 -0400
-To: virtualization@lists.osdl.org
-In-Reply-To: <E1FdRpp-0008HG-00@gondolin.me.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xensource.com, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chrisw@sous-sol.org, ian.pratt@xensource.com
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <E1FdRpp-0008HG-00@gondolin.me.apana.org.au>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 09 May 2006 15:01, Herbert Xu wrote:
+On Tue, May 09, 2006 at 11:01:05PM +1000, Herbert Xu wrote:
 > Christian Limpach <Christian.Limpach@cl.cam.ac.uk> wrote:
 > > 
 > > There's at least two reasons why having it in the driver is preferable:
@@ -36,8 +38,8 @@ On Tuesday 09 May 2006 15:01, Herbert Xu wrote:
 > Sure.  However, what's there to stop you from doing this in user-space
 > inside the guest?
 
-I guess they don't trust user space. But the standard ipup script
-from iproute2 does this already so at least for modern distributions
-it should just work.
+Possibly having to page in the process and switching to it would add
+to the live migration time.  More importantly, having to install an
+additional program in the guest is certainly not very convenient.
 
--Andi
+    christian
