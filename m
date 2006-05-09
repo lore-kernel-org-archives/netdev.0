@@ -1,80 +1,86 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: r8169: only works in 10mbit/half duplex
-Date: Tue, 09 May 2006 21:12:17 +0200
-Message-ID: <1147201937.32169.41.camel@johannes.berg>
-References: <1147137144.16487.61.camel@johannes.berg>
-	 <20060509190110.GB3215@electric-eye.fr.zoreil.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
+	device driver.
+Date: Tue, 9 May 2006 13:25:56 -0700
+Message-ID: <20060509132556.76deaa91@localhost.localdomain>
+References: <20060509084945.373541000@sous-sol.org>
+	<20060509085201.446830000@sous-sol.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-1Tp+1lGFJo7u6BBE1ALc"
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:15008 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750792AbWEITMd
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 May 2006 15:12:33 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060509190110.GB3215@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xensource.com, Ian Pratt <ian.pratt@xensource.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.osdl.org,
+	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: Chris Wright <chrisw@sous-sol.org>
+In-Reply-To: <20060509085201.446830000@sous-sol.org>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
+> +static int setup_device(struct xenbus_device *dev, struct
+> netfront_info *info) +{
+> +	struct netif_tx_sring *txs;
+> +	struct netif_rx_sring *rxs;
+> +	int err;
+> +	struct net_device *netdev = info->netdev;
+> +
+> +	info->tx_ring_ref = GRANT_INVALID_REF;
+> +	info->rx_ring_ref = GRANT_INVALID_REF;
+> +	info->rx.sring = NULL;
+> +	info->tx.sring = NULL;
+> +	info->irq = 0;
+> +
+> +	txs = (struct netif_tx_sring *)get_zeroed_page(GFP_KERNEL);
+> +	if (!txs) {
+> +		err = -ENOMEM;
+> +		xenbus_dev_fatal(dev, err, "allocating tx ring
+> page");
+> +		goto fail;
+> +	}
+> +	rxs = (struct netif_rx_sring *)get_zeroed_page(GFP_KERNEL);
+> +	if (!rxs) {
+> +		err = -ENOMEM;
+> +		xenbus_dev_fatal(dev, err, "allocating rx ring
+> page");
+> +		free_page((unsigned long)txs);
+> +		goto fail;
+> +	}
+> +	info->backend_state = BEST_DISCONNECTED;
+> +
+> +	SHARED_RING_INIT(txs);
+> +	FRONT_RING_INIT(&info->tx, txs, PAGE_SIZE);
+> +
+> +	SHARED_RING_INIT(rxs);
+> +	FRONT_RING_INIT(&info->rx, rxs, PAGE_SIZE);
+> +
+> +	err = xenbus_grant_ring(dev, virt_to_mfn(txs));
+> +	if (err < 0)
+> +		goto fail;
+> +	info->tx_ring_ref = err;
+> +
+> +	err = xenbus_grant_ring(dev, virt_to_mfn(rxs));
+> +	if (err < 0)
+> +		goto fail;
+> +	info->rx_ring_ref = err;
+> +
+> +	err = xenbus_alloc_evtchn(dev, &info->evtchn);
+> +	if (err)
+> +		goto fail;
+> +
+> +	memcpy(netdev->dev_addr, info->mac, ETH_ALEN);
+> +	network_connect(netdev);
+> +	info->irq = bind_evtchn_to_irqhandler(
+> +		info->evtchn, netif_int, SA_SAMPLE_RANDOM,
+> netdev->name,
+> 
 
---=-1Tp+1lGFJo7u6BBE1ALc
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-> It's hard to tell without data. It could be any of the usual suspects
-> or a genuine bug.
-
-Yeah, I realise that. I've tried booting windows which behaves exactly
-the same, with the latest realtek driver. I've sent back the machine
-today because I need to have this box up fairly soon. Sorry :/
-
-> Can you send the complete dmesg from boot + lspci -vvx + /proc/interrupts
-> of the computer ?
-
-I don't have a dmesg any more, lspci is at
-http://johannes.sipsolutions.net/files/lspci-minipc, /proc/interrupts
-looked normal as far as I can remember. dmesg didn't say much about
-r8169, and other than that I didn't see any problems. I tried booting
-with pci=3Drouteirq and some options but none of that helped, and
-interrupts were definitely counted in all cases.
-
-> What does ethtool report if you do not force it to 10Mbps with the media=
-=3D1
-> option and what hardware is it connected to ? Any URL for the motherboard=
- ?
-
-Here's the weirdest thing:
-If I connected it to 100mbit/full duplex hardware, it worked only if I
-forced it to 10mbit (half or full), otherwise the tx/rx led would blink
-frantically and the card didn't receive any packets (sending was fine).
-If I connected it to gbit hardware it worked in gibt mode, but only got
-transfer speeds of about 10mb/sec. Same behaviour with windows.
-
-johannes
-
---=-1Tp+1lGFJo7u6BBE1ALc
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIVAwUARGDpj6Vg1VMiehFYAQJHRQ//cCDGjC4rKTTuM+hK5QNT1xsMXvi1YWNr
-B7eN4Ek9VBJoaRNMRPizHtFHIVfbnNghQ2zJzcS6AfwxXeXJVaYf+yBomFXcvDDD
-HhcnPPPGnIFLeOTHMADRVnbe+8LrPRTHJ//TWZwU+4vMVC/fMhLbWkio6mXj7+pz
-IDwe94YnB7hkxSz0BybNk22c0GRHMghanRfeHMrVPCuWJqlGI6LFp4LxP0czpK9u
-q3UnJzyaRW3FvGWYbi1ENapoP1eQG8k3So53hhAs3TcTRj9/sipA2jDwXxb1J7tu
-mD+zoKzztb6JyMdin/4h6ZnIWMhPDReGjdhf9+CLFgozQKaG5VGDresZOCA9ZQg6
-sBUS4CSxS4rwG+WCXLv/iAgIsudA4jrVFyvbpr1219Gf/5PxDwEbVtQUODI/vV5q
-Hq7eijntiVafPxJVCL2NjPt+JXYhBHIrJt48WVdcsw0xvgtFeDRp7PA65tjd0oQ3
-zomrCItcQkdy8jPTuFf8n7H0xITuPrn6LENf9/nCWkTxpgQW+DsJagvB5wQRvgWD
-JZjoc8PgSIeKgFCSzAWBSH3ow9j0V4b4tgaxHZ6COAbA3wXzOavZpJaL3xrWIQU1
-Vc84YJ3WkH/gq7JrlIaXpfNWNMqqpNTkhoaYTdotU7Opjahbqz2PY92zXk/FlUQe
-aZezKjEFDrA=
-=DvAg
------END PGP SIGNATURE-----
-
---=-1Tp+1lGFJo7u6BBE1ALc--
-
+This doesn't look like a real random entropy source. packets
+arriving from another domain are easily timed.
