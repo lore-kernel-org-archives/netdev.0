@@ -1,69 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] netdev sysfs failure handling
-Date: Tue, 9 May 2006 15:50:33 -0700
-Message-ID: <20060509155033.022708c9@localhost.localdomain>
-References: <20060509120107.0a999f38@localhost.localdomain>
-	<20060509.140501.18000999.davem@davemloft.net>
-	<20060509144049.0924d41c@localhost.localdomain>
-	<20060509.154322.09145595.davem@davemloft.net>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [Xen-devel] [RFC PATCH 34/35] Add the Xen virtual	network	device	driver.
+Date: Tue, 9 May 2006 16:35:43 -0700
+Message-ID: <20060509233543.GG24291@moss.sous-sol.org>
+References: <20060509140027.GD7834@cl.cam.ac.uk> <OFE128D80F.BD59DF3E-ON86257169.004F91EA-86257169.004F6870@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
+	chrisw@sous-sol.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	ian.pratt@xensource.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:57245 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751341AbWEIWun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 May 2006 18:50:43 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060509.154322.09145595.davem@davemloft.net>
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:38786 "EHLO
+	sous-sol.org") by vger.kernel.org with ESMTP id S932072AbWEIXdR
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 May 2006 19:33:17 -0400
+To: David Boutcher <boutcher@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OFE128D80F.BD59DF3E-ON86257169.004F91EA-86257169.004F6870@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 09 May 2006 15:43:22 -0700 (PDT)
-"David S. Miller" <davem@davemloft.net> wrote:
+* David Boutcher (boutcher@us.ibm.com) wrote:
+> Then make a generic solution.  VMWare supports migration, the Power 
+> virtualization will get around to it eventually.  All will need something
+> similar.  So either make a common user-land tool, or (if you insist on
+> incorrectly driving this into the kernel) add some kind of common hook to
+> the TCP/IP stack.
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Tue, 9 May 2006 14:40:49 -0700
-> 
-> > Agreed, especially since rtnl is now a real mutex.  The case, that
-> > I was worried about:
-> > 	rtnl_lock()
-> > 	spin_lock_irq(&mylock);
-> > 	x = register_netdevice();
-> > ...
-> > 
-> > Doesn't show up in any current code, even for the pseudo devices
-> > and funny virtualized interfaces.
-> 
-> Right, therefore I think we should put something like your patch in
-> there now.... perhaps.
-> 
-> The case where we really needed the todo list is unregister, so that
-> we can safely wait for all references to the net device to go away.
-> 
-> I still wonder about those mentioned hotplug races wrt. linkwatch
-> in the comment above netdev_run_todo().
-> 
-> Linkwatch is such a nuissance because it combines asynchronous link
-> state change processing with keventd and RTNL locking.  It sleeps
-> waiting for __LINK_STATE_SCHED to clear with the RTNL held (via
-> dev_deactivate()).  But then again dev_close() code paths do this
-> too, so the dev_deactivate() bit should be OK.
-> 
-> Linkwatch, after doing the dev_activate(), emits a NETDEV_CHANGE
-> notifier on netdev_chain and also sends out an RTM_NETLINK
-> message.  This is for the case where IFF_UP is set.
-> 
-> Until we release the RTNL semaphore, during netdev register, nobody
-> can go in an inspect the state of a net device.  So doing the sysfs
-> node creation in register_netdevice() should be OK as far as I can
-> tell.
-> 
-> Can anyone find a problem with this?
+I'm not that fond of the in-kernel solution either.  HA failover does
+this stuff in userspace, and has the same gratuitous arp requirements.
+Perhaps we should see some numbers showing the migration latency
+introduced.  At the very least, it's easy to factor out as suggested.
 
-Also, by getting the netdevice fully in sysfs under RTNL,
-we are safe from races with the hotplug uevent that occurs.
-
-Right now, it might be possible on SMP for the hotplug to happen
-after register_netdevice, but before the device shows up
-in sysfs.
+thanks,
+-chris
