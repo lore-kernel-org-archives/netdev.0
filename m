@@ -1,30 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169+NAPI soft lockup
-Date: Tue, 9 May 2006 20:53:25 +0200
-Message-ID: <20060509185325.GA3215@electric-eye.fr.zoreil.com>
-References: <4460B8DC.9080105@liv.ac.uk> <20060509164335.GA807@electric-eye.fr.zoreil.com> <4460DCAF.7060503@liv.ac.uk>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC] SECMARK 1.0
+Date: Tue, 9 May 2006 14:56:05 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605091455170.26836@d.namei>
+References: <Pine.LNX.4.64.0605071104590.8588@d.namei>  <445E288B.4040908@gentoo.org>
+ <Pine.LNX.4.64.0605071323330.9423@d.namei>  <1147110088.32719.56.camel@jackjack.columbia.tresys.com>
+  <Pine.LNX.4.64.0605081719440.18947@d.namei>
+ <1147181085.32719.105.camel@jackjack.columbia.tresys.com>
+ <Pine.LNX.4.64.0605091229190.25948@d.namei> <1147194399.32719.148.camel@jackjack.columbia.tresys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joshua Brindle <method@gentoo.org>, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Daniel J Walsh <dwalsh@redhat.com>,
+	netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:19147 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750921AbWEISzQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 May 2006 14:55:16 -0400
-To: Richard Gregory <R.Gregory@liverpool.ac.uk>
-Content-Disposition: inline
-In-Reply-To: <4460DCAF.7060503@liv.ac.uk>
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:11493 "EHLO
+	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751077AbWEIS4J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 May 2006 14:56:09 -0400
+To: Karl MacMillan <kmacmillan@tresys.com>
+In-Reply-To: <1147194399.32719.148.camel@jackjack.columbia.tresys.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Gregory <R.Gregory@liverpool.ac.uk> :
-> Francois Romieu wrote:
-[...]
-> >Is netconsole enabled ?
-> 
-> It can be. How much output do you need, a single soft lockup?
+On Tue, 9 May 2006, Karl MacMillan wrote:
 
-Nonononono. Keep it disabled.
+> Ok - I obviously don't have the expertise to judge how ugly the code to
+> do this is. It becomes a question of whether the feature is compelling
+> enough.
 
+Atcually, I think there may be a good way to do this, will investigate.
+
+
+- James
 -- 
-Ueimor
+James Morris
+<jmorris@namei.org>
