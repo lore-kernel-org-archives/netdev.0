@@ -1,28 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: add missing operstates.txt
-Date: Tue, 09 May 2006 15:16:03 -0700 (PDT)
-Message-ID: <20060509.151603.06390761.davem@davemloft.net>
-References: <200605071218.59537.stefan@loplof.de>
+Subject: Re: [PATCH]ip_options_fragment() has no effect on fragmentation
+Date: Tue, 09 May 2006 15:20:24 -0700 (PDT)
+Message-ID: <20060509.152024.12517857.davem@davemloft.net>
+References: <1146875774.3659.22.camel@LINE>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35487
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:38578
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750813AbWEIWQL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 May 2006 18:16:11 -0400
-To: stefan@loplof.de
-In-Reply-To: <200605071218.59537.stefan@loplof.de>
+	id S1751229AbWEIWUd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 May 2006 18:20:33 -0400
+To: weiyj@soft.fujitsu.com
+In-Reply-To: <1146875774.3659.22.camel@LINE>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stefan Rompf <stefan@loplof.de>
-Date: Sun, 7 May 2006 12:18:59 +0200
+From: Wei Yongjun <weiyj@soft.fujitsu.com>
+Date: Fri, 05 May 2006 20:36:14 -0400
 
-> seems documentation got lost when the RFC2863-patch was applied. Having
-> documentation is good, so I resend it ;-)
+> I had tested the patch under linux system, maybe this mail is correct.
 > 
-> Signed-off-by: Stefan Rompf <stefan@loplof.de>
+> Fix error point to options in ip_options_fragment(). optptr get a error
+> pointer to the ipv4 header, correct is pointer to ipv4 options.
+> 
+> Signed-off-by: Wei Yongjun <weiyj@soft.fujitsu.com>
 
-Applied, thanks Stefan.
+Patch applied, thank you very much.
