@@ -1,40 +1,104 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 34/35] Add the Xen virtual
-	network	device	driver.
-Date: Tue, 09 May 2006 23:26:03 +1000
-Message-ID: <E1FdSDz-0008Lv-00@gondolin.me.apana.org.au>
-References: <20060509131632.GB7834@cl.cam.ac.uk>
-Cc: xen-devel@lists.xensource.com, herbert@gondor.apana.org.au,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chrisw@sous-sol.org, ian.pratt@xensource.com
-Return-path: <xen-devel-bounces@lists.xensource.com>
-To: Christian.Limpach@cl.cam.ac.uk (Christian Limpach)
-In-Reply-To: <20060509131632.GB7834@cl.cam.ac.uk>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+From: Karl MacMillan <kmacmillan@tresys.com>
+Subject: Re: [RFC] SECMARK 1.0
+Date: Tue, 09 May 2006 09:24:45 -0400
+Message-ID: <1147181085.32719.105.camel@jackjack.columbia.tresys.com>
+References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
+	 <445E288B.4040908@gentoo.org> <Pine.LNX.4.64.0605071323330.9423@d.namei>
+	 <1147110088.32719.56.camel@jackjack.columbia.tresys.com>
+	 <Pine.LNX.4.64.0605081719440.18947@d.namei>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Joshua Brindle <method@gentoo.org>, selinux@tycho.nsa.gov,
+	netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Daniel J Walsh <dwalsh@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tresys.irides.com ([216.250.243.126]:61703 "EHLO
+	exchange.columbia.tresys.com") by vger.kernel.org with ESMTP
+	id S932514AbWEIN10 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 May 2006 09:27:26 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0605081719440.18947@d.namei>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christian Limpach <Christian.Limpach@cl.cam.ac.uk> wrote:
+On Mon, 2006-05-08 at 17:29 -0400, James Morris wrote:
+> On Mon, 8 May 2006, Karl MacMillan wrote:
 > 
-> Possibly having to page in the process and switching to it would add
-> to the live migration time.  More importantly, having to install an
-> additional program in the guest is certainly not very convenient.
+> > Something like CONNMARK seems preferable to me (perhaps even allowing
+> > type_transition rules to give the related packets a unique type). This
+> > makes the labeling reflect the real security property of the packets.
+> 
+> That's arguable.  The real security property afaict is that the packets 
+> are of some state (established or related to an existing connection).  It 
+> is implicit in the mechanism that they're tracked as part of an authorized 
+> connection.
+> 
 
-Sorry I'm still not convinced.  What's there to stop me from suspending
-my laptop to disk, moving it from port A to port B and resuming it?
+This loses how the connection was initiated, however. Packets that are
+part of a connection that was initiated on the ftp port are different
+from packets that are part of a connection initiated on the telnet port.
+Now, the name_bind permissions will limit which domains can initiate
+those connection, but my concern is that connection could, through error
+or exploit, be passed to another domain that should not receive packets
+from that type of connection (see below).
 
-Wouldn't I be in exactly the same situation? By the same reasoning we'd
-be adding a gratuitous ARP routine to every single laptop network driver.
+> > Yes, we are trusting the conntrack to mark the packets accurately, but
+> > it makes the policy match the intent. Otherwise it is not possible to
+> > reason about information flow using just the policy.
+> 
+> Why not?  You just state that all established and related packets reaching 
+> vsftpd are valid, and that no invalid packets can deliver data to the 
+> application.  You can play tricks and stick a label on a packet but that 
+> doesn't change what's actually happening or your ability to reason about 
+> it.  You assume conntrack works correctly (and if it doesn't, then 
+> labeling connections will break, too).
+> 
 
-Cheers,
+The use of a single related packet type loses the strong binding between
+the connection type (determined on connection) and domains, most likely
+because an established connection is passed to another process.
+
+For example, for xinetd to work all of the xinetd children would be
+allowed to receive all related packets (i.e., tracked_packet_t). This
+means that if xinetd incorrectly passed, say, an ftp connection to
+telnet it would still be allowed to receive those packets because they
+would be of type tracked_packet_t. Labeling using something like
+connmark seems to solve this problem. There may be other examples
+relating to enforcing data separation based on other connection
+information, like the network interface, but I haven't had a chance to
+work through those scenarios.
+
+Now you may be saying that it is not possible to determine with any
+assurance that a related packet is related to, for example, a connection
+that was initiated on the ftp port (and therefore given a different type
+- related_ftp_packet_t - fixing my xinetd example). If this is the case,
+your argument makes more sense to me.
+
+Karl
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Karl MacMillan
+Tresys Technology
+www.tresys.com
+
+> > Are there serious downsides to this approach?
+> 
+> Yes, it's an ugly hack which is not needed.
+> 
+> > > You can always not use conntrack and emulate the existing controls, as 
+> > > well.
+> > 
+> > Yes, but gaining connection tracking is a major advantage of this
+> > approach over the existing controls.
+> 
+> The point is to show that this scheme provides much stonger security 
+> assurrances, and that if you wished, you could easily rervert to stateless 
+> filtering and have the "correct" labels on the packets; which would be 
+> worse.
+> 
+> 
+> 
+> - James
+
