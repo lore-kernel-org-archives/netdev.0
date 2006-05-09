@@ -1,104 +1,53 @@
-From: Karl MacMillan <kmacmillan@tresys.com>
-Subject: Re: [RFC] SECMARK 1.0
-Date: Tue, 09 May 2006 09:24:45 -0400
-Message-ID: <1147181085.32719.105.camel@jackjack.columbia.tresys.com>
-References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
-	 <445E288B.4040908@gentoo.org> <Pine.LNX.4.64.0605071323330.9423@d.namei>
-	 <1147110088.32719.56.camel@jackjack.columbia.tresys.com>
-	 <Pine.LNX.4.64.0605081719440.18947@d.namei>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Scanning in ieee80211 softmac layer and setting essid (newbie)
+Date: Tue, 9 May 2006 16:38:04 +0300
+Message-ID: <d0383f90605090638u3ca7a5c0je1a4ce8bc3dc696e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Joshua Brindle <method@gentoo.org>, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, netfilter-devel@lists.samba.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Daniel J Walsh <dwalsh@redhat.com>
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tresys.irides.com ([216.250.243.126]:61703 "EHLO
-	exchange.columbia.tresys.com") by vger.kernel.org with ESMTP
-	id S932514AbWEIN10 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 May 2006 09:27:26 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0605081719440.18947@d.namei>
+Received: from ug-out-1314.google.com ([66.249.92.175]:30092 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S932511AbWEINiF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 May 2006 09:38:05 -0400
+Received: by ug-out-1314.google.com with SMTP id y2so1914122uge
+        for <netdev@vger.kernel.org>; Tue, 09 May 2006 06:38:04 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-05-08 at 17:29 -0400, James Morris wrote:
-> On Mon, 8 May 2006, Karl MacMillan wrote:
-> 
-> > Something like CONNMARK seems preferable to me (perhaps even allowing
-> > type_transition rules to give the related packets a unique type). This
-> > makes the labeling reflect the real security property of the packets.
-> 
-> That's arguable.  The real security property afaict is that the packets 
-> are of some state (established or related to an existing connection).  It 
-> is implicit in the mechanism that they're tracked as part of an authorized 
-> connection.
-> 
+Hello,
+I see that setting the essid of a wireless card
+(by iwconfig eth1 essid homenet)
+triggers scanning;
+namely , it calls ieee80211softmac_assoc_work() method which in
+turn calls ieee80211softmac_start_scan().
 
-This loses how the connection was initiated, however. Packets that are
-part of a connection that was initiated on the ftp port are different
-from packets that are part of a connection initiated on the telnet port.
-Now, the name_bind permissions will limit which domains can initiate
-those connection, but my concern is that connection could, through error
-or exploit, be passed to another domain that should not receive packets
-from that type of connection (see below).
+I use zd1211 driver which works with the softmac layer
+of the last git kernel.
 
-> > Yes, we are trusting the conntrack to mark the packets accurately, but
-> > it makes the policy match the intent. Otherwise it is not possible to
-> > reason about information flow using just the policy.
-> 
-> Why not?  You just state that all established and related packets reaching 
-> vsftpd are valid, and that no invalid packets can deliver data to the 
-> application.  You can play tricks and stick a label on a packet but that 
-> doesn't change what's actually happening or your ability to reason about 
-> it.  You assume conntrack works correctly (and if it doesn't, then 
-> labeling connections will break, too).
-> 
+I saw that this scanning call occurs wheter the card is down
+or up (namely, ifconfig eth1 up was called).
 
-The use of a single related packet type loses the strong binding between
-the connection type (determined on connection) and domains, most likely
-because an established connection is passed to another process.
+Only in the first case (card is down) ,it only says:
+Associate: Scanning for networks first.
+SoftMAC: Associate: failed to initiate scan. Is device up?
 
-For example, for xinetd to work all of the xinetd children would be
-allowed to receive all related packets (i.e., tracked_packet_t). This
-means that if xinetd incorrectly passed, say, an ftp connection to
-telnet it would still be allowed to receive those packets because they
-would be of type tracked_packet_t. Labeling using something like
-connmark seems to solve this problem. There may be other examples
-relating to enforcing data separation based on other connection
-information, like the network interface, but I haven't had a chance to
-work through those scenarios.
+and when card is up it says:
 
-Now you may be saying that it is not possible to determine with any
-assurance that a related packet is related to, for example, a connection
-that was initiated on the ftp port (and therefore given a different type
-- related_ftp_packet_t - fixing my xinetd example). If this is the case,
-your argument makes more sense to me.
+SoftMAC: Associate: Scanning for networks first.
+SoftMAC: Start scanning with channel: 1
+SoftMAC: Scanning 13 channels
+SoftMAC: Scanning finished
 
-Karl
+several times.
 
--- 
-Karl MacMillan
-Tresys Technology
-www.tresys.com
+My question is : why is this scanning needed when set essid is called?
+and why is the repeatition?
 
-> > Are there serious downsides to this approach?
-> 
-> Yes, it's an ugly hack which is not needed.
-> 
-> > > You can always not use conntrack and emulate the existing controls, as 
-> > > well.
-> > 
-> > Yes, but gaining connection tracking is a major advantage of this
-> > approach over the existing controls.
-> 
-> The point is to show that this scheme provides much stonger security 
-> assurrances, and that if you wished, you could easily rervert to stateless 
-> filtering and have the "correct" labels on the packets; which would be 
-> worse.
-> 
-> 
-> 
-> - James
+I am a little newbie in this...
 
+Regards,
+IB
