@@ -1,39 +1,31 @@
-From: Richard Gregory <R.Gregory@liverpool.ac.uk>
-Subject: Re: r8169+NAPI soft lockup
-Date: Tue, 09 May 2006 19:17:19 +0100
-Message-ID: <4460DCAF.7060503@liv.ac.uk>
-References: <4460B8DC.9080105@liv.ac.uk> <20060509164335.GA807@electric-eye.fr.zoreil.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: iproute2 git repository
+Date: Tue, 9 May 2006 11:31:15 -0700
+Message-ID: <20060509113115.4a838f26@localhost.localdomain>
+References: <20060508153434.2b5155a9@localhost.localdomain>
+	<E1FdQki-0007gj-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.liv.ac.uk ([138.253.100.181]:28035 "EHLO mx3.liv.ac.uk")
-	by vger.kernel.org with ESMTP id S1750884AbWEISRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 May 2006 14:17:21 -0400
-Received: from mailhubb.liv.ac.uk ([138.253.100.37])
-	by mx3.liv.ac.uk with esmtp (Exim 4.54)
-	id 1FdWls-0003Db-Dl
-	for netdev@vger.kernel.org; Tue, 09 May 2006 19:17:20 +0100
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060509164335.GA807@electric-eye.fr.zoreil.com>
+Received: from smtp.osdl.org ([65.172.181.4]:46767 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750777AbWEISbP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 May 2006 14:31:15 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1FdQki-0007gj-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Richard Gregory <R.Gregory@liverpool.ac.uk> :
-> 
->>I'm seeing the crash below using 2.6.16.11 custom based on RedHat FC2. 
->>The main culprit being the r8169+NAPI module, although the it821x module 
->>(with noraid=1) seems to bring out the bug, maybe because it uses the 
->>same interrupt.
-> 
-> 
-> (lot of things to digest...)
-> 
-> Is netconsole enabled ?
+On Tue, 09 May 2006 21:51:44 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-It can be. How much output do you need, a single soft lockup?
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> > I moved iproute2 out of CVS. New home is:
+> >        git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+> 
+> Thanks Stephen.
+> 
+> BTW, how come there is a checked out tree sitting in that git directory?
 
-
-Richard
+fixed.  stupid git
