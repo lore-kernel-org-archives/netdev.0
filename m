@@ -1,32 +1,32 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] IrDA: Switching to a workqueue for the SIR work
-Date: Tue, 09 May 2006 15:27:17 -0700 (PDT)
-Message-ID: <20060509.152717.72598970.davem@davemloft.net>
-References: <20060508212410.GE20933@irie>
+From: Uli Kunitz <kune@deine-taler.de>
+Subject: Re: Scanning in ieee80211 softmac layer and setting essid (newbie)
+Date: Wed, 10 May 2006 00:27:57 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0605100025510.17506@p15091797.pureserver.info>
+References: <d0383f90605090638u3ca7a5c0je1a4ce8bc3dc696e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, irda-users@lists.sourceforge.net,
-	netdev@vger.kernel.org, hch@lst.de
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32401
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751248AbWEIW1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 May 2006 18:27:45 -0400
-To: samuel.ortiz@nokia.com
-In-Reply-To: <20060508212410.GE20933@irie>
+Received: from deine-taler.de ([217.160.107.63]:445 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1751247AbWEIW17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 May 2006 18:27:59 -0400
+To: Ian Brown <ianbrn@gmail.com>
+In-Reply-To: <d0383f90605090638u3ca7a5c0je1a4ce8bc3dc696e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel.ortiz@nokia.com>
-Date: Tue, 9 May 2006 00:24:10 +0300
+Ian Brown wrote:
 
-> Since sir_kthread.c pretty much duplicates the workqueue functionality,
-> we'd better switch.
-> The SIR fsm has been merged into sir_dev.c and thus sir_kthread.c is
-> deleted.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> Signed-off-by: Samuel Ortiz <samuel.ortiz@nokia.com>
+> My question is : why is this scanning needed when set essid is called?
+> and why is the repeatition?
 
-Applied, thanks.
+ESSID doesn't tell you the channel nummber, so you have to scan
+for a beacon containing the ESSID in passive scanning. Even if you
+do active scanning you need to check all channels because your
+ESSID could be on anyone of the channels.
+
+Uli
+
+-- 
+Uli Kunitz - kune@deine-taler.de
