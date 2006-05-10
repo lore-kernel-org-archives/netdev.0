@@ -1,39 +1,41 @@
-From: Stefano Brivio <stefano.brivio@polimi.it>
-Subject: [PATCH 2/2] bcm43xx-d80211: add PCI ID for bcm4319. (#2)
-Date: Thu, 11 May 2006 01:11:16 +0200
-Message-ID: <20060511011116.5167fc2d@localhost>
-References: <20060510221056.350408000@localhost>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] bonding: fix sparse warnings
+Date: Wed, 10 May 2006 16:14:05 -0700
+Message-ID: <20060510161405.4ded4250@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
+Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.polimi.it ([131.175.12.3]:13496 "EHLO polimi.it")
-	by vger.kernel.org with ESMTP id S965073AbWEJXLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 19:11:40 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060510221056.350408000@localhost>
+Received: from smtp.osdl.org ([65.172.181.4]:18838 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965073AbWEJXOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 19:14:11 -0400
+To: ctindel@users.sourceforge.net, Jay Vosburgh <fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add PCI ID for bcm4319.
+Fix warning from sparse in bonding code about "incorrect type in assignment"
 
-Signed-off-by: Stefano Brivio <stefano.brivio@polimi.it>
-Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-+++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -128,6 +128,8 @@ static struct pci_device_id bcm43xx_pci_
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4318 802.11b/g */
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	/* Broadcom 4319 802.11b/g */
-+	{ PCI_VENDOR_ID_BROADCOM, 0x4319, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4306 802.11b/g */
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4306 802.11a */
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 
---
-Ciao
-Stefano
+--- orig/drivers/net/bonding/bond_main.c	2006-05-04 16:22:10.000000000 -0700
++++ new/drivers/net/bonding/bond_main.c	2006-05-10 16:04:38.000000000 -0700
+@@ -629,7 +629,7 @@
+ 	ioctl = slave_dev->do_ioctl;
+ 	strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
+ 	etool.cmd = ETHTOOL_GSET;
+-	ifr.ifr_data = (char*)&etool;
++	ifr.ifr_data = (void __user *) &etool;
+ 	if (!ioctl || (IOCTL(slave_dev, &ifr, SIOCETHTOOL) < 0)) {
+ 		return -1;
+ 	}
+@@ -726,7 +726,7 @@
+ 	if (ioctl) {
+ 		strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
+ 		etool.cmd = ETHTOOL_GLINK;
+-		ifr.ifr_data = (char*)&etool;
++		ifr.ifr_data = (void __user *) &etool;
+ 		if (IOCTL(slave_dev, &ifr, SIOCETHTOOL) == 0) {
+ 			if (etool.data == 1) {
+ 				return BMSR_LSTATUS;
