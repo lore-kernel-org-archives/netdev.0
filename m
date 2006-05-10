@@ -1,77 +1,33 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 6/6] myri10ge - Kconfig and Makefile
-Date: Wed, 10 May 2006 23:43:55 +0200
-Message-ID: <44625E9B.3090509@myri.com>
-References: <446259A0.8050504@myri.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169+NAPI soft lockup
+Date: Wed, 10 May 2006 23:50:04 +0200
+Message-ID: <20060510215004.GA25395@electric-eye.fr.zoreil.com>
+References: <4460B8DC.9080105@liv.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Andrew J. Gallatin" <gallatin@myri.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:8633 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S964997AbWEJVoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 17:44:06 -0400
-To: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
-In-Reply-To: <446259A0.8050504@myri.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:65498 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S965030AbWEJVvT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 May 2006 17:51:19 -0400
+To: Richard Gregory <R.Gregory@liverpool.ac.uk>
+Content-Disposition: inline
+In-Reply-To: <4460B8DC.9080105@liv.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 6/6] myri10ge - Kconfig and Makefile
+Richard Gregory <R.Gregory@liverpool.ac.uk> :
+[...]
+> # locked in 1 min. Output in bug5.txt
+> $ for i in `seq 0 26` ; do cat /dev/md1 > /dev/tcp/linuxbox/9 &
+> $ cat /dev/md0 > /dev/tcp/localhost/9
 
-Add Kconfig and Makefile support for the myri10ge driver.
+Can you replace /dev/tcp/foo with a simple /dev/null and send the output
+of 'vmstat 1' during 2 minutes of test ?
 
-Signed-off-by: Brice Goglin <brice@myri.com>
-Signed-off-by: Andrew J. Gallatin <gallatin@myri.com>
+A few seconds of 'vmstat 1' during a simple dd from /dev/md0
+(resp. /dev/md1) would be welcome too.
 
- Kconfig           |   16 ++++++++++++++++
- Makefile          |    1 +
- myri10ge/Makefile |    5 +++++
- 3 files changed, 22 insertions(+)
-
---- linux-mm/drivers/net/Kconfig.old	2006-04-10 03:44:01.000000000 -0700
-+++ linux-mm/drivers/net/Kconfig	2006-04-18 03:49:11.000000000 -0700
-@@ -2327,6 +2327,23 @@ config S2IO_NAPI
- 
- 	  If in doubt, say N.
- 
-+config MYRI10GE
-+	tristate "Myricom Myri-10G Ethernet support"
-+	depends on PCI
-+	select FW_LOADER
-+	select CRC32
-+	---help---
-+	  This driver supports Myricom Myri-10G Dual Protocol interface in
-+	  Ethernet mode. If the eeprom on your board is not recent enough,
-+	  you will need a newer firmware image.
-+	  You may get this image or more information, at:
-+
-+	  <http://www.myri.com/Myri-10G/>
-+
-+	  To compile this driver as a module, choose M here and read
-+	  <file:Documentation/networking/net-modules.txt>.  The module
-+	  will be called myri10ge.
-+
- endmenu
- 
- source "drivers/net/tokenring/Kconfig"
---- linux-mm/drivers/net/Makefile.old	2006-04-08 04:49:53.000000000 -0700
-+++ linux-mm/drivers/net/Makefile	2006-04-21 08:10:27.000000000 -0700
-@@ -192,6 +192,7 @@ obj-$(CONFIG_R8169) += r8169.o
- obj-$(CONFIG_AMD8111_ETH) += amd8111e.o
- obj-$(CONFIG_IBMVETH) += ibmveth.o
- obj-$(CONFIG_S2IO) += s2io.o
-+obj-$(CONFIG_MYRI10GE) += myri10ge/
- obj-$(CONFIG_SMC91X) += smc91x.o
- obj-$(CONFIG_SMC911X) += smc911x.o
- obj-$(CONFIG_DM9000) += dm9000.o
---- /dev/null	2006-04-21 00:45:09.064430000 -0700
-+++ linux-mm/drivers/net/myri10ge/Makefile	2006-04-21 08:14:21.000000000 -0700
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Myricom Myri-10G ethernet driver
-+#
-+
-+obj-$(CONFIG_MYRI10GE) += myri10ge.o
-
-
+-- 
+Ueimor
