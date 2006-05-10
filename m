@@ -1,52 +1,105 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: [PATCH wireless-dev] d80211: Add support for user space clientMLME
-Date: Wed, 10 May 2006 10:17:49 -0700
-Message-ID: <20060510171749.GH23571@instant802.com>
-References: <20060502211817.GA30842@instant802.com> <20060503182815.1a9ebb5e@griffin.suse.cz> <20060503164458.GB10524@instant802.com> <1146745613.1137.28.camel@localhost>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [PATCH -mm] dl2k gcc 4.1 warning fix
+Date: Wed, 10 May 2006 12:54:56 -0500
+Message-ID: <20060510175456.GA26617@us.ibm.com>
+References: <200605100255.k4A2tvqm031661@dwalker1.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, jkmaline@cc.hut.fi
+Cc: akpm@osdl.org, edward_peng@dlink.com.tw,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-25.dex002.intermedia.net ([64.78.21.107]:10270 "EHLO
-	dhost002-25.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S965007AbWEJRRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 13:17:53 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:45267 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S932073AbWEJR4T
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 May 2006 13:56:19 -0400
+To: Daniel Walker <dwalker@mvista.com>
 Content-Disposition: inline
-In-Reply-To: <1146745613.1137.28.camel@localhost>
+In-Reply-To: <200605100255.k4A2tvqm031661@dwalker1.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 04, 2006 at 02:26:53PM +0200, Johannes Berg wrote:
-> On Wed, 2006-05-03 at 09:44 -0700, Jouni Malinen wrote:
-> > But there is.. I committed changes to the wpa_supplicant devel branch
-> > for this yesterday. It seems to work fine with net/d80211 and bcm43xx
-> > with this small patch to d80211 to allow the functionality to be moved
-> > into user space.
+On Tue, May 09, 2006 at 07:55:57PM -0700, Daniel Walker wrote:
+> Fixes the following warning,
+
+Please CC netdev on networking patches.
+
+All the changed lines are over 80 chars.  Please fix.
+
+Thanks,
+Jon
+
+> drivers/net/dl2k.c: In function 'rio_free_tx':
+> drivers/net/dl2k.c:768: warning: integer constant is too large for 'long' type
+> drivers/net/dl2k.c: In function 'receive_packet':
+> drivers/net/dl2k.c:896: warning: integer constant is too large for 'long' type
+> drivers/net/dl2k.c:904: warning: integer constant is too large for 'long' type
+> drivers/net/dl2k.c:916: warning: integer constant is too large for 'long' type
+> drivers/net/dl2k.c: In function 'rio_close':
+> drivers/net/dl2k.c:1803: warning: integer constant is too large for 'long' type
+> drivers/net/dl2k.c:1813: warning: integer constant is too large for 'long' type
 > 
-> Cool, do you have a list of things that we need to support for it to
-> work on a 'softmac' based driver (iow removing softmac in favour of
-> this)?
-
-This is still somewhat open, but at minimum, there needs to be a
-mechanism for receiving and sending management frames from user space.
-d80211 uses a "management netdev" for this currently (the same one that
-was used before with hostapd for AP mode). In addition to that,
-wpa_supplicant expect to be able to read list of support channels and TX
-rates (get_hw_feature_data handler in driver wrapper) and to be able to
-add and remove STA entries (e.g., for TX rate control and association
-status validation in kernel code).
-
-Currently, scanning is done simply by setting the channel with
-SIOCSIWFREQ and listening for management frames. However, the goal is to
-provide simple atomic operations that user space programs can request
-the kernel code to do. This would cover not only scanning, but also some
-other needs like IEEE 802.11k radio measurements. These operations could
-be something like "stop transmit, move to channel 5, report received
-management frames, record noise level, do this for 5 ms, return to
-operational channel, enable transmit".
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+> Signed-Off-By: Daniel Walker <dwalker@mvista.com>
+> 
+> Index: linux-2.6.16/drivers/net/dl2k.c
+> ===================================================================
+> --- linux-2.6.16.orig/drivers/net/dl2k.c
+> +++ linux-2.6.16/drivers/net/dl2k.c
+> @@ -765,7 +765,7 @@ rio_free_tx (struct net_device *dev, int
+>  			break;
+>  		skb = np->tx_skbuff[entry];
+>  		pci_unmap_single (np->pdev,
+> -				  np->tx_ring[entry].fraginfo & 0xffffffffffff,
+> +				  np->tx_ring[entry].fraginfo & 0xffffffffffffULL,
+>  				  skb->len, PCI_DMA_TODEVICE);
+>  		if (irq)
+>  			dev_kfree_skb_irq (skb);
+> @@ -893,7 +893,7 @@ receive_packet (struct net_device *dev)
+>  			/* Small skbuffs for short packets */
+>  			if (pkt_len > copy_thresh) {
+>  				pci_unmap_single (np->pdev,
+> -						  desc->fraginfo & 0xffffffffffff,
+> +						  desc->fraginfo & 0xffffffffffffULL,
+>  						  np->rx_buf_sz,
+>  						  PCI_DMA_FROMDEVICE);
+>  				skb_put (skb = np->rx_skbuff[entry], pkt_len);
+> @@ -901,7 +901,7 @@ receive_packet (struct net_device *dev)
+>  			} else if ((skb = dev_alloc_skb (pkt_len + 2)) != NULL) {
+>  				pci_dma_sync_single_for_cpu(np->pdev,
+>  				  			    desc->fraginfo & 
+> -							    	0xffffffffffff,
+> +							    	0xffffffffffffULL,
+>  							    np->rx_buf_sz,
+>  							    PCI_DMA_FROMDEVICE);
+>  				skb->dev = dev;
+> @@ -913,7 +913,7 @@ receive_packet (struct net_device *dev)
+>  				skb_put (skb, pkt_len);
+>  				pci_dma_sync_single_for_device(np->pdev,
+>  				  			       desc->fraginfo &
+> -							       	 0xffffffffffff,
+> +							       	 0xffffffffffffULL,
+>  							       np->rx_buf_sz,
+>  							       PCI_DMA_FROMDEVICE);
+>  			}
+> @@ -1800,7 +1800,7 @@ rio_close (struct net_device *dev)
+>  		skb = np->rx_skbuff[i];
+>  		if (skb) {
+>  			pci_unmap_single(np->pdev, 
+> -					 np->rx_ring[i].fraginfo & 0xffffffffffff,
+> +					 np->rx_ring[i].fraginfo & 0xffffffffffffULL,
+>  					 skb->len, PCI_DMA_FROMDEVICE);
+>  			dev_kfree_skb (skb);
+>  			np->rx_skbuff[i] = NULL;
+> @@ -1810,7 +1810,7 @@ rio_close (struct net_device *dev)
+>  		skb = np->tx_skbuff[i];
+>  		if (skb) {
+>  			pci_unmap_single(np->pdev, 
+> -					 np->tx_ring[i].fraginfo & 0xffffffffffff,
+> +					 np->tx_ring[i].fraginfo & 0xffffffffffffULL,
+>  					 skb->len, PCI_DMA_TODEVICE);
+>  			dev_kfree_skb (skb);
+>  			np->tx_skbuff[i] = NULL;
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
