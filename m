@@ -1,35 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: possible problem with TSO and ip_queue
-Date: Wed, 10 May 2006 13:30:47 -0700 (PDT)
-Message-ID: <20060510.133047.118385773.davem@davemloft.net>
-References: <Pine.LNX.4.64.0605102105290.3813@sheen.jakma.org>
-	<20060510.130919.37497120.davem@davemloft.net>
-	<Pine.LNX.4.64.0605102116390.3813@sheen.jakma.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ccaputo@alt.net, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: address pingable with interface down
+Date: Wed, 10 May 2006 20:47:07 +0000 (UTC)
+Message-ID: <e3tjgb$8n6$1@sea.gmane.org>
+References: <20060510194818.GB4460@junkers.homelinux.net> <20060510.130012.128043400.davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12165
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932493AbWEJUbz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 16:31:55 -0400
-To: paul@clubi.ie
-In-Reply-To: <Pine.LNX.4.64.0605102116390.3813@sheen.jakma.org>
+Received: from main.gmane.org ([80.91.229.2]:47499 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S964789AbWEJUrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 16:47:45 -0400
+Received: from list by ciao.gmane.org with local (Exim 4.43)
+	id 1Fdvaf-00013b-VE
+	for netdev@vger.kernel.org; Wed, 10 May 2006 22:47:26 +0200
+Received: from jameson.reflexsecurity.com ([72.54.64.66])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 10 May 2006 22:47:25 +0200
+Received: from lunz by jameson.reflexsecurity.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 10 May 2006 22:47:25 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Jakma <paul@clubi.ie>
-Date: Wed, 10 May 2006 21:17:33 +0100 (IST)
+davem@davemloft.net said:
+> This is becoming a serious FAQ and very tiresome to explain over and
+> over again.
 
-> On Wed, 10 May 2006, David S. Miller wrote:
-> 
-> > When you have a rule installed that will add MD5, just mark the 
-> > route as not being TSO capable.
-> 
-> Ah, didn't realise this could be done with netfilter. What's the 
-> magic incantation? :)
+So where's the linux networking faq? I've been lurking here long enough
+to know that there's no shortage of faqs, but there's no canonical
+netdev faq that i'm aware of. Maybe one should be started?
 
-Unfortunately, you can't disable this per-route like I thought
-was possible, you can only disable it per-device or per-socket.
+Jason
+
