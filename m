@@ -1,40 +1,55 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: Re: [PATCH] sis900 Foxconn 661FX7MI-S PHY support
-Date: Wed, 10 May 2006 22:17:59 +0200
-Message-ID: <DE3A9CEF-A9D8-4FFA-A8D4-E8FFEE59834D@brownhat.org>
-References: <20060510000450.GA5448@hp.com> <20060510103109.148197cd@localhost.localdomain>
-Mime-Version: 1.0 (Apple Message framework v749.3)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: James Cameron <james.cameron@hp.com>, netdev@vger.kernel.org
+From: Ranjit Manomohan <ranjitm@google.com>
+Subject: [PATCH] tcpdump may trace some outbound packets twice.
+Date: Wed, 10 May 2006 13:17:39 -0700 (PDT)
+Message-ID: <Pine.LNX.4.56.0605101315380.8735@ranjit.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.infomaniak.ch ([84.16.68.89]:1744 "EHLO
-	smtp1.infomaniak.ch") by vger.kernel.org with ESMTP id S932467AbWEJUSI
+Received: from smtp-out.google.com ([216.239.45.12]:22592 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP id S932456AbWEJUSC
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 16:18:08 -0400
-In-Reply-To: <20060510103109.148197cd@localhost.localdomain>
-To: Stephen Hemminger <shemminger@osdl.org>
+	Wed, 10 May 2006 16:18:02 -0400
+To: linux-kernel@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Il giorno 10/mag/06, alle ore 19:31, Stephen Hemminger ha scritto:
+This patch fixes the problem where tcpdump shows duplicate packets
+while tracing outbound packets on drivers which support lockless
+transmit. The patch changes the current behaviour to tracing the
+packets only on a successful transmit.
 
-> On Wed, 10 May 2006 10:04:50 +1000 James Cameron  
-> <james.cameron@hp.com> wrote:
->>
->> I'm not sure, but I wonder if it means the default behaviour  
->> should be
->> changed, so as to better handle future transceivers.
-Well, my previous experience showed that the current default was the  
-best, but obviously, when I decided that, things began to change.  
-Since it is quite easy to add new transceivers this is hardly a big  
-problem.
+Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
 
-> I am waiting for a fixed patch and ack from driver maintainer.
-Ack. :-)
-
-Thanks.
---
-Daniele Venzano
-http://www.brownhat.org
-
+--- linux-2.6/net/sched/sch_generic.c	2006-05-10 12:34:52.000000000 -0700
++++ linux/net/sched/sch_generic.c	2006-05-10 12:39:38.000000000 -0700
+@@ -136,8 +136,12 @@
+ 
+ 			if (!netif_queue_stopped(dev)) {
+ 				int ret;
++				struct sk_buff *skbc = NULL;
++				/* Clone the skb so that we hold a reference
++				 * to its data and we can trace it after a
++				 * successful transmit. */
+ 				if (netdev_nit)
+-					dev_queue_xmit_nit(skb, dev);
++					skbc = skb_clone(skb, GFP_ATOMIC);
+ 
+ 				ret = dev->hard_start_xmit(skb, dev);
+ 				if (ret == NETDEV_TX_OK) { 
+@@ -145,6 +149,15 @@
+ 						dev->xmit_lock_owner = -1;
+ 						spin_unlock(&dev->xmit_lock);
+ 					}
++					if(skbc) {
++						/* transmit succeeded, 
++						 * trace the clone. */
++						dev_queue_xmit_nit(skbc,dev);
++						kfree_skb(skbc);
++					}
++					/* Free clone if it exists */
++					if(skbc)
++						kfree_skb(skbc);
+ 					spin_lock(&dev->queue_lock);
+ 					return -1;
+ 				}
