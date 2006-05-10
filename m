@@ -1,55 +1,43 @@
-From: Ranjit Manomohan <ranjitm@google.com>
-Subject: [PATCH] tcpdump may trace some outbound packets twice.
-Date: Wed, 10 May 2006 13:17:39 -0700 (PDT)
-Message-ID: <Pine.LNX.4.56.0605101315380.8735@ranjit.corp.google.com>
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: possible problem with TSO and ip_queue
+Date: Wed, 10 May 2006 21:17:33 +0100 (IST)
+Message-ID: <Pine.LNX.4.64.0605102116390.3813@sheen.jakma.org>
+References: <Pine.LNX.4.64.0605101815430.16614@nacho.alt.net>
+	<20060510.124955.114056211.davem@davemloft.net>
+	<Pine.LNX.4.64.0605102105290.3813@sheen.jakma.org>
+	<20060510.130919.37497120.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:22592 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP id S932456AbWEJUSC
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 16:18:02 -0400
-To: linux-kernel@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: ccaputo@alt.net, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060510.130919.37497120.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the problem where tcpdump shows duplicate packets
-while tracing outbound packets on drivers which support lockless
-transmit. The patch changes the current behaviour to tracing the
-packets only on a successful transmit.
+On Wed, 10 May 2006, David S. Miller wrote:
 
-Signed-off-by: Ranjit Manomohan <ranjitm@google.com>
+> When you have a rule installed that will add MD5, just mark the 
+> route as not being TSO capable.
 
---- linux-2.6/net/sched/sch_generic.c	2006-05-10 12:34:52.000000000 -0700
-+++ linux/net/sched/sch_generic.c	2006-05-10 12:39:38.000000000 -0700
-@@ -136,8 +136,12 @@
- 
- 			if (!netif_queue_stopped(dev)) {
- 				int ret;
-+				struct sk_buff *skbc = NULL;
-+				/* Clone the skb so that we hold a reference
-+				 * to its data and we can trace it after a
-+				 * successful transmit. */
- 				if (netdev_nit)
--					dev_queue_xmit_nit(skb, dev);
-+					skbc = skb_clone(skb, GFP_ATOMIC);
- 
- 				ret = dev->hard_start_xmit(skb, dev);
- 				if (ret == NETDEV_TX_OK) { 
-@@ -145,6 +149,15 @@
- 						dev->xmit_lock_owner = -1;
- 						spin_unlock(&dev->xmit_lock);
- 					}
-+					if(skbc) {
-+						/* transmit succeeded, 
-+						 * trace the clone. */
-+						dev_queue_xmit_nit(skbc,dev);
-+						kfree_skb(skbc);
-+					}
-+					/* Free clone if it exists */
-+					if(skbc)
-+						kfree_skb(skbc);
- 					spin_lock(&dev->queue_lock);
- 					return -1;
- 				}
+Ah, didn't realise this could be done with netfilter. What's the 
+magic incantation? :)
+
+> What's the problem?
+
+None, that's perfect - we just didn't know!
+
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+You will be run over by a beer truck.
