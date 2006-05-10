@@ -1,42 +1,41 @@
-From: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
-Subject: Re: [Xen-devel] [RFC PATCH 34/35] Add the Xen virtual network device	driver.
-Date: Wed, 10 May 2006 07:36:57 +0100
-Message-ID: <c40c8b573caa8bf4931382d5e4722318@cl.cam.ac.uk>
-References: <20060509085201.446830000@sous-sol.org> <E1FdatV-0000lj-00@gondolin.me.apana.org.au> <20060509235122.GJ24291@moss.sous-sol.org>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.osdl.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xensource.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	ian.pratt@xensource.com, netdev@vger.kernel.org
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: [PATCH] skb leakage in inet6_csk_xmit
+Date: Wed, 10 May 2006 13:02:16 +0400
+Message-ID: <20060510090216.GA1968@ms2.inr.ac.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta2.cl.cam.ac.uk ([128.232.0.14]:35563 "EHLO mta2.cl.cam.ac.uk")
-	by vger.kernel.org with ESMTP id S1750805AbWEJGlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 02:41:21 -0400
-In-Reply-To: <20060509235122.GJ24291@moss.sous-sol.org>
-To: Chris Wright <chrisw@sous-sol.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:2503 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S964868AbWEJJCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 05:02:18 -0400
+To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-On 10 May 2006, at 00:51, Chris Wright wrote:
+inet6_csk_xit does not free skb when routing fails.
 
-> * Herbert Xu (herbert@gondor.apana.org.au) wrote:
->> Chris Wright <chrisw@sous-sol.org> wrote:
->>>
->>> +       netdev->features        = NETIF_F_IP_CSUM;
->>
->> Any reason why IP_CSUM was chosen instead of HW_CSUM? Doing the latter
->> would seem to be in fact easier for a virtual driver, no?
->
-> That, I really don't know.
+Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-Checksum offload was added late to the virtual transport and currently 
-not enough info is carried to identify protocol checksum fields in 
-arbitrary locations. When we rev the virtual interface, and include a 
-proper checksum-offset field, we'll be able to switch to 
-NETIF_F_HW_CSUM.
-
-  -- Keir
-
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index f8f3a37..eb2865d 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -173,6 +173,7 @@ int inet6_csk_xmit(struct sk_buff *skb, 
+ 
+ 		if (err) {
+ 			sk->sk_err_soft = -err;
++			kfree_skb(skb);
+ 			return err;
+ 		}
+ 
+@@ -181,6 +182,7 @@ int inet6_csk_xmit(struct sk_buff *skb, 
+ 
+ 		if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0) {
+ 			sk->sk_route_caps = 0;
++			kfree_skb(skb);
+ 			return err;
+ 		}
+ 
