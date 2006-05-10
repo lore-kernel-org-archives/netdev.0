@@ -1,46 +1,58 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: please pull upstream branch of netdev-2.6
-Date: Wed, 10 May 2006 14:55:59 -0700
-Message-ID: <20060510145559.764017c6@localhost.localdomain>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 3/6] myri10ge - Driver header files
+Date: Wed, 10 May 2006 14:57:57 -0700
+Message-ID: <adalkt97day.fsf@cisco.com>
+References: <446259A0.8050504@myri.com> <44625CD2.8040100@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Andrew J. Gallatin" <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:641 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964939AbWEJV4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 17:56:00 -0400
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id k4ALtxtH016406
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 10 May 2006 14:55:59 -0700
-To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:37965 "EHLO
+	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
+	id S932305AbWEJV57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 May 2006 17:57:59 -0400
+To: Brice Goglin <brice@myri.com>
+In-Reply-To: <44625CD2.8040100@myri.com> (Brice Goglin's message of "Wed, 10 May 2006 23:36:18 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 6810b548b25114607e0814612d84125abccc0a4f:
-  Andi Kleen:
-        x86_64: Move ondemand timer into own work queue
+A few quick obvious comments:
 
-are found in the git repository at:
+ > +#ifdef MYRI10GE_MCP
+ > +typedef signed char          int8_t;
+ > +typedef signed short        int16_t;
+ > +typedef signed int          int32_t;
+ > +typedef signed long long    int64_t;
+ > +typedef unsigned char       uint8_t;
+ > +typedef unsigned short     uint16_t;
+ > +typedef unsigned int       uint32_t;
+ > +typedef unsigned long long uint64_t;
+ > +#endif
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/netdev-2.6.git upstream
+What's this doing?  If you must use uintXX_t types the kernel already
+has them.  Although it would be nicer to use u8, u16, etc.
 
-Francois Romieu:
-      dl2k: use DMA_48BIT_MASK constant
+ > +/* 8 Bytes */
+ > +typedef struct
+ > +{
+ > +  uint32_t high;
+ > +  uint32_t low;
+ > +} mcp_dma_addr_t;
 
-Herbert Valerio Riedel:
-      phy: mdiobus_register(): initialize all phy_map entries
+All of these typedefs are unnecessary.  In the kernel it's strongly
+preferred to just do
 
-James Cameron:
-      sis900: phy for FoxCon motherboard
+struct mcp_dma_addr {
+	u32 high;
+        u32 low;
+};
 
-Stephen Hemminger:
-      sky2: ifdown kills irq mask
+and then use "struct mcp_dma_addr" instead of "mcp_dma_addr_t".
 
- drivers/net/dl2k.c          |   12 ++++++------
- drivers/net/phy/mdio_bus.c  |    4 +++-
- drivers/net/sis900.c        |    1 +
- drivers/net/sky2.c          |    5 +++--
- include/linux/dma-mapping.h |    1 +
- 5 files changed, 14 insertions(+), 9 deletions(-)
+Similarly for enums.  Just use "enum whatever" instead of "whatever_t".
+
+BTW, indentation is busted in these headers too (two spaces instead of a tab).
+
+ - R.
