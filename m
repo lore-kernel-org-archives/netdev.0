@@ -1,33 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169+NAPI soft lockup
-Date: Wed, 10 May 2006 23:50:04 +0200
-Message-ID: <20060510215004.GA25395@electric-eye.fr.zoreil.com>
-References: <4460B8DC.9080105@liv.ac.uk>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 2/6] myri10ge - Add missing PCI IDs
+Date: Wed, 10 May 2006 23:52:48 +0200
+Message-ID: <200605102352.48453.ak@suse.de>
+References: <446259A0.8050504@myri.com> <44625C92.8020209@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Andrew J. Gallatin" <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:65498 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S965030AbWEJVvT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 17:51:19 -0400
-To: Richard Gregory <R.Gregory@liverpool.ac.uk>
+Received: from ns2.suse.de ([195.135.220.15]:12417 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751510AbWEJVwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 17:52:53 -0400
+To: Brice Goglin <brice@myri.com>
+In-Reply-To: <44625C92.8020209@myri.com>
 Content-Disposition: inline
-In-Reply-To: <4460B8DC.9080105@liv.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Gregory <R.Gregory@liverpool.ac.uk> :
-[...]
-> # locked in 1 min. Output in bug5.txt
-> $ for i in `seq 0 26` ; do cat /dev/md1 > /dev/tcp/linuxbox/9 &
-> $ cat /dev/md0 > /dev/tcp/localhost/9
+On Wednesday 10 May 2006 23:35, Brice Goglin wrote:
+> [PATCH 2/6] myri10ge - Add missing PCI IDs
+> 
+> Add nVidia nForce CK804 PCI-E bridge and 
+> ServerWorks HT2000 PCI-E bridge IDs.
+> They will be used by the myri10ge driver.
 
-Can you replace /dev/tcp/foo with a simple /dev/null and send the output
-of 'vmstat 1' during 2 minutes of test ?
+That's a bad sign. It means you have code in your driver 
+that should be somewhere else.
 
-A few seconds of 'vmstat 1' during a simple dd from /dev/md0
-(resp. /dev/md1) would be welcome too.
-
--- 
-Ueimor
+-Andi
