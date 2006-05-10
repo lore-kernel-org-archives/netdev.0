@@ -1,48 +1,44 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
-	device driver.
-Date: Wed, 10 May 2006 20:28:22 +0200
-Message-ID: <200605102028.22974.ak@suse.de>
-References: <20060509084945.373541000@sous-sol.org>
-	<6a1855ab01a195ac2a28a97c5f966f67@cl.cam.ac.uk>
-	<ada1wv3apu0.fsf@cisco.com>
+From: Chris Caputo <ccaputo@alt.net>
+Subject: possible problem with TSO and ip_queue
+Date: Wed, 10 May 2006 18:44:30 +0000 (GMT)
+Message-ID: <Pine.LNX.4.64.0605101815430.16614@nacho.alt.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, Ian Pratt <ian.pratt@xensource.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Chris Wright <chrisw@sous-sol.org>, virtualization@lists.osdl.org,
-	Stephen Hemminger <shemminger@osdl.org>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <ada1wv3apu0.fsf@cisco.com>
-Content-Disposition: inline
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Jakma <paul@clubi.ie>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nacho.alt.net ([207.14.113.18]:30679 "HELO nacho.alt.net")
+	by vger.kernel.org with SMTP id S932465AbWEJSod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 14:44:33 -0400
+To: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 09 May 2006 22:46, Roland Dreier wrote:
->     Keir> Where should we get our entropy from in a VM environment?
->     Keir> Leaving the pool empty can cause processes to hang.
->
-> You could have something like a virtual HW RNG driver (with a frontend
-> and backend), which steals from the dom0 /dev/random pool.
+Environment is 2.6.16.9 with e1000 NICs.
 
-They already have a vTPM - iirc TPMs support random numbers so
-that could be used. But it's probably complicated to use.
+Paul and I (as part of the Quagga project) are working on a user mode 
+method for doing BGP MD5 checksums using ip_queue.  All is working except 
+when TSO is enabled I am seeing some problems.
 
-But if sampling virtual events for randomness is really unsafe (is it 
-really?) then native guests in Xen would also get bad random numbers
-and this would need to be somehow addressed.
+It appears that when TSO is enabled, ip_queue can be used to manipulate 
+packets that have a size higher than the particular MSS (and MTU) for a 
+TCP stream.
 
-I haven't seen real evidence yet why the virtual events should 
-provide less randomness than the hardware.
+This results in a larger than MSS packet going out to the NIC with a TCP 
+MD5 checksum, getting split by the NIC to match the MTU of the LAN, and 
+then being received as multiple packets with incorrect MD5 checksums.
 
--And
+Then a retransmit with a smaller/correct MSS happens and the packets are 
+received with valid MD5 checksums.
+
+So in effect, the data eventually makes it across the link, but it is sent 
+twice, once with invalid checksums and once with valid checksums, and 
+throughput is slow.
+
+When TSO is disabled, things happen as they should.
+
+Does this sound like a bug or by design?
+
+Does it make sense that ip_queue mangled packets be subjected to TSO, 
+given that the TCP header can be messed with by the user mode code?
+
+Chris
