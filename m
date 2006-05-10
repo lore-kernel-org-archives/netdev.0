@@ -1,35 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: address pingable with interface down
-Date: Wed, 10 May 2006 13:00:12 -0700 (PDT)
-Message-ID: <20060510.130012.128043400.davem@davemloft.net>
-References: <20060510194818.GB4460@junkers.homelinux.net>
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: possible problem with TSO and ip_queue
+Date: Wed, 10 May 2006 21:07:31 +0100 (IST)
+Message-ID: <Pine.LNX.4.64.0605102105290.3813@sheen.jakma.org>
+References: <Pine.LNX.4.64.0605101815430.16614@nacho.alt.net>
+	<20060510.124955.114056211.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33178
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750813AbWEJUAr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 16:00:47 -0400
-To: jadevree@mtu.edu
-In-Reply-To: <20060510194818.GB4460@junkers.homelinux.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: ccaputo@alt.net, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060510.124955.114056211.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon DeVree <jadevree@mtu.edu>
-Date: Wed, 10 May 2006 15:48:18 -0400
+On Wed, 10 May 2006, David S. Miller wrote:
 
-> I've noticed in the past that the address owned by an interface is
-> still pingable after that interface is brought down.
+> This is by design.  Netfilter looks at full TSO frames,
 
-People bring this up all the time and this behavior is
-intentional.
+That explains it.
 
-Linux uses a "host based" addressing model, IP addresses are owned by
-the host, not individual interfaces. So as long as the IP address is
-configured to some interface, we will accept packets destinated to
-that IP address as our's.
+> Once you add MD5 checksums to the TCP packet, TSO can no longer be 
+> used on that path, so you'll have to disable TSO either in the 
+> route or via some other means.
 
-This is becoming a serious FAQ and very tiresome to explain over and
-over again.
+Ok.
+
+Is there a better way to deal with TSO besides documenting:
+
+"disable TSO on all interfaces which /ever/ potentially could be used
+  to reach TCP-MD5 authenticated BGP peers."
+
+?
+
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+Nothing ever becomes real until it is experienced.
+- John Keats
