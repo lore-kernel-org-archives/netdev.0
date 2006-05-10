@@ -1,41 +1,45 @@
-From: "Christopher Friesen" <cfriesen@nortel.com>
-Subject: Re: address pingable with interface down
-Date: Wed, 10 May 2006 17:06:11 -0600
-Message-ID: <446271E3.9070208@nortel.com>
-References: <20060510194818.GB4460@junkers.homelinux.net> <20060510.130012.128043400.davem@davemloft.net>
+From: Stefano Brivio <stefano.brivio@polimi.it>
+Subject: [PATCH 1/2] bcm43xx-d80211: check for valid MAC address in SPROM
+ (#2)
+Date: Thu, 11 May 2006 01:11:00 +0200
+Message-ID: <20060511011100.4a16a06c@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jadevree@mtu.edu, netdev@vger.kernel.org
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04e.nortel.com ([47.129.242.56]:10234 "EHLO
-	zcars04e.nortel.com") by vger.kernel.org with ESMTP id S965066AbWEJXGQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 19:06:16 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060510.130012.128043400.davem@davemloft.net>
+Received: from mail.polimi.it ([131.175.12.3]:31159 "EHLO polimi.it")
+	by vger.kernel.org with ESMTP id S965072AbWEJXLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 19:11:24 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Jon DeVree <jadevree@mtu.edu>
+Sorry for the mistake. Now diffed against the right port :). Please apply
+to wireless-dev.
 
->>I've noticed in the past that the address owned by an interface is
->>still pingable after that interface is brought down.
+--
 
-> People bring this up all the time and this behavior is
-> intentional.
+Check for valid MAC address in SPROM fields instead of relying on PHY type
+while setting the MAC address in the networking subsystem, as some devices
+have multiple PHYs.
 
-> This is becoming a serious FAQ and very tiresome to explain over and
-> over again.
+Signed-off-by: Stefano Brivio <stefano.brivio@polimi.it>
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -3934,7 +3934,7 @@ static int bcm43xx_attach_board(struct b
+ 	bcm43xx_pctl_set_crystal(bcm, 0);
+ 
+ 	/* Set the MAC address in the networking subsystem */
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_A)
++	if (is_valid_ether_addr(bcm->sprom.et1macaddr))
+ 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
+ 	else
+ 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
 
-Maybe the fact that so may people ask about or are surprised by it is a 
-sign that it is counter-intuitive and should perhaps be more fully 
-documented?
 
-The fact that "ifconfig" or "ip addr" show IP addresses as specifically 
-associated with individual ethernet links may contribute to this 
-problem--it sure makes it look like the IP address is an attribute of 
-the link rather than the host.
-
-Chris
+--
+Ciao
+Stefano
