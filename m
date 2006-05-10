@@ -1,56 +1,43 @@
-From: s.munaut@intopix.com
-Subject: Re: Hardware flow control on RTL8169
-Date: Wed, 10 May 2006 15:13:25 +0200
-Message-ID: <1147266805.4461e6f5ddd04@ssl0.ovh.net>
-References: <1147099047.445f57a7874d4@ssl0.ovh.net> <20060508194625.GA15174@electric-eye.fr.zoreil.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC][SECMARK 03/08] Add xtables SECMARK target
+Date: Wed, 10 May 2006 09:30:00 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605100925340.30577@d.namei>
+References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
+ <Pine.LNX.4.64.0605071134250.8588@d.namei> <44618233.5020704@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Daniel J Walsh <dwalsh@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 25.mail-out.ovh.net ([213.186.37.103]:59605 "EHLO
-	25.mail-out.ovh.net") by vger.kernel.org with ESMTP id S964939AbWEJNN4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 09:13:56 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060508194625.GA15174@electric-eye.fr.zoreil.com>
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:29346 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964957AbWEJNaD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 May 2006 09:30:03 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44618233.5020704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois,
+On Wed, 10 May 2006, Patrick McHardy wrote:
 
-Selon Francois Romieu <romieu@fr.zoreil.com>:
+> The netfilter parts all look fine too me (just one question,
+> see below). Shall I add the userspace parts to SVN or do you
+> want to do it yourself?
 
-> s.munaut@intopix.com <s.munaut@intopix.com> :
-> [...]
-> > I'm using a kurobox (www.kurobox.com) with a 2.6.15 kernel and I'd like to
-> use
-> > hardware flow control with it. However it seems the driver doesn't support
-> it,
-> > is that correct ?
-> >
-> > At least I see the device continue sending even when the other device is
-> > sending PAUSE frames with 0xffff pausetime continuously.
-> >
-> > I've tried adding RTL_W16(TBI_ANAR, 0x00a0); to the hw_start function but
-> > that doesn't seem to have any effect ...
-> >
-> > Any clue ?
->
-> - use netdev@vger.kernel.org instead of netdev@oss.sgi.com
+Might be better if you do it, although I'm still looking into one issue at 
+this stage.
 
-Sorry about that ... I don't know what version of MAINTAINER I looked at
-to come up with that address ...
+> I wonder if the result of this check could be invalidated later
+> by removal of the selinux context and if it would matter, since
+> you reject contexts not known at initialization time.
 
-> - don't trim the Cc: (just a remainder...);
-> - try the hack below with and without the first hunk. Use 'ethtool -s ethX'
->   to see what the device reports. It may not settle immediately.
->
->    [...diff snipped...]
-
-Thanks, I'll try that.
+If the context is removed later by a change to SELinux policy, the kernel 
+will remap them to "unlabeled_t", which is how packets would then be 
+labeled by the rule.
 
 
-Regards,
-
-    Sylvain
+- James 
+-- 
+James Morris <jmorris@namei.org>
