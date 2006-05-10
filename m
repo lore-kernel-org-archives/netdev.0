@@ -1,37 +1,45 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC 0/3] [IPSEC]: Add xfrm_mode support
-Date: Wed, 10 May 2006 13:54:11 -0700 (PDT)
-Message-ID: <20060510.135411.80210791.davem@davemloft.net>
-References: <20060419110209.GA15584@gondor.apana.org.au>
-	<Pine.SOL.4.64.0604191529100.11141@kekkonen.cs.hut.fi>
-	<20060506112026.GA27671@gondor.apana.org.au>
+From: "Ian McDonald" <imcdnzl@gmail.com>
+Subject: Re: address pingable with interface down
+Date: Thu, 11 May 2006 09:03:02 +1200
+Message-ID: <cbec11ac0605101403y1f4ac30v666bce0f32d592fe@mail.gmail.com>
+References: <20060510194818.GB4460@junkers.homelinux.net>
+	 <20060510.130012.128043400.davem@davemloft.net>
+	 <e3tjgb$8n6$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: miika@iki.fi, Diego.Beltrami@hiit.fi, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20154
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964877AbWEJUy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 16:54:28 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060506112026.GA27671@gondor.apana.org.au>
+Received: from nz-out-0102.google.com ([64.233.162.197]:28276 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1751503AbWEJVDC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 17:03:02 -0400
+Received: by nz-out-0102.google.com with SMTP id 13so26871nzn
+        for <netdev@vger.kernel.org>; Wed, 10 May 2006 14:03:02 -0700 (PDT)
+To: "Jason Lunz" <lunz@falooley.org>
+In-Reply-To: <e3tjgb$8n6$1@sea.gmane.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 6 May 2006 21:20:26 +1000
+> So where's the linux networking faq? I've been lurking here long enough
+> to know that there's no shortage of faqs, but there's no canonical
+> netdev faq that i'm aware of. Maybe one should be started?
+>
+> Jason
+>
+http://linux-net.osdl.org/index.php/ is the linux networking canonical wiki.
 
-> These patches abstract out the protocol-specific encapsulation parts of
-> IPsec into what I've termed xfrm_mode objects.  This allows us to share
-> a little bit more code.  But more importantly, it allows us to add new
-> encapsulation modes such as BEET or v4/v6 and v6/v4 without polluting
-> the generic xfrm_input/xfrm_output paths.
-> 
-> These patches are not yet ready to be applied as I need to test them
-> a bit more.
+I've added this FAQ under IPv4. I'm sure if this isn't the best place
+someone will shift it being a wiki :-)
 
-These patches look fantastic.  Let me know when you are done
-testing them, have a final version, and they can be applied.
-
-Thanks.
+Ian
+--
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
