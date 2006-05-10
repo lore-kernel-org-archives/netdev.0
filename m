@@ -1,36 +1,40 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: possible problem with TSO and ip_queue
-Date: Wed, 10 May 2006 13:09:19 -0700 (PDT)
-Message-ID: <20060510.130919.37497120.davem@davemloft.net>
-References: <Pine.LNX.4.64.0605101815430.16614@nacho.alt.net>
-	<20060510.124955.114056211.davem@davemloft.net>
-	<Pine.LNX.4.64.0605102105290.3813@sheen.jakma.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH] sis900 Foxconn 661FX7MI-S PHY support
+Date: Wed, 10 May 2006 22:17:59 +0200
+Message-ID: <DE3A9CEF-A9D8-4FFA-A8D4-E8FFEE59834D@brownhat.org>
+References: <20060510000450.GA5448@hp.com> <20060510103109.148197cd@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v749.3)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ccaputo@alt.net, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org
+Cc: James Cameron <james.cameron@hp.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14242
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932277AbWEJUJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 16:09:50 -0400
-To: paul@clubi.ie
-In-Reply-To: <Pine.LNX.4.64.0605102105290.3813@sheen.jakma.org>
+Received: from smtp1.infomaniak.ch ([84.16.68.89]:1744 "EHLO
+	smtp1.infomaniak.ch") by vger.kernel.org with ESMTP id S932467AbWEJUSI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 May 2006 16:18:08 -0400
+In-Reply-To: <20060510103109.148197cd@localhost.localdomain>
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Jakma <paul@clubi.ie>
-Date: Wed, 10 May 2006 21:07:31 +0100 (IST)
+Il giorno 10/mag/06, alle ore 19:31, Stephen Hemminger ha scritto:
 
-> Is there a better way to deal with TSO besides documenting:
-> 
-> "disable TSO on all interfaces which /ever/ potentially could be used
->   to reach TCP-MD5 authenticated BGP peers."
-> 
-> ?
+> On Wed, 10 May 2006 10:04:50 +1000 James Cameron  
+> <james.cameron@hp.com> wrote:
+>>
+>> I'm not sure, but I wonder if it means the default behaviour  
+>> should be
+>> changed, so as to better handle future transceivers.
+Well, my previous experience showed that the current default was the  
+best, but obviously, when I decided that, things began to change.  
+Since it is quite easy to add new transceivers this is hardly a big  
+problem.
 
-When you have a rule installed that will add MD5, just mark
-the route as not being TSO capable.
+> I am waiting for a fixed patch and ack from driver maintainer.
+Ack. :-)
 
-What's the problem?
+Thanks.
+--
+Daniele Venzano
+http://www.brownhat.org
+
