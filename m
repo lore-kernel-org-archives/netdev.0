@@ -1,93 +1,48 @@
-From: Daniel Walker <dwalker@mvista.com>
-Subject: [PATCH -mm] updated dl2k gcc 4.1 warning fix
-Date: Wed, 10 May 2006 11:12:51 -0700
-Message-ID: <200605101812.k4AICpRo006555@dwalker1.mvista.com>
-Cc: edward_peng@dlink.com.tw, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:45651 "EHLO
-	dwalker1.mvista.com") by vger.kernel.org with ESMTP
-	id S1750818AbWEJSNO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 14:13:14 -0400
-To: akpm@osdl.org
-Sender: netdev-owner@vger.kernel.org
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
+	device driver.
+Date: Wed, 10 May 2006 20:28:22 +0200
+Message-ID: <200605102028.22974.ak@suse.de>
+References: <20060509084945.373541000@sous-sol.org>
+	<6a1855ab01a195ac2a28a97c5f966f67@cl.cam.ac.uk>
+	<ada1wv3apu0.fsf@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xensource.com, Ian Pratt <ian.pratt@xensource.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris Wright <chrisw@sous-sol.org>, virtualization@lists.osdl.org,
+	Stephen Hemminger <shemminger@osdl.org>
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <ada1wv3apu0.fsf@cisco.com>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-Fixes the following warning,
+On Tuesday 09 May 2006 22:46, Roland Dreier wrote:
+>     Keir> Where should we get our entropy from in a VM environment?
+>     Keir> Leaving the pool empty can cause processes to hang.
+>
+> You could have something like a virtual HW RNG driver (with a frontend
+> and backend), which steals from the dom0 /dev/random pool.
 
-drivers/net/dl2k.c: In function 'rio_free_tx':
-drivers/net/dl2k.c:768: warning: integer constant is too large for 'long' type
-drivers/net/dl2k.c: In function 'receive_packet':
-drivers/net/dl2k.c:896: warning: integer constant is too large for 'long' type
-drivers/net/dl2k.c:904: warning: integer constant is too large for 'long' type
-drivers/net/dl2k.c:916: warning: integer constant is too large for 'long' type
-drivers/net/dl2k.c: In function 'rio_close':
-drivers/net/dl2k.c:1803: warning: integer constant is too large for 'long' type
-drivers/net/dl2k.c:1813: warning: integer constant is too large for 'long' type
+They already have a vTPM - iirc TPMs support random numbers so
+that could be used. But it's probably complicated to use.
 
-Signed-Off-By: Daniel Walker <dwalker@mvista.com>
+But if sampling virtual events for randomness is really unsafe (is it 
+really?) then native guests in Xen would also get bad random numbers
+and this would need to be somehow addressed.
 
-Index: linux-2.6.16/drivers/net/dl2k.c
-===================================================================
---- linux-2.6.16.orig/drivers/net/dl2k.c
-+++ linux-2.6.16/drivers/net/dl2k.c
-@@ -765,7 +765,8 @@ rio_free_tx (struct net_device *dev, int
- 			break;
- 		skb = np->tx_skbuff[entry];
- 		pci_unmap_single (np->pdev,
--				  np->tx_ring[entry].fraginfo & 0xffffffffffff,
-+				  np->tx_ring[entry].fraginfo & 
-+						0xffffffffffffULL,
- 				  skb->len, PCI_DMA_TODEVICE);
- 		if (irq)
- 			dev_kfree_skb_irq (skb);
-@@ -893,7 +894,8 @@ receive_packet (struct net_device *dev)
- 			/* Small skbuffs for short packets */
- 			if (pkt_len > copy_thresh) {
- 				pci_unmap_single (np->pdev,
--						  desc->fraginfo & 0xffffffffffff,
-+						  desc->fraginfo & 
-+							0xffffffffffffULL,
- 						  np->rx_buf_sz,
- 						  PCI_DMA_FROMDEVICE);
- 				skb_put (skb = np->rx_skbuff[entry], pkt_len);
-@@ -901,7 +903,7 @@ receive_packet (struct net_device *dev)
- 			} else if ((skb = dev_alloc_skb (pkt_len + 2)) != NULL) {
- 				pci_dma_sync_single_for_cpu(np->pdev,
- 				  			    desc->fraginfo & 
--							    	0xffffffffffff,
-+							      0xffffffffffffULL,
- 							    np->rx_buf_sz,
- 							    PCI_DMA_FROMDEVICE);
- 				skb->dev = dev;
-@@ -912,8 +914,8 @@ receive_packet (struct net_device *dev)
- 						  pkt_len, 0);
- 				skb_put (skb, pkt_len);
- 				pci_dma_sync_single_for_device(np->pdev,
--				  			       desc->fraginfo &
--							       	 0xffffffffffff,
-+				  			      desc->fraginfo & 
-+							      0xffffffffffffULL,
- 							       np->rx_buf_sz,
- 							       PCI_DMA_FROMDEVICE);
- 			}
-@@ -1800,7 +1802,8 @@ rio_close (struct net_device *dev)
- 		skb = np->rx_skbuff[i];
- 		if (skb) {
- 			pci_unmap_single(np->pdev, 
--					 np->rx_ring[i].fraginfo & 0xffffffffffff,
-+					 np->rx_ring[i].fraginfo & 
-+						0xffffffffffffULL,
- 					 skb->len, PCI_DMA_FROMDEVICE);
- 			dev_kfree_skb (skb);
- 			np->rx_skbuff[i] = NULL;
-@@ -1810,7 +1813,8 @@ rio_close (struct net_device *dev)
- 		skb = np->tx_skbuff[i];
- 		if (skb) {
- 			pci_unmap_single(np->pdev, 
--					 np->tx_ring[i].fraginfo & 0xffffffffffff,
-+					 np->tx_ring[i].fraginfo & 
-+						0xffffffffffffULL,
- 					 skb->len, PCI_DMA_TODEVICE);
- 			dev_kfree_skb (skb);
- 			np->tx_skbuff[i] = NULL;
+I haven't seen real evidence yet why the virtual events should 
+provide less randomness than the hardware.
+
+-And
