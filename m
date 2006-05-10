@@ -1,74 +1,52 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
+From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: Dscape ieee80211: enabling/disabling the radio
-Date: Wed, 10 May 2006 15:55:03 +0200
-Message-ID: <200605101555.03963.IvDoorn@gmail.com>
-References: <200605061401.01795.IvDoorn@gmail.com> <200605100001.20180.IvDoorn@gmail.com> <20060510125241.0bb0978b@griffin.suse.cz>
+Date: Wed, 10 May 2006 16:10:17 +0200
+Message-ID: <20060510161017.32f1e814@griffin.suse.cz>
+References: <200605061401.01795.IvDoorn@gmail.com>
+	<20060510124217.0d3810bd@griffin.suse.cz>
+	<200605101553.52031.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart5859283.XrXNucckAT";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Olivier <o.cornu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:9837 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751191AbWEJOAU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 10:00:20 -0400
-Received: by nf-out-0910.google.com with SMTP id k26so378956nfc
-        for <netdev@vger.kernel.org>; Wed, 10 May 2006 07:00:19 -0700 (PDT)
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060510125241.0bb0978b@griffin.suse.cz>
+Received: from styx.suse.cz ([82.119.242.94]:44214 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751405AbWEJOKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 10:10:19 -0400
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200605101553.52031.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart5859283.XrXNucckAT
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 10 May 2006 15:53:48 +0200, Ivo van Doorn wrote:
+> I think the problem is what the dscape exactly expects the driver to do when
+> add_interface() is called by the stack. When that call has finished, does the stack
+> expects the radio to be enabled, or should it instruct the driver to enable the radio later
+> on through a field in the config structure.
 
-On Wednesday 10 May 2006 12:52, Jiri Benc wrote:
-> On Wed, 10 May 2006 00:01:16 +0200, Ivo van Doorn wrote:
-> > Basicly the dscape stack is performing active scanning while the device=
- is down,
-> > but during the active scan it is sending packets out, or at least attem=
-pting to do so.
-> > Besides the question if active scanning is preferred over passive scann=
-ing while interface is down,
-> > active scanning fails because the packets that should be send are being=
- send through the regular
-> > xmit routines of the interface. (IFF_UP is not set for the interface)
->=20
-> When all interfaces are down, the card must be completely disabled. No
-> transmitting, no receiving. Currently, there is a (minor) bug in IBSS
-> code in d80211 stack which tries to perform scanning even when the
-> interface is down. It's not so important because generated probe
-> requests are never delivered to the driver if the card is disabled (i.e.
-> no interfaces are up).
->=20
-> > This means that besides enabling the radio which should be done in the =
-driver, the stack should either bring
-> > up the interface when doing an active scan, or resort to passive scanni=
-ng while interface is down.
->=20
-> The stack should not perform any scanning when the interface is not up.
+At least for now, enabled if this is the first interface going up. Of
+course, if a second (or so) interface is added, you shouldn't reenable
+radio if it was disabled by previous config() call.
 
-Ok thanks. Along with the previous mail about the add_interface and remove_=
-interface this
-clears up some misunderstanding about the scanning behaviour. ;)
+> But this might be resolved by demanding that the driver is keeping track of the number
+> of interfaces added, and enabling the radio when at least 1 interface has been added
+> and only disable the radio when all interfaces have been removed. And completely
+> remove the open() and stop() handlers since they would only confuse matters.
 
-Ivo
+Yes, this is the way it is supposed to work.
 
---nextPart5859283.XrXNucckAT
-Content-Type: application/pgp-signature
+> Ah ok, I'll fix rt2x00 then to do the correct behaviour and no longer rely on open() and stop()
+> for the radio, and add the counter for the number of interfaces that are up so the radio
+> will behave in the correct fashion. :)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+Please see http://www.spinics.net/lists/netdev/msg03975.html (and
+following thread probably as well) for a description how to implement
+this correctly.
 
-iD8DBQBEYfC3aqndE37Em0gRAp7EAJ0d9q9C+Ab62Vr9CK0+ikoBBkoCAgCg1jEA
-kmr5YnsX+5FKa3UK/OCQ6l0=
-=u7Km
------END PGP SIGNATURE-----
+Thanks,
 
---nextPart5859283.XrXNucckAT--
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
