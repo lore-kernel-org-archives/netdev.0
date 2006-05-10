@@ -1,43 +1,56 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: Dscape ieee80211: enabling/disabling the radio
-Date: Wed, 10 May 2006 12:52:41 +0200
-Message-ID: <20060510125241.0bb0978b@griffin.suse.cz>
-References: <200605061401.01795.IvDoorn@gmail.com>
-	<200605100001.20180.IvDoorn@gmail.com>
+From: s.munaut@intopix.com
+Subject: Re: Hardware flow control on RTL8169
+Date: Wed, 10 May 2006 15:13:25 +0200
+Message-ID: <1147266805.4461e6f5ddd04@ssl0.ovh.net>
+References: <1147099047.445f57a7874d4@ssl0.ovh.net> <20060508194625.GA15174@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Olivier <o.cornu@gmail.com>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:65452 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S964913AbWEJKwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 06:52:44 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200605100001.20180.IvDoorn@gmail.com>
+Received: from 25.mail-out.ovh.net ([213.186.37.103]:59605 "EHLO
+	25.mail-out.ovh.net") by vger.kernel.org with ESMTP id S964939AbWEJNN4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 May 2006 09:13:56 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060508194625.GA15174@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 May 2006 00:01:16 +0200, Ivo van Doorn wrote:
-> Basicly the dscape stack is performing active scanning while the device is down,
-> but during the active scan it is sending packets out, or at least attempting to do so.
-> Besides the question if active scanning is preferred over passive scanning while interface is down,
-> active scanning fails because the packets that should be send are being send through the regular
-> xmit routines of the interface. (IFF_UP is not set for the interface)
+Hi Francois,
 
-When all interfaces are down, the card must be completely disabled. No
-transmitting, no receiving. Currently, there is a (minor) bug in IBSS
-code in d80211 stack which tries to perform scanning even when the
-interface is down. It's not so important because generated probe
-requests are never delivered to the driver if the card is disabled (i.e.
-no interfaces are up).
+Selon Francois Romieu <romieu@fr.zoreil.com>:
 
-> This means that besides enabling the radio which should be done in the driver, the stack should either bring
-> up the interface when doing an active scan, or resort to passive scanning while interface is down.
+> s.munaut@intopix.com <s.munaut@intopix.com> :
+> [...]
+> > I'm using a kurobox (www.kurobox.com) with a 2.6.15 kernel and I'd like to
+> use
+> > hardware flow control with it. However it seems the driver doesn't support
+> it,
+> > is that correct ?
+> >
+> > At least I see the device continue sending even when the other device is
+> > sending PAUSE frames with 0xffff pausetime continuously.
+> >
+> > I've tried adding RTL_W16(TBI_ANAR, 0x00a0); to the hw_start function but
+> > that doesn't seem to have any effect ...
+> >
+> > Any clue ?
+>
+> - use netdev@vger.kernel.org instead of netdev@oss.sgi.com
 
-The stack should not perform any scanning when the interface is not up.
+Sorry about that ... I don't know what version of MAINTAINER I looked at
+to come up with that address ...
 
- Jiri
+> - don't trim the Cc: (just a remainder...);
+> - try the hack below with and without the first hunk. Use 'ethtool -s ethX'
+>   to see what the device reports. It may not settle immediately.
+>
+>    [...diff snipped...]
 
--- 
-Jiri Benc
-SUSE Labs
+Thanks, I'll try that.
+
+
+Regards,
+
+    Sylvain
