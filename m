@@ -1,116 +1,60 @@
-From: "Angelo P. Castellani" <angelo.castellani+lkml@gmail.com>
-Subject: Re: tcp compound
-Date: Wed, 10 May 2006 12:20:15 +0200
-Message-ID: <8dd26e70605100320q2694dc80qdb2b4fde57c33cb0@mail.gmail.com>
-References: <8dd26e70605091021g526cf9b0raf93c600d2de7129@mail.gmail.com>
-	 <8dd26e70605091039n2669c4b0ka19d28fa2d502398@mail.gmail.com>
-	 <20060509110118.197b9a92@localhost.localdomain>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [Bugme-new] [Bug 6530] New: MAINLINE
+Date: Wed, 10 May 2006 20:27:34 +1000
+Message-ID: <17505.49174.848331.686297@cargo.ozlabs.ibm.com>
+References: <200605100920.k4A9KC91018259@fire-2.osdl.org>
+	<20060510023357.0d1260ee.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_32584_30500540.1147256415440"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	xeb@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:23108 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964895AbWEJKUR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 May 2006 06:20:17 -0400
-Received: by nf-out-0910.google.com with SMTP id b2so1387976nfe
-        for <netdev@vger.kernel.org>; Wed, 10 May 2006 03:20:15 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060509110118.197b9a92@localhost.localdomain>
+Received: from ozlabs.org ([203.10.76.45]:49069 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S964896AbWEJK1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 06:27:41 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060510023357.0d1260ee.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_32584_30500540.1147256415440
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Andrew Morton writes:
 
-On 5/9/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> Moved discussion over to netdev mailing list..
->
-> Could you export symbols in tcp_vegas (and change config dependencies) to
-> allow code reuse rather than having to copy/paste everything from vegas?
+> hm, a PPP fix.  We seem to need some of those lately.
+> 
+> Paul, does this look sane?
 
-I hope I've done that properly.
+/me pages in 7 year old code...
 
-------=_Part_32584_30500540.1147256415440
-Content-Type: application/x-gzip; name=tcp_compound.patch.gz
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_en1isv7j
-Content-Disposition: attachment; filename="tcp_compound.patch.gz"
+> @@ -516,6 +516,8 @@ static void ppp_async_process(unsigned l
+>  	/* try to push more stuff out */
+>  	if (test_bit(XMIT_WAKEUP, &ap->xmit_flags) && ppp_async_push(ap))
+>  		ppp_output_wakeup(&ap->chan);
+> +	else if (test_bit(XMIT_FULL, &ap->xmit_flags))
+> +		ppp_asynctty_wakeup(ap->tty);
 
-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
-wdKJMGYuAAA=
-------=_Part_32584_30500540.1147256415440--
+ppp_asynctty_wakeup is supposed to be called by the serial driver when
+it can take more output.  It's slightly bogus having ppp_async call it
+itself whether or not the serial driver can take more output at the
+moment, but I suppose it won't hurt.  I would really like to know the
+precise circumstances where we need this fake wakeup though.  Is the
+serial driver failing to give us a wakeup call where it should, or is
+ppp_async ignoring a wakeup for some reason?
+
+I think the same effect could be achieved without an extra trip
+through tasklet_schedule et al. by making those lines look like this
+(untested):
+
+	if ((test_bit(XMIT_WAKEUP, &ap->xmit_flags) ||
+             test_bit(XMIT_FULL, &ap->xmit_flags)) && ppp_async_push(ap))
+		ppp_output_wakeup(&ap->chan);
+
+so that ppp_async_push gets called if either XMIT_WAKEUP or XMIT_FULL
+is set.
+
+This is all relying on getting some input to kick off more output when
+the wakeup gets missed, though.  That's a reasonable workaround in most
+situations, I guess, but I'd really like to know why the wakeup is
+getting missed.
+
+Paul.
