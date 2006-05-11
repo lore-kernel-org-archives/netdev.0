@@ -1,116 +1,76 @@
 From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 5/6] myri10ge - Second half of the driver
-Date: Fri, 12 May 2006 01:53:21 +0200
-Message-ID: <4463CE71.1000205@myri.com>
-References: <446259A0.8050504@myri.com>	<Pine.GSO.4.44.0605101441510.498-100000@adel.myri.com> <20060510152244.44fb3db7@localhost.localdomain>
+Subject: Re: [PATCH 4/6] myri10ge - First half of the driver
+Date: Fri, 12 May 2006 01:53:44 +0200
+Message-ID: <4463CE88.20301@myri.com>
+References: <446259A0.8050504@myri.com> <Pine.GSO.4.44.0605101438410.498-100000@adel.myri.com> <20060510231347.GC25334@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
 	"Andrew J. Gallatin" <gallatin@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:16565 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1750838AbWEKXxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 19:53:34 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060510152244.44fb3db7@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750862AbWEKXyA@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060510231347.GC25334@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+Francois Romieu wrote:
+>
+>> +	spin_lock(&mgp->cmd_lock);
+>> +	response->result = 0xffffffff;
+>> +	mb();
+>> +	myri10ge_pio_copy((void __iomem *) cmd_addr, buf, sizeof (*buf));
 >> +
->> +static int
->> +myri10ge_open(struct net_device *dev)
+>> +	/* wait up to 2 seconds */
 >>     
 >
-> It is preferred to put function declarations on one line.
->
-> static int mril10ge_open(struct net_device *dev)
+> You must not hold a spinlock for up to 2 seconds.
 >   
 
-Well, I have seen several threads about this in the archive, with some
-people against and some people pro. I personaly like grepping for the
-declaration of function using ^name.
-If this codingstyle is really required, I will do.
+We are working on reducing the delay to about 15ms. It only occurs when
+the driver is loaded or the link brought up.
 
-> I would prefer to just have driver always do NAPI.  It's a 10G driver, it
-> really needs to be NAPI to prevent machine starvation.
->   
-
-When TSO is disabled, we see performance being about 300Mbs lower when
-enabling NAPI. But we'll probably enable TSO by default (see below) so
-we'll probably drop non-NAPI.
-
->> +	myri10ge_close(mgp->dev);
->> +	status = myri10ge_load_firmware(mgp);
->> +	if (status != 0) {
->> +		printk(KERN_ERR "myri10ge: %s: failed to load firmware\n",
->> +		       mgp->dev->name);
->> +		return;
->> +	}
->> +	myri10ge_open(mgp->dev);
->> +}
+>> +	for (sleep_total = 0; sleep_total < (2 * 1000); sleep_total += 10) {
+>> +		mb();
+>> +		if (response->result != 0xffffffff) {
+>> +			if (response->result == 0) {
+>> +				data->data0 = ntohl(response->data);
+>> +				spin_unlock(&mgp->cmd_lock);
+>> +				return 0;
+>> +			} else {
+>> +				dev_err(&mgp->pdev->dev,
+>> +					"command %d failed, result = %d\n",
+>> +				       cmd, ntohl(response->result));
+>> +				spin_unlock(&mgp->cmd_lock);
+>> +				return -ENXIO;
 >>     
 >
-> Watchdog's are a sign of buggy hardware and drivers!
+> Return in a middle of a spinlock-intensive function. :o(
 >   
 
-Well... the watchdog is supposed to help detecting memory parity errors
-in the NIC. It's rare, but it happens with cosmic rays. The recovery
-part still need some work anyway. So we might drop the watchdog for now
-and come back when recovery is ready.
+What do you mean ?
 
-Additionally, we are using our own watchdog because the linux netdev
-watchdog does not seem to work well for devices with large hardware
-transmit queues.  If there is a hardware problem, a single (or even a
-handful) of TCP streams will not backup into the hardware queue in a
-timely fashion, leading to a long delay before the netdev watchdog
-routine is called.
-
->> +#if 0
->> +	/* TSO can be enabled via ethtool -K eth1 tso on */
->> +#ifdef NETIF_F_TSO
->> +	netdev->features |= NETIF_F_TSO;
->> +#endif
->> +#endif
->>     
->
-> If it works enable it, if it doesn't take the code out.
 >   
-
-It works. We did not enable it by default because there were some
-problems in older kernels. They seem to be fixed in recent kernels. So
-we'll enable TSO by default and have people disable it if it causes
-problems.
-
-
->> [PATCH 3/6] myri10ge - Driver header files
->>
->> myri10ge driver header files.
->> myri10ge_mcp.h is the generic header, while myri10ge_mcp_gen_header.h
->> is automatically generated from our firmware image.
->>     
->
-> Then clean it up after the auto generation.
-> Auto generated code still gets maintained by humans.
->   
-
-Oops sorry, I forgot to apply my cleaning script before sending.
-
-
->> +#define MYRI10GE_MCP_MAJOR	1
->> +#define MYRI10GE_MCP_MINOR	4
+>> +{
+>> +	struct sk_buff *skb;
+>> +	unsigned long data, roundup;
 >> +
+>> +	skb = dev_alloc_skb(bytes + 4096 + MYRI10GE_MCP_ETHER_PAD);
+>> +	if (skb == NULL)
+>> +		return NULL;
 >>     
 >
-> Major/Minor for what. You don't have a character device.
+> Imho you will want to work directly with pages shortly.
 >   
 
-That's the firmware version, we'll find better names.
-
+We had thought about doing this, but were a little nervous since we did
+not know of any other drivers that worked directly with pages.  If this
+is an official direction to work directly with pages, we will. But the
+existing approach is well tested through our beta cycle, and we would
+prefer to leave it as is and update to a pages based approach in the
+future.
 
 
 Thanks a lot for all the comments.
 
 Brice
-
