@@ -1,61 +1,57 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Initial benchmarks of some VJ ideas [mmap memcpy vs
- copy_to_user].
-Date: Thu, 11 May 2006 00:07:21 -0700 (PDT)
-Message-ID: <20060511.000721.60889163.davem@davemloft.net>
-References: <20060508122418.GA22554@2ka.mipt.ru>
-	<20060510.125848.44052388.davem@davemloft.net>
-	<20060511064037.GB22770@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
+	device driver.
+Date: Thu, 11 May 2006 08:49:04 +0100
+Message-ID: <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
+References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
-	rusty@rustcorp.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21124
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965180AbWEKHMC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 May 2006 03:12:02 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060511064037.GB22770@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Cc: xen-devel@lists.xensource.com, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org,
+	chrisw@sous-sol.org, ian.pratt@xensource.com, shemminger@osdl.org
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Thu, 11 May 2006 10:40:37 +0400
 
-> > It is absolutely necessary to find ways to get rid of these layering
-> > costs.  "Layering is how you design networking protocols, not how you
-> > implement them."
-> 
-> If I provide a patch which will allow to mark special socket as
-> no-protocol-and-any-upper-layer-lookup, but instead process skb->data
-> (like copying to userspace, or just allow recv() to return without any
-> copy) and performance will not differ from what we have with layers, 
-> will it justify that not abstract cache trashing and lookup split into
-> socket/route are not the problem?
-> 
-> Or have you switched from engineering to researching mode? :)
+On 11 May 2006, at 01:33, Herbert Xu wrote:
 
-You test with single socket and single source ID, what do you expect?
-Everything is hot in the cache, as expected.
+>> But if sampling virtual events for randomness is really unsafe (is it
+>> really?) then native guests in Xen would also get bad random numbers
+>> and this would need to be somehow addressed.
+>
+> Good point.  I wonder what VMWare does in this situation.
 
-It is not research, I did put cycle counter sampling all over these
-spots on sparc64 a long time ago just to familiarize myself with where
-cpu spends most of it's time in softint processing when there are lots
-of sockets and unique remote addresses.
+Well, there's not much they can do except maybe jitter interrupt 
+delivery. I doubt they do that though.
 
-And most of the time from netif_receive_skb() to the meat of
-{udp,tcp}_rcv() is touching the routing cache and socket demux hash
-tables.  Add bonus costs to netfilter if that is enabled too.  Once
-you are past that point, for TCP, tcp_ack() is the primary cpu cycle
-eater.
+The original complaint in our case was that we take entropy from 
+interrupts caused by other local VMs, as well as external sources. 
+There was a feeling that the former was more predictable and could form 
+the basis of an attack. I have to say I'm unconvinced: I don't really 
+see that it's significantly easier to inject precisely-timed interrupts 
+into a local VM. Certainly not to better than +/- a few microseconds. 
+As long as you add cycle-counter info to the entropy pool, the least 
+significant bits of that will always be noise.
 
-You can test with single stream, but then you are only testing
-in-cache case.  Try several thousand sockets and real load from many
-unique source systems, it becomes interesting then.
+The alternatives are unattractive:
+  1. We have no good way to distinguish interrupts caused by packets 
+from local VMs versus packets from remote hosts. Both get muxed on the 
+same virtual interface.
+  2. An entropy front/back is tricky -- how do we decide how much 
+entropy to pull from domain0? How much should domain0 be prepared to 
+give other domains? How easy is it to DoS domain0 by draining its 
+entropy pool? Yuk.
 
->From profiles of heavily used web server, what shows up is bulk of cpu
-being in socket demux and tcp_ack().  Next bubble is routing cache.
-I have not seen good profiles from a heavy web server employing any
-real use of netfilter, that would be interesting as well.
+  -- Keir
