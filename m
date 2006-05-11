@@ -1,49 +1,58 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6530] New: MAINLINE
-Date: Wed, 10 May 2006 22:56:33 -0700
-Message-ID: <20060510225633.1b53d4f8.akpm@osdl.org>
-References: <200605100920.k4A9KC91018259@fire-2.osdl.org>
-	<20060510023357.0d1260ee.akpm@osdl.org>
-	<17505.49174.848331.686297@cargo.ozlabs.ibm.com>
-	<1147326683.29448.80.camel@tahini.andynet.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Initial benchmarks of some VJ ideas [mmap memcpy vs copy_to_user].
+Date: Thu, 11 May 2006 10:40:37 +0400
+Message-ID: <20060511064037.GB22770@2ka.mipt.ru>
+References: <20060508122418.GA22554@2ka.mipt.ru> <20060510.125848.44052388.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org, xeb@mail.ru
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
+	rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:28307 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965127AbWEKF7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 01:59:35 -0400
-To: Andy Gay <andy@andynet.net>
-In-Reply-To: <1147326683.29448.80.camel@tahini.andynet.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:21927 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965157AbWEKGlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 02:41:37 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060510.125848.44052388.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gay <andy@andynet.net> wrote:
->
-> On Wed, 2006-05-10 at 20:27 +1000, Paul Mackerras wrote:
-> > Andrew Morton writes:
-> > 
-> > > hm, a PPP fix.  We seem to need some of those lately.
-> > > 
-> > > Paul, does this look sane?
-> > 
-> > /me pages in 7 year old code...
-> > 
-> > > @@ -516,6 +516,8 @@ static void ppp_async_process(unsigned l
-> > >  	/* try to push more stuff out */
-> > >  	if (test_bit(XMIT_WAKEUP, &ap->xmit_flags) && ppp_async_push(ap))
-> > >  		ppp_output_wakeup(&ap->chan);
-> > > +	else if (test_bit(XMIT_FULL, &ap->xmit_flags))
-> > > +		ppp_asynctty_wakeup(ap->tty);
-> > 
-> > ppp_asynctty_wakeup is supposed to be called by the serial driver when
-> > it can take more output.
+On Wed, May 10, 2006 at 12:58:48PM -0700, David S. Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Mon, 8 May 2006 16:24:22 +0400
 > 
-> How does the serial driver know it has to call ppp_asynctty_wakeup()?
-> I'd have thought it wouldn't know or care if it's being used for ppp or
-> any other async traffic.
+> > I hope he does not take offence at name shortening :)
+> 
+> Perhaps you are still not convinced how truly expensive the code path
+> from netif_receive_skb() to the protocol receive processing really is.
 
-xeb (who forgot to do reply-to-all) tells me that pptpd uses ptys.
+That is why UDP was selected - it is itself does not cost anything,
+ip_rcv() + netif_receive_skb() will be in any channels, but instead of
+searching through unified cache with src/port/dst/port/proto we search
+through src/port/dst/port + through proto in ip_rcv().
+There are no locks there except disabled preemption, those codepath
+_never_ showed in profiles.
+Grand unified cache is of course a good idea, but it will not bring new
+performance gain to Linux.
+It _is_ much more convenient and code path will be shorter, but only
+because route/dst lookup will be hidden in unified cache.
 
+Memory copy and context switch were eliminated in net channel, and that 
+trashed any cache much more than than removing 50 lines of code accessed
+parts of skb->data.
+
+> It is absolutely necessary to find ways to get rid of these layering
+> costs.  "Layering is how you design networking protocols, not how you
+> implement them."
+
+If I provide a patch which will allow to mark special socket as
+no-protocol-and-any-upper-layer-lookup, but instead process skb->data
+(like copying to userspace, or just allow recv() to return without any
+copy) and performance will not differ from what we have with layers, 
+will it justify that not abstract cache trashing and lookup split into
+socket/route are not the problem?
+
+Or have you switched from engineering to researching mode? :)
+
+-- 
+	Evgeniy Polyakov
