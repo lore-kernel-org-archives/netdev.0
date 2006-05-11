@@ -1,37 +1,57 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [PATCH] expose simplified skb_checksum_recalc
-Date: Thu, 11 May 2006 20:40:32 +0200
-Message-ID: <200605112040.32624.netdev@axxeo.de>
-References: <446259A0.8050504@myri.com> <200605111924.33125.netdev@axxeo.de> <20060511112843.6532bddd@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Initial benchmarks of some VJ ideas [mmap memcpy vs
+ copy_to_user].
+Date: Thu, 11 May 2006 11:54:09 -0700 (PDT)
+Message-ID: <20060511.115409.89709859.davem@davemloft.net>
+References: <20060511.000721.60889163.davem@davemloft.net>
+	<20060511083031.GA12712@2ka.mipt.ru>
+	<20060511161815.GA623@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Oeser <ioe-lkml@rameria.de>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
+	rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:21979 "EHLO mail.axxeo.de")
-	by vger.kernel.org with ESMTP id S1750833AbWEKSko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 14:40:44 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060511112843.6532bddd@localhost.localdomain>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29915
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750702AbWEKSyM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 May 2006 14:54:12 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060511161815.GA623@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 11 May 2006 20:18:15 +0400
 
-Stephen Hemminger wrote:
-> Many users of skb_checksum_help() are just using it to recalculate
-> outbound checksum, so why not expose the interface in a more useful
-> way. Suggested by Ingo Oeser.
+> Here is profile result:
+> 1463625  78.0003  poll_idle
+> 19171     1.0217  _spin_lock_irqsave
+> 15887     0.8467  _read_lock
+> 14712     0.7840  kfree
+> 13370     0.7125  ip_frag_queue
+> 11896     0.6340  delay_pmtmr
+> 11811     0.6294  _spin_lock
+> 11723     0.6247  csum_partial
+> 11399     0.6075  ip_frag_destroy
+> 11063     0.5896  serial_in
+> 10533     0.5613  skb_release_data
+> 10524     0.5609  ip_route_input
+> 10319     0.5499  __alloc_skb
 
-You are damn fast Stephen :-)
+Too bad spinlocks are not inlined any longer, this makes oprofile
+output so much less useful.
 
-That's even better and improves a lot on documentation and
-code placement for free.
+Also, since you test UDP with >MTU sized sends, you add fragmentation
+into the mix, yet another variable that you won't see with TCP :-)
 
+BTW you make another massively critical error in your analysis of TCP
+profiles.
 
-Thanks & Regards
+You mention that "tcp_v4_rcv()" shows up in your profiles and not
+__inet_lookup().  This __inet_lookup() is inlined, and thus it's cost
+shows up as "tcp_v4_rcv()".  I find such oversight amazing for someone
+as careful about details as you are :-)
 
-Ingo Oeser
+I would suggest to look at instruction level profile hits, it makes
+such mistakes in analysis almost impossible :-)
