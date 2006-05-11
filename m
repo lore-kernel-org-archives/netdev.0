@@ -1,51 +1,69 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Initial benchmarks of some VJ ideas [mmap memcpy vs copy_to_user].
-Date: Thu, 11 May 2006 12:30:35 +0400
-Message-ID: <20060511083031.GA12712@2ka.mipt.ru>
-References: <20060508122418.GA22554@2ka.mipt.ru> <20060510.125848.44052388.davem@davemloft.net> <20060511064037.GB22770@2ka.mipt.ru> <20060511.000721.60889163.davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
+	device driver.
+Date: Thu, 11 May 2006 11:47:52 +0200
+Message-ID: <200605111147.53011.ak@suse.de>
+References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>
+	<fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, caitlinb@broadcom.com, kelly@au1.ibm.com,
-	rusty@rustcorp.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:3740 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030188AbWEKIbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 04:31:09 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xensource.com, Herbert Xu <herbert@gondor.apana.org.au>,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	chrisw@sous-sol.org, ian.pratt@xensource.com, shemminger@osdl.org
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>, tytso@mit.edu
+In-Reply-To: <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
 Content-Disposition: inline
-In-Reply-To: <20060511.000721.60889163.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 11, 2006 at 12:07:21AM -0700, David S. Miller (davem@davemloft.net) wrote:
-> You can test with single stream, but then you are only testing
-> in-cache case.  Try several thousand sockets and real load from many
-> unique source systems, it becomes interesting then.
+On Thursday 11 May 2006 09:49, Keir Fraser wrote:
+> On 11 May 2006, at 01:33, Herbert Xu wrote:
+> >> But if sampling virtual events for randomness is really unsafe (is it
+> >> really?) then native guests in Xen would also get bad random numbers
+> >> and this would need to be somehow addressed.
+> >
+> > Good point.  I wonder what VMWare does in this situation.
+>
+> Well, there's not much they can do except maybe jitter interrupt
+> delivery. I doubt they do that though.
+>
+> The original complaint in our case was that we take entropy from
+> interrupts caused by other local VMs, as well as external sources.
+> There was a feeling that the former was more predictable and could form
+> the basis of an attack. I have to say I'm unconvinced: I don't really
+> see that it's significantly easier to inject precisely-timed interrupts
+> into a local VM. Certainly not to better than +/- a few microseconds.
+> As long as you add cycle-counter info to the entropy pool, the least
+> significant bits of that will always be noise.
 
-Route lookup is _additional_ cost for the system, but, as far as I
-understand, netchannels are supposed to help with data processing, not
-with destination point selection. It must have route lookups,
-socket(netchannel) lookups, they just will be in other place.
+I think I agree - e.g. i would expect the virtual interrupts to have
+enough jitter too. Maybe it would be good if someone could
+run a few statistics on the resulting numbers?
 
-I can test system with large number of streams, but unfortunately only
-from small number of different src/dst ip addresses, so I can not
-benchmark route lookup performance in layered design.
+Ok the randomness added doesn't consist only of the least significant
+bits. Currently it adds jiffies+full 32bit cycle count.  I guess if it was
+a real problem the code could be changed to leave out the jiffies and 
+only add maybe a 8 bit word from the low bits. But that would only
+help for the para case because the algorithm for native guests
+cannot be changed.
 
-> From profiles of heavily used web server, what shows up is bulk of cpu
-> being in socket demux and tcp_ack().  Next bubble is routing cache.
-> I have not seen good profiles from a heavy web server employing any
-> real use of netfilter, that would be interesting as well.
+>   2. An entropy front/back is tricky -- how do we decide how much
+> entropy to pull from domain0? How much should domain0 be prepared to
+> give other domains? How easy is it to DoS domain0 by draining its
+> entropy pool? Yuk.
 
-I have several oprofiles of static test web server which does 2.5k
-requests/sec with about 3000 sockets created/removed per second. All
-connections are very tiny.
-Machines are in LAN, so no heavy route lookups, but socket lookup is quite
-heavy. The most heavyweight network function is tcp_v4_rcv() (number 15),
-next one is __alloc_skb() (25'th place), __kfree_skb() (35'th place).
-netif_receive_skb() at 63, ip_rcv() - 80'th place.
-tcp_ack() at 99. No *inet_lookup at all.
-I do understand that it is synthetic benchmark, but it is not so rare
-usage case.
+I claim (without having read any code) that in theory you need to have solved 
+that problem already in the vTPM @)
 
--- 
-	Evgeniy Polyakov
+-Andi
