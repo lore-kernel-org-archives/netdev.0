@@ -1,57 +1,45 @@
-From: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
-Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
-	device driver.
-Date: Thu, 11 May 2006 08:49:04 +0100
-Message-ID: <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
-References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org,
-	chrisw@sous-sol.org, ian.pratt@xensource.com, shemminger@osdl.org
-Return-path: <xen-devel-bounces@lists.xensource.com>
-In-Reply-To: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network device driver.
+Date: Thu, 11 May 2006 18:04:43 +1000
+Message-ID: <20060511080443.GB29704@gondor.apana.org.au>
+References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au> <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xensource.com, ian.pratt@xensource.com,
+	rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
+	virtualization@lists.osdl.org, chrisw@sous-sol.org,
+	shemminger@osdl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:23047 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965202AbWEKIFB
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 May 2006 04:05:01 -0400
+To: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
+Content-Disposition: inline
+In-Reply-To: <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, May 11, 2006 at 08:49:04AM +0100, Keir Fraser wrote:
+> 
+> The alternatives are unattractive:
+>  1. We have no good way to distinguish interrupts caused by packets 
+> from local VMs versus packets from remote hosts. Both get muxed on the 
+> same virtual interface.
+>  2. An entropy front/back is tricky -- how do we decide how much 
+> entropy to pull from domain0? How much should domain0 be prepared to 
+> give other domains? How easy is it to DoS domain0 by draining its 
+> entropy pool? Yuk.
 
-On 11 May 2006, at 01:33, Herbert Xu wrote:
+IMHO there just isn't enough real entropy to go around in one physical
+machine without a proper HRNG.  So either use urandom in all the guests
+or for those that really have to use /dev/random, install a hardware
+RNG (or wait for it :).
 
->> But if sampling virtual events for randomness is really unsafe (is it
->> really?) then native guests in Xen would also get bad random numbers
->> and this would need to be somehow addressed.
->
-> Good point.  I wonder what VMWare does in this situation.
-
-Well, there's not much they can do except maybe jitter interrupt 
-delivery. I doubt they do that though.
-
-The original complaint in our case was that we take entropy from 
-interrupts caused by other local VMs, as well as external sources. 
-There was a feeling that the former was more predictable and could form 
-the basis of an attack. I have to say I'm unconvinced: I don't really 
-see that it's significantly easier to inject precisely-timed interrupts 
-into a local VM. Certainly not to better than +/- a few microseconds. 
-As long as you add cycle-counter info to the entropy pool, the least 
-significant bits of that will always be noise.
-
-The alternatives are unattractive:
-  1. We have no good way to distinguish interrupts caused by packets 
-from local VMs versus packets from remote hosts. Both get muxed on the 
-same virtual interface.
-  2. An entropy front/back is tricky -- how do we decide how much 
-entropy to pull from domain0? How much should domain0 be prepared to 
-give other domains? How easy is it to DoS domain0 by draining its 
-entropy pool? Yuk.
-
-  -- Keir
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
