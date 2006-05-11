@@ -1,29 +1,39 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network device driver.
-Date: Thu, 11 May 2006 09:48:11 -0700
-Message-ID: <44636ACB.4020705@hp.com>
-References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>	<fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk> <200605111147.53011.ak@suse.de>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network
+	device driver.
+Date: Thu, 11 May 2006 19:30:20 +0200
+Message-ID: <200605111930.20852.ak@suse.de>
+References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>
+	<200605111147.53011.ak@suse.de> <44636ACB.4020705@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>, tytso@mit.edu,
+Cc: xen-devel@lists.xensource.com, tytso@mit.edu,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	xen-devel@lists.xensource.com, ian.pratt@xensource.com,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
 	rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, virtualization@lists.osdl.org,
-	chrisw@sous-sol.org, shemminger@osdl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:29573 "EHLO palrel13.hp.com")
-	by vger.kernel.org with ESMTP id S1030333AbWEKQsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 12:48:15 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200605111147.53011.ak@suse.de>
-Sender: netdev-owner@vger.kernel.org
+	chrisw@sous-sol.org, ian.pratt@xensource.com, shemminger@osdl.org
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <44636ACB.4020705@hp.com>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
- From the peanut gallery...
+On Thursday 11 May 2006 18:48, Rick Jones wrote:
+>  From the peanut gallery...
+> 
+> Can remote TCP ISN's be considered a source of entropy these days?  How 
+> about checksums?
 
-Can remote TCP ISN's be considered a source of entropy these days?  How 
-about checksums?
+Indirectly - we measure how long it takes to compute them.
 
-rick
+-Andi
