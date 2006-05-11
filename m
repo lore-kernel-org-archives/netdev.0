@@ -1,80 +1,85 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH wireless-dev] d80211: Add support for user space
-	clientMLME
-Date: Thu, 11 May 2006 13:41:04 +0200
-Message-ID: <1147347664.9630.3.camel@johannes>
-References: <20060502211817.GA30842@instant802.com>
-	 <20060503182815.1a9ebb5e@griffin.suse.cz>
-	 <20060503164458.GB10524@instant802.com>
-	 <1146745613.1137.28.camel@localhost>
-	 <20060510171749.GH23571@instant802.com>
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: Re: IPv6 connect() from site-local to global IPv6 address.
+Date: Thu, 11 May 2006 21:54:52 +0900
+Message-ID: <4463341C.7060907@miyazawa.org>
+References: <1146862832.2766.54.camel@pmac.infradead.org>	 <20060506.091920.122414672.yoshfuji@linux-ipv6.org>	 <1146876802.2503.32.camel@shinybook.infradead.org>	 <20060506.113904.63157190.yoshfuji@linux-ipv6.org>	 <1146926830.2503.67.camel@shinybook.infradead.org>	 <445F7576.5080102@hp.com> <1147114080.2885.164.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-FxuaTM3I0gCWJHLF/eLL"
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, jkmaline@cc.hut.fi
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	"=?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyA=?= =?UTF-8?B?5ZCJ6Jek6Iux5piO?="
+	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:2443 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030231AbWEKLmL
+Received: from 221x116x13x66.ap221.ftth.ucom.ne.jp ([221.116.13.66]:39346 "EHLO
+	miyazawa.org") by vger.kernel.org with ESMTP id S1750815AbWEKMyk
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 May 2006 07:42:11 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060510171749.GH23571@instant802.com>
+	Thu, 11 May 2006 08:54:40 -0400
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1147114080.2885.164.camel@hades.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---=-FxuaTM3I0gCWJHLF/eLL
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I lost some mails on the list because of my network trouble.
+This might not be a correct thread to reply. Sorry.
 
-On Wed, 2006-05-10 at 10:17 -0700, Jouni Malinen wrote:
+Anyway, I traced the probelem.
 
-> This is still somewhat open, but at minimum, there needs to be a
-> mechanism for receiving and sending management frames from user space.
-> d80211 uses a "management netdev" for this currently (the same one that
-> was used before with hostapd for AP mode). In addition to that,
-> wpa_supplicant expect to be able to read list of support channels and TX
-> rates (get_hw_feature_data handler in driver wrapper) and to be able to
-> add and remove STA entries (e.g., for TX rate control and association
-> status validation in kernel code).
+My test environment likes:
 
-Right.
+The host in my network could reach to the global network via NAT-T on IPv4.
+But it could not reach to the global network on IPv6 because router did not have
+the default route.
+The radvd on the router advertised a global scope prefix for the hosts.
+The hosts accordingly have a global scoped address.
+DNS server returned both AAAA and A of the target host(server).
 
-> Currently, scanning is done simply by setting the channel with
-> SIOCSIWFREQ and listening for management frames. However, the goal is to
-> provide simple atomic operations that user space programs can request
-> the kernel code to do. This would cover not only scanning, but also some
-> other needs like IEEE 802.11k radio measurements. These operations could
-> be something like "stop transmit, move to channel 5, report received
-> management frames, record noise level, do this for 5 ms, return to
-> operational channel, enable transmit".
+The router and the host is Ubuntu 5.10 with the kernel 2.6.16.9.
 
-Yeah, we talked about that. I suppose softmac will never support the
-current interface, we'll just design a new one and use that.
+I tested with these steps:
 
-johannes
+1. I did "dig" to check that the host could got AAAA address.
+2. I did ping6 to check that the host received dest unreach
+    with no route from the router.
+3. I run "evalution" and connected to my server which have AAAA and A.
 
---=-FxuaTM3I0gCWJHLF/eLL
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+It falled back to IPv4 and it could connect the server via IPv4 network.
+It also falled back by "Time exceeded". My evolution version is 2.4.1.
+Of course, when I added IPv6 default route, it connected via IPv6 network.
 
------BEGIN PGP SIGNATURE-----
+I think they works well as far as ICMPv6 error messages can be received.
+I did not test in the environment in which ICMPv6 error messages are filtered.
 
-iQIVAwUARGMizaVg1VMiehFYAQLFEQ//XNJ6y0b+H7cUNm8W8bRWjubMEXMotTCw
-nbA0H1iBcb/8FR0x1q/3PCcXP8wDh/+zahySuxNEY3LlPaHpJ1YMp/UDuxgPwluq
-4EGQ8ScvfOX//pTnH3Wcd558/MdNfdYYDP31AkFKtvqX9Ac51+ckL3i/3zA7fBrS
-NxTgTAtlYz+XJQO2gQI7i5wgEclJIh21LqZp+gI4P1XmJba6wwF80IsTK8UN/yKC
-i5wq5XK1Li4pawZRQWN2caqPf04vbRBUHRBqOFmz/uDiyZOhT4oklkM7zBmA6+kw
-oqJmgWs7Gh5e7MmagwDh0IknUAAvYRje83vLs2VV/24PX2imr+7y4MYDnJcyY1Vf
-31NkiJjdu+8WEGZ1TgbFLlFdkTeJb1cgqdTt0ifgxlHVQeJEtKwUCFMWfh0Lgohw
-M8NOBj176cava0un8yw7cQO+CwEtWLH7YI+Hw6c2DAJJJ5/ZvqZMVeV76g+StZGn
-CW+QCBmz1Ntm5iUtN8VYoaFXc4q3+Cs9N0Lx8YLrFFVwRjf06nwKi5EAWkMBnwHQ
-zQYgnGjd2930yFw0iaYYhSCk21dT16LxWCrbgtasc4jR51vtyJ1YqYsZGEC/OIPj
-n78GG8CFIm5rhv8YdTx9qcX038wQBMhkWlSPJW8kEoaR+iBXiIHuyVuyj/2m0OX7
-9ezhWgI8yto=
-=Leuy
------END PGP SIGNATURE-----
+Best regards,
 
---=-FxuaTM3I0gCWJHLF/eLL--
+David Woodhouse wrote:
+> On Mon, 2006-05-08 at 09:44 -0700, Rick Jones wrote:
+> 
+>>Or get the applications fixed no?  Kludging around application bugs 
+>>sounds a bit like the "Fram Oil Filter" commercial where the mechanic is 
+>>grinning while he says "You can pay me now, or you can pay be later." As 
+>>in pay for the slightly more expensive oil filter now, or engine repair 
+>>later.
+> 
+> 
+> Well, obviously. That's _why_ I want to deploy IPv6 and get it tested.
+> But I used to be able to do this without actually breaking the network,
+> and without being told to _stop_ running radvd because it breaks things.
+> 
+> 
+>>Other than fixing the applications that only take the first response 
+>>(isn't that a generic application bug going back nearly decades now? 
+>>amazing how things stay the same isn't it) Can you run a caching-only 
+>>name server at the edge that filters-out the IPv6 responses so your 
+>>systems never see Global IPV6 responses?
+> 
+> 
+> I don't think that kind of answer is going to be sufficient to persuade
+> Uli to switch back from favouring IPv4 over IPv6. That's done the trick,
+> admittedly -- by ensuring that we get _no_ testing of IPv6 unless we run
+> with IPv6-only networking :)
+> 
 
+--
+Kazunori Miyazawa
