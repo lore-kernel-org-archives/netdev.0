@@ -1,93 +1,78 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH] rt2x00: fix oops in config_interface
-Date: Thu, 11 May 2006 17:06:42 +0200
-Message-ID: <20060511170642.3d03f46d@griffin.suse.cz>
+Subject: Re: [PATCH wireless-dev] d80211: Don't discriminate against 802.11b
+ drivers
+Date: Thu, 11 May 2006 17:54:26 +0200
+Message-ID: <20060511175426.72ae7744@griffin.suse.cz>
+References: <200605042232.35446.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ivo van Doorn <ivdoorn@gmail.com>, NetDev <netdev@vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Jouni Malinen" <jkm@devicescape.com>, netdev@vger.kernel.org,
+	jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:44424 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751837AbWEKPGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 11:06:44 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from styx.suse.cz ([82.119.242.94]:64139 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1030290AbWEKPy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 11:54:28 -0400
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200605042232.35446.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BSSID passed to config_interface callback is NULL in modes other than STA or
-IBSS.
+On Thu, 4 May 2006 22:32:35 -0400, Michael Wu wrote:
+> This makes the current hack used to prevent 802.11g cards from scanning with 
+> 802.11b channels not break scanning in 802.11b drivers.
+
+I think this should be better:
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- drivers/net/wireless/d80211/rt2x00/rt2400pci.c |    3 ++-
- drivers/net/wireless/d80211/rt2x00/rt2500pci.c |    3 ++-
- drivers/net/wireless/d80211/rt2x00/rt2500usb.c |    3 ++-
- drivers/net/wireless/d80211/rt2x00/rt61pci.c   |    3 ++-
- drivers/net/wireless/d80211/rt2x00/rt73usb.c   |    3 ++-
- 5 files changed, 10 insertions(+), 5 deletions(-)
+ net/d80211/ieee80211.c     |   14 ++++++++++++++
+ net/d80211/ieee80211_sta.c |    1 -
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
---- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-+++ dscape/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-@@ -1848,7 +1848,8 @@ rt2400pci_config_interface(struct net_de
- 	if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
- 
--	rt2400pci_config_bssid(rt2x00pci, conf->bssid);
-+	if (conf->bssid)
-+		rt2400pci_config_bssid(rt2x00pci, conf->bssid);
- 
- 	return 0;
+--- dscape.orig/net/d80211/ieee80211.c
++++ dscape/net/d80211/ieee80211.c
+@@ -4014,6 +4014,19 @@ static void ieee80211_precalc_rates(stru
+ 	}
  }
---- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-+++ dscape/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-@@ -1971,7 +1971,8 @@ rt2500pci_config_interface(struct net_de
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
  
--	rt2500pci_config_bssid(rt2x00pci, conf->bssid);
-+	if (conf->bssid)
-+		rt2500pci_config_bssid(rt2x00pci, conf->bssid);
++static inline void ieee80211_apply_modes(struct ieee80211_hw *hw,
++					 struct ieee80211_local *local)
++{
++	struct ieee80211_hw_modes *mode;
++	int i;
++
++	local->scan_skip_11b = 0;
++	for (i = 0; i < hw->num_modes; i++) {
++		mode = &hw->modes[i];
++		if (mode->mode == MODE_IEEE80211G)
++			local->scan_skip_11b = 1;
++	}
++}
  
- 	return 0;
- }
---- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-+++ dscape/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
-@@ -1636,7 +1636,8 @@ rt2500usb_config_interface(struct net_de
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
+ struct net_device *ieee80211_alloc_hw(size_t priv_data_len,
+ 				      void (*setup)(struct net_device *))
+@@ -4258,6 +4271,7 @@ int ieee80211_update_hw(struct net_devic
+ 		return -1;
  
--	rt2500usb_config_bssid(rt2x00usb, conf->bssid);
-+	if (conf->bssid)
-+		rt2500usb_config_bssid(rt2x00usb, conf->bssid);
- 
- 	return 0;
- }
---- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-+++ dscape/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-@@ -2434,7 +2434,8 @@ rt61pci_config_interface(struct net_devi
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
- 
--	rt61pci_config_bssid(rt2x00pci, conf->bssid);
-+	if (conf->bssid)
-+		rt61pci_config_bssid(rt2x00pci, conf->bssid);
- 
- 	return 0;
- }
---- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-+++ dscape/drivers/net/wireless/d80211/rt2x00/rt73usb.c
-@@ -1935,7 +1935,8 @@ rt73usb_config_interface(struct net_devi
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
- 
--	rt73usb_config_bssid(rt2x00usb, conf->bssid);
-+	if (conf->bssid)
-+		rt73usb_config_bssid(rt2x00usb, conf->bssid);
- 
- 	return 0;
- }
+ 	ieee80211_precalc_rates(hw);
++	ieee80211_apply_modes(hw, local);
+ 	local->conf.phymode = hw->modes[0].mode;
+ 	local->curr_rates = hw->modes[0].rates;
+ 	local->num_curr_rates = hw->modes[0].num_rates;
+--- dscape.orig/net/d80211/ieee80211_sta.c
++++ dscape/net/d80211/ieee80211_sta.c
+@@ -2566,7 +2566,6 @@ int ieee80211_sta_req_scan(struct net_de
+ 		memcpy(local->scan_ssid, ssid, ssid_len);
+ 	} else
+ 		local->scan_ssid_len = 0;
+-	local->scan_skip_11b = 1; /* FIX: clear this is 11g is not supported */
+ 	local->scan_state = SCAN_SET_CHANNEL;
+ 	local->scan_hw_mode_idx = 0;
+ 	local->scan_channel_idx = 0;
 
 
 -- 
