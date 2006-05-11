@@ -1,44 +1,29 @@
-From: "Jari Takkala" <Jari.Takkala@Q9.com>
-Subject: [PATCH] neighbour.c, pneigh_get_next() skips published entry
-Date: Thu, 11 May 2006 12:29:07 -0400
-Message-ID: <413FEEF1743111439393FB76D0221E48046920E0@leopard.zoo.q9networks.com>
-Cc: <netdev@vger.kernel.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network device driver.
+Date: Thu, 11 May 2006 09:48:11 -0700
+Message-ID: <44636ACB.4020705@hp.com>
+References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au>	<fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk> <200605111147.53011.ak@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>, tytso@mit.edu,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	xen-devel@lists.xensource.com, ian.pratt@xensource.com,
+	rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, virtualization@lists.osdl.org,
+	chrisw@sous-sol.org, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.q9.com ([216.220.35.253]:695 "EHLO mx2.q9.com")
-	by vger.kernel.org with ESMTP id S1750742AbWEKQ3J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 12:29:09 -0400
-Content-class: urn:content-classes:message
-To: <linux-kernel@vger.kernel.org>
+Received: from palrel13.hp.com ([156.153.255.238]:29573 "EHLO palrel13.hp.com")
+	by vger.kernel.org with ESMTP id S1030333AbWEKQsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 12:48:15 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200605111147.53011.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following patch fixes a problem where output from /proc/net/arp
-skips a record when the full output does not fit into the users read()
-buffer.
+ From the peanut gallery...
 
-To reproduce: publish a large number of ARP entries (more than 10
-required on my system). Run 'dd if=/proc/net/arp of=arp-1024.out
-bs=1024'. View the output, one entry will be missing.
+Can remote TCP ISN's be considered a source of entropy these days?  How 
+about checksums?
 
-Please review and commit if acceptable.
-
-Signed-off-by: Jari Takkala <jari.takkala@q9.com>
-
---- linux-2.6.16.15.orig/net/core/neighbour.c   2006-05-09
-15:53:30.000000000 -0400
-+++ linux-2.6.16.15/net/core/neighbour.c        2006-05-10
-16:06:40.000000000 -0400
-@@ -2120,6 +2120,11 @@
-        struct neigh_seq_state *state = seq->private;
-        struct neigh_table *tbl = state->tbl;
-
-+       if (pos != NULL && *pos == 1 && (pn->next ||
-tbl->phash_buckets[state->bucket])) {
-+               --(*pos);
-+               return pn;
-+       }
-+
-        pn = pn->next;
-        while (!pn) {
-                if (++state->bucket > PNEIGH_HASHMASK)
-
+rick
