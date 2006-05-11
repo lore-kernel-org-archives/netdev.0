@@ -1,49 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] bonding: fix sparse warnings
-Date: Wed, 10 May 2006 20:45:13 -0700
-Message-ID: <20060510204513.127d9bef@localhost.localdomain>
-References: <20060510161405.4ded4250@localhost.localdomain>
-	<20060510232203.GK27946@ftp.linux.org.uk>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [Bugme-new] [Bug 6530] New: MAINLINE
+Date: Thu, 11 May 2006 14:01:54 +1000
+Message-ID: <17506.46898.503580.4994@cargo.ozlabs.ibm.com>
+References: <200605100920.k4A9KC91018259@fire-2.osdl.org>
+	<20060510023357.0d1260ee.akpm@osdl.org>
+	<17505.49174.848331.686297@cargo.ozlabs.ibm.com>
+	<20060510202943.35f548db.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ctindel@users.sourceforge.net, Jay Vosburgh <fubar@us.ibm.com>,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	xeb@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34272 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965122AbWEKDpd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 23:45:33 -0400
-To: Al Viro <viro@ftp.linux.org.uk>
-In-Reply-To: <20060510232203.GK27946@ftp.linux.org.uk>
+Received: from ozlabs.org ([203.10.76.45]:12722 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S965129AbWEKECG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 00:02:06 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060510202943.35f548db.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 May 2006 00:22:03 +0100
-Al Viro <viro@ftp.linux.org.uk> wrote:
+Andrew Morton writes:
 
-> On Wed, May 10, 2006 at 04:14:05PM -0700, Stephen Hemminger wrote:
-> > Fix warning from sparse in bonding code about "incorrect type in assignment"
+> xeb has said:
 > 
-> *snerk*
+> in this construction:
 > 
-> Only if you are building without -Wcast-to-as.  It _is_ incorrect type in
-> assignment.  And the real fix is to expand the call, killing set_fs()
-> in there.
+>           if ((test_bit(XMIT_WAKEUP, &ap->xmit_flags) ||
+>              test_bit(XMIT_FULL, &ap->xmit_flags)) && ppp_async_push(ap))
+>                   ppp_output_wakeup(&ap->chan);
+> 
+> if ppp_async_push() doesn't send any data i.e.  XMIT_FULL is set then all
+> (transfer) hangs up while somebody push again, for instance lcp-echo.  
 
-More like this (in br_if.c)?
+If XMIT_FULL and ppp_async_push doesn't send any data, that means the
+serial driver's output buffer was full.  If that's the case, *and* we
+don't see a call to ppp_output_wakeup, then the finger points squarely
+at the serial driver as the source of the bug.
 
-	struct ethtool_cmd ecmd = { ETHTOOL_GSET };
-	struct ifreq ifr;
-	mm_segment_t old_fs;
-	int err;
-
-	strncpy(ifr.ifr_name, dev->name, IFNAMSIZ);
-	ifr.ifr_data = (void __user *) &ecmd;
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-	err = dev_ethtool(&ifr);
-	set_fs(old_fs);
-	
-	if (!err)
-		...
+Paul.
