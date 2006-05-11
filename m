@@ -1,76 +1,50 @@
 From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6530] New: MAINLINE
-Date: Wed, 10 May 2006 20:29:43 -0700
-Message-ID: <20060510202943.35f548db.akpm@osdl.org>
-References: <200605100920.k4A9KC91018259@fire-2.osdl.org>
-	<20060510023357.0d1260ee.akpm@osdl.org>
-	<17505.49174.848331.686297@cargo.ozlabs.ibm.com>
+Subject: Re: [PATCH] bcm43xx: Fix array overrun in bcm43xx_geo_init
+Date: Wed, 10 May 2006 20:42:00 -0700
+Message-ID: <20060510204200.43ed67fb.akpm@osdl.org>
+References: <200605051723.51609.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	xeb@mail.ru
+Cc: linville@tuxdriver.com, st3@riseup.net,
+	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16349 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965120AbWEKDcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 23:32:39 -0400
-To: Paul Mackerras <paulus@samba.org>
-In-Reply-To: <17505.49174.848331.686297@cargo.ozlabs.ibm.com>
+Received: from smtp.osdl.org ([65.172.181.4]:17632 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965078AbWEKDpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 May 2006 23:45:09 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200605051723.51609.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Mackerras <paulus@samba.org> wrote:
+Michael Buesch <mb@bu3sch.de> wrote:
 >
-> Andrew Morton writes:
+> The problem here is that the bcm34xx driver and the ieee80211
+> stack do not agree on what channels are possible for 802.11a.
+> The ieee80211 stack only wants channels between 34 and 165, while
+> the bcm43xx driver accepts anything from 0 to 200. I made the
+> bcm43xx driver comply with the ieee80211 stack expectations, by
+> using the proper constants.
 > 
-> > hm, a PPP fix.  We seem to need some of those lately.
-> > 
-> > Paul, does this look sane?
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
 > 
-> /me pages in 7 year old code...
+> [mb]: Reduce stack usage by kzalloc-ing ieee80211_geo
 > 
-> > @@ -516,6 +516,8 @@ static void ppp_async_process(unsigned l
-> >  	/* try to push more stuff out */
-> >  	if (test_bit(XMIT_WAKEUP, &ap->xmit_flags) && ppp_async_push(ap))
-> >  		ppp_output_wakeup(&ap->chan);
-> > +	else if (test_bit(XMIT_FULL, &ap->xmit_flags))
-> > +		ppp_asynctty_wakeup(ap->tty);
-> 
-> ppp_asynctty_wakeup is supposed to be called by the serial driver when
-> it can take more output.  It's slightly bogus having ppp_async call it
-> itself whether or not the serial driver can take more output at the
-> moment, but I suppose it won't hurt.  I would really like to know the
-> precise circumstances where we need this fake wakeup though.  Is the
-> serial driver failing to give us a wakeup call where it should, or is
-> ppp_async ignoring a wakeup for some reason?
-> 
-> I think the same effect could be achieved without an extra trip
-> through tasklet_schedule et al. by making those lines look like this
-> (untested):
-> 
-> 	if ((test_bit(XMIT_WAKEUP, &ap->xmit_flags) ||
->              test_bit(XMIT_FULL, &ap->xmit_flags)) && ppp_async_push(ap))
-> 		ppp_output_wakeup(&ap->chan);
-> 
-> so that ppp_async_push gets called if either XMIT_WAKEUP or XMIT_FULL
-> is set.
-> 
-> This is all relying on getting some input to kick off more output when
-> the wakeup gets missed, though.  That's a reasonable workaround in most
-> situations, I guess, but I'd really like to know why the wakeup is
-> getting missed.
-> 
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-(xeb, on this bug please respond via email using reply-to-all rather than
-via the bugzilla web form).
+I find this changelog confusing.  We seem to have two patches, one written
+by Jean and one by yourself, perhaps?  And the fact that the changlog
+didn't start with
 
-xeb has said:
+From: Jean Delvare <jdelvare@suse.de>
 
-in this construction:
+indicates that you are to be considered the primary author?
 
-          if ((test_bit(XMIT_WAKEUP, &ap->xmit_flags) ||
-             test_bit(XMIT_FULL, &ap->xmit_flags)) && ppp_async_push(ap))
-                  ppp_output_wakeup(&ap->chan);
 
-if ppp_async_push() doesn't send any data i.e.  XMIT_FULL is set then all
-(transfer) hangs up while somebody push again, for instance lcp-echo.  
+btw, we seem to have a number of bcm43xx patches banking up.  I don't know
+if John has merged them because we're back in the situation where some of
+John's tree has been merged into Jeff's tree but hasn't gone upstream - so
+my git-wireless.patch generates a massive reject storm against git-netdev.patch
+
+So I suspect that all these bcm43xx might not be making it into 2.6.17.
