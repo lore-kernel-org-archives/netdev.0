@@ -1,45 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 34/35] Add the Xen virtual network device driver.
-Date: Thu, 11 May 2006 18:04:43 +1000
-Message-ID: <20060511080443.GB29704@gondor.apana.org.au>
-References: <E1Fdz7v-0007zc-00@gondolin.me.apana.org.au> <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bcm43xx: Fix array overrun in bcm43xx_geo_init
+Date: Thu, 11 May 2006 10:29:11 +0200
+Message-ID: <200605111029.12540.mb@bu3sch.de>
+References: <200605051723.51609.mb@bu3sch.de> <20060510204200.43ed67fb.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xensource.com, ian.pratt@xensource.com,
-	rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Andi Kleen <ak@suse.de>,
-	virtualization@lists.osdl.org, chrisw@sous-sol.org,
-	shemminger@osdl.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, st3@riseup.net,
+	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:23047 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965202AbWEKIFB
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:972
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030183AbWEKIVs
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 May 2006 04:05:01 -0400
-To: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
+	Thu, 11 May 2006 04:21:48 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060510204200.43ed67fb.akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <fb99d7085b85310ef7d423a8f135db32@cl.cam.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 11, 2006 at 08:49:04AM +0100, Keir Fraser wrote:
+On Thursday 11 May 2006 05:42, you wrote:
+> Michael Buesch <mb@bu3sch.de> wrote:
+> >
+> > The problem here is that the bcm34xx driver and the ieee80211
+> > stack do not agree on what channels are possible for 802.11a.
+> > The ieee80211 stack only wants channels between 34 and 165, while
+> > the bcm43xx driver accepts anything from 0 to 200. I made the
+> > bcm43xx driver comply with the ieee80211 stack expectations, by
+> > using the proper constants.
+> > 
+> > Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> > 
+> > [mb]: Reduce stack usage by kzalloc-ing ieee80211_geo
+> > 
+> > Signed-off-by: Michael Buesch <mb@bu3sch.de>
 > 
-> The alternatives are unattractive:
->  1. We have no good way to distinguish interrupts caused by packets 
-> from local VMs versus packets from remote hosts. Both get muxed on the 
-> same virtual interface.
->  2. An entropy front/back is tricky -- how do we decide how much 
-> entropy to pull from domain0? How much should domain0 be prepared to 
-> give other domains? How easy is it to DoS domain0 by draining its 
-> entropy pool? Yuk.
+> I find this changelog confusing.  We seem to have two patches, one written
+> by Jean and one by yourself, perhaps?  And the fact that the changlog
+> didn't start with
 
-IMHO there just isn't enough real entropy to go around in one physical
-machine without a proper HRNG.  So either use urandom in all the guests
-or for those that really have to use /dev/random, install a hardware
-RNG (or wait for it :).
+I simply added one or two lines of code.
 
-Cheers,
+> From: Jean Delvare <jdelvare@suse.de>
+> 
+> indicates that you are to be considered the primary author?
+
+No, I forgot about that line.
+
+> btw, we seem to have a number of bcm43xx patches banking up.  I don't know
+> if John has merged them because we're back in the situation where some of
+> John's tree has been merged into Jeff's tree but hasn't gone upstream - so
+> my git-wireless.patch generates a massive reject storm against git-netdev.patch
+> 
+> So I suspect that all these bcm43xx might not be making it into 2.6.17.
+
+I think most of the patches should already be merged by john. But I did not
+recheck this. It would be bad, if they won't make it for 2.6.17, though,
+as they are all heavy bugfixes that prevent hard oopses for people
+with special cards, that the developers did not have.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Greetings Michael.
