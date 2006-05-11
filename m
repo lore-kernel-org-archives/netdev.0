@@ -1,57 +1,69 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: prevent dual port receiver problems
-Date: Thu, 11 May 2006 15:07:28 -0700
-Message-ID: <20060511150728.473bb4bf@localhost.localdomain>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 4/6] myri10ge - First half of the driver
+Date: Fri, 12 May 2006 01:53:01 +0200
+Message-ID: <4463CE5D.1030301@myri.com>
+References: <Pine.GSO.4.44.0605101438410.498-100000@adel.myri.com> <adahd3x7d0b.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	"Andrew J. Gallatin" <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56712 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750785AbWEKWH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 18:07:29 -0400
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id k4BM7StH008563
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 11 May 2006 15:07:28 -0700
-Received: from localhost.localdomain (freekitty.pdx.osdl.net [10.8.0.54])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with ESMTP id k4BM7SGG028349
-	for <netdev@vger.kernel.org>; Thu, 11 May 2006 15:07:28 -0700
-To: netdev@vger.kernel.org
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:14005 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1750837AbWEKXxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 19:53:18 -0400
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adahd3x7d0b.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When both ports are receiving simultaneously, the receive logic gets confused
-and may pass up a packet before it is full. This causes hangs, and IP will see
-lots of garbage packets. There is even the potential for data corruption if 
-a later arriving packet DMA's into freed memory. 
+Roland Dreier wrote:
+>  > +#define myri10ge_pio_copy(to,from,size) __iowrite64_copy(to,from,size/8)
+>
+> Why do you need this wrapper?  Why not just call __iowrite64_copy()
+> without the obfuscation?  Anyone reading the code will just have to
+> search back to this define and mentally translate the size back and
+> forth all the time.
+>   
 
-It looks like a hardware bug because status arrives for a packet but no
-data is there. Until this bug is worked out, block the user from bringing
-up both ports at once.
+Well, I know that abstraction layer is bad. But in this case I really
+think that a name like myri10ge_pio_copy(size) is way less obfuscating
+than __iowrite64_copy(size/8).
+Will fix it if it really matters.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+>  > +int myri10ge_hyper_msi_cap_on(struct pci_dev *pdev)
+>  > +{
+>  > +	uint8_t cap_off;
+>  > +	int nbcap = 0;
+>  > +
+>  > +	cap_off = PCI_CAPABILITY_LIST - 1;
+>  > +	/* go through all caps looking for a hypertransport msi mapping */
+>
+> This looks like something that should be fixed up in the general PCI
+> quirk handling rather than in every driver...
+>
+>  > +static int
+>  > +myri10ge_use_msi(struct pci_dev *pdev)
+>  > +{
+>  > +	if (myri10ge_msi == 1 || myri10ge_msi == 0)
+>  > +		return myri10ge_msi;
+>  > +
+>  > +	/*  find root complex for our device */
+>  > +	while (pdev->bus && pdev->bus->self) {
+>  > +		pdev = pdev->bus->self;
+>  > +	}
+>
+> Similarly looks like generic PCI code (if it's needed at all).  If I
+> understand correctly you're trying to check if MSI has a chance at
+> working on the system, but a network device driver has no business
+> walking up the PCI hierarchy.
+>   
+
+Right, I will look at moving all this to the core PCI code.
 
 
---- sky2.orig/drivers/net/sky2.c
-+++ sky2/drivers/net/sky2.c
-@@ -1020,8 +1020,19 @@ static int sky2_up(struct net_device *de
- 	struct sky2_hw *hw = sky2->hw;
- 	unsigned port = sky2->port;
- 	u32 ramsize, rxspace, imask;
--	int err = -ENOMEM;
-+	int err;
-+	struct net_device *otherdev = hw->dev[sky2->port^1];
- 
-+	/* Block bringing up both ports at the same time on a dual port card.
-+	 * There is an unfixed bug where receiver gets confused and picks up
-+	 * packets out of order. Until this is fixed, prevent data corruption.
-+	 */
-+	if (otherdev && netif_running(otherdev)) {
-+		printk(KERN_INFO PFX "dual port support is disabled.\n");
-+		return -EBUSY;
-+	}
-+
-+	err = -ENOMEM;
- 	if (netif_msg_ifup(sky2))
- 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
- 
+Thanks for all the comments.
+
+Brice
+
