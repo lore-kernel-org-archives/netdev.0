@@ -1,47 +1,90 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Initial benchmarks of some VJ ideas [mmap memcpy vs copy_to_user].
-Date: Thu, 11 May 2006 12:30:31 -0700
-Message-ID: <446390D7.8000709@hp.com>
-References: <20060511.000721.60889163.davem@davemloft.net>	<20060511083031.GA12712@2ka.mipt.ru>	<20060511161815.GA623@2ka.mipt.ru> <20060511.115409.89709859.davem@davemloft.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH wireless-dev] d80211: Don't discriminate against 802.11b drivers
+Date: Thu, 11 May 2006 22:41:48 +0200
+Message-ID: <200605112241.48970.mb@bu3sch.de>
+References: <200605042232.35446.flamingice@sourmilk.net> <20060511175426.72ae7744@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org, caitlinb@broadcom.com,
-	kelly@au1.ibm.com, rusty@rustcorp.com.au
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Jouni Malinen" <jkm@devicescape.com>, netdev@vger.kernel.org,
+	jkmaline@cc.hut.fi, Michael Wu <flamingice@sourmilk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:27884 "EHLO palrel12.hp.com")
-	by vger.kernel.org with ESMTP id S1750721AbWEKTad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 15:30:33 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060511.115409.89709859.davem@davemloft.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:5302
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750774AbWEKUe3
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 May 2006 16:34:29 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060511175426.72ae7744@griffin.suse.cz>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Thu, 11 May 2006 20:18:15 +0400
+On Thursday 11 May 2006 17:54, you wrote:
+> On Thu, 4 May 2006 22:32:35 -0400, Michael Wu wrote:
+> > This makes the current hack used to prevent 802.11g cards from scanning with 
+> > 802.11b channels not break scanning in 802.11b drivers.
 > 
+> I think this should be better:
 > 
->>Here is profile result:
->>1463625  78.0003  poll_idle
->>19171     1.0217  _spin_lock_irqsave
->>15887     0.8467  _read_lock
->>14712     0.7840  kfree
->>13370     0.7125  ip_frag_queue
->>11896     0.6340  delay_pmtmr
->>11811     0.6294  _spin_lock
->>11723     0.6247  csum_partial
->>11399     0.6075  ip_frag_destroy
->>11063     0.5896  serial_in
->>10533     0.5613  skb_release_data
->>10524     0.5609  ip_route_input
->>10319     0.5499  __alloc_skb
+> Signed-off-by: Jiri Benc <jbenc@suse.cz>
 > 
+> ---
 > 
-> Too bad spinlocks are not inlined any longer, this makes oprofile
-> output so much less useful.
+>  net/d80211/ieee80211.c     |   14 ++++++++++++++
+>  net/d80211/ieee80211_sta.c |    1 -
+>  2 files changed, 14 insertions(+), 1 deletion(-)
+> 
+> --- dscape.orig/net/d80211/ieee80211.c
+> +++ dscape/net/d80211/ieee80211.c
+> @@ -4014,6 +4014,19 @@ static void ieee80211_precalc_rates(stru
+>  	}
+>  }
+>  
+> +static inline void ieee80211_apply_modes(struct ieee80211_hw *hw,
+> +					 struct ieee80211_local *local)
 
-But it is nice to see how much time is being spent in "locking"
+Just a minor nitpick, but please remove the "inline".
+This is a candidate for binary bloat, if it is called later
+on another place, too, and modern compilers will inline it anyway, if
+only used once.
+Additionally it is not a hotpath.
 
-rick jones
+> +{
+> +	struct ieee80211_hw_modes *mode;
+> +	int i;
+> +
+> +	local->scan_skip_11b = 0;
+> +	for (i = 0; i < hw->num_modes; i++) {
+> +		mode = &hw->modes[i];
+> +		if (mode->mode == MODE_IEEE80211G)
+> +			local->scan_skip_11b = 1;
+> +	}
+> +}
+>  
+>  struct net_device *ieee80211_alloc_hw(size_t priv_data_len,
+>  				      void (*setup)(struct net_device *))
+> @@ -4258,6 +4271,7 @@ int ieee80211_update_hw(struct net_devic
+>  		return -1;
+>  
+>  	ieee80211_precalc_rates(hw);
+> +	ieee80211_apply_modes(hw, local);
+>  	local->conf.phymode = hw->modes[0].mode;
+>  	local->curr_rates = hw->modes[0].rates;
+>  	local->num_curr_rates = hw->modes[0].num_rates;
+> --- dscape.orig/net/d80211/ieee80211_sta.c
+> +++ dscape/net/d80211/ieee80211_sta.c
+> @@ -2566,7 +2566,6 @@ int ieee80211_sta_req_scan(struct net_de
+>  		memcpy(local->scan_ssid, ssid, ssid_len);
+>  	} else
+>  		local->scan_ssid_len = 0;
+> -	local->scan_skip_11b = 1; /* FIX: clear this is 11g is not supported */
+>  	local->scan_state = SCAN_SET_CHANNEL;
+>  	local->scan_hw_mode_idx = 0;
+>  	local->scan_channel_idx = 0;
+> 
+> 
 
+-- 
+Greetings Michael.
