@@ -1,68 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [NET_SCHED]: HFSC: fix thinko in hfsc_adjust_levels()
-Date: Thu, 11 May 2006 16:56:02 +0200
-Message-ID: <44635082.7000701@trash.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [PATCH] rt2x00: fix oops in config_interface
+Date: Thu, 11 May 2006 17:06:42 +0200
+Message-ID: <20060511170642.3d03f46d@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050704060003040404060202"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ivo van Doorn <ivdoorn@gmail.com>, NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34547 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751818AbWEKO4F
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 May 2006 10:56:05 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from styx.suse.cz ([82.119.242.94]:44424 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751837AbWEKPGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 May 2006 11:06:44 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050704060003040404060202
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+BSSID passed to config_interface callback is NULL in modes other than STA or
+IBSS.
 
-
---------------050704060003040404060202
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NET_SCHED]: HFSC: fix thinko in hfsc_adjust_levels()
-
-When deleting the last child the level of a class should drop to zero.
-
-Noticed by Andreas Mueller <andreas@stapelspeicher.org>
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
-commit c75053e281212b5ed3990a0aaced865db7e456d2
-tree be2c674d4545ea41200fc5c57d53a03cb0672a93
-parent 0e44dc383787b472a7f13564c6bd8a44cc07d408
-author Patrick McHardy <kaber@trash.net> Thu, 11 May 2006 10:29:30 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 11 May 2006 10:29:30 +0200
 
- net/sched/sch_hfsc.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/wireless/d80211/rt2x00/rt2400pci.c |    3 ++-
+ drivers/net/wireless/d80211/rt2x00/rt2500pci.c |    3 ++-
+ drivers/net/wireless/d80211/rt2x00/rt2500usb.c |    3 ++-
+ drivers/net/wireless/d80211/rt2x00/rt61pci.c   |    3 ++-
+ drivers/net/wireless/d80211/rt2x00/rt73usb.c   |    3 ++-
+ 5 files changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 91132f6..f1c7bd2 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -974,10 +974,10 @@ hfsc_adjust_levels(struct hfsc_class *cl
- 	do {
- 		level = 0;
- 		list_for_each_entry(p, &cl->children, siblings) {
--			if (p->level > level)
--				level = p->level;
-+			if (p->level >= level)
-+				level = p->level + 1;
- 		}
--		cl->level = level + 1;
-+		cl->level = level;
- 	} while ((cl = cl->cl_parent) != NULL);
- }
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+@@ -1848,7 +1848,8 @@ rt2400pci_config_interface(struct net_de
+ 	if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
+ 		return 0;
  
+-	rt2400pci_config_bssid(rt2x00pci, conf->bssid);
++	if (conf->bssid)
++		rt2400pci_config_bssid(rt2x00pci, conf->bssid);
+ 
+ 	return 0;
+ }
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+@@ -1971,7 +1971,8 @@ rt2500pci_config_interface(struct net_de
+ 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
+ 		return 0;
+ 
+-	rt2500pci_config_bssid(rt2x00pci, conf->bssid);
++	if (conf->bssid)
++		rt2500pci_config_bssid(rt2x00pci, conf->bssid);
+ 
+ 	return 0;
+ }
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+@@ -1636,7 +1636,8 @@ rt2500usb_config_interface(struct net_de
+ 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
+ 		return 0;
+ 
+-	rt2500usb_config_bssid(rt2x00usb, conf->bssid);
++	if (conf->bssid)
++		rt2500usb_config_bssid(rt2x00usb, conf->bssid);
+ 
+ 	return 0;
+ }
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt61pci.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+@@ -2434,7 +2434,8 @@ rt61pci_config_interface(struct net_devi
+ 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
+ 		return 0;
+ 
+-	rt61pci_config_bssid(rt2x00pci, conf->bssid);
++	if (conf->bssid)
++		rt61pci_config_bssid(rt2x00pci, conf->bssid);
+ 
+ 	return 0;
+ }
+--- dscape.orig/drivers/net/wireless/d80211/rt2x00/rt73usb.c
++++ dscape/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+@@ -1935,7 +1935,8 @@ rt73usb_config_interface(struct net_devi
+ 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
+ 		return 0;
+ 
+-	rt73usb_config_bssid(rt2x00usb, conf->bssid);
++	if (conf->bssid)
++		rt73usb_config_bssid(rt2x00usb, conf->bssid);
+ 
+ 	return 0;
+ }
 
---------------050704060003040404060202--
+
+-- 
+Jiri Benc
+SUSE Labs
