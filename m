@@ -1,53 +1,104 @@
-From: Erik Mouw <erik@harddisk-recovery.com>
-Subject: Re: Linux v2.6.17-rc4
-Date: Fri, 12 May 2006 13:47:00 +0200
-Message-ID: <20060512114659.GE30285@harddisk-recovery.com>
-References: <Pine.LNX.4.64.0605111640010.3866@g5.osdl.org> <20060512102422.GA30285@harddisk-recovery.com> <200605121244.22511.mb@bu3sch.de>
+From: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
+Subject: [PATCH 1/5] new pcmcia IDs for hostap - ASUS WL-110
+Date: Fri, 12 May 2006 15:21:31 +0200
+Message-ID: <200605121521.32410.linux-arm@hrw.one.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jkmaline@cc.hut.fi>, Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dtp.xs4all.nl ([80.126.206.180]:46018 "HELO abra2.bitwizard.nl")
-	by vger.kernel.org with SMTP id S1751243AbWELLrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 May 2006 07:47:01 -0400
-To: Michael Buesch <mb@bu3sch.de>
+Received: from v813.rev.tld.pl ([195.149.226.213]:14307 "EHLO
+	smtp.host4.kei.pl") by vger.kernel.org with ESMTP id S1751286AbWELNXS
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 May 2006 09:23:18 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <200605121244.22511.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 12, 2006 at 12:44:22PM +0200, Michael Buesch wrote:
-> On Friday 12 May 2006 12:24, you wrote:
-> > On Thu, May 11, 2006 at 04:44:03PM -0700, Linus Torvalds wrote:
-> > > Ok, I've let the release time between -rc's slide a bit too much again, 
-> > > but -rc4 is out there, and this is the time to hunker down for 2.6.17.
-> > > 
-> > > If you know of any regressions, please holler now, so that we don't miss 
-> > > them. 
-> > 
-> > I got assertion failures in the bcm43xx driver:
-> > 
-> > bcm43xx: Chip ID 0x4318, rev 0x2
-> 
-> That is expected an non-fatal.
 
-Assertion failed sounds rather fatal to me.
+This time I checked more carefully my changeset and split it into
+smaller parts. Few of my patches was tested by OpenZaurus users, some
+are waiting for testing.
 
-> It is no regression.
+We switched to pcmciautils when moved to 2.6.16 and many users complain
+that their WiFi CompactFlash cards are driven by orinoco instead of
+hostap.
 
-It is, I didn't see it in 2.6.17-rc3.
+BTW - how to force using of hostap_cs when both hostap_cs and orinoco_cs
+has card in device table?
 
-> We are working on it, but there won't be any fix for 2.6.17, as
-> very intrusive changes are needed to fix this.
+All patches require 24_hostap_cs_id.diff from Pavel Roskin.
 
-If it's non-fatal, could you remove the assertion, or make it print
-something that sounds less fatal?
+I'm subscribed to netdev mailing list now.
+-----------------------------------------------------------------------
+
+Here's another card that would benefit from a hostap driver: ASUS WL-110
+
+Platform: HP Ipaq hx4700 running 2.6.16-hh
+
+root@ipaq-pxa270:~# pccardctl ident
+Socket 0:
+  product info: "ASUS", "802_11B_CF_CARD_25", "Version 01.00", ""
+  manfid: 0x02aa, 0x0002
+  function: 6 (network)
+
+root@ipaq-pxa270:~# ifconfig wlan0
+wlan0     Link encap:Ethernet  HWaddr 00:0C:6E:F0:DA:CD
+          inet addr:172.20.0.3  Bcast:172.20.255.255  Mask:255.255.0.0
+          inet6 addr: 2001:610:600:93:20c:6eff:fef0:dacd/64 Scope:Global
+          inet6 addr: fe80::20c:6eff:fef0:dacd/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:158 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:77 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:17978 (17.5 KiB)  TX bytes:11424 (11.1 KiB)
+          Interrupt:92
 
 
-Erik
+Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+
+Index: linux/drivers/net/wireless/orinoco_cs.c
+===================================================================
+--- linux.orig/drivers/net/wireless/orinoco_cs.c	2006-05-12 15:02:13.000000000 +0200
++++ linux/drivers/net/wireless/orinoco_cs.c	2006-05-12 15:03:31.000000000 +0200
+@@ -533,7 +533,6 @@
+ 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613), /* Linksys WPC11 Version 3 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002), /* Compaq HNW-100 11 Mbps Wireless Adapter */
+ 	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673), /* Linksys WCF12 Wireless CompactFlash Card */
+-	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002), /* ASUS SpaceLink WL-100 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x02ac, 0x0002), /* SpeedStream SS1021 Wireless Adapter */
+ 	PCMCIA_DEVICE_MANF_CARD(0x14ea, 0xb001), /* PLANEX RoadLannerWave GW-NS11H */
+ 	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300), /* Airvast WN-100 */
+@@ -548,8 +547,6 @@
+ 	PCMCIA_DEVICE_PROD_ID12("Addtron", "AWP-100 Wireless PCMCIA", 0xe6ec52ce, 0x08649af2),
+ 	PCMCIA_DEVICE_PROD_ID123("AIRVAST", "IEEE 802.11b Wireless PCMCIA Card", "HFA3863", 0xea569531, 0x4bcb9645, 0x355cb092),
+ 	PCMCIA_DEVICE_PROD_ID12("Allied Telesyn", "AT-WCL452 Wireless PCMCIA Radio", 0x5cd01705, 0x4271660f),
+-	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11b_PC_CARD_25", 0x78fc06ee, 0xdb9aa842),
+-	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11B_CF_CARD_25", 0x78fc06ee, 0x45a50c1e),
+ 	PCMCIA_DEVICE_PROD_ID12("Avaya Communication", "Avaya Wireless PC Card", 0xd8a43b78, 0x0d341169),
+ 	PCMCIA_DEVICE_PROD_ID12("BENQ", "AWL100 PCMCIA ADAPTER", 0x35dadc74, 0x01f7fedb),
+ 	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-PCM-L11G", 0x2decece3, 0xf57ca4b3),
+Index: linux/drivers/net/wireless/hostap/hostap_cs.c
+===================================================================
+--- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-12 15:02:51.000000000 +0200
++++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-12 15:06:26.000000000 +0200
+@@ -935,6 +935,8 @@
+ 	PCMCIA_DEVICE_PROD_ID123(
+ 		"U.S. Robotics", "IEEE 802.11b PC-CARD", "Version 01.02",
+ 		0xc7b8df9d, 0x1700d087, 0x4b74baa0),
++	PCMCIA_DEVICE_PROD_ID1234("ASUS", "802_11B_CF_CARD_25", "Version 01.00", ""
++				0x78fc06ee, 0x45a50c1e, 0xa57adb8c, 0x00000000),
+ 	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11b_PC_CARD_25",
+ 				0x78fc06ee, 0xdb9aa842),
+ 	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11B_CF_CARD_25",
+
 
 
 -- 
-+-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
-| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
+JID: hrw-jabber.org
+Sharp Zaurus C-760 (OZ 3.5.x)
+OpenEmbedded/OpenZaurus/OPIE developer
+
+  So when I die, the first thing I will see in Heaven is a hi-score list?
