@@ -1,30 +1,29 @@
-From: "Perez Thomas \(HES\)" <thomas.perez@etu.hesge.ch>
-Subject: netem rtp
-Date: Fri, 12 May 2006 08:53:54 +0200
-Message-ID: <CA0B3E8303397341B97B3777A634B8164449E7@heron.ge-em.ad.etat-ge.ch>
+From: David Lang <david@lang.hm>
+Subject: Re: network freeze with nforce-A939 integrated rhine card
+Date: Fri, 12 May 2006 00:12:03 -0700 (PDT)
+Message-ID: <Pine.LNX.4.62.0605120009590.2803@qnivq.ynat.uz>
+References: <Pine.LNX.4.62.0605112235170.2802@qnivq.ynat.uz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.etat-ge.ch ([160.53.250.149]:17166 "EHLO smtp.etat-ge.ch")
-	by vger.kernel.org with ESMTP id S1751018AbWELGyB convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 May 2006 02:54:01 -0400
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751028AbWELHMJ@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, rl@hellgate.ch
+In-Reply-To: <Pine.LNX.4.62.0605112235170.2802@qnivq.ynat.uz>
+Content-ID: <Pine.LNX.4.62.0605120009592.2803@qnivq.ynat.uz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello. 
- 
-I have setup NETEM between to devices that are sending eachother RTP voice packets.
+On Thu, 11 May 2006, David Lang wrote:
 
-VOICE1_RTP <----> (eth1)NETEM_LINUX_BOX (eth2) <----> VOICE2_RTP
+> I haven't had time to go back and find where is started (my prior kernel was 
+> 2.6.15-rc7), but with 2.6.17-rc1/2/3/4 I've been running into a problem where 
+> when transfering large amounts of data (trying to ftp a TB or so of data off 
+> of the box to my new server it will run for a while (as little as 1G, as much 
+> as 45G) and then the network card will shut down.
 
-I am attempting to introduce delay via netem. "tc qdisc add dev eth1 root netem delay 100ms"
-This appears to work for ICMP (ping) traffic or TCP traffic However,
-as soon as a run an RTP stream over this interface There is no more delay. It's like without netem. Do I need to set up a specific rule for RTP? I'm using linux fedora core 5.
+following up with earlier kernels, this problem persists back as far as 
+2.6.13.
 
-Thank you,
-PEREZ Thomas
+I'll do more testing tomorrow.
 
+David Lang
