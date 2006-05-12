@@ -1,31 +1,38 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [PATCH 1/5] new pcmcia IDs for hostap - ASUS WL-110
-Date: Fri, 12 May 2006 16:44:52 -0400
-Message-ID: <1147466692.8478.42.camel@dv>
-References: <200605121521.32410.linux-arm@hrw.one.pl>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: Linux v2.6.17-rc4
+Date: Fri, 12 May 2006 22:54:19 +0200
+Message-ID: <200605122254.19615.mb@bu3sch.de>
+References: <Pine.LNX.4.64.0605111640010.3866@g5.osdl.org> <200605121244.22511.mb@bu3sch.de> <20060512112318.GA2115@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jouni Malinen <jkmaline@cc.hut.fi>
+Cc: Erik Mouw <erik@harddisk-recovery.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:61656 "EHLO
-	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932224AbWELUpY
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:4301
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932230AbWELUvm
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 May 2006 16:45:24 -0400
-Received: from proski by fencepost.gnu.org with local (Exim 4.34)
-	id 1FeeVn-0004zi-Kq
-	for netdev@vger.kernel.org; Fri, 12 May 2006 16:45:24 -0400
-To: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
-In-Reply-To: <200605121521.32410.linux-arm@hrw.one.pl>
+	Fri, 12 May 2006 16:51:42 -0400
+To: Olaf Hering <olh@suse.de>
+In-Reply-To: <20060512112318.GA2115@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-05-12 at 15:21 +0200, Marcin Juszkiewicz wrote:
-> All patches require 24_hostap_cs_id.diff from Pavel Roskin.
+On Friday 12 May 2006 13:23, you wrote:
+> > > I got assertion failures in the bcm43xx driver:
+> > > 
+> > > bcm43xx: Chip ID 0x4318, rev 0x2
+> > 
+> > That is expected an non-fatal.
+> 
+> Is this one in the same category?
+> [   79.087115] bcm43xx: WARNING: Writing invalid LOpair (low: 46, high: 104, index: 123)
 
-This patch was never submitted.  Please ignore the series.
+> [   47.361435] bcm43xx: Chip ID 0x4318, rev 0x2
+                                  ^^^^^^
+
+Yes, same problem.
 
 -- 
-Regards,
-Pavel Roskin
-
+Greetings Michael.
