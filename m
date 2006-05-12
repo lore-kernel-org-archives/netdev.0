@@ -1,76 +1,36 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 4/6] myri10ge - First half of the driver
-Date: Fri, 12 May 2006 01:53:44 +0200
-Message-ID: <4463CE88.20301@myri.com>
-References: <446259A0.8050504@myri.com> <Pine.GSO.4.44.0605101438410.498-100000@adel.myri.com> <20060510231347.GC25334@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"Andrew J. Gallatin" <gallatin@myri.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750862AbWEKXyA@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060510231347.GC25334@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 5/6] myri10ge - Second half of the driver
+Date: Fri, 12 May 2006 10:31:02 +1000
+Message-ID: <E1FeLYc-0000y4-00@gondolin.me.apana.org.au>
+References: <4463CE71.1000205@myri.com>
+Cc: shemminger@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gallatin@myri.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:10505 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750729AbWELAbJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 May 2006 20:31:09 -0400
+To: brice@myri.com (Brice Goglin)
+In-Reply-To: <4463CE71.1000205@myri.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
+Brice Goglin <brice@myri.com> wrote:
 >
->> +	spin_lock(&mgp->cmd_lock);
->> +	response->result = 0xffffffff;
->> +	mb();
->> +	myri10ge_pio_copy((void __iomem *) cmd_addr, buf, sizeof (*buf));
->> +
->> +	/* wait up to 2 seconds */
->>     
->
-> You must not hold a spinlock for up to 2 seconds.
->   
+>> It is preferred to put function declarations on one line.
+>>
+>> static int mril10ge_open(struct net_device *dev)
+> 
+> Well, I have seen several threads about this in the archive, with some
+> people against and some people pro. I personaly like grepping for the
+> declaration of function using ^name.
+> If this codingstyle is really required, I will do.
 
-We are working on reducing the delay to about 15ms. It only occurs when
-the driver is loaded or the link brought up.
+Yes this is the standard coding style used in Linux so please do.
 
->> +	for (sleep_total = 0; sleep_total < (2 * 1000); sleep_total += 10) {
->> +		mb();
->> +		if (response->result != 0xffffffff) {
->> +			if (response->result == 0) {
->> +				data->data0 = ntohl(response->data);
->> +				spin_unlock(&mgp->cmd_lock);
->> +				return 0;
->> +			} else {
->> +				dev_err(&mgp->pdev->dev,
->> +					"command %d failed, result = %d\n",
->> +				       cmd, ntohl(response->result));
->> +				spin_unlock(&mgp->cmd_lock);
->> +				return -ENXIO;
->>     
->
-> Return in a middle of a spinlock-intensive function. :o(
->   
-
-What do you mean ?
-
->   
->> +{
->> +	struct sk_buff *skb;
->> +	unsigned long data, roundup;
->> +
->> +	skb = dev_alloc_skb(bytes + 4096 + MYRI10GE_MCP_ETHER_PAD);
->> +	if (skb == NULL)
->> +		return NULL;
->>     
->
-> Imho you will want to work directly with pages shortly.
->   
-
-We had thought about doing this, but were a little nervous since we did
-not know of any other drivers that worked directly with pages.  If this
-is an official direction to work directly with pages, we will. But the
-existing approach is well tested through our beta cycle, and we would
-prefer to leave it as is and update to a pages based approach in the
-future.
-
-
-Thanks a lot for all the comments.
-
-Brice
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
