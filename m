@@ -1,85 +1,89 @@
-From: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
-Subject: Re: [PATCH 1/5] new pcmcia IDs for hostap - ASUS WL-110
-Date: Fri, 12 May 2006 19:04:06 +0200
-Message-ID: <200605121904.07784.linux-arm@hrw.one.pl>
-References: <20060512165706.GA4079@bougret.hpl.hp.com>
+From: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+Subject: Re: [PATCH 2/5] new pcmcia IDs for hostap - Linksys WCF12
+Date: Fri, 12 May 2006 19:05:14 +0200
+Message-ID: <200605121905.15452.openembedded@hrw.one.pl>
+References: <200605121540.59378.linux-arm@hrw.one.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Pavel Roskin <proski@gnu.org>
+Cc: Jouni Malinen <jkmaline@cc.hut.fi>, Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [195.205.148.100] ([195.205.148.100]:19425 "EHLO blue.stone.pl")
-	by vger.kernel.org with ESMTP id S1750787AbWELREO convert rfc822-to-8bit
+Received: from v813.rev.tld.pl ([195.149.226.213]:36531 "EHLO
+	smtp.host4.kei.pl") by vger.kernel.org with ESMTP id S1750815AbWELRFR convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 May 2006 13:04:14 -0400
-To: jt@hpl.hp.com
-In-Reply-To: <20060512165706.GA4079@bougret.hpl.hp.com>
+	Fri, 12 May 2006 13:05:17 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <200605121540.59378.linux-arm@hrw.one.pl>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dnia pi=B1tek, 12 maja 2006 18:57, Jean Tourrilhes napisa=B3:
-> Marcin Juszkiewicz wrote :
+Dnia pi=B1tek, 12 maja 2006 15:40, Marcin Juszkiewicz napisa=B3:
+> Not sure about removing this card from orinoco driver and should I ad=
+d
+> PCMCIA_DEVICE_MANF_CARD or does PCMCIA_DEVICE_PROD_ID* is enough.
 
-> 	I'm sorry, but I will have again to veto part of your patch.
-> 	You are removing IDs from the Orinoco driver. Please don't do
-> that, those card work perfectly with the orinoco driver, and some of
-> us run them with the orinoco driver (orinoco is one third the
-> footprint of hostap).
+Updated to not touch orinoco_cs driver.
 
-Ok - I will update all patches to not doing this.
-
-Thx for answers.
-
-----------------------------------------------------------------------
+-----------------------------------------------------------------------
 Here's another card that would benefit from a hostap driver:
 
-Platform: HP Ipaq hx4700 running 2.6.16-hh
+Platform: Sharp Zaurus SL-C3100 running 2.6.16 + pcmciautils 013
 
-root@ipaq-pxa270:~# pccardctl ident
+root@spitz:~# pccardctl ident
 Socket 0:
-  product info: "ASUS", "802_11B_CF_CARD_25", "Version 01.00", ""
-  manfid: 0x02aa, 0x0002
+  product info: "HITACHI", "microdrive", "", ""
+  manfid: 0x0319, 0x0000
+  function: 4 (fixed disk)
+Socket 1:
+  product info: "Linksys", "Wireless CompactFlash Card", "", ""
+  manfid: 0x028a, 0x0673
   function: 6 (network)
 
-root@ipaq-pxa270:~# ifconfig wlan0
-wlan0     Link encap:Ethernet  HWaddr 00:0C:6E:F0:DA:CD
-          inet addr:172.20.0.3  Bcast:172.20.255.255  Mask:255.255.0.0
-          inet6 addr: 2001:610:600:93:20c:6eff:fef0:dacd/64 Scope:Globa=
-l
-          inet6 addr: fe80::20c:6eff:fef0:dacd/64 Scope:Link
+root@spitz:~# ifconfig wlan0
+wlan0     Link encap:Ethernet  HWaddr 00:0C:41:15:BB:0F =20
+          inet addr:192.168.0.225  Bcast:192.168.0.255  Mask:255.255.25=
+5.0
+          inet6 addr: fe80::20c:41ff:fe15:bb0f/64 Scope:Link
           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:158 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:77 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:17978 (17.5 KiB)  TX bytes:11424 (11.1 KiB)
-          Interrupt:92
-
+          RX packets:242 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:151 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0=20
+          RX bytes:22627 (22.0 KiB)  TX bytes:28096 (27.4 KiB)
+          Interrupt:137
 
 Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+
 Index: linux/drivers/net/wireless/hostap/hostap_cs.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-12 15:02=
-:51.000000000 +0200
-+++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-12 15:31:07.0=
+--- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-12 15:34=
+:25.000000000 +0200
++++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-12 15:34:59.0=
 00000000 +0200
-@@ -935,6 +935,8 @@
- 	PCMCIA_DEVICE_PROD_ID123(
- 		"U.S. Robotics", "IEEE 802.11b PC-CARD", "Version 01.02",
- 		0xc7b8df9d, 0x1700d087, 0x4b74baa0),
-+	PCMCIA_DEVICE_PROD_ID1234("ASUS", "802_11B_CF_CARD_25", "Version 01.0=
-0", "",
-+				0x78fc06ee, 0x45a50c1e, 0xa57adb8c, 0x00000000),
- 	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11b_PC_CARD_25",
- 				0x78fc06ee, 0xdb9aa842),
- 	PCMCIA_DEVICE_PROD_ID12("ASUS", "802_11B_CF_CARD_25",
-
+@@ -884,6 +884,7 @@
+ 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1612),
+ 	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613),
+ 	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002),
++	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673), /* Linksys WCF12 Wireless Co=
+mpactFlash Card */
+ 	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002),
+ 	PCMCIA_DEVICE_MANF_CARD(0x02d2, 0x0001),
+ 	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x0001),
+@@ -971,6 +972,8 @@
+ 	PCMCIA_DEVICE_PROD_ID12(
+ 		"ZoomAir 11Mbps High", "Rate wireless Networking",
+ 		0x273fe3db, 0x32a1eaee),
++	PCMCIA_DEVICE_PROD_ID12("Linksys", "Wireless CompactFlash Card",
++				0x0733cc81, 0x0c52f395),
+ 	PCMCIA_DEVICE_NULL
+ };
+ MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
 
 --=20
 JID: hrw-jabber.org
 Palmtop: Sharp Zaurus C760
 OpenEmbedded/OpenZaurus developer
 
-                 We are the Knights who say: MOVE.L USP,A1
+        Reality is for people who cannot cope with science fiction.
