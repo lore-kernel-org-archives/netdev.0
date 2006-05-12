@@ -1,23 +1,17 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: 2.6.16.13 e1000 reports incorrect PCI-X bus speed?
-Date: Fri, 12 May 2006 14:33:53 -0700
-Message-ID: <4464FF41.7060000@intel.com>
+Date: Fri, 12 May 2006 14:41:01 -0700
+Message-ID: <446500ED.6040002@hp.com>
 References: <4464FB01.6070206@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr20.intel.com ([134.134.136.19]:51924 "EHLO
-	orsfmr005.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1750736AbWELVdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 May 2006 17:33:54 -0400
-Received: from orsfmr101.jf.intel.com (orsfmr101.jf.intel.com [10.7.209.17])
-	by orsfmr005.jf.intel.com (8.12.10/8.12.10/d: major-outer.mc,v 1.1 2004/09/17 17:50:56 root Exp $) with ESMTP id k4CLXrtQ028670
-	for <netdev@vger.kernel.org>; Fri, 12 May 2006 21:33:53 GMT
-Received: from [134.134.3.74] (ahkok-mobl.jf.intel.com.jf.intel.com [134.134.3.74])
-	by orsfmr101.jf.intel.com (8.12.10/8.12.10/d: major-inner.mc,v 1.2 2004/09/17 18:05:01 root Exp $) with ESMTP id k4CLXrjv022888
-	for <netdev@vger.kernel.org>; Fri, 12 May 2006 21:33:53 GMT
-To: netdev@vger.kernel.org
+Received: from palrel11.hp.com ([156.153.255.246]:43245 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S1750799AbWELVlD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 May 2006 17:41:03 -0400
+To: Ben Greear <greearb@candelatech.com>
 In-Reply-To: <4464FB01.6070206@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -30,7 +24,11 @@ Ben Greear wrote:
 > the PCI-X slot is 133Mhz.  I'm using a 4-port pro/1000 NIC.
 > 
 > dmesg shows a listing of 120Mhz:
-> 
+
+IIRC there is a bridge chip on those four-port cards.  Perhaps the 
+"north" side of the bridge is at 133 MHz, but the south side (since it 
+is more than one load) is only 120?
+
 > Intel(R) PRO/1000 Network Driver - version 6.3.9-k4-NAPI
 > Copyright (c) 1999-2005 Intel Corporation.
 > GSI 18 sharing vector 0xB9 and IRQ 18
@@ -63,16 +61,14 @@ Ben Greear wrote:
 > 
 > Any idea why I see the slower bus speed reported?
 
-ethtool currently doesn't know about some bus speeds, and will report a wrong
-speed. Here's what ethtool currently uses: (ethtool-3/e1000.c)
+That one though escapes me.
 
-327                 (reg & E1000_STATUS_PCIX_MODE) ?
-328                         ((reg & E1000_STATUS_PCIX_SPEED_133) ? "133MHz" :
-329                         (reg & E1000_STATUS_PCIX_SPEED_100) ? "100MHz" :
-330                         "66MHz")>              :
+rick jones
 
-obviously 120 is missing, but PCI-E speeds are also missing (2500gbps). The
-output of the e1000 module is correct.
-
-Auke
+> 
+> More info available as needed.
+> 
+> Thanks,
+> Ben
+> 
 
