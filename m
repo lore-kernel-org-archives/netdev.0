@@ -1,74 +1,83 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 2.6.16.13 e1000 reports incorrect PCI-X bus speed?
-Date: Fri, 12 May 2006 14:41:01 -0700
-Message-ID: <446500ED.6040002@hp.com>
-References: <4464FB01.6070206@candelatech.com>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: network freeze with nforce-A939 integrated rhine card
+Date: Fri, 12 May 2006 23:41:09 +0200
+Message-ID: <20060512214109.GD2274@k3.hellgate.ch>
+References: <Pine.LNX.4.62.0605112235170.2802@qnivq.ynat.uz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:43245 "EHLO palrel11.hp.com")
-	by vger.kernel.org with ESMTP id S1750799AbWELVlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 May 2006 17:41:03 -0400
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4464FB01.6070206@candelatech.com>
+Received: from mail17.bluewin.ch ([195.186.18.64]:22772 "EHLO
+	mail17.bluewin.ch") by vger.kernel.org with ESMTP id S1750853AbWELVlX
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 May 2006 17:41:23 -0400
+To: David Lang <david@lang.hm>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.62.0605112235170.2802@qnivq.ynat.uz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> I'm running a slightly modified 2.6.16.13 kernel on FC5-amd64.  The 
-> motherboard
-> is SuperMicro H8SSL dual-core AMD system.  According to super-micro web 
-> site,
-> the PCI-X slot is 133Mhz.  I'm using a 4-port pro/1000 NIC.
-> 
-> dmesg shows a listing of 120Mhz:
+On Thu, 11 May 2006 22:59:44 -0700, David Lang wrote:
+> I haven't had time to go back and find where is started (my prior kernel 
+> was 2.6.15-rc7), but with 2.6.17-rc1/2/3/4 I've been running into a 
+> problem where when transfering large amounts of data (trying to ftp a TB 
 
-IIRC there is a bridge chip on those four-port cards.  Perhaps the 
-"north" side of the bridge is at 133 MHz, but the south side (since it 
-is more than one load) is only 120?
+"where is started" sounds as if it used to work at some point. In your
+second posting, however, you note that the problem goes back at least to
+2.6.13. So are there any kernels known not to exhibit the problem you
+described?
 
-> Intel(R) PRO/1000 Network Driver - version 6.3.9-k4-NAPI
-> Copyright (c) 1999-2005 Intel Corporation.
-> GSI 18 sharing vector 0xB9 and IRQ 18
-> ACPI: PCI Interrupt 0000:03:04.0[A] -> GSI 20 (level, low) -> IRQ 18
-> e1000: 0000:03:04.0: e1000_probe: (PCI-X:120MHz:64-bit) 00:04:23:ad:41:bc
-> e1000: eth2: e1000_probe: Intel(R) PRO/1000 Network Connection
-> GSI 19 sharing vector 0xC1 and IRQ 19
-> ACPI: PCI Interrupt 0000:03:04.1[B] -> GSI 21 (level, low) -> IRQ 19
-> e1000: 0000:03:04.1: e1000_probe: (PCI-X:120MHz:64-bit) 00:04:23:ad:41:bd
-> e1000: eth3: e1000_probe: Intel(R) PRO/1000 Network Connection
-> GSI 20 sharing vector 0xC9 and IRQ 20
-> ACPI: PCI Interrupt 0000:03:06.0[A] -> GSI 22 (level, low) -> IRQ 20
-> e1000: 0000:03:06.0: e1000_probe: (PCI-X:120MHz:64-bit) 00:04:23:ad:41:be
-> e1000: eth4: e1000_probe: Intel(R) PRO/1000 Network Connection
-> GSI 21 sharing vector 0xD1 and IRQ 21
-> ACPI: PCI Interrupt 0000:03:06.1[B] -> GSI 23 (level, low) -> IRQ 21
-> e1000: 0000:03:06.1: e1000_probe: (PCI-X:120MHz:64-bit) 00:04:23:ad:41:bf
-> e1000: eth5: e1000_probe: Intel(R) PRO/1000 Network Connection
-> 
-> ethtool -d eth3 shows 66Mhz:
-> ....
-> 0x00008: STATUS (Device status register) 0x00003B87
->       Duplex:                            full
->       Link up:                           link config
->       TBI mode:                          disabled
->       Link speed:                        1000Mb/s
->       Bus type:                          PCI-X
->       Bus speed:                         66MHz
->       Bus width:                         64-bit
-> 
-> Any idea why I see the slower bus speed reported?
+> when I say shut down I mean that it looses link and requires powering down 
+> the box (hard power down, not just power off from the front panel), 
+> disabling the network card in the BIOS, booting (as far as lilo is 
+> enough), powering down again, enabling the card and booting again.
 
-That one though escapes me.
+So there are two problem areas: 1) the chip hangs itself without the driver
+noticing and 2) the BIOS fails to bring the chip back to life afterwards.
 
-rick jones
+> there is no indication of trouble before the halt (it's transfering at 
+> full speed), the only think in the log is
+> May 11 22:23:57 david kernel: eth0: link down
+> May 11 22:24:00 david kernel: eth0: link up, 100Mbps, full-duplex, lpa 
+> 0xCDE1
+> May 11 22:24:22 david kernel: eth0: link down
+> 
+> if I don't do the disable/enable in the bios cycle and just power cycle 
+> the system the card does not initialize properly (ethtool reports 
+> autonegotiation disabled, 10Mb. will generate an 'unsupported' error if I 
+> try to enable the card)
 
-> 
-> More info available as needed.
-> 
-> Thanks,
-> Ben
-> 
+Any difference in the kernel log when booting with (or ethtooling) a
+comatose chip?
 
+> dlang@david:~$ /sbin/lspci
+> 00:00.0 Host bridge: VIA Technologies, Inc.: Unknown device 0204
+> 00:00.1 Host bridge: VIA Technologies, Inc.: Unknown device 1204
+> 00:00.2 Host bridge: VIA Technologies, Inc.: Unknown device 2204
+> 00:00.3 Host bridge: VIA Technologies, Inc.: Unknown device 3204
+> 00:00.4 Host bridge: VIA Technologies, Inc.: Unknown device 4204
+> 00:00.7 Host bridge: VIA Technologies, Inc.: Unknown device 7204
+> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8237 PCI bridge [K8T800 South]
+> 00:08.0 RAID bus controller: Triones Technologies, Inc. HPT374 (rev 07)
+> 00:08.1 RAID bus controller: Triones Technologies, Inc. HPT374 (rev 07)
+> 00:0a.0 Ethernet controller: Olicom OC-2326 (rev 01)
+> 00:0f.0 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/VT823x/A/C/VT8235 PIPC Bus Master IDE (rev 06)
+> 00:10.0 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 81)
+> 00:10.1 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 81)
+> 00:10.2 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 81)
+> 00:10.3 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 81)
+> 00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 86)
+> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8237 ISA bridge [K8T800 South]
+> 00:11.5 Multimedia audio controller: VIA Technologies, Inc. VT8233/A/8235/8237 AC97 Audio Controller (rev 60)
+> 00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (rev 78)
+> 00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
+> 00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
+> 00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
+> 00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
+> 01:00.0 VGA compatible controller: ATI Technologies Inc RV280 [Radeon 9200 SE] (rev 01)
+
+Odd. This doesn't look at all like the list I'd expect from an nforce-A939.
+I thought Nvidia devices featured rather prominently in the device lists of
+nforce-based boards!?
+
+Roger
