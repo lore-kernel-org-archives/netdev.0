@@ -1,78 +1,45 @@
-From: Carlos =?utf-8?q?Mart=C3=ADn?= <carlos@cmartin.tk>
-Subject: OOPS in forcedeth
-Date: Fri, 12 May 2006 21:58:37 +0200
-Message-ID: <200605122158.41329.carlos@cmartin.tk>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH 1/5] new pcmcia IDs for hostap - ASUS WL-110
+Date: Fri, 12 May 2006 16:17:33 -0400
+Message-ID: <1147465053.8478.18.camel@dv>
+References: <20060512165706.GA4079@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart39571876.BnNGr5YXN7";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Marcin Juszkiewicz <linux-arm@hrw.one.pl>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 124.red-82-159-197.user.auna.net ([82.159.197.124]:21436 "EHLO
-	indy.cmartin.tk") by vger.kernel.org with ESMTP id S1751369AbWELT6a
+Received: from fencepost.gnu.org ([199.232.76.164]:14731 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932208AbWELUSS
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 May 2006 15:58:30 -0400
-Received: from kiopa.cmartin.tk (kiopa [10.0.0.15])
-	by indy.cmartin.tk (Postfix) with ESMTP id 2B0E223026
-	for <netdev@vger.kernel.org>; Fri, 12 May 2006 21:56:54 +0200 (CEST)
-To: netdev@vger.kernel.org
+	Fri, 12 May 2006 16:18:18 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1Fee5Z-00049j-0j
+	for netdev@vger.kernel.org; Fri, 12 May 2006 16:18:17 -0400
+To: jt@hpl.hp.com
+In-Reply-To: <20060512165706.GA4079@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart39571876.BnNGr5YXN7
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, 2006-05-12 at 09:57 -0700, Jean Tourrilhes wrote:
+> Marcin Juszkiewicz wrote :
+> > 
+> > This time I checked more carefully my changeset and split it into
+> > smaller parts. Few of my patches was tested by OpenZaurus users, some
+> > are waiting for testing.
+> 
+> 	I'm sorry, but I will have again to veto part of your patch.
+> 	You are removing IDs from the Orinoco driver. Please don't do
+> that, those card work perfectly with the orinoco driver, and some of
+> us run them with the orinoco driver (orinoco is one third the
+> footprint of hostap).
 
-Hi,
+Once again, I really appreciate your vigilance, Jean :-)
 
-I just saw this last night when my desktop was shutting down. Not all=20
-the OOPS was outputted, but I've found where it happens.
+I strongly believe that every driver should list all devices it can
+support.  In case of multiple drivers supporting one device, the choice
+should be done in userspace.
 
-in forcedeth.c:1583 we see:
-		pci_unmap_single(np->pci_dev, np->rx_dma[i],
-				np->rx_skbuff[i]->end-np->rx_skbuff[i]->data,
-				PCI_DMA_FROMDEVICE);
+-- 
+Regards,
+Pavel Roskin
 
-The assembler output is:
-
-        movslq  %r12d,%rcx      # i, i
-        xorl    %edi, %edi      # tmp226
-        movq    320(%rbp,%rcx,8), %rax  # <variable>.rx_skbuff, D.20431
-        movq    1344(%rbp,%rcx,8), %rsi # <variable>.rx_dma, addr
-OOPS--->movq    216(%rax), %rdx # <variable>.end, <variable>.end
-        subq    200(%rax), %rdx # <variable>.data, <variable>.end
-        movq    256(%rbp), %rax # <variable>.pci_dev, hwdev
-        testq   %rax, %rax      # hwdev
-        leaq    112(%rax), %rcx #, tmp225
-        movq    dma_ops(%rip), %rax     # dma_ops, dma_ops
-        cmovne  %rcx, %rdi      # tmp225,, tmp226
-        movl    $2, %ecx        #,
-        call    *40(%rax)       # <variable>.unmap_single
-
- Which I think comes from dereferencing np->rx_skbuff[i]. I've not found=20
-a reproducible way of doing this, and I've at times come back to my=20
-room to find out that this computer has been forcibly shut down.
-
- I'm not familiar with this code. I hope someone here understands how=20
-this can happen. I'll try to find a way to reproduce this meanwhile.
-
-   cmn
-=2D-=20
-Carlos Mart=C3=ADn Nieto    |   http://www.cmartin.tk
-Hobbyist programmer    |
-
---nextPart39571876.BnNGr5YXN7
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQBEZOjxEVXxXOiy6a4RAqRgAJ9lWYYbO6O224l+jwtYL+kSwzH5RgCgiOEv
-zFi6iFKOmR+CAauDUdursBA=
-=vAs1
------END PGP SIGNATURE-----
-
---nextPart39571876.BnNGr5YXN7--
