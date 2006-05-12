@@ -1,30 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool always report port is TP on tg3
-Date: Fri, 12 May 2006 12:49:23 -0700 (PDT)
-Message-ID: <20060512.124923.101535717.davem@davemloft.net>
-References: <20060512100541.GA10529@pingi.kke.suse.de>
-	<1147445994.4780.55.camel@rh4>
-	<20060512174623.GA28353@pingi.kke.suse.de>
+Subject: Re: [PATCH] expose simplified skb_checksum_recalc
+Date: Fri, 12 May 2006 12:52:04 -0700 (PDT)
+Message-ID: <20060512.125204.51641088.davem@davemloft.net>
+References: <20060510152244.44fb3db7@localhost.localdomain>
+	<200605111924.33125.netdev@axxeo.de>
+	<20060511112843.6532bddd@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: netdev@axxeo.de, ioe-lkml@rameria.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56037
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65253
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751077AbWELTth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 May 2006 15:49:37 -0400
-To: kkeil@suse.de
-In-Reply-To: <20060512174623.GA28353@pingi.kke.suse.de>
+	id S1751363AbWELTwY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 May 2006 15:52:24 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060511112843.6532bddd@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Karsten Keil <kkeil@suse.de>
-Date: Fri, 12 May 2006 19:46:23 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Thu, 11 May 2006 11:28:43 -0700
 
-> Even with fiber cards ethtool reports that the connected port is TP,
-> the patch fix this.
+> Many users of skb_checksum_help() are just using it to recalculate
+> outbound checksum, so why not expose the interface in a more useful
+> way. Suggested by Ingo Oeser.
 > 
-> Signed-off-by: Karsten Keil <kkeil@suse.de>
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied, thanks a lot Karsten.
+Since you will be adding the first users of skb_checksum_recalc(),
+feel free to push this change in via your net driver tree whenever
+you feel it is appropriate Stephen.
+
+Thanks.
