@@ -1,56 +1,91 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 6/6] myri10ge - Kconfig and Makefile
-Date: Sat, 13 May 2006 20:56:45 +0200
-Message-ID: <44662BED.5030000@myri.com>
-References: <446259A0.8050504@myri.com> <44625E9B.3090509@myri.com> <20060513185157.GC6931@stusta.de>
+From: David Lang <david@lang.hm>
+Subject: Re: network freeze with nforce-A939 integrated rhine card
+Date: Sat, 13 May 2006 16:27:03 -0700 (PDT)
+Message-ID: <Pine.LNX.4.62.0605131624090.2923@qnivq.ynat.uz>
+References: <Pine.LNX.4.62.0605112235170.2802@qnivq.ynat.uz>
+ <20060512214109.GD2274@k3.hellgate.ch> <Pine.LNX.4.62.0605122209330.2803@qnivq.ynat.uz>
+ <Pine.LNX.4.62.0605130122310.2801@qnivq.ynat.uz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"Andrew J. Gallatin" <gallatin@myri.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:27879 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S932496AbWEMTEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 May 2006 15:04:32 -0400
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060513185157.GC6931@stusta.de>
+Received: from dsl081-033-126.lax1.dsl.speakeasy.net ([64.81.33.126]:17101
+	"EHLO bifrost.lang.hm") by vger.kernel.org with ESMTP
+	id S964795AbWEMX1I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 May 2006 19:27:08 -0400
+To: Roger Luethi <rl@hellgate.ch>
+In-Reply-To: <Pine.LNX.4.62.0605130122310.2801@qnivq.ynat.uz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Wed, May 10, 2006 at 11:43:55PM +0200, Brice Goglin wrote:
->   
->> ...
->> --- linux-mm/drivers/net/Makefile.old	2006-04-08 04:49:53.000000000 -0700
->> +++ linux-mm/drivers/net/Makefile	2006-04-21 08:10:27.000000000 -0700
->> @@ -192,6 +192,7 @@ obj-$(CONFIG_R8169) += r8169.o
->>  obj-$(CONFIG_AMD8111_ETH) += amd8111e.o
->>  obj-$(CONFIG_IBMVETH) += ibmveth.o
->>  obj-$(CONFIG_S2IO) += s2io.o
->> +obj-$(CONFIG_MYRI10GE) += myri10ge/
->>  obj-$(CONFIG_SMC91X) += smc91x.o
->>  obj-$(CONFIG_SMC911X) += smc911x.o
->>  obj-$(CONFIG_DM9000) += dm9000.o
->> --- /dev/null	2006-04-21 00:45:09.064430000 -0700
->> +++ linux-mm/drivers/net/myri10ge/Makefile	2006-04-21 08:14:21.000000000 -0700
->> @@ -0,0 +1,5 @@
->> +#
->> +# Makefile for the Myricom Myri-10G ethernet driver
->> +#
->> +
->> +obj-$(CONFIG_MYRI10GE) += myri10ge.o
->>     
+On Sat, 13 May 2006, David Lang wrote:
+
+> On Fri, 12 May 2006, David Lang wrote:
 >
-> If the driver consists of one source file, why does it need an own 
-> subdir?
+>> On Fri, 12 May 2006, Roger Luethi wrote:
+>> 
+>>> On Thu, 11 May 2006 22:59:44 -0700, David Lang wrote:
 >
-> cu
-> Adrian
->   
+> I just confirmed this, I was able to transfer 84G with no trouble starting 
+> from /dev/hdb, but starting from /dev/md0 the nic hung in less then 3G
+>
+> a good boot logs
+> eth0: VIA Rhine II at 0xe8121000, 00:11:5b:f4:14:a3, IRQ 17.
+> eth0: MII PHY found at address 1, status 0x7869 advertising 05e1 Link cde1.
+>
+> root@david:~# ethtool eth0
+> Settings for eth0:
+>        Supported ports: [ TP MII ]
+>        Supported link modes:   10baseT/Half 10baseT/Full
+>                                100baseT/Half 100baseT/Full
+>        Supports auto-negotiation: Yes
+>        Advertised link modes:  10baseT/Half 10baseT/Full
+>                                100baseT/Half 100baseT/Full
+>        Advertised auto-negotiation: Yes
+>        Speed: 100Mb/s
+>        Duplex: Full
+>        Port: MII
+>        PHYAD: 1
+>        Transceiver: internal
+>        Auto-negotiation: on
+>        Supports Wake-on: pumbg
+>        Wake-on: d
+>        Current message level: 0x00000001 (1)
+>        Link detected: yes
+
+and here's what I get when it's hung
+
+from syslog when it hangs
+May 13 01:58:17 david kernel: attempt to access beyond end of device
+May 13 01:58:17 david kernel: md0: rw=0, want=8708129352, limit=2188035584
+May 13 01:58:17 david kernel: attempt to access beyond end of device
+May 13 01:58:17 david kernel: md0: rw=0, want=7768925008, limit=2188035584
+May 13 02:13:50 david ntpd[2589]: time reset +0.699871 s
+May 13 02:16:51 david kernel: eth0: link down
+
+from ethtool
+Settings for eth0:
+ 	Supported ports: [ TP MII ]
+ 	Supported link modes:   10baseT/Half 10baseT/Full
+ 	                        100baseT/Half 100baseT/Full
+ 	Supports auto-negotiation: Yes
+ 	Advertised link modes:  10baseT/Half 10baseT/Full
+ 	                        100baseT/Half 100baseT/Full
+ 	Advertised auto-negotiation: Yes
+ 	Speed: 10Mb/s
+ 	Duplex: Half
+ 	Port: MII
+ 	PHYAD: 1
+ 	Transceiver: internal
+ 	Auto-negotiation: on
+ 	Supports Wake-on: pumbg
+ 	Wake-on: d
+ 	Current message level: 0x00000001 (1)
+ 	Link detected: no
 
 
-We also have 2 header files. But, I am fine with putting our 3 files in
-drivers/net/ instead.
+from the boot with it hung.
+eth0: VIA Rhine II at 0xe8121000, 00:11:5b:f4:14:a3, IRQ 17.
+eth0: MII PHY found at address 1, status 0x7849 advertising 05e1 Link 0000.
 
-Brice
-
+David Lang
