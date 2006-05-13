@@ -1,33 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 4/6] myri10ge - First half of the driver
-Date: Sat, 13 May 2006 18:13:25 +0200
-Message-ID: <20060513161325.GA27805@electric-eye.fr.zoreil.com>
-References: <446259A0.8050504@myri.com> <Pine.GSO.4.44.0605101438410.498-100000@adel.myri.com> <20060510231347.GC25334@electric-eye.fr.zoreil.com> <4463CE88.20301@myri.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [PATCH 6/6] myri10ge - Kconfig and Makefile
+Date: Sat, 13 May 2006 20:51:57 +0200
+Message-ID: <20060513185157.GC6931@stusta.de>
+References: <446259A0.8050504@myri.com> <44625E9B.3090509@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	"Andrew J. Gallatin" <gallatin@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:48560 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932470AbWEMQPb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 May 2006 12:15:31 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964771AbWEMSv5@vger.kernel.org>
 To: Brice Goglin <brice@myri.com>
 Content-Disposition: inline
-In-Reply-To: <4463CE88.20301@myri.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <44625E9B.3090509@myri.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin <brice@myri.com> :
-[...]
-> > Return in a middle of a spinlock-intensive function. :o(
-> >   
-> 
-> What do you mean ?
+On Wed, May 10, 2006 at 11:43:55PM +0200, Brice Goglin wrote:
+>...
+> --- linux-mm/drivers/net/Makefile.old	2006-04-08 04:49:53.000000000 -0700
+> +++ linux-mm/drivers/net/Makefile	2006-04-21 08:10:27.000000000 -0700
+> @@ -192,6 +192,7 @@ obj-$(CONFIG_R8169) += r8169.o
+>  obj-$(CONFIG_AMD8111_ETH) += amd8111e.o
+>  obj-$(CONFIG_IBMVETH) += ibmveth.o
+>  obj-$(CONFIG_S2IO) += s2io.o
+> +obj-$(CONFIG_MYRI10GE) += myri10ge/
+>  obj-$(CONFIG_SMC91X) += smc91x.o
+>  obj-$(CONFIG_SMC911X) += smc911x.o
+>  obj-$(CONFIG_DM9000) += dm9000.o
+> --- /dev/null	2006-04-21 00:45:09.064430000 -0700
+> +++ linux-mm/drivers/net/myri10ge/Makefile	2006-04-21 08:14:21.000000000 -0700
+> @@ -0,0 +1,5 @@
+> +#
+> +# Makefile for the Myricom Myri-10G ethernet driver
+> +#
+> +
+> +obj-$(CONFIG_MYRI10GE) += myri10ge.o
 
-It is preferred for maintenance purpose (hello Mr Morton) to organize
-the control flow with a single spin_{lock/unlock} pair: if there is a
-branch in the control flow, it ought to be joined again before returning.
+If the driver consists of one source file, why does it need an own 
+subdir?
+
+cu
+Adrian
 
 -- 
-Ueimor
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
