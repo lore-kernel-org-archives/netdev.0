@@ -1,34 +1,37 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: iptables broken on ppc (ptrace too?) (2.6.17-rc3)
-Date: Sun, 14 May 2006 19:15:56 +0200
-Message-ID: <446765CC.8020500@trash.net>
-References: <Pine.SOC.4.61.0605141822260.26018@math.ut.ee>
+Subject: Re: [RFC] SECMARK 1.1
+Date: Sun, 14 May 2006 20:37:36 +0200
+Message-ID: <446778F0.6000705@trash.net>
+References: <Pine.LNX.4.64.0605071104590.8588@d.namei> <Pine.LNX.4.64.0605140133560.5506@d.namei>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vger.kernel.org@ut.ee
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Daniel J Walsh <dwalsh@redhat.com>,
+	Karl MacMillan <kmacmillan@tresys.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Bleher <bleher@informatik.uni-muenchen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:29639 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751283AbWENRP6
+Received: from stinky.trash.net ([213.144.137.162]:39374 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751531AbWENShi
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 May 2006 13:15:58 -0400
-To: Meelis Roos <mroos@linux.ee>
-In-Reply-To: <Pine.SOC.4.61.0605141822260.26018@math.ut.ee>
+	Sun, 14 May 2006 14:37:38 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0605140133560.5506@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Meelis Roos wrote:
-> Iptables seems to be broken on ppc for me. Kernel 2.6.17-rc3 (currently
-> compiling rc4+git). 32-bit ppc, ARCH=ppc with PReP target. Iptables
-> userland binary is from the latest Debian unstable (1.3.3-2).
-> 
-> The symptoms: iptables usually just tells Invalid Argument on any
-> modification attempt. I'm trying to set up a simple one-rule NAT for test:
-> iptables -t nat -A POSTROUTING -s 172.30.0.0/24 -j SNAT --to 10.0.0.1
-> and it usually fails but has succeeded 2 times (I now have 2 rules of
-> this kind and they seem to just wotk once set up). Trying to delete the
-> second rule (either by replacing -A with -D or using just -D 2) gives
-> the same error.
+James Morris wrote:
+> @@ -135,6 +175,9 @@ static int __init xt_secmark_init(void)
+>  {
+>  	int err;
+>  
+> +	if (tracking_enabled())
+> +		need_conntrack();
+> +
 
-
-This should already be fixed in -rc4.
+This will load the conntrack modules even if the track flag is not set.
+Wouldn't it be better to put everything related to connection marking
+in the CONNSECMARK target?
