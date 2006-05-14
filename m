@@ -1,91 +1,27 @@
-From: David Lang <david@lang.hm>
-Subject: Re: network freeze with nforce-A939 integrated rhine card
-Date: Sat, 13 May 2006 16:27:03 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0605131624090.2923@qnivq.ynat.uz>
-References: <Pine.LNX.4.62.0605112235170.2802@qnivq.ynat.uz>
- <20060512214109.GD2274@k3.hellgate.ch> <Pine.LNX.4.62.0605122209330.2803@qnivq.ynat.uz>
- <Pine.LNX.4.62.0605130122310.2801@qnivq.ynat.uz>
+From: Steven Hayter <steven@hayter.me.uk>
+Subject: Re: Block Http
+Date: Sun, 14 May 2006 01:17:08 +0100
+Message-ID: <44667704.1000204@hayter.me.uk>
+References: <4465AEFB.2080905@rocsys.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl081-033-126.lax1.dsl.speakeasy.net ([64.81.33.126]:17101
-	"EHLO bifrost.lang.hm") by vger.kernel.org with ESMTP
-	id S964795AbWEMX1I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 May 2006 19:27:08 -0400
-To: Roger Luethi <rl@hellgate.ch>
-In-Reply-To: <Pine.LNX.4.62.0605130122310.2801@qnivq.ynat.uz>
+Received: from 85.189.5.98 ([85.189.5.98]:43729 "EHLO zombie.undead")
+	by vger.kernel.org with ESMTP id S964821AbWENARf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 May 2006 20:17:35 -0400
+To: varun <varun@rocsys.com>
+In-Reply-To: <4465AEFB.2080905@rocsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 13 May 2006, David Lang wrote:
+varun wrote:
+ > Can anyone suggest me a way in which i can stop http downloads
+ > but not http traffic.
 
-> On Fri, 12 May 2006, David Lang wrote:
->
->> On Fri, 12 May 2006, Roger Luethi wrote:
->> 
->>> On Thu, 11 May 2006 22:59:44 -0700, David Lang wrote:
->
-> I just confirmed this, I was able to transfer 84G with no trouble starting 
-> from /dev/hdb, but starting from /dev/md0 the nic hung in less then 3G
->
-> a good boot logs
-> eth0: VIA Rhine II at 0xe8121000, 00:11:5b:f4:14:a3, IRQ 17.
-> eth0: MII PHY found at address 1, status 0x7869 advertising 05e1 Link cde1.
->
-> root@david:~# ethtool eth0
-> Settings for eth0:
->        Supported ports: [ TP MII ]
->        Supported link modes:   10baseT/Half 10baseT/Full
->                                100baseT/Half 100baseT/Full
->        Supports auto-negotiation: Yes
->        Advertised link modes:  10baseT/Half 10baseT/Full
->                                100baseT/Half 100baseT/Full
->        Advertised auto-negotiation: Yes
->        Speed: 100Mb/s
->        Duplex: Full
->        Port: MII
->        PHYAD: 1
->        Transceiver: internal
->        Auto-negotiation: on
->        Supports Wake-on: pumbg
->        Wake-on: d
->        Current message level: 0x00000001 (1)
->        Link detected: yes
+First point, your on the wrong mailing list for this type of inquiry. 
+Second, you might want to look at a Squid proxy, and mime-type 
+filtering, check there documentation and users mailing list.
 
-and here's what I get when it's hung
-
-from syslog when it hangs
-May 13 01:58:17 david kernel: attempt to access beyond end of device
-May 13 01:58:17 david kernel: md0: rw=0, want=8708129352, limit=2188035584
-May 13 01:58:17 david kernel: attempt to access beyond end of device
-May 13 01:58:17 david kernel: md0: rw=0, want=7768925008, limit=2188035584
-May 13 02:13:50 david ntpd[2589]: time reset +0.699871 s
-May 13 02:16:51 david kernel: eth0: link down
-
-from ethtool
-Settings for eth0:
- 	Supported ports: [ TP MII ]
- 	Supported link modes:   10baseT/Half 10baseT/Full
- 	                        100baseT/Half 100baseT/Full
- 	Supports auto-negotiation: Yes
- 	Advertised link modes:  10baseT/Half 10baseT/Full
- 	                        100baseT/Half 100baseT/Full
- 	Advertised auto-negotiation: Yes
- 	Speed: 10Mb/s
- 	Duplex: Half
- 	Port: MII
- 	PHYAD: 1
- 	Transceiver: internal
- 	Auto-negotiation: on
- 	Supports Wake-on: pumbg
- 	Wake-on: d
- 	Current message level: 0x00000001 (1)
- 	Link detected: no
-
-
-from the boot with it hung.
-eth0: VIA Rhine II at 0xe8121000, 00:11:5b:f4:14:a3, IRQ 17.
-eth0: MII PHY found at address 1, status 0x7849 advertising 05e1 Link 0000.
-
-David Lang
+http://www.squid-cache.org/
