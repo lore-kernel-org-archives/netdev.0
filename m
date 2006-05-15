@@ -1,36 +1,40 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 21:32:47 +0200
-Message-ID: <200605152132.47883.mb@bu3sch.de>
-References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com> <200605151801.06379.mb@bu3sch.de> <1147720370.3067.14.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: iptables broken on ppc (ptrace too?) (2.6.17-rc3)
+Date: Mon, 15 May 2006 21:36:03 +0200
+Message-ID: <4468D823.5090802@trash.net>
+References: <Pine.SOC.4.61.0605141822260.26018@math.ut.ee> <446765CC.8020500@trash.net> <Pine.SOC.4.61.0605152028420.9077@math.ut.ee> <4468CB51.4060707@trash.net> <Pine.SOC.4.61.0605152227290.8543@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:58605
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751597AbWEOTdp
+Received: from stinky.trash.net ([213.144.137.162]:45772 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751601AbWEOTgF
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 15:33:45 -0400
-To: Dan Williams <dcbw@redhat.com>, Jason Lunz <lunz@falooley.org>,
-	netdev@vger.kernel.org
-In-Reply-To: <1147720370.3067.14.camel@localhost.localdomain>
-Content-Disposition: inline
+	Mon, 15 May 2006 15:36:05 -0400
+To: Meelis Roos <mroos@linux.ee>
+In-Reply-To: <Pine.SOC.4.61.0605152227290.8543@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 15 May 2006 21:12, you wrote:
-> > There are registers on the bcm43xx chip (0x158 and 0x49A) that indicate
-> > some "Radio is hardware-disabled" state. We currently don't use that flag
-> > correctly in the driver. Could you please assist me on testing if your switch
-> > actually toggles the bit?
-> > I think best place for this would be on irc.freenode.net #bcm-users
+Meelis Roos wrote:
+>>>> This should already be fixed in -rc4.
+>>>
+>>>
+>>> Unfortunately it was still there with yesterdays rc4+git.
+>>
+>>
+>> I may have misinterpreted your report - are you running a 32bit or 64bit
+>> kernel?
 > 
-> When those bits get set in the register, is the radio already disabled?
-> ie, for the bcm43xx chip, is it really force-disabled by the button, or
-> does the driver have some control?
+> 
+> 32-bit kernel, this is a Motorola Powerstack II macine with 604e. PReP
+> subarch, only buildable from the old ARCH=ppc code (not yet migrated to
+> ARCH=powerpc).
 
-Hm, actually, We don't know what the bit means. Could be some
-completely different meaning. That is what I am trying to find
-out. But it seems to have something to do with the power control
-of the chip.
+Ah OK, I thought it was related to the new compat code, but that isn't
+the case. Your trace doesn't give much clues, except that it shows that
+iptables dies with a SIGSEGV, which might be a bug in userspace or in
+the kernel. Which was the last kernel that worked for you, and can you
+try that version again to rule out userspace bugs?
+
