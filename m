@@ -1,34 +1,39 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] tcpdump may trace some outbound packets twice.
-Date: Mon, 15 May 2006 14:26:45 -0700 (PDT)
-Message-ID: <20060515.142645.94689626.davem@davemloft.net>
-References: <20060514031034.5d0396e7.akpm@osdl.org>
-	<20060514.134231.101346572.davem@davemloft.net>
-	<Pine.LNX.4.56.0605151409110.25064@ranjit.corp.google.com>
+Subject: Re: [RFC] changing value of NETDEV_ALIGN to cacheline size
+Date: Mon, 15 May 2006 14:30:11 -0700 (PDT)
+Message-ID: <20060515.143011.36635008.davem@davemloft.net>
+References: <200605151408.29688.borntrae@de.ibm.com>
+	<20060515080258.bdcfba5f.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: borntrae@de.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26061
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11145
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965256AbWEOV1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 17:27:00 -0400
-To: ranjitm@google.com
-In-Reply-To: <Pine.LNX.4.56.0605151409110.25064@ranjit.corp.google.com>
+	id S1751644AbWEOVa2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 May 2006 17:30:28 -0400
+To: rdunlap@xenotime.net
+In-Reply-To: <20060515080258.bdcfba5f.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ranjit Manomohan <ranjitm@google.com>
-Date: Mon, 15 May 2006 14:19:06 -0700 (PDT)
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Date: Mon, 15 May 2006 08:02:58 -0700
 
-> Heres a new version which does a copy instead of the clone to avoid
-> the double cloning issue.
+> > -#define	NETDEV_ALIGN		32
+> > +#define	NETDEV_ALIGN		L1_CACHE_BYTES
+> >  #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
+> 
+> I don't know about the fixed value of 32, but if this patch is
+> accepted, I'd prefer NETDEV_ALIGN_MASK instead of NETDEV_ALIGN_CONST.
 
-I still very much dislike this patch because it is creating
-1 more clone per packet than is actually necessary and that
-is very expensive.
+The reason it's 32 is that old drivers depended on the
+struct being at least 32-byte aligned because they would
+embed structures DMA'd to/from the card in their private
+area and just assumed that would be aligned enough for
+the card's restrictions.
 
-dev_queue_xmit_nit() is going to clone whatever SKB you send into
-there, so better to just bump the reference count (with skb_get())
-instead of cloning or copying.
+So setting it to L1_CACHE_BYTES would be wrong, because if
+that happens to be less than 32 it would violate said
+assumption which we are catering to.
