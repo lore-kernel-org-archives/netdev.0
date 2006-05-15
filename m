@@ -1,62 +1,65 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: Linux v2.6.17-rc4
-Date: Sun, 14 May 2006 03:57:28 -0400
-Message-ID: <4466E2E8.7090801@nvidia.com>
-References: <Pine.LNX.4.64.0605111640010.3866@g5.osdl.org> <200605122219.37626.s0348365@sms.ed.ac.uk>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC] SECMARK 1.1
+Date: Mon, 15 May 2006 00:24:00 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605150004590.645@d.namei>
+References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
+ <Pine.LNX.4.64.0605140133560.5506@d.namei> <446778F0.6000705@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jeff@garzik.org, netdev@vger.kernel.org,
-	Manfred Spraul <manfred@colorfullife.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Daniel J Walsh <dwalsh@redhat.com>,
+	Karl MacMillan <kmacmillan@tresys.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Bleher <bleher@informatik.uni-muenchen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:21557 "EHLO
-	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
-	id S1751393AbWEOEKv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 00:10:51 -0400
-To: Alistair John Strachan <s0348365@sms.ed.ac.uk>
-In-Reply-To: <200605122219.37626.s0348365@sms.ed.ac.uk>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:16869 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751403AbWEOEYD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 May 2006 00:24:03 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <446778F0.6000705@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 14 May 2006, Patrick McHardy wrote:
+
+> James Morris wrote:
+> > @@ -135,6 +175,9 @@ static int __init xt_secmark_init(void)
+> >  {
+> >  	int err;
+> >  
+> > +	if (tracking_enabled())
+> > +		need_conntrack();
+> > +
+> 
+> This will load the conntrack modules even if the track flag is not set.
+
+I guess need_conntrack() could be moved to checkentry() and only called 
+if the track flag is set.
 
 
-Alistair John Strachan wrote:
-> On Friday 12 May 2006 00:44, Linus Torvalds wrote:
-> 
->>Ok, I've let the release time between -rc's slide a bit too much again,
->>but -rc4 is out there, and this is the time to hunker down for 2.6.17.
->>
->>If you know of any regressions, please holler now, so that we don't miss
->>them.
->>
->>-rc4 itself is mainly random driver fixes (sound, infiniband, scsi,
->>network drivers), but some splice fixes too and some arch (arm, powerpc,
->>mips) updates. Shortlog follows,
-> 
-> 
-> Linus,
-> 
-> I've got an oops in the forcedeth driver on shutdown. Sorry for the crappy 
-> camera phone pictures, this board doesn't have RS232 ports:
-> 
-> http://devzero.co.uk/~alistair/oops-20060512/
-> 
-> It was initially difficult to reproduce, but I found I could do so reliably if 
-> I ssh'ed into the box and halted it remotely, then it would always oops on 
-> shutdown. I assume this is because the driver is still active when something 
-> happens to it during halt.
-> 
-> There's been just a single commit since -rc3:
-> 
-> forcedeth: fix multi irq issues
-> ebf34c9b6fcd22338ef764b039b3ac55ed0e297b
-> 
-> However, it could have just been hidden since before -rc3, so I'll try to work 
-> backwards if nobody has any immediate ideas..
-> 
+> Wouldn't it be better to put everything related to connection marking
+> in the CONNSECMARK target?
 
-The interrupt handler could be called during the same time (on different 
-cpu) the dev->stop function is clearing out the rings (nv_txrx_reset).
+It's more efficient this way, and simpler to manage.  
 
+Currently, after security marking, the chain should normally terminate 
+with a -j ACCEPT.  Requiring the use of CONNSECMARK to label connections 
+means inserting another rule before terminating the chain.
+
+Also, security marking for connections only occurs in the context of 
+copying the security mark from packets, so there's no reason to build a 
+general feature to do this into CONNSECMARK.
+
+Another possibility would be to get rid of CONNSECMARK completely and have 
+SECMARK copy security marks from connections to packets via the use of a 
+different flag (perhaps change --track into --save-state and then have 
+--restore-state, or similar).
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
