@@ -1,46 +1,48 @@
-From: Jouni Malinen <jkm@devicescape.com>
-Subject: Re: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 09:20:45 -0700
-Message-ID: <20060515162045.GA10717@instant802.com>
-References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com> <1147703855.2193.47.camel@localhost.localdomain> <200605151712.23639.IvDoorn@gmail.com>
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: [PATCH 4/6] myri10ge - First half of the driver
+Date: Mon, 15 May 2006 13:02:34 -0400
+Message-ID: <1147712555.27252.269.camel@mindpipe>
+References: <446259A0.8050504@myri.com>
+	 <Pine.GSO.4.44.0605101438410.498-100000@adel.myri.com>
+	 <20060510231347.GC25334@electric-eye.fr.zoreil.com>
+	 <4463CE88.20301@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>,
-	Mark Wallis <mwallis@serialmonkey.com>, netdev@vger.kernel.org,
-	David Zeuthen <davidz@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Andrew J. Gallatin" <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-9.dex002.intermedia.net ([64.78.21.63]:58631 "EHLO
-	dhost002-9.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S932251AbWEOQYM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 12:24:12 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200605151712.23639.IvDoorn@gmail.com>
+Received: from viper.oldcity.dca.net ([216.158.38.4]:47835 "HELO
+	viper.oldcity.dca.net") by vger.kernel.org with SMTP
+	id S964965AbWEORCh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 May 2006 13:02:37 -0400
+To: Brice Goglin <brice@myri.com>
+In-Reply-To: <4463CE88.20301@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 15, 2006 at 05:12:20PM +0200, Ivo van Doorn wrote:
+On Fri, 2006-05-12 at 01:53 +0200, Brice Goglin wrote:
+> Francois Romieu wrote:
+> >
+> >> +	spin_lock(&mgp->cmd_lock);
+> >> +	response->result = 0xffffffff;
+> >> +	mb();
+> >> +	myri10ge_pio_copy((void __iomem *) cmd_addr, buf, sizeof (*buf));
+> >> +
+> >> +	/* wait up to 2 seconds */
+> >>     
+> >
+> > You must not hold a spinlock for up to 2 seconds.
+> >   
+> 
+> We are working on reducing the delay to about 15ms. It only occurs when
+> the driver is loaded or the link brought up.
 
-> Well I would think it is cleaner to inform userspace that the button is pressed
-> and let userspace sort out what exactly should happen.
-> But I doubt it will be a good idea when the driver is sending and event _and_
-> disabled the radio. It could be that the user wants something to be done
-> before the radio is being disabled.
+I think 15ms is quite a long time to hold a spinlock also - most
+spinlocks in the kernel are held for less than 500 microseconds.
 
-Some hardware designs disable the radio in hardware, some don't.. In
-other words, the behavior would not be consistent between hardware
-designs unless the radio would be disabled unconditionally in
-software-processed case. I would like to be able to trust on the
-rfkill to really kill the radio regardless of whether the user space
-mechanism is in place or not, i.e., I see this as a function that can be
-used to disable radio in environments were use of wireless devices is
-not allowed for some reason.
+Can't you use a mutex?
 
-Sending an event to user space would be a good additional indication
-that the radio was disabled. If user space wants to do something first,
-I would think that doing this with full software control (i.e., not
-depending on any particular hardware button and just having a UI
-mechanism for triggering this) would allow more consistent behavior.
+Lee
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
