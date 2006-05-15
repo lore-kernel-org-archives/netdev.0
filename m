@@ -1,80 +1,94 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: send(), sendmsg(), sendto() not thread-safe
-Date: Mon, 15 May 2006 16:35:45 -0700
-Message-ID: <20060515163545.4e3d755a@localhost.localdomain>
-References: <OFE8460E54.0C8D85D8-ON8525716F.0074F22F-8825716F.0076D537@us.ibm.com>
-	<20060515.154939.28171388.davem@davemloft.net>
-	<44690C1C.8030101@hp.com>
+Subject: Re: [PATCH] tcpdump may trace some outbound packets twice.
+Date: Mon, 15 May 2006 16:41:01 -0700
+Message-ID: <20060515164101.054afa29@localhost.localdomain>
+References: <20060514031034.5d0396e7.akpm@osdl.org>
+	<20060514.134231.101346572.davem@davemloft.net>
+	<Pine.LNX.4.56.0605151409110.25064@ranjit.corp.google.com>
+	<20060515.142645.94689626.davem@davemloft.net>
+	<Pine.LNX.4.56.0605151602330.29636@ranjit.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mark1smi@us.ibm.com, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, ranjitm@google.com,
+	akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21993 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750786AbWEOXgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 19:36:03 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <44690C1C.8030101@hp.com>
+Received: from smtp.osdl.org ([65.172.181.4]:64490 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750798AbWEOXlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 19:41:08 -0400
+To: Ranjit Manomohan <ranjitm@google.com>
+In-Reply-To: <Pine.LNX.4.56.0605151602330.29636@ranjit.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 May 2006 16:17:48 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+On Mon, 15 May 2006 16:11:05 -0700 (PDT)
+Ranjit Manomohan <ranjitm@google.com> wrote:
 
-> David S. Miller wrote:
-> > From: Mark A Smith <mark1smi@us.ibm.com>
-> > Date: Mon, 15 May 2006 14:39:06 -0700
+> On Mon, 15 May 2006, David S. Miller wrote:
+> 
+> > From: Ranjit Manomohan <ranjitm@google.com>
+> > Date: Mon, 15 May 2006 14:19:06 -0700 (PDT)
 > > 
+> > > Heres a new version which does a copy instead of the clone to avoid
+> > > the double cloning issue.
 > > 
-> >>I discovered that in some cases, send(), sendmsg(), and sendto() are not
-> >>thread-safe. Although the man page for these functions does not specify
-> >>whether these functions are supposed to be thread-safe, my reading of the
-> >>POSIX/SUSv3 specification tells me that they should be. I traced the
-> >>problem to tcp_sendmsg(). I was very curious about this issue, so I wrote
-> >>up a small page to describe in more detail my findings. You can find it at:
-> >>http://www.almaden.ibm.com/cs/people/marksmith/sendmsg.html .
+> > I still very much dislike this patch because it is creating
+> > 1 more clone per packet than is actually necessary and that
+> > is very expensive.
+> > 
+> > dev_queue_xmit_nit() is going to clone whatever SKB you send into
+> > there, so better to just bump the reference count (with skb_get())
+> > instead of cloning or copying.
+> > 
 > 
+> I was a bit apprehensive about just incrementing the refcnt but that works 
+> too. Attached is the modified version.
 > 
-> # ./sendmsgclient localhost
-> ERROR! We should have all 0! We don't!
-> buff[16384]=1
-> buff[16385]=1
-> buff[16386]=1
-> buff[16387]=1
-> buff[16388]=1
-> buff[16389]=1
-> buff[16390]=1
-> buff[16391]=1
-> buff[16392]=1
-> buff[16393]=1
-> That's 10/32768 bad bytes
-> # uname -a
-> HP-UX tarry B.11.23 U ia64 2397028692 unlimited-user license
+> -Thanks,
+> Ranjit
 > 
-> Given that the URL above asserts that HP-UX claims atomicity, either 
-> there is a bug in the UX stack, or perhaps the test?  I took a quick 
-> look at the HP-UX 11iv2 (aka 11.23) manpage for sendmsg and didn't see 
-> anything about atomicity there - on which manpage(s) or docs was the 
-> assertion of HP-UX atomicity made?
-> 
-> I presume this is only for "blocking" sockets?  I cannot at least off 
-> the top of my head see how a stack could offer it on non-blocking sockets.
+> --- linux-2.6/net/sched/sch_generic.c	2006-05-10 12:34:52.000000000 -0700
+> +++ linux/net/sched/sch_generic.c	2006-05-15 15:48:03.000000000 -0700
+> @@ -136,8 +136,12 @@
+>  
+>  			if (!netif_queue_stopped(dev)) {
+>  				int ret;
+> +				struct sk_buff *skbc = NULL;
+> +				/* Increment the reference count on the skb so
+> +				 * that we can use it after a successful xmit.
+> +				 */
+>  				if (netdev_nit)
+> -					dev_queue_xmit_nit(skb, dev);
+> +					skbc = skb_get(skb);
 
-The test seems to be based on sending a big message. In this case,
-on non-blocking sockets, the send call will return partial status. The
-return from the system call will be less than the number of bytes requested.
+				skbc = netdev_nit ? skb_get(skb) : NULL;
+>  
+>  				ret = dev->hard_start_xmit(skb, dev);
+>  				if (ret == NETDEV_TX_OK) { 
+> @@ -145,9 +149,20 @@
+>  						dev->xmit_lock_owner = -1;
+>  						spin_unlock(&dev->xmit_lock);
+>  					}
+> +					if (skbc) {
+> +						/* transmit succeeded, 
+> +						 * trace the buffer. */
+> +						dev_queue_xmit_nit(skbc,dev);
+> +						kfree_skb(skbc);
+> +					}
+>  					spin_lock(&dev->queue_lock);
+>  					return -1;
+>  				}
+> +
+> +				/* Call free in case we incremented refcnt */
+> +				if (skbc)
+> +					kfree_skb(skbc);
 
-> 
-> > And frankly, BSD defines BSD socket semantics here not some wording in
-> > the POSIX standards.
-> 
-> Have BSD socket semantics ever been updated/clarified any any 
-> quasi-official manner since the popular presence of threads?  Or 
-> are/were Posix/Xopen filling a gap?
-> 
-> rick jones
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+kfree_skb(NULL) is legal so the conditional here is unneeded.
+
+But the increased calls to kfree_skb(NULL) would probably bring the
+"unlikely()" hordes descending on kfree_skb, so maybe:
+
+				if (unlikely(netdev_nit))
+					kfree_skb(skbc);
+
+
