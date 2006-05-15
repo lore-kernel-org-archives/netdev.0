@@ -1,30 +1,32 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 15:46:14 -0400
-Message-ID: <20060515194614.GB25683@knob.reflex>
-References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com> <e4a6lq$g5v$1@sea.gmane.org> <200605151801.06379.mb@bu3sch.de> <1147720370.3067.14.camel@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Patches from Marcin Juszkiewicz
+Date: Mon, 15 May 2006 16:06:21 -0400
+Message-ID: <20060515200616.GB424@tuxdriver.com>
+References: <1147466610.8478.41.camel@dv>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	David Gibson <hermes@gibson.dropbear.id.au>,
+	Marcin Juszkiewicz <linux-arm@hrw.one.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.reflexsecurity.com ([72.54.64.74]:54690 "EHLO
-	crown.reflexsecurity.com") by vger.kernel.org with ESMTP
-	id S964949AbWEOTqS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 15:46:18 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1147720370.3067.14.camel@localhost.localdomain>
+Received: from ra.tuxdriver.com ([24.172.12.4]:8976 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S965181AbWEOUGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 16:06:45 -0400
+To: Pavel Roskin <proski@gnu.org>
 Content-Disposition: inline
+In-Reply-To: <1147466610.8478.41.camel@dv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 15, 2006 at 03:12:50PM -0400, Dan Williams wrote:
-> When those bits get set in the register, is the radio already disabled?
-> ie, for the bcm43xx chip, is it really force-disabled by the button, or
-> does the driver have some control?
+On Fri, May 12, 2006 at 04:43:30PM -0400, Pavel Roskin wrote:
 
-I assume it disables the radio without any help from the driver, because
-it definitely turns off my radio, but the bcm43xx driver i'm using (in
-2.6.17-rc4) currently doesn't pay any attention to those registers
-afaik.
+> As a co-maintainer of Orinoco driver, I'd like to ask the netdev team
+> not to apply any patch from Marcin Juszkiewicz touching the Orinoco
+> driver without my or David's explicit approval.
 
-Jason
+I plan to honor this request.  Are there any objections?
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
