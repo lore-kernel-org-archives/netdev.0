@@ -1,51 +1,87 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: SIOCSIWESSID + SIOCSIWAP behaviour
-Date: Mon, 15 May 2006 00:29:11 +0100
-Message-ID: <4467BD47.5040000@gentoo.org>
+From: Wen Hsin Chang <whchang@tw.ibm.com>
+Subject: [PATCH] pcnet32.c: modify RX ring size through module parameter
+Date: Mon, 15 May 2006 11:32:14 +0800
+Message-ID: <4467F63E.5060401@tw.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, softmac-dev@sipsolutions.net
+Cc: netdev@vger.kernel.org, tsbogend@alpha.franken.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:44424 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1751385AbWENXL4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 May 2006 19:11:56 -0400
-To: Jean Tourrilhes <jt@hpl.hp.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:65254 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750978AbWEODcT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 May 2006 23:32:19 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e33.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k4F3WIua012097
+	for <netdev@vger.kernel.org>; Sun, 14 May 2006 23:32:18 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by westrelay02.boulder.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k4F3WIZJ227510
+	for <netdev@vger.kernel.org>; Sun, 14 May 2006 21:32:18 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11/8.13.3) with ESMTP id k4F3WHuO032243
+	for <netdev@vger.kernel.org>; Sun, 14 May 2006 21:32:18 -0600
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jean,
+This patch is created from pcnet32.c v1.32. it will allow users to 
+specify RX ring size upon module
+insertion via module parameter 'rx_log_size'. This is needed in some 
+cases where too small the rx ring
+size will cause RX errors upon remote installation via pcnet32 NIC card.
 
-I'd just like to check my understanding (and softmacs implementation) 
-of SIWESSID and SIWAP behaviour, for managed mode.
+Signed-off-by: Wen Hsin Chang <whchang@tw.ibm.com>
+----------------------------------------------------------------------------------------------------
 
-When SIWESSID happens, softmac drops association/authentication with the 
-current network and then starts a scan for the requested SSID. When 
-found, softmac authenticates and associates to that network.
+--- a/drivers/net/pcnet32.c    2006-03-30 09:49:10.000000000 +0800
++++ b/drivers/net/pcnet32.c    2006-05-15 11:14:45.000000000 +0800
+@@ -93,6 +93,9 @@ static struct net_device *pcnet32_dev;
+ static int max_interrupt_work = 2;
+ static int rx_copybreak = 200;
+ 
++/* Module parameter to specify RX ring size at module insertion */
++static int rx_log_size = 0;
++
+ #define PCNET32_PORT_AUI      0x00
+ #define PCNET32_PORT_10BT     0x01
+ #define PCNET32_PORT_GPSI     0x02
+@@ -1264,7 +1267,10 @@ pcnet32_probe1(unsigned long ioaddr, int
+     lp->name = chipname;
+     lp->shared_irq = shared;
+     lp->tx_ring_size = TX_RING_SIZE;    /* default tx ring size */
+-    lp->rx_ring_size = RX_RING_SIZE;    /* default rx ring size */
++    if (!rx_log_size)
++        lp->rx_ring_size = RX_RING_SIZE;    /* default rx ring size */
++    else
++        lp->rx_ring_size = (1 << (rx_log_size));
+     lp->tx_mod_mask = lp->tx_ring_size - 1;
+     lp->rx_mod_mask = lp->rx_ring_size - 1;
+     lp->tx_len_bits = (PCNET32_LOG_TX_BUFFERS << 12);
+@@ -2707,6 +2713,11 @@ module_param(tx_start_pt, int, 0);
+ MODULE_PARM_DESC(tx_start_pt, DRV_NAME " transmit start point (0-3)");
+ module_param(pcnet32vlb, int, 0);
+ MODULE_PARM_DESC(pcnet32vlb, DRV_NAME " Vesa local bus (VLB) support 
+(0/1)");
++
++/* Module parameter to specify RX ring size at module insertion */
++module_param(rx_log_size, int, 0);
++MODULE_PARM_DESC(rx_log_size, DRV_NAME " RX Ring Buffer Size (log_2 
+#BUF) ");
++
+ module_param_array(options, int, NULL, 0);
+ MODULE_PARM_DESC(options, DRV_NAME " initial option setting(s) (0-15)");
+ module_param_array(full_duplex, int, NULL, 0);
+@@ -2731,6 +2742,12 @@ static int __init pcnet32_init_module(vo
+ 
+     if ((tx_start_pt >= 0) && (tx_start_pt <= 3))
+         tx_start = tx_start_pt;
++       
++    /* validating rx_log_size */
++    if ((rx_log_size <= 0) ||
++        (rx_log_size > PCNET32_LOG_MAX_RX_BUFFERS))
++        rx_log_size = 0;
++       
+ 
+     /* find the PCI devices */
+     if (!pci_module_init(&pcnet32_driver))
 
-When SIWAP happens, softmac drops association/authentication with the 
-current network and then starts a scan for the requested BSSID. When 
-found, softmac authenticates and associates to that network.
-
-Is it correct that both of these immediately trigger 
-deauthenication+deassocation then authentication+assocation?
-
-Is it correct that SIWAP can legally select *any* AP? (As opposed to 
-only being for selecting a specific AP *on the ESS* indicated by a past 
-or future SIWESSID call)
-
-
-Right now, wpa_supplicant does SIWESSID and SIWAP in quick succession, 
-which causes softmac to associate twice, and that quickly confuses things.
-
-No matter how I think of it, this strikes me as a hard interface to 
-implement. Because association isn't an atomic operation, it is tricky 
-to get the sequencing right, e.g. if the user does SIWESSID to start 
-association, and then SIWAP to select a different AP before the original 
-association has completed.
-
-Any clarification appreciated.
-
-Thanks,
-Daniel
