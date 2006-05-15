@@ -1,82 +1,54 @@
-From: Karl MacMillan <kmacmillan@tresys.com>
-Subject: Re: [RFC] SECMARK 1.1
-Date: Mon, 15 May 2006 08:35:55 -0400
-Message-ID: <1147696556.22880.100.camel@jackjack.columbia.tresys.com>
-References: <Pine.LNX.4.64.0605071104590.8588@d.namei>
-	 <Pine.LNX.4.64.0605140133560.5506@d.namei>
+From: "Mark Wallis" <mwallis@serialmonkey.com>
+Subject: Hardware button support for Wireless cards
+Date: Mon, 15 May 2006 22:57:12 +1000
+Message-ID: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Daniel J Walsh <dwalsh@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Bleher <bleher@informatik.uni-muenchen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tresys.irides.com ([216.250.243.126]:17863 "EHLO
-	exchange.columbia.tresys.com") by vger.kernel.org with ESMTP
-	id S1750779AbWEOMi4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 08:38:56 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0605140133560.5506@d.namei>
+Received: from qvfw1.qvalent.com ([202.7.65.65]:35265 "EHLO mail.qvalent.com")
+	by vger.kernel.org with ESMTP id S932114AbWEOM5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 08:57:33 -0400
+Received: from qvts2 (unknown [192.168.40.87])
+	by mail.qvalent.com (Postfix) with ESMTP id 7582F2D
+	for <netdev@vger.kernel.org>; Mon, 15 May 2006 22:44:23 +1000 (EST)
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-05-14 at 02:03 -0400, James Morris wrote:
-> Included below is an incremental patch against the initial secmark posting 
-> last week: http://thread.gmane.org/gmane.linux.network/34927/focus=34927
-> 
-> This posting to gather feedback on changes made since then primarily to 
-> address concerns raised by Karl MacMillan on providing fine-grained 
-> assurances for network applications which pass connections (e.g. xinetd).
-> 
-> If all looks ok, I'll rebase the entire patchset (also merging elements 
-> from the patch below back into other patches), and submit it for inclusion 
-> in 2.6.18.  As it touches a bunch of networking code, it may be best to 
-> aim for Dave's tree, although it could also go into -mm.
-> 
-> Anyway, the way the issue has been addressed is to implement something 
-> similar to CONNMARK, but specific to this useage scenario and dealing with 
-> security markings instead of network markings.
-> 
-> In a nutshell:
-> 
-> 1. A --track option was added to the SECMARK target, which causes the 
->    security mark being applied to the packet to also be applied to a new
->    secmark field on the conntrack (only if it is unmarked).
-> 
-> 2. A new CONNSECMARK target was added which copies the secmark value to 
->    packets.
-> 
-> This allows all packets on a connection (or related to it) to be marked 
-> with the same security label, so that they can be explicitly 
-> differentiated.
-> 
-> This also turns out to simplify the SELinux policy, while the xtables 
-> implementation has been designed to remain as simple as possible (e.g. it 
-> only copies lables to packets, and has no options).
-> 
-> So, here's an example of per-packet network policy for vsftpd with the new 
-> code:
-> 
->   allow ftpd_t ftpd_packet_t:packet { recv send };
-> 
-> Assuming it doesn't do DNS lookups, that's it in terms of access control 
-> rules for packets.  This covers all established and related packets, 
-> including ICMP and the FTP data connetion.
-> 
+Hi everyone,
 
-James,
+During our development of the rt2x00 wireless driver we have come across an
+interesting issue that we want to get comment on from the netdev-community.
 
-This seems to address my concerns - thanks.
+Some laptops with our Ralink cards build-in also include a hardware button
+that is meant to enable/disable the wireless card. We are wondering how we
+should handle this.
 
-Karl
+Currently, in our rt2x00 (using the devicescape stack) we are firing off an
+ACPI event so that the hardware button can be handled in userspace. This
+allows the user to basically do whatever they want when this button is
+pressed - including bringing down the wireless interface. The problem here
+is no distro's currently contain scripts to run from this event so for many
+users it just "doesn't work" without them manually having to write scripts
+to handle the ACPI even themselves.
 
--- 
-Karl MacMillan
-Tresys Technology
-www.tresys.com
+Some people are saying that instead of throwing and ACPI event we should be
+either use hotplug or internally just disable the radio and somehow inform
+the dscape stack that the radio has been disabled.
 
+What are peoples thoughts here, should we 
+
+A. be handling this within our drivers and doing "what the user expects" and
+disabling the hardware radio, or 
+
+B. should we be firing an ACPI event and getting the distro's to add scripts
+so when this event is fired they bring down all the wireless interfaces.
+
+Regards,
+Mark Wallis
+Project Admin
+http://rt2x00.serialmonkey.com
+mwallis@serialmonkey.com
 
