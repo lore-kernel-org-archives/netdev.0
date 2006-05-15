@@ -1,43 +1,50 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: ipv6 routing broken in 2.6.17-rc3,4
-Date: Mon, 15 May 2006 20:38:57 +0300 (EEST)
-Message-ID: <Pine.SOC.4.61.0605152035590.10949@math.ut.ee>
-References: <Pine.SOC.4.61.0605150909510.29527@math.ut.ee>
- <Pine.LNX.4.64.0605151904110.12081@netcore.fi>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 4/6] myri10ge - First half of the driver
+Date: Mon, 15 May 2006 19:39:47 +0200
+Message-ID: <4468BCE3.3010005@myri.com>
+References: <446259A0.8050504@myri.com>	 <Pine.GSO.4.44.0605101438410.498-100000@adel.myri.com>	 <20060510231347.GC25334@electric-eye.fr.zoreil.com>	 <4463CE88.20301@myri.com> <1147712555.27252.269.camel@mindpipe>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Andrew J. Gallatin" <gallatin@myri.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from math.ut.ee ([193.40.36.2]:33686 "EHLO math.ut.ee")
-	by vger.kernel.org with ESMTP id S1751563AbWEORjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 13:39:01 -0400
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.64.0605151904110.12081@netcore.fi>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:2964 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1751615AbWEORkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 13:40:07 -0400
+To: Lee Revell <rlrevell@joe-job.com>
+In-Reply-To: <1147712555.27252.269.camel@mindpipe>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> vaarikas:~# ip -6 route
->> 2002:5283:297e::/48 dev tun6to4  metric 256  expires 21332659sec mtu 1480 
->> advmss 1420 hoplimit 4294967295
+Lee Revell wrote:
+> On Fri, 2006-05-12 at 01:53 +0200, Brice Goglin wrote:
+>   
+>> Francois Romieu wrote:
+>>     
+>>>> +	spin_lock(&mgp->cmd_lock);
+>>>> +	response->result = 0xffffffff;
+>>>> +	mb();
+>>>> +	myri10ge_pio_copy((void __iomem *) cmd_addr, buf, sizeof (*buf));
+>>>> +
+>>>> +	/* wait up to 2 seconds */
+>>>>     
+>>>>         
+>>> You must not hold a spinlock for up to 2 seconds.
+>>>   
+>>>       
+>> We are working on reducing the delay to about 15ms. It only occurs when
+>> the driver is loaded or the link brought up.
+>>     
 >
-> You're using the wrong prefix length.  The right one is /16.  Does that work?
+> I think 15ms is quite a long time to hold a spinlock also - most
+> spinlocks in the kernel are held for less than 500 microseconds.
+>
+> Can't you use a mutex?
+>   
 
-Changed tun6to4 to 2002::/16, still the same (packets for eth0 and the
-unreachable destination still go to tun6to4).
+It looks like rtnl_lock protects us here. We are working on it.
 
-# ip -6 route
-::/96 via :: dev tun6to4  metric 256  expires 21334342sec mtu 1480 advmss 1420 hoplimit 4294967295
-unreachable 2001:7a8:1:5::14 dev lo  metric 1024  expires 21334363sec error -101 mtu 16436 advmss 16376 hoplimit 4294967295
-2002:5283:2811:2::/64 dev eth0  metric 256  expires 21334342sec mtu 1500 advmss 1440 hoplimit 4294967295
-2002::/16 dev tun6to4  metric 256  expires 21334342sec mtu 1480 advmss 1420 hoplimit 4294967295
-2000::/3 via ::192.88.99.1 dev tun6to4  metric 1  expires 21334342sec mtu 1480 advmss 1420 hoplimit 4294967295
-fe80::/64 dev eth0  metric 256  expires 21332676sec mtu 1500 advmss 1440 hoplimit 4294967295
-fe80::/64 dev eth1  metric 256  expires 21334336sec mtu 1500 advmss 1440 hoplimit 4294967295
-fe80::/64 dev tun6to4  metric 256  expires 21334342sec mtu 1480 advmss 1420 hoplimit 4294967295
-ff00::/8 dev eth1  metric 256  expires 21334336sec mtu 1500 advmss 1440 hoplimit 4294967295
-ff00::/8 dev tun6to4  metric 256  expires 21334342sec mtu 1480 advmss 1420 hoplimit 4294967295
-ff00::/8 dev eth0  metric 256  expires 21332676sec mtu 1500 advmss 1440 hoplimit 4294967295
-unreachable default dev lo  proto none  metric -1  error -101 hoplimit 255
+Brice
 
--- 
-Meelis Roos (mroos@linux.ee)
