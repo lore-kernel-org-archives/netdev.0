@@ -1,47 +1,33 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] e1000: endian fixes
-Date: Tue, 16 May 2006 02:54:32 +0400
-Message-ID: <20060515225432.GG10143@mipter.zuzino.mipt.ru>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] changing value of NETDEV_ALIGN to cacheline size
+Date: Mon, 15 May 2006 16:01:56 -0700
+Message-ID: <44690864.1000706@hp.com>
+References: <20060515080258.bdcfba5f.rdunlap@xenotime.net>	<20060515.143011.36635008.davem@davemloft.net>	<4468F50B.9000102@hp.com> <20060515.154955.114682456.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cramerj@intel.com, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, borntrae@de.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:60429 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1750712AbWEOWzo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 18:55:44 -0400
-Received: by nf-out-0910.google.com with SMTP id g2so19084nfe
-        for <netdev@vger.kernel.org>; Mon, 15 May 2006 15:55:42 -0700 (PDT)
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Received: from palrel11.hp.com ([156.153.255.246]:23434 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S1750724AbWEOXB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 19:01:59 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060515.154955.114682456.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+David S. Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Mon, 15 May 2006 14:39:23 -0700
+> 
+> 
+>>How about:
+> 
+> 
+> How about, just leave it alone? :-)
 
- drivers/net/e1000/e1000_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+That would work too :) but I guess I figured based on the reason given 
+just before I posted, for why setting to L1_CACHE_SIZE was wrong that 
+there was an implication that tweaking it might be right.
 
---- 1/drivers/net/e1000/e1000_main.c
-+++ 1/drivers/net/e1000/e1000_main.c
-@@ -2451,7 +2451,7 @@ e1000_tso(struct e1000_adapter *adapter,
- 
- 		hdr_len = ((skb->h.raw - skb->data) + (skb->h.th->doff << 2));
- 		mss = skb_shinfo(skb)->tso_size;
--		if (skb->protocol == ntohs(ETH_P_IP)) {
-+		if (skb->protocol == htons(ETH_P_IP)) {
- 			skb->nh.iph->tot_len = 0;
- 			skb->nh.iph->check = 0;
- 			skb->h.th->check =
-@@ -2930,7 +2930,7 @@ e1000_xmit_frame(struct sk_buff *skb, st
- 	/* Old method was to assume IPv4 packet by default if TSO was enabled.
- 	 * 82571 hardware supports TSO capabilities for IPv6 as well...
- 	 * no longer assume, we must. */
--	if (likely(skb->protocol == ntohs(ETH_P_IP)))
-+	if (likely(skb->protocol == htons(ETH_P_IP)))
- 		tx_flags |= E1000_TX_FLAGS_IPV4;
- 
- 	e1000_tx_queue(adapter, tx_ring, tx_flags,
-
+rick
