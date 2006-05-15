@@ -1,49 +1,54 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 15:12:50 -0400
-Message-ID: <1147720370.3067.14.camel@localhost.localdomain>
-References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
-	 <e4a6lq$g5v$1@sea.gmane.org>  <200605151801.06379.mb@bu3sch.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: ixp2000: handle enp2611s with two gigabit ports
+Date: Mon, 15 May 2006 12:26:13 -0700
+Message-ID: <20060515122613.6f10eb3e@localhost.localdomain>
+References: <20060426222411.GA9882@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jason Lunz <lunz@falooley.org>, netdev@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37594 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751631AbWEOTOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 15:14:45 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200605151801.06379.mb@bu3sch.de>
+Received: from smtp.osdl.org ([65.172.181.4]:51351 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751442AbWEOT1k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 15:27:40 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20060426222411.GA9882@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-05-15 at 18:01 +0200, Michael Buesch wrote:
-> On Monday 15 May 2006 17:27, you wrote:
-> > mwallis@serialmonkey.com said:
-> > > Some people are saying that instead of throwing and ACPI event we should be
-> > > either use hotplug or internally just disable the radio and somehow inform
-> > > the dscape stack that the radio has been disabled.
-> > >
-> > > What are peoples thoughts here, should we 
-> > >
-> > > A. be handling this within our drivers and doing "what the user expects" and
-> > > disabling the hardware radio, or 
-> > 
-> > On my HP laptop with bcm43xx wireless, the button disables the radio in
-> > HARDWARE, and afaict the driver has no idea about it. The driver notices
-> > that it's not connected and happily starts scanning again, unaware that
-> > anything is wrong.
+On Thu, 27 Apr 2006 00:24:11 +0200
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+
+> The ixp2000 driver for the enp2611 was developed on a board with
+> three gigabit ports, but some enp2611 models only have two ports
+> (and only one onboard PM3386.)  The current driver assumes there
+> are always three ports and so it doesn't work on the two-port
+> version of the board at all.
 > 
-> There are registers on the bcm43xx chip (0x158 and 0x49A) that indicate
-> some "Radio is hardware-disabled" state. We currently don't use that flag
-> correctly in the driver. Could you please assist me on testing if your switch
-> actually toggles the bit?
-> I think best place for this would be on irc.freenode.net #bcm-users
+> This patch adds a bit of logic to the enp2611 driver to limit the
+> number of ports to 2 if the second PM3386 isn't detected.
+> 
+> Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-When those bits get set in the register, is the radio already disabled?
-ie, for the bcm43xx chip, is it really force-disabled by the button, or
-does the driver have some control?
+This patch got mangled, that is probably why jeff didn't apply it before
+he left. I had to fix it manually.
 
-Dan
+patching file drivers/net/ixp2000/enp2611.c
+patch: **** malformed patch at line 106:
+module_init(enp2611_init_module);
 
+In this part...
 
+@@ -236,8 +240,10 @@
+ 	del_timer_sync(&link_check_timer);
+ 
+ 	ixpdev_deinit();
+-	for (i = 0; i < 3; i++)
+-		free_netdev(nds[i]);
++	for (i = 0; i < 3; i++) {
++		if (nds[i] != NULL)
+			free_netdev(nds[i]);
++	}
+ }
+ 
+ module_init(enp2611_init_module);
