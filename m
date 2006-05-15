@@ -1,40 +1,43 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 15:25:13 +0200
-Message-ID: <20060515152513.5095b2d5@griffin.suse.cz>
-References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
+Subject: Re: [PATCH wireless-dev] d80211: Don't discriminate against	802.11b
+ drivers
+Date: Mon, 15 May 2006 15:35:33 +0200
+Message-ID: <20060515153533.11491649@griffin.suse.cz>
+References: <200605042232.35446.flamingice@sourmilk.net>
+	<200605101331.39960.flamingice@sourmilk.net>
+	<20060512124703.563dacd6@griffin.suse.cz>
+	<200605121635.27959.flamingice@sourmilk.net>
+	<20060515133725.3df090af@griffin.suse.cz>
+	<1147694684.29795.30.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Cc: Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:36543 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S964847AbWEONZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 09:25:16 -0400
-To: "Mark Wallis" <mwallis@serialmonkey.com>
-In-Reply-To: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
+Received: from styx.suse.cz ([82.119.242.94]:50880 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S964896AbWEONff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 09:35:35 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1147694684.29795.30.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 May 2006 22:57:12 +1000, Mark Wallis wrote:
-> Currently, in our rt2x00 (using the devicescape stack) we are firing off an
-> ACPI event so that the hardware button can be handled in userspace. This
-> allows the user to basically do whatever they want when this button is
-> pressed - including bringing down the wireless interface. The problem here
-> is no distro's currently contain scripts to run from this event so for many
-> users it just "doesn't work" without them manually having to write scripts
-> to handle the ACPI even themselves.
+[removed some people from Cc: list as this is probably not much
+interesting for them]
 
-Distributions will need to accommodate to the way d80211 stack works
-anyway, so I see no problem with this.
+On Mon, 15 May 2006 14:04:44 +0200, Johannes Berg wrote:
+> On Mon, 2006-05-15 at 13:37 +0200, Jiri Benc wrote:
+> > bcm43xx does that. If I understand it correctly, bcm43xx driver doesn't
+> > know allowed modes until it loads firmware. And the firmware is not
+> > loaded until the device is opened (they probably have a reason for
+> > this). 
+> 
+> No, that's not right, the firmware has nothing to do with it. At least
+> not that we know of, so we treat it as all doing the same :)
 
-> B. should we be firing an ACPI event and getting the distro's to add scripts
-> so when this event is fired they bring down all the wireless interfaces.
-
-Voting for this. It brings more flexibility.
-
-This is not a problem of your card only. Is there a standard ACPI
-rf-kill event?
+Hm, so your calls to ieee80211_update_hw are probably unnecessary.
+Anyway, I'm still inclined towards not masking hw_modes by
+valid_hw_modes.
 
  Jiri
 
