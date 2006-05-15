@@ -1,40 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] SECMARK 1.1
-Date: Mon, 15 May 2006 08:43:40 +0200
-Message-ID: <4468231C.6090209@trash.net>
-References: <Pine.LNX.4.64.0605071104590.8588@d.namei> <Pine.LNX.4.64.0605140133560.5506@d.namei> <446778F0.6000705@trash.net> <Pine.LNX.4.64.0605150004590.645@d.namei> <446811D3.5080905@trash.net> <Pine.LNX.4.64.0605150153590.1275@d.namei> <446819FE.8050300@trash.net> <Pine.LNX.4.64.0605150221000.1275@d.namei> <44681F0F.9030601@trash.net> <Pine.LNX.4.64.0605150236270.1824@d.namei>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH wireless-dev] d80211: Don't discriminate against 802.11b
+ drivers
+Date: Mon, 15 May 2006 13:37:25 +0200
+Message-ID: <20060515133725.3df090af@griffin.suse.cz>
+References: <200605042232.35446.flamingice@sourmilk.net>
+	<200605101331.39960.flamingice@sourmilk.net>
+	<20060512124703.563dacd6@griffin.suse.cz>
+	<200605121635.27959.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Daniel J Walsh <dwalsh@redhat.com>,
-	Karl MacMillan <kmacmillan@tresys.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Bleher <bleher@informatik.uni-muenchen.de>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Jouni Malinen" <jkm@devicescape.com>, netdev@vger.kernel.org,
+	jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42886 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932343AbWEOGnn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 02:43:43 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0605150236270.1824@d.namei>
+Received: from styx.suse.cz ([82.119.242.94]:54457 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S964888AbWEOLh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 07:37:28 -0400
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200605121635.27959.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> On Mon, 15 May 2006, Patrick McHardy wrote:
-> 
-> 
->>But if you don't specify --track, the module loader will still have to
->>resolve the symbol, so it gets loaded anyway, before your code will
->>even run. Just look at need_conntrack():
-> 
-> 
-> Doh.  It should be try_module_get().  Sound ok?
+On Fri, 12 May 2006 16:35:27 -0400, Michael Wu wrote:
+> Hm, so why not add something that will tell you what modes are supported by 
+> the hardware?
 
-try_module_get already needs a module reference, so this won't work
-either. As far as I can tell the only thing you can do besides
-putting it in a seperate module is to manually call request_module().
+Sounds reasonable.
 
+> Only problem with this patch is if the hardware adds any modes after 
+> registration, they will be disabled initially. Hopefully, no drivers will 
+> actually need to do that.
+
+bcm43xx does that. If I understand it correctly, bcm43xx driver doesn't
+know allowed modes until it loads firmware. And the firmware is not
+loaded until the device is opened (they probably have a reason for
+this).
+
+This issue can be easily solved by not masking hw_modes by
+valid_hw_modes in ieee80211_ioctl_prism2_param and
+ieee80211_precalc_modes. Just check (hw_modes & valid_hw_modes) instead
+of hw_modes in ieee80211_sta_scan_timer.
+
+And yes, hw_modes is a confusing name. It should be named
+hw_modes_mask_disabled_by_user or so. Maybe at least some better comment
+about this in ieee80211_i.h won't be a bad idea.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
