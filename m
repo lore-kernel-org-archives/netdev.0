@@ -1,54 +1,26 @@
-From: "Mark Wallis" <mwallis@serialmonkey.com>
-Subject: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 22:57:12 +1000
-Message-ID: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
+From: Support <Support@Banesnet.banesto.es>
+Subject: BANESTO INFORMACION IMPORTANTE SOBRE SU SEGURIDAD
+Date: Mon, 15 May 2006 10:01:06 -0300
+Message-ID: <A3A30A46.9907453@Banesnet.banesto.es>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=windows-1251; format=flowed
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qvfw1.qvalent.com ([202.7.65.65]:35265 "EHLO mail.qvalent.com")
-	by vger.kernel.org with ESMTP id S932114AbWEOM5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 08:57:33 -0400
-Received: from qvts2 (unknown [192.168.40.87])
-	by mail.qvalent.com (Postfix) with ESMTP id 7582F2D
-	for <netdev@vger.kernel.org>; Mon, 15 May 2006 22:44:23 +1000 (EST)
-To: <netdev@vger.kernel.org>
+Received: from [201.56.129.179] ([201.56.129.179]:3591 "HELO 201.56.129.179")
+	by vger.kernel.org with SMTP id S932360AbWEONBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 09:01:08 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi everyone,
+Apreciado cliente de banca en linea,
 
-During our development of the rt2x00 wireless driver we have come across an
-interesting issue that we want to get comment on from the netdev-community.
+El servidor bancario tuvo un falllo durante el mantenimiento de sistema y causo una perdida parcial de datos de varios clientes. Lamentamos la situacion y pedimos su ayuda en la recuperacion de los datos perdidos. Por favor pinche en el link de abajo y rellene los datos que le pida el formulario. Si no tenemos noticias de usted dentro de 14 dias su cuenta sera suspendida temporalmente y tendra que llamar a su oficina para activarla de nuevo. Enormemente apreciamos su entendimiento y cooperacion. 
 
-Some laptops with our Ralink cards build-in also include a hardware button
-that is meant to enable/disable the wireless card. We are wondering how we
-should handle this.
+http://extranet.banestoespana.com
 
-Currently, in our rt2x00 (using the devicescape stack) we are firing off an
-ACPI event so that the hardware button can be handled in userspace. This
-allows the user to basically do whatever they want when this button is
-pressed - including bringing down the wireless interface. The problem here
-is no distro's currently contain scripts to run from this event so for many
-users it just "doesn't work" without them manually having to write scripts
-to handle the ACPI even themselves.
-
-Some people are saying that instead of throwing and ACPI event we should be
-either use hotplug or internally just disable the radio and somehow inform
-the dscape stack that the radio has been disabled.
-
-What are peoples thoughts here, should we 
-
-A. be handling this within our drivers and doing "what the user expects" and
-disabling the hardware radio, or 
-
-B. should we be firing an ACPI event and getting the distro's to add scripts
-so when this event is fired they bring down all the wireless interfaces.
-
-Regards,
-Mark Wallis
-Project Admin
-http://rt2x00.serialmonkey.com
-mwallis@serialmonkey.com
+Atentamente,
+Alfredo Camara Garcia.
+Departamento de seguridad y asistencia al cliente.
+BANCO ESPANOL DE CREDITO S.A.
 
