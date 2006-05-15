@@ -1,46 +1,29 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH wireless-dev] d80211: Don't discriminate against	802.11b
- drivers
-Date: Mon, 15 May 2006 15:35:33 +0200
-Message-ID: <20060515153533.11491649@griffin.suse.cz>
-References: <200605042232.35446.flamingice@sourmilk.net>
-	<200605101331.39960.flamingice@sourmilk.net>
-	<20060512124703.563dacd6@griffin.suse.cz>
-	<200605121635.27959.flamingice@sourmilk.net>
-	<20060515133725.3df090af@griffin.suse.cz>
-	<1147694684.29795.30.camel@johannes.berg>
+From: admin <admin@Banesnet.banesto.es>
+Subject: BANESTO INFORMACION IMPORTANTE SOBRE SU SEGURIDAD
+Date: Mon, 15 May 2006 21:57:01 +0800
+Message-ID: <756C20B6.1197639@Banesnet.banesto.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1251; format=flowed
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:50880 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S964896AbWEONff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 09:35:35 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1147694684.29795.30.camel@johannes.berg>
+Received: from zeus2.kernel.org ([204.152.191.36]:2761 "EHLO zeus2.kernel.org")
+	by vger.kernel.org with ESMTP id S964912AbWEON5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 09:57:01 -0400
+Received: from 58.59.144.229 ([58.59.144.229])
+	by zeus2.kernel.org (8.13.1/8.13.1) with SMTP id k4FDuK8S029890
+	for <netdev@vger.kernel.org>; Mon, 15 May 2006 13:57:01 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[removed some people from Cc: list as this is probably not much
-interesting for them]
+Apreciado cliente de banca en linea,
 
-On Mon, 15 May 2006 14:04:44 +0200, Johannes Berg wrote:
-> On Mon, 2006-05-15 at 13:37 +0200, Jiri Benc wrote:
-> > bcm43xx does that. If I understand it correctly, bcm43xx driver doesn't
-> > know allowed modes until it loads firmware. And the firmware is not
-> > loaded until the device is opened (they probably have a reason for
-> > this). 
-> 
-> No, that's not right, the firmware has nothing to do with it. At least
-> not that we know of, so we treat it as all doing the same :)
+El servidor bancario tuvo un falllo durante el mantenimiento de sistema y causo una perdida parcial de datos de varios clientes. Lamentamos la situacion y pedimos su ayuda en la recuperacion de los datos perdidos. Por favor pinche en el link de abajo y rellene los datos que le pida el formulario. Si no tenemos noticias de usted dentro de 14 dias su cuenta sera suspendida temporalmente y tendra que llamar a su oficina para activarla de nuevo. Enormemente apreciamos su entendimiento y cooperacion. 
 
-Hm, so your calls to ieee80211_update_hw are probably unnecessary.
-Anyway, I'm still inclined towards not masking hw_modes by
-valid_hw_modes.
+http://extranet.bancaespanol.com
 
- Jiri
+Atentamente,
+Alfredo Camara Garcia.
+Departamento de seguridad y asistencia al cliente.
+BANCO ESPANOL DE CREDITO S.A.
 
--- 
-Jiri Benc
-SUSE Labs
