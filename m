@@ -1,82 +1,79 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Hardware button support for Wireless cards
-Date: Mon, 15 May 2006 10:37:35 -0400
-Message-ID: <1147703855.2193.47.camel@localhost.localdomain>
-References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [RFC] changing value of NETDEV_ALIGN to cacheline size
+Date: Mon, 15 May 2006 08:02:58 -0700
+Message-ID: <20060515080258.bdcfba5f.rdunlap@xenotime.net>
+References: <200605151408.29688.borntrae@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Zeuthen <davidz@redhat.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:32484 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S964950AbWEOOj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 10:39:28 -0400
-To: Mark Wallis <mwallis@serialmonkey.com>
-In-Reply-To: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
+Received: from xenotime.net ([66.160.160.81]:20133 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S1751470AbWEOPAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 11:00:32 -0400
+Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 15 May 2006 08:00:29 -0700
+To: Christian Borntraeger <borntrae@de.ibm.com>
+In-Reply-To: <200605151408.29688.borntrae@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-05-15 at 22:57 +1000, Mark Wallis wrote:
-> Hi everyone,
+On Mon, 15 May 2006 14:08:29 +0200 Christian Borntraeger wrote:
+
+> while digging through the alloc_netdev function I asked myself why there is a
+> fixed alignment for netdevices. Is there a special reason for choosing 32? If
+> yes, I suggest to add a comment to the definition. 
 > 
-> Currently, in our rt2x00 (using the devicescape stack) we are firing off an
-> ACPI event so that the hardware button can be handled in userspace. This
-> allows the user to basically do whatever they want when this button is
-> pressed - including bringing down the wireless interface. The problem here
-> is no distro's currently contain scripts to run from this event so for many
-> users it just "doesn't work" without them manually having to write scripts
-> to handle the ACPI even themselves.
+> If not, I suspect cacheline alignment might be beneficial:
+> struct net_device contains several variables which are cache aligned 
+> (poll_list, queue_lock .....). As far as I can see, the compiler tries to 
+> increase the size of the structure to make that possible, but expects the
+> whole structure to be aligned to cache line size as well. With the current
+> value for NETDEV_ALIGN we dont align "struct net_device" to the cache line,
+> instead we align it to 32 bytes. That means that poll_list, queue_lock and 
+> friends are not always cache aligned, but 32 bytes aligned.
 > 
-> Some people are saying that instead of throwing and ACPI event we should be
-> either use hotplug or internally just disable the radio and somehow inform
-> the dscape stack that the radio has been disabled.
+> The only reason why everything worked so far is the slab allocator design, 
+> which gives us a page aligned struct net_device in most cases. I think we 
+> should not rely on the behaviour of the memory allocator and use a different 
+> value for NETDEV_ALIGN instead. Any comments or corrections?
 > 
-> What are peoples thoughts here, should we 
+> cheers Christian
 > 
-> A. be handling this within our drivers and doing "what the user expects" and
-> disabling the hardware radio, or 
+> 
+> 
+> The patch below is compile and boot tested on s390 and x86.
+> 
+> Signed-off-by: Christian Borntraeger <borntrae@de.ibm.com>
+> 
+> include/linux/netdevice.h |    2 +-
+> net/core/dev.c            |    2 +-
+> 2 files changed, 2 insertions(+), 2 deletions(-)
+> ----------
+> 
+> --- a/include/linux/netdevice.h	4 Apr 2006 07:25:47 -0000
+> +++ b/include/linux/netdevice.h	15 May 2006 11:06:05 -0000
+> @@ -504,7 +504,7 @@
+>  	struct class_device	class_dev;
+>  };
+>  
+> -#define	NETDEV_ALIGN		32
+> +#define	NETDEV_ALIGN		L1_CACHE_BYTES
+>  #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
 
-> B. should we be firing an ACPI event and getting the distro's to add scripts
-> so when this event is fired they bring down all the wireless interfaces.
+I don't know about the fixed value of 32, but if this patch is
+accepted, I'd prefer NETDEV_ALIGN_MASK instead of NETDEV_ALIGN_CONST.
 
-(had this issue in the back of my head for a while already...)
+>  static inline void *netdev_priv(struct net_device *dev)
+> --- a/net/core/dev.c	4 Apr 2006 07:25:50 -0000
+> +++ b/net/core/dev.c	15 May 2006 11:06:05 -0000
+> @@ -2986,7 +2986,7 @@
+>  	struct net_device *dev;
+>  	int alloc_size;
+>  
+> -	/* ensure 32-byte alignment of both the device and private area */
+> +	/* ensure cacheline alignment of both the device and private area */
+>  	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
+>  	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
 
-Isn't the rf-kill switch specific to the manufacturer lots of times?  Is
-the switch connected directly to the card, or is it incumbent on the
-driver to notice the event and disable the card via software?  We need
-to handle this for Bluetooth too, in situations where there's both a
-bluetooth and an 802.11 card in the box.  Does the rf-kill apply to
-both?  Or just to one?
-
-WRT to disabling the radio, I'm not sure it makes a difference either
-way.  Hitting a button generally means "do this _NOW_", so it makes
-sense for the driver to disable the radio and then send out the event.
-Apps need to be able to deal with these resources going out from
-underneath them, and I'm not sure it makes sense to wait around for some
-scripts to run that just might possibly at some future point disable it,
-but you're never sure.
-
-In the end, an ACPI event is probably fine.  I must stress that we NEED
-to have a common event structure for this, such that every driver and
-card presents the same interface.  I don't want to have to write stuff
-for each of 3 or 4 different cards to notice the rf-kill stuff.  Witness
-all the extra binaries that each driver has already for this sort of
-thing.  What interface does the ipw[2|3]xxx driver and hardware present?
-What common bits can be drawn out from both?
-
-Ideally, here's what would happen:  the driver/card/whatever generates
-an ACPI event, which is noticed by HAL.  HAL sets a property on the
-_exact_ device which the event is for, and propagates the signal out
-over dbus.  Any interested application can listen for, and respond to,
-the rf-kill signal.  (or, the event can be handled by acpid and the
-distro can run scripts for it.  01dsk001.  whatever)
-
-But this means a few things.  We need:
-
-1) common interface/signal for _all_ cards and drivers
-2) Enough information to identify which specific pci/pcmcia/etc device
-the event is for (or system-wide?)
-
-Dan
-
-
+---
+~Randy
