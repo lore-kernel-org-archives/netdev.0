@@ -1,43 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] tcpdump may trace some outbound packets twice.
-Date: Mon, 15 May 2006 23:41:52 +0200
-Message-ID: <4468F5A0.3040404@trash.net>
-References: <20060514031034.5d0396e7.akpm@osdl.org>	<20060514.134231.101346572.davem@davemloft.net>	<Pine.LNX.4.56.0605151409110.25064@ranjit.corp.google.com> <20060515.142645.94689626.davem@davemloft.net>
+From: Jouni Malinen <jkm@devicescape.com>
+Subject: Re: SIOCSIWESSID + SIOCSIWAP behaviour
+Date: Mon, 15 May 2006 14:40:14 -0700
+Message-ID: <20060515214014.GA12019@instant802.com>
+References: <4467BD47.5040000@gentoo.org> <1147663779.2204.27.camel@localhost.localdomain> <20060515202813.GA7400@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: ranjitm@google.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>, Daniel Drake <dsd@gentoo.org>,
+	Jouni Malinen <jkmaline@cc.hut.fi>, netdev@vger.kernel.org,
+	softmac-dev@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:29655 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S964920AbWEOVlx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 17:41:53 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060515.142645.94689626.davem@davemloft.net>
+Received: from dhost002-75.dex002.intermedia.net ([64.78.20.105]:42550 "EHLO
+	DHOST002-75.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S964996AbWEOVns (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 May 2006 17:43:48 -0400
+To: Jean Tourrilhes <jt@hpl.hp.com>
+Content-Disposition: inline
+In-Reply-To: <20060515202813.GA7400@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Ranjit Manomohan <ranjitm@google.com>
-> Date: Mon, 15 May 2006 14:19:06 -0700 (PDT)
-> 
-> 
->>Heres a new version which does a copy instead of the clone to avoid
->>the double cloning issue.
-> 
-> 
-> I still very much dislike this patch because it is creating
-> 1 more clone per packet than is actually necessary and that
-> is very expensive.
-> 
-> dev_queue_xmit_nit() is going to clone whatever SKB you send into
-> there, so better to just bump the reference count (with skb_get())
-> instead of cloning or copying.
+On Mon, May 15, 2006 at 01:28:13PM -0700, Jean Tourrilhes wrote:
 
+> 	I believe the BSSID has to be unique. HP APs can also offer
+> multiple ESSID for the same BSSID, but they do so using different
+> BSSID. If you look at the 802.11 spec, I can't see how two different
+> virtual cells can have the same BSSID, because the BSSID is the only
+> thing that identify the cell (the ESSID is not in each packet).
 
-I think this would break the tc actions. Some actions call
-pskb_expand_head() on input, which BUGs on skb_shared(skb).
-They can't clone the skb instead because the functions
-doing that don't own it, the caller would continue with the
-old skb.
+What the standard says is somewhat irrelevant since there are APs that
+use multiple SSID with the same BSSID. I would say that it is reasonable
+for users to expect that this works with Linux, too.
+
+> 	Personally, I think that SIWAP is too tricky to use properly
+> for most users, so we should encourage them to not use it.
+
+Keep in mind that it is also used by some programs (e.g., wpa_supplicant
+in ap_scan=1) without the user having to know anything about that level
+of details..
+
+> 	There is still a performance issue. Having to cancel and
+> restart associations waste CPU cycles. One way to deal with that would
+> be to improve the "commit" strategy of the Wireless API. Basically,
+> every time you do a set, you schedule or reschedule the "commit" ioctl
+> to happen in a few dozen ms. This way, you could bundle all the
+> settting of apps such as wpa_supplicant with only a single
+> commit. This is similar to the way the routing API works.
+
+Number of drivers use an atomic "associate" command (usually, a private
+ioctl) with wpa_supplicant. If there were a standard way of doing that,
+it could be helpful.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
