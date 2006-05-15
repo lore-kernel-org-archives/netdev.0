@@ -1,65 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] changing value of NETDEV_ALIGN to cacheline size
-Date: Mon, 15 May 2006 14:58:28 -0700
-Message-ID: <20060515145828.662bba1f@localhost.localdomain>
-References: <200605151408.29688.borntrae@de.ibm.com>
-	<20060515080258.bdcfba5f.rdunlap@xenotime.net>
-	<20060515.143011.36635008.davem@davemloft.net>
-	<4468F50B.9000102@hp.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: send(), sendmsg(), sendto() not thread-safe
+Date: Mon, 15 May 2006 15:49:39 -0700 (PDT)
+Message-ID: <20060515.154939.28171388.davem@davemloft.net>
+References: <OFE8460E54.0C8D85D8-ON8525716F.0074F22F-8825716F.0076D537@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, rdunlap@xenotime.net,
-	borntrae@de.ibm.com, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29135 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964955AbWEOV6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 17:58:41 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <4468F50B.9000102@hp.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9617
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750708AbWEOWtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 May 2006 18:49:43 -0400
+To: mark1smi@us.ibm.com
+In-Reply-To: <OFE8460E54.0C8D85D8-ON8525716F.0074F22F-8825716F.0076D537@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 May 2006 14:39:23 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+From: Mark A Smith <mark1smi@us.ibm.com>
+Date: Mon, 15 May 2006 14:39:06 -0700
 
-> David S. Miller wrote:
-> > From: "Randy.Dunlap" <rdunlap@xenotime.net>
-> > Date: Mon, 15 May 2006 08:02:58 -0700
-> > 
-> > 
-> >>>-#define	NETDEV_ALIGN		32
-> >>>+#define	NETDEV_ALIGN		L1_CACHE_BYTES
-> >>> #define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
-> >>
-> >>I don't know about the fixed value of 32, but if this patch is
-> >>accepted, I'd prefer NETDEV_ALIGN_MASK instead of NETDEV_ALIGN_CONST.
-> > 
-> > 
-> > The reason it's 32 is that old drivers depended on the
-> > struct being at least 32-byte aligned because they would
-> > embed structures DMA'd to/from the card in their private
-> > area and just assumed that would be aligned enough for
-> > the card's restrictions.
-> > 
-> > So setting it to L1_CACHE_BYTES would be wrong, because if
-> > that happens to be less than 32 it would violate said
-> > assumption which we are catering to.
-> 
-> How about:
-> 
-> #define NETDEV_ALIGN_MIN 32
-> #if L1_CACHE_BYTES > NETDEV_ALIGN_MIN
-> # define NETDEV_ALIGN L1_CACHE_BYTES
-> #else
-> # define NETDEV_ALIGN NETDEV_ALIGN_MIN
-> #endif
-> 
+> I discovered that in some cases, send(), sendmsg(), and sendto() are not
+> thread-safe. Although the man page for these functions does not specify
+> whether these functions are supposed to be thread-safe, my reading of the
+> POSIX/SUSv3 specification tells me that they should be. I traced the
+> problem to tcp_sendmsg(). I was very curious about this issue, so I wrote
+> up a small page to describe in more detail my findings. You can find it at:
+> http://www.almaden.ibm.com/cs/people/marksmith/sendmsg.html .
 
-I can't see how adding more padding could help performance here.
-Most drivers reference both parts (netdevice and netdev_priv) in
-most code paths. So having the stuff on separate cache lines couldn't
-help that much. 
+I don't understand why the desire is so high to ensure that
+individual threads get "atomic" writes, you can't even ensure
+that in the general case.
 
-Alternatively, there might be a performance gain if the netdevice stats
-structure was rearranged so the rx and tx stats were on different cache lines.
+Only sloppy programs that don't do their own internal locking hit into
+issues in this area.
+
+>From your findings, the vast majority of systems you investigated do
+not provide "atomic" thread safe write semantics over TCP sockets.
+And frankly, BSD defines BSD socket semantics here not some wording in
+the POSIX standards.
+
+Finally, this discussion belongs on the networking development mailing
+list, netdev@vger.kernel.org, not linux-kernel.
