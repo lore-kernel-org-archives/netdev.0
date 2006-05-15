@@ -1,32 +1,42 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Patches from Marcin Juszkiewicz
-Date: Mon, 15 May 2006 16:06:21 -0400
-Message-ID: <20060515200616.GB424@tuxdriver.com>
-References: <1147466610.8478.41.camel@dv>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: iptables broken on ppc (ptrace too?) (2.6.17-rc3)
+Date: Mon, 15 May 2006 23:07:59 +0300 (EEST)
+Message-ID: <Pine.SOC.4.61.0605152300320.17100@math.ut.ee>
+References: <Pine.SOC.4.61.0605141822260.26018@math.ut.ee> <446765CC.8020500@trash.net>
+ <Pine.SOC.4.61.0605152028420.9077@math.ut.ee> <4468CB51.4060707@trash.net>
+ <Pine.SOC.4.61.0605152227290.8543@math.ut.ee> <4468D823.5090802@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	David Gibson <hermes@gibson.dropbear.id.au>,
-	Marcin Juszkiewicz <linux-arm@hrw.one.pl>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:8976 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S965181AbWEOUGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 16:06:45 -0400
-To: Pavel Roskin <proski@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1147466610.8478.41.camel@dv>
+Received: from math.ut.ee ([193.40.36.2]:12793 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S965206AbWEOUIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 16:08:02 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4468D823.5090802@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 12, 2006 at 04:43:30PM -0400, Pavel Roskin wrote:
+> Ah OK, I thought it was related to the new compat code, but that isn't
+> the case. Your trace doesn't give much clues, except that it shows that
+> iptables dies with a SIGSEGV, which might be a bug in userspace or in
+> the kernel. Which was the last kernel that worked for you, and can you
+> try that version again to rule out userspace bugs?
 
-> As a co-maintainer of Orinoco driver, I'd like to ask the netdev team
-> not to apply any patch from Marcin Juszkiewicz touching the Orinoco
-> driver without my or David's explicit approval.
+It's a fresh install in the new role with a new HDD and 2 NICs for a 
+firewall so I have not tried earlier kernels with iptables. I do have 
+sarge's 2.6.8 also working on that machine but not the kernels from 
+testing and unstable (2.5.15 and 2.6.16) because the lack of prep 
+support at the moment. I could problably compile some intermediate 
+kernels but I haven't tested even the working 2.6.8 first with iptables 
+yet.
 
-I plan to honor this request.  Are there any objections?
+I will be away tomorrow but can test some kernels the day after 
+tomorrow. Only some of them because it's not a fast compile engine.
 
-John
+It only SIGSEGVs when ptraced and just gets Invalid Argument errors when 
+not traced so this SEGV may be something different (perhaps ptrace 
+related).
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+Meelis Roos (mroos@linux.ee)
