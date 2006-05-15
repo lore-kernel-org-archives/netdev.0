@@ -1,43 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: iptables broken on ppc (ptrace too?) (2.6.17-rc3)
-Date: Mon, 15 May 2006 20:41:21 +0200
-Message-ID: <4468CB51.4060707@trash.net>
-References: <Pine.SOC.4.61.0605141822260.26018@math.ut.ee> <446765CC.8020500@trash.net> <Pine.SOC.4.61.0605152028420.9077@math.ut.ee>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Hardware button support for Wireless cards
+Date: Mon, 15 May 2006 15:12:50 -0400
+Message-ID: <1147720370.3067.14.camel@localhost.localdomain>
+References: <!~!UENERkVCMDkAAQACAAAAAAAAAAAAAAAAAC4AAAAAAAAAWMRZS97Em0WybTChcxl4cAEALirLb4lrrkmZC6EvT+GpyAAAAABE9gAAEAAAALs6jNngvN9OooViTUM1CgIBAAAAAA==@serialmonkey.com>
+	 <e4a6lq$g5v$1@sea.gmane.org>  <200605151801.06379.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jason Lunz <lunz@falooley.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50631 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965143AbWEOSlY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 14:41:24 -0400
-To: Meelis Roos <mroos@linux.ee>
-In-Reply-To: <Pine.SOC.4.61.0605152028420.9077@math.ut.ee>
+Received: from mx1.redhat.com ([66.187.233.31]:37594 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751631AbWEOTOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 15:14:45 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200605151801.06379.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Meelis Roos wrote:
->>> Iptables seems to be broken on ppc for me. Kernel 2.6.17-rc3 (currently
->>> compiling rc4+git). 32-bit ppc, ARCH=ppc with PReP target. Iptables
->>> userland binary is from the latest Debian unstable (1.3.3-2).
->>>
->>> The symptoms: iptables usually just tells Invalid Argument on any
->>> modification attempt. I'm trying to set up a simple one-rule NAT for
->>> test:
->>> iptables -t nat -A POSTROUTING -s 172.30.0.0/24 -j SNAT --to 10.0.0.1
->>> and it usually fails but has succeeded 2 times (I now have 2 rules of
->>> this kind and they seem to just wotk once set up). Trying to delete the
->>> second rule (either by replacing -A with -D or using just -D 2) gives
->>> the same error.
->>
->>
->>
->> This should already be fixed in -rc4.
+On Mon, 2006-05-15 at 18:01 +0200, Michael Buesch wrote:
+> On Monday 15 May 2006 17:27, you wrote:
+> > mwallis@serialmonkey.com said:
+> > > Some people are saying that instead of throwing and ACPI event we should be
+> > > either use hotplug or internally just disable the radio and somehow inform
+> > > the dscape stack that the radio has been disabled.
+> > >
+> > > What are peoples thoughts here, should we 
+> > >
+> > > A. be handling this within our drivers and doing "what the user expects" and
+> > > disabling the hardware radio, or 
+> > 
+> > On my HP laptop with bcm43xx wireless, the button disables the radio in
+> > HARDWARE, and afaict the driver has no idea about it. The driver notices
+> > that it's not connected and happily starts scanning again, unaware that
+> > anything is wrong.
 > 
-> 
-> Unfortunately it was still there with yesterdays rc4+git.
+> There are registers on the bcm43xx chip (0x158 and 0x49A) that indicate
+> some "Radio is hardware-disabled" state. We currently don't use that flag
+> correctly in the driver. Could you please assist me on testing if your switch
+> actually toggles the bit?
+> I think best place for this would be on irc.freenode.net #bcm-users
+
+When those bits get set in the register, is the radio already disabled?
+ie, for the bcm43xx chip, is it really force-disabled by the button, or
+does the driver have some control?
+
+Dan
 
 
-I may have misinterpreted your report - are you running a 32bit or 64bit
-kernel?
