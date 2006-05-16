@@ -1,67 +1,140 @@
-From: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
-Subject: [PATCH 3/6] new pcmcia IDs for hostap - NETGEAR MA701
-Date: Tue, 16 May 2006 16:21:21 +0200
-Message-ID: <200605161621.22459.linux-arm@hrw.one.pl>
+From: "Angelo P. Castellani" <angelo.castellani+lkml@gmail.com>
+Subject: [PATCH] Enabling standard compliant behaviour in the Linux TCP implementation
+Date: Tue, 16 May 2006 16:24:22 +0200
+Message-ID: <8dd26e70605160724j784cf538v59631cf571646f36@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkmaline@cc.hut.fi>, Pavel Roskin <proski@gnu.org>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_31290_32192399.1147789462921"
+Cc: francesco@net.infocom.uniroma1.it, andrea.baiocchi@uniroma1.it
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from v813.rev.tld.pl ([195.149.226.213]:62674 "EHLO
-	smtp.host4.kei.pl") by vger.kernel.org with ESMTP id S1751139AbWEPOVx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 10:21:53 -0400
+Received: from nz-out-0102.google.com ([64.233.162.192]:27627 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1751113AbWEPOYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 10:24:25 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so158106nzf
+        for <netdev@vger.kernel.org>; Tue, 16 May 2006 07:24:23 -0700 (PDT)
 To: netdev@vger.kernel.org
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One more Prism2 card which works with HostAP.
+------=_Part_31290_32192399.1147789462921
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Platform: Sharp Zaurus SL-5500 running 2.4.18 + hostap_cs 0.4.7
+Hi all,
+I'm a student doing a thesis about TCP performance over high BDP links
+and so about congestion control in TCP.
 
-root@collie:~# cardctl ident
-Socket 0:
-  product info: "NETGEAR", "MA701 Wireless CF Card", ""
-  manfid: 0xd601, 0x0002
-  function: 6 (network)
+To do this work I've built a testbed using the latest Linux release (2.6.16=
+).
 
-root@collie:~# iwconfig wlan0
-wlan0     Link encap:Ethernet  HWaddr 00:0F:B5:DE:41:CE
-          inet addr:135.82.8.139  Bcast:135.82.255.255  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:56 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:40 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:7449 (7.2 KiB)  TX bytes:7250 (7.0 KiB)
-          Interrupt:35
+Anyway I've came across the fact that Linux TCP implementation isn't
+fully standard compliant.
 
-Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+Even if the choices made to be different from the standards have been
+wisely thought, I think that should be possible to disable these
+Linuxisms.
 
----
- drivers/net/wireless/hostap/hostap_cs.c |    2 ++
- 1 file changed, 2 insertions(+)
+Surely this can help all the people using Linux to evaluate a
+"standard" environment.
 
-Index: linux/drivers/net/wireless/hostap/hostap_cs.c
-===================================================================
---- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-16 
-16:09:26.000000000 +0200
-+++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-16 
-16:10:35.000000000 +0200
-@@ -927,6 +927,8 @@
- 		0x78fc06ee, 0x45a50c1e, 0xa57adb8c, 0x00000000),
- 	PCMCIA_DEVICE_PROD_ID12("D-Link", "DCF-660W",
- 		0x1a424a1c, 0xe78b6dcc),
-+	PCMCIA_DEVICE_PROD_ID12("NETGEAR", "MA701 Wireless CF Card",
-+		0x9aa79dc3, 0xd9ec98e),
- 	PCMCIA_DEVICE_NULL
- };
- MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
+Moreover it permits to compare the pros&cons of the Linux
+implementation against the standard one.
 
--- 
-JID: hrw-jabber.org
-Sharp Zaurus C-760 (OZ 3.5.x)
-OpenEmbedded/OpenZaurus/OPIE developer
+So I've disabled the first two Linux-specific mechanisms I've found:
+- rate halving
+- dynamic reordering metric (dynamic DupThresh)
 
-           Press any key to continue... No, no, NOT *THAT* ONE!
+These're disabled as long as net.ipv4.tcp_standard_compliant=3D1 (default: =
+0).
+
+However I don't exclude that there're more non-standard details, so I
+hope that somebody can point some more differences between Linux and
+the RFCs.
+
+Moreover NewReno is implemented in the Impatient variant (resets the
+retransmit timer only on the first partial ack), with
+net.ipv4.tcp_slow_but_steady=3D1 (default: 0) you can enable the
+Slow-but-Steady variant (resets the retransmit timer every partial
+ack).
+
+Hoping that this can be useful, I attach the patch.
+
+Regards,
+Angelo P. Castellani
+
+------=_Part_31290_32192399.1147789462921
+Content-Type: text/x-patch; name="std-compl.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="std-compl.diff"
+X-Attachment-Id: f_enac7ixf
+
+ZGlmZiAtdXJkIC4uL2xpbnV4LTIuNi4xNi1vcmlnL2luY2x1ZGUvbGludXgvc3lzY3RsLmggLi9p
+bmNsdWRlL2xpbnV4L3N5c2N0bC5oCi0tLSAuLi9saW51eC0yLjYuMTYtb3JpZy9pbmNsdWRlL2xp
+bnV4L3N5c2N0bC5oCTIwMDYtMDUtMTYgMTQ6NTM6MDIuMDAwMDAwMDAwICswMjAwCisrKyAuL2lu
+Y2x1ZGUvbGludXgvc3lzY3RsLmgJMjAwNi0wNS0xNiAxNDo1NDo1MC4wMDAwMDAwMDAgKzAyMDAK
+QEAgLTM5Nyw2ICszOTcsOCBAQAogCU5FVF9UQ1BfQ09OR19DT05UUk9MPTExMCwKIAlORVRfVENQ
+X0FCQz0xMTEsCiAJTkVUX0lQVjRfSVBGUkFHX01BWF9ESVNUPTExMiwKKwlORVRfVENQX1NUQU5E
+QVJEX0NPTVBMSUFOVCwKKwlORVRfVENQX1NMT1dfQlVUX1NURUFEWSwKIH07CiAKIGVudW0gewpk
+aWZmIC11cmQgLi4vbGludXgtMi42LjE2LW9yaWcvaW5jbHVkZS9uZXQvdGNwLmggLi9pbmNsdWRl
+L25ldC90Y3AuaAotLS0gLi4vbGludXgtMi42LjE2LW9yaWcvaW5jbHVkZS9uZXQvdGNwLmgJMjAw
+Ni0wNS0xNiAxNDo1MzowMi4wMDAwMDAwMDAgKzAyMDAKKysrIC4vaW5jbHVkZS9uZXQvdGNwLmgJ
+MjAwNi0wNS0xNiAxNDo1NTo0My4wMDAwMDAwMDAgKzAyMDAKQEAgLTIxOSw2ICsyMTksOCBAQAog
+ZXh0ZXJuIGludCBzeXNjdGxfdGNwX21vZGVyYXRlX3JjdmJ1ZjsKIGV4dGVybiBpbnQgc3lzY3Rs
+X3RjcF90c29fd2luX2Rpdmlzb3I7CiBleHRlcm4gaW50IHN5c2N0bF90Y3BfYWJjOworZXh0ZXJu
+IGludCBzeXNjdGxfdGNwX3N0YW5kYXJkX2NvbXBsaWFudDsKK2V4dGVybiBpbnQgc3lzY3RsX3Rj
+cF9zbG93X2J1dF9zdGVhZHk7CiAKIGV4dGVybiBhdG9taWNfdCB0Y3BfbWVtb3J5X2FsbG9jYXRl
+ZDsKIGV4dGVybiBhdG9taWNfdCB0Y3Bfc29ja2V0c19hbGxvY2F0ZWQ7CmRpZmYgLXVyZCAuLi9s
+aW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2NC9zeXNjdGxfbmV0X2lwdjQuYyAuL25ldC9pcHY0L3N5
+c2N0bF9uZXRfaXB2NC5jCi0tLSAuLi9saW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2NC9zeXNjdGxf
+bmV0X2lwdjQuYwkyMDA2LTA1LTE2IDE0OjUzOjAyLjAwMDAwMDAwMCArMDIwMAorKysgLi9uZXQv
+aXB2NC9zeXNjdGxfbmV0X2lwdjQuYwkyMDA2LTA1LTE2IDE0OjU3OjIzLjAwMDAwMDAwMCArMDIw
+MApAQCAtNjY0LDYgKzY2NCwyMiBAQAogCQkubW9kZQkJPSAwNjQ0LAogCQkucHJvY19oYW5kbGVy
+CT0gJnByb2NfZG9pbnR2ZWMsCiAJfSwKKwl7CisJCS5jdGxfbmFtZQk9IE5FVF9UQ1BfU1RBTkRB
+UkRfQ09NUExJQU5ULAorCQkucHJvY25hbWUJPSAidGNwX3N0YW5kYXJkX2NvbXBsaWFudCIsCisJ
+CS5kYXRhCQk9ICZzeXNjdGxfdGNwX3N0YW5kYXJkX2NvbXBsaWFudCwKKwkJLm1heGxlbgkJPSBz
+aXplb2YoaW50KSwKKwkJLm1vZGUJCT0gMDY0NCwKKwkJLnByb2NfaGFuZGxlcgk9ICZwcm9jX2Rv
+aW50dmVjLAorCX0sCisJeworCQkuY3RsX25hbWUJPSBORVRfVENQX1NMT1dfQlVUX1NURUFEWSwK
+KwkJLnByb2NuYW1lCT0gInRjcF9zbG93X2J1dF9zdGVhZHkiLAorCQkuZGF0YQkJPSAmc3lzY3Rs
+X3RjcF9zbG93X2J1dF9zdGVhZHksCisJCS5tYXhsZW4JCT0gc2l6ZW9mKGludCksCisJCS5tb2Rl
+CQk9IDA2NDQsCisJCS5wcm9jX2hhbmRsZXIJPSAmcHJvY19kb2ludHZlYywKKwl9LAogCiAJeyAu
+Y3RsX25hbWUgPSAwIH0KIH07CmRpZmYgLXVyZCAuLi9saW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2
+NC90Y3BfaW5wdXQuYyAuL25ldC9pcHY0L3RjcF9pbnB1dC5jCi0tLSAuLi9saW51eC0yLjYuMTYt
+b3JpZy9uZXQvaXB2NC90Y3BfaW5wdXQuYwkyMDA2LTA1LTE2IDE0OjUzOjAyLjAwMDAwMDAwMCAr
+MDIwMAorKysgLi9uZXQvaXB2NC90Y3BfaW5wdXQuYwkyMDA2LTA1LTE2IDE0OjUyOjQzLjAwMDAw
+MDAwMCArMDIwMApAQCAtODEsNiArODEsNyBAQAogaW50IHN5c2N0bF90Y3BfZHNhY2sgPSAxOwog
+aW50IHN5c2N0bF90Y3BfYXBwX3dpbiA9IDMxOwogaW50IHN5c2N0bF90Y3BfYWR2X3dpbl9zY2Fs
+ZSA9IDI7CitpbnQgc3lzY3RsX3RjcF9zdGFuZGFyZF9jb21wbGlhbnQgPSAwOwogCiBpbnQgc3lz
+Y3RsX3RjcF9zdGR1cmc7CiBpbnQgc3lzY3RsX3RjcF9yZmMxMzM3OwpAQCAtODU0LDcgKzg1NSw3
+IEBACiAJCQkJICBjb25zdCBpbnQgdHMpCiB7CiAJc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9z
+ayhzayk7Ci0JaWYgKG1ldHJpYyA+IHRwLT5yZW9yZGVyaW5nKSB7CisJaWYgKCFzeXNjdGxfdGNw
+X3N0YW5kYXJkX2NvbXBsaWFudCAmJiBtZXRyaWMgPiB0cC0+cmVvcmRlcmluZykgewogCQl0cC0+
+cmVvcmRlcmluZyA9IG1pbihUQ1BfTUFYX1JFT1JERVJJTkcsIG1ldHJpYyk7CiAKIAkJLyogVGhp
+cyBleGNpdGluZyBldmVudCBpcyB3b3J0aCB0byBiZSByZW1lbWJlcmVkLiA4KSAqLwpAQCAtMjAz
+OSw2ICsyMDQwLDggQEAKIAkJCWlmICghKGZsYWcmRkxBR19FQ0UpKQogCQkJCXRwLT5wcmlvcl9z
+c3RocmVzaCA9IHRjcF9jdXJyZW50X3NzdGhyZXNoKHNrKTsKIAkJCXRwLT5zbmRfc3N0aHJlc2gg
+PSBpY3NrLT5pY3NrX2NhX29wcy0+c3N0aHJlc2goc2spOworCQkJaWYgKHN5c2N0bF90Y3Bfc3Rh
+bmRhcmRfY29tcGxpYW50KQorCQkJCXRwLT5zbmRfY3duZCA9IHRwLT5zbmRfc3N0aHJlc2g7IC8v
+IHRwLT5yZW9yZGVyaW5nIHNlZ21lbnRzIHNob3VsZCd2ZSBiZWVuIGFscmVhZHkgYWRkZWQgdG8g
+c2Fja2VkX291dAogCQkJVENQX0VDTl9xdWV1ZV9jd3IodHApOwogCQl9CiAKQEAgLTIwNDksNyAr
+MjA1Miw4IEBACiAKIAlpZiAoaXNfZHVwYWNrIHx8IHRjcF9oZWFkX3RpbWVkb3V0KHNrLCB0cCkp
+CiAJCXRjcF91cGRhdGVfc2NvcmVib2FyZChzaywgdHApOwotCXRjcF9jd25kX2Rvd24oc2spOwor
+CWlmICghc3lzY3RsX3RjcF9zdGFuZGFyZF9jb21wbGlhbnQgfHwgaWNzay0+aWNza19jYV9zdGF0
+ZSA9PSBUQ1BfQ0FfQ1dSKQorCQl0Y3BfY3duZF9kb3duKHNrKTsKIAl0Y3BfeG1pdF9yZXRyYW5z
+bWl0X3F1ZXVlKHNrKTsKIH0KIApkaWZmIC11cmQgLi4vbGludXgtMi42LjE2LW9yaWcvbmV0L2lw
+djQvdGNwX291dHB1dC5jIC4vbmV0L2lwdjQvdGNwX291dHB1dC5jCi0tLSAuLi9saW51eC0yLjYu
+MTYtb3JpZy9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMJMjAwNi0wNS0xNiAxNDo1MzowMi4wMDAwMDAw
+MDAgKzAyMDAKKysrIC4vbmV0L2lwdjQvdGNwX291dHB1dC5jCTIwMDYtMDUtMTYgMTQ6NTI6NDMu
+MDAwMDAwMDAwICswMjAwCkBAIC01MSw2ICs1MSw5IEBACiAgKi8KIGludCBzeXNjdGxfdGNwX3Rz
+b193aW5fZGl2aXNvciA9IDM7CiAKKy8qIEVuYWJsZXMgdGhlIFNsb3ctYnV0LVN0ZWFkeSB2YXJp
+YW50IG9mIE5ld1Jlbm8gKGNmci4gUkZDMjU4MiBDaC40KSAqLworaW50IHN5c2N0bF90Y3Bfc2xv
+d19idXRfc3RlYWR5ID0gMDsKKwogc3RhdGljIHZvaWQgdXBkYXRlX3NlbmRfaGVhZChzdHJ1Y3Qg
+c29jayAqc2ssIHN0cnVjdCB0Y3Bfc29jayAqdHAsCiAJCQkgICAgIHN0cnVjdCBza19idWZmICpz
+a2IpCiB7CkBAIC0xNjA0LDcgKzE2MDcsNyBAQAogCQkJCQllbHNlCiAJCQkJCQlORVRfSU5DX1NU
+QVRTX0JIKExJTlVYX01JQl9UQ1BTTE9XU1RBUlRSRVRSQU5TKTsKIAotCQkJCQlpZiAoc2tiID09
+CisJCQkJCWlmIChzeXNjdGxfdGNwX3Nsb3dfYnV0X3N0ZWFkeSB8fCBza2IgPT0KIAkJCQkJICAg
+IHNrYl9wZWVrKCZzay0+c2tfd3JpdGVfcXVldWUpKQogCQkJCQkJaW5ldF9jc2tfcmVzZXRfeG1p
+dF90aW1lcihzaywgSUNTS19USU1FX1JFVFJBTlMsCiAJCQkJCQkJCQkgIGluZXRfY3NrKHNrKS0+
+aWNza19ydG8sCg==
+------=_Part_31290_32192399.1147789462921--
