@@ -1,37 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [1/1] netchannel subsystem.
-Date: Tue, 16 May 2006 00:06:31 -0700 (PDT)
-Message-ID: <20060516.000631.12029052.davem@davemloft.net>
-References: <20060516061909.GA28670@2ka.mipt.ru>
-	<20060515.235712.26771832.davem@davemloft.net>
-	<20060516065923.GA8649@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kelly@au1.ibm.com, rusty@rustcorp.com.au
+From: "Melvin Kurtz" <tgnepajq@suada.lt>
+Subject: user information reminder
+Date: Tue, 16 May 2006 07:11:13 -0100
+Message-ID: <6.7.9.55.2.20031102833053.025b4b48@double.starnetusa.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29661
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751636AbWEPHLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 03:11:25 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060516065923.GA8649@2ka.mipt.ru>
+Received: from adsl-3-128-55.mia.bellsouth.net ([65.3.128.55]:58375 "HELO
+	adsl-3-128-55.mia.bellsouth.net") by vger.kernel.org with SMTP
+	id S1751638AbWEPHOC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 03:14:02 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Tue, 16 May 2006 10:59:23 +0400
+-S'ensationall revoolution in m'edicine!
 
-> And what if we use ESP which would place it's hashed sequence number as
-> port?
+-E'n'l'a'r'g'e your p''enis up to 10 cm or up to 4 inches!
 
-If it makes you happy put something like:
+-It's herbal solution what hasn't side effect, but has 100% guaranted results!
 
-	case TCP:
-	case UDP:
-	case SCTP:
-	case DCCP:
-	     ...
+-Don't lose your chance and but know wihtout doubts, you will be impressed with results!
 
-	default:
-	     ...
+ Clisk here: http://jljgj.info
+
+
+
+
+
+
+
+
+
+
+betoken brunt coagulable abase congolese rut constrictor tasmania acquittal ira
+globe doze comprehensible urn cartilage accountant gesture cringe scary
+observatory aboveboard cantilever oriental madstone downdraft opacity impress foci daley forklift
+appointe chaotic stargaze cardboard elfin harriman reek ky
+hattiesburg marrietta backpack ditch prosopopoeia argot cavalry presumption
+rectifier preponderate uruguay vincent lippincott borderland abelian radii
