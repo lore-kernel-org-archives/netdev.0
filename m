@@ -1,15 +1,15 @@
 From: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
-Subject: [PATCH 1/6] new pcmcia IDs for hostap - ASUS WL-110
-Date: Tue, 16 May 2006 16:21:13 +0200
-Message-ID: <200605161621.14585.linux-arm@hrw.one.pl>
+Subject: [PATCH 5/6] new pcmcia IDs for hostap - Pretec
+Date: Tue, 16 May 2006 16:21:28 +0200
+Message-ID: <200605161621.29026.linux-arm@hrw.one.pl>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
 Cc: Jouni Malinen <jkmaline@cc.hut.fi>, Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from v813.rev.tld.pl ([195.149.226.213]:60882 "EHLO
-	smtp.host4.kei.pl") by vger.kernel.org with ESMTP id S1751138AbWEPOVx
+Received: from v813.rev.tld.pl ([195.149.226.213]:65234 "EHLO
+	smtp.host4.kei.pl") by vger.kernel.org with ESMTP id S1751142AbWEPOVx
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 16 May 2006 10:21:53 -0400
 To: netdev@vger.kernel.org
@@ -17,44 +17,37 @@ Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Here's another card that would benefit from a hostap driver:
 
-Platform: HP Ipaq hx4700 running 2.6.16-hh
+I use two Zaurus palmtops - one run 2.4.18 kernel (it's sl-5500) and second 
+run 2.6.16. Both are running under control of OpenZaurus distribution 
+(I'm Release Manager of it).
 
-root@ipaq-pxa270:~# pccardctl ident
-Socket 0:
-  product info: "ASUS", "802_11B_CF_CARD_25", "Version 01.00", ""
-  manfid: 0x02aa, 0x0002
-  function: 6 (network)
+When I use pcmcia-cs then my Pretec WiFi card is handled by hostap driver
+and everything is working fine. Recently I switched to pcmciautils and after
+card insert orinoco modules are loaded. I prefer to use hostap modules
+because they work the same under 2.4 and 2.6 kernels (with orinoco I have to
+use 0.13e ones because never ones does not work under 2.4/arm).
 
-root@ipaq-pxa270:~# ifconfig wlan0
-wlan0     Link encap:Ethernet  HWaddr 00:0C:6E:F0:DA:CD
-          inet addr:172.20.0.3  Bcast:172.20.255.255  Mask:255.255.0.0
-          inet6 addr: 2001:610:600:93:20c:6eff:fef0:dacd/64 Scope:Global
-          inet6 addr: fe80::20c:6eff:fef0:dacd/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:158 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:77 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:17978 (17.5 KiB)  TX bytes:11424 (11.1 KiB)
-          Interrupt:92
+This patch adds definition of my card to hostap_cs cardlist. It was tested on
+Sharp Zaurus C760 palmtop running 2.6.16 + pcmciautils 010 + udev 084
 
 Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
 
 ---
- drivers/net/wireless/hostap/hostap_cs.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/wireless/hostap/hostap_cs.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
 Index: linux/drivers/net/wireless/hostap/hostap_cs.c
 ===================================================================
---- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-16 16:08:25.000000000 +0200
-+++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-16 16:10:38.000000000 +0200
-@@ -923,6 +923,8 @@
- 	PCMCIA_DEVICE_PROD_ID12(
- 		"ZoomAir 11Mbps High", "Rate wireless Networking",
- 		0x273fe3db, 0x32a1eaee),
-+	PCMCIA_DEVICE_PROD_ID1234("ASUS", "802_11B_CF_CARD_25", "Version 01.00", "",
-+		0x78fc06ee, 0x45a50c1e, 0xa57adb8c, 0x00000000),
+--- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-16 16:09:28.000000000 +0200
++++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-16 16:10:32.000000000 +0200
+@@ -932,6 +932,9 @@
+ 	PCMCIA_DEVICE_PROD_ID12("PLANEX COMMUNICATION INC", 
+ 			"PLANEX GW-CF11X Wireless CF Card",
+ 			0x4703cf68, 0xfad7318d),
++	PCMCIA_DEVICE_PROD_ID123(
++			"Pretec", "CompactWLAN Card 802.11b", "2.5",
++			0x1cadd3e5, 0xe697636c, 0x7a5bfcf1),
  	PCMCIA_DEVICE_NULL
  };
  MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
@@ -64,5 +57,4 @@ JID: hrw-jabber.org
 Sharp Zaurus C-760 (OZ 3.5.x)
 OpenEmbedded/OpenZaurus/OPIE developer
 
-             I do not fear computers. I fear the lack of them.
-             		-- Isaac Asimov
+         You can close your eyes to reality, but not to memories.
