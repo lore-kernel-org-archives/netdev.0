@@ -1,22 +1,23 @@
 From: Chris Boot <bootc@bootc.net>
-Subject: (unknown)
-Date: Tue, 16 May 2006 11:34:54 +0100
-Message-ID: <EA629E23-98F8-4CB0-96B0-259C2A30BDFF@bootc.net>
+Subject: KERNEL: assertion (!sk->sk_forward_alloc) failed at net/* (again)
+Date: Tue, 16 May 2006 11:38:38 +0100
+Message-ID: <16537920-30DB-4FF7-BD51-DC8517BF4321@bootc.net>
 Mime-Version: 1.0 (Apple Message framework v750)
 Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: grsecurity@grsecurity.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baldrick.bootc.net ([83.142.228.48]:47025 "EHLO
+Received: from baldrick.bootc.net ([83.142.228.48]:8892 "EHLO
 	baldrick.fusednetworks.co.uk") by vger.kernel.org with ESMTP
-	id S1751760AbWEPKe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 06:34:59 -0400
-Subject: 
+	id S1751764AbWEPKik (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 06:38:40 -0400
 To: kernel list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
+
+Sorry, no subject last time!
 
 I've just seen the following assertions pop out of one of my servers  
 running 2.6.16.9 with grsecurity. I've searched the archives of LKML  
