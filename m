@@ -1,40 +1,81 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] ipx: correct return type of ipx_map_frame_type
-Date: Tue, 16 May 2006 22:49:40 +0400
-Message-ID: <20060516184940.GL10143@mipter.zuzino.mipt.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: kernel panic (on DHCP discover?) in sky2 driver of 2.6.17-rc1
+Date: Tue, 16 May 2006 12:11:41 -0700
+Message-ID: <20060516121141.1aa7cba2@localhost.localdomain>
+References: <200604121442.56750.gthomsen@bluearc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:61283 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751876AbWEPSu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 14:50:58 -0400
-Received: by nf-out-0910.google.com with SMTP id d4so32555nfe
-        for <netdev@vger.kernel.org>; Tue, 16 May 2006 11:50:56 -0700 (PDT)
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:56715 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750746AbWEPTLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 May 2006 15:11:50 -0400
+To: Guenther Thomsen <gthomsen@bluearc.com>
+In-Reply-To: <200604121442.56750.gthomsen@bluearc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Casting BE16 to int and back may or may not work. Correct, to be sure.
+Could you try the 2.6.17-rc4 version with this patch. It turns out the board
+seems to give out of order status responses.
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+Ignore the vendor sk98lin driver, when I try the stock version it spends it's
+life resetting itself because it sets up PCI bus wrong. If I fix that, it spends
+it's time getting confused because it can't handle intermixed status reports
+properly (checksum et all is per port not per board).
 
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -944,9 +944,9 @@ out:
- 	return rc;
- }
+
+ drivers/net/sky2.c |   28 +++++++++++++++++++++-------
+ 1 files changed, 21 insertions(+), 7 deletions(-)
+
+792547bc5e8e4f7d5a1070a168056f429635c254
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index ffd267f..11e7914 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1020,8 +1020,27 @@ static int sky2_up(struct net_device *de
+ 	struct sky2_hw *hw = sky2->hw;
+ 	unsigned port = sky2->port;
+ 	u32 ramsize, rxspace, imask;
+-	int err = -ENOMEM;
++	int cap, err;
++	struct net_device *otherdev = hw->dev[sky2->port^1];
  
--static int ipx_map_frame_type(unsigned char type)
-+static __be16 ipx_map_frame_type(unsigned char type)
- {
--	int rc = 0;
-+	__be16 rc = 0;
++	/*
++	 * Reduce split transactions (and turn off) rx checksums to
++	 * prevent problems with dual ports.
++	 */
++	if (otherdev && netif_running(otherdev) &&
++	    (cap = pci_find_capability(hw->pdev, PCI_CAP_ID_PCIX))) {
++		struct sky2_port *osky2 = netdev_priv(otherdev);
++		u16 cmd;
++
++		cmd = sky2_pci_read16(hw, cap + PCI_X_CMD);
++		cmd &= ~PCI_X_CMD_MAX_SPLIT;
++		sky2_pci_write16(hw, cap + PCI_X_CMD, cmd);
++
++		sky2->rx_csum = 0;
++		osky2->rx_csum = 0;
++	}
++
++	err = -ENOMEM;
+ 	if (netif_msg_ifup(sky2))
+ 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
  
- 	switch (type) {
- 	case IPX_FRAME_ETHERII:	rc = htons(ETH_P_IPX);		break;
+@@ -3067,12 +3086,7 @@ static __devinit struct net_device *sky2
+ 	sky2->duplex = -1;
+ 	sky2->speed = -1;
+ 	sky2->advertising = sky2_supported_modes(hw);
+-
+-	/* Receive checksum disabled for Yukon XL
+-	 * because of observed problems with incorrect
+-	 * values when multiple packets are received in one interrupt
+-	 */
+-	sky2->rx_csum = (hw->chip_id != CHIP_ID_YUKON_XL);
++	sky2->rx_csum = 1;
+ 
+ 	spin_lock_init(&sky2->phy_lock);
+ 	sky2->tx_pending = TX_DEF_PENDING;
+-- 
+1.2.4
 
