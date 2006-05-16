@@ -1,140 +1,29 @@
-From: "Angelo P. Castellani" <angelo.castellani+lkml@gmail.com>
-Subject: [PATCH] Enabling standard compliant behaviour in the Linux TCP implementation
-Date: Tue, 16 May 2006 16:24:22 +0200
-Message-ID: <8dd26e70605160724j784cf538v59631cf571646f36@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 3/6] new pcmcia IDs for hostap - NETGEAR MA701
+Date: Tue, 16 May 2006 10:38:46 -0400
+Message-ID: <4469E3F6.5070302@garzik.org>
+References: <200605161621.22459.linux-arm@hrw.one.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_31290_32192399.1147789462921"
-Cc: francesco@net.infocom.uniroma1.it, andrea.baiocchi@uniroma1.it
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jouni Malinen <jkmaline@cc.hut.fi>,
+	Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.192]:27627 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751113AbWEPOYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 10:24:25 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so158106nzf
-        for <netdev@vger.kernel.org>; Tue, 16 May 2006 07:24:23 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from srv5.dvmed.net ([207.36.208.214]:48365 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751147AbWEPOiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 May 2006 10:38:50 -0400
+To: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
+In-Reply-To: <200605161621.22459.linux-arm@hrw.one.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_31290_32192399.1147789462921
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Marcin Juszkiewicz wrote:
+> One more Prism2 card which works with HostAP.
 
-Hi all,
-I'm a student doing a thesis about TCP performance over high BDP links
-and so about congestion control in TCP.
+Please roll these into a single patch.  There's no need to split it up 
+such that there is one ID per patch.
 
-To do this work I've built a testbed using the latest Linux release (2.6.16=
-).
+	Jeff
 
-Anyway I've came across the fact that Linux TCP implementation isn't
-fully standard compliant.
 
-Even if the choices made to be different from the standards have been
-wisely thought, I think that should be possible to disable these
-Linuxisms.
 
-Surely this can help all the people using Linux to evaluate a
-"standard" environment.
-
-Moreover it permits to compare the pros&cons of the Linux
-implementation against the standard one.
-
-So I've disabled the first two Linux-specific mechanisms I've found:
-- rate halving
-- dynamic reordering metric (dynamic DupThresh)
-
-These're disabled as long as net.ipv4.tcp_standard_compliant=3D1 (default: =
-0).
-
-However I don't exclude that there're more non-standard details, so I
-hope that somebody can point some more differences between Linux and
-the RFCs.
-
-Moreover NewReno is implemented in the Impatient variant (resets the
-retransmit timer only on the first partial ack), with
-net.ipv4.tcp_slow_but_steady=3D1 (default: 0) you can enable the
-Slow-but-Steady variant (resets the retransmit timer every partial
-ack).
-
-Hoping that this can be useful, I attach the patch.
-
-Regards,
-Angelo P. Castellani
-
-------=_Part_31290_32192399.1147789462921
-Content-Type: text/x-patch; name="std-compl.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="std-compl.diff"
-X-Attachment-Id: f_enac7ixf
-
-ZGlmZiAtdXJkIC4uL2xpbnV4LTIuNi4xNi1vcmlnL2luY2x1ZGUvbGludXgvc3lzY3RsLmggLi9p
-bmNsdWRlL2xpbnV4L3N5c2N0bC5oCi0tLSAuLi9saW51eC0yLjYuMTYtb3JpZy9pbmNsdWRlL2xp
-bnV4L3N5c2N0bC5oCTIwMDYtMDUtMTYgMTQ6NTM6MDIuMDAwMDAwMDAwICswMjAwCisrKyAuL2lu
-Y2x1ZGUvbGludXgvc3lzY3RsLmgJMjAwNi0wNS0xNiAxNDo1NDo1MC4wMDAwMDAwMDAgKzAyMDAK
-QEAgLTM5Nyw2ICszOTcsOCBAQAogCU5FVF9UQ1BfQ09OR19DT05UUk9MPTExMCwKIAlORVRfVENQ
-X0FCQz0xMTEsCiAJTkVUX0lQVjRfSVBGUkFHX01BWF9ESVNUPTExMiwKKwlORVRfVENQX1NUQU5E
-QVJEX0NPTVBMSUFOVCwKKwlORVRfVENQX1NMT1dfQlVUX1NURUFEWSwKIH07CiAKIGVudW0gewpk
-aWZmIC11cmQgLi4vbGludXgtMi42LjE2LW9yaWcvaW5jbHVkZS9uZXQvdGNwLmggLi9pbmNsdWRl
-L25ldC90Y3AuaAotLS0gLi4vbGludXgtMi42LjE2LW9yaWcvaW5jbHVkZS9uZXQvdGNwLmgJMjAw
-Ni0wNS0xNiAxNDo1MzowMi4wMDAwMDAwMDAgKzAyMDAKKysrIC4vaW5jbHVkZS9uZXQvdGNwLmgJ
-MjAwNi0wNS0xNiAxNDo1NTo0My4wMDAwMDAwMDAgKzAyMDAKQEAgLTIxOSw2ICsyMTksOCBAQAog
-ZXh0ZXJuIGludCBzeXNjdGxfdGNwX21vZGVyYXRlX3JjdmJ1ZjsKIGV4dGVybiBpbnQgc3lzY3Rs
-X3RjcF90c29fd2luX2Rpdmlzb3I7CiBleHRlcm4gaW50IHN5c2N0bF90Y3BfYWJjOworZXh0ZXJu
-IGludCBzeXNjdGxfdGNwX3N0YW5kYXJkX2NvbXBsaWFudDsKK2V4dGVybiBpbnQgc3lzY3RsX3Rj
-cF9zbG93X2J1dF9zdGVhZHk7CiAKIGV4dGVybiBhdG9taWNfdCB0Y3BfbWVtb3J5X2FsbG9jYXRl
-ZDsKIGV4dGVybiBhdG9taWNfdCB0Y3Bfc29ja2V0c19hbGxvY2F0ZWQ7CmRpZmYgLXVyZCAuLi9s
-aW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2NC9zeXNjdGxfbmV0X2lwdjQuYyAuL25ldC9pcHY0L3N5
-c2N0bF9uZXRfaXB2NC5jCi0tLSAuLi9saW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2NC9zeXNjdGxf
-bmV0X2lwdjQuYwkyMDA2LTA1LTE2IDE0OjUzOjAyLjAwMDAwMDAwMCArMDIwMAorKysgLi9uZXQv
-aXB2NC9zeXNjdGxfbmV0X2lwdjQuYwkyMDA2LTA1LTE2IDE0OjU3OjIzLjAwMDAwMDAwMCArMDIw
-MApAQCAtNjY0LDYgKzY2NCwyMiBAQAogCQkubW9kZQkJPSAwNjQ0LAogCQkucHJvY19oYW5kbGVy
-CT0gJnByb2NfZG9pbnR2ZWMsCiAJfSwKKwl7CisJCS5jdGxfbmFtZQk9IE5FVF9UQ1BfU1RBTkRB
-UkRfQ09NUExJQU5ULAorCQkucHJvY25hbWUJPSAidGNwX3N0YW5kYXJkX2NvbXBsaWFudCIsCisJ
-CS5kYXRhCQk9ICZzeXNjdGxfdGNwX3N0YW5kYXJkX2NvbXBsaWFudCwKKwkJLm1heGxlbgkJPSBz
-aXplb2YoaW50KSwKKwkJLm1vZGUJCT0gMDY0NCwKKwkJLnByb2NfaGFuZGxlcgk9ICZwcm9jX2Rv
-aW50dmVjLAorCX0sCisJeworCQkuY3RsX25hbWUJPSBORVRfVENQX1NMT1dfQlVUX1NURUFEWSwK
-KwkJLnByb2NuYW1lCT0gInRjcF9zbG93X2J1dF9zdGVhZHkiLAorCQkuZGF0YQkJPSAmc3lzY3Rs
-X3RjcF9zbG93X2J1dF9zdGVhZHksCisJCS5tYXhsZW4JCT0gc2l6ZW9mKGludCksCisJCS5tb2Rl
-CQk9IDA2NDQsCisJCS5wcm9jX2hhbmRsZXIJPSAmcHJvY19kb2ludHZlYywKKwl9LAogCiAJeyAu
-Y3RsX25hbWUgPSAwIH0KIH07CmRpZmYgLXVyZCAuLi9saW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2
-NC90Y3BfaW5wdXQuYyAuL25ldC9pcHY0L3RjcF9pbnB1dC5jCi0tLSAuLi9saW51eC0yLjYuMTYt
-b3JpZy9uZXQvaXB2NC90Y3BfaW5wdXQuYwkyMDA2LTA1LTE2IDE0OjUzOjAyLjAwMDAwMDAwMCAr
-MDIwMAorKysgLi9uZXQvaXB2NC90Y3BfaW5wdXQuYwkyMDA2LTA1LTE2IDE0OjUyOjQzLjAwMDAw
-MDAwMCArMDIwMApAQCAtODEsNiArODEsNyBAQAogaW50IHN5c2N0bF90Y3BfZHNhY2sgPSAxOwog
-aW50IHN5c2N0bF90Y3BfYXBwX3dpbiA9IDMxOwogaW50IHN5c2N0bF90Y3BfYWR2X3dpbl9zY2Fs
-ZSA9IDI7CitpbnQgc3lzY3RsX3RjcF9zdGFuZGFyZF9jb21wbGlhbnQgPSAwOwogCiBpbnQgc3lz
-Y3RsX3RjcF9zdGR1cmc7CiBpbnQgc3lzY3RsX3RjcF9yZmMxMzM3OwpAQCAtODU0LDcgKzg1NSw3
-IEBACiAJCQkJICBjb25zdCBpbnQgdHMpCiB7CiAJc3RydWN0IHRjcF9zb2NrICp0cCA9IHRjcF9z
-ayhzayk7Ci0JaWYgKG1ldHJpYyA+IHRwLT5yZW9yZGVyaW5nKSB7CisJaWYgKCFzeXNjdGxfdGNw
-X3N0YW5kYXJkX2NvbXBsaWFudCAmJiBtZXRyaWMgPiB0cC0+cmVvcmRlcmluZykgewogCQl0cC0+
-cmVvcmRlcmluZyA9IG1pbihUQ1BfTUFYX1JFT1JERVJJTkcsIG1ldHJpYyk7CiAKIAkJLyogVGhp
-cyBleGNpdGluZyBldmVudCBpcyB3b3J0aCB0byBiZSByZW1lbWJlcmVkLiA4KSAqLwpAQCAtMjAz
-OSw2ICsyMDQwLDggQEAKIAkJCWlmICghKGZsYWcmRkxBR19FQ0UpKQogCQkJCXRwLT5wcmlvcl9z
-c3RocmVzaCA9IHRjcF9jdXJyZW50X3NzdGhyZXNoKHNrKTsKIAkJCXRwLT5zbmRfc3N0aHJlc2gg
-PSBpY3NrLT5pY3NrX2NhX29wcy0+c3N0aHJlc2goc2spOworCQkJaWYgKHN5c2N0bF90Y3Bfc3Rh
-bmRhcmRfY29tcGxpYW50KQorCQkJCXRwLT5zbmRfY3duZCA9IHRwLT5zbmRfc3N0aHJlc2g7IC8v
-IHRwLT5yZW9yZGVyaW5nIHNlZ21lbnRzIHNob3VsZCd2ZSBiZWVuIGFscmVhZHkgYWRkZWQgdG8g
-c2Fja2VkX291dAogCQkJVENQX0VDTl9xdWV1ZV9jd3IodHApOwogCQl9CiAKQEAgLTIwNDksNyAr
-MjA1Miw4IEBACiAKIAlpZiAoaXNfZHVwYWNrIHx8IHRjcF9oZWFkX3RpbWVkb3V0KHNrLCB0cCkp
-CiAJCXRjcF91cGRhdGVfc2NvcmVib2FyZChzaywgdHApOwotCXRjcF9jd25kX2Rvd24oc2spOwor
-CWlmICghc3lzY3RsX3RjcF9zdGFuZGFyZF9jb21wbGlhbnQgfHwgaWNzay0+aWNza19jYV9zdGF0
-ZSA9PSBUQ1BfQ0FfQ1dSKQorCQl0Y3BfY3duZF9kb3duKHNrKTsKIAl0Y3BfeG1pdF9yZXRyYW5z
-bWl0X3F1ZXVlKHNrKTsKIH0KIApkaWZmIC11cmQgLi4vbGludXgtMi42LjE2LW9yaWcvbmV0L2lw
-djQvdGNwX291dHB1dC5jIC4vbmV0L2lwdjQvdGNwX291dHB1dC5jCi0tLSAuLi9saW51eC0yLjYu
-MTYtb3JpZy9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMJMjAwNi0wNS0xNiAxNDo1MzowMi4wMDAwMDAw
-MDAgKzAyMDAKKysrIC4vbmV0L2lwdjQvdGNwX291dHB1dC5jCTIwMDYtMDUtMTYgMTQ6NTI6NDMu
-MDAwMDAwMDAwICswMjAwCkBAIC01MSw2ICs1MSw5IEBACiAgKi8KIGludCBzeXNjdGxfdGNwX3Rz
-b193aW5fZGl2aXNvciA9IDM7CiAKKy8qIEVuYWJsZXMgdGhlIFNsb3ctYnV0LVN0ZWFkeSB2YXJp
-YW50IG9mIE5ld1Jlbm8gKGNmci4gUkZDMjU4MiBDaC40KSAqLworaW50IHN5c2N0bF90Y3Bfc2xv
-d19idXRfc3RlYWR5ID0gMDsKKwogc3RhdGljIHZvaWQgdXBkYXRlX3NlbmRfaGVhZChzdHJ1Y3Qg
-c29jayAqc2ssIHN0cnVjdCB0Y3Bfc29jayAqdHAsCiAJCQkgICAgIHN0cnVjdCBza19idWZmICpz
-a2IpCiB7CkBAIC0xNjA0LDcgKzE2MDcsNyBAQAogCQkJCQllbHNlCiAJCQkJCQlORVRfSU5DX1NU
-QVRTX0JIKExJTlVYX01JQl9UQ1BTTE9XU1RBUlRSRVRSQU5TKTsKIAotCQkJCQlpZiAoc2tiID09
-CisJCQkJCWlmIChzeXNjdGxfdGNwX3Nsb3dfYnV0X3N0ZWFkeSB8fCBza2IgPT0KIAkJCQkJICAg
-IHNrYl9wZWVrKCZzay0+c2tfd3JpdGVfcXVldWUpKQogCQkJCQkJaW5ldF9jc2tfcmVzZXRfeG1p
-dF90aW1lcihzaywgSUNTS19USU1FX1JFVFJBTlMsCiAJCQkJCQkJCQkgIGluZXRfY3NrKHNrKS0+
-aWNza19ydG8sCg==
-------=_Part_31290_32192399.1147789462921--
