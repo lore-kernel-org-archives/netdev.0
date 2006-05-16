@@ -1,29 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/802/tr.c: remove an unused export
-Date: Tue, 16 May 2006 15:23:49 -0700 (PDT)
-Message-ID: <20060516.152349.72783731.davem@davemloft.net>
-References: <20060516184843.GP10077@stusta.de>
+Subject: Re: [PATCH] ipv6: endian fix
+Date: Tue, 16 May 2006 15:24:54 -0700 (PDT)
+Message-ID: <20060516.152454.50247874.davem@davemloft.net>
+References: <20060516183645.GK10143@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netdev@vger.kernel.org
+Cc: akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63911
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64679
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932220AbWEPWYy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 18:24:54 -0400
-To: bunk@stusta.de
-In-Reply-To: <20060516184843.GP10077@stusta.de>
+	id S932222AbWEPW0J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 18:26:09 -0400
+To: adobriyan@gmail.com
+In-Reply-To: <20060516183645.GK10143@mipter.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Tue, 16 May 2006 20:48:43 +0200
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 16 May 2006 22:36:46 +0400
 
-> This patch removes the unused EXPORT_SYMBOL(tr_source_route).
-> 
-> (No, the usage in net/llc/llc_output.c can't be modular.)
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied, thanks.
+Applied, thanks Alexey.
