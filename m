@@ -1,39 +1,40 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/802/tr.c: remove an unused export
-Date: Tue, 16 May 2006 20:48:43 +0200
-Message-ID: <20060516184843.GP10077@stusta.de>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] ipx: correct return type of ipx_map_frame_type
+Date: Tue, 16 May 2006 22:49:40 +0400
+Message-ID: <20060516184940.GL10143@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:59912 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1751625AbWEPSsq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 14:48:46 -0400
-To: acme@conectiva.com.br
+Received: from nf-out-0910.google.com ([64.233.182.190]:61283 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751876AbWEPSu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 14:50:58 -0400
+Received: by nf-out-0910.google.com with SMTP id d4so32555nfe
+        for <netdev@vger.kernel.org>; Tue, 16 May 2006 11:50:56 -0700 (PDT)
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the unused EXPORT_SYMBOL(tr_source_route).
+Casting BE16 to int and back may or may not work. Correct, to be sure.
 
-(No, the usage in net/llc/llc_output.c can't be modular.)
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
-This patch was already sent on:
-- 20 Apr 2006
-
---- linux-2.6.17-rc1-mm3-full/net/802/tr.c.old	2006-04-20 22:45:07.000000000 +0200
-+++ linux-2.6.17-rc1-mm3-full/net/802/tr.c	2006-04-20 22:45:18.000000000 +0200
-@@ -643,6 +643,5 @@
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -944,9 +944,9 @@ out:
+ 	return rc;
+ }
  
- module_init(rif_init);
+-static int ipx_map_frame_type(unsigned char type)
++static __be16 ipx_map_frame_type(unsigned char type)
+ {
+-	int rc = 0;
++	__be16 rc = 0;
  
--EXPORT_SYMBOL(tr_source_route);
- EXPORT_SYMBOL(tr_type_trans);
- EXPORT_SYMBOL(alloc_trdev);
-
+ 	switch (type) {
+ 	case IPX_FRAME_ETHERII:	rc = htons(ETH_P_IPX);		break;
 
