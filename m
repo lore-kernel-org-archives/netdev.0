@@ -1,52 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: ifIndex allocation
-Date: Tue, 16 May 2006 09:38:30 -0700
-Message-ID: <20060516093830.5e755993@localhost.localdomain>
-References: <86r72uh53e.fsf@deprecated.bitebene.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [-mm patch] drivers/net/s2io.c: make bus_speed[] static
+Date: Tue, 16 May 2006 18:42:10 +0200
+Message-ID: <20060516164210.GI5677@stusta.de>
+References: <20060515005637.00b54560.akpm@osdl.org> <20060516153050.GC5677@stusta.de> <20060516153611.GA13270@rhlx01.fht-esslingen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>,
+	Ananda Raju <ananda.raju@neterion.com>, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18627 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932121AbWEPQid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 May 2006 12:38:33 -0400
-To: "Sven Schnelle" <svens@gmx.de>
-In-Reply-To: <86r72uh53e.fsf@deprecated.bitebene.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:47110 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S932143AbWEPQmM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 12:42:12 -0400
+To: Andreas Mohr <andi@rhlx01.fht-esslingen.de>
+Content-Disposition: inline
+In-Reply-To: <20060516153611.GA13270@rhlx01.fht-esslingen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 May 2006 08:11:01 +0200
-"Sven Schnelle" <svens@gmx.de> wrote:
-
-> Hi List,
-
-Redirecting to netdev
-
+On Tue, May 16, 2006 at 05:36:11PM +0200, Andreas Mohr wrote:
+> Hi,
 > 
-> investigating a problem with an snmp software for linux, i was wondering
-> why the kernel allocates a new ifindex Number, even if the old one is still
-> available. For example, if i unload a network driver module, and reload
-> it, it has a different ifindex.
-
-Because when you reload the driver it is effectively a completely new
-object.  ifindex is a basically and object id. Ifindices act as soft
-references so user space can know about a particular network device
-even if name changes or other operations happen.  The reference is soft
-because the device can disappear. If the application wants to know about
-device removal it can catch the netlink event.
-
-
-> Looking at the function dev_new_index (line 2620 in net/core/dev.c)
-> there is a line 'static int ifindex'. Is there any special reason why
-> this variable is static, and the list is not traversed from the
-> beginning, so that the first free ifindex will be used?
+> On Tue, May 16, 2006 at 05:30:50PM +0200, Adrian Bunk wrote:
+> > This patch makes the needlessly global bus_speed[] static.
 > 
-> 
-> Best regards,
-> 
-> Sven.
+> Is there a reason why you don't also constify it while you are at it?
+> Or is it because you want to do a series of static-only patches for now?
 
-It is static because no other code should be looking at it.
-It doesn't retraverse from the start because it doesn't want to reuse
-an earlier index and confuse an application with a soft reference.
+The latter.
+
+Feel free to send a patch that also makes it const.
+
+> Andreas Mohr
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
