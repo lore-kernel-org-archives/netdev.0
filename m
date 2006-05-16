@@ -1,38 +1,46 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Controlling TCP window size
-Date: Tue, 16 May 2006 16:01:57 -0700 (PDT)
-Message-ID: <20060516.160157.78923603.davem@davemloft.net>
-References: <4469B251.3050901@andyfurniss.entadsl.com>
-	<446A19C7.1000302@psc.edu>
+Subject: Re: [1/1] connector: export cn_already_initialized.
+Date: Tue, 16 May 2006 16:14:06 -0700 (PDT)
+Message-ID: <20060516.161406.23276754.davem@davemloft.net>
+References: <20060504122421.GA8576@2ka.mipt.ru>
+	<20060505.171646.65488074.davem@davemloft.net>
+	<20060506084045.GA16558@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lists@andyfurniss.entadsl.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53389
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52692
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932250AbWEPXBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 19:01:49 -0400
-To: jheffner@psc.edu
-In-Reply-To: <446A19C7.1000302@psc.edu>
+	id S932276AbWEPXOY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 19:14:24 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060506084045.GA16558@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Tue, 16 May 2006 14:28:23 -0400
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Sat, 6 May 2006 12:40:45 +0400
 
-> The problem really is that the window_clamp variable is overloaded. 
-> It's used as a kind of cache for rcvbuf -> window conversion, but also 
-> as a user-settable bound in window size.  On examination, it looks like 
-> this is also broken (in that window size won't increase) if a user does 
-> a setsockopt(SO_RCVBUF).  Can we make window_clamp a true clamp?  Then 
-> we can get rid of the hack of raising it in tcp_rcv_space_adjust().  I 
-> can cook up a patch if interested.
+> Some external patches, which can be built both as static build and as
+> module just check that value, and thus will fail with unresolved symbol
+> when cn and module are built as modules.
+> 
+> The right set of operations should be following:
+> If external module is loaded and cn is not loaded or compiled into the
+> kernel, insmod will just fail with unresolved symbol (cn_add_callback and others),
+> if cn is already loaded or was built into the tree, then it has been 
+> initialized already and there is no need to check that value, external
+> module should be just loaded.
+> 
+> I think the right solution is to call external init functions after cn
+> init function, but it's ordering is not always known.
 
-The clamp gets moved along also to handle dynamic receive window
-sizing.  To be honest, a window clamp doesn't have clear semantics
-in the presence of dynamic window sizing.
+In-kernel build of connector subsystem can be handled by
+making cn_init a "subsystem_init()", it will then be setup
+before any possible static or modular reference as long as
+those modules use module_init().
 
-Anyways, I'd like to see your patch.  It might make rcvbuf -->
-window conversions a bit more expensive, but we'll see.
-
+For modular case of connector, dependency of module on connector
+module should handle all ordering issues, making any ordering
+issue take care of itself.
