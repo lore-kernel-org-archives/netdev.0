@@ -1,46 +1,48 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [1/1] connector: export cn_already_initialized.
-Date: Tue, 16 May 2006 16:14:06 -0700 (PDT)
-Message-ID: <20060516.161406.23276754.davem@davemloft.net>
-References: <20060504122421.GA8576@2ka.mipt.ru>
-	<20060505.171646.65488074.davem@davemloft.net>
-	<20060506084045.GA16558@2ka.mipt.ru>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC] new qla3xxx NIC Driver v2.02.00k19
+Date: Wed, 17 May 2006 01:23:46 +0200
+Message-ID: <20060516232346.GA20608@electric-eye.fr.zoreil.com>
+References: <0BB3E5E7462EEA4295BC02D49691DC070D32F3@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	Ying Ping Lok <ying.lok@qlogic.com>,
+	Mike Metskas <mike.metskas@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52692
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932276AbWEPXOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 19:14:24 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060506084045.GA16558@2ka.mipt.ru>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:29859 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932274AbWEPX1u
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 May 2006 19:27:50 -0400
+To: Ron Mercer <ron.mercer@qlogic.com>
+Content-Disposition: inline
+In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC070D32F3@AVEXCH1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Sat, 6 May 2006 12:40:45 +0400
+Ron Mercer <ron.mercer@qlogic.com> :
+[...]
+> Looking forward to any and all feedback.
 
-> Some external patches, which can be built both as static build and as
-> module just check that value, and thus will fail with unresolved symbol
-> when cn and module are built as modules.
-> 
-> The right set of operations should be following:
-> If external module is loaded and cn is not loaded or compiled into the
-> kernel, insmod will just fail with unresolved symbol (cn_add_callback and others),
-> if cn is already loaded or was built into the tree, then it has been 
-> initialized already and there is no need to check that value, external
-> module should be just loaded.
-> 
-> I think the right solution is to call external init functions after cn
-> init function, but it's ordering is not always known.
+First pass:
+- please reorder the code so that the forward declarations are not needed
+- the typedefs (say PQL3XXX_PORT_REGISTERS) hide pointer information.
+  They are useless (and capitalized :o/ ). Just say no to typedef.
+- the debug functions abuse copy/paste. Please use struct array + loop
+  if you really want these to stay.
+- "return" is not a function. It does not need parenthesis.
+- 80 colums disease in ql_link_state_machine. The indentation is terrible.
+- label for goto should be at the start of the line.
+- acquire_adapter_lock must go. Conditional locking is a pain to maintain.
+- the error path in ql3xxx_probe is broken. Use named _and_ numbered
+  goto if you want to avoid it (i.e. "goto err_undo_something_1" then
+  "goto err_undo_something_else_2", etc.).
+- ql_set_ethtool_ops() is useless bloat. Please remove.
+- QL_LOCK_DRVR_WAIT should be a function, not a macro
+- the status code should be propagated (request_irq, pci_enable_device,
+  pci_request_regions, etc.).
+- no __iomem, __u32, __le32 ? Seems strange.
+- replace return (0) with NETDEV_TX_OK in ql3xxx_send
+  (and s/send/start_xmit/ ?).
 
-In-kernel build of connector subsystem can be handled by
-making cn_init a "subsystem_init()", it will then be setup
-before any possible static or modular reference as long as
-those modules use module_init().
-
-For modular case of connector, dependency of module on connector
-module should handle all ordering issues, making any ordering
-issue take care of itself.
+-- 
+Ueimor
