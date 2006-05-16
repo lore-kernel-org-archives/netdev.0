@@ -1,30 +1,39 @@
-From: Andreas Mohr <andi@rhlx01.fht-esslingen.de>
-Subject: Re: [-mm patch] drivers/net/s2io.c: make bus_speed[] static
-Date: Tue, 16 May 2006 17:36:11 +0200
-Message-ID: <20060516153611.GA13270@rhlx01.fht-esslingen.de>
-References: <20060515005637.00b54560.akpm@osdl.org> <20060516153050.GC5677@stusta.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Setting TCP_NODELAY doesn't disable Nagle's alg. on loopback
+Date: Tue, 16 May 2006 09:16:06 -0700
+Message-ID: <20060516091606.39d0ecc3@localhost.localdomain>
+References: <fc1d209cf91d41b5a5ff491732e52283@pobox.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>,
-	Ananda Raju <ananda.raju@neterion.com>, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.fht-esslingen.de ([129.143.116.10]:37250 "EHLO
-	rhlx01.fht-esslingen.de") by vger.kernel.org with ESMTP
-	id S1751235AbWEPPgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 May 2006 11:36:12 -0400
-To: Adrian Bunk <bunk@stusta.de>
-Content-Disposition: inline
-In-Reply-To: <20060516153050.GC5677@stusta.de>
+Received: from smtp.osdl.org ([65.172.181.4]:14010 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751851AbWEPQQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 May 2006 12:16:36 -0400
+To: "Radko Mihal" <rmihal@pobox.sk>
+In-Reply-To: <fc1d209cf91d41b5a5ff491732e52283@pobox.sk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 16 May 2006 10:50:30 +0200
+"Radko Mihal" <rmihal@pobox.sk> wrote:
 
-On Tue, May 16, 2006 at 05:30:50PM +0200, Adrian Bunk wrote:
-> This patch makes the needlessly global bus_speed[] static.
+> Hi,
+> 
+> We are facing strange problem with disabling the Nagle's algorithm via setting the TCP_NODELAY flag on server socket (setsockopt), where server is communication with client via loopback.
+> After the first segment (of the response) is sent by server side, server is waiting for ACK instead of continuing sending next segments (as it should use sliding window principle). The client sends ACK after 40 ms, only then server sends the rest of responses packed into one segment. The 40 ms is a big delay and causes reponse processing to be 10 times slower.
+> 
+> The thing doesn't happen, if we move client to another host. In that case the server don't wait for ACK, don't pack responses and also response processing is much faster.
+> 
+> It seems, like on loopback the Nagle's alg. is still acting (citate from alg. description says:"a first segment is sent immediately, while further data on the sender side is buffered until either a full maximum segment can be sent or an acknowledgement for the first segment is received)
+> 
+> I found some descriptions of the same problem, but with no solution!
+> Is there a bug in setsockopt()? We are using 2.6.5 kernel.
 
-Is there a reason why you don't also constify it while you are at it?
-Or is it because you want to do a series of static-only patches for now?
+If it is 2.6.5 that is over 2+ years old. Please try with something past the Pleistocene era...
 
-Andreas Mohr
+More likely, you mean 2.6.15 and you are seeing the effect of TCP ABC.  ABC is appropriate byte count
+and it penalizes applications that do small sends. The correct fix is to change your application
+to use TCP_CORK or do consolidation with writev(), sendmsg(), etc. This came up with the Java
+debugger, see mailing list archives.
