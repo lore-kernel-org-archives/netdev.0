@@ -1,132 +1,56 @@
-From: Wen Hsin Chang <whchang@tw.ibm.com>
-Subject: Re: [PATCH] pcnet32.c: modify RX ring size through module parameter
-Date: Tue, 16 May 2006 11:05:35 +0800
-Message-ID: <4469417F.2010207@tw.ibm.com>
-References: <4467F63E.5060401@tw.ibm.com> <20060515155856.GA17646@us.ibm.com>
+From: "Mark Wallis" <mwallis@serialmonkey.com>
+Subject: RE: Hardware button support for Wireless cards
+Date: Tue, 16 May 2006 13:10:42 +1000
+Message-ID: <!&!AAAAAAAAAAAuAAAAAAAAAFjEWUvexJtFsm0woXMZeHABAC4qy2+Ja65JmQuhL0/hqcgAAAAARPYAABAAAACMsnpvfH4iTKrBh6ONAHj7AQAAAAA=@serialmonkey.com>
+References: <20060515162045.GA10717@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	tsbogend@alpha.franken.de, brazilnut@us.ibm.com
+Cc: "'Dan Williams'" <dcbw@redhat.com>, <netdev@vger.kernel.org>,
+	"'David Zeuthen'" <davidz@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:46548 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751085AbWEPDGA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 May 2006 23:06:00 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k4G35wp0016520
-	for <netdev@vger.kernel.org>; Mon, 15 May 2006 23:05:58 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k4G35wrI141640
-	for <netdev@vger.kernel.org>; Mon, 15 May 2006 21:05:58 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11/8.13.3) with ESMTP id k4G35vFu031286
-	for <netdev@vger.kernel.org>; Mon, 15 May 2006 21:05:58 -0600
-To: Jon Mason <jdmason@us.ibm.com>
-In-Reply-To: <20060515155856.GA17646@us.ibm.com>
+Received: from qvfw1.qvalent.com ([202.7.65.65]:37578 "EHLO mail.qvalent.com")
+	by vger.kernel.org with ESMTP id S1751093AbWEPDLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 May 2006 23:11:22 -0400
+To: "'Jouni Malinen'" <jkm@devicescape.com>,
+	"'Ivo van Doorn'" <ivdoorn@gmail.com>
+In-Reply-To: <20060515162045.GA10717@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are cases where rx errors were found due to rx ring size being too 
-small
-during remote installation using pcnet32. It is found that ethtool 
-functionality
-may not be available under such circumenstance. This is the purpose behind
-this patch.
+On Tue, May 16, 2006, Jouni Malinen wrote:
 
-However, as Don pointed out, there are several points that need to be
-considered. I'll further revise this patch and see how to come up with
-a better solution.
+> Some hardware designs disable the radio in hardware, some 
+> don't.. In other words, the behavior would not be consistent 
+> between hardware designs unless the radio would be disabled 
+> unconditionally in software-processed case. I would like to 
+> be able to trust on the rfkill to really kill the radio 
+> regardless of whether the user space mechanism is in place or 
+> not, i.e., I see this as a function that can be used to 
+> disable radio in environments were use of wireless devices is 
+> not allowed for some reason.
+> 
+> Sending an event to user space would be a good additional 
+> indication that the radio was disabled. If user space wants 
+> to do something first, I would think that doing this with 
+> full software control (i.e., not depending on any particular 
+> hardware button and just having a UI mechanism for triggering 
+> this) would allow more consistent behavior.
 
-Thanks for your comment~
+Sounds like this is the popular option - I agree that immediate
+radio-off is the "safe" way to go here as at least the driver
+can guarantee that the radio is disabled no matter the userspace
+config.
 
-Wen Hsin Chang
+Does someone want to put their hand up and specify the userspace
+interface here and now so we all keep to a standard ? Working
+as an input device as David suggested seems to give us the most
+flexibility.
 
-Jon Mason wrote:
+Regards,
 
->Why is this necessary?  There is already an ethtool function to set
->the rx ring size (pcnet32_set_ringparam).  Since module parameters
->are being phased out in favor of the ethtool functions, why not use
->the existing ethtool infrastructure for this?
->
->Thanks,
->Jon
->
->On Mon, May 15, 2006 at 11:32:14AM +0800, Wen Hsin Chang wrote:
->  
->
->>This patch is created from pcnet32.c v1.32. it will allow users to 
->>specify RX ring size upon module
->>insertion via module parameter 'rx_log_size'. This is needed in some 
->>cases where too small the rx ring
->>size will cause RX errors upon remote installation via pcnet32 NIC card.
->>
->>Signed-off-by: Wen Hsin Chang <whchang@tw.ibm.com>
->>----------------------------------------------------------------------------------------------------
->>
->>--- a/drivers/net/pcnet32.c    2006-03-30 09:49:10.000000000 +0800
->>+++ b/drivers/net/pcnet32.c    2006-05-15 11:14:45.000000000 +0800
->>@@ -93,6 +93,9 @@ static struct net_device *pcnet32_dev;
->>static int max_interrupt_work = 2;
->>static int rx_copybreak = 200;
->>
->>+/* Module parameter to specify RX ring size at module insertion */
->>+static int rx_log_size = 0;
->>+
->>#define PCNET32_PORT_AUI      0x00
->>#define PCNET32_PORT_10BT     0x01
->>#define PCNET32_PORT_GPSI     0x02
->>@@ -1264,7 +1267,10 @@ pcnet32_probe1(unsigned long ioaddr, int
->>    lp->name = chipname;
->>    lp->shared_irq = shared;
->>    lp->tx_ring_size = TX_RING_SIZE;    /* default tx ring size */
->>-    lp->rx_ring_size = RX_RING_SIZE;    /* default rx ring size */
->>+    if (!rx_log_size)
->>+        lp->rx_ring_size = RX_RING_SIZE;    /* default rx ring size */
->>+    else
->>+        lp->rx_ring_size = (1 << (rx_log_size));
->>    lp->tx_mod_mask = lp->tx_ring_size - 1;
->>    lp->rx_mod_mask = lp->rx_ring_size - 1;
->>    lp->tx_len_bits = (PCNET32_LOG_TX_BUFFERS << 12);
->>@@ -2707,6 +2713,11 @@ module_param(tx_start_pt, int, 0);
->>MODULE_PARM_DESC(tx_start_pt, DRV_NAME " transmit start point (0-3)");
->>module_param(pcnet32vlb, int, 0);
->>MODULE_PARM_DESC(pcnet32vlb, DRV_NAME " Vesa local bus (VLB) support 
->>(0/1)");
->>+
->>+/* Module parameter to specify RX ring size at module insertion */
->>+module_param(rx_log_size, int, 0);
->>+MODULE_PARM_DESC(rx_log_size, DRV_NAME " RX Ring Buffer Size (log_2 
->>#BUF) ");
->>+
->>module_param_array(options, int, NULL, 0);
->>MODULE_PARM_DESC(options, DRV_NAME " initial option setting(s) (0-15)");
->>module_param_array(full_duplex, int, NULL, 0);
->>@@ -2731,6 +2742,12 @@ static int __init pcnet32_init_module(vo
->>
->>    if ((tx_start_pt >= 0) && (tx_start_pt <= 3))
->>        tx_start = tx_start_pt;
->>+       
->>+    /* validating rx_log_size */
->>+    if ((rx_log_size <= 0) ||
->>+        (rx_log_size > PCNET32_LOG_MAX_RX_BUFFERS))
->>+        rx_log_size = 0;
->>+       
->>
->>    /* find the PCI devices */
->>    if (!pci_module_init(&pcnet32_driver))
->>
->>-
->>To unsubscribe from this list: send the line "unsubscribe netdev" in
->>the body of a message to majordomo@vger.kernel.org
->>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>    
->>
->-
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  
->
+Mark Wallis
+E: mwallis@serialmonkey.com
+
 
