@@ -1,51 +1,52 @@
-From: Mike Stroyan <mike.stroyan@hp.com>
-Subject: Re: send(), sendmsg(), sendto() not thread-safe
-Date: Tue, 16 May 2006 10:24:46 -0600
-Message-ID: <20060516162446.GA26068@ldl.lart>
-References: <4469201F.4030207@hp.com> <OF4D94549F.7BBB070C-ON85257170.0009219D-88257170.000A05E8@us.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: ifIndex allocation
+Date: Tue, 16 May 2006 09:38:30 -0700
+Message-ID: <20060516093830.5e755993@localhost.localdomain>
+References: <86r72uh53e.fsf@deprecated.bitebene.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Linux Network Development list <netdev@vger.kernel.org>,
-	shemminger@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:3755 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1751850AbWEPQYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 May 2006 12:24:52 -0400
-To: Mark A Smith <mark1smi@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF4D94549F.7BBB070C-ON85257170.0009219D-88257170.000A05E8@us.ibm.com>
+Received: from smtp.osdl.org ([65.172.181.4]:18627 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932121AbWEPQid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 May 2006 12:38:33 -0400
+To: "Sven Schnelle" <svens@gmx.de>
+In-Reply-To: <86r72uh53e.fsf@deprecated.bitebene.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 15, 2006 at 06:50:36PM -0700, Mark A Smith wrote:
+On Tue, 16 May 2006 08:11:01 +0200
+"Sven Schnelle" <svens@gmx.de> wrote:
+
+> Hi List,
+
+Redirecting to netdev
+
 > 
-> I cannot think of another possible definition for thread-safe in the
-> context of these functions. Certainly they should not cause a "crash" when
-> called from multiple threads, but that's a requirement independent of
-> thread-safety.
-...
-> I think the question really boils down to: "What does thread-safe mean with
-> respect to send()?" It might be more easily answered by asking, "How would
-> a non-thread-safe send() behave?" I think it would behave the way we're
-> seeing it behave.
+> investigating a problem with an snmp software for linux, i was wondering
+> why the kernel allocates a new ifindex Number, even if the old one is still
+> available. For example, if i unload a network driver module, and reload
+> it, it has a different ifindex.
 
-  A non-thread-safe send() could use a global buffer to hold copied
-data or results.  When called from multiple threads it could lose data
-or mix data from send()s to different sockets.  Or it could return a
-result in one thread that reflects the result of an overlapping send()
-in another thread.  Or it could sometimes core dump.  The behavior of
-a non-thread-safe function called from multiple threads is undefined.
-There is really no requirement "independent of thread-safety" on the
-behavior of a function called from multiple unsyncronized threads.
+Because when you reload the driver it is effectively a completely new
+object.  ifindex is a basically and object id. Ifindices act as soft
+references so user space can know about a particular network device
+even if name changes or other operations happen.  The reference is soft
+because the device can disappear. If the application wants to know about
+device removal it can catch the netlink event.
 
-  As Rick noted, this is not really a threading test but a multiprocess
-test.  A requirement to be thread-safe shouldn't imply anything about
-the behavior of functions in single-threaded processes.  The posix
-standard has a limit of PIPE_BUF bytes for atomic writes to a pipe.
-That might extend to expecting sends of under PIPE_BUF bytes to be atomic
-on a socket.  But I don't actually find any guarantee of atomic writes
-for sockets, even for sizes below PIPE_BUF.
 
--- 
-Mike Stroyan, mike.stroyan@hp.com
+> Looking at the function dev_new_index (line 2620 in net/core/dev.c)
+> there is a line 'static int ifindex'. Is there any special reason why
+> this variable is static, and the list is not traversed from the
+> beginning, so that the first free ifindex will be used?
+> 
+> 
+> Best regards,
+> 
+> Sven.
+
+It is static because no other code should be looking at it.
+It doesn't retraverse from the start because it doesn't want to reuse
+an earlier index and confuse an application with a soft reference.
