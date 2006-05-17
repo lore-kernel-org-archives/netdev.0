@@ -1,65 +1,73 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 4/5] sky2: force NAPI repoll if busy
-Date: Wed, 17 May 2006 14:37:06 -0700
-Message-ID: <20060517213802.471236000@localhost.localdomain>
+Subject: [PATCH 1/5] sky2: allow dual port usage
+Date: Wed, 17 May 2006 14:37:03 -0700
+Message-ID: <20060517213801.841172000@localhost.localdomain>
 References: <20060517213702.322762000@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55480 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751151AbWEQVll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 17:41:41 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:50104 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751152AbWEQVld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 17:41:33 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-morework.patch
+Content-Disposition: inline; filename=sky2-dual-port.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the status ring processing can't keep up with the incoming frames,
-it is more efficient to have NAPI keep scheduling the poll routine
-rather than causing another interrupt.
+If both ports are receiving on the SysKonnect dual port cards,
+then it appears the bus interface unit can give an interrupt status
+for frame before DMA has completed.  This leads to bogus frames
+and general confusion. This is why receive checksumming is also
+messed up on dual port cards.
+
+A workaround for the out of order receive problem is to eliminating
+split transactions on PCI-X.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 
---- sky2.orig/drivers/net/sky2.c	2006-05-17 08:55:54.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-05-17 08:56:03.000000000 -0700
-@@ -1920,6 +1920,12 @@
- 	}
- }
- 
-+/* Is status ring empty or is there more to do? */
-+static inline int sky2_more_work(const struct sky2_hw *hw)
-+{
-+	return (hw->st_idx != sky2_read16(hw, STAT_PUT_IDX));
-+}
+--- sky2.orig/drivers/net/sky2.c	2006-05-17 14:33:28.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-05-17 14:34:57.000000000 -0700
+@@ -1020,7 +1020,25 @@
+ 	struct sky2_hw *hw = sky2->hw;
+ 	unsigned port = sky2->port;
+ 	u32 ramsize, rxspace, imask;
+-	int err = -ENOMEM;
++	int cap, err = -ENOMEM;
++	struct net_device *otherdev = hw->dev[sky2->port^1];
 +
- /* Process status response ring */
- static int sky2_status_intr(struct sky2_hw *hw, int to_do)
- {
-@@ -2192,19 +2198,19 @@
- 	if (status & Y2_IS_CHK_TXA2)
- 		sky2_descriptor_error(hw, 1, "transmit", Y2_IS_CHK_TXA2);
++	/*
++	 * On dual port PCI-X card, there is an problem where status
++	 * can be received out of order due to split transactions
++	 */
++	if (otherdev && netif_running(otherdev) &&
++	    (cap = pci_find_capability(hw->pdev, PCI_CAP_ID_PCIX))) {
++		struct sky2_port *osky2 = netdev_priv(otherdev);
++		u16 cmd;
++
++		cmd = sky2_pci_read16(hw, cap + PCI_X_CMD);
++		cmd &= ~PCI_X_CMD_MAX_SPLIT;
++		sky2_pci_write16(hw, cap + PCI_X_CMD, cmd);
++
++		sky2->rx_csum = 0;
++		osky2->rx_csum = 0;
++	}
  
--	if (status & Y2_IS_STAT_BMU)
--		sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
+ 	if (netif_msg_ifup(sky2))
+ 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
+@@ -3067,12 +3085,7 @@
+ 	sky2->duplex = -1;
+ 	sky2->speed = -1;
+ 	sky2->advertising = sky2_supported_modes(hw);
 -
- 	work_done = sky2_status_intr(hw, work_limit);
- 	*budget -= work_done;
- 	dev0->quota -= work_done;
+-	/* Receive checksum disabled for Yukon XL
+-	 * because of observed problems with incorrect
+-	 * values when multiple packets are received in one interrupt
+-	 */
+-	sky2->rx_csum = (hw->chip_id != CHIP_ID_YUKON_XL);
++	sky2->rx_csum = 1;
  
--	if (work_done >= work_limit)
-+	if (status & Y2_IS_STAT_BMU)
-+		sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
-+
-+	if (sky2_more_work(hw))
- 		return 1;
- 
- 	netif_rx_complete(dev0);
- 
--	status = sky2_read32(hw, B0_Y2_SP_LISR);
-+	sky2_read32(hw, B0_Y2_SP_LISR);
- 	return 0;
- }
- 
+ 	spin_lock_init(&sky2->phy_lock);
+ 	sky2->tx_pending = TX_DEF_PENDING;
 
 --
 
