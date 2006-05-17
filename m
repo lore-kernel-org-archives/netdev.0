@@ -1,27 +1,34 @@
-From: Tisha <Tisha@JenniferLopezFan.com>
-Subject: -=Job for YOU=-
-Date: Wed, 17 May 2006 18:20:13 +0300
-Message-ID: <DA6EC5DD.6119674@JenniferLopezFan.com>
+From: "Christopher Friesen" <cfriesen@nortel.com>
+Subject: max number of subnets/addresses?
+Date: Wed, 17 May 2006 10:42:00 -0600
+Message-ID: <446B5258.5000803@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251; format=flowed
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [85.101.255.205] ([85.101.255.205]:12300 "HELO 85.101.255.205")
-	by vger.kernel.org with SMTP id S1750755AbWEQPSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 11:18:15 -0400
-To: netdev@vger.kernel.org
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:5036 "EHLO
+	zrtps0kn.nortel.com") by vger.kernel.org with ESMTP
+	id S1750710AbWEQQmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 May 2006 12:42:05 -0400
+Received: from zcarhxs1.corp.nortel.com (zcarhxs1.corp.nort...s0.corp.nortel.com [47.129.230.89])
+	by zrtps0kn.nortel.com (Switch-2.2.6/Switch-2.2.0) with ESMTP id k4HGg2I17485
+	for <netdev@vger.kernel.org>; Wed, 17 May 2006 12:42:02 -0400 (EDT)
+To: Netdev List <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear friends, please look our job offer. 
 
-If you are live in Spain, our offer for you.
-We are travel company, and we looking for peoples from Italy reach success in our 
-bussines. 
+I've been asked a couple of questions by our engineering guys.
 
-Your can earn about 2000 EUR per week after first month.
-The post of financial manager has 3000 EUR per week salary. 
-Please send your CV to our mail: barceloinc@aol.com
-regards,
-Dominico Barcelo
+1) Is there any inherent limit on the number of IP addresses that can be 
+configured on an interface?
 
+2) Is there any inherent limit on the number of subnets that a linux 
+host can have configured at any given time?
+
+If anyone could answer these off the top of their head, it would save me 
+some time digging through unfamiliar code.
+
+Thanks,
+
+Chris
