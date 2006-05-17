@@ -1,74 +1,62 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: a short look at d80211
-Date: Tue, 16 May 2006 21:34:38 +0200
-Message-ID: <1147808078.10137.13.camel@johannes>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bug 6421] kernel 2.6.10-2.6.16 on alpha: arch/alpha/kernel/io.c, iowrite16_rep() BUG_ON((unsigned long)src & 0x1) triggered
+Date: Wed, 17 May 2006 23:30:35 +1000
+Message-ID: <20060517133035.GA7744@gondor.apana.org.au>
+References: <200605170644.k4H6iHD8006479@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7dHy5K7x8cVACfldqUMj"
-Cc: Jouni Malinen <jkm@devicescape.com>, Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:20138 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932210AbWEQMFt
+Received: from rhun.apana.org.au ([64.62.148.172]:64774 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932549AbWEQNax
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 May 2006 08:05:49 -0400
-To: netdev@vger.kernel.org
+	Wed, 17 May 2006 09:30:53 -0400
+To: bugme-daemon@bugzilla.kernel.org
+Content-Disposition: inline
+In-Reply-To: <200605170644.k4H6iHD8006479@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, May 16, 2006 at 11:44:17PM -0700, bugme-daemon@bugzilla.kernel.org wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=6421
+>
+> ------- Additional Comments From tomri@gmx.net  2006-05-16 23:43 -------
+> Another stack trace. skb_padto() is not called.
+> 
+> May 16 23:50:34 merlin kernel: ei_start_xmit(): entry: skb->data unaligned
+> fffffc0009b5098b skb fffffc001e763a08 length 66
+> May 16 23:50:34 merlin kernel: Badness in ei_start_xmit at drivers/net/8390.c:283
 
---=-7dHy5K7x8cVACfldqUMj
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+...
 
-Hi,
+> May 16 23:50:34 merlin kernel: Trace:
+> May 16 23:50:34 merlin kernel: [<fffffc00005670f8>] qdisc_restart+0x88/0x2b0
+> May 16 23:50:34 merlin kernel: [<fffffc00005d64b4>] packet_rcv_spkt+0x1a4/0x3b0
+> May 16 23:50:34 merlin kernel: [<fffffc00005566c0>] dev_queue_xmit_nit+0x1a0/0x1f0
+> May 16 23:50:34 merlin kernel: [<fffffc0000567250>] qdisc_restart+0x1e0/0x2b0
+> May 16 23:50:34 merlin kernel: [<fffffc0000558f48>] dev_queue_xmit+0xb8/0x3b0
+> May 16 23:50:34 merlin kernel: [<fffffc0000560508>] neigh_resolve_output+0x128/0x370
+> May 16 23:50:34 merlin kernel: [<fffffc00005815b4>] ip_output+0x224/0x430
+> May 16 23:50:34 merlin kernel: [<fffffc00005800bc>] ip_queue_xmit+0x2dc/0x630
+> May 16 23:50:34 merlin kernel: [<fffffc0000596068>] tcp_transmit_skb+0x588/0xa30
+> May 16 23:50:34 merlin kernel: [<fffffc000059bb6c>] tcp_v4_send_check+0x11c/0x150
+> May 16 23:50:34 merlin kernel: [<fffffc0000595f68>] tcp_transmit_skb+0x488/0xa30
+> May 16 23:50:34 merlin kernel: [<fffffc0000597ab0>] tcp_retransmit_skb+0x730/0x7b0
 
-I finally decided to familiarise myself with d80211 a bit more :)
+OK, I think I have a suspect in sight.  The unaligned packet is
+probably caused by tcp_trim_head.  To fix it we could just copy
+the data instead of trimming if it is not paged.
 
-Here are some questions on the code again.
+However, I'd like you to confirm that this is indeed the cause
+with a tcpdump.
 
-MICHAEL_MIC_HWACCEL seems to be always defined, what is it used for?
+So please take a tcpdump and show us the relevant packets that
+show up about the time when you get the unaligned warnings.
+What I'm expecting is a partial odd ACK just before the error.
 
-IEEE80211_LEDS should probably go away, in fact it should be fairly easy
-to register a led trigger driver for each kind of LED and each device.
-Then drivers can register a led driver, even with a default led
-source... :)
-
-Could ieee80211_msg_* be upper-cased so it's clear right away those are
-constants?
-
-Why does IF_TYPE_VLAN exist if according to the comment it isn't used?
-
-bcm43xx doesn't do hardware tsf synchronisation, it provides on each
-frame the lower 16 bits of the tsf at the time the frame was received
-(no, I don't know if it's at the first bit of the plcp or whatever).
-Hence, it'll need to do tsf updates in software whenever necessary.
-Could d80211 provide some support for this? Or asking the other way
-around, how should it do that?
-
-There's more, especially related to bcm43xx and power saving, but we're
-only just beginning to understand how that might work.
-
-johannes
-
---=-7dHy5K7x8cVACfldqUMj
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIVAwUARGopTKVg1VMiehFYAQIjxA/+IKCfv2hzGAjslOqdaCVdhu8yT0n49bD6
-alWyiM4OewUfR9jX0zyxPcs6E4d4wwLfY2FrgM+rKdv0Iq1oIi2QvQiyD9aSd1nQ
-IbNCC+iZlYb3WGWTOfbJAmMulDBTn5xHvIjdjtOqo14NwvFNmMLRNjgVbq4J2Bzx
-FTWKrlOHIl7NUP1FgXyXfuKY51dsqrme8kQ/5v9eary/CqO5I37OC3jayayLkGeX
-lq6+YID3iiQqkpCzSPqX70U4YkQjehHmOUxOgAD/+LUxfvQsyWo39sJx8I5ov4RW
-iB7CX3dIVr/Wzw8BIoZBo/b3SZqECA/IR/tEcbOIZQMoUgoWAu0Y1IMAowpTMQE2
-/5Y4rdOUu9j3B7lpo1ntWiFeUrsP+FpuY23dSoqNcIuD1f75CXdaC1Fuj+X4KYr6
-7M56ryvUiPx6z35AedTMiW36ElV574IqzzkkTQEMpTfUVQ4zxX15CllirTENTEfs
-3NxXHdgZIwjLkkmSZWy1lvb6WjS0yl5N6nRerSw+D/hJ0eWgCsw8FRMI8Mg7ze8e
-7dEyNyLVuVW3E+dD4IUvN97gNeMaMnJTQL/7aiME/GC5Y5MctkCd40EFbR8b65Mj
-XrlURT8DvOz0scJTl0UjQbCwq9ncQQqWN/1bVCyyWzXkEsmzgTSfUU/g/dh/2bR+
-J6oeIuZ4WAA=
-=jlL1
------END PGP SIGNATURE-----
-
---=-7dHy5K7x8cVACfldqUMj--
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
