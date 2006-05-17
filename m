@@ -1,47 +1,57 @@
-From: Benjamin Reed <br33d@yahoo.com>
-Subject: Re: send(), sendmsg(), sendto() not thread-safe
-Date: Wed, 17 May 2006 12:06:37 -0700 (PDT)
-Message-ID: <20060517190637.98332.qmail@web51502.mail.yahoo.com>
-References: <446B70F9.80707@hp.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Wed, 17 May 2006 15:34:11 -0400
+Message-ID: <20060517193405.GB17895@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Christopher Friesen <cfriesen@nortel.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web51502.mail.yahoo.com ([206.190.38.194]:23902 "HELO
-	web51502.mail.yahoo.com") by vger.kernel.org with SMTP
-	id S1750980AbWEQTGj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 May 2006 15:06:39 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <446B70F9.80707@hp.com>
+Received: from ra.tuxdriver.com ([24.172.12.4]:32015 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751029AbWEQTef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 15:34:35 -0400
+To: jeff@garzik.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These discussions degrade quickly.
+The following changes since commit 0c056c50a6218e0e577817c16ba8851af593d742:
+  Linus Torvalds:
+        Merge master.kernel.org:/.../gregkh/spi-2.6
 
-I'm not proposing using pread() on a socket. I was
-pointing out that you can do two concurrent pread()
-invocations on the same file descriptor (for a file)
-and get consistent results. It would be nice if you
-can do two concurrent sendmsg() invocations on the
-same socket descriptor and get consistent results.
+are found in the git repository at:
 
-pread() does not need to be in a critical section to
-work properly. sendmsg() does in general. Usually, the
-fact that it needs to be in a critical section would
-suggest that it is not thread safe.
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
 
-ben
+David Woodhouse:
+      bcm43xx: associate on 'ifconfig up'
 
---- Rick Jones <rick.jones2@hp.com> wrote:
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-> Benjamin Reed wrote:
-> > In the case of lseek() and read(), you can use
-> > pread(). 
-> 
-> What is the meaning of the offset parameter of
-> pread() for TCP or UDP etc?
-> 
-> rick jones
-> 
-
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index e2982a8..7ed18ca 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -3271,6 +3271,9 @@ static int bcm43xx_init_board(struct bcm
+ 	bcm43xx_sysfs_register(bcm);
+ 	//FIXME: check for bcm43xx_sysfs_register failure. This function is a bit messy regarding unwinding, though...
+ 
++	/*FIXME: This should be handled by softmac instead. */
++	schedule_work(&bcm->softmac->associnfo.work);
++
+ 	assert(err == 0);
+ out:
+ 	return err;
+@@ -3946,9 +3949,6 @@ static int bcm43xx_resume(struct pci_dev
+ 
+ 	netif_device_attach(net_dev);
+ 	
+-	/*FIXME: This should be handled by softmac instead. */
+-	schedule_work(&bcm->softmac->associnfo.work);
+-
+ 	dprintk(KERN_INFO PFX "Device resumed.\n");
+ 
+ 	return 0;
+-- 
+John W. Linville
+linville@tuxdriver.com
