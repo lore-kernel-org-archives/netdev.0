@@ -1,90 +1,68 @@
 From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 0/4] myri10ge - Myri-10G Ethernet driver - v2
-Date: Wed, 17 May 2006 18:02:19 -0400
-Message-ID: <20060517220218.GA13411@myri.com>
+Subject: [PATCH 1/4] myri10ge - Revive pci_find_ext_capability
+Date: Wed, 17 May 2006 18:03:46 -0400
+Message-ID: <20060517220345.GB13411@myri.com>
+References: <20060517220218.GA13411@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: gallatin@myri.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751179AbWEQWCW@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:52896 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1751187AbWEQWDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 18:03:47 -0400
 To: netdev@vger.kernel.org
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060517220218.GA13411@myri.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 0/4] myri10ge - Myri-10G Ethernet driver - v2
+[PATCH 1/4] myri10ge - Revive pci_find_ext_capability
 
-The following patches introduce the myri10ge driver for Myricom Myri-10G
-boards in Ethernet mode. The driver is called myri10ge. The patches are
-against 2.6.17-rc4-mm1.
+This patch revives pci_find_ext_capability (has been disabled a couple month
+ago since it was not used anywhere. See http://lkml.org/lkml/2006/1/20/247).
+It will now be used by the myri10ge driver.
 
-[1/4]   revive pci_find_ext_capability
-[2/4]	myri10ge driver header files.
-[3/4]	myri10ge driver core.
-[4/4]	Add Kconfig and Makefile support for the myri10ge driver.
+Signed-off-by: Brice Goglin <brice@myri.com>
+Signed-off-by: Andrew J. Gallatin <gallatin@myri.com>
 
-It also uses the following patches that have been sent on May 2
-(http://lkml.org/lkml/2006/5/2/286 and 288) and merged into -mm.
-add-__iowrite64_copy.patch
-	Introduce __iowrite64_copy.
-add-pci_cap_id_vndr.patch
-	Add the vendor specific extended capability PCI_CAP_ID_VNDR.
+ drivers/pci/pci.c   |    3 +--
+ include/linux/pci.h |    2 ++
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-We think we have addressed will problems that have been reported after
-the first submission. Major changes include:
-- We have dropped the "does msi work on this chipset ?" detection code
-  and we simply enable msi by default. We are working on patches to
-  improve MSI detection in the core PCI code.
-- The spinlock that was held during up to 2s has been replaced with
-  using rtnl_lock (and the delay has been reduced to 15ms).
-- no X86||X86_64 specific code anymore
-- non-NAPI support has been dropped
-- TSO is enabled by default
-- some comments have been added to justify some design choices
-
-Other changes:
-- use netdev_priv, setup_timer and skb_checksum_help helps
-- PCI_DEVICE, ALIGN, DMA_MASK and ETH_ALEN macros
-- use wait_event_timeout in the close routine
-- fix cksum regarding to vlan and tso
-- rename MYRI10GE_MCP_M{IN,AJ}OR into MYRI10GE_MCP_VERSION_M{IN,AJ}OR
-- only add NETIF_F_HIGHDMA only if dma_mask bas been set
-- add MODULE_PARM_DESC
-- check/use myri10ge_send_cmd return status
-- return pci_register_driver return value init the driver init function
-- drop empty functions (set_setting, init and ioctl)
-- add __init and __exit to module init and exit routines
-- add missing static and const, remove useless volatile
-- do not typedef struct and enum
-- {u,s}{8,16,32,64} instead of {u,}int{8,16,32,64}_t
-- remove useless casts
-- uppercase _myri10ge_mcp_h and _myri10ge_mcp_gen_header_h
-- drop unused ugly macro in the headers
-- fix multiple indentation problems
-
-We still have some chipset specific code to deal with alignment of PCI-E
-completions. When aligned, we can get much better performance by using an
-optimized firmware. The HT2000 chipset is known to provide aligned completions.
-See myri10ge_select_firmware() for details. For other chipsets, we try to
-enable ECRC if the board is attached to a root port (so that we do not
-disturb any other device that would not like ECRC).
-We don't think that this ECRC and PCI-E completion alignment code has to
-be moved to the PCI core since it is very specific to our driver.
-
-Enabling ECRC on the nVidia CK804 PCI-E bridge is problematic since the
-PCI_EXT_CAP_ID_ERR capability is not linked as it is supposed. We didn't
-find any way to do this with a quirk. So we work around it with a local fix.
-See myri10ge_enable_ecrc() for details.
-
-
-
-
-
-The Myri-10G board operates as a regular PCI-Express Ethernet NIC.
-If a firmware is available through hotplug, the driver will load it if its
-version matches the driver requirements. If not, the driver will adopt the
-running firmware that came in the board's eeprom if it is recent enough.
-
-This driver supports in particular NAPI, power management, IPv4 and IPv6
-checksum offload, 802.1q VLAN, and TCP Segmentation Offload.
-
-Brice Goglin
+--- linux-mm/drivers/pci/pci.c.old
++++ linux-mm/drivers/pci/pci.c
+@@ -164,7 +164,6 @@ int pci_bus_find_capability(struct pci_b
+ 	return __pci_bus_find_cap(bus, devfn, hdr_type & 0x7f, cap);
+ }
+ 
+-#if 0
+ /**
+  * pci_find_ext_capability - Find an extended capability
+  * @dev: PCI device to query
+@@ -212,7 +211,7 @@ int pci_find_ext_capability(struct pci_d
+ 
+ 	return 0;
+ }
+-#endif  /*  0  */
++EXPORT_SYMBOL_GPL(pci_find_ext_capability);
+ 
+ /**
+  * pci_find_parent_resource - return resource region of parent bus of given region
+--- linux-mm/include/linux/pci.h.old
++++ linux-mm/include/linux/pci.h
+@@ -443,6 +443,7 @@ struct pci_dev *pci_find_device_reverse 
+ struct pci_dev *pci_find_slot (unsigned int bus, unsigned int devfn);
+ int pci_find_capability (struct pci_dev *dev, int cap);
+ int pci_find_next_capability (struct pci_dev *dev, u8 pos, int cap);
++int pci_find_ext_capability (struct pci_dev *dev, int cap);
+ struct pci_bus * pci_find_next_bus(const struct pci_bus *from);
+ 
+ struct pci_dev *pci_get_device (unsigned int vendor, unsigned int device, struct pci_dev *from);
+@@ -670,6 +671,7 @@ static inline int pci_register_driver(st
+ static inline void pci_unregister_driver(struct pci_driver *drv) { }
+ static inline int pci_find_capability (struct pci_dev *dev, int cap) {return 0; }
+ static inline int pci_find_next_capability (struct pci_dev *dev, u8 post, int cap) { return 0; }
++static inline int pci_find_ext_capability (struct pci_dev *dev, int cap) {return 0; }
+ static inline const struct pci_device_id *pci_match_device(const struct pci_device_id *ids, const struct pci_dev *dev) { return NULL; }
+ 
+ /* Power management related routines */
