@@ -1,68 +1,62 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 1/4] myri10ge - Revive pci_find_ext_capability
-Date: Wed, 17 May 2006 18:03:46 -0400
-Message-ID: <20060517220345.GB13411@myri.com>
-References: <20060517220218.GA13411@myri.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH 3/6] new pcmcia IDs for hostap
+Date: Wed, 17 May 2006 18:03:36 -0400
+Message-ID: <1147903416.31641.11.camel@dv>
+References: <200605161621.22459.linux-arm@hrw.one.pl>
+	 <200605161724.53495.linux-arm@hrw.one.pl> <1147814144.14914.38.camel@dv>
+	 <200605171036.05164.linux-arm@hrw.one.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gallatin@myri.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Jouni Malinen <jkmaline@cc.hut.fi>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:52896 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1751187AbWEQWDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 18:03:47 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060517220218.GA13411@myri.com>
+Received: from fencepost.gnu.org ([199.232.76.164]:45235 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S1751186AbWEQWDu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 May 2006 18:03:50 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1FgU7R-0002ok-Rv
+	for netdev@vger.kernel.org; Wed, 17 May 2006 18:03:49 -0400
+To: Marcin Juszkiewicz <linux-arm@hrw.one.pl>
+In-Reply-To: <200605171036.05164.linux-arm@hrw.one.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 1/4] myri10ge - Revive pci_find_ext_capability
+On Wed, 2006-05-17 at 10:36 +0200, Marcin Juszkiewicz wrote:
+> That one I sent to You, lkml over month ago but you had it already in 
+> 24-hostap_cs_id.diff patch (which you told later to ignore).
 
-This patch revives pci_find_ext_capability (has been disabled a couple month
-ago since it was not used anywhere. See http://lkml.org/lkml/2006/1/20/247).
-It will now be used by the myri10ge driver.
+Sorry, I was swamped with other things and didn't have time to recheck
+all entries.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
-Signed-off-by: Andrew J. Gallatin <gallatin@myri.com>
+> Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+Signed-off-by: Pavel Roskin <proski@gnu.org>
 
- drivers/pci/pci.c   |    3 +--
- include/linux/pci.h |    2 ++
- 2 files changed, 3 insertions(+), 2 deletions(-)
+>  drivers/net/wireless/hostap/hostap_cs.c |    6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> Index: linux/drivers/net/wireless/hostap/hostap_cs.c
+> ===================================================================
+> --- linux.orig/drivers/net/wireless/hostap/hostap_cs.c	2006-05-17 10:23:00.000000000 +0200
+> +++ linux/drivers/net/wireless/hostap/hostap_cs.c	2006-05-17 10:25:45.000000000 +0200
+> @@ -923,6 +923,12 @@
+>  	PCMCIA_DEVICE_PROD_ID12(
+>  		"ZoomAir 11Mbps High", "Rate wireless Networking",
+>  		0x273fe3db, 0x32a1eaee),
+> +	PCMCIA_DEVICE_PROD_ID123(
+> +		"Pretec", "CompactWLAN Card 802.11b", "2.5",
+> +		0x1cadd3e5, 0xe697636c, 0x7a5bfcf1),
+> +	PCMCIA_DEVICE_PROD_ID123(
+> +		"U.S. Robotics", "IEEE 802.11b PC-CARD", "Version 01.02",
+> +		0xc7b8df9d, 0x1700d087, 0x4b74baa0),
+>  	PCMCIA_DEVICE_NULL
+>  };
+>  MODULE_DEVICE_TABLE(pcmcia, hostap_cs_ids);
+> 
+> 
+-- 
+Regards,
+Pavel Roskin
 
---- linux-mm/drivers/pci/pci.c.old
-+++ linux-mm/drivers/pci/pci.c
-@@ -164,7 +164,6 @@ int pci_bus_find_capability(struct pci_b
- 	return __pci_bus_find_cap(bus, devfn, hdr_type & 0x7f, cap);
- }
- 
--#if 0
- /**
-  * pci_find_ext_capability - Find an extended capability
-  * @dev: PCI device to query
-@@ -212,7 +211,7 @@ int pci_find_ext_capability(struct pci_d
- 
- 	return 0;
- }
--#endif  /*  0  */
-+EXPORT_SYMBOL_GPL(pci_find_ext_capability);
- 
- /**
-  * pci_find_parent_resource - return resource region of parent bus of given region
---- linux-mm/include/linux/pci.h.old
-+++ linux-mm/include/linux/pci.h
-@@ -443,6 +443,7 @@ struct pci_dev *pci_find_device_reverse 
- struct pci_dev *pci_find_slot (unsigned int bus, unsigned int devfn);
- int pci_find_capability (struct pci_dev *dev, int cap);
- int pci_find_next_capability (struct pci_dev *dev, u8 pos, int cap);
-+int pci_find_ext_capability (struct pci_dev *dev, int cap);
- struct pci_bus * pci_find_next_bus(const struct pci_bus *from);
- 
- struct pci_dev *pci_get_device (unsigned int vendor, unsigned int device, struct pci_dev *from);
-@@ -670,6 +671,7 @@ static inline int pci_register_driver(st
- static inline void pci_unregister_driver(struct pci_driver *drv) { }
- static inline int pci_find_capability (struct pci_dev *dev, int cap) {return 0; }
- static inline int pci_find_next_capability (struct pci_dev *dev, u8 post, int cap) { return 0; }
-+static inline int pci_find_ext_capability (struct pci_dev *dev, int cap) {return 0; }
- static inline const struct pci_device_id *pci_match_device(const struct pci_device_id *ids, const struct pci_dev *dev) { return NULL; }
- 
- /* Power management related routines */
