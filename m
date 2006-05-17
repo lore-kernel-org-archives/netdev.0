@@ -1,15 +1,14 @@
-From: Vonda <Vonda@epomail.com>
-Subject: RE:Vacancy
-Date: Wed, 17 May 2006 20:40:45 +0530
-Message-ID: <D468D935.2715222@epomail.com>
+From: Tisha <Tisha@JenniferLopezFan.com>
+Subject: -=Job for YOU=-
+Date: Wed, 17 May 2006 18:20:13 +0300
+Message-ID: <DA6EC5DD.6119674@JenniferLopezFan.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1251; format=flowed
 Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl-TN-012.103.246.61.touchtelindia.net ([61.246.103.12]:28266
-	"HELO dsl-TN-012.103.246.61.touchtelindia.net") by vger.kernel.org
-	with SMTP id S1750970AbWEQPGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 11:06:45 -0400
+Received: from [85.101.255.205] ([85.101.255.205]:12300 "HELO 85.101.255.205")
+	by vger.kernel.org with SMTP id S1750755AbWEQPSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 May 2006 11:18:15 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
