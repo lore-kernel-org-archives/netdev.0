@@ -1,41 +1,40 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Optimise be16/be32 conversions
-Date: Thu, 18 May 2006 22:36:32 +1000
-Message-ID: <20060518123632.GA14874@gondor.apana.org.au>
-References: <20060518093733.GA15918@mipter.zuzino.mipt.ru>
+Subject: Re: [IPSEC]: Optimise be16/be32 conversions
+Date: Thu, 18 May 2006 22:49:31 +1000
+Message-ID: <20060518124931.GA17564@gondor.apana.org.au>
+References: <20060518093733.GA15918@mipter.zuzino.mipt.ru> <20060518123632.GA14874@gondor.apana.org.au> <20060518123908.GA13351@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="IJpNTDwzlM2Ie8A6"
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="ZPt4rx8FFjLCG7dd"
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:18450 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750939AbWERMhF
+Received: from rhun.apana.org.au ([64.62.148.172]:38418 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750765AbWERMwk
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 May 2006 08:37:05 -0400
-To: Alexey Dobriyan <adobriyan@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Thu, 18 May 2006 08:52:40 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Content-Disposition: inline
-In-Reply-To: <20060518093733.GA15918@mipter.zuzino.mipt.ru>
+In-Reply-To: <20060518123908.GA13351@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---IJpNTDwzlM2Ie8A6
+--ZPt4rx8FFjLCG7dd
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Thu, May 18, 2006 at 09:37:33AM +0000, Alexey Dobriyan wrote:
+On Thu, May 18, 2006 at 02:39:08PM +0200, Lennert Buytenhek wrote:
+> On Thu, May 18, 2006 at 10:36:32PM +1000, Herbert Xu wrote:
 > 
-> --- a/net/ipv4/ipcomp.c
-> +++ 1/net/ipv4/ipcomp.c
-> @@ -210,7 +210,7 @@ static void ipcomp4_err(struct sk_buff *
->  	    skb->h.icmph->code != ICMP_FRAG_NEEDED)
->  		return;
->  
-> -	spi = ntohl(ntohs(ipch->cpi));
-> +	spi = htonl(ntohs(ipch->cpi));
+> > +#define __be32_to_be16(x) ((__force __be16)(__be32)x)
+> > +#define __be16_to_be32(x) ((__force __be32)(__be16)x)
+> > [...]
+> > +#define __be32_to_be16(x) ((__force __be16)((__force __u32)(__be32)x >> 16))
+> > +#define __be16_to_be32(x) ((__force __be32)((__force __u32)(__be16)x << 16))
+> 
+> Sure that that's safe without the parens?
 
-Unfortunately the gcc on i386 generates horrible code for that construct.
-So lets bite the bullet and optimise it ourselves.
+Good point.  Here is a fixed version.
 
 [IPSEC]: Optimise be16/be32 conversions
 
@@ -48,31 +47,32 @@ So it's worthwhile to add new primitives to handle these operations
 specifically.  The following patch addes be16_to_be32 and be32_to_be16
 and uses them for IPComp.
 
-This patch was prompted by a sparse clean-up patch from Alexey Dobriyan.
+This patch was prompted by a sparse clean-up patch from Alexey Dobriyan
+and incorporates parentheses from Lennert Buytenhek :)
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---IJpNTDwzlM2Ie8A6
+--ZPt4rx8FFjLCG7dd
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="ipcomp-spi-cleanup.patch"
+Content-Disposition: attachment; filename="ipcomp-spi-cleanup-2.patch"
 
 diff --git a/include/linux/byteorder/big_endian.h b/include/linux/byteorder/big_endian.h
-index bef8789..7ea1042 100644
+index bef8789..9b0279a 100644
 --- a/include/linux/byteorder/big_endian.h
 +++ b/include/linux/byteorder/big_endian.h
 @@ -101,6 +101,9 @@
  #define __cpu_to_be16s(x) do {} while (0)
  #define __be16_to_cpus(x) do {} while (0)
  
-+#define __be32_to_be16(x) ((__force __be16)(__be32)x)
-+#define __be16_to_be32(x) ((__force __be32)(__be16)x)
++#define __be32_to_be16(x) ((__force __be16)(__be32)(x))
++#define __be16_to_be32(x) ((__force __be32)(__be16)(x))
 +
  #include <linux/byteorder/generic.h>
  
@@ -91,15 +91,15 @@ index e86e4a9..0bafb90 100644
  
  
 diff --git a/include/linux/byteorder/little_endian.h b/include/linux/byteorder/little_endian.h
-index 86e62b7..ab6abcd 100644
+index 86e62b7..0633776 100644
 --- a/include/linux/byteorder/little_endian.h
 +++ b/include/linux/byteorder/little_endian.h
 @@ -101,6 +101,9 @@
  #define __cpu_to_be16s(x) __swab16s((x))
  #define __be16_to_cpus(x) __swab16s((x))
  
-+#define __be32_to_be16(x) ((__force __be16)((__force __u32)(__be32)x >> 16))
-+#define __be16_to_be32(x) ((__force __be32)((__force __u32)(__be16)x << 16))
++#define __be32_to_be16(x) ((__force __be16)((__force __u32)(__be32)(x) >> 16))
++#define __be16_to_be32(x) ((__force __be32)((__force __u32)(__be16)(x) << 16))
 +
  #include <linux/byteorder/generic.h>
  
@@ -178,4 +178,4 @@ index b549710..65f208d 100644
  		return 0;
  	default:
 
---IJpNTDwzlM2Ie8A6--
+--ZPt4rx8FFjLCG7dd--
