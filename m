@@ -1,46 +1,48 @@
 From: Brice Goglin <brice@myri.com>
-Subject: Re: [PATCH 2/4] myri10ge - Driver header files
-Date: Fri, 19 May 2006 01:36:21 +0200
-Message-ID: <446D04F5.3080802@myri.com>
-References: <20060517220218.GA13411@myri.com>	<20060517220434.GC13411@myri.com> <20060517152817.58a6d8bc.rdunlap@xenotime.net>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Fri, 19 May 2006 01:38:27 +0200
+Message-ID: <446D0573.4050204@myri.com>
+References: <20060517220218.GA13411@myri.com>	<20060517220608.GD13411@myri.com> <adairo446u3.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gallatin@myri.com,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:13991 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1751080AbWERXgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 May 2006 19:36:39 -0400
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
-In-Reply-To: <20060517152817.58a6d8bc.rdunlap@xenotime.net>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:26791 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1751167AbWERXip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 May 2006 19:38:45 -0400
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adairo446u3.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Randy.Dunlap wrote:
->> [PATCH 2/4] myri10ge - Driver header files
->>
->>  myri10ge_mcp.h            |  205 ++++++++++++++++++++++++++++++++++++++++++++++
->>  myri10ge_mcp_gen_header.h |   58 +++++++++++++
+Roland Dreier wrote:
+> Still some suspicious uses of volatile here.
+>
+> For example:
+>
+>   
+>> +struct myri10ge_priv {
+>>     
+>  ...
+>   
+>> +	volatile u8 __iomem *sram;
 >>     
 >
-> Please use "diffstat -p 1 -w 70" is documented in
-> Documentation/SubmittingPatches.
+> as far as I can see this is always used with proper __iomem accessors,
+> often with casts to strip the volatile anyway.  So why is volatile needed?
+>
+> I would suggest an audit of all uses of volatile in the driver, since
+> "volatile" in drivers really should be read "there's probably a bug
+> here, and if not something very tricky is going on."  If there are any
+> valid uses of volatile then a comment should explain why, so that
+> future reviewers don't have to try and puzzle out which of the
+> two possible translations of volatile is correct.
 >   
 
-Ok, will do.
-
->> +/* 16 Bytes */
->>     
-> What is 16 bytes here?
->   
->> +struct mcp_slot {
->> +	u16 checksum;
->> +	u16 length;
->> +};
->>     
-
-Looks like I have problems to compute the size of this type.
+You are right, we audited the code and it looks like we don't need any
+volatile.
 
 Thanks,
 Brice
