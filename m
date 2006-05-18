@@ -1,7 +1,7 @@
 From: James Morris <jmorris@namei.org>
-Subject: [PATCH 03/07] secmark: Add secmark support to core networking.
-Date: Thu, 18 May 2006 05:24:54 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605180523560.569@d.namei>
+Subject: [PATCH 04/07] secmark: Add xtables SECMARK target
+Date: Thu, 18 May 2006 05:26:00 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605180525010.569@d.namei>
 References: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -9,22 +9,21 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
 	Karl MacMillan <kmacmillan@tresys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:62607 "EHLO
-	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750976AbWERJY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 May 2006 05:24:57 -0400
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:32723 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751059AbWERJ0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 May 2006 05:26:04 -0400
 To: "David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>
 In-Reply-To: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a secmark field to the skbuff structure, to allow security 
-subsystems to place security markings on network packets.  This is similar 
-to the nfmark field, except is intended for implementing security policy, 
-rather than than networking policy.
+This patch adds a SECMARK target to xtables, allowing the admin to apply 
+security marks to packets via both iptables and ip6tables.
 
-This patch was already acked in principle by Dave Miller.
+The target currently handles SELinux security marking, but can be extended 
+for other purposes as needed.
 
 Please apply.
 
@@ -32,127 +31,229 @@ Signed-off-by: James Morris <jmorris@namei.org>
 
 ---
 
- include/linux/skbuff.h          |   22 ++++++++++++++++++++++
- net/Kconfig                     |    7 +++++++
- net/core/skbuff.c               |    3 ++-
- net/ipv4/ip_output.c            |    1 +
- net/ipv4/netfilter/ipt_REJECT.c |    1 +
- net/ipv6/ip6_output.c           |    1 +
- 6 files changed, 34 insertions(+), 1 deletion(-)
+ include/linux/netfilter/xt_SECMARK.h |   26 +++++
+ net/netfilter/Kconfig                |    9 ++
+ net/netfilter/Makefile               |    1 
+ net/netfilter/xt_SECMARK.c           |  156 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 192 insertions(+)
 
-
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/linux/skbuff.h linux-2.6.17-rc4-mm1.w/include/linux/skbuff.h
---- linux-2.6.17-rc4-mm1.p/include/linux/skbuff.h	2006-05-17 01:04:35.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/include/linux/skbuff.h	2006-05-17 01:29:36.000000000 -0400
-@@ -208,6 +208,7 @@ enum {
-  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
-  *	@tc_index: Traffic control index
-  *	@tc_verd: traffic control verdict
-+ *	@secmark: security marking
-  */
- 
- struct sk_buff {
-@@ -284,6 +285,9 @@ struct sk_buff {
- 	__u16			tc_verd;	/* traffic control verdict */
- #endif
- #endif
-+#ifdef CONFIG_NETWORK_SECMARK
-+	__u32			secmark;
-+#endif
- 
- 
- 	/* These elements must be at the end, see alloc_skb() for details.  */
-@@ -1395,5 +1399,23 @@ static inline void nf_reset(struct sk_bu
- static inline void nf_reset(struct sk_buff *skb) {}
- #endif /* CONFIG_NETFILTER */
- 
-+#ifdef CONFIG_NETWORK_SECMARK
-+static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
-+{
-+	to->secmark = from->secmark;
-+}
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/linux/netfilter/xt_SECMARK.h linux-2.6.17-rc4-mm1.w/include/linux/netfilter/xt_SECMARK.h
+--- linux-2.6.17-rc4-mm1.p/include/linux/netfilter/xt_SECMARK.h	1969-12-31 19:00:00.000000000 -0500
++++ linux-2.6.17-rc4-mm1.w/include/linux/netfilter/xt_SECMARK.h	2006-05-17 01:31:26.000000000 -0400
+@@ -0,0 +1,26 @@
++#ifndef _XT_SECMARK_H_target
++#define _XT_SECMARK_H_target
 +
-+static inline void skb_init_secmark(struct sk_buff *skb)
-+{
-+	skb->secmark = 0;
-+}
-+#else
-+static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
-+{ }
++/*
++ * This is intended for use by various security subsystems (but not
++ * at the same time).
++ *
++ * 'mode' refers to the specific security subsystem which the 
++ * packets are being marked for.
++ */
++#define SECMARK_MODE_SEL	0x01		/* SELinux */
++#define SECMARK_SELCTX_MAX	256
 +
-+static inline void skb_init_secmark(struct sk_buff *skb)
-+{ }
-+#endif
++struct xt_secmark_target_selinux_info {
++	u_int32_t selsid;
++	char selctx[SECMARK_SELCTX_MAX];
++};
 +
- #endif	/* __KERNEL__ */
- #endif	/* _LINUX_SKBUFF_H */
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/core/skbuff.c linux-2.6.17-rc4-mm1.w/net/core/skbuff.c
---- linux-2.6.17-rc4-mm1.p/net/core/skbuff.c	2006-05-17 01:04:35.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/core/skbuff.c	2006-05-17 01:29:36.000000000 -0400
-@@ -464,7 +464,7 @@ struct sk_buff *skb_clone(struct sk_buff
- 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
- 	C(input_dev);
- #endif
--
-+	skb_copy_secmark(n, skb);
- #endif
- 	C(truesize);
- 	atomic_set(&n->users, 1);
-@@ -526,6 +526,7 @@ static void copy_skb_header(struct sk_bu
- #endif
- 	new->tc_index	= old->tc_index;
- #endif
-+	skb_copy_secmark(new, old);
- 	atomic_set(&new->users, 1);
- 	skb_shinfo(new)->tso_size = skb_shinfo(old)->tso_size;
- 	skb_shinfo(new)->tso_segs = skb_shinfo(old)->tso_segs;
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/ip_output.c linux-2.6.17-rc4-mm1.w/net/ipv4/ip_output.c
---- linux-2.6.17-rc4-mm1.p/net/ipv4/ip_output.c	2006-05-17 01:04:35.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/ipv4/ip_output.c	2006-05-17 01:29:36.000000000 -0400
-@@ -410,6 +410,7 @@ static void ip_copy_metadata(struct sk_b
- 	nf_bridge_get(to->nf_bridge);
- #endif
- #endif
-+	skb_copy_secmark(to, from);
- }
++struct xt_secmark_target_info {
++	u_int8_t mode;
++	union {
++		struct xt_secmark_target_selinux_info sel;
++	} u;
++};
++
++#endif /*_XT_SECMARK_H_target */
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/Kconfig linux-2.6.17-rc4-mm1.w/net/netfilter/Kconfig
+--- linux-2.6.17-rc4-mm1.p/net/netfilter/Kconfig	2006-05-17 01:03:27.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/netfilter/Kconfig	2006-05-17 01:31:26.000000000 -0400
+@@ -174,6 +174,15 @@ config NETFILTER_XT_TARGET_NOTRACK
+ 	  If you want to compile it as a module, say M here and read
+ 	  <file:Documentation/modules.txt>.  If unsure, say `N'.
  
- /*
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ipt_REJECT.c linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ipt_REJECT.c
---- linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ipt_REJECT.c	2006-05-17 01:04:35.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ipt_REJECT.c	2006-05-17 01:29:36.000000000 -0400
-@@ -147,6 +147,7 @@ static void send_reset(struct sk_buff *o
- 	/* This packet will not be the same as the other: clear nf fields */
- 	nf_reset(nskb);
- 	nskb->nfmark = 0;
-+	skb_init_secmark(nskb);
- 
- 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
- 
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv6/ip6_output.c linux-2.6.17-rc4-mm1.w/net/ipv6/ip6_output.c
---- linux-2.6.17-rc4-mm1.p/net/ipv6/ip6_output.c	2006-05-17 01:04:35.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/ipv6/ip6_output.c	2006-05-17 01:29:36.000000000 -0400
-@@ -458,6 +458,7 @@ static void ip6_copy_metadata(struct sk_
- 	nf_bridge_get(to->nf_bridge);
- #endif
- #endif
-+	skb_copy_secmark(to, from);
- }
- 
- int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/Kconfig linux-2.6.17-rc4-mm1.w/net/Kconfig
---- linux-2.6.17-rc4-mm1.p/net/Kconfig	2006-05-17 01:04:35.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/Kconfig	2006-05-17 01:29:36.000000000 -0400
-@@ -66,6 +66,13 @@ source "net/ipv6/Kconfig"
- 
- endif # if INET
- 
-+config NETWORK_SECMARK
-+	bool "Security Marking"
++config NETFILTER_XT_TARGET_SECMARK
++	tristate '"SECMARK" target support'
++	depends on NETFILTER_XTABLES && NETWORK_SECMARK
 +	help
-+	  This enables security marking of network packets, similar
-+	  to nfmark, but designated for security purposes.
-+	  If you are unsure how to answer this question, answer N.
++	  The SECMARK target allows security marking of network
++	  packets, for use with security subsystems.
 +
- menuconfig NETFILTER
- 	bool "Network packet filtering (replaces ipchains)"
- 	---help---
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_MATCH_COMMENT
+ 	tristate  '"comment" match support'
+ 	depends on NETFILTER_XTABLES
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/Makefile linux-2.6.17-rc4-mm1.w/net/netfilter/Makefile
+--- linux-2.6.17-rc4-mm1.p/net/netfilter/Makefile	2006-05-17 01:03:27.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/netfilter/Makefile	2006-05-17 01:31:26.000000000 -0400
+@@ -28,6 +28,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNMAR
+ obj-$(CONFIG_NETFILTER_XT_TARGET_MARK) += xt_MARK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_SECMARK) += xt_SECMARK.o
+ 
+ # matches
+ obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/xt_SECMARK.c linux-2.6.17-rc4-mm1.w/net/netfilter/xt_SECMARK.c
+--- linux-2.6.17-rc4-mm1.p/net/netfilter/xt_SECMARK.c	1969-12-31 19:00:00.000000000 -0500
++++ linux-2.6.17-rc4-mm1.w/net/netfilter/xt_SECMARK.c	2006-05-17 01:31:52.000000000 -0400
+@@ -0,0 +1,156 @@
++/*
++ * Module for modifying the secmark field of the skb, for use by
++ * security subsystems.
++ *
++ * Based on the nfmark match by:
++ * (C) 1999-2001 Marc Boucher <marc@mbsi.ca>
++ *
++ * (C) 2006 Red Hat, Inc., James Morris <jmorris@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/selinux.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_SECMARK.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
++MODULE_DESCRIPTION("ip[6]tables SECMARK modification module");
++MODULE_ALIAS("ipt_SECMARK");
++MODULE_ALIAS("ip6t_SECMARK");
++
++#define PFX "SECMARK: "
++
++static u8 mode;
++
++static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
++			   const struct net_device *out, unsigned int hooknum,
++			   const struct xt_target *target,
++			   const void *targinfo, void *userinfo)
++{
++	u32 secmark = 0;
++	const struct xt_secmark_target_info *info = targinfo;
++
++	BUG_ON(info->mode != mode);
++
++	switch (mode) {
++	case SECMARK_MODE_SEL:
++		secmark = info->u.sel.selsid;
++		break;
++	
++	default:
++		BUG();
++	}
++	
++	if ((*pskb)->secmark != secmark)
++		(*pskb)->secmark = secmark;
++	
++	return XT_CONTINUE;
++}
++
++static int checkentry_selinux(struct xt_secmark_target_info *info)
++{
++	int err;
++	struct xt_secmark_target_selinux_info *sel = &info->u.sel;
++
++	err = selinux_string_to_sid(sel->selctx, &sel->selsid);
++	if (err) {
++		if (err == -EINVAL)
++			printk(KERN_INFO PFX "invalid SELinux context \'%s\'\n",
++			       sel->selctx);
++		return 0;
++	}
++	
++	if (!sel->selsid) {
++		printk(KERN_INFO PFX "unable to map SELinux context \'%s\'\n",
++		       sel->selctx);
++		return 0;
++	}
++
++	err = selinux_relabel_packet_permission(sel->selsid);
++	if (err) {
++		printk(KERN_INFO PFX "unable to obtain relabeling permission\n");
++		return 0;
++	}
++
++	return 1;
++}
++
++static int checkentry(const char *tablename, const void *entry,
++		      const struct xt_target *target, void *targinfo,
++		      unsigned int targinfosize, unsigned int hook_mask)
++{
++	struct xt_secmark_target_info *info = targinfo;
++
++	if (mode && mode != info->mode) {
++		printk(KERN_INFO PFX "mode already set to %hu cannot mix with "
++		       "rules for mode %hu\n", mode, info->mode);
++		return 0;
++	}
++
++	switch (info->mode) {
++	case SECMARK_MODE_SEL:
++		if (!checkentry_selinux(info))
++			return 0;
++		break;
++	
++	default:
++		printk(KERN_INFO PFX "invalid mode: %hu\n", info->mode);
++		return 0;
++	}
++	
++	if (!mode)
++		mode = info->mode;
++	return 1;
++}
++
++static struct xt_target ipt_secmark_reg = {
++	.name		= "SECMARK",
++	.target		= target,
++	.targetsize	= sizeof(struct xt_secmark_target_info),
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.me		= THIS_MODULE,
++	.family		= AF_INET,
++	.revision	= 0,
++};
++
++static struct xt_target ip6t_secmark_reg = {
++	.name		= "SECMARK",
++	.target		= target,
++	.targetsize	= sizeof(struct xt_secmark_target_info),
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.me		= THIS_MODULE,
++	.family		= AF_INET6,
++	.revision	= 0,
++};
++
++static int __init xt_secmark_init(void)
++{
++	int err;
++
++	err = xt_register_target(&ipt_secmark_reg);
++	if (err)
++		return err;
++
++	err = xt_register_target(&ip6t_secmark_reg);
++	if (err)
++		xt_unregister_target(&ipt_secmark_reg);
++
++	return err;
++}
++
++static void __exit xt_secmark_fini(void)
++{
++	xt_unregister_target(&ip6t_secmark_reg);
++	xt_unregister_target(&ipt_secmark_reg);
++}
++
++module_init(xt_secmark_init);
++module_exit(xt_secmark_fini);
