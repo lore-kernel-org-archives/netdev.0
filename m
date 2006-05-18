@@ -1,7 +1,7 @@
 From: James Morris <jmorris@namei.org>
-Subject: [PATCH 02/07] secmark: Add SELinux exports
-Date: Thu, 18 May 2006 05:23:42 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605180522520.569@d.namei>
+Subject: [PATCH 03/07] secmark: Add secmark support to core networking.
+Date: Thu, 18 May 2006 05:24:54 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605180523560.569@d.namei>
 References: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -9,18 +9,22 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
 	Karl MacMillan <kmacmillan@tresys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:27340 "EHLO
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:62607 "EHLO
 	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751034AbWERJXo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 May 2006 05:23:44 -0400
+	id S1750976AbWERJY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 May 2006 05:24:57 -0400
 To: "David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>
 In-Reply-To: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch exports adds new functions to the in-kernel SELinux API in 
-support of the new secmark-based packet controls.
+This patch adds a secmark field to the skbuff structure, to allow security 
+subsystems to place security markings on network packets.  This is similar 
+to the nfmark field, except is intended for implementing security policy, 
+rather than than networking policy.
+
+This patch was already acked in principle by Dave Miller.
 
 Please apply.
 
@@ -28,86 +32,127 @@ Signed-off-by: James Morris <jmorris@namei.org>
 
 ---
 
- include/linux/selinux.h    |   32 ++++++++++++++++++++++++++++++++
- security/selinux/exports.c |   22 ++++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+ include/linux/skbuff.h          |   22 ++++++++++++++++++++++
+ net/Kconfig                     |    7 +++++++
+ net/core/skbuff.c               |    3 ++-
+ net/ipv4/ip_output.c            |    1 +
+ net/ipv4/netfilter/ipt_REJECT.c |    1 +
+ net/ipv6/ip6_output.c           |    1 +
+ 6 files changed, 34 insertions(+), 1 deletion(-)
 
 
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/linux/selinux.h linux-2.6.17-rc4-mm1.w/include/linux/selinux.h
---- linux-2.6.17-rc4-mm1.p/include/linux/selinux.h	2006-05-17 01:03:34.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/include/linux/selinux.h	2006-05-17 01:18:57.000000000 -0400
-@@ -118,6 +118,27 @@ void selinux_get_ipc_sid(const struct ke
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/linux/skbuff.h linux-2.6.17-rc4-mm1.w/include/linux/skbuff.h
+--- linux-2.6.17-rc4-mm1.p/include/linux/skbuff.h	2006-05-17 01:04:35.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/include/linux/skbuff.h	2006-05-17 01:29:36.000000000 -0400
+@@ -208,6 +208,7 @@ enum {
+  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
+  *	@tc_index: Traffic control index
+  *	@tc_verd: traffic control verdict
++ *	@secmark: security marking
   */
- void selinux_get_task_sid(struct task_struct *tsk, u32 *sid);
  
-+/**
-+ *     selinux_string_to_sid - map a security context string to a security ID
-+ *     @str: the security context string to be mapped
-+ *     @sid: ID value returned via this.
-+ *
-+ *     Returns 0 if successful, with the SID stored in sid.  A value
-+ *     of zero for sid indicates no SID could be determined (but no error
-+ *     occurred).
-+ */
-+int selinux_string_to_sid(char *str, u32 *sid);
+ struct sk_buff {
+@@ -284,6 +285,9 @@ struct sk_buff {
+ 	__u16			tc_verd;	/* traffic control verdict */
+ #endif
+ #endif
++#ifdef CONFIG_NETWORK_SECMARK
++	__u32			secmark;
++#endif
+ 
+ 
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+@@ -1395,5 +1399,23 @@ static inline void nf_reset(struct sk_bu
+ static inline void nf_reset(struct sk_buff *skb) {}
+ #endif /* CONFIG_NETFILTER */
+ 
++#ifdef CONFIG_NETWORK_SECMARK
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{
++	to->secmark = from->secmark;
++}
 +
-+/**
-+ *     selinux_relabel_packet_permission - check permission to relabel a packet
-+ *     @sid: ID value to be applied to network packet (via SECMARK, most likely)
-+ *
-+ *     Returns 0 if the current task is allowed to label packets with the
-+ *     supplied security ID.  Note that it is implicit that the packet is always
-+ *     being relabeled from the default unlabled value, and that the access
-+ *     control decision is made in the AVC.
-+ */
-+int selinux_relabel_packet_permission(u32 sid);
- 
- #else
- 
-@@ -172,6 +193,17 @@ static inline void selinux_get_task_sid(
- 	*sid = 0;
++static inline void skb_init_secmark(struct sk_buff *skb)
++{
++	skb->secmark = 0;
++}
++#else
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{ }
++
++static inline void skb_init_secmark(struct sk_buff *skb)
++{ }
++#endif
++
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/core/skbuff.c linux-2.6.17-rc4-mm1.w/net/core/skbuff.c
+--- linux-2.6.17-rc4-mm1.p/net/core/skbuff.c	2006-05-17 01:04:35.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/core/skbuff.c	2006-05-17 01:29:36.000000000 -0400
+@@ -464,7 +464,7 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
+ 	C(input_dev);
+ #endif
+-
++	skb_copy_secmark(n, skb);
+ #endif
+ 	C(truesize);
+ 	atomic_set(&n->users, 1);
+@@ -526,6 +526,7 @@ static void copy_skb_header(struct sk_bu
+ #endif
+ 	new->tc_index	= old->tc_index;
+ #endif
++	skb_copy_secmark(new, old);
+ 	atomic_set(&new->users, 1);
+ 	skb_shinfo(new)->tso_size = skb_shinfo(old)->tso_size;
+ 	skb_shinfo(new)->tso_segs = skb_shinfo(old)->tso_segs;
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/ip_output.c linux-2.6.17-rc4-mm1.w/net/ipv4/ip_output.c
+--- linux-2.6.17-rc4-mm1.p/net/ipv4/ip_output.c	2006-05-17 01:04:35.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/ipv4/ip_output.c	2006-05-17 01:29:36.000000000 -0400
+@@ -410,6 +410,7 @@ static void ip_copy_metadata(struct sk_b
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
  }
  
-+static inline int selinux_string_to_sid(const char *str, u32 *sid)
-+{
-+       *sid = 0;
-+       return 0;
-+}
-+
-+static inline int selinux_relabel_packet_permission(u32 sid)
-+{
-+	return 0;
-+}
-+
- #endif	/* CONFIG_SECURITY_SELINUX */
+ /*
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ipt_REJECT.c linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ipt_REJECT.c
+--- linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ipt_REJECT.c	2006-05-17 01:04:35.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ipt_REJECT.c	2006-05-17 01:29:36.000000000 -0400
+@@ -147,6 +147,7 @@ static void send_reset(struct sk_buff *o
+ 	/* This packet will not be the same as the other: clear nf fields */
+ 	nf_reset(nskb);
+ 	nskb->nfmark = 0;
++	skb_init_secmark(nskb);
  
- #endif /* _LINUX_SELINUX_H */
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/security/selinux/exports.c linux-2.6.17-rc4-mm1.w/security/selinux/exports.c
---- linux-2.6.17-rc4-mm1.p/security/selinux/exports.c	2006-05-17 01:03:34.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/security/selinux/exports.c	2006-05-17 01:18:57.000000000 -0400
-@@ -72,3 +72,25 @@ void selinux_get_task_sid(struct task_st
- 	*sid = 0;
+ 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
+ 
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv6/ip6_output.c linux-2.6.17-rc4-mm1.w/net/ipv6/ip6_output.c
+--- linux-2.6.17-rc4-mm1.p/net/ipv6/ip6_output.c	2006-05-17 01:04:35.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/ipv6/ip6_output.c	2006-05-17 01:29:36.000000000 -0400
+@@ -458,6 +458,7 @@ static void ip6_copy_metadata(struct sk_
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
  }
  
-+int selinux_string_to_sid(char *str, u32 *sid)
-+{
-+	if (selinux_enabled)
-+		return security_context_to_sid(str, strlen(str), sid);
-+	else {
-+		*sid = 0;
-+		return 0;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(selinux_string_to_sid);
+ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/Kconfig linux-2.6.17-rc4-mm1.w/net/Kconfig
+--- linux-2.6.17-rc4-mm1.p/net/Kconfig	2006-05-17 01:04:35.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/Kconfig	2006-05-17 01:29:36.000000000 -0400
+@@ -66,6 +66,13 @@ source "net/ipv6/Kconfig"
+ 
+ endif # if INET
+ 
++config NETWORK_SECMARK
++	bool "Security Marking"
++	help
++	  This enables security marking of network packets, similar
++	  to nfmark, but designated for security purposes.
++	  If you are unsure how to answer this question, answer N.
 +
-+int selinux_relabel_packet_permission(u32 sid)
-+{
-+	if (selinux_enabled) {
-+		struct task_security_struct *tsec = current->security;
-+		
-+		return avc_has_perm(tsec->sid, sid, SECCLASS_PACKET,
-+				    PACKET__RELABELTO, NULL);
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(selinux_relabel_packet_permission);
+ menuconfig NETFILTER
+ 	bool "Network packet filtering (replaces ipchains)"
+ 	---help---
