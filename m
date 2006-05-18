@@ -1,7 +1,7 @@
 From: James Morris <jmorris@namei.org>
-Subject: [PATCH 05/07] secmark: Add secmark support to conntrack
-Date: Thu, 18 May 2006 05:27:05 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605180526070.569@d.namei>
+Subject: [PATCH 06/07] secmark: Add CONNSECMARK xtables target
+Date: Thu, 18 May 2006 05:28:15 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605180527130.569@d.namei>
 References: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -9,21 +9,27 @@ Cc: Patrick McHardy <kaber@trash.net>,
 	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
 	Karl MacMillan <kmacmillan@tresys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:64998 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751059AbWERJ1I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 May 2006 05:27:08 -0400
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:1423 "EHLO
+	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751111AbWERJ2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 May 2006 05:28:18 -0400
 To: "David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@osdl.org>
 In-Reply-To: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a secmark field to IP and NF conntracks, so that security 
-markings on packets can be copied to their associated connections, and 
-also copied back to packets as required.  This is similar to the network 
-mark field currently used with conntrack, although it is intended for 
-enforcement of security policy rather than network policy.
+This patch adds a new xtables target, CONNSECMARK, which is used to 
+specify rules for copying security marks from packets to connections, and 
+for copyying security marks back from connections to packets.  This is 
+similar to the CONNMARK target, but is more limited in scope in that it 
+only allows copying of security marks to and from packets, as this is all 
+it needs to do.
+
+A typical scenario would be to apply a security mark to a 'new' packet 
+with SECMARK, then copy that to its conntrack via CONNMARK, and then 
+restore the security mark from the connection to established and related 
+packets on that connection.
 
 Please apply.
 
@@ -31,185 +37,218 @@ Signed-off-by: James Morris <jmorris@namei.org>
 
 ---
 
- include/linux/netfilter_ipv4/ip_conntrack.h  |    4 ++++
- include/net/netfilter/nf_conntrack.h         |    4 ++++
- include/net/netfilter/nf_conntrack_compat.h  |   26 ++++++++++++++++++++++++++
- net/ipv4/netfilter/Kconfig                   |   12 ++++++++++++
- net/ipv4/netfilter/ip_conntrack_core.c       |    3 +++
- net/ipv4/netfilter/ip_conntrack_standalone.c |    5 +++++
- net/netfilter/Kconfig                        |   12 ++++++++++++
- net/netfilter/nf_conntrack_core.c            |    3 +++
- net/netfilter/nf_conntrack_standalone.c      |    5 +++++
- 9 files changed, 74 insertions(+)
+ include/linux/netfilter/xt_CONNSECMARK.h |   13 ++
+ net/netfilter/Kconfig                    |   11 ++
+ net/netfilter/Makefile                   |    1 
+ net/netfilter/xt_CONNSECMARK.c           |  155 +++++++++++++++++++++++++++++++
+ 4 files changed, 180 insertions(+)
 
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.6.17-rc4-mm1.w/include/linux/netfilter_ipv4/ip_conntrack.h
---- linux-2.6.17-rc4-mm1.p/include/linux/netfilter_ipv4/ip_conntrack.h	2006-05-16 23:35:11.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/include/linux/netfilter_ipv4/ip_conntrack.h	2006-05-17 01:39:42.000000000 -0400
-@@ -120,6 +120,10 @@ struct ip_conntrack
- 	u_int32_t mark;
- #endif
- 
-+#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
-+	u_int32_t secmark;
-+#endif
+
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/linux/netfilter/xt_CONNSECMARK.h linux-2.6.17-rc4-mm1.w/include/linux/netfilter/xt_CONNSECMARK.h
+--- linux-2.6.17-rc4-mm1.p/include/linux/netfilter/xt_CONNSECMARK.h	1969-12-31 19:00:00.000000000 -0500
++++ linux-2.6.17-rc4-mm1.w/include/linux/netfilter/xt_CONNSECMARK.h	2006-05-17 19:54:52.000000000 -0400
+@@ -0,0 +1,13 @@
++#ifndef _XT_CONNSECMARK_H_target
++#define _XT_CONNSECMARK_H_target
 +
- 	/* Traversed often, so hopefully in different cacheline to top */
- 	/* These are my tuples; original and reply */
- 	struct ip_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/net/netfilter/nf_conntrack_compat.h linux-2.6.17-rc4-mm1.w/include/net/netfilter/nf_conntrack_compat.h
---- linux-2.6.17-rc4-mm1.p/include/net/netfilter/nf_conntrack_compat.h	2006-03-20 00:53:29.000000000 -0500
-+++ linux-2.6.17-rc4-mm1.w/include/net/netfilter/nf_conntrack_compat.h	2006-05-17 01:39:42.000000000 -0400
-@@ -20,6 +20,19 @@ static inline u_int32_t *nf_ct_get_mark(
- }
- #endif /* CONFIG_IP_NF_CONNTRACK_MARK */
- 
-+#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
-+static inline u_int32_t *nf_ct_get_secmark(const struct sk_buff *skb,
-+					   u_int32_t *ctinfo)
-+{
-+	struct ip_conntrack *ct = ip_conntrack_get(skb, ctinfo);
++enum {
++	CONNSECMARK_SAVE = 1,
++	CONNSECMARK_RESTORE,
++};
 +
-+	if (ct)
-+		return &ct->secmark;
-+	else
-+		return NULL;
-+}
-+#endif /* CONFIG_IP_NF_CONNTRACK_SECMARK */
++struct xt_connsecmark_target_info {
++	u_int8_t mode;
++};
 +
- #ifdef CONFIG_IP_NF_CT_ACCT
- static inline struct ip_conntrack_counter *
- nf_ct_get_counters(const struct sk_buff *skb)
-@@ -70,6 +83,19 @@ static inline u_int32_t *nf_ct_get_mark(
- }
- #endif /* CONFIG_NF_CONNTRACK_MARK */
- 
-+#ifdef CONFIG_NF_CONNTRACK_SECMARK
-+static inline u_int32_t *nf_ct_get_secmark(const struct sk_buff *skb,
-+					   u_int32_t *ctinfo)
-+{
-+	struct nf_conn *ct = nf_ct_get(skb, ctinfo);
-+
-+	if (ct)
-+		return &ct->secmark;
-+	else
-+		return NULL;
-+}
-+#endif /* CONFIG_NF_CONNTRACK_MARK */
-+
- #ifdef CONFIG_NF_CT_ACCT
- static inline struct ip_conntrack_counter *
- nf_ct_get_counters(const struct sk_buff *skb)
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/include/net/netfilter/nf_conntrack.h linux-2.6.17-rc4-mm1.w/include/net/netfilter/nf_conntrack.h
---- linux-2.6.17-rc4-mm1.p/include/net/netfilter/nf_conntrack.h	2006-05-16 23:35:11.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/include/net/netfilter/nf_conntrack.h	2006-05-17 01:39:42.000000000 -0400
-@@ -113,6 +113,10 @@ struct nf_conn
- 	u_int32_t mark;
- #endif
- 
-+#ifdef CONFIG_NF_CONNTRACK_SECMARK
-+	u_int32_t secmark;
-+#endif
-+
- 	/* Storage reserved for other modules: */
- 	union nf_conntrack_proto proto;
- 
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ip_conntrack_core.c linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ip_conntrack_core.c
---- linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ip_conntrack_core.c	2006-05-16 23:34:59.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ip_conntrack_core.c	2006-05-17 01:39:42.000000000 -0400
-@@ -724,6 +724,9 @@ init_conntrack(struct ip_conntrack_tuple
- 		/* this is ugly, but there is no other place where to put it */
- 		conntrack->nat.masq_index = exp->master->nat.masq_index;
- #endif
-+#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
-+		conntrack->secmark = exp->master->secmark;
-+#endif
- 		nf_conntrack_get(&conntrack->master->ct_general);
- 		CONNTRACK_STAT_INC(expect_new);
- 	} else {
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ip_conntrack_standalone.c linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ip_conntrack_standalone.c
---- linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/ip_conntrack_standalone.c	2006-05-16 23:34:59.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/ip_conntrack_standalone.c	2006-05-17 01:39:42.000000000 -0400
-@@ -189,6 +189,11 @@ static int ct_seq_show(struct seq_file *
- 		return -ENOSPC;
- #endif
- 
-+#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
-+	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
-+		return -ENOSPC;
-+#endif
-+
- 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
- 		return -ENOSPC;
- 
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/Kconfig linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/Kconfig
---- linux-2.6.17-rc4-mm1.p/net/ipv4/netfilter/Kconfig	2006-05-16 23:34:59.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/ipv4/netfilter/Kconfig	2006-05-17 01:48:41.000000000 -0400
-@@ -55,6 +55,18 @@ config IP_NF_CONNTRACK_MARK
- 	  of packets, but this mark value is kept in the conntrack session
- 	  instead of the individual packets.
- 	
-+config IP_NF_CONNTRACK_SECMARK
-+	bool  'Connection tracking security mark support'
-+	depends on IP_NF_CONNTRACK && NETWORK_SECMARK
-+	help
-+	  This option enables security markings to be applied to
-+	  connections.  Typically they are copied to connections from
-+	  packets using the CONNSECMARK target and copied back from
-+	  connections to packets with the same target, with the packets
-+	  being originally labeled via SECMARK.
-+	  
-+	  If unsure, say 'N'.
-+
- config IP_NF_CONNTRACK_EVENTS
- 	bool "Connection tracking events (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL && IP_NF_CONNTRACK
++#endif /*_XT_CONNSECMARK_H_target */
 diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/Kconfig linux-2.6.17-rc4-mm1.w/net/netfilter/Kconfig
---- linux-2.6.17-rc4-mm1.p/net/netfilter/Kconfig	2006-05-17 01:35:52.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/netfilter/Kconfig	2006-05-17 01:48:42.000000000 -0400
-@@ -60,6 +60,18 @@ config NF_CONNTRACK_MARK
- 	  of packets, but this mark value is kept in the conntrack session
- 	  instead of the individual packets.
+--- linux-2.6.17-rc4-mm1.p/net/netfilter/Kconfig	2006-05-17 19:54:43.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/netfilter/Kconfig	2006-05-17 19:54:52.000000000 -0400
+@@ -195,6 +195,17 @@ config NETFILTER_XT_TARGET_SECMARK
  
-+config NF_CONNTRACK_SECMARK
-+	bool  'Connection tracking security mark support'
-+	depends on NF_CONNTRACK && NETWORK_SECMARK
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NETFILTER_XT_TARGET_CONNSECMARK
++	tristate '"CONNSECMARK" target support'
++	depends on NETFILTER_XTABLES && (NF_CONNTRACK_SECMARK || IP_NF_CONNTRACK_SECMARK)
 +	help
-+	  This option enables security markings to be applied to
-+	  connections.  Typically they are copied to connections from
-+	  packets using the CONNSECMARK target and copied back from
-+	  connections to packets with the same target, with the packets
-+	  being originally labeled via SECMARK.
++	  The CONNSECMARK target copies security markings from packets
++	  to connections, and restores security markings from connections
++	  to packets (if the packets are not already marked).  This would
++	  normally be used in conjunction with the SECMARK target.
 +
-+	  If unsure, say 'N'.
++	  To compile it as a module, choose M here.  If unsure, say N.
 +
- config NF_CONNTRACK_EVENTS
- 	bool "Connection tracking events (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL && NF_CONNTRACK
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/nf_conntrack_core.c linux-2.6.17-rc4-mm1.w/net/netfilter/nf_conntrack_core.c
---- linux-2.6.17-rc4-mm1.p/net/netfilter/nf_conntrack_core.c	2006-05-16 23:34:59.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/netfilter/nf_conntrack_core.c	2006-05-17 01:39:42.000000000 -0400
-@@ -990,6 +990,9 @@ init_conntrack(const struct nf_conntrack
- #ifdef CONFIG_NF_CONNTRACK_MARK
- 		conntrack->mark = exp->master->mark;
- #endif
-+#ifdef CONFIG_NF_CONNTRACK_SECMARK
-+		conntrack->secmark = exp->master->secmark;
-+#endif
- 		nf_conntrack_get(&conntrack->master->ct_general);
- 		NF_CT_STAT_INC(expect_new);
- 	} else
-diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/nf_conntrack_standalone.c linux-2.6.17-rc4-mm1.w/net/netfilter/nf_conntrack_standalone.c
---- linux-2.6.17-rc4-mm1.p/net/netfilter/nf_conntrack_standalone.c	2006-05-16 23:34:59.000000000 -0400
-+++ linux-2.6.17-rc4-mm1.w/net/netfilter/nf_conntrack_standalone.c	2006-05-17 01:39:42.000000000 -0400
-@@ -213,6 +213,11 @@ static int ct_seq_show(struct seq_file *
- 		return -ENOSPC;
- #endif
+ config NETFILTER_XT_MATCH_COMMENT
+ 	tristate  '"comment" match support'
+ 	depends on NETFILTER_XTABLES
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/Makefile linux-2.6.17-rc4-mm1.w/net/netfilter/Makefile
+--- linux-2.6.17-rc4-mm1.p/net/netfilter/Makefile	2006-05-17 19:53:39.000000000 -0400
++++ linux-2.6.17-rc4-mm1.w/net/netfilter/Makefile	2006-05-17 19:54:52.000000000 -0400
+@@ -29,6 +29,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_MARK) +
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_SECMARK) += xt_SECMARK.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
  
-+#ifdef CONFIG_NF_CONNTRACK_SECMARK
-+	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
-+		return -ENOSPC;
-+#endif
+ # matches
+ obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
+diff -purN -X dontdiff linux-2.6.17-rc4-mm1.p/net/netfilter/xt_CONNSECMARK.c linux-2.6.17-rc4-mm1.w/net/netfilter/xt_CONNSECMARK.c
+--- linux-2.6.17-rc4-mm1.p/net/netfilter/xt_CONNSECMARK.c	1969-12-31 19:00:00.000000000 -0500
++++ linux-2.6.17-rc4-mm1.w/net/netfilter/xt_CONNSECMARK.c	2006-05-17 19:55:25.000000000 -0400
+@@ -0,0 +1,155 @@
++/*
++ * This module is used to copy security markings from packets
++ * to connections, and restore security markings from connections
++ * back to packets.  This would normally be performed in conjunction
++ * with the SECMARK target and state match.
++ *
++ * Based somewhat on CONNMARK: 
++ *   Copyright (C) 2002,2004 MARA Systems AB <http://www.marasystems.com>
++ *    by Henrik Nordstrom <hno@marasystems.com>
++ * 
++ * (C) 2006 Red Hat, Inc., James Morris <jmorris@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_CONNSECMARK.h>
++#include <net/netfilter/nf_conntrack_compat.h>
 +
- 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
- 		return -ENOSPC;
- 	
++#define PFX "CONNSECMARK: "
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
++MODULE_DESCRIPTION("ip[6]tables CONNSECMARK module");
++MODULE_ALIAS("ipt_CONNSECMARK");
++MODULE_ALIAS("ip6t_CONNSECMARK");
++
++/*
++ * If the packet has a security mark and the connection does not, copy
++ * the security mark from the packet to the connection.
++ */
++static void secmark_save(struct sk_buff *skb)
++{
++	if (skb->secmark) {
++		u32 *connsecmark;
++		enum ip_conntrack_info ctinfo;
++		
++		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
++		if (connsecmark && !*connsecmark)
++			if (*connsecmark != skb->secmark)
++				*connsecmark = skb->secmark;
++	}
++}
++
++/*
++ * If packet has no security mark, and the connection does, restore the
++ * security mark from the connection to the packet.
++ */
++static void secmark_restore(struct sk_buff *skb)
++{
++	if (!skb->secmark) {
++		u32 *connsecmark;
++		enum ip_conntrack_info ctinfo;
++		
++		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
++		if (connsecmark && *connsecmark)
++			if (skb->secmark != *connsecmark)
++				skb->secmark = *connsecmark;
++	}
++}
++
++static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
++			   const struct net_device *out, unsigned int hooknum,
++			   const struct xt_target *target,
++			   const void *targinfo, void *userinfo)
++{
++	struct sk_buff *skb = *pskb;
++	const struct xt_connsecmark_target_info *info = targinfo;
++
++	switch (info->mode) {
++	case CONNSECMARK_SAVE:
++		secmark_save(skb);
++		break;
++		
++	case CONNSECMARK_RESTORE:
++		secmark_restore(skb);
++		break;
++	
++	default:
++		BUG();
++	}
++
++	return XT_CONTINUE;
++}
++
++static int checkentry(const char *tablename, const void *entry,
++		      const struct xt_target *target, void *targinfo,
++		      unsigned int targinfosize, unsigned int hook_mask)
++{
++	struct xt_connsecmark_target_info *info = targinfo;
++
++	switch (info->mode) {
++	case CONNSECMARK_SAVE:
++	case CONNSECMARK_RESTORE:
++		break;
++	
++	default:
++		printk(KERN_INFO PFX "invalid mode: %hu\n", info->mode);
++		return 0;
++	}
++	
++	return 1;
++}
++
++static struct xt_target ipt_connsecmark_reg = {
++	.name		= "CONNSECMARK",
++	.target		= target,
++	.targetsize	= sizeof(struct xt_connsecmark_target_info),
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.me		= THIS_MODULE,
++	.family		= AF_INET,
++	.revision	= 0,
++};
++
++static struct xt_target ip6t_connsecmark_reg = {
++	.name		= "CONNSECMARK",
++	.target		= target,
++	.targetsize	= sizeof(struct xt_connsecmark_target_info),
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.me		= THIS_MODULE,
++	.family		= AF_INET6,
++	.revision	= 0,
++};
++
++static int __init xt_connsecmark_init(void)
++{
++	int err;
++
++	need_conntrack();
++
++	err = xt_register_target(&ipt_connsecmark_reg);
++	if (err)
++		return err;
++
++	err = xt_register_target(&ip6t_connsecmark_reg);
++	if (err)
++		xt_unregister_target(&ipt_connsecmark_reg);
++
++	return err;
++}
++
++static void __exit xt_connsecmark_fini(void)
++{
++	xt_unregister_target(&ip6t_connsecmark_reg);
++	xt_unregister_target(&ipt_connsecmark_reg);
++}
++
++module_init(xt_connsecmark_init);
++module_exit(xt_connsecmark_fini);
