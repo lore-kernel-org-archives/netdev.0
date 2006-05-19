@@ -1,48 +1,55 @@
-From: pravin b shelar <pravin.shelar@calsoftinc.com>
-Subject: Re: MultiPath Routing
-Date: Fri, 19 May 2006 18:51:56 +0530
-Message-ID: <446DC674.60506@calsoftinc.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] eth1394: endian fixes
+Date: Fri, 19 May 2006 17:25:39 +0400
+Message-ID: <20060519132539.GC17751@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	Ravikiran G Thirumalai <kiran@scalex86.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inbox2.nyi.net ([64.147.100.114]:18664 "HELO inbox2.nyi.net")
-	by vger.kernel.org with SMTP id S1751111AbWESN0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 May 2006 09:26:16 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from nf-out-0910.google.com ([64.233.182.186]:46741 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751329AbWESN1R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 May 2006 09:27:17 -0400
+Received: by nf-out-0910.google.com with SMTP id o63so58903nfa
+        for <netdev@vger.kernel.org>; Fri, 19 May 2006 06:27:14 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->Christian Schmid <webmaster@rapidforum.com> wrote:
->> 
->> Since this seems to be an undocumented feature.... How is this equal-cost multipath supposed to 
->> work? I just want to send outgoing traffic over two gateways. I tried this:
->> 
->> ip route replace default scope global nexthop via 192.168.0.1 dev eth1 weight 100 nexthop via 
->> 192.168.0.100 dev eth1 weight 100
->> 
->> It it doesnt work. It always uses the last for all download-users (around a few hundreds)
->
->Did you enable IP_ROUTE_MULTIPATH_CACHED? If so please disable it
->since it breaks multipath routing for forwarded traffic.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Hi ,
-	This was a bug reported by Christian Schmid long back. It is related to equal cost multipath caching on forwarded traffic. The solution suggested for this was 
-to disable equal-cost multipath caching. But It does not look like a clean solution.
+ drivers/ieee1394/eth1394.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-I investigated the problem further and observed that, If multipath caching is "on" then all route entries are added to the route cache. This leads to selection of same
-NIC for all route going through this ( forwarding ) sever. This is because we don't have selection logic for forwarded traffic in multipath caching code.
-
-On digging this list further, I found a patch posted by Herbert, which  disables multipath route cache entry addition for input case.
-I tested this patch and everything works fine now.
-for the patch ref: http://oss.sgi.com/projects/netdev/archive/2005-04/msg00232.html
-
-So how about including this patch ?
-
-Comments ?
-
-Regards,
-Pravin.
+--- a/drivers/ieee1394/eth1394.c
++++ 1/drivers/ieee1394/eth1394.c
+@@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
+ 		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
+ 		arp_ptr += arp->ar_pln;		/* skip over sender IP addr */
+ 
+-		if (arp->ar_op == 1)
++		if (arp->ar_op == htons(1))
+ 			/* just set ARP req target unique ID to 0 */
+ 			*((u64*)arp_ptr) = 0;
+ 		else
+@@ -1395,7 +1395,7 @@ static inline void ether1394_arp_to_1394
+ /* We need to encapsulate the standard header with our own. We use the
+  * ethernet header's proto for our own. */
+ static inline unsigned int ether1394_encapsulate_prep(unsigned int max_payload,
+-						      int proto,
++						      __be16 proto,
+ 						      union eth1394_hdr *hdr,
+ 						      u16 dg_size, u16 dgl)
+ {
+@@ -1626,7 +1626,7 @@ static int ether1394_tx (struct sk_buff 
+ 	gfp_t kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
+ 	struct eth1394hdr *eth;
+ 	struct eth1394_priv *priv = netdev_priv(dev);
+-	int proto;
++	__be16 proto;
+ 	unsigned long flags;
+ 	nodeid_t dest_node;
+ 	eth1394_tx_type tx_type;
 
