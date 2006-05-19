@@ -1,55 +1,34 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] eth1394: endian fixes
-Date: Fri, 19 May 2006 17:25:39 +0400
-Message-ID: <20060519132539.GC17751@mipter.zuzino.mipt.ru>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Fri, 19 May 2006 16:39:50 +0200
+Message-ID: <446DD8B6.4060102@myri.com>
+References: <20060517220218.GA13411@myri.com> <20060517220608.GD13411@myri.com> <200605180108.32949.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux1394-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gallatin@myri.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:46741 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751329AbWESN1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 May 2006 09:27:17 -0400
-Received: by nf-out-0910.google.com with SMTP id o63so58903nfa
-        for <netdev@vger.kernel.org>; Fri, 19 May 2006 06:27:14 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:48354 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S932321AbWESOkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 May 2006 10:40:11 -0400
+To: Arnd Bergmann <arnd@arndb.de>
+In-Reply-To: <200605180108.32949.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
 
- drivers/ieee1394/eth1394.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> dev_err?
+>   
+[...]
 
---- a/drivers/ieee1394/eth1394.c
-+++ 1/drivers/ieee1394/eth1394.c
-@@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
- 		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
- 		arp_ptr += arp->ar_pln;		/* skip over sender IP addr */
- 
--		if (arp->ar_op == 1)
-+		if (arp->ar_op == htons(1))
- 			/* just set ARP req target unique ID to 0 */
- 			*((u64*)arp_ptr) = 0;
- 		else
-@@ -1395,7 +1395,7 @@ static inline void ether1394_arp_to_1394
- /* We need to encapsulate the standard header with our own. We use the
-  * ethernet header's proto for our own. */
- static inline unsigned int ether1394_encapsulate_prep(unsigned int max_payload,
--						      int proto,
-+						      __be16 proto,
- 						      union eth1394_hdr *hdr,
- 						      u16 dg_size, u16 dgl)
- {
-@@ -1626,7 +1626,7 @@ static int ether1394_tx (struct sk_buff 
- 	gfp_t kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
- 	struct eth1394hdr *eth;
- 	struct eth1394_priv *priv = netdev_priv(dev);
--	int proto;
-+	__be16 proto;
- 	unsigned long flags;
- 	nodeid_t dest_node;
- 	eth1394_tx_type tx_type;
+> Could probably use dev_printk.
+>   
+
+When the interface name is known, we prefer having the message look like
+"myri10ge: eth2: something" since it might be easier to read than
+""myri10ge: 00005:000e: something". The administrator usually knows the
+name of the network interface better than its bus ID.
+
+Brice
 
