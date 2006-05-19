@@ -1,40 +1,47 @@
-From: Stefano Brivio <stefano.brivio@polimi.it>
-Subject: [patch 10/10] [RFT] bcm43xx: add PCI ID for bcm4311
-Date: Fri, 19 May 2006 00:00:10 +0200
-Message-ID: <20060519155801.707656000@polimi.it>
-References: <20060519154451.042749000@polimi.it>
-Cc: Edgar Hucek <hostmaster@ed-soft.at>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	Louis E Garcia II <louisg00@bellsouth.net>,
-	Stefano Brivio <stefano.brivio@polimi.it>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: sky2 large MTU problems...
+Date: Fri, 19 May 2006 17:22:42 +0100
+Message-ID: <6278d2220605190922v4fd3f947ia4c60f01884731e7@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org,
+	"Linux Networking" <linux-net@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213-156-52-114.fastres.net ([213.156.52.114]:55433 "EHLO
-	213-156-52-114.fastres.net") by vger.kernel.org with ESMTP
-	id S932406AbWESP6G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 May 2006 11:58:06 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=bcm43xx-pcie_ids.diff
+Received: from wr-out-0506.google.com ([64.233.184.235]:1999 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S932380AbWESQWv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 May 2006 12:22:51 -0400
+Received: by wr-out-0506.google.com with SMTP id 50so187964wri
+        for <netdev@vger.kernel.org>; Fri, 19 May 2006 09:22:51 -0700 (PDT)
+To: shemminger@osdl.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add PCI ID for bcm4311 PCI-E device.
+I've found that when increasing the sky2 interface MTU beyond
+somewhere around 6000-7500, packets can get truncated.
 
-Signed-off-by: Stefano Brivio <stefano.brivio@polimi.it>
+The interface is the internal interface on a NAT router - I've been
+able to reproduce this with 2.6.16 and 2.6.17-rc4 when say sending an
+email from gmail (via the web interface).
 
-Index: wireless-dev/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-dev.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-dev/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -130,6 +130,8 @@ MODULE_PARM_DESC(fwpostfix, "Postfix for
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 		/* Broadcom 4307 802.11b */
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	/* Broadcom 4311 802.11(a)/b/g */
-+	{ PCI_VENDOR_ID_BROADCOM, 0x4311, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 		/* Broadcom 4318 802.11b/g */
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4306 802.11b/g */
+Hardware:
 
---
-Ciao
-Stefano
+sky2 v1.3 addr 0xdfbfc000 irq 169 Yukon-EC (0xb6) rev 1
+
+Symptoms:
+
+# ifconfig lan0 mtu 7500
+# tcpdump -ni lan0
+08:38:13.595118 IP truncated-ip - 100 bytes missing! 192.168.0.3.1552
+> 213.160.98.138.554: . 2700848741:2700850201(1460) ack 1729330122 win
+64883
+
+(then sending from gmail hangs)
+
+Let me know if you need a more specific reproducer (eg a particular
+URL); I can test changes too.
+-- 
+Daniel J Blueman
