@@ -1,17 +1,17 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] irda: fix 16/32 bit confusion
-Date: Fri, 19 May 2006 15:35:17 +0400
-Message-ID: <20060519113516.GA17751@mipter.zuzino.mipt.ru>
+Subject: [PATCH] irda: fixup type of ->lsap_state
+Date: Fri, 19 May 2006 15:42:37 +0400
+Message-ID: <20060519114237.GB17751@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:17579 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.184]:60088 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932284AbWESLgt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 May 2006 07:36:49 -0400
-Received: by nf-out-0910.google.com with SMTP id o63so44929nfa
-        for <netdev@vger.kernel.org>; Fri, 19 May 2006 04:36:48 -0700 (PDT)
+	id S932293AbWESLoL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 May 2006 07:44:11 -0400
+Received: by nf-out-0910.google.com with SMTP id o63so45749nfa
+        for <netdev@vger.kernel.org>; Fri, 19 May 2006 04:44:10 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -20,16 +20,15 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
---- a/net/irda/iriap.c
-+++ 1/net/irda/iriap.c
-@@ -544,7 +544,8 @@ static void iriap_getvaluebyclass_respon
- {
- 	struct sk_buff *tx_skb;
- 	int n;
--	__u32 tmp_be32, tmp_be16;
-+	__u32 tmp_be32;
-+	__be16 tmp_be16;
- 	__u8 *fp;
+--- a/include/net/irda/irlmp.h
++++ 1/include/net/irda/irlmp.h
+@@ -112,7 +112,7 @@ struct lsap_cb {
  
- 	IRDA_DEBUG(4, "%s()\n", __FUNCTION__);
+ 	struct timer_list watchdog_timer;
+ 
+-	IRLMP_STATE     lsap_state;  /* Connection state */
++	LSAP_STATE      lsap_state;  /* Connection state */
+ 	notify_t        notify;      /* Indication/Confirm entry points */
+ 	struct qos_info qos;         /* QoS for this connection */
+ 
 
