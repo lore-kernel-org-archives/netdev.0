@@ -1,115 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 16/32 bit issues at nfulnl_recv_config
-Date: Fri, 19 May 2006 03:15:58 +0200
-Message-ID: <446D1C4E.6050601@trash.net>
-References: <20060518232050.GA31257@mipter.zuzino.mipt.ru>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Fri, 19 May 2006 03:55:10 +0200
+Message-ID: <200605190355.11230.arnd@arndb.de>
+References: <20060517220218.GA13411@myri.com> <200605180108.32949.arnd@arndb.de> <446D0994.8090103@myri.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060503010800080506060205"
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gallatin@myri.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60126 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932168AbWESBQA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 May 2006 21:16:00 -0400
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <20060518232050.GA31257@mipter.zuzino.mipt.ru>
+Received: from moutng.kundenserver.de ([212.227.126.183]:20939 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S932204AbWESBzE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 May 2006 21:55:04 -0400
+To: Brice Goglin <brice@myri.com>
+In-Reply-To: <446D0994.8090103@myri.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060503010800080506060205
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Am Friday 19 May 2006 01:56 schrieb Brice Goglin:
+> This place is actually the only one where we don't want to use msleep.
+> This function (myri10ge_send_cmd) might be called from various context
+> (spinlocked or not) and pass orders to the NIC whose processing time
+> depends a lot on the command. Of course, we don't have any place where a
+> long operation is passed from a spinlocked context :) But, we need the
+> tiny udelay granularity for the spinlocked case, and the long loop for
+> operations that are long to process in the NIC.
 
-Alexey Dobriyan wrote:
-> I'm talking about net/netfilter/nfnetlink_log.c::^nfulnl_recv_config
-> below. I'm totally confused and beer supply almost ended, so can someone else
-> also look at it...
-> 
-> Put your attention at line 905:
-> 
-> net/netfilter/nfnetlink_log.c:
-> 
->    902		if (nfula[NFULA_CFG_FLAGS-1]) {
->    903			u_int16_t flags =
->    904				*(u_int16_t *)NFA_DATA(nfula[NFULA_CFG_FLAGS-1]);
->    905			nfulnl_set_flags(inst, ntohl(flags));
-> 
-> 
-> 1) Cast should be made to __be16, and history of fixing endian warning
->    slightly above supports it.
-> 2) Assuming __be16, ntohl(__be16) is whooops.
-> 3) nfulnl_set_flags() wants something 16-bit wide as a second argument,
->    so ntohling there is double whoops.
-> 4) NFULNL_CFG_F_SEQ* defines fit into 16 bit and are host-endian;
->    inst->flags is &'ed with host endian so it's probably host-endian and
-> 
->    static int
->    nfulnl_set_flags(struct nfulnl_instance *inst, u_int16_t flags)
->    						  ^^^^^^^^^
-> 						  this should be made __be16.
->    {
-> 	spin_lock_bh(&inst->lock);
-> 	inst->flags = ntohs(flags);
-> 	spin_unlock_bh(&inst->lock);
-> 	return 0;
->    }
-> 
->    What to do with lines 903-905 if it is.
+I don't see any spinlocks in your code and the function does not
+seem to be called from the interrupt handler or the softirq either.
+Maybe I'm missed something, but where is this ever called in an
+atomic context?
 
+> > missing printk level (KERN_DEBUG?). Could probably use dev_printk.
+>
+> When are we supposed to call dev_printk or not in such a driver ?
 
-I checked the userspace code, "flags" is indeed a u16 in network byte
-order, so the ntohl in line 905 needs to become ntohs and the other
-one can just go, as done by this patch.
+Whenever you have a device associated with the message, it makes
+sense to use the dev_printk family of functions.
 
---------------060503010800080506060205
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+> >> +#define MYRI10GE_PCI_VENDOR_MYRICOM 	0x14c1
+> >> +#define MYRI10GE_PCI_DEVICE_Z8E 	0x0008
+> >
+> > Shouldn't the vendor ID go to pci_ids.h?
+>
+> That's what I thought but i was told that the fashion these days is to
+> keep the IDs with the driver that uses them. I'll happy to move as long
+> as everybody agrees :)
 
-[NETFILTER]: nfnetlink_log: fix byteorder confusion
+My understanding is that vendor IDs should go to the common file
+because they are likely to be used by multiple drivers whereas
+device IDs only need to be present in the one device driver for
+that particular device.
 
-flags is a u16, so use htons instead of htonl. Also avoid double
-conversion.
-
-Noticed by Alexey Dobriyan <adobriyan@gmail.com>
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit ad1dcdc1f150f613ff8625fed88ed5c1d089d09a
-tree fa34bb52998bd56144639dfe6b2c286b114ae59a
-parent f372e5df6ab4cd1e1498489562af2095fb5aec7c
-author Patrick McHardy <kaber@trash.net> Fri, 19 May 2006 03:12:08 +0200
-committer Patrick McHardy <kaber@trash.net> Fri, 19 May 2006 03:12:08 +0200
-
- net/netfilter/nfnetlink_log.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index c60273c..61cdda4 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -321,7 +321,7 @@ static int
- nfulnl_set_flags(struct nfulnl_instance *inst, u_int16_t flags)
- {
- 	spin_lock_bh(&inst->lock);
--	inst->flags = ntohs(flags);
-+	inst->flags = flags;
- 	spin_unlock_bh(&inst->lock);
- 
- 	return 0;
-@@ -902,7 +902,7 @@ nfulnl_recv_config(struct sock *ctnl, st
- 	if (nfula[NFULA_CFG_FLAGS-1]) {
- 		u_int16_t flags =
- 			*(u_int16_t *)NFA_DATA(nfula[NFULA_CFG_FLAGS-1]);
--		nfulnl_set_flags(inst, ntohl(flags));
-+		nfulnl_set_flags(inst, ntohs(flags));
- 	}
- 
- out_put:
-
---------------060503010800080506060205--
+	Arnd <><
