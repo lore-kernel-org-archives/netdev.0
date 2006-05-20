@@ -1,49 +1,82 @@
-From: Chris Wedgwood <cw@f00f.org>
-Subject: Re: [PATCH] Disable multipath cache routing
-Date: Sat, 20 May 2006 13:51:45 -0700
-Message-ID: <20060520205145.GB32010@taniwha.stupidest.org>
-References: <446ED597.20300@calsoftinc.com> <446EE440.8000808@calsoftinc.com>
+From: David Vrabel <dvrabel@cantab.net>
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Date: Sat, 20 May 2006 22:03:10 +0100
+Message-ID: <446F840E.3020808@cantab.net>
+References: <44554ADE.8030200@cantab.net> <4455F1D8.5030102@cantab.net> <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI> <20060503233558.GA27232@electric-eye.fr.zoreil.com> <1146750276.11422.0.camel@localhost> <20060504235549.GA9128@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suresh Bhogavilli <sbhogavilli@verisign.com>,
-	Julian Anastasov <ja@ssi.bg>, Ilia Sotnikov <hostcc@gmail.com>,
-	netdev@vger.kernel.org, Einar Lueck <elueck@de.ibm.com>,
-	lkml@einar-lueck.de, Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: multipart/mixed;
+ boundary="------------080300000806070909030101"
+Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp110.sbc.mail.mud.yahoo.com ([68.142.198.209]:13656 "HELO
-	smtp110.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S1751488AbWETUvs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 20 May 2006 16:51:48 -0400
-To: pravin b shelar <pravin.shelar@calsoftinc.com>
-Content-Disposition: inline
-In-Reply-To: <446EE440.8000808@calsoftinc.com>
+Received: from rutherford.zen.co.uk ([212.23.3.142]:49813 "EHLO
+	rutherford.zen.co.uk") by vger.kernel.org with ESMTP
+	id S932273AbWETVDX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 May 2006 17:03:23 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060504235549.GA9128@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(cc' list exploded to include various people who might not be reading
-     netdev, sorry about that)
+This is a multi-part message in MIME format.
+--------------080300000806070909030101
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On Sat, May 20, 2006 at 03:11:20PM +0530, pravin b shelar wrote:
-> I am working on Linux multipath networking and I will like to fix
-> bugs related to equal cost multipath caching support.
+Apologies for the (very) late response.
 
-My experience here is limited to having been using as and finding it
-was creating erroneous routes which DaveM correctly guessed was the
-result of CONFIG_IP_MULTIPATH_CACHED being enabled.
+0007-ipg-plug-leaks-in-the-error-path-of-ipg_nic_open.txt broke receive 
+since it was skipping the initialization of the Rx buffers.  Patch attached.
 
-Looking over ipv4/route.c there is a fair bit of complex code to audit
-(fib_semantics.c also needs to be checked, but it's not very involved)
-so perhaps if you or someone else who understand this code well is
-interested that would be a good place to start a code audit?
+Did anyone manage to get a response from IC Plus regarding the required 
+Signed-off-by line?
 
-I see also a patch from Herbert Xu about disabling this on the input
-path (the patch isn't present in the tree right now, I'm not sure if
-it was revert/fixed or just never merged).  Perhaps he can also point
-out what wrong here?
+David Vrabel
 
-  http://oss.sgi.com/archives/netdev/2005-04/msg00232.html
+--------------080300000806070909030101
+Content-Type: text/plain;
+ name="ipg-fix-init_rfdlist"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ipg-fix-init_rfdlist"
 
-Anyhow, the code as-is hasn't been maintained for a long time except
-for a few minor blips (I'm using hg's annotate to find those and have
-included those people on the cc' list as presumably there are using
-these features and might have useful input).
+ipg: initialize Rx buffers correctly
+
+A previous patch resulted in the initialization of the Rx buffers
+being skipped.
+
+Signed-off-by: David Vrabel <dvrabel@cantab.net>
+
+--- linux-source-2.6.16.orig/drivers/net/ipg.c	2006-05-20 21:38:44.604788258 +0100
++++ linux-source-2.6.16/drivers/net/ipg.c	2006-05-20 21:39:14.298898552 +0100
+@@ -1298,18 +1298,16 @@
+ 	sp->RxBuffNotReady = 0;
+ 
+ 	for (i = 0; i < IPG_RFDLIST_LENGTH; i++) {
+-		if (!sp->RxBuff[i])
+-			continue;
+-
+-		/* Free any allocated receive buffers. */
+-		pci_unmap_single(sp->pdev,
+-				 sp->RxBuffDMAhandle[i].dmahandle,
+-				 sp->RxBuffDMAhandle[i].len,
+-				 PCI_DMA_FROMDEVICE);
+-
+-		IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
+-		sp->RxBuff[i] = NULL;
++		if (sp->RxBuff[i]) {
++			/* Free any allocated receive buffers. */
++			pci_unmap_single(sp->pdev,
++					 sp->RxBuffDMAhandle[i].dmahandle,
++					 sp->RxBuffDMAhandle[i].len,
++					 PCI_DMA_FROMDEVICE);
+ 
++			IPG_DEV_KFREE_SKB(sp->RxBuff[i]);
++			sp->RxBuff[i] = NULL;
++		}
+ 		/* Clear out the RFS field. */
+ 		sp->RFDList[i].RFS = 0x0000000000000000;
+ 
+
+--------------080300000806070909030101--
