@@ -1,38 +1,53 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [git patches] net driver updates
-Date: Sat, 20 May 2006 10:55:47 -0700
-Message-ID: <20060520105547.220f2bea.akpm@osdl.org>
-References: <20060520042856.GA7218@havoc.gtf.org>
-	<20060520092033.7d404315.akpm@osdl.org>
-	<Pine.LNX.4.64.0605201035510.10823@g5.osdl.org>
+From: Alistair John Strachan <s0348365@sms.ed.ac.uk>
+Subject: Re: Linux v2.6.17-rc4
+Date: Sat, 20 May 2006 20:11:11 +0100
+Message-ID: <200605202011.11685.s0348365@sms.ed.ac.uk>
+References: <Pine.LNX.4.64.0605111640010.3866@g5.osdl.org> <4466E2E8.7090801@nvidia.com> <200605150627.19498.s0348365@sms.ed.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: Linus Torvalds <torvalds@osdl.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	Manfred Spraul <manfred@colorfullife.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:711 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751467AbWETR4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 May 2006 13:56:03 -0400
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0605201035510.10823@g5.osdl.org>
+Received: from smtp.bulldogdsl.com ([212.158.248.7]:19474 "EHLO
+	mcr-smtp-001.bulldogdsl.com") by vger.kernel.org with ESMTP
+	id S1750788AbWETTLD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 20 May 2006 15:11:03 -0400
+To: Ayaz Abdulla <aabdulla@nvidia.com>
+In-Reply-To: <200605150627.19498.s0348365@sms.ed.ac.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@osdl.org> wrote:
+On Monday 15 May 2006 06:27, Alistair John Strachan wrote:
+> On Sunday 14 May 2006 08:57, Ayaz Abdulla wrote:
+> > Alistair John Strachan wrote:
 >
-> 
-> 
-> On Sat, 20 May 2006, Andrew Morton wrote:
-> > Jeff Garzik <jeff@garzik.org> wrote:
+> [snip]
+>
+> > > There's been just a single commit since -rc3:
 > > >
-> > > Andrew Morton:
-> > >        revert "forcedeth: fix multi irq issues"
-> > 
-> > Manfred just found the fix for this, so we should no longer need to revert.
-> 
-> Hmm. I already pulled. I guess we can revert the revert and apply 
-> Manfreds fix. Jeff?
-> 
+> > > forcedeth: fix multi irq issues
+> > > ebf34c9b6fcd22338ef764b039b3ac55ed0e297b
+> > >
+> > > However, it could have just been hidden since before -rc3, so I'll try
+> > > to work backwards if nobody has any immediate ideas..
+> >
+> > The interrupt handler could be called during the same time (on different
+> > cpu) the dev->stop function is clearing out the rings (nv_txrx_reset).
+>
+> FWIW, I can't reproduce the fault with the commitdiff
+> ebf34c9b6fcd22338ef764b039b3ac55ed0e297b reverted.
 
-I can cook up the necessary pieces.
+Manfred located the fault and Andrew's holding a fix for it in -mm. Hopefully 
+it'll end up in mainline before 2.6.17.
+
+-- 
+Cheers,
+Alistair.
+
+Third year Computer Science undergraduate.
+1F2 55 South Clerk Street, Edinburgh, UK.
