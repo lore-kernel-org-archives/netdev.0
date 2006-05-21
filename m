@@ -1,53 +1,60 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [git patches] net driver updates
-Date: Sun, 21 May 2006 16:56:14 +0200
-Message-ID: <44707F8E.8010506@colorfullife.com>
-References: <20060520042856.GA7218@havoc.gtf.org> <Pine.LNX.4.64.0605201035510.10823@g5.osdl.org> <20060520105547.220f2bea.akpm@osdl.org> <200605210015.15847.ak@suse.de> <447012B2.9050207@colorfullife.com> <4579880.1148217864672.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCHSET 0/7] SECMARK 2.0
+Date: Sun, 21 May 2006 16:54:35 -0700
+Message-ID: <20060521165435.7cafbc7c.akpm@osdl.org>
+References: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
-	jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: davem@davemloft.net, kaber@trash.net, sds@tycho.nsa.gov,
+	netdev@vger.kernel.org, kmacmillan@tresys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dbl.q-ag.de ([213.172.117.3]:6049 "EHLO dbl.q-ag.de")
-	by vger.kernel.org with ESMTP id S964881AbWEUO4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 May 2006 10:56:46 -0400
-To: Andreas Kleen <ak@suse.de>
-In-Reply-To: <4579880.1148217864672.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
+Received: from smtp.osdl.org ([65.172.181.4]:37817 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964953AbWEUXyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 May 2006 19:54:52 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0605180458130.569@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andreas Kleen wrote:
+James Morris <jmorris@namei.org> wrote:
+>
+> The following patchset is an updated version of secmark, which I'd like to 
+>  propose for inclusion in either Dave or Andrew's tree for subsequent merge 
+>  into mainline during the 2.6.18 merge window.
 
->>No idea, but unlikely. The fix removes a duplicate request_irq call.
->>Is
->>it possible that the both instances run concurrently?
->>    
->>
->
->The system has two Forcedeth ports, but only one has a cable connected.
->I don't think there is any parallelism. Just one connection with a lot
->of data. It didn't happen with 2.6.16.
->
->  
->
-You misunderstood me:
-Due to a broken patch, the driver did
-    request_irq(irqnum, handler,...)
-twice. Thus the irq handler was registered twice. The rx synchronization 
-assumes that the irq handler doesn't run concurrently. I'm not sure what 
-happens if the irq handler is registered twice: is it possible that it 
-runs twice at the same time, i.e. is the synchronization in the irq 
-subsystem irq number or registration call based?
+Well as discussed off-list, I'm not able to get this stuff to work.  I get
+a pile of these:
 
->If you don't have any other good ideas I will try to track it down.
->
->  
->
-I don't have any good ideas, please try to figure out what's wrong. Is 
-there a debug switch for the network layer that forces the network layer 
-to verify the CHECKSUM_UNNECESSARY blocks?
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
+security_compute_av:  unrecognized class 57
 
---
-    Manfred
+coming out and networking is dead.
+
+And I'd agree with the other commenters: if these features are compulsory
+for SELinux then we might as well just `select' them.  Right now it's way
+too hard.
+
+Even if we do that, the chances of people actually going off and finding
+all the other random secmark Kconfig options and turning on the appropriate
+ones seem pretty small.  Needs a rethink.  Perhaps a standalone secmark
+menu, or just selecting everything..
+
+And maybe just remove all the various netfilter secmark CONFIG options
+altogether and make all the new code dependent upon the top-level
+CONFIG_SECMARK.
