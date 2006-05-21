@@ -1,36 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Sun, 21 May 2006 12:16:20 +0200
-Message-ID: <20060521101620.GA28210@electric-eye.fr.zoreil.com>
-References: <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI> <20060503233558.GA27232@electric-eye.fr.zoreil.com> <1146750276.11422.0.camel@localhost> <20060504235549.GA9128@electric-eye.fr.zoreil.com> <446F840E.3020808@cantab.net>
+From: Andreas Kleen <ak@suse.de>
+Subject: Re: [git patches] net driver updates
+Date: Sun, 21 May 2006 15:24:24 +0200 (CEST)
+Message-ID: <4579880.1148217864672.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
+References: <20060520042856.GA7218@havoc.gtf.org> <Pine.LNX.4.64.0605201035510.10823@g5.osdl.org> <20060520105547.220f2bea.akpm@osdl.org> <200605210015.15847.ak@suse.de> <447012B2.9050207@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Enberg <penberg@cs.helsinki.fi>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	david@pleyades.net, jesse@icplus.com.tw
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:6299 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751515AbWEUKU2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 May 2006 06:20:28 -0400
-To: David Vrabel <dvrabel@cantab.net>
-Content-Disposition: inline
-In-Reply-To: <446F840E.3020808@cantab.net>
+Received: from mx2.suse.de ([195.135.220.15]:10476 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S964867AbWEUNY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 May 2006 09:24:27 -0400
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <447012B2.9050207@colorfullife.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Vrabel <dvrabel@cantab.net> :
-[...]
-> 0007-ipg-plug-leaks-in-the-error-path-of-ipg_nic_open.txt broke receive 
-> since it was skipping the initialization of the Rx buffers.  Patch attached.
 
-Oops. Applied to branch netdev-ipg of
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+> No idea, but unlikely. The fix removes a duplicate request_irq call.
+> Is
+> it possible that the both instances run concurrently?
 
-(please include the '-p' option in future invocation of diff)
+The system has two Forcedeth ports, but only one has a cable connected.
+I don't think there is any parallelism. Just one connection with a lot
+of data. It didn't happen with 2.6.16.
 
-I have put an updated patch against 2.6.17-rc4 for the whole driver at
-http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
+If you don't have any other good ideas I will try to track it down.
 
--- 
-Ueimor
+-Andi
+
