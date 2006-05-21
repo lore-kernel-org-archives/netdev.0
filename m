@@ -1,52 +1,37 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [git patches] net driver updates
-Date: Sun, 21 May 2006 00:15:15 +0200
-Message-ID: <200605210015.15847.ak@suse.de>
-References: <20060520042856.GA7218@havoc.gtf.org> <Pine.LNX.4.64.0605201035510.10823@g5.osdl.org> <20060520105547.220f2bea.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>
+From: "Eloise Ritter" <eprmqroa@aaprinting.net>
+Subject: Welcome to TicketMonster!
+Date: Sun, 21 May 2006 06:46:18 +0600
+Message-ID: <NCBBK666ALMIN188IOENFKEPFE713.verbiage.Hampson@tore.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:19430 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932401AbWETWPj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 20 May 2006 18:15:39 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060520105547.220f2bea.akpm@osdl.org>
-Content-Disposition: inline
+Received: from [218.39.23.78] ([218.39.23.78]:37380 "HELO 209.132.176.167")
+	by vger.kernel.org with SMTP id S932182AbWETXwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 20 May 2006 19:52:16 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 20 May 2006 19:55, Andrew Morton wrote:
-> Linus Torvalds <torvalds@osdl.org> wrote:
-> >
-> > 
-> > 
-> > On Sat, 20 May 2006, Andrew Morton wrote:
-> > > Jeff Garzik <jeff@garzik.org> wrote:
-> > > >
-> > > > Andrew Morton:
-> > > >        revert "forcedeth: fix multi irq issues"
-> > > 
-> > > Manfred just found the fix for this, so we should no longer need to revert.
-> > 
-> > Hmm. I already pulled. I guess we can revert the revert and apply 
-> > Manfreds fix. Jeff?
-> > 
-> 
-> I can cook up the necessary pieces.
+-S'ensationall revoolution in m'edicine!
 
-My NF4Pro machine now reliably does
+-E'n'l'a'r'g'e your p''enis up to 10 cm or up to 4 inches!
 
-Disconnecting: Bad packet length 3742984839.
+-It's herbal solution what hasn't side effect, but has 100% guaranted results!
 
-when I display a lot of data through ssh.  Apparently it generates some 
-corruption that's not caught by the TCP checksum. Would that be fixed by this
-change too? 
+-Don't lose your chance and but know wihtout doubts, you will be impressed with results!
 
--Andi
+ Clisk here: http://thelullabyshop.info
 
+
+
+
+
+
+
+
+
+
+recusant even contralateral uranyl trustful examine despond tnt care simplectic
+bisexual conscription manhattan cowboy angles doctrinaire agrarian cyrillic iterate
+bandgap charm cocklebur iodinate clotheshorse flippant charon casserole emancipate bandy catalysis
+gospel vulcan lawrencium hangar apricot rundown hitachi raspberry
+damnation irishmen diffusive inherit doomsday businessman sarcoma coco
+galveston appear basalt wily support adept scat prevention
