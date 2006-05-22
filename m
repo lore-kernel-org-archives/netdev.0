@@ -1,56 +1,55 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCHSET 0/7] SECMARK 2.0
-Date: Sun, 21 May 2006 23:21:28 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605212308240.20759@d.namei>
-References: <Pine.LNX.4.64.0605180458130.569@d.namei> <20060521165435.7cafbc7c.akpm@osdl.org>
- <Pine.LNX.4.64.0605212237160.20595@d.namei>
+From: =?utf-8?B?amVzc2VcKOW7uuiIiFwp?= <jesse@icplus.com.tw>
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Date: Mon, 22 May 2006 11:22:04 +0800
+Message-ID: <004c01c67d4e$e6989c00$4964a8c0@icplus.com.tw>
+References: <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI> <20060503233558.GA27232@electric-eye.fr.zoreil.com> <1146750276.11422.0.camel@localhost> <20060504235549.GA9128@electric-eye.fr.zoreil.com> <446F840E.3020808@cantab.net> <20060521101620.GA28210@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, kaber@trash.net, sds@tycho.nsa.gov,
-	netdev@vger.kernel.org, kmacmillan@tresys.com
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<david@pleyades.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:57308 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S964986AbWEVDVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 May 2006 23:21:30 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0605212237160.20595@d.namei>
+Received: from msr22.hinet.net ([168.95.4.122]:26798 "EHLO msr22.hinet.net")
+	by vger.kernel.org with ESMTP id S965003AbWEVDW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 21 May 2006 23:22:59 -0400
+To: "Francois Romieu" <romieu@fr.zoreil.com>,
+	"David Vrabel" <dvrabel@cantab.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 21 May 2006, James Morris wrote:
+Hi Francois:
 
-> > And I'd agree with the other commenters: if these features are compulsory
-> > for SELinux then we might as well just `select' them.  Right now it's way
-> > too hard.
-> 
-> Ok, I'll look into selecting them.
+Thanks for your help.
+I will try this patch and test it.
+http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
 
-There are several problems with this.  Because SELinux can only be 
-selected as Y, using select for the secmark modules would force them also 
-be be built statically into the kernel.  Another issue is the presence of 
-new and old Netfilter infrastructure, and there's no way the SELinux 
-config can know whether to enable the new generic NF conntrack system or 
-the old IP conntrack one.  Then, there's the issue of forcing a specific 
-configuration on the user: perhaps they don't want connection tracking at 
-all and just want static controls (i.e. only use the SECMARK target, not 
-CONNSECMARK).  And how far do you go?  Force the selection of FTP 
-connection tracking?  What about new conntrack targets?
+Jesse
 
-The only reasonable solution is to allow the user to configure what they 
-need, with the simplest case being that only NETWORK_SECMARK is enabled as 
-a minimum requirement for SELinux, which will result in all traffic 
-carying the default 'unlabeled_t' marking, which thye user then needs to 
-have an appropriate policy for.
-
-I was planning on posting detailed documentation on the new secmark scheme 
-once it was in -mm, and having selinux_compat_net=1 as a stopgap until 
-people either know what to configure or their distro userland is updated.  
-(Support for secmark controls cannot be rolled out into distros until the 
-kernel infrastructure is in an upstream kernel such as -mm).
+----- Original Message ----- 
+From: "Francois Romieu" <romieu@fr.zoreil.com>
+To: "David Vrabel" <dvrabel@cantab.net>
+Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>; <linux-kernel@vger.kernel.org>;
+<netdev@vger.kernel.org>; <david@pleyades.net>; <jesse@icplus.com.tw>
+Sent: Sunday, May 21, 2006 6:16 PM
+Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
 
 
-- James
+David Vrabel <dvrabel@cantab.net> :
+[...]
+> 0007-ipg-plug-leaks-in-the-error-path-of-ipg_nic_open.txt broke receive
+> since it was skipping the initialization of the Rx buffers.  Patch
+attached.
+
+Oops. Applied to branch netdev-ipg of
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+
+(please include the '-p' option in future invocation of diff)
+
+I have put an updated patch against 2.6.17-rc4 for the whole driver at
+http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
+
 -- 
-James Morris
-<jmorris@namei.org>
+Ueimor
+
