@@ -1,55 +1,117 @@
-From: =?utf-8?B?amVzc2VcKOW7uuiIiFwp?= <jesse@icplus.com.tw>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Mon, 22 May 2006 11:22:04 +0800
-Message-ID: <004c01c67d4e$e6989c00$4964a8c0@icplus.com.tw>
-References: <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI> <20060503233558.GA27232@electric-eye.fr.zoreil.com> <1146750276.11422.0.camel@localhost> <20060504235549.GA9128@electric-eye.fr.zoreil.com> <446F840E.3020808@cantab.net> <20060521101620.GA28210@electric-eye.fr.zoreil.com>
+From: James Morris <jmorris@namei.org>
+Subject: [PATCH] secmark: disable new controls for SELinux by default
+Date: Mon, 22 May 2006 00:45:12 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605220037060.21251@d.namei>
+References: <Pine.LNX.4.64.0605180458130.569@d.namei> <20060521165435.7cafbc7c.akpm@osdl.org>
+ <Pine.LNX.4.64.0605212237160.20595@d.namei> <Pine.LNX.4.64.0605212308240.20759@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+	Karl MacMillan <kmacmillan@tresys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr22.hinet.net ([168.95.4.122]:26798 "EHLO msr22.hinet.net")
-	by vger.kernel.org with ESMTP id S965003AbWEVDW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 21 May 2006 23:22:59 -0400
-To: "Francois Romieu" <romieu@fr.zoreil.com>,
-	"David Vrabel" <dvrabel@cantab.net>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:22474 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751162AbWEVEpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 May 2006 00:45:16 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <Pine.LNX.4.64.0605212308240.20759@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois:
+This should address the issue of people tripping over the new secmark 
+controls when upgrading their kernel before the userland components are 
+available.
 
-Thanks for your help.
-I will try this patch and test it.
-http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
+With this patch, the new secmark controls for SElinux are now disabled by 
+default, so existing behavior is entirely preserved, and the user is not 
+affected at all.
 
-Jesse
+It also provides a config option to enable the secmark controls by default 
+(which can always be overridden at boot and runtime).  It is also noted in 
+the kconfig help that the user will need updated userspace if enabling 
+secmark controls for SELinux and that they'll probably need the SECMARK 
+and CONNMARK targets, and conntrack protocol helpers, although such 
+decisions are beyond the scope of kernel configuration.
 
------ Original Message ----- 
-From: "Francois Romieu" <romieu@fr.zoreil.com>
-To: "David Vrabel" <dvrabel@cantab.net>
-Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>; <linux-kernel@vger.kernel.org>;
-<netdev@vger.kernel.org>; <david@pleyades.net>; <jesse@icplus.com.tw>
-Sent: Sunday, May 21, 2006 6:16 PM
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+Please review an apply if ok.
+
+Signed-off-by: James Morris <jmorris@namei.org>
+
+---
+
+ security/selinux/Kconfig     |   31 ++++++++++++++++++++++++++++++-
+ security/selinux/selinuxfs.c |    9 ++++++++-
+ 2 files changed, 38 insertions(+), 2 deletions(-)
+
+diff -purN -X dontdiff linux-2.6.17-rc4-mm2.p/security/selinux/Kconfig linux-2.6.17-rc4-mm2.w/security/selinux/Kconfig
+--- linux-2.6.17-rc4-mm2.p/security/selinux/Kconfig	2006-05-20 19:46:38.000000000 -0400
++++ linux-2.6.17-rc4-mm2.w/security/selinux/Kconfig	2006-05-22 00:06:23.000000000 -0400
+@@ -1,6 +1,7 @@
+ config SECURITY_SELINUX
+ 	bool "NSA SELinux Support"
+-	depends on SECURITY_NETWORK && AUDIT && NET && INET && NETWORK_SECMARK
++	depends on SECURITY_NETWORK && AUDIT && NET && INET
++	select NETWORK_SECMARK
+ 	default n
+ 	help
+ 	  This selects NSA Security-Enhanced Linux (SELinux).
+@@ -95,3 +96,31 @@ config SECURITY_SELINUX_CHECKREQPROT_VAL
+ 	  via /selinux/checkreqprot if authorized by policy.
+ 
+ 	  If you are unsure how to answer this question, answer 1.
++
++config SECURITY_SELINUX_ENABLE_SECMARK_DEFAULT
++	bool "NSA SELinux enable new secmark network controls by default"
++	depends on SECURITY_SELINUX
++	default n
++	help
++	  This option determines whether the new secmark-based network
++	  controls will be enabled by default.  If not, the old internal
++	  per-packet controls will be enabled by default, preserving
++	  old behavior.
++	  
++	  If you enable the new controls, you will need updated 
++	  SELinux userspace libraries, tools and policy.  Typically,
++	  your distribution will provide these and enable the new controls
++	  in the kernel they also distribute.
++	  
++	  Note that this option can be overriden at boot with the
++	  selinux_compat_net parameter, and after boot via
++	  /selinux/compat_net.  See Documentation/kernel-parameters.txt
++	  for details on this parameter.
++	  
++	  If you enable the new network controls, you will likely
++	  also require the SECMARK and CONNSECMARK targets, as
++	  well as any conntrack helpers for protocols which you 
++	  wish to control.
++
++	  If you are unsure what do do here, select N.
++
+diff -purN -X dontdiff linux-2.6.17-rc4-mm2.p/security/selinux/selinuxfs.c linux-2.6.17-rc4-mm2.w/security/selinux/selinuxfs.c
+--- linux-2.6.17-rc4-mm2.p/security/selinux/selinuxfs.c	2006-05-20 19:46:38.000000000 -0400
++++ linux-2.6.17-rc4-mm2.w/security/selinux/selinuxfs.c	2006-05-22 00:23:00.000000000 -0400
+@@ -37,7 +37,14 @@
+ #include "conditional.h"
+ 
+ unsigned int selinux_checkreqprot = CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE;
+-int selinux_compat_net;
++
++#ifdef CONFIG_SECURITY_SELINUX_ENABLE_SECMARK_DEFAULT
++#define SELINUX_COMPAT_NET_VALUE 0
++#else
++#define SELINUX_COMPAT_NET_VALUE 1
++#endif
++
++int selinux_compat_net = SELINUX_COMPAT_NET_VALUE;
+ 
+ static int __init checkreqprot_setup(char *str)
+ {
 
 
-David Vrabel <dvrabel@cantab.net> :
-[...]
-> 0007-ipg-plug-leaks-in-the-error-path-of-ipg_nic_open.txt broke receive
-> since it was skipping the initialization of the Rx buffers.  Patch
-attached.
 
-Oops. Applied to branch netdev-ipg of
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 
-(please include the '-p' option in future invocation of diff)
 
-I have put an updated patch against 2.6.17-rc4 for the whole driver at
-http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
 
--- 
-Ueimor
 
