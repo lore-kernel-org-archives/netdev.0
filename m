@@ -1,62 +1,59 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCHSET 0/7] SECMARK 2.0
-Date: Sun, 21 May 2006 22:46:00 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605212237160.20595@d.namei>
-References: <Pine.LNX.4.64.0605180458130.569@d.namei> <20060521165435.7cafbc7c.akpm@osdl.org>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Via Velocity minimum MTU size
+Date: Sun, 21 May 2006 21:56:49 -0500
+Message-ID: <1148266609.2329.16.camel@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, kaber@trash.net, sds@tycho.nsa.gov,
-	netdev@vger.kernel.org, kmacmillan@tresys.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:24503 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S964987AbWEVCqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 May 2006 22:46:03 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060521165435.7cafbc7c.akpm@osdl.org>
+Received: from imf18aec.mail.bellsouth.net ([205.152.59.66]:53475 "EHLO
+	imf18aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
+	id S964990AbWEVC4w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 May 2006 22:56:52 -0400
+Received: from ibm61aec.bellsouth.net ([74.227.55.112])
+          by imf18aec.mail.bellsouth.net with ESMTP
+          id <20060522025651.ULCV28780.imf18aec.mail.bellsouth.net@ibm61aec.bellsouth.net>
+          for <netdev@vger.kernel.org>; Sun, 21 May 2006 22:56:51 -0400
+Received: from [192.168.1.3] (really [74.227.55.112])
+          by ibm61aec.bellsouth.net with ESMTP
+          id <20060522025650.ECTL4087.ibm61aec.bellsouth.net@[192.168.1.3]>
+          for <netdev@vger.kernel.org>; Sun, 21 May 2006 22:56:50 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 21 May 2006, Andrew Morton wrote:
+Hello, 
 
-> Well as discussed off-list, I'm not able to get this stuff to work.  I get
-> a pile of these:
-> 
-> security_compute_av:  unrecognized class 57
+I was advised by someone on the fedora-devel-list to post my question
+here.
 
-This is because the userspace components have not been updated yet -- the 
-patch just went into -mm.
+I'm trying to set the MTU size on my Via Velocity 6122 Gbit adapter from
+the default of 1500 down to 1492, but I keep getting this error:
 
-The workaround is to enable the old networking controls via the kernel 
-parameter selinux_compat_net=1.  Once the distro packages have been 
-updated, this will not be necessary.  All that's needed to start with in 
-fact is a change to the startup scripts to do this at boot, depending on 
-the package version.  This is a brief temporary issue in -mm.
+[root@osprey ~]# ifconfig eth0 mtu 1492
+SIOCSIFMTU: Invalid argument
 
-> And I'd agree with the other commenters: if these features are compulsory
-> for SELinux then we might as well just `select' them.  Right now it's way
-> too hard.
+Turns out that via-velocity.h defines the minimum MTU at 1500 bytes.
 
-Ok, I'll look into selecting them.
-
-> Even if we do that, the chances of people actually going off and finding
-> all the other random secmark Kconfig options and turning on the appropriate
-> ones seem pretty small.  Needs a rethink.  Perhaps a standalone secmark
-> menu, or just selecting everything..
-> 
-> And maybe just remove all the various netfilter secmark CONFIG options
-> altogether and make all the new code dependent upon the top-level
-> CONFIG_SECMARK.
-
-I'm not sure what you mean here.  The top level secmark just enables the 
-skb->secmark field without adding any mechanism to use it.  Then, two 
-mechanisms which have been provided (the SECMARK and CONNSECMARK) targets 
-can be independently enabled.  These are not the only possible ways of 
-utilizing skb->secmark, so these components are configurable separately.
+#define VELOCITY_MIN_MTU    (1514-14)
+#define VELOCITY_MAX_MTU    (9000)
 
 
+And via-velocity.c enforces the limit.
 
-- James
--- 
-James Morris
-<jmorris@namei.org>
+    if ((new_mtu < VELOCITY_MIN_MTU) || new_mtu > (VELOCITY_MAX_MTU)) {
+         VELOCITY_PRT(MSG_LEVEL_ERR, KERN_NOTICE "%s: Invalid MTU.\n",
+                                vptr->dev->name);
+         return -EINVAL;
+    }
+
+This is an Abit AV8 motherboard with an Athlon64 3000+ cpu running
+Fedora Core 5, kernel 2.6.16-1.2111_FC5 x86_64.
+
+Can someone please explain why the driver might constrain the NIC to a
+minimum MTU size of 1500?
+
+Thanks,
+Jay
+
+
