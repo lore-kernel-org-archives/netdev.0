@@ -1,33 +1,54 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Via Velocity minimum MTU size
-Date: Mon, 22 May 2006 23:25:34 +0200
-Message-ID: <20060522212534.GA23094@electric-eye.fr.zoreil.com>
-References: <1148266609.2329.16.camel@osprey.hogchain.net>
+From: "Ian McDonald" <imcdnzl@gmail.com>
+Subject: Re: How to submit a new module to linux kernel?
+Date: Tue, 23 May 2006 09:41:09 +1200
+Message-ID: <cbec11ac0605221441t7d037789ma2fcf45e2617996f@mail.gmail.com>
+References: <A975FFC51622704CBEAB749E263D1799015540AA@mail01.student.main.ntu.edu.sg>
+	 <20060522160650.GG28093@harddisk-recovery.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: "#ZHOU BIN#" <ZHOU0022@ntu.edu.sg>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:10691 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751205AbWEVV2L
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 May 2006 17:28:11 -0400
-To: Jay Cliburn <jacliburn@bellsouth.net>
+Received: from nz-out-0102.google.com ([64.233.162.204]:46529 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1751207AbWEVVlK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 17:41:10 -0400
+Received: by nz-out-0102.google.com with SMTP id 8so1399291nzo
+        for <netdev@vger.kernel.org>; Mon, 22 May 2006 14:41:10 -0700 (PDT)
+To: "Erik Mouw" <erik@harddisk-recovery.com>
+In-Reply-To: <20060522160650.GG28093@harddisk-recovery.com>
 Content-Disposition: inline
-In-Reply-To: <1148266609.2329.16.camel@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn <jacliburn@bellsouth.net> :
-[...]
-> Can someone please explain why the driver might constrain the NIC to a
-> minimum MTU size of 1500?
+On 5/23/06, Erik Mouw <erik@harddisk-recovery.com> wrote:
+> On Mon, May 22, 2006 at 03:18:12PM +0800, #ZHOU BIN# wrote:
+> > I'm new in this mailing list. I implemented a new TCP congestion
+> > control module for linux kernel 2.6.16.13.
+> > Does anybody know how to apply for the integration of it into the
+> > linux kernel? How long will this process take?
+>
+> See Documentation/SubmittingPatches in your kernel tree.
+>
+>
+I would also add that for this type of patch a peer reviewed paper
+outlining the congestion control work would be useful/needed.
 
-None that I remember of. The driver suffered some breakage when changing
-the mtu while the interface is up but it has been fixed since february
-(i.e. way before 2.6.16-1.2111_FC5).
+Every person wants to improve TCP and has written a congestion control
+mechanism (myself included!) but that doesn't mean it is worth
+including in the kernel (mine certainly isn't....).
 
->From a cursory glance at the documentation, I see no specific low limit
-for the mtu. So... Does it break when you lower VELOCITY_MIN_MTU ?
+In particular for TCP congestion control you need to show in what
+cases it is better than others, what cases it is worse and how fair is
+it compared to other TCP flows.
 
+Ian
 -- 
-Ueimor
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
