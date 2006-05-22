@@ -1,56 +1,55 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: fix jumbo packet support
-Date: Mon, 22 May 2006 12:03:42 -0700
-Message-ID: <20060522120342.20f752e5@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Mon, 22 May 2006 15:18:03 -0400
+Message-ID: <20060522191759.GD13964@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:54952 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750852AbWEVTE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 15:04:27 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from ra.tuxdriver.com ([24.172.12.4]:16147 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751138AbWEVTSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 15:18:24 -0400
+To: jeff@garzik.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The truncate threshold calculation to prevent receiver from getting stuck
-was incorrect, and it didn't take into account the upper limit on bits
-in the register so the jumbo packet support was broken.
+The following changes since commit 353b28bafd1b962359a866ff263a7fad833d29a1:
+  David S. Miller:
+        [SPARC]: Add robust futex syscall entries.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
---- sky2.orig/drivers/net/sky2.c
-+++ sky2/drivers/net/sky2.c
-@@ -979,6 +979,7 @@ static int sky2_rx_start(struct sky2_por
- 	struct sky2_hw *hw = sky2->hw;
- 	unsigned rxq = rxqaddr[sky2->port];
- 	int i;
-+	unsigned thresh;
- 
- 	sky2->rx_put = sky2->rx_next = 0;
- 	sky2_qset(hw, rxq);
-@@ -1003,9 +1004,21 @@ static int sky2_rx_start(struct sky2_por
- 		sky2_rx_add(sky2, re->mapaddr);
+are found in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+
+Florin Malita:
+      orinoco: possible null pointer dereference in orinoco_rx_monitor()
+
+ drivers/net/wireless/orinoco.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+index 06523e2..c2d0b09 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -812,7 +812,6 @@ static void orinoco_rx_monitor(struct ne
+ 	if (datalen > IEEE80211_DATA_LEN + 12) {
+ 		printk(KERN_DEBUG "%s: oversized monitor frame, "
+ 		       "data length = %d\n", dev->name, datalen);
+-		err = -EIO;
+ 		stats->rx_length_errors++;
+ 		goto update_stats;
+ 	}
+@@ -821,8 +820,7 @@ static void orinoco_rx_monitor(struct ne
+ 	if (!skb) {
+ 		printk(KERN_WARNING "%s: Cannot allocate skb for monitor frame\n",
+ 		       dev->name);
+-		err = -ENOMEM;
+-		goto drop;
++		goto update_stats;
  	}
  
-- 	/* Truncate oversize frames */
-- 	sky2_write16(hw, SK_REG(sky2->port, RX_GMF_TR_THR), sky2->rx_bufsize - 8);
-- 	sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), RX_TRUNC_ON);
-+
-+	/*
-+	 * The receiver hangs if it receives frames larger than the
-+	 * packet buffer. As a workaround, truncate oversize frames, but
-+	 * the register is limited to 9 bits, so if you do frames > 2052
-+	 * you better get the MTU right!
-+	 */
-+	thresh = (sky2->rx_bufsize - 8) / sizeof(u32);
-+	if (thresh > 0x1ff)
-+		sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), RX_TRUNC_OFF);
-+	else {
-+		sky2_write16(hw, SK_REG(sky2->port, RX_GMF_TR_THR), thresh);
-+		sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T), RX_TRUNC_ON);
-+	}
-+
- 
- 	/* Tell chip about available buffers */
- 	sky2_write16(hw, Y2_QADDR(rxq, PREF_UNIT_PUT_IDX), sky2->rx_put);
+ 	/* Copy the 802.11 header to the skb */
+-- 
+John W. Linville
+linville@tuxdriver.com
