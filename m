@@ -1,41 +1,38 @@
-From: Beschorner Daniel <Daniel.Beschorner@facton.com>
-Subject: Re: skge driver oops
-Date: Mon, 22 May 2006 20:38:51 +0200
-Message-ID: <BB1F4EFD574E9F409035BDA71C9612500241A2@exchange.i-bn>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.17 1/2] bnx2: Fix bug in bnx2_nvram_write()
+Date: Mon, 22 May 2006 10:01:49 -0700
+Message-ID: <1148317309.4780.116.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev@vger.kernel.org,
-	"'Stephen Hemminger'" <shemminger@osdl.org>,
-	"'david@mantara.com'" <david@mantara.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from loewe.unit-netz.de ([212.202.148.42]:64692 "EHLO
-	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S1751007AbWEVSjE
+Received: from mms2.broadcom.com ([216.31.210.18]:24071 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1751030AbWEVSlk
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 May 2006 14:39:04 -0400
-To: "'Krzysztof Oledzki'" <olel@ans.pl>
+	Mon, 22 May 2006 14:41:40 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you for the hint, Krzysztof!
+Fix a bug in bnx2_nvram_write() caused by a counter variable not
+correctly incremented by 4.
 
-But this switch doesn't help, the problem for the crash is in my case the rx
-side.
-I can send big files over the card, as soon as I start receiving the box
-crashes with the oopses you can find in former postings.
-
-Daniel
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 
-> On Wed, 17 May 2006, Beschorner Daniel wrote:
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 5ca99e2..509f104 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -3061,7 +3061,7 @@ bnx2_nvram_write(struct bnx2 *bp, u32 of
+ 		}
+ 
+ 		/* Loop to write the new data from data_start to data_end */
+-		for (addr = data_start; addr < data_end; addr += 4, i++) {
++		for (addr = data_start; addr < data_end; addr += 4, i += 4) {
+ 			if ((addr == page_end - 4) ||
+ 				((bp->flash_info->buffered) &&
+ 				 (addr == data_end - 4))) {
 
->> As David and me are using SMP systems when it's crashing, should I give a
->> non-SMP kernel a try, to see if it's some kind of race conditon?
 
-> You may also try this, where ethX is your skge driven ethernet device:
->   /usr/sbin/ethtool -K ethX tx off
-
->This solved my simmilar problem.
-
-> Best regards,
-
-> 			Krzysztof Oledzki
