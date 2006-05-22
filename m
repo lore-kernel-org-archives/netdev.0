@@ -1,59 +1,56 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: Via Velocity minimum MTU size
-Date: Sun, 21 May 2006 21:56:49 -0500
-Message-ID: <1148266609.2329.16.camel@osprey.hogchain.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCHSET 0/7] SECMARK 2.0
+Date: Sun, 21 May 2006 23:21:28 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605212308240.20759@d.namei>
+References: <Pine.LNX.4.64.0605180458130.569@d.namei> <20060521165435.7cafbc7c.akpm@osdl.org>
+ <Pine.LNX.4.64.0605212237160.20595@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, kaber@trash.net, sds@tycho.nsa.gov,
+	netdev@vger.kernel.org, kmacmillan@tresys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf18aec.mail.bellsouth.net ([205.152.59.66]:53475 "EHLO
-	imf18aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
-	id S964990AbWEVC4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 21 May 2006 22:56:52 -0400
-Received: from ibm61aec.bellsouth.net ([74.227.55.112])
-          by imf18aec.mail.bellsouth.net with ESMTP
-          id <20060522025651.ULCV28780.imf18aec.mail.bellsouth.net@ibm61aec.bellsouth.net>
-          for <netdev@vger.kernel.org>; Sun, 21 May 2006 22:56:51 -0400
-Received: from [192.168.1.3] (really [74.227.55.112])
-          by ibm61aec.bellsouth.net with ESMTP
-          id <20060522025650.ECTL4087.ibm61aec.bellsouth.net@[192.168.1.3]>
-          for <netdev@vger.kernel.org>; Sun, 21 May 2006 22:56:50 -0400
-To: netdev@vger.kernel.org
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:57308 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964986AbWEVDVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 21 May 2006 23:21:30 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <Pine.LNX.4.64.0605212237160.20595@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, 
+On Sun, 21 May 2006, James Morris wrote:
 
-I was advised by someone on the fedora-devel-list to post my question
-here.
+> > And I'd agree with the other commenters: if these features are compulsory
+> > for SELinux then we might as well just `select' them.  Right now it's way
+> > too hard.
+> 
+> Ok, I'll look into selecting them.
 
-I'm trying to set the MTU size on my Via Velocity 6122 Gbit adapter from
-the default of 1500 down to 1492, but I keep getting this error:
+There are several problems with this.  Because SELinux can only be 
+selected as Y, using select for the secmark modules would force them also 
+be be built statically into the kernel.  Another issue is the presence of 
+new and old Netfilter infrastructure, and there's no way the SELinux 
+config can know whether to enable the new generic NF conntrack system or 
+the old IP conntrack one.  Then, there's the issue of forcing a specific 
+configuration on the user: perhaps they don't want connection tracking at 
+all and just want static controls (i.e. only use the SECMARK target, not 
+CONNSECMARK).  And how far do you go?  Force the selection of FTP 
+connection tracking?  What about new conntrack targets?
 
-[root@osprey ~]# ifconfig eth0 mtu 1492
-SIOCSIFMTU: Invalid argument
+The only reasonable solution is to allow the user to configure what they 
+need, with the simplest case being that only NETWORK_SECMARK is enabled as 
+a minimum requirement for SELinux, which will result in all traffic 
+carying the default 'unlabeled_t' marking, which thye user then needs to 
+have an appropriate policy for.
 
-Turns out that via-velocity.h defines the minimum MTU at 1500 bytes.
-
-#define VELOCITY_MIN_MTU    (1514-14)
-#define VELOCITY_MAX_MTU    (9000)
-
-
-And via-velocity.c enforces the limit.
-
-    if ((new_mtu < VELOCITY_MIN_MTU) || new_mtu > (VELOCITY_MAX_MTU)) {
-         VELOCITY_PRT(MSG_LEVEL_ERR, KERN_NOTICE "%s: Invalid MTU.\n",
-                                vptr->dev->name);
-         return -EINVAL;
-    }
-
-This is an Abit AV8 motherboard with an Athlon64 3000+ cpu running
-Fedora Core 5, kernel 2.6.16-1.2111_FC5 x86_64.
-
-Can someone please explain why the driver might constrain the NIC to a
-minimum MTU size of 1500?
-
-Thanks,
-Jay
+I was planning on posting detailed documentation on the new secmark scheme 
+once it was in -mm, and having selinux_compat_net=1 as a stopgap until 
+people either know what to configure or their distro userland is updated.  
+(Support for secmark controls cannot be rolled out into distros until the 
+kernel infrastructure is in an upstream kernel such as -mm).
 
 
+- James
+-- 
+James Morris
+<jmorris@namei.org>
