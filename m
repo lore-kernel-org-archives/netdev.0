@@ -1,53 +1,30 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.17] tg3: Add some missing rx error counters
-Date: Mon, 22 May 2006 14:50:18 -0400
-Message-ID: <447207EA.4050909@garzik.org>
-References: <1148316876.4780.110.camel@rh4>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: netlink vs. debugfs (was Re: [Patch 0/6] statistics infrastructure)
+Date: Mon, 22 May 2006 22:53:27 +0400
+Message-ID: <20060522185327.GB31454@2ka.mipt.ru>
+References: <1148054876.2974.10.camel@dyn-9-152-230-71.boeblingen.de.ibm.com> <20060519092411.6b859b51.akpm@osdl.org> <4471FE52.8090107@am.sony.com> <20060522183359.GA26551@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Tim Bird <tim.bird@am.sony.com>, Andrew Morton <akpm@osdl.org>,
+	Martin Peschke <mp3@de.ibm.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38298 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751130AbWEVSuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 14:50:21 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1148316876.4780.110.camel@rh4>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57043 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751131AbWEVSxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 14:53:39 -0400
+To: Balbir Singh <balbir@in.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20060522183359.GA26551@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> Add some missing rx error counters for 5705 and newer chips.
-> 
-> Update version to 3.58.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> 
-> 
-> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-> index e1b33a2..49ad60b 100644
-> --- a/drivers/net/tg3.c
-> +++ b/drivers/net/tg3.c
-> @@ -69,8 +69,8 @@
->  
->  #define DRV_MODULE_NAME		"tg3"
->  #define PFX DRV_MODULE_NAME	": "
-> -#define DRV_MODULE_VERSION	"3.57"
-> -#define DRV_MODULE_RELDATE	"Apr 28, 2006"
-> +#define DRV_MODULE_VERSION	"3.58"
-> +#define DRV_MODULE_RELDATE	"May 22, 2006"
->  
->  #define TG3_DEF_MAC_MODE	0
->  #define TG3_DEF_RX_MODE		0
-> @@ -6488,6 +6488,10 @@ static void tg3_periodic_fetch_stats(str
->  	TG3_STAT_ADD32(&sp->rx_frame_too_long_errors, MAC_RX_STATS_FRAME_TOO_LONG);
->  	TG3_STAT_ADD32(&sp->rx_jabbers, MAC_RX_STATS_JABBERS);
->  	TG3_STAT_ADD32(&sp->rx_undersize_packets, MAC_RX_STATS_UNDERSIZE);
-> +
-> +	TG3_STAT_ADD32(&sp->rxbds_empty, RCVLPC_NO_RCV_BD_CNT);
-> +	TG3_STAT_ADD32(&sp->rx_discards, RCVLPC_IN_DISCARDS_CNT);
-> +	TG3_STAT_ADD32(&sp->rx_errors, RCVLPC_IN_ERRORS_CNT);
+On Tue, May 23, 2006 at 12:04:00AM +0530, Balbir Singh (balbir@in.ibm.com) wrote:
+> Anybody else want to take a shot in comparing the two?
 
-ACK
+Netlink is always presented in the kernel, so no need to make
+additional dependencies for special FS.
+But number of netlink sockets is not that big, so use new one if you
+create really generic mechanism, or consider using connector/gennetlink.
 
-
+-- 
+	Evgeniy Polyakov
