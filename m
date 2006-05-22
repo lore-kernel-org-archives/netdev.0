@@ -1,35 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: Was change to ip_push_pending_frames intended to break
-	udp	(more specifically, WCCP?)
-Date: Mon, 22 May 2006 22:11:33 +0100
-Message-ID: <1148332293.17376.114.camel@localhost.localdomain>
-References: <20060520191153.GV3776@stingr.net>
-	 <20060520140434.2139c31b.akpm@osdl.org>
-	 <1148322152.15322.299.camel@galen.zko.hp.com>  <4472078D.8010706@hp.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Was change to ip_push_pending_frames intended to break	udp	(more
+ specifically, WCCP?)
+Date: Mon, 22 May 2006 14:06:28 -0700
+Message-ID: <447227D4.4050407@hp.com>
+References: <20060520191153.GV3776@stingr.net>	<20060520140434.2139c31b.akpm@osdl.org>	<1148322152.15322.299.camel@galen.zko.hp.com> <4472078D.8010706@hp.com> <1148332293.17376.114.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
 	Paul P Komkoff Jr <i@stingr.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:39586 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
-	id S1750754AbWEVU57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 May 2006 16:57:59 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <4472078D.8010706@hp.com>
+Received: from palrel11.hp.com ([156.153.255.246]:60046 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S1750959AbWEVVGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 17:06:47 -0400
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1148332293.17376.114.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Llu, 2006-05-22 at 11:48 -0700, Rick Jones wrote:
-> ID of zero again?  I thought that went away years ago?  Anyway, given 
-> the number of "helpful" devices out there willing to clear the DF bit, 
-> fragment and forward, perhaps always setting the IP ID to 0, even if DF 
-> is set, isn't such a good idea?
+Alan Cox wrote:
+> On Llu, 2006-05-22 at 11:48 -0700, Rick Jones wrote:
+> 
+>>ID of zero again?  I thought that went away years ago?  Anyway, given 
+>>the number of "helpful" devices out there willing to clear the DF bit, 
+>>fragment and forward, perhaps always setting the IP ID to 0, even if DF 
+>>is set, isn't such a good idea?
+> 
+> 
+> Any device that clears DF is so terminally broken that you've already
+> lost the battle the moment you bought it. 
 
-Any device that clears DF is so terminally broken that you've already
-lost the battle the moment you bought it. 
+Perhaps, but still, always setting the IP datagram ID to the same value 
+even with the DF bit set seems contrary to the "conservative in what we 
+send" that is so often brought-forth as a reason a stack behaves the way 
+it does.
 
-Alan
-
+rick jones
