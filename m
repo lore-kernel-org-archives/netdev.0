@@ -1,53 +1,33 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: Was change to ip_push_pending_frames intended to break
-	udp	(more specifically, WCCP?)
-Date: Mon, 22 May 2006 17:10:15 -0400
-Message-ID: <1148332215.15323.368.camel@galen.zko.hp.com>
-References: <20060520191153.GV3776@stingr.net>
-	 <20060520140434.2139c31b.akpm@osdl.org>
-	 <1148322152.15322.299.camel@galen.zko.hp.com> <4472078D.8010706@hp.com>
-	 <1148324083.15323.325.camel@galen.zko.hp.com>
-	 <20060522202113.GA8196@stingr.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Via Velocity minimum MTU size
+Date: Mon, 22 May 2006 23:25:34 +0200
+Message-ID: <20060522212534.GA23094@electric-eye.fr.zoreil.com>
+References: <1148266609.2329.16.camel@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:61639 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1750868AbWEVVKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 17:10:19 -0400
-To: Paul P Komkoff Jr <i@stingr.net>
-In-Reply-To: <20060522202113.GA8196@stingr.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:10691 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751205AbWEVV2L
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 22 May 2006 17:28:11 -0400
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Disposition: inline
+In-Reply-To: <1148266609.2329.16.camel@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-05-23 at 00:21 +0400, Paul P Komkoff Jr wrote:
-> Replying to Vlad Yasevich:
-> >     /* This is only to work around buggy Windows95/2000
-> >      * VJ compression implementations.  If the ID field
-> >      * does not change, they drop every other packet in
-> >      * a TCP stream using header compression.
-> >      */
-> 
-> Unfortunately, cisco IOS also complains that packets are "duplicate".
-> And, regarding to your previous message on how to fix this - IIRC, if
-> I do connect() on this socket, it will refuse to receive datagrams
-> from hosts other than specified in connect(), and I will be unable to
-> bind another socket to the same port on my side.
-> 
-> That said, the only solution which is close to what been before, will
-> be to keep one socket for receive, and create socket for each router I
-> am communicating with, right?
+Jay Cliburn <jacliburn@bellsouth.net> :
+[...]
+> Can someone please explain why the driver might constrain the NIC to a
+> minimum MTU size of 1500?
 
-Yewwww...  I see you problem.
+None that I remember of. The driver suffered some breakage when changing
+the mtu while the interface is up but it has been fixed since february
+(i.e. way before 2.6.16-1.2111_FC5).
 
-To me this sounds like a bug in IOS.  I hope someone else would comment.
+>From a cursory glance at the documentation, I see no specific low limit
+for the mtu. So... Does it break when you lower VELOCITY_MIN_MTU ?
 
-I did previously search a bunch of RFC and nowhere did a find a
-requirement that IDs should be non-zero when DF bit is set.  The only
-time IP IDs are mentioned is in the fragmentation and reassembly
-description. 
-
--vlad
-
+-- 
+Ueimor
