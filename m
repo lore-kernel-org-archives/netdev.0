@@ -1,52 +1,77 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.17] tg3: Add some missing rx error counters
-Date: Mon, 22 May 2006 09:54:36 -0700
-Message-ID: <1148316876.4780.110.camel@rh4>
+From: Balbir Singh <balbir@in.ibm.com>
+Subject: Re: netlink vs. debugfs (was Re: [Patch 0/6] statistics infrastructure)
+Date: Tue, 23 May 2006 00:04:00 +0530
+Message-ID: <20060522183359.GA26551@in.ibm.com>
+References: <1148054876.2974.10.camel@dyn-9-152-230-71.boeblingen.de.ibm.com> <20060519092411.6b859b51.akpm@osdl.org> <4471FE52.8090107@am.sony.com>
+Reply-To: balbir@in.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Martin Peschke <mp3@de.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:27405 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1751007AbWEVSed
+Received: from e33.co.us.ibm.com ([32.97.110.151]:47761 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751006AbWEVSid
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 22 May 2006 14:34:33 -0400
-To: davem@davemloft.net
+	Mon, 22 May 2006 14:38:33 -0400
+To: Tim Bird <tim.bird@am.sony.com>
+Content-Disposition: inline
+In-Reply-To: <4471FE52.8090107@am.sony.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add some missing rx error counters for 5705 and newer chips.
+On Mon, May 22, 2006 at 11:09:22AM -0700, Tim Bird wrote:
+> Andrew Morton wrote:
+> > Martin Peschke <mp3@de.ibm.com> wrote:
+> >> My patch series is a proposal for a generic implementation of statistics.
+> > 
+> > This uses debugfs for the user interface, but the
+> > per-task-delay-accounting-*.patch series from Balbir creates an extensible
+> > netlink-based system for passing instrumentation results back to userspace.
+> > 
+> > Can this code be converted to use those netlink interfaces, or is Balbir's
+> > approach unsuitable, or hasn't it even been considered, or what?
+> 
+> Can someone give me the 20-second elevator pitch on why
+> netlink is preferred over debugfs?  I've heard of a
+> number of debugfs/procfs users requested to switch over.
+> 
+> Thanks,
+>  -- Tim
+> 
+> =============================
+> Tim Bird
+> Architecture Group Chair, CE Linux Forum
+> Senior Staff Engineer, Sony Electronics
+> =============================
 
-Update version to 3.58.
+Hi, Tim,
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+I am no debugfs expert, I hope I can do justice to the comparison.
 
+Debugfs						Netlink/Genetlink
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index e1b33a2..49ad60b 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -69,8 +69,8 @@
- 
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.57"
--#define DRV_MODULE_RELDATE	"Apr 28, 2006"
-+#define DRV_MODULE_VERSION	"3.58"
-+#define DRV_MODULE_RELDATE	"May 22, 2006"
- 
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
-@@ -6488,6 +6488,10 @@ static void tg3_periodic_fetch_stats(str
- 	TG3_STAT_ADD32(&sp->rx_frame_too_long_errors, MAC_RX_STATS_FRAME_TOO_LONG);
- 	TG3_STAT_ADD32(&sp->rx_jabbers, MAC_RX_STATS_JABBERS);
- 	TG3_STAT_ADD32(&sp->rx_undersize_packets, MAC_RX_STATS_UNDERSIZE);
-+
-+	TG3_STAT_ADD32(&sp->rxbds_empty, RCVLPC_NO_RCV_BD_CNT);
-+	TG3_STAT_ADD32(&sp->rx_discards, RCVLPC_IN_DISCARDS_CNT);
-+	TG3_STAT_ADD32(&sp->rx_errors, RCVLPC_IN_ERRORS_CNT);
- }
- 
- static void tg3_timer(unsigned long __opaque)
+1. Filesystem based - requires creating		Several types of data can
+   files for each type of data passed		be multiplexed over one netlink
+   down						socket.
+2. Hard to determine record format/data		Contains metadata including
+						type of data and length
+						with each record
+3. Notifications are hard			Notifications are very easy
+   I think they can be done using inotify	good library support for
+						notifications. Data can
+						either be broadcast or
+						selectively mulitcast
+4. Requires several open/read/write/close	A single socket can be
+   operations					opened, data from kernel
+						space can be multiplexed
+						over it.
 
+I don't think I did any justice to the advantages of debugfs. The only
+one I can think of is that it uses relayfs. Relayfs is efficient in the
+sense that it uses per-cpu buffers.
 
+Anybody else want to take a shot in comparing the two?
+
+	Balbir Singh,
+	Linux Technology Center,
+	IBM Software Labs
