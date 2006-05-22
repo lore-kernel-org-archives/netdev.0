@@ -1,39 +1,42 @@
-From: Paul P Komkoff Jr <i@stingr.net>
-Subject: Re: Was change to ip_push_pending_frames intended to break udp	(more specifically, WCCP?)
-Date: Tue, 23 May 2006 00:21:13 +0400
-Message-ID: <20060522202113.GA8196@stingr.net>
-References: <20060520191153.GV3776@stingr.net> <20060520140434.2139c31b.akpm@osdl.org> <1148322152.15322.299.camel@galen.zko.hp.com> <4472078D.8010706@hp.com> <1148324083.15323.325.camel@galen.zko.hp.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: wireless-dev updated
+Date: Mon, 22 May 2006 22:32:23 +0200
+Message-ID: <20060522223223.1f18ccb7@logostar.upir.cz>
+References: <20060519191549.GF30177@tuxdriver.com>
+	<20060522144214.02f0adb2@griffin.suse.cz>
+	<20060522195545.GF13964@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Rick Jones <rick.jones2@hp.com>, Paul P Komkoff Jr <i@stingr.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stingr.net ([212.193.32.15]:18621 "EHLO stingr.net")
-	by vger.kernel.org with ESMTP id S1751164AbWEVUVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 16:21:16 -0400
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
-Content-Disposition: inline
-In-Reply-To: <1148324083.15323.325.camel@galen.zko.hp.com>
+Received: from r2u241.chello.upc.cz ([62.245.84.241]:3712 "EHLO cela.cz")
+	by vger.kernel.org with ESMTP id S1751007AbWEVUb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 16:31:27 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060522195545.GF13964@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replying to Vlad Yasevich:
->     /* This is only to work around buggy Windows95/2000
->      * VJ compression implementations.  If the ID field
->      * does not change, they drop every other packet in
->      * a TCP stream using header compression.
->      */
+Mon, 22 May 2006 15:55:50 -0400, John W. Linville wrote:
+> On Mon, May 22, 2006 at 02:42:14PM +0200, Jiri Benc wrote:
+> > This patch is wrong, it uses incorrect ioctl number (collides with
+> > userspace MLME).
+> 
+> Since you had posted that in the same thread, I had presumed that
+> you had accounted for that... :-)
 
-Unfortunately, cisco IOS also complains that packets are "duplicate".
-And, regarding to your previous message on how to fix this - IIRC, if
-I do connect() on this socket, it will refuse to receive datagrams
-from hosts other than specified in connect(), and I will be unable to
-bind another socket to the same port on my side.
+I realized it only after I had added Jouni's patch to my tree :-(
 
-That said, the only solution which is close to what been before, will
-be to keep one socket for receive, and create socket for each router I
-am communicating with, right?
+> As you wish...you know I love to shake-up the history in my trees... :-(
+
+Sorry for that. I will try to send pull requests more frequently. Hm,
+hopefully. Maybe I will be stuck with those #$@ sysfs patches forever.
+
+Thanks,
+
+ Jiri
 
 -- 
-Paul P 'Stingray' Komkoff Jr // http://stingr.net/key <- my pgp key
- This message represents the official view of the voices in my head
+Jiri Benc
+SUSE Labs
