@@ -1,30 +1,53 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Was change to ip_push_pending_frames intended to break udp	(more
- specifically, WCCP?)
-Date: Mon, 22 May 2006 11:48:45 -0700
-Message-ID: <4472078D.8010706@hp.com>
-References: <20060520191153.GV3776@stingr.net>	<20060520140434.2139c31b.akpm@osdl.org> <1148322152.15322.299.camel@galen.zko.hp.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.17] tg3: Add some missing rx error counters
+Date: Mon, 22 May 2006 14:50:18 -0400
+Message-ID: <447207EA.4050909@garzik.org>
+References: <1148316876.4780.110.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul P Komkoff Jr <i@stingr.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:16315 "EHLO palrel13.hp.com")
-	by vger.kernel.org with ESMTP id S1751128AbWEVSsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 14:48:47 -0400
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
-In-Reply-To: <1148322152.15322.299.camel@galen.zko.hp.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:38298 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751130AbWEVSuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 14:50:21 -0400
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1148316876.4780.110.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> IP id is set to 0 on unconnected sockets when the DF bit is set (path
-> mtu discovery is enabled).  Try issuing a connect() in your application
-> and see if the ids are increasing again.
+Michael Chan wrote:
+> Add some missing rx error counters for 5705 and newer chips.
+> 
+> Update version to 3.58.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> 
+> 
+> diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+> index e1b33a2..49ad60b 100644
+> --- a/drivers/net/tg3.c
+> +++ b/drivers/net/tg3.c
+> @@ -69,8 +69,8 @@
+>  
+>  #define DRV_MODULE_NAME		"tg3"
+>  #define PFX DRV_MODULE_NAME	": "
+> -#define DRV_MODULE_VERSION	"3.57"
+> -#define DRV_MODULE_RELDATE	"Apr 28, 2006"
+> +#define DRV_MODULE_VERSION	"3.58"
+> +#define DRV_MODULE_RELDATE	"May 22, 2006"
+>  
+>  #define TG3_DEF_MAC_MODE	0
+>  #define TG3_DEF_RX_MODE		0
+> @@ -6488,6 +6488,10 @@ static void tg3_periodic_fetch_stats(str
+>  	TG3_STAT_ADD32(&sp->rx_frame_too_long_errors, MAC_RX_STATS_FRAME_TOO_LONG);
+>  	TG3_STAT_ADD32(&sp->rx_jabbers, MAC_RX_STATS_JABBERS);
+>  	TG3_STAT_ADD32(&sp->rx_undersize_packets, MAC_RX_STATS_UNDERSIZE);
+> +
+> +	TG3_STAT_ADD32(&sp->rxbds_empty, RCVLPC_NO_RCV_BD_CNT);
+> +	TG3_STAT_ADD32(&sp->rx_discards, RCVLPC_IN_DISCARDS_CNT);
+> +	TG3_STAT_ADD32(&sp->rx_errors, RCVLPC_IN_ERRORS_CNT);
 
-ID of zero again?  I thought that went away years ago?  Anyway, given 
-the number of "helpful" devices out there willing to clear the DF bit, 
-fragment and forward, perhaps always setting the IP ID to 0, even if DF 
-is set, isn't such a good idea?
+ACK
 
-rick jones
+
