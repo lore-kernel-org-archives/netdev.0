@@ -1,65 +1,76 @@
-From: =?utf-8?B?amVzc2VcKOW7uuiIiFwp?= <jesse@icplus.com.tw>
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
-Date: Tue, 23 May 2006 14:50:25 +0800
-Message-ID: <01ca01c67e35$2b78c7a0$4964a8c0@icplus.com.tw>
-References: <1146506939.23931.2.camel@localhost> <20060501231206.GD7419@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605020945010.4066@sbz-30.cs.Helsinki.FI> <20060502214520.GC26357@electric-eye.fr.zoreil.com> <20060502215559.GA1119@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0605030913210.6032@sbz-30.cs.Helsinki.FI> <20060503233558.GA27232@electric-eye.fr.zoreil.com> <1146750276.11422.0.camel@localhost> <20060504235549.GA9128@electric-eye.fr.zoreil.com> <446F840E.3020808@cantab.net> <20060521101620.GA28210@electric-eye.fr.zoreil.com>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/5] myri10ge - Myri-10G Ethernet driver - v3
+Date: Tue, 23 May 2006 03:09:20 -0400
+Message-ID: <20060523070919.GB30499@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: gallatin@myri.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr45.hinet.net ([168.95.4.145]:10381 "EHLO msr45.hinet.net")
-	by vger.kernel.org with ESMTP id S1751101AbWEWGv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 02:51:29 -0400
-To: "Francois Romieu" <romieu@fr.zoreil.com>,
-	"David Vrabel" <dvrabel@cantab.net>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:29143 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S932070AbWEWHJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 03:09:22 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear All:
+[PATCH 0/5] myri10ge - Myri-10G Ethernet driver - v3
 
-I had tested the following patch of IP1000A
-http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
+We think we have addressed all problems that have been reported after the
+second submission. We would like this driver to be merged in the git-netdev
+tree or in -mm, with the aim of being in 2.6.18.
 
-It works fine. We will discuss this driver with our members see if there are
-anything need to add or modify.
-Thanks for everybody's effort for our IP1000A.
+The changes since the previous patchset are:
+- drop all volatile, fix __iomem annotations and cleanup/remove some casts
+- use kzalloc()
+- use msleep() instead of udelay() or schedule_timeout()
+- add an atomic flag to myri10ge_send_cmd() so that set_multicast_list
+  (which may be called from an atomic context) does not end up using
+  msleep when waiting for the command to complete
+- split myri10ge_open() to make it more readable
+- move Myricom vendor id to pci_ids.h
+- place module_param and MODULE_PARM_DESC near the declaration of
+  the module parameter variable
+- fix missing printk levels
+- #define explicit names for our 0xffffffff special values
+- reduce MYRI10GE_MCP{_ETHER,}_ into the new firmare prefix MXGEFW_
+- fix indentation of goto labels
+- various trivial things
 
-Would anybody need some piece of IP1000A, please give me your address, we
-will send some of it to you.
-Thanks!
+myri10ge_xmit() is still very long since there is no nice way to
+split it in multiple functions.
+We still use several printk instead of dev_err/warn/info/printk
+since there are some place where it is better to speak about "eth2"
+instead of a bus id in the kernel messages.
 
-If any problem, please feel free to contact me. jesse@icplus.com.tw
-
-Best Regards,
-Jesse
-
------ Original Message ----- 
-From: "Francois Romieu" <romieu@fr.zoreil.com>
-To: "David Vrabel" <dvrabel@cantab.net>
-Cc: "Pekka Enberg" <penberg@cs.helsinki.fi>; <linux-kernel@vger.kernel.org>;
-<netdev@vger.kernel.org>; <david@pleyades.net>; <jesse@icplus.com.tw>
-Sent: Sunday, May 21, 2006 6:16 PM
-Subject: Re: [PATCH 2/2] ipg: redundancy with mii.h
+The changes that were made in the previous submission can be found
+in http://lkml.org/lkml/2006/5/17/236
 
 
-David Vrabel <dvrabel@cantab.net> :
-[...]
-> 0007-ipg-plug-leaks-in-the-error-path-of-ipg_nic_open.txt broke receive
-> since it was skipping the initialization of the Rx buffers.  Patch
-attached.
 
-Oops. Applied to branch netdev-ipg of
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+The following patches introduce the myri10ge driver for Myricom Myri-10G
+boards in Ethernet mode. The driver is called myri10ge. The patches are
+against 2.6.17-rc4-mm3.
 
-(please include the '-p' option in future invocation of diff)
+[1/5]   add Myricom vendor id to pci_ids.h
+[2/5]   revive pci_find_ext_capability
+[3/5]	myri10ge driver header files.
+[4/5]	myri10ge driver core.
+[5/5]	add Kconfig and Makefile support for the myri10ge driver.
 
-I have put an updated patch against 2.6.17-rc4 for the whole driver at
-http://www.fr.zoreil.com/people/francois/misc/20060521-2.6.17-rc4-git-ip1000-test.patch
+It also uses the following patches that have been sent on May 2
+(http://lkml.org/lkml/2006/5/2/286 and 288) and merged into -mm.
+add-__iowrite64_copy.patch
+	Introduce __iowrite64_copy.
+add-pci_cap_id_vndr.patch
+	Add the vendor specific extended capability PCI_CAP_ID_VNDR.
 
--- 
-Ueimor
+The Myri-10G board operates as a regular PCI-Express Ethernet NIC.
+If a firmware is available through hotplug, the driver will load it if its
+version matches the driver requirements. If not, the driver will adopt the
+running firmware that came in the board's eeprom if it is recent enough.
 
+This driver supports in particular NAPI, power management, IPv4 and IPv6
+checksum offload, 802.1q VLAN, and TCP Segmentation Offload.
+
+Brice Goglin
