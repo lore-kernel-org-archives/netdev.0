@@ -1,40 +1,45 @@
-From: "Roxanne Aguilar" <WEJPM@rathbuns.com>
-Subject: Re: DEAL
-Date: Tue, 23 May 2006 00:48:11 -0200
-Message-ID: <E6A4nm6-3564Yt-00@mail.nitros7.org>
+From: "SangOg Na" <nso@pentamedia.com>
+Subject: How can I disable ipv6 module only for oneway DVB receiving card?
+Date: Tue, 23 May 2006 14:59:25 +0900
+Message-ID: <085201c67e2e$0f353b20$3047efcb@nsowork>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	format=flowed;
+	charset="ks_c_5601-1987";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus2.kernel.org ([204.152.191.36]:17298 "EHLO zeus2.kernel.org")
-	by vger.kernel.org with ESMTP id S1751026AbWEWByB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 22 May 2006 21:54:01 -0400
-Received: from 65-168-154-109.skybest.com (65-168-154-109.skybest.com [65.168.154.109])
-	by zeus2.kernel.org (8.13.1/8.13.1) with SMTP id k4N1rlEO032448
-	for <netdev@vger.kernel.org>; Tue, 23 May 2006 01:54:00 GMT
-To: netdev@vger.kernel.org
+Received: from [203.239.71.1] ([203.239.71.1]:57996 "EHLO ns.pentamedia.com")
+	by vger.kernel.org with ESMTP id S1751349AbWEWGBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 02:01:36 -0400
+Received: from nsowork ([203.239.71.48])
+	(authenticated)
+	by ns.pentamedia.com (8.11.6/8.11.6) with ESMTP id k4N5t6H14671
+	for <netdev@vger.kernel.org>; Tue, 23 May 2006 14:55:06 +0900
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--S'ensationall revoolution in m'edicine!
+Hi!
 
--E'n'l'a'r'g'e your p''enis up to 10 cm or up to 4 inches!
+I am porting pentavalue driver to kernel 2.6.
+But when unload module, the following messages are displayed
+and I can't unload it.
 
--It's herbal solution what hasn't side effect, but has 100% guaranted results!
+unregister_netdevice: waiting for pentaval0 to become free. Usage count = 5
+unregister_netdevice: waiting for pentaval0 to become free. Usage count = 5
 
--Don't lose your chance and but know wihtout doubts, you will be impressed with results!
+I insert printk("refcnt=%d\n,atomic_read(&dev->refcnt)); at dev_hold and 
+dev_put
+in include/linux/netdevice.h, and I found ipv6 module increase refcnt at 3 
+times,
+but at unloading module, decrease one only one time.
 
- Clisk here: http://13catastrophes.info
+I built linux kernel no ipv6, refcnt problem did not occur.
 
+Can I disable ipv6 only for my pentaval driver?
 
+Test kernel version is 2.6.15.
 
+Bye! 
 
-
-
-
-
-
-
-effie symposia dandelion oman frightful sandblast convolute devilish immunization freeing
-embroidery vulnerable because excellent bimodal howell voltmeter indignity phil
-riverbank s's poisson begin chirp dreamlike charisma stabile ecumenic gerber preponderant
-deport testate tolstoy cook committal department corpse assault
-bicker coleridge edmund dessert aversion wrongdoer informal dogmatism
-export ingrate prosthetic protrusive mynah query tunis benevolent
