@@ -1,74 +1,57 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH 5/5] myri10ge - Kconfig and Makefile
-Date: Tue, 23 May 2006 03:12:59 -0400
-Message-ID: <20060523071258.GG30499@myri.com>
-References: <20060523070919.GB30499@myri.com>
+From: =?big5?B?amVzc2VcKKvYv7NcKQ==?= <jesse@icplus.com.tw>
+Subject: Re: Sign-off for the IP1000A driver before inclusion
+Date: Tue, 23 May 2006 15:38:55 +0800
+Message-ID: <021901c67e3b$f284d680$4964a8c0@icplus.com.tw>
+References: <84144f020605230001s32b29f59w8f95c67fad7b380d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gallatin@myri.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=big5
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>,
+	"David Vrabel" <dvrabel@cantab.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<david@pleyades.net>, <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:43479 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S932085AbWEWHNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 03:13:00 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060523070919.GB30499@myri.com>
+Received: from msr9.hinet.net ([168.95.4.109]:5876 "EHLO msr9.hinet.net")
+	by vger.kernel.org with ESMTP id S932096AbWEWHjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 03:39:55 -0400
+To: "Pekka Enberg" <penberg@cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH 5/5] myri10ge - Kconfig and Makefile
+Hi Pekka:
 
-Add Kconfig and Makefile support for the myri10ge driver.
+I will send this document to our product manager. After he agreed, we w=
+ill
+sign it off.
+Thank you for this information.
 
-Signed-off-by: Brice Goglin <brice@myri.com>
-Signed-off-by: Andrew J. Gallatin <gallatin@myri.com>
+Jesse
+----- Original Message -----=20
+=46rom: "Pekka Enberg" <penberg@cs.helsinki.fi>
+To: "jesse(=AB=D8=BF=B3)" <jesse@icplus.com.tw>
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>; "David Vrabel"
+<dvrabel@cantab.net>; <linux-kernel@vger.kernel.org>;
+<netdev@vger.kernel.org>; <david@pleyades.net>; <akpm@osdl.org>
+Sent: Tuesday, May 23, 2006 3:01 PM
+Subject: Sign-off for the IP1000A driver before inclusion
 
- drivers/net/Kconfig           |   17 +++++++++++++++++
- drivers/net/Makefile          |    1 +
- drivers/net/myri10ge/Makefile |    5 +++++
- 3 files changed, 23 insertions(+)
 
---- linux-mm/drivers/net/Kconfig.old	2006-04-10 03:44:01.000000000 -0700
-+++ linux-mm/drivers/net/Kconfig	2006-04-18 03:49:11.000000000 -0700
-@@ -2327,6 +2327,23 @@ config S2IO_NAPI
- 
- 	  If in doubt, say N.
- 
-+config MYRI10GE
-+	tristate "Myricom Myri-10G Ethernet support"
-+	depends on PCI
-+	select FW_LOADER
-+	select CRC32
-+	---help---
-+	  This driver supports Myricom Myri-10G Dual Protocol interface in
-+	  Ethernet mode. If the eeprom on your board is not recent enough,
-+	  you will need a newer firmware image.
-+	  You may get this image or more information, at:
-+
-+	  <http://www.myri.com/Myri-10G/>
-+
-+	  To compile this driver as a module, choose M here and read
-+	  <file:Documentation/networking/net-modules.txt>.  The module
-+	  will be called myri10ge.
-+
- endmenu
- 
- source "drivers/net/tokenring/Kconfig"
---- linux-mm/drivers/net/Makefile.old	2006-04-08 04:49:53.000000000 -0700
-+++ linux-mm/drivers/net/Makefile	2006-04-21 08:10:27.000000000 -0700
-@@ -192,6 +192,7 @@ obj-$(CONFIG_R8169) += r8169.o
- obj-$(CONFIG_AMD8111_ETH) += amd8111e.o
- obj-$(CONFIG_IBMVETH) += ibmveth.o
- obj-$(CONFIG_S2IO) += s2io.o
-+obj-$(CONFIG_MYRI10GE) += myri10ge/
- obj-$(CONFIG_SMC91X) += smc91x.o
- obj-$(CONFIG_SMC911X) += smc911x.o
- obj-$(CONFIG_DM9000) += dm9000.o
---- /dev/null	2006-04-21 00:45:09.064430000 -0700
-+++ linux-mm/drivers/net/myri10ge/Makefile	2006-04-21 08:14:21.000000000 -0700
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the Myricom Myri-10G ethernet driver
-+#
-+
-+obj-$(CONFIG_MYRI10GE) += myri10ge.o
+Hi Jesse,
+
+On 5/23/06, jesse\(=AB=D8=BF=B3\) <jesse@icplus.com.tw> wrote:
+> If any problem, please feel free to contact me. jesse@icplus.com.tw
+
+As per:
+
+  http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=3D114666027122495
+
+we still need someone from IC Plus to sign off on the IP1000A driver
+for it to be merged with mainline Linux.
+
+=46or more details on the Developer's Certificate of Origin, please
+refer to:
+http://www.osdl.org/newsroom/press_releases/2004/2004_05_24_dco.html
+or Documentation/SubmittingPatches.
+
+                                                     Pekka
+
