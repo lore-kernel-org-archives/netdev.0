@@ -1,57 +1,61 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: r8169 cardbus device naming weirdness
-Date: Tue, 23 May 2006 10:51:08 -0700
-Message-ID: <20060523105108.7c0e2367@localhost.localdomain>
-References: <20060523174402.GG29687@bork.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH 0/9] ixgb: driver update to 1.0.104-k2
+Date: Tue, 23 May 2006 11:03:02 -0700
+Message-ID: <20060523180302.17428.89125.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke <auke-jan.h.kok"@intel.com,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55529 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751144AbWEWRvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 13:51:19 -0400
-To: Martin Hicks <mort@bork.org>
-In-Reply-To: <20060523174402.GG29687@bork.org>
+Received: from [63.64.152.142] ([63.64.152.142]:37637 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932065AbWEWR7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 13:59:05 -0400
+To: "Garzik, Jeff" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 23 May 2006 13:44:02 -0400
-Martin Hicks <mort@bork.org> wrote:
 
-> 
-> Hi,
-> 
-> I've got a D-Link DGE-660TD that the driver claims to register as eth1,
-> but it actually ends up being eth2.  (eth0 is the on-board NIC).
-> 
-> mort@socrates:~$ dmesg
-> 
-> [...]
-> 
-> r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-> ACPI: PCI Interrupt 0000:07:00.0[A] -> Link [LNKB] -> GSI 5 (level, low) -> IRQ 5
-> eth1: Identified chip type is 'RTL8169s/8110s'.
-> eth1: RTL8169 at 0xe8a36000, 00:13:46:29:65:62, IRQ 5
-> mort@socrates:~$ sudo /sbin/ifconfig eth1 192.168.1.102 netmask 255.255.255.0
-> SIOCSIFADDR: No such device
-> eth1: ERROR while getting interface flags: No such device
-> SIOCSIFNETMASK: No such device
-> mort@socrates:~$ sudo /sbin/ifconfig eth2 192.168.1.102 netmask 255.255.255.0
-> mort@socrates:~$ sudo /usr/sbin/ethtool -i eth2
-> driver: r8169
-> version: 2.2LK-NAPI
-> firmware-version: 
-> bus-info: 0000:07:00.0
-> mort@socrates:~$ sudo /usr/sbin/ethtool -i eth1 
-> Cannot get driver information: No such device
-> mort@socrates:~$ 
-> 
-> 
-> On a IBM T23 laptop running 2.6.16.14.
+Hi,
 
-Most likely some user space script is renaming it.
-Each distro seems to have it's own way of doing configuration, and most
-do something in response to the hotplug event from device registration.
-So it was eth1 until what ever ran in response to the hotplug event
-decide to change it.
+This is a resend/updated set of patches for ixgb. They were originally
+sent earlier on 2005-04-21 by Jeff Kirsher. Some modifications were made
+after comments, and this series does not include 2 of the patches sent
+at that time (I will resend those modified later).
+
+Summary:
+
+[1] fix rare early tso completion
+[2] remove duplicate code setting duplex and speed
+[3] fix flow control
+[4] add NETIF_F_LLTX analogous to e1000
+[5] add copper 10gig driver id
+[6] remove hardcoded number
+[7] use DPRINTK and msglvl, and ethtool to control it
+[8] add tx timeout counter
+[9] increment version to 1.0.104-k2
+
+
+These changes are available through git.
+
+git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 ixgb-1.0.104-k2
+
+these patches are against
+ netdev-2.6#upstream 4e3ceac609cce39cb96e0eb8604934592371ed8c
+
+
+Cheers,
+
+Auke
+
+
+---
+ drivers/net/ixgb/ixgb.h         |    9 ++-
+ drivers/net/ixgb/ixgb_ethtool.c |   55 ++++++++++------
+ drivers/net/ixgb/ixgb_hw.h      |    1 
+ drivers/net/ixgb/ixgb_ids.h     |    4 +
+ drivers/net/ixgb/ixgb_main.c    |  132 ++++++++++++++++++++++++++++++++-------
+ drivers/net/ixgb/ixgb_param.c   |   24 +++----
+ 6 files changed, 163 insertions(+), 62 deletions(-)
+
+--
+Auke Kok <auke-jan.h.kok@intel.com>
