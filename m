@@ -1,28 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] via-velocity: allow MTU size less than 1500 bytes
-Date: Wed, 24 May 2006 00:02:51 +0200
-Message-ID: <20060523220251.GA15108@electric-eye.fr.zoreil.com>
-References: <1148393221.2479.29.camel@osprey.hogchain.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] bridge: need to ref count the LLC sap
+Date: Tue, 23 May 2006 15:10:35 -0700
+Message-ID: <20060523151035.43e7e4f6@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56992 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932433AbWEWWEM
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 May 2006 18:04:12 -0400
-To: Jay Cliburn <jacliburn@bellsouth.net>
-Content-Disposition: inline
-In-Reply-To: <1148393221.2479.29.camel@osprey.hogchain.net>
+Received: from smtp.osdl.org ([65.172.181.4]:46293 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932456AbWEWWL4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 18:11:56 -0400
+To: "David S. Miller" <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Cliburn <jacliburn@bellsouth.net> :
-> Change the minimum allowable MTU size from 1500 bytes to 64 bytes.
-> 
-> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+Bridge will OOPS on removal if other application has the SAP open.
+The bridge SAP might be shared with other usages, so need
+to do reference counting on module removal rather than explicit
+close/delete.
 
-Fine-With-Me: Francois Romieu <romieu@fr.zoreil.com>
+Since packet might arrive after or during removal, need to clear
+the receive function handle, so LLC only hands it to user (if any).
 
--- 
-Ueimor
+This should go in 2.616.stable and 2.6.17.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+
+--- br.orig/net/bridge/br.c
++++ br/net/bridge/br.c
+@@ -55,7 +55,7 @@ static int __init br_init(void)
+ 
+ static void __exit br_deinit(void)
+ {
+-	llc_sap_close(br_stp_sap);
++	rcu_assign_pointer(br_stp_sap->rcv_func, NULL);
+ 
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	br_netfilter_fini();
+@@ -67,6 +67,7 @@ static void __exit br_deinit(void)
+ 
+ 	synchronize_net();
+ 
++	llc_sap_put(br_stp_sap);
+ 	br_fdb_get_hook = NULL;
+ 	br_fdb_put_hook = NULL;
+ 
