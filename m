@@ -1,57 +1,33 @@
-From: =?big5?B?amVzc2VcKKvYv7NcKQ==?= <jesse@icplus.com.tw>
-Subject: Re: Sign-off for the IP1000A driver before inclusion
-Date: Tue, 23 May 2006 15:38:55 +0800
-Message-ID: <021901c67e3b$f284d680$4964a8c0@icplus.com.tw>
-References: <84144f020605230001s32b29f59w8f95c67fad7b380d@mail.gmail.com>
+From: Paul P Komkoff Jr <i@stingr.net>
+Subject: Re: Was change to ip_push_pending_frames intended to break udp (more specifically, WCCP?)
+Date: Tue, 23 May 2006 12:13:08 +0400
+Message-ID: <20060523081308.GB8196@stingr.net>
+References: <1148322152.15322.299.camel@galen.zko.hp.com> <4472078D.8010706@hp.com> <1148332293.17376.114.camel@localhost.localdomain> <20060522.161951.92584947.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=big5
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Francois Romieu" <romieu@fr.zoreil.com>,
-	"David Vrabel" <dvrabel@cantab.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>, <akpm@osdl.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: alan@lxorguk.ukuu.org.uk, rick.jones2@hp.com,
+	vladislav.yasevich@hp.com, i@stingr.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr9.hinet.net ([168.95.4.109]:5876 "EHLO msr9.hinet.net")
-	by vger.kernel.org with ESMTP id S932096AbWEWHjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 03:39:55 -0400
-To: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Received: from stingr.net ([212.193.32.15]:30651 "EHLO stingr.net")
+	by vger.kernel.org with ESMTP id S932105AbWEWINm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 04:13:42 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060522.161951.92584947.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pekka:
+Replying to David S. Miller:
+> That's my position too and I'm pretty much going to ignore any
+> request to change this behavior.
 
-I will send this document to our product manager. After he agreed, we w=
-ill
-sign it off.
-Thank you for this information.
+Accorind to this article, some people count this as security issue:
+http://www.securityfocus.com/archive/1/427622
 
-Jesse
------ Original Message -----=20
-=46rom: "Pekka Enberg" <penberg@cs.helsinki.fi>
-To: "jesse(=AB=D8=BF=B3)" <jesse@icplus.com.tw>
-Cc: "Francois Romieu" <romieu@fr.zoreil.com>; "David Vrabel"
-<dvrabel@cantab.net>; <linux-kernel@vger.kernel.org>;
-<netdev@vger.kernel.org>; <david@pleyades.net>; <akpm@osdl.org>
-Sent: Tuesday, May 23, 2006 3:01 PM
-Subject: Sign-off for the IP1000A driver before inclusion
+Well ... someone with Cisco support contract can open a TAC case on
+this ?
 
-
-Hi Jesse,
-
-On 5/23/06, jesse\(=AB=D8=BF=B3\) <jesse@icplus.com.tw> wrote:
-> If any problem, please feel free to contact me. jesse@icplus.com.tw
-
-As per:
-
-  http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=3D114666027122495
-
-we still need someone from IC Plus to sign off on the IP1000A driver
-for it to be merged with mainline Linux.
-
-=46or more details on the Developer's Certificate of Origin, please
-refer to:
-http://www.osdl.org/newsroom/press_releases/2004/2004_05_24_dco.html
-or Documentation/SubmittingPatches.
-
-                                                     Pekka
-
+-- 
+Paul P 'Stingray' Komkoff Jr // http://stingr.net/key <- my pgp key
+ This message represents the official view of the voices in my head
