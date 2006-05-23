@@ -1,35 +1,56 @@
 From: Simon Oosthoek <simon.oosthoek@ti-wmc.nl>
 Subject: Re: [ANNOUNCE] FLAME: external kernel module for L2.5 meshing
-Date: Tue, 23 May 2006 16:41:48 +0200
-Message-ID: <44731F2C.2010109@ti-wmc.nl>
-References: <44731733.7000204@ti-wmc.nl> <1148395738.25255.68.camel@localhost.localdomain>
+Date: Tue, 23 May 2006 16:51:14 +0200
+Message-ID: <44732162.6080107@ti-wmc.nl>
+References: <44731733.7000204@ti-wmc.nl> <20060523073851.39c3b5fe@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Herman Elfrink <herman.elfrink@ti-wmc.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from darla.ti-wmc.nl ([217.114.97.45]:9887 "EHLO smtp.wmc")
-	by vger.kernel.org with ESMTP id S1751357AbWEWOlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 10:41:49 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1148395738.25255.68.camel@localhost.localdomain>
+Received: from darla.ti-wmc.nl ([217.114.97.45]:28319 "EHLO smtp.wmc")
+	by vger.kernel.org with ESMTP id S932119AbWEWOvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 10:51:15 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060523073851.39c3b5fe@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> On Maw, 2006-05-23 at 16:07 +0200, Herman Elfrink wrote:
->> FLAME uses an unofficial protocol number (0x4040), any tips on how to 
->> get an official IANA number would be highly appreciated.
->>
+Stephen Hemminger wrote:
+> O
+>> Usage
+>> =====
+>> - Load module:
+>>     modprobe flame [debuglevel=]  [flm_topo_timer=]
+>>       : debug level, default: 1
+>>       : topology check timer (in seconds), default: 5
+>> - Open/close a device with:
+>>     echo "up   []" > /proc/net/flame/cmd
+>>     echo "down " > /proc/net/flame/cmd
+>>       : name of FLAME device, e.g. flm0
+>>       : comma-separated list of MAC devices (at least one) that are
+>>       used below the FLAME device. All of these must be up.
+>>     : comma-separated list of MAC addresses of devices
+>>       for which traffic should be ignored; each MAC address should
+>>       be a semicolon-separated list of 6 hex-pairs
+>> - Get current forwarding info from FLAME:
+>>     cat /proc/net/flame/fwd
+>> - Get nodes/cost information from MACINFO:
+>>     cat /proc/net/macinfo
 > 
-> Ethernet protocol number I assume you mean. If so this at least used to
-> be handled by the IEEE, along with ethernet mac address ranges.
 > 
+> Use of /proc for an API is no longer desirable. Please rewrite.
+> -
 
-Yes ethernet protocol (it's below IP level), I didn't realise that IEEE 
-also handled the portnumbers. I'll check the ieee website to see how it 
-works, tnx!
+hmm, ok, I'm not sure this will happen anytime soon (being a rather low 
+priority thing, which is also the reason it's not submitted as patch to 
+the kernel and not signed off), but what is currently the desirable method?
 
-/Simon
+Cheers
+
+Simon
+
+PS, I'm replying for my colleague, who will see this Monday at the 
+earliest ;-)
 
