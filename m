@@ -1,322 +1,72 @@
-From: "#ZHOU BIN#" <ZHOU0022@ntu.edu.sg>
-Subject: [PATCH] TCP Veno module for kernel 2.6.16.13
-Date: Wed, 24 May 2006 19:08:05 +0800
-Message-ID: <A975FFC51622704CBEAB749E263D1799015540B3@mail01.student.main.ntu.edu.sg>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Wed, 24 May 2006 08:42:28 -0400
+Message-ID: <20060524124223.GB10156@tuxdriver.com>
+References: <20060522191759.GD13964@tuxdriver.com> <20060522191942.GE13964@tuxdriver.com> <4473E288.3030005@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp2.ntu.edu.sg ([155.69.5.9]:18384 "EHLO exsmtp2.ntu.edu.sg")
-	by vger.kernel.org with ESMTP id S932680AbWEXLIL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 May 2006 07:08:11 -0400
-Content-class: urn:content-classes:message
-To: <jmorris@namei.org>
+Received: from ra.tuxdriver.com ([24.172.12.4]:59655 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S932301AbWEXMmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 08:42:42 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <4473E288.3030005@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bin Zhou <zhou0022@ntu.edu.sg>
+On Wed, May 24, 2006 at 12:35:20AM -0400, Jeff Garzik wrote:
+> John W. Linville wrote:
+> >The following changes since commit 
+> >01d654d25d23fb73deb7904ce1c0b3a0f5fc2908:
+> >  John W. Linville:
+> >        Merge branch 'upstream-fixes' into upstream
+> >
+> >are found in the git repository at:
+> >
+> >  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
+> >  upstream
+> >
+> >Marcin Juszkiewicz:
+> >      hostap: new pcmcia IDs
+> >
+> > drivers/net/wireless/hostap/hostap_cs.c |    6 ++++++
+> > 1 files changed, 6 insertions(+), 0 deletions(-)
+> 
+> WTF???  I pull, and see diffstat:
+> 
+> Merge db21e578e551421d76641d72cb3f8296ed3f9e61, made by recursive.
+>  drivers/net/wireless/airo.c                     |    2
+...
 
-TCP Veno module is a new congestion control module to improve TCP performance over wireless networks. The key innovation in TCP Veno is the enhancement of TCP Reno/Sack congestion control algorithm by using the estimated state of a connection based on TCP Vegas. This scheme significantly reduces "blind" reduction of TCP window regardless of the cause of packet loss.
+> This is vastly different from any 'pull upstream' email I've received 
+> from you.  It is extremely uncool for me to pull, and receive something 
+> other than what your email specified.
 
-This work is based on the research paper "TCP Veno: TCP Enhancement for Transmission over Wireless Access Networks." C. P. Fu, S. C. Liew, IEEE Journal on Selected Areas in Communication, Feb. 2003.
+Jeff, I am terribly sorry.  I sent a request for this on 24 April,
+but it does not appear in the archives.  It must have been dropped
+(probably due to size) by the netdev list filters, and I neglected
+to notice.
 
-Original paper and many latest research works on veno can be reached at http://www.ntu.edu.sg/home/ascpfu/veno/veno.html  or through the www.google.com by entering keywords "TCP Veno"
+/me wishes the list would send me a note when it drops stuff due
+to size...
 
-
-
-Sign-off-by: Bin Zhou <zhou0022@ntu.edu.sg>
-	         Cheng Peng Fu <ascpfu@ntu.edu.sg>
-
-
-diff -urN linux-2.6.16.13/net/ipv4/Kconfig linux-2.6.16.13-veno/net/ipv4/Kconfig
---- linux-2.6.16.13/net/ipv4/Kconfig	2006-05-03 05:38:44.000000000 +0800
-+++ linux-2.6.16.13-veno/net/ipv4/Kconfig	2006-05-20 16:16:44.712926200 +0800
-@@ -521,6 +521,18 @@
- 	window. TCP Vegas should provide less packet loss, but it is
- 	not as aggressive as TCP Reno.
+> Nonetheless, I looked over the changes and they look OK, so I took the 
+> lazy route and kept them.
  
-+config TCP_CONG_VENO
-+	tristate "TCP Veno"
-+	depends on EXPERIMENTAL
-+	default n
-+	---help---
-+	TCP Veno is a sender-side only enhancement of TCP to obtain better
-+	throughput over wirless networks. TCP Veno makes use of state 
-+	distinguishing to circumvent the difficult judgment of the packet loss type.
-+	TCP Veno cuts down less congestion window in response to random loss
-+	packets. 
-+	See http://www.ntu.edu.sg/home5/ZHOU0022/papers/CPFu03a.pdf
-+	
- config TCP_CONG_SCALABLE
- 	tristate "Scalable TCP"
- 	depends on EXPERIMENTAL
-diff -urN linux-2.6.16.13/net/ipv4/Makefile linux-2.6.16.13-veno/net/ipv4/Makefile
---- linux-2.6.16.13/net/ipv4/Makefile	2006-05-03 05:38:44.000000000 +0800
-+++ linux-2.6.16.13-veno/net/ipv4/Makefile	2006-05-20 15:57:45.308758200 +0800
-@@ -40,6 +40,7 @@
- obj-$(CONFIG_TCP_CONG_HYBLA) += tcp_hybla.o
- obj-$(CONFIG_TCP_CONG_HTCP) += tcp_htcp.o
- obj-$(CONFIG_TCP_CONG_VEGAS) += tcp_vegas.o
-+obj-$(CONFIG_TCP_CONG_VENO) += tcp_veno.o
- obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
- 
- obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
-diff -urN linux-2.6.16.13/net/ipv4/tcp_veno.c linux-2.6.16.13-veno/net/ipv4/tcp_veno.c
---- linux-2.6.16.13/net/ipv4/tcp_veno.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.16.13-veno/net/ipv4/tcp_veno.c	2006-05-21 11:11:36.190398400 +0800
-@@ -0,0 +1,253 @@
-+/*
-+ * TCP Veno congestion control
-+ *
-+ * This is based on the congestion detection/avoidance scheme described in
-+ *    C. P. Fu, S. C. Liew.
-+ *    "TCP Veno: TCP Enhancement for Transmission over Wireless Access Networks."
-+ *    IEEE Journal on Selected Areas in Communication,
-+ *    Feb. 2003.
-+ * 	See http://www.ntu.edu.sg/home5/ZHOU0022/papers/CPFu03a.pdf
-+ */
-+
-+#include <linux/config.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/inet_diag.h>
-+
-+#include <net/tcp.h>
-+
-+/* Default values of the Veno variables, in fixed-point representation
-+ * with V_PARAM_SHIFT bits to the right of the binary point.
-+ */
-+#define V_PARAM_SHIFT 1
-+static int beta  = 3<<V_PARAM_SHIFT;
-+
-+
-+/* Veno variables */
-+struct veno {
-+	u8	doing_veno_now;/* if true, do veno for this RTT */
-+	u16	cntRTT;		/* # of RTTs measured within last RTT */
-+	u32	minRTT;		/* min of RTTs measured within last RTT (in usec) */
-+	u32	baseRTT;	/* the min of all Veno RTT measurements seen (in usec) */
-+	u32	inc;	/* decide whether to increase cwnd */
-+	u32 diff;	/* calculate the diff rate */
-+};
-+
-+/* There are several situations when we must "re-start" Veno:
-+ *
-+ *  o when a connection is established
-+ *  o after an RTO
-+ *  o after fast recovery
-+ *  o when we send a packet and there is no outstanding
-+ *    unacknowledged data (restarting an idle connection)
-+ *
-+ */
-+static inline void veno_enable(struct sock *sk)
-+{
-+	struct veno *veno = inet_csk_ca(sk);
-+
-+	/* turn on Veno */
-+	veno->doing_veno_now = 1;
-+
-+	veno->minRTT = 0x7fffffff;
-+}
-+
-+static inline void veno_disable(struct sock *sk)
-+{
-+	struct veno *veno = inet_csk_ca(sk);
-+
-+	/* turn off Veno */
-+	veno->doing_veno_now = 0;
-+}
-+
-+static void tcp_veno_init(struct sock *sk)
-+{
-+	struct veno *veno = inet_csk_ca(sk);
-+
-+	veno->baseRTT = 0x7fffffff;
-+	veno->inc = 1;
-+	veno_enable(sk);
-+}
-+
-+/* Do RTT sampling needed for Veno. */
-+static void tcp_veno_rtt_calc(struct sock *sk, u32 usrtt)
-+{
-+	struct veno *veno = inet_csk_ca(sk);
-+	u32 vrtt = usrtt + 1; /* Never allow zero rtt or baseRTT */
-+
-+	/* Filter to find propagation delay: */
-+	if (vrtt < veno->baseRTT)
-+		veno->baseRTT = vrtt;
-+
-+	/* Find the min RTT during the last RTT to find
-+	 * the current prop. delay + queuing delay:
-+	 */
-+	veno->minRTT = min(veno->minRTT, vrtt);
-+	veno->cntRTT++;
-+}
-+
-+static void tcp_veno_state(struct sock *sk, u8 ca_state)
-+{
-+
-+	if (ca_state == TCP_CA_Open)
-+		veno_enable(sk);
-+	else
-+		veno_disable(sk);
-+}
-+
-+/*
-+ * If the connection is idle and we are restarting,
-+ * then we don't want to do any Veno calculations
-+ * until we get fresh RTT samples.  So when we
-+ * restart, we reset our Veno state to a clean
-+ * state. After we get acks for this flight of
-+ * packets, _then_ we can make Veno calculations
-+ * again.
-+ */
-+static void tcp_veno_cwnd_event(struct sock *sk, enum tcp_ca_event event)
-+{
-+	if (event == CA_EVENT_CWND_RESTART ||
-+	    event == CA_EVENT_TX_START)
-+		tcp_veno_init(sk);
-+}
-+
-+static void tcp_veno_cong_avoid(struct sock *sk, u32 ack,
-+				 u32 seq_rtt, u32 in_flight, int flag)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct veno *veno = inet_csk_ca(sk); 
-+
-+	if (!veno->doing_veno_now)
-+		return tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag); 
-+
-+	/* limited by applications */
-+	if (!tcp_is_cwnd_limited(sk, in_flight))
-+		return;
-+
-+	/* We do the Veno calculations only if we got enough RTT samples */
-+	if (veno->cntRTT <= 2) {
-+		/* We don't have enough RTT samples to do the Veno
-+		 * calculation, so we'll behave like Reno.
-+		 */ 
-+		tcp_reno_cong_avoid(sk, ack, seq_rtt, in_flight, flag);
-+	} else {
-+		u32 rtt, target_cwnd;
-+
-+		/* We have enough RTT samples, so, using the Veno
-+		 * algorithm, we determine the state of the network.
-+		 */
-+
-+		rtt = veno->minRTT;
-+
-+		target_cwnd = ((tp->snd_cwnd * veno->baseRTT)
-+			       << V_PARAM_SHIFT) / rtt;
-+		
-+		veno->diff = (tp->snd_cwnd << V_PARAM_SHIFT) - target_cwnd;
-+		
-+		if (tp->snd_cwnd <= tp->snd_ssthresh) {
-+			/* Slow start.  */ 
-+			tcp_slow_start(tp);
-+		} 
-+		else if (sysctl_tcp_abc) {
-+ 			/* RFC3465: Apppriate Byte Count
-+ 	 		* increase once for each full cwnd acked.
-+ 	 		* Veno has no idear about it so far, so we keep
-+ 	 		* it as Reno.
-+ 	 		*/
-+ 			if (tp->bytes_acked >= tp->snd_cwnd*tp->mss_cache) {
-+ 				tp->bytes_acked -= tp->snd_cwnd*tp->mss_cache;
-+ 				if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-+ 					tp->snd_cwnd++;
-+ 			}
-+ 		}else {
-+			/* Congestion avoidance. */ 
-+			if (veno->diff < beta) {
-+				/* In the "non-congestive state", increase cwnd
-+				 *  every rtt.
-+				 */ 
-+				if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
-+ 					if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-+ 						tp->snd_cwnd++;
-+ 					tp->snd_cwnd_cnt = 0;
-+ 				} else
-+ 					tp->snd_cwnd_cnt++;
-+			} else {
-+				/* In the "congestive state", increase cwnd
-+				 * every other rtt.
-+				 */ 
-+					if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
-+ 						if (veno->inc && tp->snd_cwnd < tp->snd_cwnd_clamp) {
-+ 						tp->snd_cwnd++;
-+						veno->inc = 0;
-+			}
-+					else
-+						veno->inc = 1;
-+ 						tp->snd_cwnd_cnt = 0;
-+ 					} else
-+ 						tp->snd_cwnd_cnt++;
-+			}
-+			
-+		}
-+		if (tp->snd_cwnd < 2)
-+			tp->snd_cwnd = 2;
-+		else if (tp->snd_cwnd > tp->snd_cwnd_clamp)
-+			tp->snd_cwnd = tp->snd_cwnd_clamp;
-+	}
-+		/* Wipe the slate clean for the next RTT. */
-+	/* veno->cntRTT = 0; */
-+	veno->minRTT = 0x7fffffff;
-+	}
-+
-+/* Veno MD phase */
-+u32 tcp_veno_ssthresh(struct sock *sk)
-+{
-+	const struct tcp_sock *tp = tcp_sk(sk);
-+	struct veno *veno = inet_csk_ca(sk); 
-+	if(veno->diff < beta) {
-+		/* in "non-congestive state", cut cwnd by 1/5 */ 
-+		return max(tp->snd_cwnd*4/5, 2U);
-+	}else {
-+		/* in "congestive state", cut cwnd by 1/2 */ 
-+		return max(tp->snd_cwnd >> 1U, 2U);
-+	}
-+}
-+
-+u32 tcp_veno_min_cwnd(struct sock *sk)
-+{
-+	const struct tcp_sock *tp = tcp_sk(sk); 
-+	return tp->snd_ssthresh;
-+}
-+
-+
-+static struct tcp_congestion_ops tcp_veno = {
-+	.init		= tcp_veno_init,
-+	.ssthresh	= tcp_veno_ssthresh,
-+	.cong_avoid	= tcp_veno_cong_avoid,
-+	.min_cwnd	= tcp_veno_min_cwnd,
-+	.rtt_sample	= tcp_veno_rtt_calc,
-+	.set_state	= tcp_veno_state, 
-+	.cwnd_event	= tcp_veno_cwnd_event,
-+
-+	.owner		= THIS_MODULE,
-+	.name		= "veno",
-+};
-+
-+static int __init tcp_veno_register(void)
-+{
-+	BUG_ON(sizeof(struct veno) > ICSK_CA_PRIV_SIZE);
-+	tcp_register_congestion_control(&tcp_veno);
-+	return 0;
-+}
-+
-+static void __exit tcp_veno_unregister(void)
-+{
-+	tcp_unregister_congestion_control(&tcp_veno);
-+}
-+
-+module_init(tcp_veno_register);
-+module_exit(tcp_veno_unregister);
-+
-+MODULE_AUTHOR("Bin Zhou, Cheng Peng Fu");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("TCP Veno");
+I greatly appreciate that!
+
+> For the future, I would perhaps recommend creating an upstream-jeff 
+> branch at the time of submission, if you insist upon continuing to push 
+
+The point is well taken.  It probably does make sense either to have an
+upstream-jeff branch or to make a new branch if you haven't yet pulled.
+I'll keep that in mind.
+
+Thanks,
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
