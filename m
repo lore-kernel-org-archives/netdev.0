@@ -1,145 +1,87 @@
 From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 2/5] s390: qeth driver fixes
-Date: Wed, 24 May 2006 09:51:11 +0200
-Message-ID: <20060524095111.4d4f2992@localhost.localdomain>
+Subject: [PATCH 5/5] s390: lcs driver bug fixes and improvements [2/2]
+Date: Wed, 24 May 2006 09:51:21 +0200
+Message-ID: <20060524095121.5c087748@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:32112 "EHLO
-	mtagate3.de.ibm.com") by vger.kernel.org with ESMTP id S932647AbWEXHus
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:61741 "EHLO
+	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP id S932650AbWEXHu5
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 May 2006 03:50:48 -0400
+	Wed, 24 May 2006 03:50:57 -0400
 Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate3.de.ibm.com (8.13.6/8.13.6) with ESMTP id k4O7okDt036688
-	for <netdev@vger.kernel.org>; Wed, 24 May 2006 07:50:46 GMT
+	by mtagate4.de.ibm.com (8.13.6/8.13.6) with ESMTP id k4O7ou9k091480
+	for <netdev@vger.kernel.org>; Wed, 24 May 2006 07:50:56 GMT
 Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k4O7qPkc139268
-	for <netdev@vger.kernel.org>; Wed, 24 May 2006 09:52:25 +0200
+	by d12nrmr1607.megacenter.de.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k4O7qZkc123336
+	for <netdev@vger.kernel.org>; Wed, 24 May 2006 09:52:35 +0200
 Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k4O7okcQ029053
-	for <netdev@vger.kernel.org>; Wed, 24 May 2006 09:50:46 +0200
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k4O7ou8S029254
+	for <netdev@vger.kernel.org>; Wed, 24 May 2006 09:50:56 +0200
 To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Ursula Braun <braunu@de.ibm.com>
-From: Frank Pavlic <fpavlic@de.ibm.com>
 
-	- correct checking of sscanf-%n value in qeth_string_to_ipaddr().
-	- don't use netif_stop_queue outside the hard_start_xmit routine. 
-	  Rather use netif_tx_disable.
-	- don't call qeth_netdev_init on a recovery.
+From: Klaus Wacker <kdwacker@de.ibm.com>
+	
+	This is the second lcs driver patch containing the rest of lcs fixes.
 
 Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 ---
 
- drivers/s390/net/qeth.h      |    2 +-
- drivers/s390/net/qeth_main.c |   22 +++++++++++-----------
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/s390/net/lcs.h |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
-ef153db1ac07db7ec4eba2ec29237c58944b5c7b
-diff --git a/drivers/s390/net/qeth.h b/drivers/s390/net/qeth.h
-index 4df0fcd..65e2b1b 100644
---- a/drivers/s390/net/qeth.h
-+++ b/drivers/s390/net/qeth.h
-@@ -1099,7 +1099,7 @@ qeth_string_to_ipaddr4(const char *buf, 
+6956e921ffef4871ce2d422cbcbdad863f7ab0b3
+diff --git a/drivers/s390/net/lcs.h b/drivers/s390/net/lcs.h
+index 2fad5e4..9314393 100644
+--- a/drivers/s390/net/lcs.h
++++ b/drivers/s390/net/lcs.h
+@@ -73,13 +73,17 @@ do {                                    
+ /**
+  * LCS sense byte definitions
+  */
++#define LCS_SENSE_BYTE_0 		0
++#define LCS_SENSE_BYTE_1 		1
++#define LCS_SENSE_BYTE_2 		2
++#define LCS_SENSE_BYTE_3 		3
+ #define LCS_SENSE_INTERFACE_DISCONNECT	0x01
+ #define LCS_SENSE_EQUIPMENT_CHECK	0x10
+ #define LCS_SENSE_BUS_OUT_CHECK		0x20
+ #define LCS_SENSE_INTERVENTION_REQUIRED 0x40
+ #define LCS_SENSE_CMD_REJECT		0x80
+-#define LCS_SENSE_RESETTING_EVENT	0x0080
+-#define LCS_SENSE_DEVICE_ONLINE		0x0020
++#define LCS_SENSE_RESETTING_EVENT	0x80
++#define LCS_SENSE_DEVICE_ONLINE		0x20
  
- 	rc = sscanf(buf, "%d.%d.%d.%d%n", 
- 		    &in[0], &in[1], &in[2], &in[3], &count);
--	if (rc != 4  || count) 
-+	if (rc != 4  || count<=0)
- 		return -EINVAL;
- 	for (count = 0; count < 4; count++) {
- 		if (in[count] > 255)
-diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index cb14642..0f6648f 100644
---- a/drivers/s390/net/qeth_main.c
-+++ b/drivers/s390/net/qeth_main.c
-@@ -3817,7 +3817,7 @@ qeth_stop(struct net_device *dev)
+ /**
+  * LCS packet type definitions
+@@ -152,10 +156,9 @@ enum lcs_dev_states {
  
- 	card = (struct qeth_card *) dev->priv;
- 
--	netif_stop_queue(dev);
-+	netif_tx_disable(dev);
- 	card->dev->flags &= ~IFF_UP;
- 	if (card->state == CARD_STATE_UP)
- 		card->state = CARD_STATE_SOFTSETUP;
-@@ -6359,12 +6359,9 @@ qeth_netdev_init(struct net_device *dev)
- 	dev->vlan_rx_kill_vid = qeth_vlan_rx_kill_vid;
- 	dev->vlan_rx_add_vid = qeth_vlan_rx_add_vid;
- #endif
--	dev->hard_header = card->orig_hard_header;
- 	if (qeth_get_netdev_flags(card) & IFF_NOARP) {
- 		dev->rebuild_header = NULL;
- 		dev->hard_header = NULL;
--		if (card->options.fake_ll)
--			dev->hard_header = qeth_fake_header;
- 		dev->header_cache_update = NULL;
- 		dev->hard_header_cache = NULL;
- 	}
-@@ -6477,6 +6474,9 @@ retry:
- 	/*network device will be recovered*/
- 	if (card->dev) {
- 		card->dev->hard_header = card->orig_hard_header;
-+		if (card->options.fake_ll && 
-+		    (qeth_get_netdev_flags(card) & IFF_NOARP))
-+			card->dev->hard_header = qeth_fake_header;
- 		return 0;
- 	}
- 	/* at first set_online allocate netdev */
-@@ -7031,7 +7031,7 @@ qeth_softsetup_ipv6(struct qeth_card *ca
- 
- 	QETH_DBF_TEXT(trace,3,"softipv6");
- 
--	netif_stop_queue(card->dev);
-+	netif_tx_disable(card->dev);
- 	rc = qeth_send_startlan(card, QETH_PROT_IPV6);
- 	if (rc) {
- 		PRINT_ERR("IPv6 startlan failed on %s\n",
-@@ -7352,7 +7352,8 @@ qeth_set_large_send(struct qeth_card *ca
- 		card->options.large_send = type;
- 		return 0;
- 	}
--	netif_stop_queue(card->dev);
-+	if (card->state == CARD_STATE_UP)
-+		netif_tx_disable(card->dev);
- 	card->options.large_send = type;
- 	switch (card->options.large_send) {
- 	case QETH_LARGE_SEND_EDDP:
-@@ -7374,7 +7375,8 @@ qeth_set_large_send(struct qeth_card *ca
- 		card->dev->features &= ~(NETIF_F_TSO | NETIF_F_SG);
- 		break;
- 	}
--	netif_wake_queue(card->dev);
-+	if (card->state == CARD_STATE_UP)
-+		netif_wake_queue(card->dev);
- 	return rc;
- }
- 
-@@ -7427,7 +7429,7 @@ qeth_softsetup_card(struct qeth_card *ca
- 	if ((rc = qeth_setrouting_v6(card)))
- 		QETH_DBF_TEXT_(setup, 2, "5err%d", rc);
- out:
--	netif_stop_queue(card->dev);
-+	netif_tx_disable(card->dev);
- 	return 0;
- }
- 
-@@ -7736,10 +7738,8 @@ static int
- qeth_register_netdev(struct qeth_card *card)
- {
- 	QETH_DBF_TEXT(setup, 3, "regnetd");
--	if (card->dev->reg_state != NETREG_UNINITIALIZED) {
--		qeth_netdev_init(card->dev);
-+	if (card->dev->reg_state != NETREG_UNINITIALIZED) 
- 		return 0;
--	}
- 	/* sysfs magic */
- 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
- 	return register_netdev(card->dev);
+ enum lcs_threads {
+ 	LCS_SET_MC_THREAD 	= 1,
+-	LCS_STARTLAN_THREAD	= 2,
+-	LCS_STOPLAN_THREAD	= 4,
+-	LCS_STARTUP_THREAD	= 8,
++	LCS_RECOVERY_THREAD 	= 2,
+ };
++
+ /**
+  * LCS struct declarations
+  */
+@@ -286,6 +289,7 @@ struct lcs_card {
+ 	struct net_device_stats stats;
+ 	unsigned short (*lan_type_trans)(struct sk_buff *skb,
+ 					 struct net_device *dev);
++	struct ccwgroup_device *gdev;
+ 	struct lcs_channel read;
+ 	struct lcs_channel write;
+ 	struct lcs_buffer *tx_buffer;
 -- 
 1.2.4
 
