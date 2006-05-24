@@ -1,33 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [HAMRADIO] Remove remaining SET_MODULE_OWNER calls from hamradio
- drivers.
-Date: Wed, 24 May 2006 01:30:26 -0400
-Message-ID: <4473EF72.7030201@garzik.org>
-References: <20060429143413.GA4630@linux-mips.org>
+From: =?big5?B?amVzc2VcKKvYv7NcKQ==?= <jesse@icplus.com.tw>
+Subject: Re: Sign-off for the IP1000A driver before inclusion
+Date: Wed, 24 May 2006 14:09:24 +0800
+Message-ID: <044a01c67ef8$9bdd0420$4964a8c0@icplus.com.tw>
+References: <84144f020605230001s32b29f59w8f95c67fad7b380d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org
+Content-Type: text/plain; charset=big5
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>,
+	"David Vrabel" <dvrabel@cantab.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<david@pleyades.net>, <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:12256 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932599AbWEXFa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 01:30:29 -0400
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-In-Reply-To: <20060429143413.GA4630@linux-mips.org>
+Received: from msr53.hinet.net ([168.95.4.153]:29831 "EHLO msr53.hinet.net")
+	by vger.kernel.org with ESMTP id S932608AbWEXGJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 02:09:57 -0400
+To: "Pekka Enberg" <penberg@cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ralf Baechle DL5RB wrote:
-> Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Dear Pekka:
+We had read this document, but we can't find any blank at which we can =
+sign.
+Could you tell us where we can sign it off.
 
-ACK but does not apply
+Thanks!
+
+Jesse
+
+----- Original Message -----=20
+=46rom: "Pekka Enberg" <penberg@cs.helsinki.fi>
+To: "jesse(=AB=D8=BF=B3)" <jesse@icplus.com.tw>
+Cc: "Francois Romieu" <romieu@fr.zoreil.com>; "David Vrabel"
+<dvrabel@cantab.net>; <linux-kernel@vger.kernel.org>;
+<netdev@vger.kernel.org>; <david@pleyades.net>; <akpm@osdl.org>
+Sent: Tuesday, May 23, 2006 3:01 PM
+Subject: Sign-off for the IP1000A driver before inclusion
 
 
-Applying 'Remove remaining SET_MODULE_OWNER calls from hamradio drivers.'
+Hi Jesse,
 
-error: patch failed: drivers/net/hamradio/dmascc.c:582
-error: drivers/net/hamradio/dmascc.c: patch does not apply
-error: patch failed: drivers/net/hamradio/scc.c:1550
-error: drivers/net/hamradio/scc.c: patch does not apply
-error: patch failed: drivers/net/hamradio/yam.c:1098
-error: drivers/net/hamradio/yam.c: patch does not apply
+On 5/23/06, jesse\(=AB=D8=BF=B3\) <jesse@icplus.com.tw> wrote:
+> If any problem, please feel free to contact me. jesse@icplus.com.tw
+
+As per:
+
+  http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=3D114666027122495
+
+we still need someone from IC Plus to sign off on the IP1000A driver
+for it to be merged with mainline Linux.
+
+=46or more details on the Developer's Certificate of Origin, please
+refer to:
+http://www.osdl.org/newsroom/press_releases/2004/2004_05_24_dco.html
+or Documentation/SubmittingPatches.
+
+                                                     Pekka
+
