@@ -1,35 +1,35 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 8/9] [I/OAT] Add a sysctl for tuning the I/OAT offloaded
- I/O threshold
-Date: Tue, 23 May 2006 18:02:53 -0700
-Message-ID: <20060523180253.5d28649f.akpm@osdl.org>
-References: <20060524001653.19403.31396.stgit@gitlost.site>
-	<20060524002021.19403.15607.stgit@gitlost.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 6610] New: dummy interface broadcast destination hardware address is not ff:ff:ff:ff:ff:ff
+Date: Wed, 24 May 2006 11:10:54 +1000
+Message-ID: <E1Fihtm-0003dO-00@gondolin.me.apana.org.au>
+References: <20060523.165343.104035136.davem@davemloft.net>
+Cc: akpm@osdl.org, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:42387 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932106AbWEXBDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 21:03:15 -0400
-To: Chris Leech <christopher.leech@intel.com>
-In-Reply-To: <20060524002021.19403.15607.stgit@gitlost.site>
+Received: from rhun.apana.org.au ([64.62.148.172]:64782 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932512AbWEXBLL
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 May 2006 21:11:11 -0400
+To: davem@davemloft.net (David Miller)
+In-Reply-To: <20060523.165343.104035136.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Leech <christopher.leech@intel.com> wrote:
->
-> Any socket recv of less than this ammount will not be offloaded
+David Miller <davem@davemloft.net> wrote:
+> From: Andrew Morton <akpm@osdl.org>
+> Date: Tue, 23 May 2006 16:31:42 -0700
 > 
->  Signed-off-by: Chris Leech <christopher.leech@intel.com>
->  ---
+>> >            Summary: dummy interface broadcast destination hardware address
+>> >                     is not ff:ff:ff:ff:ff:ff
 > 
->   include/linux/sysctl.h     |    1 +
->   include/net/tcp.h          |    1 +
->   net/core/user_dma.c        |    4 ++++
->   net/ipv4/sysctl_net_ipv4.c |   10 ++++++++++
->   4 files changed, 16 insertions(+), 0 deletions(-)
-> 
+> Very strange because the dummy device driver calls
+> ether_setup() which does:
 
-Documentation/networking/ip-sysctl.txt too, please.
+It's caused by the NO_ARP flag.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
