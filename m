@@ -1,200 +1,37 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Netchannel] Full TCP receiving support.
-Date: Wed, 24 May 2006 13:38:49 +0400
-Message-ID: <20060524093849.GA7482@2ka.mipt.ru>
-References: <20060516173416.GA22552@2ka.mipt.ru> <20060518103443.GB26183@2ka.mipt.ru> <20060520155202.GA31923@2ka.mipt.ru> <20060521.230617.64626468.davem@davemloft.net> <20060522163414.GA5426@2ka.mipt.ru>
+From: "Conventions B. Infuriates" <koltan@kyokodate.com>
+Subject: Brauchen Sofort Deutsche Partner
+Date: Wed, 24 May 2006 17:36:31 -0400
+Message-ID: <6149593640.20060524173631@kyokodate.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="envbJBWh7q8WU6mo"
-Cc: netdev@vger.kernel.org, kelly@au1.ibm.com, rusty@rustcorp.com.au
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:6099 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932605AbWEXJi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 05:38:59 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060522163414.GA5426@2ka.mipt.ru>
+Received: from [166.114.194.9] ([166.114.194.9]:63495 "HELO -1313850472")
+	by vger.kernel.org with SMTP id S932627AbWEXJkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 05:40:07 -0400
+Received: from kyokodate.com (-1313370696 [-1305677456])
+	by heesun.net (Qmailv1) with ESMTP id 33FA090DDF
+	for <netdev@vger.kernel.org>; Wed, 24 May 2006 17:36:31 -0400
+To: Netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Guten Tag,
+unser Unternehmen heisst Magnat Trading Group. Wir spezialisieren uns auf Dienstleistungen beim Kaufen und Verkaufen der Ware uber
+internationales Onlineauktionshaus EBAY. Dank sehr grossen Angagement, konnte unsere Firma schon nach vier Jahren auf die internationalen
+Ebene hinaufsteigen .Und  nach der Aussage der  Wirtschaftsexperten zahlt Magnat Trading Group zu den 20ig der einflussstarksten Firmen in
+Bereich Ebay.
+Zur Zeit ist die Position des Finanzmanagers in unserem Unternehmen zu besetzen.
+Die Einzigen Anforderungen an Sie  sind:
+- PC, Internet, E-mail,Telefonnummer
+- Ein Konto bei einem  Zahlungsinstitut in Deutschland ist  bevorzugt.
+Ihr Honorar betragt am Anfang 500-1000 euro in der Woche.
 
---envbJBWh7q8WU6mo
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: inline
+Sie konnen Ihren Arbeitstag moglichst flexibel gestalten, um Ihrem Haupterwerb problemlos nachzugehen. 
+Im Laufe der ganzen Tatigkeit entstehen fur Sie keine Ausgaben, d.h. Sie brauchen also kein Startkapital
 
-Hello, developers.
+Falls unser Angebot Sie neugierig gemacht hat und Sie sich angesprochen fuhlen, dann melden Sie sich einfach per E-MAIL:
+magnat_trading@km.ru
 
-Initial TCP benchmark.
-After tweaking some stuff I run netchannel vs socket TCP benchmark.
-Unfortunately currently I'm unable to run 1Gbit test, since my test
-machine is slightly broken... So only 100Mbit for now.
+Mit besten Grussen!
 
-Performance graph attached.
-Speed is the same, CPU usage is the same 
-(socket CPU usage is 1% (or 20% :) more than netchannel one, but let's
-throw this away as some experimental error).
-
-Netchannel was setup in copy_to_user mode, so it was not expected to be
-faster or eat less CPU, but main purpose of this test was to show that
-netchannels with _all_ protocol processing moved to process' context can
-be at least that fast as when it is splitted into pieces.
-I've found some links in the web and blogs where some developers completely
-disagree with VJ idea of moving stuff into process context...
-Well, this should break theirs mostly theoretical arguments.
-
-It is clear that using memcpy setup CPU usage numbers (at least) for netchannel 
-are noticebly better than for sockets (see previous posted benchmarks). 
-I will start changing core networking code to accept different copying 
-"actor" methods which will allow to use netchannels preallocated mapped area 
-instead of copy_to_user().
-
-Full patch and userspace application are available from netchannel homepage [1].
-
-Thank you.
-
-1. Netchannel homepage.
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-
--- 
-	Evgeniy Polyakov
-
---envbJBWh7q8WU6mo
-Content-Type: image/png
-Content-Disposition: attachment; filename="netchannel_speed.png"
-Content-Transfer-Encoding: base64
-
-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
-
---envbJBWh7q8WU6mo--
