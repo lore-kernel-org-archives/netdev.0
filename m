@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: reminder, 2.6.18 window...
-Date: Tue, 23 May 2006 18:22:17 -0700 (PDT)
-Message-ID: <20060523.182217.59656237.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Wed, 24 May 2006 00:26:20 -0400
+Message-ID: <4473E06C.6060804@garzik.org>
+References: <20060522191759.GD13964@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36000
-	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932107AbWEXBWR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 May 2006 21:22:17 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.sfo1.dsl.speakeasy.net (Postfix) with ESMTP id 540BFAE43EA
-	for <netdev@vger.kernel.org>; Tue, 23 May 2006 18:22:17 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from srv5.dvmed.net ([207.36.208.214]:27358 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932552AbWEXE0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 00:26:22 -0400
+To: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, akpm@osdl.org
+In-Reply-To: <20060522191759.GD13964@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+John W. Linville wrote:
+> The following changes since commit 353b28bafd1b962359a866ff263a7fad833d29a1:
+>   David S. Miller:
+>         [SPARC]: Add robust futex syscall entries.
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+> 
+> Florin Malita:
+>       orinoco: possible null pointer dereference in orinoco_rx_monitor()
 
-Some time in the next few weeks, it is likely that the 2.6.18
-merge window will open up shortly after a 2.6.17 release.
+skipping, went in via akpm apparently.
 
-So if you have major 2.6.18 submissions planned for the networking,
-you need to start thinking about getting it to me now.
+Though, it'll dup the changeset when I pull upstream.
 
-There is a 2.6.18 tree up at:
+	Jeff
 
-master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.18.git
 
-All it has right now is the I/O AT stuff at the moment, and I plan to
-put Stephen Hemminger's LLC multicast/datagram changes in there as
-well.
 
-Thanks.
