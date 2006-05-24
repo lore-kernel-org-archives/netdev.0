@@ -1,141 +1,124 @@
 From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 5/9] [I/OAT] Structure changes for TCP recv offload to I/OAT
-Date: Tue, 23 May 2006 17:20:17 -0700
-Message-ID: <20060524002017.19403.8928.stgit@gitlost.site>
+Subject: [PATCH 7/9] [I/OAT] make sk_eat_skb I/OAT aware
+Date: Tue, 23 May 2006 17:20:20 -0700
+Message-ID: <20060524002020.19403.80312.stgit@gitlost.site>
 References: <20060524001653.19403.31396.stgit@gitlost.site>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932505AbWEXAQR@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [63.64.152.142] ([63.64.152.142]:6662 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932504AbWEXAPV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 May 2006 20:15:21 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 In-Reply-To: <20060524001653.19403.31396.stgit@gitlost.site>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds an async_wait_queue and some additional fields to tcp_sock, and a
-dma_cookie_t to sk_buff.
-
+Add an extra argument to sk_eat_skb, and make it move early copied packets
+to the async_wait_queue instead of freeing them.
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- include/linux/skbuff.h |    4 ++++
- include/linux/tcp.h    |    8 ++++++++
- include/net/sock.h     |    2 ++
- include/net/tcp.h      |    7 +++++++
- net/core/sock.c        |    6 ++++++
- 5 files changed, 27 insertions(+), 0 deletions(-)
+ include/net/sock.h |   13 ++++++++++++-
+ net/dccp/proto.c   |    4 ++--
+ net/ipv4/tcp.c     |    8 ++++----
+ net/llc/af_llc.c   |    2 +-
+ 4 files changed, 19 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f8f2347..23bad3b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -29,6 +29,7 @@
- #include <linux/net.h>
- #include <linux/textsearch.h>
- #include <net/checksum.h>
-+#include <linux/dmaengine.h>
- 
- #define HAVE_ALLOC_SKB		/* For the drivers to know */
- #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
-@@ -285,6 +286,9 @@ struct sk_buff {
- 	__u16			tc_verd;	/* traffic control verdict */
- #endif
- #endif
-+#ifdef CONFIG_NET_DMA
-+	dma_cookie_t		dma_cookie;
-+#endif
- 
- 
- 	/* These elements must be at the end, see alloc_skb() for details.  */
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 542d395..c90daa5 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -18,6 +18,7 @@
- #define _LINUX_TCP_H
- 
- #include <linux/types.h>
-+#include <linux/dmaengine.h>
- #include <asm/byteorder.h>
- 
- struct tcphdr {
-@@ -233,6 +234,13 @@ struct tcp_sock {
- 		struct iovec		*iov;
- 		int			memory;
- 		int			len;
-+#ifdef CONFIG_NET_DMA
-+		/* members for async copy */
-+		struct dma_chan		*dma_chan;
-+		int			wakeup;
-+		struct dma_pinned_list	*pinned_list;
-+		dma_cookie_t		dma_cookie;
-+#endif
- 	} ucopy;
- 
- 	__u32	snd_wl1;	/* Sequence for window update		*/
 diff --git a/include/net/sock.h b/include/net/sock.h
-index c9fad6f..90c65cb 100644
+index 90c65cb..75b0e97 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -132,6 +132,7 @@ struct sock_common {
-   *	@sk_receive_queue: incoming packets
-   *	@sk_wmem_alloc: transmit queue bytes committed
-   *	@sk_write_queue: Packet sending queue
-+  *	@sk_async_wait_queue: DMA copied packets
-   *	@sk_omem_alloc: "o" is "option" or "other"
-   *	@sk_wmem_queued: persistent queue size
-   *	@sk_forward_alloc: space allocated forward
-@@ -205,6 +206,7 @@ struct sock {
- 	atomic_t		sk_omem_alloc;
- 	struct sk_buff_head	sk_receive_queue;
- 	struct sk_buff_head	sk_write_queue;
-+	struct sk_buff_head	sk_async_wait_queue;
- 	int			sk_wmem_queued;
- 	int			sk_forward_alloc;
- 	gfp_t			sk_allocation;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3c989db..d0c2c2f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -28,6 +28,7 @@
- #include <linux/cache.h>
- #include <linux/percpu.h>
- #include <linux/skbuff.h>
-+#include <linux/dmaengine.h>
- 
- #include <net/inet_connection_sock.h>
- #include <net/inet_timewait_sock.h>
-@@ -817,6 +818,12 @@ static inline void tcp_prequeue_init(str
- 	tp->ucopy.len = 0;
- 	tp->ucopy.memory = 0;
- 	skb_queue_head_init(&tp->ucopy.prequeue);
+@@ -1273,11 +1273,22 @@ sock_recv_timestamp(struct msghdr *msg, 
+  * This routine must be called with interrupts disabled or with the socket
+  * locked so that the sk_buff queue operation is ok.
+ */
+-static inline void sk_eat_skb(struct sock *sk, struct sk_buff *skb)
 +#ifdef CONFIG_NET_DMA
-+	tp->ucopy.dma_chan = NULL;
-+	tp->ucopy.wakeup = 0;
-+	tp->ucopy.pinned_list = NULL;
-+	tp->ucopy.dma_cookie = 0;
-+#endif
++static inline void sk_eat_skb(struct sock *sk, struct sk_buff *skb, int copied_early)
++{
++	__skb_unlink(skb, &sk->sk_receive_queue);
++	if (!copied_early)
++		__kfree_skb(skb);
++	else
++		__skb_queue_tail(&sk->sk_async_wait_queue, skb);
++}
++#else
++static inline void sk_eat_skb(struct sock *sk, struct sk_buff *skb, int copied_early)
+ {
+ 	__skb_unlink(skb, &sk->sk_receive_queue);
+ 	__kfree_skb(skb);
  }
- 
- /* Packet is added to VJ-style prequeue for processing in process
-diff --git a/net/core/sock.c b/net/core/sock.c
-index ed2afdb..5d820c3 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -832,6 +832,9 @@ struct sock *sk_clone(const struct sock 
- 		atomic_set(&newsk->sk_omem_alloc, 0);
- 		skb_queue_head_init(&newsk->sk_receive_queue);
- 		skb_queue_head_init(&newsk->sk_write_queue);
-+#ifdef CONFIG_NET_DMA
-+		skb_queue_head_init(&newsk->sk_async_wait_queue);
 +#endif
  
- 		rwlock_init(&newsk->sk_dst_lock);
- 		rwlock_init(&newsk->sk_callback_lock);
-@@ -1383,6 +1386,9 @@ void sock_init_data(struct socket *sock,
- 	skb_queue_head_init(&sk->sk_receive_queue);
- 	skb_queue_head_init(&sk->sk_write_queue);
- 	skb_queue_head_init(&sk->sk_error_queue);
-+#ifdef CONFIG_NET_DMA
-+	skb_queue_head_init(&sk->sk_async_wait_queue);
-+#endif
+ extern void sock_enable_timestamp(struct sock *sk);
+ extern int sock_get_timestamp(struct sock *, struct timeval __user *);
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 2e0ee83..5317fd3 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -719,7 +719,7 @@ int dccp_recvmsg(struct kiocb *iocb, str
+ 		}
+ 		dccp_pr_debug("packet_type=%s\n",
+ 			      dccp_packet_name(dh->dccph_type));
+-		sk_eat_skb(sk, skb);
++		sk_eat_skb(sk, skb, 0);
+ verify_sock_status:
+ 		if (sock_flag(sk, SOCK_DONE)) {
+ 			len = 0;
+@@ -773,7 +773,7 @@ verify_sock_status:
+ 		}
+ 	found_fin_ok:
+ 		if (!(flags & MSG_PEEK))
+-			sk_eat_skb(sk, skb);
++			sk_eat_skb(sk, skb, 0);
+ 		break;
+ 	} while (1);
+ out:
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1c0cfd7..4e067d2 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1072,11 +1072,11 @@ int tcp_read_sock(struct sock *sk, read_
+ 				break;
+ 		}
+ 		if (skb->h.th->fin) {
+-			sk_eat_skb(sk, skb);
++			sk_eat_skb(sk, skb, 0);
+ 			++seq;
+ 			break;
+ 		}
+-		sk_eat_skb(sk, skb);
++		sk_eat_skb(sk, skb, 0);
+ 		if (!desc->count)
+ 			break;
+ 	}
+@@ -1356,14 +1356,14 @@ skip_copy:
+ 		if (skb->h.th->fin)
+ 			goto found_fin_ok;
+ 		if (!(flags & MSG_PEEK))
+-			sk_eat_skb(sk, skb);
++			sk_eat_skb(sk, skb, 0);
+ 		continue;
  
- 	sk->sk_send_head	=	NULL;
+ 	found_fin_ok:
+ 		/* Process the FIN. */
+ 		++*seq;
+ 		if (!(flags & MSG_PEEK))
+-			sk_eat_skb(sk, skb);
++			sk_eat_skb(sk, skb, 0);
+ 		break;
+ 	} while (len > 0);
  
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 5a04db7..7465170 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -789,7 +789,7 @@ static int llc_ui_recvmsg(struct kiocb *
+ 			continue;
+ 
+ 		if (!(flags & MSG_PEEK)) {
+-			sk_eat_skb(sk, skb);
++			sk_eat_skb(sk, skb, 0);
+ 			*seq = 0;
+ 		}
+ 	} while (len > 0);
+
