@@ -1,35 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bugme-new] [Bug 6610] New: dummy interface broadcast destination hardware address is not ff:ff:ff:ff:ff:ff
-Date: Wed, 24 May 2006 11:10:54 +1000
-Message-ID: <E1Fihtm-0003dO-00@gondolin.me.apana.org.au>
-References: <20060523.165343.104035136.davem@davemloft.net>
-Cc: akpm@osdl.org, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/9] [I/OAT] Setup the networking subsystem as a DMA
+ client
+Date: Tue, 23 May 2006 18:13:55 -0700 (PDT)
+Message-ID: <20060523.181355.115913162.davem@davemloft.net>
+References: <20060524001653.19403.31396.stgit@gitlost.site>
+	<20060524002014.19403.93371.stgit@gitlost.site>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:64782 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932512AbWEXBLL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 May 2006 21:11:11 -0400
-To: davem@davemloft.net (David Miller)
-In-Reply-To: <20060523.165343.104035136.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36480
+	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932524AbWEXBNz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 May 2006 21:13:55 -0400
+To: christopher.leech@intel.com
+In-Reply-To: <20060524002014.19403.93371.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> From: Andrew Morton <akpm@osdl.org>
-> Date: Tue, 23 May 2006 16:31:42 -0700
-> 
->> >            Summary: dummy interface broadcast destination hardware address
->> >                     is not ff:ff:ff:ff:ff:ff
-> 
-> Very strange because the dummy device driver calls
-> ether_setup() which does:
+From: Chris Leech <christopher.leech@intel.com>
+Date: Tue, 23 May 2006 17:20:15 -0700
 
-It's caused by the NO_ARP flag.
+> +static void net_dma_rebalance(void)
+> +{
+> +	unsigned int cpu, i, n;
+> +	struct dma_chan *chan;
+> +
+> +	lock_cpu_hotplug();
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You can't call lock_cpu_hotplug(), because that sleeps and takes
+semaphores and we currently hold a spinlock taken here:
+
+> +static void netdev_dma_event(struct dma_client *client, struct dma_chan *chan,
+> +	enum dma_event event)
+> +{
+> +	spin_lock(&net_dma_event_lock);
+> +	switch (event) {
+> +	case DMA_RESOURCE_ADDED:
+> +		net_dma_count++;
+> +		net_dma_rebalance();
+> +		break;
+
+You'll need to run this DMA rebalancing asynchronously in process
+context via keventd or similar to deal with this locking bug.
