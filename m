@@ -1,31 +1,43 @@
-From: Nathan Lynch <ntl@pobox.com>
-Subject: Re: [PATCH 1/9] [I/OAT] DMA memcpy subsystem
-Date: Wed, 24 May 2006 01:31:49 -0500
-Message-ID: <20060524063149.GE11414@localdomain>
-References: <20060524001653.19403.31396.stgit@gitlost.site> <20060524002012.19403.50151.stgit@gitlost.site> <20060523174827.0ce1943b.akpm@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [resend PATCH 1/1] b44: fix ethool link settings support
+Date: Wed, 24 May 2006 02:41:18 -0400
+Message-ID: <4474000E.6070804@pobox.com>
+References: <1146065509.28067.52.camel@dhcp-10-7-81-7.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Leech <christopher.leech@intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rune.pobox.com ([208.210.124.79]:18079 "EHLO rune.pobox.com")
-	by vger.kernel.org with ESMTP id S932616AbWEXGb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 02:31:56 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060523174827.0ce1943b.akpm@osdl.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:64737 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932612AbWEXGlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 02:41:21 -0400
+To: Gary Zambrano <zambrano@broadcom.com>
+In-Reply-To: <1146065509.28067.52.camel@dhcp-10-7-81-7.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Chris Leech <christopher.leech@intel.com> wrote:
-> >
-> > +	for_each_cpu(i)
-> 
-> That's about to be deleted.  Please use for_each_possible_cpu().
-> 
-> That's if for_each_possible_cpu() is appropriate.
+Gary Zambrano wrote:
+> +		if (cmd->advertising & ADVERTISE_ALL) {
+> +			if (cmd->advertising & ADVERTISE_10HALF)
+> +				bp->flags |= B44_FLAG_ADV_10HALF;
+> +			if (cmd->advertising & ADVERTISE_10FULL)
+> +				bp->flags |= B44_FLAG_ADV_10FULL;
+> +			if (cmd->advertising & ADVERTISE_100HALF)
+> +				bp->flags |= B44_FLAG_ADV_100HALF;
+> +			if (cmd->advertising & ADVERTISE_100FULL)
+> +				bp->flags |= B44_FLAG_ADV_100FULL;
+> +		} else {
+> +			bp->flags |= (B44_FLAG_ADV_10HALF |
+> +				      B44_FLAG_ADV_10FULL |
+> +				      B44_FLAG_ADV_100HALF |
+> +				      B44_FLAG_ADV_100FULL);
+> +		}
 
-It is -- those loops traverse chan->local, which is alloc_percpu'd,
-which allocates for all possible cpus.
+The logic above is backwards.  I presume the first test should be
+	if (!(cmd->advertising & ADVERTISE_ALL))
+
+The rest looks OK.
+
+	Jeff
+
 
