@@ -1,44 +1,31 @@
-From: Andy <andy@globalnetit.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: reminder, 2.6.18 window...
-Date: Wed, 24 May 2006 16:53:21 -0400
-Message-ID: <1148504001.29448.574.camel@tahini.andynet.net>
-References: <20060523.182217.59656237.davem@davemloft.net>
-	<447412CA.50303@ipom.com>  <4474A489.4080308@garzik.org>
-Reply-To: andy@globalnetit.com
+Date: Wed, 24 May 2006 14:01:25 -0700
+Message-ID: <4474C9A5.1040205@hp.com>
+References: <20060523.182217.59656237.davem@davemloft.net>		<447412CA.50303@ipom.com> <4474A489.4080308@garzik.org>		<20060524185644.GF22881@ipom.com> <4474AE92.3030501@garzik.org>		<20060524191442.GG22881@ipom.com> <1148501433.5325.52.camel@jzny2> <4474C5A7.2070703@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Phil Dibowitz <phil@ipom.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, Phil Dibowitz <phil@ipom.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms042pub.verizon.net ([206.46.252.42]:19944 "EHLO
-	vms042pub.verizon.net") by vger.kernel.org with ESMTP
-	id S932369AbWEXUxh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 May 2006 16:53:37 -0400
-Received: from andyhp.tranquilitynj.net ([141.150.89.24])
- by vms042.mailsrvcs.net
- (Sun Java System Messaging Server 6.2-4.02 (built Sep  9 2005))
- with ESMTPA id <0IZS00MLCFDCWMJ0@vms042.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 24 May 2006 15:53:37 -0500 (CDT)
-In-reply-to: <4474A489.4080308@garzik.org>
-To: Jeff Garzik <jeff@garzik.org>
+Received: from palrel12.hp.com ([156.153.255.237]:4044 "EHLO palrel12.hp.com")
+	by vger.kernel.org with ESMTP id S932374AbWEXVB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 17:01:29 -0400
+To: Brian Haley <brian.haley@hp.com>
+In-Reply-To: <4474C5A7.2070703@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-05-24 at 14:23 -0400, Jeff Garzik wrote:
+> So how is this different than if an SNMP station probes my system, then 
+> I reboot, then they probe again.  Things will seem to have gone 
+> backwards, but they deal with that just fine.
 
-> I disagree that we should bother about clearing statistics.  It always 
-> adds more complication than necessary.  Few (if any) other statistics in 
-> Linux permit easy clearing, 
+In that case hasn't the system's uptime and/or last boot time in the MIB 
+changed and so indicates to the management station that it has been 
+rebooted?  It is also possible that the shutdown procedures or the 
+rebooting procedures would have generated an SNMP trap to the management 
+station(s) informing them of the reboot.
 
-iptables -Z
-
-> often because adding operations other than 
-> 'increment' or 'read' requires adding expensive spinlocks or atomic 
-> operations.
-
-Why is 'set to N' so different from 'increment'?
-
-- Andy
-
-
+rick jones
