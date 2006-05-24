@@ -1,135 +1,89 @@
-From: Frank Pavlic <fpavlic@de.ibm.com>
-Subject: [PATCH 3/5] s390: qeth driver fixes
-Date: Wed, 24 May 2006 09:51:13 +0200
-Message-ID: <20060524095113.5f4dfd9f@localhost.localdomain>
+From: Phil Dibowitz <phil@ipom.com>
+Subject: Re: reminder, 2.6.18 window...
+Date: Wed, 24 May 2006 01:01:14 -0700
+Message-ID: <447412CA.50303@ipom.com>
+References: <20060523.182217.59656237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig217D24056399EAADA40928DE"
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:40946 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S932649AbWEXHuu
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 May 2006 03:50:50 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.6/8.13.6) with ESMTP id k4O7omN3081082
-	for <netdev@vger.kernel.org>; Wed, 24 May 2006 07:50:48 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k4O7qRkc153070
-	for <netdev@vger.kernel.org>; Wed, 24 May 2006 09:52:27 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k4O7om9O029118
-	for <netdev@vger.kernel.org>; Wed, 24 May 2006 09:50:48 +0200
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from mail.ipom.com ([209.40.128.125]:57491 "EHLO
+	uberhacker.sage-inc.com") by vger.kernel.org with ESMTP
+	id S932157AbWEXIBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 May 2006 04:01:20 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060523.182217.59656237.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig217D24056399EAADA40928DE
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-From: Ursula Braun <braunu@de.ibm.com>
-From: Frank Blaschka <Frank.Blaschka@de.ibm.com>
-From: Frank Pavlic <fpavlic@de.ibm.com>
+David Miller wrote:
+> Some time in the next few weeks, it is likely that the 2.6.18
+> merge window will open up shortly after a 2.6.17 release.
+>=20
+> So if you have major 2.6.18 submissions planned for the networking,
+> you need to start thinking about getting it to me now.
+>=20
+> There is a 2.6.18 tree up at:
+>=20
+> master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.18.git
+>=20
+> All it has right now is the I/O AT stuff at the moment, and I plan to
+> put Stephen Hemminger's LLC multicast/datagram changes in there as
+> well.
 
-        - fix fake_ll during initial device bringup. fake_ll was 
-	  not active after first start of the device. 
-	  Problem only occured when qeth was built without IPV6 support.
-        - avoid skb usage after invocation of qeth_flush_buffers, 
-	  because skb might already be freed. 
-        - remove yet another useless netif_wake_queue in
-	  qeth_softsetup_ipv6 since this function is only called
-	  when device is going online. In this case card->state will
-	  never be in state UP. So let the net_device queue down .
+David,
 
-Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
+I posted a patch for adding support for network device statistic
+resetting via ethtool. I saw no objections to it... it impliments the
+framework as well as skge support, so it touches both your and Jeff's are=
+a.
 
----
+For your reference, here's the two times I've posted it this month - I'm
+happy to send it along again.
 
- drivers/s390/net/qeth_main.c |   23 +++++++++++++----------
- 1 files changed, 13 insertions(+), 10 deletions(-)
+2006-05-18
+RESEND: [PATCH] Interface Stat Clearing Framework, skge support, ethtool
+http://marc.theaimsgroup.com/?l=3Dlinux-netdev&m=3D114794065502155&w=3D2
 
-e32bb8db95c84a0af8c5688b92ed6691982e4f9c
-diff --git a/drivers/s390/net/qeth_main.c b/drivers/s390/net/qeth_main.c
-index 0f6648f..9dbb5be 100644
---- a/drivers/s390/net/qeth_main.c
-+++ b/drivers/s390/net/qeth_main.c
-@@ -3798,11 +3798,11 @@ qeth_open(struct net_device *dev)
- 		QETH_DBF_TEXT(trace,4,"nomacadr");
- 		return -EPERM;
- 	}
--	card->dev->flags |= IFF_UP;
--	netif_start_queue(dev);
- 	card->data.state = CH_STATE_UP;
- 	card->state = CARD_STATE_UP;
--
-+	card->dev->flags |= IFF_UP;
-+	netif_start_queue(dev);
-+	
- 	if (!card->lan_online && netif_carrier_ok(dev))
- 		netif_carrier_off(dev);
- 	return 0;
-@@ -3958,7 +3958,7 @@ qeth_prepare_skb(struct qeth_card *card,
- #endif
- 	*hdr = (struct qeth_hdr *)
- 		qeth_push_skb(card, skb, sizeof(struct qeth_hdr));
--	if (hdr == NULL)
-+	if (*hdr == NULL)
- 		return -EINVAL;
- 	return 0;
- }
-@@ -4416,6 +4416,8 @@ qeth_send_packet(struct qeth_card *card,
- 	enum qeth_large_send_types large_send = QETH_LARGE_SEND_NO;
- 	struct qeth_eddp_context *ctx = NULL;
- 	int tx_bytes = skb->len;
-+	unsigned short nr_frags = skb_shinfo(skb)->nr_frags;
-+	unsigned short tso_size = skb_shinfo(skb)->tso_size;
- 	int rc;
- 
- 	QETH_DBF_TEXT(trace, 6, "sendpkt");
-@@ -4498,16 +4500,16 @@ qeth_send_packet(struct qeth_card *card,
- 		card->stats.tx_packets++;
- 		card->stats.tx_bytes += tx_bytes;
- #ifdef CONFIG_QETH_PERF_STATS
--		if (skb_shinfo(skb)->tso_size &&
-+		if (tso_size &&
- 		   !(large_send == QETH_LARGE_SEND_NO)) {
--			card->perf_stats.large_send_bytes += skb->len;
-+			card->perf_stats.large_send_bytes += tx_bytes;
- 			card->perf_stats.large_send_cnt++;
- 		}
-- 		if (skb_shinfo(skb)->nr_frags > 0){
-+ 		if (nr_frags > 0){
- 			card->perf_stats.sg_skbs_sent++;
- 			/* nr_frags + skb->data */
- 			card->perf_stats.sg_frags_sent +=
--				skb_shinfo(skb)->nr_frags + 1;
-+				nr_frags + 1;
- 		}
- #endif /* CONFIG_QETH_PERF_STATS */
- 	}
-@@ -6370,6 +6372,9 @@ qeth_netdev_init(struct net_device *dev)
- 	if (!(card->info.unique_id & UNIQUE_ID_NOT_BY_CARD))
- 		card->dev->dev_id = card->info.unique_id & 0xffff;
- #endif
-+	if (card->options.fake_ll && 
-+		(qeth_get_netdev_flags(card) & IFF_NOARP))
-+			dev->hard_header = qeth_fake_header;
- 	dev->hard_header_parse = NULL;
- 	dev->set_mac_address = qeth_layer2_set_mac_address;
- 	dev->flags |= qeth_get_netdev_flags(card);
-@@ -7031,14 +7036,12 @@ qeth_softsetup_ipv6(struct qeth_card *ca
- 
- 	QETH_DBF_TEXT(trace,3,"softipv6");
- 
--	netif_tx_disable(card->dev);
- 	rc = qeth_send_startlan(card, QETH_PROT_IPV6);
- 	if (rc) {
- 		PRINT_ERR("IPv6 startlan failed on %s\n",
- 			  QETH_CARD_IFNAME(card));
- 		return rc;
- 	}
--	netif_wake_queue(card->dev);
- 	rc = qeth_query_ipassists(card,QETH_PROT_IPV6);
- 	if (rc) {
- 		PRINT_ERR("IPv6 query ipassist failed on %s\n",
--- 
-1.2.4
+2006-04-30
+[PATCH] Interface Stat Clearing Framework, skge support, ethtool
+http://marc.theaimsgroup.com/?l=3Dlinux-netdev&m=3D114636704207480&w=3D2
 
+I'd like to get this into 2.6.18. It's self-contained, so it has little
+chance of breaking other things and adds a useful feature that I've seen
+a lot of requests for.
+
+Thanks.
+--=20
+Phil Dibowitz                             phil@ipom.com
+Freeware and Technical Pages              Insanity Palace of Metallica
+http://www.phildev.net/                   http://www.ipom.com/
+
+"Be who you are and say what you feel, because those who mind don't
+matter and those who matter don't mind."
+ - Dr. Seuss
+
+
+
+--------------enig217D24056399EAADA40928DE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFEdBLKN5XoxaHnMrsRAuTPAJwOcuwQa0sRu2OixCydWjz/+I0QOgCeP80u
+1qeY/7gpzVKhqOK+KqTN9Ps=
+=N184
+-----END PGP SIGNATURE-----
+
+--------------enig217D24056399EAADA40928DE--
