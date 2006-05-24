@@ -1,37 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] I/OAT repost
-Date: Tue, 23 May 2006 17:22:10 -0700 (PDT)
-Message-ID: <20060523.172210.78710967.davem@davemloft.net>
-References: <20060524001653.19403.31396.stgit@gitlost.site>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [PATCH] bridge: need to ref count the LLC sap
+Date: Tue, 23 May 2006 21:36:38 -0300
+Message-ID: <39e6f6c70605231736ya62e553s671ae06d8d7d9533@mail.gmail.com>
+References: <20060523151035.43e7e4f6@localhost.localdomain>
+	 <20060523.152103.97293770.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7657
-	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932508AbWEXAWK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 May 2006 20:22:10 -0400
-To: christopher.leech@intel.com
-In-Reply-To: <20060524001653.19403.31396.stgit@gitlost.site>
+Received: from ug-out-1314.google.com ([66.249.92.173]:16595 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S932274AbWEXAgj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 May 2006 20:36:39 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so1684749ugf
+        for <netdev@vger.kernel.org>; Tue, 23 May 2006 17:36:38 -0700 (PDT)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060523.152103.97293770.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 0/9] I/OAT repost
-Date: Tue, 23 May 2006 17:16:53 -0700
+On 5/23/06, David Miller <davem@davemloft.net> wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Subject: [PATCH] bridge: need to ref count the LLC sap
+> Date: Tue, 23 May 2006 15:10:35 -0700
+>
+> > Bridge will OOPS on removal if other application has the SAP open.
+> > The bridge SAP might be shared with other usages, so need
+> > to do reference counting on module removal rather than explicit
+> > close/delete.
+> >
+> > Since packet might arrive after or during removal, need to clear
+> > the receive function handle, so LLC only hands it to user (if any).
+> >
+> > This should go in 2.616.stable and 2.6.17.
+> >
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+>
+> Applied, thanks a lot.
+>
+> Please submit to -stable.
 
-> This is a repost of the I/OAT patches, the only changes from last time
-> are refreshing the patches and removing an unused macro that was causing
-> the vger spam filters to drop patch 2/9.
-> 
-> This patch series is the a full release of the Intel(R) I/O
-> Acceleration Technology (I/OAT) for Linux.  It includes an in kernel API
-> for offloading memory copies to hardware, a driver for the I/OAT DMA memcpy
-> engine, and changes to the TCP stack to offload copies of received
-> networking data to application space.
+Thanks Stephen for the patches, Dave for the quick merge, I'm still
+out in la la work related land, hope to be back to fun work soon :-)
 
-I'm going to apply this into a net-2.6.18 GIT tree, do some build
-and sanity checking, then ask Andrew to pull it into -mm for testing.
-
-Thanks guys.
+- Arnaldo
