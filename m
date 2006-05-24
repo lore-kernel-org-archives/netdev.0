@@ -1,27 +1,37 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: fix jumbo packet support
-Date: Wed, 24 May 2006 00:36:25 -0400
-Message-ID: <4473E2C9.6080603@pobox.com>
-References: <20060522120342.20f752e5@localhost.localdomain>
+Subject: Re: [-mm patch] drivers/net/s2io.c: make bus_speed[] static
+Date: Wed, 24 May 2006 01:28:40 -0400
+Message-ID: <4473EF08.1010709@pobox.com>
+References: <20060515005637.00b54560.akpm@osdl.org> <20060516153050.GC5677@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>,
+	Ananda Raju <ananda.raju@neterion.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43998 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932567AbWEXEg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 00:36:28 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060522120342.20f752e5@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:1248 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932516AbWEXF2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 01:28:53 -0400
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20060516153050.GC5677@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The truncate threshold calculation to prevent receiver from getting stuck
-> was incorrect, and it didn't take into account the upper limit on bits
-> in the register so the jumbo packet support was broken.
+Adrian Bunk wrote:
+> On Mon, May 15, 2006 at 12:56:37AM -0700, Andrew Morton wrote:
+>> ...
+>> Changes since 2.6.17-rc3-mm1:
+>> ...
+>>  git-netdev-all.patch
+>> ...
+>>  git trees
+>> ...
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> This patch makes the needlessly global bus_speed[] static.
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 applied
 
