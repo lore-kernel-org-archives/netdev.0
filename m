@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/9] [I/OAT] Setup the networking subsystem as a DMA
- client
-Date: Tue, 23 May 2006 18:13:55 -0700 (PDT)
-Message-ID: <20060523.181355.115913162.davem@davemloft.net>
-References: <20060524001653.19403.31396.stgit@gitlost.site>
-	<20060524002014.19403.93371.stgit@gitlost.site>
+Subject: reminder, 2.6.18 window...
+Date: Tue, 23 May 2006 18:22:17 -0700 (PDT)
+Message-ID: <20060523.182217.59656237.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36480
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36000
 	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932524AbWEXBNz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 May 2006 21:13:55 -0400
-To: christopher.leech@intel.com
-In-Reply-To: <20060524002014.19403.93371.stgit@gitlost.site>
+	id S932107AbWEXBWR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 May 2006 21:22:17 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.sfo1.dsl.speakeasy.net (Postfix) with ESMTP id 540BFAE43EA
+	for <netdev@vger.kernel.org>; Tue, 23 May 2006 18:22:17 -0700 (PDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Leech <christopher.leech@intel.com>
-Date: Tue, 23 May 2006 17:20:15 -0700
 
-> +static void net_dma_rebalance(void)
-> +{
-> +	unsigned int cpu, i, n;
-> +	struct dma_chan *chan;
-> +
-> +	lock_cpu_hotplug();
+Some time in the next few weeks, it is likely that the 2.6.18
+merge window will open up shortly after a 2.6.17 release.
 
-You can't call lock_cpu_hotplug(), because that sleeps and takes
-semaphores and we currently hold a spinlock taken here:
+So if you have major 2.6.18 submissions planned for the networking,
+you need to start thinking about getting it to me now.
 
-> +static void netdev_dma_event(struct dma_client *client, struct dma_chan *chan,
-> +	enum dma_event event)
-> +{
-> +	spin_lock(&net_dma_event_lock);
-> +	switch (event) {
-> +	case DMA_RESOURCE_ADDED:
-> +		net_dma_count++;
-> +		net_dma_rebalance();
-> +		break;
+There is a 2.6.18 tree up at:
 
-You'll need to run this DMA rebalancing asynchronously in process
-context via keventd or similar to deal with this locking bug.
+master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.18.git
+
+All it has right now is the I/O AT stuff at the moment, and I plan to
+put Stephen Hemminger's LLC multicast/datagram changes in there as
+well.
+
+Thanks.
