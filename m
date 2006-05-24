@@ -1,37 +1,38 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector: export cn_already_initialized.
-Date: Wed, 24 May 2006 12:38:21 +0400
-Message-ID: <20060524083821.GA12540@2ka.mipt.ru>
-References: <20060504122421.GA8576@2ka.mipt.ru> <20060505.171646.65488074.davem@davemloft.net> <20060506084045.GA16558@2ka.mipt.ru> <20060516.161406.23276754.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Wed, 24 May 2006 01:52:47 -0700
+Message-ID: <20060524015247.0c13f289.akpm@osdl.org>
+References: <20060522191759.GD13964@tuxdriver.com>
+	<4473E06C.6060804@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:42187 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932667AbWEXIiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 04:38:16 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060516.161406.23276754.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:9108 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932634AbWEXIxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 04:53:21 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4473E06C.6060804@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 16, 2006 at 04:14:06PM -0700, David S. Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Sat, 6 May 2006 12:40:45 +0400
-> > I think the right solution is to call external init functions after cn
-> > init function, but it's ordering is not always known.
+Jeff Garzik <jeff@garzik.org> wrote:
+>
+> John W. Linville wrote:
+> > The following changes since commit 353b28bafd1b962359a866ff263a7fad833d29a1:
+> >   David S. Miller:
+> >         [SPARC]: Add robust futex syscall entries.
+> > 
+> > are found in the git repository at:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+> > 
+> > Florin Malita:
+> >       orinoco: possible null pointer dereference in orinoco_rx_monitor()
 > 
-> In-kernel build of connector subsystem can be handled by
-> making cn_init a "subsystem_init()", it will then be setup
-> before any possible static or modular reference as long as
-> those modules use module_init().
+> skipping, went in via akpm apparently.
 
-subsystem_init() seems to be kobject related initilizator.
-Maybe subsys_initcall()?
+Yes, sorry, I screwed that up - I thought John's pull request went to Linus
+and when nothing had happened for 24 hrs, I sent the diff myself.  Doh.
 
-I will cook up a patch if it works.
-Thank you.
-
--- 
-	Evgeniy Polyakov
