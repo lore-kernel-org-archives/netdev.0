@@ -1,504 +1,114 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [RFC PATCH 2/2] Hardware button support for Wireless cards: rt2x00
-Date: Thu, 25 May 2006 17:16:03 +0200
-Message-ID: <200605251716.03726.IvDoorn@gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: reminder, 2.6.18 window...
+Date: Thu, 25 May 2006 11:27:32 -0400
+Message-ID: <1148570852.5283.23.camel@jzny2>
+References: <20060523.182217.59656237.davem@davemloft.net>
+	 <447412CA.50303@ipom.com> <4474A489.4080308@garzik.org>
+	 <20060524185644.GF22881@ipom.com> <4474AE92.3030501@garzik.org>
+	 <20060524191442.GG22881@ipom.com> <1148501433.5325.52.camel@jzny2>
+	 <4474C12E.8050600@hp.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart9498218.4W3hmHiTsW";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Phil Dibowitz <phil@ipom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:55864 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S965200AbWEYPN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 11:13:29 -0400
-Received: by nf-out-0910.google.com with SMTP id o63so171654nfa
-        for <netdev@vger.kernel.org>; Thu, 25 May 2006 08:13:28 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from mx02.cybersurf.com ([209.197.145.105]:23962 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S965205AbWEYP1g
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 11:27:36 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FjHkQ-0001pF-TD
+	for netdev@vger.kernel.org; Thu, 25 May 2006 11:27:38 -0400
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <4474C12E.8050600@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart9498218.4W3hmHiTsW
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 2006-24-05 at 13:25 -0700, Rick Jones wrote:
 
-Use radiobtn interface for radio hardware button support in rt2x00
+> The lanadmin (think ethtool) command of HP-UX has had a way to clear the 
+> statistics reported by lanadmin.  I do not know however, if that affects 
+> the stats in the actual SNMP interface MIBs as I've never had occasion 
+> to look.
+> 
+> I still suggest beforeafter to people because clearing the lanadmin 
+> stats requires root privs and because it may not be a kosher thing to do 
+> on a customer system.
+> 
+> HP-UX does not provide a way to clear the stats reported by netstat.
 
-Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+Which also are snmp stats. 
 
-diff -uprN wireless-dev/drivers/net/wireless/d80211/rt2x00/Kconfig wireless=
-=2Ddev-radiobtn/drivers/net/wireless/d80211/rt2x00/Kconfig
-=2D-- wireless-dev/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-05-06 21=
-:11:03.000000000 +0200
-+++ wireless-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-0=
-5-25 16:32:23.000000000 +0200
-@@ -17,7 +17,7 @@ config RT2400PCI
-=20
- config RT2400PCI_BUTTON
- 	bool "Ralink rt2400 hardware button support"
-=2D	depends on RT2400PCI && X86
-+	depends on RT2400PCI && RADIOBTN
- 	---help---
- 	In some notebooks the rt2400 chipset is integrated in the machine,
- 	with this option enabled the device will periodically poll the
-@@ -40,7 +40,7 @@ config RT2500PCI
-=20
- config RT2500PCI_BUTTON
- 	bool "Ralink rt2500 hardware button support"
-=2D	depends on RT2500PCI && X86
-+	depends on RT2500PCI && RADIOBTN
- 	---help---
- 	In some notebooks the rt2500 chipset is integrated in the machine,
- 	with this option enabled the device will periodically poll the
-@@ -61,9 +61,9 @@ config RT61PCI
-=20
- 	When compiled as a module, this driver will be called "rt61pci.ko".
-=20
-=2Dconfig RT2500PCI_BUTTON
-+config RT61PCI_BUTTON
- 	bool "Ralink rt61 hardware button support"
-=2D	depends on RT61PCI && X86
-+	depends on RT61PCI && RADIOBTN
- 	---help---
- 	In some notebooks the rt61 chipset is integrated in the machine,
- 	with this option enabled the device will periodically poll the
-diff -uprN wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wire=
-less-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-=2D-- wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-05-0=
-6 21:11:03.000000000 +0200
-+++ wireless-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	20=
-06-05-25 16:54:07.000000000 +0200
-@@ -51,6 +51,7 @@
-=20
- #ifdef CONFIG_RT2400PCI_BUTTON
- #define CONFIG_RT2X00_BUTTON
-+#include <linux/radiobtn.h>
- #endif /* CONFIG_RT2400PCI_BUTTON */
-=20
- #include "rt2x00.h"
-@@ -364,18 +365,58 @@ rt2x00_eeprom_multiread(
- /*
-  * Hardware button poll handler.
-  */
-=2Dstatic void
-+static int
- rt2400pci_button_poll(unsigned long data)
- {
- 	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
- 	u32			reg;
-=20
- 	rt2x00_register_read(rt2x00pci, GPIOCSR, &reg);
-=2D	rt2x00pci_button_status(
-=2D		rt2x00pci, rt2x00_get_field32(reg, GPIOCSR_BIT0));
-+	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
-+}
-+
-+static void
-+rt2400pci_enable_radio(unsigned long data)
-+{
-+	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
-+	struct net_device	*net_dev =3D pci_get_drvdata(rt2x00pci->pci_dev);
-+
-+	rt2400pci_open(net_dev);
-+}
-+
-+static void
-+rt2400pci_disable_radio(unsigned long data)
-+{
-+	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
-+	struct net_device	*net_dev =3D pci_get_drvdata(rt2x00pci->pci_dev);
-+
-+	rt2400pci_stop(net_dev);
-+}
-+
-+static int
-+rt2400pci_button_start(struct rt2x00_pci *rt2x00pci)
-+{
-+	struct radio_button	*button =3D &rt2x00pci->radio_button;
-+
-+	button->dev_name	=3D "rt2400pci";
-+	button->data		=3D (unsigned long)rt2x00pci;
-+	button->button_poll	=3D rt2400pci_button_poll;
-+	button->enable_radio	=3D rt2400pci_enable_radio;
-+	button->disable_radio	=3D rt2400pci_disable_radio;
-+	button->poll_delay	=3D rt2x00_poll_delay;
-+	button->current_state	=3D button->button_poll(button->data);
-+
-+	return radiobtn_register_device(button);
-+}
-+
-+static void
-+rt2400pci_button_stop(struct rt2x00_pci *rt2x00pci)
-+{
-+	radiobtn_unregister_device(&rt2x00pci->radio_button);
- }
- #else /* CONFIG_RT2400PCI_BUTTON */
-=2Dstatic void rt2400pci_button_poll(struct rt2x00_pci *rt2x00pci){}
-+static int rt2400pci_button_start(struct rt2x00_pci *rt2x00pci){return 0;}
-+static void rt2400pci_button_stop(struct rt2x00_pci *rt2x00pci){}
- #endif /* CONFIG_RT2400PCI_BUTTON */
-=20
- /*
-@@ -2471,7 +2512,7 @@ rt2400pci_initialize(struct pci_dev *pci
- 	/*
- 	 * If required start hardware button polling.
- 	 */
-=2D	rt2x00pci_button_start(rt2x00pci, rt2400pci_button_poll);
-+	rt2400pci_button_start(rt2x00pci);
-=20
- 	/*
- 	 * Register hardware.
-@@ -2502,7 +2543,7 @@ rt2400pci_uninitialize(struct net_device
- 	/*
- 	 * Shutdown poll_timer for hardware button.
- 	 */
-=2D	rt2x00pci_button_stop(rt2x00pci);
-+	rt2400pci_button_stop(rt2x00pci);
-=20
- 	kfree(rt2x00pci->eeprom);
-=20
-diff -uprN wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wire=
-less-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-=2D-- wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-05-0=
-6 21:11:03.000000000 +0200
-+++ wireless-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	20=
-06-05-25 16:53:54.000000000 +0200
-@@ -51,6 +51,7 @@
-=20
- #ifdef CONFIG_RT2500PCI_BUTTON
- #define CONFIG_RT2X00_BUTTON
-+#include <linux/radiobtn.h>
- #endif /* CONFIG_RT2500PCI_BUTTON */
-=20
- #include "rt2x00.h"
-@@ -364,18 +365,58 @@ rt2x00_eeprom_multiread(
- /*
-  * Hardware button poll handler.
-  */
-=2Dstatic void
-+static int
- rt2500pci_button_poll(unsigned long data)
- {
- 	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
- 	u32			reg;
-=20
- 	rt2x00_register_read(rt2x00pci, GPIOCSR, &reg);
-=2D	rt2x00pci_button_status(
-=2D		rt2x00pci, rt2x00_get_field32(reg, GPIOCSR_BIT0));
-+	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
-+}
-+
-+static void
-+rt2500pci_enable_radio(unsigned long data)
-+{
-+	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
-+	struct net_device	*net_dev =3D pci_get_drvdata(rt2x00pci->pci_dev);
-+
-+	rt2500pci_open(net_dev);
-+}
-+
-+static void
-+rt2500pci_disable_radio(unsigned long data)
-+{
-+	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
-+	struct net_device	*net_dev =3D pci_get_drvdata(rt2x00pci->pci_dev);
-+
-+	rt2500pci_stop(net_dev);
-+}
-+
-+static int
-+rt2500pci_button_start(struct rt2x00_pci *rt2x00pci)
-+{
-+	struct radio_button	*button =3D &rt2x00pci->radio_button;
-+
-+	button->dev_name	=3D "rt2500pci";
-+	button->data		=3D (unsigned long)rt2x00pci;
-+	button->button_poll	=3D rt2500pci_button_poll;
-+	button->enable_radio	=3D rt2500pci_enable_radio;
-+	button->disable_radio	=3D rt2500pci_disable_radio;
-+	button->poll_delay	=3D rt2x00_poll_delay;
-+	button->current_state	=3D button->button_poll(button->data);
-+
-+	return radiobtn_register_device(button);
-+}
-+
-+static void
-+rt2500pci_button_stop(struct rt2x00_pci *rt2x00pci)
-+{
-+	radiobtn_unregister_device(&rt2x00pci->radio_button);
- }
- #else /* CONFIG_RT2500PCI_BUTTON */
-=2Dstatic void rt2500pci_button_poll(struct rt2x00_pci *rt2x00pci){}
-+static int rt2500pci_button_start(struct rt2x00_pci *rt2x00pci){return 0;}
-+static void rt2500pci_button_stop(struct rt2x00_pci *rt2x00pci){}
- #endif /* CONFIG_RT2500PCI_BUTTON */
-=20
- /*
-@@ -2774,7 +2815,7 @@ rt2500pci_initialize(struct pci_dev *pci
- 	/*
- 	 * If required start hardware button polling.
- 	 */
-=2D	rt2x00pci_button_start(rt2x00pci, rt2500pci_button_poll);
-+	rt2500pci_button_start(rt2x00pci);
-=20
- 	/*
- 	 * Register hardware.
-@@ -2805,7 +2846,7 @@ rt2500pci_uninitialize(struct net_device
- 	/*
- 	 * Shutdown poll_timer for hardware button.
- 	 */
-=2D	rt2x00pci_button_stop(rt2x00pci);
-+	rt2500pci_button_stop(rt2x00pci);
-=20
- 	kfree(rt2x00pci->eeprom);
-=20
-diff -uprN wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h wire=
-less-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h
-=2D-- wireless-dev/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-05-0=
-6 21:11:03.000000000 +0200
-+++ wireless-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	20=
-06-05-25 16:33:46.000000000 +0200
-@@ -45,37 +45,6 @@
- #define EEPROM_READ_OPCODE		0x06
-=20
- /*
-=2D * HW button structure.
-=2D */
-=2D#ifdef CONFIG_RT2X00_BUTTON
-=2D#include <acpi/acpi_bus.h>
-=2D
-=2Dstruct rt2x00_button{
-=2D	/*
-=2D	 * ACPI device for generation of ACPI events.
-=2D	 */
-=2D	struct acpi_device			acpi_dev;
-=2D
-=2D	/*
-=2D	 * Timer for register polling.
-=2D	 */
-=2D	struct timer_list			poll_timer;
-=2D
-=2D	/*
-=2D	 * Timer delay.
-=2D	 */
-=2D	short					poll_delay;
-=2D
-=2D	/*
-=2D	 * Current status of button.
-=2D	 */
-=2D	short					button_status:1;
-=2D	short					active_poll:1;
-=2D	short					__pad:14;
-=2D};
-=2D#endif /* CONFIG_RT2X00_BUTTON */
-=2D
-=2D/*
-  * data_entry
-  * The data ring is a list of data entries.
-  * Each entry holds a reference to the descriptor
-@@ -123,7 +92,7 @@ struct rt2x00_pci{
- 	struct pci_dev				*pci_dev;
-=20
- #ifdef CONFIG_RT2X00_BUTTON
-=2D	struct rt2x00_button			button;
-+	struct radio_button			button;
- #endif /* CONFIG_RT2X00_BUTTON */
-=20
- 	/*
-@@ -267,85 +236,11 @@ rt2x00pci_get_ring(struct rt2x00_pci *rt
- 	return NULL;
- }
-=20
-=2D/*
-=2D * HW button variables & functions.
-=2D * The delay between each poll is set by the module parameter.
-=2D */
- #ifdef CONFIG_RT2X00_BUTTON
- /*
-  * Module parameter.
-  */
- static short rt2x00_poll_delay =3D 0;
-=2D
-=2Dstatic inline void
-=2Drt2x00pci_button_status(struct rt2x00_pci *rt2x00pci, char status)
-=2D{
-=2D	struct rt2x00_button	*button =3D &rt2x00pci->button;
-=2D
-=2D	if (!button->active_poll)
-=2D		return;
-=2D
-=2D	if (status !=3D button->button_status) {
-=2D		button->button_status =3D status;
-=2D		acpi_bus_generate_event(
-=2D			&button->acpi_dev, ACPI_TYPE_EVENT, status);
-=2D	}
-=2D
-=2D	button->poll_timer.expires =3D jiffies + button->poll_delay;
-=2D
-=2D	if (button->active_poll)
-=2D		add_timer(&button->poll_timer);
-=2D}
-=2D
-=2Dstatic inline void
-=2Drt2x00pci_button_start(struct rt2x00_pci *rt2x00pci,
-=2D	void (*handler)(unsigned long data))
-=2D{
-=2D	struct rt2x00_button	*button =3D &rt2x00pci->button;
-=2D
-=2D	/*
-=2D	 * Only enable polling when the user has
-=2D	 * set the poll delay module parameter,
-=2D	 * and the device contains a hardware button.
-=2D	 */
-=2D	if(!GET_FLAG(rt2x00pci, HARDWARE_BUTTON) || !rt2x00_poll_delay)
-=2D		return;
-=2D
-=2D	strcpy(acpi_device_class(&button->acpi_dev), DRV_NAME "_button");
-=2D	strcpy(acpi_device_bid(&button->acpi_dev), DRV_NAME);
-=2D	strcpy(acpi_device_name(&button->acpi_dev), DRV_NAME);
-=2D
-=2D	init_timer(&button->poll_timer);
-=2D
-=2D	button->poll_delay =3D rt2x00_poll_delay * (HZ / 10);
-=2D	button->button_status =3D 0;
-=2D	button->active_poll =3D 1;
-=2D
-=2D	button->poll_timer.function =3D handler;
-=2D	button->poll_timer.data =3D (unsigned long)rt2x00pci;
-=2D	button->poll_timer.expires =3D jiffies + button->poll_delay;
-=2D
-=2D	add_timer(&button->poll_timer);
-=2D}
-=2D
-=2Dstatic inline void
-=2Drt2x00pci_button_stop(struct rt2x00_pci *rt2x00pci)
-=2D{
-=2D	/*
-=2D	 * Shutdown poll_timer for hardware button,
-=2D	 * make sure only to disable polling when
-=2D	 * it was enabled in the first place.
-=2D	 */
-=2D	if(!rt2x00pci->button.active_poll)
-=2D		return;
-=2D
-=2D	rt2x00pci->button.active_poll =3D 0;
-=2D	del_timer_sync(&rt2x00pci->button.poll_timer);
-=2D}
-=2D#else /* CONFIG_RT2X00_BUTTON */
-=2Dstatic inline void rt2x00pci_button_start(struct rt2x00_pci *rt2x00pci,
-=2D	int (*handler)(struct rt2x00_pci *rt2x00pci)){}
-=2Dstatic inline void rt2x00pci_button_stop(struct rt2x00_pci *rt2x00pci){}
- #endif /* CONFIG_RT2X00_BUTTON */
-=20
- #endif /* RT2X00PCI_H */
-diff -uprN wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c wirele=
-ss-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-=2D-- wireless-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-05-06 =
-21:11:03.000000000 +0200
-+++ wireless-dev-radiobtn/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006=
-=2D05-25 16:54:30.000000000 +0200
-@@ -52,6 +52,7 @@
-=20
- #ifdef CONFIG_RT61PCI_BUTTON
- #define CONFIG_RT2X00_BUTTON
-+#include <linux/radiobtn.h>
- #endif /* CONFIG_RT61PCI_BUTTON */
-=20
- #include "rt2x00.h"
-@@ -400,18 +401,58 @@ rt2x00_eeprom_multiread(
- /*
-  * Hardware button poll handler.
-  */
-=2Dstatic void
-+static int
- rt61pci_button_poll(unsigned long data)
- {
- 	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
- 	u32			reg;
-=20
- 	rt2x00_register_read(rt2x00pci, MAC_CSR13, &reg);
-=2D	rt2x00pci_button_status(
-=2D		rt2x00pci, rt2x00_get_field32(reg, MAC_CSR13_BIT5));
-+	return rt2x00_get_field32(reg, MAC_CSR13_BIT5);
-+}
-+
-+static void
-+rt61pci_enable_radio(unsigned long data)
-+{
-+	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
-+	struct net_device	*net_dev =3D pci_get_drvdata(rt2x00pci->pci_dev);
-+
-+	rt61pci_open(net_dev);
-+}
-+
-+static void
-+rt61pci_disable_radio(unsigned long data)
-+{
-+	struct rt2x00_pci	*rt2x00pci =3D (struct rt2x00_pci*)data;
-+	struct net_device	*net_dev =3D pci_get_drvdata(rt2x00pci->pci_dev);
-+
-+	rt61pci_stop(net_dev);
-+}
-+
-+static int
-+rt61pci_button_start(struct rt2x00_pci *rt2x00pci)
-+{
-+	struct radio_button	*button =3D &rt2x00pci->radio_button;
-+
-+	button->dev_name	=3D "rt61pci";
-+	button->data		=3D (unsigned long)rt2x00pci;
-+	button->button_poll	=3D rt61pci_button_poll;
-+	button->enable_radio	=3D rt61pci_enable_radio;
-+	button->disable_radio	=3D rt61pci_disable_radio;
-+	button->poll_delay	=3D rt2x00_poll_delay;
-+	button->current_state	=3D button->button_poll(button->data);
-+
-+	return radiobtn_register_device(button);
-+}
-+
-+static void
-+rt61pci_button_stop(struct rt2x00_pci *rt2x00pci)
-+{
-+	radiobtn_unregister_device(&rt2x00pci->radio_button);
- }
- #else /* CONFIG_RT61PCI_BUTTON */
-=2Dstatic void rt61pci_button_poll(struct rt2x00_pci *rt2x00pci){}
-+static int rt61pci_button_start(struct rt2x00_pci *rt2x00pci){return 0;}
-+static void rt61pci_button_stop(struct rt2x00_pci *rt2x00pci){}
- #endif /* CONFIG_RT61PCI_BUTTON */
-=20
- /*
-@@ -3324,7 +3365,7 @@ rt61pci_initialize(struct pci_dev *pci_d
- 	/*
- 	 * If required start hardware button polling.
- 	 */
-=2D	rt2x00pci_button_start(rt2x00pci, rt61pci_button_poll);
-+	rt61pci_button_start(rt2x00pci);
-=20
- 	/*
- 	 * Register hardware.
-@@ -3355,7 +3396,7 @@ rt61pci_uninitialize(struct net_device *
- 	/*
- 	 * Shutdown poll_timer for hardware button.
- 	 */
-=2D	rt2x00pci_button_stop(rt2x00pci);
-+	rt61pci_button_stop(rt2x00pci);
-=20
- 	kfree(rt2x00pci->eeprom);
-=20
+So far the reasoning of why this is needed has been around debugging
+which is in itself reasonable as long as it doesnt break things: it
+does. 
 
---nextPart9498218.4W3hmHiTsW
-Content-Type: application/pgp-signature
+For debugging: I can name about 3 ways you can achieve the counting
+without touching the driver/hardware level stats. Someone needs to put
+effort and create a tool to it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+[ Actually now that i spent 2 minutes looking at the patch i can
+understand jgarziks concerns].
 
-iD8DBQBEdcozaqndE37Em0gRAhJ8AJoDwxvuBioPKC0ia5YDQS/rjkUCWgCeLhod
-0azdm+QgbwaB5TusaoCk/UE=
-=4cuY
------END PGP SIGNATURE-----
+On Wed, 2006-24-05 at 16:44 -0400, Brian Haley wrote:
 
---nextPart9498218.4W3hmHiTsW--
+>So how is this different than if an SNMP station probes 
+> my system,then 
+> I reboot, then they probe again.  Things will seem to have gone 
+> backwards, but they deal with that just fine.
+> 
+
+Rick has already answered this question i hope. There are triggers that management
+tools use to identify reboots.
+
+> DEC/Compaq/HP has allowed this on Tru64 UNIX since 1999 because we had 
+> customers that wanted it, noone ever complained about complications with 
+> SNMP. 
+
+I am sure if we did things because your customer wanted it, we would approach 
+anarchy at best.
+
+>  We did save the last time the stats were zero'd in the struct for 
+> posterity, but that was never get-able via SNMP:
+> 
+
+Because it is not part of the MIB i would suspect. 
+
+> 
+> --> netstat -I tu0 -s
+> 
+> tu0 Ethernet counters at Wed May 24 16:30:05 2006
+> 
+>            609415 seconds since last zeroed
+>        3943458720 bytes received
+>         113576310 bytes sent
+> ...
+> 
+> Maybe saving a "ztime" would make people happier?
+
+It may be insufficient. 
+Management tools use the resetting as a trigger to indicate rollover of the 
+counters. I dont know if you can go and fix everyone out there to have this
+new ztime in mind.
+
+Can you ask internally on how openview would handle this? It carriers the 
+major chunk of management tools market so it may provide good insight.
+
+On Wed, 2006-24-05 at 14:04 -0700, Rick Jones wrote: 
+> Phil Dibowitz wrote:
+> > Well, I can show you support on my home switch (cabletron) - the network guys
+> > will be a little unhappy if I clear stats on our production network (cisco)
+> > without warning them:
+> 
+> Isn't that last bit an example of why it might not be good to play-out 
+> that rope?-)
+> 
+
+I dont mind him hanging himself, he just wants to hang us all ;->
+
+cheers,
+jamal
+
