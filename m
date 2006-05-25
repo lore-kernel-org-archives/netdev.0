@@ -1,41 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 6610] New: dummy interface broadcast
- destination hardware address is not ff:ff:ff:ff:ff:ff
-Date: Thu, 25 May 2006 15:16:02 -0700 (PDT)
-Message-ID: <20060525.151602.102574435.davem@davemloft.net>
-References: <20060523.165343.104035136.davem@davemloft.net>
-	<E1Fihtm-0003dO-00@gondolin.me.apana.org.au>
+Subject: Re: [patch 0/3] bridge patches for 2.6.18
+Date: Thu, 25 May 2006 16:00:29 -0700 (PDT)
+Message-ID: <20060525.160029.44095378.davem@davemloft.net>
+References: <20060524171216.706750000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30108
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28370
 	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1030471AbWEYWP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 18:15:57 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <E1Fihtm-0003dO-00@gondolin.me.apana.org.au>
+	id S964860AbWEYXAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 19:00:24 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060524171216.706750000@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 24 May 2006 11:10:54 +1000
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 24 May 2006 10:12:16 -0700
 
-> David Miller <davem@davemloft.net> wrote:
-> > From: Andrew Morton <akpm@osdl.org>
-> > Date: Tue, 23 May 2006 16:31:42 -0700
-> > 
-> >> >            Summary: dummy interface broadcast destination hardware address
-> >> >                     is not ff:ff:ff:ff:ff:ff
-> > 
-> > Very strange because the dummy device driver calls
-> > ether_setup() which does:
-> 
-> It's caused by the NO_ARP flag.
+> Some stuff for 2.6.18. The most important is adding netlink
+> support for managing interfaces; this allows building STP
+> as an application.
 
-Perhaps RTN_BROADCAST should take precedence over IFF_NOARP
-(but not IFF_LOOPBACK)?  I'm talking about the code in
-net/ipv4/arp.c that causes this behavior.
-
+Applied to net-2.6.18, thanks Stephen.
