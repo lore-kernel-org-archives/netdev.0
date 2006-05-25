@@ -1,361 +1,101 @@
-From: "Linsys Contractor Amit S. Kale" <amitkale@unminc.com>
-Subject: [PATCH 5/9] Resending NetXen 1G/10G NIC driver patch
-Date: Thu, 25 May 2006 03:54:12 -0700 (PDT)
-Message-ID: <Pine.LNX.4.33.0605250353171.5844-100000@unmsrvr>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: Re: sky2 hw csum failure [was Re: sky2 large MTU problems]
+Date: Thu, 25 May 2006 11:55:11 +0100
+Message-ID: <6278d2220605250355y316f974cl216f22d198475666@mail.gmail.com>
+References: <6278d2220605240228v576dd66atdad4855b308e64bf@mail.gmail.com>
+	 <20060524103820.2e213a0b@localhost.localdomain>
+	 <44758881.1020106@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sanjeev@netxen.com, unmproj@linsyssoft.com
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: "Stephen Hemminger" <shemminger@osdl.org>, netdev@vger.kernel.org,
+	"Netfilter Developer" <netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:60526 "EHLO
-	mail.unminc.com") by vger.kernel.org with ESMTP id S965018AbWEYKyN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 06:54:13 -0400
-To: netdev@vger.kernel.org
+Received: from wr-out-0506.google.com ([64.233.184.234]:15414 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S965020AbWEYKzM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 06:55:12 -0400
+Received: by wr-out-0506.google.com with SMTP id i7so113324wra
+        for <netdev@vger.kernel.org>; Thu, 25 May 2006 03:55:11 -0700 (PDT)
+To: "Patrick McHardy" <kaber@trash.net>
+In-Reply-To: <44758881.1020106@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff -Naru linux-2.6.16.18.orig/drivers/net/netxen/netxen_nic_hw.h linux-2.6.16.18/drivers/net/netxen/netxen_nic_hw.h
---- linux-2.6.16.18.orig/drivers/net/netxen/netxen_nic_hw.h	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.16.18/drivers/net/netxen/netxen_nic_hw.h	2006-05-25 02:43:22.000000000 -0700
-@@ -0,0 +1,339 @@
-+/*
-+ * Copyright (C) 2003 - 2006 NetXen, Inc.
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or (at your option) any later version.
-+ *                            
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *                                   
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
-+ * MA  02111-1307, USA.
-+ * 
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called LICENSE.
-+ * 
-+ * Contact Information:
-+ *    info@netxen.com
-+ * NetXen,
-+ * 3965 Freedom Circle, Fourth floor,
-+ * Santa Clara, CA 95054
-+ *
-+ *
-+ * Structures, enums, and macros for the MAC
-+ *
-+ */
-+
-+#ifndef __NETXEN_NIC_HW_H_
-+#define __NETXEN_NIC_HW_H_
-+
-+#include "netxen_nic_hdr.h"
-+
-+/* Hardware memory size of 128 meg */
-+#define NETXEN_MEMADDR_MAX (128 * 1024 * 1024)
-+
-+#ifndef readq
-+static inline u64 readq(void __iomem * addr)
-+{
-+	return readl(addr) | (((u64) readl(addr + 4)) << 32LL);
-+}
-+#endif
-+
-+#ifndef writeq
-+static inline void writeq(u64 val, void __iomem * addr)
-+{
-+	writel(((u32) (val)), (addr));
-+	writel(((u32) (val >> 32)), (addr + 4));
-+}
-+#endif
-+
-+#define NETXEN_NIC_HW_BLOCK_WRITE_64(DATA_PTR, ADDR, NUM_WORDS)     \
-+        do {                                                        \
-+                int num;                                            \
-+                u64 *a = (u64 *) (DATA_PTR);                        \
-+                u64 *b = (u64 *) (ADDR);                            \
-+                for (num = 0; num < (NUM_WORDS); num++) {           \
-+                        writeq(readq(a), b);                        \
-+                        b++;                                        \
-+                        a++;                                        \
-+                }                                                   \
-+        } while (0)
-+
-+#define NETXEN_NIC_HW_BLOCK_READ_64(DATA_PTR, ADDR, NUM_WORDS)        \
-+        do {                                                          \
-+                int num;                                              \
-+                u64 *a = (u64 *) (DATA_PTR);                          \
-+                u64 *b = (u64 *) (ADDR);                              \
-+                for (num = 0; num < (NUM_WORDS); num++) {             \
-+                        writeq(readq(b), a);                          \
-+                        b++;                                          \
-+                        a++;                                          \
-+                }                                                     \
-+        } while (0)
-+
-+#define NETXEN_PCI_MAPSIZE_BYTES  (NETXEN_PCI_MAPSIZE << 20)
-+
-+#define NETXEN_NIC_LOCKED_READ_REG(X, Y)   		\
-+        addr = (void *)(adapter->ahw.pci_base + X);     \
-+        *(u32 *)Y = readl(addr);
-+
-+#define NETXEN_NIC_LOCKED_WRITE_REG(X, Y)   		\
-+	addr = (void *)(adapter->ahw.pci_base + X); 	\
-+	writel(*(u32 *)Y, addr);
-+
-+struct netxen_port;
-+void netxen_nic_set_link_parameters(struct netxen_port *port);
-+struct netxen_adapter;
-+void netxen_nic_flash_print(struct netxen_adapter *adapter);
-+
-+int netxen_nic_hw_write_wx(struct netxen_adapter *adapter, u64 off,
-+			   void *data, int len);
-+void netxen_crb_writelit_adapter(struct netxen_adapter *adapter,
-+				 unsigned long off, int data);
-+int netxen_nic_hw_read_wx(struct netxen_adapter *adapter, u64 off,
-+			  void *data, int len);
-+
-+typedef u8 netxen_ethernet_macaddr_t[6];
-+
-+/* Nibble or Byte mode for phy interface (GbE mode only) */
-+typedef enum {
-+	NETXEN_NIU_10_100_MB = 0,
-+	NETXEN_NIU_1000_MB
-+} netxen_niu_gbe_ifmode_t;
-+
-+/*
-+ * NIU GB MAC Config Register 0 (applies to GB0, GB1, GB2, GB3)
-+ */
-+struct netxen_niu_gb_mac_config_0_t {
-+	netxen_crbword_t tx_enable:1,	/* 1:enable frame xmit, 0:disable */
-+	 tx_synched:1,		/* R/O: xmit enable synched to xmit stream */
-+	 rx_enable:1,		/* 1:enable frame recv, 0:disable */
-+	 rx_synched:1,		/* R/O: recv enable synched to recv stream */
-+	 tx_flowctl:1,		/* 1:enable pause frame generation, 0:disable */
-+	 rx_flowctl:1,		/* 1:act on recv'd pause frames, 0:ignore */
-+	 rsvd1:2, loopback:1,	/* 1:loop MAC xmits to MAC recvs, 0:normal */
-+	 rsvd2:7,
-+	 tx_reset_pb:1,	/* 1:reset frame xmit protocol blk, 0:no-op */
-+	 rx_reset_pb:1,		/* 1:reset frame recv protocol blk, 0:no-op */
-+	 tx_reset_mac:1,	/* 1:reset data/ctl multiplexer blk, 0:no-op */
-+	 rx_reset_mac:1,	/* 1:reset ctl frames & timers blk, 0:no-op */
-+	 rsvd3:11,
-+	 soft_reset:1;	/* 1:reset the MAC and the SERDES, 0:no-op */
-+};
-+
-+/*
-+ * NIU GB MAC Config Register 1 (applies to GB0, GB1, GB2, GB3)
-+ */
-+struct netxen_niu_gb_mac_config_1_t {
-+	netxen_crbword_t duplex:1,	/* 1:full duplex mode, 0:half duplex */
-+	 crc_enable:1,		/* 1:append CRC to xmit frames, 0:dont append */
-+	 padshort:1,		/* 1:pad short frames and add CRC, 0:dont pad */
-+	 rsvd1:1,
-+	 checklength:1,	/* 1:check framelen with actual, 0:dont check */
-+	 hugeframes:1,		/* 1:allow oversize xmit frames, 0:dont allow */
-+	 rsvd2:2, intfmode:2,	/* 01:nibble (10/100), 10:byte (1000) */
-+	 rsvd3:2,
-+	 preamblelen:4,	/* preamble field length in bytes, default 7 */
-+	 rsvd4:16;
-+};
-+
-+/*
-+ * NIU GB Station Address High Register
-+ * NOTE: this value is in network byte order.
-+ */
-+struct netxen_niu_gb_station_address_high {
-+	netxen_crbword_t address:32;	/* station address [47:16] */
-+};
-+
-+/*
-+ * NIU GB Station Address Low Register
-+ * NOTE: this value is in network byte order.
-+ */
-+struct netxen_niu_gb_station_address_low {
-+	netxen_crbword_t rsvd:16, address:16;	/* station address [15:0] */
-+};
-+
-+/*
-+ * NIU GB MII Mgmt Config Register (applies to GB0, GB1, GB2, GB3)
-+ */
-+struct netxen_niu_gb_mii_mgmt_config {
-+	netxen_crbword_t clockselect:3,
-+		/* 0:clk/4,  1:clk/4,  2:clk/6,  3:clk/8 */
-+		/* 4:clk/10, 5:clk/14, 6:clk/20, 7:clk/28 */
-+	 rsvd1:1, nopreamble:1,	/* 1:suppress preamble generation, 0:normal */
-+	 scanauto:1, rsvd2:25, reset:1;	/* 1:reset MII mgmt, 0:no-op */
-+};
-+
-+/*
-+ * NIU GB MII Mgmt Command Register (applies to GB0, GB1, GB2, GB3)
-+ */
-+struct netxen_niu_gb_mii_mgmt_command {
-+	netxen_crbword_t read_cycle:1,	/* 1:perform single read cycle, 0:no-op */
-+	 scan_cycle:1,		/* 1:perform continuous read cycles, 0:no-op */
-+	 rsvd:30;
-+};
-+
-+/*
-+ * NIU GB MII Mgmt Address Register (applies to GB0, GB1, GB2, GB3)
-+ */
-+struct netxen_niu_gb_mii_mgmt_address {
-+	netxen_crbword_t reg_addr:5,	/* which mgmt register we want to talk to */
-+	 rsvd1:3, phy_addr:5,	/* which PHY to talk to (0 is reserved) */
-+	 rsvd:19;
-+};
-+
-+/*
-+ * NIU GB MII Mgmt Indicators Register (applies to GB0, GB1, GB2, GB3)
-+ * Read-only register.
-+ */
-+struct netxen_niu_gb_mii_mgmt_indicators {
-+	netxen_crbword_t busy:1,	/* 1:performing an MII mgmt cycle, 0:idle */
-+	 scanning:1,		/* 1:scan operation in progress, 0:idle */
-+	 notvalid:1,		/* 1:mgmt result data not yet valid, 0:idle */
-+	 rsvd:29;
-+};
-+
-+/*
-+ * PHY-Specific MII control/status registers.
-+ */
-+typedef enum {
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_CONTROL = 0,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_STATUS = 1,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_ID_0 = 2,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_ID_1 = 3,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG = 4,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LNKPART = 5,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG_MORE = 6,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_NEXTPAGE_XMIT = 7,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LNKPART_NEXTPAGE = 8,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_1000BT_CONTROL = 9,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_1000BT_STATUS = 10,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_EXTENDED_STATUS = 15,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_CONTROL = 16,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS = 17,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_INT_ENABLE = 18,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_INT_STATUS = 19,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_CONTROL_MORE = 20,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_RECV_ERROR_COUNT = 21,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LED_CONTROL = 24,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_LED_OVERRIDE = 25,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_CONTROL_MORE_YET = 26,
-+	NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS_MORE = 27
-+} netxen_niu_phy_register_t;
-+
-+/*
-+ * PHY-Specific Status Register (reg 17).
-+ */
-+struct netxen_niu_phy_status {
-+	netxen_crbword_t jabber:1,	/* 1:jabber detected, 0:not */
-+	 polarity:1,		/* 1:polarity reversed, 0:normal */
-+	 recvpause:1,		/* 1:receive pause enabled, 0:disabled */
-+	 xmitpause:1,		/* 1:transmit pause enabled, 0:disabled */
-+	 energydetect:1,	/* 1:sleep, 0:active */
-+	 downshift:1,		/* 1:downshift, 0:no downshift */
-+	 crossover:1,		/* 1:MDIX (crossover), 0:MDI (no crossover) */
-+	 cablelen:3,		/* not valid in 10Mb/s mode */
-+	    /* 0:<50m, 1:50-80m, 2:80-110m, 3:110-140m, 4:>140m */
-+	 link:1,		/* 1:link up, 0:link down */
-+	 resolved:1,		/* 1:speed and duplex resolved, 0:not yet */
-+	 pagercvd:1,		/* 1:page received, 0:page not received */
-+	 duplex:1,		/* 1:full duplex, 0:half duplex */
-+	 speed:2,		/* 0:10Mb/s, 1:100Mb/s, 2:1000Mb/s, 3:rsvd */
-+	 rsvd:16;
-+};
-+
-+/*
-+ * Interrupt Register definition
-+ * This definition applies to registers 18 and 19 (int enable and int status).
-+ */
-+struct netxen_niu_phy_interrupt {
-+	netxen_crbword_t
-+	    jabber:1,
-+	    polarity_changed:1,
-+	    reserved:2,
-+	    energy_detect:1,
-+	    downshift:1,
-+	    mdi_xover_changed:1,
-+	    fifo_over_underflow:1,
-+	    false_carrier:1,
-+	    symbol_error:1,
-+	    link_status_changed:1,
-+	    autoneg_completed:1,
-+	    page_received:1,
-+	    duplex_changed:1, speed_changed:1, autoneg_error:1, rsvd:16;
-+};
-+
-+/*
-+ * NIU Mode Register.
-+ */
-+struct netxen_niu_control {
-+	netxen_crbword_t enable_fc:1,	/* enable FibreChannel */
-+	 enable_ge:1,		/* enable 10/100/1000 Ethernet */
-+	 enable_xgb:1,		/* enable 10Gb Ethernet */
-+	 rsvd:29;
-+};
-+
-+/* Promiscous mode options (GbE mode only) */
-+typedef enum {
-+	NETXEN_NIU_PROMISCOUS_MODE = 0,
-+	NETXEN_NIU_NON_PROMISCOUS_MODE
-+} netxen_niu_prom_mode_t;
-+
-+/*
-+ * NIU GB Drop CRC Register
-+ */
-+struct netxen_niu_gb_drop_crc {
-+	netxen_crbword_t drop_gb0:1,	/* 1:drop pkts with bad CRCs, 0:pass them on */
-+	 drop_gb1:1,		/* 1:drop pkts with bad CRCs, 0:pass them on */
-+	 drop_gb2:1,		/* 1:drop pkts with bad CRCs, 0:pass them on */
-+	 drop_gb3:1,		/* 1:drop pkts with bad CRCs, 0:pass them on */
-+	 rsvd:28;
-+};
-+
-+/*
-+ * NIU XG MAC Config Register
-+ */
-+struct netxen_niu_xg_mac_config_0_t {
-+	netxen_crbword_t tx_enable:1,	/* 1:enable frame xmit, 0:disable */
-+	 rsvd1:1, rx_enable:1,	/* 1:enable frame recv, 0:disable */
-+	 rsvd2:1, soft_reset:1,	/* 1:reset the MAC , 0:no-op */
-+	 rsvd3:22,
-+	    xaui_framer_reset:1,
-+	    xaui_rx_reset:1,
-+	    xaui_tx_reset:1, xg_ingress_afifo_reset:1, xg_egress_afifo_reset:1;
-+};
-+
-+/* Set promiscuous mode for a GbE interface */
-+long netxen_niu_set_promiscuous_mode(struct netxen_adapter *adapter, long port,
-+				     netxen_niu_prom_mode_t mode);
-+long netxen_niu_xg_set_promiscuous_mode(struct netxen_adapter *adapter,
-+					long port, netxen_niu_prom_mode_t mode);
-+
-+/* get/set the MAC address for a given MAC */
-+int netxen_niu_macaddr_get(struct netxen_adapter *adapter, int port,
-+			   netxen_ethernet_macaddr_t * addr);
-+int netxen_niu_macaddr_set(struct netxen_adapter *adapter, int port,
-+			   netxen_ethernet_macaddr_t addr);
-+
-+/* XG versons */
-+int netxen_niu_xg_macaddr_get(struct netxen_adapter *adapter, int port,
-+			      netxen_ethernet_macaddr_t * addr);
-+int netxen_niu_xg_macaddr_set(struct netxen_adapter *adapter, int port,
-+			      netxen_ethernet_macaddr_t addr);
-+
-+/* Generic enable for GbE ports. Will detect the speed of the link. */
-+long netxen_niu_gbe_init_port(struct netxen_adapter *adapter, long port);
-+
-+/* Disable a GbE interface */
-+long netxen_niu_disable_gbe_port(struct netxen_adapter *adapter, long port);
-+
-+long netxen_niu_disable_xg_port(struct netxen_adapter *adapter, long port);
-+
-+#endif				/* __NETXEN_NIC_HW_H_ */
+On 25/05/06, Patrick McHardy <kaber@trash.net> wrote:
+> Stephen Hemminger wrote:
+> > On Wed, 24 May 2006 10:28:52 +0100
+> > "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+> >
+> >>Having done some more stress testing with sky2 1.4 (in 2.6.17-rc4) and
+> >>the latest patch, I have found problems when streaming lots of data
+> >>out of the sky2 interface (eg via samba serving a large file to GigE
+> >>client). Ultimately, the interface will stop sending.
+> >>
+> >>Before this happens, I see lots of:
+> >>
+> >>kernel: lan0: hw csum failure.
+> >>kernel:  [__skb_checksum_complete+86/96] __skb_checksum_complete+0x56/0x60
+> >>kernel:  [tcp_error+300/512] tcp_error+0x12c/0x200
+> >>kernel:  [poison_obj+41/96] poison_obj+0x29/0x60
+> >>kernel:  [tcp_error+0/512] tcp_error+0x0/0x200
+> >>kernel:  [ip_conntrack_in+157/1072] ip_conntrack_in+0x9d/0x430
+> >>kernel:  [kfree_skbmem+8/128] kfree_skbmem+0x8/0x80
+> >>kernel:  [arp_process+102/1408] arp_process+0x66/0x580
+> >>kernel:  [check_poison_obj+36/416] check_poison_obj+0x24/0x1a0
+> >>kernel:  [arp_process+102/1408] arp_process+0x66/0x580
+> >>kernel:  [nf_iterate+99/144] nf_iterate+0x63/0x90
+> >>kernel:  [ip_rcv_finish+0/608] ip_rcv_finish+0x0/0x260
+> >>kernel:  [nf_hook_slow+89/240] nf_hook_slow+0x59/0xf0
+> >>kernel:  [ip_rcv_finish+0/608] ip_rcv_finish+0x0/0x260
+> >>kernel:  [ip_rcv+386/1104] ip_rcv+0x182/0x450
+> >>kernel:  [ip_rcv_finish+0/608] ip_rcv_finish+0x0/0x260
+> >>kernel:  [packet_rcv_spkt+216/320] packet_rcv_spkt+0xd8/0x140
+> >>kernel:  [netif_receive_skb+476/784] netif_receive_skb+0x1dc/0x310
+> >>kernel:  [sky2_poll+879/2096] sky2_poll+0x36f/0x830
+> >>kernel:  [_spin_lock_irqsave+9/16] _spin_lock_irqsave+0x9/0x10
+> >>kernel:  [run_timer_softirq+290/416] run_timer_softirq+0x122/0x1a0
+> >>kernel:  [net_rx_action+108/256] net_rx_action+0x6c/0x100
+> >>kernel:  [__do_softirq+66/160] __do_softirq+0x42/0xa0
+> >>kernel:  [do_softirq+78/96] do_softirq+0x4e/0x60
+> >>kernel:  =======================
+> >>kernel:  [do_IRQ+90/160] do_IRQ+0x5a/0xa0
+> >>kernel:  [remove_vma+69/80] remove_vma+0x45/0x50
+> >>kernel:  [common_interrupt+26/32] common_interrupt+0x1a/0x20
+> >>kernel:  [get_offset_pmtmr+151/3584] get_offset_pmtmr+0x97/0xe00
+> >>kernel:  [do_gettimeofday+26/208] do_gettimeofday+0x1a/0xd0
+> >>kernel:  [sys_gettimeofday+26/144] sys_gettimeofday+0x1a/0x90
+> >>kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
+> >
+> > What ever the netfilter chain is, it is trimming or altering the packet
+> > without clearing or altering the hardware checksum. It is not a driver
+> > problem, we saw these in VLAN's and ebtables already.
+>
+> The call chain looks pretty messed up, but the point where an
+> invalid HW checksum is detected is in TCP connection tracking,
+> which is basically the first thing netfilter does, unless
+> you use the raw table. There are no packet modifications done
+> by conntrack, so I doubt that netfilter is the culprit here.
+> Of course we had some big checksumming cleanups, so there is
+> a possibilty of bugs there, but I did test them with sky2 and
+> HW checksumming, so I don't think thats the case.
+>
+> Daniel, is there an easy way to reproduce the checksum failure?
 
+In short, no. This was seen when packets may have been truncated by
+large MTU (eg 9000) problems in the sky2 driver transmit path.
+
+There is a small chance that this could relate to transmitting with an
+MTU of 9000 (possibly with receiving with an MTU of 1500 too)
+
+On that interface, the only rules that were being exercised were:
+
+iptables -t filter -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -t filter -A INPUT -p tcp -m tcp --dport 445 --syn -j ACCEPT # SMB
+iptables -t filter -A INPUT -j DROP
+
+HTB and SFQ are active on other interfaces.
+-- 
+Daniel J Blueman
