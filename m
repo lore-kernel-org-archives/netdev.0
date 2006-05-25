@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP Veno module for kernel 2.6.16.13
-Date: Thu, 25 May 2006 14:59:00 -0700 (PDT)
-Message-ID: <20060525.145900.21925817.davem@davemloft.net>
-References: <54AD0F12E08D1541B826BE97C98F99F150CE2B@NT-SJCA-0751.brcm.ad.broadcom.com>
+Subject: Re: [PATCH 0/5] LLC SOCK_DGRAM enhancements
+Date: Thu, 25 May 2006 15:11:45 -0700 (PDT)
+Message-ID: <20060525.151145.38321217.davem@davemloft.net>
+References: <20060524000414.052569000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, ZHOU0022@ntu.edu.sg, baruch@ev-en.org,
-	jmorris@namei.org, netdev@vger.kernel.org
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19647
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29084
 	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1030463AbWEYV6z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 17:58:55 -0400
-To: caitlinb@broadcom.com
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F150CE2B@NT-SJCA-0751.brcm.ad.broadcom.com>
+	id S1030467AbWEYWLk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 18:11:40 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060524000414.052569000@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Date: Thu, 25 May 2006 14:11:03 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 23 May 2006 17:04:14 -0700
 
-> The *desirability* of using this data is debatable, but it most
-> certainly is possible.
+> I want to use AF_LLC and SOCK_DGRAM for handling Spanning
+> Tree Protocol packets in user space. The existing code doesn't work
+> and also doesn't support multicast. These basic problems and
+> add some cleanups.
 
-Right, I don't think these kinds of schemes scale very well
-personally.
-
-I think TCP can certainly infer these attributes using
-existing information.  With %100 precision, no of course
-not, but definitely a good enough approximation for real
-use.
+All applied, thanks Stephen.
