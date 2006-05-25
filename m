@@ -1,87 +1,35 @@
-From: Phil Dibowitz <phil@ipom.com>
-Subject: Re: reminder, 2.6.18 window...
-Date: Thu, 25 May 2006 10:59:47 -0700
-Message-ID: <20060525175947.GA29024@ipom.com>
-References: <20060523.182217.59656237.davem@davemloft.net> <4474BD52.6020604@garzik.org> <20060525032357.4990425f.billfink@mindspring.com> <200605250805.38241.bcook@bpointsys.com>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH 1/9] [I/OAT] DMA memcpy subsystem
+Date: Thu, 25 May 2006 10:59:40 -0700
+Message-ID: <20060525175940.GB9867@pb15.lixom.net>
+References: <20060524001653.19403.31396.stgit@gitlost.site> <20060524002012.19403.50151.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="dDRMvlgZJXvWKvBx"
-Cc: Bill Fink <billfink@mindspring.com>, Jeff Garzik <jeff@garzik.org>,
-	davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpe-24-24-245-191.socal.res.rr.com ([24.24.245.191]:44354 "EHLO
-	alt") by vger.kernel.org with ESMTP id S1030231AbWEYR7v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 13:59:51 -0400
-To: Brent Cook <bcook@bpointsys.com>
+Received: from lixom.net ([66.141.50.11]:20138 "EHLO mail.lixom.net")
+	by vger.kernel.org with ESMTP id S1030295AbWEYSAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 14:00:45 -0400
+To: Chris Leech <christopher.leech@intel.com>
 Content-Disposition: inline
-In-Reply-To: <200605250805.38241.bcook@bpointsys.com>
+In-Reply-To: <20060524002012.19403.50151.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---dDRMvlgZJXvWKvBx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Tue, May 23, 2006 at 05:20:12PM -0700, Chris Leech wrote:
 
-On Thu, May 25, 2006 at 08:05:37AM -0500, Brent Cook wrote:
-> > I'll admit to not knowing all the intricacies of the kernel coding
-> > involved, but I don't offhand see how zeroing the stats would be
-> > significantly more complex than updating the stats during normal usage.=
-=20
-> > But I'll have to leave that argument to the experts.
-> >
->=20
-> What it boils down to is that currently, a single CPU or thread ever touc=
-hes=20
-> the stats concurrently, so it doesn't have to lock them or do anything=20
-> special to ensure that the continue incrementing. If you want to make sur=
-e=20
-> that the statistics actually reset when you want them to, you have to acc=
-ount=20
-> for this case:
->=20
->   CPU0 reads current value from memory (increment)
->   CPU1 writes 0 to current value in memory (reset)
->   CPU0 writes incremented value to memory (increment complete)
+> +EXPORT_SYMBOL(dma_async_memcpy_buf_to_buf);
+> +EXPORT_SYMBOL(dma_async_memcpy_buf_to_pg);
+> +EXPORT_SYMBOL(dma_async_memcpy_pg_to_pg);
 
-Perhaps I'm missing something here, but these counters are only incrimented
-in hardware... i.e. attomically.
+Is there a specific reason for why you chose to export 3 different
+memcpu calls? They're all just wrapped to the same internals.
 
-And the reset I do is via a command register, which should also be atomic.
-
-Now in a driver that was keeping this all in a local struct, I could
-understand that need for locking, but in the skge case, and in fact in many
-drivers I've looked at, the numbers are all kept in the hardware, increment=
-ed
-by the hardware, as it gets packets.
-
-So clearing them via command registershouldn't need locking as far as I can
-tell.
-
-But please, correct me if I'm wrong.
-
---=20
-Phil Dibowitz                             phil@ipom.com
-Freeware and Technical Pages              Insanity Palace of Metallica
-http://www.phildev.net/                   http://www.ipom.com/
-
-"They that can give up essential liberty to obtain a little temporary
-safety deserve neither liberty nor safety."
- - Benjamin Franklin, 1759
+It would seem to make sense to have the client do their own
+page_address(page) + offset calculations and just export one function?
 
 
---dDRMvlgZJXvWKvBx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+-Olof
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD4DBQFEdfCTN5XoxaHnMrsRAiPQAJwJgihYir1KYRZZOTVi353KtcP/8gCXXt6e
-u+f8EqcUUfLBHnWpQD4GbA==
-=L6ew
------END PGP SIGNATURE-----
-
---dDRMvlgZJXvWKvBx--
