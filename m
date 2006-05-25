@@ -1,45 +1,30 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH] wavelan: fix section mismatch
-Date: Thu, 25 May 2006 12:00:28 -0700
-Message-ID: <20060525120028.e9004ea7.rdunlap@xenotime.net>
-References: <20060525110921.afaa98ce.rdunlap@xenotime.net>
-	<20060525183949.GA23930@bougret.hpl.hp.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [Bugme-new] [Bug 6613] New: iptables broken on 32-bit PReP
+ (ARCH=ppc)
+Date: Thu, 25 May 2006 22:12:21 +0300 (EEST)
+Message-ID: <Pine.SOC.4.61.0605252211260.11991@math.ut.ee>
+References: <200605251004.k4PA4Lek007751@fire-2.osdl.org>
+ <20060525070324.2ea16b0a.akpm@osdl.org> <4475FCFC.5000701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andrew Morton <akpm@osdl.org>, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:7346 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1030346AbWEYS54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 14:57:56 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 25 May 2006 11:57:52 -0700
-To: jt@hpl.hp.com
-In-Reply-To: <20060525183949.GA23930@bougret.hpl.hp.com>
+Received: from math.ut.ee ([193.40.36.2]:62894 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S1030351AbWEYTM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 15:12:29 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4475FCFC.5000701@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 May 2006 11:39:49 -0700 Jean Tourrilhes wrote:
+> Meelis, it would really help if you could try 2.6.16 and in case
+> that doesn't work 2.6.15 to give an idea about whether this is a
+> recent regression or an old problem. We had a number of changes
+> in this area in the last two kernel versions that could be related.
 
-> On Thu, May 25, 2006 at 11:09:21AM -0700, Randy.Dunlap wrote:
-> > From: Randy Dunlap <rdunlap@xenotime.net>
-> > 
-> > Fix section mismatch warning:
-> > WARNING: drivers/net/wireless/wavelan.o - Section mismatch: reference to
-> > .init.text: from .text between 'init_module' (at offset 0x371e) and
-> > 'cleanup_module'
-> > 
-> > Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
-> 
-> 	I did not check that kernel, but it seems a no brainer. Would
-> you mind sending to John Linville or Jeff Garzik as I'm about to go on
-> vacvation.
-> 	Thanks !
-> 
-> 	Jean
+Yes, I'm still compiling 2.6.16, since just before sending the report. 
+Will let you know ASAP.
 
-Hi, John L. was copied on the patch.
-
-Thanks, have a nice vacation.
-
----
-~Randy
+-- 
+Meelis Roos (mroos@linux.ee)
