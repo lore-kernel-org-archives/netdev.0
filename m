@@ -1,53 +1,48 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] TCP Veno module for kernel 2.6.16.13
-Date: Thu, 25 May 2006 13:50:11 -0700
-Message-ID: <20060525135011.470dc3dd@localhost.localdomain>
-References: <A975FFC51622704CBEAB749E263D1799015540B5@mail01.student.main.ntu.edu.sg>
-	<20060525.132350.39157903.davem@davemloft.net>
+Subject: Re: [RFC 0/4] NetLabel
+Date: Thu, 25 May 2006 13:58:46 -0700
+Message-ID: <20060525135846.44791440@localhost.localdomain>
+References: <44760E29.4070407@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ZHOU0022@ntu.edu.sg, baruch@ev-en.org, jmorris@namei.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:46547 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030407AbWEYUuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 16:50:23 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060525.132350.39157903.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, James Morris <jmorris@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <44760E29.4070407@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 May 2006 13:23:50 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Thu, 25 May 2006 16:06:01 -0400
+Paul Moore <paul.moore@hp.com> wrote:
 
-> From: "#ZHOU BIN#" <ZHOU0022@ntu.edu.sg>
-> Date: Thu, 25 May 2006 16:30:48 +0800
+> This patch introduces a new kernel feature designed to support labeled
+> networking protocols such as RIPSO and CIPSO.  These protocols are required to
+> interoperate with existing "trusted" operating systems such as Trusted Solaris.
+> I am posting the patch now not because I feel it is ready for inclusion into
+> any of the main kernel trees but because it is usable and I would like to
+> solicit comments from the community sooner rather than later.
 > 
-> > Yes, I agree. Actually the main contribution of TCP Veno is not in
-> > this AI phase. No matter the ABC is added or not, TCP Veno can
-> > always improve the performance over wireless networks, according to
-> > our tests.
+> I know there has been at least one previous effort to get CIPSO support into
+> the kernel and that was rejected.  I have tried to take the feedback from that
+> patch into consideration with this patch and create a new mechanism which
+> treads as lightly as possible on the core networking stack.  I have also
+> worked to make the new patch LSM agnostic so that this code can be shared
+> amongst multiple LSMs; while I am only providing a patch for SELinux at this
+> point I do understand that there is at least one other LSM that is interested
+> in making use of this new mechanism.
 > 
-> It seems to me that the wireless issue is seperate from congestion
-> control.
+> I understand that there will probably need to be a lengthy review period due
+> to the size and complexity of this patch.  I also understand that my relative
+> inexperience with submitting patches to the Linux kernel will not do much to
+> help my cause but I appreciate your patience and any comments you may have.
 > 
-> The key is to identify "true loss" due to overflow of intermediate
-> router queues, vs. "false loss" which is due to temporary radio
-> signal interference.
+> There is a more information as well as a basic userspace tool for configuration
+> of the NetLabel subsystem here:
+> 
+>  * http://free.linux.hp.com/~pmoore/projects/linux_cipso
+> 
 
-Is it really possible to tell the two apart.  Also, a lot of times when
-an access point is overloaded, performance is killed because of congestion
-overload. 
-
-> This determination is a job for the loss detection in the generic ACK
-> processing code in tcp_input.c, not for a congestion control algorithm.
-> The congestion control algorithm uses the "true loss" information to
-> make congestion control decisions.
-> 
-> We already have code that tries to make this differentiation, in the
-> form of FRTO, and your techniques can likely be placed there as well.
-
-The general idea of resetting cwnd to an estimate of capacity seems to
-be a general feature of Westwood, Veno, Compound and Africa. Also FreeBSD
-does the same thing, but they don't have a cool name.
+Maybe this would be easier and better done via existing netfilter infrastructure?
