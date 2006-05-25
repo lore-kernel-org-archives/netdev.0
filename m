@@ -1,45 +1,38 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: reminder, 2.6.18 window...
-Date: Thu, 25 May 2006 03:55:06 -0400
-Message-ID: <20060525035506.2f229b64.billfink@mindspring.com>
-References: <20060523.182217.59656237.davem@davemloft.net>
-	<447412CA.50303@ipom.com>
-	<4474A489.4080308@garzik.org>
-	<20060524185644.GF22881@ipom.com>
-	<4474AE92.3030501@garzik.org>
-	<20060524191442.GG22881@ipom.com>
-	<1148501433.5325.52.camel@jzny2>
-	<20060524204800.GH22881@ipom.com>
-	<4474CA66.5020401@hp.com>
-	<4474CBAA.4040307@candelatech.com>
-	<44753A3B.5010204@ipom.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Thu, 25 May 2006 17:56:49 +1000
+Message-ID: <1148543810.13249.265.camel@localhost.localdomain>
+References: <20060517220218.GA13411@myri.com>
+	 <20060517220608.GD13411@myri.com>  <20060523153928.GB5938@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, rick.jones2@hp.com, hadi@cyberus.ca,
-	netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org
+Cc: Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
+	gallatin@myri.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpauth04.mail.atl.earthlink.net ([209.86.89.64]:50912 "EHLO
-	smtpauth04.mail.atl.earthlink.net") by vger.kernel.org with ESMTP
-	id S965019AbWEYHzN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 03:55:13 -0400
-To: Phil Dibowitz <phil@ipom.com>
-In-Reply-To: <44753A3B.5010204@ipom.com>
+Received: from gate.crashing.org ([63.228.1.57]:64673 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S965063AbWEYH5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 03:57:19 -0400
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20060523153928.GB5938@krispykreme>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 May 2006, Phil Dibowitz wrote:
+On Wed, 2006-05-24 at 01:39 +1000, Anton Blanchard wrote:
 
-> Right. I think the point here is that it does _NOT_ inherently break
-> things. If you don't like the behavior, don't run "ethtool -z eth0",
-> it's that simple.
+> > +#ifdef CONFIG_MTRR
+> > +	mgp->mtrr = mtrr_add(mgp->iomem_base, mgp->board_span,
+> > +			     MTRR_TYPE_WRCOMB, 1);
+> > +#endif
+> ...
+> > +	mgp->sram = ioremap(mgp->iomem_base, mgp->board_span);
 > 
-> A co-worker suggested today, that maybe it'd appease people if the final
-> ethtool patch made it a capitol option that you can only run by itself.
-> I.e. if you can't call it with anything else, it's more difficult to
-> call my accident. I'd be willing to this.
+> Not sure how we are meant to specify write through in drivers. Any ideas Ben?
 
-I think that's a good idea.  Since it is changing (zeroing) the stats,
-it probably should be a capitol option.
+No proper interface exposed, he'll have to do an #ifdef powerpc here or
+such and use __ioremap with explicit page attributes. I have a hack to
+do that automatically for memory covered by prefetchable PCI BARs when
+mmap'ing from userland but not for kernel ioremap.
 
-						-Bill
+Ben.
+
