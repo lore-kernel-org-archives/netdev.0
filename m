@@ -1,44 +1,32 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] wavelan: fix section mismatch
-Date: Thu, 25 May 2006 11:09:21 -0700
-Message-ID: <20060525110921.afaa98ce.rdunlap@xenotime.net>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH 1/9] [I/OAT] DMA memcpy subsystem
+Date: Thu, 25 May 2006 11:09:52 -0700
+Message-ID: <20060525180952.GD9867@pb15.lixom.net>
+References: <20060524001653.19403.31396.stgit@gitlost.site> <20060524002012.19403.50151.stgit@gitlost.site> <20060525175940.GB9867@pb15.lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev <netdev@vger.kernel.org>,
-	akpm <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:17803 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1030307AbWEYSHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 14:07:49 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 25 May 2006 11:07:48 -0700
-To: ismail@pardus.org.tr, jt@hpl.hp.com
+Received: from lixom.net ([66.141.50.11]:58336 "EHLO mail.lixom.net")
+	by vger.kernel.org with ESMTP id S1030306AbWEYSLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 14:11:00 -0400
+To: Chris Leech <christopher.leech@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20060525175940.GB9867@pb15.lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+On Thu, May 25, 2006 at 10:59:40AM -0700, Olof Johansson wrote:
 
-Fix section mismatch warning:
-WARNING: drivers/net/wireless/wavelan.o - Section mismatch: reference to
-.init.text: from .text between 'init_module' (at offset 0x371e) and
-'cleanup_module'
+> Is there a specific reason for why you chose to export 3 different
+> memcpu calls? They're all just wrapped to the same internals.
+>
+> It would seem to make sense to have the client do their own
+> page_address(page) + offset calculations and just export one function?
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- drivers/net/wireless/wavelan.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2617-rc5.orig/drivers/net/wireless/wavelan.c
-+++ linux-2617-rc5/drivers/net/wireless/wavelan.c
-@@ -4306,7 +4306,7 @@ out:
-  * Insertion of the module
-  * I'm now quite proud of the multi-device support.
-  */
--int init_module(void)
-+int __init init_module(void)
- {
- 	int ret = -EIO;		/* Return error if no cards found */
- 	int i;
+Nevermind. I'm too used to 64-bit environments where all memory is
+always addressable to the kernel. There's obvious reasons to do it on
+32-bit platforms to avoid the extra kernel mapping.
 
 
----
+-Olof
