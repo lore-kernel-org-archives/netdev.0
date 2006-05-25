@@ -1,36 +1,31 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH 2/9] [I/OAT] Driver for the Intel(R) I/OAT DMA engine
-Date: Thu, 25 May 2006 11:00:57 -0700
-Message-ID: <20060525180057.GC9867@pb15.lixom.net>
-References: <20060524001653.19403.31396.stgit@gitlost.site> <20060524002013.19403.57410.stgit@gitlost.site>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 3/4] [IrDA] stir4200, switching to the kthread API
+Date: Thu, 25 May 2006 11:01:54 -0700
+Message-ID: <20060525110154.32084ca6@localhost.localdomain>
+References: <20060525061944.GC24611@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	irda-users@lists.sourceforge.net, hch@lst.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:21418 "EHLO mail.lixom.net")
-	by vger.kernel.org with ESMTP id S1030300AbWEYSBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 14:01:50 -0400
-To: Chris Leech <christopher.leech@intel.com>
-Content-Disposition: inline
-In-Reply-To: <20060524002013.19403.57410.stgit@gitlost.site>
+Received: from smtp.osdl.org ([65.172.181.4]:49322 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030302AbWEYSCH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 14:02:07 -0400
+To: Samuel Ortiz <samuel@sortiz.org>
+In-Reply-To: <20060525061944.GC24611@sortiz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 25 May 2006 06:19:44 +0000
+Samuel Ortiz <samuel@sortiz.org> wrote:
 
-Minor nitpick below:
+> stir4200 uses a kernel thread for its TX/RX operations, and it is now
+> converted to the kernel kthread API.
+> Tested on an STIR4200 based dongle.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+> 
 
-
-On Tue, May 23, 2006 at 05:20:13PM -0700, Chris Leech wrote:
-
-> +static int enumerate_dma_channels(struct ioat_device *device)
-
-[...]
-
-> +	enumerate_dma_channels(device);
-
-Return value is never used, might as well change the function
-declaration to void.
-
-
--Olof
+Looks fine.
