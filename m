@@ -1,1267 +1,141 @@
 From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH 2/4] [IrDA] Initial support for MCS7780 based dongles
-Date: Thu, 25 May 2006 06:19:27 +0000
-Message-ID: <20060525061926.GB24611@sortiz.org>
+Subject: [PATCH 3/4] [IrDA] stir4200, switching to the kthread API
+Date: Thu, 25 May 2006 06:19:44 +0000
+Message-ID: <20060525061944.GC24611@sortiz.org>
 Reply-To: Samuel Ortiz <samuel@sortiz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	bpugh@cs.pdx.edu
+	hch@lst.de, shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.pp.htv.fi ([213.243.153.35]:5101 "EHLO smtp2.pp.htv.fi")
-	by vger.kernel.org with ESMTP id S932181AbWEXXJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 19:09:22 -0400
+Received: from smtp3.pp.htv.fi ([213.243.153.36]:23767 "EHLO smtp3.pp.htv.fi")
+	by vger.kernel.org with ESMTP id S932204AbWEXXJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 19:09:39 -0400
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The MosChip MCS7780 chipset is an IrDA USB bridge that
-doesn't conform with the IrDA-USB standard and thus needs
-its separate driver.
-Tested on an actual MCS7780 based dongle.
+stir4200 uses a kernel thread for its TX/RX operations, and it is now
+converted to the kernel kthread API.
+Tested on an STIR4200 based dongle.
 
-Original implementation by Brian Pugh <bpugh@cs.pdx.edu>
-
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
 
 ---
 
- drivers/net/irda/Kconfig   |   15 +
- drivers/net/irda/Makefile  |    1 
- drivers/net/irda/mcs7780.c | 1009 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/irda/mcs7780.h |  167 +++++++
- 4 files changed, 1192 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/irda/mcs7780.c
- create mode 100644 drivers/net/irda/mcs7780.h
+ drivers/net/irda/stir4200.c |   38 ++++++++++++++------------------------
+ 1 files changed, 14 insertions(+), 24 deletions(-)
 
-b85118a0356615f60897561812d020a252ee81d0
-diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-index cff8598..d2ce489 100644
---- a/drivers/net/irda/Kconfig
-+++ b/drivers/net/irda/Kconfig
-@@ -417,5 +417,20 @@ config PXA_FICP
- 	  available capabilities may vary from one PXA2xx target to
- 	  another.
+57a09954136abe1a184ff117f92cc7ebd8b93a49
+diff --git a/drivers/net/irda/stir4200.c b/drivers/net/irda/stir4200.c
+index 31867e4..d61b208 100644
+--- a/drivers/net/irda/stir4200.c
++++ b/drivers/net/irda/stir4200.c
+@@ -50,6 +50,7 @@ #include <linux/slab.h>
+ #include <linux/delay.h>
+ #include <linux/usb.h>
+ #include <linux/crc32.h>
++#include <linux/kthread.h>
+ #include <net/irda/irda.h>
+ #include <net/irda/irlap.h>
+ #include <net/irda/irda_device.h>
+@@ -173,9 +174,7 @@ struct stir_cb {
+         struct qos_info   qos;
+ 	unsigned 	  speed;	/* Current speed */
  
-+config MCS_FIR
-+	tristate "MosChip MCS7780 IrDA-USB dongle"
-+	depends on IRDA && USB && EXPERIMENTAL
-+	help
-+	  Say Y or M here if you want to build support for the MosChip
-+	  MCS7780 IrDA-USB bridge device driver.
-+
-+	  USB bridge based on the MosChip MCS7780 don't conform to the
-+	  IrDA-USB device class specification, and therefore need their
-+	  own specific driver. Those dongles support SIR and FIR (4Mbps)
-+	  speeds.
-+
-+	  To compile it as a module, choose M here: the module will be called
-+	  mcs7780.
-+
- endmenu
+-	wait_queue_head_t thr_wait;	/* transmit thread wakeup */
+-	struct completion thr_exited;
+-	pid_t		  thr_pid;
++        struct task_struct *thread;     /* transmit thread */
  
-diff --git a/drivers/net/irda/Makefile b/drivers/net/irda/Makefile
-index c1ce239..5be09f1 100644
---- a/drivers/net/irda/Makefile
-+++ b/drivers/net/irda/Makefile
-@@ -19,6 +19,7 @@ obj-$(CONFIG_ALI_FIR)		+= ali-ircc.o
- obj-$(CONFIG_VLSI_FIR)		+= vlsi_ir.o
- obj-$(CONFIG_VIA_FIR)		+= via-ircc.o
- obj-$(CONFIG_PXA_FICP)	        += pxaficp_ir.o
-+obj-$(CONFIG_MCS_FIR)	        += mcs7780.o
- # Old dongle drivers for old SIR drivers
- obj-$(CONFIG_ESI_DONGLE_OLD)		+= esi.o
- obj-$(CONFIG_TEKRAM_DONGLE_OLD)	+= tekram.o
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-new file mode 100644
-index 0000000..efae2aa
---- /dev/null
-+++ b/drivers/net/irda/mcs7780.c
-@@ -0,0 +1,1009 @@
-+/*****************************************************************************
-+*
-+* Filename:      mcs7780.c
-+* Version:       0.4-alpha
-+* Description:   Irda MosChip USB Dongle Driver
-+* Authors:       Lukasz Stelmach <stlman@poczta.fm>
-+* 		 Brian Pugh <bpugh@cs.pdx.edu>
-+*		 Judy Fischbach <jfisch@cs.pdx.edu>
-+*
-+*       Based on stir4200 driver, but some things done differently.
-+*       Based on earlier driver by Paul Stewart <stewart@parc.com>
-+*
-+*       Copyright (C) 2000, Roman Weissgaerber <weissg@vienna.at>
-+*       Copyright (C) 2001, Dag Brattli <dag@brattli.net>
-+*       Copyright (C) 2001, Jean Tourrilhes <jt@hpl.hp.com>
-+*       Copyright (C) 2004, Stephen Hemminger <shemminger@osdl.org>
-+*       Copyright (C) 2005, Lukasz Stelmach <stlman@poczta.fm>
-+*       Copyright (C) 2005, Brian Pugh <bpugh@cs.pdx.edu>
-+*       Copyright (C) 2005, Judy Fischbach <jfisch@cs.pdx.edu>
-+*
-+*       This program is free software; you can redistribute it and/or modify
-+*       it under the terms of the GNU General Public License as published by
-+*       the Free Software Foundation; either version 2 of the License, or
-+*       (at your option) any later version.
-+*
-+*       This program is distributed in the hope that it will be useful,
-+*       but WITHOUT ANY WARRANTY; without even the implied warranty of
-+*       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+*       GNU General Public License for more details.
-+*
-+*       You should have received a copy of the GNU General Public License
-+*       along with this program; if not, write to the Free Software
-+*       Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+*
-+*****************************************************************************/
-+
-+/*
-+ * MCS7780 is a simple USB to IrDA bridge by MosChip. It is neither
-+ * compatibile with irda-usb nor with stir4200. Although it is quite
-+ * similar to the later as far as general idea of operation is concerned.
-+ * That is it requires the software to do all the framing job at SIR speeds.
-+ * The hardware does take care of the framing at MIR and FIR speeds.
-+ * It supports all speeds from 2400 through 4Mbps
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/errno.h>
-+#include <linux/init.h>
-+#include <linux/slab.h>
-+#include <linux/module.h>
-+#include <linux/kref.h>
-+#include <linux/usb.h>
-+#include <linux/device.h>
-+#include <linux/crc32.h>
-+
-+#include <asm/unaligned.h>
-+#include <asm/byteorder.h>
-+#include <asm/uaccess.h>
-+
-+#include <net/irda/irda.h>
-+#include <net/irda/wrapper.h>
-+#include <net/irda/crc.h>
-+
-+#include "mcs7780.h"
-+
-+#define MCS_VENDOR_ID 0x9710
-+#define MCS_PRODUCT_ID 0x7780
-+
-+static struct usb_device_id mcs_table[] = {
-+	/* MosChip Corp.,  MCS7780 FIR-USB Adapter */
-+	{USB_DEVICE(MCS_VENDOR_ID, MCS_PRODUCT_ID)},
-+	{},
-+};
-+
-+MODULE_AUTHOR("Brian Pugh <bpugh@cs.pdx.edu>");
-+MODULE_DESCRIPTION("IrDA-USB Dongle Driver for MosChip MCS7780");
-+MODULE_VERSION("0.3alpha");
-+MODULE_LICENSE("GPL");
-+
-+MODULE_DEVICE_TABLE(usb, mcs_table);
-+
-+static int qos_mtt_bits = 0x07 /* > 1ms */ ;
-+module_param(qos_mtt_bits, int, 0);
-+MODULE_PARM_DESC(qos_mtt_bits, "Minimum Turn Time");
-+
-+static int receive_mode = 0x1;
-+module_param(receive_mode, int, 0);
-+MODULE_PARM_DESC(receive_mode,
-+		 "Receive mode of the device (1:fast, 0:slow, default:1)");
-+
-+static int sir_tweak = 1;
-+module_param(sir_tweak, int, 0444);
-+MODULE_PARM_DESC(sir_tweak,
-+		 "Default pulse width (1:1.6us, 0:3/16 bit, default:1).");
-+
-+static int transceiver_type = MCS_TSC_VISHAY;
-+module_param(transceiver_type, int, 0444);
-+MODULE_PARM_DESC(transceiver_type, "IR transceiver type, see mcs7780.h.");
-+
-+struct usb_driver mcs_driver = {
-+	.name = "mcs7780",
-+	.probe = mcs_probe,
-+	.disconnect = mcs_disconnect,
-+	.id_table = mcs_table,
-+};
-+
-+/* speed flag selection by direct addressing.
-+addr = (speed >> 8) & 0x0f
-+
-+0x1   57600	 0x2  115200	 0x4 1152000	 0x5    9600
-+0x6   38400	 0x9    2400	 0xa  576000	 0xb   19200
-+
-+4Mbps (or 2400) must be checked separately. Since it also has
-+to be programmed in a different manner that is not a big problem.
-+*/
-+static __u16 mcs_speed_set[16] = { 0,
-+	MCS_SPEED_57600,
-+	MCS_SPEED_115200,
-+	0,
-+	MCS_SPEED_1152000,
-+	MCS_SPEED_9600,
-+	MCS_SPEED_38400,
-+	0, 0,
-+	MCS_SPEED_2400,
-+	MCS_SPEED_576000,
-+	MCS_SPEED_19200,
-+	0, 0, 0,
-+};
-+
-+/* Set given 16 bit register with a 16 bit value. Send control message
-+ * to set dongle register. */
-+static int mcs_set_reg(struct mcs_cb *mcs, __u16 reg, __u16 val)
-+{
-+	struct usb_device *dev = mcs->usbdev;
-+	return usb_control_msg(dev, usb_sndctrlpipe(dev, 0), MCS_WRREQ,
-+			       MCS_WR_RTYPE, val, reg, NULL, 0,
-+			       msecs_to_jiffies(MCS_CTRL_TIMEOUT));
-+}
-+
-+/* Get 16 bit register value. Send contol message to read dongle register. */
-+static int mcs_get_reg(struct mcs_cb *mcs, __u16 reg, __u16 * val)
-+{
-+	struct usb_device *dev = mcs->usbdev;
-+	int ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0), MCS_RDREQ,
-+				  MCS_RD_RTYPE, 0, reg, val, 2,
-+				  msecs_to_jiffies(MCS_CTRL_TIMEOUT));
-+
-+	return ret;
-+}
-+
-+/* Setup a communication between mcs7780 and TFDU chips.  It is described
-+ * in more detail in the data sheet.  The setup sequence puts the the
-+ * vishay tranceiver into high speed mode.  It will also receive SIR speed
-+ * packets but at reduced sensitivity.
-+ */
-+
-+/* 0: OK 1:ERROR */
-+static inline int mcs_setup_transceiver_vishay(struct mcs_cb *mcs)
-+{
-+	int ret = 0;
-+	__u16 rval;
-+
-+	/* mcs_get_reg should read exactly two bytes from the dongle */
-+	ret = mcs_get_reg(mcs, MCS_XCVR_REG, &rval);
-+	if (unlikely(ret != 2)) {
-+		ret = -EIO;
-+		goto error;
+ 	struct sk_buff	  *tx_pending;
+ 	void		  *io_buf;	/* transmit/receive buffer */
+@@ -577,7 +576,7 @@ static int stir_hard_xmit(struct sk_buff
+ 	SKB_LINEAR_ASSERT(skb);
+ 
+ 	skb = xchg(&stir->tx_pending, skb);
+-	wake_up(&stir->thr_wait);
++        wake_up_process(stir->thread);
+ 	
+ 	/* this should never happen unless stop/wakeup problem */
+ 	if (unlikely(skb)) {
+@@ -753,13 +752,7 @@ static int stir_transmit_thread(void *ar
+ 	struct net_device *dev = stir->netdev;
+ 	struct sk_buff *skb;
+ 
+-	daemonize("%s", dev->name);
+-	allow_signal(SIGTERM);
+-
+-	while (netif_running(dev)
+-	       && netif_device_present(dev)
+-	       && !signal_pending(current))
+-	{
++        while (!kthread_should_stop()) {
+ #ifdef CONFIG_PM
+ 		/* if suspending, then power off and wait */
+ 		if (unlikely(freezing(current))) {
+@@ -813,10 +806,11 @@ #endif
+ 		}
+ 
+ 		/* sleep if nothing to send */
+-		wait_event_interruptible(stir->thr_wait, stir->tx_pending);
+-	}
++                set_current_state(TASK_INTERRUPTIBLE);
++                schedule();
+ 
+-	complete_and_exit (&stir->thr_exited, 0);
 +	}
-+
-+	/* The MCS_XCVR_CONF bit puts the transceiver into configuration
-+	 * mode.  The MCS_MODE0 bit must start out high (1) and then
-+	 * transition to low and the MCS_STFIR and MCS_MODE1 bits must
-+	 * be low.
-+	 */
-+	rval |= (MCS_MODE0 | MCS_XCVR_CONF);
-+	rval &= ~MCS_STFIR;
-+	rval &= ~MCS_MODE1;
-+	ret = mcs_set_reg(mcs, MCS_XCVR_REG, rval);
-+	if (unlikely(ret))
-+		goto error;
-+
-+	rval &= ~MCS_MODE0;
-+	ret = mcs_set_reg(mcs, MCS_XCVR_REG, rval);
-+	if (unlikely(ret))
-+		goto error;
-+
-+	rval &= ~MCS_XCVR_CONF;
-+	ret = mcs_set_reg(mcs, MCS_XCVR_REG, rval);
-+	if (unlikely(ret))
-+		goto error;
-+
-+	ret = 0;
-+	error:
-+		return ret;
-+}
-+
-+/* Setup a communication between mcs7780 and agilent chip. */
-+static inline int mcs_setup_transceiver_agilent(struct mcs_cb *mcs)
-+{
-+	IRDA_WARNING("This transceiver type is not supported yet.");
-+	return 1;
-+}
-+
-+/* Setup a communication between mcs7780 and sharp chip. */
-+static inline int mcs_setup_transceiver_sharp(struct mcs_cb *mcs)
-+{
-+	IRDA_WARNING("This transceiver type is not supported yet.");
-+	return 1;
-+}
-+
-+/* Common setup for all transceivers */
-+static inline int mcs_setup_transceiver(struct mcs_cb *mcs)
-+{
-+	int ret = 0;
-+	__u16 rval;
-+	char *msg;
-+
-+	msg = "Basic transceiver setup error.";
-+
-+	/* read value of MODE Register, set the DRIVER and RESET bits
-+	* and write value back out to MODE Register
-+	*/
-+	ret = mcs_get_reg(mcs, MCS_MODE_REG, &rval);
-+	if(unlikely(ret != 2))
-+		goto error;
-+	rval |= MCS_DRIVER;	/* put the mcs7780 into configuration mode. */
-+	ret = mcs_set_reg(mcs, MCS_MODE_REG, rval);
-+	if(unlikely(ret))
-+		goto error;
-+
-+	rval = 0;		/* set min pulse width to 0 initially. */
-+	ret = mcs_set_reg(mcs, MCS_MINRXPW_REG, rval);
-+	if(unlikely(ret))
-+		goto error;
-+
-+	ret = mcs_get_reg(mcs, MCS_MODE_REG, &rval);
-+	if(unlikely(ret != 2))
-+		goto error;
-+
-+	rval &= ~MCS_FIR;	/* turn off fir mode. */
-+	if(mcs->sir_tweak)
-+		rval |= MCS_SIR16US;	/* 1.6us pulse width */
-+	else
-+		rval &= ~MCS_SIR16US;	/* 3/16 bit time pulse width */
-+
-+	/* make sure ask mode and back to back packets are off. */
-+	rval &= ~(MCS_BBTG | MCS_ASK);
-+
-+	rval &= ~MCS_SPEED_MASK;
-+	rval |= MCS_SPEED_9600;		/* make sure initial speed is 9600. */
-+	mcs->speed = 9600;
-+	mcs->new_speed = 0;		/* new_speed is set to 0 */
-+	rval &= ~MCS_PLLPWDN;		/* disable power down. */
-+
-+	/* make sure device determines direction and that the auto send sip
-+	 * pulse are on.
-+	 */
-+	rval |= MCS_DTD | MCS_SIPEN;
-+
-+	ret = mcs_set_reg(mcs, MCS_MODE_REG, rval);
-+	if(unlikely(ret))
-+		goto error;
-+
-+	msg = "transceiver model specific setup error.";
-+	switch (mcs->transceiver_type) {
-+	case MCS_TSC_VISHAY:
-+		ret = mcs_setup_transceiver_vishay(mcs);
-+		break;
-+
-+	case MCS_TSC_SHARP:
-+		ret = mcs_setup_transceiver_sharp(mcs);
-+		break;
-+
-+	case MCS_TSC_AGILENT:
-+		ret = mcs_setup_transceiver_agilent(mcs);
-+		break;
-+
-+	default:
-+		IRDA_WARNING("Unknown transceiver type: %d",
-+			     mcs->transceiver_type);
-+		ret = 1;
-+	}
-+	if (unlikely(ret))
-+		goto error;
-+
-+	/* If transceiver is not SHARP, then if receive mode set
-+	* on the RXFAST bit in the XCVR Register otherwise unset it
-+	*/
-+	if (mcs->transceiver_type != MCS_TSC_SHARP) {
-+
-+		ret = mcs_get_reg(mcs, MCS_XCVR_REG, &rval);
-+		if (unlikely(ret != 2))
-+			goto error;
-+		if (mcs->receive_mode)
-+			rval |= MCS_RXFAST;
-+		else
-+			rval &= ~MCS_RXFAST;
-+		ret = mcs_set_reg(mcs, MCS_XCVR_REG, rval);
-+		if (unlikely(ret))
-+			goto error;
-+	}
-+
-+	msg = "transceiver reset.";
-+
-+	ret = mcs_get_reg(mcs, MCS_MODE_REG, &rval);
-+	if (unlikely(ret != 2))
-+		goto error;
-+
-+	/* reset the mcs7780 so all changes take effect. */
-+	rval &= ~MCS_RESET;
-+	ret = mcs_set_reg(mcs, MCS_MODE_REG, rval);
-+	if (unlikely(ret))
-+		goto error;
-+	else
-+		return ret;
-+
-+error:
-+	IRDA_ERROR("%s", msg);
-+	return ret;
-+}
-+
-+/* Wraps the data in format for SIR */
-+static inline int mcs_wrap_sir_skb(struct sk_buff *skb, __u8 * buf)
-+{
-+	int wraplen;
-+
-+	/* 2: full frame length, including "the length" */
-+	wraplen = async_wrap_skb(skb, buf + 2, 4094);
-+
-+	wraplen += 2;
-+	buf[0] = wraplen & 0xff;
-+	buf[1] = (wraplen >> 8) & 0xff;
-+
-+	return wraplen;
-+}
-+
-+/* Wraps the data in format for FIR */
-+static unsigned mcs_wrap_fir_skb(const struct sk_buff *skb, __u8 *buf)
-+{
-+	unsigned int len = 0;
-+	__u32 fcs = ~(crc32_le(~0, skb->data, skb->len));
-+
-+	/* add 2 bytes for length value and 4 bytes for fcs. */
-+	len = skb->len + 6;
-+
-+	/* The mcs7780 requires that the first two bytes are the packet
-+	 * length in little endian order.  Note: the length value includes
-+	 * the two bytes for the length value itself.
-+	 */
-+	buf[0] = len & 0xff;
-+	buf[1] = (len >> 8) & 0xff;
-+	/* copy the data into the tx buffer. */
-+	memcpy(buf+2, skb->data, skb->len);
-+	/* put the fcs in the last four bytes in little endian order. */
-+	buf[len - 4] = fcs & 0xff;
-+	buf[len - 3] = (fcs >> 8) & 0xff;
-+	buf[len - 2] = (fcs >> 16) & 0xff;
-+	buf[len - 1] = (fcs >> 24) & 0xff;
-+
-+	return len;
-+}
-+
-+/* Wraps the data in format for MIR */
-+static unsigned mcs_wrap_mir_skb(const struct sk_buff *skb, __u8 *buf)
-+{
-+	__u16 fcs = 0;
-+	int len = skb->len + 4;
-+
-+	fcs = ~(irda_calc_crc16(~fcs, skb->data, skb->len));
-+	/* put the total packet length in first.  Note: packet length
-+	 * value includes the two bytes that hold the packet length
-+	 * itself.
-+	 */
-+	buf[0] = len & 0xff;
-+	buf[1] = (len >> 8) & 0xff;
-+	/* copy the data */
-+	memcpy(buf+2, skb->data, skb->len);
-+	/* put the fcs in last two bytes in little endian order. */
-+	buf[len - 2] = fcs & 0xff;
-+	buf[len - 1] = (fcs >> 8) & 0xff;
-+
-+	return len;
-+}
-+
-+/* Unwrap received packets at MIR speed.  A 16 bit crc_ccitt checksum is
-+ * used for the fcs.  When performed over the entire packet the result
-+ * should be GOOD_FCS = 0xf0b8.  Hands the unwrapped data off to the IrDA
-+ * layer via a sk_buff.
-+ */
-+static void mcs_unwrap_mir(struct mcs_cb *mcs, __u8 *buf, int len)
-+{
-+	__u16 fcs;
-+	int new_len;
-+	struct sk_buff *skb;
-+
-+	/* Assume that the frames are going to fill a single packet
-+	 * rather than span multiple packets.
-+	 */
-+
-+	new_len = len - 2;
-+	if(unlikely(new_len <= 0)) {
-+		IRDA_ERROR("%s short frame length %d\n",
-+			     mcs->netdev->name, new_len);
-+		++mcs->stats.rx_errors;
-+		++mcs->stats.rx_length_errors;
-+		return;
-+	}
-+	fcs = 0;
-+	fcs = irda_calc_crc16(~fcs, buf, len);
-+
-+	if(fcs != GOOD_FCS) {
-+		IRDA_ERROR("crc error calc 0x%x len %d\n",
-+			   fcs, new_len);
-+		mcs->stats.rx_errors++;
-+		mcs->stats.rx_crc_errors++;
-+		return;
-+	}
-+
-+	skb = dev_alloc_skb(new_len + 1);
-+	if(unlikely(!skb)) {
-+		++mcs->stats.rx_dropped;
-+		return;
-+	}
-+
-+	skb_reserve(skb, 1);
-+	memcpy(skb->data, buf, new_len);
-+	skb_put(skb, new_len);
-+	skb->mac.raw = skb->data;
-+	skb->protocol = htons(ETH_P_IRDA);
-+	skb->dev = mcs->netdev;
-+
-+	netif_rx(skb);
-+
-+	mcs->stats.rx_packets++;
-+	mcs->stats.rx_bytes += new_len;
-+
-+	return;
-+}
-+
-+/* Unwrap received packets at FIR speed.  A 32 bit crc_ccitt checksum is
-+ * used for the fcs.  Hands the unwrapped data off to the IrDA
-+ * layer via a sk_buff.
-+ */
-+static void mcs_unwrap_fir(struct mcs_cb *mcs, __u8 *buf, int len)
-+{
-+	__u32 fcs;
-+	int new_len;
-+	struct sk_buff *skb;
-+
-+	/* Assume that the frames are going to fill a single packet
-+	 * rather than span multiple packets.  This is most likely a false
-+	 * assumption.
-+	 */
-+
-+	new_len = len - 4;
-+	if(unlikely(new_len <= 0)) {
-+		IRDA_ERROR("%s short frame length %d\n",
-+			   mcs->netdev->name, new_len);
-+		++mcs->stats.rx_errors;
-+		++mcs->stats.rx_length_errors;
-+		return;
-+	}
-+
-+	fcs = ~(crc32_le(~0, buf, new_len));
-+	if(fcs != le32_to_cpu(get_unaligned((u32 *)(buf+new_len)))) {
-+		IRDA_ERROR("crc error calc 0x%x len %d\n", fcs, new_len);
-+		mcs->stats.rx_errors++;
-+		mcs->stats.rx_crc_errors++;
-+		return;
-+	}
-+
-+	skb = dev_alloc_skb(new_len + 1);
-+	if(unlikely(!skb)) {
-+		++mcs->stats.rx_dropped;
-+		return;
-+	}
-+
-+	skb_reserve(skb, 1);
-+	memcpy(skb->data, buf, new_len);
-+	skb_put(skb, new_len);
-+	skb->mac.raw = skb->data;
-+	skb->protocol = htons(ETH_P_IRDA);
-+	skb->dev = mcs->netdev;
-+
-+	netif_rx(skb);
-+
-+	mcs->stats.rx_packets++;
-+	mcs->stats.rx_bytes += new_len;
-+
-+	return;
-+}
-+
-+
-+/* Allocates urbs for both receive and transmit.
-+ * If alloc fails return error code 0 (fail) otherwise
-+ * return error code 1 (success).
-+ */
-+static inline int mcs_setup_urbs(struct mcs_cb *mcs)
-+{
-+	mcs->rx_urb = NULL;
-+
-+	mcs->tx_urb = usb_alloc_urb(0, GFP_KERNEL);
-+	if (!mcs->tx_urb)
-+		return 0;
-+
-+	mcs->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
-+	if (!mcs->rx_urb)
-+		return 0;
-+
-+	return 1;
-+}
-+
-+/* Sets up state to be initially outside frame, gets receive urb,
-+ * sets status to successful and then submits the urb to start
-+ * receiving the data.
-+ */
-+static inline int mcs_receive_start(struct mcs_cb *mcs)
-+{
-+	mcs->rx_buff.in_frame = FALSE;
-+	mcs->rx_buff.state = OUTSIDE_FRAME;
-+
-+	usb_fill_bulk_urb(mcs->rx_urb, mcs->usbdev,
-+			  usb_rcvbulkpipe(mcs->usbdev, mcs->ep_in),
-+			  mcs->in_buf, 4096, mcs_receive_irq, mcs);
-+
-+	mcs->rx_urb->status = 0;
-+	return usb_submit_urb(mcs->rx_urb, GFP_KERNEL);
-+}
-+
-+/* Finds the in and out endpoints for the mcs control block */
-+static inline int mcs_find_endpoints(struct mcs_cb *mcs,
-+				     struct usb_host_endpoint *ep, int epnum)
-+{
-+	int i;
-+	int ret = 0;
-+
-+	/* If no place to store the endpoints just return */
-+	if (!ep)
-+		return ret;
-+
-+	/* cycle through all endpoints, find the first two that are DIR_IN */
-+	for (i = 0; i < epnum; i++) {
-+		if (ep[i].desc.bEndpointAddress & USB_DIR_IN)
-+			mcs->ep_in = ep[i].desc.bEndpointAddress;
-+		else
-+			mcs->ep_out = ep[i].desc.bEndpointAddress;
-+
-+		/* MosChip says that the chip has only two bulk
-+		 * endpoints. Find one for each direction and move on.
-+		 */
-+		if ((mcs->ep_in != 0) && (mcs->ep_out != 0)) {
-+			ret = 1;
-+			break;
-+		}
-+	}
-+
-+	return ret;
-+}
-+
-+static void mcs_speed_work(void *arg)
-+{
-+	struct mcs_cb *mcs = arg;
-+	struct net_device *netdev = mcs->netdev;
-+
-+	mcs_speed_change(mcs);
-+	netif_wake_queue(netdev);
-+}
-+
-+/* Function to change the speed of the mcs7780.  Fully supports SIR,
-+ * MIR, and FIR speeds.
-+ */
-+static int mcs_speed_change(struct mcs_cb *mcs)
-+{
-+	int ret = 0;
-+	int rst = 0;
-+	int cnt = 0;
-+	__u16 nspeed;
-+	__u16 rval;
-+
-+	nspeed = mcs_speed_set[(mcs->new_speed >> 8) & 0x0f];
-+
-+	do {
-+		mcs_get_reg(mcs, MCS_RESV_REG, &rval);
-+	} while(cnt++ < 100 && (rval & MCS_IRINTX));
-+
-+	if(cnt >= 100) {
-+		IRDA_ERROR("unable to change speed");
-+		ret = -EIO;
-+		goto error;
-+	}
-+
-+	mcs_get_reg(mcs, MCS_MODE_REG, &rval);
-+
-+	/* MINRXPW values recomended by MosChip */
-+	if (mcs->new_speed <= 115200) {
-+		rval &= ~MCS_FIR;
-+
-+		if ((rst = (mcs->speed > 115200)))
-+			mcs_set_reg(mcs, MCS_MINRXPW_REG, 0);
-+
-+	} else if (mcs->new_speed <= 1152000) {
-+		rval &= ~MCS_FIR;
-+
-+		if ((rst = !(mcs->speed == 576000 || mcs->speed == 1152000)))
-+			mcs_set_reg(mcs, MCS_MINRXPW_REG, 5);
-+
-+	} else {
-+		rval |= MCS_FIR;
-+
-+		if ((rst = (mcs->speed != 4000000)))
-+			mcs_set_reg(mcs, MCS_MINRXPW_REG, 5);
-+
-+	}
-+
-+	rval &= ~MCS_SPEED_MASK;
-+	rval |= nspeed;
-+
-+	ret = mcs_set_reg(mcs, MCS_MODE_REG, rval);
-+	if (unlikely(ret))
-+		goto error;
-+
-+	if (rst)
-+		switch (mcs->transceiver_type) {
-+		case MCS_TSC_VISHAY:
-+			ret = mcs_setup_transceiver_vishay(mcs);
-+			break;
-+
-+		case MCS_TSC_SHARP:
-+			ret = mcs_setup_transceiver_sharp(mcs);
-+			break;
-+
-+		case MCS_TSC_AGILENT:
-+			ret = mcs_setup_transceiver_agilent(mcs);
-+			break;
-+
-+		default:
-+			ret = 1;
-+			IRDA_WARNING("Unknown transceiver type: %d",
-+				     mcs->transceiver_type);
-+		}
-+	if (unlikely(ret))
-+		goto error;
-+
-+	mcs_get_reg(mcs, MCS_MODE_REG, &rval);
-+	rval &= ~MCS_RESET;
-+	ret = mcs_set_reg(mcs, MCS_MODE_REG, rval);
-+
-+	mcs->speed = mcs->new_speed;
-+	error:
-+		mcs->new_speed = 0;
-+		return ret;
-+}
-+
-+/* Ioctl calls not supported at this time.  Can be an area of future work. */
-+static int mcs_net_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
-+{
-+	/* struct if_irda_req *irq = (struct if_irda_req *)rq; */
-+	/* struct mcs_cb *mcs = netdev_priv(netdev); */
-+	int ret = 0;
-+
-+	switch (cmd) {
-+	default:
-+		ret = -EOPNOTSUPP;
-+	}
-+
-+	return ret;
-+}
-+
-+/* Network device is taken down, done by "ifconfig irda0 down" */
-+static int mcs_net_close(struct net_device *netdev)
-+{
-+	int ret = 0;
-+	struct mcs_cb *mcs = netdev_priv(netdev);
-+
-+	/* Stop transmit processing */
-+	netif_stop_queue(netdev);
-+
-+	/* kill and free the receive and transmit URBs */
-+	usb_kill_urb(mcs->rx_urb);
-+	usb_free_urb(mcs->rx_urb);
-+	usb_kill_urb(mcs->tx_urb);
-+	usb_free_urb(mcs->tx_urb);
-+
-+	/* Stop and remove instance of IrLAP */
-+	if (mcs->irlap)
-+		irlap_close(mcs->irlap);
-+
-+	mcs->irlap = NULL;
-+	return ret;
-+}
-+
-+/* Network device is taken up, done by "ifconfig irda0 up" */
-+static int mcs_net_open(struct net_device *netdev)
-+{
-+	struct mcs_cb *mcs = netdev_priv(netdev);
-+	char hwname[16];
-+	int ret = 0;
-+
-+	ret = usb_clear_halt(mcs->usbdev,
-+			     usb_sndbulkpipe(mcs->usbdev, mcs->ep_in));
-+	if (ret)
-+		goto error1;
-+	ret = usb_clear_halt(mcs->usbdev,
-+			     usb_rcvbulkpipe(mcs->usbdev, mcs->ep_out));
-+	if (ret)
-+		goto error1;
-+
-+	ret = mcs_setup_transceiver(mcs);
-+	if (ret)
-+		goto error1;
-+
-+	ret = -ENOMEM;
-+
-+	/* Initialize for SIR/FIR to copy data directly into skb.  */
-+	mcs->receiving = 0;
-+	mcs->rx_buff.truesize = IRDA_SKB_MAX_MTU;
-+	mcs->rx_buff.skb = dev_alloc_skb(IRDA_SKB_MAX_MTU);
-+	if (!mcs->rx_buff.skb)
-+		goto error1;
-+
-+	skb_reserve(mcs->rx_buff.skb, 1);
-+	mcs->rx_buff.head = mcs->rx_buff.skb->data;
-+	do_gettimeofday(&mcs->rx_time);
-+
-+	/*
-+	 * Now that everything should be initialized properly,
-+	 * Open new IrLAP layer instance to take care of us...
-+	 * Note : will send immediately a speed change...
-+	 */
-+	sprintf(hwname, "usb#%d", mcs->usbdev->devnum);
-+	mcs->irlap = irlap_open(netdev, &mcs->qos, hwname);
-+	if (!mcs->irlap) {
-+		IRDA_ERROR("mcs7780: irlap_open failed");
-+		goto error2;
-+	}
-+
-+	if (!mcs_setup_urbs(mcs))
-+	goto error3;
-+
-+	ret = mcs_receive_start(mcs);
-+	if (ret)
-+		goto error3;
-+
-+	netif_start_queue(netdev);
-+	return 0;
-+
-+	error3:
-+		irlap_close(mcs->irlap);
-+	error2:
-+		kfree_skb(mcs->rx_buff.skb);
-+	error1:
-+		return ret;
-+}
-+
-+
-+/* Get device stats for /proc/net/dev and ifconfig */
-+static struct net_device_stats *mcs_net_get_stats(struct net_device *netdev)
-+{
-+	struct mcs_cb *mcs = netdev_priv(netdev);
-+	return &mcs->stats;
-+}
-+
-+/* Receive callback function.  */
-+static void mcs_receive_irq(struct urb *urb, struct pt_regs *regs)
-+{
-+	__u8 *bytes;
-+	struct mcs_cb *mcs = urb->context;
-+	int i;
-+	int ret;
-+
-+	if (!netif_running(mcs->netdev))
-+		return;
-+
-+	if (urb->status)
-+		return;
-+
-+	if (urb->actual_length > 0) {
-+		bytes = urb->transfer_buffer;
-+
-+		/* MCS returns frames without BOF and EOF
-+		 * I assume it returns whole frames.
-+		 */
-+		/* SIR speed */
-+		if(mcs->speed < 576000) {
-+			async_unwrap_char(mcs->netdev, &mcs->stats,
-+				  &mcs->rx_buff, 0xc0);
-+
-+			for (i = 0; i < urb->actual_length; i++)
-+				async_unwrap_char(mcs->netdev, &mcs->stats,
-+					  &mcs->rx_buff, bytes[i]);
-+
-+			async_unwrap_char(mcs->netdev, &mcs->stats,
-+				  &mcs->rx_buff, 0xc1);
-+		}
-+		/* MIR speed */
-+		else if(mcs->speed == 576000 || mcs->speed == 1152000) {
-+			mcs_unwrap_mir(mcs, urb->transfer_buffer,
-+				urb->actual_length);
-+		}
-+		/* FIR speed */
-+		else {
-+			mcs_unwrap_fir(mcs, urb->transfer_buffer,
-+				urb->actual_length);
-+		}
-+		mcs->netdev->last_rx = jiffies;
-+		do_gettimeofday(&mcs->rx_time);
-+	}
-+
-+	ret = usb_submit_urb(urb, GFP_ATOMIC);
-+}
-+
-+/* Transmit callback funtion.  */
-+static void mcs_send_irq(struct urb *urb, struct pt_regs *regs)
-+{
-+	struct mcs_cb *mcs = urb->context;
-+	struct net_device *ndev = mcs->netdev;
-+
-+	if (unlikely(mcs->new_speed))
-+		schedule_work(&mcs->work);
-+	else
-+		netif_wake_queue(ndev);
-+}
-+
-+/* Transmit callback funtion.  */
-+static int mcs_hard_xmit(struct sk_buff *skb, struct net_device *ndev)
-+{
-+	unsigned long flags;
-+	struct mcs_cb *mcs;
-+	int wraplen;
-+	int ret = 0;
-+
-+
-+	if (skb == NULL || ndev == NULL)
-+		return -EINVAL;
-+
-+	netif_stop_queue(ndev);
-+	mcs = netdev_priv(ndev);
-+
-+	spin_lock_irqsave(&mcs->lock, flags);
-+
-+	mcs->new_speed = irda_get_next_speed(skb);
-+	if (likely(mcs->new_speed == mcs->speed))
-+		mcs->new_speed = 0;
-+
-+	/* SIR speed */
-+	if(mcs->speed < 576000) {
-+		wraplen = mcs_wrap_sir_skb(skb, mcs->out_buf);
-+	}
-+	/* MIR speed */
-+	else if(mcs->speed == 576000 || mcs->speed == 1152000) {
-+		wraplen = mcs_wrap_mir_skb(skb, mcs->out_buf);
-+	}
-+	/* FIR speed */
-+	else {
-+		wraplen = mcs_wrap_fir_skb(skb, mcs->out_buf);
-+	}
-+	usb_fill_bulk_urb(mcs->tx_urb, mcs->usbdev,
-+			  usb_sndbulkpipe(mcs->usbdev, mcs->ep_out),
-+			  mcs->out_buf, wraplen, mcs_send_irq, mcs);
-+
-+	if ((ret = usb_submit_urb(mcs->tx_urb, GFP_ATOMIC))) {
-+		IRDA_ERROR("failed tx_urb: %d", ret);
-+		switch (ret) {
-+		case -ENODEV:
-+		case -EPIPE:
-+			break;
-+		default:
-+			mcs->stats.tx_errors++;
-+			netif_start_queue(ndev);
-+		}
-+	} else {
-+		mcs->stats.tx_packets++;
-+		mcs->stats.tx_bytes += skb->len;
-+	}
-+
-+	dev_kfree_skb(skb);
-+	spin_unlock_irqrestore(&mcs->lock, flags);
-+	return ret;
-+}
-+
-+/*
-+ * This function is called by the USB subsystem for each new device in the
-+ * system.  Need to verify the device and if it is, then start handling it.
-+ */
-+static int mcs_probe(struct usb_interface *intf,
-+		     const struct usb_device_id *id)
-+{
-+	struct usb_device *udev = interface_to_usbdev(intf);
-+	struct net_device *ndev = NULL;
-+	struct mcs_cb *mcs;
-+	int ret = -ENOMEM;
-+
-+	ndev = alloc_irdadev(sizeof(*mcs));
-+	if (!ndev)
-+		goto error1;
-+
-+	IRDA_DEBUG(1, "MCS7780 USB-IrDA bridge found at %d.", udev->devnum);
-+
-+	/* what is it realy for? */
-+	SET_MODULE_OWNER(ndev);
-+	SET_NETDEV_DEV(ndev, &intf->dev);
-+
-+	ret = usb_reset_configuration(udev);
-+	if (ret != 0) {
-+		IRDA_ERROR("mcs7780: usb reset configuration failed");
-+		goto error2;
-+	}
-+
-+	mcs = netdev_priv(ndev);
-+	mcs->usbdev = udev;
-+	mcs->netdev = ndev;
-+	spin_lock_init(&mcs->lock);
-+
-+	/* Initialize QoS for this device */
-+	irda_init_max_qos_capabilies(&mcs->qos);
-+
-+	/* That's the Rx capability. */
-+	mcs->qos.baud_rate.bits &=
-+	    IR_2400 | IR_9600 | IR_19200 | IR_38400 | IR_57600 | IR_115200
-+		| IR_576000 | IR_1152000 | (IR_4000000 << 8);
-+
-+
-+	mcs->qos.min_turn_time.bits &= qos_mtt_bits;
-+	irda_qos_bits_to_value(&mcs->qos);
-+
-+	/* Speed change work initialisation*/
-+	INIT_WORK(&mcs->work, mcs_speed_work, mcs);
-+
-+	/* Override the network functions we need to use */
-+	ndev->hard_start_xmit = mcs_hard_xmit;
-+	ndev->open = mcs_net_open;
-+	ndev->stop = mcs_net_close;
-+	ndev->get_stats = mcs_net_get_stats;
-+	ndev->do_ioctl = mcs_net_ioctl;
-+
-+	if (!intf->cur_altsetting)
-+		goto error2;
-+
-+	ret = mcs_find_endpoints(mcs, intf->cur_altsetting->endpoint,
-+				 intf->cur_altsetting->desc.bNumEndpoints);
-+	if (!ret) {
-+		ret = -ENODEV;
-+		goto error2;
-+	}
-+
-+	ret = register_netdev(ndev);
-+	if (ret != 0)
-+		goto error2;
-+
-+	IRDA_DEBUG(1, "IrDA: Registered MosChip MCS7780 device as %s",
-+		   ndev->name);
-+
-+	mcs->transceiver_type = transceiver_type;
-+	mcs->sir_tweak = sir_tweak;
-+	mcs->receive_mode = receive_mode;
-+
-+	usb_set_intfdata(intf, mcs);
-+	return 0;
-+
-+	error2:
-+		free_netdev(ndev);
-+
-+	error1:
-+		return ret;
-+}
-+
-+/* The current device is removed, the USB layer tells us to shut down. */
-+static void mcs_disconnect(struct usb_interface *intf)
-+{
-+	struct mcs_cb *mcs = usb_get_intfdata(intf);
-+
-+	if (!mcs)
-+		return;
-+
-+	flush_scheduled_work();
-+
-+	unregister_netdev(mcs->netdev);
-+	free_netdev(mcs->netdev);
-+
-+	usb_set_intfdata(intf, NULL);
-+	IRDA_DEBUG(0, "MCS7780 now disconnected.");
-+}
-+
-+/* Module insertion */
-+static int __init mcs_init(void)
-+{
-+	int result;
-+
-+	/* register this driver with the USB subsystem */
-+	result = usb_register(&mcs_driver);
-+	if (result)
-+		IRDA_ERROR("usb_register failed. Error number %d", result);
-+
-+	return result;
-+}
-+module_init(mcs_init);
-+
-+/* Module removal */
-+static void __exit mcs_exit(void)
-+{
-+	/* deregister this driver with the USB subsystem */
-+	usb_deregister(&mcs_driver);
-+}
-+module_exit(mcs_exit);
-+
-diff --git a/drivers/net/irda/mcs7780.h b/drivers/net/irda/mcs7780.h
-new file mode 100644
-index 0000000..1a723d7
---- /dev/null
-+++ b/drivers/net/irda/mcs7780.h
-@@ -0,0 +1,167 @@
-+/*****************************************************************************
-+*
-+* Filename:      mcs7780.h
-+* Version:       0.2-alpha
-+* Description:   Irda MosChip USB Dongle
-+* Status:        Experimental
-+* Authors:       Lukasz Stelmach <stlman@poczta.fm>
-+*		 Brian Pugh <bpugh@cs.pdx.edu>
-+*
-+*       Copyright (C) 2005, Lukasz Stelmach <stlman@poczta.fm>
-+*       Copyright (C) 2005, Brian Pugh <bpugh@cs.pdx.edu>
-+*
-+*       This program is free software; you can redistribute it and/or modify
-+*       it under the terms of the GNU General Public License as published by
-+*       the Free Software Foundation; either version 2 of the License, or
-+*       (at your option) any later version.
-+*
-+*       This program is distributed in the hope that it will be useful,
-+*       but WITHOUT ANY WARRANTY; without even the implied warranty of
-+*       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+*       GNU General Public License for more details.
-+*
-+*       You should have received a copy of the GNU General Public License
-+*       along with this program; if not, write to the Free Software
-+*       Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+*
-+*****************************************************************************/
-+#ifndef _MCS7780_H
-+#define _MCS7780_H
-+
-+#define MCS_MODE_SIR		0
-+#define MCS_MODE_MIR		1
-+#define MCS_MODE_FIR		2
-+
-+#define MCS_CTRL_TIMEOUT	500
-+#define MCS_XMIT_TIMEOUT	500
-+/* Possible transceiver types */
-+#define MCS_TSC_VISHAY		0	/* Vishay TFD, default choice */
-+#define MCS_TSC_AGILENT		1	/* Agilent 3602/3600 */
-+#define MCS_TSC_SHARP		2	/* Sharp GP2W1000YP */
-+
-+/* Requests */
-+#define MCS_RD_RTYPE 0xC0
-+#define MCS_WR_RTYPE 0x40
-+#define MCS_RDREQ    0x0F
-+#define MCS_WRREQ    0x0E
-+
-+/* Register 0x00 */
-+#define MCS_MODE_REG	0
-+#define MCS_FIR		((__u16)0x0001)
-+#define MCS_SIR16US	((__u16)0x0002)
-+#define MCS_BBTG	((__u16)0x0004)
-+#define MCS_ASK		((__u16)0x0008)
-+#define MCS_PARITY	((__u16)0x0010)
-+
-+/* SIR/MIR speed constants */
-+#define MCS_SPEED_SHIFT	    5
-+#define MCS_SPEED_MASK	    ((__u16)0x00E0)
-+#define MCS_SPEED(x)	    ((x & MCS_SPEED_MASK) >> MCS_SPEED_SHIFT)
-+#define MCS_SPEED_2400	    ((0 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_9600	    ((1 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_19200	    ((2 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_38400	    ((3 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_57600	    ((4 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_115200    ((5 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_576000    ((6 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+#define MCS_SPEED_1152000   ((7 << MCS_SPEED_SHIFT) & MCS_SPEED_MASK)
-+
-+#define MCS_PLLPWDN	((__u16)0x0100)
-+#define MCS_DRIVER	((__u16)0x0200)
-+#define MCS_DTD		((__u16)0x0400)
-+#define MCS_DIR		((__u16)0x0800)
-+#define MCS_SIPEN	((__u16)0x1000)
-+#define MCS_SENDSIP	((__u16)0x2000)
-+#define MCS_CHGDIR	((__u16)0x4000)
-+#define MCS_RESET	((__u16)0x8000)
-+
-+/* Register 0x02 */
-+#define MCS_XCVR_REG	2
-+#define MCS_MODE0	((__u16)0x0001)
-+#define MCS_STFIR	((__u16)0x0002)
-+#define MCS_XCVR_CONF	((__u16)0x0004)
-+#define MCS_RXFAST	((__u16)0x0008)
-+/* TXCUR [6:4] */
-+#define MCS_TXCUR_SHIFT	4
-+#define MCS_TXCUR_MASK	((__u16)0x0070)
-+#define MCS_TXCUR(x)	((x & MCS_TXCUR_MASK) >> MCS_TXCUR_SHIFT)
-+#define MCS_SETTXCUR(x,y) \
-+	((x & ~MCS_TXCUR_MASK) | (y << MCS_TXCUR_SHIFT) & MCS_TXCUR_MASK)
-+
-+#define MCS_MODE1	((__u16)0x0080)
-+#define MCS_SMODE0	((__u16)0x0100)
-+#define MCS_SMODE1	((__u16)0x0200)
-+#define MCS_INVTX	((__u16)0x0400)
-+#define MCS_INVRX	((__u16)0x0800)
-+
-+#define MCS_MINRXPW_REG	4
-+
-+#define MCS_RESV_REG 7
-+#define MCS_IRINTX	((__u16)0x0001)
-+#define MCS_IRINRX	((__u16)0x0002)
-+
-+struct mcs_cb {
-+	struct usb_device *usbdev;	/* init: probe_irda */
-+	struct net_device *netdev;	/* network layer */
-+	struct irlap_cb *irlap;	/* The link layer we are binded to */
-+	struct net_device_stats stats;	/* network statistics */
-+	struct qos_info qos;
-+	unsigned int speed;	/* Current speed */
-+	unsigned int new_speed;	/* new speed */
-+
-+	struct work_struct work; /* Change speed work */
-+
-+	struct sk_buff *tx_pending;
-+	char in_buf[4096];	/* transmit/receive buffer */
-+	char out_buf[4096];	/* transmit/receive buffer */
-+	__u8 *fifo_status;
-+
-+	iobuff_t rx_buff;	/* receive unwrap state machine */
-+	struct timeval rx_time;
-+	spinlock_t lock;
-+	int receiving;
-+
-+	__u8 ep_in;
-+	__u8 ep_out;
-+
-+	struct urb *rx_urb;
-+	struct urb *tx_urb;
-+
-+	int transceiver_type;
-+	int sir_tweak;
-+	int receive_mode;
-+};
-+
-+static int mcs_set_reg(struct mcs_cb *mcs, __u16 reg, __u16 val);
-+static int mcs_get_reg(struct mcs_cb *mcs, __u16 reg, __u16 * val);
-+
-+static inline int mcs_setup_transceiver_vishay(struct mcs_cb *mcs);
-+static inline int mcs_setup_transceiver_agilent(struct mcs_cb *mcs);
-+static inline int mcs_setup_transceiver_sharp(struct mcs_cb *mcs);
-+static inline int mcs_setup_transceiver(struct mcs_cb *mcs);
-+static inline int mcs_wrap_sir_skb(struct sk_buff *skb, __u8 * buf);
-+static unsigned mcs_wrap_fir_skb(const struct sk_buff *skb, __u8 *buf);
-+static unsigned mcs_wrap_mir_skb(const struct sk_buff *skb, __u8 *buf);
-+static void mcs_unwrap_mir(struct mcs_cb *mcs, __u8 *buf, int len);
-+static void mcs_unwrap_fir(struct mcs_cb *mcs, __u8 *buf, int len);
-+static inline int mcs_setup_urbs(struct mcs_cb *mcs);
-+static inline int mcs_receive_start(struct mcs_cb *mcs);
-+static inline int mcs_find_endpoints(struct mcs_cb *mcs,
-+				     struct usb_host_endpoint *ep, int epnum);
-+
-+static int mcs_speed_change(struct mcs_cb *mcs);
-+
-+static int mcs_net_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd);
-+static int mcs_net_close(struct net_device *netdev);
-+static int mcs_net_open(struct net_device *netdev);
-+static struct net_device_stats *mcs_net_get_stats(struct net_device *netdev);
-+
-+static void mcs_receive_irq(struct urb *urb, struct pt_regs *regs);
-+static void mcs_send_irq(struct urb *urb, struct pt_regs *regs);
-+static int mcs_hard_xmit(struct sk_buff *skb, struct net_device *netdev);
-+
-+static int mcs_probe(struct usb_interface *intf,
-+		     const struct usb_device_id *id);
-+static void mcs_disconnect(struct usb_interface *intf);
-+
-+#endif				/* _MCS7780_H */
++        return 0;
+ }
+ 
+ 
+@@ -859,7 +853,7 @@ static void stir_rcv_irq(struct urb *urb
+ 		warn("%s: usb receive submit error: %d",
+ 			stir->netdev->name, err);
+ 		stir->receiving = 0;
+-		wake_up(&stir->thr_wait);
++		wake_up_process(stir->thread);
+ 	}
+ }
+ 
+@@ -928,10 +922,10 @@ static int stir_net_open(struct net_devi
+ 	}
+ 
+ 	/** Start kernel thread for transmit.  */
+-	stir->thr_pid = kernel_thread(stir_transmit_thread, stir,
+-				      CLONE_FS|CLONE_FILES);
+-	if (stir->thr_pid < 0) {
+-		err = stir->thr_pid;
++	stir->thread = kthread_run(stir_transmit_thread, stir,
++				   "%s", stir->netdev->name);
++        if (IS_ERR(stir->thread)) {
++                err = PTR_ERR(stir->thread);
+ 		err("stir4200: unable to start kernel thread");
+ 		goto err_out6;
+ 	}
+@@ -968,8 +962,7 @@ static int stir_net_close(struct net_dev
+ 	netif_stop_queue(netdev);
+ 
+ 	/* Kill transmit thread */
+-	kill_proc(stir->thr_pid, SIGTERM, 1);
+-	wait_for_completion(&stir->thr_exited);
++	kthread_stop(stir->thread);
+ 	kfree(stir->fifo_status);
+ 
+ 	/* Mop up receive urb's */
+@@ -1084,9 +1077,6 @@ static int stir_probe(struct usb_interfa
+ 	stir->qos.min_turn_time.bits   &= qos_mtt_bits;
+ 	irda_qos_bits_to_value(&stir->qos);
+ 
+-	init_completion (&stir->thr_exited);
+-	init_waitqueue_head (&stir->thr_wait);
+-
+ 	/* Override the network functions we need to use */
+ 	net->hard_start_xmit = stir_hard_xmit;
+ 	net->open            = stir_net_open;
 -- 
 1.3.2
 
