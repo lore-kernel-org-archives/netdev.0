@@ -1,61 +1,33 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2/3] pci: bcm43xx kill pci_find_device
-Date: Thu, 25 May 2006 23:55:35 +0200
-Message-ID: <200605252355.36453.mb@bu3sch.de>
-References: <20060525003040.A91E0C7BDC@atrey.karlin.mff.cuni.cz> <4474FE3E.9040303@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] TCP Veno module for kernel 2.6.16.13
+Date: Thu, 25 May 2006 14:59:00 -0700 (PDT)
+Message-ID: <20060525.145900.21925817.davem@davemloft.net>
+References: <54AD0F12E08D1541B826BE97C98F99F150CE2B@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci@atrey.karlin.mff.cuni.cz,
-	Netdev List <netdev@vger.kernel.org>
+Cc: shemminger@osdl.org, ZHOU0022@ntu.edu.sg, baruch@ev-en.org,
+	jmorris@namei.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:57476
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030449AbWEYV40
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 17:56:26 -0400
-To: Jiri Slaby <jirislaby@gmail.com>
-In-Reply-To: <4474FE3E.9040303@garzik.org>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19647
+	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030463AbWEYV6z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 17:58:55 -0400
+To: caitlinb@broadcom.com
+In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F150CE2B@NT-SJCA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 25 May 2006 02:45, you wrote:
-> Jiri Slaby wrote:
-> > bcm43xx kill pci_find_device
-> > 
-> > Change pci_find_device to safer pci_get_device.
-> > 
-> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-> > 
-> > ---
-> > commit 75664d3c6fe1d8d00b87e42cc001cb5d90613dae
-> > tree ebcec31955a991f1661197c7e8bcdd682e030681
-> > parent 431ef31d431939bc9370f952d9510ab9e5b0ad47
-> > author Jiri Slaby <ku@bellona.localdomain> Thu, 25 May 2006 02:04:38 +0159
-> > committer Jiri Slaby <ku@bellona.localdomain> Thu, 25 May 2006 02:04:38 +0159
-> > 
-> >  drivers/net/wireless/bcm43xx/bcm43xx_main.c |    3 ++-
-> >  1 files changed, 2 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > index b488f77..f770f59 100644
-> > --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > @@ -2142,9 +2142,10 @@ #ifdef CONFIG_BCM947XX
-> >  	if (bcm->pci_dev->bus->number == 0) {
-> >  		struct pci_dev *d = NULL;
-> >  		/* FIXME: we will probably need more device IDs here... */
-> > -		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
-> > +		d = pci_get_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
-> >  		if (d != NULL) {
-> >  			bcm->irq = d->irq;
-> > +			pci_dev_put(d);
-> 
-> Given the FIXME, if you are going to touch this area, it seems logical 
-> to add a PCI device match table.
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Date: Thu, 25 May 2006 14:11:03 -0700
 
-Yes, you may want to discuss that with the openwrt people, as this
-code is only openwrt related.
+> The *desirability* of using this data is debatable, but it most
+> certainly is possible.
+
+Right, I don't think these kinds of schemes scale very well
+personally.
+
+I think TCP can certainly infer these attributes using
+existing information.  With %100 precision, no of course
+not, but definitely a good enough approximation for real
+use.
