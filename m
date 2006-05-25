@@ -1,72 +1,66 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH v2] bridge: fix locking and memory leak in br_add_bridge
-Date: Thu, 25 May 2006 16:14:32 +0200
-Message-ID: <20060525161432.4cbc11ee@griffin.suse.cz>
-References: <20060525153124.478bea57@griffin.suse.cz>
-	<20060525160735.3c2aa9a5@griffin.suse.cz>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: [RFC PATCH 0/2] Hardware button support for Wireless cards
+Date: Thu, 25 May 2006 17:15:54 +0200
+Message-ID: <200605251715.58257.IvDoorn@gmail.com>
+References: <!&!AAAAAAAAAAAuAAAAAAAAAFjEWUvexJtFsm0woXMZeHABAC4qy2+Ja65JmQuhL0/hqcgAAAAARPYAABAAAACMsnpvfH4iTKrBh6ONAHj7AQAAAAA=@serialmonkey.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart1207336.gbBRd8z0Uu";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:65154 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1030193AbWEYOOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 10:14:34 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060525160735.3c2aa9a5@griffin.suse.cz>
+Received: from nf-out-0910.google.com ([64.233.182.187]:49208 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S965197AbWEYPNZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 11:13:25 -0400
+Received: by nf-out-0910.google.com with SMTP id a27so57104nfc
+        for <netdev@vger.kernel.org>; Thu, 25 May 2006 08:13:24 -0700 (PDT)
+To: netdev@vger.kernel.org
+In-Reply-To: <!&!AAAAAAAAAAAuAAAAAAAAAFjEWUvexJtFsm0woXMZeHABAC4qy2+Ja65JmQuhL0/hqcgAAAAARPYAABAAAACMsnpvfH4iTKrBh6ONAHj7AQAAAAA=@serialmonkey.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are several bugs in error handling in br_add_bridge:
-- when dev_alloc_name fails, allocated net_device is not freed
-- unregister_netdev is called when rtnl lock is held
-- free_netdev is called before netdev_run_todo has a chance to be run after
-  unregistering net_device
+--nextPart1207336.gbBRd8z0Uu
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-This patch should fix these issues.
+Hi,
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+As discussed previously on this list hardware button support
+for wireless cards and Bluetooth devices could use a seperate
+generalized driver.
 
----
+I have made a first attempt to do this with the suggestions from the
+discussion. This means that in all cases the hardware will be requested
+to enable or disable the radio (if this command needs to be issued from
+software) and it will send a signal to the input device created for the button.
 
- net/bridge/br_if.c |   15 ++++++---------
- 1 files changed, 6 insertions(+), 9 deletions(-)
+At the moment a input device will be created for each registered button,
+not sure if this is the desired situation, but thats why this is a RFC patch. ;)
 
---- dscape.orig/net/bridge/br_if.c
-+++ dscape/net/bridge/br_if.c
-@@ -301,25 +301,22 @@ int br_add_bridge(const char *name)
- 	if (strchr(dev->name, '%')) {
- 		ret = dev_alloc_name(dev, dev->name);
- 		if (ret < 0)
--			goto err1;
-+			goto err;
- 	}
- 
- 	ret = register_netdevice(dev);
- 	if (ret)
--		goto err2;
-+		goto err;
- 
- 	ret = br_sysfs_addbr(dev);
- 	if (ret)
--		goto err3;
-+		unregister_netdevice(dev);
- 	rtnl_unlock();
--	return 0;
-+	return ret;
- 
-- err3:
--	unregister_netdev(dev);
-- err2:
--	free_netdev(dev);
-- err1:
-+ err:
- 	rtnl_unlock();
-+	free_netdev(dev);
- 	return ret;
- }
- 
+I am also not sure where to place this driver so at the moment I have placed
+it in /drivers/input/misc
 
--- 
-Jiri Benc
-SUSE Labs
+The second patch is an example of the implementation in rt2x00.
+That is just an example since that already contained a similar approach with
+hardware button support.
+
+All hints/tips/comments are welcome. :)
+
+Ivo
+
+--nextPart1207336.gbBRd8z0Uu
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBEdcouaqndE37Em0gRAu1vAJ4+ssGa5cvuwjcueY3j/phwVqqMSwCfQT+z
+Rxj80ISYSlyfvrQxLiCJiy0=
+=llcY
+-----END PGP SIGNATURE-----
+
+--nextPart1207336.gbBRd8z0Uu--
