@@ -1,63 +1,38 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH] bridge: fix locking and memory leak in br_add_bridge
-Date: Thu, 25 May 2006 15:31:24 +0200
-Message-ID: <20060525153124.478bea57@griffin.suse.cz>
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: reminder, 2.6.18 window...
+Date: Thu, 25 May 2006 09:34:22 -0400
+Message-ID: <1148564063.25551.2.camel@dillow.idleaire.com>
+References: <20060523.182217.59656237.davem@davemloft.net>
+	 <4474AE92.3030501@garzik.org> <20060524191442.GG22881@ipom.com>
+	 <200605241501.53477.bcook@bpointsys.com> <4474BD52.6020604@garzik.org>
+	 <20060525032357.4990425f.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, NetDev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:63872 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S965176AbWEYNb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 09:31:28 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from ns1.idleaire.net ([65.220.16.2]:53167 "EHLO iasrv1.idleaire.net")
+	by vger.kernel.org with ESMTP id S965182AbWEYNe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 09:34:28 -0400
+To: Bill Fink <billfink@mindspring.com>
+In-Reply-To: <20060525032357.4990425f.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are several problems in error handling in br_add_bridge:
-- when dev_alloc_name fails, allocated net_device is not freed
-- unregister_netdev is called when rtnl lock is held
-- free_netdev is called before netdev_run_todo has a chance to be run after
-  unregistering net_device
+On Thu, 2006-05-25 at 03:23 -0400, Bill Fink wrote:
+> likely problem areas.  The human mind (at least speaking for myself) is
+> not nearly as adept when having to deal with deltas.  Yes, you can record
+> the initial state of all the devices, run the stress test, record the new
+> state of all the devices, and then spend a large amount of time devising
+> a script to calculate all the deltas for all the scores of variables on
+> all the involved devices, and then finally try and figure out what is
+> wrong.  But it would be so much better, easier, and more efficient, if
+> the kernel simply provided such a feature that almost all other networking
+> devices provide.
 
-This patch should fix these issues.
-
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
-
----
-
- net/bridge/br_if.c |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
-
---- dscape.orig/net/bridge/br_if.c
-+++ dscape/net/bridge/br_if.c
-@@ -306,20 +306,19 @@ int br_add_bridge(const char *name)
- 
- 	ret = register_netdevice(dev);
- 	if (ret)
--		goto err2;
-+		goto err1;
- 
- 	ret = br_sysfs_addbr(dev);
- 	if (ret)
--		goto err3;
-+		goto err2;
- 	rtnl_unlock();
- 	return 0;
- 
-- err3:
--	unregister_netdev(dev);
-  err2:
--	free_netdev(dev);
-+	unregister_netdevice(dev);
-  err1:
- 	rtnl_unlock();
-+	free_netdev(dev);
- 	return ret;
- }
- 
-
-
+ftp://ftp.cup.hp.com/dist/networking/tools/beforeafter.tar.gz
+as Rick mentioned earlier, and then you won't need to write a
+complicated script.
 -- 
-Jiri Benc
-SUSE Labs
+Dave Dillow <dave@thedillows.org>
+
