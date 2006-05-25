@@ -1,34 +1,61 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC 0/4] NetLabel
-Date: Thu, 25 May 2006 17:14:34 -0400
-Message-ID: <44761E3A.9050801@hp.com>
-References: <44760E29.4070407@hp.com> <20060525135846.44791440@localhost.localdomain>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 2/3] pci: bcm43xx kill pci_find_device
+Date: Thu, 25 May 2006 23:55:35 +0200
+Message-ID: <200605252355.36453.mb@bu3sch.de>
+References: <20060525003040.A91E0C7BDC@atrey.karlin.mff.cuni.cz> <4474FE3E.9040303@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, James Morris <jmorris@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060525135846.44791440@localhost.localdomain>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, Greg KH <gregkh@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz,
+	Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:57476
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030449AbWEYV40
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 17:56:26 -0400
+To: Jiri Slaby <jirislaby@gmail.com>
+In-Reply-To: <4474FE3E.9040303@garzik.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Thu, 25 May 2006 16:06:01 -0400
-> Paul Moore <paul.moore@hp.com> wrote:
->>This patch introduces a new kernel feature designed to support labeled
->>networking protocols such as RIPSO and CIPSO.  These protocols are required to
->>interoperate with existing "trusted" operating systems such as Trusted Solaris.
->>I am posting the patch now not because I feel it is ready for inclusion into
->>any of the main kernel trees but because it is usable and I would like to
->>solicit comments from the community sooner rather than later.
+On Thursday 25 May 2006 02:45, you wrote:
+> Jiri Slaby wrote:
+> > bcm43xx kill pci_find_device
+> > 
+> > Change pci_find_device to safer pci_get_device.
+> > 
+> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> > 
+> > ---
+> > commit 75664d3c6fe1d8d00b87e42cc001cb5d90613dae
+> > tree ebcec31955a991f1661197c7e8bcdd682e030681
+> > parent 431ef31d431939bc9370f952d9510ab9e5b0ad47
+> > author Jiri Slaby <ku@bellona.localdomain> Thu, 25 May 2006 02:04:38 +0159
+> > committer Jiri Slaby <ku@bellona.localdomain> Thu, 25 May 2006 02:04:38 +0159
+> > 
+> >  drivers/net/wireless/bcm43xx/bcm43xx_main.c |    3 ++-
+> >  1 files changed, 2 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> > index b488f77..f770f59 100644
+> > --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> > +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> > @@ -2142,9 +2142,10 @@ #ifdef CONFIG_BCM947XX
+> >  	if (bcm->pci_dev->bus->number == 0) {
+> >  		struct pci_dev *d = NULL;
+> >  		/* FIXME: we will probably need more device IDs here... */
+> > -		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
+> > +		d = pci_get_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
+> >  		if (d != NULL) {
+> >  			bcm->irq = d->irq;
+> > +			pci_dev_put(d);
 > 
-> Maybe this would be easier and better done via existing netfilter infrastructure?
+> Given the FIXME, if you are going to touch this area, it seems logical 
+> to add a PCI device match table.
 
-I think this would be rather difficult on the outbound side as protocols like CIPSO and RIPSO add IP options to the packet.  I may be wrong but I thought that adding to the size of the packet was a no-no in netfilter?  Also, doesn't netfilter get the packet after the checksum has been calculated and the packet has gone through the xfrm infrastructure?
-
--- 
-paul moore
-linux security @ hp
+Yes, you may want to discuss that with the openwrt people, as this
+code is only openwrt related.
