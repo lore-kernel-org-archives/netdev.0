@@ -1,44 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFC] new qla3xxx NIC Driver v2.02.00k29
-Date: Wed, 24 May 2006 20:58:24 -0400
-Message-ID: <44750130.6080103@garzik.org>
-References: <0BB3E5E7462EEA4295BC02D49691DC070D3692@AVEXCH1.qlogic.org>
+From: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
+Subject: [PATCH] r8169: add new PCI ID
+Date: Thu, 25 May 2006 10:24:46 +0900
+Message-ID: <20060525102446.572bb5ca.yoichi_yuasa@tripeaks.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
-	Ying Ping Lok <ying.lok@qlogic.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:29843 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964804AbWEYA61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 20:58:27 -0400
-To: Ron Mercer <ron.mercer@qlogic.com>
-In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC070D3692@AVEXCH1.qlogic.org>
+Received: from mo30.po.2iij.net ([210.128.50.53]:17459 "EHLO mo30.po.2iij.net")
+	by vger.kernel.org with ESMTP id S964810AbWEYBYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 21:24:54 -0400
+To: romieu@fr.zoreil.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ron Mercer wrote:
-> All,
-> 
-> Third submission for the upstream inclusion of the qla3xxx Ethernet
-> driver. This is a complementary network driver for our ISP4XXX parts.
-> There is a concurrent effort underway to get the iSCSI driver (qla4xxx)
-> integrated upstream as well.
-> 
-> The following files are included and have been posted to the link below:
-> 
-> LICENSE.qla3xxx
-> qla3xxxsrc-v2.02.00k29.tgz
-> 
-> ftp://ftp.qlogic.com/network/upstream/20.02.00k29/
+Hi,
 
-Two points:
+This patch add new PCI ID for r8169 driver.
+RTL8110SBL has this PCI ID.
 
-1) the ftp:// URL doesn't work for me.
+Please aply.
 
-2) Why do we need another license?
+Yoichi
 
-	Jeff
+Signed-off-by: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
 
+diff -pruN -X tb0287/Documentation/dontdiff tb0287-orig/drivers/net/r8169.c tb0287/drivers/net/r8169.c
+--- tb0287-orig/drivers/net/r8169.c	2006-05-25 10:09:43.981416000 +0900
++++ tb0287/drivers/net/r8169.c	2006-05-25 09:58:45.932290500 +0900
+@@ -184,6 +184,7 @@ static const struct {
+ 
+ static struct pci_device_id rtl8169_pci_tbl[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), },
++	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), },
+ 	{ PCI_DEVICE(0x16ec,			0x0116), },
+ 	{ PCI_VENDOR_ID_LINKSYS,		0x1032, PCI_ANY_ID, 0x0024, },
 
 
