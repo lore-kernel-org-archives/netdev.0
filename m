@@ -1,58 +1,44 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3] pci: bcm43xx kill pci_find_device
-Date: Wed, 24 May 2006 20:45:50 -0400
-Message-ID: <4474FE3E.9040303@garzik.org>
-References: <20060525003040.A91E0C7BDC@atrey.karlin.mff.cuni.cz>
+Subject: Re: [RFC] new qla3xxx NIC Driver v2.02.00k29
+Date: Wed, 24 May 2006 20:58:24 -0400
+Message-ID: <44750130.6080103@garzik.org>
+References: <0BB3E5E7462EEA4295BC02D49691DC070D3692@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci@atrey.karlin.mff.cuni.cz,
-	Netdev List <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	Ying Ping Lok <ying.lok@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:2707 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964801AbWEYApx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 20:45:53 -0400
-To: Jiri Slaby <jirislaby@gmail.com>
-In-Reply-To: <20060525003040.A91E0C7BDC@atrey.karlin.mff.cuni.cz>
+Received: from srv5.dvmed.net ([207.36.208.214]:29843 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964804AbWEYA61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 May 2006 20:58:27 -0400
+To: Ron Mercer <ron.mercer@qlogic.com>
+In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC070D3692@AVEXCH1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby wrote:
-> bcm43xx kill pci_find_device
+Ron Mercer wrote:
+> All,
 > 
-> Change pci_find_device to safer pci_get_device.
+> Third submission for the upstream inclusion of the qla3xxx Ethernet
+> driver. This is a complementary network driver for our ISP4XXX parts.
+> There is a concurrent effort underway to get the iSCSI driver (qla4xxx)
+> integrated upstream as well.
 > 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> The following files are included and have been posted to the link below:
 > 
-> ---
-> commit 75664d3c6fe1d8d00b87e42cc001cb5d90613dae
-> tree ebcec31955a991f1661197c7e8bcdd682e030681
-> parent 431ef31d431939bc9370f952d9510ab9e5b0ad47
-> author Jiri Slaby <ku@bellona.localdomain> Thu, 25 May 2006 02:04:38 +0159
-> committer Jiri Slaby <ku@bellona.localdomain> Thu, 25 May 2006 02:04:38 +0159
+> LICENSE.qla3xxx
+> qla3xxxsrc-v2.02.00k29.tgz
 > 
->  drivers/net/wireless/bcm43xx/bcm43xx_main.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> index b488f77..f770f59 100644
-> --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> @@ -2142,9 +2142,10 @@ #ifdef CONFIG_BCM947XX
->  	if (bcm->pci_dev->bus->number == 0) {
->  		struct pci_dev *d = NULL;
->  		/* FIXME: we will probably need more device IDs here... */
-> -		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
-> +		d = pci_get_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
->  		if (d != NULL) {
->  			bcm->irq = d->irq;
-> +			pci_dev_put(d);
+> ftp://ftp.qlogic.com/network/upstream/20.02.00k29/
 
-Given the FIXME, if you are going to touch this area, it seems logical 
-to add a PCI device match table.
+Two points:
+
+1) the ftp:// URL doesn't work for me.
+
+2) Why do we need another license?
 
 	Jeff
+
 
 
