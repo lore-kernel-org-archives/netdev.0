@@ -1,114 +1,55 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: reminder, 2.6.18 window...
-Date: Thu, 25 May 2006 11:27:32 -0400
-Message-ID: <1148570852.5283.23.camel@jzny2>
-References: <20060523.182217.59656237.davem@davemloft.net>
-	 <447412CA.50303@ipom.com> <4474A489.4080308@garzik.org>
-	 <20060524185644.GF22881@ipom.com> <4474AE92.3030501@garzik.org>
-	 <20060524191442.GG22881@ipom.com> <1148501433.5325.52.camel@jzny2>
-	 <4474C12E.8050600@hp.com>
+Subject: Re: [ANNOUNCE] FLAME: external kernel module for L2.5 meshing
+Date: Thu, 25 May 2006 11:38:30 -0400
+Message-ID: <1148571510.5283.33.camel@jzny2>
+References: <44731733.7000204@ti-wmc.nl>
+	 <20060523094324.11926fcc@localhost.localdomain>
+	 <447349A6.50105@fastmail.fm> <1148496189.5325.33.camel@jzny2>
+	 <44758CA8.2030502@fastmail.fm>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, Phil Dibowitz <phil@ipom.com>
+Cc: herman.elfrink@ti-wmc.nl, Stephen Hemminger <shemminger@osdl.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:23962 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S965205AbWEYP1g
+Received: from mx02.cybersurf.com ([209.197.145.105]:37564 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1030227AbWEYPid
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 11:27:36 -0400
+	Thu, 25 May 2006 11:38:33 -0400
 Received: from mail.cyberus.ca ([209.197.145.21])
 	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FjHkQ-0001pF-TD
-	for netdev@vger.kernel.org; Thu, 25 May 2006 11:27:38 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <4474C12E.8050600@hp.com>
+	id 1FjHv2-0005SR-L0
+	for netdev@vger.kernel.org; Thu, 25 May 2006 11:38:36 -0400
+To: Simon Oosthoek <wmc_simon@fastmail.fm>
+In-Reply-To: <44758CA8.2030502@fastmail.fm>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-24-05 at 13:25 -0700, Rick Jones wrote:
-
-> The lanadmin (think ethtool) command of HP-UX has had a way to clear the 
-> statistics reported by lanadmin.  I do not know however, if that affects 
-> the stats in the actual SNMP interface MIBs as I've never had occasion 
-> to look.
-> 
-> I still suggest beforeafter to people because clearing the lanadmin 
-> stats requires root privs and because it may not be a kosher thing to do 
-> on a customer system.
-> 
-> HP-UX does not provide a way to clear the stats reported by netstat.
-
-Which also are snmp stats. 
-
-So far the reasoning of why this is needed has been around debugging
-which is in itself reasonable as long as it doesnt break things: it
-does. 
-
-For debugging: I can name about 3 ways you can achieve the counting
-without touching the driver/hardware level stats. Someone needs to put
-effort and create a tool to it.
-
-[ Actually now that i spent 2 minutes looking at the patch i can
-understand jgarziks concerns].
-
-On Wed, 2006-24-05 at 16:44 -0400, Brian Haley wrote:
-
->So how is this different than if an SNMP station probes 
-> my system,then 
-> I reboot, then they probe again.  Things will seem to have gone 
-> backwards, but they deal with that just fine.
-> 
-
-Rick has already answered this question i hope. There are triggers that management
-tools use to identify reboots.
-
-> DEC/Compaq/HP has allowed this on Tru64 UNIX since 1999 because we had 
-> customers that wanted it, noone ever complained about complications with 
-> SNMP. 
-
-I am sure if we did things because your customer wanted it, we would approach 
-anarchy at best.
-
->  We did save the last time the stats were zero'd in the struct for 
-> posterity, but that was never get-able via SNMP:
-> 
-
-Because it is not part of the MIB i would suspect. 
+On Thu, 2006-25-05 at 12:53 +0200, Simon Oosthoek wrote:
 
 > 
-> --> netstat -I tu0 -s
-> 
-> tu0 Ethernet counters at Wed May 24 16:30:05 2006
-> 
->            609415 seconds since last zeroed
->        3943458720 bytes received
->         113576310 bytes sent
-> ...
-> 
-> Maybe saving a "ztime" would make people happier?
-
-It may be insufficient. 
-Management tools use the resetting as a trigger to indicate rollover of the 
-counters. I dont know if you can go and fix everyone out there to have this
-new ztime in mind.
-
-Can you ask internally on how openview would handle this? It carriers the 
-major chunk of management tools market so it may provide good insight.
-
-On Wed, 2006-24-05 at 14:04 -0700, Rick Jones wrote: 
-> Phil Dibowitz wrote:
-> > Well, I can show you support on my home switch (cabletron) - the network guys
-> > will be a little unhappy if I clear stats on our production network (cisco)
-> > without warning them:
-> 
-> Isn't that last bit an example of why it might not be good to play-out 
-> that rope?-)
+> I agree with your analysis, and recently I read an interesting interview 
+> with her (I think it was linked from slashdot, an interview with the 
+> "mother of the Internet ;-) I'm not sure her work (I don't exactly 
+> recall the specifics) is applicable to our problem though.
 > 
 
-I dont mind him hanging himself, he just wants to hang us all ;->
+Look at her effort ion rbridges, i think youll find theres a lot in
+common.
+
+> Regarding the scalability, I think it rather depends on the number of 
+> hops how usable FLAME is. I don't think it would scale well to a campus 
+> or city wide network, but in the case of a few mobile nodes, it has very 
+> little overhead both in bandwidth and delay.
+
+You should mention this limitation in the paper.   
+BTW, something else: You ability to create loops of broadcast storms is
+highly probable. Eventually you may have to go to L3 (TTL is of value
+there) ;->
+
 
 cheers,
 jamal
+
 
