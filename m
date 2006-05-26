@@ -1,38 +1,39 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: reminder, 2.6.18 window...
-Date: Fri, 26 May 2006 11:52:39 +0200
-Message-ID: <200605261152.40101.ak@suse.de>
-References: <20060523.182217.59656237.davem@davemloft.net> <20060525032357.4990425f.billfink@mindspring.com> <200605250805.38241.bcook@bpointsys.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Fri, 26 May 2006 20:02:00 +1000
+Message-ID: <1148637720.8089.145.camel@localhost.localdomain>
+References: <20060517220218.GA13411@myri.com>
+	 <20060523153928.GB5938@krispykreme>
+	 <1148543810.13249.265.camel@localhost.localdomain>
+	 <200605261149.18415.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>, Jeff Garzik <jeff@garzik.org>,
-	phil@ipom.com, davem@davemloft.net, netdev@vger.kernel.org
+Cc: Anton Blanchard <anton@samba.org>, Brice Goglin <brice@myri.com>,
+	netdev@vger.kernel.org, gallatin@myri.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:9696 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1751325AbWEZJwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 05:52:44 -0400
-To: Brent Cook <bcook@bpointsys.com>
-In-Reply-To: <200605250805.38241.bcook@bpointsys.com>
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:12468 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1751345AbWEZKGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 06:06:12 -0400
+To: Ingo Oeser <netdev@axxeo.de>
+In-Reply-To: <200605261149.18415.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> The current patch is fine if your hardware implements the required atomicity 
-> itself. 
+> > No proper interface exposed, he'll have to do an #ifdef powerpc here or
+> > such and use __ioremap with explicit page attributes. I have a hack to
+> > do that automatically for memory covered by prefetchable PCI BARs when
+> > mmap'ing from userland but not for kernel ioremap.
+> 
+> Stupid question: pci_iomap() is NOT what you are looking for, right?
+> 
+> Implementation is at the end of lib/iomap.c
 
-Near all do optionally, but it would make increasing the statistics a magnitude 
-more expensive.
+No, there is no difference there, pci_iomap won't help for passing in
+platform specific page attributes for things like write combining.
 
-Atomic operations don't come cheap on modern systems. And you would need
-to change the fast path increments to atomic for this.
+Ben.
 
-I suspect it could be done without atomics with some tricks (e.g. use a double
-set of counters and switch on clear and use RCU), but it would make the whole
-thing quite complex and still have more overhead in the fast path than
-the current code.
-
--Andi
 
