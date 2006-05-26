@@ -1,36 +1,38 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: ipv6 routing broken in 2.6.17-rc3,4
-Date: Fri, 26 May 2006 11:35:53 +0300 (EEST)
-Message-ID: <Pine.SOC.4.61.0605261134250.18708@math.ut.ee>
-References: <Pine.LNX.4.64.0605151904110.12081@netcore.fi>
- <Pine.SOC.4.61.0605260219270.13718@math.ut.ee> <20060526.104001.96071021.yoshfuji@linux-ipv6.org>
- <20060526.104245.106225873.yoshfuji@linux-ipv6.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH v2] bridge: fix locking and memory leak in br_add_bridge
+Date: Fri, 26 May 2006 11:08:06 +0200
+Message-ID: <20060526110806.1fa49fe1@griffin.suse.cz>
+References: <20060525153124.478bea57@griffin.suse.cz>
+	<20060525160735.3c2aa9a5@griffin.suse.cz>
+	<20060525161432.4cbc11ee@griffin.suse.cz>
+	<20060525092331.54f14a57@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: pekkas@netcore.fi, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from math.ut.ee ([193.40.36.2]:34300 "EHLO math.ut.ee")
-	by vger.kernel.org with ESMTP id S1750706AbWEZIgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 04:36:14 -0400
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20060526.104245.106225873.yoshfuji@linux-ipv6.org>
+Received: from styx.suse.cz ([82.119.242.94]:13704 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751348AbWEZJII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 05:08:08 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060525092331.54f14a57@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> (To YOSHIFUJI Hideaki: this is about the
->>> http://comments.gmane.org/gmane.linux.network/35262 thread)
-> :
->> I guess rt6_select() is returning &ip6_null_entry and
->> the caller is finding next best route; e.g. default route.
->>
->> Does this solve your problem?
->
-> Sorry, typo...
+On Thu, 25 May 2006 09:23:31 -0700, Stephen Hemminger wrote:
+> +		unregister_netdevice(dev);
+> + err:
+>  	rtnl_unlock();
+> +	if (ret)
+> +		free_netdev(dev);
+>  	return ret;
 
-The unreachable route works now but LAN routing still does not work. 
-Locally generated ICMPv6 packets that should go to LAN interface still 
-go to tun6to4.
+I don't think this is correct. netdev_run_todo calls dev->destructor
+which is set to free_netdev by br_dev_setup. So you're calling
+free_netdev on already freed device.
+
+ Jiri
 
 -- 
-Meelis Roos (mroos@linux.ee)
+Jiri Benc
+SUSE Labs
