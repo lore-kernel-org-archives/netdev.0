@@ -1,80 +1,65 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: ipv6 routing broken in 2.6.17-rc3,4
-Date: Fri, 26 May 2006 10:40:01 +0900 (JST)
-Message-ID: <20060526.104001.96071021.yoshfuji@linux-ipv6.org>
-References: <Pine.SOC.4.61.0605150909510.29527@math.ut.ee>
-	<Pine.LNX.4.64.0605151904110.12081@netcore.fi>
-	<Pine.SOC.4.61.0605260219270.13718@math.ut.ee>
+From: "Amit S. Kale" <amitkale@linsyssoft.com>
+Subject: Re: [PATCH 0/9] Resending NetXen 1G/10G NIC driver patch
+Date: Fri, 26 May 2006 11:16:49 +0530
+Message-ID: <200605261116.50176.amitkale@linsyssoft.com>
+References: <Pine.LNX.4.33.0605250339490.5844-100000@unmsrvr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, sanjeev@unminc.com, unmproj@linsyssoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:1286 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751167AbWEZBjf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 May 2006 21:39:35 -0400
-To: mroos@linux.ee
-In-Reply-To: <Pine.SOC.4.61.0605260219270.13718@math.ut.ee>
+Received: from svr68.ehostpros.com ([67.15.48.48]:27228 "EHLO
+	svr68.ehostpros.com") by vger.kernel.org with ESMTP
+	id S1030477AbWEZFrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 May 2006 01:47:15 -0400
+To: Stephen Hemminger <shemminger@osdl.org>,
+	Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <Pine.LNX.4.33.0605250339490.5844-100000@unmsrvr>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.SOC.4.61.0605260219270.13718@math.ut.ee> (at Fri, 26 May 2006 02:24:19 +0300 (EEST)), Meelis Roos <mroos@linux.ee> says:
+Stephen, Roland,
 
-> 
-> (To YOSHIFUJI Hideaki: this is about the
-> http://comments.gmane.org/gmane.linux.network/35262 thread)
-> 
-> Tracked it down to IPV6 merge at 2006-03-21:
-> commit cd85f6e2f58282186ad720fc18482be228f0b972 is good (right before 
-> the bunch of patches)
-> commit b00055aacdb172c05067612278ba27265fcd05ce is bad (right after the 
-> bunch of changes)
+Thanks a lot for feedback.
 
-I guess rt6_select() is returning &ip6_null_entry and
-the caller is finding next best route; e.g. default route.
+We'll implement the minor changes rightaway and post an update. We are also 
+thinking about what's the best way to incorporate the data structure changes 
+you have suggested. Will post a reply on that too soon.
 
-Does this solve your problem?
+-Amit
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0190e39..93eb33c 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -280,10 +280,12 @@ static int inline rt6_check_neigh(struct
- {
- 	struct neighbour *neigh = rt->rt6i_nexthop;
- 	int m = 0;
--	if (neigh) {
-+	if (rt->rt6i_flags & RTF_NONEXTHOP)
-+		m = 1;
-+	else if (neigh) {
- 		read_lock_bh(&neigh->lock);
- 		if (neigh->nud_state & NUD_VALID)
--			m = 1;
-+			m = 2;
- 		read_unlock_bh(&neigh->lock);
- 	}
- 	return m;
-@@ -292,15 +294,18 @@ static int inline rt6_check_neigh(struct
- static int rt6_score_route(struct rt6_info *rt, int oif,
- 			   int strict)
- {
--	int m = rt6_check_dev(rt, oif);
-+	int m, n
-+		
-+	m = rt6_check_dev(rt, oif);
- 	if (!m && (strict & RT6_SELECT_F_IFACE))
- 		return -1;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
- #endif
--	if (rt6_check_neigh(rt))
-+	n = rt6_check_neigh(rt);
-+	if (n > 1)
- 		m |= 16;
--	else if (strict & RT6_SELECT_F_REACHABLE)
-+	else if (!n && strict & RT6_SELECT_F_REACHABLE)
- 		return -1;
- 	return m;
- }
+On Thursday 25 May 2006 16:15, Linsys Contractor Amit S. Kale wrote:
+> Hi,
+>
+> I'll be sending a NetXen (formerly Universal Network Machines) 1G/10G in
+> subsequent emails. This is a revised version of the UNM driver posted
+> earlier. We have tried to make changes as per the feedback received.
+> We would like this driver to be inluded in mainline kernel.
+> Kindly review it and feel free to get back to me for any further
+> feedback/queries/comments.
+>
+> Thanks.
+> -Amit
+>
+> Signed-off-by: Amit S. Kale <amitkale@unminc.com>
+>
+>  Kconfig                      |    5
+>  Makefile                     |    1
+>  netxen/Makefile              |   35 +
+>  netxen/netxen_nic.h          |  950 +++++++++++++++++++++++++++++++
+>  netxen/netxen_nic_ethtool.c  |  802 ++++++++++++++++++++++++++
+>  netxen/netxen_nic_hdr.h      |  682 ++++++++++++++++++++++
+>  netxen/netxen_nic_hw.c       | 1289
+> +++++++++++++++++++++++++++++++++++++++++++ netxen/netxen_nic_hw.h       | 
+> 339 +++++++++++
+>  netxen/netxen_nic_init.c     | 1219
+> ++++++++++++++++++++++++++++++++++++++++ netxen/netxen_nic_ioctl.h    |  
+> 75 ++
+>  netxen/netxen_nic_isr.c      |  428 ++++++++++++++
+>  netxen/netxen_nic_main.c     | 1209
+> ++++++++++++++++++++++++++++++++++++++++ netxen/netxen_nic_niu.c      | 
+> 770 +++++++++++++++++++++++++
+>  netxen/netxen_nic_phan_reg.h |  195 ++++++
+>  14 files changed, 7999 insertions(+)
