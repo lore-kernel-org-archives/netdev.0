@@ -1,33 +1,117 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: ipv6 routing broken in 2.6.17-rc3,4
-Date: Fri, 26 May 2006 02:24:19 +0300 (EEST)
-Message-ID: <Pine.SOC.4.61.0605260219270.13718@math.ut.ee>
-References: <Pine.SOC.4.61.0605150909510.29527@math.ut.ee>
- <Pine.LNX.4.64.0605151904110.12081@netcore.fi>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC 0/4] NetLabel
+Date: Thu, 25 May 2006 20:06:15 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605251938360.27473@d.namei>
+References: <44760E29.4070407@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Pekka Savola <pekkas@netcore.fi>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from math.ut.ee ([193.40.36.2]:44482 "EHLO math.ut.ee")
-	by vger.kernel.org with ESMTP id S965189AbWEYXYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 19:24:55 -0400
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-In-Reply-To: <Pine.LNX.4.64.0605151904110.12081@netcore.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, James Morris <jmorris@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <44760E29.4070407@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 25 May 2006, Paul Moore wrote:
 
-(To YOSHIFUJI Hideaki: this is about the
-http://comments.gmane.org/gmane.linux.network/35262 thread)
+> This patch introduces a new kernel feature designed to support labeled
+> networking protocols such as RIPSO and CIPSO.  These protocols are required to
+> interoperate with existing "trusted" operating systems such as Trusted
+> Solaris.
 
-Tracked it down to IPV6 merge at 2006-03-21:
-commit cd85f6e2f58282186ad720fc18482be228f0b972 is good (right before 
-the bunch of patches)
-commit b00055aacdb172c05067612278ba27265fcd05ce is bad (right after the 
-bunch of changes)
+A few initial comments.
 
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=shortlog;h=705af309505681f197f81618440954d10f120dc0;pg=44 
-shows the list of committs at that range.
+- Did you decide that you definitely need to verify labels on fragments?  
+
+I can see the code's been added to do that, but wonder about a comment 
+made during earlier discussion that mislabeled fragments could only come 
+from a misbehaving trusted system.  What is the threat model here?
+
+
+- Can you explain how module loading and module refcounting for these 
+modules work?  (e.g. what causes netlabel_cipso_v4 to be loaded, is it 
+always safe to unload if the refcount is zero?)
+
+
+- What about user APIs for setting and retrieving labels?
+
+
+- What about labeling of kernel-generated packets?
+
+
+- Don't put #ifdef'd code into mainline code.
+
+e.g. in net/ipv4/ip_fragment.c
+
++#ifdef CONFIG_NETLABEL_CIPSOV4
++       if (sopt->cipso) {
+
+This needs to be a function which is compiled away as a static inline when 
+not selected.  This stuff should have zero impact on the networking code 
+if not enabled.
+
+
+- Try and add entries for security/selinux/nlmsgtab.c for the new Netlink 
+protocol.
+
+
+- This does not follow normal kernel coding practices:
+
++       if (netlbl_netlink_init() != 0) {
++               netlbl_domhsh_exit();
++               return -ENOMEM;
+
+This should be:
+
+{
+	err = netlbl_netlink_init();
+	if (err)
+		goto err_domhsh;
+
+	...
+
+err_domhsh:
+	netlbl_domhsh_exit();
+	return err;
+}
+
+i.e. a single error path when you have cleanups to perform, and 
+propagation of error codes.
+
+
+- This kind of stuff should be removed before merging:
+
++static void __exit netlbl_exit(void)
++{
++       printk(KERN_INFO "NetLabel: Exiting\n");
+
+
++int netlbl_netlink_init(void)
++{
++       BUG_ON(netlbl_nl);
+
+
++int netlbl_netlink_exit(void)
++{
++       BUG_ON(!netlbl_nl);
+
+
+Should the above two be marked __init and __exit?  And why does the last 
+one return an int when the only possible return value is zero?  (it needs 
+to return void).
+
+
+- Why does this module have a version number?
+
++       printk(KERN_INFO "NetLabel: Initializing (v%s %s)\n",
++              NETLBL_VER_STR, NETLBL_VER_DATE);
+
+
+
+
 
 -- 
-Meelis Roos (mroos@linux.ee)
+James Morris
+<jmorris@namei.org>
