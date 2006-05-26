@@ -1,55 +1,49 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: reminder, 2.6.18 window...
-Date: Fri, 26 May 2006 11:43:05 +0200
-Message-ID: <200605261143.06131.ak@suse.de>
-References: <20060523.182217.59656237.davem@davemloft.net> <447412CA.50303@ipom.com>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Fri, 26 May 2006 11:49:18 +0200
+Message-ID: <200605261149.18415.netdev@axxeo.de>
+References: <20060517220218.GA13411@myri.com> <20060523153928.GB5938@krispykreme> <1148543810.13249.265.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Anton Blanchard <anton@samba.org>, Brice Goglin <brice@myri.com>,
+	netdev@vger.kernel.org, gallatin@myri.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:31199 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750703AbWEZJsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 05:48:01 -0400
-To: Phil Dibowitz <phil@ipom.com>
-In-Reply-To: <447412CA.50303@ipom.com>
+Received: from mail.axxeo.de ([82.100.226.146]:25807 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1751359AbWEZJtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 05:49:42 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1148543810.13249.265.camel@localhost.localdomain>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 24 May 2006 10:01, Phil Dibowitz wrote:
-> David Miller wrote:
-> > Some time in the next few weeks, it is likely that the 2.6.18
-> > merge window will open up shortly after a 2.6.17 release.
-> > 
-> > So if you have major 2.6.18 submissions planned for the networking,
-> > you need to start thinking about getting it to me now.
-> > 
-> > There is a 2.6.18 tree up at:
-> > 
-> > master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.18.git
-> > 
-> > All it has right now is the I/O AT stuff at the moment, and I plan to
-> > put Stephen Hemminger's LLC multicast/datagram changes in there as
-> > well.
+Hi there,
+
+Benjamin Herrenschmidt wrote:
+> On Wed, 2006-05-24 at 01:39 +1000, Anton Blanchard wrote:
 > 
-> David,
+> > > +#ifdef CONFIG_MTRR
+> > > +	mgp->mtrr = mtrr_add(mgp->iomem_base, mgp->board_span,
+> > > +			     MTRR_TYPE_WRCOMB, 1);
+> > > +#endif
+> > ...
+> > > +	mgp->sram = ioremap(mgp->iomem_base, mgp->board_span);
+> > 
+> > Not sure how we are meant to specify write through in drivers. Any ideas Ben?
 > 
-> I posted a patch for adding support for network device statistic
-> resetting via ethtool. I saw no objections to it...
+> No proper interface exposed, he'll have to do an #ifdef powerpc here or
+> such and use __ioremap with explicit page attributes. I have a hack to
+> do that automatically for memory covered by prefetchable PCI BARs when
+> mmap'ing from userland but not for kernel ioremap.
 
-I think it's a bad idea because it's inherently racey
+Stupid question: pci_iomap() is NOT what you are looking for, right?
 
-(I think I objected originally too) 
+Implementation is at the end of lib/iomap.c
 
-Similar patches were rejected a couple of times over the years already.
 
-> I'd like to get this into 2.6.18. It's self-contained, so it has little
-> chance of breaking other things and adds a useful feature that I've seen
-> a lot of requests for.
+Regards
 
-It's broken by design.
--Andi
-
- 
+Ingo Oeser
