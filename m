@@ -1,50 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Refactor Netlink connector?
-Date: Sat, 27 May 2006 01:06:55 +0200
-Message-ID: <44778A0F.1030800@trash.net>
-References: <Pine.LNX.4.64.0605261552570.4856@d.namei>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.18 1/3] tg3: Add 5786 PCI ID
+Date: Fri, 26 May 2006 15:55:23 -0700
+Message-ID: <1148684123.3930.8.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39092 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750962AbWEZXG6
+Received: from mms2.broadcom.com ([216.31.210.18]:20996 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1751744AbWE0Ame
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 May 2006 19:06:58 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0605261552570.4856@d.namei>
+	Fri, 26 May 2006 20:42:34 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> I've been looking through the kernel for new subsytems which might need 
-> LSM hooks, and we've got a proliferation of Netlink abstractions: generic 
-> Netlink, nfnetlink, connector and kobject_uevent.
-> 
-> I think we should look at consolidating some of these schemes, and if 
-> possible, into a unififed Netlink API.
-> 
-> As a first step, what would it take to adapt the single user of 
-> connector (the w1 driver) to use generic Netlink?
-> 
-> I suspect that some of the nfnetlink infrastructure can be used more 
-> generically, and that a simple API for the common case of kernel->user 
-> event notifications could be also be provided.
-> 
-> Thoughts?
+Add PCI ID for BCM5786 which is a variant of 5787.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 
-No great thoughts at this point, but I agree 100%. In my
-opinion netlink subsystems should be usable in a uniform way
-(at least netlink specific parts like dump/query/set, ACKs,
-attribute encoding and similar low-level stuff) without
-implementation specific details. I guess from a SELinux point
-of view having a single spot to place hooks with well defined
-semantics is what counts, but it comes down to the same, there
-is too much diversion among netlink users. I'll look into the
-nfnetlink bits for a start, but I fear because of use of
-network byteorder in lots of places it will not be able to
-fully convert to generic netlink.
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 49ad60b..3de5a62 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -229,6 +229,8 @@ static struct pci_device_id tg3_pci_tbl[
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+ 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5755M,
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
++	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5786,
++	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+ 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5787,
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+ 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5787M,
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index d6fe048..bef7ea1 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1886,6 +1886,7 @@
+ #define PCI_DEVICE_ID_TIGON3_5751F	0x167e
+ #define PCI_DEVICE_ID_TIGON3_5787M	0x1693
+ #define PCI_DEVICE_ID_TIGON3_5782	0x1696
++#define PCI_DEVICE_ID_TIGON3_5786	0x169a
+ #define PCI_DEVICE_ID_TIGON3_5787	0x169b
+ #define PCI_DEVICE_ID_TIGON3_5788	0x169c
+ #define PCI_DEVICE_ID_TIGON3_5789	0x169d
+
 
