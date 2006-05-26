@@ -1,33 +1,36 @@
 From: Meelis Roos <mroos@linux.ee>
-Subject: Re: [Bugme-new] [Bug 6613] New: iptables broken on 32-bit PReP
- (ARCH=ppc)
-Date: Fri, 26 May 2006 10:11:38 +0300 (EEST)
-Message-ID: <Pine.SOC.4.61.0605261008090.14762@math.ut.ee>
-References: <200605251004.k4PA4Lek007751@fire-2.osdl.org>
- <20060525070324.2ea16b0a.akpm@osdl.org> <4475FCFC.5000701@trash.net>
+Subject: Re: ipv6 routing broken in 2.6.17-rc3,4
+Date: Fri, 26 May 2006 11:35:53 +0300 (EEST)
+Message-ID: <Pine.SOC.4.61.0605261134250.18708@math.ut.ee>
+References: <Pine.LNX.4.64.0605151904110.12081@netcore.fi>
+ <Pine.SOC.4.61.0605260219270.13718@math.ut.ee> <20060526.104001.96071021.yoshfuji@linux-ipv6.org>
+ <20060526.104245.106225873.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Andrew Morton <akpm@osdl.org>, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
+Cc: pekkas@netcore.fi, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from math.ut.ee ([193.40.36.2]:52872 "EHLO math.ut.ee")
-	by vger.kernel.org with ESMTP id S1751312AbWEZHLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 03:11:45 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4475FCFC.5000701@trash.net>
+Received: from math.ut.ee ([193.40.36.2]:34300 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S1750706AbWEZIgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 04:36:14 -0400
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20060526.104245.106225873.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Meelis, it would really help if you could try 2.6.16 and in case
-> that doesn't work 2.6.15 to give an idea about whether this is a
-> recent regression or an old problem. We had a number of changes
-> in this area in the last two kernel versions that could be related.
+>>> (To YOSHIFUJI Hideaki: this is about the
+>>> http://comments.gmane.org/gmane.linux.network/35262 thread)
+> :
+>> I guess rt6_select() is returning &ip6_null_entry and
+>> the caller is finding next best route; e.g. default route.
+>>
+>> Does this solve your problem?
+>
+> Sorry, typo...
 
-Unfortunatlety, 2.6.15 does not boot on this machine so I'm locked out 
-remotely at the moment. Will see if I can find the boot cure - there 
-used to be a Motorola Powerstack-specific patch to make it boot that 
-Debian 2.6.18 and IIRC 2.6.12 packages included and that was integrated 
-somewhere later - maybe it's missing fom 2.6.15.
+The unreachable route works now but LAN routing still does not work. 
+Locally generated ICMPv6 packets that should go to LAN interface still 
+go to tun6to4.
 
 -- 
 Meelis Roos (mroos@linux.ee)
