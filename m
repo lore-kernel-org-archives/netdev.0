@@ -1,70 +1,99 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Please pull 'upstream-fixes' branch of wireless-2.6
-Date: Fri, 26 May 2006 16:37:27 -0400
-Message-ID: <20060526203722.GE32487@tuxdriver.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: reminder, 2.6.18 window...
+Date: Fri, 26 May 2006 15:06:16 -0700
+Message-ID: <44777BD8.1040503@hp.com>
+References: <20060523.182217.59656237.davem@davemloft.net>	<447412CA.50303@ipom.com>	<4474A489.4080308@garzik.org>	<20060524185644.GF22881@ipom.com>	<4474AE92.3030501@garzik.org>	<20060524191442.GG22881@ipom.com>	<1148501433.5325.52.camel@jzny2>	<4474C12E.8050600@hp.com>	<1148570852.5283.23.camel@jzny2> <4475DEA2.3090201@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, Jeff Garzik <jeff@garzik.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Phil Dibowitz <phil@ipom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:30732 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751498AbWEZUhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 16:37:42 -0400
-To: jeff@garzik.org
-Content-Disposition: inline
+Received: from palrel10.hp.com ([156.153.255.245]:6637 "EHLO palrel10.hp.com")
+	by vger.kernel.org with ESMTP id S1750947AbWEZWGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 18:06:21 -0400
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <4475DEA2.3090201@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 705af309505681f197f81618440954d10f120dc0:
-  Martin Schwidefsky:
-        s390: fix typo in stop_hz_timer.
+>> Can you ask internally on how openview would handle this? It carriers 
+>> the major chunk of management tools market so it may provide good 
+>> insight.
+> 
+> 
+> I've asked the question in an internal, informal communications channel. 
+>  No guarantees it will reach any OpenView types, but if it does I'll try 
+> to provide the gist of the replies.
 
-are found in the git repository at:
+While the question of the patch itself appears to be laid to rest for 
+the time being, since I took an "action item" I figured it would be good 
+to complete it.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+Here was one response:
 
-Randy Dunlap:
-      wavelan: fix section mismatch
-      arlan: fix section mismatch warnings
+> If the stats are being gathered via SNMP, most management systems do
+> one of two things:
+> 
+> - treat it as a discontinuity: in this case, the handling is similar
+>   to that for a device reboot; that is, delta calculation starts anew.
+> 
+> - treat it as a wrap-around (especially for 32-bit counters): the smarter
+>   ones have logic to detect whether this is a "feasible" wrap-around (e.g.,
+>   old measurement was "near" overflow, etc.) and appropriately adjust
+>   the delta.
+> 
+> In your case, it looks like you want to treat this as a discontinuity.
+> The interface table in IF-MIB has an attribute called ifLastChange; if
+> you reset the counter, you may want to set it to the sysUpTime value.
+> This way, a "proper" implementation could determine that a
+> discontinuity has occurred.
 
- drivers/net/wireless/arlan-main.c |    4 ++--
- drivers/net/wireless/wavelan.c    |    2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+And then a more detailed response with an associated, and very long URL:
 
-diff --git a/drivers/net/wireless/arlan-main.c b/drivers/net/wireless/arlan-main.c
-index 0e1ac33..bed6823 100644
---- a/drivers/net/wireless/arlan-main.c
-+++ b/drivers/net/wireless/arlan-main.c
-@@ -1838,7 +1838,7 @@ struct net_device * __init arlan_probe(i
- }
- 
- #ifdef  MODULE
--int init_module(void)
-+int __init init_module(void)
- {
- 	int i = 0;
- 
-@@ -1860,7 +1860,7 @@ int init_module(void)
- }
- 
- 
--void cleanup_module(void)
-+void __exit cleanup_module(void)
- {
- 	int i = 0;
- 	struct net_device *dev;
-diff --git a/drivers/net/wireless/wavelan.c b/drivers/net/wireless/wavelan.c
-index ff192e9..dade4b9 100644
---- a/drivers/net/wireless/wavelan.c
-+++ b/drivers/net/wireless/wavelan.c
-@@ -4306,7 +4306,7 @@ #ifdef	MODULE
-  * Insertion of the module
-  * I'm now quite proud of the multi-device support.
-  */
--int init_module(void)
-+int __init init_module(void)
- {
- 	int ret = -EIO;		/* Return error if no cards found */
- 	int i;
--- 
-John W. Linville
-linville@tuxdriver.com
+<excerpt>
+
+http://openview.hp.com/ecare/getsupportdoc?docid=OV-EN012963&urlN=http%3A%2F%2Fsupport.openview.hp.com%2Fselfsolve%2Fdo%2Fadvanced-search&fromOV
+=false&urlB=http%3A%2F%2Fsupport.openview.hp.com%2Fselfsolve%2Fdo%2Fadvanced-search%3Faction%3Dresults&f=ss&hl=true
+
+QUOTE:
+
+This problem can be caused by the SNMP MIB counter wrap.  NNM 6.01 or
+later has logic to detect collected MIB counter wrap.
+
+If NNM detects that a MIB counter is wrapped, then it is considered as
+one of the following two cases:
+
+The counter reached its maximum value and wrapped.
+The counter reset occurred due to the SNMP agent restart.
+In the case of (1), snmpCollect takes the counter wrap into account and
+adjusts the value taking the maximum value of the counter into
+consideration.  However, in the case of (2), NNM cancels the measurement
+of this period because it considers that the previous value that was
+used for calculation is no longer valid.
+
+If the value of the counter increases too fast, NNM may consider that
+the detected counter wrap is due to the agent restart even though the
+counter just wrapped.  In this case, the data of the measurement period
+gets dropped.
+
+There are two approaches available to avoid this situation:
+
+Use counters that have a larger maximum size.  For example, use
+IfHCInOctets/IfHCOutOctets(64bit - counter64) in IF_MIB instead of
+IfInOctets/IfOutOctets(32bit - counter).
+Shorten the period of measurement, so that the amount of the counter
+increase is potentially short enough to let NNM detect the counter wrap
+correctly.
+
+Note:
+It may be necessary to upgrade the operating system of some network
+devices to gain access to 64-bit counters. Note also, that counter64 is
+a SNMPv2 data type, the agent must support SNMPv2. If trying to access
+the values using snmpwalk  use the parameter-v2c to ensure that the
+variables can be accessed.
+
+</excerpt>
+
+rick jones
