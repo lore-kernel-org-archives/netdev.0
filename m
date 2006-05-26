@@ -1,31 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/2] pci_ids: add new device ids
-Date: Fri, 26 May 2006 21:39:54 -0400
-Message-ID: <4477ADEA.3050708@pobox.com>
-References: <4475E50E.8060903@nvidia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>, Andrew Morton <akpm@osdl.org>,
-        netdev@vger.kernel.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH 2/9] ixgb: fix interface losing macaddr on ifdn/up
+Date: Fri, 26 May 2006 09:51:58 -0700
+Message-ID: <20060526165158.30514.69611.stgit@gitlost.site>
+References: <20060526165124.30514.78477.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+        "Kok, Auke" <auke-jan.h.kok@intel.com>,
+        "Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39907 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964890AbWE0Bj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 21:39:59 -0400
-To: Ayaz Abdulla <aabdulla@nvidia.com>
-In-Reply-To: <4475E50E.8060903@nvidia.com>
+Received: from [63.64.152.142] ([63.64.152.142]:28934 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751126AbWEZQqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 12:46:54 -0400
+To: "Garzik, Jeff" <jgarzik@pobox.com>
+In-Reply-To: <20060526165124.30514.78477.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ayaz Abdulla wrote:
-> This patch adds new device ids for MCP61 and MCP65 chips.
-> 
-> Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
-applied.  For the future, make subject line more descriptive.  "Add new 
-NVIDIA device IDs" would have been better.
+user contributed fix for LAA across down/up, from tonychung00@users.sf.net.
 
-	Jeff
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+---
+
+ drivers/net/ixgb/ixgb_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index 954894b..26c777f 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -238,6 +238,7 @@ ixgb_up(struct ixgb_adapter *adapter)
+ 
+ 	/* hardware has been reset, we need to reload some things */
+ 
++	ixgb_rar_set(hw, netdev->dev_addr, 0);
+ 	ixgb_set_multi(netdev);
+ 
+ 	ixgb_restore_vlan(adapter);
 
 
 
+--
+Auke Kok <auke-jan.h.kok@intel.com>
