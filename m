@@ -1,36 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Netfilter and SMP
-Date: Fri, 26 May 2006 19:52:50 +0200
-Message-ID: <200605261952.50755.ak@suse.de>
-References: <a656c20605260823o1c894411t88a76c23d7855406@mail.gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC 0/4] NetLabel
+Date: Fri, 26 May 2006 14:56:54 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605261455490.4386@d.namei>
+References: <44760E29.4070407@hp.com> <Pine.LNX.4.64.0605251938360.27473@d.namei>
+ <44771EFB.6030203@hp.com> <Pine.LNX.4.64.0605261156030.3103@d.namei>
+ <44772E19.5030907@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:30388 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750782AbWEZR4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 13:56:13 -0400
-To: "Majid Khan" <majidkk@gmail.com>
-In-Reply-To: <a656c20605260823o1c894411t88a76c23d7855406@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, James Morris <jmorris@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <44772E19.5030907@hp.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 26 May 2006, Paul Moore wrote:
 
-> Can somebody provide me with some information on how to configure my
-> SMP system so that both processors share the network traffic load.
+> The NetLabel netlink protocol does have a "version" message which can be
+> used to get the version.  My main reason for doing this is not to signal
+> changes to existing messages, i.e. break backward compatability, but to
+> signal to user space applications that the kernel supports a newer protocol.
+> 
+> The printk() above is just informative, if that is your main concern I
+> can yank it.
 
-You would need multiple active incoming network interfaces. 
-Linux right now doesn't support load balancing from a single interrupt.
-Even if it did that would likely require hardware support for MSI-X.
+Yes, please do.  Linux kernel subsystems don't have versions, use the main 
+kernel version if you need to.
 
-> My second question was that if there is any known method to gracefully
-> handle failures in a netfilter module. Currently any failure in
-> netfilter would cause the kernel panic.
 
-Write a user space module using nf queue? 
-
--Andi
- 
+- James
+-- 
+James Morris
+<jmorris@namei.org>
