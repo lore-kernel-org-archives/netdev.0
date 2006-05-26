@@ -1,61 +1,48 @@
-From: "Ron Mercer" <ron.mercer@qlogic.com>
-Subject: [RFC] new qla3xxx NIC Driver v2.02.00k29 (repost)
-Date: Fri, 26 May 2006 12:46:20 -0700
-Message-ID: <0BB3E5E7462EEA4295BC02D49691DC070D372D@AVEXCH1.qlogic.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Wireless patches to push for 2.6.18?
+Date: Fri, 26 May 2006 15:59:00 -0400
+Message-ID: <20060526195855.GD32487@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-driver@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.qlogic.com ([198.70.193.2]:50948 "EHLO avexch1.qlogic.com")
-	by vger.kernel.org with ESMTP id S1751341AbWEZTqX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 May 2006 15:46:23 -0400
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>
+Received: from ra.tuxdriver.com ([24.172.12.4]:51723 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751408AbWEZT7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 15:59:07 -0400
+Received: from bilbo.hq.tuxdriver.com (azure.tuxdriver.com [24.172.12.5])
+	by ra.tuxdriver.com (8.13.6/8.13.6) with ESMTP id k4QJx0i8012537
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 26 May 2006 15:59:01 -0400
+Received: from bilbo.hq.tuxdriver.com (localhost.localdomain [127.0.0.1])
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k4QJx0h7010735
+	for <netdev@vger.kernel.org>; Fri, 26 May 2006 15:59:00 -0400
+Received: (from linville@localhost)
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k4QJx0QF010733
+	for netdev@vger.kernel.org; Fri, 26 May 2006 15:59:00 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reposted with corrected URL.
+As David M. so recently reminded us, 2.6.17 is likely to be blessed soon.
+That will open a short merge window for non-"fixes" to go into 2.6.18.
 
-All,
+Along w/ the patches currently on the 'upstream' branch, I'd like to
+see some of the the drivers hanging-out only on the 'master' branch
+of wireless-2.6 to get polished-up and pushed-out.  What do you think
+are the best candidates?
 
-Third submission for the upstream inclusion of the qla3xxx Ethernet
-driver. This is a complementary network driver for our ISP4XXX parts.
-There is a concurrent effort underway to get the iSCSI driver (qla4xxx)
-integrated upstream as well.
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/master/
 
-The following files are included and have been posted to the link below:
+Anyone have anything else they are holding-back for 2.6.18?  What about
+the wireless button infrastructure Ivo posted yesterday?  Is that
+useful for any of the drivers currently in wireless-2.6?
 
-qla3xxxsrc-v2.02.00k29.tgz
+I was caught a bit 'flat-footed' for the 2.6.17 merge window.
+I'd like to be prepared for this one... :-)
 
-ftp://ftp.qlogic.com/outgoing/linux/network/upstream/20.02.00k29/
+Thanks!
 
-Second submission:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114780280407707&w=2
-
-Comments from second submission:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114782208808695&w=2
-
-
-
-Changes in this release:
-- Reordered code to remove forward declarations.
-- Removed typedefs.
-- Changed inter-driver hardware lock to use wait_event().
-- Removed macros defined inside structure definitions.
-- Removed volatile usage.
-- Removed wrapper RD_REG_READ/WRITE macros for readl/writel
-- Bug fix for msi logic.
-- Removed unused debug print functions.
-- probe now propagates error codes from api to caller.
-- Removed internal send queue and lock dependency.
-
-
-Looking forward to any and all feedback.
-
-Regards,
-
-Ron Mercer
-Qlogic Corporation
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
