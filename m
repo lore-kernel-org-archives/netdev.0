@@ -1,62 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/3] pci: gt96100eth avoid pci_find_device
-Date: Thu, 25 May 2006 20:37:55 -0400
-Message-ID: <44764DE3.5090506@pobox.com>
-References: <20060526001155.4828DC7C5E@atrey.karlin.mff.cuni.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 6610] New: dummy interface broadcast destination hardware address is not ff:ff:ff:ff:ff:ff
+Date: Fri, 26 May 2006 10:43:24 +1000
+Message-ID: <20060526004324.GA762@gondor.apana.org.au>
+References: <20060523.165343.104035136.davem@davemloft.net> <E1Fihtm-0003dO-00@gondolin.me.apana.org.au> <20060525.151602.102574435.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	stevel@mvista.com, source@mvista.com
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:3259 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965218AbWEZAiB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 May 2006 20:38:01 -0400
-To: Jiri Slaby <jirislaby@gmail.com>
-In-Reply-To: <20060526001155.4828DC7C5E@atrey.karlin.mff.cuni.cz>
+Received: from rhun.apana.org.au ([64.62.148.172]:16906 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965222AbWEZAoZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 May 2006 20:44:25 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060525.151602.102574435.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby wrote:
-> gt96100eth avoid pci_find_device
+On Thu, May 25, 2006 at 03:16:02PM -0700, David Miller wrote:
 > 
-> Change pci_find_device to safer pci_get_device.
-> 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-> 
-> ---
-> commit f656671e9da9d33bd7a2fb3f5c0d0f7009925698
-> tree b92c808b6a9eecce58b0f7b0ffe1237631dbd65a
-> parent 1d3b6caf027fe53351c645523587aeac40bc3e47
-> author Jiri Slaby <ku@bellona.localdomain> Fri, 26 May 2006 01:55:23 +0159
-> committer Jiri Slaby <ku@bellona.localdomain> Fri, 26 May 2006 01:55:23 +0159
-> 
->  drivers/net/gt96100eth.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/gt96100eth.c b/drivers/net/gt96100eth.c
-> index 2d24354..beac56d 100644
-> --- a/drivers/net/gt96100eth.c
-> +++ b/drivers/net/gt96100eth.c
-> @@ -613,9 +613,9 @@ static int gt96100_init_module(void)
->  	/*
->  	 * Stupid probe because this really isn't a PCI device
->  	 */
-> -	if (!(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-> +	if (!(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
->  	                            PCI_DEVICE_ID_MARVELL_GT96100, NULL)) &&
-> -	    !(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-> +	    !(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
->  		                    PCI_DEVICE_ID_MARVELL_GT96100A, NULL))) {
->  		printk(KERN_ERR __FILE__ ": GT96100 not found!\n");
->  		return -ENODEV;
+> Perhaps RTN_BROADCAST should take precedence over IFF_NOARP
+> (but not IFF_LOOPBACK)?  I'm talking about the code in
+> net/ipv4/arp.c that causes this behavior.
 
-Seems OK to me, though you may wish to use a pci_device_id list with 
-pci_match_[one_]device() here too.
+Sure, I don't see any harm in that.
 
-	Jeff
+However, I'm curious as to the purpose of all this.  What application
+is there for sending broadcasts through a dummy device with the
+Ethernet broadcast address?
 
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
