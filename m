@@ -1,96 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV6] ROUTE: Don't try less preferred routes for on-link
- routes.
-Date: Fri, 26 May 2006 20:01:56 +0900 (JST)
-Message-ID: <20060526.200156.83522671.yoshfuji@linux-ipv6.org>
-References: <Pine.SOC.4.61.0605261134250.18708@math.ut.ee>
-	<20060526.190856.33048221.yoshfuji@linux-ipv6.org>
-	<Pine.SOC.4.61.0605261344340.26383@math.ut.ee>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
+Date: Fri, 26 May 2006 07:09:55 -0400
+Message-ID: <4476E203.1080701@pobox.com>
+References: <20060526001053.D2349C7C58@atrey.karlin.mff.cuni.cz> <44764D4B.6050105@pobox.com> <4476D63E.8090207@gmail.com> <4476D6EC.4060501@pobox.com> <4476D95B.5030601@gmail.com> <4476DA5C.9080602@pobox.com> <4476DE47.7010907@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mroos@linux.ee, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+Cc: Greg KH <gregkh@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
+	mb@bu3sch.de, st3@riseup.net, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:34567 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751392AbWEZLBa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 May 2006 07:01:30 -0400
-To: davem@davemloft.net
-In-Reply-To: <Pine.SOC.4.61.0605261344340.26383@math.ut.ee>
+Received: from srv5.dvmed.net ([207.36.208.214]:31690 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751398AbWEZLKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 07:10:00 -0400
+To: Jiri Slaby <jirislaby@gmail.com>
+In-Reply-To: <4476DE47.7010907@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David,
-
-In article <Pine.SOC.4.61.0605261344340.26383@math.ut.ee> (at Fri, 26 May 2006 13:44:59 +0300 (EEST)), Meelis Roos <mroos@linux.ee> says:
-
-> >> The unreachable route works now but LAN routing still does not work.
-> >> Locally generated ICMPv6 packets that should go to LAN interface still
-> >> go to tun6to4.
-> >
-> > Please try this.
+Jiri Slaby wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
 > 
-> This works for both unreachable and LAN routes, thanks!
+> Jeff Garzik napsal(a):
+>> The point is that you don't need to loop over the table,
+>> pci_match_one_device() does that for you.
+> The problem is, that there is no such function, I think.
+> If you take a look at pci_dev_present:
 
-Please push this to 2.6.17-final.
+The function you want is pci_dev_present().
 
-Regards,
+	Jeff
 
--------
-[IPV6] ROUTE: Don't try less preferred routes for on-link routes.
 
-In addition to the real on-link routes, NONEXTHOP routes
-should be considered on-link.
 
-Problem reported by Meelis Roos <mroos@linux.ee>.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Acked-by: Meelis Roos <mroos@linux.ee>
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0190e39..8a77793 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -280,10 +280,13 @@ static int inline rt6_check_neigh(struct
- {
- 	struct neighbour *neigh = rt->rt6i_nexthop;
- 	int m = 0;
--	if (neigh) {
-+	if (rt->rt6i_flags & RTF_NONEXTHOP ||
-+	    !(rt->rt6i_flags & RTF_GATEWAY))
-+		m = 1;
-+	else if (neigh) {
- 		read_lock_bh(&neigh->lock);
- 		if (neigh->nud_state & NUD_VALID)
--			m = 1;
-+			m = 2;
- 		read_unlock_bh(&neigh->lock);
- 	}
- 	return m;
-@@ -292,15 +295,18 @@ static int inline rt6_check_neigh(struct
- static int rt6_score_route(struct rt6_info *rt, int oif,
- 			   int strict)
- {
--	int m = rt6_check_dev(rt, oif);
-+	int m, n;
-+		
-+	m = rt6_check_dev(rt, oif);
- 	if (!m && (strict & RT6_SELECT_F_IFACE))
- 		return -1;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
- #endif
--	if (rt6_check_neigh(rt))
-+	n = rt6_check_neigh(rt);
-+	if (n > 1)
- 		m |= 16;
--	else if (strict & RT6_SELECT_F_REACHABLE)
-+	else if (!n && strict & RT6_SELECT_F_REACHABLE)
- 		return -1;
- 	return m;
- }
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
