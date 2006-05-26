@@ -1,85 +1,101 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: ipv6 routing broken in 2.6.17-rc3,4
-Date: Fri, 26 May 2006 19:08:56 +0900 (JST)
-Message-ID: <20060526.190856.33048221.yoshfuji@linux-ipv6.org>
-References: <20060526.104001.96071021.yoshfuji@linux-ipv6.org>
-	<20060526.104245.106225873.yoshfuji@linux-ipv6.org>
-	<Pine.SOC.4.61.0605261134250.18708@math.ut.ee>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
+Date: Fri, 26 May 2006 12:19:19 +0159
+Message-ID: <4476D63E.8090207@gmail.com>
+References: <20060526001053.D2349C7C58@atrey.karlin.mff.cuni.cz> <44764D4B.6050105@pobox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: Greg KH <gregkh@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
+	mb@bu3sch.de, st3@riseup.net, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:33287 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751365AbWEZKI1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 May 2006 06:08:27 -0400
-To: mroos@linux.ee
-In-Reply-To: <Pine.SOC.4.61.0605261134250.18708@math.ut.ee>
+Received: from nf-out-0910.google.com ([64.233.182.184]:55667 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751351AbWEZKUP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 May 2006 06:20:15 -0400
+Received: by nf-out-0910.google.com with SMTP id h2so32197nfe
+        for <netdev@vger.kernel.org>; Fri, 26 May 2006 03:20:13 -0700 (PDT)
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44764D4B.6050105@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.SOC.4.61.0605261134250.18708@math.ut.ee> (at Fri, 26 May 2006 11:35:53 +0300 (EEST)), Meelis Roos <mroos@linux.ee> says:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> The unreachable route works now but LAN routing still does not work. 
-> Locally generated ICMPv6 packets that should go to LAN interface still 
-> go to tun6to4.
+Jeff Garzik napsal(a):
+> Jiri Slaby wrote:
+>> bcm43xx avoid pci_find_device
+>>
+>> Change pci_find_device to safer pci_get_device with support for more
+>> devices.
+>>
+>> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+>>
+>> ---
+>> commit 1d3b6caf027fe53351c645523587aeac40bc3e47
+>> tree ae37c86b633442cdf8a7a19ac287542724081c90
+>> parent ab3443d79c94d0ae6a9e020daefa4d29eccff50d
+>> author Jiri Slaby <ku@bellona.localdomain> Fri, 26 May 2006 01:49:12
+>> +0159
+>> committer Jiri Slaby <ku@bellona.localdomain> Fri, 26 May 2006
+>> 01:49:12 +0159
+>>
+>>  drivers/net/wireless/bcm43xx/bcm43xx_main.c |   20 ++++++++++++++++----
+>>  1 files changed, 16 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> index b488f77..56d2fc6 100644
+>> --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> @@ -2131,6 +2131,13 @@ out:
+>>      return err;
+>>  }
+>>  
+>> +#ifdef CONFIG_BCM947XX
+>> +static struct pci_device_id bcm43xx_ids[] = {
+>> +    { PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4324) },
+>> +    { 0 }
+>> +};
+>> +#endif
+>> +
+>>  static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
+>>  {
+>>      int res;
+>> @@ -2141,10 +2148,15 @@ static int bcm43xx_initialize_irq(struct
+>>  #ifdef CONFIG_BCM947XX
+>>      if (bcm->pci_dev->bus->number == 0) {
+>>          struct pci_dev *d = NULL;
+>> -        /* FIXME: we will probably need more device IDs here... */
+>> -        d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
+>> -        if (d != NULL) {
+>> -            bcm->irq = d->irq;
+>> +        struct pci_device_id *id = bcm43xx_ids;
+>> +        while (id->vendor) {
+>> +            d = pci_get_device(id->vendor, id->device, NULL);
+>> +            if (d != NULL) {
+>> +                bcm->irq = d->irq;
+>> +                pci_dev_put(d);
+>> +                break;
+> 
+> You'll want to use pci_match_device() or pci_match_one_device()
+> [I forget which one]
+Why? Matching is done by pci_get_device() or pci_get_subsys(), respectively.
+[pci_match_device() is for matching dev <-> drv, you meant pci_match_one_device()]
 
-Please try this.
+thanks,
+- --
+Jiri Slaby         www.fi.muni.cz/~xslaby
+\_.-^-._   jirislaby@gmail.com   _.-^-._/
+B67499670407CE62ACC8 22A032CC55C339D47A7E
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
 
-----
-[IPV6] ROUTE: Don't try less preferred routes for on-link routes.
-
-In addition to the real on-link routes, NONEXTHOP routes
-should be considered on-link.
-
-Problem reported by Meelis Roos <mroos@linux.ee>.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0190e39..8a77793 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -280,10 +280,13 @@ static int inline rt6_check_neigh(struct
- {
- 	struct neighbour *neigh = rt->rt6i_nexthop;
- 	int m = 0;
--	if (neigh) {
-+	if (rt->rt6i_flags & RTF_NONEXTHOP ||
-+	    !(rt->rt6i_flags & RTF_GATEWAY))
-+		m = 1;
-+	else if (neigh) {
- 		read_lock_bh(&neigh->lock);
- 		if (neigh->nud_state & NUD_VALID)
--			m = 1;
-+			m = 2;
- 		read_unlock_bh(&neigh->lock);
- 	}
- 	return m;
-@@ -292,15 +295,18 @@ static int inline rt6_check_neigh(struct
- static int rt6_score_route(struct rt6_info *rt, int oif,
- 			   int strict)
- {
--	int m = rt6_check_dev(rt, oif);
-+	int m, n;
-+		
-+	m = rt6_check_dev(rt, oif);
- 	if (!m && (strict & RT6_SELECT_F_IFACE))
- 		return -1;
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
- #endif
--	if (rt6_check_neigh(rt))
-+	n = rt6_check_neigh(rt);
-+	if (n > 1)
- 		m |= 16;
--	else if (strict & RT6_SELECT_F_REACHABLE)
-+	else if (!n && strict & RT6_SELECT_F_REACHABLE)
- 		return -1;
- 	return m;
- }
-
-
---yoshfuji
+iD8DBQFEdtY+MsxVwznUen4RAkmFAJ9FFm6nCgnGCdZAcPqv2H99rBNMzwCeK3DA
+nPBv8s+ldDrSOpin+mGdDdg=
+=MBag
+-----END PGP SIGNATURE-----
