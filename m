@@ -1,39 +1,149 @@
-From: "Majid Khan" <majidkk@gmail.com>
-Subject: Netfilter and SMP
-Date: Fri, 26 May 2006 11:23:37 -0400
-Message-ID: <a656c20605260823o1c894411t88a76c23d7855406@mail.gmail.com>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC 0/4] NetLabel
+Date: Fri, 26 May 2006 11:30:03 -0400
+Message-ID: <44771EFB.6030203@hp.com>
+References: <44760E29.4070407@hp.com> <Pine.LNX.4.64.0605251938360.27473@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, James Morris <jmorris@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0102.google.com ([66.249.82.204]:44967 "EHLO
-	wx-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1750880AbWEZPXi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 11:23:38 -0400
-Received: by wx-out-0102.google.com with SMTP id h27so62703wxd
-        for <netdev@vger.kernel.org>; Fri, 26 May 2006 08:23:37 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from atlrel9.hp.com ([156.153.255.214]:51111 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S1750917AbWEZPaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 11:30:07 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0605251938360.27473@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  I am developing a netfilter based application on an SMP (AMD 64;dual
-core) system (kernel 2.6).
-One thing that I noticed over a period of time was that most of the
-network traffic was handled by only one of the processor. Only under
-high network traffic (roughly 10,000 packet/sec or more) did the
-second processor got invloved invloved in traffic handling. Even then
-more than 90 percent of the traffic was being handled by one of the
-processor.
+James Morris wrote:
+> On Thu, 25 May 2006, Paul Moore wrote:
+>>This patch introduces a new kernel feature designed to support labeled
+>>networking protocols such as RIPSO and CIPSO.  These protocols are required to
+>>interoperate with existing "trusted" operating systems such as Trusted
+>>Solaris.
+> 
+> A few initial comments.
+> 
+> - Did you decide that you definitely need to verify labels on fragments?  
+> 
+> I can see the code's been added to do that, but wonder about a comment 
+> made during earlier discussion that mislabeled fragments could only come 
+> from a misbehaving trusted system.  What is the threat model here?
+> 
 
-Can somebody provide me with some information on how to configure my
-SMP system so that both processors share the network traffic load.
+This is one part of the patch that I really don't have a strong feeling
+for either way.  There was some concern on the LSM list that not
+checking the fragment options might be an issue so I added some code to
+check the fragment options.  Personally I think we are probably okay
+without it as the un-autenticated/un-verified nature of these labeling
+protocols more or less requires either a trusted network/hosts.
 
-My second question was that if there is any known method to gracefully
-handle failures in a netfilter module. Currently any failure in
-netfilter would cause the kernel panic.
+If the community decides that this check is not required then I can
+simply drop all of the changes in ip_fragment.c.
 
-Regards,
-Majid
+> - Can you explain how module loading and module refcounting for these 
+> modules work?  (e.g. what causes netlabel_cipso_v4 to be loaded, is it 
+> always safe to unload if the refcount is zero?)
+
+Heh, not really :)
+
+This is part of the "not ready for submission" qualifier I mentioned at
+the top of my post.  Honestly I'm not sure it makes sense to have this
+code as a loadable module anyway I just used some of the module bits as
+it was the first example of code that I saw in the kernel which would
+call init/exit functions.
+
+If people think that this code should be made into a fully
+loadable/unloadable module then there is definitely more work to be done
+in this area as I really haven't looked into it too deeply.  However, if
+people are okay with it not being a module then I will find a proper way
+of doing initialization without using the module bits.
+
+Sorry for the confusion, I forgot to mention it earlier.
+
+> - What about user APIs for setting and retrieving labels?
+
+The NetLabel mechanism supports getting the labels off of a packet
+directly or from the top most packet on the incoming socket queue.  I
+have left it up to the LSM to decide how to expose that functionality to
+the user.  In SELinux this is done by using the SO_PEERSEC option
+similar to how you would do it if you were using the IPsec SA labeling.
+ It works by looking at the top most packet in the socket receive queue
+for TCP and at the packet itself for UDP.
+
+You can set/reset the label by calling the NetLabel function to set the
+label of a socket; right now the label of outgoing packets is tightly
+tied to the label of the socket from which they were sent.  The NetLabel
+code does support changing the label of a socket but I have not added
+the code to SELinux to support that because I am not clear that is a
+good thing to do from a SELinux point of view, currently the label is
+set when the socket is created.  However, should people decide this is a
+good thing, one possibility would be to enable the SO_PEERSEC option for
+setsockopt().
+
+> - What about labeling of kernel-generated packets?
+
+Kernel generated packets which are created in response to an incoming
+packet, i.e. ICMP errors, get the label of the packet which caused the
+response.  This seems to be correct from the draft's point of view as
+well as several people on the LSM list.
+
+There may be an issue with packets generated by the kernel directly and
+not as a result of an incoming packet but I can't think of a case where
+this would happen (although I suspect I am just not thinking hard
+enough).  Do you have a scenario in mind?
+
+> - Don't put #ifdef'd code into mainline code.
+> 
+> e.g. in net/ipv4/ip_fragment.c
+> 
+> +#ifdef CONFIG_NETLABEL_CIPSOV4
+> +       if (sopt->cipso) {
+> 
+> This needs to be a function which is compiled away as a static inline when 
+> not selected.  This stuff should have zero impact on the networking code 
+> if not enabled.
+
+Okay.  I suspect this code will go away, but just for my own education
+were you thinking of something like this?
+
+static inline int my_func(void)
+#ifdef CONFIG_NETLABEL_CIPSOV4
+	/* real stuff */
+#else
+	/* compile away into a zero */
+	return 0;
+#endif
+}
+
+... or something else?
+
+> - Try and add entries for security/selinux/nlmsgtab.c for the new Netlink 
+> protocol.
+>
+> - This does not follow normal kernel coding practices:
+> 
+> {snip}
+> 
+> - This kind of stuff should be removed before merging:
+> 
+> {snip}
+> 
+
+Okay.
+
+> - Why does this module have a version number?
+> 
+> +       printk(KERN_INFO "NetLabel: Initializing (v%s %s)\n",
+> +              NETLBL_VER_STR, NETLBL_VER_DATE);
+> 
+
+The version number is there primarily to help signal possible
+differences in the NetLabel netlink protocol.
+
+-- 
+paul moore
+linux security @ hp
