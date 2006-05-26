@@ -1,36 +1,51 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC 0/4] NetLabel
-Date: Fri, 26 May 2006 14:56:54 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605261455490.4386@d.namei>
-References: <44760E29.4070407@hp.com> <Pine.LNX.4.64.0605251938360.27473@d.namei>
- <44771EFB.6030203@hp.com> <Pine.LNX.4.64.0605261156030.3103@d.namei>
- <44772E19.5030907@hp.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] GRE: fixup gre_keymap_lookup() return type
+Date: Fri, 26 May 2006 23:07:16 +0400
+Message-ID: <20060526190716.GA7266@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, James Morris <jmorris@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <44772E19.5030907@hp.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.187]:58030 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751291AbWEZTH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 May 2006 15:07:29 -0400
+Received: by nf-out-0910.google.com with SMTP id n29so116588nfc
+        for <netdev@vger.kernel.org>; Fri, 26 May 2006 12:07:28 -0700 (PDT)
+To: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 May 2006, Paul Moore wrote:
+GRE keys are 16-bit wide.
 
-> The NetLabel netlink protocol does have a "version" message which can be
-> used to get the version.  My main reason for doing this is not to signal
-> changes to existing messages, i.e. break backward compatability, but to
-> signal to user space applications that the kernel supports a newer protocol.
-> 
-> The printk() above is just informative, if that is your main concern I
-> can yank it.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Yes, please do.  Linux kernel subsystems don't have versions, use the main 
-kernel version if you need to.
+ net/ipv4/netfilter/ip_conntrack_proto_gre.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
+--- a/net/ipv4/netfilter/ip_conntrack_proto_gre.c
++++ b/net/ipv4/netfilter/ip_conntrack_proto_gre.c
+@@ -77,10 +77,10 @@ static inline int gre_key_cmpfn(const st
+ }
+ 
+ /* look up the source key for a given tuple */
+-static u_int32_t gre_keymap_lookup(struct ip_conntrack_tuple *t)
++static __be16 gre_keymap_lookup(struct ip_conntrack_tuple *t)
+ {
+ 	struct ip_ct_gre_keymap *km;
+-	u_int32_t key = 0;
++	__be16 key = 0;
+ 
+ 	read_lock_bh(&ip_ct_gre_lock);
+ 	km = LIST_FIND(&gre_keymap_list, gre_key_cmpfn,
+@@ -190,7 +190,7 @@ static int gre_pkt_to_tuple(const struct
+ 			   struct ip_conntrack_tuple *tuple)
+ {
+ 	struct gre_hdr_pptp _pgrehdr, *pgrehdr;
+-	u_int32_t srckey;
++	__be16 srckey;
+ 	struct gre_hdr _grehdr, *grehdr;
+ 
+ 	/* first only delinearize old RFC1701 GRE header */
 
-- James
--- 
-James Morris
-<jmorris@namei.org>
