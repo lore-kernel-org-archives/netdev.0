@@ -1,50 +1,50 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
-Date: Fri, 26 May 2006 12:53:36 +0159
-Message-ID: <4476DE47.7010907@gmail.com>
-References: <20060526001053.D2349C7C58@atrey.karlin.mff.cuni.cz> <44764D4B.6050105@pobox.com> <4476D63E.8090207@gmail.com> <4476D6EC.4060501@pobox.com> <4476D95B.5030601@gmail.com> <4476DA5C.9080602@pobox.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 3/4] myri10ge - Driver core
+Date: Fri, 26 May 2006 20:56:04 +1000
+Message-ID: <1148640964.8089.147.camel@localhost.localdomain>
+References: <20060517220218.GA13411@myri.com>
+	 <20060523153928.GB5938@krispykreme>
+	 <1148543810.13249.265.camel@localhost.localdomain>
+	 <200605261149.18415.netdev@axxeo.de>
+	 <1148637720.8089.145.camel@localhost.localdomain>
+	 <4476D8E3.40101@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	mb@bu3sch.de, st3@riseup.net, linville@tuxdriver.com
+Cc: Ingo Oeser <netdev@axxeo.de>, Anton Blanchard <anton@samba.org>,
+	Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
+	gallatin@myri.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:19389 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751390AbWEZKyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 May 2006 06:54:22 -0400
-Received: by nf-out-0910.google.com with SMTP id p48so34250nfa
-        for <netdev@vger.kernel.org>; Fri, 26 May 2006 03:54:21 -0700 (PDT)
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4476DA5C.9080602@pobox.com>
+Received: from gate.crashing.org ([63.228.1.57]:56756 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S932195AbWEZK4Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 06:56:25 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <4476D8E3.40101@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Fri, 2006-05-26 at 06:30 -0400, Jeff Garzik wrote:
+> Benjamin Herrenschmidt wrote:
+> >>> No proper interface exposed, he'll have to do an #ifdef powerpc here or
+> >>> such and use __ioremap with explicit page attributes. I have a hack to
+> >>> do that automatically for memory covered by prefetchable PCI BARs when
+> >>> mmap'ing from userland but not for kernel ioremap.
+> >> Stupid question: pci_iomap() is NOT what you are looking for, right?
+> >>
+> >> Implementation is at the end of lib/iomap.c
+> > 
+> > No, there is no difference there, pci_iomap won't help for passing in
+> > platform specific page attributes for things like write combining.
+> 
+> Since we already have ioremap_nocache(), maybe adding ioremap_wcomb() is 
+> appropriate?
 
-Jeff Garzik napsal(a):
-> The point is that you don't need to loop over the table,
-> pci_match_one_device() does that for you.
-The problem is, that there is no such function, I think.
-If you take a look at pci_dev_present:
-http://sosdg.org/~coywolf/lxr/source/drivers/pci/search.c#L270
-They traverse the table in similar way as I do.
+Yes, but be careful there.. on ppc, not setting the page "guarded" bit
+will enable write combining on various CPUs but will also enable
+speculative reads, prefetch, etc... so it's not "just" WC, you have to
+know for sure what you are doing with that memory (basically, enable
+side-effects).
 
-pci_match_one_device() just checks (one to one) values without any looping.
+Ben.
 
-regards,
-- --
-Jiri Slaby         www.fi.muni.cz/~xslaby
-\_.-^-._   jirislaby@gmail.com   _.-^-._/
-B67499670407CE62ACC8 22A032CC55C339D47A7E
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
 
-iD8DBQFEdt5HMsxVwznUen4RAqt8AJ9pzaDey2zn399lrahelv17w8IiDgCguUwa
-4xOX7pUX2Au/WBsbJbnNwBE=
-=P1cu
------END PGP SIGNATURE-----
