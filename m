@@ -1,61 +1,109 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
-Date: Fri, 26 May 2006 13:51:28 +0159
-Message-ID: <4476EBD7.3060506@gmail.com>
-References: <20060526001053.D2349C7C58@atrey.karlin.mff.cuni.cz> <4476D6EC.4060501@pobox.com> <4476D95B.5030601@gmail.com> <200605261349.56011.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Greg KH <gregkh@suse.de>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-        st3@riseup.net, linville@tuxdriver.com
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH 6/9] ixgb: remove inlines, allow compiler to choose
+Date: Fri, 26 May 2006 09:52:07 -0700
+Message-ID: <20060526165207.30514.66657.stgit@gitlost.site>
+References: <20060526165124.30514.78477.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+        "Kok, Auke" <auke-jan.h.kok@intel.com>,
+        "Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:19529 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932355AbWEZLwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 May 2006 07:52:16 -0400
-Received: by nf-out-0910.google.com with SMTP id h2so45234nfe
-        for <netdev@vger.kernel.org>; Fri, 26 May 2006 04:52:15 -0700 (PDT)
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200605261349.56011.mb@bu3sch.de>
+Received: from [63.64.152.142] ([63.64.152.142]:33798 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1751136AbWEZQrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 12:47:03 -0400
+To: "Garzik, Jeff" <jgarzik@pobox.com>
+In-Reply-To: <20060526165124.30514.78477.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
 
-Michael Buesch napsal(a):
-> On Friday 26 May 2006 12:33, you wrote:
->>>>>> --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
->>>>>> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
->>>>>> @@ -2131,6 +2131,13 @@ out:
->>>>>>      return err;
->>>>>>  }
->>>>>>
->>>>>> +#ifdef CONFIG_BCM947XX
->>>>>> +static struct pci_device_id bcm43xx_ids[] = {
-> 
-> Call it
-> static struct pci_device_id bcm43xx_47xx_ids[] = {
-> please.
-> 
-> And; _important_; if you submit this change, _also_
-> do a patch against the devicescape version of the driver in
-> John Linville's wireless-dev tree
-> drivers/net/wireless/d80211/bcm43xx
-> in the tree at git://kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
-Ok, thanks.
+deinline a few large functions as to allow the compiler to pick.
 
-- --
-Jiri Slaby         www.fi.muni.cz/~xslaby
-\_.-^-._   jirislaby@gmail.com   _.-^-._/
-B67499670407CE62ACC8 22A032CC55C339D47A7E
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+---
 
-iD8DBQFEduvXMsxVwznUen4RAqQcAJ9j870AGMn5jXW68tEQHZXltAenmQCfX9Ik
-oyRfuNnKxGHu8HGVvcDVJHM=
-=/NUD
------END PGP SIGNATURE-----
+ drivers/net/ixgb/ixgb_main.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index a714c4d..037b5c3 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -203,7 +203,7 @@ module_exit(ixgb_exit_module);
+  * @adapter: board private structure
+  **/
+ 
+-static inline void
++static void
+ ixgb_irq_disable(struct ixgb_adapter *adapter)
+ {
+ 	atomic_inc(&adapter->irq_sem);
+@@ -217,7 +217,7 @@ ixgb_irq_disable(struct ixgb_adapter *ad
+  * @adapter: board private structure
+  **/
+ 
+-static inline void
++static void
+ ixgb_irq_enable(struct ixgb_adapter *adapter)
+ {
+ 	if(atomic_dec_and_test(&adapter->irq_sem)) {
+@@ -918,7 +918,7 @@ ixgb_free_tx_resources(struct ixgb_adapt
+ 	adapter->tx_ring.desc = NULL;
+ }
+ 
+-static inline void
++static void
+ ixgb_unmap_and_free_tx_resource(struct ixgb_adapter *adapter,
+ 					struct ixgb_buffer *buffer_info)
+ {
+@@ -1179,7 +1179,7 @@ ixgb_watchdog(unsigned long data)
+ #define IXGB_TX_FLAGS_VLAN		0x00000002
+ #define IXGB_TX_FLAGS_TSO		0x00000004
+ 
+-static inline int
++static int
+ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ {
+ #ifdef NETIF_F_TSO
+@@ -1241,7 +1241,7 @@ ixgb_tso(struct ixgb_adapter *adapter, s
+ 	return 0;
+ }
+ 
+-static inline boolean_t
++static boolean_t
+ ixgb_tx_csum(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ {
+ 	struct ixgb_context_desc *context_desc;
+@@ -1279,7 +1279,7 @@ ixgb_tx_csum(struct ixgb_adapter *adapte
+ #define IXGB_MAX_TXD_PWR	14
+ #define IXGB_MAX_DATA_PER_TXD	(1<<IXGB_MAX_TXD_PWR)
+ 
+-static inline int
++static int
+ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
+ 	    unsigned int first)
+ {
+@@ -1346,7 +1346,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter
+ 	return count;
+ }
+ 
+-static inline void
++static void
+ ixgb_tx_queue(struct ixgb_adapter *adapter, int count, int vlan_id,int tx_flags)
+ {
+ 	struct ixgb_desc_ring *tx_ring = &adapter->tx_ring;
+@@ -1849,7 +1849,7 @@ ixgb_clean_tx_irq(struct ixgb_adapter *a
+  * @sk_buff: socket buffer with received data
+  **/
+ 
+-static inline void
++static void
+ ixgb_rx_checksum(struct ixgb_adapter *adapter,
+ 		 struct ixgb_rx_desc *rx_desc,
+ 		 struct sk_buff *skb)
+
+
+
+--
+Auke Kok <auke-jan.h.kok@intel.com>
