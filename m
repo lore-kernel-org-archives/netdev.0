@@ -1,43 +1,29 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Refactor Netlink connector?
-Date: Sat, 27 May 2006 13:21:05 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605271303050.13104@d.namei>
-References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru>
- <Pine.LNX.4.64.0605271223390.12872@d.namei>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] via-velocity: allow MTU size less than 1500 bytes
+Date: Sat, 27 May 2006 21:31:18 +0200
+Message-ID: <20060527193118.GA7998@electric-eye.fr.zoreil.com>
+References: <1148393221.2479.29.camel@osprey.hogchain.net> <4477B76B.70700@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	tgraf@suug.ch, Stephen Smalley <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:29393 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S964911AbWE0RVI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 May 2006 13:21:08 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <Pine.LNX.4.64.0605271223390.12872@d.namei>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44489 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750943AbWE0TdX
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 May 2006 15:33:23 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <4477B76B.70700@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 27 May 2006, James Morris wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> ACK, but patch won't apply:
 
-> One of the problems is that different Netlink protocols bury their 
-> commands at different levels, so the SELinux code has to know how how deep 
-> to dig (and then do the digging) to determine exactly which command is 
-> being called.
+I have regenerated it against mainline. It can be pulled from the repository
 
-Actually, a possible solution here is to completely remove all internal 
-knowledge of netlink messages from SELinux and have the netfilter 
-framework and protocols provide methods to determine message types and 
-permissions.
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git velocity
 
-One of the issues still to resolve for SELinux and generic netlink is that 
-we don't know what the netlink protocol for the socket really is until 
-messages are sent over it, so some socket-level perms for NETLINK_GENERIC 
-will have to be handed out to all potential users (although actual 
-transfer of data can be mediated at a finer granularity).
-
-
-- James
 -- 
-James Morris
-<jmorris@namei.org>
+Ueimor
