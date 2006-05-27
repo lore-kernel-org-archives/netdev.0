@@ -1,76 +1,98 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] eth1394: endian fixes
-Date: Sat, 27 May 2006 09:40:19 -0700
-Message-ID: <20060527094019.4d451093@localhost.localdomain>
-References: <20060519132539.GC17751@mipter.zuzino.mipt.ru>
-	<44782474.9050304@s5r6.in-berlin.de>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Refactor Netlink connector?
+Date: Sat, 27 May 2006 12:45:15 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605271223390.12872@d.namei>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56519 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964873AbWE0Qki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 May 2006 12:40:38 -0400
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-In-Reply-To: <44782474.9050304@s5r6.in-berlin.de>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:54440 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964913AbWE0QpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 May 2006 12:45:18 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060527134629.GA16306@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 27 May 2006 12:05:40 +0200
-Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
+On Sat, 27 May 2006, Evgeniy Polyakov wrote:
 
-> Alexey Dobriyan wrote on 2006-05-16:
-> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ...
-> > @@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
-> >  		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
-> >  		arp_ptr += arp->ar_pln;		/* skip over sender IP addr */
-> >  
-> > -		if (arp->ar_op == 1)
-> > +		if (arp->ar_op == htons(1))
-> >  			/* just set ARP req target unique ID to 0 */
-> >  			*((u64*)arp_ptr) = 0;
-> >  		else
+> > connector (the w1 driver) to use generic Netlink?
 > 
-> I suggest __constant_htons(ARPOP_REQUEST).
+> Process accounting, CIFS and OFS netfilter module use it too.
 
-No. That is only for initializers and switch cases. Otherwise, it
-adds unnecessary verbosity.  The htons() does the right thing automatically.
+w1 is the only in-tree thing I can see using any of the exported connector 
+symbols.  I can see that cifs has included a connector header but not how 
+it's using the API.
+
+> As long as quite a lot of out of the tree projects.
+
+Out of tree code does not count.
 
 > 
-> > @@ -1395,7 +1395,7 @@ static inline void ether1394_arp_to_1394
-> >  /* We need to encapsulate the standard header with our own. We use the
-> >   * ethernet header's proto for our own. */
-> >  static inline unsigned int ether1394_encapsulate_prep(unsigned int max_payload,
-> > -						      int proto,
-> > +						      __be16 proto,
-> >  						      union eth1394_hdr *hdr,
-> >  						      u16 dg_size, u16 dgl)
-> >  {
-> > @@ -1626,7 +1626,7 @@ static int ether1394_tx (struct sk_buff 
-> >  	gfp_t kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
-> >  	struct eth1394hdr *eth;
-> >  	struct eth1394_priv *priv = netdev_priv(dev);
-> > -	int proto;
-> > +	__be16 proto;
-> >  	unsigned long flags;
-> >  	nodeid_t dest_node;
-> >  	eth1394_tx_type tx_type;
+> > I suspect that some of the nfnetlink infrastructure can be used more 
+> > generically, and that a simple API for the common case of kernel->user 
+> > event notifications could be also be provided.
+> >
+> > Thoughts?
 > 
-> Alexey, I am afraid none of the current 1394 developers is actively 
-> using eth1394. Did you have the chance to test your patch on different 
-> platforms and with different peer OSs/platforms?
-> 
-> Also, did someone of the netdev guys already forward the patch (since we 
-> 1394 people are slow and eth1394 is marked unmaintained)? If not, I 
-> could send it along with a few other 1394 patches to akpm soon.
-> -- 
-> Stefan Richter
-> -=====-=-==- -=-= ==-==
-> http://arcgraph.de/sr/
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I would like to ask, how LSM labeling supposed to work with encapsulated
+> netlink traffic. 
+
+This is the problem I'm trying to solve in the general case.
+
+Have a look at security/selinux/nlmsgtab.c, which includes lookups table 
+for Netlink messages vs. permissions.
+
+Currently this only covers plain netlink families, and should eventually 
+work ok for encapsulated protocols as long as we know about them and can 
+identify them (e.g. the genl->family field).
+
+A further possibility is allowing netfilter protocols to register their 
+own permission tables.
+
+One of the problems is that different Netlink protocols bury their 
+commands at different levels, so the SELinux code has to know how how deep 
+to dig (and then do the digging) to determine exactly which command is 
+being called.
+
+e.g. TIPC only registers one genl_ops and embeds all commands inside 
+TIPC_GENL_CMD, while unencapsulated netlink protocols use the nlmsg_type 
+field of the actual netlink header.
+
+It's inconsistent.
+
+Actually, if people are going to use genl this way, perhaps we can get rid 
+of dynamic genl_ops registration.  Alternatively, require that modules use 
+a different genl_ops for each type of command (not possible now for TIPC 
+as it's already in-tree).
+
+
+> Will SELinux (for example) have some rules to allow w1 packets and block 
+> other for the same socket type?
+
+Yes, once userspace policy is updated to include support for the w1 
+netlink socket, otherwise it will fall through to generic netlink perms.
+
+
+> And what happens when the same socket start to send packets with
+> different strucutre or some new protocol will be added? 
+> Should it consult with SELinux so it updated it's security processing code?
+
+This is where allowing protocols to register their own message perms would 
+make things work automatically: add a new message type and then signify 
+whether it's read, write or readpriv.
+
+
+> Or LSM supposed to work only on top of socket numbers (which could be
+> the best) and just control "raw" netlink messages?
+
+It can work at that level, too, by falling back to generic netlink perms.
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
