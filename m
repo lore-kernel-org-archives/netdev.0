@@ -1,119 +1,89 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: CRC16 in rt2x00
-Date: Sat, 27 May 2006 16:24:07 +0200
-Message-ID: <200605271624.11062.IvDoorn@gmail.com>
-References: <200605271327.18879.IvDoorn@gmail.com> <20060527175516.600f450c.vsu@altlinux.ru>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] eth1394: endian fixes
+Date: Sat, 27 May 2006 20:12:49 +0400
+Message-ID: <20060527161249.GA7276@martell.zuzino.mipt.ru>
+References: <20060519132539.GC17751@mipter.zuzino.mipt.ru> <44782474.9050304@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart71801858.esnjWnKngk";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:49361 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.187]:12964 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751535AbWE0OVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 May 2006 10:21:31 -0400
-Received: by nf-out-0910.google.com with SMTP id l36so38275nfa
-        for <netdev@vger.kernel.org>; Sat, 27 May 2006 07:21:30 -0700 (PDT)
-To: Sergey Vlasov <vsu@altlinux.ru>
-In-Reply-To: <20060527175516.600f450c.vsu@altlinux.ru>
+	id S964787AbWE0QMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 May 2006 12:12:25 -0400
+Received: by nf-out-0910.google.com with SMTP id i2so39735nfe
+        for <netdev@vger.kernel.org>; Sat, 27 May 2006 09:12:23 -0700 (PDT)
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Disposition: inline
+In-Reply-To: <44782474.9050304@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart71801858.esnjWnKngk
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On Saturday 27 May 2006 15:55, Sergey Vlasov wrote:
-> On Sat, 27 May 2006 13:27:15 +0200 Ivo van Doorn wrote:
->=20
-> > I have a small question about the CRC16 usage in rt2x00
-> > and what the netdev preferred method is for this.
-> >=20
-> > At the moment the rt2x00 drivers in wireless-dev use
-> > its own CRC16 table and calculation inside the driver.
-> > There already is a CRC16 library in the kernel
-> > which uses the 0x8005 table, while rt2x00 uses the
-> > 0x1021 polynomial table.
-> >=20
-> > Is keeping this version of CRC16 inside rt2x00 the most
-> > sensible thing to do? Or should it be moved to the lib
-> > folder of the kernel so other drivers could make use of it as well?
-> > (So far I have not found a driver which makes use
-> > of the same CRC16 table)
->=20
-> However, fs/udf/crc.c has exactly the same CRC table as rt2x00:
->=20
-> static uint16_t crc_table[256] =3D {
->         0x0000U, 0x1021U, 0x2042U, 0x3063U, 0x4084U, 0x50a5U, 0x60c6U, 0x=
-70e7U,
+On Sat, May 27, 2006 at 12:05:40PM +0200, Stefan Richter wrote:
+> Alexey Dobriyan wrote on 2006-05-16:
+> >Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 > ...
->         0x6e17U, 0x7e36U, 0x4e55U, 0x5e74U, 0x2e93U, 0x3eb2U, 0x0ed1U, 0x=
-1ef0U
-> };
->=20
-> /*     =20
->  * udf_crc
->  *     =20
->  * PURPOSE
->  *      Calculate a 16-bit CRC checksum using ITU-T V.41 polynomial.
->  *     =20
->  * DESCRIPTION
->  *      The OSTA-UDF(tm) 1.50 standard states that using CRCs is mandator=
-y.
->  *      The polynomial used is: x^16 + x^12 + x^15 + 1
->  *
->  * PRE-CONDITIONS
->  *      data            Pointer to the data block.
->  *      size            Size of the data block.
->  *
->  * POST-CONDITIONS
->  *      <return>        CRC of the data block.
->  *
->  * HISTORY
->  *      July 21, 1997 - Andrew E. Mileski
->  *      Adapted from OSTA-UDF(tm) 1.50 standard.
->  */
->=20
-> This is a bit-reversed form of CRC-CCITT supported by lib/crc-ccitt.c.
-> Unfortunately, this does not help much, because converting one form to
-> the other is too expensive (you would need to reverse bits in all data
-> bytes, and then reverse bits in the 16-bit result).
->=20
-> BTW, there is more CRC code duplication in drivers/bluetooth/hci_bcsp.c
-> (bcsp_crc_update() seems to give the same result as crc_ccitt_byte()).
->=20
-> In drivers/media/dvb/frontends/nxt200x.c, nxt200x_crc() seems to give
-> the same result as rt2x00crc_byte() (but without using a table).
->=20
-> drivers/net/wan/cycx_drv.c:checksum() is also some mutated version of
-> CRC-CCITT (adding two additional zero bytes at the end of data makes it
-> return the same result as rt2x00crc()).
+> >@@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
+> > 		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
+> > 		arp_ptr += arp->ar_pln;		/* skip over sender IP addr 
+> > 		*/
+> > 
+> >-		if (arp->ar_op == 1)
+> >+		if (arp->ar_op == htons(1))
+> > 			/* just set ARP req target unique ID to 0 */
+> > 			*((u64*)arp_ptr) = 0;
+> > 		else
+> 
+> I suggest __constant_htons(ARPOP_REQUEST).
 
-Interesting, so it would actually be usefull to move the nxt200x crc16 impl=
-emetation
-into the crc16 library (Is not using a table preferred over using a table?)
-And make rt2x00 and fs/udf/crc.c make use of this library?
+OK. htons(ARPOP_REQUEST) should be enough. __constant_* really needed in
+initializators. Updated patch below.
 
-And perhaps hci_bcsp could be updated to use crc_ccitt_byte() instead?
+> Alexey, I am afraid none of the current 1394 developers is actively
+> using eth1394. Did you have the chance to test your patch on different
+> platforms and with different peer OSs/platforms?
 
-Regards,
+Unfortunately not.
 
-ivo
+> Also, did someone of the netdev guys already forward the patch (since we
+> 1394 people are slow and eth1394 is marked unmaintained)? If not, I
+> could send it along with a few other 1394 patches to akpm soon.
 
---nextPart71801858.esnjWnKngk
-Content-Type: application/pgp-signature
+[PATCH] eth1394: endian fixes
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-iD8DBQBEeGELaqndE37Em0gRAgacAJ0fs7mOT/O2BbrMhtyWpkVEmReBDACg2j9h
-7b3fZyW+4W3Yr4ZEKouPG1s=
-=l1Ik
------END PGP SIGNATURE-----
+ drivers/ieee1394/eth1394.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
---nextPart71801858.esnjWnKngk--
+--- a/drivers/ieee1394/eth1394.c
++++ 1/drivers/ieee1394/eth1394.c
+@@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
+ 		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
+ 		arp_ptr += arp->ar_pln;		/* skip over sender IP addr */
+ 
+-		if (arp->ar_op == 1)
++		if (arp->ar_op == htons(ARPOP_REQUEST))
+ 			/* just set ARP req target unique ID to 0 */
+ 			*((u64*)arp_ptr) = 0;
+ 		else
+@@ -1395,7 +1395,7 @@ static inline void ether1394_arp_to_1394
+ /* We need to encapsulate the standard header with our own. We use the
+  * ethernet header's proto for our own. */
+ static inline unsigned int ether1394_encapsulate_prep(unsigned int max_payload,
+-						      int proto,
++						      __be16 proto,
+ 						      union eth1394_hdr *hdr,
+ 						      u16 dg_size, u16 dgl)
+ {
+@@ -1626,7 +1626,7 @@ static int ether1394_tx (struct sk_buff 
+ 	gfp_t kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
+ 	struct eth1394hdr *eth;
+ 	struct eth1394_priv *priv = netdev_priv(dev);
+-	int proto;
++	__be16 proto;
+ 	unsigned long flags;
+ 	nodeid_t dest_node;
+ 	eth1394_tx_type tx_type;
+
