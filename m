@@ -1,32 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: add new PCI ID
-Date: Sat, 27 May 2006 13:39:19 +0200
-Message-ID: <20060527113919.GA1883@electric-eye.fr.zoreil.com>
-References: <20060525102446.572bb5ca.yoichi_yuasa@tripeaks.co.jp> <4477AFAB.6050405@garzik.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [1/4] [IPSEC] xfrm: Undo afinfo lock proliferation
+Date: Sat, 27 May 2006 21:05:19 +0900 (JST)
+Message-ID: <20060527.210519.119151107.yoshfuji@linux-ipv6.org>
+References: <20060527113236.GA4203@gondor.apana.org.au>
+	<20060527113345.GA4737@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43745 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751464AbWE0Lkh
+Received: from yue.linux-ipv6.org ([203.178.140.15]:42247 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751484AbWE0MEu
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 May 2006 07:40:37 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <4477AFAB.6050405@garzik.org>
+	Sat, 27 May 2006 08:04:50 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060527113345.GA4737@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jeff@garzik.org> :
-[...]
-> applied
+In article <20060527113345.GA4737@gondor.apana.org.au> (at Sat, 27 May 2006 21:33:45 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-$ grep 8129 drivers/net/*.[ch]
-[...]
-drivers/net/8139too.c:  {0x10ec, 0x8129, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 }
+> As far as I can gather it's an attempt to guard against the removal of
+> the corresponding modules.  Since neither module can be unloaded at all
+> we can leave it to whoever fixes up IPv6 unloading :)
 
-Not a big issue but I would be really surprized that it does trigger
-a few PR.
+I disagree. Please do not add another mess.
 
--- 
-Ueimor
+--yoshfuji
