@@ -1,55 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [4/4] [IPSEC] xfrm: Use IPPROTO_MAX instead of 256
-Date: Sat, 27 May 2006 21:35:50 +1000
-Message-ID: <20060527113550.GD4737@gondor.apana.org.au>
-References: <20060527113236.GA4203@gondor.apana.org.au>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: add new PCI ID
+Date: Sat, 27 May 2006 13:39:19 +0200
+Message-ID: <20060527113919.GA1883@electric-eye.fr.zoreil.com>
+References: <20060525102446.572bb5ca.yoichi_yuasa@tripeaks.co.jp> <4477AFAB.6050405@garzik.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="qGV0fN9tzfkG3CxV"
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:20492 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751477AbWE0Lfw
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43745 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751464AbWE0Lkh
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 May 2006 07:35:52 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+	Sat, 27 May 2006 07:40:37 -0400
+To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <20060527113236.GA4203@gondor.apana.org.au>
+In-Reply-To: <4477AFAB.6050405@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik <jeff@garzik.org> :
+[...]
+> applied
 
---qGV0fN9tzfkG3CxV
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+$ grep 8129 drivers/net/*.[ch]
+[...]
+drivers/net/8139too.c:  {0x10ec, 0x8129, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 }
 
-[IPSEC] xfrm: Use IPPROTO_MAX instead of 256
+Not a big issue but I would be really surprized that it does trigger
+a few PR.
 
-The size of the type_map array (256) comes from the number of IP protocols,
-i.e., IPPROTO_MAX.  This patch is based on a suggestion from Ingo Oeser.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---qGV0fN9tzfkG3CxV
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="p4.patch"
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -207,7 +207,7 @@ struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
- 	unsigned short		family;
--	struct xfrm_type	*type_map[256];
-+	struct xfrm_type	*type_map[IPPROTO_MAX];
- 	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
- 	struct dst_ops		*dst_ops;
- 	void			(*garbage_collect)(void);
-
---qGV0fN9tzfkG3CxV--
+Ueimor
