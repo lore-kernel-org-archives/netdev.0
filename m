@@ -1,81 +1,76 @@
-From: Sergey Vlasov <vsu@altlinux.ru>
-Subject: Re: CRC16 in rt2x00
-Date: Sat, 27 May 2006 20:30:59 +0400
-Message-ID: <20060527163059.GB14973@procyon.home>
-References: <200605271327.18879.IvDoorn@gmail.com> <20060527175516.600f450c.vsu@altlinux.ru> <200605271624.11062.IvDoorn@gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] eth1394: endian fixes
+Date: Sat, 27 May 2006 09:40:19 -0700
+Message-ID: <20060527094019.4d451093@localhost.localdomain>
+References: <20060519132539.GC17751@mipter.zuzino.mipt.ru>
+	<44782474.9050304@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="E39vaYmALEf/7YXx"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from master.altlinux.org ([62.118.250.235]:37125 "EHLO
-	master.altlinux.org") by vger.kernel.org with ESMTP id S964879AbWE0Qb1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 May 2006 12:31:27 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200605271624.11062.IvDoorn@gmail.com>
+Received: from smtp.osdl.org ([65.172.181.4]:56519 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964873AbWE0Qki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 May 2006 12:40:38 -0400
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+In-Reply-To: <44782474.9050304@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 27 May 2006 12:05:40 +0200
+Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
 
---E39vaYmALEf/7YXx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Alexey Dobriyan wrote on 2006-05-16:
+> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ...
+> > @@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
+> >  		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
+> >  		arp_ptr += arp->ar_pln;		/* skip over sender IP addr */
+> >  
+> > -		if (arp->ar_op == 1)
+> > +		if (arp->ar_op == htons(1))
+> >  			/* just set ARP req target unique ID to 0 */
+> >  			*((u64*)arp_ptr) = 0;
+> >  		else
+> 
+> I suggest __constant_htons(ARPOP_REQUEST).
 
-On Sat, May 27, 2006 at 04:24:07PM +0200, Ivo van Doorn wrote:
-> On Saturday 27 May 2006 15:55, Sergey Vlasov wrote:
-[skip]
-> > However, fs/udf/crc.c has exactly the same CRC table as rt2x00:
-[skip]
-> > This is a bit-reversed form of CRC-CCITT supported by lib/crc-ccitt.c.
-> > Unfortunately, this does not help much, because converting one form to
-> > the other is too expensive (you would need to reverse bits in all data
-> > bytes, and then reverse bits in the 16-bit result).
-> >=20
-> > BTW, there is more CRC code duplication in drivers/bluetooth/hci_bcsp.c
-> > (bcsp_crc_update() seems to give the same result as crc_ccitt_byte()).
-> >=20
-> > In drivers/media/dvb/frontends/nxt200x.c, nxt200x_crc() seems to give
-> > the same result as rt2x00crc_byte() (but without using a table).
-> >=20
-> > drivers/net/wan/cycx_drv.c:checksum() is also some mutated version of
-> > CRC-CCITT (adding two additional zero bytes at the end of data makes it
-> > return the same result as rt2x00crc()).
+No. That is only for initializers and switch cases. Otherwise, it
+adds unnecessary verbosity.  The htons() does the right thing automatically.
 
-More stealth CRC implementations:
-
-- drivers/ieee1394/csr.c:csr_crc16() - the same as rt2x00crc();
-
-- drivers/ieee1394/csr1212.c:csr1212_crc16() - again the same as
-  rt2x00crc(), except the final byteswap;
-
-- drivers/net/wireless/wavelan.c:psa_crc() is plain crc16(); it is
-  duplicated in drivers/net/wireless/wavelan_cs.c;
-
-- drivers/scsi/FlashPoint.c:FPT_CalcCrc16() is also crc16();
-
-> Interesting, so it would actually be usefull to move the nxt200x
-> crc16 implemetation into the crc16 library (Is not using a table
-> preferred over using a table?)
-
-Using a table is probably faster, but consumes more memory.
-
-> And make rt2x00 and fs/udf/crc.c make use of this library?
->=20
-> And perhaps hci_bcsp could be updated to use crc_ccitt_byte() instead?
-
---E39vaYmALEf/7YXx
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQFEeH7CW82GfkQfsqIRAiG9AJ9y7SFBktyQ/gBDR48+ym/6o78cxACfUad3
-4yZmFoS9pRTC3Scc+YX06Qs=
-=YTaU
------END PGP SIGNATURE-----
-
---E39vaYmALEf/7YXx--
+> 
+> > @@ -1395,7 +1395,7 @@ static inline void ether1394_arp_to_1394
+> >  /* We need to encapsulate the standard header with our own. We use the
+> >   * ethernet header's proto for our own. */
+> >  static inline unsigned int ether1394_encapsulate_prep(unsigned int max_payload,
+> > -						      int proto,
+> > +						      __be16 proto,
+> >  						      union eth1394_hdr *hdr,
+> >  						      u16 dg_size, u16 dgl)
+> >  {
+> > @@ -1626,7 +1626,7 @@ static int ether1394_tx (struct sk_buff 
+> >  	gfp_t kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
+> >  	struct eth1394hdr *eth;
+> >  	struct eth1394_priv *priv = netdev_priv(dev);
+> > -	int proto;
+> > +	__be16 proto;
+> >  	unsigned long flags;
+> >  	nodeid_t dest_node;
+> >  	eth1394_tx_type tx_type;
+> 
+> Alexey, I am afraid none of the current 1394 developers is actively 
+> using eth1394. Did you have the chance to test your patch on different 
+> platforms and with different peer OSs/platforms?
+> 
+> Also, did someone of the netdev guys already forward the patch (since we 
+> 1394 people are slow and eth1394 is marked unmaintained)? If not, I 
+> could send it along with a few other 1394 patches to akpm soon.
+> -- 
+> Stefan Richter
+> -=====-=-==- -=-= ==-==
+> http://arcgraph.de/sr/
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
