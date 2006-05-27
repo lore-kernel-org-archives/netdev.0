@@ -1,38 +1,42 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 4/5] s390: lcs driver bug fixes and improvements [1/2]
-Date: Fri, 26 May 2006 21:58:52 -0400
-Message-ID: <4477B25C.6020301@pobox.com>
-References: <20060524095117.3b6b24cd@localhost.localdomain>
+Subject: Re: [PATCH] via-velocity: allow MTU size less than 1500 bytes
+Date: Fri, 26 May 2006 22:20:27 -0400
+Message-ID: <4477B76B.70700@pobox.com>
+References: <1148393221.2479.29.camel@osprey.hogchain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:1252 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751759AbWE0B6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 21:58:54 -0400
-To: Frank Pavlic <fpavlic@de.ibm.com>
-In-Reply-To: <20060524095117.3b6b24cd@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:41444 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964890AbWE0CUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 22:20:30 -0400
+To: Jay Cliburn <jacliburn@bellsouth.net>
+In-Reply-To: <1148393221.2479.29.camel@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Frank Pavlic wrote:
+Jay Cliburn wrote:
+> Change the minimum allowable MTU size from 1500 bytes to 64 bytes.
 > 
-> From: Klaus Wacker <kdwacker@de.ibm.com>
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
 > 
-> 	Several problems occured with lcs device driver:
-> 	 - device not operational anymore after cable pull/plug-in.
->        	 - unpredictable results occured, e.g. kernel panic
-> 	   using cards of type QD8F.
-> 	 - STOPLAN and delete multicast address command
->            were not proper recognized by OSA card under heavy network workload.
->        	 - channel/device error checks missing in interrupt handler.
-> 	To fix all problems at once recovery of lcs devices has been improved.
-> 	missing error checks in lcs interrupt handler has been added.
-> 	Once a hardware problem occurs lcs will recover the device now properly.
+> --- linux-2.6.16.x86_64/drivers/net/via-velocity.h.orig 2006-05-23 07:42:24.000000000 -0500
+> +++ linux-2.6.16.x86_64/drivers/net/via-velocity.h      2006-05-23 08:31:17.000000000 -0500
+> @@ -307,7 +307,7 @@
+>  #define TX_QUEUE_NO         4
 > 
-> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
+>  #define MAX_HW_MIB_COUNTER  32
+> -#define VELOCITY_MIN_MTU    (1514-14)
+> +#define VELOCITY_MIN_MTU    (64)
+>  #define VELOCITY_MAX_MTU    (9000)
 
-applied 4-5
+ACK, but patch won't apply:
 
 
+[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
+1 patch(es) to process.
+
+Applying 'via-velocity: allow MTU size less than 1500 bytes'
+
+fatal: corrupt patch at line 5
