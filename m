@@ -1,105 +1,64 @@
-From: Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>
-Subject: [PATCH, 2.6.17-rc5-git3] ieee80211softmac_io.c: fix warning "defined but not used"
-Date: Sat, 27 May 2006 11:04:18 +0200
-Message-ID: <200605271104.21267.toralf.foerster@gmx.de>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH] eth1394: endian fixes
+Date: Sat, 27 May 2006 12:05:40 +0200
+Message-ID: <44782474.9050304@s5r6.in-berlin.de>
+References: <20060519132539.GC17751@mipter.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1711307.AuTjLpf5FX";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.21]:5021 "HELO mail.gmx.net")
-	by vger.kernel.org with SMTP id S1751445AbWE0JEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 May 2006 05:04:32 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:11406 "EHLO
+	einhorn.in-berlin.de") by vger.kernel.org with ESMTP
+	id S1750887AbWE0KGR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 May 2006 06:06:17 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060519132539.GC17751@mipter.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1711307.AuTjLpf5FX
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Alexey Dobriyan wrote on 2006-05-16:
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+...
+> @@ -935,7 +935,7 @@ static inline u16 ether1394_parse_encap(
+>  		*(u32*)arp_ptr = arp1394->sip;	/* move sender IP addr */
+>  		arp_ptr += arp->ar_pln;		/* skip over sender IP addr */
+>  
+> -		if (arp->ar_op == 1)
+> +		if (arp->ar_op == htons(1))
+>  			/* just set ARP req target unique ID to 0 */
+>  			*((u64*)arp_ptr) = 0;
+>  		else
 
-Got this compiler warning and Johannes Berg <johannes@sipsolutions.net> wro=
-te:
+I suggest __constant_htons(ARPOP_REQUEST).
 
-Yeah, known 'bug', we have that code there but never use it. Feel free
-to submit a patch (to John Linville, CC netdev and softmac-dev) to
-remove it.
-=20
-Signed-off-by: Toralf Foerster <toralf.foerster@gmx.de>
+> @@ -1395,7 +1395,7 @@ static inline void ether1394_arp_to_1394
+>  /* We need to encapsulate the standard header with our own. We use the
+>   * ethernet header's proto for our own. */
+>  static inline unsigned int ether1394_encapsulate_prep(unsigned int max_payload,
+> -						      int proto,
+> +						      __be16 proto,
+>  						      union eth1394_hdr *hdr,
+>  						      u16 dg_size, u16 dgl)
+>  {
+> @@ -1626,7 +1626,7 @@ static int ether1394_tx (struct sk_buff 
+>  	gfp_t kmflags = in_interrupt() ? GFP_ATOMIC : GFP_KERNEL;
+>  	struct eth1394hdr *eth;
+>  	struct eth1394_priv *priv = netdev_priv(dev);
+> -	int proto;
+> +	__be16 proto;
+>  	unsigned long flags;
+>  	nodeid_t dest_node;
+>  	eth1394_tx_type tx_type;
 
-=2D-- src/net/ieee80211/softmac/ieee80211softmac_io.c_orig	2006-05-27 10:50=
-:56.000000000 +0200
-+++ src/net/ieee80211/softmac/ieee80211softmac_io.c	2006-05-27 10:51:45.000=
-000000 +0200
-@@ -440,47 +440,3 @@
- 	return 0;
- }
-=20
-=2D
-=2D/* Create an rts/cts frame */
-=2Dstatic u32
-=2Dieee80211softmac_rts_cts(struct ieee80211_hdr_2addr **pkt,
-=2D	struct ieee80211softmac_device *mac, struct ieee80211softmac_network *n=
-et,=20
-=2D	u32 type)
-=2D{
-=2D	/* Allocate Packet */
-=2D	(*pkt) =3D kmalloc(IEEE80211_2ADDR_LEN, GFP_ATOMIC);=09
-=2D	memset(*pkt, 0, IEEE80211_2ADDR_LEN);
-=2D	if((*pkt) =3D=3D NULL)
-=2D		return 0;
-=2D	ieee80211softmac_hdr_2addr(mac, (*pkt), type, net->bssid);
-=2D	return IEEE80211_2ADDR_LEN;
-=2D}
-=2D
-=2D
-=2D/* Sends a control packet */
-=2Dstatic int
-=2Dieee80211softmac_send_ctl_frame(struct ieee80211softmac_device *mac,
-=2D	struct ieee80211softmac_network *net, u32 type, u32 arg)
-=2D{
-=2D	void *pkt =3D NULL;
-=2D	u32 pkt_size =3D 0;
-=2D=09
-=2D	switch(type) {
-=2D	case IEEE80211_STYPE_RTS:
-=2D	case IEEE80211_STYPE_CTS:
-=2D		pkt_size =3D ieee80211softmac_rts_cts((struct ieee80211_hdr_2addr **)(=
-&pkt), mac, net, type);
-=2D		break;
-=2D	default:
-=2D		printkl(KERN_DEBUG PFX "Unsupported Control Frame type: %i\n", type);
-=2D		return -EINVAL;
-=2D	}
-=2D
-=2D	if(pkt_size =3D=3D 0)
-=2D		return -ENOMEM;
-=2D=09
-=2D	/* Send the packet to the ieee80211 layer for tx */
-=2D	ieee80211_tx_frame(mac->ieee, (struct ieee80211_hdr *) pkt, pkt_size);
-=2D
-=2D	kfree(pkt);
-=2D	return 0;
-=2D}
+Alexey, I am afraid none of the current 1394 developers is actively 
+using eth1394. Did you have the chance to test your patch on different 
+platforms and with different peer OSs/platforms?
 
-=2D-=20
-MfG/Sincerely
-Toralf F=F6rster
-
---nextPart1711307.AuTjLpf5FX
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBEeBYVhyrlCH22naMRAiVkAJ0XC9P6E4oZnKy0BFn7scyUgh8kQwCdHmW/
-lVpmlh4XXGqIm+j9PbN7yII=
-=/Q59
------END PGP SIGNATURE-----
-
---nextPart1711307.AuTjLpf5FX--
+Also, did someone of the netdev guys already forward the patch (since we 
+1394 people are slow and eth1394 is marked unmaintained)? If not, I 
+could send it along with a few other 1394 patches to akpm soon.
+-- 
+Stefan Richter
+-=====-=-==- -=-= ==-==
+http://arcgraph.de/sr/
