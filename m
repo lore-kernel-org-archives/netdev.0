@@ -1,27 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] r8169: add new PCI ID
-Date: Fri, 26 May 2006 21:47:23 -0400
-Message-ID: <4477AFAB.6050405@garzik.org>
-References: <20060525102446.572bb5ca.yoichi_yuasa@tripeaks.co.jp>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/5] s390: minor fix in cu3088
+Date: Fri, 26 May 2006 21:56:56 -0400
+Message-ID: <4477B1E8.5040208@pobox.com>
+References: <20060524095105.68a65118@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50659 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751753AbWE0Br2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 21:47:28 -0400
-To: Yoichi Yuasa <yoichi_yuasa@tripeaks.co.jp>
-In-Reply-To: <20060525102446.572bb5ca.yoichi_yuasa@tripeaks.co.jp>
+Received: from srv5.dvmed.net ([207.36.208.214]:63971 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751750AbWE0B47 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 May 2006 21:56:59 -0400
+To: Frank Pavlic <fpavlic@de.ibm.com>
+In-Reply-To: <20060524095105.68a65118@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yoichi Yuasa wrote:
-> Hi,
+Frank Pavlic wrote:
+> Hi Jeff,
+> please apply following 5 patches. 
 > 
-> This patch add new PCI ID for r8169 driver.
-> RTL8110SBL has this PCI ID.
+> Thanks ...
+> 
+> Frank
+> 
+> From: Cornelia Huck <cornelia.huck@de.ibm.com>
+> 
+> In case of a parse error for the cu3088 group attribute,
+> return -EINVAL instead of count.
+> 
+> Signed-off-by: Frank Pavlic <fpavlic@de.ibm.com>
 
-applied
+applied patches 1-3 of 5
 
 
