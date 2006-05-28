@@ -1,48 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Aravind Gottipati <aravind@freeshell.org>
 Subject: Re: e1000 poor network performance - 2.6.17-rc5-g705af309
-Date: Sun, 28 May 2006 09:04:09 -0700
-Message-ID: <20060528090409.08a9bce8@localhost.localdomain>
-References: <20060526212243.GA19250@SDF.LONESTAR.ORG>
-	<4807377b0605271410j39532f44j2cafd3239d40bf31@mail.gmail.com>
-	<20060528074310.GA16499@SDF.LONESTAR.ORG>
+Date: Sun, 28 May 2006 17:49:04 +0000
+Message-ID: <20060528174904.GA20099@SDF.LONESTAR.ORG>
+References: <20060526212243.GA19250@SDF.LONESTAR.ORG> <4807377b0605271410j39532f44j2cafd3239d40bf31@mail.gmail.com> <20060528074310.GA16499@SDF.LONESTAR.ORG> <20060528090409.08a9bce8@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62386 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750784AbWE1QEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 May 2006 12:04:21 -0400
-To: Aravind Gottipati <aravind@freeshell.org>
-In-Reply-To: <20060528074310.GA16499@SDF.LONESTAR.ORG>
+Received: from mx.freeshell.ORG ([192.94.73.18]:9459 "EHLO sdf.lonestar.org")
+	by vger.kernel.org with ESMTP id S1750830AbWE1RtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 May 2006 13:49:08 -0400
+Received: from sdf.lonestar.org (IDENT:aravind@otaku.freeshell.org [192.94.73.2])
+	by sdf.lonestar.org (8.13.5.20060308/8.12.10) with ESMTP id k4SHn4dK011720
+	for <netdev@vger.kernel.org>; Sun, 28 May 2006 17:49:04 GMT
+Received: (from aravind@localhost)
+	by sdf.lonestar.org (8.13.5.20060308/8.12.8/Submit) id k4SHn4u2024080
+	for netdev@vger.kernel.org; Sun, 28 May 2006 17:49:04 GMT
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060528090409.08a9bce8@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 28 May 2006 07:43:10 +0000
-Aravind Gottipati <aravind@freeshell.org> wrote:
+On Sun, May 28, 2006 at 09:04:09AM -0700, Stephen Hemminger wrote:
+> What is the interrupt assignment on this machine? 
+> 	cat /proc/interrupts
 
-> On Sat, May 27, 2006 at 02:10:17PM -0700, Jesse Brandeburg wrote:
-> > What kind of poor performance?  what test? please send the output of
-> > ethtool -e ethX and ethtool -S ethX after you've been having problems.
-> 
-> I first noticed the problem (slow speed) when pinging sites.  I then
-> noticed that the problem occured on normal ssh sessions and ftp/http
-> downloads as well.  I have a spare pcmcia card that I am using on the
-> same laptop so I have something to compare it against.  In all the
-> readings below, eth0 is the builtin Intel 82573L (PCI-Express) card and
-> eth2 is a pcmcia D-link card (8139too driver).
-> 
-> You can see below the ping times varying randomly through eth0.  Compare
-> these with the ping times through eth2 (at the bottom).  Also there are
-> some collisions in the ethtool -S output here (I am on a 10/100 hub),  I
-> see the same performance using a switch as well.
-> 
-> I am not subscribed to the list, so please cc me on your responses.
-> 
-> Thank you,
-> 
-> Aravind.
-
-What is the interrupt assignment on this machine? 
-	cat /proc/interrupts
+root@dogmatrix:~# cat /proc/interrupts 
+           CPU0       
+  0:     250325    IO-APIC-edge  timer
+  1:        386    IO-APIC-edge  i8042
+  8:          1    IO-APIC-edge  rtc
+  9:        208   IO-APIC-level  acpi
+ 12:       3000    IO-APIC-edge  i8042
+ 14:         38    IO-APIC-edge  ide0
+ 20:       3815   IO-APIC-level  libata, yenta, uhci_hcd:usb2, eth0, i915@pci:0000:00:02.0
+ 21:          2   IO-APIC-level  ohci1394, uhci_hcd:usb3
+ 22:          0   IO-APIC-level  sdhci:slot0, uhci_hcd:usb4
+ 23:         78   IO-APIC-level  ehci_hcd:usb1, uhci_hcd:usb5
+NMI:          0 
+LOC:     242918 
+ERR:          0
+MIS:          0
+root@dogmatrix:~# 
 
