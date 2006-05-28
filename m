@@ -1,30 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] via-velocity: allow MTU size less than 1500 bytes
-Date: Sun, 28 May 2006 16:36:46 -0400
-Message-ID: <447A09DE.5060606@pobox.com>
-References: <1148393221.2479.29.camel@osprey.hogchain.net> <4477B76B.70700@pobox.com> <20060527193118.GA7998@electric-eye.fr.zoreil.com>
+From: "Thomas Kho" <thomaskho@gmail.com>
+Subject: Re: [PATCH] TCP Veno module for kernel 2.6.16.13
+Date: Sun, 28 May 2006 15:22:26 -0700
+Message-ID: <ad4ecd9f0605281522n20948429ye4d5abfd6a1288aa@mail.gmail.com>
+References: <A975FFC51622704CBEAB749E263D1799015540B3@mail01.student.main.ntu.edu.sg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: jmorris@namei.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48300 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750904AbWE1Ugu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 May 2006 16:36:50 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060527193118.GA7998@electric-eye.fr.zoreil.com>
+Received: from ug-out-1314.google.com ([66.249.92.172]:13622 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751018AbWE1WW1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 May 2006 18:22:27 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so91330ugf
+        for <netdev@vger.kernel.org>; Sun, 28 May 2006 15:22:26 -0700 (PDT)
+To: "#ZHOU BIN#" <ZHOU0022@ntu.edu.sg>
+In-Reply-To: <A975FFC51622704CBEAB749E263D1799015540B3@mail01.student.main.ntu.edu.sg>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jgarzik@pobox.com> :
-> [...]
->> ACK, but patch won't apply:
-> 
-> I have regenerated it against mainline. It can be pulled from the repository
-> 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git velocity
+On 5/24/06, #ZHOU BIN# <ZHOU0022@ntu.edu.sg> wrote:
+> +       u16     cntRTT;         /* # of RTTs measured within last RTT */
 
-pulled, thanks
+> +       /* veno->cntRTT = 0; */
 
+It looks like this counter is never initialized, and the comment is deceiving.
 
+Thomas Kho
