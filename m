@@ -1,31 +1,23 @@
-From: "Thomas Kho" <thomaskho@gmail.com>
-Subject: Re: [PATCH] TCP Veno module for kernel 2.6.16.13
-Date: Sun, 28 May 2006 15:22:26 -0700
-Message-ID: <ad4ecd9f0605281522n20948429ye4d5abfd6a1288aa@mail.gmail.com>
-References: <A975FFC51622704CBEAB749E263D1799015540B3@mail01.student.main.ntu.edu.sg>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] GRE: fixup gre_keymap_lookup() return type
+Date: Mon, 29 May 2006 01:01:15 +0200
+Message-ID: <447A2BBB.70703@trash.net>
+References: <20060526190716.GA7266@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: jmorris@namei.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:13622 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751018AbWE1WW1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 May 2006 18:22:27 -0400
-Received: by ug-out-1314.google.com with SMTP id a2so91330ugf
-        for <netdev@vger.kernel.org>; Sun, 28 May 2006 15:22:26 -0700 (PDT)
-To: "#ZHOU BIN#" <ZHOU0022@ntu.edu.sg>
-In-Reply-To: <A975FFC51622704CBEAB749E263D1799015540B3@mail01.student.main.ntu.edu.sg>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:3476 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S1751031AbWE1XBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 May 2006 19:01:30 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060526190716.GA7266@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/24/06, #ZHOU BIN# <ZHOU0022@ntu.edu.sg> wrote:
-> +       u16     cntRTT;         /* # of RTTs measured within last RTT */
+Alexey Dobriyan wrote:
+> GRE keys are 16-bit wide.
 
-> +       /* veno->cntRTT = 0; */
+This looks harmless, so I've queued it for 2.6.18. Thanks.
 
-It looks like this counter is never initialized, and the comment is deceiving.
-
-Thomas Kho
