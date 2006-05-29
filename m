@@ -1,34 +1,68 @@
-From: Beschorner Daniel <Daniel.Beschorner@facton.com>
-Subject: Re: skge driver oops
-Date: Mon, 29 May 2006 19:54:01 +0200
-Message-ID: <BB1F4EFD574E9F409035BDA71C9612500241B7@exchange.i-bn>
+From: Ingo Oeser <ioe-lkml@rameria.de>
+Subject: [BUG 6480]Re: Asus K8N-VM Motherboard Ethernet Problem
+Date: Tue, 30 May 2006 00:03:38 +0200
+Message-ID: <200605300003.39513.ioe-lkml@rameria.de>
+References: <44793100.50707@perkel.com> <20060528101849.GL13513@lug-owl.de> <447B3408.1020001@superbug.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "'Krzysztof Oledzki'" <olel@ans.pl>, netdev@vger.kernel.org,
-	"'david@mantara.com'" <david@mantara.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Marc Perkel <marc@perkel.com>,
+	bugme@bugzilla.kernel.org, netdev@vger.kernel.org,
+	aabdulla@nvidia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from loewe.unit-netz.de ([212.202.148.42]:21141 "EHLO
-	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S1750764AbWE2RyG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 May 2006 13:54:06 -0400
-To: "'Stephen Hemminger'" <shemminger@osdl.org>
+Received: from smtprelay01.ispgateway.de ([80.67.18.13]:29575 "EHLO
+	smtprelay01.ispgateway.de") by vger.kernel.org with ESMTP
+	id S1751420AbWE2WHL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 May 2006 18:07:11 -0400
+To: James Courtier-Dutton <James@superbug.co.uk>
+In-Reply-To: <447B3408.1020001@superbug.co.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hi James,
 
-the patch doesn't help.
-As soon as the card is receiving lots of data, the box crashes after some
-seconds.
-Testing these patches is very tricky for me, as it is a production system at
-a remote location crashing on every test.
+On Monday, 29. May 2006 19:48, James Courtier-Dutton wrote:
+> I can concur that the forcedeth is unreliable on nvidia based motherboards.
+> I have a ethernet device that works with forcedeth.
+> 0000:00:0a.0 Bridge: nVidia Corporation CK804 Ethernet Controller (rev a3)
+> 0000:00:0a.0 0680: 10de:0057 (rev a3)
+>         Subsystem: 147b:1c12
+>         Flags: 66MHz, fast devsel, IRQ 11
+>         Memory at fe02f000 (32-bit, non-prefetchable) [size=4K]
+>         I/O ports at fc00 [size=8]
+>         Capabilities: [44] Power Management version 2
+> 
+> It works in that it can actually send and receive packets.
+> The problems are:
+> 1) one cannot rmmod the forcedeth module. Even after ifdown etc.
+> 2) the machine hangs randomly.
+> Before someone asks, the MB has no serial port, so no stack trace available.
+> 3) The netconsole fails to function with it.
+> 
+> I have installed a standard PCI based intel ethernet card, and only use
+> that. Without the forcedeth loaded, no hangs since.
+> 
+> So, although I can confirm that there are certainly problems with the
+> forcedeth driver, without a serial port, I am at a loss at how I might
+> help diagnose the problem and fix it.
 
-It's a D-Link card, ID 4C00 (530T), SysKonnect's driver is working fine.
+This sounds like  http://bugzilla.kernel.org/show_bug.cgi?id=6480
 
-Daniel
+Maybe we can help to resolve this. I already stored a lot of info in
+the bugzilla entry.
 
------
-Stephen Hemminger [mailto:shemminger@osdl.org] 
+Could you please describe your setup further? I'm interested on
+the devices behind your nvidia NIC, since we only have it at one customers
+mail server behind a SonicWall, so we cannot really try a lot. 
 
-> Please give this a try, it rearranges the transmit buffer management,
-> and may avoid issues with partial completions causing SKB reuse.
+For all other customers it works. I'm a bit lost on the cause.
+I've seen 4% collisions, which might reduce performance,
+but should not stop the transmitter forever.
+
+PS: CC'ed some more relevant addresses to increase awareness.
+
+Regards
+
+Ingo Oeser
