@@ -1,42 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: drivers/connector/cn_queue.c:130: warning: value computed is
- not used
-Date: Tue, 30 May 2006 13:11:29 -0700 (PDT)
-Message-ID: <20060530.131129.41951475.davem@davemloft.net>
-References: <jeac8zg311.fsf@sykes.suse.de>
-	<20060530114838.GA20906@2ka.mipt.ru>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: sky2 rx error problems...
+Date: Tue, 30 May 2006 22:08:12 +0100
+Message-ID: <6278d2220605301408g646fc01l49a8713763cdc009@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: schwab@suse.de, netdev@vger.kernel.org
+Cc: "Netfilter Developer" <netfilter-devel@lists.netfilter.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28826
-	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932457AbWE3ULC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 16:11:02 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060530114838.GA20906@2ka.mipt.ru>
+Received: from wr-out-0506.google.com ([64.233.184.231]:9848 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S932479AbWE3VIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 17:08:13 -0400
+Received: by wr-out-0506.google.com with SMTP id 37so80681wra
+        for <netdev@vger.kernel.org>; Tue, 30 May 2006 14:08:12 -0700 (PDT)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Tue, 30 May 2006 15:48:38 +0400
+To follow on from the previous 'sky2 rx error' problem reported, the
+problem doesn't have anything to do with iptables or MTU settings, ie
+can be reproduced out the box.
 
-> On Tue, May 30, 2006 at 01:34:02PM +0200, Andreas Schwab (schwab@suse.de) wrote:
-> > There is no point in testing the atomic value if the result is thrown
-> > away.
-> 
-> It was created to put implicit smp barrier, but it is not needed there.
-> Your patch is correct, thank you.
+The race is hit after a couple of GBs of data. Initially, I thought
+this may have something to do with broken MSI support on my Intel
+ICH-7M chipset, but disabling MSI didn't help.
 
-Right, the *_and_test() variants have SMP barriers which the normal
-ones do not.  So it is not just a matter of giving a return value
-or not, there are real side effect differences.
+kernel: sky2 lan0: rx error, status 0x977d977d length 0
 
-> > Signed-off-by: Andreas Schwab <schwab@suse.de>
-> 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Is there any debug information I can get to help or such? Voluntary
+preemption is enabled, UP, HZ=100 on 2.6.17-rc4 on i686.
 
-But since you say it doesn't matter I'll apply this.
-
-Thanks!
+Dan
+-- 
+Daniel J Blueman
