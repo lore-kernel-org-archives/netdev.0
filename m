@@ -1,68 +1,32 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: 2.6.17-rc5-mm1
-Date: Tue, 30 May 2006 18:08:49 +0200
-Message-ID: <1149005329.3636.78.camel@laptopd505.fenrus.org>
-References: <20060530022925.8a67b613.akpm@osdl.org>
-	 <6bffcb0e0605300859x5c8f83f5w635fd25f0100fca@mail.gmail.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [patch, -rc5-mm1] lock validator: remove softirq.c WARN_ON
+Date: Tue, 30 May 2006 20:15:30 +0400
+Message-ID: <20060530161530.GA13015@ms2.inr.ac.ru>
+References: <20060530022925.8a67b613.akpm@osdl.org> <447C261E.1090202@gmail.com> <20060530115545.GA7025@elte.hu> <20060530160024.GA8987@ms2.inr.ac.ru> <1149005130.3636.75.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@osdl.org>, mingo@elte.hu
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Jiri Slaby <jirislaby@gmail.com>,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, netdev@vger.kernel.org, alan@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a222036.upc-a.chello.nl ([62.163.222.36]:14736 "EHLO
-	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
-	id S1751534AbWE3QJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 12:09:10 -0400
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-In-Reply-To: <6bffcb0e0605300859x5c8f83f5w635fd25f0100fca@mail.gmail.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:8598 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1751548AbWE3QPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 12:15:52 -0400
+To: Arjan van de Ven <arjan@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1149005130.3636.75.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-05-30 at 17:59 +0200, Michal Piotrowski wrote:
-> Hi,
+Hello!
+
+> > static void netlink_table_grab(void)
+> > {
+> >         write_lock_bh(&nl_table_lock);
 > 
-> On 30/05/06, Andrew Morton <akpm@osdl.org> wrote:
-> >
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17-rc5/2.6.17-rc5-mm1/
-> >
-> >
-> 
-> It looks like a network stack problem.
-> 
-> May 30 17:50:34 ltg01-fedora init: Switching to runlevel: 6
-> May 30 17:50:35 ltg01-fedora avahi-daemon[1878]: Got SIGTERM, quitting.
-> May 30 17:50:35 ltg01-fedora avahi-daemon[1878]: Leaving mDNS
-> multicast group on interface eth0.IPv4 with address 192.168.0.
-> 14.
-> May 30 17:50:35 ltg01-fedora kernel:
-> May 30 17:50:35 ltg01-fedora kernel: ======================================
-> May 30 17:50:35 ltg01-fedora kernel: [ BUG: bad unlock ordering detected! ]
-> May 30 17:50:35 ltg01-fedora kernel: --------------------------------------
-> May 30 17:50:35 ltg01-fedora kernel: avahi-daemon/1878 is trying to
+> well it could be this one as well...
 
-does this fix it for you?
+Indeed.
 
-
-
-Mark out of order unlocking in igmp.c as such
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
----
- net/ipv4/igmp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6.17-rc5-mm1-lockdep/net/ipv4/igmp.c
-===================================================================
---- linux-2.6.17-rc5-mm1-lockdep.orig/net/ipv4/igmp.c
-+++ linux-2.6.17-rc5-mm1-lockdep/net/ipv4/igmp.c
-@@ -1472,7 +1472,7 @@ static int ip_mc_del_src(struct in_devic
- 		return -ESRCH;
- 	}
- 	spin_lock_bh(&pmc->lock);
--	read_unlock(&in_dev->mc_list_lock);
-+	read_unlock_non_nested(&in_dev->mc_list_lock);
- #ifdef CONFIG_IP_MULTICAST
- 	sf_markstate(pmc);
- #endif
-
+But it still looks as something very strange.
+There are some GFP_KERNEL allocations on the way to this function.
