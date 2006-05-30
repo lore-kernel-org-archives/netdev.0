@@ -1,72 +1,56 @@
-From: Pekka J Enberg <penberg@cs.Helsinki.FI>
-Subject: Re: Sign-off for the IP1000A driver before inclusion
-Date: Tue, 30 May 2006 12:53:20 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0605301245260.22126@sbz-30.cs.Helsinki.FI>
-References: <84144f020605230001s32b29f59w8f95c67fad7b380d@mail.gmail.com>
- <044a01c67ef8$9bdd0420$4964a8c0@icplus.com.tw>
- <Pine.LNX.4.58.0605240911400.26629@sbz-30.cs.Helsinki.FI>
- <021f01c683b0$34b5cbd0$4964a8c0@icplus.com.tw>
- <Pine.LNX.4.58.0605300915400.18933@sbz-30.cs.Helsinki.FI>
- <20060529234610.e5671e4c.akpm@osdl.org> <Pine.LNX.4.58.0605301024440.22126@sbz-30.cs.Helsinki.FI>
- <026801c683c8$e3f63860$4964a8c0@icplus.com.tw>
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: BUG: warning at ... (netlink) [Was: 2.6.17-rc5-mm1]
+Date: Tue, 30 May 2006 13:01:27 +0159
+Message-ID: <447C261E.1090202@gmail.com>
+References: <20060530022925.8a67b613.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, romieu@fr.zoreil.com,
-	dvrabel@cantab.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, david@pleyades.net
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, alan@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:12473 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S932220AbWE3Jx0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 05:53:26 -0400
-To: "=?utf-8?B?amVzc2VcKOW7uuiIiFwp?=" <jesse@icplus.com.tw>
-In-Reply-To: <026801c683c8$e3f63860$4964a8c0@icplus.com.tw>
+Received: from nf-out-0910.google.com ([64.233.182.191]:10399 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S932217AbWE3LBd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 07:01:33 -0400
+Received: by nf-out-0910.google.com with SMTP id x37so73306nfc
+        for <netdev@vger.kernel.org>; Tue, 30 May 2006 04:01:31 -0700 (PDT)
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060530022925.8a67b613.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jesse,
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-On Tue, 30 May 2006, jesse\(??\)~H~H\) wrote:
-> Sorry for that. I try to generate the patch file. But I only can use
-> "diff -uN" to generate it. The "diff --git" is not work. I still try to
-> generate it.
+Andrew Morton napsal(a):
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17-rc5/2.6.17-rc5-mm1/
 
-I assume you're using Francois' git tree, right?  What you need to do is:
+BUG: warning at /l/latest/xxx/kernel/softirq.c:86/local_bh_disable()
+ [<c0103e66>] show_trace+0x1b/0x1d
+ [<c01045a4>] dump_stack+0x26/0x28
+ [<c012708f>] local_bh_disable+0x53/0x55
+ [<c0399fd6>] _write_lock_bh+0x10/0x15
+ [<c034e314>] netlink_table_grab+0x12/0xe9
+ [<c034e6f6>] netlink_insert+0x2a/0x156
+ [<c034fa46>] netlink_kernel_create+0xad/0x143
+ [<c051f869>] rtnetlink_init+0x70/0xc7
+ [<c051fb9f>] netlink_proto_init+0x187/0x192
+ [<c01003cb>] init+0x12b/0x2f1
+ [<c0101005>] kernel_thread_helper+0x5/0xb
 
-  - Check out netdev-ipg branch:
+If more info needed, feel free to ask.
 
-    git checkout netdev-ipg
+regards,
+- --
+Jiri Slaby         www.fi.muni.cz/~xslaby
+\_.-^-._   jirislaby@gmail.com   _.-^-._/
+B67499670407CE62ACC8 22A032CC55C339D47A7E
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
 
-  - Create a new branch against netdev-ipg (this is where you'll do the
-    work):
-
-    git checkout -b ipg-mine
-
-  - Commit patches in your ipg-mine branch.  Use git update-index and git
-    commit for this.  Please commit each changeset separately.  You can 
-    use my patchset as a starting point:
-
-     http://www.cs.helsinki.fi/u/penberg/linux/ip1000-jesse/
-
-  - When you're done, you can generate diffs against the netdev-ipg 
-    branch:
-
-    git format-patch netdev-ipg ipg-mine
-
-  - If you want, you can then delete your working branch:
-
-    git checkout netdev-ipg ; git branch -D ipg-mine
-
-On Tue, 30 May 2006, jesse\(??\)~H~H\) wrote:
-> --Changelog:
-> --Updata mentainer information
-> --Remove some default phy params
-> --Remove Threshold comfig and RxDMAInt from ipg_io_config(). Remove relative
-> define form ipg.h
-> --Remove and Rewrite ipg_config_autoneg() function.
-
-The changelog isn't telling me much.  Why are you removing default phy 
-params and the threshold config?
-
-					Pekka
+iD8DBQFEfCYeMsxVwznUen4RApvNAJ94piY4mvFzO9x3qSBKL8DstkeBbgCguCnz
+Zzw1YFf/s3AtKVo0XgYWsek=
+=x+hX
+-----END PGP SIGNATURE-----
