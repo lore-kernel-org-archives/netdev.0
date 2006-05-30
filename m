@@ -1,79 +1,88 @@
 From: Herman Elfrink <herman.elfrink@ti-wmc.nl>
 Subject: Re: [ANNOUNCE] FLAME: external kernel module for L2.5 meshing
-Date: Tue, 30 May 2006 10:29:54 +0200
-Message-ID: <447C0282.8010000@ti-wmc.nl>
-References: <44731733.7000204@ti-wmc.nl> <20060524205035.GA4149@ucw.cz>
+Date: Tue, 30 May 2006 10:43:39 +0200
+Message-ID: <447C05BB.30102@ti-wmc.nl>
+References: <44731733.7000204@ti-wmc.nl>	 <1148395738.25255.68.camel@localhost.localdomain>	 <44731F2C.2010109@ti-wmc.nl> <20060523145549.GA22749@harddisk-recovery.com> <1148397268.25255.81.camel@localhost.localdomain> <447BE93D.2070605@ti-wmc.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon Oosthoek <simon.oosthoek@ti-wmc.nl>,
-	Alex Stienstra <alex.stienstra@ti-wmc.nl>
+Cc: Erik Mouw <erik@harddisk-recovery.com>,
+	Simon Oosthoek <simon.oosthoek@ti-wmc.nl>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from darla.ti-wmc.nl ([217.114.97.45]:7341 "EHLO smtp.wmc")
-	by vger.kernel.org with ESMTP id S932176AbWE3I3z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 04:29:55 -0400
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20060524205035.GA4149@ucw.cz>
+Received: from darla.ti-wmc.nl ([217.114.97.45]:20399 "EHLO smtp.wmc")
+	by vger.kernel.org with ESMTP id S932181AbWE3Ink (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 04:43:40 -0400
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <447BE93D.2070605@ti-wmc.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek wrote:
+Hi,
 
->Hi!
->
->  
->
->>FLAME stands for "Forwarding Layer for Meshing"
->>
->>FLAME provides an intermediate layer between the network 
->>layer (e.g. IPv4/IPv6) and the link (MAC) layer, 
->>providing L2.5 meshing. Both network layer and MAC layer 
->>    
->>
->
->What is wrong with meshing on L3?
->
->(It is called flame so lets at least have nice flamewar :-)
->							Pavel
->  
->
+Seems that instead of clearing the confusion I was confused myself.
+What we are talking about here is the protocol ID carried in the 
+ethernet header, which ethernet uses to identify the network layer (as 
+defined in the file <linux/if_ether.h>).
+So its indeed IEEE to address for this, and not IANA.
 
-Hi Pavel,
-
-I basically have two arguments against L3 meshing, which, for me, were 
-strong enough to turn to "below IP" meshing as a better solution for the 
-problems I was facing.
-
-The first one comes from my experimental setup where I want to use a ad 
-hoc IPv6 network that has one or more Internet access gateways. With ad 
-hoc I mean in this context that nodes can be plugged into and taken out 
-of the network at any moment in time. If one would do this on a normal 
-wired ethernet subnet, this works fine, thanks to the IPv6 
-autoconfiguration capabilities: the Internet gateways transmit Router 
-Advertisements, which are used by all other nodes to autoconfigure their 
-own (global) IPv6 addresses.
-When replacing the fixed ethernet by a meshed ad hoc wireless net, I 
-would like this to work just the same.
-Unfortunately, and here's the argument: basic L3 meshing does not allow 
-that. It creates a routing domain instead of a subnet, and IPv6 
-autoconfiguration does not work through routers. Similar problems occurs 
-with broad- and multicast.
-One way to solve this is to re-invent autoconfiguration specifically for 
-L3 meshing, which is non-trivial, and which is exactly what is happening 
-now in IETF, given the large amount of RFCs on this and related subjects.
-Another solution is meshing below IP. Then your mesh network, from 
-IP/IPv6 point of view, behaves like a normal subnet again, so all 
-standard IP/IPv6 mechanism work as expected.
-I've explored both solutions, spent several months on trying (and 
-failing) to get OLSR to do what I wanted, and then spent a couple of 
-weeks to create FLAME.
-
-The second argument is that in the future meshing is going to be built 
-into the relevant MAC layers (see 802.11s and corresponding efforts for 
-e.g. Wimax and Zigbee),
-so "below IP" seems the natural place to solve this.
-
-Regards,
+Thanks for your help on this issue.
 
 Herman.
+
+Herman Elfrink wrote:
+
+> An attempt to clear up the confusion that seems to have occurred:
+> FLAME is an intermediate layer between existing MAC and network (IP) 
+> layers.
+> From MAC layer point of view FLAME is another network layer protocol 
+> (besides IP, IPX etc.), so the FLAME protocol ID we are taking about 
+> is a network layer (IANA) protocol number.
+> From IP point of view FLAME behaves like a 'normal' ethernet-type MAC 
+> layer; no need for new IEEE protocol number.
+>
+> Regards,
+>
+> Herman Elfrink.
+>
+> Alan Cox wrote:
+>
+>> On Maw, 2006-05-23 at 16:55 +0200, Erik Mouw wrote:
+>>  
+>>
+>>>>> Ethernet protocol number I assume you mean. If so this at least 
+>>>>> used to
+>>>>> be handled by the IEEE, along with ethernet mac address ranges.
+>>>>>
+>>>>>       
+>>>>
+>>>> Yes ethernet protocol (it's below IP level), I didn't realise that 
+>>>> IEEE also handled the portnumbers. I'll check the ieee website to 
+>>>> see how it works, tnx!
+>>>>     
+>>>
+>>> IEEE doesn't handle port numbers. Port numbers are for whatever is
+>>> layered on top of ethernet, so you need to register those with the
+>>> appropriate authorities (IANA for IP).
+>>>   
+>>
+>>
+>> No no no
+>>
+>> There are several sets of numbers here
+>>
+>> Each ethernet DIX frame has a "protocol" (its the bits used for length
+>> in 802.*). IEEE at least used to handle the assignment of those. On top
+>> of that you have IP, IPX, etc with their own numbering agency.
+>>
+>> As he said "ethernet protocol (it's below IP level)", those are the
+>> protocol numbering bodies he wants, or to whomever it was delegated.
+>>
+>> Alan
+>>
+>>
+>>  
+>>
+>
+>
 
