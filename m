@@ -1,63 +1,48 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: zd1201 & ipw2200 problems
-Date: Tue, 30 May 2006 13:17:12 +0200
-Message-ID: <20060530111712.GA32054@elf.ucw.cz>
+From: Andreas Schwab <schwab@suse.de>
+Subject: drivers/connector/cn_queue.c:130: warning: value computed is not used
+Date: Tue, 30 May 2006 13:34:02 +0200
+Message-ID: <jeac8zg311.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:4011 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S932259AbWE3LRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 07:17:55 -0400
-To: Netdev list <netdev@vger.kernel.org>,
-	Jirka Lenost Benc <jbenc@suse.cz>,
-	kernel list <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
+Received: from ns2.suse.de ([195.135.220.15]:26273 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1750871AbWE3LeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 07:34:04 -0400
+Received: from Relay1.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx2.suse.de (Postfix) with ESMTP id 37CE91EBEF
+	for <netdev@vger.kernel.org>; Tue, 30 May 2006 13:34:03 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+There is no point in testing the atomic value if the result is thrown
+away.
 
-I see some strange problems with zd1201. (Ccing greg, he seen
-something similar).
+Signed-off-by: Andreas Schwab <schwab@suse.de>
 
-Wireless LAN is configured on eth1 (ipw2200) and works. I insert
-zd1201 usb wireless card, and pings stop. I do not have (or should not
-have) any hotplug scripts doing anything. Leds on zd1201 light up.
+diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.=
+c
+index 9f2f00d..05f8ce2 100644
+--- a/drivers/connector/cn_queue.c
++++ b/drivers/connector/cn_queue.c
+@@ -127,7 +127,7 @@ void cn_queue_del_callback(struct cn_que
+=20
+ 	if (found) {
+ 		cn_queue_free_callback(cbq);
+-		atomic_dec_and_test(&dev->refcnt);
++		atomic_dec(&dev->refcnt);
+ 	}
+ }
+=20
 
-If I unplug zd1201, pings immediately continue.
+Andreas.
 
-If I issue iwlist wlan0 scan, zd1201 discovers some networks, its led
-goes out, and ipw2200 ping immediately continue (ipw2200 starts to
-work).
-
-Now... what is going on? Any ideas how to debug it?
-
-Plus, zd1201 does not work on sharp zaurus (pxa arm-based)
-machine. (Any idea if that is little or big endian?). It is detected
-okay, lights light up, but iwlist wlan0 scan produces no results.
-
-								Pavel
-
-pavel@amd:~$ cat /proc/interrupts
-           CPU0
-  0:     776518          XT-PIC  timer
-  1:      12266          XT-PIC  i8042
-  2:          0          XT-PIC  cascade
-  8:          1          XT-PIC  rtc
-  9:     123162          XT-PIC  acpi
- 11:      48021          XT-PIC  ohci1394, yenta, yenta,
-ehci_hcd:usb1, uhci_hcd:usb2, uhci_hcd:usb3,
-uhci_hcd:usb4, Intel 82801DB-ICH4, ipw2200
- 12:      11315          XT-PIC  i8042
- 14:      21677          XT-PIC  ide0
-NMI:          0
-LOC:          0
-ERR:          0
-MIS:          0
-pavel@amd:~$
-
-
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4=
+ED5
+"And now for something completely different."
