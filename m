@@ -1,33 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: skge driver oops
-Date: Tue, 30 May 2006 11:25:47 -0700
-Message-ID: <20060530112547.0f9007f4@localhost.localdomain>
-References: <BB1F4EFD574E9F409035BDA71C9612500241B7@exchange.i-bn>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: avahi error:  IP_ADD_MEMBERSHIP failed: No buffer space available
+Date: Tue, 30 May 2006 20:34:10 +0200
+Message-ID: <200605302034.10837.stefan@loplof.de>
+References: <447C89F3.5040909@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "'Krzysztof Oledzki'" <olel@ans.pl>, netdev@vger.kernel.org,
-	"'david@mantara.com'" <david@mantara.com>
+Cc: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18391 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932298AbWE3S0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 14:26:07 -0400
-To: Beschorner Daniel <Daniel.Beschorner@facton.com>
-In-Reply-To: <BB1F4EFD574E9F409035BDA71C9612500241B7@exchange.i-bn>
+Received: from natfrord.rzone.de ([81.169.145.161]:49313 "EHLO
+	natfrord.rzone.de") by vger.kernel.org with ESMTP id S932376AbWE3Sc7
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 14:32:59 -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <447C89F3.5040909@candelatech.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 May 2006 19:54:01 +0200
-Beschorner Daniel <Daniel.Beschorner@facton.com> wrote:
+Am Dienstag 30 Mai 2006 20:07 schrieb Ben Greear:
 
-> Hi Stephen,
-> 
-> the patch doesn't help.
-> As soon as the card is receiving lots of data, the box crashes after some
-> seconds.
-> Testing these patches is very tricky for me, as it is a production system at
-> a remote location crashing on every test.
-> 
-> It's a D-Link card, ID 4C00 (530T), SysKonnect's driver is working fine.
+> May 30 11:01:37 x64-1u avahi-daemon[2022]: Joining mDNS multicast group on
+> inter face eth2#18.IPv4 with address 172.1.2.20.
+> May 30 11:01:37 x64-1u avahi-daemon[2022]: IP_ADD_MEMBERSHIP failed: No
+> buffer s pace available
 
-I assume you sk98lin version downloaded from their web site.
+there is a configurable limit of system wide multicast memberships. As you're 
+the guy who creates gazillions of VLAN interfaces, you will surely hit it. 
+Check /proc/sys/net/ipv4/igmp_max_memberships. (This is also relevant for 
+people running OSPF over many VLANs).
+
+Stefan
