@@ -1,32 +1,48 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: zd1201 failure on sharp zaurus explained
-Date: Tue, 30 May 2006 16:11:02 +0200
-Message-ID: <200605301611.02984.oliver@neukum.org>
-References: <20060530132054.GA9780@elf.ucw.cz>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Refactor Netlink connector?
+Date: Tue, 30 May 2006 10:18:32 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605301015090.25929@d.namei>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru>
+ <Pine.LNX.4.64.0605271223390.12872@d.namei> <Pine.LNX.4.64.0605271303050.13104@d.namei>
+ <20060528153321.GB31822@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: rpurdie@rpsys.net, lenz@cs.wisc.edu,
-	kernel list <linux-kernel@vger.kernel.org>,
-	Russell King <rmk@arm.linux.org.uk>,
-	Netdev list <netdev@vger.kernel.org>,
-	Jirka Lenost Benc <jbenc@suse.cz>, pe1rxq@amsat.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	tgraf@suug.ch, Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.kontent.de ([81.88.34.36]:55721 "EHLO Mail1.KONTENT.De")
-	by vger.kernel.org with ESMTP id S932259AbWE3OPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 10:15:22 -0400
-To: Pavel Machek <pavel@suse.cz>
-In-Reply-To: <20060530132054.GA9780@elf.ucw.cz>
-Content-Disposition: inline
+Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:6036 "EHLO
+	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751502AbWE3OSg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 10:18:36 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060528153321.GB31822@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, 30. Mai 2006 15:20 schrieb Pavel Machek:
-> 2) usb problem, probably. Should not usb core detect that card
-> requires too much juice and refuse to power it up?
+On Sun, 28 May 2006, Evgeniy Polyakov wrote:
 
-Does your hub correctly report whether it is plugged in?
+> Does SELinux have security handlers for each type of possible ioctls
+> over the world? Each ioctl number is like each netlink type of message,
+> but instead there is only one check per ioctl syscall as long as lsm
+> hook for socket's send/recv syscall. 
+> It could be interesting and quite challenging to force all ioctl users
+> to have the same structure under each ioctl number so SELinux could
+> control for example disk geometry or time and date requests...
 
-	Regards
-		Oliver
+It has a generic control for ioctls, but also does some special handling 
+for some ioctls.
+
+> And, btw, what is the purpose of controlling netlink messages?
+> Does it prevent malicious userspace application to receive events from
+> malicious kernel module?
+
+It provides control over which types of applications can send and receive 
+different types of Netlink messages.  e.g. you can specify that Apache can 
+read the routing table but not write to it.
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
