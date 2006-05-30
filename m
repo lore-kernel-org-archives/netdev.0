@@ -1,65 +1,57 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: 2.6.17-rc5-mm1
-Date: Tue, 30 May 2006 20:51:01 +0200
-Message-ID: <6bffcb0e0605301151j7cebedc4wa376b54338d1a5ba@mail.gmail.com>
-References: <20060530022925.8a67b613.akpm@osdl.org>
-	 <6bffcb0e0605300859x5c8f83f5w635fd25f0100fca@mail.gmail.com>
-	 <1149005329.3636.78.camel@laptopd505.fenrus.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Refactor Netlink connector?
+Date: Tue, 30 May 2006 14:58:11 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0605301453360.28036@d.namei>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru>
+ <Pine.LNX.4.64.0605271223390.12872@d.namei> <Pine.LNX.4.64.0605271303050.13104@d.namei>
+ <20060528153321.GB31822@2ka.mipt.ru> <Pine.LNX.4.64.0605301015090.25929@d.namei>
+ <20060530180300.GA10293@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Andrew Morton" <akpm@osdl.org>, mingo@elte.hu
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	tgraf@suug.ch, Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.235]:51946 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932386AbWE3SvC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 14:51:02 -0400
-Received: by wr-out-0506.google.com with SMTP id i21so738998wra
-        for <netdev@vger.kernel.org>; Tue, 30 May 2006 11:51:01 -0700 (PDT)
-To: "Arjan van de Ven" <arjan@linux.intel.com>
-In-Reply-To: <1149005329.3636.78.camel@laptopd505.fenrus.org>
-Content-Disposition: inline
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:57002 "EHLO
+	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932394AbWE3S6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 14:58:14 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060530180300.GA10293@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Arjan,
+On Tue, 30 May 2006, Evgeniy Polyakov wrote:
 
-On 30/05/06, Arjan van de Ven <arjan@linux.intel.com> wrote:
-> On Tue, 2006-05-30 at 17:59 +0200, Michal Piotrowski wrote:
-> > Hi,
-> >
-> > On 30/05/06, Andrew Morton <akpm@osdl.org> wrote:
-> > >
-> > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17-rc5/2.6.17-rc5-mm1/
-> > >
-> > >
-> >
-> > It looks like a network stack problem.
-> >
-> > May 30 17:50:34 ltg01-fedora init: Switching to runlevel: 6
-> > May 30 17:50:35 ltg01-fedora avahi-daemon[1878]: Got SIGTERM, quitting.
-> > May 30 17:50:35 ltg01-fedora avahi-daemon[1878]: Leaving mDNS
-> > multicast group on interface eth0.IPv4 with address 192.168.0.
-> > 14.
-> > May 30 17:50:35 ltg01-fedora kernel:
-> > May 30 17:50:35 ltg01-fedora kernel: ======================================
-> > May 30 17:50:35 ltg01-fedora kernel: [ BUG: bad unlock ordering detected! ]
-> > May 30 17:50:35 ltg01-fedora kernel: --------------------------------------
-> > May 30 17:50:35 ltg01-fedora kernel: avahi-daemon/1878 is trying to
->
-> does this fix it for you?
+> On Tue, May 30, 2006 at 10:18:32AM -0400, James Morris (jmorris@namei.org) wrote:
+> > > And, btw, what is the purpose of controlling netlink messages?
+> > > Does it prevent malicious userspace application to receive events from
+> > > malicious kernel module?
+> > 
+> > It provides control over which types of applications can send and receive 
+> > different types of Netlink messages.  e.g. you can specify that Apache can 
+> > read the routing table but not write to it.
+>  
+> Apache still can setup routes using ioctl or execve("ip route add/route
+> add");
 
-Yes, thanks.
+Depends on the policy.  You can specify which types of files/sockets 
+apache can perform ioctl on, and whether it can execve 'ip', and if so, 
+which security context that runs in, and then whether that security 
+context can add routes.
 
-> Mark out of order unlocking in igmp.c as such
->
-> Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+Security in SELinux is not based on the name of the application, it's 
+based on the security label bound to the binary being executed.
 
-Regards,
-Michal
+> Anyway you can easily add lsm hook into both sending/receiving pathes in
+> connector code, it fully controls the traffic before it reached socket
+> queue or user's callback.
 
+There are already LSM hooks which allow this, it's a matter of not wanting 
+to have to parse arbitrarily implemented Netlink protocols to determine 
+what the messages are.
+
+
+- James
 -- 
-Michal K. K. Piotrowski
-LTG - Linux Testers Group
-(http://www.stardust.webpages.pl/ltg/wiki/)
+James Morris
+<jmorris@namei.org>
