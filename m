@@ -1,40 +1,27 @@
-From: Pekka J Enberg <penberg@cs.Helsinki.FI>
-Subject: Re: Sign-off for the IP1000A driver before inclusion
-Date: Tue, 30 May 2006 10:26:36 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0605301024440.22126@sbz-30.cs.Helsinki.FI>
-References: <84144f020605230001s32b29f59w8f95c67fad7b380d@mail.gmail.com>
- <044a01c67ef8$9bdd0420$4964a8c0@icplus.com.tw>
- <Pine.LNX.4.58.0605240911400.26629@sbz-30.cs.Helsinki.FI>
- <021f01c683b0$34b5cbd0$4964a8c0@icplus.com.tw>
- <Pine.LNX.4.58.0605300915400.18933@sbz-30.cs.Helsinki.FI>
- <20060529234610.e5671e4c.akpm@osdl.org>
+From: "Stanley Morse" <BernadettePerez@ukr.net>
+Subject: RE:.
+Date: Tue, 30 May 2006 05:57:11 -0300
+Message-ID: <387103287.6947872783@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text;
+	charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jesse@icplus.com.tw, romieu@fr.zoreil.com, dvrabel@cantab.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47539 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S932165AbWE3H0m
+Received: from ip-213-177-135-32.dsl-static.scarlet.be ([213.177.135.32]:34667
+	"HELO 192.168.0.2") by vger.kernel.org with SMTP id S932175AbWE3H7M
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 03:26:42 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060529234610.e5671e4c.akpm@osdl.org>
+	Tue, 30 May 2006 03:59:12 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 May 2006, Andrew Morton wrote:
-> It takes people quite a few iterations to get patch preparation worked out.
-> 
-> Pekka, if you have time, perhaps you can extract the patches for us?
+Hello!
+Our company Barcelo Travel Inc. seek enthusiastic, organised and alert individual to 
+support our busy sales offices. If you live in germany our offer its good chance change your liife.
+You must have excellent customer relations, communication and administration skills 
+Successful candidates will be required to work in Main our Office for approximately 
+one month.
+To apply, please email CV to barcelotravinc@aol.com
+regards,
+Dominico Barcelo
 
-Jesse, I wasn't able to work out the ipg_config_autoneg() changes, but the 
-rest of them are at:
-
-  http://www.cs.helsinki.fi/u/penberg/linux/ip1000-jesse/
-
-They're missing changelogs, though, so I'd much appreciate if Jesse 
-submitted them properly to Francois who's maintaining the ipg git tree.
-
-				Pekka 
