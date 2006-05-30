@@ -1,37 +1,54 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: zd1201 & ipw2200 problems
-Date: Tue, 30 May 2006 09:24:50 -0700
-Message-ID: <20060530162450.GA7092@kroah.com>
-References: <20060530111712.GA32054@elf.ucw.cz> <20060530144120.GA15350@kroah.com> <20060530144742.GC27794@elf.ucw.cz>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] Changes to ieee80211.h for user space regulatory daemon
+Date: Tue, 30 May 2006 11:55:42 -0500
+Message-ID: <447C790E.1030702@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev list <netdev@vger.kernel.org>,
-	Jirka Lenost Benc <jbenc@suse.cz>,
-	kernel list <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:19390 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932314AbWE3Q1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 12:27:20 -0400
-To: Pavel Machek <pavel@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20060530144742.GC27794@elf.ucw.cz>
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:35071 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S932327AbWE3Qzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 12:55:46 -0400
+To: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 30, 2006 at 04:47:42PM +0200, Pavel Machek wrote:
-> Hi!
-> 
-> > > I see some strange problems with zd1201. (Ccing greg, he seen
-> > > something similar).
-> > 
-> > Which zd1201 driver are you using?
-> 
-> In-tree one, 2.6.17-rc4 (and around). Ouch and I've "solved" the
-> zaurus problme in the meantime -- it was hw one.
+Attached are two small patches for include/net/ieee80211.h to prepare for later submission of code 
+to implement a user-space daemon that supplies 802.11 regulatory information.
 
-Oops, sorry, I was thinking of the zd1211 driver, which is still not in
-the kernel tree and there are a few different versions floating around.
+The first change adds a bit indicating that 802.11h rules are to be applied to a channel. As 
+discussed earlier in this list, a single bit is unlikely to be sufficient; however, at this time I 
+have been unable to find any regulations implementing differences between 802.11a and 802.11h other 
+than DFS, radar detection and passive scanning. A single bit is thus sufficient to convey to the 
+driver that these rules should be obeyed.
 
-Glad it's working for you now.
+The second change adds comments to the freq and max_power fields of struct ieee80211_channel to 
+indicate the units that are used.
 
-greg k-h
+Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+
+index 293e920..6a2f60c 100644
+--- a/include/net/ieee80211.h
++++ b/include/net/ieee80211.h
+@@ -968,6 +968,7 @@ #define IEEE80211_52GHZ_CHANNELS (IEEE80
+
+  enum {
+	IEEE80211_CH_PASSIVE_ONLY = (1 << 0),
++	IEEE80211_CH_80211H_RULES = (1 << 1),
+	IEEE80211_CH_B_ONLY = (1 << 2),
+	IEEE80211_CH_NO_IBSS = (1 << 3),
+	IEEE80211_CH_UNIFORM_SPREADING = (1 << 4),
+@@ -976,10 +977,10 @@ enum {
+  };
+
+  struct ieee80211_channel {
+-	u32 freq;
++	u32 freq;	/* in MHz */
+	u8 channel;
+	u8 flags;
+-	u8 max_power;
++	u8 max_power;	/* in dBm */
+  };
+
+  struct ieee80211_geo {
