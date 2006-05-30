@@ -1,59 +1,47 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [patch, -rc5-mm1] lock validator: remove softirq.c WARN_ON
-Date: Tue, 30 May 2006 13:55:45 +0200
-Message-ID: <20060530115545.GA7025@elte.hu>
-References: <20060530022925.8a67b613.akpm@osdl.org> <447C261E.1090202@gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: drivers/connector/cn_queue.c:130: warning: value computed is not used
+Date: Tue, 30 May 2006 15:48:38 +0400
+Message-ID: <20060530114838.GA20906@2ka.mipt.ru>
+References: <jeac8zg311.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	jgarzik@pobox.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	alan@redhat.com
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:10459 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1750925AbWE3Lz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 07:55:56 -0400
-To: Jiri Slaby <jirislaby@gmail.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:3538 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750940AbWE3MBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 08:01:17 -0400
+To: Andreas Schwab <schwab@suse.de>
 Content-Disposition: inline
-In-Reply-To: <447C261E.1090202@gmail.com>
+In-Reply-To: <jeac8zg311.fsf@sykes.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, May 30, 2006 at 01:34:02PM +0200, Andreas Schwab (schwab@suse.de) wrote:
+> There is no point in testing the atomic value if the result is thrown
+> away.
 
-* Jiri Slaby <jirislaby@gmail.com> wrote:
+It was created to put implicit smp barrier, but it is not needed there.
+Your patch is correct, thank you.
 
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+> Signed-off-by: Andreas Schwab <schwab@suse.de>
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+> diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
+> index 9f2f00d..05f8ce2 100644
+> --- a/drivers/connector/cn_queue.c
+> +++ b/drivers/connector/cn_queue.c
+> @@ -127,7 +127,7 @@ void cn_queue_del_callback(struct cn_que
+>  
+>  	if (found) {
+>  		cn_queue_free_callback(cbq);
+> -		atomic_dec_and_test(&dev->refcnt);
+> +		atomic_dec(&dev->refcnt);
+>  	}
+>  }
+>  
 > 
-> Andrew Morton napsal(a):
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17-rc5/2.6.17-rc5-mm1/
-> 
-> BUG: warning at /l/latest/xxx/kernel/softirq.c:86/local_bh_disable()
+> Andreas.
 
-ok, that WARN_ON is over-eager. Fix is below:
-
---------------
-Subject: lock validator: remove softirq.c WARN_ON
-From: Ingo Molnar <mingo@elte.hu>
-
-there is nothing wrong with calling local_bh_disable() in irqs-off
-section (as long as the local_bh_enable isnt done with irqs-off),
-so remove this over-eager WARN_ON().
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
----
- kernel/softirq.c |    1 -
- 1 file changed, 1 deletion(-)
-
-Index: linux/kernel/softirq.c
-===================================================================
---- linux.orig/kernel/softirq.c
-+++ linux/kernel/softirq.c
-@@ -83,7 +83,6 @@ static void __local_bh_disable(unsigned 
- 
- void local_bh_disable(void)
- {
--	WARN_ON_ONCE(irqs_disabled());
- 	__local_bh_disable((unsigned long)__builtin_return_address(0));
- }
- 
+-- 
+	Evgeniy Polyakov
