@@ -1,45 +1,31 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Refactor Netlink connector?
-Date: Tue, 30 May 2006 10:22:45 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605301019180.25929@d.namei>
-References: <Pine.LNX.4.64.0605271223390.12872@d.namei>
- <Pine.LNX.4.64.0605271303050.13104@d.namei>  <20060528153321.GB31822@2ka.mipt.ru>
-  <20060528.233649.22498001.davem@davemloft.net> <1148904686.27078.20.camel@jzny2>
+From: Greg KH <greg@kroah.com>
+Subject: Re: zd1201 & ipw2200 problems
+Date: Tue, 30 May 2006 07:41:20 -0700
+Message-ID: <20060530144120.GA15350@kroah.com>
+References: <20060530111712.GA32054@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, sds@tycho.nsa.gov,
-	tgraf@suug.ch, netdev@vger.kernel.org, johnpol@2ka.mipt.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev list <netdev@vger.kernel.org>,
+	Jirka Lenost Benc <jbenc@suse.cz>,
+	kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:47773 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751509AbWE3OWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 10:22:47 -0400
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1148904686.27078.20.camel@jzny2>
+Received: from mail.kroah.org ([69.55.234.183]:16834 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S1751511AbWE3Olg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 10:41:36 -0400
+To: Pavel Machek <pavel@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20060530111712.GA32054@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 May 2006, jamal wrote:
+On Tue, May 30, 2006 at 01:17:12PM +0200, Pavel Machek wrote:
+> Hi!
+> 
+> I see some strange problems with zd1201. (Ccing greg, he seen
+> something similar).
 
-> If SELinux should provide ways to add "filters" more dynamically at its
-> hooks - instead of having people go and look for that table and update
-> it then it would simplify things and we may be able to easily have
-> netlink users to register such filters at startup; infact we may be able
-> to hide this from the users in genetlink. 
-> One could argue that if SELinux is capable of adding such filters at its
-> hooks, then the problem could be moved to user space policy perhaps? 
+Which zd1201 driver are you using?
 
-This is similar to what the secmark stuff does, allows selection and 
-labeling to be done via iptables, so the SELinux kernel stuff then just 
-needs to look at the labels.
+thanks,
 
-In this case, I'm not sure it's worthwhile adding a filtering layer to 
-Netlink, probably simpler just to have the different Netlink protocols 
-define whether each command is one of 'read', 'write' and 'readpriv' (the 
-latter is pretty rare), so nothing has to be scanned on the fly at all.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+greg k-h
