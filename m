@@ -1,60 +1,72 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: sky2 hw csum failure [was Re: sky2 large MTU problems]
-Date: Tue, 30 May 2006 10:10:11 +0100
-Message-ID: <6278d2220605300210u101d65a9u93354aecbcde99a@mail.gmail.com>
-References: <6278d2220605240228v576dd66atdad4855b308e64bf@mail.gmail.com>
-	 <20060524103820.2e213a0b@localhost.localdomain>
-	 <44758881.1020106@trash.net>
-	 <6278d2220605250355y316f974cl216f22d198475666@mail.gmail.com>
-	 <447591DB.2020901@trash.net>
+From: Pekka J Enberg <penberg@cs.Helsinki.FI>
+Subject: Re: Sign-off for the IP1000A driver before inclusion
+Date: Tue, 30 May 2006 12:53:20 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0605301245260.22126@sbz-30.cs.Helsinki.FI>
+References: <84144f020605230001s32b29f59w8f95c67fad7b380d@mail.gmail.com>
+ <044a01c67ef8$9bdd0420$4964a8c0@icplus.com.tw>
+ <Pine.LNX.4.58.0605240911400.26629@sbz-30.cs.Helsinki.FI>
+ <021f01c683b0$34b5cbd0$4964a8c0@icplus.com.tw>
+ <Pine.LNX.4.58.0605300915400.18933@sbz-30.cs.Helsinki.FI>
+ <20060529234610.e5671e4c.akpm@osdl.org> <Pine.LNX.4.58.0605301024440.22126@sbz-30.cs.Helsinki.FI>
+ <026801c683c8$e3f63860$4964a8c0@icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>, netdev@vger.kernel.org,
-	"Netfilter Developer" <netfilter-devel@lists.netfilter.org>
+Cc: Andrew Morton <akpm@osdl.org>, romieu@fr.zoreil.com,
+	dvrabel@cantab.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.227]:49567 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932194AbWE3JKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 05:10:13 -0400
-Received: by wr-out-0506.google.com with SMTP id i7so1057185wra
-        for <netdev@vger.kernel.org>; Tue, 30 May 2006 02:10:12 -0700 (PDT)
-To: "Patrick McHardy" <kaber@trash.net>
-In-Reply-To: <447591DB.2020901@trash.net>
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:12473 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S932220AbWE3Jx0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 05:53:26 -0400
+To: "=?utf-8?B?amVzc2VcKOW7uuiIiFwp?=" <jesse@icplus.com.tw>
+In-Reply-To: <026801c683c8$e3f63860$4964a8c0@icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 25/05/06, Patrick McHardy <kaber@trash.net> wrote:
-> Daniel J Blueman wrote:
-> > On 25/05/06, Patrick McHardy <kaber@trash.net> wrote:
-> >
-> >> Daniel, is there an easy way to reproduce the checksum failure?
-> >
-> > In short, no. This was seen when packets may have been truncated by
-> > large MTU (eg 9000) problems in the sky2 driver transmit path.
-> >
-> > There is a small chance that this could relate to transmitting with an
-> > MTU of 9000 (possibly with receiving with an MTU of 1500 too)
->
-> Unfortunately I can't test this myself because my other NICs don't
-> support MTUs > 1500.
->
-> > On that interface, the only rules that were being exercised were:
-> >
-> > iptables -t filter -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-> > iptables -t filter -A INPUT -p tcp -m tcp --dport 445 --syn -j ACCEPT # SMB
-> > iptables -t filter -A INPUT -j DROP
->
-> That shouldn't cause any packet modifications. Can you trigger the
-> checksum failures without netfilter?
+Hi Jesse,
 
-When testing, I always run into the "kernel: sky2 lan0: rx error,
-status 0x977d977d length 0" problem before anything else.
+On Tue, 30 May 2006, jesse\(??\)~H~H\) wrote:
+> Sorry for that. I try to generate the patch file. But I only can use
+> "diff -uN" to generate it. The "diff --git" is not work. I still try to
+> generate it.
 
-I need to eliminate the sky2 driver from the equation before I'm able
-to prove if there is a problem elsewhere or not. I did have some e1000
-NICs, but not any longer, so it'll have to wait until I can find a
-stable scenario for my sky2 NIC...
--- 
-Daniel J Blueman
+I assume you're using Francois' git tree, right?  What you need to do is:
+
+  - Check out netdev-ipg branch:
+
+    git checkout netdev-ipg
+
+  - Create a new branch against netdev-ipg (this is where you'll do the
+    work):
+
+    git checkout -b ipg-mine
+
+  - Commit patches in your ipg-mine branch.  Use git update-index and git
+    commit for this.  Please commit each changeset separately.  You can 
+    use my patchset as a starting point:
+
+     http://www.cs.helsinki.fi/u/penberg/linux/ip1000-jesse/
+
+  - When you're done, you can generate diffs against the netdev-ipg 
+    branch:
+
+    git format-patch netdev-ipg ipg-mine
+
+  - If you want, you can then delete your working branch:
+
+    git checkout netdev-ipg ; git branch -D ipg-mine
+
+On Tue, 30 May 2006, jesse\(??\)~H~H\) wrote:
+> --Changelog:
+> --Updata mentainer information
+> --Remove some default phy params
+> --Remove Threshold comfig and RxDMAInt from ipg_io_config(). Remove relative
+> define form ipg.h
+> --Remove and Rewrite ipg_config_autoneg() function.
+
+The changelog isn't telling me much.  Why are you removing default phy 
+params and the threshold config?
+
+					Pekka
