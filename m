@@ -1,88 +1,60 @@
-From: Herman Elfrink <herman.elfrink@ti-wmc.nl>
-Subject: Re: [ANNOUNCE] FLAME: external kernel module for L2.5 meshing
-Date: Tue, 30 May 2006 10:43:39 +0200
-Message-ID: <447C05BB.30102@ti-wmc.nl>
-References: <44731733.7000204@ti-wmc.nl>	 <1148395738.25255.68.camel@localhost.localdomain>	 <44731F2C.2010109@ti-wmc.nl> <20060523145549.GA22749@harddisk-recovery.com> <1148397268.25255.81.camel@localhost.localdomain> <447BE93D.2070605@ti-wmc.nl>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: Re: sky2 hw csum failure [was Re: sky2 large MTU problems]
+Date: Tue, 30 May 2006 10:10:11 +0100
+Message-ID: <6278d2220605300210u101d65a9u93354aecbcde99a@mail.gmail.com>
+References: <6278d2220605240228v576dd66atdad4855b308e64bf@mail.gmail.com>
+	 <20060524103820.2e213a0b@localhost.localdomain>
+	 <44758881.1020106@trash.net>
+	 <6278d2220605250355y316f974cl216f22d198475666@mail.gmail.com>
+	 <447591DB.2020901@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Erik Mouw <erik@harddisk-recovery.com>,
-	Simon Oosthoek <simon.oosthoek@ti-wmc.nl>,
-	netdev@vger.kernel.org
+Cc: "Stephen Hemminger" <shemminger@osdl.org>, netdev@vger.kernel.org,
+	"Netfilter Developer" <netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from darla.ti-wmc.nl ([217.114.97.45]:20399 "EHLO smtp.wmc")
-	by vger.kernel.org with ESMTP id S932181AbWE3Ink (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 04:43:40 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <447BE93D.2070605@ti-wmc.nl>
+Received: from wr-out-0506.google.com ([64.233.184.227]:49567 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S932194AbWE3JKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 May 2006 05:10:13 -0400
+Received: by wr-out-0506.google.com with SMTP id i7so1057185wra
+        for <netdev@vger.kernel.org>; Tue, 30 May 2006 02:10:12 -0700 (PDT)
+To: "Patrick McHardy" <kaber@trash.net>
+In-Reply-To: <447591DB.2020901@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-Seems that instead of clearing the confusion I was confused myself.
-What we are talking about here is the protocol ID carried in the 
-ethernet header, which ethernet uses to identify the network layer (as 
-defined in the file <linux/if_ether.h>).
-So its indeed IEEE to address for this, and not IANA.
-
-Thanks for your help on this issue.
-
-Herman.
-
-Herman Elfrink wrote:
-
-> An attempt to clear up the confusion that seems to have occurred:
-> FLAME is an intermediate layer between existing MAC and network (IP) 
-> layers.
-> From MAC layer point of view FLAME is another network layer protocol 
-> (besides IP, IPX etc.), so the FLAME protocol ID we are taking about 
-> is a network layer (IANA) protocol number.
-> From IP point of view FLAME behaves like a 'normal' ethernet-type MAC 
-> layer; no need for new IEEE protocol number.
+On 25/05/06, Patrick McHardy <kaber@trash.net> wrote:
+> Daniel J Blueman wrote:
+> > On 25/05/06, Patrick McHardy <kaber@trash.net> wrote:
+> >
+> >> Daniel, is there an easy way to reproduce the checksum failure?
+> >
+> > In short, no. This was seen when packets may have been truncated by
+> > large MTU (eg 9000) problems in the sky2 driver transmit path.
+> >
+> > There is a small chance that this could relate to transmitting with an
+> > MTU of 9000 (possibly with receiving with an MTU of 1500 too)
 >
-> Regards,
+> Unfortunately I can't test this myself because my other NICs don't
+> support MTUs > 1500.
 >
-> Herman Elfrink.
+> > On that interface, the only rules that were being exercised were:
+> >
+> > iptables -t filter -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+> > iptables -t filter -A INPUT -p tcp -m tcp --dport 445 --syn -j ACCEPT # SMB
+> > iptables -t filter -A INPUT -j DROP
 >
-> Alan Cox wrote:
->
->> On Maw, 2006-05-23 at 16:55 +0200, Erik Mouw wrote:
->>  
->>
->>>>> Ethernet protocol number I assume you mean. If so this at least 
->>>>> used to
->>>>> be handled by the IEEE, along with ethernet mac address ranges.
->>>>>
->>>>>       
->>>>
->>>> Yes ethernet protocol (it's below IP level), I didn't realise that 
->>>> IEEE also handled the portnumbers. I'll check the ieee website to 
->>>> see how it works, tnx!
->>>>     
->>>
->>> IEEE doesn't handle port numbers. Port numbers are for whatever is
->>> layered on top of ethernet, so you need to register those with the
->>> appropriate authorities (IANA for IP).
->>>   
->>
->>
->> No no no
->>
->> There are several sets of numbers here
->>
->> Each ethernet DIX frame has a "protocol" (its the bits used for length
->> in 802.*). IEEE at least used to handle the assignment of those. On top
->> of that you have IP, IPX, etc with their own numbering agency.
->>
->> As he said "ethernet protocol (it's below IP level)", those are the
->> protocol numbering bodies he wants, or to whomever it was delegated.
->>
->> Alan
->>
->>
->>  
->>
->
->
+> That shouldn't cause any packet modifications. Can you trigger the
+> checksum failures without netfilter?
 
+When testing, I always run into the "kernel: sky2 lan0: rx error,
+status 0x977d977d length 0" problem before anything else.
+
+I need to eliminate the sky2 driver from the equation before I'm able
+to prove if there is a problem elsewhere or not. I did have some e1000
+NICs, but not any longer, so it'll have to wait until I can find a
+stable scenario for my sky2 NIC...
+-- 
+Daniel J Blueman
