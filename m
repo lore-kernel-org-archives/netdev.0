@@ -1,60 +1,84 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] au1000_eth.c Power Management, driver registration and
- module support
-Date: Wed, 31 May 2006 19:01:02 +0400
-Message-ID: <447DAFAE.10503@ru.mvista.com>
-References: <20060405154711.GL7029@enneenne.com> <20060405222332.GO7029@enneenne.com> <20060405222620.GP7029@enneenne.com> <4435290C.50607@ru.mvista.com> <20060406155011.GC23424@enneenne.com> <4446857D.90507@ru.mvista.com> <20060502150914.GE20543@gundam.enneenne.com>
+From: Rodolfo Giometti <giometti@linux.it>
+Subject: Re: [PATCH] au1000_eth.c Power Management, driver registration and module support
+Date: Wed, 31 May 2006 17:21:41 +0200
+Message-ID: <20060531152141.GH4390@enneenne.com>
+References: <20060405154711.GL7029@enneenne.com> <20060405222332.GO7029@enneenne.com> <20060405222620.GP7029@enneenne.com> <4435290C.50607@ru.mvista.com> <20060406155011.GC23424@enneenne.com> <4446857D.90507@ru.mvista.com> <20060502150914.GE20543@gundam.enneenne.com> <447DAFAE.10503@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="NzX0AQGjRQPusK/O"
 Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
 	Linux-MIPS <linux-mips@linux-mips.org>,
 	Jordan Crouse <jordan.crouse@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:10706 "HELO
-	mail.dev.rtsoft.ru") by vger.kernel.org with SMTP id S965053AbWEaPCF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 11:02:05 -0400
-To: Rodolfo Giometti <giometti@linux.it>
-In-Reply-To: <20060502150914.GE20543@gundam.enneenne.com>
+Received: from 81-174-11-161.f5.ngi.it ([81.174.11.161]:23729 "EHLO
+	goldrake.enneenne.com") by vger.kernel.org with ESMTP
+	id S965064AbWEaPVj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 11:21:39 -0400
+To: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Content-Disposition: inline
+In-Reply-To: <447DAFAE.10503@ru.mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-Rodolfo Giometti wrote:
+--NzX0AQGjRQPusK/O
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> here:
+On Wed, May 31, 2006 at 07:01:02PM +0400, Sergei Shtylyov wrote:
+>=20
+>    Now that this is merged, Rodolfo's patch should probably preempt mine.=
+=2E.
+> but it looks like something was lost during the transition: I failed to s=
+ee
+> where SYS_PINFUNC register is actually read (the comment mentioning this=
+=20
+> was retained :-) to check whether Ethernet port 1 is enabled (its pins ar=
+e=20
+> shared w/GPIO)...
 
->    http://ftp.enneenne.com/pub/misc/au1100-patches/linux/patch-au1000_eth-pm-and-registration
+You are right! Maybe something like this may fix the problem:
 
-> the new version of my patch for au1000_eth.c who should implement:
+   diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+   index 341fdc4..8a6427e 100644
+   --- a/drivers/net/au1000_eth.c
+   +++ b/drivers/net/au1000_eth.c
+   @@ -2149,6 +2149,9 @@ static int au1000_drv_probe(struct devic
+           void *base_addr, *macen_addr;
+           int irq, ret;
 
-> Also, as suggested by Sergei it:
-> 
-> * uses physical addresses and not KSEG1-based virtual anymore and
->   claims/releases the 4-byte MAC enable registers:
-> 
->    wwpc:~# cat /proc/iomem
->    10500000-1050ffff : eth-base
->    10520000-10520003 : eth-mac
->       
-> * assigns to the Ethernet ports two consecutive MAC addresses:
-> 
->    -		dev->dev_addr[4] += 0x10;
->    +				((unsigned long) macen_addr);
->    +		memcpy(ndev->dev_addr, au1000_mac_addr, sizeof(au1000_mac_addr));
->    +		ndev->dev_addr[5] += 0x01;
->       
-> Ciao,
+   +       if (pdev->id =3D=3D 1 && (au_readl(SYS_PINFUNC) & SYS_PF_NI2) !=
+=3D 0)
+   +               return -ENODEV;
+   +
+           /* Get the resource info */
+           res =3D platform_get_resource_byname(pdev, IORESOURCE_MEM, "eth-=
+base");
+           if (!res) {
 
-    Now that this is merged, Rodolfo's patch should probably preempt mine...
-but it looks like something was lost during the transition: I failed to see
-where SYS_PINFUNC register is actually read (the comment mentioning this was 
-retained :-) to check whether Ethernet port 1 is enabled (its pins are shared 
-w/GPIO)...
+Ciao,
 
-> Rodolfo
+Rodolfo
 
-WBR, Sergei
+--=20
 
+GNU/Linux Solutions                  e-mail:    giometti@enneenne.com
+Linux Device Driver                             giometti@gnudd.com
+Embedded Systems                     		giometti@linux.it
+UNIX programming                     phone:     +39 349 2432127
+
+--NzX0AQGjRQPusK/O
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQFEfbSFQaTCYNJaVjMRAvHdAJ935tpG2NTxAPl+dfRJwS5FkO707gCfaOwK
+Xv9Vi+r/oN86EZ8UEw3VcQk=
+=7+hD
+-----END PGP SIGNATURE-----
+
+--NzX0AQGjRQPusK/O--
