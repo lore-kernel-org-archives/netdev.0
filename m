@@ -1,65 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: TCP connection hang problem with 2.6.16.16, e1000.
-Date: Wed, 31 May 2006 10:26:03 -0700
-Message-ID: <447DD1AB.3030909@candelatech.com>
-References: <447DC830.4080201@candelatech.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] don't automatically drop packets from 0.0.0.0/8
+Date: Wed, 31 May 2006 10:26:49 -0700
+Message-ID: <20060531102649.652f24b5@localhost.localdomain>
+References: <Pine.LNX.4.56.0605311958070.8718@duke.cs.huji.ac.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:10397 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1751749AbWEaR0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 13:26:03 -0400
-Received: from [71.112.216.116] (pool-71-112-216-116.sttlwa.dsl-w.verizon.net [71.112.216.116])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id k4VHQ2Hu032035
-	for <netdev@vger.kernel.org>; Wed, 31 May 2006 10:26:02 -0700
-To: NetDev <netdev@vger.kernel.org>
-In-Reply-To: <447DC830.4080201@candelatech.com>
+Received: from smtp.osdl.org ([65.172.181.4]:35978 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751752AbWEaR1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 13:27:07 -0400
+To: Amnon Aaronsohn <bla@cs.huji.ac.il>
+In-Reply-To: <Pine.LNX.4.56.0605311958070.8718@duke.cs.huji.ac.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Kernel is 2.6.16.16 with my patches, including a patch to the
-> e1000.  I also rebuilt a fresh kernel with only the attached
-> send-to-self patch.  I see the hang, but there was no OOM messages,
-> probably because the machine was freshly rebooted and had plenty
-> of buffers available.  I will try to reproduce this with some other
-> NICs next...
+On Wed, 31 May 2006 20:07:34 +0300 (IDT)
+Amnon Aaronsohn <bla@cs.huji.ac.il> wrote:
 
-The same problem happens with a single TCP connection between two
-copper 10/100/1000 intel ports on the FC2 dual-xeon 32-bit machine.
+> For some reason linux drops all incoming packets which have a source
+> address in the 0.0.0.0/8 range, although these are valid addresses. The
+> attached patch fixes this. (It still drops packets coming from 0.0.0.0
+> since that's a special address.)
+> 
+> Signed-off-by: Amnon Aaronsohn <bla@cs.huji.ac.il>
+> ---
+> 
+> --- linux-2.6.16.18/net/ipv4/route.c.old	2006-05-30 08:57:42.000000000 +0300
+> +++ linux-2.6.16.18/net/ipv4/route.c	2006-05-30 08:58:22.000000000 +0300
+> @@ -1935,7 +1935,7 @@ static int ip_route_input_slow(struct sk
+>  	/* Accept zero addresses only to limited broadcast;
+>  	 * I even do not know to fix it or not. Waiting for complains :-)
+>  	 */
+> -	if (ZERONET(saddr))
+> +	if (saddr == 0)
+>  		goto martian_source;
+> 
+>  	if (BADCLASS(daddr) || ZERONET(daddr) || LOOPBACK(daddr))
 
+Per RFC1122:
+           (a)  { 0, 0 }
 
-I tried a dual-core AMD system running 64-bit kernel and FC5.  This kernel
-is running my complete set of patches (against 2.6.16.16).
+                 This host on this network.  MUST NOT be sent, except as
+                 a source address as part of an initialization procedure
+                 by which the host learns its own IP address.
 
-I can reproduce with Intel pro/1000 on this dual-core system when I up the rate to 400Mbps
-and do 50,000 byte writes (can only get 125Mbps with 5000 byte writes on
-this system, and it ran at that speed for several minutes w/out problem.)
+                 See also Section 3.3.6 for a non-standard use of {0,0}.
 
-I can also reproduce when using the tg3 adapters, but the tg3 can only run at about
-220Mbps, even with the larger write size.  This slower speed could be because of bus
-issues or the VLAN I used for one end of the connection.  I could not see this problem with tg3 untill
-I yanked the cable a few times and then ran the connection through my network
-emulator (which will cause a bit of latency and some dropped packets).  The tethereal
-output looks slightly different, but I think this is just because it is a different
-version from the older FC2 system from my previous email.
+            (b)  { 0, <Host-number> }
 
-   0.399107  192.168.1.3 -> 192.168.1.2  TCP 33020 > 33019 [ACK] Seq=4294967248 Ack=48 Win=11998 Len=0 TSV=943608 TSER=842823
-   0.400565  192.168.1.2 -> 192.168.1.3  TCP 33019 > 33020 [ACK] Seq=0 Ack=0 Win=11998 Len=0 TSV=943608 TSER=842824
-   0.400764  192.168.1.3 -> 192.168.1.2  TCP 33020 > 33019 [ACK] Seq=4294967248 Ack=48 Win=11998 Len=0 TSV=943608 TSER=842823
-   0.400948  192.168.1.2 -> 192.168.1.3  TCP 33019 > 33020 [ACK] Seq=0 Ack=0 Win=11998 Len=0 TSV=943608 TSER=842824
-   0.408851  192.168.1.3 -> 192.168.1.2  TCP 33020 > 33019 [ACK] Seq=4294967248 Ack=48 Win=11998 Len=0 TSV=943608 TSER=842823
-   0.410005  192.168.1.2 -> 192.168.1.3  TCP 33019 > 33020 [ACK] Seq=0 Ack=0 Win=11998 Len=0 TSV=943608 TSER=842824
-   0.411524  192.168.1.3 -> 192.168.1.2  TCP 33020 > 33019 [ACK] Seq=4294967248 Ack=48 Win=11998 Len=0 TSV=943608 TSER=842823
-   0.450702  192.168.1.2 -> 192.168.1.3  TCP 33019 > 33020 [ACK] Seq=0 Ack=0 Win=11998 Len=0 TSV=943608 TSER=842824
+                 Specified host on this network.  It MUST NOT be sent,
+                 except as a source address as part of an initialization
+                 procedure by which the host learns its full IP address.
 
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+So it looks like existing code is correct in dropping packets. Net zero
+is intended only for protocols like BOOTP broadcasts.
