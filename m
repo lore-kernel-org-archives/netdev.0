@@ -1,31 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netif_tx_disable and lockless TX
-Date: Wed, 31 May 2006 15:33:38 +1000
-Message-ID: <20060531053338.GA7334@gondor.apana.org.au>
-References: <1551EAE59135BE47B544934E30FC4FC041BC92@NT-IRVA-0751.brcm.ad.broadcom.com>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH-2.4] forcedeth update to 0.50
+Date: Wed, 31 May 2006 07:50:32 +0200
+Message-ID: <447D2EA8.8020001@colorfullife.com>
+References: <20060530220319.GA6945@w.ods.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: marcelo@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:31237 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751710AbWEaFdv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 01:33:51 -0400
-To: Michael Chan <mchan@broadcom.com>
-Content-Disposition: inline
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC041BC92@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from dbl.q-ag.de ([213.172.117.3]:36252 "EHLO dbl.q-ag.de")
+	by vger.kernel.org with ESMTP id S932489AbWEaFuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 01:50:46 -0400
+To: Willy Tarreau <willy@w.ods.org>
+In-Reply-To: <20060530220319.GA6945@w.ods.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 30, 2006 at 10:30:25PM -0700, Michael Chan wrote:
-> 
-> I also don't see any problem. It looks like we don't have to set
-> xmit_lock_owner, right?
+Hi Willy,
 
-Right, unless you want to call dev_queue_xmit recursively :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Willy Tarreau wrote:
+
+>I started from the latest backport you sent in september (0.42) and
+>incrementally applied 2.6 updates. I stopped at 0.50 which provides
+>VLAN support, because after this one, there are some 2.4-incompatible
+>changes (64bit consistent memory allocation for rings, and MSI/MSIX
+>support).
+>
+>  
+>
+I agree, 2.4 needs a backport. Either a full backport as you did, or a 
+minimal one-liner fix.
+Right now, the driver is not usable due to an incorrect initialization.
+Or to be more accurate:
+    # modprobe
+    # ifup
+works.
+But
+    # modprobe
+    # ifup
+    # ifdown
+    # ifup
+causes a misconfiguration, and the nic hangs hard after a few MB. And 
+recent distros do the equivalent of ifup/ifdown/ifup somewhere in the 
+initialization.
+
+Marcelo: Do you need a one-liner, or could you apply a large backport patch?
+
+--
+    Manfred
