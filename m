@@ -1,27 +1,52 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: orinoco encodeext + auth patch on lkml
-Date: Wed, 31 May 2006 08:03:18 -0400
-Message-ID: <1149076999.2805.2.camel@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netif_tx_disable and lockless TX
+Date: Wed, 31 May 2006 22:06:26 +1000
+Message-ID: <20060531120626.GA11925@gondor.apana.org.au>
+References: <20060531051451.GA7110@gondor.apana.org.au> <20060530.232626.00456312.davem@davemloft.net> <20060531063152.GA8032@gondor.apana.org.au> <20060531.000818.78646242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: proski@gnu.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:18886 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S964966AbWEaMFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 08:05:52 -0400
-To: netdev@vger.kernel.org
+Received: from rhun.apana.org.au ([64.62.148.172]:33292 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964967AbWEaMHf
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 08:07:35 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060531.000818.78646242.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel,
+On Wed, May 31, 2006 at 12:08:18AM -0700, David Miller wrote:
+> 
+> I understand what you're saying.  What I'm talking about is that in
+> net channel drivers we might go back to IRQ disabling locks again.
 
-Unsure if you saw this.  Slightly annoying he didn't send to netdev, but
-would be good to take a look at and possibly integrate.  Looks sane to
-me from 10,000ft.
+OK, let's assume that the TX completion will go back into the IRQ
+handler.  I contend that we can still get by with a BH-disabling
+xmit_lock.  This is how it would work:
 
-http://lkml.org/lkml/2006/5/30/433
+The IRQ handler would look like
 
-Dan
+	if (!spin_trylock(&dev->xmit_lock)) {
+		tasklet_schedule(&priv->tx_completion_tasklet);
+		return;
+	}
 
+	handle_tx_completion();
+	spin_unlock(&dev->xmit_lock);
 
+Where the TX completion tasklet would simply do
+
+	spin_lock(&dev->xmit_lock);
+	handle_tx_completion();
+	spin_unlock(&dev->xmit_lock);
+
+What do you think?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
