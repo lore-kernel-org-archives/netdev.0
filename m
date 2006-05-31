@@ -1,52 +1,41 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: netif_tx_disable and lockless TX
-Date: Tue, 30 May 2006 21:51:03 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC041BC90@NT-IRVA-0751.brcm.ad.broadcom.com>
+Date: Wed, 31 May 2006 14:58:11 +1000
+Message-ID: <20060531045811.GA6977@gondor.apana.org.au>
+References: <1551EAE59135BE47B544934E30FC4FC041BC90@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:55564 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1751695AbWEaEvW convert rfc822-to-8bit
+Received: from rhun.apana.org.au ([64.62.148.172]:56580 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751697AbWEaE6Z
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 00:51:22 -0400
-Content-class: urn:content-classes:message
-To: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David Miller" <davem@davemloft.net>
+	Wed, 31 May 2006 00:58:25 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC041BC90@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+Hi Michael:
 
-> On Tue, May 30, 2006 at 09:13:22PM -0700, David Miller wrote:
-> > As per the bug, I always keep thinking about changing how we
-> > do the lockless stuff by simply making xmit_lock a pointer.
-> > Drivers like tg3 can make it point to their local driver lock.
+On Tue, May 30, 2006 at 09:51:03PM -0700, Michael Chan wrote:
+>
+> > That's why I suggest that every NIC that uses this feature be forced
+> > to do what TG3 does so only BH disabling is needed.  Once that's done
+> > they can just use xmit_lock and everyone will be happy again.
 > 
-> This is equivalent to just using the xmit_lock in the driver, right?
-> IIRC the problem was with IRQ disabling vs. BH disabling.
+> As long as the tx completion is all done in NAPI, it can use BH
+> disabling
+> without irq disabling.
 
-For drivers that always take a private tx lock between tx completion
-and hard_start_xmit on top of the xmit_lock, getting rid of the
-xmit_lock using LLTX is a net gain.
+Yes, TG3 does not disable IRQs when taking its TX lock.  So do you see
+any problems with replacing the TG3 TX lock using xmit_lock?
 
-For drivers that don't need a private tx lock or rarely need it between
-tx completion and hard_start_xmit, it makes little difference whether
-you use xmit_lock or private lock with LLTX.
-
-> 
-> That's why I suggest that every NIC that uses this feature be forced
-> to do what TG3 does so only BH disabling is needed.  Once that's done
-> they can just use xmit_lock and everyone will be happy again.
-> 
-
-As long as the tx completion is all done in NAPI, it can use BH
-disabling
-without irq disabling.
-
-TG3 uses LLTX with a private tx_lock. BNX2 uses xmit_lock with a private
-tx_lock that is rarely used. Both drivers use BH disabling. The profiles
-of the 2 drivers are very similar.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
