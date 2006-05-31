@@ -1,64 +1,63 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: TCP connection hang problem with 2.6.16.16, e1000.
-Date: Wed, 31 May 2006 12:37:41 -0700
-Message-ID: <447DF085.2050604@candelatech.com>
-References: <447DC830.4080201@candelatech.com> <447DD870.80107@intel.com> <447DD9B5.9050100@candelatech.com>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH-2.4] forcedeth update to 0.50
+Date: Wed, 31 May 2006 21:50:38 +0200
+Message-ID: <447DF38E.3020409@colorfullife.com>
+References: <20060530220319.GA6945@w.ods.org> <447D2EA8.8020001@colorfullife.com> <20060531055438.GA9142@w.ods.org> <20060531180545.GA30797@dmt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------010604090908050001060806"
+Cc: Willy Tarreau <willy@w.ods.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:5862 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1751787AbWEaThl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 15:37:41 -0400
-Received: from [71.112.216.116] (pool-71-112-216-116.sttlwa.dsl-w.verizon.net [71.112.216.116])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id k4VJbedW003102
-	for <netdev@vger.kernel.org>; Wed, 31 May 2006 12:37:40 -0700
-To: NetDev <netdev@vger.kernel.org>
-In-Reply-To: <447DD9B5.9050100@candelatech.com>
+Received: from dbl.q-ag.de ([213.172.117.3]:52900 "EHLO dbl.q-ag.de")
+	by vger.kernel.org with ESMTP id S1751788AbWEaTuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 15:50:51 -0400
+To: Marcelo Tosatti <marcelo@kvack.org>
+In-Reply-To: <20060531180545.GA30797@dmt>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
+This is a multi-part message in MIME format.
+--------------010604090908050001060806
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I haven't seen this problem on 2.6.13, so I'm now starting a manual bisect
-> to see if I can narrow down where the problem appeared.
+Marcelo Tosatti wrote:
 
-Turns out, I can reproduce it in 2.6.13, and 2.6.9.  I haven't tried anything
-older.
+>Since v2.4.33 should be out RSN, my opinion is that applying the one-liner 
+>to fix the bringup problem for now is more prudent..
+>
+>  
+>
+It's attached. Untested, but it should work. Just the relevant hunk from 
+the 0.42 patch.
 
-I also tried to reproduce it using a simpler traffic generation tool, but could
-not reproduce the problem with it.  That points to something wierd that my application
-is doing, but I can't imagine what user-space could do to screw up a TCP connection
-like this.
+But I would disagree with waiting for 2.3.34 for a full backport:
+0.30 basically doesn't work, thus the update to 0.50 would be a big step 
+forward - it can't be worse that 0.30.
 
-In all cases, there is a lot of data in the send-queue, but for whatever
-reason, the connection will not make progress.  To user-space, it appears
-that poll returns neither readable nor writable for the sockets.
-
-I notice that if I increase the send-buffer-size while the connection is
-in the hung state, my app will quickly fill the larger send buffer, but
-still receives nothing new.
-
-Starting a new connection on the same interfaces works for a few seconds
-and then hangs as well, so the NICs can pass traffic.
-
-Here is output from /proc/net/tcp and netstat from the 2.6.16.16 kernel.
-
-netstat info:
-
-tcp        0 5635368 172.1.5.169:33058       172.1.5.168:33057       ESTABLISHED
-tcp        0 5987504 172.1.5.168:33057       172.1.5.169:33058       ESTABLISHED
-
-/proc/net/tcp:
-
-   20: A90501AC:8122 A80501AC:8121 01 0055FD28:00000000 01:00001A9F 0000000A
-0        0 21309 2 f36d8580 120000 40 0 1 58
-   21: A80501AC:8121 A90501AC:8122 01 005B5CB0:00000000 01:00001C9D 0000000A
-0        0 21226 3 ef7bfa80 120000 40 0 1 35
+--
+    Manfred
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--------------010604090908050001060806
+Content-Type: text/plain;
+ name="patch-forcedeth-minimal"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-minimal"
 
+--- 2.6/drivers/net/forcedeth.c	2005-08-14 11:17:03.000000000 +0200
++++ build-2.6/drivers/net/forcedeth.c	2005-08-14 11:16:53.000000000 +0200
+@@ -2178,6 +2180,9 @@
+ 		writel(NVREG_MIISTAT_MASK, base + NvRegMIIStatus);
+ 		dprintk(KERN_INFO "startup: got 0x%08x.\n", miistat);
+ 	}
++	/* set linkspeed to invalid value, thus force nv_update_linkspeed
++	 * to init hw */
++	np->linkspeed = 0;
+ 	ret = nv_update_linkspeed(dev);
+ 	nv_start_rx(dev);
+ 	nv_start_tx(dev);
+
+--------------010604090908050001060806--
