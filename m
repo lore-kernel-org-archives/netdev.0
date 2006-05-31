@@ -1,48 +1,103 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 12:29:55 -0600
-Message-ID: <20060531122955.B10147@openss7.org>
-References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531110459.GA20551@2ka.mipt.ru> <20060531130615.GA32362@2ka.mipt.ru>
-Reply-To: bidulock@openss7.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:61319 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S965083AbWEaS35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 14:29:57 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060531130615.GA32362@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Wed, May 31, 2006 at 05:06:15PM +0400
-Sender: netdev-owner@vger.kernel.org
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH 1/7] AMSO1100 Makefiles and Kconfig changes.
+Date: Wed, 31 May 2006 13:27:35 -0500
+Message-ID: <20060531182735.3652.44197.stgit@stevo-desktop>
+References: <20060531182733.3652.54755.stgit@stevo-desktop>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965106AbWEaS3m@vger.kernel.org>
+To: rdreier@cisco.com, mshefty@ichips.intel.com
+In-Reply-To: <20060531182733.3652.54755.stgit@stevo-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy,
 
-On Wed, 31 May 2006, Evgeniy Polyakov wrote:
-> > > >   Worse: he folded the jenkins algorith result with
-> > > > 
-> > > >    h ^= h >> 16;
-> > > >    h ^= h >> 8;
-> > > > 
-> > > >   Destroying the coverage of the function.
-> > > 
-> > > It was done to simulate socket code which uses the same folding.
-> > > Leaving 32bit space is just wrong, consider hash table size with that
-> > > index.
-> 
-> Btw, that probably requires some clarification.
-> Since hash table size is definitely less than returned hash value, so
-> higher bits are removed, for that case above folding is done both in
-> XOR hash and my test case. 
-> It is possible to just remove higher bits, but fairly ditributed parts
-> being xored produce still fairly distributed value.
 
-> > > >    h ^= h >> 16;
-> > > >    h ^= h >> 8;
+---
 
-This does not remove high order bits in either function.
-Your comparison results are simply invalid with these two lines in place.
+ drivers/infiniband/Kconfig             |    1 +
+ drivers/infiniband/Makefile            |    1 +
+ drivers/infiniband/hw/amso1100/Kbuild  |   10 ++++++++++
+ drivers/infiniband/hw/amso1100/Kconfig |   15 +++++++++++++++
+ drivers/infiniband/hw/amso1100/README  |   11 +++++++++++
+ 5 files changed, 38 insertions(+), 0 deletions(-)
 
---brian
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index ba2d650..04e6d4f 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -36,6 +36,7 @@ config INFINIBAND_ADDR_TRANS
+ 
+ source "drivers/infiniband/hw/mthca/Kconfig"
+ source "drivers/infiniband/hw/ipath/Kconfig"
++source "drivers/infiniband/hw/amso1100/Kconfig"
+ 
+ source "drivers/infiniband/ulp/ipoib/Kconfig"
+ 
+diff --git a/drivers/infiniband/Makefile b/drivers/infiniband/Makefile
+index eea2732..e2b93f9 100644
+--- a/drivers/infiniband/Makefile
++++ b/drivers/infiniband/Makefile
+@@ -1,5 +1,6 @@
+ obj-$(CONFIG_INFINIBAND)		+= core/
+ obj-$(CONFIG_INFINIBAND_MTHCA)		+= hw/mthca/
+ obj-$(CONFIG_IPATH_CORE)		+= hw/ipath/
++obj-$(CONFIG_INFINIBAND_AMSO1100)	+= hw/amso1100/
+ obj-$(CONFIG_INFINIBAND_IPOIB)		+= ulp/ipoib/
+ obj-$(CONFIG_INFINIBAND_SRP)		+= ulp/srp/
+diff --git a/drivers/infiniband/hw/amso1100/Kbuild b/drivers/infiniband/hw/amso1100/Kbuild
+new file mode 100644
+index 0000000..3696c95
+--- /dev/null
++++ b/drivers/infiniband/hw/amso1100/Kbuild
+@@ -0,0 +1,10 @@
++EXTRA_CFLAGS += -Idrivers/infiniband/include
++
++ifdef CONFIG_INFINIBAND_AMSO1100_DEBUG
++EXTRA_CFLAGS += -DC2_DEBUG
++endif
++
++obj-$(CONFIG_INFINIBAND_AMSO1100) += iw_c2.o
++
++iw_c2-y := c2.o c2_provider.o c2_rnic.o c2_alloc.o c2_mq.o c2_ae.o c2_vq.o \
++	c2_intr.o c2_cq.o c2_qp.o c2_cm.o c2_mm.o c2_pd.o
+diff --git a/drivers/infiniband/hw/amso1100/Kconfig b/drivers/infiniband/hw/amso1100/Kconfig
+new file mode 100644
+index 0000000..809cb14
+--- /dev/null
++++ b/drivers/infiniband/hw/amso1100/Kconfig
+@@ -0,0 +1,15 @@
++config INFINIBAND_AMSO1100
++	tristate "Ammasso 1100 HCA support"
++	depends on PCI && INET && INFINIBAND
++	---help---
++	  This is a low-level driver for the Ammasso 1100 host
++	  channel adapter (HCA).
++
++config INFINIBAND_AMSO1100_DEBUG
++	bool "Verbose debugging output"
++	depends on INFINIBAND_AMSO1100
++	default n
++	---help---
++	  This option causes the amso1100 driver to produce a bunch of
++	  debug messages.  Select this if you are developing the driver
++	  or trying to diagnose a problem.
+diff --git a/drivers/infiniband/hw/amso1100/README b/drivers/infiniband/hw/amso1100/README
+new file mode 100644
+index 0000000..1331353
+--- /dev/null
++++ b/drivers/infiniband/hw/amso1100/README
+@@ -0,0 +1,11 @@
++This is the OpenFabrics provider driver for the 
++AMSO1100 1Gb RNIC adapter. 
++
++This adapter is available in limited quantities 
++for development purposes from Open Grid Computing.
++
++This driver requires the IWCM and CMA mods necessary
++to support iWARP.
++
++Contact tom@opengridcomputing.com for more information.
++
