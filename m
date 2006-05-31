@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netif_tx_disable and lockless TX
-Date: Wed, 31 May 2006 00:08:18 -0700 (PDT)
-Message-ID: <20060531.000818.78646242.davem@davemloft.net>
-References: <20060531051451.GA7110@gondor.apana.org.au>
-	<20060530.232626.00456312.davem@davemloft.net>
-	<20060531063152.GA8032@gondor.apana.org.au>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Wed, 31 May 2006 00:10:27 -0700 (PDT)
+Message-ID: <20060531.001027.60486156.davem@davemloft.net>
+References: <20060531042908.10463.qmail@web51410.mail.yahoo.com>
+	<20060530235525.A30563@openss7.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: draghuram@rocketmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14479
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15503
 	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S964849AbWEaHHv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 03:07:51 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060531063152.GA8032@gondor.apana.org.au>
+	id S964854AbWEaHKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 03:10:07 -0400
+To: bidulock@openss7.org
+In-Reply-To: <20060530235525.A30563@openss7.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 31 May 2006 16:31:52 +1000
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Date: Tue, 30 May 2006 23:55:26 -0600
 
-> On Tue, May 30, 2006 at 11:26:26PM -0700, David Miller wrote:
-> > 
-> > I don't think it will be worthwhile to keep NAPI around just for
-> > TX completion.  Sure the dev_kfree_skb() will schedule software
-> > interrupt work to do the actual free, but the TX ring walking
-> > and dev_kfree_skb() calls will be in hard IRQ context.
-> 
-> Sure we won't need all of NAPI.  But would it be that bad to schedule
-> a tasklet to do the TX completion?
+> For example, it goes to great pains to permute upper order bits in
+> the local address, which for most connections will be a constant
+> value.
 
-It seems just an extra level of indirection. :)
+Consider an apache server hosting thousands of virtual
+hosts.  The local address will be different for every
+such host.
 
-> Oh, I'm not proposing that we disable IRQs on xmit_lock at all.
- ...
-
-I understand what you're saying.  What I'm talking about is that in
-net channel drivers we might go back to IRQ disabling locks again.
+Please drop linux-kernel in any future replies, this
+discussion belongs on netdev not linux-kernel.  Thanks.
