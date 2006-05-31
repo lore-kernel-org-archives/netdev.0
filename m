@@ -1,96 +1,96 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
-Date: Wed, 31 May 2006 20:05:27 +0200
-Message-ID: <200605312005.31067.IvDoorn@gmail.com>
-References: <200605251716.00742.IvDoorn@gmail.com> <20060530214305.GA27891@electric-eye.fr.zoreil.com> <200605311931.17910.IvDoorn@gmail.com>
+From: Marcelo Tosatti <marcelo@kvack.org>
+Subject: Re: [PATCH-2.4] forcedeth update to 0.50
+Date: Wed, 31 May 2006 15:05:45 -0300
+Message-ID: <20060531180545.GA30797@dmt>
+References: <20060530220319.GA6945@w.ods.org> <447D2EA8.8020001@colorfullife.com> <20060531055438.GA9142@w.ods.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3901130.TK2xzg5eqK";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:48676 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751767AbWEaSCj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 14:02:39 -0400
-Received: by nf-out-0910.google.com with SMTP id n28so148934nfc
-        for <netdev@vger.kernel.org>; Wed, 31 May 2006 11:02:38 -0700 (PDT)
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <200605311931.17910.IvDoorn@gmail.com>
+Received: from kanga.kvack.org ([66.96.29.28]:58530 "EHLO kanga.kvack.org")
+	by vger.kernel.org with ESMTP id S1751769AbWEaSHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 14:07:01 -0400
+To: Willy Tarreau <willy@w.ods.org>
+Content-Disposition: inline
+In-Reply-To: <20060531055438.GA9142@w.ods.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3901130.TK2xzg5eqK
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, May 31, 2006 at 07:54:38AM +0200, Willy Tarreau wrote:
+> On Wed, May 31, 2006 at 07:50:32AM +0200, Manfred Spraul wrote:
+> > Hi Willy,
+> > 
+> > Willy Tarreau wrote:
+> > 
+> > >I started from the latest backport you sent in september (0.42) and
+> > >incrementally applied 2.6 updates. I stopped at 0.50 which provides
+> > >VLAN support, because after this one, there are some 2.4-incompatible
+> > >changes (64bit consistent memory allocation for rings, and MSI/MSIX
+> > >support).
+> > >
+> > > 
+> > >
+> > I agree, 2.4 needs a backport. Either a full backport as you did, or a 
+> > minimal one-liner fix.
+> > Right now, the driver is not usable due to an incorrect initialization.
+> > Or to be more accurate:
+> >    # modprobe
+> >    # ifup
+> > works.
+> > But
+> >    # modprobe
+> >    # ifup
+> >    # ifdown
+> >    # ifup
+> > causes a misconfiguration, and the nic hangs hard after a few MB. And 
+> > recent distros do the equivalent of ifup/ifdown/ifup somewhere in the 
+> > initialization.
+> 
+> That's what I read in one of the changelogs, but I'm not sure at all that
+> it's what happened, because I had the problem after an ifup only. What I
+> was doing with this box was pure performance tests which drew me to compare
+> the broadcom and nforce performance. My tests measured 3 creteria :
+> 
+>   - number of HTTP/1.0 hits/s
+>   - maximum data rate
+>   - maximum packets/s
+> 
+> on tg3, I got around 45 khits/s, 949 Mbps (TCP, =1.0 Gbps on wire) and
+> 1.05 Mpps receive (I want to build a high speed load-balancer and a sniffer).
+> This was stable.
+> 
+> On the nforce, I tried with the hits/s first because it's a good indication
+> of hardware-based and driver-based optimizations. It reached 18 khits/s with
+> a lot of difficulty and the machine was stuck at 100% of one CPU. But it ran
+> for a few minutes like this. Then I tried data rate (which is the same test
+> with 1MB objects), and it failed after about 2 seconds and few megabytes (or
+> hundreds of megabytes) transferred.
+> 
+> I had to reboot to get it to work again. And I'm fairly sure that I did not
+> do down/up this time as well, but the test came to the same end.
+> 
+> That's why I'm not sure at all that the one-liner will be enough.
+> 
+> Moreover, after the update, I reached the same performance as with the
+> broadcom, with a slight improvement on packet reception (1.09 Mpps), and
+> low CPU usage (15%). So basically, the upgrade rendered the driver from
+> barely usable for SSH to very performant.
+> 
+> > Marcelo: Do you need a one-liner, or could you apply a large backport 
+> > patch?
+> 
+> I would really vote for the full backport, and I can break it into pieces
+> if needed (I have them at hand, just have to re-inject the changelogs).
+> However, I have separate changes from 0.42 to 0.50, because I started
+> with your 0.30-0.42 backport patch.
+> 
+> I have this machine till the end of the week, so I can perform other tests
+> if you're interested in trying specific things.
 
-On Wednesday 31 May 2006 19:31, Ivo van Doorn wrote:
-> On Tuesday 30 May 2006 23:43, Francois Romieu wrote:
-> > Ivo van Doorn <ivdoorn@gmail.com> :
-> > [...]
-> > > diff --git a/drivers/input/misc/radiobtn.c b/drivers/input/misc/radio=
-btn.c
-> > > new file mode 100644
-> > > index 0000000..8d3b84a
-> > > --- /dev/null
-> > > +++ b/drivers/input/misc/radiobtn.c
-> > [...]
-> > > +void radiobtn_poll(unsigned long data)
-> >=20
-> > static ?
->=20
-> Good point. Will fix this immediately.
->=20
-> > [...]
-> > > +int radiobtn_register_device(struct radio_button *radiobtn)
-> > > +{
-> > > +	int status;
-> > > +
-> > > +	/*
-> > > +	 * Check if all mandatory fields have been set.
-> > > +	 */
-> > > +	if (radiobtn->poll_delay =3D=3D 0 || radiobtn->button_poll =3D=3D N=
-ULL)
-> > > +		return -EINVAL;
-> > > +
-> > > +	/*
-> > > +	 * Allocate, initialize and register input device.
-> > > +	 */
-> > > +	radiobtn->input_dev =3D input_allocate_device();
-> > > +	if (!radiobtn->input_dev) {
-> > > +		printk(KERN_ERR "Failed to allocate input device %s.\n",
-> > > +			radiobtn->dev_name);
-> > > +		return -ENOMEM;
-> > > +	}
-> > > +
-> > > +	radiobtn->input_dev->name =3D "Radio button";
-> > > +	radiobtn->input_dev->phys =3D strcat("radiobtn/", radiobtn->dev_nam=
-e);
-> >=20
-> > The first parameter of strcat() must be big enough to contain the whole
-> > string.
->=20
-> Will replace it with
-> sprintf(wrqu->name, "radiobtn/", radiobtn->dev_name);
+Since v2.4.33 should be out RSN, my opinion is that applying the one-liner 
+to fix the bringup problem for now is more prudent..
 
-Or actually, I don't think the radiobtn/ won't be actually needed as prefix.
-The name passed to the radiobtn driver by the driver should be sufficient.
+Full patch could go into v2.4.34...
 
-Ivo
-
---nextPart3901130.TK2xzg5eqK
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEfdrraqndE37Em0gRAny/AJ9qNBfsb9QgDJwmBAIKBl9o7kr2lwCgweBr
-O5mVE2eTdKEB2zA7lD1p+uw=
-=plnM
------END PGP SIGNATURE-----
-
---nextPart3901130.TK2xzg5eqK--
