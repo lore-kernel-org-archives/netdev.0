@@ -1,59 +1,54 @@
-From: Frank van Maarseveen <frankvm@frankvm.com>
-Subject: Re: 2.6.17-rc4: netfilter LOG messages truncated via NETCONSOLE
-Date: Wed, 31 May 2006 20:20:19 +0200
-Message-ID: <20060531182019.GA26456@janus>
-References: <20060531094626.GA23156@janus> <447DAEC9.3050003@trash.net> <20060531160611.GA25637@janus> <447DC613.10102@trash.net> <20060531172936.GB25788@janus> <447DD66C.30605@trash.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: netif_tx_disable and lockless TX
+Date: Wed, 31 May 2006 19:52:38 +0200
+Message-ID: <17533.55270.172654.98522@robur.slu.se>
+References: <20060531051451.GA7110@gondor.apana.org.au>
+	<20060530.232626.00456312.davem@davemloft.net>
+	<20060531063152.GA8032@gondor.apana.org.au>
+	<20060531.000818.78646242.davem@davemloft.net>
+	<20060531120626.GA11925@gondor.apana.org.au>
+	<1149078972.5462.72.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	jgarzik@pobox.com, mchan@broadcom.com,
+	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frankvm.xs4all.nl ([80.126.170.174]:18836 "EHLO
-	janus.localdomain") by vger.kernel.org with ESMTP id S1751772AbWEaSUU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 14:20:20 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <447DD66C.30605@trash.net>
+Received: from mx1.slu.se ([130.238.96.70]:9650 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S965070AbWEaSXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 14:23:15 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1149078972.5462.72.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 07:46:20PM +0200, Patrick McHardy wrote:
-> Frank van Maarseveen wrote:
-> > On Wed, May 31, 2006 at 06:36:35PM +0200, Patrick McHardy wrote:
-> > 
-> >>The messages might get dropped when the output queue is full.
-> >>Does one of the drop counters shown by "ip -s link list"
-> >>and "tc -s -d qdisc show" increase (the other counts might also
-> >>give some clues)? Otherwise please apply the attached patch
-> >>(should fix tcpdump, last patch was incomplete) and post a dump.
-> > 
-> > 
-> > No visible improvement with the new patch.
-> 
-> Does this mean tcpdump doesn't show any packets?
 
-tcpdump output is consistent with what the netconsole receiver sees: 9
-packets are still missing. I know there are 9 because 2.6.13.2 shows them.
+jamal writes:
 
-The two patches behaved identically for me.
+ > Latency-wise: TX completion interrupt provides the best latency.
+ > Processing in the poll() -aka softirq- was almost close to the hardirq
+ > variant. So if you can make things run in a softirq such as transmit
+ > one, then the numbers will likely stay the same.
+ 
+ I don't remember we tried tasklet for TX a la Herbert's suggestion but we 
+ used use tasklets for controlling RX processing to avoid hardirq livelock
+ in pre-NAPI versions.
 
-> 
-> > ip -s link doesn't show any
-> > dropped packets so far with any patch and I don't use traffic control
-> > that I'm aware of. But I'm not sure what to make of "tc" output, maybe
-> > because CONFIG_SHAPER is not set:
-> > 
-> > 	# tc -s -d qdisc show
-> > 	RTNETLINK answers: Invalid argument
-> > 	Dump terminated
-> 
-> Thats because you're missing CONFIG_NET_SCHED. Please enable it and
-> try the tc command again, without it we can't see whether the qdisc
-> (which is present even without CONFIG_NET_SCHED) just dropped the
-> packets.
+ Had variants of tulip driver with both TX cleaning at ->poll and TX
+ cleaning at hardirq and didn't see any performance difference. The 
+ ->poll was much cleaner but we kept Alexey's original work for tulip.
 
-I'll try that tomorrow.
+ > Sorry, I havent been following discussions on netchannels[1] so i am not
+ > qualified to comment on the "replacement" part Dave mentioned earlier.
+ > What I can say is the tx processing doesnt have to be part of the NAPI
+ > poll() and still use hardirq.
 
--- 
-Frank
+ Yes true but I see TX numbers with newer boards (wire rate small pakets)
+ with cleaing in ->poll. Also now linux is very safe in network "overload" 
+ situations. Moving work to hardirq may change that.
+
+ Cheers.
+
+					--ro
