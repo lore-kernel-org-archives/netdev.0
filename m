@@ -1,66 +1,36 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 15:04:59 +0400
-Message-ID: <20060531110459.GA20551@2ka.mipt.ru>
-References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru>
+From: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Subject: Re: skge driver oops
+Date: Wed, 31 May 2006 13:05:58 +0200
+Message-ID: <BB1F4EFD574E9F409035BDA71C9612500241C1@exchange.i-bn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Content-Type: text/plain
+Cc: "'Krzysztof Oledzki'" <olel@ans.pl>, netdev@vger.kernel.org,
+	"'david@mantara.com'" <david@mantara.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:4483 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964962AbWEaLFU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 07:05:20 -0400
-To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060531105814.GB7806@2ka.mipt.ru>
+Received: from loewe.unit-netz.de ([212.202.148.42]:59616 "EHLO
+	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S964976AbWEaLGE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 07:06:04 -0400
+To: "'Stephen Hemminger'" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 02:58:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Wed, May 31, 2006 at 03:51:24AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
-> > Evgeniy,
-> > 
-> > On Wed, 31 May 2006, Evgeniy Polyakov wrote:
-> > > 2. Compared Jenkins hash with XOR hash used in TCP socket selection code.
-> > > http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
-> > 
-> > Two problems with the comparison:
-> > 
-> >   Port numbers can be collected into a 32 bit register in network
-> >   byte order directly from the TCP packet without taking two 16 bit
-> >   values and shifting and or'ing them.
-> 
-> They are.
-> 
-> u32 ports;
-> 
-> ports = lport;
-> ports <<= 16;
-> ports |= fport;
+> I assume you sk98lin version downloaded from their web site.
 
-Using network or host byte order does not affect hash distribution,
-that shifting was coded to simulate other types of mixing ports,
-which actually never showed different results.
+Right.
 
-> >   Worse: he folded the jenkins algorith result with
-> > 
-> >    h ^= h >> 16;
-> >    h ^= h >> 8;
-> > 
-> >   Destroying the coverage of the function.
-> 
-> It was done to simulate socket code which uses the same folding.
-> Leaving 32bit space is just wrong, consider hash table size with that
-> index.
-> 
-> > I, for one, am not suprised that artifacts appeared in the comparison
-> > as a result of this destruction of the coverage of the hashing function.
-> 
-> It is comparison of the approach used in TCP hashing code, it is not full 
-> mathematical analysis. And in that case jenkins hash already not good. 
-> I'm sure it can be tuned, but it does require a lot of iterations, while
-> XOR one "just works".
-
--- 
-	Evgeniy Polyakov
+sk98lin: Network Device Driver v8.32.2.3
+(C)Copyright 1999-2006 Marvell(R).
+ACPI: PCI Interrupt 0000:00:0b.0[A] -> GSI 16 (level, low) -> IRQ 19
+eth0: DGE-530T Gigabit Ethernet Adapter
+      PrefPort:A  RlmtMode:Check Link State
+eth0: network connection up using port A
+    speed:           1000
+    autonegotiation: yes
+    duplex mode:     full
+    flowctrl:        symmetric
+    role:            slave
+    irq moderation:  disabled
+    scatter-gather:  enabled
+    tx-checksum:     enabled
+    rx-checksum:     enabled
