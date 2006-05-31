@@ -1,96 +1,46 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: [PATCH-2.4] forcedeth update to 0.50
-Date: Wed, 31 May 2006 07:54:38 +0200
-Message-ID: <20060531055438.GA9142@w.ods.org>
-References: <20060530220319.GA6945@w.ods.org> <447D2EA8.8020001@colorfullife.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netif_tx_disable and lockless TX
+Date: Tue, 30 May 2006 23:26:26 -0700 (PDT)
+Message-ID: <20060530.232626.00456312.davem@davemloft.net>
+References: <20060531045811.GA6977@gondor.apana.org.au>
+	<20060530.221117.85394939.davem@davemloft.net>
+	<20060531051451.GA7110@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: marcelo@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from willy.net1.nerim.net ([62.212.114.60]:42768 "EHLO
-	willy.net1.nerim.net") by vger.kernel.org with ESMTP
-	id S964774AbWEaGKF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 02:10:05 -0400
-To: Manfred Spraul <manfred@colorfullife.com>
-Content-Disposition: inline
-In-Reply-To: <447D2EA8.8020001@colorfullife.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:24793
+	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751292AbWEaG0O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 02:26:14 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060531051451.GA7110@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 07:50:32AM +0200, Manfred Spraul wrote:
-> Hi Willy,
-> 
-> Willy Tarreau wrote:
-> 
-> >I started from the latest backport you sent in september (0.42) and
-> >incrementally applied 2.6 updates. I stopped at 0.50 which provides
-> >VLAN support, because after this one, there are some 2.4-incompatible
-> >changes (64bit consistent memory allocation for rings, and MSI/MSIX
-> >support).
-> >
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 31 May 2006 15:14:51 +1000
+
+> On Tue, May 30, 2006 at 10:11:17PM -0700, David Miller wrote:
 > > 
-> >
-> I agree, 2.4 needs a backport. Either a full backport as you did, or a 
-> minimal one-liner fix.
-> Right now, the driver is not usable due to an incorrect initialization.
-> Or to be more accurate:
->    # modprobe
->    # ifup
-> works.
-> But
->    # modprobe
->    # ifup
->    # ifdown
->    # ifup
-> causes a misconfiguration, and the nic hangs hard after a few MB. And 
-> recent distros do the equivalent of ifup/ifdown/ifup somewhere in the 
-> initialization.
+> > It will come back when net channels arrive :-) This is because net
+> > channel drivers will do all the work in hard IRQs and not in a NAPI or
+> > NAPI-like context.
+> 
+> I thought the current channel stuff is RX only.  Is TX completion moving
+> to IRQ context as well?
 
-That's what I read in one of the changelogs, but I'm not sure at all that
-it's what happened, because I had the problem after an ifup only. What I
-was doing with this box was pure performance tests which drew me to compare
-the broadcom and nforce performance. My tests measured 3 creteria :
+I don't think it will be worthwhile to keep NAPI around just for
+TX completion.  Sure the dev_kfree_skb() will schedule software
+interrupt work to do the actual free, but the TX ring walking
+and dev_kfree_skb() calls will be in hard IRQ context.
 
-  - number of HTTP/1.0 hits/s
-  - maximum data rate
-  - maximum packets/s
+> > The only regret I have about that is we will go back to not being able
+> > to profile ->hard_start_xmit() very well in such drivers.
+> 
+> Can you elborate on that? I think I've already removed all references
+> to this in my memory :)
 
-on tg3, I got around 45 khits/s, 949 Mbps (TCP, =1.0 Gbps on wire) and
-1.05 Mpps receive (I want to build a high speed load-balancer and a sniffer).
-This was stable.
-
-On the nforce, I tried with the hits/s first because it's a good indication
-of hardware-based and driver-based optimizations. It reached 18 khits/s with
-a lot of difficulty and the machine was stuck at 100% of one CPU. But it ran
-for a few minutes like this. Then I tried data rate (which is the same test
-with 1MB objects), and it failed after about 2 seconds and few megabytes (or
-hundreds of megabytes) transferred.
-
-I had to reboot to get it to work again. And I'm fairly sure that I did not
-do down/up this time as well, but the test came to the same end.
-
-That's why I'm not sure at all that the one-liner will be enough.
-
-Moreover, after the update, I reached the same performance as with the
-broadcom, with a slight improvement on packet reception (1.09 Mpps), and
-low CPU usage (15%). So basically, the upgrade rendered the driver from
-barely usable for SSH to very performant.
-
-> Marcelo: Do you need a one-liner, or could you apply a large backport 
-> patch?
-
-I would really vote for the full backport, and I can break it into pieces
-if needed (I have them at hand, just have to re-inject the changelogs).
-However, I have separate changes from 0.42 to 0.50, because I started
-with your 0.30-0.42 backport patch.
-
-I have this machine till the end of the week, so I can perform other tests
-if you're interested in trying specific things.
-
-> --
->    Manfred
-
-Cheers,
-Willy
-
+If you disable IRQs in the ->hard_start_xmit() handler, you don't
+get timer based profiling ticks.   Currently we do.
