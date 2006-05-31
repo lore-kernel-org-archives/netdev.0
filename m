@@ -1,45 +1,37 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: Safe remote kernel install howto (Re: [Bugme-new] [Bug 6613]
-   New: iptables broken on 32-bit PReP (ARCH=ppc))
-Date: Wed, 31 May 2006 16:25:10 -0400
-Message-ID: <447DFBA6.1010607@tmr.com>
-References: <200605251004.k4PA4Lek007751@fire-2.osdl.org> <4475FCFC.5000701@trash.net> <Pine.SOC.4.61.0605261008090.14762@math.ut.ee> <200605261429.36078.netdev@axxeo.de> <Pine.SOC.4.61.0605261532140.26383@math.ut.ee>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 2/2] iWARP Core Changes.
+Date: Wed, 31 May 2006 15:30:35 -0500
+Message-ID: <1149107435.7469.7.camel@stevo-desktop>
+References: <20060531182650.3308.81538.stgit@stevo-desktop>
+	 <20060531182654.3308.41372.stgit@stevo-desktop> <adaodxeypfd.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kernel list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932073AbWEaUXW@vger.kernel.org>
-To: Meelis Roos <mroos@linux.ee>
-In-Reply-To: <Pine.SOC.4.61.0605261532140.26383@math.ut.ee>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mshefty@ichips.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, openib-general@openib.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from es335.com ([67.65.19.105]:61970 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S964782AbWEaUah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 16:30:37 -0400
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adaodxeypfd.fsf@cisco.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Meelis Roos wrote:
->>> Unfortunatlety, 2.6.15 does not boot on this machine so I'm locked out
->>> remotely at the moment.
->>
->> Here it my paranoid boot setup:
+On Wed, 2006-05-31 at 12:17 -0700, Roland Dreier wrote:
+>  > +EXPORT_SYMBOL(copy_addr);
 > 
-> Thanks, but it's not much use here, since the machine is a PReP powerpc 
-> machine that can boot one kernel from disk (directly loaded from boot 
-> partition, no fancy bootloader) or netboot via serial console for test 
-> kernels. However, if the test kernel hangs, it hangs and I would need 
-> remote power cycling device that I do not have.
-> 
-I did a lot of this at one time, and used lilo in just the way 
-described. I did have a remote reboot device, however, an operator (1st 
-shift), janitor (2nd shift), or security guard (3rd/wkend shift) who had 
-been instructed to push the clearly marked reset button on demand "when 
-the weird guy in New York tells you."
+> I think if you want to export this, it needs a less generic name
+> (something with an rdma_ prefix probably).  Otherwise it's going to
+> collide someday...
 
-IBM rack units, like x345 and such, can have an "RSA" card which allows 
-remote hardware monitor and reboot with a separate IP address for 
-control. Worth its weight in gold! The latest will let you do remote 
-console as well.
+ok.
 
--- 
-Bill Davidsen <davidsen@tmr.com>
-   Obscure bug of 2004: BASH BUFFER OVERFLOW - if bash is being run by a
-normal user and is setuid root, with the "vi" line edit mode selected,
-and the character set is "big5," an off-by-one errors occurs during
-wildcard (glob) expansion.
+
+The function is needed by the iwcm module, so that's why we exported it.
+I could change the name to rdma_copy_addr(), or make the function a
+static inline in a header file since its kinda small anyway...
+
+Any preference?
+
+
