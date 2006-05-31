@@ -1,38 +1,54 @@
-From: David Miller <davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: netif_tx_disable and lockless TX
-Date: Tue, 30 May 2006 21:13:22 -0700 (PDT)
-Message-ID: <20060530.211322.51700292.davem@davemloft.net>
+Date: Tue, 30 May 2006 21:13:48 -0700
+Message-ID: <ada3beq4yrn.fsf@cisco.com>
 References: <20060531040307.GA6447@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, mchan@broadcom.com,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10369
-	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751664AbWEaEMz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 00:12:55 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060531040307.GA6447@gondor.apana.org.au>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:42759 "EHLO
+	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
+	id S1751657AbWEaEOB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 00:14:01 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060531040307.GA6447@gondor.apana.org.au> (Herbert Xu's message of "Wed, 31 May 2006 14:03:07 +1000")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 31 May 2006 14:03:07 +1000
+    Herbert> However, lockless drivers do not take the xmit_lock so
+    Herbert> this method is ineffective.  Such drivers need to do
+    Herbert> their own checking inside whatever locks that they do
+    Herbert> take.  For example, tg3 could get around this by checking
+    Herbert> whether the queue is stopped in its hard_start_xmit
+    Herbert> function.
 
-> I must say though that I'm becoming less and less impressed by the
-> lockless feature based on the number of problems that it has caused.
-> Does anyone have any hard figures as to its effectiveness (excluding
-> any stats relating to the loopback interface which can be easily
-> separated from normal NIC drivers).
+Yes, I had to add this to the IPoIB driver, because calling
+netif_stop_queue() when the transmit ring was full was sometimes still
+allowing hard_start_xmit to be called again:
 
-There were numbers posted for real drivers at one point, I
-do remember that, and the gains were non-trivial.  At least
-enough to justify the feature.
+	/*
+	 * Check if our queue is stopped.  Since we have the LLTX bit
+	 * set, we can't rely on netif_stop_queue() preventing our
+	 * xmit function from being called with a full queue.
+	 */
+	if (unlikely(netif_queue_stopped(dev))) {
+		spin_unlock_irqrestore(&priv->tx_lock, flags);
+		return NETDEV_TX_BUSY;
+	}
 
-As per the bug, I always keep thinking about changing how we
-do the lockless stuff by simply making xmit_lock a pointer.
-Drivers like tg3 can make it point to their local driver lock.
+this bug started a long thread a while back, but I don't remember if
+there was any resolution.
 
-This leaves still the cases like loopback which do no locking
-whatsoever.  I don't know how to fit it into the above idea.
+    Herbert> I must say though that I'm becoming less and less
+    Herbert> impressed by the lockless feature based on the number of
+    Herbert> problems that it has caused.  Does anyone have any hard
+    Herbert> figures as to its effectiveness (excluding any stats
+    Herbert> relating to the loopback interface which can be easily
+    Herbert> separated from normal NIC drivers).
+
+I don't have exact figures at hand, but I remember something like a 2 or
+3 percent throughput improvement for IPoIB.
+
+ - R.
