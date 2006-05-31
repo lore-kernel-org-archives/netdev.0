@@ -1,68 +1,30 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [PATCH 2/9] [I/OAT] Driver for the Intel(R) I/OAT DMA engine
-Date: Wed, 31 May 2006 01:27:31 +0200
-Message-ID: <20060530232731.GH3955@stusta.de>
-References: <20060524002013.19403.57410.stgit@gitlost.site>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Refactor Netlink connector?
+Date: Wed, 31 May 2006 05:00:46 +0200
+Message-ID: <20060531030046.GC7844@postel.suug.ch>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru> <Pine.LNX.4.64.0605271223390.12872@d.namei> <Pine.LNX.4.64.0605271303050.13104@d.namei>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:46601 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S964823AbWE3X1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 May 2006 19:27:33 -0400
-To: Chris Leech <christopher.leech@intel.com>
+Received: from postel.suug.ch ([194.88.212.233]:31892 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751580AbWEaDA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 May 2006 23:00:26 -0400
+To: James Morris <jmorris@namei.org>
 Content-Disposition: inline
-In-Reply-To: <20060524002013.19403.57410.stgit@gitlost.site>
+In-Reply-To: <Pine.LNX.4.64.0605271303050.13104@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 23, 2006 at 05:20:13PM -0700, Chris Leech wrote:
-> Adds a new ioatdma driver
-> 
-> Signed-off-by: Chris Leech <christopher.leech@intel.com>
-> ---
-> 
->  drivers/dma/Kconfig             |    9 
->  drivers/dma/Makefile            |    1 
->  drivers/dma/ioatdma.c           |  839 +++++++++++++++++++++++++++++++++++++++
->  drivers/dma/ioatdma.h           |  126 ++++++
->  drivers/dma/ioatdma_hw.h        |   52 ++
->  drivers/dma/ioatdma_io.h        |  118 +++++
->  drivers/dma/ioatdma_registers.h |  126 ++++++
->  7 files changed, 1271 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/dma/Kconfig b/drivers/dma/Kconfig
-> index f9ac4bc..0f15e76 100644
-> --- a/drivers/dma/Kconfig
-> +++ b/drivers/dma/Kconfig
-> @@ -10,4 +10,13 @@ config DMA_ENGINE
->  	  DMA engines offload copy operations from the CPU to dedicated
->  	  hardware, allowing the copies to happen asynchronously.
->  
-> +comment "DMA Devices"
-> +
-> +config INTEL_IOATDMA
-> +	tristate "Intel I/OAT DMA support"
-> +	depends on DMA_ENGINE && PCI
-> +	default m
-> +	---help---
-> +	  Enable support for the Intel(R) I/OAT DMA engine.
-> +
->  endmenu
->...
+* James Morris <jmorris@namei.org> 2006-05-27 13:21
+> Actually, a possible solution here is to completely remove all internal 
+> knowledge of netlink messages from SELinux and have the netfilter 
+> framework and protocols provide methods to determine message types and 
+> permissions.
 
-- please don't use "default m"
-- can you enhance the help text?
-  e.g. you could list which hardware contains this DMA engine
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Right, regarding generic netlink we can extend struct genl_ops to
+include a policy stating what permissions are required. Besides
+that we can extend struct nla_policy to support validating of
+attributes.
