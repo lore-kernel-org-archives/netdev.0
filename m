@@ -1,58 +1,93 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] don't automatically drop packets from 0.0.0.0/8
-Date: Wed, 31 May 2006 10:26:49 -0700
-Message-ID: <20060531102649.652f24b5@localhost.localdomain>
-References: <Pine.LNX.4.56.0605311958070.8718@duke.cs.huji.ac.il>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
+Date: Wed, 31 May 2006 19:31:14 +0200
+Message-ID: <200605311931.17910.IvDoorn@gmail.com>
+References: <200605251716.00742.IvDoorn@gmail.com> <200605291758.07930.IvDoorn@gmail.com> <20060530214305.GA27891@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart4459744.32pHPmUK6x";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:35978 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751752AbWEaR1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 13:27:07 -0400
-To: Amnon Aaronsohn <bla@cs.huji.ac.il>
-In-Reply-To: <Pine.LNX.4.56.0605311958070.8718@duke.cs.huji.ac.il>
+Received: from nf-out-0910.google.com ([64.233.182.189]:49295 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751753AbWEaR2a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 13:28:30 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so144334nfa
+        for <netdev@vger.kernel.org>; Wed, 31 May 2006 10:28:29 -0700 (PDT)
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060530214305.GA27891@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 May 2006 20:07:34 +0300 (IDT)
-Amnon Aaronsohn <bla@cs.huji.ac.il> wrote:
+--nextPart4459744.32pHPmUK6x
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> For some reason linux drops all incoming packets which have a source
-> address in the 0.0.0.0/8 range, although these are valid addresses. The
-> attached patch fixes this. (It still drops packets coming from 0.0.0.0
-> since that's a special address.)
-> 
-> Signed-off-by: Amnon Aaronsohn <bla@cs.huji.ac.il>
-> ---
-> 
-> --- linux-2.6.16.18/net/ipv4/route.c.old	2006-05-30 08:57:42.000000000 +0300
-> +++ linux-2.6.16.18/net/ipv4/route.c	2006-05-30 08:58:22.000000000 +0300
-> @@ -1935,7 +1935,7 @@ static int ip_route_input_slow(struct sk
->  	/* Accept zero addresses only to limited broadcast;
->  	 * I even do not know to fix it or not. Waiting for complains :-)
->  	 */
-> -	if (ZERONET(saddr))
-> +	if (saddr == 0)
->  		goto martian_source;
-> 
->  	if (BADCLASS(daddr) || ZERONET(daddr) || LOOPBACK(daddr))
+On Tuesday 30 May 2006 23:43, Francois Romieu wrote:
+> Ivo van Doorn <ivdoorn@gmail.com> :
+> [...]
+> > diff --git a/drivers/input/misc/radiobtn.c b/drivers/input/misc/radiobt=
+n.c
+> > new file mode 100644
+> > index 0000000..8d3b84a
+> > --- /dev/null
+> > +++ b/drivers/input/misc/radiobtn.c
+> [...]
+> > +void radiobtn_poll(unsigned long data)
+>=20
+> static ?
 
-Per RFC1122:
-           (a)  { 0, 0 }
+Good point. Will fix this immediately.
 
-                 This host on this network.  MUST NOT be sent, except as
-                 a source address as part of an initialization procedure
-                 by which the host learns its own IP address.
+> [...]
+> > +int radiobtn_register_device(struct radio_button *radiobtn)
+> > +{
+> > +	int status;
+> > +
+> > +	/*
+> > +	 * Check if all mandatory fields have been set.
+> > +	 */
+> > +	if (radiobtn->poll_delay =3D=3D 0 || radiobtn->button_poll =3D=3D NUL=
+L)
+> > +		return -EINVAL;
+> > +
+> > +	/*
+> > +	 * Allocate, initialize and register input device.
+> > +	 */
+> > +	radiobtn->input_dev =3D input_allocate_device();
+> > +	if (!radiobtn->input_dev) {
+> > +		printk(KERN_ERR "Failed to allocate input device %s.\n",
+> > +			radiobtn->dev_name);
+> > +		return -ENOMEM;
+> > +	}
+> > +
+> > +	radiobtn->input_dev->name =3D "Radio button";
+> > +	radiobtn->input_dev->phys =3D strcat("radiobtn/", radiobtn->dev_name);
+>=20
+> The first parameter of strcat() must be big enough to contain the whole
+> string.
 
-                 See also Section 3.3.6 for a non-standard use of {0,0}.
+Will replace it with
+sprintf(wrqu->name, "radiobtn/", radiobtn->dev_name);
 
-            (b)  { 0, <Host-number> }
+Thanks.
 
-                 Specified host on this network.  It MUST NOT be sent,
-                 except as a source address as part of an initialization
-                 procedure by which the host learns its full IP address.
+Ivo
 
-So it looks like existing code is correct in dropping packets. Net zero
-is intended only for protocols like BOOTP broadcasts.
+--nextPart4459744.32pHPmUK6x
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBEfdLlaqndE37Em0gRAtrxAJ9EBPRDU9UrpOYxCaPyfc9jRvBTpQCgmzuf
+VHko5i3MEJHs3nrvphynNs4=
+=cwnn
+-----END PGP SIGNATURE-----
+
+--nextPart4459744.32pHPmUK6x--
