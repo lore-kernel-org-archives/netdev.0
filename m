@@ -1,42 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: netif_tx_disable and lockless TX
-Date: Wed, 31 May 2006 14:03:07 +1000
-Message-ID: <20060531040307.GA6447@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netif_tx_disable and lockless TX
+Date: Tue, 30 May 2006 21:13:22 -0700 (PDT)
+Message-ID: <20060530.211322.51700292.davem@davemloft.net>
+References: <20060531040307.GA6447@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:9476 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751644AbWEaED7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 00:03:59 -0400
-To: "David S. Miller" <davem@davemloft.net>, mchan@broadcom.com,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10369
+	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751664AbWEaEMz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 00:12:55 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060531040307.GA6447@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 31 May 2006 14:03:07 +1000
 
-It has occured to me that the function netif_tx_disable may be unsafe
-when used in drivers that do lockless transmission.  In particular,
-the function relies on taking the xmit_lock to ensure that no further
-transmissions will occur until the queue is started again.
+> I must say though that I'm becoming less and less impressed by the
+> lockless feature based on the number of problems that it has caused.
+> Does anyone have any hard figures as to its effectiveness (excluding
+> any stats relating to the loopback interface which can be easily
+> separated from normal NIC drivers).
 
-However, lockless drivers do not take the xmit_lock so this method
-is ineffective.  Such drivers need to do their own checking inside
-whatever locks that they do take.  For example, tg3 could get around
-this by checking whether the queue is stopped in its hard_start_xmit
-function.
+There were numbers posted for real drivers at one point, I
+do remember that, and the gains were non-trivial.  At least
+enough to justify the feature.
 
-I must say though that I'm becoming less and less impressed by the
-lockless feature based on the number of problems that it has caused.
-Does anyone have any hard figures as to its effectiveness (excluding
-any stats relating to the loopback interface which can be easily
-separated from normal NIC drivers).
+As per the bug, I always keep thinking about changing how we
+do the lockless stuff by simply making xmit_lock a pointer.
+Drivers like tg3 can make it point to their local driver lock.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This leaves still the cases like loopback which do no locking
+whatsoever.  I don't know how to fit it into the above idea.
