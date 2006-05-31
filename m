@@ -1,41 +1,51 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 13:03:02 +0400
-Message-ID: <20060531090301.GA26782@2ka.mipt.ru>
-References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org>
+Date: Wed, 31 May 2006 02:12:43 -0700 (PDT)
+Message-ID: <20060531.021243.122061524.davem@davemloft.net>
+References: <20060531.004953.91760903.davem@davemloft.net>
+	<20060531020009.A1868@openss7.org>
+	<20060531090301.GA26782@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: draghuram@rocketmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:41162 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964873AbWEaJDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 05:03:12 -0400
-To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060531020009.A1868@openss7.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30391
+	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964872AbWEaJMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 05:12:16 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060531090301.GA26782@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 02:00:09AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
-> > For sure and there are plans afoot to move over to
-> > dynamic table sizing and the Jenkins hash function.
-> 
-> Yes, that could be far more efficient.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Wed, 31 May 2006 13:03:02 +0400
 
-In theory practice and theory are the same, but in practice they are
-different.
+> Current simple XOR hash used in socket selection code is just bloody
+> good!  Jenkins hash unfortunately has _significant_ artefacts which
+> were found in netchannel [1] hash selection analysis [2].  And
+> Jenkins hash is far too slower.
 
-Current simple XOR hash used in socket selection code is just bloody good!
-Jenkins hash unfortunately has _significant_ artefacts which were found
-in netchannel [1] hash selection analysis [2].
-And Jenkins hash is far too slower.
+Yes, it wins from a simplicity standpoint and it performs quite well.
+It was tuned from real socket data sets, but from systems running many
+many years ago :)
 
-1. Netchannel.
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
+FreeBSD even adopted this hash into their PCB hashing code at one
+point.
 
-2. Compared Jenkins hash with XOR hash used in TCP socket selection
-code.
-http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
+I think it will need to be changed nevertheless.  Even though this
+hash works on established sockets, it is attackable just like the
+routing hash used to be.  If an attacker has sufficient resources, he
+can make hash chains in the TCP established hash table very long.  As
+the years pass, it becomes easier and easier for one to have enough
+computing power at their disposal to carry out this kind of attack.
 
--- 
-	Evgeniy Polyakov
+So something like Jenkins with a random hash input become more and
+more critical.  And this requires some kind of way to rehash, RCU
+table locking opens the door for that.  Current locking scheme is
+too tightly bound for that kind of flexibility.
+
+I wish Ben L. would resubmit the TCP hash locking stuff he said he'd
+work on.  :)
