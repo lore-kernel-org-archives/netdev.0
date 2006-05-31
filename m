@@ -1,34 +1,60 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 03:52:50 -0600
-Message-ID: <20060531035250.C3065@openss7.org>
-References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru>
-Reply-To: bidulock@openss7.org
+Date: Wed, 31 May 2006 14:58:18 +0400
+Message-ID: <20060531105814.GB7806@2ka.mipt.ru>
+References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:38381 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S964936AbWEaJwv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 05:52:51 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:32732 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964914AbWEaK6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 06:58:42 -0400
+To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060531090301.GA26782@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Wed, May 31, 2006 at 01:03:02PM +0400
+In-Reply-To: <20060531035124.B3065@openss7.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy,
-
-On Wed, 31 May 2006, Evgeniy Polyakov wrote:
+On Wed, May 31, 2006 at 03:51:24AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
+> Evgeniy,
 > 
-> 1. Netchannel.
-> http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
-
-This one refers to the erroneous result below.
-
+> On Wed, 31 May 2006, Evgeniy Polyakov wrote:
+> > 2. Compared Jenkins hash with XOR hash used in TCP socket selection code.
+> > http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
 > 
-> 2. Compared Jenkins hash with XOR hash used in TCP socket selection
-> code.
-> http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
+> Two problems with the comparison:
+> 
+>   Port numbers can be collected into a 32 bit register in network
+>   byte order directly from the TCP packet without taking two 16 bit
+>   values and shifting and or'ing them.
 
+They are.
+
+u32 ports;
+
+ports = lport;
+ports <<= 16;
+ports |= fport;
+
+>   Worse: he folded the jenkins algorith result with
+> 
+>    h ^= h >> 16;
+>    h ^= h >> 8;
+> 
+>   Destroying the coverage of the function.
+
+It was done to simulate socket code which uses the same folding.
+Leaving 32bit space is just wrong, consider hash table size with that
+index.
+
+> I, for one, am not suprised that artifacts appeared in the comparison
+> as a result of this destruction of the coverage of the hashing function.
+
+It is comparison of the approach used in TCP hashing code, it is not full 
+mathematical analysis. And in that case jenkins hash already not good. 
+I'm sure it can be tuned, but it does require a lot of iterations, while
+XOR one "just works".
+
+-- 
+	Evgeniy Polyakov
