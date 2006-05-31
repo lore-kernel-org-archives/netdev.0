@@ -1,48 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 3/5] llc: allow applications to get copy of kernel datagrams
- (redo)
-Date: Wed, 31 May 2006 10:00:39 -0700
-Message-ID: <20060531100039.5bce8cd6@dxpl.pdx.osdl.net>
-References: <20060524000414.052569000@localhost.localdomain>
-	<20060524000530.269796000@localhost.localdomain>
+From: Amnon Aaronsohn <bla@cs.huji.ac.il>
+Subject: [PATCH] don't automatically drop packets from 0.0.0.0/8
+Date: Wed, 31 May 2006 20:07:34 +0300 (IDT)
+Message-ID: <Pine.LNX.4.56.0605311958070.8718@duke.cs.huji.ac.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:11137 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751731AbWEaRAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 13:00:41 -0400
-To: Andrew Morton <akpm@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060524000530.269796000@localhost.localdomain>
+Received: from cs1.cs.huji.ac.il ([132.65.16.10]:34571 "EHLO cs1.cs.huji.ac.il")
+	by vger.kernel.org with ESMTP id S1751156AbWEaRHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 13:07:36 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is legal for an application to bind to a SAP that is also being
-used by the kernel. This happens if the bridge module binds to the
-STP SAP, and the user wants to have a daemon for STP as well.
-It is possible to have kernel doing STP on one bridge, but
-let application do RSTP on another bridge.
+For some reason linux drops all incoming packets which have a source
+address in the 0.0.0.0/8 range, although these are valid addresses. The
+attached patch fixes this. (It still drops packets coming from 0.0.0.0
+since that's a special address.)
 
-Previous version of the patch was broken and called rcv() twice.
+Signed-off-by: Amnon Aaronsohn <bla@cs.huji.ac.il>
+---
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
---- br.orig/net/llc/llc_input.c
-+++ br/net/llc/llc_input.c
-@@ -173,8 +173,11 @@ int llc_rcv(struct sk_buff *skb, struct 
+--- linux-2.6.16.18/net/ipv4/route.c.old	2006-05-30 08:57:42.000000000 +0300
++++ linux-2.6.16.18/net/ipv4/route.c	2006-05-30 08:58:22.000000000 +0300
+@@ -1935,7 +1935,7 @@ static int ip_route_input_slow(struct sk
+ 	/* Accept zero addresses only to limited broadcast;
+ 	 * I even do not know to fix it or not. Waiting for complains :-)
  	 */
- 	rcv = rcu_dereference(sap->rcv_func);
- 	if (rcv) {
--		rcv(skb, dev, pt, orig_dev);
--		goto out_put;
-+ 		struct sk_buff *skb2;
-+
-+		skb2 = skb_clone(skb, GFP_ATOMIC);
-+ 		if (skb2)
-+ 			rcv(skb2, dev, pt, orig_dev);
- 	}
- 	dest = llc_pdu_type(skb);
- 	if (unlikely(!dest || !llc_type_handlers[dest - 1]))
+-	if (ZERONET(saddr))
++	if (saddr == 0)
+ 		goto martian_source;
+
+ 	if (BADCLASS(daddr) || ZERONET(daddr) || LOOPBACK(daddr))
