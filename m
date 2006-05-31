@@ -1,60 +1,66 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 14:58:18 +0400
-Message-ID: <20060531105814.GB7806@2ka.mipt.ru>
-References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org>
+Date: Wed, 31 May 2006 15:04:59 +0400
+Message-ID: <20060531110459.GA20551@2ka.mipt.ru>
+References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
+Cc: "Brian F. G. Bidulock" <bidulock@openss7.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:32732 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964914AbWEaK6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 06:58:42 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:4483 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964962AbWEaLFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 07:05:20 -0400
 To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060531035124.B3065@openss7.org>
+In-Reply-To: <20060531105814.GB7806@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 03:51:24AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
-> Evgeniy,
+On Wed, May 31, 2006 at 02:58:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> On Wed, May 31, 2006 at 03:51:24AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
+> > Evgeniy,
+> > 
+> > On Wed, 31 May 2006, Evgeniy Polyakov wrote:
+> > > 2. Compared Jenkins hash with XOR hash used in TCP socket selection code.
+> > > http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
+> > 
+> > Two problems with the comparison:
+> > 
+> >   Port numbers can be collected into a 32 bit register in network
+> >   byte order directly from the TCP packet without taking two 16 bit
+> >   values and shifting and or'ing them.
 > 
-> On Wed, 31 May 2006, Evgeniy Polyakov wrote:
-> > 2. Compared Jenkins hash with XOR hash used in TCP socket selection code.
-> > http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
+> They are.
 > 
-> Two problems with the comparison:
+> u32 ports;
 > 
->   Port numbers can be collected into a 32 bit register in network
->   byte order directly from the TCP packet without taking two 16 bit
->   values and shifting and or'ing them.
+> ports = lport;
+> ports <<= 16;
+> ports |= fport;
 
-They are.
+Using network or host byte order does not affect hash distribution,
+that shifting was coded to simulate other types of mixing ports,
+which actually never showed different results.
 
-u32 ports;
-
-ports = lport;
-ports <<= 16;
-ports |= fport;
-
->   Worse: he folded the jenkins algorith result with
+> >   Worse: he folded the jenkins algorith result with
+> > 
+> >    h ^= h >> 16;
+> >    h ^= h >> 8;
+> > 
+> >   Destroying the coverage of the function.
 > 
->    h ^= h >> 16;
->    h ^= h >> 8;
+> It was done to simulate socket code which uses the same folding.
+> Leaving 32bit space is just wrong, consider hash table size with that
+> index.
 > 
->   Destroying the coverage of the function.
-
-It was done to simulate socket code which uses the same folding.
-Leaving 32bit space is just wrong, consider hash table size with that
-index.
-
-> I, for one, am not suprised that artifacts appeared in the comparison
-> as a result of this destruction of the coverage of the hashing function.
-
-It is comparison of the approach used in TCP hashing code, it is not full 
-mathematical analysis. And in that case jenkins hash already not good. 
-I'm sure it can be tuned, but it does require a lot of iterations, while
-XOR one "just works".
+> > I, for one, am not suprised that artifacts appeared in the comparison
+> > as a result of this destruction of the coverage of the hashing function.
+> 
+> It is comparison of the approach used in TCP hashing code, it is not full 
+> mathematical analysis. And in that case jenkins hash already not good. 
+> I'm sure it can be tuned, but it does require a lot of iterations, while
+> XOR one "just works".
 
 -- 
 	Evgeniy Polyakov
