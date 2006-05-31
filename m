@@ -1,86 +1,54 @@
-From: Sean Hefty <mshefty@ichips.intel.com>
-Subject: Re: [PATCH 2/2] iWARP Core Changes.
-Date: Wed, 31 May 2006 14:26:42 -0700
-Message-ID: <447E0A12.5090209@ichips.intel.com>
-References: <20060531182650.3308.81538.stgit@stevo-desktop> <20060531182654.3308.41372.stgit@stevo-desktop>
+From: Amit K Arora <aarora@in.ibm.com>
+Subject: DPRINTKs in e1000 code (2.6.x kernels)
+Date: Wed, 31 May 2006 14:31:05 +0530
+Message-ID: <447D5B51.7030100@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, openib-general@openib.org
+Cc: auke-jan.h.kok@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr18.intel.com ([134.134.136.17]:40098 "EHLO
-	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965161AbWEaV0p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 17:26:45 -0400
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <20060531182654.3308.41372.stgit@stevo-desktop>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:42476 "EHLO
+	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S965167AbWEaVc1
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 17:32:27 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e34.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k4VLWLhH019590
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 31 May 2006 17:32:22 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k4VLWKuj039858
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 31 May 2006 15:32:20 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k4VLWJxx032439
+	for <netdev@vger.kernel.org>; Wed, 31 May 2006 15:32:19 -0600
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mainly nits...
+Hello,
 
-Steve Wise wrote:
-> -static int copy_addr(struct rdma_dev_addr *dev_addr, struct net_device *dev,
-> +int copy_addr(struct rdma_dev_addr *dev_addr, struct net_device *dev,
->  		     unsigned char *dst_dev_addr)
+I am wondering why this patch "e1000: Remove PM warning DPRINTKs 
+breaking 2.4.x kernels" 
+(http://www.mail-archive.com/netdev@vger.kernel.org/msg10803.html) was 
+meant only for 2.4 kernels, and _not_ for 2.6 kernels.
 
-Might want to rename this to something like rdma_copy_addr if you're going to 
-export it.
+These DPRINTKs in e1000_suspend() are currently resulting in following 
+messages while rebooting a system (2.6 kernel) which has e1000 adapter:
 
-> +static int cma_iw_handler(struct iw_cm_id *iw_id, struct iw_cm_event *iw_event)
-> +{
-> +	struct rdma_id_private *id_priv = iw_id->context;
-> +	enum rdma_cm_event_type event = 0;
-> +	struct sockaddr_in *sin;
-> +	int ret = 0;
-> +
-> +	atomic_inc(&id_priv->dev_remove);
-> +
-> +	switch (iw_event->event) {
-> +	case IW_CM_EVENT_CLOSE:
-> +		event = RDMA_CM_EVENT_DISCONNECTED;
-> +		break;
-> +	case IW_CM_EVENT_CONNECT_REPLY:
-> +		sin = (struct sockaddr_in*)&id_priv->id.route.addr.src_addr;
-> +		*sin = iw_event->local_addr;
-> +		sin = (struct sockaddr_in*)&id_priv->id.route.addr.dst_addr;
+	Shutting down MD Raid 
+    	done
+	Stopping udevd:                                                       	done
+	proc umounted
+	The system will be halted immediately.
+	md: stopping all md devices.
+	e1000: eth3: e1000_suspend: Error enabling D3 wake	<<==
+	e1000: eth3: e1000_suspend: Error enabling D3 cold wake	<<==
+	Power down.
 
-spacing nit - (struct sockaddr_in *) &id_priv->...
 
-> +struct net_device *ip_dev_find(u32 ip);
+Should these DPRINTKs be removed from the 2.6.x e1000 code as well ?
 
-Just include header file with definition.
+Regards,
+Amit Arora
 
-> +	sin = (struct sockaddr_in*)&new_cm_id->route.addr.src_addr;
-> +	*sin = iw_event->local_addr;
-> +	sin = (struct sockaddr_in*)&new_cm_id->route.addr.dst_addr;
-
-same spacing nit...  appears in a couple other places as well.
-
-> +static inline union ib_gid* iw_addr_get_sgid(struct rdma_dev_addr* rda)
-> +{
-> +	return (union ib_gid*)rda->src_dev_addr;
-> +}
-> +
-> +static inline union ib_gid* iw_addr_get_dgid(struct rdma_dev_addr* rda)
-> +{
-> +	return (union ib_gid*)rda->dst_dev_addr;
-> +}
-
-spacing nits
-
-> +struct iw_cm_verbs;
->  struct ib_device {
->  	struct device                *dma_device;
->  
-> @@ -846,6 +873,8 @@ struct ib_device {
->  
->  	u32                           flags;
->  
-> +	struct iw_cm_verbs*           iwcm;
-> +
-
-'*' placement nit
-
-- Sean
