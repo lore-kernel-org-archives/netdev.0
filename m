@@ -1,40 +1,70 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Refactor Netlink connector?
-Date: Wed, 31 May 2006 11:42:45 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0605311141320.4964@d.namei>
-References: <Pine.LNX.4.64.0605261552570.4856@d.namei>  <20060527134629.GA16306@2ka.mipt.ru>
-  <Pine.LNX.4.64.0605271223390.12872@d.namei>  <Pine.LNX.4.64.0605271303050.13104@d.namei>
-  <20060531030046.GC7844@postel.suug.ch> <1149078055.5462.55.camel@jzny2>
- <20060531130649.GD7844@postel.suug.ch> <1149081752.5462.98.camel@jzny2>
+From: Frank van Maarseveen <frankvm@frankvm.com>
+Subject: Re: 2.6.17-rc4: netfilter LOG messages truncated via NETCONSOLE
+Date: Wed, 31 May 2006 18:06:11 +0200
+Message-ID: <20060531160611.GA25637@janus>
+References: <20060531094626.GA23156@janus> <447DAEC9.3050003@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Smalley <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:54160 "EHLO
-	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S965066AbWEaPms (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 11:42:48 -0400
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1149081752.5462.98.camel@jzny2>
+Received: from frankvm.xs4all.nl ([80.126.170.174]:10388 "EHLO
+	janus.localdomain") by vger.kernel.org with ESMTP id S1751625AbWEaQGM
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 12:06:12 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <447DAEC9.3050003@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 May 2006, jamal wrote:
+On Wed, May 31, 2006 at 04:57:13PM +0200, Patrick McHardy wrote:
+> Frank van Maarseveen wrote:
+> > I have two machines named "porvoo" and "espoo". The first one
+> > has netconsole configured to send kernel messages to UDP port 514
+> > (a.k.a. syslog) on the other machine.
+> > 
+> > Somewhere between 2.6.13.2 and 2.6.17-rc4 there is a regression causing
+> > the netconsole messages which originate from netfilter to be truncated
+> > right after the MAC addresses. For example, /var/log/messages on the
+> > sending machine says:
+> > 
+> > May 31 09:28:11 porvoo kernel: IN=eth0 OUT= MAC=00:12:3f:85:9f:92:00:04:9a:a0:1d:d1:08:00 SRC=192.168.100.30 DST=172.17.1.113 LEN=60 TOS=0x00 PREC=0x00 TTL=54 ID=51496 DF PROTO=TCP SPT=50868 DPT=22 WINDOW=5840 RES=0x00 SYN URGP=0 
+> > 
+> > but netconsole messages captured in /var/log/messages on the receiving
+> > machine:
+> > 
+> > May 31 09:28:11 porvoo IN=eth0 OUT= 
+> > May 31 09:28:11 porvoo MAC=
+> > May 31 09:28:11 porvoo 00:
+> > May 31 09:28:11 porvoo 12:
+> > May 31 09:28:11 porvoo 3f:
+> > May 31 09:28:11 porvoo 85:
+> > May 31 09:28:11 porvoo 9f:
+> > May 31 09:28:11 porvoo 92:
+> > May 31 09:28:11 porvoo 00:
+> > May 31 09:28:11 porvoo 04:
+> > May 31 09:28:11 porvoo 9a:
+> > May 31 09:28:11 porvoo a0:
+> > May 31 09:28:11 porvoo 1d:
+> > May 31 09:28:11 porvoo d1:
+> > May 31 09:28:11 porvoo 08:
+> > May 31 09:28:11 porvoo 00 
+> > May 31 09:49:06 espoo -- MARK --
+> > 
+> > I ran a tcpdump on the sending machine to verify(?) what goes out but in
+> > that case the 2.6.17-rc4 kernel starts to report "protocol 0000 is buggy":
 
-> To also answer your other email:
-> Look at  security/selinux/nlmsgtab.c for example for NETLINK_ROUTE
-> and compare with NETLINK_GENERIC to see the hole. I was suggesting if
-> we started by just adding checks for NETLINK_GENERIC first in those
-> tables (currently lacking), that would be a good start.
+[...]
 
-They're currently mediated as a generic netlink socket type at a higher 
-level: they're not unmediated, just not fine grained enough to know what 
-kind of message is being sent.
+> 
+> 
+> The message means that there was recursion and netpoll fell back
+> to dev_queue_xmit This patch should fix the "protocol is buggy"
+> messages, netpoll didn't set skb->nh.raw. Please try if it also
+> makes the other problem go away.
 
+"protocol 0000 is buggy" is gone. The other problem is still there.
 
 -- 
-James Morris
-<jmorris@namei.org>
+Frank
