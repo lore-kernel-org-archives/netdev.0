@@ -1,53 +1,66 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Refactor Netlink connector?
-Date: Wed, 31 May 2006 15:06:49 +0200
-Message-ID: <20060531130649.GD7844@postel.suug.ch>
-References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru> <Pine.LNX.4.64.0605271223390.12872@d.namei> <Pine.LNX.4.64.0605271303050.13104@d.namei> <20060531030046.GC7844@postel.suug.ch> <1149078055.5462.55.camel@jzny2>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Wed, 31 May 2006 17:06:15 +0400
+Message-ID: <20060531130615.GA32362@2ka.mipt.ru>
+References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531110459.GA20551@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Smalley <sds@tycho.nsa.gov>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	James Morris <jmorris@namei.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: "Brian F. G. Bidulock" <bidulock@openss7.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:39585 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S965006AbWEaNGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 09:06:30 -0400
-To: jamal <hadi@cyberus.ca>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:41862 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964998AbWEaNGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 09:06:31 -0400
+To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <1149078055.5462.55.camel@jzny2>
+In-Reply-To: <20060531110459.GA20551@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-05-31 08:20
-> The challenge is how to inform SELinux of these permissions. 
-> The access limit could be done by putting a SELinux hook at the time the
-> skb gets to the generic netlink code?
-> Note: There's actually two things that can be classified for access
-> control, the genl family as well as the ops.
+On Wed, May 31, 2006 at 03:04:59PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> On Wed, May 31, 2006 at 02:58:18PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > On Wed, May 31, 2006 at 03:51:24AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
+> > > Evgeniy,
+> > > 
+> > > On Wed, 31 May 2006, Evgeniy Polyakov wrote:
+> > > > 2. Compared Jenkins hash with XOR hash used in TCP socket selection code.
+> > > > http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
+> > > 
+> > > Two problems with the comparison:
+> > > 
+> > >   Port numbers can be collected into a 32 bit register in network
+> > >   byte order directly from the TCP packet without taking two 16 bit
+> > >   values and shifting and or'ing them.
+> > 
+> > They are.
+> > 
+> > u32 ports;
+> > 
+> > ports = lport;
+> > ports <<= 16;
+> > ports |= fport;
+> 
+> Using network or host byte order does not affect hash distribution,
+> that shifting was coded to simulate other types of mixing ports,
+> which actually never showed different results.
+> 
+> > >   Worse: he folded the jenkins algorith result with
+> > > 
+> > >    h ^= h >> 16;
+> > >    h ^= h >> 8;
+> > > 
+> > >   Destroying the coverage of the function.
+> > 
+> > It was done to simulate socket code which uses the same folding.
+> > Leaving 32bit space is just wrong, consider hash table size with that
+> > index.
 
-We already have the flag GENL_ADMIN_PERM which when set for a
-struct genl_ops calls security_netlink_recv(). It's not as
-fine grained as it could be though. The point is that adding
-fine grained SELinux support is no problem and even easier than
-for casual netlink families.
+Btw, that probably requires some clarification.
+Since hash table size is definitely less than returned hash value, so
+higher bits are removed, for that case above folding is done both in
+XOR hash and my test case. 
+It is possible to just remove higher bits, but fairly ditributed parts
+being xored produce still fairly distributed value.
 
-> This is even further granularity that opens a whole new can of worms. 
-
-I agree, the advantage is that the genetlink code already takes
-care of validating the attributes, all we have to do is allow
-genetlink families to provide a policy.
-
-> BTW, I abused the term "attribute" in my other email to James. In that
-> context it means metadata for the command and in the above case it means
-> the "T" in TLV. Despite that they are strongly related, just that
-> the packet offsets are different and the checks are for different
-> things: SELinux policy is a simple accept/deny based on some policy
-> (provisioned in user space??) and nla_policy is richer with a range
-> check for sanity reasons as opposed to access control and then
-> accept/deny. 
-
-Right, the important point is that for genetlink we already have
-a point where we peek at the attributes and adding a hook is
-trivial unlike for other netlink families where they'd have to be
-spread in the code.
+-- 
+	Evgeniy Polyakov
