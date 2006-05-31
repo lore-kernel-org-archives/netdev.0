@@ -1,96 +1,59 @@
-From: Marcelo Tosatti <marcelo@kvack.org>
-Subject: Re: [PATCH-2.4] forcedeth update to 0.50
-Date: Wed, 31 May 2006 15:05:45 -0300
-Message-ID: <20060531180545.GA30797@dmt>
-References: <20060530220319.GA6945@w.ods.org> <447D2EA8.8020001@colorfullife.com> <20060531055438.GA9142@w.ods.org>
+From: Frank van Maarseveen <frankvm@frankvm.com>
+Subject: Re: 2.6.17-rc4: netfilter LOG messages truncated via NETCONSOLE
+Date: Wed, 31 May 2006 20:20:19 +0200
+Message-ID: <20060531182019.GA26456@janus>
+References: <20060531094626.GA23156@janus> <447DAEC9.3050003@trash.net> <20060531160611.GA25637@janus> <447DC613.10102@trash.net> <20060531172936.GB25788@janus> <447DD66C.30605@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: linux-kernel@vger.kernel.org,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:58530 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1751769AbWEaSHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 14:07:01 -0400
-To: Willy Tarreau <willy@w.ods.org>
+Received: from frankvm.xs4all.nl ([80.126.170.174]:18836 "EHLO
+	janus.localdomain") by vger.kernel.org with ESMTP id S1751772AbWEaSUU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 May 2006 14:20:20 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20060531055438.GA9142@w.ods.org>
+In-Reply-To: <447DD66C.30605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 07:54:38AM +0200, Willy Tarreau wrote:
-> On Wed, May 31, 2006 at 07:50:32AM +0200, Manfred Spraul wrote:
-> > Hi Willy,
+On Wed, May 31, 2006 at 07:46:20PM +0200, Patrick McHardy wrote:
+> Frank van Maarseveen wrote:
+> > On Wed, May 31, 2006 at 06:36:35PM +0200, Patrick McHardy wrote:
 > > 
-> > Willy Tarreau wrote:
+> >>The messages might get dropped when the output queue is full.
+> >>Does one of the drop counters shown by "ip -s link list"
+> >>and "tc -s -d qdisc show" increase (the other counts might also
+> >>give some clues)? Otherwise please apply the attached patch
+> >>(should fix tcpdump, last patch was incomplete) and post a dump.
 > > 
-> > >I started from the latest backport you sent in september (0.42) and
-> > >incrementally applied 2.6 updates. I stopped at 0.50 which provides
-> > >VLAN support, because after this one, there are some 2.4-incompatible
-> > >changes (64bit consistent memory allocation for rings, and MSI/MSIX
-> > >support).
-> > >
-> > > 
-> > >
-> > I agree, 2.4 needs a backport. Either a full backport as you did, or a 
-> > minimal one-liner fix.
-> > Right now, the driver is not usable due to an incorrect initialization.
-> > Or to be more accurate:
-> >    # modprobe
-> >    # ifup
-> > works.
-> > But
-> >    # modprobe
-> >    # ifup
-> >    # ifdown
-> >    # ifup
-> > causes a misconfiguration, and the nic hangs hard after a few MB. And 
-> > recent distros do the equivalent of ifup/ifdown/ifup somewhere in the 
-> > initialization.
+> > 
+> > No visible improvement with the new patch.
 > 
-> That's what I read in one of the changelogs, but I'm not sure at all that
-> it's what happened, because I had the problem after an ifup only. What I
-> was doing with this box was pure performance tests which drew me to compare
-> the broadcom and nforce performance. My tests measured 3 creteria :
-> 
->   - number of HTTP/1.0 hits/s
->   - maximum data rate
->   - maximum packets/s
-> 
-> on tg3, I got around 45 khits/s, 949 Mbps (TCP, =1.0 Gbps on wire) and
-> 1.05 Mpps receive (I want to build a high speed load-balancer and a sniffer).
-> This was stable.
-> 
-> On the nforce, I tried with the hits/s first because it's a good indication
-> of hardware-based and driver-based optimizations. It reached 18 khits/s with
-> a lot of difficulty and the machine was stuck at 100% of one CPU. But it ran
-> for a few minutes like this. Then I tried data rate (which is the same test
-> with 1MB objects), and it failed after about 2 seconds and few megabytes (or
-> hundreds of megabytes) transferred.
-> 
-> I had to reboot to get it to work again. And I'm fairly sure that I did not
-> do down/up this time as well, but the test came to the same end.
-> 
-> That's why I'm not sure at all that the one-liner will be enough.
-> 
-> Moreover, after the update, I reached the same performance as with the
-> broadcom, with a slight improvement on packet reception (1.09 Mpps), and
-> low CPU usage (15%). So basically, the upgrade rendered the driver from
-> barely usable for SSH to very performant.
-> 
-> > Marcelo: Do you need a one-liner, or could you apply a large backport 
-> > patch?
-> 
-> I would really vote for the full backport, and I can break it into pieces
-> if needed (I have them at hand, just have to re-inject the changelogs).
-> However, I have separate changes from 0.42 to 0.50, because I started
-> with your 0.30-0.42 backport patch.
-> 
-> I have this machine till the end of the week, so I can perform other tests
-> if you're interested in trying specific things.
+> Does this mean tcpdump doesn't show any packets?
 
-Since v2.4.33 should be out RSN, my opinion is that applying the one-liner 
-to fix the bringup problem for now is more prudent..
+tcpdump output is consistent with what the netconsole receiver sees: 9
+packets are still missing. I know there are 9 because 2.6.13.2 shows them.
 
-Full patch could go into v2.4.34...
+The two patches behaved identically for me.
 
+> 
+> > ip -s link doesn't show any
+> > dropped packets so far with any patch and I don't use traffic control
+> > that I'm aware of. But I'm not sure what to make of "tc" output, maybe
+> > because CONFIG_SHAPER is not set:
+> > 
+> > 	# tc -s -d qdisc show
+> > 	RTNETLINK answers: Invalid argument
+> > 	Dump terminated
+> 
+> Thats because you're missing CONFIG_NET_SCHED. Please enable it and
+> try the tc command again, without it we can't see whether the qdisc
+> (which is present even without CONFIG_NET_SCHED) just dropped the
+> packets.
+
+I'll try that tomorrow.
+
+-- 
+Frank
