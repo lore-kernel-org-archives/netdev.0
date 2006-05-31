@@ -1,70 +1,53 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: netif_tx_disable and lockless TX
-Date: Wed, 31 May 2006 09:03:25 -0400
-Message-ID: <1149080605.5462.90.camel@jzny2>
-References: <20060531051451.GA7110@gondor.apana.org.au>
-	 <20060530.232626.00456312.davem@davemloft.net>
-	 <20060531063152.GA8032@gondor.apana.org.au>
-	 <20060531.000818.78646242.davem@davemloft.net>
-	 <20060531120626.GA11925@gondor.apana.org.au>
-	 <1149078972.5462.72.camel@jzny2>
-	 <20060531124036.GA12171@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Refactor Netlink connector?
+Date: Wed, 31 May 2006 15:06:49 +0200
+Message-ID: <20060531130649.GD7844@postel.suug.ch>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei> <20060527134629.GA16306@2ka.mipt.ru> <Pine.LNX.4.64.0605271223390.12872@d.namei> <Pine.LNX.4.64.0605271303050.13104@d.namei> <20060531030046.GC7844@postel.suug.ch> <1149078055.5462.55.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, Andi Kleen <ak@suse.de>,
-	David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Smalley <sds@tycho.nsa.gov>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:47263 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S965001AbWEaNDa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 09:03:30 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FlQMG-0000O3-N9
-	for netdev@vger.kernel.org; Wed, 31 May 2006 09:03:32 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060531124036.GA12171@gondor.apana.org.au>
+Received: from postel.suug.ch ([194.88.212.233]:39585 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965006AbWEaNGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 09:06:30 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1149078055.5462.55.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-31-05 at 22:40 +1000, Herbert Xu wrote:
-> On Wed, May 31, 2006 at 08:36:12AM -0400, jamal wrote:
-> >
-[..]
-> > 
-> > Been done in the past, bad numbers especially in SMP for reasons of
-> > latency and likelihood that a tasklet will run in a totally different
-> > CPU.
-> 
-> Was the bad latency measured with code like the above or was it with
-> an unconditional tasklet schedule?
-> 
+* jamal <hadi@cyberus.ca> 2006-05-31 08:20
+> The challenge is how to inform SELinux of these permissions. 
+> The access limit could be done by putting a SELinux hook at the time the
+> skb gets to the generic netlink code?
+> Note: There's actually two things that can be classified for access
+> control, the genl family as well as the ops.
 
-The idea was to prune those skbs for reuse within reason so as to
-not sacrifice perfomance. Perfomance is sacrificed if you have too many
-TX EOLs, or you dont prune the descriptors fast enough. The dynamics of
-proved to be hard to nail in a generic way because behavior varies based
-on traffic patterns.
-So the "within reason" part will unconditionally schedule a tasklet on
-the tx if certain DMA ring thresholds are crossed, way after the tx lock
-has been grabbed which is different from your suggestion to do it when
-you cant grab a lock.
-Otherwise you let the hardirq take care of things. Tasklets proved to be
-a bad idea and instead we ended reclaiming the skb/descriptors right at
-the point where  we initially had scheduled tasklets. I dont know what
-happened to using that technique - Robert can testify better than i.
+We already have the flag GENL_ADMIN_PERM which when set for a
+struct genl_ops calls security_netlink_recv(). It's not as
+fine grained as it could be though. The point is that adding
+fine grained SELinux support is no problem and even easier than
+for casual netlink families.
 
-> Please note that my code will do the completion in the IRQ handler
-> most of the time.  Only if there is contention for the spin lock will
-> it defer work to the softirq.
+> This is even further granularity that opens a whole new can of worms. 
 
-that part is different and I think there may be potential - it will
-require experimenting with a variety of traffic patterns. I wish i had
-time to help.
+I agree, the advantage is that the genetlink code already takes
+care of validating the attributes, all we have to do is allow
+genetlink families to provide a policy.
 
-cheers,
-jamal
+> BTW, I abused the term "attribute" in my other email to James. In that
+> context it means metadata for the command and in the above case it means
+> the "T" in TLV. Despite that they are strongly related, just that
+> the packet offsets are different and the checks are for different
+> things: SELinux policy is a simple accept/deny based on some policy
+> (provisioned in user space??) and nla_policy is richer with a range
+> check for sanity reasons as opposed to access control and then
+> accept/deny. 
 
+Right, the important point is that for genetlink we already have
+a point where we peek at the attributes and adding a hook is
+trivial unlike for other netlink families where they'd have to be
+spread in the code.
