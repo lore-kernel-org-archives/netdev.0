@@ -1,52 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netif_tx_disable and lockless TX
-Date: Wed, 31 May 2006 22:06:26 +1000
-Message-ID: <20060531120626.GA11925@gondor.apana.org.au>
-References: <20060531051451.GA7110@gondor.apana.org.au> <20060530.232626.00456312.davem@davemloft.net> <20060531063152.GA8032@gondor.apana.org.au> <20060531.000818.78646242.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Refactor Netlink connector?
+Date: Wed, 31 May 2006 08:20:55 -0400
+Message-ID: <1149078055.5462.55.camel@jzny2>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei>
+	 <20060527134629.GA16306@2ka.mipt.ru>
+	 <Pine.LNX.4.64.0605271223390.12872@d.namei>
+	 <Pine.LNX.4.64.0605271303050.13104@d.namei>
+	 <20060531030046.GC7844@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Smalley <sds@tycho.nsa.gov>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33292 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964967AbWEaMHf
+Received: from mx03.cybersurf.com ([209.197.145.106]:11139 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S964972AbWEaMVA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 08:07:35 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060531.000818.78646242.davem@davemloft.net>
+	Wed, 31 May 2006 08:21:00 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FlPh7-0007N7-VD
+	for netdev@vger.kernel.org; Wed, 31 May 2006 08:21:01 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060531030046.GC7844@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 12:08:18AM -0700, David Miller wrote:
+On Wed, 2006-31-05 at 05:00 +0200, Thomas Graf wrote:
+> * James Morris <jmorris@namei.org> 2006-05-27 13:21
+> > Actually, a possible solution here is to completely remove all internal 
+> > knowledge of netlink messages from SELinux and have the netfilter 
+> > framework and protocols provide methods to determine message types and 
+> > permissions.
 > 
-> I understand what you're saying.  What I'm talking about is that in
-> net channel drivers we might go back to IRQ disabling locks again.
+> Right, regarding generic netlink we can extend struct genl_ops to
+> include a policy stating what permissions are required. 
 
-OK, let's assume that the TX completion will go back into the IRQ
-handler.  I contend that we can still get by with a BH-disabling
-xmit_lock.  This is how it would work:
+The challenge is how to inform SELinux of these permissions. 
+The access limit could be done by putting a SELinux hook at the time the
+skb gets to the generic netlink code?
+Note: There's actually two things that can be classified for access
+control, the genl family as well as the ops.
 
-The IRQ handler would look like
+> Besides
+> that we can extend struct nla_policy to support validating of
+> attributes.
 
-	if (!spin_trylock(&dev->xmit_lock)) {
-		tasklet_schedule(&priv->tx_completion_tasklet);
-		return;
-	}
+This is even further granularity that opens a whole new can of worms. 
 
-	handle_tx_completion();
-	spin_unlock(&dev->xmit_lock);
+BTW, I abused the term "attribute" in my other email to James. In that
+context it means metadata for the command and in the above case it means
+the "T" in TLV. Despite that they are strongly related, just that
+the packet offsets are different and the checks are for different
+things: SELinux policy is a simple accept/deny based on some policy
+(provisioned in user space??) and nla_policy is richer with a range
+check for sanity reasons as opposed to access control and then
+accept/deny. 
 
-Where the TX completion tasklet would simply do
+cheers,
+jamal
 
-	spin_lock(&dev->xmit_lock);
-	handle_tx_completion();
-	spin_unlock(&dev->xmit_lock);
-
-What do you think?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
