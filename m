@@ -1,47 +1,41 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
 Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 13:44:24 +0400
-Message-ID: <20060531094421.GA7806@2ka.mipt.ru>
-References: <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru> <20060531.021243.122061524.davem@davemloft.net>
+Date: Wed, 31 May 2006 03:51:24 -0600
+Message-ID: <20060531035124.B3065@openss7.org>
+References: <20060530235525.A30563@openss7.org> <20060531.001027.60486156.davem@davemloft.net> <20060531014540.A1319@openss7.org> <20060531.004953.91760903.davem@davemloft.net> <20060531020009.A1868@openss7.org> <20060531090301.GA26782@2ka.mipt.ru>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: draghuram@rocketmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33199 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964929AbWEaJoh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 05:44:37 -0400
-To: David Miller <davem@davemloft.net>
+Received: from gw.openss7.com ([142.179.199.224]:36077 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S964931AbWEaJv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 May 2006 05:51:26 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <20060531.021243.122061524.davem@davemloft.net>
+In-Reply-To: <20060531090301.GA26782@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Wed, May 31, 2006 at 01:03:02PM +0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 02:12:43AM -0700, David Miller (davem@davemloft.net) wrote:
-> I think it will need to be changed nevertheless.  Even though this
-> hash works on established sockets, it is attackable just like the
-> routing hash used to be.  If an attacker has sufficient resources, he
-> can make hash chains in the TCP established hash table very long.  As
-> the years pass, it becomes easier and easier for one to have enough
-> computing power at their disposal to carry out this kind of attack.
+Evgeniy,
 
-Jenkins hash is very complex compared to tcp XOR one, and even simple
-test showed it's bottlenecks in some setups, so it's tuning will be 
-quite challenging both from mathematical and engineering points of view.
+On Wed, 31 May 2006, Evgeniy Polyakov wrote:
+> 2. Compared Jenkins hash with XOR hash used in TCP socket selection code.
+> http://tservice.net.ru/~s0mbre/blog/2006/05/14#2006_05_14
 
-And socket code actually differs from routing cache, since the former is
-limited to 64k connections in a time, while routing cache can grow to 
-unpredictibe sizes.
+Two problems with the comparison:
 
-> So something like Jenkins with a random hash input become more and
-> more critical.  And this requires some kind of way to rehash, RCU
-> table locking opens the door for that.  Current locking scheme is
-> too tightly bound for that kind of flexibility.
-> 
-> I wish Ben L. would resubmit the TCP hash locking stuff he said he'd
-> work on.  :)
+  Port numbers can be collected into a 32 bit register in network
+  byte order directly from the TCP packet without taking two 16 bit
+  values and shifting and or'ing them.
 
-It was good approach indeed.
+  Worse: he folded the jenkins algorith result with
 
--- 
-	Evgeniy Polyakov
+   h ^= h >> 16;
+   h ^= h >> 8;
+
+  Destroying the coverage of the function.
+
+I, for one, am not suprised that artifacts appeared in the comparison
+as a result of this destruction of the coverage of the hashing function.
