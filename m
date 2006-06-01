@@ -1,65 +1,35 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [patch, -rc5-mm1] lock validator: special locking: net/ipv4/igmp.c #2
-Date: Thu, 1 Jun 2006 08:35:37 +0200
-Message-ID: <20060601063537.GA19931@elte.hu>
-References: <4807377b0605311704g44fe10f1oc54315276890071@mail.gmail.com>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Thu, 1 Jun 2006 00:46:08 -0600
+Message-ID: <20060601004608.C21730@openss7.org>
+References: <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru> <20060601001825.A21730@openss7.org> <20060601063012.GC28087@2ka.mipt.ru>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Linux-Kernel," <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@infradead.org>,
-	NetDEV list <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:17645 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S965297AbWFAGfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 02:35:17 -0400
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Received: from gw.openss7.com ([142.179.199.224]:38035 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S1750709AbWFAGqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 02:46:10 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <4807377b0605311704g44fe10f1oc54315276890071@mail.gmail.com>
+In-Reply-To: <20060601063012.GC28087@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Thu, Jun 01, 2006 at 10:30:13AM +0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Evgeniy,
 
-* Jesse Brandeburg <jesse.brandeburg@gmail.com> wrote:
-
-> well, when running e1000 through some code paths on FC4 + 
-> 2.6.17-rc5-mm1 + ingo's latest rollup patch, with this lockdep debug 
-> option enabled I got this:
+On Thu, 01 Jun 2006, Evgeniy Polyakov wrote:
 > 
-> e1000: eth1: e1000_watchdog_task: NIC Link is Up 1000 Mbps Full Duplex
+> Since pseudo-randomness affects both folded and not folded hash
+> distribution, it can not end up in different results.
+
+Yes it would, so to rule out pseudo-random effects the pseudo-
+random number generator must be removed.
+
 > 
-> ======================================
-> [ BUG: bad unlock ordering detected! ]
-> --------------------------------------
-> mDNSResponder/2361 is trying to release lock (&in_dev->mc_list_lock) at:
-> [<ffffffff81233f5a>] ip_mc_add_src+0x85/0x1f8
+> You are right that having test with 2^48 values is really interesting,
+> but it will take ages on my test machine :)
 
-ok, could you try the patch below? (i also updated the rollup with this 
-fix)
-
-	Ingo
-
----------------------
-Subject: lock validator: special locking: net/ipv4/igmp.c #2
-From: Ingo Molnar <mingo@elte.hu>
-
-another case of non-nested unlocking igmp.c.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- net/ipv4/igmp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux/net/ipv4/igmp.c
-===================================================================
---- linux.orig/net/ipv4/igmp.c
-+++ linux/net/ipv4/igmp.c
-@@ -1646,7 +1646,7 @@ static int ip_mc_add_src(struct in_devic
- 		return -ESRCH;
- 	}
- 	spin_lock_bh(&pmc->lock);
--	read_unlock(&in_dev->mc_list_lock);
-+	read_unlock_non_nested(&in_dev->mc_list_lock);
- 
- #ifdef CONFIG_IP_MULTICAST
- 	sf_markstate(pmc);
+Try a usable subset; no pseudo-random number generator.
