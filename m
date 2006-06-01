@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
 Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Wed, 31 May 2006 23:18:39 -0700 (PDT)
-Message-ID: <20060531.231839.10909081.davem@davemloft.net>
-References: <20060531130615.GA32362@2ka.mipt.ru>
-	<20060531122955.B10147@openss7.org>
-	<20060601061234.GB28087@2ka.mipt.ru>
+Date: Thu, 1 Jun 2006 00:18:25 -0600
+Message-ID: <20060601001825.A21730@openss7.org>
+References: <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: draghuram@rocketmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bidulock@openss7.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20151
-	"EHLO sunset.sfo1.dsl.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751810AbWFAGSH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jun 2006 02:18:07 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060601061234.GB28087@2ka.mipt.ru>
+Received: from gw.openss7.com ([142.179.199.224]:53394 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S1751813AbWFAGS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 02:18:27 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20060601060424.GA28087@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Thu, Jun 01, 2006 at 10:04:24AM +0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Thu, 1 Jun 2006 10:12:36 +0400
+Evgeniy,
 
-> I've present the new simple code and test results which show
-> that folded and not folded Jenkins hashes _do_ produce _exactly_ the
-> same distribution.
+On Thu, 01 Jun 2006, Evgeniy Polyakov wrote:
+> 	
+> 	for (i=0; i<hash_size*iter_num; ++i) {
+> 		saddr = num2ip(get_random_byte(), get_random_byte(), get_random_byte(), get_random_byte());
+> 		sport = get_random_word();
 
-Ok I believe you now :)
+You still have a problem: you cannot use a pseudo-random number
+generator to generate the sample set as the pseudo-random number
+generator function itself can interact with the hash.
 
-> I think I've already said that fairly distributed values being xored
-> produce still fairly distributed value, so parts of 32bit fairly
-> distributed hash after being xored with each other still produce fairly
-> distributed 32bit space.
+Try iterating through all 2**48 values or at least a sizeable
+representative subset.
 
-It would make a good research paper for someone mathmatically
-inclined enough :)
