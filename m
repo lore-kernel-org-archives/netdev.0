@@ -1,53 +1,43 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [openib-general] Re: [PATCH 1/2] iWARP Connection Manager.
-Date: Thu, 1 Jun 2006 15:28:24 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F150D3E6@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Amit K Arora <aarora@in.ibm.com>
+Subject: Re: DPRINTKs in e1000 code (2.6.x kernels)
+Date: Thu, 01 Jun 2006 15:34:01 +0530
+Message-ID: <447EBB91.9070907@in.ibm.com>
+References: <447D5B51.7030100@in.ibm.com>	 <23630a870399173fdc21603d9300d905@localhost> <1149199027.7160.22.camel@amitarora.in.ibm.com> <447F654A.3040406@intel.com> <447F68A2.20605@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Steve Wise" <swise@opengridcomputing.com>, netdev@vger.kernel.org,
-	rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750814AbWFAW2p@vger.kernel.org>
-Content-class: urn:content-classes:message
-To: "Tom Tucker" <tom@opengridcomputing.com>,
-	"Sean Hefty" <mshefty@ichips.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <sofar@foo-projects.org>, netdev@vger.kernel.org,
+	amitarora@in.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:37772 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750820AbWFAWfK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jun 2006 18:35:10 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e31.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k51MZ9sj026961
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 1 Jun 2006 18:35:09 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by westrelay02.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k51MZ9LD266836
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 1 Jun 2006 16:35:09 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k51MZ9j4000805
+	for <netdev@vger.kernel.org>; Thu, 1 Jun 2006 16:35:09 -0600
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <447F68A2.20605@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Auke Kok wrote:
+> 
+> I'm in need of coffee - these changes got queued for 2.6.18. They're in 
+> jgarziks netdev-2.6.git, but not anywhere in 2.6.17rcX
+> 
+> Auke
 
->> 
->> There's a difference between trying to handle the user calling
->> disconnect/destroy at the same time a call to accept/connect is
->> active, versus the user calling disconnect/destroy after
->> accept/connect have returned.  In the latter case, I think you're
->> fine.  In the first case, this is allowing a user to call
-> destroy at the same time that they're calling accept/connect.
->> Additionally, there's no guarantee that the F_CONNECT_WAIT flag has
->> been set by accept/connect by the time disconnect/destroy tests it.
-> 
-> The problem is that we can't synchronously cancel an
-> outstanding connect request. Once we've asked the adapter to
-> connect, we can't tell him to stop, we have to wait for it to
-> fail. During the time period between when we ask to connect
-> and the adapter says yeah-or-nay, the user hits ctrl-C. This
-> is the case where disconnect and/or destroy gets called and
-> we have to block it waiting for the outstanding connect
-> request to complete.
-> 
-> One alternative to this approach is to do the kfree of the
-> cm_id in the deref logic. This was the original design and
-> leaves the object around to handle the completion of the
-> connect and still allows the app to clean up and go away
-> without all this waitin' around. When the adapter finally
-> finishes and releases it's reference, the object is kfree'd.
-> 
-> Hope this helps.
-> 
-Why couldn't you synchronously put the cm_id in a state of
-"pending delete" and do the actual delete when the RNIC
-provides a response to the request? There could even be
-an optional method to see if the device is capable of
-cancelling the request. I know it can't yank a SYN back
-from the wire, but it could refrain from retransmitting.
+Thanks for the clarification !
+
+Regards,
+Amit Arora
+
