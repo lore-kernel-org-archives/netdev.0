@@ -1,43 +1,84 @@
-From: Frank van Maarseveen <frankvm@frankvm.com>
-Subject: Re: 2.6.17-rc4: netfilter LOG messages truncated via NETCONSOLE
-Date: Thu, 1 Jun 2006 11:11:25 +0200
-Message-ID: <20060601091124.GA31642@janus>
-References: <20060531094626.GA23156@janus> <447DAEC9.3050003@trash.net> <20060531160611.GA25637@janus> <447DC613.10102@trash.net> <20060531172936.GB25788@janus> <447DD66C.30605@trash.net>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Thu, 1 Jun 2006 04:24:57 -0600
+Message-ID: <20060601042457.B25584@openss7.org>
+References: <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru> <20060601001825.A21730@openss7.org> <20060601063012.GC28087@2ka.mipt.ru> <20060601004608.C21730@openss7.org> <20060601070136.GA754@2ka.mipt.ru> <20060601011125.C22283@openss7.org> <20060601083805.GB754@2ka.mipt.ru>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Kernel Netdev Mailing List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932112AbWFAJL1@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965031AbWFAKZL@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <447DD66C.30605@trash.net>
+In-Reply-To: <20060601083805.GB754@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Thu, Jun 01, 2006 at 12:38:05PM +0400
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 31, 2006 at 07:46:20PM +0200, Patrick McHardy wrote:
+Evgeniy,
 
-[...]
+On Thu, 01 Jun 2006, Evgeniy Polyakov wrote:
 
-> > ip -s link doesn't show any
-> > dropped packets so far with any patch and I don't use traffic control
-> > that I'm aware of. But I'm not sure what to make of "tc" output, maybe
-> > because CONFIG_SHAPER is not set:
-> > 
-> > 	# tc -s -d qdisc show
-> > 	RTNETLINK answers: Invalid argument
-> > 	Dump terminated
+For purely random numbers you could amplify thermal noise off an
+open transitor junction (the audiofile's white noise generator)
+and feed it into an analog to digital converter.
+
 > 
-> Thats because you're missing CONFIG_NET_SCHED. Please enable it and
-> try the tc command again, without it we can't see whether the qdisc
-> (which is present even without CONFIG_NET_SCHED) just dropped the
-> packets.
+> I've run it with following source ip/port selection algo:
+> 	if (++sport == 0) {
+> 		saddr++;
+> 		sport++;
+> 	}
+> 
+> Starting IP was 1.1.1.1 and sport was 1.
+> Destination IP and port are the same 192.168.0.1:80
+> 
+> Jenkins hash started to show different behaviour:
+> it does not have previous artefacts, but instead it's dispersion is
+> _much_ wider than in XOR case.
 
-ok, now "tc -s -d qdisc show" says (after noticing missing netconsole
-packets):
+Aha!  But perhaps this is too easy a data set.  HTTP clients typically
+dynamically allocate port numbers within a range and source address
+are typically not less than a certain value.  That is why I suggested
+something like:
 
-qdisc pfifo_fast 0: dev eth0 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
- Sent 155031 bytes 2067 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
+       sport = 10000;
+       saddr = 0x0a000000;  /* 10.0.0.0 */
 
--- 
-Frank
+       ...
+
+       if (++sport == 16000) {
+	       sport = 10000;
+	       saddr++;
+       }
+
+If this shows artifacts worse than XOR then more realistic gaps in the
+input values will cause artifacts.
+
+> 
+> With following ip/port selection algo:
+> 	if (++sport == 0) {
+> 		//saddr++;
+> 		sport += 123;
+> 	}
+> 
+> I see yet another jenkins artefacts, but again different from previous
+> two.
+
+Adding primes.  Again, the arithmetic series of primes might auto-correlate
+with the Jenkins function.  Or it plain might not like gaps.
+
+> 
+> But each time both folded and not folded hashes behave exactly the same.
+> 
+> > Can you show the same artifacts for jenkins_3word?
+> 
+> What should be used as starting point there?
+> If I use 0 it is the same as jhash_2words().
+> If I use 123123 - artefacts are the same, just slighly shifted (I tested
+> only the latest test above though).
+> 
+> Looking into the code we can see that jhash_2words() is jhash_3words()
+> with zero "C" value, so it will show the same nature.
+
+Skip that then.
