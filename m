@@ -1,19 +1,20 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 1/2] iWARP Connection Manager.
-Date: Thu, 01 Jun 2006 12:00:33 -0500
-Message-ID: <1149181233.31610.34.camel@stevo-desktop>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: [openib-general] Re: [PATCH 1/2] iWARP Connection Manager.
+Date: Thu, 01 Jun 2006 12:11:58 -0500
+Message-ID: <1149181918.18855.23.camel@trinity.ogc.int>
 References: <20060531182650.3308.81538.stgit@stevo-desktop>
 	 <20060531182652.3308.1244.stgit@stevo-desktop>
 	 <447E1720.7000307@ichips.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, openib-general@openib.org
+Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org,
+	rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:64322 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1030244AbWFARAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 13:00:36 -0400
+Received: from es335.com ([67.65.19.105]:26463 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S965008AbWFARIk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 13:08:40 -0400
 To: Sean Hefty <mshefty@ichips.intel.com>
 In-Reply-To: <447E1720.7000307@ichips.intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -44,20 +45,9 @@ On Wed, 2006-05-31 at 15:22 -0700, Sean Hefty wrote:
 > the reference count, which allows destruction to proceed, and calling wake_up on 
 > a freed cm_id.  My guess is that you may need to do the same.
 > 
-
-Good catch.  Yes, the IW CM suffers from the same race condition.  I'll
-change this to use completions...
-
 > Can you also explain the use of the return value here?  It's ignored below in 
 > rem_ref() and destroy_cm_id().
 > 
-
-The return value is supposed to indicate whether this call to deref
-_may_ have resulted in waking up another thread and the cm_id being
-freed.  Its used in cm_work_handler(), in conjunction with setting the
-IWCM_F_CALLBACK_DESTROY flag to know whether the cm_id needs to be freed
-on the callback path.
-
 > > +static void add_ref(struct iw_cm_id *cm_id)
 > > +{
 > > +	struct iwcm_id_private *cm_id_priv;
@@ -101,11 +91,9 @@ on the callback path.
 > iw_cm_accept().  Are connect / accept blocking, or are you just waiting for an 
 > event?
 
-The CM must wait for the low level provider to finish a connect() or
-accept() operation before telling the low level provider to disconnect
-via modifying the iwarp QP.  Regardless of whether they block, this
-disconnect can happen concurrently with the connect/accept so we need to
-hold the disconnect until the connect/accept completes.
+Yes. The application (or the case I saw was user-mode exit logic after
+ctrl-C) cleaning up at random times relative to connection
+establishment. 
 
 > 
 > > +
@@ -168,9 +156,6 @@ hold the disconnect until the connect/accept completes.
 > 
 > Same question/comment as above.
 > 
-
-Same answer.  
-
 > > +
 > > +	spin_lock_irqsave(&cm_id_priv->lock, flags);
 > > +	switch (cm_id_priv->state) {
@@ -211,9 +196,6 @@ Same answer.
 > As an alternative, you could hold the lock from above, an let the LISTEN / 
 > ESTABLISHED state checks release and reacquire.
 > 
-
-Yes, perhaps that's cleaner.
-
 > > +	if (cm_id_priv->qp) {
 > > +		cm_id_priv->id.device->iwcm->rem_ref(cm_id_priv->qp);
 > > +		cm_id_priv->qp = NULL;
@@ -322,11 +304,6 @@ Yes, perhaps that's cleaner.
 > 
 > This makes it sound like we're just waiting for an event.
 > 
-
-disconnect/destory paths wait for the provider to complete the accept or
-connect operation.
-
-
 > > +int iw_cm_accept(struct iw_cm_id *cm_id, 
 > > +		 struct iw_cm_conn_param *iw_param)
 > > +{
@@ -489,10 +466,6 @@ connect operation.
 > 
 > We probably don't always want to print a message here.
 > 
-
-Yes.  I'll change this to a pr_debug().
-
-
 > > +		set_bit(IWCM_F_CALLBACK_DESTROY, &cm_id_priv->flags);
 > > +		destroy_cm_id(cm_id);
 > > +		if (atomic_read(&cm_id_priv->refcount)==0)
@@ -535,9 +508,6 @@ Yes.  I'll change this to a pr_debug().
 > 
 > Can just BUG_ON the state and avoid the switch.  Same comment applies below.
 > 
-
-ok.
-
 > > +	}
 > > +	wake_up_all(&cm_id_priv->connect_wait);
 > > +
@@ -623,8 +593,11 @@ ok.
 > 
 > Will want to remove this.
 > 
-
-oops. yes...
-
 > - Sean
+> _______________________________________________
+> openib-general mailing list
+> openib-general@openib.org
+> http://openib.org/mailman/listinfo/openib-general
+> 
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
 
