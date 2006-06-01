@@ -1,34 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Bugme-new] [Bug 6613] New: iptables broken on 32-bit PReP (ARCH=ppc)
-Date: Thu, 01 Jun 2006 19:44:39 +0200
-Message-ID: <447F2787.8010203@trash.net>
-References: <200605251004.k4PA4Lek007751@fire-2.osdl.org> <20060525070324.2ea16b0a.akpm@osdl.org> <4475FCFC.5000701@trash.net> <Pine.SOC.4.61.0606011002180.13777@math.ut.ee>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: monitor_during_oper on rt*pci (or any other pcmcia card)?
+Date: Thu, 1 Jun 2006 19:58:41 +0200
+Message-ID: <200606011958.45376.IvDoorn@gmail.com>
+References: <1149162449.8877.72.camel@johannes>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: multipart/signed;
+  boundary="nextPart1777316.10Dc1xYTef";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, bugme-daemon@bugzilla.kernel.org,
-	netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, rt2x00-devel@lfcorreia.dyndns.org,
+	Jean Tourrilhes <jt@hpl.hp.com>, Florian.Rampp@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:23168 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965248AbWFARok
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jun 2006 13:44:40 -0400
-To: Meelis Roos <mroos@linux.ee>
-In-Reply-To: <Pine.SOC.4.61.0606011002180.13777@math.ut.ee>
+Received: from nf-out-0910.google.com ([64.233.182.188]:11684 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S965226AbWFARzz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jun 2006 13:55:55 -0400
+Received: by nf-out-0910.google.com with SMTP id c31so744752nfb
+        for <netdev@vger.kernel.org>; Thu, 01 Jun 2006 10:55:53 -0700 (PDT)
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1149162449.8877.72.camel@johannes>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Meelis Roos wrote:
->> Meelis, it would really help if you could try 2.6.16 and in case
->> that doesn't work 2.6.15 to give an idea about whether this is a
->> recent regression or an old problem. We had a number of changes
->> in this area in the last two kernel versions that could be related.
-> 
-> 
-> Have not gotten 2.6.15 to work with one evening of tinkering - the irq
-> patch was not sufficent, there is something more broken in booting that
-> I dodn't figure out yet. So no test results for 2.6.15 yet.
+--nextPart1777316.10Dc1xYTef
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Then lets try something different. Please enable the
-DEBUG_IP_FIREWALL_USER define in net/ipv4/netfilter/ip_tables.c and
-post the results, if any.
+Hi,
+
+> Florian approached me with a project where you need a pcmcia card that
+> can have monitor_during_oper. I'd use bcm43xx but unfortunately the
+> signal strength calculations are way off right now, and that's another
+> requirement.
+>=20
+> Can the rt family of cards be made to support this with reliable signal
+> strength readings?
+
+At this moment the rt2x00 drivers are not known for their correct signal
+strength reporting. The reading is coming out of the registers but
+it isn't working in all cases.
+Even the legacy drivers from Ralink self are not known for their correct
+behaviour but some issues around that have been traced to bugs in the
+driver. But it could be possible the registers are wrong as well.
+
+> Or maybe I should rephrase the questions: which pcmcia cards can support
+> this in their hardware? I might be willing to port their drivers over to
+> d80211 just to get some more familiarity with the stack...
+>=20
+> Now, if no one can point me to ones that do have working signal
+> strength, I'll probably have to do more reverse engineering on bcm43xx
+> to get some reliable readings :/
+>=20
+> Thanks,
+> johannes
+>=20
+
+--nextPart1777316.10Dc1xYTef
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBEfyrVaqndE37Em0gRAul7AKDfVqwkxfOspJpmAwjJPyTScqee1ACghoQp
+1QwZt957FoibtzIa2nsOkdQ=
+=r+3h
+-----END PGP SIGNATURE-----
+
+--nextPart1777316.10Dc1xYTef--
