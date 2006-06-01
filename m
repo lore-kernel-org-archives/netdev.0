@@ -1,103 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: TCP connection hang problem with 2.6.16.16, e1000.
-Date: Thu, 1 Jun 2006 12:56:33 +1000
-Message-ID: <20060601025633.GA20137@gondor.apana.org.au>
-References: <447DC830.4080201@candelatech.com>
+From: varun <varun@rocsys.com>
+Subject: netfilter reg problem
+Date: Thu, 01 Jun 2006 11:33:57 +0530
+Message-ID: <447E834D.4090409@rocsys.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="M9NhX3UHpAaciwkO"
-Cc: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2568 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965196AbWFAC4v
+Received: from 59.162.194.138.static.vsnl.net.in ([59.162.194.138]:32480 "EHLO
+	rocsys.com") by vger.kernel.org with ESMTP id S1751800AbWFAFz2
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 May 2006 22:56:51 -0400
-To: "David S. Miller" <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <447DC830.4080201@candelatech.com>
+	Thu, 1 Jun 2006 01:55:28 -0400
+Received: from mail.rocsys.com (localhost [127.0.0.1] (may be forged))
+	by rocsys.com (8.12.10/8.12.10) with ESMTP id k4VKq9YJ015938
+	for <netdev@vger.kernel.org>; Thu, 1 Jun 2006 22:26:27 +0530
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
---M9NhX3UHpAaciwkO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+            I have a setup where iam using iptables. I have squid 
+running on my statem. Now the scenario is that this sytem is my router. 
+I have eth0 connected to LAN, eth1 to Wan 1 and eth2 to Wan2. In the 
+same box i also have a propratery FW which has Load Balancing feature.  
+Now my intention is i start iptables first so that it registers with 
+netfilter hook first.
+So policy is like this
+      iptables -t nat -D PREROUTING -i eth0 -p tcp -j REDIRECT --to-port 
+8080
+ In the port 8080 i have squid running.
+ As far as filtering of iptables is concerned it is allow all.
 
-On Wed, May 31, 2006 at 04:45:36PM +0000, Ben Greear wrote:
->
-> May 31 08:07:00 xeon-dt kernel: irqbalance: page allocation failure. order:1, mode:0x20
-> May 31 08:07:00 xeon-dt kernel:  [<78147393>] __alloc_pages+0x1d8/0x2b8
-> May 31 08:07:00 xeon-dt kernel:  [<7815c525>] kmem_getpages+0x2f/0x8c
-> May 31 08:07:00 xeon-dt kernel:  [<7815d297>] cache_grow+0xb1/0x14e
-> May 31 08:07:00 xeon-dt kernel:  [<7815d48e>] cache_alloc_refill+0x15a/0x206
-> May 31 08:07:00 xeon-dt kernel:  [<7815d7c5>] __kmalloc+0x68/0x80
-> May 31 08:07:00 xeon-dt kernel:  [<782b3ba2>] __alloc_skb+0x4c/0xf6
-> May 31 08:07:00 xeon-dt kernel:  [<782e63af>] tcp_collapse+0xe9/0x34e
+     So my basic FW functionality is concerned it is taken care by My 
+Propratery FW. It will do  the natting for both wan interfaces in Load 
+balance.
 
-We specifically calculate the packet size here to avoid a 2-page
-allocation, yet we still do.  This is the bug.
+  Now what i expect is that iptables will get all the packets first and 
+then packet will go to my firewall and might get dropped if ACL matches 
+else it is success. Once success i expect the packet to be redirected to 
+port 8080 where squid can take control.
 
-[NET]: Fix SKB_MAX_ORDER calculation
+ Now my problem is that even though iptables is registered first when i 
+log the packets using iptables for the above rule i find that no packets 
+are comming to iptables there by no packets are going to proxy. I get 
+only some multicast packets.
 
-The calculation in SKB_MAX_ORDER is incorrect in that it can cause
-an overflow across a page boundary which is what it's meant to prevent.
-In particular, the header length (X) should not be lumped together with
-skb_shared_info.  The latter needs to be aligned properly while the header
-has no choice but to sit in front of wherever the payload is.
+ From lan iam able to browse well and all my traffic is going tru my FW 
+rather that first through iptables. Why?
 
-Therefore the correct calculation is to take away the aligned size of
-skb_shared_info, and then subtract the header length.  The resulting
-quantity L satisfies the following inequality:
+As far as my knowledge first registered module get the packet first and 
+if the action is NF_ACCEPT the the next registered module to the hook 
+gets it right? If yes why is it not happening? Another thing is what 
+exactly does redirect do does it mangel the packet?
 
-	SKB_DATA_ALIGN(L + X) + sizeof(struct skb_shared_info) <= PAGE_SIZE
+Please help me in this?
 
-This is the quantity used by alloc_skb to do the actual allocation.
-
-While we're at it, there is no need to round up the header size in
-sk_stream_alloc_pskb.  The only thing this achieves is to make the
-data payload cache-aligned.  However, the data payload is just a
-byte stream with no alignment requirements.  So we should take away
-the rounding.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---M9NhX3UHpAaciwkO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="skb-max-order.patch"
-
-index f8f2347..8761000 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -39,9 +39,8 @@ #define CHECKSUM_UNNECESSARY 2
- 
- #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
- 				 ~(SMP_CACHE_BYTES - 1))
--#define SKB_MAX_ORDER(X, ORDER)	(((PAGE_SIZE << (ORDER)) - (X) - \
--				  sizeof(struct skb_shared_info)) & \
--				  ~(SMP_CACHE_BYTES - 1))
-+#define SKB_MAX_ORDER(X, ORDER)	((PAGE_SIZE << (ORDER)) - (X) - \
-+				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
- #define SKB_MAX_HEAD(X)		(SKB_MAX_ORDER((X), 0))
- #define SKB_MAX_ALLOC		(SKB_MAX_ORDER(0, 2))
- 
-index c9fad6f..9694fdf 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1162,7 +1162,7 @@ static inline struct sk_buff *sk_stream_
- 	struct sk_buff *skb;
- 	int hdr_len;
- 
--	hdr_len = SKB_DATA_ALIGN(sk->sk_prot->max_header);
-+	hdr_len = sk->sk_prot->max_header;
- 	skb = alloc_skb_fclone(size + hdr_len, gfp);
- 	if (skb) {
- 		skb->truesize += mem;
-
---M9NhX3UHpAaciwkO--
+Varun
