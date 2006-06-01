@@ -1,72 +1,88 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: monitor_during_oper on rt*pci (or any other pcmcia card)?
-Date: Thu, 1 Jun 2006 19:58:41 +0200
-Message-ID: <200606011958.45376.IvDoorn@gmail.com>
-References: <1149162449.8877.72.camel@johannes>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Thu, 1 Jun 2006 12:40:10 -0600
+Message-ID: <20060601124010.C554@openss7.org>
+References: <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru> <20060601001825.A21730@openss7.org> <20060601063012.GC28087@2ka.mipt.ru> <20060601004608.C21730@openss7.org> <20060601070136.GA754@2ka.mipt.ru> <20060601011125.C22283@openss7.org> <20060601083805.GB754@2ka.mipt.ru> <20060601042457.B25584@openss7.org> <20060601110625.GA15069@2ka.mipt.ru>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1777316.10Dc1xYTef";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, rt2x00-devel@lfcorreia.dyndns.org,
-	Jean Tourrilhes <jt@hpl.hp.com>, Florian.Rampp@web.de
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:11684 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S965226AbWFARzz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jun 2006 13:55:55 -0400
-Received: by nf-out-0910.google.com with SMTP id c31so744752nfb
-        for <netdev@vger.kernel.org>; Thu, 01 Jun 2006 10:55:53 -0700 (PDT)
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1149162449.8877.72.camel@johannes>
+Received: from gw.openss7.com ([142.179.199.224]:52401 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S965112AbWFASkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 14:40:11 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20060601110625.GA15069@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Thu, Jun 01, 2006 at 03:06:26PM +0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1777316.10Dc1xYTef
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Evgeniy,
 
-Hi,
+On Thu, 01 Jun 2006, Evgeniy Polyakov wrote:
 
-> Florian approached me with a project where you need a pcmcia card that
-> can have monitor_during_oper. I'd use bcm43xx but unfortunately the
-> signal strength calculations are way off right now, and that's another
-> requirement.
->=20
-> Can the rt family of cards be made to support this with reliable signal
-> strength readings?
+I think the sun shines more in Moscow than in Edmonton, so it is not
+so random. ;)
 
-At this moment the rt2x00 drivers are not known for their correct signal
-strength reporting. The reading is coming out of the registers but
-it isn't working in all cases.
-Even the legacy drivers from Ralink self are not known for their correct
-behaviour but some issues around that have been traced to bugs in the
-driver. But it could be possible the registers are wrong as well.
+> 
+> Specially for you :)
 
-> Or maybe I should rephrase the questions: which pcmcia cards can support
-> this in their hardware? I might be willing to port their drivers over to
-> d80211 just to get some more familiarity with the stack...
->=20
-> Now, if no one can point me to ones that do have working signal
-> strength, I'll probably have to do more reverse engineering on bcm43xx
-> to get some reliable readings :/
->=20
-> Thanks,
-> johannes
->=20
+Thank you for being so gracious and patient with me.
 
---nextPart1777316.10Dc1xYTef
-Content-Type: application/pgp-signature
+> It does not have artifacts, but it's dispersion is wider than XOR one.
+> _Much_ wider, which tends to creation of some specially crafted source
+> distribution which ends up in totally broken fairness.
+> As usual folded and not folded versions behave exactly the same.
+> 
+> > > With following ip/port selection algo:
+> > > 	if (++sport == 0) {
+> > > 		//saddr++;
+> > > 		sport += 123;
+> > > 	}
+> > > 
+> > > I see yet another jenkins artefacts, but again different from previous
+> > > two.
+> > 
+> > Adding primes.  Again, the arithmetic series of primes might auto-correlate
+> > with the Jenkins function.  Or it plain might not like gaps.
+> >
+> 
+> I want to confirm three things and one state:
+> 1. Jenkins hash has some unacceptible artefacts in some source
+> address/port distributions, no matter if it has some law embedded or it
+> is (pseudo)-random set. 
+> 
+> If there are bugs, bugs exist.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+True, artifacts appeared even in the basic arithmetic sequence of
+primes.  It is quite possible that a large set of natural sequences
+might cause artifacts.
 
-iD8DBQBEfyrVaqndE37Em0gRAul7AKDfVqwkxfOspJpmAwjJPyTScqee1ACghoQp
-1QwZt957FoibtzIa2nsOkdQ=
-=r+3h
------END PGP SIGNATURE-----
+> 
+> 2. If it does not have artifacts it has unacceptible dispersion.
 
---nextPart1777316.10Dc1xYTef--
+This is likely due to the relatively small sample sets; however, real
+experienced data sets would be very small compared to the widest
+possible set and might also contain structured gaps.
+
+> 
+> 3. It is 3 times slower than XOR one (28 seconds for XOR for 2^29
+> iterations vs. 101 seconds jhash nonfolded and 109 jhash folded on my AMD64
+> 3500+ 2.2 Ghz desktop).
+
+Yes, it is slower by inspection.
+
+> 
+> 4. I believe it can be tuned or has some gaps inside refactoring logic,
+> which can be fixed, but as is it can not be used for fair hash creation.
+
+Yes, I now agree.  And, for the purpose of dynamic hash sizing, high
+dispersion is worse than artifacts.
+
+For some realistic TCP data sets it appears that XOR is superior.
+
+Thank you again for your efforts in resolving my doubts.
+
+So what are your thoughts about my sequence number approach (for
+connected sockets)?
