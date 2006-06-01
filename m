@@ -1,41 +1,36 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Thu, 1 Jun 2006 11:01:36 +0400
-Message-ID: <20060601070136.GA754@2ka.mipt.ru>
-References: <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru> <20060601001825.A21730@openss7.org> <20060601063012.GC28087@2ka.mipt.ru> <20060601004608.C21730@openss7.org>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [Bugme-new] [Bug 6613] New: iptables broken on 32-bit PReP
+ (ARCH=ppc)
+Date: Thu, 1 Jun 2006 10:03:48 +0300 (EEST)
+Message-ID: <Pine.SOC.4.61.0606011002180.13777@math.ut.ee>
+References: <200605251004.k4PA4Lek007751@fire-2.osdl.org>
+ <20060525070324.2ea16b0a.akpm@osdl.org> <4475FCFC.5000701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andrew Morton <akpm@osdl.org>, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:9176 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750711AbWFAHBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 03:01:45 -0400
-To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060601004608.C21730@openss7.org>
+Received: from math.ut.ee ([193.40.36.2]:1008 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S1750720AbWFAHD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 03:03:57 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4475FCFC.5000701@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 01, 2006 at 12:46:08AM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
-> > Since pseudo-randomness affects both folded and not folded hash
-> > distribution, it can not end up in different results.
-> 
-> Yes it would, so to rule out pseudo-random effects the pseudo-
-> random number generator must be removed.
-> 
-> > 
-> > You are right that having test with 2^48 values is really interesting,
-> > but it will take ages on my test machine :)
-> 
-> Try a usable subset; no pseudo-random number generator.
+>>> modprobe iptable_filter (errors out with Invalid Argument)
+>>> iptables -t nat -A POSTROUTING -s 10.0.0.0/8 -j SNAT --to 192.168.1.1 (usually
+>>> errors out with Invalid Argument, sometimes succeeds, when succeeds then the
+>>> rule works fine)
+>
+> Meelis, it would really help if you could try 2.6.16 and in case
+> that doesn't work 2.6.15 to give an idea about whether this is a
+> recent regression or an old problem. We had a number of changes
+> in this area in the last two kernel versions that could be related.
 
-I've run it for 2^30 - the same result: folded and not folded Jenkins
-hash behave the same and still both results produce exactly the same
-artifacts compared to XOR hash.
-
-Btw, XOR hash, as completely stateless, can be used to show how
-Linux pseudo-random generator works for given subset - it's average of
-distribution is very good.
+Have not gotten 2.6.15 to work with one evening of tinkering - the irq 
+patch was not sufficent, there is something more broken in booting that 
+I dodn't figure out yet. So no test results for 2.6.15 yet.
 
 -- 
-	Evgeniy Polyakov
+Meelis Roos (mroos@linux.ee)
