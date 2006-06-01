@@ -1,92 +1,67 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [RFT] r8169: MAC address change support
-Date: Thu, 1 Jun 2006 00:59:17 +0200
-Message-ID: <20060531225917.GA23288@electric-eye.fr.zoreil.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: monitor_during_oper on rt*pci (or any other pcmcia card)?
+Date: Thu, 01 Jun 2006 13:47:29 +0200
+Message-ID: <1149162449.8877.72.camel@johannes>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefano Cavallari <spiky.kiwi@gmail.com>,
-	Tim Mattox <tmattox@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QqxWCSBnsL1FPu+domAr"
+Cc: Ivo van Doorn <ivdoorn@gmail.com>,
+	rt2x00-devel@lfcorreia.dyndns.org, Jean Tourrilhes <jt@hpl.hp.com>,
+	Florian.Rampp@web.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:2199 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S965156AbWFAL21
+Received: from crystal.sipsolutions.net ([195.210.38.204]:4786 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750720AbWFANFw
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jun 2006 07:28:27 -0400
-Received: from electric-eye.fr.zoreil.com (localhost.localdomain [127.0.0.1])
-	by fr.zoreil.com (8.13.4/8.12.1) with ESMTP id k51BOxGr002601
-	for <netdev@vger.kernel.org>; Thu, 1 Jun 2006 13:24:59 +0200
-Received: (from romieu@localhost)
-	by electric-eye.fr.zoreil.com (8.13.4/8.12.1) id k51BOwgW002600
-	for netdev@vger.kernel.org; Thu, 1 Jun 2006 13:24:58 +0200
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+	Thu, 1 Jun 2006 09:05:52 -0400
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It works fine here (x86 so far) but I would welcome more testers.
 
-The patch applies against 2.6.17-rcX.
+--=-QqxWCSBnsL1FPu+domAr
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 0ad3310..4208d9a 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1381,6 +1381,41 @@ static void rtl8169_netpoll(struct net_d
- }
- #endif
- 
-+static void __rtl8169_set_mac_addr(struct net_device *dev, void __iomem *ioaddr)
-+{
-+	unsigned int i, j;
-+
-+	RTL_W8(Cfg9346, Cfg9346_Unlock);
-+	for (i = 0; i < 2; i++) {
-+		__le32 l = 0;
-+
-+		for (j = 0; j < 4; j++) {
-+			l <<= 8;
-+			l |= dev->dev_addr[4*i + j];
-+		}
-+		RTL_W32(MAC0 + 4*i, cpu_to_be32(l));
-+	}
-+	RTL_W8(Cfg9346, Cfg9346_Lock);
-+}
-+
-+static int rtl8169_set_mac_addr(struct net_device *dev, void *p)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct sockaddr *addr = p;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EINVAL;
-+
-+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-+
-+	if (netif_running(dev)) {
-+		spin_lock_irq(&tp->lock);
-+		__rtl8169_set_mac_addr(dev, tp->mmio_addr);
-+		spin_unlock_irq(&tp->lock);
-+	}
-+	return 0;
-+}
-+
- static void rtl8169_release_board(struct pci_dev *pdev, struct net_device *dev,
- 				  void __iomem *ioaddr)
- {
-@@ -1616,6 +1651,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	dev->stop = rtl8169_close;
- 	dev->tx_timeout = rtl8169_tx_timeout;
- 	dev->set_multicast_list = rtl8169_set_rx_mode;
-+	dev->set_mac_address = rtl8169_set_mac_addr;
- 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
- 	dev->irq = pdev->irq;
- 	dev->base_addr = (unsigned long) ioaddr;
-@@ -1849,6 +1885,8 @@ rtl8169_hw_start(struct net_device *dev)
- 	/* Enable all known interrupts by setting the interrupt mask. */
- 	RTL_W16(IntrMask, rtl8169_intr_mask);
- 
-+	__rtl8169_set_mac_addr(dev, ioaddr);
-+
- 	netif_start_queue(dev);
- }
- 
+Hey,
+
+Florian approached me with a project where you need a pcmcia card that
+can have monitor_during_oper. I'd use bcm43xx but unfortunately the
+signal strength calculations are way off right now, and that's another
+requirement.
+
+Can the rt family of cards be made to support this with reliable signal
+strength readings?
+
+Or maybe I should rephrase the questions: which pcmcia cards can support
+this in their hardware? I might be willing to port their drivers over to
+d80211 just to get some more familiarity with the stack...
+
+Now, if no one can point me to ones that do have working signal
+strength, I'll probably have to do more reverse engineering on bcm43xx
+to get some reliable readings :/
+
+Thanks,
+johannes
+
+--=-QqxWCSBnsL1FPu+domAr
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIVAwUARH7Tz6Vg1VMiehFYAQIPBQ//X7/r9nMAxmsP4wi3BaK01DCrnPWYYkbq
+pyQIc3PbnHHca7pr1YuchOvJH8ySckvSWkQsO8DQXMEtB3hVIKsnyGIsG6yhR+bl
+qDavW9efLswFmj+CElHP1quHEaPb5wy38VVLPE/HQDAAOSH1NhZUW/4KhESIUOcM
+KMgu/65/6sS8T3Bak1jFoLZlnWZmw2lOfe7RiQDVCKhBCm/3P7lmrpCn6eBozk4Z
+lnXG8/43RCO3yRmkfNILWaIOFaeHAWkX2Kw8romBlSOMsT5GrOcbHQajBd9Cf18X
+GRCsGER4vIkdWrcWRXEhZfRCqB0G1+6vyj5rzQVPKhbc/ivE3D25Zlp7Y3F6z97y
+YFEX2K6a4rnamghLNFlBBVLRvI8Ds6lbFPie9ya8/crW71IjXLpTzKB9ctMr1GGd
+Wfg/1aKOVmDW1X0NpBMaJOw6OqhBRfl85LzPImSkeWajDj/kIqsfyysr6dVueH6s
+J+qGAUCNHJo9gUKJ3J8iZ+kznsxkNwAlYIItrEtD8F0tfJeZsUM3v7ThwQwBwFcF
+IW9cxnP15y3I7x9YrIhBSpabftSySxymMhBTtwWgbDxXaUD6Gjui/OUI+4mvJyEG
+bHwe+OzE6G4dVoCLwyEzVXDZkW1O3IjhuJiynliJ+pNuUqNxhJ2xuSB2skMG1No3
+2OS+iKhc7M8=
+=pWJS
+-----END PGP SIGNATURE-----
+
+--=-QqxWCSBnsL1FPu+domAr--
 
