@@ -1,12 +1,12 @@
 From: akpm@osdl.org
-Subject: [patch 07/17] secmark: Add new flask definitions to SELinux
-Date: Thu, 01 Jun 2006 20:32:28 -0700
-Message-ID: <200606020328.k523S9sm028823@shell0.pdx.osdl.net>
+Subject: [patch 11/17] secmark: Add secmark support to conntrack
+Date: Thu, 01 Jun 2006 20:32:31 -0700
+Message-ID: <200606020328.k523SCan028835@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@osdl.org, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:64436 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751204AbWFBD2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:16 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:3253 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751201AbWFBD2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:20 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -14,77 +14,196 @@ List-Id: netdev.vger.kernel.org
 
 From: James Morris <jmorris@namei.org>
 
-Secmark implements a new scheme for adding security markings to packets via
-iptables, as well as changes to SELinux to use these markings for security
-policy enforcement.  The rationale for this scheme is explained and discussed
-in detail in the original threads: 
-
- http://thread.gmane.org/gmane.linux.network/34927/ 
- http://thread.gmane.org/gmane.linux.network/35244/
-
-Examples of policy and rulesets, as well as a full archive of patches for
-iptables and SELinux userland, may be found at:
-http://people.redhat.com/jmorris/selinux/secmark/
-
-The code has been tested with various compilation options and in several
-scenarios, including with 'complicated' protocols such as FTP and also with
-the new generic conntrack code with IPv6 connection tracking.
-
-
-
-This patch:
-
-Add support for a new object class ('packet'), and associated permissions
-('send', 'recv', 'relabelto').  These are used to enforce security policy for
-network packets labeled with SECMARK, and for adding labeling rules.
+Add a secmark field to IP and NF conntracks, so that security markings on
+packets can be copied to their associated connections, and also copied back to
+packets as required.  This is similar to the network mark field currently used
+with conntrack, although it is intended for enforcement of security policy
+rather than network policy.
 
 Signed-off-by: James Morris <jmorris@namei.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- security/selinux/include/av_perm_to_string.h |    3 +++
- security/selinux/include/av_permissions.h    |    3 +++
- security/selinux/include/class_to_string.h   |    1 +
- security/selinux/include/flask.h             |    1 +
- 4 files changed, 8 insertions(+)
+ include/linux/netfilter_ipv4/ip_conntrack.h  |    4 ++
+ include/net/netfilter/nf_conntrack.h         |    4 ++
+ include/net/netfilter/nf_conntrack_compat.h  |   26 +++++++++++++++++
+ net/ipv4/netfilter/Kconfig                   |   12 +++++++
+ net/ipv4/netfilter/ip_conntrack_core.c       |    3 +
+ net/ipv4/netfilter/ip_conntrack_standalone.c |    5 +++
+ net/netfilter/Kconfig                        |   12 +++++++
+ net/netfilter/nf_conntrack_core.c            |    3 +
+ net/netfilter/nf_conntrack_standalone.c      |    5 +++
+ 9 files changed, 74 insertions(+)
 
-diff -puN security/selinux/include/av_permissions.h~secmark-add-new-flask-definitions-to-selinux security/selinux/include/av_permissions.h
---- devel/security/selinux/include/av_permissions.h~secmark-add-new-flask-definitions-to-selinux	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/security/selinux/include/av_permissions.h	2006-06-01 20:31:50.000000000 -0700
-@@ -956,3 +956,6 @@
- #define APPLETALK_SOCKET__SEND_MSG                0x00100000UL
- #define APPLETALK_SOCKET__NAME_BIND               0x00200000UL
+diff -puN include/linux/netfilter_ipv4/ip_conntrack.h~secmark-add-secmark-support-to-conntrack include/linux/netfilter_ipv4/ip_conntrack.h
+--- devel/include/linux/netfilter_ipv4/ip_conntrack.h~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/linux/netfilter_ipv4/ip_conntrack.h	2006-06-01 20:31:50.000000000 -0700
+@@ -120,6 +120,10 @@ struct ip_conntrack
+ 	u_int32_t mark;
+ #endif
  
-+#define PACKET__SEND                              0x00000001UL
-+#define PACKET__RECV                              0x00000002UL
-+#define PACKET__RELABELTO                         0x00000004UL
-diff -puN security/selinux/include/av_perm_to_string.h~secmark-add-new-flask-definitions-to-selinux security/selinux/include/av_perm_to_string.h
---- devel/security/selinux/include/av_perm_to_string.h~secmark-add-new-flask-definitions-to-selinux	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/security/selinux/include/av_perm_to_string.h	2006-06-01 20:31:50.000000000 -0700
-@@ -239,3 +239,6 @@
-    S_(SECCLASS_ASSOCIATION, ASSOCIATION__SENDTO, "sendto")
-    S_(SECCLASS_ASSOCIATION, ASSOCIATION__RECVFROM, "recvfrom")
-    S_(SECCLASS_ASSOCIATION, ASSOCIATION__SETCONTEXT, "setcontext")
-+   S_(SECCLASS_PACKET, PACKET__SEND, "send")
-+   S_(SECCLASS_PACKET, PACKET__RECV, "recv")
-+   S_(SECCLASS_PACKET, PACKET__RELABELTO, "relabelto")
-diff -puN security/selinux/include/class_to_string.h~secmark-add-new-flask-definitions-to-selinux security/selinux/include/class_to_string.h
---- devel/security/selinux/include/class_to_string.h~secmark-add-new-flask-definitions-to-selinux	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/security/selinux/include/class_to_string.h	2006-06-01 20:31:50.000000000 -0700
-@@ -59,3 +59,4 @@
-     S_("association")
-     S_("netlink_kobject_uevent_socket")
-     S_("appletalk_socket")
-+    S_("packet")
-diff -puN security/selinux/include/flask.h~secmark-add-new-flask-definitions-to-selinux security/selinux/include/flask.h
---- devel/security/selinux/include/flask.h~secmark-add-new-flask-definitions-to-selinux	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/security/selinux/include/flask.h	2006-06-01 20:31:50.000000000 -0700
-@@ -61,6 +61,7 @@
- #define SECCLASS_ASSOCIATION                             54
- #define SECCLASS_NETLINK_KOBJECT_UEVENT_SOCKET           55
- #define SECCLASS_APPLETALK_SOCKET                        56
-+#define SECCLASS_PACKET                                  57
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++	u_int32_t secmark;
++#endif
++
+ 	/* Traversed often, so hopefully in different cacheline to top */
+ 	/* These are my tuples; original and reply */
+ 	struct ip_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
+diff -puN include/net/netfilter/nf_conntrack_compat.h~secmark-add-secmark-support-to-conntrack include/net/netfilter/nf_conntrack_compat.h
+--- devel/include/net/netfilter/nf_conntrack_compat.h~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/net/netfilter/nf_conntrack_compat.h	2006-06-01 20:31:50.000000000 -0700
+@@ -20,6 +20,19 @@ static inline u_int32_t *nf_ct_get_mark(
+ }
+ #endif /* CONFIG_IP_NF_CONNTRACK_MARK */
  
- /*
-  * Security identifier indices for initial entities
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++static inline u_int32_t *nf_ct_get_secmark(const struct sk_buff *skb,
++					   u_int32_t *ctinfo)
++{
++	struct ip_conntrack *ct = ip_conntrack_get(skb, ctinfo);
++
++	if (ct)
++		return &ct->secmark;
++	else
++		return NULL;
++}
++#endif /* CONFIG_IP_NF_CONNTRACK_SECMARK */
++
+ #ifdef CONFIG_IP_NF_CT_ACCT
+ static inline struct ip_conntrack_counter *
+ nf_ct_get_counters(const struct sk_buff *skb)
+@@ -70,6 +83,19 @@ static inline u_int32_t *nf_ct_get_mark(
+ }
+ #endif /* CONFIG_NF_CONNTRACK_MARK */
+ 
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++static inline u_int32_t *nf_ct_get_secmark(const struct sk_buff *skb,
++					   u_int32_t *ctinfo)
++{
++	struct nf_conn *ct = nf_ct_get(skb, ctinfo);
++
++	if (ct)
++		return &ct->secmark;
++	else
++		return NULL;
++}
++#endif /* CONFIG_NF_CONNTRACK_MARK */
++
+ #ifdef CONFIG_NF_CT_ACCT
+ static inline struct ip_conntrack_counter *
+ nf_ct_get_counters(const struct sk_buff *skb)
+diff -puN include/net/netfilter/nf_conntrack.h~secmark-add-secmark-support-to-conntrack include/net/netfilter/nf_conntrack.h
+--- devel/include/net/netfilter/nf_conntrack.h~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/net/netfilter/nf_conntrack.h	2006-06-01 20:31:50.000000000 -0700
+@@ -113,6 +113,10 @@ struct nf_conn
+ 	u_int32_t mark;
+ #endif
+ 
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++	u_int32_t secmark;
++#endif
++
+ 	/* Storage reserved for other modules: */
+ 	union nf_conntrack_proto proto;
+ 
+diff -puN net/ipv4/netfilter/ip_conntrack_core.c~secmark-add-secmark-support-to-conntrack net/ipv4/netfilter/ip_conntrack_core.c
+--- devel/net/ipv4/netfilter/ip_conntrack_core.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/ip_conntrack_core.c	2006-06-01 20:31:50.000000000 -0700
+@@ -724,6 +724,9 @@ init_conntrack(struct ip_conntrack_tuple
+ 		/* this is ugly, but there is no other place where to put it */
+ 		conntrack->nat.masq_index = exp->master->nat.masq_index;
+ #endif
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++		conntrack->secmark = exp->master->secmark;
++#endif
+ 		nf_conntrack_get(&conntrack->master->ct_general);
+ 		CONNTRACK_STAT_INC(expect_new);
+ 	} else {
+diff -puN net/ipv4/netfilter/ip_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack net/ipv4/netfilter/ip_conntrack_standalone.c
+--- devel/net/ipv4/netfilter/ip_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/ip_conntrack_standalone.c	2006-06-01 20:31:50.000000000 -0700
+@@ -189,6 +189,11 @@ static int ct_seq_show(struct seq_file *
+ 		return -ENOSPC;
+ #endif
+ 
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
++		return -ENOSPC;
++#endif
++
+ 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
+ 		return -ENOSPC;
+ 
+diff -puN net/ipv4/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack net/ipv4/netfilter/Kconfig
+--- devel/net/ipv4/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -55,6 +55,18 @@ config IP_NF_CONNTRACK_MARK
+ 	  of packets, but this mark value is kept in the conntrack session
+ 	  instead of the individual packets.
+ 	
++config IP_NF_CONNTRACK_SECMARK
++	bool  'Connection tracking security mark support'
++	depends on IP_NF_CONNTRACK && NETWORK_SECMARK
++	help
++	  This option enables security markings to be applied to
++	  connections.  Typically they are copied to connections from
++	  packets using the CONNSECMARK target and copied back from
++	  connections to packets with the same target, with the packets
++	  being originally labeled via SECMARK.
++
++	  If unsure, say 'N'.
++
+ config IP_NF_CONNTRACK_EVENTS
+ 	bool "Connection tracking events (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL && IP_NF_CONNTRACK
+diff -puN net/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack net/netfilter/Kconfig
+--- devel/net/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -60,6 +60,18 @@ config NF_CONNTRACK_MARK
+ 	  of packets, but this mark value is kept in the conntrack session
+ 	  instead of the individual packets.
+ 
++config NF_CONNTRACK_SECMARK
++	bool  'Connection tracking security mark support'
++	depends on NF_CONNTRACK && NETWORK_SECMARK
++	help
++	  This option enables security markings to be applied to
++	  connections.  Typically they are copied to connections from
++	  packets using the CONNSECMARK target and copied back from
++	  connections to packets with the same target, with the packets
++	  being originally labeled via SECMARK.
++
++	  If unsure, say 'N'.
++
+ config NF_CONNTRACK_EVENTS
+ 	bool "Connection tracking events (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL && NF_CONNTRACK
+diff -puN net/netfilter/nf_conntrack_core.c~secmark-add-secmark-support-to-conntrack net/netfilter/nf_conntrack_core.c
+--- devel/net/netfilter/nf_conntrack_core.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/nf_conntrack_core.c	2006-06-01 20:31:50.000000000 -0700
+@@ -990,6 +990,9 @@ init_conntrack(const struct nf_conntrack
+ #ifdef CONFIG_NF_CONNTRACK_MARK
+ 		conntrack->mark = exp->master->mark;
+ #endif
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++		conntrack->secmark = exp->master->secmark;
++#endif
+ 		nf_conntrack_get(&conntrack->master->ct_general);
+ 		NF_CT_STAT_INC(expect_new);
+ 	} else
+diff -puN net/netfilter/nf_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack net/netfilter/nf_conntrack_standalone.c
+--- devel/net/netfilter/nf_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/nf_conntrack_standalone.c	2006-06-01 20:31:50.000000000 -0700
+@@ -213,6 +213,11 @@ static int ct_seq_show(struct seq_file *
+ 		return -ENOSPC;
+ #endif
+ 
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
++		return -ENOSPC;
++#endif
++
+ 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
+ 		return -ENOSPC;
+ 	
 _
