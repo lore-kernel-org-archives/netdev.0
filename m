@@ -1,79 +1,106 @@
-From: "Ravinandan Arakali" <Ravinandan.Arakali@neterion.com>
-Subject: RE: [PATCH 2.6.16.18] MSI: Proposed fix for MSI/MSI-X load failure
-Date: Fri, 2 Jun 2006 18:05:53 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD777C064F@nekter>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [FIX] e1000: fix irq sharing when running ethtool test
+Date: Fri, 02 Jun 2006 15:19:47 -0700
+Message-ID: <4480B983.50702@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"Leonid Grossman" <Leonid.Grossman@neterion.com>,
-	"Ananda Raju" <araju@pc.s2io.com>,
-	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>
+Content-Type: multipart/mixed;
+ boundary="------------020705070209060202050303"
+Cc: NetDev <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:34975 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S1750856AbWFBWFl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 18:05:41 -0400
-Content-class: urn:content-classes:message
-To: "Rajesh Shah" <rajesh.shah@intel.com>
+Received: from fmr17.intel.com ([134.134.136.16]:59564 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751507AbWFBWU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jun 2006 18:20:26 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rajesh,
-It's possible that the current behavior is by design but once the driver is loaded with MSI, you need a reboot to be able to load MSI-X. And vice versa. I found this rather restrictive.
-
-I did test the fix multiple times. For eg. multiple load/unload iterations of
-MSI followed by multiple load/unload of MSI-X followed by load/unload MSI. That way both transitions(MSI-to-MSI-X and vice versa) are tested.
-
-Thanks,
-Ravi
-
------Original Message-----
-From: Rajesh Shah [mailto:rajesh.shah@intel.com]
-Sent: Friday, June 02, 2006 2:55 PM
-To: Ravinandan Arakali
-Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Leonid
-Grossman; Ananda Raju; Sriram Rapuru
-Subject: Re: [PATCH 2.6.16.18] MSI: Proposed fix for MSI/MSI-X load
-failure
+This is a multi-part message in MIME format.
+--------------020705070209060202050303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
 
-On Fri, Jun 02, 2006 at 03:21:37PM -0400, Ravinandan Arakali wrote:
-> 
-> Symptoms:
-> When a driver is loaded with MSI followed by MSI-X, the load fails indicating 
-> that the MSI vector is still active. And vice versa.
-> 
-> Suspected rootcause:
-> This happens inspite of driver calling free_irq() followed by 
-> pci_disable_msi/pci_disable_msix. This appears to be a kernel bug 
-> wherein the pci_disable_msi and pci_disable_msix calls do not 
-> clear/unpopulate the msi_desc data structure that was populated 
-> by pci_enable_msi/pci_enable_msix.
-> 
-The current MSI code actually does this deliberately, not by
-accident. It's got a lot of complex code to track devices and
-vectors and make sure an enable_msi -> disable -> enable sequence
-gives a driver the same vector. It also has policies about
-reserving vectors based on potential hotplug activity etc.
-Frankly, I've never understood the need for such policies, and
-am in the process of removing all of them.
 
-> Proposed fix:
-> Free the MSI vector in pci_disable_msi and all allocated MSI-X vectors 
-> in pci_disable_msix.
-> 
-This will break the existing MSI policies. Once you take that away,
-a whole lot of additional code and complexity can be removed too.
-That's what I'm working on right now, but such a change is likely
-too big for -stable.
+New code added in 2.6.17 caused setup_irq to print a warning when
+running ethtool -t eth0 offline.
 
-So, I'm ok with this patch if it actually doesn't break MSI/MSI-X.
-Did you try to repeatedly load/unload an MSI capable driver with
-this patch? Did you repeatedly try to ifdown/ifup an Ethernet
-driver that uses MSI? I'm not in a position to test this today, but
-will try it out next week.
+This test marks the request_irq call made by this test as a "probe" to
+see if the interrupt is shared or not.
 
-thanks,
-Rajesh
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
+
+---
+
+Jeff,
+
+Because upstream and upstream-fixes have a whitespace conflict in them, I've 
+prepared two separate git branches to pull from so that a subsequent pull or 
+merge from upstream-fixes into upstream doesn't resolve into a conflict:
+
+please pull from our git-server:
+
+into upstream:
+git-pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
+
+into upstream-fixes:
+git-pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
+
+
+Cheers,
+
+Auke
+
+
+---
+  e1000_ethtool.c |    9 ++++++---
+  1 file changed, 6 insertions(+), 3 deletions(-)
+
+
+--------------020705070209060202050303
+Content-Type: text/x-patch;
+ name="e1000_setup_irq_probe.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="e1000_setup_irq_probe.patch"
+
+e1000: fix ethtool test irq alloc as "probe"
+
+New code added in 2.6.17 caused setup_irq to print a warning when
+running ethtool -t eth0 offline.
+
+This test marks the request_irq call made by this test as a "probe"
+to see if the interrupt is shared or not.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+index ecccca3..d1c705b 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -870,13 +870,16 @@ e1000_intr_test(struct e1000_adapter *ad
+ 	*data = 0;
+ 
+ 	/* Hook up test interrupt handler just for this test */
+-	if (!request_irq(irq, &e1000_test_intr, 0, netdev->name, netdev)) {
++	if (!request_irq(irq, &e1000_test_intr, SA_PROBEIRQ, netdev->name,
++	                 netdev)) {
+ 		shared_int = FALSE;
+ 	} else if (request_irq(irq, &e1000_test_intr, SA_SHIRQ,
+ 			      netdev->name, netdev)){
+ 		*data = 1;
+ 		return -1;
+ 	}
++	DPRINTK(PROBE,INFO, "testing %s interrupt\n",
++	        (shared_int ? "shared" : "unshared"));
+ 
+ 	/* Disable all the interrupts */
+ 	E1000_WRITE_REG(&adapter->hw, IMC, 0xFFFFFFFF);
+
+--------------020705070209060202050303--
