@@ -1,26 +1,41 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Fri, 2 Jun 2006 09:10:15 -0600
-Message-ID: <20060602091015.C18533@openss7.org>
-References: <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru> <87y7wgaze1.fsf@mid.deneb.enyo.de> <20060602074845.GA17798@2ka.mipt.ru>
-Reply-To: bidulock@openss7.org
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: new driver for IBM ethernet chip
+Date: Fri, 2 Jun 2006 09:00:34 -0700
+Message-ID: <20060602090034.8f9bf036.rdunlap@xenotime.net>
+References: <OFA75C1070.77D8B8F0-ONC125717F.003D730C-C1257181.003C592B@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Weimer <fw@deneb.enyo.de>,
-	David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, MEDER@de.ibm.com, THEMANN@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:1732 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S932158AbWFBPKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 11:10:17 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060602074845.GA17798@2ka.mipt.ru>; from johnpol@2ka.mipt.ru on Fri, Jun 02, 2006 at 11:48:46AM +0400
+Received: from xenotime.net ([66.160.160.81]:28883 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S932478AbWFBP5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 11:57:52 -0400
+Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Fri, 2 Jun 2006 08:57:50 -0700
+To: Christoph Raisch <RAISCH@de.ibm.com>
+In-Reply-To: <OFA75C1070.77D8B8F0-ONC125717F.003D730C-C1257181.003C592B@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy,
+On Fri, 2 Jun 2006 13:02:37 +0200 Christoph Raisch wrote:
 
-I agree, even with constant source IP, the hash still should have
-performed better (but didn't).  Constant source IP and varying
-port is a realistic data set for a port proxy.
+> We're currently developing a new Ethernet device driver for a 10G IBM chip
+> for System p. (ppc64)
+> 
+> A later version of the driver should end up in mainline kernel.
+> How should we proceed to get first comments by the community?
+> Either post this code as a patch to netdev or
+yes
+
+> put a full tarball on for example sourceforge?
+nope.
+
+Please read and observe:  Documentation/SubmittingPatches
+and Section 3 of it, References, for other sources of
+expectations/requirements.
+
+The -mm tree also contains Documentation/SubmitChecklist
+that you may find useful.
+
+---
+~Randy
