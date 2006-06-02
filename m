@@ -1,44 +1,60 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Driver for Rsltek 8139D / Silan SC92031
-Date: Fri, 2 Jun 2006 13:57:58 -0700
-Message-ID: <20060602135758.707b882d@localhost.localdomain>
-References: <44809CB5.50501@gentoo.org>
-	<20060602132846.2ee6c71a@localhost.localdomain>
+From: Rajesh Shah <rajesh.shah@intel.com>
+Subject: Re: [PATCH 2.6.16.18] MSI: Proposed fix for MSI/MSI-X load failure
+Date: Fri, 2 Jun 2006 14:55:13 -0700
+Message-ID: <20060602145512.A13024@unix-os.sc.intel.com>
+References: <Pine.GSO.4.10.10606021518500.9289-100000@guinness>
+Reply-To: Rajesh Shah <rajesh.shah@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
-	cantao@thorus-scisoft.com.br
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	leonid.grossman@neterion.com, ananda.raju@neterion.com,
+	rapuru.sriram@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34722 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964937AbWFBU6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 16:58:01 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060602132846.2ee6c71a@localhost.localdomain>
+Received: from mga05.intel.com ([192.55.52.89]:61542 "EHLO
+	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1030326AbWFBV6a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jun 2006 17:58:30 -0400
+To: Ravinandan Arakali <Ravinandan.Arakali@neterion.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.10.10606021518500.9289-100000@guinness>; from Ravinandan.Arakali@neterion.com on Fri, Jun 02, 2006 at 03:21:37PM -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Jun 2006 13:28:46 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Fri, Jun 02, 2006 at 03:21:37PM -0400, Ravinandan Arakali wrote:
+> 
+> Symptoms:
+> When a driver is loaded with MSI followed by MSI-X, the load fails indicating 
+> that the MSI vector is still active. And vice versa.
+> 
+> Suspected rootcause:
+> This happens inspite of driver calling free_irq() followed by 
+> pci_disable_msi/pci_disable_msix. This appears to be a kernel bug 
+> wherein the pci_disable_msi and pci_disable_msix calls do not 
+> clear/unpopulate the msi_desc data structure that was populated 
+> by pci_enable_msi/pci_enable_msix.
+> 
+The current MSI code actually does this deliberately, not by
+accident. It's got a lot of complex code to track devices and
+vectors and make sure an enable_msi -> disable -> enable sequence
+gives a driver the same vector. It also has policies about
+reserving vectors based on potential hotplug activity etc.
+Frankly, I've never understood the need for such policies, and
+am in the process of removing all of them.
 
-> On Fri, 02 Jun 2006 21:16:53 +0100
-> Daniel Drake <dsd@gentoo.org> wrote:
+> Proposed fix:
+> Free the MSI vector in pci_disable_msi and all allocated MSI-X vectors 
+> in pci_disable_msix.
 > 
-> > Here's a strange one. Cantao (on CC) bought what he thought was a cheap 
-> > realtek PCI NIC, it actually turns out it is a Rsltek (yes, Rsltek) 
-> > 8139D card.
-> > 
-> > It includes an old (2.4/2.5) driver which claims to be for Silan SC92031 
-> > (attached).
-> > 
-> > The driver has some very obvious similarities with 8139too, however the 
-> > register layout and usage is quite different.
-> > 
-> > Has anyone got any idea whats going on here? It seems like something 
-> > based on a realtek chip, but not...
-> > 
-> > Daniel
-> > 
-> 
-> It certainly is a good driver as is...
-NOT
+This will break the existing MSI policies. Once you take that away,
+a whole lot of additional code and complexity can be removed too.
+That's what I'm working on right now, but such a change is likely
+too big for -stable.
+
+So, I'm ok with this patch if it actually doesn't break MSI/MSI-X.
+Did you try to repeatedly load/unload an MSI capable driver with
+this patch? Did you repeatedly try to ifdown/ifup an Ethernet
+driver that uses MSI? I'm not in a position to test this today, but
+will try it out next week.
+
+thanks,
+Rajesh
