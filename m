@@ -1,40 +1,36 @@
-From: David Daney <ddaney@avtrex.com>
-Subject: Re: RFC3927 ARP patch status?
-Date: Fri, 02 Jun 2006 09:36:54 -0700
-Message-ID: <44806926.1050509@avtrex.com>
-References: <20060602143837.GF549@progsoc.uts.edu.au>
+From: Florian Weimer <fw@deneb.enyo.de>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Fri, 02 Jun 2006 19:26:53 +0200
+Message-ID: <87ac8v8o4i.fsf@mid.deneb.enyo.de>
+References: <20060531090301.GA26782@2ka.mipt.ru>
+	<20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru>
+	<20060531.114127.14356069.davem@davemloft.net>
+	<20060601060424.GA28087@2ka.mipt.ru>
+	<87y7wgaze1.fsf@mid.deneb.enyo.de>
+	<20060602074845.GA17798@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Brian F. G. Bidulock" <bidulock@openss7.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-67-116-42-147.dsl.sntc01.pacbell.net ([67.116.42.147]:26146
-	"EHLO avtrex.com") by vger.kernel.org with ESMTP id S932100AbWFBQgz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jun 2006 12:36:55 -0400
-To: Anand Kumria <wildfire@progsoc.uts.edu.au>
-In-Reply-To: <20060602143837.GF549@progsoc.uts.edu.au>
+Received: from mail.enyo.de ([212.9.189.167]:30402 "EHLO mail.enyo.de")
+	by vger.kernel.org with ESMTP id S1750809AbWFBR1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 13:27:41 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060602074845.GA17798@2ka.mipt.ru> (Evgeniy Polyakov's message
+	of "Fri, 2 Jun 2006 11:48:46 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anand Kumria wrote:
-> Hi David,
-> 
-> Do you know the status of your RFC3927 ARP patch? Is it likely to make
-> it into a mainline kernel?
-> 
+* Evgeniy Polyakov:
 
-That would be up to the kernel network maintainers.
+> :) thats true, but to be 100% honest I used different code to test for
+> hash artifacts...
 
-There were some discussions about whether it made sense for the kernel 
-to support the behavior required by the RFC.  Other comments debated the 
-wisdom of using a tightly targeted patch specific to the RFC, or whether 
-a more general but intrusive solution would be better.
+Ah, okay.
 
-The patch is there.  I signed-off-by on it.
+> But it still does not fix artifacts with for example const IP and random
+> ports or const IP and linear port selection.
 
-If you need RFC3927 compliance, you are free to apply the patch.  If the 
-  network maintainers are so inclined, they can do the necessary things 
-to get it into the mainline.
-
-David Daney
+I see them now.  Hmm.  Is there a theoretical explanation for them?
