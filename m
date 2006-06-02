@@ -1,24 +1,42 @@
-From: Rajesh Shah <rajesh.shah@intel.com>
-Subject: Re: [PATCH 2.6.16.18] MSI: Proposed fix for MSI/MSI-X load failure
-Date: Fri, 2 Jun 2006 14:55:13 -0700
-Message-ID: <20060602145512.A13024@unix-os.sc.intel.com>
-References: <Pine.GSO.4.10.10606021518500.9289-100000@guinness>
-Reply-To: Rajesh Shah <rajesh.shah@intel.com>
+From: "Ravinandan Arakali" <Ravinandan.Arakali@neterion.com>
+Subject: RE: [PATCH 2.6.16.18] MSI: Proposed fix for MSI/MSI-X load failure
+Date: Fri, 2 Jun 2006 18:05:53 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD777C064F@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	leonid.grossman@neterion.com, ananda.raju@neterion.com,
-	rapuru.sriram@neterion.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	"Leonid Grossman" <Leonid.Grossman@neterion.com>,
+	"Ananda Raju" <araju@pc.s2io.com>,
+	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:61542 "EHLO
-	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1030326AbWFBV6a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jun 2006 17:58:30 -0400
-To: Ravinandan Arakali <Ravinandan.Arakali@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.10.10606021518500.9289-100000@guinness>; from Ravinandan.Arakali@neterion.com on Fri, Jun 02, 2006 at 03:21:37PM -0400
+Received: from barracuda.s2io.com ([72.1.205.138]:34975 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1750856AbWFBWFl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 18:05:41 -0400
+Content-class: urn:content-classes:message
+To: "Rajesh Shah" <rajesh.shah@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+Rajesh,
+It's possible that the current behavior is by design but once the driver is loaded with MSI, you need a reboot to be able to load MSI-X. And vice versa. I found this rather restrictive.
+
+I did test the fix multiple times. For eg. multiple load/unload iterations of
+MSI followed by multiple load/unload of MSI-X followed by load/unload MSI. That way both transitions(MSI-to-MSI-X and vice versa) are tested.
+
+Thanks,
+Ravi
+
+-----Original Message-----
+From: Rajesh Shah [mailto:rajesh.shah@intel.com]
+Sent: Friday, June 02, 2006 2:55 PM
+To: Ravinandan Arakali
+Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Leonid
+Grossman; Ananda Raju; Sriram Rapuru
+Subject: Re: [PATCH 2.6.16.18] MSI: Proposed fix for MSI/MSI-X load
+failure
+
 
 On Fri, Jun 02, 2006 at 03:21:37PM -0400, Ravinandan Arakali wrote:
 > 
@@ -58,3 +76,4 @@ will try it out next week.
 
 thanks,
 Rajesh
+
