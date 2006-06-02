@@ -1,49 +1,55 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6638] New: tg3 output freezes on compaq nc6000
-Date: Fri, 2 Jun 2006 11:22:48 -0700
-Message-ID: <20060602112248.821c9063.akpm@osdl.org>
-References: <200606021240.k52CepX2017904@fire-2.osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: The AI parameter of tcp_highspeed.c (in 2.6.18)
+Date: Fri, 2 Jun 2006 12:05:07 -0700
+Message-ID: <20060602120507.7e1206d8@dxpl.pdx.osdl.net>
+References: <7335583a0605292112l1f5a6ec3x4b1c1e4ae45688f5@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Klaus.Reichl@alcatel.at
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7138 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751435AbWFBSXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 14:23:01 -0400
-To: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
-In-Reply-To: <200606021240.k52CepX2017904@fire-2.osdl.org>
+Received: from smtp.osdl.org ([65.172.181.4]:37504 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751433AbWFBTFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 15:05:14 -0400
+To: "Xiaoliang (David) Wei" <davidwei79@gmail.com>,
+	John Heffner <jheffner@psc.edu>
+In-Reply-To: <7335583a0605292112l1f5a6ec3x4b1c1e4ae45688f5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Jun 2006 05:40:51 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+Went backed and looked at the RFC. The problem was just a simple
+translation of table to C array (0 based). Added this to the TCP testing repository.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=6638
-> 
->            Summary: tg3 output freezes on compaq nc6000
->     Kernel Version: 2.6.16.19
->             Status: NEW
->           Severity: normal
->              Owner: jgarzik@pobox.com
->          Submitter: Klaus.Reichl@alcatel.at
-> 
-> 
-> Most recent kernel where this bug did not occur: none
-> Distribution: Debian Sarge with latest kernel
-> Hardware Environment: compaq nc6000
-> Software Environment: 
-> Problem Description: 
-> The output engine of the tg3 driver freezes when generating high load.
-> 
-> `ifconfig' shows incomming packets, however, outgoing counter is not incremented
-> any more.
-> 
-> Resetting the device (ifdown eth0, ifup eth0) heals the problem.
-> 
-> Steps to reproduce:
-> Heavily copy files to NFS disk.
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+Subject: [PATCH] Problem observed by Xiaoliang (David) Wei:
+
+  When snd_cwnd is smaller than 38 and the connection is in
+  congestion avoidance phase (snd_cwnd > snd_ssthresh), the snd_cwnd
+  seems to stop growing.
+
+The additive increase was confused because C array's are 0 based.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+---
+
+ net/ipv4/tcp_highspeed.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+121685b7b61c8faeb87e6c6f0c346b0fe1c46fd2
+diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
+index b72fa55..ba7c63c 100644
+--- a/net/ipv4/tcp_highspeed.c
++++ b/net/ipv4/tcp_highspeed.c
+@@ -135,7 +135,8 @@ static void hstcp_cong_avoid(struct sock
+ 
+ 		/* Do additive increase */
+ 		if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
+-			tp->snd_cwnd_cnt += ca->ai;
++			/* cwnd = cwnd + a(w) / cwnd */
++			tp->snd_cwnd_cnt += ca->ai + 1;
+ 			if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
+ 				tp->snd_cwnd_cnt -= tp->snd_cwnd;
+ 				tp->snd_cwnd++;
+-- 
+1.3.3
+
