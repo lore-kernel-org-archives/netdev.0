@@ -1,103 +1,246 @@
 From: akpm@osdl.org
-Subject: [patch 05/17] selinux: add security class for appletalk sockets
-Date: Thu, 01 Jun 2006 20:32:25 -0700
-Message-ID: <200606020328.k523S6Bc028817@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, cpebenito@tresys.com,
-	jmorris@namei.org, sds@tycho.nsa.gov
+Subject: [patch 12/17] secmark: Add CONNSECMARK xtables target
+Date: Thu, 01 Jun 2006 20:32:32 -0700
+Message-ID: <200606020328.k523SDex028838@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7605 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751206AbWFBD20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:26 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:4277 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751208AbWFBD2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:20 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Christopher J. PeBenito <cpebenito@tresys.com>
+From: James Morris <jmorris@namei.org>
 
-Add a security class for appletalk sockets so that they can be
-distinguished in SELinux policy.  Please apply.
+Add a new xtables target, CONNSECMARK, which is used to specify rules for
+copying security marks from packets to connections, and for copyying security
+marks back from connections to packets.  This is similar to the CONNMARK
+target, but is more limited in scope in that it only allows copying of
+security marks to and from packets, as this is all it needs to do.
 
-Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
-Acked-by: James Morris <jmorris@namei.org>
-Cc: "David S. Miller" <davem@davemloft.net>
+A typical scenario would be to apply a security mark to a 'new' packet with
+SECMARK, then copy that to its conntrack via CONNMARK, and then restore the
+security mark from the connection to established and related packets on that
+connection.
+
+Signed-off-by: James Morris <jmorris@namei.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- security/selinux/hooks.c                   |    2 +
- security/selinux/include/av_inherit.h      |    1 
- security/selinux/include/av_permissions.h  |   23 +++++++++++++++++++
- security/selinux/include/class_to_string.h |    1 
- security/selinux/include/flask.h           |    1 
- 5 files changed, 28 insertions(+)
+ include/linux/netfilter/xt_CONNSECMARK.h |   13 +
+ net/netfilter/Kconfig                    |   11 +
+ net/netfilter/Makefile                   |    1 
+ net/netfilter/xt_CONNSECMARK.c           |  155 +++++++++++++++++++++
+ 4 files changed, 180 insertions(+)
 
-diff -puN security/selinux/hooks.c~selinux-add-security-class-for-appletalk-sockets security/selinux/hooks.c
---- devel/security/selinux/hooks.c~selinux-add-security-class-for-appletalk-sockets	2006-06-01 20:31:49.000000000 -0700
-+++ devel-akpm/security/selinux/hooks.c	2006-06-01 20:31:49.000000000 -0700
-@@ -696,6 +696,8 @@ static inline u16 socket_type_to_securit
- 		return SECCLASS_PACKET_SOCKET;
- 	case PF_KEY:
- 		return SECCLASS_KEY_SOCKET;
-+	case PF_APPLETALK:
-+		return SECCLASS_APPLETALK_SOCKET;
- 	}
- 
- 	return SECCLASS_SOCKET;
-diff -puN security/selinux/include/av_inherit.h~selinux-add-security-class-for-appletalk-sockets security/selinux/include/av_inherit.h
---- devel/security/selinux/include/av_inherit.h~selinux-add-security-class-for-appletalk-sockets	2006-06-01 20:31:49.000000000 -0700
-+++ devel-akpm/security/selinux/include/av_inherit.h	2006-06-01 20:31:49.000000000 -0700
-@@ -29,3 +29,4 @@
-    S_(SECCLASS_NETLINK_IP6FW_SOCKET, socket, 0x00400000UL)
-    S_(SECCLASS_NETLINK_DNRT_SOCKET, socket, 0x00400000UL)
-    S_(SECCLASS_NETLINK_KOBJECT_UEVENT_SOCKET, socket, 0x00400000UL)
-+   S_(SECCLASS_APPLETALK_SOCKET, socket, 0x00400000UL)
-diff -puN security/selinux/include/av_permissions.h~selinux-add-security-class-for-appletalk-sockets security/selinux/include/av_permissions.h
---- devel/security/selinux/include/av_permissions.h~selinux-add-security-class-for-appletalk-sockets	2006-06-01 20:31:49.000000000 -0700
-+++ devel-akpm/security/selinux/include/av_permissions.h	2006-06-01 20:31:49.000000000 -0700
-@@ -933,3 +933,26 @@
- #define NETLINK_KOBJECT_UEVENT_SOCKET__SEND_MSG   0x00100000UL
- #define NETLINK_KOBJECT_UEVENT_SOCKET__NAME_BIND  0x00200000UL
- 
-+#define APPLETALK_SOCKET__IOCTL                   0x00000001UL
-+#define APPLETALK_SOCKET__READ                    0x00000002UL
-+#define APPLETALK_SOCKET__WRITE                   0x00000004UL
-+#define APPLETALK_SOCKET__CREATE                  0x00000008UL
-+#define APPLETALK_SOCKET__GETATTR                 0x00000010UL
-+#define APPLETALK_SOCKET__SETATTR                 0x00000020UL
-+#define APPLETALK_SOCKET__LOCK                    0x00000040UL
-+#define APPLETALK_SOCKET__RELABELFROM             0x00000080UL
-+#define APPLETALK_SOCKET__RELABELTO               0x00000100UL
-+#define APPLETALK_SOCKET__APPEND                  0x00000200UL
-+#define APPLETALK_SOCKET__BIND                    0x00000400UL
-+#define APPLETALK_SOCKET__CONNECT                 0x00000800UL
-+#define APPLETALK_SOCKET__LISTEN                  0x00001000UL
-+#define APPLETALK_SOCKET__ACCEPT                  0x00002000UL
-+#define APPLETALK_SOCKET__GETOPT                  0x00004000UL
-+#define APPLETALK_SOCKET__SETOPT                  0x00008000UL
-+#define APPLETALK_SOCKET__SHUTDOWN                0x00010000UL
-+#define APPLETALK_SOCKET__RECVFROM                0x00020000UL
-+#define APPLETALK_SOCKET__SENDTO                  0x00040000UL
-+#define APPLETALK_SOCKET__RECV_MSG                0x00080000UL
-+#define APPLETALK_SOCKET__SEND_MSG                0x00100000UL
-+#define APPLETALK_SOCKET__NAME_BIND               0x00200000UL
+diff -puN /dev/null include/linux/netfilter/xt_CONNSECMARK.h
+--- /dev/null	2006-06-01 17:04:03.273681250 -0700
++++ devel-akpm/include/linux/netfilter/xt_CONNSECMARK.h	2006-06-01 20:31:50.000000000 -0700
+@@ -0,0 +1,13 @@
++#ifndef _XT_CONNSECMARK_H_target
++#define _XT_CONNSECMARK_H_target
 +
-diff -puN security/selinux/include/class_to_string.h~selinux-add-security-class-for-appletalk-sockets security/selinux/include/class_to_string.h
---- devel/security/selinux/include/class_to_string.h~selinux-add-security-class-for-appletalk-sockets	2006-06-01 20:31:49.000000000 -0700
-+++ devel-akpm/security/selinux/include/class_to_string.h	2006-06-01 20:31:49.000000000 -0700
-@@ -58,3 +58,4 @@
-     S_("nscd")
-     S_("association")
-     S_("netlink_kobject_uevent_socket")
-+    S_("appletalk_socket")
-diff -puN security/selinux/include/flask.h~selinux-add-security-class-for-appletalk-sockets security/selinux/include/flask.h
---- devel/security/selinux/include/flask.h~selinux-add-security-class-for-appletalk-sockets	2006-06-01 20:31:49.000000000 -0700
-+++ devel-akpm/security/selinux/include/flask.h	2006-06-01 20:31:49.000000000 -0700
-@@ -60,6 +60,7 @@
- #define SECCLASS_NSCD                                    53
- #define SECCLASS_ASSOCIATION                             54
- #define SECCLASS_NETLINK_KOBJECT_UEVENT_SOCKET           55
-+#define SECCLASS_APPLETALK_SOCKET                        56
++enum {
++	CONNSECMARK_SAVE = 1,
++	CONNSECMARK_RESTORE,
++};
++
++struct xt_connsecmark_target_info {
++	u_int8_t mode;
++};
++
++#endif /*_XT_CONNSECMARK_H_target */
+diff -puN net/netfilter/Kconfig~secmark-add-connsecmark-xtables-target net/netfilter/Kconfig
+--- devel/net/netfilter/Kconfig~secmark-add-connsecmark-xtables-target	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -195,6 +195,17 @@ config NETFILTER_XT_TARGET_SECMARK
  
- /*
-  * Security identifier indices for initial entities
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config NETFILTER_XT_TARGET_CONNSECMARK
++	tristate '"CONNSECMARK" target support'
++	depends on NETFILTER_XTABLES && (NF_CONNTRACK_SECMARK || IP_NF_CONNTRACK_SECMARK)
++	help
++	  The CONNSECMARK target copies security markings from packets
++	  to connections, and restores security markings from connections
++	  to packets (if the packets are not already marked).  This would
++	  normally be used in conjunction with the SECMARK target.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_MATCH_COMMENT
+ 	tristate  '"comment" match support'
+ 	depends on NETFILTER_XTABLES
+diff -puN net/netfilter/Makefile~secmark-add-connsecmark-xtables-target net/netfilter/Makefile
+--- devel/net/netfilter/Makefile~secmark-add-connsecmark-xtables-target	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/Makefile	2006-06-01 20:31:50.000000000 -0700
+@@ -29,6 +29,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_MARK) +
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_SECMARK) += xt_SECMARK.o
++obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+ 
+ # matches
+ obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
+diff -puN /dev/null net/netfilter/xt_CONNSECMARK.c
+--- /dev/null	2006-06-01 17:04:03.273681250 -0700
++++ devel-akpm/net/netfilter/xt_CONNSECMARK.c	2006-06-01 20:31:50.000000000 -0700
+@@ -0,0 +1,155 @@
++/*
++ * This module is used to copy security markings from packets
++ * to connections, and restore security markings from connections
++ * back to packets.  This would normally be performed in conjunction
++ * with the SECMARK target and state match.
++ *
++ * Based somewhat on CONNMARK:
++ *   Copyright (C) 2002,2004 MARA Systems AB <http://www.marasystems.com>
++ *    by Henrik Nordstrom <hno@marasystems.com>
++ *
++ * (C) 2006 Red Hat, Inc., James Morris <jmorris@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_CONNSECMARK.h>
++#include <net/netfilter/nf_conntrack_compat.h>
++
++#define PFX "CONNSECMARK: "
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
++MODULE_DESCRIPTION("ip[6]tables CONNSECMARK module");
++MODULE_ALIAS("ipt_CONNSECMARK");
++MODULE_ALIAS("ip6t_CONNSECMARK");
++
++/*
++ * If the packet has a security mark and the connection does not, copy
++ * the security mark from the packet to the connection.
++ */
++static void secmark_save(struct sk_buff *skb)
++{
++	if (skb->secmark) {
++		u32 *connsecmark;
++		enum ip_conntrack_info ctinfo;
++
++		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
++		if (connsecmark && !*connsecmark)
++			if (*connsecmark != skb->secmark)
++				*connsecmark = skb->secmark;
++	}
++}
++
++/*
++ * If packet has no security mark, and the connection does, restore the
++ * security mark from the connection to the packet.
++ */
++static void secmark_restore(struct sk_buff *skb)
++{
++	if (!skb->secmark) {
++		u32 *connsecmark;
++		enum ip_conntrack_info ctinfo;
++
++		connsecmark = nf_ct_get_secmark(skb, &ctinfo);
++		if (connsecmark && *connsecmark)
++			if (skb->secmark != *connsecmark)
++				skb->secmark = *connsecmark;
++	}
++}
++
++static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
++			   const struct net_device *out, unsigned int hooknum,
++			   const struct xt_target *target,
++			   const void *targinfo, void *userinfo)
++{
++	struct sk_buff *skb = *pskb;
++	const struct xt_connsecmark_target_info *info = targinfo;
++
++	switch (info->mode) {
++	case CONNSECMARK_SAVE:
++		secmark_save(skb);
++		break;
++
++	case CONNSECMARK_RESTORE:
++		secmark_restore(skb);
++		break;
++
++	default:
++		BUG();
++	}
++
++	return XT_CONTINUE;
++}
++
++static int checkentry(const char *tablename, const void *entry,
++		      const struct xt_target *target, void *targinfo,
++		      unsigned int targinfosize, unsigned int hook_mask)
++{
++	struct xt_connsecmark_target_info *info = targinfo;
++
++	switch (info->mode) {
++	case CONNSECMARK_SAVE:
++	case CONNSECMARK_RESTORE:
++		break;
++
++	default:
++		printk(KERN_INFO PFX "invalid mode: %hu\n", info->mode);
++		return 0;
++	}
++
++	return 1;
++}
++
++static struct xt_target ipt_connsecmark_reg = {
++	.name		= "CONNSECMARK",
++	.target		= target,
++	.targetsize	= sizeof(struct xt_connsecmark_target_info),
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.me		= THIS_MODULE,
++	.family		= AF_INET,
++	.revision	= 0,
++};
++
++static struct xt_target ip6t_connsecmark_reg = {
++	.name		= "CONNSECMARK",
++	.target		= target,
++	.targetsize	= sizeof(struct xt_connsecmark_target_info),
++	.table		= "mangle",
++	.checkentry	= checkentry,
++	.me		= THIS_MODULE,
++	.family		= AF_INET6,
++	.revision	= 0,
++};
++
++static int __init xt_connsecmark_init(void)
++{
++	int err;
++
++	need_conntrack();
++
++	err = xt_register_target(&ipt_connsecmark_reg);
++	if (err)
++		return err;
++
++	err = xt_register_target(&ip6t_connsecmark_reg);
++	if (err)
++		xt_unregister_target(&ipt_connsecmark_reg);
++
++	return err;
++}
++
++static void __exit xt_connsecmark_fini(void)
++{
++	xt_unregister_target(&ip6t_connsecmark_reg);
++	xt_unregister_target(&ipt_connsecmark_reg);
++}
++
++module_init(xt_connsecmark_init);
++module_exit(xt_connsecmark_fini);
 _
