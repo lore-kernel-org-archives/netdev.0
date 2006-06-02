@@ -1,11 +1,11 @@
 From: akpm@osdl.org
-Subject: [patch 08/17] secmark: Add SELinux exports
-Date: Thu, 01 Jun 2006 20:32:29 -0700
-Message-ID: <200606020328.k523SAmT028826@shell0.pdx.osdl.net>
+Subject: [patch 09/17] secmark: Add secmark support to core networking.
+Date: Thu, 01 Jun 2006 20:32:30 -0700
+Message-ID: <200606020328.k523SBkh028829@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@osdl.org, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:65204 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751202AbWFBD2R (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:181 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751205AbWFBD2R (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:17 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
@@ -14,93 +14,138 @@ List-Id: netdev.vger.kernel.org
 
 From: James Morris <jmorris@namei.org>
 
-Add and export new functions to the in-kernel SELinux API in support of the
-new secmark-based packet controls.
+Add a secmark field to the skbuff structure, to allow security subsystems to
+place security markings on network packets.  This is similar to the nfmark
+field, except is intended for implementing security policy, rather than than
+networking policy.
+
+This patch was already acked in principle by Dave Miller.
 
 Signed-off-by: James Morris <jmorris@namei.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- include/linux/selinux.h    |   32 ++++++++++++++++++++++++++++++++
- security/selinux/exports.c |   22 ++++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+ include/linux/skbuff.h          |   22 ++++++++++++++++++++++
+ net/Kconfig                     |    7 +++++++
+ net/core/skbuff.c               |    3 ++-
+ net/ipv4/ip_output.c            |    1 +
+ net/ipv4/netfilter/ipt_REJECT.c |    1 +
+ net/ipv6/ip6_output.c           |    1 +
+ 6 files changed, 34 insertions(+), 1 deletion(-)
 
-diff -puN include/linux/selinux.h~secmark-add-selinux-exports include/linux/selinux.h
---- devel/include/linux/selinux.h~secmark-add-selinux-exports	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/include/linux/selinux.h	2006-06-01 20:31:50.000000000 -0700
-@@ -118,6 +118,27 @@ void selinux_get_ipc_sid(const struct ke
+diff -puN include/linux/skbuff.h~secmark-add-secmark-support-to-core-networking include/linux/skbuff.h
+--- devel/include/linux/skbuff.h~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/linux/skbuff.h	2006-06-01 20:31:50.000000000 -0700
+@@ -209,6 +209,7 @@ enum {
+  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
+  *	@tc_index: Traffic control index
+  *	@tc_verd: traffic control verdict
++ *	@secmark: security marking
   */
- void selinux_get_task_sid(struct task_struct *tsk, u32 *sid);
  
-+/**
-+ *     selinux_string_to_sid - map a security context string to a security ID
-+ *     @str: the security context string to be mapped
-+ *     @sid: ID value returned via this.
-+ *
-+ *     Returns 0 if successful, with the SID stored in sid.  A value
-+ *     of zero for sid indicates no SID could be determined (but no error
-+ *     occurred).
-+ */
-+int selinux_string_to_sid(char *str, u32 *sid);
+ struct sk_buff {
+@@ -288,6 +289,9 @@ struct sk_buff {
+ #ifdef CONFIG_NET_DMA
+ 	dma_cookie_t		dma_cookie;
+ #endif
++#ifdef CONFIG_NETWORK_SECMARK
++	__u32			secmark;
++#endif
+ 
+ 
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+@@ -1399,5 +1403,23 @@ static inline void nf_reset(struct sk_bu
+ static inline void nf_reset(struct sk_buff *skb) {}
+ #endif /* CONFIG_NETFILTER */
+ 
++#ifdef CONFIG_NETWORK_SECMARK
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{
++	to->secmark = from->secmark;
++}
 +
-+/**
-+ *     selinux_relabel_packet_permission - check permission to relabel a packet
-+ *     @sid: ID value to be applied to network packet (via SECMARK, most likely)
-+ *
-+ *     Returns 0 if the current task is allowed to label packets with the
-+ *     supplied security ID.  Note that it is implicit that the packet is always
-+ *     being relabeled from the default unlabled value, and that the access
-+ *     control decision is made in the AVC.
-+ */
-+int selinux_relabel_packet_permission(u32 sid);
- 
- #else
- 
-@@ -172,6 +193,17 @@ static inline void selinux_get_task_sid(
- 	*sid = 0;
++static inline void skb_init_secmark(struct sk_buff *skb)
++{
++	skb->secmark = 0;
++}
++#else
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{ }
++
++static inline void skb_init_secmark(struct sk_buff *skb)
++{ }
++#endif
++
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff -puN net/core/skbuff.c~secmark-add-secmark-support-to-core-networking net/core/skbuff.c
+--- devel/net/core/skbuff.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/core/skbuff.c	2006-06-01 20:31:50.000000000 -0700
+@@ -464,7 +464,7 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
+ 	C(input_dev);
+ #endif
+-
++	skb_copy_secmark(n, skb);
+ #endif
+ 	C(truesize);
+ 	atomic_set(&n->users, 1);
+@@ -526,6 +526,7 @@ static void copy_skb_header(struct sk_bu
+ #endif
+ 	new->tc_index	= old->tc_index;
+ #endif
++	skb_copy_secmark(new, old);
+ 	atomic_set(&new->users, 1);
+ 	skb_shinfo(new)->tso_size = skb_shinfo(old)->tso_size;
+ 	skb_shinfo(new)->tso_segs = skb_shinfo(old)->tso_segs;
+diff -puN net/ipv4/ip_output.c~secmark-add-secmark-support-to-core-networking net/ipv4/ip_output.c
+--- devel/net/ipv4/ip_output.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/ip_output.c	2006-06-01 20:31:50.000000000 -0700
+@@ -410,6 +410,7 @@ static void ip_copy_metadata(struct sk_b
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
  }
  
-+static inline int selinux_string_to_sid(const char *str, u32 *sid)
-+{
-+       *sid = 0;
-+       return 0;
-+}
-+
-+static inline int selinux_relabel_packet_permission(u32 sid)
-+{
-+	return 0;
-+}
-+
- #endif	/* CONFIG_SECURITY_SELINUX */
+ /*
+diff -puN net/ipv4/netfilter/ipt_REJECT.c~secmark-add-secmark-support-to-core-networking net/ipv4/netfilter/ipt_REJECT.c
+--- devel/net/ipv4/netfilter/ipt_REJECT.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/ipt_REJECT.c	2006-06-01 20:31:50.000000000 -0700
+@@ -147,6 +147,7 @@ static void send_reset(struct sk_buff *o
+ 	/* This packet will not be the same as the other: clear nf fields */
+ 	nf_reset(nskb);
+ 	nskb->nfmark = 0;
++	skb_init_secmark(nskb);
  
- #endif /* _LINUX_SELINUX_H */
-diff -puN security/selinux/exports.c~secmark-add-selinux-exports security/selinux/exports.c
---- devel/security/selinux/exports.c~secmark-add-selinux-exports	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/security/selinux/exports.c	2006-06-01 20:31:50.000000000 -0700
-@@ -72,3 +72,25 @@ void selinux_get_task_sid(struct task_st
- 	*sid = 0;
+ 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
+ 
+diff -puN net/ipv6/ip6_output.c~secmark-add-secmark-support-to-core-networking net/ipv6/ip6_output.c
+--- devel/net/ipv6/ip6_output.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv6/ip6_output.c	2006-06-01 20:31:50.000000000 -0700
+@@ -459,6 +459,7 @@ static void ip6_copy_metadata(struct sk_
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
  }
  
-+int selinux_string_to_sid(char *str, u32 *sid)
-+{
-+	if (selinux_enabled)
-+		return security_context_to_sid(str, strlen(str), sid);
-+	else {
-+		*sid = 0;
-+		return 0;
-+	}
-+}
-+EXPORT_SYMBOL_GPL(selinux_string_to_sid);
+ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+diff -puN net/Kconfig~secmark-add-secmark-support-to-core-networking net/Kconfig
+--- devel/net/Kconfig~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -66,6 +66,13 @@ source "net/ipv6/Kconfig"
+ 
+ endif # if INET
+ 
++config NETWORK_SECMARK
++	bool "Security Marking"
++	help
++	  This enables security marking of network packets, similar
++	  to nfmark, but designated for security purposes.
++	  If you are unsure how to answer this question, answer N.
 +
-+int selinux_relabel_packet_permission(u32 sid)
-+{
-+	if (selinux_enabled) {
-+		struct task_security_struct *tsec = current->security;
-+
-+		return avc_has_perm(tsec->sid, sid, SECCLASS_PACKET,
-+				    PACKET__RELABELTO, NULL);
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(selinux_relabel_packet_permission);
+ menuconfig NETFILTER
+ 	bool "Network packet filtering (replaces ipchains)"
+ 	---help---
 _
