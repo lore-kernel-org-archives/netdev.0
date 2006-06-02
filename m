@@ -1,51 +1,40 @@
-From: Anand Kumria <wildfire@progsoc.uts.edu.au>
-Subject: Re: RFC3927 ARP patch status?
-Date: Sat, 3 Jun 2006 03:31:44 +1000
-Message-ID: <20060602173144.GG549@progsoc.uts.edu.au>
-References: <20060602143837.GF549@progsoc.uts.edu.au> <44806926.1050509@avtrex.com>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: Question about tcp hash function tcp_hashfn()
+Date: Fri, 2 Jun 2006 11:37:53 -0600
+Message-ID: <20060602113753.A20836@openss7.org>
+References: <20060531090301.GA26782@2ka.mipt.ru> <20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru> <20060531.114127.14356069.davem@davemloft.net> <20060601060424.GA28087@2ka.mipt.ru> <87y7wgaze1.fsf@mid.deneb.enyo.de> <20060602074845.GA17798@2ka.mipt.ru> <87ac8v8o4i.fsf@mid.deneb.enyo.de>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from incubus.progsoc.uts.edu.au ([138.25.6.7]:22437 "EHLO
-	incubus.progsoc.uts.edu.au") by vger.kernel.org with ESMTP
-	id S1751335AbWFBRbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jun 2006 13:31:46 -0400
-To: David Daney <ddaney@avtrex.com>
+Received: from gw.openss7.com ([142.179.199.224]:54470 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S1751348AbWFBRhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 13:37:54 -0400
+To: Florian Weimer <fw@deneb.enyo.de>
 Content-Disposition: inline
-In-Reply-To: <44806926.1050509@avtrex.com>
+In-Reply-To: <87ac8v8o4i.fsf@mid.deneb.enyo.de>; from fw@deneb.enyo.de on Fri, Jun 02, 2006 at 07:26:53PM +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 02, 2006 at 09:36:54AM -0700, David Daney wrote:
-> Anand Kumria wrote:
-> >Hi David,
-> >
-> >Do you know the status of your RFC3927 ARP patch? Is it likely to make
-> >it into a mainline kernel?
-> >
+Florian,
+
+On Fri, 02 Jun 2006, Florian Weimer wrote:
 > 
-> That would be up to the kernel network maintainers.
-> 
-> There were some discussions about whether it made sense for the kernel 
-> to support the behavior required by the RFC.  Other comments debated the 
+> I see them now.  Hmm.  Is there a theoretical explanation for them?
 
-Hmm, well the behaviour at the moment is certainly suboptimal. Any
-compliant RFC3927 implementation has to generate an additional broadcast
-ARP -- the kernel will send a directed response, which isn't enough.
+Jenkins is an ad hoc function that is far from ideal.  As you know,
+the ideal hash changes 1/2 the bits in the output value for each one
+bit change in the input value(s).  Jenkins changes a few as 1/3 and
+performs less than ideal over even a small smaple of the input data
+set (Jenkins said he checked several billion of the trilions of
+changes).
 
-> The patch is there.  I signed-off-by on it.
-> 
-> If you need RFC3927 compliance, you are free to apply the patch.  If the 
->  network maintainers are so inclined, they can do the necessary things 
-> to get it into the mainline.
+It should not be suprising that a general purpose ad hoc function
+(Jenkins) performs poorer than a specific purpose ad hoc function
+(XOR), for the very specific input data sets that the later was chosen
+to cover.
 
-Okay, thanks.
-
-Anand
-
--- 
- `When any government, or any church for that matter, undertakes to say to
-  its subjects, "This you may not read, this you must not see, this you are
-  forbidden to know," the end result is tyranny and oppression no matter how
-  holy the motives' -- Robert A Heinlein, "If this goes on --"
+Theoretically, XOR can be improved upon, but Jenkins doesn't do it.
