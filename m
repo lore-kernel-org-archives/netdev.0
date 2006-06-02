@@ -1,33 +1,22 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC3927 ARP patch status?
-Date: Sat, 03 Jun 2006 09:12:06 +1000
-Message-ID: <E1FmIoI-0007nK-00@gondolin.me.apana.org.au>
-References: <44806926.1050509@avtrex.com>
-Cc: wildfire@progsoc.uts.edu.au, netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: TCP Limited slow start
+Date: Fri, 2 Jun 2006 16:13:12 -0700
+Message-ID: <20060602161312.3cb2ea66@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:265 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1030346AbWFBXMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 19:12:15 -0400
-To: ddaney@avtrex.com (David Daney)
-In-Reply-To: <44806926.1050509@avtrex.com>
+Received: from smtp.osdl.org ([65.172.181.4]:30403 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030348AbWFBXNX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 19:13:23 -0400
+To: Xiaoliang (David) Wei <davidwei79@gmail.com>,
+	John Heffner <jheffner@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Daney <ddaney@avtrex.com> wrote:
-> 
-> There were some discussions about whether it made sense for the kernel 
-> to support the behavior required by the RFC.  Other comments debated the 
-> wisdom of using a tightly targeted patch specific to the RFC, or whether 
-> a more general but intrusive solution would be better.
+Has anyone done an implementation of RFC3742 for Linux? It looks interesting, but
+would need some integration with current ABC code.
 
-I think we've made it quite clear what needs to be done for it to be
-accepted.  All that remains is for someone to implement it.  If anyone
-really cares about this, then please write the code instead of talking
-about it.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+There was some evidence of a version in old Web100 code, but it's gone now. Was
+it deemed a mistake?
