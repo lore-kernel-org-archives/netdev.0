@@ -1,44 +1,48 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: new driver for IBM ethernet chip
-Date: Fri, 2 Jun 2006 13:02:37 +0200
-Message-ID: <OFA75C1070.77D8B8F0-ONC125717F.003D730C-C1257181.003C592B@de.ibm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] softmac: Fix handling of authentication failure
+Date: Fri, 2 Jun 2006 08:04:44 -0400
+Message-ID: <20060602120439.GA14289@tuxdriver.com>
+References: <20060601143722.D0B2C89CF47@zog.reactivated.net> <447FA5B5.8020707@lwfinger.net> <44800E74.9070605@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Marcus Eder <MEDER@de.ibm.com>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org,
+	johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:46824 "EHLO
-	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1751389AbWFBLAt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jun 2006 07:00:49 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.6/8.13.6) with ESMTP id k52B0mNK097650
-	for <netdev@vger.kernel.org>; Fri, 2 Jun 2006 11:00:48 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k52B2dIj031306
-	for <netdev@vger.kernel.org>; Fri, 2 Jun 2006 13:02:39 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k52B0lfY019602
-	for <netdev@vger.kernel.org>; Fri, 2 Jun 2006 13:00:47 +0200
-Received: from d12ml067.megacenter.de.ibm.com (d12ml067.megacenter.de.ibm.com [9.149.164.162])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k52B0l3g019597
-	for <netdev@vger.kernel.org>; Fri, 2 Jun 2006 13:00:47 +0200
-To: netdev@vger.kernel.org
+Received: from ra.tuxdriver.com ([24.172.12.4]:16392 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751197AbWFBMFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 08:05:08 -0400
+To: Daniel Drake <dsd@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <44800E74.9070605@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We're currently developing a new Ethernet device driver for a 10G IBM chip
-for System p. (ppc64)
+On Fri, Jun 02, 2006 at 11:09:56AM +0100, Daniel Drake wrote:
+> Larry Finger wrote:
+> >This statement fails to compile on my system using Linus' tree, because 
+> >ieee80211softmac_disassoc needs a second argument - the reason. It seems 
+> >as if WLAN_REASON_PREV_AUTH_NOT_VALID would be appropriate.
+> 
+> Thanks for pointing that out. This patch depends on a patch titled 
+> "softmac: deauthentication implies deassociation" which is apparently 
+> not present in Linus' tree.
 
-A later version of the driver should end up in mainline kernel.
-How should we proceed to get first comments by the community?
-Either post this code as a patch to netdev or
-put a full tarball on for example sourceforge?
+That patch is in the upstream branch (also available in the master
+branch) of wireless-2.6, which is probably what anyone doing wireless
+patches should(*) be using.
 
+The approved release process only allows for non-bugfix patches
+in the first two weeks after a Linus blesses a new kernel release.
+After that only bugfixes are allowed, with non-bugfix patches getting
+queued for the next merge window.  The upstream branch represents
+that queue of patches.
 
-Gruss / Regards . . . Christoph Raisch
+Hth!
 
-christoph raisch, HCAD teamlead, IODF2 (d/3627), ibm boeblingen lab,
-phone: (+49/0)7031-16 4584,  fax: -16 2042, loc: 71032-05-003, internet:
-raisch@de.ibm.com
+John
 
+(*) The exception being those workign on Devicescape-related patches,
+who should be working off the master branch of wireless-dev.
+-- 
+John W. Linville
+linville@tuxdriver.com
