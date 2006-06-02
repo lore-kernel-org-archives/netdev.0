@@ -1,41 +1,47 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Florian Weimer <fw@deneb.enyo.de>
 Subject: Re: Question about tcp hash function tcp_hashfn()
-Date: Fri, 2 Jun 2006 11:01:49 +0400
-Message-ID: <20060602070149.GA12213@2ka.mipt.ru>
-References: <20060601060424.GA28087@2ka.mipt.ru> <20060601001825.A21730@openss7.org> <20060601063012.GC28087@2ka.mipt.ru> <20060601004608.C21730@openss7.org> <20060601070136.GA754@2ka.mipt.ru> <20060601011125.C22283@openss7.org> <20060601083805.GB754@2ka.mipt.ru> <20060601042457.B25584@openss7.org> <20060601110625.GA15069@2ka.mipt.ru> <20060601124010.C554@openss7.org>
+Date: Fri, 02 Jun 2006 07:40:38 +0200
+Message-ID: <87y7wgaze1.fsf@mid.deneb.enyo.de>
+References: <20060531090301.GA26782@2ka.mipt.ru>
+	<20060531035124.B3065@openss7.org> <20060531105814.GB7806@2ka.mipt.ru>
+	<20060531.114127.14356069.davem@davemloft.net>
+	<20060601060424.GA28087@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Brian F. G. Bidulock" <bidulock@openss7.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:42719 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751231AbWFBHCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 03:02:09 -0400
-To: David Miller <davem@davemloft.net>, draghuram@rocketmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060601124010.C554@openss7.org>
+Received: from mail.enyo.de ([212.9.189.167]:20669 "EHLO mail.enyo.de")
+	by vger.kernel.org with ESMTP id S1750865AbWFBHc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jun 2006 03:32:27 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060601060424.GA28087@2ka.mipt.ru> (Evgeniy Polyakov's message
+	of "Thu, 1 Jun 2006 10:04:24 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 01, 2006 at 12:40:10PM -0600, Brian F. G. Bidulock (bidulock@openss7.org) wrote:
-> So what are your thoughts about my sequence number approach (for
-> connected sockets)?
+* Evgeniy Polyakov:
 
-Depending on how you are going to use it.
-Generic socket code does not have TCP sequence numbers since it must
-work with all supported protocols.
-Netchannels also do not know about internals of the packet by design,
-since all protocol processing is performed at the end peer.
+> That is wrong. And I have a code and picture to show that, 
+> and you dont - prove me wrong :)
 
-Sequence number can be wrapped in minutes in current networks and even
-faster tomorrow, that is why PAWS was created.
+Here we go:
 
-Your idea about reinserting the socket does not scale in 1Gbit
-environment, and definitely will not in 10Gbit.
+static inline num2ip(__u8 a1, __u8 a2, __u8 a3, __u8 a4)
+{
+	__u32 a = 0;
 
-Probably it is possible to create second hash table for TCP sockets only
-and use that table first in protocol handler, but it requires some
-research to prove the idea.
+	a |= a1;
+	a << 8;
+	a |= a2;
+	a << 8;
+	a |= a3;
+	a << 8;
+	a |= a4;
 
--- 
-	Evgeniy Polyakov
+	return a;
+}
+
+"gcc -Wall" was pretty illuminating. 8-P After fixing this and
+switching to a better PRNG, I get something which looks pretty normal.
