@@ -1,50 +1,48 @@
 From: akpm@osdl.org
-Subject: [patch 02/17] remove dead entry in net wan Kconfig
-Date: Thu, 01 Jun 2006 20:32:21 -0700
-Message-ID: <200606020328.k523S3vg028808@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, paulkf@microgate.com
+Subject: [patch 06/17] neighbour.c, pneigh_get_next() skips published entry
+Date: Thu, 01 Jun 2006 20:32:26 -0700
+Message-ID: <200606020328.k523S8hh028820@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, Jari.Takkala@Q9.com,
+	jari.takkala@Q9.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:57780 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751197AbWFBD2K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:10 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:60596 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751201AbWFBD2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jun 2006 23:28:13 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Paul Fulghum <paulkf@microgate.com>
+From: "Jari Takkala" <Jari.Takkala@Q9.com>
 
-Remove dead entry from net wan Kconfig.  This entry is left over from 2.4
-where synclink used syncppp driver directly.  synclink drivers now use
-generic HDLC
+Fix a problem where output from /proc/net/arp skips a record when the full
+output does not fit into the users read() buffer.
 
-Signed-off-by: Paul Fulghum <paulkf@microgate.com>
+To reproduce: publish a large number of ARP entries (more than 10 required
+on my system).  Run 'dd if=/proc/net/arp of=arp-1024.out bs=1024'.  View
+the output, one entry will be missing.
+
+Signed-off-by: Jari Takkala <jari.takkala@q9.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/wan/Kconfig |   12 ------------
- 1 file changed, 12 deletions(-)
+ net/core/neighbour.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff -puN drivers/net/wan/Kconfig~remove-dead-entry-in-net-wan-kconfig drivers/net/wan/Kconfig
---- devel/drivers/net/wan/Kconfig~remove-dead-entry-in-net-wan-kconfig	2006-06-01 20:31:49.000000000 -0700
-+++ devel-akpm/drivers/net/wan/Kconfig	2006-06-01 20:31:49.000000000 -0700
-@@ -134,18 +134,6 @@ config SEALEVEL_4021
- 	  The driver will be compiled as a module: the
- 	  module will be called sealevel.
+diff -puN net/core/neighbour.c~neighbourc-pneigh_get_next-skips-published-entry net/core/neighbour.c
+--- devel/net/core/neighbour.c~neighbourc-pneigh_get_next-skips-published-entry	2006-06-01 20:31:49.000000000 -0700
++++ devel-akpm/net/core/neighbour.c	2006-06-01 20:31:49.000000000 -0700
+@@ -2138,6 +2138,12 @@ static struct pneigh_entry *pneigh_get_n
+ 	struct neigh_seq_state *state = seq->private;
+ 	struct neigh_table *tbl = state->tbl;
  
--config SYNCLINK_SYNCPPP
--	tristate "SyncLink HDLC/SYNCPPP support"
--	depends on WAN
--	help
--	  Enables HDLC/SYNCPPP support for the SyncLink WAN driver.
--
--	  Normally the SyncLink WAN driver works with the main PPP driver
--	  <file:drivers/net/ppp_generic.c> and pppd program.
--	  HDLC/SYNCPPP support allows use of the Cisco HDLC/PPP driver
--	  <file:drivers/net/wan/syncppp.c>. The SyncLink WAN driver (in
--	  character devices) must also be enabled.
--
- # Generic HDLC
- config HDLC
- 	tristate "Generic HDLC layer"
++	if (pos != NULL && *pos == 1 &&
++			(pn->next || tbl->phash_buckets[state->bucket])) {
++		--(*pos);
++		return pn;
++	}
++
+ 	pn = pn->next;
+ 	while (!pn) {
+ 		if (++state->bucket > PNEIGH_HASHMASK)
 _
