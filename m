@@ -1,347 +1,58 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
-Date: Fri, 2 Jun 2006 16:30:30 +0200
-Message-ID: <200606021630.34544.IvDoorn@gmail.com>
-References: <200605251716.00742.IvDoorn@gmail.com> <200605311931.17910.IvDoorn@gmail.com> <200605312005.31067.IvDoorn@gmail.com>
+From: Frank van Maarseveen <frankvm@frankvm.com>
+Subject: Re: 2.6.17-rc4: netfilter LOG messages truncated via NETCONSOLE (2)
+Date: Fri, 2 Jun 2006 16:39:22 +0200
+Message-ID: <20060602143922.GA8572@janus>
+References: <447DAEC9.3050003@trash.net> <20060531160611.GA25637@janus> <447DC613.10102@trash.net> <20060531172936.GB25788@janus> <447DD66C.30605@trash.net> <20060601091124.GA31642@janus> <447F2537.1080807@trash.net> <20060602123559.GA7505@janus> <20060602140212.GA7881@janus> <44804828.2050909@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart82095762.aXM2N10xlX";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:54921 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932152AbWFBO1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jun 2006 10:27:38 -0400
-Received: by nf-out-0910.google.com with SMTP id c31so1252063nfb
-        for <netdev@vger.kernel.org>; Fri, 02 Jun 2006 07:27:37 -0700 (PDT)
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <200605312005.31067.IvDoorn@gmail.com>
+Received: from frankvm.xs4all.nl ([80.126.170.174]:14208 "EHLO
+	janus.localdomain") by vger.kernel.org with ESMTP id S932118AbWFBOjY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jun 2006 10:39:24 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <44804828.2050909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart82095762.aXM2N10xlX
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, Jun 02, 2006 at 04:16:08PM +0200, Patrick McHardy wrote:
+> Which network driver are you using?
 
-> > > The first parameter of strcat() must be big enough to contain the who=
-le
-> > > string.
-> >=20
-> > Will replace it with
-> > sprintf(wrqu->name, "radiobtn/", radiobtn->dev_name);
->=20
-> Or actually, I don't think the radiobtn/ won't be actually needed as pref=
-ix.
-> The name passed to the radiobtn driver by the driver should be sufficient.
+I've seen it with two completely different NICs at the sender side:
+0000:02:08.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+0000:02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5751 Gigabit Ethernet PCI Express (rev 01)
 
-Updated version,
+Snippet from bootlog:
+Jun  2 16:24:05 posio kernel: e100: Intel(R) PRO/100 Network Driver, 3.5.10-k2-NAPI
+Jun  2 16:24:05 posio kernel: e100: Copyright(c) 1999-2005 Intel Corporation
+Jun  2 16:24:05 posio kernel: ACPI: PCI Interrupt 0000:02:08.0[A] -> GSI 16 (level, low) -> IRQ 16
+Jun  2 16:24:05 posio kernel: e100: eth0: e100_probe: addr 0x40400000, irq 16, MAC addr 00:08:C7:69:29:AE
+Jun  2 16:24:05 posio kernel: netconsole: device eth0 not up yet, forcing it
+Jun  2 16:24:05 posio kernel: e100: eth0: e100_watchdog: link up, 100Mbps, full-duplex
+Jun  2 16:24:05 posio kernel: netconsole: carrier detect appears untrustworthy, waiting 4 seconds
+Jun  2 16:24:05 posio kernel: netconsole: network logging started
 
-Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+> Does this patch show anything in
+> the ringbuffer?
 
-diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
-index 4bad588..212caad 100644
-=2D-- a/drivers/input/misc/Kconfig
-+++ b/drivers/input/misc/Kconfig
-@@ -79,4 +79,14 @@ config HP_SDC_RTC
- 	  Say Y here if you want to support the built-in real time clock
- 	  of the HP SDC controller.
-=20
-+config RADIOBTN
-+	tristate "Hardware radio button support"
-+	help
-+	  Say Y here if you have an integrated WiFi or Bluetooth device
-+	  which contains an hardware button for enabling or disabling the radio.
-+	  When this driver is used, this driver will make sure the radio will
-+	  be correctly enabled and disabled when needed. It will then also
-+	  use the created input device to signal user space of this event
-+	  which allows userspace to take additional actions.
-+
- endif
-diff --git a/drivers/input/misc/Makefile b/drivers/input/misc/Makefile
-index 415c491..9af3d98 100644
-=2D-- a/drivers/input/misc/Makefile
-+++ b/drivers/input/misc/Makefile
-@@ -11,3 +11,4 @@ obj-$(CONFIG_INPUT_UINPUT)		+=3D uinput.o
- obj-$(CONFIG_INPUT_WISTRON_BTNS)	+=3D wistron_btns.o
- obj-$(CONFIG_HP_SDC_RTC)		+=3D hp_sdc_rtc.o
- obj-$(CONFIG_INPUT_IXP4XX_BEEPER)	+=3D ixp4xx-beeper.o
-+obj-$(CONFIG_RADIOBTN)			+=3D radiobtn.o
-\ No newline at end of file
-diff --git a/drivers/input/misc/radiobtn.c b/drivers/input/misc/radiobtn.c
-new file mode 100644
-index 0000000..4379abe
-=2D-- /dev/null
-+++ b/drivers/input/misc/radiobtn.c
-@@ -0,0 +1,163 @@
-+/*
-+	Copyright (C) 2006 Ivo van Doorn
-+
-+	This program is free software; you can redistribute it and/or modify
-+	it under the terms of the GNU General Public License as published by
-+	the Free Software Foundation; either version 2 of the License, or
-+	(at your option) any later version.
-+
-+	This program is distributed in the hope that it will be useful,
-+	but WITHOUT ANY WARRANTY; without even the implied warranty of
-+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+	GNU General Public License for more details.
-+
-+	You should have received a copy of the GNU General Public License
-+	along with this program; if not, write to the
-+	Free Software Foundation, Inc.,
-+	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+/*
-+	Radio hardware button support
-+	Poll frequently all registered hardware for hardware button status,
-+	if changed enabled or disable the radio of that hardware device.
-+	Send signal to input device to inform userspace about the new status.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/input.h>
-+#include <linux/radiobtn.h>
-+
-+MODULE_AUTHOR("Ivo van Doorn <IvDoorn@gmail.com>");
-+MODULE_VERSION("1.0");
-+MODULE_DESCRIPTION("Radio hardware button support");
-+MODULE_LICENSE("GPL");
-+
-+static void radiobtn_poll(unsigned long data)
-+{
-+	struct radio_button *radiobtn =3D (struct radio_button*)data;
-+	int state;
-+
-+	/*
-+	 * Poll for the new state.
-+	 * Check if the state has changed.
-+	 */
-+	state =3D !!radiobtn->button_poll(radiobtn->data);
-+	if (state !=3D radiobtn->current_state) {
-+		radiobtn->current_state =3D state;
-+
-+		/*
-+		 * Enable or disable the radio when this
-+		 * should be done in software.
-+		 */
-+		if (state && radiobtn->enable_radio)
-+			radiobtn->enable_radio(radiobtn->data);
-+		else if (!state && radiobtn->disable_radio)
-+			radiobtn->disable_radio(radiobtn->data);
-+
-+		/*
-+		 * Report key event.
-+		 */
-+		input_report_key(radiobtn->input_dev, KEY_RADIO, 1);
-+		input_sync(radiobtn->input_dev);
-+		input_report_key(radiobtn->input_dev, KEY_RADIO, 0);
-+		input_sync(radiobtn->input_dev);
-+	}
-+
-+	/*
-+	 * Check if polling has been disabled.
-+	 */
-+	if (radiobtn->poll_delay !=3D 0) {
-+		radiobtn->poll_timer.expires =3D
-+			jiffies + msecs_to_jiffies(radiobtn->poll_delay);
-+		add_timer(&radiobtn->poll_timer);
-+	}
-+}
-+
-+int radiobtn_register_device(struct radio_button *radiobtn)
-+{
-+	int status;
-+
-+	/*
-+	 * Check if all mandatory fields have been set.
-+	 */
-+	if (radiobtn->poll_delay =3D=3D 0 || radiobtn->button_poll =3D=3D NULL)
-+		return -EINVAL;
-+
-+	/*
-+	 * Allocate, initialize and register input device.
-+	 */
-+	radiobtn->input_dev =3D input_allocate_device();
-+	if (!radiobtn->input_dev) {
-+		printk(KERN_ERR "Failed to allocate input device %s.\n",
-+			radiobtn->dev_name);
-+		return -ENOMEM;
-+	}
-+
-+	radiobtn->input_dev->name =3D "Radio button";
-+	radiobtn->input_dev->phys =3D radiobtn->dev_name;
-+	radiobtn->input_dev->id.bustype =3D BUS_HOST;
-+	set_bit(KEY_RADIO, radiobtn->input_dev->keybit);
-+
-+	status =3D input_register_device(radiobtn->input_dev);
-+	if (status) {
-+		printk(KERN_ERR "Failed to register input device %s.\n",
-+			radiobtn->dev_name);
-+		input_free_device(radiobtn->input_dev);
-+		return status;
-+	}
-+
-+	/*
-+	 * Set the initial state of the button.
-+	 */
-+	radiobtn->current_state =3D radiobtn->button_poll(radiobtn->data);
-+
-+	/*
-+	 * Initialize timer.
-+	 */
-+	init_timer(&radiobtn->poll_timer);
-+	radiobtn->poll_timer.function =3D radiobtn_poll;
-+	radiobtn->poll_timer.data =3D (unsigned long)radiobtn;
-+	radiobtn->poll_timer.expires =3D
-+		jiffies + msecs_to_jiffies(radiobtn->poll_delay);
-+	add_timer(&radiobtn->poll_timer);
-+
-+	printk(KERN_INFO "Created new %s: %s.\n",
-+		radiobtn->input_dev->name, radiobtn->input_dev->phys);
-+
-+	return 0;
-+}
-+
-+void radiobtn_unregister_device(struct radio_button *radiobtn)
-+{
-+	/*
-+	 * Stop timer.
-+	 */
-+	radiobtn->poll_delay =3D 0;
-+	del_timer_sync(&radiobtn->poll_timer);
-+
-+	/*
-+	 * Remove input device.
-+	 */
-+	input_unregister_device(radiobtn->input_dev);
-+	input_free_device(radiobtn->input_dev);
-+}
-+
-+static int __init radiobtn_init(void)
-+{
-+	printk(KERN_INFO "Loading radio button driver.\n");
-+	return 0;
-+}
-+
-+static void __exit radiobtn_exit(void)
-+{
-+	printk(KERN_INFO "Unloading radio button driver.\n");
-+}
-+
-+EXPORT_SYMBOL(radiobtn_register_device);
-+EXPORT_SYMBOL(radiobtn_unregister_device);
-+
-+module_init(radiobtn_init);
-+module_exit(radiobtn_exit);
-diff --git a/include/linux/radiobtn.h b/include/linux/radiobtn.h
-new file mode 100644
-index 0000000..3467606
-=2D-- /dev/null
-+++ b/include/linux/radiobtn.h
-@@ -0,0 +1,84 @@
-+/*
-+	Copyright (C) 2006 Ivo van Doorn
-+
-+	This program is free software; you can redistribute it and/or modify
-+	it under the terms of the GNU General Public License as published by
-+	the Free Software Foundation; either version 2 of the License, or
-+	(at your option) any later version.
-+
-+	This program is distributed in the hope that it will be useful,
-+	but WITHOUT ANY WARRANTY; without even the implied warranty of
-+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+	GNU General Public License for more details.
-+
-+	You should have received a copy of the GNU General Public License
-+	along with this program; if not, write to the
-+	Free Software Foundation, Inc.,
-+	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-+ */
-+
-+/*
-+	Radio hardware button support
-+	Laptops are quite often equiped with support with a hardware button
-+	to enabled and disable the radio of the integrated wireless network
-+	or bluetooth interface.
-+	Altough some devices will make sure that when pressed the radio
-+	is disabled in hardware, other device depend on the software
-+	to enabled or disable the radio accordingly.
-+	This driver will create an input device and will poll registered
-+	hardware frequently to listen if the button has been pressed.
-+	When the device requires the software to disable or enable
-+	the radio it will do so correctly, but it will also in all cases
-+	send a signal to the input device to inform any listening daemon
-+	the state has changed and will allow userspace to handle certain
-+	tasks as well if required.
-+ */
-+
-+#ifndef RADIOBTN_H
-+#define RADIOBTN_H
-+
-+#include <linux/input.h>
-+
-+/**
-+ * struct radio_button - radio hardware structure.
-+ * @dev_name: Name of the interface. This will become the name
-+ * 	of the input device created in /dev/radio/.
-+ * @data: Private data which will be passed along with the radio handlers.
-+ * @button_poll(unsigned long data): Handler which will be called
-+ * 	with the poll_delay interval.
-+ * @enable_radio(unsigned long data): Optional handler to enable the radio
-+ * 	once the button has been pressed when the hardware does not do this
-+ * 	automaticly.
-+ * @disable_radio(unsigned long data): Optional handler to disable the rad=
-io
-+ * 	once the button has been pressed when the hardware does not do this
-+ * 	automaticly.
-+ * @poll_delay: Delay in msecs between each poll.
-+ * @current_state: Current state of the button.
-+ * 	(Should not be touched by driver)
-+ * @input_dev: Pointer to input device for this radio button.
-+ * 	(Should not be touched by driver)
-+ * @poll_timer: Timer used to poll for the button status.
-+ *	(Should not be touched by driver)
-+ */
-+struct radio_button {
-+	const char *dev_name;
-+
-+	unsigned long data;
-+
-+	int (*button_poll)(unsigned long data);
-+	void (*enable_radio)(unsigned long data);
-+	void (*disable_radio)(unsigned long data);
-+
-+	unsigned int poll_delay;
-+
-+	unsigned int current_state;
-+
-+	struct input_dev *input_dev;
-+
-+	struct timer_list poll_timer;
-+};
-+
-+int radiobtn_register_device(struct radio_button *);
-+void radiobtn_unregister_device(struct radio_button *);
-+
-+#endif /* RADIOBTN_H */
+no.
 
---nextPart82095762.aXM2N10xlX
-Content-Type: application/pgp-signature
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -302,6 +302,9 @@ static void netpoll_send_skb(struct netp
+>  		netpoll_poll(np);
+>  		udelay(50);
+>  	} while (npinfo->tries > 0);
+> +
+> +	printk("failed to transmit\n");
+> +	kfree_skb(skb);
+>  }
+>  
+>  void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBEgEuKaqndE37Em0gRAiDbAJ9kY9Zq4I3gJAnx9N0qPGo+57MWagCgoUbN
-GtPOaSh26nsr92KsdzufUIk=
-=2GqA
------END PGP SIGNATURE-----
-
---nextPart82095762.aXM2N10xlX--
+-- 
+Frank
