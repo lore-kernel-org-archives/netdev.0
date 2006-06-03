@@ -1,124 +1,915 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFC ] [1 of 4] IEEE802.11 Regulatory/Geographical Support for drivers
- - statement of project
-Date: Sat, 03 Jun 2006 17:45:03 -0500
-Message-ID: <448210EF.10103@lwfinger.net>
+Subject: [RFC ] [2 of 4] IEEE802.11 Regulatory/Geographical Support for drivers
+ - database
+Date: Sat, 03 Jun 2006 17:45:31 -0500
+Message-ID: <4482110B.4080404@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:21712 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751819AbWFCWpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 18:45:06 -0400
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:47870 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751822AbWFCWpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jun 2006 18:45:32 -0400
 To: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As announced earlier in this list, I am working on providing kernel support for providing regulatory 
-information to be used to set usable channels, max power, and other information needed by IEEE802.11 
-drivers. The database will be maintained as a text file processed by a user-space daemon. I now have 
-the complete system running on my machine. The full database and the user space daemon are available 
-through a subversion repository at svn://lwfinger.dynalias.org/ide1/ieee80211_geo.
+This message shows each of the 2.4 GHz and 5 GHz bands split into indoor and outdoor usage. For each 
+group, the ISO name for that country is shown before the channel listing. There are a lot of 
+countries that do not belong in the default group. I welcome any input you can provide for these 
+missing countries, and any other incorrect information. Note: The country code EU is a pseudonym for 
+the entire European Union.
 
-The details of the implementation are as follows:
+Thanks,  Larry
 
-1. A new routine, ieee80211_init_geo has been written that is called by a driver wishing to use this 
-functionality. The arguments are an ieee80211_device, a two-character ISO3661 country code, and a 
-flag that is true if the device is to be used outdoors. This new routine does the following:
+=============================================================================================
 
-   a) It establishes a default set of wireless parameters that will be supplied to the driver if the 
-user space daemon is not running, if the daemon does not respond in a timely fashion, or if the 
-daemon supplies data that do not pass rudimentary validity checks. The default data includes b/g 
-channels 1 - 11 for indoor usage at a maximum power of 20 dBm (100 mW). At present, no 5 GHz 
-channels are defined in the default set. This set of parameters should be legal everywhere.
+IEEE80211 Regulatory/Geographical Daemon (V0.1)
+Using Database Version of 26 May 2006
 
-   b) It then creates a new directory, '/proc/net/ieee80211_geo', and populates it with 2 files for 
-communication with the daemon. The first, which is read by the daemon, contains the country and 
-outdoor codes, and the second is for the the daemon to write the 'struct ieee80211_geo' data 
-corresponding to the country and indoor/outdoor information passed from the kernel.
+=================================================
+Countries in 2.4 GHz group 0
 
-   c) It next spin loops for up to 1 second waiting for the user space daemon to respond. As noted 
-earlier, if this loop times out, the default set is supplied.
+AF, AL, DZ, AS, AD, AO, AI, AG, AM, AW, AZ, BS, BH, BD, BB, BY, BZ, BJ, BM, BT
+BO, BA, BW, BV, IO, VG, BN, BF, BI, KH, CM, CV, KY, CF, TD, CX, CC, KM, CD, CG
+CK, CI, DJ, DM, DO, TL, EG, SV, GQ, ER, ET, FO, FK, FJ, PF, TF, GA, GM, GE, GH
+GI, GL, GD, GP, GU, GT, GN, GW, GY, HT, HM, HN, IS, ID, IR, IQ, IL, JO, KZ, KE
+KI, KP, KW, KG, LA, LB, LS, LR, LY, MO, MG, MW, MY, MV, ML, MH, MQ, MR, MU, YT
+FM, MD, MC, MN, MS, MA, MZ, MM, NA, NR, NP, AN, NC, NZ, NI, NE, NG, NU, NF, MP
+NO, OM, PK, PW, PS, PA, PG, PH, PN, PR, QA, RW, SH, KN, LC, PM, VC, WS, SM, ST
+SA, SN, CS, SC, SL, SG, SB, SO, ZA, GS, LK, SD, SR, SJ, SZ, CH, SY, TW, TJ, TZ
+TH, TG, TK, TO, TT, TN, TM, TC, TV, VI, UG, UA, AE, UM, UY, UZ, VU, VE, VN, WF
+EH, YE, ZM, ZW
 
-   d) It then calls ieee80211_set_geo to load the channel data into the appropriate place in the 
-ieee80211_device block, and returns the status to the driver.
+Indoor Group 0 with 11 channels in 2.4 GHz band
 
-2. The user-space daemon, which need not be run as root, does the following:
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
 
-   a) It verifies that the text file containing the regulatory information is intact by assuming 
-that the last line of the file contains the md5 sum for all of the file except for this last line. 
-The scheme is certainly not tamper proof, but it ensures that whomever has modified the file has 
-some technical skills. If the checksum is not correct, the program generates an appropriate error 
-message and exits.
 
-   b) It then process the country information consisting of a number pointing to an entry describing 
-the 2.4 GHz band information, a second number pointing to the description of the 5 GHz bands, and a 
-two-character country code.
+Outdoor Group 0 has no channels in 2.4 GHz band
 
-   c) It then reads the groups that describe the allowed channels for the 2.4 GHz band and similar 
-information for the 5 GHz bands and builds the tables in the form needed by the ieee80211_geo 
-structure. Each input line consists of (a)the band identification characters "b", "bg", "a", or "h", 
-(b) a channel range consisting of the starting and ending channels, (c) the number of channels 
-between each stop (normally 1 for b/g and 4 for a), (d) the maximum eirp power for this channel in 
-dBm, and (e) a set of flags for these channels. Flags currently implemented are for 802.11b only, 
-for passive scanning, or for 802.11h rules. These data are checked to confirm that every group 
-mentioned in the country section is indeed present, that the channels listed are appropriate for 
-that band, and that there are no duplicate channels in any group. If there are any difficulties with 
-the data the daemon aborts.
+=================================================
+Countries in 2.4 GHz group 1
 
-   d) It then daemonizes, unless the -F command-line switch was supplied.
+AT, BE, BG, HR, CY, CZ, DK, EE, EU, FI, DE, GR, VA, HU, IN, IE, IT, LV, LI, LT
+LU, MK, MT, NL, PL, PT, RO, SK, SI, ES, SE, TR, GB
 
-   e) It then spins waiting for the existence of file '/proc/net/ieee80211_geo/country', which is 
-the indication that the kernel is requesting data.
+Indoor Group 1 with 13 channels in 2.4 GHz band
 
-   f) It then reads the country and outdoor flag, finds the appropriate entries in its internal 
-tables and writes the data back through the pseudo-file.in /proc. If the country code is unknown, a 
-default dataset is supplied. The program then loops back to step e) and waits for the next driver load.
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+    12  2467    20
+    13  2472    20
 
-A segment of the country section of the data file is as follows (data are 2.4 GHz group, 5 GHz group 
-ISO country name and English country name):
+Outdoor Group 1 with 13 channels in 2.4 GHz band
 
-  0  0   AO      Angola, Republic of
-  0  0   AI      Anguilla
-  0  0   AG      Antigua and Barbuda
-  9 12   AR      Argentina, Argentine Republic
-  0  0   AM      Armenia
-  0  0   AW      Aruba
-  2  2   AU      Australia, Commonwealth of
-  1  1   AT      Austria, Republic of
-  0  0   AZ      Azerbaijan, Republic of
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+    12  2467    20
+    13  2472    20
 
-A couple of representative groups from the 2.4 GHz band are:
+=================================================
+Countries in 2.4 GHz group 2
 
-# Band  Ch_Range   Ch_Spacing  Power  Flags
-#
-bgGroup:  0             - Unspecified Country
-#                       - Saudi Arabia (http://www.citc.sa)
-#
-bg        1 -  11       1       20      I
-#
-bgGroup: 1              - General European Union (EU)
-#                       - India (Cetecom June 2 2005)
-#
-bg        1 -  13       1       20      B
-#
+AU
 
-Similarly, a couple of 5 GHz groups are:
+Indoor Group 2 with 11 channels in 2.4 GHz band
 
-aGroup: 0               - Unspecified (or unknown details for) Country
-#                       - Bulgaria, Liechtenstein, Portugal, Romania, Slovakia, Spain
-#
-#
-aGroup: 1               - General European Union (EU)
-#                       - French Guiana and Reunion
-#
-h        36 -  48       4       23      I
-h        52 -  64       4       23      IP
-h       104 - 140       4       30      BP
+   Chn  Freq Power     Flags
+     1  2412    23
+     2  2417    23
+     3  2422    23
+     4  2427    23
+     5  2432    23
+     6  2437    23
+     7  2442    23
+     8  2447    23
+     9  2452    23
+    10  2457    23
+    11  2462    23
 
-I welcome your comments. Part 2 will show a debug dump of the converted database, Part 3 will 
-present the patch needed to add the new routine to the ieee80211 routines, and Part 4 will show the 
-patches needed to modify the bcm43xx driver to use the new routine..
+Outdoor Group 2 with 11 channels in 2.4 GHz band
 
-Larry
+   Chn  Freq Power     Flags
+     1  2412    23
+     2  2417    23
+     3  2422    23
+     4  2427    23
+     5  2432    23
+     6  2437    23
+     7  2442    23
+     8  2447    23
+     9  2452    23
+    10  2457    23
+    11  2462    23
+
+=================================================
+Countries in 2.4 GHz group 3
+
+FR
+
+Indoor Group 3 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+    12  2467    20
+    13  2472    20
+
+Outdoor Group 3 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    10
+    10  2457    10
+    11  2462    10
+    12  2467    10
+    13  2472    10
+
+=================================================
+Countries in 2.4 GHz group 4
+
+CN
+
+Indoor Group 4 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    27
+     2  2417    27
+     3  2422    27
+     4  2427    27
+     5  2432    27
+     6  2437    27
+     7  2442    27
+     8  2447    27
+     9  2452    27
+    10  2457    27
+    11  2462    27
+    12  2467    27
+    13  2472    27
+
+Outdoor Group 4 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    27
+     2  2417    27
+     3  2422    27
+     4  2427    27
+     5  2432    27
+     6  2437    27
+     7  2442    27
+     8  2447    27
+     9  2452    27
+    10  2457    27
+    11  2462    27
+    12  2467    27
+    13  2472    27
+
+=================================================
+Countries in 2.4 GHz group 5
+
+HK, US
+
+Indoor Group 5 with 11 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+
+Outdoor Group 5 with 11 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+
+=================================================
+Countries in 2.4 GHz group 6
+
+CL, CO, CR, CU, EC, JM, MX, PY, PE, RU
+
+Indoor Group 6 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+    12  2467    20
+    13  2472    20
+
+
+Outdoor Group 6 has no channels in 2.4 GHz band
+
+=================================================
+Countries in 2.4 GHz group 7
+
+BR, CA
+
+Indoor Group 7 with 11 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    30
+     2  2417    30
+     3  2422    30
+     4  2427    30
+     5  2432    30
+     6  2437    30
+     7  2442    30
+     8  2447    30
+     9  2452    30
+    10  2457    30
+    11  2462    30
+
+Outdoor Group 7 with 11 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    30
+     2  2417    30
+     3  2422    30
+     4  2427    30
+     5  2432    30
+     6  2437    30
+     7  2442    30
+     8  2447    30
+     9  2452    30
+    10  2457    30
+    11  2462    30
+
+=================================================
+Countries in 2.4 GHz group 8
+
+GF, RE
+
+Indoor Group 8 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    20
+     2  2417    20
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    20
+    10  2457    20
+    11  2462    20
+    12  2467    20
+    13  2472    20
+
+Outdoor Group 8 with 11 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     3  2422    20
+     4  2427    20
+     5  2432    20
+     6  2437    20
+     7  2442    20
+     8  2447    20
+     9  2452    10
+    10  2457    10
+    11  2462    10
+    12  2467    10
+    13  2472    10
+
+=================================================
+Countries in 2.4 GHz group 9
+
+AR
+
+Indoor Group 9 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    36
+     2  2417    36
+     3  2422    36
+     4  2427    36
+     5  2432    36
+     6  2437    36
+     7  2442    36
+     8  2447    36
+     9  2452    36
+    10  2457    36
+    11  2462    36
+    12  2467    36
+    13  2472    36
+
+
+Outdoor Group 9 has no channels in 2.4 GHz band
+
+=================================================
+Countries in 2.4 GHz group 10
+
+JP
+
+Indoor Group 10 with 14 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    23
+     2  2417    23
+     3  2422    23
+     4  2427    23
+     5  2432    23
+     6  2437    23
+     7  2442    23
+     8  2447    23
+     9  2452    23
+    10  2457    23
+    11  2462    23
+    12  2467    23
+    13  2472    23
+    14  2484    23   B_ONLY
+
+Outdoor Group 10 with 14 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    23
+     2  2417    23
+     3  2422    23
+     4  2427    23
+     5  2432    23
+     6  2437    23
+     7  2442    23
+     8  2447    23
+     9  2452    23
+    10  2457    23
+    11  2462    23
+    12  2467    23
+    13  2472    23
+    14  2484    23   B_ONLY
+
+=================================================
+Countries in 2.4 GHz group 11
+
+KR
+
+Indoor Group 11 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    28
+     2  2417    28
+     3  2422    28
+     4  2427    28
+     5  2432    28
+     6  2437    28
+     7  2442    28
+     8  2447    28
+     9  2452    28
+    10  2457    28
+    11  2462    28
+    12  2467    28
+    13  2472    28
+
+Outdoor Group 11 with 13 channels in 2.4 GHz band
+
+   Chn  Freq Power     Flags
+     1  2412    28
+     2  2417    28
+     3  2422    28
+     4  2427    28
+     5  2432    28
+     6  2437    28
+     7  2442    28
+     8  2447    28
+     9  2452    28
+    10  2457    28
+    11  2462    28
+    12  2467    28
+    13  2472    28
+
+=================================================
+Countries in 5 GHz group 0
+
+AF, AL, DZ, AS, AD, AO, AI, AG, AM, AW, AZ, BS, BH, BD, BB, BY, BZ, BJ, BM, BT
+BO, BA, BW, BV, IO, VG, BN, BG, BF, BI, KH, CM, CV, KY, CF, TD, CX, CC, KM, CD
+CG, CK, CR, CI, DJ, DM, DO, TL, EC, EG, SV, GQ, ER, ET, FO, FK, FJ, PF, TF, GA
+GM, GE, GH, GI, GL, GD, GP, GU, GT, GN, GW, GY, HT, HM, HN, IS, ID, IR, IQ, IL
+JO, KZ, KE, KI, KP, KW, KG, LA, LB, LS, LR, LY, LI, MO, MG, MW, MY, MV, ML, MH
+MQ, MR, MU, YT, FM, MD, MC, MN, MS, MA, MZ, MM, NA, NR, NP, AN, NC, NZ, NI, NE
+NG, NU, NF, MP, NO, OM, PK, PW, PS, PA, PG, PY, PH, PN, PT, PR, QA, RO, RU, RW
+SH, KN, LC, PM, VC, WS, SM, ST, SN, CS, SC, SL, SG, SK, SB, SO, ZA, GS, ES, LK
+SD, SR, SJ, SZ, CH, SY, TW, TJ, TZ, TH, TG, TK, TO, TT, TN, TM, TC, TV, VI, UG
+UA, AE, UM, UY, UZ, VU, VE, VN, WF, EH, YE, ZM, ZW
+
+Indoor Group 0 has no channels in 5 GHz band
+
+
+Outdoor Group 0 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 1
+
+AT, HR, CY, CZ, DK, EE, EU, FI, FR, GF, DE, VA, HU, IE, IT, LV, LT, LU, MK, MT
+NL, PL, RE, SI, SE, GB
+
+Indoor Group 1 with 18 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23   PASSIVE   H_RULES
+    40  5200    23   PASSIVE   H_RULES
+    44  5220    23   PASSIVE   H_RULES
+    48  5240    23   PASSIVE   H_RULES
+    52  5260    23   PASSIVE   H_RULES
+    56  5280    23   PASSIVE   H_RULES
+    60  5300    23   PASSIVE   H_RULES
+    64  5320    23   PASSIVE   H_RULES
+   104  5520    30   PASSIVE   H_RULES
+   108  5540    30   PASSIVE   H_RULES
+   112  5560    30   PASSIVE   H_RULES
+   116  5580    30   PASSIVE   H_RULES
+   120  5600    30   PASSIVE   H_RULES
+   124  5620    30   PASSIVE   H_RULES
+   128  5640    30   PASSIVE   H_RULES
+   132  5660    30   PASSIVE   H_RULES
+   136  5680    30   PASSIVE   H_RULES
+   140  5700    30   PASSIVE   H_RULES
+
+Outdoor Group 1 with 10 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   104  5520    30   PASSIVE   H_RULES
+   108  5540    30   PASSIVE   H_RULES
+   112  5560    30   PASSIVE   H_RULES
+   116  5580    30   PASSIVE   H_RULES
+   120  5600    30   PASSIVE   H_RULES
+   124  5620    30   PASSIVE   H_RULES
+   128  5640    30   PASSIVE   H_RULES
+   132  5660    30   PASSIVE   H_RULES
+   136  5680    30   PASSIVE   H_RULES
+   140  5700    30   PASSIVE   H_RULES
+
+=================================================
+Countries in 5 GHz group 2
+
+AU
+
+Indoor Group 2 with 12 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23
+    40  5200    23
+    44  5220    23
+    48  5240    23
+    52  5260    23
+    56  5280    23
+    60  5300    23
+    64  5320    23
+   149  5745    30
+   153  5765    30
+   157  5785    30
+   161  5805    30
+
+Outdoor Group 2 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   149  5745    30
+   153  5765    30
+   157  5785    30
+   161  5805    30
+
+=================================================
+Countries in 5 GHz group 3
+
+SA
+
+Indoor Group 3 with 12 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23
+    40  5200    23
+    44  5220    23
+    48  5240    23
+    52  5260    23
+    56  5280    23
+    60  5300    23
+    64  5320    23
+   149  5745    23
+   153  5765    23
+   157  5785    23
+   161  5805    23
+
+
+Outdoor Group 3 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 4
+
+CN
+
+Indoor Group 4 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   149  5745    27
+   153  5765    27
+   157  5785    27
+   161  5805    27
+
+Outdoor Group 4 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   149  5745    27
+   153  5765    27
+   157  5785    27
+   161  5805    27
+
+=================================================
+Countries in 5 GHz group 5
+
+HK
+
+Indoor Group 5 with 8 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23
+    40  5200    23
+    44  5220    23
+    48  5240    23
+    52  5260    23
+    56  5280    23
+    60  5300    23
+    64  5320    23
+
+Outdoor Group 5 with 8 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23
+    40  5200    23
+    44  5220    23
+    48  5240    23
+    52  5260    23
+    56  5280    23
+    60  5300    23
+    64  5320    23
+
+=================================================
+Countries in 5 GHz group 6
+
+GR, TR
+
+Indoor Group 6 with 8 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23   PASSIVE   H_RULES
+    40  5200    23   PASSIVE   H_RULES
+    44  5220    23   PASSIVE   H_RULES
+    48  5240    23   PASSIVE   H_RULES
+    52  5260    23   PASSIVE   H_RULES
+    56  5280    23   PASSIVE   H_RULES
+    60  5300    23   PASSIVE   H_RULES
+    64  5320    23   PASSIVE   H_RULES
+
+
+Outdoor Group 6 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 7
+
+BR, CA
+
+Indoor Group 7 with 12 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23
+    40  5200    23
+    44  5220    23
+    48  5240    23
+    52  5260    30
+    56  5280    30
+    60  5300    30
+    64  5320    30
+   149  5745    30
+   153  5765    30
+   157  5785    30
+   161  5805    30
+
+Outdoor Group 7 with 8 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    52  5260    30
+    56  5280    30
+    60  5300    30
+    64  5320    30
+   149  5745    30
+   153  5765    30
+   157  5785    30
+   161  5805    30
+
+=================================================
+Countries in 5 GHz group 8
+
+JM, PE
+
+Indoor Group 8 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   149  5745    20
+   153  5765    20
+   157  5785    20
+   161  5805    20
+
+
+Outdoor Group 8 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 9
+
+BE
+
+Indoor Group 9 with 11 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   100  5500    30   PASSIVE   H_RULES
+   104  5520    30   PASSIVE   H_RULES
+   108  5540    30   PASSIVE   H_RULES
+   112  5560    30   PASSIVE   H_RULES
+   116  5580    30   PASSIVE   H_RULES
+   120  5600    30   PASSIVE   H_RULES
+   124  5620    30   PASSIVE   H_RULES
+   128  5640    30   PASSIVE   H_RULES
+   132  5660    30   PASSIVE   H_RULES
+   136  5680    30   PASSIVE   H_RULES
+   140  5700    30   PASSIVE   H_RULES
+
+Outdoor Group 9 with 11 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   100  5500    30   PASSIVE   H_RULES
+   104  5520    30   PASSIVE   H_RULES
+   108  5540    30   PASSIVE   H_RULES
+   112  5560    30   PASSIVE   H_RULES
+   116  5580    30   PASSIVE   H_RULES
+   120  5600    30   PASSIVE   H_RULES
+   124  5620    30   PASSIVE   H_RULES
+   128  5640    30   PASSIVE   H_RULES
+   132  5660    30   PASSIVE   H_RULES
+   136  5680    30   PASSIVE   H_RULES
+   140  5700    30   PASSIVE   H_RULES
+
+=================================================
+Countries in 5 GHz group 10
+
+IN
+
+Indoor Group 10 with 12 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    20
+    40  5200    20
+    44  5220    20
+    48  5240    20
+    52  5260    20
+    56  5280    20
+    60  5300    20
+    64  5320    20
+   149  5745    20
+   153  5765    20
+   157  5785    20
+   161  5805    20
+
+
+Outdoor Group 10 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 11
+
+US
+
+Indoor Group 11 with 12 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    23
+    40  5200    23
+    44  5220    23
+    48  5240    23
+    52  5260    30   PASSIVE   H_RULES
+    56  5280    30   PASSIVE   H_RULES
+    60  5300    30   PASSIVE   H_RULES
+    64  5320    30   PASSIVE   H_RULES
+   149  5745    36
+   153  5765    36
+   157  5785    36
+   161  5805    36
+
+Outdoor Group 11 with 8 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    52  5260    30   PASSIVE   H_RULES
+    56  5280    30   PASSIVE   H_RULES
+    60  5300    30   PASSIVE   H_RULES
+    64  5320    30   PASSIVE   H_RULES
+   149  5745    36
+   153  5765    36
+   157  5785    36
+   161  5805    36
+
+=================================================
+Countries in 5 GHz group 12
+
+AR
+
+Indoor Group 12 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   149  5745    36
+   153  5765    36
+   157  5785    36
+   161  5805    36
+
+
+Outdoor Group 12 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 13
+
+CL, CO, CU
+
+Indoor Group 13 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+   149  5745    30
+   153  5765    30
+   157  5785    30
+   161  5805    30
+
+
+Outdoor Group 13 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 14
+
+MX
+
+Indoor Group 14 with 22 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    20
+    40  5200    20
+    44  5220    20
+    48  5240    20
+    52  5260    20
+    56  5280    20
+    60  5300    20
+    64  5320    20
+   104  5520    20
+   108  5540    20
+   112  5560    20
+   116  5580    20
+   120  5600    20
+   124  5620    20
+   128  5640    20
+   132  5660    20
+   136  5680    20
+   140  5700    20
+   149  5745    20
+   153  5765    20
+   157  5785    20
+   161  5805    20
+
+
+Outdoor Group 14 has no channels in 5 GHz band
+
+=================================================
+Countries in 5 GHz group 15
+
+JP
+
+Indoor Group 15 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    34  5170    23
+    38  5190    23
+    42  5210    23
+    46  5230    23
+
+Outdoor Group 15 with 4 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    34  5170    23
+    38  5190    23
+    42  5210    23
+    46  5230    23
+
+=================================================
+Countries in 5 GHz group 16
+
+KR
+
+Indoor Group 16 with 19 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    36  5180    28
+    40  5200    28
+    44  5220    28
+    48  5240    28
+    52  5260    28
+    56  5280    28
+    60  5300    28
+    64  5320    28
+   100  5500    28
+   104  5520    28
+   108  5540    28
+   112  5560    28
+   116  5580    28
+   120  5600    28
+   124  5620    28
+   149  5745    28
+   153  5765    28
+   157  5785    28
+   161  5805    28
+
+Outdoor Group 16 with 15 channels in 5 GHz bands
+
+   Chn  Freq Power     Flags
+    52  5260    28
+    56  5280    28
+    60  5300    28
+    64  5320    28
+   100  5500    28
+   104  5520    28
+   108  5540    28
+   112  5560    28
+   116  5580    28
+   120  5600    28
+   124  5620    28
+   149  5745    28
+   153  5765    28
+   157  5785    28
+   161  5805    28
+
+Database contains 239 countries, 12 groups in the 2.4 GHz band,
+and 17 groups in the 5 GHz bands.
+
+
