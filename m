@@ -1,36 +1,58 @@
-From: "Callie Thurman" <joeyugnospxe@stanford.edu>
-Subject: Fwd: notice
-Date: Sat, 3 Jun 2006 13:28:12 +0000
-Message-ID: <0b3c01c68711$8fde4460$0e00000a@userpiwiz1svl3>
+From: Richard Gregory <R.Gregory@liverpool.ac.uk>
+Subject: Re: r8169+NAPI soft lockup
+Date: Sat, 03 Jun 2006 16:05:37 +0100
+Message-ID: <4481A541.4080108@liv.ac.uk>
+References: <4460B8DC.9080105@liv.ac.uk> <20060510215004.GA25395@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-     format=flowed;
-     charset="iso-8859-1";
-     reply-type=original
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.212.178.33] ([222.212.178.33]:26379 "EHLO
-	userpiwiz1svl3.stanford.edu") by vger.kernel.org with ESMTP
-	id S1750827AbWFCN2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 09:28:10 -0400
-To: <netdev@vger.kernel.org>
+Received: from mx2.liv.ac.uk ([138.253.100.180]:8348 "EHLO mx2.liv.ac.uk")
+	by vger.kernel.org with ESMTP id S1750962AbWFCPFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2006 11:05:41 -0400
+Received: from mailhuba.liv.ac.uk ([138.253.100.36])
+	by mx2.liv.ac.uk with esmtp (Exim 4.54)
+	id 1FmXh6-0001jB-7u
+	for netdev@vger.kernel.org; Sat, 03 Jun 2006 16:05:40 +0100
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+In-Reply-To: <20060510215004.GA25395@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Life Should be Full of Luxuries....
+A little more info to the dead thread...
 
-http://blessthathomepleasee.com/
+The machine died this morning, network and serial console were 
+unresponsive. On rebooting, the only unusual message in logs were the 
+last two:
+Jun  3 01:58:39 loft -- MARK --
+Jun  3 02:03:39 loft -- MARK --
+Jun  3 02:08:40 loft -- MARK --
+Jun  3 02:10:26 loft smartd[18830]: Device: /dev/hda, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:27 loft smartd[18830]: Device: /dev/hdc, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:27 loft smartd[18830]: Device: /dev/hde, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:28 loft smartd[18830]: Device: /dev/hdg, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:28 loft smartd[18830]: Device: /dev/hdi, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:29 loft smartd[18830]: Device: /dev/hdk, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:30 loft smartd[18830]: Device: /dev/hdm, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:31 loft smartd[18830]: Device: /dev/hdo, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:32 loft smartd[18830]: Device: /dev/hdq, starting scheduled 
+Short Self-Test.
+Jun  3 02:10:32 loft smartd[18830]: Device: /dev/hds, starting scheduled 
+Short Self-Test.
+Jun  3 02:13:26 loft kernel: hdo: lost interrupt
+Jun  3 02:13:46 loft kernel: hdo: dma_timer_expiry: dma status == 0x21
 
-Yet, only a handful of people can afford the finest products, the luxuries of the elite.
-But, here at "Luxury Replica" we are committed to bringing you the finest products, at prices incomparably lower.
-All of the top designer brands for Watches, Ties, Handbags and even Mont Blanc.
+'lost interrupt' has never been seen before in the logs.
 
-http://newgunforsalejoke.com/
+I guess this more strongly implicates the it821x driver.
 
-The finest of products, at the lowest of prices, only a click away:
 
-http://newgunforsalejoke.com/
-
-Regards,
-Callie Thurman
-
+Richard
