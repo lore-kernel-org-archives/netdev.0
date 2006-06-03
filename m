@@ -1,68 +1,52 @@
 From: Anand Kumria <wildfire@progsoc.uts.edu.au>
-Subject: Re: RFC3927 ARP patch status?
-Date: Sat, 3 Jun 2006 12:50:02 +1000
-Message-ID: <20060603025001.GK549@progsoc.uts.edu.au>
-References: <44806926.1050509@avtrex.com> <E1FmIoI-0007nK-00@gondolin.me.apana.org.au> <20060603003955.GJ549@progsoc.uts.edu.au> <4480DEB3.2060806@avtrex.com>
+Subject: link-local address via ifconfig
+Date: Sat, 3 Jun 2006 12:57:43 +1000
+Message-ID: <20060603025743.GL549@progsoc.uts.edu.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from incubus.progsoc.uts.edu.au ([138.25.6.7]:43481 "EHLO
+Received: from incubus.progsoc.uts.edu.au ([138.25.6.7]:8922 "EHLO
 	incubus.progsoc.uts.edu.au") by vger.kernel.org with ESMTP
-	id S1751095AbWFCCuI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jun 2006 22:50:08 -0400
-To: David Daney <ddaney@avtrex.com>
+	id S1751104AbWFCC5l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jun 2006 22:57:41 -0400
+Received: from wildfire by incubus.progsoc.uts.edu.au with local (Exim 4.50)
+	id 1FmMKd-0008JO-IK
+	for netdev@vger.kernel.org; Sat, 03 Jun 2006 12:57:43 +1000
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <4480DEB3.2060806@avtrex.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 02, 2006 at 05:58:27PM -0700, David Daney wrote:
-> Anand Kumria wrote:
-> >Herbert,
-> >
-> >On Sat, Jun 03, 2006 at 09:12:06AM +1000, Herbert Xu wrote:
-> >
-> >>David Daney <ddaney@avtrex.com> wrote:
-> >>
-> >>>There were some discussions about whether it made sense for the kernel 
-> >>>to support the behavior required by the RFC.  Other comments debated the 
-> >>>wisdom of using a tightly targeted patch specific to the RFC, or whether 
-> >>>a more general but intrusive solution would be better.
-> >>
-> >>I think we've made it quite clear what needs to be done for it to be
-> >>accepted.  All that remains is for someone to implement it.  If anyone
-> >>really cares about this, then please write the code instead of talking
-> >>about it.
-> >
-> >
-> >Okay, to confirm: you want a patch which looks at the scope value and if 
-> >the scope is link-local then we broadcast rather than do a directed ARP?
-> >
-> 
-> I don't think that was the plan.  In an earlier e-mail Herbert Xu said 
-> (and I concur):
-> 
-> ------------------------------
-> I like the idea of allowing user-space to control what addresses cause
-> broadcasts.  However, I'm uncomfortable with overloading existing flags
-> even though they might appear to fit the bill on the face of it.
-> 
+Hi,
 
-[...]
+There are plenty of people who still use ifconfig to list the addresses
+assigned to their network interfaces (I know, ifconfig is broken) and
+who then parse the output.
 
-Sorry, I can't find any email with any of those words in it by Herbert.
-Could you tell me the message-id, so I can read some of the surrounding
-context?
+However the kernel puts link-local scoped address first if the address
+list of an interface, so an interface like:
 
-> 
-> The idea was to add a new flag, *not* reuse the scope value.
-> 
+eve:[~]% ip addr show wlan0
+3: wlan0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 00:12:f0:03:d9:e7 brd ff:ff:ff:ff:ff:ff
+    inet 169.254.182.108/16 brd 169.254.255.255 scope link wlan0
+    inet 192.168.2.2/24 brd 192.168.2.255 scope global wlan0
+    inet6 fe80::212:f0ff:fe03:d9e7/64 scope link
+       valid_lft forever preferred_lft forever
 
-I guess it would be something set during RTM_NEWADDR (and returned by
-RTM_GETADDR?). How does IFA_DIRECTEDARP sound? With a value type of int;
-defaulting to 1.  When set to 0, generate a broadcast ARP for the
-address.
+appears as:
+eve:[~]% ifconfig wlan0
+wlan0     Link encap:Ethernet  HWaddr 00:12:F0:03:D9:E7
+          inet addr:169.254.182.108  Bcast:169.254.255.255 Mask:255.255.0.0
+          inet6 addr: fe80::212:f0ff:fe03:d9e7/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+	  [... elided ...]
+
+Is there any reason to put the link-local address first in the list?
+
+I've had a number of bugreports (or outright panic attacks) where the 
+problem turned out to be that ifconfig was reporting the link-local 
+address first, rather than the global/site one.
 
 Thanks,
 Anand
