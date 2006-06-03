@@ -1,45 +1,80 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
-Date: Sat, 3 Jun 2006 10:45:08 +0200
-Message-ID: <200606031045.08763.stefan@loplof.de>
-References: <200605251716.00742.IvDoorn@gmail.com> <200605312005.31067.IvDoorn@gmail.com> <200606021630.34544.IvDoorn@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bug 6421] kernel 2.6.10-2.6.16 on alpha: arch/alpha/kernel/io.c, iowrite16_rep() BUG_ON((unsigned long)src & 0x1) triggered
+Date: Sat, 3 Jun 2006 19:54:42 +1000
+Message-ID: <20060603095442.GA373@gondor.apana.org.au>
+References: <200605271731.k4RHVJTb018158@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natipslore.rzone.de ([81.169.145.179]:13011 "EHLO
-	natipslore.rzone.de") by vger.kernel.org with ESMTP
-	id S1750772AbWFCIov (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 04:44:51 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200606021630.34544.IvDoorn@gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:39441 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932601AbWFCJyz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jun 2006 05:54:55 -0400
+To: bugme-daemon@bugzilla.kernel.org
 Content-Disposition: inline
+In-Reply-To: <200605271731.k4RHVJTb018158@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag 02 Juni 2006 16:30 schrieb Ivo van Doorn:
 
-> > Or actually, I don't think the radiobtn/ won't be actually needed as
-> > prefix. The name passed to the radiobtn driver by the driver should be
-> > sufficient.
->
-> Updated version,
->
-> Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I don't like the patch in it's current form. Many notebooks have a number of 
-additional keys that need to be queried/polled using the same interface, but 
-just one button is to control the radio, the rest are multimedia keys that 
-just need to be forwarded to userspace. Or maybe a bluetooth key.
+On Sat, May 27, 2006 at 10:31:19AM -0700, bugme-daemon@bugzilla.kernel.org wrote:
+> 
+> Ok, see the attachment (ALL.txt.gz) for the tcpdump output. If you would like
+> the hexdump or more, please give the tcpdump filter rule to me.
 
-Some systems require suspend/resume support, others remember state of the 
-wireless button automatically. For a perfect example, look at 
-drivers/input/misc/wistron_btns.c.
+Thanks a lot.  So it wasn't as uncommon as I thought.  In fact, partial
+odd acks like yours happen all the time as part of FIN handling.  So this
+is something that we want to address.
 
-So you should create an "extra laptop buttons" interface. Though it may be 
-hard to assure that this generalization layer between input system and 
-hardware is still a win for the driver developer.
+BTW, we should also fix arch/alpha/kernel/io.c to not crash on
+unaligned data.  Most other common architectures will grin and
+bear it.
 
-Stefan
+[TCP]: Avoid skb_pull if possible when trimming head
+
+Trimming the head of an skb by calling skb_pull can cause the packet
+to become unaligned if the length pulled is odd.  Since the length is
+entirely arbitrary for a FIN packet carrying data, this is actually
+quite common.
+
+Unaligned data is not the end of the world, but we should avoid it if
+it's easily done.  In this case it is trivial.  Since we're discarding
+all of the head data it doesn't matter whether we move skb->data forward
+or back.
+
+However, it is still possible to have unaligned skb->data in general.
+So network drivers should be prepared to handle it instead of crashing.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="tcp-trim-head.patch"
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 743016b..bd7c89b 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -676,7 +676,7 @@ int tcp_trim_head(struct sock *sk, struc
+ 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+ 		return -ENOMEM;
+ 
+-	if (len <= skb_headlen(skb)) {
++	if (len < skb_headlen(skb)) {
+ 		__skb_pull(skb, len);
+ 	} else {
+ 		if (__pskb_trim_head(skb, len-skb_headlen(skb)) == NULL)
+
+--gKMricLos+KVdGMg--
