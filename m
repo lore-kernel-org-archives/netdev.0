@@ -1,212 +1,197 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFC ] [3 of 4] IEEE802.11 Regulatory/Geographical Support for drivers
- - Patches for ieee80211
-Date: Sat, 03 Jun 2006 17:45:54 -0500
-Message-ID: <44821122.5080909@lwfinger.net>
+Subject: [RFC ] [4 of 4] IEEE802.11 Regulatory/Geographical Support for drivers
+ - Patches for bcm43xx to use new ieee80211 routine
+Date: Sat, 03 Jun 2006 17:46:14 -0500
+Message-ID: <44821136.8000003@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:60551 "EHLO
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:22664 "EHLO
 	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751820AbWFCWpz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 18:45:55 -0400
+	id S1751822AbWFCWqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jun 2006 18:46:15 -0400
 To: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This message contains the patch to add routine ieee80211_init_geo to the kernel, and a new flag 
-definition for the IEEE80211 codes. Note: I know that my mailer has messed up the white space by 
-converting all the tabs to spaces. The original files are OK. Larry
+This message shows the patch needed to convert the bcm43xx driver to use the new ieee80211_init_geo 
+routine. Note: I know my mailer has butchered the white space by changing all the tabs into spaces. 
+The original source is OK.  Larry
+===================================================================================================
 
-=====================================================================================
-diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
-index d5926bf..8a5dc0f 100644
---- a/include/net/ieee80211.h
-+++ b/include/net/ieee80211.h
-@@ -965,6 +965,7 @@ #define IEEE80211_52GHZ_CHANNELS (IEEE80
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c \
+  b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index 7ed18ca..eb88a4e 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -87,9 +87,15 @@ static int modparam_long_retry = BCM43xx
+  module_param_named(long_retry, modparam_long_retry, int, 0444);
+  MODULE_PARM_DESC(long_retry, "Long-Retry-Limit (0 - 15)");
 
-  enum {
-         IEEE80211_CH_PASSIVE_ONLY = (1 << 0),
-+       IEEE80211_CH_80211H_RULES = (1 << 1),
-         IEEE80211_CH_B_ONLY = (1 << 2),
-         IEEE80211_CH_NO_IBSS = (1 << 3),
-         IEEE80211_CH_UNIFORM_SPREADING = (1 << 4),
-@@ -973,10 +974,10 @@ enum {
-  };
-
-  struct ieee80211_channel {
--       u32 freq;
-+       u32 freq;       /* in MHz */
-         u8 channel;
-         u8 flags;
--       u8 max_power;
-+       u8 max_power;   /* in dBm */
-  };
-
-  struct ieee80211_geo {
-@@ -1260,6 +1261,9 @@ extern const struct ieee80211_geo *ieee8
-  extern int ieee80211_set_geo(struct ieee80211_device *ieee,
-                              const struct ieee80211_geo *geo);
-
-+extern int ieee80211_init_geo(struct ieee80211_device *ieee,
-+                             char * country, u8 outdoor);
+-static int modparam_locale = -1;
+-module_param_named(locale, modparam_locale, int, 0444);
+-MODULE_PARM_DESC(country, "Select LocaleCode 0-11 (For travelers)");
++static char modparam_locale[] = "  ";
++static char country[3];
 +
-  extern int ieee80211_is_valid_channel(struct ieee80211_device *ieee,
-                                       u8 channel);
-  extern int ieee80211_channel_to_index(struct ieee80211_device *ieee,
-diff --git a/net/ieee80211/ieee80211_geo.c b/net/ieee80211/ieee80211_geo.c
-index 192243a..2e4806b 100644
---- a/net/ieee80211/ieee80211_geo.c
-+++ b/net/ieee80211/ieee80211_geo.c
-@@ -41,6 +41,7 @@ #include <linux/types.h>
-  #include <linux/wireless.h>
-  #include <linux/etherdevice.h>
-  #include <asm/uaccess.h>
-+#include <linux/delay.h>
++module_param_string(country, modparam_locale, 3, 0444);
++MODULE_PARM_DESC(country, "Two character ISO Country Name (For Travelers)");
++
++static int modparam_outdoor;
++module_param_named(outdoor, modparam_outdoor, int, 0444);
++MODULE_PARM_DESC(outdoor, "Set to 1 if interface to be used outdoors");
 
-  #include <net/ieee80211.h>
+  static int modparam_noleds;
+  module_param_named(noleds, modparam_noleds, int, 0444);
+@@ -621,38 +627,6 @@ static const char * bcm43xx_locale_iso(u
+         return "  ";
+  }
 
-@@ -133,6 +134,136 @@ int ieee80211_set_geo(struct ieee80211_d
+-static const char * bcm43xx_locale_string(u8 locale)
+-{
+-       switch (locale) {
+-       case BCM43xx_LOCALE_WORLD:
+-               return "World";
+-       case BCM43xx_LOCALE_THAILAND:
+-               return "Thailand";
+-       case BCM43xx_LOCALE_ISRAEL:
+-               return "Israel";
+-       case BCM43xx_LOCALE_JORDAN:
+-               return "Jordan";
+-       case BCM43xx_LOCALE_CHINA:
+-               return "China";
+-       case BCM43xx_LOCALE_JAPAN:
+-               return "Japan";
+-       case BCM43xx_LOCALE_USA_CANADA_ANZ:
+-               return "USA/Canada/ANZ";
+-       case BCM43xx_LOCALE_EUROPE:
+-               return "Europe";
+-       case BCM43xx_LOCALE_USA_LOW:
+-               return "USAlow";
+-       case BCM43xx_LOCALE_JAPAN_HIGH:
+-               return "JapanHigh";
+-       case BCM43xx_LOCALE_ALL:
+-               return "All";
+-       case BCM43xx_LOCALE_NONE:
+-               return "None";
+-       }
+-       assert(0);
+-       return "";
+-}
+-
+  static inline u8 bcm43xx_crc8(u8 crc, u8 data)
+  {
+         static const u8 t[] = {
+@@ -860,17 +834,12 @@ #endif
+         bcm->sprom.locale = (value & 0x0F00) >> 8;
+         bcm->sprom.antennas_aphy = (value & 0x3000) >> 12;
+         bcm->sprom.antennas_bgphy = (value & 0xC000) >> 14;
+-       if (modparam_locale != -1) {
+-               if (modparam_locale >= 0 && modparam_locale <= 11) {
+-                       bcm->sprom.locale = modparam_locale;
+-                       printk(KERN_WARNING PFX "Operating with modified "
+-                                               "LocaleCode %u (%s)\n",
+-                              bcm->sprom.locale,
+-                              bcm43xx_locale_string(bcm->sprom.locale));
+-               } else {
+-                       printk(KERN_WARNING PFX "Module parameter \"locale\" "
+-                                               "invalid value. (0 - 11)\n");
+-               }
++       if (strcmp(modparam_locale, "  ")) {
++               printk(KERN_WARNING PFX "Operating with modified Country "
++                                       "Code %s\n", modparam_locale);
++               strcpy(country, modparam_locale);
++       } else {
++               strcpy(country, bcm43xx_locale_iso(bcm->sprom.locale));
+         }
+
+         /* pa0b* */
+@@ -939,69 +908,6 @@ #endif
          return 0;
   }
 
-+static char ieee80211_country[10];
-+static uint ieee80211_outdoor;
-+static struct proc_dir_entry *ieee80211_geo_proc;
-+static uint ieee80211_data_back;
-+struct ieee80211_geo *geo;
-+static uint bytes_xfer;
+-static int bcm43xx_geo_init(struct bcm43xx_private *bcm)
+-{
+-       struct ieee80211_geo *geo;
+-       struct ieee80211_channel *chan;
+-       int have_a = 0, have_bg = 0;
+-       int i;
+-       u8 channel;
+-       struct bcm43xx_phyinfo *phy;
+-       const char *iso_country;
+-
+-       geo = kzalloc(sizeof(*geo), GFP_KERNEL);
+-       if (!geo)
+-               return -ENOMEM;
+-
+-       for (i = 0; i < bcm->nr_80211_available; i++) {
+-               phy = &(bcm->core_80211_ext[i].phy);
+-               switch (phy->type) {
+-               case BCM43xx_PHYTYPE_B:
+-               case BCM43xx_PHYTYPE_G:
+-                       have_bg = 1;
+-                       break;
+-               case BCM43xx_PHYTYPE_A:
+-                       have_a = 1;
+-                       break;
+-               default:
+-                       assert(0);
+-               }
+-       }
+-       iso_country = bcm43xx_locale_iso(bcm->sprom.locale);
+-
+-       if (have_a) {
+-               for (i = 0, channel = IEEE80211_52GHZ_MIN_CHANNEL;
+-                     channel <= IEEE80211_52GHZ_MAX_CHANNEL; channel++) {
+-                       chan = &geo->a[i++];
+-                       chan->freq = bcm43xx_channel_to_freq_a(channel);
+-                       chan->channel = channel;
+-               }
+-               geo->a_channels = i;
+-       }
+-       if (have_bg) {
+-               for (i = 0, channel = IEEE80211_24GHZ_MIN_CHANNEL;
+-                     channel <= IEEE80211_24GHZ_MAX_CHANNEL; channel++) {
+-                       chan = &geo->bg[i++];
+-                       chan->freq = bcm43xx_channel_to_freq_bg(channel);
+-                       chan->channel = channel;
+-               }
+-               geo->bg_channels = i;
+-       }
+-       memcpy(geo->name, iso_country, 2);
+-       if (0 /*TODO: Outdoor use only */)
+-               geo->name[2] = 'O';
+-       else if (0 /*TODO: Indoor use only */)
+-               geo->name[2] = 'I';
+-       else
+-               geo->name[2] = ' ';
+-       geo->name[3] = '\0';
+-
+-       ieee80211_set_geo(bcm->ieee, geo);
+-       kfree(geo);
+-
+-       return 0;
+-}
+-
+  /* DummyTransmission function, as documented on
+   * http://bcm-specs.sipsolutions.net/DummyTransmission
+   */
+@@ -3486,13 +3392,15 @@ static int bcm43xx_attach_board(struct b
+
+                 bcm43xx_radio_turn_off(bcm);
+                 err = bcm43xx_phy_init_tssi2dbm_table(bcm);
++               bcm43xx_wireless_core_disable(bcm);
+                 if (err)
+                         goto err_80211_unwind;
+-               bcm43xx_wireless_core_disable(bcm);
+         }
+-       err = bcm43xx_geo_init(bcm);
++       printk(KERN_INFO PFX "Country Code = %s, Outdoor code = %d\n", country, modparam_outdoor);
++       err = ieee80211_init_geo(bcm->ieee, country, modparam_outdoor);
+         if (err)
+                 goto err_80211_unwind;
 +
-+static int show_geo_country(char *page, char **start, off_t offset,
-+                           int count, int *eof, void *data)
-+{
-+       return snprintf(page, count, "%s %d\n", ieee80211_country, ieee80211_outdoor);
-+}
-+
-+static int store_geo_data(struct file *file, const char __user * buffer,
-+                             unsigned long count, void *data)
-+{
-+       unsigned long len = min((unsigned long)sizeof(struct ieee80211_geo) , count);
-+       int i;
-+
-+       if (copy_from_user((geo + bytes_xfer), buffer, len)) {
-+               IEEE80211_ERROR( "Error return from copy_from_user.\n");
-+               return -EFAULT;
-+       }
-+       bytes_xfer += len;
-+       if (bytes_xfer == sizeof(struct ieee80211_geo)) {
-+               IEEE80211_DEBUG_INFO( "All data has been received.\n");
-+               if (!geo->bg_channels && !geo->a_channels) {  /* if no channels specified - error */
-+                       IEEE80211_DEBUG_INFO( "No bg or a/h channels specified.\n");
-+                       return count;
-+               }
-+               if (geo->bg_channels > IEEE80211_24GHZ_CHANNELS) { /* too many bg channels */
-+                       IEEE80211_DEBUG_INFO( "Too many bg channels specified.\n");
-+                       return count;
-+               }
-+               if (geo->a_channels > IEEE80211_52GHZ_CHANNELS) { /* too many a channels */
-+                       IEEE80211_DEBUG_INFO( "Too many a/h channels specified.\n");
-+                       return count;
-+               }
-+               for (i=0; i<geo->a_channels; i++) {
-+                       if (geo->a[i].channel < IEEE80211_52GHZ_MIN_CHANNEL ||
-+                           geo->a[i].channel > IEEE80211_52GHZ_MAX_CHANNEL)
-+                               return count;    /* here if channel out of range */
-+               }
-+               for (i=0; i<geo->bg_channels; i++) {
-+                       if (geo->bg[i].channel < IEEE80211_24GHZ_MIN_CHANNEL ||
-+                           geo->bg[i].channel > IEEE80211_24GHZ_MAX_CHANNEL)
-+                               return count;    /* here if channel out of range */
-+               }
-+               IEEE80211_DEBUG_INFO( "Data passed sanity checks.\n"); /* data seems to be correct */
-+               ieee80211_data_back = 0;
-+       }
-+       return count;
-+}
-+
-+int ieee80211_init_geo(struct ieee80211_device *ieee,
-+                       char *country, u8 outdoor)
-+{
-+       int ret;
-+       struct proc_dir_entry *e1, *e2;
-+
-+       static const struct ieee80211_geo ieee80211_geos[] = {
-+        {  /* Default parameters to be returned if daemon not running or other error */
-+        "---",
-+        .a_channels = 0,
-+        .bg_channels = 11,
-+        .bg = {{.freq = 2412, .channel = 1, .max_power = 20},
-+               {.freq = 2417, .channel = 2, .max_power = 20},
-+               {.freq = 2422, .channel = 3, .max_power = 20},
-+               {.freq = 2427, .channel = 4, .max_power = 20},
-+               {.freq = 2432, .channel = 5, .max_power = 20},
-+               {.freq = 2437, .channel = 6, .max_power = 20},
-+               {.freq = 2442, .channel = 7, .max_power = 20},
-+               {.freq = 2447, .channel = 8, .max_power = 20},
-+               {.freq = 2452, .channel = 9, .max_power = 20},
-+               {.freq = 2457, .channel = 10, .max_power = 20},
-+               {.freq = 2462, .channel = 11, .max_power = 20}
-+               },
-+        },
-+       };
-+
-+       IEEE80211_DEBUG_INFO( "Country Code: %s, Outdoor: %d\n", country, outdoor);
-+       memcpy(ieee80211_country, country, strlen(country));
-+       ieee80211_outdoor = outdoor;
-+       ieee80211_geo_proc = proc_mkdir("ieee80211_geo", proc_net);
-+       (void)ieee80211_set_geo( ieee, ieee80211_geos); /* load default data in case of error */
-+       if (ieee80211_geo_proc == NULL) {
-+               IEEE80211_ERROR( "Unable to create ieee80211_geo"
-+                       " proc directory - default geo data loaded\n");
-+               return -EIO;
-+       }
-+       geo = kzalloc(sizeof(struct ieee80211_geo), GFP_KERNEL);
-+       if (!geo) {
-+               ret = -ENOMEM;
-+               goto cleanup;
-+       }
-+       e1 = create_proc_entry("geo_country", S_IFREG | S_IRUSR | S_IWUSR,
-+                             ieee80211_geo_proc);
-+       e1->read_proc = show_geo_country;
-+       e2 = create_proc_entry("geo_data", S_IWUSR | S_IWGRP | S_IWOTH,
-+                             ieee80211_geo_proc);
-+       ieee80211_data_back = 1;
-+       bytes_xfer = 0;
-+       e2->write_proc = store_geo_data;
-+
-+       if (!e1 || !e2 ) {
-+               IEEE80211_ERROR( "Unable to create files in ieee80211_geo"
-+                       " - default data loaded.\n");
-+               ret = -EIO;
-+               goto free_geo;
-+       }
-+       for (ret=0; ret<1000; ret++) {
-+               if (!ieee80211_data_back)
-+                       break;
-+               udelay(1000);
-+       }
-+       if (ret == 1000) {
-+               ret = -EIO;
-+               IEEE80211_DEBUG_INFO( "ieee80211_geo daemon not running - default data loaded.\n");
-+               goto free_geo;  /* daemon not running */
-+       }
-+       ret = ieee80211_set_geo( ieee, geo);
-+free_geo:
-+       kfree(geo);
-+cleanup:
-+       remove_proc_entry("geo_country", ieee80211_geo_proc);
-+       remove_proc_entry("geo_data", ieee80211_geo_proc);
-+       remove_proc_entry("ieee80211_geo", proc_net);
-+       return ret;
-+}
-+
-  const struct ieee80211_geo *ieee80211_get_geo(struct ieee80211_device *ieee)
-  {
-         return &ieee->geo;
-@@ -177,4 +308,5 @@ EXPORT_SYMBOL(ieee80211_is_valid_channel
-  EXPORT_SYMBOL(ieee80211_freq_to_channel);
-  EXPORT_SYMBOL(ieee80211_channel_to_index);
-  EXPORT_SYMBOL(ieee80211_set_geo);
-+EXPORT_SYMBOL(ieee80211_init_geo);
-  EXPORT_SYMBOL(ieee80211_get_geo);
+         bcm43xx_pctl_set_crystal(bcm, 0);
+
+         /* Set the MAC address in the networking subsystem */
