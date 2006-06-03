@@ -1,31 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: link-local address via ifconfig
-Date: Sat, 03 Jun 2006 14:55:22 +1000
-Message-ID: <E1FmOAU-0008It-00@gondolin.me.apana.org.au>
-References: <20060603025743.GL549@progsoc.uts.edu.au>
-Cc: netdev@vger.kernel.org
+From: xeb@mail.ru
+Subject: driver for pptp
+Date: Sat, 03 Jun 2006 11:06:19 +0400
+Message-ID: <E1FmQDD-0005kY-00.xeb-mail-ru@f51.mail.ru>
+Reply-To: xeb@mail.ru
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45325 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751481AbWFCEzY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 00:55:24 -0400
-To: wildfire@progsoc.uts.edu.au (Anand Kumria)
-In-Reply-To: <20060603025743.GL549@progsoc.uts.edu.au>
+Received: from f51.mail.ru ([194.67.57.86]:16905 "EHLO f51.mail.ru")
+	by vger.kernel.org with ESMTP id S932588AbWFCHGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Jun 2006 03:06:20 -0400
+Received: from mail by f51.mail.ru with local
+	id 1FmQDD-0005kY-00
+	for netdev@vger.kernel.org; Sat, 03 Jun 2006 11:06:19 +0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anand Kumria <wildfire@progsoc.uts.edu.au> wrote:
-> 
-> There are plenty of people who still use ifconfig to list the addresses
-> assigned to their network interfaces (I know, ifconfig is broken) and
-> who then parse the output.
+Hello.
+I have developed the driver for Point-to-Point Tunneling Protocol (PPTP).
+This driver works in pair with plugin for pppd.
+It is enough to use pppd's plugin for start of the client.
+Also there is a server (based on pptpd) which uses this driver.
+By results of my testing the speed of transfer has increased on >50% and cpu usage has decreased on >50% in comparison with original pptpd and pptpclient.
+I have published the project on http://accel-pptp.sourceforge.net/
+There is more then 65 downloads but no any bug report (and no any positive result report).
+I think the driver still requires testing.
 
-If people insist on using hammers on screws, the answer is not to improve
-the hammer.
+Hope this driver will go to a kernel tree and will make linux more productive.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
