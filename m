@@ -1,104 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Bug 6421] kernel 2.6.10-2.6.16 on alpha: arch/alpha/kernel/io.c, iowrite16_rep() BUG_ON((unsigned long)src & 0x1) triggered
-Date: Sat, 3 Jun 2006 21:07:11 +1000
-Message-ID: <20060603110711.GA1754@gondor.apana.org.au>
-References: <200605271731.k4RHVJTb018158@fire-2.osdl.org> <20060603095442.GA373@gondor.apana.org.au> <20060603.195123.77471511.yoshfuji@linux-ipv6.org>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
+Date: Sat, 03 Jun 2006 12:20:35 +0100
+Message-ID: <44817083.508@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="envbJBWh7q8WU6mo"
-Cc: bugme-daemon@bugzilla.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ulrich Kunitz <kune@deine-taler.de>,
+	USB development list <linux-usb-devel@lists.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32787 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932606AbWFCLH1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 07:07:27 -0400
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20060603.195123.77471511.yoshfuji@linux-ipv6.org>
+Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:29276 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932610AbWFCLUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jun 2006 07:20:18 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I tried to submit this patch yesterday, but it doesn't appear to have 
+been delivered. The patch is probably a bit on the large side, so I'll 
+try again over http:
 
---envbJBWh7q8WU6mo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+http://dev.gentoo.org/~dsd/kernel/zd1211rw.patch
 
-On Sat, Jun 03, 2006 at 07:51:23PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> 
-> I think that people will start thinking why we cannot
-> skb_pull(skb, len) if skb_headlen(skb) == len; some comment needed...
+Any comments appreciated.
 
-Good idea.  Here is a better one.
+[PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
 
-[TCP]: Avoid skb_pull if possible when trimming head
+There are 60+ USB wifi adapters available on the market based on the 
+ZyDAS ZD1211 chip.
 
-Trimming the head of an skb by calling skb_pull can cause the packet
-to become unaligned if the length pulled is odd.  Since the length is
-entirely arbitrary for a FIN packet carrying data, this is actually
-quite common.
+Unlike the predecessor (ZD1201), ZD1211 does not have a hardware MAC, so 
+most data operations are coordinated by the device driver. The ZD1211 
+chip sits alongside an RF transceiver which is also controlled by the 
+driver. Our driver currently supports 2 RF types, we know of one other 
+available in a few marketed products which we will be supporting soon.
 
-Unaligned data is not the end of the world, but we should avoid it if
-it's easily done.  In this case it is trivial.  Since we're discarding
-all of the head data it doesn't matter whether we move skb->data forward
-or back.
+Our driver also supports the newer revision of ZD1211, called ZD1211B. 
+The initialization and RF operations are slightly different for the new 
+revision, but the main difference is 802.11e support. Our driver does 
+not support the QoS features yet, but we think we know how to use them.
 
-However, it is still possible to have unaligned skb->data in general.
-So network drivers should be prepared to handle it instead of crashing.
+This driver is based on ZyDAS's own GPL driver available from 
+www.zydas.com.tw. ZyDAS engineers have been responsive and supportive of 
+our efforts, so thumbs up to them. Additionally, the firmware is 
+redistributable and they have provided device specs.
 
-This patch also adds an unlikely marking on len < headlen since partial
-ACKs on head data are extremely rare in the wild.  As the return value
-of __pskb_trim_head is no longer ever NULL that has been removed.
+This driver has been written primarily by Ulrich Kunitz and myself. 
+Graham Gower, Greg KH, Remco and Bryan Rittmeyer have also contributed. 
+The developers of ieee80211 and softmac have made our lives so much 
+easier- thanks!
 
-Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+We maintain a small info-page: http://zd1211.ath.cx/wiki/DriverRewrite
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If there is enough time for review, we would like to aim for inclusion 
+in 2.6.18. The driver works nicely as a STA, and can connect to both 
+open and encrypted networks (we are using software-based encryption for 
+now). We will work towards supporting more advanced features in the 
+future (ad-hoc, master mode, 802.11a, ...).
 
---envbJBWh7q8WU6mo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="tcp-trim-head-2.patch"
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 743016b..f33c9dd 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -642,7 +642,7 @@ int tcp_fragment(struct sock *sk, struct
-  * eventually). The difference is that pulled data not copied, but
-  * immediately discarded.
-  */
--static unsigned char *__pskb_trim_head(struct sk_buff *skb, int len)
-+static void __pskb_trim_head(struct sk_buff *skb, int len)
- {
- 	int i, k, eat;
- 
-@@ -667,7 +667,6 @@ static unsigned char *__pskb_trim_head(s
- 	skb->tail = skb->data;
- 	skb->data_len -= len;
- 	skb->len = skb->data_len;
--	return skb->tail;
- }
- 
- int tcp_trim_head(struct sock *sk, struct sk_buff *skb, u32 len)
-@@ -676,12 +675,11 @@ int tcp_trim_head(struct sock *sk, struc
- 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
- 		return -ENOMEM;
- 
--	if (len <= skb_headlen(skb)) {
-+	/* If len == headlen, we avoid __skb_pull to preserve alignment. */
-+	if (unlikely(len < skb_headlen(skb)))
- 		__skb_pull(skb, len);
--	} else {
--		if (__pskb_trim_head(skb, len-skb_headlen(skb)) == NULL)
--			return -ENOMEM;
--	}
-+	else
-+		__pskb_trim_head(skb, len - skb_headlen(skb));
- 
- 	TCP_SKB_CB(skb)->seq += len;
- 	skb->ip_summed = CHECKSUM_HW;
-
---envbJBWh7q8WU6mo--
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
