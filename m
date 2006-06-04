@@ -1,50 +1,78 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [linux-usb-devel] [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
-Date: Sun, 4 Jun 2006 21:06:17 +0200
-Message-ID: <200606042106.17870.oliver@neukum.org>
-References: <44817083.508@gentoo.org> <200606041917.55496.oliver@neukum.org> <ada605fb0606041122w36ad8320wa0a5d8241c98644c@mail.gmail.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx: quiet down log spam from set_security
+Date: Sun, 4 Jun 2006 23:05:49 +0200
+Message-ID: <200606042305.49733.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Daniel Drake" <dsd@gentoo.org>,
-	linux-usb-devel@lists.sourceforge.net,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, "Ulrich Kunitz" <kune@deine-taler.de>
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	Jason Lunz <lunz@falooley.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.kontent.de ([81.88.34.36]:47291 "EHLO Mail1.KONTENT.De")
-	by vger.kernel.org with ESMTP id S1750986AbWFDTGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2006 15:06:03 -0400
-To: "John Que" <qwejohn@gmail.com>
-In-Reply-To: <ada605fb0606041122w36ad8320wa0a5d8241c98644c@mail.gmail.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49830
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932249AbWFDVGC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Jun 2006 17:06:02 -0400
 Content-Disposition: inline
+To: "John Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag, 4. Juni 2006 20:22 schrieb John Que:
-> Hello Oliver,
-> 
->     I am sorry, but I think I don't understand ,
-> You said:
-> >A USB driver never will request an irq. Interrupt handling is done in
-> > the core usb layer. Individual drivers have no business there.
-> 
-> but in the zd1211 driver (not the rewrite version) I found this
-> call to request an irq:
-> request_irq(dev->irq, &zd1205_intr, SA_SHIRQ, dev->name, dev)
-> 
-> Also when looking in the linux tree, I see some request_irq() calls in USB
-> drivers, for exmaple in some drivers under usb/gadgaets, and more.
-> 
-> Can you please elaborate a bit ? What do you mean by saying
-> "A USB driver never will request an irq"?
+John, please queue for 2.6.18.
 
-The architecture is as follows:
+--
 
-device driver <---> USB core <---> host driver <=== USB ===> gadget driver <---> function driver
+From: Jason Lunz <lunz@falooley.org>
 
-Only those drivers that deal with the hardware directly request interrupts.
-A device driver submits URBs and deals with callbacks.
+The debug logging in bcm43xx_ieee80211_set_security() is pretty noisy.
+Make it more silent.
 
-	Regards
-		Oliver
+Signed-off-by: Jason Lunz <lunz@falooley.org>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+diff -ur linux-2.6.17-rc5-git11/drivers/net/wireless/bcm43xx/bcm43xx_main.c linux-2.6.17-rc5-git11.quiet/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+--- linux-2.6.17-rc5-git11/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-05-29 12:33:56.000000000 -0400
++++ linux-2.6.17-rc5-git11.quiet/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-06-04 14:51:09.000000000 -0400
+@@ -3568,7 +3568,7 @@
+ 	unsigned long flags;
+ 	int keyidx;
+ 	
+-	dprintk(KERN_INFO PFX "set security called\n");
++	dprintk(KERN_INFO PFX "set security called");
+ 
+ 	bcm43xx_lock_mmio(bcm, flags);
+ 
+@@ -3581,24 +3581,25 @@
+ 	
+ 	if (sec->flags & SEC_ACTIVE_KEY) {
+ 		secinfo->active_key = sec->active_key;
+-		dprintk(KERN_INFO PFX "   .active_key = %d\n", sec->active_key);
++		dprintk(", .active_key = %d", sec->active_key);
+ 	}
+ 	if (sec->flags & SEC_UNICAST_GROUP) {
+ 		secinfo->unicast_uses_group = sec->unicast_uses_group;
+-		dprintk(KERN_INFO PFX "   .unicast_uses_group = %d\n", sec->unicast_uses_group);
++		dprintk(", .unicast_uses_group = %d", sec->unicast_uses_group);
+ 	}
+ 	if (sec->flags & SEC_LEVEL) {
+ 		secinfo->level = sec->level;
+-		dprintk(KERN_INFO PFX "   .level = %d\n", sec->level);
++		dprintk(", .level = %d", sec->level);
+ 	}
+ 	if (sec->flags & SEC_ENABLED) {
+ 		secinfo->enabled = sec->enabled;
+-		dprintk(KERN_INFO PFX "   .enabled = %d\n", sec->enabled);
++		dprintk(", .enabled = %d", sec->enabled);
+ 	}
+ 	if (sec->flags & SEC_ENCRYPT) {
+ 		secinfo->encrypt = sec->encrypt;
+-		dprintk(KERN_INFO PFX "   .encrypt = %d\n", sec->encrypt);
++		dprintk(", .encrypt = %d", sec->encrypt);
+ 	}
++	dprintk("\n");
+ 	if (bcm->initialized && !bcm->ieee->host_encrypt) {
+ 		if (secinfo->enabled) {
+ 			/* upload WEP keys to hardware */
+
+-- 
+Greetings Michael.
