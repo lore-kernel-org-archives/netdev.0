@@ -1,41 +1,109 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] ipx: endian bug in ipxrtr_route_packet()
-Date: Sun, 4 Jun 2006 03:36:04 +0400
-Message-ID: <20060603233603.GB7268@martell.zuzino.mipt.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx: add DMA rx poll workaround to DMA4
+Date: Sun, 4 Jun 2006 02:20:42 +0200
+Message-ID: <200606040220.42890.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:2981 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S932620AbWFCXfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Jun 2006 19:35:07 -0400
-Received: by ug-out-1314.google.com with SMTP id a2so900971ugf
-        for <netdev@vger.kernel.org>; Sat, 03 Jun 2006 16:35:06 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:25048
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750816AbWFDAXG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Jun 2006 20:23:06 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+This is a bugfix and 2.6.17 stuff, if still possible to push upstream.
 
- Also, there is the following snippet in net/ipx/af_ipx.c, line 1174
+--
 
-	f.ipx_special = sipx->sipx_special;
+Also add the Poll RX DMA Memory workaround to the DMA4
+(xmitstatus) path.
 
- The former is unsigned char and is compared with 1 and 2. The latter is
- __be16 if I'm not mistaken. Is there a bug hiding?
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
---- a/net/ipx/ipx_route.c
-+++ b/net/ipx/ipx_route.c
-@@ -238,7 +237,7 @@ int ipxrtr_route_packet(struct sock *sk,
- 	}	
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+index bbecba0..d0318e5 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+@@ -624,25 +624,28 @@ err_destroy_tx0:
+ static u16 generate_cookie(struct bcm43xx_dmaring *ring,
+ 			   int slot)
+ {
+-	u16 cookie = 0x0000;
++	u16 cookie = 0xF000;
  
- 	/* Apply checksum. Not allowed on 802.3 links. */
--	if (sk->sk_no_check || intrfc->if_dlink_type == IPX_FRAME_8023)
-+	if (sk->sk_no_check || intrfc->if_dlink_type == htons(IPX_FRAME_8023))
- 		ipx->ipx_checksum = 0xFFFF;
- 	else
- 		ipx->ipx_checksum = ipx_cksum(ipx, len + sizeof(struct ipxhdr));
+ 	/* Use the upper 4 bits of the cookie as
+ 	 * DMA controller ID and store the slot number
+-	 * in the lower 12 bits
++	 * in the lower 12 bits.
++	 * Note that the cookie must never be 0, as this
++	 * is a special value used in RX path.
+ 	 */
+ 	switch (ring->mmio_base) {
+ 	default:
+ 		assert(0);
+ 	case BCM43xx_MMIO_DMA1_BASE:
++		cookie = 0xA000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA2_BASE:
+-		cookie = 0x1000;
++		cookie = 0xB000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA3_BASE:
+-		cookie = 0x2000;
++		cookie = 0xC000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA4_BASE:
+-		cookie = 0x3000;
++		cookie = 0xD000;
+ 		break;
+ 	}
+ 	assert(((u16)slot & 0xF000) == 0x0000);
+@@ -660,16 +663,16 @@ struct bcm43xx_dmaring * parse_cookie(st
+ 	struct bcm43xx_dmaring *ring = NULL;
+ 
+ 	switch (cookie & 0xF000) {
+-	case 0x0000:
++	case 0xA000:
+ 		ring = dma->tx_ring0;
+ 		break;
+-	case 0x1000:
++	case 0xB000:
+ 		ring = dma->tx_ring1;
+ 		break;
+-	case 0x2000:
++	case 0xC000:
+ 		ring = dma->tx_ring2;
+ 		break;
+-	case 0x3000:
++	case 0xD000:
+ 		ring = dma->tx_ring3;
+ 		break;
+ 	default:
+@@ -839,8 +842,18 @@ static void dma_rx(struct bcm43xx_dmarin
+ 		/* We received an xmit status. */
+ 		struct bcm43xx_hwxmitstatus *hw = (struct bcm43xx_hwxmitstatus *)skb->data;
+ 		struct bcm43xx_xmitstatus stat;
++		int i = 0;
+ 
+ 		stat.cookie = le16_to_cpu(hw->cookie);
++		while (stat.cookie == 0) {
++			if (unlikely(++i >= 10000)) {
++				assert(0);
++				break;
++			}
++			udelay(2);
++			barrier();
++			stat.cookie = le16_to_cpu(hw->cookie);
++		}
+ 		stat.flags = hw->flags;
+ 		stat.cnt1 = hw->cnt1;
+ 		stat.cnt2 = hw->cnt2;
 
+-- 
+Greetings Michael.
