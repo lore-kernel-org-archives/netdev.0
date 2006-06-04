@@ -1,73 +1,111 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
-Date: Sun, 4 Jun 2006 10:02:29 +0200
-Message-ID: <200606041002.33696.IvDoorn@gmail.com>
-References: <200605251716.00742.IvDoorn@gmail.com> <200606021630.34544.IvDoorn@gmail.com> <200606031045.08763.stefan@loplof.de>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx-d80211: add DMA rx poll workaround to DMA4
+Date: Sun, 4 Jun 2006 11:41:16 +0200
+Message-ID: <200606041141.16967.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1940879.2k0yvYH2KY";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	rt2400-devel@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:22478 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932143AbWFDH7a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jun 2006 03:59:30 -0400
-Received: by nf-out-0910.google.com with SMTP id c31so1608323nfb
-        for <netdev@vger.kernel.org>; Sun, 04 Jun 2006 00:59:29 -0700 (PDT)
-To: Stefan Rompf <stefan@loplof.de>
-In-Reply-To: <200606031045.08763.stefan@loplof.de>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27611
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751264AbWFDJmK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Jun 2006 05:42:10 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1940879.2k0yvYH2KY
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+This is the same patch as before, but for the dscape port.
+Please apply to wireless-dev.
 
-On Saturday 3 June 2006 10:45, Stefan Rompf wrote:
-> Am Freitag 02 Juni 2006 16:30 schrieb Ivo van Doorn:
->=20
-> > > Or actually, I don't think the radiobtn/ won't be actually needed as
-> > > prefix. The name passed to the radiobtn driver by the driver should be
-> > > sufficient.
-> >
-> > Updated version,
-> >
-> > Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
->=20
-> I don't like the patch in it's current form. Many notebooks have a number=
- of=20
-> additional keys that need to be queried/polled using the same interface, =
-but=20
-> just one button is to control the radio, the rest are multimedia keys tha=
-t=20
-> just need to be forwarded to userspace. Or maybe a bluetooth key.
+--
 
-Except for the bluetooth radio key (which should be supported by the radiob=
-tn interface as well)
-the other buttons have support through already excisting input devices if I=
- am correct.
-This radiobtn driver is there to poll the device frequently about the radio=
- state only
-since that is one of the few buttons that is not sending anything to usersp=
-ace at the moment.
+Also add the Poll RX DMA Memory workaround to the DMA4
+(xmitstatus) path.
 
-Ivo
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
---nextPart1940879.2k0yvYH2KY
-Content-Type: application/pgp-signature
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+index dc11260..ebe0984 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+@@ -604,25 +604,28 @@ err_destroy_tx0:
+ static u16 generate_cookie(struct bcm43xx_dmaring *ring,
+ 			   int slot)
+ {
+-	u16 cookie = 0x0000;
++	u16 cookie = 0xF000;
+ 
+ 	/* Use the upper 4 bits of the cookie as
+ 	 * DMA controller ID and store the slot number
+-	 * in the lower 12 bits
++	 * in the lower 12 bits.
++	 * Note that the cookie must never be 0, as this
++	 * is a special value used in RX path.
+ 	 */
+ 	switch (ring->mmio_base) {
+ 	default:
+ 		assert(0);
+ 	case BCM43xx_MMIO_DMA1_BASE:
++		cookie = 0xA000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA2_BASE:
+-		cookie = 0x1000;
++		cookie = 0xB000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA3_BASE:
+-		cookie = 0x2000;
++		cookie = 0xC000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA4_BASE:
+-		cookie = 0x3000;
++		cookie = 0xD000;
+ 		break;
+ 	}
+ 	assert(((u16)slot & 0xF000) == 0x0000);
+@@ -640,16 +643,16 @@ struct bcm43xx_dmaring * parse_cookie(st
+ 	struct bcm43xx_dmaring *ring = NULL;
+ 
+ 	switch (cookie & 0xF000) {
+-	case 0x0000:
++	case 0xA000:
+ 		ring = dma->tx_ring0;
+ 		break;
+-	case 0x1000:
++	case 0xB000:
+ 		ring = dma->tx_ring1;
+ 		break;
+-	case 0x2000:
++	case 0xC000:
+ 		ring = dma->tx_ring2;
+ 		break;
+-	case 0x3000:
++	case 0xD000:
+ 		ring = dma->tx_ring3;
+ 		break;
+ 	default:
+@@ -867,8 +870,18 @@ static void dma_rx(struct bcm43xx_dmarin
+ 		/* We received an xmit status. */
+ 		struct bcm43xx_hwxmitstatus *hw = (struct bcm43xx_hwxmitstatus *)skb->data;
+ 		struct bcm43xx_xmitstatus stat;
++		int i = 0;
+ 
+ 		stat.cookie = le16_to_cpu(hw->cookie);
++		while (stat.cookie == 0) {
++			if (unlikely(++i >= 10000)) {
++				assert(0);
++				break;
++			}
++			udelay(2);
++			barrier();
++			stat.cookie = le16_to_cpu(hw->cookie);
++		}
+ 		stat.flags = hw->flags;
+ 		stat.cnt1 = hw->cnt1;
+ 		stat.cnt2 = hw->cnt2;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBEgpOZaqndE37Em0gRAmjGAKCpHHWC6evyX27DiKjvzYjq9PPglACbB2IS
-NbxUpjLDVdVo9rwP2NyD1qg=
-=bTtV
------END PGP SIGNATURE-----
-
---nextPart1940879.2k0yvYH2KY--
+-- 
+Greetings Michael.
