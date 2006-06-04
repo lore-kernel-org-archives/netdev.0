@@ -1,107 +1,79 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
-Date: Sun, 4 Jun 2006 13:44:27 +0200
-Message-ID: <200606041344.31365.IvDoorn@gmail.com>
-References: <200605251716.00742.IvDoorn@gmail.com> <200606041002.33696.IvDoorn@gmail.com> <200606041214.45999.stefan@loplof.de>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [Bugme-new] [Bug 6613] New: iptables broken on 32-bit PReP
+ (ARCH=ppc)
+Date: Sun, 4 Jun 2006 15:39:35 +0300 (EEST)
+Message-ID: <Pine.SOC.4.61.0606041528250.2191@math.ut.ee>
+References: <200605251004.k4PA4Lek007751@fire-2.osdl.org>
+ <20060525070324.2ea16b0a.akpm@osdl.org> <4475FCFC.5000701@trash.net>
+ <Pine.SOC.4.61.0606011002180.13777@math.ut.ee> <447F2787.8010203@trash.net>
+ <Pine.SOC.4.61.0606012346350.28838@math.ut.ee> <4480385C.7080405@trash.net>
+ <Pine.SOC.4.61.0606021617480.1298@math.ut.ee> <44804379.60808@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1902584.ht4tiDsxq0";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	rt2400-devel@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andrew Morton <akpm@osdl.org>, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:33808 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932231AbWFDLl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jun 2006 07:41:27 -0400
-Received: by nf-out-0910.google.com with SMTP id c31so1625168nfb
-        for <netdev@vger.kernel.org>; Sun, 04 Jun 2006 04:41:26 -0700 (PDT)
-To: Stefan Rompf <stefan@loplof.de>
-In-Reply-To: <200606041214.45999.stefan@loplof.de>
+Received: from math.ut.ee ([193.40.36.2]:50941 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S1751309AbWFDMjo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2006 08:39:44 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44804379.60808@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1902584.ht4tiDsxq0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+> Please enable DEBUG_IP_FIREWALL_USER in net/netfilter/x_tables.c as well
+> and retry. Results of the raw or mangle table would also be interesting
+> because they contain a different number of built-in chains.
 
-On Sunday 4 June 2006 12:14, Stefan Rompf wrote:
-> Am Sonntag 04 Juni 2006 10:02 schrieb Ivo van Doorn:
->=20
-> > Except for the bluetooth radio key (which should be supported by the
-> > radiobtn interface as well) the other buttons have support through alre=
-ady
-> > excisting input devices if I am correct.
->=20
-> You are wrong for quite a bunch of laptop models. That's why I pointed yo=
-u to=20
-> the wistron_btns driver. Alternatively, look at the acerhk driver=20
-> (http://www2.informatik.hu-berlin.de/~tauber/acerhk/). Many systems have =
-a=20
-> number of additional buttons that need to be handled by a special driver,=
- all=20
-> sent to userspace, and just one of them to trigger the wireless card. Oth=
-er=20
-> models just handle the button in ACPI and generate an additional ACPI eve=
-nt.
+Sorry it took so long, I was away. Adding this define does not seem to 
+do much (table->private->number prints only):
 
-Ok, indeed a valid point.
-Would it be better when the radio_button structure contains a list
-of button structures each with its own poll function and current state.
-And the radiobtn will loop through the list after each poll_delay time call=
-ing
-all poll functions. That way drivers can specify themselves which buttons n=
-eed to be polled.
+On boot (1 nat rule):
+ip_tables: (C) 2000-2006 Netfilter Core Team
+Netfilter messages via NETLINK v0.30.
+ip_conntrack version 2.4 (1536 buckets, 12288 max) - 224 bytes per conntrack
+translate_table: size 632
+Finished chain 0
+Finished chain 3
+Finished chain 4
+table->private->number = 4
+t->private->number = 4
+translate_table: size 800
+Bad offset cba528d4
 
-By renaming enable_radio and disable_radio in the radiobtn structure it cou=
-ld
-be made more generic for sending a certain event to the device and not only
-an instruction for the radio.
+modprobe iptable_nat succeeded in manual modprobe.
 
-> Looking at the RT2400-driver, I see what you want to accomplish: Take the=
- view=20
-> of the WLAN card on the hardware controlled button enable/disable and=20
-> generate events on it. However, in many cases it is another driver (see=20
-> above) that sets or clears this state, and this should be the instance to=
-=20
-> send the input event.
->=20
-> Note that I do not have objections against the driver being included in t=
-he=20
-> kernel - it just does not qualify as generic radiobutton support, but I k=
-now=20
-> it's hard to find a good name ;-)
+modprobe iptable_filter:
+translate_table: size 632
+Bad offset cbbd910c
 
-Thats true. :)
-Now lets see how this thing can be made a but more generic. ;)
+modprobe iptable_mangle:
+translate_table: size 936
+Bad offset cbbd80dc
 
-> Looking at the code only: There should be an additional non-polling inter=
-face=20
-> for drivers that can generate events on the own.
+modprobe iptable_raw:
+translate_table: size 480
+Bad offset cb8abd44
 
-Welll if the enable_radio and disable_radio are being renamed to a more
-generic send_event for sending an event to the driver or something,
-something similar can be done for the other way around I think, another han=
-dler
-to send an event from driver to radiobtn. But should such an event also tri=
-gger
-a call back to the driver, or should only the input event be triggered?
+Retrying ifup and ifdown that tried to do iptables -D and iptables -I:
+t->private->number = 4
+t->private->number = 4
+t->private->number = 4
+translate_table: size 800
+Bad offset cbbd80dc
+t->private->number = 4
 
-Ivo
+And retrying it more (succeeded this time):
 
---nextPart1902584.ht4tiDsxq0
-Content-Type: application/pgp-signature
+t->private->number = 4
+t->private->number = 4
+translate_table: size 800
+Finished chain 0
+Finished chain 3
+Finished chain 4
+ip_tables: Translated table
+do_replace: oldnum=4, initnum=4, newnum=5
+t->private->number = 5
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEgsefaqndE37Em0gRAns9AJ9kjSnGQJUapMkGnwL+5c/wsYELdwCcDupR
-r+D+73JywX2Zv5J9UbW2mlE=
-=ucZ6
------END PGP SIGNATURE-----
-
---nextPart1902584.ht4tiDsxq0--
+-- 
+Meelis Roos (mroos@linux.ee)
