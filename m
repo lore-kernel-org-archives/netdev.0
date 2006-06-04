@@ -1,111 +1,111 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] bcm43xx-d80211: add DMA rx poll workaround to DMA4
-Date: Sun, 4 Jun 2006 11:41:16 +0200
-Message-ID: <200606041141.16967.mb@bu3sch.de>
+Subject: [PATCH] bcm43xx-d80211: Fix 64bit compiler warnings
+Date: Sun, 4 Jun 2006 12:03:56 +0200
+Message-ID: <200606041203.57205.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27611
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751264AbWFDJmK
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27618
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751390AbWFDKEV
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jun 2006 05:42:10 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+	Sun, 4 Jun 2006 06:04:21 -0400
+To: linville@tuxdriver.com
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the same patch as before, but for the dscape port.
-Please apply to wireless-dev.
-
---
-
-Also add the Poll RX DMA Memory workaround to the DMA4
-(xmitstatus) path.
+Fix all 64bit compiler warnings.
 
 Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c
+index e882bc1..0f7303e 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c
+@@ -227,7 +227,7 @@ static ssize_t tsf_write_file(struct fil
+ 		res = -EFAULT;
+ 		goto out_unlock;
+ 	}
+-	if (sscanf(buf, "%lli", &tsf) != 1) {
++	if (sscanf(buf, "%llu", (unsigned long long *)(&tsf)) != 1) {
+ 		printk(KERN_INFO PFX "debugfs: invalid values for \"tsf\"\n");
+ 		res = -EINVAL;
+ 		goto out_unlock;
+@@ -449,11 +449,11 @@ void bcm43xx_printk_dump(const char *dat
+ 			 size_t size,
+ 			 const char *description)
+ {
+-	size_t i;
++	unsigned int i;
+ 	char c;
+ 
+-	printk(KERN_INFO PFX "Data dump (%s, %u bytes):",
+-	       description, size);
++	printk(KERN_INFO PFX "Data dump (%s, %lu bytes):",
++	       description, (unsigned long)size);
+ 	for (i = 0; i < size; i++) {
+ 		c = data[i];
+ 		if (i % 8 == 0)
+@@ -468,12 +468,13 @@ void bcm43xx_printk_bitdump(const unsign
+ 			    size_t bytes, int msb_to_lsb,
+ 			    const char *description)
+ {
+-	size_t i;
++	unsigned int i;
+ 	int j;
+ 	const unsigned char *d;
+ 
+-	printk(KERN_INFO PFX "*** Bitdump (%s, %u bytes, %s) ***",
+-	       description, bytes, msb_to_lsb ? "MSB to LSB" : "LSB to MSB");
++	printk(KERN_INFO PFX "*** Bitdump (%s, %lu bytes, %s) ***",
++	       description, (unsigned long)bytes,
++	       msb_to_lsb ? "MSB to LSB" : "LSB to MSB");
+ 	for (i = 0; i < bytes; i++) {
+ 		d = data + i;
+ 		if (i % 8 == 0)
 diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-index dc11260..ebe0984 100644
+index dc11260..1dfd74e 100644
 --- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
 +++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-@@ -604,25 +604,28 @@ err_destroy_tx0:
- static u16 generate_cookie(struct bcm43xx_dmaring *ring,
- 			   int slot)
- {
--	u16 cookie = 0x0000;
-+	u16 cookie = 0xF000;
- 
- 	/* Use the upper 4 bits of the cookie as
- 	 * DMA controller ID and store the slot number
--	 * in the lower 12 bits
-+	 * in the lower 12 bits.
-+	 * Note that the cookie must never be 0, as this
-+	 * is a special value used in RX path.
- 	 */
- 	switch (ring->mmio_base) {
- 	default:
- 		assert(0);
- 	case BCM43xx_MMIO_DMA1_BASE:
-+		cookie = 0xA000;
- 		break;
- 	case BCM43xx_MMIO_DMA2_BASE:
--		cookie = 0x1000;
-+		cookie = 0xB000;
- 		break;
- 	case BCM43xx_MMIO_DMA3_BASE:
--		cookie = 0x2000;
-+		cookie = 0xC000;
- 		break;
- 	case BCM43xx_MMIO_DMA4_BASE:
--		cookie = 0x3000;
-+		cookie = 0xD000;
- 		break;
+@@ -180,7 +180,7 @@ static int alloc_ringmemory(struct bcm43
+ 	if (ring->dmabase + BCM43xx_DMA_RINGMEMSIZE > BCM43xx_DMA_BUSADDRMAX) {
+ 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RINGMEMORY >1G "
+ 				    "(0x%08x, len: %lu)\n",
+-		       ring->dmabase, BCM43xx_DMA_RINGMEMSIZE);
++		       (unsigned int)ring->dmabase, BCM43xx_DMA_RINGMEMSIZE);
+ 		dma_free_coherent(dev, BCM43xx_DMA_RINGMEMSIZE,
+ 				  ring->vbase, ring->dmabase);
+ 		return -ENOMEM;
+@@ -292,7 +292,7 @@ static int setup_rx_descbuffer(struct bc
+ 		dev_kfree_skb_any(skb);
+ 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA RX SKB >1G "
+ 				    "(0x%08x, len: %u)\n",
+-		       dmaaddr, ring->rx_buffersize);
++		       (unsigned int)dmaaddr, ring->rx_buffersize);
+ 		return -ENOMEM;
  	}
- 	assert(((u16)slot & 0xF000) == 0x0000);
-@@ -640,16 +643,16 @@ struct bcm43xx_dmaring * parse_cookie(st
- 	struct bcm43xx_dmaring *ring = NULL;
+ 	meta->skb = skb;
+@@ -711,7 +711,7 @@ static int dma_tx_fragment(struct bcm43x
+ 		dev_kfree_skb_irq(hdr_skb);
+ 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G "
+ 				    "(0x%08x, len: %u)\n",
+-		       meta->dmaaddr, hdr_skb->len);
++		       (unsigned int)meta->dmaaddr, hdr_skb->len);
+ 		return -ENOMEM;
+ 	}
  
- 	switch (cookie & 0xF000) {
--	case 0x0000:
-+	case 0xA000:
- 		ring = dma->tx_ring0;
- 		break;
--	case 0x1000:
-+	case 0xB000:
- 		ring = dma->tx_ring1;
- 		break;
--	case 0x2000:
-+	case 0xC000:
- 		ring = dma->tx_ring2;
- 		break;
--	case 0x3000:
-+	case 0xD000:
- 		ring = dma->tx_ring3;
- 		break;
- 	default:
-@@ -867,8 +870,18 @@ static void dma_rx(struct bcm43xx_dmarin
- 		/* We received an xmit status. */
- 		struct bcm43xx_hwxmitstatus *hw = (struct bcm43xx_hwxmitstatus *)skb->data;
- 		struct bcm43xx_xmitstatus stat;
-+		int i = 0;
+@@ -742,7 +742,7 @@ static int dma_tx_fragment(struct bcm43x
+ 		dev_kfree_skb_irq(hdr_skb);
+ 		printk(KERN_ERR PFX ">>>FATAL ERROR<<<  DMA TX SKB >1G "
+ 				    "(0x%08x, len: %u)\n",
+-		       meta->dmaaddr, skb->len);
++		       (unsigned int)meta->dmaaddr, skb->len);
+ 		return -ENOMEM;
+ 	}
  
- 		stat.cookie = le16_to_cpu(hw->cookie);
-+		while (stat.cookie == 0) {
-+			if (unlikely(++i >= 10000)) {
-+				assert(0);
-+				break;
-+			}
-+			udelay(2);
-+			barrier();
-+			stat.cookie = le16_to_cpu(hw->cookie);
-+		}
- 		stat.flags = hw->flags;
- 		stat.cnt1 = hw->cnt1;
- 		stat.cnt2 = hw->cnt2;
-
 
 -- 
 Greetings Michael.
