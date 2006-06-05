@@ -1,48 +1,54 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] TCP limited slow start
-Date: Mon, 5 Jun 2006 10:17:10 -0700
-Message-ID: <20060605101710.762c0351@dxpl.pdx.osdl.net>
-References: <20060602161312.3cb2ea66@localhost.localdomain>
-	<20060602185403.1549e3c6@localhost.localdomain>
-	<4481BD01.9020906@psc.edu>
+Subject: [PATCH] net.ipv4.ip_autoconfig sysctl removal
+Date: Mon, 5 Jun 2006 10:58:31 -0700
+Message-ID: <20060605105831.6a314086@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15814 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751222AbWFERR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 13:17:26 -0400
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <4481BD01.9020906@psc.edu>
+Received: from smtp.osdl.org ([65.172.181.4]:64474 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751247AbWFER60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 13:58:26 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 03 Jun 2006 12:46:57 -0400
-John Heffner <jheffner@psc.edu> wrote:
+The sysctl net.ipv4.ip_autoconfig is a legacy value that is not used.
+Can it finally go in 2.6.18 or do we need to go through the whole 
+feature-removal process?
 
-> Stephen Hemminger wrote:
-> > Rolled my sleeve's up and gave this a try...
-> > 
-> > This is a implementation of Sally Floyd's Limited Slow Start
-> > for Large Congestion Windows.
-> 
-> Limited slow start is useful as a work-around for bottleneck queues that 
-> are inappropriately short.  I don't think it's good to run it all the 
-> time by default (with a max_ssthresh < infinity), because it slows down 
-> flows on healthy paths, and introduces another non-scalable parameter to 
-> TCP.
-> 
-> I see it as potentially useful as a per-route parameter, where you set 
-> it deliberately to work around some known problematic path.  A sysctl 
-> with a default value of infinity might be okay as well.
-> 
-> Practically speaking, we've had this in the Web100 patch for a long time 
-> (and still do, look for WAD_MaxSsthresh), but I've never found it all 
-> that useful.  If the bottleneck queue is too short, you usually end up 
-> getting screwed other ways too.
-> 
->    -John
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-I moved it off to tcp_highspeed.c only. That is seems appropriate because
-that is where you put the related RFC.
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3d2e5ca..ead233c 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -147,7 +147,6 @@ void ip_send_reply(struct sock *sk, stru
+ struct ipv4_config
+ {
+ 	int	log_martians;
+-	int	autoconfig;
+ 	int	no_pmtu_disc;
+ };
+ 
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 6b6c3ad..9d2b81e 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -182,14 +182,6 @@ ctl_table ipv4_table[] = {
+ 		.strategy	= &ipv4_doint_and_flush_strategy,
+ 	},
+         {
+-		.ctl_name	= NET_IPV4_AUTOCONFIG,
+-		.procname	= "ip_autoconfig",
+-		.data		= &ipv4_config.autoconfig,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
+-	},
+-        {
+ 		.ctl_name	= NET_IPV4_NO_PMTU_DISC,
+ 		.procname	= "ip_no_pmtu_disc",
+ 		.data		= &ipv4_config.no_pmtu_disc,
