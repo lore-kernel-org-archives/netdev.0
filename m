@@ -1,42 +1,49 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6.18 2/3] tg3: Convert to non-LLTX
-Date: Mon, 5 Jun 2006 15:58:34 -0700
-Message-ID: <20060605155834.031d37a2@localhost.localdomain>
-References: <1149536852.13155.7.camel@rh4>
+Subject: Re: [PATCH] TCP: removal of unused label
+Date: Mon, 5 Jun 2006 16:02:40 -0700
+Message-ID: <20060605160240.4951f7ad@dxpl.pdx.osdl.net>
+References: <20060605110331.0f058738@dxpl.pdx.osdl.net>
+	<20060605195549.GA14942@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-	jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:57261 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750749AbWFEW7C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 18:59:02 -0400
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1149536852.13155.7.camel@rh4>
+Received: from smtp.osdl.org ([65.172.181.4]:64431 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750712AbWFEXCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:02:36 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060605195549.GA14942@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 05 Jun 2006 12:47:32 -0700
-"Michael Chan" <mchan@broadcom.com> wrote:
+On Mon, 5 Jun 2006 21:55:49 +0200
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-> Herbert Xu pointed out that it is unsafe to call netif_tx_disable()
-> from LLTX drivers because it uses dev->xmit_lock to synchronize
-> whereas LLTX drivers use private locks.
 > 
-> Convert tg3 to non-LLTX to fix this issue. tg3 is a lockless driver
-> where hard_start_xmit and tx completion handling can run concurrently
-> under normal conditions. A tx_lock is only needed to prevent
-> netif_stop_queue and netif_wake_queue race condtions when the queue
-> is full.
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 > 
-> So whether we use LLTX or non-LLTX, it makes practically no
-> difference.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> diff --git a/net/ipv4/tcp_compound.c b/net/ipv4/tcp_compound.c
+> index bc54f7e..a3c36c0 100644
+> --- a/net/ipv4/tcp_compound.c
+> +++ b/net/ipv4/tcp_compound.c
+> @@ -401,6 +401,7 @@ static void tcp_compound_cong_avoid(stru
+>  static void tcp_compound_get_info(struct sock *sk, u32 ext, struct sk_buff *skb)
+>  {
+>  	const struct compound *ca = inet_csk_ca(sk);
+> +
+>  	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
+>  		struct tcpvegas_info *info;
+>  
+> @@ -411,7 +412,6 @@ static void tcp_compound_get_info(struct
+>  		info->tcpv_rttcnt = ca->cntRTT;
+>  		info->tcpv_rtt = ca->baseRTT;
+>  		info->tcpv_minrtt = ca->minRTT;
+> -	rtattr_failure:;
+>  	}
+>  }
+>  
 
-Since you are going more lockless, you probably need memory barriers.
 
-I don't feel although that comfortable with the lockless driver model as is.
-Perhaps there is something simpler that could be done with a ring model and
-some atomic primitives like cmpxchg()?
+rtattr_failure is used inside __RTA_PUT() macro. It's gross, but there are
+those who love it..
