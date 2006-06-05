@@ -1,127 +1,84 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6646] New: UDP socket doesn't return to bound
- state after association is dissolved by connect(..AF_UNSPEC)
-Date: Mon, 5 Jun 2006 00:07:51 -0700
-Message-ID: <20060605000751.f3bc7ed3.akpm@osdl.org>
-References: <200606050658.k556wJ8X032608@fire-2.osdl.org>
+From: Andreas Mohr <andi@rhlx01.fht-esslingen.de>
+Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
+Date: Mon, 5 Jun 2006 10:33:21 +0200
+Message-ID: <20060605083321.GA15690@rhlx01.fht-esslingen.de>
+References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060604181515.8faa8fcf.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linville@tuxdriver.com,
+	Denis Vlasenko <vda@ilport.com.ua>,
+	acx100-devel@lists.sourceforge.net,
+	acx100-users@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:54407 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932434AbWFEHH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 03:07:58 -0400
-To: netdev@vger.kernel.org, yujiang.wang@sun.com
-In-Reply-To: <200606050658.k556wJ8X032608@fire-2.osdl.org>
+Received: from rhlx01.fht-esslingen.de ([129.143.116.10]:20961 "EHLO
+	rhlx01.fht-esslingen.de") by vger.kernel.org with ESMTP
+	id S1750758AbWFEIdX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 04:33:23 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060604181515.8faa8fcf.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 4 Jun 2006 23:58:19 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+Hi,
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=6646
+On Sun, Jun 04, 2006 at 06:15:15PM -0700, Andrew Morton wrote:
+> On Sun, 4 Jun 2006 21:06:36 -0400
+> Jeff Garzik <jeff@garzik.org> wrote:
+> > >   It is about time we did something with this large and presumably useful
+> > >   wireless driver.
+> > 
+> > I've never had technical objections to merging this, just AFAIK it had a
+> > highly questionable origin, namely being reverse-engineered in a
+> > non-clean-room environment that might leave Linux legally vulnerable.
 > 
->            Summary: UDP socket doesn't return to bound state after
->                     association is dissolved by connect(..AF_UNSPEC)
->     Kernel Version: 2.6.12
->             Status: NEW
->           Severity: high
->              Owner: shemminger@osdl.org
->          Submitter: yujiang.wang@sun.com
+> I never knew that.
 > 
+> <reads changelog>
+> <reads website>
+> <reads wiki>
 > 
-> Most recent kernel where this bug did not occur:
-> Distribution:
-> Hardware Environment:
-> Software Environment:
-> Problem Description:
-> When disconnect a UDP socket, Linux kernel set local port to zero if the port
-> number comes from a implicit bind. Linux connect(2) man page reads:
-> "Generally, connection-based protocol sockets may successfully *connect* only
-> once; connectionless protocol sockets may use *connect* multiple times to change
-> their association. Connectionless sockets may dissolve the association by
-> connecting to an address with the /sa_family/ member of *sockaddr* set to
-> *AF_UNSPEC*."
-> But dissolve the association should not impact the local binding, while
-> currently it does. In contrast, Unix variants like Solaris don't alter local
-> binding when disconnecting a UDP socket. 
-> 
-> Steps to reproduce:
-> Compile attached c file, and run it. You'll see local port number changed after
-> a UDP socket disconnected.
-> 
-> #include <errno.h>
-> #include <string.h>
-> #include <sys/types.h>
-> #include <sys/socket.h>
-> #include <netinet/in.h>
-> #include <net/if.h>
-> #include <netdb.h>
-> #include <arpa/inet.h>
-> #include <stdio.h>
-> #include <stdlib.h>
-> 
-> #define SERV_PORT 12345
-> 
-> void print_local_addr(int s);
-> 
-> int main(int argc, char** argv)
-> {
->     int sockfd;
->     struct sockaddr_in servaddr, cliaddr;
-> 
->     if (argc != 2) {
->         printf("Usage: disconnect_udp <ipaddress>");
->         exit(0);
->     }
->     
->     // creat a UDP socket which binds to a local address
->     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
->     bzero(&cliaddr, sizeof(cliaddr));
->     cliaddr.sin_family = AF_INET;
->     if (inet_pton(AF_INET, argv[1], &cliaddr.sin_addr) != 1) {
->         perror("inet_pton failed");
->     }
->     bind(sockfd, (struct sockaddr *)&cliaddr, sizeof(cliaddr));
->     
->     // connect this UDP socket
->     bzero(&servaddr, sizeof(servaddr));
->     servaddr.sin_family = AF_INET;
->     servaddr.sin_port = htons(SERV_PORT);
->     if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) != 1) {
->         perror("inet_pton failed");
->     }
->     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) != 0) {
->         perror("connect failed");
->     }
->     print_local_addr(sockfd);
->     
->     // disconnect it
->     servaddr.sin_family = AF_UNSPEC;
->     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) != 0) {
->         perror("connect failed");
->     }
->     print_local_addr(sockfd);
->     
->     close(sockfd);
-> }
-> 
-> void print_local_addr(int s)
-> {
->     struct sockaddr_in localaddr;
->     socklen_t len = 0;
->     char temp[INET_ADDRSTRLEN];
->     
->     len = sizeof(localaddr);
->     if (getsockname(s, (struct sockaddr *)&localaddr, &len) != 0) {
->         perror("getsockname failed");
->     }
->     
->     inet_ntop(AF_INET, &localaddr.sin_addr, temp, INET_ADDRSTRLEN);
->     printf("Local binding: address=%s, port=%d\n",
->            temp, ntohs(localaddr.sin_port));
-> }
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+> I still don't know that.  Denis, do you know the details?
+
+The acx100 project was started by about 5 people examining the various
+acx100 binary Linux driver "releases" for distro kernels around 2.4.18 etc.
+Since this might fail to comply with usual "clean-room" practices
+(e.g. one party examining a driver and then a separate party implementing
+a new driver with the data gained from examining the original driver),
+it may fail to be seen as acceptable for Linux inclusion.
+
+Since missing kernel inclusion is both a maintenance overhead and
+(most importantly!) a huge user-level issue, I'd see this as a big problem.
+
+In case there are development-unrelated obstacles against kernel inclusion,
+I see (at least?) two possibilities:
+
+a) asking TI to sprinkle our driver effort with the (ahem) holy penguin pee
+   required to have it blessed sufficiently for kernel inclusion (preferrably
+   in combination with nice firmware blob licensing and specs for those
+   chipsets would be nice)
+   This might be a problem given that Theo de Raadt and many other people had
+   fun repeatedly trying to contact TI for a useful statement concerning WLAN
+   support.
+
+b) abandoning our unfortunately not as blessed as intended (stability,
+   community involvement, ...) big-effort driver efforts ("3 years and still
+   going strong...") [1] and suggesting donating about 100000 OEM WLAN cards
+   equipped with TI chipsets to various beautiful landfills in various
+   countries ;-)
+
+Whichever way this irons out, at this point I'm quite indifferent to what
+happens, given that I really don't feel like spending too many endless weekends
+with hardware and driver puzzles any more in exchange for rather dubious gains.
+There's also a lot of fun in generic Linux kernel hacking, so...
+
+Andreas Mohr
+
+[1] we're *still* having issues with spotty ACK reception and radio
+temperature drift recalibration on those unsupported chipsets,
+which requires quite some focused development efforts and close examination
+of WLAN traffic in order to really find out what the heck is going wrong here.
+And please note that there's now the newer TNETW1450 chipset variant (most
+prominently used by AVM hardware with its initial x86-only Linux USB2.0 driver)
+with similar support issues which would require even more development.
