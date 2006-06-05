@@ -1,36 +1,67 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [linux-usb-devel] [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
-Date: Sun, 04 Jun 2006 22:51:08 +0100
-Message-ID: <448355CC.3030401@gentoo.org>
-References: <44817083.508@gentoo.org> <200606040025.32275.oliver@neukum.org>	 <ada605fb0606040929p7a6ea69aw9488a75d611b23e5@mail.gmail.com>	 <200606041917.55496.oliver@neukum.org> <ae5426fb0606041103od6bf095sd4403ab2966a1e1f@mail.gmail.com>
+From: Jason Lunz <lunz@falooley.org>
+Subject: [PATCH] hush noisy ieee80211 CCMP printks
+Date: Sun, 4 Jun 2006 20:12:09 -0400
+Message-ID: <20060605001208.GA4585@opus.vpn-dev.reflex>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver@neukum.org>, John Que <qwejohn@gmail.com>,
-	linux-usb-devel@lists.sourceforge.net,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Ulrich Kunitz <kune@deine-taler.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:26806 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S932277AbWFDVuj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Jun 2006 17:50:39 -0400
-To: Rami Rosen <rosenrami@gmail.com>
-In-Reply-To: <ae5426fb0606041103od6bf095sd4403ab2966a1e1f@mail.gmail.com>
+Received: from smtp.reflexsecurity.com ([72.54.64.74]:13016 "EHLO
+	crown.reflexsecurity.com") by vger.kernel.org with ESMTP
+	id S932345AbWFEALL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 Jun 2006 20:11:11 -0400
+To: jkmaline@cc.hut.fi, linville@tuxdriver.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rami Rosen wrote:
-> It is mentioned there that these definitions are taken from the ZYDAS
-> driver and  not all of them are relevant for the rewrite driver;
-> however, it seems to me that
-> removing them may be thought of.
 
-They are mostly relevant, not all come from the vendor driver directly, 
-some will be used later, many are useful for documenting the bits and 
-bobs that we *do* know about the CR registers (not a lot).
+Don't swamp syslog with
+CCMP: decrypt failed: STA=00:12:17:3a:e2:c7
+and 
+CCMP: replay detected: STA=00:12:17:3a:e2:c7 previous PN 000000000004 received PN 000000000004
+messages.
 
-I don't think there are any readability issues while all defines are 
-kept out of the way from the code.
+These both seem to be completely normal in regular use, especially
+'decrypt failed' whenever another wpa-using station on the same AP is
+within range.
 
-Daniel
+These events are still being counted in the statistics.
+
+Signed-off-by: Jason Lunz <lunz@falooley.org>
+
+---
+ net/ieee80211/ieee80211_crypt_ccmp.c |   11 -----------
+ 1 file changed, 11 deletions(-)
+
+Index: linux-2.6.17-rc5-git11/net/ieee80211/ieee80211_crypt_ccmp.c
+===================================================================
+--- linux-2.6.17-rc5-git11.orig/net/ieee80211/ieee80211_crypt_ccmp.c
++++ linux-2.6.17-rc5-git11/net/ieee80211/ieee80211_crypt_ccmp.c
+@@ -326,13 +326,6 @@
+ 	pos += 8;
+ 
+ 	if (memcmp(pn, key->rx_pn, CCMP_PN_LEN) <= 0) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "CCMP: replay detected: STA=" MAC_FMT
+-			       " previous PN %02x%02x%02x%02x%02x%02x "
+-			       "received PN %02x%02x%02x%02x%02x%02x\n",
+-			       MAC_ARG(hdr->addr2), MAC_ARG(key->rx_pn),
+-			       MAC_ARG(pn));
+-		}
+ 		key->dot11RSNAStatsCCMPReplays++;
+ 		return -4;
+ 	}
+@@ -357,10 +350,6 @@
+ 	}
+ 
+ 	if (memcmp(mic, a, CCMP_MIC_LEN) != 0) {
+-		if (net_ratelimit()) {
+-			printk(KERN_DEBUG "CCMP: decrypt failed: STA="
+-			       MAC_FMT "\n", MAC_ARG(hdr->addr2));
+-		}
+ 		key->dot11RSNAStatsCCMPDecryptErrors++;
+ 		return -5;
+ 	}
+
+
