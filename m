@@ -1,44 +1,55 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [PATCH] hush noisy ieee80211 CCMP printks
-Date: Mon, 5 Jun 2006 06:31:48 -0700
-Message-ID: <20060605133147.GA9567@jm.kir.nu>
-References: <20060605001208.GA4585@opus.vpn-dev.reflex>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
+Date: Mon, 05 Jun 2006 15:42:04 +0200
+Message-ID: <1149514924.3111.72.camel@laptopd505.fenrus.org>
+References: <20060604135011.decdc7c9.akpm@osdl.org>
+	 <20060605010636.GB17361@havoc.gtf.org>
+	 <20060605085451.GA26766@infradead.org>
+	 <20060605132732.GA23350@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.genealogia.fi ([194.100.116.229]:53483 "EHLO
-	mail2.genealogia.fi") by vger.kernel.org with ESMTP
-	id S1751107AbWFENcb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 09:32:31 -0400
-To: Jason Lunz <lunz@falooley.org>
-Content-Disposition: inline
-In-Reply-To: <20060605001208.GA4585@opus.vpn-dev.reflex>
+Received: from pentafluge.infradead.org ([213.146.154.40]:27044 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1751097AbWFENmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 09:42:11 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060605132732.GA23350@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 04, 2006 at 08:12:09PM -0400, Jason Lunz wrote:
 
-> Don't swamp syslog with
-> CCMP: decrypt failed: STA=00:12:17:3a:e2:c7
-> and 
-> CCMP: replay detected: STA=00:12:17:3a:e2:c7 previous PN 000000000004 received PN 000000000004
-> messages.
+> Of course, I didn't know there were serious concerns about this
+> driver's origin.  I hope we aren't confusing this with the atheros
+> driver...?
 > 
-> These both seem to be completely normal in regular use, especially
-> 'decrypt failed' whenever another wpa-using station on the same AP is
-> within range.
+> > Please don't let this reverse engineering idiocy hinder wireless driver
+> > adoption, we're already falling far behind openbsd who are very successfull
+> > reverse engineering lots of wireless chipsets.
+> 
+> This bugbear does seem to keep visiting us.  It is a bit of a
+> minefield.
+> 
+> I'm inclined to think that Christoph and Arjan are right, that we
+> have been too cautious.  Of course, neither of these fine gentlemen
+> are known for their timidity... :-)
+> 
+> Does not the Signed-off-by: line on a patch submission give us some
+> level of "good faith" protection?
 
-These are not normal, i.e., they should not really show up unless
-something goes wrong. In many cases, this may be caused by something
-missing in local filtering (e.g., retry duplicates are not filtered out
-correctly or messages to incorrect addresses are allowed through, etc.).
-In other cases, it can indicate incorrect implementation of rekeying or
-some other bugs in either end of the connection. Anyway, I don't have
-anything against removing the messages in default kernel builds. If
-there is a suitable build time debug option, that might be nicer way of
-doing this, though, since these can provide valuable information when
-figuring out why something does not work.
+I would suggest asking them an explicit "did you copy anything" and make
+sure their "we didn't copy" answer is in the description of the original
+patch submission.
+> 
+> I'm tempted to take contributors at their word, that they have produced
+> their own work and not copied from others.  What else do we need?
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+to a large degree that's all you can do. (of course you can look at the
+code for something that looks "obviously not from here" as well, and we
+all tend to do that anyway since such stuff tends to highly violate
+coding style anyway)
+
