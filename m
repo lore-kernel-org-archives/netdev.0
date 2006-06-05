@@ -1,34 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] bridge: fix locking and memory leak in br_add_bridge
-Date: Mon, 05 Jun 2006 16:38:57 -0700 (PDT)
-Message-ID: <20060605.163857.108741236.davem@davemloft.net>
-References: <20060526110806.1fa49fe1@griffin.suse.cz>
-	<20060526.192611.109883073.davem@davemloft.net>
-	<20060527094528.0c330d9f@localhost.localdomain>
+From: Nathaniel Case <ncase@xes-inc.com>
+Subject: [PATCH 0/2] PHYLIB: Fix forcing mode reduction
+Date: Mon, 05 Jun 2006 18:45:58 -0500
+Message-ID: <1149551159.10700.46.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jbenc@suse.cz, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52711
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750849AbWFEXi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 19:38:59 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060527094528.0c330d9f@localhost.localdomain>
+Received: from xes-mad.com ([216.165.139.214]:1199 "EHLO xes-mad.com")
+	by vger.kernel.org with ESMTP id S1750833AbWFEXqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:46:01 -0400
+To: Andy Fleming <afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Sat, 27 May 2006 09:45:28 -0700
+On Mon, 2006-06-05 at 17:08 -0500, Andy Fleming wrote:
+> Looks good.  Feel free to send these patches to  
+> netdev@vger.kernel.org (you may need to subscribe), and copy Jeff  
+> Garzik <jeff@garzik.org>.
 
-> There are several bugs in error handling in br_add_bridge:
-> - when dev_alloc_name fails, allocated net_device is not freed
-> - unregister_netdev is called when rtnl lock is held
-> - free_netdev is called before netdev_run_todo has a chance to be run after
->   unregistering net_device
-> 
-> Signed-off-by: Jiri Benc <jbenc@suse.cz>
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+This fixes a problem seen when a port without a cable connected would
+repeatedly print out "Trying 1000/HALF".  While in the PHY_FORCING
+state, the call to phy_read_status() was resetting the value of
+phydev->speed and phydev->duplex, preventing it from incrementally
+trying the speed/duplex variations.
 
-Applied, thanks a lot.
+Since we really just want the link status updated for the PHY_FORCING
+state, calling genphy_update_link() instead of phy_read_status() fixes
+this issue.
+
+Patch tested on a MPC8540 platform with a BCM5421 PHY.
+
+Signed-off-by: Nate Case <ncase@xes-inc.com>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+
+---
+
+--- a/drivers/net/phy/phy.c	2006-06-04 16:01:59.000000000 -0500
++++ b/drivers/net/phy/phy.c	2006-06-05 10:55:31.000000000 -0500
+@@ -767,7 +783,7 @@
+ 			}
+ 			break;
+ 		case PHY_FORCING:
+-			err = phy_read_status(phydev);
++			err = genphy_update_link(phydev);
+ 
+ 			if (err)
+ 				break;
+--- a/drivers/net/phy/phy_device.c	2006-06-04 16:02:08.000000000 -0500
++++ b/drivers/net/phy/phy_device.c	2006-06-04 19:12:26.000000000 -0500
+@@ -417,6 +417,7 @@
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(genphy_update_link);
+ 
+ /* genphy_read_status
+  *
+
+
