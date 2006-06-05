@@ -1,31 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP: removal of unused label
-Date: Mon, 05 Jun 2006 16:03:52 -0700 (PDT)
-Message-ID: <20060605.160352.21926542.davem@davemloft.net>
-References: <20060605110331.0f058738@dxpl.pdx.osdl.net>
-	<20060605195549.GA14942@electric-eye.fr.zoreil.com>
-	<20060605160240.4951f7ad@dxpl.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH 1/2] e1000: fix netpoll with NAPI
+Date: Mon, 05 Jun 2006 16:11:25 -0700
+Message-ID: <20060605231125.12584.17039.stgit@gitlost.site>
+References: <20060605230917.12584.55755.stgit@gitlost.site>
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18604
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750703AbWFEXDv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 19:03:51 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060605160240.4951f7ad@dxpl.pdx.osdl.net>
+Received: from [63.64.152.142] ([63.64.152.142]:47878 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1750756AbWFEXGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:06:00 -0400
+To: "Garzik, Jeff" <jgarzik@pobox.com>
+In-Reply-To: <20060605230917.12584.55755.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 5 Jun 2006 16:02:40 -0700
 
-> rtattr_failure is used inside __RTA_PUT() macro. It's gross, but there are
-> those who love it..
+Netpoll was broken due to the earlier addition of multiqueue.
 
-Yes, it was clear that this patch wasn't build tested.
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-And GCC usually warns very loudly about truly unused
-labels.
+ drivers/net/e1000/e1000_main.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index ed15fca..7103a0e 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -4629,10 +4629,17 @@ static void
+ e1000_netpoll(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++#ifdef CONFIG_E1000_NAPI
++	int budget = 0;
++
++	disable_irq(adapter->pdev->irq);
++	e1000_clean_tx_irq(adapter, adapter->tx_ring);
++	adapter->clean_rx(adapter, adapter->rx_ring, &budget, netdev->weight);
++#else
++
+ 	disable_irq(adapter->pdev->irq);
+ 	e1000_intr(adapter->pdev->irq, netdev, NULL);
+ 	e1000_clean_tx_irq(adapter, adapter->tx_ring);
+-#ifndef CONFIG_E1000_NAPI
+ 	adapter->clean_rx(adapter, adapter->rx_ring);
+ #endif
+ 	enable_irq(adapter->pdev->irq);
+
+
+
+--
+Auke Kok <auke-jan.h.kok@intel.com>
