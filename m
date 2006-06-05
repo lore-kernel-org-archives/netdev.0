@@ -1,77 +1,47 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Linux kernel and laws
-Date: Mon, 5 Jun 2006 16:02:26 +0200
-Message-ID: <20060605140226.GR3955@stusta.de>
-References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060605085451.GA26766@infradead.org> <20060605123304.GA6066@havoc.gtf.org> <1149511707.3111.57.camel@laptopd505.fenrus.org> <20060605125235.GB6066@havoc.gtf.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: move zd1201 where it belongs
+Date: Mon, 5 Jun 2006 10:13:29 -0400
+Message-ID: <20060605141322.GB23350@tuxdriver.com>
+References: <20060605103952.GA1670@elf.ucw.cz> <1149506120.3111.52.camel@laptopd505.fenrus.org> <20060605113332.GB2132@elf.ucw.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linville@tuxdriver.com
+	Jirka Lenost Benc <jbenc@suse.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, pe1rxq@amsat.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:31506 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1751120AbWFEOCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 10:02:25 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from ra.tuxdriver.com ([24.172.12.4]:16389 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751122AbWFEOUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 10:20:18 -0400
+To: Pavel Machek <pavel@suse.cz>
 Content-Disposition: inline
-In-Reply-To: <20060605125235.GB6066@havoc.gtf.org>
+In-Reply-To: <20060605113332.GB2132@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 08:52:35AM -0400, Jeff Garzik wrote:
->...
-> > Paying attention to proper reverse engineering is good. Being
-> > overzealous is not.
+On Mon, Jun 05, 2006 at 01:33:33PM +0200, Pavel Machek wrote:
+> On Po 05-06-06 13:15:20, Arjan van de Ven wrote:
+> > On Mon, 2006-06-05 at 12:39 +0200, Pavel Machek wrote:
+> > > zd1201 is wifi adapter, yet it is hiding in drivers/usb/net where
+> > > noone can find it. This moves Kconfig/Makefile to right place; you
+> > > still need to manually move .c and .h files.
+
+> > do you think it should at least depend in some form or another on
+> > CONFIG_USB ?
 > 
-> Being overzealous about merging drivers without first checking the legal
-> ramifications is a good way to torpedo Linux.
-> 
-> Far too many people have a careless "U.S.A. laws suck, merge it anyway"
-> attitude.
+> Right, added USB && to depends directive.
 
-Independent of this issue:
+Did you mean to only copy Jiri and LKML?
 
-An interesting question is how to handle legal issues properly.
+It seems like you should have sent at least sent this to
+netdev@vger.kernel.org, if not also to me, Jeroen Vreeken and/or
+possibly Greg K-H (USB subsystem).
 
-Where is the borderline for rejecting code due to legal issues?
-Might not be 100% correct according to laws in the USA.
-Might not be 100% correct according to laws in Germany.
-Might not be 100% correct according to laws in Finland.
-Might not be 100% correct according to laws in Norway.
-Might not be 100% correct according to laws in Brasil.
-Might not be 100% correct according to laws in Japan.
-Might not be 100% correct according to laws in India.
-Might not be 100% correct according to laws in Russia.
-Might not be 100% correct according to laws in China.
-Might not be 100% correct according to laws in Saudi Arabia.
-Might not be 100% correct according to laws in Iran.
+Will you be posting a new version, with the CONFIG_USB change?
 
-For me living in Germany, none of these laws except for the German one 
-has any relevance.
+Thanks,
 
-I've never seen people on this list pointing to probable problems with 
-Chinese laws although these laws are relevant for four times as many 
-people as US laws.
-
-If someone would state a submission to the kernel might have issues 
-according to Chinese laws, or Iranian laws, or Russian laws, would this 
-be enough for keeping code out of the kernel?
-
-This might sound like a theoretical question, but e.g. considering that 
-the kernel contains cryptography code it's a question that might have 
-wide practical implications.
-
-> 	Jeff
-
-cu
-Adrian
-
+John
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+John W. Linville
+linville@tuxdriver.com
