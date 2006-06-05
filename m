@@ -1,38 +1,55 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] Changes to ieee80211.h for user space regulatory daemon
-Date: Mon, 05 Jun 2006 16:10:43 -0500
-Message-ID: <44849DD3.9000908@lwfinger.net>
-References: <447C790E.1030702@lwfinger.net> <20060605185905.GH6068@tuxdriver.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.18 1/3] tg3: Remove unnecessary tx_lock
+Date: Mon, 05 Jun 2006 12:47:23 -0700
+Message-ID: <1149536843.13155.6.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:55179 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1750855AbWFEVKq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 17:10:46 -0400
-To: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
-In-Reply-To: <20060605185905.GH6068@tuxdriver.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:44303 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1750904AbWFEV1w
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 17:27:52 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
->> @@ -968,6 +968,7 @@ #define IEEE80211_52GHZ_CHANNELS (IEEE80
->>
->>  enum {
->> 	IEEE80211_CH_PASSIVE_ONLY = (1 << 0),
->> +	IEEE80211_CH_80211H_RULES = (1 << 1),
->> 	IEEE80211_CH_B_ONLY = (1 << 2),
->> 	IEEE80211_CH_NO_IBSS = (1 << 3),
->> 	IEEE80211_CH_UNIFORM_SPREADING = (1 << 4),
-> 
-> Any idea why this "hole" was here to begin with?  Was there something
-> else defined as (1 << 1) previously?  Is it safe to reuse this value?
-> 
-> John
+Remove tx_lock where it is unnecessary. tg3 runs lockless and so it
+requires interrupts to be disabled and sync'ed, netif_queue and NAPI
+poll to be stopped before the device can be reconfigured. After
+stopping everything, it is no longer necessary to get the tx_lock.
 
-The hole has been there as long as I have been reading the ieee80211 code. If you are not 
-comfortable with plugging the hole, then we can use (1 << 5).
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Larry
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index f2382aa..4cda2af 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -2984,9 +2984,7 @@ static void tg3_tx_recover(struct tg3 *t
+ 	       "and include system chipset information.\n", tp->dev->name);
+ 
+ 	spin_lock(&tp->lock);
+-	spin_lock(&tp->tx_lock);
+ 	tp->tg3_flags |= TG3_FLAG_TX_RECOVERY_PENDING;
+-	spin_unlock(&tp->tx_lock);
+ 	spin_unlock(&tp->lock);
+ }
+ 
+@@ -3429,12 +3427,10 @@ static inline void tg3_full_lock(struct 
+ 	if (irq_sync)
+ 		tg3_irq_quiesce(tp);
+ 	spin_lock_bh(&tp->lock);
+-	spin_lock(&tp->tx_lock);
+ }
+ 
+ static inline void tg3_full_unlock(struct tg3 *tp)
+ {
+-	spin_unlock(&tp->tx_lock);
+ 	spin_unlock_bh(&tp->lock);
+ }
+ 
+
 
