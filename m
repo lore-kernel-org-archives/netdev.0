@@ -1,128 +1,47 @@
-From: Pavel Machek <pavel@suse.cz>
+From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: move zd1201 where it belongs
-Date: Mon, 5 Jun 2006 16:29:12 +0200
-Message-ID: <20060605142912.GF2132@elf.ucw.cz>
-References: <20060605103952.GA1670@elf.ucw.cz> <1149506120.3111.52.camel@laptopd505.fenrus.org> <20060605113332.GB2132@elf.ucw.cz> <20060605141322.GB23350@tuxdriver.com>
+Date: Mon, 5 Jun 2006 16:44:11 +0200
+Message-ID: <20060605164411.42d8dc40@griffin.suse.cz>
+References: <20060605103952.GA1670@elf.ucw.cz>
+	<1149506120.3111.52.camel@laptopd505.fenrus.org>
+	<20060605113332.GB2132@elf.ucw.cz>
+	<20060605141322.GB23350@tuxdriver.com>
+	<20060605142912.GF2132@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:40373 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S1751142AbWFEO35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 10:29:57 -0400
-To: Arjan van de Ven <arjan@infradead.org>,
-	Jirka Lenost Benc <jbenc@suse.cz>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Arjan van de Ven <arjan@infradead.org>,
 	kernel list <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org, pe1rxq@amsat.org
-Content-Disposition: inline
-In-Reply-To: <20060605141322.GB23350@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:57312 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751159AbWFEOoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 10:44:13 -0400
+To: Pavel Machek <pavel@suse.cz>
+In-Reply-To: <20060605142912.GF2132@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Mon, 5 Jun 2006 16:29:12 +0200, Pavel Machek wrote:
+> Yes, because this should go in as a git patch (so it is move, not
+> create new file), and I was hoping for Jiri to generate proper
+> git-patch :-).
 
-> > > > zd1201 is wifi adapter, yet it is hiding in drivers/usb/net where
-> > > > noone can find it. This moves Kconfig/Makefile to right place; you
-> > > > still need to manually move .c and .h files.
+The proper person for this is maintainer of wireless or USB.
+
+> Here it is, still
 > 
-> > > do you think it should at least depend in some form or another on
-> > > CONFIG_USB ?
-> > 
-> > Right, added USB && to depends directive.
-> 
-> Did you mean to only copy Jiri and LKML?
+> Signed-off-by: Pavel Machek <pavel@suse.cz>
 
-Yes, because this should go in as a git patch (so it is move, not
-create new file), and I was hoping for Jiri to generate proper
-git-patch :-).
+In addition to this,
+mv drivers/usb/net/zd1201.[ch] drivers/net/wireless/
+needs to be invoked.
 
-> It seems like you should have sent at least sent this to
-> netdev@vger.kernel.org, if not also to me, Jeroen Vreeken and/or
-> possibly Greg K-H (USB subsystem).
-> 
-> Will you be posting a new version, with the CONFIG_USB change?
+I agree that the patch should be applied to remove confusion (not many
+people know about this driver, even among wireless developers).
 
-Here it is, still
-
-Signed-off-by: Pavel Machek <pavel@suse.cz>
-
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index e0874cb..1eccdb3 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -503,6 +503,23 @@ config PRISM54
- 	  say M here and read <file:Documentation/modules.txt>.  The module
- 	  will be called prism54.ko.
- 
-+config USB_ZD1201
-+	tristate "USB ZD1201 based Wireless device support"
-+	depends on USB && NET_RADIO
-+	select FW_LOADER
-+	---help---
-+	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
-+	  ZD1201 chip.
-+
-+	  This driver makes the adapter appear as a normal Ethernet interface,
-+	  typically on wlan0.
-+	  
-+	  The zd1201 device requires external firmware to be loaded.
-+	  This can be found at http://linux-lc100020.sourceforge.net/
-+	  
-+	  To compile this driver as a module, choose M here: the
-+	  module will be called zd1201.
-+
- source "drivers/net/wireless/hostap/Kconfig"
- source "drivers/net/wireless/bcm43xx/Kconfig"
- 
-diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index c867798..512603d 100644
---- a/drivers/net/wireless/Makefile
-+++ b/drivers/net/wireless/Makefile
-@@ -40,3 +40,5 @@ obj-$(CONFIG_BCM43XX)		+= bcm43xx/
- # 16-bit wireless PCMCIA client drivers
- obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
- obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
-+
-+obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
-diff --git a/drivers/usb/net/Kconfig b/drivers/usb/net/Kconfig
-index efd6ca7..0540596 100644
---- a/drivers/usb/net/Kconfig
-+++ b/drivers/usb/net/Kconfig
-@@ -301,21 +301,4 @@ config USB_NET_ZAURUS
- 	  some cases CDC MDLM) protocol, not "g_ether".
- 
- 
--config USB_ZD1201
--	tristate "USB ZD1201 based Wireless device support"
--	depends on NET_RADIO
--	select FW_LOADER
--	---help---
--	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
--	  ZD1201 chip.
--
--	  This driver makes the adapter appear as a normal Ethernet interface,
--	  typically on wlan0.
--	  
--	  The zd1201 device requires external firmware to be loaded.
--	  This can be found at http://linux-lc100020.sourceforge.net/
--	  
--	  To compile this driver as a module, choose M here: the
--	  module will be called zd1201.
--
- endmenu
-diff --git a/drivers/usb/net/Makefile b/drivers/usb/net/Makefile
-index a21e6ea..160f19d 100644
---- a/drivers/usb/net/Makefile
-+++ b/drivers/usb/net/Makefile
-@@ -15,7 +15,6 @@ obj-$(CONFIG_USB_NET_RNDIS_HOST)	+= rndi
- obj-$(CONFIG_USB_NET_CDC_SUBSET)	+= cdc_subset.o
- obj-$(CONFIG_USB_NET_ZAURUS)	+= zaurus.o
- obj-$(CONFIG_USB_USBNET)	+= usbnet.o
--obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
- 
- ifeq ($(CONFIG_USB_DEBUG),y)
- EXTRA_CFLAGS += -DDEBUG
-
+ Jiri
 
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Jiri Benc
+SUSE Labs
