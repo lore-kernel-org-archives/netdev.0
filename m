@@ -1,47 +1,107 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: move zd1201 where it belongs
-Date: Mon, 5 Jun 2006 10:13:29 -0400
-Message-ID: <20060605141322.GB23350@tuxdriver.com>
-References: <20060605103952.GA1670@elf.ucw.cz> <1149506120.3111.52.camel@laptopd505.fenrus.org> <20060605113332.GB2132@elf.ucw.cz>
+From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Subject: Re: Linux kernel and laws
+Date: Mon, 5 Jun 2006 10:21:15 -0400
+Message-ID: <Pine.LNX.4.61.0606051006030.17323@chaos.analogic.com>
+References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060605085451.GA26766@infradead.org> <20060605123304.GA6066@havoc.gtf.org> <1149511707.3111.57.camel@laptopd505.fenrus.org> <20060605125235.GB6066@havoc.gtf.org> <20060605140226.GR3955@stusta.de>
+Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Jirka Lenost Benc <jbenc@suse.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, pe1rxq@amsat.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:16389 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751122AbWFEOUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 10:20:18 -0400
-To: Pavel Machek <pavel@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20060605113332.GB2132@elf.ucw.cz>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Jeff Garzik" <jeff@garzik.org>,
+	"Arjan van de Ven" <arjan@infradead.org>,
+	"Christoph Hellwig" <hch@infradead.org>,
+	"Andrew Morton" <akpm@osdl.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751136AbWFEOVS@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-reply-to: <20060605140226.GR3955@stusta.de>
+To: "Adrian Bunk" <bunk@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 01:33:33PM +0200, Pavel Machek wrote:
-> On Po 05-06-06 13:15:20, Arjan van de Ven wrote:
-> > On Mon, 2006-06-05 at 12:39 +0200, Pavel Machek wrote:
-> > > zd1201 is wifi adapter, yet it is hiding in drivers/usb/net where
-> > > noone can find it. This moves Kconfig/Makefile to right place; you
-> > > still need to manually move .c and .h files.
 
-> > do you think it should at least depend in some form or another on
-> > CONFIG_USB ?
-> 
-> Right, added USB && to depends directive.
+On Mon, 5 Jun 2006, Adrian Bunk wrote:
 
-Did you mean to only copy Jiri and LKML?
+> On Mon, Jun 05, 2006 at 08:52:35AM -0400, Jeff Garzik wrote:
+>> ...
+>>> Paying attention to proper reverse engineering is good. Being
+>>> overzealous is not.
+>>
+>> Being overzealous about merging drivers without first checking the legal
+>> ramifications is a good way to torpedo Linux.
+>>
+>> Far too many people have a careless "U.S.A. laws suck, merge it anyway"
+>> attitude.
+>
+> Independent of this issue:
+>
+> An interesting question is how to handle legal issues properly.
+>
+> Where is the borderline for rejecting code due to legal issues?
+> Might not be 100% correct according to laws in the USA.
+> Might not be 100% correct according to laws in Germany.
+> Might not be 100% correct according to laws in Finland.
+> Might not be 100% correct according to laws in Norway.
+> Might not be 100% correct according to laws in Brasil.
+> Might not be 100% correct according to laws in Japan.
+> Might not be 100% correct according to laws in India.
+> Might not be 100% correct according to laws in Russia.
+> Might not be 100% correct according to laws in China.
+> Might not be 100% correct according to laws in Saudi Arabia.
+> Might not be 100% correct according to laws in Iran.
+>
+> For me living in Germany, none of these laws except for the German one
+> has any relevance.
+>
+> I've never seen people on this list pointing to probable problems with
+> Chinese laws although these laws are relevant for four times as many
+> people as US laws.
+>
+> If someone would state a submission to the kernel might have issues
+> according to Chinese laws, or Iranian laws, or Russian laws, would this
+> be enough for keeping code out of the kernel?
+>
+> This might sound like a theoretical question, but e.g. considering that
+> the kernel contains cryptography code it's a question that might have
+> wide practical implications.
+>
+>> 	Jeff
+>
+> cu
+> Adrian
 
-It seems like you should have sent at least sent this to
-netdev@vger.kernel.org, if not also to me, Jeroen Vreeken and/or
-possibly Greg K-H (USB subsystem).
+If the kernel represented simply a knowledge base, then the burden
+about whether or not someone could use it used to rest entirely
+upon the user. That's why some Pacific rim governments are reportedly
+fire-walling information.
 
-Will you be posting a new version, with the CONFIG_USB change?
+In most western cultures, knowledge was not a crime. For many years,
+someone could write a book, telling you how to kill somebody and,
+as long as he didn't carry it out, he could not be held culpable.
 
-Thanks,
+Recently, in the US and some other countries, knowledge has become
+criminalized. If you know how to defeat copy protection, and
+you are not in a protected industry, you could be tried and
+convicted of a federal crime.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+That's one of the reasons why there are now no general guidelines
+about kernel code, or any intellectual property use, for that matter.
+The conditions could occur where the government thinks that you
+know too much and are, therefore, a threat to "national security".
+
+So, again, see a lawyer. The fact that you sought and accepted
+legal opinion may in the future be your only viable defense as
+governments bring charges against you! Sorry state of affairs for
+sure.
+
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.6.16.4 on an i686 machine (5592.88 BogoMips).
+New book: http://www.AbominableFirebug.com/
+_
+
+
+****************************************************************
+The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
+
+Thank you.
