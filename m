@@ -1,112 +1,101 @@
 From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH 3/3] pci: gt96100eth avoid pci_find_device
-Date: Mon, 05 Jun 2006 22:56:04 +0159
-Message-ID: <44849A7B.10307@gmail.com>
-References: <448491ab.7fb59b32.690f.01c1SMTPIN_ADDED@mx.gmail.com>
+Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
+Date: Mon, 05 Jun 2006 23:08:47 +0159
+Message-ID: <44849D76.3020201@gmail.com>
+References: <2005123213211@nnikde.cz> <20060605202007.B464FC7B73@atrey.karlin.mff.cuni.cz> <20060605205309.GA31061@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Greg KH <gregkh@suse.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-pci@atrey.karlin.mff.cuni.cz, jgarzik@pobox.com,
-	netdev@vger.kernel.org, stevel@mvista.com, source@mvista.com
+	netdev@vger.kernel.org, mb@bu3sch.de, st3@riseup.net,
+	linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:25014 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.186]:46545 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1750701AbWFEU40 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 16:56:26 -0400
-Received: by nf-out-0910.google.com with SMTP id c31so1865936nfb
-        for <netdev@vger.kernel.org>; Mon, 05 Jun 2006 13:56:25 -0700 (PDT)
-To: Jiri Slaby <jirislaby@gmail.com>
-In-Reply-To: <448491ab.7fb59b32.690f.01c1SMTPIN_ADDED@mx.gmail.com>
+	id S1750829AbWFEVJF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 17:09:05 -0400
+Received: by nf-out-0910.google.com with SMTP id c31so1867981nfb
+        for <netdev@vger.kernel.org>; Mon, 05 Jun 2006 14:09:03 -0700 (PDT)
+To: Greg KH <greg@kroah.com>
+In-Reply-To: <20060605205309.GA31061@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby napsal(a):
-> gt96100eth avoid pci_find_device
+Greg KH napsal(a):
+> On Mon, Jun 05, 2006 at 10:20:07PM +0200, Jiri Slaby wrote:
+>> bcm43xx avoid pci_find_device
+>>
+>> Change pci_find_device to safer pci_get_device with support for more
+>> devices.
+>>
+>> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+>>
+>> ---
+>> commit 4b73c16f5411d97360d5f26f292ffddeb670ff75
+>> tree 6e43c8bd02498eb1ceec6bdc64277fa8408da9e2
+>> parent d59f9ea8489749f59cd0c7333a4784cab964daa8
+>> author Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:03 +0159
+>> committer Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:03 +0159
+>>
+>>  drivers/net/wireless/bcm43xx/bcm43xx_main.c |   21 ++++++++++++++++-----
+>>  1 files changed, 16 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> index 22b8fa6..d1a9975 100644
+>> --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+>> @@ -2133,6 +2133,13 @@ out:
+>>  	return err;
+>>  }
+>>  
+>> +#ifdef CONFIG_BCM947XX
+>> +static struct pci_device_id bcm43xx_47xx_ids[] = {
+>> +	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4324) },
+>> +	{ 0 }
+>> +};
+>> +#endif
+>> +
+>>  static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
+>>  {
+>>  	int res;
+>> @@ -2142,11 +2149,15 @@ static int bcm43xx_initialize_irq(struct
+>>  	bcm->irq = bcm->pci_dev->irq;
+>>  #ifdef CONFIG_BCM947XX
+>>  	if (bcm->pci_dev->bus->number == 0) {
+>> -		struct pci_dev *d = NULL;
+>> -		/* FIXME: we will probably need more device IDs here... */
+>> -		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
+>> -		if (d != NULL) {
+>> -			bcm->irq = d->irq;
+>> +		struct pci_dev *d;
+>> +		struct pci_device_id *id;
+>> +		for (id = bcm43xx_47xx_ids; id->vendor; id++) {
+>> +			d = pci_get_device(id->vendor, id->device, NULL);
+>> +			if (d != NULL) {
+>> +				bcm->irq = d->irq;
+>> +				pci_dev_put(d);
+>> +				break;
+>> +			}
 > 
-> Change pci_find_device to safer pci_get_device with support for more
-> bridges.
+> This will not work if you have more than one of the same devices in the
+> system.
 > 
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> Well, the original code will not either :(
 > 
-> ---
-> commit fd863b81ac491faf783ff7f2dcf6032177c5ab7f
-> tree d7eb59f897505230023754f19ad7227eec39e676
-> parent 4b73c16f5411d97360d5f26f292ffddeb670ff75
-> author Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:20 +0159
-> committer Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:20 +0159
-> 
->  drivers/net/gt96100eth.c |   23 ++++++++++++++++++-----
->  1 files changed, 18 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/gt96100eth.c b/drivers/net/gt96100eth.c
-> index 2d24354..3066c86 100644
-> --- a/drivers/net/gt96100eth.c
-> +++ b/drivers/net/gt96100eth.c
-> @@ -600,6 +600,11 @@ disable_ether_irq(struct net_device *dev
->  	GT96100ETH_WRITE(gp, GT96100_ETH_INT_MASK, 0);
->  }
->  
-> +static struct pci_device_id gt96100_ids[] = {
-> +	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, PCI_DEVICE_ID_MARVELL_GT96100) },
-> +	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, PCI_DEVICE_ID_MARVELL_GT96100A) },
-> +	{ 0 }
-> +};
->  
->  /*
->   * Init GT96100 ethernet controller driver
-> @@ -607,16 +612,20 @@ disable_ether_irq(struct net_device *dev
->  static int gt96100_init_module(void)
->  {
->  	struct pci_dev *pci;
-> +	struct pci_device_id *id;
->  	int i, retval=0;
->  	u32 cpuConfig;
->  
->  	/*
->  	 * Stupid probe because this really isn't a PCI device
->  	 */
-> -	if (!(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-> -	                            PCI_DEVICE_ID_MARVELL_GT96100, NULL)) &&
-> -	    !(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-> -		                    PCI_DEVICE_ID_MARVELL_GT96100A, NULL))) {
-> +	for (id = gt96100_ids; id->vendor; id++) {
-> +		pci = pci_get_device(id->vendor, id->device, NULL);
-> +		if (pci != NULL)
-> +			break;
-> +	}
-I wonder if this is even better:
-while ((pci = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pci)) != NULL)
-    if (pci_match_id(gt96100_ids, pci) != NULL)
-         break;
-What do you think?
-> +
-> +	if (!id->vendor) {
->  		printk(KERN_ERR __FILE__ ": GT96100 not found!\n");
->  		return -ENODEV;
->  	}
-> @@ -625,12 +634,16 @@ static int gt96100_init_module(void)
->  	if (cpuConfig & (1<<12)) {
->  		printk(KERN_ERR __FILE__
->  		       ": must be in Big Endian mode!\n");
-> -		return -ENODEV;
-> +		retval = -ENODEV;
-> +		goto err_pput;
->  	}
->  
->  	for (i=0; i < NUM_INTERFACES; i++)
->  		retval |= gt96100_probe1(pci, i);
->  
-> +err_pput:
-> +	pci_dev_put(pci);
-> +
->  	return retval;
->  }
->  
-> 
+> Why not just use the proper pci interface?  Why poke around in another
+> pci device to steal an irq, when that irq might not even be valid?
+> (irqs are not valid until pci_enable_device() is called on them...)
+Ok, this is some bus or something, not "real" device, so no pci probing or
+anything else could be done. There is only one in the system, if any, since
+CONFIG_BCM947XX is set for some sort of embedded systems, but this would be
+uttered by somebody more responsible.
 
+Should I call pci_enable_device anyway, I am confused now :/? And then, should I
+hold the reference all time until ifdown for this "some kind of parent"?
 
+thanks,
 -- 
 Jiri Slaby         www.fi.muni.cz/~xslaby
 \_.-^-._   jirislaby@gmail.com   _.-^-._/
