@@ -1,47 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: TCP Westwood Patch
-Date: Mon, 5 Jun 2006 09:32:40 -0700
-Message-ID: <20060605093240.5d68e117@dxpl.pdx.osdl.net>
-References: <20060524182006.32fd1fcd@localhost>
+From: "Garry London" <exponentialimgmujbv@merck.com>
+Subject: No more worrying needed
+Date: Mon, 5 Jun 2006 16:45:42 +0000
+Message-ID: <231a01c688bf$7b7a46e0$0dfda8c0@desktwo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+     format=flowed;
+     charset="iso-8859-1";
+     reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Saverio Mascolo <saverio.mascolo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25012 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750710AbWFEQch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 12:32:37 -0400
-To: Luca De Cicco <ldecicco@gmail.com>
-In-Reply-To: <20060524182006.32fd1fcd@localhost>
+Received: from adsl-64-109-243-62.dsl.chcgil.ameritech.net ([64.109.243.62]:17357
+	"EHLO desktwo.merck.com") by vger.kernel.org with ESMTP
+	id S1750842AbWFEQtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 12:49:35 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 May 2006 18:20:06 +0200
-Luca De Cicco <ldecicco@gmail.com> wrote:
+Life Should be Full of Luxuries....
 
-> Hi there to the list.
-> 
-> I'm Luca De Cicco a PhD student working on TCP Westwood+ at Politecnico
-> di Bari.
-> 
-> I have attached a patch (it applies to 2.6.16.18 but it has been also
-> tested on 2.6.15 too) for the TCP Westwood+ congestion control
-> algorithm which fixes a bug and adds some new features/improvements:
-> 
-> o BUGFIX. The first sample was wrong
-> 
-> o RTT_min is updated each time a timeout event occurs (in order to
->   cope with hard handovers in wireless scenarios)
-> 
-> o The bandwidth estimate filter is now initialized with the first
-> bandwidth sample in order to have better performances in the case of
-> small file transfers.
-> 
-> Best regards,
-> 
-> Luca De Cicco
-> Politecnico di Bari
+http://blessthathomepleasee.com/
 
-Are you going  to split this up, or do you want me to do it?
-You probably are busy with school work.
+Yet, only a handful of people can afford the finest products, the luxuries of the elite.
+But, here at "Luxury Replica" we are committed to bringing you the finest products, at prices incomparably lower.
+All of the top designer brands for Watches, Ties, Handbags and even Mont Blanc.
+
+http://blessthathomepleasee.com/
+
+The finest of products, at the lowest of prices, only a click away:
+
+http://newgunforsalejoke.com/
+
+Regards,
+Garry London
+
