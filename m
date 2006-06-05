@@ -1,49 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] TCP: removal of unused label
-Date: Mon, 5 Jun 2006 16:02:40 -0700
-Message-ID: <20060605160240.4951f7ad@dxpl.pdx.osdl.net>
+Date: Mon, 05 Jun 2006 16:03:52 -0700 (PDT)
+Message-ID: <20060605.160352.21926542.davem@davemloft.net>
 References: <20060605110331.0f058738@dxpl.pdx.osdl.net>
 	<20060605195549.GA14942@electric-eye.fr.zoreil.com>
+	<20060605160240.4951f7ad@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:64431 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750712AbWFEXCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:02:36 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060605195549.GA14942@electric-eye.fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18604
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750703AbWFEXDv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 19:03:51 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060605160240.4951f7ad@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Jun 2006 21:55:49 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Mon, 5 Jun 2006 16:02:40 -0700
 
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> 
-> diff --git a/net/ipv4/tcp_compound.c b/net/ipv4/tcp_compound.c
-> index bc54f7e..a3c36c0 100644
-> --- a/net/ipv4/tcp_compound.c
-> +++ b/net/ipv4/tcp_compound.c
-> @@ -401,6 +401,7 @@ static void tcp_compound_cong_avoid(stru
->  static void tcp_compound_get_info(struct sock *sk, u32 ext, struct sk_buff *skb)
->  {
->  	const struct compound *ca = inet_csk_ca(sk);
-> +
->  	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
->  		struct tcpvegas_info *info;
->  
-> @@ -411,7 +412,6 @@ static void tcp_compound_get_info(struct
->  		info->tcpv_rttcnt = ca->cntRTT;
->  		info->tcpv_rtt = ca->baseRTT;
->  		info->tcpv_minrtt = ca->minRTT;
-> -	rtattr_failure:;
->  	}
->  }
->  
+> rtattr_failure is used inside __RTA_PUT() macro. It's gross, but there are
+> those who love it..
 
+Yes, it was clear that this patch wasn't build tested.
 
-rtattr_failure is used inside __RTA_PUT() macro. It's gross, but there are
-those who love it..
+And GCC usually warns very loudly about truly unused
+labels.
