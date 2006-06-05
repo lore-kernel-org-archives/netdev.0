@@ -1,26 +1,44 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
-Date: Mon, 5 Jun 2006 14:31:18 +0100
-Message-ID: <20060605133117.GA25243@infradead.org>
-References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060605085451.GA26766@infradead.org> <20060605132732.GA23350@tuxdriver.com>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] hush noisy ieee80211 CCMP printks
+Date: Mon, 5 Jun 2006 06:31:48 -0700
+Message-ID: <20060605133147.GA9567@jm.kir.nu>
+References: <20060605001208.GA4585@opus.vpn-dev.reflex>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:16040 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751099AbWFENbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 09:31:21 -0400
-To: Christoph Hellwig <hch@infradead.org>,
-	Jeff Garzik <jeff@garzik.org>, Andrew Morton <akpm@osdl.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Received: from mail2.genealogia.fi ([194.100.116.229]:53483 "EHLO
+	mail2.genealogia.fi") by vger.kernel.org with ESMTP
+	id S1751107AbWFENcb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 09:32:31 -0400
+To: Jason Lunz <lunz@falooley.org>
 Content-Disposition: inline
-In-Reply-To: <20060605132732.GA23350@tuxdriver.com>
+In-Reply-To: <20060605001208.GA4585@opus.vpn-dev.reflex>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 09:27:37AM -0400, John W. Linville wrote:
-> Actually, I was planning to merge the softmac-based version for 2.6.18.
-> It looks like I may want some of Andrew's patches on top (ia64, alpha, etc).
+On Sun, Jun 04, 2006 at 08:12:09PM -0400, Jason Lunz wrote:
 
-duh, didn't know that wasn't in -mm.  we want the softmac version of course.
+> Don't swamp syslog with
+> CCMP: decrypt failed: STA=00:12:17:3a:e2:c7
+> and 
+> CCMP: replay detected: STA=00:12:17:3a:e2:c7 previous PN 000000000004 received PN 000000000004
+> messages.
+> 
+> These both seem to be completely normal in regular use, especially
+> 'decrypt failed' whenever another wpa-using station on the same AP is
+> within range.
 
+These are not normal, i.e., they should not really show up unless
+something goes wrong. In many cases, this may be caused by something
+missing in local filtering (e.g., retry duplicates are not filtered out
+correctly or messages to incorrect addresses are allowed through, etc.).
+In other cases, it can indicate incorrect implementation of rekeying or
+some other bugs in either end of the connection. Anyway, I don't have
+anything against removing the messages in default kernel builds. If
+there is a suitable build time debug option, that might be nicer way of
+doing this, though, since these can provide valuable information when
+figuring out why something does not work.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
