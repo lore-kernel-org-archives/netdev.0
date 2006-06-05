@@ -1,107 +1,128 @@
-From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
-Subject: Re: Linux kernel and laws
-Date: Mon, 5 Jun 2006 10:21:15 -0400
-Message-ID: <Pine.LNX.4.61.0606051006030.17323@chaos.analogic.com>
-References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060605085451.GA26766@infradead.org> <20060605123304.GA6066@havoc.gtf.org> <1149511707.3111.57.camel@laptopd505.fenrus.org> <20060605125235.GB6066@havoc.gtf.org> <20060605140226.GR3955@stusta.de>
-Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: move zd1201 where it belongs
+Date: Mon, 5 Jun 2006 16:29:12 +0200
+Message-ID: <20060605142912.GF2132@elf.ucw.cz>
+References: <20060605103952.GA1670@elf.ucw.cz> <1149506120.3111.52.camel@laptopd505.fenrus.org> <20060605113332.GB2132@elf.ucw.cz> <20060605141322.GB23350@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Jeff Garzik" <jeff@garzik.org>,
-	"Arjan van de Ven" <arjan@infradead.org>,
-	"Christoph Hellwig" <hch@infradead.org>,
-	"Andrew Morton" <akpm@osdl.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751136AbWFEOVS@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-reply-to: <20060605140226.GR3955@stusta.de>
-To: "Adrian Bunk" <bunk@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:40373 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1751142AbWFEO35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 10:29:57 -0400
+To: Arjan van de Ven <arjan@infradead.org>,
+	Jirka Lenost Benc <jbenc@suse.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, pe1rxq@amsat.org
+Content-Disposition: inline
+In-Reply-To: <20060605141322.GB23350@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi!
 
-On Mon, 5 Jun 2006, Adrian Bunk wrote:
+> > > > zd1201 is wifi adapter, yet it is hiding in drivers/usb/net where
+> > > > noone can find it. This moves Kconfig/Makefile to right place; you
+> > > > still need to manually move .c and .h files.
+> 
+> > > do you think it should at least depend in some form or another on
+> > > CONFIG_USB ?
+> > 
+> > Right, added USB && to depends directive.
+> 
+> Did you mean to only copy Jiri and LKML?
 
-> On Mon, Jun 05, 2006 at 08:52:35AM -0400, Jeff Garzik wrote:
->> ...
->>> Paying attention to proper reverse engineering is good. Being
->>> overzealous is not.
->>
->> Being overzealous about merging drivers without first checking the legal
->> ramifications is a good way to torpedo Linux.
->>
->> Far too many people have a careless "U.S.A. laws suck, merge it anyway"
->> attitude.
->
-> Independent of this issue:
->
-> An interesting question is how to handle legal issues properly.
->
-> Where is the borderline for rejecting code due to legal issues?
-> Might not be 100% correct according to laws in the USA.
-> Might not be 100% correct according to laws in Germany.
-> Might not be 100% correct according to laws in Finland.
-> Might not be 100% correct according to laws in Norway.
-> Might not be 100% correct according to laws in Brasil.
-> Might not be 100% correct according to laws in Japan.
-> Might not be 100% correct according to laws in India.
-> Might not be 100% correct according to laws in Russia.
-> Might not be 100% correct according to laws in China.
-> Might not be 100% correct according to laws in Saudi Arabia.
-> Might not be 100% correct according to laws in Iran.
->
-> For me living in Germany, none of these laws except for the German one
-> has any relevance.
->
-> I've never seen people on this list pointing to probable problems with
-> Chinese laws although these laws are relevant for four times as many
-> people as US laws.
->
-> If someone would state a submission to the kernel might have issues
-> according to Chinese laws, or Iranian laws, or Russian laws, would this
-> be enough for keeping code out of the kernel?
->
-> This might sound like a theoretical question, but e.g. considering that
-> the kernel contains cryptography code it's a question that might have
-> wide practical implications.
->
->> 	Jeff
->
-> cu
-> Adrian
+Yes, because this should go in as a git patch (so it is move, not
+create new file), and I was hoping for Jiri to generate proper
+git-patch :-).
 
-If the kernel represented simply a knowledge base, then the burden
-about whether or not someone could use it used to rest entirely
-upon the user. That's why some Pacific rim governments are reportedly
-fire-walling information.
+> It seems like you should have sent at least sent this to
+> netdev@vger.kernel.org, if not also to me, Jeroen Vreeken and/or
+> possibly Greg K-H (USB subsystem).
+> 
+> Will you be posting a new version, with the CONFIG_USB change?
 
-In most western cultures, knowledge was not a crime. For many years,
-someone could write a book, telling you how to kill somebody and,
-as long as he didn't carry it out, he could not be held culpable.
+Here it is, still
 
-Recently, in the US and some other countries, knowledge has become
-criminalized. If you know how to defeat copy protection, and
-you are not in a protected industry, you could be tried and
-convicted of a federal crime.
+Signed-off-by: Pavel Machek <pavel@suse.cz>
 
-That's one of the reasons why there are now no general guidelines
-about kernel code, or any intellectual property use, for that matter.
-The conditions could occur where the government thinks that you
-know too much and are, therefore, a threat to "national security".
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index e0874cb..1eccdb3 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -503,6 +503,23 @@ config PRISM54
+ 	  say M here and read <file:Documentation/modules.txt>.  The module
+ 	  will be called prism54.ko.
+ 
++config USB_ZD1201
++	tristate "USB ZD1201 based Wireless device support"
++	depends on USB && NET_RADIO
++	select FW_LOADER
++	---help---
++	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
++	  ZD1201 chip.
++
++	  This driver makes the adapter appear as a normal Ethernet interface,
++	  typically on wlan0.
++	  
++	  The zd1201 device requires external firmware to be loaded.
++	  This can be found at http://linux-lc100020.sourceforge.net/
++	  
++	  To compile this driver as a module, choose M here: the
++	  module will be called zd1201.
++
+ source "drivers/net/wireless/hostap/Kconfig"
+ source "drivers/net/wireless/bcm43xx/Kconfig"
+ 
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index c867798..512603d 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -40,3 +40,5 @@ obj-$(CONFIG_BCM43XX)		+= bcm43xx/
+ # 16-bit wireless PCMCIA client drivers
+ obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
+ obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
++
++obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
+diff --git a/drivers/usb/net/Kconfig b/drivers/usb/net/Kconfig
+index efd6ca7..0540596 100644
+--- a/drivers/usb/net/Kconfig
++++ b/drivers/usb/net/Kconfig
+@@ -301,21 +301,4 @@ config USB_NET_ZAURUS
+ 	  some cases CDC MDLM) protocol, not "g_ether".
+ 
+ 
+-config USB_ZD1201
+-	tristate "USB ZD1201 based Wireless device support"
+-	depends on NET_RADIO
+-	select FW_LOADER
+-	---help---
+-	  Say Y if you want to use wireless LAN adapters based on the ZyDAS
+-	  ZD1201 chip.
+-
+-	  This driver makes the adapter appear as a normal Ethernet interface,
+-	  typically on wlan0.
+-	  
+-	  The zd1201 device requires external firmware to be loaded.
+-	  This can be found at http://linux-lc100020.sourceforge.net/
+-	  
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called zd1201.
+-
+ endmenu
+diff --git a/drivers/usb/net/Makefile b/drivers/usb/net/Makefile
+index a21e6ea..160f19d 100644
+--- a/drivers/usb/net/Makefile
++++ b/drivers/usb/net/Makefile
+@@ -15,7 +15,6 @@ obj-$(CONFIG_USB_NET_RNDIS_HOST)	+= rndi
+ obj-$(CONFIG_USB_NET_CDC_SUBSET)	+= cdc_subset.o
+ obj-$(CONFIG_USB_NET_ZAURUS)	+= zaurus.o
+ obj-$(CONFIG_USB_USBNET)	+= usbnet.o
+-obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
+ 
+ ifeq ($(CONFIG_USB_DEBUG),y)
+ EXTRA_CFLAGS += -DDEBUG
 
-So, again, see a lawyer. The fact that you sought and accepted
-legal opinion may in the future be your only viable defense as
-governments bring charges against you! Sorry state of affairs for
-sure.
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.16.4 on an i686 machine (5592.88 BogoMips).
-New book: http://www.AbominableFirebug.com/
-_
-
-
-****************************************************************
-The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
-
-Thank you.
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
