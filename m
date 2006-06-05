@@ -1,32 +1,71 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH, RTF/RFC] bcm43xx: Enable local IRQs while executing periodic work
-Date: Mon, 5 Jun 2006 14:54:38 -0400
-Message-ID: <20060605185433.GF6068@tuxdriver.com>
-References: <200605231723.10028.mb@bu3sch.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.17-rc5-mm3
+Date: Mon, 5 Jun 2006 11:54:56 -0700
+Message-ID: <20060605115456.c2b1e156.akpm@osdl.org>
+References: <20060603232004.68c4e1e3.akpm@osdl.org>
+	<20060605175637.GA16186@skynet.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:21513 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751288AbWFESys (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 14:54:48 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200605231723.10028.mb@bu3sch.de>
+Received: from smtp.osdl.org ([65.172.181.4]:49814 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751291AbWFESzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 14:55:03 -0400
+To: mel@csn.ul.ie (Mel Gorman)
+In-Reply-To: <20060605175637.GA16186@skynet.ie>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 23, 2006 at 05:23:09PM +0200, Michael Buesch wrote:
+On Mon, 5 Jun 2006 18:56:37 +0100
+mel@csn.ul.ie (Mel Gorman) wrote:
 
-> I would like to get this into wireless-2.6, but before that
-> happens I would like to have a few regression tests by people.
-> Please apply this and run high network traffic for 10-15 minutes.
-> Please enable kernel spinlock lockup and recursion detection
-> while testing.
+> 
+> I am seeing more networking-related funniness with 2.6.17-rc5-mm3 on the
+> same machine previously fixed by git-net-llc-fix.patch. The console log is
+> below. I've done no investigation work in case it's a known problem.
 
-It has almost been two weeks...do we want this patch, or not?
+It's not a known problem, afaik.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+> ...
+> Starting anacron: [  OK  ]
+> Starting atd: [  OK  ]
+> Starting Avahi daemon: [  OK  ]
+> Starting cups-config-daemon: [  OK  ]
+> Starting HAL daemon: [  OK  ]
+> Fedora Core release 5 (Bordeaux)
+> Kernel 2.6.17-rc5-mm2-autokern1 on an x86_64
+> bl6-13.ltc.austin.ibm.com login: -- 0:conmux-control -- time-stamp -- Jun/05/06 10:47:46 --
+> -- 0:conmux-control -- time-stamp -- Jun/05/06 10:51:12 --
+> BUG: warning at include/net/dst.h:153/dst_release()
+> Call Trace:
+>  <IRQ> [<ffffffff81228274>] __kfree_skb+0x3c/0xbd
+>  [<ffffffff81199568>] tg3_poll+0x1a1/0x94f
+>  [<ffffffff8122d80c>] net_rx_action+0xac/0x160
+>  [<ffffffff81037904>] __do_softirq+0x48/0xb4
+>  [<ffffffff8100a496>] call_softirq+0x1e/0x28
+>  [<ffffffff8100b84e>] do_softirq+0x2c/0x7e
+>  [<ffffffff8100b6c8>] do_IRQ+0x50/0x59
+>  [<ffffffff81007807>] default_idle+0x0/0x54
+>  [<ffffffff810097b8>] ret_from_intr+0x0/0xb
+>  <EOI>
+> Attempt to release alive inet socket ffff81003f8b2780
+> BUG: warning at include/net/dst.h:153/dst_release()
+> Call Trace:
+>  <IRQ> [<ffffffff81228274>] __kfree_skb+0x3c/0xbd
+>  [<ffffffff81268fc4>] icmp_rcv+0x17c/0x184
+>  [<ffffffff812484ca>] ip_local_deliver+0xfe/0x1bf
+>  [<ffffffff812489bf>] ip_rcv+0x434/0x475
+>  [<ffffffff8122d615>] netif_receive_skb+0x2c6/0x2e5
+>  [<ffffffff81199add>] tg3_poll+0x716/0x94f
+>  [<ffffffff8122d80c>] net_rx_action+0xac/0x160<7>Losing some ticks... checking if CPU frequency changed.
+>  [<ffffffff81037904>] __do_softirq+0x48/0xb4
+>  [<ffffffff8100a496>] call_softirq+0x1e/0x28
+>  [<ffffffff8100b84e>] do_softirq+0x2c/0x7e
+>  [<ffffffff8100b6c8>] do_IRQ+0x50/0x59
+>  [<ffffffff81007807>] default_idle+0x0/0x54
+>  [<ffffffff810097b8>] ret_from_intr+0x0/0xb
+
+There are quite a few changes in the net tree.  I guess the first thing to
+investigate would be 2.6.17-rc5+origin.patch+git-net.patch.
+
