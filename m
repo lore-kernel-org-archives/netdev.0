@@ -1,59 +1,33 @@
-From: Nathaniel Case <ncase@xes-inc.com>
-Subject: [PATCH 2/2] PHYLIB/gianfar: Use phy_ethtool_get_link() for
-	get_link op
-Date: Mon, 05 Jun 2006 18:48:54 -0500
-Message-ID: <1149551334.10700.48.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] TCP changes for 2.6.18
+Date: Mon, 05 Jun 2006 16:58:59 -0700 (PDT)
+Message-ID: <20060605.165859.104035231.davem@davemloft.net>
+References: <20060605110331.0f058738@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	galak@kernel.crashing.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xes-mad.com ([216.165.139.214]:7343 "EHLO xes-mad.com")
-	by vger.kernel.org with ESMTP id S1750913AbWFEXs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:48:56 -0400
-To: Andy Fleming <afleming@freescale.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5761
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751015AbWFEX7B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 19:59:01 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060605110331.0f058738@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes the gianfar ethtool code use phy_ethtool_get_link() instead of
-ethtool_op_get_link().
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Mon, 5 Jun 2006 11:03:31 -0700
 
-Patch depends on previous one (1/2).
+> Dave, please consider adding these for the 2.6.18.
 
-Signed-off-by: Nate Case <ncase@xes-inc.com>
+I'll pick these into my tree by extracting out the patches.
+Your tree wasn't based upon the net-2.6.18 tree, so if I just
+pull it into mine I'll get all the upstream changes since I
+cut the net-2.6.18 which at the current time I don't want :)
 
----
-
---- a/drivers/net/gianfar_ethtool.c	2006-06-05 11:27:19.000000000 -0500
-+++ b/drivers/net/gianfar_ethtool.c	2006-06-04 19:31:01.000000000 -0500
-@@ -228,6 +228,18 @@
- 		buf[i] = gfar_read(&theregs[i]);
- }
- 
-+static u32 gfar_get_link(struct net_device *dev)
-+{
-+	struct gfar_private *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
-+
-+	if (NULL == phydev)
-+		return -ENODEV;
-+
-+	return phy_ethtool_get_link(phydev);
-+}
-+
-+
- /* Convert microseconds to ethernet clock ticks, which changes
-  * depending on what speed the controller is running at */
- static unsigned int gfar_usecs2ticks(struct gfar_private *priv, unsigned int usecs)
-@@ -574,7 +578,7 @@
- 	.get_drvinfo = gfar_gdrvinfo,
- 	.get_regs_len = gfar_reglen,
- 	.get_regs = gfar_get_regs,
--	.get_link = ethtool_op_get_link,
-+	.get_link = gfar_get_link,
- 	.get_coalesce = gfar_gcoalesce,
- 	.set_coalesce = gfar_scoalesce,
- 	.get_ringparam = gfar_gringparam,
-
-
+BTW, it seems we now have at least 3 instances "VEGAS + stuff"
+and thus the core vegas logic is duplicated that many times.
+Would be nice to have some core vegas infrastructure in the
+generic congestion avoidance layer at some point.
