@@ -1,37 +1,37 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH,RFT] bcm43xx: use softmac-suggested TX rate
-Date: Mon, 5 Jun 2006 16:00:11 -0400
-Message-ID: <20060605200002.GN6068@tuxdriver.com>
-References: <20060506091651.26BCD88A2C3@zog.reactivated.net> <200606052115.54366.mb@bu3sch.de> <20060605191727.GJ6068@tuxdriver.com> <200606052128.55416.mb@bu3sch.de> <44848A97.8040801@gentoo.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org
+From: Jiri Slaby <jirislaby@gmail.com>
+Subject: [PATCH 0/3 #3] avoid pci_find_device
+Date: Mon, 5 Jun 2006 16:16:54 -0400
+Message-ID: <2005123213211@nnikde.cz>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz, jgarzik@pobox.com,
+	netdev@vger.kernel.org, khali@linux-fr.org,
+	lm-sensors@lm-sensors.org, stevel@mvista.com, source@mvista.com,
+	mb@bu3sch.de, st3@riseup.net, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:37642 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751373AbWFEUA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 16:00:28 -0400
-To: Daniel Drake <dsd@gentoo.org>
-Content-Disposition: inline
-In-Reply-To: <44848A97.8040801@gentoo.org>
+Received: from orfeus.profiwh.com ([82.100.20.117]:33041 "EHLO
+	orfeus.profiwh.com") by vger.kernel.org with ESMTP id S1751409AbWFEUQy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 16:16:54 -0400
+To: Greg KH <gregkh@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 08:48:39PM +0100, Daniel Drake wrote:
-> Michael Buesch wrote:
-> >On Monday 05 June 2006 21:17, John W. Linville wrote:
-> >>OK, I will now 'officially' forget about this patch, and wait for you
-> >>to endorse it by re-sending it to me. :-)
-> >
-> >Ok, but it depends on this patch, which does not seem to be in your tree, 
-> >yet.
-> >http://marc.theaimsgroup.com/?l=linux-netdev&m=114651996213569&q=raw
-> >
-> >I am not sure where it went, though... .
-> 
-> It's in the master branch.
+Hello,
 
-There too... :-)
+there are some patches to avoid pci_find_device in drivers.
+I will make a bcm43xx patch against wireless git too.
 
--- 
-John W. Linville
-linville@tuxdriver.com
+Take #3.
+
+It's against 2.6.17-rc5-mm3 tree.
+
+01-i2c-scx200-acb-avoid-pci-find-device.patch
+02-bcm43xx-avoid-pci-find-device.patch
+03-gt96100eth-avoid-pci-find-device.patch
+
+ i2c/busses/scx200_acb.c             |    9 ++++++---
+ net/gt96100eth.c                    |   23 ++++++++++++++++++-----
+ net/wireless/bcm43xx/bcm43xx_main.c |   21 ++++++++++++++++-----
+ 3 files changed, 40 insertions(+), 13 deletions(-)
+
+Thanks.
