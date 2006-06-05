@@ -1,39 +1,42 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 1/1] LSM-IPsec SELinux Authorize
-Date: Mon, 5 Jun 2006 18:32:09 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606051830140.7331@d.namei>
-References: <20060605195607.GA28030@jiayuguan.watson.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.18 2/3] tg3: Convert to non-LLTX
+Date: Mon, 5 Jun 2006 15:58:34 -0700
+Message-ID: <20060605155834.031d37a2@localhost.localdomain>
+References: <1149536852.13155.7.camel@rh4>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net, chrisw@osdl.org,
-	herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
-	tjaeger@cse.psu.edu, latten@austin.ibm.com, sergeh@us.ibm.com,
-	gcwilson@us.ibm.com, czhang.us@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:49327 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750785AbWFEWcN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 18:32:13 -0400
-To: Catherine Zhang <cxzhang@watson.ibm.com>
-In-Reply-To: <20060605195607.GA28030@jiayuguan.watson.ibm.com>
+Received: from smtp.osdl.org ([65.172.181.4]:57261 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750749AbWFEW7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 18:59:02 -0400
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <1149536852.13155.7.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Jun 2006, Catherine Zhang wrote:
+On Mon, 05 Jun 2006 12:47:32 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
+> Herbert Xu pointed out that it is unsafe to call netif_tx_disable()
+> from LLTX drivers because it uses dev->xmit_lock to synchronize
+> whereas LLTX drivers use private locks.
+> 
+> Convert tg3 to non-LLTX to fix this issue. tg3 is a lockless driver
+> where hard_start_xmit and tx completion handling can run concurrently
+> under normal conditions. A tx_lock is only needed to prevent
+> netif_stop_queue and netif_wake_queue race condtions when the queue
+> is full.
+> 
+> So whether we use LLTX or non-LLTX, it makes practically no
+> difference.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Looks ok to me, except for one minor nit:
+Since you are going more lockless, you probably need memory barriers.
 
-> +	if (ctx) {
-> +		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
-> +		SECCLASS_ASSOCIATION,
-> +		ASSOCIATION__SETCONTEXT, NULL);
-> +	}
-
-you don't need the braces here (similar again further in the patch).
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+I don't feel although that comfortable with the lockless driver model as is.
+Perhaps there is something simpler that could be done with a ring model and
+some atomic primitives like cmpxchg()?
