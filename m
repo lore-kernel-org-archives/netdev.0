@@ -1,49 +1,37 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
-Date: Sun, 4 Jun 2006 18:15:15 -0700
-Message-ID: <20060604181515.8faa8fcf.akpm@osdl.org>
-References: <20060604135011.decdc7c9.akpm@osdl.org>
-	<20060605010636.GB17361@havoc.gtf.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bug 6421] kernel 2.6.10-2.6.16 on alpha:
+ arch/alpha/kernel/io.c, iowrite16_rep() BUG_ON((unsigned long)src & 0x1)
+ triggered
+Date: Sun, 04 Jun 2006 21:48:49 -0700 (PDT)
+Message-ID: <20060604.214849.07641306.davem@davemloft.net>
+References: <20060603095442.GA373@gondor.apana.org.au>
+	<20060603.195123.77471511.yoshfuji@linux-ipv6.org>
+	<20060603110711.GA1754@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com, Denis Vlasenko <vda@ilport.com.ua>
+Cc: yoshfuji@linux-ipv6.org, bugme-daemon@bugzilla.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:44180 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932363AbWFEBPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Jun 2006 21:15:38 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <20060605010636.GB17361@havoc.gtf.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58787
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932401AbWFEEsw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 00:48:52 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060603110711.GA1754@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 4 Jun 2006 21:06:36 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 3 Jun 2006 21:07:11 +1000
 
-> On Sun, Jun 04, 2006 at 01:50:11PM -0700, Andrew Morton wrote:
-> > acx1xx-wireless-driver.patch
-> > fix-tiacx-on-alpha.patch
-> > tiacx-fix-attribute-packed-warnings.patch
-> > tiacx-pci-build-fix.patch
-> > tiacx-ia64-fix.patch
+> On Sat, Jun 03, 2006 at 07:51:23PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
 > > 
-> >   It is about time we did something with this large and presumably useful
-> >   wireless driver.
+> > I think that people will start thinking why we cannot
+> > skb_pull(skb, len) if skb_headlen(skb) == len; some comment needed...
 > 
-> I've never had technical objections to merging this, just AFAIK it had a
-> highly questionable origin, namely being reverse-engineered in a
-> non-clean-room environment that might leave Linux legally vulnerable.
+> Good idea.  Here is a better one.
+> 
+> [TCP]: Avoid skb_pull if possible when trimming head
 
-I never knew that.
-
-<reads changelog>
-<reads website>
-<reads wiki>
-
-I still don't know that.  Denis, do you know the details?
-
-> If we can clear that hurdle, by all means pass it on to John Linville
-> and get it moving towards upstream.
-
-OK, thanks.
+Applied, thanks a lot Herbert.
