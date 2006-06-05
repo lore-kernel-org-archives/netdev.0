@@ -1,37 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: move zd1201 where it belongs
-Date: Mon, 5 Jun 2006 10:47:26 -0400
-Message-ID: <20060605144722.GA6068@tuxdriver.com>
-References: <20060605103952.GA1670@elf.ucw.cz> <1149506120.3111.52.camel@laptopd505.fenrus.org> <20060605113332.GB2132@elf.ucw.cz> <20060605141322.GB23350@tuxdriver.com> <20060605142912.GF2132@elf.ucw.cz>
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [PATCH] hush noisy ieee80211 CCMP printks
+Date: Mon, 5 Jun 2006 12:03:35 -0400
+Message-ID: <20060605160335.GB25688@knob.reflex>
+References: <20060605001208.GA4585@opus.vpn-dev.reflex> <20060605133147.GA9567@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Jirka Lenost Benc <jbenc@suse.cz>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, pe1rxq@amsat.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:46085 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751165AbWFEOrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 10:47:46 -0400
-To: Pavel Machek <pavel@suse.cz>
+Received: from smtp.reflexsecurity.com ([72.54.64.74]:13250 "EHLO
+	crown.reflexsecurity.com") by vger.kernel.org with ESMTP
+	id S1751200AbWFEQDj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 12:03:39 -0400
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20060605133147.GA9567@jm.kir.nu>
 Content-Disposition: inline
-In-Reply-To: <20060605142912.GF2132@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 04:29:12PM +0200, Pavel Machek wrote:
+On Mon, Jun 05, 2006 at 06:31:48AM -0700, Jouni Malinen wrote:
+> These are not normal, i.e., they should not really show up unless
+> something goes wrong.
 
-> > Did you mean to only copy Jiri and LKML?
-> 
-> Yes, because this should go in as a git patch (so it is move, not
-> create new file), and I was hoping for Jiri to generate proper
-> git-patch :-).
+If these are a real problem, I'll gladly help debug it. I'm using
+2.6.17-rc5's bcm43xx and the in-kernel ieee80211 softmac stack. I'm
+using wpa/ccmp/aes with an openwrt AP.
 
-Ah, I see.  Well, I can handle this just fine.
+> In many cases, this may be caused by something missing in local
+> filtering (e.g., retry duplicates are not filtered out correctly or
+> messages to incorrect addresses are allowed through, etc.).
 
-Thanks,
+Is it the driver's responsibility to do this filtering, or the softmac
+stack's? Can you show me a code example where this filtering is done
+properly?
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+> In other cases, it can indicate incorrect implementation of rekeying or
+> some other bugs in either end of the connection.
+
+I can try different implementations of WPA in the AP if necessary. I
+think openwrt has other options. My end is in-kernel ieee80211_softmac -
+is there anything you'd like me to look at there?
+
+> Anyway, I don't have anything against removing the messages in default
+> kernel builds. If there is a suitable build time debug option, that
+> might be nicer way of doing this, though, since these can provide
+> valuable information when figuring out why something does not work.
+
+If the messages are actually useful, and unusual, then they should
+probably stay. But I get a LOT of them, and my wireless is working just
+fine.
+
+I noticed that there are counters being incremented where those printks
+are. How do I see those counters from userspace?
+
+Jason
