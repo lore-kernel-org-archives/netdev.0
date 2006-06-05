@@ -1,68 +1,59 @@
 From: Nathaniel Case <ncase@xes-inc.com>
-Subject: [PATCH 1/2] PHYLIB: Add get_link ethtool helper function
-Date: Mon, 05 Jun 2006 18:48:12 -0500
-Message-ID: <1149551292.10700.47.camel@localhost.localdomain>
+Subject: [PATCH 2/2] PHYLIB/gianfar: Use phy_ethtool_get_link() for
+	get_link op
+Date: Mon, 05 Jun 2006 18:48:54 -0500
+Message-ID: <1149551334.10700.48.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
 	galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xes-mad.com ([216.165.139.214]:4015 "EHLO xes-mad.com")
-	by vger.kernel.org with ESMTP id S1750809AbWFEXsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:48:15 -0400
+Received: from xes-mad.com ([216.165.139.214]:7343 "EHLO xes-mad.com")
+	by vger.kernel.org with ESMTP id S1750913AbWFEXs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 19:48:56 -0400
 To: Andy Fleming <afleming@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds a phy_ethtool_get_link() function along the same lines as
-phy_ethtool_gset().  This provides drivers utilizing PHYLIB an
-alternative to using ethtool_op_get_link().  This is more desirable
-since the "Link detected" field in ethtool would actually reflect the
-state of the PHY register.
+This patch makes the gianfar ethtool code use phy_ethtool_get_link() instead of
+ethtool_op_get_link().
 
-Patch depends on previous patch (0/2).
+Patch depends on previous one (1/2).
 
 Signed-off-by: Nate Case <ncase@xes-inc.com>
-Signed-off-by: Andy Fleming <afleming@freescale.com>
 
 ---
 
---- a/drivers/net/phy/phy.c	2006-06-04 16:01:59.000000000 -0500
-+++ b/drivers/net/phy/phy.c	2006-06-05 10:55:31.000000000 -0500
-@@ -301,6 +301,22 @@
- 	return 0;
+--- a/drivers/net/gianfar_ethtool.c	2006-06-05 11:27:19.000000000 -0500
++++ b/drivers/net/gianfar_ethtool.c	2006-06-04 19:31:01.000000000 -0500
+@@ -228,6 +228,18 @@
+ 		buf[i] = gfar_read(&theregs[i]);
  }
  
-+/* 
-+ * phy_ethtool_get_link:
-+ * A generic ethtool get_link function which is more accurate than
-+ * the network interface carrier status since it queries the
-+ * PHY directly.
-+ */
-+u32 phy_ethtool_get_link(struct phy_device *phydev)
++static u32 gfar_get_link(struct net_device *dev)
 +{
-+	int err;
++	struct gfar_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
 +
-+	err = genphy_update_link(phydev);
-+	if (err)
-+		return 0;
++	if (NULL == phydev)
++		return -ENODEV;
 +
-+	return (u32) phydev->link;
++	return phy_ethtool_get_link(phydev);
 +}
- 
- /* Note that this function is currently incompatible with the
-  * PHYCONTROL layer.  It changes registers without regard to
---- a/include/linux/phy.h	2006-06-05 11:33:59.000000000 -0500
-+++ b/include/linux/phy.h	2006-06-04 19:31:51.000000000 -0500
-@@ -374,6 +374,7 @@
- void phy_stop_machine(struct phy_device *phydev);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-+u32 phy_ethtool_get_link(struct phy_device *phydev);
- int phy_mii_ioctl(struct phy_device *phydev,
- 		struct mii_ioctl_data *mii_data, int cmd);
- int phy_start_interrupts(struct phy_device *phydev);
-
++
++
+ /* Convert microseconds to ethernet clock ticks, which changes
+  * depending on what speed the controller is running at */
+ static unsigned int gfar_usecs2ticks(struct gfar_private *priv, unsigned int usecs)
+@@ -574,7 +578,7 @@
+ 	.get_drvinfo = gfar_gdrvinfo,
+ 	.get_regs_len = gfar_reglen,
+ 	.get_regs = gfar_get_regs,
+-	.get_link = ethtool_op_get_link,
++	.get_link = gfar_get_link,
+ 	.get_coalesce = gfar_gcoalesce,
+ 	.set_coalesce = gfar_scoalesce,
+ 	.get_ringparam = gfar_gringparam,
 
 
