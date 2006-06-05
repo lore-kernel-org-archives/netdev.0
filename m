@@ -1,35 +1,42 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: OLPC (One Laptop Per Child) Developer's program.
-Date: Mon, 05 Jun 2006 10:07:33 +0100
-Message-ID: <1149498453.30024.48.camel@pmac.infradead.org>
-References: <1149025377.30703.141.camel@localhost.localdomain>
-	 <1149335345.5053.177.camel@pmac.infradead.org> <e5umgs$lfj$1@sea.gmane.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
+Date: Mon, 05 Jun 2006 11:26:55 +0100
+Message-ID: <1149503215.30554.6.camel@localhost.localdomain>
+References: <20060604135011.decdc7c9.akpm@osdl.org>
+	 <20060605010636.GB17361@havoc.gtf.org>
+	 <20060604181515.8faa8fcf.akpm@osdl.org>
+	 <20060605083321.GA15690@rhlx01.fht-esslingen.de>
+	 <1149497109.3111.28.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Andreas Mohr <andi@rhlx01.fht-esslingen.de>,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jeff@garzik.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linville@tuxdriver.com, Denis Vlasenko <vda@ilport.com.ua>,
+	acx100-devel@lists.sourceforge.net,
+	acx100-users@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([205.233.218.70]:50866 "EHLO
-	canuck.infradead.org") by vger.kernel.org with ESMTP
-	id S1750814AbWFEJHm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 05:07:42 -0400
-To: Anand Kumria <wildfire@progsoc.org>
-In-Reply-To: <e5umgs$lfj$1@sea.gmane.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:60387 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
+	id S1750866AbWFEKNU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 06:13:20 -0400
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1149497109.3111.28.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-06-04 at 13:17 +0000, Anand Kumria wrote:
-> > One thing we really need is NAT-PT or an equivalent for allowing access
-> > to the Legacy Internet from IPv6-only hosts. As soon as I finish playing
-> > with JFFS2 improvements, I plan to start looking at that.
-> 
-> Wouldn't miredo mostly fit the bill? It won't get through Symmetric NATs
-> (by design) but those are supposed to be uncommon. 
+Ar Llu, 2006-06-05 am 10:45 +0200, ysgrifennodd Arjan van de Ven:
+>  It's just that a cleanroom approach is a sure way to prove
+> you didn't copy. That's all.
 
-That seems to be a method for IPv4 hosts to get IPv6 connectivity. What
-I'm after is a method for IPv6 hosts to get IPv4 connectivity -- like
-NAT-PT.
+Which is an extremely important detail especially if you have been
+reverse engineering another driver for the same or similar OS where it
+is likely that people will retain knowledge and copy rather than
+re-implement things.
 
--- 
-dwmw2
+We've had "fun" with this before and the pwc camera driver. I don't want
+to see a repeat of that.
+
+Alan
 
