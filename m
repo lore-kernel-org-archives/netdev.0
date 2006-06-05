@@ -1,46 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 06/17] neighbour.c, pneigh_get_next() skips published
- entry
-Date: Mon, 05 Jun 2006 16:30:36 -0700 (PDT)
-Message-ID: <20060605.163036.102574536.davem@davemloft.net>
-References: <200606020328.k523S8hh028820@shell0.pdx.osdl.net>
+Subject: Re: MIB "ipInHdrErrors" error
+Date: Mon, 05 Jun 2006 16:38:09 -0700 (PDT)
+Message-ID: <20060605.163809.126578191.davem@davemloft.net>
+References: <1148546261.3038.14.camel@RHEL3GM>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jari.Takkala@Q9.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:38274
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5560
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750821AbWFEXaf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 19:30:35 -0400
-To: akpm@osdl.org
-In-Reply-To: <200606020328.k523S8hh028820@shell0.pdx.osdl.net>
+	id S1750798AbWFEXiL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 19:38:11 -0400
+To: weid@nanjing-fnst.com
+In-Reply-To: <1148546261.3038.14.camel@RHEL3GM>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@osdl.org
-Date: Thu, 01 Jun 2006 20:32:26 -0700
+From: Wei Dong <weid@nanjing-fnst.com>
+Date: Thu, 25 May 2006 16:37:42 +0800
 
-> From: "Jari Takkala" <Jari.Takkala@Q9.com>
+>     When I test linux kernel 2.6.9-34, and find that kernel statistics
+> about ipInHdrErrors which exsits in file /proc/net/snmp doesn't increase
+> correctly.  The criteria conform to RFC2011:
 > 
-> Fix a problem where output from /proc/net/arp skips a record when the full
-> output does not fit into the users read() buffer.
+> ipInHdrErrors OBJECT-TYPE
+>     SYNTAX      Counter32
+>     MAX-ACCESS  read-only
+>     STATUS      current
+>     DESCRIPTION
+>             "The number of input datagrams discarded due to errors in
+>             their IP headers, including bad checksums, version number
+>             mismatch, other format errors, time-to-live exceeded, errors
+>             discovered in processing their IP options, etc."
 > 
-> To reproduce: publish a large number of ARP entries (more than 10 required
-> on my system).  Run 'dd if=/proc/net/arp of=arp-1024.out bs=1024'.  View
-> the output, one entry will be missing.
-> 
-> Signed-off-by: Jari Takkala <jari.takkala@q9.com>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
+> When kernel receives an IP packet containing error protocol in IP
+> header, kernel doesn't increase this counter "ipInHdrErrors".
 
-This patch doesn't make any sense, I've been over it a few
-times.
+This event is not listed in the description you quoted.
 
-The seqfile layer should take care of that user buffering
-issue transparently as long as we implement the interface
-callbacks properly.
+> Also, when kernel receives an IP packet and need to forward, but
+> TTL=1 or TTL=0, kernel just sends an ICMP packet to inform the
+> sender TTL count exceeded, and doesn't increase this counter.
 
-Even if something needs to be fixed in the pneigh dumper,
-special casing *pos==1 doesn't look right.  Also, if pneigh
-has this problem, how come the neigh seqfile iterators don't
-have the same problem or do they?
+This part of your change seems correct, please just resubmit
+this part.
