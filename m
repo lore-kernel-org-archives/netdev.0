@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] TCP changes for 2.6.18
-Date: Mon, 05 Jun 2006 16:58:59 -0700 (PDT)
-Message-ID: <20060605.165859.104035231.davem@davemloft.net>
-References: <20060605110331.0f058738@dxpl.pdx.osdl.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH 2/2] e1000: remove risky prefetch on next_skb->data
+Date: Mon, 5 Jun 2006 17:12:31 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.63.0606051707520.1168@jbrandeb-desk.amr.corp.intel.com>
+References: <20060605230917.12584.55755.stgit@gitlost.site>
+ <20060605231127.12584.14321.stgit@gitlost.site> <4484BC62.3090707@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5761
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751015AbWFEX7B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Jun 2006 19:59:01 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060605110331.0f058738@dxpl.pdx.osdl.net>
+Received: from fmr18.intel.com ([134.134.136.17]:12257 "EHLO
+	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751174AbWFFANP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 20:13:15 -0400
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <4484BC62.3090707@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 5 Jun 2006 11:03:31 -0700
+On Mon, 5 Jun 2006, Rick Jones wrote:
 
-> Dave, please consider adding these for the 2.6.18.
+> 
+> Kok, Auke wrote:
+> > It was brought to our attention that the prefetches break e1000 traffic
+> > on xscale/arm architectures.  Remove them for now.  We'll let them
+> > stay in mm for a while, or find a better solution to enable.
+> 
+> Out of curiousity, what breaks?
 
-I'll pick these into my tree by extracting out the patches.
-Your tree wasn't based upon the net-2.6.18 tree, so if I just
-pull it into mine I'll get all the upstream changes since I
-cut the net-2.6.18 which at the current time I don't want :)
+Hi Rick, according to our reporter, receives break.  The prefetch (not 
+always, but sometimes) lets the processor get junk from the prefetched 
+area.  Apparently this version of arm doesn't quite do as strict 
+enforcement of bus snoops as x86, ia64, (and even pSeries!) does.
 
-BTW, it seems we now have at least 3 instances "VEGAS + stuff"
-and thus the core vegas logic is duplicated that many times.
-Would be nice to have some core vegas infrastructure in the
-generic congestion avoidance layer at some point.
+This manifested with a large drop in receive peformance using TCP, 
+probably because it was retransmitting frequently.
+
+Jesse
