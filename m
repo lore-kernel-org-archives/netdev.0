@@ -1,50 +1,37 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH 2/2] e1000: remove risky prefetch on next_skb->data
-Date: Mon, 05 Jun 2006 17:16:27 -0700
-Message-ID: <4484C95B.6010009@hp.com>
-References: <20060605230917.12584.55755.stgit@gitlost.site>	<20060605231127.12584.14321.stgit@gitlost.site>	<4484BC62.3090707@hp.com> <Pine.WNT.4.63.0606051707520.1168@jbrandeb-desk.amr.corp.intel.com>
+Date: Tue, 6 Jun 2006 02:22:18 +0200
+Message-ID: <200606060222.18872.ak@suse.de>
+References: <20060605230917.12584.55755.stgit@gitlost.site> <Pine.WNT.4.63.0606051707520.1168@jbrandeb-desk.amr.corp.intel.com> <4484C95B.6010009@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
 	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:57561 "EHLO palrel10.hp.com")
-	by vger.kernel.org with ESMTP id S1751178AbWFFAQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 20:16:30 -0400
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-In-Reply-To: <Pine.WNT.4.63.0606051707520.1168@jbrandeb-desk.amr.corp.intel.com>
+Received: from ns2.suse.de ([195.135.220.15]:11959 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751175AbWFFAWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 20:22:25 -0400
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <4484C95B.6010009@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> On Mon, 5 Jun 2006, Rick Jones wrote:
->>Kok, Auke wrote:
->>
->>>It was brought to our attention that the prefetches break e1000 traffic
->>>on xscale/arm architectures.  Remove them for now.  We'll let them
->>>stay in mm for a while, or find a better solution to enable.
->>
->>Out of curiousity, what breaks?
-> 
-> 
-> Hi Rick, according to our reporter, receives break.  The prefetch (not 
-> always, but sometimes) lets the processor get junk from the prefetched 
-> area.  Apparently this version of arm doesn't quite do as strict 
-> enforcement of bus snoops as x86, ia64, (and even pSeries!) does.
 
-Bear with me, I'm a software guy :)  I interpret that to mean that the 
-processor is basically broken?  If so, wouldn't it be the case that 
-prefetch() needs to become a noop on that processor?
+> Bear with me, I'm a software guy :)  I interpret that to mean that the 
+> processor is basically broken?  If so, wouldn't it be the case that 
+> prefetch() needs to become a noop on that processor?
 
-> This manifested with a large drop in receive peformance using TCP, 
-> probably because it was retransmitting frequently.
+I would agree with Rick - if prefetch() is broken on Xscale it should be disabled
+in the architecture, not in individual drivers. Otherwise all other code
+that use it might be broken too.
 
-I forget - what were the gains on the other CPUs?
+Maybe it's only broken on MMIO and not normal memory - in that
+case introducing a mmio_prefetch() (and defining it as an nop on Xscale) would be also
+an option.
 
-rick
-
-> 
-> Jesse
-
+-Andi
