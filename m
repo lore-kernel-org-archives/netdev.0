@@ -1,108 +1,60 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Tue, 6 Jun 2006 09:52:17 -0400
-Message-ID: <20060606135217.GA21969@hmsreliant.homelinux.net>
-References: <20060605230917.12584.55755.stgit@gitlost.site> <20060605231125.12584.17039.stgit@gitlost.site>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: [PATCH 1/1] LSM-IPsec SELinux Authorize (with minor fix)
+Date: Tue, 6 Jun 2006 10:55:58 -0400
+Message-ID: <OF4F545512.79E4862D-ON85257185.005181A7-85257185.00520729@us.ibm.com>
+References: <Pine.LNX.4.64.0606060133220.9787@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>, jmoyer@redhat.com,
-	mpm@selenic.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, davem@davemloft.net, chrisw@osdl.org,
+	herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
+	tjaeger@cse.psu.edu, latten@austin.ibm.com,
+	Serge E Hallyn <sergeh@us.ibm.com>,
+	George Wilson <gcwilson@us.ibm.com>, czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:16907 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932177AbWFFNxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 09:53:53 -0400
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Content-Disposition: inline
-In-Reply-To: <20060605231125.12584.17039.stgit@gitlost.site>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:15253 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932201AbWFFO4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 10:56:24 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k56Eu1GX019537
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 6 Jun 2006 10:56:02 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k56Eu18W154570
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 6 Jun 2006 10:56:01 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k56Eu09T026731
+	for <netdev@vger.kernel.org>; Tue, 6 Jun 2006 10:56:01 -0400
+In-Reply-To: <Pine.LNX.4.64.0606060133220.9787@d.namei>
+To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 04:11:25PM -0700, Kok, Auke wrote:
+Singned-off-by: Catherine Zhang <cxzhang@watson.ibm.com>
+
+James, is this enough or do I need to modify the original patch to add the 
+above line?  The code was taken from various pieces of patches originally 
+from Trent and merged/modified by me.  Let me know what else I need to do.
+
+thanks,
+Catherine
+
+James Morris <jmorris@namei.org> wrote on 06/06/2006 01:37:04 AM:
+
+> On Tue, 6 Jun 2006, Catherine Zhang wrote:
 > 
-> Netpoll was broken due to the earlier addition of multiqueue.
+> > Minor fix per James' comment.
 > 
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
+> Can you also add a Signed-off-by line?
 > 
->  drivers/net/e1000/e1000_main.c |    9 ++++++++-
->  1 files changed, 8 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index ed15fca..7103a0e 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -4629,10 +4629,17 @@ static void
->  e1000_netpoll(struct net_device *netdev)
->  {
->  	struct e1000_adapter *adapter = netdev_priv(netdev);
-> +#ifdef CONFIG_E1000_NAPI
-> +	int budget = 0;
-> +
-> +	disable_irq(adapter->pdev->irq);
-> +	e1000_clean_tx_irq(adapter, adapter->tx_ring);
-> +	adapter->clean_rx(adapter, adapter->rx_ring, &budget, netdev->weight);
-> +#else
-> +
-I've been speaking about this fix with a Jeff Moyer, and we've come up with some
-concerns regarding its implementation.  Specifically the call to
-adapter->clean_rx in the case of the e1000 driver is rather a layering
-violation in the netpoll code, in the sense that the function pointed to by clean_rx
-is functionality that is nominally used by the dev->poll method.  In fact in
-this case, it would appear possible since dev->poll is called under the
-poll_lock, but dev->poll_controller is not, that is is possible to have cpus in
-a system executing in e1000_clean_rx_irq_[ps] at the same time leading to data
-corruption:
+> I can't recall if you were the original author.   If not, we also need a 
 
-CPU0:
-netpoll_poll_dev
- dev->poll_controller (e1000_netpoll)
-  adapter->clean_rx (e1000_clean_rx_irq)
-
-CPU1:
-napi_poll
- dev->poll (e1000_clean)
-  e1000_clean_rx_irq
-
-I'm not sure what the right fix is here.  A spinlock in e1000_clean_rx_irq[_ps]
-would seem to be an easy and direct fix, but I don't know that thats the best
-solution.
-
-Something I don't understand is why the call to adapter->clean_rx is
-required in the first place when the napi_poll routine calls it itself directly.
-All other drivers schedule a napi poll and receive frames via that path.  My
-guess is that it has to do with the fact that we schedule polls on the device in
-the polling_netdev array, rather than the actual registered netdev. Looking at
-the driver code I note that while an entire array is allocated for polling
-netdevs, we only ever use entry 0.  Would it make sense to just remove the the
-polling_netdev array and use the registered device like all the other drivers.
-I expect that would eliminate the need for this patch as well.
-
-Regards
-Neil
-
->  	disable_irq(adapter->pdev->irq);
->  	e1000_intr(adapter->pdev->irq, netdev, NULL);
->  	e1000_clean_tx_irq(adapter, adapter->tx_ring);
-> -#ifndef CONFIG_E1000_NAPI
->  	adapter->clean_rx(adapter, adapter->rx_ring);
->  #endif
->  	enable_irq(adapter->pdev->irq);
+> From line (per Documentation/SubmittingPatches).
 > 
 > 
+> Thanks,
 > 
-> --
-> Auke Kok <auke-jan.h.kok@intel.com>
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -- 
+> James Morris
+> <jmorris@namei.org>
 
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
