@@ -1,60 +1,35 @@
-From: Xiaolan Zhang <cxzhang@us.ibm.com>
-Subject: Re: [PATCH 1/1] LSM-IPsec SELinux Authorize (with minor fix)
-Date: Tue, 6 Jun 2006 10:55:58 -0400
-Message-ID: <OF4F545512.79E4862D-ON85257185.005181A7-85257185.00520729@us.ibm.com>
-References: <Pine.LNX.4.64.0606060133220.9787@d.namei>
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [PATCH] hush noisy ieee80211 CCMP printks
+Date: Tue, 6 Jun 2006 11:02:20 -0400
+Message-ID: <20060606150219.GD14823@knob.reflex>
+References: <20060605001208.GA4585@opus.vpn-dev.reflex> <20060605133147.GA9567@jm.kir.nu> <20060605160335.GB25688@knob.reflex> <20060606034138.GB9568@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, davem@davemloft.net, chrisw@osdl.org,
-	herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
-	tjaeger@cse.psu.edu, latten@austin.ibm.com,
-	Serge E Hallyn <sergeh@us.ibm.com>,
-	George Wilson <gcwilson@us.ibm.com>, czhang.us@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:15253 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932201AbWFFO4Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 10:56:24 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k56Eu1GX019537
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 6 Jun 2006 10:56:02 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k56Eu18W154570
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 6 Jun 2006 10:56:01 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k56Eu09T026731
-	for <netdev@vger.kernel.org>; Tue, 6 Jun 2006 10:56:01 -0400
-In-Reply-To: <Pine.LNX.4.64.0606060133220.9787@d.namei>
-To: James Morris <jmorris@namei.org>
+Received: from smtp.reflexsecurity.com ([72.54.64.74]:15269 "EHLO
+	crown.reflexsecurity.com") by vger.kernel.org with ESMTP
+	id S932200AbWFFPCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jun 2006 11:02:24 -0400
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20060606034138.GB9568@jm.kir.nu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Singned-off-by: Catherine Zhang <cxzhang@watson.ibm.com>
+On Mon, Jun 05, 2006 at 08:41:38PM -0700, Jouni Malinen wrote:
+> Do you happen to have a wireless sniffer that you could use to capture
+> the frames? It would be interesting to see whether such a capture log
+> could be mapped into the dropped frames shown in the kernel debug log.
 
-James, is this enough or do I need to modify the original patch to add the 
-above line?  The code was taken from various pieces of patches originally 
-from Trent and merged/modified by me.  Let me know what else I need to do.
+I don't know. Would booting something like knoppix on another laptop
+with some flavor of Intel wireless do? The only two laptops I have
+regular access to are the bcm43xx one in question and another Intel one
+that ordinarily runs winxp.
 
-thanks,
-Catherine
+> Would you be interested in testing this with net/d80211 code and
+> wireless-dev.git?
 
-James Morris <jmorris@namei.org> wrote on 06/06/2006 01:37:04 AM:
+sure, I can do that. I'm fairly clumsy with git, so it may take a while.
 
-> On Tue, 6 Jun 2006, Catherine Zhang wrote:
-> 
-> > Minor fix per James' comment.
-> 
-> Can you also add a Signed-off-by line?
-> 
-> I can't recall if you were the original author.   If not, we also need a 
-
-> From line (per Documentation/SubmittingPatches).
-> 
-> 
-> Thanks,
-> 
-> -- 
-> James Morris
-> <jmorris@namei.org>
-
+Jason
