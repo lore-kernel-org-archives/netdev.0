@@ -1,93 +1,78 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Tue, 06 Jun 2006 13:42:59 -0400
-Message-ID: <x49zmgquqn0.fsf@segfault.boston.redhat.com>
-References: <20060605230917.12584.55755.stgit@gitlost.site>
-	<20060605231125.12584.17039.stgit@gitlost.site>
-	<20060606135217.GA21969@hmsreliant.homelinux.net>
-	<1149611965.13635.19.camel@strongmad>
-	<20060606170513.GB21969@hmsreliant.homelinux.net>
-	<4485B8EC.4090603@intel.com>
-	<x494pyyw5sr.fsf@segfault.boston.redhat.com>
-	<4485BCA2.5070904@intel.com>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [ PATCH 2.6.17-rc6 1/1]  udp.c:  counting InDatagrams which are never delivered
+Date: Tue, 6 Jun 2006 19:25:40 +0100
+Message-ID: <200606061925.40327@this-message-has-been-logged>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Garzik, Jeff" <jgarzik@pobox.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>, mpm@selenic.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kaber@coreworks.de, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:2243 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750754AbWFFRnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 13:43:51 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <4485BCA2.5070904@intel.com> (Auke Kok's message of "Tue, 06
- Jun 2006 10:34:26 -0700")
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:47355 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1750825AbWFFSZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 14:25:55 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-==> Regarding Re: [PATCH 1/2] e1000: fix netpoll with NAPI; Auke Kok <auke-jan.h.kok@intel.com> adds:
+This problem involves MIB counter inaccuracies triggered by 
+failed UDP checksums.
 
-auke-jan.h.kok> Jeff Moyer wrote:
->> ==> Regarding Re: [PATCH 1/2] e1000: fix netpoll with NAPI; Auke Kok <auke-jan.h.kok@intel.com> adds:
-auke-jan.h.kok> Neil Horman wrote:
->>>> On Tue, Jun 06, 2006 at 09:39:25AM -0700, Mitch Williams wrote:
->>>>> On Tue, 2006-06-06 at 09:52 -0400, Neil Horman wrote:
-auke-jan.h.kok> [snip]
->> 
->>>>> However, just for the sake of correctness (and paranoia), I'll whip up
->>>>> another patch that does this check.
->>>>> 
->>>> Thanks for the quick feedback!
->>>> Regards
->>>> Neil
->>>> 
->>>>> Jeff, please do not commit this patch.
-auke-jan.h.kok> Jeff,
-auke-jan.h.kok> I've popped the patch off from our gitserver, so you can
->> pull the two
-auke-jan.h.kok> outstanding patches while we revamp this one.
->> Would you please send patches to this list?  I'd certainly like to review
->> them.  I don't think the problem needs solving in the e1000 driver.  I
->> think it is an issue that should be handled properly by netpoll.
+Problem: ip_local_deliver_finish calls udp_rcv, which calls
+         udp_queue_rcv_skb. 
+         Unless the sk_filter is set, the checksum of the incoming
+         UDP datagram is not verified. If there are no other problems
+         InDatagrams (UDP_MIB_INDATAGRAMS) is then incremented.
+         Now, if udp_recvmsg is called as a handler for incoming
+         UDP datagrams, the checksum is verified for the first time
+         (unless sk_filter was set) and if the checksum fails, the
+         `goto csum_copy_err' leads to forcibly removing the datagram
+         _and_ incrementing InErrors (UDP_MIB_INERRORS). 
 
-auke-jan.h.kok> ???
+Issue:   When problem occurs in the manner described, the datagram
+         is counted twice: once as InDatagram and once as InErrors.
+         RFC 2013 defines InDatagrams as counter for delivered datagrams;
+         these datagrams are counted but never delivered.
 
-auke-jan.h.kok> that message was directed to Jeff Garzik, perhaps that was too confusing.
+How to reproduce: Send UDP datagrams with checksums enabled, use middlebox
+         which corrupts part of the traffic (e.g. bit errors / NetEm) and
+         use /proc/net/snmp to watch the counters. The sum of InErrors,
+         NoPorts and InDatagrams exceeds the real number of sent datagrams 
+         by the number of datagrams which were counted twice and forcibly
+         removed by udp_recvmsg.
+Non-occurrence: The problem does not occur if the sender disabled 
+         UDP checksums (zero field; allowed for IPv4, but not for IPv6), 
+         since then the checksum code returns success.
 
-I figured it was directed at Jeff G.
+Fix:   Move the `UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS)' statement from 
+       udp_queue_rcv_skb to udp_recvmsg. Now InDatagrams only counts those
+       datagrams which were really delivered (as per RFC 2013). 
 
-auke-jan.h.kok> They were sent here in the first place:
+Please CC: any correspondence to gerrit@erg.abdn.ac.uk  
 
-auke-jan.h.kok> http://marc.theaimsgroup.com/?l=linux-netdev&m=114954878711789&w=2
+Signed-off-by: <gerrit@erg.abdn.ac.uk>
 
-Thanks for the pointer.
+---
 
-As you noted, e1000 now uses a separate device for polling.  Netpoll should
-be able to deal with this, though.  I'd like to solicit mpm's input on
-this, as I'm having difficulties coming up with a clean solution.
+diff -Nurp  a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	2006-06-06 17:01:26.000000000 +0100
++++ b/net/ipv4/udp.c	2006-06-06 23:39:45.000000000 +0100
+@@ -823,6 +823,7 @@ try_again:
+ 		goto out_free;
+ 
+ 	sock_recv_timestamp(msg, sk, skb);
++	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS);
+ 
+ 	/* Copy the address. */
+ 	if (sin)
+@@ -1032,7 +1033,6 @@ static int udp_queue_rcv_skb(struct sock
+ 		kfree_skb(skb);
+ 		return -1;
+ 	}
+-	UDP_INC_STATS_BH(UDP_MIB_INDATAGRAMS);
+ 	return 0;
+ }
+ 
 
-For some background, the netpoll_poll_lock calls were introduced to prevent
-recursion in a device driver's ->poll routine.  By essentially calling the
-poll routine from the poll_controller routine, you are no longer prevented
-from such recursion.
 
-It would be best if the poll_controller routine was kept simple.  It should
-do the equivalent of the interrupt processing portion of the work, and
-leave the delivery to the network stack for a call to the ->poll routine.
-
-Solving this at the netpoll layer will be a bit difficult, since we have no
-insight into the driver design (as your driver illustrates).  Up until now,
-our model worked well.
-
-We could, potentially, walk the list of devices scheduled for a poll much
-the same as net_rx_action does.  However, we don't want to process work
-pending on other network adapters, only the one associated with the netpoll
-net device.  I can think of at least one way to make this distinction, but
-it feels too much like a hack.
-
-Matt, any ideas on this?
-
--Jeff
