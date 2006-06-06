@@ -1,36 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
-Date: Mon, 5 Jun 2006 21:18:18 -0400
-Message-ID: <20060606011818.GA4135@havoc.gtf.org>
-References: <2005123213211@nnikde.cz> <20060605202007.B464FC7B73@atrey.karlin.mff.cuni.cz> <20060605205309.GA31061@kroah.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6.18 1/3] tg3: Remove unnecessary tx_lock
+Date: Tue, 6 Jun 2006 12:04:34 +1000
+Message-ID: <20060606020434.GA23672@gondor.apana.org.au>
+References: <1149536843.13155.6.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jirislaby@gmail.com>, Greg KH <gregkh@suse.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci@atrey.karlin.mff.cuni.cz, jgarzik@pobox.com,
-	netdev@vger.kernel.org, mb@bu3sch.de, st3@riseup.net,
-	linville@tuxdriver.com
+Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:31939 "EHLO havoc.gtf.org")
-	by vger.kernel.org with ESMTP id S1751031AbWFFBSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Jun 2006 21:18:21 -0400
-To: Greg KH <greg@kroah.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:21263 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751213AbWFFCEw
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Jun 2006 22:04:52 -0400
+To: Michael Chan <mchan@broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <20060605205309.GA31061@kroah.com>
+In-Reply-To: <1149536843.13155.6.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 01:53:09PM -0700, Greg KH wrote:
-> Why not just use the proper pci interface?  Why poke around in another
-> pci device to steal an irq, when that irq might not even be valid?
-> (irqs are not valid until pci_enable_device() is called on them...)
+On Mon, Jun 05, 2006 at 12:47:23PM -0700, Michael Chan wrote:
+> Remove tx_lock where it is unnecessary. tg3 runs lockless and so it
+> requires interrupts to be disabled and sync'ed, netif_queue and NAPI
+> poll to be stopped before the device can be reconfigured. After
+> stopping everything, it is no longer necessary to get the tx_lock.
 
-Answered this question the last time you asked.
+The paths where full lock is preceded by netif_tx_disable are obviously
+safe (well, once you take off the LLTX flag anyway).  However, there are
+paths that don't do netif_tx_disable (e.g., tg3_set_rx_mode), are they
+safe as well?
 
-Answer:  this is an embedded platform that needs such poking.  The
-wireless device is _another_ device.
-
-	Jeff
-
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
