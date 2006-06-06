@@ -1,44 +1,36 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 2.6.18 1/3] tg3: Remove unnecessary tx_lock
-Date: Mon, 5 Jun 2006 22:10:56 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC041BCBA@NT-IRVA-0751.brcm.ad.broadcom.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 1/1] LSM-IPsec SELinux Authorize (with minor fix)
+Date: Tue, 6 Jun 2006 01:37:04 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606060133220.9787@d.namei>
+References: <20060606043818.GA4125@jiayuguan.watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net, chrisw@osdl.org,
+	herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
+	tjaeger@cse.psu.edu, latten@austin.ibm.com, sergeh@us.ibm.com,
+	gcwilson@us.ibm.com, czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4621 "EHLO mms2.broadcom.com")
-	by vger.kernel.org with ESMTP id S932109AbWFFFLL convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jun 2006 01:11:11 -0400
-Content-class: urn:content-classes:message
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Received: from mail6.sea5.speakeasy.net ([69.17.117.8]:1500 "EHLO
+	mail6.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751118AbWFFFhH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jun 2006 01:37:07 -0400
+To: Catherine Zhang <cxzhang@watson.ibm.com>
+In-Reply-To: <20060606043818.GA4125@jiayuguan.watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+On Tue, 6 Jun 2006, Catherine Zhang wrote:
 
-> The paths where full lock is preceded by netif_tx_disable are 
-> obviously
-> safe (well, once you take off the LLTX flag anyway).  
-> However, there are
-> paths that don't do netif_tx_disable (e.g., tg3_set_rx_mode), are they
-> safe as well?
-> 
+> Minor fix per James' comment.
 
-In places where we don't call tg3_netif_stop() before tg3_full_lock(),
-we are typically doing one of the following:
+Can you also add a Signed-off-by line?
 
-- changing tg3_flags or tg3_flags2
-- reprogramming MAC address
-- reprogramming interrupt coalescing values
-- reprogramming the PHY
-- setting the rx mode
+I can't recall if you were the original author.   If not, we also need a 
+>From line (per Documentation/SubmittingPatches).
 
-The TX code does not do any of these so it is safe.
 
-tg3_set_rx_mode() is actually called with xmit_lock held through
-dev->set_multicast_list(). Or it is called after tg3_netif_stop() in
-the VLAN registration calls (in my patch #3).
+Thanks,
 
+-- 
+James Morris
+<jmorris@namei.org>
