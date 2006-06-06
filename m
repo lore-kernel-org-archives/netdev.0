@@ -1,42 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET]: Add netif_tx_lock
-Date: Tue, 6 Jun 2006 20:22:10 +1000
-Message-ID: <20060606102210.GA26982@gondor.apana.org.au>
-References: <20060531.170908.46214247.davem@davemloft.net> <20060601002525.GA19220@gondor.apana.org.au> <20060601111503.GA16097@gondor.apana.org.au> <20060605.213250.85688925.davem@davemloft.net>
+From: Mel Gorman <mel@csn.ul.ie>
+Subject: Re: 2.6.17-rc5-mm3
+Date: Tue, 6 Jun 2006 11:57:37 +0100 (IST)
+Message-ID: <Pine.LNX.4.64.0606061055410.13396@skynet.skynet.ie>
+References: <20060603232004.68c4e1e3.akpm@osdl.org> <20060605175637.GA16186@skynet.ie>
+ <20060605115456.c2b1e156.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:778 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1751003AbWFFKWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 06:22:18 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060605.213250.85688925.davem@davemloft.net>
+Received: from holly.csn.ul.ie ([193.1.99.76]:10441 "EHLO holly.csn.ul.ie")
+	by vger.kernel.org with ESMTP id S1750803AbWFFK5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 06:57:39 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060605115456.c2b1e156.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 09:32:50PM -0700, David Miller wrote:
-> 
-> IPOIB is going to BUG() with this change.  Because now, in their
-> multicast code, you're going to local_bh_disable() via
-> netif_tx_unlock() with hw IRQs disabled which is illegal.
-> 
-> It shows a bug here in the locking of the IPOIB driver.
+On Mon, 5 Jun 2006, Andrew Morton wrote:
 
-You had me woried there.
+> On Mon, 5 Jun 2006 18:56:37 +0100
+> mel@csn.ul.ie (Mel Gorman) wrote:
+>
+>>
+>> I am seeing more networking-related funniness with 2.6.17-rc5-mm3 on the
+>> same machine previously fixed by git-net-llc-fix.patch. The console log is
+>> below. I've done no investigation work in case it's a known problem.
+>
+> It's not a known problem, afaik.
+>
+>> ...
+>> Starting anacron: [  OK  ]
+>> Starting atd: [  OK  ]
+>> Starting Avahi daemon: [  OK  ]
+>> Starting cups-config-daemon: [  OK  ]
+>> Starting HAL daemon: [  OK  ]
+>> Fedora Core release 5 (Bordeaux)
+>> Kernel 2.6.17-rc5-mm2-autokern1 on an x86_64
 
-> We need to think about this change some more. :)
+Bah, I'm a spanner. The patches I was testing were rebased to the latest 
+-mm, but the kernel version they were then tested on was not changed. This 
+was probably the LLC bug with a different shaped error and the first set 
+of tests are passing with -mm3. Sorry for the noise.
 
-I thought about it a bit more and I'm not worried anymore :)
-
-Notice that the patch does netif_tx_lock/netif_tx_unlock
-for IB instead of netif_tx_lock_bh/netif_tx_unlock_bh.
-So there is no BH enabling going on at all.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
