@@ -1,54 +1,34 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [NET]: Add netif_tx_lock
-Date: Mon, 05 Jun 2006 23:01:34 -0700
-Message-ID: <ada8xoan7pd.fsf@cisco.com>
-References: <adapshmnbam.fsf@cisco.com> <adalksanb0c.fsf@cisco.com>
-	<adahd2ynank.fsf@cisco.com>
-	<20060605.221018.70218518.davem@davemloft.net>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
+Date: Mon, 5 Jun 2006 23:50:16 -0700
+Message-ID: <20060606065016.GB16832@suse.de>
+References: <2005123213211@nnikde.cz> <20060605202007.B464FC7B73@atrey.karlin.mff.cuni.cz> <20060605205309.GA31061@kroah.com> <20060606011818.GA4135@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, mchan@broadcom.com, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:30864 "EHLO
-	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
-	id S932118AbWFFGBh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jun 2006 02:01:37 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060605.221018.70218518.davem@davemloft.net> (David Miller's message of "Mon, 05 Jun 2006 22:10:18 -0700 (PDT)")
-Sender: netdev-owner@vger.kernel.org
+Cc: Greg KH <greg@kroah.com>, Jiri Slaby <jirislaby@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz, jgarzik@pobox.com,
+	netdev@vger.kernel.org, mb@bu3sch.de, st3@riseup.net,
+	linville@tuxdriver.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750812AbWFFGxF@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <20060606011818.GA4135@havoc.gtf.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    David> As long as you never take priv->lock while ->xmit_lock is
-    David> held your patch should be OK.
+On Mon, Jun 05, 2006 at 09:18:18PM -0400, Jeff Garzik wrote:
+> On Mon, Jun 05, 2006 at 01:53:09PM -0700, Greg KH wrote:
+> > Why not just use the proper pci interface?  Why poke around in another
+> > pci device to steal an irq, when that irq might not even be valid?
+> > (irqs are not valid until pci_enable_device() is called on them...)
+> 
+> Answered this question the last time you asked.
+> 
+> Answer:  this is an embedded platform that needs such poking.  The
+> wireless device is _another_ device.
 
-Duh ... unfortunately priv->lock is taken from interrupt context so
-that patch isn't safe.  A correct fix would be the following, which
-leads to a trivial conversion to using netif_tx_lock().
+Ugh, sorry, too many patches, too many different threads...  You are
+right...
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-index 1dae4b2..7a8ca5d 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-@@ -821,8 +821,8 @@ void ipoib_mcast_restart_task(void *dev_
- 
- 	ipoib_mcast_stop_thread(dev, 0);
- 
--	spin_lock_irqsave(&dev->xmit_lock, flags);
--	spin_lock(&priv->lock);
-+	spin_lock_bh(&dev->xmit_lock);
-+	spin_lock_irqsave(&priv->lock, flags);
- 
- 	/*
- 	 * Unfortunately, the networking core only gives us a list of all of
-@@ -895,8 +895,8 @@ void ipoib_mcast_restart_task(void *dev_
- 		}
- 	}
- 
--	spin_unlock(&priv->lock);
--	spin_unlock_irqrestore(&dev->xmit_lock, flags);
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+	spin_unlock_bh(&dev->xmit_lock);
- 
- 	/* We have to cancel outside of the spinlock */
- 	list_for_each_entry_safe(mcast, tmcast, &remove_list, list) {
+greg k-h
