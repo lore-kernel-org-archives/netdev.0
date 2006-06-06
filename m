@@ -1,11 +1,17 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
+From: Jeff Moyer <jmoyer@redhat.com>
 Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Tue, 06 Jun 2006 10:34:26 -0700
-Message-ID: <4485BCA2.5070904@intel.com>
-References: <20060605230917.12584.55755.stgit@gitlost.site>	<20060605231125.12584.17039.stgit@gitlost.site>	<20060606135217.GA21969@hmsreliant.homelinux.net>	<1149611965.13635.19.camel@strongmad>	<20060606170513.GB21969@hmsreliant.homelinux.net>	<4485B8EC.4090603@intel.com> <x494pyyw5sr.fsf@segfault.boston.redhat.com>
+Date: Tue, 06 Jun 2006 13:42:59 -0400
+Message-ID: <x49zmgquqn0.fsf@segfault.boston.redhat.com>
+References: <20060605230917.12584.55755.stgit@gitlost.site>
+	<20060605231125.12584.17039.stgit@gitlost.site>
+	<20060606135217.GA21969@hmsreliant.homelinux.net>
+	<1149611965.13635.19.camel@strongmad>
+	<20060606170513.GB21969@hmsreliant.homelinux.net>
+	<4485B8EC.4090603@intel.com>
+	<x494pyyw5sr.fsf@segfault.boston.redhat.com>
+	<4485BCA2.5070904@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "Garzik, Jeff" <jgarzik@pobox.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	Mitch Williams <mitch.a.williams@intel.com>,
@@ -13,55 +19,75 @@ Cc: "Garzik, Jeff" <jgarzik@pobox.com>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>, mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:9142 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1750720AbWFFRfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jun 2006 13:35:25 -0400
-To: Jeff Moyer <jmoyer@redhat.com>
-In-Reply-To: <x494pyyw5sr.fsf@segfault.boston.redhat.com>
+Received: from mx1.redhat.com ([66.187.233.31]:2243 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750754AbWFFRnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 13:43:51 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <4485BCA2.5070904@intel.com> (Auke Kok's message of "Tue, 06
+ Jun 2006 10:34:26 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Moyer wrote:
-> ==> Regarding Re: [PATCH 1/2] e1000: fix netpoll with NAPI; Auke Kok <auke-jan.h.kok@intel.com> adds:
-> 
-> auke-jan.h.kok> Neil Horman wrote:
->>> On Tue, Jun 06, 2006 at 09:39:25AM -0700, Mitch Williams wrote:
->>>> On Tue, 2006-06-06 at 09:52 -0400, Neil Horman wrote:
-> 
-> 
-> auke-jan.h.kok> [snip]
-> 
-> 
->>>> However, just for the sake of correctness (and paranoia), I'll whip up
->>>> another patch that does this check.
->>>>
->>> Thanks for the quick feedback!
->>> Regards
->>> Neil
->>>
->>>> Jeff, please do not commit this patch.
-> 
-> auke-jan.h.kok> Jeff,
-> 
-> auke-jan.h.kok> I've popped the patch off from our gitserver, so you can pull the two
-> auke-jan.h.kok> outstanding patches while we revamp this one.
-> 
-> Would you please send patches to this list?  I'd certainly like to review
-> them.  I don't think the problem needs solving in the e1000 driver.  I
-> think it is an issue that should be handled properly by netpoll.
+==> Regarding Re: [PATCH 1/2] e1000: fix netpoll with NAPI; Auke Kok <auke-jan.h.kok@intel.com> adds:
 
-???
+auke-jan.h.kok> Jeff Moyer wrote:
+>> ==> Regarding Re: [PATCH 1/2] e1000: fix netpoll with NAPI; Auke Kok <auke-jan.h.kok@intel.com> adds:
+auke-jan.h.kok> Neil Horman wrote:
+>>>> On Tue, Jun 06, 2006 at 09:39:25AM -0700, Mitch Williams wrote:
+>>>>> On Tue, 2006-06-06 at 09:52 -0400, Neil Horman wrote:
+auke-jan.h.kok> [snip]
+>> 
+>>>>> However, just for the sake of correctness (and paranoia), I'll whip up
+>>>>> another patch that does this check.
+>>>>> 
+>>>> Thanks for the quick feedback!
+>>>> Regards
+>>>> Neil
+>>>> 
+>>>>> Jeff, please do not commit this patch.
+auke-jan.h.kok> Jeff,
+auke-jan.h.kok> I've popped the patch off from our gitserver, so you can
+>> pull the two
+auke-jan.h.kok> outstanding patches while we revamp this one.
+>> Would you please send patches to this list?  I'd certainly like to review
+>> them.  I don't think the problem needs solving in the e1000 driver.  I
+>> think it is an issue that should be handled properly by netpoll.
 
-that message was directed to Jeff Garzik, perhaps that was too confusing.
+auke-jan.h.kok> ???
 
+auke-jan.h.kok> that message was directed to Jeff Garzik, perhaps that was too confusing.
 
-They were sent here in the first place:
+I figured it was directed at Jeff G.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114954878711789&w=2
+auke-jan.h.kok> They were sent here in the first place:
 
+auke-jan.h.kok> http://marc.theaimsgroup.com/?l=linux-netdev&m=114954878711789&w=2
 
-Cheers,
+Thanks for the pointer.
 
-Auke
+As you noted, e1000 now uses a separate device for polling.  Netpoll should
+be able to deal with this, though.  I'd like to solicit mpm's input on
+this, as I'm having difficulties coming up with a clean solution.
 
+For some background, the netpoll_poll_lock calls were introduced to prevent
+recursion in a device driver's ->poll routine.  By essentially calling the
+poll routine from the poll_controller routine, you are no longer prevented
+from such recursion.
+
+It would be best if the poll_controller routine was kept simple.  It should
+do the equivalent of the interrupt processing portion of the work, and
+leave the delivery to the network stack for a call to the ->poll routine.
+
+Solving this at the netpoll layer will be a bit difficult, since we have no
+insight into the driver design (as your driver illustrates).  Up until now,
+our model worked well.
+
+We could, potentially, walk the list of devices scheduled for a poll much
+the same as net_rx_action does.  However, we don't want to process work
+pending on other network adapters, only the one associated with the netpoll
+net device.  I can think of at least one way to make this distinction, but
+it feels too much like a hack.
+
+Matt, any ideas on this?
+
+-Jeff
