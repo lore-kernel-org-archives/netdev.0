@@ -1,114 +1,108 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
-Date: Tue, 6 Jun 2006 14:58:06 +0200
-Message-ID: <200606061458.06928.mb@bu3sch.de>
-References: <2005123213211@nnikde.cz> <20060605202007.B464FC7B73@atrey.karlin.mff.cuni.cz> <20060605205309.GA31061@kroah.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
+Date: Tue, 6 Jun 2006 09:52:17 -0400
+Message-ID: <20060606135217.GA21969@hmsreliant.homelinux.net>
+References: <20060605230917.12584.55755.stgit@gitlost.site> <20060605231125.12584.17039.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-pci@atrey.karlin.mff.cuni.cz, jgarzik@pobox.com,
-	netdev@vger.kernel.org, mb@bu3sch.de, st3@riseup.net,
-	linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>, jmoyer@redhat.com,
+	mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:46732
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932149AbWFFM7a
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jun 2006 08:59:30 -0400
-To: Jiri Slaby <jirislaby@gmail.com>
-In-Reply-To: <20060605205309.GA31061@kroah.com>
+Received: from ra.tuxdriver.com ([24.172.12.4]:16907 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S932177AbWFFNxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 09:53:53 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Content-Disposition: inline
+In-Reply-To: <20060605231125.12584.17039.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 05 June 2006 22:53, Greg KH wrote:
-> On Mon, Jun 05, 2006 at 10:20:07PM +0200, Jiri Slaby wrote:
-> > bcm43xx avoid pci_find_device
-> > 
-> > Change pci_find_device to safer pci_get_device with support for more
-> > devices.
-> > 
-> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
-> > 
-> > ---
-> > commit 4b73c16f5411d97360d5f26f292ffddeb670ff75
-> > tree 6e43c8bd02498eb1ceec6bdc64277fa8408da9e2
-> > parent d59f9ea8489749f59cd0c7333a4784cab964daa8
-> > author Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:03 +0159
-> > committer Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:03 +0159
-> > 
-> >  drivers/net/wireless/bcm43xx/bcm43xx_main.c |   21 ++++++++++++++++-----
-> >  1 files changed, 16 insertions(+), 5 deletions(-)
-> > 
-> > diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > index 22b8fa6..d1a9975 100644
-> > --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> > @@ -2133,6 +2133,13 @@ out:
-> >  	return err;
-> >  }
-> >  
-> > +#ifdef CONFIG_BCM947XX
-> > +static struct pci_device_id bcm43xx_47xx_ids[] = {
-> > +	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4324) },
-> > +	{ 0 }
-> > +};
-> > +#endif
-> > +
-> >  static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
-> >  {
-> >  	int res;
-> > @@ -2142,11 +2149,15 @@ static int bcm43xx_initialize_irq(struct
-> >  	bcm->irq = bcm->pci_dev->irq;
-> >  #ifdef CONFIG_BCM947XX
-> >  	if (bcm->pci_dev->bus->number == 0) {
-> > -		struct pci_dev *d = NULL;
-> > -		/* FIXME: we will probably need more device IDs here... */
-> > -		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
-> > -		if (d != NULL) {
-> > -			bcm->irq = d->irq;
-> > +		struct pci_dev *d;
-> > +		struct pci_device_id *id;
-> > +		for (id = bcm43xx_47xx_ids; id->vendor; id++) {
-> > +			d = pci_get_device(id->vendor, id->device, NULL);
-> > +			if (d != NULL) {
-> > +				bcm->irq = d->irq;
-> > +				pci_dev_put(d);
-> > +				break;
-> > +			}
+On Mon, Jun 05, 2006 at 04:11:25PM -0700, Kok, Auke wrote:
 > 
-> This will not work if you have more than one of the same devices in the
-> system.
+> Netpoll was broken due to the earlier addition of multiqueue.
 > 
-> Well, the original code will not either :(
+> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
 > 
-> Why not just use the proper pci interface?  Why poke around in another
-> pci device to steal an irq, when that irq might not even be valid?
-> (irqs are not valid until pci_enable_device() is called on them...)
+>  drivers/net/e1000/e1000_main.c |    9 ++++++++-
+>  1 files changed, 8 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index ed15fca..7103a0e 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -4629,10 +4629,17 @@ static void
+>  e1000_netpoll(struct net_device *netdev)
+>  {
+>  	struct e1000_adapter *adapter = netdev_priv(netdev);
+> +#ifdef CONFIG_E1000_NAPI
+> +	int budget = 0;
+> +
+> +	disable_irq(adapter->pdev->irq);
+> +	e1000_clean_tx_irq(adapter, adapter->tx_ring);
+> +	adapter->clean_rx(adapter, adapter->rx_ring, &budget, netdev->weight);
+> +#else
+> +
+I've been speaking about this fix with a Jeff Moyer, and we've come up with some
+concerns regarding its implementation.  Specifically the call to
+adapter->clean_rx in the case of the e1000 driver is rather a layering
+violation in the netpoll code, in the sense that the function pointed to by clean_rx
+is functionality that is nominally used by the dev->poll method.  In fact in
+this case, it would appear possible since dev->poll is called under the
+poll_lock, but dev->poll_controller is not, that is is possible to have cpus in
+a system executing in e1000_clean_rx_irq_[ps] at the same time leading to data
+corruption:
 
-Ok, if someone really wants to have this patch in mainline.
+CPU0:
+netpoll_poll_dev
+ dev->poll_controller (e1000_netpoll)
+  adapter->clean_rx (e1000_clean_rx_irq)
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+CPU1:
+napi_poll
+ dev->poll (e1000_clean)
+  e1000_clean_rx_irq
 
-But the whole purpose of this patch is really questionable.
-* This code is only compiled for the OpenWRT Router kernel.
-  This kernel does not use softmac, but dscape stack.
-  So nobody will ever actually use this code.
-  One could even argue, if the code should be removed from
-  the softmac driver, but I think openwrt people use it for
-  some kind of hacking, testing, whatever.
-  It's not so much code, so I don't care. It does not add
-  maintainance work.
-* Do we really need to increment some reference counters?
-  I mean, we are asking for a bus here. This bus is not
-  hotpluggable or something and will never go away. Either it
-  is soldered on the board or not. That is what we test here.
+I'm not sure what the right fix is here.  A spinlock in e1000_clean_rx_irq[_ps]
+would seem to be an easy and direct fix, but I don't know that thats the best
+solution.
 
-So, Jiri, if you really want to have this patch upstream, you
-have my Signed-off-by. If nobody else cares, it will get lost
-in the deep black netdev hole. ;)
+Something I don't understand is why the call to adapter->clean_rx is
+required in the first place when the napi_poll routine calls it itself directly.
+All other drivers schedule a napi poll and receive frames via that path.  My
+guess is that it has to do with the fact that we schedule polls on the device in
+the polling_netdev array, rather than the actual registered netdev. Looking at
+the driver code I note that while an entire array is allocated for polling
+netdevs, we only ever use entry 0.  Would it make sense to just remove the the
+polling_netdev array and use the registered device like all the other drivers.
+I expect that would eliminate the need for this patch as well.
+
+Regards
+Neil
+
+>  	disable_irq(adapter->pdev->irq);
+>  	e1000_intr(adapter->pdev->irq, netdev, NULL);
+>  	e1000_clean_tx_irq(adapter, adapter->tx_ring);
+> -#ifndef CONFIG_E1000_NAPI
+>  	adapter->clean_rx(adapter, adapter->rx_ring);
+>  #endif
+>  	enable_irq(adapter->pdev->irq);
+> 
+> 
+> 
+> --
+> Auke Kok <auke-jan.h.kok@intel.com>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 -- 
-Greetings Michael.
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
+ ***************************************************/
