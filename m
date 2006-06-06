@@ -1,48 +1,114 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: 2.6.17-rc5-mm3
-Date: Tue, 6 Jun 2006 11:57:37 +0100 (IST)
-Message-ID: <Pine.LNX.4.64.0606061055410.13396@skynet.skynet.ie>
-References: <20060603232004.68c4e1e3.akpm@osdl.org> <20060605175637.GA16186@skynet.ie>
- <20060605115456.c2b1e156.akpm@osdl.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 2/3] pci: bcm43xx avoid pci_find_device
+Date: Tue, 6 Jun 2006 14:58:06 +0200
+Message-ID: <200606061458.06928.mb@bu3sch.de>
+References: <2005123213211@nnikde.cz> <20060605202007.B464FC7B73@atrey.karlin.mff.cuni.cz> <20060605205309.GA31061@kroah.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg@kroah.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-pci@atrey.karlin.mff.cuni.cz, jgarzik@pobox.com,
+	netdev@vger.kernel.org, mb@bu3sch.de, st3@riseup.net,
+	linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from holly.csn.ul.ie ([193.1.99.76]:10441 "EHLO holly.csn.ul.ie")
-	by vger.kernel.org with ESMTP id S1750803AbWFFK5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Jun 2006 06:57:39 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060605115456.c2b1e156.akpm@osdl.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:46732
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932149AbWFFM7a
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jun 2006 08:59:30 -0400
+To: Jiri Slaby <jirislaby@gmail.com>
+In-Reply-To: <20060605205309.GA31061@kroah.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Jun 2006, Andrew Morton wrote:
+On Monday 05 June 2006 22:53, Greg KH wrote:
+> On Mon, Jun 05, 2006 at 10:20:07PM +0200, Jiri Slaby wrote:
+> > bcm43xx avoid pci_find_device
+> > 
+> > Change pci_find_device to safer pci_get_device with support for more
+> > devices.
+> > 
+> > Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
+> > 
+> > ---
+> > commit 4b73c16f5411d97360d5f26f292ffddeb670ff75
+> > tree 6e43c8bd02498eb1ceec6bdc64277fa8408da9e2
+> > parent d59f9ea8489749f59cd0c7333a4784cab964daa8
+> > author Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:03 +0159
+> > committer Jiri Slaby <ku@bellona.localdomain> Mon, 05 Jun 2006 22:01:03 +0159
+> > 
+> >  drivers/net/wireless/bcm43xx/bcm43xx_main.c |   21 ++++++++++++++++-----
+> >  1 files changed, 16 insertions(+), 5 deletions(-)
+> > 
+> > diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> > index 22b8fa6..d1a9975 100644
+> > --- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> > +++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+> > @@ -2133,6 +2133,13 @@ out:
+> >  	return err;
+> >  }
+> >  
+> > +#ifdef CONFIG_BCM947XX
+> > +static struct pci_device_id bcm43xx_47xx_ids[] = {
+> > +	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4324) },
+> > +	{ 0 }
+> > +};
+> > +#endif
+> > +
+> >  static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
+> >  {
+> >  	int res;
+> > @@ -2142,11 +2149,15 @@ static int bcm43xx_initialize_irq(struct
+> >  	bcm->irq = bcm->pci_dev->irq;
+> >  #ifdef CONFIG_BCM947XX
+> >  	if (bcm->pci_dev->bus->number == 0) {
+> > -		struct pci_dev *d = NULL;
+> > -		/* FIXME: we will probably need more device IDs here... */
+> > -		d = pci_find_device(PCI_VENDOR_ID_BROADCOM, 0x4324, NULL);
+> > -		if (d != NULL) {
+> > -			bcm->irq = d->irq;
+> > +		struct pci_dev *d;
+> > +		struct pci_device_id *id;
+> > +		for (id = bcm43xx_47xx_ids; id->vendor; id++) {
+> > +			d = pci_get_device(id->vendor, id->device, NULL);
+> > +			if (d != NULL) {
+> > +				bcm->irq = d->irq;
+> > +				pci_dev_put(d);
+> > +				break;
+> > +			}
+> 
+> This will not work if you have more than one of the same devices in the
+> system.
+> 
+> Well, the original code will not either :(
+> 
+> Why not just use the proper pci interface?  Why poke around in another
+> pci device to steal an irq, when that irq might not even be valid?
+> (irqs are not valid until pci_enable_device() is called on them...)
 
-> On Mon, 5 Jun 2006 18:56:37 +0100
-> mel@csn.ul.ie (Mel Gorman) wrote:
->
->>
->> I am seeing more networking-related funniness with 2.6.17-rc5-mm3 on the
->> same machine previously fixed by git-net-llc-fix.patch. The console log is
->> below. I've done no investigation work in case it's a known problem.
->
-> It's not a known problem, afaik.
->
->> ...
->> Starting anacron: [  OK  ]
->> Starting atd: [  OK  ]
->> Starting Avahi daemon: [  OK  ]
->> Starting cups-config-daemon: [  OK  ]
->> Starting HAL daemon: [  OK  ]
->> Fedora Core release 5 (Bordeaux)
->> Kernel 2.6.17-rc5-mm2-autokern1 on an x86_64
+Ok, if someone really wants to have this patch in mainline.
 
-Bah, I'm a spanner. The patches I was testing were rebased to the latest 
--mm, but the kernel version they were then tested on was not changed. This 
-was probably the LLC bug with a different shaped error and the first set 
-of tests are passing with -mm3. Sorry for the noise.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+But the whole purpose of this patch is really questionable.
+* This code is only compiled for the OpenWRT Router kernel.
+  This kernel does not use softmac, but dscape stack.
+  So nobody will ever actually use this code.
+  One could even argue, if the code should be removed from
+  the softmac driver, but I think openwrt people use it for
+  some kind of hacking, testing, whatever.
+  It's not so much code, so I don't care. It does not add
+  maintainance work.
+* Do we really need to increment some reference counters?
+  I mean, we are asking for a bus here. This bus is not
+  hotpluggable or something and will never go away. Either it
+  is soldered on the board or not. That is what we test here.
+
+So, Jiri, if you really want to have this patch upstream, you
+have my Signed-off-by. If nobody else cares, it will get lost
+in the deep black netdev hole. ;)
 
 -- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+Greetings Michael.
