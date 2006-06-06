@@ -1,35 +1,47 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Linux kernel and laws
-Date: Tue, 6 Jun 2006 09:33:50 +0400
-Message-ID: <20060606053350.GA5905@2ka.mipt.ru>
-References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060605085451.GA26766@infradead.org> <20060605123304.GA6066@havoc.gtf.org> <1149511707.3111.57.camel@laptopd505.fenrus.org> <20060605125235.GB6066@havoc.gtf.org> <20060605140226.GR3955@stusta.de>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: [linux-usb-devel] [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
+Date: Mon, 5 Jun 2006 22:41:02 -0700
+Message-ID: <200606052241.03845.david-b@pacbell.net>
+References: <44817083.508@gentoo.org> <4481E497.2000505@gentoo.org> <200606040025.32275.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linville@tuxdriver.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932089AbWFFFhq@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Neukum <oliver@neukum.org>, Daniel Drake <dsd@gentoo.org>,
+	netdev@vger.kernel.org, Ulrich Kunitz <kune@deine-taler.de>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp107.sbc.mail.mud.yahoo.com ([68.142.198.206]:20333 "HELO
+	smtp107.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S932116AbWFFFlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jun 2006 01:41:06 -0400
+To: linux-usb-devel@lists.sourceforge.net
+In-Reply-To: <200606040025.32275.oliver@neukum.org>
 Content-Disposition: inline
-In-Reply-To: <20060605140226.GR3955@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 05, 2006 at 04:02:26PM +0200, Adrian Bunk (bunk@stusta.de) wrote:
-> > Far too many people have a careless "U.S.A. laws suck, merge it anyway"
-> > attitude.
-> If someone would state a submission to the kernel might have issues 
-> according to Chinese laws, or Iranian laws, or Russian laws, would this 
-> be enough for keeping code out of the kernel?
+On Saturday 03 June 2006 3:25 pm, Oliver Neukum wrote:
+> Am Samstag, 3. Juni 2006 21:35 schrieb Daniel Drake:
+> > Oliver Neukum wrote:
+> > > +static int read_mac_addr(struct zd_chip *chip, u8 *mac_addr)
+> > > +{
+> > > +	static const zd_addr_t addr[2] = { CR_MAC_ADDR_P1, CR_MAC_ADDR_P2 };
+> > > +	return _read_mac_addr(chip, mac_addr, (const zd_addr_t *)addr);
+> > > +}
+> > > 
+> > > Why on the stack?
+> > 
+> > Technically it's not on the stack because it is static const (it goes in 
+> > rodata), but I don't think that this invalidates your point. What's the 
+> > alternative? kmalloc and kfree every time?
+> 
+> In this case rodata will work. However, if you ever switch to direct DMA
+> it will fail. I really did overlook the const keyword.
 
-Btw, did kernel hackers consulted with Papua New Guinea or bloody
-Russian laws? It is possible that they have a law which forbids to write 
-open source code. So we should stop Linux kernel development and completely 
-remove it's sources from the Internet ASAP.
+On some platforms rodata will work; but it's not guaranteed on any.
+See Documentation/DMA-mapping.txt and read the little section at the
+top explaining what types of memory can be DMA'd from ... neither stack,
+nor BSS, nor data, nor rodata, nor text are OK.
 
-P.S. It is explicitly permitted to make reverse engineering in Russia.
-
--- 
-	Evgeniy Polyakov
+- Dave
