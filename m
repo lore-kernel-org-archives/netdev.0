@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] LSM-IPsec SELinux Authorize (with minor fix)
-Date: Mon, 05 Jun 2006 22:49:13 -0700 (PDT)
-Message-ID: <20060605.224913.35664171.davem@davemloft.net>
-References: <20060606043818.GA4125@jiayuguan.watson.ibm.com>
-	<Pine.LNX.4.64.0606060133220.9787@d.namei>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [NET]: Add netif_tx_lock
+Date: Mon, 05 Jun 2006 23:01:34 -0700
+Message-ID: <ada8xoan7pd.fsf@cisco.com>
+References: <adapshmnbam.fsf@cisco.com> <adalksanb0c.fsf@cisco.com>
+	<adahd2ynank.fsf@cisco.com>
+	<20060605.221018.70218518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cxzhang@watson.ibm.com, netdev@vger.kernel.org, chrisw@osdl.org,
-	herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
-	tjaeger@cse.psu.edu, latten@austin.ibm.com, sergeh@us.ibm.com,
-	gcwilson@us.ibm.com, czhang.us@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, mchan@broadcom.com, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50852
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932072AbWFFFt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Jun 2006 01:49:26 -0400
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0606060133220.9787@d.namei>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:30864 "EHLO
+	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
+	id S932118AbWFFGBh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Jun 2006 02:01:37 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060605.221018.70218518.davem@davemloft.net> (David Miller's message of "Mon, 05 Jun 2006 22:10:18 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Tue, 6 Jun 2006 01:37:04 -0400 (EDT)
+    David> As long as you never take priv->lock while ->xmit_lock is
+    David> held your patch should be OK.
 
-> On Tue, 6 Jun 2006, Catherine Zhang wrote:
-> 
-> > Minor fix per James' comment.
-> 
-> Can you also add a Signed-off-by line?
-> 
-> I can't recall if you were the original author.   If not, we also need a 
-> From line (per Documentation/SubmittingPatches).
+Duh ... unfortunately priv->lock is taken from interrupt context so
+that patch isn't safe.  A correct fix would be the following, which
+leads to a trivial conversion to using netif_tx_lock().
 
-I'll apply this to my net-2.6.18 tree once this is all sorted
-out.  Thanks everyone.
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+index 1dae4b2..7a8ca5d 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+@@ -821,8 +821,8 @@ void ipoib_mcast_restart_task(void *dev_
+ 
+ 	ipoib_mcast_stop_thread(dev, 0);
+ 
+-	spin_lock_irqsave(&dev->xmit_lock, flags);
+-	spin_lock(&priv->lock);
++	spin_lock_bh(&dev->xmit_lock);
++	spin_lock_irqsave(&priv->lock, flags);
+ 
+ 	/*
+ 	 * Unfortunately, the networking core only gives us a list of all of
+@@ -895,8 +895,8 @@ void ipoib_mcast_restart_task(void *dev_
+ 		}
+ 	}
+ 
+-	spin_unlock(&priv->lock);
+-	spin_unlock_irqrestore(&dev->xmit_lock, flags);
++	spin_unlock_irqrestore(&priv->lock, flags);
++	spin_unlock_bh(&dev->xmit_lock);
+ 
+ 	/* We have to cancel outside of the spinlock */
+ 	list_for_each_entry_safe(mcast, tmcast, &remove_list, list) {
