@@ -1,80 +1,72 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
-Date: Wed, 07 Jun 2006 13:12:51 -0500
-Message-ID: <44871723.3040803@lwfinger.net>
-References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes> <1149701352.2625.20.camel@localhost.localdomain>
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: Re: [PATCH] pcnet32 driver NAPI support
+Date: Wed, 7 Jun 2006 11:20:40 -0700
+Message-ID: <20060607182040.GA12748@us.ibm.com>
+References: <20060607165225.GB7859@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	Jouni Malinen <jkm@devicescape.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:65432 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751194AbWFGSM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 14:12:57 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1149701352.2625.20.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751220AbWFGSUt@vger.kernel.org>
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Content-Disposition: inline
+In-Reply-To: <20060607165225.GB7859@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> On Wed, 2006-06-07 at 17:57 +0200, Johannes Berg wrote:
->> On Wed, 2006-06-07 at 17:51 +0200, Johannes Berg wrote:
->>
->>> Well, it should be shown in the 802.11i spec too.
->> I suppose that it is the association request, and needs to contain the
->> RSN described in 7.3.2.25 as per 7.2.3.4 in 802.11i. This is, afaik, the
->> 'generic IE' that is added with the wext. Now, it looks like the RSN
->> isn't included but the WPA2 info or something? Also, the genIE in your
->> log doesn't look correct to me, starting with ffffff?? Jouni, do you
->> have any idea what might be going on?
+On Wed, Jun 07, 2006 at 12:52:25PM -0400, Lennart Sorensen wrote:
+> I have added NAPI support to the pcnet32 driver.  This has greatly
+> improved the responsiveness on my systems (geode GX1 266MHz) when under
+> heavy network load.  Without this change the system would become
+> unresponsive due to interrupts when flooded with traffic, and eventually
+> the watchdog would reboot the system due to the watchdog daemon being
+> starved for cpu time.  With the patch the system is still useable on a
+> serial console, although very slow.  Network throughput is also higher
+> since more time is spend processing packets and getting them sent out,
+> instead of only spending time acknowledging interrupts from incoming
+> packets.
 > 
-> I believe that wpa_supplicant tells the driver what genie to use through
-> the SIOCSIWGENIE wext call.  The IEs match between what the driver
-> appears to be reporting, and what wpa_supplicant says from the logs.
-> wpa_supplicant is almost certainly writing the correct IE to the driver
-> through wext, so I think the debug output from softmac must be
-> formatting the string incorrectly when printing it out to the logs.
+> Now having never actually done a patch submission to the kernel before,
+> I will try and see if I can do it right.
 > 
-> Looking at it further:
+> The patch adds a PCNET32_NAPI config option to drivers/net/Kconfig, and
+> the appropriate code to support the option to drivers/net/pcnet32.c and
+> has been tested on many of my systems (allthough they are allmost all
+> identical, and require some extra patches to pcnet32 due to not having
+> an EEPROM installed), and on an AT-2700TX.
 > 
-> struct ieee80211softmac_wpa {
->         char *IE;
->         int IElen;
->         int IEbuflen;
-> };
+> I have made a diff against 2.6.16.20 and 2.6.17-rc6.
 > 
-> from ieee80211softmac_wx.c: ieee80211softmac_wx_set_genie()
-> 
->                 memcpy(mac->wpa.IE, extra, wrqu->data.length);
->                 dprintk(KERN_INFO PFX "generic IE set to ");
->                 for (i=0;i<wrqu->data.length;i++)
->                         dprintk("%.2x", mac->wpa.IE[i]);
->                 dprintk("\n");
-> 
-> the dprintk code isn't doing the right thing here, given an array of
-> bytes.  You probably want:
-> 
->                         dprintk("%.2hhx", mac->wpa.IE[i]);
-> 
-> (ie, add the "hh" before the x to tell the print that it's a char)
-> 
-That doesn't work - the result is
+> Comments would be very welcome.
 
-%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx
+I am also working on a NAPI version of the pcnet32 driver for many of
+the same reasons, and will compare what you have with my own
+implementation.  I probably won't be able to do much until Friday.  
 
-I changed the line to cast the output byte as a u8 as follows:
+Just a couple of comments.  I am adding netdev@vger.kernel.org to the cc
+list, as most network driver discussion is done here rather than lkml.
+linux-kernel (and linux-net) should be deleted in future replies.
 
-                         dprintk("%.2x", (u8)mac->wpa.IE[i]);
+The 2.6.17-rc6 would be the correct source to patch against.  Since this
+is an enhancement it will not come out till 2.6.18.
 
-This produces the line
+I would not change the driver name from pcnet32 to pcnet32napi, but I
+would changes the version from 1.32 to 1.33NAPI or something like that.
 
-generic IE set to dd160050f20101000050f20201000050f20201000050f202
+Some areas of concern that you may have addressed already, I have not
+scanned your changes yet, are what happens if the ring size is changed
+without bringing down the interface (via ethtool), or if the loopback
+test is run in a similar fashion, or a tx timeout occurs.
 
-This is the WPA IE supplied by wpa_supplicant and it matches the one used in the ndiswrapper case. 
-One mystery solved, but why doesn't it work?
+The lp->lock MUST be held whenever accessing the csr or bcr registers as
+this is a multi-step process, and has been the source of problems in the
+past.  Even on UP systems.
 
-Johannes - should I submit the patch to fix this printout, or would you like to do it?
+> 
+> Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
+> 
+> Len Sorensen
 
-Larry
+-- 
+Don Fry
+brazilnut@us.ibm.com
