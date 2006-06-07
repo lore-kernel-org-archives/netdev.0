@@ -1,103 +1,80 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH 4/4] ehea: Kconfig and Makefile
-Date: Wed, 7 Jun 2006 10:59:57 -0700
-Message-ID: <20060607105957.fbc92d05.rdunlap@xenotime.net>
-References: <4487077B.4020405@de.ibm.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Wed, 07 Jun 2006 13:12:51 -0500
+Message-ID: <44871723.3040803@lwfinger.net>
+References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes> <1149701352.2625.20.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, meder@de.ibm.com, raisch@de.ibm.com,
-	themann@de.ibm.com, tklein@de.ibm.com
+Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
+	Jouni Malinen <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:23984 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1751175AbWFGR5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 13:57:10 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Wed, 7 Jun 2006 10:57:08 -0700
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-Reply-To: <4487077B.4020405@de.ibm.com>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:65432 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751194AbWFGSM5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jun 2006 14:12:57 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1149701352.2625.20.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Jun 2006 19:06:03 +0200 Jan-Bernd Themann wrote:
-
-> Signed-off-by:  Jan-Bernd Themann <themann@de.ibm.com>
+Dan Williams wrote:
+> On Wed, 2006-06-07 at 17:57 +0200, Johannes Berg wrote:
+>> On Wed, 2006-06-07 at 17:51 +0200, Johannes Berg wrote:
+>>
+>>> Well, it should be shown in the 802.11i spec too.
+>> I suppose that it is the association request, and needs to contain the
+>> RSN described in 7.3.2.25 as per 7.2.3.4 in 802.11i. This is, afaik, the
+>> 'generic IE' that is added with the wext. Now, it looks like the RSN
+>> isn't included but the WPA2 info or something? Also, the genIE in your
+>> log doesn't look correct to me, starting with ffffff?? Jouni, do you
+>> have any idea what might be going on?
 > 
+> I believe that wpa_supplicant tells the driver what genie to use through
+> the SIOCSIWGENIE wext call.  The IEs match between what the driver
+> appears to be reporting, and what wpa_supplicant says from the logs.
+> wpa_supplicant is almost certainly writing the correct IE to the driver
+> through wext, so I think the debug output from softmac must be
+> formatting the string incorrectly when printing it out to the logs.
 > 
-> drivers/net/ehea/Kconfig  |    6 ++++++
-> drivers/net/ehea/Makefile |   45 +++++++++++++++++++++++++++++++++++++++++++++
-> 2 files changed, 51 insertions(+)
+> Looking at it further:
 > 
+> struct ieee80211softmac_wpa {
+>         char *IE;
+>         int IElen;
+>         int IEbuflen;
+> };
 > 
+> from ieee80211softmac_wx.c: ieee80211softmac_wx_set_genie()
 > 
-> --- linux-2.6.16-rc5-orig/drivers/net/ehea/Makefile    1969-12-31 16:00:00.000000000 -0800
-> +++ kernel/drivers/net/ehea/Makefile    2006-06-07 07:01:14.634178704 -0700
-> @@ -0,0 +1,45 @@
-> +# Server eHEA ethernet device driver for Linux on POWER
-> +#
-> +#
-> +#  linux/drivers/net/ehea/Makefile
-> +#
-> +#  eHEA ethernet device driver for IBM eServer System p
-> +#
-> +#  (C) Copyright IBM Corp. 2006
-> +#
-> +#  Authors:
-> +#       Christoph Raisch <raisch@de.ibm.com>
-> +#       Jan-Bernd Themann <themann@de.ibm.com>
-> +#       Heiko-Joerg Schick <schickhj@de.ibm.com>
-> +#       Thomas Klein <tklein@de.ibm.com>
-> +#
-> +#
-> +# This program is free software; you can redistribute it and/or modify
-> +# it under the terms of the GNU General Public License as published by
-> +# the Free Software Foundation; either version 2, or (at your option)
-> +# any later version.
-> +#
-> +# This program is distributed in the hope that it will be useful,
-> +# but WITHOUT ANY WARRANTY; without even the implied warranty of
-> +# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.     See the
-> +# GNU General Public License for more details.
-> +#
-> +# You should have received a copy of the GNU General Public License
-> +# along with this program; if not, write to the Free Software
-> +# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-> +
-> +
-> +
-> +
-> +# To compile module type:
-> +# make -C /root/linux-2.6.5-7.244 SUBDIRS=`pwd` V=1 modules CONFIG_EHEA=m
-> +# make -C /usr/src/linux-2.6.17-rc5 SUBDIRS=`pwd` V=1 modules CONFIG_EHEA=m
-> +
-> +ehea_mod-objs = ehea_main.o ehea_phyp.o ehea_qmr.o ehea_ethtool.o ehea_phyp.o
-> +
-> +obj-$(CONFIG_EHEA) += ehea_mod.o
-> +
-> +#CFLAGS += -Werror
-> +
-> +
-> +
+>                 memcpy(mac->wpa.IE, extra, wrqu->data.length);
+>                 dprintk(KERN_INFO PFX "generic IE set to ");
+>                 for (i=0;i<wrqu->data.length;i++)
+>                         dprintk("%.2x", mac->wpa.IE[i]);
+>                 dprintk("\n");
+> 
+> the dprintk code isn't doing the right thing here, given an array of
+> bytes.  You probably want:
+> 
+>                         dprintk("%.2hhx", mac->wpa.IE[i]);
+> 
+> (ie, add the "hh" before the x to tell the print that it's a char)
+> 
+That doesn't work - the result is
 
-45 lines for a 5-line makefile.  :(
+%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx
 
-You need to integrate the Makefile and Kconfig into the upper-level
-directory Makefile and Kconfig files.  Don't expect/require people
-to enter thing like this:
-> +# make -C /root/linux-2.6.5-7.244 SUBDIRS=`pwd` V=1 modules CONFIG_EHEA=m
-> +# make -C /usr/src/linux-2.6.17-rc5 SUBDIRS=`pwd` V=1 modules CONFIG_EHEA=m
+I changed the line to cast the output byte as a u8 as follows:
 
+                         dprintk("%.2x", (u8)mac->wpa.IE[i]);
 
-> --- linux-2.6.16-rc5-orig/drivers/net/ehea/Kconfig    1969-12-31 16:00:00.000000000 -0800
-> +++ kernel/drivers/net/ehea/Kconfig    2006-06-07 07:01:14.637178248 -0700
-> @@ -0,0 +1,6 @@
-> +config EHEA
-> +       tristate "eHEA Ethernet support"
-> +       depends on IBMEBUS
-> +       ---help---
-> +       This driver supports the IBM pSeries
-> +       Ethernet adapter
+This produces the line
 
-That last sentence can be on one line, please.
+generic IE set to dd160050f20101000050f20201000050f20201000050f202
 
----
-~Randy
+This is the WPA IE supplied by wpa_supplicant and it matches the one used in the ndiswrapper case. 
+One mystery solved, but why doesn't it work?
+
+Johannes - should I submit the patch to fix this printout, or would you like to do it?
+
+Larry
