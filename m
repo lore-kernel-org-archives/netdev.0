@@ -1,71 +1,53 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
-Date: Wed, 07 Jun 2006 15:36:27 -0400
-Message-ID: <1149708987.2625.114.camel@localhost.localdomain>
-References: <4485D66B.7080108@lwfinger.net>
-	 <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net>
-	 <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes>
-	 <1149701352.2625.20.camel@localhost.localdomain>
-	 <44871723.3040803@lwfinger.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: kernel panic (on DHCP discover?) in sky2 driver of 2.6.17-rc1
+Date: Wed, 7 Jun 2006 12:44:36 -0700
+Message-ID: <20060607124436.20fdf9fa@localhost.localdomain>
+References: <CECD6E8A589E8447BC6E836C8369AFF506828728@us-email.terastack.bluearc.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	Jouni Malinen <jkm@devicescape.com>
+Cc: "John W. Linville" <linville@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40089 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S932385AbWFGTgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 15:36:13 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44871723.3040803@lwfinger.net>
+Received: from smtp.osdl.org ([65.172.181.4]:37062 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932141AbWFGTo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 15:44:57 -0400
+To: "Guenther Thomsen" <GThomsen@bluearc.com>
+In-Reply-To: <CECD6E8A589E8447BC6E836C8369AFF506828728@us-email.terastack.bluearc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-07 at 13:12 -0500, Larry Finger wrote:
-> Dan Williams wrote:
-> > 
-> > from ieee80211softmac_wx.c: ieee80211softmac_wx_set_genie()
-> > 
-> >                 memcpy(mac->wpa.IE, extra, wrqu->data.length);
-> >                 dprintk(KERN_INFO PFX "generic IE set to ");
-> >                 for (i=0;i<wrqu->data.length;i++)
-> >                         dprintk("%.2x", mac->wpa.IE[i]);
-> >                 dprintk("\n");
-> > 
-> > the dprintk code isn't doing the right thing here, given an array of
-> > bytes.  You probably want:
-> > 
-> >                         dprintk("%.2hhx", mac->wpa.IE[i]);
-> > 
-> > (ie, add the "hh" before the x to tell the print that it's a char)
-> > 
-> That doesn't work - the result is
+On Wed, 7 Jun 2006 12:33:21 -0700
+"Guenther Thomsen" <GThomsen@bluearc.com> wrote:
 
-Weird, does the kernel not do something that fprintf() _does_ do here?
-I tested with a short C program that mimics the behavior of this chunk
-of code, and "%.2x" didn't work, but "%.2hhx" certainly did.  "hh" is
-supposed to mean "A following integer conversion corresponds to a signed
-char or unsigned char argument".  The original conversion was converting
-stuff from la-la land after the first 4 bytes (in both softmac and my
-testcase), and "hh" solved it in the testcase.  I did try casting to
-char, but glibc pretty much ignored that.
+> I was perhaps a bit quick to declare victory. While the results below stand and the machine survived the last few days (idle), it occurred to me only today, to have a look at the kernel's message buffer, where I found following:
+> --8<--
+> sky2 eth0: enabling interface
+> sky2 eth0: Link is up at 1000 Mbps, full duplex, flow control none
+> sky2 eth1: enabling interface
+> sky2 eth1: Link is up at 1000 Mbps, full duplex, flow control none
+> audit(1149379670.514:3): audit_pid=1915 old=0 by auid=4294967295
+> <unknown>: hw csum failure.
+> sky2 eth1: rx error, status 0x7ffc0001 length 444
+> 
+> Call Trace: <ffffffff811de741>{__skb_checksum_complete+76}
+>        <ffffffff812030cb>{__tcp_checksum_complete_user+33}
+>        <ffffffff812080d8>{tcp_rcv_established+817} <ffffffff8120f3ee>{tcp_v4_
+> do_rcv+43}
+>        <ffffffff811da2ee>{sk_wait_data+203} <ffffffff811fe5a8>{tcp_prequeue_p
+> rocess+121}
+>        <ffffffff811ff71d>{tcp_recvmsg+1104} <ffffffff811d9712>{sock_common_re
+> cvmsg+48}
+>        <ffffffff811d7d4f>{do_sock_read+209} <ffffffff811d7e7e>{sock_aio_read+
+> 83}
+>        <ffffffff811e2ca1>{dev_queue_xmit+0} <ffffffff8106dce9>{do_sync_read+1
+> 99}
+>        <ffffffff8103d699>{remove_wait_queue+18} <ffffffff8103d530>{autoremove
+> _wake_function+0}
+>        <ffffffff8106df83>{vfs_read+228} <ffffffff8106ea12>{sys_read+69}
+>        <ffffffff81009b0d>{tracesys+209}
+> <unknown>: hw csum failure.
+> sky2 eth1: rx error, status 0x7ffc0001 length 444
 
-Dan
-
-> %hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx
-> 
-> I changed the line to cast the output byte as a u8 as follows:
-> 
->                          dprintk("%.2x", (u8)mac->wpa.IE[i]);
-> 
-> This produces the line
-> 
-> generic IE set to dd160050f20101000050f20201000050f20201000050f202
-> 
-> This is the WPA IE supplied by wpa_supplicant and it matches the one used in the ndiswrapper case. 
-> One mystery solved, but why doesn't it work?
-> 
-> Johannes - should I submit the patch to fix this printout, or would you like to do it?
-> 
-> Larry
-
+Different problem, I have seen it before.  Basically if the receiver gets overloaded, the
+packet FIFO gets full. The driver needs to have some kind of recovery logic for this;
+probably just shutting down the receiver and restarting.
