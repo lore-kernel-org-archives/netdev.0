@@ -1,93 +1,71 @@
-From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Subject: Re: [PATCH] pcnet32 driver NAPI support
-Date: Wed, 7 Jun 2006 15:34:56 -0400
-Message-ID: <20060607193456.GN7857@csclub.uwaterloo.ca>
-References: <20060607165225.GB7859@csclub.uwaterloo.ca> <20060607182040.GA12748@us.ibm.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Wed, 07 Jun 2006 15:36:27 -0400
+Message-ID: <1149708987.2625.114.camel@localhost.localdomain>
+References: <4485D66B.7080108@lwfinger.net>
+	 <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net>
+	 <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes>
+	 <1149701352.2625.20.camel@localhost.localdomain>
+	 <44871723.3040803@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
+	Jouni Malinen <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:6061 "EHLO
-	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
-	id S932381AbWFGTe5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 15:34:57 -0400
-To: Don Fry <brazilnut@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20060607182040.GA12748@us.ibm.com>
+Received: from mx1.redhat.com ([66.187.233.31]:40089 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932385AbWFGTgN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 15:36:13 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44871723.3040803@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2006 at 11:20:40AM -0700, Don Fry wrote:
-> I am also working on a NAPI version of the pcnet32 driver for many of
-> the same reasons, and will compare what you have with my own
-> implementation.  I probably won't be able to do much until Friday.  
+On Wed, 2006-06-07 at 13:12 -0500, Larry Finger wrote:
+> Dan Williams wrote:
+> > 
+> > from ieee80211softmac_wx.c: ieee80211softmac_wx_set_genie()
+> > 
+> >                 memcpy(mac->wpa.IE, extra, wrqu->data.length);
+> >                 dprintk(KERN_INFO PFX "generic IE set to ");
+> >                 for (i=0;i<wrqu->data.length;i++)
+> >                         dprintk("%.2x", mac->wpa.IE[i]);
+> >                 dprintk("\n");
+> > 
+> > the dprintk code isn't doing the right thing here, given an array of
+> > bytes.  You probably want:
+> > 
+> >                         dprintk("%.2hhx", mac->wpa.IE[i]);
+> > 
+> > (ie, add the "hh" before the x to tell the print that it's a char)
+> > 
+> That doesn't work - the result is
+
+Weird, does the kernel not do something that fprintf() _does_ do here?
+I tested with a short C program that mimics the behavior of this chunk
+of code, and "%.2x" didn't work, but "%.2hhx" certainly did.  "hh" is
+supposed to mean "A following integer conversion corresponds to a signed
+char or unsigned char argument".  The original conversion was converting
+stuff from la-la land after the first 4 bytes (in both softmac and my
+testcase), and "hh" solved it in the testcase.  I did try casting to
+char, but glibc pretty much ignored that.
+
+Dan
+
+> %hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx
 > 
-> Just a couple of comments.  I am adding netdev@vger.kernel.org to the cc
-> list, as most network driver discussion is done here rather than lkml.
-> linux-kernel (and linux-net) should be deleted in future replies.
+> I changed the line to cast the output byte as a u8 as follows:
+> 
+>                          dprintk("%.2x", (u8)mac->wpa.IE[i]);
+> 
+> This produces the line
+> 
+> generic IE set to dd160050f20101000050f20201000050f20201000050f202
+> 
+> This is the WPA IE supplied by wpa_supplicant and it matches the one used in the ndiswrapper case. 
+> One mystery solved, but why doesn't it work?
+> 
+> Johannes - should I submit the patch to fix this printout, or would you like to do it?
+> 
+> Larry
 
-I must have picked the wrong place to cc.
-
-> The 2.6.17-rc6 would be the correct source to patch against.  Since this
-> is an enhancement it will not come out till 2.6.18.
-
-I thought so.  That is why I did it against both 2.6.17-rc6 and 2.6.16
-(since I use it with 2.6.16).
-
-> I would not change the driver name from pcnet32 to pcnet32napi, but I
-> would changes the version from 1.32 to 1.33NAPI or something like that.
-
-Hmm, perhaps.  I just wanted something that made it obvious in dmesg
-which driver I was running.  I see tulip actually does put it in the
-version instead.  I don't remember where I got the driver name change
-idea from.
-
-> Some areas of concern that you may have addressed already, I have not
-> scanned your changes yet, are what happens if the ring size is changed
-> without bringing down the interface (via ethtool), or if the loopback
-> test is run in a similar fashion, or a tx timeout occurs.
-
-The same thing as if it was done before enabling napi.  From a few
-messages I have seen, it doesn't work right now, and it won't work any
-better with my changes.  I have never tried changing the ring size on
-the fly, so I don't know.
-
-It appears that the port is stopped before the ring size change is done,
-although I can't really tell how it handles things if the queue is not
-empty when it stops the port.  Does it try to handle anything left in
-the ring first or does it just toss those packets? (That I would
-consider wrong).
-
-> The lp->lock MUST be held whenever accessing the csr or bcr registers as
-> this is a multi-step process, and has been the source of problems in the
-> past.  Even on UP systems.
-
-Hmm, I just followed what appeared to be in pcnet32_rx and how tulip and
-a few other drivers had done their napi conversions.  It certainly works
-for me the way I did it.  Haven't seen any lockups yet.  I do see that I
-am not holding the lock when I acknowledge IRQs in pcnet32_poll, which
-pcnet32_rx doesn't need to worry about since it is called from the
-interrupt handler which already holds the lock.  That should be fixed
-then.
-
-So I can do:
-        // Clear RX interrupts
-        spin_lock(&lp->lock);
-        lp->a.write_csr (ioaddr, 0, 0x1400);
-        spin_unlock(&lp->lock);
-That part seems simple enough to protect.
-
-Is this safe without holding the lock?
-    } while(lp->a.read_csr (ioaddr, 0) & 0x1400);
-Not sure how to wrap a lock around that one without holding the lock for
-way too long.
-
-perhaps:
-        spin_lock(&lp->lock);
-	state=lp->a.read_csr (ioaddr, 0) & 0x1400;
-        spin_unlock(&lp->lock);
-    } while(state);
-Does that seem more reasonable?
-
-Len Sorensen
