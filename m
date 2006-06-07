@@ -1,1863 +1,228 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH v2 2/7] AMSO1100 WR / Event
- Definitions.
-Date: Wed, 07 Jun 2006 15:06:51 -0500
-Message-ID: <20060607200651.9259.73654.stgit@stevo-desktop>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH v2 2/7] AMSO1100 WR / Event Definitions.
+Date: Wed, 07 Jun 2006 15:39:22 -0500
+Message-ID: <1149712762.27684.82.camel@stevo-desktop>
 References: <20060607200646.9259.24588.stgit@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8;
- format=fixed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com,
-	mshefty@ichips.intel.com
+Content-Type: multipart/mixed; boundary="=-kYogRcVN8LOT20aXURi6"
+Cc: mshefty@ichips.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, openib-general@openib.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from es335.com ([67.65.19.105]:15449 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932220AbWFGUjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 16:39:25 -0400
+To: rdreier@cisco.com
 In-Reply-To: <20060607200646.9259.24588.stgit@stevo-desktop>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Review Changes:
+--=-kYogRcVN8LOT20aXURi6
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-C2_DEBUG -> DEBUG
----
+Resending 2/7 gziped.  
 
- drivers/infiniband/hw/amso1100/c2_ae.h     |  108 ++
- drivers/infiniband/hw/amso1100/c2_status.h |  158 +++
- drivers/infiniband/hw/amso1100/c2_wr.h     | 1523 ++++++++++++++++++++++=
-++++++
- 3 files changed, 1789 insertions(+), 0 deletions(-)
+linux-kernel and netdev mailing lists didn't formward the plain text
+patch... 
 
-diff --git a/drivers/infiniband/hw/amso1100/c2_ae.h b/drivers/infiniband/=
-hw/amso1100/c2_ae.h
-new file mode 100644
-index 0000000..3a065c3
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_ae.h
-@@ -0,0 +1,108 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef _C2_AE_H_
-+#define _C2_AE_H_
-+
-+/*
-+ * WARNING: If you change this file, also bump C2_IVN_BASE
-+ * in common/include/clustercore/c2_ivn.h.
-+ */
-+
-+/*
-+ * Asynchronous Event Identifiers
-+ *
-+ * These start at 0x80 only so it's obvious from inspection that
-+ * they are not work-request statuses.  This isn't critical.
-+ *
-+ * NOTE: these event id's must fit in eight bits.
-+ */
-+enum c2_event_id {
-+	CCAE_REMOTE_SHUTDOWN =3D 0x80,
-+	CCAE_ACTIVE_CONNECT_RESULTS,
-+	CCAE_CONNECTION_REQUEST,
-+	CCAE_LLP_CLOSE_COMPLETE,
-+	CCAE_TERMINATE_MESSAGE_RECEIVED,
-+	CCAE_LLP_CONNECTION_RESET,
-+	CCAE_LLP_CONNECTION_LOST,
-+	CCAE_LLP_SEGMENT_SIZE_INVALID,
-+	CCAE_LLP_INVALID_CRC,
-+	CCAE_LLP_BAD_FPDU,
-+	CCAE_INVALID_DDP_VERSION,
-+	CCAE_INVALID_RDMA_VERSION,
-+	CCAE_UNEXPECTED_OPCODE,
-+	CCAE_INVALID_DDP_QUEUE_NUMBER,
-+	CCAE_RDMA_READ_NOT_ENABLED,
-+	CCAE_RDMA_WRITE_NOT_ENABLED,
-+	CCAE_RDMA_READ_TOO_SMALL,
-+	CCAE_NO_L_BIT,
-+	CCAE_TAGGED_INVALID_STAG,
-+	CCAE_TAGGED_BASE_BOUNDS_VIOLATION,
-+	CCAE_TAGGED_ACCESS_RIGHTS_VIOLATION,
-+	CCAE_TAGGED_INVALID_PD,
-+	CCAE_WRAP_ERROR,
-+	CCAE_BAD_CLOSE,
-+	CCAE_BAD_LLP_CLOSE,
-+	CCAE_INVALID_MSN_RANGE,
-+	CCAE_INVALID_MSN_GAP,
-+	CCAE_IRRQ_OVERFLOW,
-+	CCAE_IRRQ_MSN_GAP,
-+	CCAE_IRRQ_MSN_RANGE,
-+	CCAE_IRRQ_INVALID_STAG,
-+	CCAE_IRRQ_BASE_BOUNDS_VIOLATION,
-+	CCAE_IRRQ_ACCESS_RIGHTS_VIOLATION,
-+	CCAE_IRRQ_INVALID_PD,
-+	CCAE_IRRQ_WRAP_ERROR,
-+	CCAE_CQ_SQ_COMPLETION_OVERFLOW,
-+	CCAE_CQ_RQ_COMPLETION_ERROR,
-+	CCAE_QP_SRQ_WQE_ERROR,
-+	CCAE_QP_LOCAL_CATASTROPHIC_ERROR,
-+	CCAE_CQ_OVERFLOW,
-+	CCAE_CQ_OPERATION_ERROR,
-+	CCAE_SRQ_LIMIT_REACHED,
-+	CCAE_QP_RQ_LIMIT_REACHED,
-+	CCAE_SRQ_CATASTROPHIC_ERROR,
-+	CCAE_RNIC_CATASTROPHIC_ERROR
-+/* WARNING If you add more id's, make sure their values fit in eight bit=
-s. */
-+};
-+
-+/*
-+ * Resource Indicators and Identifiers
-+ */
-+enum c2_resource_indicator {
-+	C2_RES_IND_QP =3D 1,
-+	C2_RES_IND_EP,
-+	C2_RES_IND_CQ,
-+	C2_RES_IND_SRQ,
-+};
-+
-+#endif /* _C2_AE_H_ */
-diff --git a/drivers/infiniband/hw/amso1100/c2_status.h b/drivers/infinib=
-and/hw/amso1100/c2_status.h
-new file mode 100644
-index 0000000..6ee4aa9
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_status.h
-@@ -0,0 +1,158 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef	_C2_STATUS_H_
-+#define _C2_STATUS_H_
-+
-+/*
-+ * Verbs Status Codes
-+ */
-+enum c2_status {
-+	C2_OK =3D 0,		/* This must be zero */
-+	CCERR_INSUFFICIENT_RESOURCES =3D 1,
-+	CCERR_INVALID_MODIFIER =3D 2,
-+	CCERR_INVALID_MODE =3D 3,
-+	CCERR_IN_USE =3D 4,
-+	CCERR_INVALID_RNIC =3D 5,
-+	CCERR_INTERRUPTED_OPERATION =3D 6,
-+	CCERR_INVALID_EH =3D 7,
-+	CCERR_INVALID_CQ =3D 8,
-+	CCERR_CQ_EMPTY =3D 9,
-+	CCERR_NOT_IMPLEMENTED =3D 10,
-+	CCERR_CQ_DEPTH_TOO_SMALL =3D 11,
-+	CCERR_PD_IN_USE =3D 12,
-+	CCERR_INVALID_PD =3D 13,
-+	CCERR_INVALID_SRQ =3D 14,
-+	CCERR_INVALID_ADDRESS =3D 15,
-+	CCERR_INVALID_NETMASK =3D 16,
-+	CCERR_INVALID_QP =3D 17,
-+	CCERR_INVALID_QP_STATE =3D 18,
-+	CCERR_TOO_MANY_WRS_POSTED =3D 19,
-+	CCERR_INVALID_WR_TYPE =3D 20,
-+	CCERR_INVALID_SGL_LENGTH =3D 21,
-+	CCERR_INVALID_SQ_DEPTH =3D 22,
-+	CCERR_INVALID_RQ_DEPTH =3D 23,
-+	CCERR_INVALID_ORD =3D 24,
-+	CCERR_INVALID_IRD =3D 25,
-+	CCERR_QP_ATTR_CANNOT_CHANGE =3D 26,
-+	CCERR_INVALID_STAG =3D 27,
-+	CCERR_QP_IN_USE =3D 28,
-+	CCERR_OUTSTANDING_WRS =3D 29,
-+	CCERR_STAG_IN_USE =3D 30,
-+	CCERR_INVALID_STAG_INDEX =3D 31,
-+	CCERR_INVALID_SGL_FORMAT =3D 32,
-+	CCERR_ADAPTER_TIMEOUT =3D 33,
-+	CCERR_INVALID_CQ_DEPTH =3D 34,
-+	CCERR_INVALID_PRIVATE_DATA_LENGTH =3D 35,
-+	CCERR_INVALID_EP =3D 36,
-+	CCERR_MR_IN_USE =3D CCERR_STAG_IN_USE,
-+	CCERR_FLUSHED =3D 38,
-+	CCERR_INVALID_WQE =3D 39,
-+	CCERR_LOCAL_QP_CATASTROPHIC_ERROR =3D 40,
-+	CCERR_REMOTE_TERMINATION_ERROR =3D 41,
-+	CCERR_BASE_AND_BOUNDS_VIOLATION =3D 42,
-+	CCERR_ACCESS_VIOLATION =3D 43,
-+	CCERR_INVALID_PD_ID =3D 44,
-+	CCERR_WRAP_ERROR =3D 45,
-+	CCERR_INV_STAG_ACCESS_ERROR =3D 46,
-+	CCERR_ZERO_RDMA_READ_RESOURCES =3D 47,
-+	CCERR_QP_NOT_PRIVILEGED =3D 48,
-+	CCERR_STAG_STATE_NOT_INVALID =3D 49,
-+	CCERR_INVALID_PAGE_SIZE =3D 50,
-+	CCERR_INVALID_BUFFER_SIZE =3D 51,
-+	CCERR_INVALID_PBE =3D 52,
-+	CCERR_INVALID_FBO =3D 53,
-+	CCERR_INVALID_LENGTH =3D 54,
-+	CCERR_INVALID_ACCESS_RIGHTS =3D 55,
-+	CCERR_PBL_TOO_BIG =3D 56,
-+	CCERR_INVALID_VA =3D 57,
-+	CCERR_INVALID_REGION =3D 58,
-+	CCERR_INVALID_WINDOW =3D 59,
-+	CCERR_TOTAL_LENGTH_TOO_BIG =3D 60,
-+	CCERR_INVALID_QP_ID =3D 61,
-+	CCERR_ADDR_IN_USE =3D 62,
-+	CCERR_ADDR_NOT_AVAIL =3D 63,
-+	CCERR_NET_DOWN =3D 64,
-+	CCERR_NET_UNREACHABLE =3D 65,
-+	CCERR_CONN_ABORTED =3D 66,
-+	CCERR_CONN_RESET =3D 67,
-+	CCERR_NO_BUFS =3D 68,
-+	CCERR_CONN_TIMEDOUT =3D 69,
-+	CCERR_CONN_REFUSED =3D 70,
-+	CCERR_HOST_UNREACHABLE =3D 71,
-+	CCERR_INVALID_SEND_SGL_DEPTH =3D 72,
-+	CCERR_INVALID_RECV_SGL_DEPTH =3D 73,
-+	CCERR_INVALID_RDMA_WRITE_SGL_DEPTH =3D 74,
-+	CCERR_INSUFFICIENT_PRIVILEGES =3D 75,
-+	CCERR_STACK_ERROR =3D 76,
-+	CCERR_INVALID_VERSION =3D 77,
-+	CCERR_INVALID_MTU =3D 78,
-+	CCERR_INVALID_IMAGE =3D 79,
-+	CCERR_PENDING =3D 98,	/* not an error; user internally by adapter */
-+	CCERR_DEFER =3D 99,	/* not an error; used internally by adapter */
-+	CCERR_FAILED_WRITE =3D 100,
-+	CCERR_FAILED_ERASE =3D 101,
-+	CCERR_FAILED_VERIFICATION =3D 102,
-+	CCERR_NOT_FOUND =3D 103,
-+
-+};
-+
-+/*
-+ * CCAE_ACTIVE_CONNECT_RESULTS status result codes.
-+ */
-+enum c2_connect_status {
-+	C2_CONN_STATUS_SUCCESS =3D C2_OK,
-+	C2_CONN_STATUS_NO_MEM =3D CCERR_INSUFFICIENT_RESOURCES,
-+	C2_CONN_STATUS_TIMEDOUT =3D CCERR_CONN_TIMEDOUT,
-+	C2_CONN_STATUS_REFUSED =3D CCERR_CONN_REFUSED,
-+	C2_CONN_STATUS_NETUNREACH =3D CCERR_NET_UNREACHABLE,
-+	C2_CONN_STATUS_HOSTUNREACH =3D CCERR_HOST_UNREACHABLE,
-+	C2_CONN_STATUS_INVALID_RNIC =3D CCERR_INVALID_RNIC,
-+	C2_CONN_STATUS_INVALID_QP =3D CCERR_INVALID_QP,
-+	C2_CONN_STATUS_INVALID_QP_STATE =3D CCERR_INVALID_QP_STATE,
-+	C2_CONN_STATUS_REJECTED =3D CCERR_CONN_RESET,
-+	C2_CONN_STATUS_ADDR_NOT_AVAIL =3D CCERR_ADDR_NOT_AVAIL,
-+};
-+
-+/*
-+ * Flash programming status codes.
-+ */
-+enum c2_flash_status {
-+	C2_FLASH_STATUS_SUCCESS =3D 0x0000,
-+	C2_FLASH_STATUS_VERIFY_ERR =3D 0x0002,
-+	C2_FLASH_STATUS_IMAGE_ERR =3D 0x0004,
-+	C2_FLASH_STATUS_ECLBS =3D 0x0400,
-+	C2_FLASH_STATUS_PSLBS =3D 0x0800,
-+	C2_FLASH_STATUS_VPENS =3D 0x1000,
-+};
-+
-+#endif				/* _C2_STATUS_H_ */
-diff --git a/drivers/infiniband/hw/amso1100/c2_wr.h b/drivers/infiniband/=
-hw/amso1100/c2_wr.h
-new file mode 100644
-index 0000000..9d6468d
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_wr.h
-@@ -0,0 +1,1523 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef _C2_WR_H_
-+#define _C2_WR_H_
-+
-+#ifdef CCDEBUG
-+#define CCWR_MAGIC		0xb07700b0
-+#endif
-+
-+#define C2_QP_NO_ATTR_CHANGE 0xFFFFFFFF
-+
-+/* Maximum allowed size in bytes of private_data exchange
-+ * on connect.
-+ */
-+#define C2_MAX_PRIVATE_DATA_SIZE 200
-+
-+/*
-+ * These types are shared among the adapter, host, and CCIL consumer. =20
-+ */
-+enum c2_cq_notification_type {
-+	C2_CQ_NOTIFICATION_TYPE_NONE =3D 1,
-+	C2_CQ_NOTIFICATION_TYPE_NEXT,
-+	C2_CQ_NOTIFICATION_TYPE_NEXT_SE
-+};
-+
-+enum c2_setconfig_cmd {
-+	C2_CFG_ADD_ADDR =3D 1,
-+	C2_CFG_DEL_ADDR =3D 2,
-+	C2_CFG_ADD_ROUTE =3D 3,
-+	C2_CFG_DEL_ROUTE =3D 4
-+};
-+
-+enum c2_getconfig_cmd {
-+	C2_GETCONFIG_ROUTES =3D 1,
-+	C2_GETCONFIG_ADDRS
-+};
-+
-+/*
-+ *  CCIL Work Request Identifiers
-+ */
-+enum c2wr_ids {
-+	CCWR_RNIC_OPEN =3D 1,
-+	CCWR_RNIC_QUERY,
-+	CCWR_RNIC_SETCONFIG,
-+	CCWR_RNIC_GETCONFIG,
-+	CCWR_RNIC_CLOSE,
-+	CCWR_CQ_CREATE,
-+	CCWR_CQ_QUERY,
-+	CCWR_CQ_MODIFY,
-+	CCWR_CQ_DESTROY,
-+	CCWR_QP_CONNECT,
-+	CCWR_PD_ALLOC,
-+	CCWR_PD_DEALLOC,
-+	CCWR_SRQ_CREATE,
-+	CCWR_SRQ_QUERY,
-+	CCWR_SRQ_MODIFY,
-+	CCWR_SRQ_DESTROY,
-+	CCWR_QP_CREATE,
-+	CCWR_QP_QUERY,
-+	CCWR_QP_MODIFY,
-+	CCWR_QP_DESTROY,
-+	CCWR_NSMR_STAG_ALLOC,
-+	CCWR_NSMR_REGISTER,
-+	CCWR_NSMR_PBL,
-+	CCWR_STAG_DEALLOC,
-+	CCWR_NSMR_REREGISTER,
-+	CCWR_SMR_REGISTER,
-+	CCWR_MR_QUERY,
-+	CCWR_MW_ALLOC,
-+	CCWR_MW_QUERY,
-+	CCWR_EP_CREATE,
-+	CCWR_EP_GETOPT,
-+	CCWR_EP_SETOPT,
-+	CCWR_EP_DESTROY,
-+	CCWR_EP_BIND,
-+	CCWR_EP_CONNECT,
-+	CCWR_EP_LISTEN,
-+	CCWR_EP_SHUTDOWN,
-+	CCWR_EP_LISTEN_CREATE,
-+	CCWR_EP_LISTEN_DESTROY,
-+	CCWR_EP_QUERY,
-+	CCWR_CR_ACCEPT,
-+	CCWR_CR_REJECT,
-+	CCWR_CONSOLE,
-+	CCWR_TERM,
-+	CCWR_FLASH_INIT,
-+	CCWR_FLASH,
-+	CCWR_BUF_ALLOC,
-+	CCWR_BUF_FREE,
-+	CCWR_FLASH_WRITE,
-+	CCWR_INIT,		/* WARNING: Don't move this ever again! */
-+
-+
-+
-+	/* Add new IDs here */
-+
-+
-+
-+	/*=20
-+	 * WARNING: CCWR_LAST must always be the last verbs id defined!=20
-+	 *          All the preceding IDs are fixed, and must not change.
-+	 *          You can add new IDs, but must not remove or reorder
-+	 *          any IDs. If you do, YOU will ruin any hope of
-+	 *          compatability between versions.
-+	 */
-+	CCWR_LAST,
-+
-+	/*
-+	 * Start over at 1 so that arrays indexed by user wr id's
-+	 * begin at 1.  This is OK since the verbs and user wr id's
-+	 * are always used on disjoint sets of queues.
-+	 */
-+	/*=20
-+	 * The order of the CCWR_SEND_XX verbs must=20
-+	 * match the order of the RDMA_OPs=20
-+	 */
-+	CCWR_SEND =3D 1,
-+	CCWR_SEND_INV,
-+	CCWR_SEND_SE,
-+	CCWR_SEND_SE_INV,
-+	CCWR_RDMA_WRITE,
-+	CCWR_RDMA_READ,
-+	CCWR_RDMA_READ_INV,
-+	CCWR_MW_BIND,
-+	CCWR_NSMR_FASTREG,
-+	CCWR_STAG_INVALIDATE,
-+	CCWR_RECV,
-+	CCWR_NOP,
-+	CCWR_UNIMPL,	=09
-+/* WARNING: This must always be the last user wr id defined! */
-+};
-+#define RDMA_SEND_OPCODE_FROM_WR_ID(x)   (x+2)
-+
-+/*
-+ * SQ/RQ Work Request Types
-+ */
-+enum c2_wr_type {
-+	C2_WR_TYPE_SEND =3D CCWR_SEND,
-+	C2_WR_TYPE_SEND_SE =3D CCWR_SEND_SE,
-+	C2_WR_TYPE_SEND_INV =3D CCWR_SEND_INV,
-+	C2_WR_TYPE_SEND_SE_INV =3D CCWR_SEND_SE_INV,
-+	C2_WR_TYPE_RDMA_WRITE =3D CCWR_RDMA_WRITE,
-+	C2_WR_TYPE_RDMA_READ =3D CCWR_RDMA_READ,
-+	C2_WR_TYPE_RDMA_READ_INV_STAG =3D CCWR_RDMA_READ_INV,
-+	C2_WR_TYPE_BIND_MW =3D CCWR_MW_BIND,
-+	C2_WR_TYPE_FASTREG_NSMR =3D CCWR_NSMR_FASTREG,
-+	C2_WR_TYPE_INV_STAG =3D CCWR_STAG_INVALIDATE,
-+	C2_WR_TYPE_RECV =3D CCWR_RECV,
-+	C2_WR_TYPE_NOP =3D CCWR_NOP,
-+};
-+
-+struct c2_netaddr {
-+	u32 ip_addr;
-+	u32 netmask;
-+	u32 mtu;
-+};
-+
-+struct c2_route {
-+	u32 ip_addr;		/* 0 indicates the default route */
-+	u32 netmask;		/* netmask associated with dst */
-+	u32 flags;
-+	union {
-+		u32 ipaddr;	/* address of the nexthop interface */
-+		u8 enaddr[6];
-+	} nexthop;
-+};
-+
-+/*
-+ * A Scatter Gather Entry.
-+ */
-+struct c2_data_addr {
-+	u32 stag;
-+	u32 length;
-+	u64 to;
-+};
-+
-+/*
-+ * MR and MW flags used by the consumer, RI, and RNIC.
-+ */
-+enum c2_mm_flags {
-+	MEM_REMOTE =3D 0x0001,	/* allow mw binds with remote access. */
-+	MEM_VA_BASED =3D 0x0002,	/* Not Zero-based */
-+	MEM_PBL_COMPLETE =3D 0x0004,	/* PBL array is complete in this msg */
-+	MEM_LOCAL_READ =3D 0x0008,	/* allow local reads */
-+	MEM_LOCAL_WRITE =3D 0x0010,	/* allow local writes */
-+	MEM_REMOTE_READ =3D 0x0020,	/* allow remote reads */
-+	MEM_REMOTE_WRITE =3D 0x0040,	/* allow remote writes */
-+	MEM_WINDOW_BIND =3D 0x0080,	/* binds allowed */
-+	MEM_SHARED =3D 0x0100,	/* set if MR is shared */
-+	MEM_STAG_VALID =3D 0x0200	/* set if STAG is in valid state */
-+};
-+
-+/*
-+ * CCIL API ACF flags defined in terms of the low level mem flags.
-+ * This minimizes translation needed in the user API
-+ */
-+enum c2_acf {
-+	C2_ACF_LOCAL_READ =3D MEM_LOCAL_READ,
-+	C2_ACF_LOCAL_WRITE =3D MEM_LOCAL_WRITE,
-+	C2_ACF_REMOTE_READ =3D MEM_REMOTE_READ,
-+	C2_ACF_REMOTE_WRITE =3D MEM_REMOTE_WRITE,
-+	C2_ACF_WINDOW_BIND =3D MEM_WINDOW_BIND
-+};
-+
-+/*
-+ * Image types of objects written to flash
-+ */
-+#define C2_FLASH_IMG_BITFILE 1
-+#define C2_FLASH_IMG_OPTION_ROM 2
-+#define C2_FLASH_IMG_VPD 3
-+
-+/*
-+ *  to fix bug 1815 we define the max size allowable of the
-+ *  terminate message (per the IETF spec).Refer to the IETF
-+ *  protocal specification, section 12.1.6, page 64)
-+ *  The message is prefixed by 20 types of DDP info.
-+ *
-+ *  Then the message has 6 bytes for the terminate control=20
-+ *  and DDP segment length info plus a DDP header (either
-+ *  14 or 18 byts) plus 28 bytes for the RDMA header.
-+ *  Thus the max size in:
-+ *  20 + (6 + 18 + 28) =3D 72
-+ */
-+#define C2_MAX_TERMINATE_MESSAGE_SIZE (72)
-+
-+/*
-+ * Build String Length.  It must be the same as C2_BUILD_STR_LEN in ccil=
-_api.h
-+ */
-+#define WR_BUILD_STR_LEN 64
-+
-+/*
-+ * WARNING:  All of these structs need to align any 64bit types on  =20
-+ * 64 bit boundaries!  64bit types include u64 and u64.
-+ */
-+
-+/*
-+ * Clustercore Work Request Header.  Be sensitive to field layout
-+ * and alignment.
-+ */
-+struct c2wr_hdr {
-+	/* wqe_count is part of the cqe.  It is put here so the
-+	 * adapter can write to it while the wr is pending without
-+	 * clobbering part of the wr.  This word need not be dma'd
-+	 * from the host to adapter by libccil, but we copy it anyway
-+	 * to make the memcpy to the adapter better aligned.
-+	 */
-+	u32 wqe_count;
-+
-+	/* Put these fields next so that later 32- and 64-bit
-+	 * quantities are naturally aligned.
-+	 */
-+	u8 id;
-+	u8 result;		/* adapter -> host */
-+	u8 sge_count;		/* host -> adapter */
-+	u8 flags;		/* host -> adapter */
-+
-+	u64 context;
-+#ifdef CCMSGMAGIC
-+	u32 magic;
-+	u32 pad;
-+#endif
-+} __attribute__((packed));
-+
-+/*
-+ *------------------------ RNIC ------------------------
-+ */
-+
-+/*
-+ * WR_RNIC_OPEN
-+ */
-+
-+/*
-+ * Flags for the RNIC WRs
-+ */
-+enum c2_rnic_flags {
-+	RNIC_IRD_STATIC =3D 0x0001,
-+	RNIC_ORD_STATIC =3D 0x0002,
-+	RNIC_QP_STATIC =3D 0x0004,
-+	RNIC_SRQ_SUPPORTED =3D 0x0008,
-+	RNIC_PBL_BLOCK_MODE =3D 0x0010,
-+	RNIC_SRQ_MODEL_ARRIVAL =3D 0x0020,
-+	RNIC_CQ_OVF_DETECTED =3D 0x0040,
-+	RNIC_PRIV_MODE =3D 0x0080
-+};
-+
-+struct c2wr_rnic_open_req {
-+	struct c2wr_hdr hdr;
-+	u64 user_context;
-+	u16 flags;		/* See enum c2_rnic_flags */
-+	u16 port_num;
-+} __attribute__((packed));
-+
-+struct c2wr_rnic_open_rep {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+} __attribute__((packed));
-+
-+union c2wr_rnic_open {
-+	struct c2wr_rnic_open_req req;
-+	struct c2wr_rnic_open_rep rep;
-+} __attribute__((packed));
-+
-+struct c2wr_rnic_query_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+} __attribute__((packed));
-+
-+/*
-+ * WR_RNIC_QUERY
-+ */
-+struct c2wr_rnic_query_rep {
-+	struct c2wr_hdr hdr;
-+	u64 user_context;
-+	u32 vendor_id;
-+	u32 part_number;
-+	u32 hw_version;
-+	u32 fw_ver_major;
-+	u32 fw_ver_minor;
-+	u32 fw_ver_patch;
-+	char fw_ver_build_str[WR_BUILD_STR_LEN];
-+	u32 max_qps;
-+	u32 max_qp_depth;
-+	u32 max_srq_depth;
-+	u32 max_send_sgl_depth;
-+	u32 max_rdma_sgl_depth;
-+	u32 max_cqs;
-+	u32 max_cq_depth;
-+	u32 max_cq_event_handlers;
-+	u32 max_mrs;
-+	u32 max_pbl_depth;
-+	u32 max_pds;
-+	u32 max_global_ird;
-+	u32 max_global_ord;
-+	u32 max_qp_ird;
-+	u32 max_qp_ord;
-+	u32 flags;	=09
-+	u32 max_mws;
-+	u32 pbe_range_low;
-+	u32 pbe_range_high;
-+	u32 max_srqs;
-+	u32 page_size;
-+} __attribute__((packed));
-+
-+union c2wr_rnic_query {
-+	struct c2wr_rnic_query_req req;
-+	struct c2wr_rnic_query_rep rep;
-+} __attribute__((packed));
-+
-+/*
-+ * WR_RNIC_GETCONFIG
-+ */
-+
-+struct c2wr_rnic_getconfig_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 option;		/* see c2_getconfig_cmd_t */
-+	u64 reply_buf;
-+	u32 reply_buf_len;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_rnic_getconfig_rep {
-+	struct c2wr_hdr hdr;
-+	u32 option;		/* see c2_getconfig_cmd_t */
-+	u32 count_len;		/* length of the number of addresses configured */
-+} __attribute__((packed)) ;
-+
-+union c2wr_rnic_getconfig {
-+	struct c2wr_rnic_getconfig_req req;
-+	struct c2wr_rnic_getconfig_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ * WR_RNIC_SETCONFIG
-+ */
-+struct c2wr_rnic_setconfig_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 option;		/* See c2_setconfig_cmd_t */
-+	/* variable data and pad. See c2_netaddr and c2_route */
-+	u8 data[0];
-+} __attribute__((packed)) ;
-+
-+struct c2wr_rnic_setconfig_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_rnic_setconfig {
-+	struct c2wr_rnic_setconfig_req req;
-+	struct c2wr_rnic_setconfig_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ * WR_RNIC_CLOSE
-+ */
-+struct c2wr_rnic_close_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_rnic_close_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_rnic_close {
-+	struct c2wr_rnic_close_req req;
-+	struct c2wr_rnic_close_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ *------------------------ CQ ------------------------
-+ */
-+struct c2wr_cq_create_req {
-+	struct c2wr_hdr hdr;
-+	u64 shared_ht;
-+	u64 user_context;
-+	u64 msg_pool;
-+	u32 rnic_handle;
-+	u32 msg_size;
-+	u32 depth;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_cq_create_rep {
-+	struct c2wr_hdr hdr;
-+	u32 mq_index;
-+	u32 adapter_shared;
-+	u32 cq_handle;
-+} __attribute__((packed)) ;
-+
-+union c2wr_cq_create {
-+	struct c2wr_cq_create_req req;
-+	struct c2wr_cq_create_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_cq_modify_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 cq_handle;
-+	u32 new_depth;
-+	u64 new_msg_pool;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_cq_modify_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_cq_modify {
-+	struct c2wr_cq_modify_req req;
-+	struct c2wr_cq_modify_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_cq_destroy_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 cq_handle;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_cq_destroy_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_cq_destroy {
-+	struct c2wr_cq_destroy_req req;
-+	struct c2wr_cq_destroy_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ *------------------------ PD ------------------------
-+ */
-+struct c2wr_pd_alloc_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 pd_id;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_pd_alloc_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_pd_alloc {
-+	struct c2wr_pd_alloc_req req;
-+	struct c2wr_pd_alloc_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_pd_dealloc_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 pd_id;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_pd_dealloc_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_pd_dealloc {
-+	struct c2wr_pd_dealloc_req req;
-+	struct c2wr_pd_dealloc_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ *------------------------ SRQ ------------------------
-+ */
-+struct c2wr_srq_create_req {
-+	struct c2wr_hdr hdr;
-+	u64 shared_ht;
-+	u64 user_context;
-+	u32 rnic_handle;
-+	u32 srq_depth;
-+	u32 srq_limit;
-+	u32 sgl_depth;
-+	u32 pd_id;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_srq_create_rep {
-+	struct c2wr_hdr hdr;
-+	u32 srq_depth;
-+	u32 sgl_depth;
-+	u32 msg_size;
-+	u32 mq_index;
-+	u32 mq_start;
-+	u32 srq_handle;
-+} __attribute__((packed)) ;
-+
-+union c2wr_srq_create {
-+	struct c2wr_srq_create_req req;
-+	struct c2wr_srq_create_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_srq_destroy_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 srq_handle;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_srq_destroy_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_srq_destroy {
-+	struct c2wr_srq_destroy_req req;
-+	struct c2wr_srq_destroy_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ *------------------------ QP ------------------------
-+ */
-+enum c2wr_qp_flags {
-+	QP_RDMA_READ =3D 0x00000001,	/* RDMA read enabled? */
-+	QP_RDMA_WRITE =3D 0x00000002,	/* RDMA write enabled? */
-+	QP_MW_BIND =3D 0x00000004,	/* MWs enabled */
-+	QP_ZERO_STAG =3D 0x00000008,	/* enabled? */
-+	QP_REMOTE_TERMINATION =3D 0x00000010,	/* remote end terminated */
-+	QP_RDMA_READ_RESPONSE =3D 0x00000020	/* Remote RDMA read  */
-+	    /* enabled? */
-+};
-+
-+struct c2wr_qp_create_req {
-+	struct c2wr_hdr hdr;
-+	u64 shared_sq_ht;
-+	u64 shared_rq_ht;
-+	u64 user_context;
-+	u32 rnic_handle;
-+	u32 sq_cq_handle;
-+	u32 rq_cq_handle;
-+	u32 sq_depth;
-+	u32 rq_depth;
-+	u32 srq_handle;
-+	u32 srq_limit;
-+	u32 flags;		/* see enum c2wr_qp_flags */
-+	u32 send_sgl_depth;
-+	u32 recv_sgl_depth;
-+	u32 rdma_write_sgl_depth;
-+	u32 ord;
-+	u32 ird;
-+	u32 pd_id;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_create_rep {
-+	struct c2wr_hdr hdr;
-+	u32 sq_depth;
-+	u32 rq_depth;
-+	u32 send_sgl_depth;
-+	u32 recv_sgl_depth;
-+	u32 rdma_write_sgl_depth;
-+	u32 ord;
-+	u32 ird;
-+	u32 sq_msg_size;
-+	u32 sq_mq_index;
-+	u32 sq_mq_start;
-+	u32 rq_msg_size;
-+	u32 rq_mq_index;
-+	u32 rq_mq_start;
-+	u32 qp_handle;
-+} __attribute__((packed)) ;
-+
-+union c2wr_qp_create {
-+	struct c2wr_qp_create_req req;
-+	struct c2wr_qp_create_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_query_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 qp_handle;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_query_rep {
-+	struct c2wr_hdr hdr;
-+	u64 user_context;
-+	u32 rnic_handle;
-+	u32 sq_depth;
-+	u32 rq_depth;
-+	u32 send_sgl_depth;
-+	u32 rdma_write_sgl_depth;
-+	u32 recv_sgl_depth;
-+	u32 ord;
-+	u32 ird;
-+	u16 qp_state;
-+	u16 flags;		/* see c2wr_qp_flags_t */
-+	u32 qp_id;
-+	u32 local_addr;
-+	u32 remote_addr;
-+	u16 local_port;
-+	u16 remote_port;
-+	u32 terminate_msg_length;	/* 0 if not present */
-+	u8 data[0];
-+	/* Terminate Message in-line here. */
-+} __attribute__((packed)) ;
-+
-+union c2wr_qp_query {
-+	struct c2wr_qp_query_req req;
-+	struct c2wr_qp_query_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_modify_req {
-+	struct c2wr_hdr hdr;
-+	u64 stream_msg;
-+	u32 stream_msg_length;
-+	u32 rnic_handle;
-+	u32 qp_handle;
-+	u32 next_qp_state;
-+	u32 ord;
-+	u32 ird;
-+	u32 sq_depth;
-+	u32 rq_depth;
-+	u32 llp_ep_handle;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_modify_rep {
-+	struct c2wr_hdr hdr;
-+	u32 ord;
-+	u32 ird;
-+	u32 sq_depth;
-+	u32 rq_depth;
-+	u32 sq_msg_size;
-+	u32 sq_mq_index;
-+	u32 sq_mq_start;
-+	u32 rq_msg_size;
-+	u32 rq_mq_index;
-+	u32 rq_mq_start;
-+} __attribute__((packed)) ;
-+
-+union c2wr_qp_modify {
-+	struct c2wr_qp_modify_req req;
-+	struct c2wr_qp_modify_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_destroy_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 qp_handle;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_destroy_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_qp_destroy {
-+	struct c2wr_qp_destroy_req req;
-+	struct c2wr_qp_destroy_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ * The CCWR_QP_CONNECT msg is posted on the verbs request queue.  It can
-+ * only be posted when a QP is in IDLE state.  After the connect request=
- is
-+ * submitted to the LLP, the adapter moves the QP to CONNECT_PENDING sta=
-te.
-+ * No synchronous reply from adapter to this WR.  The results of
-+ * connection are passed back in an async event CCAE_ACTIVE_CONNECT_RESU=
-LTS
-+ * See c2wr_ae_active_connect_results_t
-+ */
-+struct c2wr_qp_connect_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 qp_handle;
-+	u32 remote_addr;
-+	u16 remote_port;
-+	u16 pad;
-+	u32 private_data_length;
-+	u8 private_data[0];	/* Private data in-line. */
-+} __attribute__((packed)) ;
-+
-+struct c2wr_qp_connect {
-+	struct c2wr_qp_connect_req req;
-+	/* no synchronous reply.         */
-+} __attribute__((packed)) ;
-+
-+
-+/*
-+ *------------------------ MM ------------------------
-+ */
-+
-+struct c2wr_nsmr_stag_alloc_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 pbl_depth;
-+	u32 pd_id;
-+	u32 flags;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_stag_alloc_rep {
-+	struct c2wr_hdr hdr;
-+	u32 pbl_depth;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+union c2wr_nsmr_stag_alloc {
-+	struct c2wr_nsmr_stag_alloc_req req;
-+	struct c2wr_nsmr_stag_alloc_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_register_req {
-+	struct c2wr_hdr hdr;
-+	u64 va;
-+	u32 rnic_handle;
-+	u16 flags;
-+	u8 stag_key;
-+	u8 pad;
-+	u32 pd_id;
-+	u32 pbl_depth;
-+	u32 pbe_size;
-+	u32 fbo;
-+	u32 length;
-+	u32 addrs_length;
-+	/* array of paddrs (must be aligned on a 64bit boundary) */
-+	u64 paddrs[0];
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_register_rep {
-+	struct c2wr_hdr hdr;
-+	u32 pbl_depth;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+union c2wr_nsmr_register {
-+	struct c2wr_nsmr_register_req req;
-+	struct c2wr_nsmr_register_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_pbl_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 flags;
-+	u32 stag_index;
-+	u32 addrs_length;
-+	/* array of paddrs (must be aligned on a 64bit boundary) */
-+	u64 paddrs[0];
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_pbl_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_nsmr_pbl {
-+	struct c2wr_nsmr_pbl_req req;
-+	struct c2wr_nsmr_pbl_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_mr_query_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_mr_query_rep {
-+	struct c2wr_hdr hdr;
-+	u8 stag_key;
-+	u8 pad[3];
-+	u32 pd_id;
-+	u32 flags;
-+	u32 pbl_depth;
-+} __attribute__((packed)) ;
-+
-+union c2wr_mr_query {
-+	struct c2wr_mr_query_req req;
-+	struct c2wr_mr_query_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_mw_query_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_mw_query_rep {
-+	struct c2wr_hdr hdr;
-+	u8 stag_key;
-+	u8 pad[3];
-+	u32 pd_id;
-+	u32 flags;
-+} __attribute__((packed)) ;
-+
-+union c2wr_mw_query {
-+	struct c2wr_mw_query_req req;
-+	struct c2wr_mw_query_rep rep;
-+} __attribute__((packed)) ;
-+
-+
-+struct c2wr_stag_dealloc_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_stag_dealloc_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed)) ;
-+
-+union c2wr_stag_dealloc {
-+	struct c2wr_stag_dealloc_req req;
-+	struct c2wr_stag_dealloc_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_reregister_req {
-+	struct c2wr_hdr hdr;
-+	u64 va;
-+	u32 rnic_handle;
-+	u16 flags;
-+	u8 stag_key;
-+	u8 pad;
-+	u32 stag_index;
-+	u32 pd_id;
-+	u32 pbl_depth;
-+	u32 pbe_size;
-+	u32 fbo;
-+	u32 length;
-+	u32 addrs_length;
-+	u32 pad1;
-+	/* array of paddrs (must be aligned on a 64bit boundary) */
-+	u64 paddrs[0];
-+} __attribute__((packed)) ;
-+
-+struct c2wr_nsmr_reregister_rep {
-+	struct c2wr_hdr hdr;
-+	u32 pbl_depth;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+union c2wr_nsmr_reregister {
-+	struct c2wr_nsmr_reregister_req req;
-+	struct c2wr_nsmr_reregister_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_smr_register_req {
-+	struct c2wr_hdr hdr;
-+	u64 va;
-+	u32 rnic_handle;
-+	u16 flags;
-+	u8 stag_key;
-+	u8 pad;
-+	u32 stag_index;
-+	u32 pd_id;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_smr_register_rep {
-+	struct c2wr_hdr hdr;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+union c2wr_smr_register {
-+	struct c2wr_smr_register_req req;
-+	struct c2wr_smr_register_rep rep;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_mw_alloc_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 pd_id;
-+} __attribute__((packed)) ;
-+
-+struct c2wr_mw_alloc_rep {
-+	struct c2wr_hdr hdr;
-+	u32 stag_index;
-+} __attribute__((packed)) ;
-+
-+union c2wr_mw_alloc {
-+	struct c2wr_mw_alloc_req req;
-+	struct c2wr_mw_alloc_rep rep;
-+} __attribute__((packed)) ;
-+
-+/*
-+ *------------------------ WRs -----------------------
-+ */
-+
-+struct c2wr_user_hdr {
-+	struct c2wr_hdr hdr;		/* Has status and WR Type */
-+} __attribute__((packed)) ;
-+
-+enum c2_qp_state {
-+	C2_QP_STATE_IDLE =3D 0x01,
-+	C2_QP_STATE_CONNECTING =3D 0x02,
-+	C2_QP_STATE_RTS =3D 0x04,
-+	C2_QP_STATE_CLOSING =3D 0x08,
-+	C2_QP_STATE_TERMINATE =3D 0x10,
-+	C2_QP_STATE_ERROR =3D 0x20,
-+};
-+
-+/* Completion queue entry. */
-+struct c2wr_ce {
-+	struct c2wr_hdr hdr;		/* Has status and WR Type */
-+	u64 qp_user_context;	/* c2_user_qp_t * */
-+	u32 qp_state;		/* Current QP State */
-+	u32 handle;		/* QPID or EP Handle */
-+	u32 bytes_rcvd;		/* valid for RECV WCs */
-+	u32 stag;
-+} __attribute__((packed)) ;
-+
-+
-+/*
-+ * Flags used for all post-sq WRs.  These must fit in the flags
-+ * field of the struct c2wr_hdr (eight bits).
-+ */
-+enum {
-+	SQ_SIGNALED =3D 0x01,
-+	SQ_READ_FENCE =3D 0x02,
-+	SQ_FENCE =3D 0x04,
-+};
-+
-+/*
-+ * Common fields for all post-sq WRs.  Namely the standard header and a=20
-+ * secondary header with fields common to all post-sq WRs.
-+ */
-+struct c2_sq_hdr {
-+	struct c2wr_user_hdr user_hdr;
-+} __attribute__((packed));
-+
-+/*
-+ * Same as above but for post-rq WRs.
-+ */
-+struct c2_rq_hdr {
-+	struct c2wr_user_hdr user_hdr;
-+} __attribute__((packed));
-+
-+/*
-+ * use the same struct for all sends.
-+ */
-+struct c2wr_send_req {
-+	struct c2_sq_hdr sq_hdr;
-+	u32 sge_len;
-+	u32 remote_stag;
-+	u8 data[0];		/* SGE array */
-+} __attribute__((packed));
-+/* XXX c2wr_send_req_t, c2wr_send_se_req_t, c2wr_send_inv_req_t,
-+   c2wr_send_se_inv_req_t;*/
-+
-+union c2wr_send {
-+	struct c2wr_send_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+struct c2wr_rdma_write_req {
-+	struct c2_sq_hdr sq_hdr;
-+	u64 remote_to;
-+	u32 remote_stag;
-+	u32 sge_len;
-+	u8 data[0];		/* SGE array */
-+} __attribute__((packed));
-+
-+union c2wr_rdma_write {
-+	struct c2wr_rdma_write_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+struct c2wr_rdma_read_req {
-+	struct c2_sq_hdr sq_hdr;
-+	u64 local_to;
-+	u64 remote_to;
-+	u32 local_stag;
-+	u32 remote_stag;
-+	u32 length;
-+} __attribute__((packed));
-+
-+union c2wr_rdma_read {
-+	struct c2wr_rdma_read_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+struct c2wr_mw_bind_req {
-+	struct c2_sq_hdr sq_hdr;
-+	u64 va;
-+	u8 stag_key;
-+	u8 pad[3];
-+	u32 mw_stag_index;
-+	u32 mr_stag_index;
-+	u32 length;
-+	u32 flags;
-+} __attribute__((packed));
-+
-+union c2wr_mw_bind {
-+	struct c2wr_mw_bind_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+struct c2wr_nsmr_fastreg_req {
-+	struct c2_sq_hdr sq_hdr;
-+	u64 va;
-+	u8 stag_key;
-+	u8 pad[3];
-+	u32 stag_index;
-+	u32 pbe_size;
-+	u32 fbo;
-+	u32 length;
-+	u32 addrs_length;
-+	/* array of paddrs (must be aligned on a 64bit boundary) */
-+	u64 paddrs[0];
-+} __attribute__((packed));
-+
-+union c2wr_nsmr_fastreg {
-+	struct c2wr_nsmr_fastreg_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+struct c2wr_stag_invalidate_req {
-+	struct c2_sq_hdr sq_hdr;
-+	u8 stag_key;
-+	u8 pad[3];
-+	u32 stag_index;
-+} __attribute__((packed));
-+
-+union c2wr_stag_invalidate {
-+	struct c2wr_stag_invalidate_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+union c2wr_sqwr {
-+	struct c2_sq_hdr sq_hdr;
-+	struct c2wr_send_req send;
-+	struct c2wr_send_req send_se;
-+	struct c2wr_send_req send_inv;
-+	struct c2wr_send_req send_se_inv;
-+	struct c2wr_rdma_write_req rdma_write;
-+	struct c2wr_rdma_read_req rdma_read;
-+	struct c2wr_mw_bind_req mw_bind;
-+	struct c2wr_nsmr_fastreg_req nsmr_fastreg;
-+	struct c2wr_stag_invalidate_req stag_inv;
-+} __attribute__((packed));
-+
-+
-+/*
-+ * RQ WRs
-+ */
-+struct c2wr_rqwr {
-+	struct c2_rq_hdr rq_hdr;
-+	u8 data[0];		/* array of SGEs */
-+} __attribute__((packed));
-+/* XXX  c2wr_rqwr_t, c2wr_recv_req_t; */
-+
-+union c2wr_recv {
-+	struct c2wr_rqwr req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+/*
-+ * All AEs start with this header.  Most AEs only need to convey the
-+ * information in the header.  Some, like LLP connection events, need
-+ * more info.  The union typdef c2wr_ae_t has all the possible AEs.
-+ *
-+ * hdr.context is the user_context from the rnic_open WR.  NULL If this=20
-+ * is not affiliated with an rnic
-+ *
-+ * hdr.id is the AE identifier (eg;  CCAE_REMOTE_SHUTDOWN,=20
-+ * CCAE_LLP_CLOSE_COMPLETE)
-+ *
-+ * resource_type is one of:  C2_RES_IND_QP, C2_RES_IND_CQ, C2_RES_IND_SR=
-Q
-+ *
-+ * user_context is the context passed down when the host created the res=
-ource.
-+ */
-+struct c2wr_ae_hdr {
-+	struct c2wr_hdr hdr;
-+	u64 user_context;	/* user context for this res. */
-+	u32 resource_type;	/* see enum c2_resource_indicator */
-+	u32 resource;		/* handle for resource */
-+	u32 qp_state;		/* current QP State */
-+} __attribute__((packed));
-+
-+/*
-+ * After submitting the CCAE_ACTIVE_CONNECT_RESULTS message on the AEQ,=20
-+ * the adapter moves the QP into RTS state
-+ */
-+struct c2wr_ae_active_connect_results {
-+	struct c2wr_ae_hdr ae_hdr;
-+	u32 laddr;
-+	u32 raddr;
-+	u16 lport;
-+	u16 rport;
-+	u32 private_data_length;
-+	u8 private_data[0];	/* data is in-line in the msg. */
-+} __attribute__((packed));
-+
-+/*
-+ * When connections are established by the stack (and the private data
-+ * MPA frame is received), the adapter will generate an event to the hos=
-t.
-+ * The details of the connection, any private data, and the new connecti=
-on
-+ * request handle is passed up via the CCAE_CONNECTION_REQUEST msg on th=
-e
-+ * AE queue:
-+ */
-+struct c2wr_ae_connection_request {
-+	struct c2wr_ae_hdr ae_hdr;
-+	u32 cr_handle;		/* connreq handle (sock ptr) */
-+	u32 laddr;
-+	u32 raddr;
-+	u16 lport;
-+	u16 rport;
-+	u32 private_data_length;
-+	u8 private_data[0];	/* data is in-line in the msg. */
-+} __attribute__((packed));
-+
-+union c2wr_ae {
-+	struct c2wr_ae_hdr ae_generic;
-+	struct c2wr_ae_active_connect_results ae_active_connect_results;
-+	struct c2wr_ae_connection_request ae_connection_request;
-+} __attribute__((packed));
-+
-+struct c2wr_init_req {
-+	struct c2wr_hdr hdr;
-+	u64 hint_count;
-+	u64 q0_host_shared;
-+	u64 q1_host_shared;
-+	u64 q1_host_msg_pool;
-+	u64 q2_host_shared;
-+	u64 q2_host_msg_pool;
-+} __attribute__((packed));
-+
-+struct c2wr_init_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed));
-+
-+union c2wr_init {
-+	struct c2wr_init_req req;
-+	struct c2wr_init_rep rep;
-+} __attribute__((packed));
-+
-+/*
-+ * For upgrading flash.
-+ */
-+
-+struct c2wr_flash_init_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+} __attribute__((packed));
-+
-+struct c2wr_flash_init_rep {
-+	struct c2wr_hdr hdr;
-+	u32 adapter_flash_buf_offset;
-+	u32 adapter_flash_len;
-+} __attribute__((packed));
-+
-+union c2wr_flash_init {
-+	struct c2wr_flash_init_req req;
-+	struct c2wr_flash_init_rep rep;
-+} __attribute__((packed));
-+
-+struct c2wr_flash_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 len;
-+} __attribute__((packed));
-+
-+struct c2wr_flash_rep {
-+	struct c2wr_hdr hdr;
-+	u32 status;
-+} __attribute__((packed));
-+
-+union c2wr_flash {
-+	struct c2wr_flash_req req;
-+	struct c2wr_flash_rep rep;
-+} __attribute__((packed));
-+
-+struct c2wr_buf_alloc_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 size;
-+} __attribute__((packed));
-+
-+struct c2wr_buf_alloc_rep {
-+	struct c2wr_hdr hdr;
-+	u32 offset;		/* 0 if mem not available */
-+	u32 size;		/* 0 if mem not available */
-+} __attribute__((packed));
-+
-+union c2wr_buf_alloc {
-+	struct c2wr_buf_alloc_req req;
-+	struct c2wr_buf_alloc_rep rep;
-+} __attribute__((packed));
-+
-+struct c2wr_buf_free_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 offset;		/* Must match value from alloc */
-+	u32 size;		/* Must match value from alloc */
-+} __attribute__((packed));
-+
-+struct c2wr_buf_free_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed));
-+
-+union c2wr_buf_free {
-+	struct c2wr_buf_free_req req;
-+	struct c2wr_ce rep;
-+} __attribute__((packed));
-+
-+struct c2wr_flash_write_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 offset;
-+	u32 size;
-+	u32 type;
-+	u32 flags;
-+} __attribute__((packed));
-+
-+struct c2wr_flash_write_rep {
-+	struct c2wr_hdr hdr;
-+	u32 status;
-+} __attribute__((packed));
-+
-+union c2wr_flash_write {
-+	struct c2wr_flash_write_req req;
-+	struct c2wr_flash_write_rep rep;
-+} __attribute__((packed));
-+
-+/*
-+ * Messages for LLP connection setup.=20
-+ */
-+
-+/*
-+ * Listen Request.  This allocates a listening endpoint to allow passive
-+ * connection setup.  Newly established LLP connections are passed up
-+ * via an AE.  See c2wr_ae_connection_request_t
-+ */
-+struct c2wr_ep_listen_create_req {
-+	struct c2wr_hdr hdr;
-+	u64 user_context;	/* returned in AEs. */
-+	u32 rnic_handle;
-+	u32 local_addr;		/* local addr, or 0  */
-+	u16 local_port;		/* 0 means "pick one" */
-+	u16 pad;
-+	u32 backlog;		/* tradional tcp listen bl */
-+} __attribute__((packed));
-+
-+struct c2wr_ep_listen_create_rep {
-+	struct c2wr_hdr hdr;
-+	u32 ep_handle;		/* handle to new listening ep */
-+	u16 local_port;		/* resulting port... */
-+	u16 pad;
-+} __attribute__((packed));
-+
-+union c2wr_ep_listen_create {
-+	struct c2wr_ep_listen_create_req req;
-+	struct c2wr_ep_listen_create_rep rep;
-+} __attribute__((packed));
-+
-+struct c2wr_ep_listen_destroy_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 ep_handle;
-+} __attribute__((packed));
-+
-+struct c2wr_ep_listen_destroy_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed));
-+
-+union c2wr_ep_listen_destroy {
-+	struct c2wr_ep_listen_destroy_req req;
-+	struct c2wr_ep_listen_destroy_rep rep;
-+} __attribute__((packed));
-+
-+struct c2wr_ep_query_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 ep_handle;
-+} __attribute__((packed));
-+
-+struct c2wr_ep_query_rep {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 local_addr;
-+	u32 remote_addr;
-+	u16 local_port;
-+	u16 remote_port;
-+} __attribute__((packed));
-+
-+union c2wr_ep_query {
-+	struct c2wr_ep_query_req req;
-+	struct c2wr_ep_query_rep rep;
-+} __attribute__((packed));
-+
-+
-+/*
-+ * The host passes this down to indicate acceptance of a pending iWARP
-+ * connection.  The cr_handle was obtained from the CONNECTION_REQUEST
-+ * AE passed up by the adapter.  See c2wr_ae_connection_request_t.
-+ */
-+struct c2wr_cr_accept_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 qp_handle;		/* QP to bind to this LLP conn */
-+	u32 ep_handle;		/* LLP  handle to accept */
-+	u32 private_data_length;
-+	u8 private_data[0];	/* data in-line in msg. */
-+} __attribute__((packed));
-+
-+/*
-+ * adapter sends reply when private data is successfully submitted to=20
-+ * the LLP.
-+ */
-+struct c2wr_cr_accept_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed));
-+
-+union c2wr_cr_accept {
-+	struct c2wr_cr_accept_req req;
-+	struct c2wr_cr_accept_rep rep;
-+} __attribute__((packed));
-+
-+/*
-+ * The host sends this down if a given iWARP connection request was=20
-+ * rejected by the consumer.  The cr_handle was obtained from a=20
-+ * previous c2wr_ae_connection_request_t AE sent by the adapter.
-+ */
-+struct  c2wr_cr_reject_req {
-+	struct c2wr_hdr hdr;
-+	u32 rnic_handle;
-+	u32 ep_handle;		/* LLP handle to reject */
-+} __attribute__((packed));
-+
-+/*
-+ * Dunno if this is needed, but we'll add it for now.  The adapter will
-+ * send the reject_reply after the LLP endpoint has been destroyed.
-+ */
-+struct  c2wr_cr_reject_rep {
-+	struct c2wr_hdr hdr;
-+} __attribute__((packed));
-+
-+union c2wr_cr_reject {
-+	struct c2wr_cr_reject_req req;
-+	struct c2wr_cr_reject_rep rep;
-+} __attribute__((packed));
-+
-+/*
-+ * console command.  Used to implement a debug console over the verbs
-+ * request and reply queues. =20
-+ */
-+
-+/*
-+ * Console request message.  It contains:
-+ *	- message hdr with id =3D CCWR_CONSOLE
-+ *	- the physaddr/len of host memory to be used for the reply.=20
-+ *	- the command string.  eg:  "netstat -s" or "zoneinfo"
-+ */
-+struct c2wr_console_req {
-+	struct c2wr_hdr hdr;		/* id =3D CCWR_CONSOLE */
-+	u64 reply_buf;		/* pinned host buf for reply */
-+	u32 reply_buf_len;	/* length of reply buffer */
-+	u8 command[0];		/* NUL terminated ascii string */
-+	/* containing the command req */
-+} __attribute__((packed));
-+
-+/*
-+ * flags used in the console reply.
-+ */
-+enum c2_console_flags {
-+	CONS_REPLY_TRUNCATED =3D 0x00000001	/* reply was truncated */
-+} __attribute__((packed));
-+
-+/*
-+ * Console reply message. =20
-+ * hdr.result contains the c2_status_t error if the reply was _not_ gene=
-rated,=20
-+ * or C2_OK if the reply was generated.
-+ */
-+struct c2wr_console_rep {
-+	struct c2wr_hdr hdr;		/* id =3D CCWR_CONSOLE */
-+	u32 flags;
-+} __attribute__((packed));
-+
-+union c2wr_console {
-+	struct c2wr_console_req req;
-+	struct c2wr_console_rep rep;
-+} __attribute__((packed));
-+
-+
-+/*
-+ * Giant union with all WRs.  Makes life easier...
-+ */
-+union c2wr {
-+	struct c2wr_hdr hdr;
-+	struct c2wr_user_hdr user_hdr;
-+	union c2wr_rnic_open rnic_open;
-+	union c2wr_rnic_query rnic_query;
-+	union c2wr_rnic_getconfig rnic_getconfig;
-+	union c2wr_rnic_setconfig rnic_setconfig;
-+	union c2wr_rnic_close rnic_close;
-+	union c2wr_cq_create cq_create;
-+	union c2wr_cq_modify cq_modify;
-+	union c2wr_cq_destroy cq_destroy;
-+	union c2wr_pd_alloc pd_alloc;
-+	union c2wr_pd_dealloc pd_dealloc;
-+	union c2wr_srq_create srq_create;
-+	union c2wr_srq_destroy srq_destroy;
-+	union c2wr_qp_create qp_create;
-+	union c2wr_qp_query qp_query;
-+	union c2wr_qp_modify qp_modify;
-+	union c2wr_qp_destroy qp_destroy;
-+	struct c2wr_qp_connect qp_connect;
-+	union c2wr_nsmr_stag_alloc nsmr_stag_alloc;
-+	union c2wr_nsmr_register nsmr_register;
-+	union c2wr_nsmr_pbl nsmr_pbl;
-+	union c2wr_mr_query mr_query;
-+	union c2wr_mw_query mw_query;
-+	union c2wr_stag_dealloc stag_dealloc;
-+	union c2wr_sqwr sqwr;
-+	struct c2wr_rqwr rqwr;
-+	struct c2wr_ce ce;
-+	union c2wr_ae ae;
-+	union c2wr_init init;
-+	union c2wr_ep_listen_create ep_listen_create;
-+	union c2wr_ep_listen_destroy ep_listen_destroy;
-+	union c2wr_cr_accept cr_accept;
-+	union c2wr_cr_reject cr_reject;
-+	union c2wr_console console;
-+	union c2wr_flash_init flash_init;
-+	union c2wr_flash flash;
-+	union c2wr_buf_alloc buf_alloc;
-+	union c2wr_buf_free buf_free;
-+	union c2wr_flash_write flash_write;
-+} __attribute__((packed));
-+
-+
-+/*
-+ * Accessors for the wr fields that are packed together tightly to
-+ * reduce the wr message size.  The wr arguments are void* so that
-+ * either a struct c2wr*, a struct c2wr_hdr*, or a pointer to any of the=
- types
-+ * in the struct c2wr union can be passed in.
-+ */
-+static __inline__ u8 c2_wr_get_id(void *wr)
-+{
-+	return ((struct c2wr_hdr *) wr)->id;
-+}
-+static __inline__ void c2_wr_set_id(void *wr, u8 id)
-+{
-+	((struct c2wr_hdr *) wr)->id =3D id;
-+}
-+static __inline__ u8 c2_wr_get_result(void *wr)
-+{
-+	return ((struct c2wr_hdr *) wr)->result;
-+}
-+static __inline__ void c2_wr_set_result(void *wr, u8 result)
-+{
-+	((struct c2wr_hdr *) wr)->result =3D result;
-+}
-+static __inline__ u8 c2_wr_get_flags(void *wr)
-+{
-+	return ((struct c2wr_hdr *) wr)->flags;
-+}
-+static __inline__ void c2_wr_set_flags(void *wr, u8 flags)
-+{
-+	((struct c2wr_hdr *) wr)->flags =3D flags;
-+}
-+static __inline__ u8 c2_wr_get_sge_count(void *wr)
-+{
-+	return ((struct c2wr_hdr *) wr)->sge_count;
-+}
-+static __inline__ void c2_wr_set_sge_count(void *wr, u8 sge_count)
-+{
-+	((struct c2wr_hdr *) wr)->sge_count =3D sge_count;
-+}
-+static __inline__ u32 c2_wr_get_wqe_count(void *wr)
-+{
-+	return ((struct c2wr_hdr *) wr)->wqe_count;
-+}
-+static __inline__ void c2_wr_set_wqe_count(void *wr, u32 wqe_count)
-+{
-+	((struct c2wr_hdr *) wr)->wqe_count =3D wqe_count;
-+}
-+
-+#endif				/* _C2_WR_H_ */
+If anywone knows how to address this issue, please email me directly cuz
+I don't know why 2/7 didn't get forwarded.  
+
+Sorry.
+
+Steve.
+
+
+--=-kYogRcVN8LOT20aXURi6
+Content-Disposition: attachment; filename=amso1100_wr.gz
+Content-Type: application/x-gzip; name=amso1100_wr.gz
+Content-Transfer-Encoding: base64
+
+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
+FNaQ/wP0uKk77bUAAA==
+
+
+--=-kYogRcVN8LOT20aXURi6--
+
