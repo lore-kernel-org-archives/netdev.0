@@ -1,270 +1,51 @@
-From: Auke Kok <sofar@foo-projects.org>
-Subject: Re: [PATCH 3/4] Make Intel e1000 driver legacy I/O port free
-Date: Tue, 06 Jun 2006 22:10:48 -0700
-Message-ID: <44865FD8.4060801@foo-projects.org>
-References: <447E91CE.7010705@intel.com> <20060601024611.A32490@unix-os.sc.intel.com> <20060601171559.GA16288@colo.lackof.org> <20060601113625.A4043@unix-os.sc.intel.com> <447FA920.9060509@jp.fujitsu.com> <4484263C.1030508@jp.fujitsu.com> <20060606075812.GB19619@kroah.com> <448643B9.2080805@jp.fujitsu.com> <448644A2.7000208@jp.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.17-rc5-mm3-lockdep -
+Date: Wed, 7 Jun 2006 17:12:08 +1000
+Message-ID: <20060607071208.GA1951@gondor.apana.org.au>
+References: <200606060250.k562oCrA004583@turing-police.cc.vt.edu>
+	<44852819.2080503@gmail.com> <4485798B.4030007@s5r6.in-berlin.de>
+	<4485AFB9.3040005@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, akpm@osdl.org,
-	Rajesh Shah <rajesh.shah@intel.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	"bibo,mao" <bibo.mao@intel.com>, linux-kernel@vger.kernel.org,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:27355 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750882AbWFGFLM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 01:11:12 -0400
-To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-In-Reply-To: <448644A2.7000208@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, Valdis.Kletnieks@vt.edu,
+	Jiri Slaby <jirislaby@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@redhat.com,
+	linux1394-devel@lists.sourceforge.net,
+	"David S. Miller" <davem@davemloft.net>, arjan@infradead.org
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Disposition: inline
+In-Reply-To: <4485AFB9.3040005@s5r6.in-berlin.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Kenji Kaneshige wrote:
-> This patch makes Intel e1000 driver legacy I/O port free.
+On Tue, Jun 06, 2006 at 04:39:21PM +0000, Stefan Richter wrote:
 > 
-> Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+> BTW, the locking in -mm's net/unix/af_unix.c::unix_stream_connect() 
+> differs a bit from stock unix_stream_connect(). I see spin_lock_bh() in 
+> 2.6.17-rc5-mm3 where 2.6.17-rc5 has spin_lock().
 
-(adding netdev and the other e1000 maintainers to cc:)
+Hi Ingo:
 
-without sending this to any of the listed e1000 maintainers???? *and* not even 
-including netdev???
+Looks like this change was introduced by the validator patch.  Any idea
+why this was done? AF_UNIX is a user-space-driven socket so there shouldn't
+be any need for BH to be disabled there.
 
+Even if it does this patch should go through the normal channels rather
+than the lock validator.
 
-I'm going to take a look at it first, and have some other colleagues look at 
-this and the impact, which is unclear to me at the moment. Please don't commit 
-  this like this.
-
-Auke
-
-
-> 
-> ---
->  drivers/net/e1000/e1000.h      |    6 +
->  drivers/net/e1000/e1000_main.c |  130 ++++++++++++++++++++++-------------------
->  2 files changed, 75 insertions(+), 61 deletions(-)
-> 
-> Index: linux-2.6.17-rc6/drivers/net/e1000/e1000.h
-> ===================================================================
-> --- linux-2.6.17-rc6.orig/drivers/net/e1000/e1000.h	2006-06-06 21:39:11.000000000 +0900
-> +++ linux-2.6.17-rc6/drivers/net/e1000/e1000.h	2006-06-06 21:56:41.000000000 +0900
-> @@ -77,8 +77,9 @@
->  #define BAR_1		1
->  #define BAR_5		5
->  
-> -#define INTEL_E1000_ETHERNET_DEVICE(device_id) {\
-> -	PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
-> +#define E1000_NO_IOPORT	(1 << 0)
-> +#define INTEL_E1000_ETHERNET_DEVICE(device_id, flags) {\
-> +	PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id), .driver_data = flags}
->  
->  struct e1000_adapter;
->  
-> @@ -338,6 +339,7 @@
->  #ifdef NETIF_F_TSO
->  	boolean_t tso_force;
->  #endif
-> +	int bars;	/* BARs to be enabled */
->  };
->  
->  
-> Index: linux-2.6.17-rc6/drivers/net/e1000/e1000_main.c
-> ===================================================================
-> --- linux-2.6.17-rc6.orig/drivers/net/e1000/e1000_main.c	2006-06-06 21:39:11.000000000 +0900
-> +++ linux-2.6.17-rc6/drivers/net/e1000/e1000_main.c	2006-06-06 21:56:41.000000000 +0900
-> @@ -86,54 +86,54 @@
->   *   {PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
->   */
->  static struct pci_device_id e1000_pci_tbl[] = {
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1000),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1001),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1004),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1008),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1009),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x100F),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1010),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1011),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1012),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1013),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1014),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1015),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1016),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1017),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1018),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1019),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x101A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x101D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x101E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1026),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1027),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1028),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x105E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x105F),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1060),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1075),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1076),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1077),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1078),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1079),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107B),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107D),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107E),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x107F),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x108A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x108B),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x108C),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1096),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1098),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x1099),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x109A),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
-> -	INTEL_E1000_ETHERNET_DEVICE(0x10B9),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1000, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1001, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1004, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1008, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1009, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100C, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100D, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100E, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x100F, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1010, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1011, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1012, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1013, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1014, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1015, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1016, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1017, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1018, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1019, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x101A, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x101D, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x101E, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1026, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1027, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1028, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x105E, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x105F, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1060, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1075, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1076, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1077, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1078, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1079, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107A, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107B, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107C, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107D, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107E, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x107F, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x108A, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x108B, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x108C, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1096, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1098, 0),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x1099, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x109A, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10B5, E1000_NO_IOPORT),
-> +	INTEL_E1000_ETHERNET_DEVICE(0x10B9, 0),
->  	/* required last entry */
->  	{0,}
->  };
-> @@ -621,7 +621,14 @@
->  	int i, err, pci_using_dac;
->  	uint16_t eeprom_data;
->  	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
-> -	if ((err = pci_enable_device(pdev)))
-> +	int bars;
-> +
-> +	if (ent->driver_data & E1000_NO_IOPORT)
-> +		bars = pci_select_bars(pdev, IORESOURCE_MEM);
-> +	else
-> +		bars = pci_select_bars(pdev, IORESOURCE_MEM | IORESOURCE_IO);
-> +
-> +	if ((err = pci_enable_device_bars(pdev, bars)))
->  		return err;
->  
->  	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK))) {
-> @@ -634,7 +641,8 @@
->  		pci_using_dac = 0;
->  	}
->  
-> -	if ((err = pci_request_regions(pdev, e1000_driver_name)))
-> +	err = pci_request_selected_regions(pdev, bars, e1000_driver_name);
-> +	if (err)
->  		return err;
->  
->  	pci_set_master(pdev);
-> @@ -654,6 +662,7 @@
->  	adapter->pdev = pdev;
->  	adapter->hw.back = adapter;
->  	adapter->msg_enable = (1 << debug) - 1;
-> +	adapter->bars = bars;
->  
->  	mmio_start = pci_resource_start(pdev, BAR_0);
->  	mmio_len = pci_resource_len(pdev, BAR_0);
-> @@ -664,12 +673,15 @@
->  		goto err_ioremap;
->  	}
->  
-> -	for (i = BAR_1; i <= BAR_5; i++) {
-> -		if (pci_resource_len(pdev, i) == 0)
-> -			continue;
-> -		if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-> -			adapter->hw.io_base = pci_resource_start(pdev, i);
-> -			break;
-> +	if (!(ent->driver_data & E1000_NO_IOPORT)) {
-> +		for (i = BAR_1; i <= BAR_5; i++) {
-> +			if (pci_resource_len(pdev, i) == 0)
-> +				continue;
-> +			if (pci_resource_flags(pdev, i) & IORESOURCE_IO) {
-> +				adapter->hw.io_base =
-> +					pci_resource_start(pdev, i);
-> +				break;
-> +			}
->  		}
->  	}
->  
-> @@ -880,7 +892,7 @@
->  err_ioremap:
->  	free_netdev(netdev);
->  err_alloc_etherdev:
-> -	pci_release_regions(pdev);
-> +	pci_release_selected_regions(pdev, bars);
->  	return err;
->  }
->  
-> @@ -935,7 +947,7 @@
->  #endif
->  
->  	iounmap(adapter->hw.hw_addr);
-> -	pci_release_regions(pdev);
-> +	pci_release_selected_regions(pdev, adapter->bars);
->  
->  	free_netdev(netdev);
->  
-> @@ -4577,7 +4589,7 @@
->  	if (retval)
->  		DPRINTK(PROBE, ERR, "Error in setting power state\n");
->  	e1000_pci_restore_state(adapter);
-> -	ret_val = pci_enable_device(pdev);
-> +	ret_val = pci_enable_device_bars(pdev, adapter->bars);
->  	pci_set_master(pdev);
->  
->  	retval = pci_enable_wake(pdev, PCI_D3hot, 0);
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
