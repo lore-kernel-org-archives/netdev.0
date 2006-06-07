@@ -1,168 +1,183 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Wed, 7 Jun 2006 15:18:00 -0400
-Message-ID: <20060607191800.GB1241@localhost.localdomain>
-References: <20060606170513.GB21969@hmsreliant.homelinux.net> <4485B8EC.4090603@intel.com> <x494pyyw5sr.fsf@segfault.boston.redhat.com> <4485BCA2.5070904@intel.com> <x49zmgquqn0.fsf@segfault.boston.redhat.com> <20060606231727.GK24227@waste.org> <20060607150522.GA24608@hmsreliant.homelinux.net> <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com> <x49d5dkvm8p.fsf@segfault.boston.redhat.com>
+From: "Guenther Thomsen" <GThomsen@bluearc.com>
+Subject: RE: kernel panic (on DHCP discover?) in sky2 driver of 2.6.17-rc1
+Date: Wed, 7 Jun 2006 12:33:21 -0700
+Message-ID: <CECD6E8A589E8447BC6E836C8369AFF506828728@us-email.terastack.bluearc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "John W. Linville" <linville@redhat.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:54278 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932366AbWFGTU5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 15:20:57 -0400
-To: Jeff Moyer <jmoyer@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <x49d5dkvm8p.fsf@segfault.boston.redhat.com>
+Received: from usmimesweeper.bluearc.com ([63.203.197.133]:37392 "EHLO
+	us-mimesweeper.terastack.bluearc.com") by vger.kernel.org with ESMTP
+	id S932373AbWFGTdY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 15:33:24 -0400
+Content-class: urn:content-classes:message
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2006 at 02:44:54PM -0400, Jeff Moyer wrote:
-> ==> Regarding Re: [PATCH 1/2] e1000: fix netpoll with NAPI; Auke Kok <auke-jan.h.kok@intel.com> adds:
-> 
-> auke-jan.h.kok> Hi,
-> 
-> auke-jan.h.kok> we're not too happy with this as it puts a branch right in
-> auke-jan.h.kok> the regular receive path. We haven't ran the numbers on it
-> auke-jan.h.kok> yet but it is likely that this will lower performance
-> auke-jan.h.kok> significantly during normal receives for something that is
-> auke-jan.h.kok> not common use.
-> 
-> auke-jan.h.kok> Attached below a (revised) patch that adds proper locking
-> auke-jan.h.kok> around the rx_clean to prevent the race.
-> 
-> That patch locks around the tx clean routine.  As such, it doesn't prevent
-> the problem.
-> 
-Further to that, do tests on this if you like, but I would certainly think a
-properly formed conditional operation is going to provide better performance
-than a spin_lock operation in the receive path.  Why not just turn the:
-if(netpoll_op)
-into an
-if(unlikely(netpoll_op))
+I was perhaps a bit quick to declare victory. While the results below stand and the machine survived the last few days (idle), it occurred to me only today, to have a look at the kernel's message buffer, where I found following:
+--8<--
+sky2 eth0: enabling interface
+sky2 eth0: Link is up at 1000 Mbps, full duplex, flow control none
+sky2 eth1: enabling interface
+sky2 eth1: Link is up at 1000 Mbps, full duplex, flow control none
+audit(1149379670.514:3): audit_pid=1915 old=0 by auid=4294967295
+<unknown>: hw csum failure.
+sky2 eth1: rx error, status 0x7ffc0001 length 444
 
-I expect that will reduce the overhead of the conditional to effectively zero
-for the normal receive case.  The following patch does that, and I expect you
-performance won't suffer at all:
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
+Call Trace: <ffffffff811de741>{__skb_checksum_complete+76}
+       <ffffffff812030cb>{__tcp_checksum_complete_user+33}
+       <ffffffff812080d8>{tcp_rcv_established+817} <ffffffff8120f3ee>{tcp_v4_
+do_rcv+43}
+       <ffffffff811da2ee>{sk_wait_data+203} <ffffffff811fe5a8>{tcp_prequeue_p
+rocess+121}
+       <ffffffff811ff71d>{tcp_recvmsg+1104} <ffffffff811d9712>{sock_common_re
+cvmsg+48}
+       <ffffffff811d7d4f>{do_sock_read+209} <ffffffff811d7e7e>{sock_aio_read+
+83}
+       <ffffffff811e2ca1>{dev_queue_xmit+0} <ffffffff8106dce9>{do_sync_read+1
+99}
+       <ffffffff8103d699>{remove_wait_queue+18} <ffffffff8103d530>{autoremove
+_wake_function+0}
+       <ffffffff8106df83>{vfs_read+228} <ffffffff8106ea12>{sys_read+69}
+       <ffffffff81009b0d>{tracesys+209}
+<unknown>: hw csum failure.
+sky2 eth1: rx error, status 0x7ffc0001 length 444
 
 
- e1000_main.c |   54 +++++++++++++++++++++++++++++++++++++++++++++---------
- 1 files changed, 45 insertions(+), 9 deletions(-)
+Call Trace: <ffffffff811de741>{__skb_checksum_complete+76}
+       <ffffffff812030cb>{__tcp_checksum_complete_user+33}
+       <ffffffff812080d8>{tcp_rcv_established+817} <ffffffff8120f3ee>{tcp_v4_
+do_rcv+43}
+       <ffffffff811da2ee>{sk_wait_data+203} <ffffffff811fe5a8>{tcp_prequeue_p
+rocess+121}
+       <ffffffff811ff71d>{tcp_recvmsg+1104} <ffffffff811d9712>{sock_common_re
+cvmsg+48}
+       <ffffffff811d7696>{alloc_sock_iocb+20} <ffffffff811d7d4f>{do_sock_read
++209}
+       <ffffffff811d7e7e>{sock_aio_read+83} <ffffffff8106dce9>{do_sync_read+1
+99}
+       <ffffffff8103d699>{remove_wait_queue+18} <ffffffff8103d530>{autoremove
+_wake_function+0}
+       <ffffffff8106df83>{vfs_read+228} <ffffffff8106ea12>{sys_read+69}
+       <ffffffff81009b0d>{tracesys+209}
+<unknown>: hw csum failure.
+sky2 eth1: rx error, status 0x7ffc0001 length 444
 
 
+Call Trace: <ffffffff811de741>{__skb_checksum_complete+76}
+       <ffffffff812030cb>{__tcp_checksum_complete_user+33}
+       <ffffffff812080d8>{tcp_rcv_established+817} <ffffffff8120f3ee>{tcp_v4_
+do_rcv+43}
+       <ffffffff811da2ee>{sk_wait_data+203} <ffffffff811fe5a8>{tcp_prequeue_p
+rocess+121}
+       <ffffffff811ff71d>{tcp_recvmsg+1104} <ffffffff811d9712>{sock_common_re
+cvmsg+48}
+       <ffffffff811d7d4f>{do_sock_read+209} <ffffffff811d7e7e>{sock_aio_read+
+83}
+       <ffffffff8106dce9>{do_sync_read+199} <ffffffff8103d699>{remove_wait_qu
+eue+18}
+       <ffffffff8103d530>{autoremove_wake_function+0} <ffffffff8102f1a0>{curr
+ent_kernel_time+13}
+       <ffffffff8106df83>{vfs_read+228} <ffffffff8106ea12>{sys_read+69}
+       <ffffffff81009b0d>{tracesys+209}
 
---- linux-2.6.9/drivers/net/e1000/e1000_main.c.neil	2006-06-06 10:37:42.000000000 -0400
-+++ linux-2.6.9/drivers/net/e1000/e1000_main.c	2006-06-07 10:48:22.000000000 -0400
-@@ -3207,8 +3207,9 @@ e1000_update_stats(struct e1000_adapter 
-  * @pt_regs: CPU registers structure
-  **/
+sky2 eth0: rx error, status 0x7ffc0001 length 444
+sky2 eth0: rx error, status 0x7ffc0001 length 444
+sky2 eth1: rx error, status 0x7ffc0001 length 444
+sky2 eth1: rx error, status 0x7ffc0001 length 444
+sky2 eth1: rx error, status 0x7ffc0001 length 444
+-->8--
+Looks, like we're almost, but not quite there yet.
+
+cheers
+    Guenther
+
+
+-----Original Message-----
+From: Guenther Thomsen 
+Sent: Saturday, June 03, 2006 9:06 PM
+To: 'Stephen Hemminger'
+Cc: John W. Linville; netdev@vger.kernel.org
+Subject: RE: kernel panic (on DHCP discover?) in sky2 driver of
+2.6.17-rc1
+
+
+I received the hardware back and took the opportunity to test with 2.6.17-rc5-git11. So far I did only little tests (ttcp on both interfaces in, out or mixed with some 10e6 packets), but it looks good. No errors (well, 16 overruns in 76574513 packets) and line rate (about 111MB/s) on both channels simultaneously. Hurray!
+
+Thanks a lot for you continued efforts.
+	Guenther
+
+-----Original Message-----
+From: Stephen Hemminger [mailto:shemminger@osdl.org]
+Sent: Tuesday, May 16, 2006 12:12 PM
+To: Guenther Thomsen
+Cc: John W. Linville; netdev@vger.kernel.org
+Subject: Re: kernel panic (on DHCP discover?) in sky2 driver of
+2.6.17-rc1
+
+
+Could you try the 2.6.17-rc4 version with this patch. It turns out the board
+seems to give out of order status responses.
+
+Ignore the vendor sk98lin driver, when I try the stock version it spends it's
+life resetting itself because it sets up PCI bus wrong. If I fix that, it spends
+it's time getting confused because it can't handle intermixed status reports
+properly (checksum et all is per port not per board).
+
+
+ drivers/net/sky2.c |   28 +++++++++++++++++++++-------
+ 1 files changed, 21 insertions(+), 7 deletions(-)
+
+792547bc5e8e4f7d5a1070a168056f429635c254
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index ffd267f..11e7914 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -1020,8 +1020,27 @@ static int sky2_up(struct net_device *de
+ 	struct sky2_hw *hw = sky2->hw;
+ 	unsigned port = sky2->port;
+ 	u32 ramsize, rxspace, imask;
+-	int err = -ENOMEM;
++	int cap, err;
++	struct net_device *otherdev = hw->dev[sky2->port^1];
  
-+
- static irqreturn_t
--e1000_intr(int irq, void *data, struct pt_regs *regs)
-+__e1000_intr(int irq, void *data, struct pt_regs *regs, int netpoll_op)
- {
- 	struct net_device *netdev = data;
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-@@ -3217,6 +3218,7 @@ e1000_intr(int irq, void *data, struct p
- #ifndef CONFIG_E1000_NAPI
- 	int i;
- #else
-+	struct net_device *dev_to_sched;
- 	/* Interrupt Auto-Mask...upon reading ICR,
- 	 * interrupts are masked.  No need for the
- 	 * IMC write, but it does mean we should
-@@ -3255,8 +3257,22 @@ e1000_intr(int irq, void *data, struct p
- 		E1000_WRITE_REG(hw, IMC, ~0);
- 		E1000_WRITE_FLUSH(hw);
- 	}
--	if (likely(netif_rx_schedule_prep(&adapter->polling_netdev[0])))
--		__netif_rx_schedule(&adapter->polling_netdev[0]);
-+
 +	/*
-+	 * netpoll operations, in the interests of efficiency 
-+	 * only do napi polling on the device passed to the 
-+	 * poll_controller.  Therefore, if we are preforming 
-+	 * a netpoll operation, then we can't schedule a receive
-+	 * to one of the dummy net devices that exist for sole
-+	 * purpose of spreading out rx schedules
-+	 */	
-+	if (unlikely(netpoll_op))
-+		dev_to_sched = netdev;
-+	else
-+		dev_to_sched = &adapter->polling_netdev[0];
-+
-+	if (likely(netif_rx_schedule_prep(dev_to_sched)))
-+		__netif_rx_schedule(dev_to_sched);
- 	else
- 		e1000_irq_enable(adapter);
- #else
-@@ -3288,6 +3304,13 @@ e1000_intr(int irq, void *data, struct p
- 	return IRQ_HANDLED;
- }
- 
-+static irqreturn_t
-+e1000_intr(int irq, void *data, struct pt_regs *regs)
-+{
-+	return __e1000_intr(irq, data, regs, 0);
-+}
-+
-+
- #ifdef CONFIG_E1000_NAPI
- /**
-  * e1000_clean - NAPI Rx polling callback
-@@ -3300,7 +3323,6 @@ e1000_clean(struct net_device *poll_dev,
- 	struct e1000_adapter *adapter;
- 	int work_to_do = min(*budget, poll_dev->quota);
- 	int tx_cleaned = 0, i = 0, work_done = 0;
--
- 	/* Must NOT use netdev_priv macro here. */
- 	adapter = poll_dev->priv;
- 
-@@ -3308,10 +3330,24 @@ e1000_clean(struct net_device *poll_dev,
- 	if (!netif_carrier_ok(adapter->netdev))
- 		goto quit_polling;
- 
--	while (poll_dev != &adapter->polling_netdev[i]) {
--		i++;
--		if (unlikely(i == adapter->num_rx_queues))
--			BUG();
-+	/*
-+	 * only search for a matching polling_netdev in the event
-+	 * that this isn't a real registered net_device
-+	 * A real net device can be passed in here in the event
-+	 * that netdump has been activated (this comes through 
-+	 * netpoll_poll_dev).  We detect this by virtue of the 
-+	 * fact that each polling_netdev->priv points to the private
-+	 * data of its parent (registered) netdev.  So if:
-+	 * poll_dev->priv == netdev_priv(poll_dev), its a real device
-+	 * otherwise its a polling_netdev.
++	 * Reduce split transactions (and turn off) rx checksums to
++	 * prevent problems with dual ports.
 +	 */
-+	if (likely(adapter != netdev_priv(poll_dev))) {
-+		while (poll_dev != &adapter->polling_netdev[i]) {
-+			i++;
-+			if (unlikely(i == adapter->num_rx_queues))
-+				BUG();
-+		}
++	if (otherdev && netif_running(otherdev) &&
++	    (cap = pci_find_capability(hw->pdev, PCI_CAP_ID_PCIX))) {
++		struct sky2_port *osky2 = netdev_priv(otherdev);
++		u16 cmd;
 +
- 	}
++		cmd = sky2_pci_read16(hw, cap + PCI_X_CMD);
++		cmd &= ~PCI_X_CMD_MAX_SPLIT;
++		sky2_pci_write16(hw, cap + PCI_X_CMD, cmd);
++
++		sky2->rx_csum = 0;
++		osky2->rx_csum = 0;
++	}
++
++	err = -ENOMEM;
+ 	if (netif_msg_ifup(sky2))
+ 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
  
- 	if (likely(adapter->num_tx_queues == 1)) {
-@@ -4624,7 +4660,7 @@ e1000_netpoll(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	disable_irq(adapter->pdev->irq);
--	e1000_intr(adapter->pdev->irq, netdev, NULL);
-+	__e1000_intr(adapter->pdev->irq, netdev, NULL, 1);
- 	e1000_clean_tx_irq(adapter, adapter->tx_ring);
- #ifndef CONFIG_E1000_NAPI
- 	adapter->clean_rx(adapter, adapter->rx_ring);
+@@ -3067,12 +3086,7 @@ static __devinit struct net_device *sky2
+ 	sky2->duplex = -1;
+ 	sky2->speed = -1;
+ 	sky2->advertising = sky2_supported_modes(hw);
+-
+-	/* Receive checksum disabled for Yukon XL
+-	 * because of observed problems with incorrect
+-	 * values when multiple packets are received in one interrupt
+-	 */
+-	sky2->rx_csum = (hw->chip_id != CHIP_ID_YUKON_XL);
++	sky2->rx_csum = 1;
+ 
+ 	spin_lock_init(&sky2->phy_lock);
+ 	sky2->tx_pending = TX_DEF_PENDING;
+-- 
+1.2.4
 
