@@ -1,31 +1,35 @@
-From: Diego Calleja <diegocg@gmail.com>
-Subject: Re: Updated sysctl documentation take #2
-Date: Wed, 7 Jun 2006 22:55:51 +0200
-Message-ID: <20060607225551.9b7e9688.diegocg@gmail.com>
-References: <20060607205316.bbb3c379.diegocg@gmail.com>
-	<20060607124641.516c7fff@localhost.localdomain>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH v2 2/7] AMSO1100 WR / Event Definitions.
+Date: Wed, 07 Jun 2006 15:59:32 -0500
+Message-ID: <1149713972.27684.97.camel@stevo-desktop>
+References: <20060607200646.9259.24588.stgit@stevo-desktop>
+	 <1149712762.27684.82.camel@stevo-desktop>  <ada4pywg0ir.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: mshefty@ichips.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:34359 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932358AbWFGU4k convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 16:56:40 -0400
-Received: by nf-out-0910.google.com with SMTP id k27so145016nfc
-        for <netdev@vger.kernel.org>; Wed, 07 Jun 2006 13:56:38 -0700 (PDT)
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060607124641.516c7fff@localhost.localdomain>
+Received: from es335.com ([67.65.19.105]:31056 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932410AbWFGU7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 16:59:34 -0400
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <ada4pywg0ir.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-El Wed, 7 Jun 2006 12:46:41 -0700,
-Stephen Hemminger <shemminger@osdl.org> escribi=F3:
+On Wed, 2006-06-07 at 13:43 -0700, Roland Dreier wrote:
+> I just realized it could be the spam filters.  You have some comments
+> with three 'X's in a row which might be getting it blocked.  Is that
+> possible?
 
-> The network stuff was all in Documentation/networking/ip-sysctl.txt.
-> Someone else has already started fixing it.
 
-Darn, didn't know that. Anyway, I merged that file into
-Documentation/sysctl/ because IMO all sysctls must be in the same
-place.
+There are other files that have comments with 'XXX' like c2_provider.c
+and c2_qp.c which is in patch 3/7 and it made it though.  
+
+These 'XXX' comments need to be cleaned up anyway, so I'll remove them
+(or address the issue if there is one) and we'll see next time I post a
+new version.
+
+Steve.
+
