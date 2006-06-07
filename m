@@ -1,72 +1,41 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: Re: [PATCH] pcnet32 driver NAPI support
-Date: Wed, 7 Jun 2006 11:20:40 -0700
-Message-ID: <20060607182040.GA12748@us.ibm.com>
-References: <20060607165225.GB7859@csclub.uwaterloo.ca>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: 2.6.17-rc6-mm1
+Date: Wed, 7 Jun 2006 14:21:06 -0400
+Message-ID: <20060607182106.GO10465@redhat.com>
+References: <20060607104724.c5d3d730.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751220AbWFGSUt@vger.kernel.org>
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:41166 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751210AbWFGSVN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 14:21:13 -0400
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060607165225.GB7859@csclub.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060607104724.c5d3d730.akpm@osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2006 at 12:52:25PM -0400, Lennart Sorensen wrote:
-> I have added NAPI support to the pcnet32 driver.  This has greatly
-> improved the responsiveness on my systems (geode GX1 266MHz) when under
-> heavy network load.  Without this change the system would become
-> unresponsive due to interrupts when flooded with traffic, and eventually
-> the watchdog would reboot the system due to the watchdog daemon being
-> starved for cpu time.  With the patch the system is still useable on a
-> serial console, although very slow.  Network throughput is also higher
-> since more time is spend processing packets and getting them sent out,
-> instead of only spending time acknowledging interrupts from incoming
-> packets.
-> 
-> Now having never actually done a patch submission to the kernel before,
-> I will try and see if I can do it right.
-> 
-> The patch adds a PCNET32_NAPI config option to drivers/net/Kconfig, and
-> the appropriate code to support the option to drivers/net/pcnet32.c and
-> has been tested on many of my systems (allthough they are allmost all
-> identical, and require some extra patches to pcnet32 due to not having
-> an EEPROM installed), and on an AT-2700TX.
-> 
-> I have made a diff against 2.6.16.20 and 2.6.17-rc6.
-> 
-> Comments would be very welcome.
+On Wed, Jun 07, 2006 at 10:47:24AM -0700, Andrew Morton wrote:
 
-I am also working on a NAPI version of the pcnet32 driver for many of
-the same reasons, and will compare what you have with my own
-implementation.  I probably won't be able to do much until Friday.  
+ > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17-rc6/2.6.17-rc6-mm1/
 
-Just a couple of comments.  I am adding netdev@vger.kernel.org to the cc
-list, as most network driver discussion is done here rather than lkml.
-linux-kernel (and linux-net) should be deleted in future replies.
+Just spotted this typo in a new option.
 
-The 2.6.17-rc6 would be the correct source to patch against.  Since this
-is an enhancement it will not come out till 2.6.18.
+Signed-off-by: Dave Jones <davej@redhat.com>
 
-I would not change the driver name from pcnet32 to pcnet32napi, but I
-would changes the version from 1.32 to 1.33NAPI or something like that.
+--- rc6mm1/net/Kconfig~	2006-06-07 14:19:44.000000000 -0400
++++ rc6mm1/net/Kconfig	2006-06-07 14:19:58.000000000 -0400
+@@ -227,7 +227,7 @@ config NET_TCPPROBE
+ 	depends on INET && EXPERIMENTAL && PROC_FS && KPROBES
+ 	---help---
+ 	This module allows for capturing the changes to TCP connection
+-	state in response to incoming patckets. It is used for debugging
++	state in response to incoming packets. It is used for debugging
+ 	TCP congestion avoidance modules. If you don't understand
+ 	what was just said, you don't need it: say N.
+ 
 
-Some areas of concern that you may have addressed already, I have not
-scanned your changes yet, are what happens if the ring size is changed
-without bringing down the interface (via ethtool), or if the loopback
-test is run in a similar fashion, or a tx timeout occurs.
-
-The lp->lock MUST be held whenever accessing the csr or bcr registers as
-this is a multi-step process, and has been the source of problems in the
-past.  Even on UP systems.
-
-> 
-> Signed-off-by: Len Sorensen <lsorense@csclub.uwaterloo.ca>
-> 
-> Len Sorensen
 
 -- 
-Don Fry
-brazilnut@us.ibm.com
+http://www.codemonkey.org.uk
