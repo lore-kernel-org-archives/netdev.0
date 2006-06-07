@@ -1,164 +1,67 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Wed, 7 Jun 2006 11:05:22 -0400
-Message-ID: <20060607150522.GA24608@hmsreliant.homelinux.net>
-References: <20060605230917.12584.55755.stgit@gitlost.site> <20060605231125.12584.17039.stgit@gitlost.site> <20060606135217.GA21969@hmsreliant.homelinux.net> <1149611965.13635.19.camel@strongmad> <20060606170513.GB21969@hmsreliant.homelinux.net> <4485B8EC.4090603@intel.com> <x494pyyw5sr.fsf@segfault.boston.redhat.com> <4485BCA2.5070904@intel.com> <x49zmgquqn0.fsf@segfault.boston.redhat.com> <20060606231727.GK24227@waste.org>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 0/4] ehea: IBM eHEA Ethernet Device Driver
+Date: Wed, 07 Jun 2006 17:12:45 +0200
+Message-ID: <4486ECED.9080608@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Moyer <jmoyer@redhat.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: raisch@de.ibm.com, themann@de.ibm.com, tklein@de.ibm.com,
+	meder@de.ibm.com, schickhj@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:3346 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932241AbWFGPFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 11:05:51 -0400
-To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
-In-Reply-To: <20060606231727.GK24227@waste.org>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:59401 "EHLO
+	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP id S932164AbWFGPMu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jun 2006 11:12:50 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate4.de.ibm.com (8.13.6/8.13.6) with ESMTP id k57FCmae126622
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 7 Jun 2006 15:12:49 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k57FElFF105158
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 7 Jun 2006 17:14:47 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k57FCmUU018768
+	for <netdev@vger.kernel.org>; Wed, 7 Jun 2006 17:12:48 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->  
-> > Matt, any ideas on this?
-> 
-> Not at the moment.
+Hello,
 
-how about this for a solution?  It doesn't make netpoll any more robust, but I
-think in the interests of efficiency it would be fair to require that, when
-netpolled, a driver must receive frames on the same net device for which it was
-polled.  With this patch we detect that condition and handle it accordingly in
-e1000_intr.  This eliminates the need for us to call the clean_rx method from
-the poll_controller when napi is configured, instead allowing the poll method to
-be called from napi_poll, as the netpoll model currently does.  This fixes the
-netdump regression, and eliminates the layering violation and the potential race
-that we've been discussing.  I've just tested it with netdump here and it works
-quite well.
+this is the first version of the IBM eHEA Ethernet Device Driver.
+It supports a new IBM ethernet chip on System p.
 
-Thoughts appreciated.
+Main functionality including broadcast multicast and some parts of
+ethtool already work.
 
-Thanks & Regards
-Neil
+Things we're still working on:
+- vlan support
+- performance improvements in SMP systems
+- kernel coding style
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+This code is not ready for kernel inclusion as is, but we definetly
+want to get there.
+
+The patch series consists of 4 patches
+01: interfaces to network stack and headers
+02: pHYP interface
+03: queue managment
+04: Kconfig and Makefile
+
+Signed-off-by:  Jan-Bernd Themann <themann@de.ibm.com>
+
+ drivers/net/ehea/Kconfig     |    6
+ drivers/net/ehea/Makefile    |   45
+ drivers/net/ehea/ehea.h      |  434 +++++++
+ drivers/net/ehea/ehea_hw.h   |  319 +++++
+ drivers/net/ehea/ehea_main.c | 2571 
++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/ehea/ehea_phyp.c | 1026 +++++++++++++++++
+ drivers/net/ehea/ehea_phyp.h |  625 ++++++++++
+ drivers/net/ehea/ehea_qmr.c  |  719 ++++++++++++
+ drivers/net/ehea/ehea_qmr.h  |  390 ++++++
+ 9 files changed, 6135 insertions(+)
 
 
- e1000_main.c |   54 +++++++++++++++++++++++++++++++++++++++++++++---------
- 1 files changed, 45 insertions(+), 9 deletions(-)
 
-
---- linux-2.6.9/drivers/net/e1000/e1000_main.c.neil	2006-06-06 10:37:42.000000000 -0400
-+++ linux-2.6.9/drivers/net/e1000/e1000_main.c	2006-06-07 10:48:22.000000000 -0400
-@@ -3207,8 +3207,9 @@
-  * @pt_regs: CPU registers structure
-  **/
- 
-+
- static irqreturn_t
--e1000_intr(int irq, void *data, struct pt_regs *regs)
-+__e1000_intr(int irq, void *data, struct pt_regs *regs, int netpoll_op)
- {
- 	struct net_device *netdev = data;
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
-@@ -3217,6 +3218,7 @@
- #ifndef CONFIG_E1000_NAPI
- 	int i;
- #else
-+	struct net_device *dev_to_sched;
- 	/* Interrupt Auto-Mask...upon reading ICR,
- 	 * interrupts are masked.  No need for the
- 	 * IMC write, but it does mean we should
-@@ -3255,8 +3257,22 @@
- 		E1000_WRITE_REG(hw, IMC, ~0);
- 		E1000_WRITE_FLUSH(hw);
- 	}
--	if (likely(netif_rx_schedule_prep(&adapter->polling_netdev[0])))
--		__netif_rx_schedule(&adapter->polling_netdev[0]);
-+
-+	/*
-+	 * netpoll operations, in the interests of efficiency 
-+	 * only do napi polling on the device passed to the 
-+	 * poll_controller.  Therefore, if we are preforming 
-+	 * a netpoll operation, then we can't schedule a receive
-+	 * to one of the dummy net devices that exist for sole
-+	 * purpose of spreading out rx schedules
-+	 */	
-+	if (netpoll_op)
-+		dev_to_sched = netdev;
-+	else
-+		dev_to_sched = &adapter->polling_netdev[0];
-+
-+	if (likely(netif_rx_schedule_prep(dev_to_sched)))
-+		__netif_rx_schedule(dev_to_sched);
- 	else
- 		e1000_irq_enable(adapter);
- #else
-@@ -3288,6 +3304,13 @@
- 	return IRQ_HANDLED;
- }
- 
-+static irqreturn_t
-+e1000_intr(int irq, void *data, struct pt_regs *regs)
-+{
-+	return __e1000_intr(irq, data, regs, 0);
-+}
-+
-+
- #ifdef CONFIG_E1000_NAPI
- /**
-  * e1000_clean - NAPI Rx polling callback
-@@ -3300,7 +3323,6 @@
- 	struct e1000_adapter *adapter;
- 	int work_to_do = min(*budget, poll_dev->quota);
- 	int tx_cleaned = 0, i = 0, work_done = 0;
--
- 	/* Must NOT use netdev_priv macro here. */
- 	adapter = poll_dev->priv;
- 
-@@ -3308,10 +3330,24 @@
- 	if (!netif_carrier_ok(adapter->netdev))
- 		goto quit_polling;
- 
--	while (poll_dev != &adapter->polling_netdev[i]) {
--		i++;
--		if (unlikely(i == adapter->num_rx_queues))
--			BUG();
-+	/*
-+	 * only search for a matching polling_netdev in the event
-+	 * that this isn't a real registered net_device
-+	 * A real net device can be passed in here in the event
-+	 * that netdump has been activated (this comes through 
-+	 * netpoll_poll_dev).  We detect this by virtue of the 
-+	 * fact that each polling_netdev->priv points to the private
-+	 * data of its parent (registered) netdev.  So if:
-+	 * poll_dev->priv == netdev_priv(poll_dev), its a real device
-+	 * otherwise its a polling_netdev.
-+	 */
-+	if (adapter != netdev_priv(poll_dev)) {
-+		while (poll_dev != &adapter->polling_netdev[i]) {
-+			i++;
-+			if (unlikely(i == adapter->num_rx_queues))
-+				BUG();
-+		}
-+
- 	}
- 
- 	if (likely(adapter->num_tx_queues == 1)) {
-@@ -4624,7 +4660,7 @@
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	disable_irq(adapter->pdev->irq);
--	e1000_intr(adapter->pdev->irq, netdev, NULL);
-+	__e1000_intr(adapter->pdev->irq, netdev, NULL, 1);
- 	e1000_clean_tx_irq(adapter, adapter->tx_ring);
- #ifndef CONFIG_E1000_NAPI
- 	adapter->clean_rx(adapter, adapter->rx_ring);
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
