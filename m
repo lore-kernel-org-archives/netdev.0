@@ -1,34 +1,131 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
-Date: Wed, 07 Jun 2006 14:46:22 -0500
-Message-ID: <44872D0E.6010206@lwfinger.net>
-References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes> <1149701352.2625.20.camel@localhost.localdomain> <44871723.3040803@lwfinger.net> <1149708987.2625.114.camel@localhost.localdomain>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: Updated sysctl documentation take #2
+Date: Wed, 7 Jun 2006 13:06:53 -0700
+Message-ID: <20060607130653.9a4d572c.rdunlap@xenotime.net>
+References: <20060607205316.bbb3c379.diegocg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:54526 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932398AbWFGTq1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 15:46:27 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1149708987.2625.114.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, akpm@osdl.org,
+	netdev@vger.kernel.org, linux-xfs@oss.sgi.com, ecki@lina.inka.de,
+	lkml@rtr.ca
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750708AbWFGUEK@vger.kernel.org>
+To: Diego Calleja <diegocg@gmail.com>
+In-Reply-To: <20060607205316.bbb3c379.diegocg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> Weird, does the kernel not do something that fprintf() _does_ do here?
-> I tested with a short C program that mimics the behavior of this chunk
-> of code, and "%.2x" didn't work, but "%.2hhx" certainly did.  "hh" is
-> supposed to mean "A following integer conversion corresponds to a signed
-> char or unsigned char argument".  The original conversion was converting
-> stuff from la-la land after the first 4 bytes (in both softmac and my
-> testcase), and "hh" solved it in the testcase.  I did try casting to
-> char, but glibc pretty much ignored that.
+On Wed, 7 Jun 2006 20:53:16 +0200 Diego Calleja wrote:
 
-I also found that casting with char gave the same result as no cast, but that a u8 cast worked. I 
-guess printk is _almost_ like fprintf.
+> Since people didn't like the "many small files" approach, I've moved
+> it to directories containing index.txt files:
+> 
+> Documentation/sysctl/vm/index.txt
+> Documentation/sysctl/net/core/index.txt
+> Documentation/sysctl/net/unix/index.txt
+> Documentation/sysctl/net/ipv4/index.txt
+> Documentation/sysctl/net/ipv4/conf/index.txt
+> Documentation/sysctl/net/ipv4/route/index.txt
+> Documentation/sysctl/net/ipv4/neigh/index.txt
+> 
+> and so on.
+> 
+> As previously, this moves all sysctl documentation (including
+> XFS and network) to Documentation/sysctl/*. The patch is
+> against linus tree and weights more than 200K in size
+> and is place at: http://www.terra.es/personal/diegocg/sysctl-docs
 
-Larry
+~> diffstat -p1 -w 70 sysctl-docs 
+ Documentation/filesystems/proc.txt            | 1210 ----------------
+ Documentation/filesystems/xfs.txt             |   84 -
+ Documentation/networking/00-INDEX             |    2 
+ Documentation/networking/Configurable         |    2 
+ Documentation/networking/decnet.txt           |    4 
+ Documentation/networking/ip-sysctl.txt        |  899 -----------
+ Documentation/networking/xfrm_sync.txt        |   11 
+ Documentation/sysctl/README                   |  121 -
+ Documentation/sysctl/abi.txt                  |   54 
+ Documentation/sysctl/abi/index.txt            |   49 
+ Documentation/sysctl/dev/README               |    2 
+ Documentation/sysctl/fs.txt                   |  150 -
+ Documentation/sysctl/fs/index.txt             |  240 +++
+ Documentation/sysctl/fs/xfs/index.txt         |  170 ++
+ Documentation/sysctl/kernel.txt               |  344 ----
+ Documentation/sysctl/kernel/index.txt         |  628 ++++++++
+ Documentation/sysctl/net/README               |    8 
+ Documentation/sysctl/net/appletalk/index.txt  |   38 
+ Documentation/sysctl/net/bridge/index.txt     |   44 
+ Documentation/sysctl/net/core/index.txt       |  115 +
+ Documentation/sysctl/net/ipv4/conf/index.txt  |  270 +++
+ Documentation/sysctl/net/ipv4/index.txt       |  739 +++++++++
+ Documentation/sysctl/net/ipv4/neigh/index.txt |  138 +
+ Documentation/sysctl/net/ipv4/route/index.txt |  143 +
+ Documentation/sysctl/net/ipv6/conf/index.txt  |  256 +++
+ Documentation/sysctl/net/ipv6/icmp/index.txt  |   15 
+ Documentation/sysctl/net/ipv6/index.txt       |   65 
+ Documentation/sysctl/net/ipv6/neigh/index.txt |  134 +
+ Documentation/sysctl/net/ipv6/route/index.txt |   78 +
+ Documentation/sysctl/net/unix/index.txt       |   15 
+ Documentation/sysctl/sunrpc.txt               |   20 
+ Documentation/sysctl/sunrpc/index.txt         |   64 
+ Documentation/sysctl/vm.txt                   |  180 --
+ Documentation/sysctl/vm/index.txt             |  334 ++++
+ Documentation/sysrq.txt                       |   20 
+ 35 files changed, 3611 insertions(+), 3035 deletions(-)
+I don't know how long it takes to review such a large patch, but
+I'll continue to do so.  For now:
 
+README:
+
+1. +Documentation for /proc/sys/, aka. sysctl
+
+a.k.a. or just "aka".  Not "aka.".  or spell it out, or omit it,
+maybe like:
+
+Documentation for /proc/sys/ (sysctl)
+
+2.  Limit lines to max. of 80 characters, but around 70-72 is better
+IMO.  That allows someone to make minor corrections without having
+to fudge the lines around.
+
+3.  +This means there're several parameters
+use "there are"
+
+4.  +are: enabling or disabling forwading in a certain network interface
+forwarding
+
+5.  +is also used to export some stadistic information, ej: some
+statistic or statistics or statistical
+ej: ??  use e.g.: (preferred) or eg:
+
+6.  +can be read but can _not_ be written.
+_cannot_
+
+7.  +own program to read them aswell)
+as well)
+
+8.  +to change '/' by '.' and ignore the '/proc/sys' part of the path, ie
+s/by/to/
+s/ie/i.e./
+
+9.  +means that any tweak that you do will be lost the next time you restart  your
+* collapse 2 spaces to 1
+
+10. +_VERY_ DANGEROUS and can ruin the performance performance,
+drop one "performance"
+
+11. +As a quick 'ls /proc/sys' will show, the directory consists of several subdirs.
++Each subdir is mainly about one part of the kernel, so you can do configuration
+
+Spell out "subdirectories" and "subdirectory".
+
+12. +fs/		specific filesystems filehandle, inode, dentry and quota tuning
+
+insert ":" after "filesystems"
+
+
+OK, that's all for the README file.  I'll look at the rest of it
+sometime this week.  I don't think that it's quite ready to be merged.
+
+---
+~Randy
