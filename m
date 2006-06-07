@@ -1,34 +1,49 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: [patch] workaround zd1201 interference problem
-Date: Wed, 7 Jun 2006 16:15:46 +0200
-Message-ID: <20060607141536.GD1936@elf.ucw.cz>
-References: <20060607140045.GB1936@elf.ucw.cz> <20060607160828.0045e7f5@griffin.suse.cz>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 3/4] Make Intel e1000 driver legacy I/O port free
+Date: Wed, 07 Jun 2006 07:40:50 -0700
+Message-ID: <4486E572.4040201@intel.com>
+References: <447E91CE.7010705@intel.com> <20060601024611.A32490@unix-os.sc.intel.com> <20060601171559.GA16288@colo.lackof.org> <20060601113625.A4043@unix-os.sc.intel.com> <447FA920.9060509@jp.fujitsu.com> <4484263C.1030508@jp.fujitsu.com> <20060606075812.GB19619@kroah.com> <448643B9.2080805@jp.fujitsu.com> <448644A2.7000208@jp.fujitsu.com> <44865FD8.4060801@foo-projects.org> <448682B6.5010302@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Auke Kok <sofar@foo-projects.org>, Greg KH <greg@kroah.com>,
+	akpm@osdl.org, Rajesh Shah <rajesh.shah@intel.com>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	"bibo,mao" <bibo.mao@intel.com>, linux-kernel@vger.kernel.org,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:14491 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S932082AbWFGOQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Jun 2006 10:16:29 -0400
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20060607160828.0045e7f5@griffin.suse.cz>
+Received: from fmr18.intel.com ([134.134.136.17]:12690 "EHLO
+	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
+	id S932240AbWFGOmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jun 2006 10:42:18 -0400
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+In-Reply-To: <448682B6.5010302@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On St 07-06-06 16:08:28, Jiri Benc wrote:
-> On Wed, 7 Jun 2006 16:00:45 +0200, Pavel Machek wrote:
-> > +	zd1201_enable(zd);	/* zd1201 likes to startup shouting, interfering */
-> > +	zd1201_disable(zd); 	/* with all the wifis in range */
+Kenji Kaneshige wrote:
+> Auke Kok wrote:
+>> Kenji Kaneshige wrote:
+>>
+>>> This patch makes Intel e1000 driver legacy I/O port free.
+>>>
+>>> Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+>>
+>> (adding netdev and the other e1000 maintainers to cc:)
+>>
+>> without sending this to any of the listed e1000 maintainers???? *and* 
+>> not even including netdev???
+>>
 > 
-> I would prefer to track it down and find out where exactly is the
-> problem instead of this quick hack.
+> I'm sorry about that.
 
-Well, I'll try _enable() alone, but it seems to me that _enable()
-command is needed to initialize radio properly. I do not think we can
-get much further without firmware sources...
+I also didn't see that you were sending this to Greg-KH. I think I got thrown 
+off by that as I wasn't following lkml until yesterday in the first place. 
+I'll toss the patches around over here and see what comes up.
 
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Cheers,
+
+Auke
+
