@@ -1,61 +1,36 @@
-From: "Butler, Gerald" <GButler@jewels.com>
-Subject: HELP! Slip Interface losing packets. Looking for contractor to fix.
-Date: Wed, 7 Jun 2006 11:22:53 -0400
-Message-ID: <7697221D47CA0545961FA7846257369103A860BA@ex01.jewels.local>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Wed, 07 Jun 2006 10:47:31 -0500
+Message-ID: <4486F513.5050906@lwfinger.net>
+References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.jewels.com ([198.70.201.96]:16906 "EHLO mail.jewels.com")
-	by vger.kernel.org with ESMTP id S932259AbWFGPYS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 11:24:18 -0400
-Content-class: urn:content-classes:message
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-serial@vger.kernel.org>
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:1929 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S932270AbWFGPrg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jun 2006 11:47:36 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1149682213.3999.14.camel@johannes>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Johannes Berg wrote:
+> 
+> generic IE is what the wext is called, it is the IE that wpa_supplicant
+> sets. Not sure what's going on though, I know next to nothing about wpa.
 
-Hello,
+I have a little more information on what is happening. In IEEE Std 802.11i-2004, which defines the 
+WPA protocol, Figure 11a shows the sequence of exchanges needed to associate. Both bcm43xx-softmac 
+and ndiswrapper go through the "Open System Authentication" process. Where they seem to diverge is 
+in the STA's "Association Request (Security Parameters)" step. With ndiswrapper, the AP responds 
+with a WPA EAPOL-Key message; whereas with softmac, the AP sends back the "invalid pairwise cipher 
+message" and rejects the association.
 
+Can anyone point to a reference that states what the content of the Association Request should be to 
+get the AP to respond with the EAPOL-Key message? Unfortunately, I have no possibility of 
+implementing a sniffer to see what a "correct" message contains.
 
- 	We have a custom compiled Linux Kernel running oh RHEL 3.1
-
-
- 		[root@st0056_1 root]# uname -a
- 		Linux st0056_1 2.4.21-32.0.1.ELcustom #12 SMP Wed Sep 14 11:55:22 EDT 2005 i686 i686 i386 GNU/Linux
-
-
- 	We compiled in SLIP support using the standard RHEL kernel supplied by Redhat. Unfortunately, RH does not support SLIP. We are experiencing problems that we believe are a kernel issue (either SLIP or SERIAL) and are interested in hiring a contractor to diagnose the problem and provide a kernel patch to the kernel we are using (if necessary). We do not want to upgrade or change distributions at this time (business/practicality reasons).
-
-
- 	If you are interested, please send an e-mail with your resume (doc, odf, or plain text) to 'gerald.edward.butler@gmail.com' (I'll provide a private e-mail address to interested parties).
-
-
- 	The company website is here: http://www.sterlingjewelers.com/
-
-
- Thank You,
- 
-
-
-
- 	Gerald Butler
- 	Project Manager - Store Systems
- 	Sterling Inc
- 
-
-
-
-
-The information contained in this e-mail message is privileged and/or
-confidential and is intended only for the use of the individual or entity
-named above.  If the reader of this message is not the intended
-recipient, or the employee or agent responsible to deliver it to the
-intended recipient, you are hereby notified that any dissemination,
-distribution or copying of this communication is strictly prohibited.
-If you have received this communication in error, please immediately
-notify us by telephone (330-668-5000), and destroy the original
-message.  Thank you.
-
+Larry
