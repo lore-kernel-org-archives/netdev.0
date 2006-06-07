@@ -1,31 +1,32 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [patch] workaround zd1201 interference problem
-Date: Wed, 07 Jun 2006 17:22:07 +0100
-Message-ID: <4486FD2F.8040205@gentoo.org>
-References: <20060607140045.GB1936@elf.ucw.cz> <20060607160828.0045e7f5@griffin.suse.cz> <20060607141536.GD1936@elf.ucw.cz>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Wed, 07 Jun 2006 11:30:02 -0500
+Message-ID: <4486FF0A.6010201@lwfinger.net>
+References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <4486F866.9040901@errno.com> <1149696400.3925.13.camel@johannes>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, linville@tuxdriver.com,
-	kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Cc: Sam Leffler <sam@errno.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:55819 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S932289AbWFGQVT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 12:21:19 -0400
-To: Pavel Machek <pavel@suse.cz>
-In-Reply-To: <20060607141536.GD1936@elf.ucw.cz>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:36778 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S932310AbWFGQaF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Jun 2006 12:30:05 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1149696400.3925.13.camel@johannes>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek wrote:
-> Well, I'll try _enable() alone, but it seems to me that _enable()
-> command is needed to initialize radio properly. I do not think we can
-> get much further without firmware sources...
+Johannes Berg wrote:
+> On Wed, 2006-06-07 at 09:01 -0700, Sam Leffler wrote:
+> 
+>> Beware of the order of IE's in the management frames; some AP's are
+>> touchy about this.
+> 
+> Uh oh. I have no idea where the ieee80211 layer sticks that one,
+> probably at the end.
 
-If you can formulate a proper and technical description of the issue 
-(and exactly what is needed to workaround it), I can contact ZyDAS for 
-you. They have been very helpful with ZD1211.
+I can verify that. I'm currently building a new module with a printk to verify that it is being 
+added. If it is, I'll try moving it to see if it helps.
 
-Daniel
+Larry
