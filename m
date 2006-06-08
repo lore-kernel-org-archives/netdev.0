@@ -1,9 +1,9 @@
 From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH v2 1/2] iWARP Connection Manager.
-Date: Thu, 8 Jun 2006 00:54:52 -0700
-Message-ID: <20060608005452.087b34db.akpm@osdl.org>
-References: <20060607200600.9003.56328.stgit@stevo-desktop>
-	<20060607200605.9003.25830.stgit@stevo-desktop>
+Subject: Re: [PATCH v2 4/7] AMSO1100 Memory Management.
+Date: Thu, 8 Jun 2006 01:17:44 -0700
+Message-ID: <20060608011744.1a66e85a.akpm@osdl.org>
+References: <20060607200646.9259.24588.stgit@stevo-desktop>
+	<20060607200655.9259.90768.stgit@stevo-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,100 +11,59 @@ Cc: rdreier@cisco.com, mshefty@ichips.intel.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:6831 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964789AbWFHH6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:58:09 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:182 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932556AbWFHIU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 04:20:58 -0400
 To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <20060607200605.9003.25830.stgit@stevo-desktop>
+In-Reply-To: <20060607200655.9259.90768.stgit@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Jun 2006 15:06:05 -0500
+On Wed, 07 Jun 2006 15:06:55 -0500
 Steve Wise <swise@opengridcomputing.com> wrote:
 
 > 
-> This patch provides the new files implementing the iWARP Connection
-> Manager.
-> 
-> Review Changes:
-> 
-> - sizeof -> sizeof()
-> 
-> - removed printks
-> 
-> - removed TT debug code
-> 
-> - cleaned up lock/unlock around switch statements.
-> 
-> - waitqueue -> completion for destroy path.
->
-> ...
->
-> +/* 
-> + * This function is called on interrupt context. Schedule events on
-> + * the iwcm_wq thread to allow callback functions to downcall into
-> + * the CM and/or block.  Events are queued to a per-CM_ID
-> + * work_list. If this is the first event on the work_list, the work
-> + * element is also queued on the iwcm_wq thread.
-> + *
-> + * Each event holds a reference on the cm_id. Until the last posted
-> + * event has been delivered and processed, the cm_id cannot be
-> + * deleted. 
-> + */
-> +static void cm_event_handler(struct iw_cm_id *cm_id,
-> +			     struct iw_cm_event *iw_event) 
+> +void c2_free(struct c2_alloc *alloc, u32 obj)
 > +{
-> +	struct iwcm_work *work;
-> +	struct iwcm_id_private *cm_id_priv;
-> +	unsigned long flags;
+> +	spin_lock(&alloc->lock);
+> +	clear_bit(obj, alloc->table);
+> +	spin_unlock(&alloc->lock);
+> +}
+
+The spinlock is unneeded here.
+
+
+What does all the code in this file do, anyway?  It looks totally generic
+(and hence inappropriate for drivers/infiniband/hw/amso1100/) and somewhat
+similar to idr trees, perhaps.
+
+> +int c2_array_set(struct c2_array *array, int index, void *value)
+> +{
+> +	int p = (index * sizeof(void *)) >> PAGE_SHIFT;
 > +
-> +	work = kmalloc(sizeof(*work), GFP_ATOMIC);
-> +	if (!work)
-> +		return;
+> +	/* Allocate with GFP_ATOMIC because we'll be called with locks held. */
+> +	if (!array->page_list[p].page)
+> +		array->page_list[p].page =
+> +		    (void **) get_zeroed_page(GFP_ATOMIC);
+> +
+> +	if (!array->page_list[p].page)
+> +		return -ENOMEM;
 
-This allocation _will_ fail sometimes.  The driver must recover from it. 
-Will it do so?
+This _will_ happen under load.  What will the result of that be, in the
+context of thise driver?
 
-> +EXPORT_SYMBOL(iw_cm_init_qp_attr);
+This function is incorrectly designed - it should receive a gfp_t argument.
+Because you don't *know* that the caller will always hold a spinlock.  And
+GFP_KERNEL is far, far stronger than GFP_ATOMIC.
 
-This file exports a ton of symbols.  It's usual to provide some justifying
-commentary in the changelog when this happens.
+> +static int c2_alloc_mqsp_chunk(gfp_t gfp_mask, struct sp_chunk **head)
+> +{
+> +	int i;
+> +	struct sp_chunk *new_head;
+> +
+> +	new_head = (struct sp_chunk *) __get_free_page(gfp_mask | GFP_DMA);
 
-> +/*
-> + * Copyright (c) 2005 Network Appliance, Inc. All rights reserved.
-> + * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-> + *
-> + * This software is available to you under a choice of one of two
-> + * licenses.  You may choose to be licensed under the terms of the GNU
-> + * General Public License (GPL) Version 2, available from the file
-> + * COPYING in the main directory of this source tree, or the
-> + * OpenIB.org BSD license below:
-> + *
-> + *     Redistribution and use in source and binary forms, with or
-> + *     without modification, are permitted provided that the following
-> + *     conditions are met:
-> + *
-> + *      - Redistributions of source code must retain the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer.
-> + *
-> + *      - Redistributions in binary form must reproduce the above
-> + *        copyright notice, this list of conditions and the following
-> + *        disclaimer in the documentation and/or other materials
-> + *        provided with the distribution.
-> + *
-> + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-> + * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-> + * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-> + * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-> + * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-> + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-> + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> + * SOFTWARE.
-> + */
-> +#if !defined(IW_CM_PRIVATE_H)
-> +#define IW_CM_PRIVATE_H
-
-We normally use #ifndef here.
+Why is __GFP_DMA in there?  Unless you've cornered the ISA bus infiniband
+market, it's likely to be wrong.
 
 
