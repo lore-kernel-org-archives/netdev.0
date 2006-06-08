@@ -1,54 +1,63 @@
-From: Hans Henrik Happe <hhh@imada.sdu.dk>
-Subject: Re: Netchannels: netchannel vs. socket. 2:0.
-Date: Fri, 9 Jun 2006 01:00:24 +0200
-Message-ID: <200606090100.24827.hhh@imada.sdu.dk>
-References: <20060608171555.GA10273@2ka.mipt.ru>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: netif_tx_disable vs netif_stop_queue (possible races?)
+Date: Fri, 09 Jun 2006 00:14:05 +0100
+Message-ID: <4488AF3D.2040601@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from berlioz.imada.sdu.dk ([130.225.128.12]:16123 "EHLO
-	berlioz.imada.sdu.dk") by vger.kernel.org with ESMTP
-	id S965048AbWFHXA1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 19:00:27 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by localhost.imada.sdu.dk (Postfix) with ESMTP id 77A5162706
-	for <netdev@vger.kernel.org>; Fri,  9 Jun 2006 01:00:26 +0200 (CEST)
-Received: from berlioz.imada.sdu.dk ([127.0.0.1])
- by localhost (berlioz.imada.sdu.dk [127.0.0.1]) (amavisd-new, port 10025)
- with ESMTP id 22937-02 for <netdev@vger.kernel.org>;
- Thu,  8 Jun 2006 23:00:26 +0000 (UTC)
-Received: from [192.168.2.100] (unknown [85.218.152.97])
-	(using SSLv3 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by berlioz.imada.sdu.dk (Postfix) with ESMTP id 28BE962704
-	for <netdev@vger.kernel.org>; Fri,  9 Jun 2006 01:00:26 +0200 (CEST)
+Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:24291 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S965045AbWFHXNC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 19:13:02 -0400
 To: netdev@vger.kernel.org
-In-Reply-To: <20060608171555.GA10273@2ka.mipt.ru>
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 08 June 2006 19:15, you wrote:
-> After some enhancements made for netchannel subsystem I'm pleased to
-> announce, that netchannel subsystem outperforms existing layered desi=
-gn
-> both in CPU usage and network speed.
->=20
-> Well, after such pretentious introduction I want to cool things down.
-> CPU usage is about 1-2% less for netchannels and network performance =
-is
-> about 1-2 MB higher and sometimes exceeds 84 MB/sec which, I think,=20
-> is maximum for given network setup (e1000 receive, r8169 send, 1500 M=
-TU).
+Hi,
 
-I have followed your work closely and have wondered how it affects late=
-ncy?
-I have somewhat limited knowledge about TCP and how the kernel handles =
-it, but=20
-I guess the path from NIC to userspace hasn't increased. What about sys=
-call=20
-overhead caused by userspace TCP processing?
+In order to avoid disconnect races in ZD1211, I'm trying to convince 
+myself that other USB network drivers are race-free (and why).
 
-H=B3 =20
+I brought up a possible issue in usbnet with David Brownell, but it 
+appears neither of us are 100% clear on the details, so it would be good 
+to get some extra clarification.
 
+USB devices can be yanked out by the user at *any* time, and typically 
+free_netdev is called in the disconnect handler, which frees all 
+device-specific structures.
+
+The issue I brought up is that code using these structures may be 
+running concurrently on another CPU when the disconnect handler is 
+invoked, resulting in access to freed data.
+
+More specifically, we're talking about drivers/usb/net/usbnet.c and the 
+usbnet_disconnect() function.  The race I am highlighting is that 
+usbnet's hard_start_xmit handler (usbnet_start_xmit) may be running when 
+the disconnect happens.
+
+Is this a possible scenario?
+
+My thoughts on avoiding this are to ensure that the TX queue is stopped 
+and all current transmissions in usbnet_stop (the netdev->stop hook). I 
+understand that the stop function is called during disconnect, because 
+usbnet_disconnect() calls unregister_netdev(). The stop function already 
+has a call to netif_stop_queue but (based on my knowledge from LDD3) 
+this is not enough.
+
+My understanding is that netif_stop_queue() should be used only inside a 
+hard_start_xmit function, when it wants to make sure that no more 
+transmissions are started until the queue is reopened.
+
+I suggested that we use netif_tx_disable here, which is effectively the 
+same but because it takes the lock, it guarantees that no 
+hard_start_xmit transmissions are running on any CPU when it returns.
+
+David pointed out that netif_tx_disable is rarely used, and a large 
+number of drivers call netif_stop_queue in their stop function, so if 
+what I suggest is true, there may be many such potential races 
+elsewhere. Am I missing something simple?
+
+Thanks,
+Daniel
