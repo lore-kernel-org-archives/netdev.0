@@ -1,42 +1,59 @@
-From: Muli Ben-Yehuda <muli@il.ibm.com>
-Subject: Re: [PATCH 3/4] ehea: queue managment
-Date: Thu, 8 Jun 2006 09:35:33 +0300
-Message-ID: <20060608063533.GB6343@rhun.haifa.ibm.com>
-References: <4487073E.1020403@de.ibm.com> <20060607102950.54dd83c1@localhost.localdomain>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [patch] workaround zd1201 interference problem
+Date: Thu, 8 Jun 2006 09:05:25 +0200
+Message-ID: <20060608070525.GE3688@elf.ucw.cz>
+References: <20060607140045.GB1936@elf.ucw.cz> <20060607160828.0045e7f5@griffin.suse.cz> <20060607141536.GD1936@elf.ucw.cz> <4486FD2F.8040205@gentoo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
-	Marcus Eder <MEDER@de.ibm.com>,
-	Christoph Raisch <RAISCH@de.ibm.com>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>,
-	Thomas Q Klein <TKLEIN@de.ibm.com>
+Cc: Jiri Benc <jbenc@suse.cz>, linville@tuxdriver.com,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:32596 "EHLO
-	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP id S932530AbWFHGfg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 02:35:36 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.6/8.13.6) with ESMTP id k586ZZHZ087646
-	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 06:35:35 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k586akVc120410
-	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 07:36:46 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k586ZYfv003678
-	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 07:35:34 +0100
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:12451 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S932545AbWFHHGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:06:11 -0400
+To: Daniel Drake <dsd@gentoo.org>
 Content-Disposition: inline
-In-Reply-To: <20060607102950.54dd83c1@localhost.localdomain>
+In-Reply-To: <4486FD2F.8040205@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2006 at 10:29:50AM -0700, Stephen Hemminger wrote:
+Hi!
 
-> Be careful about global namespace issues. Stick to one prefix like ehea_
-> for all non static function names. Consider putting all in one file, or
-> use #include to cause it to be one compilation unit.
+> >Well, I'll try _enable() alone, but it seems to me that _enable()
+> >command is needed to initialize radio properly. I do not think we can
+> >get much further without firmware sources...
+> 
+> If you can formulate a proper and technical description of the issue 
+> (and exactly what is needed to workaround it), I can contact ZyDAS for 
+> you. They have been very helpful with ZD1211.
 
-I thought including .c files was discouraged (if not, it should be...)
+Okay, the issue is:
 
-Cheers,
-Muli
+if you plug zd1201 into USB, it starts jamming radio,
+immediately. Enable/disable, or iwlist wlan0 scan, or basically any
+operation unjams the radio. This patch works it around:
+
+diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+index 335eaf3..dcc7bc7 100644
+--- a/drivers/net/wireless/zd1201.c
++++ b/drivers/net/wireless/zd1201.c
+@@ -1835,8 +1835,8 @@ static int zd1201_probe(struct usb_inter
+ 	    zd->dev->name);
+ 	
+ 	usb_set_intfdata(interface, zd);
+-	zd1201_enable(zd);
+-	zd1201_disable(zd);
++	zd1201_enable(zd);	/* zd1201 likes to startup enabled, interfering */
++	zd1201_disable(zd); 	/* with all the wifis in range */
+ 	return 0;
+ 
+ err_net:
+
+
+....question is "is that right solution, or is something different
+needed to solve that problem properly"?
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
