@@ -1,63 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPV6]: Fix RTNLGRP_IPV6_IFINFO netlink notifications
-Date: Fri, 09 Jun 2006 00:56:46 +0200
-Message-ID: <4488AB2E.3030301@trash.net>
+From: Hans Henrik Happe <hhh@imada.sdu.dk>
+Subject: Re: Netchannels: netchannel vs. socket. 2:0.
+Date: Fri, 9 Jun 2006 01:00:24 +0200
+Message-ID: <200606090100.24827.hhh@imada.sdu.dk>
+References: <20060608171555.GA10273@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080505080200010706080303"
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42183 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965036AbWFHW5S
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 18:57:18 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from berlioz.imada.sdu.dk ([130.225.128.12]:16123 "EHLO
+	berlioz.imada.sdu.dk") by vger.kernel.org with ESMTP
+	id S965048AbWFHXA1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 19:00:27 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by localhost.imada.sdu.dk (Postfix) with ESMTP id 77A5162706
+	for <netdev@vger.kernel.org>; Fri,  9 Jun 2006 01:00:26 +0200 (CEST)
+Received: from berlioz.imada.sdu.dk ([127.0.0.1])
+ by localhost (berlioz.imada.sdu.dk [127.0.0.1]) (amavisd-new, port 10025)
+ with ESMTP id 22937-02 for <netdev@vger.kernel.org>;
+ Thu,  8 Jun 2006 23:00:26 +0000 (UTC)
+Received: from [192.168.2.100] (unknown [85.218.152.97])
+	(using SSLv3 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by berlioz.imada.sdu.dk (Postfix) with ESMTP id 28BE962704
+	for <netdev@vger.kernel.org>; Fri,  9 Jun 2006 01:00:26 +0200 (CEST)
+To: netdev@vger.kernel.org
+In-Reply-To: <20060608171555.GA10273@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080505080200010706080303
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Thursday 08 June 2006 19:15, you wrote:
+> After some enhancements made for netchannel subsystem I'm pleased to
+> announce, that netchannel subsystem outperforms existing layered desi=
+gn
+> both in CPU usage and network speed.
+>=20
+> Well, after such pretentious introduction I want to cool things down.
+> CPU usage is about 1-2% less for netchannels and network performance =
+is
+> about 1-2 MB higher and sometimes exceeds 84 MB/sec which, I think,=20
+> is maximum for given network setup (e1000 receive, r8169 send, 1500 M=
+TU).
 
+I have followed your work closely and have wondered how it affects late=
+ncy?
+I have somewhat limited knowledge about TCP and how the kernel handles =
+it, but=20
+I guess the path from NIC to userspace hasn't increased. What about sys=
+call=20
+overhead caused by userspace TCP processing?
 
---------------080505080200010706080303
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+H=B3 =20
 
-[IPV6]: Fix RTNLGRP_IPV6_IFINFO netlink notifications
-
-The allocated skb is too small for the message, which results in an EINVAL
-getting reported to the (innocent) multicast listeners.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit f71bc8ace692302ad3a80d84b8cbccbb14e88fe5
-tree 21ccfa89e911ff8e6bda04ab817367f2ac4e3173
-parent 1def630a6a49dda5bc89dfbd86656293640456f0
-author Patrick McHardy <kaber@trash.net> Wed, 07 Jun 2006 09:25:26 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 07 Jun 2006 09:25:26 +0200
-
- net/ipv6/addrconf.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 445006e..cc81cab 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3235,8 +3235,7 @@ static int inet6_dump_ifinfo(struct sk_b
- void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
- {
- 	struct sk_buff *skb;
--	/* 128 bytes ?? */
--	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+128);
-+	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+172);
- 	
- 	skb = alloc_skb(size, GFP_ATOMIC);
- 	if (!skb) {
-
---------------080505080200010706080303--
