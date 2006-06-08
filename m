@@ -1,161 +1,750 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannels: netchannel vs. socket. 2:0.
-Date: Thu, 8 Jun 2006 21:40:35 +0400
-Message-ID: <20060608174035.GA21733@2ka.mipt.ru>
-References: <20060608171555.GA10273@2ka.mipt.ru>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [DOC] update bonding documentation with sysfs
+Date: Thu, 08 Jun 2006 11:15:37 -0700
+Message-ID: <44886949.2060309@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="W/nzBZO5zC0uMSeA"
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------050106070302090907050608"
+Cc: NetDev <netdev@vger.kernel.org>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37338 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964922AbWFHRkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 13:40:47 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060608171555.GA10273@2ka.mipt.ru>
+Received: from fmr17.intel.com ([134.134.136.16]:17838 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964839AbWFHSQm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 14:16:42 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------050106070302090907050608
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
---W/nzBZO5zC0uMSeA
-Content-Type: text/plain; charset=koi8-r
-Content-Disposition: inline
 
-On Thu, Jun 08, 2006 at 09:15:55PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> After some enhancements made for netchannel subsystem I'm pleased to
-> announce, that netchannel subsystem outperforms existing layered design
-> both in CPU usage and network speed.
-> 
-> Well, after such pretentious introduction I want to cool things down.
-> CPU usage is about 1-2% less for netchannels and network performance is
-> about 1-2 MB higher and sometimes exceeds 84 MB/sec which, I think, 
-> is maximum for given network setup (e1000 receive, r8169 send, 1500 MTU).
-> 
-> It is stable and 100% reproductible result.
-> 
-> Performance graph and patch are attached.
+Jeff,
 
-Hmm, graph has been attached now.
+Attached patch is pushed on top of #upstream on our git server also containing 
+the resent patches earlier today.
 
--- 
-	Evgeniy Polyakov
+Please pull:
+   git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
 
---W/nzBZO5zC0uMSeA
-Content-Type: image/png
-Content-Disposition: attachment; filename="netchannel_speed.png"
-Content-Transfer-Encoding: base64
+Cheers,
 
-iVBORw0KGgoAAAANSUhEUgAAAyAAAAJYCAMAAACtqHJCAAAAA3NCSVQICAjb4U/gAAABKVBM
-VEX///8AAACgoKD/AAAAwAAAgP/AAP8A7u7AQADu7gAgIMD/wCAAgECggP+AQAD/gP8AwGAA
-wMAAYIDAYIAAgABA/4AwYICAYABAQEBAgAAAAICAYBCAYGCAYIAAAMAAAP8AYADjsMBAwIBg
-oMBgwABgwKCAAACAAIBgIIBgYGAgICAgQEAgQIBggCBggGBggICAgEAggCCAgICgoKCg0ODA
-ICAAgIDAYACAwODAYMDAgADAgGD/QAD/QECAwP//gGD/gIDAoADAwMDA/8D/AAD/AP//gKDA
-wKD/YGAA/wD/gAD/oACA4OCg4OCg/yDAAADAAMCgICCgIP+AIACAICCAQCCAQICAYMCAYP+A
-gADAwAD/gED/oED/oGD/oHD/wMD//wD//4D//8BUJrxzAAAARHRFWHRTb2Z0d2FyZQBnbnVw
-bG90IHZlcnNpb24gNC4wIHBhdGNobGV2ZWwgMCBvbiBMaW51eCAyLjYuMTYtMS4yMTExX0ZD
-NRvlfscAABXASURBVHic7d0Le6K6GgZQ8pyZ3en8/x98pipIIHwgAnJZa++OrZDES14DMbVV
-BQAAAAAAAAC8IKXUugDa0v3rcQFkngExhEBfuh1cpdt/ravgfOZm5D58pNbPm9DOzhvSTlMs
-OwfZ+e29fDunu0O7bucx7rTHn13fXu2c7w4drZ2j3d6rtXO6O3S0do52e6/Wzunu0NHaMd/L
-KQnIHo3MLuanfqmed3+tiVl7TinVuSm7aGh+9xSQHRpbo9AKSLp3k+eM+4QnIgX7Fa5+td9W
-WwUk3yl8iRCQU2n6erbmrbnIRpBUZQGp90y9clntj7fAUl06teKVN5uyyjrbqsKVnY5eLF66
-f2821ItL652IN9/wW4SALKnuKk3Pzy6y2fVUPXtVPjjk5VpF2num7C3fOoFZudSuLBuqUsou
-Ou1XWUPd4is11Pp+YM//jRqs9R0CsrBWJOpX+5Taz3m9VyEI2Uty6tX7vKwDUrWLd192C6Gr
-sttSLJA32Cme/bRoQ52qO7XOICA7lL+Ktl/ym+vzPatsz6rqlssLPL5Jz4D0Gkr9PaspF3kb
-/eKpe1sWbej2bxOI1HqwUmff6QRkj0rH4QPnIM1rala6UK7XRtUaQfJTg+bF+3lFflBffGGP
-znkGzkGWbOj58JQerNn9U0D2a7PH9HwNLUdA9ut8/faAvURAICAgEBCQ/bPwZEZDw5W9RkB2
-r567ibY/vrPwZMa2+bV+oh56mr5u4cn0hSeWmlyIhScvN9S9t61tv0b1b/ACBGRVrUhYeDKh
-oSAgLxKQ3ctfRdsv+f0RpN01UlbFYKd8fJOeAek1lPp7VlMu8jb6xVP3tizQkKUm12PhyQsN
-WWpyVZs9wudr6B0CchTn67eH6DMCAgEBgYCAHM01F54Ud59e2fzuKSAHU8/dRNsf351p4Ulx
-9+xna7H40fT1cy88Kd7O9LwPreKdR6Yp3txkS00u5SILT0q3M2UFouGoe/9a236PGqz1HQKy
-oVaXOevCk84QUF9XbxqsLL/vA1F6hYAcTP56237J748g2dCSVVHslOn5TeqOIP1X9Pae1ZSL
-vI1+8V5gC7XkvT1fQFKnJ7+dlppczUUWnpRuZ8oK1MWzx8VSE242e7ybhoJPH1y2oX0RkLWM
-f8TlO1Lz3fjvN7wlrVz/SEOffhYF5GlWR92q+wz79MN2cicNyGZ9/dN3lJUdOiDDnX24zMn6
-uoUnk4rP757HCciVYzAon6ctb398d62FJy9se62VT9eTGUvDVWIwrOnrFp70prObG3m2pSaD
-mbhsDAIWnhQr696j1rb/RvVv1AIWqac8VMhDrNVlLDzJ7+1AEl+xj4AURwy5GBS/+uUv3FXz
-U3toqdobip0yPb9J3RGk/4re3rOacpG30S/eC2yhlrzv1yNkfsuOvtQkSMbbt2l748P3Mp4t
-dg/4t7oFs/xOv3/fv9LPv/VFo3Vl+t3elvIC9S6/81oeP/3O9vz9HOxm+WBABo+nlrg9Rav3
-gNVueUd3gXbqXrGQXsNp6BYEZZ5eeBiX6pdv+1hACtNSL4VjYvdco/+u1Btf0L1Fm3Wn8zU0
-5kMBKR5VjRUa6+zLvqZP756c2CcC0jmyirOx8gGMGBDaPiBZOgbDsWwqLhaD5+Rt1ZswbfaZ
-XtuLpWYvIFmxocNM82aDRykci+TiGjEYVJxa7WwfesJGojTpad4qIPlO4XvlrW1fnU3dnztX
-bBqQzuCRbVsgGBfNQ0//XYrU3byLBSTL/smcblxao2e21GS/AemceTy/fTcZcpGrO3v5EKsV
-herDC0hWaKj1/cCeX6MGa33HWD29E/PbxRujxmUPoMal3kXqbcwDku3WfdlNhcoWWUCyRkOd
-qju1/tjlCNKb1Z01bFz4tOIlrd5RlTrl45vUHUFSqXizZzXlIm+jXzx1b8uiDd3+zcah58/N
-vjsMSDcer2VDJl72PLZ6/tTfqWqNIPmpQfPi/bwiP6gvvrBHi+YHzkGWbOi5xj//KT2rnmNW
-wcINHK6nE4/p2RCLrSz1KrmfhpYz5yZ3D/Beqee/KatJJGNbAjLsvYCkVwPyXxwPgwY788Yh
-Vv07avVVE36tMTi6kgx2ZlqfLhWs+lMSU+r5NZgP2VjRNReeDFf2mg3PQQbyYeRYV3GmtLN9
-6OkbidKkzrNVQMKdWtv+ZBv+9K7p/Lj+LNbDr2I+hGN1rSnUUkDq0SU1c6KnWHgyvNSkF4fO
-FUsEpGCsnl+F8w/p2ELd2S+18KT7ctAeQUaVHr63xfX86udDOjaSeheptzEPSLZb90U4FSrb
-38KTKCD5w7OLEeRXZ/7KaceGWn2lKnXKxzepO4KkUvFmz2rKRd5Gv3jq3pYFGhpdarLFOUhB
-UM+vPB/CsbFrLTzZxVKTl+r5eWvwmQ/p2L2lusR+GnrHJodYTT7E4wAEpG2LgDzzsVBjsJUN
-AlLnw/DB8awfkCYfC7XEWw668KS4+/TK5nfz1QMiH7tSnCntbB96MkeiNKkrrReQqWuxvrMN
-37f/OldFbc41VM8jHw6vdqI1hVoKSD26pGaG9DB/Mqcbl9YIme3ZjcN354ptA1LnY6FWeFfd
-2Xe/8OR50R7w2gWi4aj7AtAeQUYN1vqOcj33fBg+9iP1LlJvYx6QbLfuS3IqVLbIwpPOEFBf
-V28arKz1/VBA8gfkoyPIIx8LNcECOj2uKrxqV9UOFp5U5Vry3p7/WZw6Pfnt7C012dE5yC0f
-ho99OcrCk+4CknbS8tbzu3KgpSb3fCxUPx+yVAfZT0OvWS8gP/kwfByegKxUzy0fC1UOn7JW
-QOSDU1gpIP85vDqE8y48mb7ttVYWq0c8DqA4JdvZPtRFRqI0qWN9IiB/sw1/f+T75j+uFBDD
-xyH0391I3c0HXXgyvNSkE5DeNZsERDyOoe7sp1t40o18ewQZVXqI3rbTSTpCqXeRehvzgGS7
-dV+gU6Gyzyw8iQKStfmhEYRj6PS4qvCqXVXHWngyutRkH+cgHMP5Fp4caKkJ57PZ07yb/iQg
-vEBAPl0P7IqAQEBAICAgEBAQCAgIBAQEAgICAQGBgIBAQEAgICAQEBAICAgEBAQCAgIBAYGA
-gEBAQCAgIBAQEAgICAQEBAICAgEBgYCAQEBAIDCnY+d/C2h+PbB7czt267Ps36oHdm1mx279
-mZO36oF9m9exm7/a8wxI548owtHN79P1H/FxiMXZzTpJf14ICOf2RkDMYnF+3geBgIBAQEAg
-ICAQEBAICAgEBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAgEBgYCAQEBAICAgEBAQCAgI
-BAQEAgICAQGBgIBAQEAgICAQEBAICAgEBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAgEB
-gYCAQEBAICAgEBAQCAgIBAQEAgICAQGBgIBAQEAgICAQEBAICAgE5nXslO7/PksLCKc0q2On
-5t+UXwUnM6djp+YiCQjnFnbs2xjR3yPdj63S7b/WdYVd4bAm9OlUDshzixGEcxvp2MXNdUAq
-AeHsoo6dDRH5BrNYXMNYQKb2fAHhlLxRCAEBgYCAQEBAICAgEBAQCAgIBAQEAgICAQGBgIBA
-YKxjT/0lDwHhlMYDMq3vCwin5BALAgICAQGBwNiv3E7t+ALCKY19aMPEc3QB4ZwEBAICAoHR
-cxAf2sCVmcWCgIBAYOQcZPIn7goIpzT60aNDn674Wj1wTKMfXj1xHktAOCUBgcCEaV7nIFyX
-WSwICAgExg+xLDXhwqzFgoCAQEBAIDDasa3m5crMYkFAQCAwutTEIRZX5iQdAgICAQGBwOgv
-TAkIV2YWCwICAoEJH9qwQD1wUJaaQGC8YxtBuDABgcD4OcgS9cBBmcWCgIBAQEAgICAQEBAI
-zOnY9fvr7SkuAeGUZgXkeZE618G5zB1B7kWTgHBuczt26vw21fS/RQXHMNqnox0ew4cRhHOb
-sxarPr6qBISzm7VY8TGumMXi9KzmhcDcc5BX6oHD8k46BAQEAmHHfuGNDQHhlMJzkBf6vYBw
-SgICAQGBwPg0r/dBuDCzWBAQEAjE07xjO0ysB45q5CR9ZI9p9cBhCQgEBAQCI0tNrObl2sxi
-QUBAICAgEBAQCAgIBAQEAgICAQGBgIBAQEAgICAQGPvYH2uxuLTxgFjNy4VN6NiT+r6AcErO
-QSAgIBAY6dhpas8XEE4p7tjTP9ZEQDglAYGAgEBg7BzEG4VcmlksCAgIBEYPsZapB45p7CR9
-6hshAsIpCQgEBAQCpnkhYBYLAgICgdGlJg6xuDIn6RAQEAgICARGf6NQQLgys1gQEBAIxB8c
-t1A9cFTjv3I7vKG9DkVAOKXxk/Ti1fUvq6eRHeHYxjp2cXuqw5EEhHMb7diFHVI9erTeJEk3
-i940+KjZffpRLiWHWJzdzI7tHIRrmPkHdMxicQ1Rx06WmnB1AgKBMCAvnMYLCKc0MoKM7DGt
-HjgsixUhICAQcA4CAcvdITCy3H1yvxcQTskIAgHnIBAwiwUBAYGAgEBAQCAgIBAQEAgICAQE
-BAICAgEBgYCAQGD0o0etxeLKxgMyre8LCKfkEAsCAgIBAYGAX5iCwOhfmJrY8wWEUxr/G4VG
-EC5MQCAwdog19YN/BIRTMosFAQGBwOgh1jL1wDGNnaRPnecVEE5JQCAgIBAwzQsBs1gQEBAI
-mOaFgJN0CAgIBAQEAqZ5IWAWCwICAgGHWBDwK7cQEBAI+NgfCIyMIJM/Ok5AOCWzWBAQEAiE
-HTsNLOd9HHW1D74EhFMKP7y6/r9QJnWmuASEU5oTkNY2AeHc5gUk3UeP1iTwC38pAQ5hvE+n
-wQGkHj6MIJzbnI7tHITLmNWxzWJxFd4HgYCAQEBAICAgEBAQCAgIBAQEAgICAQGBgIBAQEAg
-ICAQEBAICAgEBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAgEBgYCAQEBAICAgEBAQCAgI
-BAQEAgICAQGBgIBAQEAgICAQEBAICAgEBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAgEB
-gYCAQEBAICAgEBAQCAgIBGZ17JRS62J+PbB3czp2un+ldnEB4ZTmdux7QJKAcG5vHGKl23/P
-q9pHXHB4s/t0qss7xOLs3glIJSCc3ayAPEYes1icnvdBICAgEBAQCAgIBAQEAgICAQGBgIBA
-QEAgICAQEBAICAgEBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAgEBgYCAQEBAICAgEBAQ
-CAgIBAQEAgICAQGBwOUC8n377+FrRpmsUL5lTm1n3hKYVegTLheQ6vu73NenlskLZVvm1Hbq
-LYFZhT7gcgH5/m6emq8fk8sMm3MLzubFx6CaVegTLhWQ25Py+Pr+ycbXPSWTylT1vlmhurZX
-b8Hg5oNueaW/Z0/D1EKfcpmA1E/Gv6fl6xaOW0ju24ZC0ilT790q1BxKT3iuW7Xt9qzhrS0T
-H4P8Qdh7SK4QkNZw3jmqmrQlGGTyQsOHDYc5oHhbcE/jLXt9eD4XkD+Pr7tgVmN4098f8Zbe
-ONEvUz87ty2FseVrrJ1sbMlqa6r/6pZpfhre8uI9fWFLe1P+NEzd8hWWaYaJessjAWE7vQeu
-dws2m2Jr++AI8qd956NZjcFNf/9tGegcP1vqhzw7afj7+Oo18d2U6Z1olMu0tzRnJ/3aqsdN
-6JWpRraU2llmS7YpfxombvkaLXO763/vX99T22keuOIt2G6KreWDI8iP5qfurMgkfzmpWd1h
-0LYde6l6/vy8PNxCcrsPwf0obqofx2AEuX3375U9O4EIXnHbtU0tUw2OBtltC0eQZqjaegS5
-PfovjiC3GzthBLlv+RlBotrKZYwg1S0f9eHqLSSvnIP8ZKO+jI+/bz3vq7RluMzNnDKzzjTa
-J0hT23l3y33Tffx+7RzknuSxc5Da90htL2651DnIn3zuIj/eCgTPet+0twF3Y/Ibl2+a/GC3
-bHXbdmeNgAR5fvTvP/0jwwkvalE2OmV+PJ7QwpbhMqNbFq6uv6XuiJ1X6azMG1sK2Rju9yNv
-E13CKiPI8HFfe1qjs6UKD4tHB44/vY42tGW4zJQtC1dX3FI4zs/KzNwyMHCEAbl0OH6sMoKs
-MO801v4fRn3NsFD3OK4NR5BbR/93Sj4+59LMb/W2FN12bb0Ud57W440g9y2LjyADRg+xLm2j
-c5DHIPA9PBqUJi/uIQlHkDpHz4P57qvewc5BnltWOQcpEJDI+rNYWf9+efYkmHIpbnFQwKJW
-CcjgvNPL8ajLdceJQjZu73iIB8taJyBV+cBobj7uheszjYEh5Us8WN66I0jm9cOrQhVDx1um
-XFjFeiNId4/341ENTfrcwiEerGCzEWShfBTeL3+MHALCCjZai7XA4VWBwyrWNi8g91Ippc41
-Q9aIh3CwgVkBuQcjtYsP1XM7KFowH4/DKelgG2+MIKlOSljPn2UPr76Egy29FZDUGkFu+nsO
-T8zOYTKX7Qz16SlF7+UnHGJFy/5eJx5s7L1DrInnILPaKPgymcvGZp6kp9bF/HpeY/Rge5/8
-ZMXXOrx48AGHCYh88AmfC8hLM1IOr/iMzwSk/qTOqf1ePPiQ7QPyHDim/oqT4YOP2TQgxaOq
-0e4vHnzO+gEZ//SxMCKGDz5pk4CMno4PbxYPPmrtgEydqyrvZfjgwzY7xBpXOD2ZeWNgKTsK
-SC8i8sHH7eyPeLYi4vCKHdhZQJ5/8kY82IPdBeT+R9MMH+zDDgPi9wbZjz0GxPEVuyEgENhn
-QGAnBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAgEBgYCAQEBAICAgEBAQCAgIBAQEAgIC
-AQGBgIBAQEAgICAQEBAICAgEBAQCAgIBAYGAgEBAQCAgIBAQEAgICAQEBAICAoGjBUQ7O29I
-O+vWo52DN6SdVtn0LH2E23vldk53hw7QTmoXP8DtvXQ7p7tDB2gn/YwhC9TzaqPa2XND2mkV
-Ta0RBE7pjYAks7swKDsHATreGn8AAACAtWxyyv5oZIO2Nmpnq/uzyQOXNmpq23YW6gubTPo+
-GtmgrVS3sW47qfl3/XZWf+AeHXb1prZtZ6m+kC08WVPaoq3UPP6rtpOai9XvzxYPXN1x08pN
-tRc4rd/OQn0hW3iymvRI88ptNa9Ma7ez0f3Z6IF7BCTdH7/1mmofYq3ezlJ9YZOFJ60xb/WO
-m7Zop2q/4h6+ocex+upNNYdY1RbtLNQXNjsH2aitTc5BNjun2qahjc4N8oCs3U61VF/YYhar
-Xl55mlmszWbltmgob2O9ppo+sHJfaGre6DkCAAAAAAAAYFjzgUzevIUSyYBAvaL78e/waqB8
-RZIFQ1xDtkyu/g2LwsCSr2ndZEk1fF4pIM1gke3YXtoqHFzEwAhy+7Ebg9QdSODsSr9VWp9g
-tCOQtvolDDgIEQCAY/o/wTip16h82G8AAAAASUVORK5CYII=
+Auke
 
---W/nzBZO5zC0uMSeA--
+
+---
+[DOC] Update bonding documentation with sysfs info
+
+Bonding documentation needed an update to include sysfs specific
+information. This patch adds information on how to change bonding
+parameters at runtime using the sysfs interface.
+
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+
+---
+  bonding.txt |  323 ++++++++++++++++++++++++++++++++++++++++++------------------
+  1 file changed, 229 insertions(+), 94 deletions(-)
+
+
+---
+
+--------------050106070302090907050608
+Content-Type: text/x-patch;
+ name="bonding_doc.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="bonding_doc.patch"
+
+[DOC] Update bonding documentation with sysfs info
+
+Bonding documentation needed an update to include sysfs specific
+information. This patch adds information on how to change bonding
+parameters at runtime using the sysfs interface.
+
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+
+---
+ bonding.txt |  323 ++++++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 229 insertions(+), 94 deletions(-)
+
+---
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 8d8b4e5..afac780 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -1,7 +1,7 @@
+ 
+ 		Linux Ethernet Bonding Driver HOWTO
+ 
+-		Latest update: 21 June 2005
++		Latest update: 24 April 2006
+ 
+ Initial release : Thomas Davis <tadavis at lbl.gov>
+ Corrections, HA extensions : 2000/10/03-15 :
+@@ -12,6 +12,8 @@ Corrections, HA extensions : 2000/10/03-
+   - Jay Vosburgh <fubar at us dot ibm dot com>
+ 
+ Reorganized and updated Feb 2005 by Jay Vosburgh
++Added Sysfs information: 2006/04/24
++  - Mitch Williams <mitch.a.williams at intel.com>
+ 
+ Introduction
+ ============
+@@ -38,61 +40,62 @@ Table of Contents
+ 2. Bonding Driver Options
+ 
+ 3. Configuring Bonding Devices
+-3.1	Configuration with sysconfig support
+-3.1.1		Using DHCP with sysconfig
+-3.1.2		Configuring Multiple Bonds with sysconfig
+-3.2	Configuration with initscripts support
+-3.2.1		Using DHCP with initscripts
+-3.2.2		Configuring Multiple Bonds with initscripts
+-3.3	Configuring Bonding Manually
++3.1	Configuration with Sysconfig Support
++3.1.1		Using DHCP with Sysconfig
++3.1.2		Configuring Multiple Bonds with Sysconfig
++3.2	Configuration with Initscripts Support
++3.2.1		Using DHCP with Initscripts
++3.2.2		Configuring Multiple Bonds with Initscripts
++3.3	Configuring Bonding Manually with Ifenslave
+ 3.3.1		Configuring Multiple Bonds Manually
++3.4	Configuring Bonding Manually via Sysfs
+ 
+-5. Querying Bonding Configuration
+-5.1	Bonding Configuration
+-5.2	Network Configuration
++4. Querying Bonding Configuration
++4.1	Bonding Configuration
++4.2	Network Configuration
+ 
+-6. Switch Configuration
++5. Switch Configuration
+ 
+-7. 802.1q VLAN Support
++6. 802.1q VLAN Support
+ 
+-8. Link Monitoring
+-8.1	ARP Monitor Operation
+-8.2	Configuring Multiple ARP Targets
+-8.3	MII Monitor Operation
++7. Link Monitoring
++7.1	ARP Monitor Operation
++7.2	Configuring Multiple ARP Targets
++7.3	MII Monitor Operation
+ 
+-9. Potential Trouble Sources
+-9.1	Adventures in Routing
+-9.2	Ethernet Device Renaming
+-9.3	Painfully Slow Or No Failed Link Detection By Miimon
++8. Potential Trouble Sources
++8.1	Adventures in Routing
++8.2	Ethernet Device Renaming
++8.3	Painfully Slow Or No Failed Link Detection By Miimon
+ 
+-10. SNMP agents
++9. SNMP agents
+ 
+-11. Promiscuous mode
++10. Promiscuous mode
+ 
+-12. Configuring Bonding for High Availability
+-12.1	High Availability in a Single Switch Topology
+-12.2	High Availability in a Multiple Switch Topology
+-12.2.1		HA Bonding Mode Selection for Multiple Switch Topology
+-12.2.2		HA Link Monitoring for Multiple Switch Topology
++11. Configuring Bonding for High Availability
++11.1	High Availability in a Single Switch Topology
++11.2	High Availability in a Multiple Switch Topology
++11.2.1		HA Bonding Mode Selection for Multiple Switch Topology
++11.2.2		HA Link Monitoring for Multiple Switch Topology
+ 
+-13. Configuring Bonding for Maximum Throughput
+-13.1	Maximum Throughput in a Single Switch Topology
+-13.1.1		MT Bonding Mode Selection for Single Switch Topology
+-13.1.2		MT Link Monitoring for Single Switch Topology
+-13.2	Maximum Throughput in a Multiple Switch Topology
+-13.2.1		MT Bonding Mode Selection for Multiple Switch Topology
+-13.2.2		MT Link Monitoring for Multiple Switch Topology
++12. Configuring Bonding for Maximum Throughput
++12.1	Maximum Throughput in a Single Switch Topology
++12.1.1		MT Bonding Mode Selection for Single Switch Topology
++12.1.2		MT Link Monitoring for Single Switch Topology
++12.2	Maximum Throughput in a Multiple Switch Topology
++12.2.1		MT Bonding Mode Selection for Multiple Switch Topology
++12.2.2		MT Link Monitoring for Multiple Switch Topology
+ 
+-14. Switch Behavior Issues
+-14.1	Link Establishment and Failover Delays
+-14.2	Duplicated Incoming Packets
++13. Switch Behavior Issues
++13.1	Link Establishment and Failover Delays
++13.2	Duplicated Incoming Packets
+ 
+-15. Hardware Specific Considerations
+-15.1	IBM BladeCenter
++14. Hardware Specific Considerations
++14.1	IBM BladeCenter
+ 
+-16. Frequently Asked Questions
++15. Frequently Asked Questions
+ 
+-17. Resources and Links
++16. Resources and Links
+ 
+ 
+ 1. Bonding Driver Installation
+@@ -156,6 +159,9 @@ you're trying to build it for.  Some dis
+ onwards) do not have /usr/include/linux symbolically linked to the
+ default kernel source include directory.
+ 
++SECOND IMPORTANT NOTE:
++	If you plan to configure bonding using sysfs, you do not need
++to use ifenslave.
+ 
+ 2. Bonding Driver Options
+ =========================
+@@ -270,7 +276,7 @@ mode
+ 		In bonding version 2.6.2 or later, when a failover
+ 		occurs in active-backup mode, bonding will issue one
+ 		or more gratuitous ARPs on the newly active slave.
+-		One gratutious ARP is issued for the bonding master
++		One gratuitous ARP is issued for the bonding master
+ 		interface and each VLAN interfaces configured above
+ 		it, provided that the interface has at least one IP
+ 		address configured.  Gratuitous ARPs issued for VLAN
+@@ -377,7 +383,7 @@ mode
+ 		When a link is reconnected or a new slave joins the
+ 		bond the receive traffic is redistributed among all
+ 		active slaves in the bond by initiating ARP Replies
+-		with the selected mac address to each of the
++		with the selected MAC address to each of the
+ 		clients. The updelay parameter (detailed below) must
+ 		be set to a value equal or greater than the switch's
+ 		forwarding delay so that the ARP Replies sent to the
+@@ -498,11 +504,12 @@ not exist, and the layer2 policy is the 
+ 3. Configuring Bonding Devices
+ ==============================
+ 
+-	There are, essentially, two methods for configuring bonding:
+-with support from the distro's network initialization scripts, and
+-without.  Distros generally use one of two packages for the network
+-initialization scripts: initscripts or sysconfig.  Recent versions of
+-these packages have support for bonding, while older versions do not.
++	You can configure bonding using either your distro's network
++initialization scripts, or manually using either ifenslave or the
++sysfs interface.  Distros generally use one of two packages for the
++network initialization scripts: initscripts or sysconfig.  Recent
++versions of these packages have support for bonding, while older
++versions do not.
+ 
+ 	We will first describe the options for configuring bonding for
+ distros using versions of initscripts and sysconfig with full or
+@@ -530,7 +537,7 @@ issue the command:
+ 	If this returns any matches, then your initscripts or
+ sysconfig has support for bonding.
+ 
+-3.1 Configuration with sysconfig support
++3.1 Configuration with Sysconfig Support
+ ----------------------------------------
+ 
+ 	This section applies to distros using a version of sysconfig
+@@ -538,7 +545,7 @@ with bonding support, for example, SuSE 
+ 
+ 	SuSE SLES 9's networking configuration system does support
+ bonding, however, at this writing, the YaST system configuration
+-frontend does not provide any means to work with bonding devices.
++front end does not provide any means to work with bonding devices.
+ Bonding devices can be managed by hand, however, as follows.
+ 
+ 	First, if they have not already been configured, configure the
+@@ -660,7 +667,7 @@ format can be found in an example ifcfg 
+ 	Note that the template does not document the various BONDING_
+ settings described above, but does describe many of the other options.
+ 
+-3.1.1 Using DHCP with sysconfig
++3.1.1 Using DHCP with Sysconfig
+ -------------------------------
+ 
+ 	Under sysconfig, configuring a device with BOOTPROTO='dhcp'
+@@ -670,7 +677,7 @@ attempt to obtain the device address fro
+ the slave devices.  Without active slaves, the DHCP requests are not
+ sent to the network.
+ 
+-3.1.2 Configuring Multiple Bonds with sysconfig
++3.1.2 Configuring Multiple Bonds with Sysconfig
+ -----------------------------------------------
+ 
+ 	The sysconfig network initialization system is capable of
+@@ -685,7 +692,7 @@ ifcfg-bondX files.
+ options in the ifcfg-bondX file, it is not necessary to add them to
+ the system /etc/modules.conf or /etc/modprobe.conf configuration file.
+ 
+-3.2 Configuration with initscripts support
++3.2 Configuration with Initscripts Support
+ ------------------------------------------
+ 
+ 	This section applies to distros using a version of initscripts
+@@ -756,7 +763,7 @@ options for your configuration.
+ will restart the networking subsystem and your bond link should be now
+ up and running.
+ 
+-3.2.1 Using DHCP with initscripts
++3.2.1 Using DHCP with Initscripts
+ ---------------------------------
+ 
+ 	Recent versions of initscripts (the version supplied with
+@@ -768,7 +775,7 @@ above, except replace the line "BOOTPROT
+ and add a line consisting of "TYPE=Bonding".  Note that the TYPE value
+ is case sensitive.
+ 
+-3.2.2 Configuring Multiple Bonds with initscripts
++3.2.2 Configuring Multiple Bonds with Initscripts
+ -------------------------------------------------
+ 
+ 	At this writing, the initscripts package does not directly
+@@ -784,8 +791,8 @@ Fedora Core kernels, and has been seen o
+ exhibiting this problem, it will be impossible to configure multiple
+ bonds with differing parameters.
+ 
+-3.3 Configuring Bonding Manually
+---------------------------------
++3.3 Configuring Bonding Manually with Ifenslave
++-----------------------------------------------
+ 
+ 	This section applies to distros whose network initialization
+ scripts (the sysconfig or initscripts package) do not have specific
+@@ -888,12 +895,140 @@ install bond1 /sbin/modprobe --ignore-in
+ 
+ 	This may be repeated any number of times, specifying a new and
+ unique name in place of bond1 for each subsequent instance.
++
++3.4 Configuring Bonding Manually via Sysfs
++------------------------------------------
++
++	Starting with version 3.0, Channel Bonding may be configured
++via the sysfs interface.  This interface allows dynamic configuration
++of all bonds in the system without unloading the module.  It also
++allows for adding and removing bonds at runtime.  Ifenslave is no
++longer required, though it is still supported.
++
++	Use of the sysfs interface allows you to use multiple bonds
++with different configurations without having to reload the module.
++It also allows you to use multiple, differently configured bonds when
++bonding is compiled into the kernel.
++
++	You must have the sysfs filesystem mounted to configure
++bonding this way.  The examples in this document assume that you
++are using the standard mount point for sysfs, e.g. /sys.  If your
++sysfs filesystem is mounted elsewhere, you will need to adjust the
++example paths accordingly.
++
++Creating and Destroying Bonds
++-----------------------------
++To add a new bond foo:
++# echo +foo > /sys/class/net/bonding_masters
++
++To remove an existing bond bar:
++# echo -bar > /sys/class/net/bonding_masters
++
++To show all existing bonds:
++# cat /sys/class/net/bonding_masters
++
++NOTE: due to 4K size limitation of sysfs files, this list may be
++truncated if you have more than a few hundred bonds.  This is unlikely
++to occur under normal operating conditions.
++
++Adding and Removing Slaves
++--------------------------
++	Interfaces may be enslaved to a bond using the file
++/sys/class/net/<bond>/bonding/slaves.  The semantics for this file
++are the same as for the bonding_masters file.
++
++To enslave interface eth0 to bond bond0:
++# ifconfig bond0 up
++# echo +eth0 > /sys/class/net/bond0/bonding/slaves
++
++To free slave eth0 from bond bond0:
++# echo -eth0 > /sys/class/net/bond0/bonding/slaves
++
++	NOTE: The bond must be up before slaves can be added.  All
++slaves are freed when the interface is brought down.
++
++	When an interface is enslaved to a bond, symlinks between the
++two are created in the sysfs filesystem.  In this case, you would get
++/sys/class/net/bond0/slave_eth0 pointing to /sys/class/net/eth0, and
++/sys/class/net/eth0/master pointing to /sys/class/net/bond0.
++
++	This means that you can tell quickly whether or not an
++interface is enslaved by looking for the master symlink.  Thus:
++# echo -eth0 > /sys/class/net/eth0/master/bonding/slaves
++will free eth0 from whatever bond it is enslaved to, regardless of
++the name of the bond interface.
++
++Changing a Bond's Configuration
++-------------------------------
++	Each bond may be configured individually by manipulating the
++files located in /sys/class/net/<bond name>/bonding
++
++	The names of these files correspond directly with the command-
++line parameters described elsewhere in in this file, and, with the
++exception of arp_ip_target, they accept the same values.  To see the
++current setting, simply cat the appropriate file.
++
++	A few examples will be given here; for specific usage
++guidelines for each parameter, see the appropriate section in this
++document.
++
++To configure bond0 for balance-alb mode:
++# ifconfig bond0 down
++# echo 6 > /sys/class/net/bond0/bonding/mode
++ - or -
++# echo balance-alb > /sys/class/net/bond0/bonding/mode
++	NOTE: The bond interface must be down before the mode can be
++changed.
++
++To enable MII monitoring on bond0 with a 1 second interval:
++# echo 1000 > /sys/class/net/bond0/bonding/miimon
++	NOTE: If ARP monitoring is enabled, it will disabled when MII
++monitoring is enabled, and vice-versa.
++
++To add ARP targets:
++# echo +192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
++# echo +192.168.0.101 > /sys/class/net/bond0/bonding/arp_ip_target
++	NOTE:  up to 10 target addresses may be specified.
++
++To remove an ARP target:
++# echo -192.168.0.100 > /sys/class/net/bond0/bonding/arp_ip_target
++
++Example Configuration
++---------------------
++	We begin with the same example that is shown in section 3.3,
++executed with sysfs, and without using ifenslave.
++
++	To make a simple bond of two e100 devices (presumed to be eth0
++and eth1), and have it persist across reboots, edit the appropriate
++file (/etc/init.d/boot.local or /etc/rc.d/rc.local), and add the
++following:
++
++modprobe bonding
++modprobe e100
++echo balance-alb > /sys/class/net/bond0/bonding/mode
++ifconfig bond0 192.168.1.1 netmask 255.255.255.0 up
++echo 100 > /sys/class/net/bond0/bonding/miimon
++echo +eth0 > /sys/class/net/bond0/bonding/slaves
++echo +eth1 > /sys/class/net/bond0/bonding/slaves
++
++	To add a second bond, with two e1000 interfaces in
++active-backup mode, using ARP monitoring, add the following lines to
++your init script:
++
++modprobe e1000
++echo +bond1 > /sys/class/net/bonding_masters
++echo active-backup > /sys/class/net/bond1/bonding/mode
++ifconfig bond1 192.168.2.1 netmask 255.255.255.0 up
++echo +192.168.2.100 /sys/class/net/bond1/bonding/arp_ip_target
++echo 2000 > /sys/class/net/bond1/bonding/arp_interval
++echo +eth2 > /sys/class/net/bond1/bonding/slaves
++echo +eth3 > /sys/class/net/bond1/bonding/slaves
+ 
+ 
+-5. Querying Bonding Configuration 
++4. Querying Bonding Configuration 
+ =================================
+ 
+-5.1 Bonding Configuration
++4.1 Bonding Configuration
+ -------------------------
+ 
+ 	Each bonding device has a read-only file residing in the
+@@ -923,7 +1058,7 @@ generally as follows:
+ 	The precise format and contents will change depending upon the
+ bonding configuration, state, and version of the bonding driver.
+ 
+-5.2 Network configuration
++4.2 Network configuration
+ -------------------------
+ 
+ 	The network configuration can be inspected using the ifconfig
+@@ -958,7 +1093,7 @@ eth1      Link encap:Ethernet  HWaddr 00
+           collisions:0 txqueuelen:100
+           Interrupt:9 Base address:0x1400
+ 
+-6. Switch Configuration
++5. Switch Configuration
+ =======================
+ 
+ 	For this section, "switch" refers to whatever system the
+@@ -991,7 +1126,7 @@ transmit policy for an EtherChannel grou
+ with another EtherChannel group.
+ 
+ 
+-7. 802.1q VLAN Support
++6. 802.1q VLAN Support
+ ======================
+ 
+ 	It is possible to configure VLAN devices over a bond interface
+@@ -1042,7 +1177,7 @@ underlying device -- i.e. the bonding in
+ mode, which might not be what you want.
+ 
+ 
+-8. Link Monitoring
++7. Link Monitoring
+ ==================
+ 
+ 	The bonding driver at present supports two schemes for
+@@ -1053,7 +1188,7 @@ monitor.
+ bonding driver itself, it is not possible to enable both ARP and MII
+ monitoring simultaneously.
+ 
+-8.1 ARP Monitor Operation
++7.1 ARP Monitor Operation
+ -------------------------
+ 
+ 	The ARP monitor operates as its name suggests: it sends ARP
+@@ -1071,7 +1206,7 @@ those slaves will stay down.  If network
+ shows the ARP requests and replies on the network, then it may be that
+ your device driver is not updating last_rx and trans_start.
+ 
+-8.2 Configuring Multiple ARP Targets
++7.2 Configuring Multiple ARP Targets
+ ------------------------------------
+ 
+ 	While ARP monitoring can be done with just one target, it can
+@@ -1094,7 +1229,7 @@ alias bond0 bonding
+ options bond0 arp_interval=60 arp_ip_target=192.168.0.100
+ 
+ 
+-8.3 MII Monitor Operation
++7.3 MII Monitor Operation
+ -------------------------
+ 
+ 	The MII monitor monitors only the carrier state of the local
+@@ -1120,14 +1255,14 @@ does not support or had some error in pr
+ and ethtool requests), then the MII monitor will assume the link is
+ up.
+ 
+-9. Potential Sources of Trouble
++8. Potential Sources of Trouble
+ ===============================
+ 
+-9.1 Adventures in Routing
++8.1 Adventures in Routing
+ -------------------------
+ 
+ 	When bonding is configured, it is important that the slave
+-devices not have routes that supercede routes of the master (or,
++devices not have routes that supersede routes of the master (or,
+ generally, not have routes at all).  For example, suppose the bonding
+ device bond0 has two slaves, eth0 and eth1, and the routing table is
+ as follows:
+@@ -1154,11 +1289,11 @@ by the state of the routing table.
+ 
+ 	The solution here is simply to insure that slaves do not have
+ routes of their own, and if for some reason they must, those routes do
+-not supercede routes of their master.  This should generally be the
++not supersede routes of their master.  This should generally be the
+ case, but unusual configurations or errant manual or automatic static
+ route additions may cause trouble.
+ 
+-9.2 Ethernet Device Renaming
++8.2 Ethernet Device Renaming
+ ----------------------------
+ 
+ 	On systems with network configuration scripts that do not
+@@ -1207,7 +1342,7 @@ modprobe with --ignore-install to cause 
+ place.  Full documentation on this can be found in the modprobe.conf
+ and modprobe manual pages.
+ 
+-9.3. Painfully Slow Or No Failed Link Detection By Miimon
++8.3. Painfully Slow Or No Failed Link Detection By Miimon
+ ---------------------------------------------------------
+ 
+ 	By default, bonding enables the use_carrier option, which
+@@ -1235,7 +1370,7 @@ carrier state.  It has no way to determi
+ beyond other ports of a switch, or if a switch is refusing to pass
+ traffic while still maintaining carrier on.
+ 
+-10. SNMP agents
++9. SNMP agents
+ ===============
+ 
+ 	If running SNMP agents, the bonding driver should be loaded
+@@ -1281,7 +1416,7 @@ ifDescr, the association between the IP 
+ and SNMP functions such as Interface_Scan_Next will report that
+ association.
+ 
+-11. Promiscuous mode
++10. Promiscuous mode
+ ====================
+ 
+ 	When running network monitoring tools, e.g., tcpdump, it is
+@@ -1308,7 +1443,7 @@ sending to peers that are unassigned or 
+ the active slave changes (e.g., due to a link failure), the
+ promiscuous setting will be propagated to the new active slave.
+ 
+-12. Configuring Bonding for High Availability
++11. Configuring Bonding for High Availability
+ =============================================
+ 
+ 	High Availability refers to configurations that provide
+@@ -1318,7 +1453,7 @@ goal is to provide the maximum availabil
+ (i.e., the network always works), even though other configurations
+ could provide higher throughput.
+ 
+-12.1 High Availability in a Single Switch Topology
++11.1 High Availability in a Single Switch Topology
+ --------------------------------------------------
+ 
+ 	If two hosts (or a host and a single switch) are directly
+@@ -1332,7 +1467,7 @@ the load will be rebalanced across the r
+ 	See Section 13, "Configuring Bonding for Maximum Throughput"
+ for information on configuring bonding with one peer device.
+ 
+-12.2 High Availability in a Multiple Switch Topology
++11.2 High Availability in a Multiple Switch Topology
+ ----------------------------------------------------
+ 
+ 	With multiple switches, the configuration of bonding and the
+@@ -1359,7 +1494,7 @@ switches (ISL, or inter switch link), an
+ the outside world ("port3" on each switch).  There is no technical
+ reason that this could not be extended to a third switch.
+ 
+-12.2.1 HA Bonding Mode Selection for Multiple Switch Topology
++11.2.1 HA Bonding Mode Selection for Multiple Switch Topology
+ -------------------------------------------------------------
+ 
+ 	In a topology such as the example above, the active-backup and
+@@ -1381,7 +1516,7 @@ broadcast: This mode is really a special
+ 	necessary for some specific one-way traffic to reach both
+ 	independent networks, then the broadcast mode may be suitable.
+ 
+-12.2.2 HA Link Monitoring Selection for Multiple Switch Topology
++11.2.2 HA Link Monitoring Selection for Multiple Switch Topology
+ ----------------------------------------------------------------
+ 
+ 	The choice of link monitoring ultimately depends upon your
+@@ -1402,10 +1537,10 @@ regardless of which switch is active, th
+ target to query.
+ 
+ 
+-13. Configuring Bonding for Maximum Throughput
++12. Configuring Bonding for Maximum Throughput
+ ==============================================
+ 
+-13.1 Maximizing Throughput in a Single Switch Topology
++12.1 Maximizing Throughput in a Single Switch Topology
+ ------------------------------------------------------
+ 
+ 	In a single switch configuration, the best method to maximize
+@@ -1476,7 +1611,7 @@ destination to make load balancing decis
+ mode is described below.
+ 
+ 
+-13.1.1 MT Bonding Mode Selection for Single Switch Topology
++12.1.1 MT Bonding Mode Selection for Single Switch Topology
+ -----------------------------------------------------------
+ 
+ 	This configuration is the easiest to set up and to understand,
+@@ -1607,7 +1742,7 @@ balance-alb: This mode is everything tha
+ 	device driver must support changing the hardware address while
+ 	the device is open.
+ 
+-13.1.2 MT Link Monitoring for Single Switch Topology
++12.1.2 MT Link Monitoring for Single Switch Topology
+ ----------------------------------------------------
+ 
+ 	The choice of link monitoring may largely depend upon which
+@@ -1616,7 +1751,7 @@ support the use of the ARP monitor, and 
+ the MII monitor (which does not provide as high a level of end to end
+ assurance as the ARP monitor).
+ 
+-13.2 Maximum Throughput in a Multiple Switch Topology
++12.2 Maximum Throughput in a Multiple Switch Topology
+ -----------------------------------------------------
+ 
+ 	Multiple switches may be utilized to optimize for throughput
+@@ -1651,7 +1786,7 @@ a single 72 port switch.
+ can be equipped with an additional network device connected to an
+ external network; this host then additionally acts as a gateway.
+ 
+-13.2.1 MT Bonding Mode Selection for Multiple Switch Topology
++12.2.1 MT Bonding Mode Selection for Multiple Switch Topology
+ -------------------------------------------------------------
+ 
+ 	In actual practice, the bonding mode typically employed in
+@@ -1664,7 +1799,7 @@ packets has arrived).  When employed in 
+ mode allows individual connections between two hosts to effectively
+ utilize greater than one interface's bandwidth.
+ 
+-13.2.2 MT Link Monitoring for Multiple Switch Topology
++12.2.2 MT Link Monitoring for Multiple Switch Topology
+ ------------------------------------------------------
+ 
+ 	Again, in actual practice, the MII monitor is most often used
+@@ -1674,10 +1809,10 @@ advantages over the MII monitor are miti
+ needed as the number of systems involved grows (remember that each
+ host in the network is configured with bonding).
+ 
+-14. Switch Behavior Issues
++13. Switch Behavior Issues
+ ==========================
+ 
+-14.1 Link Establishment and Failover Delays
++13.1 Link Establishment and Failover Delays
+ -------------------------------------------
+ 
+ 	Some switches exhibit undesirable behavior with regard to the
+@@ -1712,7 +1847,7 @@ switches take a long time to go into bac
+ to not activate a backup interface immediately after a link goes down.
+ Failover may be delayed via the downdelay bonding module option.
+ 
+-14.2 Duplicated Incoming Packets
++13.2 Duplicated Incoming Packets
+ --------------------------------
+ 
+ 	It is not uncommon to observe a short burst of duplicated
+@@ -1751,14 +1886,14 @@ behavior, it can be induced by clearing 
+ most Cisco switches, the privileged command "clear mac address-table
+ dynamic" will accomplish this).
+ 
+-15. Hardware Specific Considerations
++14. Hardware Specific Considerations
+ ====================================
+ 
+ 	This section contains additional information for configuring
+ bonding on specific hardware platforms, or for interfacing bonding
+ with particular switches or other devices.
+ 
+-15.1 IBM BladeCenter
++14.1 IBM BladeCenter
+ --------------------
+ 
+ 	This applies to the JS20 and similar systems.
+@@ -1861,7 +1996,7 @@ (either the internal Ethernet Switch Mod
+ avoid fail-over delay issues when using bonding.
+ 
+ 	
+-16. Frequently Asked Questions
++15. Frequently Asked Questions
+ ==============================
+ 
+ 1.  Is it SMP safe?
+@@ -1925,7 +2060,7 @@ not have special switch requirements, bu
+ support specific features (described in the appropriate section under
+ module parameters, above).
+ 
+-	In 802.3ad mode, it works with with systems that support IEEE
++	In 802.3ad mode, it works with systems that support IEEE
+ 802.3ad Dynamic Link Aggregation.  Most managed and many unmanaged
+ switches currently available support 802.3ad.
+ 
+
+--------------050106070302090907050608--
