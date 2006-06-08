@@ -1,58 +1,106 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH RESEND] e100/e1000: fixes and pci error recovery
-Date: Thu, 08 Jun 2006 09:32:04 -0700
-Message-ID: <44885104.7020705@intel.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: PATCH 2.6.17-rc5 tulip free_irq() called too late
+Date: Thu, 8 Jun 2006 11:01:20 -0600
+Message-ID: <20060608170120.GI8246@colo.lackof.org>
+References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linas Vepstas <linas@linas.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Val Henson <val.henson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr18.intel.com ([134.134.136.17]:54964 "EHLO
-	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964871AbWFHQd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 12:33:28 -0400
+Received: from colo.lackof.org ([198.49.126.79]:54495 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S964912AbWFHRBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 13:01:22 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <44883778.8000209@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jun 08, 2006 at 10:43:04AM -0400, Jeff Garzik wrote:
+...
+> Perhaps cp_close() in 8139cp.c could be an example of a good ordering? 
+> It stops the chip, syncs irqs, frees irq, then frees [thus unmapping] 
+> the rings.
 
-Jeff,
+Here is a new patch that moves free_irq() into tulip_down().
+The resulting code is structured the same as cp_close().
 
-This is a resend of several earlier sent (and Acked) patches for e100 and 
-e1000. They are available on our git server and contain:
+While I believe the code is correct, I'm not real happy
+that tulip_up() and tulip_down() don't both deal with IRQs.
+(ie not symetrical). Oh well, I can submit another patch
+for that if Val doesn't want to wrangle that herself.
 
-in branch upstream-fixes:
-[1] e1000: fix irq sharing when running ethtool test
-[2] e1000: remove risky prefetch on next_skb->data
+This is compile tested only.
+I'll drop it on ia64/parisc servers later and retest.
 
-against netdev-2.6#upstream-fixes e82b0f2cc21be905e504573483fa9542b15df96f
+thanks,
+grant
 
-[ please note that patch 2 will need manual merging into #upstream ]
 
-in branch upstream:
-[3] e100: add PCI Error Recovery
-[4] e1000: add PCI Error Recovery
-
-against netdev-2.6#upstream 983f27d37d4fc72c252835cb2ee3103b360735a6
-
-Please pull:
-
-into #upstream-fixes:
-   git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
-into #upstream:
-   git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
-
-Cheers,
-
-Auke
-
-Refs
-
-[1] http://marc.theaimsgroup.com/?l=linux-netdev&m=114928689932374&w=2
-[2] http://marc.theaimsgroup.com/?l=linux-netdev&m=114954878609885&w=2
-[3] http://marc.theaimsgroup.com/?l=linux-netdev&m=114436228823926&w=2
-[4] http://marc.theaimsgroup.com/?l=linux-pci&m=114325705604534&w=2
+Index: drivers/net/tulip/tulip_core.c
+===================================================================
+RCS file: /var/cvs/linux-2.6/drivers/net/tulip/tulip_core.c,v
+retrieving revision 1.35
+diff -u -p -r1.35 tulip_core.c
+--- drivers/net/tulip/tulip_core.c	23 Apr 2006 15:18:28 -0000	1.35
++++ drivers/net/tulip/tulip_core.c	8 Jun 2006 16:25:43 -0000
+@@ -18,11 +18,11 @@
+ 
+ #define DRV_NAME	"tulip"
+ #ifdef CONFIG_TULIP_NAPI
+-#define DRV_VERSION    "1.1.13-NAPI" /* Keep at least for test */
++#define DRV_VERSION    "1.1.14-NAPI" /* Keep at least for test */
+ #else
+-#define DRV_VERSION	"1.1.13"
++#define DRV_VERSION	"1.1.14"
+ #endif
+-#define DRV_RELDATE	"December 15, 2004"
++#define DRV_RELDATE	"May 6, 2006"
+ 
+ 
+ #include <linux/module.h>
+@@ -743,6 +745,11 @@ static void tulip_down (struct net_devic
+ 	/* Stop the Tx and Rx processes. */
+ 	tulip_stop_rxtx(tp);
+ 
++	spin_unlock_irqrestore (&tp->lock, flags);
++
++	synchronize_irq(dev->irq);
++	free_irq (dev->irq, dev);
++
+ 	/* prepare receive buffers */
+ 	tulip_refill_rx(dev);
+ 
+@@ -752,7 +759,6 @@ static void tulip_down (struct net_devic
+ 	if (ioread32 (ioaddr + CSR6) != 0xffffffff)
+ 		tp->stats.rx_missed_errors += ioread32 (ioaddr + CSR8) & 0xffff;
+ 
+-	spin_unlock_irqrestore (&tp->lock, flags);
+ 
+ 	init_timer(&tp->timer);
+ 	tp->timer.data = (unsigned long)dev;
+@@ -774,14 +780,13 @@ static int tulip_close (struct net_devic
+ 	int i;
+ 
+ 	netif_stop_queue (dev);
+ 
+ 	tulip_down (dev);
+ 
+ 	if (tulip_debug > 1)
+ 		printk (KERN_DEBUG "%s: Shutting down ethercard, status was %2.2x.\n",
+ 			dev->name, ioread32 (ioaddr + CSR5));
+ 
+-	free_irq (dev->irq, dev);
+ 
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+@@ -1750,7 +1757,6 @@ static int tulip_suspend (struct pci_dev
+ 		tulip_down(dev);
+ 
+ 	netif_device_detach(dev);
+-	free_irq(dev->irq, dev);
+ 
+ 	pci_save_state(pdev);
+ 	pci_disable_device(pdev);
