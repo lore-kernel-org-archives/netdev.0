@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite
- support
-Date: Thu, 08 Jun 2006 11:53:31 -0700 (PDT)
-Message-ID: <20060608.115331.71094388.davem@davemloft.net>
-References: <200606081150.34018@this-message-has-been-logged>
-	<1149778072.22124.6.camel@localhost.localdomain>
-	<200606081703.55361.gerrit@erg.abdn.ac.uk>
+From: Alex Davis <alex14641@yahoo.com>
+Subject: Firewall question
+Date: Thu, 8 Jun 2006 11:57:12 -0700 (PDT)
+Message-ID: <20060608185712.79340.qmail@web50207.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:38069
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964938AbWFHSxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 14:53:54 -0400
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200606081703.55361.gerrit@erg.abdn.ac.uk>
+Received: from web50207.mail.yahoo.com ([206.190.38.48]:8824 "HELO
+	web50207.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S964939AbWFHS5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 14:57:13 -0400
+To: netfilter@lists.netfilter.org, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 8 Jun 2006 17:03:54 +0100
+The scenario:
+I have a DSL modem in pass through (bridge) mode. The linux firewall/router 
+has a single ethernet card.  It is running pppoe. This gives two interfaces: 
+eth0 and ppp0. The firewall is running iptables. There are several machines 
+behind the firewall.
 
-> Understood. Please, anyone, disregard or un-apply the previous
-> UDP-Lite patch.  A revised patch will be prepared and posted as soon
-> as testing permits.
+Problem:
+I've been told that if someone whose public IP address is on the same
+network subnet as mine were to get my mac address, (s)he could bypass
+the firewall and talk directly to the machines behind it.
 
-Nobody is going to integrate your patch anywhere, don't worry.
-You make it clear that once you toss this piece of code over
-the wall, you'll disappear.
+Is this true?
+
+Thanks.
+
+
+I code, therefore I am
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
