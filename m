@@ -1,43 +1,37 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Thu, 8 Jun 2006 22:40:31 +0200
-Message-ID: <200606082240.31473.rjw@sisk.pl>
-References: <44886381.9050506@goop.org>
+From: Jon Loeliger <jdl@freescale.com>
+Subject: Re: [PATCH 9/10] Add Vitesse 8244 PHY for MPC8641 HPCN platform.
+Date: Thu, 08 Jun 2006 15:40:09 -0500
+Message-ID: <1149799209.23938.256.camel@cashmere.sps.mot.com>
+References: <1149720298.23938.207.camel@cashmere.sps.mot.com>
+	 <44887BD3.7000009@garzik.org>
+	 <1149797603.23938.251.camel@cashmere.sps.mot.com>
+	 <44888A37.3090401@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Cc: "linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:10988 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S964991AbWFHUkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 16:40:13 -0400
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-In-Reply-To: <44886381.9050506@goop.org>
-Content-Disposition: inline
+Received: from az33egw01.freescale.net ([192.88.158.102]:35725 "EHLO
+	az33egw01.freescale.net") by vger.kernel.org with ESMTP
+	id S964997AbWFHUoV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 16:44:21 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44888A37.3090401@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 08 June 2006 19:50, Jeremy Fitzhardinge wrote:
-> I've been trying to get suspend/resume working well on my new laptop.  
-> In general, netconsole has been pretty useful for extracting oopses and 
-> other messages, but it is of more limited help in debugging the actual 
-> suspend/resume cycle.  The problem looks like the e1000 driver won't 
-> suspend while netconsole is using it, so I have to rmmod/modprobe 
-> netconsole around the actual suspend/resume.
-> 
-> This is a big problem during resume because the screen is also blank, so 
-> I get no useful clue as to what went wrong when things go wrong.  I'm 
-> wondering if there's some way to keep netconsole alive to the last 
-> possible moment during suspend, and re-woken as soon as possible during 
-> resume.  It would be nice to have a clean solution, but I'm willing to 
-> use a bletcherous hack if that's what it takes.
-> 
-> Any ideas?
+On Thu, 2006-06-08 at 15:36, Jeff Garzik wrote:
+> Is it dependent on other stuff in Paul's tree?
 
-Please try doing "echo 8 > /proc/sys/kernel/printk" before suspend.
+Yes, very much so.  Most of this patch set is an
+entirely new PPC board port against his arch/powerpc
+basis.  The new PHY is incidentally on that board,
+but the patches for its introduction could be
+introduced through the netdev tree if needed.
+It would just need to be coordinated some.  I am,
+of course, willing to work it either way as needed.
 
-Greetings,
-Rafael
+jdl
+
+
