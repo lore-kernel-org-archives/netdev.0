@@ -1,63 +1,44 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: netif_tx_disable vs netif_stop_queue (possible races?)
-Date: Fri, 09 Jun 2006 00:14:05 +0100
-Message-ID: <4488AF3D.2040601@gentoo.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT] Realtek 8168 ethernet support
+Date: Fri, 9 Jun 2006 01:41:57 +0200
+Message-ID: <20060608234157.GA18591@electric-eye.fr.zoreil.com>
+References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:24291 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S965045AbWFHXNC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 19:13:02 -0400
-To: netdev@vger.kernel.org
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46741 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S964875AbWFHXoy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 19:44:54 -0400
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Content-Disposition: inline
+In-Reply-To: <20060608143133.7e36a0b7.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Randy.Dunlap <rdunlap@xenotime.net> :
+[...]
+> static struct pci_device_id r1000_pci_tbl[] __devinitdata = {
+> 	{ 0x10ec, 0x8169, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> 	{ 0x10ec, 0x8167, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> 	{ 0x10ec, 0x8168, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> 	{ 0x10ec, 0x8136, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+> 	{0,}
+> };
+> 
+> Any reason not to include all of those?
 
-In order to avoid disconnect races in ZD1211, I'm trying to convince 
-myself that other USB network drivers are race-free (and why).
+Nothing worrying:
+- 0x8167 and 0x8168 use a different PCI region;
+- some phy differences. They appear when the r1000 driver is
+  compared to the previous r8169 driver from realtek.
 
-I brought up a possible issue in usbnet with David Brownell, but it 
-appears neither of us are 100% clear on the details, so it would be good 
-to get some extra clarification.
+I'll pack it with other changes.
 
-USB devices can be yanked out by the user at *any* time, and typically 
-free_netdev is called in the disconnect handler, which frees all 
-device-specific structures.
+> Conversely, any reason to use the RealTek r1000 driver?
 
-The issue I brought up is that code using these structures may be 
-running concurrently on another CPU when the disconnect handler is 
-invoked, resulting in access to freed data.
+Feel free to read it and make your own mind.
 
-More specifically, we're talking about drivers/usb/net/usbnet.c and the 
-usbnet_disconnect() function.  The race I am highlighting is that 
-usbnet's hard_start_xmit handler (usbnet_start_xmit) may be running when 
-the disconnect happens.
-
-Is this a possible scenario?
-
-My thoughts on avoiding this are to ensure that the TX queue is stopped 
-and all current transmissions in usbnet_stop (the netdev->stop hook). I 
-understand that the stop function is called during disconnect, because 
-usbnet_disconnect() calls unregister_netdev(). The stop function already 
-has a call to netif_stop_queue but (based on my knowledge from LDD3) 
-this is not enough.
-
-My understanding is that netif_stop_queue() should be used only inside a 
-hard_start_xmit function, when it wants to make sure that no more 
-transmissions are started until the queue is reopened.
-
-I suggested that we use netif_tx_disable here, which is effectively the 
-same but because it takes the lock, it guarantees that no 
-hard_start_xmit transmissions are running on any CPU when it returns.
-
-David pointed out that netif_tx_disable is rarely used, and a large 
-number of drivers call netif_stop_queue in their stop function, so if 
-what I suggest is true, there may be many such potential races 
-elsewhere. Am I missing something simple?
-
-Thanks,
-Daniel
+-- 
+Ueimor
