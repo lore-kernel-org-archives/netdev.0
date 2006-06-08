@@ -1,36 +1,39 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH  2.6.17-rc6-mm1 ]  net: RFC 3828-compliant UDP-Lite
-	support
-Date: Thu, 08 Jun 2006 15:47:52 +0100
-Message-ID: <1149778072.22124.6.camel@localhost.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite
+ support
+Date: Thu, 08 Jun 2006 23:38:16 +0900 (JST)
+Message-ID: <20060608.233816.36365945.yoshfuji@linux-ipv6.org>
 References: <200606081150.34018@this-message-has-been-logged>
+	<1149778072.22124.6.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: gerrit@erg.abdn.ac.uk, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:16058 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S932173AbWFHOdP
+Received: from yue.linux-ipv6.org ([203.178.140.15]:6417 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S964839AbWFHOhl
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 10:33:15 -0400
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-In-Reply-To: <200606081150.34018@this-message-has-been-logged>
+	Thu, 8 Jun 2006 10:37:41 -0400
+To: alan@lxorguk.ukuu.org.uk
+In-Reply-To: <1149778072.22124.6.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ar Iau, 2006-06-08 am 11:50 +0100, ysgrifennodd Gerrit Renker:
-> +  UDP-Lite introduces a new socket type, the SOCK_LDGRAM (note the L) for
-> +  lightweight, connection-less services. These are the socket options:
+In article <1149778072.22124.6.camel@localhost.localdomain> (at Thu, 08 Jun 2006 15:47:52 +0100), Alan Cox <alan@lxorguk.ukuu.org.uk> says:
 
-This is not the intended use of the socket API when distinguishing
-between services. The socket() call has a protocol field that is usually
-unused and it exists precisely to disambiguate multiple protocols with
-the same generic behaviour but different properties.
+> Ar Iau, 2006-06-08 am 11:50 +0100, ysgrifennodd Gerrit Renker:
+> > +  UDP-Lite introduces a new socket type, the SOCK_LDGRAM (note the L) for
+> > +  lightweight, connection-less services. These are the socket options:
+:
+> 	s = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
+> 
+> is probably the right way to do this, keeping 0 "default" as before
+> meaning IPPROTO_UDP
 
-	s = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
+I do think so, too.
 
-is probably the right way to do this, keeping 0 "default" as before
-meaning IPPROTO_UDP
-
+--yoshfuji
