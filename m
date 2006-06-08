@@ -1,95 +1,202 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: EHEA: Is there a size limit below 80K for patches?
-Date: Thu, 8 Jun 2006 14:17:56 +0200
-Message-ID: <OF56CA8BB9.67AC7182-ONC1257187.003F6F35-C1257187.00430AFF@de.ibm.com>
-References: <44880B4C.3020403@garzik.org>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH] myri10ge update
+Date: Thu, 8 Jun 2006 10:25:00 -0400
+Message-ID: <20060608142458.GA14261@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Heiko J Schick <schickhj@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>, ossthema@de.ibm.com,
-	Thomas OS Klein <osstklei@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:24734 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S964818AbWFHMP7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 08:15:59 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate1.de.ibm.com (8.13.6/8.13.6) with ESMTP id k58CFwvB146286
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 12:15:58 GMT
-Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k58CHvSd106398
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 14:17:57 +0200
-Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k58CFv0m013436
-	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 14:15:57 +0200
-In-Reply-To: <44880B4C.3020403@garzik.org>
-To: Jeff Garzik <jeff@garzik.org>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:16538 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S964838AbWFHOZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 10:25:06 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-well, now I'm confused...
-2 People, two opinions....
+The following patch updates the myri10ge to 1.0.0, with the following changes:
+* Switch to dma_alloc_coherent API.
+* Avoid PCI burst when writing the firmware on chipset with unaligned completions.
+* Use ethtool_op_set_tx_hw_csum instead of ethtool_op_set_tx_csum.
+* Include linux/dma-mapping.h to bring DMA_32/64BIT_MASK on all architectures
+  (was missing at least on alpha).
+* Some typo and warning fixes.
 
+Please apply.
 
-Here's a URL for a complete tarball, "sharing" the download location with
-our other driver.
-http://prdownloads.sourceforge.net/ibmehcad/ehea_EHEA_0002.tgz
+Note that Andrew's myri10ge-alpha-build-fix.patch would conflict,
+but it does not seem to have been merged in netdev-2.6 anyway.
 
-We're waiting for a sourceforge project now since 9 days to put out a tgz,
-and it looks like many other people get upset right now by their response
-time.
+Thanks.
 
-So what's the "right"/preferred way to proceed?
+Signed-off-by: Brice Goglin <brice@myri.com>
+Signed-off-by: Andrew J. Gallatin <gallatin@myri.com>
 
+ drivers/net/myri10ge/myri10ge.c |   57 +++++++++++++++++++-----------
+ 1 file changed, 37 insertions(+), 20 deletions(-)
 
-Christop R.
-
-> We're currently developing a new Ethernet device driver for a 10G IBM
-chip
-> for System p. (ppc64)
->
-> A later version of the driver should end up in mainline kernel.
-> How should we proceed to get first comments by the community?
-> Either post this code as a patch to netdev or
-yes
-
-> put a full tarball on for example sourceforge?
-nope.
-
-Please read and observe:  Documentation/SubmittingPatches
-and Section 3 of it, References, for other sources of
-expectations/requirements.
-
-The -mm tree also contains Documentation/SubmitChecklist
-that you may find useful.
-
----
-~Randy
-
-
-
-Jeff Garzik <jeff@xxxxx> wrote on 08.06.2006 13:34:36:
-
-> Jan-Bernd Themann wrote:
-> > Hello,
-> >
-> > we tried two times to send a patch set. In both cases the second
-> > (largest) patch
-> > got lost. The first one was a bit above 100k, the second one we tried
-> > was like 75K.
-> >
-> > Any idea what might be the problem?
->
-> It might be size, or tripping a spam filter.
->
-> For a new driver, do the sane thing and just post a URL.
->
->    Jeff
->
->
->
-
+diff -urNp linux-mm.old/drivers/net/myri10ge/myri10ge.c linux-mm/drivers/net/myri10ge/myri10ge.c
+--- linux-mm.old/drivers/net/myri10ge/myri10ge.c	2006-06-04 08:51:00.000000000 -0400
++++ linux-mm/drivers/net/myri10ge/myri10ge.c	2006-06-07 11:28:20.000000000 -0400
+@@ -44,6 +44,7 @@
+ #include <linux/string.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
++#include <linux/dma-mapping.h>
+ #include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
+@@ -62,7 +63,6 @@
+ #include <net/checksum.h>
+ #include <asm/byteorder.h>
+ #include <asm/io.h>
+-#include <asm/pci.h>
+ #include <asm/processor.h>
+ #ifdef CONFIG_MTRR
+ #include <asm/mtrr.h>
+@@ -71,7 +71,7 @@
+ #include "myri10ge_mcp.h"
+ #include "myri10ge_mcp_gen_header.h"
+ 
+-#define MYRI10GE_VERSION_STR "0.9.0"
++#define MYRI10GE_VERSION_STR "1.0.0"
+ 
+ MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
+ MODULE_AUTHOR("Maintainer: help@myri.com");
+@@ -480,7 +478,19 @@ static int myri10ge_load_hotplug_firmwar
+ 		goto abort_with_fw;
+ 
+ 	crc = crc32(~0, fw->data, fw->size);
+-	memcpy_toio(mgp->sram + MYRI10GE_FW_OFFSET, fw->data, fw->size);
++	if (mgp->tx.boundary == 2048) {
++		/* Avoid PCI burst on chipset with unaligned completions. */
++		int i;
++		__iomem u32 *ptr = (__iomem u32 *) (mgp->sram +
++						    MYRI10GE_FW_OFFSET);
++		for (i = 0; i < fw->size / 4; i++) {
++			__raw_writel(((u32 *) fw->data)[i], ptr + i);
++			wmb();
++		}
++	} else {
++		myri10ge_pio_copy(mgp->sram + MYRI10GE_FW_OFFSET, fw->data,
++				  fw->size);
++	}
+ 	/* corruption checking is good for parity recovery and buggy chipset */
+ 	memcpy_fromio(fw->data, mgp->sram + MYRI10GE_FW_OFFSET, fw->size);
+ 	reread_crc = crc32(~0, fw->data, fw->size);
+@@ -536,6 +548,7 @@ static int myri10ge_load_firmware(struct
+ 	u32 dma_low, dma_high, size;
+ 	int status, i;
+ 
++	size = 0;
+ 	status = myri10ge_load_hotplug_firmware(mgp, &size);
+ 	if (status) {
+ 		dev_warn(&mgp->pdev->dev, "hotplug firmware loading failed\n");
+@@ -778,7 +791,7 @@ myri10ge_submit_8rx(struct mcp_kreq_ethe
+ }
+ 
+ /*
+- * Set of routunes to get a new receive buffer.  Any buffer which
++ * Set of routines to get a new receive buffer.  Any buffer which
+  * crosses a 4KB boundary must start on a 4KB boundary due to PCIe
+  * wdma restrictions. We also try to align any smaller allocation to
+  * at least a 16 byte boundary for efficiency.  We assume the linux
+@@ -1349,7 +1362,7 @@ static struct ethtool_ops myri10ge_ethto
+ 	.get_rx_csum = myri10ge_get_rx_csum,
+ 	.set_rx_csum = myri10ge_set_rx_csum,
+ 	.get_tx_csum = ethtool_op_get_tx_csum,
+-	.set_tx_csum = ethtool_op_set_tx_csum,
++	.set_tx_csum = ethtool_op_set_tx_hw_csum,
+ 	.get_sg = ethtool_op_get_sg,
+ 	.set_sg = ethtool_op_set_sg,
+ #ifdef NETIF_F_TSO
+@@ -2615,12 +2628,13 @@ static int myri10ge_probe(struct pci_dev
+ 		dev_err(&pdev->dev, "Error %d setting DMA mask\n", status);
+ 		goto abort_with_netdev;
+ 	}
+-	mgp->cmd = pci_alloc_consistent(pdev, sizeof(*mgp->cmd), &mgp->cmd_bus);
++	mgp->cmd = dma_alloc_coherent(&pdev->dev, sizeof(*mgp->cmd),
++				      &mgp->cmd_bus, GFP_KERNEL);
+ 	if (mgp->cmd == NULL)
+ 		goto abort_with_netdev;
+ 
+-	mgp->fw_stats = pci_alloc_consistent(pdev, sizeof(*mgp->fw_stats),
+-					     &mgp->fw_stats_bus);
++	mgp->fw_stats = dma_alloc_coherent(&pdev->dev, sizeof(*mgp->fw_stats),
++					   &mgp->fw_stats_bus, GFP_KERNEL);
+ 	if (mgp->fw_stats == NULL)
+ 		goto abort_with_cmd;
+ 
+@@ -2659,8 +2673,8 @@ static int myri10ge_probe(struct pci_dev
+ 
+ 	/* allocate rx done ring */
+ 	bytes = myri10ge_max_intr_slots * sizeof(*mgp->rx_done.entry);
+-	mgp->rx_done.entry =
+-	    pci_alloc_consistent(pdev, bytes, &mgp->rx_done.bus);
++	mgp->rx_done.entry = dma_alloc_coherent(&pdev->dev, bytes,
++						&mgp->rx_done.bus, GFP_KERNEL);
+ 	if (mgp->rx_done.entry == NULL)
+ 		goto abort_with_ioremap;
+ 	memset(mgp->rx_done.entry, 0, bytes);
+@@ -2750,7 +2762,8 @@ abort_with_firmware:
+ 
+ abort_with_rx_done:
+ 	bytes = myri10ge_max_intr_slots * sizeof(*mgp->rx_done.entry);
+-	pci_free_consistent(pdev, bytes, mgp->rx_done.entry, mgp->rx_done.bus);
++	dma_free_coherent(&pdev->dev, bytes,
++			  mgp->rx_done.entry, mgp->rx_done.bus);
+ 
+ abort_with_ioremap:
+ 	iounmap(mgp->sram);
+@@ -2760,11 +2775,12 @@ abort_with_wc:
+ 	if (mgp->mtrr >= 0)
+ 		mtrr_del(mgp->mtrr, mgp->iomem_base, mgp->board_span);
+ #endif
+-	pci_free_consistent(pdev, sizeof(*mgp->fw_stats),
+-			    mgp->fw_stats, mgp->fw_stats_bus);
++	dma_free_coherent(&pdev->dev, sizeof(*mgp->fw_stats),
++			  mgp->fw_stats, mgp->fw_stats_bus);
+ 
+ abort_with_cmd:
+-	pci_free_consistent(pdev, sizeof(*mgp->cmd), mgp->cmd, mgp->cmd_bus);
++	dma_free_coherent(&pdev->dev, sizeof(*mgp->cmd),
++			  mgp->cmd, mgp->cmd_bus);
+ 
+ abort_with_netdev:
+ 
+@@ -2799,7 +2815,8 @@ static void myri10ge_remove(struct pci_d
+ 	myri10ge_dummy_rdma(mgp, 0);
+ 
+ 	bytes = myri10ge_max_intr_slots * sizeof(*mgp->rx_done.entry);
+-	pci_free_consistent(pdev, bytes, mgp->rx_done.entry, mgp->rx_done.bus);
++	dma_free_coherent(&pdev->dev, bytes,
++			  mgp->rx_done.entry, mgp->rx_done.bus);
+ 
+ 	iounmap(mgp->sram);
+ 
+@@ -2807,19 +2824,20 @@ static void myri10ge_remove(struct pci_d
+ 	if (mgp->mtrr >= 0)
+ 		mtrr_del(mgp->mtrr, mgp->iomem_base, mgp->board_span);
+ #endif
+-	pci_free_consistent(pdev, sizeof(*mgp->fw_stats),
+-			    mgp->fw_stats, mgp->fw_stats_bus);
++	dma_free_coherent(&pdev->dev, sizeof(*mgp->fw_stats),
++			  mgp->fw_stats, mgp->fw_stats_bus);
+ 
+-	pci_free_consistent(pdev, sizeof(*mgp->cmd), mgp->cmd, mgp->cmd_bus);
++	dma_free_coherent(&pdev->dev, sizeof(*mgp->cmd),
++			  mgp->cmd, mgp->cmd_bus);
+ 
+ 	free_netdev(netdev);
+ 	pci_set_drvdata(pdev, NULL);
+ }
+ 
+-#define PCI_DEVICE_ID_MYIRCOM_MYRI10GE_Z8E 	0x0008
++#define PCI_DEVICE_ID_MYRICOM_MYRI10GE_Z8E 	0x0008
+ 
+ static struct pci_device_id myri10ge_pci_tbl[] = {
+-	{PCI_DEVICE(PCI_VENDOR_ID_MYRICOM, PCI_DEVICE_ID_MYIRCOM_MYRI10GE_Z8E)},
++	{PCI_DEVICE(PCI_VENDOR_ID_MYRICOM, PCI_DEVICE_ID_MYRICOM_MYRI10GE_Z8E)},
+ 	{0},
+ };
+ 
