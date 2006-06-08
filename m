@@ -1,21 +1,46 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/5] skge: use workq for PHY handling
-Date: Thu, 08 Jun 2006 15:45:05 -0400
-Message-ID: <44887E41.8020707@pobox.com>
-References: <20060606171110.592587000@zqx3.pdx.osdl.net> <20060606171341.432229000@zqx3.pdx.osdl.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite support
+Date: Thu, 8 Jun 2006 15:46:42 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606081542390.3555@d.namei>
+References: <200606081150.34018@this-message-has-been-logged>
+ <1149778072.22124.6.camel@localhost.localdomain> <200606081703.55361.gerrit@erg.abdn.ac.uk>
+ <20060608.115331.71094388.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: gerrit@erg.abdn.ac.uk, alan@lxorguk.ukuu.org.uk,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
+	kaber@coreworks.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:12503 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751320AbWFHTpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 15:45:11 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060606171341.432229000@zqx3.pdx.osdl.net>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:26591 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964949AbWFHTqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 15:46:45 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060608.115331.71094388.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied 1-5 to #upstream
+On Thu, 8 Jun 2006, David Miller wrote:
+
+> > Understood. Please, anyone, disregard or un-apply the previous
+> > UDP-Lite patch.  A revised patch will be prepared and posted as soon
+> > as testing permits.
+> 
+> Nobody is going to integrate your patch anywhere, don't worry.
+> You make it clear that once you toss this piece of code over
+> the wall, you'll disappear.
+
+Having dealt with more than enough code thrown over the wall in recent 
+times, I agree.
+
+But, if someone well known & trusted wants to claim responsibility for the 
+code once it's upstream, that might be a way forward (I think the Apache 
+project has or had a policy like this).
 
 
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
