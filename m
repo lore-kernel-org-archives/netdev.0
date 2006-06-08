@@ -1,68 +1,47 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Thu, 8 Jun 2006 14:39:03 -0400
-Message-ID: <20060608183857.GA16733@tuxdriver.com>
-References: <4485B8EC.4090603@intel.com> <x494pyyw5sr.fsf@segfault.boston.redhat.com> <4485BCA2.5070904@intel.com> <x49zmgquqn0.fsf@segfault.boston.redhat.com> <20060606231727.GK24227@waste.org> <20060607150522.GA24608@hmsreliant.homelinux.net> <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com> <20060607185440.GC26702@tuxdriver.com> <1149787436.2928.9.camel@strongmad>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite
+ support
+Date: Thu, 08 Jun 2006 11:51:30 -0700 (PDT)
+Message-ID: <20060608.115130.41638734.davem@davemloft.net>
+References: <200606081150.34018@this-message-has-been-logged>
+	<20060608.200349.81316352.yoshfuji@linux-ipv6.org>
+	<200606081222.54856.gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([24.172.12.4]:15116 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S964933AbWFHSjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 14:39:31 -0400
-To: Mitch Williams <mitch.a.williams@intel.com>
-Content-Disposition: inline
-In-Reply-To: <1149787436.2928.9.camel@strongmad>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36021
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964931AbWFHSwE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 14:52:04 -0400
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200606081222.54856.gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2006 at 10:23:56AM -0700, Mitch Williams wrote:
-> On Wed, 2006-06-07 at 11:54 -0700, John W. Linville wrote:
-> 
-> > Pedantic objection, but I think this would read easier w/o the extra
-> > newline before disable_irq.
-> 
-> Heh.  I prefer to have a newline between declarations and code.  The
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Thu, 8 Jun 2006 12:22:54 +0100
 
-Normally I would agree.  But in this case, I find the distraction of
-the random newline after the #else to be more compelling.
+> I am sorry, I don't at the moment have the time to port to v6 with the
+> same degree of rigour. 
 
-> real problem is the position of the #ifdef -- that's what makes it
-> difficult to read.  The other solution would be
-> {
->         struct e1000_adapter *adapter = netdev_priv(netdev);
-> #ifdef CONFIG_E1000_NAPI
-> 	int budget = 0;
-> #endif
-> 
-> 	disable_irq(adapter->pdev->irq);
-> 
-> #ifdef CONFIG_E1000_NAPI
-> 	< all that stuff >
-> #else
-> 	<rest of the stuff >
-> #endif
-> }
-> 
-> Which I think is worse to read.
+You give the impression that you would just disappear from the face of
+the planet should your work actually be integrated into the kernel
+tree.
 
-I presume it is the double #ifdef that you find objectionable?
-I don't really like it, but at least that idiom is quite common.
+So I can only assume that you are posting this for people to play
+around with, and not for serious consideration of inclusion into the
+kernel tree.
 
-Given that the disable_irq appears in both code paths (almost by
-necessity), there is a certain appeal to having it outside of the
-#ifdef block.  That seems more maintainable.
+We're trying to avoid this serious problem we have where a group or
+individual submits on a piece of code, works just hard enough to get
+it integrated into the tree, then disappears and does not stick around
+to support the inevitable ensuing bugs and problem reports.  Such
+behavior is totally irresponsible, yet it happens quite a bit.
 
-To me, the idiomatic #ifdef placement seems more readable, if for no
-other reason than familiarity.  I suppose we can agree to disagree.
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+So if you can't be bothered to cook up IPV6 support, chances are you
+won't stick around to support your code if it went into the tree
+either.
