@@ -1,44 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/2] PHYLIB/gianfar: Use phy_ethtool_get_link()	for	get_link
- op
-Date: Thu, 08 Jun 2006 11:33:55 -0400
-Message-ID: <44884363.6080907@garzik.org>
-References: <1149551334.10700.48.camel@localhost.localdomain>	 <44883B0E.5090802@garzik.org> <1149779939.30343.7.camel@localhost.localdomain>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: PATCH 2.6.17-rc5 tulip free_irq() called too late
+Date: Thu, 8 Jun 2006 09:36:26 -0600
+Message-ID: <20060608153626.GE8246@colo.lackof.org>
+References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608152221.GC8246@colo.lackof.org> <44884317.8070601@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	galak@kernel.crashing.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Val Henson <val.henson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56782 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964877AbWFHPd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 11:33:59 -0400
-To: Nathaniel Case <ncase@xes-inc.com>
-In-Reply-To: <1149779939.30343.7.camel@localhost.localdomain>
+Received: from colo.lackof.org ([198.49.126.79]:28381 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S964876AbWFHPg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 11:36:27 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <44884317.8070601@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nathaniel Case wrote:
-> On Thu, 2006-06-08 at 10:58 -0400, Jeff Garzik wrote:
->>> +static u32 gfar_get_link(struct net_device *dev)
->>> +{
->>> +	struct gfar_private *priv = netdev_priv(dev);
->>> +	struct phy_device *phydev = priv->phydev;
->>> +
->>> +	if (NULL == phydev)
->>> +		return -ENODEV;
->> NAK, return code obviously wrong
+On Thu, Jun 08, 2006 at 11:32:39AM -0400, Jeff Garzik wrote:
+> >The chip IRQ gets turned off in tulip_down().
+> >It won't be screaming for very long.
 > 
-> Thanks.  I think we can just return 0 for that case.  Updated patch
-> follows.
+> Then you admit that you add a race.
+
+Yes - I realized that after I hit <send> :(
+
+...
+> >In the shared IRQ case, I expect free_irq() to unlink this instance
+> >of the tulip interrupt handler from the CPU vector list. If that
 > 
-> Signed-off-by: Nate Case <ncase@xes-inc.com>
+> Irrelevant -- that doesn't stop the tulip hardware from raising the irq, 
+> nor stop the system from attempting to deliver it [in all cases].  In 
+> the shared interrupt case, that means that another driver's irq handler 
+> will be called for an event tulip hardware raised.
 
-Sigh.  See rule #6: http://linux.yyz.us/patch-format.html
+*nod*
 
-You excised the patch description, which means your patch can no longer 
-be applied correctly by scripts.
-
-	Jeff
-
-
+thanks,
+grant
