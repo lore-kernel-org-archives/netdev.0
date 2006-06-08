@@ -1,117 +1,181 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Thu, 8 Jun 2006 14:31:33 -0700
-Message-ID: <20060608143133.7e36a0b7.rdunlap@xenotime.net>
-References: <20060601200200.A0E0689D05D@zog.reactivated.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [git patches] net driver fixes
+Date: Thu, 8 Jun 2006 17:39:13 -0400
+Message-ID: <20060608213913.GA29830@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:47840 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S965024AbWFHV2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 17:28:46 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 14:28:45 -0700
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <20060601200200.A0E0689D05D@zog.reactivated.net>
+Received: from havoc.gtf.org ([69.61.125.42]:53459 "EHLO havoc.gtf.org")
+	by vger.kernel.org with ESMTP id S965026AbWFHVjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 17:39:17 -0400
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu,  1 Jun 2006 21:02:00 +0100 (BST) Daniel Drake wrote:
 
-> I've produced this patch which should allow the r8169 driver to work with the
-> new Realtek 8168 chips. These are found in PCI-Express form and onboard some
-> newer motherboards.
-> 
-> Does anyone own this hardware? I'm looking for someone to test it before I
-> send it on.
-> 
-> Signed-off-by: Daniel Drake <dsd@gentoo.org>
-> 
-> Index: linux/drivers/net/r8169.c
-> ===================================================================
-> --- linux.orig/drivers/net/r8169.c
-> +++ linux/drivers/net/r8169.c
-> @@ -184,6 +184,7 @@ static const struct {
->  
->  static struct pci_device_id rtl8169_pci_tbl[] = {
->  	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), },
-> +	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8168), },
->  	{ PCI_DEVICE(PCI_VENDOR_ID_DLINK,	0x4300), },
->  	{ PCI_DEVICE(0x16ec,			0x0116), },
->  	{ PCI_VENDOR_ID_LINKSYS,		0x1032, PCI_ANY_ID, 0x0024, },
+Just got back from travelling, and am catching up.  Thanks to Andrew for
+working with me via email while I was on the road, he pushed a couple
+patches already for me.
 
+Here are the netdev fixes that were in my 'Pending' folder.  I've got a
+couple libata fixes to push as well, those may not come until tomorrow.
 
-The (GPL) RealTek driver (from
-http://www.realtek.com.tw/downloads/downloads1-3.aspx?lineid=1&famid=4&series=2003072&Software=True)
-contains this PCI device table:
+Please pull from 'upstream-fixes' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-static struct pci_device_id r1000_pci_tbl[] __devinitdata = {
-	{ 0x10ec, 0x8169, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-	{ 0x10ec, 0x8167, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-	{ 0x10ec, 0x8168, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-	{ 0x10ec, 0x8136, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-	{0,}
-};
+to receive the following updates:
 
-Any reason not to include all of those?
-Conversely, any reason to use the RealTek r1000 driver?
+ drivers/net/e1000/e1000_ethtool.c          |    5 +++-
+ drivers/net/e1000/e1000_main.c             |    8 +------
+ drivers/net/wireless/bcm43xx/bcm43xx_dma.c |   31 ++++++++++++++++++++---------
+ 3 files changed, 28 insertions(+), 16 deletions(-)
 
+Auke Kok:
+      e1000: fix ethtool test irq alloc as "probe"
+      e1000: remove risky prefetch on next_skb->data
 
-> @@ -1398,6 +1399,7 @@ rtl8169_init_board(struct pci_dev *pdev,
->  	struct net_device *dev;
->  	struct rtl8169_private *tp;
->  	int rc = -ENOMEM, i, acpi_idle_state = 0, pm_cap;
-> +	u32 mmio_base = 0;
->  
->  	assert(ioaddr_out != NULL);
->  
-> @@ -1442,20 +1444,24 @@ rtl8169_init_board(struct pci_dev *pdev,
->  		}
->  	}
->  
-> -	/* make sure PCI base addr 1 is MMIO */
-> -	if (!(pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
-> -		if (netif_msg_probe(tp)) {
-> -			printk(KERN_ERR PFX
-> -			       "region #1 not an MMIO resource, aborting\n");
-> -		}
-> -		rc = -ENODEV;
-> -		goto err_out_mwi;
-> +	/* find MMIO resource: this varies between 8168 and 8169 */
-> +	for (i = 0; i < 5; i++) {
-> +		/* check resource type */
-> +		if (!(pci_resource_flags(pdev, i) & IORESOURCE_MEM))
-> +			continue;
-> +
-> +		/* check for weird/broken PCI region reporting */
-> +		if (pci_resource_len(pdev, i) < R8169_REGS_SIZE)
-> +			continue;
-> +
-> +		mmio_base = pci_resource_start(pdev, i);
-> +		break;
->  	}
-> -	/* check for weird/broken PCI region reporting */
-> -	if (pci_resource_len(pdev, 1) < R8169_REGS_SIZE) {
-> +
-> +	if (mmio_base == 0) {
->  		if (netif_msg_probe(tp)) {
->  			printk(KERN_ERR PFX
-> -			       "Invalid PCI region size(s), aborting\n");
-> +			       "couldn't find valid MMIO resource, aborting\n");
->  		}
->  		rc = -ENODEV;
->  		goto err_out_mwi;
-> @@ -1490,7 +1496,7 @@ rtl8169_init_board(struct pci_dev *pdev,
->  	pci_set_master(pdev);
->  
->  	/* ioremap MMIO region */
-> -	ioaddr = ioremap(pci_resource_start(pdev, 1), R8169_REGS_SIZE);
-> +	ioaddr = ioremap(mmio_base, R8169_REGS_SIZE);
->  	if (ioaddr == NULL) {
->  		if (netif_msg_probe(tp))
->  			printk(KERN_ERR PFX "cannot remap MMIO, aborting\n");
-> -
+Michael Buesch:
+      bcm43xx: add DMA rx poll workaround to DMA4
 
----
-~Randy
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+index ecccca3..d1c705b 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -870,13 +870,16 @@ e1000_intr_test(struct e1000_adapter *ad
+ 	*data = 0;
+ 
+ 	/* Hook up test interrupt handler just for this test */
+- 	if (!request_irq(irq, &e1000_test_intr, 0, netdev->name, netdev)) {
++	if (!request_irq(irq, &e1000_test_intr, SA_PROBEIRQ, netdev->name,
++	                 netdev)) {
+  		shared_int = FALSE;
+  	} else if (request_irq(irq, &e1000_test_intr, SA_SHIRQ,
+ 			      netdev->name, netdev)){
+ 		*data = 1;
+ 		return -1;
+ 	}
++	DPRINTK(PROBE,INFO, "testing %s interrupt\n",
++	        (shared_int ? "shared" : "unshared"));
+ 
+ 	/* Disable all the interrupts */
+ 	E1000_WRITE_REG(&adapter->hw, IMC, 0xFFFFFFFF);
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index ed15fca..97e71a4 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3519,7 +3519,7 @@ #endif
+ 	buffer_info = &rx_ring->buffer_info[i];
+ 
+ 	while (rx_desc->status & E1000_RXD_STAT_DD) {
+-		struct sk_buff *skb, *next_skb;
++		struct sk_buff *skb;
+ 		u8 status;
+ #ifdef CONFIG_E1000_NAPI
+ 		if (*work_done >= work_to_do)
+@@ -3537,8 +3537,6 @@ #endif
+ 		prefetch(next_rxd);
+ 
+ 		next_buffer = &rx_ring->buffer_info[i];
+-		next_skb = next_buffer->skb;
+-		prefetch(next_skb->data - NET_IP_ALIGN);
+ 
+ 		cleaned = TRUE;
+ 		cleaned_count++;
+@@ -3668,7 +3666,7 @@ #endif
+ 	struct e1000_buffer *buffer_info, *next_buffer;
+ 	struct e1000_ps_page *ps_page;
+ 	struct e1000_ps_page_dma *ps_page_dma;
+-	struct sk_buff *skb, *next_skb;
++	struct sk_buff *skb;
+ 	unsigned int i, j;
+ 	uint32_t length, staterr;
+ 	int cleaned_count = 0;
+@@ -3697,8 +3695,6 @@ #endif
+ 		prefetch(next_rxd);
+ 
+ 		next_buffer = &rx_ring->buffer_info[i];
+-		next_skb = next_buffer->skb;
+-		prefetch(next_skb->data - NET_IP_ALIGN);
+ 
+ 		cleaned = TRUE;
+ 		cleaned_count++;
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_dma.c b/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+index bbecba0..d0318e5 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_dma.c
+@@ -624,25 +624,28 @@ err_destroy_tx0:
+ static u16 generate_cookie(struct bcm43xx_dmaring *ring,
+ 			   int slot)
+ {
+-	u16 cookie = 0x0000;
++	u16 cookie = 0xF000;
+ 
+ 	/* Use the upper 4 bits of the cookie as
+ 	 * DMA controller ID and store the slot number
+-	 * in the lower 12 bits
++	 * in the lower 12 bits.
++	 * Note that the cookie must never be 0, as this
++	 * is a special value used in RX path.
+ 	 */
+ 	switch (ring->mmio_base) {
+ 	default:
+ 		assert(0);
+ 	case BCM43xx_MMIO_DMA1_BASE:
++		cookie = 0xA000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA2_BASE:
+-		cookie = 0x1000;
++		cookie = 0xB000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA3_BASE:
+-		cookie = 0x2000;
++		cookie = 0xC000;
+ 		break;
+ 	case BCM43xx_MMIO_DMA4_BASE:
+-		cookie = 0x3000;
++		cookie = 0xD000;
+ 		break;
+ 	}
+ 	assert(((u16)slot & 0xF000) == 0x0000);
+@@ -660,16 +663,16 @@ struct bcm43xx_dmaring * parse_cookie(st
+ 	struct bcm43xx_dmaring *ring = NULL;
+ 
+ 	switch (cookie & 0xF000) {
+-	case 0x0000:
++	case 0xA000:
+ 		ring = dma->tx_ring0;
+ 		break;
+-	case 0x1000:
++	case 0xB000:
+ 		ring = dma->tx_ring1;
+ 		break;
+-	case 0x2000:
++	case 0xC000:
+ 		ring = dma->tx_ring2;
+ 		break;
+-	case 0x3000:
++	case 0xD000:
+ 		ring = dma->tx_ring3;
+ 		break;
+ 	default:
+@@ -839,8 +842,18 @@ static void dma_rx(struct bcm43xx_dmarin
+ 		/* We received an xmit status. */
+ 		struct bcm43xx_hwxmitstatus *hw = (struct bcm43xx_hwxmitstatus *)skb->data;
+ 		struct bcm43xx_xmitstatus stat;
++		int i = 0;
+ 
+ 		stat.cookie = le16_to_cpu(hw->cookie);
++		while (stat.cookie == 0) {
++			if (unlikely(++i >= 10000)) {
++				assert(0);
++				break;
++			}
++			udelay(2);
++			barrier();
++			stat.cookie = le16_to_cpu(hw->cookie);
++		}
+ 		stat.flags = hw->flags;
+ 		stat.cnt1 = hw->cnt1;
+ 		stat.cnt2 = hw->cnt2;
