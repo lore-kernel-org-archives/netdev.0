@@ -1,28 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: New tulip maintainer...
-Date: Thu, 08 Jun 2006 11:41:28 -0400
-Message-ID: <44884528.2040804@garzik.org>
+From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Subject: Re: [PATCH] pcnet32 driver NAPI support
+Date: Thu, 8 Jun 2006 11:44:15 -0400
+Message-ID: <20060608154415.GC558@csclub.uwaterloo.ca>
+References: <20060607165225.GB7859@csclub.uwaterloo.ca> <20060607182040.GA12748@us.ibm.com> <20060607193456.GN7857@csclub.uwaterloo.ca> <20060607215236.GA13380@us.ibm.com> <20060607223245.GA13584@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:16847 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964891AbWFHPlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 11:41:31 -0400
-To: Val Henson <val.henson@gmail.com>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	Andrew Morton <akpm@osdl.org>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:47056 "EHLO
+	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
+	id S964883AbWFHPoP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 11:44:15 -0400
+To: Don Fry <brazilnut@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20060607223245.GA13584@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that we have a new tulip maintainer, perhaps a resend of the 
-long-outstanding tulip phy patches could be resent?
+On Wed, Jun 07, 2006 at 03:32:45PM -0700, Don Fry wrote:
+> One other problem I ran into.  I applied the patch but it will not
+> compile because rl_active is never defined.  I have worked around it but
 
-With an active tulip maintainer, the "too-long mdelay" would hopefully 
-only exist temporarily -- with the proper fix being to move that code 
-into a kernel thread (workqueue?) long term.
+Doh!  I thought I cleaned up all my "weird code" from my own version.
+Because of the platform I work with having 4 pcnet32 ports, and a slow
+poke 266MHz geode, we can't handle full traffic load, so to keep the
+system responsive to pause processing receives when we pass a certain
+number of packets per second.  rl_active is part of that.  I meant to
+remove all of it, apparently I didn't read every line of my patch
+carefully enough. :(
 
-	Jeff
+Well at least this ought to clean up my work a bit.
 
-
+Len Sorensen
