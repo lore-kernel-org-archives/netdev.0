@@ -1,361 +1,394 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 9/12] d80211: remove useless parameters
-Date: Thu,  8 Jun 2006 09:49:13 +0200 (CEST)
-Message-ID: <20060608074913.72EAF48396@silver.suse.cz>
+Subject: [PATCH 6/12] d80211: network interface sysfs attributes
+Date: Thu,  8 Jun 2006 09:49:10 +0200 (CEST)
+Message-ID: <20060608074910.4CC394838F@silver.suse.cz>
 References: <20060608094822.014829000.midnight@suse.cz>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:52632 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S964784AbWFHHsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:48:02 -0400
+Received: from styx.suse.cz ([82.119.242.94]:51608 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S964781AbWFHHr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:47:59 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <20060608094822.014829000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no necessity for passing ieee80211_local parameter to sta_info_put
-and sta_info_free now.
+Add /sys/class/net/X/* attributes for 802.11 interfaces.
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211.c       |   18 +++++++++---------
- net/d80211/ieee80211_iface.c |    4 ++--
- net/d80211/ieee80211_ioctl.c |   20 ++++++++++----------
- net/d80211/ieee80211_sta.c   |    8 ++++----
- net/d80211/rate_control.c    |    4 ++--
- net/d80211/sta_info.c        |   16 ++++++++--------
- net/d80211/sta_info.h        |    5 ++---
- 7 files changed, 37 insertions(+), 38 deletions(-)
+ net/d80211/ieee80211_i.h     |    3 
+ net/d80211/ieee80211_iface.c |    1 
+ net/d80211/ieee80211_sysfs.c |  299 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 301 insertions(+), 2 deletions(-)
 
-bc9e55deef4924f5a4ba82487747726413636df6
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 15d43f8..75aaa99 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -1153,7 +1153,7 @@ static int ieee80211_tx(struct net_devic
- 	skb = tx.skb; /* handlers are allowed to change skb */
+ad13a53621edc97c9bfb41a513a674415186c392
+diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
+index 9fabf17..7c1b621 100644
+--- a/net/d80211/ieee80211_i.h
++++ b/net/d80211/ieee80211_i.h
+@@ -305,6 +305,8 @@ #define NUM_DEFAULT_KEYS 4
+         } u;
+         int channel_use;
+         int channel_use_raw;
++
++	struct attribute_group *sysfs_group;
+ };
  
- 	if (sta)
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
+ #define IEEE80211_DEV_TO_SUB_IF(dev) netdev_priv(dev)
+@@ -616,5 +618,6 @@ int ieee80211_dev_sysfs_add(struct ieee8
+ void ieee80211_dev_sysfs_del(struct ieee80211_local *local);
+ int ieee80211_sysfs_init(void);
+ void ieee80211_sysfs_deinit(void);
++int ieee80211_sysfs_change_if_type(struct net_device *dev);
  
- 	if (unlikely(res == TXRX_DROP)) {
- 		I802_DEBUG_INC(local->tx_handlers_drop);
-@@ -1373,7 +1373,7 @@ static int ieee80211_subif_start_xmit(st
- 			fc |= WLAN_FC_STYPE_QOS_DATA << 4;
- 			hdrlen += 2;
- 		}
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 	}
- 
- 	hdr.frame_control = cpu_to_le16(fc);
-@@ -1743,7 +1743,7 @@ ieee80211_get_buffered_bc(struct net_dev
- 	}
- 
- 	if (sta)
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 
- 	return skb;
- }
-@@ -2330,7 +2330,7 @@ ieee80211_rx_h_data(struct ieee80211_txr
- 				skb = NULL;
- 			}
- 			if (dsta)
--				sta_info_put(local, dsta);
-+				sta_info_put(dsta);
- 		}
- 	}
- 
-@@ -3469,7 +3469,7 @@ void __ieee80211_rx(struct net_device *d
- 
-   end:
- 	if (sta)
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- }
- 
- 
-@@ -3806,7 +3806,7 @@ void ieee80211_tx_status(struct net_devi
- 				status->excessive_retries = 0;
- 				status->tx_filtered = 1;
- 			}
--			sta_info_put(local, sta);
-+			sta_info_put(sta);
- 		}
- 	}
- 
-@@ -3855,7 +3855,7 @@ void ieee80211_tx_status(struct net_devi
- 				}
- 				dev_kfree_skb(skb);
- 			}
--			sta_info_put(local, sta);
-+			sta_info_put(sta);
- 			return;
- 		}
- 	} else {
-@@ -3978,8 +3978,8 @@ int ieee80211_if_update_wds(struct net_d
- 	/* Remove STA entry for the old peer */
- 	sta = sta_info_get(local, sdata->u.wds.remote_addr);
- 	if (sta) {
--		sta_info_put(local, sta);
--		sta_info_free(local, sta, 0);
-+		sta_info_put(sta);
-+		sta_info_free(sta, 0);
- 	} else {
- 		printk(KERN_DEBUG "%s: could not find STA entry for WDS link "
- 		       "peer " MACSTR "\n",
+ #endif /* IEEE80211_I_H */
 diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index 467dcba..960a90e 100644
+index 8ab2c07..727b5e3 100644
 --- a/net/d80211/ieee80211_iface.c
 +++ b/net/d80211/ieee80211_iface.c
-@@ -261,8 +261,8 @@ #endif
- 	case IEEE80211_IF_TYPE_WDS:
- 		sta = sta_info_get(local, sdata->u.wds.remote_addr);
- 		if (sta) {
--			sta_info_put(local, sta);
--			sta_info_free(local, sta, 0);
-+			sta_info_put(sta);
-+			sta_info_free(sta, 0);
- 		} else {
- #ifdef CONFIG_D80211_VERBOSE_DEBUG
- 			printk(KERN_DEBUG "%s: Someone had deleted my STA "
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index e1bdc03..562b9f3 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -294,7 +294,7 @@ static int ieee80211_ioctl_add_sta(struc
- 		}
+@@ -202,6 +202,7 @@ void ieee80211_if_set_type(struct net_de
+ 		printk(KERN_WARNING "%s: %s: Unknown interface type 0x%x",
+ 		       dev->name, __FUNCTION__, type);
  	}
- 
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
- 
- 	return 0;
- }
-@@ -308,8 +308,8 @@ static int ieee80211_ioctl_remove_sta(st
- 
- 	sta = sta_info_get(local, param->sta_addr);
- 	if (sta) {
--		sta_info_put(local, sta);
--		sta_info_free(local, sta, 1);
-+		sta_info_put(sta);
-+		sta_info_free(sta, 1);
- 	}
- 
- 	return sta ? 0 : -ENOENT;
-@@ -393,7 +393,7 @@ static int ieee80211_ioctl_get_info_sta(
- 	param->u.get_info_sta.last_rssi = sta->last_rssi;
- 	param->u.get_info_sta.last_ack_rssi = sta->last_ack_rssi[2];
- 
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
- 
- 	return 0;
- }
-@@ -421,7 +421,7 @@ static int ieee80211_ioctl_set_flags_sta
- 			printk(KERN_DEBUG "%s: failed to set low-level driver "
- 			       "PAE state (unauthorized) for " MACSTR "\n",
- 			       dev->name, MAC2STR(sta->addr));
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 	}
- 
- 	return sta ? 0 : -ENOENT;
-@@ -563,7 +563,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 				if (sta->flags & WLAN_STA_WME) {
- 					try_hwaccel = 0;
- 				}
--				sta_info_put(local, sta);
-+				sta_info_put(sta);
- 				sta = NULL;
- 			}
- 		}
-@@ -643,7 +643,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 
-  done:
- 	if (sta)
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 
- 	return ret;
- }
-@@ -813,7 +813,7 @@ static int ieee80211_ioctl_get_encryptio
- 	}
- 
- 	if (sta)
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 
- 	return ret;
- }
-@@ -842,7 +842,7 @@ static int ieee80211_ioctl_wpa_trigger(s
- 
- 	sta->wpa_trigger = param->u.wpa_trigger.trigger;
- 
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
- 	return 0;
- }
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
-@@ -1136,7 +1136,7 @@ #endif
- 			sta->vlan_id = param->u.set_sta_vlan.vlan_id;
-                         dev_put(new_vlan_dev);
-                 }
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 	}
- 
- 	return sta ? 0 : -ENOENT;
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index a42c387..37d40aa 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -730,7 +730,7 @@ static void ieee80211_associated(struct 
- 							 ifsta->ssid_len);
- 			}
- 		}
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 	}
- 	if (disassoc) {
- 		union iwreq_data wrqu;
-@@ -1200,7 +1200,7 @@ static void ieee80211_rx_mgmt_assoc_resp
- 	}
- 
- 
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
- 
- 	ieee80211_associated(dev, ifsta);
- }
-@@ -1443,7 +1443,7 @@ #endif /* IEEE80211_IBSS_DEBUG */
- 			       dev->name, MAC2STR(sta->addr), prev_rates,
- 			       supp_rates, sta->supp_rates);
- 		}
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 	}
- 
- 	if (elems.ssid == NULL)
-@@ -1836,7 +1836,7 @@ static void ieee80211_sta_expire(struct 
- 			       IEEE80211_IBSS_INACTIVITY_LIMIT)) {
- 			printk(KERN_DEBUG "%s: expiring inactive STA " MACSTR
- 			       "\n", dev->name, MAC2STR(sta->addr));
--			sta_info_free(local, sta, 1);
-+			sta_info_free(sta, 1);
- 		}
- 	}
- 	spin_unlock_bh(&local->sta_lock);
-diff --git a/net/d80211/rate_control.c b/net/d80211/rate_control.c
-index 9bcb8fc..e7e6791 100644
---- a/net/d80211/rate_control.c
-+++ b/net/d80211/rate_control.c
-@@ -209,7 +209,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 		}
- 	}
- 
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
++	ieee80211_sysfs_change_if_type(dev);
  }
  
+ /* Must be called with rtnl lock held. */
+diff --git a/net/d80211/ieee80211_sysfs.c b/net/d80211/ieee80211_sysfs.c
+index 07a7036..12d16fd 100644
+--- a/net/d80211/ieee80211_sysfs.c
++++ b/net/d80211/ieee80211_sysfs.c
+@@ -18,6 +18,7 @@ #include "ieee80211_proc.h"
+ #include "rate_control.h"
  
-@@ -260,7 +260,7 @@ rate_control_simple_get_rate(struct net_
- 	extra->nonerp_idx = nonerp_idx;
- 	extra->nonerp = &local->curr_rates[extra->nonerp_idx];
+ #define to_ieee80211_local(class)	container_of(class, struct ieee80211_local, class_dev)
++#define to_net_dev(class)		container_of(class, struct net_device, class_dev)
  
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
- 
- 	return &local->curr_rates[rateidx];
- }
-diff --git a/net/d80211/sta_info.c b/net/d80211/sta_info.c
-index bba4771..9c6adaa 100644
---- a/net/d80211/sta_info.c
-+++ b/net/d80211/sta_info.c
-@@ -102,7 +102,7 @@ int sta_info_min_txrate_get(struct ieee8
- }
- 
- 
--void sta_info_put(struct ieee80211_local *local, struct sta_info *sta)
-+void sta_info_put(struct sta_info *sta)
+ static inline int rtnl_lock_local(struct ieee80211_local *local)
  {
- 	kobject_put(&sta->kobj);
- }
-@@ -200,13 +200,13 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 	ieee80211_proc_deinit_sta(local, sta);
- 	ieee80211_sta_sysfs_remove(sta);
+@@ -346,6 +347,238 @@ static struct attribute_group ieee80211_
+ 	.attrs = ieee80211_stats_attrs,
+ };
  
--	sta_info_put(local, sta);
-+	sta_info_put(sta);
- }
++/* attributes in /sys/class/net/X/ */
++
++static ssize_t ieee80211_if_show(struct class_device *cd, char *buf,
++			ssize_t (*format)(const struct ieee80211_sub_if_data *,
++					  char *))
++{
++	struct net_device *dev = to_net_dev(cd);
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	ssize_t ret = -EINVAL;
++
++	read_lock(&dev_base_lock);
++	if (dev->reg_state == NETREG_REGISTERED) {
++		ret = (*format)(sdata, buf);
++	}
++	read_unlock(&dev_base_lock);
++	return ret;
++}
++
++#define IEEE80211_IF_FMT(name, field, format_string)			\
++static ssize_t ieee80211_if_fmt_##name(const struct			\
++			ieee80211_sub_if_data *sdata, char *buf)	\
++{									\
++	return sprintf(buf, format_string, sdata->field);		\
++}
++#define IEEE80211_IF_FMT_DEC(name, field)				\
++		IEEE80211_IF_FMT(name, field, "%d\n")
++#define IEEE80211_IF_FMT_HEX(name, field)				\
++		IEEE80211_IF_FMT(name, field, "%#x\n")
++#define IEEE80211_IF_FMT_SIZE(name, field)				\
++		IEEE80211_IF_FMT(name, field, "%zd\n")
++
++#define IEEE80211_IF_FMT_ATOMIC(name, field)				\
++static ssize_t ieee80211_if_fmt_##name(const struct			\
++			ieee80211_sub_if_data *sdata, char *buf)	\
++{									\
++	return sprintf(buf, "%d\n", atomic_read(&sdata->field));	\
++}
++
++#define IEEE80211_IF_FMT_MAC(name, field)				\
++static ssize_t ieee80211_if_fmt_##name(const struct			\
++			ieee80211_sub_if_data *sdata, char *buf)	\
++{									\
++	return sprintf(buf, MACSTR "\n", MAC2STR(sdata->field));	\
++}
++
++#define __IEEE80211_IF_SHOW(name)					\
++static ssize_t ieee80211_if_show_##name(struct class_device *cd,	\
++					char *buf)			\
++{									\
++	return ieee80211_if_show(cd, buf, ieee80211_if_fmt_##name);	\
++}									\
++static CLASS_DEVICE_ATTR(name, S_IRUGO, ieee80211_if_show_##name, NULL);
++
++#define IEEE80211_IF_SHOW(name, field, format)				\
++		IEEE80211_IF_FMT_##format(name, field)			\
++		__IEEE80211_IF_SHOW(name)
++
++/* common attributes */
++IEEE80211_IF_SHOW(channel_use, channel_use, DEC);
++IEEE80211_IF_SHOW(drop_unencrypted, drop_unencrypted, DEC);
++IEEE80211_IF_SHOW(eapol, eapol, DEC);
++IEEE80211_IF_SHOW(ieee8021_x, ieee802_1x, DEC);
++
++/* STA/IBSS attributes */
++IEEE80211_IF_SHOW(state, u.sta.state, DEC);
++IEEE80211_IF_SHOW(bssid, u.sta.bssid, MAC);
++IEEE80211_IF_SHOW(prev_bssid, u.sta.prev_bssid, MAC);
++IEEE80211_IF_SHOW(ssid_len, u.sta.ssid_len, SIZE);
++IEEE80211_IF_SHOW(aid, u.sta.aid, DEC);
++IEEE80211_IF_SHOW(ap_capab, u.sta.ap_capab, HEX);
++IEEE80211_IF_SHOW(capab, u.sta.capab, HEX);
++IEEE80211_IF_SHOW(extra_ie_len, u.sta.extra_ie_len, SIZE);
++IEEE80211_IF_SHOW(auth_tries, u.sta.auth_tries, DEC);
++IEEE80211_IF_SHOW(assoc_tries, u.sta.assoc_tries, DEC);
++IEEE80211_IF_SHOW(auth_algs, u.sta.auth_algs, HEX);
++IEEE80211_IF_SHOW(auth_alg, u.sta.auth_alg, DEC);
++IEEE80211_IF_SHOW(auth_transaction, u.sta.auth_transaction, DEC);
++
++static ssize_t ieee80211_if_fmt_flags(const struct
++			ieee80211_sub_if_data *sdata, char *buf)
++{
++	return sprintf(buf, "%s%s%s%s%s%s%s\n",
++		       sdata->u.sta.ssid_set ? "SSID\n" : "",
++		       sdata->u.sta.bssid_set ? "BSSID\n" : "",
++		       sdata->u.sta.prev_bssid_set ? "prev BSSID\n" : "",
++		       sdata->u.sta.authenticated ? "AUTH\n" : "",
++		       sdata->u.sta.associated ? "ASSOC\n" : "",
++		       sdata->u.sta.probereq_poll ? "PROBEREQ POLL\n" : "",
++		       sdata->u.sta.use_protection ? "CTS prot\n" : "");
++}
++__IEEE80211_IF_SHOW(flags);
++
++/* AP attributes */
++IEEE80211_IF_SHOW(max_aid, u.ap.max_aid, DEC);
++IEEE80211_IF_SHOW(num_sta_ps, u.ap.num_sta_ps, ATOMIC);
++IEEE80211_IF_SHOW(dtim_period, u.ap.dtim_period, DEC);
++IEEE80211_IF_SHOW(dtim_count, u.ap.dtim_count, DEC);
++IEEE80211_IF_SHOW(num_beacons, u.ap.num_beacons, DEC);
++IEEE80211_IF_SHOW(force_unicast_rateidx, u.ap.force_unicast_rateidx, DEC);
++IEEE80211_IF_SHOW(max_ratectrl_rateidx, u.ap.max_ratectrl_rateidx, DEC);
++
++static ssize_t ieee80211_if_fmt_num_buffered_multicast(const struct
++			ieee80211_sub_if_data *sdata, char *buf)
++{
++	return sprintf(buf, "%u\n", skb_queue_len(&sdata->u.ap.ps_bc_buf));
++}
++__IEEE80211_IF_SHOW(num_buffered_multicast);
++
++static ssize_t ieee80211_if_fmt_beacon_head_len(const struct
++			ieee80211_sub_if_data *sdata, char *buf)
++{
++	if (sdata->u.ap.beacon_head)
++		return sprintf(buf, "%d\n", sdata->u.ap.beacon_head_len);
++	return sprintf(buf, "\n");
++}
++__IEEE80211_IF_SHOW(beacon_head_len);
++
++static ssize_t ieee80211_if_fmt_beacon_tail_len(const struct
++			ieee80211_sub_if_data *sdata, char *buf)
++{
++	if (sdata->u.ap.beacon_tail)
++		return sprintf(buf, "%d\n", sdata->u.ap.beacon_tail_len);
++	return sprintf(buf, "\n");
++}
++__IEEE80211_IF_SHOW(beacon_tail_len);
++
++/* WDS attributes */
++IEEE80211_IF_SHOW(peer, u.wds.remote_addr, MAC);
++
++/* VLAN attributes */
++IEEE80211_IF_SHOW(vlan_id, u.vlan.id, DEC);
++
++/* MONITOR attributes */
++static ssize_t ieee80211_if_fmt_mode(const struct
++			ieee80211_sub_if_data *sdata, char *buf)
++{
++	struct ieee80211_local *local = sdata->local;
++
++	return sprintf(buf, "%s\n", (local->hw->monitor_during_oper ||
++				     local->open_count == local->monitors) ?
++				    "hard" : "soft");
++}
++__IEEE80211_IF_SHOW(mode);
++
++static struct attribute *ieee80211_sta_attrs[] = {
++	&class_device_attr_channel_use.attr,
++	&class_device_attr_drop_unencrypted.attr,
++	&class_device_attr_eapol.attr,
++	&class_device_attr_ieee8021_x.attr,
++	&class_device_attr_state.attr,
++	&class_device_attr_bssid.attr,
++	&class_device_attr_prev_bssid.attr,
++	&class_device_attr_ssid_len.attr,
++	&class_device_attr_aid.attr,
++	&class_device_attr_ap_capab.attr,
++	&class_device_attr_capab.attr,
++	&class_device_attr_extra_ie_len.attr,
++	&class_device_attr_auth_tries.attr,
++	&class_device_attr_assoc_tries.attr,
++	&class_device_attr_auth_algs.attr,
++	&class_device_attr_auth_alg.attr,
++	&class_device_attr_auth_transaction.attr,
++	&class_device_attr_flags.attr,
++	NULL
++};
++
++static struct attribute *ieee80211_ap_attrs[] = {
++	&class_device_attr_channel_use.attr,
++	&class_device_attr_drop_unencrypted.attr,
++	&class_device_attr_eapol.attr,
++	&class_device_attr_ieee8021_x.attr,
++	&class_device_attr_max_aid.attr,
++	&class_device_attr_num_sta_ps.attr,
++	&class_device_attr_dtim_period.attr,
++	&class_device_attr_dtim_count.attr,
++	&class_device_attr_num_beacons.attr,
++	&class_device_attr_force_unicast_rateidx.attr,
++	&class_device_attr_max_ratectrl_rateidx.attr,
++	&class_device_attr_num_buffered_multicast.attr,
++	&class_device_attr_beacon_head_len.attr,
++	&class_device_attr_beacon_tail_len.attr,
++	NULL
++};
++
++static struct attribute *ieee80211_wds_attrs[] = {
++	&class_device_attr_channel_use.attr,
++	&class_device_attr_drop_unencrypted.attr,
++	&class_device_attr_eapol.attr,
++	&class_device_attr_ieee8021_x.attr,
++	&class_device_attr_peer.attr,
++	NULL
++};
++
++static struct attribute *ieee80211_vlan_attrs[] = {
++	&class_device_attr_channel_use.attr,
++	&class_device_attr_drop_unencrypted.attr,
++	&class_device_attr_eapol.attr,
++	&class_device_attr_ieee8021_x.attr,
++	&class_device_attr_vlan_id.attr,
++	NULL
++};
++
++static struct attribute *ieee80211_monitor_attrs[] = {
++	&class_device_attr_mode.attr,
++	NULL
++};
++
++static struct attribute_group ieee80211_sta_group = {
++	.name = "sta",
++	.attrs = ieee80211_sta_attrs,
++};
++
++static struct attribute_group ieee80211_ap_group = {
++	.name = "ap",
++	.attrs = ieee80211_ap_attrs,
++};
++
++static struct attribute_group ieee80211_wds_group = {
++	.name = "wds",
++	.attrs = ieee80211_wds_attrs,
++};
++
++static struct attribute_group ieee80211_vlan_group = {
++	.name = "vlan",
++	.attrs = ieee80211_vlan_attrs,
++};
++
++static struct attribute_group ieee80211_monitor_group = {
++	.name = "monitor",
++	.attrs = ieee80211_monitor_attrs,
++};
++
+ /* /sys/class/ieee80211/phyX functions */
  
--void sta_info_free(struct ieee80211_local *local, struct sta_info *sta,
--		   int locked)
-+void sta_info_free(struct sta_info *sta, int locked)
+ static void ieee80211_class_dev_release(struct class_device *dev)
+@@ -415,16 +648,78 @@ void ieee80211_dev_sysfs_del(struct ieee
+ 
+ /* /sys/class/net/X functions */
+ 
++static void __ieee80211_remove_if_group(struct kobject *kobj,
++					struct ieee80211_sub_if_data *sdata)
++{
++	if (sdata->sysfs_group) {
++		sysfs_remove_group(kobj, sdata->sysfs_group);
++		sdata->sysfs_group = NULL;
++	}
++}
++
++static inline void ieee80211_remove_if_group(struct kobject *kobj,
++					     struct net_device *dev)
++{
++	__ieee80211_remove_if_group(kobj, IEEE80211_DEV_TO_SUB_IF(dev));
++}
++
++static int ieee80211_add_if_group(struct kobject *kobj,
++				  struct net_device *dev)
++{
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	int res = 0;
++
++	__ieee80211_remove_if_group(kobj, sdata);
++	switch (sdata->type) {
++	case IEEE80211_IF_TYPE_STA:
++		sdata->sysfs_group = &ieee80211_sta_group;
++		break;
++	case IEEE80211_IF_TYPE_AP:
++		sdata->sysfs_group = &ieee80211_ap_group;
++		break;
++	case IEEE80211_IF_TYPE_WDS:
++		sdata->sysfs_group = &ieee80211_wds_group;
++		break;
++	case IEEE80211_IF_TYPE_VLAN:
++		sdata->sysfs_group = &ieee80211_vlan_group;
++		break;
++	case IEEE80211_IF_TYPE_MNTR:
++		sdata->sysfs_group = &ieee80211_monitor_group;
++		break;
++	default:
++		goto out;
++	}
++	res = sysfs_create_group(kobj, sdata->sysfs_group);
++	if (res)
++		sdata->sysfs_group = NULL;
++out:
++	return res;
++}
++
++int ieee80211_sysfs_change_if_type(struct net_device *dev)
++{
++	return ieee80211_add_if_group(&dev->class_dev.kobj, dev);
++}
++
+ int ieee80211_sysfs_add_netdevice(struct net_device *dev)
  {
- 	struct sk_buff *skb;
-+	struct ieee80211_local *local = sta->local;
- 	struct ieee80211_sub_if_data *sdata;
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
++	int res;
  
- 	if (!locked)
-@@ -320,7 +320,7 @@ static void sta_info_cleanup(unsigned lo
- 		struct sta_info *sta = (struct sta_info *) ptr;
- 		__sta_info_get(sta);
- 		sta_info_cleanup_expire_buffered(local, sta);
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 		ptr = ptr->next;
- 	}
- 	spin_unlock_bh(&local->sta_lock);
-@@ -368,7 +368,7 @@ static void sta_info_proc_add_task(void 
- 		sta->sysfs_registered = 1;
- 		ieee80211_sta_sysfs_add(sta);
- 		ieee80211_proc_init_sta(local, sta);
--		sta_info_put(local, sta);
-+		sta_info_put(sta);
- 	}
+-	return sysfs_create_link(&dev->class_dev.kobj, &local->class_dev.kobj,
+-				 "wiphy");
++	res = sysfs_create_link(&dev->class_dev.kobj, &local->class_dev.kobj,
++				"wiphy");
++	if (res)
++		goto out;
++	res = ieee80211_add_if_group(&dev->class_dev.kobj, dev);
++	if (res)
++		sysfs_remove_link(&dev->class_dev.kobj, "wiphy");
++out:
++	return res;
  }
  
-@@ -412,7 +412,7 @@ void sta_info_stop(struct ieee80211_loca
- 		 * parameter to ensure all sysfs sta entries are
- 		 * unregistered. We don't need locking at this
- 		 * point. */
--		sta_info_free(local, sta, 0);
-+		sta_info_free(sta, 0);
- 	}
- 	ieee80211_sta_kset_sysfs_unregister(local);
+ void ieee80211_sysfs_remove_netdevice(struct net_device *dev)
+ {
++	ieee80211_remove_if_group(&dev->class_dev.kobj, dev);
+ 	sysfs_remove_link(&dev->class_dev.kobj, "wiphy");
  }
-@@ -449,7 +449,7 @@ void sta_info_flush(struct ieee80211_loc
- 	list_for_each_safe(ptr, n, &local->sta_list) {
- 		struct sta_info *sta = list_entry(ptr, struct sta_info, list);
- 		if (dev == NULL || dev == sta->dev)
--			sta_info_free(local, sta, 1);
-+			sta_info_free(sta, 1);
- 	}
- 	spin_unlock_bh(&local->sta_lock);
- }
-diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
-index ddfe50e..70334e5 100644
---- a/net/d80211/sta_info.h
-+++ b/net/d80211/sta_info.h
-@@ -134,11 +134,10 @@ #define STA_INFO_CLEANUP_INTERVAL (10 * 
  
- struct sta_info * sta_info_get(struct ieee80211_local *local, u8 *addr);
- int sta_info_min_txrate_get(struct ieee80211_local *local);
--void sta_info_put(struct ieee80211_local *local, struct sta_info *sta);
-+void sta_info_put(struct sta_info *sta);
- struct sta_info * sta_info_add(struct ieee80211_local *local,
- 			       struct net_device *dev, u8 *addr);
--void sta_info_free(struct ieee80211_local *local, struct sta_info *sta,
--		   int locked);
-+void sta_info_free(struct sta_info *sta, int locked);
- void sta_info_release(struct kobject *kobj);
- void sta_info_init(struct ieee80211_local *local);
- int sta_info_start(struct ieee80211_local *local);
 -- 
 1.3.0
 
