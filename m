@@ -1,37 +1,42 @@
-From: David Lang <dlang@digitalinsight.com>
-Subject: Re: Updated sysctl documentation take #2
-Date: Wed, 7 Jun 2006 15:52:32 -0700 (PDT)
-Message-ID: <Pine.LNX.4.63.0606071551310.2093@qynat.qvtvafvgr.pbz>
-References: <20060607205316.bbb3c379.diegocg@gmail.com> <20060607235631.GA10688@linuxtv.org>
+From: Muli Ben-Yehuda <muli@il.ibm.com>
+Subject: Re: [PATCH 3/4] ehea: queue managment
+Date: Thu, 8 Jun 2006 09:35:33 +0300
+Message-ID: <20060608063533.GB6343@rhun.haifa.ibm.com>
+References: <4487073E.1020403@de.ibm.com> <20060607102950.54dd83c1@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Diego Calleja <diegocg@gmail.com>, linux-kernel@vger.kernel.org,
-	akpm@osdl.org, netdev@vger.kernel.org, linux-xfs@oss.sgi.com,
-	ecki@lina.inka.de, lkml@rtr.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
+	Marcus Eder <MEDER@de.ibm.com>,
+	Christoph Raisch <RAISCH@de.ibm.com>,
+	Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Thomas Q Klein <TKLEIN@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warden-p.diginsite.com ([208.29.163.248]:50106 "HELO
-	warden.diginsite.com") by vger.kernel.org with SMTP id S932519AbWFHBEH
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:32596 "EHLO
+	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP id S932530AbWFHGfg
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Jun 2006 21:04:07 -0400
-To: Johannes Stezenbach <js@linuxtv.org>
-In-Reply-To: <20060607235631.GA10688@linuxtv.org>
+	Thu, 8 Jun 2006 02:35:36 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.6/8.13.6) with ESMTP id k586ZZHZ087646
+	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 06:35:35 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.12.10/NCO/VER6.8) with ESMTP id k586akVc120410
+	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 07:36:46 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k586ZYfv003678
+	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 07:35:34 +0100
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060607102950.54dd83c1@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Jun 2006, Johannes Stezenbach wrote:
+On Wed, Jun 07, 2006 at 10:29:50AM -0700, Stephen Hemminger wrote:
 
-> On Wed, Jun 07, 2006, Diego Calleja wrote:
->> Since people didn't like the "many small files" approach, I've moved
->> it to directories containing index.txt files:
->>
->> Documentation/sysctl/vm/index.txt
->> Documentation/sysctl/net/core/index.txt
->
-> Why not just
->
-> Documentation/sysctl/vm.txt
-> Documentation/sysctl/net/core.txt
->
-> etc.?
+> Be careful about global namespace issues. Stick to one prefix like ehea_
+> for all non static function names. Consider putting all in one file, or
+> use #include to cause it to be one compilation unit.
 
-better matching of the proc layout would be my guess.
+I thought including .c files was discouraged (if not, it should be...)
+
+Cheers,
+Muli
