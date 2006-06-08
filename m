@@ -1,58 +1,44 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite support
-Date: Thu, 8 Jun 2006 21:09:33 +0100
-Message-ID: <200606082109.34338.gerrit@erg.abdn.ac.uk>
-References: <200606081150.34018@this-message-has-been-logged> <20060608.115331.71094388.davem@davemloft.net> <Pine.LNX.4.64.0606081542390.3555@d.namei>
+From: Jon Loeliger <jdl@freescale.com>
+Subject: Re: [PATCH 9/10] Add Vitesse 8244 PHY for MPC8641 HPCN platform.
+Date: Thu, 08 Jun 2006 15:13:28 -0500
+Message-ID: <1149797603.23938.251.camel@cashmere.sps.mot.com>
+References: <1149720298.23938.207.camel@cashmere.sps.mot.com>
+	 <44887BD3.7000009@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, alan@lxorguk.ukuu.org.uk,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
-	kaber@coreworks.de, linux-kernel@vger.kernel.org,
+Cc: "linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:35774 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S964960AbWFHUKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 16:10:10 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0606081542390.3555@d.namei>
-Content-Disposition: inline
+Received: from az33egw02.freescale.net ([192.88.158.103]:58622 "EHLO
+	az33egw02.freescale.net") by vger.kernel.org with ESMTP
+	id S964976AbWFHURg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 16:17:36 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44887BD3.7000009@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting James Morris:
-|  On Thu, 8 Jun 2006, David Miller wrote:
-|  
-|  > > Understood. Please, anyone, disregard or un-apply the previous
-|  > > UDP-Lite patch.  A revised patch will be prepared and posted as soon
-|  > > as testing permits.
-|  > 
-|  > Nobody is going to integrate your patch anywhere, don't worry.
-|  > You make it clear that once you toss this piece of code over
-|  > the wall, you'll disappear.
-|  
-|  Having dealt with more than enough code thrown over the wall in recent 
-|  times, I agree.
+On Thu, 2006-06-08 at 14:34, Jeff Garzik wrote:
+> Jon Loeliger wrote:
+> > Signed-off-by: Kriston Carson <KristonCarson@freescale.com>
+> > Signed-off-by: Xianghua Xiao <x.xiao@freescale.com>
+> > Signed-off-by: Jon Loeliger <jdl@freescale.com>
+> 
+> ACK, but patch does not apply to netdev-2.6.git#upstream.
+> 
+> 	Jeff
 
-I understand the points of both of you well enough. But how come this is interpreted 
-as saying I'd "toss this piece of code over the wall"? I can understand getting tired 
-of cowboy coding jobs, but there is a misunderstanding here.
+Thanks, Jeff.
 
-Of course do and will I maintain that code and every issue related it. I have been
-maintaining, improving, testing this code for 9 months. The protocol spec (RFC 3828)
-was developed at University of Aberdeen, and there is continuing research into 
-UDP-Lite here, i.e. it is not a `dead' project. That is why I held back regarding the 
-IPv6 port: I can ensure that this (IPv4) code is up to standard and to date, but am 
-lacking the required additional time to implement the same for IPv6. 
-I am trying to contact people to help with the port, but for the moment I will take 
-responsibility only for the IPv4 version.
+Are you willing to take the netdev parts as-is, then?
+Or would you like me to reformat the netdev parts to
+apply against the netdev-2.6.git#upstream branch?
+The patch is currently for the Paul Mackerras powerpc.git
+tree as it stands now.  Should we apply it through that
+path now as you have ACK'ed it?
 
-And if there is someone `well-known and respected' who is interested in taking this code 
-over, I would only be happy for him/her to do this. But I won't simply `disappear' :-)
-
-
-
-
+Thanks,
+jdl
 
 
