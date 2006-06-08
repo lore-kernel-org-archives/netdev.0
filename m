@@ -1,21 +1,26 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
 Subject: Re: Using netconsole for debugging suspend/resume
-Date: Thu, 08 Jun 2006 13:35:28 -0700
-Message-ID: <44888A10.4010207@intel.com>
+Date: Thu, 8 Jun 2006 22:40:31 +0200
+Message-ID: <200606082240.31473.rjw@sisk.pl>
 References: <44886381.9050506@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: Matt Mackall <mpm@selenic.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964988AbWFHUgD@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:10988 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S964991AbWFHUkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 16:40:13 -0400
 To: Jeremy Fitzhardinge <jeremy@goop.org>
 In-Reply-To: <44886381.9050506@goop.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeremy Fitzhardinge wrote:
+On Thursday 08 June 2006 19:50, Jeremy Fitzhardinge wrote:
 > I've been trying to get suspend/resume working well on my new laptop.  
 > In general, netconsole has been pretty useful for extracting oopses and 
 > other messages, but it is of more limited help in debugging the actual 
@@ -32,12 +37,7 @@ Jeremy Fitzhardinge wrote:
 > 
 > Any ideas?
 
-Have you tried using different cards/drivers? This might or might not be 
-either a netconsole problem (generic) or driver related (which could impact 
-other drivers too).
+Please try doing "echo 8 > /proc/sys/kernel/printk" before suspend.
 
- From the top of my head I don't see any reason why the e1000 shouldn't handle 
-the suspend event - but mind you that a fix for e1000/WoL impacting shutdown 
-handlers was only recently added. Which kernels does this impact?
-
-Auke
+Greetings,
+Rafael
