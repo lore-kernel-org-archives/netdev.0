@@ -1,346 +1,423 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 7/12] d80211: rename sta_info_relase to sta_info_put
-Date: Thu,  8 Jun 2006 09:49:11 +0200 (CEST)
-Message-ID: <20060608074911.5860548394@silver.suse.cz>
+Subject: [PATCH 5/12] d80211: wiphy sysfs attributes
+Date: Thu,  8 Jun 2006 09:49:09 +0200 (CEST)
+Message-ID: <20060608074909.41B3548393@silver.suse.cz>
 References: <20060608094822.014829000.midnight@suse.cz>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from styx.suse.cz ([82.119.242.94]:52632 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S964778AbWFHHsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:48:00 -0400
+	by vger.kernel.org with ESMTP id S964780AbWFHHr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:47:58 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <20060608094822.014829000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sta_info structure has reference counting (will be converted to kobject in
-next patch). Therefore, sta_info_release should be divided into two
-functions - one for decrementing reference count and one for freeing the
-structure when the count drops to zero. sta_info_release is the name
-suitable for the second function.
-
-This patch renames sta_info_release to sta_info_put to let next patch
-introduce a new sta_info_release function.
+Add /sys/class/ieee80211/phyX/* attributes.
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/ieee80211.c       |   18 +++++++++---------
- net/d80211/ieee80211_iface.c |    2 +-
- net/d80211/ieee80211_ioctl.c |   18 +++++++++---------
- net/d80211/ieee80211_sta.c   |    8 ++++----
- net/d80211/rate_control.c    |    4 ++--
- net/d80211/sta_info.c        |   10 +++++-----
- net/d80211/sta_info.h        |    2 +-
- 7 files changed, 31 insertions(+), 31 deletions(-)
+ net/d80211/ieee80211_proc.c  |    4 -
+ net/d80211/ieee80211_proc.h  |    3 
+ net/d80211/ieee80211_sysfs.c |  304 +++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 302 insertions(+), 9 deletions(-)
 
-4ddde98ebbdede0d0b16a85156e1b9c192c0e764
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index c983d70..0c23607 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -1153,7 +1153,7 @@ static int ieee80211_tx(struct net_devic
- 	skb = tx.skb; /* handlers are allowed to change skb */
- 
- 	if (sta)
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 
- 	if (unlikely(res == TXRX_DROP)) {
- 		I802_DEBUG_INC(local->tx_handlers_drop);
-@@ -1373,7 +1373,7 @@ static int ieee80211_subif_start_xmit(st
- 			fc |= WLAN_FC_STYPE_QOS_DATA << 4;
- 			hdrlen += 2;
- 		}
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 	}
- 
- 	hdr.frame_control = cpu_to_le16(fc);
-@@ -1743,7 +1743,7 @@ ieee80211_get_buffered_bc(struct net_dev
- 	}
- 
- 	if (sta)
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 
- 	return skb;
- }
-@@ -2330,7 +2330,7 @@ ieee80211_rx_h_data(struct ieee80211_txr
- 				skb = NULL;
- 			}
- 			if (dsta)
--				sta_info_release(local, dsta);
-+				sta_info_put(local, dsta);
- 		}
- 	}
- 
-@@ -3469,7 +3469,7 @@ void __ieee80211_rx(struct net_device *d
- 
-   end:
- 	if (sta)
--                sta_info_release(local, sta);
-+		sta_info_put(local, sta);
+b049b3afd8db895dd1f6985c1d1051eb733b887b
+diff --git a/net/d80211/ieee80211_proc.c b/net/d80211/ieee80211_proc.c
+index 4f3a6b9..581b583 100644
+--- a/net/d80211/ieee80211_proc.c
++++ b/net/d80211/ieee80211_proc.c
+@@ -442,7 +442,7 @@ #endif /* CONFIG_D80211_DEBUG_COUNTERS *
  }
  
  
-@@ -3806,7 +3806,7 @@ void ieee80211_tx_status(struct net_devi
- 				status->excessive_retries = 0;
- 				status->tx_filtered = 1;
- 			}
--			sta_info_release(local, sta);
-+			sta_info_put(local, sta);
- 		}
- 	}
- 
-@@ -3855,7 +3855,7 @@ void ieee80211_tx_status(struct net_devi
- 				}
- 				dev_kfree_skb(skb);
- 			}
--			sta_info_release(local, sta);
-+			sta_info_put(local, sta);
- 			return;
- 		}
- 	} else {
-@@ -3978,7 +3978,7 @@ int ieee80211_if_update_wds(struct net_d
- 	/* Remove STA entry for the old peer */
- 	sta = sta_info_get(local, sdata->u.wds.remote_addr);
- 	if (sta) {
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 		sta_info_free(local, sta, 0);
- 	} else {
- 		printk(KERN_DEBUG "%s: could not find STA entry for WDS link "
-@@ -4522,7 +4522,7 @@ EXPORT_SYMBOL(ieee80211_get_hdrlen_from_
- EXPORT_SYMBOL(ieee80211_rate_control_register);
- EXPORT_SYMBOL(ieee80211_rate_control_unregister);
- EXPORT_SYMBOL(sta_info_get);
--EXPORT_SYMBOL(sta_info_release);
-+EXPORT_SYMBOL(sta_info_put);
- EXPORT_SYMBOL(ieee80211_radar_status);
- EXPORT_SYMBOL(ieee80211_get_mc_list_item);
- 
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index 727b5e3..467dcba 100644
---- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -261,7 +261,7 @@ #endif
- 	case IEEE80211_IF_TYPE_WDS:
- 		sta = sta_info_get(local, sdata->u.wds.remote_addr);
- 		if (sta) {
--			sta_info_release(local, sta);
-+			sta_info_put(local, sta);
- 			sta_info_free(local, sta, 0);
- 		} else {
- #ifdef CONFIG_D80211_VERBOSE_DEBUG
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 8d593e8..e1bdc03 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -294,7 +294,7 @@ static int ieee80211_ioctl_add_sta(struc
- 		}
- 	}
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
- 
- 	return 0;
- }
-@@ -308,7 +308,7 @@ static int ieee80211_ioctl_remove_sta(st
- 
- 	sta = sta_info_get(local, param->sta_addr);
- 	if (sta) {
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 		sta_info_free(local, sta, 1);
- 	}
- 
-@@ -393,7 +393,7 @@ static int ieee80211_ioctl_get_info_sta(
- 	param->u.get_info_sta.last_rssi = sta->last_rssi;
- 	param->u.get_info_sta.last_ack_rssi = sta->last_ack_rssi[2];
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
- 
- 	return 0;
- }
-@@ -421,7 +421,7 @@ static int ieee80211_ioctl_set_flags_sta
- 			printk(KERN_DEBUG "%s: failed to set low-level driver "
- 			       "PAE state (unauthorized) for " MACSTR "\n",
- 			       dev->name, MAC2STR(sta->addr));
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 	}
- 
- 	return sta ? 0 : -ENOENT;
-@@ -563,7 +563,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 				if (sta->flags & WLAN_STA_WME) {
- 					try_hwaccel = 0;
- 				}
--				sta_info_release(local, sta);
-+				sta_info_put(local, sta);
- 				sta = NULL;
- 			}
- 		}
-@@ -643,7 +643,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 
-  done:
- 	if (sta)
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 
- 	return ret;
- }
-@@ -813,7 +813,7 @@ static int ieee80211_ioctl_get_encryptio
- 	}
- 
- 	if (sta)
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 
- 	return ret;
- }
-@@ -842,7 +842,7 @@ static int ieee80211_ioctl_wpa_trigger(s
- 
- 	sta->wpa_trigger = param->u.wpa_trigger.trigger;
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
- 	return 0;
- }
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
-@@ -1136,7 +1136,7 @@ #endif
- 			sta->vlan_id = param->u.set_sta_vlan.vlan_id;
-                         dev_put(new_vlan_dev);
-                 }
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 	}
- 
- 	return sta ? 0 : -ENOENT;
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 66a4575..a42c387 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -730,7 +730,7 @@ static void ieee80211_associated(struct 
- 							 ifsta->ssid_len);
- 			}
- 		}
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 	}
- 	if (disassoc) {
- 		union iwreq_data wrqu;
-@@ -1200,7 +1200,7 @@ static void ieee80211_rx_mgmt_assoc_resp
- 	}
- 
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
- 
- 	ieee80211_associated(dev, ifsta);
- }
-@@ -1443,7 +1443,7 @@ #endif /* IEEE80211_IBSS_DEBUG */
- 			       dev->name, MAC2STR(sta->addr), prev_rates,
- 			       supp_rates, sta->supp_rates);
- 		}
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 	}
- 
- 	if (elems.ssid == NULL)
-@@ -2834,7 +2834,7 @@ struct sta_info * ieee80211_ibss_add_sta
- 
- 	rate_control_rate_init(local, sta);
- 
--	return sta; /* caller will call sta_info_release() */
-+	return sta; /* caller will call sta_info_put() */
- }
- 
- 
-diff --git a/net/d80211/rate_control.c b/net/d80211/rate_control.c
-index 3485302..9bcb8fc 100644
---- a/net/d80211/rate_control.c
-+++ b/net/d80211/rate_control.c
-@@ -209,7 +209,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 		}
- 	}
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
- }
- 
- 
-@@ -260,7 +260,7 @@ rate_control_simple_get_rate(struct net_
- 	extra->nonerp_idx = nonerp_idx;
- 	extra->nonerp = &local->curr_rates[extra->nonerp_idx];
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
- 
- 	return &local->curr_rates[rateidx];
- }
-diff --git a/net/d80211/sta_info.c b/net/d80211/sta_info.c
-index de14821..9565c29 100644
---- a/net/d80211/sta_info.c
-+++ b/net/d80211/sta_info.c
-@@ -98,7 +98,7 @@ int sta_info_min_txrate_get(struct ieee8
- }
- 
- 
--void sta_info_release(struct ieee80211_local *local, struct sta_info *sta)
-+void sta_info_put(struct ieee80211_local *local, struct sta_info *sta)
+-static const char * ieee80211_mode_str_short(int mode)
++const char *ieee80211_mode_str_short(int mode)
  {
- 	struct sk_buff *skb;
- 
-@@ -145,7 +145,7 @@ struct sta_info * sta_info_add(struct ie
- 	atomic_inc(&sta->users); /* sta in hashlist etc, decremented by
- 				  * sta_info_free() */
- 	atomic_inc(&sta->users); /* sta used by caller, decremented by
--				  * sta_info_release() */
-+				  * sta_info_put() */
- 	spin_lock_bh(&local->sta_lock);
- 	list_add(&sta->list, &local->sta_list);
- 	local->num_sta++;
-@@ -237,13 +237,13 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 	if (atomic_read(&sta->users) != 1) {
- 		/* This is OK, but printed for debugging. The station structure
- 		 * will be removed when the other user of the data calls
--		 * sta_info_release(). */
-+		 * sta_info_put(). */
- 		printk(KERN_DEBUG "%s: STA " MACSTR " users count %d when "
- 		       "removing it\n", local->mdev->name, MAC2STR(sta->addr),
- 		       atomic_read(&sta->users));
- 	}
- 
--	sta_info_release(local, sta);
-+	sta_info_put(local, sta);
+ 	switch (mode) {
+ 	case MODE_IEEE80211A:
+@@ -459,7 +459,7 @@ static const char * ieee80211_mode_str_s
  }
  
  
-@@ -302,7 +302,7 @@ static void sta_info_cleanup(unsigned lo
- 		struct sta_info *sta = (struct sta_info *) ptr;
- 		atomic_inc(&sta->users);
- 		sta_info_cleanup_expire_buffered(local, sta);
--		sta_info_release(local, sta);
-+		sta_info_put(local, sta);
- 		ptr = ptr->next;
- 	}
- 	spin_unlock_bh(&local->sta_lock);
-diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
-index 294cb0a..fddc80e 100644
---- a/net/d80211/sta_info.h
-+++ b/net/d80211/sta_info.h
-@@ -134,7 +134,7 @@ struct ieee80211_local;
+-static const char * ieee80211_mode_str(int mode)
++const char *ieee80211_mode_str(int mode)
+ {
+ 	switch (mode) {
+ 	case MODE_IEEE80211A:
+diff --git a/net/d80211/ieee80211_proc.h b/net/d80211/ieee80211_proc.h
+index 8c76560..4519d26 100644
+--- a/net/d80211/ieee80211_proc.h
++++ b/net/d80211/ieee80211_proc.h
+@@ -42,4 +42,7 @@ static inline void ieee80211_proc_init(v
+ static inline void ieee80211_proc_deinit(void) {}
+ #endif /* CONFIG_PROC_FS */
  
- struct sta_info * sta_info_get(struct ieee80211_local *local, u8 *addr);
- int sta_info_min_txrate_get(struct ieee80211_local *local);
--void sta_info_release(struct ieee80211_local *local, struct sta_info *sta);
-+void sta_info_put(struct ieee80211_local *local, struct sta_info *sta);
- struct sta_info * sta_info_add(struct ieee80211_local *local,
- 			       struct net_device *dev, u8 *addr);
- void sta_info_free(struct ieee80211_local *local, struct sta_info *sta,
++const char *ieee80211_mode_str(int mode);
++const char *ieee80211_mode_str_short(int mode);
++
+ #endif /* IEEE80211_PROC_H */
+diff --git a/net/d80211/ieee80211_sysfs.c b/net/d80211/ieee80211_sysfs.c
+index e799506..07a7036 100644
+--- a/net/d80211/ieee80211_sysfs.c
++++ b/net/d80211/ieee80211_sysfs.c
+@@ -14,6 +14,8 @@ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
+ #include <net/d80211.h>
+ #include "ieee80211_i.h"
++#include "ieee80211_proc.h"
++#include "rate_control.h"
+ 
+ #define to_ieee80211_local(class)	container_of(class, struct ieee80211_local, class_dev)
+ 
+@@ -27,6 +29,8 @@ static inline int rtnl_lock_local(struct
+ 	return 0;
+ }
+ 
++/* attributes in /sys/class/ieee80211/phyX/ */
++
+ static ssize_t store_add_iface(struct class_device *dev,
+ 			       const char *buf, size_t len)
+ {
+@@ -66,6 +70,284 @@ static ssize_t store_remove_iface(struct
+ 	return res < 0 ? res : len;
+ }
+ 
++static ssize_t ieee80211_local_show(struct class_device *dev, char *buf,
++			ssize_t (*format)(struct ieee80211_local *, char *))
++{
++	struct ieee80211_local *local = to_ieee80211_local(dev);
++	ssize_t ret = -EINVAL;
++
++	if (local->reg_state == IEEE80211_DEV_REGISTERED)
++		ret = (*format)(local, buf);
++	return ret;
++}
++
++#define IEEE80211_LOCAL_FMT(name, field, format_string)			\
++static ssize_t ieee80211_local_fmt_##name(struct ieee80211_local *local,\
++					  char *buf)			\
++{									\
++	return sprintf(buf, format_string, local->field);		\
++}
++
++#define __IEEE80211_LOCAL_SHOW(name)					\
++static ssize_t ieee80211_local_show_##name(struct class_device *cd,	\
++					   char *buf)			\
++{									\
++	return ieee80211_local_show(cd, buf,				\
++				    ieee80211_local_fmt_##name);	\
++}
++
++#define IEEE80211_LOCAL_SHOW(name, field, format)			\
++		IEEE80211_LOCAL_FMT(name, field, format "\n")		\
++		__IEEE80211_LOCAL_SHOW(name)
++
++IEEE80211_LOCAL_SHOW(channel, conf.channel, "%d");
++IEEE80211_LOCAL_SHOW(frequency, conf.freq, "%d");
++IEEE80211_LOCAL_SHOW(radar_detect, conf.radar_detect, "%d");
++IEEE80211_LOCAL_SHOW(antenna_sel, conf.antenna_sel, "%d");
++IEEE80211_LOCAL_SHOW(calib_int, conf.calib_int, "%d");
++IEEE80211_LOCAL_SHOW(bridge_packets, bridge_packets, "%d");
++IEEE80211_LOCAL_SHOW(key_tx_rx_threshold, key_tx_rx_threshold, "%d");
++IEEE80211_LOCAL_SHOW(rts_threshold, rts_threshold, "%d");
++IEEE80211_LOCAL_SHOW(fragmentation_threshold, fragmentation_threshold, "%d");
++IEEE80211_LOCAL_SHOW(short_retry_limit, short_retry_limit, "%d");
++IEEE80211_LOCAL_SHOW(long_retry_limit, long_retry_limit, "%d");
++IEEE80211_LOCAL_SHOW(total_ps_buffered, total_ps_buffered, "%d");
++
++static ssize_t ieee80211_local_fmt_mode(struct ieee80211_local *local,
++					char *buf)
++{
++	return sprintf(buf, "%s\n", ieee80211_mode_str(local->conf.phymode));
++}
++__IEEE80211_LOCAL_SHOW(mode);
++
++static ssize_t ieee80211_local_fmt_wep_iv(struct ieee80211_local *local,
++					  char *buf)
++{
++	return sprintf(buf, "%#06x\n", local->wep_iv & 0xffffff);
++}
++__IEEE80211_LOCAL_SHOW(wep_iv);
++
++static ssize_t ieee80211_local_fmt_tx_power_reduction(struct ieee80211_local
++						      *local, char *buf)
++{
++	short tx_power_reduction = local->conf.tx_power_reduction;
++
++	return sprintf(buf, "%d.%d dBm\n", tx_power_reduction / 10,
++		       tx_power_reduction % 10);
++}
++__IEEE80211_LOCAL_SHOW(tx_power_reduction);
++
++static ssize_t ieee80211_local_fmt_modes(struct ieee80211_local *local,
++					 char *buf)
++{
++	int i;
++	struct ieee80211_hw_modes *mode;
++	char *p = buf;
++
++	/* FIXME: locking against ieee80211_update_hw? */
++	for (i = 0; i < local->hw->num_modes; i++) {
++		mode = &local->hw->modes[i];
++		p += sprintf(p, "%s\n", ieee80211_mode_str_short(mode->mode));
++	}
++	return (p - buf);
++}
++__IEEE80211_LOCAL_SHOW(modes);
++
++static ssize_t ieee80211_local_fmt_rate_ctrl_alg(struct ieee80211_local *local,
++						 char *buf)
++{
++	if (local->rate_ctrl && local->rate_ctrl_priv)
++		return sprintf(buf, "%s\n", local->rate_ctrl->name);
++	return 0;
++}
++__IEEE80211_LOCAL_SHOW(rate_ctrl_alg);
++
++static struct class_device_attribute ieee80211_class_dev_attrs[] = {
++	__ATTR(add_iface, S_IWUSR, NULL, store_add_iface),
++	__ATTR(remove_iface, S_IWUSR, NULL, store_remove_iface),
++	__ATTR(channel, S_IRUGO, ieee80211_local_show_channel, NULL),
++	__ATTR(frequency, S_IRUGO, ieee80211_local_show_frequency, NULL),
++	__ATTR(radar_detect, S_IRUGO, ieee80211_local_show_radar_detect, NULL),
++	__ATTR(antenna_sel, S_IRUGO, ieee80211_local_show_antenna_sel, NULL),
++	__ATTR(calib_int, S_IRUGO, ieee80211_local_show_calib_int, NULL),
++	__ATTR(bridge_packets, S_IRUGO, ieee80211_local_show_bridge_packets, NULL),
++	__ATTR(key_tx_rx_threshold, S_IRUGO, ieee80211_local_show_key_tx_rx_threshold, NULL),
++	__ATTR(rts_threshold, S_IRUGO, ieee80211_local_show_rts_threshold, NULL),
++	__ATTR(fragmentation_threshold, S_IRUGO, ieee80211_local_show_fragmentation_threshold, NULL),
++	__ATTR(short_retry_limit, S_IRUGO, ieee80211_local_show_short_retry_limit, NULL),
++	__ATTR(long_retry_limit, S_IRUGO, ieee80211_local_show_long_retry_limit, NULL),
++	__ATTR(total_ps_buffered, S_IRUGO, ieee80211_local_show_total_ps_buffered, NULL),
++	__ATTR(mode, S_IRUGO, ieee80211_local_show_mode, NULL),
++	__ATTR(wep_iv, S_IRUGO, ieee80211_local_show_wep_iv, NULL),
++	__ATTR(tx_power_reduction, S_IRUGO, ieee80211_local_show_tx_power_reduction, NULL),
++	__ATTR(modes, S_IRUGO, ieee80211_local_show_modes, NULL),
++	__ATTR(rate_ctrl_alg, S_IRUGO, ieee80211_local_show_rate_ctrl_alg, NULL),
++	{}
++};
++
++/* attributes in /sys/class/ieee80211/phyX/statistics/ */
++
++#define IEEE80211_LOCAL_ATTR(name, field, format)			\
++IEEE80211_LOCAL_SHOW(name, field, format)				\
++static CLASS_DEVICE_ATTR(name, S_IRUGO, ieee80211_local_show_##name, NULL);
++
++IEEE80211_LOCAL_ATTR(transmitted_fragment_count, dot11TransmittedFragmentCount, "%u");
++IEEE80211_LOCAL_ATTR(multicast_transmitted_frame_count, dot11MulticastTransmittedFrameCount, "%u");
++IEEE80211_LOCAL_ATTR(failed_count, dot11FailedCount, "%u");
++IEEE80211_LOCAL_ATTR(retry_count, dot11RetryCount, "%u");
++IEEE80211_LOCAL_ATTR(multiple_retry_count, dot11MultipleRetryCount, "%u");
++IEEE80211_LOCAL_ATTR(frame_duplicate_count, dot11FrameDuplicateCount, "%u");
++IEEE80211_LOCAL_ATTR(received_fragment_count, dot11ReceivedFragmentCount, "%u");
++IEEE80211_LOCAL_ATTR(multicast_received_frame_count, dot11MulticastReceivedFrameCount, "%u");
++IEEE80211_LOCAL_ATTR(transmitted_frame_count, dot11TransmittedFrameCount, "%u");
++IEEE80211_LOCAL_ATTR(wep_undecryptable_count, dot11WEPUndecryptableCount, "%u");
++IEEE80211_LOCAL_ATTR(num_scans, scan.num_scans, "%u");
++
++#ifdef CONFIG_D80211_DEBUG_COUNTERS
++IEEE80211_LOCAL_ATTR(tx_handlers_drop, tx_handlers_drop, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_queued, tx_handlers_queued, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_drop_unencrypted, tx_handlers_drop_unencrypted, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_drop_fragment, tx_handlers_drop_fragment, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_drop_wep, tx_handlers_drop_wep, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_drop_rate_limit, tx_handlers_drop_rate_limit, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_drop_not_assoc, tx_handlers_drop_not_assoc, "%u");
++IEEE80211_LOCAL_ATTR(tx_handlers_drop_unauth_port, tx_handlers_drop_unauth_port, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_drop, rx_handlers_drop, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_queued, rx_handlers_queued, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_drop_nullfunc, rx_handlers_drop_nullfunc, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_drop_defrag, rx_handlers_drop_defrag, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_drop_short, rx_handlers_drop_short, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_drop_passive_scan, rx_handlers_drop_passive_scan, "%u");
++IEEE80211_LOCAL_ATTR(tx_expand_skb_head, tx_expand_skb_head, "%u");
++IEEE80211_LOCAL_ATTR(tx_expand_skb_head_cloned, tx_expand_skb_head_cloned, "%u");
++IEEE80211_LOCAL_ATTR(rx_expand_skb_head, rx_expand_skb_head, "%u");
++IEEE80211_LOCAL_ATTR(rx_expand_skb_head2, rx_expand_skb_head2, "%u");
++IEEE80211_LOCAL_ATTR(rx_handlers_fragments, rx_handlers_fragments, "%u");
++IEEE80211_LOCAL_ATTR(tx_status_drop, tx_status_drop, "%u");
++
++static ssize_t ieee80211_local_fmt_wme_rx_queue(struct ieee80211_local *local,
++						char *buf)
++{
++	int i;
++	char *p = buf;
++
++	for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
++		p += sprintf(p, "%u\n", local->wme_rx_queue[i]);
++	return (p - buf);
++}
++__IEEE80211_LOCAL_SHOW(wme_rx_queue);
++static CLASS_DEVICE_ATTR(wme_rx_queue, S_IRUGO,
++			 ieee80211_local_show_wme_rx_queue, NULL);
++
++static ssize_t ieee80211_local_fmt_wme_tx_queue(struct ieee80211_local *local,
++						char *buf)
++{
++	int i;
++	char *p = buf;
++
++	for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
++		p += sprintf(p, "%u\n", local->wme_tx_queue[i]);
++	return (p - buf);
++}
++__IEEE80211_LOCAL_SHOW(wme_tx_queue);
++static CLASS_DEVICE_ATTR(wme_tx_queue, S_IRUGO,
++			 ieee80211_local_show_wme_tx_queue, NULL);
++#endif
++
++static ssize_t ieee80211_stats_show(struct class_device *dev, char *buf,
++		ssize_t (*format)(struct ieee80211_low_level_stats *, char *))
++{
++	struct ieee80211_local *local = to_ieee80211_local(dev);
++	struct ieee80211_low_level_stats stats;
++	ssize_t ret = -EINVAL;
++
++	if (!local->hw->get_stats)
++		return -EOPNOTSUPP;
++	ret = rtnl_lock_local(local);
++	if (ret)
++		return ret;
++	ret = local->hw->get_stats(local->mdev, &stats);
++	rtnl_unlock();
++	if (!ret)
++		ret = (*format)(&stats, buf);
++	return ret;
++}
++
++#define IEEE80211_STATS_FMT(name, field, format_string)			\
++static ssize_t ieee80211_stats_fmt_##name(struct ieee80211_low_level_stats \
++					  *stats, char *buf)		\
++{									\
++	return sprintf(buf, format_string, stats->field);		\
++}
++
++#define __IEEE80211_STATS_SHOW(name)					\
++static ssize_t ieee80211_stats_show_##name(struct class_device *cd,	\
++					   char *buf)			\
++{									\
++	return ieee80211_stats_show(cd, buf,				\
++				    ieee80211_stats_fmt_##name);	\
++}
++
++#define IEEE80211_STATS_ATTR(name, field, format)			\
++IEEE80211_STATS_FMT(name, field, format "\n")				\
++__IEEE80211_STATS_SHOW(name)						\
++static CLASS_DEVICE_ATTR(name, S_IRUGO, ieee80211_stats_show_##name, NULL);
++
++IEEE80211_STATS_ATTR(ack_failure_count, dot11ACKFailureCount, "%u");
++IEEE80211_STATS_ATTR(rts_failure_count, dot11RTSFailureCount, "%u");
++IEEE80211_STATS_ATTR(fcs_error_count, dot11FCSErrorCount, "%u");
++IEEE80211_STATS_ATTR(rts_success_count, dot11RTSSuccessCount, "%u");
++
++static struct attribute *ieee80211_stats_attrs[] = {
++	&class_device_attr_transmitted_fragment_count.attr,
++	&class_device_attr_multicast_transmitted_frame_count.attr,
++	&class_device_attr_failed_count.attr,
++	&class_device_attr_retry_count.attr,
++	&class_device_attr_multiple_retry_count.attr,
++	&class_device_attr_frame_duplicate_count.attr,
++	&class_device_attr_received_fragment_count.attr,
++	&class_device_attr_multicast_received_frame_count.attr,
++	&class_device_attr_transmitted_frame_count.attr,
++	&class_device_attr_wep_undecryptable_count.attr,
++	&class_device_attr_ack_failure_count.attr,
++	&class_device_attr_rts_failure_count.attr,
++	&class_device_attr_fcs_error_count.attr,
++	&class_device_attr_rts_success_count.attr,
++	&class_device_attr_num_scans.attr,
++#ifdef CONFIG_D80211_DEBUG_COUNTERS
++	&class_device_attr_tx_handlers_drop.attr,
++	&class_device_attr_tx_handlers_queued.attr,
++	&class_device_attr_tx_handlers_drop_unencrypted.attr,
++	&class_device_attr_tx_handlers_drop_fragment.attr,
++	&class_device_attr_tx_handlers_drop_wep.attr,
++	&class_device_attr_tx_handlers_drop_rate_limit.attr,
++	&class_device_attr_tx_handlers_drop_not_assoc.attr,
++	&class_device_attr_tx_handlers_drop_unauth_port.attr,
++	&class_device_attr_rx_handlers_drop.attr,
++	&class_device_attr_rx_handlers_queued.attr,
++	&class_device_attr_rx_handlers_drop_nullfunc.attr,
++	&class_device_attr_rx_handlers_drop_defrag.attr,
++	&class_device_attr_rx_handlers_drop_short.attr,
++	&class_device_attr_rx_handlers_drop_passive_scan.attr,
++	&class_device_attr_tx_expand_skb_head.attr,
++	&class_device_attr_tx_expand_skb_head_cloned.attr,
++	&class_device_attr_rx_expand_skb_head.attr,
++	&class_device_attr_rx_expand_skb_head2.attr,
++	&class_device_attr_rx_handlers_fragments.attr,
++	&class_device_attr_tx_status_drop.attr,
++	&class_device_attr_wme_rx_queue.attr,
++	&class_device_attr_wme_tx_queue.attr,
++#endif
++	NULL,
++};
++
++static struct attribute_group ieee80211_stats_group = {
++	.name = "statistics",
++	.attrs = ieee80211_stats_attrs,
++};
++
++/* /sys/class/ieee80211/phyX functions */
++
+ static void ieee80211_class_dev_release(struct class_device *dev)
+ {
+ 	ieee80211_release_hw(to_ieee80211_local(dev));
+@@ -88,12 +370,6 @@ static int ieee80211_uevent(struct class
+ }
+ #endif
+ 
+-static struct class_device_attribute ieee80211_class_dev_attrs[] = {
+-	__ATTR(add_iface, S_IWUSR, NULL, store_add_iface),
+-	__ATTR(remove_iface, S_IWUSR, NULL, store_remove_iface),
+-	{}
+-};
+-
+ static struct class ieee80211_class = {
+ 	.name = "ieee80211",
+ 	.class_dev_attrs = ieee80211_class_dev_attrs,
+@@ -117,16 +393,28 @@ void ieee80211_dev_sysfs_put(struct ieee
+ 
+ int ieee80211_dev_sysfs_add(struct ieee80211_local *local)
+ {
++	int res;
++
+ 	snprintf(local->class_dev.class_id, BUS_ID_SIZE,
+ 		 "phy%d", local->dev_index);
+-	return class_device_add(&local->class_dev);
++	res = class_device_add(&local->class_dev);
++	if (res)
++		return res;
++	res = sysfs_create_group(&local->class_dev.kobj,
++				 &ieee80211_stats_group);
++	if (res)
++		class_device_del(&local->class_dev);
++	return res;
+ }
+ 
+ void ieee80211_dev_sysfs_del(struct ieee80211_local *local)
+ {
++	sysfs_remove_group(&local->class_dev.kobj, &ieee80211_stats_group);
+ 	class_device_del(&local->class_dev);
+ }
+ 
++/* /sys/class/net/X functions */
++
+ int ieee80211_sysfs_add_netdevice(struct net_device *dev)
+ {
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
+@@ -140,6 +428,8 @@ void ieee80211_sysfs_remove_netdevice(st
+ 	sysfs_remove_link(&dev->class_dev.kobj, "wiphy");
+ }
+ 
++/* general module functions */
++
+ int ieee80211_sysfs_init(void)
+ {
+ 	return class_register(&ieee80211_class);
 -- 
 1.3.0
 
