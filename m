@@ -1,69 +1,57 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH v2 4/7] AMSO1100 Memory Management.
-Date: Thu, 8 Jun 2006 01:17:44 -0700
-Message-ID: <20060608011744.1a66e85a.akpm@osdl.org>
-References: <20060607200646.9259.24588.stgit@stevo-desktop>
-	<20060607200655.9259.90768.stgit@stevo-desktop>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 0/5] ehea: IBM eHEA Ethernet Device Driver
+Date: Thu, 08 Jun 2006 11:55:18 +0200
+Message-ID: <4487F406.6040907@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, mshefty@ichips.intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	openib-general@openib.org
+Cc: meder@de.ibm.com, raisch@de.ibm.com, themann@de.ibm.com,
+	tklein@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:182 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932556AbWFHIU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 04:20:58 -0400
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <20060607200655.9259.90768.stgit@stevo-desktop>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:35964 "EHLO
+	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S964810AbWFHJzU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 05:55:20 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.6/8.13.6) with ESMTP id k589tJLG095582
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 09:55:19 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k589vIb6100990
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 11:57:18 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k589tIpm011410
+	for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 11:55:18 +0200
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 07 Jun 2006 15:06:55 -0500
-Steve Wise <swise@opengridcomputing.com> wrote:
+Hello,
 
-> 
-> +void c2_free(struct c2_alloc *alloc, u32 obj)
-> +{
-> +	spin_lock(&alloc->lock);
-> +	clear_bit(obj, alloc->table);
-> +	spin_unlock(&alloc->lock);
-> +}
+thanks for your comments. It seems that yesterday's patch 1/4 has not been
+delivered. We changed some things according to your comments.
 
-The spinlock is unneeded here.
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+Changelog-by:  Jan-Bernd Themann <themann@de.ibm.com>
 
+Differences to patch set http://www.spinics.net/lists/netdev/msg05813.html
 
-What does all the code in this file do, anyway?  It looks totally generic
-(and hence inappropriate for drivers/infiniband/hw/amso1100/) and somewhat
-similar to idr trees, perhaps.
+Changelog:
 
-> +int c2_array_set(struct c2_array *array, int index, void *value)
-> +{
-> +	int p = (index * sizeof(void *)) >> PAGE_SHIFT;
-> +
-> +	/* Allocate with GFP_ATOMIC because we'll be called with locks held. */
-> +	if (!array->page_list[p].page)
-> +		array->page_list[p].page =
-> +		    (void **) get_zeroed_page(GFP_ATOMIC);
-> +
-> +	if (!array->page_list[p].page)
-> +		return -ENOMEM;
+- reduce number of parameters for debug macro calls
+- ehea prefix added to some non static functions
+- Makefile and Kconfig improved
 
-This _will_ happen under load.  What will the result of that be, in the
-context of thise driver?
-
-This function is incorrectly designed - it should receive a gfp_t argument.
-Because you don't *know* that the caller will always hold a spinlock.  And
-GFP_KERNEL is far, far stronger than GFP_ATOMIC.
-
-> +static int c2_alloc_mqsp_chunk(gfp_t gfp_mask, struct sp_chunk **head)
-> +{
-> +	int i;
-> +	struct sp_chunk *new_head;
-> +
-> +	new_head = (struct sp_chunk *) __get_free_page(gfp_mask | GFP_DMA);
-
-Why is __GFP_DMA in there?  Unless you've cornered the ISA bus infiniband
-market, it's likely to be wrong.
+  drivers/net/ehea/Kconfig     |    6
+  drivers/net/ehea/Makefile    |    7
+  drivers/net/ehea/ehea.h      |  434 +++++++
+  drivers/net/ehea/ehea_hw.h   |  319 +++++
+  drivers/net/ehea/ehea_main.c | 2562 +++++++++++++++++++++++++++++++++++++++++++
+  drivers/net/ehea/ehea_phyp.c | 1023 +++++++++++++++++
+  drivers/net/ehea/ehea_phyp.h |  625 ++++++++++
+  drivers/net/ehea/ehea_qmr.c  |  719 ++++++++++++
+  drivers/net/ehea/ehea_qmr.h  |  390 ++++++
+  9 files changed, 6085 insertions(+)
 
 
