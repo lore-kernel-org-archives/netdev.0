@@ -1,41 +1,39 @@
-From: Grant Grundler <grundler@parisc-linux.org>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: PATCH 2.6.17-rc5 tulip free_irq() called too late
-Date: Thu, 8 Jun 2006 09:36:26 -0600
-Message-ID: <20060608153626.GE8246@colo.lackof.org>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608152221.GC8246@colo.lackof.org> <44884317.8070601@pobox.com>
+Date: Thu, 08 Jun 2006 11:38:52 -0400
+Message-ID: <4488448C.8050504@pobox.com>
+References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608152221.GC8246@colo.lackof.org> <20060608153235.GD8246@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
 	Val Henson <val.henson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:28381 "EHLO colo.lackof.org")
-	by vger.kernel.org with ESMTP id S964876AbWFHPg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 11:36:27 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <44884317.8070601@pobox.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:7887 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964882AbWFHPi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 11:38:56 -0400
+To: Grant Grundler <grundler@parisc-linux.org>
+In-Reply-To: <20060608153235.GD8246@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2006 at 11:32:39AM -0400, Jeff Garzik wrote:
-> >The chip IRQ gets turned off in tulip_down().
-> >It won't be screaming for very long.
-> 
-> Then you admit that you add a race.
+Grant Grundler wrote:
+> Ok...I think I understand what you are driving at here.
+> The case is when CPU vector is enabled and shared but
+> one device _without_ an interrupt handler is registered
+> is still yanking on the interrupt line. It will cause
+> linux to disable the line since the IRQ isn't being handled.
 
-Yes - I realized that after I hit <send> :(
+Correct.
 
-...
-> >In the shared IRQ case, I expect free_irq() to unlink this instance
-> >of the tulip interrupt handler from the CPU vector list. If that
-> 
-> Irrelevant -- that doesn't stop the tulip hardware from raising the irq, 
-> nor stop the system from attempting to deliver it [in all cases].  In 
-> the shared interrupt case, that means that another driver's irq handler 
-> will be called for an event tulip hardware raised.
 
-*nod*
+> Can we call free_irq() from tulip_down()?
 
-thanks,
-grant
+I'm sure you can answer that yourself.  If it doesn't cause problems 
+elsewhere, yes.  Otherwise, no.  :)
+
+Did you read the example I cited, cp_close() ?
+
+	Jeff
+
+
