@@ -1,62 +1,58 @@
-From: Nathaniel Case <ncase@xes-inc.com>
-Subject: Re: [PATCH 2/2] PHYLIB/gianfar: Use phy_ethtool_get_link() for
-	get_link op
-Date: Thu, 08 Jun 2006 11:22:36 -0500
-Message-ID: <1149783756.30343.18.camel@localhost.localdomain>
-References: <1149551334.10700.48.camel@localhost.localdomain>
-	 <44883B0E.5090802@garzik.org>
-	 <1149779939.30343.7.camel@localhost.localdomain>
-	 <44884363.6080907@garzik.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH RESEND] e100/e1000: fixes and pci error recovery
+Date: Thu, 08 Jun 2006 09:32:04 -0700
+Message-ID: <44885104.7020705@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
-	galak@kernel.crashing.org
+Cc: Linas Vepstas <linas@linas.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xes-mad.com ([216.165.139.214]:21735 "EHLO xes-mad.com")
-	by vger.kernel.org with ESMTP id S964861AbWFHQYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 12:24:53 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44884363.6080907@garzik.org>
+Received: from fmr18.intel.com ([134.134.136.17]:54964 "EHLO
+	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964871AbWFHQd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 12:33:28 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes the gianfar ethtool code use phy_ethtool_get_link()
-instead of ethtool_op_get_link().
 
-Signed-off-by: Nate Case <ncase@xes-inc.com>
+Jeff,
 
----
+This is a resend of several earlier sent (and Acked) patches for e100 and 
+e1000. They are available on our git server and contain:
 
---- a/drivers/net/gianfar_ethtool.c	2006-06-05 11:27:19.000000000 -0500
-+++ b/drivers/net/gianfar_ethtool.c	2006-06-04 19:31:01.000000000 -0500
-@@ -228,6 +228,18 @@
- 		buf[i] = gfar_read(&theregs[i]);
- }
- 
-+static u32 gfar_get_link(struct net_device *dev)
-+{
-+	struct gfar_private *priv = netdev_priv(dev);
-+	struct phy_device *phydev = priv->phydev;
-+
-+	if (NULL == phydev)
-+		return 0;
-+
-+	return phy_ethtool_get_link(phydev);
-+}
-+
-+
- /* Convert microseconds to ethernet clock ticks, which changes
-  * depending on what speed the controller is running at */
- static unsigned int gfar_usecs2ticks(struct gfar_private *priv, unsigned int usecs)
-@@ -574,7 +578,7 @@
- 	.get_drvinfo = gfar_gdrvinfo,
- 	.get_regs_len = gfar_reglen,
- 	.get_regs = gfar_get_regs,
--	.get_link = ethtool_op_get_link,
-+	.get_link = gfar_get_link,
- 	.get_coalesce = gfar_gcoalesce,
- 	.set_coalesce = gfar_scoalesce,
- 	.get_ringparam = gfar_gringparam,
+in branch upstream-fixes:
+[1] e1000: fix irq sharing when running ethtool test
+[2] e1000: remove risky prefetch on next_skb->data
 
+against netdev-2.6#upstream-fixes e82b0f2cc21be905e504573483fa9542b15df96f
 
+[ please note that patch 2 will need manual merging into #upstream ]
+
+in branch upstream:
+[3] e100: add PCI Error Recovery
+[4] e1000: add PCI Error Recovery
+
+against netdev-2.6#upstream 983f27d37d4fc72c252835cb2ee3103b360735a6
+
+Please pull:
+
+into #upstream-fixes:
+   git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
+into #upstream:
+   git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
+
+Cheers,
+
+Auke
+
+Refs
+
+[1] http://marc.theaimsgroup.com/?l=linux-netdev&m=114928689932374&w=2
+[2] http://marc.theaimsgroup.com/?l=linux-netdev&m=114954878609885&w=2
+[3] http://marc.theaimsgroup.com/?l=linux-netdev&m=114436228823926&w=2
+[4] http://marc.theaimsgroup.com/?l=linux-pci&m=114325705604534&w=2
