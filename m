@@ -1,39 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite
- support
-Date: Thu, 08 Jun 2006 15:13:47 -0700 (PDT)
-Message-ID: <20060608.151347.55505744.davem@davemloft.net>
-References: <20060608.115331.71094388.davem@davemloft.net>
-	<Pine.LNX.4.64.0606081542390.3555@d.namei>
-	<200606082109.34338.gerrit@erg.abdn.ac.uk>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [IPV6]: Fix RTNLGRP_IPV6_IFINFO netlink notifications
+Date: Fri, 09 Jun 2006 00:56:46 +0200
+Message-ID: <4488AB2E.3030301@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, alan@lxorguk.ukuu.org.uk, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------080505080200010706080303"
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10945
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965012AbWFHWNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 18:13:46 -0400
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200606082109.34338.gerrit@erg.abdn.ac.uk>
+Received: from stinky.trash.net ([213.144.137.162]:42183 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S965036AbWFHW5S
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 18:57:18 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Thu, 8 Jun 2006 21:09:33 +0100
+This is a multi-part message in MIME format.
+--------------080505080200010706080303
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-> That is why I held back regarding the IPv6 port: I can ensure that
-> this (IPv4) code is up to standard and to date, but am lacking the
-> required additional time to implement the same for IPv6.  I am
-> trying to contact people to help with the port, but for the moment I
-> will take responsibility only for the IPv4 version.
 
-It's not like an ipv6 port is such a big pile of work.
+--------------080505080200010706080303
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-I'd say it would take you an afternoon, max.
+[IPV6]: Fix RTNLGRP_IPV6_IFINFO netlink notifications
 
-You don't have to test it to the point where it is ISO9000 compliant,
-that's not what is being asked of you.
+The allocated skb is too small for the message, which results in an EINVAL
+getting reported to the (innocent) multicast listeners.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit f71bc8ace692302ad3a80d84b8cbccbb14e88fe5
+tree 21ccfa89e911ff8e6bda04ab817367f2ac4e3173
+parent 1def630a6a49dda5bc89dfbd86656293640456f0
+author Patrick McHardy <kaber@trash.net> Wed, 07 Jun 2006 09:25:26 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 07 Jun 2006 09:25:26 +0200
+
+ net/ipv6/addrconf.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 445006e..cc81cab 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3235,8 +3235,7 @@ static int inet6_dump_ifinfo(struct sk_b
+ void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
+ {
+ 	struct sk_buff *skb;
+-	/* 128 bytes ?? */
+-	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+128);
++	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+172);
+ 	
+ 	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb) {
+
+--------------080505080200010706080303--
