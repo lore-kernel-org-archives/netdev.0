@@ -1,52 +1,55 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Thu, 8 Jun 2006 16:07:02 -0500
-Message-ID: <20060608210702.GD24227@waste.org>
-References: <44886381.9050506@goop.org>
+From: "Valerie Henson" <val_henson@linux.intel.com>
+Subject: Re: New tulip maintainer...
+Date: Thu, 8 Jun 2006 14:24:15 -0700
+Message-ID: <70b6f0bf0606081424p29b125eal311def7cfeeeda52@mail.gmail.com>
+References: <44884528.2040804@garzik.org>
+	 <20060608160639.GH8246@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jeff@garzik.org>, "Andrew Morton" <akpm@osdl.org>,
+	"Netdev List" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([64.81.244.121]:45009 "EHLO waste.org")
-	by vger.kernel.org with ESMTP id S965013AbWFHVQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 17:16:36 -0400
-To: Jeremy Fitzhardinge <jeremy@goop.org>
+Received: from ug-out-1314.google.com ([66.249.92.173]:20892 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S965023AbWFHVYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Jun 2006 17:24:17 -0400
+Received: by ug-out-1314.google.com with SMTP id m2so1028997ugc
+        for <netdev@vger.kernel.org>; Thu, 08 Jun 2006 14:24:16 -0700 (PDT)
+To: "Grant Grundler" <grundler@parisc-linux.org>
+In-Reply-To: <20060608160639.GH8246@colo.lackof.org>
 Content-Disposition: inline
-In-Reply-To: <44886381.9050506@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2006 at 10:50:57AM -0700, Jeremy Fitzhardinge wrote:
-> I've been trying to get suspend/resume working well on my new laptop.  
-> In general, netconsole has been pretty useful for extracting oopses and 
-> other messages, but it is of more limited help in debugging the actual 
-> suspend/resume cycle.  The problem looks like the e1000 driver won't 
-> suspend while netconsole is using it, so I have to rmmod/modprobe 
-> netconsole around the actual suspend/resume.
+On 6/8/06, Grant Grundler <grundler@parisc-linux.org> wrote:
+> On Thu, Jun 08, 2006 at 11:41:28AM -0400, Jeff Garzik wrote:
+> > Now that we have a new tulip maintainer, perhaps a resend of the
+> > long-outstanding tulip phy patches could be resent?
+>
+> All the tulip patches I have are archived here:
+>         ftp://ftp.parisc-linux.org/patches/
+>
+> Anything else tulip I've been involved with is available
+> via CVS from cvs.parisc-linux.org/linux-2.6/
+>
+> Thibaut Varene has also committed his changes to that CVS.
 
-That's odd. Netpoll holds a reference to the device, of course, but so
-does a normal "up" interface. So that shouldn't be the problem.
-Another possibility is that outgoing packets from printks in the
-driver are causing difficulty. Not sure what can be done about that.
+Hey folks,
 
-> This is a big problem during resume because the screen is also blank, so 
-> I get no useful clue as to what went wrong when things go wrong.  I'm 
-> wondering if there's some way to keep netconsole alive to the last 
-> possible moment during suspend, and re-woken as soon as possible during 
-> resume.  It would be nice to have a clean solution, but I'm willing to 
-> use a bletcherous hack if that's what it takes.
+Just a quick note to say that, yes, in a moment of weak-willed
+delusion, I did let Jeff pressure me into becoming the tulip
+maintainer.  I will accept tokens of condolence in the form of beer,
+money, and old tulip cards (email me for my shipping address).
 
-It's generally going to suck, because unlike a polled serial port, the
-device needs to be put to sleep. But if you're doing suspend to RAM,
-you might be able to do something like this:
+I'm going to be a tiny bit busy the next couple of weeks - minor
+things like running the file systems workshop and moving house - but I
+am paying attention and will start testing and shipping patches as
+soon as possible.
 
-- unhook net device from suspend machinery (possibly just return success)
-- bounce out of suspend before the final call to ACPI is made
+One quick note: please use my spiffy val_henson@linux.intel.com
+address (see From: address) for Linux stuff.  Besides giving props to
+my employer, it's much easier to send/receive patches from that
+account.
 
-Net effect is you do OS-level suspend and resume of everything but the
-NIC without actually powering down the core. Which should let you
-debug just about everything.
-
--- 
-Mathematics is the supreme nostalgia of our time.
+-VAL
