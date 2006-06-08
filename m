@@ -1,40 +1,52 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 9/10] Add Vitesse 8244 PHY for MPC8641 HPCN platform.
-Date: Thu, 08 Jun 2006 17:01:05 -0400
-Message-ID: <44889011.4010008@garzik.org>
-References: <1149720298.23938.207.camel@cashmere.sps.mot.com>	 <44887BD3.7000009@garzik.org>	 <1149797603.23938.251.camel@cashmere.sps.mot.com>	 <44888A37.3090401@garzik.org>	 <1149799209.23938.256.camel@cashmere.sps.mot.com>	 <44888CB3.1060507@garzik.org> <1149799949.23938.264.camel@cashmere.sps.mot.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Thu, 8 Jun 2006 16:07:02 -0500
+Message-ID: <20060608210702.GD24227@waste.org>
+References: <44886381.9050506@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
-	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:11482 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965015AbWFHVBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 17:01:08 -0400
-To: Jon Loeliger <jdl@freescale.com>
-In-Reply-To: <1149799949.23938.264.camel@cashmere.sps.mot.com>
+Received: from waste.org ([64.81.244.121]:45009 "EHLO waste.org")
+	by vger.kernel.org with ESMTP id S965013AbWFHVQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 17:16:36 -0400
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Content-Disposition: inline
+In-Reply-To: <44886381.9050506@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jon Loeliger wrote:
-> On Thu, 2006-06-08 at 15:46, Jeff Garzik wrote:
-> 
->> I leave it up to you and Paul to coordinate, then :)
->>
->> I'm fine with the patch, and if its better to merge via linuxppc.git, 
->> that's OK with me.  If you would prefer to send it via my tree, to go 
->> ahead and get it in, that's fine too.
-> 
-> OK, thanks.  I need to re-submit 5 of 10 parts for
-> other cleanup issues anyway, so I think I will:
-> 
-> - Resubmit the entire patch set,
-> - Resubmit netdev parts to Paul, and netdev with
->   an added ACK: by you line (OK?),
+On Thu, Jun 08, 2006 at 10:50:57AM -0700, Jeremy Fitzhardinge wrote:
+> I've been trying to get suspend/resume working well on my new laptop.  
+> In general, netconsole has been pretty useful for extracting oopses and 
+> other messages, but it is of more limited help in debugging the actual 
+> suspend/resume cycle.  The problem looks like the e1000 driver won't 
+> suspend while netconsole is using it, so I have to rmmod/modprobe 
+> netconsole around the actual suspend/resume.
 
-OK with me.  Since we use a specific header to indicate such, that would be:
+That's odd. Netpoll holds a reference to the device, of course, but so
+does a normal "up" interface. So that shouldn't be the problem.
+Another possibility is that outgoing packets from printks in the
+driver are causing difficulty. Not sure what can be done about that.
 
-Acked-by: Jeff Garzik <jeff@garzik.org>
+> This is a big problem during resume because the screen is also blank, so 
+> I get no useful clue as to what went wrong when things go wrong.  I'm 
+> wondering if there's some way to keep netconsole alive to the last 
+> possible moment during suspend, and re-woken as soon as possible during 
+> resume.  It would be nice to have a clean solution, but I'm willing to 
+> use a bletcherous hack if that's what it takes.
 
+It's generally going to suck, because unlike a polled serial port, the
+device needs to be put to sleep. But if you're doing suspend to RAM,
+you might be able to do something like this:
 
+- unhook net device from suspend machinery (possibly just return success)
+- bounce out of suspend before the final call to ACPI is made
+
+Net effect is you do OS-level suspend and resume of everything but the
+NIC without actually powering down the core. Which should let you
+debug just about everything.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
