@@ -1,34 +1,35 @@
-From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Subject: Re: [PATCH] pcnet32 driver NAPI support
-Date: Thu, 8 Jun 2006 11:44:15 -0400
-Message-ID: <20060608154415.GC558@csclub.uwaterloo.ca>
-References: <20060607165225.GB7859@csclub.uwaterloo.ca> <20060607182040.GA12748@us.ibm.com> <20060607193456.GN7857@csclub.uwaterloo.ca> <20060607215236.GA13380@us.ibm.com> <20060607223245.GA13584@us.ibm.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: PATCH 2.6.17-rc5 tulip free_irq() called too late
+Date: Thu, 8 Jun 2006 09:47:06 -0600
+Message-ID: <20060608154706.GG8246@colo.lackof.org>
+References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608152221.GC8246@colo.lackof.org> <20060608153235.GD8246@colo.lackof.org> <4488448C.8050504@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Val Henson <val.henson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:47056 "EHLO
-	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
-	id S964883AbWFHPoP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Jun 2006 11:44:15 -0400
-To: Don Fry <brazilnut@us.ibm.com>
+Received: from colo.lackof.org ([198.49.126.79]:65245 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S964890AbWFHPrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 11:47:09 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20060607223245.GA13584@us.ibm.com>
+In-Reply-To: <4488448C.8050504@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 07, 2006 at 03:32:45PM -0700, Don Fry wrote:
-> One other problem I ran into.  I applied the patch but it will not
-> compile because rl_active is never defined.  I have worked around it but
+On Thu, Jun 08, 2006 at 11:38:52AM -0400, Jeff Garzik wrote:
+> >Can we call free_irq() from tulip_down()?
+> 
+> I'm sure you can answer that yourself.  If it doesn't cause problems 
+> elsewhere, yes.  Otherwise, no.  :)
 
-Doh!  I thought I cleaned up all my "weird code" from my own version.
-Because of the platform I work with having 4 pcnet32 ports, and a slow
-poke 266MHz geode, we can't handle full traffic load, so to keep the
-system responsive to pause processing receives when we pass a certain
-number of packets per second.  rl_active is part of that.  I meant to
-remove all of it, apparently I didn't read every line of my patch
-carefully enough. :(
+Yeah, well, I was hoping you would "Just Know" (tm). :)
+Research takes time.
 
-Well at least this ought to clean up my work a bit.
+> Did you read the example I cited, cp_close() ?
 
-Len Sorensen
+Yes - after I sent the mail. It looks good to me too.
+
+thanks,
+grant
