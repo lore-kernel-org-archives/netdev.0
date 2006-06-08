@@ -1,138 +1,161 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 6666] New: invalid tcp socket connection to
- windows stacks
-Date: Thu, 8 Jun 2006 10:36:27 -0700
-Message-ID: <20060608103627.23cfc83a.akpm@osdl.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netchannels: netchannel vs. socket. 2:0.
+Date: Thu, 8 Jun 2006 21:40:35 +0400
+Message-ID: <20060608174035.GA21733@2ka.mipt.ru>
+References: <20060608171555.GA10273@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: technik@power-netz.de,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
+Content-Type: multipart/mixed; boundary="W/nzBZO5zC0uMSeA"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:47238 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964882AbWFHRgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 13:36:40 -0400
-To: netdev@vger.kernel.org
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37338 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964922AbWFHRkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 13:40:47 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060608171555.GA10273@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+--W/nzBZO5zC0uMSeA
+Content-Type: text/plain; charset=koi8-r
+Content-Disposition: inline
 
-Begin forwarded message:
+On Thu, Jun 08, 2006 at 09:15:55PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> After some enhancements made for netchannel subsystem I'm pleased to
+> announce, that netchannel subsystem outperforms existing layered design
+> both in CPU usage and network speed.
+> 
+> Well, after such pretentious introduction I want to cool things down.
+> CPU usage is about 1-2% less for netchannels and network performance is
+> about 1-2 MB higher and sometimes exceeds 84 MB/sec which, I think, 
+> is maximum for given network setup (e1000 receive, r8169 send, 1500 MTU).
+> 
+> It is stable and 100% reproductible result.
+> 
+> Performance graph and patch are attached.
 
-Date: Thu, 8 Jun 2006 05:23:04 -0700
-From: bugme-daemon@bugzilla.kernel.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 6666] New: invalid tcp socket connection to windows stacks
+Hmm, graph has been attached now.
 
+-- 
+	Evgeniy Polyakov
 
-http://bugzilla.kernel.org/show_bug.cgi?id=6666
+--W/nzBZO5zC0uMSeA
+Content-Type: image/png
+Content-Disposition: attachment; filename="netchannel_speed.png"
+Content-Transfer-Encoding: base64
 
-           Summary: invalid tcp socket connection to windows stacks
-    Kernel Version: 2.6.17.rc3-rc6
-            Status: NEW
-          Severity: normal
-             Owner: shemminger@osdl.org
-         Submitter: technik@power-netz.de
+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
 
-
-Most recent kernel where this bug did not occur:
-
-2.6.16 stable
-
-Distribution:
-none. static kernel compiled directly out of the box.
-
-Hardware Environment:
-dual Xeon 2.66 512kB 1024MB networks e1000 e1000 e100
-dual Xeon 3.20 2048kB 2048MB networks e1000 sky2
-
-Software Environment:
-problem occurs in kernel version 2.6.17rc3, 2.6.17rc6
-problem does NOT occur in kernel version 2.6.16
-
-Problem Description:
-
-The kernel sends an ack to the windows stack after sync has been
-replied, but theres no answere to this ack(1) and the kernel sends
-a FIN packet after connection timeout. Now the windowsstack sends 
-an ack(2) and a FIN and the connections ends.
-
-It takes a while for the linux kernel to send the fin, we have shorten 
-this in our tcpdump a bit.
-
-connections to other windowssystems i.e. throu a dsl router or other linux 
-based computers are working as expected. 
-
-It is a very! special bug which you are maybe not able to reproduce. 
-
-that's why i added the ip adress to test with. As far as i know, the ip
-belongs to an exchange server in a home network somewhere in switzerland.
-
-You can use it freely as it acts as a public mailserver for the domain.
-
-Problem occurs independently of "Rx Polling"/"NAPI" and "Packet Split" 
-settings.
-
-Steps to reproduce:
-
-You need TCPDUMP and NETCAT ( nc ).
-
-1) tcpdump -w /tmp/log -s 2000 host  212.90.215.40  &
-2) nc 212.90.215.40 25
-
-If it's buggy you get :
-
-11:24:15.021572 d59.x-mailer.de.59959 >
-cust.static.212-90-215-40.cybernet.ch.smtp: S 2028538653:2028538653(0) win 5840
-<mss 1460,sackOK,timestamp 243108498 0,nop,wscale 7> (DF)
-11:24:15.076329 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.59959: S 2328498080:2328498080(0) ack 2028538654 win 16384 <mss
-1400,nop,wscale 0,nop,nop,timestamp 0
-0,nop,nop,sackOK>
-11:24:15.076352 d59.x-mailer.de.59959 >
-cust.static.212-90-215-40.cybernet.ch.smtp: . ack 1 win 46 <nop,nop,timestamp
-243108503 0> (DF)
-11:24:21.926186 d59.x-mailer.de.59959 >
-cust.static.212-90-215-40.cybernet.ch.smtp: F 1:1(0) ack 1 win 46
-<nop,nop,timestamp 243109188 0> (DF)
-11:24:21.972106 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.59959: . ack 2 win 65535 <nop,nop,timestamp 19121191 243109188> (DF)
-11:24:21.973980 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.59959: F 116:116(0) ack 2 win 65535 <nop,nop,timestamp 19121191
-243109188> (DF)
-11:24:21.973999 d59.x-mailer.de.59959 >
-cust.static.212-90-215-40.cybernet.ch.smtp: R 2028538655:2028538655(0) win 0 (DF)   
-
-### you should get kind of this:
-
-13:56:37.203297 d59.x-mailer.de.43286 >
-cust.static.212-90-215-40.cybernet.ch.smtp: S 1489507409:1489507409(0) win 5840
-<mss 1460,sackOK,timestamp 16627469 0,nop,wscale 2> (DF)
-13:56:37.250827 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.43286: S 783498912:783498912(0) ack 1489507410 win 16384 <mss
-1400,nop,wscale 0,nop,nop,timestamp 0 0,nop,nop,sackOK>
-13:56:37.250888 d59.x-mailer.de.43286 >
-cust.static.212-90-215-40.cybernet.ch.smtp: . ack 1 win 1460 <nop,nop,timestamp
-16627473 0> (DF)
-13:56:37.292170 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.43286: P 1:116(115) ack 1 win 65535 <nop,nop,timestamp 20940584
-16627469> (DF)
-13:56:37.292207 d59.x-mailer.de.43286 >
-cust.static.212-90-215-40.cybernet.ch.smtp: . ack 116 win 1460
-<nop,nop,timestamp 16627478 20940584> (DF)
-13:56:39.373383 d59.x-mailer.de.43286 >
-cust.static.212-90-215-40.cybernet.ch.smtp: F 1:1(0) ack 116 win 1460
-<nop,nop,timestamp 16627686 20940584> (DF)
-13:56:39.413075 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.43286: . ack 2 win 65535 <nop,nop,timestamp 20940605 16627686> (DF)
-13:56:39.414449 cust.static.212-90-215-40.cybernet.ch.smtp >
-d59.x-mailer.de.43286: F 116:116(0) ack 2 win 65535 <nop,nop,timestamp 20940605
-16627686> (DF)
-13:56:39.414464 d59.x-mailer.de.43286 >
-cust.static.212-90-215-40.cybernet.ch.smtp: . ack 117 win 1460
-<nop,nop,timestamp 16627690 20940605> (DF)
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+--W/nzBZO5zC0uMSeA--
