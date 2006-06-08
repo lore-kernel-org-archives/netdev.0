@@ -1,1123 +1,593 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 12/12] d80211: remove procfs files
-Date: Thu,  8 Jun 2006 09:49:16 +0200 (CEST)
-Message-ID: <20060608074916.A1D2048398@silver.suse.cz>
+Subject: [PATCH 11/12] d80211: encryption keys sysfs attributes
+Date: Thu,  8 Jun 2006 09:49:15 +0200 (CEST)
+Message-ID: <20060608074915.8C1F548397@silver.suse.cz>
 References: <20060608094822.014829000.midnight@suse.cz>
 Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:53912 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S964778AbWFHHsG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:48:06 -0400
+Received: from styx.suse.cz ([82.119.242.94]:51608 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S964783AbWFHHsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 03:48:04 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <20060608094822.014829000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove procfs support.
+Add /sys/class/ieee80211/phyX/sta/*/key/* and /sys/class/net/X/keys/[0-3]/*
+attributes.
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/Makefile          |    1 
- net/d80211/ieee80211.c       |    7 
- net/d80211/ieee80211_iface.c |    3 
- net/d80211/ieee80211_proc.c  |  768 ------------------------------------------
- net/d80211/ieee80211_proc.h  |   48 ---
- net/d80211/ieee80211_sysfs.c |   33 ++
- net/d80211/rate_control.c    |   25 -
- net/d80211/rate_control.h    |   17 -
- net/d80211/sta_info.c        |    4 
- 9 files changed, 32 insertions(+), 874 deletions(-)
- delete mode 100644 net/d80211/ieee80211_proc.c
- delete mode 100644 net/d80211/ieee80211_proc.h
+ net/d80211/ieee80211.c           |   33 ++++++
+ net/d80211/ieee80211_i.h         |   11 ++
+ net/d80211/ieee80211_ioctl.c     |  101 ++++++++++++-------
+ net/d80211/ieee80211_key.h       |    2 
+ net/d80211/ieee80211_sysfs.c     |   12 ++
+ net/d80211/ieee80211_sysfs_sta.c |  206 ++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 326 insertions(+), 39 deletions(-)
 
-89c13fc02b12796d1f57c33c7fae1bcf875d846b
-diff --git a/net/d80211/Makefile b/net/d80211/Makefile
-index 7d1ec29..c21e882 100644
---- a/net/d80211/Makefile
-+++ b/net/d80211/Makefile
-@@ -6,7 +6,6 @@ obj-$(CONFIG_D80211) += 80211.o rate_con
- 	sta_info.o \
- 	wep.o \
- 	wpa.o \
--	ieee80211_proc.o \
- 	ieee80211_scan.o \
- 	ieee80211_sta.o \
- 	ieee80211_dev.o \
+9b2e2e2cc66e7fb3f1ae07d7e083ffa63dffbde7
 diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 1a03f07..a8ca8d1 100644
+index e4ac701..1a03f07 100644
 --- a/net/d80211/ieee80211.c
 +++ b/net/d80211/ieee80211.c
-@@ -25,7 +25,6 @@ #include <net/d80211.h>
- #include <net/d80211_common.h>
- #include <net/d80211_mgmt.h>
- #include "ieee80211_i.h"
--#include "ieee80211_proc.h"
- #include "rate_control.h"
- #include "wep.h"
- #include "wpa.h"
-@@ -4256,7 +4255,6 @@ int ieee80211_register_hw(struct net_dev
- 	ieee80211_install_qdisc(dev);
+@@ -84,15 +84,44 @@ ieee80211_key_data2conf(struct ieee80211
+ 	return conf;
+ }
  
-         ieee80211_wep_init(local);
--	ieee80211_proc_init_interface(local);
++struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
++					  int idx, size_t key_len, gfp_t flags)
++{
++	struct ieee80211_key *key;
++	int res;
++
++	key = kzalloc(sizeof(struct ieee80211_key) + key_len, flags);
++	if (!key)
++		return NULL;
++	if (sdata)
++		res = kobject_set_name(&key->kobj, "%d", idx);
++	else
++		res = kobject_set_name(&key->kobj, "key");
++	if (res) {
++		kfree(key);
++		return NULL;
++	}
++	ieee80211_key_sysfs_set_kset(key, sdata ? &sdata->key_kset : NULL);
++	kobject_init(&key->kobj);
++	return key;
++}
  
- 	/* add one default STA interface */
- 	rtnl_lock();
-@@ -4359,8 +4357,6 @@ void ieee80211_unregister_hw(struct net_
- 		kfree(local->basic_rates[i]);
-         }
+ void ieee80211_key_free(struct ieee80211_key *key)
+ {
+-	if (key && key->alg == ALG_CCMP)
++	if (key)
++		kobject_put(&key->kobj);
++}
++
++void ieee80211_key_release(struct kobject *kobj)
++{
++	struct ieee80211_key *key;
++
++	key = container_of(kobj, struct ieee80211_key, kobj);
++	if (key->alg == ALG_CCMP)
+ 		ieee80211_aes_key_free(key->u.ccmp.tfm);
+ 	kfree(key);
+ }
  
--	ieee80211_proc_deinit_interface(local);
 -
- 	if (skb_queue_len(&local->skb_queue)
- 			|| skb_queue_len(&local->skb_queue_unreliable))
- 		printk(KERN_WARNING "%s: skb_queue not empty", dev->name);
-@@ -4520,14 +4516,12 @@ static int __init ieee80211_init(void)
- 		return ret;
+ static int rate_list_match(int *rate_list, int rate)
+ {
+ 	int i;
+diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
+index 212d12f..c1d7422 100644
+--- a/net/d80211/ieee80211_i.h
++++ b/net/d80211/ieee80211_i.h
+@@ -294,6 +294,7 @@ struct ieee80211_sub_if_data {
+ #define NUM_DEFAULT_KEYS 4
+         struct ieee80211_key *keys[NUM_DEFAULT_KEYS];
+         struct ieee80211_key *default_key;
++	struct kset key_kset;
+ 
+ 	struct ieee80211_if_ap *bss; /* BSS that this device belongs to */
+ 
+@@ -527,7 +528,10 @@ int ieee80211_if_config(struct net_devic
+ struct ieee80211_key_conf *
+ ieee80211_key_data2conf(struct ieee80211_local *local,
+ 			struct ieee80211_key *data);
++struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
++					  int idx, size_t key_len, gfp_t flags);
+ void ieee80211_key_free(struct ieee80211_key *key);
++void ieee80211_key_release(struct kobject *kobj);
+ void ieee80211_rx_mgmt(struct net_device *dev, struct sk_buff *skb,
+ 		       struct ieee80211_rx_status *status, u32 msg_type);
+ void ieee80211_prepare_rates(struct net_device *dev);
+@@ -633,5 +637,12 @@ int ieee80211_sta_kset_sysfs_register(st
+ void ieee80211_sta_kset_sysfs_unregister(struct ieee80211_local *local);
+ int ieee80211_sta_sysfs_add(struct sta_info *sta);
+ void ieee80211_sta_sysfs_remove(struct sta_info *sta);
++int ieee80211_key_kset_sysfs_register(struct ieee80211_sub_if_data *sdata);
++void ieee80211_key_kset_sysfs_unregister(struct ieee80211_sub_if_data *sdata);
++void ieee80211_key_sysfs_set_kset(struct ieee80211_key *key, struct kset *kset);
++int ieee80211_key_sysfs_add(struct ieee80211_key *key);
++void ieee80211_key_sysfs_remove(struct ieee80211_key *key);
++int ieee80211_key_sysfs_add_default(struct ieee80211_sub_if_data *sdata);
++void ieee80211_key_sysfs_remove_default(struct ieee80211_sub_if_data *sdata);
+ 
+ #endif /* IEEE80211_I_H */
+diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
+index 562b9f3..7c2a847 100644
+--- a/net/d80211/ieee80211_ioctl.c
++++ b/net/d80211/ieee80211_ioctl.c
+@@ -470,7 +470,7 @@ static int ieee80211_set_encryption(stru
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
+ 	int ret = 0;
+ 	struct sta_info *sta;
+-	struct ieee80211_key **key;
++	struct ieee80211_key *key, *old_key;
+ 	int try_hwaccel = 1;
+         struct ieee80211_key_conf *keyconf;
+         struct ieee80211_sub_if_data *sdata;
+@@ -486,7 +486,7 @@ static int ieee80211_set_encryption(stru
+ 			       dev->name, idx);
+ 			return -EINVAL;
+ 		}
+-		key = &sdata->keys[idx];
++		key = sdata->keys[idx];
+ 
+ 		/* Disable hwaccel for default keys when the interface is not
+ 		 * the default one.
+@@ -525,7 +525,7 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
+ 			return -ENOENT;
+ 		}
+ 
+-		key = &sta->key;
++		key = sta->key;
  	}
  
--	ieee80211_proc_init();
- 	{
- 		ret = ieee80211_wme_register();
- 		if (ret) {
- 			printk(KERN_DEBUG "ieee80211_init: failed to "
- 			       "initialize WME (err=%d)\n", ret);
- 			ieee80211_sysfs_deinit();
--			ieee80211_proc_deinit();
- 			return ret;
+ 	/* FIX:
+@@ -571,8 +571,8 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
+ 
+ 	if (alg == ALG_NONE) {
+ 		keyconf = NULL;
+-		if (try_hwaccel && *key && local->hw->set_key &&
+-		    (keyconf = ieee80211_key_data2conf(local, *key)) != NULL &&
++		if (try_hwaccel && key && local->hw->set_key &&
++		    (keyconf = ieee80211_key_data2conf(local, key)) != NULL &&
+ 		    local->hw->set_key(dev, DISABLE_KEY, sta_addr,
+ 				       keyconf, sta ? sta->aid : 0)) {
+ 			if (err)
+@@ -583,68 +583,101 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
+ 		}
+ 		kfree(keyconf);
+ 
+-		if (sdata->default_key == *key)
++		if (key && sdata->default_key == key) {
++			ieee80211_key_sysfs_remove_default(sdata);
+ 			sdata->default_key = NULL;
+-		ieee80211_key_free(*key);
+-		*key = NULL;
++		}
++		ieee80211_key_sysfs_remove(key);
++		if (sta)
++			sta->key = NULL;
++		else
++			sdata->keys[idx] = NULL;
++		ieee80211_key_free(key);
++		key = NULL;
+ 	} else {
+-		if (*key == NULL || (*key)->keylen < key_len) {
+-			ieee80211_key_free(*key);
+-			*key = kmalloc(sizeof(struct ieee80211_key) +
+-				       key_len, GFP_ATOMIC);
+-			if (*key == NULL) {
+-				ret = -ENOMEM;
+-				goto done;
+-			}
++		old_key = key;
++		key = ieee80211_key_alloc(sta ? NULL : sdata, idx, key_len,
++					  GFP_KERNEL);
++		if (!key) {
++			ret = -ENOMEM;
++			goto err_out;
+ 		}
+-		memset(*key, 0, sizeof(struct ieee80211_key) + key_len);
++
+ 		/* default to sw encryption; low-level driver sets these if the
+ 		 * requested encryption is supported */
+-		(*key)->hw_key_idx = HW_KEY_IDX_INVALID;
+-		(*key)->force_sw_encrypt = 1;
++		key->hw_key_idx = HW_KEY_IDX_INVALID;
++		key->force_sw_encrypt = 1;
+ 
+-		(*key)->alg = alg;
+-		(*key)->keyidx = idx;
+-		(*key)->keylen = key_len;
+-		memcpy((*key)->key, _key, key_len);
++		key->alg = alg;
++		key->keyidx = idx;
++		key->keylen = key_len;
++		memcpy(key->key, _key, key_len);
+ 		if (set_tx_key)
+-			(*key)->default_tx_key = 1;
++			key->default_tx_key = 1;
+ 
+ 		if (alg == ALG_CCMP) {
+ 			/* Initialize AES key state here as an optimization
+ 			 * so that it does not need to be initialized for every
+ 			 * packet. */
+-			(*key)->u.ccmp.tfm = ieee80211_aes_key_setup_encrypt(
+-				(*key)->key);
+-			if ((*key)->u.ccmp.tfm == NULL) {
+-				kfree(*key);
+-				*key = NULL;
++			key->u.ccmp.tfm = ieee80211_aes_key_setup_encrypt(
++				key->key);
++			if (key->u.ccmp.tfm == NULL) {
+ 				ret = -ENOMEM;
+-				goto done;
++				goto err_free;
+ 			}
+ 		}
+ 
++		if (old_key && sdata->default_key == old_key) {
++			ieee80211_key_sysfs_remove_default(sdata);
++			sdata->default_key = NULL;
++		}
++		ieee80211_key_sysfs_remove(old_key);
++		if (sta)
++			sta->key = key;
++		else
++			sdata->keys[idx] = key;
++		ieee80211_key_free(old_key);
++		if (sta)
++			key->kobj.parent = &sta->kobj;
++		ret = ieee80211_key_sysfs_add(key);
++		if (ret)
++			goto err_null;
++
+ 		if (try_hwaccel &&
+ 		    (alg == ALG_WEP || alg == ALG_TKIP || alg == ALG_CCMP)) {
+ 			int e = ieee80211_set_hw_encryption(dev, sta, sta_addr,
+-							    *key);
++							    key);
+ 			if (err)
+ 				*err = e;
  		}
  	}
-@@ -4539,7 +4533,6 @@ static int __init ieee80211_init(void)
- static void __exit ieee80211_exit(void)
- {
- 	ieee80211_wme_unregister();
--	ieee80211_proc_deinit();
- 	ieee80211_sysfs_deinit();
- }
  
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index 960a90e..5abd713 100644
---- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -14,7 +14,6 @@ #include <linux/rtnetlink.h>
- #include <net/d80211.h>
- #include <net/d80211_mgmt.h>
- #include "ieee80211_i.h"
--#include "ieee80211_proc.h"
- #include "sta_info.h"
- 
- void ieee80211_if_sdata_init(struct ieee80211_sub_if_data *sdata)
-@@ -85,7 +84,6 @@ int ieee80211_if_add(struct net_device *
+-	if (set_tx_key || (sta == NULL && sdata->default_key == NULL)) {
+-                sdata->default_key = *key;
++	if (set_tx_key || (sta == NULL && sdata->default_key == NULL && key)) {
++		sdata->default_key = key;
++		if (ieee80211_key_sysfs_add_default(sdata))
++			printk(KERN_WARNING "%s: cannot create symlink to "
++			       "default key\n", dev->name);
+ 		if (local->hw->set_key_idx &&
+ 		    local->hw->set_key_idx(dev, idx))
+ 			printk(KERN_DEBUG "%s: failed to set TX key idx for "
+ 			       "low-level driver\n", dev->name);
  	}
  
- 	list_add(&sdata->list, &local->sub_if_list);
--	ieee80211_proc_init_virtual(ndev);
+- done:
+ 	if (sta)
+ 		sta_info_put(sta);
  
- 	return 0;
++	return 0;
++
++err_null:
++	if (sta)
++		sta->key = NULL;
++	else
++		sdata->keys[idx] = NULL;
++err_free:
++	ieee80211_key_free(key);
++err_out:
++	if (sta)
++		sta_info_put(sta);
+ 	return ret;
+ }
  
-@@ -307,7 +305,6 @@ void __ieee80211_if_del(struct ieee80211
+diff --git a/net/d80211/ieee80211_key.h b/net/d80211/ieee80211_key.h
+index 4c688cd..64f2363 100644
+--- a/net/d80211/ieee80211_key.h
++++ b/net/d80211/ieee80211_key.h
+@@ -40,6 +40,8 @@ #define CCMP_PN_LEN 6
+ #define NUM_RX_DATA_QUEUES 17
  
- 	ieee80211_if_reinit(dev);
- 	list_del(&sdata->list);
--	ieee80211_proc_deinit_virtual(dev);
- 	ieee80211_sysfs_remove_netdevice(dev);
- 	unregister_netdevice(dev);
- 	/* Except master interface, the net_device will be freed by
-diff --git a/net/d80211/ieee80211_proc.c b/net/d80211/ieee80211_proc.c
-deleted file mode 100644
-index 4bb3179..0000000
---- a/net/d80211/ieee80211_proc.c
-+++ /dev/null
-@@ -1,768 +0,0 @@
--/*
-- * Copyright 2003-2005, Devicescape Software, Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-- */
--
--#include <linux/config.h>
--#include <linux/version.h>
--#include <linux/module.h>
--#include <linux/netdevice.h>
--#include <linux/proc_fs.h>
--#include <linux/delay.h>
--
--#ifdef CONFIG_PROC_FS
--
--#include <net/d80211.h>
--#include <net/d80211_common.h>
--#include <net/d80211_mgmt.h>
--#include "ieee80211_i.h"
--#include "sta_info.h"
--#include "ieee80211_proc.h"
--#include "rate_control.h"
--
--
--static struct proc_dir_entry *ieee80211_proc;
--
--#define PROC_LIMIT (PAGE_SIZE - 80)
--
--
--static char * ieee80211_proc_key(char *p, struct ieee80211_key *key,
--				 int idx, int def_key)
--{
--	int i;
--	u8 *tpn, *rpn;
--
--	if (!key)
--		return p;
--
--	p += sprintf(p, "key[%d]%s len=%d sw_encrypt=%d idx=%d hwidx=%d "
--		     "tx_rx_count=%d",
--		     idx, def_key ? "*" : "", key->keylen,
--		     key->force_sw_encrypt, key->keyidx, key->hw_key_idx,
--		     key->tx_rx_count);
--	switch (key->alg) {
--	case ALG_WEP:
--		p += sprintf(p, " alg=WEP");
--		break;
--	case ALG_TKIP:
--		p += sprintf(p, " alg=TKIP iv(tx)=%08x %04x",
--			     key->u.tkip.iv32, key->u.tkip.iv16);
--		for (i = 0; i < NUM_RX_DATA_QUEUES; i++) {
--			if (key->u.tkip.iv32_rx[i] == 0 &&
--			    key->u.tkip.iv16_rx[i] == 0)
--				continue;
--			p += sprintf(p, " iv(rx %d)=%08x %04x", i,
--				     key->u.tkip.iv32_rx[i],
--				     key->u.tkip.iv16_rx[i]);
--		}
--		break;
--	case ALG_CCMP:
--		tpn = key->u.ccmp.tx_pn;
--		p += sprintf(p, " alg=CCMP PN(tx)=%02x%02x%02x%02x%02x%02x",
--			     tpn[0], tpn[1], tpn[2], tpn[3], tpn[4], tpn[5]);
--		for (i = 0; i < NUM_RX_DATA_QUEUES; i++) {
--			rpn = key->u.ccmp.rx_pn[i];
--			if (memcmp(rpn, "\x00\x00\x00\x00\x00\x00", 6) == 0)
--				continue;
--			p += sprintf(p, " PN(rx %d)=%02x%02x%02x%02x%02x%02x",
--				     i, rpn[0], rpn[1], rpn[2], rpn[3], rpn[4],
--				     rpn[5]);
--		}
--		p += sprintf(p, " replays=%u", key->u.ccmp.replays);
--		break;
--	default:
--		break;
--	}
--
--	p += sprintf(p, " key=");
--	for (i = 0; i < key->keylen; i++)
--		p += sprintf(p, "%02x", key->key[i]);
--	p += sprintf(p, "\n");
--	return p;
--}
--
--
--static char * ieee80211_proc_sub_if_ap(char *p,
--				       struct ieee80211_if_ap *ap)
--{
--	p += sprintf(p, "type=ap\n");
--	if (ap->beacon_head)
--		p += sprintf(p, "beacon_head_len=%d\n", ap->beacon_head_len);
--	if (ap->beacon_tail)
--		p += sprintf(p, "beacon_tail_len=%d\n", ap->beacon_tail_len);
--	p += sprintf(p,
--		     "max_aid=%d\n"
--		     "num_sta_ps=%d\n"
--		     "num_buffered_multicast=%u\n"
--		     "dtim_period=%d\n"
--		     "dtim_count=%d\n"
--		     "num_beacons=%d\n"
--		     "force_unicast_rateidx=%d\n"
--		     "max_ratectrl_rateidx=%d\n",
--		     ap->max_aid, atomic_read(&ap->num_sta_ps),
--		     skb_queue_len(&ap->ps_bc_buf),
--		     ap->dtim_period, ap->dtim_count, ap->num_beacons,
--		     ap->force_unicast_rateidx, ap->max_ratectrl_rateidx);
--	return p;
--}
--
--
--static char * ieee80211_proc_sub_if_sta(char *p, int ibss,
--					struct ieee80211_if_sta *ifsta)
--{
--	if (ibss)
--		p += sprintf(p, "type=ibss\n");
--	else
--		p += sprintf(p, "type=sta\n");
--	p += sprintf(p,
--		     "state=%d\n"
--		     "bssid=" MACSTR "\n"
--		     "prev_bssid=" MACSTR "\n"
--		     "ssid_len=%zd\n"
--		     "aid=%d\n"
--		     "ap_capab=0x%x\n"
--		     "capab=0x%x\n"
--		     "extra_ie_len=%zd\n"
--		     "auth_tries=%d\n"
--		     "assoc_tries=%d\n"
--		     "flags=%s%s%s%s%s%s%s\n"
--		     "auth_algs=0x%x\n"
--		     "auth_alg=%d\n"
--		     "auth_transaction=%d\n",
--		     ifsta->state,
--		     MAC2STR(ifsta->bssid),
--		     MAC2STR(ifsta->prev_bssid),
--		     ifsta->ssid_len,
--		     ifsta->aid,
--		     ifsta->ap_capab,
--		     ifsta->capab,
--		     ifsta->extra_ie_len,
--		     ifsta->auth_tries,
--		     ifsta->assoc_tries,
--		     ifsta->ssid_set ? "[SSID]" : "",
--		     ifsta->bssid_set ? "[BSSID]" : "",
--		     ifsta->prev_bssid_set ? "[prev BSSID" : "",
--		     ifsta->authenticated ? "[AUTH]" : "",
--		     ifsta->associated ? "[ASSOC]" : "",
--		     ifsta->probereq_poll ? "[PROBEREQ POLL]" : "",
--		     ifsta->use_protection ? "[CTS prot]" : "",
--		     ifsta->auth_algs,
--		     ifsta->auth_alg,
--		     ifsta->auth_transaction);
--	return p;
--}
--
--
--static char * ieee80211_proc_sub_if(char *p,
--				    struct ieee80211_sub_if_data *sdata)
--{
--	if (sdata == NULL)
--		return p;
--
--	if (sdata->bss)
--		p += sprintf(p, "bss=%p\n", sdata->bss);
--
--	switch (sdata->type) {
--	case IEEE80211_IF_TYPE_AP:
--		p = ieee80211_proc_sub_if_ap(p, &sdata->u.ap);
--		break;
--	case IEEE80211_IF_TYPE_WDS:
--		p += sprintf(p, "type=wds\n");
--		p += sprintf(p, "wds.peer=" MACSTR "\n",
--			     MAC2STR(sdata->u.wds.remote_addr));
--		break;
--	case IEEE80211_IF_TYPE_VLAN:
--		p += sprintf(p, "type=vlan\n");
--		p += sprintf(p, "vlan.id=%d\n", sdata->u.vlan.id);
--		break;
--	case IEEE80211_IF_TYPE_STA:
--		p = ieee80211_proc_sub_if_sta(p, 0, &sdata->u.sta);
--		break;
--	case IEEE80211_IF_TYPE_IBSS:
--		p = ieee80211_proc_sub_if_sta(p, 1, &sdata->u.sta);
--		break;
--	}
--	p += sprintf(p, "channel_use=%d\n", sdata->channel_use);
--	p += sprintf(p, "drop_unencrypted=%d\n", sdata->drop_unencrypted);
--	p += sprintf(p, "eapol=%d\n", sdata->eapol);
--	p += sprintf(p, "ieee802_1x=%d\n", sdata->ieee802_1x);
--
--	return p;
--}
--
--
--static int ieee80211_proc_iface_read(char *page, char **start, off_t off,
--				     int count, int *eof, void *data)
--{
--	char *p = page;
--	struct net_device *dev = (struct net_device *) data;
--	struct ieee80211_sub_if_data *sdata;
--	int i;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
--	if (!sdata)
--		return -1;
--
--        p = ieee80211_proc_sub_if(p, sdata);
--
--	for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
--		if (sdata->keys[i] == NULL)
--			continue;
--
--		p = ieee80211_proc_key(p, sdata->keys[i], i,
--				       sdata->keys[i] == sdata->default_key);
--	}
--
--	return (p - page);
--}
--
--
--static int ieee80211_proc_sta_read(char *page, char **start, off_t off,
--				   int count, int *eof, void *data)
--{
--	char *p = page;
--	struct sta_info *sta = (struct sta_info *) data;
--	struct ieee80211_local *local;
--	int inactive, i;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	if (!sta || !sta->dev)
--		return -1;
--
--	p += sprintf(p, "aid=%d\n", sta->aid);
--	p += sprintf(p, "flags=0x%x %s%s%s%s%s%s%s%s%s%s\n", sta->flags,
--		     sta->flags & WLAN_STA_AUTH ? "[AUTH]" : "",
--		     sta->flags & WLAN_STA_ASSOC ? "[ASSOC]" : "",
--		     sta->flags & WLAN_STA_PS ? "[PS]" : "",
--		     sta->flags & WLAN_STA_TIM ? "[TIM]" : "",
--		     sta->flags & WLAN_STA_PERM ? "[PERM]" : "",
--		     sta->flags & WLAN_STA_AUTHORIZED ? "[AUTHORIZED]" : "",
--		     sta->flags & WLAN_STA_SHORT_PREAMBLE ?
--		     "[SHORT PREAMBLE]" : "",
--		     sta->flags & WLAN_STA_WME ? "[WME]" : "",
--		     sta->flags & WLAN_STA_WDS ? "[WDS]" : "",
--		     sta->flags & WLAN_STA_XR ? "[XR]" : "");
--	p += sprintf(p, "key_idx_compression=%d\n",
--		     sta->key_idx_compression);
--	p += sprintf(p, "dev=%s\n", sta->dev->name);
--	if (sta->vlan_id > 0)
--		p += sprintf(p, "vlan_id=%d\n", sta->vlan_id);
--	p += sprintf(p, "rx_packets=%lu\ntx_packets=%lu\nrx_bytes=%lu\n"
--		     "tx_bytes=%lu\nrx_duplicates=%lu\nrx_fragments=%lu\n"
--		     "rx_dropped=%lu\ntx_fragments=%lu\ntx_filtered=%lu\n",
--		     sta->rx_packets, sta->tx_packets,
--		     sta->rx_bytes, sta->tx_bytes,
--		     sta->num_duplicates, sta->rx_fragments, sta->rx_dropped,
--		     sta->tx_fragments, sta->tx_filtered_count);
--	p = ieee80211_proc_key(p, sta->key, 0, 1);
--
--	local = (struct ieee80211_local *) sta->dev->ieee80211_ptr;
--	if (sta->txrate >= 0 && sta->txrate < local->num_curr_rates) {
--		p += sprintf(p, "txrate=%d\n",
--			     local->curr_rates[sta->txrate].rate);
--	}
--	if (sta->last_txrate >= 0 &&
--	    sta->last_txrate < local->num_curr_rates) {
--		p += sprintf(p, "last_txrate=%d\n",
--			     local->curr_rates[sta->last_txrate].rate);
--	}
--	p += sprintf(p, "num_ps_buf_frames=%u\n",
--		     skb_queue_len(&sta->ps_tx_buf));
--	p += sprintf(p, "tx_retry_failed=%lu\n", sta->tx_retry_failed);
--	p += sprintf(p, "tx_retry_count=%lu\n", sta->tx_retry_count);
--	p += sprintf(p, "last_rssi=%d\n", sta->last_rssi);
--	p += sprintf(p, "last_ack_rssi=%d %d %d\n",
--		     sta->last_ack_rssi[0], sta->last_ack_rssi[1],
--		     sta->last_ack_rssi[2]);
--	if (sta->last_ack)
--		p += sprintf(p, "last_ack_ms=%d\n",
--			     jiffies_to_msecs(jiffies - sta->last_ack));
--	inactive = jiffies - sta->last_rx;
--	p += sprintf(p, "inactive_msec=%d\n", jiffies_to_msecs(inactive));
--	p += sprintf(p, "channel_use=%d\n", sta->channel_use);
--	p += sprintf(p, "wep_weak_iv_count=%d\n", sta->wep_weak_iv_count);
--#ifdef CONFIG_D80211_DEBUG_COUNTERS
--	p += sprintf(p, "wme_rx_queue=");
--	for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
--		p += sprintf(p, "%u ", sta->wme_rx_queue[i]);
--	p += sprintf(p, "\n");
--
--	p += sprintf(p, "wme_tx_queue=");
--	for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
--		p += sprintf(p, "%u ", sta->wme_tx_queue[i]);
--	p += sprintf(p, "\n");
--#endif /* CONFIG_D80211_DEBUG_COUNTERS */
--	p += sprintf(p, "last_seq_ctrl=");
--	for (i = 0; i < NUM_RX_DATA_QUEUES; i++) {
--			p += sprintf(p, "%x ", sta->last_seq_ctrl[i]);
--	}
--	p += sprintf(p, "\n");
--
--	p += rate_control_status_sta(local, sta, p);
--
--	return (p - page);
--}
--
--
--static int ieee80211_proc_counters_read(char *page, char **start, off_t off,
--					int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--        struct ieee80211_low_level_stats stats;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	p += sprintf(p,
--		     "TransmittedFragmentCount=%u\n"
--		     "MulticastTransmittedFrameCount=%u\n"
--		     "FailedCount=%u\n"
--		     "RetryCount=%u\n"
--		     "MultipleRetryCount=%d\n"
--		     "FrameDuplicateCount=%d\n"
--		     "ReceivedFragmentCount=%u\n"
--		     "MulticastReceivedFrameCount=%u\n"
--		     "TransmittedFrameCount=%u\n"
--		     "WEPUndecryptableCount=%u\n",
--		     local->dot11TransmittedFragmentCount,
--		     local->dot11MulticastTransmittedFrameCount,
--		     local->dot11FailedCount,
--		     local->dot11RetryCount,
--		     local->dot11MultipleRetryCount,
--		     local->dot11FrameDuplicateCount,
--		     local->dot11ReceivedFragmentCount,
--		     local->dot11MulticastReceivedFrameCount,
--		     local->dot11TransmittedFrameCount,
--		     local->dot11WEPUndecryptableCount);
--
--	memset(&stats, 0, sizeof(stats));
--	if (local->hw->get_stats &&
--	    local->hw->get_stats(local->mdev, &stats) == 0) {
--		p += sprintf(p,
--			     "ACKFailureCount=%u\n"
--			     "RTSFailureCount=%u\n"
--			     "FCSErrorCount=%u\n"
--			     "RTSSuccessCount=%u\n",
--			     stats.dot11ACKFailureCount,
--			     stats.dot11RTSFailureCount,
--			     stats.dot11FCSErrorCount,
--			     stats.dot11RTSSuccessCount);
--	}
--
--	return (p - page);
--}
--
--
--static int ieee80211_proc_debug_read(char *page, char **start, off_t off,
--				     int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--#ifdef CONFIG_D80211_DEBUG_COUNTERS
--	p += sprintf(p,
--		     "tx_handlers_drop=%u\n"
--		     "tx_handlers_queued=%u\n"
--		     "tx_handlers_drop_unencrypted=%u\n"
--		     "tx_handlers_drop_fragment=%u\n"
--		     "tx_handlers_drop_wep=%u\n"
--		     "tx_handlers_drop_rate_limit=%u\n"
--		     "tx_handlers_drop_not_assoc=%u\n"
--		     "tx_handlers_drop_unauth_port=%u\n"
--		     "rx_handlers_drop=%u\n"
--		     "rx_handlers_queued=%u\n"
--		     "rx_handlers_drop_nullfunc=%u\n"
--		     "rx_handlers_drop_defrag=%u\n"
--		     "rx_handlers_drop_short=%u\n"
--		     "rx_handlers_drop_passive_scan=%u\n"
--		     "tx_expand_skb_head=%u\n"
--		     "tx_expand_skb_head_cloned=%u\n"
--		     "rx_expand_skb_head=%u\n"
--		     "rx_expand_skb_head2=%u\n"
--		     "rx_handlers_fragments=%u\n"
--		     "tx_status_drop=%u\n",
--		     local->tx_handlers_drop,
--		     local->tx_handlers_queued,
--		     local->tx_handlers_drop_unencrypted,
--		     local->tx_handlers_drop_fragment,
--		     local->tx_handlers_drop_wep,
--		     local->tx_handlers_drop_rate_limit,
--		     local->tx_handlers_drop_not_assoc,
--		     local->tx_handlers_drop_unauth_port,
--		     local->rx_handlers_drop,
--		     local->rx_handlers_queued,
--		     local->rx_handlers_drop_nullfunc,
--		     local->rx_handlers_drop_defrag,
--		     local->rx_handlers_drop_short,
--		     local->rx_handlers_drop_passive_scan,
--		     local->tx_expand_skb_head,
--		     local->tx_expand_skb_head_cloned,
--		     local->rx_expand_skb_head,
--		     local->rx_expand_skb_head2,
--		     local->rx_handlers_fragments,
--		     local->tx_status_drop);
--	{
--		int i;
--		p += sprintf(p, "wme_rx_queue=");
--		for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
--			p += sprintf(p, " %u", local->wme_rx_queue[i]);
--		p += sprintf(p, "\n");
--
--		p += sprintf(p, "wme_tx_queue=");
--		for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
--			p += sprintf(p, " %u", local->wme_tx_queue[i]);
--		p += sprintf(p, "\n");
--	}
--#endif /* CONFIG_D80211_DEBUG_COUNTERS */
--
--	p += sprintf(p, "num_scans=%u\n", local->scan.num_scans);
--
--	return (p - page);
--}
--
--
--const char *ieee80211_mode_str_short(int mode)
--{
--	switch (mode) {
--	case MODE_IEEE80211A:
--		return "802.11a";
--	case MODE_IEEE80211B:
--		return "802.11b";
--	case MODE_IEEE80211G:
--		return "802.11g";
--	case MODE_ATHEROS_TURBO:
--		return "AtherosTurbo";
--	default:
--		return "UNKNOWN";
--	}
--}
--
--
--const char *ieee80211_mode_str(int mode)
--{
--	switch (mode) {
--	case MODE_IEEE80211A:
--		return "IEEE 802.11a";
--	case MODE_IEEE80211B:
--		return "IEEE 802.11b";
--	case MODE_IEEE80211G:
--		return "IEEE 802.11g";
--	case MODE_ATHEROS_TURBO:
--		return "Atheros Turbo (5 GHz)";
--	default:
--		return "UNKNOWN";
--	}
--}
--
--
--static int ieee80211_proc_info_read(char *page, char **start, off_t off,
--				    int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--	int m;
--	struct ieee80211_hw_modes *mode;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	p += sprintf(p, "hw_name=%s\n", local->hw->name);
--	p += sprintf(p, "modes=");
--	for (m = 0; m < local->hw->num_modes; m++) {
--		mode = &local->hw->modes[m];
--		p += sprintf(p, "[%s]", ieee80211_mode_str_short(mode->mode));
--	}
--	p += sprintf(p, "\n");
--	if (local->rate_ctrl && local->rate_ctrl_priv)
--		p+= sprintf(p, "rate_ctrl_alg=%s\n", local->rate_ctrl->name);
--	return (p - page);
--}
--
--
--static int ieee80211_proc_config_read(char *page, char **start, off_t off,
--				      int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	p += sprintf(p,
--		     "low_level_driver=%s\n"
--		     "channel=%d\n"
--		     "freq=%d\n"
--		     "mode=%s\n"
--			 "802.11h=%d\n"
--		     "wep_iv=0x%06x\n"
--		     "antenna_sel=%d\n"
--		     "calib_int=%d\n"
--		     "tx_power_reduction=%d.%d dBm\n"
--		     "bridge_packets=%d\n"
--		     "key_tx_rx_threshold=%d\n"
--		     "rts_threshold=%d\n"
--		     "fragmentation_threshold=%d\n"
--		     "short_retry_limit=%d\n"
--		     "long_retry_limit=%d\n"
--		     "total_ps_buffered=%d\n",
--		     local->hw->name ? local->hw->name : "N/A",
--		     local->conf.channel,
--		     local->conf.freq,
--		     ieee80211_mode_str(local->conf.phymode),
--			 local->conf.radar_detect,
--		     local->wep_iv & 0xffffff,
--		     local->conf.antenna_sel,
--		     local->conf.calib_int,
--		     local->conf.tx_power_reduction / 10,
--		     local->conf.tx_power_reduction % 10,
--		     local->bridge_packets,
--		     local->key_tx_rx_threshold,
--		     local->rts_threshold,
--		     local->fragmentation_threshold,
--		     local->short_retry_limit,
--		     local->long_retry_limit,
--		     local->total_ps_buffered);
--
--	return (p - page);
--}
--
--
--static int ieee80211_proc_channels_read(char *page, char **start, off_t off,
--					int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--	int m, c;
--	struct ieee80211_hw_modes *mode;
--	struct ieee80211_channel *chan;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	p += sprintf(p, "MODE CHAN FREQ TXPOWER ANTMAX FLAGS\n");
--	for (m = 0; m < local->hw->num_modes; m++) {
--		mode = &local->hw->modes[m];
--		for (c = 0; c < mode->num_channels; c++) {
--			chan = &mode->channels[c];
--			p += sprintf(p, "%d %d %d %d %d %s%s%s\n",
--				     mode->mode, chan->chan, chan->freq,
--				     chan->power_level, chan->antenna_max,
--				     chan->flag & IEEE80211_CHAN_W_SCAN ?
--				     "[W_SCAN]" : "",
--				     chan->flag & IEEE80211_CHAN_W_ACTIVE_SCAN
--				     ? "[W_ACTIVE_SCAN]" : "",
--				     chan->flag & IEEE80211_CHAN_W_IBSS ?
--				     "[W_IBSS]" : "");
--		}
--	}
--	return (p - page);
--}
--
--
--static int ieee80211_proc_rates_read(char *page, char **start, off_t off,
--				     int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--	int r;
--	struct ieee80211_rate *rate;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	p += sprintf(p, "RATE VAL VAL2 MIN_RSSI_ACK MIN_RSSI_ACK_DELTA "
--		     "FLAGS\n");
--	for (r = 0; r < local->num_curr_rates; r++) {
--		rate = &local->curr_rates[r];
--		p += sprintf(p, "%d %d %d %d %d 0x%x %s%s%s%s%s%s%s%s\n",
--			     rate->rate, rate->val, rate->val2,
--			     rate->min_rssi_ack, rate->min_rssi_ack_delta,
--			     rate->flags,
--			     rate->flags & IEEE80211_RATE_ERP ? "[ERP]" : "",
--			     rate->flags & IEEE80211_RATE_BASIC ?
--			     "[BASIC]" : "",
--			     rate->flags & IEEE80211_RATE_PREAMBLE2 ?
--			     "[PREAMBLE2]" : "",
--			     rate->flags & IEEE80211_RATE_SUPPORTED ?
--			     "[SUPPORTED]" : "",
--			     rate->flags & IEEE80211_RATE_OFDM ? "[OFDM]" : "",
--			     rate->flags & IEEE80211_RATE_CCK ? "[CCK]" : "",
--			     rate->flags & IEEE80211_RATE_TURBO ?
--			     "[TURBO]" : "",
--			     rate->flags & IEEE80211_RATE_MANDATORY ?
--			     "[MANDATORY]" : "");
--	}
--	return (p - page);
--}
--
--
--static int ieee80211_proc_multicast_read(char *page, char **start, off_t off,
--					 int count, int *eof, void *data)
--{
--	char *p = page;
--	struct ieee80211_local *local = (struct ieee80211_local *) data;
--
--	if (off != 0) {
--		*eof = 1;
--		return 0;
--	}
--
--	return rate_control_status_global(local, p);
--
--}
--
--
--void ieee80211_proc_init_sta(struct ieee80211_local *local,
--			     struct sta_info *sta)
--{
--	char buf[30];
--	struct proc_dir_entry *entry;
--
--	sprintf(buf, MACSTR, MAC2STR(sta->addr));
--
--	if (!local->proc_sta)
--		return;
--
--	entry = create_proc_read_entry(buf, 0, local->proc_sta,
--				       ieee80211_proc_sta_read, sta);
--	if (entry) {
--		entry->mode &= ~(S_IRWXG | S_IRWXO);
--	}
--}
--
--
--void ieee80211_proc_deinit_sta(struct ieee80211_local *local,
--			       struct sta_info *sta)
--{
--	char buf[30];
--	sprintf(buf, MACSTR, MAC2STR(sta->addr));
--	if (local->proc_sta) {
--		remove_proc_entry(buf, local->proc_sta);
--	}
--}
--
--
--void ieee80211_proc_init_virtual(struct net_device *dev)
--{
--	struct proc_dir_entry *entry;
--	struct ieee80211_local *local = dev->ieee80211_ptr;
--
--	if (!local->proc_iface)
--		return;
--
--	entry = create_proc_read_entry(dev->name, 0, local->proc_iface,
--				       ieee80211_proc_iface_read, dev);
--	if (entry)
--		entry->mode &= ~(S_IRWXG | S_IRWXO);
--}
--
--
--void ieee80211_proc_deinit_virtual(struct net_device *dev)
--{
--	struct ieee80211_local *local = dev->ieee80211_ptr;
--
--	if (local->proc_iface)
--		remove_proc_entry(dev->name, local->proc_iface);
--}
--
--
--void ieee80211_proc_init_interface(struct ieee80211_local *local)
--{
--	if (!ieee80211_proc)
--		return;
--
--	local->proc = proc_mkdir(local->mdev->name, ieee80211_proc);
--	if (!local->proc)
--		return;
--
--	local->proc_sta = proc_mkdir("sta", local->proc);
--	local->proc_iface = proc_mkdir("iface", local->proc);
--	create_proc_read_entry("counters", 0, local->proc,
--                               ieee80211_proc_counters_read, local);
--	create_proc_read_entry("config", 0, local->proc,
--                               ieee80211_proc_config_read, local);
--	create_proc_read_entry("channels", 0, local->proc,
--                               ieee80211_proc_channels_read, local);
--	create_proc_read_entry("rates", 0, local->proc,
--			       ieee80211_proc_rates_read, local);
--	create_proc_read_entry("multicast", 0, local->proc,
--			       ieee80211_proc_multicast_read, local);
--	create_proc_read_entry("debug", 0, local->proc,
--                               ieee80211_proc_debug_read, local);
--	create_proc_read_entry("info", 0, local->proc,
--			       ieee80211_proc_info_read, local);
--	ieee80211_proc_init_virtual(local->mdev);
--}
--
--
--void ieee80211_proc_deinit_interface(struct ieee80211_local *local)
--{
--	if (!local->proc)
--		return;
--
--	ieee80211_proc_deinit_virtual(local->mdev);
--	remove_proc_entry("iface", local->proc);
--	remove_proc_entry("sta", local->proc);
--        remove_proc_entry("counters", local->proc);
--        remove_proc_entry("debug", local->proc);
--        remove_proc_entry("config", local->proc);
--        remove_proc_entry("channels", local->proc);
--	remove_proc_entry("rates", local->proc);
--	remove_proc_entry("multicast", local->proc);
--	remove_proc_entry("info", local->proc);
--	local->proc = NULL;
--	remove_proc_entry(local->mdev->name, ieee80211_proc);
--}
--
--
--void ieee80211_proc_init(void)
--{
--	if (proc_net == NULL) {
--		ieee80211_proc = NULL;
--		return;
--	}
--
--	ieee80211_proc = proc_mkdir("ieee80211", proc_net);
--	if (!ieee80211_proc)
--		printk(KERN_WARNING "Failed to mkdir /proc/net/ieee80211\n");
--}
--
--
--void ieee80211_proc_deinit(void)
--{
--	if (!ieee80211_proc)
--		return;
--
--	ieee80211_proc = NULL;
--	remove_proc_entry("ieee80211", proc_net);
--}
--
--#endif /* CONFIG_PROC_FS */
-diff --git a/net/d80211/ieee80211_proc.h b/net/d80211/ieee80211_proc.h
-deleted file mode 100644
-index 4519d26..0000000
---- a/net/d80211/ieee80211_proc.h
-+++ /dev/null
-@@ -1,48 +0,0 @@
--/*
-- * Copyright 2003-2004, Instant802 Networks, Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-- */
--
--#ifndef IEEE80211_PROC_H
--#define IEEE80211_PROC_H
--
--#include <linux/netdevice.h>
--#include "ieee80211_i.h"
--#include "sta_info.h"
--
--#ifdef CONFIG_PROC_FS
--
--void ieee80211_proc_init_sta(struct ieee80211_local *local,
--			     struct sta_info *sta);
--void ieee80211_proc_deinit_sta(struct ieee80211_local *local,
--			       struct sta_info *sta);
--void ieee80211_proc_init_virtual(struct net_device *dev);
--void ieee80211_proc_deinit_virtual(struct net_device *dev);
--void ieee80211_proc_init_interface(struct ieee80211_local *local);
--void ieee80211_proc_deinit_interface(struct ieee80211_local *local);
--void ieee80211_proc_init(void);
--void ieee80211_proc_deinit(void);
--
--#else /* CONFIG_PROC_FS */
--
--static inline void ieee80211_proc_init_sta(struct ieee80211_local *local,
--					   struct sta_info *sta) {}
--static inline void ieee80211_proc_deinit_sta(struct ieee80211_local *local,
--					     struct sta_info *sta) {}
--static inline void ieee80211_proc_init_virtual(struct net_device *dev) {}
--static inline void ieee80211_proc_deinit_virtual(struct net_device *dev) {}
--static inline void
--ieee80211_proc_init_interface(struct ieee80211_local *local) {}
--static inline void
--ieee80211_proc_deinit_interface(struct ieee80211_local *local) {}
--static inline void ieee80211_proc_init(void) {}
--static inline void ieee80211_proc_deinit(void) {}
--#endif /* CONFIG_PROC_FS */
--
--const char *ieee80211_mode_str(int mode);
--const char *ieee80211_mode_str_short(int mode);
--
--#endif /* IEEE80211_PROC_H */
+ struct ieee80211_key {
++	struct kobject kobj;
++
+ 	int hw_key_idx; /* filled and used by low-level driver */
+ 	ieee80211_key_alg alg;
+ 	union {
 diff --git a/net/d80211/ieee80211_sysfs.c b/net/d80211/ieee80211_sysfs.c
-index 10bf45c..fb1c6b5 100644
+index 12d16fd..10bf45c 100644
 --- a/net/d80211/ieee80211_sysfs.c
 +++ b/net/d80211/ieee80211_sysfs.c
-@@ -14,7 +14,6 @@ #include <linux/netdevice.h>
- #include <linux/rtnetlink.h>
- #include <net/d80211.h>
- #include "ieee80211_i.h"
--#include "ieee80211_proc.h"
- #include "rate_control.h"
- 
- #define to_ieee80211_local(class)	container_of(class, struct ieee80211_local, class_dev)
-@@ -30,6 +29,38 @@ static inline int rtnl_lock_local(struct
- 	return 0;
+@@ -709,16 +709,22 @@ int ieee80211_sysfs_add_netdevice(struct
+ 	res = sysfs_create_link(&dev->class_dev.kobj, &local->class_dev.kobj,
+ 				"wiphy");
+ 	if (res)
+-		goto out;
++		goto err_out;
+ 	res = ieee80211_add_if_group(&dev->class_dev.kobj, dev);
+ 	if (res)
+-		sysfs_remove_link(&dev->class_dev.kobj, "wiphy");
+-out:
++		goto err_link;
++	res = ieee80211_key_kset_sysfs_register(IEEE80211_DEV_TO_SUB_IF(dev));
++	return res;
++
++err_link:
++	sysfs_remove_link(&dev->class_dev.kobj, "wiphy");
++err_out:
+ 	return res;
  }
  
-+static const char *ieee80211_mode_str_short(int mode)
+ void ieee80211_sysfs_remove_netdevice(struct net_device *dev)
+ {
++	ieee80211_key_kset_sysfs_unregister(IEEE80211_DEV_TO_SUB_IF(dev));
+ 	ieee80211_remove_if_group(&dev->class_dev.kobj, dev);
+ 	sysfs_remove_link(&dev->class_dev.kobj, "wiphy");
+ }
+diff --git a/net/d80211/ieee80211_sysfs_sta.c b/net/d80211/ieee80211_sysfs_sta.c
+index 07de564..94c6dd8 100644
+--- a/net/d80211/ieee80211_sysfs_sta.c
++++ b/net/d80211/ieee80211_sysfs_sta.c
+@@ -10,14 +10,22 @@
+ #include <linux/kobject.h>
+ #include <linux/sysfs.h>
+ #include "ieee80211_i.h"
++#include "ieee80211_key.h"
+ #include "sta_info.h"
+ 
+ static ssize_t sta_sysfs_show(struct kobject *, struct attribute *, char *);
++static ssize_t key_sysfs_show(struct kobject *, struct attribute *, char *);
+ 
+ static struct sysfs_ops sta_ktype_ops = {
+ 	.show = sta_sysfs_show,
+ };
+ 
++static struct sysfs_ops key_ktype_ops = {
++	.show = key_sysfs_show,
++};
++
++/* sta attributtes */
++
+ #define STA_SHOW(name, field, format_string)				\
+ static ssize_t show_sta_##name(const struct sta_info *sta, char *buf)	\
+ {									\
+@@ -183,12 +191,153 @@ #endif
+ 	NULL
+ };
+ 
++/* keys attributtes */
++
++struct key_attribute {
++	struct attribute attr;
++	ssize_t (*show)(const struct ieee80211_key *, char *buf);
++	ssize_t (*store)(struct ieee80211_key *, const char *buf,
++			 size_t count);
++};
++
++#define KEY_SHOW(name, field, format_string)				\
++static ssize_t show_key_##name(const struct ieee80211_key *key, char *buf)\
++{									\
++	return sprintf(buf, format_string, key->field);			\
++}
++#define KEY_SHOW_D(name, field) KEY_SHOW(name, field, "%d\n")
++
++#define __KEY_ATTR(name)						\
++static struct key_attribute key_attr_##name =				\
++	__ATTR(name, S_IRUSR, show_key_##name, NULL)
++
++#define KEY_ATTR(name, field, format)					\
++		KEY_SHOW_##format(name, field)				\
++		__KEY_ATTR(name)
++
++KEY_ATTR(length, keylen, D);
++KEY_ATTR(sw_encrypt, force_sw_encrypt, D);
++KEY_ATTR(index, keyidx, D);
++KEY_ATTR(hw_index, hw_key_idx, D);
++KEY_ATTR(tx_rx_count, tx_rx_count, D);
++
++static ssize_t show_key_algorithm(const struct ieee80211_key *key, char *buf)
 +{
-+	switch (mode) {
-+	case MODE_IEEE80211A:
-+		return "802.11a";
-+	case MODE_IEEE80211B:
-+		return "802.11b";
-+	case MODE_IEEE80211G:
-+		return "802.11g";
-+	case MODE_ATHEROS_TURBO:
-+		return "AtherosTurbo";
++	char *alg;
++
++	switch (key->alg) {
++	case ALG_WEP:
++		alg = "WEP";
++		break;
++	case ALG_TKIP:
++		alg = "TKIP";
++		break;
++	case ALG_CCMP:
++		alg = "CCMP";
++		break;
 +	default:
-+		return "UNKNOWN";
++		return 0;
++	}
++	return sprintf(buf, "%s\n", alg);
++}
++__KEY_ATTR(algorithm);
++
++static ssize_t show_key_tx_spec(const struct ieee80211_key *key, char *buf)
++{
++	const u8 *tpn;
++
++	switch (key->alg) {
++	case ALG_WEP:
++		return sprintf(buf, "\n");
++	case ALG_TKIP:
++		return sprintf(buf, "%08x %04x\n", key->u.tkip.iv32,
++			       key->u.tkip.iv16);
++	case ALG_CCMP:
++		tpn = key->u.ccmp.tx_pn;
++		return sprintf(buf, "%02x%02x%02x%02x%02x%02x\n", tpn[0],
++			       tpn[1], tpn[2], tpn[3], tpn[4], tpn[5]);
++	default:
++		return 0;
 +	}
 +}
++__KEY_ATTR(tx_spec);
 +
-+static const char *ieee80211_mode_str(int mode)
++static ssize_t show_key_rx_spec(const struct ieee80211_key *key, char *buf)
 +{
-+	switch (mode) {
-+	case MODE_IEEE80211A:
-+		return "IEEE 802.11a";
-+	case MODE_IEEE80211B:
-+		return "IEEE 802.11b";
-+	case MODE_IEEE80211G:
-+		return "IEEE 802.11g";
-+	case MODE_ATHEROS_TURBO:
-+		return "Atheros Turbo (5 GHz)";
++	int i;
++	const u8 *rpn;
++	char *p = buf;
++
++	switch (key->alg) {
++	case ALG_WEP:
++		return sprintf(buf, "\n");
++	case ALG_TKIP:
++		for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
++			p += sprintf(p, "%08x %04x\n",
++				     key->u.tkip.iv32_rx[i],
++				     key->u.tkip.iv16_rx[i]);
++		return (p - buf);
++	case ALG_CCMP:
++		for (i = 0; i < NUM_RX_DATA_QUEUES; i++) {
++			rpn = key->u.ccmp.rx_pn[i];
++			p += sprintf(p, "%02x%02x%02x%02x%02x%02x\n", rpn[0],
++				     rpn[1], rpn[2], rpn[3], rpn[4], rpn[5]);
++		}
++		return (p - buf);
 +	default:
-+		return "UNKNOWN";
++		return 0;
 +	}
 +}
++__KEY_ATTR(rx_spec);
 +
- /* attributes in /sys/class/ieee80211/phyX/ */
++static ssize_t show_key_replays(const struct ieee80211_key *key, char *buf)
++{
++	if (key->alg != ALG_CCMP)
++		return 0;
++	return sprintf(buf, "%u\n", key->u.ccmp.replays);
++}
++__KEY_ATTR(replays);
++
++static ssize_t show_key_key(const struct ieee80211_key *key, char *buf)
++{
++	int i;
++	char *p = buf;
++
++	for (i = 0; i < key->keylen; i++)
++		p += sprintf(p, "%02x", key->key[i]);
++	p += sprintf(p, "\n");
++	return (p - buf);
++}
++__KEY_ATTR(key);
++
++static struct attribute *key_ktype_attrs[] = {
++	&key_attr_length.attr,
++	&key_attr_sw_encrypt.attr,
++	&key_attr_index.attr,
++	&key_attr_hw_index.attr,
++	&key_attr_tx_rx_count.attr,
++	&key_attr_algorithm.attr,
++	&key_attr_tx_spec.attr,
++	&key_attr_rx_spec.attr,
++	&key_attr_replays.attr,
++	&key_attr_key.attr,
++	NULL
++};
++
++/* structures and functions */
++
+ static struct kobj_type sta_ktype = {
+ 	.release = sta_info_release,
+ 	.sysfs_ops = &sta_ktype_ops,
+ 	.default_attrs = sta_ktype_attrs,
+ };
  
- static ssize_t store_add_iface(struct class_device *dev,
-diff --git a/net/d80211/rate_control.c b/net/d80211/rate_control.c
-index 33ba8e2..bf797ec 100644
---- a/net/d80211/rate_control.c
-+++ b/net/d80211/rate_control.c
-@@ -327,29 +327,6 @@ static void rate_control_simple_free_sta
- 	kfree(rctrl);
- }
- 
--
--static int rate_control_simple_status_sta(struct ieee80211_local *local,
--					  struct sta_info *sta, char *buf)
--{
--	char *p = buf;
--	struct sta_rate_control *srctrl = sta->rate_ctrl_priv;
--
--	p += sprintf(p, "tx_avg_rate_sum=%d\n", srctrl->tx_avg_rate_sum);
--	p += sprintf(p, "tx_avg_rate_num=%d\n", srctrl->tx_avg_rate_num);
--	if (srctrl->tx_avg_rate_num)
--		p += sprintf(p, "tx_avg_rate_avg=%d\n",
--			     srctrl->tx_avg_rate_sum /
--			     srctrl->tx_avg_rate_num);
--	return p - buf;
--}
--
--
--static int rate_control_simple_status_global(struct ieee80211_local *local,
--					     char *buf)
--{
--	return 0;
--}
--
- static ssize_t show_sta_tx_avg_rate_sum(const struct sta_info *sta, char *buf)
++static struct kobj_type key_ktype = {
++	.release = ieee80211_key_release,
++	.sysfs_ops = &key_ktype_ops,
++	.default_attrs = key_ktype_attrs,
++};
++
+ static ssize_t sta_sysfs_show(struct kobject *kobj, struct attribute *attr,
+ 			      char *buf)
  {
- 	struct sta_rate_control *srctrl = sta->rate_ctrl_priv;
-@@ -397,8 +374,6 @@ static struct rate_control_ops rate_cont
- 	.get_rate = rate_control_simple_get_rate,
- 	.rate_init = rate_control_simple_rate_init,
- 	.clear = rate_control_simple_clear,
--	.status_sta = rate_control_simple_status_sta,
--	.status_global = rate_control_simple_status_global,
- 	.alloc = rate_control_simple_alloc,
- 	.free = rate_control_simple_free,
- 	.alloc_sta = rate_control_simple_alloc_sta,
-diff --git a/net/d80211/rate_control.h b/net/d80211/rate_control.h
-index 7705fb2..d8bdfed 100644
---- a/net/d80211/rate_control.h
-+++ b/net/d80211/rate_control.h
-@@ -45,9 +45,6 @@ struct rate_control_ops {
- 		    struct rate_control_extra *extra);
- 	void (*rate_init)(struct ieee80211_local *local, struct sta_info *sta);
- 	void (*clear)(void *priv);
--	int (*status_sta)(struct ieee80211_local *local,
--			  struct sta_info *sta, char *buf);
--	int (*status_global)(struct ieee80211_local *local, char *buf);
- 
- 	void * (*alloc)(struct ieee80211_local *local);
- 	void (*free)(void *priv);
-@@ -96,20 +93,6 @@ static inline void rate_control_clear(st
+@@ -200,6 +349,17 @@ static ssize_t sta_sysfs_show(struct kob
+ 	return sta_attr->show(sta, buf);
  }
  
- 
--static inline int rate_control_status_sta(struct ieee80211_local *local,
--					  struct sta_info *sta, char *buf)
--{
--	return local->rate_ctrl->status_sta(local, sta, buf);
--}
--
--
--static inline int rate_control_status_global(struct ieee80211_local *local,
--					     char *buf)
--{
--	return local->rate_ctrl->status_global(local, buf);
--}
--
--
- static inline void * rate_control_alloc(struct ieee80211_local *local)
++static ssize_t key_sysfs_show(struct kobject *kobj, struct attribute *attr,
++			      char *buf)
++{
++	struct key_attribute *key_attr;
++	struct ieee80211_key *key;
++
++	key_attr = container_of(attr, struct key_attribute, attr);
++	key = container_of(kobj, struct ieee80211_key, kobj);
++	return key_attr->show(key, buf);
++}
++
+ int ieee80211_sta_kset_sysfs_register(struct ieee80211_local *local)
  {
- 	return local->rate_ctrl->alloc(local);
-diff --git a/net/d80211/sta_info.c b/net/d80211/sta_info.c
-index 96e8dc4..d3b4b42 100644
---- a/net/d80211/sta_info.c
-+++ b/net/d80211/sta_info.c
-@@ -19,7 +19,6 @@ #include <linux/if_arp.h>
- 
- #include <net/d80211.h>
- #include "ieee80211_i.h"
--#include "ieee80211_proc.h"
- #include "rate_control.h"
- 
- 
-@@ -180,7 +179,6 @@ #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 		ieee80211_sta_sysfs_add(sta);
- 		rate_control_add_sta_attrs(local, sta->rate_ctrl_priv,
- 					   &sta->kobj);
--		ieee80211_proc_init_sta(local, sta);
- 	} else {
- 		/* procfs entry adding might sleep, so schedule process context
- 		 * task for adding proc entry for STAs that do not yet have
-@@ -200,7 +198,6 @@ #ifdef CONFIG_D80211_VERBOSE_DEBUG
- #endif /* CONFIG_D80211_VERBOSE_DEBUG */
- 
- 	rate_control_remove_sta_attrs(local, sta->rate_ctrl_priv, &sta->kobj);
--	ieee80211_proc_deinit_sta(local, sta);
- 	ieee80211_sta_sysfs_remove(sta);
- 
- 	sta_info_put(sta);
-@@ -371,7 +368,6 @@ static void sta_info_proc_add_task(void 
- 		sta->sysfs_registered = 1;
- 		ieee80211_sta_sysfs_add(sta);
- 		rate_control_add_sta_attrs(local, sta->rate_ctrl_priv, &sta->kobj);
--		ieee80211_proc_init_sta(local, sta);
- 		sta_info_put(sta);
- 	}
+ 	int res;
+@@ -217,6 +377,23 @@ void ieee80211_sta_kset_sysfs_unregister
+ 	kset_unregister(&local->sta_kset);
  }
+ 
++int ieee80211_key_kset_sysfs_register(struct ieee80211_sub_if_data *sdata)
++{
++	int res;
++
++	res = kobject_set_name(&sdata->key_kset.kobj, "keys");
++	if (res)
++		return res;
++	sdata->key_kset.kobj.parent = &sdata->dev->class_dev.kobj;
++	sdata->key_kset.ktype = &key_ktype;
++	return kset_register(&sdata->key_kset);
++}
++
++void ieee80211_key_kset_sysfs_unregister(struct ieee80211_sub_if_data *sdata)
++{
++	kset_unregister(&sdata->key_kset);
++}
++
+ int ieee80211_sta_sysfs_add(struct sta_info *sta)
+ {
+ 	return kobject_add(&sta->kobj);
+@@ -226,3 +403,32 @@ void ieee80211_sta_sysfs_remove(struct s
+ {
+ 	kobject_del(&sta->kobj);
+ }
++
++void ieee80211_key_sysfs_set_kset(struct ieee80211_key *key, struct kset *kset)
++{
++	key->kobj.kset = kset;
++	if (!kset)
++		key->kobj.ktype = &key_ktype;
++}
++
++int ieee80211_key_sysfs_add(struct ieee80211_key *key)
++{
++	return kobject_add(&key->kobj);
++}
++
++void ieee80211_key_sysfs_remove(struct ieee80211_key *key)
++{
++	if (key)
++		kobject_del(&key->kobj);
++}
++
++int ieee80211_key_sysfs_add_default(struct ieee80211_sub_if_data *sdata)
++{
++	return sysfs_create_link(&sdata->key_kset.kobj,
++				 &sdata->default_key->kobj, "default");
++}
++
++void ieee80211_key_sysfs_remove_default(struct ieee80211_sub_if_data *sdata)
++{
++	sysfs_remove_link(&sdata->key_kset.kobj, "default");
++}
 -- 
 1.3.0
 
