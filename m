@@ -1,45 +1,107 @@
 From: akpm@osdl.org
-Subject: [patch 1/8] myri10ge: alpha build fix
-Date: Thu, 08 Jun 2006 22:19:41 -0700
-Message-ID: <200606090519.k595JfxP032014@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, brice@myri.com
+Subject: [patch 5/8] e100: disable interrupts at boot
+Date: Thu, 08 Jun 2006 22:19:45 -0700
+Message-ID: <200606090519.k595JjB0032026@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com, nils.rennebarth@packetalarm.com,
+	stern@rowland.harvard.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:45787 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965143AbWFIFTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:19:51 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:55515 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965147AbWFIFT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:19:59 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Andrew Morton <akpm@osdl.org>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-drivers/net/myri10ge/myri10ge.c: In function 'myri10ge_submit_8rx':
-drivers/net/myri10ge/myri10ge.c:772: error: 'DMA_32BIT_MASK' undeclared (first use in this function)
-drivers/net/myri10ge/myri10ge.c:772: error: (Each undeclared identifier is reported only once
-drivers/net/myri10ge/myri10ge.c:772: error: for each function it appears in.)
-drivers/net/myri10ge/myri10ge.c: In function 'myri10ge_probe':
-drivers/net/myri10ge/myri10ge.c:2607: error: 'DMA_64BIT_MASK' undeclared (first use in this function)
-drivers/net/myri10ge/myri10ge.c:2612: error: 'DMA_32BIT_MASK' undeclared (first use in this function)
+Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
+firmware explicitly disables PRO/100 interrupts, we can get a flood of
+interrupts when a driver attaches to an unrelated device that happens to
+share the PRO/100 IRQ.
 
-Cc: Brice Goglin <brice@myri.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+This should resolve this "irq 11: nobody cared" bug report:
+    http://bugzilla.kernel.org/show_bug.cgi?id=5918
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: John Ronciak <john.ronciak@intel.com>
+Cc: <stern@rowland.harvard.edu>
+Cc: <nils.rennebarth@packetalarm.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/myri10ge/myri10ge.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/pci/quirks.c |   57 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
 
-diff -puN drivers/net/myri10ge/myri10ge.c~myri10ge-alpha-build-fix drivers/net/myri10ge/myri10ge.c
---- devel/drivers/net/myri10ge/myri10ge.c~myri10ge-alpha-build-fix	2006-06-03 21:13:30.000000000 -0700
-+++ devel-akpm/drivers/net/myri10ge/myri10ge.c	2006-06-03 21:13:43.000000000 -0700
-@@ -59,6 +59,8 @@
- #include <linux/crc32.h>
- #include <linux/moduleparam.h>
- #include <linux/io.h>
-+#include <linux/dma-mapping.h>
+diff -puN drivers/pci/quirks.c~e100-disable-interrupts-at-boot drivers/pci/quirks.c
+--- devel/drivers/pci/quirks.c~e100-disable-interrupts-at-boot	2006-06-06 17:25:42.000000000 -0700
++++ devel-akpm/drivers/pci/quirks.c	2006-06-06 17:25:42.000000000 -0700
+@@ -1390,6 +1390,63 @@ static void __devinit quirk_netmos(struc
+ }
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID, quirk_netmos);
+ 
++static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
++{
++	u16 command;
++	u32 bar;
++	u8 __iomem *csr;
++	u8 cmd_hi;
 +
- #include <net/checksum.h>
- #include <asm/byteorder.h>
- #include <asm/io.h>
++	switch (dev->device) {
++	/* PCI IDs taken from drivers/net/e100.c */
++	case 0x1029:
++	case 0x1030 ... 0x1034:
++	case 0x1038 ... 0x103E:
++	case 0x1050 ... 0x1057:
++	case 0x1059:
++	case 0x1064 ... 0x106B:
++	case 0x1091 ... 0x1095:
++	case 0x1209:
++	case 0x1229:
++	case 0x2449:
++	case 0x2459:
++	case 0x245D:
++	case 0x27DC:
++		break;
++	default:
++		return;
++	}
++
++	/*
++	 * Some firmware hands off the e100 with interrupts enabled,
++	 * which can cause a flood of interrupts if packets are
++	 * received before the driver attaches to the device.  So
++	 * disable all e100 interrupts here.  The driver will
++	 * re-enable them when it's ready.
++	 */
++	pci_read_config_word(dev, PCI_COMMAND, &command);
++	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
++
++	if (!(command & PCI_COMMAND_MEMORY) || !bar)
++		return;
++
++	csr = ioremap(bar, 8);
++	if (!csr) {
++		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
++			pci_name(dev));
++		return;
++	}
++
++	cmd_hi = readb(csr + 3);
++	if (cmd_hi == 0) {
++		printk(KERN_WARNING "PCI: Firmware left %s e100 interrupts "
++			"enabled, disabling\n", pci_name(dev));
++		writeb(1, csr + 3);
++	}
++
++	iounmap(csr);
++}
++DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
+ 
+ static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
+ {
 _
