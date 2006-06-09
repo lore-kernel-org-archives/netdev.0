@@ -1,35 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Fri, 09 Jun 2006 14:48:48 -0400
-Message-ID: <4489C290.6020705@garzik.org>
-References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Add netif_tx_lock
+Date: Fri, 09 Jun 2006 12:21:22 -0700 (PDT)
+Message-ID: <20060609.122122.123921143.davem@davemloft.net>
+References: <20060601002525.GA19220@gondor.apana.org.au>
+	<20060601111503.GA16097@gondor.apana.org.au>
+	<20060609054816.GA7612@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
-	Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org
+Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:26261 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030381AbWFISsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 14:48:51 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060609183358.GA5835@electric-eye.fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7568
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030427AbWFITVV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 15:21:21 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060609054816.GA7612@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jeff@garzik.org> :
->> Randy.Dunlap wrote:
->>> Conversely, any reason to use the RealTek r1000 driver?
->> FWIW, RealTek emailed me about merging r1000.  I suggested that, if the 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 9 Jun 2006 15:48:16 +1000
+
+> On Thu, Jun 01, 2006 at 09:15:03PM +1000, herbert wrote:
+> > 
+> > OK, here is a patch which does this.
+> > 
+> > [NET]: Add netif_tx_lock
 > 
-> Which one ?
+> Just noticed that I showed dyslexia in winbond.c :) Here is the corrected
+> version.
 > 
-> r1000_n.c where #define RELEASE_DATE "2006/02/23"
+> [NET]: Add netif_tx_lock
 
-They didn't say.  Just "r1000"
-
-	Jeff
-
-
-
+:-)  Applied, thanks a lot Herbert.
