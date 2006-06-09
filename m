@@ -1,32 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 06/17] neighbour.c, pneigh_get_next() skips published entry
-Date: Fri, 09 Jun 2006 14:52:46 +1000
-Message-ID: <E1FoYzG-0001id-00@gondolin.me.apana.org.au>
-References: <413FEEF1743111439393FB76D0221E4804A56900@leopard.zoo.q9networks.com>
-Cc: davem@davemloft.net, akpm@osdl.org, netdev@vger.kernel.org
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netchannels: netchannel vs. socket. 2:0.
+Date: Fri, 9 Jun 2006 09:09:45 +0400
+Message-ID: <20060609050945.GC11653@2ka.mipt.ru>
+References: <20060608171555.GA10273@2ka.mipt.ru> <200606090100.24827.hhh@imada.sdu.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45838 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965161AbWFIExA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 00:53:00 -0400
-To: Jari.Takkala@Q9.com (Jari Takkala)
-In-Reply-To: <413FEEF1743111439393FB76D0221E4804A56900@leopard.zoo.q9networks.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59829 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965200AbWFIFKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:10:02 -0400
+To: Hans Henrik Happe <hhh@imada.sdu.dk>
+Content-Disposition: inline
+In-Reply-To: <200606090100.24827.hhh@imada.sdu.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jari Takkala <Jari.Takkala@q9.com> wrote:
-> 
-> I have not checked neigh seqfile iterators, the problem may exist in
-> there as well. My patch solves this issue for us, however a more elegant
-> solution would be most welcome.  Could the root of the problem be that
-> *pos is off by one when pneigh_get_idx() is called?
+On Fri, Jun 09, 2006 at 01:00:24AM +0200, Hans Henrik Happe (hhh@imada.=
+sdu.dk) wrote:
+> On Thursday 08 June 2006 19:15, you wrote:
+> > After some enhancements made for netchannel subsystem I'm pleased t=
+o
+> > announce, that netchannel subsystem outperforms existing layered de=
+sign
+> > both in CPU usage and network speed.
+> >=20
+> > Well, after such pretentious introduction I want to cool things dow=
+n.
+> > CPU usage is about 1-2% less for netchannels and network performanc=
+e is
+> > about 1-2 MB higher and sometimes exceeds 84 MB/sec which, I think,=
+=20
+> > is maximum for given network setup (e1000 receive, r8169 send, 1500=
+ MTU).
+>=20
+> I have followed your work closely and have wondered how it affects la=
+tency?
+> I have somewhat limited knowledge about TCP and how the kernel handle=
+s it, but=20
+> I guess the path from NIC to userspace hasn't increased. What about s=
+yscall=20
+> overhead caused by userspace TCP processing?
 
-Could you post an exact sequence of commands that reproduces the bug?
-That would help us in verifying your fix.
+Path from NIC to userspace was decreased in that way that there are les=
+s
+number of context switches, much smaller amount of work being done in
+softirq (I have not modified driver and still use NAPI), less cache
+thrashing due to work ping-ponging and less number of locks.
+Number of syscalls is still the same - either one recv() or one
+netchannel_control() to read the same block of data.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+But since existing socket code is used, gain is not that big, since
+sockets are locked, although they should not, skbs are requeued, ACKs
+are scheduled, although all that could be changed.
+
+At least receiving part of the netchannel TCP processing could be
+different. And my thoughts move in that direction.
+
+> H=C2=B3 =20
+
+--=20
+	Evgeniy Polyakov
