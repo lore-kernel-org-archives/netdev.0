@@ -1,109 +1,81 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [patch 4/8] e1000: prevent statistics from getting garbled during
- reset
-Date: Fri, 09 Jun 2006 11:28:07 -0700
-Message-ID: <4489BDB7.8000606@intel.com>
-References: <200606090519.k595JiOL032023@shell0.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020605080108060107010109"
-Cc: akpm@osdl.org, netdev@vger.kernel.org, linas@austin.ibm.com,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com
+From: dlezcano@fr.ibm.com
+Subject: [RFC] [patch 0/6] [Network namespace] introduction
+Date: Fri, 09 Jun 2006 23:02:02 +0200
+Message-ID: <20060609210202.215291000@localhost.localdomain>
+Cc: serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:52243 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1030486AbWFIUPS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 16:15:18 -0400
-To: jeff@garzik.org
-In-Reply-To: <200606090519.k595JiOL032023@shell0.pdx.osdl.net>
+Received: from AToulouse-252-1-74-163.w81-49.abo.wanadoo.fr ([81.49.44.163]:4051
+	"EHLO localhost.localdomain") by vger.kernel.org with ESMTP
+	id S965296AbWFIVG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 17:06:28 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020605080108060107010109
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+The following patches create a private "network namespace" for use
+within containers. This is intended for use with system containers
+like vserver, but might also be useful for restricting individual
+applications' access to the network stack.
 
+These patches isolate traffic inside the network namespace. The
+network ressources, the incoming and the outgoing packets are
+identified to be related to a namespace. 
 
-Ack,
+It hides network resource not contained in the current namespace, but
+still allows administration of the network with normal commands like
+ifconfig.
 
-Jeff, please pull this patch from:
+It applies to the kernel version 2.6.17-rc6-mm1
 
-    git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
+It provides the following:
+-------------------------
+   - when an application unshares its network namespace, it looses its
+     view of all network devices by default. The administrator can
+     choose to make any devices to become visible again. The container
+     then gains a view to the device but without the ip address
+     configured on it. It is up to the container administrator to use
+     ifconfig or ip command to setup a new ip address. This ip address
+     is only visible inside the container.
 
-which is against netdev-2.6#upstream cac925a4aab1b7233d3beb591f53498816058a08
+   - the loopback is isolated inside the container and it is not
+     possible to communicate between containers via the
+     loopback. 
 
-Cheers,
+   - several containers can have an application bind to the same
+     address:port without conflicting. 
 
-Auke
+What is for ?
+-------------
+   - security : an application can be bounded inside a container
+     without interacting with the network used by another container
 
+   - consolidation : several instance of the same application can be
+     ran in different container because the network namespace allows
+     to bind to the same addr:port
 
----
+What could be done ?
+--------------------
+    - because the network ressources are related to a namespace, it is
+      easy to identify them. That facilitate the implementation of the
+      network migration
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
-Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
+How to use ?
+------------
+   - do unshare with the CLONE_NEWNET flag as root
+   - do echo eth0 > /sys/kernel/debug/net_ns/dev
+   - use ifconfig or ip command to set a new ip address
 
----
-  e1000_main.c |    8 +++++++-
-  1 files changed, 7 insertions(+), 1 deletion(-)
+What is missing ?
+-----------------
+The routes are not yet isolated, that implies:
 
+   - binding to another container's address is allowed
 
-akpm@osdl.org wrote:
-> From: Linas Vepstas <linas@austin.ibm.com>
-> 
-> If a PCI bus error/fault triggers a PCI bus reset, attempts to get the
-> ethernet packet count statistics from the hardware will fail, returning
-> garbage data upstream.  This patch skips statistics data collection if the
-> PCI device is not on the bus.
-[snip]
+   - an outgoing packet which has an unset source address can
+     potentially get another container's address
 
+   - an incoming packet can be routed to the wrong container if there
+     are several containers listening to the same addr:port
 
---------------020605080108060107010109
-Content-Type: text/x-patch;
- name="e1000_prevent_garbled_stats_during_reset_linas.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename*0="e1000_prevent_garbled_stats_during_reset_linas.patch"
-
-e1000: prevent statistics from garbling during bus resets
-
-If a PCI bus error/fault triggers a PCI bus reset, attempts to get
-the ethernet packet count statistics from the hardware will fail,
-returning garbage data upstream.  This patch skips statistics data
-collection if the PCI device is not on the bus.
-
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
-Acked-by: Auke Kok <auke-jan.h.kok@intel.com>
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 56c7492..a373ccb 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3045,14 +3045,20 @@ void
- e1000_update_stats(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-+	struct pci_dev *pdev = adapter->pdev;
- 	unsigned long flags;
- 	uint16_t phy_tmp;
- 
- #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
- 
--	/* Prevent stats update while adapter is being reset */
-+	/*
-+	 * Prevent stats update while adapter is being reset, or if the pci
-+	 * connection is down.
-+	 */
- 	if (adapter->link_speed == 0)
- 		return;
-+	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
-+		return;
- 
- 	spin_lock_irqsave(&adapter->stats_lock, flags);
- 
-
---------------020605080108060107010109--
+--
