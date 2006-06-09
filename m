@@ -1,49 +1,50 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Fri, 9 Jun 2006 05:46:15 +0200
-Message-ID: <200606090546.15923.ak@suse.de>
-References: <44886381.9050506@goop.org>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] wan/sdla section fixes
+Date: Thu, 8 Jun 2006 20:36:16 -0700
+Message-ID: <20060608203616.16796ec3.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Cc: mike.mclagan@linux.org, khc@pm.waw.pl, akpm <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:41103 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932264AbWFIDqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 23:46:39 -0400
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-In-Reply-To: <44886381.9050506@goop.org>
-Content-Disposition: inline
+Received: from xenotime.net ([66.160.160.81]:58567 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S965121AbWFIDuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 23:50:20 -0400
+Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 20:50:19 -0700
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 08 June 2006 19:50, Jeremy Fitzhardinge wrote:
-> I've been trying to get suspend/resume working well on my new laptop.  
-> In general, netconsole has been pretty useful for extracting oopses and 
-> other messages, but it is of more limited help in debugging the actual 
-> suspend/resume cycle.  The problem looks like the e1000 driver won't 
-> suspend while netconsole is using it, so I have to rmmod/modprobe 
-> netconsole around the actual suspend/resume.
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-If your laptop has firewire you can also use firescope.
-(ftp://ftp.suse.com/pub/people/ak/firescope/) 
+Priority: tossup.
+netdev->set_config can be called at any time, so these references
+to __initdata would be a real problem.
+However, problem has not been observed AFAIK.
 
-> This is a big problem during resume because the screen is also blank, so 
-> I get no useful clue as to what went wrong when things go wrong.  I'm 
-> wondering if there's some way to keep netconsole alive to the last 
-> possible moment during suspend, and re-woken as soon as possible during 
-> resume.  It would be nice to have a clean solution, but I'm willing to 
-> use a bletcherous hack if that's what it takes.
+Fix section mismatch warnings:
+WARNING: drivers/net/wan/sdla.o - Section mismatch: reference to .init.data: from .text between 'sdla_set_config' (at offset 0x1b8e) and 'sdla_stats'
+WARNING: drivers/net/wan/sdla.o - Section mismatch: reference to .init.data: from .text between 'sdla_set_config' (at offset 0x1e76) and 'sdla_stats'
 
-FW keeps running as long as nobody resets the ieee1394 chip.
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ drivers/net/wan/sdla.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Networking is much more complex and will likely never work well for such
-low level debug situations. Netconsole is mostly useful to catch the
-odd oops during runtime.
+--- linux-2617-rc6.orig/drivers/net/wan/sdla.c
++++ linux-2617-rc6/drivers/net/wan/sdla.c
+@@ -60,9 +60,9 @@
+ 
+ static const char* version = "SDLA driver v0.30, 12 Sep 1996, mike.mclagan@linux.org";
+ 
+-static unsigned int valid_port[] __initdata = { 0x250, 0x270, 0x280, 0x300, 0x350, 0x360, 0x380, 0x390};
++static unsigned int valid_port[] = { 0x250, 0x270, 0x280, 0x300, 0x350, 0x360, 0x380, 0x390};
+ 
+-static unsigned int valid_mem[]  __initdata = {
++static unsigned int valid_mem[] = {
+ 				    0xA0000, 0xA2000, 0xA4000, 0xA6000, 0xA8000, 0xAA000, 0xAC000, 0xAE000, 
+                                     0xB0000, 0xB2000, 0xB4000, 0xB6000, 0xB8000, 0xBA000, 0xBC000, 0xBE000,
+                                     0xC0000, 0xC2000, 0xC4000, 0xC6000, 0xC8000, 0xCA000, 0xCC000, 0xCE000,
 
--Andi
 
-
+---
