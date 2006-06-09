@@ -1,48 +1,85 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Fri, 9 Jun 2006 12:14:07 -0500
-Message-ID: <20060609171407.GJ24227@waste.org>
-References: <20060608210702.GD24227@waste.org> <4489038C.3050901@intel.com> <20060608.222352.59657133.davem@davemloft.net> <200606090750.25067.ak@suse.de>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] ipv6: order addresses by scope
+Date: Fri, 09 Jun 2006 14:14:50 -0400
+Message-ID: <4489BA9A.9050508@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
-	jeremy@goop.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------070709050202080305070905"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([64.81.244.121]:24207 "EHLO waste.org")
-	by vger.kernel.org with ESMTP id S1030272AbWFIRZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 13:25:08 -0400
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <200606090750.25067.ak@suse.de>
+Received: from atlrel9.hp.com ([156.153.255.214]:42654 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S1751466AbWFISOx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 14:14:53 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 09, 2006 at 07:50:25AM +0200, Andi Kleen wrote:
-> On Friday 09 June 2006 07:23, David Miller wrote:
-> > From: Auke Kok <auke-jan.h.kok@intel.com>
-> > Date: Thu, 08 Jun 2006 22:13:48 -0700
-> > 
-> > > netconsole should retry. There is no timeout programmed here since that might
-> > > lose important information, and you rather want netconsole to survive an odd
-> > > unplugged cable then to lose vital debugging information when the system is
-> > > busy for instance. (losing link will cause the interface to be down and thus
-> > > the queue to be stopped)
-> > 
-> > I completely disagree that netpoll should loop when the ethernet
-> > cable is plugged out. 
-> 
-> Currently it is a bit dumb and doesn't distingush the various cases
-> well.
-> 
-> I submitted a patch to loop to be a bit more clever at some point. It can be still
-> found in the netdev archives.
+This is a multi-part message in MIME format.
+--------------070709050202080305070905
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Agreed that timeouts should happen.
+If IPv6 addresses are ordered by scope, then ipv6_dev_get_saddr() can 
+break-out of the device addr_list for() loop when the candidate source 
+address scope is less than the destination address scope.
 
-IIRC, the trouble with your patch was that it a) timed out on far too
-short a timescale and b) locked up on my box. Unfortunately, so did my
-own patch, which made timeouts approximately 1ms.
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
--- 
-Mathematics is the supreme nostalgia of our time.
+--------------070709050202080305070905
+Content-Type: text/x-patch;
+ name="ip6order.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ip6order.patch"
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 445006e..e1d6a6f 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -509,6 +509,25 @@ void inet6_ifa_finish_destroy(struct ine
+ 	kfree(ifp);
+ }
+ 
++static void
++ipv6_link_dev_addr(struct inet6_dev *idev, struct inet6_ifaddr *ifp)
++{
++	struct inet6_ifaddr *ifa, **ifap;
++
++	/*
++	 * Each device address list is sorted in order of scope -
++	 * global before linklocal.
++	 */
++	for (ifap = &idev->addr_list; (ifa = *ifap) != NULL;
++	     ifap = &ifa->if_next) {
++		if (ifp->scope > ifa->scope)
++			break;
++	}
++
++	ifp->if_next = *ifap;
++	*ifap = ifp;
++}
++
+ /* On success it returns ifp with increased reference count */
+ 
+ static struct inet6_ifaddr *
+@@ -574,8 +593,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ 
+ 	write_lock(&idev->lock);
+ 	/* Add to inet6_dev unicast addr list. */
+-	ifa->if_next = idev->addr_list;
+-	idev->addr_list = ifa;
++	ipv6_link_dev_addr(idev, ifa);
+ 
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	if (ifa->flags&IFA_F_TEMPORARY) {
+@@ -982,7 +1000,7 @@ int ipv6_dev_get_saddr(struct net_device
+ 					continue;
+ 			} else if (score.scope < hiscore.scope) {
+ 				if (score.scope < daddr_scope)
+-					continue;
++					break; /* addresses sorted by scope */
+ 				else {
+ 					score.rule = 2;
+ 					goto record_it;
+
+--------------070709050202080305070905--
