@@ -1,41 +1,33 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Fri, 9 Jun 2006 07:50:25 +0200
-Message-ID: <200606090750.25067.ak@suse.de>
-References: <20060608210702.GD24227@waste.org> <4489038C.3050901@intel.com> <20060608.222352.59657133.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] LSM-IPsec SELinux Authorize (with minor fix)
+Date: Thu, 08 Jun 2006 23:40:03 -0700 (PDT)
+Message-ID: <20060608.234003.18579552.davem@davemloft.net>
+References: <Pine.LNX.4.64.0606060133220.9787@d.namei>
+	<OF4F545512.79E4862D-ON85257185.005181A7-85257185.00520729@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, jeremy@goop.org, mpm@selenic.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: jmorris@namei.org, netdev@vger.kernel.org, chrisw@osdl.org,
+	herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
+	tjaeger@cse.psu.edu, latten@austin.ibm.com, sergeh@us.ibm.com,
+	gcwilson@us.ibm.com, czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:36550 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S965221AbWFIFut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:50:49 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060608.222352.59657133.davem@davemloft.net>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29862
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965232AbWFIGkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 02:40:49 -0400
+To: cxzhang@us.ibm.com
+In-Reply-To: <OF4F545512.79E4862D-ON85257185.005181A7-85257185.00520729@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 June 2006 07:23, David Miller wrote:
-> From: Auke Kok <auke-jan.h.kok@intel.com>
-> Date: Thu, 08 Jun 2006 22:13:48 -0700
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Date: Tue, 6 Jun 2006 10:55:58 -0400
+
+> Singned-off-by: Catherine Zhang <cxzhang@watson.ibm.com>
 > 
-> > netconsole should retry. There is no timeout programmed here since that might
-> > lose important information, and you rather want netconsole to survive an odd
-> > unplugged cable then to lose vital debugging information when the system is
-> > busy for instance. (losing link will cause the interface to be down and thus
-> > the queue to be stopped)
-> 
-> I completely disagree that netpoll should loop when the ethernet
-> cable is plugged out. 
+> James, is this enough or do I need to modify the original patch to add the 
+> above line?  The code was taken from various pieces of patches originally 
+> from Trent and merged/modified by me.  Let me know what else I need to do.
 
-Currently it is a bit dumb and doesn't distingush the various cases
-well.
-
-I submitted a patch to loop to be a bit more clever at some point. It can be still
-found in the netdev archives.
-
--Andi
+That's good enough for me, patch applied, thanks a lot.
