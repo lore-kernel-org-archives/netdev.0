@@ -1,164 +1,222 @@
 From: akpm@osdl.org
-Subject: [patch 8/8] ipw2200 locking fix
-Date: Thu, 08 Jun 2006 22:19:49 -0700
-Message-ID: <200606090519.k595JnLN032035@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, yi.zhu@intel.com,
-	arjan@infradead.org, deweerdt@free.fr, mingo@elte.hu
+Subject: [patch 3/8] natsemi: Add support for using MII port with no PHY
+Date: Thu, 08 Jun 2006 22:19:42 -0700
+Message-ID: <200606090519.k595JgRv032020@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, broonie@sirena.org.uk,
+	jgarzik@pobox.com, thockin@hockin.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:57051 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965152AbWFIFUC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:20:02 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:1756 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965150AbWFIFUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:20:31 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Zhu Yi <yi.zhu@intel.com>
+From: Mark Brown <broonie@sirena.org.uk>
 
-Well, this is not 100% if when the card fires two consecutive
-interrupts. Though unlikely, it's better to protect early than seeing
-some "weird" bugs one day. I proposed attached patch. If you can help to
-test, that will be appreciated (I cannot see the lockdep warning on my
-box somehow).
+Provide a module option which configures the natsemi driver to use the
+external MII port on the chip but ignore any PHYs that may be attached to it. 
+The link state will be left as it was when the driver started and can be
+configured via ethtool.  Any PHYs that are present can be accessed via the MII
+ioctl()s.
 
-Cc: Frederik Deweerdt <deweerdt@free.fr>
-Cc: Arjan van de Ven <arjan@infradead.org>
-Cc: Ingo Molnar <mingo@elte.hu>
+This is useful for systems where the device is connected without a PHY or
+where either information or actions outside the scope of the driver are
+required in order to use the PHYs.
+
+Signed-off-by: Mark Brown <broonie@sirena.org.uk>
+Cc: Tim Hockin <thockin@hockin.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/wireless/ipw2200.c |   41 ++++++++++++++++++++++++-------
- drivers/net/wireless/ipw2200.h |    1 
- 2 files changed, 33 insertions(+), 9 deletions(-)
+ drivers/net/natsemi.c |  105 +++++++++++++++++++++++++---------------
+ 1 files changed, 67 insertions(+), 38 deletions(-)
 
-diff -puN drivers/net/wireless/ipw2200.c~ipw2200-locking-fix drivers/net/wireless/ipw2200.c
---- devel/drivers/net/wireless/ipw2200.c~ipw2200-locking-fix	2006-06-04 23:58:05.000000000 -0700
-+++ devel-akpm/drivers/net/wireless/ipw2200.c	2006-06-04 23:58:05.000000000 -0700
-@@ -533,7 +533,7 @@ static inline void ipw_clear_bit(struct 
- 	ipw_write32(priv, reg, ipw_read32(priv, reg) & ~mask);
- }
+diff -puN drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy drivers/net/natsemi.c
+--- devel/drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy	2006-04-10 23:21:19.000000000 -0700
++++ devel-akpm/drivers/net/natsemi.c	2006-04-10 23:21:19.000000000 -0700
+@@ -259,7 +259,7 @@ MODULE_PARM_DESC(debug, "DP8381x default
+ MODULE_PARM_DESC(rx_copybreak, 
+ 	"DP8381x copy breakpoint for copy-only-tiny-frames");
+ MODULE_PARM_DESC(options, 
+-	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
++	"DP8381x: Bits 0-3: media type, bit 17: full duplex, bit 18: ignore PHY");
+ MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
  
--static inline void ipw_enable_interrupts(struct ipw_priv *priv)
-+static inline void __ipw_enable_interrupts(struct ipw_priv *priv)
- {
- 	if (priv->status & STATUS_INT_ENABLED)
- 		return;
-@@ -541,7 +541,7 @@ static inline void ipw_enable_interrupts
- 	ipw_write32(priv, IPW_INTA_MASK_R, IPW_INTA_MASK_ALL);
- }
+ /*
+@@ -690,6 +690,8 @@ struct netdev_private {
+ 	u32 intr_status;
+ 	/* Do not touch the nic registers */
+ 	int hands_off;
++	/* Don't pay attention to the reported link state. */
++	int ignore_phy;
+ 	/* external phy that is used: only valid if dev->if_port != PORT_TP */
+ 	int mii;
+ 	int phy_addr_external;
+@@ -894,7 +896,19 @@ static int __devinit natsemi_probe1 (str
+ 	np->intr_status = 0;
+ 	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
  
--static inline void ipw_disable_interrupts(struct ipw_priv *priv)
-+static inline void __ipw_disable_interrupts(struct ipw_priv *priv)
- {
- 	if (!(priv->status & STATUS_INT_ENABLED))
- 		return;
-@@ -549,6 +549,24 @@ static inline void ipw_disable_interrupt
- 	ipw_write32(priv, IPW_INTA_MASK_R, ~IPW_INTA_MASK_ALL);
- }
++	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
++	if (dev->mem_start)
++		option = dev->mem_start;
++
++	/* Ignore the PHY status? */
++	if (option & 0x400) {
++		np->ignore_phy = 1;
++	} else {
++		np->ignore_phy = 0;
++	}
++
+ 	/* Initial port:
++	 * - If configured to ignore the PHY set up for external.
+ 	 * - If the nic was configured to use an external phy and if find_mii
+ 	 *   finds a phy: use external port, first phy that replies.
+ 	 * - Otherwise: internal port.
+@@ -902,7 +916,7 @@ static int __devinit natsemi_probe1 (str
+ 	 * The address would be used to access a phy over the mii bus, but
+ 	 * the internal phy is accessed through mapped registers.
+ 	 */
+-	if (readl(ioaddr + ChipConfig) & CfgExtPhy)
++	if (np->ignore_phy || readl(ioaddr + ChipConfig) & CfgExtPhy)
+ 		dev->if_port = PORT_MII;
+ 	else
+ 		dev->if_port = PORT_TP;
+@@ -912,7 +926,9 @@ static int __devinit natsemi_probe1 (str
  
-+static inline void ipw_enable_interrupts(struct ipw_priv *priv)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->irq_lock, flags);
-+	__ipw_enable_interrupts(priv);
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+}
-+
-+static inline void ipw_disable_interrupts(struct ipw_priv *priv)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->irq_lock, flags);
-+	__ipw_disable_interrupts(priv);
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+}
-+
- #ifdef CONFIG_IPW2200_DEBUG
- static char *ipw_error_desc(u32 val)
- {
-@@ -1856,7 +1874,7 @@ static void ipw_irq_tasklet(struct ipw_p
- 	unsigned long flags;
- 	int rc = 0;
- 
--	spin_lock_irqsave(&priv->lock, flags);
-+	spin_lock_irqsave(&priv->irq_lock, flags);
- 
- 	inta = ipw_read32(priv, IPW_INTA_RW);
- 	inta_mask = ipw_read32(priv, IPW_INTA_MASK_R);
-@@ -1865,6 +1883,10 @@ static void ipw_irq_tasklet(struct ipw_p
- 	/* Add any cached INTA values that need to be handled */
- 	inta |= priv->isr_inta;
- 
-+	spin_unlock_irqrestore(&priv->irq_lock, flags);
-+
-+	spin_lock_irqsave(&priv->lock, flags);
-+
- 	/* handle all the justifications for the interrupt */
- 	if (inta & IPW_INTA_BIT_RX_TRANSFER) {
- 		ipw_rx(priv);
-@@ -1993,10 +2015,10 @@ static void ipw_irq_tasklet(struct ipw_p
- 		IPW_ERROR("Unhandled INTA bits 0x%08x\n", inta & ~handled);
+ 	if (dev->if_port != PORT_TP) {
+ 		np->phy_addr_external = find_mii(dev);
+-		if (np->phy_addr_external == PHY_ADDR_NONE) {
++		/* If we're ignoring the PHY it doesn't matter if we can't
++		 * find one. */
++		if (!np->ignore_phy && np->phy_addr_external == PHY_ADDR_NONE) {
+ 			dev->if_port = PORT_TP;
+ 			np->phy_addr_external = PHY_ADDR_INTERNAL;
+ 		}
+@@ -920,10 +936,6 @@ static int __devinit natsemi_probe1 (str
+ 		np->phy_addr_external = PHY_ADDR_INTERNAL;
  	}
  
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
- 	/* enable all interrupts */
- 	ipw_enable_interrupts(priv);
+-	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
+-	if (dev->mem_start)
+-		option = dev->mem_start;
 -
--	spin_unlock_irqrestore(&priv->lock, flags);
- }
+ 	/* The lower four bits are the media type. */
+ 	if (option) {
+ 		if (option & 0x200)
+@@ -957,7 +969,10 @@ static int __devinit natsemi_probe1 (str
+ 	if (mtu)
+ 		dev->mtu = mtu;
  
- #define IPW_CMD(x) case IPW_CMD_ ## x : return #x
-@@ -10460,7 +10482,7 @@ static irqreturn_t ipw_isr(int irq, void
- 	if (!priv)
- 		return IRQ_NONE;
+-	netif_carrier_off(dev);
++	if (np->ignore_phy)
++		netif_carrier_on(dev);
++	else
++		netif_carrier_off(dev);
  
--	spin_lock(&priv->lock);
-+	spin_lock(&priv->irq_lock);
+ 	/* get the initial settings from hardware */
+ 	tmp            = mdio_read(dev, MII_BMCR);
+@@ -1005,6 +1020,8 @@ static int __devinit natsemi_probe1 (str
+ 		printk("%02x, IRQ %d", dev->dev_addr[i], irq);
+ 		if (dev->if_port == PORT_TP)
+ 			printk(", port TP.\n");
++		else if (np->ignore_phy)
++			printk(", port MII, ignoring PHY\n");
+ 		else
+ 			printk(", port MII, phy ad %d.\n", np->phy_addr_external);
+ 	}
+@@ -1685,42 +1702,44 @@ static void check_link(struct net_device
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem * ioaddr = ns_ioaddr(dev);
+-	int duplex;
++	int duplex = np->full_duplex;
+ 	u16 bmsr;
+-       
+-	/* The link status field is latched: it remains low after a temporary
+-	 * link failure until it's read. We need the current link status,
+-	 * thus read twice.
+-	 */
+-	mdio_read(dev, MII_BMSR);
+-	bmsr = mdio_read(dev, MII_BMSR);
  
- 	if (!(priv->status & STATUS_INT_ENABLED)) {
- 		/* Shared IRQ */
-@@ -10482,7 +10504,7 @@ static irqreturn_t ipw_isr(int irq, void
+-	if (!(bmsr & BMSR_LSTATUS)) {
+-		if (netif_carrier_ok(dev)) {
++	/* If we're not paying attention to the PHY status then don't check. */
++	if (!np->ignore_phy) {
++		/* The link status field is latched: it remains low
++		 * after a temporary link failure until it's read. We
++		 * need the current link status, thus read twice.
++		 */
++		mdio_read(dev, MII_BMSR);
++		bmsr = mdio_read(dev, MII_BMSR);
++
++		if (!(bmsr & BMSR_LSTATUS)) {
++			if (netif_carrier_ok(dev)) {
++				if (netif_msg_link(np))
++					printk(KERN_NOTICE "%s: link down.\n",
++					       dev->name);
++				netif_carrier_off(dev);
++				undo_cable_magic(dev);
++			}
++			return;
++		}
++		if (!netif_carrier_ok(dev)) {
+ 			if (netif_msg_link(np))
+-				printk(KERN_NOTICE "%s: link down.\n",
+-					dev->name);
+-			netif_carrier_off(dev);
+-			undo_cable_magic(dev);
++				printk(KERN_NOTICE "%s: link up.\n", dev->name);
++			netif_carrier_on(dev);
++			do_cable_magic(dev);
+ 		}
+-		return;
+-	}
+-	if (!netif_carrier_ok(dev)) {
+-		if (netif_msg_link(np))
+-			printk(KERN_NOTICE "%s: link up.\n", dev->name);
+-		netif_carrier_on(dev);
+-		do_cable_magic(dev);
+-	}
+ 
+-	duplex = np->full_duplex;
+-	if (!duplex) {
+-		if (bmsr & BMSR_ANEGCOMPLETE) {
+-			int tmp = mii_nway_result(
+-				np->advertising & mdio_read(dev, MII_LPA));
+-			if (tmp == LPA_100FULL || tmp == LPA_10FULL)
++		if (!duplex) {
++			if (bmsr & BMSR_ANEGCOMPLETE) {
++				int tmp = mii_nway_result(
++					np->advertising & mdio_read(dev, MII_LPA));
++				if (tmp == LPA_100FULL || tmp == LPA_10FULL)
++					duplex = 1;
++			} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
+ 				duplex = 1;
+-		} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
+-			duplex = 1;
++		}
  	}
  
- 	/* tell the device to stop sending interrupts */
--	ipw_disable_interrupts(priv);
-+	__ipw_disable_interrupts(priv);
+ 	/* if duplex is set then bit 28 must be set, too */
+@@ -2936,6 +2955,16 @@ static int netdev_set_ecmd(struct net_de
+ 	}
  
- 	/* ack current interrupts */
- 	inta &= (IPW_INTA_MASK_ALL & inta_mask);
-@@ -10493,11 +10515,11 @@ static irqreturn_t ipw_isr(int irq, void
- 
- 	tasklet_schedule(&priv->irq_tasklet);
- 
--	spin_unlock(&priv->lock);
-+	spin_unlock(&priv->irq_lock);
- 
- 	return IRQ_HANDLED;
-       none:
--	spin_unlock(&priv->lock);
-+	spin_unlock(&priv->irq_lock);
- 	return IRQ_NONE;
- }
- 
-@@ -11477,6 +11499,7 @@ static int ipw_pci_probe(struct pci_dev 
- #ifdef CONFIG_IPW2200_DEBUG
- 	ipw_debug_level = debug;
- #endif
-+	spin_lock_init(&priv->irq_lock);
- 	spin_lock_init(&priv->lock);
- 	for (i = 0; i < IPW_IBSS_MAC_HASH_SIZE; i++)
- 		INIT_LIST_HEAD(&priv->ibss_mac_hash[i]);
-diff -puN drivers/net/wireless/ipw2200.h~ipw2200-locking-fix drivers/net/wireless/ipw2200.h
---- devel/drivers/net/wireless/ipw2200.h~ipw2200-locking-fix	2006-06-04 23:58:05.000000000 -0700
-+++ devel-akpm/drivers/net/wireless/ipw2200.h	2006-06-04 23:58:05.000000000 -0700
-@@ -1173,6 +1173,7 @@ struct ipw_priv {
- 	struct ieee80211_device *ieee;
- 
- 	spinlock_t lock;
-+	spinlock_t irq_lock;
- 	struct mutex mutex;
- 
- 	/* basic pci-network driver stuff */
+ 	/*
++	 * If we're ignoring the PHY then autoneg and the internal
++	 * transciever are really not going to work so don't let the
++	 * user select them.
++	 */
++	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
++			       ecmd->port == PORT_TP)) {
++		return -EINVAL;
++	}
++
++	/*
+ 	 * maxtxpkt, maxrxpkt: ignored for now.
+ 	 *
+ 	 * transceiver:
 _
