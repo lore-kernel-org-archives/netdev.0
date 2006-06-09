@@ -1,35 +1,48 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
-Date: Fri, 09 Jun 2006 11:24:49 -0500
-Message-ID: <4489A0D1.9090706@lwfinger.net>
-References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes> <1149701352.2625.20.camel@localhost.localdomain> <44871723.3040803@lwfinger.net> <1149853494.3864.6.camel@johannes.berg> <44899462.6070002@lwfinger.net> <1149867292.3864.30.camel@johannes.berg>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Fri, 9 Jun 2006 12:14:07 -0500
+Message-ID: <20060609171407.GJ24227@waste.org>
+References: <20060608210702.GD24227@waste.org> <4489038C.3050901@intel.com> <20060608.222352.59657133.davem@davemloft.net> <200606090750.25067.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
+	jeremy@goop.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:46002 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1030279AbWFIQYw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 12:24:52 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1149867292.3864.30.camel@johannes.berg>
+Received: from waste.org ([64.81.244.121]:24207 "EHLO waste.org")
+	by vger.kernel.org with ESMTP id S1030272AbWFIRZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 13:25:08 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200606090750.25067.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> On Fri, 2006-06-09 at 10:31 -0500, Larry Finger wrote:
+On Fri, Jun 09, 2006 at 07:50:25AM +0200, Andi Kleen wrote:
+> On Friday 09 June 2006 07:23, David Miller wrote:
+> > From: Auke Kok <auke-jan.h.kok@intel.com>
+> > Date: Thu, 08 Jun 2006 22:13:48 -0700
+> > 
+> > > netconsole should retry. There is no timeout programmed here since that might
+> > > lose important information, and you rather want netconsole to survive an odd
+> > > unplugged cable then to lose vital debugging information when the system is
+> > > busy for instance. (losing link will cause the interface to be down and thus
+> > > the queue to be stopped)
+> > 
+> > I completely disagree that netpoll should loop when the ethernet
+> > cable is plugged out. 
 > 
->> Do you mean a special dump, or is the kernel debug output and wpa_supplicant debug output sufficient?
+> Currently it is a bit dumb and doesn't distingush the various cases
+> well.
 > 
-> I was thinking of packet dumps but earlier you said you couldn't create
-> any so I'm out of ideas for now.
+> I submitted a patch to loop to be a bit more clever at some point. It can be still
+> found in the netdev archives.
 
-Actually, I will be able to get packet dumps. The main disk drive in my server, which is a laptop, 
-died last night. This will be an opportunity to upgrade it to a newer OS that will be able to run my 
-other Wifi card. Neither one will be able to authenticate, but one can packet dump for the other. 
-I'll send them when I get the server running again.
+Agreed that timeouts should happen.
 
-Larry
+IIRC, the trouble with your patch was that it a) timed out on far too
+short a timescale and b) locked up on my box. Unfortunately, so did my
+own patch, which made timeouts approximately 1ms.
 
-
+-- 
+Mathematics is the supreme nostalgia of our time.
