@@ -1,111 +1,95 @@
 From: dlezcano@fr.ibm.com
-Subject: [RFC] [patch 1/6] [Network namespace] Network namespace structure
-Date: Fri, 09 Jun 2006 23:02:03 +0200
-Message-ID: <20060609210623.244151000@localhost.localdomain>
+Subject: [RFC] [patch 2/6] [Network namespace] Network device sharing by view
+Date: Fri, 09 Jun 2006 23:02:04 +0200
+Message-ID: <20060609210625.144158000@localhost.localdomain>
 References: <20060609210202.215291000@localhost.localdomain>
 Cc: serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
 	dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from AToulouse-252-1-74-163.w81-49.abo.wanadoo.fr ([81.49.44.163]:5075
+Received: from AToulouse-252-1-74-163.w81-49.abo.wanadoo.fr ([81.49.44.163]:6355
 	"EHLO localhost.localdomain") by vger.kernel.org with ESMTP
-	id S965296AbWFIVGb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 17:06:31 -0400
+	id S965302AbWFIVGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 17:06:34 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline; filename=net_ns.patch
+Content-Disposition: inline; filename=net_ns_dev.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds to the nsproxy the network namespace and a set of
-functions to unshare it. The network namespace structure should be
-filled later with the identified network ressources needed for more
-isolation.
+Adds to the network namespace a device list view. This view is emptied
+when the unshare is done. The view is filled/emptied by a set of
+function which can be called by an external module.
 
-Replace-Subject: [Network namespace] Network namespace structure
+Replace-Subject: [Network namespace] Network device sharing by view
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com> 
 --
- include/linux/init_task.h |    2 
- include/linux/net_ns.h    |   59 ++++++++++++++++++++++++++++
- include/linux/nsproxy.h   |    2 
- include/linux/sched.h     |    1 
- init/version.c            |    8 +++
- kernel/fork.c             |   24 +++++++++--
- kernel/nsproxy.c          |   38 +++++++++++-------
- net/Kconfig               |    9 ++++
- net/Makefile              |    1 
- net/net_ns.c              |   96 ++++++++++++++++++++++++++++++++++++++++++++++
- 10 files changed, 222 insertions(+), 18 deletions(-)
+ include/linux/net_ns.h     |    2 
+ include/linux/net_ns_dev.h |   32 +++++++
+ init/version.c             |    4 
+ net/core/Makefile          |    2 
+ net/core/net_ns_dev.c      |  205 +++++++++++++++++++++++++++++++++++++++++++++
+ net/net_ns.c               |    6 +
+ 6 files changed, 250 insertions(+), 1 deletion(-)
 
-Index: 2.6-mm/include/linux/net_ns.h
+Index: 2.6-mm/include/linux/net_ns_dev.h
 ===================================================================
 --- /dev/null
-+++ 2.6-mm/include/linux/net_ns.h
-@@ -0,0 +1,59 @@
-+#ifndef _LINUX_NET_NS_H
-+#define _LINUX_NET_NS_H
++++ 2.6-mm/include/linux/net_ns_dev.h
+@@ -0,0 +1,32 @@
++#ifndef _LINUX_NET_NS_DEV_H
++#define _LINUX_NET_NS_DEV_H
 +
-+#include <linux/kref.h>
-+#include <linux/sched.h>
-+#include <linux/nsproxy.h>
++struct net_device;
 +
-+struct net_namespace {
-+	struct kref kref;
++struct net_ns_dev {
++	struct list_head list;
++	struct net_device *dev;
 +};
 +
-+extern struct net_namespace init_net_ns;
++struct net_ns_dev_list {
++	struct list_head list;
++	rwlock_t lock;
++};
 +
-+#ifdef CONFIG_NET_NS
++extern int net_ns_dev_unregister(struct net_device *dev,
++				 struct net_ns_dev_list *devlist);
 +
-+extern int unshare_network(unsigned long unshare_flags,
-+			   struct net_namespace **new_net);
++extern int net_ns_dev_register(struct net_device *dev,
++			       struct net_ns_dev_list *devlist);
 +
-+extern int copy_network(int flags, struct task_struct *tsk);
++extern struct net_device *net_ns_dev_find_by_name(const char *devname,
++						  struct net_ns_dev_list *devlist);
++extern int net_ns_dev_remove(const char *devname,
++			     struct net_ns_dev_list *devlist);
 +
-+static inline void get_net_ns(struct net_namespace *ns)
-+{
-+	kref_get(&ns->kref);
-+}
++extern int net_ns_dev_add(const char *devname,
++			  struct net_ns_dev_list *devlist);
 +
-+void free_net_ns(struct kref *kref);
-+
-+static inline void put_net_ns(struct net_namespace *ns)
-+{
-+	kref_put(&ns->kref, free_net_ns);
-+}
-+
-+static inline void exit_network(struct task_struct *p)
-+{
-+	struct net_namespace *net_ns = p->nsproxy->net_ns;
-+	if (net_ns)
-+		put_net_ns(net_ns);
-+}
-+#else /* !CONFIG_NET_NS */
-+static inline int unshare_network(unsigned long unshare_flags,
-+				  struct net_namespace **new_net)
-+{
-+	return -EINVAL;
-+}
-+static inline int copy_network(int flags, struct task_struct *tsk)
-+{
-+	return 0;
-+}
-+static inline void get_net_ns(struct net_namespace *ns) {}
-+static inline void put_net_ns(struct net_namespace *ns) {}
-+static inline void exit_network(struct task_struct *p) {}
-+#endif /* CONFIG_NET_NS */
-+
-+static inline struct net_namespace *net_ns(void)
-+{
-+	return current->nsproxy->net_ns;
-+}
++extern int free_net_ns_dev(struct net_ns_dev_list *devlist);
 +
 +#endif
-Index: 2.6-mm/net/net_ns.c
+Index: 2.6-mm/include/linux/net_ns.h
+===================================================================
+--- 2.6-mm.orig/include/linux/net_ns.h
++++ 2.6-mm/include/linux/net_ns.h
+@@ -4,9 +4,11 @@
+ #include <linux/kref.h>
+ #include <linux/sched.h>
+ #include <linux/nsproxy.h>
++#include <linux/net_ns_dev.h>
+ 
+ struct net_namespace {
+ 	struct kref kref;
++	struct net_ns_dev_list dev_list;
+ };
+ 
+ extern struct net_namespace init_net_ns;
+Index: 2.6-mm/net/core/net_ns_dev.c
 ===================================================================
 --- /dev/null
-+++ 2.6-mm/net/net_ns.c
-@@ -0,0 +1,96 @@
++++ 2.6-mm/net/core/net_ns_dev.c
+@@ -0,0 +1,205 @@
 +/*
-+ *  net_ns.c - adds support for network namespace
++ *  net_ns_dev.c - adds namespace netwok device view
 + *
 + *  Copyright (C) 2006 IBM
 + *
@@ -116,345 +100,254 @@ Index: 2.6-mm/net/net_ns.c
 + *     published by the Free Software Foundation, version 2 of the
 + *     License.
 + */
++#include <linux/list.h>
++#include <linux/spinlock.h>
++#include <linux/netdevice.h>
++#include <linux/net_ns_dev.h>
 +
-+#include <linux/net_ns.h>
-+#include <linux/module.h>
-+
-+/*
-+ * Clone a new ns copying an original, setting refcount to 1
-+ * Cloned process will have
-+ * @old_ns: namespace to clone
-+ * Return NULL on error (failure to kmalloc), new ns otherwise
-+ */
-+struct net_namespace *clone_net_ns(struct net_namespace *old_ns)
++int free_net_ns_dev(struct net_ns_dev_list *devlist)
 +{
-+	struct net_namespace *new_ns;
++	struct list_head *l, *next;
++	struct net_ns_dev *db;
++	struct net_device *dev;
 +
-+	new_ns = kmalloc(sizeof(*new_ns), GFP_KERNEL);
-+ 	if (!new_ns)
-+ 		return NULL;
-+ 	kref_init(&new_ns->kref);
-+	return new_ns;
-+}
-+
-+/*
-+ * unshare the current process' network namespace.
-+ * called only in sys_unshare()
-+ */
-+int unshare_network(unsigned long unshare_flags,
-+		    struct net_namespace **new_net)
-+{
-+ 	if (!(unshare_flags & CLONE_NEWNET))
-+ 		return 0;
-+
-+ 	if (!capable(CAP_SYS_ADMIN))
-+ 		return -EPERM;
-+
-+ 	*new_net = clone_net_ns(current->nsproxy->net_ns);
-+ 	if (!*new_net)
-+ 		return -ENOMEM;
++	write_lock(&devlist->lock);
++	list_for_each_safe(l, next, &devlist->list) {
++		db = list_entry(l, struct net_ns_dev, list);
++		dev = db->dev;
++		list_del(&db->list);
++		dev_put(dev);
++		kfree(db);
++	}
++	write_unlock(&devlist->lock);
 +
 +	return 0;
 +}
 +
 +/*
-+ * Copy task tsk's network namespace, or clone it if flags specifies
-+ * CLONE_NEWNET.  In latter case, changes to the network ressources of
-+ * this process won't be seen by parent, and vice versa.
++ * Remove a device to the namespace network devices list
++ * when registered from a namespace
++ * @dev : network device
++ * @dev_list: network namespace devices
++ * Return ENODEV if the device does not exist,
 + */
-+int copy_network(int flags, struct task_struct *tsk)
++int net_ns_dev_unregister(struct net_device *dev,
++			  struct net_ns_dev_list *devlist)
 +{
-+	struct net_namespace *old_ns = tsk->nsproxy->net_ns;
-+	struct net_namespace *new_ns;
-+	int err = 0;
++	struct net_ns_dev *db;
++	struct list_head *l;
++	int ret = -ENODEV;
 +
-+	if (!old_ns)
-+		return 0;
++	write_lock(&devlist->lock);
++	list_for_each(l, &devlist->list) {
++		db = list_entry(l, struct net_ns_dev, list);
++ 		if (dev != db->dev)
++ 			continue;
 +
-+	get_net_ns(old_ns);
++ 		list_del(&db->list);
++ 		dev_put(dev);
++ 		kfree(db);
++ 		ret = 0;
++ 		break;
++	}
++	write_unlock(&devlist->lock);
++	return ret;
++}
 +
-+	if (!(flags & CLONE_NEWNET))
-+		return 0;
++EXPORT_SYMBOL_GPL(net_ns_dev_unregister);
 +
-+	if (!capable(CAP_SYS_ADMIN)) {
-+		err = -EPERM;
++/*
++ * Add a device to the namespace network devices list
++ * when registered from a namespace
++ * @dev : network device
++ * @dev_list: network namespace devices
++ * Return ENOMEM if allocation fails, 0 on success
++ */
++int net_ns_dev_register(struct net_device *dev,
++			struct net_ns_dev_list *devlist)
++{
++	struct net_ns_dev *db;
++
++	db = kmalloc(sizeof(*db), GFP_KERNEL);
++	if (!db)
++		return -ENOMEM;
++
++	write_lock(&devlist->lock);
++	dev_hold(dev);
++	db->dev = dev;
++	list_add_tail(&db->list, &devlist->list);
++	write_unlock(&devlist->lock);
++
++	return 0;
++}
++
++EXPORT_SYMBOL_GPL(net_ns_dev_register);
++
++/*
++ * Add a device to the namespace network devices list
++ * @devname : network device name
++ * @dev_list: network namespace devices
++ * Return ENODEV if the device does not exist,
++ * ENOMEM if allocation fails, 0 on success
++ */
++int net_ns_dev_add(const char *devname,
++		   struct net_ns_dev_list *devlist)
++{
++	struct net_ns_dev *db;
++	struct net_device *dev;
++	int ret = 0;
++
++	read_lock(&dev_base_lock);
++
++	for (dev = dev_base; dev; dev = dev->next)
++		if (!strncmp(dev->name, devname, IFNAMSIZ))
++			break;
++
++	if (!dev) {
++		ret = -ENODEV;
 +		goto out;
 +	}
 +
-+	new_ns = clone_net_ns(old_ns);
-+	if (!new_ns) {
-+		err = -ENOMEM;
++	db = kmalloc(sizeof(*db), GFP_KERNEL);
++	if (!db) {
++		ret = -ENOMEM;
 +		goto out;
 +	}
-+	tsk->nsproxy->net_ns = new_ns;
++
++	write_lock(&devlist->lock);
++	db->dev = dev;
++	dev_hold(dev);
++	list_add_tail(&db->list, &devlist->list);
++	write_unlock(&devlist->lock);
 +
 +out:
-+	put_net_ns(old_ns);
-+	return err;
++	read_unlock(&dev_base_lock);
++
++	return ret;
 +}
 +
-+void free_net_ns(struct kref *kref)
++EXPORT_SYMBOL_GPL(net_ns_dev_add);
++
++/*
++ * Remove a device from the namespace network devices list
++ * @devname : network device name
++ * @dev_list: network namespace devices
++ * Return ENODEV if the device does not exist, 0 on success
++ */
++int net_ns_dev_remove(const char *devname,
++		      struct net_ns_dev_list *devlist)
 +{
-+	struct net_namespace *ns;
++	struct net_ns_dev *db;
++	struct net_device *dev;
++	struct list_head *l;
++	int ret = 0;
 +
-+	ns = container_of(kref, struct net_namespace, kref);
-+	kfree(ns);
++	write_lock(&devlist->lock);
++	list_for_each(l, &devlist->list) {
++		db = list_entry(l, struct net_ns_dev, list);
++		dev = db->dev;
++
++		if (!strncmp(dev->name, devname, IFNAMSIZ)) {
++			list_del(&db->list);
++			dev_put(dev);
++			kfree(db);
++			goto out;
++		}
++	}
++	ret = -ENODEV;
++out:
++	write_unlock(&devlist->lock);
++	return ret;
 +}
-Index: 2.6-mm/include/linux/nsproxy.h
++
++EXPORT_SYMBOL_GPL(net_ns_dev_remove);
++
++/*
++ * Find a namespace network device
++ * @devname : network device name
++ * @dev_list: network namespace devices
++ * Return ENODEV if the device does not exist, 0 on success
++ */
++struct net_device *net_ns_dev_find_by_name(const char *devname,
++					   struct net_ns_dev_list *devlist)
++{
++	struct net_ns_dev *db;
++	struct net_device *dev;
++	struct list_head *l;
++
++	read_lock(&devlist->lock);
++
++	list_for_each(l, &devlist->list) {
++		db = list_entry(l, struct net_ns_dev, list);
++		dev = db->dev;
++
++		if (!strncmp(dev->name, devname, IFNAMSIZ)) {
++			dev_hold(dev);
++			goto out;
++		}
++	}
++	dev = NULL;
++out:
++	read_unlock(&devlist->lock);
++	return dev;
++}
++
++EXPORT_SYMBOL_GPL(net_ns_dev_find_by_name);
+Index: 2.6-mm/net/net_ns.c
 ===================================================================
---- 2.6-mm.orig/include/linux/nsproxy.h
-+++ 2.6-mm/include/linux/nsproxy.h
-@@ -6,6 +6,7 @@
- 
- struct namespace;
- struct uts_namespace;
-+struct net_namespace;
- 
- /*
-  * A structure to contain pointers to all per-process
-@@ -23,6 +24,7 @@ struct nsproxy {
- 	atomic_t count;
- 	spinlock_t nslock;
- 	struct uts_namespace *uts_ns;
-+	struct net_namespace *net_ns;
- 	struct namespace *namespace;
- };
- extern struct nsproxy init_nsproxy;
-Index: 2.6-mm/kernel/nsproxy.c
-===================================================================
---- 2.6-mm.orig/kernel/nsproxy.c
-+++ 2.6-mm/kernel/nsproxy.c
-@@ -14,6 +14,7 @@
- #include <linux/nsproxy.h>
- #include <linux/namespace.h>
- #include <linux/utsname.h>
-+#include <linux/net_ns.h>
- 
- static inline void get_nsproxy(struct nsproxy *ns)
+--- 2.6-mm.orig/net/net_ns.c
++++ 2.6-mm/net/net_ns.c
+@@ -23,11 +23,16 @@
+ struct net_namespace *clone_net_ns(struct net_namespace *old_ns)
  {
-@@ -59,6 +60,8 @@ struct nsproxy *dup_namespaces(struct ns
- 			get_namespace(ns->namespace);
- 		if (ns->uts_ns)
- 			get_uts_ns(ns->uts_ns);
-+		if (ns->net_ns)
-+			get_net_ns(ns->net_ns);
- 	}
+ 	struct net_namespace *new_ns;
++	struct net_ns_dev_list *new_dev_list;
  
- 	return ns;
-@@ -79,7 +82,7 @@ int copy_namespaces(int flags, struct ta
- 
- 	get_nsproxy(old_ns);
- 
--	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS)))
-+	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWNET)))
- 		return 0;
- 
- 	new_ns = clone_namespaces(old_ns);
-@@ -91,21 +94,28 @@ int copy_namespaces(int flags, struct ta
- 	tsk->nsproxy = new_ns;
- 
- 	err = copy_namespace(flags, tsk);
--	if (err) {
--		tsk->nsproxy = old_ns;
--		put_nsproxy(new_ns);
--		goto out;
--	}
-+	if (err)
-+		goto bad_copy_namespace;
- 
- 	err = copy_utsname(flags, tsk);
--	if (err) {
--		if (new_ns->namespace)
--			put_namespace(new_ns->namespace);
--		tsk->nsproxy = old_ns;
--		put_nsproxy(new_ns);
--		goto out;
--	}
-+	if (err)
-+		goto bad_copy_utsname;
- 
-+  	err = copy_network(flags, tsk);
-+  	if (err)
-+ 		goto bad_copy_network;
+ 	new_ns = kmalloc(sizeof(*new_ns), GFP_KERNEL);
+  	if (!new_ns)
+  		return NULL;
 +
-+  	goto out;
-+
-+bad_copy_network:
-+	if (new_ns->uts_ns)
-+		put_uts_ns(new_ns->uts_ns);
-+bad_copy_utsname:
-+	if (new_ns->namespace)
-+		put_namespace(new_ns->namespace);
-+bad_copy_namespace:
-+	tsk->nsproxy = old_ns;
-+	put_nsproxy(new_ns);
- out:
- 	put_nsproxy(old_ns);
- 	return err;
-@@ -117,5 +127,7 @@ void free_nsproxy(struct nsproxy *ns)
- 			put_namespace(ns->namespace);
- 		if (ns->uts_ns)
- 			put_uts_ns(ns->uts_ns);
-+		if (ns->net_ns)
-+			put_net_ns(ns->net_ns);
- 		kfree(ns);
- }
-Index: 2.6-mm/include/linux/sched.h
-===================================================================
---- 2.6-mm.orig/include/linux/sched.h
-+++ 2.6-mm/include/linux/sched.h
-@@ -25,6 +25,7 @@
- #define CLONE_CHILD_SETTID	0x01000000	/* set the TID in the child */
- #define CLONE_STOPPED		0x02000000	/* Start in stopped state */
- #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
-+#define CLONE_NEWNET		0x08000000	/* New network namespace */
- 
- /*
-  * Scheduling policies
-Index: 2.6-mm/net/Kconfig
-===================================================================
---- 2.6-mm.orig/net/Kconfig
-+++ 2.6-mm/net/Kconfig
-@@ -60,6 +60,15 @@ config INET
- 
- 	  Short answer: say Y.
- 
-+config NET_NS
-+	bool "Network namespaces"
-+	depends on NET
-+	default n
-+	---help---
-+	  Support for network namespaces.  This allows containers, i.e.
-+	  vservers, to use network namespaces to provide isolated
-+	  network for different servers.  If unsure, say N.
-+
- if INET
- source "net/ipv4/Kconfig"
- source "net/ipv6/Kconfig"
-Index: 2.6-mm/net/Makefile
-===================================================================
---- 2.6-mm.orig/net/Makefile
-+++ 2.6-mm/net/Makefile
-@@ -50,3 +50,4 @@ obj-$(CONFIG_TIPC)		+= tipc/
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_SYSCTL)		+= sysctl_net.o
- endif
-+obj-$(CONFIG_NET_NS)            += net_ns.o
-Index: 2.6-mm/include/linux/init_task.h
-===================================================================
---- 2.6-mm.orig/include/linux/init_task.h
-+++ 2.6-mm/include/linux/init_task.h
-@@ -4,6 +4,7 @@
- #include <linux/file.h>
- #include <linux/rcupdate.h>
- #include <linux/utsname.h>
-+#include <linux/net_ns.h>
- #include <linux/interrupt.h>
- 
- #define INIT_FDTABLE \
-@@ -73,6 +74,7 @@ extern struct nsproxy init_nsproxy;
- 	.count		= ATOMIC_INIT(1),				\
- 	.nslock		= SPIN_LOCK_UNLOCKED,				\
- 	.uts_ns		= &init_uts_ns,					\
-+	.net_ns         = &init_net_ns,                                 \
- 	.namespace	= NULL,						\
+  	kref_init(&new_ns->kref);
++ 	new_dev_list = &new_ns->dev_list;
++ 	INIT_LIST_HEAD(&new_dev_list->list);
++	new_dev_list->lock = RW_LOCK_UNLOCKED;
+ 	return new_ns;
  }
  
-Index: 2.6-mm/kernel/fork.c
+@@ -92,5 +97,6 @@ void free_net_ns(struct kref *kref)
+ 	struct net_namespace *ns;
+ 
+ 	ns = container_of(kref, struct net_namespace, kref);
++	free_net_ns_dev(&ns->dev_list);
+ 	kfree(ns);
+ }
+Index: 2.6-mm/net/core/Makefile
 ===================================================================
---- 2.6-mm.orig/kernel/fork.c
-+++ 2.6-mm/kernel/fork.c
-@@ -1592,13 +1592,15 @@ asmlinkage long sys_unshare(unsigned lon
- 	struct sem_undo_list *new_ulist = NULL;
- 	struct nsproxy *new_nsproxy = NULL, *old_nsproxy = NULL;
- 	struct uts_namespace *uts, *new_uts = NULL;
-+	struct net_namespace *net, *new_net = NULL;
+--- 2.6-mm.orig/net/core/Makefile
++++ 2.6-mm/net/core/Makefile
+@@ -7,7 +7,7 @@ obj-y := sock.o request_sock.o skbuff.o 
  
- 	check_unshare_flags(&unshare_flags);
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
  
- 	/* Return -EINVAL for all unsupported flags */
- 	err = -EINVAL;
- 	if (unshare_flags & ~(CLONE_THREAD|CLONE_FS|CLONE_NEWNS|CLONE_SIGHAND|
--				CLONE_VM|CLONE_FILES|CLONE_SYSVSEM|CLONE_NEWUTS))
-+				CLONE_VM|CLONE_FILES|CLONE_SYSVSEM|CLONE_NEWUTS|
-+			        CLONE_NEWNET))
- 		goto bad_unshare_out;
+-obj-y		     += dev.o ethtool.o dev_mcast.o dst.o \
++obj-y		     += dev.o net_ns_dev.o ethtool.o dev_mcast.o dst.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
  
- 	if ((err = unshare_thread(unshare_flags)))
-@@ -1617,18 +1619,20 @@ asmlinkage long sys_unshare(unsigned lon
- 		goto bad_unshare_cleanup_fd;
- 	if ((err = unshare_utsname(unshare_flags, &new_uts)))
- 		goto bad_unshare_cleanup_semundo;
-+ 	if ((err = unshare_network(unshare_flags, &new_net)))
-+ 		goto bad_unshare_cleanup_utsname;
- 
--	if (new_ns || new_uts) {
-+	if (new_ns || new_uts || new_net) {
- 		old_nsproxy = current->nsproxy;
- 		new_nsproxy = dup_namespaces(old_nsproxy);
- 		if (!new_nsproxy) {
- 			err = -ENOMEM;
--			goto bad_unshare_cleanup_uts;
-+			goto bad_unshare_cleanup_net;
- 		}
- 	}
- 
- 	if (new_fs || new_ns || new_sigh || new_mm || new_fd || new_ulist ||
--				new_uts) {
-+				new_uts || new_net) {
- 
- 		task_lock(current);
- 
-@@ -1676,13 +1680,23 @@ asmlinkage long sys_unshare(unsigned lon
- 			new_uts = uts;
- 		}
- 
-+ 		if (new_net) {
-+ 			net = current->nsproxy->net_ns;
-+ 			current->nsproxy->net_ns = new_net;
-+			new_net = net;
-+ 		}
-+
- 		task_unlock(current);
- 	}
- 
- 	if (new_nsproxy)
- 		put_nsproxy(new_nsproxy);
- 
--bad_unshare_cleanup_uts:
-+bad_unshare_cleanup_net:
-+	if (new_net)
-+		put_net_ns(new_net);
-+
-+bad_unshare_cleanup_utsname:
- 	if (new_uts)
- 		put_uts_ns(new_uts);
- 
+ obj-$(CONFIG_XFRM) += flow.o
 Index: 2.6-mm/init/version.c
 ===================================================================
 --- 2.6-mm.orig/init/version.c
 +++ 2.6-mm/init/version.c
-@@ -10,6 +10,7 @@
- #include <linux/module.h>
- #include <linux/uts.h>
- #include <linux/utsname.h>
-+#include <linux/net_ns.h>
- #include <linux/version.h>
- #include <linux/sched.h>
- 
-@@ -33,6 +34,13 @@ struct uts_namespace init_uts_ns = {
+@@ -38,6 +38,10 @@ struct net_namespace init_net_ns = {
+ 	.kref = {
+ 		.refcount	= ATOMIC_INIT(2),
+ 	},
++	.dev_list = {
++		 .lock = RW_LOCK_UNLOCKED,
++		 .list = LIST_HEAD_INIT(init_net_ns.dev_list.list),
++	 },
  };
- EXPORT_SYMBOL_GPL(init_uts_ns);
+ EXPORT_SYMBOL_GPL(init_net_ns);
  
-+struct net_namespace init_net_ns = {
-+	.kref = {
-+		.refcount	= ATOMIC_INIT(2),
-+	},
-+};
-+EXPORT_SYMBOL_GPL(init_net_ns);
-+
- const char linux_banner[] =
- 	"Linux version " UTS_RELEASE " (" LINUX_COMPILE_BY "@"
- 	LINUX_COMPILE_HOST ") (" LINUX_COMPILER ") " UTS_VERSION "\n";
 
 --
