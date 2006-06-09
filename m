@@ -1,50 +1,95 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] wan/sdla section fixes
-Date: Thu, 8 Jun 2006 20:36:16 -0700
-Message-ID: <20060608203616.16796ec3.rdunlap@xenotime.net>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Thu, 08 Jun 2006 18:54:38 -0700
+Message-ID: <4488D4DE.3000100@goop.org>
+References: <44886381.9050506@goop.org> <20060608210702.GD24227@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mike.mclagan@linux.org, khc@pm.waw.pl, akpm <akpm@osdl.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:58567 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S965121AbWFIDuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 23:50:20 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 8 Jun 2006 20:50:19 -0700
-To: netdev <netdev@vger.kernel.org>
+Received: from gw.goop.org ([64.81.55.164]:6785 "EHLO mail.goop.org")
+	by vger.kernel.org with ESMTP id S965140AbWFIEEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 00:04:21 -0400
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20060608210702.GD24227@waste.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+Matt Mackall wrote:
+> That's odd. Netpoll holds a reference to the device, of course, but so
+> does a normal "up" interface. So that shouldn't be the problem.
+> Another possibility is that outgoing packets from printks in the
+> driver are causing difficulty. Not sure what can be done about that.
+>   
+I only tried once; maybe I misunderstood what was going on.  I'll try 
+again tonight.
 
-Priority: tossup.
-netdev->set_config can be called at any time, so these references
-to __initdata would be a real problem.
-However, problem has not been observed AFAIK.
+Oh, I think I see what's happening.  The e1000 suspend routine does this:
 
-Fix section mismatch warnings:
-WARNING: drivers/net/wan/sdla.o - Section mismatch: reference to .init.data: from .text between 'sdla_set_config' (at offset 0x1b8e) and 'sdla_stats'
-WARNING: drivers/net/wan/sdla.o - Section mismatch: reference to .init.data: from .text between 'sdla_set_config' (at offset 0x1e76) and 'sdla_stats'
+	if (netif_running(netdev))
+		e1000_down(adapter);
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- drivers/net/wan/sdla.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This leaves the interface up, but it stops the queue.  Then 
+netpoll_send_skb() has this loop:
 
---- linux-2617-rc6.orig/drivers/net/wan/sdla.c
-+++ linux-2617-rc6/drivers/net/wan/sdla.c
-@@ -60,9 +60,9 @@
- 
- static const char* version = "SDLA driver v0.30, 12 Sep 1996, mike.mclagan@linux.org";
- 
--static unsigned int valid_port[] __initdata = { 0x250, 0x270, 0x280, 0x300, 0x350, 0x360, 0x380, 0x390};
-+static unsigned int valid_port[] = { 0x250, 0x270, 0x280, 0x300, 0x350, 0x360, 0x380, 0x390};
- 
--static unsigned int valid_mem[]  __initdata = {
-+static unsigned int valid_mem[] = {
- 				    0xA0000, 0xA2000, 0xA4000, 0xA6000, 0xA8000, 0xAA000, 0xAC000, 0xAE000, 
-                                     0xB0000, 0xB2000, 0xB4000, 0xB6000, 0xB8000, 0xBA000, 0xBC000, 0xBE000,
-                                     0xC0000, 0xC2000, 0xC4000, 0xC6000, 0xC8000, 0xCA000, 0xCC000, 0xCE000,
+	do {
+		npinfo->tries--;
+		spin_lock(&np->dev->xmit_lock);
+		np->dev->xmit_lock_owner = smp_processor_id();
+
+		/*
+		 * network drivers do not expect to be called if the queue is
+		 * stopped.
+		 */
+		if (netif_queue_stopped(np->dev)) {
+			np->dev->xmit_lock_owner = -1;
+			spin_unlock(&np->dev->xmit_lock);
+			netpoll_poll(np);
+			udelay(50);
+			continue;
+		}
+/* ... */
+again: /* proposed */
+	} while (npinfo->tries > 0);
 
 
----
+so this will end up in an infinite loop, since netif_queue_stopped() 
+will always return true, and it never looks at npinfo->tries.  Should 
+the "continue" be "goto again"?
+
+Also, e1000_down does a netif_poll_disable(), but I'm not sure what that 
+actually does...  Should it prevent netpoll from even trying to send?
+> It's generally going to suck, because unlike a polled serial port, the
+> device needs to be put to sleep. But if you're doing suspend to RAM,
+>   
+I'm interested in suspend-to-ram.  I presume that with suspend-to-disk, 
+booting with built-in netconsole will tell me useful stuff; that'll be 
+the next experiment.
+
+> you might be able to do something like this:
+>
+> - unhook net device from suspend machinery (possibly just return success)
+> - bounce out of suspend before the final call to ACPI is made
+>
+> Net effect is you do OS-level suspend and resume of everything but the
+> NIC without actually powering down the core. Which should let you
+> debug just about everything.
+
+Well, the machine has to really suspend so that I can see (and debug) a 
+mostly normal resume.  In particular, I need the hardware to be zapped 
+so I can see if it is being restarted properly.
+
+What might work is to change the e1000 suspend routine to save enough 
+state for resume to work, but keep the interface up so that netconsole 
+can keep transmitting all the way up to the point that the final acpi 
+call powers off the machine.
+
+Then the e1000 would resume normally, including restarting the xmit 
+queue so that netconsole can start again immediately; any netconsole 
+output before the e1000 resume would be lost, of course (I guess it 
+could be buffered).  That would suit me for now.
+
+    J
+
