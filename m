@@ -1,39 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 6/8] drivers/char/hw_random.c: remove assert()'s
-Date: Fri, 09 Jun 2006 10:19:35 -0400
-Message-ID: <44898377.2090602@garzik.org>
-References: <200606090519.k595JlHj032029@shell0.pdx.osdl.net>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: netif_tx_disable vs netif_stop_queue (possible races?)
+Date: Fri, 09 Jun 2006 16:29:13 +0100
+Message-ID: <448993C9.8040400@gentoo.org>
+References: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bunk@stusta.de
+Cc: netdev@vger.kernel.org, david-b@pacbell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:62088 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965273AbWFIOTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 10:19:45 -0400
-To: akpm@osdl.org
-In-Reply-To: <200606090519.k595JlHj032029@shell0.pdx.osdl.net>
+Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:15614 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S965287AbWFIP2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 11:28:13 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
-> From: Adrian Bunk <bunk@stusta.de>
+Herbert Xu wrote:
+> Daniel Drake <dsd@gentoo.org> wrote:
+>> More specifically, we're talking about drivers/usb/net/usbnet.c and the 
+>> usbnet_disconnect() function.  The race I am highlighting is that 
+>> usbnet's hard_start_xmit handler (usbnet_start_xmit) may be running when 
+>> the disconnect happens.
+>>
+>> Is this a possible scenario?
 > 
-> Remove the assert()'s from drivers/char/hw_random.c since you both needed
-> to enable a manual option in the driver source to make them effective and
-> they only covered some obviously impossible cases.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
+> It should be safe, if only because of the synchronize_net that occurs
+> before a netdev can be freed.
 
-100% NAK.  They are there, obviously, for driver debugging and 
-development.  Just like libata's debug stuff, you certainly have to 
-enable them manually.
+Can I interpret your response as: If the TX queue is disabled in 
+advance, no hard_start_xmit functions will be running on any CPU after 
+synchronize_net() has returned?
 
-Until this driver goes away (real soon, right?), the debugging facility 
-should stay.
+The synchronize_net() code doesn't make it very clear.
 
-	Jeff
-
-
-
+Thanks,
+Daniel
