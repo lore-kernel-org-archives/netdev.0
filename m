@@ -1,41 +1,33 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite support
-Date: Fri, 9 Jun 2006 10:36:41 +0100
-Message-ID: <200606091036.42075.gerrit@erg.abdn.ac.uk>
-References: <20060608.115331.71094388.davem@davemloft.net> <200606082109.34338.gerrit@erg.abdn.ac.uk> <20060608.151347.55505744.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Fri, 9 Jun 2006 12:34:50 +0200
+Message-ID: <200606091234.50874.rjw@sisk.pl>
+References: <44886381.9050506@goop.org> <200606082240.31473.rjw@sisk.pl> <4488D565.2020103@goop.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, alan@lxorguk.ukuu.org.uk, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:60304 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S932346AbWFIJhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 05:37:22 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060608.151347.55505744.davem@davemloft.net>
+Received: from ogre.sisk.pl ([217.79.144.158]:34948 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S965015AbWFIKec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 06:34:32 -0400
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+In-Reply-To: <4488D565.2020103@goop.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting David Miller:
-|  From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-|  Date: Thu, 8 Jun 2006 21:09:33 +0100
-|  
-|  > That is why I held back regarding the IPv6 port:
-<snip> 
-|  
-|  It's not like an ipv6 port is such a big pile of work.
-|  
-I see the point and will port to v6 (have asked colleages for help). 
-Until then, I will keep an up-to-date (-mm) patch in the tarball
+On Friday 09 June 2006 03:56, Jeremy Fitzhardinge wrote:
+> Rafael J. Wysocki wrote:
+> > Please try doing "echo 8 > /proc/sys/kernel/printk" before suspend.
+> >   
+> Um, why?  That would increase the amount of log output, but I don't see 
+> how it would help with netconsole preventing suspend, or not being able 
+> to see console messages on a blank screen after resume.
 
-http://www.erg.abdn.ac.uk/users/gerrit/udp-lite/files/udplite_linux.tar.gz
+Ah, that's after resume.  Sorry for the noise. :-)
 
-This has applications as well. I would value any more input: the suggestion to 
-use SOCK_DGRAM has already been integrated and proved a really good idea (much less 
-to patch, cleaner code). Usually an update is there on the same day the new kernel 
-comes out.
-Thank you for your replies and comments, I will be back when the v6 side is ready.
+Rafael
