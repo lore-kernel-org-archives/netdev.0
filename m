@@ -1,34 +1,30 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: ipsec tunnel asymmetrical mtu
-Date: Fri, 09 Jun 2006 10:04:42 +0200
-Message-ID: <BAY103-F1811A7081DDF94CCCC2158B2880@phx.gbl>
-References: <BAY103-F5BDFFFFDAB4CFB03007D9B2A60@phx.gbl>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [patch 5/9] secmark: Add secmark support to core networking.
+Date: Fri, 9 Jun 2006 04:18:56 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606090418460.10312@d.namei>
+References: <200606090520.k595KtAs032095@shell0.pdx.osdl.net>
+ <20060609.002953.70217215.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay103-f18.bay103.hotmail.com ([65.54.174.28]:7498 "EHLO
-	hotmail.com") by vger.kernel.org with ESMTP id S1751428AbWFIIEn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 04:04:43 -0400
-In-Reply-To: <BAY103-F5BDFFFFDAB4CFB03007D9B2A60@phx.gbl>
-To: herbert@gondor.apana.org.au
+Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:62648 "EHLO
+	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751426AbWFIIS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 04:18:59 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060609.002953.70217215.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Marco Berizzi wrote:
+On Fri, 9 Jun 2006, David Miller wrote:
 
->Marco Berizzi wrote:
->
->>Herbert Xu wrote:
->>
->>>However, the fact that the tcpdump causes more chunky packets to
->>>make it through could be an indication that there is a bug somewhere
->>>in our NAT/IPsec code or at least a suboptimal memory allocation
->>>strategy that's somehow avoided when AF_PACKET pins the skb down.
->
->JFYI: same problem with 2.6.17-rc4-git5
+> Remember James, you're on the hook now to shrink sk_buff
+> when you get a chance :-)
 
-JFYI: same problem with 2.6.17-rc6
+Yep, I remember.
 
 
+-- 
+James Morris
+<jmorris@namei.org>
