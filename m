@@ -1,222 +1,151 @@
 From: akpm@osdl.org
-Subject: [patch 3/8] natsemi: Add support for using MII port with no PHY
-Date: Thu, 08 Jun 2006 22:19:42 -0700
-Message-ID: <200606090519.k595JgRv032020@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, broonie@sirena.org.uk,
-	jgarzik@pobox.com, thockin@hockin.org
+Subject: [patch 5/9] secmark: Add secmark support to core networking.
+Date: Thu, 08 Jun 2006 22:20:55 -0700
+Message-ID: <200606090520.k595KtAs032095@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:1756 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965150AbWFIFUb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:20:31 -0400
-To: jeff@garzik.org
+Received: from smtp.osdl.org ([65.172.181.4]:14300 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965163AbWFIFVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:21:21 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Mark Brown <broonie@sirena.org.uk>
+From: James Morris <jmorris@namei.org>
 
-Provide a module option which configures the natsemi driver to use the
-external MII port on the chip but ignore any PHYs that may be attached to it. 
-The link state will be left as it was when the driver started and can be
-configured via ethtool.  Any PHYs that are present can be accessed via the MII
-ioctl()s.
+Add a secmark field to the skbuff structure, to allow security subsystems to
+place security markings on network packets.  This is similar to the nfmark
+field, except is intended for implementing security policy, rather than than
+networking policy.
 
-This is useful for systems where the device is connected without a PHY or
-where either information or actions outside the scope of the driver are
-required in order to use the PHYs.
+This patch was already acked in principle by Dave Miller.
 
-Signed-off-by: Mark Brown <broonie@sirena.org.uk>
-Cc: Tim Hockin <thockin@hockin.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Signed-off-by: James Morris <jmorris@namei.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/natsemi.c |  105 +++++++++++++++++++++++++---------------
- 1 files changed, 67 insertions(+), 38 deletions(-)
+ include/linux/skbuff.h          |   22 ++++++++++++++++++++++
+ net/Kconfig                     |    7 +++++++
+ net/core/skbuff.c               |    3 ++-
+ net/ipv4/ip_output.c            |    1 +
+ net/ipv4/netfilter/ipt_REJECT.c |    1 +
+ net/ipv6/ip6_output.c           |    1 +
+ 6 files changed, 34 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy drivers/net/natsemi.c
---- devel/drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy	2006-04-10 23:21:19.000000000 -0700
-+++ devel-akpm/drivers/net/natsemi.c	2006-04-10 23:21:19.000000000 -0700
-@@ -259,7 +259,7 @@ MODULE_PARM_DESC(debug, "DP8381x default
- MODULE_PARM_DESC(rx_copybreak, 
- 	"DP8381x copy breakpoint for copy-only-tiny-frames");
- MODULE_PARM_DESC(options, 
--	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
-+	"DP8381x: Bits 0-3: media type, bit 17: full duplex, bit 18: ignore PHY");
- MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
+diff -puN include/linux/skbuff.h~secmark-add-secmark-support-to-core-networking include/linux/skbuff.h
+--- devel/include/linux/skbuff.h~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/linux/skbuff.h	2006-06-01 20:31:50.000000000 -0700
+@@ -209,6 +209,7 @@ enum {
+  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
+  *	@tc_index: Traffic control index
+  *	@tc_verd: traffic control verdict
++ *	@secmark: security marking
+  */
+ 
+ struct sk_buff {
+@@ -288,6 +289,9 @@ struct sk_buff {
+ #ifdef CONFIG_NET_DMA
+ 	dma_cookie_t		dma_cookie;
+ #endif
++#ifdef CONFIG_NETWORK_SECMARK
++	__u32			secmark;
++#endif
+ 
+ 
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+@@ -1399,5 +1403,23 @@ static inline void nf_reset(struct sk_bu
+ static inline void nf_reset(struct sk_buff *skb) {}
+ #endif /* CONFIG_NETFILTER */
+ 
++#ifdef CONFIG_NETWORK_SECMARK
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{
++	to->secmark = from->secmark;
++}
++
++static inline void skb_init_secmark(struct sk_buff *skb)
++{
++	skb->secmark = 0;
++}
++#else
++static inline void skb_copy_secmark(struct sk_buff *to, const struct sk_buff *from)
++{ }
++
++static inline void skb_init_secmark(struct sk_buff *skb)
++{ }
++#endif
++
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff -puN net/core/skbuff.c~secmark-add-secmark-support-to-core-networking net/core/skbuff.c
+--- devel/net/core/skbuff.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/core/skbuff.c	2006-06-01 20:31:50.000000000 -0700
+@@ -464,7 +464,7 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
+ 	C(input_dev);
+ #endif
+-
++	skb_copy_secmark(n, skb);
+ #endif
+ 	C(truesize);
+ 	atomic_set(&n->users, 1);
+@@ -526,6 +526,7 @@ static void copy_skb_header(struct sk_bu
+ #endif
+ 	new->tc_index	= old->tc_index;
+ #endif
++	skb_copy_secmark(new, old);
+ 	atomic_set(&new->users, 1);
+ 	skb_shinfo(new)->tso_size = skb_shinfo(old)->tso_size;
+ 	skb_shinfo(new)->tso_segs = skb_shinfo(old)->tso_segs;
+diff -puN net/ipv4/ip_output.c~secmark-add-secmark-support-to-core-networking net/ipv4/ip_output.c
+--- devel/net/ipv4/ip_output.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/ip_output.c	2006-06-01 20:31:50.000000000 -0700
+@@ -410,6 +410,7 @@ static void ip_copy_metadata(struct sk_b
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
+ }
  
  /*
-@@ -690,6 +690,8 @@ struct netdev_private {
- 	u32 intr_status;
- 	/* Do not touch the nic registers */
- 	int hands_off;
-+	/* Don't pay attention to the reported link state. */
-+	int ignore_phy;
- 	/* external phy that is used: only valid if dev->if_port != PORT_TP */
- 	int mii;
- 	int phy_addr_external;
-@@ -894,7 +896,19 @@ static int __devinit natsemi_probe1 (str
- 	np->intr_status = 0;
- 	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
+diff -puN net/ipv4/netfilter/ipt_REJECT.c~secmark-add-secmark-support-to-core-networking net/ipv4/netfilter/ipt_REJECT.c
+--- devel/net/ipv4/netfilter/ipt_REJECT.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/ipt_REJECT.c	2006-06-01 20:31:50.000000000 -0700
+@@ -147,6 +147,7 @@ static void send_reset(struct sk_buff *o
+ 	/* This packet will not be the same as the other: clear nf fields */
+ 	nf_reset(nskb);
+ 	nskb->nfmark = 0;
++	skb_init_secmark(nskb);
  
-+	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
-+	if (dev->mem_start)
-+		option = dev->mem_start;
+ 	tcph = (struct tcphdr *)((u_int32_t*)nskb->nh.iph + nskb->nh.iph->ihl);
+ 
+diff -puN net/ipv6/ip6_output.c~secmark-add-secmark-support-to-core-networking net/ipv6/ip6_output.c
+--- devel/net/ipv6/ip6_output.c~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv6/ip6_output.c	2006-06-01 20:31:50.000000000 -0700
+@@ -459,6 +459,7 @@ static void ip6_copy_metadata(struct sk_
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+ #endif
++	skb_copy_secmark(to, from);
+ }
+ 
+ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+diff -puN net/Kconfig~secmark-add-secmark-support-to-core-networking net/Kconfig
+--- devel/net/Kconfig~secmark-add-secmark-support-to-core-networking	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -66,6 +66,13 @@ source "net/ipv6/Kconfig"
+ 
+ endif # if INET
+ 
++config NETWORK_SECMARK
++	bool "Security Marking"
++	help
++	  This enables security marking of network packets, similar
++	  to nfmark, but designated for security purposes.
++	  If you are unsure how to answer this question, answer N.
 +
-+	/* Ignore the PHY status? */
-+	if (option & 0x400) {
-+		np->ignore_phy = 1;
-+	} else {
-+		np->ignore_phy = 0;
-+	}
-+
- 	/* Initial port:
-+	 * - If configured to ignore the PHY set up for external.
- 	 * - If the nic was configured to use an external phy and if find_mii
- 	 *   finds a phy: use external port, first phy that replies.
- 	 * - Otherwise: internal port.
-@@ -902,7 +916,7 @@ static int __devinit natsemi_probe1 (str
- 	 * The address would be used to access a phy over the mii bus, but
- 	 * the internal phy is accessed through mapped registers.
- 	 */
--	if (readl(ioaddr + ChipConfig) & CfgExtPhy)
-+	if (np->ignore_phy || readl(ioaddr + ChipConfig) & CfgExtPhy)
- 		dev->if_port = PORT_MII;
- 	else
- 		dev->if_port = PORT_TP;
-@@ -912,7 +926,9 @@ static int __devinit natsemi_probe1 (str
- 
- 	if (dev->if_port != PORT_TP) {
- 		np->phy_addr_external = find_mii(dev);
--		if (np->phy_addr_external == PHY_ADDR_NONE) {
-+		/* If we're ignoring the PHY it doesn't matter if we can't
-+		 * find one. */
-+		if (!np->ignore_phy && np->phy_addr_external == PHY_ADDR_NONE) {
- 			dev->if_port = PORT_TP;
- 			np->phy_addr_external = PHY_ADDR_INTERNAL;
- 		}
-@@ -920,10 +936,6 @@ static int __devinit natsemi_probe1 (str
- 		np->phy_addr_external = PHY_ADDR_INTERNAL;
- 	}
- 
--	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
--	if (dev->mem_start)
--		option = dev->mem_start;
--
- 	/* The lower four bits are the media type. */
- 	if (option) {
- 		if (option & 0x200)
-@@ -957,7 +969,10 @@ static int __devinit natsemi_probe1 (str
- 	if (mtu)
- 		dev->mtu = mtu;
- 
--	netif_carrier_off(dev);
-+	if (np->ignore_phy)
-+		netif_carrier_on(dev);
-+	else
-+		netif_carrier_off(dev);
- 
- 	/* get the initial settings from hardware */
- 	tmp            = mdio_read(dev, MII_BMCR);
-@@ -1005,6 +1020,8 @@ static int __devinit natsemi_probe1 (str
- 		printk("%02x, IRQ %d", dev->dev_addr[i], irq);
- 		if (dev->if_port == PORT_TP)
- 			printk(", port TP.\n");
-+		else if (np->ignore_phy)
-+			printk(", port MII, ignoring PHY\n");
- 		else
- 			printk(", port MII, phy ad %d.\n", np->phy_addr_external);
- 	}
-@@ -1685,42 +1702,44 @@ static void check_link(struct net_device
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
--	int duplex;
-+	int duplex = np->full_duplex;
- 	u16 bmsr;
--       
--	/* The link status field is latched: it remains low after a temporary
--	 * link failure until it's read. We need the current link status,
--	 * thus read twice.
--	 */
--	mdio_read(dev, MII_BMSR);
--	bmsr = mdio_read(dev, MII_BMSR);
- 
--	if (!(bmsr & BMSR_LSTATUS)) {
--		if (netif_carrier_ok(dev)) {
-+	/* If we're not paying attention to the PHY status then don't check. */
-+	if (!np->ignore_phy) {
-+		/* The link status field is latched: it remains low
-+		 * after a temporary link failure until it's read. We
-+		 * need the current link status, thus read twice.
-+		 */
-+		mdio_read(dev, MII_BMSR);
-+		bmsr = mdio_read(dev, MII_BMSR);
-+
-+		if (!(bmsr & BMSR_LSTATUS)) {
-+			if (netif_carrier_ok(dev)) {
-+				if (netif_msg_link(np))
-+					printk(KERN_NOTICE "%s: link down.\n",
-+					       dev->name);
-+				netif_carrier_off(dev);
-+				undo_cable_magic(dev);
-+			}
-+			return;
-+		}
-+		if (!netif_carrier_ok(dev)) {
- 			if (netif_msg_link(np))
--				printk(KERN_NOTICE "%s: link down.\n",
--					dev->name);
--			netif_carrier_off(dev);
--			undo_cable_magic(dev);
-+				printk(KERN_NOTICE "%s: link up.\n", dev->name);
-+			netif_carrier_on(dev);
-+			do_cable_magic(dev);
- 		}
--		return;
--	}
--	if (!netif_carrier_ok(dev)) {
--		if (netif_msg_link(np))
--			printk(KERN_NOTICE "%s: link up.\n", dev->name);
--		netif_carrier_on(dev);
--		do_cable_magic(dev);
--	}
- 
--	duplex = np->full_duplex;
--	if (!duplex) {
--		if (bmsr & BMSR_ANEGCOMPLETE) {
--			int tmp = mii_nway_result(
--				np->advertising & mdio_read(dev, MII_LPA));
--			if (tmp == LPA_100FULL || tmp == LPA_10FULL)
-+		if (!duplex) {
-+			if (bmsr & BMSR_ANEGCOMPLETE) {
-+				int tmp = mii_nway_result(
-+					np->advertising & mdio_read(dev, MII_LPA));
-+				if (tmp == LPA_100FULL || tmp == LPA_10FULL)
-+					duplex = 1;
-+			} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
- 				duplex = 1;
--		} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
--			duplex = 1;
-+		}
- 	}
- 
- 	/* if duplex is set then bit 28 must be set, too */
-@@ -2936,6 +2955,16 @@ static int netdev_set_ecmd(struct net_de
- 	}
- 
- 	/*
-+	 * If we're ignoring the PHY then autoneg and the internal
-+	 * transciever are really not going to work so don't let the
-+	 * user select them.
-+	 */
-+	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
-+			       ecmd->port == PORT_TP)) {
-+		return -EINVAL;
-+	}
-+
-+	/*
- 	 * maxtxpkt, maxrxpkt: ignored for now.
- 	 *
- 	 * transceiver:
+ menuconfig NETFILTER
+ 	bool "Network packet filtering (replaces ipchains)"
+ 	---help---
 _
