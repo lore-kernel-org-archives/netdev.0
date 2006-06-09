@@ -1,50 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Thu, 08 Jun 2006 22:23:52 -0700 (PDT)
-Message-ID: <20060608.222352.59657133.davem@davemloft.net>
-References: <20060608210702.GD24227@waste.org>
-	<4488D4DE.3000100@goop.org>
-	<4489038C.3050901@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: akpm@osdl.org
+Subject: [patch 4/8] e1000: prevent statistics from getting garbled during reset
+Date: Thu, 08 Jun 2006 22:19:44 -0700
+Message-ID: <200606090519.k595JiOL032023@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, linas@austin.ibm.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	john.ronciak@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52143
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965208AbWFIFYj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 01:24:39 -0400
-To: auke-jan.h.kok@intel.com
-In-Reply-To: <4489038C.3050901@intel.com>
+Received: from smtp.osdl.org ([65.172.181.4]:34015 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965213AbWFIF2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:28:00 -0400
+To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Date: Thu, 08 Jun 2006 22:13:48 -0700
 
-> netconsole should retry. There is no timeout programmed here since that might
-> lose important information, and you rather want netconsole to survive an odd
-> unplugged cable then to lose vital debugging information when the system is
-> busy for instance. (losing link will cause the interface to be down and thus
-> the queue to be stopped)
+From: Linas Vepstas <linas@austin.ibm.com>
 
-I completely disagree that netpoll should loop when the ethernet
-cable is plugged out.  This stops the entire system.  What if this
-is one of my main web servers and I have other links on the machine
-for redundancy and load balancing?  Just because some careless
-sysop knocks one of the cables out, my system just freezes up and
-stops?
+If a PCI bus error/fault triggers a PCI bus reset, attempts to get the
+ethernet packet count statistics from the hardware will fail, returning
+garbage data upstream.  This patch skips statistics data collection if the
+PCI device is not on the bus.
 
-What if I'm on a remote serial console, how long should I scratch
-my head wondering why the whole machine is frozen up before I "figure
-out" that the ethernet cable being out has made my system unusable
-because netpoll is just looping on the thing forever?
+This patch presumes that an earlier patch,
+[PATCH] PCI Error Recovery: e1000 network device driver
+has already been applied.
 
-That's an extremely poor quality of implementation if you ask me.
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+Cc: John Ronciak <john.ronciak@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-Netpoll is _BEST_ _EFFORT_, end of story.  It by definition can only
-offer that level of service because it does locking in circumstances
-where such locking might be illegal or even impossible.  So it has to
-try, but if it can't get the resources it needs, it must stop trying
-and abort the logging.
+ drivers/net/e1000/e1000_main.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletion(-)
+
+diff -puN drivers/net/e1000/e1000_main.c~e1000-prevent-statistics-from-getting-garbled-during-reset drivers/net/e1000/e1000_main.c
+--- devel/drivers/net/e1000/e1000_main.c~e1000-prevent-statistics-from-getting-garbled-during-reset	2006-04-14 23:41:34.000000000 -0700
++++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-14 23:41:34.000000000 -0700
+@@ -3082,14 +3082,20 @@ void
+ e1000_update_stats(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct pci_dev *pdev = adapter->pdev;
+ 	unsigned long flags;
+ 	uint16_t phy_tmp;
+ 
+ #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
+ 
+-	/* Prevent stats update while adapter is being reset */
++	/*
++	 * Prevent stats update while adapter is being reset, or if the pci
++	 * connection is down.
++	 */
+ 	if (adapter->link_speed == 0)
+ 		return;
++	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
++		return;
+ 
+ 	spin_lock_irqsave(&adapter->stats_lock, flags);
+ 
+_
