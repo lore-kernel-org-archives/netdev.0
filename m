@@ -1,39 +1,29 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: netif_tx_disable vs netif_stop_queue (possible races?)
-Date: Fri, 09 Jun 2006 16:29:13 +0100
-Message-ID: <448993C9.8040400@gentoo.org>
-References: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Fri, 09 Jun 2006 10:31:46 -0500
+Message-ID: <44899462.6070002@lwfinger.net>
+References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes> <1149701352.2625.20.camel@localhost.localdomain> <44871723.3040803@lwfinger.net> <1149853494.3864.6.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david-b@pacbell.net
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	Jouni Malinen <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:15614 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S965287AbWFIP2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 11:28:13 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:56288 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S965290AbWFIPbw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 11:31:52 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1149853494.3864.6.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Daniel Drake <dsd@gentoo.org> wrote:
->> More specifically, we're talking about drivers/usb/net/usbnet.c and the 
->> usbnet_disconnect() function.  The race I am highlighting is that 
->> usbnet's hard_start_xmit handler (usbnet_start_xmit) may be running when 
->> the disconnect happens.
->>
->> Is this a possible scenario?
+Johannes Berg wrote:
+> On Wed, 2006-06-07 at 13:12 -0500, Larry Finger wrote:
+>> but why doesn't it work?
 > 
-> It should be safe, if only because of the synchronize_net that occurs
-> before a netdev can be freed.
+> No idea. If we had a dump maybe we could tell :/
 
-Can I interpret your response as: If the TX queue is disabled in 
-advance, no hard_start_xmit functions will be running on any CPU after 
-synchronize_net() has returned?
+Do you mean a special dump, or is the kernel debug output and wpa_supplicant debug output sufficient?
 
-The synchronize_net() code doesn't make it very clear.
-
-Thanks,
-Daniel
+Larry
