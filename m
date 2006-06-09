@@ -1,11 +1,11 @@
 From: akpm@osdl.org
-Subject: [patch 6/9] secmark: Add xtables SECMARK target
-Date: Thu, 08 Jun 2006 22:20:56 -0700
-Message-ID: <200606090520.k595KutY032098@shell0.pdx.osdl.net>
+Subject: [patch 7/9] secmark: Add secmark support to conntrack
+Date: Thu, 08 Jun 2006 22:20:57 -0700
+Message-ID: <200606090520.k595KvVd032101@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@osdl.org, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15324 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965159AbWFIFVX (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:15836 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965165AbWFIFVX (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:21:23 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
@@ -14,240 +14,196 @@ List-Id: netdev.vger.kernel.org
 
 From: James Morris <jmorris@namei.org>
 
-Add a SECMARK target to xtables, allowing the admin to apply security marks to
-packets via both iptables and ip6tables.
-
-The target currently handles SELinux security marking, but can be extended
-for other purposes as needed.
+Add a secmark field to IP and NF conntracks, so that security markings on
+packets can be copied to their associated connections, and also copied back to
+packets as required.  This is similar to the network mark field currently used
+with conntrack, although it is intended for enforcement of security policy
+rather than network policy.
 
 Signed-off-by: James Morris <jmorris@namei.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- include/linux/netfilter/xt_SECMARK.h |   26 ++++
- net/netfilter/Kconfig                |    9 +
- net/netfilter/Makefile               |    1 
- net/netfilter/xt_SECMARK.c           |  156 +++++++++++++++++++++++++
- 4 files changed, 192 insertions(+)
+ include/linux/netfilter_ipv4/ip_conntrack.h  |    4 ++
+ include/net/netfilter/nf_conntrack.h         |    4 ++
+ include/net/netfilter/nf_conntrack_compat.h  |   26 +++++++++++++++++
+ net/ipv4/netfilter/Kconfig                   |   12 +++++++
+ net/ipv4/netfilter/ip_conntrack_core.c       |    3 +
+ net/ipv4/netfilter/ip_conntrack_standalone.c |    5 +++
+ net/netfilter/Kconfig                        |   12 +++++++
+ net/netfilter/nf_conntrack_core.c            |    3 +
+ net/netfilter/nf_conntrack_standalone.c      |    5 +++
+ 9 files changed, 74 insertions(+)
 
-diff -puN /dev/null include/linux/netfilter/xt_SECMARK.h
---- /dev/null	2006-06-01 17:04:03.273681250 -0700
-+++ devel-akpm/include/linux/netfilter/xt_SECMARK.h	2006-06-01 20:31:50.000000000 -0700
-@@ -0,0 +1,26 @@
-+#ifndef _XT_SECMARK_H_target
-+#define _XT_SECMARK_H_target
-+
-+/*
-+ * This is intended for use by various security subsystems (but not
-+ * at the same time).
-+ *
-+ * 'mode' refers to the specific security subsystem which the
-+ * packets are being marked for.
-+ */
-+#define SECMARK_MODE_SEL	0x01		/* SELinux */
-+#define SECMARK_SELCTX_MAX	256
-+
-+struct xt_secmark_target_selinux_info {
-+	u_int32_t selsid;
-+	char selctx[SECMARK_SELCTX_MAX];
-+};
-+
-+struct xt_secmark_target_info {
-+	u_int8_t mode;
-+	union {
-+		struct xt_secmark_target_selinux_info sel;
-+	} u;
-+};
-+
-+#endif /*_XT_SECMARK_H_target */
-diff -puN net/netfilter/Kconfig~secmark-add-xtables-secmark-target net/netfilter/Kconfig
---- devel/net/netfilter/Kconfig~secmark-add-xtables-secmark-target	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/net/netfilter/Kconfig	2006-06-01 20:31:50.000000000 -0700
-@@ -174,6 +174,15 @@ config NETFILTER_XT_TARGET_NOTRACK
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/modules.txt>.  If unsure, say `N'.
+diff -puN include/linux/netfilter_ipv4/ip_conntrack.h~secmark-add-secmark-support-to-conntrack include/linux/netfilter_ipv4/ip_conntrack.h
+--- devel/include/linux/netfilter_ipv4/ip_conntrack.h~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/linux/netfilter_ipv4/ip_conntrack.h	2006-06-01 20:31:50.000000000 -0700
+@@ -120,6 +120,10 @@ struct ip_conntrack
+ 	u_int32_t mark;
+ #endif
  
-+config NETFILTER_XT_TARGET_SECMARK
-+	tristate '"SECMARK" target support'
-+	depends on NETFILTER_XTABLES && NETWORK_SECMARK
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++	u_int32_t secmark;
++#endif
++
+ 	/* Traversed often, so hopefully in different cacheline to top */
+ 	/* These are my tuples; original and reply */
+ 	struct ip_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
+diff -puN include/net/netfilter/nf_conntrack_compat.h~secmark-add-secmark-support-to-conntrack include/net/netfilter/nf_conntrack_compat.h
+--- devel/include/net/netfilter/nf_conntrack_compat.h~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/net/netfilter/nf_conntrack_compat.h	2006-06-01 20:31:50.000000000 -0700
+@@ -20,6 +20,19 @@ static inline u_int32_t *nf_ct_get_mark(
+ }
+ #endif /* CONFIG_IP_NF_CONNTRACK_MARK */
+ 
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++static inline u_int32_t *nf_ct_get_secmark(const struct sk_buff *skb,
++					   u_int32_t *ctinfo)
++{
++	struct ip_conntrack *ct = ip_conntrack_get(skb, ctinfo);
++
++	if (ct)
++		return &ct->secmark;
++	else
++		return NULL;
++}
++#endif /* CONFIG_IP_NF_CONNTRACK_SECMARK */
++
+ #ifdef CONFIG_IP_NF_CT_ACCT
+ static inline struct ip_conntrack_counter *
+ nf_ct_get_counters(const struct sk_buff *skb)
+@@ -70,6 +83,19 @@ static inline u_int32_t *nf_ct_get_mark(
+ }
+ #endif /* CONFIG_NF_CONNTRACK_MARK */
+ 
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++static inline u_int32_t *nf_ct_get_secmark(const struct sk_buff *skb,
++					   u_int32_t *ctinfo)
++{
++	struct nf_conn *ct = nf_ct_get(skb, ctinfo);
++
++	if (ct)
++		return &ct->secmark;
++	else
++		return NULL;
++}
++#endif /* CONFIG_NF_CONNTRACK_MARK */
++
+ #ifdef CONFIG_NF_CT_ACCT
+ static inline struct ip_conntrack_counter *
+ nf_ct_get_counters(const struct sk_buff *skb)
+diff -puN include/net/netfilter/nf_conntrack.h~secmark-add-secmark-support-to-conntrack include/net/netfilter/nf_conntrack.h
+--- devel/include/net/netfilter/nf_conntrack.h~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/include/net/netfilter/nf_conntrack.h	2006-06-01 20:31:50.000000000 -0700
+@@ -113,6 +113,10 @@ struct nf_conn
+ 	u_int32_t mark;
+ #endif
+ 
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++	u_int32_t secmark;
++#endif
++
+ 	/* Storage reserved for other modules: */
+ 	union nf_conntrack_proto proto;
+ 
+diff -puN net/ipv4/netfilter/ip_conntrack_core.c~secmark-add-secmark-support-to-conntrack net/ipv4/netfilter/ip_conntrack_core.c
+--- devel/net/ipv4/netfilter/ip_conntrack_core.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/ip_conntrack_core.c	2006-06-01 20:31:50.000000000 -0700
+@@ -724,6 +724,9 @@ init_conntrack(struct ip_conntrack_tuple
+ 		/* this is ugly, but there is no other place where to put it */
+ 		conntrack->nat.masq_index = exp->master->nat.masq_index;
+ #endif
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++		conntrack->secmark = exp->master->secmark;
++#endif
+ 		nf_conntrack_get(&conntrack->master->ct_general);
+ 		CONNTRACK_STAT_INC(expect_new);
+ 	} else {
+diff -puN net/ipv4/netfilter/ip_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack net/ipv4/netfilter/ip_conntrack_standalone.c
+--- devel/net/ipv4/netfilter/ip_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/ip_conntrack_standalone.c	2006-06-01 20:31:50.000000000 -0700
+@@ -189,6 +189,11 @@ static int ct_seq_show(struct seq_file *
+ 		return -ENOSPC;
+ #endif
+ 
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
++		return -ENOSPC;
++#endif
++
+ 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
+ 		return -ENOSPC;
+ 
+diff -puN net/ipv4/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack net/ipv4/netfilter/Kconfig
+--- devel/net/ipv4/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/ipv4/netfilter/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -55,6 +55,18 @@ config IP_NF_CONNTRACK_MARK
+ 	  of packets, but this mark value is kept in the conntrack session
+ 	  instead of the individual packets.
+ 	
++config IP_NF_CONNTRACK_SECMARK
++	bool  'Connection tracking security mark support'
++	depends on IP_NF_CONNTRACK && NETWORK_SECMARK
 +	help
-+	  The SECMARK target allows security marking of network
-+	  packets, for use with security subsystems.
++	  This option enables security markings to be applied to
++	  connections.  Typically they are copied to connections from
++	  packets using the CONNSECMARK target and copied back from
++	  connections to packets with the same target, with the packets
++	  being originally labeled via SECMARK.
 +
-+	  To compile it as a module, choose M here.  If unsure, say N.
++	  If unsure, say 'N'.
 +
- config NETFILTER_XT_MATCH_COMMENT
- 	tristate  '"comment" match support'
- 	depends on NETFILTER_XTABLES
-diff -puN net/netfilter/Makefile~secmark-add-xtables-secmark-target net/netfilter/Makefile
---- devel/net/netfilter/Makefile~secmark-add-xtables-secmark-target	2006-06-01 20:31:50.000000000 -0700
-+++ devel-akpm/net/netfilter/Makefile	2006-06-01 20:31:50.000000000 -0700
-@@ -28,6 +28,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNMAR
- obj-$(CONFIG_NETFILTER_XT_TARGET_MARK) += xt_MARK.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
-+obj-$(CONFIG_NETFILTER_XT_TARGET_SECMARK) += xt_SECMARK.o
+ config IP_NF_CONNTRACK_EVENTS
+ 	bool "Connection tracking events (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL && IP_NF_CONNTRACK
+diff -puN net/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack net/netfilter/Kconfig
+--- devel/net/netfilter/Kconfig~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/Kconfig	2006-06-01 20:31:50.000000000 -0700
+@@ -60,6 +60,18 @@ config NF_CONNTRACK_MARK
+ 	  of packets, but this mark value is kept in the conntrack session
+ 	  instead of the individual packets.
  
- # matches
- obj-$(CONFIG_NETFILTER_XT_MATCH_COMMENT) += xt_comment.o
-diff -puN /dev/null net/netfilter/xt_SECMARK.c
---- /dev/null	2006-06-01 17:04:03.273681250 -0700
-+++ devel-akpm/net/netfilter/xt_SECMARK.c	2006-06-01 20:31:50.000000000 -0700
-@@ -0,0 +1,156 @@
-+/*
-+ * Module for modifying the secmark field of the skb, for use by
-+ * security subsystems.
-+ *
-+ * Based on the nfmark match by:
-+ * (C) 1999-2001 Marc Boucher <marc@mbsi.ca>
-+ *
-+ * (C) 2006 Red Hat, Inc., James Morris <jmorris@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ */
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/selinux.h>
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_SECMARK.h>
++config NF_CONNTRACK_SECMARK
++	bool  'Connection tracking security mark support'
++	depends on NF_CONNTRACK && NETWORK_SECMARK
++	help
++	  This option enables security markings to be applied to
++	  connections.  Typically they are copied to connections from
++	  packets using the CONNSECMARK target and copied back from
++	  connections to packets with the same target, with the packets
++	  being originally labeled via SECMARK.
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("James Morris <jmorris@redhat.com>");
-+MODULE_DESCRIPTION("ip[6]tables SECMARK modification module");
-+MODULE_ALIAS("ipt_SECMARK");
-+MODULE_ALIAS("ip6t_SECMARK");
++	  If unsure, say 'N'.
 +
-+#define PFX "SECMARK: "
+ config NF_CONNTRACK_EVENTS
+ 	bool "Connection tracking events (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL && NF_CONNTRACK
+diff -puN net/netfilter/nf_conntrack_core.c~secmark-add-secmark-support-to-conntrack net/netfilter/nf_conntrack_core.c
+--- devel/net/netfilter/nf_conntrack_core.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/nf_conntrack_core.c	2006-06-01 20:31:50.000000000 -0700
+@@ -990,6 +990,9 @@ init_conntrack(const struct nf_conntrack
+ #ifdef CONFIG_NF_CONNTRACK_MARK
+ 		conntrack->mark = exp->master->mark;
+ #endif
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++		conntrack->secmark = exp->master->secmark;
++#endif
+ 		nf_conntrack_get(&conntrack->master->ct_general);
+ 		NF_CT_STAT_INC(expect_new);
+ 	} else
+diff -puN net/netfilter/nf_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack net/netfilter/nf_conntrack_standalone.c
+--- devel/net/netfilter/nf_conntrack_standalone.c~secmark-add-secmark-support-to-conntrack	2006-06-01 20:31:50.000000000 -0700
++++ devel-akpm/net/netfilter/nf_conntrack_standalone.c	2006-06-01 20:31:50.000000000 -0700
+@@ -213,6 +213,11 @@ static int ct_seq_show(struct seq_file *
+ 		return -ENOSPC;
+ #endif
+ 
++#ifdef CONFIG_NF_CONNTRACK_SECMARK
++	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
++		return -ENOSPC;
++#endif
 +
-+static u8 mode;
-+
-+static unsigned int target(struct sk_buff **pskb, const struct net_device *in,
-+			   const struct net_device *out, unsigned int hooknum,
-+			   const struct xt_target *target,
-+			   const void *targinfo, void *userinfo)
-+{
-+	u32 secmark = 0;
-+	const struct xt_secmark_target_info *info = targinfo;
-+
-+	BUG_ON(info->mode != mode);
-+
-+	switch (mode) {
-+	case SECMARK_MODE_SEL:
-+		secmark = info->u.sel.selsid;
-+		break;
-+
-+	default:
-+		BUG();
-+	}
-+
-+	if ((*pskb)->secmark != secmark)
-+		(*pskb)->secmark = secmark;
-+
-+	return XT_CONTINUE;
-+}
-+
-+static int checkentry_selinux(struct xt_secmark_target_info *info)
-+{
-+	int err;
-+	struct xt_secmark_target_selinux_info *sel = &info->u.sel;
-+
-+	err = selinux_string_to_sid(sel->selctx, &sel->selsid);
-+	if (err) {
-+		if (err == -EINVAL)
-+			printk(KERN_INFO PFX "invalid SELinux context \'%s\'\n",
-+			       sel->selctx);
-+		return 0;
-+	}
-+
-+	if (!sel->selsid) {
-+		printk(KERN_INFO PFX "unable to map SELinux context \'%s\'\n",
-+		       sel->selctx);
-+		return 0;
-+	}
-+
-+	err = selinux_relabel_packet_permission(sel->selsid);
-+	if (err) {
-+		printk(KERN_INFO PFX "unable to obtain relabeling permission\n");
-+		return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static int checkentry(const char *tablename, const void *entry,
-+		      const struct xt_target *target, void *targinfo,
-+		      unsigned int targinfosize, unsigned int hook_mask)
-+{
-+	struct xt_secmark_target_info *info = targinfo;
-+
-+	if (mode && mode != info->mode) {
-+		printk(KERN_INFO PFX "mode already set to %hu cannot mix with "
-+		       "rules for mode %hu\n", mode, info->mode);
-+		return 0;
-+	}
-+
-+	switch (info->mode) {
-+	case SECMARK_MODE_SEL:
-+		if (!checkentry_selinux(info))
-+			return 0;
-+		break;
-+
-+	default:
-+		printk(KERN_INFO PFX "invalid mode: %hu\n", info->mode);
-+		return 0;
-+	}
-+
-+	if (!mode)
-+		mode = info->mode;
-+	return 1;
-+}
-+
-+static struct xt_target ipt_secmark_reg = {
-+	.name		= "SECMARK",
-+	.target		= target,
-+	.targetsize	= sizeof(struct xt_secmark_target_info),
-+	.table		= "mangle",
-+	.checkentry	= checkentry,
-+	.me		= THIS_MODULE,
-+	.family		= AF_INET,
-+	.revision	= 0,
-+};
-+
-+static struct xt_target ip6t_secmark_reg = {
-+	.name		= "SECMARK",
-+	.target		= target,
-+	.targetsize	= sizeof(struct xt_secmark_target_info),
-+	.table		= "mangle",
-+	.checkentry	= checkentry,
-+	.me		= THIS_MODULE,
-+	.family		= AF_INET6,
-+	.revision	= 0,
-+};
-+
-+static int __init xt_secmark_init(void)
-+{
-+	int err;
-+
-+	err = xt_register_target(&ipt_secmark_reg);
-+	if (err)
-+		return err;
-+
-+	err = xt_register_target(&ip6t_secmark_reg);
-+	if (err)
-+		xt_unregister_target(&ipt_secmark_reg);
-+
-+	return err;
-+}
-+
-+static void __exit xt_secmark_fini(void)
-+{
-+	xt_unregister_target(&ip6t_secmark_reg);
-+	xt_unregister_target(&ipt_secmark_reg);
-+}
-+
-+module_init(xt_secmark_init);
-+module_exit(xt_secmark_fini);
+ 	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
+ 		return -ENOSPC;
+ 	
 _
