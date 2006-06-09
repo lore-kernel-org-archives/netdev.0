@@ -1,33 +1,54 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Fri, 9 Jun 2006 12:34:50 +0200
-Message-ID: <200606091234.50874.rjw@sisk.pl>
-References: <44886381.9050506@goop.org> <200606082240.31473.rjw@sisk.pl> <4488D565.2020103@goop.org>
+From: "Vasantha Kumar Puttappa" <vasanthakumar@iitb.ac.in>
+Subject: [Fwd: Packet Lost] ip_rt_bug error
+Date: Fri, 9 Jun 2006 13:08:09 +0530 (IST)
+Message-ID: <4561.10.12.25.5.1149838689.squirrel@gpo.iitb.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:34948 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S965015AbWFIKec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 06:34:32 -0400
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-In-Reply-To: <4488D565.2020103@goop.org>
-Content-Disposition: inline
+Received: from smtp1.iitb.ac.in ([202.68.145.249]:46825 "HELO smtp1.iitb.ac.in")
+	by vger.kernel.org with SMTP id S965083AbWFIKga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 06:36:30 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 June 2006 03:56, Jeremy Fitzhardinge wrote:
-> Rafael J. Wysocki wrote:
-> > Please try doing "echo 8 > /proc/sys/kernel/printk" before suspend.
-> >   
-> Um, why?  That would increase the amount of log output, but I don't see 
-> how it would help with netconsole preventing suspend, or not being able 
-> to see console messages on a blank screen after resume.
+Hi,
+  I am working on a small application using iptables/libipq. In this, the
+application would capture a specific packets based on the destination IP
+address. Then I encapsulate this IP packet inside another new IP packet.
 
-Ah, that's after resume.  Sorry for the noise. :-)
+My problem is that the encapsulation part works fine in
+kernel-2.6.11-6(mandriva 2005) and IPtables V 1.2.9.
+(I can capture encapsulated packets using tcpdump at the sender side i.e,
+packets are being put on to the network)
 
-Rafael
+
+But this doesn't work in kernel-2.6.12-12(mandriva 2006) and the
+IPtables-1.3.5(even though there are no erros after callig
+ipq_set_verdict, the packets are not being put on to the channel. The
+packets are getting lost after
+the call to ipq_set_verdict)
+
+
+/***
+
+In my syslog I can see ip_rt_bug , but isn't ip_rt_bug occurs when
+destiantion address is changed to local address ?
+
+In my application I am changing destination IP to an another non-local IP
+address.
+****/
+
+please let me know if you need more information
+
+
+As you already have experience with these kinds of error plz help me out here
+
+Thanx
+
+
+
+
+
+
