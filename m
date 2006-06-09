@@ -1,60 +1,35 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: [patch 1/8] myri10ge: alpha build fix
-Date: Fri, 09 Jun 2006 07:46:25 -0400
-Message-ID: <44895F91.3010203@myri.com>
-References: <200606090519.k595JfxP032014@shell0.pdx.osdl.net>
+From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Subject: Re: Firewall question
+Date: Fri, 9 Jun 2006 09:12:17 -0400
+Message-ID: <20060609131217.GJ558@csclub.uwaterloo.ca>
+References: <20060608185712.79340.qmail@web50207.mail.yahoo.com> <20060608192628.GA561@csclub.uwaterloo.ca> <200606090543.24401.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alex Davis <alex14641@yahoo.com>, netfilter@lists.netfilter.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:21635 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S965239AbWFILrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 07:47:04 -0400
-To: akpm@osdl.org
-In-Reply-To: <200606090519.k595JfxP032014@shell0.pdx.osdl.net>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:34713 "EHLO
+	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
+	id S965253AbWFINMU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 09:12:20 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200606090543.24401.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A similar fix is included in the myri10ge update that Jeff merged into
-netdev yesterday.
+On Fri, Jun 09, 2006 at 05:43:24AM +0200, Andi Kleen wrote:
+> No one out on the internet, but it would be trivial for someone outside
+> his house. All his traffic will be on a long unsecured cable. 
+> 
+> That is why I would never bridge home ethernet traffic onto a DSL line.
 
-thanks,
-Brice
+Hmm, traffic sent between his machines would not go over the DSL since
+the MAC address doesn't match the DSL modem (I would think so at
+least).  It would be a mess if the DSL modem tried to forwards all
+traffic on an ethernet segment (well it doesn't have the bandwidth for
+sure).  Maybe I am incorrectly assuming the DSL modem only forwards the
+PPPoE traffic being sent at it.  I could see broadcast traffic being
+forwarded, although arps and such are generally not that interesting.
 
-
-
-akpm@osdl.org wrote:
-> From: Andrew Morton <akpm@osdl.org>
->
-> drivers/net/myri10ge/myri10ge.c: In function 'myri10ge_submit_8rx':
-> drivers/net/myri10ge/myri10ge.c:772: error: 'DMA_32BIT_MASK' undeclared (first use in this function)
-> drivers/net/myri10ge/myri10ge.c:772: error: (Each undeclared identifier is reported only once
-> drivers/net/myri10ge/myri10ge.c:772: error: for each function it appears in.)
-> drivers/net/myri10ge/myri10ge.c: In function 'myri10ge_probe':
-> drivers/net/myri10ge/myri10ge.c:2607: error: 'DMA_64BIT_MASK' undeclared (first use in this function)
-> drivers/net/myri10ge/myri10ge.c:2612: error: 'DMA_32BIT_MASK' undeclared (first use in this function)
->
-> Cc: Brice Goglin <brice@myri.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> ---
->
->  drivers/net/myri10ge/myri10ge.c |    2 ++
->  1 file changed, 2 insertions(+)
->
-> diff -puN drivers/net/myri10ge/myri10ge.c~myri10ge-alpha-build-fix drivers/net/myri10ge/myri10ge.c
-> --- devel/drivers/net/myri10ge/myri10ge.c~myri10ge-alpha-build-fix	2006-06-03 21:13:30.000000000 -0700
-> +++ devel-akpm/drivers/net/myri10ge/myri10ge.c	2006-06-03 21:13:43.000000000 -0700
-> @@ -59,6 +59,8 @@
->  #include <linux/crc32.h>
->  #include <linux/moduleparam.h>
->  #include <linux/io.h>
-> +#include <linux/dma-mapping.h>
-> +
->  #include <net/checksum.h>
->  #include <asm/byteorder.h>
->  #include <asm/io.h>
-> _
->   
-
+Len Sorensen
