@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/9] secmark: Add new flask definitions to SELinux
-Date: Fri, 09 Jun 2006 00:27:46 -0700 (PDT)
-Message-ID: <20060609.002746.112853434.davem@davemloft.net>
-References: <200606090520.k595KsJD032089@shell0.pdx.osdl.net>
+Subject: Re: [patch 4/9] secmark: Add SELinux exports
+Date: Fri, 09 Jun 2006 00:28:38 -0700 (PDT)
+Message-ID: <20060609.002838.111205778.davem@davemloft.net>
+References: <200606090520.k595KtvV032092@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5536
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6560
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751403AbWFIH2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 03:28:32 -0400
+	id S1751413AbWFIH3X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 03:29:23 -0400
 To: akpm@osdl.org
-In-Reply-To: <200606090520.k595KsJD032089@shell0.pdx.osdl.net>
+In-Reply-To: <200606090520.k595KtvV032092@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: akpm@osdl.org
 Date: Thu, 08 Jun 2006 22:20:54 -0700
 
-> This patch:
+> From: James Morris <jmorris@namei.org>
 > 
-> Add support for a new object class ('packet'), and associated permissions
-> ('send', 'recv', 'relabelto').  These are used to enforce security policy for
-> network packets labeled with SECMARK, and for adding labeling rules.
+> Add and export new functions to the in-kernel SELinux API in support of the
+> new secmark-based packet controls.
 > 
 > Signed-off-by: James Morris <jmorris@namei.org>
 > Signed-off-by: Andrew Morton <akpm@osdl.org>
