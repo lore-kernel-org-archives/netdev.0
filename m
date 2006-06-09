@@ -1,64 +1,109 @@
-From: akpm@osdl.org
-Subject: [patch 4/8] e1000: prevent statistics from getting garbled during reset
-Date: Thu, 08 Jun 2006 22:19:44 -0700
-Message-ID: <200606090519.k595JiOL032023@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, linas@austin.ibm.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Thu, 08 Jun 2006 22:45:41 -0700
+Message-ID: <44890B05.2070303@goop.org>
+References: <44886381.9050506@goop.org> <20060608210702.GD24227@waste.org> <4488D4DE.3000100@goop.org> <4489038C.3050901@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34015 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965213AbWFIF2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:28:00 -0400
-To: jeff@garzik.org
+Received: from gw.goop.org ([64.81.55.164]:20689 "EHLO mail.goop.org")
+	by vger.kernel.org with ESMTP id S965219AbWFIFpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:45:52 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+In-Reply-To: <4489038C.3050901@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Auke Kok wrote:
+> netconsole should retry. There is no timeout programmed here since 
+> that might
+> lose important information, and you rather want netconsole to survive 
+> an odd
+> unplugged cable then to lose vital debugging information when the 
+> system is
+> busy for instance. (losing link will cause the interface to be down 
+> and thus
+> the queue to be stopped)
+Well, the trouble is that it ends up spinning forever in the suspend 
+case.  The driver's suspend routine has XOFFed the queue, and its never 
+going to come back if netconsole clogs everything up over it.
 
-From: Linas Vepstas <linas@austin.ibm.com>
+Perhaps the correct fix isn't at the netpoll level, but at the 
+netconsole level, but the behaviour of "suspend ethernet, netconsole 
+drops bits into the bucket until the ether comes back" seems to be the 
+best we can hope for.
 
-If a PCI bus error/fault triggers a PCI bus reset, attempts to get the
-ethernet packet count statistics from the hardware will fail, returning
-garbage data upstream.  This patch skips statistics data collection if the
-PCI device is not on the bus.
+The present behaviour is definitely bad, since it will prevent any 
+system from suspending while using netconsole, so you'd need to make it 
+modular and rmmod/modprobe it around the suspend event - definitely 
+losing more information.
 
-This patch presumes that an earlier patch,
-[PATCH] PCI Error Recovery: e1000 network device driver
-has already been applied.
+Also it means that if you kick a cable, the machine will eventually lock 
+up, which doesn't seem like the best behaviour...
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: John Ronciak <john.ronciak@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+Even so, it will wait for 1 second per skb sent (20000 x 50uS) to wait 
+for the queue to be started, so it will be pretty slow, and will recover 
+from little hiccups without losing much.
 
- drivers/net/e1000/e1000_main.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletion(-)
+> polling is for receives. We're basically telling the stack not to poll 
+> our
+> interface anymore.
+OK, I see.
 
-diff -puN drivers/net/e1000/e1000_main.c~e1000-prevent-statistics-from-getting-garbled-during-reset drivers/net/e1000/e1000_main.c
---- devel/drivers/net/e1000/e1000_main.c~e1000-prevent-statistics-from-getting-garbled-during-reset	2006-04-14 23:41:34.000000000 -0700
-+++ devel-akpm/drivers/net/e1000/e1000_main.c	2006-04-14 23:41:34.000000000 -0700
-@@ -3082,14 +3082,20 @@ void
- e1000_update_stats(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
-+	struct pci_dev *pdev = adapter->pdev;
- 	unsigned long flags;
- 	uint16_t phy_tmp;
- 
- #define PHY_IDLE_ERROR_COUNT_MASK 0x00FF
- 
--	/* Prevent stats update while adapter is being reset */
-+	/*
-+	 * Prevent stats update while adapter is being reset, or if the pci
-+	 * connection is down.
-+	 */
- 	if (adapter->link_speed == 0)
- 		return;
-+	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
-+		return;
- 
- 	spin_lock_irqsave(&adapter->stats_lock, flags);
- 
-_
+> e1000_suspend saves the entire configuration of the device and puts it in
+> Wake-on-Lan mode, allowing it to be waken up by your 'zap' in the 
+> proper way.
+Not sure that's terribly useful.  It would be nice to be able to zap the 
+ethernet to get a console dump from early stages, but talking to the 
+device depends on all the intermediate PCI stuff being set up first, so 
+netconsole could cause even more of a mess.
+>> Then the e1000 would resume normally, including restarting the xmit 
+>> queue so that netconsole can start again immediately; any netconsole 
+>> output before the e1000 resume would be lost, of course (I guess it 
+>> could be buffered).  That would suit me for now.
+>
+> after coming out of suspend, e1000_resume is called which basically
+> reinitializes the entire device. In the entire sequence it is unlikely 
+> that
+> you'll actually be able to maintain netconsole in the first boot stage 
+> - the
+> network device will not be initialized by the kernel yet, and 
+> obviously will
+> be useless until e1000_resume is called!
+Yes, but I think that's OK for what I'm looking at.  The problems I'm 
+seeing happen later, and as I said in the first mail, I'm willing to 
+accept a bletcherous hack if necessary (though obviously something clean 
+and mergable would be preferable).
+
+At the netpoll level, assuming that netpoll_send_skb doesn't busywait 
+forever while the queue is XOFFed, it will toss things until the moment 
+the ethernet device queue is up, and then it will resume as normal.
+
+> I'm not sure that tweaking e1000 to survive longer is the answer here, 
+> and you
+> might be better off trying to have netconsole graciously wait
+> (msleep_interruptable instead of udelay?)
+Pretty sure netpoll can't sleep there...
+
+> In any case, I see the biggest
+> problem in the early boot stage when all nics are basically uninitialized
+> until resume starts. You just can't assign it an IP address for 
+> instance that
+> easy, and even resume causes the device to reset and thus link 
+> renegotiation,
+> adding crucial seconds to the time that the link is down, in which 
+> time you're
+> stacking up netconsole messages, or worse, fail to initialize netconsole
+netconsole has already been initialized.  It doesn't need reinit on resume.
+
+> I hope this helps - I can't help but thinking that netconsole definately
+> wasn't designed with this in mind.
+Perhaps not, but it isn't far from being a useful tool in this case.  
+Its much better than the alternative of having no information at all 
+about the whole process.
+
+    J
