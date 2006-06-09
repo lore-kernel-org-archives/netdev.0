@@ -1,107 +1,164 @@
 From: akpm@osdl.org
-Subject: [patch 5/8] e100: disable interrupts at boot
-Date: Thu, 08 Jun 2006 22:19:45 -0700
-Message-ID: <200606090519.k595JjB0032026@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, nils.rennebarth@packetalarm.com,
-	stern@rowland.harvard.edu
+Subject: [patch 8/8] ipw2200 locking fix
+Date: Thu, 08 Jun 2006 22:19:49 -0700
+Message-ID: <200606090519.k595JnLN032035@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, yi.zhu@intel.com,
+	arjan@infradead.org, deweerdt@free.fr, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55515 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965147AbWFIFT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:19:59 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:57051 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965152AbWFIFUC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:20:02 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+From: Zhu Yi <yi.zhu@intel.com>
 
-Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
-firmware explicitly disables PRO/100 interrupts, we can get a flood of
-interrupts when a driver attaches to an unrelated device that happens to
-share the PRO/100 IRQ.
+Well, this is not 100% if when the card fires two consecutive
+interrupts. Though unlikely, it's better to protect early than seeing
+some "weird" bugs one day. I proposed attached patch. If you can help to
+test, that will be appreciated (I cannot see the lockdep warning on my
+box somehow).
 
-This should resolve this "irq 11: nobody cared" bug report:
-    http://bugzilla.kernel.org/show_bug.cgi?id=5918
-
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: John Ronciak <john.ronciak@intel.com>
-Cc: <stern@rowland.harvard.edu>
-Cc: <nils.rennebarth@packetalarm.com>
+Cc: Frederik Deweerdt <deweerdt@free.fr>
+Cc: Arjan van de Ven <arjan@infradead.org>
+Cc: Ingo Molnar <mingo@elte.hu>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/pci/quirks.c |   57 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 57 insertions(+)
+ drivers/net/wireless/ipw2200.c |   41 ++++++++++++++++++++++++-------
+ drivers/net/wireless/ipw2200.h |    1 
+ 2 files changed, 33 insertions(+), 9 deletions(-)
 
-diff -puN drivers/pci/quirks.c~e100-disable-interrupts-at-boot drivers/pci/quirks.c
---- devel/drivers/pci/quirks.c~e100-disable-interrupts-at-boot	2006-06-06 17:25:42.000000000 -0700
-+++ devel-akpm/drivers/pci/quirks.c	2006-06-06 17:25:42.000000000 -0700
-@@ -1390,6 +1390,63 @@ static void __devinit quirk_netmos(struc
+diff -puN drivers/net/wireless/ipw2200.c~ipw2200-locking-fix drivers/net/wireless/ipw2200.c
+--- devel/drivers/net/wireless/ipw2200.c~ipw2200-locking-fix	2006-06-04 23:58:05.000000000 -0700
++++ devel-akpm/drivers/net/wireless/ipw2200.c	2006-06-04 23:58:05.000000000 -0700
+@@ -533,7 +533,7 @@ static inline void ipw_clear_bit(struct 
+ 	ipw_write32(priv, reg, ipw_read32(priv, reg) & ~mask);
  }
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID, quirk_netmos);
  
-+static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
-+{
-+	u16 command;
-+	u32 bar;
-+	u8 __iomem *csr;
-+	u8 cmd_hi;
-+
-+	switch (dev->device) {
-+	/* PCI IDs taken from drivers/net/e100.c */
-+	case 0x1029:
-+	case 0x1030 ... 0x1034:
-+	case 0x1038 ... 0x103E:
-+	case 0x1050 ... 0x1057:
-+	case 0x1059:
-+	case 0x1064 ... 0x106B:
-+	case 0x1091 ... 0x1095:
-+	case 0x1209:
-+	case 0x1229:
-+	case 0x2449:
-+	case 0x2459:
-+	case 0x245D:
-+	case 0x27DC:
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	/*
-+	 * Some firmware hands off the e100 with interrupts enabled,
-+	 * which can cause a flood of interrupts if packets are
-+	 * received before the driver attaches to the device.  So
-+	 * disable all e100 interrupts here.  The driver will
-+	 * re-enable them when it's ready.
-+	 */
-+	pci_read_config_word(dev, PCI_COMMAND, &command);
-+	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
-+
-+	if (!(command & PCI_COMMAND_MEMORY) || !bar)
-+		return;
-+
-+	csr = ioremap(bar, 8);
-+	if (!csr) {
-+		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
-+			pci_name(dev));
-+		return;
-+	}
-+
-+	cmd_hi = readb(csr + 3);
-+	if (cmd_hi == 0) {
-+		printk(KERN_WARNING "PCI: Firmware left %s e100 interrupts "
-+			"enabled, disabling\n", pci_name(dev));
-+		writeb(1, csr + 3);
-+	}
-+
-+	iounmap(csr);
-+}
-+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
- 
- static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
+-static inline void ipw_enable_interrupts(struct ipw_priv *priv)
++static inline void __ipw_enable_interrupts(struct ipw_priv *priv)
  {
+ 	if (priv->status & STATUS_INT_ENABLED)
+ 		return;
+@@ -541,7 +541,7 @@ static inline void ipw_enable_interrupts
+ 	ipw_write32(priv, IPW_INTA_MASK_R, IPW_INTA_MASK_ALL);
+ }
+ 
+-static inline void ipw_disable_interrupts(struct ipw_priv *priv)
++static inline void __ipw_disable_interrupts(struct ipw_priv *priv)
+ {
+ 	if (!(priv->status & STATUS_INT_ENABLED))
+ 		return;
+@@ -549,6 +549,24 @@ static inline void ipw_disable_interrupt
+ 	ipw_write32(priv, IPW_INTA_MASK_R, ~IPW_INTA_MASK_ALL);
+ }
+ 
++static inline void ipw_enable_interrupts(struct ipw_priv *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->irq_lock, flags);
++	__ipw_enable_interrupts(priv);
++	spin_unlock_irqrestore(&priv->irq_lock, flags);
++}
++
++static inline void ipw_disable_interrupts(struct ipw_priv *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->irq_lock, flags);
++	__ipw_disable_interrupts(priv);
++	spin_unlock_irqrestore(&priv->irq_lock, flags);
++}
++
+ #ifdef CONFIG_IPW2200_DEBUG
+ static char *ipw_error_desc(u32 val)
+ {
+@@ -1856,7 +1874,7 @@ static void ipw_irq_tasklet(struct ipw_p
+ 	unsigned long flags;
+ 	int rc = 0;
+ 
+-	spin_lock_irqsave(&priv->lock, flags);
++	spin_lock_irqsave(&priv->irq_lock, flags);
+ 
+ 	inta = ipw_read32(priv, IPW_INTA_RW);
+ 	inta_mask = ipw_read32(priv, IPW_INTA_MASK_R);
+@@ -1865,6 +1883,10 @@ static void ipw_irq_tasklet(struct ipw_p
+ 	/* Add any cached INTA values that need to be handled */
+ 	inta |= priv->isr_inta;
+ 
++	spin_unlock_irqrestore(&priv->irq_lock, flags);
++
++	spin_lock_irqsave(&priv->lock, flags);
++
+ 	/* handle all the justifications for the interrupt */
+ 	if (inta & IPW_INTA_BIT_RX_TRANSFER) {
+ 		ipw_rx(priv);
+@@ -1993,10 +2015,10 @@ static void ipw_irq_tasklet(struct ipw_p
+ 		IPW_ERROR("Unhandled INTA bits 0x%08x\n", inta & ~handled);
+ 	}
+ 
++	spin_unlock_irqrestore(&priv->lock, flags);
++
+ 	/* enable all interrupts */
+ 	ipw_enable_interrupts(priv);
+-
+-	spin_unlock_irqrestore(&priv->lock, flags);
+ }
+ 
+ #define IPW_CMD(x) case IPW_CMD_ ## x : return #x
+@@ -10460,7 +10482,7 @@ static irqreturn_t ipw_isr(int irq, void
+ 	if (!priv)
+ 		return IRQ_NONE;
+ 
+-	spin_lock(&priv->lock);
++	spin_lock(&priv->irq_lock);
+ 
+ 	if (!(priv->status & STATUS_INT_ENABLED)) {
+ 		/* Shared IRQ */
+@@ -10482,7 +10504,7 @@ static irqreturn_t ipw_isr(int irq, void
+ 	}
+ 
+ 	/* tell the device to stop sending interrupts */
+-	ipw_disable_interrupts(priv);
++	__ipw_disable_interrupts(priv);
+ 
+ 	/* ack current interrupts */
+ 	inta &= (IPW_INTA_MASK_ALL & inta_mask);
+@@ -10493,11 +10515,11 @@ static irqreturn_t ipw_isr(int irq, void
+ 
+ 	tasklet_schedule(&priv->irq_tasklet);
+ 
+-	spin_unlock(&priv->lock);
++	spin_unlock(&priv->irq_lock);
+ 
+ 	return IRQ_HANDLED;
+       none:
+-	spin_unlock(&priv->lock);
++	spin_unlock(&priv->irq_lock);
+ 	return IRQ_NONE;
+ }
+ 
+@@ -11477,6 +11499,7 @@ static int ipw_pci_probe(struct pci_dev 
+ #ifdef CONFIG_IPW2200_DEBUG
+ 	ipw_debug_level = debug;
+ #endif
++	spin_lock_init(&priv->irq_lock);
+ 	spin_lock_init(&priv->lock);
+ 	for (i = 0; i < IPW_IBSS_MAC_HASH_SIZE; i++)
+ 		INIT_LIST_HEAD(&priv->ibss_mac_hash[i]);
+diff -puN drivers/net/wireless/ipw2200.h~ipw2200-locking-fix drivers/net/wireless/ipw2200.h
+--- devel/drivers/net/wireless/ipw2200.h~ipw2200-locking-fix	2006-06-04 23:58:05.000000000 -0700
++++ devel-akpm/drivers/net/wireless/ipw2200.h	2006-06-04 23:58:05.000000000 -0700
+@@ -1173,6 +1173,7 @@ struct ipw_priv {
+ 	struct ieee80211_device *ieee;
+ 
+ 	spinlock_t lock;
++	spinlock_t irq_lock;
+ 	struct mutex mutex;
+ 
+ 	/* basic pci-network driver stuff */
 _
