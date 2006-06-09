@@ -1,35 +1,43 @@
-From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Subject: Re: Firewall question
-Date: Fri, 9 Jun 2006 09:12:17 -0400
-Message-ID: <20060609131217.GJ558@csclub.uwaterloo.ca>
-References: <20060608185712.79340.qmail@web50207.mail.yahoo.com> <20060608192628.GA561@csclub.uwaterloo.ca> <200606090543.24401.ak@suse.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6.17-rc6-mm1 ] net: RFC 3828-compliant UDP-Lite
+ support
+Date: Fri, 09 Jun 2006 22:29:15 +0900 (JST)
+Message-ID: <20060609.222915.60108698.yoshfuji@linux-ipv6.org>
+References: <200606082109.34338.gerrit@erg.abdn.ac.uk>
+	<20060608.151347.55505744.davem@davemloft.net>
+	<200606091036.42075.gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alex Davis <alex14641@yahoo.com>, netfilter@lists.netfilter.org,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jmorris@namei.org, alan@lxorguk.ukuu.org.uk,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, kaber@coreworks.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:34713 "EHLO
-	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
-	id S965253AbWFINMU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 09:12:20 -0400
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <200606090543.24401.ak@suse.de>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:41746 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S965257AbWFIN2h
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 09:28:37 -0400
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200606091036.42075.gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 09, 2006 at 05:43:24AM +0200, Andi Kleen wrote:
-> No one out on the internet, but it would be trivial for someone outside
-> his house. All his traffic will be on a long unsecured cable. 
-> 
-> That is why I would never bridge home ethernet traffic onto a DSL line.
+In article <200606091036.42075.gerrit@erg.abdn.ac.uk> (at Fri, 9 Jun 2006 10:36:41 +0100), Gerrit Renker <gerrit@erg.abdn.ac.uk> says:
 
-Hmm, traffic sent between his machines would not go over the DSL since
-the MAC address doesn't match the DSL modem (I would think so at
-least).  It would be a mess if the DSL modem tried to forwards all
-traffic on an ethernet segment (well it doesn't have the bandwidth for
-sure).  Maybe I am incorrectly assuming the DSL modem only forwards the
-PPPoE traffic being sent at it.  I could see broadcast traffic being
-forwarded, although arps and such are generally not that interesting.
+> Thank you for your replies and comments, I will be back when the v6 side is ready.
 
-Len Sorensen
+Please fix the following as well.
+
+1. Put your code in net/ipv4, probably as udplite.c, and remove net/udp-lite/.
+   Similarly, plasse put implementation as net/ipv6/udplite.c.
+2. Eliminate any cosmetic changes (space, new-line, coding style etc.);
+   minimize diffs between udp.c udplite.c
+
+BTW, I cannot find descriptions about fragmentation of 
+UDP-Lite in the spec.  Is it yours?
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
