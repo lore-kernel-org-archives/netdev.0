@@ -1,104 +1,50 @@
-From: akpm@osdl.org
-Subject: [patch 6/8] drivers/char/hw_random.c: remove assert()'s
-Date: Thu, 08 Jun 2006 22:19:47 -0700
-Message-ID: <200606090519.k595JlHj032029@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bunk@stusta.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Thu, 08 Jun 2006 22:23:52 -0700 (PDT)
+Message-ID: <20060608.222352.59657133.davem@davemloft.net>
+References: <20060608210702.GD24227@waste.org>
+	<4488D4DE.3000100@goop.org>
+	<4489038C.3050901@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeremy@goop.org, mpm@selenic.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53980 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965171AbWFIFXK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 01:23:10 -0400
-To: jeff@garzik.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52143
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965208AbWFIFYj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 01:24:39 -0400
+To: auke-jan.h.kok@intel.com
+In-Reply-To: <4489038C.3050901@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Date: Thu, 08 Jun 2006 22:13:48 -0700
 
-From: Adrian Bunk <bunk@stusta.de>
+> netconsole should retry. There is no timeout programmed here since that might
+> lose important information, and you rather want netconsole to survive an odd
+> unplugged cable then to lose vital debugging information when the system is
+> busy for instance. (losing link will cause the interface to be down and thus
+> the queue to be stopped)
 
-Remove the assert()'s from drivers/char/hw_random.c since you both needed
-to enable a manual option in the driver source to make them effective and
-they only covered some obviously impossible cases.
+I completely disagree that netpoll should loop when the ethernet
+cable is plugged out.  This stops the entire system.  What if this
+is one of my main web servers and I have other links on the machine
+for redundancy and load balancing?  Just because some careless
+sysop knocks one of the cables out, my system just freezes up and
+stops?
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+What if I'm on a remote serial console, how long should I scratch
+my head wondering why the whole machine is frozen up before I "figure
+out" that the ethernet cable being out has made my system unusable
+because netpoll is just looping on the thing forever?
 
- drivers/char/hw_random.c |   21 ---------------------
- 1 files changed, 21 deletions(-)
+That's an extremely poor quality of implementation if you ask me.
 
-diff -puN drivers/char/hw_random.c~drivers-char-hw_randomc-remove-asserts drivers/char/hw_random.c
---- 25/drivers/char/hw_random.c~drivers-char-hw_randomc-remove-asserts	Mon May  8 12:03:00 2006
-+++ 25-akpm/drivers/char/hw_random.c	Mon May  8 12:03:00 2006
-@@ -66,17 +66,6 @@
- #define DPRINTK(fmt, args...) pr_debug(PFX "%s: " fmt, __FUNCTION__ , ## args)
- 
- 
--#undef RNG_NDEBUG        /* define to enable lightweight runtime checks */
--#ifdef RNG_NDEBUG
--#define assert(expr)							\
--		if(!(expr)) {						\
--		printk(KERN_DEBUG PFX "Assertion failed! %s,%s,%s,"	\
--		"line=%d\n", #expr, __FILE__, __FUNCTION__, __LINE__);	\
--		}
--#else
--#define assert(expr)
--#endif
--
- #define RNG_MISCDEV_MINOR		183 /* official */
- 
- static int rng_dev_open (struct inode *inode, struct file *filp);
-@@ -211,29 +200,23 @@ static void __iomem *rng_mem;
- 
- static inline u8 intel_hwstatus (void)
- {
--	assert (rng_mem != NULL);
- 	return readb (rng_mem + INTEL_RNG_HW_STATUS);
- }
- 
- static inline u8 intel_hwstatus_set (u8 hw_status)
- {
--	assert (rng_mem != NULL);
- 	writeb (hw_status, rng_mem + INTEL_RNG_HW_STATUS);
- 	return intel_hwstatus ();
- }
- 
- static unsigned int intel_data_present(void)
- {
--	assert (rng_mem != NULL);
--
- 	return (readb (rng_mem + INTEL_RNG_STATUS) & INTEL_RNG_DATA_PRESENT) ?
- 		1 : 0;
- }
- 
- static u32 intel_data_read(void)
- {
--	assert (rng_mem != NULL);
--
- 	return readb (rng_mem + INTEL_RNG_DATA);
- }
- 
-@@ -495,7 +478,6 @@ static u32 geode_data_read(void)
- {
- 	u32 val;
- 
--	assert(geode_rng_base != NULL);
- 	val = readl(geode_rng_base + GEODE_RNG_DATA_REG);
- 	return val;
- }
-@@ -504,7 +486,6 @@ static unsigned int geode_data_present(v
- {
- 	u32 val;
- 
--	assert(geode_rng_base != NULL);
- 	val = readl(geode_rng_base + GEODE_RNG_STATUS_REG);
- 	return val;
- }
-@@ -605,8 +586,6 @@ static int __init rng_init_one (struct p
- 
- 	DPRINTK ("ENTER\n");
- 
--	assert(rng_ops != NULL);
--
- 	rc = rng_ops->init(dev);
- 	if (rc)
- 		goto err_out;
-_
+Netpoll is _BEST_ _EFFORT_, end of story.  It by definition can only
+offer that level of service because it does locking in circumstances
+where such locking might be illegal or even impossible.  So it has to
+try, but if it can't get the resources it needs, it must stop trying
+and abort the logging.
