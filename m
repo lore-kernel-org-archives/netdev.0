@@ -1,391 +1,496 @@
 From: dlezcano@fr.ibm.com
-Subject: [RFC] [patch 3/6] [Network namespace] Network devices isolation
-Date: Fri, 09 Jun 2006 23:02:05 +0200
-Message-ID: <20060609210627.064168000@localhost.localdomain>
+Subject: [RFC] [patch 5/6] [Network namespace] ipv4 isolation
+Date: Fri, 09 Jun 2006 23:02:07 +0200
+Message-ID: <20060609210631.346330000@localhost.localdomain>
 References: <20060609210202.215291000@localhost.localdomain>
 Cc: serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
 	dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from AToulouse-252-1-74-163.w81-49.abo.wanadoo.fr ([81.49.44.163]:6099
+Received: from AToulouse-252-1-74-163.w81-49.abo.wanadoo.fr ([81.49.44.163]:7891
 	"EHLO localhost.localdomain") by vger.kernel.org with ESMTP
-	id S965301AbWFIVGe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 17:06:34 -0400
+	id S1030493AbWFIVGj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 17:06:39 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline; filename=netdev_isolation.patch
+Content-Disposition: inline; filename=inet_isolation.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The dev list view is filled and used from here. The dev_base_list has
-been replaced to the dev list view and devices can be accessed only if
-the view has the device in its list. All calls from the userspace,
-ioctls, netlinks and procfs, will use the network devices view instead
-of the global network device list.
+This patch partially isolates ipv4 by adding the network namespace
+structure in the structure sock, bind bucket and skbuf. When a socket
+is created, the pointer to the network namespace is stored in the
+struct sock and the socket belongs to the namespace by this way. That
+allows to identify sockets related to a namespace for lookup and
+procfs. 
 
-Replace-Subject: [Network namespace] Network devices isolation 
+The lookup is extended with a network namespace pointer, in
+order to identify listen points binded to the same port. That allows
+to have several applications binded to INADDR_ANY:port in different
+network namespace without conflicting. The bind is checked against
+port and network namespace.
+
+When an outgoing packet has the loopback destination addres, the
+skbuff is filled with the network namespace. So the loopback packets
+never go outside the namespace. This approach facilitate the migration
+of loopback because identification is done by network namespace and
+not by address. The loopback has been benchmarked by tbench and the
+overhead is roughly 1.5 %
+
+Replace-Subject: [Network namespace] ipv4 isolation
 Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com> 
 --
- net/core/dev.c       |  147 ++++++++++++++++++++++++++++++++++++++-------------
- net/core/rtnetlink.c |   21 +++++--
- 2 files changed, 126 insertions(+), 42 deletions(-)
+ include/linux/skbuff.h           |    2 ++
+ include/net/inet_hashtables.h    |   34 ++++++++++++++++++++++++----------
+ include/net/inet_timewait_sock.h |    1 +
+ include/net/sock.h               |    4 ++++
+ net/dccp/ipv4.c                  |    7 ++++---
+ net/ipv4/af_inet.c               |    2 ++
+ net/ipv4/inet_connection_sock.c  |    3 ++-
+ net/ipv4/inet_diag.c             |    3 ++-
+ net/ipv4/inet_hashtables.c       |    6 +++++-
+ net/ipv4/inet_timewait_sock.c    |    1 +
+ net/ipv4/ip_output.c             |    4 ++++
+ net/ipv4/tcp_ipv4.c              |   25 ++++++++++++++++---------
+ net/ipv4/udp.c                   |    7 +++++--
+ 13 files changed, 72 insertions(+), 27 deletions(-)
 
-Index: 2.6-mm/net/core/dev.c
+Index: 2.6-mm/include/linux/skbuff.h
 ===================================================================
---- 2.6-mm.orig/net/core/dev.c
-+++ 2.6-mm/net/core/dev.c
-@@ -115,6 +115,7 @@
- #include <net/iw_handler.h>
- #include <asm/current.h>
- #include <linux/audit.h>
+--- 2.6-mm.orig/include/linux/skbuff.h
++++ 2.6-mm/include/linux/skbuff.h
+@@ -27,6 +27,7 @@
+ #include <linux/poll.h>
+ #include <linux/net.h>
+ #include <linux/textsearch.h>
 +#include <linux/net_ns.h>
+ #include <net/checksum.h>
  #include <linux/dmaengine.h>
  
- /*
-@@ -474,13 +475,16 @@
+@@ -301,6 +302,7 @@
+ 				*data,
+ 				*tail,
+ 				*end;
++	struct net_namespace    *net_ns;
+ };
  
- struct net_device *__dev_get_by_name(const char *name)
- {
--	struct hlist_node *p;
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
-+	struct net_device *dev;
- 
--	hlist_for_each(p, dev_name_hash(name)) {
--		struct net_device *dev
--			= hlist_entry(p, struct net_device, name_hlist);
-+	list_for_each(l, list) {
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
- 		if (!strncmp(dev->name, name, IFNAMSIZ))
--			return dev;
-+ 			return dev;
- 	}
- 	return NULL;
- }
-@@ -498,13 +502,14 @@
- 
- struct net_device *dev_get_by_name(const char *name)
- {
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
- 	struct net_device *dev;
- 
--	read_lock(&dev_base_lock);
-+	read_lock(&dev_list->lock);
- 	dev = __dev_get_by_name(name);
- 	if (dev)
- 		dev_hold(dev);
--	read_unlock(&dev_base_lock);
-+	read_unlock(&dev_list->lock);
- 	return dev;
- }
- 
-@@ -521,11 +526,14 @@
- 
- struct net_device *__dev_get_by_index(int ifindex)
- {
--	struct hlist_node *p;
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
-+	struct net_device *dev;
- 
--	hlist_for_each(p, dev_index_hash(ifindex)) {
--		struct net_device *dev
--			= hlist_entry(p, struct net_device, index_hlist);
-+	list_for_each(l, list) {
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
- 		if (dev->ifindex == ifindex)
- 			return dev;
- 	}
-@@ -545,13 +553,14 @@
- 
- struct net_device *dev_get_by_index(int ifindex)
- {
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
- 	struct net_device *dev;
- 
--	read_lock(&dev_base_lock);
-+	read_lock(&dev_list->lock);
- 	dev = __dev_get_by_index(ifindex);
- 	if (dev)
- 		dev_hold(dev);
--	read_unlock(&dev_base_lock);
-+	read_unlock(&dev_list->lock);
- 	return dev;
- }
- 
-@@ -571,14 +580,24 @@
- 
- struct net_device *dev_getbyhwaddr(unsigned short type, char *ha)
- {
--	struct net_device *dev;
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
-+	struct net_device *dev = NULL;
- 
- 	ASSERT_RTNL();
- 
--	for (dev = dev_base; dev; dev = dev->next)
-+	read_lock(&dev_list->lock);
-+	list_for_each(l, list) {
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
- 		if (dev->type == type &&
- 		    !memcmp(dev->dev_addr, ha, dev->addr_len))
--			break;
-+			goto out;
-+	}
-+	dev = NULL;
-+out:
-+	read_unlock(&dev_list->lock);
- 	return dev;
- }
- 
-@@ -586,15 +605,25 @@
- 
- struct net_device *dev_getfirstbyhwtype(unsigned short type)
- {
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
- 	struct net_device *dev;
- 
- 	rtnl_lock();
--	for (dev = dev_base; dev; dev = dev->next) {
-+
-+	read_lock(&dev_list->lock);
-+	list_for_each(l, list) {
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
- 		if (dev->type == type) {
- 			dev_hold(dev);
--			break;
-+			goto out;
- 		}
- 	}
-+	dev = NULL;
-+out:
-+	read_unlock(&dev_list->lock);
- 	rtnl_unlock();
- 	return dev;
- }
-@@ -614,16 +643,23 @@
- 
- struct net_device * dev_get_by_flags(unsigned short if_flags, unsigned short mask)
- {
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
- 	struct net_device *dev;
- 
--	read_lock(&dev_base_lock);
--	for (dev = dev_base; dev != NULL; dev = dev->next) {
-+	read_lock(&dev_list->lock);
-+	list_for_each(l, list) {
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
- 		if (((dev->flags ^ if_flags) & mask) == 0) {
- 			dev_hold(dev);
--			break;
-+			goto out;
- 		}
- 	}
--	read_unlock(&dev_base_lock);
-+	dev = NULL;
-+out:
-+	read_unlock(&dev_list->lock);
- 	return dev;
- }
- 
-@@ -1942,6 +1978,9 @@
- static int dev_ifconf(char __user *arg)
- {
- 	struct ifconf ifc;
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
- 	struct net_device *dev;
- 	char __user *pos;
- 	int len;
-@@ -1963,8 +2002,14 @@
- 	 */
- 
- 	total = 0;
--	for (dev = dev_base; dev; dev = dev->next) {
-+
-+	list_for_each(l, list) {
-+
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
-+
- 		for (i = 0; i < NPROTO; i++) {
-+
- 			if (gifconf_list[i]) {
- 				int done;
- 				if (!pos)
-@@ -1995,40 +2040,63 @@
-  *	This is invoked by the /proc filesystem handler to display a device
-  *	in detail.
-  */
--static __inline__ struct net_device *dev_get_idx(loff_t pos)
-+static __inline__ struct net_ns_dev *dev_get_idx(loff_t pos)
- {
--	struct net_device *dev;
--	loff_t i;
--
--	for (i = 0, dev = dev_base; dev && i < pos; ++i, dev = dev->next);
--
--	return i == pos ? dev : NULL;
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
-+
-+	loff_t i = 0;
-+
-+	list_for_each(l, list) {
-+		db = list_entry(l, struct net_ns_dev, list);
-+		if (i == pos)
-+			return db;
-+		i++;
-+	};
-+	return NULL;
- }
- 
- void *dev_seq_start(struct seq_file *seq, loff_t *pos)
- {
--	read_lock(&dev_base_lock);
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+
-+	read_lock(&dev_list->lock);
- 	return *pos ? dev_get_idx(*pos - 1) : SEQ_START_TOKEN;
- }
- 
- void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct net_ns_dev *db = NULL;
-+	struct list_head *next;
-+
- 	++*pos;
--	return v == SEQ_START_TOKEN ? dev_base : ((struct net_device *)v)->next;
-+
-+	if (v == SEQ_START_TOKEN)
-+		next = dev_list->list.next;
-+	else
-+		next = ((struct net_ns_dev*)v)->list.next;
-+	if (next && next != &dev_list->list)
-+		db = list_entry(next, struct net_ns_dev, list);
-+	return db;
- }
- 
- void dev_seq_stop(struct seq_file *seq, void *v)
- {
--	read_unlock(&dev_base_lock);
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	read_unlock(&dev_list->lock);
- }
- 
--static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
-+static void dev_seq_printf_stats(struct seq_file *seq, struct net_ns_dev *db)
- {
-+	struct net_device *dev = db->dev;
-+
- 	if (dev->get_stats) {
- 		struct net_device_stats *stats = dev->get_stats(dev);
- 
- 		seq_printf(seq, "%6s:%8lu %7lu %4lu %4lu %4lu %5lu %10lu %9lu "
--				"%8lu %7lu %4lu %4lu %4lu %5lu %7lu %10lu\n",
-+			        "%8lu %7lu %4lu %4lu %4lu %5lu %7lu %10lu\n",
- 			   dev->name, stats->rx_bytes, stats->rx_packets,
- 			   stats->rx_errors,
- 			   stats->rx_dropped + stats->rx_missed_errors,
-@@ -2402,7 +2470,7 @@
-  */
- static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
- {
--	int err;
-+	int err = 0;
- 	struct net_device *dev = __dev_get_by_name(ifr->ifr_name);
- 
- 	if (!dev)
-@@ -2509,7 +2577,6 @@
- 		/*
- 		 *	Unknown or private ioctl
- 		 */
--
- 		default:
- 			if ((cmd >= SIOCDEVPRIVATE &&
- 			    cmd <= SIOCDEVPRIVATE + 15) ||
-@@ -2847,6 +2914,10 @@
- 		}
-  	}
- 
-+	ret = net_ns_dev_register(dev, &(net_ns()->dev_list));
-+	if (ret)
-+		goto out_err;
-+
- 	/* Fix illegal SG+CSUM combinations. */
- 	if ((dev->features & NETIF_F_SG) &&
- 	    !(dev->features & (NETIF_F_IP_CSUM |
-@@ -3218,6 +3289,8 @@
- 		return -ENODEV;
- 	}
- 
-+	net_ns_dev_unregister(dev, &(net_ns()->dev_list));
-+
- 	dev->reg_state = NETREG_UNREGISTERING;
- 
- 	synchronize_net();
-Index: 2.6-mm/net/core/rtnetlink.c
+ #ifdef __KERNEL__
+Index: 2.6-mm/include/net/inet_hashtables.h
 ===================================================================
---- 2.6-mm.orig/net/core/rtnetlink.c
-+++ 2.6-mm/net/core/rtnetlink.c
-@@ -55,6 +55,7 @@
- #include <linux/wireless.h>
- #include <net/iw_handler.h>
- #endif	/* CONFIG_NET_WIRELESS_RTNETLINK */
+--- 2.6-mm.orig/include/net/inet_hashtables.h
++++ 2.6-mm/include/net/inet_hashtables.h
+@@ -23,6 +23,8 @@
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+ #include <linux/wait.h>
++#include <linux/in.h>
 +#include <linux/net_ns.h>
  
- static DEFINE_MUTEX(rtnl_mutex);
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_sock.h>
+@@ -78,6 +80,7 @@
+ 	signed short		fastreuse;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owners;
++	struct net_namespace    *net_ns;
+ };
  
-@@ -315,21 +316,31 @@
+ #define inet_bind_bucket_for_each(tb, node, head) \
+@@ -274,13 +277,15 @@
+ extern struct sock *__inet_lookup_listener(const struct hlist_head *head,
+ 					   const u32 daddr,
+ 					   const unsigned short hnum,
+-					   const int dif);
++					   const int dif,
++					   const struct net_namespace *net_ns);
  
- static int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ /* Optimize the common listener case. */
+ static inline struct sock *
+ 		inet_lookup_listener(struct inet_hashinfo *hashinfo,
+ 				     const u32 daddr,
+-				     const unsigned short hnum, const int dif)
++				     const unsigned short hnum, const int dif,
++				     const struct net_namespace *net_ns)
  {
--	int idx;
-+	int idx = 0;
- 	int s_idx = cb->args[0];
-+
-+	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
-+	struct list_head *l, *list = &dev_list->list;
-+	struct net_ns_dev *db;
- 	struct net_device *dev;
- 
--	read_lock(&dev_base_lock);
--	for (dev=dev_base, idx=0; dev; dev = dev->next, idx++) {
--		if (idx < s_idx)
-+	read_lock(&dev_list->lock);
-+	list_for_each(l, list) {
-+
-+		if (idx++ < s_idx)
- 			continue;
-+
-+		db = list_entry(l, struct net_ns_dev, list);
-+		dev = db->dev;
-+
- 		if (rtnetlink_fill_ifinfo(skb, dev, RTM_NEWLINK,
- 					  NETLINK_CB(cb->skb).pid,
- 					  cb->nlh->nlmsg_seq, 0,
- 					  NLM_F_MULTI) <= 0)
- 			break;
+ 	struct sock *sk = NULL;
+ 	const struct hlist_head *head;
+@@ -294,8 +299,9 @@
+ 		    (!inet->rcv_saddr || inet->rcv_saddr == daddr) &&
+ 		    (sk->sk_family == PF_INET || !ipv6_only_sock(sk)) &&
+ 		    !sk->sk_bound_dev_if)
+-			goto sherry_cache;
+-		sk = __inet_lookup_listener(head, daddr, hnum, dif);
++			if (sk->sk_net_ns == net_ns && LOOPBACK(daddr))
++				goto sherry_cache;
++		sk = __inet_lookup_listener(head, daddr, hnum, dif, net_ns);
  	}
--	read_unlock(&dev_base_lock);
-+	read_unlock(&dev_list->lock);
-+
- 	cb->args[0] = idx;
+ 	if (sk) {
+ sherry_cache:
+@@ -358,7 +364,8 @@
+ 	__inet_lookup_established(struct inet_hashinfo *hashinfo,
+ 				  const u32 saddr, const u16 sport,
+ 				  const u32 daddr, const u16 hnum,
+-				  const int dif)
++				  const int dif,
++				  const struct net_namespace *net_ns)
+ {
+ 	INET_ADDR_COOKIE(acookie, saddr, daddr)
+ 	const __u32 ports = INET_COMBINED_PORTS(sport, hnum);
+@@ -373,12 +380,16 @@
+ 	prefetch(head->chain.first);
+ 	read_lock(&head->lock);
+ 	sk_for_each(sk, node, &head->chain) {
++		if (sk->sk_net_ns != net_ns && LOOPBACK(daddr))
++			continue;
+ 		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+ 			goto hit; /* You sunk my battleship! */
+ 	}
  
- 	return skb->len;
+ 	/* Must check for a TIME_WAIT'er before going to listener hash. */
+ 	sk_for_each(sk, node, &(head + hashinfo->ehash_size)->chain) {
++		if (sk->sk_net_ns != net_ns && LOOPBACK(daddr))
++			continue;
+ 		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+ 			goto hit;
+ 	}
+@@ -394,22 +405,25 @@
+ static inline struct sock *__inet_lookup(struct inet_hashinfo *hashinfo,
+ 					 const u32 saddr, const u16 sport,
+ 					 const u32 daddr, const u16 hnum,
+-					 const int dif)
++					 const int dif,
++					 const struct net_namespace *net_ns)
+ {
+ 	struct sock *sk = __inet_lookup_established(hashinfo, saddr, sport, daddr,
+-						    hnum, dif);
+-	return sk ? : inet_lookup_listener(hashinfo, daddr, hnum, dif);
++						    hnum, dif, net_ns);
++	return sk ? : inet_lookup_listener(hashinfo, daddr, hnum, dif, net_ns);
+ }
+ 
+ static inline struct sock *inet_lookup(struct inet_hashinfo *hashinfo,
+ 				       const u32 saddr, const u16 sport,
+ 				       const u32 daddr, const u16 dport,
+-				       const int dif)
++				       const int dif,
++				       const struct net_namespace *net_ns)
+ {
+ 	struct sock *sk;
+ 
+ 	local_bh_disable();
+-	sk = __inet_lookup(hashinfo, saddr, sport, daddr, ntohs(dport), dif);
++	sk = __inet_lookup(hashinfo, saddr, sport, daddr, ntohs(dport),
++			   dif, net_ns);
+ 	local_bh_enable();
+ 
+ 	return sk;
+Index: 2.6-mm/include/net/inet_timewait_sock.h
+===================================================================
+--- 2.6-mm.orig/include/net/inet_timewait_sock.h
++++ 2.6-mm/include/net/inet_timewait_sock.h
+@@ -115,6 +115,7 @@
+ #define tw_refcnt		__tw_common.skc_refcnt
+ #define tw_hash			__tw_common.skc_hash
+ #define tw_prot			__tw_common.skc_prot
++#define tw_net_ns               __tw_common.skc_net_ns
+ 	volatile unsigned char	tw_substate;
+ 	/* 3 bits hole, try to pack */
+ 	unsigned char		tw_rcv_wscale;
+Index: 2.6-mm/include/net/sock.h
+===================================================================
+--- 2.6-mm.orig/include/net/sock.h
++++ 2.6-mm/include/net/sock.h
+@@ -47,6 +47,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>	/* struct sk_buff */
+ #include <linux/security.h>
++#include <linux/net_ns.h>
+ 
+ #include <linux/filter.h>
+ 
+@@ -94,6 +95,7 @@
+  *	@skc_refcnt: reference count
+  *	@skc_hash: hash value used with various protocol lookup tables
+  *	@skc_prot: protocol handlers inside a network family
++ *      @skc_net_ns: network namespace owning the socket
+  *
+  *	This is the minimal network layer representation of sockets, the header
+  *	for struct sock and struct inet_timewait_sock.
+@@ -108,6 +110,7 @@
+ 	atomic_t		skc_refcnt;
+ 	unsigned int		skc_hash;
+ 	struct proto		*skc_prot;
++	struct net_namespace    *skc_net_ns;
+ };
+ 
+ /**
+@@ -183,6 +186,7 @@
+ #define sk_refcnt		__sk_common.skc_refcnt
+ #define sk_hash			__sk_common.skc_hash
+ #define sk_prot			__sk_common.skc_prot
++#define sk_net_ns               __sk_common.skc_net_ns
+ 	unsigned char		sk_shutdown : 2,
+ 				sk_no_check : 2,
+ 				sk_userlocks : 4;
+Index: 2.6-mm/net/dccp/ipv4.c
+===================================================================
+--- 2.6-mm.orig/net/dccp/ipv4.c
++++ 2.6-mm/net/dccp/ipv4.c
+@@ -308,7 +308,8 @@
+ 	}
+ 
+ 	sk = inet_lookup(&dccp_hashinfo, iph->daddr, dh->dccph_dport,
+-			 iph->saddr, dh->dccph_sport, inet_iif(skb));
++			 iph->saddr, dh->dccph_sport, inet_iif(skb),
++			 skb->net_ns);
+ 	if (sk == NULL) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+ 		return;
+@@ -610,7 +611,7 @@
+ 	nsk = __inet_lookup_established(&dccp_hashinfo,
+ 					iph->saddr, dh->dccph_sport,
+ 					iph->daddr, ntohs(dh->dccph_dport),
+-					inet_iif(skb));
++					inet_iif(skb), skb->net_ns);
+ 	if (nsk != NULL) {
+ 		if (nsk->sk_state != DCCP_TIME_WAIT) {
+ 			bh_lock_sock(nsk);
+@@ -924,7 +925,7 @@
+ 	sk = __inet_lookup(&dccp_hashinfo,
+ 			   skb->nh.iph->saddr, dh->dccph_sport,
+ 			   skb->nh.iph->daddr, ntohs(dh->dccph_dport),
+-			   inet_iif(skb));
++			   inet_iif(skb), skb->net_ns);
+ 
+ 	/* 
+ 	 * Step 2:
+Index: 2.6-mm/net/ipv4/af_inet.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/af_inet.c
++++ 2.6-mm/net/ipv4/af_inet.c
+@@ -325,6 +325,7 @@
+ 	sk->sk_family	   = PF_INET;
+ 	sk->sk_protocol	   = protocol;
+ 	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
++	sk->sk_net_ns      = net_ns();
+ 
+ 	inet->uc_ttl	= -1;
+ 	inet->mc_loop	= 1;
+@@ -616,6 +617,7 @@
+ 
+ 	sock_graft(sk2, newsock);
+ 
++	sk2->sk_net_ns = net_ns();
+ 	newsock->state = SS_CONNECTED;
+ 	err = 0;
+ 	release_sock(sk2);
+Index: 2.6-mm/net/ipv4/inet_connection_sock.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_connection_sock.c
++++ 2.6-mm/net/ipv4/inet_connection_sock.c
+@@ -116,7 +116,7 @@
+ 		head = &hashinfo->bhash[inet_bhashfn(snum, hashinfo->bhash_size)];
+ 		spin_lock(&head->lock);
+ 		inet_bind_bucket_for_each(tb, node, &head->chain)
+-			if (tb->port == snum)
++			if (tb->port == snum && tb->net_ns == net_ns())
+ 				goto tb_found;
+ 	}
+ 	tb = NULL;
+@@ -146,6 +146,7 @@
+ 	} else if (tb->fastreuse &&
+ 		   (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
+ 		tb->fastreuse = 0;
++	tb->net_ns = net_ns();
+ success:
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, snum);
+Index: 2.6-mm/net/ipv4/inet_diag.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_diag.c
++++ 2.6-mm/net/ipv4/inet_diag.c
+@@ -241,7 +241,8 @@
+ 	if (req->idiag_family == AF_INET) {
+ 		sk = inet_lookup(hashinfo, req->id.idiag_dst[0],
+ 				 req->id.idiag_dport, req->id.idiag_src[0],
+-				 req->id.idiag_sport, req->id.idiag_if);
++				 req->id.idiag_sport, req->id.idiag_if,
++				 in_skb->net_ns);
+ 	}
+ #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+ 	else if (req->idiag_family == AF_INET6) {
+Index: 2.6-mm/net/ipv4/inet_hashtables.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_hashtables.c
++++ 2.6-mm/net/ipv4/inet_hashtables.c
+@@ -126,7 +126,8 @@
+  * wildcarded during the search since they can never be otherwise.
+  */
+ struct sock *__inet_lookup_listener(const struct hlist_head *head, const u32 daddr,
+-				    const unsigned short hnum, const int dif)
++				    const unsigned short hnum, const int dif,
++				    const struct net_namespace *net_ns)
+ {
+ 	struct sock *result = NULL, *sk;
+ 	const struct hlist_node *node;
+@@ -139,6 +140,9 @@
+ 			const __u32 rcv_saddr = inet->rcv_saddr;
+ 			int score = sk->sk_family == PF_INET ? 1 : 0;
+ 
++			if (sk->sk_net_ns != net_ns && LOOPBACK(daddr))
++				continue;
++
+ 			if (rcv_saddr) {
+ 				if (rcv_saddr != daddr)
+ 					continue;
+Index: 2.6-mm/net/ipv4/inet_timewait_sock.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_timewait_sock.c
++++ 2.6-mm/net/ipv4/inet_timewait_sock.c
+@@ -110,6 +110,7 @@
+ 		tw->tw_hash	    = sk->sk_hash;
+ 		tw->tw_ipv6only	    = 0;
+ 		tw->tw_prot	    = sk->sk_prot_creator;
++		tw->tw_net_ns       = sk->sk_net_ns;
+ 		atomic_set(&tw->tw_refcnt, 1);
+ 		inet_twsk_dead_node_init(tw);
+ 		__module_get(tw->tw_prot->owner);
+Index: 2.6-mm/net/ipv4/ip_output.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/ip_output.c
++++ 2.6-mm/net/ipv4/ip_output.c
+@@ -284,6 +284,10 @@
+ 
+ 	skb->dev = dev;
+ 	skb->protocol = htons(ETH_P_IP);
++	if ((skb->nh.iph->protocol == IPPROTO_TCP ||
++	     skb->nh.iph->protocol == IPPROTO_UDP) &&
++	    LOOPBACK(skb->nh.iph->daddr))
++			skb->net_ns = skb->sk->sk_net_ns;
+ 
+ 	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, dev,
+ 		            ip_finish_output,
+Index: 2.6-mm/net/ipv4/tcp_ipv4.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/tcp_ipv4.c
++++ 2.6-mm/net/ipv4/tcp_ipv4.c
+@@ -349,7 +349,7 @@
+ 	}
+ 
+ 	sk = inet_lookup(&tcp_hashinfo, iph->daddr, th->dest, iph->saddr,
+-			 th->source, inet_iif(skb));
++			 th->source, inet_iif(skb), skb->net_ns);
+ 	if (!sk) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+ 		return;
+@@ -933,7 +933,8 @@
+ 
+ 	nsk = __inet_lookup_established(&tcp_hashinfo, skb->nh.iph->saddr,
+ 					th->source, skb->nh.iph->daddr,
+-					ntohs(th->dest), inet_iif(skb));
++					ntohs(th->dest), inet_iif(skb),
++					skb->net_ns);
+ 
+ 	if (nsk) {
+ 		if (nsk->sk_state != TCP_TIME_WAIT) {
+@@ -1071,7 +1072,7 @@
+ 
+ 	sk = __inet_lookup(&tcp_hashinfo, skb->nh.iph->saddr, th->source,
+ 			   skb->nh.iph->daddr, ntohs(th->dest),
+-			   inet_iif(skb));
++			   inet_iif(skb), skb->net_ns);
+ 
+ 	if (!sk)
+ 		goto no_tcp_socket;
+@@ -1149,7 +1150,8 @@
+ 		struct sock *sk2 = inet_lookup_listener(&tcp_hashinfo,
+ 							skb->nh.iph->daddr,
+ 							ntohs(th->dest),
+-							inet_iif(skb));
++							inet_iif(skb),
++							skb->net_ns);
+ 		if (sk2) {
+ 			inet_twsk_deschedule((struct inet_timewait_sock *)sk,
+ 					     &tcp_death_row);
+@@ -1395,7 +1397,8 @@
+ 	}
+ get_sk:
+ 	sk_for_each_from(sk, node) {
+-		if (sk->sk_family == st->family) {
++		if (sk->sk_family == st->family &&
++		    sk->sk_net_ns == net_ns()) {
+ 			cur = sk;
+ 			goto out;
+ 		}
+@@ -1446,7 +1449,8 @@
+ 
+ 		read_lock(&tcp_hashinfo.ehash[st->bucket].lock);
+ 		sk_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain) {
+-			if (sk->sk_family != st->family) {
++			if (sk->sk_family != st->family ||
++			    sk->sk_net_ns != net_ns()) {
+ 				continue;
+ 			}
+ 			rc = sk;
+@@ -1455,7 +1459,8 @@
+ 		st->state = TCP_SEQ_STATE_TIME_WAIT;
+ 		inet_twsk_for_each(tw, node,
+ 				   &tcp_hashinfo.ehash[st->bucket + tcp_hashinfo.ehash_size].chain) {
+-			if (tw->tw_family != st->family) {
++			if (tw->tw_family != st->family ||
++			    tw->tw_net_ns != net_ns()) {
+ 				continue;
+ 			}
+ 			rc = tw;
+@@ -1481,7 +1486,8 @@
+ 		tw = cur;
+ 		tw = tw_next(tw);
+ get_tw:
+-		while (tw && tw->tw_family != st->family) {
++		while (tw && (tw->tw_family != st->family ||
++			      tw->tw_net_ns != net_ns())) {
+ 			tw = tw_next(tw);
+ 		}
+ 		if (tw) {
+@@ -1505,7 +1511,8 @@
+ 		sk = sk_next(sk);
+ 
+ 	sk_for_each_from(sk, node) {
+-		if (sk->sk_family == st->family)
++		if (sk->sk_family == st->family &&
++		    sk->sk_net_ns == net_ns())
+ 			goto found;
+ 	}
+ 
+Index: 2.6-mm/net/ipv4/udp.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/udp.c
++++ 2.6-mm/net/ipv4/udp.c
+@@ -184,6 +184,7 @@
+ 			    (!inet2->rcv_saddr ||
+ 			     !inet->rcv_saddr ||
+ 			     inet2->rcv_saddr == inet->rcv_saddr) &&
++			    sk2->sk_net_ns == sk->sk_net_ns &&
+ 			    (!sk2->sk_reuse || !sk->sk_reuse))
+ 				goto fail;
+ 		}
+@@ -1404,7 +1405,8 @@
+ 	for (state->bucket = 0; state->bucket < UDP_HTABLE_SIZE; ++state->bucket) {
+ 		struct hlist_node *node;
+ 		sk_for_each(sk, node, &udp_hash[state->bucket]) {
+-			if (sk->sk_family == state->family)
++			if (sk->sk_family == state->family &&
++			    sk->sk_net_ns == net_ns())
+ 				goto found;
+ 		}
+ 	}
+@@ -1421,7 +1423,8 @@
+ 		sk = sk_next(sk);
+ try_again:
+ 		;
+-	} while (sk && sk->sk_family != state->family);
++	} while (sk && (sk->sk_family != state->family ||
++			sk->sk_net_ns != net_ns()));
+ 
+ 	if (!sk && ++state->bucket < UDP_HTABLE_SIZE) {
+ 		sk = sk_head(&udp_hash[state->bucket]);
 
 --
