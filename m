@@ -1,54 +1,85 @@
-From: "Vasantha Kumar Puttappa" <vasanthakumar@iitb.ac.in>
-Subject: [Fwd: Packet Lost] ip_rt_bug error
-Date: Fri, 9 Jun 2006 13:08:09 +0530 (IST)
-Message-ID: <4561.10.12.25.5.1149838689.squirrel@gpo.iitb.ac.in>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Fri, 09 Jun 2006 13:44:53 +0200
+Message-ID: <1149853494.3864.6.camel@johannes.berg>
+References: <4485D66B.7080108@lwfinger.net>
+	 <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net>
+	 <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes>
+	 <1149701352.2625.20.camel@localhost.localdomain>
+	 <44871723.3040803@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-47DafaDK0e5KEx5doMBp"
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	Jouni Malinen <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.iitb.ac.in ([202.68.145.249]:46825 "HELO smtp1.iitb.ac.in")
-	by vger.kernel.org with SMTP id S965083AbWFIKga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Jun 2006 06:36:30 -0400
-To: netdev@vger.kernel.org
+Received: from crystal.sipsolutions.net ([195.210.38.204]:58835 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965233AbWFILpY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 07:45:24 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44871723.3040803@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  I am working on a small application using iptables/libipq. In this, the
-application would capture a specific packets based on the destination IP
-address. Then I encapsulate this IP packet inside another new IP packet.
 
-My problem is that the encapsulation part works fine in
-kernel-2.6.11-6(mandriva 2005) and IPtables V 1.2.9.
-(I can capture encapsulated packets using tcpdump at the sender side i.e,
-packets are being put on to the network)
+--=-47DafaDK0e5KEx5doMBp
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
+On Wed, 2006-06-07 at 13:12 -0500, Larry Finger wrote:
+> > (ie, add the "hh" before the x to tell the print that it's a char)
+> >=20
+> That doesn't work - the result is
+>=20
+> %hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx%hx
 
-But this doesn't work in kernel-2.6.12-12(mandriva 2006) and the
-IPtables-1.3.5(even though there are no erros after callig
-ipq_set_verdict, the packets are not being put on to the channel. The
-packets are getting lost after
-the call to ipq_set_verdict)
+Looks like the kernel doesn't support that modifier.
 
+> I changed the line to cast the output byte as a u8 as follows:
+>=20
+>                          dprintk("%.2x", (u8)mac->wpa.IE[i]);
+>=20
+> This produces the line
+>=20
+> generic IE set to dd160050f20101000050f20201000050f20201000050f202
+>=20
+> This is the WPA IE supplied by wpa_supplicant and it matches the one used=
+ in the ndiswrapper case.=20
+> One mystery solved,=20
 
-/***
+Yeah good :)
 
-In my syslog I can see ip_rt_bug , but isn't ip_rt_bug occurs when
-destiantion address is changed to local address ?
+> but why doesn't it work?
 
-In my application I am changing destination IP to an another non-local IP
-address.
-****/
+No idea. If we had a dump maybe we could tell :/
 
-please let me know if you need more information
+> Johannes - should I submit the patch to fix this printout, or would you l=
+ike to do it?
 
+Please do.
 
-As you already have experience with these kinds of error plz help me out here
+johannes
 
-Thanx
+--=-47DafaDK0e5KEx5doMBp
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
+-----BEGIN PGP SIGNATURE-----
 
+iQIVAwUARIlfM6Vg1VMiehFYAQISaRAAhKPGA+l5CP8tKDUBlf1gWCGyYvDIwdp4
+Eg2PaehxEkeriAVmriCSGBgFTW/fdQTf/SurTIn/A2b8Fg5MUc8eqD5OMmo0tU10
+NdZeepZEKmgWQixuZxHi80Q9Azz1YEMDxYu6vbpI1AEouXq54ZKQVKIUMO9ZFpFt
+gkKMUsVrmRgHnuOrVlFtY+EcUdhTt2xmjX1nY0O3kzaFRb9sL8cHp3/PNbG1nnh2
+3Sv+W8E+k1jfBKSAHBBT7QfRfriCord/6ltRH/c6JuomEOzqu+W0NSCDoKAjQUoq
+Y/4hIr9M7vROuH1hRJEajgyLMr/aJqzjQCIojxqbugKD6tOj0L/mgCHVfHnyCHhT
+ye+GFjf/nOxftFNAJmnG1Kf3DijPy/+EBYOGE48GKvjcZ1HY1pPevsEilkBrNo6m
+nX8UActjEEGgF45OCEAUyK0GKhHBCq0/zgpg6g3xzTY2Fl0B92Z2W2Y6zPR7m5/e
+KfIC0abb63iysICT8vSNDAolSrruW+DOjOu0A8fFoRPgowmknLTvxkUZvQxBAMzk
+iyydl5agGfnTbDA2/fL1SeLQBTAG5eI42Do78n1cmT/STOm1PmP0ldNRypAHUXoR
+2iJKjvF578qolM0m3mrTeJ9g/yKfKUAEtyektp4SnSyy8RHGYVVUj5wcONZtnor4
+EuvwvWH4zYA=
+=DEt2
+-----END PGP SIGNATURE-----
 
-
-
+--=-47DafaDK0e5KEx5doMBp--
 
