@@ -1,33 +1,49 @@
 From: Andi Kleen <ak@suse.de>
-Subject: Re: Firewall question
-Date: Fri, 9 Jun 2006 05:43:24 +0200
-Message-ID: <200606090543.24401.ak@suse.de>
-References: <20060608185712.79340.qmail@web50207.mail.yahoo.com> <20060608192628.GA561@csclub.uwaterloo.ca>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Fri, 9 Jun 2006 05:46:15 +0200
+Message-ID: <200606090546.15923.ak@suse.de>
+References: <44886381.9050506@goop.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alex Davis <alex14641@yahoo.com>, netfilter@lists.netfilter.org,
+Cc: Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:40335 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932173AbWFIDq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 23:46:29 -0400
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-In-Reply-To: <20060608192628.GA561@csclub.uwaterloo.ca>
+Received: from mx2.suse.de ([195.135.220.15]:41103 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S932264AbWFIDqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Jun 2006 23:46:39 -0400
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+In-Reply-To: <44886381.9050506@goop.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday 08 June 2006 19:50, Jeremy Fitzhardinge wrote:
+> I've been trying to get suspend/resume working well on my new laptop.  
+> In general, netconsole has been pretty useful for extracting oopses and 
+> other messages, but it is of more limited help in debugging the actual 
+> suspend/resume cycle.  The problem looks like the e1000 driver won't 
+> suspend while netconsole is using it, so I have to rmmod/modprobe 
+> netconsole around the actual suspend/resume.
 
-> Well the DSL modem only transfers whatever data the ISP end sends to it,
-> which in your case is just PPP packets (LCC or LCP I think).  No one out
-> on the internet 
+If your laptop has firewire you can also use firescope.
+(ftp://ftp.suse.com/pub/people/ak/firescope/) 
 
-No one out on the internet, but it would be trivial for someone outside
-his house. All his traffic will be on a long unsecured cable. 
+> This is a big problem during resume because the screen is also blank, so 
+> I get no useful clue as to what went wrong when things go wrong.  I'm 
+> wondering if there's some way to keep netconsole alive to the last 
+> possible moment during suspend, and re-woken as soon as possible during 
+> resume.  It would be nice to have a clean solution, but I'm willing to 
+> use a bletcherous hack if that's what it takes.
 
-That is why I would never bridge home ethernet traffic onto a DSL line.
+FW keeps running as long as nobody resets the ieee1394 chip.
+
+Networking is much more complex and will likely never work well for such
+low level debug situations. Netconsole is mostly useful to catch the
+odd oops during runtime.
 
 -Andi
+
 
