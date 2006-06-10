@@ -1,33 +1,76 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
-Date: Sat, 10 Jun 2006 14:08:50 -0400
-Message-ID: <20060610180850.GP7420@redhat.com>
-References: <20060610175010.GA4617@divinity>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] [2.6.17-rc6] Section mismatch in drivers/net/ne.o during
+ modpost
+Date: Sat, 10 Jun 2006 12:13:35 -0700
+Message-ID: <20060610121335.447e19f2.rdunlap@xenotime.net>
+References: <200606101211.k5ACBgtl029545@harpo.it.uu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:43412 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751661AbWFJSIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 14:08:52 -0400
-To: Faidon Liambotis <faidon@cube.gr>
-Content-Disposition: inline
-In-Reply-To: <20060610175010.GA4617@divinity>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik <jgarzik@pobox.com>, akpm <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751677AbWFJTKu@vger.kernel.org>
+To: Mikael Pettersson <mikpe@it.uu.se>
+In-Reply-To: <200606101211.k5ACBgtl029545@harpo.it.uu.se>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 10, 2006 at 08:50:10PM +0300, Faidon Liambotis wrote:
- > Remove Prism II IDs from the orinoco driver since now we have a separate
- > driver for them (HostAP). Additionally, kill orinoco_{pci,plx,nortel}
- > completely, since they only exist to support Prism cards.
- > No attempt was made to clean up the rest of the driver of the actual
- > Prism II code, only the PCI IDs were removed.
+On Sat, 10 Jun 2006 14:11:42 +0200 (MEST) Mikael Pettersson wrote:
 
-I'm fairly certain I have a buffalo card that doesn't work with hostap
-that works just fine with orinoco.  I'll dig it out and see if that
-has been improved.
+> While compiling 2.6.17-rc6 for a 486 with an NE2000 ISA ethernet card, I got:
+> 
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x158) and 'ne_block_input'
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x176) and 'ne_block_input'
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x183) and 'ne_block_input'
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x1ea) and 'ne_block_input'
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x251) and 'ne_block_input'
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x266) and 'ne_block_input'
+> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x29b) and 'ne_block_input'
+> 
+> Not sure how serious this is; the driver seems to work fine later on.
 
-		Dave
+Doesn't look serious.  init_module() is not __init, but it calls
+some __init functions and touches some __initdata.
 
--- 
-http://www.codemonkey.org.uk
+BTW, I would be happy to see some consistent results from modpost
+section checking.  I don't see all of these warnings (I see only 1)
+when using gcc 3.3.6.  What gcc version are you using?
+Does that matter?  (not directed at anyone in particular)
+
+Patch below fixes it for me.  Please test/report.
+---
+
+From: Randy Dunlap <rdunlap@xenotime.net>
+
+Fix section mismatch warnings:
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x396) and 'cleanup_card'
+WARNING: drivers/net/ne2.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x483) and 'cleanup_card'
+
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ drivers/net/ne.c  |    2 +-
+ drivers/net/ne2.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+--- linux-2617-rc6.orig/drivers/net/ne.c
++++ linux-2617-rc6/drivers/net/ne.c
+@@ -829,7 +829,7 @@ that the ne2k probe is the last 8390 bas
+ is at boot) and so the probe will get confused by any other 8390 cards.
+ ISA device autoprobes on a running machine are not recommended anyway. */
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	int this_dev, found = 0;
+ 
+--- linux-2617-rc6.orig/drivers/net/ne2.c
++++ linux-2617-rc6/drivers/net/ne2.c
+@@ -780,7 +780,7 @@ MODULE_PARM_DESC(bad, "(ignored)");
+ 
+ /* Module code fixed by David Weinehall */
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	struct net_device *dev;
+ 	int this_dev, found = 0;
