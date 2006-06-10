@@ -1,46 +1,56 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
-Date: Sat, 10 Jun 2006 06:58:50 +0000
-Message-ID: <20060610065850.GA4346@ucw.cz>
-References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060604181515.8faa8fcf.akpm@osdl.org> <20060605083321.GA15690@rhlx01.fht-esslingen.de> <1149497109.3111.28.camel@laptopd505.fenrus.org> <1149503215.30554.6.camel@localhost.localdomain> <1149503730.3111.46.camel@laptopd505.fenrus.org>
+From: Kari Hurtta <hurtta+gmane@siilo.fmi.fi>
+Subject: Re: [RFC] [patch 0/6] [Network namespace] introduction
+Date: 10 Jun 2006 10:16:49 +0300
+Message-ID: <5dbqt1v5su.fsf@attruh.keh.iki.fi>
+References: <20060609210202.215291000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Andreas Mohr <andi@rhlx01.fht-esslingen.de>,
-	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jeff@garzik.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com, Denis Vlasenko <vda@ilport.com.ua>,
-	acx100-devel@lists.sourceforge.net,
-	acx100-users@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:48133 "EHLO
-	spitz.ucw.cz") by vger.kernel.org with ESMTP id S1030322AbWFJHHz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jun 2006 03:07:55 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1149503730.3111.46.camel@laptopd505.fenrus.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030341AbWFJHRH@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+dlezcano@fr.ibm.com writes in gmane.linux.network,gmane.linux.kernel:
 
-> > >  It's just that a cleanroom approach is a sure way to prove
-> > > you didn't copy. That's all.
-> > 
-> > Which is an extremely important detail especially if you have been
-> > reverse engineering another driver for the same or similar OS where it
-> > is likely that people will retain knowledge and copy rather than
-> > re-implement th?ngs.
+> The following patches create a private "network namespace" for use
+> within containers. This is intended for use with system containers
+> like vserver, but might also be useful for restricting individual
+> applications' access to the network stack.
 > 
-> oh don't get me wrong, it's important to not copy from the original.
-> (even if that original did copy from linux ;)
+> These patches isolate traffic inside the network namespace. The
+> network ressources, the incoming and the outgoing packets are
+> identified to be related to a namespace. 
+> 
+> It hides network resource not contained in the current namespace, but
+> still allows administration of the network with normal commands like
+> ifconfig.
+> 
+> It applies to the kernel version 2.6.17-rc6-mm1
+> 
+> It provides the following:
+> -------------------------
+>    - when an application unshares its network namespace, it looses its
+>      view of all network devices by default. The administrator can
+>      choose to make any devices to become visible again. The container
+>      then gains a view to the device but without the ip address
+>      configured on it. It is up to the container administrator to use
+>      ifconfig or ip command to setup a new ip address. This ip address
+>      is only visible inside the container.
 
-Well, if original did copy from linux, it surely is GPLed and case
-closed, no? Being sued from vendor not respecting the GPL would
-probably only do harm to them.
+Do other namespaces work differently ?
+When namespace is unshared, it has initially the same resources
+(for example compare to CLONE_NEWNS)
 
-Like US courts are crazy, but hopefully not _that_ crazy.
-							Pavel
--- 
-Thanks for all the (sleeping) penguins.
+ 
+>    - the loopback is isolated inside the container and it is not
+>      possible to communicate between containers via the
+>      loopback. 
+> 
+>    - several containers can have an application bind to the same
+>      address:port without conflicting. 
+
+That of course be problem, if initially unshared namespace shares
+same resources.
+
+/ Kari Hurtta
