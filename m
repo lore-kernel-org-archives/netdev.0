@@ -1,44 +1,52 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: netif_tx_disable vs netif_stop_queue (possible races?)
-Date: Sat, 10 Jun 2006 16:59:40 +0400
-Message-ID: <20060610125940.GA2983@2ka.mipt.ru>
-References: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au> <448993C9.8040400@gentoo.org> <20060609233531.GA15756@gondor.apana.org.au> <448ABE2D.8040401@gentoo.org>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Wrong IPv4 source address selected
+Date: Sat, 10 Jun 2006 16:30:21 +0300 (EEST)
+Message-ID: <Pine.SOC.4.61.0606101621540.22354@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	david-b@pacbell.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:18372 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751494AbWFJNAS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 09:00:18 -0400
-To: Daniel Drake <dsd@gentoo.org>
-Content-Disposition: inline
-In-Reply-To: <448ABE2D.8040401@gentoo.org>
+Received: from math.ut.ee ([193.40.36.2]:49036 "EHLO math.ut.ee")
+	by vger.kernel.org with ESMTP id S1751517AbWFJNaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 09:30:23 -0400
+Received: from math.ut.ee (localhost [IPv6:::1])
+	by math.ut.ee (8.12.8+Sun/8.12.8/math-1.2) with ESMTP id k5ADULfU004092
+	for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 16:30:21 +0300 (EEST)
+Received: from localhost (mroos@localhost)
+	by math.ut.ee (8.12.8+Sun/8.12.2/Submit) with ESMTP id k5ADULT9004089
+	for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 16:30:21 +0300 (EEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 10, 2006 at 01:42:21PM +0100, Daniel Drake (dsd@gentoo.org) wrote:
-> Herbert Xu wrote:
-> >Correct.  All callers of hard_start_xmit do so under RCU or equivalent
-> >locks so they must be complete by the time synchronize_net() returns.
-> 
-> Does this hold for other operations? Such as:
-> 
-> - The netdev->set_mac_address function
-> - The wireless ioctl's (SIOCSIWESSID, etc)
-> 
-> Are these also guaranteed to have returned after synchronize_net()?
+This is 2.6.17-rc6 running on a 32-bit ppc (the same ARC=ppc PReP 
+machine that had the x_tables problem, so it has the x_tables 
+alignment first fix too).
 
-None of above calls is protected with RCU (except set_mac_address()
-called through ioctl, which is performed under read_lock which disables
-preemtption), so they still can run after synchronize_net().
+The problem: IPv4 source addresses are sometimes selected wrong (packets 
+are sent to the internal 172.30 network with external 193.40 source 
+address). I have seen this with ARP requests for 172.30.0.x addresses 
+and UDP multicast traffic (avahi query from 193.40.37.61:5353 to 
+224.0.0.251:5353 on eth1).
 
-But if you are talking about synchronize_net() inside
-unregister_netdevice(), which is called from 
-usbnet_disconnect()->unregister_netdev(), than it is safe.
+I have 2 physical network interfaces (+ loopback + unconfiured sit0)
 
-> Thanks,
-> Daniel
+2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
+     link/ether 08:00:3e:28:c4:a2 brd ff:ff:ff:ff:ff:ff
+     inet 193.40.37.61/23 brd 193.40.37.255 scope global eth0
+     inet6 2001:bb8:2002:2400:a00:3eff:fe28:c4a2/64 scope global dynamic
+        valid_lft 2591964sec preferred_lft 604764sec
+     inet6 fe80::a00:3eff:fe28:c4a2/64 scope link
+        valid_lft forever preferred_lft forever
+3: eth1: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
+     link/ether 00:00:94:7a:31:8c brd ff:ff:ff:ff:ff:ff
+     inet 172.30.0.1/24 brd 172.30.0.255 scope global eth1
+     inet6 fe80::200:94ff:fe7a:318c/64 scope link
+        valid_lft forever preferred_lft forever
+
+ip route ls:
+172.30.0.0/24 dev eth1  proto kernel  scope link  src 172.30.0.1 
+193.40.36.0/23 dev eth0  proto kernel  scope link  src 193.40.37.61 
+default via 193.40.36.1 dev eth0
 
 -- 
-	Evgeniy Polyakov
+Meelis Roos (mroos@linux.ee)
