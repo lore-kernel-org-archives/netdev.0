@@ -1,74 +1,46 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
-Date: Sat, 10 Jun 2006 13:49:06 +0200
-Message-ID: <200606101349.06498.oliver@neukum.org>
-References: <44817083.508@gentoo.org> <200606040025.32275.oliver@neukum.org>
-	<20060610112306.GA19198@p15091797.pureserver.info>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] bnx2: endian fixes
+Date: Sat, 10 Jun 2006 15:52:51 +0400
+Message-ID: <20060610115250.GA7268@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
-	linux-usb-devel@lists.sourceforge.net,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <20060610112306.GA19198@p15091797.pureserver.info>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.187]:40548 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751492AbWFJLwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jun 2006 07:52:33 -0400
+Received: by nf-out-0910.google.com with SMTP id d4so641249nfe
+        for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 04:52:32 -0700 (PDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Samstag, 10. Juni 2006 13:23 schrieb Ulrich Kunitz:
-> On 06-06-04 00:25 Oliver Neukum wrote:
-> 
-> > > > +static void disconnect(struct usb_interface *intf)
-> > > > This is racy. It allows io to disconnected devices. You must take the
-> > > > lock and set a flag that you test after you've taken the lock elsewhere.
-> > > 
-> > > Will fix, thanks.
-> > 
-> > You're welcome
-> 
-> Not so fast, because I don't know what to fix.
-> 
-> Actually there are two cases, when disconnect is called. The first
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-There are three cases. It can also be triggered by sysfs and usbfs.
+ drivers/net/bnx2.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> is, when the device is removed. The second is, when the kernel
-> module is removed from the kernel. It should also be recognized
-> that disconnect() must always succeed, so we have to ignore IO
-> errors anyhow.
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1820,7 +1820,7 @@ reuse_rx:
+ 		skb->protocol = eth_type_trans(skb, bp->dev);
+ 
+ 		if ((len > (bp->dev->mtu + ETH_HLEN)) &&
+-			(htons(skb->protocol) != 0x8100)) {
++			(ntohs(skb->protocol) != 0x8100)) {
+ 
+ 			dev_kfree_skb_irq(skb);
+ 			goto next_rx;
+@@ -4310,7 +4310,7 @@ bnx2_start_xmit(struct sk_buff *skb, str
+ 		ip_tcp_len = (skb->nh.iph->ihl << 2) + sizeof(struct tcphdr);
+ 
+ 		skb->nh.iph->check = 0;
+-		skb->nh.iph->tot_len = ntohs(mss + ip_tcp_len + tcp_opt_len);
++		skb->nh.iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+ 		skb->h.th->check =
+ 			~csum_tcpudp_magic(skb->nh.iph->saddr,
+ 					    skb->nh.iph->daddr,
 
-You can ignore IO errors in disconnect(). They are harmless.
-
-> In the first case we don't need the IO and in the second case we
-> have to do it, because otherwise, the device will not come up, if
-> we load the driver again.
-> 
-> Testing shows, that doing the IO doesn't create a lot of issues,
-> there are some errors reported, but that's it and the second case
-> just works fine. So there doesn't appear a problem and even if
-> want to be "clean", I would like to know, how to distinguish both
-> cases without trying to do IO with the device.
-
-The problem is not that you may do IO _during_ disconnect. You may
-do IO _after_ disconnect, even if usbfs might already have claimed
-the device. Disconnect() must either terminate ongoing IO or wait for
-it to end. And it must make sure that there'll be no IO afterwards.
-
-	Regards
-		Oliver
-
-
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
