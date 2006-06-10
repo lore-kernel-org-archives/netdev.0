@@ -1,52 +1,154 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Wrong IPv4 source address selected
-Date: Sat, 10 Jun 2006 16:30:21 +0300 (EEST)
-Message-ID: <Pine.SOC.4.61.0606101621540.22354@math.ut.ee>
+From: "Vasantha Kumar Puttappa" <vasanthakumar@iitb.ac.in>
+Subject: LIBIPQ: problem with Injecting encapsulated packet  (plz somebody
+     )     reply)]
+Date: Sat, 10 Jun 2006 21:33:23 +0530 (IST)
+Message-ID: <1292.10.12.25.5.1149955403.squirrel@gpo.iitb.ac.in>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from math.ut.ee ([193.40.36.2]:49036 "EHLO math.ut.ee")
-	by vger.kernel.org with ESMTP id S1751517AbWFJNaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 09:30:23 -0400
-Received: from math.ut.ee (localhost [IPv6:::1])
-	by math.ut.ee (8.12.8+Sun/8.12.8/math-1.2) with ESMTP id k5ADULfU004092
-	for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 16:30:21 +0300 (EEST)
-Received: from localhost (mroos@localhost)
-	by math.ut.ee (8.12.8+Sun/8.12.2/Submit) with ESMTP id k5ADULT9004089
-	for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 16:30:21 +0300 (EEST)
+Received: from smtp1.iitb.ac.in ([59.163.25.49]:17608 "HELO smtp1.iitb.ac.in")
+	by vger.kernel.org with SMTP id S1751196AbWFJQD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 12:03:57 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is 2.6.17-rc6 running on a 32-bit ppc (the same ARC=ppc PReP 
-machine that had the x_tables problem, so it has the x_tables 
-alignment first fix too).
+Hi,
+ I am posting this query again. plz somebody reply. Also I am new to
+IPtables and LIBIPQ
 
-The problem: IPv4 source addresses are sometimes selected wrong (packets 
-are sent to the internal 172.30 network with external 193.40 source 
-address). I have seen this with ARP requests for 172.30.0.x addresses 
-and UDP multicast traffic (avahi query from 193.40.37.61:5353 to 
-224.0.0.251:5353 on eth1).
+ I am working on a application that involves encapsulatting the packets .
+Suppose there are 3 machines A B C. Assume that machine A is sending some
+some information to machine B. All I do is to capture packets(using
+libipq) destined for machine B  on machine A and send it to machine C . I
+encapuslate this captured packet in a new packet with(adding both IP/UDP
+header, although UDP header is not really required, with destinatin
+address as machine C IP).
 
-I have 2 physical network interfaces (+ loopback + unconfiured sit0)
+The issue is that after the call to set_verdict function, instead of the
+encapsulated packet, original packet is getting transmitted. I tried my
+best to find the solution with no success. I am updating the checksum
+correctly after adding new header.
 
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 08:00:3e:28:c4:a2 brd ff:ff:ff:ff:ff:ff
-     inet 193.40.37.61/23 brd 193.40.37.255 scope global eth0
-     inet6 2001:bb8:2002:2400:a00:3eff:fe28:c4a2/64 scope global dynamic
-        valid_lft 2591964sec preferred_lft 604764sec
-     inet6 fe80::a00:3eff:fe28:c4a2/64 scope link
-        valid_lft forever preferred_lft forever
-3: eth1: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-     link/ether 00:00:94:7a:31:8c brd ff:ff:ff:ff:ff:ff
-     inet 172.30.0.1/24 brd 172.30.0.255 scope global eth1
-     inet6 fe80::200:94ff:fe7a:318c/64 scope link
-        valid_lft forever preferred_lft forever
+Below is snippet of my code
 
-ip route ls:
-172.30.0.0/24 dev eth1  proto kernel  scope link  src 172.30.0.1 
-193.40.36.0/23 dev eth0  proto kernel  scope link  src 193.40.37.61 
-default via 193.40.36.1 dev eth0
+**************
 
--- 
-Meelis Roos (mroos@linux.ee)
+unsigned char *new_packet = NULL;
+struct iphdr *new_iphdr;
+struct iphdr *original_iphdr = (struct iphdr *)(m->payload);
+int status;
+
+
+new_packet = (unsigned char *) calloc(1,sizeof(struct iphdr) +
+(m->data_len) + sizeof(struct udphdr));
+new_iphdr = (struct iphdr *) calloc(1,sizeof(struct iphdr));
+
+
+
+
+    /* extra Udp header */
+
+    struct udphdr *new_udp;
+
+    new_udp = (struct udphdr *) calloc(1,sizeof(struct udphdr));
+    new_udp->source = htons(50000);
+    new_udp->dest = htons(50000);
+    new_udp->len =  original_iphdr->tot_len;
+    new_udp->check = 0;
+
+    /* udp*/
+
+
+     /** New IP header **/
+     new_iphdr->version = original_iphdr->version;
+     new_iphdr->ihl = original_iphdr->ihl;
+     new_iphdr->tos = original_iphdr->tos;
+     new_iphdr->id  = original_iphdr->id;;
+     new_iphdr->frag_off = original_iphdr->frag_off;
+     new_iphdr->ttl = original_iphdr->ttl;
+     new_iphdr->protocol = original_iphdr->protocol;
+     new_iphdr->saddr= inet_addr("10.107.26.27");//original_iphdr->saddr;
+     new_iphdr->daddr=inet_addr("10.12.25.7");//daddr.s_addr;
+
+     new_iphdr->tot_len=htons(ntohs(original_iphdr->tot_len)+
+(sizeof(struct iphdr))+ sizeof(struct udphdr));
+
+
+     new_iphdr->check=0;
+     new_iphdr->check=(((ip_sum_calc((unsigned short
+*)new_iphdr,sizeof(struct iphdr)))));
+
+
+     // Place the IP packet inside another IP packet
+     memcpy(new_packet,new_iphdr,(unsigned int)sizeof(struct iphdr));
+
+     memcpy(new_packet+sizeof(struct iphdr),new_udp,(unsigned
+int)sizeof(struct udphdr));
+
+     memcpy(new_packet+sizeof(struct iphdr)+sizeof(struct
+udphdr),m->payload,m->data_len);
+
+
+
+     size_t length = ntohs(new_iphdr->tot_len);;
+
+     status =
+ipq_set_verdict(handle,m->packet_id,NF_ACCEPT,length,(unsigned char
+*) new_packet);
+
+
+     if(status < 0)
+       {
+	 printf("\n Packet Modification failed \n");
+	 die();
+       }
+
+
+     printf("\n  Packet Transmitted Successfull \n");
+
+
+
+*********checksum function**********
+unsigned short ip_sum_calc(unsigned short *addr,int len)
+{
+
+  int nleft = len;
+  int sum = 0;
+  unsigned short *w = addr;
+  unsigned short answer = 0;
+
+  printf(" \nsize %d", sizeof(sum));
+
+  while (nleft > 1)
+    {
+      sum += *w++;
+      nleft -= 2;
+    }
+
+
+  if (nleft == 1)
+    {
+      *(unsigned char *)(&answer) = *(unsigned char *) w;
+      sum += answer;
+    }
+  sum = (sum >> 16) + (sum & 0xffff);
+  sum += (sum >> 16);
+  answer = ~sum;
+
+
+    return answer;
+
+}
+
+
+
+
+
+
+
+
+
+
+
