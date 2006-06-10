@@ -1,57 +1,109 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [linux-usb-devel] [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
-Date: Sat, 10 Jun 2006 20:37:15 +0100
-Message-ID: <448B1F6B.2020809@gentoo.org>
-References: <44817083.508@gentoo.org> <200606031951.09135.oliver@neukum.org>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] 3c5zz ethernet: fix section warnings
+Date: Sat, 10 Jun 2006 13:33:48 -0700
+Message-ID: <20060610133348.3551e617.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-devel@lists.sourceforge.net,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Ulrich Kunitz <kune@deine-taler.de>
+Cc: philb@gnu.org, p_gortmaker@yahoo.com, jgarzik <jgarzik@pobox.com>,
+	akpm <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:52821 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1030504AbWFJTf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jun 2006 15:35:57 -0400
-To: Oliver Neukum <oliver@neukum.org>
-In-Reply-To: <200606031951.09135.oliver@neukum.org>
+Received: from xenotime.net ([66.160.160.81]:35221 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S1751700AbWFJUdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 16:33:13 -0400
+Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 13:33:11 -0700
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Neukum wrote:
-> +static void disconnect(struct usb_interface *intf)
-> +{
-> 
-> This is racy. It allows io to disconnected devices. You must take the
-> lock and set a flag that you test after you've taken the lock elsewhere.
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-It's been a bit of an adventure, but I'm now fairly confident that only 
-a single-line change is required to fix this: stop the TX queue early on 
-in the netdev->stop function.
+Priority: not critical; makes init code discardable.
 
-When disconnect() happens, we call unregister_netdev(). This will call 
-netdev->stop if the interface was up, and netdev->stop ensures that no 
-more packets are queued for transmission, and that the host does not 
-receive any more packets or interrupts from the device.
+Fix section mismatch warnings:
+WARNING: drivers/net/3c501.o - Section mismatch: reference to .init.text:el1_probe from .text between 'init_module' (at offset 0x812) and 'cleanup_module'
+WARNING: drivers/net/3c503.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x661) and 'cleanup_card'
+WARNING: drivers/net/3c505.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x228d) and 'cleanup_module'
+WARNING: drivers/net/3c507.o - Section mismatch: reference to .init.text:el16_probe from .text between 'init_module' (at offset 0xa99) and 'cleanup_module'
+WARNING: drivers/net/3c523.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x12e7) and 'cleanup_module'
+WARNING: drivers/net/3c527.o - Section mismatch: reference to .init.text:mc32_probe from .text between 'init_module' (at offset 0xd8d) and 'cleanup_module'
 
-unregister_netdev() also does some synchronization and rtnl stuff, and 
-after it has returned, it is guaranteed that no ioctls or other 
-functions (hard_start_xmit/set_mac_address) are in progress, and it is 
-guaranteed that no more of those will happen.
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ drivers/net/3c501.c |    2 +-
+ drivers/net/3c503.c |    2 +-
+ drivers/net/3c505.c |    2 +-
+ drivers/net/3c507.c |    2 +-
+ drivers/net/3c523.c |    2 +-
+ drivers/net/3c527.c |    2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
-In disconnect() we also kill all urbs that we know about. All of our URB 
-completions handle the cancelled case without generating further I/O.
+--- linux-2617-rc6.orig/drivers/net/3c501.c
++++ linux-2617-rc6/drivers/net/3c501.c
+@@ -909,7 +909,7 @@ MODULE_PARM_DESC(irq, "EtherLink IRQ num
+  * here also causes the module to be unloaded
+  */
+  
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	dev_3c501 = el1_probe(-1);
+ 	if (IS_ERR(dev_3c501))
+--- linux-2617-rc6.orig/drivers/net/3c503.c
++++ linux-2617-rc6/drivers/net/3c503.c
+@@ -688,7 +688,7 @@ MODULE_LICENSE("GPL");
+ 
+ /* This is set up so that only a single autoprobe takes place per call.
+ ISA device autoprobes on a running machine are not recommended. */
+-int
++int __init
+ init_module(void)
+ {
+ 	struct net_device *dev;
+--- linux-2617-rc6.orig/drivers/net/3c505.c
++++ linux-2617-rc6/drivers/net/3c505.c
+@@ -1633,7 +1633,7 @@ MODULE_PARM_DESC(io, "EtherLink Plus I/O
+ MODULE_PARM_DESC(irq, "EtherLink Plus IRQ number(s) (assigned)");
+ MODULE_PARM_DESC(dma, "EtherLink Plus DMA channel(s)");
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	int this_dev, found = 0;
+ 
+--- linux-2617-rc6.orig/drivers/net/3c507.c
++++ linux-2617-rc6/drivers/net/3c507.c
+@@ -932,7 +932,7 @@ module_param(irq, int, 0);
+ MODULE_PARM_DESC(io, "EtherLink16 I/O base address");
+ MODULE_PARM_DESC(irq, "(ignored)");
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	if (io == 0)
+ 		printk("3c507: You should not use auto-probing with insmod!\n");
+--- linux-2617-rc6.orig/drivers/net/3c523.c
++++ linux-2617-rc6/drivers/net/3c523.c
+@@ -1277,7 +1277,7 @@ MODULE_PARM_DESC(io, "EtherLink/MC I/O b
+ MODULE_PARM_DESC(irq, "EtherLink/MC IRQ number(s)");
+ MODULE_LICENSE("GPL");
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	int this_dev,found = 0;
+ 
+--- linux-2617-rc6.orig/drivers/net/3c527.c
++++ linux-2617-rc6/drivers/net/3c527.c
+@@ -1646,7 +1646,7 @@ static struct net_device *this_device;
+  *	insmod multiple modules for now but it's a hack.
+  */
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	this_device = mc32_probe(-1);
+ 	if (IS_ERR(this_device))
 
-Additionally, the return values of all of our usb I/O function calls are 
-checked and propagated up, so most code will simply stop when the device 
-gets unplugged.
 
-At this point, it's now safe to say that nobody is using (or will use) 
-the various structures, so disconnect() frees the whole lot and returns.
-
-Do you agree, or did you have certain other race paths in mind which I 
-might have missed?
-
-Thanks,
-Daniel
+---
