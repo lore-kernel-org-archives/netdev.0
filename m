@@ -1,43 +1,46 @@
-From: Tommy W <tommy@svearike.sytes.net>
-Subject: libiptc linking problem under AMD64
-Date: Sat, 10 Jun 2006 04:07:31 +0200
-Message-ID: <200606100407.31992.tommy@svearike.sytes.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: wireless (was Re: 2.6.18 -mm merge plans)
+Date: Sat, 10 Jun 2006 06:58:50 +0000
+Message-ID: <20060610065850.GA4346@ucw.cz>
+References: <20060604135011.decdc7c9.akpm@osdl.org> <20060605010636.GB17361@havoc.gtf.org> <20060604181515.8faa8fcf.akpm@osdl.org> <20060605083321.GA15690@rhlx01.fht-esslingen.de> <1149497109.3111.28.camel@laptopd505.fenrus.org> <1149503215.30554.6.camel@localhost.localdomain> <1149503730.3111.46.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Andreas Mohr <andi@rhlx01.fht-esslingen.de>,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jeff@garzik.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linville@tuxdriver.com, Denis Vlasenko <vda@ilport.com.ua>,
+	acx100-devel@lists.sourceforge.net,
+	acx100-users@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout1-sn1.fre.skanova.net ([81.228.11.98]:36759 "EHLO
-	pne-smtpout1-sn1.fre.skanova.net") by vger.kernel.org with ESMTP
-	id S1751466AbWFJCHj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 22:07:39 -0400
-Received: from svearike.sytes.net (83.251.68.35) by pne-smtpout1-sn1.fre.skanova.net (7.2.072.1)
-        id 44892B960004DFA9 for netdev@vger.kernel.org; Sat, 10 Jun 2006 04:07:38 +0200
-Received: from laptop.sytes.net (wireless_laptop.sytes.net [192.168.8.4])
-	by svearike.sytes.net (8.12.11/8.12.11) with ESMTP id k5A27WB7029689
-	for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 04:07:33 +0200
-To: netdev@vger.kernel.org
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:48133 "EHLO
+	spitz.ucw.cz") by vger.kernel.org with ESMTP id S1030322AbWFJHHz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jun 2006 03:07:55 -0400
+To: Arjan van de Ven <arjan@infradead.org>
 Content-Disposition: inline
+In-Reply-To: <1149503730.3111.46.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I'm writing an application that uses libiptc and iptables for various 
-monitoring applications.
+Hi!
 
-http://www.freshmeat.net/projects/natstat
+> > >  It's just that a cleanroom approach is a sure way to prove
+> > > you didn't copy. That's all.
+> > 
+> > Which is an extremely important detail especially if you have been
+> > reverse engineering another driver for the same or similar OS where it
+> > is likely that people will retain knowledge and copy rather than
+> > re-implement th?ngs.
+> 
+> oh don't get me wrong, it's important to not copy from the original.
+> (even if that original did copy from linux ;)
 
-and I've come upon a small problem with libiptc on AMD64
+Well, if original did copy from linux, it surely is GPLed and case
+closed, no? Being sued from vendor not respecting the GPL would
+probably only do harm to them.
 
-It won't link into my program, because of lack of the flag -fPIC during 
-compile time.
-
-I edited the Makefile for libiptc and put -fPIC in there, voila, everything 
-worked.
-So my questions now are:
-
-* is there a reason for not having -fPIC ?
-* could you add -fPIC ?
-
-Thanks in advance
-/Tommy Wallberrg
+Like US courts are crazy, but hopefully not _that_ crazy.
+							Pavel
+-- 
+Thanks for all the (sleeping) penguins.
