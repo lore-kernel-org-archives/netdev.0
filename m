@@ -1,70 +1,1599 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: netif_tx_disable vs netif_stop_queue (possible races?)
-Date: Sat, 10 Jun 2006 21:15:40 +0400
-Message-ID: <20060610171540.GA16820@2ka.mipt.ru>
-References: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au> <448993C9.8040400@gentoo.org> <20060609233531.GA15756@gondor.apana.org.au> <448ABE2D.8040401@gentoo.org> <20060610125940.GA2983@2ka.mipt.ru> <448AF607.8000603@gentoo.org>
+From: Faidon Liambotis <faidon@cube.gr>
+Subject: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
+Date: Sat, 10 Jun 2006 20:50:10 +0300
+Message-ID: <20060610175010.GA4617@divinity>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	david-b@pacbell.net
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:24985 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750842AbWFJRP6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 13:15:58 -0400
-To: Daniel Drake <dsd@gentoo.org>
+Received: from linux7.grserver.gr ([64.34.170.238]:46467 "EHLO
+	linux7.grserver.gr") by vger.kernel.org with ESMTP id S1030461AbWFJRuP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jun 2006 13:50:15 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <448AF607.8000603@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 10, 2006 at 05:40:39PM +0100, Daniel Drake (dsd@gentoo.org) wrote:
-> Evgeniy Polyakov wrote:
-> >On Sat, Jun 10, 2006 at 01:42:21PM +0100, Daniel Drake (dsd@gentoo.org) 
-> >wrote:
-> >>Herbert Xu wrote:
-> >>>Correct.  All callers of hard_start_xmit do so under RCU or equivalent
-> >>>locks so they must be complete by the time synchronize_net() returns.
-> >>Does this hold for other operations? Such as:
-> >>
-> >>- The netdev->set_mac_address function
-> >>- The wireless ioctl's (SIOCSIWESSID, etc)
-> >>
-> >>Are these also guaranteed to have returned after synchronize_net()?
-> >
-> >None of above calls is protected with RCU (except set_mac_address()
-> >called through ioctl, which is performed under read_lock which disables
-> >preemtption), so they still can run after synchronize_net().
-> >
-> >But if you are talking about synchronize_net() inside
-> >unregister_netdevice(), which is called from 
-> >usbnet_disconnect()->unregister_netdev(), than it is safe.
-> 
-> Are you referring to set_mac_address in the above statement, or both 
-> set_mac_address *and* the wireless ioctls?
+Remove Prism II IDs from the orinoco driver since now we have a separate
+driver for them (HostAP). Additionally, kill orinoco_{pci,plx,nortel}
+completely, since they only exist to support Prism cards.
+No attempt was made to clean up the rest of the driver of the actual
+Prism II code, only the PCI IDs were removed.
 
-oth calls have the same nature actually, and both calls are not
-protected by RCU.
+Signed-off-by: Faidon Liambotis <faidon@cube.gr>
 
-> I'm basically just looking to clarify that after unregister_netdev has 
-> completed, none of the following can be still in progress on any CPU, 
-> and none of the following can be triggered again:
-> 
-> 1. hard_start_xmit handler
-> 2. set_mac_address handler
-> 3. WX ioctls
-> 
-> It's logical that this is the case, but the code doesn't make that very 
-> clear (and would certainly result in many potential ZD1211 races if this 
-> was not the case).
+--
+ drivers/net/wireless/Kconfig          |   61 -----
+ drivers/net/wireless/Makefile         |    4 
+ drivers/net/wireless/orinoco_cs.c     |   24 --
+ drivers/net/wireless/orinoco_nortel.c |  312 --------------------------
+ drivers/net/wireless/orinoco_pci.c    |  399 ---------------------------------
+ drivers/net/wireless/orinoco_plx.c    |  403 ----------------------------------
+ drivers/net/wireless/orinoco_tmd.c    |  260 ---------------------
+ 7 files changed, 9 insertions(+), 1454 deletions(-)
 
-set_mac_address() and wireless ioctls are protected by rtnl.
-unregister_netdevice()  is called under rtnl protection too.
-But hard_start_xmit() is not protected (and can not be protected in all
-situations) by sleeping semaphore (like rtnl), 
-so instead it runs under RCU, which is synchronized in synchronize_net()
-inside unregister_netdevice().
-
-> Daniel
-
--- 
-	Evgeniy Polyakov
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/Kconfig linux/drivers/net/wireless/Kconfig
+--- linux-2.6.17-rc6/drivers/net/wireless/Kconfig	2006-06-06 03:57:02.000000000 +0300
++++ linux/drivers/net/wireless/Kconfig	2006-06-10 19:03:27.000000000 +0300
+@@ -285,18 +285,16 @@
+ 	depends on NET_RADIO && (PPC_PMAC || PCI || PCMCIA)
+ 	---help---
+ 	  A driver for 802.11b wireless cards based based on the "Hermes" or
+-	  Intersil HFA384x (Prism 2) MAC controller.  This includes the vast
+-	  majority of the PCMCIA 802.11b cards (which are nearly all rebadges)
+-	  - except for the Cisco/Aironet cards.  Cards supported include the
+-	  Apple Airport (not a PCMCIA card), WavelanIEEE/Orinoco,
+-	  Cabletron/EnteraSys Roamabout, ELSA AirLancer, MELCO Buffalo, Avaya,
+-	  IBM High Rate Wireless, Farralon Syyline, Samsung MagicLAN, Netgear
+-	  MA401, LinkSys WPC-11, D-Link DWL-650, 3Com AirConnect, Intel
+-	  PRO/Wireless, and Symbol Spectrum24 High Rate amongst others.
++	  MAC controller.  Cards supported include the Apple Airport (not a
++	  PCMCIA card), WavelanIEEE/Orinoco, Cabletron/EnteraSys Roamabout,
++	  ELSA AirLancer, MELCO Buffalo, Avaya, IBM High Rate Wireless,
++	  Farralon Syyline, Samsung MagicLAN, Netgear MA401, LinkSys WPC-11,
++	  D-Link DWL-650, 3Com AirConnect, Intel PRO/Wireless, and Symbol
++	  Spectrum24 High Rate amongst others.
+ 
+ 	  This option includes the guts of the driver, but in order to
+ 	  actually use a card you will also need to enable support for PCMCIA
+-	  Hermes cards, PLX9052 based PCI adaptors or the Apple Airport below.
++	  Hermes cards or the Apple Airport below.
+ 
+ 	  You will also very likely also need the Wireless Tools in order to
+ 	  configure your card and that /etc/pcmcia/wireless.opts works :
+@@ -314,46 +312,6 @@
+ 	  This driver does not support the Airport Extreme (802.11b/g). Use
+ 	  the BCM43xx driver for Airport Extreme cards.
+ 
+-config PLX_HERMES
+-	tristate "Hermes in PLX9052 based PCI adaptor support (Netgear MA301 etc.)"
+-	depends on PCI && HERMES
+-	help
+-	  Enable support for PCMCIA cards supported by the "Hermes" (aka
+-	  orinoco) driver when used in PLX9052 based PCI adaptors.  These
+-	  adaptors are not a full PCMCIA controller but act as a more limited
+-	  PCI <-> PCMCIA bridge.  Several vendors sell such adaptors so that
+-	  802.11b PCMCIA cards can be used in desktop machines.  The Netgear
+-	  MA301 is such an adaptor.
+-
+-config TMD_HERMES
+-	tristate "Hermes in TMD7160 based PCI adaptor support"
+-	depends on PCI && HERMES
+-	help
+-	  Enable support for PCMCIA cards supported by the "Hermes" (aka
+-	  orinoco) driver when used in TMD7160 based PCI adaptors.  These
+-	  adaptors are not a full PCMCIA controller but act as a more limited
+-	  PCI <-> PCMCIA bridge.  Several vendors sell such adaptors so that
+-	  802.11b PCMCIA cards can be used in desktop machines.
+-
+-config NORTEL_HERMES
+-	tristate "Nortel emobility PCI adaptor support"
+-	depends on PCI && HERMES
+-	help
+-	  Enable support for PCMCIA cards supported by the "Hermes" (aka
+-	  orinoco) driver when used in Nortel emobility PCI adaptors.  These
+-	  adaptors are not full PCMCIA controllers, but act as a more limited
+-	  PCI <-> PCMCIA bridge.
+-
+-config PCI_HERMES
+-	tristate "Prism 2.5 PCI 802.11b adaptor support"
+-	depends on PCI && HERMES
+-	help
+-	  Enable support for PCI and mini-PCI 802.11b wireless NICs based on
+-	  the Prism 2.5 chipset.  These are true PCI cards, not the 802.11b
+-	  PCMCIA cards bundled with PCI<->PCMCIA adaptors which are also
+-	  common.  Some of the built-in wireless adaptors in laptops are of
+-	  this variety.
+-
+ config ATMEL
+       tristate "Atmel at76c50x chipset  802.11b support"
+       depends on NET_RADIO && (PCI || PCMCIA)
+@@ -388,9 +346,8 @@
+ 	  A driver for "Hermes" chipset based PCMCIA wireless adaptors, such
+ 	  as the Lucent WavelanIEEE/Orinoco cards and their OEM (Cabletron/
+ 	  EnteraSys RoamAbout 802.11, ELSA Airlancer, Melco Buffalo and
+-	  others).  It should also be usable on various Prism II based cards
+-	  such as the Linksys, D-Link and Farallon Skyline.  It should also
+-	  work on Symbol cards such as the 3Com AirConnect and Ericsson WLAN.
++	  others).  It should also work on Symbol cards such as the 3Com
++	  AirConnect and Ericsson WLAN.
+ 
+ 	  To use your PC-cards, you will need supporting software from David
+ 	  Hinds' pcmcia-cs package (see the file <file:Documentation/Changes>
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/Makefile linux/drivers/net/wireless/Makefile
+--- linux-2.6.17-rc6/drivers/net/wireless/Makefile	2006-06-06 03:57:02.000000000 +0300
++++ linux/drivers/net/wireless/Makefile	2006-06-10 18:55:44.000000000 +0300
+@@ -19,10 +19,6 @@
+ obj-$(CONFIG_HERMES)		+= orinoco.o hermes.o
+ obj-$(CONFIG_PCMCIA_HERMES)	+= orinoco_cs.o
+ obj-$(CONFIG_APPLE_AIRPORT)	+= airport.o
+-obj-$(CONFIG_PLX_HERMES)	+= orinoco_plx.o
+-obj-$(CONFIG_PCI_HERMES)	+= orinoco_pci.o
+-obj-$(CONFIG_TMD_HERMES)	+= orinoco_tmd.o
+-obj-$(CONFIG_NORTEL_HERMES)	+= orinoco_nortel.o
+ obj-$(CONFIG_PCMCIA_SPECTRUM)	+= spectrum_cs.o
+ 
+ obj-$(CONFIG_AIRO)		+= airo.o
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/orinoco_cs.c linux/drivers/net/wireless/orinoco_cs.c
+--- linux-2.6.17-rc6/drivers/net/wireless/orinoco_cs.c	2006-06-06 03:57:02.000000000 +0300
++++ linux/drivers/net/wireless/orinoco_cs.c	2006-06-10 18:49:50.000000000 +0300
+@@ -476,33 +476,19 @@
+ 	"Pavel Roskin <proski@gnu.org>, et al)";
+ 
+ static struct pcmcia_device_id orinoco_cs_ids[] = {
+-	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7100), /* SonicWALL Long Range Wireless Card */
+-	PCMCIA_DEVICE_MANF_CARD(0x000b, 0x7300), /* Sohoware NCP110, Philips 802.11b */
+ 	PCMCIA_DEVICE_MANF_CARD(0x0089, 0x0002), /* AnyPoint(TM) Wireless II PC Card */
+-	PCMCIA_DEVICE_MANF_CARD(0x0101, 0x0777), /* 3Com AirConnect PCI 777A */
+-	PCMCIA_DEVICE_MANF_CARD(0x0126, 0x8000), /* PROXIM RangeLAN-DS/LAN PC CARD */
+-	PCMCIA_DEVICE_MANF_CARD(0x0138, 0x0002), /* Compaq WL100 11 Mbps Wireless Adapter */
+ 	PCMCIA_DEVICE_MANF_CARD(0x0156, 0x0002), /* Lucent Orinoco and old Intersil */
+ 	PCMCIA_DEVICE_MANF_CARD(0x016b, 0x0001), /* Ericsson WLAN Card C11 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x01eb, 0x080a), /* Nortel Networks eMobility 802.11 Wireless Adapter */
+ 	PCMCIA_DEVICE_MANF_CARD(0x01ff, 0x0008), /* Intermec MobileLAN 11Mbps 802.11b WLAN Card */
+-	PCMCIA_DEVICE_MANF_CARD(0x0250, 0x0002), /* Samsung SWL2000-N 11Mb/s WLAN Card */
+ 	PCMCIA_DEVICE_MANF_CARD(0x0261, 0x0002), /* AirWay 802.11 Adapter (PCMCIA) */
+ 	PCMCIA_DEVICE_MANF_CARD(0x0268, 0x0001), /* ARtem Onair */
+-	PCMCIA_DEVICE_MANF_CARD(0x026f, 0x0305), /* Buffalo WLI-PCM-S11 */
+-	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1612), /* Linksys WPC11 Version 2.5 */
+-	PCMCIA_DEVICE_MANF_CARD(0x0274, 0x1613), /* Linksys WPC11 Version 3 */
+-	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0002), /* Compaq HNW-100 11 Mbps Wireless Adapter */
+ 	PCMCIA_DEVICE_MANF_CARD(0x028a, 0x0673), /* Linksys WCF12 Wireless CompactFlash Card */
+-	PCMCIA_DEVICE_MANF_CARD(0x02aa, 0x0002), /* ASUS SpaceLink WL-100 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x02ac, 0x0002), /* SpeedStream SS1021 Wireless Adapter */
+ 	PCMCIA_DEVICE_MANF_CARD(0x14ea, 0xb001), /* PLANEX RoadLannerWave GW-NS11H */
+-	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300), /* Airvast WN-100 */
+ 	PCMCIA_DEVICE_MANF_CARD(0x9005, 0x0021), /* Adaptec Ultra Wireless ANW-8030 */
+ 	PCMCIA_DEVICE_MANF_CARD(0xc001, 0x0008), /* CONTEC FLEXSCAN/FX-DDS110-PCC */
+ 	PCMCIA_DEVICE_MANF_CARD(0xc250, 0x0002), /* Conceptronic CON11Cpro, EMTAC A2424i */
+-	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002), /* Safeway 802.11b, ZCOMAX AirRunner/XI-300 */
+-	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0005), /* D-Link DCF660, Sandisk Connect SDWCFB-000 */
+ 	PCMCIA_DEVICE_PROD_ID12(" ", "IEEE 802.11 Wireless LAN/PC Card", 0x3b6e20c8, 0xefccafe9),
+ 	PCMCIA_DEVICE_PROD_ID12("3Com", "3CRWE737A AirConnect Wireless LAN PC Card", 0x41240e5b, 0x56010af3),
+ 	PCMCIA_DEVICE_PROD_ID12("ACTIONTEC", "PRISM Wireless LAN PC Card", 0x393089da, 0xa71e69d5),
+@@ -514,9 +500,7 @@
+ 	PCMCIA_DEVICE_PROD_ID12("Avaya Communication", "Avaya Wireless PC Card", 0xd8a43b78, 0x0d341169),
+ 	PCMCIA_DEVICE_PROD_ID12("BENQ", "AWL100 PCMCIA ADAPTER", 0x35dadc74, 0x01f7fedb),
+ 	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-PCM-L11G", 0x2decece3, 0xf57ca4b3),
+-	PCMCIA_DEVICE_PROD_ID12("BUFFALO", "WLI-CF-S11G", 0x2decece3, 0x82067c18),
+ 	PCMCIA_DEVICE_PROD_ID12("Cabletron", "RoamAbout 802.11 DS", 0x32d445f5, 0xedeffd90),
+-	PCMCIA_DEVICE_PROD_ID12("Compaq", "WL200_11Mbps_Wireless_PCI_Card", 0x54f7c49c, 0x15a75e5b),
+ 	PCMCIA_DEVICE_PROD_ID123("corega", "WL PCCL-11", "ISL37300P", 0x0a21501a, 0x59868926, 0xc9049a39),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "Wireless LAN PCC-11", 0x5261440f, 0xa6405584),
+ 	PCMCIA_DEVICE_PROD_ID12("corega K.K.", "Wireless LAN PCCA-11", 0x5261440f, 0xdf6115f9),
+@@ -527,14 +511,8 @@
+ 	PCMCIA_DEVICE_PROD_ID12("Digital Data Communications", "WPC-0100", 0xfdd73470, 0xe0b6f146),
+ 	PCMCIA_DEVICE_PROD_ID12("ELSA", "AirLancer MC-11", 0x4507a33a, 0xef54f0e3),
+ 	PCMCIA_DEVICE_PROD_ID12("HyperLink", "Wireless PC Card 11Mbps", 0x56cc3f1a, 0x0bcf220c),
+-	PCMCIA_DEVICE_PROD_ID123("Instant Wireless ", " Network PC CARD", "Version 01.02", 0x11d901af, 0x6e9bd926, 0x4b74baa0),
+ 	PCMCIA_DEVICE_PROD_ID12("Intel", "PRO/Wireless 2011 LAN PC Card", 0x816cc815, 0x07f58077),
+-	PCMCIA_DEVICE_PROD_ID12("INTERSIL", "HFA384x/IEEE", 0x74c5e40d, 0xdb472a18),
+-	PCMCIA_DEVICE_PROD_ID12("INTERSIL", "I-GATE 11M PC Card / PC Card plus", 0x74c5e40d, 0x8304ff77),
+-	PCMCIA_DEVICE_PROD_ID12("Intersil", "PRISM 2_5 PCMCIA ADAPTER", 0x4b801a17, 0x6345a0bf),
+-	PCMCIA_DEVICE_PROD_ID123("Intersil", "PRISM Freedom PCMCIA Adapter", "ISL37100P", 0x4b801a17, 0xf222ec2d, 0x630d52b2),
+ 	PCMCIA_DEVICE_PROD_ID12("LeArtery", "SYNCBYAIR 11Mbps Wireless LAN PC Card", 0x7e3b326a, 0x49893e92),
+-	PCMCIA_DEVICE_PROD_ID12("Linksys", "Wireless CompactFlash Card", 0x0733cc81, 0x0c52f395),
+ 	PCMCIA_DEVICE_PROD_ID12("Lucent Technologies", "WaveLAN/IEEE", 0x23eb9949, 0xc562e72a),
+ 	PCMCIA_DEVICE_PROD_ID12("MELCO", "WLI-PCM-L11", 0x481e0094, 0x7360e410),
+ 	PCMCIA_DEVICE_PROD_ID12("MELCO", "WLI-PCM-L11G", 0x481e0094, 0xf57ca4b3),
+@@ -552,10 +530,8 @@
+ 	PCMCIA_DEVICE_PROD_ID12("PROXIM", "LAN PCI CARD HARMONY 80211B", 0xc6536a5e, 0x9f494e26),
+ 	PCMCIA_DEVICE_PROD_ID12("SAMSUNG", "11Mbps WLAN Card", 0x43d74cb4, 0x579bd91b),
+ 	PCMCIA_DEVICE_PROD_ID12("SMC", "SMC2532W-B EliteConnect Wireless Adapter", 0xc4f8b18b, 0x196bd757),
+-	PCMCIA_DEVICE_PROD_ID12("SMC", "SMC2632W", 0xc4f8b18b, 0x474a1f2a),
+ 	PCMCIA_DEVICE_PROD_ID12("Symbol Technologies", "LA4111 Spectrum24 Wireless LAN PC Card", 0x3f02b4d6, 0x3663cb0e),
+ 	PCMCIA_DEVICE_PROD_ID123("The Linksys Group, Inc.", "Instant Wireless Network PC Card", "ISL37300P", 0xa5f472c2, 0x590eb502, 0xc9049a39),
+-	PCMCIA_DEVICE_PROD_ID12("ZoomAir 11Mbps High", "Rate wireless Networking", 0x273fe3db, 0x32a1eaee),
+ 	PCMCIA_DEVICE_NULL,
+ };
+ MODULE_DEVICE_TABLE(pcmcia, orinoco_cs_ids);
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/orinoco_nortel.c linux/drivers/net/wireless/orinoco_nortel.c
+--- linux-2.6.17-rc6/drivers/net/wireless/orinoco_nortel.c	2006-06-06 03:57:02.000000000 +0300
++++ /dev/null	1970-01-01 02:00:00.000000000 +0200
+@@ -1,312 +0,0 @@
+-/* orinoco_nortel.c
+- * 
+- * Driver for Prism II devices which would usually be driven by orinoco_cs,
+- * but are connected to the PCI bus by a PCI-to-PCMCIA adapter used in
+- * Nortel emobility, Symbol LA-4113 and Symbol LA-4123.
+- * but are connected to the PCI bus by a Nortel PCI-PCMCIA-Adapter. 
+- *
+- * Copyright (C) 2002 Tobias Hoffmann
+- *           (C) 2003 Christoph Jungegger <disdos@traum404.de>
+- *
+- * Some of this code is borrowed from orinoco_plx.c
+- *	Copyright (C) 2001 Daniel Barlow
+- * Some of this code is borrowed from orinoco_pci.c 
+- *  Copyright (C) 2001 Jean Tourrilhes
+- * Some of this code is "inspired" by linux-wlan-ng-0.1.10, but nothing
+- * has been copied from it. linux-wlan-ng-0.1.10 is originally :
+- *	Copyright (C) 1999 AbsoluteValue Systems, Inc.  All Rights Reserved.
+- * 
+- * The contents of this file are subject to the Mozilla Public License
+- * Version 1.1 (the "License"); you may not use this file except in
+- * compliance with the License. You may obtain a copy of the License
+- * at http://www.mozilla.org/MPL/
+- *
+- * Software distributed under the License is distributed on an "AS IS"
+- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+- * the License for the specific language governing rights and
+- * limitations under the License.
+- *
+- * Alternatively, the contents of this file may be used under the
+- * terms of the GNU General Public License version 2 (the "GPL"), in
+- * which case the provisions of the GPL are applicable instead of the
+- * above.  If you wish to allow the use of your version of this file
+- * only under the terms of the GPL and not to allow others to use your
+- * version of this file under the MPL, indicate your decision by
+- * deleting the provisions above and replace them with the notice and
+- * other provisions required by the GPL.  If you do not delete the
+- * provisions above, a recipient may use your version of this file
+- * under either the MPL or the GPL.
+- */
+-
+-#define DRIVER_NAME "orinoco_nortel"
+-#define PFX DRIVER_NAME ": "
+-
+-#include <linux/config.h>
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/pci.h>
+-#include <pcmcia/cisreg.h>
+-
+-#include "orinoco.h"
+-
+-#define COR_OFFSET    (0xe0)	/* COR attribute offset of Prism2 PC card */
+-#define COR_VALUE     (COR_LEVEL_REQ | COR_FUNC_ENA)	/* Enable PC card with interrupt in level trigger */
+-
+-
+-/* Nortel specific data */
+-struct nortel_pci_card {
+-	unsigned long iobase1;
+-	unsigned long iobase2;
+-};
+-
+-/*
+- * Do a soft reset of the PCI card using the Configuration Option Register
+- * We need this to get going...
+- * This is the part of the code that is strongly inspired from wlan-ng
+- *
+- * Note bis : Don't try to access HERMES_CMD during the reset phase.
+- * It just won't work !
+- */
+-static int nortel_pci_cor_reset(struct orinoco_private *priv)
+-{
+-	struct nortel_pci_card *card = priv->card;
+-
+-	/* Assert the reset until the card notice */
+-	outw_p(8, card->iobase1 + 2);
+-	inw(card->iobase2 + COR_OFFSET);
+-	outw_p(0x80, card->iobase2 + COR_OFFSET);
+-	mdelay(1);
+-
+-	/* Give time for the card to recover from this hard effort */
+-	outw_p(0, card->iobase2 + COR_OFFSET);
+-	outw_p(0, card->iobase2 + COR_OFFSET);
+-	mdelay(1);
+-
+-	/* set COR as usual */
+-	outw_p(COR_VALUE, card->iobase2 + COR_OFFSET);
+-	outw_p(COR_VALUE, card->iobase2 + COR_OFFSET);
+-	mdelay(1);
+-
+-	outw_p(0x228, card->iobase1 + 2);
+-
+-	return 0;
+-}
+-
+-static int nortel_pci_hw_init(struct nortel_pci_card *card)
+-{
+-	int i;
+-	u32 reg;
+-
+-	/* setup bridge */
+-	if (inw(card->iobase1) & 1) {
+-		printk(KERN_ERR PFX "brg1 answer1 wrong\n");
+-		return -EBUSY;
+-	}
+-	outw_p(0x118, card->iobase1 + 2);
+-	outw_p(0x108, card->iobase1 + 2);
+-	mdelay(30);
+-	outw_p(0x8, card->iobase1 + 2);
+-	for (i = 0; i < 30; i++) {
+-		mdelay(30);
+-		if (inw(card->iobase1) & 0x10) {
+-			break;
+-		}
+-	}
+-	if (i == 30) {
+-		printk(KERN_ERR PFX "brg1 timed out\n");
+-		return -EBUSY;
+-	}
+-	if (inw(card->iobase2 + 0xe0) & 1) {
+-		printk(KERN_ERR PFX "brg2 answer1 wrong\n");
+-		return -EBUSY;
+-	}
+-	if (inw(card->iobase2 + 0xe2) & 1) {
+-		printk(KERN_ERR PFX "brg2 answer2 wrong\n");
+-		return -EBUSY;
+-	}
+-	if (inw(card->iobase2 + 0xe4) & 1) {
+-		printk(KERN_ERR PFX "brg2 answer3 wrong\n");
+-		return -EBUSY;
+-	}
+-
+-	/* set the PCMCIA COR-Register */
+-	outw_p(COR_VALUE, card->iobase2 + COR_OFFSET);
+-	mdelay(1);
+-	reg = inw(card->iobase2 + COR_OFFSET);
+-	if (reg != COR_VALUE) {
+-		printk(KERN_ERR PFX "Error setting COR value (reg=%x)\n",
+-		       reg);
+-		return -EBUSY;
+-	}
+-
+-	/* set leds */
+-	outw_p(1, card->iobase1 + 10);
+-	return 0;
+-}
+-
+-static int nortel_pci_init_one(struct pci_dev *pdev,
+-			       const struct pci_device_id *ent)
+-{
+-	int err;
+-	struct orinoco_private *priv;
+-	struct nortel_pci_card *card;
+-	struct net_device *dev;
+-	void __iomem *iomem;
+-
+-	err = pci_enable_device(pdev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot enable PCI device\n");
+-		return err;
+-	}
+-
+-	err = pci_request_regions(pdev, DRIVER_NAME);
+-	if (err != 0) {
+-		printk(KERN_ERR PFX "Cannot obtain PCI resources\n");
+-		goto fail_resources;
+-	}
+-
+-	iomem = pci_iomap(pdev, 2, 0);
+-	if (!iomem) {
+-		err = -ENOMEM;
+-		goto fail_map_io;
+-	}
+-
+-	/* Allocate network device */
+-	dev = alloc_orinocodev(sizeof(*card), nortel_pci_cor_reset);
+-	if (!dev) {
+-		printk(KERN_ERR PFX "Cannot allocate network device\n");
+-		err = -ENOMEM;
+-		goto fail_alloc;
+-	}
+-
+-	priv = netdev_priv(dev);
+-	card = priv->card;
+-	card->iobase1 = pci_resource_start(pdev, 0);
+-	card->iobase2 = pci_resource_start(pdev, 1);
+-	dev->base_addr = pci_resource_start(pdev, 2);
+-	SET_MODULE_OWNER(dev);
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-
+-	hermes_struct_init(&priv->hw, iomem, HERMES_16BIT_REGSPACING);
+-
+-	printk(KERN_DEBUG PFX "Detected Nortel PCI device at %s irq:%d, "
+-	       "io addr:0x%lx\n", pci_name(pdev), pdev->irq, dev->base_addr);
+-
+-	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
+-			  dev->name, dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
+-		err = -EBUSY;
+-		goto fail_irq;
+-	}
+-	dev->irq = pdev->irq;
+-
+-	err = nortel_pci_hw_init(card);
+-	if (err) {
+-		printk(KERN_ERR PFX "Hardware initialization failed\n");
+-		goto fail;
+-	}
+-
+-	err = nortel_pci_cor_reset(priv);
+-	if (err) {
+-		printk(KERN_ERR PFX "Initial reset failed\n");
+-		goto fail;
+-	}
+-
+-
+-	err = register_netdev(dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot register network device\n");
+-		goto fail;
+-	}
+-
+-	pci_set_drvdata(pdev, dev);
+-
+-	return 0;
+-
+- fail:
+-	free_irq(pdev->irq, dev);
+-
+- fail_irq:
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-
+- fail_alloc:
+-	pci_iounmap(pdev, iomem);
+-
+- fail_map_io:
+-	pci_release_regions(pdev);
+-
+- fail_resources:
+-	pci_disable_device(pdev);
+-
+-	return err;
+-}
+-
+-static void __devexit nortel_pci_remove_one(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct orinoco_private *priv = netdev_priv(dev);
+-	struct nortel_pci_card *card = priv->card;
+-
+-	/* clear leds */
+-	outw_p(0, card->iobase1 + 10);
+-
+-	unregister_netdev(dev);
+-	free_irq(dev->irq, dev);
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-	pci_iounmap(pdev, priv->hw.iobase);
+-	pci_release_regions(pdev);
+-	pci_disable_device(pdev);
+-}
+-
+-
+-static struct pci_device_id nortel_pci_id_table[] = {
+-	/* Nortel emobility PCI */
+-	{0x126c, 0x8030, PCI_ANY_ID, PCI_ANY_ID,},
+-	/* Symbol LA-4123 PCI */
+-	{0x1562, 0x0001, PCI_ANY_ID, PCI_ANY_ID,},
+-	{0,},
+-};
+-
+-MODULE_DEVICE_TABLE(pci, nortel_pci_id_table);
+-
+-static struct pci_driver nortel_pci_driver = {
+-	.name = DRIVER_NAME,
+-	.id_table = nortel_pci_id_table,
+-	.probe = nortel_pci_init_one,
+-	.remove = __devexit_p(nortel_pci_remove_one),
+-};
+-
+-static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
+-	" (Tobias Hoffmann & Christoph Jungegger <disdos@traum404.de>)";
+-MODULE_AUTHOR("Christoph Jungegger <disdos@traum404.de>");
+-MODULE_DESCRIPTION
+-    ("Driver for wireless LAN cards using the Nortel PCI bridge");
+-MODULE_LICENSE("Dual MPL/GPL");
+-
+-static int __init nortel_pci_init(void)
+-{
+-	printk(KERN_DEBUG "%s\n", version);
+-	return pci_module_init(&nortel_pci_driver);
+-}
+-
+-static void __exit nortel_pci_exit(void)
+-{
+-	pci_unregister_driver(&nortel_pci_driver);
+-	ssleep(1);
+-}
+-
+-module_init(nortel_pci_init);
+-module_exit(nortel_pci_exit);
+-
+-/*
+- * Local variables:
+- *  c-indent-level: 8
+- *  c-basic-offset: 8
+- *  tab-width: 8
+- * End:
+- */
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/orinoco_pci.c linux/drivers/net/wireless/orinoco_pci.c
+--- linux-2.6.17-rc6/drivers/net/wireless/orinoco_pci.c	2006-06-06 03:57:02.000000000 +0300
++++ /dev/null	1970-01-01 02:00:00.000000000 +0200
+@@ -1,399 +0,0 @@
+-/* orinoco_pci.c
+- * 
+- * Driver for Prism II devices that have a direct PCI interface
+- * (i.e., not in a Pcmcia or PLX bridge)
+- *
+- * Specifically here we're talking about the Linksys WMP11
+- *
+- * Current maintainers (as of 29 September 2003) are:
+- * 	Pavel Roskin <proski AT gnu.org>
+- * and	David Gibson <hermes AT gibson.dropbear.id.au>
+- *
+- * Some of this code is borrowed from orinoco_plx.c
+- *	Copyright (C) 2001 Daniel Barlow <dan AT telent.net>
+- * Some of this code is "inspired" by linux-wlan-ng-0.1.10, but nothing
+- * has been copied from it. linux-wlan-ng-0.1.10 is originally :
+- *	Copyright (C) 1999 AbsoluteValue Systems, Inc.  All Rights Reserved.
+- * This file originally written by:
+- *	Copyright (C) 2001 Jean Tourrilhes <jt AT hpl.hp.com>
+- * And is now maintained by:
+- *	(C) Copyright David Gibson, IBM Corp. 2002-2003.
+- *
+- * The contents of this file are subject to the Mozilla Public License
+- * Version 1.1 (the "License"); you may not use this file except in
+- * compliance with the License. You may obtain a copy of the License
+- * at http://www.mozilla.org/MPL/
+- *
+- * Software distributed under the License is distributed on an "AS IS"
+- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+- * the License for the specific language governing rights and
+- * limitations under the License.
+- *
+- * Alternatively, the contents of this file may be used under the
+- * terms of the GNU General Public License version 2 (the "GPL"), in
+- * which case the provisions of the GPL are applicable instead of the
+- * above.  If you wish to allow the use of your version of this file
+- * only under the terms of the GPL and not to allow others to use your
+- * version of this file under the MPL, indicate your decision by
+- * deleting the provisions above and replace them with the notice and
+- * other provisions required by the GPL.  If you do not delete the
+- * provisions above, a recipient may use your version of this file
+- * under either the MPL or the GPL.
+- */
+-
+-/*
+- * Theory of operation...
+- * -------------------
+- * Maybe you had a look in orinoco_plx. Well, this is totally different...
+- *
+- * The card contains only one PCI region, which contains all the usual
+- * hermes registers.
+- *
+- * The driver will memory map this region in normal memory. Because
+- * the hermes registers are mapped in normal memory and not in ISA I/O
+- * post space, we can't use the usual inw/outw macros and we need to
+- * use readw/writew.
+- * This slight difference force us to compile our own version of
+- * hermes.c with the register access macro changed. That's a bit
+- * hackish but works fine.
+- *
+- * Note that the PCI region is pretty big (4K). That's much more than
+- * the usual set of hermes register (0x0 -> 0x3E). I've got a strong
+- * suspicion that the whole memory space of the adapter is in fact in
+- * this region. Accessing directly the adapter memory instead of going
+- * through the usual register would speed up significantely the
+- * operations...
+- *
+- * Finally, the card looks like this :
+------------------------
+-  Bus  0, device  14, function  0:
+-    Network controller: PCI device 1260:3873 (Harris Semiconductor) (rev 1).
+-      IRQ 11.
+-      Master Capable.  Latency=248.  
+-      Prefetchable 32 bit memory at 0xffbcc000 [0xffbccfff].
+------------------------
+-00:0e.0 Network controller: Harris Semiconductor: Unknown device 3873 (rev 01)
+-        Subsystem: Unknown device 1737:3874
+-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+-        Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+-        Latency: 248 set, cache line size 08
+-        Interrupt: pin A routed to IRQ 11
+-        Region 0: Memory at ffbcc000 (32-bit, prefetchable) [size=4K]
+-        Capabilities: [dc] Power Management version 2
+-                Flags: PMEClk- AuxPwr- DSI- D1+ D2+ PME+
+-                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+------------------------
+- *
+- * That's all..
+- *
+- * Jean II
+- */
+-
+-#define DRIVER_NAME "orinoco_pci"
+-#define PFX DRIVER_NAME ": "
+-
+-#include <linux/config.h>
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/pci.h>
+-
+-#include "orinoco.h"
+-
+-/* All the magic there is from wlan-ng */
+-/* Magic offset of the reset register of the PCI card */
+-#define HERMES_PCI_COR		(0x26)
+-/* Magic bitmask to reset the card */
+-#define HERMES_PCI_COR_MASK	(0x0080)
+-/* Magic timeouts for doing the reset.
+- * Those times are straight from wlan-ng, and it is claimed that they
+- * are necessary. Alan will kill me. Take your time and grab a coffee. */
+-#define HERMES_PCI_COR_ONT	(250)		/* ms */
+-#define HERMES_PCI_COR_OFFT	(500)		/* ms */
+-#define HERMES_PCI_COR_BUSYT	(500)		/* ms */
+-
+-/* Orinoco PCI specific data */
+-struct orinoco_pci_card {
+-	void __iomem *pci_ioaddr;
+-};
+-
+-/*
+- * Do a soft reset of the PCI card using the Configuration Option Register
+- * We need this to get going...
+- * This is the part of the code that is strongly inspired from wlan-ng
+- *
+- * Note : This code is done with irq enabled. This mean that many
+- * interrupts will occur while we are there. This is why we use the
+- * jiffies to regulate time instead of a straight mdelay(). Usually we
+- * need only around 245 iteration of the loop to do 250 ms delay.
+- *
+- * Note bis : Don't try to access HERMES_CMD during the reset phase.
+- * It just won't work !
+- */
+-static int
+-orinoco_pci_cor_reset(struct orinoco_private *priv)
+-{
+-	hermes_t *hw = &priv->hw;
+-	unsigned long	timeout;
+-	u16	reg;
+-
+-	/* Assert the reset until the card notice */
+-	hermes_write_regn(hw, PCI_COR, HERMES_PCI_COR_MASK);
+-	mdelay(HERMES_PCI_COR_ONT);
+-
+-	/* Give time for the card to recover from this hard effort */
+-	hermes_write_regn(hw, PCI_COR, 0x0000);
+-	mdelay(HERMES_PCI_COR_OFFT);
+-
+-	/* The card is ready when it's no longer busy */
+-	timeout = jiffies + (HERMES_PCI_COR_BUSYT * HZ / 1000);
+-	reg = hermes_read_regn(hw, CMD);
+-	while (time_before(jiffies, timeout) && (reg & HERMES_CMD_BUSY)) {
+-		mdelay(1);
+-		reg = hermes_read_regn(hw, CMD);
+-	}
+-
+-	/* Still busy? */
+-	if (reg & HERMES_CMD_BUSY) {
+-		printk(KERN_ERR PFX "Busy timeout\n");
+-		return -ETIMEDOUT;
+-	}
+-
+-	return 0;
+-}
+-
+-/*
+- * Initialise a card. Mostly similar to PLX code.
+- */
+-static int orinoco_pci_init_one(struct pci_dev *pdev,
+-				const struct pci_device_id *ent)
+-{
+-	int err = 0;
+-	unsigned long pci_iorange;
+-	u16 __iomem *pci_ioaddr = NULL;
+-	unsigned long pci_iolen;
+-	struct orinoco_private *priv = NULL;
+-	struct orinoco_pci_card *card;
+-	struct net_device *dev = NULL;
+-
+-	err = pci_enable_device(pdev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot enable PCI device\n");
+-		return err;
+-	}
+-
+-	err = pci_request_regions(pdev, DRIVER_NAME);
+-	if (err != 0) {
+-		printk(KERN_ERR PFX "Cannot obtain PCI resources\n");
+-		goto fail_resources;
+-	}
+-
+-	/* Resource 0 is mapped to the hermes registers */
+-	pci_iorange = pci_resource_start(pdev, 0);
+-	pci_iolen = pci_resource_len(pdev, 0);
+-	pci_ioaddr = ioremap(pci_iorange, pci_iolen);
+-	if (!pci_iorange) {
+-		printk(KERN_ERR PFX "Cannot remap hardware registers\n");
+-		goto fail_map;
+-	}
+-
+-	/* Allocate network device */
+-	dev = alloc_orinocodev(sizeof(*card), orinoco_pci_cor_reset);
+-	if (! dev) {
+-		err = -ENOMEM;
+-		goto fail_alloc;
+-	}
+-
+-	priv = netdev_priv(dev);
+-	card = priv->card;
+-	card->pci_ioaddr = pci_ioaddr;
+-	dev->mem_start = pci_iorange;
+-	dev->mem_end = pci_iorange + pci_iolen - 1;
+-	SET_MODULE_OWNER(dev);
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-
+-	hermes_struct_init(&priv->hw, pci_ioaddr, HERMES_32BIT_REGSPACING);
+-
+-	printk(KERN_DEBUG PFX "Detected device %s, mem:0x%lx-0x%lx, irq %d\n",
+-	       pci_name(pdev), dev->mem_start, dev->mem_end, pdev->irq);
+-
+-	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
+-			  dev->name, dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
+-		err = -EBUSY;
+-		goto fail_irq;
+-	}
+-	dev->irq = pdev->irq;
+-
+-	/* Perform a COR reset to start the card */
+-	err = orinoco_pci_cor_reset(priv);
+-	if (err) {
+-		printk(KERN_ERR PFX "Initial reset failed\n");
+-		goto fail;
+-	}
+-
+-	err = register_netdev(dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Failed to register net device\n");
+-		goto fail;
+-	}
+-
+-	pci_set_drvdata(pdev, dev);
+-
+-	return 0;
+-
+- fail:
+-	free_irq(pdev->irq, dev);
+-
+- fail_irq:
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-
+- fail_alloc:
+-	iounmap(pci_ioaddr);
+-
+- fail_map:
+-	pci_release_regions(pdev);
+-
+- fail_resources:
+-	pci_disable_device(pdev);
+-
+-	return err;
+-}
+-
+-static void __devexit orinoco_pci_remove_one(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct orinoco_private *priv = netdev_priv(dev);
+-	struct orinoco_pci_card *card = priv->card;
+-
+-	unregister_netdev(dev);
+-	free_irq(dev->irq, dev);
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-	iounmap(card->pci_ioaddr);
+-	pci_release_regions(pdev);
+-	pci_disable_device(pdev);
+-}
+-
+-static int orinoco_pci_suspend(struct pci_dev *pdev, pm_message_t state)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct orinoco_private *priv = netdev_priv(dev);
+-	unsigned long flags;
+-	int err;
+-	
+-
+-	err = orinoco_lock(priv, &flags);
+-	if (err) {
+-		printk(KERN_ERR "%s: hw_unavailable on orinoco_pci_suspend\n",
+-		       dev->name);
+-		return err;
+-	}
+-
+-	err = __orinoco_down(dev);
+-	if (err)
+-		printk(KERN_WARNING "%s: orinoco_pci_suspend(): Error %d downing interface\n",
+-		       dev->name, err);
+-	
+-	netif_device_detach(dev);
+-
+-	priv->hw_unavailable++;
+-	
+-	orinoco_unlock(priv, &flags);
+-
+-	pci_save_state(pdev);
+-	pci_set_power_state(pdev, PCI_D3hot);
+-
+-	return 0;
+-}
+-
+-static int orinoco_pci_resume(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct orinoco_private *priv = netdev_priv(dev);
+-	unsigned long flags;
+-	int err;
+-
+-	printk(KERN_DEBUG "%s: Orinoco-PCI waking up\n", dev->name);
+-
+-	pci_set_power_state(pdev, 0);
+-	pci_restore_state(pdev);
+-
+-	err = orinoco_reinit_firmware(dev);
+-	if (err) {
+-		printk(KERN_ERR "%s: Error %d re-initializing firmware on orinoco_pci_resume()\n",
+-		       dev->name, err);
+-		return err;
+-	}
+-
+-	spin_lock_irqsave(&priv->lock, flags);
+-
+-	netif_device_attach(dev);
+-
+-	priv->hw_unavailable--;
+-
+-	if (priv->open && (! priv->hw_unavailable)) {
+-		err = __orinoco_up(dev);
+-		if (err)
+-			printk(KERN_ERR "%s: Error %d restarting card on orinoco_pci_resume()\n",
+-			       dev->name, err);
+-	}
+-	
+-	spin_unlock_irqrestore(&priv->lock, flags);
+-
+-	return 0;
+-}
+-
+-static struct pci_device_id orinoco_pci_pci_id_table[] = {
+-	/* Intersil Prism 3 */
+-	{0x1260, 0x3872, PCI_ANY_ID, PCI_ANY_ID,},
+-	/* Intersil Prism 2.5 */
+-	{0x1260, 0x3873, PCI_ANY_ID, PCI_ANY_ID,},
+-	/* Samsung MagicLAN SWL-2210P */
+-	{0x167d, 0xa000, PCI_ANY_ID, PCI_ANY_ID,},
+-	{0,},
+-};
+-
+-MODULE_DEVICE_TABLE(pci, orinoco_pci_pci_id_table);
+-
+-static struct pci_driver orinoco_pci_driver = {
+-	.name		= DRIVER_NAME,
+-	.id_table	= orinoco_pci_pci_id_table,
+-	.probe		= orinoco_pci_init_one,
+-	.remove		= __devexit_p(orinoco_pci_remove_one),
+-	.suspend	= orinoco_pci_suspend,
+-	.resume		= orinoco_pci_resume,
+-};
+-
+-static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
+-	" (Pavel Roskin <proski@gnu.org>,"
+-	" David Gibson <hermes@gibson.dropbear.id.au> &"
+-	" Jean Tourrilhes <jt@hpl.hp.com>)";
+-MODULE_AUTHOR("Pavel Roskin <proski@gnu.org> & David Gibson <hermes@gibson.dropbear.id.au>");
+-MODULE_DESCRIPTION("Driver for wireless LAN cards using direct PCI interface");
+-MODULE_LICENSE("Dual MPL/GPL");
+-
+-static int __init orinoco_pci_init(void)
+-{
+-	printk(KERN_DEBUG "%s\n", version);
+-	return pci_module_init(&orinoco_pci_driver);
+-}
+-
+-static void __exit orinoco_pci_exit(void)
+-{
+-	pci_unregister_driver(&orinoco_pci_driver);
+-}
+-
+-module_init(orinoco_pci_init);
+-module_exit(orinoco_pci_exit);
+-
+-/*
+- * Local variables:
+- *  c-indent-level: 8
+- *  c-basic-offset: 8
+- *  tab-width: 8
+- * End:
+- */
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/orinoco_plx.c linux/drivers/net/wireless/orinoco_plx.c
+--- linux-2.6.17-rc6/drivers/net/wireless/orinoco_plx.c	2006-06-06 03:57:02.000000000 +0300
++++ /dev/null	1970-01-01 02:00:00.000000000 +0200
+@@ -1,403 +0,0 @@
+-/* orinoco_plx.c
+- *
+- * Driver for Prism II devices which would usually be driven by orinoco_cs,
+- * but are connected to the PCI bus by a PLX9052.
+- *
+- * Current maintainers (as of 29 September 2003) are:
+- * 	Pavel Roskin <proski AT gnu.org>
+- * and	David Gibson <hermes AT gibson.dropbear.id.au>
+- *
+- * (C) Copyright David Gibson, IBM Corp. 2001-2003.
+- * Copyright (C) 2001 Daniel Barlow
+- *
+- * The contents of this file are subject to the Mozilla Public License
+- * Version 1.1 (the "License"); you may not use this file except in
+- * compliance with the License. You may obtain a copy of the License
+- * at http://www.mozilla.org/MPL/
+- *
+- * Software distributed under the License is distributed on an "AS IS"
+- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+- * the License for the specific language governing rights and
+- * limitations under the License.
+- *
+- * Alternatively, the contents of this file may be used under the
+- * terms of the GNU General Public License version 2 (the "GPL"), in
+- * which case the provisions of the GPL are applicable instead of the
+- * above.  If you wish to allow the use of your version of this file
+- * only under the terms of the GPL and not to allow others to use your
+- * version of this file under the MPL, indicate your decision by
+- * deleting the provisions above and replace them with the notice and
+- * other provisions required by the GPL.  If you do not delete the
+- * provisions above, a recipient may use your version of this file
+- * under either the MPL or the GPL.
+-
+- * Caution: this is experimental and probably buggy.  For success and
+- * failure reports for different cards and adaptors, see
+- * orinoco_plx_pci_id_table near the end of the file.  If you have a
+- * card we don't have the PCI id for, and looks like it should work,
+- * drop me mail with the id and "it works"/"it doesn't work".
+- *
+- * Note: if everything gets detected fine but it doesn't actually send
+- * or receive packets, your first port of call should probably be to
+- * try newer firmware in the card.  Especially if you're doing Ad-Hoc
+- * modes.
+- *
+- * The actual driving is done by orinoco.c, this is just resource
+- * allocation stuff.  The explanation below is courtesy of Ryan Niemi
+- * on the linux-wlan-ng list at
+- * http://archives.neohapsis.com/archives/dev/linux-wlan/2001-q1/0026.html
+- *
+- * The PLX9052-based cards (WL11000 and several others) are a
+- * different beast than the usual PCMCIA-based PRISM2 configuration
+- * expected by wlan-ng.  Here's the general details on how the WL11000
+- * PCI adapter works:
+- *
+- * - Two PCI I/O address spaces, one 0x80 long which contains the
+- * PLX9052 registers, and one that's 0x40 long mapped to the PCMCIA
+- * slot I/O address space.
+- *
+- * - One PCI memory address space, mapped to the PCMCIA memory space
+- * (containing the CIS).
+- *
+- * After identifying the I/O and memory space, you can read through
+- * the memory space to confirm the CIS's device ID or manufacturer ID
+- * to make sure it's the expected card.  qKeep in mind that the PCMCIA
+- * spec specifies the CIS as the lower 8 bits of each word read from
+- * the CIS, so to read the bytes of the CIS, read every other byte
+- * (0,2,4,...). Passing that test, you need to enable the I/O address
+- * space on the PCMCIA card via the PCMCIA COR register. This is the
+- * first byte following the CIS. In my case (which may not have any
+- * relation to what's on the PRISM2 cards), COR was at offset 0x800
+- * within the PCI memory space. Write 0x41 to the COR register to
+- * enable I/O mode and to select level triggered interrupts. To
+- * confirm you actually succeeded, read the COR register back and make
+- * sure it actually got set to 0x41, incase you have an unexpected
+- * card inserted.
+- *
+- * Following that, you can treat the second PCI I/O address space (the
+- * one that's not 0x80 in length) as the PCMCIA I/O space.
+- *
+- * Note that in the Eumitcom's source for their drivers, they register
+- * the interrupt as edge triggered when registering it with the
+- * Windows kernel. I don't recall how to register edge triggered on
+- * Linux (if it can be done at all). But in some experimentation, I
+- * don't see much operational difference between using either
+- * interrupt mode. Don't mess with the interrupt mode in the COR
+- * register though, as the PLX9052 wants level triggers with the way
+- * the serial EEPROM configures it on the WL11000.
+- *
+- * There's some other little quirks related to timing that I bumped
+- * into, but I don't recall right now. Also, there's two variants of
+- * the WL11000 I've seen, revision A1 and T2. These seem to differ
+- * slightly in the timings configured in the wait-state generator in
+- * the PLX9052. There have also been some comments from Eumitcom that
+- * cards shouldn't be hot swapped, apparently due to risk of cooking
+- * the PLX9052. I'm unsure why they believe this, as I can't see
+- * anything in the design that would really cause a problem, except
+- * for crashing drivers not written to expect it. And having developed
+- * drivers for the WL11000, I'd say it's quite tricky to write code
+- * that will successfully deal with a hot unplug. Very odd things
+- * happen on the I/O side of things. But anyway, be warned. Despite
+- * that, I've hot-swapped a number of times during debugging and
+- * driver development for various reasons (stuck WAIT# line after the
+- * radio card's firmware locks up).
+- *
+- * Hope this is enough info for someone to add PLX9052 support to the
+- * wlan-ng card. In the case of the WL11000, the PCI ID's are
+- * 0x1639/0x0200, with matching subsystem ID's. Other PLX9052-based
+- * manufacturers other than Eumitcom (or on cards other than the
+- * WL11000) may have different PCI ID's.
+- *
+- * If anyone needs any more specific info, let me know. I haven't had
+- * time to implement support myself yet, and with the way things are
+- * going, might not have time for a while..
+- */
+-
+-#define DRIVER_NAME "orinoco_plx"
+-#define PFX DRIVER_NAME ": "
+-
+-#include <linux/config.h>
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/pci.h>
+-#include <pcmcia/cisreg.h>
+-
+-#include "orinoco.h"
+-
+-#define COR_OFFSET	(0x3e0)	/* COR attribute offset of Prism2 PC card */
+-#define COR_VALUE	(COR_LEVEL_REQ | COR_FUNC_ENA) /* Enable PC card with interrupt in level trigger */
+-#define COR_RESET     (0x80)	/* reset bit in the COR register */
+-#define PLX_RESET_TIME	(500)	/* milliseconds */
+-
+-#define PLX_INTCSR		0x4c /* Interrupt Control & Status Register */
+-#define PLX_INTCSR_INTEN	(1<<6) /* Interrupt Enable bit */
+-
+-static const u8 cis_magic[] = {
+-	0x01, 0x03, 0x00, 0x00, 0xff, 0x17, 0x04, 0x67
+-};
+-
+-/* Orinoco PLX specific data */
+-struct orinoco_plx_card {
+-	void __iomem *attr_mem;
+-};
+-
+-/*
+- * Do a soft reset of the card using the Configuration Option Register
+- */
+-static int orinoco_plx_cor_reset(struct orinoco_private *priv)
+-{
+-	hermes_t *hw = &priv->hw;
+-	struct orinoco_plx_card *card = priv->card;
+-	u8 __iomem *attr_mem = card->attr_mem;
+-	unsigned long timeout;
+-	u16 reg;
+-
+-	writeb(COR_VALUE | COR_RESET, attr_mem + COR_OFFSET);
+-	mdelay(1);
+-
+-	writeb(COR_VALUE, attr_mem + COR_OFFSET);
+-	mdelay(1);
+-
+-	/* Just in case, wait more until the card is no longer busy */
+-	timeout = jiffies + (PLX_RESET_TIME * HZ / 1000);
+-	reg = hermes_read_regn(hw, CMD);
+-	while (time_before(jiffies, timeout) && (reg & HERMES_CMD_BUSY)) {
+-		mdelay(1);
+-		reg = hermes_read_regn(hw, CMD);
+-	}
+-
+-	/* Did we timeout ? */
+-	if (reg & HERMES_CMD_BUSY) {
+-		printk(KERN_ERR PFX "Busy timeout\n");
+-		return -ETIMEDOUT;
+-	}
+-
+-	return 0;
+-}
+-
+-
+-static int orinoco_plx_init_one(struct pci_dev *pdev,
+-				const struct pci_device_id *ent)
+-{
+-	int err = 0;
+-	u8 __iomem *attr_mem = NULL;
+-	u32 csr_reg, plx_addr;
+-	struct orinoco_private *priv = NULL;
+-	struct orinoco_plx_card *card;
+-	unsigned long pccard_ioaddr = 0;
+-	unsigned long pccard_iolen = 0;
+-	struct net_device *dev = NULL;
+-	void __iomem *mem;
+-	int i;
+-
+-	err = pci_enable_device(pdev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot enable PCI device\n");
+-		return err;
+-	}
+-
+-	err = pci_request_regions(pdev, DRIVER_NAME);
+-	if (err != 0) {
+-		printk(KERN_ERR PFX "Cannot obtain PCI resources\n");
+-		goto fail_resources;
+-	}
+-
+-	/* Resource 1 is mapped to PLX-specific registers */
+-	plx_addr = pci_resource_start(pdev, 1);
+-
+-	/* Resource 2 is mapped to the PCMCIA attribute memory */
+-	attr_mem = ioremap(pci_resource_start(pdev, 2),
+-			   pci_resource_len(pdev, 2));
+-	if (!attr_mem) {
+-		printk(KERN_ERR PFX "Cannot remap PCMCIA space\n");
+-		goto fail_map_attr;
+-	}
+-
+-	/* Resource 3 is mapped to the PCMCIA I/O address space */
+-	pccard_ioaddr = pci_resource_start(pdev, 3);
+-	pccard_iolen = pci_resource_len(pdev, 3);
+-
+-	mem = pci_iomap(pdev, 3, 0);
+-	if (!mem) {
+-		err = -ENOMEM;
+-		goto fail_map_io;
+-	}
+-
+-	/* Allocate network device */
+-	dev = alloc_orinocodev(sizeof(*card), orinoco_plx_cor_reset);
+-	if (!dev) {
+-		printk(KERN_ERR PFX "Cannot allocate network device\n");
+-		err = -ENOMEM;
+-		goto fail_alloc;
+-	}
+-
+-	priv = netdev_priv(dev);
+-	card = priv->card;
+-	card->attr_mem = attr_mem;
+-	dev->base_addr = pccard_ioaddr;
+-	SET_MODULE_OWNER(dev);
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-
+-	hermes_struct_init(&priv->hw, mem, HERMES_16BIT_REGSPACING);
+-
+-	printk(KERN_DEBUG PFX "Detected Orinoco/Prism2 PLX device "
+-	       "at %s irq:%d, io addr:0x%lx\n", pci_name(pdev), pdev->irq,
+-	       pccard_ioaddr);
+-
+-	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
+-			  dev->name, dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
+-		err = -EBUSY;
+-		goto fail_irq;
+-	}
+-	dev->irq = pdev->irq;
+-
+-	/* bjoern: We need to tell the card to enable interrupts, in
+-	   case the serial eprom didn't do this already.  See the
+-	   PLX9052 data book, p8-1 and 8-24 for reference. */
+-	csr_reg = inl(plx_addr + PLX_INTCSR);
+-	if (!(csr_reg & PLX_INTCSR_INTEN)) {
+-		csr_reg |= PLX_INTCSR_INTEN;
+-		outl(csr_reg, plx_addr + PLX_INTCSR);
+-		csr_reg = inl(plx_addr + PLX_INTCSR);
+-		if (!(csr_reg & PLX_INTCSR_INTEN)) {
+-			printk(KERN_ERR PFX "Cannot enable interrupts\n");
+-			goto fail;
+-		}
+-	}
+-
+-	err = orinoco_plx_cor_reset(priv);
+-	if (err) {
+-		printk(KERN_ERR PFX "Initial reset failed\n");
+-		goto fail;
+-	}
+-
+-	printk(KERN_DEBUG PFX "CIS: ");
+-	for (i = 0; i < 16; i++) {
+-		printk("%02X:", readb(attr_mem + 2*i));
+-	}
+-	printk("\n");
+-
+-	/* Verify whether a supported PC card is present */
+-	/* FIXME: we probably need to be smarted about this */
+-	for (i = 0; i < sizeof(cis_magic); i++) {
+-		if (cis_magic[i] != readb(attr_mem +2*i)) {
+-			printk(KERN_ERR PFX "The CIS value of Prism2 PC "
+-			       "card is unexpected\n");
+-			err = -EIO;
+-			goto fail;
+-		}
+-	}
+-
+-	err = register_netdev(dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot register network device\n");
+-		goto fail;
+-	}
+-
+-	pci_set_drvdata(pdev, dev);
+-
+-	return 0;
+-
+- fail:
+-	free_irq(pdev->irq, dev);
+-
+- fail_irq:
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-
+- fail_alloc:
+-	pci_iounmap(pdev, mem);
+-
+- fail_map_io:
+-	iounmap(attr_mem);
+-
+- fail_map_attr:
+-	pci_release_regions(pdev);
+-
+- fail_resources:
+-	pci_disable_device(pdev);
+-
+-	return err;
+-}
+-
+-static void __devexit orinoco_plx_remove_one(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct orinoco_private *priv = netdev_priv(dev);
+-	struct orinoco_plx_card *card = priv->card;
+-	u8 __iomem *attr_mem = card->attr_mem;
+-
+-	BUG_ON(! dev);
+-
+-	unregister_netdev(dev);
+-	free_irq(dev->irq, dev);
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-	pci_iounmap(pdev, priv->hw.iobase);
+-	iounmap(attr_mem);
+-	pci_release_regions(pdev);
+-	pci_disable_device(pdev);
+-}
+-
+-
+-static struct pci_device_id orinoco_plx_pci_id_table[] = {
+-	{0x111a, 0x1023, PCI_ANY_ID, PCI_ANY_ID,},	/* Siemens SpeedStream SS1023 */
+-	{0x1385, 0x4100, PCI_ANY_ID, PCI_ANY_ID,},	/* Netgear MA301 */
+-	{0x15e8, 0x0130, PCI_ANY_ID, PCI_ANY_ID,},	/* Correga  - does this work? */
+-	{0x1638, 0x1100, PCI_ANY_ID, PCI_ANY_ID,},	/* SMC EZConnect SMC2602W,
+-							   Eumitcom PCI WL11000,
+-							   Addtron AWA-100 */
+-	{0x16ab, 0x1100, PCI_ANY_ID, PCI_ANY_ID,},	/* Global Sun Tech GL24110P */
+-	{0x16ab, 0x1101, PCI_ANY_ID, PCI_ANY_ID,},	/* Reported working, but unknown */
+-	{0x16ab, 0x1102, PCI_ANY_ID, PCI_ANY_ID,},	/* Linksys WDT11 */
+-	{0x16ec, 0x3685, PCI_ANY_ID, PCI_ANY_ID,},	/* USR 2415 */
+-	{0xec80, 0xec00, PCI_ANY_ID, PCI_ANY_ID,},	/* Belkin F5D6000 tested by
+-							   Brendan W. McAdams <rit AT jacked-in.org> */
+-	{0x10b7, 0x7770, PCI_ANY_ID, PCI_ANY_ID,},	/* 3Com AirConnect PCI tested by
+-							   Damien Persohn <damien AT persohn.net> */
+-	{0,},
+-};
+-
+-MODULE_DEVICE_TABLE(pci, orinoco_plx_pci_id_table);
+-
+-static struct pci_driver orinoco_plx_driver = {
+-	.name		= DRIVER_NAME,
+-	.id_table	= orinoco_plx_pci_id_table,
+-	.probe		= orinoco_plx_init_one,
+-	.remove		= __devexit_p(orinoco_plx_remove_one),
+-};
+-
+-static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
+-	" (Pavel Roskin <proski@gnu.org>,"
+-	" David Gibson <hermes@gibson.dropbear.id.au>,"
+-	" Daniel Barlow <dan@telent.net>)";
+-MODULE_AUTHOR("Daniel Barlow <dan@telent.net>");
+-MODULE_DESCRIPTION("Driver for wireless LAN cards using the PLX9052 PCI bridge");
+-MODULE_LICENSE("Dual MPL/GPL");
+-
+-static int __init orinoco_plx_init(void)
+-{
+-	printk(KERN_DEBUG "%s\n", version);
+-	return pci_module_init(&orinoco_plx_driver);
+-}
+-
+-static void __exit orinoco_plx_exit(void)
+-{
+-	pci_unregister_driver(&orinoco_plx_driver);
+-	ssleep(1);
+-}
+-
+-module_init(orinoco_plx_init);
+-module_exit(orinoco_plx_exit);
+-
+-/*
+- * Local variables:
+- *  c-indent-level: 8
+- *  c-basic-offset: 8
+- *  tab-width: 8
+- * End:
+- */
+diff -Nur linux-2.6.17-rc6/drivers/net/wireless/orinoco_tmd.c linux/drivers/net/wireless/orinoco_tmd.c
+--- linux-2.6.17-rc6/drivers/net/wireless/orinoco_tmd.c	2006-06-06 03:57:02.000000000 +0300
++++ /dev/null	1970-01-01 02:00:00.000000000 +0200
+@@ -1,260 +0,0 @@
+-/* orinoco_tmd.c
+- * 
+- * Driver for Prism II devices which would usually be driven by orinoco_cs,
+- * but are connected to the PCI bus by a TMD7160. 
+- *
+- * Copyright (C) 2003 Joerg Dorchain <joerg AT dorchain.net>
+- * based heavily upon orinoco_plx.c Copyright (C) 2001 Daniel Barlow
+- *
+- * The contents of this file are subject to the Mozilla Public License
+- * Version 1.1 (the "License"); you may not use this file except in
+- * compliance with the License. You may obtain a copy of the License
+- * at http://www.mozilla.org/MPL/
+- *
+- * Software distributed under the License is distributed on an "AS IS"
+- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+- * the License for the specific language governing rights and
+- * limitations under the License.
+- *
+- * Alternatively, the contents of this file may be used under the
+- * terms of the GNU General Public License version 2 (the "GPL"), in
+- * which case the provisions of the GPL are applicable instead of the
+- * above.  If you wish to allow the use of your version of this file
+- * only under the terms of the GPL and not to allow others to use your
+- * version of this file under the MPL, indicate your decision by
+- * deleting the provisions above and replace them with the notice and
+- * other provisions required by the GPL.  If you do not delete the
+- * provisions above, a recipient may use your version of this file
+- * under either the MPL or the GPL.
+-
+- * Caution: this is experimental and probably buggy.  For success and
+- * failure reports for different cards and adaptors, see
+- * orinoco_tmd_pci_id_table near the end of the file.  If you have a
+- * card we don't have the PCI id for, and looks like it should work,
+- * drop me mail with the id and "it works"/"it doesn't work".
+- *
+- * Note: if everything gets detected fine but it doesn't actually send
+- * or receive packets, your first port of call should probably be to   
+- * try newer firmware in the card.  Especially if you're doing Ad-Hoc
+- * modes
+- *
+- * The actual driving is done by orinoco.c, this is just resource
+- * allocation stuff.
+- *
+- * This driver is modeled after the orinoco_plx driver. The main
+- * difference is that the TMD chip has only IO port ranges and no
+- * memory space, i.e.  no access to the CIS. Compared to the PLX chip,
+- * the io range functionalities are exchanged.
+- *
+- * Pheecom sells cards with the TMD chip as "ASIC version"
+- */
+-
+-#define DRIVER_NAME "orinoco_tmd"
+-#define PFX DRIVER_NAME ": "
+-
+-#include <linux/config.h>
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/pci.h>
+-#include <pcmcia/cisreg.h>
+-
+-#include "orinoco.h"
+-
+-#define COR_VALUE	(COR_LEVEL_REQ | COR_FUNC_ENA) /* Enable PC card with interrupt in level trigger */
+-#define COR_RESET     (0x80)	/* reset bit in the COR register */
+-#define TMD_RESET_TIME	(500)	/* milliseconds */
+-
+-/* Orinoco TMD specific data */
+-struct orinoco_tmd_card {
+-	u32 tmd_io;
+-};
+-
+-
+-/*
+- * Do a soft reset of the card using the Configuration Option Register
+- */
+-static int orinoco_tmd_cor_reset(struct orinoco_private *priv)
+-{
+-	hermes_t *hw = &priv->hw;
+-	struct orinoco_tmd_card *card = priv->card;
+-	u32 addr = card->tmd_io;
+-	unsigned long timeout;
+-	u16 reg;
+-
+-	outb(COR_VALUE | COR_RESET, addr);
+-	mdelay(1);
+-
+-	outb(COR_VALUE, addr);
+-	mdelay(1);
+-
+-	/* Just in case, wait more until the card is no longer busy */
+-	timeout = jiffies + (TMD_RESET_TIME * HZ / 1000);
+-	reg = hermes_read_regn(hw, CMD);
+-	while (time_before(jiffies, timeout) && (reg & HERMES_CMD_BUSY)) {
+-		mdelay(1);
+-		reg = hermes_read_regn(hw, CMD);
+-	}
+-
+-	/* Did we timeout ? */
+-	if (reg & HERMES_CMD_BUSY) {
+-		printk(KERN_ERR PFX "Busy timeout\n");
+-		return -ETIMEDOUT;
+-	}
+-
+-	return 0;
+-}
+-
+-
+-static int orinoco_tmd_init_one(struct pci_dev *pdev,
+-				const struct pci_device_id *ent)
+-{
+-	int err = 0;
+-	struct orinoco_private *priv = NULL;
+-	struct orinoco_tmd_card *card;
+-	struct net_device *dev = NULL;
+-	void __iomem *mem;
+-
+-	err = pci_enable_device(pdev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot enable PCI device\n");
+-		return err;
+-	}
+-
+-	err = pci_request_regions(pdev, DRIVER_NAME);
+-	if (err != 0) {
+-		printk(KERN_ERR PFX "Cannot obtain PCI resources\n");
+-		goto fail_resources;
+-	}
+-
+-	mem = pci_iomap(pdev, 2, 0);
+-	if (! mem) {
+-		err = -ENOMEM;
+-		goto fail_iomap;
+-	}
+-
+-	/* Allocate network device */
+-	dev = alloc_orinocodev(sizeof(*card), orinoco_tmd_cor_reset);
+-	if (! dev) {
+-		printk(KERN_ERR PFX "Cannot allocate network device\n");
+-		err = -ENOMEM;
+-		goto fail_alloc;
+-	}
+-
+-	priv = netdev_priv(dev);
+-	card = priv->card;
+-	card->tmd_io = pci_resource_start(pdev, 1);
+-	dev->base_addr = pci_resource_start(pdev, 2);
+-	SET_MODULE_OWNER(dev);
+-	SET_NETDEV_DEV(dev, &pdev->dev);
+-
+-	hermes_struct_init(&priv->hw, mem, HERMES_16BIT_REGSPACING);
+-
+-	printk(KERN_DEBUG PFX "Detected Orinoco/Prism2 TMD device "
+-	       "at %s irq:%d, io addr:0x%lx\n", pci_name(pdev), pdev->irq,
+-	       dev->base_addr);
+-
+-	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
+-			  dev->name, dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
+-		err = -EBUSY;
+-		goto fail_irq;
+-	}
+-	dev->irq = pdev->irq;
+-
+-	err = orinoco_tmd_cor_reset(priv);
+-	if (err) {
+-		printk(KERN_ERR PFX "Initial reset failed\n");
+-		goto fail;
+-	}
+-
+-	err = register_netdev(dev);
+-	if (err) {
+-		printk(KERN_ERR PFX "Cannot register network device\n");
+-		goto fail;
+-	}
+-
+-	pci_set_drvdata(pdev, dev);
+-
+-	return 0;
+-
+- fail:
+-	free_irq(pdev->irq, dev);
+-
+- fail_irq:
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-
+- fail_alloc:
+-	pci_iounmap(pdev, mem);
+-
+- fail_iomap:
+-	pci_release_regions(pdev);
+-
+- fail_resources:
+-	pci_disable_device(pdev);
+-
+-	return err;
+-}
+-
+-static void __devexit orinoco_tmd_remove_one(struct pci_dev *pdev)
+-{
+-	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct orinoco_private *priv = dev->priv;
+-
+-	BUG_ON(! dev);
+-
+-	unregister_netdev(dev);
+-	free_irq(dev->irq, dev);
+-	pci_set_drvdata(pdev, NULL);
+-	free_orinocodev(dev);
+-	pci_iounmap(pdev, priv->hw.iobase);
+-	pci_release_regions(pdev);
+-	pci_disable_device(pdev);
+-}
+-
+-
+-static struct pci_device_id orinoco_tmd_pci_id_table[] = {
+-	{0x15e8, 0x0131, PCI_ANY_ID, PCI_ANY_ID,},      /* NDC and OEMs, e.g. pheecom */
+-	{0,},
+-};
+-
+-MODULE_DEVICE_TABLE(pci, orinoco_tmd_pci_id_table);
+-
+-static struct pci_driver orinoco_tmd_driver = {
+-	.name		= DRIVER_NAME,
+-	.id_table	= orinoco_tmd_pci_id_table,
+-	.probe		= orinoco_tmd_init_one,
+-	.remove		= __devexit_p(orinoco_tmd_remove_one),
+-};
+-
+-static char version[] __initdata = DRIVER_NAME " " DRIVER_VERSION
+-	" (Joerg Dorchain <joerg@dorchain.net>)";
+-MODULE_AUTHOR("Joerg Dorchain <joerg@dorchain.net>");
+-MODULE_DESCRIPTION("Driver for wireless LAN cards using the TMD7160 PCI bridge");
+-MODULE_LICENSE("Dual MPL/GPL");
+-
+-static int __init orinoco_tmd_init(void)
+-{
+-	printk(KERN_DEBUG "%s\n", version);
+-	return pci_module_init(&orinoco_tmd_driver);
+-}
+-
+-static void __exit orinoco_tmd_exit(void)
+-{
+-	pci_unregister_driver(&orinoco_tmd_driver);
+-	ssleep(1);
+-}
+-
+-module_init(orinoco_tmd_init);
+-module_exit(orinoco_tmd_exit);
+-
+-/*
+- * Local variables:
+- *  c-indent-level: 8
+- *  c-basic-offset: 8
+- *  tab-width: 8
+- * End:
+- */
