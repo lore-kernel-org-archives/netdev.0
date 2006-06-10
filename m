@@ -1,37 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netif_tx_disable vs netif_stop_queue (possible races?)
-Date: Sat, 10 Jun 2006 09:35:31 +1000
-Message-ID: <20060609233531.GA15756@gondor.apana.org.au>
-References: <E1FoYoi-0001gg-00@gondolin.me.apana.org.au> <448993C9.8040400@gentoo.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC] [patch 5/6] [Network namespace] ipv4 isolation
+Date: Fri, 9 Jun 2006 20:23:39 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606092022320.17380@d.namei>
+References: <20060609210202.215291000@localhost.localdomain>
+ <20060609210631.346330000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, david-b@pacbell.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:16905 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030388AbWFIXxb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Jun 2006 19:53:31 -0400
-To: Daniel Drake <dsd@gentoo.org>
-Content-Disposition: inline
-In-Reply-To: <448993C9.8040400@gentoo.org>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:19398 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932601AbWFJAXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Jun 2006 20:23:43 -0400
+To: dlezcano@fr.ibm.com
+In-Reply-To: <20060609210631.346330000@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 09, 2006 at 04:29:13PM +0100, Daniel Drake wrote:
-> 
-> Can I interpret your response as: If the TX queue is disabled in 
-> advance, no hard_start_xmit functions will be running on any CPU after 
-> synchronize_net() has returned?
+On Fri, 9 Jun 2006, dlezcano@fr.ibm.com wrote:
 
-Correct.  All callers of hard_start_xmit do so under RCU or equivalent
-locks so they must be complete by the time synchronize_net() returns.
+> When an outgoing packet has the loopback destination addres, the
+> skbuff is filled with the network namespace. So the loopback packets
+> never go outside the namespace. This approach facilitate the migration
+> of loopback because identification is done by network namespace and
+> not by address. The loopback has been benchmarked by tbench and the
+> overhead is roughly 1.5 %
 
-What you got watch out for though are paths where the driver might
-reenable the queue.  That could be a real bug.
+I think you'll need to make it so this code has zero impact when not 
+configured.
 
-Cheers,
+
+- James
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+James Morris
+<jmorris@namei.org>
