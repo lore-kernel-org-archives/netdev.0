@@ -1,17 +1,16 @@
 From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] 3c5zz ethernet: fix section warnings
-Date: Sat, 10 Jun 2006 13:33:48 -0700
-Message-ID: <20060610133348.3551e617.rdunlap@xenotime.net>
+Subject: [PATCH] hp ethernet: fix section mismatches
+Date: Sat, 10 Jun 2006 13:32:12 -0700
+Message-ID: <20060610133212.6d0e5ecb.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: philb@gnu.org, p_gortmaker@yahoo.com, jgarzik <jgarzik@pobox.com>,
-	akpm <akpm@osdl.org>
+Cc: akpm <akpm@osdl.org>, jgarzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:35221 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1751700AbWFJUdN (ORCPT
+Received: from xenotime.net ([66.160.160.81]:34197 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S1751698AbWFJUdN (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 16:33:13 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 13:33:11 -0700
+Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Sat, 10 Jun 2006 13:33:10 -0700
 To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -21,37 +20,19 @@ From: Randy Dunlap <rdunlap@xenotime.net>
 Priority: not critical; makes init code discardable.
 
 Fix section mismatch warnings:
-WARNING: drivers/net/3c501.o - Section mismatch: reference to .init.text:el1_probe from .text between 'init_module' (at offset 0x812) and 'cleanup_module'
-WARNING: drivers/net/3c503.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x661) and 'cleanup_card'
-WARNING: drivers/net/3c505.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x228d) and 'cleanup_module'
-WARNING: drivers/net/3c507.o - Section mismatch: reference to .init.text:el16_probe from .text between 'init_module' (at offset 0xa99) and 'cleanup_module'
-WARNING: drivers/net/3c523.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x12e7) and 'cleanup_module'
-WARNING: drivers/net/3c527.o - Section mismatch: reference to .init.text:mc32_probe from .text between 'init_module' (at offset 0xd8d) and 'cleanup_module'
+WARNING: drivers/net/hp-plus.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x387) and 'cleanup_card'
+WARNING: drivers/net/hp.o - Section mismatch: reference to .init.data: from .text between 'hp_init_card' (at offset 0x310) and 'init_module'
+WARNING: drivers/net/hp.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x367) and 'cleanup_card'
 
 Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
 ---
- drivers/net/3c501.c |    2 +-
- drivers/net/3c503.c |    2 +-
- drivers/net/3c505.c |    2 +-
- drivers/net/3c507.c |    2 +-
- drivers/net/3c523.c |    2 +-
- drivers/net/3c527.c |    2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/hp-plus.c |    2 +-
+ drivers/net/hp.c      |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
---- linux-2617-rc6.orig/drivers/net/3c501.c
-+++ linux-2617-rc6/drivers/net/3c501.c
-@@ -909,7 +909,7 @@ MODULE_PARM_DESC(irq, "EtherLink IRQ num
-  * here also causes the module to be unloaded
-  */
-  
--int init_module(void)
-+int __init init_module(void)
- {
- 	dev_3c501 = el1_probe(-1);
- 	if (IS_ERR(dev_3c501))
---- linux-2617-rc6.orig/drivers/net/3c503.c
-+++ linux-2617-rc6/drivers/net/3c503.c
-@@ -688,7 +688,7 @@ MODULE_LICENSE("GPL");
+--- linux-2617-rc6.orig/drivers/net/hp-plus.c
++++ linux-2617-rc6/drivers/net/hp-plus.c
+@@ -446,7 +446,7 @@ MODULE_LICENSE("GPL");
  
  /* This is set up so that only a single autoprobe takes place per call.
  ISA device autoprobes on a running machine are not recommended. */
@@ -60,50 +41,26 @@ Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
  init_module(void)
  {
  	struct net_device *dev;
---- linux-2617-rc6.orig/drivers/net/3c505.c
-+++ linux-2617-rc6/drivers/net/3c505.c
-@@ -1633,7 +1633,7 @@ MODULE_PARM_DESC(io, "EtherLink Plus I/O
- MODULE_PARM_DESC(irq, "EtherLink Plus IRQ number(s) (assigned)");
- MODULE_PARM_DESC(dma, "EtherLink Plus DMA channel(s)");
+--- linux-2617-rc6.orig/drivers/net/hp.c
++++ linux-2617-rc6/drivers/net/hp.c
+@@ -384,7 +384,7 @@ hp_block_output(struct net_device *dev, 
+ }
  
--int init_module(void)
-+int __init init_module(void)
+ /* This function resets the ethercard if something screws up. */
+-static void
++static void __init
+ hp_init_card(struct net_device *dev)
  {
- 	int this_dev, found = 0;
+ 	int irq = dev->irq;
+@@ -409,7 +409,7 @@ MODULE_LICENSE("GPL");
  
---- linux-2617-rc6.orig/drivers/net/3c507.c
-+++ linux-2617-rc6/drivers/net/3c507.c
-@@ -932,7 +932,7 @@ module_param(irq, int, 0);
- MODULE_PARM_DESC(io, "EtherLink16 I/O base address");
- MODULE_PARM_DESC(irq, "(ignored)");
- 
--int init_module(void)
-+int __init init_module(void)
+ /* This is set up so that only a single autoprobe takes place per call.
+ ISA device autoprobes on a running machine are not recommended. */
+-int
++int __init
+ init_module(void)
  {
- 	if (io == 0)
- 		printk("3c507: You should not use auto-probing with insmod!\n");
---- linux-2617-rc6.orig/drivers/net/3c523.c
-+++ linux-2617-rc6/drivers/net/3c523.c
-@@ -1277,7 +1277,7 @@ MODULE_PARM_DESC(io, "EtherLink/MC I/O b
- MODULE_PARM_DESC(irq, "EtherLink/MC IRQ number(s)");
- MODULE_LICENSE("GPL");
- 
--int init_module(void)
-+int __init init_module(void)
- {
- 	int this_dev,found = 0;
- 
---- linux-2617-rc6.orig/drivers/net/3c527.c
-+++ linux-2617-rc6/drivers/net/3c527.c
-@@ -1646,7 +1646,7 @@ static struct net_device *this_device;
-  *	insmod multiple modules for now but it's a hack.
-  */
- 
--int init_module(void)
-+int __init init_module(void)
- {
- 	this_device = mc32_probe(-1);
- 	if (IS_ERR(this_device))
+ 	struct net_device *dev;
 
 
 ---
