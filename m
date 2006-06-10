@@ -1,56 +1,55 @@
-From: Kari Hurtta <hurtta+gmane@siilo.fmi.fi>
-Subject: Re: [RFC] [patch 0/6] [Network namespace] introduction
-Date: 10 Jun 2006 10:16:49 +0300
-Message-ID: <5dbqt1v5su.fsf@attruh.keh.iki.fi>
-References: <20060609210202.215291000@localhost.localdomain>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [linux-usb-devel] [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
+Date: Sat, 10 Jun 2006 13:23:06 +0200
+Message-ID: <20060610112306.GA19198@p15091797.pureserver.info>
+References: <44817083.508@gentoo.org> <200606031951.09135.oliver@neukum.org> <4481E497.2000505@gentoo.org> <200606040025.32275.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030341AbWFJHRH@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Daniel Drake <dsd@gentoo.org>,
+	linux-usb-devel@lists.sourceforge.net,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from deine-taler.de ([217.160.107.63]:39124 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1751488AbWFJLXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jun 2006 07:23:07 -0400
+To: Oliver Neukum <oliver@neukum.org>
+Content-Disposition: inline
+In-Reply-To: <200606040025.32275.oliver@neukum.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dlezcano@fr.ibm.com writes in gmane.linux.network,gmane.linux.kernel:
+On 06-06-04 00:25 Oliver Neukum wrote:
 
-> The following patches create a private "network namespace" for use
-> within containers. This is intended for use with system containers
-> like vserver, but might also be useful for restricting individual
-> applications' access to the network stack.
+> > > +static void disconnect(struct usb_interface *intf)
+> > > This is racy. It allows io to disconnected devices. You must take the
+> > > lock and set a flag that you test after you've taken the lock elsewhere.
+> > 
+> > Will fix, thanks.
 > 
-> These patches isolate traffic inside the network namespace. The
-> network ressources, the incoming and the outgoing packets are
-> identified to be related to a namespace. 
-> 
-> It hides network resource not contained in the current namespace, but
-> still allows administration of the network with normal commands like
-> ifconfig.
-> 
-> It applies to the kernel version 2.6.17-rc6-mm1
-> 
-> It provides the following:
-> -------------------------
->    - when an application unshares its network namespace, it looses its
->      view of all network devices by default. The administrator can
->      choose to make any devices to become visible again. The container
->      then gains a view to the device but without the ip address
->      configured on it. It is up to the container administrator to use
->      ifconfig or ip command to setup a new ip address. This ip address
->      is only visible inside the container.
+> You're welcome
 
-Do other namespaces work differently ?
-When namespace is unshared, it has initially the same resources
-(for example compare to CLONE_NEWNS)
+Not so fast, because I don't know what to fix.
 
- 
->    - the loopback is isolated inside the container and it is not
->      possible to communicate between containers via the
->      loopback. 
-> 
->    - several containers can have an application bind to the same
->      address:port without conflicting. 
+Actually there are two cases, when disconnect is called. The first
+is, when the device is removed. The second is, when the kernel
+module is removed from the kernel. It should also be recognized
+that disconnect() must always succeed, so we have to ignore IO
+errors anyhow.
 
-That of course be problem, if initially unshared namespace shares
-same resources.
+In the first case we don't need the IO and in the second case we
+have to do it, because otherwise, the device will not come up, if
+we load the driver again.
 
-/ Kari Hurtta
+Testing shows, that doing the IO doesn't create a lot of issues,
+there are some errors reported, but that's it and the second case
+just works fine. So there doesn't appear a problem and even if
+want to be "clean", I would like to know, how to distinguish both
+cases without trying to do IO with the device.
+
+In  the meanwhile I removed the misleading comment about locking.
+I would like also like to know, that beside the fact that device
+IO fails, which races can happen?
+
+-- 
+Uli Kunitz
