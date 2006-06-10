@@ -1,76 +1,57 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] [2.6.17-rc6] Section mismatch in drivers/net/ne.o during
- modpost
-Date: Sat, 10 Jun 2006 12:13:35 -0700
-Message-ID: <20060610121335.447e19f2.rdunlap@xenotime.net>
-References: <200606101211.k5ACBgtl029545@harpo.it.uu.se>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [linux-usb-devel] [PATCH RFC] ZyDAS ZD1211 USB-WLAN driver
+Date: Sat, 10 Jun 2006 20:37:15 +0100
+Message-ID: <448B1F6B.2020809@gentoo.org>
+References: <44817083.508@gentoo.org> <200606031951.09135.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik <jgarzik@pobox.com>, akpm <akpm@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751677AbWFJTKu@vger.kernel.org>
-To: Mikael Pettersson <mikpe@it.uu.se>
-In-Reply-To: <200606101211.k5ACBgtl029545@harpo.it.uu.se>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-usb-devel@lists.sourceforge.net,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, Ulrich Kunitz <kune@deine-taler.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:52821 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1030504AbWFJTf5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 Jun 2006 15:35:57 -0400
+To: Oliver Neukum <oliver@neukum.org>
+In-Reply-To: <200606031951.09135.oliver@neukum.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 10 Jun 2006 14:11:42 +0200 (MEST) Mikael Pettersson wrote:
-
-> While compiling 2.6.17-rc6 for a 486 with an NE2000 ISA ethernet card, I got:
+Oliver Neukum wrote:
+> +static void disconnect(struct usb_interface *intf)
+> +{
 > 
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x158) and 'ne_block_input'
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x176) and 'ne_block_input'
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x183) and 'ne_block_input'
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x1ea) and 'ne_block_input'
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x251) and 'ne_block_input'
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x266) and 'ne_block_input'
-> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x29b) and 'ne_block_input'
-> 
-> Not sure how serious this is; the driver seems to work fine later on.
+> This is racy. It allows io to disconnected devices. You must take the
+> lock and set a flag that you test after you've taken the lock elsewhere.
 
-Doesn't look serious.  init_module() is not __init, but it calls
-some __init functions and touches some __initdata.
+It's been a bit of an adventure, but I'm now fairly confident that only 
+a single-line change is required to fix this: stop the TX queue early on 
+in the netdev->stop function.
 
-BTW, I would be happy to see some consistent results from modpost
-section checking.  I don't see all of these warnings (I see only 1)
-when using gcc 3.3.6.  What gcc version are you using?
-Does that matter?  (not directed at anyone in particular)
+When disconnect() happens, we call unregister_netdev(). This will call 
+netdev->stop if the interface was up, and netdev->stop ensures that no 
+more packets are queued for transmission, and that the host does not 
+receive any more packets or interrupts from the device.
 
-Patch below fixes it for me.  Please test/report.
----
+unregister_netdev() also does some synchronization and rtnl stuff, and 
+after it has returned, it is guaranteed that no ioctls or other 
+functions (hard_start_xmit/set_mac_address) are in progress, and it is 
+guaranteed that no more of those will happen.
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+In disconnect() we also kill all urbs that we know about. All of our URB 
+completions handle the cancelled case without generating further I/O.
 
-Fix section mismatch warnings:
-WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x396) and 'cleanup_card'
-WARNING: drivers/net/ne2.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x483) and 'cleanup_card'
+Additionally, the return values of all of our usb I/O function calls are 
+checked and propagated up, so most code will simply stop when the device 
+gets unplugged.
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- drivers/net/ne.c  |    2 +-
- drivers/net/ne2.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+At this point, it's now safe to say that nobody is using (or will use) 
+the various structures, so disconnect() frees the whole lot and returns.
 
---- linux-2617-rc6.orig/drivers/net/ne.c
-+++ linux-2617-rc6/drivers/net/ne.c
-@@ -829,7 +829,7 @@ that the ne2k probe is the last 8390 bas
- is at boot) and so the probe will get confused by any other 8390 cards.
- ISA device autoprobes on a running machine are not recommended anyway. */
- 
--int init_module(void)
-+int __init init_module(void)
- {
- 	int this_dev, found = 0;
- 
---- linux-2617-rc6.orig/drivers/net/ne2.c
-+++ linux-2617-rc6/drivers/net/ne2.c
-@@ -780,7 +780,7 @@ MODULE_PARM_DESC(bad, "(ignored)");
- 
- /* Module code fixed by David Weinehall */
- 
--int init_module(void)
-+int __init init_module(void)
- {
- 	struct net_device *dev;
- 	int this_dev, found = 0;
+Do you agree, or did you have certain other race paths in mind which I 
+might have missed?
+
+Thanks,
+Daniel
