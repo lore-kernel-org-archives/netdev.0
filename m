@@ -1,59 +1,29 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Sat, 10 Jun 2006 14:05:23 +0200
-Message-ID: <20060610120523.GA24288@electric-eye.fr.zoreil.com>
-References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
-	Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: [2.6.17-rc6] Section mismatch in drivers/net/ne.o during modpost
+Date: Sat, 10 Jun 2006 14:11:42 +0200 (MEST)
+Message-ID: <200606101211.k5ACBgtl029545@harpo.it.uu.se>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:28565 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751495AbWFJMJZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Jun 2006 08:09:25 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <4489C290.6020705@garzik.org>
+Received: from aun.it.uu.se ([130.238.12.36]:18565 "EHLO aun.it.uu.se")
+	by vger.kernel.org with ESMTP id S1751490AbWFJMLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Jun 2006 08:11:45 -0400
+To: linux-kernel@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jeff@garzik.org> :
-> Francois Romieu wrote:
-> >Jeff Garzik <jeff@garzik.org> :
-> >>Randy.Dunlap wrote:
-> >>>Conversely, any reason to use the RealTek r1000 driver?
-> >>FWIW, RealTek emailed me about merging r1000.  I suggested that, if the 
-> >
-> >Which one ?
-> >
-> >r1000_n.c where #define RELEASE_DATE "2006/02/23"
-> 
-> They didn't say.  Just "r1000"
+While compiling 2.6.17-rc6 for a 486 with an NE2000 ISA ethernet card, I got:
 
-Can you ask your Realtek person if he is really sure about the following
-snippet in r1000_n.c::r1000_init_one:
+  Building modules, stage 2.
+make -rR -f /tmp/linux-2.6.17-rc6/scripts/Makefile.modpost
+  scripts/mod/modpost   -o /tmp/linux-2.6.17-rc6/Module.symvers   vmlinux drivers/net/8390.o drivers/net/ne.o lib/crc32.o net/packet/af_packet.o
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x158) and 'ne_block_input'
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x176) and 'ne_block_input'
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x183) and 'ne_block_input'
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x1ea) and 'ne_block_input'
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x251) and 'ne_block_input'
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x266) and 'ne_block_input'
+WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x29b) and 'ne_block_input'
 
-		if((priv->mcfg!=MCFG_METHOD_13)&&(priv->mcfg!=MCFG_METHOD_14)&&(priv->mcfg!=MCFG_METHOD_15))
-			printk("This Realtek NIC doesn't support 1000Mbps\n");
-		else
-			Cap1000 = PHY_Cap_1000_Full|PHY_Cap_1000_Half;
+Not sure how serious this is; the driver seems to work fine later on.
 
--> in forced 1000 mode, 1000_{Half/Full} would only be written to the
-   advertisement register for MCFG_METHOD_1{3/4/5}. It excludes all
-   the adapters that the in-kernel driver support (huh ?).
-
-Later in the same function:
-[...]
-	if(( priv->mcfg == MCFG_METHOD_11 )||( priv->mcfg == MCFG_METHOD_12 ))
-		printk("Realtek RTL8168/8111 Family PCI-E Gigabit Ethernet Network Adapter\n");
-	else if((priv->mcfg==MCFG_METHOD_13)||(priv->mcfg==MCFG_METHOD_14)||(priv->mcfg==MCFG_METHOD_15))
-		printk("Realtek RTL8139/810x Family Fast Ethernet Network Adapter\n");
-
--> the != ... && ... != test above seems inverted.
-
-Btw, it would be nice if he could confirm that the 0x10ec/0x8129 ID
-sent by Yoichi Yuasa is really allowed (and not a random bitflip).
-
--- 
-Ueimor
+/Mikael
