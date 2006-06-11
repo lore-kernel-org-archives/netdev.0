@@ -1,54 +1,43 @@
-From: Joseph Jezak <josejx@gentoo.org>
-Subject: [PATCH] SoftMAC: Add network to ieee80211softmac_call_events when
- associate times out
-Date: Sun, 11 Jun 2006 12:01:03 -0400
-Message-ID: <448C3E3F.7040908@gentoo.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 7/8] lock validator: fix ns83820.c irq-flags bug
+Date: Sun, 11 Jun 2006 12:09:05 -0400
+Message-ID: <448C4021.80102@garzik.org>
+References: <200606090519.k595JmDG032032@shell0.pdx.osdl.net> <448C2EEE.1020405@garzik.org> <448C2FFE.3010002@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, netdev@vger.kernel.org, mingo@elte.hu,
+	bcrl@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rwcrmhc12.comcast.net ([204.127.192.82]:63438 "EHLO
-	rwcrmhc12.comcast.net") by vger.kernel.org with ESMTP
-	id S1751168AbWFKQBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jun 2006 12:01:05 -0400
-To: NetDev <netdev@vger.kernel.org>, bcm43xx-dev@berlios.de
+Received: from srv5.dvmed.net ([207.36.208.214]:39647 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751643AbWFKQJJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 12:09:09 -0400
+To: Arjan van de Ven <arjan@linux.intel.com>
+In-Reply-To: <448C2FFE.3010002@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ieee80211softmac_call_events function, when called with event type
-IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT should pass the network as the
-third parameter.  This patch does that.
+Arjan van de Ven wrote:
+> Jeff Garzik wrote:
+>> The driver's locking is definitely wrong, but I don't think this is 
+>> the fix, 
+> 
+> it's an obvious correct fix in the correctness sense though...
+> 
+>>
+>> Jesus, the locking here is awful.  No wonder there are bugs.
+> 
+> 
+> ... which given that fact, is for 2.6.17 probably the right thing, pending
+> a nicer fix for 2.6.18
 
-Signed-off-by: Joseph Jezak <josejx@gentoo.org>
+I disagree, the patch is wrong too.
 
----
+For normal PCI hardware, the in-ISR paths should all use spin_lock(), 
+and the outside-ISR paths should use either spin_lock_irq() or 
+spin_lock_irqsave().
 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index aa65a7e..f9f7c8d 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -61,6 +61,7 @@ void
- ieee80211softmac_assoc_timeout(void *d)
- {
- 	struct ieee80211softmac_device *mac = (struct ieee80211softmac_device *)d;
-+	struct ieee80211softmac_network *n;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&mac->lock, flags);
-@@ -73,11 +74,12 @@ ieee80211softmac_assoc_timeout(void *d)
- 	mac->associnfo.associating = 0;
- 	mac->associnfo.bssvalid = 0;
- 	mac->associated = 0;
-+
-+	n = ieee80211softmac_get_network_by_bssid_locked(mac, mac->associnfo.bssid);	
- 	spin_unlock_irqrestore(&mac->lock, flags);
- 
- 	dprintk(KERN_INFO PFX "assoc request timed out!\n");
--	/* FIXME: we need to know the network here. that requires a bit of restructuring */
--	ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT, NULL);
-+	ieee80211softmac_call_events(mac, IEEE80211SOFTMAC_EVENT_ASSOCIATE_TIMEOUT, n);
- }
- 
- /* Sends out a disassociation request to the desired AP */
+	Jeff
+
 
 
