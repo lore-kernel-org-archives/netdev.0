@@ -1,55 +1,34 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [patch 7/8] lock validator: fix ns83820.c irq-flags bug
-Date: Sun, 11 Jun 2006 09:12:17 -0700
-Message-ID: <448C40E1.8080705@linux.intel.com>
-References: <200606090519.k595JmDG032032@shell0.pdx.osdl.net> <448C2EEE.1020405@garzik.org> <448C2FFE.3010002@linux.intel.com> <448C4021.80102@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2] PHYLIB: Add get_link ethtool helper function
+Date: Sun, 11 Jun 2006 12:13:37 -0400
+Message-ID: <448C4131.3000504@garzik.org>
+References: <1149551292.10700.47.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, mingo@elte.hu,
-	bcrl@kvack.org
+Cc: Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr18.intel.com ([134.134.136.17]:36739 "EHLO
-	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932119AbWFKQNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jun 2006 12:13:13 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <448C4021.80102@garzik.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:50911 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932124AbWFKQNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 12:13:40 -0400
+To: Nathaniel Case <ncase@xes-inc.com>
+In-Reply-To: <1149551292.10700.47.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Arjan van de Ven wrote:
->> Jeff Garzik wrote:
->>> The driver's locking is definitely wrong, but I don't think this is 
->>> the fix, 
->>
->> it's an obvious correct fix in the correctness sense though...
->>
->>>
->>> Jesus, the locking here is awful.  No wonder there are bugs.
->>
->>
->> ... which given that fact, is for 2.6.17 probably the right thing, 
->> pending
->> a nicer fix for 2.6.18
+Nathaniel Case wrote:
+> This adds a phy_ethtool_get_link() function along the same lines as
+> phy_ethtool_gset().  This provides drivers utilizing PHYLIB an
+> alternative to using ethtool_op_get_link().  This is more desirable
+> since the "Link detected" field in ethtool would actually reflect the
+> state of the PHY register.
 > 
-> I disagree, the patch is wrong too.
+> Patch depends on previous patch (0/2).
+> 
+> Signed-off-by: Nate Case <ncase@xes-inc.com>
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
 
-wrong as in "not quite optimal", not wrong as in "buggy".
+NAK, needs an EXPORT
 
-> For normal PCI hardware, the in-ISR paths should all use spin_lock(), 
-
-only for per hardware locks obviously, not for per driver locks ;)
-
-
-you are right that it's a lot nicer to do what you describe. No argument
-from me on that part. But to call it "wrong" or "incorrect" is not quite
-ok.  In terms of changing/fixing the approach we did was the simplest one.
-Not the "make it look nice" one. Fix it by making the bug go away in the light
-of a LOT of fishy locking.
-
-You can demand that we first fix all the fishy locking first, and I can even
-in part agree with that, but for -stable and 2.6.17 that is obviously out
-of scope while a simple "make the bug go away" fix is not.
 
