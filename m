@@ -1,39 +1,52 @@
-From: "August Chen" <ljtytkbp@dhardee.com>
-Subject: Set up a password reminder
-Date: Sun, 11 Jun 2006 11:48:17 +0500
-Message-ID: <2793B67C.6964007@angling.peternixon.net>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [RFC ] [2 of 4] IEEE802.11 Regulatory/Geographical Support for drivers - database
+Date: Sun, 11 Jun 2006 11:42:36 +0200
+Message-ID: <20060611094236.GE24167@p15091797.pureserver.info>
+References: <4482110B.4080404@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-139-142-198-83.gtcust.grouptelecom.net ([139.142.198.83]:56075
-	"HELO static-139-142-198-83.gtcust.grouptelecom.net")
-	by vger.kernel.org with SMTP id S932099AbWFKFwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 01:52:19 -0400
+Received: from deine-taler.de ([217.160.107.63]:58090 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1750869AbWFKJmh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jun 2006 05:42:37 -0400
 To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <4482110B.4080404@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 06-06-03 17:45 Larry Finger wrote:
 
--S''ensationall r'evoolution in m''edicine!
+> This message shows each of the 2.4 GHz and 5 GHz bands split into indoor 
+> and outdoor usage. For each group, the ISO name for that country is shown 
+> before the channel listing. There are a lot of countries that do not belong 
+> in the default group. I welcome any input you can provide for these missing 
+> countries, and any other incorrect information. Note: The country code EU 
+> is a pseudonym for the entire European Union.
+> 
+> Thanks,  Larry
+> 
+> =============================================================================================
+> 
+> IEEE80211 Regulatory/Geographical Daemon (V0.1)
+> Using Database Version of 26 May 2006
+> 
 
--En  large your p''e'n'i's up to 10 cm or up to 4 i'nches!
+Hi Larry,
 
--It's h'e'r'b'a'l solution what hasn't side e'ffect, but has 100% g'uaranted results!
+two minor comments.
 
--Don't lose your chance and but know wihtout d'oubts, you will be i'mpressed with results!
+1. I appreciate that you are keeping everything in 80 character
+   lines. So I believe the one line extending 80 characters is an
+   oversight.
 
- Clisk here: http://teensnj.info
+2. Could you just add a simple explanation for the pow column for
+   the uninformed reader?
 
+Regards,
 
+Uli
 
-
-
-
-
-
-
-
-tipple cardiovascular battlefront wordy borderline puffin adult reb bereft lebanese
-focussed jake cloture deportee crumble wrongful allyl alva dolphin
-vietnam plagued camp retch expulsion southwest aviary pegging swore roberts virginal
-beaux gallus bistable chess coverall salamander bernardo tab
-eden prolix inflexible cobblestone tangent chemise autoclave chambermaid
-foss gutsy tackle papacy aquarium dawson suffuse caucus
+-- 
+Uli Kunitz
