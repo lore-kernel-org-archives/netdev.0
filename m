@@ -1,36 +1,49 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [patch 7/8] lock validator: fix ns83820.c irq-flags bug
-Date: Sun, 11 Jun 2006 16:28:56 -0400
-Message-ID: <20060611202856.GA9868@kvack.org>
-References: <200606090519.k595JmDG032032@shell0.pdx.osdl.net> <448C4C7A.7020301@garzik.org>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] [2.6.17-rc6] Section mismatch in drivers/net/ne.o during modpost
+Date: Sun, 11 Jun 2006 23:54:04 +0200
+Message-ID: <20060611215404.GA27380@mars.ravnborg.org>
+References: <200606111437.k5BEbVu5021415@harpo.it.uu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, netdev@vger.kernel.org, mingo@elte.hu,
-	arjan@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:33501 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1750963AbWFKU3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 16:29:08 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Cc: rdunlap@xenotime.net, akpm@osdl.org, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751060AbWFKVy2@vger.kernel.org>
+To: Mikael Pettersson <mikpe@it.uu.se>
 Content-Disposition: inline
-In-Reply-To: <448C4C7A.7020301@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200606111437.k5BEbVu5021415@harpo.it.uu.se>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The above code snippet removes the nested unlock-irq, but now the code 
-> is unbalanced, so IMO this patch _adds_ confusion.
+On Sun, Jun 11, 2006 at 04:37:31PM +0200, Mikael Pettersson wrote:
+> On Sat, 10 Jun 2006 22:38:00 +0200, Sam Ravnborg wrote:
+> >> --- linux-2617-rc6.orig/drivers/net/ne.c
+> >> +++ linux-2617-rc6/drivers/net/ne.c
+> >> @@ -829,7 +829,7 @@ that the ne2k probe is the last 8390 bas
+> >>  is at boot) and so the probe will get confused by any other 8390 cards.
+> >>  ISA device autoprobes on a running machine are not recommended anyway. */
+> >>  
+> >> -int init_module(void)
+> >> +int __init init_module(void)
+> >>  {
+> >>  	int this_dev, found = 0;
+> >
+> >When you anyway touches the driver I suggest to name the function
+> ><module>_init, <module>_cleanup and use module_init(), module_cleanup().
 > 
-> I think the conservative patch for 2.6.17 is the one I have attached. 
-> Unless there are objections, that is what I will forward...
+> Maybe not: in the ne.c driver init_module() is inside #ifdef MODULE,
+> so conversion to ne_init() + module_init(ne_init) would be a no-op
+> except for making the code larger. In the non-MODULE case Space.c
+> calls ne_probe() directly.
+The whole purpose of marking a function __init is to place in in a
+section that can be discarded after init. This has the added advantage
+that it kills off some ugly #ifdef MODULE / #endif as is the case for
+ne.c
 
-This looks reasonable and sufficiently conservative.  Reworking locking is 
-something that I'm a bit more hesitant about, although folding misc_lock 
-in with the other locks perhaps makes sense.  I would like to keep the 
-split between tx and tx completion, though.  Also, any rework is going to 
-need real testing, which is not something that a simple release cycle is 
-likely to get enough coverage on.
+Even if not discarded then the code cleaniness is preferable to #ifdef /
+#endif if purpose is only to save a few bytes.
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+Shifting to module_init(), module_cleanup() is the only right thing to
+do - and the old behaviour is not even documented in LDD3 anymore.
+[At least I did not find it last time I searched].
+
+	Sam
