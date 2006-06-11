@@ -1,36 +1,55 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [patch 7/8] lock validator: fix ns83820.c irq-flags bug
-Date: Sun, 11 Jun 2006 08:00:14 -0700
-Message-ID: <448C2FFE.3010002@linux.intel.com>
-References: <200606090519.k595JmDG032032@shell0.pdx.osdl.net> <448C2EEE.1020405@garzik.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [RFC ] [2 of 4] IEEE802.11 Regulatory/Geographical Support for
+ drivers - database
+Date: Sun, 11 Jun 2006 10:59:55 -0500
+Message-ID: <448C3DFB.2000305@lwfinger.net>
+References: <4482110B.4080404@lwfinger.net> <20060611094236.GE24167@p15091797.pureserver.info>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, mingo@elte.hu,
-	bcrl@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:8911 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751622AbWFKPBE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jun 2006 11:01:04 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <448C2EEE.1020405@garzik.org>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:5305 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1750999AbWFKP77 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jun 2006 11:59:59 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060611094236.GE24167@p15091797.pureserver.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> The driver's locking is definitely wrong, but I don't think this is the 
-> fix, 
+Hi Uli,
 
-it's an obvious correct fix in the correctness sense though...
+Thanks for the comments.
+
+Ulrich Kunitz wrote:
+
+> two minor comments.
+> 
+> 1. I appreciate that you are keeping everything in 80 character
+>    lines. So I believe the one line extending 80 characters is an
+>    oversight.
+
+I have tried, but will watch that more carefully.
 
 > 
-> Jesus, the locking here is awful.  No wonder there are bugs.
+> 2. Could you just add a simple explanation for the pow column for
+>    the uninformed reader?
+
+It was described in the initial text material that was not sent out. I have duplicated that info at 
+the beginning of each type of group description, and have added it to the header on the debug output 
+as follows:
+
+AT, HR, CY, CZ, DK, EE, EU, FI, FR, GF, DE, VA, HU, IE, IT, LV, LT, LU, MK, MT
+NL, PL, RE, SI, SE, GB
+
+Indoor Group 1 with 18 channels in 5 GHz bands
+
+   Chn  Freq Pow(dBm)   Flags
+    36  5180    23      PASSIVE   H_RULES
+    40  5200    23      PASSIVE   H_RULES
+    44  5220    23      PASSIVE   H_RULES
+    48  5240    23      PASSIVE   H_RULES
+    52  5260    23      PASSIVE   H_RULES
 
 
-... which given that fact, is for 2.6.17 probably the right thing, pending
-a nicer fix for 2.6.18
-
-I fully agree with you that the locking is trying to be WAAAY too smart
-for it's own good, and that a much simpler scheme is called for.
-
+Larry
