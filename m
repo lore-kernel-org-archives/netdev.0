@@ -1,42 +1,36 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: IEEE80211 Regulatory/Geographical Support for WLAN driver
-Date: Sun, 11 Jun 2006 22:21:14 +0200
-Message-ID: <20060611202114.GA26884@p15091797.pureserver.info>
-References: <448210EF.10103@lwfinger.net> <20060611100750.GF24167@p15091797.pureserver.info> <448C48CF.50205@lwfinger.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [patch 7/8] lock validator: fix ns83820.c irq-flags bug
+Date: Sun, 11 Jun 2006 16:28:56 -0400
+Message-ID: <20060611202856.GA9868@kvack.org>
+References: <200606090519.k595JmDG032032@shell0.pdx.osdl.net> <448C4C7A.7020301@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: akpm@osdl.org, netdev@vger.kernel.org, mingo@elte.hu,
+	arjan@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:24787 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1750946AbWFKUVP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jun 2006 16:21:15 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Received: from kanga.kvack.org ([66.96.29.28]:33501 "EHLO kanga.kvack.org")
+	by vger.kernel.org with ESMTP id S1750963AbWFKU3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 16:29:08 -0400
+To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <448C48CF.50205@lwfinger.net>
+In-Reply-To: <448C4C7A.7020301@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-06-11 11:46 Larry Finger wrote:
+> The above code snippet removes the nested unlock-irq, but now the code 
+> is unbalanced, so IMO this patch _adds_ confusion.
+> 
+> I think the conservative patch for 2.6.17 is the one I have attached. 
+> Unless there are objections, that is what I will forward...
 
-> I don't see any means for the daemon to know its country other than the 
-> driver or the user telling it. If such a means exists, I would like to 
-> learn of it. My current working model is to supply the country code from a 
-> module option when the driver is loaded.
+This looks reasonable and sufficiently conservative.  Reworking locking is 
+something that I'm a bit more hesitant about, although folding misc_lock 
+in with the other locks perhaps makes sense.  I would like to keep the 
+split between tx and tx completion, though.  Also, any rework is going to 
+need real testing, which is not something that a simple release cycle is 
+likely to get enough coverage on.
 
-I thought about a config option. However thinking about they whole
-thing more, I believe the functionality of your daemon should be
-included into WPA supplicant and should use it's user space
-communication mechanisms. It will become the universal WLAN user
-space daemon anyhow. The second best option would be to extend
-udev and reuse the firmware loading code.
-
-BTW creating a file with 0666 is almost always a bad idea, even if
-it exists only a "short" time. 
-
-Kind regards,
-
-Uli
-
+		-ben
 -- 
-Uli Kunitz
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <dont@kvack.org>.
