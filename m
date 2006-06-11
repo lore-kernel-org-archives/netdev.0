@@ -1,71 +1,42 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH RFC] netpoll: don't spin forever sending to stopped queues
-Date: Sun, 11 Jun 2006 15:04:07 -0500
-Message-ID: <20060611200407.GG24227@waste.org>
-References: <44886381.9050506@goop.org> <20060608210702.GD24227@waste.org> <4488D9D6.6070205@goop.org>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: IEEE80211 Regulatory/Geographical Support for WLAN driver
+Date: Sun, 11 Jun 2006 22:21:14 +0200
+Message-ID: <20060611202114.GA26884@p15091797.pureserver.info>
+References: <448210EF.10103@lwfinger.net> <20060611100750.GF24167@p15091797.pureserver.info> <448C48CF.50205@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([64.81.244.121]:59556 "EHLO waste.org")
-	by vger.kernel.org with ESMTP id S1750890AbWFKUOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 16:14:04 -0400
-To: Jeremy Fitzhardinge <jeremy@goop.org>
+Received: from deine-taler.de ([217.160.107.63]:24787 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1750946AbWFKUVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jun 2006 16:21:15 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Content-Disposition: inline
-In-Reply-To: <4488D9D6.6070205@goop.org>
+In-Reply-To: <448C48CF.50205@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2006 at 07:15:50PM -0700, Jeremy Fitzhardinge wrote:
-> Matt Mackall wrote:
-> >That's odd. Netpoll holds a reference to the device, of course, but so
-> >does a normal "up" interface. So that shouldn't be the problem.
-> >Another possibility is that outgoing packets from printks in the
-> >driver are causing difficulty. Not sure what can be done about that.
-> >  
-> Here's a patch.  I haven't tested it beyond compiling it, and I don't 
-> know if it is actually correct.  In this case, it seems pointless to 
-> spin waiting for an even which will never happen.  Should 
-> netif_poll_disable() cause netpoll_send_skb() (or something) to not even 
-> bother trying to send?  netif_poll_disable seems mysteriously simple to me.
-> 
->    J
+On 06-06-11 11:46 Larry Finger wrote:
 
-Did this work for you at all?
+> I don't see any means for the daemon to know its country other than the 
+> driver or the user telling it. If such a means exists, I would like to 
+> learn of it. My current working model is to supply the country code from a 
+> module option when the driver is loaded.
 
-> When transmitting a skb in netpoll_send_skb(), only retry a limited
-> number of times if the device queue is stopped.
+I thought about a config option. However thinking about they whole
+thing more, I believe the functionality of your daemon should be
+included into WPA supplicant and should use it's user space
+communication mechanisms. It will become the universal WLAN user
+space daemon anyhow. The second best option would be to extend
+udev and reuse the firmware loading code.
 
-Where limited = once?
+BTW creating a file with 0666 is almost always a bad idea, even if
+it exists only a "short" time. 
 
-> Signed-off-by: Jeremy Fitzhardinge <jeremy@goop.org>
-> 
-> diff -r aac813f54617 net/core/netpoll.c
-> --- a/net/core/netpoll.c	Wed Jun 07 14:53:40 2006 -0700
-> +++ b/net/core/netpoll.c	Thu Jun 08 19:00:29 2006 -0700
-> @@ -280,15 +280,10 @@ static void netpoll_send_skb(struct netp
-> 		 * network drivers do not expect to be called if the queue is
-> 		 * stopped.
-> 		 */
-> -		if (netif_queue_stopped(np->dev)) {
-> -			np->dev->xmit_lock_owner = -1;
-> -			spin_unlock(&np->dev->xmit_lock);
-> -			netpoll_poll(np);
-> -			udelay(50);
-> -			continue;
-> -		}
-> -
-> -		status = np->dev->hard_start_xmit(skb, np->dev);
-> +		status = NETDEV_TX_BUSY;
-> +		if (!netif_queue_stopped(np->dev))
-> +			status = np->dev->hard_start_xmit(skb, np->dev);
-> +
-> 		np->dev->xmit_lock_owner = -1;
-> 		spin_unlock(&np->dev->xmit_lock);
-> 
-> 
-> 
+Kind regards,
+
+Uli
 
 -- 
-Mathematics is the supreme nostalgia of our time.
+Uli Kunitz
