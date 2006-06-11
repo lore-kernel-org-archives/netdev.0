@@ -1,31 +1,50 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: disable TX queue during stop
-Date: Sun, 11 Jun 2006 23:18:54 +0100 (BST)
-Message-ID: <20060611221854.E5B778A231E@zog.reactivated.net>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
+Date: Sun, 11 Jun 2006 18:27:19 -0400
+Message-ID: <20060611222719.GA13139@redhat.com>
+References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:49630 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1751083AbWFKWSu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jun 2006 18:18:50 -0400
-To: linville@tuxdriver.com
+Received: from mx1.redhat.com ([66.187.233.31]:53415 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750917AbWFKW1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 18:27:21 -0400
+To: Faidon Liambotis <faidon@cube.gr>
+Content-Disposition: inline
+In-Reply-To: <20060610180850.GP7420@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This avoids some potential races.
+On Sat, Jun 10, 2006 at 02:08:50PM -0400, Dave Jones wrote:
+ > On Sat, Jun 10, 2006 at 08:50:10PM +0300, Faidon Liambotis wrote:
+ >  > Remove Prism II IDs from the orinoco driver since now we have a separate
+ >  > driver for them (HostAP). Additionally, kill orinoco_{pci,plx,nortel}
+ >  > completely, since they only exist to support Prism cards.
+ >  > No attempt was made to clean up the rest of the driver of the actual
+ >  > Prism II code, only the PCI IDs were removed.
+ > 
+ > I'm fairly certain I have a buffalo card that doesn't work with hostap
+ > that works just fine with orinoco.  I'll dig it out and see if that
+ > has been improved.
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Objection rescinded, I have a WLI-PCM-L11G, which this patch doesn't affect.
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index bbe067e..3bdc54d 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -197,6 +197,8 @@ int zd_mac_stop(struct net_device *netde
- 	struct zd_mac *mac = zd_netdev_mac(netdev);
- 	struct zd_chip *chip = &mac->chip;
- 
-+	netif_stop_queue(netdev);
-+
- 	/*
- 	 * The order here deliberately is a little different from the open()
- 	 * method, since we need to make sure there is no opportunity for RX
+One question though. People who are currently using orinoco will have
+networking scripts set up by their distros autodetection mechanisms to
+set up an 'ethX' interface. Switching to hostap by default will change
+their interface to a wlanX interface, requiring them to either edit
+their networking interface scripts, or to add dev_template parameters
+to their /etc/modprobe.conf
+
+Whichever is chosen, the upgrade process is going to blindside end-users
+into broken wireless. Maybe things would just transparently keep working
+if the default template was also ethX. Though that would cause breakage
+for anyone with a currently working 'wlanX' interface on upgrade.
+
+Hmm, tricky.
+
+		Dave
+
+-- 
+http://www.codemonkey.org.uk
