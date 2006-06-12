@@ -1,158 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] netpoll: break recursive loop in netpoll rx path
-Date: Mon, 12 Jun 2006 15:13:22 -0400
-Message-ID: <20060612191322.GC3790@hmsreliant.homelinux.net>
-References: <20060612154029.GA3790@hmsreliant.homelinux.net> <20060612155120.GO24227@waste.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jmoyer@redhat.com
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [incomplete 2/5] bcm43xx-d80211: per-queue TX flow control
+Date: Mon, 12 Jun 2006 21:16:03 +0200 (CEST)
+Message-ID: <20060612191603.6025C4838C@silver.suse.cz>
+References: <20060612211454.409884000.midnight@suse.cz>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Michael Buesch <mbuesch@freenet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-70-61-120-52.midsouth.biz.rr.com ([70.61.120.52]:29968
-	"EHLO ra.tuxdriver.com") by vger.kernel.org with ESMTP
-	id S1752193AbWFLTNq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 15:13:46 -0400
-To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
-In-Reply-To: <20060612155120.GO24227@waste.org>
+Received: from styx.suse.cz ([82.119.242.94]:1959 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S932087AbWFLTOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 15:14:49 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060612211454.409884000.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 10:51:21AM -0500, Matt Mackall wrote:
-> On Mon, Jun 12, 2006 at 11:40:29AM -0400, Neil Horman wrote:
-> > Hey there-
-> > 	the netpoll system currently has a rx to tx path via:
-> > netpoll_rx
-> >  __netpoll_rx
-> >   arp_reply
-> >    netpoll_send_skb
-> >     dev->hard_start_tx
-> > 
-> > 	This rx->tx loop places network drivers at risk of
-> > inadvertently causing a deadlock or BUG halt by recursively trying
-> > to acquire a spinlock that is used in both their rx and tx paths
-> > (this problem was origionally reported to me in the 3c59x driver,
-> > which shares a spinlock between the boomerang_interrupt and
-> > boomerang_start_xmit routines).
-> 
-> Grumble.
-> 
-> > This patch breaks this loop, by queueing arp frames, so that they
-> > can be responded to after all receive operations have been
-> > completed. Tested by myself and the reported with successful
-> > results.
-> 
-> Tested how? kgdb?
-> 
-Specifically It was tested with netdump.  Heres the BZ with details:
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=194055
+This is an attempt to fix bcm43xx driver. It is for DMA mode only and
+incomplete even for that mode - ieee80211_hw->tx() callback should return
+NETDEV_TX_* constants which is not completely fixed by this patch.
 
+---
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c  |    6 +++++-
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    1 +
+ 2 files changed, 6 insertions(+), 1 deletion(-)
 
-> > +	if (likely(npi))
-> > +		while ((skb = skb_dequeue(&npi->arp_tx)) != NULL)
-> > +			arp_reply(skb);
-> > +
-> 
-> Assignment inside tests is frowned upon. I'd prefer pulling this out
-> to its own function too.
-> 
-Sure, no problem.  New patch attached with suggested modifications made
-
-Regards
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
- include/linux/netpoll.h |    1 +
- net/core/netpoll.c      |   27 +++++++++++++++++++++++++--
- 2 files changed, 26 insertions(+), 2 deletions(-)
-
-
---- linux-2.6/include/linux/netpoll.h.orig	2006-06-12 09:11:01.000000000 -0400
-+++ linux-2.6/include/linux/netpoll.h	2006-06-12 09:34:17.000000000 -0400
-@@ -31,6 +31,7 @@ struct netpoll_info {
- 	int rx_flags;
- 	spinlock_t rx_lock;
- 	struct netpoll *rx_np; /* netpoll that registered an rx_hook */
-+	struct sk_buff_head arp_tx; /* list of arp requests to reply to */
- };
- 
- void netpoll_poll(struct netpoll *np);
---- linux-2.6/net/core/netpoll.c.orig	2006-06-12 09:11:01.000000000 -0400
-+++ linux-2.6/net/core/netpoll.c	2006-06-12 13:43:25.000000000 -0400
-@@ -54,6 +54,7 @@ static atomic_t trapped;
- 				sizeof(struct iphdr) + sizeof(struct ethhdr))
- 
- static void zap_completion_queue(void);
-+static void arp_reply(struct sk_buff *skb);
- 
- static void queue_process(void *p)
- {
-@@ -153,8 +154,25 @@ static void poll_napi(struct netpoll *np
- 	}
- }
- 
-+static void service_arp_queue(struct netpoll_info *npi)
-+{
-+	struct sk_buff *skb;
-+
-+	if(unlikely(!npi))
-+		return;
-+
-+	skb = skb_dequeue(&npi->arp_tx);
-+
-+	while (skb != NULL) {
-+		arp_reply(skb);
-+		skb = skb_dequeue(&npi->arp_tx);		
-+	}
-+	return;
-+}
-+
- void netpoll_poll(struct netpoll *np)
- {
-+
- 	if(!np->dev || !netif_running(np->dev) || !np->dev->poll_controller)
- 		return;
- 
-@@ -163,6 +181,8 @@ void netpoll_poll(struct netpoll *np)
- 	if (np->dev->poll)
- 		poll_napi(np);
- 
-+	service_arp_queue(np->dev->npinfo);
-+
- 	zap_completion_queue();
- }
- 
-@@ -449,7 +469,9 @@ int __netpoll_rx(struct sk_buff *skb)
- 	int proto, len, ulen;
- 	struct iphdr *iph;
- 	struct udphdr *uh;
--	struct netpoll *np = skb->dev->npinfo->rx_np;
-+	struct netpoll_info *npi = skb->dev->npinfo;
-+	struct netpoll *np = npi->rx_np;
-+
- 
- 	if (!np)
- 		goto out;
-@@ -459,7 +481,7 @@ int __netpoll_rx(struct sk_buff *skb)
- 	/* check if netpoll clients need ARP */
- 	if (skb->protocol == __constant_htons(ETH_P_ARP) &&
- 	    atomic_read(&trapped)) {
--		arp_reply(skb);
-+		skb_queue_tail(&npi->arp_tx, skb);
- 		return 1;
+--- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
++++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+@@ -778,13 +778,16 @@ int bcm43xx_dma_tx(struct bcm43xx_privat
+ 		 * recognizes if the device queue is full and does
+ 		 * not send data anymore.
+ 		 */
++		ieee80211_stop_queue(bcm->net_dev, 0);
+ 		printk(KERN_ERR PFX "DMA queue overflow\n");
+-		return -ENOMEM;
++		return NETDEV_TX_BUSY;
  	}
  
-@@ -654,6 +676,7 @@ int netpoll_setup(struct netpoll *np)
- 		npinfo->poll_owner = -1;
- 		npinfo->tries = MAX_RETRIES;
- 		spin_lock_init(&npinfo->rx_lock);
-+		skb_queue_head_init(&npinfo->arp_tx);
- 	} else
- 		npinfo = ndev->npinfo;
+ 	err = dma_tx_fragment(ring, skb, ctl);
+ 	if (likely(!err))
+ 		ring->nr_tx_packets++;
++	if (free_slots(ring) < SLOTS_PER_PACKET)
++		ieee80211_stop_queue(bcm->net_dev, 0);
  
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
+ 	return err;
+ }
+@@ -833,6 +836,7 @@ void bcm43xx_dma_handle_xmitstatus(struc
+ 		slot = next_slot(ring, slot);
+ 	}
+ 	bcm->stats.last_tx = jiffies;
++	ieee80211_wake_queue(bcm->net_dev, 0);
+ }
+ 
+ void bcm43xx_dma_get_tx_stats(struct bcm43xx_private *bcm,
+--- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -3737,6 +3737,7 @@ static int bcm43xx_init_board(struct bcm
+ 	bcm43xx_security_init(bcm);
+ 	bcm43xx_measure_channel_change_time(bcm);
+ 	ieee80211_update_hw(bcm->net_dev, bcm->ieee);
++	ieee80211_start_queues(bcm->net_dev);
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_START);
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_WAKE);
