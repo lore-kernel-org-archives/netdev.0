@@ -1,41 +1,32 @@
-From: "Galya B." <softmaster@52.ru>
-Subject: Re[1]:Aloha
-Date: Mon, 12 Jun 2006 13:05:58 +0300
-Message-ID: <002401c68e07$c2c14880$8118000a__25636.9053772234$1150106758$gmane$org@219.139.235.85>
+From: Mourad De Clerck <mourad@aquazul.com>
+Subject: Re: [RFT] Realtek 8168 ethernet support
+Date: Mon, 12 Jun 2006 12:30:14 +0200
+Message-ID: <448D4236.9050505@aquazul.com>
+References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="windows-1251"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [219.139.235.85] ([219.139.235.85]:35844 "EHLO 219.139.235.85")
-	by vger.kernel.org with ESMTP id S1751721AbWFLKFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 06:05:22 -0400
-To: "linux-x25" <linux-x25@vger.kernel.org>
+Received: from www.ypu.org ([80.242.208.21]:33414 "EHLO heaven.risen.be")
+	by vger.kernel.org with ESMTP id S1751815AbWFLKaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 06:30:21 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060611233022.GA11776@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greeting!	
+On 12/06/06 01:30, Francois Romieu wrote:
+> The patch below agaisnt 2.6.17-rc6 includes the following changes:
 
-I think we had correspondence a long time ago if it was not you I am sorry.
-If it was I could not answer you because my Mozilla mail manager was down for a 
-long time and I could not fix it only with my friend's help I got the emails 
-address out for me ..:)
-I hope it was whom we were corresponded with you are still interested, as I am, 
-though I realize much time has passed since then...
-I really don't know where to start ....
-Maybe you could tell me a little about yourself since I lost our early letters, 
-your appearance,age , hobbies, and are you still in the search?
-If it was you I wrote to and you are interested to get to know me better, I have 
-a profile at :
-http://www.5HUMbcTu8XpXQKDf.im-waiting-4you.net/
+Just FYI:
 
-Don't really know what else to say for now I hope this is the right address
+I just tried this patch set, but it doesn't do anything for the "freeze
+at high speed" I mentioned on 2006-06-09. It still locks up. (As an
+additional data point: I installed win2k on this machine, and it seems
+to have no problems transferring at high speeds. Just wanted to try to
+rule out faulty hardware.)
 
-Let me know if you are interested, And I hope
-you won't run when you see my picture :-)
+Thanks,
 
-Best regards,
-
-Galya B.
-
-
+-- Mourad DC
