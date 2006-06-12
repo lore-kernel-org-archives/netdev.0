@@ -1,40 +1,56 @@
-From: Faidon Liambotis <faidon@cube.gr>
-Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
-Date: Mon, 12 Jun 2006 01:49:54 +0300
-Message-ID: <20060611224954.GA2880@divinity>
-References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com> <20060611224054.GB13139@redhat.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.17-rc5-mm3-lockdep -
+Date: Mon, 12 Jun 2006 08:38:07 +0200
+Message-ID: <20060612063807.GA23939@elte.hu>
+References: <200606060250.k562oCrA004583@turing-police.cc.vt.edu>
+	<44852819.2080503@gmail.com> <4485798B.4030007@s5r6.in-berlin.de>
+	<4485AFB9.3040005@s5r6.in-berlin.de>
+	<20060607071208.GA1951@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from linux7.grserver.gr ([64.34.170.238]:55263 "EHLO
-	linux7.grserver.gr") by vger.kernel.org with ESMTP id S1750936AbWFLG2W
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 02:28:22 -0400
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>,
+	linux1394-devel@lists.sourceforge.net, Valdis.Kletnieks@vt.edu,
+	Jiri Slaby <jirislaby@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@redhat.com,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	"David S. Miller" <davem@davemloft.net>, arjan@infradead.org
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20060611224054.GB13139@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20060607071208.GA1951@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 11, 2006 at 06:40:54PM -0400, Dave Jones wrote:
-> Ah-ha, I had tested the wrong card.
-> I also have a Sitecom card, which matches this ident you remove in your patch..
-> 
-> PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002), /* Safeway 802.11b, ZCOMAX AirRunner/XI-300 */
-> 
-<snip>
-> 
-> So with your patch, this card will become totally useless to me.
-I think you should forward this bug to the HostAP maintainer. This
-should be either be fixed in the driver or the driver should stop
-claiming that it supports this card.
 
-I merely found the duplicate IDs and removed them from Orinoco. I don't
-have neither the hardware or the time to test 30+ cards...
+* Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Having two drivers supporting the same set of hardware seems pretty
-pointless to me. Plus, it confuses hotplugging/automatic detection.
+> On Tue, Jun 06, 2006 at 04:39:21PM +0000, Stefan Richter wrote:
+> > 
+> > BTW, the locking in -mm's net/unix/af_unix.c::unix_stream_connect() 
+> > differs a bit from stock unix_stream_connect(). I see spin_lock_bh() in 
+> > 2.6.17-rc5-mm3 where 2.6.17-rc5 has spin_lock().
+> 
+> Hi Ingo:
+> 
+> Looks like this change was introduced by the validator patch.  Any 
+> idea why this was done? AF_UNIX is a user-space-driven socket so there 
+> shouldn't be any need for BH to be disabled there.
 
-Regards,
-Faidon
+yeah. I'll investigate - it's quite likely that sk_receive_queue.lock 
+will have to get per-address family locking rules - right?
+
+Maybe it's enough to introduce a separate key for AF_UNIX alone (and 
+still having all other protocols share the locking rules for 
+sk_receive_queue.lock) , by reinitializing its spinlock after 
+sock_init_data()?
+
+	Ingo
