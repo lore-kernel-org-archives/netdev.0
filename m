@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: endian fixes
-Date: Sun, 11 Jun 2006 20:57:33 -0700 (PDT)
-Message-ID: <20060611.205733.112851856.davem@davemloft.net>
-References: <20060610115250.GA7268@martell.zuzino.mipt.ru>
+Subject: Re: [PATCH] net.ipv4.ip_autoconfig sysctl removal
+Date: Sun, 11 Jun 2006 21:21:00 -0700 (PDT)
+Message-ID: <20060611.212100.90120929.davem@davemloft.net>
+References: <20060605105831.6a314086@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34017
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36056
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751265AbWFLD51 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 Jun 2006 23:57:27 -0400
-To: adobriyan@gmail.com
-In-Reply-To: <20060610115250.GA7268@martell.zuzino.mipt.ru>
+	id S1750744AbWFLEUy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 00:20:54 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060605105831.6a314086@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Sat, 10 Jun 2006 15:52:51 +0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Mon, 5 Jun 2006 10:58:31 -0700
 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> The sysctl net.ipv4.ip_autoconfig is a legacy value that is not used.
+> Can it finally go in 2.6.18 or do we need to go through the whole 
+> feature-removal process?
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied, thanks Alexey.
+I think killing this on in 2.6.18 is ok, applied.
 
+Thanks.
