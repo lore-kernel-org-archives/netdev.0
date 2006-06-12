@@ -1,37 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Mon, 12 Jun 2006 20:49:41 +0200
-Message-ID: <20060612184941.GA803@electric-eye.fr.zoreil.com>
-References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com> <448D4236.9050505@aquazul.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] wan/sdla section fixes
+Date: Mon, 12 Jun 2006 21:05:29 +0200
+Message-ID: <m34pyq42km.fsf@defiant.localdomain>
+References: <20060608203616.16796ec3.rdunlap@xenotime.net>
+	<m3d5de461t.fsf@defiant.localdomain>
+	<20060612110523.300a3420.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, mike.mclagan@linux.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:11413 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1752162AbWFLSxM
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 14:53:12 -0400
-To: Mourad De Clerck <mourad@aquazul.com>
-Content-Disposition: inline
-In-Reply-To: <448D4236.9050505@aquazul.com>
+Received: from khc.piap.pl ([195.187.100.11]:56973 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1752177AbWFLTFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 15:05:31 -0400
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
+In-Reply-To: <20060612110523.300a3420.rdunlap@xenotime.net> (Randy Dunlap's message of "Mon, 12 Jun 2006 11:05:23 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mourad De Clerck <mourad@aquazul.com> :
-[...]
-> I just tried this patch set, but it doesn't do anything for the "freeze
-> at high speed" I mentioned on 2006-06-09. It still locks up. (As an
-> additional data point: I installed win2k on this machine, and it seems
-> to have no problems transferring at high speeds. Just wanted to try to
-> rule out faulty hardware.)
+"Randy.Dunlap" <rdunlap@xenotime.net> writes:
 
-Please send .config and complete dmesg (starting with 'Linux version ...').
-The output of a 'vmstat 1' until it freezes could give some hint.
-So could trying a different PCI slot. How do you generate traffic ?
+>> >  static const char* version = "SDLA driver v0.30, 12 Sep 1996,
+>> > mike.mclagan@linux.org";
+>> 
+>> 1996 doesn't look encouraging but it may be misleading.
+>
+> Yep.  You could ignore it :) or rm drivers/net/wan/slda*  :)
 
-15Mo/s of usual traffic means roughly 1000pps. It is not really high speed.
-
-Unrelated: have you checked the link setting ?
-
+I don't know, maybe Mike will say something?
 -- 
-Ueimor
+Krzysztof Halasa
