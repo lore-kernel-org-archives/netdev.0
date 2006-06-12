@@ -1,60 +1,58 @@
 From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [PATCH RFC] netpoll: don't spin forever sending to stopped queues
-Date: Mon, 12 Jun 2006 14:20:21 -0700
-Message-ID: <448DDA95.90504@goop.org>
-References: <44886381.9050506@goop.org> <20060608210702.GD24227@waste.org> <4488D9D6.6070205@goop.org> <20060611200407.GG24227@waste.org> <448DD556.6030705@goop.org> <20060612205310.GU24227@waste.org>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Mon, 12 Jun 2006 14:25:45 -0700
+Message-ID: <448DDBD9.6030900@goop.org>
+References: <44886381.9050506@goop.org> <200606121321.30388.ak@suse.de> <448D8A90.3040508@rtr.ca> <200606121746.34880.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Cc: Mark Lord <lkml@rtr.ca>, Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:24721 "EHLO mail.goop.org")
-	by vger.kernel.org with ESMTP id S932276AbWFLVUc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 17:20:32 -0400
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20060612205310.GU24227@waste.org>
+Received: from gw.goop.org ([64.81.55.164]:38067 "EHLO mail.goop.org")
+	by vger.kernel.org with ESMTP id S932346AbWFLVZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 17:25:54 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200606121746.34880.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matt Mackall wrote:
-> Ahh, right. I forgot that I'd done that. Can you resend?
+Andi Kleen wrote:
+> On Monday 12 June 2006 17:38, Mark Lord wrote:
 >   
-I just respun it against 2.6.17-rc6-mm2.
+>> Okay, so I'm daft.  But.. *what* is "it" ??
+>>
+>> We have two machines:  target (being debugged), and host (anything).
+>> Sure, the target has to have ohci1394 loaded, and firescope running.
+>> But what about the *other* end of the connection?  What commands?
+>>     
+>
+> From the same manpage:
+> "The raw1394 module must be loaded and its device node
+>  be writable (this normally requires root)" 
+>
+> Ok it doesn't say you need ohci1394 too and doesn't say that's the target.
+> If I do a new revision I'll perhaps expand the docs a bit.
+>
+> So load ohci1394/raw1394 and run firescope as root. Your distribution
+> will hopefully take care of the device nodes. Usually you want 
+> something like firescope -Au System.map  
+>   
+
+I think the confusion here is that the target doesn't need to be running 
+anything; you can DMA chunks of memory with the OHCI controller with no 
+need for any software support.  The debugger host is what's running 
+firescope.
+
+Unless I'm confused too, which is likely.  Andi, I think your docs 
+should be more explicit about what runs where.
+
+Also, the tricky bit for me is debugging resume; firescope still 
+requires the OHCI device to come up to be useful, but I that's no 
+different from using netconsole.
+
+Neat stuff; I need to get my two firewire-enabled machines close enough 
+to each other to try it out.
 
     J
-
-
---
-
-Subject: netpoll: don't spin forever sending to blocked queues
-
-When transmitting a skb in netpoll_send_skb(), only retry a limited
-number of times if the device queue is stopped.
-
-Signed-off-by: Jeremy Fitzhardinge <jeremy@goop.org>
-
-diff -r 0b8d3d4ee182 net/core/netpoll.c
---- a/net/core/netpoll.c	Mon Jun 12 13:46:23 2006 -0700
-+++ b/net/core/netpoll.c	Mon Jun 12 13:48:34 2006 -0700
-@@ -279,14 +279,10 @@ static void netpoll_send_skb(struct netp
- 		 * network drivers do not expect to be called if the queue is
- 		 * stopped.
- 		 */
--		if (netif_queue_stopped(np->dev)) {
--			netif_tx_unlock(np->dev);
--			netpoll_poll(np);
--			udelay(50);
--			continue;
--		}
--
--		status = np->dev->hard_start_xmit(skb, np->dev);
-+		status = NETDEV_TX_BUSY;
-+		if (!netif_queue_stopped(np->dev))
-+			status = np->dev->hard_start_xmit(skb, np->dev);
-+
- 		netif_tx_unlock(np->dev);
- 
- 		/* success */
-
-
