@@ -1,47 +1,37 @@
-From: Faidon Liambotis <faidon@cube.gr>
-Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
-Date: Mon, 12 Jun 2006 18:39:58 +0300
-Message-ID: <20060612153958.GA6719@divinity>
-References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com> <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity> <20060612152434.GA14851@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT] Realtek 8168 ethernet support
+Date: Mon, 12 Jun 2006 20:49:41 +0200
+Message-ID: <20060612184941.GA803@electric-eye.fr.zoreil.com>
+References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com> <448D4236.9050505@aquazul.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	proski@gnu.org, hermes@gibson.dropbear.id.au
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from linux7.grserver.gr ([64.34.170.238]:34213 "EHLO
-	linux7.grserver.gr") by vger.kernel.org with ESMTP id S1752143AbWFLSnG
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:11413 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1752162AbWFLSxM
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 14:43:06 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+	Mon, 12 Jun 2006 14:53:12 -0400
+To: Mourad De Clerck <mourad@aquazul.com>
 Content-Disposition: inline
-In-Reply-To: <20060612152434.GA14851@tuxdriver.com>
+In-Reply-To: <448D4236.9050505@aquazul.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 11:24:39AM -0400, John W. Linville wrote:
-> On Mon, Jun 12, 2006 at 01:49:54AM +0300, Faidon Liambotis wrote:
-> 
-> > Having two drivers supporting the same set of hardware seems pretty
-> > pointless to me. Plus, it confuses hotplugging/automatic detection.
-> 
-> This subject comes-up from time to time.  In fact, I'm pretty sure
-> it came-up very recently w.r.t. orinoco and hostap.
-I remember a patch that added all of Orinoco PCI IDs to HostAP. I'm not
-sure if you're referring to that, but that's pretty different (and
-obviously wrong).
+Mourad De Clerck <mourad@aquazul.com> :
+[...]
+> I just tried this patch set, but it doesn't do anything for the "freeze
+> at high speed" I mentioned on 2006-06-09. It still locks up. (As an
+> additional data point: I installed win2k on this machine, and it seems
+> to have no problems transferring at high speeds. Just wanted to try to
+> rule out faulty hardware.)
 
-> The consensus seems to be that drivers should have IDs for all devices
-> they support, even if that means that some devices are supported by
-> multiple drivers.  This leaves the choice of which driver to use in
-> the hands of the user and/or distro.
-I'd mostly agree to that if distributors had a way to enable/disable
-Prism2 support on the orinoco_cs driver based on a build-time
-configuration option.
-Should I prepare such a patch?
+Please send .config and complete dmesg (starting with 'Linux version ...').
+The output of a 'vmstat 1' until it freezes could give some hint.
+So could trying a different PCI slot. How do you generate traffic ?
 
-FWIW, I think we've experienced a similar situation like this in the
-past in the networking land and the consensus was to completely remove
-the other driver. I'm referring to e100/eepro100, of course.
+15Mo/s of usual traffic means roughly 1000pps. It is not really high speed.
 
-Regards,
-Faidon
+Unrelated: have you checked the link setting ?
+
+-- 
+Ueimor
