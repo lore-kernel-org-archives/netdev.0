@@ -1,38 +1,42 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 3/12] d80211: separate allocation of ieee80211_local
-Date: Mon, 12 Jun 2006 15:52:05 -0400
-Message-ID: <20060612195200.GB14851@tuxdriver.com>
-References: <20060608094822.014829000.midnight@suse.cz> <20060608074907.2CB5B48391@silver.suse.cz> <20060612213523.473a9714@griffin.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] undo AF_UNIX _bh locking changes and split lock-type
+	instead
+Date: Mon, 12 Jun 2006 13:08:19 -0700 (PDT)
+Message-ID: <20060612.130819.56815772.davem@davemloft.net>
+References: <20060612064122.GA1101@gondor.apana.org.au>
+	<20060612065701.GA24213@elte.hu> <20060612084936.GA29516@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-70-61-120-52.midsouth.biz.rr.com ([70.61.120.52]:14097
-	"EHLO ra.tuxdriver.com") by vger.kernel.org with ESMTP
-	id S932163AbWFLTwa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 15:52:30 -0400
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20060612213523.473a9714@griffin.suse.cz>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, Valdis.Kletnieks@vt.edu,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanr@s5r6.in-berlin.de,
+	jirislaby@gmail.com, linux1394-devel@lists.sourceforge.net,
+	mingo@redhat.com, arjan@infradead.org
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+To: mingo@elte.hu
+In-Reply-To: <20060612084936.GA29516@elte.hu>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 09:35:23PM +0200, Jiri Benc wrote:
-> On Thu,  8 Jun 2006 09:49:07 +0200 (CEST), Jiri Benc wrote:
-> > ieee80211_local has a separate class_device. That means it has reference
-> > counting independent of master net_device and can be freed at a different
-> > time, therefore these two structures cannot be allocated together.
-> > 
-> > Solve this by adding ieee80211_ptr pointer to net_device structure (similar
-> > to other pointers already presented there) and using it as a pointer to
-> > independently allocated ieee80211_local.
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 12 Jun 2006 10:49:36 +0200
+
+> Subject: undo AF_UNIX _bh locking changes and split lock-type
+> From: Ingo Molnar <mingo@elte.hu>
 > 
-> I suppose approval from Dave will be needed for adding that pointer to
-> net_device, right?
+> this cleans up lock-validator-special-locking-af_unix.patch: instead
+> of adding _bh locking to AF_UNIX, this patch splits their
+> sk_receive_queue.lock type from the other networking skb-queue locks.
+> 
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
 
-Ulitmately, yes. :-)
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Signed-off-by: David S. Miller <davem@davemloft.net>
