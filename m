@@ -1,67 +1,65 @@
-From: Kyle McMartin <kyle@parisc-linux.org>
-Subject: [PATCH] Make in-kernel hostap less annoying
-Date: Mon, 12 Jun 2006 15:13:02 -0400
-Message-ID: <20060612191302.GD32443@skunkworks.cabal.ca>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 3/12] d80211: separate allocation of ieee80211_local
+Date: Mon, 12 Jun 2006 21:35:23 +0200
+Message-ID: <20060612213523.473a9714@griffin.suse.cz>
+References: <20060608094822.014829000.midnight@suse.cz>
+	<20060608074907.2CB5B48391@silver.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stout.engsoc.carleton.ca ([134.117.69.22]:62893 "EHLO
-	stout.engsoc.carleton.ca") by vger.kernel.org with ESMTP
-	id S1750759AbWFLT1S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 15:27:18 -0400
-To: jkmaline@cc.hut.fi
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:26041 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1752250AbWFLTf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 15:35:28 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060608074907.2CB5B48391@silver.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Most user don't want their kern.log/dmesg filled with
-debugging gibberish, and could turn it on if prompted.
+On Thu,  8 Jun 2006 09:49:07 +0200 (CEST), Jiri Benc wrote:
+> ieee80211_local has a separate class_device. That means it has reference
+> counting independent of master net_device and can be freed at a different
+> time, therefore these two structures cannot be allocated together.
+> 
+> Solve this by adding ieee80211_ptr pointer to net_device structure (similar
+> to other pointers already presented there) and using it as a pointer to
+> independently allocated ieee80211_local.
 
-( Example:
-wifi0: TXEXC - status=0x0004 ([Discon]) tx_control=000c
-retry_count=0 tx_rate=0 fc=0x0108 (Data::0 ToDS)
-A1=00:0f:66:43:d7:0a A2=00:05:3c:06:63:01 A3=33:33:00:00:00:16 
-A4=00:00:00:00:00:00 )
+I suppose approval from Dave will be needed for adding that pointer to
+net_device, right?
 
+> [...]
+>  include/linux/netdevice.h    |    1 
+>  net/d80211/ieee80211.c       |  100 +++++++++++++++++++++---------------------
+>  net/d80211/ieee80211_dev.c   |   17 +++++++
+>  net/d80211/ieee80211_i.h     |    9 +++-
+>  net/d80211/ieee80211_iface.c |   20 ++++----
+>  net/d80211/ieee80211_ioctl.c |   92 +++++++++++++++++++--------------------
+>  net/d80211/ieee80211_proc.c  |    6 +--
+>  net/d80211/ieee80211_scan.c  |   10 ++--
+>  net/d80211/ieee80211_sta.c   |   58 ++++++++++++------------
+>  net/d80211/ieee80211_sysfs.c |   26 ++++++++---
+>  net/d80211/rate_control.c    |    4 +-
+>  net/d80211/rate_control.h    |    4 +-
+>  net/d80211/wme.c             |   26 +++++------
+>  13 files changed, 206 insertions(+), 167 deletions(-)
+> 
+> [...]
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -371,6 +371,7 @@ #define NETIF_F_UFO             8192    
+>  	void                    *ip6_ptr;       /* IPv6 specific data */
+>  	void			*ec_ptr;	/* Econet specific data	*/
+>  	void			*ax25_ptr;	/* AX.25 specific data */
+> +	void			*ieee80211_ptr;	/* IEEE 802.11 specific data */
+>  
+>  /*
+>   * Cache line mostly used on receive path (including eth_type_trans())
+> [...]
 
-Also make hostap default to managed mode, instead of master mode, which
-has bitten a few users expecting it to behave like the orinoco driver
-it is replacing.
+Thanks,
 
-Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
-
----
-Two minor things I've been carrying around in my personal tree
-for quite some time. (This is only relevant to the in-kernel driver,
-I see no reason to change the out-of-tree driver.)
-
-Cheers,
-Kyle
-
-diff --git a/drivers/net/wireless/hostap/hostap_config.h b/drivers/net/wireless/hostap/hostap_config.h
-index c090a5a..bc51fa9 100644
---- a/drivers/net/wireless/hostap/hostap_config.h
-+++ b/drivers/net/wireless/hostap/hostap_config.h
-@@ -38,7 +38,7 @@ #endif
-  */
- 
- /* Do not include debug messages into the driver */
--/* #define PRISM2_NO_DEBUG */
-+#define PRISM2_NO_DEBUG
- 
- /* Do not include /proc/net/prism2/wlan#/{registers,debug} */
- /* #define PRISM2_NO_PROCFS_DEBUG */
-diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
-index 328e9a1..57438e8 100644
---- a/drivers/net/wireless/hostap/hostap_hw.c
-+++ b/drivers/net/wireless/hostap/hostap_hw.c
-@@ -70,7 +70,7 @@ static char essid[33] = "test";
- module_param_string(essid, essid, sizeof(essid), 0444);
- MODULE_PARM_DESC(essid, "Host AP's ESSID");
- 
--static int iw_mode[MAX_PARM_DEVICES] = { IW_MODE_MASTER, DEF_INTS };
-+static int iw_mode[MAX_PARM_DEVICES] = { IW_MODE_INFRA, DEF_INTS };
- module_param_array(iw_mode, int, NULL, 0444);
- MODULE_PARM_DESC(iw_mode, "Initial operation mode");
- 
+-- 
+Jiri Benc
+SUSE Labs
