@@ -1,46 +1,63 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Remove useless check for null dev from uli526x_interrupt()
-Date: Sun, 11 Jun 2006 20:27:32 -0400
-Message-ID: <20060612002732.GA4477@redhat.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Sun, 11 Jun 2006 20:11:31 -0500
+Message-ID: <448CBF43.6000200@lwfinger.net>
+References: <4485D66B.7080108@lwfinger.net> <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net> <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes> <1149701352.2625.20.camel@localhost.localdomain> <44871723.3040803@lwfinger.net> <1149853494.3864.6.camel@johannes.berg> <44899462.6070002@lwfinger.net> <1149867292.3864.30.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:25040 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751068AbWFLA1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Jun 2006 20:27:33 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id k5C0RWYN013731
-	for <netdev@vger.kernel.org>; Sun, 11 Jun 2006 20:27:32 -0400
-Received: from devserv.devel.redhat.com (devserv.devel.redhat.com [172.16.58.1])
-	by int-mx1.corp.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id k5C0RW4x004247
-	for <netdev@vger.kernel.org>; Sun, 11 Jun 2006 20:27:32 -0400
-Received: from devserv.devel.redhat.com (localhost.localdomain [127.0.0.1])
-	by devserv.devel.redhat.com (8.12.11.20060308/8.12.11) with ESMTP id k5C0RWb8004497
-	for <netdev@vger.kernel.org>; Sun, 11 Jun 2006 20:27:32 -0400
-Received: (from davej@localhost)
-	by devserv.devel.redhat.com (8.12.11.20060308/8.12.11/Submit) id k5C0RW1e004495
-	for netdev@vger.kernel.org; Sun, 11 Jun 2006 20:27:32 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:3051 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1750703AbWFLBLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 11 Jun 2006 21:11:36 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1149867292.3864.30.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As we're already dereferencing dev a few lines above, if this
-check could ever trigger, we'd have already oopsed.
+Johannes Berg wrote:
+> On Fri, 2006-06-09 at 10:31 -0500, Larry Finger wrote:
+> 
+>> Do you mean a special dump, or is the kernel debug output and wpa_supplicant debug output sufficient?
+> 
+> I was thinking of packet dumps but earlier you said you couldn't create
+> any so I'm out of ideas for now.
 
-Signed-off-by: Dave Jones <davej@redhat.com>
+I was finally able to get my second laptop running with bcm43xx so I could get packet dumps. When I 
+analyzed them, the Association Response packet contained the following information:
 
---- linux-2.6/drivers/net/tulip/uli526x.c~	2006-06-11 20:24:41.000000000 -0400
-+++ linux-2.6/drivers/net/tulip/uli526x.c	2006-06-11 20:25:14.000000000 -0400
-@@ -666,11 +666,6 @@ static irqreturn_t uli526x_interrupt(int
- 	unsigned long ioaddr = dev->base_addr;
- 	unsigned long flags;
- 
--	if (!dev) {
--		ULI526X_DBUG(1, "uli526x_interrupt() without DEVICE arg", 0);
--		return IRQ_NONE;
--	}
--
- 	spin_lock_irqsave(&db->lock, flags);
- 	outl(0, ioaddr + DCR7);
- 
+"Association denied due to requesting station not supporting short preamble operation (0x0013)"
+
+I think this is a bug in the code on my WRT54G V5 and I will report it to Linksys; however, in the 
+meantime, I am able to connect using the following _ugly_ hack to softmac_assoc_req and 
+softmac_reassoc_req:
+
+diff --git a/net/ieee80211/softmac/ieee80211softmac_io.c b/net/ieee80211/softmac/ieee80211softmac_io.c
+index cc6cd56..a1d0c10 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_io.c
++++ b/net/ieee80211/softmac/ieee80211softmac_io.c
+@@ -199,6 +199,8 @@ ieee80211softmac_assoc_req(struct ieee80
+         (*pkt)->capability |= mac->ieee->short_slot ?
+                         cpu_to_le16(WLAN_CAPABILITY_SHORT_SLOT_TIME) : 0;
+          */
++       /* add short preamble operation capability */
++       (*pkt)->capability |= cpu_to_le16(WLAN_CAPABILITY_SHORT_PREAMBLE);
+         (*pkt)->capability |= mac->ieee->sec.level ? cpu_to_le16(WLAN_CAPABILITY_PRIVACY) : 0;
+         /* Fill in Listen Interval (?) */
+         (*pkt)->listen_interval = cpu_to_le16(10);
+@@ -247,6 +249,8 @@ ieee80211softmac_reassoc_req(struct ieee
+         (*pkt)->capability |= mac->ieee->short_slot ?
+                         cpu_to_le16(WLAN_CAPABILITY_SHORT_SLOT_TIME) : 0;
+          */
++       /* add short preamble operation capability */
++       (*pkt)->capability |= cpu_to_le16(WLAN_CAPABILITY_SHORT_PREAMBLE);
+         (*pkt)->capability |= mac->ieee->sec.level ?
+                         cpu_to_le16(WLAN_CAPABILITY_PRIVACY) : 0;
+
+
+I expect that softmac should be listening to the driver as to whether this capability is available; 
+however, I'm now up and running once again.
+
+Larry
