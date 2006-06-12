@@ -1,13 +1,15 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [patch] undo AF_UNIX _bh locking changes and split lock-type instead
-Date: Mon, 12 Jun 2006 08:57:01 +0200
-Message-ID: <20060612065701.GA24213@elte.hu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [patch] undo AF_UNIX _bh locking changes and split lock-type
+	instead
+Date: Mon, 12 Jun 2006 17:03:56 +1000
+Message-ID: <20060612070356.GA1273@gondor.apana.org.au>
 References: <200606060250.k562oCrA004583@turing-police.cc.vt.edu>
 	<44852819.2080503@gmail.com> <4485798B.4030007@s5r6.in-berlin.de>
 	<4485AFB9.3040005@s5r6.in-berlin.de>
 	<20060607071208.GA1951@gondor.apana.org.au>
 	<20060612063807.GA23939@elte.hu>
 	<20060612064122.GA1101@gondor.apana.org.au>
+	<20060612065701.GA24213@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,9 +20,9 @@ Cc: Andrew Morton <akpm@osdl.org>,
 	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	"David S. Miller" <davem@davemloft.net>, arjan@infradead.org
 Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Ingo Molnar <mingo@elte.hu>
 Content-Disposition: inline
-In-Reply-To: <20060612064122.GA1101@gondor.apana.org.au>
+In-Reply-To: <20060612065701.GA24213@elte.hu>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
 	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux1394-devel>
@@ -32,139 +34,32 @@ Sender: linux1394-devel-bounces@lists.sourceforge.net
 Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jun 12, 2006 at 08:57:01AM +0200, Ingo Molnar wrote:
+>
+> regarding your point wrt. path of integration - it is pretty much the 
+> only practical way to do this centrally as part of the lock validator 
+> patches, but to collect ACKs from subsystem maintainers in the process. 
+> So if you like it i'd like to have your ACK but this patch depends on 
+> the other lock validator patches (and only makes sense together with 
+> them), so they should temporarily stay in the lock validator queue. 
+> Hopefully this wont be a state that lasts too long and once the 
+> validator is upstream, all patches of course go via the subsystem 
+> submission rules.
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Obviously as long as Dave is happy with it then it's fine.  However,
+it's probably a good idea to cc netdev for relevant patches so that
+they get a wider review.  If you've already sent this one there then
+I apologise for missing it :)
 
-> > Maybe it's enough to introduce a separate key for AF_UNIX alone (and 
-> > still having all other protocols share the locking rules for 
-> > sk_receive_queue.lock) , by reinitializing its spinlock after 
-> > sock_init_data()?
-> 
-> This could work.  AF_UNIX is probably the only family that does not 
-> interact with hardware.
+> (the #ifdef LOCKDEP should probably be converted to some sort of 
+> lockdep_split_lock_key(&sk->sk_receive_queue.lock) op - i'll do that 
+> later)
 
-ok, great. The patch below does the trick on my box.
+Cool.
 
-regarding your point wrt. path of integration - it is pretty much the 
-only practical way to do this centrally as part of the lock validator 
-patches, but to collect ACKs from subsystem maintainers in the process. 
-So if you like it i'd like to have your ACK but this patch depends on 
-the other lock validator patches (and only makes sense together with 
-them), so they should temporarily stay in the lock validator queue. 
-Hopefully this wont be a state that lasts too long and once the 
-validator is upstream, all patches of course go via the subsystem 
-submission rules.
-
-(the #ifdef LOCKDEP should probably be converted to some sort of 
-lockdep_split_lock_key(&sk->sk_receive_queue.lock) op - i'll do that 
-later)
-
-	Ingo
-
-------
-Subject: undo AF_UNIX _bh locking changes and split lock-type instead
-From: Ingo Molnar <mingo@elte.hu>
-
-this cleans up lock-validator-special-locking-af_unix.patch: instead
-of adding _bh locking to AF_UNIX, this patch splits their
-sk_receive_queue.lock type from the other networking skb-queue locks.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- net/unix/af_unix.c |   17 +++++++++++++----
- net/unix/garbage.c |    8 ++++----
- 2 files changed, 17 insertions(+), 8 deletions(-)
-
-Index: linux/net/unix/af_unix.c
-===================================================================
---- linux.orig/net/unix/af_unix.c
-+++ linux/net/unix/af_unix.c
-@@ -557,6 +557,15 @@ static struct sock * unix_create1(struct
- 	atomic_inc(&unix_nr_socks);
- 
- 	sock_init_data(sock,sk);
-+#ifdef CONFIG_LOCKDEP
-+	/*
-+	 * AF_UNIX sockets do not interact with hardware, hence they
-+	 * dont trigger interrupts - so it's safe for them to have
-+	 * bh-unsafe locking for their sk_receive_queue.lock. Split off
-+	 * this special lock-type by reinitializing the spinlock.
-+	 */
-+	spin_lock_init(&sk->sk_receive_queue.lock);
-+#endif
- 
- 	sk->sk_write_space	= unix_write_space;
- 	sk->sk_max_ack_backlog	= sysctl_unix_max_dgram_qlen;
-@@ -1073,12 +1082,12 @@ restart:
- 	unix_state_wunlock(sk);
- 
- 	/* take ten and and send info to listening sock */
--	spin_lock_bh(&other->sk_receive_queue.lock);
-+	spin_lock(&other->sk_receive_queue.lock);
- 	__skb_queue_tail(&other->sk_receive_queue, skb);
- 	/* Undo artificially decreased inflight after embrion
- 	 * is installed to listening socket. */
- 	atomic_inc(&newu->inflight);
--	spin_unlock_bh(&other->sk_receive_queue.lock);
-+	spin_unlock(&other->sk_receive_queue.lock);
- 	unix_state_runlock(other);
- 	other->sk_data_ready(other, 0);
- 	sock_put(other);
-@@ -1843,7 +1852,7 @@ static int unix_ioctl(struct socket *soc
- 				break;
- 			}
- 
--			spin_lock_bh(&sk->sk_receive_queue.lock);
-+			spin_lock(&sk->sk_receive_queue.lock);
- 			if (sk->sk_type == SOCK_STREAM ||
- 			    sk->sk_type == SOCK_SEQPACKET) {
- 				skb_queue_walk(&sk->sk_receive_queue, skb)
-@@ -1853,7 +1862,7 @@ static int unix_ioctl(struct socket *soc
- 				if (skb)
- 					amount=skb->len;
- 			}
--			spin_unlock_bh(&sk->sk_receive_queue.lock);
-+			spin_unlock(&sk->sk_receive_queue.lock);
- 			err = put_user(amount, (int __user *)arg);
- 			break;
- 		}
-Index: linux/net/unix/garbage.c
-===================================================================
---- linux.orig/net/unix/garbage.c
-+++ linux/net/unix/garbage.c
-@@ -235,7 +235,7 @@ void unix_gc(void)
- 		struct sock *x = pop_stack();
- 		struct sock *sk;
- 
--		spin_lock_bh(&x->sk_receive_queue.lock);
-+		spin_lock(&x->sk_receive_queue.lock);
- 		skb = skb_peek(&x->sk_receive_queue);
- 		
- 		/*
-@@ -270,7 +270,7 @@ void unix_gc(void)
- 				maybe_unmark_and_push(skb->sk);
- 			skb=skb->next;
- 		}
--		spin_unlock_bh(&x->sk_receive_queue.lock);
-+		spin_unlock(&x->sk_receive_queue.lock);
- 		sock_put(x);
- 	}
- 
-@@ -283,7 +283,7 @@ void unix_gc(void)
- 		if (u->gc_tree == GC_ORPHAN) {
- 			struct sk_buff *nextsk;
- 
--			spin_lock_bh(&s->sk_receive_queue.lock);
-+			spin_lock(&s->sk_receive_queue.lock);
- 			skb = skb_peek(&s->sk_receive_queue);
- 			while (skb &&
- 			       skb != (struct sk_buff *)&s->sk_receive_queue) {
-@@ -298,7 +298,7 @@ void unix_gc(void)
- 				}
- 				skb = nextsk;
- 			}
--			spin_unlock_bh(&s->sk_receive_queue.lock);
-+			spin_unlock(&s->sk_receive_queue.lock);
- 		}
- 		u->gc_tree = GC_ORPHAN;
- 	}
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
