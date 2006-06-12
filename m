@@ -1,97 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Mon, 12 Jun 2006 14:06:00 -0400
-Message-ID: <20060612180600.GB3790@hmsreliant.homelinux.net>
-References: <x49zmgquqn0.fsf@segfault.boston.redhat.com> <20060606231727.GK24227@waste.org> <20060607150522.GA24608@hmsreliant.homelinux.net> <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com> <x49d5dkvm8p.fsf@segfault.boston.redhat.com> <1149787174.2928.3.camel@strongmad> <x49ac8nwo83.fsf@redhat.com> <20060612001356.GA5112@localhost.localdomain> <1150130534.2879.9.camel@strongmad>
+From: Faidon Liambotis <faidon@cube.gr>
+Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
+Date: Mon, 12 Jun 2006 18:39:58 +0300
+Message-ID: <20060612153958.GA6719@divinity>
+References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com> <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity> <20060612152434.GA14851@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Moyer <jmoyer@redhat.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	proski@gnu.org, hermes@gibson.dropbear.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-70-61-120-52.midsouth.biz.rr.com ([70.61.120.52]:21519
-	"EHLO ra.tuxdriver.com") by vger.kernel.org with ESMTP
-	id S1751517AbWFLSGf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 14:06:35 -0400
-To: Mitch Williams <mitch.a.williams@intel.com>
+Received: from linux7.grserver.gr ([64.34.170.238]:34213 "EHLO
+	linux7.grserver.gr") by vger.kernel.org with ESMTP id S1752143AbWFLSnG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 14:43:06 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <1150130534.2879.9.camel@strongmad>
+In-Reply-To: <20060612152434.GA14851@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 09:42:14AM -0700, Mitch Williams wrote:
-> On Sun, 2006-06-11 at 17:13 -0700, Neil Horman wrote:
-> > Any further thoughts on this guys?  I still think my last solution
-> > solves all of
-> > the netpoll problems, and isn't going to have any noticable impact on
-> > performance.
-> > 
-> I haven't had time to evaluate performance on your patch (sorry!), but
-> after thinking about it, I agree that it should not have any noticeable
-> impact.  OTOH, performance tuning is a funny thing, and things you think
-> won't cause problems often do.
+On Mon, Jun 12, 2006 at 11:24:39AM -0400, John W. Linville wrote:
+> On Mon, Jun 12, 2006 at 01:49:54AM +0300, Faidon Liambotis wrote:
 > 
-Thats ok, I just didn't hear out of anyone on friday, so I was curious as to
-where we were on this.  I don't have the ability to do any real world
-performance testing here, but I'll try to record the run time of the interrupt
-routine on a limited number of frames here.
-
-> Anyway, I'm still not quite ready to ACK this because it's just not
-> future-proof.  Eventually, we will need to support multiple RX queues,
-> and this solution will not work in that situation.
+> > Having two drivers supporting the same set of hardware seems pretty
+> > pointless to me. Plus, it confuses hotplugging/automatic detection.
 > 
-Not sure I understand this.  My patch:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114970506406155&w=2
-still allows for the use of multiple rx
-queues in the nominal case.  Only when we have to use a relatively slow netpoll
-driven operation (kgdb, netdump, etc), do we need to receive on the same
-interface that we transmit on.
+> This subject comes-up from time to time.  In fact, I'm pretty sure
+> it came-up very recently w.r.t. orinoco and hostap.
+I remember a patch that added all of Orinoco PCI IDs to HostAP. I'm not
+sure if you're referring to that, but that's pretty different (and
+obviously wrong).
 
-> A simpler short-term solution is just to schedule our NAPI polling on
-> the "real" netdev instead of our polling netdev.  This is a trivial
-> change and works correctly with a single queue.  But, like your patch,
-> it isn't future-proof.
-> 
-Again, not sure what you mean here.  My last patch proposal:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114970807606096&w=2
-Does precisely what you describe, but it still allows for multiple rx queues in
-the nominal (non poll_controller driven) receive case.
+> The consensus seems to be that drivers should have IDs for all devices
+> they support, even if that means that some devices are supported by
+> multiple drivers.  This leaves the choice of which driver to use in
+> the hands of the user and/or distro.
+I'd mostly agree to that if distributors had a way to enable/disable
+Prism2 support on the orinoco_cs driver based on a build-time
+configuration option.
+Should I prepare such a patch?
 
-> So, I'm still thinking and pondering on this one.
-> 
-> If we get a patch in to fix the recursive loop in netpoll, my original
-> patch will work, right?  Or is there still another issue?
-> 
-I assume you are referring to this patch:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114970506406155&w=2
-If so, then no, that patch is still broken for the reasons Jeff outlined
-previously, The recursion patch that I proposed earlier today is related to a
-different recursion problem, and while the e1000 driver might be suceptable to
-it, your patch is also suceptible to the data corruption that arises from when
-the poll_controller calls adapter->clean_rx at the same that that dev->poll is
-called for the same adapter on another cpu.  If that happens we can have two
-cpu's writing to the same private net_device data without the benefit of a
-spinlock to protect them.  And yes, you can add a spin lock to protect the case
-where you have a dev->poll_controller and a dev->poll operation at the same
-time, but that seems to me like it will also re-serialize all the parallel
-operations that you could otherwise do with multiple rx queues
+FWIW, I think we've experienced a similar situation like this in the
+past in the networking land and the consensus was to completely remove
+the other driver. I'm referring to e100/eepro100, of course.
 
-I'll post again if I get a chance to do some performance measurements
-Regrds
-Neil
-
-> -Mitch
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
+Regards,
+Faidon
