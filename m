@@ -1,93 +1,53 @@
-From: Tom Tucker <tom@opengridcomputing.com>
-Subject: Re: [PATCH v2 4/7] AMSO1100 Memory Management.
-Date: Mon, 12 Jun 2006 11:05:49 -0500
-Message-ID: <1150128349.22704.20.camel@trinity.ogc.int>
-References: <20060607200646.9259.24588.stgit@stevo-desktop>
-	 <20060607200655.9259.90768.stgit@stevo-desktop>
-	 <20060608011744.1a66e85a.akpm@osdl.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] netpoll: break recursive loop in netpoll rx path
+Date: Mon, 12 Jun 2006 10:51:21 -0500
+Message-ID: <20060612155120.GO24227@waste.org>
+References: <20060612154029.GA3790@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Steve Wise <swise@opengridcomputing.com>, rdreier@cisco.com,
-	mshefty@ichips.intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, openib-general@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jmoyer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:60715 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1752075AbWFLQBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 12:01:25 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060608011744.1a66e85a.akpm@osdl.org>
+Received: from waste.org ([64.81.244.121]:57216 "EHLO waste.org")
+	by vger.kernel.org with ESMTP id S1752100AbWFLQBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 12:01:41 -0400
+To: Neil Horman <nhorman@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20060612154029.GA3790@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-06-08 at 01:17 -0700, Andrew Morton wrote:
-> On Wed, 07 Jun 2006 15:06:55 -0500
-> Steve Wise <swise@opengridcomputing.com> wrote:
+On Mon, Jun 12, 2006 at 11:40:29AM -0400, Neil Horman wrote:
+> Hey there-
+> 	the netpoll system currently has a rx to tx path via:
+> netpoll_rx
+>  __netpoll_rx
+>   arp_reply
+>    netpoll_send_skb
+>     dev->hard_start_tx
 > 
-> > 
-> > +void c2_free(struct c2_alloc *alloc, u32 obj)
-> > +{
-> > +	spin_lock(&alloc->lock);
-> > +	clear_bit(obj, alloc->table);
-> > +	spin_unlock(&alloc->lock);
-> > +}
-> 
-> The spinlock is unneeded here.
+> 	This rx->tx loop places network drivers at risk of
+> inadvertently causing a deadlock or BUG halt by recursively trying
+> to acquire a spinlock that is used in both their rx and tx paths
+> (this problem was origionally reported to me in the 3c59x driver,
+> which shares a spinlock between the boomerang_interrupt and
+> boomerang_start_xmit routines).
 
-Good point.
+Grumble.
 
-> 
-> 
-> What does all the code in this file do, anyway?  It looks totally generic
-> (and hence inappropriate for drivers/infiniband/hw/amso1100/) and somewhat
-> similar to idr trees, perhaps.
-> 
+> This patch breaks this loop, by queueing arp frames, so that they
+> can be responded to after all receive operations have been
+> completed. Tested by myself and the reported with successful
+> results.
 
-We mimicked the mthca driver. It may be code that should be replaced
-with Linux core services for new drivers. We'll investigate.
+Tested how? kgdb?
 
-> > +int c2_array_set(struct c2_array *array, int index, void *value)
-> > +{
-> > +	int p = (index * sizeof(void *)) >> PAGE_SHIFT;
-> > +
-> > +	/* Allocate with GFP_ATOMIC because we'll be called with locks held. */
-> > +	if (!array->page_list[p].page)
-> > +		array->page_list[p].page =
-> > +		    (void **) get_zeroed_page(GFP_ATOMIC);
-> > +
-> > +	if (!array->page_list[p].page)
-> > +		return -ENOMEM;
-> 
-> This _will_ happen under load.  What will the result of that be, in the
-> context of thise driver?
+> +	if (likely(npi))
+> +		while ((skb = skb_dequeue(&npi->arp_tx)) != NULL)
+> +			arp_reply(skb);
+> +
 
-A higher level object allocation will fail. In this case, a kernel
-application request will fail and the application must handle the error.
-> 
-> This function is incorrectly designed - it should receive a gfp_t argument.
-> Because you don't *know* that the caller will always hold a spinlock.  And
-> GFP_KERNEL is far, far stronger than GFP_ATOMIC.
+Assignment inside tests is frowned upon. I'd prefer pulling this out
+to its own function too.
 
-This service is allocating a page that the adapter will DMA 2B message
-indices into. 
-> 
-> > +static int c2_alloc_mqsp_chunk(gfp_t gfp_mask, struct sp_chunk **head)
-> > +{
-> > +	int i;
-> > +	struct sp_chunk *new_head;
-> > +
-> > +	new_head = (struct sp_chunk *) __get_free_page(gfp_mask | GFP_DMA);
-> 
-> Why is __GFP_DMA in there?  Unless you've cornered the ISA bus infiniband
-> market, it's likely to be wrong.
-> 
 
-Flag confusion about what GFP_DMA means. We'll revisit this whole
-file ... 
-
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+Mathematics is the supreme nostalgia of our time.
