@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [ PATCH 2.6.17-rc6 1/1] udp.c: counting InDatagrams which are
- never delivered
-Date: Sun, 11 Jun 2006 23:49:05 -0700 (PDT)
-Message-ID: <20060611.234905.35014718.davem@davemloft.net>
-References: <20060611.212913.70218067.davem@davemloft.net>
-	<E1FpfkX-0000EL-00@gondolin.me.apana.org.au>
+Subject: Re: 2.6.17-rc5-mm3-lockdep -
+Date: Sun, 11 Jun 2006 23:50:05 -0700 (PDT)
+Message-ID: <20060611.235005.51843280.davem@davemloft.net>
+References: <4485AFB9.3040005@s5r6.in-berlin.de>
+	<20060607071208.GA1951@gondor.apana.org.au>
+	<20060612063807.GA23939@elte.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org, kaber@coreworks.de,
-	jmorris@namei.org
+Cc: herbert@gondor.apana.org.au, stefanr@s5r6.in-berlin.de,
+	Valdis.Kletnieks@vt.edu, jirislaby@gmail.com, akpm@osdl.org,
+	arjan@infradead.org, mingo@redhat.com,
+	linux-kernel@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35238
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54204
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750700AbWFLGs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 02:48:58 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <E1FpfkX-0000EL-00@gondolin.me.apana.org.au>
+	id S1751055AbWFLGt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 02:49:58 -0400
+To: mingo@elte.hu
+In-Reply-To: <20060612063807.GA23939@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 12 Jun 2006 16:18:09 +1000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 12 Jun 2006 08:38:07 +0200
 
-> David Miller <davem@davemloft.net> wrote:
-> > 
-> > Probably a better way to handle this is to correct the
-> > INDATAGRAMS value by decrementing it when we notice that
-> > the checksum is incorrect in a deferred manner.
-> 
-> I think sunrpc should instead increment the appropriate counters directly
-> as otherwise checksum errors won't be recorded correctly for sunrpc packets.
+> yeah. I'll investigate - it's quite likely that sk_receive_queue.lock 
+> will have to get per-address family locking rules - right?
 
-Yeah.  Good point.  But how much protocol internals do we want to
-slide into the ->data_ready() callbacks of such layers?  That's ugly
-and something we should try to avoid.
+That's right.
+
+> Maybe it's enough to introduce a separate key for AF_UNIX alone (and 
+> still having all other protocols share the locking rules for 
+> sk_receive_queue.lock) , by reinitializing its spinlock after 
+> sock_init_data()?
+
+AF_NETLINK and/or AF_PACKET might be in a similar situation
+as AF_UNIX.
