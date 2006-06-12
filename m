@@ -1,54 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.17-rc5-mm3-lockdep -
-Date: Mon, 12 Jun 2006 16:41:22 +1000
-Message-ID: <20060612064122.GA1101@gondor.apana.org.au>
-References: <200606060250.k562oCrA004583@turing-police.cc.vt.edu>
-	<44852819.2080503@gmail.com> <4485798B.4030007@s5r6.in-berlin.de>
-	<4485AFB9.3040005@s5r6.in-berlin.de>
-	<20060607071208.GA1951@gondor.apana.org.au>
-	<20060612063807.GA23939@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ PATCH 2.6.17-rc6 1/1] udp.c: counting InDatagrams which are
+ never delivered
+Date: Sun, 11 Jun 2006 23:49:05 -0700 (PDT)
+Message-ID: <20060611.234905.35014718.davem@davemloft.net>
+References: <20060611.212913.70218067.davem@davemloft.net>
+	<E1FpfkX-0000EL-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	linux1394-devel@lists.sourceforge.net, Valdis.Kletnieks@vt.edu,
-	Jiri Slaby <jirislaby@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@redhat.com,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	"David S. Miller" <davem@davemloft.net>, arjan@infradead.org
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-To: Ingo Molnar <mingo@elte.hu>
-Content-Disposition: inline
-In-Reply-To: <20060612063807.GA23939@elte.hu>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux1394-devel-bounces@lists.sourceforge.net
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org, kaber@coreworks.de,
+	jmorris@namei.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35238
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750700AbWFLGs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 02:48:58 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1FpfkX-0000EL-00@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 08:38:07AM +0200, Ingo Molnar wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 12 Jun 2006 16:18:09 +1000
+
+> David Miller <davem@davemloft.net> wrote:
+> > 
+> > Probably a better way to handle this is to correct the
+> > INDATAGRAMS value by decrementing it when we notice that
+> > the checksum is incorrect in a deferred manner.
 > 
-> yeah. I'll investigate - it's quite likely that sk_receive_queue.lock 
-> will have to get per-address family locking rules - right?
+> I think sunrpc should instead increment the appropriate counters directly
+> as otherwise checksum errors won't be recorded correctly for sunrpc packets.
 
-Yes that's the issue.
-
-> Maybe it's enough to introduce a separate key for AF_UNIX alone (and 
-> still having all other protocols share the locking rules for 
-> sk_receive_queue.lock) , by reinitializing its spinlock after 
-> sock_init_data()?
-
-This could work.  AF_UNIX is probably the only family that does not
-interact with hardware.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yeah.  Good point.  But how much protocol internals do we want to
+slide into the ->data_ready() callbacks of such layers?  That's ugly
+and something we should try to avoid.
