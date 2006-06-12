@@ -1,44 +1,46 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Mon, 12 Jun 2006 13:21:30 +0200
-Message-ID: <200606121321.30388.ak@suse.de>
-References: <44886381.9050506@goop.org> <200606090546.15923.ak@suse.de> <448992B7.1050906@rtr.ca>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: link-local address via ifconfig
+Date: Mon, 12 Jun 2006 16:02:07 +0200
+Message-ID: <200606121602.08048.netdev@axxeo.de>
+References: <20060603025743.GL549@progsoc.uts.edu.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:37265 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751873AbWFLLVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 07:21:55 -0400
-To: Mark Lord <lkml@rtr.ca>
-In-Reply-To: <448992B7.1050906@rtr.ca>
+Received: from mail.axxeo.de ([82.100.226.146]:16537 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S1751986AbWFLOCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 10:02:15 -0400
+To: Anand Kumria <wildfire@progsoc.uts.edu.au>
+In-Reply-To: <20060603025743.GL549@progsoc.uts.edu.au>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 June 2006 17:24, Mark Lord wrote:
-> Andi Kleen wrote:
-> > 
-> > If your laptop has firewire you can also use firescope.
-> > (ftp://ftp.suse.com/pub/people/ak/firescope/) 
-> ..
-> > FW keeps running as long as nobody resets the ieee1394 chip.
+Hi Anand,
+
+Anand Kumria wrote:
+> There are plenty of people who still use ifconfig to list the addresses
+> assigned to their network interfaces (I know, ifconfig is broken) and
+> who then parse the output.
 > 
-> This looks interesting.  But how does one set it up for use
-> on the *other* end of that firewire cable?  The Quickstart and
-> manpage don't seem to describe this fully.
+> However the kernel puts link-local scoped address first if the address
+> list of an interface, so an interface like:
 
-It's in the manpage:
+> Is there any reason to put the link-local address first in the list?
+> 
+> I've had a number of bugreports (or outright panic attacks) where the 
+> problem turned out to be that ifconfig was reporting the link-local 
+> address first, rather than the global/site one.
 
->.SH NOTES
->The target must have the ohci1394 driver loaded. This implies
->that firescope cannot be used in early boot.
+This can be worked around by defining an "alias interface" this way
+"ip address add 169.254.182.108/16 brd 169.254.255.255 scope link dev eth0 label eth0:0"
+(see: "label eth0:0" is appended)
 
-That's it.
+So in reality this is no problem for users.
 
--Andi
+
+Regards
+
+Ingo Oeser
