@@ -1,40 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
-Date: Mon, 12 Jun 2006 11:24:39 -0400
-Message-ID: <20060612152434.GA14851@tuxdriver.com>
-References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com> <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity>
+From: Mark Lord <lkml@rtr.ca>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Mon, 12 Jun 2006 11:38:56 -0400
+Message-ID: <448D8A90.3040508@rtr.ca>
+References: <44886381.9050506@goop.org> <200606090546.15923.ak@suse.de> <448992B7.1050906@rtr.ca> <200606121321.30388.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	proski@gnu.org, hermes@gibson.dropbear.id.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-70-61-120-52.midsouth.biz.rr.com ([70.61.120.52]:32524
-	"EHLO ra.tuxdriver.com") by vger.kernel.org with ESMTP
-	id S1752037AbWFLPZL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 11:25:11 -0400
-To: Faidon Liambotis <faidon@cube.gr>
-Content-Disposition: inline
-In-Reply-To: <20060611224954.GA2880@divinity>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752061AbWFLPjA@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200606121321.30388.ak@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 01:49:54AM +0300, Faidon Liambotis wrote:
+Andi Kleen wrote:
+> On Friday 09 June 2006 17:24, Mark Lord wrote:
+>> Andi Kleen wrote:
+>>> If your laptop has firewire you can also use firescope.
+>>> (ftp://ftp.suse.com/pub/people/ak/firescope/) 
+>> ..
+>>> FW keeps running as long as nobody resets the ieee1394 chip.
+>> This looks interesting.  But how does one set it up for use
+>> on the *other* end of that firewire cable?  The Quickstart and
+>> manpage don't seem to describe this fully.
+> 
+> It's in the manpage:
+> 
+>> .SH NOTES
+>> The target must have the ohci1394 driver loaded. This implies
+>> that firescope cannot be used in early boot.
+> 
+> That's it.
 
-> Having two drivers supporting the same set of hardware seems pretty
-> pointless to me. Plus, it confuses hotplugging/automatic detection.
+Okay, so I'm daft.  But.. *what* is "it" ??
 
-This subject comes-up from time to time.  In fact, I'm pretty sure
-it came-up very recently w.r.t. orinoco and hostap.
+We have two machines:  target (being debugged), and host (anything).
+Sure, the target has to have ohci1394 loaded, and firescope running.
+But what about the *other* end of the connection?  What commands?
 
-The consensus seems to be that drivers should have IDs for all devices
-they support, even if that means that some devices are supported by
-multiple drivers.  This leaves the choice of which driver to use in
-the hands of the user and/or distro.
-
-If the Orinoco guys want this patch, I'll consider it.  Otherwise,
-I'm not inclined to take it.
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Thanks
