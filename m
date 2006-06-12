@@ -1,34 +1,53 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
-Date: Mon, 12 Jun 2006 16:55:01 -0400
-Message-ID: <20060612205501.GB24632@redhat.com>
-References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com> <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity> <20060612152434.GA14851@tuxdriver.com> <20060612153958.GA6719@divinity>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [PATCH RFC] netpoll: don't spin forever sending to stopped queues
+Date: Mon, 12 Jun 2006 13:57:58 -0700
+Message-ID: <448DD556.6030705@goop.org>
+References: <44886381.9050506@goop.org> <20060608210702.GD24227@waste.org> <4488D9D6.6070205@goop.org> <20060611200407.GG24227@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, proski@gnu.org,
-	hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37019 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751146AbWFLUzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 16:55:41 -0400
-To: Faidon Liambotis <faidon@cube.gr>
-Content-Disposition: inline
-In-Reply-To: <20060612153958.GA6719@divinity>
+Received: from gw.goop.org ([64.81.55.164]:27831 "EHLO mail.goop.org")
+	by vger.kernel.org with ESMTP id S1751415AbWFLU6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 16:58:05 -0400
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20060611200407.GG24227@waste.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 06:39:58PM +0300, Faidon Liambotis wrote:
- 
- > FWIW, I think we've experienced a similar situation like this in the
- > past in the networking land and the consensus was to completely remove
- > the other driver. I'm referring to e100/eepro100, of course.
+Matt Mackall wrote:
+> On Thu, Jun 08, 2006 at 07:15:50PM -0700, Jeremy Fitzhardinge wrote:
+>   
+>> Here's a patch.  I haven't tested it beyond compiling it, and I don't 
+>> know if it is actually correct.  In this case, it seems pointless to 
+>> spin waiting for an even which will never happen.  Should 
+>> netif_poll_disable() cause netpoll_send_skb() (or something) to not even 
+>> bother trying to send?  netif_poll_disable seems mysteriously simple to me.
+>>
+>>    J
+>>     
+>
+> Did this work for you at all?
+>   
 
-The difference with e100/eepro100, was that there the interface
-name remained constant regardless of which driver you were using,
-which isn't the case with orinoco->hostap.
+No, it didn't appear to help; I get the same symptom.  I think fix is 
+correct (in that its better than what was there before), but there's 
+probably more going on in my case.  I haven't looked into it more deeply 
+yet.  I suspect there's another netpoll code path which is spinning 
+forever on an XOFFed queue.
 
-		Dave
+>> When transmitting a skb in netpoll_send_skb(), only retry a limited
+>> number of times if the device queue is stopped.
+>>     
+>
+> Where limited = once?
+>   
 
--- 
-http://www.codemonkey.org.uk
+No, it reuses the existing retry logic.  It retries 20000 times with a 
+50us pause between attempts, so up to a second.  This seems excessive to 
+me; I don't know where those original numbers came from.  I tried 5000 
+retries, but it didn't make any difference to my case.
+
+    J
