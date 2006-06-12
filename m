@@ -1,51 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] undo AF_UNIX _bh locking changes and split lock-type
-	instead
-Date: Mon, 12 Jun 2006 00:18:29 -0700 (PDT)
-Message-ID: <20060612.001829.49243997.davem@davemloft.net>
-References: <20060612064122.GA1101@gondor.apana.org.au>
-	<20060612065701.GA24213@elte.hu>
-	<20060612070356.GA1273@gondor.apana.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [ PATCH 2.6.17-rc6 1/1] udp.c: counting InDatagrams which are never delivered
+Date: Mon, 12 Jun 2006 08:22:36 +0100
+Message-ID: <200606120822.36907@strip-the-willow>
+References: <200606061925.40327@this-message-has-been-logged> <200606120702.46014@strip-the-willow> <20060611.231300.95505265.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, Valdis.Kletnieks@vt.edu, jirislaby@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stefanr@s5r6.in-berlin.de, mingo@elte.hu,
-	linux1394-devel@lists.sourceforge.net, mingo@redhat.com,
-	arjan@infradead.org
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060612070356.GA1273@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux1394-devel-bounces@lists.sourceforge.net
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, kaber@coreworks.de, jmorris@namei.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54692 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1751073AbWFLHWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 03:22:55 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060611.231300.95505265.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 12 Jun 2006 17:03:56 +1000
+The code below implements the discussed solution of decrementing
+InDatagrams if a datagram fails the checksum within udp_recvmsg().
 
-> On Mon, Jun 12, 2006 at 08:57:01AM +0200, Ingo Molnar wrote:
-> >
-> > regarding your point wrt. path of integration - it is pretty much the 
-> > only practical way to do this centrally as part of the lock validator 
-> > patches, but to collect ACKs from subsystem maintainers in the process. 
-> > So if you like it i'd like to have your ACK but this patch depends on 
-> > the other lock validator patches (and only makes sense together with 
-> > them), so they should temporarily stay in the lock validator queue. 
-> > Hopefully this wont be a state that lasts too long and once the 
-> > validator is upstream, all patches of course go via the subsystem 
-> > submission rules.
-> 
-> Obviously as long as Dave is happy with it then it's fine.  However,
-> it's probably a good idea to cc netdev for relevant patches so that
-> they get a wider review.  If you've already sent this one there then
-> I apologise for missing it :)
+I have given it a quick test / build and checked the outcome against
+previous results: I now obtained correct counter values, i.e. the application
+counted exactly InDatagrams datagrams, whereas with the same settings before
+this was not the case (datagrams with checksum errors were counted both as
+InErrors and as InDatagrams). 
 
-Yes, this is fine with me.
+Will add this patch to http://bugzilla.kernel.org/show_bug.cgi?id=6660
+where this problem is also described. Patches under 2.6.16 with no complaints.
+
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+
+ include/net/snmp.h |    2 ++
+ include/net/udp.h  |    1 +
+ net/ipv4/udp.c     |    1 +
+ 3 files changed, 4 insertions(+)
+
+
+diff -Nurp  a/include/net/snmp.h b/include/net/snmp.h
+--- a/include/net/snmp.h	2006-06-05 21:52:55.000000000 +0100
++++ b/include/net/snmp.h	2006-06-12 07:38:11.000000000 +0100
+@@ -137,6 +137,8 @@ struct linux_mib {
+ 	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]++)
+ #define SNMP_DEC_STATS(mib, field) 	\
+ 	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]--)
++#define SNMP_DEC_STATS_BH(mib, field) 	\
++	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field]--)
+ #define SNMP_ADD_STATS_BH(mib, field, addend) 	\
+ 	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field] += addend)
+ #define SNMP_ADD_STATS_USER(mib, field, addend) 	\
+diff -Nurp  a/include/net/udp.h b/include/net/udp.h
+--- a/include/net/udp.h	2006-06-06 18:04:36.000000000 +0100
++++ b/include/net/udp.h	2006-06-12 07:39:29.000000000 +0100
+@@ -78,6 +78,7 @@ DECLARE_SNMP_STAT(struct udp_mib, udp_st
+ #define UDP_INC_STATS(field)		SNMP_INC_STATS(udp_statistics, field)
+ #define UDP_INC_STATS_BH(field)		SNMP_INC_STATS_BH(udp_statistics, field)
+ #define UDP_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(udp_statistics, field)
++#define UDP_DEC_STATS_BH(field)		SNMP_DEC_STATS_BH(udp_statistics, field)
+ 
+ /* /proc */
+ struct udp_seq_afinfo {
+diff -Nurp  a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	2006-06-07 20:44:13.000000000 +0100
++++ b/net/ipv4/udp.c	2006-06-12 07:40:02.000000000 +0100
+@@ -846,6 +846,7 @@ out:
+ 
+ csum_copy_err:
+ 	UDP_INC_STATS_BH(UDP_MIB_INERRORS);
++	UDP_DEC_STATS_BH(UDP_MIB_INDATAGRAMS);
+ 
+ 	skb_kill_datagram(sk, skb, flags);
+ 
+
