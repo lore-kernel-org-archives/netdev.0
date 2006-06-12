@@ -1,53 +1,35 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] netpoll: break recursive loop in netpoll rx path
-Date: Mon, 12 Jun 2006 10:51:21 -0500
-Message-ID: <20060612155120.GO24227@waste.org>
-References: <20060612154029.GA3790@hmsreliant.homelinux.net>
+From: Nathaniel Case <ncase@xes-inc.com>
+Subject: Re: [PATCH 1/2] PHYLIB: Add get_link ethtool helper function
+Date: Mon, 12 Jun 2006 11:12:04 -0500
+Message-ID: <1150128725.30343.36.camel@localhost.localdomain>
+References: <1149551292.10700.47.camel@localhost.localdomain>
+	 <448C4131.3000504@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jmoyer@redhat.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([64.81.244.121]:57216 "EHLO waste.org")
-	by vger.kernel.org with ESMTP id S1752100AbWFLQBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 12:01:41 -0400
-To: Neil Horman <nhorman@tuxdriver.com>
-Content-Disposition: inline
-In-Reply-To: <20060612154029.GA3790@hmsreliant.homelinux.net>
+Received: from xes-mad.com ([216.165.139.214]:44739 "EHLO xes-mad.com")
+	by vger.kernel.org with ESMTP id S1752114AbWFLQMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 12:12:55 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <448C4131.3000504@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 12, 2006 at 11:40:29AM -0400, Neil Horman wrote:
-> Hey there-
-> 	the netpoll system currently has a rx to tx path via:
-> netpoll_rx
->  __netpoll_rx
->   arp_reply
->    netpoll_send_skb
->     dev->hard_start_tx
-> 
-> 	This rx->tx loop places network drivers at risk of
-> inadvertently causing a deadlock or BUG halt by recursively trying
-> to acquire a spinlock that is used in both their rx and tx paths
-> (this problem was origionally reported to me in the 3c59x driver,
-> which shares a spinlock between the boomerang_interrupt and
-> boomerang_start_xmit routines).
+On Sun, 2006-06-11 at 12:13 -0400, Jeff Garzik wrote:
+> > This adds a phy_ethtool_get_link() function along the same lines as
+> > phy_ethtool_gset().  This provides drivers utilizing PHYLIB an
+> > alternative to using ethtool_op_get_link().  This is more desirable
+> > since the "Link detected" field in ethtool would actually reflect the
+> > state of the PHY register.
+> > 
+[snip]
+> NAK, needs an EXPORT
 
-Grumble.
+In that case, shouldn't we EXPORT phy_ethtool_sset() and
+phy_ethtool_gset() in drivers/net/phy/phy.c as well?
 
-> This patch breaks this loop, by queueing arp frames, so that they
-> can be responded to after all receive operations have been
-> completed. Tested by myself and the reported with successful
-> results.
+- Nate Case <ncase@xes-inc.com>
 
-Tested how? kgdb?
-
-> +	if (likely(npi))
-> +		while ((skb = skb_dequeue(&npi->arp_tx)) != NULL)
-> +			arp_reply(skb);
-> +
-
-Assignment inside tests is frowned upon. I'd prefer pulling this out
-to its own function too.
-
-
-Mathematics is the supreme nostalgia of our time.
