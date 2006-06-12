@@ -1,10 +1,10 @@
 From: Tom Tucker <tom@opengridcomputing.com>
-Subject: Re: [PATCH v2 1/2] iWARP Connection Manager.
-Date: Mon, 12 Jun 2006 10:54:58 -0500
-Message-ID: <1150127698.22704.9.camel@trinity.ogc.int>
-References: <20060607200600.9003.56328.stgit@stevo-desktop>
-	 <20060607200605.9003.25830.stgit@stevo-desktop>
-	 <20060608005452.087b34db.akpm@osdl.org>
+Subject: Re: [PATCH v2 4/7] AMSO1100 Memory Management.
+Date: Mon, 12 Jun 2006 11:05:49 -0500
+Message-ID: <1150128349.22704.20.camel@trinity.ogc.int>
+References: <20060607200646.9259.24588.stgit@stevo-desktop>
+	 <20060607200655.9259.90768.stgit@stevo-desktop>
+	 <20060608011744.1a66e85a.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -12,124 +12,79 @@ Cc: Steve Wise <swise@opengridcomputing.com>, rdreier@cisco.com,
 	mshefty@ichips.intel.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:54126 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1752078AbWFLPuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 11:50:35 -0400
+Received: from es335.com ([67.65.19.105]:60715 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1752075AbWFLQBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 12:01:25 -0400
 To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060608005452.087b34db.akpm@osdl.org>
+In-Reply-To: <20060608011744.1a66e85a.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew, thanks for the review, comments inline...
-
-On Thu, 2006-06-08 at 00:54 -0700, Andrew Morton wrote:
-> On Wed, 07 Jun 2006 15:06:05 -0500
+On Thu, 2006-06-08 at 01:17 -0700, Andrew Morton wrote:
+> On Wed, 07 Jun 2006 15:06:55 -0500
 > Steve Wise <swise@opengridcomputing.com> wrote:
 > 
 > > 
-> > This patch provides the new files implementing the iWARP Connection
-> > Manager.
-> > 
-> > Review Changes:
-> > 
-> > - sizeof -> sizeof()
-> > 
-> > - removed printks
-> > 
-> > - removed TT debug code
-> > 
-> > - cleaned up lock/unlock around switch statements.
-> > 
-> > - waitqueue -> completion for destroy path.
-> >
-> > ...
-> >
-> > +/* 
-> > + * This function is called on interrupt context. Schedule events on
-> > + * the iwcm_wq thread to allow callback functions to downcall into
-> > + * the CM and/or block.  Events are queued to a per-CM_ID
-> > + * work_list. If this is the first event on the work_list, the work
-> > + * element is also queued on the iwcm_wq thread.
-> > + *
-> > + * Each event holds a reference on the cm_id. Until the last posted
-> > + * event has been delivered and processed, the cm_id cannot be
-> > + * deleted. 
-> > + */
-> > +static void cm_event_handler(struct iw_cm_id *cm_id,
-> > +			     struct iw_cm_event *iw_event) 
+> > +void c2_free(struct c2_alloc *alloc, u32 obj)
 > > +{
-> > +	struct iwcm_work *work;
-> > +	struct iwcm_id_private *cm_id_priv;
-> > +	unsigned long flags;
+> > +	spin_lock(&alloc->lock);
+> > +	clear_bit(obj, alloc->table);
+> > +	spin_unlock(&alloc->lock);
+> > +}
+> 
+> The spinlock is unneeded here.
+
+Good point.
+
+> 
+> 
+> What does all the code in this file do, anyway?  It looks totally generic
+> (and hence inappropriate for drivers/infiniband/hw/amso1100/) and somewhat
+> similar to idr trees, perhaps.
+> 
+
+We mimicked the mthca driver. It may be code that should be replaced
+with Linux core services for new drivers. We'll investigate.
+
+> > +int c2_array_set(struct c2_array *array, int index, void *value)
+> > +{
+> > +	int p = (index * sizeof(void *)) >> PAGE_SHIFT;
 > > +
-> > +	work = kmalloc(sizeof(*work), GFP_ATOMIC);
-> > +	if (!work)
-> > +		return;
+> > +	/* Allocate with GFP_ATOMIC because we'll be called with locks held. */
+> > +	if (!array->page_list[p].page)
+> > +		array->page_list[p].page =
+> > +		    (void **) get_zeroed_page(GFP_ATOMIC);
+> > +
+> > +	if (!array->page_list[p].page)
+> > +		return -ENOMEM;
 > 
-> This allocation _will_ fail sometimes.  The driver must recover from it. 
-> Will it do so?
+> This _will_ happen under load.  What will the result of that be, in the
+> context of thise driver?
 
-Er...no. It will lose this event. Depending on the event...the carnage
-varies. We'll take a look at this.
-
+A higher level object allocation will fail. In this case, a kernel
+application request will fail and the application must handle the error.
 > 
-> > +EXPORT_SYMBOL(iw_cm_init_qp_attr);
+> This function is incorrectly designed - it should receive a gfp_t argument.
+> Because you don't *know* that the caller will always hold a spinlock.  And
+> GFP_KERNEL is far, far stronger than GFP_ATOMIC.
+
+This service is allocating a page that the adapter will DMA 2B message
+indices into. 
 > 
-> This file exports a ton of symbols.  It's usual to provide some justifying
-> commentary in the changelog when this happens.
-
-This module is a logical instance of the xx_cm where xx is the transport
-type. I think there is some discussion warranted on whether or not these
-should all be built into and exported by rdma_cm. One rationale would be
-that the rdma_cm is the only client for many of these functions (this
-being a particularly good example) and doing so would reduce the export
-count. Others would be reasonably needed for any application (connect,
-etc...)
-
-All that said, we'll be sure to document the exported symbols in a
-follow-up patch.
-
+> > +static int c2_alloc_mqsp_chunk(gfp_t gfp_mask, struct sp_chunk **head)
+> > +{
+> > +	int i;
+> > +	struct sp_chunk *new_head;
+> > +
+> > +	new_head = (struct sp_chunk *) __get_free_page(gfp_mask | GFP_DMA);
 > 
-> > +/*
-> > + * Copyright (c) 2005 Network Appliance, Inc. All rights reserved.
-> > + * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-> > + *
-> > + * This software is available to you under a choice of one of two
-> > + * licenses.  You may choose to be licensed under the terms of the GNU
-> > + * General Public License (GPL) Version 2, available from the file
-> > + * COPYING in the main directory of this source tree, or the
-> > + * OpenIB.org BSD license below:
-> > + *
-> > + *     Redistribution and use in source and binary forms, with or
-> > + *     without modification, are permitted provided that the following
-> > + *     conditions are met:
-> > + *
-> > + *      - Redistributions of source code must retain the above
-> > + *        copyright notice, this list of conditions and the following
-> > + *        disclaimer.
-> > + *
-> > + *      - Redistributions in binary form must reproduce the above
-> > + *        copyright notice, this list of conditions and the following
-> > + *        disclaimer in the documentation and/or other materials
-> > + *        provided with the distribution.
-> > + *
-> > + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-> > + * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-> > + * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-> > + * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-> > + * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-> > + * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-> > + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> > + * SOFTWARE.
-> > + */
-> > +#if !defined(IW_CM_PRIVATE_H)
-> > +#define IW_CM_PRIVATE_H
+> Why is __GFP_DMA in there?  Unless you've cornered the ISA bus infiniband
+> market, it's likely to be wrong.
 > 
-> We normally use #ifndef here.
 
-We'll change this..
+Flag confusion about what GFP_DMA means. We'll revisit this whole
+file ... 
 
-> 
 > 
 > -
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
