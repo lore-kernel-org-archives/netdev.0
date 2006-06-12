@@ -1,50 +1,179 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Tue, 13 Jun 2006 00:29:47 +0200
-Message-ID: <20060612222947.GC803@electric-eye.fr.zoreil.com>
-References: <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com> <448D4236.9050505@aquazul.com> <20060612184941.GA803@electric-eye.fr.zoreil.com> <448DE38D.8070503@aquazul.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [RFC/PATCH 2/2] update sunrpc to use in-kernel sockets API
+Date: Mon, 12 Jun 2006 16:56:04 -0700
+Message-ID: <1150156564.19929.33.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:39910 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932613AbWFLWdE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 18:33:04 -0400
-To: Mourad De Clerck <mourad@aquazul.com>
-Content-Disposition: inline
-In-Reply-To: <448DE38D.8070503@aquazul.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:25766 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932656AbWFLX5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 19:57:48 -0400
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mourad De Clerck <mourad@aquazul.com> :
-[...]
-> I do notice a pattern with more and less "complicated"/cpu intensive
-> traffic: using http (wget) I manage to finish doing the transfer of the
-> same reasonably big file. With scp I only manage to get to 90% of that
-> file before it freezes - I should still test whether I can get a http
-> transfer to lock up if I use a (much) bigger file.
+This patch updates sunrpc to use in-kernel sockets API.
 
-wget goes faster, right ? Do you have some vmstat 1 output at hand
-for it ?
+Thanks
+Sridhar
 
-[...]
-> > Unrelated: have you checked the link setting ?
-> 
-> ethtool reports "Link detected: yes" and so does my switch.
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index a27905a..ee80b3c 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -388,7 +388,7 @@ svc_sendto(struct svc_rqst *rqstp, struc
+ 	/* send head */
+ 	if (slen == xdr->head[0].iov_len)
+ 		flags = 0;
+-	len = sock->ops->sendpage(sock, rqstp->rq_respages[0], 0, xdr->head[0].iov_len, flags);
++	len = kernel_sendpage(sock, rqstp->rq_respages[0], 0, xdr->head[0].iov_len, flags);
+ 	if (len != xdr->head[0].iov_len)
+ 		goto out;
+ 	slen -= xdr->head[0].iov_len;
+@@ -400,7 +400,7 @@ svc_sendto(struct svc_rqst *rqstp, struc
+ 	while (pglen > 0) {
+ 		if (slen == size)
+ 			flags = 0;
+-		result = sock->ops->sendpage(sock, *ppage, base, size, flags);
++		result = kernel_sendpage(sock, *ppage, base, size, flags);
+ 		if (result > 0)
+ 			len += result;
+ 		if (result != size)
+@@ -413,7 +413,7 @@ svc_sendto(struct svc_rqst *rqstp, struc
+ 	}
+ 	/* send tail */
+ 	if (xdr->tail[0].iov_len) {
+-		result = sock->ops->sendpage(sock, rqstp->rq_respages[rqstp->rq_restailpage], 
++		result = kernel_sendpage(sock, rqstp->rq_respages[rqstp->rq_restailpage], 
+ 					     ((unsigned long)xdr->tail[0].iov_base)& (PAGE_SIZE-1),
+ 					     xdr->tail[0].iov_len, 0);
+ 
+@@ -434,13 +434,10 @@ out:
+ static int
+ svc_recv_available(struct svc_sock *svsk)
+ {
+-	mm_segment_t	oldfs;
+ 	struct socket	*sock = svsk->sk_sock;
+ 	int		avail, err;
+ 
+-	oldfs = get_fs(); set_fs(KERNEL_DS);
+-	err = sock->ops->ioctl(sock, TIOCINQ, (unsigned long) &avail);
+-	set_fs(oldfs);
++	err = kernel_ioctl(sock, TIOCINQ, (unsigned long) &avail);
+ 
+ 	return (err >= 0)? avail : err;
+ }
+@@ -472,7 +469,7 @@ svc_recvfrom(struct svc_rqst *rqstp, str
+ 	 * at accept time. FIXME
+ 	 */
+ 	alen = sizeof(rqstp->rq_addr);
+-	sock->ops->getname(sock, (struct sockaddr *)&rqstp->rq_addr, &alen, 1);
++	kernel_getpeername(sock, (struct sockaddr *)&rqstp->rq_addr, &alen);
+ 
+ 	dprintk("svc: socket %p recvfrom(%p, %Zu) = %d\n",
+ 		rqstp->rq_sock, iov[0].iov_base, iov[0].iov_len, len);
+@@ -758,7 +755,6 @@ svc_tcp_accept(struct svc_sock *svsk)
+ 	struct svc_serv	*serv = svsk->sk_server;
+ 	struct socket	*sock = svsk->sk_sock;
+ 	struct socket	*newsock;
+-	const struct proto_ops *ops;
+ 	struct svc_sock	*newsvsk;
+ 	int		err, slen;
+ 
+@@ -766,29 +762,23 @@ svc_tcp_accept(struct svc_sock *svsk)
+ 	if (!sock)
+ 		return;
+ 
+-	err = sock_create_lite(PF_INET, SOCK_STREAM, IPPROTO_TCP, &newsock);
+-	if (err) {
++	clear_bit(SK_CONN, &svsk->sk_flags);
++	err = kernel_accept(sock, &newsock, O_NONBLOCK);
++	if (err < 0) {
+ 		if (err == -ENOMEM)
+ 			printk(KERN_WARNING "%s: no more sockets!\n",
+ 			       serv->sv_name);
+-		return;
+-	}
+-
+-	dprintk("svc: tcp_accept %p allocated\n", newsock);
+-	newsock->ops = ops = sock->ops;
+-
+-	clear_bit(SK_CONN, &svsk->sk_flags);
+-	if ((err = ops->accept(sock, newsock, O_NONBLOCK)) < 0) {
+-		if (err != -EAGAIN && net_ratelimit())
++		else if (err != -EAGAIN && net_ratelimit())
+ 			printk(KERN_WARNING "%s: accept failed (err %d)!\n",
+ 				   serv->sv_name, -err);
+-		goto failed;		/* aborted connection or whatever */
++		return;
+ 	}
++
+ 	set_bit(SK_CONN, &svsk->sk_flags);
+ 	svc_sock_enqueue(svsk);
+ 
+ 	slen = sizeof(sin);
+-	err = ops->getname(newsock, (struct sockaddr *) &sin, &slen, 1);
++	err = kernel_getpeername(newsock, (struct sockaddr *) &sin, &slen);
+ 	if (err < 0) {
+ 		if (net_ratelimit())
+ 			printk(KERN_WARNING "%s: peername failed (err %d)!\n",
+@@ -1407,14 +1397,14 @@ svc_create_socket(struct svc_serv *serv,
+ 	if (sin != NULL) {
+ 		if (type == SOCK_STREAM)
+ 			sock->sk->sk_reuse = 1; /* allow address reuse */
+-		error = sock->ops->bind(sock, (struct sockaddr *) sin,
++		error = kernel_bind(sock, (struct sockaddr *) sin,
+ 						sizeof(*sin));
+ 		if (error < 0)
+ 			goto bummer;
+ 	}
+ 
+ 	if (protocol == IPPROTO_TCP) {
+-		if ((error = sock->ops->listen(sock, 64)) < 0)
++		if ((error = kernel_listen(sock, 64)) < 0)
+ 			goto bummer;
+ 	}
+ 
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 4b4e7df..c60b422 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -207,7 +207,7 @@ static inline int xs_sendpages(struct so
+ 		base &= ~PAGE_CACHE_MASK;
+ 	}
+ 
+-	sendpage = sock->ops->sendpage ? : sock_no_sendpage;
++	sendpage = kernel_sendpage ? : sock_no_sendpage;
+ 	do {
+ 		int flags = XS_SENDMSG_FLAGS;
+ 
+@@ -952,7 +952,7 @@ static int xs_bindresvport(struct rpc_xp
+ 
+ 	do {
+ 		myaddr.sin_port = htons(port);
+-		err = sock->ops->bind(sock, (struct sockaddr *) &myaddr,
++		err = kernel_bind(sock, (struct sockaddr *) &myaddr,
+ 						sizeof(myaddr));
+ 		if (err == 0) {
+ 			xprt->port = port;
+@@ -1047,7 +1047,7 @@ static void xs_tcp_reuse_connection(stru
+ 	 */
+ 	memset(&any, 0, sizeof(any));
+ 	any.sa_family = AF_UNSPEC;
+-	result = sock->ops->connect(sock, &any, sizeof(any), 0);
++	result = kernel_connect(sock, &any, sizeof(any), 0);
+ 	if (result)
+ 		dprintk("RPC:      AF_UNSPEC connect return code %d\n",
+ 				result);
+@@ -1117,7 +1117,7 @@ static void xs_tcp_connect_worker(void *
+ 	/* Tell the socket layer to start connecting... */
+ 	xprt->stat.connect_count++;
+ 	xprt->stat.connect_start = jiffies;
+-	status = sock->ops->connect(sock, (struct sockaddr *) &xprt->addr,
++	status = kernel_connect(sock, (struct sockaddr *) &xprt->addr,
+ 			sizeof(xprt->addr), O_NONBLOCK);
+ 	dprintk("RPC: %p  connect status %d connected %d sock state %d\n",
+ 			xprt, -status, xprt_connected(xprt), sock->sk->sk_state);
 
-Ok but can you set correctly the link with the command which was told
-to fail in you first mail ? The patch could fix it.
 
-[...]
-> shuttle:~# scp hell:/srv/bigfile.bin .
-> bigfile.bin                                   90%  155MB  17.5MB/s   00:00 ETA
-
-Can you try something like:
-dd if=/dev/zero bs=1024k count=1000 | ssh -c blowfish hell dd of=/tmp/1000m.bin 
-
-May I assume that the freeze locks everything (keyboard, mouse, led) beyond
-the scp command itself ?
-
--- 
-Ueimor
