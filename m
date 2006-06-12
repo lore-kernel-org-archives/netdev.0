@@ -1,76 +1,53 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [ PATCH 2.6.17-rc6 1/1] udp.c: counting InDatagrams which are never delivered
-Date: Mon, 12 Jun 2006 08:22:36 +0100
-Message-ID: <200606120822.36907@strip-the-willow>
-References: <200606061925.40327@this-message-has-been-logged> <200606120702.46014@strip-the-willow> <20060611.231300.95505265.davem@davemloft.net>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH 3/5] ehea: queue management
+Date: Mon, 12 Jun 2006 09:14:26 +0200
+Message-ID: <448D1452.503@de.ibm.com>
+References: <4487F421.2050001@de.ibm.com> <1149878470.28483.6.camel@sinatra.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@coreworks.de, jmorris@namei.org
+Cc: netdev <netdev@vger.kernel.org>, Marcus Eder <MEDER@de.ibm.com>,
+	Christoph Raisch <RAISCH@de.ibm.com>, themann@de.ibm.com,
+	tklein@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:54692 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S1751073AbWFLHWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 03:22:55 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060611.231300.95505265.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:31763 "EHLO
+	mtagate2.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1750830AbWFLHno (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 03:43:44 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate2.uk.ibm.com (8.13.6/8.13.6) with ESMTP id k5C7hfbY080690
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 12 Jun 2006 07:43:43 GMT
+Received: from d06av03.portsmouth.uk.ibm.com (d06av03.portsmouth.uk.ibm.com [9.149.37.213])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5C7irxL126178
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 12 Jun 2006 08:44:54 +0100
+Received: from d06av03.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av03.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5C7hdc4009009
+	for <netdev@vger.kernel.org>; Mon, 12 Jun 2006 08:43:39 +0100
+To: John Rose <johnrose@austin.ibm.com>
+In-Reply-To: <1149878470.28483.6.camel@sinatra.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The code below implements the discussed solution of decrementing
-InDatagrams if a datagram fails the checksum within udp_recvmsg().
+John Rose wrote:
+>> +#define EHEA_MEM_START 0xc000000000000000
+> 
+> You probably don't want to hardcode this.  Maybe KERNELBASE from page.h?
 
-I have given it a quick test / build and checked the outcome against
-previous results: I now obtained correct counter values, i.e. the application
-counted exactly InDatagrams datagrams, whereas with the same settings before
-this was not the case (datagrams with checksum errors were counted both as
-InErrors and as InDatagrams). 
+Yes, we want to use KERNELBASE
 
-Will add this patch to http://bugzilla.kernel.org/show_bug.cgi?id=6660
-where this problem is also described. Patches under 2.6.16 with no complaints.
+> 
+>> +
+>> +int ehea_reg_mr_adapter(struct ehea_adapter *adapter)
+>> +{
+>> +	}
+> 
+> This creates DMA mappings for the entirety of kernel memory, right?  Has
+> this been run by the ppc64 folks for possible impacts?
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
+Yes, that is correct. We have tested it on our ppc64 without running into any
+problems. There should be no impacts on other kernel parts, but we haven't
+talked to the ppc64 folks yet.
 
- include/net/snmp.h |    2 ++
- include/net/udp.h  |    1 +
- net/ipv4/udp.c     |    1 +
- 3 files changed, 4 insertions(+)
-
-
-diff -Nurp  a/include/net/snmp.h b/include/net/snmp.h
---- a/include/net/snmp.h	2006-06-05 21:52:55.000000000 +0100
-+++ b/include/net/snmp.h	2006-06-12 07:38:11.000000000 +0100
-@@ -137,6 +137,8 @@ struct linux_mib {
- 	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]++)
- #define SNMP_DEC_STATS(mib, field) 	\
- 	(per_cpu_ptr(mib[!in_softirq()], raw_smp_processor_id())->mibs[field]--)
-+#define SNMP_DEC_STATS_BH(mib, field) 	\
-+	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field]--)
- #define SNMP_ADD_STATS_BH(mib, field, addend) 	\
- 	(per_cpu_ptr(mib[0], raw_smp_processor_id())->mibs[field] += addend)
- #define SNMP_ADD_STATS_USER(mib, field, addend) 	\
-diff -Nurp  a/include/net/udp.h b/include/net/udp.h
---- a/include/net/udp.h	2006-06-06 18:04:36.000000000 +0100
-+++ b/include/net/udp.h	2006-06-12 07:39:29.000000000 +0100
-@@ -78,6 +78,7 @@ DECLARE_SNMP_STAT(struct udp_mib, udp_st
- #define UDP_INC_STATS(field)		SNMP_INC_STATS(udp_statistics, field)
- #define UDP_INC_STATS_BH(field)		SNMP_INC_STATS_BH(udp_statistics, field)
- #define UDP_INC_STATS_USER(field) 	SNMP_INC_STATS_USER(udp_statistics, field)
-+#define UDP_DEC_STATS_BH(field)		SNMP_DEC_STATS_BH(udp_statistics, field)
- 
- /* /proc */
- struct udp_seq_afinfo {
-diff -Nurp  a/net/ipv4/udp.c b/net/ipv4/udp.c
---- a/net/ipv4/udp.c	2006-06-07 20:44:13.000000000 +0100
-+++ b/net/ipv4/udp.c	2006-06-12 07:40:02.000000000 +0100
-@@ -846,6 +846,7 @@ out:
- 
- csum_copy_err:
- 	UDP_INC_STATS_BH(UDP_MIB_INERRORS);
-+	UDP_DEC_STATS_BH(UDP_MIB_INDATAGRAMS);
- 
- 	skb_kill_datagram(sk, skb, flags);
- 
-
+Jan-Bernd
