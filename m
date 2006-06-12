@@ -1,47 +1,67 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 5/5] bcm43xx-d80211: fix sending of fragments
-Date: Mon, 12 Jun 2006 21:16:06 +0200 (CEST)
-Message-ID: <20060612191606.7AA8E48391@silver.suse.cz>
-References: <20060612211454.409884000.midnight@suse.cz>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mbuesch@freenet.de>
+From: Kyle McMartin <kyle@parisc-linux.org>
+Subject: [PATCH] Make in-kernel hostap less annoying
+Date: Mon, 12 Jun 2006 15:13:02 -0400
+Message-ID: <20060612191302.GD32443@skunkworks.cabal.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:4007 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S932093AbWFLTOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 15:14:53 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <20060612211454.409884000.midnight@suse.cz>
+Received: from stout.engsoc.carleton.ca ([134.117.69.22]:62893 "EHLO
+	stout.engsoc.carleton.ca") by vger.kernel.org with ESMTP
+	id S1750759AbWFLT1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 15:27:18 -0400
+To: jkmaline@cc.hut.fi
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This makes fragmentation work with bcm43xx.
+Most user don't want their kern.log/dmesg filled with
+debugging gibberish, and could turn it on if prompted.
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+( Example:
+wifi0: TXEXC - status=0x0004 ([Discon]) tx_control=000c
+retry_count=0 tx_rate=0 fc=0x0108 (Data::0 ToDS)
+A1=00:0f:66:43:d7:0a A2=00:05:3c:06:63:01 A3=33:33:00:00:00:16 
+A4=00:00:00:00:00:00 )
+
+
+Also make hostap default to managed mode, instead of master mode, which
+has bitten a few users expecting it to behave like the orinoco driver
+it is replacing.
+
+Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
 
 ---
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c |    2 +-
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Two minor things I've been carrying around in my personal tree
+for quite some time. (This is only relevant to the in-kernel driver,
+I see no reason to change the out-of-tree driver.)
 
---- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-+++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
-@@ -703,7 +703,7 @@ static int dma_tx_fragment(struct bcm43x
- 	bcm43xx_generate_txhdr(ring->bcm,
- 			       (struct bcm43xx_txhdr *)hdr_skb->data,
- 			       skb->data, skb->len,
--			       1,//FIXME
-+			       ctl->first_fragment,
- 			       generate_cookie(ring, slot),
- 			       ctl);
+Cheers,
+Kyle
+
+diff --git a/drivers/net/wireless/hostap/hostap_config.h b/drivers/net/wireless/hostap/hostap_config.h
+index c090a5a..bc51fa9 100644
+--- a/drivers/net/wireless/hostap/hostap_config.h
++++ b/drivers/net/wireless/hostap/hostap_config.h
+@@ -38,7 +38,7 @@ #endif
+  */
  
---- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c
-+++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c
-@@ -183,7 +183,7 @@ static void pio_tx_write_fragment(struct
- 	assert(skb_shinfo(skb)->nr_frags == 0);
- 	bcm43xx_generate_txhdr(queue->bcm,
- 			       &txhdr, skb->data, skb->len,
--			       1,//FIXME
-+			       packet->ctl->first_fragment,
- 			       generate_cookie(queue, pio_txpacket_getindex(packet)),
- 			       packet->ctl);
+ /* Do not include debug messages into the driver */
+-/* #define PRISM2_NO_DEBUG */
++#define PRISM2_NO_DEBUG
+ 
+ /* Do not include /proc/net/prism2/wlan#/{registers,debug} */
+ /* #define PRISM2_NO_PROCFS_DEBUG */
+diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
+index 328e9a1..57438e8 100644
+--- a/drivers/net/wireless/hostap/hostap_hw.c
++++ b/drivers/net/wireless/hostap/hostap_hw.c
+@@ -70,7 +70,7 @@ static char essid[33] = "test";
+ module_param_string(essid, essid, sizeof(essid), 0444);
+ MODULE_PARM_DESC(essid, "Host AP's ESSID");
+ 
+-static int iw_mode[MAX_PARM_DEVICES] = { IW_MODE_MASTER, DEF_INTS };
++static int iw_mode[MAX_PARM_DEVICES] = { IW_MODE_INFRA, DEF_INTS };
+ module_param_array(iw_mode, int, NULL, 0444);
+ MODULE_PARM_DESC(iw_mode, "Initial operation mode");
  
