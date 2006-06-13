@@ -1,96 +1,47 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 2.6.18 3/6] bnx2: Use CPU native page size
-Date: Tue, 13 Jun 2006 11:19:42 -0700
-Message-ID: <1150222782.26368.34.camel@rh4>
-References: <1150157833.26173.8.camel@rh4>
- <20060612.222036.15588314.davem@davemloft.net>
+From: Jar <jar@pcuf.fi>
+Subject: Re: Remove Prism II support from Orinoco
+Date: Tue, 13 Jun 2006 21:24:49 +0300
+Message-ID: <448F02F1.3070001@pcuf.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:20494 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932204AbWFMSTA
+Received: from mbox1.netikka.net ([213.250.81.202]:22659 "EHLO
+	mbox1.netikka.net") by vger.kernel.org with ESMTP id S932212AbWFMSYx
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 14:19:00 -0400
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060612.222036.15588314.davem@davemloft.net>
+	Tue, 13 Jun 2006 14:24:53 -0400
+Received: from netlandzone.dyndns.org (p74.ip3.netikka.fi [85.157.67.74])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mbox1.netikka.net (Postfix) with ESMTP id 02534270664
+	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 21:24:51 +0300 (EEST)
+Received: from [192.168.0.33] (gto.netland.fin [192.168.0.33])
+	by netlandzone.dyndns.org (8.13.6/8.13.4) with ESMTP id k5DIOnZb006529
+	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 21:24:51 +0300
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-06-12 at 22:20 -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Mon, 12 Jun 2006 17:17:13 -0700
-> 
-> > Use CPU native page size to determine various ring sizes. This allows
-> > order-0 memory allocations on all systems.
-> > 
-> > Signed-off-by: Michael Chan <mchan@broadcom.com>
-> 
-> Are you sure you want to do this when the base page size is up to 64K
-> on some IA64/PowerPC64/Sparc64 configurations?
-> 
-> Maybe you can use a limit with some ifdef tests, something like:
-> 
-> #if PAGE_SHIFT > 13
-> #define BCM_PAGE_BITS 13
-> #else
-> #define BCM_PAGE_BITS PAGE_SHIFT
-> #endif
-> 
-> which would limit it to 8K.
-> 
-Yes, this makes sense. Here's the revised patch:
+Stephen Hemminger wrote:
 
-Use CPU native page size to determine various ring sizes. This allows
-order-0 memory allocations on all systems.
+ >use blacklist in module config to block one.
+ >Just put in /etc/modprobe.conf
 
-Added check to limit the page size to 16K since that's the maximum rx
-ring size that will be used. This will prevent using unnecessarily
-large page sizes on some architectures with large page sizes.
-[Suggested by David Miller]
+ >blacklist orinoco
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Unfortunately this is not work at least it is not work with FC4. I can 
+blacklist eepro100 and 8139cp.
 
+blacklist eepro100
+blacklist 8139cp
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 49c09da..cefb129 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -32,6 +32,7 @@
- #include <asm/irq.h>
- #include <linux/delay.h>
- #include <asm/byteorder.h>
-+#include <asm/page.h>
- #include <linux/time.h>
- #include <linux/ethtool.h>
- #include <linux/mii.h>
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index ea1ab06..69cebd9 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -3750,7 +3750,12 @@ struct l2_fhdr {
- #define DMA_READ_CHANS	5
- #define DMA_WRITE_CHANS	3
- 
--#define BCM_PAGE_BITS	12
-+/* Use CPU native page size up to 16K for the ring sizes.  */
-+#if (PAGE_SHIFT > 14)
-+#define BCM_PAGE_BITS	14
-+#else
-+#define BCM_PAGE_BITS	PAGE_SHIFT
-+#endif
- #define BCM_PAGE_SIZE	(1 << BCM_PAGE_BITS)
- 
- #define TX_DESC_CNT  (BCM_PAGE_SIZE / sizeof(struct tx_bd))
-@@ -3773,7 +3778,7 @@ struct l2_fhdr {
- 
- #define RX_RING_IDX(x) ((x) & bp->rx_max_ring_idx)
- 
--#define RX_RING(x) (((x) & ~MAX_RX_DESC_CNT) >> 8)
-+#define RX_RING(x) (((x) & ~MAX_RX_DESC_CNT) >> (BCM_PAGE_BITS - 4))
- #define RX_IDX(x) ((x) & MAX_RX_DESC_CNT)
- 
- /* Context size. */
+but I can't blacklist orinoco_pci
+blacklist orinoco_pci
 
+It always loads itself with or without blacklist. That's why I have to 
+do 'rm -f orinoco*.* && depmod -a' when the new kernel arrives. Seems 
+that users are directed to use unsecure orinoco (wep) driver rather than 
+secure hostap (wpa/wpa2,tkip,aes) driver for their prism2 hardware.
 
+-- 
+Best Regards, Jar
