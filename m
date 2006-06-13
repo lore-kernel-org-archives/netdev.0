@@ -1,31 +1,54 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Tue, 13 Jun 2006 15:40:31 -0600
-Message-ID: <20060613154031.A6276@openss7.org>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com>
-Reply-To: bidulock@openss7.org
+From: Kumiko Ono <kumiko@cs.columbia.edu>
+Subject: How can we make more use of memory for TCP properly?
+Date: Tue, 13 Jun 2006 17:46:34 -0400
+Message-ID: <448F323A.7000005@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:41648 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S932329AbWFMVkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 17:40:33 -0400
-To: Daniel Phillips <phillips@google.com>
-Content-Disposition: inline
-In-Reply-To: <448F2A49.5020809@google.com>; from phillips@google.com on Tue, Jun 13, 2006 at 02:12:41PM -0700
+Received: from cs.columbia.edu ([128.59.16.20]:657 "EHLO cs.columbia.edu")
+	by vger.kernel.org with ESMTP id S932343AbWFMVqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 17:46:38 -0400
+Received: from lion.cs.columbia.edu (IDENT:XrPp306a2n2DEDAyeiB/O0lpP1PKpKIM@lion.cs.columbia.edu [128.59.16.120])
+	by cs.columbia.edu (8.12.10/8.12.10) with ESMTP id k5DLkZX6013283
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 17:46:36 -0400 (EDT)
+Received: from [128.59.18.194] (compute04.cs.columbia.edu [128.59.18.194])
+	by lion.cs.columbia.edu (8.12.9/8.12.9) with ESMTP id k5DLkYBA019983
+	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 17:46:35 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel,
+Hi all,
 
-On Tue, 13 Jun 2006, Daniel Phillips wrote:
-> 
-> This has the makings of a nice stable internal kernel api.  Why do we want
-> to provide this nice stable internal api to proprietary modules?
+Although I tried to find similar topics in the maling list, I found no 
+useful clue. If I overlooked, please let me know the pointer.
 
-Why not?  Not all non-GPL modules are proprietary.  Do we lose
-something by making a nice stable api available to non-derived
-modules?
+I need to increase the value of sysctl_tcp_mem[2] that limit the total 
+amount of memory allocated for TCP in order to maintain a number of 
+simultateous TCP connections at a server, especially as a TCP server, 
+like a web server.
+
+Accorting to TCP man page, the kernel calculates the values of 
+sysctl_tcp_mem depending on available physical memory at boot time.
+I added 2GB RAM to a machine that had 2GB, and then it has 4GB RAM now. 
+However, the value of sysctl_tcp_mem[2] has not changed from 196608 
+(pages). The machine is running at Linux 2.6.16.5 i686 Intel(R) 
+Pentium(R) 4 CPU 3.06GHz.
+
+When looking through the tcp_init() in tcp.c, I found the value are 
+determined with the tcp bind hash size, which reaches a upper cap of 
+65536. I understand this upper cap is derived from the maximum of local 
+port numbers, which are related to the behavior of TCP client, not that 
+of TCP server.
+
+When I manually increased the sysctl_tcp_mem to the double, 393216, and 
+tried to establish over 30K TCP connections, the server hung up without 
+any error messages of syslog.
+
+Could anbody tell me how to make more use of memory for TCP connections 
+properly, without replacing the machine to 64-bit arch.?
+
+Regards,
+Kumiko
