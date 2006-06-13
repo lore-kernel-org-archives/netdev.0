@@ -1,46 +1,65 @@
 From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH] DM9000 - do no re-init spin lock
-Date: Wed, 14 Jun 2006 00:05:50 +0100
-Message-ID: <20060613230550.GA27024@home.fluff.org>
+Subject: [PATCH] DM9000 - minor code cleanups
+Date: Wed, 14 Jun 2006 00:09:17 +0100
+Message-ID: <20060613230917.GA27085@home.fluff.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Content-Type: multipart/mixed; boundary="x+6KMIRAuhnl3hBn"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-84-9-203-241.bulldogdsl.com ([84.9.203.241]:5290 "EHLO
-	aeryn.fluff.org.uk") by vger.kernel.org with ESMTP id S1751181AbWFMXGK
+Received: from host-84-9-203-241.bulldogdsl.com ([84.9.203.241]:5294 "EHLO
+	aeryn.fluff.org.uk") by vger.kernel.org with ESMTP id S964788AbWFMXJS
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 19:06:10 -0400
+	Tue, 13 Jun 2006 19:09:18 -0400
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---gKMricLos+KVdGMg
+--x+6KMIRAuhnl3hBn
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-The DM9000 initialisation sequence for the
-hardware re-initialise the board spin-lock,
-which is in my view wrong.
+Ensure the driver's module owner field is
+initialised for when this is being built and
+loaded as a module.
 
-This patch removes the extra spin lock
-initialisation
+Also change make the dm9000_tx_done function
+static, as it is not exported elsewhere.
 
 Signed-off-by: Ben Dooks <ben-linux@fluff.org>
 
---gKMricLos+KVdGMg
+--x+6KMIRAuhnl3hBn
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="dm9k-no-spinlock-reinit.patch"
+Content-Disposition: attachment; filename="dm9k-minor-cleanups.patch"
 
 --- ../linux-2.6.17/linux-2.6.17-rc5/drivers/net/dm9000.c	2006-03-20 05:53:29.000000000 +0000
 +++ linux-2.6.16-simtec2/drivers/net/dm9000.c	2006-05-22 21:46:18.000000000 +0100
-@@ -663,7 +665,6 @@ dm9000_init_dm9000(struct net_device *de
- 	db->tx_pkt_cnt = 0;
- 	db->queue_pkt_len = 0;
- 	dev->trans_start = 0;
--	spin_lock_init(&db->lock);
+@@ -767,7 +768,7 @@ dm9000_stop(struct net_device *ndev)
+  * receive the packet to upper layer, free the transmitted packet
+  */
+ 
+-void
++static void
+ dm9000_tx_done(struct net_device *dev, board_info_t * db)
+ {
+ 	int tx_status = ior(db, DM9000_NSR);	/* Got TX status */
+@@ -1187,13 +1188,14 @@ dm9000_drv_remove(struct platform_device
  }
  
- /*
+ static struct platform_driver dm9000_driver = {
++	.driver	= {
++		.name    = "dm9000",
++		.owner	 = THIS_MODULE,
++	},
+ 	.probe   = dm9000_probe,
+ 	.remove  = dm9000_drv_remove,
+ 	.suspend = dm9000_drv_suspend,
+ 	.resume  = dm9000_drv_resume,
+-	.driver	= {
+-		.name	= "dm9000",
+-	},
+ };
+ 
+ static int __init
 
---gKMricLos+KVdGMg--
+--x+6KMIRAuhnl3hBn--
