@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Mon, 12 Jun 2006 21:49:48 -0700 (PDT)
-Message-ID: <20060612.214948.124554804.davem@davemloft.net>
-References: <200606121746.34880.ak@suse.de>
-	<448DDBD9.6030900@goop.org>
-	<200606130547.49624.ak@suse.de>
+Subject: Re: [PATCH 2.6.18 5.2/6 resend] bnx2: Use compressed firmware 2/6
+Date: Mon, 12 Jun 2006 21:54:13 -0700 (PDT)
+Message-ID: <20060612.215413.80028990.davem@davemloft.net>
+References: <1150157842.26173.10.camel@rh4>
+	<20060612.174051.13769158.davem@davemloft.net>
+	<1150163780.26368.26.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, lkml@rtr.ca, mpm@selenic.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63129
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35563
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932879AbWFMEtj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 00:49:39 -0400
-To: ak@suse.de
-In-Reply-To: <200606130547.49624.ak@suse.de>
+	id S1751761AbWFMEyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 00:54:03 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1150163780.26368.26.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Tue, 13 Jun 2006 05:47:49 +0200
 
-> I've been playing with the idea of writing "early1394" that just
-> turns the DMA controller on as early as possible similar to earlyprintk
-> on the target. Then it would be possible to use it for early
-> debugging too. But so far it's not done yet.
+Michael, you just sent out what appears to be 6 copies of the
+bnx2_fw.h patch :-)  I think your patch sending script messed
+something up.
 
-Does this raw1394 thing with firescope just assume DMA address ==
-physical address?  How would it work to access all of physical
-memory properly on IOMMU platforms?
