@@ -1,75 +1,124 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH 03/16] 64bit resource: fix up printks for resources in networks drivers
-Date: Tue, 13 Jun 2006 09:30:43 -0700
-Message-ID: <20060613163043.GA22588@suse.de>
-References: <20060613003033.GA10717@kroah.com> <11501586781628-git-send-email-greg@kroah.com> <1150158683636-git-send-email-greg@kroah.com> <11501586871870-git-send-email-greg@kroah.com> <4807377b0606130924i4b5ea36aq83b8db050831bea4@mail.gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [IPV6]: Fix RTNLGRP_IPV6_IFINFO netlink notifications
+Date: Wed, 14 Jun 2006 01:39:03 +0900 (JST)
+Message-ID: <20060614.013903.51529969.yoshfuji@linux-ipv6.org>
+References: <4488AB2E.3030301@trash.net>
+	<20060609.112357.10012542.yoshfuji@linux-ipv6.org>
+	<448EE1CA.7020603@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, linux-kernel@vger.kernel.org,
-	NetDEV list <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:23011 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932187AbWFMQdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 12:33:18 -0400
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <4807377b0606130924i4b5ea36aq83b8db050831bea4@mail.gmail.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:24836 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932164AbWFMQiX
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 12:38:23 -0400
+To: kaber@trash.net, davem@davemloft.net
+In-Reply-To: <448EE1CA.7020603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2006 at 09:24:55AM -0700, Jesse Brandeburg wrote:
-> First, added netdev,
-> 
-> On 6/12/06, Greg KH <greg@kroah.com> wrote:
-> >From: Greg Kroah-Hartman <gregkh@suse.de>
-> >
-> >This is needed if we wish to change the size of the resource structures.
-> >
-> >Based on an original patch from Vivek Goyal <vgoyal@in.ibm.com>
-> >
-> >Cc: Vivek Goyal <vgoyal@in.ibm.com>
-> >Cc: Andrew Morton <akpm@osdl.org>
-> >Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-> >---
-> > drivers/net/3c59x.c            |    6 ++++--
-> > drivers/net/8139cp.c           |    9 +++++----
-> > drivers/net/8139too.c          |    6 +++---
-> > drivers/net/e100.c             |    4 ++--
-> > drivers/net/skge.c             |    4 ++--
-> > drivers/net/sky2.c             |    6 +++---
-> > drivers/net/tulip/de2104x.c    |    9 +++++----
-> > drivers/net/tulip/tulip_core.c |    6 +++---
-> > drivers/net/typhoon.c          |    5 +++--
-> > drivers/net/wan/dscc4.c        |   12 ++++++------
-> > drivers/net/wan/pc300_drv.c    |    4 ++--
-> > 11 files changed, 38 insertions(+), 33 deletions(-)
-> >
-> >diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-> >index 31ac001..0c0bd67 100644
-> >--- a/drivers/net/e100.c
-> >+++ b/drivers/net/e100.c
-> >@@ -2678,9 +2678,9 @@ #endif
-> >                goto err_out_free;
-> >        }
-> >
-> >-       DPRINTK(PROBE, INFO, "addr 0x%lx, irq %d, "
-> >+       DPRINTK(PROBE, INFO, "addr 0x%llx, irq %d, "
-> >                "MAC addr %02X:%02X:%02X:%02X:%02X:%02X\n",
-> >-               pci_resource_start(pdev, 0), pdev->irq,
-> >+               (unsigned long long)pci_resource_start(pdev, 0), pdev->irq,
-> >                netdev->dev_addr[0], netdev->dev_addr[1], 
-> >                netdev->dev_addr[2],
-> >                netdev->dev_addr[3], netdev->dev_addr[4], 
-> >                netdev->dev_addr[5]);
-> 
-> color me confused, but why is this change necessary for e100?  e100
-> can not support 64 bit BARs, so it seems to me to make little sense to
-> cast to unsigned long long.  e100 is 32 bit the whole way through.
+In article <448EE1CA.7020603@trash.net> (at Tue, 13 Jun 2006 18:03:22 +0200), Patrick McHardy <kaber@trash.net> says:
 
-Because the result of pci_resource_start() just became either u32 or u64
-depending on a config option, and so, to keep everything sane, we just
-always cast it to unsigned long long, which makes everyone happy.
+> Yes, thats better. I also thing we shouldn't return -EINVAL but
+> -ENOSPC or something like that, -EINVAL usually indicated that
+> the user sent an invalid message, which isn't the case here.
+> Maybe a WARN_ON would also be appropriate, since this condition
+> always means there is a bug.
 
-Hope this helps,
+Yes, but that's another issue.
+Of course, you can cook up patch for it.
 
-greg k-h
+
+> > How about this?
+> > 
+> > +/* Maximum length of ifinfomsg attributes */
+> > +#define INET6_IFINFO_RTA_SPACE \
+> > +		RTA_SPACE(IFNAMSIZ) /* IFNAME */ + \
+:
+> This doesn't seem to account for IFLA_LINK. Other than that it looks
+> fine too me.
+
+[IPV6]: Sum real space for RTAs.
+
+This patch fixes RTNLGRP_IPV6_IFINFO netlink notifications.
+Issue pointed out by Patrick McHardy <kaber@trash.net>.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 445006e..c2c26fa 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2860,6 +2860,11 @@ inet6_rtm_newaddr(struct sk_buff *skb, s
+ 	return inet6_addr_add(ifm->ifa_index, pfx, ifm->ifa_prefixlen);
+ }
+ 
++/* Maximum length of ifa_cacheinfo attributes */
++#define INET6_IFADDR_RTA_SPACE \
++		RTA_SPACE(16) /* IFA_ADDRESS */ + \
++		RTA_SPACE(sizeof(struct ifa_cacheinfo)) /* CACHEINFO */
++
+ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
+ 			     u32 pid, u32 seq, int event, unsigned int flags)
+ {
+@@ -3092,7 +3097,7 @@ static int inet6_dump_ifacaddr(struct sk
+ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
+ {
+ 	struct sk_buff *skb;
+-	int size = NLMSG_SPACE(sizeof(struct ifaddrmsg)+128);
++	int size = NLMSG_SPACE(sizeof(struct ifaddrmsg) + INET6_IFADDR_RTA_SPACE);
+ 
+ 	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb) {
+@@ -3142,6 +3147,17 @@ #endif
+ #endif
+ }
+ 
++/* Maximum length of ifinfomsg attributes */
++#define INET6_IFINFO_RTA_SPACE \
++		RTA_SPACE(IFNAMSIZ) /* IFNAME */ + \
++		RTA_SPACE(MAX_ADDR_LEN) /* ADDRESS */ +	\
++		RTA_SPACE(sizeof(u32)) /* MTU */ + \
++		RTA_SPACE(sizeof(int)) /* LINK */ + \
++		RTA_SPACE(0) /* PROTINFO */ + \
++		RTA_SPACE(sizeof(u32)) /* FLAGS */ + \
++		RTA_SPACE(sizeof(struct ifla_cacheinfo)) /* CACHEINFO */ + \
++		RTA_SPACE(sizeof(__s32[DEVCONF_MAX])) /* CONF */
++
+ static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev, 
+ 			     u32 pid, u32 seq, int event, unsigned int flags)
+ {
+@@ -3235,8 +3251,7 @@ static int inet6_dump_ifinfo(struct sk_b
+ void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
+ {
+ 	struct sk_buff *skb;
+-	/* 128 bytes ?? */
+-	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+128);
++	int size = NLMSG_SPACE(sizeof(struct ifinfomsg) + INET6_IFINFO_RTA_SPACE);
+ 	
+ 	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb) {
+@@ -3252,6 +3267,11 @@ void inet6_ifinfo_notify(int event, stru
+ 	netlink_broadcast(rtnl, skb, 0, RTNLGRP_IPV6_IFINFO, GFP_ATOMIC);
+ }
+ 
++/* Maximum length of prefix_cacheinfo attributes */
++#define INET6_PREFIX_RTA_SPACE \
++		RTA_SPACE(sizeof(((struct prefix_info *)NULL)->prefix)) /* ADDRESS */ + \
++		RTA_SPACE(sizeof(struct prefix_cacheinfo)) /* CACHEINFO */
++
+ static int inet6_fill_prefix(struct sk_buff *skb, struct inet6_dev *idev,
+ 			struct prefix_info *pinfo, u32 pid, u32 seq, 
+ 			int event, unsigned int flags)
+@@ -3296,7 +3316,7 @@ static void inet6_prefix_notify(int even
+ 			 struct prefix_info *pinfo)
+ {
+ 	struct sk_buff *skb;
+-	int size = NLMSG_SPACE(sizeof(struct prefixmsg)+128);
++	int size = NLMSG_SPACE(sizeof(struct prefixmsg) + INET6_PREFIX_RTA_SPACE);
+ 
+ 	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb) {
