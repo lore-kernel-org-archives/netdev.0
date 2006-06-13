@@ -1,45 +1,59 @@
-From: "Barry K. Nathan" <barryn@pobox.com>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 13:45:43 -0700
-Message-ID: <986ed62e0606131345w7bdad0aap53e2edc5fea0f68f@mail.gmail.com>
-References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca>
-	 <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca>
-	 <448EEE9D.10105@rtr.ca> <448EF45B.2080601@rtr.ca>
-	 <448EF85E.50405@psc.edu>
-	 <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
-	 <448F03B3.5040501@psc.edu>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 14:12:41 -0700
+Message-ID: <448F2A49.5020809@google.com>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Linus Torvalds" <torvalds@osdl.org>, "Mark Lord" <lkml@rtr.ca>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.197]:46095 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S932230AbWFMUpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 16:45:44 -0400
-Received: by nz-out-0102.google.com with SMTP id v1so1457634nzb
-        for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 13:45:43 -0700 (PDT)
-To: "John Heffner" <jheffner@psc.edu>
-In-Reply-To: <448F03B3.5040501@psc.edu>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.45.12]:7539 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP id S932253AbWFMVNF
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 17:13:05 -0400
+To: bidulock@openss7.org
+In-Reply-To: <20060613052215.B27858@openss7.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/13/06, John Heffner <jheffner@psc.edu> wrote:
-> Though I haven't gotten my hands on it, I believe Windows will soon have
-> this capability, too.  I'm sure Windows is big enough that whenever they
-> turn this on, it will flush out all these boxes pretty quickly.  We
-> could wait for them to do it first, that that's not my favored approach.
+Brian F. G. Bidulock wrote:
+> Stephen,
+> 
+> On Tue, 13 Jun 2006, Stephen Hemminger wrote:
+> 
+> 
+>>>@@ -2176,3 +2279,13 @@ EXPORT_SYMBOL(sock_wake_async);
+>>> EXPORT_SYMBOL(sockfd_lookup);
+>>> EXPORT_SYMBOL(kernel_sendmsg);
+>>> EXPORT_SYMBOL(kernel_recvmsg);
+>>>+EXPORT_SYMBOL(kernel_bind);
+>>>+EXPORT_SYMBOL(kernel_listen);
+>>>+EXPORT_SYMBOL(kernel_accept);
+>>>+EXPORT_SYMBOL(kernel_connect);
+>>>+EXPORT_SYMBOL(kernel_getsockname);
+>>>+EXPORT_SYMBOL(kernel_getpeername);
+>>>+EXPORT_SYMBOL(kernel_getsockopt);
+>>>+EXPORT_SYMBOL(kernel_setsockopt);
+>>>+EXPORT_SYMBOL(kernel_sendpage);
+>>>+EXPORT_SYMBOL(kernel_ioctl);
+>>
+>>Don't we want to restrict this to GPL code with EXPORT_SYMBOL_GPL?
+> 
+> 
+> There are direct derivatives of the BSD/POSIX system call
+> interface.  The protocol function pointers within the socket
+> structure are not GPL only.  Why make this wrappered access to
+> them GPL only?  It will only encourange the reverse of what they
+> were intended to do: be used instead of the protocol function
+> pointers within the socket structure, that currently carry no
+> such restriction.
 
-Yes, that appears to be the case with Windows Vista:
-http://blogs.msdn.com/wndp/archive/2006/05/05/Winhec_blog_tcpip_2.aspx
+This has the makings of a nice stable internal kernel api.  Why do we want
+to provide this nice stable internal api to proprietary modules?
 
-*However*, they're also adding "black hole detection", for working
-around broken boxes that drop ICMP. And that kinda makes me wonder how
-long they're going to stick to their guns for enabling window scaling.
-(For instance, if too many sites break, maybe they'll disable it again
-with Vista Service Pack 1 or something.)
--- 
--Barry K. Nathan <barryn@pobox.com>
+Regards,
+
+Daniel
