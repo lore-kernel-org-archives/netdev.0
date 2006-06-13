@@ -1,48 +1,59 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [PATCH] s2io: netpoll support
-Date: Tue, 13 Jun 2006 16:33:10 -0700
-Message-ID: <005401c68f41$bc4bfaa0$3e10100a@pc.s2io.com>
-References: <448849F6.8050002@hp.com>
-Reply-To: <ravinandan.arakali@neterion.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: 2.6.17: networking bug??
+Date: Tue, 13 Jun 2006 18:22:55 -0500
+Message-ID: <20060613232255.GA8325@waste.org>
+References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org> <448F0344.9000008@rtr.ca> <448F0D4B.30201@rtr.ca> <20060613.142603.48825062.davem@davemloft.net> <448F32E1.8080002@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <jgarzik@pobox.com>,
-	"Ananda. Raju \(E-mail\)" <ananda.raju@neterion.com>,
-	"Leonid. Grossman \(E-mail\)" <leonid.grossman@neterion.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jheffner@psc.edu,
+	torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:47779 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S964801AbWFMXdB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 19:33:01 -0400
-To: "'Brian Haley'" <brian.haley@hp.com>, <netdev@vger.kernel.org>
-In-Reply-To: <448849F6.8050002@hp.com>
+Received: from waste.org ([64.81.244.121]:12516 "EHLO waste.org")
+	by vger.kernel.org with ESMTP id S964798AbWFMXdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 19:33:42 -0400
+To: Mark Lord <lkml@rtr.ca>
+Content-Disposition: inline
+In-Reply-To: <448F32E1.8080002@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I don't think we should disable and enable all interrupts in the
-poll_controller entry point. With the current patch, at the end of
-the routine _all_ interrupts get enabled which is not desirable.
-Maybe you should just do disable_irq() at start of function and
-enable_irq() before exiting, the way some of the other drivers do.
+On Tue, Jun 13, 2006 at 05:49:21PM -0400, Mark Lord wrote:
+> 
+> 
+> David Miller wrote:
+> >..
+> >First, you are getting window scaling by default with the older
+> >kernel too.  It's just a smaller window scale, using a shift
+> >value of say 1 or 2.
+> >
+> >What these broken middle boxes do is ignore the window scale
+> >entirely.
+> >
+> >So they don't apply a window scale to the advertised windows in each
+> >packet.  Therefore, they think a smaller amount of window space is
+> >being advertised than really is.  So they will silently drop packets
+> >they think is outside of this bogus window they've calculated.
+> >
+> >Now, when the window scale is smaller, the connection can still limp
+> >along, albeit slowly, making forward progress even in the face of such
+> >broken devices because half or a quarter of the window is still
+> >available.  It will retransmit a lot, and the congestion window won't
+> >grow at all.
+> >
+> >When the window scale is larger, this middle box bug makes it such
+> >that not even one packet can fit into the miscalculated window and
+> >things wedge.  The box thinks that your window is "94" instead of
+> >"94 << WINDOW_SCALE".
+> ..
+> 
+> Unilaterally following the standard is all well and good
+> for those who know how to get around it when a site becomes
+> inaccessible, but not for Joe User.
 
-Ravi
+We had very similar issues with ECN. But unlike ECN, window scaling is
+not something we can just shrug our shoulders and say "oh well" about.
+We will have to deal with it eventually. It might as well be sooner.
 
------Original Message-----
-From: netdev-owner@vger.kernel.org
-[mailto:netdev-owner@vger.kernel.org]On Behalf Of Brian Haley
-Sent: Thursday, June 08, 2006 9:02 AM
-To: netdev@vger.kernel.org
-Cc: jgarzik@pobox.com
-Subject: [PATCH] s2io: netpoll support
-
-
-This adds netpoll support for things like netconsole/kgdboe to the s2io
-10GbE driver.
-
-This duplicates some code from s2io_poll() as I wanted to be
-least-invasive, someone from Neterion might have other thoughts?
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
+-- 
+Mathematics is the supreme nostalgia of our time.
