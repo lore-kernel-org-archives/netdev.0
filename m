@@ -1,28 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: http://bugzilla.kernel.org/show_bug.cgi?id=6197
-Date: Tue, 13 Jun 2006 17:57:25 +0200
-Message-ID: <448EE065.9060207@trash.net>
-References: <20060611055132.2930b95f.akpm@osdl.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/2] AES-XCBC-MAC
+Date: Wed, 14 Jun 2006 01:10:44 +0900 (JST)
+Message-ID: <20060614.011044.122508954.yoshfuji@linux-ipv6.org>
+References: <1150213440.4200.36.camel@hookipa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:31742 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932159AbWFMP51
+Received: from yue.linux-ipv6.org ([203.178.140.15]:20484 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932160AbWFMQJ6
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 11:57:27 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060611055132.2930b95f.akpm@osdl.org>
+	Tue, 13 Jun 2006 12:09:58 -0400
+To: kazunori@miyazawa.org
+In-Reply-To: <1150213440.4200.36.camel@hookipa>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> The reporter claims this is a netfilter bug.
-> 
+In article <1150213440.4200.36.camel@hookipa> (at Wed, 14 Jun 2006 00:44:00 +0900), Kazunori MIYAZAWA <kazunori@miyazawa.org> says:
 
-ipt_IMQ                 1949  36
-imq                     4023  0
+> This is preparation to introduce AES-XCBC-MAC.
+> - introducing common interface "keyed hash"
+> - making HMAC use the interface
 
-He patched his kernel with the IMQ device, which is known to cause all
-kinds of weird problems.
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+BTW, why not sign off?
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
