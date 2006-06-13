@@ -1,45 +1,74 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: RE: [openib-general] [PATCH v2 1/2] iWARP Connection Manager.
-Date: Tue, 13 Jun 2006 16:46:36 -0500
-Message-ID: <1150235196.17394.91.camel@stevo-desktop>
-References: <000001c68f31$78910fe0$24268686@amr.corp.intel.com>
+From: Mark Lord <lkml@rtr.ca>
+Subject: Re: 2.6.17: networking bug??
+Date: Tue, 13 Jun 2006 17:49:21 -0400
+Message-ID: <448F32E1.8080002@rtr.ca>
+References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>	<448F0344.9000008@rtr.ca>	<448F0D4B.30201@rtr.ca> <20060613.142603.48825062.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tom Tucker <tom@opengridcomputing.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
+Cc: jheffner@psc.edu, torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:40994 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S932344AbWFMVql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 17:46:41 -0400
-To: Sean Hefty <sean.hefty@intel.com>
-In-Reply-To: <000001c68f31$78910fe0$24268686@amr.corp.intel.com>
+Received: from rtr.ca ([64.26.128.89]:49641 "EHLO mail.rtr.ca")
+	by vger.kernel.org with ESMTP id S932345AbWFMVtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 17:49:23 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060613.142603.48825062.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-06-13 at 14:36 -0700, Sean Hefty wrote:
-> >> Er...no. It will lose this event. Depending on the event...the carnage
-> >> varies. We'll take a look at this.
-> >>
-> >
-> >This behavior is consistent with the Infiniband CM (see
-> >drivers/infiniband/core/cm.c function cm_recv_handler()).  But I think
-> >we should at least log an error because a lost event will usually stall
-> >the rdma connection.
+
+
+David Miller wrote:
+>..
+> First, you are getting window scaling by default with the older
+> kernel too.  It's just a smaller window scale, using a shift
+> value of say 1 or 2.
 > 
-> I believe that there's a difference here.  For the Infiniband CM, an allocation
-> error behaves the same as if the received MAD were lost or dropped.  Since MADs
-> are unreliable anyway, it's not so much that an IB CM event gets lost, as it
-> doesn't ever occur.  A remote CM should retry the send, which hopefully allows
-> the connection to make forward progress.
+> What these broken middle boxes do is ignore the window scale
+> entirely.
 > 
+> So they don't apply a window scale to the advertised windows in each
+> packet.  Therefore, they think a smaller amount of window space is
+> being advertised than really is.  So they will silently drop packets
+> they think is outside of this bogus window they've calculated.
+> 
+> Now, when the window scale is smaller, the connection can still limp
+> along, albeit slowly, making forward progress even in the face of such
+> broken devices because half or a quarter of the window is still
+> available.  It will retransmit a lot, and the congestion window won't
+> grow at all.
+> 
+> When the window scale is larger, this middle box bug makes it such
+> that not even one packet can fit into the miscalculated window and
+> things wedge.  The box thinks that your window is "94" instead of
+> "94 << WINDOW_SCALE".
+..
 
-hmm.  Ok.  I see.  I misunderstood the code in cm_recv_handler().
+Unilaterally following the standard is all well and good
+for those who know how to get around it when a site becomes
+inaccessible, but not for Joe User.
 
-Tom and I have been talking about what we can do to not drop the event.
-Stay tuned.
+If it always fails, or always works, that's not such a big problem.
+I would never have complained if I had never been able to access
+the web sites in question.  But since it IS working in 2.6.16,
+and got broken in 2.6.17, I'm bloody well going to complain.
 
-Steve.
+I suppose the most important objection to our current behaviour
+is that this behaviour *changes* when something totally unrelated
+(to Joe User) happens:  adding or removing a stick of RAM.
+
+So I'm not against the window scaling, just against it's apparent
+randomness (to the vast majority who are not "in the know").
+
+We should perhaps just have a fixed upper memory setting, as we
+currently do in 2.6.16, so that the behaviour is predictable.
+
+On a related note.. I wonder if we can choose better values for
+the window size, so that if the scale factor is ignored, we still
+end up with reasonably sized packets?  So that the other box
+will not think our window is a mere "94" when the scale factor
+is lost?
+
+-ml
 
