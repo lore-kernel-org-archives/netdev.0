@@ -1,74 +1,47 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 17:49:21 -0400
-Message-ID: <448F32E1.8080002@rtr.ca>
-References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>	<448F0344.9000008@rtr.ca>	<448F0D4B.30201@rtr.ca> <20060613.142603.48825062.davem@davemloft.net>
+From: Chase Venters <chase.venters@clientec.com>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 17:00:53 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
+ <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org>
+ <448F2A49.5020809@google.com> <20060613154031.A6276@openss7.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([64.26.128.89]:49641 "EHLO mail.rtr.ca")
-	by vger.kernel.org with ESMTP id S932345AbWFMVtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 17:49:23 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060613.142603.48825062.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932356AbWFMWA5@vger.kernel.org>
+To: "Brian F. G. Bidulock" <bidulock@openss7.org>
+In-Reply-To: <20060613154031.A6276@openss7.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 13 Jun 2006, Brian F. G. Bidulock wrote:
 
+> Daniel,
+>
+> On Tue, 13 Jun 2006, Daniel Phillips wrote:
+>>
+>> This has the makings of a nice stable internal kernel api.  Why do we want
+>> to provide this nice stable internal api to proprietary modules?
+>
+> Why not?  Not all non-GPL modules are proprietary.  Do we lose
+> something by making a nice stable api available to non-derived
+> modules?
 
-David Miller wrote:
->..
-> First, you are getting window scaling by default with the older
-> kernel too.  It's just a smaller window scale, using a shift
-> value of say 1 or 2.
-> 
-> What these broken middle boxes do is ignore the window scale
-> entirely.
-> 
-> So they don't apply a window scale to the advertised windows in each
-> packet.  Therefore, they think a smaller amount of window space is
-> being advertised than really is.  So they will silently drop packets
-> they think is outside of this bogus window they've calculated.
-> 
-> Now, when the window scale is smaller, the connection can still limp
-> along, albeit slowly, making forward progress even in the face of such
-> broken devices because half or a quarter of the window is still
-> available.  It will retransmit a lot, and the congestion window won't
-> grow at all.
-> 
-> When the window scale is larger, this middle box bug makes it such
-> that not even one packet can fit into the miscalculated window and
-> things wedge.  The box thinks that your window is "94" instead of
-> "94 << WINDOW_SCALE".
-..
+Look out for that word (stable). Judging from history (and sanity), 
+arguing /in favor of/ any kind of stable module API is asking for it.
 
-Unilaterally following the standard is all well and good
-for those who know how to get around it when a site becomes
-inaccessible, but not for Joe User.
+At least some of us feel like stable module APIs should be explicitly 
+discouraged, because we don't want to offer comfort for code 
+that refuses to live in the tree (since getting said code into the tree is 
+often a goal).
 
-If it always fails, or always works, that's not such a big problem.
-I would never have complained if I had never been able to access
-the web sites in question.  But since it IS working in 2.6.16,
-and got broken in 2.6.17, I'm bloody well going to complain.
+I'm curious now too - can you name some non-GPL non-proprietary modules we 
+should be concerned about? I'd think most of the possible examples (not 
+sure what they are) would be better off dual-licensed (one license 
+being GPL) and in-kernel.
 
-I suppose the most important objection to our current behaviour
-is that this behaviour *changes* when something totally unrelated
-(to Joe User) happens:  adding or removing a stick of RAM.
-
-So I'm not against the window scaling, just against it's apparent
-randomness (to the vast majority who are not "in the know").
-
-We should perhaps just have a fixed upper memory setting, as we
-currently do in 2.6.16, so that the behaviour is predictable.
-
-On a related note.. I wonder if we can choose better values for
-the window size, so that if the scale factor is ignored, we still
-end up with reasonably sized packets?  So that the other box
-will not think our window is a mere "94" when the scale factor
-is lost?
-
--ml
-
+Thanks,
+Chase
