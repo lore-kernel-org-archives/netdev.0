@@ -1,27 +1,35 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 15:40:53 -0700
-Message-ID: <448F3EF5.50701@hp.com>
-References: <448F0D4B.30201@rtr.ca>	<20060613.142603.48825062.davem@davemloft.net>	<448F32E1.8080002@rtr.ca> <20060613.152301.26928146.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.18 3/6] bnx2: Use CPU native page size
+Date: Tue, 13 Jun 2006 15:41:13 -0700 (PDT)
+Message-ID: <20060613.154113.133441489.davem@davemloft.net>
+References: <1150157833.26173.8.camel@rh4>
+	<20060612.222036.15588314.davem@davemloft.net>
+	<1150222782.26368.34.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lkml@rtr.ca, jheffner@psc.edu, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:21996 "EHLO palrel11.hp.com")
-	by vger.kernel.org with ESMTP id S932318AbWFMWk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 18:40:57 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060613.152301.26928146.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7855
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932318AbWFMWlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 18:41:16 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1150222782.26368.34.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> One final word about window sizes.  If you have a connection whose
-> bandwidth-delay-product needs an N byte buffer to fill, you actually
-> have to have an "N * 2" sized buffer available in order for fast
-> retransmit to work.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 13 Jun 2006 11:19:42 -0700
 
-Is that as important in the presence of SACK?
+> Use CPU native page size to determine various ring sizes. This allows
+> order-0 memory allocations on all systems.
+> 
+> Added check to limit the page size to 16K since that's the maximum rx
+> ring size that will be used. This will prevent using unnecessarily
+> large page sizes on some architectures with large page sizes.
+> [Suggested by David Miller]
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-rick jones
+Looks great, applied.
