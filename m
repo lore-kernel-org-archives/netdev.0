@@ -1,34 +1,41 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFT 0/5] sky2: suspend/resume patchlets
-Date: Tue, 13 Jun 2006 09:22:38 -0400
-Message-ID: <448EBC1E.6070701@pobox.com>
-References: <20060613081726.695812000@localhost.localdomain>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC/PATCH 2/2] update sunrpc to use in-kernel sockets API
+Date: Tue, 13 Jun 2006 10:07:45 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606131006250.3553@d.namei>
+References: <1150156564.19929.33.camel@w-sridhar2.beaverton.ibm.com>
+ <Pine.LNX.4.64.0606122320010.31627@d.namei> <448E42AE.1010901@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:25234 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932095AbWFMNWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 09:22:41 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060613081726.695812000@localhost.localdomain>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:21123 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751133AbWFMOHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 10:07:48 -0400
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <448E42AE.1010901@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> There were a several problems buried in suspend/resume. The real
-> failure was caused by the idle timer not being stopped/restarted.
-> But several other races, and cleanups were needed.
-> 
-> Since I don't have a machine that will suspend successfully with
-> that hardware, I can't test it.
+On Mon, 12 Jun 2006, Sridhar Samudrala wrote:
+
+> > > -	sendpage = sock->ops->sendpage ? : sock_no_sendpage;
+> > > +	sendpage = kernel_sendpage ? : sock_no_sendpage;
+> > >     
+> > 
+> > This is not equivalent.
+> > 
+> >   
+> Actually, we could make this a simple assignment as we check for
+> sock->ops->sendpage in
+> kernel_sendpage().
+>    sendpage = kernel_sendpage;
+
+No, the code there is setting different values for sendpage depending on 
+whether the page is in high memory or not.
 
 
-All five patches look OK to me.  Did Linus get the patches?  The emails 
-were sent to linus@osdl.org not torvalds@osdl.org.
-
-	Jeff
-
-
-
+- James
+-- 
+James Morris
+<jmorris@namei.org>
