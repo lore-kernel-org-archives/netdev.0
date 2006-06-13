@@ -1,110 +1,101 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Tue, 13 Jun 2006 17:55:31 -0600
-Message-ID: <20060613235531.GA4191@colo.lackof.org>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org>
+From: Chase Venters <chase.venters@clientec.com>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 18:59:21 -0500
+Message-ID: <200606131859.43695.chase.venters@clientec.com>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <448F3C83.9080606@google.com> <20060613164714.B7232@openss7.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:41944 "EHLO colo.lackof.org")
-	by vger.kernel.org with ESMTP id S932236AbWFMXzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 19:55:35 -0400
-To: Valerie Henson <val_henson@linux.intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932368AbWFMX7s@vger.kernel.org>
+To: bidulock@openss7.org
+In-Reply-To: <20060613164714.B7232@openss7.org>
 Content-Disposition: inline
-In-Reply-To: <20060608170120.GI8246@colo.lackof.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 08, 2006 at 11:01:20AM -0600, Grant Grundler wrote:
-> Here is a new patch that moves free_irq() into tulip_down().
-> The resulting code is structured the same as cp_close().
+On Tuesday 13 June 2006 17:46, Brian F. G. Bidulock wrote:
+> Daniel,
+>
+> On Tue, 13 Jun 2006, Daniel Phillips wrote:
+> > You probably meant "non-GPL-compatible non-proprietary".  If so, th=
+en by
+> > definition there are none.
+>
+> Well, being GPL compatible is not a requirement for an open source li=
+cense.
+>
+> IANAL, but last I checked, pure-BSD is not compatible with GPL (it ac=
+tually
+> has to be dual-licensed BSD/GPL).
 
-Val,
-Two details are wrong in version 2 and are fixed in v3 (appended below):
+It depends on what you mean by "pure-BSD". If you're talking about the=20
+4-clause license with the advertising clause, then you are correct. Oth=
+erwise=20
+(IANAL) but my understanding is that BSD code can even be relicensed GP=
+L by a=20
+third party contribution (though it is perhaps kind to ask for relicens=
+ing=20
+permission anyway).
 
-o we don't need synchronize_irq() before calling free_irq().
-  (It should be removed from cp_close() too)
-  Thanks to willy for pointing me at kernel/irq/manage.c.
+=46rom your other message:
 
-o tulip_stop_rxtx() has to be called _after_ free_irq().
-  ie. v2 patch didn't fix the original race condition
-  and when under test, dies about as fast as the original code.
+> To some it is a serious failing of Linux (particularly those involved=
+ in
+> porting kernel modules from branded UNIX or embedded RTOS). =A0To tho=
+se
+> whatever stability that can be offered is a boon. =A0To those, even w=
+orse is
+> the lack of an ABI (even for a single kernel version).  =20
 
-Tested on rx4640 (HP IA64) for several hours.
-Please apply.
+Then would offering a 'stable API in disguise' not be a disaster and an=
+=20
+irritation to these people? If the kernel doesn't specify that an in-ke=
+rnel=20
+interface is stable, then there is no reason to expect it to be. It mig=
+ht not=20
+change, but there won't be too much sympathy for out-of-tree users if i=
+t=20
+does. The kernel comes with big warnings about the lack of a stable API=
+ for a=20
+reason.
 
-thanks,
-grant
+> Another thing to consider is that the first step for many organizatio=
+ns in
+> opening a driver under GPL is to release a proprietary module that at=
+ least
+> first works. =A0
 
-Change Log:
-	IRQs are racing with tulip_down(). DMA can be restarted _after_
-	we call tulip_stop_rxtx() and the DMA buffers are unmapped.
-	The result is an MCA (hard crash on ia64) because of an
-	IO TLB miss.
+If the driver is an old-tech Linux port, then it seems there isn't too =
+much=20
+stopping them from doing this today (aside from the fact that some peop=
+le=20
+think proprietary modules are murky anyway). In this case, we don't wan=
+t a=20
+stable API/ABI, because then we leave them with little incentive to ope=
+n the=20
+code.
 
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+And if the driver is new code, they're better off doing an open driver =
+from=20
+the start (especially since writing a driver _for_ Linux, as opposed to=
+=20
+porting one, might make it count as 'derived' and hence unlawful unless=
+=20
+released GPL).
 
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -18,11 +18,11 @@
- 
- #define DRV_NAME	"tulip"
- #ifdef CONFIG_TULIP_NAPI
--#define DRV_VERSION    "1.1.13-NAPI" /* Keep at least for test */
-+#define DRV_VERSION    "1.1.14-NAPI" /* Keep at least for test */
- #else
--#define DRV_VERSION	"1.1.13"
-+#define DRV_VERSION	"1.1.14"
- #endif
--#define DRV_RELDATE	"December 15, 2004"
-+#define DRV_RELDATE	"May 6, 2006"
- 
- 
- #include <linux/module.h>
-@@ -741,21 +741,20 @@ static void tulip_down (struct net_devic
- 
- 	/* Disable interrupts by clearing the interrupt mask. */
- 	iowrite32 (0x00000000, ioaddr + CSR7);
-+	ioread32 (ioaddr + CSR7);	/* flush posted write */
- 
--	/* Stop the Tx and Rx processes. */
--	tulip_stop_rxtx(tp);
-+	spin_unlock_irqrestore (&tp->lock, flags);
- 
--	/* prepare receive buffers */
--	tulip_refill_rx(dev);
-+	free_irq (dev->irq, dev);	/* no more races after this */
-+	tulip_stop_rxtx(tp);		/* Stop DMA */
- 
--	/* release any unconsumed transmit buffers */
--	tulip_clean_tx_ring(tp);
-+	/* Put driver back into the state we start with */
-+	tulip_refill_rx(dev);		/* prepare RX buffers */
-+	tulip_clean_tx_ring(tp);	/* clean up unsent TX buffers */
- 
- 	if (ioread32 (ioaddr + CSR6) != 0xffffffff)
- 		tp->stats.rx_missed_errors += ioread32 (ioaddr + CSR8) & 0xffff;
- 
--	spin_unlock_irqrestore (&tp->lock, flags);
--
- 	init_timer(&tp->timer);
- 	tp->timer.data = (unsigned long)dev;
- 	tp->timer.function = tulip_tbl[tp->chip_id].media_timer;
-@@ -774,7 +773,6 @@ static int tulip_close (struct net_devic
- 		printk (KERN_DEBUG "%s: Shutting down ethercard, status was %2.2x.\n",
- 			dev->name, ioread32 (ioaddr + CSR5));
- 
--	free_irq (dev->irq, dev);
- 
- 	/* Free all the skbuffs in the Rx queue. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
-@@ -1752,7 +1752,6 @@ static int tulip_suspend (struct pci_dev
- 		tulip_down(dev);
- 
- 	netif_device_detach(dev);
--	free_irq(dev->irq, dev);
- 
- 	pci_save_state(pdev);
- 	pci_disable_device(pdev);
+> Sorry for the rant.
+
+We're not as perfect as I wish we were. But the lack of stable API (dea=
+d=20
+horse) is something that is fairly well established and understood. I t=
+hink=20
+most people feel that the cost-benefit analysis, for Linux anyway, stro=
+ngly=20
+favors no stable API.
+
+Thanks,
+Chase
