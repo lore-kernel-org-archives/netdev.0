@@ -1,46 +1,61 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT 3/5] sky2: suspend/resume patchlets
-Date: Tue, 13 Jun 2006 17:17:29 +0900
-Message-ID: <20060613081930.598695000@localhost.localdomain>
-References: <20060613081726.695812000@localhost.localdomain>
-Cc: linus@osdl.org, netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
+Date: Tue, 13 Jun 2006 10:40:59 +0200
+Message-ID: <1150188060.9208.4.camel@johannes>
+References: <4485D66B.7080108@lwfinger.net>
+	 <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net>
+	 <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes>
+	 <1149701352.2625.20.camel@localhost.localdomain>
+	 <44871723.3040803@lwfinger.net> <1149853494.3864.6.camel@johannes.berg>
+	 <44899462.6070002@lwfinger.net> <1149867292.3864.30.camel@johannes.berg>
+	 <448CBF43.6000200@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0QbmTsmEixbCaYCL7xFs"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:24555 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750759AbWFMIUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 04:20:40 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-poll-complete.patch
+Received: from crystal.sipsolutions.net ([195.210.38.204]:16537 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750780AbWFMIlN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 04:41:13 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <448CBF43.6000200@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Subject: [RFT 3/5] sky2: fix hotplug detect during poll
 
-Linus, doesn't understand NAPI.
-If the poll routine detects no hardware available, it needs to dequeue
-it self from the network poll list.
+--=-0QbmTsmEixbCaYCL7xFs
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- test.orig/drivers/net/sky2.c
-+++ test/drivers/net/sky2.c
-@@ -2181,7 +2181,7 @@ static int sky2_poll(struct net_device *
- 	u32 status = sky2_read32(hw, B0_Y2_SP_EISR);
- 
- 	if (!~status)
--		return 0;
-+		goto out;
- 
- 	if (status & Y2_IS_HW_ERR)
- 		sky2_hw_intr(hw);
-@@ -2219,7 +2219,7 @@ static int sky2_poll(struct net_device *
- 
- 	if (sky2_more_work(hw))
- 		return 1;
--
-+out:
- 	netif_rx_complete(dev0);
- 
- 	sky2_read32(hw, B0_Y2_SP_LISR);
+> I expect that softmac should be listening to the driver as to whether thi=
+s capability is available;=20
+> however, I'm now up and running once again.
 
---
+Yeah, I think a patch was floating around too!
+
+johannes
+
+--=-0QbmTsmEixbCaYCL7xFs
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIVAwUARI56GaVg1VMiehFYAQLfIBAAum9h//PpeujCiXyDbemJcvgPMT60GTiS
+kLxSIscinM93RGwT5qAdSJOmdETixTOmkWVML1IOisqLwp9Z8eGYtWclwO1Mra2e
+B63wmnixP+1Py1BF0FY/sgOT8yhMuxd083EKkz3PkIHJAyh8k66mBLfA5shjcR4V
+MSCCTtgNW0PYoCZXRh5EVt2DnuTMT6t+ztdCIa69LeAOnsN3RVE65j/lkUPejMmK
+yln+on9gJDmF1NU6424c3qH9n6yeXsr2Xfn9dLhtDI/lD4CQ3/WCY6Yrw+SBa0xu
+CGtB5ijP0WPliDc/PldvrLYvd7ms0Y0hsylPgUtPFEc2l2L9vQS+FGjRymuHc3rM
+CtfOuE/BX5zh/6SMr2yItdBl6LvkgqOvAGVeSY8DGmqcWDDGsMQRsTFZs+obuzaf
++4HdIfIRw7n23Xq7HdKDN8s8fLuRZmus3rgrxVq5Ebuq0xONOB3vUkdNisvn1N1/
+iXe+VuU8KVxS4hpN1HbYtetiomUkNDem/kPkiUpbJYfrdZan8mvyBRTBZHrJV9EN
+yVVfABSqXk7bt7zzj771/sctXBleGL9Oqt5drGSY9DXwyHu4FmXwB6670Yuw5/29
+urI2+mZwcah7VrSwvgGFbm/RPRYpexcx6Zj+GupTnKRH2Ezf3Mi/AXnmYWcjlux0
+eEhEMu/Oec4=
+=nuL8
+-----END PGP SIGNATURE-----
+
+--=-0QbmTsmEixbCaYCL7xFs--
 
