@@ -1,65 +1,48 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: [PATCH] DM9000 - minor code cleanups
-Date: Wed, 14 Jun 2006 00:09:17 +0100
-Message-ID: <20060613230917.GA27085@home.fluff.org>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH] s2io: netpoll support
+Date: Tue, 13 Jun 2006 16:33:10 -0700
+Message-ID: <005401c68f41$bc4bfaa0$3e10100a@pc.s2io.com>
+References: <448849F6.8050002@hp.com>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="x+6KMIRAuhnl3hBn"
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <jgarzik@pobox.com>,
+	"Ananda. Raju \(E-mail\)" <ananda.raju@neterion.com>,
+	"Leonid. Grossman \(E-mail\)" <leonid.grossman@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-84-9-203-241.bulldogdsl.com ([84.9.203.241]:5294 "EHLO
-	aeryn.fluff.org.uk") by vger.kernel.org with ESMTP id S964788AbWFMXJS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 19:09:18 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from barracuda.s2io.com ([72.1.205.138]:47779 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S964801AbWFMXdB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 19:33:01 -0400
+To: "'Brian Haley'" <brian.haley@hp.com>, <netdev@vger.kernel.org>
+In-Reply-To: <448849F6.8050002@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I don't think we should disable and enable all interrupts in the
+poll_controller entry point. With the current patch, at the end of
+the routine _all_ interrupts get enabled which is not desirable.
+Maybe you should just do disable_irq() at start of function and
+enable_irq() before exiting, the way some of the other drivers do.
 
---x+6KMIRAuhnl3hBn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Ravi
 
-Ensure the driver's module owner field is
-initialised for when this is being built and
-loaded as a module.
+-----Original Message-----
+From: netdev-owner@vger.kernel.org
+[mailto:netdev-owner@vger.kernel.org]On Behalf Of Brian Haley
+Sent: Thursday, June 08, 2006 9:02 AM
+To: netdev@vger.kernel.org
+Cc: jgarzik@pobox.com
+Subject: [PATCH] s2io: netpoll support
 
-Also change make the dm9000_tx_done function
-static, as it is not exported elsewhere.
 
-Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+This adds netpoll support for things like netconsole/kgdboe to the s2io
+10GbE driver.
 
---x+6KMIRAuhnl3hBn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="dm9k-minor-cleanups.patch"
+This duplicates some code from s2io_poll() as I wanted to be
+least-invasive, someone from Neterion might have other thoughts?
 
---- ../linux-2.6.17/linux-2.6.17-rc5/drivers/net/dm9000.c	2006-03-20 05:53:29.000000000 +0000
-+++ linux-2.6.16-simtec2/drivers/net/dm9000.c	2006-05-22 21:46:18.000000000 +0100
-@@ -767,7 +768,7 @@ dm9000_stop(struct net_device *ndev)
-  * receive the packet to upper layer, free the transmitted packet
-  */
- 
--void
-+static void
- dm9000_tx_done(struct net_device *dev, board_info_t * db)
- {
- 	int tx_status = ior(db, DM9000_NSR);	/* Got TX status */
-@@ -1187,13 +1188,14 @@ dm9000_drv_remove(struct platform_device
- }
- 
- static struct platform_driver dm9000_driver = {
-+	.driver	= {
-+		.name    = "dm9000",
-+		.owner	 = THIS_MODULE,
-+	},
- 	.probe   = dm9000_probe,
- 	.remove  = dm9000_drv_remove,
- 	.suspend = dm9000_drv_suspend,
- 	.resume  = dm9000_drv_resume,
--	.driver	= {
--		.name	= "dm9000",
--	},
- };
- 
- static int __init
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
---x+6KMIRAuhnl3hBn--
