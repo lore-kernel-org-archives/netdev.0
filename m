@@ -1,47 +1,50 @@
-From: Jar <jar@pcuf.fi>
-Subject: Re: Remove Prism II support from Orinoco
-Date: Tue, 13 Jun 2006 21:24:49 +0300
-Message-ID: <448F02F1.3070001@pcuf.fi>
+From: Mark Lord <lkml@rtr.ca>
+Subject: Re: 2.6.17: networking bug??
+Date: Tue, 13 Jun 2006 14:26:12 -0400
+Message-ID: <448F0344.9000008@rtr.ca>
+References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca> <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca> <448EEE9D.10105@rtr.ca> <448EF45B.2080601@rtr.ca> <448EF85E.50405@psc.edu> <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@osdl.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbox1.netikka.net ([213.250.81.202]:22659 "EHLO
-	mbox1.netikka.net") by vger.kernel.org with ESMTP id S932212AbWFMSYx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 14:24:53 -0400
-Received: from netlandzone.dyndns.org (p74.ip3.netikka.fi [85.157.67.74])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mbox1.netikka.net (Postfix) with ESMTP id 02534270664
-	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 21:24:51 +0300 (EEST)
-Received: from [192.168.0.33] (gto.netland.fin [192.168.0.33])
-	by netlandzone.dyndns.org (8.13.6/8.13.4) with ESMTP id k5DIOnZb006529
-	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 21:24:51 +0300
-To: netdev@vger.kernel.org
+Received: from rtr.ca ([64.26.128.89]:53170 "EHLO mail.rtr.ca")
+	by vger.kernel.org with ESMTP id S932220AbWFMS0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 14:26:14 -0400
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+Linus Torvalds wrote:
+> 
+> On Tue, 13 Jun 2006, John Heffner wrote:
+>> The best thing you can do is try to find this broken box and inform its owner
+>> that it needs to be fixed.  (If you can find out what it is, I'd be interested
+>> to know.)  In the meantime, disabling window scaling will work around the
+>> problem for you.
+> 
+> Well, arguably, we shouldn't necessarily have defaults that use window 
+> scaling, or we should have ways to recognize automatically when it 
+> doesn't work (which may not be possible).
+> 
+> It's not like there aren't broken boxes out there, and it might be better 
+> to make the default buffer sizes just be low enough that window scaling 
+> simply isn't an issue.
+> 
+> I suspect that the people who really want/need window scaling know about 
+> it, and could be assumed to know enough to raise their limits, no?
 
- >use blacklist in module config to block one.
- >Just put in /etc/modprobe.conf
+Agreed.  It's taken me over a month here to realize that the particular
+webserver in question (www.everymac.com) wasn't "dead", but merely being
+blocked by my 2.6.17 kernel.  All was fine with 2.6.16, as I discovered today.
 
- >blacklist orinoco
+I wonder how many other "dead sites" there are out there,
+that will be shut off from people when they "upgrade" to 2.6.17 ?
 
-Unfortunately this is not work at least it is not work with FC4. I can 
-blacklist eepro100 and 8139cp.
+I'm a kernel hacker.  Most users of 2.6.17 will not be.
+The default should be something that works "by default".
 
-blacklist eepro100
-blacklist 8139cp
-
-but I can't blacklist orinoco_pci
-blacklist orinoco_pci
-
-It always loads itself with or without blacklist. That's why I have to 
-do 'rm -f orinoco*.* && depmod -a' when the new kernel arrives. Seems 
-that users are directed to use unsecure orinoco (wep) driver rather than 
-secure hostap (wpa/wpa2,tkip,aes) driver for their prism2 hardware.
-
--- 
-Best Regards, Jar
+Cheers
