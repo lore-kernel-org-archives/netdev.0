@@ -1,52 +1,42 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 11:28:51 -0400
-Message-ID: <448ED9B3.8050506@rtr.ca>
-References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca> <448ED2FC.2040704@rtr.ca>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: [PATCH 0/2] AES-XCBC-MAC
+Date: Wed, 14 Jun 2006 00:43:36 +0900
+Message-ID: <1150213416.4200.34.camel@hookipa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([64.26.128.89]:7839 "EHLO mail.rtr.ca")
-	by vger.kernel.org with ESMTP id S932137AbWFMP2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 11:28:53 -0400
-To: Linux Kernel <linux-kernel@vger.kernel.org>
-In-Reply-To: <448ED2FC.2040704@rtr.ca>
+Received: from 221x116x13x66.ap221.ftth.ucom.ne.jp ([221.116.13.66]:53389 "EHLO
+	miyazawa.org") by vger.kernel.org with ESMTP id S932141AbWFMPnr
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 11:43:47 -0400
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mmm.  I notice that 2.6.17 has a new sysctl related
-to this stuff:  /proc/sys/net/ipv4/tcp_workaround_signed_windows
+Hello, 
 
-It makes no difference whatsoever for me here
-when varied while /proc/sys/net/ipv4/tcp_window_scaling==1.
+I send two patches which introduce AES-XCBC-MAC.
+I changed approach to implement it with introducing
+abstruct interface "keyed_hash" into crypto_tfm.
+Both HMAC and XCBC use the interface.
 
-The site www.everymac.com is still not browseable until
-setting /proc/sys/net/ipv4/tcp_window_scaling===0.
+I put kht_* outside of crt_u because keyed_hash uses
+pure digest algorithm or encryption algorithm.
+I think it is reasonable.
 
-There's one other difference I see in the tcpdump traces.
-The first packets from each trace below show different
-values for "wscale".  The old (working) kernels use "wscale 2",
-whereas 2.6.17 uses "wscale 6".  In both cases, the value
-seen in /proc/sys/net/ipv4/tcp_adv_win_scale is 2.
+If these patches are accepted, I will send glue patches
+to IPsec stack.
 
-This is from (working) 2.6.16.18:
-> 
-> IP silvy.localnet.56224 > 216-145-246-23.rev.dls.net.www: S 2933486277:2933486277(0) win 5840 <mss 1460,sackOK,timestamp 730285 0,nop,wscale 2>
-> IP 216-145-246-23.rev.dls.net.www > silvy.localnet.56224: S 2545625510:2545625510(0) ack 2933486278 win 65535 <mss 1452,nop,wscale 1,nop,nop,timestamp 134760199 730285>
-> IP silvy.localnet.56224 > 216-145-246-23.rev.dls.net.www: . ack 1 win 1460 <nop,nop,timestamp 730448 134760199>
-> IP silvy.localnet.56224 > 216-145-246-23.rev.dls.net.www: P 1:607(606) ack 1 win 1460 <nop,nop,timestamp 730448 134760199>
-> IP 216-145-246-23.rev.dls.net.www > silvy.localnet.56224: P 1:206(205) ack 607 win 32798 <nop,nop,timestamp 134760217 730448>
-> IP silvy.localnet.56224 > 216-145-246-23.rev.dls.net.www: . ack 206 win 1728 <nop,nop,timestamp 730626 134760217> 
+These are against linux-2.6.17-rc6.
 
-This is from (failing) 2.6.17-rc6-git2:
-> 
-> IP silvy.localnet.33472 > 216-145-246-23.rev.dls.net.www: S 3000518105:3000518105(0) win 5840 <mss 1460,sackOK,timestamp 4294759165 0,nop,wscale 6>
-> IP 216-145-246-23.rev.dls.net.www > silvy.localnet.33472: S 3368494549:3368494549(0) ack 3000518106 win 65535 <mss 1452,nop,wscale 1,nop,nop,timestamp 134771817 4294759165> 
-> IP silvy.localnet.33472 > 216-145-246-23.rev.dls.net.www: . ack 1 win 92 <nop,nop,timestamp 4294759337 134771817>
-> IP silvy.localnet.33472 > 216-145-246-23.rev.dls.net.www: P 1:607(606) ack 1 win 92 <nop,nop,timestamp 4294759337 134771817>
-> IP silvy.localnet.33472 > 216-145-246-23.rev.dls.net.www: P 1:607(606) ack 1 win 92 <nop,nop,timestamp 4294760162 134771817>
-> IP 216-145-246-23.rev.dls.net.www > silvy.localnet.33472: . ack 607 win 32798 <nop,nop,timestamp 134771918 4294760162> 
+Thank you,
 
-Something is broken somewhere.
+#Yoshifuji-san, would you ack these patch again?
+
+--
+Kazunori Miyazawa
+
+
