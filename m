@@ -1,47 +1,27 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Tue, 13 Jun 2006 14:07:16 +0900
-Message-ID: <20060613140716.6af45bec@localhost.localdomain>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.18 1/6] bnx2: Add an rx drop counter
+Date: Mon, 12 Jun 2006 22:16:25 -0700 (PDT)
+Message-ID: <20060612.221625.77355642.davem@davemloft.net>
+References: <1150157824.26173.6.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:23735 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932877AbWFMFI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 01:08:57 -0400
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53941
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1752302AbWFMFQO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 01:16:14 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1150157824.26173.6.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Jun 2006 16:56:01 -0700
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 12 Jun 2006 17:17:03 -0700
 
-> This patch makes it convenient to use the sockets API by the in-kernel
-> users like sunrpc, cifs & ocfs2 etc and any future users.
-> Currently they get to this API by directly accesing the function pointers
-> in the sock structure.
+> Add a counter for packets dropped by firmware.
 > 
-> Most of these functions are pretty simple and can be made inline and moved
-> to linux/net.h.
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-...
-
-> @@ -2176,3 +2279,13 @@ EXPORT_SYMBOL(sock_wake_async);
->  EXPORT_SYMBOL(sockfd_lookup);
->  EXPORT_SYMBOL(kernel_sendmsg);
->  EXPORT_SYMBOL(kernel_recvmsg);
-> +EXPORT_SYMBOL(kernel_bind);
-> +EXPORT_SYMBOL(kernel_listen);
-> +EXPORT_SYMBOL(kernel_accept);
-> +EXPORT_SYMBOL(kernel_connect);
-> +EXPORT_SYMBOL(kernel_getsockname);
-> +EXPORT_SYMBOL(kernel_getpeername);
-> +EXPORT_SYMBOL(kernel_getsockopt);
-> +EXPORT_SYMBOL(kernel_setsockopt);
-> +EXPORT_SYMBOL(kernel_sendpage);
-> +EXPORT_SYMBOL(kernel_ioctl);
-
-Don't we want to restrict this to GPL code with EXPORT_SYMBOL_GPL?
+Applied to net-2.6.18, thanks.
