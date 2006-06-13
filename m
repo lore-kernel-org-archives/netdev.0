@@ -1,74 +1,60 @@
-From: Mark Lord <lkml@rtr.ca>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 13:22:35 -0400
-Message-ID: <448EF45B.2080601@rtr.ca>
-References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca> <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca> <448EEE9D.10105@rtr.ca>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Netchannels: alternative TCP/IP stack?
+Date: Tue, 13 Jun 2006 21:33:21 +0400
+Message-ID: <20060613173321.GA648@2ka.mipt.ru>
+References: <20060608171555.GA10273@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>,
-	jheffner@psc.edu, davem@davemloft.net
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtr.ca ([64.26.128.89]:8358 "EHLO mail.rtr.ca")
-	by vger.kernel.org with ESMTP id S932194AbWFMRWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 13:22:37 -0400
-To: Linux Kernel <linux-kernel@vger.kernel.org>
-In-Reply-To: <448EEE9D.10105@rtr.ca>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:40079 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750742AbWFMRdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 13:33:24 -0400
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060608171555.GA10273@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Lord wrote:
-> ..
->> The site www.everymac.com is still not browseable until
->> setting /proc/sys/net/ipv4/tcp_window_scaling===0.
->>
->> There's one other difference I see in the tcpdump traces.
->> The first packets from each trace below show different
->> values for "wscale".  The old (working) kernels use "wscale 2",
->> whereas 2.6.17 uses "wscale 6".  In both cases, the value
->> seen in /proc/sys/net/ipv4/tcp_adv_win_scale is 2.
-> 
-> Okay.  More progress here.  The calculation of the "wscale" values
-> is based on the "tcp_rmem" sysctl numbers.
-> 
-> The defaults for these *differ* between 2.6.16.18 and 2.6.17-rc*.
-> 
-> 2.6.16: 4096    87380    174760
-> 2.6.17: 4096    87380   2097152
-> 
-> If I change the tcp_rmem setting on 2.6.17 to match the old value,
-> then the website www.everymac.com becomes accessible again:
-> 
-> echo 4096 87380 174760 > /proc/sys/net/ipv4/tcp_rmem
-> 
-> Looking at diffs between 2.6.16 and 2.6.17, I see a big rework
-> of the tcp_rmem code in linux/net/ipv4/tcp.c
-> 
-> Looks like something got broken there, or possibly the wscale
-> calculations have a bug that is only triggered by the new rmem values ??
-> 
+Hello, developers.
 
-Okay, here's the blob that broke it.
+I've implemented simple rfc793 TCP/IP stack, which is currently tested
+in userspace through packet socket. After ISO (~650Mb) transfer over 
+gigabit ethernet between two Linux boxes, file was not corrupted.
 
-> [TCP]: Set default max buffers from memory pool size
-> author	John Heffner <jheffner@psc.edu>
-> 	Sat, 25 Mar 2006 09:34:07 +0000 (01:34 -0800)
-> committer	David S. Miller <davem@davemloft.net>
-> 	Sat, 25 Mar 2006 09:34:07 +0000 (01:34 -0800)
-> commit	7b4f4b5ebceab67ce440a61081a69f0265e17c2a
-> tree	ac02c685ce23f2440fecbebaa5b55cd47947c03e	tree
-> parent	2babf9daae4a3561f3264638a22ac7d0b14a6f52	commit | commitdiff
-> [TCP]: Set default max buffers from memory pool size
-> 
-> This patch sets the maximum TCP buffer sizes (available to automatic
-> buffer tuning, not to setsockopt) based on the TCP memory pool size.
-> The maximum sndbuf and rcvbuf each will be up to 4 MB, but no more
-> than 1/128 of the memory pressure threshold.
-> 
-> Signed-off-by: John Heffner <jheffner@psc.edu>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+I would even say that stack is really trivial (1800 lines of code, 42K
+of sources where TCP state machine takes about 12K), but it includes:
+* routing table for src/dst IP and MAC addresses (O(n) access).
+	It includes static destination routing and ARP cache.
+	No dynamic ARP probes.
+* socket-like (actually netchannel-like) interface for data reading.
+* ethernet sending/receiving support.
+* IP sending/receiving support.
+* TCP (rfc793) state machine implementation.
+* UDP code (not tested).
 
-John / David:  Any ideas on what's gone awry here?
+Current code does not have options and TCP extensions, ack generation
+does not use any heueristics, no congestion control, no prediction
+(although I have some doubts about that idea), no ICMP. 
+Sending was not tested yet.
+Next option in agenda is to check various loss and reordering
+issues. Then I plan to implement PAWS and timestamp TCP option.
+MSS option would be usefull too.
 
+I want to run various tests with congestions to collect some statistic
+about generic TCP/IP behaviour, so I would like to ask
+how much it will be frowned upon if I will use that simple stack for
+netchannels (I plan to use only alternative TCP part with generic Linux
+routing tables, IP and ethernet processing and so on)
+and if miracle happens (it happens sometimes) and results will be better
+than it is now [1] (it is planned if paid job will not get all the time)
+and I will start pushing it upstream?
+Or is it better to just make lobotomy right now?
 
+1. Netchannel benchmarks vs. socket code.
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
 
+Thank you.
+
+-- 
+	Evgeniy Polyakov
