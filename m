@@ -1,59 +1,82 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Tue, 13 Jun 2006 14:12:41 -0700
-Message-ID: <448F2A49.5020809@google.com>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.17: networking bug??
+Date: Tue, 13 Jun 2006 14:26:03 -0700 (PDT)
+Message-ID: <20060613.142603.48825062.davem@davemloft.net>
+References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
+	<448F0344.9000008@rtr.ca>
+	<448F0D4B.30201@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: jheffner@psc.edu, torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:7539 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP id S932253AbWFMVNF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 17:13:05 -0400
-To: bidulock@openss7.org
-In-Reply-To: <20060613052215.B27858@openss7.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33960
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932180AbWFMVZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 17:25:52 -0400
+To: lkml@rtr.ca
+In-Reply-To: <448F0D4B.30201@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian F. G. Bidulock wrote:
-> Stephen,
-> 
-> On Tue, 13 Jun 2006, Stephen Hemminger wrote:
-> 
-> 
->>>@@ -2176,3 +2279,13 @@ EXPORT_SYMBOL(sock_wake_async);
->>> EXPORT_SYMBOL(sockfd_lookup);
->>> EXPORT_SYMBOL(kernel_sendmsg);
->>> EXPORT_SYMBOL(kernel_recvmsg);
->>>+EXPORT_SYMBOL(kernel_bind);
->>>+EXPORT_SYMBOL(kernel_listen);
->>>+EXPORT_SYMBOL(kernel_accept);
->>>+EXPORT_SYMBOL(kernel_connect);
->>>+EXPORT_SYMBOL(kernel_getsockname);
->>>+EXPORT_SYMBOL(kernel_getpeername);
->>>+EXPORT_SYMBOL(kernel_getsockopt);
->>>+EXPORT_SYMBOL(kernel_setsockopt);
->>>+EXPORT_SYMBOL(kernel_sendpage);
->>>+EXPORT_SYMBOL(kernel_ioctl);
->>
->>Don't we want to restrict this to GPL code with EXPORT_SYMBOL_GPL?
-> 
-> 
-> There are direct derivatives of the BSD/POSIX system call
-> interface.  The protocol function pointers within the socket
-> structure are not GPL only.  Why make this wrappered access to
-> them GPL only?  It will only encourange the reverse of what they
-> were intended to do: be used instead of the protocol function
-> pointers within the socket structure, that currently carry no
-> such restriction.
+From: Mark Lord <lkml@rtr.ca>
+Date: Tue, 13 Jun 2006 15:08:59 -0400
 
-This has the makings of a nice stable internal kernel api.  Why do we want
-to provide this nice stable internal api to proprietary modules?
+> Err.. no, the networking stack simply decided to become incompatible
+> with certain sites, as a result of the user adding more RAM to their
+> machine.
 
-Regards,
+Let's discuss some facts.
 
-Daniel
+First, you are getting window scaling by default with the older
+kernel too.  It's just a smaller window scale, using a shift
+value of say 1 or 2.
+
+What these broken middle boxes do is ignore the window scale
+entirely.
+
+So they don't apply a window scale to the advertised windows in each
+packet.  Therefore, they think a smaller amount of window space is
+being advertised than really is.  So they will silently drop packets
+they think is outside of this bogus window they've calculated.
+
+Now, when the window scale is smaller, the connection can still limp
+along, albeit slowly, making forward progress even in the face of such
+broken devices because half or a quarter of the window is still
+available.  It will retransmit a lot, and the congestion window won't
+grow at all.
+
+When the window scale is larger, this middle box bug makes it such
+that not even one packet can fit into the miscalculated window and
+things wedge.  The box thinks that your window is "94" instead of
+"94 << WINDOW_SCALE".
+
+I think OpenBSD's claim (they did have the bug and probably still do
+for all that I know) was that they wanted to make their firewalling
+"stateless".  This is a bogus argument because by definition you
+cannot interpret the TCP window without having seen the initial
+connection startup where the parameters are negotiated, and in
+particular the window scale which will be used.
+
+And you want to say we should try to work around systems designed
+by people who think this is ok? :-)
+
+It is impossible to fill a cross-continental connection without using
+window scaling.  A 64K window is all you get without scaling.  Big
+buffers are absolutely necessary, and as John Heffner showed this need
+is growing exponentially and not slowing down.  6 megabit downlink is
+pretty commonplace in the US, and the standard is much higher in well
+connected countries such as South Korea.
+
+Also, as John Heffner mentioned, even if we could detect the broken
+boxes you can't just "turn off window scaling" after it's been
+negotiated.  It's immutably active for the entire connection once
+enabled.
+
+Window scaling has been standardized and around for 14 years, RFC1323
+was published in May of 1992.  How much longer can we wait for it
+to be deployed properly? :-)
+
+So the broken boxes, which to be honest are few and far between these
+days, need to go, they really do.
