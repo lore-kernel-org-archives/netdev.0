@@ -1,59 +1,40 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 18:22:55 -0500
-Message-ID: <20060613232255.GA8325@waste.org>
-References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org> <448F0344.9000008@rtr.ca> <448F0D4B.30201@rtr.ca> <20060613.142603.48825062.davem@davemloft.net> <448F32E1.8080002@rtr.ca>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 16:42:39 -0700
+Message-ID: <448F4D6F.9070601@candelatech.com>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com> <20060613154031.A6276@openss7.org> <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jheffner@psc.edu,
-	torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Brian F. G. Bidulock" <bidulock@openss7.org>,
+	Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([64.81.244.121]:12516 "EHLO waste.org")
-	by vger.kernel.org with ESMTP id S964798AbWFMXdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 19:33:42 -0400
-To: Mark Lord <lkml@rtr.ca>
-Content-Disposition: inline
-In-Reply-To: <448F32E1.8080002@rtr.ca>
+Received: from ns2.lanforge.com ([66.165.47.211]:34728 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S932231AbWFMXnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 19:43:18 -0400
+To: Chase Venters <chase.venters@clientec.com>
+In-Reply-To: <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2006 at 05:49:21PM -0400, Mark Lord wrote:
-> 
-> 
-> David Miller wrote:
-> >..
-> >First, you are getting window scaling by default with the older
-> >kernel too.  It's just a smaller window scale, using a shift
-> >value of say 1 or 2.
-> >
-> >What these broken middle boxes do is ignore the window scale
-> >entirely.
-> >
-> >So they don't apply a window scale to the advertised windows in each
-> >packet.  Therefore, they think a smaller amount of window space is
-> >being advertised than really is.  So they will silently drop packets
-> >they think is outside of this bogus window they've calculated.
-> >
-> >Now, when the window scale is smaller, the connection can still limp
-> >along, albeit slowly, making forward progress even in the face of such
-> >broken devices because half or a quarter of the window is still
-> >available.  It will retransmit a lot, and the congestion window won't
-> >grow at all.
-> >
-> >When the window scale is larger, this middle box bug makes it such
-> >that not even one packet can fit into the miscalculated window and
-> >things wedge.  The box thinks that your window is "94" instead of
-> >"94 << WINDOW_SCALE".
-> ..
-> 
-> Unilaterally following the standard is all well and good
-> for those who know how to get around it when a site becomes
-> inaccessible, but not for Joe User.
+Chase Venters wrote:
 
-We had very similar issues with ECN. But unlike ECN, window scaling is
-not something we can just shrug our shoulders and say "oh well" about.
-We will have to deal with it eventually. It might as well be sooner.
+> At least some of us feel like stable module APIs should be explicitly 
+> discouraged, because we don't want to offer comfort for code that 
+> refuses to live in the tree (since getting said code into the tree is 
+> often a goal).
+
+Some of us write modules for specific features that are not wanted in
+the mainline kernel, even though they are pure GPL.  Our life is hard
+enough with out people setting out to deliberately make things more
+difficult!
+
+Ben
 
 -- 
-Mathematics is the supreme nostalgia of our time.
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
