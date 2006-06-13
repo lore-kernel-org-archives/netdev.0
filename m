@@ -1,39 +1,40 @@
-From: "Sean Hefty" <sean.hefty@intel.com>
-Subject: RE: [openib-general] [PATCH v2 1/2] iWARP Connection Manager.
-Date: Tue, 13 Jun 2006 14:36:46 -0700
-Message-ID: <000001c68f31$78910fe0$24268686@amr.corp.intel.com>
-References: <1150230871.17394.68.camel@stevo-desktop>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: http://bugzilla.kernel.org/show_bug.cgi?id=6197
+Date: Wed, 14 Jun 2006 01:38:18 +0400
+Message-ID: <448F304A.2020808@tls.msk.ru>
+References: <20060611055132.2930b95f.akpm@osdl.org> <448EE065.9060207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>, <netdev@vger.kernel.org>,
-	<rdreier@cisco.com>, <linux-kernel@vger.kernel.org>,
-	<openib-general@openib.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:16154 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S932330AbWFMVgz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 17:36:55 -0400
-To: "'Steve Wise'" <swise@opengridcomputing.com>,
-	"Tom Tucker" <tom@opengridcomputing.com>
-In-Reply-To: <1150230871.17394.68.camel@stevo-desktop>
+Received: from hobbit.corpit.ru ([81.13.94.6]:45399 "EHLO hobbit.corpit.ru")
+	by vger.kernel.org with ESMTP id S932327AbWFMViX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 17:38:23 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <448EE065.9060207@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Er...no. It will lose this event. Depending on the event...the carnage
->> varies. We'll take a look at this.
->>
->
->This behavior is consistent with the Infiniband CM (see
->drivers/infiniband/core/cm.c function cm_recv_handler()).  But I think
->we should at least log an error because a lost event will usually stall
->the rdma connection.
+Patrick McHardy wrote:
+[]
+> He patched his kernel with the IMQ device, which is known to cause all
+> kinds of weird problems.
 
-I believe that there's a difference here.  For the Infiniband CM, an allocation
-error behaves the same as if the received MAD were lost or dropped.  Since MADs
-are unreliable anyway, it's not so much that an IB CM event gets lost, as it
-doesn't ever occur.  A remote CM should retry the send, which hopefully allows
-the connection to make forward progress.
+Wich problems?  Known to whom?
 
-- Sean
+I was considering using imq for our needs (not done yet), and from the
+FAQ at http://www.linuximq.net/faq.html (item #3, "Is it stable?") it
+seems there's no problems except of gre tunnels and locally generated
+traffic...
+
+Googling for "imq linux problem" shows usual pile of various user
+support questions (how to configure.. what did I do wrong.. etc),
+but nothing relevant.
+
+So... I'm curious whenever the claim on linuximq.net site about the
+stability is true, or there in fact are some real issue...
+
+Thanks.
+
+/mjt
