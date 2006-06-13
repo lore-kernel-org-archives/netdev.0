@@ -1,33 +1,88 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Tue, 13 Jun 2006 16:47:14 -0600
-Message-ID: <20060613164714.B7232@openss7.org>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com> <20060613154031.A6276@openss7.org> <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse> <448F3C83.9080606@google.com>
-Reply-To: bidulock@openss7.org
+From: Ben Dooks <ben-linux@fluff.org>
+Subject: [PATCH] DM9000 - better checks for platform resources
+Date: Tue, 13 Jun 2006 23:47:19 +0100
+Message-ID: <20060613224719.GA26724@home.fluff.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chase Venters <chase.venters@clientec.com>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="W/nzBZO5zC0uMSeA"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:21937 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S964791AbWFMWrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 18:47:15 -0400
-To: Daniel Phillips <phillips@google.com>
+Received: from host-84-9-203-241.bulldogdsl.com ([84.9.203.241]:28310 "EHLO
+	aeryn.fluff.org.uk") by vger.kernel.org with ESMTP id S1750919AbWFMWrU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 18:47:20 -0400
+Received: from ben by aeryn.fluff.org.uk with local (Exim 3.36 #1 (Debian))
+	id 1FqHfL-0006xN-00
+	for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 23:47:19 +0100
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <448F3C83.9080606@google.com>; from phillips@google.com on Tue, Jun 13, 2006 at 03:30:27PM -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel,
 
-On Tue, 13 Jun 2006, Daniel Phillips wrote:
-> 
-> You probably meant "non-GPL-compatible non-proprietary".  If so, then by
-> definition there are none.
+--W/nzBZO5zC0uMSeA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Well, being GPL compatible is not a requirement for an open source license.
+The current DM9000 driver cannot cope if it
+is given more than 3 resources (for example, if
+it is being passed an wake-up irq that it is
+not using yet).
 
-IANAL, but last I checked, pure-BSD is not compatible with GPL (it actually
-has to be dual-licensed BSD/GPL).
+Check that we have been given at-least one IRQ
+resource.
+
+Also fix the minor type-casting for the case
+of 2 resources.
+
+Signed-off-by: Ben Dooks <ben-linux@fluff.org>
+
+--W/nzBZO5zC0uMSeA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="dm9k-resource-clean.patch"
+
+--- ../linux-2.6.17/linux-2.6.17-rc5/drivers/net/dm9000.c	2006-03-20 05:53:29.000000000 +0000
++++ linux-2.6.16-simtec2/drivers/net/dm9000.c	2006-05-22 21:46:18.000000000 +0100
+@@ -410,10 +410,7 @@ dm9000_probe(struct platform_device *pde
+ 	if (pdev->num_resources < 2) {
+ 		ret = -ENODEV;
+ 		goto out;
+-	}
+-
+-	switch (pdev->num_resources) {
+-	case 2:
++	} else if (pdev->num_resources == 2) {
+ 		base = pdev->resource[0].start;
+ 
+ 		if (!request_mem_region(base, 4, ndev->name)) {
+@@ -423,17 +420,16 @@ dm9000_probe(struct platform_device *pde
+ 
+ 		ndev->base_addr = base;
+ 		ndev->irq = pdev->resource[1].start;
+-		db->io_addr = (void *)base;
+-		db->io_data = (void *)(base + 4);
+-
+-		break;
++		db->io_addr = (void __iomem *)base;
++		db->io_data = (void __iomem *)(base + 4);
+ 
+-	case 3:
++	} else {
+ 		db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 		db->data_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 		db->irq_res  = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+ 
+-		if (db->addr_res == NULL || db->data_res == NULL) {
++		if (db->addr_res == NULL || db->data_res == NULL ||
++		    db->irq_res == NULL) {
+ 			printk(KERN_ERR PFX "insufficient resources\n");
+ 			ret = -ENOENT;
+ 			goto out;
+@@ -482,7 +478,6 @@ dm9000_probe(struct platform_device *pde
+ 
+ 		/* ensure at least we have a default set of IO routines */
+ 		dm9000_set_io(db, iosize);
+-
+ 	}
+ 
+ 	/* check to see if anything is being over-ridden */
+
+--W/nzBZO5zC0uMSeA--
