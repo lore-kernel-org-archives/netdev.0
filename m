@@ -1,42 +1,96 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 10:50:51 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
-References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca>
- <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca> <448EEE9D.10105@rtr.ca>
- <448EF45B.2080601@rtr.ca> <448EF85E.50405@psc.edu>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 2.6.18 3/6] bnx2: Use CPU native page size
+Date: Tue, 13 Jun 2006 11:19:42 -0700
+Message-ID: <1150222782.26368.34.camel@rh4>
+References: <1150157833.26173.8.camel@rh4>
+ <20060612.222036.15588314.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Mark Lord <lkml@rtr.ca>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:11699 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750792AbWFMRvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 13:51:05 -0400
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <448EF85E.50405@psc.edu>
+Received: from mms2.broadcom.com ([216.31.210.18]:20494 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932204AbWFMSTA
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 14:19:00 -0400
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060612.222036.15588314.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Tue, 13 Jun 2006, John Heffner wrote:
+On Mon, 2006-06-12 at 22:20 -0700, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Mon, 12 Jun 2006 17:17:13 -0700
 > 
-> The best thing you can do is try to find this broken box and inform its owner
-> that it needs to be fixed.  (If you can find out what it is, I'd be interested
-> to know.)  In the meantime, disabling window scaling will work around the
-> problem for you.
+> > Use CPU native page size to determine various ring sizes. This allows
+> > order-0 memory allocations on all systems.
+> > 
+> > Signed-off-by: Michael Chan <mchan@broadcom.com>
+> 
+> Are you sure you want to do this when the base page size is up to 64K
+> on some IA64/PowerPC64/Sparc64 configurations?
+> 
+> Maybe you can use a limit with some ifdef tests, something like:
+> 
+> #if PAGE_SHIFT > 13
+> #define BCM_PAGE_BITS 13
+> #else
+> #define BCM_PAGE_BITS PAGE_SHIFT
+> #endif
+> 
+> which would limit it to 8K.
+> 
+Yes, this makes sense. Here's the revised patch:
 
-Well, arguably, we shouldn't necessarily have defaults that use window 
-scaling, or we should have ways to recognize automatically when it 
-doesn't work (which may not be possible).
+Use CPU native page size to determine various ring sizes. This allows
+order-0 memory allocations on all systems.
 
-It's not like there aren't broken boxes out there, and it might be better 
-to make the default buffer sizes just be low enough that window scaling 
-simply isn't an issue.
+Added check to limit the page size to 16K since that's the maximum rx
+ring size that will be used. This will prevent using unnecessarily
+large page sizes on some architectures with large page sizes.
+[Suggested by David Miller]
 
-I suspect that the people who really want/need window scaling know about 
-it, and could be assumed to know enough to raise their limits, no?
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-		Linus
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 49c09da..cefb129 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -32,6 +32,7 @@
+ #include <asm/irq.h>
+ #include <linux/delay.h>
+ #include <asm/byteorder.h>
++#include <asm/page.h>
+ #include <linux/time.h>
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index ea1ab06..69cebd9 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -3750,7 +3750,12 @@ struct l2_fhdr {
+ #define DMA_READ_CHANS	5
+ #define DMA_WRITE_CHANS	3
+ 
+-#define BCM_PAGE_BITS	12
++/* Use CPU native page size up to 16K for the ring sizes.  */
++#if (PAGE_SHIFT > 14)
++#define BCM_PAGE_BITS	14
++#else
++#define BCM_PAGE_BITS	PAGE_SHIFT
++#endif
+ #define BCM_PAGE_SIZE	(1 << BCM_PAGE_BITS)
+ 
+ #define TX_DESC_CNT  (BCM_PAGE_SIZE / sizeof(struct tx_bd))
+@@ -3773,7 +3778,7 @@ struct l2_fhdr {
+ 
+ #define RX_RING_IDX(x) ((x) & bp->rx_max_ring_idx)
+ 
+-#define RX_RING(x) (((x) & ~MAX_RX_DESC_CNT) >> 8)
++#define RX_RING(x) (((x) & ~MAX_RX_DESC_CNT) >> (BCM_PAGE_BITS - 4))
+ #define RX_IDX(x) ((x) & MAX_RX_DESC_CNT)
+ 
+ /* Context size. */
+
+
