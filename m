@@ -1,50 +1,56 @@
-From: Keith Owens <kaos@ocs.com.au>
-Subject: Re: [PATCH] [2.6.17-rc6] Section mismatch in drivers/net/ne.o during modpost
-Date: Tue, 13 Jun 2006 15:35:29 +1000
-Message-ID: <10735.1150176929@kao2.melbourne.sgi.com>
-References: <200606110051.k5B0pLBI010621@harpo.it.uu.se>
+From: "James Ring" <sjr@jdns.org>
+Subject: IPsec and EAGAIN
+Date: Tue, 13 Jun 2006 15:51:25 +1000 (EST)
+Message-ID: <61418.152.91.8.100.1150177885.squirrel@webmail.jdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rdunlap@xenotime.net, akpm@osdl.org, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932895AbWFMFgS@vger.kernel.org>
-To: Mikael Pettersson <mikpe@it.uu.se>
-In-reply-to: Your message of "Sun, 11 Jun 2006 02:51:21 +0200."
-             <200606110051.k5B0pLBI010621@harpo.it.uu.se>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from omta02sl.mx.bigpond.com ([144.140.93.154]:34200 "EHLO
+	omta02sl.mx.bigpond.com") by vger.kernel.org with ESMTP
+	id S932523AbWFMFvc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 01:51:32 -0400
+Received: from antares.jdns.org ([61.9.204.61]) by omta02sl.mx.bigpond.com
+          with ESMTP
+          id <20060613055125.RVMA24931.omta02sl.mx.bigpond.com@antares.jdns.org>
+          for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 05:51:25 +0000
+Received: from localhost
+	([127.0.0.1] helo=webmail.jdns.org ident=www-data)
+	by antares.jdns.org with esmtp (Exim 4.62)
+	(envelope-from <sjr@jdns.org>)
+	id 1Fq1oD-0005D5-ET
+	for netdev@vger.kernel.org; Tue, 13 Jun 2006 15:51:25 +1000
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mikael Pettersson (on Sun, 11 Jun 2006 02:51:21 +0200 (MEST)) wrote:
->On Sat, 10 Jun 2006 12:13:35 -0700, Randy.Dunlap wrote:
->>On Sat, 10 Jun 2006 14:11:42 +0200 (MEST) Mikael Pettersson wrote:
->>
->>> While compiling 2.6.17-rc6 for a 486 with an NE2000 ISA ethernet card, I got:
->>> 
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x158) and 'ne_block_input'
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x176) and 'ne_block_input'
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x183) and 'ne_block_input'
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x1ea) and 'ne_block_input'
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.data:isapnp_clone_list from .text between 'init_module' (at offset 0x251) and 'ne_block_input'
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x266) and 'ne_block_input'
->>> WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x29b) and 'ne_block_input'
->>> 
->>> Not sure how serious this is; the driver seems to work fine later on.
->>
->>Doesn't look serious.  init_module() is not __init, but it calls
->>some __init functions and touches some __initdata.
->>
->>BTW, I would be happy to see some consistent results from modpost
->>section checking.  I don't see all of these warnings (I see only 1)
->>when using gcc 3.3.6.  What gcc version are you using?
->>Does that matter?  (not directed at anyone in particular)
->
->The messages above are from when I used gcc-4.1.1.
->With gcc-3.2.3 I only see a single warning.
+Hi all,
 
-Probably over enthusiastic gcc inlining.  gcc 4 will inline functions
-that are not declared as inline.  That is not so bad, except that some
-versions of gcc will ignore a mismatch in function attributes and
-inline a __init function into normal text, generating additional
-section mismatches.  For a specific example, see
+I have recently run into the issue where connect() returns -EAGAIN
+if the remote host is on the other end of an IPsec tunnel for which no
+SAD exists yet.
 
-http://marc.theaimsgroup.com/?l=linux-kernel&m=113824309203482&w=2
+I have read a few threads on the topic, and it seems that the idea is to
+implement a scheme similar to ARP for queueing outgoing packets until the
+SAD has been negotiated by the IKE process.
+
+I have a couple of questions: are there any patches out which solve this
+problem?
+
+Also, what is the purpose of the code in the xfrm_lookup function
+(in net/xfrm_policy.c) when `flags' is true? I have applied a patch
+similar to
+
+http://sourceforge.net/mailarchive/message.php?msg_id=8621194
+
+which gives desirable behaviour (ie. telnet appears to pause while the
+racoon negotiation is performed, after which it connects just fine, no
+EAGAIN).
+
+Please CC me to any responses, I am not subscribed to the list.
+
+Thanks for your time,
+James
+-- 
+James Ring
+
