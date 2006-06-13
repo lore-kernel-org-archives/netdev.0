@@ -1,61 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Problem authenticating using WPA with bcm43xx-softmac
-Date: Tue, 13 Jun 2006 10:40:59 +0200
-Message-ID: <1150188060.9208.4.camel@johannes>
-References: <4485D66B.7080108@lwfinger.net>
-	 <1149682213.3999.14.camel@johannes> <4486F513.5050906@lwfinger.net>
-	 <1149695470.3925.7.camel@johannes> <1149695859.3925.11.camel@johannes>
-	 <1149701352.2625.20.camel@localhost.localdomain>
-	 <44871723.3040803@lwfinger.net> <1149853494.3864.6.camel@johannes.berg>
-	 <44899462.6070002@lwfinger.net> <1149867292.3864.30.camel@johannes.berg>
-	 <448CBF43.6000200@lwfinger.net>
+From: Bharath <bharath.yadav@gmail.com>
+Subject: Network Performance Comparison between Linux 2.4 and 2.6
+Date: Tue, 13 Jun 2006 16:38:54 +0530
+Message-ID: <c4166a920606130408m7780f956i814abb2d3f5aaf78@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0QbmTsmEixbCaYCL7xFs"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:16537 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750780AbWFMIlN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 04:41:13 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <448CBF43.6000200@lwfinger.net>
+Received: from ug-out-1314.google.com ([66.249.92.169]:65499 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1750937AbWFMLI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 07:08:56 -0400
+Received: by ug-out-1314.google.com with SMTP id e2so2478482ugf
+        for <netdev@vger.kernel.org>; Tue, 13 Jun 2006 04:08:55 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi ,
 
---=-0QbmTsmEixbCaYCL7xFs
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I performed the routing and bridging tests on Linux kernels 2.4.31 and
+2.6.16 on a
+MIPS(4kc) malta Board , with and without iptables rules.
+I observed that the routing performance is quite better( 15-20%
+increase) on 2.6 for shorter packet sizes( 64,128 and 256 bytes) and
+almost equal to that on 2.4 for larger packet sizes(512, 1024 and 1518
+bytes).
 
+The bridging performance follows the same pattern as well.
+Is there something I might have missed..? Is this an observed behavior
+on 2.6 kernels..?
 
-> I expect that softmac should be listening to the driver as to whether thi=
-s capability is available;=20
-> however, I'm now up and running once again.
+I have included the throughput figures for bridging for both 2.4 and
+2.6 kernels in the table below.
+Packet Size(bytes)            2.4.31(Mbps)          2.6.16(Mbps)
+------------------------------------------------------------------------------------------
+ 64                                     2.11                       2.19
+128                                    3.59                       3.75
+256                                    6.33                       6.48
+512                                   10.93                      11.16
+1024                                 17.49                      17.33
+1280                                 20.00                      19.83
+1518                                 22.09                      19.91
 
-Yeah, I think a patch was floating around too!
+About the tests, the MIPS malta board has two D-Link PCI ethernet
+cards. A bridge br0 is configured over the two ethernet interfaces (
+eth0 and eth1). There is an external traffic generator that is
+configured to generate packets of above mentioned sizes and to measure
+the throughput correspondingly.
 
-johannes
+Please let me know if you need any more information.
 
---=-0QbmTsmEixbCaYCL7xFs
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIVAwUARI56GaVg1VMiehFYAQLfIBAAum9h//PpeujCiXyDbemJcvgPMT60GTiS
-kLxSIscinM93RGwT5qAdSJOmdETixTOmkWVML1IOisqLwp9Z8eGYtWclwO1Mra2e
-B63wmnixP+1Py1BF0FY/sgOT8yhMuxd083EKkz3PkIHJAyh8k66mBLfA5shjcR4V
-MSCCTtgNW0PYoCZXRh5EVt2DnuTMT6t+ztdCIa69LeAOnsN3RVE65j/lkUPejMmK
-yln+on9gJDmF1NU6424c3qH9n6yeXsr2Xfn9dLhtDI/lD4CQ3/WCY6Yrw+SBa0xu
-CGtB5ijP0WPliDc/PldvrLYvd7ms0Y0hsylPgUtPFEc2l2L9vQS+FGjRymuHc3rM
-CtfOuE/BX5zh/6SMr2yItdBl6LvkgqOvAGVeSY8DGmqcWDDGsMQRsTFZs+obuzaf
-+4HdIfIRw7n23Xq7HdKDN8s8fLuRZmus3rgrxVq5Ebuq0xONOB3vUkdNisvn1N1/
-iXe+VuU8KVxS4hpN1HbYtetiomUkNDem/kPkiUpbJYfrdZan8mvyBRTBZHrJV9EN
-yVVfABSqXk7bt7zzj771/sctXBleGL9Oqt5drGSY9DXwyHu4FmXwB6670Yuw5/29
-urI2+mZwcah7VrSwvgGFbm/RPRYpexcx6Zj+GupTnKRH2Ezf3Mi/AXnmYWcjlux0
-eEhEMu/Oec4=
-=nuL8
------END PGP SIGNATURE-----
-
---=-0QbmTsmEixbCaYCL7xFs--
-
+Thanks,
+Bharath
