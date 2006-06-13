@@ -1,28 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.18 2/6] bnx2: Allow WoL settings on new 5708 chips
-Date: Mon, 12 Jun 2006 22:16:53 -0700 (PDT)
-Message-ID: <20060612.221653.106772160.davem@davemloft.net>
-References: <1150157828.26173.7.camel@rh4>
+Subject: Re: [PATCH 2.6.18 3/6] bnx2: Use CPU native page size
+Date: Mon, 12 Jun 2006 22:20:36 -0700 (PDT)
+Message-ID: <20060612.222036.15588314.davem@davemloft.net>
+References: <1150157833.26173.8.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54709
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36824
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752310AbWFMFQn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 01:16:43 -0400
+	id S932888AbWFMFUZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 01:20:25 -0400
 To: mchan@broadcom.com
-In-Reply-To: <1150157828.26173.7.camel@rh4>
+In-Reply-To: <1150157833.26173.8.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 12 Jun 2006 17:17:08 -0700
+Date: Mon, 12 Jun 2006 17:17:13 -0700
 
-> Allow WOL settings on 5708 B2 and newer chips that have the problem
-> fixed.
+> Use CPU native page size to determine various ring sizes. This allows
+> order-0 memory allocations on all systems.
 > 
 > Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied to net-2.6.18, thanks.
+Are you sure you want to do this when the base page size is up to 64K
+on some IA64/PowerPC64/Sparc64 configurations?
+
+Maybe you can use a limit with some ifdef tests, something like:
+
+#if PAGE_SHIFT > 13
+#define BCM_PAGE_BITS 13
+#else
+#define BCM_PAGE_BITS PAGE_SHIFT
+#endif
+
+which would limit it to 8K.
