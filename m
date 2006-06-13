@@ -1,29 +1,63 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC/PATCH 2/2] update sunrpc to use in-kernel sockets API
-Date: Mon, 12 Jun 2006 23:25:48 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606122320010.31627@d.namei>
-References: <1150156564.19929.33.camel@w-sridhar2.beaverton.ibm.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Using netconsole for debugging suspend/resume
+Date: Tue, 13 Jun 2006 05:47:49 +0200
+Message-ID: <200606130547.49624.ak@suse.de>
+References: <44886381.9050506@goop.org> <200606121746.34880.ak@suse.de> <448DDBD9.6030900@goop.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:49356 "EHLO
-	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1752256AbWFMDZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 23:25:51 -0400
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <1150156564.19929.33.camel@w-sridhar2.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Lord <lkml@rtr.ca>, Matt Mackall <mpm@selenic.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932852AbWFMDwB@vger.kernel.org>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+In-Reply-To: <448DDBD9.6030900@goop.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Jun 2006, Sridhar Samudrala wrote:
+On Monday 12 June 2006 23:25, Jeremy Fitzhardinge wrote:
+> Andi Kleen wrote:
+> > On Monday 12 June 2006 17:38, Mark Lord wrote:
+> >   
+> >> Okay, so I'm daft.  But.. *what* is "it" ??
+> >>
+> >> We have two machines:  target (being debugged), and host (anything).
+> >> Sure, the target has to have ohci1394 loaded, and firescope running.
+> >> But what about the *other* end of the connection?  What commands?
+> >>     
+> >
+> > From the same manpage:
+> > "The raw1394 module must be loaded and its device node
+> >  be writable (this normally requires root)" 
+> >
+> > Ok it doesn't say you need ohci1394 too and doesn't say that's the target.
+> > If I do a new revision I'll perhaps expand the docs a bit.
+> >
+> > So load ohci1394/raw1394 and run firescope as root. Your distribution
+> > will hopefully take care of the device nodes. Usually you want 
+> > something like firescope -Au System.map  
+> >   
+> 
+> I think the confusion here is that the target doesn't need to be running 
+> anything; you can DMA chunks of memory with the OHCI controller with no 
+> need for any software support.  
 
-> -	sendpage = sock->ops->sendpage ? : sock_no_sendpage;
-> +	sendpage = kernel_sendpage ? : sock_no_sendpage;
+You need ohci1394 loaded at least once. That is why it only works
+in relatively late boot.
 
-This is not equivalent.
+I've been playing with the idea of writing "early1394" that just
+turns the DMA controller on as early as possible similar to earlyprintk
+on the target. Then it would be possible to use it for early
+debugging too. But so far it's not done yet.
 
+I'll try to write better docs next time.
 
--- 
-James Morris
-<jmorris@namei.org>
+BTW Bernd did a gdbstub based on the firescope
+so you can even examine all kernel variables symbolically.  It can
+even write variables, but not change the flow of the CPU.
+Standard firescope can just hexdump read/write symbols. With gdb 
+it's also possible to do a core file of the kernel.
+
+-Andi
