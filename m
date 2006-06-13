@@ -1,73 +1,29 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 15:23:01 -0700 (PDT)
-Message-ID: <20060613.152301.26928146.davem@davemloft.net>
-References: <448F0D4B.30201@rtr.ca>
-	<20060613.142603.48825062.davem@davemloft.net>
-	<448F32E1.8080002@rtr.ca>
+Date: Tue, 13 Jun 2006 15:23:59 -0700 (PDT)
+Message-ID: <20060613.152359.109570552.davem@davemloft.net>
+References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
+	<448F03B3.5040501@psc.edu>
+	<Pine.LNX.4.64.0606131706040.4856@turbotaz.ourhouse>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: jheffner@psc.edu, torvalds@osdl.org, lkml@rtr.ca,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4062
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5598
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964779AbWFMWWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 18:22:47 -0400
-To: lkml@rtr.ca
-In-Reply-To: <448F32E1.8080002@rtr.ca>
+	id S964778AbWFMWXp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 18:23:45 -0400
+To: chase.venters@clientec.com
+In-Reply-To: <Pine.LNX.4.64.0606131706040.4856@turbotaz.ourhouse>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mark Lord <lkml@rtr.ca>
-Date: Tue, 13 Jun 2006 17:49:21 -0400
+From: Chase Venters <chase.venters@clientec.com>
+Date: Tue, 13 Jun 2006 17:09:16 -0500 (CDT)
 
-> I suppose the most important objection to our current behaviour
-> is that this behaviour *changes* when something totally unrelated
-> (to Joe User) happens:  adding or removing a stick of RAM.
+> Does anyone have any interesting statistics on how often end-users
+> are likely to run into this crap?
 
-We are pretty much required to choose the TCP memory parameters
-based upon how much physical memory is in the machine, and these
-parameters in-turn are inextricably linked to what kind of window
-scale we try to use for connections.
-
-The behavior is unfortunate, but more unfortunate are the boxes that
-create these problems in the first place.  I believe their lifespan is
-quite limited.
-
-> We should perhaps just have a fixed upper memory setting, as we
-> currently do in 2.6.16, so that the behaviour is predictable.
-
-The change in 2.6.17 was exactly that we needed to increase this
-upper limit to ~4MB.
-
-> On a related note.. I wonder if we can choose better values for
-> the window size, so that if the scale factor is ignored, we still
-> end up with reasonably sized packets?  So that the other box
-> will not think our window is a mere "94" when the scale factor
-> is lost?
-
-We have an algorithm that tries to pick something based upon the
-set of the values we might need to represent in the window field.
-
-If the scale is too high, you lose accuracy, since the lower bits
-get chopped off when the TCP header is being built and the computed
-window size is shifted down.
-
-So we try to pick the smallest scale necessary to represent the
-largest window size we might end up needing to advertise.
-
-A complication here is that we dynamically size both receive and send
-buffers in response to our growing knowledge of the connection's
-characteristics over time.  So at the beginning we'll use a small
-buffer size, and as the congestion window grows we'll increase our
-buffer sizes to fill the pipe.
-
-This adds even more considerations for window scale selection, as you
-can imagine.
-
-One final word about window sizes.  If you have a connection whose
-bandwidth-delay-product needs an N byte buffer to fill, you actually
-have to have an "N * 2" sized buffer available in order for fast
-retransmit to work.
+I think it's much less likely than the ECN stuff, by a long shot.
