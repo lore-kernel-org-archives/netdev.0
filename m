@@ -1,97 +1,44 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [RFT 0/5] sky2: suspend/resume patchlets
-Date: Tue, 13 Jun 2006 09:38:09 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0606130908370.5498@g5.osdl.org>
-References: <20060613081726.695812000@localhost.localdomain>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Network Performance Comparison between Linux 2.4 and 2.6
+Date: Tue, 13 Jun 2006 09:44:28 -0700
+Message-ID: <448EEB6C.6020106@hp.com>
+References: <c4166a920606130408m7780f956i814abb2d3f5aaf78@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:35999 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932186AbWFMQih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 12:38:37 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060613081726.695812000@localhost.localdomain>
+Received: from palrel10.hp.com ([156.153.255.245]:53921 "EHLO palrel10.hp.com")
+	by vger.kernel.org with ESMTP id S932138AbWFMQo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 12:44:29 -0400
+To: Bharath <bharath.yadav@gmail.com>
+In-Reply-To: <c4166a920606130408m7780f956i814abb2d3f5aaf78@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-[ Davem - see the final conclusion: this might not be a driver bug as much 
-  as a netconsole problem, where netconsole might perhaps continue sendign 
-  on a device that really can't take it any more? ]
-
-On Tue, 13 Jun 2006, Stephen Hemminger wrote:
->
-> There were a several problems buried in suspend/resume. The real
-> failure was caused by the idle timer not being stopped/restarted.
-> But several other races, and cleanups were needed.
+> I have included the throughput figures for bridging for both 2.4 and
+> 2.6 kernels in the table below.
+> Packet Size(bytes)            2.4.31(Mbps)          2.6.16(Mbps)
+> ------------------------------------------------------------------------------------------ 
 > 
-> Since I don't have a machine that will suspend successfully with
-> that hardware, I can't test it.
+> 64                                     2.11                       2.19
+> 128                                    3.59                       3.75
+> 256                                    6.33                       6.48
+> 512                                   10.93                      11.16
+> 1024                                 17.49                      17.33
+> 1280                                 20.00                      19.83
+> 1518                                 22.09                      19.91
+> 
+> About the tests, the MIPS malta board has two D-Link PCI ethernet
+> cards. A bridge br0 is configured over the two ethernet interfaces (
+> eth0 and eth1). There is an external traffic generator that is
+> configured to generate packets of above mentioned sizes and to measure
+> the throughput correspondingly.
+> 
+> Please let me know if you need any more information.
 
-With this, I get a page-fault in sky2_tx_complete+0x91 (with traceback to 
-sky2_poll, net_rx_action, do_softirq, do_IRQ, skb_release_data, kfree_skb, 
-sky2_rx_clean, sky2_down, sky2_suspend, pci_device_suspend, all the way 
-down to suspend_device()).
+It would be good to include mention of the CPU utilization of the system 
+under test, even if it is just to say "the CPU was 100% utilized.
 
-So an IRQ happened while the sky2 driver was doign sky2_rx_clean, which is 
-just _after_ it did "sky2_tx_clean()", and then the TX side was unhappy 
-for some reason.
-
-Again, the driver has actually tried to disable its _own_ irq, but that 
-doesn't much help. Also, with write posting, even its own irq might have 
-gotten delayed (ie if you really want to synchronize irq's, you need to 
-read from the device, and then also wait a bit to see that the irq isn't 
-being posted int he _other_ direction), but in the presense of shared 
-irq's, it just doesn't do anything at all.
-
-I can't seem to get a bigger VGA console on the Mac mini, so I'm unable to 
-see the exact register values.
-
-Btw, this probably happens with my patch too, and is likely 
-timing-related.
-
-Oh, and to make matters worse, I also enabled netconsole (in order to see 
-what goes wrong), which is probably what brought on the horrid timing 
-issue (ie packets going out _just_ at the right time saying "shutting 
-down sky2")
-
-Btw, that "sky2_tx_complete+0x91" seems to be 
-
-	loop:
-		inc    %edx
-		mov    0x9c(%ecx),%eax
-	**	movzwl 0x4(%eax),%eax	**
-		cmp    %eax,%edx
-		jb loop
-
-which in turn is:
-
-                for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-                        struct tx_ring_info *fre;
-                        fre = sky2->tx_ring + RING_NEXT(put + i, TX_RING_SIZE);
-                        pci_unmap_page(pdev, pci_unmap_addr(fre, mapaddr),
-                                       skb_shinfo(skb)->frags[i].size,
-                                       PCI_DMA_TODEVICE);
-                }
-
-since pci_unmap_page() is a no-op here ;)
-
-So it looks like it's the "skb_shinfo(skb)->nr_frags" access that oopses.
-
-Which probably means that
-
-	skb = re->skb;
-
-just got garbage (rememebr: the pci_unmap_single() directly after it is 
-_also_ a no-op, so it wouldn't oops there).
-
-I dunno the details. I'd have _expected_ tx_cons to be equal to tx_prod 
-here (since we just did a sky2_tx_clean() before), and the loop to not 
-have been entered at all, but I wonder if maybe it's the netconsole that 
-doesn't honor "netif_stop_queue()"?
-
-Dunno.
-
-			Linus
+rick jones
+http://www.netperf.org/
