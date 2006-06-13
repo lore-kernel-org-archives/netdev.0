@@ -1,48 +1,38 @@
-From: Chase Venters <chase.venters@clientec.com>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 17:09:16 -0500 (CDT)
-Message-ID: <Pine.LNX.4.64.0606131706040.4856@turbotaz.ourhouse>
-References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca>
- <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca> <448EEE9D.10105@rtr.ca>
- <448EF45B.2080601@rtr.ca> <448EF85E.50405@psc.edu> <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
- <448F03B3.5040501@psc.edu>
+Date: Tue, 13 Jun 2006 15:12:31 -0700
+Message-ID: <448F384F.8050207@hp.com>
+References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>	<448F0344.9000008@rtr.ca>	<448F0D4B.30201@rtr.ca>	<20060613.142603.48825062.davem@davemloft.net> <448F32E1.8080002@rtr.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linus Torvalds <torvalds@osdl.org>, Mark Lord <lkml@rtr.ca>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jheffner@psc.edu,
+	torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay02.pair.com ([209.68.5.16]:34060 "HELO relay02.pair.com")
-	by vger.kernel.org with SMTP id S932361AbWFMWJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 18:09:18 -0400
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <448F03B3.5040501@psc.edu>
+Received: from palrel10.hp.com ([156.153.255.245]:41687 "EHLO palrel10.hp.com")
+	by vger.kernel.org with ESMTP id S932286AbWFMWMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 18:12:35 -0400
+To: Mark Lord <lkml@rtr.ca>
+In-Reply-To: <448F32E1.8080002@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jun 2006, John Heffner wrote:
+Mark
 
->
-> In the last couple years, we've added code that can automatically size the 
-> buffers as appropriate for each connection, but it's completely crippled 
-> unless you use a window scale.  Personally, I think it's not a question of 
-> *whether* we have to start using a window scale by default, but *when*.  I 
-> don't know that we want to let a small number of unambiguously broken 
-> middleboxes kill our forward progress.
+ From everything I have read so far (which admittedly hasn't been 
+everything) it sounds like the firewall in question was a ticking 
+timebomb.  If 2.6.17 hadn't set it off, something else might very well 
+have done so.
 
-Another example - Same thing happened with ECN. I recall setting up a mail 
-server at the time and noticing that I had to disable ECN because some 
-dumbass PIX routers out there were dropping packets with a _reserved bit_ 
-set! Sure, there was a firmware upgrade, but the dingbat admins I tried to 
-alert didn't seem (at the time) too interested in fixing their problem.
+Or, if you prefer another metaphore, 2.6.17 was simply the last in a 
+series of straws on the back of the camel what was the firewall.  Meta 
+issues of whether or not the camel that is firewalls should have ever 
+been allowed to poke its nose in the Internet Tent notwithstanding :)
 
-Does anyone have any interesting statistics on how often end-users are 
-likely to run into this crap? It really is a shame when you have to suck just 
-because someone else does.
+At the very least, the firewall, if it is going to be "stateless," has 
+to strip the window scaling option from the SYN's that go past. 
+Otherwise,  I would be inclined to agree with David that the firewall is 
+fundamentally broken.
 
->
-> Thanks,
->  -John
-
-Cheers,
-Chase
+rick jones
