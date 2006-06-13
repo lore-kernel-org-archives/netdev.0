@@ -1,35 +1,73 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC/PATCH 2/2] update sunrpc to use in-kernel sockets API
-Date: Tue, 13 Jun 2006 18:13:38 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606131812070.6488@d.namei>
-References: <1150156564.19929.33.camel@w-sridhar2.beaverton.ibm.com>
- <Pine.LNX.4.64.0606122320010.31627@d.namei> <448E42AE.1010901@us.ibm.com>
- <Pine.LNX.4.64.0606131006250.3553@d.namei> <1150215626.31720.9.camel@w-sridhar2.beaverton.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.17: networking bug??
+Date: Tue, 13 Jun 2006 15:23:01 -0700 (PDT)
+Message-ID: <20060613.152301.26928146.davem@davemloft.net>
+References: <448F0D4B.30201@rtr.ca>
+	<20060613.142603.48825062.davem@davemloft.net>
+	<448F32E1.8080002@rtr.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jheffner@psc.edu, torvalds@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:11746 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932289AbWFMWNk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 18:13:40 -0400
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <1150215626.31720.9.camel@w-sridhar2.beaverton.ibm.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4062
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964779AbWFMWWr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 18:22:47 -0400
+To: lkml@rtr.ca
+In-Reply-To: <448F32E1.8080002@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jun 2006, Sridhar Samudrala wrote:
+From: Mark Lord <lkml@rtr.ca>
+Date: Tue, 13 Jun 2006 17:49:21 -0400
 
-> My patch doesn't touch this section of the code and this is called 
-> after the assignment we are talking about. So we should be using the
-> right sendpage in the actual call.
+> I suppose the most important objection to our current behaviour
+> is that this behaviour *changes* when something totally unrelated
+> (to Joe User) happens:  adding or removing a stick of RAM.
 
-Ok.
+We are pretty much required to choose the TCP memory parameters
+based upon how much physical memory is in the machine, and these
+parameters in-turn are inextricably linked to what kind of window
+scale we try to use for connections.
 
-Acked-by: James Morris <jmorris@namei.org>
+The behavior is unfortunate, but more unfortunate are the boxes that
+create these problems in the first place.  I believe their lifespan is
+quite limited.
 
-(for both patches).
+> We should perhaps just have a fixed upper memory setting, as we
+> currently do in 2.6.16, so that the behaviour is predictable.
 
--- 
-James Morris
-<jmorris@namei.org>
+The change in 2.6.17 was exactly that we needed to increase this
+upper limit to ~4MB.
+
+> On a related note.. I wonder if we can choose better values for
+> the window size, so that if the scale factor is ignored, we still
+> end up with reasonably sized packets?  So that the other box
+> will not think our window is a mere "94" when the scale factor
+> is lost?
+
+We have an algorithm that tries to pick something based upon the
+set of the values we might need to represent in the window field.
+
+If the scale is too high, you lose accuracy, since the lower bits
+get chopped off when the TCP header is being built and the computed
+window size is shifted down.
+
+So we try to pick the smallest scale necessary to represent the
+largest window size we might end up needing to advertise.
+
+A complication here is that we dynamically size both receive and send
+buffers in response to our growing knowledge of the connection's
+characteristics over time.  So at the beginning we'll use a small
+buffer size, and as the congestion window grows we'll increase our
+buffer sizes to fill the pipe.
+
+This adds even more considerations for window scale selection, as you
+can imagine.
+
+One final word about window sizes.  If you have a connection whose
+bandwidth-delay-product needs an N byte buffer to fill, you actually
+have to have an "N * 2" sized buffer available in order for fast
+retransmit to work.
