@@ -1,29 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Using netconsole for debugging suspend/resume
-Date: Tue, 13 Jun 2006 00:31:45 -0700 (PDT)
-Message-ID: <20060613.003145.71163368.davem@davemloft.net>
-References: <200606130654.14477.ak@suse.de>
-	<20060612.220346.71553967.davem@davemloft.net>
-	<20060613071819.GB16358@infradead.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, jeremy@goop.org, lkml@rtr.ca, mpm@selenic.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFT 2/5] sky2: suspend/resume patchlets
+Date: Tue, 13 Jun 2006 17:17:28 +0900
+Message-ID: <20060613081930.370601000@localhost.localdomain>
+References: <20060613081726.695812000@localhost.localdomain>
+Cc: linus@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30910
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932948AbWFMHbe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 03:31:34 -0400
-To: hch@infradead.org
-In-Reply-To: <20060613071819.GB16358@infradead.org>
+Received: from smtp.osdl.org ([65.172.181.4]:23275 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750748AbWFMIUk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 04:20:40 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename=sky2-ports.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@infradead.org>
-Date: Tue, 13 Jun 2006 08:18:19 +0100
+Subject: [RFT 2/5] sky2: don't hard code number of ports
 
-> That's actually not portable to certain arm platforms, but that's
-> a different story.
+It is cleaner, to not loop over both ports if only one exists.
 
-Yes, cache issues :-/
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+--- test.orig/drivers/net/sky2.c
++++ test/drivers/net/sky2.c
+@@ -3430,7 +3430,7 @@ static int sky2_suspend(struct pci_dev *
+ 	if (!(pstate == PCI_D3hot || pstate == PCI_D3cold))
+ 		return -EINVAL;
+ 
+-	for (i = 0; i < 2; i++) {
++	for (i = 0; i < hw->ports; i++) {
+ 		struct net_device *dev = hw->dev[i];
+ 
+ 		if (dev) {
+@@ -3460,7 +3460,7 @@ static int sky2_resume(struct pci_dev *p
+ 	if (err)
+ 		goto out;
+ 
+-	for (i = 0; i < 2; i++) {
++	for (i = 0; i < hw->ports; i++) {
+ 		struct net_device *dev = hw->dev[i];
+ 		if (dev && netif_running(dev)) {
+ 			netif_device_attach(dev);
+
+--
+
