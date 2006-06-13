@@ -1,82 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.17: networking bug??
-Date: Tue, 13 Jun 2006 14:26:03 -0700 (PDT)
-Message-ID: <20060613.142603.48825062.davem@davemloft.net>
-References: <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org>
-	<448F0344.9000008@rtr.ca>
-	<448F0D4B.30201@rtr.ca>
+From: "Sean Hefty" <sean.hefty@intel.com>
+Subject: RE: [openib-general] [PATCH v2 1/2] iWARP Connection Manager.
+Date: Tue, 13 Jun 2006 14:36:46 -0700
+Message-ID: <000001c68f31$78910fe0$24268686@amr.corp.intel.com>
+References: <1150230871.17394.68.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, torvalds@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: "Andrew Morton" <akpm@osdl.org>, <netdev@vger.kernel.org>,
+	<rdreier@cisco.com>, <linux-kernel@vger.kernel.org>,
+	<openib-general@openib.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33960
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932180AbWFMVZw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 17:25:52 -0400
-To: lkml@rtr.ca
-In-Reply-To: <448F0D4B.30201@rtr.ca>
+Received: from mga03.intel.com ([143.182.124.21]:16154 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S932330AbWFMVgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Jun 2006 17:36:55 -0400
+To: "'Steve Wise'" <swise@opengridcomputing.com>,
+	"Tom Tucker" <tom@opengridcomputing.com>
+In-Reply-To: <1150230871.17394.68.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mark Lord <lkml@rtr.ca>
-Date: Tue, 13 Jun 2006 15:08:59 -0400
+>> Er...no. It will lose this event. Depending on the event...the carnage
+>> varies. We'll take a look at this.
+>>
+>
+>This behavior is consistent with the Infiniband CM (see
+>drivers/infiniband/core/cm.c function cm_recv_handler()).  But I think
+>we should at least log an error because a lost event will usually stall
+>the rdma connection.
 
-> Err.. no, the networking stack simply decided to become incompatible
-> with certain sites, as a result of the user adding more RAM to their
-> machine.
+I believe that there's a difference here.  For the Infiniband CM, an allocation
+error behaves the same as if the received MAD were lost or dropped.  Since MADs
+are unreliable anyway, it's not so much that an IB CM event gets lost, as it
+doesn't ever occur.  A remote CM should retry the send, which hopefully allows
+the connection to make forward progress.
 
-Let's discuss some facts.
-
-First, you are getting window scaling by default with the older
-kernel too.  It's just a smaller window scale, using a shift
-value of say 1 or 2.
-
-What these broken middle boxes do is ignore the window scale
-entirely.
-
-So they don't apply a window scale to the advertised windows in each
-packet.  Therefore, they think a smaller amount of window space is
-being advertised than really is.  So they will silently drop packets
-they think is outside of this bogus window they've calculated.
-
-Now, when the window scale is smaller, the connection can still limp
-along, albeit slowly, making forward progress even in the face of such
-broken devices because half or a quarter of the window is still
-available.  It will retransmit a lot, and the congestion window won't
-grow at all.
-
-When the window scale is larger, this middle box bug makes it such
-that not even one packet can fit into the miscalculated window and
-things wedge.  The box thinks that your window is "94" instead of
-"94 << WINDOW_SCALE".
-
-I think OpenBSD's claim (they did have the bug and probably still do
-for all that I know) was that they wanted to make their firewalling
-"stateless".  This is a bogus argument because by definition you
-cannot interpret the TCP window without having seen the initial
-connection startup where the parameters are negotiated, and in
-particular the window scale which will be used.
-
-And you want to say we should try to work around systems designed
-by people who think this is ok? :-)
-
-It is impossible to fill a cross-continental connection without using
-window scaling.  A 64K window is all you get without scaling.  Big
-buffers are absolutely necessary, and as John Heffner showed this need
-is growing exponentially and not slowing down.  6 megabit downlink is
-pretty commonplace in the US, and the standard is much higher in well
-connected countries such as South Korea.
-
-Also, as John Heffner mentioned, even if we could detect the broken
-boxes you can't just "turn off window scaling" after it's been
-negotiated.  It's immutably active for the entire connection once
-enabled.
-
-Window scaling has been standardized and around for 14 years, RFC1323
-was published in May of 1992.  How much longer can we wait for it
-to be deployed properly? :-)
-
-So the broken boxes, which to be honest are few and far between these
-days, need to go, they really do.
+- Sean
