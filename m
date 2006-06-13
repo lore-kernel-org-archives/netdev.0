@@ -1,193 +1,47 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Mon, 12 Jun 2006 16:56:01 -0700
-Message-ID: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
+Date: Mon, 12 Jun 2006 17:10:57 -0700
+Message-ID: <4807377b0606121710j5be6ce0fhac71b69bf4dce2c2@mail.gmail.com>
+References: <20060610175010.GA4617@divinity> <20060610180850.GP7420@redhat.com>
+	 <20060611222719.GA13139@redhat.com>
+	 <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity>
+	 <20060612152434.GA14851@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: "Faidon Liambotis" <faidon@cube.gr>,
+	"Dave Jones" <davej@redhat.com>, netdev@vger.kernel.org,
+	proski@gnu.org, hermes@gibson.dropbear.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:6590 "EHLO e3.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932658AbWFLX6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Jun 2006 19:58:12 -0400
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Received: from nf-out-0910.google.com ([64.233.182.184]:50169 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S932473AbWFMAK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 20:10:59 -0400
+Received: by nf-out-0910.google.com with SMTP id x30so61343nfb
+        for <netdev@vger.kernel.org>; Mon, 12 Jun 2006 17:10:57 -0700 (PDT)
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060612152434.GA14851@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes it convenient to use the sockets API by the in-kernel
-users like sunrpc, cifs & ocfs2 etc and any future users.
-Currently they get to this API by directly accesing the function pointers
-in the sock structure.
+On 6/12/06, John W. Linville <linville@tuxdriver.com> wrote:
+> On Mon, Jun 12, 2006 at 01:49:54AM +0300, Faidon Liambotis wrote:
+>
+> > Having two drivers supporting the same set of hardware seems pretty
+> > pointless to me. Plus, it confuses hotplugging/automatic detection.
+>
+> This subject comes-up from time to time.  In fact, I'm pretty sure
+> it came-up very recently w.r.t. orinoco and hostap.
+>
+> The consensus seems to be that drivers should have IDs for all devices
+> they support, even if that means that some devices are supported by
+> multiple drivers.  This leaves the choice of which driver to use in
+> the hands of the user and/or distro.
 
-Most of these functions are pretty simple and can be made inline and moved
-to linux/net.h.
+my problem is that for my prism 2 adapter both drivers are loaded at
+which point neither of them works.  I'm running FC5, and i have to
+keep removing the orinoco*.ko files to keep them from loading, so I'm
+all for this patch.
 
-I used kernel_ prefix for this API to match with the existing kernel_sendmsg
-and kernel_recvmsg() although i would prefer ksock_.
-
-I have updated sunrpc to use this API.
-
-I would appreciate any comments or suggestions for improvements.
-
-Thanks
-Sridhar
-
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 84a490e..b70c28f 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -208,6 +208,25 @@ extern int   	     kernel_recvmsg(struct
- 				    struct kvec *vec, size_t num,
- 				    size_t len, int flags);
- 
-+extern int kernel_bind(struct socket *sock, struct sockaddr *addr,
-+		       int addrlen);
-+extern int kernel_listen(struct socket *sock, int backlog);
-+extern int kernel_accept(struct socket *sock, struct socket **newsock,
-+			 int flags);
-+extern int kernel_connect(struct socket *sock, struct sockaddr *addr,
-+			  int addrlen, int flags);
-+extern int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
-+			      int *addrlen);
-+extern int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
-+			      int *addrlen);
-+extern int kernel_getsockopt(struct socket *sock, int level, int optname,
-+			     char *optval, int *optlen);
-+extern int kernel_setsockopt(struct socket *sock, int level, int optname,
-+			     char *optval, int optlen);
-+extern int kernel_sendpage(struct socket *sock, struct page *page, int offset,
-+			   size_t size, int flags);
-+extern int kernel_ioctl(struct socket *sock, int cmd, unsigned long arg);
-+
- #ifndef CONFIG_SMP
- #define SOCKOPS_WRAPPED(name) name
- #define SOCKOPS_WRAP(name, fam)
-diff --git a/net/socket.c b/net/socket.c
-index 02948b6..8f36be7 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2160,6 +2160,109 @@ static long compat_sock_ioctl(struct fil
- }
- #endif
- 
-+int kernel_bind(struct socket *sock, struct sockaddr *addr, int addrlen)
-+{
-+	return sock->ops->bind(sock, addr, addrlen);
-+}
-+
-+int kernel_listen(struct socket *sock, int backlog)
-+{
-+	return sock->ops->listen(sock, backlog);
-+}
-+
-+int kernel_accept(struct socket *sock, struct socket **newsock, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	int err;
-+
-+	err = sock_create_lite(sk->sk_family, sk->sk_type, sk->sk_protocol,
-+			       newsock);	
-+	if (err < 0)
-+		goto done;	
-+
-+	err = sock->ops->accept(sock, *newsock, flags);
-+	if (err < 0) {
-+		sock_release(*newsock);
-+		goto done;
-+	}
-+			
-+	(*newsock)->ops = sock->ops;
-+
-+done:
-+	return err;
-+}
-+
-+int kernel_connect(struct socket *sock, struct sockaddr *addr, int addrlen,
-+                   int flags)
-+{
-+	return sock->ops->connect(sock, addr, addrlen, flags);
-+}	
-+
-+int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
-+			 int *addrlen)
-+{
-+	return sock->ops->getname(sock, addr, addrlen, 0);
-+}
-+
-+int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
-+			 int *addrlen)
-+{
-+	return sock->ops->getname(sock, addr, addrlen, 1);
-+}
-+
-+int kernel_getsockopt(struct socket *sock, int level, int optname,
-+			char *optval, int *optlen)
-+{
-+	mm_segment_t oldfs = get_fs();
-+	int err;
-+
-+	set_fs(KERNEL_DS);
-+	if (level == SOL_SOCKET)
-+		err = sock_getsockopt(sock, level, optname, optval, optlen);
-+	else
-+		err = sock->ops->getsockopt(sock, level, optname, optval,
-+					    optlen);
-+	set_fs(oldfs);
-+	return err;
-+}
-+
-+int kernel_setsockopt(struct socket *sock, int level, int optname,
-+			char *optval, int optlen)
-+{
-+	mm_segment_t oldfs = get_fs();
-+	int err;
-+
-+	set_fs(KERNEL_DS);
-+	if (level == SOL_SOCKET)
-+		err = sock_setsockopt(sock, level, optname, optval, optlen);
-+	else
-+		err = sock->ops->setsockopt(sock, level, optname, optval,
-+					    optlen);
-+	set_fs(oldfs);
-+	return err;
-+}
-+
-+int kernel_sendpage(struct socket *sock, struct page *page, int offset,
-+		    size_t size, int flags)
-+{
-+	if (sock->ops->sendpage)
-+		return sock->ops->sendpage(sock, page, offset, size, flags);
-+	
-+	return sock_no_sendpage(sock, page, offset, size, flags);
-+}
-+
-+int kernel_ioctl(struct socket *sock, int cmd, unsigned long arg)
-+{
-+	mm_segment_t oldfs = get_fs();
-+	int err;
-+
-+	set_fs(KERNEL_DS);
-+	err = sock->ops->ioctl(sock, cmd, arg);
-+	set_fs(oldfs);
-+	
-+	return err;
-+}
-+
- /* ABI emulation layers need these two */
- EXPORT_SYMBOL(move_addr_to_kernel);
- EXPORT_SYMBOL(move_addr_to_user);
-@@ -2176,3 +2279,13 @@ EXPORT_SYMBOL(sock_wake_async);
- EXPORT_SYMBOL(sockfd_lookup);
- EXPORT_SYMBOL(kernel_sendmsg);
- EXPORT_SYMBOL(kernel_recvmsg);
-+EXPORT_SYMBOL(kernel_bind);
-+EXPORT_SYMBOL(kernel_listen);
-+EXPORT_SYMBOL(kernel_accept);
-+EXPORT_SYMBOL(kernel_connect);
-+EXPORT_SYMBOL(kernel_getsockname);
-+EXPORT_SYMBOL(kernel_getpeername);
-+EXPORT_SYMBOL(kernel_getsockopt);
-+EXPORT_SYMBOL(kernel_setsockopt);
-+EXPORT_SYMBOL(kernel_sendpage);
-+EXPORT_SYMBOL(kernel_ioctl);
-
-
+Jesse
