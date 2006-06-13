@@ -1,39 +1,36 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.18 6/6] bnx2: Update version and reldate
-Date: Mon, 12 Jun 2006 17:17:22 -0700
-Message-ID: <1150157842.26173.10.camel@rh4>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.18 4/6] bnx2: Add firmware decompression
+Date: Mon, 12 Jun 2006 17:38:02 -0700 (PDT)
+Message-ID: <20060612.173802.52167155.davem@davemloft.net>
+References: <1150157838.26173.9.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:43026 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932682AbWFMA02
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Jun 2006 20:26:28 -0400
-To: davem@davemloft.net
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54727
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932705AbWFMAhw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Jun 2006 20:37:52 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1150157838.26173.9.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update driver version to 1.4.42.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 12 Jun 2006 17:17:18 -0700
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Add functions to decompress firmware before loading to the internal
+> CPUs. Compressing the firmware reduces the driver size significantly.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+ ...
+> +#define FNAME	0x8
+> +	if (zbuf[3] & FNAME)
+> +		while (zbuf[n++] != 0);
 
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 3b1fe1e..7cacc3f 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -57,8 +57,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.4.40"
--#define DRV_MODULE_RELDATE	"May 22, 2006"
-+#define DRV_MODULE_VERSION	"1.4.42"
-+#define DRV_MODULE_RELDATE	"June 12, 2006"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
+This can potentially loop past the end of zbuf[], so maybe
+put a sanity check against 'len' and return non-zero if we
+traverse past the end?
 
 
