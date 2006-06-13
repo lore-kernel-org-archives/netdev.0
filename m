@@ -1,359 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/2] AES-XCBC-MAC
-Date: Wed, 14 Jun 2006 08:40:58 +1000
-Message-ID: <20060613224058.GA18331@gondor.apana.org.au>
-References: <1150213440.4200.36.camel@hookipa>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 16:44:48 -0600
+Message-ID: <20060613164448.A7232@openss7.org>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com> <20060613154031.A6276@openss7.org> <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bg08WKrSYDhXBjb5"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:19469 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932366AbWFMWls
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 18:41:48 -0400
-To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Received: from gw.openss7.com ([142.179.199.224]:18865 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S964790AbWFMWow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 18:44:52 -0400
+To: Chase Venters <chase.venters@clientec.com>
 Content-Disposition: inline
-In-Reply-To: <1150213440.4200.36.camel@hookipa>
+In-Reply-To: <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse>; from chase.venters@clientec.com on Tue, Jun 13, 2006 at 05:00:53PM -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Chase,
 
---bg08WKrSYDhXBjb5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Tue, 13 Jun 2006, Chase Venters wrote:
+> 
+> Look out for that word (stable). Judging from history (and sanity), 
+> arguing /in favor of/ any kind of stable module API is asking for it.
 
-On Wed, Jun 14, 2006 at 12:44:00AM +0900, Kazunori MIYAZAWA wrote:
-> This is preparation to introduce AES-XCBC-MAC.
-> - introducing common interface "keyed hash"
-> - making HMAC use the interface
+I was really just using Daniel's words.  I am all too aware that kernel
+APIs are unstable.  To some it is a serious failing of Linux
+(particularly those involved in porting kernel modules from branded UNIX
+or embedded RTOS).  To those whatever stability that can be offered is a
+boon.  To those, even worse is the lack of an ABI (even for a single
+kernel version).
 
-I'm sorry guys, but this seems to duplicate what I've been doing as
-generic parameterised algorithms.  I wish we'd discussed this more
-so time didn't had to be wasted.
+> 
+> At least some of us feel like stable module APIs should be explicitly 
+> discouraged, because we don't want to offer comfort for code 
+> that refuses to live in the tree (since getting said code into the tree is 
+> often a goal).
 
-I've attached a sample HMAC implementation.  Things are still fluid
-so it may not even compile (Actually, it definitely wouldn't compile
-without the template stuff which I'll post soon :)
+And that would be fine if we were completely agnostic toward what was
+included in mainline, but we are not.  A particular case in point that
+I deal with are STREAMS modules.  STREAMS continues to be forbidden from
+the tree.  Nevertheless, STREAMS has historically provided one of the
+most widespread mechanisms for providing value-added drivers to branded
+UNIX or embedded RTOS offerings.  As a result, a large body of existing
+drivers are cut off from the tree regardless of their licensing terms.
 
-In any case, this is the model AES-XCBC-MAC should look like.
+(Note that these is seldom a question of derivation for these drivers as
+they are fully functioning on other operating systems: branded UNIX or
+embedded RTOS.)
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> I'm curious now too - can you name some non-GPL non-proprietary modules we 
+> should be concerned about? I'd think most of the possible examples (not 
+> sure what they are) would be better off dual-licensed (one license 
+> being GPL) and in-kernel.
 
---bg08WKrSYDhXBjb5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="hmac.patch"
+Any open-source license not compatible with the GPL.  One that comes to
+mind is OpenSolaris drivers.  I'm sure that there are others because there
+are many license that qualify as open source licenses that are incompatible
+with the GPL.  For example, pure BSD is incompatible with GPL.
 
-diff --git a/crypto/Kconfig b/crypto/Kconfig
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -18,7 +18,7 @@ config CRYPTO_MANAGER
- 	  cbc(aes).
- 
- config CRYPTO_HMAC
--	bool "HMAC support"
-+	tristate "HMAC support"
- 	depends on CRYPTO
- 	help
- 	  HMAC: Keyed-Hashing for Message Authentication (RFC2104).
-diff --git a/crypto/Makefile b/crypto/Makefile
-diff --git a/crypto/hmac.c b/crypto/hmac.c
---- a/crypto/hmac.c
-+++ b/crypto/hmac.c
-@@ -4,6 +4,7 @@
-  * HMAC: Keyed-Hashing for Message Authentication (RFC2104).
-  *
-  * Copyright (c) 2002 James Morris <jmorris@intercode.com.au>
-+ * Copyright (c) 2006 Herbert Xu <herbert@gondor.apana.org.au>
-  *
-  * The HMAC implementation is derived from USAGI.
-  * Copyright (c) 2002 Kazunori Miyazawa <miyazawa@linux-ipv6.org> / USAGI
-@@ -21,84 +22,80 @@
- #include <linux/scatterlist.h>
- #include "internal.h"
- 
--static void hash_key(struct crypto_tfm *tfm, u8 *key, unsigned int keylen)
--{
--	struct scatterlist tmp;
--	
--	sg_set_buf(&tmp, key, keylen);
--	crypto_digest_digest(tfm, &tmp, 1, key);
--}
--
--int crypto_alloc_hmac_block(struct crypto_tfm *tfm)
--{
--	int ret = 0;
--
--	BUG_ON(!crypto_tfm_alg_blocksize(tfm));
--	
--	tfm->crt_digest.dit_hmac_block = kmalloc(crypto_tfm_alg_blocksize(tfm),
--	                                         GFP_KERNEL);
--	if (tfm->crt_digest.dit_hmac_block == NULL)
--		ret = -ENOMEM;
-+struct hmac_ctx {
-+	struct crypto_tfm *child;
-+};
-+
-+static void crypto_hmac_setkey(struct crypto_tfm *parent, u8 *inkey,
-+			       unsigned int keylen, u32 *flags)
-+{
-+	int bs = crypto_tfm_alg_blocksize(parent);
-+	char *key = crypto_tfm_ctx(parent);
-+	char *pad = ctx_arg + bs;
-+	struct hmac_ctx *ctx = pad + bs;
-+	struct crypto_tfm *tfm = ctx->child;
-+	
-+	if (keylen > bs) {
-+		struct scatterlist tmp;
-+		sg_set_buf(&tmp, inkey, keylen);
-+		crypto_digest_digest(child, &tmp, 1, pad);
-+		inkey = pad;
-+		keylen = crypto_tfm_alg_digestsize(tfm);
-+	}
- 
--	return ret;
--		
-+	memcpy(key, inkey, keylen);
-+	memset(key + keylen, 0, bs - keylen);
- }
- 
--void crypto_free_hmac_block(struct crypto_tfm *tfm)
--{
--	kfree(tfm->crt_digest.dit_hmac_block);
--}
--
--void crypto_hmac_init(struct crypto_tfm *tfm, u8 *key, unsigned int *keylen)
-+static void crypto_hmac_init(struct crypto_tfm *parent)
- {
-+	int bs = crypto_tfm_alg_blocksize(parent);
-+	char *key = crypto_tfm_ctx(parent);
-+	char *ipad = ctx_arg + bs;
-+	struct hmac_ctx *ctx = ipad + bs;
-+	struct crypto_tfm *tfm = ctx->child;
- 	unsigned int i;
- 	struct scatterlist tmp;
--	char *ipad = tfm->crt_digest.dit_hmac_block;
--	
--	if (*keylen > crypto_tfm_alg_blocksize(tfm)) {
--		hash_key(tfm, key, *keylen);
--		*keylen = crypto_tfm_alg_digestsize(tfm);
--	}
- 
--	memset(ipad, 0, crypto_tfm_alg_blocksize(tfm));
--	memcpy(ipad, key, *keylen);
-+	memcpy(ipad, key, bs);
- 
--	for (i = 0; i < crypto_tfm_alg_blocksize(tfm); i++)
-+	for (i = 0; i < bs; i++)
- 		ipad[i] ^= 0x36;
- 
--	sg_set_buf(&tmp, ipad, crypto_tfm_alg_blocksize(tfm));
-+	sg_set_buf(&tmp, ipad, bs);
- 	
- 	crypto_digest_init(tfm);
- 	crypto_digest_update(tfm, &tmp, 1);
- }
- 
--void crypto_hmac_update(struct crypto_tfm *tfm,
--                        struct scatterlist *sg, unsigned int nsg)
-+static void crypto_hmac_update(struct crypto_tfm *parent,
-+			       struct scatterlist *sg, unsigned int nsg)
- {
-+	int bs = crypto_tfm_alg_blocksize(parent);
-+	struct hmac_ctx *ctx = crypto_tfm_ctx(parent) + bs * 2;
-+	struct crypto_tfm *tfm = ctx->child;
- 	crypto_digest_update(tfm, sg, nsg);
- }
- 
--void crypto_hmac_final(struct crypto_tfm *tfm, u8 *key,
--                       unsigned int *keylen, u8 *out)
-+static void crypto_hmac_final(struct crypto_tfm *parent, u8 *key,
-+			      unsigned int *keylen, u8 *out)
- {
-+	int bs = crypto_tfm_alg_blocksize(parent);
-+	char *key = crypto_tfm_ctx(parent);
-+	char *opad = ctx_arg + bs;
-+	struct hmac_ctx *ctx = opad + bs;
-+	struct crypto_tfm *tfm = ctx->child;
- 	unsigned int i;
- 	struct scatterlist tmp;
--	char *opad = tfm->crt_digest.dit_hmac_block;
- 	
--	if (*keylen > crypto_tfm_alg_blocksize(tfm)) {
--		hash_key(tfm, key, *keylen);
--		*keylen = crypto_tfm_alg_digestsize(tfm);
--	}
--
- 	crypto_digest_final(tfm, out);
- 
--	memset(opad, 0, crypto_tfm_alg_blocksize(tfm));
--	memcpy(opad, key, *keylen);
-+	memcpy(opad, key, bs);
- 		
--	for (i = 0; i < crypto_tfm_alg_blocksize(tfm); i++)
-+	for (i = 0; i < bs; i++)
- 		opad[i] ^= 0x5c;
- 
--	sg_set_buf(&tmp, opad, crypto_tfm_alg_blocksize(tfm));
-+	sg_set_buf(&tmp, opad, bs);
- 
- 	crypto_digest_init(tfm);
- 	crypto_digest_update(tfm, &tmp, 1);
-@@ -109,16 +106,109 @@ void crypto_hmac_final(struct crypto_tfm
- 	crypto_digest_final(tfm, out);
- }
- 
--void crypto_hmac(struct crypto_tfm *tfm, u8 *key, unsigned int *keylen,
--                 struct scatterlist *sg, unsigned int nsg, u8 *out)
-+static int hmac_init_tfm(struct crypto_tfm *tfm)
-+{
-+	struct crypto_instance *inst = (void *)tfm->__crt_alg;
-+	struct crypto_spawn **spawn = crypto_instance_param(inst);
-+	struct hmac_ctx *ctx = crypto_tfm_ctx(tfm);
-+
-+	ctx->child = crypto_spawn_tfm(*spawn, 0);
-+	if (!ctx->child)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+static struct crypto_instance *hmac_init_alg(void *param, unsigned int len)
-+{
-+	struct rtattr *rta = param;
-+	struct crypto_attr_base *base;
-+	struct crypto_attr_alg *alg;
-+	struct crypto_instance *inst;
-+	struct crypto_spawn *spawn;
-+	struct crypto_spawn **inst_param;
-+	int err;
-+
-+	if (!RTA_OK(rta, len))
-+		return ERR_PTR(-EBADR);
-+	if (rta->rta_type != CRYPTOA_BASE || RTA_PAYLOAD(rta) < sizeof(*base))
-+		return ERR_PTR(-EINVAL);
-+
-+	base = RTA_DATA(rta);
-+
-+	rta = RTA_NEXT(rta, len);
-+	if (!RTA_OK(rta, len))
-+		return ERR_PTR(-EBADR);
-+	if (rta->rta_type != CRYPTOA_ALG || RTA_PAYLOAD(rta) < sizeof(*alg))
-+		return ERR_PTR(-EINVAL);
-+
-+	alg = RTA_DATA(rta);
-+
-+	inst = kzalloc(sizeof(*inst) + sizeof(spawn));
-+	if (!inst)
-+		return ERR_PTR(-ENOMEM);
-+
-+	spawn = crypto_alloc_spawn(alg->name);
-+	if (IS_ERR(spawn)) {
-+		err = PTR_ERR(spawn);
-+		goto err_spawn;
-+	}
-+
-+	strlcpy(inst->alg.cra_name, base->type.name, CRYPTO_MAX_ALG_NAME);
-+	strlcpy(inst->alg.cra_driver_name, base->driver.name,
-+		CRYPTO_MAX_ALG_NAME);
-+
-+	inst_param = crypto_instance_param(inst);
-+	*inst_param = spawn;
-+
-+	inst->alg.cra_priority = base->priority;
-+	inst->alg.cra_flags = CRYPTO_ALG_TYPE_DIGEST;
-+	inst->alg.cra_blocksize = spawn->alg->cra_blocksize;
-+
-+	/* XXX Check alignment once we have drivers with alignmask > 16. */
-+	inst->alg.cra_ctxsize = sizeof(struct hmac_ctx) +
-+				inst->alg.cra_blocksize * 2;
-+
-+	inst->alg.cra_module = THIS_MODULE;
-+	inst->alg.cra_init = hmac_init_tfm;
-+
-+	inst->alg.cra_u.digest.dia_init = crypto_hmac_init;
-+	inst->alg.cra_u.digest.dia_update = crypto_hmac_update;
-+	inst->alg.cra_u.digest.dia_final = crypto_hmac_final;
-+	inst->alg.cra_u.digest.dia_setkey = crypto_hmac_setkey;
-+	return inst;
-+
-+err_spawn:
-+	kfree(inst);
-+	return ERR_PTR(err);
-+}
-+
-+static void hmac_destroy_alg(struct crypto_instance *inst)
-+{
-+	struct crypto_spawn **spawn = crypto_instance_param(inst);
-+	crypto_free_spawn(*spawn);
-+	kfree(inst);
-+}
-+
-+static struct crypto_template hmac_tmpl = {
-+	.name = "hmac",
-+	.base_type = CRYPTO_ALG_TYPE_DIGEST,
-+	.init = hmac_init_alg,
-+	.destroy = hmac_destroy_alg,
-+};
-+
-+static int __init hmac_init(void)
-+{
-+	return crypto_register_template(&hmac_tmpl);
-+}
-+
-+static void __exit hmac_exit(void)
- {
--	crypto_hmac_init(tfm, key, keylen);
--	crypto_hmac_update(tfm, sg, nsg);
--	crypto_hmac_final(tfm, key, keylen, out);
-+	crypto_unregister_template(&hmac_tmpl);
- }
- 
--EXPORT_SYMBOL_GPL(crypto_hmac_init);
--EXPORT_SYMBOL_GPL(crypto_hmac_update);
--EXPORT_SYMBOL_GPL(crypto_hmac_final);
--EXPORT_SYMBOL_GPL(crypto_hmac);
-+module_init(hmac_init);
-+module_exit(hmac_exit);
- 
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("HMAC digest algorithm");
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -209,9 +209,6 @@ struct digest_tfm {
- 	                   unsigned int nsg, u8 *out);
- 	int (*dit_setkey)(struct crypto_tfm *tfm,
- 	                  const u8 *key, unsigned int keylen);
--#ifdef CONFIG_CRYPTO_HMAC
--	void *dit_hmac_block;
--#endif
- };
- 
- struct compress_tfm {
-@@ -452,18 +449,5 @@ static inline int crypto_comp_decompress
- 	return tfm->crt_compress.cot_decompress(tfm, src, slen, dst, dlen);
- }
- 
--/*
-- * HMAC support.
-- */
--#ifdef CONFIG_CRYPTO_HMAC
--void crypto_hmac_init(struct crypto_tfm *tfm, u8 *key, unsigned int *keylen);
--void crypto_hmac_update(struct crypto_tfm *tfm,
--                        struct scatterlist *sg, unsigned int nsg);
--void crypto_hmac_final(struct crypto_tfm *tfm, u8 *key,
--                       unsigned int *keylen, u8 *out);
--void crypto_hmac(struct crypto_tfm *tfm, u8 *key, unsigned int *keylen,
--                 struct scatterlist *sg, unsigned int nsg, u8 *out);
--#endif	/* CONFIG_CRYPTO_HMAC */
--
- #endif	/* _LINUX_CRYPTO_H */
- 
+Another thing to consider is that the first step for many organizations in
+opening a driver under GPL is to release a proprietary module that at least
+first works.  The second step is to jump through the hoops and over the
+hurdles necessary to open what has been to date proprietary code that may
+contain intellectual property issues across a number of organizations.
 
---bg08WKrSYDhXBjb5--
+In adopting a policy that hinders this process, we, instead, discourage
+opening of drivers and inclusion in mainline, rather than promoting it.
+
+Sorry for the rant.
