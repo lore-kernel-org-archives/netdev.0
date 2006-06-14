@@ -1,53 +1,54 @@
-From: Chase Venters <chase.venters@clientec.com>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 02:58:08 -0500
-Message-ID: <200606140258.30302.chase.venters@clientec.com>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131953.42002.chase.venters@clientec.com> <20060614000710.C7232@openss7.org>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: 2.6.17: networking bug??
+Date: Wed, 14 Jun 2006 09:09:13 +0100
+Message-ID: <448FC429.4060004@gentoo.org>
+References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca> <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca> <448EEE9D.10105@rtr.ca> <448EF45B.2080601@rtr.ca> <448EF85E.50405@psc.edu> <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org> <448F0344.9000008@rtr.ca> <448F0D4B.30201@rtr.ca>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: John Heffner <jheffner@psc.edu>,
+	Linus Torvalds <torvalds@osdl.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay03.pair.com ([209.68.5.17]:27406 "HELO relay03.pair.com")
-	by vger.kernel.org with SMTP id S1751181AbWFNH6c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 03:58:32 -0400
-To: bidulock@openss7.org
-In-Reply-To: <20060614000710.C7232@openss7.org>
-Content-Disposition: inline
+Received: from mta09-winn.ispmail.ntl.com ([81.103.221.49]:17763 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1751091AbWFNIHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 04:07:23 -0400
+To: Mark Lord <lkml@rtr.ca>
+In-Reply-To: <448F0D4B.30201@rtr.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 June 2006 01:06, Brian F. G. Bidulock wrote:
->
-> The interface currently under discussion is ultimately derived from the BSD
-> socket-protocol interface, and IMHO should be EXPORT_SYMBOL instead of
-> EXPORT_SYMBOL_GPL, if only because using _GPL serves no purpose here and
-> can be defeated with 3 or 4 obvious (and probably existing) lines of code. 
-> I wrote similar wrappers for STREAMS TPI to Linux NET4 interface instead of
-> using pointers directly quite a few years ago.  I doubt I was the first.
-> There is nothing really so novel here that it deserves _GPL.
+Mark Lord wrote:
+> Further to this, the current behaviour is badly unpredictable.
+> 
+> A machine could be working perfectly, not (noticeably) affected
+> by this bug.  And then the user adds another stick of RAM to it.
 
-I mentioned that I don't have any particular opinion on the BSD socket API in 
-this discussion. All that I'm speaking of here is a property of licensing. 
+This "bug" already existed in 2.6.16 to a certain extent: you were 
+losing out on a lot of TCP performance. Go back to 2.6.7, measure TCP 
+performance, and you'll probably find it was significantly better.
 
-I've watched a lot of what has happened with binary drivers. You'll find in 
-the LKML archives plenty of lengthy discussions about whether or not binary 
-drivers are allowed under the GPL. If I were to guess, there is still 
-disagreement. Although some hardware support could improve, we thankfully 
-seem to have some kind of an equilibrium capable of supporting lots of users.
+Also, there aren't that many broken end-points out there. 
+www.everymac.com loads fine for me and does not ignore the window scale 
+factor.
 
-One point I remember coming up in the discussion was that the 
-EXPORT_SYMBOL()/EXPORT_SYMBOL_GPL() split was a compromise of sorts. 
-Interfaces that were needed to support users would reasonably be placed under 
-EXPORT_SYMBOL(). By contrast, EXPORT_SYMBOL_GPL() would indicate 
-functionality that would only seem to be used by derived works. It implies 
-that any code using it should probably be GPL as well.
+The problem in your case is a broken router in the middle. I had the 
+same problem: certain sites would not load, but there is absolutely 
+nothing wrong with the servers that run these sites:
 
-I don't raise this in an attempt to belittle anything people are working on. 
-It's an observation about the ecosystem - Linux in the 2.6 series has seen a 
-great amount of corporate contribution in terms of enhancing what the kernel 
-is capable of doing. GPL, I believe, encourages this.
+http://marc.theaimsgroup.com/?l=linux-netdev&m=114478312100641&w=2
 
-Thanks,
-Chase
+I contacted my ISP and informed them of the issue. They fixed it 
+nationwide within a few weeks. You might try confirming that your 
+problem only applies to HTTP like mine did (ISP runs some lame 
+transparent webcaches), and it was a bug in the software there (NetApp).
+
+We already had the "some routers are broken, should we do anything" 
+discussion back at the time of 2.6.8:
+
+http://lwn.net/Articles/92727/
+
+Daniel
+
