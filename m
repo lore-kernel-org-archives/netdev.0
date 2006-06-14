@@ -1,39 +1,97 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: Remove Prism II support from Orinoco
-Date: Wed, 14 Jun 2006 13:53:22 +0200
-Message-ID: <20060614135322.4bbb8d1b@griffin.suse.cz>
-References: <20060610175010.GA4617@divinity>
-	<20060610180850.GP7420@redhat.com>
-	<20060611222719.GA13139@redhat.com>
-	<20060611224054.GB13139@redhat.com>
-	<20060611224954.GA2880@divinity>
-	<20060612152434.GA14851@tuxdriver.com>
-	<4807377b0606121710j5be6ce0fhac71b69bf4dce2c2@mail.gmail.com>
-	<20060613042048.GA14824@shell0.pdx.osdl.net>
-	<448E3F80.5050103@cube.gr>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Wed, 14 Jun 2006 08:06:06 -0400
+Message-ID: <1150286766.5233.15.camel@jzny2>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: hawk@diku.dk, russell-tcatm@stuart.id.au, lartc@mailman.ds9a.nl,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:46761 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751253AbWFNLxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 07:53:24 -0400
-To: Faidon Liambotis <faidon@cube.gr>
-In-Reply-To: <448E3F80.5050103@cube.gr>
+Received: from mx03.cybersurf.com ([209.197.145.106]:53913 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1751260AbWFNMGP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 08:06:15 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FqU8U-00082D-4Q
+	for netdev@vger.kernel.org; Wed, 14 Jun 2006 08:06:14 -0400
+To: Jesper Dangaard Brouer <hawk@comx.dk>
+In-Reply-To: <1150278004.26181.35.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jun 2006 07:30:56 +0300, Faidon Liambotis wrote:
-> Unfortunately, that workaround doesn't work so well when you want to
-> have the ability to plug real orinoco (hermes) cards to your computer...
-> In other words and unless I'm missing something, there isn't currently a
-> way to have a Hermes card and a Prism II card both plugged in and working.
 
-Do you know about /sys/bus/pci/drivers/*/bind and unbind?
+I have taken linux-kernel off the list.
 
-http://lwn.net/Articles/143397/
+Russell's site is inaccessible to me (I actually think this is related
+to some DNS issues i may be having) and your masters is too long to
+spend 2 minutes and glean it; so heres a question or two for you:
 
--- 
-Jiri Benc
-SUSE Labs
+- Have you tried to do a long-lived session such as a large FTP and 
+seen how far off the deviation was? That would provide some interesting
+data point.
+- To be a devil's advocate (and not claim there is no issue), where do
+you draw the line with "overhead"? 
+Example the smallest ethernet packet is 64 bytes of which 14 bytes are
+ethernet headers ("overhead" for IP) - and this is not counting CRC etc.
+If you were to set an MTU of say 64 bytes and tried to do a http or ftp,
+how accurate do you think the calculation would be? I would think not
+very different.
+Does it matter if it is accurate on the majority of the cases?
+- For further reflection: Have you considered the case where the rate
+table has already been considered on some link speed in user space and
+then somewhere post-config the physical link speed changes? This would
+happen in the case where ethernet AN is involved and the partner makes
+some changes (use ethtool). 
+
+I would say the last bullet is a more interesting problem than a corner
+case of some link layer technology that has high overhead.
+Your work would be more interesting if it was generic for many link
+layers instead of just ATM.
+
+
+cheers,
+jamal
+
+On Wed, 2006-14-06 at 11:40 +0200, Jesper Dangaard Brouer wrote:
+> The Linux traffic's control engine inaccurately calculates
+> transmission times for packets sent over ADSL links.  For
+> some packet sizes the error rises to over 50%.  This occurs
+> because ADSL uses ATM as its link layer transport, and ATM
+> transmits packets in fixed sized 53 byte cells.
+> 
+> The following patches to iproute2 and the kernel add an
+> option to calculate traffic transmission times over all
+> ATM links, including ADSL, with perfect accuracy.
+> 
+> A longer presentation of the patch, its rational, what it
+> does and how to use it can be found here:
+>    http://www.stuart.id.au/russell/files/tc/tc-atm/
+> 
+> A earlier version of the patch, and a _detailed_ empirical
+> investigation of its effects can be found here:
+>    http://www.adsl-optimizer.dk/
+> 
+> The patches are both backwards and forwards compatible.
+> This means unpatched kernels will work with a patched
+> version of iproute2, and an unpatched iproute2 will work
+> on patches kernels.
+> 
+> 
+> This is a combined effort of Jesper Brouer and Russell Stuart,
+> to get these patches into the upstream kernel.
+> 
+> Let the discussion start about what we need to change to get this
+> upstream?
+> 
+> We see this as a feature enhancement, as thus hope that it can be
+> queued in davem's net-2.6.18.git tree.
+> 
+> ---
+> Regards,
+>  Jesper Brouer & Russell Stuart.
+> 
+
