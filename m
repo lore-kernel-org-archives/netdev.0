@@ -1,48 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch] ipv4: fix lock usage in udp_ioctl
-Date: Thu, 15 Jun 2006 09:12:47 +1000
-Message-ID: <E1FqeXX-0008OE-00@gondolin.me.apana.org.au>
-References: <20060614194305.GB10391@osiris.ibm.com>
-Cc: davem@davemloft.net, jgarzik@pobox.com, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mingo@elte.hu, fpavlic@de.ibm.com
+From: Mitch Williams <mitch.a.williams@intel.com>
+Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
+Date: Wed, 14 Jun 2006 16:44:56 -0700
+Message-ID: <Pine.CYG.4.58.0606141635440.2888@mawilli1-desk2.amr.corp.intel.com>
+References: <20060606231727.GK24227@waste.org> <20060607150522.GA24608@hmsreliant.homelinux.net>
+ <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com>
+ <x49d5dkvm8p.fsf@segfault.boston.redhat.com> <1149787174.2928.3.camel@strongmad>
+ <x49ac8nwo83.fsf@redhat.com> <20060612001356.GA5112@localhost.localdomain>
+ <1150130534.2879.9.camel@strongmad> <20060612180600.GB3790@hmsreliant.homelinux.net>
+ <20060614204158.GA3967@hmsreliant.homelinux.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	Matt Mackall <mpm@selenic.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11784 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965007AbWFNXNz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 19:13:55 -0400
-To: heiko.carstens@de.ibm.com (Heiko Carstens)
-In-Reply-To: <20060614194305.GB10391@osiris.ibm.com>
+Received: from fmr18.intel.com ([134.134.136.17]:10646 "EHLO
+	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
+	id S965042AbWFNXpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 19:45:51 -0400
+To: Neil Horman <nhorman@tuxdriver.com>
+In-Reply-To: <20060614204158.GA3967@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
-> 
-> As reported by the lock validator:
-> 
-> ============================
-> [ BUG: illegal lock usage! ]
-> ----------------------------
-> illegal {in-hardirq-W} -> {hardirq-on-W} usage.
-> syslogd/739 [HC0[0]:SC0[1]:HE1:SE0] takes:
-> (&list->lock){++..}, at: [<002e36d6>] udp_ioctl+0x96/0x100
-> {in-hardirq-W} state was registered at:
->  [<00062128>] lock_acquire+0x9c/0xc0
->  [<0036209e>] _spin_lock_irqsave+0x66/0x84
->  [<002912ce>] skb_dequeue+0x32/0xb0
->  [<00263160>] qeth_qdio_output_handler+0x3e8/0xf8c
->  [<00219fdc>] tiqdio_thinint_handler+0xde0/0x2234
->  [<0020448c>] do_adapter_IO+0x5c/0xa8
->  [<0020842c>] do_IRQ+0x13c/0x18c
->  [<000208a2>] io_no_vtime+0x16/0x1c
->  [<0001978c>] cpu_idle+0x1d0/0x20c
 
-This is bogus.  These two locks belong to two different queues and they
-never intersect.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Wed, 14 Jun 2006, Neil Horman wrote:
+
+> Hey, as promised, I've done some rudimentary performance benchmarking on various
+> ways that we have talked about to solve this problem.  As I previously mentioned
+
+We see the same results here, Neil.  However, we've got a much less
+invasive patch undergoing internal review, and which we will post to
+netdev once everybody gets happy with it.  Basically, we just do our NAPI
+scheduling on the "real" netdev structure instead of our polling netdev,
+in the case where we only have one RX queue.  Since this is the case for
+all our currently-shipping parts under Linux, netpoll works again across
+the board.  It's a short-term fix because we do want to support multiple
+queues going forward, but for now we need to get everybody working.
+
+One of our engineers (on the I/O AT team) has been tasked with modifying
+the Linux kernel to properly support multiple hardware queues (both TX and
+RX).  We'll make sure that he looks at the netpoll interface as part of
+that process.
+
+Stay tuned for our impending patch.
+-Mitch
+
