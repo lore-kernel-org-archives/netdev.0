@@ -1,253 +1,53 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: [PATCH 2/2] 8139cp: add ethtool eeprom support
-Date: Wed, 14 Jun 2006 16:43:08 +1000
-Message-ID: <448FAFFC.7070006@snapgear.com>
+From: Chase Venters <chase.venters@clientec.com>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Wed, 14 Jun 2006 02:58:08 -0500
+Message-ID: <200606140258.30302.chase.venters@clientec.com>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131953.42002.chase.venters@clientec.com> <20060614000710.C7232@openss7.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:42884 "EHLO
-	cyberguard.com.au") by vger.kernel.org with ESMTP id S964796AbWFNGnN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 02:43:13 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from relay03.pair.com ([209.68.5.17]:27406 "HELO relay03.pair.com")
+	by vger.kernel.org with SMTP id S1751181AbWFNH6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 03:58:32 -0400
+To: bidulock@openss7.org
+In-Reply-To: <20060614000710.C7232@openss7.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement the ethtool eeprom operations for the 8139cp driver.
-Tested on x86 and big-endian ARM.
+On Wednesday 14 June 2006 01:06, Brian F. G. Bidulock wrote:
+>
+> The interface currently under discussion is ultimately derived from the BSD
+> socket-protocol interface, and IMHO should be EXPORT_SYMBOL instead of
+> EXPORT_SYMBOL_GPL, if only because using _GPL serves no purpose here and
+> can be defeated with 3 or 4 obvious (and probably existing) lines of code. 
+> I wrote similar wrappers for STREAMS TPI to Linux NET4 interface instead of
+> using pointers directly quite a few years ago.  I doubt I was the first.
+> There is nothing really so novel here that it deserves _GPL.
 
-Signed-off-by: Philip Craig <philipc@snapgear.com>
+I mentioned that I don't have any particular opinion on the BSD socket API in 
+this discussion. All that I'm speaking of here is a property of licensing. 
 
-Index: linux-2.6.17-rc6/drivers/net/8139cp.c
-===================================================================
---- linux-2.6.17-rc6.orig/drivers/net/8139cp.c	2006-06-14 15:59:26.000000000 +1000
-+++ linux-2.6.17-rc6/drivers/net/8139cp.c	2006-06-14 15:59:53.000000000 +1000
-@@ -401,6 +401,11 @@ static void cp_clean_rings (struct cp_pr
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void cp_poll_controller(struct net_device *dev);
- #endif
-+static int cp_get_eeprom_len(struct net_device *dev);
-+static int cp_get_eeprom(struct net_device *dev,
-+			 struct ethtool_eeprom *eeprom, u8 *data);
-+static int cp_set_eeprom(struct net_device *dev,
-+			 struct ethtool_eeprom *eeprom, u8 *data);
+I've watched a lot of what has happened with binary drivers. You'll find in 
+the LKML archives plenty of lengthy discussions about whether or not binary 
+drivers are allowed under the GPL. If I were to guess, there is still 
+disagreement. Although some hardware support could improve, we thankfully 
+seem to have some kind of an equilibrium capable of supporting lots of users.
 
- static struct pci_device_id cp_pci_tbl[] = {
- 	{ PCI_VENDOR_ID_REALTEK, PCI_DEVICE_ID_REALTEK_8139,
-@@ -1577,6 +1582,9 @@ static struct ethtool_ops cp_ethtool_ops
- 	.get_strings		= cp_get_strings,
- 	.get_ethtool_stats	= cp_get_ethtool_stats,
- 	.get_perm_addr		= ethtool_op_get_perm_addr,
-+	.get_eeprom_len		= cp_get_eeprom_len,
-+	.get_eeprom		= cp_get_eeprom,
-+	.set_eeprom		= cp_set_eeprom,
- };
+One point I remember coming up in the discussion was that the 
+EXPORT_SYMBOL()/EXPORT_SYMBOL_GPL() split was a compromise of sorts. 
+Interfaces that were needed to support users would reasonably be placed under 
+EXPORT_SYMBOL(). By contrast, EXPORT_SYMBOL_GPL() would indicate 
+functionality that would only seem to be used by derived works. It implies 
+that any code using it should probably be GPL as well.
 
- static int cp_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
-@@ -1612,24 +1620,32 @@ static int cp_ioctl (struct net_device *
- #define eeprom_delay()	readl(ee_addr)
+I don't raise this in an attempt to belittle anything people are working on. 
+It's an observation about the ecosystem - Linux in the 2.6 series has seen a 
+great amount of corporate contribution in terms of enhancing what the kernel 
+is capable of doing. GPL, I believe, encourages this.
 
- /* The EEPROM commands include the alway-set leading bit. */
-+#define EE_EXTEND_CMD	(4)
- #define EE_WRITE_CMD	(5)
- #define EE_READ_CMD		(6)
- #define EE_ERASE_CMD	(7)
-
--static int read_eeprom (void __iomem *ioaddr, int location, int addr_len)
--{
--	int i;
--	unsigned retval = 0;
--	void __iomem *ee_addr = ioaddr + Cfg9346;
--	int read_cmd = location | (EE_READ_CMD << addr_len);
-+#define EE_EWDS_ADDR	(0)
-+#define EE_WRAL_ADDR	(1)
-+#define EE_ERAL_ADDR	(2)
-+#define EE_EWEN_ADDR	(3)
-+
-+#define CP_EEPROM_MAGIC PCI_DEVICE_ID_REALTEK_8139
-
-+static void eeprom_cmd_start(void __iomem *ee_addr)
-+{
- 	writeb (EE_ENB & ~EE_CS, ee_addr);
- 	writeb (EE_ENB, ee_addr);
- 	eeprom_delay ();
-+}
-+
-+static void eeprom_cmd(void __iomem *ee_addr, int cmd, int cmd_len)
-+{
-+	int i;
-
--	/* Shift the read command bits out. */
--	for (i = 3 + addr_len - 1; i >= 0; i--) {
--		int dataval = (read_cmd & (1 << i)) ? EE_DATA_WRITE : 0;
-+	/* Shift the command bits out. */
-+	for (i = cmd_len - 1; i >= 0; i--) {
-+		int dataval = (cmd & (1 << i)) ? EE_DATA_WRITE : 0;
- 		writeb (EE_ENB | dataval, ee_addr);
- 		eeprom_delay ();
- 		writeb (EE_ENB | dataval | EE_SHIFT_CLK, ee_addr);
-@@ -1637,6 +1653,33 @@ static int read_eeprom (void __iomem *io
- 	}
- 	writeb (EE_ENB, ee_addr);
- 	eeprom_delay ();
-+}
-+
-+static void eeprom_cmd_end(void __iomem *ee_addr)
-+{
-+	writeb (~EE_CS, ee_addr);
-+	eeprom_delay ();
-+}
-+
-+static void eeprom_extend_cmd(void __iomem *ee_addr, int extend_cmd,
-+			      int addr_len)
-+{
-+	int cmd = (EE_EXTEND_CMD << addr_len) | (extend_cmd << (addr_len - 2));
-+
-+	eeprom_cmd_start(ee_addr);
-+	eeprom_cmd(ee_addr, cmd, 3 + addr_len);
-+	eeprom_cmd_end(ee_addr);
-+}
-+
-+static u16 read_eeprom (void __iomem *ioaddr, int location, int addr_len)
-+{
-+	int i;
-+	u16 retval = 0;
-+	void __iomem *ee_addr = ioaddr + Cfg9346;
-+	int read_cmd = location | (EE_READ_CMD << addr_len);
-+
-+	eeprom_cmd_start(ee_addr);
-+	eeprom_cmd(ee_addr, read_cmd, 3 + addr_len);
-
- 	for (i = 16; i > 0; i--) {
- 		writeb (EE_ENB | EE_SHIFT_CLK, ee_addr);
-@@ -1648,13 +1691,125 @@ static int read_eeprom (void __iomem *io
- 		eeprom_delay ();
- 	}
-
--	/* Terminate the EEPROM access. */
--	writeb (~EE_CS, ee_addr);
--	eeprom_delay ();
-+	eeprom_cmd_end(ee_addr);
-
- 	return retval;
- }
-
-+static void write_eeprom(void __iomem *ioaddr, int location, u16 val,
-+			 int addr_len)
-+{
-+	int i;
-+	void __iomem *ee_addr = ioaddr + Cfg9346;
-+	int write_cmd = location | (EE_WRITE_CMD << addr_len);
-+
-+	eeprom_extend_cmd(ee_addr, EE_EWEN_ADDR, addr_len);
-+
-+	eeprom_cmd_start(ee_addr);
-+	eeprom_cmd(ee_addr, write_cmd, 3 + addr_len);
-+	eeprom_cmd(ee_addr, val, 16);
-+	eeprom_cmd_end(ee_addr);
-+
-+	eeprom_cmd_start(ee_addr);
-+	for (i = 0; i < 20000; i++)
-+		if (readb(ee_addr) & EE_DATA_READ)
-+			break;
-+	eeprom_cmd_end(ee_addr);
-+
-+	eeprom_extend_cmd(ee_addr, EE_EWDS_ADDR, addr_len);
-+}
-+
-+static int cp_get_eeprom_len(struct net_device *dev)
-+{
-+	struct cp_private *cp = netdev_priv(dev);
-+	int size;
-+
-+	spin_lock_irq(&cp->lock);
-+	size = read_eeprom(cp->regs, 0, 8) == 0x8129 ? 256 : 128;
-+	spin_unlock_irq(&cp->lock);
-+
-+	return size;
-+}
-+
-+static int cp_get_eeprom(struct net_device *dev,
-+			 struct ethtool_eeprom *eeprom, u8 *data)
-+{
-+	struct cp_private *cp = netdev_priv(dev);
-+	unsigned int addr_len;
-+	u16 val;
-+	u32 offset = eeprom->offset >> 1;
-+	u32 len = eeprom->len;
-+	u32 i = 0;
-+
-+	eeprom->magic = CP_EEPROM_MAGIC;
-+
-+	spin_lock_irq(&cp->lock);
-+
-+	addr_len = read_eeprom(cp->regs, 0, 8) == 0x8129 ? 8 : 6;
-+
-+	if (eeprom->offset & 1) {
-+		val = read_eeprom(cp->regs, offset, addr_len);
-+		data[i++] = (u8)(val >> 8);
-+		offset++;
-+	}
-+
-+	while (i < len - 1) {
-+		val = read_eeprom(cp->regs, offset, addr_len);
-+		data[i++] = (u8)val;
-+		data[i++] = (u8)(val >> 8);
-+		offset++;
-+	}
-+
-+	if (i < len) {
-+		val = read_eeprom(cp->regs, offset, addr_len);
-+		data[i] = (u8)val;
-+	}
-+
-+	spin_unlock_irq(&cp->lock);
-+	return 0;
-+}
-+
-+static int cp_set_eeprom(struct net_device *dev,
-+			 struct ethtool_eeprom *eeprom, u8 *data)
-+{
-+	struct cp_private *cp = netdev_priv(dev);
-+	unsigned int addr_len;
-+	u16 val;
-+	u32 offset = eeprom->offset >> 1;
-+	u32 len = eeprom->len;
-+	u32 i = 0;
-+
-+	if (eeprom->magic != CP_EEPROM_MAGIC)
-+		return -EINVAL;
-+
-+	spin_lock_irq(&cp->lock);
-+
-+	addr_len = read_eeprom(cp->regs, 0, 8) == 0x8129 ? 8 : 6;
-+
-+	if (eeprom->offset & 1) {
-+		val = read_eeprom(cp->regs, offset, addr_len) & 0xff;
-+		val |= (u16)data[i++] << 8;
-+		write_eeprom(cp->regs, offset, val, addr_len);
-+		offset++;
-+	}
-+
-+	while (i < len - 1) {
-+		val = (u16)data[i++];
-+		val |= (u16)data[i++] << 8;
-+		write_eeprom(cp->regs, offset, val, addr_len);
-+		offset++;
-+	}
-+
-+	if (i < len) {
-+		val = read_eeprom(cp->regs, offset, addr_len) & 0xff00;
-+		val |= (u16)data[i];
-+		write_eeprom(cp->regs, offset, val, addr_len);
-+	}
-+
-+	spin_unlock_irq(&cp->lock);
-+	return 0;
-+}
-+
- /* Put the board into D3cold state and wait for WakeUp signal */
- static void cp_set_d3_state (struct cp_private *cp)
- {
+Thanks,
+Chase
