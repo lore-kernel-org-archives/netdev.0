@@ -1,80 +1,48 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 17:26:06 +0200
-Message-ID: <20060614152606.GB29312@sunbeam.de.gnumonks.org>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com> <20060614133022.GU11863@sunbeam.de.gnumonks.org> <20060614142903.GI11542@harddisk-recovery.com>
+From: Andy Furniss <lists@andyfurniss.entadsl.com>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Wed, 14 Jun 2006 16:32:29 +0100
+Message-ID: <44902C0D.1010709@andyfurniss.entadsl.com>
+References: <1150278004.26181.35.camel@localhost.localdomain> <1150286766.5233.15.camel@jzny2>
+Reply-To: lists@andyfurniss.entadsl.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xXmbgvnjoT4axfJE"
-Cc: Daniel Phillips <phillips@google.com>, bidulock@openss7.org,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>, hawk@diku.dk,
+	russell-tcatm@stuart.id.au, lartc@mailman.ds9a.nl,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:20692 "EHLO
-	ganesha.gnumonks.org") by vger.kernel.org with ESMTP
-	id S965010AbWFNP0T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 11:26:19 -0400
-To: Erik Mouw <erik@harddisk-recovery.com>
-Content-Disposition: inline
-In-Reply-To: <20060614142903.GI11542@harddisk-recovery.com>
+Received: from s2.ukfsn.org ([217.158.120.143]:10376 "EHLO mail.ukfsn.org")
+	by vger.kernel.org with ESMTP id S964916AbWFNPby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 11:31:54 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1150286766.5233.15.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> I have taken linux-kernel off the list.
+> 
+> Russell's site is inaccessible to me (I actually think this is related
+> to some DNS issues i may be having) and your masters is too long to
+> spend 2 minutes and glean it; so heres a question or two for you:
+> 
+> - Have you tried to do a long-lived session such as a large FTP and 
+> seen how far off the deviation was? That would provide some interesting
+> data point.
+> - To be a devil's advocate (and not claim there is no issue), where do
+> you draw the line with "overhead"? 
 
---xXmbgvnjoT4axfJE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Me and many others have run a smilar hack for years, there is also a 
+userspace project still alive which does the same.
 
-On Wed, Jun 14, 2006 at 04:29:04PM +0200, Erik Mouw wrote:
-> On Wed, Jun 14, 2006 at 03:30:22PM +0200, Harald Welte wrote:
-> > On Tue, Jun 13, 2006 at 02:12:41PM -0700, Daniel Phillips wrote:
-> > =20
-> > > This has the makings of a nice stable internal kernel api.  Why do we=
- want
-> > > to provide this nice stable internal api to proprietary modules?
-> >=20
-> > because there is IMHO legally nothing we can do about it anyway.  Use of
-> > an industry-standard API that is provided in multiple operating system
-> > is one of the clearest idnication of some program _not_ being a
-> > derivative work.
->=20
-> IMHO there is no industry-standard API for in-kernel use of sockets.
-> There is however one for user space.
+The difference is that without it I would need to sacrifice almost half 
+my 288kbit atm/dsl showtime bandwidth to be sure of control.
 
-it doesn't matter in what space you are.  If the API really is similar
-enough, then any piece of code (no matter where it was originally
-intended to run) will be able to work with any such socket API.
+With the modification I can run at 286kbit / 288 and know I will never 
+have jitter worse than the bitrate latency of a mtu packet. The 286 
+figure was choses to allow a full buffer to drain/ allow for timer 
+innaccuracy etc. On a p200 with tsc, 2.6.12 it's never gone over for me 
+- though talking of timers I notice on my desktop 2.6.16 I gain 2 
+minutes a day now.
 
-The whole point of this is: Where is the derivation of an existing work?
-I can write a program against some BSD socket api somewhere, and I can
-easily make it use the proposed in-kernel sockets API.  No derivation of
-anything that is inside the kernel and GPL licensed.
-
-> (IANAL, etc)
-
-Neither am I, but I'm constantly dealing with legal questions related to
-the GPL while running gpl-violations.org.
-
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-We all know Linux is great...it does infinite loops in 5 seconds. -- Linus
-
---xXmbgvnjoT4axfJE
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQFEkCqOXaXGVTD0i/8RAhMhAJ41CdPR23ZpDwcXE9rfawmgR7gmXwCfdNGa
-WyULyg2u040CL7LKxQLkMBI=
-=pDwl
------END PGP SIGNATURE-----
-
---xXmbgvnjoT4axfJE--
+Andy.
