@@ -1,48 +1,39 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 04:54:23 -0600
-Message-ID: <20060614045423.A18812@openss7.org>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131859.43695.chase.venters@clientec.com> <20060613183112.B8460@openss7.org> <200606131953.42002.chase.venters@clientec.com> <20060614000710.C7232@openss7.org> <1150281823.3490.14.camel@localhost.localdomain>
-Reply-To: bidulock@openss7.org
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: Remove Prism II support from Orinoco
+Date: Wed, 14 Jun 2006 13:53:22 +0200
+Message-ID: <20060614135322.4bbb8d1b@griffin.suse.cz>
+References: <20060610175010.GA4617@divinity>
+	<20060610180850.GP7420@redhat.com>
+	<20060611222719.GA13139@redhat.com>
+	<20060611224054.GB13139@redhat.com>
+	<20060611224954.GA2880@divinity>
+	<20060612152434.GA14851@tuxdriver.com>
+	<4807377b0606121710j5be6ce0fhac71b69bf4dce2c2@mail.gmail.com>
+	<20060613042048.GA14824@shell0.pdx.osdl.net>
+	<448E3F80.5050103@cube.gr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:26041 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S932329AbWFNKyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 06:54:35 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1150281823.3490.14.camel@localhost.localdomain>; from alan@lxorguk.ukuu.org.uk on Wed, Jun 14, 2006 at 11:43:43AM +0100
+Received: from styx.suse.cz ([82.119.242.94]:46761 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751253AbWFNLxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 07:53:24 -0400
+To: Faidon Liambotis <faidon@cube.gr>
+In-Reply-To: <448E3F80.5050103@cube.gr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan,
+On Tue, 13 Jun 2006 07:30:56 +0300, Faidon Liambotis wrote:
+> Unfortunately, that workaround doesn't work so well when you want to
+> have the ability to plug real orinoco (hermes) cards to your computer...
+> In other words and unless I'm missing something, there isn't currently a
+> way to have a Hermes card and a Prism II card both plugged in and working.
 
-On Wed, 14 Jun 2006, Alan Cox wrote:
+Do you know about /sys/bus/pci/drivers/*/bind and unbind?
 
-> It isn't "policy" its called copyright law.
+http://lwn.net/Articles/143397/
 
-I know that I said I'd shut up, but I missed in TRIPS where it said
-that symbols must be EXPORT_SYMBOL_GPL...  Could you point that out?
-(Just kidding.)
-
-> You don't seem to understand copyright law either. The GPL like all
-> copyright licenses deals with the right to make copies and to create and
-> control derivative works. It's not "defeated" by four lines of code.
-
-The 3 or 4 lines of code that I wrote as an original expression before
-the patch was submitted.
-
-> Is that a confession ;)
-
-No, just a declaration: the code in question was released under GPL
-Version 2.
-
-> Copyright is not about novelty, you have it confused with the
-> theoretical (not actual) role of patents. Wrong kind of intellectual
-> monopoly right.
-
-Yes, perhaps I should have said "original" instead of "novel".  The patch
-is not "original" as it was predated by equivalent (machine translatable)
-original expressions.
+-- 
+Jiri Benc
+SUSE Labs
