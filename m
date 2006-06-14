@@ -1,31 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Tue, 13 Jun 2006 20:33:22 -0400
-Message-ID: <448F5952.1060201@pobox.com>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 18:36:14 -0600
+Message-ID: <20060613183614.C8460@openss7.org>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131906.16683.chase.venters@clientec.com> <20060613181801.A8460@openss7.org> <200606131929.41985.chase.venters@clientec.com>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Valerie Henson <val_henson@linux.intel.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:63911 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932375AbWFNAda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 20:33:30 -0400
-To: Grant Grundler <grundler@parisc-linux.org>
-In-Reply-To: <20060613235531.GA4191@colo.lackof.org>
+Received: from gw.openss7.com ([142.179.199.224]:64946 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S932377AbWFNAgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 20:36:18 -0400
+To: Chase Venters <chase.venters@clientec.com>
+Content-Disposition: inline
+In-Reply-To: <200606131929.41985.chase.venters@clientec.com>; from chase.venters@clientec.com on Tue, Jun 13, 2006 at 07:29:19PM -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Grant Grundler wrote:
-> o tulip_stop_rxtx() has to be called _after_ free_irq().
->   ie. v2 patch didn't fix the original race condition
->   and when under test, dies about as fast as the original code.
+Chase,
 
-You made the race window smaller, but it's still there.  The chip's DMA 
-engines should be stopped before you unregister the interrupt handler.
+On Tue, 13 Jun 2006, Chase Venters wrote:
+> 
+> But I did ask for examples...
 
-	Jeff
-
-
-
+Perhaps the license isn't a good example, but there are other RTP
+stacks that are non-GPL compatible.  Also, if it includes SSL code
+for SRTP, SSL license happens to be non-GPL compatible.
