@@ -1,61 +1,54 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 15:30:22 +0200
-Message-ID: <20060614133022.GU11863@sunbeam.de.gnumonks.org>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <20060613140716.6af45bec@localhost.localdomain> <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Offering presents for more routing tables!
+Date: Wed, 14 Jun 2006 06:45:51 -0700
+Message-ID: <4490130F.3030005@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="L+CNnuwY89phXYPb"
-Cc: bidulock@openss7.org, Stephen Hemminger <shemminger@osdl.org>,
-	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964918AbWFNNaf@vger.kernel.org>
-To: Daniel Phillips <phillips@google.com>
-Content-Disposition: inline
-In-Reply-To: <448F2A49.5020809@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:5012 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S964926AbWFNNpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 09:45:52 -0400
+Received: from [71.112.216.116] (pool-71-112-216-116.sttlwa.dsl-w.verizon.net [71.112.216.116])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id k5EDjpmP002348
+	for <netdev@vger.kernel.org>; Wed, 14 Jun 2006 06:45:52 -0700
+To: NetDev <netdev@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I've asked for this feature several years ago and evidently
+it is not trivial to increase the number of routing tables.
 
---L+CNnuwY89phXYPb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+But, perhaps someone now has time & inclination?
 
-On Tue, Jun 13, 2006 at 02:12:41PM -0700, Daniel Phillips wrote:
-=20
-> This has the makings of a nice stable internal kernel api.  Why do we want
-> to provide this nice stable internal api to proprietary modules?
+I would like to have more (a few thousand) routing tables
+available in the kernel so that I can use a routing table for
+each of my many VLANs.  Currently, the netlink protocol only
+specifies an 8-bit id for the routing table:
+http://www.faqs.org/rfcs/rfc3549.html  Section 3.1.1
+so a new netlink message would need to be created and the 'ip' tool
+updated.  I think at least a 16-bit identifier should be used,
+possibly a full 32 bits so we don't have to revisit this again for
+a while!
 
-because there is IMHO legally nothing we can do about it anyway.  Use of
-an industry-standard API that is provided in multiple operating system
-is one of the clearest idnication of some program _not_ being a
-derivative work.
+The kernel itself would also need to be modified so that it can
+have more routing tables.  I realize most people don't need a
+large number of tables, so the maximum number should be configured
+at either compile time or run time.
 
-Whether we like it or not, it doesn't really matter if we export them
-GPL-only or not.  Anybody using those scoket API calls will be having an
-easy time arguing in favor of non-derivative work.
+If I remember right, there are certain tables (253 - 255) that
+are currently special in the kernel.  For complete backwards compatibility,
+this hole would probably have to remain as it is, with the new
+tables starting at 256.
 
-The GPL doesn't extend beyon what copyright law allows you to do...
+I would be willing to help test any resulting patches, and can
+also offer bribes of money, hardware, beer, etc.
 
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-We all know Linux is great...it does infinite loops in 5 seconds. -- Linus
+Thanks,
+Ben
 
---L+CNnuwY89phXYPb
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQFEkA9uXaXGVTD0i/8RAgOCAKCCN5BPOQTrlPCqq0UMMUzqvk9UVgCfW9TA
-f0mNqxFHpN9uwv5oUABcp+U=
-=iHqi
------END PGP SIGNATURE-----
-
---L+CNnuwY89phXYPb--
