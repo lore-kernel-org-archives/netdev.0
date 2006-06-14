@@ -1,54 +1,72 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: 2.6.17: networking bug??
-Date: Wed, 14 Jun 2006 09:09:13 +0100
-Message-ID: <448FC429.4060004@gentoo.org>
-References: <448EC6F3.3060002@rtr.ca> <448ECB09.3010308@rtr.ca> <448ED2FC.2040704@rtr.ca> <448ED9B3.8050506@rtr.ca> <448EEE9D.10105@rtr.ca> <448EF45B.2080601@rtr.ca> <448EF85E.50405@psc.edu> <Pine.LNX.4.64.0606131048550.5498@g5.osdl.org> <448F0344.9000008@rtr.ca> <448F0D4B.30201@rtr.ca>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Wed, 14 Jun 2006 03:28:50 -0600
+Message-ID: <20060614032850.C14829@openss7.org>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131953.42002.chase.venters@clientec.com> <20060614000710.C7232@openss7.org> <200606140258.30302.chase.venters@clientec.com>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Heffner <jheffner@psc.edu>,
-	Linus Torvalds <torvalds@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta09-winn.ispmail.ntl.com ([81.103.221.49]:17763 "EHLO
-	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1751091AbWFNIHX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 04:07:23 -0400
-To: Mark Lord <lkml@rtr.ca>
-In-Reply-To: <448F0D4B.30201@rtr.ca>
+Received: from gw.openss7.com ([142.179.199.224]:60855 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S932210AbWFNJ2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 05:28:51 -0400
+To: Chase Venters <chase.venters@clientec.com>
+Content-Disposition: inline
+In-Reply-To: <200606140258.30302.chase.venters@clientec.com>; from chase.venters@clientec.com on Wed, Jun 14, 2006 at 02:58:08AM -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Lord wrote:
-> Further to this, the current behaviour is badly unpredictable.
+Chase,
+
+On Wed, 14 Jun 2006, Chase Venters wrote:
 > 
-> A machine could be working perfectly, not (noticeably) affected
-> by this bug.  And then the user adds another stick of RAM to it.
+> One point I remember coming up in the discussion was that the 
+> EXPORT_SYMBOL()/EXPORT_SYMBOL_GPL() split was a compromise of sorts. 
+> Interfaces that were needed to support users would reasonably be placed under 
+> EXPORT_SYMBOL(). By contrast, EXPORT_SYMBOL_GPL() would indicate 
+> functionality that would only seem to be used by derived works. It implies 
+> that any code using it should probably be GPL as well.
 
-This "bug" already existed in 2.6.16 to a certain extent: you were 
-losing out on a lot of TCP performance. Go back to 2.6.7, measure TCP 
-performance, and you'll probably find it was significantly better.
+The difficulty with EXPORT_SYMBOL_GPL() as I see it that it reached farther
+than the GPL.  GPL does not impact non-derived works, which can be licensed
+under any terms their authors see fit.  Whereas, EXPORT_SYMBOL_GPL() requires
+a non-derived work to declare a GPL license to even use it.  If you subscribe
+to the FSF view of derived work (just linking is a derivation) then I suppose
+you would support the EXPORT_SYMBOL_GPL().  IANAL, but I don't believe that
+TRIPS nor Berne Convention case law supports the FSF view.  Linus' statements
+in the COPYING file take a different view: that simple use of a technical
+interface is not necessarily (in itself) derivation.
 
-Also, there aren't that many broken end-points out there. 
-www.everymac.com loads fine for me and does not ignore the window scale 
-factor.
+Now, I understand the use of EXPORT_SYMBOL() vs. EXPORT_SYMBOL_GPL() to allow
+authors to differ on this idea.  But, in the case in point, the function
+pointers can be accessed by merely including the appropriate header files.
+Changing a the wrapper access to them to EXPORT_SYMBOL_GPL() strikes me as
+similar to changing kmalloc() from EXPORT_SYMBOL() to EXPORT_SYMBOL_GPL().
 
-The problem in your case is a broken router in the middle. I had the 
-same problem: certain sites would not load, but there is absolutely 
-nothing wrong with the servers that run these sites:
+Understand that all exported symbols, regardless of licensing or modversions
+or whatever, are available in the kernel boot image and can be linked to by
+any module at any time.  That is, those that would abuse the concept of
+derivation will not be impeded by EXPORT_SYMBOL_GPL().  (Rip the symbol from
+the kernel image, write a thin GPL'ed module that aliases the symbol and the
+exports it again as EXPORT_SYMBOL() without module versioning, copy the lines
+of code into the proprietary module, reversing the order of arbitrary lines,
+etc.)
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=114478312100641&w=2
+In any case, all it serves to do is to punish honest non-derivative works not
+published compatible with the GPL.
 
-I contacted my ISP and informed them of the issue. They fixed it 
-nationwide within a few weeks. You might try confirming that your 
-problem only applies to HTTP like mine did (ISP runs some lame 
-transparent webcaches), and it was a bug in the software there (NetApp).
+What I resist is the apparent attempt to change these symbols to _GPL as some
+matter of general policy in this case contrary to the author's original
+intentions as expressed in the original patch submission, and without the
+author of the interface being wrappered jumping up an screaming that his code
+was under strict FSF linking-is-derivation GPL (in which case we could have
+had a good discussion on whether Linux NET4 is actually a derivative work of
+BSD 4.4 Lite which was licensed under the "old" BSD license, incompatible with
+the GPL ;)
 
-We already had the "some routers are broken, should we do anything" 
-discussion back at the time of 2.6.8:
+As a general policy I would say make it EXPORT_SYMBOL() unless the author of
+the patch (derivation) or author of the original (derived) code dictates that
+it be EXPORT_SYMBOL_GPL().
 
-http://lwn.net/Articles/92727/
-
-Daniel
-
+Ok, I'll shut up now... ...really.
