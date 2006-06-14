@@ -1,54 +1,44 @@
 From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [Ubuntu PATCH] forcedeth: Let the driver work when no PHY is found
-Date: Wed, 14 Jun 2006 16:23:05 -0700
-Message-ID: <44909A59.7020801@oracle.com>
+Subject: [Ubuntu PATCH] IRDA: Add some IBM think pads
+Date: Wed, 14 Jun 2006 16:23:28 -0700
+Message-ID: <44909A70.7070104@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm <akpm@osdl.org>, manfred@colorfullife.com,
-	jgarzik <jgarzik@pobox.com>
+Cc: akpm <akpm@osdl.org>, samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:15935 "EHLO
+Received: from agminet01.oracle.com ([141.146.126.228]:49214 "EHLO
 	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S964843AbWFNWXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 18:23:23 -0400
+	id S964772AbWFNWXA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 18:23:00 -0400
 To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Ben Collins <bcollins@ubuntu.com>
 
-[UBUNTU:forcedeth] Let the driver work when no PHY is found
+[UBUNTU:nsc-ircc] Add some IBM think pads
+Add Thinkpad T60/X60/Z60/T43/R52 Infrared driver support.
 
-This matches breezy behavior.
-
-Reference: https://launchpad.net/products/launchpad/+bug/45257
-http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=38c1aaedc1f907e138698e54ceadeb9ae560b0d7
+http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=7b8d2713435a9fb69719a282ba75e117f3f76a5b
 
 Signed-off-by: Ben Collins <bcollins@ubuntu.com>
 ---
 
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -2582,14 +2582,13 @@ static int __devinit nv_probe(struct pci
- 		np->phy_oui = id1 | id2;
- 		break;
- 	}
--	if (i == 33) {
-+
-+	/* Let the damn card work if it can */
-+	if (i == 33)
- 		printk(KERN_INFO "%s: open: Could not find a valid PHY.\n",
- 		       pci_name(pci_dev));
--		goto out_freering;
--	}
--	
--	/* reset it */
--	phy_init(dev);
-+	else
-+		phy_init(dev);
- 
- 	/* set default link speed settings */
- 	np->linkspeed = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
-
+--- a/drivers/net/irda/nsc-ircc.c
++++ b/drivers/net/irda/nsc-ircc.c
+@@ -115,8 +115,12 @@ static nsc_chip_t chips[] = {
+ 	/* Contributed by Jan Frey - IBM A30/A31 */
+ 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff, 
+ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+-	{ "IBM", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
+- 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
++	/* IBM ThinkPads using PC8738x (T60/X60/Z60) */
++	{ "IBM-PC8738x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
++	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
++	/* IBM ThinkPads using PC8394T (T43/R52/?) */
++	{ "IBM-PC8394T", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf9, 0xff,
++	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+ 	{ NULL }
+ };
 
