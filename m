@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: tcp_slow_start_after_idle
-Date: Wed, 14 Jun 2006 15:30:59 -0700 (PDT)
-Message-ID: <20060614.153059.10907949.davem@davemloft.net>
+Date: Wed, 14 Jun 2006 16:06:43 -0700 (PDT)
+Message-ID: <20060614.160643.93473808.davem@davemloft.net>
 References: <20060613.223538.24611602.davem@davemloft.net>
-	<449042E0.4020409@oracle.com>
+	<44903D82.40007@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jheffner@psc.edu
+Cc: netdev@vger.kernel.org, zach.brown@oracle.com, jheffner@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21471
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63414
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964883AbWFNWal (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 18:30:41 -0400
-To: zach.brown@oracle.com
-In-Reply-To: <449042E0.4020409@oracle.com>
+	id S964999AbWFNXGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 19:06:24 -0400
+To: rick.jones2@hp.com
+In-Reply-To: <44903D82.40007@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Zach Brown <zach.brown@oracle.com>
-Date: Wed, 14 Jun 2006 10:09:52 -0700
+From: Rick Jones <rick.jones2@hp.com>
+Date: Wed, 14 Jun 2006 09:46:58 -0700
 
-> Nice, thanks for the heads-up.  I'll pass the notice on to the guys who
-> were asking about this in that thread.
+> Also, does the congestion window "time out" or does it decay?
 
-Which Wall Street brokerage firm was it? :-)
+The modification made to the cwnd is indeed a decay function,
+but the event is a time out, and it is also termed a restart
+in other writings and contexts.
 
-That's basically who wants this stuff, people doing financial
-transactions.  They seem to open up a connection, and just blast out
-data periodically (with frequency > RTO, which is the whole problem)
-and they want good latency results from that.
+I think it's all the same. :)
+
+> > +/* By default, RFC2861 behavior.  */
+> > +int sysctl_tcp_slow_start_after_idle = 1;
+> > +
+> 
+> Is this a candidate for "readmostly?"
+
+All the networking sysctls are, we should do a sweep over them at some
+point.
+
+Thanks for reminding me.
