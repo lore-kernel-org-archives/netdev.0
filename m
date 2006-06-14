@@ -1,80 +1,60 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [openib-general] [PATCH v2 1/2] iWARP Connection Manager.
-Date: Wed, 14 Jun 2006 11:06:44 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F1576635@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
+Date: Wed, 14 Jun 2006 12:14:19 -0600
+Message-ID: <20060614181419.GA10365@colo.lackof.org>
+References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org> <448F5952.1060201@pobox.com> <20060614044412.GA30552@colo.lackof.org> <44902554.7010703@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Andrew Morton" <akpm@osdl.org>, netdev@vger.kernel.org,
-	rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Valerie Henson <val_henson@linux.intel.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:50954 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932175AbWFNSIG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 14:08:06 -0400
-Content-class: urn:content-classes:message
-To: "Steve Wise" <swise@opengridcomputing.com>,
-	"Sean Hefty" <sean.hefty@intel.com>
+Received: from colo.lackof.org ([198.49.126.79]:3469 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S932103AbWFNSOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 14:14:22 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <44902554.7010703@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
-> On Tue, 2006-06-13 at 16:46 -0500, Steve Wise wrote:
->> On Tue, 2006-06-13 at 14:36 -0700, Sean Hefty wrote:
->>>>> Er...no. It will lose this event. Depending on the event...the
->>>>> carnage varies. We'll take a look at this.
->>>>> 
->>>> 
->>>> This behavior is consistent with the Infiniband CM (see
->>>> drivers/infiniband/core/cm.c function cm_recv_handler()).  But I
->>>> think we should at least log an error because a lost event will
->>>> usually stall the rdma connection.
->>> 
->>> I believe that there's a difference here.  For the Infiniband CM, an
->>> allocation error behaves the same as if the received MAD were lost
->>> or dropped.  Since MADs are unreliable anyway, it's not so much that
->>> an IB CM event gets lost, as it doesn't ever occur.  A remote CM
->>> should retry the send, which hopefully allows the
-> connection to make forward progress.
->>> 
->> 
->> hmm.  Ok.  I see.  I misunderstood the code in cm_recv_handler().
->> 
->> Tom and I have been talking about what we can do to not drop the
->> event. Stay tuned.
+On Wed, Jun 14, 2006 at 11:03:48AM -0400, Jeff Garzik wrote:
+> Grant Grundler wrote:
+> >Switching the order to be:
+> >        tulip_stop_rxtx(tp);            /* Stop DMA */
+> >        free_irq (dev->irq, dev);       /* no more races after this */
+> >
+> >still leaves us open to IRQs being delivered _after_ we've stopped DMA.
 > 
-> Here's a simple solution that solves the problem:
+> Correct.  And that is the preferred, natural, logical, obvious order:
 > 
-> For any given cm_id, there are a finite (and small) number of
-> outstanding CM events that can be posted.  So we just
-> pre-allocate them when the cm_id is created and keep them on
-> a free list hanging off of the cm_id struct.  Then the event
-> handler function will pull from this free list.
-> 
-> The only case where there is any non-finite issue is on the
-> passive listening cm_id.  Each incoming connection request
-> will consume a work struct.  So based on client connects, we
-> could run out of work structs.
-> However, the CMA has the concept of a backlog, which is
-> defined as the max number of pending unaccepted connection
-> requests.  So we allocate these work structs based on that
-> number (or a computation based on that number), and if we run
-> out, we simply drop the incoming connection request due to
-> backlog overflow (I suggest we log the drop event too).
-> When a MPA connection request is dropped, the (IETF
-> conforming) MPA client will eventually time out the
-> connection and the consumer can retry.
-> 
-> Comments?
-> 
+> 1) Turn things off.
+> 2) Wait for activity to cease.
 
-If the IWCM cannot accept a Connection Request event from
-the driver then *someone* should generate a non-peer reject
-MPA Response frame. Since the IWCM does not have the resources
-to relay the event, it probably does not have the resources
-to generate the MPA Response frame either. So simply returning
-an "I'm Busy" error and expecting the driver to handle it
-makes sense to me.
+Patch v3 does this in two stages:
+1) turn off tulip interrupts
+2) free_irq() calls syncronize_irq() to handle pending IRQs
 
+then calls tulip_stop_rxtx() which:
+1) tells tulip to stop DMA
+2) poll until DMA completes
+
+After this we can free remaining resources.
+
+> >That in turn allows the interrupt handler to re-enable DMA again.
+> 
+> Then that would be a problem to solve...  Some interrupt handlers will 
+> test netif_running() or a driver-specific shutting-down flag, 
+> specifically to avoid such behaviors.
+
+I'm not keen on adding more code to tulip_interrupt() routine
+for something that rarely happens (compared to IRQs) and is handled
+outside the interrupt routine.  I'm pretty sure stopping interrupts
+before stopping DMA is sufficient.
+Can you show an example where it doesn't work?
+
+This is important since I'm going to propose a new Documentation/pci.txt
+based on this experience.
+
+thanks,
+grant
