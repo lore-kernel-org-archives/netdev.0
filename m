@@ -1,72 +1,77 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 03:28:50 -0600
-Message-ID: <20060614032850.C14829@openss7.org>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131953.42002.chase.venters@clientec.com> <20060614000710.C7232@openss7.org> <200606140258.30302.chase.venters@clientec.com>
-Reply-To: bidulock@openss7.org
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Wed, 14 Jun 2006 11:40:04 +0200
+Message-ID: <1150278004.26181.35.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ceiKuguFA1mulwiJNlSr"
+Cc: russell-tcatm@stuart.id.au, hawk@comx.dk, hawk@diku.dk,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:60855 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S932210AbWFNJ2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 05:28:51 -0400
-To: Chase Venters <chase.venters@clientec.com>
-Content-Disposition: inline
-In-Reply-To: <200606140258.30302.chase.venters@clientec.com>; from chase.venters@clientec.com on Wed, Jun 14, 2006 at 02:58:08AM -0500
+Received: from ex001a.cxnet.dk ([195.135.216.13]:51107 "EHLO
+	comxexch01.comx.local") by vger.kernel.org with ESMTP
+	id S932236AbWFNJkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 05:40:05 -0400
+To: Stephen Hemminger <shemminger@osdl.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org,
+	lartc@mailman.ds9a.nl
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chase,
 
-On Wed, 14 Jun 2006, Chase Venters wrote:
-> 
-> One point I remember coming up in the discussion was that the 
-> EXPORT_SYMBOL()/EXPORT_SYMBOL_GPL() split was a compromise of sorts. 
-> Interfaces that were needed to support users would reasonably be placed under 
-> EXPORT_SYMBOL(). By contrast, EXPORT_SYMBOL_GPL() would indicate 
-> functionality that would only seem to be used by derived works. It implies 
-> that any code using it should probably be GPL as well.
+--=-ceiKuguFA1mulwiJNlSr
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-The difficulty with EXPORT_SYMBOL_GPL() as I see it that it reached farther
-than the GPL.  GPL does not impact non-derived works, which can be licensed
-under any terms their authors see fit.  Whereas, EXPORT_SYMBOL_GPL() requires
-a non-derived work to declare a GPL license to even use it.  If you subscribe
-to the FSF view of derived work (just linking is a derivation) then I suppose
-you would support the EXPORT_SYMBOL_GPL().  IANAL, but I don't believe that
-TRIPS nor Berne Convention case law supports the FSF view.  Linus' statements
-in the COPYING file take a different view: that simple use of a technical
-interface is not necessarily (in itself) derivation.
 
-Now, I understand the use of EXPORT_SYMBOL() vs. EXPORT_SYMBOL_GPL() to allow
-authors to differ on this idea.  But, in the case in point, the function
-pointers can be accessed by merely including the appropriate header files.
-Changing a the wrapper access to them to EXPORT_SYMBOL_GPL() strikes me as
-similar to changing kmalloc() from EXPORT_SYMBOL() to EXPORT_SYMBOL_GPL().
+The Linux traffic's control engine inaccurately calculates
+transmission times for packets sent over ADSL links.  For
+some packet sizes the error rises to over 50%.  This occurs
+because ADSL uses ATM as its link layer transport, and ATM
+transmits packets in fixed sized 53 byte cells.
 
-Understand that all exported symbols, regardless of licensing or modversions
-or whatever, are available in the kernel boot image and can be linked to by
-any module at any time.  That is, those that would abuse the concept of
-derivation will not be impeded by EXPORT_SYMBOL_GPL().  (Rip the symbol from
-the kernel image, write a thin GPL'ed module that aliases the symbol and the
-exports it again as EXPORT_SYMBOL() without module versioning, copy the lines
-of code into the proprietary module, reversing the order of arbitrary lines,
-etc.)
+The following patches to iproute2 and the kernel add an
+option to calculate traffic transmission times over all
+ATM links, including ADSL, with perfect accuracy.
 
-In any case, all it serves to do is to punish honest non-derivative works not
-published compatible with the GPL.
+A longer presentation of the patch, its rational, what it
+does and how to use it can be found here:
+   http://www.stuart.id.au/russell/files/tc/tc-atm/
 
-What I resist is the apparent attempt to change these symbols to _GPL as some
-matter of general policy in this case contrary to the author's original
-intentions as expressed in the original patch submission, and without the
-author of the interface being wrappered jumping up an screaming that his code
-was under strict FSF linking-is-derivation GPL (in which case we could have
-had a good discussion on whether Linux NET4 is actually a derivative work of
-BSD 4.4 Lite which was licensed under the "old" BSD license, incompatible with
-the GPL ;)
+A earlier version of the patch, and a _detailed_ empirical
+investigation of its effects can be found here:
+   http://www.adsl-optimizer.dk/
 
-As a general policy I would say make it EXPORT_SYMBOL() unless the author of
-the patch (derivation) or author of the original (derived) code dictates that
-it be EXPORT_SYMBOL_GPL().
+The patches are both backwards and forwards compatible.
+This means unpatched kernels will work with a patched
+version of iproute2, and an unpatched iproute2 will work
+on patches kernels.
 
-Ok, I'll shut up now... ...really.
+
+This is a combined effort of Jesper Brouer and Russell Stuart,
+to get these patches into the upstream kernel.
+
+Let the discussion start about what we need to change to get this
+upstream?
+
+We see this as a feature enhancement, as thus hope that it can be
+queued in davem's net-2.6.18.git tree.
+
+---
+Regards,
+ Jesper Brouer & Russell Stuart.
+
+
+--=-ceiKuguFA1mulwiJNlSr
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQBEj9l0wuVH+NB3fZkRAjFIAJsE+rSjWJ587fSIu1SHQ1i0Zt0MMACffcwN
+nO3YofocOeRchTH1h4F0mXI=
+=6KRJ
+-----END PGP SIGNATURE-----
+
+--=-ceiKuguFA1mulwiJNlSr--
+
