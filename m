@@ -1,54 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Offering presents for more routing tables!
-Date: Wed, 14 Jun 2006 06:45:51 -0700
-Message-ID: <4490130F.3030005@candelatech.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: http://bugzilla.kernel.org/show_bug.cgi?id=6197
+Date: Wed, 14 Jun 2006 16:04:13 +0200
+Message-ID: <4490175D.1020106@trash.net>
+References: <20060611055132.2930b95f.akpm@osdl.org> <448EE065.9060207@trash.net> <448F304A.2020808@tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:5012 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S964926AbWFNNpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 09:45:52 -0400
-Received: from [71.112.216.116] (pool-71-112-216-116.sttlwa.dsl-w.verizon.net [71.112.216.116])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id k5EDjpmP002348
-	for <netdev@vger.kernel.org>; Wed, 14 Jun 2006 06:45:52 -0700
-To: NetDev <netdev@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:5358 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S964950AbWFNOEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 10:04:14 -0400
+To: Michael Tokarev <mjt@tls.msk.ru>
+In-Reply-To: <448F304A.2020808@tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've asked for this feature several years ago and evidently
-it is not trivial to increase the number of routing tables.
+Michael Tokarev wrote:
+> Patrick McHardy wrote:
+> []
+> 
+>>He patched his kernel with the IMQ device, which is known to cause all
+>>kinds of weird problems.
+> 
+> 
+> Wich problems?  Known to whom?
 
-But, perhaps someone now has time & inclination?
+Known to me (who wrote the original implementation of the current IMQ
+device) and numerous people who were hit by them. IIRC it does some
+invalid skb refcounting hacks which result in crashes in certain
+scenarios - but I don't remeber the exact details.
 
-I would like to have more (a few thousand) routing tables
-available in the kernel so that I can use a routing table for
-each of my many VLANs.  Currently, the netlink protocol only
-specifies an 8-bit id for the routing table:
-http://www.faqs.org/rfcs/rfc3549.html  Section 3.1.1
-so a new netlink message would need to be created and the 'ip' tool
-updated.  I think at least a 16-bit identifier should be used,
-possibly a full 32 bits so we don't have to revisit this again for
-a while!
+> I was considering using imq for our needs (not done yet), and from the
+> FAQ at http://www.linuximq.net/faq.html (item #3, "Is it stable?") it
+> seems there's no problems except of gre tunnels and locally generated
+> traffic...
+> 
+> Googling for "imq linux problem" shows usual pile of various user
+> support questions (how to configure.. what did I do wrong.. etc),
+> but nothing relevant.
 
-The kernel itself would also need to be modified so that it can
-have more routing tables.  I realize most people don't need a
-large number of tables, so the maximum number should be configured
-at either compile time or run time.
+The lartc list had lots of reports of crashes. I guess "imq crash" or
+"imq oops" will give better results.
 
-If I remember right, there are certain tables (253 - 255) that
-are currently special in the kernel.  For complete backwards compatibility,
-this hole would probably have to remain as it is, with the new
-tables starting at 256.
+> So... I'm curious whenever the claim on linuximq.net site about the
+> stability is true, or there in fact are some real issue...
 
-I would be willing to help test any resulting patches, and can
-also offer bribes of money, hardware, beer, etc.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+>From what I know these problems haven't been fixed. Current kernels
+include Jamal's tc actions and the ifb-Device, which obsolete IMQ
+anyway.
 
