@@ -1,64 +1,82 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Wed, 14 Jun 2006 15:51:37 -0400
-Message-ID: <449068C9.1010304@pobox.com>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org> <448F5952.1060201@pobox.com> <20060614044412.GA30552@colo.lackof.org> <44902554.7010703@pobox.com> <20060614181419.GA10365@colo.lackof.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
+Date: Wed, 14 Jun 2006 16:41:58 -0400
+Message-ID: <20060614204158.GA3967@hmsreliant.homelinux.net>
+References: <20060606231727.GK24227@waste.org> <20060607150522.GA24608@hmsreliant.homelinux.net> <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com> <x49d5dkvm8p.fsf@segfault.boston.redhat.com> <1149787174.2928.3.camel@strongmad> <x49ac8nwo83.fsf@redhat.com> <20060612001356.GA5112@localhost.localdomain> <1150130534.2879.9.camel@strongmad> <20060612180600.GB3790@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Valerie Henson <val_henson@linux.intel.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Moyer <jmoyer@redhat.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	Matt Mackall <mpm@selenic.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:20428 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932184AbWFNTvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 15:51:48 -0400
-To: Grant Grundler <grundler@parisc-linux.org>
-In-Reply-To: <20060614181419.GA10365@colo.lackof.org>
+Received: from rrcs-70-61-120-52.midsouth.biz.rr.com ([70.61.120.52]:16911
+	"EHLO ra.tuxdriver.com") by vger.kernel.org with ESMTP
+	id S932257AbWFNUme (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 16:42:34 -0400
+To: Mitch Williams <mitch.a.williams@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20060612180600.GB3790@hmsreliant.homelinux.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Grant Grundler wrote:
-> On Wed, Jun 14, 2006 at 11:03:48AM -0400, Jeff Garzik wrote:
->> Grant Grundler wrote:
->>> Switching the order to be:
->>>        tulip_stop_rxtx(tp);            /* Stop DMA */
->>>        free_irq (dev->irq, dev);       /* no more races after this */
->>>
->>> still leaves us open to IRQs being delivered _after_ we've stopped DMA.
->> Correct.  And that is the preferred, natural, logical, obvious order:
->>
->> 1) Turn things off.
->> 2) Wait for activity to cease.
+On Mon, Jun 12, 2006 at 02:06:00PM -0400, Neil Horman wrote:
+> On Mon, Jun 12, 2006 at 09:42:14AM -0700, Mitch Williams wrote:
+> > On Sun, 2006-06-11 at 17:13 -0700, Neil Horman wrote:
+> > > Any further thoughts on this guys?  I still think my last solution
+> > > solves all of
+> > > the netpoll problems, and isn't going to have any noticable impact on
+> > > performance.
+> > > 
+> > I haven't had time to evaluate performance on your patch (sorry!), but
+> > after thinking about it, I agree that it should not have any noticeable
+> > impact.  OTOH, performance tuning is a funny thing, and things you think
+> > won't cause problems often do.
+> > 
+> Thats ok, I just didn't hear out of anyone on friday, so I was curious as to
+> where we were on this.  I don't have the ability to do any real world
+> performance testing here, but I'll try to record the run time of the interrupt
+> routine on a limited number of frames here.
 > 
-> Patch v3 does this in two stages:
-> 1) turn off tulip interrupts
-> 2) free_irq() calls syncronize_irq() to handle pending IRQs
-> 
-> then calls tulip_stop_rxtx() which:
-> 1) tells tulip to stop DMA
-> 2) poll until DMA completes
-> 
-> After this we can free remaining resources.
 
-You need to turn off the thing that generates work (DMA engine), before 
-turning off the thing that reaps work (irq handler).
+Hey, as promised, I've done some rudimentary performance benchmarking on various
+ways that we have talked about to solve this problem.  As I previously mentioned
+I didn't have the equipment to do any real full scale testing here, so what I
+did was take a read of the real time counter at the start and end of the
+e1000_intr routine with various patches applied, and I recorded the number of
+ticks elapsed on the tsc during its run.  I did this on my single cpu x86_64
+machine here, using the latest unpatched e1000 driver as a base, and then
+comparing it to the e1000 driver using my patch and separately with a patch that
+spinlocks the e1000_clean_rx_irq routine (so as to serialize the critical
+section that would otherwise be subject to data corruption.  Here are my
+results:
+
+Base line: 
+Avg. 8145 Ticks on the tsc.
+
+With my patch: http://marc.theaimsgroup.com/?l=linux-netdev&m=114970807606096&w=2 
+Avg. 8159 Ticks on the tsc. (+0.17% increase)
+
+With a spinlock added to e1000_clean_rx_irq:
+Avg. 8238 Ticks on the tsc. (+1.1% increase)
+
+If you like I can send you the time stamp counter patch that I used, as well as
+the patch which adds spinlocks to the clean routine.  Note that the free running
+counter values will vary so you probably want to look at percentage increase.
+Either way, I think either solution provides very little impact on interrupt run
+time.  Given that my patch (granted using my test methodology here) is the
+faster of the two, and arguably the more correct in terms of not using the poll
+controller method to recieve frames, We should go with that patch.
+
+Thoughts/opinions? 
+Neil
 
 
->>> That in turn allows the interrupt handler to re-enable DMA again.
->> Then that would be a problem to solve...  Some interrupt handlers will 
->> test netif_running() or a driver-specific shutting-down flag, 
->> specifically to avoid such behaviors.
-> 
-> I'm not keen on adding more code to tulip_interrupt() routine
-> for something that rarely happens (compared to IRQs) and is handled
-> outside the interrupt routine.  I'm pretty sure stopping interrupts
-> before stopping DMA is sufficient.
-> Can you show an example where it doesn't work?
-
-It should be completely obvious that the chip is still generating 
-work...  You don't want to leave the hardware in a position where it has 
-unacknowledged events.
-
-	Jeff
-
-
+-- 
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
+ ***************************************************/
