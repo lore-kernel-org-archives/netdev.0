@@ -1,70 +1,37 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Wed, 14 Jun 2006 17:08:28 +0200
-Message-ID: <1150297708.26187.125.camel@localhost.localdomain>
-References: <1150278004.26181.35.camel@localhost.localdomain>
-	 <44901CC1.60403@cfl.rr.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Refactor Netlink connector?
+Date: Wed, 14 Jun 2006 11:19:20 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606141118380.12949@d.namei>
+References: <Pine.LNX.4.64.0605261552570.4856@d.namei>  <20060527134629.GA16306@2ka.mipt.ru>
+  <Pine.LNX.4.64.0605271223390.12872@d.namei>  <Pine.LNX.4.64.0605271303050.13104@d.namei>
+  <20060531030046.GC7844@postel.suug.ch> <1149078055.5462.55.camel@jzny2>
+ <20060531130649.GD7844@postel.suug.ch> <1149081752.5462.98.camel@jzny2>
+ <Pine.LNX.4.64.0605311141320.4964@d.namei>  <20060601104506.GF7844@postel.suug.ch>
+  <Pine.LNX.4.64.0606011022450.16136@d.namei> <1150288564.5233.31.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-4ffjErETNjtEUGjcGhsY"
-Cc: netdev@vger.kernel.org, russell-tcatm@stuart.id.au, hawk@diku.dk
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Smalley <sds@tycho.nsa.gov>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ex001a.cxnet.dk ([195.135.216.13]:54788 "EHLO
-	comxexch01.comx.local") by vger.kernel.org with ESMTP
-	id S964995AbWFNPI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 11:08:29 -0400
-To: Phillip Susi <psusi@cfl.rr.com>
-In-Reply-To: <44901CC1.60403@cfl.rr.com>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:7058 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964929AbWFNPTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 11:19:23 -0400
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1150288564.5233.31.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 14 Jun 2006, jamal wrote:
 
---=-4ffjErETNjtEUGjcGhsY
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> 
+> So whats the resolution on this? I actually have some cycles this coming
+> weekend that i was hopping to spend updating the doc instead.
 
-On Wed, 2006-06-14 at 10:27 -0400, Phillip Susi wrote:
-> Jesper Dangaard Brouer wrote:
-> > The Linux traffic's control engine inaccurately calculates
-> > transmission times for packets sent over ADSL links.  For
-> > some packet sizes the error rises to over 50%.  This occurs
-> > because ADSL uses ATM as its link layer transport, and ATM
-> > transmits packets in fixed sized 53 byte cells.
-> >=20
->=20
-> I could have sworn that DSL uses its own framing protocol that is=20
-> similar to the frame/superframe structure of HDSL ( T1 ) lines and over=20
-> that you can run ATM or ethernet.  Or is it typically ethernet -> ATM ->=20
-> HDSL?
+Haven't had a chance to look at it since.
 
-Nope, not according to the ADSL standards G.992.1 and G.992.2.
-
-> In any case, why does the kernel care about the exact time that the IP=20
-> packet has been received and reassembled on the headend?
-
-I think you have misunderstood what the rate table does...
-(There is an explaination in the thesis page 57 section 6.1.2)
-http://www.adsl-optimizer.dk/thesis/
-
---=20
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
-
-
---=-4ffjErETNjtEUGjcGhsY
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBEkCZswuVH+NB3fZkRAo+kAJ43vH6ref8tpO9MshfbuNvjQm4krACgifVG
-i8MDQxfwLjwJ8KQ2DN9w6B4=
-=Q6jF
------END PGP SIGNATURE-----
-
---=-4ffjErETNjtEUGjcGhsY--
-
+-- 
+James Morris
+<jmorris@namei.org>
