@@ -1,41 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp_slow_start_after_idle
-Date: Wed, 14 Jun 2006 16:06:43 -0700 (PDT)
-Message-ID: <20060614.160643.93473808.davem@davemloft.net>
-References: <20060613.223538.24611602.davem@davemloft.net>
-	<44903D82.40007@hp.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zach.brown@oracle.com, jheffner@psc.edu
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [patch] ipv4: fix lock usage in udp_ioctl
+Date: Thu, 15 Jun 2006 09:12:47 +1000
+Message-ID: <E1FqeXX-0008OE-00@gondolin.me.apana.org.au>
+References: <20060614194305.GB10391@osiris.ibm.com>
+Cc: davem@davemloft.net, jgarzik@pobox.com, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mingo@elte.hu, fpavlic@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63414
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964999AbWFNXGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 19:06:24 -0400
-To: rick.jones2@hp.com
-In-Reply-To: <44903D82.40007@hp.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:11784 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965007AbWFNXNz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 19:13:55 -0400
+To: heiko.carstens@de.ibm.com (Heiko Carstens)
+In-Reply-To: <20060614194305.GB10391@osiris.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Wed, 14 Jun 2006 09:46:58 -0700
-
-> Also, does the congestion window "time out" or does it decay?
-
-The modification made to the cwnd is indeed a decay function,
-but the event is a time out, and it is also termed a restart
-in other writings and contexts.
-
-I think it's all the same. :)
-
-> > +/* By default, RFC2861 behavior.  */
-> > +int sysctl_tcp_slow_start_after_idle = 1;
-> > +
+Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
 > 
-> Is this a candidate for "readmostly?"
+> As reported by the lock validator:
+> 
+> ============================
+> [ BUG: illegal lock usage! ]
+> ----------------------------
+> illegal {in-hardirq-W} -> {hardirq-on-W} usage.
+> syslogd/739 [HC0[0]:SC0[1]:HE1:SE0] takes:
+> (&list->lock){++..}, at: [<002e36d6>] udp_ioctl+0x96/0x100
+> {in-hardirq-W} state was registered at:
+>  [<00062128>] lock_acquire+0x9c/0xc0
+>  [<0036209e>] _spin_lock_irqsave+0x66/0x84
+>  [<002912ce>] skb_dequeue+0x32/0xb0
+>  [<00263160>] qeth_qdio_output_handler+0x3e8/0xf8c
+>  [<00219fdc>] tiqdio_thinint_handler+0xde0/0x2234
+>  [<0020448c>] do_adapter_IO+0x5c/0xa8
+>  [<0020842c>] do_IRQ+0x13c/0x18c
+>  [<000208a2>] io_no_vtime+0x16/0x1c
+>  [<0001978c>] cpu_idle+0x1d0/0x20c
 
-All the networking sysctls are, we should do a sweep over them at some
-point.
+This is bogus.  These two locks belong to two different queues and they
+never intersect.
 
-Thanks for reminding me.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
