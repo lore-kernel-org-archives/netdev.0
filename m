@@ -1,50 +1,70 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Wed, 14 Jun 2006 11:03:48 -0400
-Message-ID: <44902554.7010703@pobox.com>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org> <448F5952.1060201@pobox.com> <20060614044412.GA30552@colo.lackof.org>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Wed, 14 Jun 2006 17:08:28 +0200
+Message-ID: <1150297708.26187.125.camel@localhost.localdomain>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+	 <44901CC1.60403@cfl.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Valerie Henson <val_henson@linux.intel.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-4ffjErETNjtEUGjcGhsY"
+Cc: netdev@vger.kernel.org, russell-tcatm@stuart.id.au, hawk@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:12226 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964992AbWFNPDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 11:03:54 -0400
-To: Grant Grundler <grundler@parisc-linux.org>
-In-Reply-To: <20060614044412.GA30552@colo.lackof.org>
+Received: from ex001a.cxnet.dk ([195.135.216.13]:54788 "EHLO
+	comxexch01.comx.local") by vger.kernel.org with ESMTP
+	id S964995AbWFNPI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 11:08:29 -0400
+To: Phillip Susi <psusi@cfl.rr.com>
+In-Reply-To: <44901CC1.60403@cfl.rr.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Grant Grundler wrote:
-> On Tue, Jun 13, 2006 at 08:33:22PM -0400, Jeff Garzik wrote:
->> Grant Grundler wrote:
->>> o tulip_stop_rxtx() has to be called _after_ free_irq().
->>>  ie. v2 patch didn't fix the original race condition
->>>  and when under test, dies about as fast as the original code.
->> You made the race window smaller, but it's still there.  The chip's DMA 
->> engines should be stopped before you unregister the interrupt handler.
-> 
-> Switching the order to be:
->         tulip_stop_rxtx(tp);            /* Stop DMA */
->         free_irq (dev->irq, dev);       /* no more races after this */
-> 
-> still leaves us open to IRQs being delivered _after_ we've stopped DMA.
 
-Correct.  And that is the preferred, natural, logical, obvious order:
+--=-4ffjErETNjtEUGjcGhsY
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-1) Turn things off.
-2) Wait for activity to cease.
+On Wed, 2006-06-14 at 10:27 -0400, Phillip Susi wrote:
+> Jesper Dangaard Brouer wrote:
+> > The Linux traffic's control engine inaccurately calculates
+> > transmission times for packets sent over ADSL links.  For
+> > some packet sizes the error rises to over 50%.  This occurs
+> > because ADSL uses ATM as its link layer transport, and ATM
+> > transmits packets in fixed sized 53 byte cells.
+> >=20
+>=20
+> I could have sworn that DSL uses its own framing protocol that is=20
+> similar to the frame/superframe structure of HDSL ( T1 ) lines and over=20
+> that you can run ATM or ethernet.  Or is it typically ethernet -> ATM ->=20
+> HDSL?
+
+Nope, not according to the ADSL standards G.992.1 and G.992.2.
+
+> In any case, why does the kernel care about the exact time that the IP=20
+> packet has been received and reassembled on the headend?
+
+I think you have misunderstood what the rate table does...
+(There is an explaination in the thesis page 57 section 6.1.2)
+http://www.adsl-optimizer.dk/thesis/
+
+--=20
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
 
 
-> That in turn allows the interrupt handler to re-enable DMA again.
+--=-4ffjErETNjtEUGjcGhsY
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-Then that would be a problem to solve...  Some interrupt handlers will 
-test netif_running() or a driver-specific shutting-down flag, 
-specifically to avoid such behaviors.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
 
-	Jeff
+iD8DBQBEkCZswuVH+NB3fZkRAo+kAJ43vH6ref8tpO9MshfbuNvjQm4krACgifVG
+i8MDQxfwLjwJ8KQ2DN9w6B4=
+=Q6jF
+-----END PGP SIGNATURE-----
 
-
+--=-4ffjErETNjtEUGjcGhsY--
 
