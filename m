@@ -1,52 +1,36 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Theodore Tso <tytso@mit.edu>
 Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 11:43:43 +0100
-Message-ID: <1150281823.3490.14.camel@localhost.localdomain>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
-	 <200606131859.43695.chase.venters@clientec.com>
-	 <20060613183112.B8460@openss7.org>
-	 <200606131953.42002.chase.venters@clientec.com>
-	 <20060614000710.C7232@openss7.org>
+Date: Wed, 14 Jun 2006 06:36:05 -0400
+Message-ID: <20060614103605.GA17831@thunk.org>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131859.43695.chase.venters@clientec.com> <20060613183112.B8460@openss7.org> <200606131953.42002.chase.venters@clientec.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Chase Venters <chase.venters@clientec.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: bidulock@openss7.org, Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:61373 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S932212AbWFNK1e
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 06:27:34 -0400
-To: bidulock@openss7.org
-In-Reply-To: <20060614000710.C7232@openss7.org>
+Received: from thunk.org ([69.25.196.29]:48261 "EHLO thunker.thunk.org")
+	by vger.kernel.org with ESMTP id S1750995AbWFNKgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 06:36:40 -0400
+To: Chase Venters <chase.venters@clientec.com>
+Content-Disposition: inline
+In-Reply-To: <200606131953.42002.chase.venters@clientec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ar Mer, 2006-06-14 am 00:07 -0600, ysgrifennodd Brian F. G. Bidulock:
-> I think that a policy that intentionally makes it hard for proprietary
-> modules to be developed defeats the purpose of ultimate opening and merging.
+On Tue, Jun 13, 2006 at 07:53:19PM -0500, Chase Venters wrote:
+> > It is the lack of an ABI that is most frustrating to these users.
+> 
+> And the presence of an ABI would be _very_ frustrating to core
+> developers. Not only would these people suffer, everyone would --
+> developer time would be wasted dealing with cruft, and forward
+> progress would be slowed.
 
-It isn't "policy" its called copyright law.
+Note that just because an interface is EXPORT_SYMBOL doesn't mean that
+the interface is guaranteed to be stable.  So folks who are aruging
+that an interface shouldn't be usable by non-GPL applications because
+we are therefore guaranteeing a stable API are making an unwarranted
+assumption.
 
-> The interface currently under discussion is ultimately derived from the BSD
-> socket-protocol interface, and IMHO should be EXPORT_SYMBOL instead of
-> EXPORT_SYMBOL_GPL, if only because using _GPL serves no purpose here and can
-> be defeated with 3 or 4 obvious (and probably existing) lines of code
-
-You don't seem to understand copyright law either. The GPL like all
-copyright licenses deals with the right to make copies and to create and
-control derivative works. It's not "defeated" by four lines of code.
-  I
-> wrote similar wrappers for STREAMS TPI to Linux NET4 interface instead of
-> using pointers directly quite a few years ago.  I doubt I was the first.
-
-Is that a confession ;)
-
-> There is nothing really so novel here that it deserves _GPL.
-
-Copyright is not about novelty, you have it confused with the
-theoretical (not actual) role of patents. Wrong kind of intellectual
-monopoly right.
-
-Alan
-
+						- Ted
