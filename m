@@ -1,48 +1,58 @@
-From: Andy Furniss <lists@andyfurniss.entadsl.com>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Wed, 14 Jun 2006 16:32:29 +0100
-Message-ID: <44902C0D.1010709@andyfurniss.entadsl.com>
-References: <1150278004.26181.35.camel@localhost.localdomain> <1150286766.5233.15.camel@jzny2>
-Reply-To: lists@andyfurniss.entadsl.com
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx: use softmac-suggested TX rate
+Date: Wed, 14 Jun 2006 17:51:14 +0200
+Message-ID: <200606141751.15205.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>, hawk@diku.dk,
-	russell-tcatm@stuart.id.au, lartc@mailman.ds9a.nl,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s2.ukfsn.org ([217.158.120.143]:10376 "EHLO mail.ukfsn.org")
-	by vger.kernel.org with ESMTP id S964916AbWFNPby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 11:31:54 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1150286766.5233.15.camel@jzny2>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:17107
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965014AbWFNPxS
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 11:53:18 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> I have taken linux-kernel off the list.
-> 
-> Russell's site is inaccessible to me (I actually think this is related
-> to some DNS issues i may be having) and your masters is too long to
-> spend 2 minutes and glean it; so heres a question or two for you:
-> 
-> - Have you tried to do a long-lived session such as a large FTP and 
-> seen how far off the deviation was? That would provide some interesting
-> data point.
-> - To be a devil's advocate (and not claim there is no issue), where do
-> you draw the line with "overhead"? 
+Hi John,
 
-Me and many others have run a smilar hack for years, there is also a 
-userspace project still alive which does the same.
+Sorry, took a little bit longer than expected, but here it is. :)
+Please queue for 2.6.18.
 
-The difference is that without it I would need to sacrifice almost half 
-my 288kbit atm/dsl showtime bandwidth to be sure of control.
+--
 
-With the modification I can run at 286kbit / 288 and know I will never 
-have jitter worse than the bitrate latency of a mtu packet. The 286 
-figure was choses to allow a full buffer to drain/ allow for timer 
-innaccuracy etc. On a p200 with tsc, 2.6.12 it's never gone over for me 
-- though talking of timers I notice on my desktop 2.6.16 I gain 2 
-minutes a day now.
+From: Daniel Drake <dsd@gentoo.org>
 
-Andy.
+Use Softmac-suggested TX ratecode:
+ieee80211softmac_suggest_txrate()
+
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c	2006-06-14 16:53:50.000000000 +0200
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c	2006-06-14 17:44:23.000000000 +0200
+@@ -296,11 +296,14 @@
+ 	u16 control = 0;
+ 	u16 wsec_rate = 0;
+ 	u16 encrypt_frame;
++	const u16 ftype = WLAN_FC_GET_TYPE(le16_to_cpu(wireless_header->frame_ctl));
++	const int is_mgt = (ftype == IEEE80211_FTYPE_MGMT);
+ 
+ 	/* Now construct the TX header. */
+ 	memset(txhdr, 0, sizeof(*txhdr));
+ 
+-	bitrate = bcm->softmac->txrates.default_rate;
++	bitrate = ieee80211softmac_suggest_txrate(bcm->softmac,
++		is_multicast_ether_addr(wireless_header->addr1), is_mgt);
+ 	ofdm_modulation = !(ieee80211_is_cck_rate(bitrate));
+ 	fallback_bitrate = bcm43xx_calc_fallback_rate(bitrate);
+ 	fallback_ofdm_modulation = !(ieee80211_is_cck_rate(fallback_bitrate));
+
+-- 
+Greetings Michael.
