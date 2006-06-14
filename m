@@ -1,43 +1,52 @@
-From: "Abraham Mcmahon" <AbrahamMcmahon@0451.com>
-Subject: Your money, newspaper post
-Date: Wed, 14 Jun 2006 10:06:04 +0000 (UTC)
-Message-ID: <662161c80604x1imbgm3fbu5mo6pw0tqgi0r7q8w3elk6@mail.0451.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Wed, 14 Jun 2006 11:43:43 +0100
+Message-ID: <1150281823.3490.14.camel@localhost.localdomain>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
+	 <200606131859.43695.chase.venters@clientec.com>
+	 <20060613183112.B8460@openss7.org>
+	 <200606131953.42002.chase.venters@clientec.com>
+	 <20060614000710.C7232@openss7.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Chase Venters <chase.venters@clientec.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-84-226-125-207.adslplus.ch ([84.226.125.207]:18541 "EHLO
-	adsl-84-226-125-207.adslplus.ch") by vger.kernel.org with ESMTP
-	id S964894AbWFNKFt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 06:05:49 -0400
-Date: Wed, 14 Jun 2006 10:05:34 -0060
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:61373 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S932212AbWFNK1e
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 06:27:34 -0400
+To: bidulock@openss7.org
+In-Reply-To: <20060614000710.C7232@openss7.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Even if you have no erectin problems SOFT CIAzLIS 
-would help you to make BETTER SE  X MORE OFTEN!
-and to bring  unimagnable plesure to her.
+Ar Mer, 2006-06-14 am 00:07 -0600, ysgrifennodd Brian F. G. Bidulock:
+> I think that a policy that intentionally makes it hard for proprietary
+> modules to be developed defeats the purpose of ultimate opening and merging.
 
-Just disolve half a pil under your tongue 
-and get ready for action in 15 minutes. 
+It isn't "policy" its called copyright law.
 
-The tests showed that the majority of men 
-after taking this medic ation were able to have 
-PERFECT ER ECTI ON during 36 hours!
+> The interface currently under discussion is ultimately derived from the BSD
+> socket-protocol interface, and IMHO should be EXPORT_SYMBOL instead of
+> EXPORT_SYMBOL_GPL, if only because using _GPL serves no purpose here and can
+> be defeated with 3 or 4 obvious (and probably existing) lines of code
 
-VISIT US, AND GET OUR SPECIAL 70% DISC OUNT OFER!
+You don't seem to understand copyright law either. The GPL like all
+copyright licenses deals with the right to make copies and to create and
+control derivative works. It's not "defeated" by four lines of code.
+  I
+> wrote similar wrappers for STREAMS TPI to Linux NET4 interface instead of
+> using pointers directly quite a few years ago.  I doubt I was the first.
 
-http://qjomos.skinscloth.com/?88863051
+Is that a confession ;)
 
-=====
-     It went like lightning through the Flock. Those  birds  are  Outcast!
-report From the police--again, what could they know there except for my  old
-or twice?"
-     Damn those eggheads! Some thinking to lay the road over the dump! And I
-at sea, hungry, happy, learning.
-     "Shut up."
+> There is nothing really so novel here that it deserves _GPL.
 
-hour. He swallowed, knowing that if his wings unfolded at that speed  be'd
-saying  nothing. Suddenly he  clapped his hands, rubbed his  palms together,
+Copyright is not about novelty, you have it confused with the
+theoretical (not actual) role of patents. Wrong kind of intellectual
+monopoly right.
+
+Alan
+
