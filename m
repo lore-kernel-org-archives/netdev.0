@@ -1,63 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Chase Venters <chase.venters@clientec.com>
 Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Tue, 13 Jun 2006 17:19:41 -0700
-Message-ID: <448F561D.5080007@candelatech.com>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse> <448F4D6F.9070601@candelatech.com> <200606131906.16683.chase.venters@clientec.com>
+Date: Tue, 13 Jun 2006 19:29:19 -0500
+Message-ID: <200606131929.41985.chase.venters@clientec.com>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131906.16683.chase.venters@clientec.com> <20060613181801.A8460@openss7.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Brian F. G. Bidulock" <bidulock@openss7.org>,
+Cc: Ben Greear <greearb@candelatech.com>,
 	Daniel Phillips <phillips@google.com>,
 	Stephen Hemminger <shemminger@osdl.org>,
 	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:64721 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S932371AbWFNATv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 20:19:51 -0400
-To: Chase Venters <chase.venters@clientec.com>
-In-Reply-To: <200606131906.16683.chase.venters@clientec.com>
+Received: from relay01.pair.com ([209.68.5.15]:15371 "HELO relay01.pair.com")
+	by vger.kernel.org with SMTP id S932329AbWFNA3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 20:29:43 -0400
+To: bidulock@openss7.org
+In-Reply-To: <20060613181801.A8460@openss7.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chase Venters wrote:
-> On Tuesday 13 June 2006 18:42, Ben Greear wrote:
-> 
->>Chase Venters wrote:
->>
->>>At least some of us feel like stable module APIs should be explicitly
->>>discouraged, because we don't want to offer comfort for code that
->>>refuses to live in the tree (since getting said code into the tree is
->>>often a goal).
->>
->>Some of us write modules for specific features that are not wanted in
->>the mainline kernel, even though they are pure GPL.  Our life is hard
->>enough with out people setting out to deliberately make things more
->>difficult!
-> 
-> 
-> Fair enough, but if you are doing out of tree, pure GPL modules, 
-> EXPORT_SYMBOL_GPL() isn't a bad thing, is it?
-> 
-> Don't mistake me for actually having a big opinion specifically about this 
-> socket API's usage of EXPORT_SYMBOL()... just raising some points that I 
-> think apply to these decisions in general. I don't really see a compelling 
-> reason for EXPORT_SYMBOL() over EXPORT_SYMBOL_GPL() on the socket APIs 
-> though... I'm trying to imagine what kind of legitimate non-GPL modules might 
-> use them.
+On Tuesday 13 June 2006 19:17, Brian F. G. Bidulock wrote:
+> Chase,
+>
+> On Tue, 13 Jun 2006, Chase Venters wrote:
+> > I'm trying to imagine what kind of legitimate non-GPL modules might
+> > use them.
+>
+> Example: in-kernel RTP implementation derived from AT&T rtp-lib
+> implementation (non-GPL compatible license) utilizing this kernel
+> interface for UDP socket access.
 
-I got to the flame war late and only saw your comment that stable API should
-be discouraged.  That kind of thinking pisses me off because it assumes all
-modules out of the tree are that way because the authors want them out of the
-tree.  I also understand that sometimes API needs to change, but please don't
-encourage change just to punish other authors, be they proprietary or otherwise.
+I don't mean to be obtuse, but the "Non-exclusive Non-commercial Limited-use 
+Source" license seems to make something like that have limited usefulness in 
+general. That is -- unless one were to obtain a commercial license from AT&T, 
+but then that starts falling into the domain of what is likely prohibited by 
+the GPL (some sort of proprietary work actually _derived_ off the kernel 
+rather than just supporting it in some way).
 
-As for what type of EXPORT macro to use I surely don't have anything to
-say that hasn't been said multiple times before.
+But I did ask for examples...
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Thanks,
+Chase
