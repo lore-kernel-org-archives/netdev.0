@@ -1,41 +1,48 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH 2/2] NET: Accurate packet scheduling for ATM/ADSL
-	(userspace)
-Date: Wed, 14 Jun 2006 11:57:05 +0100
-Message-ID: <1150282625.3490.23.camel@localhost.localdomain>
-References: <1150278040.26181.37.camel@localhost.localdomain>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Wed, 14 Jun 2006 04:54:23 -0600
+Message-ID: <20060614045423.A18812@openss7.org>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <200606131859.43695.chase.venters@clientec.com> <20060613183112.B8460@openss7.org> <200606131953.42002.chase.venters@clientec.com> <20060614000710.C7232@openss7.org> <1150281823.3490.14.camel@localhost.localdomain>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org,
-	lartc@mailman.ds9a.nl, russell-tcatm@stuart.id.au, hawk@diku.dk,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:29854 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
-	id S1751200AbWFNKm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 06:42:26 -0400
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-In-Reply-To: <1150278040.26181.37.camel@localhost.localdomain>
+Received: from gw.openss7.com ([142.179.199.224]:26041 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S932329AbWFNKyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 06:54:35 -0400
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Disposition: inline
+In-Reply-To: <1150281823.3490.14.camel@localhost.localdomain>; from alan@lxorguk.ukuu.org.uk on Wed, Jun 14, 2006 at 11:43:43AM +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ar Mer, 2006-06-14 am 11:40 +0200, ysgrifennodd Jesper Dangaard Brouer:
-> option to calculate traffic transmission times (rate table)
-> over all ATM links, including ADSL, with perfect accuracy.
+Alan,
 
-<Pedant>
-Only if the lowest level is encoded in a time linear manner. If you are
-using NRZ, NRZI etc at the bottom level then you may still be out...
+On Wed, 14 Jun 2006, Alan Cox wrote:
 
-</Pedant>
+> It isn't "policy" its called copyright law.
 
-The other problem I see with this code is it is very tightly tied to ATM
-cell sizes, not to solving the generic question of packetisation. I'm
-not sure if that matters but for modern processors I'm also sceptical
-that the clever computation is actually any faster than just doing the
-maths, especially if something cache intensive is also running.
+I know that I said I'd shut up, but I missed in TRIPS where it said
+that symbols must be EXPORT_SYMBOL_GPL...  Could you point that out?
+(Just kidding.)
 
-Alan
+> You don't seem to understand copyright law either. The GPL like all
+> copyright licenses deals with the right to make copies and to create and
+> control derivative works. It's not "defeated" by four lines of code.
 
+The 3 or 4 lines of code that I wrote as an original expression before
+the patch was submitted.
+
+> Is that a confession ;)
+
+No, just a declaration: the code in question was released under GPL
+Version 2.
+
+> Copyright is not about novelty, you have it confused with the
+> theoretical (not actual) role of patents. Wrong kind of intellectual
+> monopoly right.
+
+Yes, perhaps I should have said "original" instead of "novel".  The patch
+is not "original" as it was predated by equivalent (machine translatable)
+original expressions.
