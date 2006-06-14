@@ -1,42 +1,32 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Tue, 13 Jun 2006 17:06:18 -0700
-Message-ID: <20060614000618.GL12533@goober>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org>
+From: "Brian F. G. Bidulock" <bidulock@openss7.org>
+Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
+Date: Tue, 13 Jun 2006 18:18:01 -0600
+Message-ID: <20060613181801.A8460@openss7.org>
+References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com> <Pine.LNX.4.64.0606131655580.4856@turbotaz.ourhouse> <448F4D6F.9070601@candelatech.com> <200606131906.16683.chase.venters@clientec.com>
+Reply-To: bidulock@openss7.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org
+Cc: Ben Greear <greearb@candelatech.com>,
+	Daniel Phillips <phillips@google.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Sridhar Samudrala <sri@us.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:62915 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932330AbWFNAHh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Jun 2006 20:07:37 -0400
-To: Grant Grundler <grundler@parisc-linux.org>
+Received: from gw.openss7.com ([142.179.199.224]:49074 "EHLO gw.openss7.com")
+	by vger.kernel.org with ESMTP id S932327AbWFNASD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Jun 2006 20:18:03 -0400
+To: Chase Venters <chase.venters@clientec.com>
 Content-Disposition: inline
-In-Reply-To: <20060613235531.GA4191@colo.lackof.org>
+In-Reply-To: <200606131906.16683.chase.venters@clientec.com>; from chase.venters@clientec.com on Tue, Jun 13, 2006 at 07:05:54PM -0500
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 13, 2006 at 05:55:31PM -0600, Grant Grundler wrote:
-> On Thu, Jun 08, 2006 at 11:01:20AM -0600, Grant Grundler wrote:
-> > Here is a new patch that moves free_irq() into tulip_down().
-> > The resulting code is structured the same as cp_close().
-> 
-> Val,
-> Two details are wrong in version 2 and are fixed in v3 (appended below):
-> 
-> o we don't need synchronize_irq() before calling free_irq().
->   (It should be removed from cp_close() too)
->   Thanks to willy for pointing me at kernel/irq/manage.c.
-> 
-> o tulip_stop_rxtx() has to be called _after_ free_irq().
->   ie. v2 patch didn't fix the original race condition
->   and when under test, dies about as fast as the original code.
-> 
-> Tested on rx4640 (HP IA64) for several hours.
-> Please apply.
+Chase,
 
-Thanks, I'll take a look next week (after the workshop and moving).
+On Tue, 13 Jun 2006, Chase Venters wrote:
+> I'm trying to imagine what kind of legitimate non-GPL modules might 
+> use them.
 
--VAL
+Example: in-kernel RTP implementation derived from AT&T rtp-lib
+implementation (non-GPL compatible license) utilizing this kernel
+interface for UDP socket access.
