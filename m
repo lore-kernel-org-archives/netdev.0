@@ -1,58 +1,68 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] bcm43xx: use softmac-suggested TX rate
-Date: Wed, 14 Jun 2006 17:51:14 +0200
-Message-ID: <200606141751.15205.mb@bu3sch.de>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [openib-general] [PATCH v2 1/2] iWARP Connection Manager.
+Date: Wed, 14 Jun 2006 11:11:08 -0500
+Message-ID: <1150301468.28999.22.camel@stevo-desktop>
+References: <000001c68f31$78910fe0$24268686@amr.corp.intel.com>
+	 <1150235196.17394.91.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
-	Daniel Drake <dsd@gentoo.org>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:17107
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965014AbWFNPxS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 11:53:18 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
+Received: from es335.com ([67.65.19.105]:29211 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S965016AbWFNQLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 12:11:10 -0400
+To: Sean Hefty <sean.hefty@intel.com>
+In-Reply-To: <1150235196.17394.91.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+On Tue, 2006-06-13 at 16:46 -0500, Steve Wise wrote:
+> On Tue, 2006-06-13 at 14:36 -0700, Sean Hefty wrote:
+> > >> Er...no. It will lose this event. Depending on the event...the carnage
+> > >> varies. We'll take a look at this.
+> > >>
+> > >
+> > >This behavior is consistent with the Infiniband CM (see
+> > >drivers/infiniband/core/cm.c function cm_recv_handler()).  But I think
+> > >we should at least log an error because a lost event will usually stall
+> > >the rdma connection.
+> > 
+> > I believe that there's a difference here.  For the Infiniband CM, an allocation
+> > error behaves the same as if the received MAD were lost or dropped.  Since MADs
+> > are unreliable anyway, it's not so much that an IB CM event gets lost, as it
+> > doesn't ever occur.  A remote CM should retry the send, which hopefully allows
+> > the connection to make forward progress.
+> > 
+> 
+> hmm.  Ok.  I see.  I misunderstood the code in cm_recv_handler().
+> 
+> Tom and I have been talking about what we can do to not drop the event.
+> Stay tuned.
 
-Sorry, took a little bit longer than expected, but here it is. :)
-Please queue for 2.6.18.
+Here's a simple solution that solves the problem:  
 
---
+For any given cm_id, there are a finite (and small) number of
+outstanding CM events that can be posted.  So we just pre-allocate them
+when the cm_id is created and keep them on a free list hanging off of
+the cm_id struct.  Then the event handler function will pull from this
+free list.  
 
-From: Daniel Drake <dsd@gentoo.org>
+The only case where there is any non-finite issue is on the passive
+listening cm_id.  Each incoming connection request will consume a work
+struct.  So based on client connects, we could run out of work structs.
+However, the CMA has the concept of a backlog, which is defined as the
+max number of pending unaccepted connection requests.  So we allocate
+these work structs based on that number (or a computation based on that
+number), and if we run out, we simply drop the incoming connection
+request due to backlog overflow (I suggest we log the drop event too).
+When a MPA connection request is dropped, the (IETF conforming) MPA
+client will eventually time out the connection and the consumer can
+retry.
 
-Use Softmac-suggested TX ratecode:
-ieee80211softmac_suggest_txrate()
+Comments?
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c	2006-06-14 16:53:50.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c	2006-06-14 17:44:23.000000000 +0200
-@@ -296,11 +296,14 @@
- 	u16 control = 0;
- 	u16 wsec_rate = 0;
- 	u16 encrypt_frame;
-+	const u16 ftype = WLAN_FC_GET_TYPE(le16_to_cpu(wireless_header->frame_ctl));
-+	const int is_mgt = (ftype == IEEE80211_FTYPE_MGMT);
- 
- 	/* Now construct the TX header. */
- 	memset(txhdr, 0, sizeof(*txhdr));
- 
--	bitrate = bcm->softmac->txrates.default_rate;
-+	bitrate = ieee80211softmac_suggest_txrate(bcm->softmac,
-+		is_multicast_ether_addr(wireless_header->addr1), is_mgt);
- 	ofdm_modulation = !(ieee80211_is_cck_rate(bitrate));
- 	fallback_bitrate = bcm43xx_calc_fallback_rate(bitrate);
- 	fallback_ofdm_modulation = !(ieee80211_is_cck_rate(fallback_bitrate));
 
--- 
-Greetings Michael.
