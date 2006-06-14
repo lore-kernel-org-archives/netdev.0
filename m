@@ -1,44 +1,51 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [Ubuntu PATCH] IRDA: Add some IBM think pads
-Date: Wed, 14 Jun 2006 16:23:28 -0700
-Message-ID: <44909A70.7070104@oracle.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
+Date: Wed, 14 Jun 2006 16:25:04 -0600
+Message-ID: <20060614222504.GA13212@colo.lackof.org>
+References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org> <448F5952.1060201@pobox.com> <20060614044412.GA30552@colo.lackof.org> <44902554.7010703@pobox.com> <20060614181419.GA10365@colo.lackof.org> <449068C9.1010304@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm <akpm@osdl.org>, samuel@sortiz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Valerie Henson <val_henson@linux.intel.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:49214 "EHLO
-	agminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S964772AbWFNWXA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 18:23:00 -0400
-To: netdev <netdev@vger.kernel.org>
+Received: from colo.lackof.org ([198.49.126.79]:53395 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S964772AbWFNWZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 18:25:07 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <449068C9.1010304@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Collins <bcollins@ubuntu.com>
+On Wed, Jun 14, 2006 at 03:51:37PM -0400, Jeff Garzik wrote:
+> You need to turn off the thing that generates work (DMA engine), before 
+> turning off the thing that reaps work (irq handler).
+...
+> It should be completely obvious that the chip is still generating 
+> work...
 
-[UBUNTU:nsc-ircc] Add some IBM think pads
-Add Thinkpad T60/X60/Z60/T43/R52 Infrared driver support.
+Yes, I agree it still generates work. ie we can still RX packets.
+But those will get discarded anyway.
+In other words, If work is generated and I don't know it and
+don't care, was it really work? :)
 
-http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=7b8d2713435a9fb69719a282ba75e117f3f76a5b
+>   You don't want to leave the hardware in a position where it has 
+> unacknowledged events.
 
-Signed-off-by: Ben Collins <bcollins@ubuntu.com>
----
+Ok. Let me repeat two questions I asked a while ago:
+| Are you worried about a masked, pending interrupt causing
+| problems when the driver is re-opened or resumed?
 
---- a/drivers/net/irda/nsc-ircc.c
-+++ b/drivers/net/irda/nsc-ircc.c
-@@ -115,8 +115,12 @@ static nsc_chip_t chips[] = {
- 	/* Contributed by Jan Frey - IBM A30/A31 */
- 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff, 
- 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
--	{ "IBM", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
-- 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
-+	/* IBM ThinkPads using PC8738x (T60/X60/Z60) */
-+	{ "IBM-PC8738x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
-+	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
-+	/* IBM ThinkPads using PC8394T (T43/R52/?) */
-+	{ "IBM-PC8394T", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf9, 0xff,
-+	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
- 	{ NULL }
- };
+The answer to "Yes" it seems.
+And we will disagree on that since I've proven it's not a problem.
+And it can't be a problem anyone else has seen since it's been
+this way for 5+ years.
 
+| If firmware left the device in that state at boot time wouldn't
+| the driver be required to handle it?
+
+Can you comment on this please?
+
+thanks,
+grant
