@@ -1,81 +1,118 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: netif_tx_disable and lockless TX
-Date: Wed, 14 Jun 2006 08:52:56 -0400
-Message-ID: <1150289576.5233.48.camel@jzny2>
-References: <20060531051451.GA7110@gondor.apana.org.au>
-	 <20060530.232626.00456312.davem@davemloft.net>
-	 <20060531063152.GA8032@gondor.apana.org.au>
-	 <20060531.000818.78646242.davem@davemloft.net>
-	 <20060531120626.GA11925@gondor.apana.org.au>
-	 <1149078972.5462.72.camel@jzny2>  <17533.55270.172654.98522@robur.slu.se>
-Reply-To: hadi@cyberus.ca
+From: =?ISO-8859-1?Q?Roar_Bj=F8rgum_Rotvik?= <roarbr@tihlde.org>
+Subject: Problems with xfrm (IPSec) and multicast
+Date: Wed, 14 Jun 2006 15:09:59 +0200
+Message-ID: <44900AA7.90800@tihlde.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, David Miller <davem@davemloft.net>,
-	mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:3307 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932329AbWFNMzu
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 08:55:50 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FqUuW-0003oz-Mk
-	for netdev@vger.kernel.org; Wed, 14 Jun 2006 08:55:52 -0400
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <17533.55270.172654.98522@robur.slu.se>
+Received: from [80.239.6.50] ([80.239.6.50]:14588 "EHLO
+	ici-lnx1.sici.thales.no") by vger.kernel.org with ESMTP
+	id S964905AbWFNNKE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Jun 2006 09:10:04 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-31-05 at 19:52 +0200, Robert Olsson wrote:
-> jamal writes:
-> 
->  > Latency-wise: TX completion interrupt provides the best latency.
->  > Processing in the poll() -aka softirq- was almost close to the hardirq
->  > variant. So if you can make things run in a softirq such as transmit
->  > one, then the numbers will likely stay the same.
->  
->  I don't remember we tried tasklet for TX a la Herbert's suggestion but we 
->  used use tasklets for controlling RX processing to avoid hardirq livelock
->  in pre-NAPI versions.
-> 
+Hi,
 
-Hrm - it may have been a private thing i did then. I could swear we did
-that experiment together ...
-Perhaps Herbert's motivation was not really to optimize but rather to
-get something unstuck in the transmit path state machine maybe in a
-context of netconsole? The conditions for which that tasklet would even
-run require a CPU collision to the transmit. Sorry, I didnt quiet follow
-the motivation/discussion that ended in that patch.
+I have configured two Linux PC's to use IPSec to encrypt some mcast tra=
+ffic, using "ip=20
+xfrm". Each PC has two network cards, one connected to a LAN (unencrypt=
+ed side, also=20
+called red side) and one connected to the other node (encrypted side, a=
+lso called black side).
+Currently the setup uses static keys in the SA entries, so IKE is not a=
+ problem.
 
->  Had variants of tulip driver with both TX cleaning at ->poll and TX
->  cleaning at hardirq and didn't see any performance difference. The 
->  ->poll was much cleaner but we kept Alexey's original work for tulip.
-> 
+|<-- RED side -->|<- BLACK network ->|<-- RED side -->|
++-------+   +---------+           +---------+   +-------+
+| LAN A +---+ IPSEC-A +-----------+ IPSEC-B +---+ LAN B |
++-------+   +---------+           +---------+   +-------+
+10.0.10.0/24          192.168.0.0/24          10.0.20.0/24
 
-It certainly is cleaner - but i do recall the hardirq variant had better
-latency much observable under high packet rates aka small packets. 
+Configuration:
+Kernel tested: Linux-2.6.16.13 + 2.6.17-rc4
+LAN A: 10.0.10.0/24
+LAN B: 10.0.20.0/24
+IPSEC-A: RED IP: 10.0.10.1, BLACK IP: 192.168.0.1
+IPSEC-B: RED IP: 10.0.20.1, BLACK IP: 192.168.0.2
+RED mcast group used: 239.192.20.1
+BLACK mcast group used: 239.192.10.1
 
->  > Sorry, I havent been following discussions on netchannels[1] so i am not
->  > qualified to comment on the "replacement" part Dave mentioned earlier.
->  > What I can say is the tx processing doesnt have to be part of the NAPI
->  > poll() and still use hardirq.
-> 
->  Yes true but I see TX numbers with newer boards (wire rate small pakets)
->  with cleaing in ->poll. Also now linux is very safe in network "overload" 
->  situations. Moving work to hardirq may change that.
-> 
+IPSEC-A SA and SP entries:
+[root@ipsec-a ~]# ip xfrm state
+src 192.168.0.1 dst 239.192.10.1
+         proto esp spi 0x00000001 reqid 0 mode tunnel
+         replay-window 4
+         auth sha1 0x00000000010000000002000000000301
+         enc aes 0x000000000000000000000000000000000000000000000001
+         encap type espinudp sport 4500 dport 4500 addr 0.0.0.0
 
-Oh, I am not suggesting a change - i am a lot more conservative than
-that ;-> these areas are delicate (not code-delicate Acme ;->) but
-rather what seems obvious requires a lot of experimental results first.
+[root@ipsec-a ~]# ip xfrm policy
+src 0.0.0.0/0 dst 239.192.20.1/32
+         dir in priority 2147483648
+         tmpl src 192.168.0.1 dst 239.192.10.1
+                 proto esp reqid 0 mode tunnel
+src 10.0.10.0/24 dst 239.192.20.1/32
+         dir out priority 2147483648
+         tmpl src 192.168.0.1 dst 239.192.10.1
+                 proto esp reqid 0 mode tunnel
+src 0.0.0.0/0 dst 239.192.20.1/32
+         dir fwd priority 2147483648
+         tmpl src 192.168.0.1 dst 239.192.10.1
+                 proto esp reqid 0 mode tunnel
 
-Robert, your transmit results Intel or AMD based?
+(The entries for IPSEC-B is similar, but the address 192.168.0.1 is cha=
+nged to the IPSEC-B=20
+BLACK IP 192.168.0.2).
+And I have a small userspace app that opens a socket and bind to port 4=
+500 and issue=20
+setsockopt (fd, SOL_UDP, UDP_ENCAP) so that the kernel will accept UDP =
+encap ESP packets.
 
-cheers,
-jamal
+When I send multicast traffic from IPSEC-A (bound to the RED interface =
+10.0.10.1) to mcast=20
+group 239.192.20.1, the traffic matches the out SP entry and is encrypt=
+ed according to the=20
+SA entry and sent as UDP encap ESP to mcast group 239.192.10.1 on the B=
+LACK network.
 
+On IPSEC-B the UDP encap ESP packet is decrypted and is visible for use=
+rspace processes.=20
+So far so good.
 
+But then I start sending similar mcast traffic the other way, but from =
+IPSEC-B (bound to=20
+IPSEC-B RED IP 10.0.20.1). This traffic is also encrypted and sent to I=
+PSEC-A.
 
+But this packet is not decrypted at IPSEC-A, it seems to disappear. The=
+ IP and UDP SNMP=20
+counters increase for the received UDP encap ESP packet, but I cannot s=
+ee what happens to=20
+the packet after the UDP layer. Seems like it is dropped somewhere in X=
+=46RM?
+
+By sending some more packets from IPSEC-B (roughly 5-8 more packets), t=
+hese packets=20
+suddenly starts to be decrypted at IPSEC-A and all is well. Until I sta=
+rt traffic the=20
+other way around again, when the same problem occurs at IPSEC-B.
+
+So I cannot make encrypted multicast traffic to flow both ways at the s=
+ame time, and has=20
+no clue as to why the first packets after changing direction is dropped=
+ somewhere.
+
+Anyone have a clue to this observed problem with linux xfrm and multica=
+st or a better=20
+solution for encrypted multicast on linux 2.6.x?
+
+Any help with this is appreciated and more info (tcpdump, snmp stats an=
+d so on) can be=20
+obtained if needed.
+
+--=20
+Roar Bj=F8rgum Rotvik
