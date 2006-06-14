@@ -1,41 +1,38 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [RFC/PATCH 1/2] in-kernel sockets API
-Date: Wed, 14 Jun 2006 13:52:16 -0700
-Message-ID: <1150318336.20846.22.camel@w-sridhar2.beaverton.ibm.com>
-References: <1150156562.19929.32.camel@w-sridhar2.beaverton.ibm.com>
-	 <20060613140716.6af45bec@localhost.localdomain>
-	 <20060613052215.B27858@openss7.org> <448F2A49.5020809@google.com>
-	 <20060614133022.GU11863@sunbeam.de.gnumonks.org>
-	 <44904C08.6020307@google.com>
+From: Sitsofe Wheeler <sitsofe@yahoo.com>
+Subject: skge wake on lan failing
+Date: Wed, 14 Jun 2006 22:10:26 +0100
+Message-ID: <pan.2006.06.14.21.10.25.592167@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, bidulock@openss7.org,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:31439 "EHLO e1.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932292AbWFNUxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 16:53:04 -0400
-To: Daniel Phillips <phillips@google.com>, davem@davemloft.net
-In-Reply-To: <44904C08.6020307@google.com>
+Received: from main.gmane.org ([80.91.229.2]:45749 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S932293AbWFNVPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 17:15:04 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1Fqcha-0004m9-2i
+	for netdev@vger.kernel.org; Wed, 14 Jun 2006 23:15:02 +0200
+Received: from cpc3-cwma2-0-0-cust739.swan.cable.ntl.com ([81.96.206.228])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2006 23:15:02 +0200
+Received: from sitsofe by cpc3-cwma2-0-0-cust739.swan.cable.ntl.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 14 Jun 2006 23:15:02 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-14 at 10:48 -0700, Daniel Phillips wrote:
+Hello,
 
-> 
-> Did we settle the question of whether these particular exports should be
-> EXPORT_SYMBOL_GPL?
+We have a bunch of PCI D-Link System Inc DGE-530T Gigabit Ethernet cards
+which use the skge driver. However, the link light for a given card goes
+off at the switch during a suspend to ram or power down even though an
+"ethtool -s eth0 wol g" has been issued.
 
-When i submitted this patch, i didn't really think about the different
-ways to export these symbols. I simply used the EXPORT_SYMBOL() that is 
-used by all the other exports in net/socket.c including kernel_sendmsg()
-and kernel_recvmsg().
+Can anyone shed any light on the problem?
 
-I am OK with either option(EXPORT_SYMBOL or EXPORT_SYMBOL_GPL) and i will
-leave it to David Miller to make that decision at this point.
+-- 
+Sitsofe | http://sucs.org/~sits/
 
-Thanks
-Sridhar
 
