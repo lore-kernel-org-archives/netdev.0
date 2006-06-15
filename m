@@ -1,41 +1,42 @@
-From: Russell Stuart <russell-tcatm@stuart.id.au>
-Subject: Re: [PATCH 2/2] NET: Accurate packet scheduling for ATM/ADSL
-	(userspace)
-Date: Thu, 15 Jun 2006 10:47:29 +1000
-Message-ID: <1150332449.8605.40.camel@ras.pc.brisbane.lube>
-References: <1150278040.26181.37.camel@localhost.localdomain>
-	 <1150282625.3490.23.camel@localhost.localdomain>
+From: "Jeannie Dailey" <JeannieDailey@0451.com>
+Subject: Your health, oil shark
+Date: Thu, 15 Jun 2006 02:52:41 +0000 (UTC)
+Message-ID: <37941524.20060708025300__3891.04877035624$1150339961$gmane$org@0451.com>
+Reply-To: "Jeannie Dailey" <JeannieDailey@0451.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:48825 "EHLO
-	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
-	id S1750971AbWFOAsh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Jun 2006 20:48:37 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1150282625.3490.23.camel@localhost.localdomain>
+Received: from zeus1.kernel.org ([204.152.191.4]:38328 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751296AbWFOCw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Jun 2006 22:52:26 -0400
+Date: Sat, 8 Jul 2006 02:53:00 +0300
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-14 at 11:57 +0100, Alan Cox wrote:
-> The other problem I see with this code is it is very tightly tied to ATM
-> cell sizes, not to solving the generic question of packetisation.
+Even if you have no erectin problems SOFT CIAzLIS 
+would help you to make BETTER SE  X MORE OFTEN!
+and to bring  unimagnable plesure to her.
 
-Others have made this point also.  I can't speak for Jesper,
-but I did consider making it generic.  The issue was that 
-doing so would add more code, but I don't personally know 
-of any real world situation that would use the generic 
-solution.  I didn't fancy the thought of arguing on these
-lists for code that no one would actually use.
+Just disolve half a pil under your tongue 
+and get ready for action in 15 minutes. 
 
-If someone could put up their hand and say "Hey, I need
-this," then expanding the patch to accommodate them would
-be a pleasure.  I like generic code too.
+The tests showed that the majority of men 
+after taking this medic ation were able to have 
+PERFECT ER ECTI ON during 36 hours!
 
+VISIT US, AND GET OUR SPECIAL 70% DISC OUNT OFER!
 
-Russell
+http://olgiks.livingpaw.com/?76593014
 
+==========
+thing or two about flying!
+We came out into the sun and stopped by the boot. Tender reached out for it.
+that? What does it feel like? How far can you go?"
+could see how  pleased he was. His  eyes  lit up and there was  color in his
+answer "Woman" is disallowed as too obvious a rejoinder.)
+"That's all I wanted cleared up. You're Free to go.
+
+     Fletcher Seagull, who loved aerobatics like no  one  else,  conquered
+store for me here?"
