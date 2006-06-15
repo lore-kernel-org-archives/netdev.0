@@ -1,33 +1,33 @@
-From: NURQbOF92@tpts4.seed.net.tw
-Subject: =?ISO-8859-1?Q?=20A=5FD:=C4=E3=C6=F3=D2=B5=B9=DC=C0=ED=B5=C4?= =?ISO-8859-1?Q?=CE=CA=CC?=
-	=?ISO-8859-1?Q?=E2,=CE=D2=C3=C7=CD=B3=CD=B3=BF=C9=D2=D4=BD=E2?=
-	=?ISO-8859-1?Q?=BE=F6?=
-Date: Thu, 15 Jun 2006 17:33:51 -0400
-Message-ID: <LaHHmRB9QpFFUO@giga.net.tw>
-Content-Type: text/plain;
-Content-Transfer-Encoding: Quoted-Printable
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: skge wake on lan failing
+Date: Thu, 15 Jun 2006 14:38:43 -0700
+Message-ID: <20060615143843.1dbf0255@dxpl.pdx.osdl.net>
+References: <pan.2006.06.14.21.10.25.592167@yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [219.133.116.202] ([219.133.116.202]:8199 "HELO 202.96.154.15")
-	by vger.kernel.org with SMTP id S1031440AbWFOVdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 17:33:51 -0400
-To: KtyKlhAg@tpts8.seed.net.tw
+Received: from smtp.osdl.org ([65.172.181.4]:53131 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1031457AbWFOVic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 17:38:32 -0400
+To: Sitsofe Wheeler <sitsofe@yahoo.com>
+In-Reply-To: <pan.2006.06.14.21.10.25.592167@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-StartSoft( starterp.oicp.net ) =CF=D6=D4=DA=D2=D1=BE=AD=D3=B5=D3=D0=C1=CB=C6=F3=D2=B5=B9=DC=C0=ED
-=C8=AB=C3=E6=BD=E2=BE=F6=B7=BD=B0=B8.
+On Wed, 14 Jun 2006 22:10:26 +0100
+Sitsofe Wheeler <sitsofe@yahoo.com> wrote:
 
-=C8=CE=BA=CE=C6=F3=D2=B5=B6=BC=BF=C9=D2=D4=D1=A1=D4=F1=B5=BD=CB=FB=C3=C7=D0=E8=D2=AA=B5=C4=C6=F3=D2=B5=B9=DC=C0=ED=C8=ED=BC=FE.=CE=DE=C2=DB=CA=C7=C6=F3=D2=B5
-=D7=CA=D4=B4=B9=DC=C0=EDERP,=BB=B9=CA=C7=CD=F8=C2=E7=B0=EC=B9=AB(OA),=C6=F3=D2=B5=B9=A9=D3=A6=C1=B4(SCM),=BF=CD=BB=A7=B9=D8=CF=B5
-=B9=DC=C0=ED(CRM),=C6=F3=D2=B5=B7=D6=CF=FA=CF=B5=CD=B3(=CD=A8=D3=C3=D0=CD=A3=AC=B5=E7=C4=D4=D0=D0=D2=B5=A3=AC=CD=A8=D1=B6=D0=D0=D2=B5=A3=AC=B7=FE=D7=B0
-=D0=AC=D2=B5=A3=A9,=B6=BC=D3=D0=BA=DC=BA=C3=B5=C4=BD=E2=BE=F6=B7=BD=B0=B8.
+> Hello,
+> 
+> We have a bunch of PCI D-Link System Inc DGE-530T Gigabit Ethernet cards
+> which use the skge driver. However, the link light for a given card goes
+> off at the switch during a suspend to ram or power down even though an
+> "ethtool -s eth0 wol g" has been issued.
+> 
+> Can anyone shed any light on the problem?
 
-=C3=BF=CC=D7=CF=B5=CD=B3=B4=F3=BC=D2=BF=C9=D2=D4=D4=DA=CF=DF=B2=E2=CA=D4,=C8=E7=B9=FB=B2=BB=CA=C7b/s=BD=E1=B9=B9=B5=C4,=D2=B2=D3=D0=B2=E2=CA=D4=B0=E6
-=B1=BE=BF=C9=B9=A9=CF=C2=D4=D8.
-
-=D2=D4=C9=CF=CB=F9=D3=D0=CF=B5=CD=B3=BD=D4=D3=D0=D4=B4=C2=EB=CC=E1=B9=A9,=BF=C9=D2=D4=D0=DE=B8=C4=BC=B0=B6=FE=B4=CE=BF=AA=B7=A2.
-
-=CF=B5=CD=B3=BC=DB=B8=F1=D3=C5=BB=DD,=BB=B6=D3=AD=D7=C9=D1=AF:0 7 5 5 - 6 1 2 8 7 3 1 1  =B2=DC=CF=C8=C9=FA
-E-mail: szcharis@hotmail.com
-
-
+The driver hasn't been tested with Wol. Since I can't get suspend to RAM
+work on any of the systems with the board, it has been hard to test.
+I'll get to it, but it hasn't been high priority.
