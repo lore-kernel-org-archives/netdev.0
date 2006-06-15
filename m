@@ -1,37 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Thu, 15 Jun 2006 22:30:17 +0200
-Message-ID: <20060615203017.GA6724@electric-eye.fr.zoreil.com>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org> <448F5952.1060201@pobox.com> <20060614044412.GA30552@colo.lackof.org> <44902554.7010703@pobox.com> <20060614181419.GA10365@colo.lackof.org> <20060614204720.GA17887@electric-eye.fr.zoreil.com> <20060614223021.GB13212@colo.lackof.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 5/5] bcm43xx-d80211: fix sending of fragments
+Date: Thu, 15 Jun 2006 22:35:47 +0200
+Message-ID: <200606152235.47320.mb@bu3sch.de>
+References: <20060612191606.7AA8E48391@silver.suse.cz> <200606151855.11953.mb@bu3sch.de> <20060615222701.10dddb98@logostar.upir.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Valerie Henson <val_henson@linux.intel.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40403 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1031276AbWFOUdb
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49040
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750798AbWFOUgV
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 16:33:31 -0400
-To: Grant Grundler <grundler@parisc-linux.org>
+	Thu, 15 Jun 2006 16:36:21 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060615222701.10dddb98@logostar.upir.cz>
 Content-Disposition: inline
-In-Reply-To: <20060614223021.GB13212@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Grant Grundler <grundler@parisc-linux.org> :
-[shared irq]
-> I thought we've worked through that already:
-> 	http://www.spinics.net/lists/netdev/msg05902.html
+On Thursday 15 June 2006 22:27, Jiri Benc wrote:
+> Thu, 15 Jun 2006 18:55:11 +0200, Michael Buesch pise:
+> > Please also merge the other patch. It is too hard to figure out
+> > the dependencies for me now. So simply merge it and I will submit
+> > a fixup patch later, after you pushed it out.
+> > The Subject was:
+> > [incomplete 2/5] bcm43xx-d80211: per-queue TX flow control
 > 
-> Patch v3 takes care of that problem.
-> The first step in the sequence is to mask IRQs on the tulip.
-> The "neighbor" device sharing the IRQ will not see any interrupts from
-> the tulip after that.
+> There is no need to hurry. Let's wait with all my d80211 patches to next
+> week so people have enough time to go through them and comment. If there
+> are no objections by start of the next week, I will send a pull request.
+> 
+> Michael, I set up a 'devel' branch in my git repository for you
+> (git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git); it's
+> without the bcm43xx patch.
 
-Afaik free_irq() on a shared irq does not touch the hardware and
-irqs are anything but synchronous. If free_irq() is issued before
-the device is idle and its irq are not acked, it's wrong.
+Oh, nice. Thanks. I will cook a patch against it.
+
+> I'm going away now and won't be available till Monday.
+> 
+> > It's not so much of trouble, if we break wireless-dev for one or
+> > two days, so this is easiest.
+> > Please notify me after you pushed the stuff to public repository,
+> > so I can pull and fix it.
+> 
+> 
 
 -- 
-Ueimor
+Greetings Michael.
