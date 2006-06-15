@@ -1,51 +1,70 @@
-From: Jason <bofh1234567@yahoo.com>
-Subject: SO_REUSEPORT and multicasting
-Date: Thu, 15 Jun 2006 06:31:32 -0700 (PDT)
-Message-ID: <20060615133132.43716.qmail@web53608.mail.yahoo.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: RE: [openib-general] [PATCH v2 1/7] AMSO1100 Low Level Driver.
+Date: Thu, 15 Jun 2006 08:41:03 -0500
+Message-ID: <1150378863.22603.12.camel@stevo-desktop>
+References: <5E701717F2B2ED4EA60F87C8AA57B7CC05D4E2D8@venom2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: openib-general <openib-general@openib.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53608.mail.yahoo.com ([206.190.37.41]:63346 "HELO
-	web53608.mail.yahoo.com") by vger.kernel.org with SMTP
-	id S1030403AbWFONbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 09:31:33 -0400
-To: netdev@vger.kernel.org
+Received: from es335.com ([67.65.19.105]:24373 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1030420AbWFONlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 09:41:04 -0400
+To: Bob Sharp <bsharp@NetEffect.com>
+In-Reply-To: <5E701717F2B2ED4EA60F87C8AA57B7CC05D4E2D8@venom2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, 2006-06-14 at 20:35 -0500, Bob Sharp wrote:
 
-I wrote a program that uses multicasting to send data.
- It works great on HP-UX but does not work on Fedora
-Core 5.  I emailed the fedora list but they were of
-little to no help.  
+> > +void c2_ae_event(struct c2_dev *c2dev, u32 mq_index)
+> > +{
+> > +
 
-Does the kernel support SO_REUSEPORT?  If so can
-anyone give me some suggestions why my program does
-not work on Linux?  I did a route add -net 224.0.0.0/4
-dev eth0 but that did not do anything.
+<snip>
 
-I have found out since I posted this message to
-linux-kernel that SO_REUSEPORT is a BSDism.  The Linux
-equivalent is SO_REUSEADDR which I did try.  My
-program compiles cleanly using SO_REUSEADDR, but the
-server does not receive any messages.  
+> > +	case C2_RES_IND_EP:{
+> > +
+> > +		struct c2wr_ae_connection_request *req =
+> > +			&wr->ae.ae_connection_request;
+> > +		struct iw_cm_id *cm_id =
+> > +			(struct iw_cm_id *)resource_user_context;
+> > +
+> > +		pr_debug("C2_RES_IND_EP event_id=%d\n", event_id);
+> > +		if (event_id != CCAE_CONNECTION_REQUEST) {
+> > +			pr_debug("%s: Invalid event_id: %d\n",
+> > +				__FUNCTION__, event_id);
+> > +			break;
+> > +		}
+> > +		cm_event.event = IW_CM_EVENT_CONNECT_REQUEST;
+> > +		cm_event.provider_data = (void*)(unsigned
+> long)req->cr_handle;
+> > +		cm_event.local_addr.sin_addr.s_addr = req->laddr;
+> > +		cm_event.remote_addr.sin_addr.s_addr = req->raddr;
+> > +		cm_event.local_addr.sin_port = req->lport;
+> > +		cm_event.remote_addr.sin_port = req->rport;
+> > +		cm_event.private_data_len =
+> > +			be32_to_cpu(req->private_data_length);
+> > +
+> > +		if (cm_event.private_data_len) {
+> 
+> 
+> It looks to me as if pdata is leaking here since it is not tracked and
+> the upper layers do not free it.  Also, if pdata is freed after the call
+> to cm_id->event_handler returns, it exposes an issue in user space where
+> the private data is garbage.  I suspect the iwarp cm should be copying
+> this data before it returns.
+> 
 
-I am trying to run the client and server on the same
-PC.  This is just for faster development.  I can code
-faster on my home Linux system than I can on the
-remote HP-UX system.
+Good catch.  
+
+Yes, I think the IWCM should copy the private data in the upcall.  If it
+does, then the amso driver doesn't need to kmalloc()/copy at all.  It
+can pass a ptr to its MQ entry directly...
 
 Thanks,
 
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam
-protection around 
-http://mail.yahoo.com 
+Steve.
 
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam protection around 
-http://mail.yahoo.com 
