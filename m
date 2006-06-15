@@ -1,51 +1,106 @@
-From: "Galinka" <morigan@74.ru>
-Subject: Re[1]: Ave
-Date: Thu, 15 Jun 2006 21:24:11 +0300
-Message-ID: <006c01c690a8$e2c36700$e10a000a__46045.4102642418$1150395848$gmane$org@fPtcQrf>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] s2io: netpoll support
+Date: Thu, 15 Jun 2006 14:36:36 -0400
+Message-ID: <4491A8B4.1050105@hp.com>
+References: <005401c68f41$bc4bfaa0$3e10100a@pc.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: multipart/mixed;
+ boundary="------------090704080601010406090803"
+Cc: ravinandan.arakali@neterion.com, jgarzik@pobox.com,
+	"Ananda. Raju (E-mail)" <ananda.raju@neterion.com>,
+	"Leonid. Grossman (E-mail)" <leonid.grossman@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 200-127-194-9.cab.prima.net.ar ([200.127.194.9]:61198 "EHLO
-	200-127-194-9.cab.prima.net.ar") by vger.kernel.org with ESMTP
-	id S1030951AbWFOSX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 14:23:29 -0400
-To: "netdev" <netdev@vger.kernel.org>
+Received: from ccerelbas04.cce.hp.com ([161.114.21.107]:6828 "EHLO
+	ccerelbas04.cce.hp.com") by vger.kernel.org with ESMTP
+	id S1031050AbWFOSgk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 14:36:40 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <005401c68f41$bc4bfaa0$3e10100a@pc.s2io.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ave =85.=09
+This is a multi-part message in MIME format.
+--------------090704080601010406090803
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I want to start my first letter from a question: "Is it possible to be =
-happy without LOVE?"
-I think that you will agree with me if the answer will be "NO WAY". Lov=
-e is the most beautiful and exciting thing
-that may happen between man and woman! It inspires us only for doing po=
-sitive things towards each other.
-One very famous writer said: "The beauty will rescue the world" i agree=
- with his words but still i would add :
-" LOVE and Beauty will rescure the world".=20
-I hope you agree with me that Love is a big notion.
-There's love to  God, to Mother, to a child to the country where you we=
-re born, and there's love that joins a man
-and woman for all their life. That is the LOVE i'm looking for! And i'm=
- seeking for the man who is also eager to have
-this life long adventure full of surprises and new experience we can sh=
-are together! Will you join me for this trip?
-I do realise that it should be very difficult to say "Yes" from the fir=
-st letter having no idea about me.
-That's why i just offer to get to know each other better though corresp=
-ondence that will help us to reveal many things
-about each other whether we mach perfectly or not. In addition you can =
-look at my pictures and read some info about me here
-http://oW5g4PWfB9D98gNu.im-waiting-4you.net/
-I hope you'll like what you see and read there.
-Well closing my first letter to you i just want to thank you for readin=
-g it and i really hope that you'll share
-my point of view on what i said above. I do really hope that you'll ans=
-wer me soon.
+This adds netpoll support for things like netconsole/kgdboe to the s2io
+10GbE driver.
 
-au revoir...
-Galinka
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
+--------------090704080601010406090803
+Content-Type: text/x-patch;
+ name="s2io.netpoll.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="s2io.netpoll.patch"
 
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 79208f4..f2b8dba 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -2575,6 +2575,50 @@ no_rx:
+ #endif
+ 
+ /**
++ * s2io_netpoll - Rx interrupt service handler for netpoll support
++ * @dev : pointer to the device structure.
++ * Description:
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void s2io_netpoll(struct net_device *dev)
++{
++	nic_t *nic = dev->priv;
++	mac_info_t *mac_control;
++	struct config_param *config;
++	XENA_dev_config_t __iomem *bar0 = nic->bar0;
++	u64 val64;
++	int i;
++
++	disable_irq(dev->irq);
++
++	atomic_inc(&nic->isr_cnt);
++	mac_control = &nic->mac_control;
++	config = &nic->config;
++
++	val64 = readq(&bar0->rx_traffic_int);
++	writeq(val64, &bar0->rx_traffic_int);
++
++	for (i = 0; i < config->rx_ring_num; i++)
++		rx_intr_handler(&mac_control->rings[i]);
++
++	for (i = 0; i < config->rx_ring_num; i++) {
++		if (fill_rx_buffers(nic, i) == -ENOMEM) {
++			DBG_PRINT(ERR_DBG, "%s:Out of memory", dev->name);
++			DBG_PRINT(ERR_DBG, " in Rx Netpoll!!\n");
++			break;
++		}
++	}
++	atomic_dec(&nic->isr_cnt);
++	enable_irq(dev->irq);
++	return;
++}
++#endif
++
++/**
+  *  rx_intr_handler - Rx interrupt handler
+  *  @nic: device private variable.
+  *  Description:
+@@ -6210,6 +6254,10 @@ Defaulting to INTA\n");
+ 	dev->weight = 32;
+ #endif
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = s2io_netpoll;
++#endif
++
+ 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+ 	if (sp->high_dma_flag == TRUE)
+ 		dev->features |= NETIF_F_HIGHDMA;
+
+--------------090704080601010406090803--
