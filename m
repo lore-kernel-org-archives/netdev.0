@@ -1,72 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Pull request for 'upstream' branch
-Date: Thu, 15 Jun 2006 23:21:09 +0200
-Message-ID: <20060615212109.GA6817@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, palopezv@gmail.com, nacc@us.ibm.com
+From: NURQbOF92@tpts4.seed.net.tw
+Subject: =?ISO-8859-1?Q?=20A=5FD:=C4=E3=C6=F3=D2=B5=B9=DC=C0=ED=B5=C4?= =?ISO-8859-1?Q?=CE=CA=CC?=
+	=?ISO-8859-1?Q?=E2,=CE=D2=C3=C7=CD=B3=CD=B3=BF=C9=D2=D4=BD=E2?=
+	=?ISO-8859-1?Q?=BE=F6?=
+Date: Thu, 15 Jun 2006 17:33:51 -0400
+Message-ID: <LaHHmRB9QpFFUO@giga.net.tw>
+Content-Type: text/plain;
+Content-Transfer-Encoding: Quoted-Printable
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44703 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1031425AbWFOVVS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 17:21:18 -0400
-To: jeff@garik.org
-Content-Disposition: inline
+Received: from [219.133.116.202] ([219.133.116.202]:8199 "HELO 202.96.154.15")
+	by vger.kernel.org with SMTP id S1031440AbWFOVdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 17:33:51 -0400
+To: KtyKlhAg@tpts8.seed.net.tw
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please pull from branch 'upstream' to get the change below:
+StartSoft( starterp.oicp.net ) =CF=D6=D4=DA=D2=D1=BE=AD=D3=B5=D3=D0=C1=CB=C6=F3=D2=B5=B9=DC=C0=ED
+=C8=AB=C3=E6=BD=E2=BE=F6=B7=BD=B0=B8.
 
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+=C8=CE=BA=CE=C6=F3=D2=B5=B6=BC=BF=C9=D2=D4=D1=A1=D4=F1=B5=BD=CB=FB=C3=C7=D0=E8=D2=AA=B5=C4=C6=F3=D2=B5=B9=DC=C0=ED=C8=ED=BC=FE.=CE=DE=C2=DB=CA=C7=C6=F3=D2=B5
+=D7=CA=D4=B4=B9=DC=C0=EDERP,=BB=B9=CA=C7=CD=F8=C2=E7=B0=EC=B9=AB(OA),=C6=F3=D2=B5=B9=A9=D3=A6=C1=B4(SCM),=BF=CD=BB=A7=B9=D8=CF=B5
+=B9=DC=C0=ED(CRM),=C6=F3=D2=B5=B7=D6=CF=FA=CF=B5=CD=B3(=CD=A8=D3=C3=D0=CD=A3=AC=B5=E7=C4=D4=D0=D0=D2=B5=A3=AC=CD=A8=D1=B6=D0=D0=D2=B5=A3=AC=B7=FE=D7=B0
+=D0=AC=D2=B5=A3=A9,=B6=BC=D3=D0=BA=DC=BA=C3=B5=C4=BD=E2=BE=F6=B7=BD=B0=B8.
 
-Patch applies both to jeff#upstream and jeff#upstream-fixes
+=C3=BF=CC=D7=CF=B5=CD=B3=B4=F3=BC=D2=BF=C9=D2=D4=D4=DA=CF=DF=B2=E2=CA=D4,=C8=E7=B9=FB=B2=BB=CA=C7b/s=BD=E1=B9=B9=B5=C4,=D2=B2=D3=D0=B2=E2=CA=D4=B0=E6
+=B1=BE=BF=C9=B9=A9=CF=C2=D4=D8.
 
-Shortlog
---------
+=D2=D4=C9=CF=CB=F9=D3=D0=CF=B5=CD=B3=BD=D4=D3=D0=D4=B4=C2=EB=CC=E1=B9=A9,=BF=C9=D2=D4=D0=DE=B8=C4=BC=B0=B6=FE=B4=CE=BF=AA=B7=A2.
 
-Pedro Alejandro L=F3pez-Valencia:
-      sundance: PCI ID for ip100a
+=CF=B5=CD=B3=BC=DB=B8=F1=D3=C5=BB=DD,=BB=B6=D3=AD=D7=C9=D1=AF:0 7 5 5 - 6 1 2 8 7 3 1 1  =B2=DC=CF=C8=C9=FA
+E-mail: szcharis@hotmail.com
 
-
-Patch
------
-
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 61eec46..f13b2a1 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -94,11 +94,13 @@
- 	Version LK1.10 (Philippe De Muyter phdm@macqel.be):
- 	- Make 'unblock interface after Tx underrun' work
-=20
-+	Version LK1.11 (Pedro Alejandro Lopez-Valencia palopezv at gmail.com)=
-:
-+	- Add support for IC Plus Corporation IP100A chipset
- */
-=20
- #define DRV_NAME	"sundance"
--#define DRV_VERSION	"1.01+LK1.10"
--#define DRV_RELDATE	"28-Oct-2005"
-+#define DRV_VERSION	"1.01+LK1.11"
-+#define DRV_RELDATE	"14-Jun-2006"
-=20
-=20
- /* The user-configurable values.
-@@ -287,6 +289,7 @@ static struct pci_device_id sundance_pci
- 	{0x1186, 0x1002, 0x1186, 0x1040, 0, 0, 3},
- 	{0x1186, 0x1002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4},
- 	{0x13F0, 0x0201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5},
-+	{0x13F0, 0x0200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 6},
- 	{0,}
- };
- MODULE_DEVICE_TABLE(pci, sundance_pci_tbl);
-@@ -305,6 +308,7 @@ static const struct pci_id_info pci_id_t
- 	{"D-Link DFE-530TXS FAST Ethernet Adapter"},
- 	{"D-Link DL10050-based FAST Ethernet Adapter"},
- 	{"Sundance Technology Alta"},
-+	{"IC Plus Corporation IP100A FAST Ethernet Adapter"},
- 	{NULL,},			/* 0 terminated list. */
- };
-=20
 
