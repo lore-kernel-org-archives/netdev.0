@@ -1,50 +1,55 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 5/5] bcm43xx-d80211: fix sending of fragments
-Date: Thu, 15 Jun 2006 22:35:47 +0200
-Message-ID: <200606152235.47320.mb@bu3sch.de>
-References: <20060612191606.7AA8E48391@silver.suse.cz> <200606151855.11953.mb@bu3sch.de> <20060615222701.10dddb98@logostar.upir.cz>
+From: Mitch Williams <mitch.a.williams@intel.com>
+Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
+Date: Thu, 15 Jun 2006 13:45:57 -0700
+Message-ID: <Pine.CYG.4.58.0606151344120.928@mawilli1-desk2.amr.corp.intel.com>
+References: <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com>
+ <x49d5dkvm8p.fsf@segfault.boston.redhat.com> <1149787174.2928.3.camel@strongmad>
+ <x49ac8nwo83.fsf@redhat.com> <20060612001356.GA5112@localhost.localdomain>
+ <1150130534.2879.9.camel@strongmad> <20060612180600.GB3790@hmsreliant.homelinux.net>
+ <20060614204158.GA3967@hmsreliant.homelinux.net>
+ <Pine.CYG.4.58.0606141635440.2888@mawilli1-desk2.amr.corp.intel.com>
+ <20060615124355.GA32582@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	Matt Mackall <mpm@selenic.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49040
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750798AbWFOUgV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 16:36:21 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060615222701.10dddb98@logostar.upir.cz>
-Content-Disposition: inline
+Received: from fmr17.intel.com ([134.134.136.16]:29673 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S932455AbWFOUrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 16:47:10 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060615124355.GA32582@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 15 June 2006 22:27, Jiri Benc wrote:
-> Thu, 15 Jun 2006 18:55:11 +0200, Michael Buesch pise:
-> > Please also merge the other patch. It is too hard to figure out
-> > the dependencies for me now. So simply merge it and I will submit
-> > a fixup patch later, after you pushed it out.
-> > The Subject was:
-> > [incomplete 2/5] bcm43xx-d80211: per-queue TX flow control
-> 
-> There is no need to hurry. Let's wait with all my d80211 patches to next
-> week so people have enough time to go through them and comment. If there
-> are no objections by start of the next week, I will send a pull request.
-> 
-> Michael, I set up a 'devel' branch in my git repository for you
-> (git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git); it's
-> without the bcm43xx patch.
+Andy Grover <andrew.grover@intel.com> is the guy.  I'm not sure when he'll
+be working on this; it's somewhere in his TODO pile.
 
-Oh, nice. Thanks. I will cook a patch against it.
+On Thu, 15 Jun 2006, John W. Linville wrote:
 
-> I'm going away now and won't be available till Monday.
-> 
-> > It's not so much of trouble, if we break wireless-dev for one or
-> > two days, so this is easiest.
-> > Please notify me after you pushed the stuff to public repository,
-> > so I can pull and fix it.
-> 
-> 
-
--- 
-Greetings Michael.
+>
+> On Wed, Jun 14, 2006 at 04:44:56PM -0700, Mitch Williams wrote:
+>
+> > One of our engineers (on the I/O AT team) has been tasked with modifying
+> > the Linux kernel to properly support multiple hardware queues (both TX and
+> > RX).  We'll make sure that he looks at the netpoll interface as part of
+> > that process.
+>
+> Might I ask who this is?  I might like to ping him/her on this topic.
+> There is potentially some overlap with wireless, at least on the
+> transmit side.
+>
+> John
+> --
+> John W. Linville
+> linville@tuxdriver.com
+>
+>
+>
