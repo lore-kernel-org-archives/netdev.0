@@ -1,52 +1,20 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [Ubuntu PATCH] Broadcom wireless patch, PCIE/Mactel support
-Date: Thu, 15 Jun 2006 10:12:09 -0700
-Message-ID: <449194E9.7090503@oracle.com>
-References: <44909A3F.4090905@oracle.com> <20060615133220.57d8dd26@localhost>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [BUG] HTB panic
+Date: Thu, 15 Jun 2006 09:47:14 -0700
+Message-ID: <20060615094714.5785d24a@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, mb@bu3sch.de,
-	akpm <akpm@osdl.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:55470 "EHLO
-	rgminet01.oracle.com") by vger.kernel.org with ESMTP
-	id S1030581AbWFOQMB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 12:12:01 -0400
-To: Stefano Brivio <stefano.brivio@polimi.it>
-In-Reply-To: <20060615133220.57d8dd26@localhost>
+Received: from smtp.osdl.org ([65.172.181.4]:22763 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030842AbWFOQri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 12:47:38 -0400
+To: Jamal <hadi@cyberus.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stefano Brivio wrote:
-> On Wed, 14 Jun 2006 16:22:39 -0700
-> Randy Dunlap <randy.dunlap@oracle.com> wrote:
-> 
->> From: Matthew Garrett <mjg59@srcf.ucam.org>
->>
->> Broadcom wireless patch, PCIE/Mactel support
->>
->> http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=1373a8487e911b5ee204f4422ddea00929c8a4cc
->>
->> This patch adds support for PCIE cores to the bcm43xx driver. This is
->> needed for wireless to work on the Intel imacs. I've submitted it to
->> bcm43xx upstream.
-> 
-> NACK.
-> This has been superseded by my patchset:
-> http://www.mail-archive.com/bcm43xx-dev@lists.berlios.de/msg01267.html
-> 
-> I'm still waiting for more testing so I didn't request merging to mainline
-> yet. Plus, this patch is copied from this one:
-> http://www.mail-archive.com/bcm43xx-dev@lists.berlios.de/msg00919.html
-> which is wrong. Please see my patchset and new specs for reference.
-> 
-> PS: Next time, don't be rude and send patches to the maintainers.
+Could some one who has used HTB fix this bug? Looks like a simple use after
+free.
 
-Noted.
-
-Thanks for your comments.
-
-~Randy
-
+http://bugzilla.kernel.org/show_bug.cgi?id=6681
