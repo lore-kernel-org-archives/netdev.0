@@ -1,41 +1,36 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: RE: [openib-general] [PATCH v2 1/7] AMSO1100 Low Level Driver.
-Date: Thu, 15 Jun 2006 16:58:29 -0500
-Message-ID: <1150408709.6612.16.camel@stevo-desktop>
-References: <54AD0F12E08D1541B826BE97C98F99F15767E3@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: SO_REUSEPORT and multicasting
+Date: Thu, 15 Jun 2006 15:29:40 -0700
+Message-ID: <OF9A73D312.95AF6465-ON8825718E.007AD559-8825718E.007AEA9F@us.ibm.com>
+References: <20060615133132.43716.qmail@web53608.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Bob Sharp <bsharp@NetEffect.com>,
-	openib-general <openib-general@openib.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:35588 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1031507AbWFOV6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 17:58:31 -0400
-To: Caitlin Bestler <caitlinb@broadcom.com>
-In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F15767E3@NT-SJCA-0751.brcm.ad.broadcom.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:46043 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750797AbWFOWWe
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 18:22:34 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5FMMYI7009680
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 15 Jun 2006 18:22:34 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by westrelay02.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5FMMIQA224842
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 15 Jun 2006 16:22:18 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5FMMXwU015316
+	for <netdev@vger.kernel.org>; Thu, 15 Jun 2006 16:22:33 -0600
+Received: from d03nm121.boulder.ibm.com (d03nm121.boulder.ibm.com [9.17.195.147])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5FMMXwv015313
+	for <netdev@vger.kernel.org>; Thu, 15 Jun 2006 16:22:33 -0600
+In-Reply-To: <20060615133132.43716.qmail@web53608.mail.yahoo.com>
+To: Jason <bofh1234567@yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > Now that I've looked more into this, I'm not sure there's a
-> > simple way for the IWCM to copy the pdata on the upcall.
-> > Currently, the IWCM's event upcall, cm_event_handler(),
-> > simply queues the work for processing on a workqueue thread.
-> > So there's no per-event logic at all there.
-> > Lemme think on this more.  Stay tuned.
-> > 
-> > Either way, the amso driver has a memory leak...
-> > 
-> 
-> Having the IWCM copy the pdata during the upcall also leaves
-> the greatest flexibility for the driver on how/where the pdata
-> is captured. The IWCM has to deal with user-mode, indefinite
-> delays waiting for a response and user-mode processes that die
-> while holding a connection request. So it makes sense for that
-> layer to do the allocating and copying.
+If you can send me (or post) the program, I may be able to help.
 
-I've already coded and test this.  The IWCM will copy the pdata...
-
-Steve.
+                                +-DLS
 
