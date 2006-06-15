@@ -1,57 +1,84 @@
-From: Faidon Liambotis <faidon@cube.gr>
-Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
-Date: Thu, 15 Jun 2006 08:15:10 +0300
-Message-ID: <4490ECDE.2030600@cube.gr>
-References: <20060610175010.GA4617@divinity>	 <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com>	 <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity>	 <20060612152434.GA14851@tuxdriver.com> <1150346713.26487.24.camel@dv>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [patch] ipv4: fix lock usage in udp_ioctl
+Date: Thu, 15 Jun 2006 08:55:31 +0200
+Message-ID: <20060615065531.GA10411@osiris.ibm.com>
+References: <20060614194305.GB10391@osiris.ibm.com> <E1FqeXX-0008OE-00@gondolin.me.apana.org.au> <20060615052806.GA19803@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	jgarzik@pobox.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, fpavlic@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5-static.acn.gr ([213.5.41.24]:8072 "EHLO
-	mail5-static.acn.gr") by vger.kernel.org with ESMTP id S932443AbWFOGFA
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:19998 "EHLO
+	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP id S932094AbWFOG4C
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 02:05:00 -0400
-Received: from mailslb.acn.gr (unknown [172.31.10.109])
-	by mail5-static.acn.gr (Postfix) with ESMTP id 302A84B3FF4
-	for <netdev@vger.kernel.org>; Thu, 15 Jun 2006 08:14:44 +0300 (EEST)
-To: Pavel Roskin <proski@gnu.org>
-In-Reply-To: <1150346713.26487.24.camel@dv>
+	Thu, 15 Jun 2006 02:56:02 -0400
+To: Ingo Molnar <mingo@elte.hu>
+Content-Disposition: inline
+In-Reply-To: <20060615052806.GA19803@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Jun 15, 2006 at 08:28:07AM +0200, Ingo Molnar wrote:
+> 
+> * Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > This is bogus.  These two locks belong to two different queues and 
+> > they never intersect.
+> 
+> yeah - qeth does its own skb-queue management here, and it's done in an 
+> irq-safe manner.
+> 
+> Heiko, in qeth_main.c, could you do something like:
+> 
+> + static struct lockdep_type_key qdio_out_skb_queue_key;
+> 
+> ...
+> 		skb_queue_head_init(&card->qdio.out_qs[i]->bufs[j].
+> 				     skb_list);
+> +		lockdep_reinit_key(&card->qdio.out_qs[i]->bufs[j].skb_list,
+> 				   &qdio_out_skb_queue_key)
 
-Pavel Roskin wrote:
-> The patch in question was never submitted to the orinoco mailing list.
-> I believe any such changes should be discussed by people using the
-> driver and participating in its development.  It's not some minor change
-> or API update.
-I'm sorry for not submitting/CCing this to the orinoco mailing list, I
-should have.
+How about the patch below? The warning goes away and I assume "tmp_list" needs
+lockdep_reinit_key too, since it should have the same locking rules as the
+rest of qeth's skb-queue management.
 
-> I'm ready to consider disabling some ID's conditionally, primarily for
-> systems that cannot use udev.  But it's far from the top of my TODO
-> list.  And I'm not sure it would actually help users of desktop
-> distributions.
-Well, that would be very nice, thanks!
-But do you think that it will be enough? I mean, orinoco_{pci,plx,tdm}
-exist only to support Prism2 chipsets.
-HostAP a rather big and complete driver for Prism2/2.5/3.0 chipsets;
-we're going to have another one based on the dscape stack too.
-Do you think that there's a point on having the orinoco driver
-supporting this chipset any more?
-I don't mean to disrespect your work -- orinoco has served us for quite
-a few years, but HostAP seems like a better alternative for these cards.
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
 
-Please don't get offended by this -- I'm sure you've spent quite some
-time on the particular code.
+Avoid false positive illegal lock usage message in qeth driver.
 
-Regarding the disabling of IDs, I could prepare a patch for orinoco_cs
-that would disable Prism2 support via a configuration option. Would that
-be helpful/acceptable?
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+---
 
-Best regards,
-Faidon
+ drivers/s390/net/qeth_main.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+--- a/drivers/s390/net/qeth_main.c	2006-06-15 08:46:26.000000000 +0200
++++ b/drivers/s390/net/qeth_main.c	2006-06-15 08:29:58.000000000 +0200
+@@ -85,6 +85,8 @@ static debug_info_t *qeth_dbf_qerr = NUL
+ 
+ DEFINE_PER_CPU(char[256], qeth_dbf_txt_buf);
+ 
++static struct lockdep_type_key qdio_out_skb_queue_key;
++
+ /**
+  * some more definitions and declarations
+  */
+@@ -3230,6 +3232,9 @@ qeth_alloc_qdio_buffers(struct qeth_card
+ 				&card->qdio.out_qs[i]->qdio_bufs[j];
+ 			skb_queue_head_init(&card->qdio.out_qs[i]->bufs[j].
+ 					    skb_list);
++			lockdep_reinit_key(
++				&card->qdio.out_qs[i]->bufs[j].skb_list.lock,
++				&qdio_out_skb_queue_key);
+ 			INIT_LIST_HEAD(&card->qdio.out_qs[i]->bufs[j].ctx_list);
+ 		}
+ 	}
+@@ -5273,6 +5278,7 @@ qeth_free_vlan_buffer(struct qeth_card *
+ 	struct sk_buff_head tmp_list;
+ 
+ 	skb_queue_head_init(&tmp_list);
++	lockdep_reinit_key(&tmp_list.lock, &qdio_out_skb_queue_key);
+ 	for(i = 0; i < QETH_MAX_BUFFER_ELEMENTS(card); ++i){
+ 		while ((skb = skb_dequeue(&buf->skb_list))){
+ 			if (vlan_tx_tag_present(skb) &&
