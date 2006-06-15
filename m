@@ -1,46 +1,36 @@
-From: Mark Huth <mhuth@mvista.com>
-Subject: Question:  Virtual device error return is mangled
-Date: Thu, 15 Jun 2006 16:33:30 -0700
-Message-ID: <4491EE4A.8060001@mvista.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [Ubuntu PATCH] Broadcom wireless patch, PCIE/Mactel support
+Date: Thu, 15 Jun 2006 17:41:54 +0200
+Message-ID: <1150386115.2987.7.camel@laptopd505.fenrus.org>
+References: <44909A3F.4090905@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, mb@bu3sch.de,
+	akpm <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from homer.mvista.com ([63.81.120.158]:3243 "EHLO
-	gateway-1237.mvista.com") by vger.kernel.org with ESMTP
-	id S1750749AbWFOXVs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 19:21:48 -0400
-To: netdev@vger.kernel.org
+Received: from pentafluge.infradead.org ([213.146.154.40]:59863 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750825AbWFPAzs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 20:55:48 -0400
+To: Randy Dunlap <randy.dunlap@oracle.com>
+In-Reply-To: <44909A3F.4090905@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Why does net/core/dev.c: dev_queue_transmit not pass back the actual 
-status from hard_start_xmit in the case of a virtual device, and why is 
-an error return considered a critical kernel error?
+On Wed, 2006-06-14 at 16:22 -0700, Randy Dunlap wrote:
+> From: Matthew Garrett <mjg59@srcf.ucam.org>
+> 
+> Broadcom wireless patch, PCIE/Mactel support
+> 
+> http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=1373a8487e911b5ee204f4422ddea00929c8a4cc
+> 
+> This patch adds support for PCIE cores to the bcm43xx driver. This is
+> needed for wireless to work on the Intel imacs. I've submitted it to
+> bcm43xx upstream.
 
-ie why:
 
-          if (!dev->hard_start_xmit(skb, dev)) {
-             ...
-    rc = -ENETDOWN;
-             ...
-    return rc;
+who's signing off on these patches??
 
 
-instead of :
-          if (!rc = dev->hard_start_xmit(skb, dev)) {
-             ...
-
-             ...
-    return rc;
-
-In the case of a real device, a qdisc error gets returned up the stack, 
-while in the case of say a bonding device enslaving the real device and 
-encountering the same error, success gets returned up the stack.  The 
-various virtual devices seem to return success whatever happens, but it 
-seems like this behavior is chosen due to the fact that the real status 
-cannot be passed back, even if the virtural device manages the skb ref 
-count correctly, as dev_queue_transmit will turn it into -ENETDOWN.
-
-Thanks,
-Mark Huth
