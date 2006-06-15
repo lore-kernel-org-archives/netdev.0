@@ -1,36 +1,52 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [2/2] [BRIDGE]: Add support for NETIF_F_HW_CSUM devices
-Date: Thu, 15 Jun 2006 13:55:36 -0700
-Message-ID: <20060615135536.2a20058d@dxpl.pdx.osdl.net>
-References: <20060613112511.GA13204@gondor.apana.org.au>
-	<20060613112543.GA13253@gondor.apana.org.au>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [patch] workaround zd1201 interference problem
+Date: Thu, 15 Jun 2006 23:00:11 +0200
+Message-ID: <20060615210011.GA2232@elf.ucw.cz>
+References: <20060607140045.GB1936@elf.ucw.cz> <20060607160828.0045e7f5@griffin.suse.cz> <20060607141536.GD1936@elf.ucw.cz> <4486FD2F.8040205@gentoo.org> <20060608070525.GE3688@elf.ucw.cz> <4489ECD0.1030908@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@suse.cz>, linville@tuxdriver.com,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:9709 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1031358AbWFOU7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 16:59:05 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060613112543.GA13253@gondor.apana.org.au>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:18882 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1031363AbWFOVA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 17:00:59 -0400
+To: Daniel Drake <dsd@gentoo.org>
+Content-Disposition: inline
+In-Reply-To: <4489ECD0.1030908@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jun 2006 21:25:43 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Hi!
 
-> Hi:
+> Pavel Machek wrote:
+> >if you plug zd1201 into USB, it starts jamming radio,
+> >immediately. Enable/disable, or iwlist wlan0 scan, or basically any
+> >operation unjams the radio. This patch works it around:
 > 
-> [BRIDGE]: Add support for NETIF_F_HW_CSUM devices
+> Can we be any more specific?
 > 
-> As it is the bridge will only ever declare NETIF_F_IP_CSUM even if all
-> its constituent devices support NETIF_F_HW_CSUM.  This patch fixes this
-> by supporting the first one out of NETIF_F_NO_CSUM, NETIF_F_HW_CSUM,
-> and NETIF_F_IP_CSUM that is supported by all constituent devices.
+> At which precise point does the interference start? Does it happen even 
+> without the driver loaded?
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
+> Which operation is the one which stops the interference, the enable or 
+> the disable?
 
-Looks fine.
+enable alone is enough to stop the interference, but leaving card
+enabled after load seems like a dirty hack.
+
+> Does this happen on every plug in, or just sometimes? Is it affected by 
+> usage patterns such as having the device plugged in throughout boot, 
+> reloading the module, etc?
+
+If I remove the firmware file, interference does not start... that
+should be close to "not having module loaded".
+
+I think I've answered all the questions now? :-).
+
+								Pavel
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
