@@ -1,40 +1,129 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Thu, 15 Jun 2006 08:44:00 -0400
-Message-ID: <20060615124355.GA32582@tuxdriver.com>
-References: <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com> <x49d5dkvm8p.fsf@segfault.boston.redhat.com> <1149787174.2928.3.camel@strongmad> <x49ac8nwo83.fsf@redhat.com> <20060612001356.GA5112@localhost.localdomain> <1150130534.2879.9.camel@strongmad> <20060612180600.GB3790@hmsreliant.homelinux.net> <20060614204158.GA3967@hmsreliant.homelinux.net> <Pine.CYG.4.58.0606141635440.2888@mawilli1-desk2.amr.corp.intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Thu, 15 Jun 2006 08:57:58 -0400
+Message-ID: <1150376278.5116.32.camel@jzny2>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+	 <1150286766.5233.15.camel@jzny2>
+	 <1150289724.26181.74.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
+	lartc@mailman.ds9a.nl, russell-tcatm@stuart.id.au, hawk@diku.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-70-61-120-52.midsouth.biz.rr.com ([70.61.120.52]:25613
-	"EHLO ra.tuxdriver.com") by vger.kernel.org with ESMTP
-	id S1030322AbWFOMo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 08:44:57 -0400
-To: Mitch Williams <mitch.a.williams@intel.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.CYG.4.58.0606141635440.2888@mawilli1-desk2.amr.corp.intel.com>
+Received: from mx03.cybersurf.com ([209.197.145.106]:62865 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1030381AbWFOM6o
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 08:58:44 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FqrQn-0002l8-RV
+	for netdev@vger.kernel.org; Thu, 15 Jun 2006 08:58:41 -0400
+To: Jesper Dangaard Brouer <hawk@comx.dk>
+In-Reply-To: <1150289724.26181.74.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 14, 2006 at 04:44:56PM -0700, Mitch Williams wrote:
+On Wed, 2006-14-06 at 14:55 +0200, Jesper Dangaard Brouer wrote:
+> On Wed, 2006-06-14 at 08:06 -0400, jamal wrote:
 
-> One of our engineers (on the I/O AT team) has been tasked with modifying
-> the Linux kernel to properly support multiple hardware queues (both TX and
-> RX).  We'll make sure that he looks at the netpoll interface as part of
-> that process.
+> > - Have you tried to do a long-lived session such as a large FTP and 
+> > seen how far off the deviation was? That would provide some interesting
+> > data point.
+> 
+> The deviation can be calculated.  The impact is of cause small for large
+> packets.  
+>
+> But the argument that bulk TCP transfers is not as badly
+> affected, is wrong because all the TCP ACK packets gets maximum penalty.
+> 
 
-Might I ask who this is?  I might like to ping him/her on this topic.
-There is potentially some overlap with wireless, at least on the
-transmit side.
+ACKs have always played a prominent role. The last numbers i have seen
+for North America (but i think probably valid globaly) show in the range
+of 40% ACKs in internet traffic
+http://netweb.usc.edu/~rsinha/pkt-sizes/
+I suspect a lot of these stats are on their way to change with voip, p2p
+etc.
+But i dont think it is ACKs perse that you or Russell are contending
+cause these issues. It's the presence of ATM . And all evidence seems to
+point to the fact that ISPs bill you for something other than your
+point of view, no?
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+> On an ADSL link with more than 8 bytes overhead, a 40 bytes TCP ACK will
+> use more that one ATM frame, causing 2 ATM frames to be send that
+> consumes 106 bytes, eg. 62% overhead.  On a small upstream ADSL line
+> that hurts! (See thesis page 53, table 5.3 "Overhead summary").
+> 
+
+But how are you connected to the DSLAM? In north America it is typically
+ethernet. If i use the current tables i dont see much of a problem with
+say cable modems. Are you trying to compensate for the accounting
+differences between what your service provider measures (accounting for
+their ATM cells) and what you do accounting for your ethernet frames? 
+I guess i am lost as to where the ATM is in the topology and more
+importantly whether we (Linux) mis-account or whether your approach is
+trying to compensate for the ISPs mis-accounting.
+
+> 
+> > - To be a devil's advocate (and not claim there is no issue), where do
+> > you draw the line with "overhead"? 
+> > Example the smallest ethernet packet is 64 bytes of which 14 bytes are
+> > ethernet headers ("overhead" for IP) - and this is not counting CRC etc.
+> > If you were to set an MTU of say 64 bytes and tried to do a http or ftp,
+> > how accurate do you think the calculation would be? I would think not
+> > very different.
+> 
+> I do think we handle this situation, but I'm not quite sure that I fully
+> understand the question (sorry).
+> 
+
+Assume the following:
+- You had ethernet end to end. Is there still a problem?
+- Take it a notch up and assume you had ethernet with MTU of 64B. This
+way you will have all your packets being small and having high overhead.
+Do you still have a problem?
+
+> 
+> > Does it matter if it is accurate on the majority of the cases?
+> > - For further reflection: Have you considered the case where the rate
+> > table has already been considered on some link speed in user space and
+> > then somewhere post-config the physical link speed changes? This would
+> > happen in the case where ethernet AN is involved and the partner makes
+> > some changes (use ethtool). 
+> >
+> > I would say the last bullet is a more interesting problem than a corner
+> > case of some link layer technology that has high overhead.
+> 
+> We only claim to do magic on ATM/ADSL links... nothing else ;-)
+> 
+
+This is well and good given the focus of your thesis. Up/down here we
+need something more generic. Your masters-thesis is a good start but
+consider doing the phd next and complete this work;->
+
+> 
+> > Your work would be more interesting if it was generic for many link
+> > layers instead of just ATM.
+> 
+> Well, we did consider to do so, but we though that it would be harder to
+> get it into the kernel.
+> 
+> Actually thats the reason for the defines:
+>  #define	ATM_CELL_SIZE		53
+>  #define	ATM_CELL_PAYLOAD	48
+> 
+> Changing these should should make it possible to adapt to any other SAR
+> (Segment And Reasembly) link layer.  
+> 
+
+You are still speaking ATM (and the above may still be valid), but: 
+Could you for example look at the netdevice->type and from that figure
+out the link layer overhead and compensate for it.
+Obviously a lot more useful if such activity is doable in user space
+without any knowledge of the kernel? and therefore zero change to the
+kernel and everything then becomes forward and backward compatible.
+
+cheers,
+jamal
+
