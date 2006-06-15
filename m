@@ -1,61 +1,51 @@
-From: xeb@mail.ru
-Subject: Re: driver for pptp
-Date: Thu, 15 Jun 2006 13:49:29 +0400
-Message-ID: <E1FqoTh-0005q5-00.xeb-mail-ru@f19.mail.ru>
-Reply-To: xeb@mail.ru
+From: Martin Devera <devik@cdi.cz>
+Subject: Re: [PATCH 0/2] Runtime configuration of HTB's HYSTERESIS option
+Date: Thu, 15 Jun 2006 11:49:27 +0200
+Message-ID: <44912D27.4010503@cdi.cz>
+References: <1150362059.5578.13.camel@ras.pc.brisbane.lube>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	netdev@vger.kernel.org, lartc@mailman.ds9a.nl,
+	Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from f19.mail.ru ([194.67.57.49]:19463 "EHLO f19.mail.ru")
-	by vger.kernel.org with ESMTP id S932405AbWFOJta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 05:49:30 -0400
-Received: from mail by f19.mail.ru with local
-	id 1FqoTh-0005q5-00
-	for netdev@vger.kernel.org; Thu, 15 Jun 2006 13:49:29 +0400
-To: netdev@vger.kernel.org
+Received: from www1.cdi.cz ([194.213.194.49]:15797 "EHLO www1.cdi.cz")
+	by vger.kernel.org with ESMTP id S932414AbWFOJuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 05:50:23 -0400
+To: Russell Stuart <russell-tcatm@stuart.id.au>
+In-Reply-To: <1150362059.5578.13.camel@ras.pc.brisbane.lube>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for critique.
+Russell Stuart wrote:
+> The HTB qdisc has a compile time option, HTB_HYSTERESIS, 
+> that trades accuracy of traffic classification for CPU 
+> time.  These patches change hysteresis to be a runtime 
+> option under the control of "tc".
+> 
+> The effects of HYSTERESIS on HTB's accuracy are significant 
+> (see chapter 7, section 7.3.1, pp 69-70 in Jesper Brouer's
+> thesis: http://www.adsl-optimizer.dk/thesis/ ), whereas 
+> HTB's CPU usage on modern machines using broadband links 
+> is minimal.  Currently HYSTERESIS is on by default, and 
+> requires a kernel re-compile to change.  Altering it to 
+> be a runtime option will make life easier for the bulk of 
+> its users.
 
->Please read Documentation/SubmittingPatches (and CodingStyle) and submit your kernel patch to netdev.
+At time of HTB implementation I needed to reach 100MBit speed on 
+relatively slow box. The hysteresis was a way. On other side I used 
+hand-made TSC based measure tool to compute exact (15%) performance 
+gain. Today I'd measure it using oprofile.
 
-OK.
+When rethinking it again I'd suggest to re-measure real performance 
+impact for both flat and deep class hierarchy and consider switching the 
+hysteresis off by default (or even to remove the code if the gain is 
+negligible). If it is the case then it is the cleanest solution IMHO.
 
+On other side I see no problem with attached patches. Have you tested 
+patched kernel with old "tc" tool ?
 
->1) why wasn't it possible to use the PPPoX infrastructure of the kernel which is already being used by PPPoE ?  Or at least model it somehow similar to the existing PPPoE/PPPoX infrastructure?
-
-I agree, I will rebuild module.
-
-
->2) why are you using a timer for asynchronous processing of GRE frames?
-   First of all, why does it have to happen asynchronously at all?
-   Secondly, why using a timer when there's nothing time related (or do
-   I miss something)?  If deferred, out-of-context execution is
-   required, there are other primitives such as tasklets.
-
-Because it is the mechanism of processing reordered packets. On timeout (i.e. there was a loss of packets) buffered packets continue to be processed. It for reduction of traffic if client is under firewall which may reorder packets.
-
-
->3) you conflict with the ip_gre.c genric GRE encapsulation driver.  this
-   is because both want to reigster a proto handler for GRE.  Ideally,
-   there needs to be another demultiplex between the GRE protocl and its
-   users.  The code registered for GRE would look at the packet and
-   determine whether e.g. it is a PPTP GRE packet and then pass it on to
-   the pptp module.
-
-I contacted to the developer ip_gre.c and it has told too most but while there are no results.
-
-
-4) your code doesn't look nonlinear skb clean
-
-Please give me more comments.
-
-
-5) why did you chose to implement  /dev/pptp rather than a socket family
-   like the existing pppox/pppoe code?
-
-I agree, I will rebuild module.
-
-
+thanks for your effort,
+Martin
