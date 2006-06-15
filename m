@@ -1,78 +1,61 @@
-From: Auke Kok <sofar@foo-projects.org>
-Subject: Re: [patch] e100 statistic value "rx_bytes" error
-Date: Wed, 14 Jun 2006 21:35:58 -0700
-Message-ID: <4490E3AE.5050506@foo-projects.org>
-References: <1150345027.3008.10.camel@L-tech>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH 2.6.17-rc6] Remove Prism II support from Orinoco
+Date: Thu, 15 Jun 2006 00:45:13 -0400
+Message-ID: <1150346713.26487.24.camel@dv>
+References: <20060610175010.GA4617@divinity>
+	 <20060610180850.GP7420@redhat.com> <20060611222719.GA13139@redhat.com>
+	 <20060611224054.GB13139@redhat.com> <20060611224954.GA2880@divinity>
+	 <20060612152434.GA14851@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Cc: Faidon Liambotis <faidon@cube.gr>, Dave Jones <davej@redhat.com>,
+	netdev@vger.kernel.org, hermes@gibson.dropbear.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:45273 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750954AbWFOEgb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 00:36:31 -0400
-To: Wei Dong <weid@nanjing-fnst.com>
-In-Reply-To: <1150345027.3008.10.camel@L-tech>
+Received: from fencepost.gnu.org ([199.232.76.164]:22157 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S1750798AbWFOEpV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 00:45:21 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1FqjjL-0008FS-Cr
+	for netdev@vger.kernel.org; Thu, 15 Jun 2006 00:45:19 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060612152434.GA14851@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wei Dong wrote:
-> Hi All:
->    When I test linux kernel(2.6.9-16), I found that maybe there is a bug
-> in e100 driver. See function e100_rx_indicate() at line 1847:
-> 	nic->net_stats.rx_bytes += actual_size;
-> Here, actual_size is the actual size of an ethernent frame sans FCS.And
-> the e100 driver gets it from skb. Because "rx_bytes" is a statistc value
-> for a NIC, I think rx_bytes should include the FCS(4 bytes).
-> The following is the patch for the function in e100.c
+Hello, John!
 
-This is definately not an issue, and I'm not for changing this: It always was 
-like this in the first place. It's done for many drivers like this anyway, 
-mostly those without real hardware counters do it this way anyway (I count 
-half a dozen or so on first glance).
-
-On top of that we would be changing statistics numbers after x years of e100 
-driver. I'm sure everyone doing real performance work will frown upon this.
-
-Next it's unlikely that every driver (or worse, every nic in hardware) 
-accounts for FCS in the rx_bytes count. It really wouldn't surprise me if a 
-driver (or chip) got this wrong here or there.
-
-Bottom line is that for e100, it's well known and easily seeable that e100 is 
-counting skb sizes. That's consistent and I think we should keep it that way.
-
-Auke
-
-
-PS please cc the driver maintainers when you post patches to a specific driver.
-
-
-> diff -ruN old/drivers/net/e100.c new/drivers/net/e100.c
-> --- old/drivers/net/e100.c	2006-03-20 13:53:29.000000000 +0800
-> +++ new/drivers/net/e100.c	2006-06-15 11:16:04.000000000 +0800
-> @@ -1844,7 +1844,8 @@
->  		dev_kfree_skb_any(skb);
->  	} else {
->  		nic->net_stats.rx_packets++;
-> -		nic->net_stats.rx_bytes += actual_size;
-> +		/* Don't forget FCS */
-> +		nic->net_stats.rx_bytes += actual_size + 4;
->  		nic->netdev->last_rx = jiffies;
->  		netif_receive_skb(skb);
->  		if(work_done)
+On Mon, 2006-06-12 at 11:24 -0400, John W. Linville wrote:
+> On Mon, Jun 12, 2006 at 01:49:54AM +0300, Faidon Liambotis wrote:
 > 
-> BR.
->   Weidong
+> > Having two drivers supporting the same set of hardware seems pretty
+> > pointless to me. Plus, it confuses hotplugging/automatic detection.
 > 
-> Signed-off-by: Weidong <weid@nanjing-fnst.com>
+> This subject comes-up from time to time.  In fact, I'm pretty sure
+> it came-up very recently w.r.t. orinoco and hostap.
 > 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The consensus seems to be that drivers should have IDs for all devices
+> they support, even if that means that some devices are supported by
+> multiple drivers.  This leaves the choice of which driver to use in
+> the hands of the user and/or distro.
+> 
+> If the Orinoco guys want this patch, I'll consider it.  Otherwise,
+> I'm not inclined to take it.
+
+I really appreciate your position in this regard.
+
+The patch in question was never submitted to the orinoco mailing list.
+I believe any such changes should be discussed by people using the
+driver and participating in its development.  It's not some minor change
+or API update.
+
+I'm ready to consider disabling some ID's conditionally, primarily for
+systems that cannot use udev.  But it's far from the top of my TODO
+list.  And I'm not sure it would actually help users of desktop
+distributions.
+
+-- 
+Regards,
+Pavel Roskin
 
