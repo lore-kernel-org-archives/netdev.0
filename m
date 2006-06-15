@@ -1,50 +1,29 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Suspending 802.11 drivers
-Date: Thu, 15 Jun 2006 22:42:47 +0200
-Message-ID: <200606152242.48125.mb@bu3sch.de>
-References: <200606152158.10079.mb@bu3sch.de> <200606152213.01631.florian@alphacore.net>
+From: "Mack" <Mack.Burr@earthlink.net>
+Subject: Recent stuff Its the best thing you had ever seen!
+Date: Thu, 15 Jun 2006 22:53:12 +0200
+Message-ID: <19666262013838.16B2795C69@QNX7>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-15"
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:8086
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932503AbWFOUtx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 16:49:53 -0400
-To: Florian Fainelli <florian@alphacore.net>
-In-Reply-To: <200606152213.01631.florian@alphacore.net>
-Content-Disposition: inline
+Received: from zeus2.kernel.org ([204.152.191.36]:61900 "EHLO zeus2.kernel.org")
+	by vger.kernel.org with ESMTP id S1030608AbWFOUxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 16:53:42 -0400
+Received: from 01mx2oc.qixu.aol.com (ejm48.neoplus.adsl.tpnet.pl [83.21.154.48])
+	by zeus2.kernel.org (8.13.1/8.13.1) with ESMTP id k5FKrMGv016739
+	for <netdev@vger.kernel.org>; Thu, 15 Jun 2006 20:53:41 GMT
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 15 June 2006 22:12, Florian Fainelli wrote:
-> Hello Michael,
-> 
-> I think these are really interesting functions. Currently I scripted a bit to 
-> do module unloading/loading on suspend/resume requests plus supplicant 
-> context saving and restart.
-> 
-> Of course, if the driver is able to manage this by itself, it's far better.
+Good day to you bro!
+Boost your manhood to astonishing levels Everything a real man would ever need. 
 
-Well, if the _suspend() and _resume() semantics are actually implemented
-in kernel or userspace is another question. I would say, it should be possible
-to defer it to userspace, after the userspace MLME stuff is done.
-But that does not really matter here to get my point. My point is:
-ieee80211 subsystem should provide functions which save/restore the
-whole state of the stack (Well, the state of running connections and
-associations ,actually). How these functions are implemented internally
-is another matter.
-But I would also say that it sounds sane to put these semantics into
-userspace, in the long term.
+You are just a couple of clicks away from our great prices and handy shipment
 
-> Any news on the power management specifications ?
+ Hot deals on stuff produced by well-known brands from worldwide.
 
-No. I think I will start another attempt to measure the power consumption
-of the card, soon. Maybe this time I will be able to figure out the
-meaning of the PS bits :) I think I forgot to set important bits
-last time I checked.
+ Find what you need: http://www.kyklopescf.com
+ Come on in and get it all very cheap!
 
--- 
-Greetings Michael.
