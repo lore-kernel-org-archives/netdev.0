@@ -1,55 +1,36 @@
-From: Mitch Williams <mitch.a.williams@intel.com>
-Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
-Date: Thu, 15 Jun 2006 13:45:57 -0700
-Message-ID: <Pine.CYG.4.58.0606151344120.928@mawilli1-desk2.amr.corp.intel.com>
-References: <20060607164801.GX24227@waste.org> <44871A19.7080805@intel.com>
- <x49d5dkvm8p.fsf@segfault.boston.redhat.com> <1149787174.2928.3.camel@strongmad>
- <x49ac8nwo83.fsf@redhat.com> <20060612001356.GA5112@localhost.localdomain>
- <1150130534.2879.9.camel@strongmad> <20060612180600.GB3790@hmsreliant.homelinux.net>
- <20060614204158.GA3967@hmsreliant.homelinux.net>
- <Pine.CYG.4.58.0606141635440.2888@mawilli1-desk2.amr.corp.intel.com>
- <20060615124355.GA32582@tuxdriver.com>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [patch] workaround zd1201 interference problem
+Date: Thu, 15 Jun 2006 22:47:38 +0200
+Message-ID: <20060615204738.GD1849@elf.ucw.cz>
+References: <20060607140045.GB1936@elf.ucw.cz> <20060607160828.0045e7f5@griffin.suse.cz> <20060607141536.GD1936@elf.ucw.cz> <4486FD2F.8040205@gentoo.org> <20060608070525.GE3688@elf.ucw.cz> <4489ECD0.1030908@gentoo.org> <20060609223804.GB3252@elf.ucw.cz> <20060615201024.GD32582@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Drake <dsd@gentoo.org>, Jiri Benc <jbenc@suse.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:29673 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932455AbWFOUrK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 16:47:10 -0400
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:25510 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S932498AbWFOUs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Jun 2006 16:48:26 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060615124355.GA32582@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20060615201024.GD32582@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Grover <andrew.grover@intel.com> is the guy.  I'm not sure when he'll
-be working on this; it's somewhere in his TODO pile.
+Hi!
 
-On Thu, 15 Jun 2006, John W. Linville wrote:
+> > > Which operation is the one which stops the interference, the enable or 
+> > > the disable?
+> > 
+> > Disable alone was not enough to stop interference.
+> 
+> I'm going to drop this patch for now, in the hopes that with Daniel's
+> ZyDas contacts you can devise a more palatable solution.
 
->
-> On Wed, Jun 14, 2006 at 04:44:56PM -0700, Mitch Williams wrote:
->
-> > One of our engineers (on the I/O AT team) has been tasked with modifying
-> > the Linux kernel to properly support multiple hardware queues (both TX and
-> > RX).  We'll make sure that he looks at the netpoll interface as part of
-> > that process.
->
-> Might I ask who this is?  I might like to ping him/her on this topic.
-> There is potentially some overlap with wireless, at least on the
-> transmit side.
->
-> John
-> --
-> John W. Linville
-> linville@tuxdriver.com
->
->
->
+I'd actually like you to keep it, it does not seem ZyDas contacts are
+going anywhere.
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
