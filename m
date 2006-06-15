@@ -1,45 +1,51 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 5/5] bcm43xx-d80211: fix sending of fragments
-Date: Thu, 15 Jun 2006 18:55:11 +0200
-Message-ID: <200606151855.11953.mb@bu3sch.de>
-References: <20060612191606.7AA8E48391@silver.suse.cz> <200606122135.17198.mb@bu3sch.de>
+From: "Galinka" <morigan@74.ru>
+Subject: Re[1]: Ave
+Date: Thu, 15 Jun 2006 21:24:11 +0300
+Message-ID: <006c01c690a8$e2c36700$e10a000a__46045.4102642418$1150395848$gmane$org@fPtcQrf>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:57044
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751447AbWFOQzy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Jun 2006 12:55:54 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <200606122135.17198.mb@bu3sch.de>
-Content-Disposition: inline
+Received: from 200-127-194-9.cab.prima.net.ar ([200.127.194.9]:61198 "EHLO
+	200-127-194-9.cab.prima.net.ar") by vger.kernel.org with ESMTP
+	id S1030951AbWFOSX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Jun 2006 14:23:29 -0400
+To: "netdev" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 12 June 2006 21:35, Michael Buesch wrote:
-> On Monday 12 June 2006 21:16, Jiri Benc wrote:
-> > This makes fragmentation work with bcm43xx.
-> > 
-> > Signed-off-by: Jiri Benc <jbenc@suse.cz>
-> 
-> Signed-off-by: Michael Buesch <mb@bu3sch.de>
-> 
-> The other patch will get my sign-off tomorrow (I think modified, though).
-> I don't have time to look at it more close, now.
+Ave =85.=09
 
-Please also merge the other patch. It is too hard to figure out
-the dependencies for me now. So simply merge it and I will submit
-a fixup patch later, after you pushed it out.
-The Subject was:
-[incomplete 2/5] bcm43xx-d80211: per-queue TX flow control
+I want to start my first letter from a question: "Is it possible to be =
+happy without LOVE?"
+I think that you will agree with me if the answer will be "NO WAY". Lov=
+e is the most beautiful and exciting thing
+that may happen between man and woman! It inspires us only for doing po=
+sitive things towards each other.
+One very famous writer said: "The beauty will rescue the world" i agree=
+ with his words but still i would add :
+" LOVE and Beauty will rescure the world".=20
+I hope you agree with me that Love is a big notion.
+There's love to  God, to Mother, to a child to the country where you we=
+re born, and there's love that joins a man
+and woman for all their life. That is the LOVE i'm looking for! And i'm=
+ seeking for the man who is also eager to have
+this life long adventure full of surprises and new experience we can sh=
+are together! Will you join me for this trip?
+I do realise that it should be very difficult to say "Yes" from the fir=
+st letter having no idea about me.
+That's why i just offer to get to know each other better though corresp=
+ondence that will help us to reveal many things
+about each other whether we mach perfectly or not. In addition you can =
+look at my pictures and read some info about me here
+http://oW5g4PWfB9D98gNu.im-waiting-4you.net/
+I hope you'll like what you see and read there.
+Well closing my first letter to you i just want to thank you for readin=
+g it and i really hope that you'll share
+my point of view on what i said above. I do really hope that you'll ans=
+wer me soon.
 
-It's not so much of trouble, if we break wireless-dev for one or
-two days, so this is easiest.
-Please notify me after you pushed the stuff to public repository,
-so I can pull and fix it.
+au revoir...
+Galinka
 
--- 
-Greetings Michael.
+
