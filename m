@@ -1,63 +1,110 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: netconsole suspend/resume interaction
-Date: Fri, 16 Jun 2006 12:12:56 -0700
-Message-ID: <20060616121256.70bcae13@localhost.localdomain>
+From: "Gary Zambrano" <zambrano@broadcom.com>
+Subject: [PATCH 1/6] b44: fix manual speed/duplex/autoneg settings
+Date: Fri, 16 Jun 2006 12:19:05 -0700
+Message-ID: <1150485545.8716.50.camel@dhcp-10-7-81-7.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55961 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751453AbWFPTM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2006 15:12:57 -0400
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id k5GJCugt021166
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 16 Jun 2006 12:12:57 -0700
-Received: from localhost.localdomain (freekitty.pdx.osdl.net [10.8.0.54])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with ESMTP id k5GJCuR2027025
-	for <netdev@vger.kernel.org>; Fri, 16 Jun 2006 12:12:56 -0700
-To: netdev@vger.kernel.org
+Received: from mms1.broadcom.com ([216.31.210.17]:44038 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1750784AbWFPTT1
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jun 2006 15:19:27 -0400
+To: "Jeff Garzik" <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A couple of fixes that should prevent crashes when using netconsole and
-suspend/resume. First, netconsole poll routine shouldn't run unless the
-device is up; second, the NAPI poll should be disabled during suspend.
+Fixes for speed/duplex/autoneg settings and driver settings info.
+This is a redo of a previous patch thanks to feedback from Jeff Garzik.
 
-This is only an issue on sky2, because it has to have one NAPI poll
-routine for both ports on dual port boards. Normal drivers use 
-netif_rx_schedule_prep and that checks for netif_running.
+Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
---- sky2.orig/drivers/net/sky2.c	2006-06-15 14:36:05.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-06-15 15:04:55.000000000 -0700
-@@ -2255,8 +2255,10 @@
- static void sky2_netpoll(struct net_device *dev)
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index d8233e0..41b1618 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -1620,8 +1620,6 @@ static int b44_get_settings(struct net_d
  {
- 	struct sky2_port *sky2 = netdev_priv(dev);
-+	struct net_device *dev0 = sky2->hw->dev[0];
- 
--	sky2_intr(sky2->hw->pdev->irq, sky2->hw, NULL);
-+	if (netif_running(dev) && __netif_rx_schedule_prep(dev0))
-+		__netif_rx_schedule(dev0);
- }
- #endif
- 
-@@ -3446,6 +3448,7 @@
- 
- 			sky2_down(dev);
- 			netif_device_detach(dev);
-+			netif_poll_disable(dev);
- 		}
+ 	struct b44 *bp = netdev_priv(dev);
+
+-	if (!netif_running(dev))
+-		return -EAGAIN;
+ 	cmd->supported = (SUPPORTED_Autoneg);
+ 	cmd->supported |= (SUPPORTED_100baseT_Half |
+ 			  SUPPORTED_100baseT_Full |
+@@ -1649,6 +1647,12 @@ static int b44_get_settings(struct net_d
+ 		XCVR_INTERNAL : XCVR_EXTERNAL;
+ 	cmd->autoneg = (bp->flags & B44_FLAG_FORCE_LINK) ?
+ 		AUTONEG_DISABLE : AUTONEG_ENABLE;
++	if (cmd->autoneg == AUTONEG_ENABLE)
++		cmd->advertising |= ADVERTISED_Autoneg;
++	if (!netif_running(dev)){
++		cmd->speed = 0;
++		cmd->duplex = 0xff;
++	}
+ 	cmd->maxtxpkt = 0;
+ 	cmd->maxrxpkt = 0;
+ 	return 0;
+@@ -1658,9 +1662,6 @@ static int b44_set_settings(struct net_d
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+
+-	if (!netif_running(dev))
+-		return -EAGAIN;
+-
+ 	/* We do not support gigabit. */
+ 	if (cmd->autoneg == AUTONEG_ENABLE) {
+ 		if (cmd->advertising &
+@@ -1677,28 +1678,39 @@ static int b44_set_settings(struct net_d
+ 	spin_lock_irq(&bp->lock);
+
+ 	if (cmd->autoneg == AUTONEG_ENABLE) {
+-		bp->flags &= ~B44_FLAG_FORCE_LINK;
+-		bp->flags &= ~(B44_FLAG_ADV_10HALF |
++		bp->flags &= ~(B44_FLAG_FORCE_LINK |
++			       B44_FLAG_100_BASE_T |
++			       B44_FLAG_FULL_DUPLEX |
++			       B44_FLAG_ADV_10HALF |
+ 			       B44_FLAG_ADV_10FULL |
+ 			       B44_FLAG_ADV_100HALF |
+ 			       B44_FLAG_ADV_100FULL);
+-		if (cmd->advertising & ADVERTISE_10HALF)
+-			bp->flags |= B44_FLAG_ADV_10HALF;
+-		if (cmd->advertising & ADVERTISE_10FULL)
+-			bp->flags |= B44_FLAG_ADV_10FULL;
+-		if (cmd->advertising & ADVERTISE_100HALF)
+-			bp->flags |= B44_FLAG_ADV_100HALF;
+-		if (cmd->advertising & ADVERTISE_100FULL)
+-			bp->flags |= B44_FLAG_ADV_100FULL;
++		if (cmd->advertising == 0) {
++			bp->flags |= (B44_FLAG_ADV_10HALF |
++				      B44_FLAG_ADV_10FULL |
++				      B44_FLAG_ADV_100HALF |
++				      B44_FLAG_ADV_100FULL);
++		} else {
++			if (cmd->advertising & ADVERTISED_10baseT_Half)
++				bp->flags |= B44_FLAG_ADV_10HALF;
++			if (cmd->advertising & ADVERTISED_10baseT_Full)
++				bp->flags |= B44_FLAG_ADV_10FULL;
++			if (cmd->advertising & ADVERTISED_100baseT_Half)
++				bp->flags |= B44_FLAG_ADV_100HALF;
++			if (cmd->advertising & ADVERTISED_100baseT_Full)
++				bp->flags |= B44_FLAG_ADV_100FULL;
++		}
+ 	} else {
+ 		bp->flags |= B44_FLAG_FORCE_LINK;
++		bp->flags &= ~(B44_FLAG_100_BASE_T | B44_FLAG_FULL_DUPLEX);
+ 		if (cmd->speed == SPEED_100)
+ 			bp->flags |= B44_FLAG_100_BASE_T;
+ 		if (cmd->duplex == DUPLEX_FULL)
+ 			bp->flags |= B44_FLAG_FULL_DUPLEX;
  	}
- 
-@@ -3474,6 +3477,8 @@
- 		struct net_device *dev = hw->dev[i];
- 		if (dev && netif_running(dev)) {
- 			netif_device_attach(dev);
-+			netif_poll_enable(dev);
-+
- 			err = sky2_up(dev);
- 			if (err) {
- 				printk(KERN_ERR PFX "%s: could not up: %d\n",
+
+-	b44_setup_phy(bp);
++	if (netif_running(dev))
++		b44_setup_phy(bp);
+
+ 	spin_unlock_irq(&bp->lock);
+
+
