@@ -1,70 +1,41 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH v2 4/7] AMSO1100 Memory Management.
-Date: Fri, 16 Jun 2006 09:20:31 -0500
-Message-ID: <1150467631.29508.11.camel@stevo-desktop>
-References: <20060607200646.9259.24588.stgit@stevo-desktop>
-	 <20060607200655.9259.90768.stgit@stevo-desktop>
-	 <20060608011744.1a66e85a.akpm@osdl.org>
-	 <1150128349.22704.20.camel@trinity.ogc.int>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
+Date: Fri, 16 Jun 2006 09:25:49 -0600
+Message-ID: <20060616152549.GB7868@colo.lackof.org>
+References: <20060613235531.GA4191@colo.lackof.org> <448F5952.1060201@pobox.com> <20060614044412.GA30552@colo.lackof.org> <44902554.7010703@pobox.com> <20060614181419.GA10365@colo.lackof.org> <20060614204720.GA17887@electric-eye.fr.zoreil.com> <20060614223021.GB13212@colo.lackof.org> <20060615203017.GA6724@electric-eye.fr.zoreil.com> <20060616054711.GA28524@colo.lackof.org> <44925EA8.5070906@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, rdreier@cisco.com,
-	mshefty@ichips.intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, openib-general@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Valerie Henson <val_henson@linux.intel.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:8028 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1751410AbWFPOUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2006 10:20:33 -0400
-To: Tom Tucker <tom@opengridcomputing.com>
-In-Reply-To: <1150128349.22704.20.camel@trinity.ogc.int>
+Received: from colo.lackof.org ([198.49.126.79]:18643 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S1751451AbWFPPZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Jun 2006 11:25:51 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <44925EA8.5070906@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Mon, 2006-06-12 at 11:05 -0500, Tom Tucker wrote:
-> On Thu, 2006-06-08 at 01:17 -0700, Andrew Morton wrote:
-> > On Wed, 07 Jun 2006 15:06:55 -0500
-> > Steve Wise <swise@opengridcomputing.com> wrote:
-> > 
-> > > 
-> > > +void c2_free(struct c2_alloc *alloc, u32 obj)
-> > > +{
-> > > +	spin_lock(&alloc->lock);
-> > > +	clear_bit(obj, alloc->table);
-> > > +	spin_unlock(&alloc->lock);
-> > > +}
-> > 
-> > The spinlock is unneeded here.
+On Fri, Jun 16, 2006 at 03:32:56AM -0400, Jeff Garzik wrote:
+> >Correct. Before calling free_irq(), patch V3 masks interrupts on tulip
+> >and guarantees the tulip will not generate new interrupts before that call.
 > 
-> Good point.
-> 
-> > 
-> > 
-> > What does all the code in this file do, anyway?  It looks totally generic
-> > (and hence inappropriate for drivers/infiniband/hw/amso1100/) and somewhat
-> > similar to idr trees, perhaps.
-> > 
-> 
-> We mimicked the mthca driver. It may be code that should be replaced
-> with Linux core services for new drivers. We'll investigate.
-> 
+> Incorrect -- it does not guarantee that tulip will not generate new 
+> interrupt events.
 
-The code in this file implements 2 sets of services:  
+Are you saying the following sequence doesn't mask tulip interrupts?
 
-1) allocating unique qp identifiers (type integer).  This is the
-c2_alloc struct and functions.
+        /* Disable interrupts by clearing the interrupt mask. */
+        iowrite32 (0x00000000, ioaddr + CSR7);
+        ioread32 (ioaddr + CSR7);       /* flush posted write */
 
-2) maintaining a sparsely allocated array of ptrs indexed by the qp
-identifier.  This allows for quick mapping to the qp structure ptr given
-the qp identifier.  This is the c2_array struct and functions.
+Secondly, since you've ignored the two previous times I've asked,
+I'll assume you agree tulip driver has to (and does) handle
+the case of pending, masked interrupts at initialization because
+firmware might leave it in that state.
 
-
-I believe I can use an IDR tree to provide both of these services.
-
-
-Steve.
-
-
-
+thanks,
+grant
