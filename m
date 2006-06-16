@@ -1,173 +1,173 @@
 From: "Gary Zambrano" <zambrano@broadcom.com>
-Subject: [PATCH 2/6] b44: add wol
-Date: Fri, 16 Jun 2006 12:19:16 -0700
-Message-ID: <1150485556.8716.51.camel@dhcp-10-7-81-7.broadcom.com>
+Subject: [PATCH 4/6] b44: add wol for old nic
+Date: Fri, 16 Jun 2006 12:19:26 -0700
+Message-ID: <1150485566.8716.53.camel@dhcp-10-7-81-7.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:23570 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1750784AbWFPTTj
+Received: from mms3.broadcom.com ([216.31.210.19]:26888 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1751473AbWFPTTy
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jun 2006 15:19:39 -0400
+	Fri, 16 Jun 2006 15:19:54 -0400
 To: "Jeff Garzik" <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds wol to the driver.
-This is a redo of a previous patch thanks to feedback from Francois Romieu.
+This patch adds wol support for the older 440x nics that use pattern matching.
+This patch is a redo thanks to feedback from Michael Chan and Francois Romieu.
 
-Signed-off-by Gary Zambrano <zambrano@broadcom.com>
+Signed-off-by: Gary Zambrano  <zambrano@broadcom.com>
 
 diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 41b1618..81f434e 100644
+index 12fc67a..98c0675 100644
 --- a/drivers/net/b44.c
 +++ b/drivers/net/b44.c
-@@ -1450,6 +1450,41 @@ static void b44_poll_controller(struct n
+@@ -75,6 +75,15 @@
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define B44_TX_WAKEUP_THRESH		(B44_TX_RING_SIZE / 4)
+
++/* b44 internal pattern match filter info */
++#define B44_PATTERN_BASE	0x400
++#define B44_PATTERN_SIZE	0x80
++#define B44_PMASK_BASE		0x600
++#define B44_PMASK_SIZE		0x10
++#define B44_MAX_PATTERNS	16
++#define B44_ETHIPV6UDP_HLEN	62
++#define B44_ETHIPV4UDP_HLEN	42
++
+ static char version[] __devinitdata =
+ 	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
+
+@@ -1457,6 +1466,103 @@ static void b44_poll_controller(struct n
  }
  #endif
 
-+
-+static void b44_setup_wol(struct b44 *bp)
++static void bwfilter_table(struct b44 *bp, u8 *pp, u32 bytes, u32 table_offset)
 +{
++	u32 i;
++	u32 *pattern = (u32 *) pp;
++
++	for (i = 0; i < bytes; i += sizeof(u32)) {
++		bw32(bp, B44_FILT_ADDR, table_offset + i);
++		bw32(bp, B44_FILT_DATA, pattern[i / sizeof(u32)]);
++	}
++}
++
++static int b44_magic_pattern(u8 *macaddr, u8 *ppattern, u8 *pmask, int offset)
++{
++	int magicsync = 6;
++	int k, j, len = offset;
++	int ethaddr_bytes = ETH_ALEN;
++
++	memset(ppattern + offset, 0xff, magicsync);
++	for (j = 0; j < magicsync; j++)
++		set_bit(len++, (unsigned long *) pmask);
++
++	for (j = 0; j < B44_MAX_PATTERNS; j++) {
++		if ((B44_PATTERN_SIZE - len) >= ETH_ALEN)
++			ethaddr_bytes = ETH_ALEN;
++		else
++			ethaddr_bytes = B44_PATTERN_SIZE - len;
++		if (ethaddr_bytes <=0)
++			break;
++		for (k = 0; k< ethaddr_bytes; k++) {
++			ppattern[offset + magicsync +
++				(j * ETH_ALEN) + k] = macaddr[k];
++			len++;
++			set_bit(len, (unsigned long *) pmask);
++		}
++	}
++	return len - 1;
++}
++
++/* Setup magic packet patterns in the b44 WOL
++ * pattern matching filter.
++ */
++static void b44_setup_pseudo_magicp(struct b44 *bp)
++{
++
 +	u32 val;
-+	u16 pmval;
++	int plen0, plen1, plen2;
++	u8 *pwol_pattern;
++	u8 pwol_mask[B44_PMASK_SIZE];
 +
-+	bw32(bp, B44_RXCONFIG, RXCONFIG_ALLMULTI);
-+
-+	if (bp->flags & B44_FLAG_B0_ANDLATER) {
-+
-+		bw32(bp, B44_WKUP_LEN, WKUP_LEN_DISABLE);
-+
-+		val = bp->dev->dev_addr[2] << 24 |
-+			bp->dev->dev_addr[3] << 16 |
-+			bp->dev->dev_addr[4] << 8 |
-+			bp->dev->dev_addr[5];
-+		bw32(bp, B44_ADDR_LO, val);
-+
-+		val = bp->dev->dev_addr[0] << 8 |
-+			bp->dev->dev_addr[1];
-+		bw32(bp, B44_ADDR_HI, val);
-+
-+		val = br32(bp, B44_DEVCTRL);
-+		bw32(bp, B44_DEVCTRL, val | DEVCTRL_MPM | DEVCTRL_PFE);
-+
++	pwol_pattern = kmalloc(B44_PATTERN_SIZE, GFP_KERNEL);
++	if (!pwol_pattern) {
++		printk(KERN_ERR PFX "Memory not available for WOL\n");
++		return;
 +	}
 +
-+	val = br32(bp, B44_SBTMSLOW);
-+	bw32(bp, B44_SBTMSLOW, val | SBTMSLOW_PE);
++	/* Ipv4 magic packet pattern - pattern 0.*/
++	memset(pwol_pattern, 0, B44_PATTERN_SIZE);
++	memset(pwol_mask, 0, B44_PMASK_SIZE);
++	plen0 = b44_magic_pattern(bp->dev->dev_addr, pwol_pattern, pwol_mask,
++				  B44_ETHIPV4UDP_HLEN);
 +
-+	pci_read_config_word(bp->pdev, SSB_PMCSR, &pmval);
-+	pci_write_config_word(bp->pdev, SSB_PMCSR, pmval | SSB_PE);
++   	bwfilter_table(bp, pwol_pattern, B44_PATTERN_SIZE, B44_PATTERN_BASE);
++   	bwfilter_table(bp, pwol_mask, B44_PMASK_SIZE, B44_PMASK_BASE);
++
++	/* Raw ethernet II magic packet pattern - pattern 1 */
++	memset(pwol_pattern, 0, B44_PATTERN_SIZE);
++	memset(pwol_mask, 0, B44_PMASK_SIZE);
++	plen1 = b44_magic_pattern(bp->dev->dev_addr, pwol_pattern, pwol_mask,
++				  ETH_HLEN);
++
++   	bwfilter_table(bp, pwol_pattern, B44_PATTERN_SIZE,
++		       B44_PATTERN_BASE + B44_PATTERN_SIZE);
++  	bwfilter_table(bp, pwol_mask, B44_PMASK_SIZE,
++		       B44_PMASK_BASE + B44_PMASK_SIZE);
++
++	/* Ipv6 magic packet pattern - pattern 2 */
++	memset(pwol_pattern, 0, B44_PATTERN_SIZE);
++	memset(pwol_mask, 0, B44_PMASK_SIZE);
++	plen2 = b44_magic_pattern(bp->dev->dev_addr, pwol_pattern, pwol_mask,
++				  B44_ETHIPV6UDP_HLEN);
++
++   	bwfilter_table(bp, pwol_pattern, B44_PATTERN_SIZE,
++		       B44_PATTERN_BASE + B44_PATTERN_SIZE + B44_PATTERN_SIZE);
++  	bwfilter_table(bp, pwol_mask, B44_PMASK_SIZE,
++		       B44_PMASK_BASE + B44_PMASK_SIZE + B44_PMASK_SIZE);
++
++	kfree(pwol_pattern);
++
++	/* set these pattern's lengths: one less than each real length */
++	val = plen0 | (plen1 << 8) | (plen2 << 16) | WKUP_LEN_ENABLE_THREE;
++	bw32(bp, B44_WKUP_LEN, val);
++
++	/* enable wakeup pattern matching */
++	val = br32(bp, B44_DEVCTRL);
++	bw32(bp, B44_DEVCTRL, val | DEVCTRL_PFE);
 +
 +}
-+
- static int b44_close(struct net_device *dev)
+
+ static void b44_setup_wol(struct b44 *bp)
  {
- 	struct b44 *bp = netdev_priv(dev);
-@@ -1475,6 +1510,11 @@ static int b44_close(struct net_device *
+@@ -1482,7 +1588,9 @@ static void b44_setup_wol(struct b44 *bp
+ 		val = br32(bp, B44_DEVCTRL);
+ 		bw32(bp, B44_DEVCTRL, val | DEVCTRL_MPM | DEVCTRL_PFE);
 
- 	netif_poll_enable(dev);
+-	}
++ 	} else {
++ 		b44_setup_pseudo_magicp(bp);
++ 	}
 
-+	if (bp->flags & B44_FLAG_WOL_ENABLE) {
-+		b44_init_hw(bp);
-+		b44_setup_wol(bp);
-+	}
-+
- 	b44_free_consistent(bp);
-
- 	return 0;
-@@ -1831,12 +1871,40 @@ static void b44_get_ethtool_stats(struct
- 	spin_unlock_irq(&bp->lock);
- }
-
-+static void b44_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct b44 *bp = netdev_priv(dev);
-+
-+	wol->supported = WAKE_MAGIC;
-+	if (bp->flags & B44_FLAG_WOL_ENABLE)
-+		wol->wolopts = WAKE_MAGIC;
-+	else
-+		wol->wolopts = 0;
-+	memset(&wol->sopass, 0, sizeof(wol->sopass));
-+}
-+
-+static int b44_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct b44 *bp = netdev_priv(dev);
-+
-+	spin_lock_irq(&bp->lock);
-+	if (wol->wolopts & WAKE_MAGIC)
-+		bp->flags |= B44_FLAG_WOL_ENABLE;
-+	else
-+		bp->flags &= ~B44_FLAG_WOL_ENABLE;
-+	spin_unlock_irq(&bp->lock);
-+
-+	return 0;
-+}
-+
- static struct ethtool_ops b44_ethtool_ops = {
- 	.get_drvinfo		= b44_get_drvinfo,
- 	.get_settings		= b44_get_settings,
- 	.set_settings		= b44_set_settings,
- 	.nway_reset		= b44_nway_reset,
- 	.get_link		= ethtool_op_get_link,
-+	.get_wol		= b44_get_wol,
-+	.set_wol		= b44_set_wol,
- 	.get_ringparam		= b44_get_ringparam,
- 	.set_ringparam		= b44_set_ringparam,
- 	.get_pauseparam		= b44_get_pauseparam,
-@@ -1915,6 +1983,10 @@ static int __devinit b44_get_invariants(
- 	/* XXX - really required?
- 	   bp->flags |= B44_FLAG_BUGGY_TXPTR;
-          */
-+
-+ 	if (ssb_get_core_rev(bp) >= 7)
-+ 		bp->flags |= B44_FLAG_B0_ANDLATER;
-+
- out:
- 	return err;
- }
-@@ -2115,6 +2187,10 @@ static int b44_suspend(struct pci_dev *p
- 	spin_unlock_irq(&bp->lock);
-
- 	free_irq(dev->irq, dev);
-+	if (bp->flags & B44_FLAG_WOL_ENABLE) {
-+		b44_init_hw(bp);
-+		b44_setup_wol(bp);
-+	}
- 	pci_disable_device(pdev);
- 	return 0;
- }
+ 	val = br32(bp, B44_SBTMSLOW);
+ 	bw32(bp, B44_SBTMSLOW, val | SBTMSLOW_PE);
 diff --git a/drivers/net/b44.h b/drivers/net/b44.h
-index b178662..1f47777 100644
+index 1f47777..4944507 100644
 --- a/drivers/net/b44.h
 +++ b/drivers/net/b44.h
-@@ -264,6 +264,8 @@
- #define  SBIDHIGH_VC_SHIFT	16
-
- /* SSB PCI config space registers.  */
-+#define SSB_PMCSR		0x44
-+#define  SSB_PE			0x100
- #define	SSB_BAR0_WIN		0x80
- #define	SSB_BAR1_WIN		0x84
- #define	SSB_SPROM_CONTROL	0x88
-@@ -420,6 +422,7 @@ struct b44 {
-
- 	u32			dma_offset;
- 	u32			flags;
-+#define B44_FLAG_B0_ANDLATER	0x00000001
- #define B44_FLAG_BUGGY_TXPTR	0x00000002
- #define B44_FLAG_REORDER_BUG	0x00000004
- #define B44_FLAG_PAUSE_AUTO	0x00008000
-@@ -435,6 +438,7 @@ struct b44 {
- #define B44_FLAG_INTERNAL_PHY	0x10000000
- #define B44_FLAG_RX_RING_HACK	0x20000000
- #define B44_FLAG_TX_RING_HACK	0x40000000
-+#define B44_FLAG_WOL_ENABLE	0x80000000
-
- 	u32			rx_offset;
+@@ -24,6 +24,9 @@
+ #define  WKUP_LEN_P3_MASK	0x7f000000 /* Pattern 3 */
+ #define  WKUP_LEN_P3_SHIFT	24
+ #define  WKUP_LEN_D3		0x80000000
++#define  WKUP_LEN_DISABLE	0x80808080
++#define  WKUP_LEN_ENABLE_TWO	0x80800000
++#define  WKUP_LEN_ENABLE_THREE	0x80000000
+ #define B44_ISTAT	0x0020UL /* Interrupt Status */
+ #define  ISTAT_LS		0x00000020 /* Link Change (B0 only) */
+ #define  ISTAT_PME		0x00000040 /* Power Management Event */
 
 
